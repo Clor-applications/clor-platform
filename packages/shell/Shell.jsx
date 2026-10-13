@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { ChevronDown, LayoutGrid, LogOut, Moon, Plus, Sun } from 'lucide-react';
 
 import { useTheme } from '@ui/components/ui/useTheme';
@@ -6,6 +6,7 @@ import { useDismissable } from '@ui/components/ui/useDismissable';
 import { formatDateIn } from '@ui/utils/dates';
 
 import { APPS, appById, availableApps, landingApp, subscribedApps } from './registry';
+import { appFromHost, hostForApp, isFrontDoor } from './appHosts';
 import { useSession } from './session';
 import ClorMark from './ClorMark';
 import CompanySetup from './CompanySetup';
@@ -55,7 +56,8 @@ export default function Shell() {
    * drew one frame of a rail belonging to an app the new company has not
    * bought — and an app with no landing app corrected itself forever.
    */
-  const [chosenAppId, setChosenAppId] = useState(null);
+  /* On an app's own address, that app; elsewhere nothing chosen yet. */
+  const [chosenAppId, setChosenAppId] = useState(() => appFromHost());
   const activeAppId = mine.some((a) => a.id === chosenAppId)
     ? chosenAppId
     : landingApp(subscriptions || [])?.id || null;
@@ -102,6 +104,15 @@ export default function Shell() {
     setEmailLink(null);
     if (nextPage) setPublicPage(nextPage);
   };
+
+  /* Signed in at the front door (app.clor.in): go on to the app's own address,
+     keeping any #/screen so a link into an app still lands on that screen. */
+  const frontDoorTarget =
+    user && tenant && !emailLink && isFrontDoor() && activeAppId ? hostForApp(activeAppId) : null;
+  useEffect(() => {
+    if (!frontDoorTarget) return;
+    window.location.replace(`${window.location.protocol}//${frontDoorTarget}/${window.location.hash}`);
+  }, [frontDoorTarget]);
 
   /*
    * A token in this browser is checked before anything is drawn.
@@ -174,6 +185,13 @@ export default function Shell() {
 
   const openApp = (id) => {
     const next = appById(id);
+    /* An app with its own address opens there, so the address bar says which
+       app this is. The session follows through the API's refresh cookie. */
+    const host = hostForApp(id);
+    if (host && host !== window.location.hostname) {
+      window.location.assign(`${window.location.protocol}//${host}/`);
+      return;
+    }
     setChosenAppId(id);
     setScreenKey(next?.home || null);
     setSwitcherOpen(false);

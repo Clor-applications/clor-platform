@@ -15,6 +15,8 @@ import {
   visibleApps,
 } from '@platform/auth';
 
+import { appFromHost } from './appHosts';
+
 /**
  * Who is signed in, which company they are looking at, and which apps that
  * company has.
@@ -76,7 +78,7 @@ export function SessionProvider({ children }) {
   /* True until the token in this browser has been checked against the server.
      Rendering the public page first would flash it at somebody already signed
      in, on every reload. */
-  const [restoring, setRestoring] = useState(() => Boolean(readToken()));
+  const [restoring, setRestoring] = useState(() => Boolean(readToken()) || Boolean(appFromHost()));
 
   const tenant = useMemo(
     () => tenants.find((t) => t.id === tenantId) || tenants[0] || null,
@@ -127,9 +129,13 @@ export function SessionProvider({ children }) {
     return chosen;
   }, []);
 
-  /* A token in the browser is a claim, not a session: the server decides. */
+  /* A token in the browser is a claim, not a session: the server decides.
+     On an app's own address (accounting.clor.in) there may be no token yet
+     even though the person signed in at app.clor.in: the access token is per
+     address, the refresh cookie is not. Asking anyway lets the transport's
+     silent refresh pick the session up from the cookie. */
   useEffect(() => {
-    if (!readToken()) return undefined;
+    if (!readToken() && !appFromHost()) return undefined;
     let cancelled = false;
     (async () => {
       try {
