@@ -1,0 +1,35 @@
+# HTTPS for the public deployment.
+#
+# Caddy gets and renews a Let's Encrypt certificate on its own, which is the
+# whole reason it is here: this app carries passwords and session tokens, and
+# on plain HTTP every one of them crosses the network in the clear. A public
+# instance without TLS is not a smaller version of a secure one, it is an
+# insecure one.
+#
+# It needs a real hostname pointing at the server's public IP — a certificate
+# cannot be issued for a bare IP address. A free DuckDNS name is enough.
+
+{$APP_DOMAIN} {
+	encode zstd gzip
+
+	# Everything is served by the web container, which already holds the built
+	# SPA and proxies /api to the API container.
+	reverse_proxy web:80
+
+	# The app is same-origin, so it needs no CORS. These are the headers that
+	# cost nothing and close the common holes.
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "SAMEORIGIN"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+
+	log {
+		output file /data/access.log {
+			roll_size 10MiB
+			roll_keep 5
+		}
+	}
+}

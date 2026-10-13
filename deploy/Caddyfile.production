@@ -1,0 +1,52 @@
+# The live Caddy configuration, as deployed at /etc/caddy/Caddyfile.
+#
+# Kept here because it is hand-maintained on the box and was version-controlled
+# nowhere — which meant a fix applied to production existed in exactly one
+# place, and rebuilding the server would have silently lost it.
+#
+# docker/Caddyfile is a different thing: it belongs to the container path that
+# this deployment does not use.
+#
+# After editing, on the server:
+#   sudo cp deploy/Caddyfile.production /etc/caddy/Caddyfile
+#   caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+#   sudo systemctl reload caddy
+
+# HTTPS, because this app carries passwords and session tokens.
+# A certificate cannot be issued for a bare IP, so the host is an sslip.io
+# name, which resolves to this server without any DNS account to manage.
+68.233.107.83.sslip.io {
+	encode zstd gzip
+
+	handle /api/* {
+		reverse_proxy 127.0.0.1:4001
+	}
+
+	# Hashed filenames, so the content behind one can never change. Cached for
+	# a year: a new build produces new names and the old ones are simply never
+	# asked for again.
+	handle /assets/* {
+		root * /opt/neev/web
+		header Cache-Control "public, max-age=31536000, immutable"
+		file_server
+	}
+
+	handle {
+		root * /opt/neev/web
+		# The shell must never be cached. It is the file that names which
+		# bundle to load, so a stale copy points a browser at the previous
+		# deploy — the site looks unchanged after a deploy that worked, which
+		# is exactly what happened.
+		header Cache-Control "no-store, must-revalidate"
+		try_files {path} /index.html
+		file_server
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "SAMEORIGIN"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+}

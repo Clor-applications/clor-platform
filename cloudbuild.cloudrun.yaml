@@ -1,0 +1,13 @@
+# Builds the API image for Cloud Run (linux/amd64) and pushes it to Artifact
+# Registry in Mumbai. Run from the repo root:
+#   gcloud builds submit --config cloudbuild.cloudrun.yaml --substitutions=_TAG=<git-sha> .
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args: ['build', '-f', 'docker/api.cloudrun.Dockerfile',
+           '-t', 'asia-south1-docker.pkg.dev/$PROJECT_ID/clor/api:${_TAG}', 'server']
+images:
+  - 'asia-south1-docker.pkg.dev/$PROJECT_ID/clor/api:${_TAG}'
+substitutions:
+  _TAG: manual
+options:
+  logging: CLOUD_LOGGING_ONLY

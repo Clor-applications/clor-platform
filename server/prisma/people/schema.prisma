@@ -1,0 +1,69 @@
+// ============================================================================
+// Clor People — its own database
+// ============================================================================
+//
+// Who works here. One person record, shared by everything that needs to know
+// about a person, and owned by none of them.
+//
+// Payroll, attendance, timesheets and leave all need the same person, and the
+// failure this prevents is each of them growing its own staff list: five
+// spellings of one name, five joining dates, and no answer to which is right.
+// So the person lives here, and every other module holds `employeeId` across
+// the boundary the way it holds an org or a ledger account.
+//
+// What is deliberately NOT here: anything only one module cares about. A bank
+// account and a PAN are payroll's and live in payroll, because a staff
+// directory should not be a place to read them. Attendance keeps its own
+// records against the same id. The rule is that a field belongs to the module
+// that has to be right about it.
+//
+// Separate from accounting for the same reason payroll is: different
+// sensitivity, different retention, and a boundary that cannot be crossed by
+// accident because the join cannot be written.
+
+generator peopleClient {
+  provider = "prisma-client-js"
+  output   = "../../src/generated/people"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("PEOPLE_DATABASE_URL")
+}
+
+
+/// A person the company pays. Small on purpose: the payroll-only fields are
+/// next door, and an HR module later adds its own table beside this one.
+model Employee {
+  id        String  @id @default(cuid())
+  accountId String
+  orgId     String
+  /// Null = not tied to one location, the same convention masters use.
+  branchId  String?
+
+  /// Human-facing identifier, unique within the org when set.
+  code        String?
+  name        String
+  email       String?
+  phone       String?
+  designation String?
+  department  String?
+
+  dateOfJoining String?
+  dateOfLeaving String?
+  /// ACTIVE | ON_NOTICE | LEFT | SUSPENDED
+  status        String  @default("ACTIVE")
+
+  /// If this person also signs in, the account they sign in with.
+  userId String?
+
+  notes String?
+
+  createdByUserId String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([orgId, code])
+  @@index([accountId, orgId, status])
+  @@index([accountId, orgId, branchId])
+}

@@ -1,0 +1,792 @@
+// ============================================================================
+// Clor Platform — its own database
+// ============================================================================
+//
+// Who can sign in, which company they belong to, and what they are allowed to
+// do. Accounts, orgs, branches, users, sessions, roles, permissions, the audit
+// trail, entitlements and the auth/email plumbing all live here — the control
+// plane every accounting query assumes but none of them owns.
+//
+// Why a boundary rather than forty more tables next to Invoice. The platform is
+// the part that is shared by everything and changes on its own rhythm: a user
+// is invited once and reads a ledger for years, a session is minted and revoked
+// far more often than a journal is posted, and an auth policy is a security
+// concern with its own retention. Keeping it in its own database means it can
+// be backed up, migrated and reasoned about without touching an accounting
+// query, and an accidental join from a sales report into a password hash cannot
+// be written because the two are not in the same database.
+//
+// How it stays connected. Accounting holds the platform's identifiers —
+// `accountId`, `orgId`, `branchId`, `userId`, `warehouseId` — as plain strings,
+// with no cross-database foreign keys, because there is no such thing.
+// Referential integrity across the boundary is the application's job and is
+// enforced where the two meet.
+//
+// The one honest cost. A write cannot span both databases in a single
+// transaction, so anything that touches platform and accounting together is two
+// steps, each idempotent, in an order a crash in between can recover from.
+
+generator platformClient {
+  provider = "prisma-client-js"
+  output   = "../../src/generated/platform"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("PLATFORM_DATABASE_URL")
+}
+
+// ----------------------------
+// Core tenancy
+// ----------------------------
+model Account {
+  id        String   @id @default(cuid())
+  name      String
+  /// Client ID shown to people: the code of the account's first company (INNO-C100). Never changed (LD-09).
+  code      String?  @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  orgs  Org[]
+  users User[]
+
+  entitlement AccountEntitlement?
+}
+
+model Org {
+  id        String  @id @default(cuid())
+  accountId String
+  name      String
+  /// The public handle: the `agc` in agc.books.clor.in. Separate from `id`
+  /// on purpose — the id is what foreign keys and authorisation use and never
+  /// changes, the slug is what a person reads and may one day need to change.
+  /// Nullable so existing rows are valid before the backfill.
+  slug      String? @unique
+  /// Company code (LD-09): 3–4 letters + C + number, 100 unless the letters clash (INNO-C100, INNO-C101). Never changed.
+  code       String? @unique
+  codeNumber Int?
+  legalName String?
+  pan       String?
+
+  /// The currency the books are kept in. Every ledger posting is in this
+  /// currency, whatever currency the document was raised in.
+  baseCurrency String @default("INR")
+
+  /// The rest of the company master, as JSON.
+  ///
+  /// Trade name, entity type, industries, the financial year, the contact
+  /// details and the registered address. A column each would be a dozen more
+  /// nullable columns nothing queries or reports on — these are read as a whole
+  /// on one screen and written as a whole from one form. Anything that later
+  /// needs filtering or a report earns its own column then.
+  profileJson String?
+
+  createdByUserId String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  account   Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  createdBy User    @relation("OrgCreatedBy", fields: [createdByUserId], references: [id])
+
+  branches Branch[]
+  roles    Role[]
+  members  UserOrgMembership[]
+  audit    AuditLog[]
+
+  @@unique([accountId, name])
+  @@index([accountId])
+}
+
+model Branch {
+  id        String @id @default(cuid())
+  accountId String
+  orgId     String
+
+  branchCode   String
+  branchName   String
+  addressLine1 String
+  addressLine2 String?
+  city         String?
+  state        String
+  country      String
+
+  gstin               String?
+  // Stored as a string rather than a Postgres enum: adding a value to an enum
+  // is a migration, and these lists grow. (REGULAR | COMPOSITION | UNREGISTERED)
+  gstRegistrationType String  @default("UNREGISTERED")
+  phone               String?
+  email               String?
+  contactPerson       String?
+  /// Branch status (developer change 9 Oct 2026): inactive branches stay for history but take no new work.
+  isActive            Boolean @default(true)
+
+  parentBranchId          String?
+  shareHeadOfficeSettings Boolean @default(false)
+
+  createdByUserId String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  org      Org      @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  parent   Branch?  @relation("BranchParent", fields: [parentBranchId], references: [id])
+  children Branch[] @relation("BranchParent")
+
+  createdBy User @relation("BranchCreatedBy", fields: [createdByUserId], references: [id])
+
+  users UserBranchMembership[]
+
+  @@unique([orgId, branchCode])
+  @@index([accountId, orgId])
+}
+
+// ----------------------------
+// Users + access
+// ----------------------------
+model User {
+  id        String @id @default(cuid())
+  accountId String
+
+  username     String? // optional username login
+  /// User ID (LD-09): home company code + U + number (INNO-C100-U01). One per person, kept in every company they join.
+  code         String? @unique
+  codeNumber   Int?
+  email        String // primary login
+  fullName     String
+  passwordHash String
+  isActive     Boolean @default(true)
+
+  // Profile. `fullName` stays the single source for display so every existing
+  // reader keeps working; first and last are what the user actually edits and
+  // fullName is recomposed from them on save.
+  firstName String?
+  lastName  String?
+  phone     String?
+
+  // A square image the user picked, resized client-side and stored as a data
+  // URL. Capped well under a megabyte by the route. This avoids standing up
+  // object storage for something that is a few kilobytes per user, and it
+  // keeps working on an install with no network egress.
+  avatarUrl String?
+
+  // Lockout state. Cleared on a successful sign-in.
+  failedLoginCount Int       @default(0)
+  lockedUntil      DateTime?
+  lastLoginAt      DateTime?
+  emailVerifiedAt  DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  orgMemberships    UserOrgMembership[]
+  branchMemberships UserBranchMembership[]
+  roleAssignments   UserRoleAssignment[]
+  warehouseAccess   UserWarehouseAccess[]
+
+  createdOrgs     Org[]    @relation("OrgCreatedBy")
+  createdBranches Branch[] @relation("BranchCreatedBy")
+
+  auditCreated AuditLog[] @relation("AuditCreatedBy")
+
+  /// Globally unique, not per account. Login resolves a user by email across
+  /// every account, so two accounts sharing one would make it non-deterministic
+  /// — and a person invited into a second company must be the SAME login, not a
+  /// second identity with the same address. The route already refused a
+  /// duplicate; this makes it structural rather than a rule one handler happens
+  /// to keep.
+  @@unique([email])
+  @@index([accountId])
+}
+
+model UserOrgMembership {
+  id        String @id @default(cuid())
+  accountId String
+  orgId     String
+  userId    String
+
+  createdAt DateTime @default(now())
+
+  org  Org  @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([accountId, orgId, userId])
+  @@index([accountId, orgId])
+}
+
+model UserBranchMembership {
+  id        String @id @default(cuid())
+  accountId String
+  orgId     String
+  branchId  String
+  userId    String
+
+  createdAt DateTime @default(now())
+
+  branch Branch @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([accountId, orgId, branchId, userId])
+  @@index([accountId, orgId, branchId])
+}
+
+model UserWarehouseAccess {
+  id          String @id @default(cuid())
+  accountId   String
+  orgId       String
+  branchId    String
+  warehouseId String
+  userId      String
+
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([accountId, orgId, branchId, warehouseId, userId])
+  @@index([accountId, orgId, branchId, warehouseId])
+}
+
+// ----------------------------
+// Roles + permissions
+// ----------------------------
+model Role {
+  id        String  @id @default(cuid())
+  accountId String
+  orgId     String
+  // Optional: branch-scoped custom role
+  branchId  String?
+
+  name        String
+  description String?
+  // Stored as a string rather than a Postgres enum: adding a value to an enum
+  // is a migration, and these lists grow. (ADMIN | ACCOUNTANT | SALES | CUSTOM)
+  roleType    String
+  // Limits list and single-document reads to rows the holder created
+  // (Odoo "Own Documents Only"). One unrestricted role lifts it.
+  ownDocumentsOnly Boolean @default(false)
+
+  createdByUserId String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  org Org @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  permissions RolePermission[]
+  assignments UserRoleAssignment[]
+
+  @@unique([orgId, branchId, name])
+  @@index([accountId, orgId])
+}
+
+model Permission {
+  id        String  @id @default(cuid())
+  module    String
+  subModule String?
+  // Stored as a string rather than a Postgres enum: adding a value to an enum
+  // is a migration, and these lists grow. (VIEW | CREATE | EDIT | DELETE | APPROVE | EXPORT)
+  action    String
+
+  rolePermissions RolePermission[]
+
+  @@unique([module, subModule, action])
+}
+
+model RolePermission {
+  id           String  @id @default(cuid())
+  accountId    String
+  orgId        String
+  roleId       String
+  permissionId String
+  allowed      Boolean @default(true)
+  // Field-level access, as in ERPNext's permlevels. Level 0 covers ordinary
+  // fields; a field declared at level 1 needs a rule granting level >= 1.
+  permLevel    Int     @default(0)
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+  @@index([accountId, orgId])
+}
+
+// Role assignment per org and optionally per branch.
+// If branchId is null => org-wide role.
+model UserRoleAssignment {
+  id        String  @id @default(cuid())
+  accountId String
+  orgId     String
+  branchId  String?
+  userId    String
+  roleId    String
+
+  createdByUserId String
+  createdAt       DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([accountId, orgId, branchId, userId, roleId])
+  @@index([accountId, orgId, branchId])
+}
+
+// ----------------------------
+// Audit log
+// ----------------------------
+model AuditLog {
+  id        String @id @default(cuid())
+  accountId String
+  orgId     String
+  branchId  String
+
+  entity   String
+  entityId String
+  action   String
+  message  String?
+  // SQLite-compatible: store JSON metadata as string (optional)
+  metadata String?
+
+  createdByUserId String
+  createdAt       DateTime @default(now())
+
+  org       Org  @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  createdBy User @relation("AuditCreatedBy", fields: [createdByUserId], references: [id])
+
+  @@index([accountId, orgId, branchId])
+}
+
+// ----------------------------
+// Role profiles — bundles of roles, assigned as one unit
+// ----------------------------
+model RoleProfile {
+  id          String  @id @default(cuid())
+  accountId   String
+  orgId       String
+  name        String
+  description String?
+
+  createdByUserId String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  roles       RoleProfileRole[]
+  assignments UserRoleProfile[]
+
+  @@unique([orgId, name])
+  @@index([accountId, orgId])
+}
+
+model RoleProfileRole {
+  id        String @id @default(cuid())
+  accountId String
+  orgId     String
+  profileId String
+  roleId    String
+
+  profile RoleProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@unique([profileId, roleId])
+  @@index([accountId, orgId])
+}
+
+model UserRoleProfile {
+  id        String  @id @default(cuid())
+  accountId String
+  orgId     String
+  userId    String
+  profileId String
+  branchId  String?
+
+  createdByUserId String
+  createdAt       DateTime @default(now())
+
+  profile RoleProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@unique([accountId, orgId, userId, profileId])
+  @@index([accountId, orgId, userId])
+}
+
+// ----------------------------
+// User permissions — document-level restrictions, generalised
+// ----------------------------
+// Branch and warehouse access already have dedicated tables because they are
+// also the tenancy boundary. This covers everything else: restrict a user to
+// certain customers, vendors, cost centres, and so on.
+model UserPermission {
+  id        String @id @default(cuid())
+  accountId String
+  orgId     String
+  userId    String
+
+  entityType String // CUSTOMER | VENDOR | COST_CENTRE | ITEM_GROUP
+  entityId   String
+  label      String?
+
+  createdByUserId String
+  createdAt       DateTime @default(now())
+
+  @@unique([accountId, orgId, userId, entityType, entityId])
+  @@index([accountId, orgId, userId, entityType])
+}
+
+// ----------------------------
+// Feature toggles, per organisation
+// ----------------------------
+/// Which plan an account is on, and anything sold to it beyond the plan.
+///
+/// Only the assignment is data; the plans themselves live in planCatalog.ts,
+/// because a plan is a product decision that should be reviewable in a diff.
+///
+/// An account with no row here is on the default plan, which entitles
+/// everything — so this table taking effect never removes something a customer
+/// already had. A restriction is assigned, never inflicted by a deploy.
+model AccountEntitlement {
+  id        String @id @default(cuid())
+  accountId String @unique
+
+  planKey String
+
+  /// ACTIVE | TRIAL | PAST_DUE | CANCELLED. Anything but the first two closes
+  /// the ceiling to the plan's own features and nothing extra.
+  status String @default("ACTIVE")
+
+  /// Feature keys sold on top of the plan, comma-separated.
+  extraFeatures String @default("")
+
+  /// Null falls back to the plan's own limit.
+  maxCompanies Int?
+  maxUsers     Int?
+
+  /// When a trial or term ends. Null is open-ended.
+  validUntil DateTime?
+
+  updatedByUserId String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([accountId])
+}
+
+model FeatureSetting {
+  id        String @id @default(cuid())
+  accountId String
+  orgId     String
+
+  key     String
+  enabled Boolean
+
+  updatedByUserId String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([orgId, key])
+  @@index([accountId, orgId])
+}
+
+// ----------------------------
+// Sessions and auth hardening
+// ----------------------------
+// A refresh token is stored only as a hash: a leaked database row must not be
+// usable as a credential.
+model Session {
+  id        String @id @default(cuid())
+  accountId String
+  userId    String
+
+  refreshTokenHash String  @unique
+  userAgent        String?
+  ip               String?
+
+  createdAt     DateTime  @default(now())
+  lastSeenAt    DateTime  @default(now())
+  expiresAt     DateTime
+  revokedAt     DateTime?
+  revokedReason String?
+
+  // Set when this session is rotated, so a replayed old token is detectable.
+  replacedBySessionId String?
+
+  @@index([accountId, userId, revokedAt])
+  @@index([expiresAt])
+}
+
+model PasswordResetToken {
+  id        String @id @default(cuid())
+  accountId String
+  userId    String
+
+  tokenHash   String    @unique
+  expiresAt   DateTime
+  usedAt      DateTime?
+  requestedIp String?
+
+  createdAt DateTime @default(now())
+
+  @@index([userId, usedAt])
+}
+
+/// Security-relevant authentication events, kept separately from the business
+/// audit log so a retention policy can differ.
+model AuthEvent {
+  id        String  @id @default(cuid())
+  accountId String?
+  userId    String?
+
+  email     String?
+  eventType String // LOGIN_SUCCESS | LOGIN_FAILED | LOCKED_OUT | LOGOUT |
+  // PASSWORD_RESET_REQUESTED | PASSWORD_RESET | TOKEN_REFRESHED | SESSION_REVOKED
+  ip        String?
+  userAgent String?
+  detail    String?
+
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([email, eventType, createdAt])
+}
+
+// ----------------------------
+// Email: settings, outbox, verification
+// ----------------------------
+model EmailSetting {
+  id        String @id @default(cuid())
+  accountId String
+  orgId     String @unique
+
+  // SYSTEM uses the platform's own transport; SMTP uses the org's own server.
+  provider String @default("SYSTEM")
+
+  host        String?
+  port        Int?
+  secure      Boolean @default(true)
+  username    String?
+  // AES-256-GCM ciphertext. Never returned by the API.
+  passwordEnc String?
+
+  fromName  String?
+  fromEmail String?
+  replyTo   String?
+
+  verifiedAt DateTime?
+  lastError  String?
+
+  updatedByUserId String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([accountId, orgId])
+}
+
+/// Every message the product tries to send, with its outcome. Doubles as the
+/// retry queue and the "did the customer actually receive it" answer.
+model EmailOutbox {
+  id        String  @id @default(cuid())
+  accountId String?
+  orgId     String?
+
+  templateKey String
+  toEmail     String
+  toName      String?
+  subject     String
+  bodyText    String
+  bodyHtml    String?
+
+  status    String    @default("QUEUED") // QUEUED | SENT | FAILED | SUPPRESSED
+  attempts  Int       @default(0)
+  lastError String?
+  sentAt    DateTime?
+
+  relatedType String?
+  relatedId   String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([accountId, orgId, status])
+  @@index([templateKey, createdAt])
+}
+
+model EmailVerificationToken {
+  id        String @id @default(cuid())
+  accountId String
+  userId    String
+
+  tokenHash String    @unique
+  email     String
+  expiresAt DateTime
+  usedAt    DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@index([userId, usedAt])
+}
+
+/// Which notifications an organisation wants, per event.
+model NotificationSetting {
+  id        String @id @default(cuid())
+  accountId String
+  orgId     String
+
+  eventKey        String
+  enabled         Boolean @default(true)
+  /// Extra addresses that receive this event, beyond its natural recipient.
+  extraRecipients String?
+
+  updatedByUserId String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([orgId, eventKey])
+  @@index([accountId, orgId])
+}
+
+// ----------------------------
+// Security policy and sign-in methods
+// ----------------------------
+model AuthPolicy {
+  id        String @id @default(cuid())
+  accountId String
+  orgId     String @unique
+
+  maxFailedLogins    Int @default(8)
+  lockoutMinutes     Int @default(15)
+  sessionDays        Int @default(30)
+  accessTokenMinutes Int @default(15)
+
+  passwordMinLength        Int     @default(8)
+  passwordRequireMixedCase Boolean @default(false)
+  passwordRequireNumber    Boolean @default(false)
+  passwordRequireSymbol    Boolean @default(false)
+
+  requireVerifiedEmail Boolean @default(false)
+  /// Comma-separated domains; empty means any address may be invited.
+  allowedEmailDomains  String?
+
+  updatedByUserId String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([accountId, orgId])
+}
+
+/// A configured way to sign in. LOCAL always exists implicitly; rows here are
+/// the external identity providers an organisation has set up.
+model AuthProvider {
+  id        String @id @default(cuid())
+  accountId String
+  orgId     String
+
+  kind    String // OIDC | SAML
+  name    String
+  enabled Boolean @default(false)
+
+  /// OIDC
+  issuer          String?
+  clientId        String?
+  clientSecretEnc String?
+  discoveryUrl    String?
+  scopes          String? @default("openid email profile")
+
+  /// SAML
+  entryPoint  String?
+  entityId    String?
+  certificate String?
+
+  /// Restricts which addresses may use this provider.
+  emailDomains  String?
+  /// Create a user on first successful sign-in instead of refusing.
+  autoProvision Boolean @default(false)
+  defaultRoleId String?
+
+  lastUsedAt DateTime?
+  lastError  String?
+
+  createdByUserId String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([orgId, name])
+  @@index([accountId, orgId, enabled])
+}
+
+// ============================================================================
+// Billing / subscriptions — the commercial layer (gateway-agnostic)
+// ============================================================================
+// A tenant's subscription and which apps it bought. Deliberately provider-neutral:
+// the gateway* fields are null until a payment provider is chosen, and a
+// subscription is honoured on its own fields whether billed or granted by hand.
+// `accountId` is kept as a plain scalar (no FK) to leave the Account model
+// untouched; it is in this same database, so this is a convention choice, not a
+// cross-database necessity.
+
+model Subscription {
+  id        String @id @default(cuid())
+  accountId String @unique
+
+  /// trialing | active | past_due | paused | cancelled
+  status String @default("trialing")
+
+  /// month | year | null (perpetual / manual)
+  billingInterval String?
+
+  trialEndsAt        DateTime?
+  currentPeriodStart DateTime?
+  currentPeriodEnd   DateTime?
+  cancelAtPeriodEnd  Boolean   @default(false)
+
+  /// Money side, left open until a pricing model is decided. INR minor units.
+  currency String @default("INR")
+
+  /// Which gateway backs this, if any. null = unbilled / manual.
+  gatewayName           String?
+  gatewayCustomerId     String?
+  gatewaySubscriptionId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  items SubscriptionItem[]
+
+  @@index([status])
+}
+
+model SubscriptionItem {
+  id             String @id @default(cuid())
+  subscriptionId String
+
+  /// accounting | payroll | attendance | people | projects
+  appCode String
+
+  /// Tier within the app (e.g. an accounting PLAN_CATALOG key). null = default.
+  tier String?
+
+  /// Seats bought for this app. null = not seat-metered.
+  seats Int?
+
+  /// Pricing left open: what a unit costs and how it is metered.
+  unitAmount Int?
+  priceModel String? /// free | per_seat | per_app | flat | null (undecided)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  subscription Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  @@unique([subscriptionId, appCode])
+  @@index([appCode])
+}
+
+model PaymentEvent {
+  id         String   @id @default(cuid())
+  gateway    String
+  eventId    String
+  type       String
+  accountId  String?
+  payload    String
+  processed  Boolean  @default(false)
+  receivedAt DateTime @default(now())
+
+  @@unique([gateway, eventId])
+  @@index([accountId])
+}

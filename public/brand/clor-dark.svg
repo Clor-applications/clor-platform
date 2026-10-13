@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="480" height="160" viewBox="0 0 480 160" role="img" aria-labelledby="title desc">
+<title id="title">CLOR dark-background horizontal logo</title>
+<desc id="desc">Light ASN-inspired interwoven monogram and lowercase clor wordmark with multicolor circular o. Transparent background.</desc>
+<defs>
+ <linearGradient id="ink" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#f1f5f9"/><stop offset=".55" stop-color="#cbd5e1"/><stop offset="1" stop-color="#e2e8f0"/></linearGradient>
+ <linearGradient id="ring" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#04d4e8"/><stop offset=".28" stop-color="#177df4"/><stop offset=".53" stop-color="#a339e8"/><stop offset=".75" stop-color="#ff397c"/><stop offset="1" stop-color="#ffad1c"/></linearGradient>
+</defs>
+<!-- Symbol: original-inspired flat geometry, optimized for app navigation -->
+<g transform="translate(12 12) scale(.92)">
+ <path d="M19 111 C22 76 33 42 62 21 L72 13 C63 41 57 67 56 88 L83 116 C93 126 105 126 111 116 C117 106 108 94 98 83 L66 49 C57 39 57 26 65 15 C77 0 98 3 113 9 C138 19 150 39 150 65 L150 113 L134 94 L134 63 C134 42 119 24 99 20 C84 17 75 23 80 33 C83 39 90 44 96 51 L120 76 C139 96 138 120 120 136 C104 149 81 144 66 130 L44 108 L43 82 L29 119 Z" fill="url(#ink)"/>
+ <path d="M31 123 L47 123 L59 133 L75 133 L52 106 L39 106 Z" fill="#e2e8f0"/>
+ <path d="M97 29 L121 54 L137 74 L137 52 C127 35 113 26 97 29 Z" fill="#f1f5f9"/>
+</g>
+<!-- clear-space divider -->
+<path d="M184 35 V125" stroke="#475569" stroke-width="1.5"/>
+<!-- wordmark -->
+<g fill="#f1f5f9" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="91" font-weight="650" letter-spacing="-5">
+ <text x="210" y="111">cl</text>
+ <text x="425" y="111">r</text>
+</g>
+<!-- multicolor O as a distinctive circular ring -->
+<circle cx="386" cy="80" r="39" fill="none" stroke="url(#ring)" stroke-width="21"/>
+<path d="M356 58 C372 35 409 42 416 69" fill="none" stroke="#15b8ef" stroke-width="7" stroke-linecap="round" opacity=".65"/>
+</svg>

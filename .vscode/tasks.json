@@ -1,0 +1,72 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "setup",
+			"detail": "Install web + api dependencies and push the Prisma schema",
+			"type": "npm",
+			"script": "setup",
+			"problemMatcher": []
+		},
+		{
+			"label": "start (web + api)",
+			"detail": "Run the Vite dev server and the API together",
+			"type": "npm",
+			"script": "start",
+			"isBackground": true,
+			"problemMatcher": [],
+			"group": { "kind": "build", "isDefault": true }
+		},
+		{
+			"label": "web: dev",
+			"type": "npm",
+			"script": "dev",
+			"isBackground": true,
+			"problemMatcher": []
+		},
+		{
+			"label": "api: dev",
+			"type": "npm",
+			"script": "api",
+			"isBackground": true,
+			"problemMatcher": []
+		},
+		{
+			"label": "build",
+			"type": "npm",
+			"script": "build",
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "verify (lint + typecheck + builds)",
+			"type": "npm",
+			"script": "verify",
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "api: health",
+			"detail": "Curl the API health endpoint",
+			"type": "shell",
+			"command": "curl -fsS http://127.0.0.1:4001/health && echo",
+			"windows": {
+				"command": "curl.exe -fsS http://127.0.0.1:4001/health"
+			},
+			"problemMatcher": []
+		},
+		{
+			"label": "docker: up",
+			"type": "npm",
+			"script": "docker:up",
+			"isBackground": true,
+			"problemMatcher": []
+		},
+		{
+			"label": "docker: down",
+			"type": "npm",
+			"script": "docker:down",
+			"problemMatcher": []
+		}
+	]
+}

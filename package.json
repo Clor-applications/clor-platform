@@ -1,0 +1,69 @@
+{
+  "name": "app",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev:web": "vite --host 127.0.0.1 --port 5173",
+    "dev": "concurrently -n web,api -c cyan,magenta \"npm:dev:web\" \"npm:api\"",
+    "build": "vite build",
+    "lint": "eslint .",
+    "preview": "vite preview",
+    "setup": "npm install && npm --prefix server install && npm --prefix server run prisma:generate && npm --prefix server run prisma:push",
+    "api": "npm --prefix server run dev",
+    "api:build": "npm --prefix server run build",
+    "api:start": "npm --prefix server start",
+    "start": "npm run dev",
+    "typecheck": "npm --prefix server run typecheck",
+    "verify": "npm run lint && npm run typecheck && npm run test && npm run build && npm run api:build",
+    "docker:up": "npm run env:init && docker compose up --build",
+    "docker:down": "docker compose down",
+    "docker:logs": "docker compose logs -f",
+    "test": "npm run test:web && npm --prefix server test",
+    "env:init": "node scripts/init-env.mjs",
+    "test:web": "vitest run",
+    "test:related": "vitest related --run"
+  },
+  "dependencies": {
+    "@phosphor-icons/react": "^2.1.10",
+    "country-state-city": "^3.2.1",
+    "echarts": "^6.1.0",
+    "echarts-for-react": "^3.0.6",
+    "jspdf": "^4.2.1",
+    "jspdf-autotable": "^5.0.8",
+    "lucide-react": "^1.41.0",
+    "qrcode": "^1.5.4",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "sonner": "^2.0.8",
+    "write-excel-file": "^4.1.1"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.1",
+    "@testing-library/jest-dom": "^7.0.1",
+    "@testing-library/react": "^16.3.3",
+    "@testing-library/user-event": "^14.6.7",
+    "@types/react": "^19.2.5",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^5.1.1",
+    "autoprefixer": "^10.4.23",
+    "concurrently": "^10.0.5",
+    "dependency-cruiser": "^18.4.0",
+    "eslint": "^9.39.1",
+    "eslint-plugin-react-hooks": "^7.0.1",
+    "eslint-plugin-react-refresh": "^0.4.24",
+    "globals": "^16.5.0",
+    "jsdom": "^30.0.1",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^3.4.17",
+    "typescript": "^5.9.3",
+    "vite": "^7.2.4",
+    "vitest": "^2.1.9"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "overrides": {
+    "fflate": "^0.8.3"
+  }
+}

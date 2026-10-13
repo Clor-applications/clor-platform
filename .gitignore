@@ -1,0 +1,64 @@
+# Dependencies
+node_modules
+
+# Build output
+dist
+dist-ssr
+server/dist
+*.local
+
+# Secrets — never commit
+.env
+.env.*
+!.env.example
+!.env.docker.example
+server/.env
+server/.env.*
+!server/.env.example
+
+# Local databases
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+server/prisma/*.db
+
+# Logs
+logs
+server/logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Scratch / backups
+tmp
+_backup_before_onedrive_restore
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+!.vscode/tasks.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Test env
+.env.test
+prisma/test.db
+.gstack/
+
+# Prisma generates the payroll client into the source tree; it is built, not written.
+server/src/generated/
+
+# Generated Prisma clients. Rebuilt by `npm --prefix server run prisma:generate`.
+server/src/generated/
+
+# Secrets: the JWT key and the database URLs.
+server/.env

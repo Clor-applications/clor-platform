@@ -1,0 +1,1068 @@
+// ============================================================================
+// Clor Payroll — its own database
+// ============================================================================
+//
+// Payroll is a separate application that happens to live inside Clor. It keeps
+// its own database, generates its own client, and shares no table with the
+// accounting schema.
+//
+// Why a boundary rather than twenty-five more tables next to Invoice. Payroll
+// data is the most sensitive the product holds — what every person earns, their
+// bank account, their PAN — and the strongest guarantee against an accidental
+// join leaking it into a sales report is that no such join can be written: a
+// different client, against a different file. It also means payroll can be
+// backed up, restored, exported or retained on its own schedule, which is what
+// a payroll dataset usually needs, and it can be moved onto its own server
+// later without touching a single accounting query.
+//
+// How it stays connected. Payroll holds Clor's identifiers — `accountId`,
+// `orgId`, `branchId`, `ledgerAccountId`, `employeeId` — as plain strings, with
+// no cross-database foreign keys, because there is no such thing. Referential
+// integrity across the boundary is the application's job and is enforced where
+// the two meet: a payroll run posts through the accounting service, never by
+// writing a journal row itself.
+//
+// What this does NOT change: the ledger. Payroll still posts into Clor's own
+// general ledger through `postEntry`. There is one set of books, and payroll is
+// one more thing that writes to it — the same way sales and purchases do.
+//
+// The one honest cost. A write cannot span both databases in a single
+// transaction, so posting is two steps: write the journal in accounting, then
+// record the posting here. Both halves are idempotent and the pairing is
+// recoverable — see `PayrollPosting`.
+
+generator payrollClient {
+  provider = "prisma-client-js"
+  output   = "../../src/generated/payroll"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("PAYROLL_DATABASE_URL")
+}
+
+//
+// What this reuses rather than rebuilds: `LedgerAccount` and `postEntry` for
+// every posting, `NumberSeries` for document numbers, `AuditLog` for the trail,
+// `Org`/`Branch` for tenancy, and `OrgMaster` rows of kind COST_CENTER for cost
+// attribution. Payroll owns no second ledger, no second audit table and no
+// second cost-centre list.
+//
+// The person is not payroll's either. `Employee` lives in the people database,
+// and payroll holds `employeeId` across that boundary — the same way it holds
+// `ledgerAccountId`. Attendance, timesheets and the rest point at the same
+// person, which is what stops five modules each growing their own staff list.
+//
+// The rule that shapes most of what follows: an approved payroll must be
+// reproducible forever. Salary structures, components and statutory rates all
+// change, and a payslip from March must still read exactly as it did in March.
+// So a calculated slip does not reference live configuration — it carries a
+// snapshot of everything that produced it, and the engine version that did.
+
+/// Everything payroll needs to know about a person, and nothing else does.
+///
+/// The person themselves lives in the people database; `employeeId` points at
+/// them across that boundary. This row is the payroll half — a bank account, a
+/// PAN, the statutory identifiers — and it is here rather than beside the
+/// person because these are the fields that make payroll worth stealing, and
+/// they should not be readable by everything that reads a staff directory.
+model EmployeePayrollProfile {
+  id         String @id @default(cuid())
+  accountId  String
+  orgId      String
+  employeeId String
+
+  /// IN_PAYROLL | EXCLUDED | ON_HOLD — only IN_PAYROLL is picked up by a run.
+  payrollStatus String  @default("IN_PAYROLL")
+  payGroupId    String?
+  /// An `OrgMaster` row of kind COST_CENTER. Payroll keeps no list of its own.
+  costCenterId  String?
+
+  /// Held masked in the UI; revealing one needs its own permission.
+  bankAccountName   String?
+  bankAccountNumber String?
+  bankIfsc          String?
+  bankName          String?
+
+  pan       String?
+  uan       String?
+  pfNumber  String?
+  esiNumber String?
+
+  /// OLD | NEW — the regime the TDS projection is computed under.
+  taxRegime            String  @default("NEW")
+  /// Two-letter or full state name, matching how the rest of the schema writes state.
+  professionalTaxState String?
+
+  pfApplicable  Boolean @default(false)
+  esiApplicable Boolean @default(false)
+  ptApplicable  Boolean @default(false)
+
+  createdByUserId String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([orgId, employeeId])
+  @@index([accountId, orgId, payrollStatus])
+}
+
+/// A population that is paid on the same rhythm: monthly staff, weekly labour,
+/// contractors. Filters runs and narrows which structures apply.
+model PayGroup {
+  id        String  @id @default(cuid())
+  accountId String
+  orgId     String
+  branchId  String?
+
+  name       String
+  code       String?
+  /// MONTHLY | WEEKLY | FORTNIGHTLY | CUSTOM
+  frequency  String  @default("MONTHLY")
+  /// Day of month salary is paid, where the frequency has one.
+  paymentDay Int?
+
+  isActive Boolean @default(true)
+  notes    String?
+
+  createdByUserId String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([orgId, name])
+  @@index([accountId, orgId, isActive])
+}
+
+/// One pay cycle. A run belongs to exactly one, and a locked period refuses
+/// new runs — the payroll equivalent of a closed book.
+model PayrollPeriod {
+  id        String @id @default(cuid())
+  accountId String
+  orgId     String
+
+  name        String
+  startDate   String
+  endDate     String
+  /// When the money is expected to leave. Not the posting date.
+  paymentDate String?
+  /// MONTHLY | WEEKLY | FORTNIGHTLY | CUSTOM
+  frequency   String  @default("MONTHLY")
+
+  fiscalYearId String?
+
+  /// OPEN | CLOSED
+  status   String  @default("OPEN")
+  isLocked Boolean @default(false)
+
+  createdByUserId String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([orgId, name])
+  @@index([accountId, orgId, startDate])
+}
+
+/// A line that can appear on a payslip: an earning, a deduction, or a cost the
+/// employer carries without the employee ever seeing it in net pay.
+///
+/// Behaviour lives in data, never in the screen: whether a component is
+/// taxable, whether it prorates, which wage bases it feeds and which ledgers it
+/// posts to are all fields here, so adding a component never means changing UI
+/// logic.
+model SalaryComponent {
+  id        String @id @default(cuid())
+  accountId String
+  orgId     String
+
+  name        String
+  code        String
+  /// EARNING | DEDUCTION | EMPLOYER_CONTRIBUTION
+  type        String
+  description String?
+
+  /// FIXED | PERCENTAGE | FORMULA | VARIABLE | STATUTORY | BALANCING
+  calculationMethod String  @default("FIXED")
+  amount            Decimal @default(0)
+  percentage        Decimal @default(0)
+  formula           String?
+  /// What a percentage is taken of: BASIC | GROSS | CTC | another component code.
+  calculationBase   String?
+  /// NONE | NEAREST | UP | DOWN
+  rounding          String  @default("NEAREST")
+
+  /// When STATUTORY, which engine computes it: PF | ESI | PT | TDS.
+  statutoryScheme String?
+
+  // ---- Who gets this component, and when ----------------------------------
+  //
+  // A component used to reach an employee one way only: somebody put it on the
+  // structure that employee is assigned to. That is right for the spine of a
+  // salary — basic, HRA, PF — and wrong for everything conditional. A
+  // transport allowance for the Chennai office, a hardship allowance for one
+  // grade, a one-off festival bonus: each of those meant forking a structure,
+  // and a forked structure is a second thing to keep in step for the rest of
+  // its life.
+  //
+  // STRUCTURE — as before: only where a structure lists it.
+  // ALL_EMPLOYEES — everybody being paid, no structure edit.
+  // CONDITIONS — everybody who matches `conditions`, all of which must hold.
+  //
+  // Targeting is narrowed by `employeeTargets`: named inclusions and named
+  // exclusions. An exclusion always wins, because the reason somebody is
+  // excluded is usually the exception the rule cannot express.
+  /// STRUCTURE | ALL_EMPLOYEES | CONDITIONS
+  appliesTo String @default("STRUCTURE")
+
+  /// The single period this applies in, as YYYY-MM-DD. Null = every period.
+  /// A date rather than a flag: "the March bonus" has to survive being read
+  /// in June without somebody remembering to switch it off.
+  oneTimeDate String?
+
+  // ---- A threshold, evaluated against the pay it is computed from ---------
+  //
+  // "Only if basic is over 25,000", "only between 30,000 and 50,000". Kept
+  // apart from `conditions` above because it is answered at calculation time
+  // from computed pay, not at selection time from a fact about the person —
+  // and mixing the two is how a rule engine stops being explainable.
+  /// BASIC | GROSS | CTC | MONTHLY_CTC | TAXABLE_GROSS | a component code
+  thresholdBase     String?
+  /// GT | GE | LT | LE | EQ | NE | RANGE
+  thresholdOperator String?
+  thresholdAmount   Decimal @default(0)
+  /// The upper bound when the operator is RANGE.
+  thresholdRangeEnd Decimal @default(0)
+
+  // ---- A ceiling ----------------------------------------------------------
+  hasMaxLimit     Boolean @default(false)
+  maximumAmount   Decimal @default(0)
+  /// CAP — pay the maximum. EXCLUDE — pay nothing at all past it.
+  exceedBehaviour String  @default("CAP")
+
+  isTaxable             Boolean @default(true)
+  prorate               Boolean @default(true)
+  includeInPfWage       Boolean @default(false)
+  includeInEsiWage      Boolean @default(false)
+  includeInGratuityWage Boolean @default(false)
+  includeInGross        Boolean @default(true)
+  includeInNetPay       Boolean @default(true)
+  isVariable            Boolean @default(false)
+  isFlexibleBenefit     Boolean @default(false)
+
+  /// Where the money lands. Both are `LedgerAccount.id`.
+  expenseLedgerId     String?
+  liabilityLedgerId   String?
+  /// EMPLOYEE | STRUCTURE | NONE — whose cost centre this line carries.
+  costCentreBehaviour String  @default("EMPLOYEE")
+
+  displayOrder Int     @default(0)
+  isActive     Boolean @default(true)
+
+  createdByUserId String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  conditions      SalaryComponentCondition[]
+  employeeTargets SalaryComponentEmployee[]
+
+  @@unique([orgId, code])
+  @@index([accountId, orgId, type, isActive])
+}
+
+/// One test a person has to pass for a component to apply to them.
+///
+/// Several rows on one component are ANDed. That is a deliberate limit: an
+/// engine with AND and OR needs brackets, and brackets in a form nobody can
+/// see the shape of produce rules whose authors cannot say what they mean. Two
+/// different populations are two components, each with a name that says which.
+model SalaryComponentCondition {
+  id          String @id @default(cuid())
+  accountId   String
+  orgId       String
+  componentId String
+
+  /// What is being tested. A path the eligibility service knows how to read —
+  /// `department`, `designation`, `branchId`, `payGroupId`, `taxRegime`,
+  /// `professionalTaxState`, `annualCtc`, `monthsOfService`. The catalogue
+  /// lives in services/payroll/eligibility.ts, which is also what the screen
+  /// offers, so the two cannot drift.
+  field    String
+  /// EQ | NE | GT | GE | LT | LE | IN | NOT_IN | CONTAINS | IS_SET | IS_NOT_SET
+  operator String
+  /// Always text. A number is parsed by the operator that needs one, and a
+  /// list is comma-separated — one column that reads back exactly as it was
+  /// typed beats three that have to agree.
+  value    String?
+
+  displayOrder Int @default(0)
+
+  component SalaryComponent @relation(fields: [componentId], references: [id], onDelete: Cascade)
+
+  @@index([accountId, orgId, componentId])
+}
+
+/// A person named on a component, in or out.
+///
+/// Exclusion beats inclusion, and both beat the conditions: somebody who has
+/// been named has been thought about, and a rule that overrides a decision
+/// somebody made by hand is a rule that will be worked around.
+model SalaryComponentEmployee {
+  id          String @id @default(cuid())
+  accountId   String
+  orgId       String
+  componentId String
+  employeeId  String
+
+  /// INCLUDE | EXCLUDE
+  mode String
+
+  createdByUserId String
+  createdAt       DateTime @default(now())
+
+  component SalaryComponent @relation(fields: [componentId], references: [id], onDelete: Cascade)
+
+  @@unique([componentId, employeeId])
+  @@index([accountId, orgId, employeeId])
+}
+
+/// A reusable salary template. Effective-dated, because a structure that is
+/// edited in place would rewrite the payslips already produced from it.
+model SalaryStructure {
+  id        String  @id @default(cuid())
+  accountId String
+  orgId     String
+  branchId  String?
+
+  name       String
+  code       String?
+  payGroupId String?
+  /// MONTHLY | WEEKLY | FORTNIGHTLY
+  frequency  String  @default("MONTHLY")
+
+  effectiveFrom String
+  effectiveTo   String?
+
+  /// DRAFT | ACTIVE | ARCHIVED
+  status      String  @default("DRAFT")
+  description String?
+
+  createdByUserId String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  components SalaryStructureComponent[]
+
+  @@unique([orgId, name, effectiveFrom])
+  @@index([accountId, orgId, status])
+}
+
+/// One component on a structure, with the overrides this structure applies.
+/// A null override means "whatever the component says".
+model SalaryStructureComponent {
+  id        String @id @default(cuid())
+  accountId String
+  orgId     String
+
+  structureId String
+  componentId String
+
+  /// Overrides. Null = inherit from the component.
+  calculationMethod String?
+  amount            Decimal?
+  percentage        Decimal?
+  formula           String?
+  calculationBase   String?
+
+  /// Exactly one component in a structure may balance to the remainder of CTC.
+  isBalancing  Boolean @default(false)
+  displayOrder Int     @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  structure SalaryStructure @relation(fields: [structureId], references: [id], onDelete: Cascade)
+
+  @@unique([structureId, componentId])
+  @@index([accountId, orgId])
+  @@index([structureId])
+}
+
+/// What one employee is on, from a date. Never edited to change a salary —
+/// a raise writes a NEW assignment, so a run in March still finds March's pay.
+model SalaryAssignment {
+  id        String  @id @default(cuid())
+  accountId String
+  orgId     String
+  branchId  String?
+
+  employeeId  String
+  structureId String
+  payGroupId  String?
+
+  effectiveFrom String
+  effectiveTo   String?
+
+  annualCtc  Decimal @default(0)
+  monthlyCtc Decimal @default(0)
+
+  costCenterId String?
+  /// ACTIVE | SUPERSEDED | CANCELLED
+  status       String  @default("ACTIVE")
+
+  /// The revision that produced this, when it came from one.
+  revisionId String?
+
+  createdByUserId String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([orgId, employeeId, effectiveFrom])
+  @@index([accountId, orgId, employeeId, effectiveFrom])
+  @@index([accountId, orgId, status])
+}
+
+/// A proposed change to someone's pay, with its cost shown before anyone
+/// approves it. Approving writes a new `SalaryAssignment`; nothing is edited.
+model SalaryRevision {
+  id        String @id @default(cuid())
+  accountId String
+  orgId     String
+
+  employeeId String
+
+  currentAssignmentId String?
+  currentStructureId  String?
+  currentAnnualCtc    Decimal @default(0)
+
+  proposedStructureId String
+  proposedAnnualCtc   Decimal @default(0)
+  incrementPercent    Decimal @default(0)
+
+  effectiveFrom String
+  reason        String?
+  notes         String?
+
+  /// DRAFT | REVIEWED | APPROVED | APPLIED | REJECTED
+  status String @default("DRAFT")
+
+  /// What the impact preview showed when it was approved, kept as evidence.
+  impactJson String @default("{}")
+
+  reviewedByUserId    String?
+  reviewedAt          DateTime?
+  approvedByUserId    String?
+  approvedAt          DateTime?
+  appliedAssignmentId String?
+
+  createdByUserId String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([accountId, orgId, employeeId])
+  @@index([accountId, orgId, status])
+}
+
+/// A one-off amount for one period: a bonus, an arrear, a recovery, a penalty.
+/// Once a run consumes it, it is frozen — the slip that used it must stay true.
+model PayrollAdjustment {
+  id        String  @id @default(cuid())
+  accountId String
+  orgId     String
+  branchId  String?
+
+  employeeId  String
+  componentId String
+  periodId    String
+
+  /// EARNING | DEDUCTION, resolved from the component but stored for querying.
+  type   String
+  amount Decimal @default(0)
+
+  reason    String?
+  reference String?
+
+  /// DRAFT | APPROVED | CONSUMED | CANCELLED
+  status String @default("DRAFT")
+
+  /// The run that consumed it, so it can be traced back from a payslip.
+  consumedByRunId String?
+
+  approvedByUserId String?
+  approvedAt       DateTime?
+
+  createdByUserId String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([accountId, orgId, periodId, status])
+  @@index([accountId, orgId, employeeId, periodId])
+}
+
+/// One payroll, for one period and population.
+model PayrollRun {
+  id        String  @id @default(cuid())
+  accountId String
+  orgId     String
+  branchId  String?
+
+  number     String
+  periodId   String
+  payGroupId String?
+  department String?
+
+  payrollDate String
+  notes       String?
+
+  /// DRAFT | CALCULATED | REVIEW | APPROVED | LOCKED | PAID | POSTED | CANCELLED
+  status String @default("DRAFT")
+
+  /// Totals, denormalised so a list of runs does not sum every slip.
+  employeeCount             Int     @default(0)
+  grossTotal                Decimal @default(0)
+  deductionTotal            Decimal @default(0)
+  employerContributionTotal Decimal @default(0)
+  netTotal                  Decimal @default(0)
+  employerCostTotal         Decimal @default(0)
+
+  errorCount   Int @default(0)
+  warningCount Int @default(0)
+
+  /// The engine that produced this. Required to reproduce the numbers later.
+  engineVersion String?
+  calculatedAt  DateTime?
+
+  submittedByUserId String?
+  submittedAt       DateTime?
+  reviewedByUserId  String?
+  reviewedAt        DateTime?
+  approvedByUserId  String?
+  approvedAt        DateTime?
+  rejectedByUserId  String?
+  rejectedAt        DateTime?
+  rejectionReason   String?
+  lockedAt          DateTime?
+
+  createdByUserId String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  employees PayrollRunEmployee[]
+  slips     SalarySlip[]
+
+  @@unique([orgId, number])
+  /// One payroll per population per period, which is what stops a double run.
+  @@unique([orgId, periodId, payGroupId, branchId])
+  @@index([accountId, orgId, status])
+  @@index([accountId, orgId, periodId])
+}
+
+/// An employee's place in a run: whether they are in it, and what stopped them.
+model PayrollRunEmployee {
+  id        String @id @default(cuid())
+  accountId String
+  orgId     String
+
+  runId      String
+  employeeId String
+
+  /// INCLUDED | EXCLUDED
+  inclusion String @default("INCLUDED")
+  /// PENDING | READY | WARNING | ERROR | CALCULATED
+  state     String @default("PENDING")
+
+  /// The assignment this employee was calculated on, resolved at run time.
+  assignmentId String?
+
+  /// [{ severity, code, message, field }] — the validation result for this row.
+  issuesJson String @default("[]")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  run PayrollRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@unique([runId, employeeId])
+  @@index([accountId, orgId, runId, state])
+}
+
+/// The days and variable amounts a run is calculated from.
+///
+/// Its own table, and deliberately not a foreign key into an attendance module
+/// that does not exist: today a person types these, later attendance writes
+/// them, and the engine cannot tell the difference.
+model PayrollInput {
+  id        String @id @default(cuid())
+  accountId String
+  orgId     String
+
+  runId      String
+  employeeId String
+
+  workingDays Decimal @default(0)
+  payableDays Decimal @default(0)
+  lwpDays     Decimal @default(0)
+
+  overtimeAmount Decimal @default(0)
+  variablePay    Decimal @default(0)
+
+  /// MANUAL | ATTENDANCE | IMPORT — where the numbers came from.
+  source String  @default("MANUAL")
+  notes  String?
+
+  createdByUserId String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([runId, employeeId])
+  @@index([accountId, orgId, runId])
+}
+
+/// One person's pay for one period, and the evidence for every figure on it.
+///
+/// The snapshot columns are the point. A slip does not read live configuration
+/// when it is opened six months later — it reads what it stored. If a structure
+/// is edited or a PF ceiling moves tomorrow, this row still says what it said.
+model SalarySlip {
+  id        String  @id @default(cuid())
+  accountId String
+  orgId     String
+  branchId  String?
+
+  number     String
+  runId      String
+  employeeId String
+  periodId   String
+
+  payrollDate String
+
+  grossEarnings         Decimal @default(0)
+  totalDeductions       Decimal @default(0)
+  employerContributions Decimal @default(0)
+  netPay                Decimal @default(0)
+  employerCost          Decimal @default(0)
+
+  /// What the same employee took home last period, for variance.
+  previousNetPay  Decimal?
+  variancePercent Decimal?
+
+  /// DRAFT | CALCULATED | APPROVED | LOCKED | PAID | CANCELLED
+  status        String @default("DRAFT")
+  /// UNPAID | PAID | FAILED | PARTIAL
+  paymentStatus String @default("UNPAID")
+
+  // ---- Immutable snapshots -------------------------------------------------
+  /// The employee and payroll profile as they were.
+  employeeSnapshotJson   String @default("{}")
+  /// The assignment, its CTC and dates.
+  assignmentSnapshotJson String @default("{}")
+  /// The structure and every component configuration used.
+  structureSnapshotJson  String @default("{}")
+  /// Days and variable pay used.
+  inputSnapshotJson      String @default("{}")
+  /// Adjustments consumed, with their ids.
+  adjustmentSnapshotJson String @default("[]")
+  /// { PF: ruleId+version, ESI: …, PT: …, TDS: … }
+  statutorySnapshotJson  String @default("{}")
+
+  /// The engine that produced this, so the result can be reproduced exactly.
+  engineVersion String?
+
+  createdByUserId String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  run    PayrollRun                @relation(fields: [runId], references: [id], onDelete: Cascade)
+  lines  SalarySlipLine[]
+  traces PayrollCalculationTrace[]
+
+  @@unique([orgId, number])
+  @@unique([runId, employeeId])
+  @@index([accountId, orgId, employeeId, periodId])
+  @@index([accountId, orgId, status])
+}
+
+/// One component on one slip. Carries the component's identity as text as well
+/// as its id, so a renamed or deleted component cannot change an old payslip.
+model SalarySlipLine {
+  id        String @id @default(cuid())
+  accountId String
+  orgId     String
+
+  slipId        String
+  componentId   String
+  componentCode String
+  componentName String
+  /// EARNING | DEDUCTION | EMPLOYER_CONTRIBUTION
+  type          String
+
+  amount     Decimal  @default(0)
+  /// What it would have been without proration, when they differ.
+  fullAmount Decimal?
+
+  isTaxable    Boolean @default(true)
+  displayOrder Int     @default(0)
+
+  /// Where this line posts. Captured at calculation, not read at posting time.
+  expenseLedgerId   String?
+  liabilityLedgerId String?
+  costCenterId      String?
+
+  createdAt DateTime @default(now())
+
+  slip SalarySlip @relation(fields: [slipId], references: [id], onDelete: Cascade)
+
+  @@index([accountId, orgId, slipId])
+  @@index([slipId])
+}
+
+/// How one figure on one slip was arrived at, in enough detail to answer a
+/// dispute without rerunning anything. This is the explainability requirement:
+/// every amount on a payslip can be opened and read back.
+model PayrollCalculationTrace {
+  id        String @id @default(cuid())
+  accountId String
+  orgId     String
+
+  slipId        String
+  componentId   String?
+  componentCode String
+
+  /// What the calculation started from: the base and its value.
+  baseLabel  String?
+  baseAmount Decimal?
+
+  /// The rule in words: "50% of Basic", "12% of PF wages, capped at 15,000".
+  ruleText String?
+  /// The expression evaluated, when there was one.
+  formula  String?
+
+  computedAmount  Decimal  @default(0)
+  prorationFactor Decimal?
+  roundingApplied Decimal?
+
+  /// For statutory lines: which rule version decided this.
+  statutoryRuleId      String?
+  statutoryRuleVersion String?
+
+  /// Anything else worth keeping: intermediate values, ceilings hit.
+  detailJson String @default("{}")
+
+  displayOrder Int      @default(0)
+  createdAt    DateTime @default(now())
+
+  slip SalarySlip @relation(fields: [slipId], references: [id], onDelete: Cascade)
+
+  @@index([accountId, orgId, slipId])
+  @@index([slipId])
+}
+
+/// Money lent to an employee and recovered from pay.
+model PayrollLoan {
+  id        String  @id @default(cuid())
+  accountId String
+  orgId     String
+  branchId  String?
+
+  number     String
+  employeeId String
+
+  /// LOAN | SALARY_ADVANCE
+  type String @default("LOAN")
+
+  principal    Decimal @default(0)
+  interestRate Decimal @default(0)
+
+  startDate             String
+  /// The period recovery begins in.
+  recoveryStartPeriodId String?
+
+  installmentCount   Int     @default(0)
+  installmentAmount  Decimal @default(0)
+  outstandingBalance Decimal @default(0)
+
+  /// The component the recovery appears as on a payslip.
+  recoveryComponentId String?
+
+  /// DRAFT | APPROVED | ACTIVE | COMPLETED | CANCELLED
+  status String  @default("DRAFT")
+  notes  String?
+
+  approvedByUserId String?
+  approvedAt       DateTime?
+
+  createdByUserId String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  installments PayrollLoanInstallment[]
+
+  @@unique([orgId, number])
+  @@index([accountId, orgId, employeeId, status])
+}
+
+/// One scheduled recovery. Written up front rather than inferred from payslips,
+/// so the outstanding balance does not depend on replaying history.
+model PayrollLoanInstallment {
+  id        String @id @default(cuid())
+  accountId String
+  orgId     String
+
+  loanId   String
+  periodId String?
+  /// 1-based position in the schedule.
+  sequence Int
+
+  dueAmount       Decimal @default(0)
+  principalAmount Decimal @default(0)
+  interestAmount  Decimal @default(0)
+
+  /// PENDING | RECOVERED | SKIPPED | WAIVED
+  status String @default("PENDING")
+
+  /// The slip that actually recovered it.
+  slipId      String?
+  recoveredAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  loan PayrollLoan @relation(fields: [loanId], references: [id], onDelete: Cascade)
+
+  @@unique([loanId, sequence])
+  @@index([accountId, orgId, loanId, status])
+}
+
+/// A statutory regime payroll can compute: PF, ESI, PT, TDS.
+model StatutoryScheme {
+  id        String @id @default(cuid())
+  accountId String
+  orgId     String
+
+  /// PF | ESI | PT | TDS | LWF
+  code        String
+  name        String
+  description String?
+
+  isEnabled          Boolean @default(false)
+  /// Registration number for the scheme, where one exists.
+  registrationNumber String?
+
+  createdByUserId String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  rules StatutoryRule[]
+
+  @@unique([orgId, code])
+  @@index([accountId, orgId, isEnabled])
+}
+
+/// One version of a statutory rule. Versioned and effective-dated, never
+/// edited: a payslip records the rule id and version it used, so a rate change
+/// in October cannot alter what April computed.
+model StatutoryRule {
+  id        String @id @default(cuid())
+  accountId String
+  orgId     String
+
+  schemeId     String
+  /// Where it applies: a state for PT, a country for PF.
+  jurisdiction String?
+
+  effectiveFrom String
+  effectiveTo   String?
+  version       String
+
+  employeeRate         Decimal  @default(0)
+  employerRate         Decimal  @default(0)
+  /// Wages above this are ignored — the PF 15,000 ceiling, for instance.
+  wageCeiling          Decimal?
+  /// Below this, the scheme does not apply at all.
+  eligibilityThreshold Decimal?
+
+  /// NONE | NEAREST | UP | DOWN
+  rounding String @default("NEAREST")
+
+  /// Everything the shape of the scheme needs: PT slabs, TDS bands, EPS splits.
+  configJson String @default("{}")
+
+  /// DRAFT | ACTIVE | SUPERSEDED
+  status String @default("DRAFT")
+
+  createdByUserId String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  scheme StatutoryScheme @relation(fields: [schemeId], references: [id], onDelete: Cascade)
+
+  @@unique([schemeId, jurisdiction, effectiveFrom, version])
+  @@index([accountId, orgId, schemeId, status])
+}
+
+/// One employee's standing under one scheme, where it differs from the default.
+model EmployeeStatutoryConfig {
+  id        String @id @default(cuid())
+  accountId String
+  orgId     String
+
+  employeeId String
+  schemeCode String
+
+  isApplicable         Boolean  @default(true)
+  /// A person on a voluntary higher PF contribution, for example.
+  overrideEmployeeRate Decimal?
+  overrideEmployerRate Decimal?
+  /// Where the scheme is state-specific.
+  jurisdiction         String?
+
+  effectiveFrom String?
+  notes         String?
+
+  createdByUserId String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([orgId, employeeId, schemeCode])
+  @@index([accountId, orgId, schemeCode])
+}
+
+/// Paying a run out. Partial failure is normal — 124 of 126 paid is a state
+/// this has to be able to hold, so the run is not marked paid by the batch.
+model PayrollPayment {
+  id        String  @id @default(cuid())
+  accountId String
+  orgId     String
+  branchId  String?
+
+  number String
+  runId  String
+
+  paymentDate     String
+  /// BANK_TRANSFER | CASH | CHEQUE
+  method          String  @default("BANK_TRANSFER")
+  /// The cash or bank `LedgerAccount` the money leaves.
+  ledgerAccountId String?
+
+  reference String?
+
+  totalAmount Decimal @default(0)
+  paidAmount  Decimal @default(0)
+  failedCount Int     @default(0)
+  paidCount   Int     @default(0)
+
+  /// DRAFT | PROCESSING | COMPLETED | PARTIAL | FAILED | CANCELLED
+  status String @default("DRAFT")
+
+  /// The `JournalEntry` that cleared salaries payable against the bank.
+  ///
+  /// The payment row is its own posting receipt — unlike a run, which posts
+  /// through `PayrollPosting` — because one payment produces exactly one
+  /// journal and there is nothing else to record about it.
+  journalEntryId String?
+  /// UNPOSTED | POSTING | POSTED. `POSTING` is a claim, not a result: it says
+  /// an attempt is under way, so a second press cannot write a second journal.
+  postingStatus  String    @default("UNPOSTED")
+  postedAt       DateTime?
+  postedByUserId String?
+
+  createdByUserId String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  lines PayrollPaymentLine[]
+
+  @@unique([orgId, number])
+  @@index([accountId, orgId, runId, status])
+}
+
+/// One employee's share of a payment, and whether it actually landed.
+model PayrollPaymentLine {
+  id        String @id @default(cuid())
+  accountId String
+  orgId     String
+
+  paymentId  String
+  slipId     String
+  employeeId String
+
+  amount Decimal @default(0)
+
+  /// PENDING | PAID | FAILED
+  status        String    @default("PENDING")
+  failureReason String?
+  reference     String?
+  paidAt        DateTime?
+
+  /// Masked in the UI; kept so a bank advice can be regenerated.
+  bankAccountNumber String?
+  bankIfsc          String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  payment PayrollPayment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  @@unique([paymentId, slipId])
+  @@index([accountId, orgId, paymentId, status])
+}
+
+/// The journal a run produced. One per run, enforced by the unique key below —
+/// pressing Post twice cannot write the books twice.
+model PayrollPosting {
+  id        String @id @default(cuid())
+  accountId String
+  orgId     String
+  branchId  String
+
+  runId String
+
+  postingDate    String
+  /// The `JournalEntry` this created. Payroll keeps no ledger of its own.
+  journalEntryId String?
+
+  totalDebit  Decimal @default(0)
+  totalCredit Decimal @default(0)
+
+  /// DRAFT | POSTED | REVERSED
+  status String @default("DRAFT")
+
+  reversedByEntryId String?
+  reversedAt        DateTime?
+
+  postedByUserId String?
+  postedAt       DateTime?
+
+  createdByUserId String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  lines PayrollPostingLine[]
+
+  /// A run posts once. The second attempt finds this row instead of posting.
+  @@unique([orgId, runId])
+  @@index([accountId, orgId, status])
+}
+
+/// A line of the payroll journal, kept so the preview and the posted entry can
+/// be compared without reading the ledger back.
+model PayrollPostingLine {
+  id        String @id @default(cuid())
+  accountId String
+  orgId     String
+
+  postingId       String
+  ledgerAccountId String
+  ledgerName      String
+
+  debit  Decimal @default(0)
+  credit Decimal @default(0)
+
+  costCenterId String?
+  description  String?
+  displayOrder Int     @default(0)
+
+  createdAt DateTime @default(now())
+
+  posting PayrollPosting @relation(fields: [postingId], references: [id], onDelete: Cascade)
+
+  @@index([accountId, orgId, postingId])
+  @@index([postingId])
+}

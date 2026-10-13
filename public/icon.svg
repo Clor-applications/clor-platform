@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <!-- The Clor mark. Kept in step with src/components/brand/ClorMark.jsx. -->
+  <defs>
+    <clipPath id="clip">
+      <path d="M148 38.5 A78 78 0 1 0 148 161.5 A21 21 0 0 0 122.1 128.1 A36 36 0 1 1 122.1 71.9 A21 21 0 0 0 148 38.5 Z"/>
+    </clipPath>
+    <linearGradient id="arc" x1="150" y1="30" x2="30" y2="120" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#1668F0"/>
+      <stop offset="0.35" stop-color="#2B8CF7"/>
+      <stop offset="0.72" stop-color="#33C6CB"/>
+      <stop offset="1" stop-color="#41DCBA"/>
+    </linearGradient>
+    <linearGradient id="foot" x1="40" y1="78" x2="150" y2="170" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#41DCBA" stop-opacity="0"/>
+      <stop offset="0.18" stop-color="#4E63E2" stop-opacity="0.75"/>
+      <stop offset="0.42" stop-color="#8B3FDB"/>
+      <stop offset="0.64" stop-color="#C8419B"/>
+      <stop offset="0.85" stop-color="#F26A28"/>
+      <stop offset="1" stop-color="#FCAC17"/>
+    </linearGradient>
+  </defs>
+  <g clip-path="url(#clip)">
+    <rect width="200" height="200" fill="url(#arc)"/>
+    <rect width="200" height="200" fill="url(#foot)"/>
+  </g>
+</svg>

@@ -1,0 +1,48 @@
+# Render blueprint for the Clor platform API (accounting + payroll + people).
+#
+# Express + Prisma (3 datasources: main/payroll/people), TypeScript built to
+# dist/. Runs on Render's $PORT; Render terminates TLS. The shell SPA is hosted
+# separately on Cloudflare Pages and calls this API cross-origin (CORS_ORIGIN).
+# Auto-deploys on push to the connected branch.
+services:
+  - type: web
+    name: clor-api
+    runtime: node
+    region: singapore
+    plan: free
+    rootDir: server
+    # devDeps are needed to build (tsc, prisma, tsx); generate all 3 Prisma
+    # clients for this platform (linux) before compiling.
+    buildCommand: npm ci --include=dev && npm run prisma:generate && npm run build
+    # Apply committed migrations to all 3 databases, then start. Render's free
+    # tier has no preDeploy hook, so migrations run at boot; migrate deploy is
+    # idempotent, so repeated boots are a no-op once the DBs are up to date.
+    startCommand: npm run prisma:deploy && npm start
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      # Neon connection strings — set in the dashboard (clor_main / clor_payroll
+      # / clor_people / clor_platform).
+      - key: DATABASE_URL
+        sync: false
+      - key: PAYROLL_DATABASE_URL
+        sync: false
+      - key: PEOPLE_DATABASE_URL
+        sync: false
+      # Platform DB (accounts, users, sessions, roles, subscriptions). MUST be set
+      # and populated BEFORE deploying the platform-DB split — see
+      # docs/PLATFORM_DB_PROD_ROLLOUT.md. Missing = boot fails on prisma:deploy.
+      - key: PLATFORM_DATABASE_URL
+        sync: false
+      # Signs auth tokens; required in production. Generated once by Render.
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_ISSUER
+        value: clor
+      - key: JWT_AUDIENCE
+        value: clor
+      # The shell SPA origin (app.clor.in) allowed to call this API.
+      - key: CORS_ORIGIN
+        value: https://app.clor.in

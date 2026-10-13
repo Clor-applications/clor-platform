@@ -1,0 +1,532 @@
+import React, { useMemo, useState } from 'react';
+import { ChevronDown, LayoutGrid, LogOut, Moon, Plus, Sun } from 'lucide-react';
+
+import { useTheme } from '@ui/components/ui/useTheme';
+import { useDismissable } from '@ui/components/ui/useDismissable';
+import { formatDateIn } from '@ui/utils/dates';
+
+import { APPS, appById, availableApps, landingApp, subscribedApps } from './registry';
+import { useSession } from './session';
+import ClorMark from './ClorMark';
+import CompanySetup from './CompanySetup';
+import Home from './Home';
+import ScreenBoundary from './ScreenBoundary';
+import SignIn from './SignIn';
+import SignUp from './SignUp';
+import ForgotPassword from './ForgotPassword';
+import ResetPassword from './ResetPassword';
+import VerifyEmail from './VerifyEmail';
+
+/**
+ * The Clor shell.
+ *
+ * It owns the things that are true regardless of which application you are
+ * looking at: who is signed in, which company, which apps that company has,
+ * the switcher between them, and the theme. Everything else on screen belongs
+ * to an app.
+ *
+ * The rule that makes this a platform rather than a large program: the shell
+ * imports app manifests and nothing else. It does not know what a payslip is,
+ * and Payroll does not know there is a theme toggle. Each app hands over a
+ * nav, a set of screens and a home, and the shell arranges them.
+ *
+ * Which is why the sidebar shows one app's navigation at a time. A company
+ * with four apps should not face a rail with every submenu of all four — it
+ * should see the app it is in, and a way to the others.
+ */
+
+export default function Shell() {
+  const { user, tenant, tenants, restoring, setTenantId, signOut, addApp } = useSession();
+
+  /* The shared hook, not a second copy: the public page has a toggle too, and
+     a private key here would mean the choice did not follow you inside. */
+  const { theme, toggle: toggleTheme } = useTheme();
+
+  /* Null while the company's apps are still being read, which is not the same
+     as none: treating it as none would flash an empty rail. */
+  const subscriptions = tenant?.subscriptions;
+  const mine = useMemo(() => subscribedApps(subscriptions || []), [subscriptions]);
+  /*
+   * Which app is open, derived rather than stored.
+   *
+   * What is stored is the app somebody chose; which one is *open* is that
+   * choice where this company has it, and the landing app where it does not.
+   * Written as an effect that corrected the stored value, a company switch
+   * drew one frame of a rail belonging to an app the new company has not
+   * bought — and an app with no landing app corrected itself forever.
+   */
+  const [chosenAppId, setChosenAppId] = useState(null);
+  const activeAppId = mine.some((a) => a.id === chosenAppId)
+    ? chosenAppId
+    : landingApp(subscriptions || [])?.id || null;
+  const [screenKey, setScreenKey] = useState(null);
+  const [switcherOpen, setSwitcherOpen] = useState(false);
+  /* Closes on a click anywhere else, and on Escape. It did neither: the only
+     way out of the app switcher was to click the app switcher again. */
+  const switcherRef = useDismissable(switcherOpen, () => setSwitcherOpen(false));
+  const [showMoreApps, setShowMoreApps] = useState(false);
+
+  /*
+   * What an unauthenticated visitor is looking at: the public page, or one of
+   * the two doors off it. Three states rather than a router, because they are
+   * the only three there are — everything past sign-in is an app's business.
+   */
+  const [publicPage, setPublicPage] = useState('home');
+
+  /*
+   * Links in Clor's emails: `/?reset=<token>` and `/?verify=<token>`. Read once
+   * on load; leaving either screen strips the token from the address bar so a
+   * reload or a shared screenshot does not carry it.
+   */
+  const [emailLink, setEmailLink] = useState(() => {
+    try {
+      const q = new URLSearchParams(window.location.search);
+      /* Emails sent before 12 Oct 2026 used /verify-email?token= and /?token=. */
+      const legacy = String(q.get('token') || '').trim();
+      const onVerifyPath = /\/verify-email\/?$/.test(window.location.pathname);
+      const reset = String(q.get('reset') || '').trim() || (!onVerifyPath ? legacy : '');
+      const verify = String(q.get('verify') || '').trim() || (onVerifyPath ? legacy : '');
+      if (reset) return { kind: 'reset', token: reset };
+      if (verify) return { kind: 'verify', token: verify };
+    } catch {
+      /* no usable address: nothing to handle */
+    }
+    return null;
+  });
+  const leaveEmailLink = (nextPage) => {
+    try {
+      window.history.replaceState(null, '', '/' + window.location.hash);
+    } catch {
+      /* best effort */
+    }
+    setEmailLink(null);
+    if (nextPage) setPublicPage(nextPage);
+  };
+
+  /*
+   * A token in this browser is checked before anything is drawn.
+   *
+   * Without this the public page appears for a moment on every reload — an
+   * advertisement shown to somebody who is already a customer, four times a
+   * day.
+   */
+  if (restoring) {
+    return (
+      <div className="min-h-dvh grid place-items-center" style={{ backgroundColor: 'rgb(var(--app-bg))' }}>
+        <ClorMark size={40} />
+      </div>
+    );
+  }
+
+  if (emailLink?.kind === 'verify') {
+    return <VerifyEmail token={emailLink.token} onDone={() => leaveEmailLink(user ? null : 'signin')} />;
+  }
+  if (emailLink?.kind === 'reset') {
+    /* A successful reset ends every session, this browser's included. */
+    return (
+      <ResetPassword
+        token={emailLink.token}
+        onDone={() => {
+          leaveEmailLink('signin');
+          if (user) window.location.replace('/');
+        }}
+      />
+    );
+  }
+
+  if (!user) {
+    if (publicPage === 'signin') {
+      return (
+        <SignIn
+          onHome={() => setPublicPage('home')}
+          onSignUp={() => setPublicPage('signup')}
+          onForgot={() => setPublicPage('forgot')}
+        />
+      );
+    }
+    if (publicPage === 'forgot') {
+      return <ForgotPassword onHome={() => setPublicPage('home')} onSignIn={() => setPublicPage('signin')} />;
+    }
+    if (publicPage === 'signup') {
+      return <SignUp onHome={() => setPublicPage('home')} onSignIn={() => setPublicPage('signin')} />;
+    }
+    return <Home onSignIn={() => setPublicPage('signin')} onGetStarted={() => setPublicPage('signup')} />;
+  }
+
+  /*
+   * Signed in, with nothing to be signed in to.
+   *
+   * This used to fall through to the marketing page, which is why sign-up had
+   * to create a company: without one the account it made vanished behind the
+   * front door. It is a real state — a new account before its first company,
+   * and an account whose last company was removed — so it gets a real screen.
+   */
+  if (!tenant) return <CompanySetup />;
+
+  const app = appById(activeAppId);
+  /* A screen the open app does not have is not a screen: the same company
+     switch that changes the app leaves last app's screen key behind, and
+     honouring it shows "Nothing selected" instead of the new app's home. */
+  const screen = (screenKey && app?.screens?.[screenKey] ? screenKey : app?.home) || null;
+  const Screen = app?.screens?.[screen] || null;
+  /* An app may draw its own navigation instead of handing the shell a list. */
+  const Root = app?.Root || null;
+
+  const openApp = (id) => {
+    const next = appById(id);
+    setChosenAppId(id);
+    setScreenKey(next?.home || null);
+    setSwitcherOpen(false);
+    setShowMoreApps(false);
+  };
+
+  return (
+    <div
+      className="min-h-screen"
+      style={{ backgroundColor: 'rgb(var(--app-bg))', '--platform-bar': '3.5rem' }}
+    >
+      <header
+        className="sticky top-0 flex h-14 items-center gap-3 px-4"
+        style={{
+          backgroundColor: 'rgb(var(--surface))',
+          borderBottom: '1px solid rgb(var(--border))',
+          /* Above every layer an app can draw — see --z-platform-bar. An app's
+             own header is z-40 and its popovers z-60, so a bar at z-30 was
+             covered by the application it contains. */
+          zIndex: 'var(--z-platform-bar)',
+        }}
+      >
+        <button type="button" className="flex items-center gap-2" onClick={() => openApp(mine[0]?.id)}>
+          <ClorMark size={24} />
+          <span className="ui-display text-base">Clor</span>
+        </button>
+
+        {/* The app switcher. Named for the app you are in, because that is the
+            question it answers before it is the control it offers. */}
+        {app ? (
+          <div className="relative" ref={switcherRef}>
+            <button
+              type="button"
+              className="ui-btn ui-btn-secondary ui-btn-sm"
+              onClick={() => setSwitcherOpen((v) => !v)}
+              aria-expanded={switcherOpen}
+              aria-haspopup="menu"
+            >
+              <app.icon size={15} aria-hidden="true" />
+              {app.name}
+              <ChevronDown size={14} aria-hidden="true" />
+            </button>
+
+            {switcherOpen ? (
+              <div
+                role="menu"
+                className="absolute left-0 mt-1 w-64 rounded-xl p-1"
+                style={{
+                  backgroundColor: 'rgb(var(--surface))',
+                  border: '1px solid rgb(var(--border))',
+                  boxShadow: 'var(--shadow-lift)',
+                  zIndex: 'var(--z-platform-menu)',
+                }}
+              >
+                {mine.map((a) => (
+                  <button
+                    key={a.id}
+                    type="button"
+                    role="menuitem"
+                    className="w-full flex items-start gap-2 rounded-lg px-2 py-2 text-left ui-hover-sunken"
+                    onClick={() => openApp(a.id)}
+                  >
+                    <a.icon size={16} aria-hidden="true" className="mt-0.5 shrink-0" />
+                    <span className="min-w-0">
+                      <span className="block text-sm">{a.name}</span>
+                      <span className="block ui-caption">{a.blurb}</span>
+                    </span>
+                  </button>
+                ))}
+                <div style={{ borderTop: '1px solid rgb(var(--border))' }} className="my-1" />
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="w-full flex items-center gap-2 rounded-lg px-2 py-2 text-left ui-hover-sunken"
+                  onClick={() => {
+                    setShowMoreApps(true);
+                    setSwitcherOpen(false);
+                  }}
+                >
+                  <LayoutGrid size={16} aria-hidden="true" />
+                  <span className="text-sm">More apps</span>
+                </button>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+
+        <div className="flex-1" />
+
+        <select
+          className="ui-select ui-select-sm"
+          style={{ width: 'auto', minWidth: '12rem' }}
+          value={tenant.id}
+          disabled={tenants.length < 2}
+          onChange={(e) => setTenantId(e.target.value)}
+          aria-label="Company"
+        >
+          {tenants.map((t) => (
+            <option key={t.id} value={t.id}>{t.name}</option>
+          ))}
+        </select>
+
+        <button
+          type="button"
+          className="ui-icon-btn"
+          onClick={toggleTheme}
+          aria-label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+        >
+          {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+        </button>
+
+        <button
+          type="button"
+          className="ui-icon-btn"
+          onClick={() => {
+            setPublicPage('home');
+            signOut();
+          }}
+          aria-label="Sign out"
+        >
+          <LogOut size={16} />
+        </button>
+      </header>
+
+      <SubscriptionBanner billing={tenant.billing} />
+
+      {Root ? (
+        /* The app owns the area under the platform bar. Reached from here by
+           the switcher and by More apps, both of which are in the bar above —
+           so an app that draws its own rail never has to know they exist. */
+        <ScreenBoundary appName={app?.name} resetKey={`${app?.id}:${tenant.id}`}>
+          {showMoreApps ? (
+            <main className="p-6">
+              <MoreApps tenant={tenant} onAdd={addApp} onOpen={openApp} />
+            </main>
+          ) : (
+            /* Keyed on the company: changing it has to remount the app, or the
+               screens keep showing what they fetched for the last one. */
+            <Root key={tenant.id} />
+          )}
+        </ScreenBoundary>
+      ) : (
+      <div className="flex">
+        {/* One app's navigation. Never four apps' worth. */}
+        <nav
+          className="w-56 shrink-0 p-3 space-y-0.5"
+          style={{ borderRight: '1px solid rgb(var(--border))', minHeight: 'calc(100vh - 3.5rem)' }}
+          aria-label={app ? `${app.name} navigation` : 'Navigation'}
+        >
+          {(app?.nav || []).map((item) => (
+            <button
+              key={item.key}
+              type="button"
+              className="w-full flex items-center gap-2 rounded-lg px-2 py-2 text-left text-sm ui-hover-sunken"
+              style={
+                screen === item.key
+                  ? { backgroundColor: 'rgb(var(--surface-sunken))', fontWeight: 500 }
+                  : undefined
+              }
+              onClick={() => {
+                setScreenKey(item.key);
+                setShowMoreApps(false);
+              }}
+            >
+              {item.icon ? <item.icon size={16} aria-hidden="true" /> : null}
+              {item.label}
+            </button>
+          ))}
+
+          <div style={{ borderTop: '1px solid rgb(var(--border))' }} className="!mt-3 pt-3">
+            <button
+              type="button"
+              className="w-full flex items-center gap-2 rounded-lg px-2 py-2 text-left text-sm ui-hover-sunken"
+              onClick={() => setShowMoreApps(true)}
+            >
+              <LayoutGrid size={16} aria-hidden="true" />
+              More apps
+            </button>
+          </div>
+        </nav>
+
+        <main className="flex-1 min-w-0 p-6">
+          {showMoreApps ? (
+            <MoreApps tenant={tenant} onAdd={addApp} onOpen={openApp} />
+          ) : Screen ? (
+            <ScreenBoundary appName={app?.name} resetKey={`${app?.id}:${screen}:${tenant.id}`}>
+              {/* Same rule as an app that draws itself: a company change is a
+                  remount, not a re-render with stale figures on screen. */}
+              <Screen key={tenant.id} />
+            </ScreenBoundary>
+          ) : (
+            <p className="ui-caption">Nothing selected.</p>
+          )}
+        </main>
+      </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Everything Clor is, and what this company has of it.
+ *
+ * Reachable from inside every app, and owned by the shell rather than by
+ * Accounting — which is what lets a Payroll-only company add Accounting
+ * without first entering a product it has not bought.
+ */
+function MoreApps({ tenant, onAdd, onOpen }) {
+  const has = (id) => (tenant.subscriptions || []).includes(id);
+  /* Unrestricted (no subscription assigned) owns everything sellable. */
+  const owned = (id) => !tenant.billing?.restricted || (tenant.billing.ownedApps || []).includes(id);
+
+  return (
+    <div className="space-y-6" style={{ maxWidth: '56rem' }}>
+      <div>
+        <h1 className="ui-display text-2xl">More apps</h1>
+        <p className="ui-caption mt-1">
+          Everything Clor runs. {tenant.name} has {(tenant.subscriptions || []).length} of them.
+        </p>
+      </div>
+
+      <PlanCard billing={tenant.billing} />
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        {APPS.map((a) => (
+          <article key={a.id} className="ui-card p-4">
+            <div className="flex items-start justify-between gap-3">
+              <span
+                className="grid place-items-center w-9 h-9 rounded-lg shrink-0"
+                style={{ backgroundColor: 'rgb(var(--brand-soft))', color: 'rgb(var(--brand))' }}
+              >
+                <a.icon size={18} aria-hidden="true" />
+              </span>
+              {a.available ? null : <span className="ui-pill ui-pill-neutral">Coming</span>}
+            </div>
+
+            <h2 className="mt-3 font-medium">{a.name}</h2>
+            <p className="mt-1 text-sm ui-muted">{a.blurb}</p>
+
+            <div className="mt-4">
+              {!a.available ? (
+                <span className="ui-caption">Not built yet.</span>
+              ) : has(a.id) ? (
+                <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => onOpen(a.id)}>
+                  Open {a.name}
+                </button>
+              ) : !owned(a.id) ? (
+                <span className="ui-caption">Not on your plan. Contact Clor to add it.</span>
+              ) : (
+                <AddAppButton app={a} tenant={tenant} onAdd={onAdd} />
+              )}
+            </div>
+          </article>
+        ))}
+      </div>
+
+      <p className="ui-caption">
+        Adding an app switches it on for this company and gives it its own database — no other app&rsquo;s data is
+        touched, and the apps it already uses carry on unchanged.
+      </p>
+    </div>
+  );
+}
+
+/**
+ * Adding an app is a request, not a checkbox.
+ *
+ * It provisions on the server, so the button has to say so and has to refuse
+ * to be pressed twice — a second press while the first is in flight would ask
+ * for the same company to be given the same app again.
+ */
+function AddAppButton({ app, tenant, onAdd }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  return (
+    <>
+      <button
+        type="button"
+        className="ui-btn ui-btn-primary ui-btn-sm"
+        disabled={busy}
+        onClick={async () => {
+          setBusy(true);
+          setError('');
+          try {
+            await onAdd(app.id);
+          } catch (e) {
+            setError(String(e?.message || 'Could not add that app.'));
+          } finally {
+            setBusy(false);
+          }
+        }}
+      >
+        <Plus size={14} aria-hidden="true" />
+        {busy ? 'Adding…' : `Add to ${tenant.name}`}
+      </button>
+      {error ? (
+        <p className="mt-2 text-sm" style={{ color: 'rgb(var(--neg))' }}>{error}</p>
+      ) : null}
+    </>
+  );
+}
+
+const STATUS_LABEL = {
+  trialing: 'Trial',
+  active: 'Active',
+  past_due: 'Payment overdue',
+  paused: 'Paused',
+  cancelled: 'Cancelled',
+};
+
+/**
+ * Where the company stands with Clor. Says nothing when no subscription has
+ * been assigned: an account that was never restricted has no plan to describe,
+ * and inventing one would be a claim the server did not make.
+ */
+function PlanCard({ billing }) {
+  if (!billing?.restricted) return null;
+  const end = billing.status === 'trialing' ? billing.trialEndsAt : billing.currentPeriodEnd;
+  return (
+    <section className="ui-card p-4 flex flex-wrap items-center gap-3" aria-label="Your plan">
+      <span className={`ui-pill ${billing.inGoodStanding ? 'ui-pill-pos' : 'ui-pill-warn'}`}>
+        {STATUS_LABEL[billing.status] || billing.status}
+      </span>
+      <span className="text-sm">
+        {(billing.ownedApps || []).length} app{(billing.ownedApps || []).length === 1 ? '' : 's'} on this plan
+        {end ? (
+          <>
+            {' · '}
+            {billing.status === 'trialing' ? 'trial ends' : 'renews'} {formatDateIn(end)}
+          </>
+        ) : null}
+      </span>
+    </section>
+  );
+}
+
+/**
+ * A lapsed subscription warns; it does not lock anybody out of their data.
+ * Shown under the platform bar on every screen until it is resolved.
+ */
+function SubscriptionBanner({ billing }) {
+  if (!billing?.restricted || billing.inGoodStanding) return null;
+  return (
+    <div
+      role="status"
+      className="px-6 py-2 text-sm"
+      style={{ backgroundColor: 'rgb(var(--warn-soft))', color: 'rgb(var(--warn-ink))', borderBottom: '1px solid rgb(var(--border))' }}
+    >
+      Your Clor subscription is {(STATUS_LABEL[billing.status] || billing.status).toLowerCase()}. Your data is safe
+      and still visible; renew to keep working. Contact suresh@clor.in.
+    </div>
+  );
+}
+
+export { availableApps };

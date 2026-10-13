@@ -1,0 +1,25 @@
+# Build context for docker/api.Dockerfile is ./server, and Docker reads the
+# .dockerignore next to the context — the one at the repo root does NOT apply
+# here. Without this file the daemon receives ~536 MB (node_modules alone is
+# 487 MB) on every build.
+
+node_modules
+dist
+logs
+*.log
+
+# Never ship secrets or a developer's database into an image.
+.env
+.env.*
+prisma/dev.db
+prisma/*.db
+prisma/*.db-journal
+
+# Prisma downloads its query engines during `npx prisma generate` inside the
+# image; the host copies are the wrong platform anyway.
+prisma/engines
+
+# Tests are excluded from the build (see tsconfig "exclude") — no need to send them.
+src/__tests__
+
+**/.DS_Store

@@ -1,0 +1,1772 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ----------------------------
+// Warehouses
+// ----------------------------
+model Warehouse {
+  id        String @id @default(cuid())
+  accountId String
+  orgId     String
+  branchId  String
+
+  code      String
+
+  name                String
+  addressLine1        String?
+  addressLine2        String?
+  city                String?
+  state               String?
+  country             String?
+  gstin               String?
+  gstRegistrationType String  @default("UNREGISTERED")
+  contactPerson       String?
+  phone               String?
+  email               String?
+  isActive            Boolean @default(true)
+
+  createdByUserId String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  stock  StockBalance[]
+
+  transferLines InterBranchTransferLine[]
+
+  transfersOut InterBranchTransfer[] @relation("WarehouseOut")
+  transfersIn  InterBranchTransfer[] @relation("WarehouseIn")
+
+  @@unique([orgId, branchId, name])
+  @@unique([orgId, code])
+  @@index([accountId, orgId, branchId])
+}
+
+// ----------------------------
+// Inventory + inter-branch transfer
+// ----------------------------
+model Item {
+  id        String  @id @default(cuid())
+  accountId String
+  orgId     String
+  // branchId allows branch-specific master overrides; for shared masters use null
+  branchId  String?
+
+  sku      String
+  name     String
+  unit     String
+  isActive Boolean @default(true)
+
+  createdByUserId String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  stockBalances StockBalance[]
+  transferLines InterBranchTransferLine[]
+
+  @@unique([orgId, branchId, sku])
+  @@index([accountId, orgId])
+}
+
+model StockBalance {
+  id          String @id @default(cuid())
+  accountId   String
+  orgId       String
+  branchId    String
+  warehouseId String
+  itemId      String
+
+  qtyOnHand Decimal @default(0)
+
+  createdByUserId String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  warehouse Warehouse @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
+  item      Item      @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, branchId, warehouseId, itemId])
+  @@index([accountId, orgId, branchId, warehouseId])
+}
+
+model InterBranchTransfer {
+  id        String @id @default(cuid())
+  accountId String
+  orgId     String
+
+  branchId          String // source context for isolation
+  sourceBranchId    String
+  sourceWarehouseId String
+  targetBranchId    String
+  targetWarehouseId String
+
+  transferNo String
+  status     String @default("DRAFT") // DRAFT | SENT | RECEIVED | REJECTED
+
+  initiatedByUserId String
+  approvedByUserId  String?
+  rejectedReason    String?
+
+  sentAt     DateTime?
+  receivedAt DateTime?
+
+  createdByUserId String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  sourceWarehouse Warehouse @relation("WarehouseOut", fields: [sourceWarehouseId], references: [id])
+  targetWarehouse Warehouse @relation("WarehouseIn", fields: [targetWarehouseId], references: [id])
+
+  lines InterBranchTransferLine[]
+
+  @@unique([orgId, transferNo])
+  @@index([accountId, orgId, sourceBranchId])
+  @@index([accountId, orgId, targetBranchId])
+}
+
+model InterBranchTransferLine {
+  id          String @id @default(cuid())
+  accountId   String
+  orgId       String
+  branchId    String
+  warehouseId String
+
+  transferId String
+  itemId     String
+  qty        Decimal
+
+  createdByUserId String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  transfer  InterBranchTransfer @relation(fields: [transferId], references: [id], onDelete: Cascade)
+  warehouse Warehouse           @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
+  item      Item                @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@index([accountId, orgId, transferId])
+}
+
+model InventoryAdjustment {
+  id          String  @id @default(cuid())
+  accountId   String
+  orgId       String
+  branchId    String
+  warehouseId String
+  itemId      String
+  qtyDelta    Decimal
+  reason      String
+
+  createdByUserId String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([accountId, orgId, branchId, warehouseId, itemId])
+}
+
+// ----------------------------
+// Sales invoices
+// ----------------------------
+model Invoice {
+  id        String @id @default(cuid())
+  accountId String
+  orgId     String
+  branchId  String
+
+  warehouseId String?
+  number      String
+  date        String
+  dueDate     String?
+  refNo       String?
+  refDate     String?
+
+  customerId         String?
+  customerName       String
+  customerGstin      String?
+  placeOfSupplyState String?
+  taxType            String?
+  // GSTR-1 rchrg flag: supply attracts reverse charge (buyer pays the tax).
+  reverseCharge      Boolean @default(false)
+
+  // Fields the entry forms collect that have no column of their own —
+  // salesman, cost centre, invoice-level discount, other charges, ship-to,
+  // the document this was raised from, POS details. They were being dropped on
+  // the way to the server, so a browser that had never seen the invoice
+  // rebuilt it without them. Stored as JSON so new UI fields do not each need
+  // a migration.
+  extrasJson String?
+
+  subtotal   Decimal @default(0)
+  cgstTotal  Decimal @default(0)
+  sgstTotal  Decimal @default(0)
+  igstTotal  Decimal @default(0)
+  gstTotal   Decimal @default(0)
+  total      Decimal @default(0)
+  paidAmount Decimal @default(0)
+
+  status           String  @default("Draft")
+  sourceEstimateId String?
+  itemsJson        String
+
+  /// The currency this invoice was raised in, and the rate used to translate
+  /// it into the books. Both are stored so the posting can be explained later
+  /// without guessing which rate was in force.
+  currency     String  @default("INR")
+  exchangeRate Decimal @default(1)
+  /// `total` translated at `exchangeRate`. Reports read this.
+  baseTotal    Decimal @default(0)
+
+  /// Migration identity: where this row came from, and its key in that system.
+  /// Re-running an import maps to the same row instead of duplicating it.
+  sourceSystem String?
+  sourceKey    String?
+
+  /// e-Invoice (IRP) registration result. IRN is the invoice's identity on
+  /// the GST network; the signed QR must be printed on the document.
+  irn                 String?
+  irnStatus           String? // REGISTERED | FAILED | CANCELLED
+  irnAckNo            String?
+  irnAckDate          String?
+  irnSignedQr         String?
+  /// The full SignedInvoice JWT the IRP returns — the legal e-invoice.
+  irnSignedInvoice    String?
+  /// The INV-01 JSON that was registered, kept verbatim for audit/re-download.
+  einvoicePayloadJson String?
+  irnError            String?
+  irnRegisteredAt     DateTime?
+  irnCancelledAt      DateTime?
+  irnCancelReason     String?
+
+  /// e-Way Bill generated from the IRN (NIC /eiewb API).
+  ewbNo        String?
+  ewbDate      String?
+  ewbValidTill String?
+
+  createdByUserId String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Document numbers are unique across the whole organisation, not within a
+  // branch. Scoped per branch, two branches could each issue INV-1 — two
+  // different documents wearing one number, which is not a numbering series a
+  // business can file, quote in a return, or hand an auditor.
+  @@unique([orgId, number])
+  @@unique([orgId, sourceSystem, sourceKey])
+  @@index([accountId, orgId, branchId, date])
+}
+
+/// A purchase bill from a vendor. The mirror of Invoice: it debits purchases and input GST, and credits the vendor.
+model Bill {
+  id        String @id @default(cuid())
+  accountId String
+  orgId     String
+  branchId  String
+
+  warehouseId String?
+  number      String
+  date        String
+  dueDate     String?
+  refNo       String?
+  refDate     String?
+
+  /// The invoice or bill this note is raised against, when there is one.
+  againstDocId String?
+
+  partyId            String?
+  partyName          String
+  partyGstin         String?
+  placeOfSupplyState String?
+  taxType            String?
+
+  subtotal      Decimal @default(0)
+  cgstTotal     Decimal @default(0)
+  sgstTotal     Decimal @default(0)
+  igstTotal     Decimal @default(0)
+  gstTotal      Decimal @default(0)
+  total         Decimal @default(0)
+  settledAmount Decimal @default(0)
+
+  status     String  @default("Draft")
+  itemsJson  String
+  /// Form-collected fields with no column of their own (see Invoice.extrasJson).
+  extrasJson String?
+
+  /// Same single-currency rule as invoices: the books are kept in the base
+  /// currency, and this is the rate the document was translated at.
+  currency     String  @default("INR")
+  exchangeRate Decimal @default(1)
+  baseTotal    Decimal @default(0)
+
+  sourceSystem String?
+  sourceKey    String?
+
+  createdByUserId String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Document numbers are unique across the whole organisation, not within a
+  // branch. Scoped per branch, two branches could each issue INV-1 — two
+  // different documents wearing one number, which is not a numbering series a
+  // business can file, quote in a return, or hand an auditor.
+  @@unique([orgId, number])
+  @@unique([orgId, sourceSystem, sourceKey])
+  @@index([accountId, orgId, branchId, date])
+}
+
+/// A quotation to a customer. No ledger impact until it becomes an invoice.
+model Estimate {
+  id        String @id @default(cuid())
+  accountId String
+  orgId     String
+  branchId  String
+
+  number     String
+  date       String
+  validUntil String?
+  partyId    String?
+  partyName  String
+  partyGstin String?
+
+  subtotal Decimal @default(0)
+  gstTotal Decimal @default(0)
+  total    Decimal @default(0)
+
+  status     String  @default("Draft")
+  itemsJson  String
+  /// Form-collected fields with no column of their own (see Invoice.extrasJson).
+  extrasJson String?
+  notes      String?
+
+  createdByUserId String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Document numbers are unique across the whole organisation, not within a
+  // branch. Scoped per branch, two branches could each issue INV-1 — two
+  // different documents wearing one number, which is not a numbering series a
+  // business can file, quote in a return, or hand an auditor.
+  @@unique([orgId, number])
+  @@index([accountId, orgId, branchId, date])
+}
+
+/// An order placed on a vendor. No ledger impact until it becomes a bill.
+model PurchaseOrderDoc {
+  id        String @id @default(cuid())
+  accountId String
+  orgId     String
+  branchId  String
+
+  number       String
+  date         String
+  expectedDate String?
+  partyId      String?
+  partyName    String
+  partyGstin   String?
+  warehouseId  String?
+
+  subtotal Decimal @default(0)
+  gstTotal Decimal @default(0)
+  total    Decimal @default(0)
+
+  status     String  @default("Draft")
+  itemsJson  String
+  /// Form-collected fields with no column of their own (see Invoice.extrasJson).
+  extrasJson String?
+  notes      String?
+
+  createdByUserId String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Document numbers are unique across the whole organisation, not within a
+  // branch. Scoped per branch, two branches could each issue INV-1 — two
+  // different documents wearing one number, which is not a numbering series a
+  // business can file, quote in a return, or hand an auditor.
+  @@unique([orgId, number])
+  @@index([accountId, orgId, branchId, date])
+}
+
+/// A sales order — the customer's confirmed intent, between quote and
+/// invoice. No ledger posting (it is not yet revenue); delivery and billing
+/// track against it via challans/invoices carrying sourceSalesOrderId.
+model SalesOrderDoc {
+  id        String @id @default(cuid())
+  accountId String
+  orgId     String
+  branchId  String
+
+  number       String
+  date         String
+  expectedDate String?
+  partyId      String?
+  partyName    String
+  partyGstin   String?
+  warehouseId  String?
+
+  subtotal Decimal @default(0)
+  gstTotal Decimal @default(0)
+  total    Decimal @default(0)
+
+  status     String  @default("Open")
+  itemsJson  String
+  /// Form-collected fields with no column of their own (see Invoice.extrasJson).
+  extrasJson String?
+  notes      String?
+
+  createdByUserId String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Document numbers are unique across the whole organisation, not within a
+  // branch. Scoped per branch, two branches could each issue INV-1 — two
+  // different documents wearing one number, which is not a numbering series a
+  // business can file, quote in a return, or hand an auditor.
+  @@unique([orgId, number])
+  @@index([accountId, orgId, branchId, date])
+}
+
+/// A delivery challan — goods moved without an invoice.
+///
+/// A real document under Rule 55, not a convenience: it accompanies a
+/// consignment, an e-way bill is raised against it, and it is a record a
+/// business may have to produce. It lived only in the browser until now, which
+/// meant a challan raised on one machine did not exist on any other.
+model DeliveryChallan {
+  id        String @id @default(cuid())
+  accountId String
+  orgId     String
+  branchId  String
+
+  number      String
+  date        String
+  partyId     String?
+  partyName   String
+  partyGstin  String?
+  warehouseId String?
+
+  /// Why the goods are moving, which decides what the challan has to say:
+  /// SUPPLY | JOB_WORK | SKD_CKD | LINE_SALE | EXHIBITION | OTHER
+  purpose String @default("SUPPLY")
+
+  subtotal Decimal @default(0)
+  gstTotal Decimal @default(0)
+  total    Decimal @default(0)
+
+  /// Open | Converted | Cancelled. A converted challan cannot be billed twice.
+  status             String  @default("Open")
+  /// The invoice it became, so the double-billing guard survives a new device.
+  convertedInvoiceId String?
+
+  itemsJson  String
+  /// Form-collected fields with no column of their own (see Invoice.extrasJson).
+  extrasJson String?
+  notes      String?
+
+  ewayBillNo String?
+
+  createdByUserId String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([orgId, number])
+  @@index([accountId, orgId, branchId, date])
+}
+
+/// A capital asset, and what is left of its value.
+///
+/// On the balance sheet, so holding it in one browser meant the same company
+/// showed different assets on different machines — not a missing feature but a
+/// wrong statement.
+model FixedAsset {
+  id        String  @id @default(cuid())
+  accountId String
+  orgId     String
+  branchId  String?
+
+  code     String?
+  name     String
+  category String?
+
+  purchaseDate String
+  cost         Decimal @default(0)
+  salvageValue Decimal @default(0)
+
+  /// SLM (straight line) | WDV (written down value) — the two the Companies
+  /// Act and the Income-tax Act respectively expect.
+  depreciationMethod String  @default("SLM")
+  depreciationRate   Decimal @default(0)
+  usefulLifeYears    Int?
+
+  /// Depreciation charged to date. Kept as a figure rather than recomputed on
+  /// read, because the rate can change and past years must not move with it.
+  accumulatedDepreciation Decimal @default(0)
+
+  /// ACTIVE | DISPOSED | WRITTEN_OFF
+  status        String   @default("ACTIVE")
+  disposalDate  String?
+  disposalValue Decimal?
+
+  notes String?
+
+  createdByUserId String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([accountId, orgId, status])
+}
+
+/// A salesperson a document can be attributed to.
+///
+/// Sales by Salesman reports on this, so browser-only made the report differ by
+/// machine for the same books.
+model Salesman {
+  id        String  @id @default(cuid())
+  accountId String
+  orgId     String
+  branchId  String?
+
+  code  String?
+  name  String
+  email String?
+  phone String?
+
+  /// Percent of the document value, when commission is tracked.
+  commissionRate Decimal @default(0)
+
+  isActive Boolean @default(true)
+  notes    String?
+
+  createdByUserId String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([orgId, name])
+  @@index([accountId, orgId, isActive])
+}
+
+/// An expense voucher — money out that is not a stock purchase: rent, travel,
+/// utilities. Posts Dr Indirect Expenses (+ input GST) / Cr Accounts Payable,
+/// so unpaid expenses sit in the same payable book as bills.
+model Expense {
+  id        String @id @default(cuid())
+  accountId String
+  orgId     String
+  branchId  String
+
+  warehouseId String?
+  number      String
+  date        String
+  dueDate     String?
+  refNo       String?
+  refDate     String?
+
+  againstDocId String?
+
+  partyId            String?
+  partyName          String
+  partyGstin         String?
+  placeOfSupplyState String?
+  taxType            String?
+
+  /// Free-text bucket ("Rent", "Travel") — reporting label, not a ledger key.
+  category    String?
+  description String?
+
+  subtotal      Decimal @default(0)
+  cgstTotal     Decimal @default(0)
+  sgstTotal     Decimal @default(0)
+  igstTotal     Decimal @default(0)
+  gstTotal      Decimal @default(0)
+  total         Decimal @default(0)
+  settledAmount Decimal @default(0)
+
+  status     String  @default("Unpaid")
+  itemsJson  String
+  /// Form-collected fields with no column of their own (see Invoice.extrasJson).
+  extrasJson String?
+
+  currency     String  @default("INR")
+  exchangeRate Decimal @default(1)
+  baseTotal    Decimal @default(0)
+
+  sourceSystem String?
+  sourceKey    String?
+
+  createdByUserId String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Document numbers are unique across the whole organisation, not within a
+  // branch. Scoped per branch, two branches could each issue INV-1 — two
+  // different documents wearing one number, which is not a numbering series a
+  // business can file, quote in a return, or hand an auditor.
+  @@unique([orgId, number])
+  @@unique([orgId, sourceSystem, sourceKey])
+  @@index([accountId, orgId, branchId, date])
+}
+
+/// A sales return. Reverses part or all of a sales invoice: revenue and output GST come back down, and the customer is credited.
+model CreditNote {
+  id        String @id @default(cuid())
+  accountId String
+  orgId     String
+  branchId  String
+
+  warehouseId String?
+  number      String
+  date        String
+  dueDate     String?
+  refNo       String?
+  refDate     String?
+
+  /// The invoice or bill this note is raised against, when there is one.
+  againstDocId String?
+
+  partyId            String?
+  partyName          String
+  partyGstin         String?
+  placeOfSupplyState String?
+  taxType            String?
+
+  subtotal      Decimal @default(0)
+  cgstTotal     Decimal @default(0)
+  sgstTotal     Decimal @default(0)
+  igstTotal     Decimal @default(0)
+  gstTotal      Decimal @default(0)
+  total         Decimal @default(0)
+  settledAmount Decimal @default(0)
+
+  status     String  @default("Draft")
+  itemsJson  String
+  /// Form-collected fields with no column of their own (see Invoice.extrasJson).
+  extrasJson String?
+
+  /// Same single-currency rule as invoices: the books are kept in the base
+  /// currency, and this is the rate the document was translated at.
+  currency     String  @default("INR")
+  exchangeRate Decimal @default(1)
+  baseTotal    Decimal @default(0)
+
+  sourceSystem String?
+  sourceKey    String?
+
+  createdByUserId String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Document numbers are unique across the whole organisation, not within a
+  // branch. Scoped per branch, two branches could each issue INV-1 — two
+  // different documents wearing one number, which is not a numbering series a
+  // business can file, quote in a return, or hand an auditor.
+  @@unique([orgId, number])
+  @@unique([orgId, sourceSystem, sourceKey])
+  @@index([accountId, orgId, branchId, date])
+}
+
+/// A purchase return. The mirror of a credit note: the vendor is debited and purchases and input GST come back down.
+model DebitNote {
+  id        String @id @default(cuid())
+  accountId String
+  orgId     String
+  branchId  String
+
+  warehouseId String?
+  number      String
+  date        String
+  dueDate     String?
+  refNo       String?
+  refDate     String?
+
+  /// The invoice or bill this note is raised against, when there is one.
+  againstDocId String?
+
+  partyId            String?
+  partyName          String
+  partyGstin         String?
+  placeOfSupplyState String?
+  taxType            String?
+
+  subtotal      Decimal @default(0)
+  cgstTotal     Decimal @default(0)
+  sgstTotal     Decimal @default(0)
+  igstTotal     Decimal @default(0)
+  gstTotal      Decimal @default(0)
+  total         Decimal @default(0)
+  settledAmount Decimal @default(0)
+
+  status     String  @default("Draft")
+  itemsJson  String
+  /// Form-collected fields with no column of their own (see Invoice.extrasJson).
+  extrasJson String?
+
+  /// Same single-currency rule as invoices: the books are kept in the base
+  /// currency, and this is the rate the document was translated at.
+  currency     String  @default("INR")
+  exchangeRate Decimal @default(1)
+  baseTotal    Decimal @default(0)
+
+  sourceSystem String?
+  sourceKey    String?
+
+  createdByUserId String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Document numbers are unique across the whole organisation, not within a
+  // branch. Scoped per branch, two branches could each issue INV-1 — two
+  // different documents wearing one number, which is not a numbering series a
+  // business can file, quote in a return, or hand an auditor.
+  @@unique([orgId, number])
+  @@unique([orgId, sourceSystem, sourceKey])
+  @@index([accountId, orgId, branchId, date])
+}
+
+// ----------------------------
+// General ledger (double-entry)
+// ----------------------------
+// Reports read POSTED JournalLine rows. Control accounts are resolved by
+// controlKind, never by matching an account name.
+
+model FiscalYear {
+  id        String @id @default(cuid())
+  accountId String
+  orgId     String
+
+  name          String // "2026-27"
+  startDate     String // ISO date
+  endDate       String
+  status        String  @default("OPEN") // OPEN | CLOSED
+  lockedThrough String? // books locked up to and including this date
+
+  createdByUserId String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  entries JournalEntry[]
+
+  @@unique([orgId, name])
+  @@index([accountId, orgId])
+}
+
+model Journal {
+  id        String  @id @default(cuid())
+  accountId String
+  orgId     String
+  branchId  String?
+
+  code String // SAL | PUR | BNK | CSH | JV | OPN
+  name String
+  type String // SALE | PURCHASE | BANK | CASH | GENERAL | OPENING
+
+  createdByUserId String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  entries JournalEntry[]
+
+  @@unique([orgId, branchId, code])
+  @@index([accountId, orgId])
+}
+
+model LedgerAccount {
+  id        String  @id @default(cuid())
+  accountId String
+  orgId     String
+  branchId  String? // null = shared by every branch
+
+  code        String
+  name        String
+  accountType String // ASSET | LIABILITY | EQUITY | INCOME | EXPENSE
+  parentId    String?
+
+  // Machine identity for control accounts. Postings look accounts up by this,
+  // which is what makes renaming an account safe.
+  controlKind String? // AR | AP | STOCK | SALES | PURCHASES | CGST_OUT |
+  // SGST_OUT | IGST_OUT | CGST_IN | SGST_IN | IGST_IN |
+  // CASH | BANK | ROUNDING | OPENING_DIFF | SUSPENSE
+  isActive    Boolean @default(true)
+
+  sourceSystem String?
+  sourceKey    String?
+
+  createdByUserId String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  lines             JournalLine[]
+  posTenderAccounts PosTenderAccount[]
+
+  @@unique([orgId, branchId, code])
+  @@unique([orgId, sourceSystem, sourceKey])
+  @@index([accountId, orgId, controlKind])
+}
+
+model JournalEntry {
+  id           String @id @default(cuid())
+  accountId    String
+  orgId        String
+  branchId     String
+  journalId    String
+  fiscalYearId String
+
+  entryNo   String
+  date      String
+  narration String?
+  status    String  @default("DRAFT") // DRAFT | POSTED | REVERSED
+
+  postedAt       DateTime?
+  postedByUserId String?
+  reversedById   String? // the entry that reverses this one
+
+  sourceDocType String? // INVOICE | BILL | PAYMENT | RECEIPT | TRANSFER | OPENING
+  sourceDocId   String?
+
+  // Tamper-evidence: sha256(prevHash + canonical payload) per branch chain.
+  prevHash String?
+  hash     String?
+
+  createdByUserId String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  journal    Journal       @relation(fields: [journalId], references: [id])
+  fiscalYear FiscalYear    @relation(fields: [fiscalYearId], references: [id])
+  lines      JournalLine[]
+
+  @@unique([orgId, branchId, entryNo])
+  @@index([accountId, orgId, branchId, date])
+  @@index([accountId, orgId, sourceDocType, sourceDocId])
+  @@index([accountId, orgId, status])
+}
+
+model JournalLine {
+  id        String @id @default(cuid())
+  accountId String
+  orgId     String
+  branchId  String
+  entryId   String
+
+  ledgerAccountId String
+  partyType       String? // CUSTOMER | VENDOR
+  partyId         String?
+  itemId          String?
+  warehouseId     String?
+
+  debit  Decimal @default(0)
+  credit Decimal @default(0)
+
+  taxCode     String?
+  hsnSac      String?
+  description String?
+
+  createdAt DateTime @default(now())
+
+  entry         JournalEntry  @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  ledgerAccount LedgerAccount @relation(fields: [ledgerAccountId], references: [id])
+
+  @@index([accountId, orgId, branchId, ledgerAccountId])
+  @@index([accountId, orgId, partyType, partyId])
+  @@index([entryId])
+}
+
+// ----------------------------
+// Approval thresholds
+// ----------------------------
+model ApprovalRule {
+  id        String  @id @default(cuid())
+  accountId String
+  orgId     String
+  branchId  String?
+
+  docType   String // INVOICE | BILL | PAYMENT | JOURNAL
+  name      String
+  // A rule matches when the document amount falls in [minAmount, maxAmount).
+  minAmount Decimal  @default(0)
+  maxAmount Decimal?
+
+  approverRoleId String
+  sequence       Int     @default(1)
+  blocksPosting  Boolean @default(true)
+  isActive       Boolean @default(true)
+
+  createdByUserId String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  requests ApprovalRequest[]
+
+  @@unique([orgId, docType, name])
+  @@index([accountId, orgId, docType, isActive])
+}
+
+model ApprovalRequest {
+  id        String @id @default(cuid())
+  accountId String
+  orgId     String
+  branchId  String
+
+  docType  String
+  docId    String
+  ruleId   String
+  sequence Int    @default(1)
+
+  amount Decimal @default(0)
+  status String  @default("PENDING") // PENDING | APPROVED | REJECTED
+
+  requestedByUserId String
+  decidedByUserId   String?
+  decidedAt         DateTime?
+  comment           String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  rule ApprovalRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+
+  @@index([accountId, orgId, docType, docId])
+  @@index([accountId, orgId, status])
+}
+
+// ----------------------------
+// Parties — customers and vendors
+// ----------------------------
+// One table for both: an entity is frequently a customer and a vendor at once,
+// and splitting them duplicates GSTIN, address and contact handling.
+model Party {
+  id        String  @id @default(cuid())
+  accountId String
+  orgId     String
+  // null = shared across branches, which is the usual case for a customer list
+  branchId  String?
+
+  partyType String // CUSTOMER | VENDOR | BOTH
+  code      String?
+  name      String
+  legalName String?
+
+  gstin               String?
+  gstRegistrationType String  @default("UNREGISTERED")
+  pan                 String?
+  placeOfSupplyState  String?
+
+  email         String?
+  phone         String?
+  contactPerson String?
+
+  billingLine1    String?
+  billingLine2    String?
+  billingCity     String?
+  billingState    String?
+  billingPincode  String?
+  billingCountry  String? @default("India")
+  billingDistrict String?
+
+  shippingSameAsBilling Boolean @default(true)
+  shippingLine1         String?
+  shippingLine2         String?
+  shippingCity          String?
+  shippingState         String?
+  shippingPincode       String?
+  shippingCountry       String?
+  shippingDistrict      String?
+
+  // Drives the due date on documents so it cannot be bypassed in the browser.
+  paymentTermDays Int      @default(0)
+  paymentTermName String?
+  creditLimit     Decimal?
+
+  openingBalance     Decimal @default(0)
+  openingBalanceType String  @default("DR") // DR | CR
+
+  /// Which group under Sundry Debtors / Creditors this party rolls up to.
+  partyGroup  String?
+  /// The currency this party is billed in, when it is not the company's own.
+  currency    String?
+  priceListId String?
+
+  /// Statutory identifiers beyond GSTIN and PAN. `statutoryOther` is a free
+  /// field because the list of things a customer is asked to record — LUT,
+  /// IEC, a state licence — is longer than any schema should try to enumerate.
+  msmeNumber     String?
+  statutoryOther String?
+
+  notes    String?
+  isActive Boolean @default(true)
+
+  // Migration identity, so a re-run maps to the same row.
+  sourceSystem String?
+  sourceKey    String?
+
+  createdByUserId String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  addresses PartyAddress[]
+  contacts  PartyContact[]
+
+  @@unique([orgId, partyType, name])
+  @@unique([orgId, sourceSystem, sourceKey])
+  @@index([accountId, orgId, partyType, isActive])
+  @@index([accountId, orgId, gstin])
+}
+
+/// An address beyond the billing and shipping ones the party carries directly.
+///
+/// Billing and shipping stay as columns on Party. They are read by the document
+/// sync and by every invoice, and moving them would have been a migration with
+/// no user-visible gain. Everything past those two — a second shipping address,
+/// a site office, a warehouse — lives here with a name, which is what the
+/// customer master asks for.
+///
+/// The API returns all of them as one `addresses` array with billing and
+/// shipping synthesised at the front, so the split is invisible above the API
+/// and the form deals with a single list.
+model PartyAddress {
+  id        String @id @default(cuid())
+  accountId String
+  orgId     String
+  partyId   String
+
+  /// "Shipping 2", "Site office" — the name of the place, as the user calls it.
+  label    String
+  line1    String?
+  line2    String?
+  city     String?
+  district String?
+  state    String?
+  pincode  String?
+  country  String? @default("India")
+
+  sortOrder Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  party Party @relation(fields: [partyId], references: [id], onDelete: Cascade)
+
+  @@index([accountId, orgId, partyId])
+}
+
+/// A person at the party. One row per human, because `contactPerson` as a
+/// single string could not hold the accounts clerk and the person who signs off
+/// the order at the same time — and those are rarely the same person.
+model PartyContact {
+  id        String @id @default(cuid())
+  accountId String
+  orgId     String
+  partyId   String
+
+  name     String
+  position String?
+  email    String?
+  mobile   String?
+
+  isPrimary Boolean  @default(false)
+  sortOrder Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  party Party @relation(fields: [partyId], references: [id], onDelete: Cascade)
+
+  @@index([accountId, orgId, partyId])
+}
+
+/// e-Invoice (IRP) connection for an org. The IRP is reached through a GSP /
+/// API-gateway REST endpoint; credentials are replayed on every call, so they
+/// are stored encrypted (same AES-256-GCM helper as SMTP), never returned raw.
+model EInvoiceSetting {
+  id        String @id @default(cuid())
+  accountId String
+  orgId     String @unique
+
+  /// SANDBOX until the org's production credentials are verified.
+  mode String @default("SANDBOX")
+
+  /// GSP = simple REST gateway (MasterGST/ClearTax style, static headers).
+  /// NIC = direct NIC e-Invoice API (RSA auth handshake + AES-256-ECB SEK).
+  provider String @default("GSP")
+
+  /// GSP: gateway base URL, e.g. https://api.mastergst.com/einvoice
+  /// NIC: system base URL, e.g. https://einv-apisandbox.nic.in
+  baseUrl String?
+  gstin   String?
+
+  /// NIC only: the e-Invoice system's RSA public key (PEM), downloaded from
+  /// the portal. Used to encrypt the auth payload.
+  publicKeyPem String?
+
+  username    String?
+  passwordEnc String?
+
+  clientId        String?
+  clientSecretEnc String?
+
+  /// Extra static headers the gateway wants, stored as a JSON object string
+  /// (e.g. {"ip_address": "…"}). Merged into every request.
+  headersJson String?
+
+  /// Fire IRP registration automatically when a non-draft invoice is created.
+  autoRegister Boolean @default(false)
+
+  verifiedAt DateTime?
+  lastError  String?
+
+  updatedByUserId String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([accountId, orgId])
+}
+
+// ----------------------------
+// Item master
+// ----------------------------
+model ItemMaster {
+  id        String  @id @default(cuid())
+  accountId String
+  orgId     String
+  branchId  String?
+
+  code        String?
+  name        String
+  description String?
+
+  /// STOCK items move inventory; SERVICE items never do.
+  itemType String  @default("STOCK")
+  unit     String  @default("Pcs")
+  hsnSac   String?
+  gstRate  Decimal @default(0)
+
+  salePrice     Decimal @default(0)
+  purchasePrice Decimal @default(0)
+
+  openingQty   Decimal @default(0)
+  reorderLevel Decimal @default(0)
+
+  /// Batch and serial tracking, gated by the batchSerial feature.
+  trackBy String @default("NONE") // NONE | BATCH | SERIAL
+
+  isActive Boolean @default(true)
+
+  sourceSystem String?
+  sourceKey    String?
+
+  createdByUserId String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([orgId, name, unit])
+  @@unique([orgId, sourceSystem, sourceKey])
+  @@index([accountId, orgId, isActive])
+  @@index([accountId, orgId, hsnSac])
+}
+
+/// A batch (lot) of a tracked item held in one warehouse.
+///
+/// Quantity lives here rather than only on StockBalance because the whole point
+/// of batch tracking is knowing which lot the stock is in — an expiry-dated
+/// pharmaceutical or food item cannot be issued from an aggregate number.
+model Batch {
+  id          String @id @default(cuid())
+  accountId   String
+  orgId       String
+  branchId    String
+  warehouseId String
+  itemId      String
+
+  batchNo    String
+  /// Kept as YYYY-MM-DD strings for the same reason document dates are: a
+  /// timezone has no meaning for a manufacturing or expiry date.
+  mfgDate    String?
+  expiryDate String?
+
+  qtyOnHand Decimal @default(0)
+  isActive  Boolean @default(true)
+
+  notes String?
+
+  sourceSystem String?
+  sourceKey    String?
+
+  createdByUserId String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  serials SerialNumber[]
+
+  /// One lot number per item per warehouse; receiving the same lot again adds
+  /// to it rather than creating a second row that reconciles to nothing.
+  @@unique([orgId, itemId, warehouseId, batchNo])
+  @@index([accountId, orgId, branchId, warehouseId, itemId])
+  @@index([accountId, orgId, expiryDate])
+}
+
+/// One physical unit of a serial-tracked item.
+///
+/// Status rather than deletion: a sold or scrapped serial has to stay
+/// searchable for warranty and recall, which is most of why serials are
+/// tracked at all.
+model SerialNumber {
+  id          String  @id @default(cuid())
+  accountId   String
+  orgId       String
+  branchId    String
+  warehouseId String?
+  itemId      String
+  batchId     String?
+
+  serialNo String
+  status   String @default("IN_STOCK") // IN_STOCK | SOLD | SCRAPPED
+
+  /// The document that took it out of stock, for tracing.
+  issuedDocType String?
+  issuedDocId   String?
+  issuedAt      DateTime?
+
+  notes String?
+
+  sourceSystem String?
+  sourceKey    String?
+
+  createdByUserId String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  batch Batch? @relation(fields: [batchId], references: [id], onDelete: SetNull)
+
+  /// A serial number is unique for an item across the whole organisation: the
+  /// same unit cannot be in two warehouses.
+  @@unique([orgId, itemId, serialNo])
+  @@index([accountId, orgId, branchId, warehouseId, status])
+  @@index([accountId, orgId, itemId, status])
+}
+
+/// A file being imported — requirements 15 and 16.
+///
+/// Import is two steps on purpose: rows are staged and validated first, and
+/// only committed once the operator has seen what would happen. An importer
+/// that writes as it parses leaves half a ledger behind when row 400 turns out
+/// to be malformed.
+model ImportBatch {
+  id        String @id @default(cuid())
+  accountId String
+  orgId     String
+  branchId  String
+
+  /// INVOICE | BILL | CREDIT_NOTE | DEBIT_NOTE | JOURNAL
+  docType      String
+  /// Where the data came from, so a re-run maps to the same rows.
+  sourceSystem String  @default("CSV")
+  fileName     String?
+
+  status String @default("STAGED") // STAGED | VALIDATED | COMMITTED | FAILED
+
+  totalRows     Int @default(0)
+  validRows     Int @default(0)
+  errorRows     Int @default(0)
+  committedRows Int @default(0)
+
+  committedAt DateTime?
+
+  createdByUserId String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  rows ImportRow[]
+
+  @@index([accountId, orgId, branchId, docType, status])
+}
+
+/// One line of the file, kept with whatever was wrong with it.
+///
+/// The raw payload is retained so an operator can see the row as they supplied
+/// it rather than a normalised version they never typed.
+model ImportRow {
+  id        String @id @default(cuid())
+  accountId String
+  orgId     String
+  batchId   String
+
+  rowNumber Int
+  /// The parsed source row, as JSON.
+  raw       String
+
+  status String  @default("PENDING") // PENDING | VALID | ERROR | COMMITTED | SKIPPED
+  error  String?
+
+  /// Natural key from the file, used to make a re-run idempotent.
+  sourceKey String?
+  /// The record this row became.
+  targetId  String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  batch ImportBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+
+  @@unique([batchId, rowNumber])
+  @@index([accountId, orgId, batchId, status])
+}
+
+/// A currency this organisation trades in — requirement 8.
+model Currency {
+  id        String @id @default(cuid())
+  accountId String
+  orgId     String
+
+  code     String // ISO 4217: INR, USD, EUR
+  name     String
+  symbol   String @default("")
+  /// Minor units. Most currencies use 2; JPY uses 0.
+  decimals Int    @default(2)
+
+  isActive Boolean @default(true)
+
+  createdByUserId String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  rates ExchangeRate[]
+
+  @@unique([orgId, code])
+  @@index([accountId, orgId, isActive])
+}
+
+/// What one unit of `code` was worth in the org's base currency on a date.
+///
+/// Rates are dated and never overwritten: restating a past document at
+/// today's rate would silently change reported results for a closed period.
+model ExchangeRate {
+  id        String @id @default(cuid())
+  accountId String
+  orgId     String
+
+  currencyId String
+  /// Denormalised so a rate can be looked up without joining.
+  code       String
+  /// YYYY-MM-DD.
+  date       String
+  /// Units of base currency per one unit of `code`.
+  rate       Decimal
+
+  createdByUserId String
+  createdAt       DateTime @default(now())
+
+  currency Currency @relation(fields: [currencyId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, code, date])
+  @@index([accountId, orgId, code, date])
+}
+
+// ----------------------------
+// Document numbering
+// ----------------------------
+/// Allocation happens inside the document's transaction, so two browsers cannot
+/// mint the same number. Client-side numbering could only ever detect the clash
+/// afterwards, via a unique index.
+model NumberSeries {
+  id        String  @id @default(cuid())
+  accountId String
+  orgId     String
+  branchId  String?
+
+  docType String
+  name    String
+
+  prefix     String @default("")
+  suffix     String @default("")
+  padding    Int    @default(4)
+  nextNumber Int    @default(1)
+
+  resetPolicy String  @default("FISCAL_YEAR") // NEVER | FISCAL_YEAR | MONTH
+  fiscalYear  String?
+  periodKey   String?
+
+  allowManual Boolean @default(false)
+  isDefault   Boolean @default(false)
+  isActive    Boolean @default(true)
+
+  createdByUserId String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([orgId, branchId, docType, name])
+  @@index([accountId, orgId, docType, isActive])
+}
+
+// ----------------------------
+// Receipts and payments
+// ----------------------------
+/// One record whichever screen entered it — a receipt voucher and a bank-book
+/// line are the same payment, so there is nothing to reconcile against itself.
+model Payment {
+  id        String @id @default(cuid())
+  accountId String
+  orgId     String
+  branchId  String
+
+  /// RECEIPT takes money in, PAYMENT sends it out.
+  direction String
+
+  number String
+  date   String
+
+  partyType String? // CUSTOMER | VENDOR
+  partyId   String?
+  partyName String?
+
+  /// The cash or bank ledger the money actually moved through.
+  ledgerAccountId String
+  /// Free text kept for display: cheque number, UPI reference, and so on.
+  instrumentRef   String?
+  instrumentDate  String?
+
+  amount Decimal @default(0)
+  notes  String?
+
+  /// The currency the money actually moved in, and the rate used to bring it
+  /// into the books. Settling a foreign invoice at a different rate from the
+  /// one it was booked at is a real gain or loss, and needs both to compute.
+  currency     String  @default("INR")
+  exchangeRate Decimal @default(1)
+
+  status String @default("POSTED") // POSTED | REVERSED
+
+  /// Reconciliation, when the feature is on.
+  bankDate     DateTime?
+  reconciled   Boolean   @default(false)
+  statementRef String?
+
+  sourceSystem String?
+  sourceKey    String?
+
+  createdByUserId String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  allocations PaymentAllocation[]
+
+  // Document numbers are unique across the whole organisation, not within a
+  // branch. Scoped per branch, two branches could each issue INV-1 — two
+  // different documents wearing one number, which is not a numbering series a
+  // business can file, quote in a return, or hand an auditor.
+  @@unique([orgId, number])
+  /// The same guarantee Invoice already had: one payment per source record.
+  /// A till whose network drops after the server committed retries, and the
+  /// retry has to land on the payment that already exists rather than taking
+  /// the money a second time. The document number cannot do this job — it is
+  /// allocated per attempt, so two attempts wear two numbers.
+  @@unique([orgId, sourceSystem, sourceKey])
+  @@index([accountId, orgId, branchId, date])
+  @@index([accountId, orgId, reconciled])
+}
+
+/// Where a point-of-sale tender posts its money, for one branch.
+///
+/// A till knows it took "Cash". The ledger needs an account. Nothing joined the
+/// two, so POS could not raise a real receipt without inventing one — and an
+/// invented account is how a counter sale ends up debiting receivables that
+/// nothing ever clears.
+///
+/// Explicit per branch, with no inheritance. The product has the idea of a head
+/// office — a branch code, a parent link, a share flag — but no field that
+/// authoritatively answers which branch it is, and production already holds an
+/// organisation with two parentless branches. Rather than invent that identity
+/// to save some typing, every branch names its own accounts. The ledger it
+/// names may well be organisation-wide; choosing a shared account is still a
+/// choice this branch made.
+///
+/// One row per branch per tender, or none. No row means the tender is not
+/// configured, which a checkout must treat as "cannot take this money" rather
+/// than falling back to any account it can find.
+model PosTenderAccount {
+  id        String @id @default(cuid())
+  accountId String
+  orgId     String
+  branchId  String
+
+  /// CASH | UPI | CARD
+  tender          String
+  ledgerAccountId String
+
+  createdByUserId String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  ledgerAccount LedgerAccount @relation(fields: [ledgerAccountId], references: [id])
+
+  @@unique([orgId, branchId, tender])
+  @@index([accountId, orgId, branchId])
+}
+
+model PaymentAllocation {
+  id        String @id @default(cuid())
+  accountId String
+  orgId     String
+  branchId  String
+
+  paymentId String
+  docType   String // INVOICE | BILL
+  docId     String
+  amount    Decimal
+
+  createdAt DateTime @default(now())
+
+  payment Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  @@index([accountId, orgId, docType, docId])
+  @@index([paymentId])
+}
+
+//
+// * The six reference masters that only ever existed in a browser.
+// *
+// * Units, item categories, price lists, discount rules, cost centres and
+// * account groups were held in localStorage while every document that depends
+// * on them lived on the server. Clearing browser data lost them, a second user
+// * never saw them, and a second device started empty — and a price list decides
+// * what rate lands on an invoice, so a book whose prices live in one person's
+// * browser is a book nobody else can raise an invoice from.
+// *
+// * One table rather than six. These are small, low-cardinality reference lists
+// * that are always read whole — pricing an invoice reads an entire price list,
+// * never one row of it — so the shape that varies per kind lives in `data` and
+// * the columns are only what every kind shares and what has to be indexed or
+// * kept unique.
+//
+model OrgMaster {
+  id        String @id @default(cuid())
+  accountId String
+  orgId     String
+
+  /// UOM | ITEM_CATEGORY | PRICE_LIST | DISCOUNT_RULE | COST_CENTER | ACCOUNT_GROUP | GST_RATE
+  kind     String
+  name     String
+  isActive Boolean @default(true)
+
+  /// Everything specific to the kind: a price list's rates, a rule's scope.
+  /// JSON in a string column, the way every other payload in this schema is
+  /// stored — SQLite has no Json type through Prisma.
+  dataJson String @default("{}")
+
+  createdByUserId String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+
+  @@unique([accountId, orgId, kind, name])
+  @@index([accountId, orgId, kind])
+}
+
+// A read-only link to one document, for the person it is addressed to.
+//
+// A payment reminder carried "View invoice: …/?invoiceId=123", which only ever
+// worked for somebody already signed in with that company open — that is, for
+// the business itself, never for the customer being chased. The customer landed
+// on a login page, which reads as a broken link sent by their supplier.
+//
+// A token rather than a widened Invoice row, because the interesting operations
+// are revoking one and knowing when it was made — and because the next document
+// that needs sharing should not mean another nullable column somewhere else.
+model DocumentShareLink {
+  id        String @id @default(cuid())
+  accountId String
+  orgId     String
+
+  /// INVOICE for now. The column exists so the next one is not a migration.
+  docType String
+  docId   String
+
+  /// The secret. Long, random, and the only thing standing between a URL and
+  /// somebody else's invoice, so it is unique and indexed rather than scanned.
+  token String @unique
+
+  revokedAt DateTime?
+  expiresAt DateTime?
+
+  createdByUserId String
+  createdAt       DateTime @default(now())
+
+
+  @@unique([accountId, orgId, docType, docId])
+  @@index([accountId, orgId])
+}
+
+// A line in the cash or bank book.
+//
+// The last collection that lived only in a browser. Money moving through a bank
+// account was recorded here and nowhere else, so clearing site data lost the
+// cash book — and the reconciliation screen, which reads these for the book
+// side, could match a statement line against one and then had nothing to mark.
+//
+// Separate from Payment on purpose. A payment is a voucher against a party with
+// allocations behind it; this is the account's own movement — a bank charge,
+// interest, a transfer between two of your own accounts — which has no party
+// and settles nothing. Forcing them into one table would have meant a Payment
+// with no payer.
+model BankBookEntry {
+  id        String  @id @default(cuid())
+  accountId String
+  orgId     String
+  branchId  String?
+
+  /// The cash or bank ledger the money moved through.
+  ledgerAccountId       String
+  /// What it was for, once somebody says: the expense or income ledger it is
+  /// posted against. Null until then - an uncategorised line is the normal
+  /// state of an imported statement row.
+  contraLedgerAccountId String?
+
+  /// IN takes money in, OUT sends it out. Same words as Payment.direction.
+  direction String
+  date      String
+  amount    Decimal @default(0)
+  narration String?
+  reference String?
+
+  /// MANUAL when somebody keyed it, STATEMENT when it came off an import.
+  source String @default("MANUAL")
+
+  /// Set when categorising the line raised a receipt or payment from it, so the
+  /// two are not counted twice.
+  linkedPaymentId String?
+
+  /// The same three the Payment carries, for the same reason.
+  reconciled   Boolean   @default(false)
+  bankDate     DateTime?
+  statementRef String?
+
+  createdByUserId String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+
+  @@index([accountId, orgId, ledgerAccountId])
+  @@index([accountId, orgId, reconciled])
+}
+
+// The till count at the end of a POS day — the Z report.
+//
+// It lived in the browser, which is the one place a cash control cannot live:
+// the over/short figure is what the owner reviews and the cashier cannot be
+// the only person holding it. On a second machine the day looked never closed,
+// and clearing site data erased the count entirely.
+//
+// One row per branch per day, enforced by the database rather than by the
+// screen: closing a day twice would double-count the till.
+model PosDayClose {
+  id        String  @id @default(cuid())
+  accountId String
+  orgId     String
+  branchId  String?
+
+  /// The trading day being closed, as YYYY-MM-DD.
+  date String
+
+  /// What the day's POS invoices came to, split by how they were tendered.
+  invoices Int     @default(0)
+  cash     Decimal @default(0)
+  upi      Decimal @default(0)
+  card     Decimal @default(0)
+  total    Decimal @default(0)
+
+  /// What was actually in the drawer, and the difference. Stored rather than
+  /// derived: the count is evidence of what somebody saw, not a calculation to
+  /// be redone later against figures that may since have changed.
+  countedCash Decimal @default(0)
+  overShort   Decimal @default(0)
+
+  /// How the counted cash was made up: note or coin value to how many of them.
+  /// JSON in a string column, as every other payload in this schema is.
+  denomJson String @default("{}")
+
+  closedByUserId String?
+  closedAt       DateTime @default(now())
+  createdAt      DateTime @default(now())
+
+
+  @@unique([accountId, orgId, branchId, date])
+  @@index([accountId, orgId, date])
+}
+
+// A schedule that raises an invoice every period.
+//
+// It used to live in the browser: schedules were held in localStorage and ran
+// only while somebody had the app open. Clearing the browser lost them, nobody
+// signing in meant nobody was billed, and two browsers open at once could raise
+// the same month twice. That is not a billing system, it is a reminder that
+// happens to write invoices.
+//
+// The snapshot of the invoice is stored whole, because a schedule has to keep
+// billing what was agreed even after the item's price changes.
+model RecurringSchedule {
+  id        String  @id @default(cuid())
+  accountId String
+  orgId     String
+  branchId  String?
+
+  name        String
+  partyId     String?
+  partyName   String
+  warehouseId String?
+
+  /// WEEKLY | MONTHLY | QUARTERLY | YEARLY
+  frequency String @default("MONTHLY")
+  /// How many of those periods to skip. Every second month, every third week.
+  interval  Int    @default(1)
+
+  /// The next period due. Advanced only when that period is actually raised.
+  nextRunDate    String
+  endDate        String?
+  /// "End after 12 invoices" — a different instruction from an end date.
+  maxOccurrences Int?
+  generatedCount Int     @default(0)
+  dueDays        Int     @default(30)
+  isActive       Boolean @default(true)
+
+  /// The invoice this raises: lines and totals, as agreed.
+  templateJson String
+  notes        String?
+
+  lastRunAt DateTime?
+
+  createdByUserId String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  runs RecurringScheduleRun[]
+
+  @@index([accountId, orgId, isActive])
+  @@index([nextRunDate])
+}
+
+// One period of one schedule, raised once and only once.
+//
+// This table is the whole guarantee. Without it, two browsers, two app
+// instances or a retried job each raise the same month again, and a customer
+// is invoiced three times for one period. The unique key is the schedule and
+// the period — not the moment the job ran — so a job that runs twice, or runs
+// late, still produces one invoice per period.
+model RecurringScheduleRun {
+  id         String @id @default(cuid())
+  accountId  String
+  orgId      String
+  scheduleId String
+
+  /// The period this covers, as the schedule's own run date.
+  periodDate String
+  /// The draft it raised, when it raised one.
+  invoiceId  String?
+
+  createdAt DateTime @default(now())
+
+  schedule RecurringSchedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+
+  @@unique([scheduleId, periodDate])
+  @@index([accountId, orgId])
+}

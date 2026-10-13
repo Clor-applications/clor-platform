@@ -1,0 +1,15 @@
+# Upload only what the Cloud Run API build needs. Never upload env files.
+/*
+!/docker/
+!/server/
+!/cloudbuild.cloudrun.yaml
+**/node_modules/
+**/dist/
+**/.env
+**/.env.*
+!**/.env.example
+**/*.db
+**/*.db-journal
+server/src/generated/
+server/src/__tests__/
+.DS_Store

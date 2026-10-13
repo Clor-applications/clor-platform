@@ -1,0 +1,228 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+
+    # The suite needs a PostgreSQL server.
+    #
+    # It used to need nothing: every test ran against a SQLite file the run
+    # created and threw away. Since the platform moved to PostgreSQL, the
+    # server tests create a database per run — `clor_test_<pid>`, three
+    # schemas, row-level security policies applied and granted — and a runner
+    # with no server to create it on fails at globalSetup before a single test
+    # is read. Which is exactly what it did.
+    #
+    # Same major version as production (16), so a query that passes here fails
+    # here rather than on the box.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: clor_ci
+          POSTGRES_PASSWORD: clor_ci
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        # Steps start the moment the container does, which is several seconds
+        # before it will answer; without this the first connection is refused.
+        options: >-
+          --health-cmd "pg_isready -U clor_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            server/package-lock.json
+
+      - name: Install frontend deps
+        run: npm ci
+
+      - name: Install server deps
+        run: npm ci
+        working-directory: server
+
+      - name: Generate Prisma client
+        run: npx prisma generate && npx prisma generate --schema prisma/payroll/schema.prisma && npx prisma generate --schema prisma/people/schema.prisma
+        working-directory: server
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck server
+        run: npm run typecheck
+
+      - name: Server tests
+        run: npm test
+        working-directory: server
+        env:
+          JWT_SECRET: ci-test-secret
+          # Two connections, and the difference between them is the point.
+          #
+          # PGADMIN_URL is the superuser the run borrows to create its own
+          # database, push the schemas and apply the policies. DATABASE_URL is
+          # the role the TESTS connect as, and it must not be that superuser:
+          # PostgreSQL skips every row-level-security policy for a superuser,
+          # so pointing both at clor_ci made rowLevelSecurity.test.ts read
+          # another company's rows — and fail, correctly. The suite had been
+          # asked to prove RLS through a role the policies do not apply to.
+          #
+          # globalSetup creates clor_app with this password, NOSUPERUSER and
+          # NOBYPASSRLS, which is the arrangement production runs.
+          PGADMIN_URL: postgresql://clor_ci:clor_ci@localhost:5432/postgres
+          DATABASE_URL: postgresql://clor_app:clor_ci_app@localhost:5432/postgres
+          CLOR_APP_ROLE: clor_app
+          CLOR_APP_PASSWORD: clor_ci_app
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Build server
+        run: npm run build
+        working-directory: server
+
+  # Deploy runs only after verify passes, only on main, and never on a pull
+  # request from a fork. A green build is the entry condition: the point of
+  # this pipeline is that nothing reaches the server that did not pass the
+  # tests first.
+  deploy:
+    needs: verify
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    concurrency:
+      # Two deploys rsyncing the same directory at once would interleave
+      # files. Newer wins; the older one is cancelled.
+      group: deploy-production
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install frontend deps
+        run: npm ci
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Authorise the runner against the server
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+        run: |
+          test -n "$DEPLOY_SSH_KEY" || { echo "DEPLOY_SSH_KEY is not set"; exit 1; }
+          test -n "$DEPLOY_HOST"    || { echo "DEPLOY_HOST is not set"; exit 1; }
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy
+          chmod 600 ~/.ssh/deploy
+          # Pin the host key rather than accepting blindly, so a hijacked DNS
+          # answer cannot collect the deploy key.
+          if [ -n "${{ secrets.DEPLOY_HOST_KEY }}" ]; then
+            printf '%s\n' "${{ secrets.DEPLOY_HOST_KEY }}" > ~/.ssh/known_hosts
+          else
+            ssh-keyscan -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+          fi
+          chmod 644 ~/.ssh/known_hosts
+
+      - name: Upload frontend
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+        run: |
+          rsync -az --delete -e "ssh -i ~/.ssh/deploy -o BatchMode=yes" \
+            dist/ "ubuntu@$DEPLOY_HOST:/opt/clor/web/"
+
+      - name: Upload API, migrate and restart
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+        run: |
+          rsync -az --delete \
+            --exclude node_modules --exclude 'prisma/*.db' --exclude dist \
+            -e "ssh -i ~/.ssh/deploy -o BatchMode=yes" \
+            server/ "ubuntu@$DEPLOY_HOST:/opt/clor/server/"
+          ssh -i ~/.ssh/deploy -o BatchMode=yes "ubuntu@$DEPLOY_HOST" 'set -e
+            cd /opt/clor/server
+            set -a; . /opt/clor/.env; set +a
+            # A dump before anything is installed or migrated. A backup taken
+            # after a migration is a backup of the problem. As the postgres
+            # superuser: every tenant table FORCEs row-level security, so
+            # pg_dump as the owner refuses rather than dumping half a table.
+            mkdir -p /opt/clor/backups
+            sudo -u postgres pg_dump -d clor \
+              | gzip > "/opt/clor/backups/clor-ci-$(date -u +%Y%m%dT%H%M%SZ).sql.gz"
+            ls -1t /opt/clor/backups/clor-*.sql.gz | tail -n +15 | xargs -r rm --
+            # --include=dev explicitly: /opt/clor/.env sets NODE_ENV=production,
+            # which makes npm skip devDependencies — and tsc lives there, so the
+            # build fails with "tsc: not found".
+            npm ci --include=dev --no-audit --no-fund
+            # Two databases, two clients: payroll keeps its own.
+            npx prisma generate
+            npx prisma generate --schema prisma/payroll/schema.prisma
+            npx prisma generate --schema prisma/people/schema.prisma
+            # The pre-deploy check earns the --accept-data-loss below.
+            #
+            # Prisma refuses to add a unique constraint without that flag,
+            # because it cannot know whether the column already holds
+            # duplicates. Passing it blindly would mean every future deploy
+            # silently accepts real loss, so the check runs first and exits 1
+            # when anything would actually be lost; `set -e` then stops the
+            # deploy before the schema is touched. The flag says "verified",
+            # not "ignore".
+            npx tsx scripts/preflight.ts
+            # Versioned migrations, and a one-time baseline for the database
+            # db push built. See server/prisma/migrations/README.md.
+            npx tsx scripts/migrate.ts
+            # Grants, after the migrations that created the tables to grant on.
+            # A table this deploy adds is unreadable by the application role
+            # until this runs, and the symptom is a permission error on one
+            # screen rather than a failed deploy.
+            node scripts/provisionAppRole.mjs
+            npm run build
+            sudo systemctl restart clor-api'
+
+      - name: Check the site is still answering
+        env:
+          DEPLOY_URL: ${{ secrets.DEPLOY_URL }}
+        run: |
+          URL="${DEPLOY_URL:-https://68.233.107.83.sslip.io}"
+
+          # The API is the thing that was just restarted, so it is the one that
+          # needs time — and it was the only one without a retry. Caddy answers
+          # 502 for the second or two before node is listening again, which
+          # failed the check on a deploy that had in fact worked.
+          #
+          # 401 is the healthy answer: the API is alive and asking who you are.
+          # A 200 there would mean an unauthenticated endpoint.
+          for i in $(seq 1 20); do
+            api=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 "$URL/api/health" || true)
+            [ "$api" = "401" ] && break
+            echo "api:  $api (attempt $i, waiting for the service to come back)"
+            sleep 5
+          done
+
+          for i in $(seq 1 10); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 "$URL/" || true)
+            [ "$code" = "200" ] && break
+            sleep 5
+          done
+
+          echo "app:  $code"
+          echo "api:  $api"
+          [ "$code" = "200" ] && [ "$api" = "401" ]

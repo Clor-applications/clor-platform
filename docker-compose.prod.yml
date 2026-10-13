@@ -1,0 +1,54 @@
+# Public deployment overlay.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+#
+# What this changes about the base file, and why each one matters once the
+# machine has a public IP rather than being your laptop:
+#
+#   1. The API stops being published to the world. In the base file it is on
+#      0.0.0.0:4001 so you can curl it while developing; on a public host that
+#      is the whole API reachable without going through nginx, which is where
+#      the rate limiting and the security headers live. Here it binds to
+#      127.0.0.1, so it is reachable from the server itself and from the other
+#      containers, and from nowhere else.
+#
+#   2. The web container stops being published directly. Caddy is the only
+#      thing on 80 and 443, so there is no way to reach the app over plain
+#      HTTP and skip the certificate.
+#
+#   3. Caddy terminates TLS and renews the certificate by itself.
+#
+# Requires Docker Compose v2.24 or newer for the !override tag — Ubuntu 24.04
+# with the official Docker repository has it. `docker compose version` tells
+# you.
+services:
+  api:
+    ports: !override
+      - "127.0.0.1:${API_PORT:-4001}:4001"
+
+  web:
+    ports: !override []
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - web
+    environment:
+      # The hostname users type. Must resolve to this server's public IP
+      # before the first start, or the certificate cannot be issued.
+      APP_DOMAIN: ${APP_DOMAIN:?set APP_DOMAIN in .env — a hostname, not an IP}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./docker/Caddyfile:/etc/caddy/Caddyfile:ro
+      # Certificates live here. Losing this volume means re-issuing them, and
+      # Let's Encrypt counts how often you do that.
+      - caddy-data:/data
+      - caddy-config:/config
+    networks: [appnet]
+
+volumes:
+  caddy-data:
+  caddy-config:

@@ -1,0 +1,11 @@
+name = "clor-api-proxy"
+main = "worker.js"
+compatibility_date = "2026-10-01"
+workers_dev = false
+
+# api.clor.in is served entirely by this Worker.
+routes = [{ pattern = "api.clor.in", custom_domain = true }]
+
+[vars]
+# Cloud Run service URL (set after the first deploy).
+ORIGIN = "https://clor-api-398490688104.asia-south1.run.app"
