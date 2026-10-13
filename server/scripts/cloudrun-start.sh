@@ -13,6 +13,9 @@
 # reserved and ~3 used by Cloud SQL itself, so this must stay at or under ~18.
 # Override per database with DB_POOL_MAIN / _PLATFORM / _PAYROLL / _PEOPLE.
 #
+# DB_NAME_SUFFIX (e.g. _staging) points a second service at its own four
+# databases on the same instance: clor_main_staging, clor_payroll_staging, ...
+#
 # If DATABASE_URL is already set (local/dev), nothing is composed.
 set -e
 
@@ -22,10 +25,11 @@ if [ -z "$DATABASE_URL" ]; then
   : "${CLOUDSQL_INSTANCE:?CLOUDSQL_INSTANCE is not set}"
   base="postgresql://${DB_USER}:${DB_PASSWORD}@localhost"
   q="host=/cloudsql/${CLOUDSQL_INSTANCE}&connection_limit"
-  export DATABASE_URL="${base}/clor_main?${q}=${DB_POOL_MAIN:-4}"
-  export PAYROLL_DATABASE_URL="${base}/clor_payroll?${q}=${DB_POOL_PAYROLL:-1}"
-  export PEOPLE_DATABASE_URL="${base}/clor_people?${q}=${DB_POOL_PEOPLE:-1}"
-  export PLATFORM_DATABASE_URL="${base}/clor_platform?${q}=${DB_POOL_PLATFORM:-2}"
+  s="${DB_NAME_SUFFIX:-}"
+  export DATABASE_URL="${base}/clor_main${s}?${q}=${DB_POOL_MAIN:-4}"
+  export PAYROLL_DATABASE_URL="${base}/clor_payroll${s}?${q}=${DB_POOL_PAYROLL:-1}"
+  export PEOPLE_DATABASE_URL="${base}/clor_people${s}?${q}=${DB_POOL_PEOPLE:-1}"
+  export PLATFORM_DATABASE_URL="${base}/clor_platform${s}?${q}=${DB_POOL_PLATFORM:-2}"
 fi
 
 npm run prisma:deploy

@@ -1,0 +1,38 @@
+# Cloud Run web service. ${API_ORIGIN} is filled in at container start.
+server {
+  listen 8080;
+  server_name _;
+  root /usr/share/nginx/html;
+  index index.html;
+
+  # Cloud Run's resolver, for proxy_pass to a run.app hostname.
+  resolver 8.8.8.8 valid=300s ipv6=off;
+
+  location /api/ {
+    proxy_pass              ${API_ORIGIN};
+    proxy_http_version      1.1;
+    proxy_ssl_server_name   on;
+    proxy_set_header        Host              $proxy_host;
+    proxy_set_header        X-Forwarded-For   $http_x_forwarded_for;
+    proxy_set_header        X-Forwarded-Proto https;
+    proxy_read_timeout      60s;
+    client_max_body_size    5m;
+  }
+  location = /health {
+    proxy_pass              ${API_ORIGIN};
+    proxy_ssl_server_name   on;
+    proxy_set_header        Host $proxy_host;
+  }
+  location /assets/ {
+    expires 1y;
+    add_header Cache-Control "public, immutable";
+    try_files $uri =404;
+  }
+  location / {
+    add_header Cache-Control "no-store";
+    try_files $uri $uri/ /index.html;
+  }
+  gzip on;
+  gzip_types text/css application/javascript application/json image/svg+xml;
+  gzip_min_length 1024;
+}

@@ -1,0 +1,16 @@
+# Upload only what the web image build needs. Never upload env files.
+.git/
+server/
+docs/
+test/
+**/node_modules/
+**/dist/
+**/.env
+**/.env.*
+!**/.env.example
+**/*.db
+.DS_Store
+.claude/
+.agents/
+.gstack/
+.wrangler/

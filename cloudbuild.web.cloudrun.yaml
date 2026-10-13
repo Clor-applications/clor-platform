@@ -1,0 +1,14 @@
+# Builds the web image for Cloud Run (staging) and pushes it to Artifact
+# Registry in Mumbai. Run from the repo root:
+#   gcloud builds submit --config cloudbuild.web.cloudrun.yaml \
+#     --ignore-file .gcloudignore.web --substitutions=_TAG=<git-sha> .
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args: ['build', '-f', 'docker/web.cloudrun.Dockerfile',
+           '-t', 'asia-south1-docker.pkg.dev/$PROJECT_ID/clor/web:${_TAG}', '.']
+images:
+  - 'asia-south1-docker.pkg.dev/$PROJECT_ID/clor/web:${_TAG}'
+substitutions:
+  _TAG: manual
+options:
+  logging: CLOUD_LOGGING_ONLY
