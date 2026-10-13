@@ -11307,7 +11307,7 @@ const MsmeComplianceWorkspace = ({ db, setDb, currentCompany }) => {
 };
 
 const AppShell = () => {
-  const { can, loading: permsLoading } = usePermissions();
+  const { can, loading: permsLoading, error: permsError } = usePermissions();
   const { isEnabled, loading: featuresLoading } = useFeatures();
   const branchesFeatureEnabled = isEnabled('branches');
   const warehousesFeatureEnabled = isEnabled('warehouses');
@@ -12645,9 +12645,13 @@ const AppShell = () => {
 
   useEffect(() => {
     if (featuresLoading || permsLoading) return;
+    // A failed permission load (on a cold start it runs before the company is
+    // known) leaves no permissions, which would make every screen "unknown"
+    // and throw a deep link back to Dashboard. Wait for a real answer.
+    if (permsError) return;
     if (active === 'ledger' || active === 'partyDetail') return;
     if (!isKnownScreen(active)) setActive('dashboard');
-  }, [active, featuresLoading, permsLoading, isKnownScreen]);
+  }, [active, featuresLoading, permsLoading, permsError, isKnownScreen]);
 
   /**
    * Palette entries come from the already permission- and feature-filtered nav,
