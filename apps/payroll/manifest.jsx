@@ -44,26 +44,23 @@ export const payrollApp = {
     { key: 'slips', label: 'Salary Slips', icon: FileText },
     { key: 'payments', label: 'Payments', icon: ArrowUpRight },
     { key: 'adjustments', label: 'Adjustments', icon: Percent },
-    /*
-     * The four screens payroll is configured with.
-     *
-     * All four were built and none of them was listed here, so the components
-     * a salary is made of, the groups a run is filtered by, the periods a run
-     * happens in and the setup checklist that reports on all three were
-     * reachable from nowhere at all — the app could be read but not set up.
-     * A screen nobody can navigate to is a screen that does not exist.
-     */
-    { key: 'components', label: 'Salary Components', icon: SlidersHorizontal },
-    { key: 'structures', label: 'Salary Structures', icon: Layers },
     { key: 'assignments', label: 'Salary Assignments', icon: Users },
     { key: 'revisions', label: 'Salary Revisions', icon: RefreshCw },
     { key: 'loans', label: 'Loans & Advances', icon: Landmark },
-    { key: 'compliance', label: 'Compliance', icon: BadgePercent },
+    { key: 'reports', label: 'Reports', icon: Table2 },
+    /*
+     * What payroll is configured with, apart from the month's work: the setup
+     * checklist, the calendar and groups a run happens in, what a salary is
+     * made of, the statutory rates it deducts under, and where it posts.
+     */
+    { section: 'Settings' },
+    { key: 'setup', label: 'Setup', icon: ListChecks },
     { key: 'periods', label: 'Pay Calendar', icon: CalendarClock },
     { key: 'payGroups', label: 'Pay Groups', icon: Users },
-    { key: 'reports', label: 'Reports', icon: Table2 },
+    { key: 'components', label: 'Salary Components', icon: SlidersHorizontal },
+    { key: 'structures', label: 'Salary Structures', icon: Layers },
+    { key: 'compliance', label: 'Compliance', icon: BadgePercent },
     { key: 'ledgers', label: 'Ledger mapping', icon: Landmark },
-    { key: 'setup', label: 'Setup', icon: ListChecks },
   ],
 
   screens: {

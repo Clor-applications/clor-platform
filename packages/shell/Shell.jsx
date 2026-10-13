@@ -1,9 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ChevronDown, LayoutGrid, LogOut, Moon, Plus, Sun } from 'lucide-react';
+import { ChevronDown, LayoutGrid, LogOut, Moon, Plus, Sun, UserRound } from 'lucide-react';
 
 import { useTheme } from '@ui/components/ui/useTheme';
 import { useDismissable } from '@ui/components/ui/useDismissable';
 import { formatDateIn } from '@ui/utils/dates';
+import { ProfileScreen } from '@ui/profile/ProfileScreen';
 
 import { APPS, appById, availableApps, landingApp, subscribedApps } from './registry';
 import { appFromHost, hostForApp, isFrontDoor } from './appHosts';
@@ -62,6 +63,10 @@ export default function Shell() {
     ? chosenAppId
     : landingApp(subscriptions || [])?.id || null;
   const [screenKey, setScreenKey] = useState(null);
+  /* A page the platform owns rather than the app (My profile), shown in an
+     app's main area. Only for apps that use the shell's menu: an app that
+     draws its own (Accounting) has its own profile entry. */
+  const [platformScreen, setPlatformScreen] = useState(null);
   const [switcherOpen, setSwitcherOpen] = useState(false);
   /* Closes on a click anywhere else, and on Escape. It did neither: the only
      way out of the app switcher was to click the app switcher again. */
@@ -194,6 +199,7 @@ export default function Shell() {
     }
     setChosenAppId(id);
     setScreenKey(next?.home || null);
+    setPlatformScreen(null);
     setSwitcherOpen(false);
     setShowMoreApps(false);
   };
@@ -303,6 +309,21 @@ export default function Shell() {
           {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
         </button>
 
+        {!Root ? (
+          <button
+            type="button"
+            className="ui-icon-btn"
+            onClick={() => {
+              setPlatformScreen('profile');
+              setShowMoreApps(false);
+            }}
+            aria-label="My profile"
+            title="My profile"
+          >
+            <UserRound size={16} />
+          </button>
+        ) : null}
+
         <button
           type="button"
           className="ui-icon-btn"
@@ -341,25 +362,33 @@ export default function Shell() {
           style={{ borderRight: '1px solid rgb(var(--border))', minHeight: 'calc(100vh - 3.5rem)' }}
           aria-label={app ? `${app.name} navigation` : 'Navigation'}
         >
-          {(app?.nav || []).map((item) => (
+          {(app?.nav || []).map((item) =>
+            /* `{ section: 'Settings' }` starts a group: setup apart from daily work. */
+            item.section ? (
+              <p key={`section:${item.section}`} className="ui-caption px-2 pt-4 pb-1 uppercase tracking-wide">
+                {item.section}
+              </p>
+            ) : (
             <button
               key={item.key}
               type="button"
               className="w-full flex items-center gap-2 rounded-lg px-2 py-2 text-left text-sm ui-hover-sunken"
               style={
-                screen === item.key
+                screen === item.key && !platformScreen
                   ? { backgroundColor: 'rgb(var(--surface-sunken))', fontWeight: 500 }
                   : undefined
               }
               onClick={() => {
                 setScreenKey(item.key);
+                setPlatformScreen(null);
                 setShowMoreApps(false);
               }}
             >
               {item.icon ? <item.icon size={16} aria-hidden="true" /> : null}
               {item.label}
             </button>
-          ))}
+            )
+          )}
 
           <div style={{ borderTop: '1px solid rgb(var(--border))' }} className="!mt-3 pt-3">
             <button
@@ -376,6 +405,10 @@ export default function Shell() {
         <main className="flex-1 min-w-0 p-6">
           {showMoreApps ? (
             <MoreApps tenant={tenant} onAdd={addApp} onOpen={openApp} />
+          ) : platformScreen === 'profile' ? (
+            <ScreenBoundary appName="My profile" resetKey={`profile:${tenant.id}`}>
+              <ProfileScreen key={tenant.id} />
+            </ScreenBoundary>
           ) : Screen ? (
             <ScreenBoundary appName={app?.name} resetKey={`${app?.id}:${screen}:${tenant.id}`}>
               {/* Same rule as an app that draws itself: a company change is a

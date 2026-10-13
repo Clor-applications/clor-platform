@@ -45,6 +45,22 @@ export const me = () => apiFetch('/auth/me', { skipBranchHeader: true, skipWareh
 
 export const logout = () => apiFetch('/auth/logout', { method: 'POST', skipAuth: true });
 
+/* The signed-in person's own profile. Platform data, so every app shows the
+   same page: Accounting in its settings, the shell for apps that use its menu. */
+export const getProfile = () =>
+  apiFetch('/auth/me', { skipBranchHeader: true, skipWarehouseHeader: true });
+
+export const updateProfile = (patch) =>
+  apiFetch('/auth/me', {
+    method: 'PATCH',
+    body: typeof patch === 'string' ? { fullName: patch } : patch,
+    skipBranchHeader: true,
+    skipWarehouseHeader: true,
+  });
+
+export const resendVerification = () =>
+  apiFetch('/auth/resend-verification', { method: 'POST', skipBranchHeader: true, skipWarehouseHeader: true });
+
 /**
  * Which apps a company has.
  *

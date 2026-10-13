@@ -29,6 +29,3 @@ export const getOutbox = (status) =>
   apiFetch(`${base()}/email/outbox${status ? `?status=${encodeURIComponent(status)}` : ''}`, opts);
 
 export const retryOutbox = () => apiFetch(`${base()}/email/outbox/retry`, { method: 'POST', ...opts });
-
-export const resendVerification = () =>
-  apiFetch('/auth/resend-verification', { method: 'POST', skipBranchHeader: true, skipWarehouseHeader: true });
