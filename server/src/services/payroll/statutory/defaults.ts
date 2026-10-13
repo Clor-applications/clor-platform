@@ -163,7 +163,11 @@ export const SEED_RULES: SeedRule[] = [
          it, so somebody just under the line pays nothing at all. */
       rebateUpTo: 1200000,
       rebateMax: 60000,
+      /* Just over ₹12 lakh, tax is capped at the income above it. */
+      marginalRelief: true,
       cessRate: 4,
+      /* The old regime's own deduction and rebate (section 87A). */
+      oldRegime: { standardDeduction: 50000, rebateUpTo: 500000, rebateMax: 12500, marginalRelief: false },
     },
     note: 'Income tax withheld from salary, new regime by default. Declarations and investment proofs are not modelled yet.',
   },

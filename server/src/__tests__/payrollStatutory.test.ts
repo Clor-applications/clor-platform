@@ -171,6 +171,39 @@ describe('professional tax', () => {
 });
 
 describe('income tax withheld from salary', () => {
+  const year = { ...context, monthsRemaining: 12 };
+  const pay = (annualTaxable: number) => ({ pfWage: 0, esiWage: 0, gross: 0, annualTaxable });
+
+  it('uses the old regime’s own deduction and rebate for an old-regime employee', async () => {
+    /* ₹10 lakh less ₹50,000 = ₹9.5 lakh: 12,500 + 20% of 4.5 lakh = 1,02,500,
+       plus 4% cess = 1,06,600 a year. With the new regime's ₹75,000 and
+       ₹60,000 rebate it came to 39,000. */
+    const r = computeStatutory(rule('TDS'), pay(1_000_000), employee({ taxRegime: 'OLD' }), year);
+    expect(r.employee).toBe(Math.round(106_600 / 12));
+  });
+
+  it('applies the old regime rebate only up to ₹5 lakh', async () => {
+    const under = computeStatutory(rule('TDS'), pay(550_000), employee({ taxRegime: 'OLD' }), year);
+    const over = computeStatutory(rule('TDS'), pay(800_000), employee({ taxRegime: 'OLD' }), year);
+    expect(under.employee).toBe(0);
+    /* ₹7.5 lakh taxable: 12,500 + 50,000 = 62,500 + cess = 65,000. It was 0. */
+    expect(over.employee).toBe(Math.round(65_000 / 12));
+  });
+
+  it('falls back to the old regime figures for a rule seeded before they were stored', async () => {
+    const legacy = rule('TDS');
+    const { oldRegime: _dropped, ...config } = legacy.config;
+    const r = computeStatutory({ ...legacy, config }, pay(1_000_000), employee({ taxRegime: 'OLD' }), year);
+    expect(r.employee).toBe(Math.round(106_600 / 12));
+  });
+
+  it('caps the tax just over ₹12 lakh at the income above it (new regime)', async () => {
+    /* ₹12.85 lakh less ₹75,000 = ₹12.1 lakh: band tax 61,500, but only ₹10,000
+       is above the line, so 10,000 + cess = 10,400. */
+    const r = computeStatutory(rule('TDS'), pay(1_285_000), employee(), year);
+    expect(r.employee).toBe(Math.round(10_400 / 12));
+  });
+
   it('charges nothing where the rebate covers it', async () => {
     /* A rebate wipes the tax out entirely below the threshold rather than
        reducing it, so somebody just under the line pays nothing. */

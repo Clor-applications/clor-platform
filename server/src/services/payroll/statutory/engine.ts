@@ -267,6 +267,9 @@ function computePt(
 
 export type TaxBand = { upTo: number | null; rate: number };
 
+/** Old-regime deduction and rebate, for TDS rules seeded without `config.oldRegime`. */
+const OLD_REGIME_TERMS = { standardDeduction: 50000, rebateUpTo: 500000, rebateMax: 12500, marginalRelief: false };
+
 /**
  * Income tax withheld from salary.
  *
@@ -303,8 +306,20 @@ function computeTds(
     return { ...base, employee: 0, employer: 0, explanation: 'No income tax bands are set.', exemptReason: 'NO_BANDS' };
   }
 
+  /*
+   * The standard deduction and the rebate are not the same in both regimes:
+   * new ₹75,000 and a rebate up to ₹12 lakh (at most ₹60,000), old ₹50,000 and
+   * up to ₹5 lakh (at most ₹12,500). The top-level figures are the new
+   * regime's; `config.oldRegime` holds the old. Applying the new figures to an
+   * old-regime employee withheld nothing up to about ₹8 lakh and too little
+   * above it (₹39,000 instead of ₹1,06,600 on ₹10 lakh). A rule seeded before
+   * `oldRegime` existed falls back to the old regime's own figures.
+   */
+  const terms =
+    regime === 'OLD' ? { ...OLD_REGIME_TERMS, ...(rule.config?.oldRegime || {}) } : rule.config || {};
+
   const annual = Number(wages.annualTaxable ?? 0);
-  const standardDeduction = Number(rule.config?.standardDeduction ?? 0);
+  const standardDeduction = Number(terms.standardDeduction ?? 0);
   const taxable = Math.max(0, annual - standardDeduction);
 
   /* Slab by slab, each rate applying only to the part of income inside it. */
@@ -321,9 +336,13 @@ function computeTds(
 
   /* A rebate wipes the tax out entirely below a threshold rather than reducing
      it — somebody just under the line pays nothing at all. */
-  const rebateUpTo = Number(rule.config?.rebateUpTo ?? 0);
-  const rebateMax = Number(rule.config?.rebateMax ?? 0);
+  const rebateUpTo = Number(terms.rebateUpTo ?? 0);
+  const rebateMax = Number(terms.rebateMax ?? 0);
   if (rebateUpTo && taxable <= rebateUpTo) tax = Math.max(0, tax - rebateMax);
+  /* Marginal relief (new regime): just over the rebate line, the tax may not
+     exceed the income above the line, or earning ₹1,000 more would cost
+     ₹60,000 in tax. */
+  else if (rebateUpTo && terms.marginalRelief) tax = Math.min(tax, taxable - rebateUpTo);
 
   const cessRate = Number(rule.config?.cessRate ?? 0);
   const withCess = round2(tax * (1 + cessRate / 100));
