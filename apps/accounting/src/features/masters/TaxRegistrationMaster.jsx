@@ -8,7 +8,7 @@ import { getGstStateFromGstin } from '@ui/utils/gst';
 const TYPES = ['Registered', 'Composition', 'SEZ', 'Unregistered'];
 const emptyRegistration = () => ({ id: `tax-${Date.now()}-${Math.random()}`, registrationType: 'Registered', number: '', state: '' });
 
-export default function TaxRegistrationMaster({ kind, db, setDb, currentCompany, children = null, hideHeader = false }) {
+export default function TaxRegistrationMaster({ kind, setDb, currentCompany, children = null, hideHeader = false }) {
   const lower = kind.toLowerCase();
   const tax = currentCompany?.profile?.taxCompliances || {};
   const source = lower === 'gst'

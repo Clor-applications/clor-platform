@@ -8,11 +8,8 @@ import {
   Download,
   FileText,
   MoreHorizontal,
-  Plus,
-  Wallet,
   Calendar,
   ChevronDown,
-  ClipboardList,
   ArrowRight,
   LayoutList,
 } from 'lucide-react';
@@ -22,7 +19,6 @@ import { formatMoney, formatMoneyCompact } from '@ui/utils/money';
 import { getCustomerDisplayName } from '@ui/utils/contacts';
 import { branchLabel } from '@ui/utils/branchLabel';
 import { MoneyValue } from '@ui/components/docs';
-import { csvSafeValue } from '@ui/utils/csv';
 import {
   EmptyPanel,
   OverviewBand,
@@ -35,7 +31,6 @@ import {
   iso,
   parseIso,
   prettyDate,
-  shortDate,
 } from '../overview/OverviewParts';
 
 const LazySeriesBars = lazy(() =>
@@ -103,9 +98,6 @@ const SalesOverview = ({
   branchesLoading = false,
   branchesError = '',
   onNavigate = null,
-  onNewInvoice = null,
-  onNewCreditNote = null,
-  onRecordReceipt = null,
 }) => {
   const [branchPickerOpen, setBranchPickerOpen] = useState(false);
   // Pinned once per mount: period bucketing must not shift between renders.
@@ -431,24 +423,6 @@ const SalesOverview = ({
     };
   }, [periodHasValue, current.rows.length, allInvoices, periods, periodKey, period.from, period.to]);
 
-  const recentInvoices = useMemo(
-    () =>
-      allInvoices
-        .slice()
-        .sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')) || Number(b.id || 0) - Number(a.id || 0))
-        .slice(0, 5),
-    [allInvoices]
-  );
-
-  const recentCreditNotes = useMemo(
-    () =>
-      allCreditNotes
-        .slice()
-        .sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')) || Number(b.id || 0) - Number(a.id || 0))
-        .slice(0, 5),
-    [allCreditNotes]
-  );
-
   const receivables = useMemo(() => {
     const today = parseIso(iso(new Date(nowTs)));
     const buckets = [
@@ -498,57 +472,13 @@ const SalesOverview = ({
     };
   }, [allInvoices, db?.customers, nowTs]);
 
-  const customerNameFor = (inv) => {
-    const c = (db?.customers || []).find((x) => String(x.id) === String(inv?.customerId));
-    return getCustomerDisplayName(c) || inv?.customerName || '—';
-  };
-
-  const derivedStatus = (inv) => {
-    const s = String(inv?.status || '').toLowerCase();
-    if (s === 'draft' || s === 'cancelled') return s;
-    const bal = Number(inv?.total || 0) - Number(inv?.paidAmount || 0);
-    if (bal <= 0) return 'paid';
-    const due = String(inv?.dueDate || '').slice(0, 10);
-    if (due && due < iso(new Date(nowTs))) return 'overdue';
-    return Number(inv?.paidAmount || 0) > 0 ? 'partial' : 'pending';
-  };
-
   const go = (screen) => {
     if (typeof onNavigate === 'function') onNavigate(screen);
-  };
-
-  const exportCsv = () => {
-    const head = ['Invoice No', 'Customer', 'Date', 'Due date', 'Total', 'Paid', 'Status'];
-    const rows = current.rows.map((i) => [
-      i.number || '',
-      customerNameFor(i),
-      i.date || '',
-      i.dueDate || '',
-      Number(i.total || 0),
-      Number(i.paidAmount || 0),
-      derivedStatus(i),
-    ]);
-    const csv = [head, ...rows]
-      .map((r) => r.map((c) => `"${csvSafeValue(c).replace(/"/g, '""')}"`).join(','))
-      .join('\n');
-    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `sales-overview-${period.from}-to-${period.to}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
   };
 
   /* The icon says which part of the book the action belongs to; the button
      itself stays neutral so the one creation action is the only brand on the
      panel. */
-  const quickActions = [
-    { label: 'Create Invoice', icon: Plus, primary: true, onClick: () => (onNewInvoice ? onNewInvoice() : go('invoices')) },
-    { label: 'Create Sales Order', icon: ClipboardList, tone: 'sales', onClick: () => go('salesOrders') },
-    { label: 'Record Payment', icon: Wallet, tone: 'banking', onClick: () => (onRecordReceipt ? onRecordReceipt() : go('receipts')) },
-    { label: 'Create Credit Note', icon: FileText, tone: 'purchase', onClick: () => (onNewCreditNote ? onNewCreditNote() : go('creditNotes')) },
-    { label: 'View All Invoices', icon: LayoutList, outlined: true, tone: 'sales', onClick: () => go('invoices') },
-  ];
 
   return (
     /* 16 between blocks, not 24. A dashboard is read by moving the eye down a

@@ -1230,41 +1230,6 @@ export default function DashboardOverview({
    */
   const heroName = String(userName || '').trim().split(/\s+/)[0] || nameFromEmail(userEmail);
 
-  /**
-   * The three windows a due date falls into: past, this week, later.
-   *
-   * The ageing buckets answer a different question — how long a debt has been
-   * late — and cannot be reused here. A morning asks what is already a problem,
-   * what becomes one this week, and what can wait.
-   */
-  const dueSplit = (docs) => {
-    const today = new Date(now);
-    today.setHours(0, 0, 0, 0);
-    const week = new Date(today.getTime() + 7 * DAY);
-    let overdue = 0;
-    let soon = 0;
-    let later = 0;
-    for (const d of docs) {
-      const balance = Number(d.balance ?? d.total ?? 0);
-      if (balance <= 0) continue;
-      const due = d.dueDate || d.date;
-      const when = due ? new Date(`${String(due).slice(0, 10)}T00:00:00`) : null;
-      if (when && when < today) overdue += balance;
-      else if (when && when <= week) soon += balance;
-      else later += balance;
-    }
-    return { overdue, soon, later };
-  };
-
-  const openInvoices = useMemo(
-    () =>
-      postedInvoices.filter((i) => {
-        const st = String(i.status || '').toLowerCase();
-        return st !== 'paid' && st !== 'cancelled';
-      }),
-    [postedInvoices]
-  );
-
   const openBills = useMemo(
     () =>
       (Array.isArray(db?.bills) ? db.bills : [])
@@ -1275,18 +1240,6 @@ export default function DashboardOverview({
         }),
     [db, currentCompany]
   );
-
-  const recvSplit = useMemo(() => dueSplit(openInvoices), [openInvoices, now]);
-  const paySplit = useMemo(() => dueSplit(openBills), [openBills, now]);
-
-  /** This month against last, from the same series the chart draws. */
-  const salesThisMonth = useMemo(() => {
-    const months = flow.months;
-    const thisM = months[months.length - 1]?.inAmt || 0;
-    const lastM = months[months.length - 2]?.inAmt || 0;
-    const pct = lastM > 0 ? Math.round(((thisM - lastM) / lastM) * 1000) / 10 : null;
-    return { value: thisM, pct };
-  }, [flow]);
 
   const homePerformance = useMemo(() => {
     const companyId = currentCompany?.id;

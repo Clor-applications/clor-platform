@@ -21,7 +21,6 @@ import {
 
 import { formatMoney, formatMoneyCompact } from '@ui/utils/money';
 import { getVendorDisplayName } from '@ui/utils/contacts';
-import { csvSafeValue } from '@ui/utils/csv';
 import { MoneyValue } from '@ui/components/docs';
 import {
   EmptyPanel,
@@ -33,7 +32,6 @@ import {
   iso,
   parseIso,
   prettyDate,
-  shortDate,
 } from '../overview/OverviewParts';
 
 const LazySeriesBars = lazy(() =>
@@ -342,24 +340,6 @@ export default function PurchaseOverview({ db, currentCompany, onNavigate, onNew
     };
   }, [allBills, onNewBill]);
 
-  const recentBills = useMemo(
-    () =>
-      allBills
-        .slice()
-        .sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')))
-        .slice(0, 5),
-    [allBills]
-  );
-
-  const recentDebitNotes = useMemo(
-    () =>
-      allDebitNotes
-        .slice()
-        .sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')))
-        .slice(0, 5),
-    [allDebitNotes]
-  );
-
   const payables = useMemo(() => {
     const today = parseIso(iso(new Date(nowTs)));
     const buckets = [
@@ -394,27 +374,6 @@ export default function PurchaseOverview({ db, currentCompany, onNavigate, onNew
     const rows = [...vendors.values()].sort((a, b) => b.total - a.total);
     return { buckets, rows, total, overdue: total - buckets[0].amount, vendorCount: rows.length, averageDays: total ? Math.round(weightedDays / total) : 0 };
   }, [allBills, db?.vendors, nowTs]);
-
-  /** The period as it stands, as a file — the figures, not the rows. */
-  const exportCsv = () => {
-    const lines = [
-      ['Figure', 'This period', 'Previous period'],
-      ['Total purchases', current.purchases, previous.purchases],
-      ['Bills', current.count, previous.count],
-      ['Amount paid', current.paid, previous.paid],
-      ['Payables', current.payable, previous.payable],
-      ['Overdue', current.overdue, previous.overdue],
-      ['Purchase returns', current.returned, previous.returned],
-    ]
-      .map((r) => r.map((c) => csvSafeValue(c)).join(','))
-      .join('\n');
-    const blob = new Blob([lines], { type: 'text/csv;charset=utf-8;' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `PurchaseOverview_${period.from}_${period.to}.csv`;
-    a.click();
-    URL.revokeObjectURL(a.href);
-  };
 
   return (
     <div className="space-y-3 rounded-xl p-3" style={{ background: 'linear-gradient(180deg, #f3f8ff 0%, #f8fbff 58%, rgb(var(--surface)) 100%)' }}>

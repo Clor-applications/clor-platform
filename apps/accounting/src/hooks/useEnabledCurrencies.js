@@ -13,14 +13,11 @@ export default function useEnabledCurrencies(company = null) {
   const [enabled, setEnabled] = useState([]);
 
   const reload = useCallback(() => {
-    if (!multiCurrency) {
-      setBaseCurrency(fallbackBase);
-      setEnabled([]);
-      return;
-    }
     // Through a promise so a synchronous throw (no active company yet) lands in
-    // the catch below instead of crashing the effect.
-    Promise.resolve().then(listCurrencies).then((data) => {
+    // the catch below instead of crashing the effect, and so no state is set
+    // synchronously inside it.
+    const load = multiCurrency ? listCurrencies : () => ({ baseCurrency: fallbackBase, currencies: [] });
+    Promise.resolve().then(load).then((data) => {
       setBaseCurrency(String(data?.baseCurrency || fallbackBase).toUpperCase());
       setEnabled(Array.isArray(data?.currencies) ? data.currencies : []);
     }).catch(() => {

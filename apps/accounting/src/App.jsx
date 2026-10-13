@@ -318,14 +318,6 @@ import { useDismissable } from '@ui/components/ui/useDismissable';
 import ReportsWorkspace from './features/reports/ReportsWorkspace';
 const normalizeId = (v) => String(v ?? '').trim();
 
-const getBranchLabel = (b) => {
-  if (!b) return '';
-  const code = String(b.branchCode || b.code || '').trim();
-  const name = String(b.branchName || b.name || '').trim();
-  if (code && name) return `${code} - ${name}`;
-  return name || code || `Branch ${String(b.id)}`;
-};
-
 /**
  * The org id the SERVER knows this company by.
  *
@@ -8551,18 +8543,16 @@ const GstRegistrationsSettings = ({ db, setDb, currentCompany }) => {
   const [draft, setDraft] = useState(null);
   const [menuId, setMenuId] = useState('');
 
-  useEffect(() => {
-    const nextProfile = currentCompany?.profile && typeof currentCompany.profile === 'object' ? currentCompany.profile : {};
-    const nextTax = nextProfile?.taxCompliances && typeof nextProfile.taxCompliances === 'object' ? nextProfile.taxCompliances : {};
-    const nextRows = Array.isArray(nextTax.gstRegistrations) && nextTax.gstRegistrations.length
-      ? nextTax.gstRegistrations
-      : [{ ...primarySeed, gstin: currentCompany?.gstin || '', state: currentCompany?.state || '', registrationType: String(currentCompany?.gstRegistration || '').toLowerCase() === 'unregistered' ? 'Regular' : (currentCompany?.gstRegistration || 'Regular') }];
-    setRows(nextRows);
-  }, [currentCompany?.id]);
+  // Another company brings its own registrations. Reset while rendering, not
+  // in an effect, so the previous company's rows never paint.
+  const [rowsCompanyId, setRowsCompanyId] = useState(currentCompany?.id);
+  if (rowsCompanyId !== currentCompany?.id) {
+    setRowsCompanyId(currentCompany?.id);
+    setRows(savedRows);
+  }
 
   const stateOptions = useMemo(() => Array.from(new Set(Object.values(GST_STATE_BY_CODE || {}))).filter(Boolean).sort().map((state) => ({ value: state, label: state })), []);
   const visibleRows = rows.filter((row) => [row.gstin, row.state, row.registrationType, row.periodicity, row.status].some((value) => String(value || '').toLowerCase().includes(query.trim().toLowerCase())));
-  const selected = rows.find((row) => String(row.id) === String(selectedId)) || null;
 
   const openRecord = (row, edit = false) => {
     setSelectedId(String(row.id));
@@ -8658,7 +8648,7 @@ const GstRegistrationsSettings = ({ db, setDb, currentCompany }) => {
   );
 };
 
-export const SettingsView = ({ db, setDb, currentCompany, initialTab = 'company', showSidebar = true, onOpenCompanyList = null, onAddCompany = null }) => {
+export const SettingsView = ({ db, setDb, currentCompany, initialTab = 'company', showSidebar = true }) => {
   const [activeTab, setActiveTab] = useState(() => (String(initialTab || 'company') === 'tax' ? 'tax' : 'company'));
   /*
    * Company Profile sat permanently open as a form, while its two neighbours
@@ -8669,7 +8659,6 @@ export const SettingsView = ({ db, setDb, currentCompany, initialTab = 'company'
    * leaning on the keyboard.
    */
   const [editingCompany, setEditingCompany] = useState(false);
-  const companyCount = (db?.companies || []).length;
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -12122,7 +12111,7 @@ const AppShell = () => {
     return `${values.filter(Boolean).length}/${values.length}`;
   }, [currentCompany?.profile?.features]);
   const gstStateLabel =
-    Boolean(currentCompany?.profile?.taxCompliances?.gstEnabled ?? currentCompany?.gstEnabled ?? currentCompany?.gstin) ? 'GST on' : 'GST off';
+    (currentCompany?.profile?.taxCompliances?.gstEnabled ?? currentCompany?.gstEnabled ?? currentCompany?.gstin) ? 'GST on' : 'GST off';
   const emailStateLabel = currentCompany?.profile?.emailSettings?.fromAddress ? '' : 'Not set';
 
   const navModel = useMemo(
@@ -12828,6 +12817,9 @@ const AppShell = () => {
     setActiveWarehouseId(id);
   }, [activeWarehouseId, isAuthenticated, warehousesFeatureEnabled, warehousesForUser, warehousesLoading]);
 
+  // The header's branch and warehouse pickers were removed; these stay until
+  // that is decided (restore the pickers or delete these).
+  // eslint-disable-next-line no-unused-vars
   const setActiveWarehouse = useCallback(
     (warehouseId) => {
       const nextId = warehouseId ? String(warehouseId) : '';
@@ -12847,6 +12839,7 @@ const AppShell = () => {
 
   // Warehouses belonging to the branch currently in the header. A branch with
   // one warehouse needs no picker; the transfer forms still read the active id.
+  // eslint-disable-next-line no-unused-vars
   const warehousesForActiveBranch = useMemo(() => {
     const list = Array.isArray(warehousesForUser) ? warehousesForUser : [];
     const bid = String(activeBranchId || '').trim();
@@ -12860,6 +12853,7 @@ const AppShell = () => {
    * warehouse selection is dropped (the old one belongs to the old branch) and
    * the warehouse list is refetched for the new branch.
    */
+  // eslint-disable-next-line no-unused-vars
   const setActiveBranch = useCallback(
     (branchId) => {
       const nextId = branchId ? String(branchId) : '';
