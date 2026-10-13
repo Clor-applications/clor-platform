@@ -99,9 +99,13 @@ jobs:
   # request from a fork. A green build is the entry condition: the point of
   # this pipeline is that nothing reaches the server that did not pass the
   # tests first.
+  #
+  # This job deploys to the legacy VM over SSH. Production now runs on Cloud
+  # Run, so it stays off unless the repository variable DEPLOY_VM_ENABLED is
+  # set to 'true' (and the DEPLOY_* secrets exist).
   deploy:
     needs: verify
-    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && vars.DEPLOY_VM_ENABLED == 'true'
     runs-on: ubuntu-latest
     concurrency:
       # Two deploys rsyncing the same directory at once would interleave
