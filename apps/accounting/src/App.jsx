@@ -12363,7 +12363,7 @@ const AppShell = () => {
     [navModel, can, isEnabled]
   );
 
-  useScreenUrl({ active, setActive, isKnown: isKnownScreen });
+  useScreenUrl({ active, setActive, isKnown: isKnownScreen, ready: !permsLoading && !featuresLoading && !permsError });
 
   /*
    * Land in the app you actually use.

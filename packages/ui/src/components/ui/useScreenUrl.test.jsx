@@ -41,6 +41,23 @@ describe('opening a link', () => {
     expect(screen.getByTestId('screen').textContent).toBe('invoices');
   });
 
+  it('keeps the link until permissions have loaded', () => {
+    /* A gated screen looks unknown while permissions load. Reading the link
+       then sent #/expenses-style links to Dashboard on every reload. */
+    const Gated = ({ ready }) => {
+      const [active, setActive] = useState('dashboard');
+      useScreenUrl({ active, setActive, isKnown: (k) => ready && KNOWN.has(k), ready });
+      return <span data-testid="screen">{active}</span>;
+    };
+    window.history.replaceState(null, '', '#/invoices');
+    const { rerender } = render(<Gated ready={false} />);
+    expect(screen.getByTestId('screen').textContent).toBe('dashboard');
+    expect(window.location.hash).toBe('#/invoices');
+    rerender(<Gated ready />);
+    expect(screen.getByTestId('screen').textContent).toBe('invoices');
+    expect(window.location.hash).toBe('#/invoices');
+  });
+
   it('ignores a screen that does not exist', () => {
     /* The switch's default is the sales overview, so a typo in a link would
        otherwise show somebody a page they did not ask for and no error. */

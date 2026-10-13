@@ -24,7 +24,7 @@ const keyFromHash = () => {
   return raw.split('?')[0].split('/')[0] || '';
 };
 
-export function useScreenUrl({ active, setActive, isKnown }) {
+export function useScreenUrl({ active, setActive, isKnown, ready = true }) {
   /* The screen the URL last said, so a write does not read back as a visit. */
   const ours = useRef(null);
   const started = useRef(false);
@@ -33,22 +33,28 @@ export function useScreenUrl({ active, setActive, isKnown }) {
      application and one Back press would appear to do nothing. */
   const wrote = useRef(false);
 
-  /* Read on open: a reload, or a link somebody was sent. */
+  /* Read on open: a reload, or a link somebody was sent. Waits for `ready`
+     (the caller's permissions and features loaded): before that every gated
+     screen looks unknown, and a link to one was dropped for the default. */
   useEffect(() => {
+    if (started.current || !ready) return;
+    started.current = true;
     const wanted = keyFromHash();
     if (wanted && wanted !== active && isKnown(wanted)) {
       ours.current = wanted;
       setActive(wanted);
     }
-    started.current = true;
     // Once, on open. The hash is authority only at that moment; after it, the
     // screen is.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [ready]);
 
   /* Write on move. */
   useEffect(() => {
     if (!active) return;
+
+    // Not before the link has been read, or the default screen overwrites it.
+    if (!started.current) return;
 
     /*
      * The URL is ahead of the screen, so leave it alone.
