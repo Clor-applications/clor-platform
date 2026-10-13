@@ -152,6 +152,20 @@ export function SessionProvider({ children }) {
     if (tenant && tenant.subscriptions === null) loadApps(tenant.id, tenant.branchId);
   }, [tenant, loadApps]);
 
+  /* An app signing out, or the platform giving up on a refresh, ends the
+     session here too. Otherwise the shell keeps a signed-in frame around an
+     app that no longer has a session. */
+  useEffect(() => {
+    const onEnded = () => {
+      writeToken('');
+      setUser(null);
+      setTenants([]);
+      setTenantId('');
+    };
+    window.addEventListener('auth:session-expired', onEnded);
+    return () => window.removeEventListener('auth:session-expired', onEnded);
+  }, []);
+
   const signIn = useCallback(
     async ({ email, password }) => {
       const res = await apiLogin({ email, password });

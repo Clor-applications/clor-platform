@@ -313,6 +313,7 @@ import { useDensity } from '@ui/components/ui/useDensity';
 import { useFieldErrors } from '@ui/components/ui/useFieldErrors';
 import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';
 import { onPlatformContextChange, orgId as platformOrgId } from '@platform/context';
+import { logout as platformLogout } from '@platform/auth';
 import { registerLedgerForm } from './components/pickers/ledgerFormRegistry';
 import { useDismissable } from '@ui/components/ui/useDismissable';
 import ReportsWorkspace from './features/reports/ReportsWorkspace';
@@ -11493,16 +11494,13 @@ const AppShell = () => {
     // "sign out" only clears this browser.
     try {
       /*
-       * No token in the body. The refresh token is an HttpOnly cookie the
-       * browser sends when credentials are included, which is also what lets
-       * the server clear it — a sign-out that cannot reach the credential is
-       * not a sign-out.
+       * Through the platform client, not a bare '/api/...': in production the
+       * web app and the API are on different hosts, and a relative URL posts
+       * to the web host, where nothing ends the session. The client also sends
+       * credentials, so the HttpOnly refresh cookie reaches the server and is
+       * cleared there.
        */
-      await fetch('/api/auth/logout', {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-      });
+      await platformLogout();
     } catch {
       // A failed call must not trap the user in a signed-in shell.
     }
@@ -11513,6 +11511,8 @@ const AppShell = () => {
       // ignore
     }
     setIsAuthenticated(false);
+    // The shell owns sign-in; without this it keeps the signed-in frame.
+    window.dispatchEvent(new CustomEvent('auth:session-expired'));
   };
 
   // The Companies page can switch which company the whole product operates
