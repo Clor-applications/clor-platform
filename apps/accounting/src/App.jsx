@@ -12870,6 +12870,9 @@ const AppShell = () => {
     [branchesForUser, reloadWarehouses]
   );
 
+  // Companies whose head-warehouse backfill has been tried this session.
+  const headWarehouseTried = useRef(new Set());
+
   useEffect(() => {
     if (!isAuthenticated) return;
     if (warehousesLoading) return;
@@ -12894,6 +12897,12 @@ const AppShell = () => {
 
     // If there are no legacy demo vouchers missing a warehouse, don't do anything.
     if (!needsBackfill) return;
+
+    // Once per company per session. A failed create is swallowed below and
+    // changes nothing, so without this the next render tried again, and the
+    // next: a server error became an endless stream of POSTs.
+    if (headWarehouseTried.current.has(companyId)) return;
+    headWarehouseTried.current.add(companyId);
 
     let cancelled = false;
     const run = async () => {

@@ -25,7 +25,7 @@ export default function SignIn({ onHome, onSignUp, onForgot }) {
 
   const submit = async (e) => {
     e.preventDefault();
-    if (!email.trim()) return setError('Enter the email you signed up with.');
+    if (!email.trim()) return setError('Enter your email or username.');
     if (!password) return setError('Enter your password.');
 
     setBusy(true);
@@ -58,10 +58,15 @@ export default function SignIn({ onHome, onSignUp, onForgot }) {
     >
       <form onSubmit={submit} className="space-y-5">
         <div>
-          <label className="ui-label" htmlFor="signin-email">Email address</label>
+          <label className="ui-label" htmlFor="signin-email">Email or username</label>
+          {/* Text, not type="email": the server accepts a username too (set in
+              My profile), and an email field refuses anything without an @. */}
           <input
             id="signin-email"
-            type="email"
+            type="text"
+            inputMode="email"
+            autoCapitalize="none"
+            spellCheck={false}
             className="ui-input h-11 w-full"
             value={email}
             onChange={(e) => {

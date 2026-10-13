@@ -139,6 +139,17 @@ function Field({ label, value, mono = false, hint = null }) {
  * they are granted by an administrator and are read-only by construction —
  * an editable field the server would refuse is worse than no field.
  */
+/**
+ * First and last name as the form should show them. Accounts made before the
+ * split carry only `fullName`; read that as first word + the rest so the form
+ * does not open with empty name fields for someone who has a name.
+ */
+const nameParts = (u) => {
+  if (u?.firstName || u?.lastName) return { first: u.firstName || '', last: u.lastName || '' };
+  const [first = '', ...rest] = String(u?.fullName || '').trim().split(/\s+/).filter(Boolean);
+  return { first, last: rest.join(' ') };
+};
+
 export const ProfileSettings = () => {
   const [me, setMe] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -153,9 +164,10 @@ export const ProfileSettings = () => {
   const load = (d) => {
     setMe(d);
     const u = d?.user || {};
+    const name = nameParts(u);
     setForm({
-      firstName: u.firstName || '',
-      lastName: u.lastName || '',
+      firstName: name.first,
+      lastName: name.last,
       username: u.username || '',
       phone: u.phone || '',
       avatarUrl: u.avatarUrl || '',
@@ -198,9 +210,10 @@ export const ProfileSettings = () => {
     return rows.map((w) => w?.name).filter(Boolean).join(', ');
   }, [me]);
 
+  const savedName = nameParts(user);
   const dirty =
-    form.firstName !== (user.firstName || '') ||
-    form.lastName !== (user.lastName || '') ||
+    form.firstName !== savedName.first ||
+    form.lastName !== savedName.last ||
     form.username !== (user.username || '') ||
     form.phone !== (user.phone || '') ||
     form.avatarUrl !== (user.avatarUrl || '');

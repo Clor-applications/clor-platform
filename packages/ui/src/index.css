@@ -732,7 +732,7 @@
   --link: 212 212 216; --link-hover: 250 250 250; --info: 161 161 170; --info-soft: 39 39 42;
   --st-all-soft: 39 39 42; --st-all-strong: 63 63 70; --st-all-key: 212 212 216; --st-all-ink: 244 244 245;
   --rail-bg: 3 3 4; --rail-border: 39 39 42; --rail-hover: 24 24 27; --rail-active: 63 63 70;
-  --heading-bg: 39 39 42; --heading-hover: 63 63 70; --page-heading-bg: 24 24 27;
+  --heading-bg: 39 39 42; --heading-hover: 63 63 70; --page-heading-bg: 24 24 27; --header-bg: 18 18 21;
   --cursor-bg: 24 24 27; --cursor-fg: 250 250 250;
   --nav-fg: 244 244 245; --nav-fg-muted: 161 161 170; --nav-fg-subtle: 113 113 122;
   --nav-dashboard: 212 212 216; --nav-sales: 212 212 216; --nav-crm: 212 212 216;
