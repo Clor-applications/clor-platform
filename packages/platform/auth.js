@@ -1,4 +1,5 @@
 import { apiFetch } from './http';
+import { orgId as contextOrgId } from './context';
 
 /**
  * The platform's own API: who you are, and which companies you belong to.
@@ -55,6 +56,15 @@ export const updateProfile = (patch) =>
     method: 'PATCH',
     body: typeof patch === 'string' ? { fullName: patch } : patch,
     skipBranchHeader: true,
+    skipWarehouseHeader: true,
+  });
+
+/* Change your own password. Org-scoped because the org's password policy
+   decides what is allowed; other sessions end, this one stays signed in. */
+export const changePassword = (currentPassword, newPassword) =>
+  apiFetch(`/orgs/${encodeURIComponent(contextOrgId())}/security/change-password`, {
+    method: 'POST',
+    body: { currentPassword, newPassword },
     skipWarehouseHeader: true,
   });
 

@@ -156,9 +156,15 @@ export async function revokeSession(refreshToken: string, reason = 'LOGOUT') {
   });
 }
 
-export async function revokeAllSessions(userId: string, reason: string) {
+/**
+ * Ends a person's sessions. `keepSessionId` spares the one making the request:
+ * "sign out everywhere else" and a password change should not sign out the
+ * device that asked (it used to, about fifteen minutes later, when its access
+ * token ran out and the refresh was refused). A reset by email keeps none.
+ */
+export async function revokeAllSessions(userId: string, reason: string, keepSessionId?: string) {
   return platformPrisma.session.updateMany({
-    where: { userId, revokedAt: null },
+    where: { userId, revokedAt: null, ...(keepSessionId ? { NOT: { id: keepSessionId } } : {}) },
     data: { revokedAt: new Date(), revokedReason: reason },
   });
 }

@@ -3,6 +3,7 @@ import {
   BadgeCheck,
   Building2,
   Check,
+  KeyRound,
   Mail,
   Pencil,
   Save,
@@ -14,7 +15,7 @@ import {
   X,
 } from 'lucide-react';
 
-import { getProfile, resendVerification, updateProfile } from '@platform/auth';
+import { changePassword, forgotPassword, getProfile, resendVerification, updateProfile } from '@platform/auth';
 import { PageHeader, Spinner, SkeletonCard } from '@ui/components/ui/Primitives';
 
 /**
@@ -488,13 +489,133 @@ export const ProfileScreen = ({ Header = PageHeader }) => {
             }
           />
         </dl>
-        <p className="ui-t-body mt-4 flex items-center gap-1.5" style={{ color: 'rgb(var(--fg-subtle))' }}>
-          <UserRound size={14} aria-hidden="true" />
-          Password, devices and sign-in activity are under Settings &rarr; Security.
-        </p>
       </section>
+
+      <PasswordCard email={user.email} />
     </div>
   );
 };
+
+/**
+ * Change your own password, here rather than only in Accounting's security
+ * settings: every app shows this page, and a Payroll user had nowhere to do it.
+ * Forgotten the current one? A reset link goes to the sign-in email.
+ */
+const EMPTY_PW = { current: '', next: '', confirm: '' };
+
+function PasswordCard({ email }) {
+  const [open, setOpen] = useState(false);
+  const [pw, setPw] = useState(EMPTY_PW);
+  const [busy, setBusy] = useState('');
+  const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
+
+  const act = async (key, fn, note) => {
+    setBusy(key);
+    setError('');
+    setNotice('');
+    try {
+      await fn();
+      setNotice(note);
+      return true;
+    } catch (e) {
+      setError(String(e?.message || e));
+      return false;
+    } finally {
+      setBusy('');
+    }
+  };
+
+  const save = async () => {
+    if (pw.next !== pw.confirm) return setError('The new passwords do not match.');
+    if (pw.next === pw.current) return setError('Choose a password different from the current one.');
+    const ok = await act('save', () => changePassword(pw.current, pw.next), 'Password changed. Other devices were signed out.');
+    if (ok) {
+      setPw(EMPTY_PW);
+      setOpen(false);
+    }
+  };
+
+  const field = (key, label, autoComplete) => (
+    <label className="block">
+      <span className="ui-label">{label}</span>
+      <input
+        type="password"
+        className="ui-input w-full"
+        value={pw[key]}
+        onChange={(e) => setPw((p) => ({ ...p, [key]: e.target.value }))}
+        autoComplete={autoComplete}
+      />
+    </label>
+  );
+
+  return (
+    <section className="ui-card p-5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="ui-t-sec">Password</h2>
+          <p className="ui-t-body mt-0.5" style={{ color: 'rgb(var(--fg-subtle))' }}>
+            Changing it signs you out on other devices; this one stays signed in.
+          </p>
+        </div>
+        {!open ? (
+          <button type="button" className="ui-btn ui-btn-secondary" onClick={() => { setOpen(true); setNotice(''); setError(''); }}>
+            <KeyRound size={16} aria-hidden="true" /> Change password
+          </button>
+        ) : null}
+      </div>
+
+      {open ? (
+        <div className="mt-4 grid gap-3 sm:grid-cols-3">
+          {field('current', 'Current password', 'current-password')}
+          {field('next', 'New password', 'new-password')}
+          {field('confirm', 'Confirm new password', 'new-password')}
+          <div className="sm:col-span-3 flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              className="ui-btn ui-btn-primary"
+              disabled={!pw.current || !pw.next || !pw.confirm || busy === 'save'}
+              onClick={save}
+            >
+              {busy === 'save' ? <Spinner /> : <Save size={16} aria-hidden="true" />} Save new password
+            </button>
+            <button
+              type="button"
+              className="ui-btn ui-btn-secondary"
+              disabled={busy === 'save'}
+              onClick={() => { setOpen(false); setPw(EMPTY_PW); setError(''); }}
+            >
+              <X size={16} aria-hidden="true" /> Cancel
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      {error ? (
+        <p className="ui-t-body mt-3" role="alert" style={{ color: 'rgb(var(--neg))' }}>{error}</p>
+      ) : null}
+      {notice ? (
+        <p className="ui-t-body mt-3 flex items-center gap-1.5" role="status" style={{ color: 'rgb(var(--pos))' }}>
+          <Check size={14} aria-hidden="true" /> {notice}
+        </p>
+      ) : null}
+
+      {email ? (
+        <p className="ui-t-body mt-4 flex flex-wrap items-center gap-1.5" style={{ color: 'rgb(var(--fg-subtle))' }}>
+          <UserRound size={14} aria-hidden="true" />
+          Forgotten your current password?
+          <button
+            type="button"
+            className="ui-link"
+            disabled={busy === 'reset'}
+            onClick={() => act('reset', () => forgotPassword(email), `A reset link is on its way to ${email}.`)}
+          >
+            {busy === 'reset' ? 'Sending…' : 'Email me a reset link'}
+          </button>
+        </p>
+      ) : null}
+    </section>
+  );
+}
 
 export default ProfileScreen;

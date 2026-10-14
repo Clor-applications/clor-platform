@@ -152,7 +152,7 @@ describe('sessions', () => {
     await request(app).post('/api/auth/refresh').send({ refreshToken: u.refreshToken }).expect(401);
   });
 
-  it('lists active sessions and can end them all', async () => {
+  it('lists active sessions and ends every one but the caller’s', async () => {
     const u = await makeUser();
     await request(app).post('/api/auth/login').send({ emailOrUsername: u.email, password: u.password }).expect(200);
 
@@ -164,8 +164,9 @@ describe('sessions', () => {
       .set('Authorization', `Bearer ${u.token}`)
       .expect(200);
 
+    /* "Sign out everywhere else": the device that asked keeps its session. */
     const after = await request(app).get('/api/auth/sessions').set('Authorization', `Bearer ${u.token}`).expect(200);
-    expect(after.body.sessions).toHaveLength(0);
+    expect(after.body.sessions).toHaveLength(1);
   });
 });
 

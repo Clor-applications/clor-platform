@@ -4,6 +4,8 @@ import type { Request, Response, NextFunction } from 'express';
 export type AuthUser = {
   userId: string;
   accountId: string;
+  /** The session this access token was issued for (`sid`), when it has one. */
+  sessionId?: string;
 };
 
 function getJwtSecret() {
@@ -38,7 +40,8 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
     const accountId = String(payload?.accountId || '').trim();
     if (!userId || !accountId) return res.status(401).json({ error: 'Invalid token' });
 
-    req.auth = { userId, accountId };
+    const sessionId = String(payload?.sid || '').trim();
+    req.auth = sessionId ? { userId, accountId, sessionId } : { userId, accountId };
     next();
   } catch {
     return res.status(401).json({ error: 'Invalid/expired token' });

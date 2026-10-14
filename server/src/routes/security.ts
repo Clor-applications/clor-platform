@@ -275,7 +275,7 @@ securityRouter.get('/orgs/:orgId/security/my-sessions', async (req, res) => {
 
 securityRouter.post('/orgs/:orgId/security/my-sessions/revoke-all', async (req, res) => {
   if (!orgOk(req, res)) return;
-  const result = await revokeAllSessions(req.auth!.userId, 'USER_REVOKED_ALL');
+  const result = await revokeAllSessions(req.auth!.userId, 'USER_REVOKED_ALL', req.auth!.sessionId);
   await recordAuthEvent({
     accountId: req.tenant!.accountId,
     userId: req.auth!.userId,
@@ -322,9 +322,8 @@ securityRouter.post('/orgs/:orgId/security/change-password', async (req, res) =>
     data: { passwordHash: await bcrypt.hash(body.newPassword, rounds) },
   });
 
-  // Other devices are signed out; this one keeps working because its refresh
-  // token is reissued by the client on the next 401.
-  await revokeAllSessions(user.id, 'PASSWORD_CHANGED');
+  // Other devices are signed out; this one keeps its session.
+  await revokeAllSessions(user.id, 'PASSWORD_CHANGED', req.auth!.sessionId);
   await recordAuthEvent({
     accountId: req.tenant!.accountId,
     userId: user.id,
@@ -333,7 +332,7 @@ securityRouter.post('/orgs/:orgId/security/change-password', async (req, res) =>
     detail: 'All sessions revoked',
   });
 
-  res.json({ ok: true, message: 'Password changed. Please sign in again.' });
+  res.json({ ok: true, message: 'Password changed. Other devices were signed out.' });
 });
 
 // ---------------------------------------------------------------------------

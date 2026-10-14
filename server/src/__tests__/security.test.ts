@@ -124,6 +124,35 @@ describe('security policy', () => {
       .expect(200);
   });
 
+  it('keeps the device that changed the password signed in, and signs out the others', async () => {
+    const email = `sec.keep.${Date.now()}.${rnd()}@example.com`;
+    const signup = await request(app)
+      .post('/api/auth/signup')
+      .send({ email, password: 'Passw0rd!23', name: 'Keep me' })
+      .expect(200);
+    const setup = await request(app)
+      .post('/api/auth/setup-company')
+      .set('Authorization', `Bearer ${signup.body.token}`)
+      .send({ companyName: `Keep Co ${Date.now()}-${rnd()}`, state: 'Karnataka' })
+      .expect(200);
+    /* Two devices: each sign-in is its own session with its own refresh cookie. */
+    const signIn = () =>
+      request(app).post('/api/auth/login').send({ emailOrUsername: email, password: 'Passw0rd!23' }).expect(200);
+    const here = await signIn();
+    const elsewhere = await signIn();
+    const cookieOf = (r: any) => (r.headers['set-cookie'] as unknown as string[]).map((c) => c.split(';')[0]).join('; ');
+    const ctx = { token: here.body.token, orgId: setup.body.company.orgId, branchId: setup.body.branch.id, email };
+
+    await request(app)
+      .post(`/api/orgs/${ctx.orgId}/security/change-password`)
+      .set(auth(ctx))
+      .send({ currentPassword: 'Passw0rd!23', newPassword: 'N3w!Passphrase' })
+      .expect(200);
+
+    await request(app).post('/api/auth/refresh').set('Cookie', cookieOf(here)).expect(200);
+    await request(app).post('/api/auth/refresh').set('Cookie', cookieOf(elsewhere)).expect(401);
+  });
+
   it('refuses a wrong current password', async () => {
     const org = await makeOwner();
     await request(app)

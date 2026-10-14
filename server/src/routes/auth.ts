@@ -68,7 +68,11 @@ function requireAuth(req: any) {
     audience: process.env.JWT_AUDIENCE || 'accounting-web',
   });
   if (!decoded?.userId || !decoded?.accountId) throw new Error('Unauthorized');
-  return { userId: String(decoded.userId), accountId: String(decoded.accountId) };
+  return {
+    userId: String(decoded.userId),
+    accountId: String(decoded.accountId),
+    sessionId: decoded.sid ? String(decoded.sid) : undefined,
+  };
 }
 
 async function bootstrapOwnerRole(accountId: string, orgId: string, userId: string) {
@@ -331,7 +335,7 @@ authRouter.post('/sessions/revoke-all', async (req: Request, res: Response) => {
   } catch (e: any) {
     return res.status(401).json({ error: String(e?.message || 'Unauthorized') });
   }
-  const result = await revokeAllSessions(auth.userId, 'USER_REVOKED_ALL');
+  const result = await revokeAllSessions(auth.userId, 'USER_REVOKED_ALL', auth.sessionId);
   await recordAuthEvent({ accountId: auth.accountId, userId: auth.userId, eventType: 'SESSION_REVOKED', detail: 'User revoked all sessions' });
   return res.json({ ok: true, revoked: result.count });
 });
