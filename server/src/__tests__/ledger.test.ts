@@ -268,6 +268,33 @@ describe('period lock', () => {
   });
 });
 
+describe('a lock covers every earlier year too', () => {
+  it('refuses a posting in the previous year when a later year is locked past it', async () => {
+    await request(app)
+      .post(`/api/orgs/${A.orgId}/ledger/fiscal-years/2026-27/lock`)
+      .set(auth(A))
+      .send({ lockedThrough: '2026-05-31' })
+      .expect(200);
+
+    // 15 Mar 2026 is in 2025-26, a year nobody locked directly.
+    const res = await request(app)
+      .post(`/api/orgs/${A.orgId}/invoices`)
+      .set(auth(A))
+      .send(invoicePayload({ date: '2026-03-15' }))
+      .expect(409);
+    expect(String(res.body.error)).toMatch(/locked through 2026-05-31/i);
+
+    // After the lock date, still open.
+    await request(app).post(`/api/orgs/${A.orgId}/invoices`).set(auth(A)).send(invoicePayload({ date: '2026-06-02' })).expect(201);
+
+    await request(app)
+      .post(`/api/orgs/${A.orgId}/ledger/fiscal-years/2026-27/lock`)
+      .set(auth(A))
+      .send({ lockedThrough: null })
+      .expect(200);
+  });
+});
+
 describe('tenancy isolation', () => {
   it('does not let tenant B read tenant A ledger with its own headers', async () => {
     const res = await request(app)

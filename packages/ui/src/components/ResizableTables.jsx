@@ -17,7 +17,19 @@ export default function ResizableTables() {
       let saved = {};
       try { saved = JSON.parse(localStorage.getItem(storageKey) || '{}'); } catch { saved = {}; }
 
-      table.style.tableLayout = 'fixed';
+      /*
+       * Fixed layout only once somebody has sized a column.
+       *
+       * This set `table-layout: fixed` on every table up front, which shares
+       * the width out evenly and never lets a column grow for what is in it —
+       * so a money figure, which must never wrap or be cut, was painted over
+       * the column beside it on any narrow window, on all 36 screens that
+       * show amounts. Left in automatic layout, each column starts as wide as
+       * its content and the card scrolls sideways instead. A column the user
+       * has dragged, here or on an earlier visit, switches the table to fixed
+       * widths so their choice holds.
+       */
+      if (Object.keys(saved).length) table.style.tableLayout = 'fixed';
       headers.forEach((header, index) => {
         header.classList.add('global-resizable-heading');
         const labelMinimum = Math.max(76, header.textContent.trim().length * 7.5 + 34);
@@ -35,6 +47,8 @@ export default function ResizableTables() {
           const startWidth = header.getBoundingClientRect().width;
           const initialWidths = headers.map((item) => Math.round(item.getBoundingClientRect().width));
           headers.forEach((item, itemIndex) => { item.style.width = `${initialWidths[itemIndex]}px`; });
+          // From the measured widths above, so the switch does not jump.
+          table.style.tableLayout = 'fixed';
           const containerWidth = table.parentElement?.clientWidth || 0;
           const initialTableWidth = Math.max(containerWidth, initialWidths.reduce((sum, width) => sum + width, 0));
           table.style.width = `${initialTableWidth}px`;

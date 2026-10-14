@@ -18,6 +18,7 @@ import {
   recalcDocumentSettlement,
   recalcSettlementForPayment,
 } from '../services/settlement.js';
+import { recordBankDateChange } from '../services/bankDateAudit.js';
 
 /**
  * Receipts and payments.
@@ -498,14 +499,27 @@ paymentsRouter.patch('/orgs/:orgId/payments/:paymentId/reconcile', async (req, r
   if (!payment) return res.status(404).json({ error: 'Payment not found' });
 
   const body = reconcileSchema.parse(req.body);
-  const updated = await prisma.payment.update({
-    where: { id: payment.id },
-    data: {
-      reconciled: body.reconciled,
-      bankDate: body.bankDate ? new Date(body.bankDate) : body.reconciled ? new Date() : null,
-      statementRef: body.statementRef ?? null,
-    },
-    include: { allocations: true },
+  const next = {
+    reconciled: body.reconciled,
+    bankDate: body.bankDate ? new Date(body.bankDate) : body.reconciled ? new Date() : null,
+    statementRef: body.statementRef ?? null,
+  };
+  // The state and its history commit together.
+  const updated = await prisma.$transaction(async (tx) => {
+    const row = await tx.payment.update({ where: { id: payment.id }, data: next, include: { allocations: true } });
+    await recordBankDateChange(tx, {
+      accountId,
+      orgId,
+      kind: 'PAYMENT',
+      sourceId: payment.id,
+      voucherNo: (payment as any).number ?? null,
+      ledgerAccountId: (payment as any).ledgerAccountId ?? null,
+      transactionDate: String((payment as any).date || ''),
+      before: { reconciled: payment.reconciled === true, bankDate: (payment as any).bankDate ?? null },
+      after: next,
+      userId: req.auth!.userId,
+    });
+    return row;
   });
 
   res.json({ payment: normalize(updated) });

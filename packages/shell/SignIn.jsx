@@ -98,7 +98,7 @@ export default function SignIn({ onHome, onSignUp, onForgot }) {
         </div>
 
         {error ? (
-          <p className="text-sm" style={{ color: 'rgb(var(--neg))' }}>{error}</p>
+          <p role="alert" className="text-sm" style={{ color: 'rgb(var(--neg))' }}>{error}</p>
         ) : null}
 
         <button type="submit" className="ui-btn ui-btn-brand ui-btn-lg w-full" disabled={busy}>

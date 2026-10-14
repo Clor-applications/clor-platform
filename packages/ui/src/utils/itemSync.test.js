@@ -51,7 +51,8 @@ describe('writing an item through to the server', () => {
       gstRate: 18,
       salePrice: 1200,
     });
-    expect(patch).toEqual({ backendItemId: 'srv-item-1' });
+    // The item is known by its server id from here on (itemIdentity.js).
+    expect(patch).toEqual({ backendItemId: 'srv-item-1', id: 'srv-item-1' });
   });
 
   it('tells the server a service is a service', async () => {

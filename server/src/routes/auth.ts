@@ -35,13 +35,15 @@ import { sendTemplate } from '../services/mailer.js';
 import { policyForUser, validatePassword, getAuthPolicy } from '../services/policy.js';
 import { expandPreset, permKey } from '../constants/permissionCatalog.js';
 import { validateGstinOrThrow, deriveStateCodeFromInput } from '../utils/gstin.js';
+import { isDevOrTest } from '../utils/devMode.js';
+import { requireAuth as requireLiveAuth } from '../middleware/auth.js';
 
 export const authRouter = Router();
 
 const LOCKOUT_NOTICE = Number(process.env.LOCKOUT_MINUTES || 15);
 
 function getJwtSecret() {
-  return process.env.JWT_SECRET || (process.env.NODE_ENV === 'production' ? '' : 'dev-secret');
+  return process.env.JWT_SECRET || (isDevOrTest() ? 'dev-secret' : '');
 }
 
 function signToken(payload: { userId: string; accountId: string }) {
@@ -517,7 +519,8 @@ authRouter.post('/signup', signupLimiter, async (req: Request, res: Response) =>
       email: z.string().email(),
       password: z.string().min(8),
       name: z.string().min(1),
-      mobile: z.string().optional(),
+      /** The privacy notice and terms version shown on the sign-up form. */
+      noticeVersion: z.string().trim().max(40).optional(),
     })
     .parse(req.body);
 
@@ -541,6 +544,7 @@ authRouter.post('/signup', signupLimiter, async (req: Request, res: Response) =>
       fullName: body.name.trim(),
       passwordHash,
       isActive: true,
+      ...(body.noticeVersion ? { noticeVersion: body.noticeVersion, noticeAcceptedAt: new Date() } : {}),
     },
     select: { id: true, accountId: true, email: true, fullName: true },
   });
@@ -579,7 +583,7 @@ authRouter.post('/signup', signupLimiter, async (req: Request, res: Response) =>
     token,
     user,
     emailVerificationSent: true,
-    ...(process.env.NODE_ENV === 'production' ? {} : { devVerifyToken: verifyToken }),
+    ...(isDevOrTest() ? { devVerifyToken: verifyToken } : {}),
   });
 });
 
@@ -796,7 +800,7 @@ authRouter.post('/forgot-password', resetLimiter, async (req: Request, res: Resp
   // stored only as a hash.
   return res.json({
     ...generic,
-    devToken: process.env.NODE_ENV === 'production' ? undefined : token,
+    devToken: isDevOrTest() ? token : undefined,
   });
 });
 
@@ -886,11 +890,69 @@ authRouter.post('/resend-verification', resetLimiter, async (req: Request, res: 
 
   return res.json({
     ok: true,
-    ...(process.env.NODE_ENV === 'production' ? {} : { devVerifyToken: token }),
+    ...(isDevOrTest() ? { devVerifyToken: token } : {}),
   });
 });
 
 /** Update your own name. Email changes go through verification separately. */
+/**
+ * Everything this service holds about the person signed in, as a download.
+ *
+ * Their own records: profile, the companies they belong to, their sign-in
+ * sessions and sign-in history. Not the companies' books — those belong to the
+ * business and leave through the company data export, under its own
+ * permission. No password hash, token hash or secret is included.
+ */
+authRouter.get('/me/export', requireLiveAuth, async (req: Request, res: Response) => {
+  const userId = req.auth!.userId;
+  const user = await platformPrisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      id: true,
+      email: true,
+      username: true,
+      fullName: true,
+      firstName: true,
+      lastName: true,
+      phone: true,
+      avatarUrl: true,
+      isActive: true,
+      emailVerifiedAt: true,
+      lastLoginAt: true,
+      createdAt: true,
+      updatedAt: true,
+    },
+  });
+  if (!user) return res.status(404).json({ error: 'User not found' });
+
+  const memberships = await platformPrisma.userOrgMembership.findMany({
+    where: { userId },
+    select: { createdAt: true, org: { select: { id: true, name: true } } },
+  });
+  const sessions = await platformPrisma.session.findMany({
+    where: { userId },
+    orderBy: { createdAt: 'desc' },
+    select: { createdAt: true, lastSeenAt: true, expiresAt: true, revokedAt: true, revokedReason: true, ip: true, userAgent: true },
+  });
+  const signIns = await platformPrisma.authEvent.findMany({
+    where: { OR: [{ userId }, { email: user.email }] },
+    orderBy: { createdAt: 'desc' },
+    take: 1000,
+    select: { createdAt: true, eventType: true, ip: true, userAgent: true },
+  });
+
+  res.setHeader('Content-Disposition', `attachment; filename="my-data-${new Date().toISOString().slice(0, 10)}.json"`);
+  res.json({
+    exportedAt: new Date().toISOString(),
+    about:
+      'Your personal data held by this service. The books of the companies you work in are the business’s records and are exported from the company, not here.',
+    profile: user,
+    companies: memberships.map((m) => ({ id: m.org.id, name: m.org.name, memberSince: m.createdAt })),
+    sessions,
+    signInHistory: signIns,
+  });
+});
+
 authRouter.patch('/me', async (req: Request, res: Response) => {
   let auth;
   try {

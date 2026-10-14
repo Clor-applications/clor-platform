@@ -11,11 +11,12 @@ import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
 import ItemPicker from '../../components/pickers/ItemPicker';
 import { formatMoney, round2 } from '@ui/utils/money';
 import { isStockItem } from '@ui/utils/inventory';
-import { generateVoucherNumber, getDocSettings, nextFreeVoucherNumber } from '@ui/utils/docSettings';
+import { getDocSettings, nextFreeVoucherNumber } from '@ui/utils/docSettings';
 import DocNumberField from '@ui/components/DocNumberField';
 import { DocumentNumber, DocDate } from '@ui/components/docs';
 import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';
 import { DocFormActions } from '@ui/components/DocumentForm';
+import { deleteStockDocOnServer } from './useStockSync';
 
 const safeArray = (v) => (Array.isArray(v) ? v : []);
 const normalizeId = (v) => (v === undefined || v === null ? '' : String(v).trim());
@@ -272,19 +273,31 @@ const StockAdjustments = ({
       let nextId = existing.reduce((m, a) => Math.max(m, Number(a?.id || 0)), 0);
       const stamp = new Date().toISOString();
 
+      /*
+       * Each row takes the next free number in the series — the rule the
+       * form's preview uses. This offset the series by the row's internal id
+       * instead, so the first adjustment the form called ADJ-1 was saved as
+       * ADJ-2, and numbers drifted further with every deletion.
+       */
+      const taken = existing
+        .filter((a) => Number(a?.companyId) === Number(companyId))
+        .map((a) => String(a?.number || '').trim())
+        .filter(Boolean);
       const created = rows.map((r) => {
         const wh = normalizeId(r.warehouseId) || normalizeId(warehouseId);
+        const number =
+          nextFreeVoucherNumber({
+            db: prev,
+            company: currentCompany,
+            voucherKey: 'stockAdjustment',
+            branchId: branchOfWarehouse(wh) || activeBranchId || null,
+            takenNumbers: taken,
+          }) || `ADJ-${nextId + 1}`;
+        taken.push(number);
         return {
           id: ++nextId,
           companyId,
-          number:
-            generateVoucherNumber({
-              db: prev,
-              company: currentCompany,
-              voucherKey: 'stockAdjustment',
-              branchId: branchOfWarehouse(wh) || activeBranchId || null,
-              offset: nextId,
-            }) || `ADJ-${nextId}`,
+          number,
           date: r.date || date,
           warehouseId: wh,
           branchId: branchOfWarehouse(wh),
@@ -380,6 +393,16 @@ const StockAdjustments = ({
       return;
     }
 
+    // Every row carries its own date, so every row is checked against the
+    // closed books — the form's check did not reach the upload.
+    for (const r of rows) {
+      const closed = blockIfClosed(db, companyId, r.date || form.date, 'This upload');
+      if (closed) {
+        notify.error(closed);
+        return;
+      }
+    }
+
     commit(rows, { date: form.date, reason: form.reason, warehouseId });
 
     if (errors.length) {
@@ -391,7 +414,17 @@ const StockAdjustments = ({
     setCreating(false);
   };
 
-  const removeAdjustment = (id) => {
+  const removeAdjustment = async (id) => {
+    // Removing moves stock back on the adjustment's own date, which may be in
+    // a closed period.
+    const adj = safeArray(db.stockAdjustments).find((a) => String(a.id) === String(id));
+    const closed = adj ? blockIfClosed(db, companyId, adj.date, 'This adjustment') : null;
+    if (closed) {
+      notify.error(closed);
+      return;
+    }
+    // Gone from the server first, so another device does not bring it back.
+    if (adj && !(await deleteStockDocOnServer('stockAdjustments', adj))) return;
     setDb((prev) => ({
       ...prev,
       stockAdjustments: safeArray(prev.stockAdjustments).filter((a) => String(a.id) !== String(id)),

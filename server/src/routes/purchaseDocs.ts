@@ -16,6 +16,9 @@ import { billPostingLines,
 import { allocateNumber, ensureDefaultSeries } from '../services/numbering.js';
 import { isFeatureEnabled } from '../services/features.js';
 import { FxError, baseCurrencyFor, isBase, rateFor, toBase } from '../services/fx.js';
+import { SettledDocument, assertPurchaseDocRemovable } from '../services/settledDocGuard.js';
+import { refuseUnknownLineItems } from '../services/lineItems.js';
+import { InsufficientStock, withStockCheck } from '../services/stockLedger.js';
 
 /**
  * Bills, credit notes and debit notes.
@@ -145,6 +148,9 @@ const docSchema = z.object({
   status: z.string().optional(),
   category: z.string().optional().nullable(),
   description: z.string().optional().nullable(),
+  /** Where the goods came in, or went back out. Dropped before, so every
+      purchase landed in no warehouse at all. */
+  warehouseId: z.string().optional().nullable(),
   items: z.array(itemSchema).default([]),
 });
 
@@ -267,6 +273,7 @@ function register(kind: DocKind) {
       const { accountId, orgId, branchId } = req.tenant!;
       const userId = req.auth!.userId;
       const body = docSchema.parse(req.body);
+      if (await refuseUnknownLineItems(res, req.tenant!.accountId, req.tenant!.orgId, body.items)) return;
 
       await ensureLedgerSetup(accountId, orgId, userId);
 
@@ -287,17 +294,25 @@ function register(kind: DocKind) {
 
       await ensureDefaultSeries({ accountId, orgId, branchId, docType: kind, userId });
 
-      const created = await prisma.$transaction(async (tx) => {
+      let created: any;
+      try {
+      created = await prisma.$transaction(async (tx) => {
         const number =
           String(body.number || '').trim() ||
           (await allocateNumber(tx as any, { accountId, orgId, branchId, docType: kind, userId, date: body.date }))
             .number;
 
-        return (tx as any)[cfg.model].create({
+        /* A debit note sends goods back out: checked like a sale. Bills and
+           credit notes only bring stock in, so they pass straight through. */
+        return withStockCheck<any>(
+          tx,
+          { orgId, lines: cfg.model === 'debitNote' ? body.items : [], warehouseId: body.warehouseId },
+          () => (tx as any)[cfg.model].create({
           data: {
             accountId,
             orgId,
             branchId,
+            warehouseId: String(body.warehouseId || '').trim() || null,
             number,
             date: body.date,
             dueDate: body.dueDate ?? null,
@@ -324,8 +339,13 @@ function register(kind: DocKind) {
             createdByUserId: userId,
             ...(cfg.extraData ? cfg.extraData(body) : {}),
           },
-        });
+          })
+        );
       });
+      } catch (e: any) {
+        if (e instanceof InsufficientStock) return res.status(e.status).json({ error: e.message, code: e.code, shortages: e.shortages });
+        throw e;
+      }
 
       // Posting failure removes the document: the books and the list must not
       // disagree.
@@ -367,11 +387,15 @@ function register(kind: DocKind) {
   );
 
   /**
-   * Update an existing purchase-side document and replace its accounting
-   * effect. These documents are posted when they are created, so changing the
-   * row without replacing the journal would leave the register and ledger at
-   * different values. The original entries remain in the audit trail and are
-   * reversed before the corrected document is posted.
+   * Changing a saved document.
+   *
+   * A posted document is never edited in place: its entry is reversed, the
+   * row is updated, and a fresh entry is posted, all in one transaction so the
+   * books cannot be left holding neither (they were three separate steps, so
+   * a failed re-post left a reversed entry and no replacement). A document
+   * with payments against it may still be changed, but not reduced below what
+   * has been settled. A locked period refuses on its own, because both the
+   * reversal and the new posting go through the ledger.
    */
   purchaseDocsRouter.patch(
     `/orgs/:orgId/${cfg.path}/:docId`,
@@ -382,10 +406,11 @@ function register(kind: DocKind) {
       const { accountId, orgId, branchId } = req.tenant!;
       const userId = req.auth!.userId;
       const docId = String(req.params.docId);
-      const existing = await table().findFirst({ where: { id: docId, accountId, orgId, branchId } });
+      const existing = await table().findFirst({ where: { id: docId, accountId, orgId, branchId, ...ownDocsWhere(req) } });
       if (!existing) return res.status(404).json({ error: `${cfg.resource} not found` });
 
       const body = docSchema.parse(req.body);
+      if (await refuseUnknownLineItems(res, accountId, orgId, body.items)) return;
       const settledAmount = num(existing.settledAmount);
       if (num(body.total) + 0.0001 < settledAmount) {
         return res.status(409).json({
@@ -417,93 +442,98 @@ function register(kind: DocKind) {
         throw e;
       }
 
-      const entries = await prisma.journalEntry.findMany({
-        where: { accountId, orgId, sourceDocType: kind, sourceDocId: existing.id, status: 'POSTED' },
-        select: { id: true },
-      });
-      for (const entry of entries) {
-        await reverseEntry({
-          accountId,
-          orgId,
-          branchId,
-          userId,
-          entryId: entry.id,
-          narration: `${cfg.resource} ${existing.number} amended`,
-        });
-      }
-
       const rawExtras = extrasOf(req.body);
       const nextExtras = {
         ...spreadExtras(existing),
         ...(rawExtras ? JSON.parse(rawExtras) : {}),
       };
 
-      let updated: any;
       try {
-        updated = await table().update({
-          where: { id: existing.id },
-          data: {
-            number: requestedNumber,
-            date: body.date,
-            dueDate: body.dueDate ?? null,
-            refNo: body.refNo ?? null,
-            refDate: body.refDate ?? null,
-            againstDocId: body.againstDocId ?? null,
-            partyId: body.partyId ?? null,
-            partyName: body.partyName,
-            partyGstin: body.partyGstin ?? null,
-            placeOfSupplyState: body.placeOfSupplyState ?? null,
-            taxType: body.taxType ?? null,
-            subtotal: new Prisma.Decimal(num(body.subtotal).toFixed(2)),
-            cgstTotal: new Prisma.Decimal(num(body.cgstTotal).toFixed(2)),
-            sgstTotal: new Prisma.Decimal(num(body.sgstTotal).toFixed(2)),
-            igstTotal: new Prisma.Decimal(num(body.igstTotal).toFixed(2)),
-            gstTotal: new Prisma.Decimal(num(body.gstTotal).toFixed(2)),
-            total: new Prisma.Decimal(num(body.total).toFixed(2)),
-            status: existing.status,
-            itemsJson: JSON.stringify(body.items || []),
-            extrasJson: Object.keys(nextExtras).length ? JSON.stringify(nextExtras) : null,
-            currency: docCurrency,
-            exchangeRate: new Prisma.Decimal(String(fxRate)),
-            baseTotal: new Prisma.Decimal(toBase(num(body.total), fxRate).toFixed(2)),
-            ...(cfg.extraData ? cfg.extraData(body) : {}),
+        const updated = await prisma.$transaction(
+          async (tx) => {
+            const entries = await tx.journalEntry.findMany({
+              where: { accountId, orgId, sourceDocType: kind, sourceDocId: existing.id, status: 'POSTED' },
+              select: { id: true },
+            });
+            for (const entry of entries) {
+              await reverseEntry(
+                { accountId, orgId, branchId, userId, entryId: entry.id, narration: `${cfg.resource} ${existing.number} amended` },
+                tx as any
+              );
+            }
+
+            const nextWarehouseId =
+              body.warehouseId === undefined ? existing.warehouseId ?? null : String(body.warehouseId || '').trim() || null;
+            const row = await withStockCheck<any>(
+              tx,
+              { orgId, lines: cfg.model === 'debitNote' ? body.items : [], warehouseId: nextWarehouseId },
+              () =>
+                (tx as any)[cfg.model].update({
+                  where: { id: existing.id },
+                  data: {
+                    warehouseId: nextWarehouseId,
+                    number: requestedNumber,
+                    date: body.date,
+                    dueDate: body.dueDate ?? null,
+                    refNo: body.refNo ?? null,
+                    refDate: body.refDate ?? null,
+                    againstDocId: body.againstDocId ?? null,
+                    partyId: body.partyId ?? null,
+                    partyName: body.partyName,
+                    partyGstin: body.partyGstin ?? null,
+                    placeOfSupplyState: body.placeOfSupplyState ?? null,
+                    taxType: body.taxType ?? null,
+                    subtotal: new Prisma.Decimal(num(body.subtotal).toFixed(2)),
+                    cgstTotal: new Prisma.Decimal(num(body.cgstTotal).toFixed(2)),
+                    sgstTotal: new Prisma.Decimal(num(body.sgstTotal).toFixed(2)),
+                    igstTotal: new Prisma.Decimal(num(body.igstTotal).toFixed(2)),
+                    gstTotal: new Prisma.Decimal(num(body.gstTotal).toFixed(2)),
+                    total: new Prisma.Decimal(num(body.total).toFixed(2)),
+                    status: existing.status,
+                    itemsJson: JSON.stringify(body.items || []),
+                    extrasJson: Object.keys(nextExtras).length ? JSON.stringify(nextExtras) : null,
+                    currency: docCurrency,
+                    exchangeRate: new Prisma.Decimal(String(fxRate)),
+                    baseTotal: new Prisma.Decimal(toBase(num(body.total), fxRate).toFixed(2)),
+                    ...(cfg.extraData ? cfg.extraData(body) : {}),
+                  },
+                })
+            );
+
+            await postEntry(
+              {
+                accountId,
+                orgId,
+                branchId,
+                userId,
+                date: body.date,
+                journalCode: cfg.journalCode,
+                narration: `${cfg.resource} ${requestedNumber} - ${body.partyName}${fxRate === 1 ? '' : ` (${docCurrency} at ${fxRate})`}`,
+                sourceDocType: kind,
+                sourceDocId: existing.id,
+                lines: cfg.lines({
+                  partyId: body.partyId ?? null,
+                  partyName: body.partyName,
+                  subtotal: toBase(num(body.subtotal), fxRate),
+                  cgstTotal: toBase(num(body.cgstTotal), fxRate),
+                  sgstTotal: toBase(num(body.sgstTotal), fxRate),
+                  igstTotal: toBase(num(body.igstTotal), fxRate),
+                  total: toBase(num(body.total), fxRate),
+                  tdsAmount: toBase(num((req.body as any)?.tdsAmount), fxRate),
+                }),
+              },
+              tx as any
+            );
+            return row;
           },
-        });
+          { timeout: 20_000 }
+        );
+        res.json({ document: normalize(updated) });
       } catch (e: any) {
-        const msg = String(e?.message || '');
-        if (msg.includes('UNIQUE constraint failed')) {
-          return res.status(409).json({ error: `Number "${body.number}" is already used by another document.` });
-        }
-        throw e;
+        if (e instanceof InsufficientStock) return res.status(e.status).json({ error: e.message, code: e.code, shortages: e.shortages });
+        if (String(e?.code) === 'P2002') return res.status(409).json({ error: `Number "${requestedNumber}" is already used by another document.` });
+        return res.status(Number(e?.status || 400)).json({ error: `Not saved: ${String(e?.message || e)}` });
       }
-
-      try {
-        await postEntry({
-          accountId,
-          orgId,
-          branchId,
-          userId,
-          date: body.date,
-          journalCode: cfg.journalCode,
-          narration: `${cfg.resource} ${updated.number} - ${body.partyName}`,
-          sourceDocType: kind,
-          sourceDocId: updated.id,
-          lines: cfg.lines({
-            partyId: body.partyId ?? null,
-            partyName: body.partyName,
-            subtotal: toBase(num(body.subtotal), fxRate),
-            cgstTotal: toBase(num(body.cgstTotal), fxRate),
-            sgstTotal: toBase(num(body.sgstTotal), fxRate),
-            igstTotal: toBase(num(body.igstTotal), fxRate),
-            total: toBase(num(body.total), fxRate),
-            tdsAmount: toBase(num((req.body as any)?.tdsAmount), fxRate),
-          }),
-        });
-      } catch (e: any) {
-        return res.status(Number(e?.status || 400)).json({ error: `Updated document could not be reposted: ${String(e?.message || e)}` });
-      }
-
-      res.json({ document: normalize(updated) });
     }
   );
 
@@ -546,6 +576,50 @@ function register(kind: DocKind) {
     }
   );
 
+  /**
+   * Cancelling: the document stays, marked Cancelled, and its entry is
+   * reversed. The bills list offered Cancel and changed only the browser's
+   * copy, so a cancelled bill went on sitting in the server's payables.
+   * Refused while something leans on the document, as delete is.
+   */
+  purchaseDocsRouter.post(
+    `/orgs/:orgId/${cfg.path}/:docId/cancel`,
+    requirePermission(cfg.module, PermissionAction.EDIT, cfg.resource),
+    async (req, res) => {
+      if (!orgOk(req, res)) return;
+      const { accountId, orgId, branchId } = req.tenant!;
+      const doc = await table().findFirst({ where: { id: String(req.params.docId), accountId, orgId, ...ownDocsWhere(req) } });
+      if (!doc) return res.status(404).json({ error: `${cfg.resource} not found` });
+      if (String(doc.status || '').toLowerCase() === 'cancelled') return res.status(409).json({ error: 'Already cancelled' });
+
+      try {
+        await assertPurchaseDocRemovable({ accountId, orgId, kind, doc, verb: 'cancel' });
+      } catch (e: any) {
+        if (e instanceof SettledDocument) return res.status(e.status).json({ error: e.message, code: e.code });
+        throw e;
+      }
+
+      try {
+        const updated = await prisma.$transaction(async (tx) => {
+          const entries = await tx.journalEntry.findMany({
+            where: { accountId, orgId, sourceDocType: kind, sourceDocId: doc.id, status: 'POSTED' },
+            select: { id: true },
+          });
+          for (const e of entries) {
+            await reverseEntry(
+              { accountId, orgId, branchId, userId: req.auth!.userId, entryId: e.id, narration: `${cfg.resource} ${doc.number} cancelled` },
+              tx as any
+            );
+          }
+          return (tx as any)[cfg.model].update({ where: { id: doc.id }, data: { status: 'Cancelled' } });
+        });
+        res.json({ document: normalize(updated) });
+      } catch (e: any) {
+        return res.status(Number(e?.status || 400)).json({ error: `Not cancelled: ${String(e?.message || e)}` });
+      }
+    }
+  );
+
   /** Removal reverses the posting by contra entry; posted history is never edited. */
   purchaseDocsRouter.delete(
     `/orgs/:orgId/${cfg.path}/:docId`,
@@ -556,6 +630,14 @@ function register(kind: DocKind) {
 
       const doc = await table().findFirst({ where: { id: String(req.params.docId), accountId, orgId, ...ownDocsWhere(req) } });
       if (!doc) return res.status(404).json({ error: `${cfg.resource} not found` });
+
+      // Not while a payment, a note or a settlement still leans on it.
+      try {
+        await assertPurchaseDocRemovable({ accountId, orgId, kind, doc });
+      } catch (e: any) {
+        if (e instanceof SettledDocument) return res.status(e.status).json({ error: e.message, code: e.code });
+        throw e;
+      }
 
       const entries = await prisma.journalEntry.findMany({
         where: { accountId, orgId, sourceDocType: kind, sourceDocId: doc.id, status: 'POSTED' },

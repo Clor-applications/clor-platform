@@ -101,6 +101,14 @@ export const reverseJournalEntry = (entryId, narration) =>
     ...opts,
   });
 
+/** Reconcile a contra entry against the bank statement; the server keeps the bank-date history. */
+export const reconcileJournalEntry = (entryId, { reconciled, bankDate, statementRef } = {}) =>
+  apiFetch(`${base()}/entries/${encodeURIComponent(entryId)}/reconcile`, {
+    method: 'PATCH',
+    body: { reconciled: Boolean(reconciled), bankDate: bankDate ?? null, statementRef: statementRef ?? null },
+    ...opts,
+  });
+
 /** The fiscal years the server knows about, and how far each is locked. */
 export const getFiscalYears = () => apiFetch(`${base()}/fiscal-years`, opts);
 

@@ -7,6 +7,7 @@ import { requireTenantContext } from '../middleware/tenantContext.js';
 import { requirePermission } from '../middleware/rbac.js';
 import { PermissionAction } from '../constants/enums.js';
 import { runDueSchedules } from '../services/recurring.js';
+import { refuseUnknownLineItems } from '../services/lineItems.js';
 
 /**
  * Recurring invoice schedules.
@@ -70,6 +71,7 @@ recurringRouter.post('/orgs/:orgId/recurring', EDIT, async (req, res) => {
   if (!orgOk(req, res)) return;
   const { accountId, orgId, branchId } = req.tenant!;
   const body = scheduleSchema.parse(req.body);
+  if (await refuseUnknownLineItems(res, req.tenant!.accountId, req.tenant!.orgId, (body.template as any)?.items)) return;
 
   const row = await prisma.recurringSchedule.create({
     data: {
@@ -104,6 +106,7 @@ recurringRouter.patch('/orgs/:orgId/recurring/:id', EDIT, async (req, res) => {
   if (!existing) return res.status(404).json({ error: 'Schedule not found' });
 
   const body = scheduleSchema.partial().parse(req.body);
+  if (body.template !== undefined && (await refuseUnknownLineItems(res, req.tenant!.accountId, req.tenant!.orgId, (body.template as any)?.items))) return;
   const row = await prisma.recurringSchedule.update({
     where: { id: existing.id },
     data: {

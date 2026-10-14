@@ -1,3 +1,5 @@
+import { PermissionButton } from '../../permissions/ActionGuard';
+
 /**
  * The band every landing screen opens with.
  *
@@ -88,16 +90,19 @@ export default function HeroBand({
       {actions?.length ? (
         <div className="relative mt-4 flex flex-wrap gap-2">
           {actions.map((a, i) => (
-            <button
+            /* An action that names a permission is shown disabled, with the
+               missing permission as its title, to somebody who lacks it —
+               the rule ActionGuard sets for everything but VIEW. */
+            <PermissionButton
               key={a.label}
-              type="button"
+              permission={a.permission}
               onClick={a.onClick}
               /* One primary, first. The rest are ways in, not invitations. */
               className={i === 0 ? 'ui-btn ui-btn-primary' : 'ui-btn ui-btn-secondary'}
             >
               {a.Icon ? <a.Icon size={16} aria-hidden="true" /> : null}
               {a.label}
-            </button>
+            </PermissionButton>
           ))}
         </div>
       ) : null}

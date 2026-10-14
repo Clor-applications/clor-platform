@@ -32,6 +32,7 @@ import {
   parseIso,
   prettyDate,
 } from '../overview/OverviewParts';
+import { PermissionButton } from '@ui/permissions/ActionGuard';
 
 const LazySeriesBars = lazy(() =>
   import('@ui/components/charts/CircularCharts').then((m) => ({ default: m.SeriesBars }))

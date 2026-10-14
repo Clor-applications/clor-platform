@@ -60,6 +60,12 @@ export async function deleteDocApi(kind, docId) {
   return Boolean(data?.ok);
 }
 
+/** Cancel on the server: the entry is reversed and the document kept as Cancelled. */
+export async function cancelDocApi(kind, docId) {
+  const data = await apiFetch(`/orgs/${requireOrgId()}/${pathFor(kind)}/${encodeURIComponent(docId)}/cancel`, { method: 'POST' });
+  return data?.document || null;
+}
+
 export async function updateDocApi(kind, docId, payload) {
   const data = await apiFetch(`/orgs/${requireOrgId()}/${pathFor(kind)}/${encodeURIComponent(docId)}`, {
     method: 'PATCH',

@@ -591,7 +591,7 @@ function PosBillingScreen({ db, setDb, currentCompany }) {
                     <input aria-label={`${c.name} discount`} type="number" min="0" max="100" value={c.discount} onChange={(e) => editLine(c.itemId, 'discount', Math.min(100, Number(e.target.value) || 0))} className="ui-input !h-7 px-1 text-right" />
                     <span className="text-right">{c.gstRate}%</span>
                     <span className="ui-money text-right">{formatMoney(c.qty * c.rate * (1 - c.discount / 100), currentCompany)}</span>
-                    <button type="button" onClick={() => drop(c.itemId)} className="ui-icon-btn !h-7 !w-7" aria-label="Remove"><X size={12} /></button>
+                    <button type="button" onClick={() => drop(c.itemId)} className="ui-icon-btn !h-7 !w-7" aria-label={`Remove ${c.name}`}><X size={12} aria-hidden="true" /></button>
                   </div>
                 ))}
               </div>

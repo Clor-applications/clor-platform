@@ -75,6 +75,27 @@ export function assignUserBranches(orgId, userId, branchIds) {
   });
 }
 
+/** Whether the server can suggest a role (it needs a TypeSafe key). */
+export function getRoleSuggestionStatus(orgId) {
+  return apiFetch(`/orgs/${encodeURIComponent(orgId)}/users/role-suggestion`, { skipWarehouseHeader: true });
+}
+
+/** A role suggestion from a job title and a line about the work. */
+export function suggestRoleFor(orgId, { jobTitle, duties }) {
+  return apiFetch(`/orgs/${encodeURIComponent(orgId)}/users/role-suggestion`, {
+    method: 'POST',
+    body: { jobTitle, duties },
+    skipWarehouseHeader: true,
+  });
+}
+
+/** Every role a person holds here, and the permissions they add up to. */
+export function getUserAccess(orgId, userId) {
+  return apiFetch(`/orgs/${encodeURIComponent(orgId)}/users/${encodeURIComponent(userId)}/access`, {
+    skipWarehouseHeader: true,
+  });
+}
+
 export function getUserBranches(orgId, userId) {
   return apiFetch(`/orgs/${encodeURIComponent(orgId)}/users/${encodeURIComponent(userId)}/branches`, {
     skipWarehouseHeader: true,

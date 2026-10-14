@@ -65,6 +65,9 @@ const mapCommon = (d, companyId, idKey) => ({
   tdsLedgerName: d.tdsLedgerName || '',
   placeOfSupplyState: d.placeOfSupplyState || '',
   taxType: d.taxType || '',
+  /* Stock is counted per warehouse; a document arriving without one moved
+     stock nowhere on this device's inventory screen. */
+  warehouseId: d.warehouseId || '',
   createdAt: d.createdAt,
   hydratedFromServer: true,
 });
@@ -114,6 +117,7 @@ const mapItem = (it, companyId) => ({
   salePrice: num(it.salePrice),
   purchasePrice: num(it.purchasePrice),
   openingQty: num(it.openingQty),
+  openingWarehouseId: it.openingWarehouseId || '',
   stock: num(it.openingQty),
   reorderLevel: num(it.reorderLevel),
   trackingType: String(it.trackBy || 'NONE').toUpperCase(),
@@ -270,6 +274,11 @@ const mapJournalEntry = (e, companyId) => ({
   totalDebit: num((e.lines || []).reduce((t, l) => t + num(l.debit), 0)),
   totalCredit: num((e.lines || []).reduce((t, l) => t + num(l.credit), 0)),
   status: e.status || 'POSTED',
+  // A contra's reconciliation lives on the server now; without it a
+  // reconciled contra read unreconciled after every reload.
+  reconciled: e.reconciled === true,
+  bankDate: e.bankDate ? String(e.bankDate).slice(0, 10) : null,
+  statementRef: e.statementRef || '',
   createdAt: e.createdAt,
   hydratedFromServer: true,
 });
@@ -684,13 +693,16 @@ export function useServerDocSync({ enabled, currentCompanyId, setDb }) {
               .map((x) => String(x?.name || '').trim().toLowerCase())
               .filter(Boolean)
           );
-          let nextId = existing.reduce((m, x) => Math.max(m, Number(x?.id || 0)), 0);
+          let nextId = existing.reduce((m, x) => Math.max(m, Number(x?.id) || 0), 0);
           const fresh = incoming
             .filter(
               (d) =>
                 !knownIds.has(String(d[idKey])) && !knownNames.has(String(d.name || '').trim().toLowerCase())
             )
-            .map((d) => ({ ...d, id: ++nextId }));
+            // An item is known by its server id (utils/itemIdentity.js): a
+            // load-order number shifted whenever an earlier-sorting item was
+            // added, and every stored line with it.
+            .map((d) => ({ ...d, id: collection === 'items' && d[idKey] ? String(d[idKey]) : ++nextId }));
           if (fresh.length) next[collection] = [...existing, ...fresh];
         }
 
@@ -756,7 +768,7 @@ export function useServerDocSync({ enabled, currentCompanyId, setDb }) {
               .map((x) => String(x?.number || '').trim())
               .filter(Boolean)
           );
-          let nextId = existing.reduce((m, x) => Math.max(m, Number(x?.id || 0)), 0);
+          let nextId = existing.reduce((m, x) => Math.max(m, Number(x?.id) || 0), 0);
           const fresh = incoming
             .filter((d) => !knownIds.has(String(d[idKey])) && !knownNumbers.has(String(d.number).trim()))
             .map((d) => ({ ...d, id: ++nextId }));

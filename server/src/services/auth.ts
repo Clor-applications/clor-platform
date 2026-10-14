@@ -2,6 +2,7 @@ import { createHash, randomBytes, timingSafeEqual } from 'crypto';
 import jwt from 'jsonwebtoken';
 import { prisma } from '../utils/prisma.js';
 import { platformPrisma } from '../utils/platformPrisma.js';
+import { isDevOrTest } from '../utils/devMode.js';
 
 /**
  * Session and credential handling.
@@ -24,7 +25,7 @@ export const MAX_FAILED_LOGINS = Number(process.env.MAX_FAILED_LOGINS || 8);
 export const LOCKOUT_MINUTES = Number(process.env.LOCKOUT_MINUTES || 15);
 
 export function getJwtSecret() {
-  return process.env.JWT_SECRET || (process.env.NODE_ENV === 'production' ? '' : 'dev-secret');
+  return process.env.JWT_SECRET || (isDevOrTest() ? 'dev-secret' : '');
 }
 
 export function signAccessToken(payload: { userId: string; accountId: string; sid?: string }) {
@@ -318,5 +319,5 @@ export async function recordAuthEvent(e: {
   }
 }
 
-export const clientIp = (req: any) =>
-  String(req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.ip || undefined;
+/** The client's address, as `trust proxy` resolves it (app.ts) — never a raw header a client can write. */
+export const clientIp = (req: any) => String(req.ip || '').trim() || undefined;

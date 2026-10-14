@@ -9,6 +9,7 @@ import { ownDocsWhere } from '../services/access.js';
 import { PermissionAction } from '../constants/enums.js';
 import { isFeatureEnabled } from '../services/features.js';
 import { ensureDefaultSeries, allocateNumber } from '../services/numbering.js';
+import { refuseUnknownLineItems } from '../services/lineItems.js';
 
 /**
  * Quote-stage documents: estimates and purchase orders.
@@ -180,6 +181,7 @@ function register(kind: QuoteKind) {
       const { accountId, orgId, branchId } = req.tenant!;
       const userId = req.auth!.userId;
       const body = bodySchema.parse(req.body);
+      if (await refuseUnknownLineItems(res, req.tenant!.accountId, req.tenant!.orgId, body.items)) return;
 
       await ensureDefaultSeries({ accountId, orgId, branchId, docType: kind, userId });
 
@@ -235,6 +237,7 @@ function register(kind: QuoteKind) {
       const doc = await table().findFirst({ where: { id: String(req.params.docId), accountId, orgId, ...ownDocsWhere(req) } });
       if (!doc) return res.status(404).json({ error: `${cfg.resource} not found` });
       const body = bodySchema.partial().parse(req.body);
+      if (body.items !== undefined && (await refuseUnknownLineItems(res, req.tenant!.accountId, req.tenant!.orgId, body.items))) return;
 
       const updated = await table().update({
         where: { id: doc.id },

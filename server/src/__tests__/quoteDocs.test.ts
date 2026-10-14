@@ -8,6 +8,7 @@ afterAll(() => new Promise((done) => app.close(done)));
 type Ctx = { token: string; orgId: string; branchId: string };
 
 let A: Ctx;
+let widgetId = '';
 
 async function makeTenant(label: string): Promise<Ctx> {
   const email = `${label}.${Date.now()}.${Math.random().toString(36).slice(2, 8)}@example.com`;
@@ -31,6 +32,7 @@ const auth = (c: Ctx) => ({
 
 beforeAll(async () => {
   A = await makeTenant('tenant-quote');
+  widgetId = (await request(app).post(`/api/orgs/${A.orgId}/items`).set(auth(A)).send({ name: 'Widget', unit: 'Pcs' }).expect(201)).body.item.id;
 }, 60_000);
 
 describe('quote-stage documents', () => {
@@ -80,7 +82,7 @@ describe('quote-stage documents', () => {
         partyName: 'Buyer Ltd',
         total: 1180,
         status: 'Open',
-        items: [{ itemId: '1', description: 'Widget', quantity: 10, rate: 100, gstRate: 18 }],
+        items: [{ itemId: widgetId, description: 'Widget', quantity: 10, rate: 100, gstRate: 18 }],
       })
       .expect(201);
     expect(created.body.document.number).toMatch(/^SO-/);

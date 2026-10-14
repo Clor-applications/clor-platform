@@ -22,6 +22,8 @@ export const createVendor = (party) => apiFetch(`${base()}/vendors`, { method: '
 
 export const listItems = (search) => apiFetch(`${base()}/items${q(search)}`, opts);
 export const createItem = (item) => apiFetch(`${base()}/items`, { method: 'POST', body: item, ...opts });
+export const updateItem = (id, patch) =>
+  apiFetch(`${base()}/items/${encodeURIComponent(id)}`, { method: 'PATCH', body: patch, ...opts });
 
 export const nextNumber = (docType, date) =>
   apiFetch(`${base()}/number-series/next/${encodeURIComponent(docType)}${date ? `?date=${date}` : ''}`, opts);

@@ -19,7 +19,7 @@ const common = (t) => ({
   animationDuration: 520,
   animationEasing: 'cubicOut',
   tooltip: { ...tooltipStyle(t), trigger: 'item' },
-  textStyle: { fontFamily: 'Inter, sans-serif' },
+  textStyle: { fontFamily: "'Inter Variable', Inter, sans-serif" },
 });
 
 /**
@@ -126,7 +126,7 @@ export function RadialGauge({ value = 0, label, height = 230, tone, centerText =
             offsetCenter: [0, '4%'],
             fontSize: centerText ? 26 : 34,
             fontWeight: 700,
-            fontFamily: 'Inter, sans-serif',
+            fontFamily: "'Inter Variable', Inter, sans-serif",
             color: t.fg,
             formatter: () => centerText || `${pct}%`,
           },

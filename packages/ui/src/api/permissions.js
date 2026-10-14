@@ -18,10 +18,15 @@ export const getRolePermissions = (roleId) =>
     skipWarehouseHeader: true,
   });
 
-export const setRolePermissions = (roleId, permissions) =>
+/**
+ * Replaces a role's grants. `levels` carries the field level of every grant
+ * above 0: the server writes an absent level as 0, so a save that left them
+ * out quietly took discount and amount-paid rights away from the role.
+ */
+export const setRolePermissions = (roleId, permissions, levels = {}) =>
   apiFetch(`/orgs/${encodeURIComponent(orgId())}/roles/${encodeURIComponent(roleId)}/permissions`, {
     method: 'PUT',
-    body: { permissions },
+    body: { permissions, levels },
     skipWarehouseHeader: true,
   });
 

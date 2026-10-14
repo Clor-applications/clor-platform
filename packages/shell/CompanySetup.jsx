@@ -227,7 +227,7 @@ export default function CompanySetup() {
                     <div className="flex items-start justify-between gap-3">
                       <span
                         className="grid h-9 w-9 shrink-0 place-items-center rounded-lg"
-                        style={{ backgroundColor: 'rgb(var(--brand-soft))', color: 'rgb(var(--brand))' }}
+                        style={{ backgroundColor: 'rgb(var(--brand-soft))', color: 'rgb(var(--brand-ink))' }}
                       >
                         <app.icon size={18} aria-hidden="true" />
                       </span>

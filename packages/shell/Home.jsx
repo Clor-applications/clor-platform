@@ -17,6 +17,7 @@ import ClorMark from './ClorMark';
 
 import { useTheme } from '@ui/components/ui/useTheme';
 import { useTilt } from '@ui/components/ui/useTilt';
+import LegalLinks from './legal/LegalLinks';
 
 /**
  * The public front page — requirement: a landing page.
@@ -184,7 +185,7 @@ export default function Home({ onSignIn, onGetStarted }) {
             </div>
 
             <p className="mt-5 text-sm ui-subtle">
-              Runs on your own server. Your records never leave it.
+              No analytics, no advertising, no trackers. Your records are used to keep your books, and nothing else.
             </p>
           </div>
 
@@ -203,7 +204,9 @@ export default function Home({ onSignIn, onGetStarted }) {
               className="flex items-center justify-between gap-3 border-b px-4 py-3"
               style={{ borderColor: 'rgb(var(--border))', backgroundColor: 'rgb(var(--surface-sunken))' }}
             >
-              <span className="text-sm font-semibold">Trial balance</span>
+              <span className="text-sm font-semibold">
+                Trial balance <span className="ui-caption font-normal">· sample figures</span>
+              </span>
               <span className="ui-badge ui-badge-brand ui-depth-2">
                 <BadgeCheck size={14} aria-hidden="true" /> Balanced
               </span>
@@ -277,7 +280,7 @@ export default function Home({ onSignIn, onGetStarted }) {
                 <div className="flex items-center justify-between gap-3">
                   <span
                     className="grid place-items-center w-9 h-9 rounded-lg"
-                    style={{ backgroundColor: 'rgb(var(--brand-soft))', color: 'rgb(var(--brand))' }}
+                    style={{ backgroundColor: 'rgb(var(--brand-soft))', color: 'rgb(var(--brand-ink))' }}
                   >
                     <app.icon size={18} aria-hidden="true" />
                   </span>
@@ -310,7 +313,7 @@ export default function Home({ onSignIn, onGetStarted }) {
               <article key={title} className="ui-stat">
                 <span
                   className="grid place-items-center w-9 h-9 rounded-lg"
-                  style={{ backgroundColor: 'rgb(var(--brand-soft))', color: 'rgb(var(--brand))' }}
+                  style={{ backgroundColor: 'rgb(var(--brand-soft))', color: 'rgb(var(--brand-ink))' }}
                 >
                   <Icon size={18} aria-hidden="true" />
                 </span>
@@ -335,7 +338,7 @@ export default function Home({ onSignIn, onGetStarted }) {
               <li key={title}>
                 <span
                   className="ui-display text-5xl"
-                  style={{ color: 'rgb(var(--brand))' }}
+                  style={{ color: 'rgb(var(--brand-ink))' }}
                   aria-hidden="true"
                 >
                   {String(i + 1).padStart(2, '0')}
@@ -374,7 +377,7 @@ export default function Home({ onSignIn, onGetStarted }) {
                 <BadgeCheck
                   size={18}
                   className="mt-0.5 flex-shrink-0"
-                  style={{ color: 'rgb(var(--brand))' }}
+                  style={{ color: 'rgb(var(--brand-ink))' }}
                   aria-hidden="true"
                 />
                 <span className="text-sm leading-relaxed">{line}</span>
@@ -416,8 +419,8 @@ export default function Home({ onSignIn, onGetStarted }) {
 
       <footer className="border-t" style={{ borderColor: 'rgb(var(--border))' }}>
         <div className="ui-container flex flex-wrap items-center justify-between gap-3 py-7 text-sm ui-subtle">
-          <span>© 2026 Clor</span>
-          <span>Self-hosted GST accounting</span>
+          <span>© 2026 Clor · GST accounting for Indian businesses</span>
+          <LegalLinks />
         </div>
       </footer>
     </div>

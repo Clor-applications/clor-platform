@@ -185,7 +185,7 @@ export function CompanyFormFields({ form, setForm, disabled = false, authToken =
                   onClick={fetchFromGstin}
                   disabled={disabled || fetching}
                   className="ui-btn ui-btn-secondary shrink-0"
-                  style={{ borderColor: 'rgb(var(--brand))', color: 'rgb(var(--brand))' }}
+                  style={{ borderColor: 'rgb(var(--brand))', color: 'rgb(var(--brand-ink))' }}
                 >
                   <Search size={14} aria-hidden="true" />
                   {fetching ? 'Fetching…' : 'Fetch from GSTN'}

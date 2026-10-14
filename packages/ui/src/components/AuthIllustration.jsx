@@ -35,7 +35,7 @@ export default function AuthIllustration({ className = '' }) {
         <rect x="118" y="62" width="76" height="9" rx="4.5" fill="rgba(255,255,255,0.35)" />
         <rect x="118" y="80" width="46" height="6" rx="3" fill="rgba(255,255,255,0.18)" />
         <circle cx="248" cy="72" r="13" fill="rgb(var(--brand) / 0.22)" stroke="rgb(var(--brand) / 0.65)" strokeWidth="1.5" />
-        <text x="248" y="77" textAnchor="middle" fontSize="13" fontWeight="700" fill="#fff" fontFamily="Inter, sans-serif">₹</text>
+        <text x="248" y="77" textAnchor="middle" fontSize="13" fontWeight="700" fill="#fff" fontFamily="'Inter Variable', Inter, sans-serif">₹</text>
         {/* line items */}
         {[108, 130, 152, 174].map((y) => (
           <g key={y}>
@@ -71,7 +71,7 @@ export default function AuthIllustration({ className = '' }) {
       <g className="ui-float" style={{ ...floatStyle, animationDelay: '0.9s' }}>
         <circle cx="336" cy="224" r="20" fill="rgb(var(--brand) / 0.16)" stroke="rgb(var(--brand) / 0.6)" strokeWidth="1.5" />
         <circle cx="336" cy="224" r="14" stroke="rgba(255,255,255,0.3)" strokeWidth="1" />
-        <text x="336" y="230" textAnchor="middle" fontSize="15" fontWeight="700" fill="#fff" fontFamily="Inter, sans-serif">₹</text>
+        <text x="336" y="230" textAnchor="middle" fontSize="15" fontWeight="700" fill="#fff" fontFamily="'Inter Variable', Inter, sans-serif">₹</text>
       </g>
 
       {/* Posting arc: document into ledger line. */}

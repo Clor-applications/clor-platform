@@ -194,6 +194,14 @@ if [ "${1:-}" = "--api" ]; then
     # after their signup simply never appeared in their menu. Idempotent: it
     # prints "nothing to do" when the catalogue and the grants agree.
     npx tsx scripts/backfillOwnerPermissions.ts --fix
+    # Document lines used to name items by a browser-local number that shifted
+    # on reload; this points them at the server id where it can be told for
+    # certain and reports the rest. Idempotent.
+    npx tsx scripts/backfillLineItemIds.ts --fix
+    # The stock ledger is kept by triggers; this proves it matches every
+    # document, printing and rebuilding anything that does not. After the
+    # line repair above, whose rewrites the triggers have just followed.
+    npx tsx scripts/verifyStockLedger.ts --fix
     npm run build >/dev/null 2>&1
     sudo systemctl restart clor-api'
 fi
@@ -205,9 +213,24 @@ printf 'app: '; curl -s -o /dev/null -w '%{http_code}\n' --max-time 25 "$URL/"
 # to a monitor and 401 to a database that has fallen over, which makes it
 # useless for telling those apart. A rejected login is a round trip through
 # Express, Prisma and PostgreSQL: 401 means the whole path is alive.
-printf 'api: '
-curl -s -o /dev/null -w '%{http_code} (401 = alive and refusing a bad password)\n' --max-time 25 \
-  -X POST "$URL/api/auth/login" -H 'Content-Type: application/json' \
-  -d '{"email":"deploy-probe@example.invalid","password":"not-a-password"}'
+#
+# Retried, because the restart above returns before Node is listening: the
+# first probe after a deploy on 29 Sep landed in those three seconds and
+# printed 502 for an API that was fine. Up to ~40s of 5xx/no-answer is
+# "still starting"; after that it is a failed deploy, and the script says so
+# with its exit code rather than a number somebody has to notice.
+api_code=000
+for _ in $(seq 1 20); do
+  api_code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 \
+    -X POST "$URL/api/auth/login" -H 'Content-Type: application/json' \
+    -d '{"email":"deploy-probe@example.invalid","password":"not-a-password"}' || true)
+  case "$api_code" in 000|5??) sleep 2 ;; *) break ;; esac
+done
+printf 'api: %s (401 = alive and refusing a bad password)\n' "$api_code"
+case "$api_code" in
+  000|5??)
+    printf '\n\033[1mAPI is not answering.\033[0m Check: ssh neevone journalctl -u neev-api -n 80\n' >&2
+    exit 1 ;;
+esac
 
 printf '\n\033[1mLive:\033[0m %s\n' "$URL"

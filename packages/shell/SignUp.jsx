@@ -3,6 +3,8 @@ import { ArrowRight } from 'lucide-react';
 
 import AuthLayout from './AuthLayout';
 import { useSession } from './session';
+import { legalHref } from './legal/useLegalRoute';
+import { NOTICE_VERSION } from './legal/version';
 
 /**
  * Creating an account, and nothing else.
@@ -42,6 +44,7 @@ export default function SignUp({ onHome, onSignIn }) {
         fullName: form.name.trim(),
         email: form.email.trim(),
         password: form.password,
+        noticeVersion: NOTICE_VERSION,
       });
     } catch (err) {
       setError(String(err?.message || 'Could not create that account.'));
@@ -97,11 +100,20 @@ export default function SignUp({ onHome, onSignIn }) {
             value={form.password}
             onChange={(e) => set({ password: e.target.value })}
             autoComplete="new-password"
+            aria-describedby="signup-password-hint"
           />
-          <p className="ui-caption mt-1">At least eight characters.</p>
+          <p id="signup-password-hint" className="ui-caption mt-1">At least eight characters.</p>
         </div>
 
-        {error ? <p className="text-sm" style={{ color: 'rgb(var(--neg))' }}>{error}</p> : null}
+        {error ? <p role="alert" className="text-sm" style={{ color: 'rgb(var(--neg))' }}>{error}</p> : null}
+
+        {/* Notice, not a checkbox: creating the account is the act of agreeing,
+            and a box nobody may leave unticked adds a click and no choice. */}
+        <p className="ui-caption">
+          By creating an account you agree to the <a className="ui-link" href={legalHref('terms')} target="_blank" rel="noopener">terms of service</a> and
+          confirm you have read the <a className="ui-link" href={legalHref('privacy')} target="_blank" rel="noopener">privacy notice</a>, which explains
+          what we collect and why.
+        </p>
 
         <button type="submit" className="ui-btn ui-btn-brand ui-btn-lg w-full" disabled={busy}>
           {busy ? 'Creating…' : 'Create account'} <ArrowRight size={16} aria-hidden="true" />

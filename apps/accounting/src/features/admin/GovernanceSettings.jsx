@@ -168,6 +168,8 @@ export const GovernanceSettings = () => {
                 <button
                   type="button"
                   className="ui-btn ui-btn-ghost"
+                  aria-label={`Delete profile ${p.name}`}
+                  title="Delete profile"
                   onClick={() => run('delp', async () => { await deleteRoleProfile(p.id); await reload(); }, 'Removed')}
                 >
                   <Trash2 size={16} aria-hidden="true" />
@@ -299,6 +301,8 @@ export const GovernanceSettings = () => {
                 <button
                   type="button"
                   className="ui-btn ui-btn-ghost"
+                  aria-label="Delete approval rule"
+                  title="Delete approval rule"
                   onClick={() => run('delr', async () => { await deleteApprovalRule(r.id); await reload(); }, 'Removed')}
                 >
                   <Trash2 size={16} aria-hidden="true" />
@@ -422,6 +426,8 @@ export const GovernanceSettings = () => {
                         <button
                           type="button"
                           className="ui-btn ui-btn-ghost !px-1.5"
+                          aria-label={`Remove restriction ${p.label || p.entityId}`}
+                          title="Remove restriction"
                           onClick={() =>
                             run('delx', async () => {
                               await removeUserRestriction(restrictUser, p.id);

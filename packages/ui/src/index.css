@@ -2,8 +2,11 @@
    system — it has tabular figures, a large x-height and a wide weight range,
    which is everything a dense financial UI asks of type. Numbers and codes
    are Inter too, marked by tabular-nums and alignment rather than a second
-   family. display=swap so text is never invisible while fonts load. */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400..800&display=swap');
+   family. display=swap so text is never invisible while fonts load.
+   Served from this app (Fontsource, SIL OFL 1.1), not from Google: loading
+   it from fonts.googleapis.com sent every visitor's IP address to Google
+   before they had signed in to anything. */
+@import '@fontsource-variable/inter';
 
 @tailwind base;
 @tailwind components;
@@ -51,7 +54,8 @@
   /* Text */
   --fg: 17 24 39;               /* #111827 */
   --fg-muted: 75 85 99;         /* #4B5563 — 7.6:1 on white; #6B7280 read as washed out at 13-14px */
-  --fg-subtle: 107 114 128;     /* #6B7280 — 4.83:1, the quietest tier that is still AA */
+  --fg-subtle: 101 108 121;     /* #656C79 — 4.75:1 on the page ground, 5.28:1 on white. #6B7280 was
+                                   4.83:1 on white but 4.35:1 on the ground, under AA where it sits there. */
 
   /* The rail's own text.
      `--fg` is #111827, a cold blue-black, and against a warm page ground it
@@ -156,7 +160,8 @@
   --accent-hover: var(--brand-hover);
   --accent-soft: var(--brand-soft);
   --on-accent: var(--on-brand);
-  --ring: var(--brand);
+  /* Pressed tone: #FF6B00 is 2.86:1 on white, under the 3:1 a focus ring needs. */
+  --ring: var(--brand-pressed);
 
   /* No second accent on chrome. Success/warning/danger exist for status. */
   --info: 83 109 130;           /* #536D82 — draft, processing, informational */
@@ -360,7 +365,7 @@
   --neg: 194 65 58;             /* #C2413A — 4.9:1 on white */
   --neg-hover: 168 52 46;       /* #A8342E — one step down, for the press */
   --neg-soft: 254 242 242;
-  --warn: 166 106 0;            /* #A66A00 — 4.6:1 on white */
+  --warn: 153 98 0;             /* #996200 — 5.1:1 on white, 4.6:1 on the ground (#A66A00 measured 4.48:1, under AA) */
   --warn-ink: 180 83 9;         /* amber-700 — 4.84:1 on warn-soft; --warn itself is 2.07:1 there */
   --warn-soft: 255 251 235;
 
@@ -506,6 +511,9 @@
      surface without turning fluorescent. */
   --brand: 255 138 51;          /* #FF8A33 — #FF6B00 lifted; 3.1:1 on the dark card */
   --brand-pressed: 232 95 0;
+  /* Dark keeps its light-orange button with dark ink (8.1:1). */
+  --btn-primary-bg: var(--brand-hover);
+  --btn-primary-hover: var(--brand-pressed);
   --brand-deep: 253 186 116;    /* orange-300 — reads as the second series on dark, not a duplicate of brand */
   --brand-hover: 253 186 116;
   --brand-soft: 43 26 14;
@@ -685,7 +693,8 @@
   --app-bg: 243 243 240; --surface: 255 255 255; --surface-raised: 255 255 255;
   --surface-sunken: 244 244 245; --border: 212 212 216; --border-strong: 161 161 170;
   --border-field: 161 161 170; --doc-section: 250 250 250;
-  --fg: 24 24 27; --fg-muted: 82 82 91; --fg-subtle: 113 113 122;
+  /* fg-subtle #6B6B73: 4.81:1 on the page ground. #71717A measured 4.40:1 there, under AA. */
+  --fg: 24 24 27; --fg-muted: 82 82 91; --fg-subtle: 107 107 115;
   --brand: 39 39 42; --brand-deep: 24 24 27; --brand-hover: 63 63 70; --brand-pressed: 9 9 11;
   --brand-soft: 228 228 231; --brand-subtle: 244 244 245; --brand-border: 161 161 170;
   --brand-ink: 24 24 27; --brand-panel: 39 39 42; --on-brand: 255 255 255;
@@ -726,6 +735,7 @@
   --border: 39 39 42; --border-strong: 82 82 91; --border-field: 63 63 70; --doc-section: 24 24 27;
   --fg: 250 250 250; --fg-muted: 161 161 170; --fg-subtle: 161 161 170;
   --brand: 250 250 250; --brand-deep: 212 212 216; --brand-hover: 228 228 231; --brand-pressed: 255 255 255;
+  --btn-primary-bg: var(--brand-hover); --btn-primary-hover: var(--brand-pressed);
   --brand-soft: 39 39 42; --brand-subtle: 24 24 27; --brand-border: 82 82 91; --brand-ink: 250 250 250;
   --on-brand: 9 9 11; --on-primary: 9 9 11; --on-accent: 9 9 11; --accent-soft: 39 39 42;
   --ring: 212 212 216; --doc-link: 228 228 231; --doc-link-wash: 39 39 42;
@@ -755,7 +765,7 @@
 @layer base {
   html {
     /* Inter, matching the reference the module overviews are drawn from. */
-    font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+    font-family: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
     /* Tabular figures everywhere: money columns must not jitter between rows. */
     font-variant-numeric: tabular-nums;
     -webkit-font-smoothing: antialiased;
@@ -848,7 +858,7 @@
   .ui-mono {
     /* Inter, like everything else. A code is marked by disabled ligatures
        and the tabular figures it inherits, not by a second typeface. */
-    font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+    font-family: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
     font-feature-settings: 'calt' 0; /* no ligatures in IDs and codes */
   }
   .ui-amount {
@@ -897,14 +907,18 @@
      reaches 3.3:1 — AA for the semibold 14px a button label is. The bright
      #FF6B00 stays where nothing sits on top of it: the active nav indicator,
      a checked box, the focus ring. */
+  /* White on the button orange measured 3.46:1 — under the 4.5:1 AA asks of
+     a 14px label (bold text counts as large only from 18.7px). The fill is
+     now the pressed tone, 4.5:1, and hover goes one step deeper. Still
+     unmistakably the brand. Dark mode keeps its own pairing (8.1:1). */
   .ui-btn-primary {
-    background-color: rgb(var(--brand-hover));
+    background-color: rgb(var(--btn-primary-bg, var(--brand-pressed)));
     color: rgb(var(--on-brand));
-    border: 1px solid rgb(var(--brand-hover));
+    border: 1px solid rgb(var(--btn-primary-bg, var(--brand-pressed)));
   }
   .ui-btn-primary:hover:not(:disabled) {
-    background-color: rgb(var(--brand-pressed));
-    border-color: rgb(var(--brand-pressed));
+    background-color: rgb(var(--btn-primary-hover, 184 72 0));
+    border-color: rgb(var(--btn-primary-hover, 184 72 0));
   }
   /* Secondary carries the brand in its text and its edge, not in a fill.
      A filled second button would be a second primary, and the rule is one
@@ -1907,7 +1921,7 @@
      Inter at display sizes for headline moments — one face, ranked by size
      and weight rather than by switching family. */
   .ui-display {
-    font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+    font-family: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
     font-feature-settings: 'ss01', 'cv11';
     font-weight: 600;
     letter-spacing: -0.02em;
@@ -1929,14 +1943,15 @@
   }
 
   /* --- brand surfaces --- */
+  /* Same AA pairing as .ui-btn-primary: white on #FF6B00 is 2.86:1. */
   .ui-btn-brand {
-    background-color: rgb(var(--brand));
+    background-color: rgb(var(--btn-primary-bg, var(--brand-pressed)));
     color: rgb(var(--on-brand));
-    border: 1px solid rgb(var(--brand));
+    border: 1px solid rgb(var(--btn-primary-bg, var(--brand-pressed)));
   }
   .ui-btn-brand:hover:not(:disabled) {
-    background-color: rgb(var(--brand-hover));
-    border-color: rgb(var(--brand-hover));
+    background-color: rgb(var(--btn-primary-hover, 184 72 0));
+    border-color: rgb(var(--btn-primary-hover, 184 72 0));
   }
   .ui-btn-lg {
     min-height: 2.875rem;
@@ -2015,7 +2030,8 @@
   }
   .ui-badge-brand {
     background-color: rgb(var(--brand-soft));
-    color: rgb(var(--brand));
+    /* --brand-ink, not --brand: orange text is 2.9:1 on white, under AA. */
+    color: rgb(var(--brand-ink));
     border-color: rgb(var(--brand) / 0.2);
   }
   .ui-badge-neutral {
@@ -2238,7 +2254,7 @@
     font-size: 0.8125rem;
   }
   .ui-table-totals .fig {
-    font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+    font-family: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
     font-variant-numeric: tabular-nums;
     /* 500, per DESIGN.md. At 600 every figure in every table read as
        emphasised, which means none of them did — a column where each cell
@@ -2321,7 +2337,7 @@
     box-shadow: 0 -2px 10px rgb(28 25 23 / 0.06);
   }
   .ui-entry-summary .fig {
-    font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+    font-family: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
     font-variant-numeric: tabular-nums;
     font-weight: 600;
   }
@@ -2482,7 +2498,7 @@
     transition: background-size 220ms var(--ease-out), color var(--dur-surface) ease;
   }
   .ui-link:hover {
-    color: rgb(var(--accent));
+    color: rgb(var(--brand-ink));
     background-size: 100% 1.5px;
   }
 }
@@ -2656,7 +2672,7 @@
      doing 200 vouchers a day and an owner reading outstandings.
   --------------------------------------------------------------------------- */
   .ui-t-page {
-    font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+    font-family: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
     font-size: 1.75rem;       /* 28px — Graphite's title size */
     line-height: 2.25rem;     /* 36px */
     font-weight: 700;
@@ -2781,7 +2797,7 @@
 
   .ui-money,
   .ui-amount {
-    font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+    font-family: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
     font-size: 0.8125rem;     /* 13px */
     line-height: 1.125rem;
     font-weight: 400;
@@ -2795,7 +2811,7 @@
      size the scale does not have. One role instead: monospace, tabular, and
      the same 20px everywhere a figure leads a card. */
   .ui-money-lg {
-    font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+    font-family: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
     font-size: 1.25rem;       /* 20px */
     line-height: 1.75rem;     /* 28px */
     /* A headline figure earns its emphasis from size, not from weight on top
@@ -2822,7 +2838,7 @@
     font-weight: 500;
   }
   .ui-total-row > :last-child {
-    font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+    font-family: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
     font-size: 1.25rem;       /* 20px */
     line-height: 1.75rem;
     font-weight: 400;
@@ -2849,7 +2865,7 @@
     transition: color var(--dur-state) ease, gap var(--dur-surface) var(--ease-out);
   }
   .ui-card-action:hover {
-    color: rgb(var(--brand));
+    color: rgb(var(--brand-ink));
     gap: 0.5rem;
   }
 
@@ -2899,7 +2915,7 @@
   /* The scan anchor. Mono so digits align down the column and the eye can run
      it like a list of codes rather than prose. */
   .ui-col-id.ui-col-id {
-    font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+    font-family: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
     font-feature-settings: 'calt' 0;
     font-size: 0.8125rem;
     font-weight: 500;
@@ -2927,6 +2943,23 @@
     white-space: nowrap;
   }
 
+  /*
+   * No-wrap columns end in an ellipsis instead of running into the next cell.
+   *
+   * A table somebody has resized runs in fixed layout (see ResizableTables),
+   * which never grows a column for its content, so a long email in a no-wrap
+   * cell would be painted over the column beside it. Clipping is safe on these
+   * four roles — they hold text, not menus, and never money — and the column
+   * can be widened by hand. Tables nobody has resized size to their content.
+   */
+  table[data-column-resize-ready='true'][style*='fixed'] .ui-col-entity,
+  table[data-column-resize-ready='true'][style*='fixed'] .ui-col-meta,
+  table[data-column-resize-ready='true'][style*='fixed'] .ui-col-date,
+  table[data-column-resize-ready='true'][style*='fixed'] .ui-col-id {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
   /* Dates recede further still: they qualify the row, they are rarely what you
      came for, and there are usually two of them competing for the same glance. */
   .ui-col-date.ui-col-date {
@@ -2947,7 +2980,7 @@
        tabular-nums, weight and alignment but never the family, so every rupee
        figure in every table rendered in the sans face — the one place the rule
        matters most, and the only place it was not applied. */
-    font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+    font-family: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
     font-variant-numeric: tabular-nums;
     /* 400. Monospace and right alignment already say "this is money"; a
        weight on top of them made every figure in every table shout, and a
@@ -2966,7 +2999,7 @@
      or a glyph.
   ------------------------------------------------------------------------- */
   .ui-cell-ref {
-    font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+    font-family: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
     font-variant-numeric: tabular-nums;
     color: rgb(var(--doc-link));
     font-weight: 600;
@@ -3017,9 +3050,13 @@
     font-weight: 400;
     color: rgb(var(--fg-muted));
     text-align: center;
+    /* A long email or id has no break opportunity, so its grid cell could not
+       shrink below it and the text ran into the next column. `anywhere` also
+       lowers the min-content width, which is what lets the cell shrink. */
+    overflow-wrap: anywhere;
   }
   .ui-detail-value.ui-detail-mono {
-    font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+    font-family: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
     font-variant-numeric: tabular-nums;
   }
 
@@ -3843,7 +3880,7 @@
     box-shadow: 0 1px 2px rgb(0 0 0 / 0.10);
   }
   .ui-segment-count {
-    font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+    font-family: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
     font-variant-numeric: tabular-nums;
     font-size: 0.75rem;
     line-height: 1rem;
@@ -4085,7 +4122,7 @@
      left-aligned, which is why a column of rates did not line up on the
      decimal and had to be read one cell at a time. */
   .ui-grid-dense input[type='number'] {
-    font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+    font-family: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
     font-variant-numeric: tabular-nums;
     font-weight: 500;
     text-align: right;
@@ -4574,7 +4611,7 @@ label {
    authoritative here so the same heading means the same thing on every page. */
 body, button, input, select, textarea, table,
 .font-sans, .font-serif, .font-mono {
-  font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font-family: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
 }
 
 h1, h1[class], .ui-t-page {
@@ -6025,7 +6062,7 @@ th.ui-th {
   .ui-tile-brand { background-color: rgb(var(--brand) / 0.10); }
   .ui-avatar-tint {
     background-color: rgb(var(--brand) / 0.14);
-    color: rgb(var(--brand));
+    color: rgb(var(--brand-ink));
   }
 
   /* The series hues, from the chart tokens rather than from whichever green
@@ -6064,3 +6101,57 @@ th.ui-th {
     font-weight: 500;
   }
 }
+
+/* ---- Legal documents (packages/shell/legal) -------------------------------
+   A reading page: one measure, the page ground, a single surface for the
+   document. Tokens only, like everything else. */
+.legal-header {
+  position: sticky;
+  top: 0;
+  z-index: var(--z-platform-bar, 30);
+  background-color: rgb(var(--surface));
+  border-bottom: 1px solid rgb(var(--border));
+  padding: 0.75rem 0;
+}
+.legal-wrap { max-width: 52rem; margin: 0 auto; padding: 0 1rem; }
+.legal-main { padding-top: 1.5rem; padding-bottom: 3rem; }
+.legal-tabs { display: flex; flex-wrap: wrap; gap: 0.25rem; margin-bottom: 1rem; }
+.legal-tabs a {
+  border-radius: 8px;
+  padding: 0.375rem 0.75rem;
+  font-size: 0.875rem;
+  color: rgb(var(--fg-muted));
+}
+.legal-tabs a:hover { background-color: rgb(var(--surface-sunken)); color: rgb(var(--fg)); }
+.legal-tabs a[aria-current='page'] { background-color: rgb(var(--brand-soft)); color: rgb(var(--brand-ink)); font-weight: 600; }
+.legal-article { border-radius: 12px; padding: 1.5rem; line-height: 1.6; }
+.legal-article h1:focus { outline: none; }
+.legal-section { margin-top: 1.75rem; }
+.legal-section h2 { font-size: 1.0625rem; font-weight: 600; margin-bottom: 0.5rem; color: rgb(var(--fg)); }
+.legal-section p + p { margin-top: 0.625rem; }
+.legal-section ul { list-style: disc; padding-left: 1.25rem; display: grid; gap: 0.375rem; }
+.legal-section ul ul { margin-top: 0.375rem; list-style: circle; }
+.legal-section a { text-decoration: underline; text-underline-offset: 2px; }
+.legal-table { width: 100%; font-size: 0.875rem; border-collapse: collapse; }
+.legal-table th, .legal-table td { text-align: left; vertical-align: top; padding: 0.5rem 0.625rem; border-bottom: 1px solid rgb(var(--border)); }
+.legal-table th { font-weight: 600; color: rgb(var(--fg-muted)); }
+.legal-table code { font-size: 0.8125rem; word-break: break-word; }
+.legal-placeholder {
+  background-color: rgb(var(--warn-soft));
+  color: rgb(var(--warn-ink));
+  border-radius: 4px;
+  padding: 0 0.25rem;
+  font-weight: 500;
+}
+.legal-draft {
+  margin-top: 1rem;
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  background-color: rgb(var(--warn-soft));
+  color: rgb(var(--warn-ink));
+  font-size: 0.875rem;
+}
+.legal-footer { margin-top: 1.5rem; }
+.legal-links ul { display: flex; flex-wrap: wrap; gap: 0.25rem 1rem; font-size: 0.8125rem; }
+.legal-links a { color: rgb(var(--fg-muted)); text-decoration: underline; text-underline-offset: 2px; }
+.legal-links a:hover { color: rgb(var(--fg)); }

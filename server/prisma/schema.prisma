@@ -168,6 +168,100 @@ model InventoryAdjustment {
   @@index([accountId, orgId, branchId, warehouseId, itemId])
 }
 
+/// Every change to a bank date, on any movement the reconciliation screen
+/// confirms: a payment or receipt, a bank-statement line, or a contra.
+///
+/// A bank date is a claim about the bank's records; one somebody changed must
+/// say from what, to what, by whom and when. This used to live only in the
+/// browser, so the history was gone on the next reload. Written by the server
+/// in the same transaction as the reconcile itself, so the two cannot differ.
+model BankDateAudit {
+  id               String   @id @default(cuid())
+  accountId        String
+  orgId            String
+  kind             String // PAYMENT | STATEMENT | CONTRA
+  sourceId         String // the Payment, BankBookEntry or JournalEntry id
+  voucherNo        String?
+  ledgerAccountId  String?
+  transactionDate  String
+  previousBankDate String?
+  bankDate         String?
+  action           String // RECONCILED | UNRECONCILED | REDATED
+  statementRef     String?
+  byUserId         String
+  at               DateTime @default(now())
+
+  @@index([accountId, orgId, kind, sourceId])
+  @@index([accountId, orgId, at])
+}
+
+/// A stock document the browser raised — an adjustment or an inter-branch
+/// transfer — kept on the server so every device and user sees one set.
+///
+/// Every quantity that moved, one row per document line.
+///
+/// Written by database triggers (migration 20260930090000_stock_ledger)
+/// whenever an invoice, bill, credit note, debit note, stock document or item
+/// is written, from that row's own content — so no route, import, script or
+/// recurring run can move stock without it landing here, and a document's
+/// rows are always exactly what the document now says. Never written by the
+/// application.
+///
+/// `qty` is signed: in is positive, out negative. On hand for an item in a
+/// warehouse is the sum of its rows there, plus rows that name no warehouse
+/// (see services/stockLedger.ts onHand). Only STOCK items count;
+/// that is decided when reading, so changing an item's type needs no rebuild.
+model StockMovement {
+  id          String   @id @default(dbgenerated("(gen_random_uuid())::text"))
+  accountId   String
+  orgId       String
+  branchId    String?
+  warehouseId String?
+  itemId      String
+  date        String
+  qty         Decimal
+  /// OPENING | INVOICE | BILL | CREDIT_NOTE | DEBIT_NOTE | ADJUSTMENT | TRANSFER
+  sourceKind  String
+  sourceId    String
+  sourceNo    String?
+  lineNo      Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  @@index([orgId, itemId, warehouseId])
+  @@index([sourceKind, sourceId])
+}
+
+/// The browser still computes stock from its documents, as it does from
+/// invoices and bills; this table makes those documents shared and durable.
+/// Identity across devices is `uid` (local ids do not travel). The columns are
+/// what the server checks — date against closed periods, warehouses against
+/// access — and `payloadJson` is the record as the screen keeps it.
+/// There is deliberately no stock balance here: the server does not yet see
+/// the invoices and bills that move stock, and a partial balance would lie.
+model StockDocument {
+  id                String  @id @default(cuid())
+  accountId         String
+  orgId             String
+  kind              String // ADJUSTMENT | TRANSFER
+  uid               String
+  number            String?
+  date              String // ISO date the stock moved
+  status            String?
+  branchId          String?
+  warehouseId       String?
+  targetBranchId    String?
+  targetWarehouseId String?
+  payloadJson       String
+
+  createdByUserId String
+  updatedByUserId String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([orgId, kind, uid])
+  @@index([accountId, orgId, kind])
+}
+
 // ----------------------------
 // Sales invoices
 // ----------------------------
@@ -829,6 +923,13 @@ model JournalEntry {
   prevHash String?
   hash     String?
 
+  /// Bank reconciliation, for a contra (cash/bank to cash/bank) entry. Not
+  /// part of the hash: the chain proves what was posted, and reconciling
+  /// states what the bank shows, which does not change the posting.
+  reconciled   Boolean   @default(false)
+  bankDate     DateTime?
+  statementRef String?
+
   createdByUserId String
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
@@ -1145,8 +1246,12 @@ model ItemMaster {
   salePrice     Decimal @default(0)
   purchasePrice Decimal @default(0)
 
-  openingQty   Decimal @default(0)
-  reorderLevel Decimal @default(0)
+  openingQty         Decimal @default(0)
+  /// Where the opening quantity sits. Null for items saved before this
+  /// existed: their opening counts against whichever warehouse is asked,
+  /// as the browser has always treated it.
+  openingWarehouseId String?
+  reorderLevel       Decimal @default(0)
 
   /// Batch and serial tracking, gated by the batchSerial feature.
   trackBy String @default("NONE") // NONE | BATCH | SERIAL

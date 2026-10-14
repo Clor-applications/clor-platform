@@ -248,3 +248,43 @@ describe('own documents only', () => {
     expect(updated.body.role.ownDocumentsOnly).toBe(false);
   });
 });
+
+describe('the role picker and the access panel', () => {
+  it('files every stock role under its team, and the Owner under Administration', async () => {
+    const roles = (await request(app).get(`/api/orgs/${owner.orgId}/roles`).set(auth(owner)).expect(200)).body.roles;
+    const group = (name: string) => roles.find((r: any) => r.name === name)?.group;
+    expect(group('Owner')).toBe('Administration');
+    expect(group('Sales Representative')).toBe('Sales');
+    expect(group('Payroll Manager')).toBe('Payroll');
+    expect(group('Auditor')).toBe('Read-only');
+    const made = await request(app)
+      .post(`/api/orgs/${owner.orgId}/roles`)
+      .set(auth(owner))
+      .send({ name: `Made here ${uid()}`, permissions: [] })
+      .expect(201);
+    const again = (await request(app).get(`/api/orgs/${owner.orgId}/roles`).set(auth(owner)).expect(200)).body.roles;
+    expect(again.find((r: any) => r.id === made.body.role.id).group).toBe('Custom');
+  });
+
+  it("answers what one person can do, including a role that applies to one branch only", async () => {
+    const buyer = await memberWith('Purchase User');
+    const viewer = await seededRole('Viewer');
+    await request(app)
+      .post(`/api/orgs/${owner.orgId}/users/${buyer.userId}/roles`)
+      .set(auth(owner))
+      .send({ roleId: viewer.id, branchId: owner.branchId })
+      .expect(201);
+
+    const res = await request(app).get(`/api/orgs/${owner.orgId}/users/${buyer.userId}/access`).set(auth(owner)).expect(200);
+    const names = res.body.roles.map((r: any) => `${r.name} | ${r.scope}`);
+    expect(names).toContain('Purchase User | Whole company');
+    expect(names.some((n: string) => n.startsWith('Viewer | Branch: '))).toBe(true);
+    expect(res.body.permissions).toContain('PURCHASE::Bills::CREATE');
+    expect(res.body.isAdmin).toBe(false);
+
+    // Somebody who may not see users may not ask. (The buyer above now may:
+    // Viewer includes seeing the user list.)
+    const otherBuyer = await memberWith('Purchase User');
+    await request(app).get(`/api/orgs/${owner.orgId}/users/${owner.userId}/access`).set(auth(otherBuyer)).expect(403);
+  });
+});

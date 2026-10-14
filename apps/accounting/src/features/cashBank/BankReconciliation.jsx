@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { CalendarCheck, Upload, Wand2 } from 'lucide-react';
 
 import { PageHeader, EmptyState, StatusPill } from '@ui/components/ui/Primitives';
@@ -6,6 +6,9 @@ import PopupSelect from '@ui/components/pickers/PopupSelect';
 import { LIST_PERIODS, usePeriodFilter } from '@ui/components/ListControls';
 import { notify } from '@ui/components/ui/notify';
 import { reconcilePayment } from '@ui/api/payments';
+import { listBankDateAudit, reconcileBankBookEntry } from '@ui/api/bankBook';
+import { reconcileJournalEntry } from '@ui/api/ledger';
+import { hasApiSession } from '@ui/api/purchaseDocs';
 import { formatDateIn } from '@ui/utils/dates';
 import { formatMoney, round2 } from '@ui/utils/money';
 import { buildLedgerStatement } from '../../data/db';
@@ -112,6 +115,63 @@ export default function BankReconciliation({ db, setDb, currentCompany, onImport
     return m;
   }, [db?.bankDateAudit, companyId]);
 
+  /*
+   * The bank-date history, from the server.
+   *
+   * It was written only into this browser's copy, which is emptied on every
+   * reload, so "reconciled by whom, from which date" was gone the next time
+   * anybody looked. The server records it in the same transaction as the
+   * reconcile; this reads it back and names each row by this browser's ids.
+   * Rows for movements the server has never seen (local-only) are kept.
+   */
+  const loadAudit = useCallback(async () => {
+    if (!hasApiSession()) return;
+    let rows = [];
+    try {
+      rows = (await listBankDateAudit())?.audit || [];
+    } catch {
+      return;
+    }
+    setDb((prev) => {
+      const local = {
+        PAYMENT: new Map((prev.payments || []).filter((p) => Number(p?.companyId) === Number(companyId) && p.backendPaymentId).map((p) => [String(p.backendPaymentId), p.id])),
+        STATEMENT: new Map((prev.bankTransactions || []).filter((t) => Number(t?.companyId) === Number(companyId) && t.backendBankEntryId).map((t) => [String(t.backendBankEntryId), t.id])),
+        CONTRA: new Map((prev.journalEntries || []).filter((j) => Number(j?.companyId) === Number(companyId) && j.backendEntryId).map((j) => [String(j.backendEntryId), j.id])),
+      };
+      const kindName = { PAYMENT: 'payment', STATEMENT: 'statement', CONTRA: 'contra' };
+      const fromServer = rows
+        .map((a, i) => {
+          const localId = local[a.kind]?.get(String(a.sourceId));
+          if (localId === undefined) return null;
+          return {
+            id: `srv-${a.id || i}`,
+            companyId,
+            kind: kindName[a.kind],
+            sourceId: localId,
+            voucherNo: a.voucherNo || '',
+            transactionDate: a.transactionDate,
+            previousBankDate: a.previousBankDate,
+            bankDate: a.bankDate,
+            action: a.action,
+            by: a.by,
+            at: a.at,
+            fromServer: true,
+          };
+        })
+        .filter(Boolean)
+        // Oldest first, so the map above keeps the latest per row.
+        .reverse();
+      const kept = (prev.bankDateAudit || []).filter(
+        (a) => Number(a?.companyId) !== Number(companyId) || (!a.fromServer && a.localOnly)
+      );
+      return { ...prev, bankDateAudit: [...kept, ...fromServer] };
+    });
+  }, [companyId, setDb]);
+
+  useEffect(() => {
+    loadAudit();
+  }, [loadAudit]);
+
   const toggle = (id, on) =>
     setSelected((prev) => {
       const next = new Set(prev);
@@ -152,23 +212,42 @@ export default function BankReconciliation({ db, setDb, currentCompany, onImport
     }
     setSaving(true);
 
-    /* Best-effort server sync for movements the server knows. A refusal on
-       one must not take the rest down; the local book is marked regardless,
-       and the row names the statement date it was confirmed against. */
+    /*
+     * The server first, for every kind of movement it holds — payments,
+     * statement lines and contras alike. Only payments were sent before; a
+     * reconciled statement line or contra lived in this browser alone and read
+     * unreconciled after the next reload. A row the server refuses is left
+     * unreconciled here too and named below, rather than marked locally and
+     * lost later. A row the server has never seen is marked locally only.
+     */
+    const serverIdOf = (r) => {
+      if (r.kind === 'payment') return String((db.payments || []).find((p) => String(p.id) === String(r.sourceId))?.backendPaymentId || '').trim();
+      if (r.kind === 'statement') return String((db.bankTransactions || []).find((t) => String(t.id) === String(r.sourceId))?.backendBankEntryId || '').trim();
+      if (r.kind === 'contra') return String((db.journalEntries || []).find((j) => String(j.id) === String(r.sourceId))?.backendEntryId || '').trim();
+      return '';
+    };
+    const accepted = [];
+    const localOnly = [];
+    const refused = [];
     for (const r of targets) {
-      if (r.kind !== 'payment') continue;
-      const payment = (db.payments || []).find((p) => String(p.id) === String(r.sourceId));
-      const serverId = String(payment?.backendPaymentId || '').trim();
-      if (!serverId) continue;
+      const serverId = serverIdOf(r);
+      if (!serverId || !hasApiSession()) {
+        localOnly.push(r);
+        continue;
+      }
+      const call =
+        r.kind === 'payment' ? reconcilePayment : r.kind === 'statement' ? reconcileBankBookEntry : reconcileJournalEntry;
       try {
-        await reconcilePayment(serverId, { reconciled: true, bankDate: bankDateOf(r) });
-      } catch {
-        /* Offline or refused — the local mark still stands; sync owns catch-up. */
+        await call(serverId, { reconciled: true, bankDate: bankDateOf(r) });
+        accepted.push(r);
+      } catch (e) {
+        refused.push({ r, reason: String(e?.message || e) });
       }
     }
+    const marked = [...accepted, ...localOnly];
 
     const byKind = { payment: new Map(), contra: new Map(), statement: new Map() };
-    for (const r of targets) byKind[r.kind]?.set(String(r.sourceId), bankDateOf(r));
+    for (const r of marked) byKind[r.kind]?.set(String(r.sourceId), bankDateOf(r));
 
     /*
      * The audit trail of the one thing this screen is allowed to change.
@@ -181,7 +260,9 @@ export default function BankReconciliation({ db, setDb, currentCompany, onImport
      */
     const stamp = new Date().toISOString();
     const who = String(localStorage.getItem('userEmail') || '').trim() || 'User';
-    const auditRows = targets.map((r) => ({
+    // The server wrote the history for what it accepted; this browser keeps
+    // it only for movements the server does not hold.
+    const auditRows = localOnly.map((r) => ({
       companyId,
       kind: r.kind,
       sourceId: r.sourceId,
@@ -193,6 +274,7 @@ export default function BankReconciliation({ db, setDb, currentCompany, onImport
       action: 'RECONCILED',
       by: who,
       at: stamp,
+      localOnly: true,
     }));
 
     setDb((prev) => {
@@ -212,10 +294,16 @@ export default function BankReconciliation({ db, setDb, currentCompany, onImport
       };
     });
 
-    setSelected(new Set());
+    setSelected(new Set(refused.map(({ r }) => String(r.id))));
     setDraftDates({});
     setSaving(false);
-    notify.success(`${targets.length} transaction(s) reconciled.`);
+    if (marked.length) notify.success(`${marked.length} transaction(s) reconciled.`);
+    if (refused.length) {
+      notify.error(
+        `${refused.length} could not be saved and ${refused.length === 1 ? 'is' : 'are'} still unreconciled: ${refused[0].reason}`
+      );
+    }
+    loadAudit();
   };
 
   return (

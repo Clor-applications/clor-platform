@@ -8,36 +8,17 @@ import { listRoles, createRole, updateRole, deleteRole } from '../../api/admin';
 import Popover from '@ui/components/ui/Popover';
 import { MoreButton } from '@ui/components/list/ListPageParts';
 import Drawer from '@ui/components/ui/Drawer';
-
-// Matrix permissions UI inspired by the provided example.
-// Backend actions supported: VIEW, CREATE, EDIT, DELETE, APPROVE, EXPORT.
-// This UI shows columns: Full Access, View, Edit, Approve, Delete.
-// - View => VIEW
-// - Edit => CREATE + EDIT (closest match)
-// - Approve => APPROVE
-// - Delete => DELETE
-// - Full Access => VIEW + CREATE + EDIT + DELETE (+ APPROVE when applicable)
-
-const MATRIX_ACTIONS = {
-  VIEW: 'VIEW',
-  CREATE: 'CREATE',
-  EDIT: 'EDIT',
-  DELETE: 'DELETE',
-  APPROVE: 'APPROVE',
-};
+import { getPermissionCatalog } from '@ui/api/permissions';
+import { rbacErrorMessage } from '@ui/permissions/rbacErrors';
+import PermissionMatrix from './PermissionMatrix';
+import { catalogKeys, permissionLabel } from './permissionKeys';
+import { PermissionButton } from '@ui/permissions/ActionGuard';
 
 function permKey(p) {
   const module = String(p?.module || '').trim();
   const subModule = String(p?.subModule || '').trim();
   const action = String(p?.action || '').trim();
   return `${module}::${subModule}::${action}`;
-}
-
-function permLabel(p) {
-  const module = String(p?.module || '').trim();
-  const sub = String(p?.subModule || '').trim();
-  const action = String(p?.action || '').trim();
-  return `${module}${sub ? ` / ${sub}` : ''} / ${action}`;
 }
 
 function normalizeRolePermissions(raw) {
@@ -68,121 +49,12 @@ function normalizeRolePermissions(raw) {
     .filter(Boolean);
 }
 
-// The matrix describes UI rows (group headings + items). Only items map to permissions.
-// Keep module/subModule stable so it aligns with requirePermission() calls for implemented screens.
-const PERMISSION_MATRIX = [
-  {
-    type: 'group',
-    label: 'Sales',
-    items: [
-      { label: 'Invoices', module: 'SALES', subModule: 'Invoices', supports: { view: true, edit: true, del: true } },
-      { label: 'Quotations', module: 'SALES', subModule: 'Estimates / Quotes', supports: { view: true, edit: true, del: true } },
-      { label: 'Credit Notes', module: 'SALES', subModule: 'Credit Notes', supports: { view: true, edit: true, del: true } },
-    ],
-  },
-  {
-    type: 'group',
-    label: 'Purchase',
-    items: [
-      { label: 'Purchase Orders', module: 'PURCHASE', subModule: 'Purchase Orders', supports: { view: true, edit: true, del: true } },
-      { label: 'Bills', module: 'PURCHASE', subModule: 'Bills', supports: { view: true, edit: true, del: true } },
-      { label: 'Debit Notes', module: 'PURCHASE', subModule: 'Debit Notes', supports: { view: true, edit: true, del: true } },
-    ],
-  },
-  {
-    type: 'group',
-    label: 'Payments',
-    items: [
-      { label: 'Receipts', module: 'PAYMENTS', subModule: 'Receipts', supports: { view: true, edit: true, del: false } },
-      { label: 'Payments', module: 'PAYMENTS', subModule: 'Payments', supports: { view: true, edit: true, del: false } },
-    ],
-  },
-  {
-    type: 'group',
-    label: 'Cash & Bank',
-    items: [{ label: 'Cash & Bank', module: 'CASHBANK', subModule: 'Cash & Bank', supports: { view: true, edit: true, del: false } }],
-  },
-  {
-    type: 'group',
-    label: 'Inventory',
-    items: [
-      { label: 'Inventory (Masters/Items)', module: 'INVENTORY', subModule: 'Inventory', supports: { view: true, edit: true, del: true } },
-      // Enforced by backend today
-      { label: 'Inter-branch transfer', module: 'INVENTORY', subModule: 'Inter-branch transfer', supports: { view: true, edit: true, approve: true, del: false } },
-      { label: 'Stock Adjustment', module: 'INVENTORY', subModule: 'Stock Adjustment', supports: { view: true, edit: true, del: false } },
-    ],
-  },
-  {
-    type: 'group',
-    label: 'Reports',
-    items: [
-      { label: 'Financials', module: 'REPORTS', subModule: 'Financials', supports: { view: true, edit: false, del: false } },
-      { label: 'GST', module: 'REPORTS', subModule: 'GST', supports: { view: true, edit: false, del: false } },
-      { label: 'Sales', module: 'REPORTS', subModule: 'Sales', supports: { view: true, edit: false, del: false } },
-      { label: 'Purchase', module: 'REPORTS', subModule: 'Purchase', supports: { view: true, edit: false, del: false } },
-      { label: 'Inventory', module: 'REPORTS', subModule: 'Inventory', supports: { view: true, edit: false, del: false } },
-    ],
-  },
-  {
-    type: 'group',
-    label: 'Settings',
-    items: [
-      // Enforced by backend today
-      { label: 'Branches', module: 'MASTERS', subModule: 'Company/Branch setup', supports: { view: true, edit: true, del: true } },
-      { label: 'Warehouses', module: 'MASTERS', subModule: 'Company/Branch setup', supports: { view: true, edit: true, del: true } },
-      { label: 'Users', module: 'SETTINGS', subModule: 'Users', supports: { view: true, edit: true, del: true } },
-      { label: 'Roles', module: 'SETTINGS', subModule: 'Roles', supports: { view: true, edit: true, del: true } },
-    ],
-  },
-];
-
-function itemAllKeys(item) {
-  const keys = [];
-  if (item.supports?.view) keys.push(permKey({ module: item.module, subModule: item.subModule, action: MATRIX_ACTIONS.VIEW }));
-  if (item.supports?.edit) {
-    keys.push(permKey({ module: item.module, subModule: item.subModule, action: MATRIX_ACTIONS.CREATE }));
-    keys.push(permKey({ module: item.module, subModule: item.subModule, action: MATRIX_ACTIONS.EDIT }));
-  }
-  if (item.supports?.approve) keys.push(permKey({ module: item.module, subModule: item.subModule, action: MATRIX_ACTIONS.APPROVE }));
-  if (item.supports?.del) keys.push(permKey({ module: item.module, subModule: item.subModule, action: MATRIX_ACTIONS.DELETE }));
-  return keys;
-}
-
-function itemColumnKeys(item, column) {
-  if (column === 'view') return item.supports?.view ? [permKey({ module: item.module, subModule: item.subModule, action: MATRIX_ACTIONS.VIEW })] : [];
-  if (column === 'edit') {
-    return item.supports?.edit
-      ? [
-          permKey({ module: item.module, subModule: item.subModule, action: MATRIX_ACTIONS.CREATE }),
-          permKey({ module: item.module, subModule: item.subModule, action: MATRIX_ACTIONS.EDIT }),
-        ]
-      : [];
-  }
-  if (column === 'approve') {
-    return item.supports?.approve ? [permKey({ module: item.module, subModule: item.subModule, action: MATRIX_ACTIONS.APPROVE })] : [];
-  }
-  if (column === 'del') return item.supports?.del ? [permKey({ module: item.module, subModule: item.subModule, action: MATRIX_ACTIONS.DELETE })] : [];
-  if (column === 'full') return itemAllKeys(item);
-  return [];
-}
-
-
 function permissionsToSet(perms) {
   const s = new Set();
   for (const p of perms || []) {
     if (p && p.allowed !== false) s.add(permKey(p));
   }
   return s;
-}
-
-function setToPermissions(s) {
-  // Convert selection set back into backend payload objects.
-  const out = [];
-  for (const key of s) {
-    const [module, subModule, action] = String(key).split('::');
-    out.push({ module, subModule: subModule || null, action, allowed: true });
-  }
-  return out;
 }
 
 export function SettingsRoles({ orgId }) {
@@ -192,7 +64,11 @@ export function SettingsRoles({ orgId }) {
   const [showForm, setShowForm] = useState(false);
   const [editRole, setEditRole] = useState(null);
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({ name: '', permissions: new Set() });
+  const [form, setForm] = useState({ name: '', description: '', ownDocumentsOnly: false, permissions: new Set() });
+  /** The server's permission catalogue: the only list the form may offer. */
+  const [catalog, setCatalog] = useState({ modules: [], presets: [] });
+  /** Grants the role holds that the catalogue has since retired; dropped on save. */
+  const [retired, setRetired] = useState(0);
   const [search, setSearch] = useState('');
   const [headerHost, setHeaderHost] = useState(null);
   const [openMenuForRoleId, setOpenMenuForRoleId] = useState(null);
@@ -205,13 +81,15 @@ export function SettingsRoles({ orgId }) {
     setLoading(true);
     setError('');
     try {
-      const res = await listRoles(orgId);
+      const [res, cat] = await Promise.all([listRoles(orgId), getPermissionCatalog().catch(() => null)]);
+      const modules = cat?.modules || catalog.modules;
+      if (cat) setCatalog(cat);
       const next = (Array.isArray(res.roles) ? res.roles : []).map((r) => {
         const normalized = normalizeRolePermissions(r.permissions);
         return {
           ...r,
           _normalizedPermissions: normalized,
-          _permissionLabels: normalized.filter((p) => p.allowed !== false).map(permLabel),
+          _permissionLabels: normalized.filter((p) => p.allowed !== false).map((p) => permissionLabel(modules, permKey(p))),
         };
       });
       setRoles(next);
@@ -232,7 +110,8 @@ export function SettingsRoles({ orgId }) {
 
   const openCreate = () => {
     setEditRole(null);
-    setForm({ name: '', ownDocumentsOnly: false, permissions: new Set() });
+    setForm({ name: '', description: '', ownDocumentsOnly: false, permissions: new Set() });
+    setRetired(0);
     setViewRoleId(null);
     setShowForm(true);
   };
@@ -250,63 +129,19 @@ export function SettingsRoles({ orgId }) {
     setEditRole(r);
     setViewRoleId(null);
     const normalized = normalizeRolePermissions(r.permissions || r._normalizedPermissions);
+    const held = permissionsToSet(normalized);
+    // Keep only what the catalogue still offers. Older roles can hold keys from
+    // the list this screen used to keep; they never granted anything.
+    const known = catalogKeys(catalog.modules);
+    const kept = new Set([...held].filter((k) => known.has(k)));
+    setRetired(held.size - kept.size);
     setForm({
       name: r.name,
+      description: r.description || '',
       ownDocumentsOnly: Boolean(r.ownDocumentsOnly),
-      permissions: permissionsToSet(normalized),
+      permissions: kept,
     });
     setShowForm(true);
-  };
-
-  const toggleItemColumn = (item, column, checked) => {
-    const keys = itemColumnKeys(item, column);
-    setForm((prev) => {
-      const next = new Set(prev.permissions);
-      for (const k of keys) {
-        if (checked) next.add(k);
-        else next.delete(k);
-      }
-      return { ...prev, permissions: next };
-    });
-  };
-
-  const isItemColumnChecked = (item, column) => {
-    const keys = itemColumnKeys(item, column);
-    if (keys.length === 0) return false;
-    for (const k of keys) {
-      if (!form.permissions.has(k)) return false;
-    }
-    return true;
-  };
-
-  const toggleGroup = (group, column, checked) => {
-    const items = Array.isArray(group.items) ? group.items : [];
-    setForm((prev) => {
-      const next = new Set(prev.permissions);
-      for (const item of items) {
-        const keys = itemColumnKeys(item, column);
-        for (const k of keys) {
-          if (checked) next.add(k);
-          else next.delete(k);
-        }
-      }
-      return { ...prev, permissions: next };
-    });
-  };
-
-  const isGroupChecked = async (group, column) => {
-    const items = Array.isArray(group.items) ? group.items : [];
-    if (items.length === 0) return false;
-    let any = false;
-    for (const item of items) {
-      const keys = itemColumnKeys(item, column);
-      if (keys.length === 0) continue;
-      any = true;
-      for (const k of keys) {
-        if (!form.permissions.has(k)) return false;
-      }
-    }
-    return any;
   };
 
   const onSubmit = async (e) => {
@@ -316,8 +151,10 @@ export function SettingsRoles({ orgId }) {
     try {
       const payload = {
         name: String(form.name || '').trim(),
+        description: String(form.description || '').trim() || null,
         ownDocumentsOnly: Boolean(form.ownDocumentsOnly),
-        permissions: setToPermissions(form.permissions),
+        // Catalogue wire keys, which the server accepts as they are.
+        permissions: Array.from(form.permissions),
       };
       if (editRole) {
         const res = await updateRole(orgId, editRole.id, payload);
@@ -325,7 +162,7 @@ export function SettingsRoles({ orgId }) {
         const nextRole = {
           ...res.role,
           _normalizedPermissions: normalized,
-          _permissionLabels: normalized.filter((p) => p.allowed !== false).map(permLabel),
+          _permissionLabels: normalized.filter((p) => p.allowed !== false).map((p) => permissionLabel(catalog.modules, permKey(p))),
         };
         setRoles((prev) => prev.map((r) => (r.id === editRole.id ? nextRole : r)));
       } else {
@@ -335,7 +172,7 @@ export function SettingsRoles({ orgId }) {
           ...res.role,
           assignedUsersCount: res.role?.assignedUsersCount ?? 0,
           _normalizedPermissions: normalized,
-          _permissionLabels: normalized.filter((p) => p.allowed !== false).map(permLabel),
+          _permissionLabels: normalized.filter((p) => p.allowed !== false).map((p) => permissionLabel(catalog.modules, permKey(p))),
         };
         setRoles((prev) => [...prev, nextRole]);
       }
@@ -343,7 +180,7 @@ export function SettingsRoles({ orgId }) {
     } catch (err) {
       const perm = err?.data?.permission;
       const permHint = perm?.module && perm?.action ? ` (missing: ${perm.module}${perm.subModule ? ` / ${perm.subModule}` : ''} / ${perm.action})` : '';
-      setError((err.message || 'Failed to save role') + permHint);
+      setError(err?.data?.code ? rbacErrorMessage(err) : (err.message || 'Failed to save role') + permHint);
     } finally {
       setSaving(false);
     }
@@ -355,7 +192,7 @@ export function SettingsRoles({ orgId }) {
       await deleteRole(orgId, id);
       setRoles((prev) => prev.filter((r) => r.id !== id));
     } catch (err) {
-      setError(err.message || 'Failed to delete role');
+      setError(rbacErrorMessage(err, 'Failed to delete role'));
     }
   };
 
@@ -375,14 +212,6 @@ export function SettingsRoles({ orgId }) {
   const viewedPermissions = selectedRole
     ? permissionsToSet(normalizeRolePermissions(selectedRole.permissions || selectedRole._normalizedPermissions))
     : new Set();
-  const viewItemChecked = (item, column) => {
-    const keys = itemColumnKeys(item, column);
-    return keys.length > 0 && keys.every((key) => viewedPermissions.has(key));
-  };
-  const viewGroupChecked = (group, column) => {
-    const keys = (group.items || []).flatMap((item) => itemColumnKeys(item, column));
-    return keys.length > 0 && keys.every((key) => viewedPermissions.has(key));
-  };
 
   const rolesHeader = (
     <div className="flex min-w-0 flex-wrap items-center justify-end gap-2 px-3 py-1.5">
@@ -404,9 +233,9 @@ export function SettingsRoles({ orgId }) {
           rows: filteredRoles,
         })}
       />
-      <button type="button" onClick={openCreate} className="ui-btn ui-btn-primary">
+      <PermissionButton permission="SETTINGS::Roles::CREATE" type="button" onClick={openCreate} className="ui-btn ui-btn-primary">
         <Plus size={16} aria-hidden="true" /> Create Role
-      </button>
+      </PermissionButton>
     </div>
   );
 
@@ -445,38 +274,10 @@ export function SettingsRoles({ orgId }) {
             </div>
             <div>
               <label className="block text-sm font-medium mb-2">Permissions</label>
-              <div className="border rounded-lg overflow-hidden">
-                <div className="grid grid-cols-12 ui-sunken border-b">
-                  <div className="col-span-6 px-3 py-2 text-xs font-semibold ui-muted uppercase">Particulars</div>
-                  <div className="col-span-2 px-3 py-2 text-xs font-semibold ui-muted uppercase text-center">Full Access</div>
-                  <div className="col-span-1 px-3 py-2 text-xs font-semibold ui-muted uppercase text-center">View</div>
-                  <div className="col-span-1 px-3 py-2 text-xs font-semibold ui-muted uppercase text-center">Edit</div>
-                  <div className="col-span-1 px-3 py-2 text-xs font-semibold ui-muted uppercase text-center">Approve</div>
-                  <div className="col-span-1 px-3 py-2 text-xs font-semibold ui-muted uppercase text-center">Delete</div>
-                </div>
-                {PERMISSION_MATRIX.map((group) => (
-                  <div key={group.label} className="border-b last:border-b-0">
-                    <div className="grid grid-cols-12">
-                      <div className="col-span-6 px-3 py-2 font-medium">{group.label}</div>
-                      {['full', 'view', 'edit', 'approve', 'del'].map((column) => (
-                        <div key={column} className={`${column === 'full' ? 'col-span-2' : 'col-span-1'} px-3 py-2 flex justify-center`}>
-                          <input type="checkbox" className="ui-checkbox" checked={viewGroupChecked(group, column)} disabled readOnly />
-                        </div>
-                      ))}
-                    </div>
-                    {(group.items || []).map((item) => (
-                      <div key={`${group.label}::${item.label}`} className="grid grid-cols-12 ui-surface">
-                        <div className="col-span-6 px-3 py-2 pl-8 text-sm">{item.label}</div>
-                        {['full', 'view', 'edit', 'approve', 'del'].map((column) => (
-                          <div key={column} className={`${column === 'full' ? 'col-span-2' : 'col-span-1'} px-3 py-2 flex justify-center`}>
-                            <input type="checkbox" className="ui-checkbox" checked={viewItemChecked(item, column)} disabled readOnly />
-                          </div>
-                        ))}
-                      </div>
-                    ))}
-                  </div>
-                ))}
-              </div>
+              {/* The same matrix as Edit, from the server catalogue, read-only. */}
+              <fieldset disabled aria-label="Permissions (read only)">
+                <PermissionMatrix modules={catalog.modules} granted={viewedPermissions} onToggle={() => {}} onSetMany={() => {}} initiallyOpen={1} />
+              </fieldset>
             </div>
           </div>
         ) : null}
@@ -500,6 +301,17 @@ export function SettingsRoles({ orgId }) {
             <label className="ui-label" htmlFor="settingsroles-role-name">Role Name *</label>
             <input id="settingsroles-role-name" className="ui-input w-full" value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} required />
           </div>
+          <div>
+            <label className="ui-label" htmlFor="settingsroles-role-description">Description</label>
+            <input
+              id="settingsroles-role-description"
+              className="ui-input w-full"
+              maxLength={300}
+              placeholder="What people with this role do, in one line. Shown when picking a role for someone."
+              value={form.description || ''}
+              onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))}
+            />
+          </div>
           <label className="flex items-start gap-2 text-sm ui-fg" htmlFor="settingsroles-own-docs">
             <input
               id="settingsroles-own-docs"
@@ -514,120 +326,41 @@ export function SettingsRoles({ orgId }) {
             </span>
           </label>
           <div>
-            <label className="block text-sm font-medium mb-2">Permissions</label>
-            <div className="border rounded-lg overflow-hidden">
-              <div className="grid grid-cols-12 ui-sunken border-b">
-                <div className="col-span-6 px-3 py-2 text-xs font-semibold ui-muted uppercase">Particulars</div>
-                <div className="col-span-2 px-3 py-2 text-xs font-semibold ui-muted uppercase text-center">Full Access</div>
-                <div className="col-span-1 px-3 py-2 text-xs font-semibold ui-muted uppercase text-center">View</div>
-                <div className="col-span-1 px-3 py-2 text-xs font-semibold ui-muted uppercase text-center">Edit</div>
-                <div className="col-span-1 px-3 py-2 text-xs font-semibold ui-muted uppercase text-center">Approve</div>
-                <div className="col-span-1 px-3 py-2 text-xs font-semibold ui-muted uppercase text-center">Delete</div>
+            <div className="ui-label">Permissions</div>
+            {retired > 0 ? (
+              <div className="ui-subtle text-xs mb-2" role="status">
+                {retired} old permission{retired === 1 ? '' : 's'} on this role no longer exist and will be removed when you save.
+                They never granted anything.
               </div>
-
-              {PERMISSION_MATRIX.map((group) => {
-                return (
-                  <div key={group.label} className="border-b last:border-b-0">
-                    <div className="grid grid-cols-12">
-                      <div className="col-span-6 px-3 py-2 font-medium">{group.label}</div>
-                      <div className="col-span-2 px-3 py-2 flex justify-center">
-                        <input
-                          type="checkbox"
-                          className="ui-checkbox"
-                          checked={isGroupChecked(group, 'full')}
-                          onChange={(e) => toggleGroup(group, 'full', e.target.checked)}
-                        />
-                      </div>
-                      <div className="col-span-1 px-3 py-2 flex justify-center">
-                        <input
-                          type="checkbox"
-                          className="ui-checkbox"
-                          checked={isGroupChecked(group, 'view')}
-                          onChange={(e) => toggleGroup(group, 'view', e.target.checked)}
-                        />
-                      </div>
-                      <div className="col-span-1 px-3 py-2 flex justify-center">
-                        <input
-                          type="checkbox"
-                          className="ui-checkbox"
-                          checked={isGroupChecked(group, 'edit')}
-                          onChange={(e) => toggleGroup(group, 'edit', e.target.checked)}
-                        />
-                      </div>
-                      <div className="col-span-1 px-3 py-2 flex justify-center">
-                        <input
-                          type="checkbox"
-                          className="ui-checkbox"
-                          checked={isGroupChecked(group, 'approve')}
-                          onChange={(e) => toggleGroup(group, 'approve', e.target.checked)}
-                        />
-                      </div>
-                      <div className="col-span-1 px-3 py-2 flex justify-center">
-                        <input
-                          type="checkbox"
-                          className="ui-checkbox"
-                          checked={isGroupChecked(group, 'del')}
-                          onChange={(e) => toggleGroup(group, 'del', e.target.checked)}
-                        />
-                      </div>
-                    </div>
-
-                    {(group.items || []).map((item) => {
-                      const rowKey = `${group.label}::${item.label}`;
-                      return (
-                        <div key={rowKey} className="grid grid-cols-12 ui-surface">
-                          <div className="col-span-6 px-3 py-2 pl-8 text-sm">{item.label}</div>
-                          <div className="col-span-2 px-3 py-2 flex justify-center">
-                            <input
-                              type="checkbox"
-                              className="ui-checkbox"
-                              checked={isItemColumnChecked(item, 'full')}
-                              onChange={(e) => toggleItemColumn(item, 'full', e.target.checked)}
-                            />
-                          </div>
-                          <div className="col-span-1 px-3 py-2 flex justify-center">
-                            <input
-                              type="checkbox"
-                              className="ui-checkbox"
-                              disabled={!item.supports?.view}
-                              checked={isItemColumnChecked(item, 'view')}
-                              onChange={(e) => toggleItemColumn(item, 'view', e.target.checked)}
-                            />
-                          </div>
-                          <div className="col-span-1 px-3 py-2 flex justify-center">
-                            <input
-                              type="checkbox"
-                              className="ui-checkbox"
-                              disabled={!item.supports?.edit}
-                              checked={isItemColumnChecked(item, 'edit')}
-                              onChange={(e) => toggleItemColumn(item, 'edit', e.target.checked)}
-                            />
-                          </div>
-                          <div className="col-span-1 px-3 py-2 flex justify-center">
-                            <input
-                              type="checkbox"
-                              className="ui-checkbox"
-                              disabled={!item.supports?.approve}
-                              checked={isItemColumnChecked(item, 'approve')}
-                              onChange={(e) => toggleItemColumn(item, 'approve', e.target.checked)}
-                            />
-                          </div>
-                          <div className="col-span-1 px-3 py-2 flex justify-center">
-                            <input
-                              type="checkbox"
-                              className="ui-checkbox"
-                              disabled={!item.supports?.del}
-                              checked={isItemColumnChecked(item, 'del')}
-                              onChange={(e) => toggleItemColumn(item, 'del', e.target.checked)}
-                            />
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                );
-              })}
-            </div>
+            ) : null}
+            {catalog.modules.length ? (
+              <PermissionMatrix
+                key={editRole?.id || 'new'}
+                modules={catalog.modules}
+                granted={form.permissions}
+                initiallyOpen={1}
+                onToggle={(k) =>
+                  setForm((prev) => {
+                    const next = new Set(prev.permissions);
+                    if (next.has(k)) next.delete(k);
+                    else next.add(k);
+                    return { ...prev, permissions: next };
+                  })
+                }
+                onSetMany={(keys, on) =>
+                  setForm((prev) => {
+                    const next = new Set(prev.permissions);
+                    for (const k of keys) {
+                      if (on) next.add(k);
+                      else next.delete(k);
+                    }
+                    return { ...prev, permissions: next };
+                  })
+                }
+              />
+            ) : (
+              <div className="ui-subtle text-sm">Loading the permission list…</div>
+            )}
           </div>
         </form>
       </Drawer>
@@ -705,7 +438,7 @@ export function SettingsRoles({ orgId }) {
                           >
                             Edit
                           </button>
-                          <button
+                          <PermissionButton permission="SETTINGS::Roles::DELETE"
                             type="button"
                             className="w-full text-left px-3 py-2 text-sm text-[rgb(var(--neg))] ui-hover-sunken"
                             onClick={() => {
@@ -714,7 +447,7 @@ export function SettingsRoles({ orgId }) {
                             }}
                           >
                             Delete
-                          </button>
+                          </PermissionButton>
                         </Popover>
                       )}
                     </div>

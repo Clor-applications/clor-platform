@@ -92,7 +92,7 @@ const KnockOffForm = ({
         </span>
         <span>
           <span className="ui-muted">On account</span>{' '}
-          <span className="ui-money text-[rgb(var(--brand))]">
+          <span className="ui-money text-[rgb(var(--brand-ink))]">
             {formatMoney(balance.unsettled, currentCompany)}
           </span>
         </span>

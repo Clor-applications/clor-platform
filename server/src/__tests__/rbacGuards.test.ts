@@ -85,6 +85,9 @@ async function makeMember(keys: string[], label: string, roleExtra: Record<strin
   return { token: login.body.token, orgId: owner.orgId, branchId: owner.branchId, userId: user.body.user.id, roleId };
 }
 
+/** A fresh organisation, for tests that need to be its only administrator. */
+const makeOwnerLike = () => makeOwner();
+
 const ROLE_ADMIN_KEYS = [
   'SETTINGS::Roles::VIEW',
   'SETTINGS::Roles::CREATE',
@@ -346,6 +349,121 @@ describe('the organisation always keeps an administrator', () => {
   });
 });
 
+describe('administrators who hold the role through a profile', () => {
+  it('count as administrators, so a direct admin can step down once one exists', async () => {
+    const org = await makeOwnerLike();
+    const admin = (await request(app).get(`/api/orgs/${org.orgId}/roles`).set(auth(org)).expect(200)).body.roles.find(
+      (r: any) => r.name === 'Administrator'
+    );
+    const viewer = (await request(app).get(`/api/orgs/${org.orgId}/roles`).set(auth(org)).expect(200)).body.roles.find(
+      (r: any) => r.name === 'Viewer'
+    );
+
+    // Alone, the owner may not step down.
+    await request(app).put(`/api/orgs/${org.orgId}/users/${org.userId}/role`).set(auth(org)).send({ roleId: viewer.id }).expect(409);
+
+    // A second person made administrator only through a profile.
+    const profile = await request(app)
+      .post(`/api/orgs/${org.orgId}/role-profiles`)
+      .set(auth(org))
+      .send({ name: `Admins ${uid()}`, roleIds: [admin.id] })
+      .expect(201);
+    const email = `padmin.${uid()}@example.com`;
+    const user = await request(app)
+      .post('/api/users')
+      .set(auth(org))
+      .send({ email, fullName: 'Profile admin', password: 'Passw0rd!23', orgIds: [org.orgId], branchIdsByOrg: { [org.orgId]: [org.branchId] } })
+      .expect(201);
+    await request(app)
+      .post(`/api/orgs/${org.orgId}/users/${user.body.user.id}/role-profiles`)
+      .set(auth(org))
+      .send({ profileIds: [profile.body.profile.id] })
+      .expect(200);
+
+    // Now the owner may, because an administrator remains.
+    await request(app).put(`/api/orgs/${org.orgId}/users/${org.userId}/role`).set(auth(org)).send({ roleId: viewer.id }).expect(200);
+
+    // And the profile can no longer be emptied or deleted, or taken off its
+    // holder, since that would leave nobody.
+    const login = await request(app).post('/api/auth/login').send({ emailOrUsername: email, password: 'Passw0rd!23' }).expect(200);
+    const padmin = { ...org, token: login.body.token };
+    await request(app)
+      .put(`/api/orgs/${org.orgId}/role-profiles/${profile.body.profile.id}`)
+      .set(auth(padmin))
+      .send({ name: 'Admins', roleIds: [] })
+      .expect(409);
+    await request(app).delete(`/api/orgs/${org.orgId}/role-profiles/${profile.body.profile.id}`).set(auth(padmin)).expect(409);
+    await request(app)
+      .post(`/api/orgs/${org.orgId}/users/${user.body.user.id}/role-profiles`)
+      .set(auth(padmin))
+      .send({ profileIds: [] })
+      .expect(409);
+  });
+
+  it('does not hand a creator who stepped down their Owner role back on the next request', async () => {
+    const org = await makeOwnerLike();
+    const admin = (await request(app).get(`/api/orgs/${org.orgId}/roles`).set(auth(org)).expect(200)).body.roles.find(
+      (r: any) => r.name === 'Administrator'
+    );
+    const email = `successor.${uid()}@example.com`;
+    const user = await request(app)
+      .post('/api/users')
+      .set(auth(org))
+      .send({ email, fullName: 'Successor', password: 'Passw0rd!23', orgIds: [org.orgId], branchIdsByOrg: { [org.orgId]: [org.branchId] } })
+      .expect(201);
+    await request(app).put(`/api/orgs/${org.orgId}/users/${user.body.user.id}/role`).set(auth(org)).send({ roleId: admin.id }).expect(200);
+
+    // The creator hands over and keeps no role.
+    await request(app).put(`/api/orgs/${org.orgId}/users/${org.userId}/role`).set(auth(org)).send({ roleId: null }).expect(200);
+
+    // Their next request is refused, and refusing it wrote nothing.
+    await request(app).get(`/api/orgs/${org.orgId}/roles`).set(auth(org)).expect(403);
+    expect(await platformPrisma.userRoleAssignment.count({ where: { orgId: org.orgId, userId: org.userId } })).toBe(0);
+  });
+
+  it('cannot be created by putting an Administrator role into a profile somebody already holds', async () => {
+    const clerk = await makeMember(ROLE_ADMIN_KEYS, 'Profile editor');
+    const viewerRole = (await request(app).get(`/api/orgs/${owner.orgId}/roles`).set(auth(owner)).expect(200)).body.roles.find(
+      (r: any) => r.name === 'Viewer'
+    );
+    const profile = await request(app)
+      .post(`/api/orgs/${owner.orgId}/role-profiles`)
+      .set(auth(owner))
+      .send({ name: `Ordinary ${uid()}`, roleIds: [] })
+      .expect(201);
+    const admin = await adminRoleId();
+    const res = await request(app)
+      .put(`/api/orgs/${owner.orgId}/role-profiles/${profile.body.profile.id}`)
+      .set(auth(clerk))
+      .send({ name: 'Ordinary', roleIds: [admin] })
+      .expect(403);
+    expect(res.body.code).toBe('admin_only');
+    // Nor a role holding more than the editor holds.
+    const more = await request(app)
+      .put(`/api/orgs/${owner.orgId}/role-profiles/${profile.body.profile.id}`)
+      .set(auth(clerk))
+      .send({ name: 'Ordinary', roleIds: [viewerRole.id] })
+      .expect(403);
+    expect(more.body.code).toBe('cannot_grant_unheld');
+  });
+
+  it('are cleared with the person when they are removed from the company', async () => {
+    const member = await makeMember(['SALES::Invoices::VIEW'], 'Leaver');
+    const profile = await request(app)
+      .post(`/api/orgs/${owner.orgId}/role-profiles`)
+      .set(auth(owner))
+      .send({ name: `Leaver profile ${uid()}`, roleIds: [member.roleId] })
+      .expect(201);
+    await request(app)
+      .post(`/api/orgs/${owner.orgId}/users/${member.userId}/role-profiles`)
+      .set(auth(owner))
+      .send({ profileIds: [profile.body.profile.id] })
+      .expect(200);
+    await request(app).delete(`/api/orgs/${owner.orgId}/users/${member.userId}`).set(auth(owner)).expect(200);
+    expect(await platformPrisma.userRoleProfile.count({ where: { orgId: owner.orgId, userId: member.userId } })).toBe(0);
+  });
+});
+
 describe('deleting a role', () => {
   it('deletes an unused role and cleans up its profile links', async () => {
     const role = await request(app)
@@ -394,6 +512,41 @@ describe('deleting a role', () => {
     expect(`${rule.status} ${JSON.stringify(rule.body)}`).toMatch(/^201/);
     const res = await request(app).delete(`/api/orgs/${owner.orgId}/roles/${role.body.role.id}`).set(auth(owner)).expect(409);
     expect(res.body.approvalRulesCount).toBe(1);
+  });
+});
+
+describe('roles holding keys the catalogue has retired', () => {
+  it('drops them on save instead of refusing the whole role, and still refuses new ones', async () => {
+    const role = await request(app)
+      .post(`/api/orgs/${owner.orgId}/roles`)
+      .set(auth(owner))
+      .send({ name: `Legacy ${uid()}`, permissions: ['SALES::Invoices::VIEW'] })
+      .expect(201);
+    const id = role.body.role.id;
+
+    // What the old Roles screen wrote: a key no route checks.
+    const legacy =
+      (await platformPrisma.permission.findFirst({ where: { module: 'PAYMENTS', subModule: 'Receipts', action: 'VIEW' } })) ||
+      (await platformPrisma.permission.create({ data: { module: 'PAYMENTS', subModule: 'Receipts', action: 'VIEW' } }));
+    await platformPrisma.rolePermission.create({
+      data: { accountId: role.body.role.accountId, orgId: owner.orgId, roleId: id, permissionId: legacy.id, allowed: true },
+    });
+
+    // The Roles form sends everything it loaded back.
+    await request(app)
+      .patch(`/api/orgs/${owner.orgId}/roles/${id}`)
+      .set(auth(owner))
+      .send({ permissions: ['SALES::Invoices::VIEW', 'SALES::Invoices::CREATE', 'PAYMENTS::Receipts::VIEW'] })
+      .expect(200);
+    const after = await request(app).get(`/api/orgs/${owner.orgId}/roles/${id}/permissions`).set(auth(owner)).expect(200);
+    expect(after.body.permissions.sort()).toEqual(['SALES::Invoices::CREATE', 'SALES::Invoices::VIEW']);
+
+    // Now that it is gone, it is new again, and refused.
+    await request(app)
+      .patch(`/api/orgs/${owner.orgId}/roles/${id}`)
+      .set(auth(owner))
+      .send({ permissions: ['SALES::Invoices::VIEW', 'PAYMENTS::Receipts::VIEW'] })
+      .expect(400);
   });
 });
 

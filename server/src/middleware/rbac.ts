@@ -1,8 +1,5 @@
 import type { Request, Response, NextFunction } from 'express';
 import { type PermissionAction as PermissionActionType } from '../constants/enums.js';
-import { flattenCatalog } from '../constants/permissionCatalog.js';
-import { prisma } from '../utils/prisma.js';
-import { platformPrisma } from '../utils/platformPrisma.js';
 import { resolveAccess } from '../services/access.js';
 
 // DB-stored RBAC:
@@ -22,71 +19,6 @@ declare module 'express-serve-static-core' {
 
 function permString(module: string, subModule: string | null, action: PermissionActionType): string {
   return `${module}::${subModule || ''}::${action}`;
-}
-
-async function bootstrapOwnerRoleIfCreator(accountId: string, orgId: string, userId: string) {
-  const org = await platformPrisma.org.findFirst({ where: { accountId, id: orgId }, select: { createdByUserId: true } });
-  if (!org || org.createdByUserId !== userId) return false;
-
-  // Create a minimal owner role so the creator can proceed.
-  const roleName = 'Owner';
-  const role =
-    (await platformPrisma.role.findFirst({ where: { accountId, orgId, branchId: null, name: roleName }, select: { id: true } })) ||
-    (await platformPrisma.role.create({
-      data: {
-        accountId,
-        orgId,
-        branchId: null,
-        name: roleName,
-        description: 'Default owner role (auto-created)',
-        roleType: 'ADMIN',
-        createdByUserId: userId,
-      },
-      select: { id: true },
-    }));
-
-  // C-4: seed the FULL catalog, not a partial core set. The old partial seed
-  // meant the Owner's effective grants depended on which endpoints they
-  // happened to hit first (the lazy ensureOwnerPermissionForCreator patched
-  // holes one request at a time). Seeding everything up front makes the
-  // Owner's access deterministic; the lazy fallback stays for legacy orgs.
-  const core: Array<{ module: string; subModule: string; action: string }> = flattenCatalog();
-
-  const permissionIds: string[] = [];
-  for (const p of core) {
-    const existing = await platformPrisma.permission.findFirst({ where: { module: p.module, subModule: p.subModule, action: p.action }, select: { id: true } });
-    if (existing) {
-      permissionIds.push(existing.id);
-      continue;
-    }
-    const created = await platformPrisma.permission.create({ data: { module: p.module, subModule: p.subModule, action: p.action }, select: { id: true } });
-    permissionIds.push(created.id);
-  }
-
-  for (const permissionId of permissionIds) {
-    try {
-      await platformPrisma.rolePermission.create({
-        data: { accountId, orgId, roleId: role.id, permissionId, allowed: true },
-        select: { id: true },
-      });
-    } catch (err: any) {
-      if (String(err?.name || '') === 'PrismaClientKnownRequestError' && String(err?.code || '') === 'P2002') continue;
-      throw err;
-    }
-  }
-
-  try {
-    await platformPrisma.userRoleAssignment.create({
-      data: { accountId, orgId, branchId: null, userId, roleId: role.id, createdByUserId: userId },
-      select: { id: true },
-    });
-  } catch (err: any) {
-    if (!(String(err?.name || '') === 'PrismaClientKnownRequestError' && String(err?.code || '') === 'P2002')) {
-      throw err;
-    }
-  }
-
-  return true;
 }
 
 export type Refusal = { status: number; body: Record<string, unknown> };
@@ -131,14 +63,20 @@ export async function authorize(
   if (!orgId || !branchId) return { status: 400, body: { error: 'Missing tenant context' } };
 
   // Effective access resolves direct role assignments AND role profiles.
-  let access = await resolveAccess(accountId, orgId, userId, branchId);
+  const access = await resolveAccess(accountId, orgId, userId, branchId);
 
-  if (access.roleIds.length === 0) {
-    const bootstrapped = await bootstrapOwnerRoleIfCreator(accountId, orgId, userId);
-    if (!bootstrapped) return { status: 403, body: { error: 'No roles assigned' } };
-    access = await resolveAccess(accountId, orgId, userId, branchId);
-    if (access.roleIds.length === 0) return { status: 403, body: { error: 'No roles assigned' } };
-  }
+  /*
+   * No roles is no access — for the company's creator too.
+   *
+   * This used to create an Owner role and assign it whenever the creator
+   * arrived with none. Company setup has created that role since long before
+   * this was written, so it only ever fired for somebody whose roles had been
+   * taken away — and once administrators could hand over and step down, that
+   * meant a creator another administrator had removed became Owner again on
+   * their next click. A company left with no administrator at all is repaired
+   * by scripts/backfillOwnerPermissions.ts, which every deploy runs, not here.
+   */
+  if (access.roleIds.length === 0) return { status: 403, body: { error: 'No roles assigned' } };
 
   const allowed = access.permissions;
   req.permissions = allowed;

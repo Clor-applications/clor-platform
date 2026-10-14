@@ -18,6 +18,8 @@ import SignUp from './SignUp';
 import ForgotPassword from './ForgotPassword';
 import ResetPassword from './ResetPassword';
 import VerifyEmail from './VerifyEmail';
+import LegalPage from './legal/LegalPage';
+import { useLegalRoute } from './legal/useLegalRoute';
 
 /**
  * The Clor shell.
@@ -80,6 +82,9 @@ export default function Shell() {
    */
   const [publicPage, setPublicPage] = useState('home');
 
+  /* A policy page is open to everyone, signed in or not, at #/legal/<doc>. */
+  const legalDoc = useLegalRoute();
+
   /*
    * Links in Clor's emails: `/?reset=<token>` and `/?verify=<token>`. Read once
    * on load; leaving either screen strips the token from the address bar so a
@@ -126,6 +131,8 @@ export default function Shell() {
    * advertisement shown to somebody who is already a customer, four times a
    * day.
    */
+  if (legalDoc) return <LegalPage doc={legalDoc} />;
+
   if (restoring) {
     return (
       <div className="min-h-dvh grid place-items-center" style={{ backgroundColor: 'rgb(var(--app-bg))' }}>
@@ -454,7 +461,7 @@ function MoreApps({ tenant, onAdd, onOpen }) {
             <div className="flex items-start justify-between gap-3">
               <span
                 className="grid place-items-center w-9 h-9 rounded-lg shrink-0"
-                style={{ backgroundColor: 'rgb(var(--brand-soft))', color: 'rgb(var(--brand))' }}
+                style={{ backgroundColor: 'rgb(var(--brand-soft))', color: 'rgb(var(--brand-ink))' }}
               >
                 <a.icon size={18} aria-hidden="true" />
               </span>

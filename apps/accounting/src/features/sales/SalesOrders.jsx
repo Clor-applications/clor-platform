@@ -27,6 +27,7 @@ import { resolveSaleRate } from '@ui/utils/pricing';
 import { createDocApi, deleteDocApi, hasApiSession, updateDocApi } from '@ui/api/purchaseDocs';
 import { DocumentNumber, SalesDate, DueDate, MoneyValue, SalesBalance } from '@ui/components/docs';
 import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';
+import { PermissionButton } from '@ui/permissions/ActionGuard';
 
 /**
  * Sales orders — the confirmed order between quote and invoice.
@@ -93,7 +94,7 @@ function SalesOrderRowActions({ order, progress, onEdit, onInvoice, onPrint, onD
             <button type="button" role="menuitem" className="report-menu-item" onClick={() => choose(onEdit)}><Pencil size={14} /> Edit</button>
             {progress.billed < progress.ordered ? <button type="button" role="menuitem" className="report-menu-item" onClick={() => choose(onInvoice)}><Receipt size={14} /> Convert to Invoice</button> : null}
             <button type="button" role="menuitem" className="report-menu-item" onClick={() => choose(onPrint)} aria-label={`Print sales order ${order.number}`}><Printer size={14} /> Print</button>
-            <button type="button" role="menuitem" className="report-menu-item text-[rgb(var(--neg-ink))]" onClick={() => choose(onDelete)}><Trash2 size={14} /> Delete</button>
+            <PermissionButton permission="SALES::Sales Orders::DELETE" type="button" role="menuitem" className="report-menu-item text-[rgb(var(--neg-ink))]" onClick={() => choose(onDelete)}><Trash2 size={14} /> Delete</PermissionButton>
           </div>
       , document.body) : null}
     </>
@@ -203,7 +204,7 @@ export default function SalesOrders({ db, setDb, currentCompany, onConvertToInvo
     setForm((p) => {
       const items = [...p.items];
       if (field === 'itemId') {
-        const item = picked || itemsMaster.find((i) => i.id === parseInt(value));
+        const item = picked || itemsMaster.find((i) => String(i.id) === String(value));
         if (item) {
           // onDate is the order's own date, so a price list that had expired
           // by then does not price it.
@@ -760,9 +761,9 @@ export default function SalesOrders({ db, setDb, currentCompany, onConvertToInvo
         });
       }}
       primary={
-        <button type="button" onClick={openNewOrder} className="ui-btn ui-btn-primary">
+        <PermissionButton permission="SALES::Sales Orders::CREATE" type="button" onClick={openNewOrder} className="ui-btn ui-btn-primary">
           <Plus size={16} aria-hidden="true" /> New Sales Order
-        </button>
+        </PermissionButton>
       }
       cards={[
         { label: 'Orders', value: soHeadline.count, count: true, tone: 'draft', Icon: ClipboardList },

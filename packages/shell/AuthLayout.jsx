@@ -3,6 +3,7 @@ import React from 'react';
 import ClorMark from './ClorMark';
 import AuthIllustration from '@ui/components/AuthIllustration';
 import { useTilt } from '@ui/components/ui/useTilt';
+import LegalLinks from './legal/LegalLinks';
 
 /**
  * The frame both sign-in and sign-up sit in.
@@ -66,8 +67,8 @@ export default function AuthLayout({ title, subtitle, wide = false, onHome, chil
                 Run the business, not four programs.
               </h2>
               <p className="mt-5 text-white/65 leading-relaxed max-w-[46ch]">
-                Accounting, Payroll, People and Projects on one platform — each with its own records,
-                all behind one sign-in.
+                Accounting and Payroll today, with People and Projects to follow — each with its own
+                records, all behind one sign-in.
               </p>
 
               <ul className="mt-8 space-y-4">
@@ -97,7 +98,7 @@ export default function AuthLayout({ title, subtitle, wide = false, onHome, chil
               <AuthIllustration className="h-[clamp(8rem,24vh,17rem)] w-auto max-w-full select-none" />
             </div>
 
-            <p className="mt-8 text-white/40 text-xs">© 2026 Clor · Your records stay on your server</p>
+            <p className="mt-8 text-white/70 text-xs">© 2026 Clor</p>
           </div>
         </div>
 
@@ -122,6 +123,7 @@ export default function AuthLayout({ title, subtitle, wide = false, onHome, chil
             </div>
 
             {footer ? <div className="mt-6 text-center text-sm">{footer}</div> : null}
+            <LegalLinks className="mt-6 flex justify-center" />
           </div>
         </div>
       </div>

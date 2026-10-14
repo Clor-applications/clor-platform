@@ -111,7 +111,7 @@ const AddressCard = ({ row, index, states, onChange, onRemove, tone, title, subt
             className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
             style={
               tone === 'brand'
-                ? { backgroundColor: 'rgb(var(--brand) / 0.12)', color: 'rgb(var(--brand))' }
+                ? { backgroundColor: 'rgb(var(--brand) / 0.12)', color: 'rgb(var(--brand-ink))' }
                 : tone === 'blue'
                   ? { backgroundColor: 'rgb(var(--ov-blue-soft))', color: 'rgb(var(--ov-blue))' }
                   : { backgroundColor: 'rgb(var(--surface-sunken))', color: 'rgb(var(--info))' }
@@ -512,7 +512,7 @@ export const AddressTab = ({
             i === 0 ? (
               <span
                 className="shrink-0 rounded-full px-2.5 py-1 text-xs font-medium"
-                style={{ backgroundColor: 'rgb(var(--brand) / 0.12)', color: 'rgb(var(--brand))' }}
+                style={{ backgroundColor: 'rgb(var(--brand) / 0.12)', color: 'rgb(var(--brand-ink))' }}
               >
                 Primary
               </span>

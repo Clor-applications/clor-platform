@@ -24,6 +24,9 @@ const rnd = () => Math.random().toString(36).slice(2, 8);
 
 type Ctx = { token: string; orgId: string; branchId: string };
 let owner: Ctx;
+/** Two real items: a line names an item by its server id or is refused. */
+let I1 = '';
+let I2 = '';
 
 const auth = (c: Ctx) => ({
   Authorization: `Bearer ${c.token}`,
@@ -73,7 +76,7 @@ const makeInvoice = async (over: Record<string, any> = {}) => {
       total: 118000,
       status: 'Unpaid',
       refNo: 'PO-ORIGINAL',
-      items: [{ itemId: 'i1', description: 'Widget', quantity: 1, rate: 100000, gstRate: 18, amount: 100000 }],
+      items: [{ itemId: I1, description: 'Widget', quantity: 1, rate: 100000, gstRate: 18, amount: 100000 }],
       ...over,
     })
     .expect(201);
@@ -111,6 +114,10 @@ const ledgerBalanced = async () => {
 beforeAll(async () => {
   owner = await makeOwner();
   await bankId();
+  const item = async (name: string) =>
+    (await request(app).post(`/api/orgs/${owner.orgId}/items`).set(auth(owner)).send({ name, unit: 'Pcs', gstRate: 18, openingQty: 1000 }).expect(201)).body.item.id as string;
+  I1 = await item('Widget');
+  I2 = await item('Gadget');
 });
 
 describe('A — a posted invoice cannot have its amounts edited', () => {
@@ -197,13 +204,13 @@ describe('D/E/F/G — the protected fields', () => {
 
   it('refuses a change to line quantity, rate, tax or discount', async () => {
     const invoice = await makeInvoice();
-    const base = { itemId: 'i1', description: 'Widget', quantity: 1, rate: 100000, gstRate: 18, amount: 100000 };
+    const base = { itemId: I1, description: 'Widget', quantity: 1, rate: 100000, gstRate: 18, amount: 100000 };
     for (const change of [
       { quantity: 2 },
       { rate: 90000 },
       { gstRate: 12 },
       { discountAmount: 500 },
-      { itemId: 'i2' },
+      { itemId: I2 },
     ]) {
       const res = await patch(invoice.id, { items: [{ ...base, ...change }] });
       expect(res.status).toBe(409);
@@ -343,7 +350,7 @@ describe('H — resending what is already there is not an amendment', () => {
       sgstTotal: 9000,
       date: '2026-06-10',
       customerName: 'Bengaluru Industrial Supplies',
-      items: [{ itemId: 'i1', description: 'Widget', quantity: 1, rate: 100000, gstRate: 18, amount: 100000 }],
+      items: [{ itemId: I1, description: 'Widget', quantity: 1, rate: 100000, gstRate: 18, amount: 100000 }],
       refNo: 'PO-RESENT',
     });
     expect(res.status).toBe(200);
@@ -354,7 +361,7 @@ describe('H — resending what is already there is not an amendment', () => {
   it('is not confused by a different key order or numeric spelling in the lines', async () => {
     const invoice = await makeInvoice();
     const res = await patch(invoice.id, {
-      items: [{ gstRate: 18, amount: 100000, rate: 100000, quantity: 1, description: 'Widget', itemId: 'i1' }],
+      items: [{ gstRate: 18, amount: 100000, rate: 100000, quantity: 1, description: 'Widget', itemId: I1 }],
       refNo: 'PO-REORDERED',
     });
     expect(res.status).toBe(200);
@@ -456,7 +463,7 @@ describe('L — a locked period', () => {
         gstTotal: 18000,
         total: 118000,
         status: 'Unpaid',
-        items: [{ itemId: 'i1', description: 'Widget', quantity: 1, rate: 100000, gstRate: 18, amount: 100000 }],
+        items: [{ description: 'Widget', quantity: 1, rate: 100000, gstRate: 18, amount: 100000 }],
       })
       .expect(201);
     const id = created.body.invoice.id as string;

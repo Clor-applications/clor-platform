@@ -7,6 +7,7 @@ import { requireAuth } from '../middleware/auth.js';
 import { requireTenantContext } from '../middleware/tenantContext.js';
 import { requirePermission } from '../middleware/rbac.js';
 import { PermissionAction } from '../constants/enums.js';
+import { userMayUseBranch, userMayUseWarehouse } from '../middleware/tenantContext.js';
 
 export const inventoryAdjustmentsRouter = Router();
 inventoryAdjustmentsRouter.use(requireAuth, requireTenantContext);
@@ -41,10 +42,10 @@ inventoryAdjustmentsRouter.post('/orgs/:orgId/adjustments', requirePermission('I
   const body = adjustmentSchema.parse(req.body);
 
   // Access check to branch/warehouse
-  const hasBranch = await platformPrisma.userBranchMembership.findFirst({ where: { accountId, orgId, branchId: body.branchId, userId } });
-  if (!hasBranch) return res.status(403).json({ error: 'No access to branch' });
-  const hasWarehouse = await platformPrisma.userWarehouseAccess.findFirst({ where: { accountId, orgId, branchId: body.branchId, warehouseId: body.warehouseId, userId } });
-  if (!hasWarehouse) return res.status(403).json({ error: 'No access to warehouse' });
+  if (!(await userMayUseBranch(accountId, orgId, userId, body.branchId))) return res.status(403).json({ error: 'No access to branch' });
+  if (!(await userMayUseWarehouse(accountId, orgId, userId, body.warehouseId))) return res.status(403).json({ error: 'No access to warehouse' });
+  const wh = await prisma.warehouse.findFirst({ where: { id: body.warehouseId, accountId, orgId, branchId: body.branchId }, select: { id: true } });
+  if (!wh) return res.status(400).json({ error: 'That warehouse is not in that branch' });
 
   const item = await prisma.item.findFirst({ where: { accountId, orgId, id: body.itemId } });
   if (!item) return res.status(400).json({ error: 'Invalid item' });

@@ -44,8 +44,9 @@ function Frame({ children, label }) {
       strokeWidth={STROKE}
       strokeLinecap="round"
       strokeLinejoin="round"
-      role="img"
-      aria-label={label}
+      /* A drawing with no words to say is decoration: hidden from screen
+         readers, rather than announced as an image with no name. */
+      {...(label ? { role: 'img', 'aria-label': label } : { 'aria-hidden': true, focusable: 'false' })}
       style={{ width: '100%', height: '100%', display: 'block' }}
     >
       {children}
@@ -141,7 +142,7 @@ export default function Illustration({ kind = 'new', size = 108, className = '' 
     <span
       className={className}
       aria-hidden="true"
-      style={{ width: size, height: Math.round((size * 80) / 74), display: 'block', color: 'rgb(var(--brand))' }}
+      style={{ width: size, height: Math.round((size * 80) / 74), display: 'block', color: 'rgb(var(--brand-ink))' }}
     >
       <Art />
     </span>

@@ -11,6 +11,7 @@ import { dueDateFor, termsLabel } from '@ui/utils/paymentTerms';
 import { plusDaysIso, todayIso } from '@ui/utils/dates';
 import ItemPicker from '../../components/pickers/ItemPicker';
 import { createInvoiceApi, deleteInvoiceApi, updateInvoiceApi, updateInvoiceStatusApi } from '@ui/api/invoices';
+import { useServerOnHand } from '@ui/hooks/useServerOnHand';
 import { useFeatures } from '@ui/permissions/useFeatures';
 import useEnabledCurrencies from '../../hooks/useEnabledCurrencies';
 import { createDocApi, hasApiSession as hasDocsApiSession, saveSettlementApi } from '@ui/api/purchaseDocs';
@@ -81,6 +82,7 @@ import { blockIfClosed } from '@ui/utils/bookClose';
 import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';
 import { usePostingLock } from './usePostingLock';
 import { orgId as platformOrgId } from '@platform/context';
+import { invoiceChangeBlockReason } from './invoiceChangeGuard';
 
 
 /** Columns the invoices grid can show or hide. Identity and actions stay. */
@@ -517,38 +519,7 @@ export const InvoicesList = ({
    * invoice. Deliberately no auto-unlink: an automatic cascade through
    * payment allocations is how books get corrupted quietly.
    */
-  const invoiceChangeBlocked = (invoice, verb) => {
-    const safeArray = (v) => (Array.isArray(v) ? v : []);
-    const paid = Number(invoice?.paidAmount || 0);
-    const receipts = safeArray(db.payments).filter(
-      (p) =>
-        p.companyId === currentCompany.id &&
-        ((String(p.voucherType) === 'invoice' && Number(p.voucherId) === Number(invoice?.id)) ||
-          safeArray(p.allocations).some((a) => String(a?.voucherType) === 'invoice' && Number(a?.voucherId) === Number(invoice?.id))) &&
-        p.status !== 'Reversed'
-    );
-    const notes = safeArray(db.creditNotes).filter(
-      (n) =>
-        n.companyId === currentCompany.id &&
-        String(n?.status || '').toLowerCase() !== 'cancelled' &&
-        (String(n?.originalInvoiceId ?? '') === String(invoice?.id) ||
-          safeArray(n?.allocations).some((a) => String(a?.docId ?? a?.voucherId ?? '') === String(invoice?.id)))
-    );
-    if (receipts.length) {
-      return `${invoice?.number || 'This invoice'} has ${receipts.length} receipt(s) against it — reverse ${
-        receipts.length === 1 ? 'it' : 'them'
-      } from the Receipts list before you ${verb} the invoice.`;
-    }
-    if (notes.length) {
-      return `${invoice?.number || 'This invoice'} has ${notes.length} credit note(s) against it — cancel ${
-        notes.length === 1 ? 'it' : 'them'
-      } before you ${verb} the invoice.`;
-    }
-    if (paid > 0.005) {
-      return `${invoice?.number || 'This invoice'} carries ₹${paid.toLocaleString('en-IN')} of settlement — undo it before you ${verb} the invoice.`;
-    }
-    return '';
-  };
+  const invoiceChangeBlocked = (invoice, verb) => invoiceChangeBlockReason(db, currentCompany, invoice, verb);
 
   const openEditInvoice = (invoice) => {
     {
@@ -2828,11 +2799,9 @@ export const InvoiceForm = ({ db, setDb, currentCompany, initialData = null, onC
    * allocated to a document that no longer exists.
    */
   const cancelInvoice = async () => {
-    const settled = Number(existingInvoiceRecord?.paidAmount ?? 0);
-    if (settled > 0) {
-      notify.error(
-        `${formatMoney(settled, currentCompany)} is already received against this invoice. Unlink the receipt before cancelling it.`
-      );
+    const blocked = invoiceChangeBlockReason(db, currentCompany, existingInvoiceRecord, 'cancel');
+    if (blocked) {
+      notify.error(blocked);
       return;
     }
     const ok = await confirmDialog({
@@ -2843,6 +2812,19 @@ export const InvoiceForm = ({ db, setDb, currentCompany, initialData = null, onC
       confirmLabel: 'Cancel invoice',
     });
     if (!ok) return;
+    /* The server reverses the sale and its GST. This used to change only the
+       browser's copy, so the invoice read Cancelled here while the books on
+       the server still carried the sale. */
+    const backendInvoiceId = String(existingInvoiceRecord?.backendInvoiceId || '').trim();
+    const hasSession = Boolean(String(localStorage.getItem('token') || '').trim() && String(platformOrgId() || '').trim());
+    if (hasSession && backendInvoiceId) {
+      try {
+        await updateInvoiceStatusApi(backendInvoiceId, { status: 'Cancelled' });
+      } catch (e) {
+        notify.error(String(e?.message || 'Unable to cancel the invoice.'));
+        return;
+      }
+    }
     setDb((prev) => ({
       ...prev,
       invoices: (prev.invoices || []).map((inv) =>
@@ -3236,6 +3218,22 @@ export const InvoiceForm = ({ db, setDb, currentCompany, initialData = null, onC
   }, [db, currentCompany.id, formData.warehouseId]);
 
   /*
+   * The server's count, where it has one: it sees the sale made at the next
+   * counter a minute ago, which this browser's documents do not. An item the
+   * server does not know (saved on this device only) keeps the local count.
+   */
+  const serverOnHand = useServerOnHand(
+    useMemo(() => (formData.items || []).map((l) => l?.itemId), [formData.items]),
+    formData.warehouseId
+  );
+  const availableFor = (itemId) => {
+    const key = String(itemId);
+    const master = items.find((i) => String(i.id) === key);
+    if (serverOnHand && master?.backendItemId) return serverOnHand.get(key) ?? 0;
+    return availableByItemId.get(key) ?? 0;
+  };
+
+  /*
    * Which cells the operator has typed into by hand, per line.
    *
    * Choosing an item fills the description, rate, tax and HSN from the master
@@ -3277,7 +3275,7 @@ export const InvoiceForm = ({ db, setDb, currentCompany, initialData = null, onC
       // grid did not, so "Every line needs an item" sat there after the line
       // had one, and the count beside Save still said a field needed attention.
       fieldErrors.clearField('items');
-      const item = pickedItem || items.find((i) => i.id === parseInt(value));
+      const item = pickedItem || items.find((i) => String(i.id) === String(value));
       if (item) {
         // Price list first, then this customer's last paid rate, then master.
         const resolved = resolveSaleRate({
@@ -4882,7 +4880,7 @@ export const InvoiceForm = ({ db, setDb, currentCompany, initialData = null, onC
                       item on it.
                     */}
                     {item.itemId && lineMaster && isStockItem(lineMaster) ? (() => {
-                      const available = Number(availableByItemId.get(String(item.itemId)) ?? 0);
+                      const available = Number(availableFor(item.itemId));
                       const wanted = Number(item.quantity ?? 0);
                       const short = Number.isFinite(wanted) && wanted > available;
                       const unit = String(lineMaster.unit || '').trim();
@@ -5479,7 +5477,7 @@ export const EstimateForm = ({ db, setDb, currentCompany, initialData = null, on
     const newItems = [...formData.items];
 
     if (field === 'itemId') {
-      const item = pickedItem || itemsMaster.find((i) => i.id === parseInt(value));
+      const item = pickedItem || itemsMaster.find((i) => String(i.id) === String(value));
       if (item) {
         newItems[index] = {
           ...newItems[index],
@@ -6104,7 +6102,7 @@ export const CreditNoteForm = ({ db, setDb, currentCompany, initialOriginalInvoi
     const newItems = [...formData.items];
 
     if (field === 'itemId') {
-      const item = pickedItem || itemsMaster.find((i) => i.id === parseInt(value));
+      const item = pickedItem || itemsMaster.find((i) => String(i.id) === String(value));
       if (item) {
         newItems[index] = {
           ...newItems[index],
@@ -6341,6 +6339,7 @@ export const CreditNoteForm = ({ db, setDb, currentCompany, initialOriginalInvoi
       try {
         const saved = await createDocApi('creditNote', {
           number: creditNumber || undefined,
+          warehouseId: String(formData.warehouseId || originalInvoice?.warehouseId || '').trim() || undefined,
           date: formData.date,
           againstDocId: originalInvoice?.backendInvoiceId ? String(originalInvoice.backendInvoiceId) : null,
           partyId: customer?.backendPartyId ? String(customer.backendPartyId) : null,

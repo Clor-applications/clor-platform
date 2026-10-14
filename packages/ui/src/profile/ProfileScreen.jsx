@@ -3,6 +3,7 @@ import {
   BadgeCheck,
   Building2,
   Check,
+  Download,
   KeyRound,
   Mail,
   Pencil,
@@ -15,7 +16,8 @@ import {
   X,
 } from 'lucide-react';
 
-import { changePassword, forgotPassword, getProfile, resendVerification, updateProfile } from '@platform/auth';
+import { changePassword, exportMyData, forgotPassword, getProfile, resendVerification, updateProfile } from '@platform/auth';
+import { operator } from '@platform/operator';
 import { PageHeader, Spinner, SkeletonCard } from '@ui/components/ui/Primitives';
 
 /**
@@ -492,6 +494,8 @@ export const ProfileScreen = ({ Header = PageHeader }) => {
       </section>
 
       <PasswordCard email={user.email} />
+
+      <PrivacySection />
     </div>
   );
 };
@@ -614,6 +618,77 @@ function PasswordCard({ email }) {
           </button>
         </p>
       ) : null}
+    </section>
+  );
+}
+
+/**
+ * The person's own rights, where they look for them: their profile.
+ *
+ * Download is self-service. Erasure is a request, because closing an account
+ * touches records a business may be legally bound to keep — it goes to the
+ * operator's grievance contact, who can say what can go and what must stay.
+ */
+function PrivacySection() {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  const download = async () => {
+    setBusy(true);
+    setError('');
+    try {
+      const data = await exportMyData();
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `my-data-${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (e) {
+      setError(String(e?.message || 'Could not prepare your data.'));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const erasureHref = operator.grievanceEmail
+    ? `mailto:${operator.grievanceEmail}?subject=${encodeURIComponent('Request to close my account and erase my data')}`
+    : null;
+
+  return (
+    <section className="ui-card p-5" aria-labelledby="privacy-heading">
+      <h2 id="privacy-heading" className="ui-t-sec">Your data and privacy</h2>
+      <p className="ui-t-body mt-0.5 mb-4" style={{ color: 'rgb(var(--fg-subtle))' }}>
+        What this service holds about you, and your rights over it.
+      </p>
+      <div className="flex flex-wrap items-center gap-2">
+        <button type="button" className="ui-btn ui-btn-secondary" onClick={download} disabled={busy}>
+          <Download size={14} aria-hidden="true" />
+          {busy ? 'Preparing…' : 'Download my data'}
+        </button>
+        {erasureHref ? (
+          <a className="ui-btn ui-btn-secondary" href={erasureHref}>
+            Ask to close my account
+          </a>
+        ) : null}
+      </div>
+      {error ? <p role="alert" className="mt-2 text-sm" style={{ color: 'rgb(var(--neg))' }}>{error}</p> : null}
+      <p className="ui-t-body mt-3" style={{ color: 'rgb(var(--fg-subtle))' }}>
+        The download covers your profile, the companies you belong to, your sign-in sessions and sign-in history.
+        A company&rsquo;s own records are exported by its administrator from Settings &rarr; Backup.
+        {erasureHref ? null : ' To close your account, contact the operator of this service.'}
+      </p>
+      <nav aria-label="Policies" className="mt-3">
+        <ul className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
+          <li><a className="ui-link" href="#/legal/privacy" target="_blank" rel="noopener">Privacy notice</a></li>
+          <li><a className="ui-link" href="#/legal/terms" target="_blank" rel="noopener">Terms of service</a></li>
+          <li><a className="ui-link" href="#/legal/cookies" target="_blank" rel="noopener">Cookies and browser storage</a></li>
+          <li><a className="ui-link" href="#/legal/accessibility" target="_blank" rel="noopener">Accessibility</a></li>
+        </ul>
+      </nav>
     </section>
   );
 }

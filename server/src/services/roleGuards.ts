@@ -1,4 +1,3 @@
-import { prisma } from '../utils/prisma.js';
 import { platformPrisma } from '../utils/platformPrisma.js';
 import { permKey } from '../constants/permissionCatalog.js';
 import { RoleType } from '../constants/enums.js';
@@ -70,46 +69,86 @@ export function cannotGrantError(missing: string[]) {
   };
 }
 
-/** True when the user holds an org-wide assignment to an ADMIN-type role. */
-export async function userIsAdmin(accountId: string, orgId: string, userId: string) {
-  const n = await platformPrisma.userRoleAssignment.count({
-    where: { accountId, orgId, userId, branchId: null, role: { roleType: RoleType.ADMIN } },
-  });
-  return n > 0;
-}
+type Db = Pick<typeof platformPrisma, 'role' | 'roleProfileRole' | 'userRoleProfile' | 'userRoleAssignment' | 'user' | 'userOrgMembership'>;
 
 /**
- * Active users who hold an org-wide ADMIN role, other than the exclusions.
+ * Every active member who administers the organisation.
  *
- * `excludeUserId` asks "how many administrators would be left without this
- * person"; `excludeRoleId` asks the same of a role about to be deleted or
- * changed to a non-admin type.
+ * An administrator is anybody holding an ADMIN-type role company-wide —
+ * directly, or through a role profile that contains one. This used to count
+ * direct assignments only, so an organisation whose administrators all came
+ * through a profile looked adminless (refusing harmless changes), and one
+ * whose last direct admin was removed while a profile admin remained was
+ * judged correctly only by luck.
+ *
+ * Takes a client so it can be asked inside a transaction, after a change and
+ * before it commits.
  */
-export async function countOtherAdmins(
-  accountId: string,
-  orgId: string,
-  exclude: { userId?: string | null; roleId?: string | null } = {}
-): Promise<number> {
-  const rows = await platformPrisma.userRoleAssignment.findMany({
-    where: {
-      accountId,
-      orgId,
-      branchId: null,
-      role: { roleType: RoleType.ADMIN },
-      user: { isActive: true },
-      ...(exclude.userId ? { NOT: { userId: exclude.userId } } : {}),
-      ...(exclude.roleId ? { NOT: { roleId: exclude.roleId } } : {}),
-    },
+export async function adminUserIds(db: Db, accountId: string, orgId: string): Promise<Set<string>> {
+  const adminRoles = await db.role.findMany({
+    where: { accountId, orgId, roleType: RoleType.ADMIN, branchId: null },
+    select: { id: true },
+  });
+  const adminRoleIds = adminRoles.map((r) => r.id);
+  if (!adminRoleIds.length) return new Set();
+
+  const direct = await db.userRoleAssignment.findMany({
+    where: { accountId, orgId, branchId: null, roleId: { in: adminRoleIds } },
     select: { userId: true },
   });
-  return new Set(rows.map((r) => r.userId)).size;
+
+  const links = await db.roleProfileRole.findMany({
+    where: { accountId, orgId, roleId: { in: adminRoleIds } },
+    select: { profileId: true },
+  });
+  const viaProfile = links.length
+    ? await db.userRoleProfile.findMany({
+        where: { accountId, orgId, branchId: null, profileId: { in: [...new Set(links.map((l) => l.profileId))] } },
+        select: { userId: true },
+      })
+    : [];
+
+  const candidates = [...new Set([...direct, ...viaProfile].map((r) => r.userId))];
+  if (!candidates.length) return new Set();
+
+  // Still in the company, and still able to sign in.
+  const members = await db.userOrgMembership.findMany({
+    where: { accountId, orgId, userId: { in: candidates } },
+    select: { userId: true },
+  });
+  const active = await db.user.findMany({
+    where: { id: { in: members.map((m) => m.userId) }, isActive: true },
+    select: { id: true },
+  });
+  return new Set(active.map((u) => u.id));
+}
+
+/** True when the user administers the organisation, directly or through a profile. */
+export async function userIsAdmin(accountId: string, orgId: string, userId: string) {
+  return (await adminUserIds(platformPrisma, accountId, orgId)).has(userId);
 }
 
 /**
- * Whether the org would still have an administrator if `userId` lost their
- * org-wide roles (or was removed or deactivated).
+ * Whether taking this person out entirely — removed, deactivated, or their
+ * access to the company withdrawn — would leave nobody administering it.
  */
 export async function wouldRemoveLastAdmin(accountId: string, orgId: string, userId: string) {
-  if (!(await userIsAdmin(accountId, orgId, userId))) return false;
-  return (await countOtherAdmins(accountId, orgId, { userId })) === 0;
+  const admins = await adminUserIds(platformPrisma, accountId, orgId);
+  return admins.has(userId) && admins.size === 1;
+}
+
+export class LastAdminError extends Error {
+  constructor() {
+    super(LAST_ADMIN_ERROR.error);
+  }
+}
+
+/**
+ * Called inside a transaction after a change to roles, assignments or
+ * profiles: throws — rolling the change back — when nobody would be left
+ * administering the organisation. Checking the state after the change, rather
+ * than predicting it before, keeps one rule for every route that can cause it.
+ */
+export async function assertAnAdminRemains(db: Db, accountId: string, orgId: string) {
+  if ((await adminUserIds(db, accountId, orgId)).size === 0) throw new LastAdminError();
 }

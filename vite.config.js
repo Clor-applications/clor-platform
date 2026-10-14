@@ -25,6 +25,23 @@ const apiTarget = process.env.VITE_API_PROXY_TARGET || 'http://127.0.0.1:4002'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
+  build: {
+    rollupOptions: {
+      output: {
+        /*
+         * Libraries in their own files, so a deploy that changes only the app
+         * does not make every browser download React and the icon set again.
+         * The app deploys several times a day; these change a few times a year.
+         */
+        manualChunks(id) {
+          if (!id.includes('node_modules')) return undefined;
+          if (/[\\/]node_modules[\\/](react|react-dom|scheduler)[\\/]/.test(id)) return 'vendor-react';
+          if (/[\\/]node_modules[\\/]lucide-react[\\/]/.test(id)) return 'vendor-icons';
+          return undefined;
+        },
+      },
+    },
+  },
   resolve: {
     alias: {
       /* Shared platform UI. Apps import from here; never from each other. */

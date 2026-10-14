@@ -22,6 +22,10 @@ import Modal from '@ui/components/ui/Modal';
 import Drawer from '@ui/components/ui/Drawer';
 import Popover from '@ui/components/ui/Popover';
 import { useFeatures } from '@ui/permissions/useFeatures';
+import { rbacErrorMessage } from '@ui/permissions/rbacErrors';
+import RoleSelect from './RoleSelect';
+import UserAccessPanel from './UserAccessPanel';
+import { PermissionButton } from '@ui/permissions/ActionGuard';
 
 const normalizeId = (v) => String(v ?? '').trim();
 
@@ -199,7 +203,7 @@ export function SettingsUsers({ orgId }) {
       closeCreate();
       await loadData();
     } catch (err) {
-      setError(err.message || 'Failed to create user');
+      setError(rbacErrorMessage(err, 'Failed to create user'));
     } finally {
       setSaving(false);
     }
@@ -250,7 +254,7 @@ export function SettingsUsers({ orgId }) {
       await setUserCompanies(companiesModalUser.id, companiesChecked);
       closeCompanies();
     } catch (err) {
-      setError(err?.message || 'Failed to save company access');
+      setError(rbacErrorMessage(err, 'Failed to save company access'));
     } finally {
       setCompaniesSaving(false);
     }
@@ -315,7 +319,7 @@ export function SettingsUsers({ orgId }) {
       await deleteUser(orgId, id);
       setUsers((prev) => prev.filter((u) => u.id !== id));
     } catch (err) {
-      setError(err.message || 'Failed to remove user');
+      setError(rbacErrorMessage(err, 'Failed to remove user'));
     }
   };
 
@@ -373,7 +377,7 @@ export function SettingsUsers({ orgId }) {
       await loadData();
       cancelEdit();
     } catch (err) {
-      setError(err.message || 'Failed to update user');
+      setError(rbacErrorMessage(err, 'Failed to update user'));
     } finally {
       setEditSaving(false);
     }
@@ -436,9 +440,9 @@ export function SettingsUsers({ orgId }) {
           rows: filteredUsers,
         })}
       />
-      <button type="button" onClick={openCreate} className="ui-btn ui-btn-primary">
+      <PermissionButton permission="SETTINGS::Users::CREATE" type="button" onClick={openCreate} className="ui-btn ui-btn-primary">
         <Plus size={16} aria-hidden="true" /> Create User
-      </button>
+      </PermissionButton>
     </div>
   );
 
@@ -492,6 +496,10 @@ export function SettingsUsers({ orgId }) {
               <div className="ui-detail-value ui-detail-mono">{selectedUser.code || '—'}</div>
             </div>
           </div>
+          <section aria-label="What this person can do" className="pt-3" style={{ borderTop: '1px solid rgb(var(--border))' }}>
+            <div className="ui-t-sec mb-2">What they can do</div>
+            <UserAccessPanel key={selectedUser.id} orgId={orgId} userId={selectedUser.id} />
+          </section>
         </div>
       ) : null}
 
@@ -693,18 +701,12 @@ export function SettingsUsers({ orgId }) {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="ui-label" htmlFor="settingsusers-role-2">Role</label>
-              <select id="settingsusers-role-2"
-                className="ui-select w-full ui-surface"
+              <RoleSelect
+                id="settingsusers-role-2"
+                roles={assignableRoles}
                 value={editForm.roleId}
-                onChange={(e) => setEditForm((p) => ({ ...p, roleId: e.target.value }))}
-              >
-                <option value="">— No role —</option>
-                {assignableRoles.map((r) => (
-                  <option key={r.id} value={r.id}>
-                    {r.name}
-                  </option>
-                ))}
-              </select>
+                onChange={(roleId) => setEditForm((p) => ({ ...p, roleId }))}
+              />
             </div>
             <div>
               <label className="ui-label" htmlFor="settingsusers-status">Status</label>
@@ -829,13 +831,13 @@ export function SettingsUsers({ orgId }) {
                           >
                             Change Password
                           </button>
-                          <button
+                          <PermissionButton permission="SETTINGS::Users::DELETE"
                             type="button"
                             onClick={() => removeUser(u.id)}
                             className="w-full text-left px-3 py-2 text-sm text-[rgb(var(--neg))] hover:bg-[rgb(var(--neg-soft))]"
                           >
                             Delete
-                          </button>
+                          </PermissionButton>
                         </Popover>
                       ) : null}
                     </div>

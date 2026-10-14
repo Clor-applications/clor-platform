@@ -334,6 +334,8 @@ export type RolePreset = {
   roleType: string;
   /** Odoo's "own documents only": reads are limited to rows the holder created. */
   ownDocumentsOnly?: boolean;
+  /** The team heading the role picker files it under. */
+  group: string;
   grants: Array<[string, string, string[]]>;
 };
 
@@ -365,6 +367,7 @@ const REFERENCE_DATA: Array<[string, string, string[]]> = [
 export const ROLE_PRESETS: Record<string, RolePreset> = {
   ADMIN: {
     label: 'Administrator',
+    group: 'Administration',
     description: 'Full access to every module, including users and roles',
     roleType: 'ADMIN',
     grants: PERMISSION_CATALOG.map((m) => [m.key, '*', ['*']] as [string, string, string[]]),
@@ -373,6 +376,7 @@ export const ROLE_PRESETS: Record<string, RolePreset> = {
   // ---- Accounting (Odoo: Billing / Accountant / Adviser) ----
   BILLING: {
     label: 'Billing Clerk',
+    group: 'Accounting',
     description: 'Raise invoices, receipts and estimates; no ledger, no purchases',
     roleType: 'CUSTOM',
     grants: [
@@ -386,6 +390,7 @@ export const ROLE_PRESETS: Record<string, RolePreset> = {
   },
   ACCOUNTANT: {
     label: 'Accountant',
+    group: 'Accounting',
     description: 'Full books and reporting; no user or role administration',
     roleType: 'ACCOUNTANT',
     grants: [
@@ -403,6 +408,7 @@ export const ROLE_PRESETS: Record<string, RolePreset> = {
   },
   ACCOUNTS_MANAGER: {
     label: 'Accounts Manager',
+    group: 'Accounting',
     description: 'Everything an Accountant does, plus approvals, deletions, tax and numbering settings',
     roleType: 'ACCOUNTANT',
     grants: [
@@ -425,6 +431,7 @@ export const ROLE_PRESETS: Record<string, RolePreset> = {
   // ---- Sales (Odoo: own documents / all documents / administrator) ----
   SALES_REP: {
     label: 'Sales Representative',
+    group: 'Sales',
     description: 'Raise sales documents, but see only the ones they raised themselves',
     roleType: 'SALES',
     ownDocumentsOnly: true,
@@ -437,6 +444,7 @@ export const ROLE_PRESETS: Record<string, RolePreset> = {
   },
   SALES: {
     label: 'Sales User',
+    group: 'Sales',
     description: 'Raise sales documents and see customers; no purchase or ledger access',
     roleType: 'SALES',
     grants: [
@@ -449,6 +457,7 @@ export const ROLE_PRESETS: Record<string, RolePreset> = {
   },
   SALES_MANAGER: {
     label: 'Sales Manager',
+    group: 'Sales',
     description: 'All sales documents with approval, deletion and export; customers and salesmen',
     roleType: 'SALES',
     grants: [
@@ -465,6 +474,7 @@ export const ROLE_PRESETS: Record<string, RolePreset> = {
   // ---- Purchase (ERPNext: Purchase User / Purchase Manager) ----
   PURCHASE: {
     label: 'Purchase User',
+    group: 'Purchase',
     description: 'Record bills and purchase orders and pay vendors; no sales or ledger access',
     roleType: 'CUSTOM',
     grants: [
@@ -479,6 +489,7 @@ export const ROLE_PRESETS: Record<string, RolePreset> = {
   },
   PURCHASE_MANAGER: {
     label: 'Purchase Manager',
+    group: 'Purchase',
     description: 'All purchase documents with approval, deletion and export; debit notes and vendors',
     roleType: 'CUSTOM',
     grants: [
@@ -494,6 +505,7 @@ export const ROLE_PRESETS: Record<string, RolePreset> = {
   // ---- Inventory (Odoo: User / Administrator) ----
   STORE: {
     label: 'Store Keeper',
+    group: 'Inventory',
     description: 'Stock movements for the branches and warehouses assigned to the user',
     roleType: 'CUSTOM',
     grants: [
@@ -506,6 +518,7 @@ export const ROLE_PRESETS: Record<string, RolePreset> = {
   },
   STORE_MANAGER: {
     label: 'Store Manager',
+    group: 'Inventory',
     description: 'All stock movements with approval and deletion; maintains items and units',
     roleType: 'CUSTOM',
     grants: [
@@ -524,6 +537,7 @@ export const ROLE_PRESETS: Record<string, RolePreset> = {
   // ---- Payroll (ERPNext: HR User / HR Manager) ----
   PAYROLL_USER: {
     label: 'Payroll User',
+    group: 'Payroll',
     description: 'Prepare payroll: structures, assignments, runs and adjustments; no approval or posting',
     roleType: 'CUSTOM',
     grants: [
@@ -542,6 +556,7 @@ export const ROLE_PRESETS: Record<string, RolePreset> = {
   },
   PAYROLL_MANAGER: {
     label: 'Payroll Manager',
+    group: 'Payroll',
     description: 'Run, approve, pay and post payroll; payroll settings and reports',
     roleType: 'CUSTOM',
     grants: [
@@ -553,6 +568,7 @@ export const ROLE_PRESETS: Record<string, RolePreset> = {
   // ---- Read-only (ERPNext: Auditor; QuickBooks: Reports only) ----
   AUDITOR: {
     label: 'Auditor',
+    group: 'Read-only',
     description: 'Read and export every book, document, report and the audit trail; change nothing',
     roleType: 'CUSTOM',
     grants: [
@@ -572,16 +588,29 @@ export const ROLE_PRESETS: Record<string, RolePreset> = {
   },
   REPORTS_ONLY: {
     label: 'Reports Only',
+    group: 'Read-only',
     description: 'Financial and GST reports, nothing else',
     roleType: 'CUSTOM',
     grants: [['REPORTS', '*', READ]],
   },
   VIEWER: {
     label: 'Viewer',
+    group: 'Read-only',
     description: 'Read-only across the product',
     roleType: 'CUSTOM',
     grants: PERMISSION_CATALOG.map((m) => [m.key, '*', [A.VIEW]] as [string, string, string[]]),
   },
+};
+
+/**
+ * The picker heading for a role: its stock preset's team when it is one,
+ * Administration for any other ADMIN role (the auto-created Owner), and
+ * Custom for everything an organisation made itself.
+ */
+export const roleGroup = (role: { name: string; roleType: string }) => {
+  const preset = Object.values(ROLE_PRESETS).find((p) => p.label.toLowerCase() === String(role.name).toLowerCase());
+  if (preset) return preset.group;
+  return role.roleType === 'ADMIN' ? 'Administration' : 'Custom';
 };
 
 /** Expands a preset's wildcards into concrete catalog rows. */

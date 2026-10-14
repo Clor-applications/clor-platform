@@ -86,6 +86,33 @@ async function dropDatabase(name: string) {
  * suite would run against tables with no policies on them and every isolation
  * test would pass by doing nothing.
  */
+/**
+ * Statements, split on the semicolons between them — not the ones inside a
+ * dollar-quoted function body, which a plain split would cut in half.
+ */
+function splitSql(sql: string): string[] {
+  const out: string[] = [];
+  let current = '';
+  let quote: string | null = null;
+  for (let i = 0; i < sql.length; i += 1) {
+    const tag = sql.slice(i).match(/^\$[A-Za-z_]*\$/)?.[0];
+    if (tag && (quote === null || quote === tag)) {
+      quote = quote === null ? tag : null;
+      current += tag;
+      i += tag.length - 1;
+      continue;
+    }
+    if (sql[i] === ';' && quote === null) {
+      out.push(current);
+      current = '';
+      continue;
+    }
+    current += sql[i];
+  }
+  out.push(current);
+  return out;
+}
+
 async function applyPolicies(url: string, migrationDir: string) {
   const file = resolve(process.cwd(), migrationDir, 'migration.sql');
   let sql = '';
@@ -98,9 +125,9 @@ async function applyPolicies(url: string, migrationDir: string) {
     return;
   }
 
-  const statements = sql
-    .split(';')
-    .map((s) => s.replace(/^\s*--.*$/gm, '').trim())
+  // Comments first: one may carry a semicolon of its own.
+  const statements = splitSql(sql.replace(/^\s*--.*$/gm, ''))
+    .map((s) => s.trim())
     .filter(Boolean);
 
   const db = new PrismaClient({ datasources: { db: { url } } });
@@ -229,6 +256,10 @@ export default async function setup() {
   push('prisma/platform/schema.prisma', { PLATFORM_DATABASE_URL: asOwner(platform) });
 
   await applyPolicies(asOwner(accounting), 'prisma/migrations/20260924120000_row_level_security');
+  // Later tables carry their own policy in their own migration.
+  await applyPolicies(asOwner(accounting), 'prisma/migrations/20261014100000_stock_documents');
+  await applyPolicies(asOwner(accounting), 'prisma/migrations/20261014110000_reconciliation_on_server');
+  await applyPolicies(asOwner(accounting), 'prisma/migrations/20261014120000_stock_ledger');
   await applyPolicies(asOwner(payroll), 'prisma/payroll/migrations/20260924120000_row_level_security');
   await applyPolicies(asOwner(people), 'prisma/people/migrations/20260924120000_row_level_security');
   await applyPolicies(asOwner(platform), 'prisma/platform/migrations/20260924120000_row_level_security');

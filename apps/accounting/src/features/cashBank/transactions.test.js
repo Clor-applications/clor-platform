@@ -160,3 +160,43 @@ describe('the figures above the list', () => {
     expect(cashBankTotals([])).toEqual({ payments: 0, receipts: 0, contra: 0, count: 0 });
   });
 });
+
+describe('one bank movement is one row', () => {
+  const withStatement = {
+    ...db,
+    bankTransactions: [
+      { id: 501, companyId: 1, cashBankAccountId: '11', date: '2026-09-20', direction: 'OUT', amount: 3000, transactionType: 'CONTRA', contraJournalEntryId: 90 },
+      { id: 502, companyId: 1, cashBankAccountId: '11', date: '2026-09-21', direction: 'OUT', amount: 800, linkedPaymentId: 60 },
+    ],
+    journalEntries: [
+      ...db.journalEntries,
+      /* A contra saved from statement line 501. */
+      {
+        id: 90, companyId: 1, date: '2026-09-20', number: 'CON-0090', sourceBankTransactionId: 501,
+        lines: [
+          { accountId: '12', debit: 3000, credit: 0 },
+          { accountId: '11', debit: 0, credit: 3000 },
+        ],
+      },
+    ],
+    payments: [
+      ...db.payments,
+      /* Matched to statement line 502 afterwards: only the line knows. */
+      { id: 60, companyId: 1, date: '2026-09-21', voucherType: 'payment', ledgerAccountId: 'srv-hdfc', amount: 800, partyName: 'ABC Traders', number: 'PAY-0060' },
+    ],
+  };
+
+  it('shows a contra raised from a statement line once, as the line', () => {
+    const rows = cashBankTransactions(withStatement, 1, { accountId: '11' });
+    expect(rows.filter((r) => r.date === '2026-09-20')).toHaveLength(1);
+    expect(rows.find((r) => r.id === 'jrn-90')).toBeUndefined();
+    expect(rows.find((r) => r.id === 'bank-501')?.type).toBe('Contra');
+  });
+
+  it('shows a payment matched to a statement line once, as the line', () => {
+    const rows = cashBankTransactions(withStatement, 1, { accountId: '11' });
+    expect(rows.filter((r) => r.date === '2026-09-21')).toHaveLength(1);
+    expect(rows.find((r) => r.id === 'pay-60')).toBeUndefined();
+    expect(rows.find((r) => r.id === 'bank-502')?.ledgerName).toBe('ABC Traders');
+  });
+});

@@ -11,6 +11,7 @@ import {
   ADMIN_ONLY_ERROR,
   ANTI_LOCKOUT_KEYS,
   cannotGrantError,
+  rolePermissionKeys,
   unheldGrants,
 } from '../services/roleGuards.js';
 import { RoleType } from '../constants/enums.js';
@@ -67,6 +68,7 @@ permissionsRouter.get(
         description: p.description,
         roleType: p.roleType,
         ownDocumentsOnly: Boolean(p.ownDocumentsOnly),
+        group: p.group,
       })),
     });
   }
@@ -156,11 +158,15 @@ permissionsRouter.put(
 
     // Reject anything outside the catalog: a role must not hold a permission
     // that no route checks, and must not be a way to smuggle in new keys.
+    // A retired key the role already holds is dropped instead: refusing it
+    // would leave that role impossible to edit.
+    const alreadyHeld = await rolePermissionKeys(role.id);
     const wanted: Array<{ module: string; subModule: string; action: string }> = [];
     for (const key of body.permissions) {
       const [module, subModule, action] = String(key).split('::');
       if (!module || !subModule || !action) return res.status(400).json({ error: `Malformed permission: ${key}` });
       if (!isKnownPermission(module, subModule, action)) {
+        if (alreadyHeld.has(String(key))) continue;
         return res.status(400).json({ error: `Unknown permission: ${key}` });
       }
       wanted.push({ module, subModule, action });

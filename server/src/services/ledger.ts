@@ -371,6 +371,22 @@ export async function postEntry(req: PostingRequest, tx?: DbClient) {
     if (fy.lockedThrough && String(date) <= String(fy.lockedThrough)) {
       throw new PostingError(`Books are locked through ${fy.lockedThrough}`, 409);
     }
+    /*
+     * A lock means "nothing on or before this date", whichever year holds it.
+     *
+     * Only the posting date's own year was consulted, and the books screen
+     * writes the lock onto the year that contains the close date. So closing
+     * through a date in 2026-27 left all of 2025-26 open on the server —
+     * shut on the screen, open to any posting that reached the API.
+     */
+    const later = await tx.fiscalYear.findFirst({
+      where: { accountId, orgId, lockedThrough: { gte: String(date) } },
+      orderBy: { lockedThrough: 'desc' },
+      select: { lockedThrough: true },
+    });
+    if (later?.lockedThrough) {
+      throw new PostingError(`Books are locked through ${later.lockedThrough}`, 409);
+    }
 
     const journal =
       (await tx.journal.findFirst({ where: { orgId, branchId, code: req.journalCode } })) ||

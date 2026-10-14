@@ -19,7 +19,7 @@ export default function FormSection({ icon: Icon, title, description = '', actio
           {Icon ? (
             <span
               className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
-              style={{ backgroundColor: 'rgb(var(--brand) / 0.12)', color: 'rgb(var(--brand))' }}
+              style={{ backgroundColor: 'rgb(var(--brand) / 0.12)', color: 'rgb(var(--brand-ink))' }}
               aria-hidden="true"
             >
               <Icon size={18} />

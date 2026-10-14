@@ -41,6 +41,11 @@ KEEP="${CLOR_BACKUP_KEEP:-30}"
 
 die() { echo "backup: $*" >&2; exit 1; }
 
+# Every company's books, payroll included, are in these files. Readable by
+# the owner only — the default umask left them readable by every account on
+# the machine.
+umask 077
+
 command -v pg_dump >/dev/null || die "pg_dump is not installed (apt-get install -y postgresql-client)"
 "${PG[@]}" psql -qtAc 'SELECT 1' >/dev/null 2>&1 \
   || die "cannot connect as the postgres superuser — this needs sudo -u postgres"
@@ -69,6 +74,7 @@ fi
 
 # ----------------------------------------------------------------- backup
 mkdir -p "$DEST"
+chmod 700 "$DEST"
 STAMP="$(date +%Y%m%d-%H%M%S)"
 ARCHIVE="$DEST/clor-$STAMP.sql.gz"
 

@@ -87,6 +87,11 @@ Notes
 - `Role.ownDocumentsOnly` limits invoice, bill, credit/debit note, expense, estimate, order
   and payment reads to rows the holder created (`ownDocsWhere` in `src/services/access.ts`).
   Additive: any unrestricted role lifts it.
+- Role suggestion (optional, off by default): set `TYPESAFE_API_KEY` and the Create User dialog
+  offers "Not sure which role? Describe the job". `src/services/roleSuggestion.ts` sends the typed
+  job title and duties plus role names/descriptions to TypeSafe (`jev-latest`, one Choice question)
+  and pre-fills the picker; nothing is assigned automatically. Optional: `TYPESAFE_API_URL`,
+  `TYPESAFE_MODEL`, `TYPESAFE_TIMEOUT_MS`.
 - GSTIN validation: `src/utils/gstin.ts` (format + checksum + state code match).
 
 Master data sharing (head office)

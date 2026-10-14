@@ -34,3 +34,6 @@ export const reconcileBankBookEntry = (id, { reconciled, bankDate, statementRef 
     body: { reconciled: Boolean(reconciled), bankDate: bankDate ?? null, statementRef: statementRef ?? null },
     ...opts,
   });
+
+/** Every bank-date change the server recorded, newest first, with who made it. */
+export const listBankDateAudit = () => apiFetch(`${base()}/bank-date-audit`, opts);

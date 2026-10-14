@@ -530,7 +530,7 @@ export const ColumnHeader = ({ label, col, state, className = '', align = 'left'
           <ChevronDown
             size={14}
             aria-hidden="true"
-            className={active ? 'text-[rgb(var(--brand))]' : 'opacity-50'}
+            className={active ? 'text-[rgb(var(--brand-ink))]' : 'opacity-50'}
           />
         </span>
       </button>

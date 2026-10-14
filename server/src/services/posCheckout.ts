@@ -6,6 +6,8 @@ import { ensureLedgerSetup, invoicePostingLines, postEntry } from './ledger.js';
 import { allocateNumber, ensureDefaultSeries } from './numbering.js';
 import { INERT_PAYMENT_STATUSES, assertAllocationsFit, recalcSettlementForPayment } from './settlement.js';
 import { TENDER_CONTROL_KIND, isPosTender, type PosTender } from './receiptAccounts.js';
+import { UnknownLineItem, assertLineItemsKnown } from './lineItems.js';
+import { InsufficientStock, withStockCheck } from './stockLedger.js';
 
 /**
  * A counter sale, as one transaction.
@@ -48,7 +50,11 @@ export type PosCheckoutCode =
   | 'POS_NUMBER_TAKEN'
   /** Paid at the counter: the ordinary cancellation would only half-reverse it. */
   | 'POS_REFUND_REQUIRED'
-  | 'POS_INVALID_SALE';
+  | 'POS_INVALID_SALE'
+  /** A line names an item this company does not have. */
+  | 'POS_UNKNOWN_ITEM'
+  /** The sale would take an item below nothing in this warehouse. */
+  | 'POS_OUT_OF_STOCK';
 
 export class PosCheckoutError extends Error {
   code: PosCheckoutCode;
@@ -280,6 +286,12 @@ export async function checkoutPosSale(
   if (!Array.isArray(input.items) || input.items.length === 0) {
     throw new PosCheckoutError('POS_INVALID_SALE', 'A counter sale has to have something in it.', 400);
   }
+  try {
+    await assertLineItemsKnown(ctx.accountId, ctx.orgId, input.items);
+  } catch (e) {
+    if (e instanceof UnknownLineItem) throw new PosCheckoutError('POS_UNKNOWN_ITEM', e.message, 400);
+    throw e;
+  }
 
   // Already rung up? Hand back the sale that exists rather than taking the
   // money twice. Checked before the tender, so a till retrying a sale that
@@ -319,7 +331,9 @@ export async function checkoutPosSale(
     return await prisma.$transaction(async (tx) => {
       const number = String(input.number || '').trim() || (await allocatePosNumber(tx, ctx, input.date));
 
-      const invoice = await tx.invoice.create({
+      /* Held and checked: two tills cannot both sell the last unit. */
+      const invoice = await withStockCheck(tx, { orgId: ctx.orgId, lines: input.items, warehouseId: input.warehouseId }, () =>
+        tx.invoice.create({
         data: {
           accountId: ctx.accountId,
           orgId: ctx.orgId,
@@ -366,7 +380,7 @@ export async function checkoutPosSale(
           sourceKey: checkoutId,
           createdByUserId: ctx.userId,
         },
-      });
+      }));
 
       const saleEntry = await postEntry(
         {
@@ -524,6 +538,7 @@ export async function checkoutPosSale(
       } satisfies PosCheckoutResult;
     });
   } catch (e: any) {
+    if (e instanceof InsufficientStock) throw new PosCheckoutError('POS_OUT_OF_STOCK', e.message, 409);
     if (String(e?.code) === 'P2002') {
       /*
        * Which index was hit, decided by looking rather than by asking.

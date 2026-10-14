@@ -7,6 +7,7 @@ import PopupSelect from '@ui/components/pickers/PopupSelect';
 import { GST_STATE_BY_CODE, getGstStateFromGstin } from '@ui/utils/gst';
 import Popover from '@ui/components/ui/Popover';
 import { Download, MoreVertical, Pencil, Plus, Power, Search, Trash2 } from 'lucide-react';
+import { PermissionButton } from '@ui/permissions/ActionGuard';
 
 export function SettingsWarehouses({ orgId, branchId, company, onWarehousesChanged }) {
   const [warehouses, setWarehouses] = useState([]);
@@ -362,9 +363,9 @@ export function SettingsWarehouses({ orgId, branchId, company, onWarehousesChang
           >
             <Download size={14} /> Export
           </button>
-          <button type="button" onClick={() => { setShowForm((value) => !value); closeDetails(); }} className="ui-btn ui-btn-primary ui-btn-sm">
+          <PermissionButton permission="MASTERS::Company/Branch setup::CREATE" type="button" onClick={() => { setShowForm((value) => !value); closeDetails(); }} className="ui-btn ui-btn-primary ui-btn-sm">
             <Plus size={14} /> Create Warehouse
-          </button>
+          </PermissionButton>
         </div>
       </div>
 
@@ -741,9 +742,9 @@ export function SettingsWarehouses({ orgId, branchId, company, onWarehousesChang
                           <button type="button" onClick={() => toggleWarehouseStatus(w)} className="report-menu-item flex items-center gap-2">
                             <Power size={14} /> Mark {w.isActive !== false ? 'inactive' : 'active'}
                           </button>
-                          <button type="button" onClick={() => removeWarehouse(w.id)} className="report-menu-item flex items-center gap-2 text-[rgb(var(--neg))] hover:bg-[rgb(var(--neg-soft))]">
+                          <PermissionButton permission="MASTERS::Company/Branch setup::DELETE" type="button" onClick={() => removeWarehouse(w.id)} className="report-menu-item flex items-center gap-2 text-[rgb(var(--neg))] hover:bg-[rgb(var(--neg-soft))]">
                             <Trash2 size={14} /> Delete
-                          </button>
+                          </PermissionButton>
                         </Popover>
                       ) : null}
                     </div>

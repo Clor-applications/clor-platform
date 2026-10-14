@@ -47,6 +47,15 @@
 		X-Content-Type-Options "nosniff"
 		X-Frame-Options "SAMEORIGIN"
 		Referrer-Policy "strict-origin-when-cross-origin"
+		# Nothing in the app uses these; say so, so nothing embedded can.
+		Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
+		# The access token lives in localStorage, so a script injected into
+		# the page could read it. This allows only the app's own scripts and
+		# connections. Report-Only first: watch the browser console for
+		# violations on a real deployment, then rename the header to
+		# Content-Security-Policy to enforce it. 'unsafe-inline' is for
+		# style attributes (React's style={...}), not scripts.
+		Content-Security-Policy-Report-Only "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'"
 		-Server
 	}
 }

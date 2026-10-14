@@ -89,12 +89,30 @@ export const cashBankTransactions = (db, companyId, { accountId = '', from = '',
 
   const rows = [];
 
+  /*
+   * One bank movement, one row. A voucher tied to a statement line — raised
+   * from it (`sourceBankTransactionId` on the voucher) or matched to it
+   * afterwards (`linkedPaymentId` / `linkedJournalEntryId` / … on the line) —
+   * is represented by that statement line below, which carries the voucher's
+   * party and number. Payments checked only the first of those links and
+   * journals checked neither, so a contra saved from a statement line showed
+   * as a Contra row and again as the line.
+   */
+  const hasSource = (v) => v?.sourceBankTransactionId !== null && v?.sourceBankTransactionId !== undefined && String(v.sourceBankTransactionId) !== '';
+  const linkedPaymentIds = new Set();
+  const linkedJournalIds = new Set();
+  for (const t of safeArray(db?.bankTransactions)) {
+    if (Number(t?.companyId) !== cid) continue;
+    if (t?.linkedPaymentId) linkedPaymentIds.add(String(t.linkedPaymentId));
+    for (const k of ['linkedJournalEntryId', 'contraJournalEntryId', 'allocationJournalId']) {
+      if (t?.[k]) linkedJournalIds.add(String(t[k]));
+    }
+  }
+
   /* Payments and receipts, as entered on their own forms. */
   for (const p of safeArray(db?.payments)) {
     if (Number(p?.companyId) !== cid) continue;
-    /* A voucher raised from a statement line is represented by that statement
-       line below. Showing both would turn one bank movement into two rows. */
-    if (p?.sourceBankTransactionId !== null && p?.sourceBankTransactionId !== undefined && String(p.sourceBankTransactionId) !== '') continue;
+    if (hasSource(p) || linkedPaymentIds.has(String(p?.id))) continue;
     const accountKeys = [p?.ledgerAccountId, p?.cashBankAccountId, p?.bankAccountId, p?.accountId, p?.modeAccountId];
     let account = accountKeys.map((key) => byKey.get(String(key || '').trim())).find(Boolean) || null;
     if (!account) {
@@ -137,10 +155,12 @@ export const cashBankTransactions = (db, companyId, { accountId = '', from = '',
    */
   for (const j of safeArray(db?.journalEntries)) {
     if (Number(j?.companyId) !== cid) continue;
+    if (hasSource(j) || linkedJournalIds.has(String(j?.id))) continue;
     if (!inWindow(j.date)) continue;
     const lines = safeArray(j.lines);
     if (lines.length < 2) continue;
-    const resolved = lines.map((l) => byKey.get(String(l?.accountId || '').trim()) || null);
+    // A journal loaded from the server names its accounts by the server's id.
+    const resolved = lines.map((l) => byKey.get(String(l?.accountId || l?.serverLedgerAccountId || '').trim()) || null);
     if (resolved.some((a) => !a)) continue;
 
     /* Out of the credited account, into the debited one. */
@@ -178,10 +198,10 @@ export const cashBankTransactions = (db, companyId, { accountId = '', from = '',
    * They stay Unallocated until somebody says which ledger they belong to —
    * §5: an imported row must not become an accounting entry on its own.
    *
-   * A line that has since been ANSWERED by a voucher — a payment or receipt
-   * created from it, carrying sourceBankTransactionId — steps aside: the
-   * voucher row above already shows the movement with its party and number,
-   * and one movement must be one row, not the fact and its echo.
+   * A line that has since been ANSWERED by a voucher stays, and the voucher
+   * steps aside (see the top of this function): the line shows the voucher's
+   * party and links to it, and one movement must be one row, not the fact
+   * and its echo.
    */
   for (const t of safeArray(db?.bankTransactions)) {
     if (Number(t?.companyId) !== cid) continue;

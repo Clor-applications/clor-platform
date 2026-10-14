@@ -3,10 +3,12 @@ import { z } from 'zod';
 import { Prisma } from '@prisma/client';
 
 import { prisma } from '../utils/prisma.js';
+import { platformPrisma } from '../utils/platformPrisma.js';
 import { requireAuth } from '../middleware/auth.js';
 import { requireTenantContext } from '../middleware/tenantContext.js';
 import { requirePermission } from '../middleware/rbac.js';
 import { PermissionAction } from '../constants/enums.js';
+import { recordBankDateChange } from '../services/bankDateAudit.js';
 
 /**
  * The cash and bank book.
@@ -155,15 +157,49 @@ bankBookRouter.patch('/orgs/:orgId/bank-book/:id/reconcile', EDIT, async (req, r
   if (!existing) return res.status(404).json({ error: 'Entry not found' });
 
   const body = reconcileSchema.parse(req.body);
-  const row = await prisma.bankBookEntry.update({
-    where: { id: existing.id },
-    data: {
-      reconciled: body.reconciled,
-      bankDate: body.bankDate ? new Date(body.bankDate) : body.reconciled ? new Date() : null,
-      statementRef: body.statementRef ?? null,
-    },
+  const next = {
+    reconciled: body.reconciled,
+    bankDate: body.bankDate ? new Date(body.bankDate) : body.reconciled ? new Date() : null,
+    statementRef: body.statementRef ?? null,
+  };
+  const row = await prisma.$transaction(async (tx) => {
+    const updated = await tx.bankBookEntry.update({ where: { id: existing.id }, data: next });
+    await recordBankDateChange(tx, {
+      accountId,
+      orgId,
+      kind: 'STATEMENT',
+      sourceId: existing.id,
+      voucherNo: existing.reference ?? null,
+      ledgerAccountId: existing.ledgerAccountId,
+      transactionDate: existing.date,
+      before: { reconciled: existing.reconciled, bankDate: existing.bankDate },
+      after: next,
+      userId: req.auth!.userId,
+    });
+    return updated;
   });
   res.json({ entry: out(row) });
+});
+
+/**
+ * The bank-date history, for the reconciliation screen: who confirmed which
+ * movement against which bank date, and what it said before. Newest first.
+ */
+bankBookRouter.get('/orgs/:orgId/bank-date-audit', VIEW, async (req, res) => {
+  if (!orgOk(req, res)) return;
+  const { accountId, orgId } = req.tenant!;
+  const rows = await prisma.bankDateAudit.findMany({
+    where: { accountId, orgId },
+    orderBy: { at: 'desc' },
+    take: 5000,
+  });
+  // Named, not ids: the screen says "reconciled by Priya".
+  const users = await platformPrisma.user.findMany({
+    where: { id: { in: [...new Set(rows.map((r) => r.byUserId))] } },
+    select: { id: true, fullName: true, email: true },
+  });
+  const nameOf = new Map(users.map((u) => [u.id, u.fullName || u.email]));
+  res.json({ audit: rows.map((r) => ({ ...r, by: nameOf.get(r.byUserId) || 'User' })) });
 });
 
 export default bankBookRouter;

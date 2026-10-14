@@ -321,17 +321,24 @@ describe('vendor bills', () => {
   });
 });
 
-describe('a cancelled invoice', () => {
-  it('keeps its status but still reports its allocations honestly', async () => {
+describe('cancelling a part-paid invoice', () => {
+  /*
+   * Refused, per docs/POSTED_DOCUMENT_MUTATION_DESIGN.md ("refuse while
+   * settled — reverse the receipts first"). This test used to cancel it and
+   * check the allocation was still reported — which it was, against a sale
+   * the ledger no longer held.
+   */
+  it('is refused while settled, and the invoice and its allocation stay as they were', async () => {
     const invoice = await makeInvoice(100000);
     await receipt(50000, [{ docId: invoice.id, amount: 50000 }]);
-    await request(app)
+    const res = await request(app)
       .patch(`/api/orgs/${owner.orgId}/invoices/${invoice.id}/status`)
       .set(auth(owner))
       .send({ status: 'Cancelled' })
-      .expect(200);
+      .expect(409);
+    expect(res.body.code).toBe('document_settled');
     const after = await stored(invoice.id);
-    expect(after.status).toBe('Cancelled');
+    expect(after.status).not.toBe('Cancelled');
     expect(after.paid).toBe(50000);
   });
 });

@@ -87,7 +87,10 @@ export function useFieldErrors(formId = 'f') {
           : node?.querySelector?.('input, select, textarea, button, [tabindex]:not([tabindex="-1"])');
       if (target && typeof target.focus === 'function') {
         target.focus();
-        target.scrollIntoView?.({ block: 'center', behavior: 'smooth' });
+        // Smooth only for people who have not asked for less motion: the CSS
+        // reduced-motion rule cannot reach a scroll requested from script.
+        const reduce = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
+        target.scrollIntoView?.({ block: 'center', behavior: reduce ? 'auto' : 'smooth' });
       }
     }
     return Object.keys(found).length > 0;

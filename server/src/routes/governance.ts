@@ -8,7 +8,16 @@ import { requireTenantContext } from '../middleware/tenantContext.js';
 import { requirePermission } from '../middleware/rbac.js';
 import { resolveAccess } from '../services/access.js';
 import { RoleType } from '../constants/enums.js';
-import { ADMIN_ONLY_ERROR, cannotGrantError, rolePermissionKeys, unheldGrants } from '../services/roleGuards.js';
+import {
+  ADMIN_ONLY_ERROR,
+  LAST_ADMIN_ERROR,
+  LastAdminError,
+  assertAnAdminRemains,
+  cannotGrantError,
+  rolePermissionKeys,
+  unheldGrants,
+  userIsAdmin,
+} from '../services/roleGuards.js';
 import { PermissionAction } from '../constants/enums.js';
 import { ApprovalError, decide, notifyDecision } from '../services/approvals.js';
 import { ensureLedgerSetup, invoicePostingLines, postEntry } from '../services/ledger.js';
@@ -42,6 +51,34 @@ const profileSchema = z.object({
   description: z.string().max(300).optional().nullable(),
   roleIds: z.array(z.string()).default([]),
 });
+
+/**
+ * Why putting these roles into a profile must be refused, or null.
+ *
+ * A profile hands every role in it to everybody who holds the profile, so
+ * adding a role to one is assigning it — to people the editor never picked.
+ * The same limits apply as to a direct assignment: only an administrator may
+ * put an Administrator role in, and nobody may put in a role holding more
+ * than they hold themselves. Roles already in the profile are not re-judged.
+ */
+async function profileRolesRefusal(req: any, roleIds: string[], alreadyIn: Set<string> = new Set()) {
+  const added = roleIds.filter((id) => !alreadyIn.has(id));
+  if (!added.length) return null;
+  const adminRoles = await platformPrisma.role.count({ where: { id: { in: added }, roleType: RoleType.ADMIN } });
+  if (adminRoles > 0 && !req.isAdmin) return { status: 403, body: ADMIN_ONLY_ERROR };
+  const granted = new Set<string>();
+  for (const id of added) for (const k of await rolePermissionKeys(id)) granted.add(k);
+  const missing = unheldGrants(req, granted);
+  return missing.length ? { status: 403, body: cannotGrantError(missing) } : null;
+}
+
+const lastAdmin = (res: any, err: unknown) => {
+  if (err instanceof LastAdminError) {
+    res.status(409).json(LAST_ADMIN_ERROR);
+    return true;
+  }
+  return false;
+};
 
 governanceRouter.get('/orgs/:orgId/role-profiles', ROLES_VIEW, async (req, res) => {
   if (!orgOk(req, res)) return;
@@ -83,6 +120,9 @@ governanceRouter.post('/orgs/:orgId/role-profiles', ROLES_EDIT, async (req, res)
     return res.status(400).json({ error: 'One or more roles do not belong to this organisation' });
   }
 
+  const refusedCreate = await profileRolesRefusal(req, owned.map((r) => r.id));
+  if (refusedCreate) return res.status(refusedCreate.status).json(refusedCreate.body);
+
   const profile = await platformPrisma.roleProfile.create({
     data: {
       accountId,
@@ -115,16 +155,27 @@ governanceRouter.put('/orgs/:orgId/role-profiles/:profileId', ROLES_EDIT, async 
     return res.status(400).json({ error: 'One or more roles do not belong to this organisation' });
   }
 
-  await platformPrisma.$transaction(async (tx) => {
-    await tx.roleProfile.update({
-      where: { id: profileId },
-      data: { name: body.name.trim(), description: body.description ?? null },
+  const current = await platformPrisma.roleProfileRole.findMany({ where: { profileId }, select: { roleId: true } });
+  const refusedUpdate = await profileRolesRefusal(req, owned.map((r) => r.id), new Set(current.map((c) => c.roleId)));
+  if (refusedUpdate) return res.status(refusedUpdate.status).json(refusedUpdate.body);
+
+  try {
+    await platformPrisma.$transaction(async (tx) => {
+      await tx.roleProfile.update({
+        where: { id: profileId },
+        data: { name: body.name.trim(), description: body.description ?? null },
+      });
+      await tx.roleProfileRole.deleteMany({ where: { profileId } });
+      for (const r of owned) {
+        await tx.roleProfileRole.create({ data: { accountId, orgId, profileId, roleId: r.id } });
+      }
+      // Taking the Administrator role out of a profile takes it from its holders.
+      await assertAnAdminRemains(tx, accountId, orgId);
     });
-    await tx.roleProfileRole.deleteMany({ where: { profileId } });
-    for (const r of owned) {
-      await tx.roleProfileRole.create({ data: { accountId, orgId, profileId, roleId: r.id } });
-    }
-  });
+  } catch (err) {
+    if (lastAdmin(res, err)) return;
+    throw err;
+  }
 
   res.json({ ok: true });
 });
@@ -137,7 +188,15 @@ governanceRouter.delete('/orgs/:orgId/role-profiles/:profileId', ROLES_EDIT, asy
   });
   if (!existing) return res.status(404).json({ error: 'Role profile not found' });
 
-  await platformPrisma.roleProfile.delete({ where: { id: existing.id } });
+  try {
+    await platformPrisma.$transaction(async (tx) => {
+      await tx.roleProfile.delete({ where: { id: existing.id } });
+      await assertAnAdminRemains(tx, accountId, orgId);
+    });
+  } catch (err) {
+    if (lastAdmin(res, err)) return;
+    throw err;
+  }
   res.json({ ok: true });
 });
 
@@ -160,6 +219,10 @@ governanceRouter.post('/orgs/:orgId/users/:userId/role-profiles', USERS_EDIT, as
     return res.status(400).json({ error: 'One or more profiles do not belong to this organisation' });
   }
 
+  // Changing an administrator's profiles can take administration away; only
+  // an administrator may do that, as with their direct role.
+  if (!req.isAdmin && (await userIsAdmin(accountId, orgId, userId))) return res.status(403).json(ADMIN_ONLY_ERROR);
+
   // A profile hands out every role inside it, so it is bounded the way a
   // direct assignment is: only an administrator may hand out an Administrator
   // role, and the caller must hold what the profile's roles grant.
@@ -179,14 +242,20 @@ governanceRouter.post('/orgs/:orgId/users/:userId/role-profiles', USERS_EDIT, as
     }
   }
 
-  await platformPrisma.$transaction(async (tx) => {
-    await tx.userRoleProfile.deleteMany({ where: { accountId, orgId, userId } });
-    for (const p of owned) {
-      await tx.userRoleProfile.create({
-        data: { accountId, orgId, userId, profileId: p.id, createdByUserId: req.auth!.userId },
-      });
-    }
-  });
+  try {
+    await platformPrisma.$transaction(async (tx) => {
+      await tx.userRoleProfile.deleteMany({ where: { accountId, orgId, userId } });
+      for (const p of owned) {
+        await tx.userRoleProfile.create({
+          data: { accountId, orgId, userId, profileId: p.id, createdByUserId: req.auth!.userId },
+        });
+      }
+      await assertAnAdminRemains(tx, accountId, orgId);
+    });
+  } catch (err) {
+    if (lastAdmin(res, err)) return;
+    throw err;
+  }
 
   res.json({ ok: true, assigned: owned.length });
 });

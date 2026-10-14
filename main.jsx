@@ -7,6 +7,20 @@ import { SessionProvider } from './packages/shell/session';
 import Shell from './packages/shell/Shell';
 
 /*
+ * Personal data an earlier version left in this browser.
+ *
+ * Older builds kept the signed-in person's email address in localStorage under
+ * `userEmail`; nothing writes it any more, but a value written then stayed,
+ * readable by any script on the page and left behind after sign-out. Removed
+ * on every start so it does not outlive the version that needed it.
+ */
+try {
+  localStorage.removeItem('userEmail');
+} catch {
+  /* storage unavailable: nothing to remove */
+}
+
+/*
  * One boundary above everything.
  *
  * Each app already renders inside its own ScreenBoundary, so a screen that

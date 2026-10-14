@@ -183,6 +183,8 @@ export const SecuritySettings = () => {
               <button
                 type="button"
                 className="ui-btn ui-btn-ghost"
+                aria-label={`Delete sign-in provider ${p.name || ''}`.trim()}
+                title="Delete provider"
                 onClick={() =>
                   run('del', async () => {
                     await deleteProvider(p.id);

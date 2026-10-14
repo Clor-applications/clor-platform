@@ -11,6 +11,7 @@ import { getVendorDisplayName } from '@ui/utils/contacts';
 import { formatMoney } from '@ui/utils/money';
 import { isGstRegistered, outstandingByParty, standingOf } from '@ui/utils/partyStanding';
 import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';
+import { PermissionButton } from '@ui/permissions/ActionGuard';
 
 /**
  * The vendor master.
@@ -186,9 +187,9 @@ export default function VendorsList({ db, setDb, currentCompany }) {
         });
       }}
       primary={
-        <button type="button" onClick={() => setIsCreating(true)} className="ui-btn ui-btn-primary">
+        <PermissionButton permission="MASTERS::Vendors::CREATE" type="button" onClick={() => setIsCreating(true)} className="ui-btn ui-btn-primary">
           <Plus size={16} aria-hidden="true" /> New Vendor
-        </button>
+        </PermissionButton>
       }
       cards={[
         { label: 'Vendors', value: vendHeadline.count, count: true, tone: 'draft', Icon: Truck },

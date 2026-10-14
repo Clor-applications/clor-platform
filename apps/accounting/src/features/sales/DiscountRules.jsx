@@ -5,6 +5,7 @@ import { ListToolbar, exportRows, useListSearch } from '@ui/components/ListToolb
 import { notify, confirmDialog } from '@ui/components/ui/notify';
 import { patchMaster, removeMaster, saveMaster } from '@ui/utils/masterSync';
 import { getCustomerDisplayName } from '@ui/utils/contacts';
+import { PermissionButton } from '@ui/permissions/ActionGuard';
 
 /**
  * Discount rules — every discount type the sales team asks for, one engine:
@@ -96,8 +97,8 @@ export default function DiscountRules({ db, setDb, currentCompany }) {
       type: form.type,
       value: Number(form.value) || 0,
       itemScope: form.itemScope,
-      itemId: form.itemScope === 'ITEM' ? Number(form.itemId) : null,
-      itemIds: form.itemScope === 'ITEMS' ? form.itemIds.map(Number) : [],
+      itemId: form.itemScope === 'ITEM' ? String(form.itemId) : null,
+      itemIds: form.itemScope === 'ITEMS' ? form.itemIds.map(String) : [],
       category: form.itemScope === 'CATEGORY' ? form.category.trim() : null,
       customerScope: form.customerScope,
       customerId: form.customerScope === 'CUSTOMER' ? Number(form.customerId) : null,
@@ -124,8 +125,8 @@ export default function DiscountRules({ db, setDb, currentCompany }) {
           type: form.type,
           value: Number(form.value) || 0,
           itemScope: form.itemScope,
-          itemId: form.itemScope === 'ITEM' ? Number(form.itemId) : null,
-          itemIds: form.itemScope === 'ITEMS' ? form.itemIds.map(Number) : [],
+          itemId: form.itemScope === 'ITEM' ? String(form.itemId) : null,
+          itemIds: form.itemScope === 'ITEMS' ? form.itemIds.map(String) : [],
           category: form.itemScope === 'CATEGORY' ? form.category.trim() : null,
           customerScope: form.customerScope,
           customerId: form.customerScope === 'CUSTOMER' ? Number(form.customerId) : null,
@@ -163,7 +164,7 @@ export default function DiscountRules({ db, setDb, currentCompany }) {
   const scopeLabel = (r) => {
     const itemPart =
       r.itemScope === 'ITEM'
-        ? items.find((i) => Number(i.id) === Number(r.itemId))?.name || 'item'
+        ? items.find((i) => String(i.id) === String(r.itemId))?.name || 'item'
         : r.itemScope === 'ITEMS'
           ? `${(r.itemIds || []).length} items`
           : r.itemScope === 'CATEGORY'
@@ -201,9 +202,9 @@ export default function DiscountRules({ db, setDb, currentCompany }) {
           entity="tax"
           title="Discount Rules"
         />
-        <button type="button" onClick={() => setOpen(true)} className="ui-btn ui-btn-primary">
+        <PermissionButton permission="MASTERS::Masters::CREATE" type="button" onClick={() => setOpen(true)} className="ui-btn ui-btn-primary">
           <Plus size={16} aria-hidden="true" /> New Rule
-        </button>
+        </PermissionButton>
       </div>
 
       {open ? (
@@ -252,11 +253,11 @@ export default function DiscountRules({ db, setDb, currentCompany }) {
                       <input
                         type="checkbox"
                         className="ui-checkbox"
-                        checked={form.itemIds.includes(i.id)}
+                        checked={form.itemIds.map(String).includes(String(i.id))}
                         onChange={(e) =>
                           setForm((p) => ({
                             ...p,
-                            itemIds: e.target.checked ? [...p.itemIds, i.id] : p.itemIds.filter((x) => x !== i.id),
+                            itemIds: e.target.checked ? [...p.itemIds, i.id] : p.itemIds.filter((x) => String(x) !== String(i.id)),
                           }))
                         }
                       />

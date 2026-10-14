@@ -36,6 +36,8 @@ const itemSchema = z.object({
   salePrice: z.number().min(0).optional(),
   purchasePrice: z.number().min(0).optional(),
   openingQty: z.number().optional(),
+  /** Where the opening quantity sits; see ItemMaster.openingWarehouseId. */
+  openingWarehouseId: z.string().optional().nullable(),
   reorderLevel: z.number().min(0).optional(),
   trackBy: z.enum(['NONE', 'BATCH', 'SERIAL']).optional(),
   isActive: z.boolean().optional(),
@@ -140,6 +142,7 @@ itemsRouter.post('/orgs/:orgId/items', CREATE, async (req, res) => {
         salePrice: dec(body.salePrice),
         purchasePrice: dec(body.purchasePrice),
         openingQty: dec(body.openingQty),
+        openingWarehouseId: String(body.openingWarehouseId || '').trim() || null,
         reorderLevel: dec(body.reorderLevel),
         trackBy: body.trackBy || 'NONE',
         isActive: body.isActive ?? true,

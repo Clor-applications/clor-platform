@@ -142,10 +142,18 @@ describe('the purchase overview', () => {
   });
 
   it('counts a payable as what is left on the bill', () => {
-    // 23,600 billed less 10,000 paid. Counting the billed figure would say the
-    // business owes money it has already sent.
-    render(<PurchaseOverview db={db} currentCompany={COMPANY} />);
-    const payable = screen.getByText('Payables').closest('div').parentElement;
-    expect(payable.textContent).toMatch(/13,600/);
+    // The overview opens on this month; the fixture bill is from September.
+    // Without a fixed clock this passed only while September lasted.
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-09-15T10:00:00Z'));
+    try {
+      // 23,600 billed less 10,000 paid. Counting the billed figure would say the
+      // business owes money it has already sent.
+      render(<PurchaseOverview db={db} currentCompany={COMPANY} />);
+      const payable = screen.getByText('Payables').closest('div').parentElement;
+      expect(payable.textContent).toMatch(/13,600/);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

@@ -6,7 +6,15 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 vi.mock('@ui/permissions/useFeatures', () => ({ useFeatures: () => ({ isEnabled: () => true }) }));
 const reconcilePayment = vi.fn(async () => ({}));
 vi.mock('@ui/api/payments', () => ({ reconcilePayment: (...a) => reconcilePayment(...a) }));
+/* A signed-in session, so movements the server holds are sent to it. */
+vi.mock('@ui/api/purchaseDocs', () => ({ hasApiSession: () => true }));
+vi.mock('@ui/api/bankBook', () => ({
+  listBankDateAudit: vi.fn(async () => ({ audit: [] })),
+  reconcileBankBookEntry: vi.fn(async () => ({})),
+}));
+vi.mock('@ui/api/ledger', () => ({ reconcileJournalEntry: vi.fn(async () => ({})) }));
 
+import { listBankDateAudit } from '@ui/api/bankBook';
 import BankReconciliation from './BankReconciliation';
 
 /**
@@ -188,6 +196,21 @@ describe('staging and submitting', () => {
     expect(reconcilePayment).toHaveBeenCalledWith('srv-pay-1', { reconciled: true, bankDate: '2026-09-01' });
   });
 
+  it('leaves a row the server refuses unreconciled, instead of marking it where a reload would undo it', async () => {
+    reconcilePayment.mockImplementationOnce(async () => {
+      throw new Error('Books are locked through 2026-09-30');
+    });
+    const user = userEvent.setup();
+    render(<Host />);
+    await pickAccount(user);
+
+    await user.click(screen.getByLabelText('Select PAY-0012'));
+    await user.click(screen.getByRole('button', { name: /Submit 1 as reconciled/ }));
+
+    await waitFor(() => expect(reconcilePayment).toHaveBeenCalled());
+    expect(latest.db.payments.find((p) => p.id === 1).reconciled).not.toBe(true);
+  });
+
   /* The spec's flow: Select → Auto Reconcile → Review → Submit. Staging
      touches only the selection, and a staged date is still the user's to
      change before anything is final. */
@@ -264,7 +287,18 @@ describe('staging and submitting', () => {
     fireEvent.change(screen.getByLabelText('Bank date for PAY-0012'), { target: { value: '2026-09-15' } });
 
     /* Still a draft: unreconciled, nothing audited. */
-    expect(latest.db.bankDateAudit).toBeUndefined();
+    expect(latest.db.bankDateAudit || []).toHaveLength(0);
+
+    /* The server writes the history with the reconcile; the screen reads it
+       back and names it by this browser's payment. */
+    listBankDateAudit.mockResolvedValue({
+      audit: [
+        {
+          id: 'a1', kind: 'PAYMENT', sourceId: 'srv-pay-1', voucherNo: 'PAY-0012', transactionDate: '2026-09-01',
+          previousBankDate: '2026-09-01', bankDate: '2026-09-15', action: 'RECONCILED', by: 'Suresh', at: '2026-09-29T10:00:00.000Z',
+        },
+      ],
+    });
     await user.click(screen.getByRole('button', { name: /Submit 1 as reconciled/ }));
 
     await waitFor(() => expect(latest.db.payments.find((p) => p.id === 1).reconciled).toBe(true));
@@ -272,17 +306,18 @@ describe('staging and submitting', () => {
     expect(row.bankDate).toBe('2026-09-15');
     expect(row.date).toBe('2026-09-01');
 
-    const audit = latest.db.bankDateAudit;
-    expect(audit).toHaveLength(1);
-    expect(audit[0]).toMatchObject({
+    await waitFor(() => expect(latest.db.bankDateAudit).toHaveLength(1));
+    expect(latest.db.bankDateAudit[0]).toMatchObject({
       kind: 'payment',
+      sourceId: 1,
       voucherNo: 'PAY-0012',
       transactionDate: '2026-09-01',
       previousBankDate: '2026-09-01',
       bankDate: '2026-09-15',
       action: 'RECONCILED',
-      by: 'suresh@neev.one',
+      by: 'Suresh',
     });
+    listBankDateAudit.mockResolvedValue({ audit: [] });
 
     /* The reconciled row says both dates out loud. */
     expect(screen.getByText(/\(txn 01\/09\/2026\)/)).toBeInTheDocument();

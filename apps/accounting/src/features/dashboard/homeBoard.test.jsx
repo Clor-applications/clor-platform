@@ -44,10 +44,11 @@ const fresh = { ...running, invoices: [], bills: [], customers: [], payments: []
  * permission context. The default is an owner who may do everything; a test
  * about a restricted person passes its own `can`.
  */
-const asUser = (can = () => true) => ({
+const asUser = (can = () => true, held = []) => ({
   loading: false,
   error: '',
-  permissions: new Set(),
+  // ActionGuard treats an empty set as "not known yet" and fails open.
+  permissions: new Set(held),
   roles: [],
   restrictions: { branchIds: [], warehouseIds: [] },
   can,
@@ -148,7 +149,7 @@ describe('a panel with nothing in it says so', () => {
 });
 
 describe('the screen offers only what the person may do', () => {
-  const salesOnly = asUser((key) => String(key).startsWith('SALES::'));
+  const salesOnly = asUser((key) => String(key).startsWith('SALES::'), ['SALES::Invoices::CREATE', 'SALES::Invoices::VIEW']);
 
   it('hides the bill and report shortcuts from someone with sales rights only', () => {
     renderHome(running, { onNewBill: () => {}, onOpenReports: () => {}, onRecordReceipt: () => {} }, salesOnly);

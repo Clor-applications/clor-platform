@@ -7,6 +7,7 @@ import PopupSelect from '@ui/components/pickers/PopupSelect';
 import { GST_STATE_BY_CODE, getGstStateFromGstin } from '@ui/utils/gst';
 import Popover from '@ui/components/ui/Popover';
 import { Download, MoreVertical, Pencil, Plus, Power, Search, Trash2 } from 'lucide-react';
+import { PermissionButton } from '@ui/permissions/ActionGuard';
 
 export function SettingsBranches({ orgId, company, onBranchesChanged }) {
   const [branches, setBranches] = useState([]);
@@ -325,13 +326,14 @@ export function SettingsBranches({ orgId, company, onBranchesChanged }) {
           >
             <Download size={14} aria-hidden="true" /> Export
           </button>
-          <button
+          <PermissionButton
+            permission="MASTERS::Company/Branch setup::CREATE"
             type="button"
             onClick={() => { setShowForm((value) => !value); closeView(); }}
             className="ui-btn ui-btn-primary ui-btn-sm"
           >
             <Plus size={14} aria-hidden="true" /> Create Branch
-          </button>
+          </PermissionButton>
         </div>
       </div>
 
@@ -651,9 +653,9 @@ export function SettingsBranches({ orgId, company, onBranchesChanged }) {
                           <button type="button" onClick={() => toggleBranchStatus(b)} className="report-menu-item flex items-center gap-2">
                             <Power size={14} /> Mark {b.isActive !== false ? 'inactive' : 'active'}
                           </button>
-                          <button type="button" onClick={() => removeBranch(b.id)} className="report-menu-item flex items-center gap-2 text-[rgb(var(--neg))] hover:bg-[rgb(var(--neg-soft))]">
+                          <PermissionButton permission="MASTERS::Company/Branch setup::DELETE" type="button" onClick={() => removeBranch(b.id)} className="report-menu-item flex items-center gap-2 text-[rgb(var(--neg))] hover:bg-[rgb(var(--neg-soft))]">
                             <Trash2 size={14} /> Delete
-                          </button>
+                          </PermissionButton>
                         </Popover>
                       ) : null}
                     </div>

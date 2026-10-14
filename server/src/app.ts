@@ -56,10 +56,13 @@ import { importsRouter } from './routes/imports.js';
 import { batchSerialRouter } from './routes/batchSerial.js';
 import { paymentsRouter } from './routes/payments.js';
 import { gstinRouter } from './routes/gstin.js';
+import { stockDocumentsRouter } from './routes/stockDocuments.js';
+import { stockLedgerRouter } from './routes/stockLedger.js';
 import { notFound, errorHandler } from './middleware/errors.js';
 import { billingRouter } from './routes/billing.js';
 import { edgeGuard } from './middleware/edgeGuard.js';
 import { clearAccessCacheOnWrite } from './utils/accessCache.js';
+import { safeUrl } from './utils/safeUrl.js';
 
 export function buildApp() {
   const app = express();
@@ -83,6 +86,33 @@ export function buildApp() {
     };
     next();
   });
+
+  /*
+   * Which proxies may tell us the client's address. Only private ones by
+   * default — Caddy on the host, nginx on the Docker network — so a request
+   * that reaches the API directly cannot name its own IP in X-Forwarded-For.
+   * TRUST_PROXY overrides it (e.g. a hop count behind a load balancer).
+   */
+  const trustProxy = String(process.env.TRUST_PROXY || '').trim();
+  /*
+   * Behind the Cloudflare Worker (EDGE_SECRET set, so a request that skipped
+   * the Worker is refused): two hops, Google's front end and then the Worker,
+   * which overwrites X-Forwarded-For with Cloudflare's verified client IP. With
+   * the private-only default here, req.ip was the Worker's Cloudflare address
+   * for everyone, and every customer shared one sign-in rate-limit bucket.
+   */
+  const behindEdge = Boolean(String(process.env.EDGE_SECRET || '').trim());
+  app.set(
+    'trust proxy',
+    trustProxy
+      ? /^\d+$/.test(trustProxy)
+        ? Number(trustProxy)
+        : trustProxy
+      : behindEdge
+        ? 2
+        : 'loopback, linklocal, uniquelocal'
+  );
+
   app.use(helmet());
   // Refuse requests that bypassed the api.clor.in Worker (no-op unless EDGE_SECRET is set).
   app.use(edgeGuard);
@@ -119,7 +149,9 @@ export function buildApp() {
     })
   );
   app.use(express.json({ limit: '1mb' }));
-  app.use(morgan('tiny'));
+  // `tiny`, with share tokens, GSTINs and search terms taken out of the URL.
+  morgan.token('safe-url', (req: any) => safeUrl(req.originalUrl || req.url));
+  app.use(morgan(':method :safe-url :status :res[content-length] - :response-time ms'));
 
   // Test-only anomaly capture. The suite's residual flake shows up as
   // unexplained 401/403/404s that morgan records without context; this logs
@@ -185,6 +217,8 @@ export function buildApp() {
   app.use('/api', gstinRouter);
   app.use('/api', branchesRouter);
   app.use('/api', warehousesRouter);
+  app.use('/api', stockDocumentsRouter);
+  app.use('/api', stockLedgerRouter);
   app.use('/api', rolesRouter);
   app.use('/api', usersRouter);
   app.use('/api', transfersRouter);

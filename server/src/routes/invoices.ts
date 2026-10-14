@@ -18,6 +18,19 @@ import { dueDateFor } from './parties.js';
 import { allocateNumber, ensureDefaultSeries } from '../services/numbering.js';
 import { isFeatureEnabled } from '../services/features.js';
 import { FxError, baseCurrencyFor, isBase, rateFor, toBase } from '../services/fx.js';
+import { SettledDocument, assertInvoiceCancellable } from '../services/settledDocGuard.js';
+import { refuseUnknownLineItems } from '../services/lineItems.js';
+import { InsufficientStock, withStockCheck } from '../services/stockLedger.js';
+
+/** An invoice's stored lines, or none if the text is not a list. */
+const safeParseLines = (json: string | null | undefined): unknown[] => {
+  try {
+    const v = JSON.parse(json || '[]');
+    return Array.isArray(v) ? v : [];
+  } catch {
+    return [];
+  }
+};
 
 export const invoicesRouter = Router();
 invoicesRouter.use(requireAuth, requireTenantContext);
@@ -334,6 +347,7 @@ invoicesRouter.post('/orgs/:orgId/invoices', requirePermission(INVOICE_MODULE, P
   const parsed = invoiceUpsertSchema.parse(req.body);
   const branchId = String(parsed.branchId || req.tenant!.branchId || '').trim();
   if (!branchId) return res.status(400).json({ error: 'Missing branchId' });
+  if (await refuseUnknownLineItems(res, accountId, orgId, parsed.items)) return;
 
   // Document restrictions: a user limited to certain customers may not raise an
   // invoice for anyone else.
@@ -398,7 +412,11 @@ invoicesRouter.post('/orgs/:orgId/invoices', requirePermission(INVOICE_MODULE, P
      * a duplicate as P2002 either way, so this is the change that lets the
      * provider move at all.
      */
-    await prisma.invoice.create({
+    /* Under the stock check: the items are held, and a sale that would take
+       a warehouse below nothing is refused before it is kept. */
+    await prisma.$transaction((tx) =>
+      withStockCheck(tx, { orgId, lines: body.items, warehouseId: body.warehouseId }, () =>
+        tx.invoice.create({
       data: {
         id,
         accountId,
@@ -429,8 +447,11 @@ invoicesRouter.post('/orgs/:orgId/invoices', requirePermission(INVOICE_MODULE, P
         extrasJson: extrasFrom(body),
         createdByUserId: userId,
       },
-    });
+        })
+      )
+    );
   } catch (e: any) {
+    if (e instanceof InsufficientStock) return res.status(e.status).json({ error: e.message, code: e.code, shortages: e.shortages });
     // P2002 is Prisma's duplicate, whatever the database calls it. The string
     // this used to match was SQLite's own wording.
     if (String(e?.code) === 'P2002') {
@@ -559,6 +580,7 @@ invoicesRouter.patch('/orgs/:orgId/invoices/:invoiceId', requirePermission(INVOI
    */
   const sent = new Set(Object.keys((req.body ?? {}) as Record<string, unknown>));
   const parsedPatch = invoiceUpsertSchema.partial().parse(req.body);
+  if (parsedPatch.items !== undefined && (await refuseUnknownLineItems(res, accountId, orgId, parsedPatch.items))) return;
   const editAccess = await resolveAccess(accountId, orgId, req.auth!.userId, req.tenant!.branchId);
   const { value: body, stripped } = filterFieldsByLevel(
     parsedPatch,
@@ -585,11 +607,15 @@ invoicesRouter.patch('/orgs/:orgId/invoices/:invoiceId', requirePermission(INVOI
     given(key) ? String((body as any)[key] || '').trim() || null : current;
   const keepNumber = (key: string, current: unknown) => (given(key) ? (body as any)[key] : toNumber(current as any));
 
+  const nextWarehouseId = keepText('warehouseId', existing.warehouseId);
+  const nextItems = given('items') ? (body as any).items || [] : safeParseLines(existing.itemsJson);
   try {
-    await prisma.invoice.update({
+    await prisma.$transaction((tx) =>
+      withStockCheck(tx, { orgId, lines: nextItems, warehouseId: nextWarehouseId }, () =>
+        tx.invoice.update({
       where: { id: existing.id },
       data: {
-        warehouseId: keepText('warehouseId', existing.warehouseId),
+        warehouseId: nextWarehouseId,
         number: given('number') ? String((body as any).number).trim() : existing.number,
         date: given('date') ? String((body as any).date).trim() : existing.date,
         dueDate: keepText('dueDate', existing.dueDate),
@@ -618,8 +644,11 @@ invoicesRouter.patch('/orgs/:orgId/invoices/:invoiceId', requirePermission(INVOI
            salesman and the shipping address stored beside it. */
         extrasJson: mergedExtras(existing.extrasJson, body, sent),
       },
-    });
+        })
+      )
+    );
   } catch (e: any) {
+    if (e instanceof InsufficientStock) return res.status(e.status).json({ error: e.message, code: e.code, shortages: e.shortages });
     const msg = String(e?.message || '');
     if (msg.includes('UNIQUE constraint failed')) {
       return res.status(409).json({ error: 'That invoice number is already used. Numbers are unique across every branch.' });
@@ -684,6 +713,16 @@ invoicesRouter.patch('/orgs/:orgId/invoices/:invoiceId/status', requirePermissio
       throw e;
     }
 
+    /* Nor may any other invoice something already leans on: a receipt
+       allocated to it, or a credit note raised against it. Cancelling would
+       take the sale out of the ledger and leave those standing. */
+    try {
+      await assertInvoiceCancellable({ accountId, orgId, invoice: existing });
+    } catch (e: any) {
+      if (e instanceof SettledDocument) return res.status(e.status).json({ error: e.message, code: e.code });
+      throw e;
+    }
+
     const posted = await prisma.journalEntry.findMany({
       where: {
         accountId,
@@ -707,10 +746,21 @@ invoicesRouter.patch('/orgs/:orgId/invoices/:invoiceId/status', requirePermissio
     }
   }
 
-  await prisma.invoice.update({
-    where: { id: existing.id },
-    data: { status: nextStatus, paidAmount: body.paidAmount ?? toNumber(existing.paidAmount) },
-  });
+  /* Finalising a draft, or reinstating a cancelled invoice, takes the stock
+     it names — checked like any other sale. */
+  try {
+    await prisma.$transaction((tx) =>
+      withStockCheck(tx, { orgId, lines: safeParseLines(existing.itemsJson), warehouseId: existing.warehouseId }, () =>
+        tx.invoice.update({
+          where: { id: existing.id },
+          data: { status: nextStatus, paidAmount: body.paidAmount ?? toNumber(existing.paidAmount) },
+        })
+      )
+    );
+  } catch (e: any) {
+    if (e instanceof InsufficientStock) return res.status(e.status).json({ error: e.message, code: e.code, shortages: e.shortages });
+    throw e;
+  }
   const row = await prisma.invoice.findUnique({ where: { id: existing.id } });
   if (!row) return res.status(500).json({ error: 'Failed to update invoice status' });
 

@@ -15,35 +15,41 @@ const message = (what: string) => ({
 // runtime, and a value captured at module load would ignore them.
 const isDisabled = () => process.env.DISABLE_RATE_LIMIT === 'true';
 
-const build = (windowMs: number, max: number, what: string) =>
+/**
+ * Two buckets per route, not one shared key.
+ *
+ * The key used to be IP and identity together, so one machine trying a
+ * single password against a thousand emails made a thousand fresh buckets and
+ * was never limited. Now the IP bucket stops a sprayer and the identity
+ * bucket stops many machines working on one account.
+ *
+ * The IP is `req.ip`, which honours X-Forwarded-For only from the proxies
+ * `trust proxy` names (app.ts). It used to read the first X-Forwarded-For
+ * value from anyone, so a client could choose its own IP — and its own
+ * fresh bucket — with one header.
+ */
+const ipOf = (req: any) => ipKeyGenerator(String(req.ip || 'unknown'));
+const identityOf = (req: any) =>
+  String((req.body && (req.body.emailOrUsername || req.body.email)) || '')
+    .trim()
+    .toLowerCase();
+
+const bucket = (windowMs: number, max: number, what: string, key: (req: any) => string, skipWhen?: (req: any) => boolean) =>
   rateLimit({
     windowMs,
     max,
     standardHeaders: true,
     legacyHeaders: false,
-    skip: isDisabled,
+    skip: (req) => isDisabled() || Boolean(skipWhen?.(req)),
     message: message(what),
-    // Limit per IP and per submitted identity, so one attacker cannot lock out
-    // every user from a shared office IP, and one account cannot be sprayed
-    // from many IPs without tripping the identity bucket.
-    keyGenerator: (req) => {
-      // ipKeyGenerator normalises IPv6 to a subnet prefix. Using the raw
-      // address would let a single IPv6 user rotate through addresses to evade
-      // the limit, which express-rate-limit refuses to start without.
-      //
-      // Its second parameter is the IPv6 subnet mask (a number), NOT the
-      // response object. Passing `res` here made every rate-limited route --
-      // sign-in, sign-up and password reset -- fail with "Invalid subnet
-      // mask.", which the test suite hid by setting DISABLE_RATE_LIMIT=true.
-      const ip = ipKeyGenerator(
-        String(req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.ip || 'unknown'
-      );
-      const identity = String((req.body && (req.body.emailOrUsername || req.body.email)) || '')
-        .trim()
-        .toLowerCase();
-      return identity ? `${ip}|${identity}` : ip;
-    },
+    keyGenerator: key,
   });
+
+const build = (windowMs: number, max: number, what: string) => [
+  // A shared office behind one address gets room for its people.
+  bucket(windowMs, max * 3, what, (req) => `ip:${ipOf(req)}`),
+  bucket(windowMs, max, what, (req) => `id:${identityOf(req)}`, (req) => !identityOf(req)),
+];
 
 export const loginLimiter = build(15 * 60 * 1000, 10, 'sign-in attempts');
 export const signupLimiter = build(60 * 60 * 1000, 5, 'sign-up attempts');

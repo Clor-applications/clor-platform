@@ -6,6 +6,7 @@ import { requireTenantContext } from '../middleware/tenantContext.js';
 import { requirePermission } from '../middleware/rbac.js';
 import { PermissionAction } from '../constants/enums.js';
 import { ensureLedgerSetup, postEntry, reverseEntry, trialBalance, fiscalYearFor } from '../services/ledger.js';
+import { recordBankDateChange } from '../services/bankDateAudit.js';
 
 export const ledgerRouter = Router();
 ledgerRouter.use(requireAuth, requireTenantContext);
@@ -260,6 +261,56 @@ ledgerRouter.post('/orgs/:orgId/ledger/entries', requirePermission(MODULE, Permi
   });
   res.status(201).json({ entry });
 });
+
+/**
+ * Reconciling a contra entry against the bank statement.
+ *
+ * A contra (money between two of the company's own cash or bank accounts) is
+ * a journal entry, and journals had nowhere on the server to hold reconciled
+ * state, so a reconciled contra read unreconciled after every reload. The
+ * posting is untouched — reconciling states what the bank shows — and the
+ * bank-date history is written in the same transaction.
+ */
+const reconcileEntrySchema = z.object({
+  reconciled: z.boolean(),
+  bankDate: z.string().optional().nullable(),
+  statementRef: z.string().max(120).optional().nullable(),
+});
+
+ledgerRouter.patch(
+  '/orgs/:orgId/ledger/entries/:entryId/reconcile',
+  requirePermission('CASHBANK', PermissionAction.EDIT, 'Bank Transactions'),
+  async (req, res) => {
+    const { accountId, orgId } = req.tenant!;
+    if (String(req.params.orgId) !== orgId) return res.status(403).json({ error: 'orgId mismatch' });
+    const entry = await prisma.journalEntry.findFirst({ where: { id: String(req.params.entryId), accountId, orgId } });
+    if (!entry) return res.status(404).json({ error: 'Entry not found' });
+    if (entry.status !== 'POSTED') return res.status(409).json({ error: 'Only a posted entry can be reconciled' });
+
+    const body = reconcileEntrySchema.parse(req.body);
+    const next = {
+      reconciled: body.reconciled,
+      bankDate: body.bankDate ? new Date(body.bankDate) : body.reconciled ? new Date() : null,
+      statementRef: body.statementRef ?? null,
+    };
+    const row = await prisma.$transaction(async (tx) => {
+      const updated = await tx.journalEntry.update({ where: { id: entry.id }, data: next });
+      await recordBankDateChange(tx, {
+        accountId,
+        orgId,
+        kind: 'CONTRA',
+        sourceId: entry.id,
+        voucherNo: entry.entryNo,
+        transactionDate: entry.date,
+        before: { reconciled: entry.reconciled, bankDate: entry.bankDate },
+        after: next,
+        userId: req.auth!.userId,
+      });
+      return updated;
+    });
+    res.json({ entry: { id: row.id, reconciled: row.reconciled, bankDate: row.bankDate, statementRef: row.statementRef } });
+  }
+);
 
 ledgerRouter.post('/orgs/:orgId/ledger/entries/:entryId/reverse', requirePermission(MODULE, PermissionAction.EDIT, SUB), async (req, res) => {
   if (!requireOrgMatch(req, res)) return;

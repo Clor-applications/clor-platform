@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { renameItemReferences } from '../utils/itemIdentity';
 
 /**
  * Loads a master list from the server, falling back to whatever is in the local
@@ -85,14 +86,26 @@ export const mirrorServerRows = ({ setDb, collection, backendKey, serverRows, co
         continue;
       }
       if (twin) continue; // same name already linked to another server row
-      additions.push({ id: ++nextId, companyId, [backendKey]: sid, ...mapRow(srv) });
+      // Items are known by their server id (utils/itemIdentity.js).
+      additions.push({ id: collection === 'items' ? sid : ++nextId, companyId, [backendKey]: sid, ...mapRow(srv) });
     }
 
     if (!additions.length && !adoptions.size) return prev;
+    // A local-only item matched to a server one takes the server id, and
+    // every local line naming it follows.
+    let renamed = {};
+    if (collection === 'items') {
+      for (const [localId, sid] of adoptions) renamed = { ...renamed, ...renameItemReferences({ ...prev, ...renamed }, companyId, localId, sid) };
+    }
     return {
       ...prev,
+      ...renamed,
       [collection]: [
-        ...locals.map((r) => (adoptions.has(r.id) ? { ...r, [backendKey]: adoptions.get(r.id) } : r)),
+        ...locals.map((r) =>
+          adoptions.has(r.id)
+            ? { ...r, [backendKey]: adoptions.get(r.id), ...(collection === 'items' ? { id: adoptions.get(r.id) } : {}) }
+            : r
+        ),
         ...additions,
       ],
     };

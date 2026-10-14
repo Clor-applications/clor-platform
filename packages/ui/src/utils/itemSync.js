@@ -1,6 +1,23 @@
-import { createItem } from '../api/masters';
+import { createItem, updateItem } from '../api/masters';
 import { hasApiSession } from '../api/purchaseDocs';
 import { notify } from '../components/ui/notify';
+
+/** The item as the server stores it. */
+export const toServerItem = (item) => ({
+  code: String(item?.code || '').trim() || undefined,
+  name: String(item?.name || '').trim(),
+  itemType: String(item?.type || 'Goods') === 'Service' ? 'SERVICE' : 'STOCK',
+  unit: String(item?.unit || 'Pcs'),
+  hsnSac: String(item?.hsnSac || '').trim() || undefined,
+  description: String(item?.description || '').trim() || undefined,
+  gstRate: Number(item?.gstRate) || 0,
+  salePrice: Number(item?.salePrice) || 0,
+  purchasePrice: Number(item?.purchasePrice) || 0,
+  openingQty: Number(item?.openingQty) || 0,
+  openingWarehouseId: String(item?.openingWarehouseId || '').trim() || undefined,
+  reorderLevel: Number(item?.reorderLevel) > 0 ? Number(item.reorderLevel) : undefined,
+});
+
 
 /**
  * Write-through for the item master.
@@ -24,24 +41,32 @@ import { notify } from '../components/ui/notify';
 export const saveItemToServer = async (item) => {
   if (!hasApiSession()) return {};
   try {
-    const saved = await createItem({
-      code: String(item?.code || '').trim() || undefined,
-      name: String(item?.name || '').trim(),
-      itemType: String(item?.type || 'Goods') === 'Service' ? 'SERVICE' : 'STOCK',
-      unit: String(item?.unit || 'Pcs'),
-      hsnSac: String(item?.hsnSac || '').trim() || undefined,
-      description: String(item?.description || '').trim() || undefined,
-      gstRate: Number(item?.gstRate) || 0,
-      salePrice: Number(item?.salePrice) || 0,
-      purchasePrice: Number(item?.purchasePrice) || 0,
-      openingQty: Number(item?.openingQty) || 0,
-      reorderLevel: Number(item?.reorderLevel) > 0 ? Number(item.reorderLevel) : undefined,
-    });
+    const saved = await createItem(toServerItem(item));
     const id = saved?.item?.id;
-    return id ? { backendItemId: String(id) } : {};
+    // The item is known by its server id from here on (utils/itemIdentity.js).
+    return id ? { backendItemId: String(id), id: String(id) } : {};
   } catch (e) {
     notify.error(`Saved on this device only — the server refused it: ${String(e?.message || e)}`);
     return {};
+  }
+};
+
+/**
+ * An edit, written through.
+ *
+ * Edits stayed in the browser, so a corrected opening quantity or a changed
+ * type never reached the server — and the server's stock ledger, which counts
+ * opening stock from the item, kept the old figure. Returns false when the
+ * server refused; the local edit stands either way, as on create.
+ */
+export const updateItemOnServer = async (item) => {
+  if (!item?.backendItemId || !hasApiSession()) return true;
+  try {
+    await updateItem(item.backendItemId, toServerItem(item));
+    return true;
+  } catch (e) {
+    notify.error(`Changed on this device only — the server refused it: ${String(e?.message || e)}`);
+    return false;
   }
 };
 

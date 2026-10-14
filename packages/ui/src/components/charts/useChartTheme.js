@@ -90,7 +90,7 @@ export const tooltipStyle = (t) => ({
   borderColor: t.border,
   borderWidth: 1,
   padding: [8, 12],
-  textStyle: { color: t.fg, fontSize: 12, fontFamily: 'Inter, sans-serif' },
+  textStyle: { color: t.fg, fontSize: 12, fontFamily: "'Inter Variable', Inter, sans-serif" },
   extraCssText: 'border-radius:10px;box-shadow:0 10px 24px -6px rgba(17,24,39,.18);',
 });
 

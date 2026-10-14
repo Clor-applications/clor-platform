@@ -1,0 +1,150 @@
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import request from 'supertest';
+import { buildApp } from '../app.js';
+import { platformPrisma } from '../utils/platformPrisma.js';
+import { safeUrl } from '../utils/safeUrl.js';
+import { withoutLinkTokens } from '../services/mailer.js';
+import { purgeExpiredRecords } from '../services/retention.js';
+
+/**
+ * Sign-in identity, sessions and the records kept about them.
+ *
+ * Found in the compliance audit: the admin of any company that had invited
+ * somebody could reset that person's password or move their email — and so
+ * take over their own companies; a signed-out or deactivated user's token
+ * kept working; access logs and the email outbox kept live tokens.
+ */
+
+const app = buildApp().listen(0);
+afterAll(() => new Promise((done) => app.close(done)));
+
+type Ctx = { token: string; orgId: string; branchId: string; email: string; userId?: string };
+const auth = (c: Ctx) => ({ Authorization: `Bearer ${c.token}`, 'x-org-id': c.orgId, 'x-branch-id': c.branchId });
+const rnd = () => Math.random().toString(36).slice(2, 8);
+const PW = 'Passw0rd!23';
+
+async function owner(name: string): Promise<Ctx> {
+  const email = `idt.${Date.now()}.${rnd()}@example.com`;
+  const signup = await request(app).post('/api/auth/signup').send({ email, password: PW, name }).expect(200);
+  const setup = await request(app)
+    .post('/api/auth/setup-company')
+    .set('Authorization', `Bearer ${signup.body.token}`)
+    .send({ companyName: `${name} ${Date.now()}-${rnd()}`, state: 'Karnataka' })
+    .expect(200);
+  return { token: signup.body.token, orgId: setup.body.company.orgId, branchId: setup.body.branch.id, email };
+}
+
+const login = (email: string, password = PW) =>
+  request(app).post('/api/auth/login').send({ emailOrUsername: email, password });
+
+let alice: Ctx; // owns her own company
+let mallory: Ctx; // admin of another company that invites Alice
+
+beforeAll(async () => {
+  alice = await owner('Alice Co');
+  mallory = await owner('Mallory Co');
+  const invited = await request(app)
+    .post('/api/users')
+    .set(auth(mallory))
+    .send({ email: alice.email, fullName: 'Alice', password: 'Whatever!234', orgIds: [mallory.orgId], branchIdsByOrg: { [mallory.orgId]: [mallory.branchId] } })
+    .expect(201);
+  alice.userId = invited.body.user.id;
+}, 60_000);
+
+describe("another company's admin", () => {
+  it("cannot reset an invited person's password", async () => {
+    const res = await request(app)
+      .post(`/api/orgs/${mallory.orgId}/users/${alice.userId}/password`)
+      .set(auth(mallory))
+      .send({ password: 'Taken0ver!234' });
+    expect(res.status).toBe(403);
+    expect(res.body.code).toBe('foreign_identity');
+    await login(alice.email).expect(200);
+    expect((await login(alice.email, 'Taken0ver!234')).status).not.toBe(200);
+  });
+
+  it("cannot move an invited person's email to an address they control", async () => {
+    const res = await request(app)
+      .patch(`/api/orgs/${mallory.orgId}/users/${alice.userId}`)
+      .set(auth(mallory))
+      .send({ email: `mallory.${rnd()}@example.com` });
+    expect(res.status).toBe(403);
+    const row = await platformPrisma.user.findUnique({ where: { id: alice.userId! }, select: { email: true } });
+    expect(row?.email).toBe(alice.email);
+  });
+
+  it('can still manage people created in its own account, and a reset signs them out', async () => {
+    const email = `own.${Date.now()}.${rnd()}@example.com`;
+    const made = await request(app)
+      .post('/api/users')
+      .set(auth(mallory))
+      .send({ email, fullName: 'Own staff', password: PW, orgIds: [mallory.orgId], branchIdsByOrg: { [mallory.orgId]: [mallory.branchId] } })
+      .expect(201);
+    const session = await login(email).expect(200);
+    await request(app).post(`/api/orgs/${mallory.orgId}/users/${made.body.user.id}/password`).set(auth(mallory)).send({ password: 'Fresh!23456' }).expect(200);
+    // The token issued before the reset no longer works.
+    await request(app).get(`/api/orgs/${mallory.orgId}/warehouses`).set({ ...auth(mallory), Authorization: `Bearer ${session.body.token}` }).expect(401);
+    await login(email, 'Fresh!23456').expect(200);
+  });
+});
+
+describe('an access token', () => {
+  it('stops working once its session is signed out', async () => {
+    const c = await owner('Signout Co');
+    const s = await login(c.email).expect(200);
+    const as = { ...auth(c), Authorization: `Bearer ${s.body.token}` };
+    await request(app).get(`/api/orgs/${c.orgId}/warehouses`).set(as).expect(200);
+    const u = await platformPrisma.user.findFirstOrThrow({ where: { email: c.email }, select: { id: true } });
+    await platformPrisma.session.updateMany({ where: { revokedAt: null, userId: u.id }, data: { revokedAt: new Date() } });
+    const after = await request(app).get(`/api/orgs/${c.orgId}/warehouses`).set(as).expect(401);
+    expect(after.body.code).toBe('session_ended');
+  });
+
+  it('stops working once the person is deactivated', async () => {
+    const c = await owner('Inactive Co');
+    await platformPrisma.user.updateMany({ where: { email: c.email }, data: { isActive: false } });
+    const res = await request(app).get(`/api/orgs/${c.orgId}/warehouses`).set(auth(c)).expect(401);
+    expect(res.body.code).toBe('inactive');
+  });
+});
+
+describe('records about people', () => {
+  it('lets a person download what is held about them, without secrets', async () => {
+    const c = await owner('Export Me');
+    const res = await request(app).get('/api/auth/me/export').set({ Authorization: `Bearer ${c.token}` }).expect(200);
+    expect(res.body.profile.email).toBe(c.email);
+    expect(res.body.companies.length).toBe(1);
+    const text = JSON.stringify(res.body);
+    expect(text).not.toMatch(/passwordHash|refreshTokenHash|tokenHash/);
+  });
+
+  it('records which notice was accepted at sign-up', async () => {
+    const email = `notice.${Date.now()}.${rnd()}@example.com`;
+    await request(app).post('/api/auth/signup').send({ email, password: PW, name: 'N', noticeVersion: '2026-10-02' }).expect(200);
+    const u = await platformPrisma.user.findFirst({ where: { email }, select: { noticeVersion: true, noticeAcceptedAt: true } });
+    expect(u?.noticeVersion).toBe('2026-10-02');
+    expect(u?.noticeAcceptedAt).toBeTruthy();
+  });
+
+  it('keeps share tokens, GSTINs and search terms out of the access log', () => {
+    expect(safeUrl('/api/public/invoice/AbC_123-xyz')).toBe('/api/public/invoice/[token]');
+    expect(safeUrl('/api/gstin/29ABCDE1234F1Z5')).toBe('/api/gstin/[gstin]');
+    expect(safeUrl('/api/orgs/o1/items?search=Mango&limit=5')).toBe('/api/orgs/o1/items?search=[redacted]&limit=5');
+    expect(safeUrl('/api/orgs/o1/invoices')).toBe('/api/orgs/o1/invoices');
+  });
+
+  it('removes link tokens from a sent email copy', () => {
+    expect(withoutLinkTokens('Reset: https://x.test/?token=abc.DEF-123 now')).toBe('Reset: https://x.test/?token=[removed-after-sending] now');
+  });
+
+  it('deletes expired sign-in records', async () => {
+    const c = await owner('Retention Co');
+    const user = await platformPrisma.user.findFirstOrThrow({ where: { email: c.email } });
+    const old = new Date(Date.now() - 200 * 86_400_000);
+    const s = await platformPrisma.session.create({
+      data: { accountId: user.accountId, userId: user.id, refreshTokenHash: `h-${rnd()}${rnd()}`, expiresAt: old, revokedAt: old },
+    });
+    await purgeExpiredRecords();
+    expect(await platformPrisma.session.findUnique({ where: { id: s.id } })).toBeNull();
+  });
+});

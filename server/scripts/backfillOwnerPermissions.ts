@@ -16,6 +16,7 @@
  *   npx tsx scripts/backfillOwnerPermissions.ts --fix    # grant what is missing
  */
 import { flattenCatalog } from '../src/constants/permissionCatalog.js';
+import { adminUserIds } from '../src/services/roleGuards.js';
 
 import { ownerClient } from './ownerDb.js';
 
@@ -34,14 +35,66 @@ async function main() {
 
   let toppedUp = 0;
   let missingTotal = 0;
+  let repaired = 0;
 
   for (const org of orgs) {
+    /*
+     * A company nobody administers gets its creator back as Owner.
+     *
+     * Request-time RBAC used to do this whenever the creator had no roles,
+     * which also undid a deliberate hand-over. Here it happens only when the
+     * company has no administrator at all — direct or through a profile — and
+     * the creator is still a member who can sign in.
+     */
+    if ((await adminUserIds(prisma, org.accountId, org.id)).size === 0) {
+      const member = await prisma.userOrgMembership.findFirst({
+        where: { accountId: org.accountId, orgId: org.id, userId: org.createdByUserId, user: { isActive: true } },
+        select: { id: true },
+      });
+      if (member) {
+        console.log(`${org.name}: no administrator; restoring the creator as Owner`);
+        if (FIX) {
+          const role =
+            (await prisma.role.findFirst({
+              where: { accountId: org.accountId, orgId: org.id, branchId: null, name: 'Owner' },
+              select: { id: true },
+            })) ||
+            (await prisma.role.create({
+              data: {
+                accountId: org.accountId,
+                orgId: org.id,
+                branchId: null,
+                name: 'Owner',
+                description: 'Full access. Created automatically for the account owner.',
+                roleType: 'ADMIN',
+                createdByUserId: org.createdByUserId,
+              },
+              select: { id: true },
+            }));
+          await prisma.role.update({ where: { id: role.id }, data: { roleType: 'ADMIN' } });
+          try {
+            await prisma.userRoleAssignment.create({
+              data: {
+                accountId: org.accountId,
+                orgId: org.id,
+                branchId: null,
+                userId: org.createdByUserId,
+                roleId: role.id,
+                createdByUserId: org.createdByUserId,
+              },
+            });
+          } catch (e: any) {
+            if (String(e?.code) !== 'P2002') throw e;
+          }
+          repaired += 1;
+        }
+      }
+    }
+
     const owner = await prisma.role.findFirst({
       where: { accountId: org.accountId, orgId: org.id, branchId: null, name: 'Owner' },
       select: { id: true },
     });
-    // No Owner role at all is the bootstrap path's job, not this one — it
-    // still runs on the creator's first request and seeds the full catalogue.
     if (!owner) continue;
 
     const held = await prisma.rolePermission.findMany({
@@ -85,6 +138,7 @@ async function main() {
     toppedUp += 1;
   }
 
+  if (repaired) console.log(`Restored an administrator in ${repaired} org(s).`);
   if (!missingTotal) {
     console.log('Every Owner role already carries the full catalogue. Nothing to do.');
   } else if (FIX) {

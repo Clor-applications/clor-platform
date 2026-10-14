@@ -1,26 +1,14 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Check, ChevronDown, Lock, RotateCcw, Save, ShieldCheck } from 'lucide-react';
+import { Check, RotateCcw, Save, ShieldCheck } from 'lucide-react';
 
-import { listRoles } from '../../api/admin';
+import { listRoles, updateRole } from '../../api/admin';
 import { expandPreset, getPermissionCatalog, getRolePermissions, setRolePermissions } from '@ui/api/permissions';
 import { EmptyState, Spinner, SkeletonCard } from '@ui/components/ui/Primitives';
 import { usePermissions } from '@ui/permissions/usePermissions';
 import SettingsScreenHeader from '../settings/SettingsScreenHeader';
 import { orgId as platformOrgId } from '@platform/context';
-
-const key = (module, resource, action) => `${module}::${resource}::${action}`;
-
-/** Every action used anywhere in the catalog, in a stable display order. */
-const ACTION_ORDER = ['VIEW', 'CREATE', 'EDIT', 'DELETE', 'APPROVE', 'EXPORT'];
-
-const actionLabel = {
-  VIEW: 'View',
-  CREATE: 'Create',
-  EDIT: 'Edit',
-  DELETE: 'Delete',
-  APPROVE: 'Approve',
-  EXPORT: 'Export',
-};
+import PermissionMatrix from './PermissionMatrix';
+import { catalogKeys } from './permissionKeys';
 
 export const RolePermissionManager = () => {
   const { reload: reloadMyPermissions } = usePermissions();
@@ -30,7 +18,10 @@ export const RolePermissionManager = () => {
   const [roleId, setRoleId] = useState('');
   const [granted, setGranted] = useState(() => new Set());
   const [baseline, setBaseline] = useState(() => new Set());
-  const [openModules, setOpenModules] = useState(() => new Set());
+  // Field levels above 0, kept so a save sends back what it did not change.
+  const [levels, setLevels] = useState({});
+  const [ownDocs, setOwnDocs] = useState(false);
+  const [ownDocsBaseline, setOwnDocsBaseline] = useState(false);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -49,7 +40,6 @@ export const RolePermissionManager = () => {
         const list = Array.isArray(roleRes?.roles) ? roleRes.roles : [];
         setCatalog(cat || { modules: [], presets: [] });
         setRoles(list);
-        setOpenModules(new Set((cat?.modules || []).slice(0, 2).map((m) => m.key)));
         setRoleId((prev) => prev || String(list[0]?.id || ''));
       } catch (e) {
         if (!cancelled) setError(String(e?.message || e));
@@ -74,6 +64,7 @@ export const RolePermissionManager = () => {
         const set = new Set(res?.permissions || []);
         setGranted(set);
         setBaseline(new Set(set));
+        setLevels(res?.levels || {});
       } catch (e) {
         if (!cancelled) setError(String(e?.message || e));
       }
@@ -83,11 +74,19 @@ export const RolePermissionManager = () => {
     };
   }, [roleId]);
 
+  // The flag lives on the role row, which the list already carries.
+  const roleOwnDocs = Boolean(roles.find((r) => String(r.id) === String(roleId))?.ownDocumentsOnly);
+  useEffect(() => {
+    setOwnDocs(roleOwnDocs);
+    setOwnDocsBaseline(roleOwnDocs);
+  }, [roleId, roleOwnDocs]);
+
   const dirty = useMemo(() => {
+    if (ownDocs !== ownDocsBaseline) return true;
     if (granted.size !== baseline.size) return true;
     for (const k of granted) if (!baseline.has(k)) return true;
     return false;
-  }, [granted, baseline]);
+  }, [granted, baseline, ownDocs, ownDocsBaseline]);
 
   const toggle = useCallback((k) => {
     setGranted((prev) => {
@@ -109,17 +108,22 @@ export const RolePermissionManager = () => {
     });
   }, []);
 
-  const moduleKeys = useCallback(
-    (mod) => mod.resources.flatMap((r) => r.actions.map((a) => key(mod.key, r.key, a))),
-    []
-  );
-
   const save = async () => {
     setSaving(true);
     setError('');
     try {
-      await setRolePermissions(roleId, Array.from(granted));
-      setBaseline(new Set(granted));
+      // Only grants the catalogue still knows; a retired key would be refused.
+      const known = catalogKeys(catalog.modules);
+      const keep = Array.from(granted).filter((k) => known.has(k));
+      const keptLevels = Object.fromEntries(Object.entries(levels).filter(([k]) => granted.has(k)));
+      await setRolePermissions(roleId, keep, keptLevels);
+      if (ownDocs !== ownDocsBaseline) {
+        await updateRole(platformOrgId(), roleId, { ownDocumentsOnly: ownDocs });
+        setRoles((prev) => prev.map((r) => (String(r.id) === String(roleId) ? { ...r, ownDocumentsOnly: ownDocs } : r)));
+        setOwnDocsBaseline(ownDocs);
+      }
+      setBaseline(new Set(keep));
+      setGranted(new Set(keep));
       setSavedAt(Date.now());
       // The editor may have just changed their own role.
       reloadMyPermissions();
@@ -136,6 +140,10 @@ export const RolePermissionManager = () => {
     try {
       const res = await expandPreset(roleId, preset);
       setGranted(new Set(res?.permissions || []));
+      // A template is the whole shape of a role, including whether its holders
+      // see only their own documents.
+      const meta = catalog.presets.find((p) => p.key === preset);
+      if (meta) setOwnDocs(Boolean(meta.ownDocumentsOnly));
     } catch (e) {
       setError(String(e?.message || e));
     }
@@ -179,7 +187,10 @@ export const RolePermissionManager = () => {
             <button
               type="button"
               className="ui-btn ui-btn-secondary"
-              onClick={() => setGranted(new Set(baseline))}
+              onClick={() => {
+                setGranted(new Set(baseline));
+                setOwnDocs(ownDocsBaseline);
+              }}
               disabled={!dirty || saving}
             >
               <RotateCcw size={16} aria-hidden="true" /> Revert
@@ -218,6 +229,21 @@ export const RolePermissionManager = () => {
           {selectedRole?.description ? (
             <div className="ui-subtle text-xs mt-1">{selectedRole.description}</div>
           ) : null}
+          <label className="flex items-start gap-2 text-sm ui-fg mt-3" htmlFor="rpm-own-docs">
+            <input
+              id="rpm-own-docs"
+              type="checkbox"
+              className="mt-0.5"
+              checked={ownDocs}
+              onChange={(e) => setOwnDocs(e.target.checked)}
+            />
+            <span>
+              Own documents only
+              <span className="block ui-subtle text-xs">
+                Holders see and change only the invoices, bills, quotes and payments they raised.
+              </span>
+            </span>
+          </label>
         </div>
 
         <div>
@@ -250,131 +276,13 @@ export const RolePermissionManager = () => {
         </div>
       </div>
 
-      <div className="space-y-3">
-        {catalog.modules.map((mod) => {
-          const keys = moduleKeys(mod);
-          const on = keys.filter((k) => granted.has(k)).length;
-          const all = on === keys.length && keys.length > 0;
-          const some = on > 0 && !all;
-          const isOpen = openModules.has(mod.key);
-
-          return (
-            <section key={mod.key} className="ui-card overflow-hidden">
-              <div
-                className="flex items-center justify-between gap-3 px-4 py-3"
-                style={{ borderBottom: isOpen ? '1px solid rgb(var(--border))' : 'none' }}
-              >
-                <button
-                  type="button"
-                  className="flex items-center gap-2 min-w-0 text-left"
-                  onClick={() =>
-                    setOpenModules((prev) => {
-                      const next = new Set(prev);
-                      if (next.has(mod.key)) next.delete(mod.key);
-                      else next.add(mod.key);
-                      return next;
-                    })
-                  }
-                  aria-expanded={isOpen}
-                >
-                  <ChevronDown
-                    size={16}
-                    aria-hidden="true"
-                    className={`transition-transform duration-200 ${isOpen ? '' : '-rotate-90'}`}
-                  />
-                  <span className="ui-title text-sm">{mod.label}</span>
-                  <span className={`ui-pill ${on ? 'ui-pill-neutral' : 'ui-pill-neutral'}`}>
-                    {on}/{keys.length}
-                  </span>
-                  {mod.key === 'SETTINGS' ? (
-                    <span className="ui-pill ui-pill-warn">
-                      <Lock size={10} aria-hidden="true" /> Administration
-                    </span>
-                  ) : null}
-                </button>
-
-                <label className="flex items-center gap-2 text-xs ui-muted cursor-pointer shrink-0">
-                  <input
-                    type="checkbox"
-                    checked={all}
-                    ref={(el) => {
-                      if (el) el.indeterminate = some;
-                    }}
-                    onChange={(e) => setMany(keys, e.target.checked)}
-                    aria-label={`Grant every permission in ${mod.label}`}
-                  />
-                  Select all
-                </label>
-              </div>
-
-              {isOpen ? (
-                <div className="overflow-x-auto">
-                  <table className="ui-table ui-table-wide">
-                    <thead>
-                      <tr>
-                        <th scope="col">Resource</th>
-                        {ACTION_ORDER.map((a) => (
-                          <th key={a} scope="col" className="text-center">
-                            {actionLabel[a]}
-                          </th>
-                        ))}
-                        <th scope="col" className="text-center">
-                          Row
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {mod.resources.map((r) => {
-                        const rowKeys = r.actions.map((a) => key(mod.key, r.key, a));
-                        const rowAll = rowKeys.every((k) => granted.has(k));
-                        return (
-                          <tr key={r.key}>
-                            <td className="ui-col-meta">
-                              <div>{r.label}</div>
-                              {r.description ? <div className="ui-subtle text-xs">{r.description}</div> : null}
-                            </td>
-                            {ACTION_ORDER.map((a) => {
-                              const supported = r.actions.includes(a);
-                              const k = key(mod.key, r.key, a);
-                              return (
-                                <td key={a} className="text-center">
-                                  {supported ? (
-                                    <input
-                                      type="checkbox"
-                                      checked={granted.has(k)}
-                                      onChange={() => toggle(k)}
-                                      aria-label={`${actionLabel[a]} ${r.label}`}
-                                    />
-                                  ) : (
-                                    <span className="ui-subtle" aria-label="Not applicable">
-                                      –
-                                    </span>
-                                  )}
-                                </td>
-                              );
-                            })}
-                            <td className="text-center">
-                              <input
-                                type="checkbox"
-                                checked={rowAll}
-                                ref={(el) => {
-                                  if (el) el.indeterminate = !rowAll && rowKeys.some((k) => granted.has(k));
-                                }}
-                                onChange={(e) => setMany(rowKeys, e.target.checked)}
-                                aria-label={`Grant every action on ${r.label}`}
-                              />
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              ) : null}
-            </section>
-          );
-        })}
-      </div>
+      <PermissionMatrix
+        key={roleId}
+        modules={catalog.modules}
+        granted={granted}
+        onToggle={toggle}
+        onSetMany={setMany}
+      />
 
       <p className="ui-subtle text-xs">
         Permissions decide <em>what</em> a user may do. <strong>Which</strong> records they see is separate: that comes

@@ -195,8 +195,8 @@ export function SessionProvider({ children }) {
    * knows how to draw.
    */
   const signUp = useCallback(
-    async ({ fullName, email, password }) => {
-      const res = await apiSignup({ email, password, fullName });
+    async ({ fullName, email, password, noticeVersion }) => {
+      const res = await apiSignup({ email, password, fullName, noticeVersion });
       writeToken(res.token);
       const data = await apiMe();
       return adopt(data);

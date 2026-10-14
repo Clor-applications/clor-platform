@@ -28,6 +28,7 @@ import {
   parseAmount,
   toIsoDate,
 } from '@ui/utils/statementImport';
+import { PermissionButton } from '@ui/permissions/ActionGuard';
 
 const safeArray = (v) => (Array.isArray(v) ? v : []);
 
@@ -1979,13 +1980,13 @@ const CashBankModule = ({ db, setDb, currentCompany, openModal, openLedgerCreate
           so a new company saw a row of grey buttons and nothing to press.
         */
         accountsEmpty ? (
-          <button type="button" onClick={openCreateAccount} className="ui-btn ui-btn-primary">
+          <PermissionButton permission="ACCOUNTING::Ledger::CREATE" type="button" onClick={openCreateAccount} className="ui-btn ui-btn-primary">
             <Plus size={16} aria-hidden="true" /> New Account
-          </button>
+          </PermissionButton>
         ) : (
-          <button type="button" onClick={openAddTxn} className="ui-btn ui-btn-primary">
+          <PermissionButton permission="CASHBANK::Cash & Bank::CREATE" type="button" onClick={openAddTxn} className="ui-btn ui-btn-primary">
             <Plus size={16} aria-hidden="true" /> Add Transaction
-          </button>
+          </PermissionButton>
         )
       }
       cards={[
