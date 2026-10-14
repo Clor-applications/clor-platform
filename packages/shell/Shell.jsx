@@ -214,6 +214,9 @@ export default function Shell() {
   return (
     <div
       className="min-h-screen"
+      /* Which app is open, for styling: People, Attendance and Payroll wear the
+         HR palette (index.css, [data-app]); Accounting keeps its own. */
+      data-app={activeAppId || undefined}
       style={{ backgroundColor: 'rgb(var(--app-bg))', '--platform-bar': '3.5rem' }}
     >
       <header

@@ -6155,3 +6155,69 @@ th.ui-th {
 .legal-links ul { display: flex; flex-wrap: wrap; gap: 0.25rem 1rem; font-size: 0.8125rem; }
 .legal-links a { color: rgb(var(--fg-muted)); text-decoration: underline; text-underline-offset: 2px; }
 .legal-links a:hover { color: rgb(var(--fg)); }
+
+/*
+ * HR apps palette — People, Attendance, Payroll.
+ *
+ * Coral, after Horilla HRMS (its default "Coral Red" theme: #E54F38 on a
+ * #F6F6F6 ground, Inter). Accounting keeps the graphite chrome above. Shades
+ * are picked for contrast, not copied blindly: white on #E54F38 is only
+ * 3.8:1, so filled buttons use #CE4732 (4.6:1) and text/links #AC3B2A
+ * (5.7:1 on the ground); #E54F38 stays for focus rings and accents. Dark mode
+ * uses a lighter coral with dark text on it (5.8:1).
+ *
+ * --btn-primary-* are set here too: at :root they are references to
+ * --brand-hover/--brand-pressed, resolved there, so overriding only the
+ * brand tokens would leave the buttons graphite.
+ */
+[data-app='people'],
+[data-app='attendance'],
+[data-app='payroll'] {
+  --app-bg: 246 246 246;
+  --brand: 229 79 56;
+  --brand-deep: 172 59 42;
+  --brand-hover: 206 71 50;
+  --brand-pressed: 172 59 42;
+  --btn-primary-bg: 206 71 50;
+  --btn-primary-hover: 172 59 42;
+  --brand-soft: 251 229 225;
+  --brand-subtle: 254 246 245;
+  --brand-border: 247 200 193;
+  --brand-ink: 172 59 42;
+  --on-brand: 255 255 255;
+  --accent-soft: 251 229 225;
+  --ring: 229 79 56;
+  --link: 172 59 42;
+  --link-hover: 103 36 25;
+  --rail-hover: 254 246 245;
+  --rail-active: 252 237 235;
+  --heading-bg: 254 246 245;
+  --heading-hover: 252 237 235;
+  --page-heading-bg: 254 246 245;
+}
+:root[data-theme='dark'] [data-app='people'],
+:root[data-theme='dark'] [data-app='attendance'],
+:root[data-theme='dark'] [data-app='payroll'] {
+  --app-bg: 9 9 11;
+  --brand: 239 106 85;
+  --brand-deep: 242 132 111;
+  --brand-hover: 239 106 85;
+  --brand-pressed: 229 79 56;
+  --btn-primary-bg: 239 106 85;
+  --btn-primary-hover: 242 132 111;
+  --brand-soft: 80 28 20;
+  --brand-subtle: 40 18 14;
+  --brand-border: 103 36 25;
+  --brand-ink: 242 132 111;
+  --on-brand: 24 24 27;
+  --accent-soft: 80 28 20;
+  --ring: 239 106 85;
+  --link: 242 132 111;
+  --link-hover: 247 200 193;
+  --rail-hover: 40 18 14;
+  --rail-active: 80 28 20;
+  --heading-bg: 40 18 14;
+  --heading-hover: 80 28 20;
+  --page-heading-bg: 24 24 27;
+}
+
