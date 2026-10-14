@@ -280,7 +280,28 @@ function ReaderDrawer({ device, onClose, onChanged }) {
             </button>
             <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => run('REBOOT', 'Reboot queued.')}>Reboot</button>
           </div>
-          <p className="ui-caption mt-2">“Send new staff” adds people the reader does not have, by employee code or Reader ID. Fingerprints and faces are enrolled at the reader. Fetch its users first so people already on it are skipped.</p>
+          <p className="ui-caption mt-2">“Send new staff” adds people the reader does not have, by employee code or Reader ID. Fetch its users first so people already on it are skipped.</p>
+        </section>
+
+        <section aria-labelledby="bio-h">
+          <h3 id="bio-h" className="ui-t-sec mb-2">Fingerprints and faces</h3>
+          <p className="ui-caption mb-2">
+            Enrol a person once, on any reader: their fingerprints and face are copied to every other reader automatically.
+            {device.faceSupported === false ? ' This reader has no face recognition, so faces are not sent to it.' : ''}
+            {device.faceMajorVer ? ` Face algorithm version ${device.faceMajorVer}${device.faceMinorVer ? `.${device.faceMinorVer}` : ''}.` : ''}
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => run('FETCH_TEMPLATES', 'Asked for its fingerprints and faces. New ones are copied to the other readers.')}>
+              Fetch fingerprints &amp; faces
+            </button>
+            <button
+              type="button"
+              className="ui-btn ui-btn-secondary ui-btn-sm"
+              onClick={() => run('COPY_TEMPLATES', (r) => (r.people ? `Copying ${r.people} ${r.people === 1 ? 'person' : 'people'}’s fingerprints and faces to this reader (${r.queued} commands).` : 'No fingerprints or faces stored yet — fetch them from a reader first.'))}
+            >
+              Copy everyone’s fingerprints &amp; faces here
+            </button>
+          </div>
         </section>
 
         <section aria-labelledby="cmds-h">

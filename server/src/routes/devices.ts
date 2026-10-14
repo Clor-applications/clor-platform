@@ -7,9 +7,9 @@ import { requirePermission } from '../middleware/rbac.js';
 import { PermissionAction } from '../constants/enums.js';
 import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { ATTENDANCE_MODULE, ATTENDANCE_RESOURCE, attendanceRouteOk } from '../services/attendance/guards.js';
-import { COMMANDS, ONLINE_WINDOW_MS, pinKey, userInfoCommand } from '../services/attendance/adms.js';
+import { COMMANDS, FACE, FETCH_TEMPLATE_COMMANDS, ONLINE_WINDOW_MS, SEQ, pinKey, userInfoCommand } from '../services/attendance/adms.js';
 import { sendError, today } from './attendance.js';
-import { pinMatcher, recomputeDeviceDay, shiftDayFor } from './iclock.js';
+import { copyAllTemplatesTo, pinMatcher, recomputeDeviceDay, shiftDayFor } from './iclock.js';
 
 /**
  * Biometric readers, as the company manages them: claim a reader by its serial
@@ -118,11 +118,20 @@ devicesRouter.post(`${base}/:id/commands`, can(PermissionAction.EDIT), async (re
   const device = await peoplePrisma.attendanceDevice.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
   if (!device) return res.status(404).json({ error: 'No such reader.' });
   const action = String(req.body?.action || '');
-  const queue = (command: string) => ({ accountId, orgId, deviceId: device.id, serialNumber: device.serialNumber, command, createdByUserId: req.auth!.userId });
+  const queue = (command: string, sequence: number = SEQ.OTHER) => ({ accountId, orgId, deviceId: device.id, serialNumber: device.serialNumber, command, sequence, createdByUserId: req.auth!.userId });
 
   if (action === 'FETCH_PUNCHES' || action === 'FETCH_USERS' || action === 'REBOOT') {
     await peoplePrisma.deviceCommand.create({ data: queue(COMMANDS[action]) });
     return res.json({ queued: 1 });
+  }
+  if (action === 'FETCH_TEMPLATES') {
+    /* What it sends back is stored and, if new, copied to the other readers. */
+    await peoplePrisma.deviceCommand.createMany({ data: FETCH_TEMPLATE_COMMANDS.map((c) => queue(c)) });
+    return res.json({ queued: FETCH_TEMPLATE_COMMANDS.length });
+  }
+  if (action === 'COPY_TEMPLATES') {
+    const r = await copyAllTemplatesTo(device, req.auth!.userId);
+    return res.json({ queued: r.commands, people: r.people });
   }
   if (action === 'SEND_STAFF') {
     /*
@@ -139,7 +148,7 @@ devicesRouter.post(`${base}/:id/commands`, can(PermissionAction.EDIT), async (re
     const toSend = people
       .map((p) => ({ pin: p.devicePin || p.code || '', name: p.name }))
       .filter((p) => p.pin && !have.has(pinKey(p.pin)));
-    if (toSend.length) await peoplePrisma.deviceCommand.createMany({ data: toSend.map((p) => queue(userInfoCommand(p.pin, p.name))) });
+    if (toSend.length) await peoplePrisma.deviceCommand.createMany({ data: toSend.map((p) => queue(userInfoCommand(p.pin, p.name), SEQ.USER)) });
     return res.json({ queued: toSend.length, skippedWithoutId: people.filter((p) => !p.devicePin && !p.code).length, knownUsers: onReader.length });
   }
   return res.status(400).json({ error: 'Unknown action.' });
@@ -206,6 +215,7 @@ devicesRouter.post('/orgs/:orgId/attendance/punches/match', can(PermissionAction
       return res.status(409).json({ error: `${employee.name} already has Reader ID ${employee.devicePin}. Change it on their employee file first.` });
     }
     await peoplePrisma.employee.update({ where: { id: employee.id }, data: { devicePin: pin } });
+    await peoplePrisma.biometricTemplate.updateMany({ where: { orgId, pin, employeeId: null }, data: { employeeId: employee.id } });
 
     const punches = await peoplePrisma.devicePunch.findMany({ where: { orgId, pin, employeeId: null }, select: { id: true, localTime: true } });
     const days = new Set<string>();
@@ -219,4 +229,28 @@ devicesRouter.post('/orgs/:orgId/attendance/punches/match', can(PermissionAction
   } catch (e) {
     return sendError(res, e);
   }
+});
+
+// ---------------------------------------------------------------------------
+// Fingerprints and faces: counts only — template data never leaves the server
+// ---------------------------------------------------------------------------
+
+devicesRouter.get('/orgs/:orgId/attendance/biometrics', can(PermissionAction.VIEW), async (req, res) => {
+  if (!(await attendanceRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const rows = await peoplePrisma.biometricTemplate.groupBy({ by: ['pin', 'employeeId', 'type'], where: { accountId, orgId }, _count: { _all: true }, _max: { updatedAt: true } });
+  const names = new Map(
+    (await peoplePrisma.employee.findMany({ where: { orgId }, select: { id: true, name: true, code: true } })).map((e) => [e.id, e])
+  );
+  const byPin = new Map<string, any>();
+  for (const r of rows) {
+    const e = r.employeeId ? names.get(r.employeeId) : null;
+    const row = byPin.get(r.pin) || { pin: r.pin, employeeId: r.employeeId, employeeName: e?.name || null, employeeCode: e?.code || null, fingers: 0, faces: 0, other: 0, updatedAt: null };
+    if (r.type === FACE) row.faces += r._count._all;
+    else if (r.type === 1) row.fingers += r._count._all;
+    else row.other += r._count._all;
+    if (!row.updatedAt || (r._max.updatedAt && r._max.updatedAt > row.updatedAt)) row.updatedAt = r._max.updatedAt;
+    byPin.set(r.pin, row);
+  }
+  res.json({ people: [...byPin.values()].sort((a, b) => String(a.employeeName || a.pin).localeCompare(String(b.employeeName || b.pin))) });
 });

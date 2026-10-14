@@ -4,17 +4,25 @@ import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { isFeatureEnabled } from '../services/features.js';
 import {
   COMMANDS,
+  FACE,
+  FINGER,
   HANDSHAKE_OPTIONS,
+  SEQ,
   instantOf,
   pairDay,
   parseAttlogLine,
+  parseBiodataLine,
   parseCommandResults,
   parseInfo,
-  parseUserLine,
   pinKey,
   punchKind,
+  removalCommands,
   shiftDayOf,
+  templateCommands,
+  userInfoCommand,
+  type Template,
 } from '../services/attendance/adms.js';
+import { readerLimiter } from '../middleware/rateLimit.js';
 import { shiftFor, writeDay } from './attendance.js';
 
 /**
@@ -32,6 +40,7 @@ import { shiftFor, writeDay } from './attendance.js';
  * production (server/services/adms.js there).
  */
 export const iclockRouter = Router();
+iclockRouter.use(readerLimiter);
 
 const SERIAL = /^[A-Za-z0-9_-]{4,40}$/;
 const text = (res: Response, body: string, status = 200) => res.status(status).type('text/plain').send(body);
@@ -193,6 +202,134 @@ export async function ingestPunches(device: { id: string; accountId: string; org
 }
 
 // ---------------------------------------------------------------------------
+// Users and fingerprints / faces
+// ---------------------------------------------------------------------------
+
+type Device = { id: string; accountId: string; orgId: string; serialNumber: string; faceSupported?: boolean | null; fingerSupported?: boolean | null; faceMajorVer?: number | null; faceMinorVer?: number | null };
+
+async function storeUser(device: Device, u: { pin: string; name: string | null; privilege: number | null; password: string | null; card: string | null }) {
+  const pin = u.pin.slice(0, 40);
+  const fields = {
+    ...(u.name !== null ? { name: u.name.slice(0, 120) } : {}),
+    ...(u.privilege !== null ? { privilege: u.privilege } : {}),
+    ...(u.password !== null ? { password: u.password.slice(0, 40) } : {}),
+    ...(u.card !== null ? { card: u.card.slice(0, 40) } : {}),
+  };
+  await peoplePrisma.deviceUser.upsert({
+    where: { deviceId_pin: { deviceId: device.id, pin } },
+    create: { accountId: device.accountId, orgId: device.orgId, deviceId: device.id, pin, ...fields },
+    update: fields,
+  });
+}
+
+/** The user record to send with a template: as the reader it came from holds it, else the employee's name. */
+async function userFor(orgId: string, pin: string, preferDeviceId?: string) {
+  const held = await peoplePrisma.deviceUser.findMany({ where: { orgId, pin }, orderBy: { updatedAt: 'desc' } });
+  const u = held.find((h) => h.deviceId === preferDeviceId) || held[0];
+  let name = u?.name || null;
+  if (!name) {
+    const emp = (await pinMatcher(orgId))(pin);
+    if (emp) name = (await peoplePrisma.employee.findUnique({ where: { id: emp.id }, select: { name: true } }))?.name || null;
+  }
+  return { name: name || 'Unknown', privilege: u?.privilege ?? 0, password: u?.password ?? '', card: u?.card ?? '' };
+}
+
+const supports = (target: Device, type: number) =>
+  !(type === FACE && target.faceSupported === false) && !(type === FINGER && target.fingerSupported === false);
+
+/**
+ * Queue one person's templates onto one reader: their user record first
+ * (unless one is already on its way), then each template in order.
+ */
+async function queueOnto(target: Device, pin: string, templates: Template[], user: Awaited<ReturnType<typeof userFor>>, createdByUserId: string | null) {
+  const usable = templates.filter((t) => supports(target, t.type));
+  if (!usable.length) return 0;
+  const userCmd = userInfoCommand(pin, user.name, user);
+  const pendingUser = await peoplePrisma.deviceCommand.findFirst({
+    where: { deviceId: target.id, status: { in: ['PENDING', 'SENT'] }, command: { startsWith: `DATA UPDATE USERINFO PIN=${userCmd.split('\t')[0].slice('DATA UPDATE USERINFO PIN='.length)}\t` }, createdAt: { gt: new Date(Date.now() - 2 * 60_000) } },
+    select: { id: true },
+  });
+  const rows = [
+    ...(pendingUser ? [] : [{ seq: SEQ.USER, command: userCmd }]),
+    ...usable.flatMap((t) => templateCommands(t, target)),
+  ];
+  await peoplePrisma.deviceCommand.createMany({
+    data: rows.map((r) => ({ accountId: target.accountId, orgId: target.orgId, deviceId: target.id, serialNumber: target.serialNumber, command: r.command, sequence: r.seq, createdByUserId })),
+  });
+  return rows.length;
+}
+
+const otherReaders = (source: { orgId: string; id: string }) =>
+  peoplePrisma.attendanceDevice.findMany({ where: { orgId: source.orgId, isActive: true, id: { not: source.id } } });
+
+/**
+ * A template a reader just enrolled (or changed) goes to every other reader of
+ * the company, so a person enrolled once is recognised everywhere (ClorTime
+ * syncTemplateToOtherDevices). Unchanged templates are not re-sent: a reader
+ * asked for its templates would otherwise bounce every copy back round.
+ */
+async function storeTemplate(device: Device, t: Template, match: Awaited<ReturnType<typeof pinMatcher>>) {
+  const pin = t.pin.slice(0, 40);
+  const key = { orgId_pin_type_no: { orgId: device.orgId, pin, type: t.type, no: t.no } };
+  const existing = await peoplePrisma.biometricTemplate.findUnique({ where: key, select: { data: true } });
+  const changed = !existing || existing.data !== t.data;
+  const values = { data: t.data, valid: t.valid, duress: t.duress, majorVer: t.majorVer, minorVer: t.minorVer, format: t.format, indexNo: t.indexNo, sourceDeviceId: device.id, employeeId: match(pin)?.id ?? null };
+  await peoplePrisma.biometricTemplate.upsert({
+    where: key,
+    create: { accountId: device.accountId, orgId: device.orgId, pin, type: t.type, no: t.no, ...values },
+    update: values,
+  });
+  /* The face algorithm this reader runs, learnt from what it sends. */
+  if (t.type === FACE && t.majorVer > 0 && (device.faceMajorVer !== t.majorVer || device.faceMinorVer !== t.minorVer)) {
+    await peoplePrisma.attendanceDevice.update({ where: { id: device.id }, data: { faceMajorVer: t.majorVer, faceMinorVer: t.minorVer || null, faceSupported: true } });
+  }
+  if (!changed) return;
+  const user = await userFor(device.orgId, pin, device.id);
+  for (const target of await otherReaders(device)) await queueOnto(target, pin, [{ ...t, pin }], user, null);
+}
+
+/** Copy every stored template of people still employed (and of reader IDs not yet matched) onto one reader. */
+export async function copyAllTemplatesTo(target: Device, createdByUserId: string | null) {
+  const templates = await peoplePrisma.biometricTemplate.findMany({ where: { orgId: target.orgId }, orderBy: [{ pin: 'asc' }, { type: 'asc' }, { no: 'asc' }] });
+  const left = new Set(
+    (await peoplePrisma.employee.findMany({ where: { orgId: target.orgId, status: 'LEFT' }, select: { id: true } })).map((e) => e.id)
+  );
+  const byPin = new Map<string, Template[]>();
+  for (const t of templates) {
+    if (t.employeeId && left.has(t.employeeId)) continue;
+    if (!byPin.has(t.pin)) byPin.set(t.pin, []);
+    byPin.get(t.pin)!.push(t);
+  }
+  let commands = 0;
+  for (const [pin, list] of byPin) commands += await queueOnto(target, pin, list, await userFor(target.orgId, pin), createdByUserId);
+  return { people: byPin.size, commands };
+}
+
+/**
+ * Someone left: take them off every reader (templates, then the user) and
+ * delete their stored fingerprints and faces — door access ends with
+ * employment, and biometric data is not kept longer than it is needed.
+ */
+export async function revokeFromReaders(orgId: string, employee: { id: string; code: string | null; devicePin: string | null }, createdByUserId: string | null) {
+  const templates = await peoplePrisma.biometricTemplate.findMany({ where: { orgId, employeeId: employee.id }, select: { pin: true } });
+  const pins = new Set<string>(templates.map((t) => t.pin));
+  const own = employee.devicePin || employee.code;
+  if (own) pins.add(own);
+  if (!pins.size) return { readers: 0, pins: 0 };
+  const readers = await peoplePrisma.attendanceDevice.findMany({ where: { orgId, isActive: true } });
+  for (const r of readers) {
+    await peoplePrisma.deviceCommand.createMany({
+      data: [...pins].flatMap((pin) =>
+        removalCommands(pin).map((command) => ({ accountId: r.accountId, orgId, deviceId: r.id, serialNumber: r.serialNumber, command, sequence: SEQ.USER, createdByUserId }))
+      ),
+    });
+  }
+  await peoplePrisma.biometricTemplate.deleteMany({ where: { orgId, OR: [{ employeeId: employee.id }, { pin: { in: [...pins] } }] } });
+  await peoplePrisma.deviceUser.deleteMany({ where: { orgId, pin: { in: [...pins] } } });
+  return { readers: readers.length, pins: pins.size };
+}
+
+// ---------------------------------------------------------------------------
 // The protocol
 // ---------------------------------------------------------------------------
 
@@ -213,7 +350,10 @@ iclockRouter.get(['/cdata', '/cdata.aspx'], async (req, res) => {
   }
 });
 
-/** 2. Data: punches (ATTLOG) and users (OPERLOG / USERINFO); other tables are acknowledged. */
+/** Tables that carry users and fingerprints / faces (ClorTime's list, upper-cased). */
+const DATA_TABLES = new Set(['OPERLOG', 'USERINFO', 'BIODATA', 'FINGERTMP', 'FACE', 'USERVF', 'FACEV7', 'TEMPLATEV10']);
+
+/** 2. Data: punches (ATTLOG), users and templates; other tables are acknowledged. */
 iclockRouter.post(['/cdata', '/cdata.aspx'], async (req, res) => {
   const serial = serialOf(req);
   if (!serial) return text(res, 'OK');
@@ -231,19 +371,15 @@ iclockRouter.post(['/cdata', '/cdata.aspx'], async (req, res) => {
       const n = await ingestPunches(device, body);
       return text(res, `OK: ${n}`);
     }
-    if (table === 'OPERLOG' || table === 'USERINFO') {
-      const users = body
-        .split(/\r?\n/)
-        .map((l) => l.trim())
-        .filter((l) => l.startsWith('USER '))
-        .map(parseUserLine)
-        .filter((u): u is { pin: string; name: string | null } => Boolean(u));
-      for (const u of users) {
-        await peoplePrisma.deviceUser.upsert({
-          where: { deviceId_pin: { deviceId: device.id, pin: u.pin.slice(0, 40) } },
-          create: { accountId: device.accountId, orgId: device.orgId, deviceId: device.id, pin: u.pin.slice(0, 40), name: u.name?.slice(0, 120) || null },
-          update: { name: u.name?.slice(0, 120) || null },
-        });
+    if (DATA_TABLES.has(table)) {
+      const match = await pinMatcher(device.orgId);
+      for (const line of body.split(/\r?\n/).map((l) => l.trim()).filter(Boolean)) {
+        /* OPERLOG also carries operation records (OPLOG …); only user and template lines matter here. */
+        if (table === 'OPERLOG' && !/^(USER|FP|FACE|BIODATA)\b/.test(line)) continue;
+        const r = parseBiodataLine(line, table);
+        if (!r) continue;
+        if (r.kind === 'USER') await storeUser(device, r);
+        else await storeTemplate(device, r.template, match);
       }
     }
     return text(res, 'OK');
@@ -267,7 +403,16 @@ iclockRouter.get(['/getrequest', '/getrequest.aspx'], async (req, res) => {
     }
     await peoplePrisma.attendanceDevice.update({
       where: { id: device.id },
-      data: { lastSeenAt: new Date(), ...(info.model ? { model: info.model } : {}), ...(info.firmware ? { firmware: info.firmware } : {}), ...(ip ? { ip } : {}) },
+      data: {
+        lastSeenAt: new Date(),
+        ...(info.model ? { model: info.model } : {}),
+        ...(info.firmware ? { firmware: info.firmware } : {}),
+        ...(ip ? { ip } : {}),
+        ...(info.faceSupported !== null ? { faceSupported: info.faceSupported } : {}),
+        ...(info.fingerSupported !== null ? { fingerSupported: info.fingerSupported } : {}),
+        /* A version learnt from a face template is more exact than INFO's; keep it. */
+        ...(info.faceMajorVer && !device.faceMajorVer ? { faceMajorVer: info.faceMajorVer } : {}),
+      },
     });
 
     /*
@@ -289,7 +434,7 @@ iclockRouter.get(['/getrequest', '/getrequest.aspx'], async (req, res) => {
       });
     }
 
-    const next = await peoplePrisma.deviceCommand.findFirst({ where: { deviceId: device.id, status: 'PENDING' }, orderBy: { id: 'asc' } });
+    const next = await peoplePrisma.deviceCommand.findFirst({ where: { deviceId: device.id, status: 'PENDING' }, orderBy: [{ sequence: 'asc' }, { id: 'asc' }] });
     if (!next) return text(res, 'OK');
     await peoplePrisma.deviceCommand.update({ where: { id: next.id }, data: { status: 'SENT', sentAt: new Date() } });
     return text(res, `C:${next.id}:${next.command}`);

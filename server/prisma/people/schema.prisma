@@ -489,6 +489,12 @@ model AttendanceDevice {
   firmware     String?
   ip           String?
   lastSeenAt   DateTime?
+  /// From the reader's INFO and from face templates it sends. A face is
+  /// copied to a reader with that reader's own algorithm version.
+  faceSupported  Boolean?
+  fingerSupported Boolean?
+  faceMajorVer   Int?
+  faceMinorVer   Int?
 
   createdByUserId String
   createdAt       DateTime @default(now())
@@ -535,6 +541,9 @@ model DeviceCommand {
   deviceId        String
   serialNumber    String
   command         String
+  /// Sent lowest first: 1 user record, 2 delete, 3 template, 999 everything
+  /// else — a reader rejects a template for a user it does not have yet.
+  sequence        Int       @default(999)
   /// PENDING | SENT | DONE | FAILED
   status          String    @default("PENDING")
   returnCode      Int?
@@ -544,6 +553,7 @@ model DeviceCommand {
   createdAt       DateTime  @default(now())
 
   @@index([serialNumber, status])
+  @@index([deviceId, status, sequence])
   @@index([accountId, orgId, deviceId])
 }
 
@@ -555,6 +565,11 @@ model DeviceUser {
   deviceId   String
   pin        String
   name       String?
+  /// As the reader holds them; copied with the user to the other readers so a
+  /// card or door PIN set on one reader works on all.
+  privilege  Int?
+  password   String?
+  card       String?
   updatedAt  DateTime @updatedAt
 
   @@unique([deviceId, pin])
@@ -569,4 +584,33 @@ model UnclaimedReader {
   lastSeenAt   DateTime @default(now())
   ip           String?
   info         String?
+}
+
+/// A fingerprint or face as a reader enrolled it, kept so it can be copied to
+/// the company's other readers. Biometric data: never sent to the browser,
+/// deleted (and removed from the readers) when the person leaves.
+model BiometricTemplate {
+  id             String   @id @default(cuid())
+  accountId      String
+  orgId          String
+  /// The user ID on the reader.
+  pin            String
+  employeeId     String?
+  /// 1 fingerprint, 9 face (visible light); other BIODATA types kept as sent.
+  type           Int
+  /// Finger index or face number.
+  no             Int      @default(0)
+  data           String
+  valid          Int      @default(1)
+  duress         Int      @default(0)
+  majorVer       Int      @default(0)
+  minorVer       Int      @default(0)
+  format         Int      @default(0)
+  indexNo        Int      @default(0)
+  sourceDeviceId String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([orgId, pin, type, no])
+  @@index([accountId, orgId, employeeId])
 }

@@ -8,6 +8,7 @@ import { PermissionAction } from '../constants/enums.js';
 import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { payrollPrisma } from '../utils/payrollPrisma.js';
 import { PEOPLE_MODULE, PEOPLE_RESOURCE, peopleRouteOk } from '../services/people/guards.js';
+import { revokeFromReaders } from './iclock.js';
 
 /**
  * People: the staff directory.
@@ -341,6 +342,8 @@ peopleRouter.put('/orgs/:orgId/people/employees/:id', can(PermissionAction.EDIT,
       } as any,
     });
     if (b.tagIds) await setTags(accountId, orgId, row.id, b.tagIds);
+    /* Leaving ends door access: off every biometric reader, fingerprints and faces deleted. */
+    if (row.status === 'LEFT' && existing.status !== 'LEFT') await revokeFromReaders(orgId, existing, req.auth!.userId);
     res.json({ employee: row });
   } catch (e) {
     return sendError(res, e);
@@ -367,6 +370,7 @@ peopleRouter.delete('/orgs/:orgId/people/employees/:id', can(PermissionAction.DE
       code: 'EMPLOYEE_IN_PAYROLL',
     });
   }
+  await revokeFromReaders(orgId, existing, req.auth!.userId);
   await peoplePrisma.$transaction([
     peoplePrisma.employee.updateMany({
       where: { orgId, reportingManagerId: existing.id },

@@ -54,3 +54,34 @@ const build = (windowMs: number, max: number, what: string) => [
 export const loginLimiter = build(15 * 60 * 1000, 10, 'sign-in attempts');
 export const signupLimiter = build(60 * 60 * 1000, 5, 'sign-up attempts');
 export const resetLimiter = build(60 * 60 * 1000, 5, 'password reset requests');
+
+/**
+ * Biometric readers (/iclock). One bucket per serial number and one per
+ * address. A reader sends a heartbeat every 30 s and, in real-time mode, one
+ * request per punch — a busy gate at 09:00 can be a few hundred a minute — so
+ * the serial limit is generous; it is there to stop one broken or forged
+ * serial flooding the API. The address limit covers serials invented on the
+ * fly, and leaves room for an office with a dozen readers behind one IP.
+ *
+ * Refused with 503 in plain text: a reader that gets no "OK" keeps its batch
+ * and sends it again after ErrorDelay, so nothing is lost by slowing it down.
+ */
+const readerSerial = (req: any) => String(req.query?.SN || '').trim().slice(0, 40);
+const readerBucket = (max: number, key: (req: any) => string, skipWhen?: (req: any) => boolean) =>
+  rateLimit({
+    windowMs: 60 * 1000,
+    max,
+    standardHeaders: false,
+    legacyHeaders: false,
+    skip: (req) => isDisabled() || Boolean(skipWhen?.(req)),
+    keyGenerator: key,
+    handler: (_req, res) => {
+      res.status(503).type('text/plain').send('BUSY');
+    },
+  });
+
+export const READER_LIMITS = { perSerial: 600, perAddress: 3000 };
+export const readerLimiter = [
+  readerBucket(READER_LIMITS.perSerial, (req) => `sn:${readerSerial(req)}`, (req) => !readerSerial(req)),
+  readerBucket(READER_LIMITS.perAddress, (req) => `ip:${ipOf(req)}`),
+];

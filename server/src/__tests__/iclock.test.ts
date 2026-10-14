@@ -207,3 +207,122 @@ describe('commands through the heartbeat', () => {
     expect((await peoplePrisma.deviceCommand.findUnique({ where: { id: Number(id) } }))!.status).toBe('SENT');
   });
 });
+
+/* Template data as readers send it: long base64, never "AAAAA…" (a blank). */
+const tmpl = (seed: string) => Buffer.from(`${seed}-`.repeat(60)).toString('base64');
+
+describe('fingerprints and faces between readers', () => {
+  it('copies a fingerprint enrolled on one reader to the others, with the user first and the card and PIN kept', async () => {
+    const c = await makeOwner();
+    const a = serial();
+    const b = serial();
+    await addReader(c, a);
+    await addReader(c, b);
+    await person(c, { name: 'Ravi Kumar', code: '104' });
+    const finger = tmpl('finger-104');
+    await reader(a)
+      .push([`USER PIN=104\tName=Ravi Kumar\tPri=0\tPasswd=1234\tCard=998877`, `FP PIN=104\tFID=6\tSize=1200\tValid=1\tTMP=${finger}`], 'OPERLOG')
+      .expect(200);
+
+    const first = (await reader(b).heartbeat().expect(200)).text;
+    expect(first).toMatch(/^C:\d+:DATA UPDATE USERINFO PIN=104\tName=Ravi Kumar\tPri=0\tPasswd=1234\tCard=998877\t/);
+    const second = (await reader(b).heartbeat().expect(200)).text;
+    expect(second).toMatch(new RegExp(`^C:\\d+:DATA UPDATE FINGERTMP PIN=104\\tFID=6\\tSize=\\d+\\tValid=1\\tTMP=${finger.replace(/[+/=]/g, '.')}$`));
+    // Nothing goes back to the reader it came from.
+    const own = await peoplePrisma.deviceCommand.findMany({ where: { serialNumber: a, command: { contains: 'FINGERTMP' } } });
+    expect(own).toHaveLength(0);
+  });
+
+  it('sends a face with the target reader’s own face algorithm version, deleting the old face first', async () => {
+    const c = await makeOwner();
+    const a = serial();
+    const b = serial();
+    await addReader(c, a);
+    await addReader(c, b);
+    // Reader B says it runs face algorithm 58.
+    await reader(b).heartbeat('SpeedFace-V5L-Ver6.6.1,1,1,0,10.0.0.9,10,58,12').expect(200);
+    await peoplePrisma.deviceCommand.deleteMany({ where: { serialNumber: b } });
+
+    const face = tmpl('face-201');
+    await reader(a)
+      .push([`BIODATA Pin=201\tNo=0\tIndex=0\tValid=1\tDuress=0\tType=9\tMajorVer=40\tMinorVer=1\tFormat=0\tTmp=${face}`], 'BIODATA')
+      .expect(200);
+    const cmds = (await peoplePrisma.deviceCommand.findMany({ where: { serialNumber: b }, orderBy: [{ sequence: 'asc' }, { id: 'asc' }] })).map((x) => x.command.split('\t')[0] + (x.command.includes('MajorVer=') ? ` ${x.command.match(/MajorVer=\d+/)![0]}` : ''));
+    expect(cmds).toEqual(['DATA UPDATE USERINFO PIN=201', 'DATA DELETE FACE PIN=201', 'DATA UPDATE BIODATA Pin=201 MajorVer=58']);
+    // Reader A's own version is learnt from what it sent.
+    expect((await peoplePrisma.attendanceDevice.findUnique({ where: { serialNumber: a } }))!.faceMajorVer).toBe(40);
+  });
+
+  it('does not bounce unchanged templates round, and skips faces for a reader without face', async () => {
+    const c = await makeOwner();
+    const a = serial();
+    const b = serial();
+    const fingerOnly = serial();
+    await addReader(c, a);
+    await addReader(c, b);
+    await addReader(c, fingerOnly);
+    await reader(fingerOnly).heartbeat('MB20-Ver6.0,0,1,0,10.0.0.7').expect(200);
+    const face = `BIODATA Pin=301\tNo=0\tIndex=0\tValid=1\tDuress=0\tType=9\tMajorVer=40\tMinorVer=1\tFormat=0\tTmp=${tmpl('face-301')}`;
+    await reader(a).push([face], 'BIODATA').expect(200);
+    const before = await peoplePrisma.deviceCommand.count({ where: { orgId: c.orgId, command: { contains: 'PIN=301' } } });
+    // Reader B, asked for its templates, sends the same face back.
+    await reader(b).push([face], 'BIODATA').expect(200);
+    expect(await peoplePrisma.deviceCommand.count({ where: { orgId: c.orgId, command: { contains: 'PIN=301' } } })).toBe(before);
+    expect(await peoplePrisma.deviceCommand.count({ where: { serialNumber: fingerOnly, command: { contains: 'BIODATA' } } })).toBe(0);
+  });
+
+  it('copies everything stored onto a new reader on request, and shows counts — never template data', async () => {
+    const c = await makeOwner();
+    const a = serial();
+    await addReader(c, a);
+    await person(c, { name: 'Copied', code: '401' });
+    await reader(a).push([`FP PIN=401\tFID=1\tSize=1\tValid=1\tTMP=${tmpl('f401a')}`, `FP PIN=401\tFID=2\tSize=1\tValid=1\tTMP=${tmpl('f401b')}`], 'FINGERTMP').expect(200);
+
+    const fresh = serial();
+    const { device } = await addReader(c, fresh);
+    const r = (await api(c).post(`/devices/${device.id}/commands`, { action: 'COPY_TEMPLATES' }).expect(200)).body;
+    expect(r).toMatchObject({ people: 1, queued: 3 });
+
+    const list = (await api(c).get('/biometrics').expect(200)).body.people;
+    expect(list.find((p: any) => p.pin === '401')).toMatchObject({ employeeName: 'Copied', fingers: 2, faces: 0 });
+    expect(JSON.stringify(list)).not.toContain(tmpl('f401a'));
+  });
+
+  it('someone who leaves is taken off every reader and their templates are deleted', async () => {
+    const c = await makeOwner();
+    const a = serial();
+    const b = serial();
+    await addReader(c, a);
+    await addReader(c, b);
+    const p = await person(c, { name: 'Leaver', code: '501' });
+    await reader(a).push([`FP PIN=501\tFID=1\tSize=1\tValid=1\tTMP=${tmpl('f501')}`], 'FINGERTMP').expect(200);
+    await peoplePrisma.deviceCommand.deleteMany({ where: { orgId: c.orgId } });
+
+    await request(app).put(`/api/orgs/${c.orgId}/people/employees/${p.id}`).set(at(c)).send({ status: 'LEFT', dateOfLeaving: '2026-10-01' }).expect(200);
+    for (const sn of [a, b]) {
+      const cmds = (await peoplePrisma.deviceCommand.findMany({ where: { serialNumber: sn }, orderBy: { id: 'asc' } })).map((x) => x.command);
+      expect(cmds).toEqual(['DATA DELETE FINGERTMP PIN=501', 'DATA DELETE FACE PIN=501', 'DATA DELETE USERINFO PIN=501']);
+    }
+    expect(await peoplePrisma.biometricTemplate.count({ where: { orgId: c.orgId, pin: '501' } })).toBe(0);
+  });
+});
+
+describe('request limit', () => {
+  it('slows a serial that floods the endpoint, without losing its data', async () => {
+    process.env.DISABLE_RATE_LIMIT = 'false';
+    try {
+      const sn = serial();
+      const { READER_LIMITS } = await import('../middleware/rateLimit.js');
+      let busy = 0;
+      for (let i = 0; i < READER_LIMITS.perSerial + 5; i++) {
+        const r = await reader(sn).heartbeat();
+        if (r.status === 503) busy += 1;
+      }
+      expect(busy).toBeGreaterThan(0);
+      // Another reader is not affected.
+      expect((await reader(serial()).heartbeat()).status).toBe(200);
+    } finally {
+      process.env.DISABLE_RATE_LIMIT = 'true';
+    }
+  }, 120_000);
+});

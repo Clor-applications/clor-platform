@@ -1,4 +1,4 @@
-import { CalendarCheck, CalendarDays, CalendarOff, CircleHelp, ClipboardCheck, Clock3, Cpu, FileText, Fingerprint, Inbox, LayoutDashboard, ListChecks, Scale, Tags, UserRoundCheck, Users } from 'lucide-react';
+import { CalendarCheck, CalendarDays, CalendarOff, CircleHelp, ClipboardCheck, Clock3, Cpu, FileText, Fingerprint, ScanFace, Inbox, LayoutDashboard, ListChecks, Scale, Tags, UserRoundCheck, Users } from 'lucide-react';
 
 import AttendanceToday from './src/screens/AttendanceToday';
 import MyAttendance from './src/screens/MyAttendance';
@@ -15,6 +15,7 @@ import LeaveTypes from './src/screens/LeaveTypes';
 import AttendanceDevices from './src/screens/AttendanceDevices';
 import AttendanceRegisters from './src/screens/AttendanceRegisters';
 import UnmatchedPunches from './src/screens/UnmatchedPunches';
+import Enrolments from './src/screens/Enrolments';
 
 /**
  * Everything the shell knows about Attendance.
@@ -54,6 +55,7 @@ export const attendanceApp = {
     { key: 'leaveTypes', label: 'Leave types', icon: Tags },
     { section: 'Biometric readers' },
     { key: 'readers', label: 'Readers', icon: Cpu },
+    { key: 'enrolments', label: 'Enrolments', icon: ScanFace },
     { key: 'unmatched', label: 'Unmatched punches', icon: CircleHelp },
     { key: 'registers', label: 'Registers', icon: FileText },
   ],
@@ -71,6 +73,7 @@ export const attendanceApp = {
     leaveBalances: LeaveBalances,
     leaveTypes: LeaveTypes,
     readers: AttendanceDevices,
+    enrolments: Enrolments,
     unmatched: UnmatchedPunches,
     registers: AttendanceRegisters,
   },

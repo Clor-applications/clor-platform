@@ -1,7 +1,11 @@
 import { describe, it, expect } from 'vitest';
 
 import {
+  FACE,
+  FINGER,
   admsField,
+  parseBiodataLine,
+  templateCommands,
   instantOf,
   pairDay,
   parseAttlogLine,
@@ -29,7 +33,15 @@ describe('reading what a reader sends', () => {
   });
 
   it('reads model, firmware and only a real IP from INFO', () => {
-    expect(parseInfo('ZAM70-NF24HA-Ver3.3.12,1,1,0,192.168.1.201,10,40')).toEqual({ model: 'ZAM70-NF24HA', firmware: '3.3.12', ip: '192.168.1.201' });
+    expect(parseInfo('ZAM70-NF24HA-Ver3.3.12,1,1,0,192.168.1.201,10,40')).toEqual({
+      model: 'ZAM70-NF24HA',
+      firmware: '3.3.12',
+      ip: '192.168.1.201',
+      faceSupported: true,
+      fingerSupported: true,
+      faceMajorVer: 40,
+    });
+    expect(parseInfo('MB20-Ver6.0,0,1,0,10.0.0.7').faceSupported).toBe(false);
     expect(parseInfo('X-Ver1,1,1,0,;rm -rf /').ip).toBeNull();
   });
 
@@ -98,5 +110,61 @@ describe('commands', () => {
   it('pins compare without leading zeros', () => {
     expect(pinKey('050')).toBe(pinKey('50'));
     expect(pinKey('omnt-27')).toBe('OMNT-27');
+  });
+});
+
+describe('templates', () => {
+  const b64 = Buffer.from('x'.repeat(200)).toString('base64');
+
+  it('reads fingerprints, faces and BIODATA, keeping base64 whole', () => {
+    expect(parseBiodataLine(`FP PIN=104\tFID=6\tSize=1200\tValid=1\tTMP=${b64}`)).toMatchObject({ kind: 'TEMPLATE', template: { pin: '104', type: FINGER, no: 6, data: b64 } });
+    expect(parseBiodataLine(`FACE PIN=104\tFID=0\tVALID=1\tTMP=${b64}`)).toMatchObject({ template: { type: FACE } });
+    expect(parseBiodataLine(`BIODATA Pin=7\tNo=0\tIndex=0\tValid=1\tDuress=0\tType=9\tMajorVer=58\tMinorVer=12\tFormat=0\tTmp=${b64}`)).toMatchObject({
+      template: { pin: '7', type: FACE, majorVer: 58, minorVer: 12 },
+    });
+    expect(parseBiodataLine(`PIN=9\tFID=1\tTMP=${b64}`, 'FINGERTMP')).toMatchObject({ template: { type: FINGER } });
+  });
+
+  it('skips blank and truncated templates', () => {
+    expect(parseBiodataLine(`FP PIN=1\tFID=0\tTMP=${'A'.repeat(200)}`)).toBeNull();
+    expect(parseBiodataLine('FP PIN=1\tFID=0\tTMP=abc')).toBeNull();
+  });
+
+  it('reads a user with card, password and privilege', () => {
+    expect(parseBiodataLine('USER PIN=104\tName=Ravi\tPri=14\tPasswd=1234\tCard=998877')).toEqual({
+      kind: 'USER',
+      pin: '104',
+      name: 'Ravi',
+      privilege: 14,
+      password: '1234',
+      card: '998877',
+    });
+  });
+
+  it('builds FINGERTMP for fingers, delete + BIODATA for faces at the target’s version', () => {
+    const t = { pin: '7', no: 0, data: b64, valid: 1, duress: 0, majorVer: 40, minorVer: 1, format: 0, indexNo: 0 };
+    const f = templateCommands({ ...t, type: FINGER });
+    expect(f).toHaveLength(1);
+    expect(f[0].command).toMatch(/^DATA UPDATE FINGERTMP PIN=7\tFID=0\tSize=200\tValid=1\tTMP=/);
+    const face = templateCommands({ ...t, type: FACE }, { faceMajorVer: 58, faceMinorVer: 12 });
+    expect(face.map((c) => c.command.split('\t')[0])).toEqual(['DATA DELETE FACE PIN=7', 'DATA UPDATE BIODATA Pin=7']);
+    expect(face[1].command).toContain('MajorVer=58\tMinorVer=12');
+    expect(face[0].seq).toBeLessThan(face[1].seq);
+  });
+});
+
+describe('command vocabulary', () => {
+  it('every DATA command targets an entity the readers accept (ClorTime tests/adms_commands.test.js)', async () => {
+    const { readFileSync } = await import('node:fs');
+    const { join } = await import('node:path');
+    /* Readers reject anything else with Return=-1004, which looks like a network failure. USERVF, facev7 and
+       templatev10 are absent on purpose: ClorTime's readers rejected them every time. "USER" is not "USERINFO". */
+    const KNOWN = new Set(['USERINFO', 'FINGERTMP', 'FACE', 'BIODATA', 'ATTLOG', 'USERPIC', 'SMS', 'WORKCODE', 'OPLOG']);
+    const found: string[] = [];
+    for (const rel of ['services/attendance/adms.ts', 'routes/iclock.ts', 'routes/devices.ts']) {
+      const src = readFileSync(join(__dirname, '..', rel), 'utf8');
+      for (const m of src.matchAll(/DATA\s+(UPDATE|DELETE|QUERY)\s+([A-Za-z]+)/g)) if (!KNOWN.has(m[2].toUpperCase())) found.push(`${rel}: ${m[0]}`);
+    }
+    expect(found).toEqual([]);
   });
 });

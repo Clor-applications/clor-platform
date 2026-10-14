@@ -113,3 +113,4 @@ export const readerServer = () => {
     return { host: window.location.hostname, port: '80', https: false };
   }
 };
+export const listBiometrics = () => get('/biometrics').then((r) => r?.people || []);

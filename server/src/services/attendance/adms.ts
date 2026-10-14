@@ -42,9 +42,69 @@ export const ONLINE_WINDOW_MS = 3 * 60_000;
  */
 export const admsField = (value: unknown) => String(value ?? '').replace(/[\u0000-\u001f\u007f]+/g, ' ').trim();
 
-/** Add a user to a reader; ClorTime's DATA UPDATE USERINFO, which its fleet accepts. */
-export const userInfoCommand = (pin: string, name: string) =>
-  `DATA UPDATE USERINFO PIN=${admsField(pin)}\tName=${admsField(name)}\tPri=0\tPasswd=\tCard=\tGrp=1\tTZ=1\tVerify=0\tFace=1\tFPCount=1`;
+/**
+ * Add or update a user on a reader; ClorTime's DATA UPDATE USERINFO, which its
+ * fleet accepts. Privilege, password and card are copied from the reader the
+ * user came from, so a door PIN or card set on one reader works on all.
+ */
+export const userInfoCommand = (pin: string, name: string, extra: { privilege?: number | null; password?: string | null; card?: string | null } = {}) =>
+  `DATA UPDATE USERINFO PIN=${admsField(pin)}\tName=${admsField(name)}\tPri=${admsField(extra.privilege ?? 0)}\tPasswd=${admsField(extra.password ?? '')}\tCard=${admsField(extra.card ?? '')}\tGrp=1\tTZ=1\tVerify=0\tFace=1\tFPCount=1`;
+
+/** Command order on a reader (ClorTime's sequence): user, then delete, then template. */
+export const SEQ = { USER: 1, DELETE: 2, TEMPLATE: 3, OTHER: 999 } as const;
+
+export const FACE = 9;
+export const FINGER = 1;
+
+/** Bytes in a base64 template (FINGERTMP carries it as Size=). */
+export const templateSize = (b64: string) => {
+  const clean = String(b64 || '').trim().replace(/[\r\n]/g, '');
+  return Math.floor((clean.length * 3) / 4) - (clean.match(/=/g) || []).length;
+};
+
+export type Template = {
+  pin: string;
+  type: number;
+  no: number;
+  data: string;
+  valid: number;
+  duress: number;
+  majorVer: number;
+  minorVer: number;
+  format: number;
+  indexNo: number;
+};
+
+/**
+ * The commands that put one template on a reader. Fingerprints go as
+ * FINGERTMP (the readers reject them as BIODATA); a face is deleted first and
+ * sent as BIODATA with the target reader's own face algorithm version, which a
+ * face must match to be recognised there (ClorTime adms.js / device_sync.js).
+ * Other BIODATA types are sent back as BIODATA unchanged.
+ */
+export function templateCommands(t: Template, target: { faceMajorVer?: number | null; faceMinorVer?: number | null } = {}) {
+  const data = String(t.data || '').trim().replace(/[\r\n]/g, '');
+  const pin = admsField(t.pin);
+  if (t.type === FINGER) {
+    return [{ seq: SEQ.TEMPLATE, command: `DATA UPDATE FINGERTMP PIN=${pin}\tFID=${admsField(t.no)}\tSize=${templateSize(data)}\tValid=${admsField(t.valid || 1)}\tTMP=${admsField(data)}` }];
+  }
+  const major = t.type === FACE ? target.faceMajorVer || t.majorVer || 40 : t.majorVer;
+  const minor = t.type === FACE ? target.faceMinorVer || t.minorVer || 1 : t.minorVer;
+  const biodata = `DATA UPDATE BIODATA Pin=${pin}\tNo=${admsField(t.no)}\tIndex=${admsField(t.indexNo)}\tValid=${admsField(t.valid || 1)}\tDuress=${admsField(t.duress)}\tType=${admsField(t.type)}\tMajorVer=${admsField(major)}\tMinorVer=${admsField(minor)}\tFormat=${admsField(t.format)}\tTmp=${admsField(data)}`;
+  return t.type === FACE
+    ? [
+        { seq: SEQ.DELETE, command: `DATA DELETE FACE PIN=${pin}` },
+        { seq: SEQ.TEMPLATE, command: biodata },
+      ]
+    : [{ seq: SEQ.TEMPLATE, command: biodata }];
+}
+
+/** Take someone off a reader: templates first, then the user (ClorTime queueTemplateRemoval). */
+export const removalCommands = (pin: string) => [
+  `DATA DELETE FINGERTMP PIN=${admsField(pin)}`,
+  `DATA DELETE FACE PIN=${admsField(pin)}`,
+  `DATA DELETE USERINFO PIN=${admsField(pin)}`,
+];
 
 /**
  * Commands a reader accepts. Anything else is rejected with Return=-1004, which
@@ -55,6 +115,13 @@ export const COMMANDS = {
   FETCH_USERS: 'DATA QUERY USERINFO',
   REBOOT: 'REBOOT',
 } as const;
+
+/**
+ * Asking a reader for its templates. USERVF is deliberately absent: ClorTime's
+ * readers rejected it every time (44 of 44), and FACE and BIODATA return the
+ * same data. BIODATA is where newer firmware keeps them.
+ */
+export const FETCH_TEMPLATE_COMMANDS = ['DATA QUERY FINGERTMP', 'DATA QUERY FACE', 'DATA QUERY BIODATA'];
 
 export type ParsedPunch = { pin: string; localTime: string; state: string; verifyMode: number };
 
@@ -151,15 +218,74 @@ export const pinKey = (pin: string) => {
  * The IP is accepted only if it looks like one (ClorTime: it was later used in a command).
  */
 export function parseInfo(info: string | undefined) {
-  if (!info) return { model: null, firmware: null, ip: null };
+  if (!info) return { model: null, firmware: null, ip: null, faceSupported: null, fingerSupported: null, faceMajorVer: null };
   const parts = String(info).split(',');
   const head = parts[0] || '';
   const ver = head.match(/-[Vv]er([\d.]+)/);
   const cut = head.search(/-ver/i);
+  /* [1] face, [2] finger, [6] face algorithm major version (ClorTime device-capabilities.js). */
+  const major = parts.length > 6 ? Number.parseInt(parts[6], 10) : NaN;
   return {
     model: cut > 0 ? head.slice(0, cut).slice(0, 80) : null,
     firmware: ver ? ver[1].slice(0, 40) : null,
     ip: parts.length > 4 && /^(\d{1,3}\.){3}\d{1,3}$/.test(parts[4]) ? parts[4] : null,
+    faceSupported: parts.length > 1 ? parts[1] === '1' : null,
+    fingerSupported: parts.length > 2 ? parts[2] === '1' : null,
+    faceMajorVer: major >= 30 && major <= 100 ? major : null,
+  };
+}
+
+/**
+ * A user or template line, as readers send them in BIODATA / FINGERTMP / FACE
+ * tables or inside OPERLOG (ClorTime processBiodataLine):
+ *   USER PIN=104\tName=Ravi\tPri=0\tPasswd=\tCard=…
+ *   FP PIN=104\tFID=6\tSize=1240\tValid=1\tTMP=<base64>
+ *   FACE PIN=104\tFID=0\tSIZE=…\tVALID=1\tTMP=<base64>
+ *   BIODATA Pin=104\tNo=0\tIndex=0\tValid=1\tDuress=0\tType=9\tMajorVer=40\tMinorVer=1\tFormat=0\tTmp=<base64>
+ * Split on tabs only when there are tabs: base64 must stay whole.
+ */
+export function parseBiodataLine(line: string, table = '') {
+  const parts = line.includes('\t') ? line.split('\t') : line.split(/\s+/);
+  const fields: Record<string, string> = {};
+  for (const part of parts) {
+    const kv = part.replace(/^(BIODATA|FACE|FP|USER)\s+/, '');
+    const i = kv.indexOf('=');
+    if (i > 0) fields[kv.slice(0, i).trim().toUpperCase()] = kv.slice(i + 1).trim();
+  }
+  const pin = fields.PIN || '';
+  if (!pin) return null;
+  const data = fields.TEMP || fields.TMP || fields.V || fields.DATA || '';
+  const int = (k: string, d = 0) => {
+    const n = Number.parseInt(fields[k] ?? '', 10);
+    return Number.isNaN(n) ? d : n;
+  };
+
+  if (line.startsWith('USER') && !data) {
+    return { kind: 'USER' as const, pin, name: fields.NAME || null, privilege: fields.PRI !== undefined ? int('PRI') : null, password: fields.PASSWD ?? null, card: fields.CARD ?? null };
+  }
+
+  let type = fields.TYPE !== undefined ? int('TYPE') : NaN;
+  if (Number.isNaN(type)) {
+    const t = table.toUpperCase();
+    if (line.startsWith('FACE') || t === 'FACE' || t === 'FACEV7' || t === 'USERVF') type = FACE;
+    else if (line.startsWith('FP') || t === 'FINGERTMP' || t === 'TEMPLATEV10') type = FINGER;
+  }
+  /* Blank or truncated templates are not templates (ClorTime: AAAAA… and short data skipped). */
+  if (Number.isNaN(type) || !data || data.startsWith('AAAAA') || data.length < 100) return null;
+  return {
+    kind: 'TEMPLATE' as const,
+    template: {
+      pin,
+      type,
+      no: fields.NO !== undefined ? int('NO') : fields.FID !== undefined ? int('FID') : fields.FACEID !== undefined ? int('FACEID') : int('INDEX'),
+      data: data.replace(/[\r\n]/g, ''),
+      valid: int('VALID', 1),
+      duress: int('DURESS'),
+      majorVer: int('MAJORVER'),
+      minorVer: int('MINORVER'),
+      format: int('FORMAT'),
+      indexNo: int('INDEX'),
+    } satisfies Template,
   };
 }
 
