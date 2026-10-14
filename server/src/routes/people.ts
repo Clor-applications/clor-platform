@@ -72,6 +72,7 @@ const employeeSchema = z.object({
   workEmail: z.string().trim().email('That is not an email address.').max(160).optional().nullable().or(z.literal('')),
   workPhone: text(40),
   workLocation: text(120),
+  devicePin: text(40),
   probationEndDate: date,
   contractEndDate: date,
 
@@ -139,7 +140,7 @@ const employeeData = (b: EmployeeBody) => {
     'firstName', 'lastName', 'phone', 'branchId', 'dateOfJoining', 'dateOfLeaving', 'notes', 'gender', 'dateOfBirth',
     'maritalStatus', 'photoUrl', 'addressLine', 'city', 'state', 'country', 'pincode', 'emergencyContactName',
     'emergencyContactPhone', 'emergencyContactRelation', 'reportingManagerId', 'workPhone', 'workLocation',
-    'probationEndDate', 'contractEndDate', 'email', 'personalEmail', 'workEmail',
+    'probationEndDate', 'contractEndDate', 'email', 'personalEmail', 'workEmail', 'devicePin',
   ] as const;
   for (const k of keys) if (b[k] !== undefined) d[k] = blank(b[k]);
   if (b.status) d.status = b.status;
@@ -161,7 +162,7 @@ const withMeta = async (orgId: string, rows: any[]) => {
 
 const sendError = (res: any, e: any) => {
   if (e?.status) return res.status(e.status).json({ error: e.message });
-  if (String(e?.code) === 'P2002') return res.status(409).json({ error: 'That code or name is already used in this organisation.' });
+  if (String(e?.code) === 'P2002') return res.status(409).json({ error: 'That code, name or reader ID is already used in this organisation.' });
   throw e;
 };
 

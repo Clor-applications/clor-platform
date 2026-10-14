@@ -1,4 +1,4 @@
-import { CalendarCheck, CalendarDays, CalendarOff, ClipboardCheck, Clock3, Cpu, FileText, Fingerprint, Inbox, LayoutDashboard, ListChecks, Scale, Tags, UserRoundCheck, Users } from 'lucide-react';
+import { CalendarCheck, CalendarDays, CalendarOff, CircleHelp, ClipboardCheck, Clock3, Cpu, FileText, Fingerprint, Inbox, LayoutDashboard, ListChecks, Scale, Tags, UserRoundCheck, Users } from 'lucide-react';
 
 import AttendanceToday from './src/screens/AttendanceToday';
 import MyAttendance from './src/screens/MyAttendance';
@@ -14,6 +14,7 @@ import LeaveBalances from './src/screens/LeaveBalances';
 import LeaveTypes from './src/screens/LeaveTypes';
 import AttendanceDevices from './src/screens/AttendanceDevices';
 import AttendanceRegisters from './src/screens/AttendanceRegisters';
+import UnmatchedPunches from './src/screens/UnmatchedPunches';
 
 /**
  * Everything the shell knows about Attendance.
@@ -23,9 +24,9 @@ import AttendanceRegisters from './src/screens/AttendanceRegisters';
  * balances, requests), and a month summary of payable days for Payroll. Modules and operations follow Horilla HRMS's
  * attendance app (reference only; LGPL code is not copied).
  *
- * Biometric readers stay a separate on-prem Clor application, one instance
- * per customer; its screens are kept under "Biometric (on-prem)" until single
- * sign-on and per-company routing to that instance land.
+ * Biometric readers (ZKTeco / eSSL) push punches to /iclock, the same
+ * protocol the on-premise ClorTime server speaks; a company claims a reader by
+ * its serial number under Readers.
  */
 export const attendanceApp = {
   id: 'attendance',
@@ -51,8 +52,9 @@ export const attendanceApp = {
     { key: 'shiftAssignments', label: 'Shift assignments', icon: Users },
     { key: 'holidays', label: 'Holidays', icon: CalendarDays },
     { key: 'leaveTypes', label: 'Leave types', icon: Tags },
-    { section: 'Biometric (on-prem)' },
+    { section: 'Biometric readers' },
     { key: 'readers', label: 'Readers', icon: Cpu },
+    { key: 'unmatched', label: 'Unmatched punches', icon: CircleHelp },
     { key: 'registers', label: 'Registers', icon: FileText },
   ],
   screens: {
@@ -69,6 +71,7 @@ export const attendanceApp = {
     leaveBalances: LeaveBalances,
     leaveTypes: LeaveTypes,
     readers: AttendanceDevices,
+    unmatched: UnmatchedPunches,
     registers: AttendanceRegisters,
   },
 };

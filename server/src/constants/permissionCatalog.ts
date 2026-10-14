@@ -261,6 +261,12 @@ export const PERMISSION_CATALOG: ModuleDef[] = [
         actions: MASTER,
       },
       {
+        key: 'Attendance Devices',
+        label: 'Biometric readers',
+        description: 'Add readers by serial number, send them staff, match reader IDs to employees',
+        actions: MASTER,
+      },
+      {
         key: 'Leave Requests',
         label: 'Leave requests and balances',
         description: 'Everyone\'s leave: apply on someone\'s behalf, Approve, cancel, set balances (Edit)',
@@ -653,6 +659,7 @@ export const ROLE_PRESETS: Record<string, RolePreset> = {
       ['ATTENDANCE', 'My Attendance', ['*']],
       ['ATTENDANCE', 'Leave Types', ['*']],
       ['ATTENDANCE', 'Leave Requests', ['*']],
+      ['ATTENDANCE', 'Attendance Devices', ['*']],
       ['PEOPLE', 'Employees', [A.VIEW]],
     ],
   },

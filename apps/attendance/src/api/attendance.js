@@ -1,4 +1,4 @@
-import { apiFetch } from '@platform/http';
+import { API_BASE, apiFetch } from '@platform/http';
 import { orgId as platformOrgId } from '@platform/context';
 
 /** The native attendance API (server: routes/attendance.ts). */
@@ -89,3 +89,27 @@ export const LEAVE_STATUS = {
 };
 /** A request's dates: one day, or first → last. */
 export const leaveRange = (from, to) => (from === to ? from : `${from} → ${to}`);
+
+// Biometric readers (server: routes/devices.ts; the readers talk to /iclock)
+export const listDevices = () => get('/devices');
+export const addDevice = (body) => send('/devices', 'POST', body);
+export const updateDevice = (id, body) => send(`/devices/${encodeURIComponent(id)}`, 'PUT', body);
+export const deleteDevice = (id) => send(`/devices/${encodeURIComponent(id)}`, 'DELETE');
+export const deviceCommand = (id, action) => send(`/devices/${encodeURIComponent(id)}/commands`, 'POST', { action });
+export const listDeviceCommands = (id) => get(`/devices/${encodeURIComponent(id)}/commands`).then((r) => r?.commands || []);
+export const listDeviceUsers = (id) => get(`/devices/${encodeURIComponent(id)}/users`).then((r) => r?.users || []);
+export const listUnmatchedPunches = () => get('/punches/unmatched').then((r) => r?.pins || []);
+export const matchPunches = (pin, employeeId) => send('/punches/match', 'POST', { pin, employeeId });
+
+/**
+ * What to type into the reader's Cloud Server Setting: the API's own host and
+ * port. Readers add the /iclock path themselves.
+ */
+export const readerServer = () => {
+  try {
+    const u = new URL(API_BASE, window.location.origin);
+    return { host: u.hostname, port: u.port || (u.protocol === 'https:' ? '443' : '80'), https: u.protocol === 'https:' };
+  } catch {
+    return { host: window.location.hostname, port: '80', https: false };
+  }
+};

@@ -33,6 +33,8 @@ import { payrollEmployeesRouter } from './routes/payrollEmployees.js';
 import { peopleRouter } from './routes/people.js';
 import { attendanceRouter } from './routes/attendance.js';
 import { leaveRouter } from './routes/leave.js';
+import { iclockRouter } from './routes/iclock.js';
+import { devicesRouter } from './routes/devices.js';
 import { payrollAssignmentsRouter } from './routes/payrollAssignments.js';
 import { payrollRunsRouter } from './routes/payrollRuns.js';
 import { payrollPostingRouter } from './routes/payrollPosting.js';
@@ -151,6 +153,14 @@ export function buildApp() {
       allowedHeaders: ['Content-Type', 'Authorization', 'x-org-id', 'x-branch-id', 'x-warehouse-id'],
     })
   );
+  /*
+   * Biometric readers (ZKTeco / eSSL push). Plain-text bodies, no login: a
+   * reader is known by its serial number, which a company claims under
+   * Attendance → Readers. Mounted before the JSON parser and outside /api, so
+   * none of the user-session middleware applies. Bodies are capped: a real
+   * batch of punches is a few hundred KB (ClorTime caps at 8 MB).
+   */
+  app.use('/iclock', express.text({ type: () => true, limit: '8mb' }), iclockRouter);
   app.use(express.json({ limit: '1mb' }));
   // `tiny`, with share tokens, GSTINs and search terms taken out of the URL.
   morgan.token('safe-url', (req: any) => safeUrl(req.originalUrl || req.url));
@@ -236,6 +246,7 @@ export function buildApp() {
   app.use('/api', peopleRouter);
   app.use('/api', attendanceRouter);
   app.use('/api', leaveRouter);
+  app.use('/api', devicesRouter);
   app.use('/api', payrollAssignmentsRouter);
   app.use('/api', payrollRunsRouter);
   app.use('/api', payrollPostingRouter);

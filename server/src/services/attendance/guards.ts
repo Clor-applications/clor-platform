@@ -21,4 +21,5 @@ export const ATTENDANCE_RESOURCE = {
   self: 'My Attendance',
   leaveTypes: 'Leave Types',
   leave: 'Leave Requests',
+  devices: 'Attendance Devices',
 } as const;

@@ -483,6 +483,7 @@ function EmployeeFile({ id, onClose, onEdit, onDeleted }) {
               <Field label="Work email" value={person.workEmail} />
               <Field label="Work phone" value={person.workPhone} />
               <Field label="Work location" value={person.workLocation} />
+              <Field label="Reader ID" value={person.devicePin || (person.code ? `${person.code} (employee code)` : null)} />
               <Field label="Joined" value={person.dateOfJoining} />
               <Field label="Probation ends" value={person.probationEndDate} />
               <Field label="Contract ends" value={person.contractEndDate} />
@@ -583,7 +584,7 @@ function EmployeeForm({ initial, lists, people, onClose, onSaved }) {
       'name', 'firstName', 'lastName', 'code', 'email', 'phone', 'status', 'dateOfJoining', 'dateOfLeaving', 'gender', 'dateOfBirth',
       'maritalStatus', 'personalEmail', 'photoUrl', 'addressLine', 'city', 'state', 'country', 'pincode', 'emergencyContactName',
       'emergencyContactPhone', 'emergencyContactRelation', 'departmentId', 'jobPositionId', 'jobRoleId', 'employeeTypeId', 'workTypeId',
-      'reportingManagerId', 'workEmail', 'workPhone', 'workLocation', 'probationEndDate', 'contractEndDate', 'tagIds',
+      'reportingManagerId', 'workEmail', 'workPhone', 'workLocation', 'devicePin', 'probationEndDate', 'contractEndDate', 'tagIds',
     ];
     const body = Object.fromEntries(keys.filter((k) => form[k] !== undefined).map((k) => [k, form[k] === '' ? null : form[k]]));
     try {
@@ -693,6 +694,7 @@ function EmployeeForm({ initial, lists, people, onClose, onSaved }) {
           {input('workEmail', 'Work email', { type: 'email' })}
           {input('workPhone', 'Work phone', { type: 'tel' })}
           {input('workLocation', 'Work location')}
+          {input('devicePin', 'Reader ID', { placeholder: form.code ? `Blank = employee code (${form.code})` : 'ID on the biometric reader' })}
           {input('dateOfJoining', 'Date of joining', { type: 'date' })}
           {input('probationEndDate', 'Probation ends', { type: 'date' })}
           {input('contractEndDate', 'Contract ends', { type: 'date' })}

@@ -91,6 +91,9 @@ model Employee {
   workEmail          String?
   workPhone          String?
   workLocation       String?
+  /// The person's user ID on the biometric readers, when it is not their
+  /// employee code (readers drop leading zeros; old enrolments used prefixes).
+  devicePin          String?
   probationEndDate   String?
   contractEndDate    String?
 
@@ -102,6 +105,7 @@ model Employee {
   updatedAt       DateTime @updatedAt
 
   @@unique([orgId, code])
+  @@unique([orgId, devicePin])
   @@index([accountId, orgId, status])
   @@index([accountId, orgId, branchId])
   @@index([accountId, orgId, departmentId])
@@ -467,4 +471,102 @@ model LeaveRequest {
 
   @@index([accountId, orgId, status])
   @@index([accountId, orgId, employeeId, fromDate])
+}
+
+/// A biometric reader (ZKTeco / eSSL) that pushes punches to /iclock. The
+/// company claims it by serial number; a serial belongs to one company.
+model AttendanceDevice {
+  id           String    @id @default(cuid())
+  accountId    String
+  orgId        String
+  serialNumber String    @unique
+  name         String
+  /// both | in | out. A reader at the entrance only is "in": its punches are
+  /// entries whatever key was pressed.
+  direction    String    @default("both")
+  isActive     Boolean   @default(true)
+  model        String?
+  firmware     String?
+  ip           String?
+  lastSeenAt   DateTime?
+
+  createdByUserId String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([accountId, orgId])
+}
+
+/// A punch exactly as a reader sent it. The day is worked out from these.
+model DevicePunch {
+  id           String   @id @default(cuid())
+  accountId    String
+  orgId        String
+  deviceId     String
+  serialNumber String
+  /// The user ID on the reader.
+  pin          String
+  at           DateTime
+  /// The reader's own wall-clock time, IST, "YYYY-MM-DD HH:mm:ss".
+  localTime    String
+  /// The reader's punch state (0 in, 1 out, 2-5 break/overtime, 255 unset).
+  state        String
+  /// IN | OUT, or null when neither the punch nor the reader says.
+  kind         String?
+  /// 1 finger, 15 face, 2 card…, as the reader reports it.
+  verifyMode   Int      @default(0)
+  /// Null until the pin is matched to an employee.
+  employeeId   String?
+  /// The shift day the punch belongs to (a night shift's morning exit is the previous day).
+  shiftDate    String?
+  raw          String?
+  createdAt    DateTime @default(now())
+
+  @@unique([orgId, pin, at])
+  @@index([accountId, orgId, employeeId, shiftDate])
+  @@index([orgId, deviceId, at])
+}
+
+/// A command waiting for a reader's next heartbeat (ADMS "C:<id>:<command>").
+model DeviceCommand {
+  id              Int       @id @default(autoincrement())
+  accountId       String
+  orgId           String
+  deviceId        String
+  serialNumber    String
+  command         String
+  /// PENDING | SENT | DONE | FAILED
+  status          String    @default("PENDING")
+  returnCode      Int?
+  sentAt          DateTime?
+  doneAt          DateTime?
+  createdByUserId String?
+  createdAt       DateTime  @default(now())
+
+  @@index([serialNumber, status])
+  @@index([accountId, orgId, deviceId])
+}
+
+/// The users a reader holds, as it last reported them (DATA QUERY USERINFO).
+model DeviceUser {
+  id         String   @id @default(cuid())
+  accountId  String
+  orgId      String
+  deviceId   String
+  pin        String
+  name       String?
+  updatedAt  DateTime @updatedAt
+
+  @@unique([deviceId, pin])
+  @@index([accountId, orgId])
+}
+
+/// A serial that reached /iclock but no company has claimed. No tenant: it is
+/// only there so "Add reader" can say the reader is already talking to us.
+model UnclaimedReader {
+  serialNumber String   @id
+  firstSeenAt  DateTime @default(now())
+  lastSeenAt   DateTime @default(now())
+  ip           String?
+  info         String?
 }
