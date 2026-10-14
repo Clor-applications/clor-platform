@@ -11207,6 +11207,11 @@ const AppShell = () => {
     (nextOrUpdater) => {
       _setDb((prev) => {
         const next = typeof nextOrUpdater === 'function' ? nextOrUpdater(prev) : nextOrUpdater;
+        /* An updater that changed nothing hands back the same object; keep it.
+           Normalising it anyway made a new db on every call, so an effect that
+           writes "only if something changed" (the expense TDS reconciliation)
+           re-ran on its own write, forever. */
+        if (next === prev) return prev;
         return normalizeDB(next);
       });
     },
