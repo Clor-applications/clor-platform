@@ -70,8 +70,8 @@ export default function AttendanceRequests() {
                     <td className="whitespace-nowrap">
                       {r.status === 'PENDING' ? (
                         <span className="flex gap-1">
-                          <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => act(approveRequest, r, 'Approved; the day is updated.')}><Check size={14} aria-hidden="true" /> Approve</button>
-                          <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => act(rejectRequest, r, 'Rejected.')}><X size={14} aria-hidden="true" /> Reject</button>
+                          <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" aria-label={`Approve ${r.employeeName}'s correction for ${r.date}`} onClick={() => act(approveRequest, r, 'Approved; the day is updated.')}><Check size={14} aria-hidden="true" /> Approve</button>
+                          <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" aria-label={`Reject ${r.employeeName}'s correction for ${r.date}`} onClick={() => act(rejectRequest, r, 'Rejected.')}><X size={14} aria-hidden="true" /> Reject</button>
                         </span>
                       ) : null}
                     </td>

@@ -335,8 +335,11 @@ model AttendanceRecord {
 
   /// PRESENT | HALF_DAY | ABSENT | ON_LEAVE | HOLIDAY | WEEKLY_OFF
   status String
-  /// CLOCK | MANUAL | REQUEST | DEVICE | IMPORT
+  /// CLOCK | MANUAL | REQUEST | LEAVE | DEVICE | IMPORT
   source String @default("MANUAL")
+
+  /// The approved leave that wrote this day, if any (its type says paid or unpaid).
+  leaveRequestId String?
 
   /// Checked by a manager (Horilla's "validate"). Payroll reads validated days.
   validated         Boolean   @default(false)
@@ -395,4 +398,73 @@ model AttendanceRequest {
 
   @@index([accountId, orgId, status])
   @@index([accountId, orgId, employeeId, date])
+}
+
+/// A kind of leave: casual, sick, earned, loss of pay…
+model LeaveType {
+  id         String  @id @default(cuid())
+  accountId  String
+  orgId      String
+  name       String
+  code       String?
+  /// Unpaid leave is loss of pay in the month summary.
+  isPaid     Boolean @default(true)
+  /// Days a year each person gets unless their allocation says otherwise.
+  /// Ignored for unpaid leave, which has no balance.
+  annualDays Float   @default(0)
+  isActive   Boolean @default(true)
+
+  createdByUserId String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([orgId, name])
+  @@index([accountId, orgId])
+}
+
+/// One person's days of one leave type for one calendar year, when it
+/// differs from the type's annual days (joiners, carry-over, grants).
+model LeaveAllocation {
+  id          String  @id @default(cuid())
+  accountId   String
+  orgId       String
+  employeeId  String
+  leaveTypeId String
+  year        Int
+  days        Float
+  note        String?
+
+  createdByUserId String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([employeeId, leaveTypeId, year])
+  @@index([accountId, orgId, year])
+}
+
+/// Time off someone asks for. Approving it marks each working day on leave.
+model LeaveRequest {
+  id          String  @id @default(cuid())
+  accountId   String
+  orgId       String
+  employeeId  String
+  leaveTypeId String
+  fromDate    String /// YYYY-MM-DD
+  toDate      String /// YYYY-MM-DD, inclusive
+  /// Working days in the range (weekly offs and holidays are not counted).
+  days        Float
+  reason      String
+  /// PENDING | APPROVED | REJECTED | CANCELLED
+  status      String  @default("PENDING")
+
+  requestedByUserId String
+  reviewedByUserId  String?
+  reviewedAt        DateTime?
+  reviewNote        String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([accountId, orgId, status])
+  @@index([accountId, orgId, employeeId, fromDate])
 }

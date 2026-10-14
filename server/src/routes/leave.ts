@@ -1,0 +1,438 @@
+import { Router } from 'express';
+import { z } from 'zod';
+
+import { requireAuth } from '../middleware/auth.js';
+import { requireTenantContext } from '../middleware/tenantContext.js';
+import { requirePermission } from '../middleware/rbac.js';
+import { PermissionAction } from '../constants/enums.js';
+import { peoplePrisma } from '../utils/peoplePrisma.js';
+import { ATTENDANCE_MODULE, ATTENDANCE_RESOURCE, attendanceRouteOk } from '../services/attendance/guards.js';
+import { isWeeklyOff } from '../services/attendance/compute.js';
+import {
+  ISO_DATE,
+  employeeIn,
+  fail,
+  isHoliday,
+  myEmployee,
+  sendError,
+  shiftFor,
+  today,
+  withNames,
+  writeDay,
+} from './attendance.js';
+
+/**
+ * Leave, basic (after Horilla HRMS's leave app; reference only).
+ *
+ * Types (paid or unpaid, days a year), per-person allocations when a person
+ * gets something other than the type's days, and requests. Approving a
+ * request marks each working day in it "on leave" — weekly offs and holidays
+ * inside the range are not leave and are not counted. Unpaid leave is loss of
+ * pay in the attendance month summary. A request stays inside one calendar
+ * year, so a balance is always one year's.
+ */
+export const leaveRouter = Router();
+leaveRouter.use(requireAuth, requireTenantContext);
+
+const R = ATTENDANCE_RESOURCE;
+const can = (action: string, resource: string) => requirePermission(ATTENDANCE_MODULE, action as any, resource);
+const base = '/orgs/:orgId/attendance/leave';
+const MAX_SPAN_DAYS = 60;
+const OPEN = ['PENDING', 'APPROVED'];
+
+const addDays = (date: string, n: number) => {
+  const d = new Date(`${date}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+};
+const yearParam = (v: unknown) => {
+  const y = Number(v);
+  return Number.isInteger(y) && y >= 2000 && y <= 2100 ? y : Number(today().slice(0, 4));
+};
+const round = (n: number) => Math.round(n * 100) / 100;
+
+/** The days in a range that are leave: not a weekly off on that day's shift, not a holiday. */
+async function workingDays(orgId: string, employee: { id: string; branchId: string | null }, from: string, to: string) {
+  const out: string[] = [];
+  for (let d = from; d <= to; d = addDays(d, 1)) {
+    const { rule } = await shiftFor(orgId, employee.id, d);
+    if (isWeeklyOff(rule, d)) continue;
+    if (await isHoliday(orgId, d, employee.branchId)) continue;
+    out.push(d);
+  }
+  return out;
+}
+
+type Balance = { allocated: number; used: number; pending: number; available: number };
+
+/** Each person's balance of each type for a year. Unpaid types have no limit (allocated = null). */
+async function balancesFor(accountId: string, orgId: string, employeeIds: string[], year: number) {
+  const [types, allocations, requests] = await Promise.all([
+    peoplePrisma.leaveType.findMany({ where: { accountId, orgId }, orderBy: { name: 'asc' } }),
+    peoplePrisma.leaveAllocation.findMany({ where: { accountId, orgId, year, employeeId: { in: employeeIds } } }),
+    peoplePrisma.leaveRequest.findMany({
+      where: { accountId, orgId, employeeId: { in: employeeIds }, status: { in: OPEN }, fromDate: { gte: `${year}-01-01`, lte: `${year}-12-31` } },
+      select: { employeeId: true, leaveTypeId: true, status: true, days: true },
+    }),
+  ]);
+  const out = new Map<string, Map<string, Balance & { allocated: number | null; available: number | null }>>();
+  for (const id of employeeIds) {
+    const m = new Map();
+    for (const t of types) {
+      const a = allocations.find((x) => x.employeeId === id && x.leaveTypeId === t.id);
+      const mine = requests.filter((r) => r.employeeId === id && r.leaveTypeId === t.id);
+      const used = round(mine.filter((r) => r.status === 'APPROVED').reduce((s, r) => s + r.days, 0));
+      const pending = round(mine.filter((r) => r.status === 'PENDING').reduce((s, r) => s + r.days, 0));
+      const allocated = t.isPaid ? (a ? a.days : t.annualDays) : null;
+      m.set(t.id, { allocated, allocationId: a?.id || null, used, pending, available: allocated === null ? null : round(allocated - used - pending) });
+    }
+    out.set(id, m);
+  }
+  return { types, balances: out };
+}
+
+const withTypes = async (orgId: string, rows: any[]) => {
+  const types = new Map(
+    (await peoplePrisma.leaveType.findMany({ where: { orgId }, select: { id: true, name: true, isPaid: true } })).map((t) => [t.id, t])
+  );
+  return (await withNames(orgId, rows)).map((r) => ({
+    ...r,
+    leaveTypeName: types.get(r.leaveTypeId)?.name || '—',
+    isPaid: types.get(r.leaveTypeId)?.isPaid ?? true,
+  }));
+};
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
+const typeSchema = z.object({
+  name: z.string().trim().min(1, 'Name the leave type.').max(60),
+  code: z.string().trim().max(10).optional().nullable(),
+  isPaid: z.boolean().default(true),
+  annualDays: z.coerce.number().min(0, 'Days cannot be negative.').max(366).default(0),
+  isActive: z.boolean().optional(),
+});
+
+leaveRouter.get(`${base}/types`, can(PermissionAction.VIEW, R.leaveTypes), async (req, res) => {
+  if (!(await attendanceRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const types = await peoplePrisma.leaveType.findMany({ where: { accountId, orgId }, orderBy: { name: 'asc' } });
+  const used = await peoplePrisma.leaveRequest.groupBy({ by: ['leaveTypeId'], where: { accountId, orgId }, _count: { _all: true } });
+  const n = new Map(used.map((u) => [u.leaveTypeId, u._count._all]));
+  res.json({ types: types.map((t) => ({ ...t, requests: n.get(t.id) || 0 })) });
+});
+
+leaveRouter.post(`${base}/types`, can(PermissionAction.CREATE, R.leaveTypes), async (req, res) => {
+  if (!(await attendanceRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const parsed = typeSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Invalid leave type.' });
+  try {
+    const type = await peoplePrisma.leaveType.create({
+      data: { accountId, orgId, ...parsed.data, code: parsed.data.code || null, createdByUserId: req.auth!.userId },
+    });
+    res.status(201).json({ type });
+  } catch (e) {
+    return sendError(res, e);
+  }
+});
+
+leaveRouter.put(`${base}/types/:id`, can(PermissionAction.EDIT, R.leaveTypes), async (req, res) => {
+  if (!(await attendanceRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const existing = await peoplePrisma.leaveType.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
+  if (!existing) return res.status(404).json({ error: 'No such leave type.' });
+  const parsed = typeSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Invalid leave type.' });
+  if (parsed.data.isPaid !== existing.isPaid && (await peoplePrisma.leaveRequest.count({ where: { orgId, leaveTypeId: existing.id, status: 'APPROVED' } }))) {
+    return res.status(409).json({ error: 'Leave of this type has been approved, so whether it is paid cannot change. Make a new type instead.' });
+  }
+  try {
+    const type = await peoplePrisma.leaveType.update({ where: { id: existing.id }, data: { ...parsed.data, code: parsed.data.code || null } });
+    res.json({ type });
+  } catch (e) {
+    return sendError(res, e);
+  }
+});
+
+leaveRouter.delete(`${base}/types/:id`, can(PermissionAction.DELETE, R.leaveTypes), async (req, res) => {
+  if (!(await attendanceRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const existing = await peoplePrisma.leaveType.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
+  if (!existing) return res.status(404).json({ error: 'No such leave type.' });
+  const used =
+    (await peoplePrisma.leaveRequest.count({ where: { orgId, leaveTypeId: existing.id } })) +
+    (await peoplePrisma.leaveAllocation.count({ where: { orgId, leaveTypeId: existing.id } }));
+  if (used) return res.status(409).json({ error: 'This leave type has requests or balances. Mark it inactive instead.' });
+  await peoplePrisma.leaveType.delete({ where: { id: existing.id } });
+  res.json({ ok: true });
+});
+
+// ---------------------------------------------------------------------------
+// Balances
+// ---------------------------------------------------------------------------
+
+leaveRouter.get(`${base}/balances`, can(PermissionAction.VIEW, R.leave), async (req, res) => {
+  if (!(await attendanceRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const year = yearParam(req.query.year);
+  const people = await peoplePrisma.employee.findMany({
+    where: { accountId, orgId, status: { not: 'LEFT' } },
+    select: { id: true, name: true, code: true, department: true },
+    orderBy: { name: 'asc' },
+  });
+  const { types, balances } = await balancesFor(accountId, orgId, people.map((p) => p.id), year);
+  res.json({
+    year,
+    types: types.filter((t) => t.isActive),
+    rows: people.map((p) => ({ employeeId: p.id, name: p.name, code: p.code, department: p.department, balances: Object.fromEntries(balances.get(p.id)!) })),
+  });
+});
+
+leaveRouter.put(`${base}/allocations`, can(PermissionAction.EDIT, R.leave), async (req, res) => {
+  if (!(await attendanceRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const parsed = z
+    .object({
+      employeeId: z.string().min(1),
+      leaveTypeId: z.string().min(1),
+      year: z.coerce.number().int().min(2000).max(2100),
+      /** null puts the person back on the type's annual days. */
+      days: z.coerce.number().min(0).max(366).nullable(),
+      note: z.string().trim().max(200).optional().nullable(),
+    })
+    .safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: 'Choose a person, a leave type, a year and the days.' });
+  const b = parsed.data;
+  try {
+    await employeeIn(orgId, accountId, b.employeeId);
+    const type = await peoplePrisma.leaveType.findFirst({ where: { id: b.leaveTypeId, accountId, orgId } });
+    if (!type) return res.status(400).json({ error: 'That leave type is not in this organisation.' });
+    if (!type.isPaid) return res.status(400).json({ error: 'Unpaid leave has no balance to set.' });
+    const key = { employeeId_leaveTypeId_year: { employeeId: b.employeeId, leaveTypeId: b.leaveTypeId, year: b.year } };
+    if (b.days === null) {
+      await peoplePrisma.leaveAllocation.deleteMany({ where: { orgId, employeeId: b.employeeId, leaveTypeId: b.leaveTypeId, year: b.year } });
+      return res.json({ allocation: null });
+    }
+    const allocation = await peoplePrisma.leaveAllocation.upsert({
+      where: key,
+      create: { accountId, orgId, employeeId: b.employeeId, leaveTypeId: b.leaveTypeId, year: b.year, days: b.days, note: b.note || null, createdByUserId: req.auth!.userId },
+      update: { days: b.days, note: b.note || null },
+    });
+    res.json({ allocation });
+  } catch (e) {
+    return sendError(res, e);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Requests
+// ---------------------------------------------------------------------------
+
+const requestSchema = z.object({
+  employeeId: z.string().trim().optional(),
+  leaveTypeId: z.string().min(1, 'Choose a leave type.'),
+  fromDate: z.string().regex(ISO_DATE, 'Dates are YYYY-MM-DD.'),
+  toDate: z.string().regex(ISO_DATE, 'Dates are YYYY-MM-DD.'),
+  reason: z.string().trim().min(3, 'Say why.').max(500),
+});
+
+async function createLeave(req: any, res: any, employee: { id: string; branchId: string | null; status?: string | null }) {
+  const { accountId, orgId } = req.tenant!;
+  const parsed = requestSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Invalid request.' });
+  const b = parsed.data;
+  if (b.toDate < b.fromDate) return res.status(400).json({ error: 'The last day is before the first.' });
+  if (b.fromDate.slice(0, 4) !== b.toDate.slice(0, 4)) return res.status(400).json({ error: 'Leave stays inside one year. Split it at 31 December.' });
+  if (addDays(b.fromDate, MAX_SPAN_DAYS - 1) < b.toDate) return res.status(400).json({ error: `One request covers at most ${MAX_SPAN_DAYS} days.` });
+  if (employee.status === 'LEFT') return res.status(400).json({ error: 'This person has left.' });
+  const type = await peoplePrisma.leaveType.findFirst({ where: { id: b.leaveTypeId, accountId, orgId, isActive: true } });
+  if (!type) return res.status(400).json({ error: 'That leave type is not available.' });
+  const clash = await peoplePrisma.leaveRequest.findFirst({
+    where: { orgId, employeeId: employee.id, status: { in: OPEN }, fromDate: { lte: b.toDate }, toDate: { gte: b.fromDate } },
+  });
+  if (clash) return res.status(409).json({ error: `This overlaps leave already asked for (${clash.fromDate} to ${clash.toDate}).` });
+  const days = await workingDays(orgId, employee, b.fromDate, b.toDate);
+  if (!days.length) return res.status(400).json({ error: 'Those are all weekly offs or holidays — there is nothing to take leave from.' });
+  if (type.isPaid) {
+    const { balances } = await balancesFor(accountId, orgId, [employee.id], Number(b.fromDate.slice(0, 4)));
+    const bal = balances.get(employee.id)!.get(type.id)!;
+    if (days.length > (bal.available ?? Infinity)) {
+      return res.status(400).json({ error: `Only ${bal.available} days of ${type.name} are left this year; this is ${days.length}.`, code: 'NO_BALANCE' });
+    }
+  }
+  const row = await peoplePrisma.leaveRequest.create({
+    data: { accountId, orgId, employeeId: employee.id, leaveTypeId: type.id, fromDate: b.fromDate, toDate: b.toDate, days: days.length, reason: b.reason, requestedByUserId: req.auth!.userId },
+  });
+  res.status(201).json({ request: (await withTypes(orgId, [row]))[0] });
+}
+
+/** Undo an approved leave's days. Days someone clocked in on anyway are theirs, and stay. */
+async function clearLeaveDays(orgId: string, requestId: string) {
+  await peoplePrisma.attendanceRecord.deleteMany({ where: { orgId, leaveRequestId: requestId, status: 'ON_LEAVE', checkIn: null } });
+}
+
+leaveRouter.get(`${base}/requests`, can(PermissionAction.VIEW, R.leave), async (req, res) => {
+  if (!(await attendanceRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const status = String(req.query.status || '').trim();
+  const employeeId = String(req.query.employeeId || '').trim();
+  const rows = await peoplePrisma.leaveRequest.findMany({
+    where: { accountId, orgId, ...(status ? { status } : {}), ...(employeeId ? { employeeId } : {}) },
+    orderBy: [{ fromDate: 'desc' }, { createdAt: 'desc' }],
+    take: 500,
+  });
+  res.json({ requests: await withTypes(orgId, rows) });
+});
+
+leaveRouter.post(`${base}/requests`, can(PermissionAction.CREATE, R.leave), async (req, res) => {
+  if (!(await attendanceRouteOk(req, res))) return;
+  try {
+    const employee = await employeeIn(req.tenant!.orgId, req.tenant!.accountId, String(req.body?.employeeId || ''));
+    return await createLeave(req, res, employee);
+  } catch (e) {
+    return sendError(res, e);
+  }
+});
+
+leaveRouter.post(`${base}/requests/:id/approve`, can(PermissionAction.APPROVE, R.leave), async (req, res) => {
+  if (!(await attendanceRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const r = await peoplePrisma.leaveRequest.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
+  if (!r) return res.status(404).json({ error: 'No such request.' });
+  if (r.status !== 'PENDING') return res.status(409).json({ error: `This request was already ${r.status.toLowerCase()}.` });
+  try {
+    const employee = await employeeIn(orgId, accountId, r.employeeId);
+    const type = await peoplePrisma.leaveType.findFirst({ where: { id: r.leaveTypeId, orgId } });
+    if (!type) throw fail(409, 'The leave type is gone.');
+    /* Holidays or shifts may have changed since it was asked for: count again. */
+    const days = await workingDays(orgId, employee, r.fromDate, r.toDate);
+    if (!days.length) throw fail(409, 'Nothing in this range is a working day any more. Reject it instead.');
+    const worked = await peoplePrisma.attendanceRecord.findFirst({
+      where: { orgId, employeeId: r.employeeId, date: { in: days }, checkIn: { not: null } },
+      select: { date: true },
+    });
+    if (worked) throw fail(409, `${worked.date} has a clock-in. Correct that day first, or reject this request.`);
+    if (type.isPaid) {
+      const { balances } = await balancesFor(accountId, orgId, [r.employeeId], Number(r.fromDate.slice(0, 4)));
+      const bal = balances.get(r.employeeId)!.get(type.id)!;
+      /* This request is in "pending" already; what matters is what is left without it. */
+      const left = (bal.available ?? Infinity) + r.days;
+      if (days.length > left) throw fail(409, `Only ${round(left)} days of ${type.name} are left this year; this is ${days.length}.`, 'NO_BALANCE');
+    }
+    for (const date of days) {
+      await writeDay({
+        accountId,
+        orgId,
+        userId: req.auth!.userId,
+        employee,
+        date,
+        checkIn: null,
+        checkOut: null,
+        statusOverride: 'ON_LEAVE',
+        source: 'LEAVE',
+        leaveRequestId: r.id,
+        note: `${type.name}: ${r.reason}`.slice(0, 500),
+      });
+    }
+    const updated = await peoplePrisma.leaveRequest.update({
+      where: { id: r.id },
+      data: {
+        status: 'APPROVED',
+        days: days.length,
+        reviewedByUserId: req.auth!.userId,
+        reviewedAt: new Date(),
+        reviewNote: String(req.body?.note || '').trim().slice(0, 500) || null,
+      },
+    });
+    res.json({ request: (await withTypes(orgId, [updated]))[0] });
+  } catch (e) {
+    return sendError(res, e);
+  }
+});
+
+leaveRouter.post(`${base}/requests/:id/reject`, can(PermissionAction.APPROVE, R.leave), async (req, res) => {
+  if (!(await attendanceRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const r = await peoplePrisma.leaveRequest.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
+  if (!r) return res.status(404).json({ error: 'No such request.' });
+  if (r.status !== 'PENDING') return res.status(409).json({ error: `This request was already ${r.status.toLowerCase()}.` });
+  const updated = await peoplePrisma.leaveRequest.update({
+    where: { id: r.id },
+    data: { status: 'REJECTED', reviewedByUserId: req.auth!.userId, reviewedAt: new Date(), reviewNote: String(req.body?.note || '').trim().slice(0, 500) || null },
+  });
+  res.json({ request: (await withTypes(orgId, [updated]))[0] });
+});
+
+leaveRouter.post(`${base}/requests/:id/cancel`, can(PermissionAction.EDIT, R.leave), async (req, res) => {
+  if (!(await attendanceRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const r = await peoplePrisma.leaveRequest.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
+  if (!r) return res.status(404).json({ error: 'No such request.' });
+  if (!OPEN.includes(r.status)) return res.status(409).json({ error: `This request was already ${r.status.toLowerCase()}.` });
+  if (r.status === 'APPROVED') await clearLeaveDays(orgId, r.id);
+  const updated = await peoplePrisma.leaveRequest.update({
+    where: { id: r.id },
+    data: { status: 'CANCELLED', reviewedByUserId: req.auth!.userId, reviewedAt: new Date() },
+  });
+  res.json({ request: (await withTypes(orgId, [updated]))[0] });
+});
+
+// ---------------------------------------------------------------------------
+// My leave
+// ---------------------------------------------------------------------------
+
+leaveRouter.get('/orgs/:orgId/attendance/me/leave', can(PermissionAction.VIEW, R.self), async (req, res) => {
+  if (!(await attendanceRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  try {
+    const me = await myEmployee(accountId, orgId, req.auth!.userId);
+    const year = yearParam(req.query.year);
+    const { types, balances } = await balancesFor(accountId, orgId, [me.id], year);
+    const mine = balances.get(me.id)!;
+    const requests = await peoplePrisma.leaveRequest.findMany({
+      where: { accountId, orgId, employeeId: me.id, fromDate: { gte: `${year}-01-01`, lte: `${year}-12-31` } },
+      orderBy: [{ fromDate: 'desc' }, { createdAt: 'desc' }],
+    });
+    res.json({
+      employee: { id: me.id, name: me.name },
+      year,
+      today: today(),
+      types: types.filter((t) => t.isActive).map((t) => ({ id: t.id, name: t.name, code: t.code, isPaid: t.isPaid, ...mine.get(t.id) })),
+      requests: await withTypes(orgId, requests),
+    });
+  } catch (e) {
+    return sendError(res, e);
+  }
+});
+
+leaveRouter.post('/orgs/:orgId/attendance/me/leave', can(PermissionAction.CREATE, R.self), async (req, res) => {
+  if (!(await attendanceRouteOk(req, res))) return;
+  try {
+    const me = await myEmployee(req.tenant!.accountId, req.tenant!.orgId, req.auth!.userId);
+    return await createLeave(req, res, me);
+  } catch (e) {
+    return sendError(res, e);
+  }
+});
+
+/** One's own request: a pending one any time, an approved one only before it starts. */
+leaveRouter.post('/orgs/:orgId/attendance/me/leave/:id/cancel', can(PermissionAction.CREATE, R.self), async (req, res) => {
+  if (!(await attendanceRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  try {
+    const me = await myEmployee(accountId, orgId, req.auth!.userId);
+    const r = await peoplePrisma.leaveRequest.findFirst({ where: { id: String(req.params.id), accountId, orgId, employeeId: me.id } });
+    if (!r) return res.status(404).json({ error: 'No such request.' });
+    if (!OPEN.includes(r.status)) return res.status(409).json({ error: `This request was already ${r.status.toLowerCase()}.` });
+    if (r.status === 'APPROVED' && r.fromDate <= today()) {
+      return res.status(409).json({ error: 'This leave has started. Ask your manager to cancel it.' });
+    }
+    if (r.status === 'APPROVED') await clearLeaveDays(orgId, r.id);
+    const updated = await peoplePrisma.leaveRequest.update({ where: { id: r.id }, data: { status: 'CANCELLED' } });
+    res.json({ request: (await withTypes(orgId, [updated]))[0] });
+  } catch (e) {
+    return sendError(res, e);
+  }
+});

@@ -64,3 +64,28 @@ export const STATUS = {
   HOLIDAY: { label: 'Holiday', pill: 'ui-pill-neutral' },
   WEEKLY_OFF: { label: 'Weekly off', pill: 'ui-pill-neutral' },
 };
+
+// Leave (server: routes/leave.ts)
+export const listLeaveTypes = () => get('/leave/types').then((r) => r?.types || []);
+export const createLeaveType = (body) => send('/leave/types', 'POST', body);
+export const updateLeaveType = (id, body) => send(`/leave/types/${encodeURIComponent(id)}`, 'PUT', body);
+export const deleteLeaveType = (id) => send(`/leave/types/${encodeURIComponent(id)}`, 'DELETE');
+export const getLeaveBalances = (year) => get(`/leave/balances${query({ year })}`);
+export const setAllocation = (body) => send('/leave/allocations', 'PUT', body);
+export const listLeaveRequests = (params) => get(`/leave/requests${query(params)}`).then((r) => r?.requests || []);
+export const createLeaveRequest = (body) => send('/leave/requests', 'POST', body);
+export const approveLeave = (id, note) => send(`/leave/requests/${encodeURIComponent(id)}/approve`, 'POST', { note });
+export const rejectLeave = (id, note) => send(`/leave/requests/${encodeURIComponent(id)}/reject`, 'POST', { note });
+export const cancelLeave = (id) => send(`/leave/requests/${encodeURIComponent(id)}/cancel`, 'POST', {});
+export const getMyLeave = (year) => get(`/me/leave${query({ year })}`);
+export const applyLeave = (body) => send('/me/leave', 'POST', body);
+export const cancelMyLeave = (id) => send(`/me/leave/${encodeURIComponent(id)}/cancel`, 'POST', {});
+
+export const LEAVE_STATUS = {
+  PENDING: 'ui-pill-warn',
+  APPROVED: 'ui-pill-pos',
+  REJECTED: 'ui-pill-neg',
+  CANCELLED: 'ui-pill-neutral',
+};
+/** A request's dates: one day, or first → last. */
+export const leaveRange = (from, to) => (from === to ? from : `${from} → ${to}`);

@@ -222,7 +222,7 @@ export const PERMISSION_CATALOG: ModuleDef[] = [
   {
     key: 'ATTENDANCE',
     label: 'Attendance',
-    description: 'Shifts, holidays, daily attendance, corrections and overtime',
+    description: 'Shifts, holidays, daily attendance, corrections, overtime and leave',
     resources: [
       {
         key: 'Attendance Records',
@@ -251,8 +251,20 @@ export const PERMISSION_CATALOG: ModuleDef[] = [
       {
         key: 'My Attendance',
         label: 'My attendance',
-        description: 'Clock in and out, see one\'s own days, ask for a correction',
+        description: 'Clock in and out, see one\'s own days and leave, ask for a correction or time off',
         actions: [A.VIEW, A.CREATE],
+      },
+      {
+        key: 'Leave Types',
+        label: 'Leave types',
+        description: 'Kinds of leave, paid or unpaid, and the days a year each gives',
+        actions: MASTER,
+      },
+      {
+        key: 'Leave Requests',
+        label: 'Leave requests and balances',
+        description: 'Everyone\'s leave: apply on someone\'s behalf, Approve, cancel, set balances (Edit)',
+        actions: [A.VIEW, A.CREATE, A.EDIT, A.APPROVE, A.EXPORT],
       },
     ],
   },
@@ -624,14 +636,14 @@ export const ROLE_PRESETS: Record<string, RolePreset> = {
   EMPLOYEE_SELF_SERVICE: {
     label: 'Employee (self-service)',
     group: 'Attendance',
-    description: 'Clock in and out, see their own attendance, ask for corrections',
+    description: 'Clock in and out, see their own attendance and leave, ask for corrections and time off',
     roleType: 'CUSTOM',
     grants: [['ATTENDANCE', 'My Attendance', [A.VIEW, A.CREATE]]],
   },
   ATTENDANCE_MANAGER: {
     label: 'Attendance Manager',
     group: 'Attendance',
-    description: 'Run attendance: shifts, holidays, everyone\'s days, validation, overtime and requests',
+    description: 'Run attendance: shifts, holidays, everyone\'s days, validation, overtime, requests and leave',
     roleType: 'CUSTOM',
     grants: [
       ['ATTENDANCE', 'Attendance Records', ['*']],
@@ -639,6 +651,8 @@ export const ROLE_PRESETS: Record<string, RolePreset> = {
       ['ATTENDANCE', 'Shifts', ['*']],
       ['ATTENDANCE', 'Holidays', ['*']],
       ['ATTENDANCE', 'My Attendance', ['*']],
+      ['ATTENDANCE', 'Leave Types', ['*']],
+      ['ATTENDANCE', 'Leave Requests', ['*']],
       ['PEOPLE', 'Employees', [A.VIEW]],
     ],
   },

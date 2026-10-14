@@ -32,11 +32,11 @@ attendanceRouter.use(requireAuth, requireTenantContext);
 
 const R = ATTENDANCE_RESOURCE;
 const can = (action: string, resource: string) => requirePermission(ATTENDANCE_MODULE, action as any, resource);
-const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+export const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 const STATUSES = ['PRESENT', 'HALF_DAY', 'ABSENT', 'ON_LEAVE', 'HOLIDAY', 'WEEKLY_OFF'] as const;
 
-const fail = (status: number, message: string, code?: string) => Object.assign(new Error(message), { status, code });
-const sendError = (res: any, e: any) => {
+export const fail = (status: number, message: string, code?: string) => Object.assign(new Error(message), { status, code });
+export const sendError = (res: any, e: any) => {
   if (e?.status) return res.status(e.status).json({ error: e.message, ...(e.code ? { code: e.code } : {}) });
   if (String(e?.code) === 'P2002') return res.status(409).json({ error: 'That already exists.' });
   throw e;
@@ -59,7 +59,7 @@ const toRule = (s: any): ShiftRule => ({
  * else the standard 09:00–18:00. Never "the org's first shift": creating a
  * night shift must not quietly move everyone unassigned onto nights.
  */
-async function shiftFor(orgId: string, employeeId: string, date: string): Promise<{ shiftId: string | null; rule: ShiftRule; name: string }> {
+export async function shiftFor(orgId: string, employeeId: string, date: string): Promise<{ shiftId: string | null; rule: ShiftRule; name: string }> {
   const a = await peoplePrisma.shiftAssignment.findFirst({
     where: { orgId, employeeId, effectiveFrom: { lte: date } },
     orderBy: { effectiveFrom: 'desc' },
@@ -69,7 +69,7 @@ async function shiftFor(orgId: string, employeeId: string, date: string): Promis
   return { shiftId: null, rule: DEFAULT_SHIFT, name: 'Standard' };
 }
 
-async function isHoliday(orgId: string, date: string, branchId: string | null) {
+export async function isHoliday(orgId: string, date: string, branchId: string | null) {
   const h = await peoplePrisma.holiday.findFirst({
     where: { orgId, date, isOptional: false, OR: [{ branchId: null }, ...(branchId ? [{ branchId }] : [])] },
     select: { id: true },
@@ -86,7 +86,7 @@ const instants = (date: string, inHHMM?: string | null, outHHMM?: string | null)
 };
 
 /** Work a day out and write it: the single path every write goes through. */
-async function writeDay(opts: {
+export async function writeDay(opts: {
   accountId: string;
   orgId: string;
   userId: string;
@@ -97,6 +97,8 @@ async function writeDay(opts: {
   statusOverride?: (typeof STATUSES)[number] | null;
   source: string;
   note?: string | null;
+  /** Set when an approved leave writes the day; cleared by any other write. */
+  leaveRequestId?: string | null;
 }) {
   const { shiftId, rule } = await shiftFor(opts.orgId, opts.employee.id, opts.date);
   const holiday = await isHoliday(opts.orgId, opts.date, opts.employee.branchId);
@@ -119,6 +121,7 @@ async function writeDay(opts: {
     overtimeMinutes: computed.overtimeMinutes,
     status,
     source: opts.source,
+    leaveRequestId: opts.leaveRequestId ?? null,
     /* A changed day needs checking again. */
     validated: false,
     validatedByUserId: null,
@@ -132,7 +135,7 @@ async function writeDay(opts: {
   });
 }
 
-async function employeeIn(orgId: string, accountId: string, employeeId: string) {
+export async function employeeIn(orgId: string, accountId: string, employeeId: string) {
   const e = await peoplePrisma.employee.findFirst({ where: { id: employeeId, orgId, accountId }, select: { id: true, branchId: true, name: true, status: true } });
   if (!e) throw fail(404, 'No such employee.');
   return e;
@@ -142,7 +145,7 @@ async function employeeIn(orgId: string, accountId: string, employeeId: string) 
  * The employee file of the person signed in: the one linked to their user, or
  * — once, if exactly one unlinked file carries their email — that one, linked.
  */
-async function myEmployee(accountId: string, orgId: string, userId: string) {
+export async function myEmployee(accountId: string, orgId: string, userId: string) {
   const linked = await peoplePrisma.employee.findFirst({ where: { orgId, accountId, userId } });
   if (linked) return linked;
   const user = await platformPrisma.user.findUnique({ where: { id: userId }, select: { email: true } });
@@ -162,7 +165,7 @@ async function myEmployee(accountId: string, orgId: string, userId: string) {
   throw fail(404, 'Your sign-in is not linked to an employee file yet. Ask HR to set your email on your employee file.', 'NO_EMPLOYEE_LINK');
 }
 
-const withNames = async (orgId: string, rows: any[]) => {
+export const withNames = async (orgId: string, rows: any[]) => {
   const ids = [...new Set(rows.map((r) => r.employeeId))];
   const people = ids.length
     ? await peoplePrisma.employee.findMany({ where: { orgId, id: { in: ids } }, select: { id: true, name: true, code: true, department: true, photoUrl: true } })
@@ -182,7 +185,7 @@ const withNames = async (orgId: string, rows: any[]) => {
   });
 };
 
-const today = () => istDate(new Date());
+export const today = () => istDate(new Date());
 const dateParam = (v: unknown, fallback: string) => {
   const s = String(v || '').trim();
   return ISO_DATE.test(s) ? s : fallback;
@@ -225,6 +228,7 @@ attendanceRouter.get('/orgs/:orgId/attendance/overview', can(PermissionAction.VI
     notIn: people.filter((p) => !byEmployee.get(p.id)?.checkIn && byEmployee.get(p.id)?.status !== 'ON_LEAVE').slice(0, 50),
     toValidate: await peoplePrisma.attendanceRecord.count({ where: { accountId, orgId, validated: false, date: { lt: today() } } }),
     pendingRequests: await peoplePrisma.attendanceRequest.count({ where: { accountId, orgId, status: 'PENDING' } }),
+    pendingLeave: await peoplePrisma.leaveRequest.count({ where: { accountId, orgId, status: 'PENDING' } }),
   });
 });
 
@@ -696,6 +700,16 @@ attendanceRouter.get('/orgs/:orgId/attendance/summary', can(PermissionAction.VIE
   const holidaySet = new Set(holidays.map((h) => h.date));
   const shiftById = new Map(shifts.map((s) => [s.id, toRule(s)]));
   const t = today();
+  /* Days on unpaid leave are loss of pay: find which leave days came from an
+     unpaid type. A day marked "on leave" by hand is treated as paid. */
+  const leaveIds = [...new Set(records.filter((r) => r.status === 'ON_LEAVE' && r.leaveRequestId).map((r) => r.leaveRequestId!))];
+  const leaveReqs = leaveIds.length
+    ? await peoplePrisma.leaveRequest.findMany({ where: { orgId, id: { in: leaveIds } }, select: { id: true, leaveTypeId: true } })
+    : [];
+  const unpaidTypes = new Set(
+    (await peoplePrisma.leaveType.findMany({ where: { orgId, isPaid: false }, select: { id: true } })).map((x) => x.id)
+  );
+  const unpaidRequest = new Set(leaveReqs.filter((r) => unpaidTypes.has(r.leaveTypeId)).map((r) => r.id));
   const rows = people.map((p) => {
     const mine = assignments.filter((a) => a.employeeId === p.id);
     const ruleFor = (date: string) => {
@@ -705,7 +719,18 @@ attendanceRouter.get('/orgs/:orgId/attendance/summary', can(PermissionAction.VIE
     /* Only the days they were employed. */
     const span = days.filter((d) => (!p.dateOfJoining || d >= p.dateOfJoining) && (!p.dateOfLeaving || d <= p.dateOfLeaving));
     const recs = new Map(records.filter((r) => r.employeeId === p.id).map((r) => [r.date, r as any]));
-    return { employeeId: p.id, name: p.name, code: p.code, department: p.department, ...monthSummary({ days: span, records: recs, shift: ruleFor, holidays: holidaySet, today: t }) };
+    const spanSet = new Set(span);
+    const unpaidLeaveDays = records.filter(
+      (r) => r.employeeId === p.id && spanSet.has(r.date) && r.status === 'ON_LEAVE' && r.leaveRequestId && unpaidRequest.has(r.leaveRequestId)
+    ).length;
+    return {
+      employeeId: p.id,
+      name: p.name,
+      code: p.code,
+      department: p.department,
+      unpaidLeaveDays,
+      ...monthSummary({ days: span, records: recs, shift: ruleFor, holidays: holidaySet, today: t, unpaidLeaveDays }),
+    };
   });
   res.json({ month, days: days.length, rows });
 });

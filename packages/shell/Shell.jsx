@@ -5,6 +5,7 @@ import { useTheme } from '@ui/components/ui/useTheme';
 import { useDismissable } from '@ui/components/ui/useDismissable';
 import { formatDateIn } from '@ui/utils/dates';
 import { ProfileScreen } from '@ui/profile/ProfileScreen';
+import Toaster from '@ui/components/ui/Toaster';
 
 import { APPS, appById, availableApps, landingApp, subscribedApps } from './registry';
 import { appFromHost, hostForApp, isFrontDoor } from './appHosts';
@@ -446,6 +447,10 @@ export default function Shell() {
             <p className="ui-caption">Nothing selected.</p>
           )}
         </main>
+        {/* Apps with a nav (People, Attendance, Payroll) have no root of their
+            own to mount this, so toasts and "Are you sure?" dialogs live here.
+            Accounting draws itself and mounts its own. */}
+        <Toaster />
       </div>
       )}
     </div>

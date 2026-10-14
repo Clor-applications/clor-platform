@@ -264,6 +264,7 @@ export default async function setup() {
   await applyPolicies(asOwner(people), 'prisma/people/migrations/20260924120000_row_level_security');
   await applyPolicies(asOwner(people), 'prisma/people/migrations/20261014130100_people_org_structure_rls');
   await applyPolicies(asOwner(people), 'prisma/people/migrations/20261014140100_attendance_rls');
+  await applyPolicies(asOwner(people), 'prisma/people/migrations/20261014150100_leave_rls');
   await applyPolicies(asOwner(platform), 'prisma/platform/migrations/20260924120000_row_level_security');
 
   await grantToAppRole(database, schemas);

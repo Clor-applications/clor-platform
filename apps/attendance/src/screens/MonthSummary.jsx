@@ -7,8 +7,8 @@ import { getSummary, hm, todayIst } from '../api/attendance';
 
 /**
  * The month as payroll sees it: payable days and loss-of-pay days per
- * person. Absent days and half days are loss of pay; holidays, weekly offs
- * and leave are paid (unpaid leave arrives with the Leave module).
+ * person. Absent days, half a half day, and unpaid leave are loss of pay;
+ * holidays, weekly offs and paid leave are paid.
  */
 export default function MonthSummary() {
   const [month, setMonth] = useState(todayIst().slice(0, 7));
@@ -33,6 +33,7 @@ export default function MonthSummary() {
     { key: 'halfDays', label: 'Half days' },
     { key: 'absent', label: 'Absent' },
     { key: 'leave', label: 'Leave' },
+    { key: 'unpaidLeaveDays', label: 'Unpaid leave' },
     { key: 'holidays', label: 'Holidays' },
     { key: 'weeklyOffs', label: 'Weekly offs' },
     { key: 'notYet', label: 'To come' },

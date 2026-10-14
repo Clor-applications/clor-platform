@@ -43,10 +43,11 @@ export default function AttendanceToday() {
             <StatTile label="Not marked" value={data.notMarked} hint={data.onLeave ? `${data.onLeave} on leave` : null} />
           </div>
 
-          {data.toValidate || data.pendingRequests ? (
+          {data.toValidate || data.pendingRequests || data.pendingLeave ? (
             <div className="ui-card flex flex-wrap gap-4 p-4 text-sm">
-              {data.toValidate ? <span><strong>{data.toValidate}</strong> past days waiting to be validated (Records).</span> : null}
+              {data.toValidate ? <span><strong>{data.toValidate}</strong> past {data.toValidate === 1 ? 'day' : 'days'} waiting to be validated (Records).</span> : null}
               {data.pendingRequests ? <span><strong>{data.pendingRequests}</strong> correction requests waiting (Requests).</span> : null}
+              {data.pendingLeave ? <span><strong>{data.pendingLeave}</strong> leave requests waiting (Leave requests).</span> : null}
             </div>
           ) : null}
 

@@ -19,4 +19,6 @@ export const ATTENDANCE_RESOURCE = {
   shifts: 'Shifts',
   holidays: 'Holidays',
   self: 'My Attendance',
+  leaveTypes: 'Leave Types',
+  leave: 'Leave Requests',
 } as const;
