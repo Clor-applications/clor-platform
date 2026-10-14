@@ -243,3 +243,156 @@ model EmployeeNote {
 
   @@index([accountId, orgId, employeeId])
 }
+
+// ============================================================================
+// Attendance (native, after Horilla HRMS's attendance and base shift models).
+// Lives in the HR database beside the people it is about. Times are stored as
+// instants (UTC); the working day and the shift clock are Indian Standard Time.
+// ============================================================================
+
+/// A working pattern: when the day starts and ends, the break, how late is
+/// late, how long counts as a half or full day, and which weekdays are off.
+model Shift {
+  id                   String  @id @default(cuid())
+  accountId            String
+  orgId                String
+  name                 String
+  /// "HH:MM", IST. An end at or before the start is a night shift.
+  startTime            String
+  endTime              String
+  breakMinutes         Int     @default(60)
+  /// Arriving within this many minutes of the start is not late.
+  graceMinutes         Int     @default(10)
+  /// Leaving within this many minutes of the end is not early.
+  earlyOutGraceMinutes Int     @default(0)
+  halfDayMinutes       Int     @default(240)
+  fullDayMinutes       Int     @default(480)
+  /// Worked minutes beyond this are overtime; null = the full day.
+  overtimeAfterMinutes Int?
+  /// Weekdays off, 0 = Sunday … 6 = Saturday, comma separated ("0" or "0,6").
+  weeklyOffDays        String  @default("0")
+  isActive             Boolean @default(true)
+
+  createdByUserId String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([orgId, name])
+  @@index([accountId, orgId])
+}
+
+/// Which shift a person works, from a date. The latest one on or before a day
+/// applies; a change of shift is a new row, so past days keep theirs.
+model ShiftAssignment {
+  id            String @id @default(cuid())
+  accountId     String
+  orgId         String
+  employeeId    String
+  shiftId       String
+  effectiveFrom String /// YYYY-MM-DD
+
+  createdByUserId String
+  createdAt       DateTime @default(now())
+
+  @@unique([employeeId, effectiveFrom])
+  @@index([accountId, orgId, employeeId])
+}
+
+model Holiday {
+  id         String  @id @default(cuid())
+  accountId  String
+  orgId      String
+  date       String /// YYYY-MM-DD
+  name       String
+  /// Restricted/optional holiday: shown, but a working day unless taken as leave.
+  isOptional Boolean @default(false)
+  /// Null = every branch.
+  branchId   String?
+
+  createdByUserId String
+  createdAt       DateTime @default(now())
+
+  @@unique([orgId, date, name])
+  @@index([accountId, orgId, date])
+}
+
+/// One person, one day.
+model AttendanceRecord {
+  id         String    @id @default(cuid())
+  accountId  String
+  orgId      String
+  employeeId String
+  date       String /// YYYY-MM-DD, the day the shift starts
+  shiftId    String?
+  checkIn    DateTime?
+  checkOut   DateTime?
+
+  workedMinutes    Int     @default(0)
+  lateMinutes      Int     @default(0)
+  earlyOutMinutes  Int     @default(0)
+  overtimeMinutes  Int     @default(0)
+  overtimeApproved Boolean @default(false)
+
+  /// PRESENT | HALF_DAY | ABSENT | ON_LEAVE | HOLIDAY | WEEKLY_OFF
+  status String
+  /// CLOCK | MANUAL | REQUEST | DEVICE | IMPORT
+  source String @default("MANUAL")
+
+  /// Checked by a manager (Horilla's "validate"). Payroll reads validated days.
+  validated         Boolean   @default(false)
+  validatedByUserId String?
+  validatedAt       DateTime?
+  note              String?
+
+  createdByUserId String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([employeeId, date])
+  @@index([accountId, orgId, date])
+  @@index([accountId, orgId, employeeId, date])
+}
+
+/// Each clock-in and clock-out as it happened; the record keeps the day's
+/// first in and last out.
+model AttendanceActivity {
+  id         String   @id @default(cuid())
+  accountId  String
+  orgId      String
+  employeeId String
+  at         DateTime
+  /// IN | OUT
+  kind       String
+  /// CLOCK | DEVICE
+  source     String   @default("CLOCK")
+  ip         String?
+
+  createdAt DateTime @default(now())
+
+  @@index([accountId, orgId, employeeId, at])
+}
+
+/// A correction someone asks for: "I was here 09:05–18:10 on the 3rd".
+model AttendanceRequest {
+  id         String    @id @default(cuid())
+  accountId  String
+  orgId      String
+  employeeId String
+  date       String
+  checkIn    DateTime?
+  checkOut   DateTime?
+  reason     String
+  /// PENDING | APPROVED | REJECTED
+  status     String    @default("PENDING")
+
+  requestedByUserId String
+  reviewedByUserId  String?
+  reviewedAt        DateTime?
+  reviewNote        String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([accountId, orgId, status])
+  @@index([accountId, orgId, employeeId, date])
+}

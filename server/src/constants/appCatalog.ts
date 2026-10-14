@@ -25,8 +25,8 @@ export type AppDef = {
 export const APP_CATALOG: AppDef[] = [
   { code: 'accounting', name: 'Accounting', blurb: 'Invoicing, bills, inventory and the books.', available: true, defaultTier: 'FULL' },
   { code: 'payroll', name: 'Payroll', blurb: 'Pay runs, statutory, payslips.', available: true, featureKey: 'payroll' },
-  // Attendance is sold on-premise today (ClorTime), not as a cloud subscription.
-  { code: 'attendance', name: 'Attendance', blurb: 'Biometric attendance on your own server.', available: false },
+  // Native cloud attendance; ClorTime remains the separate on-premise biometric product.
+  { code: 'attendance', name: 'Attendance', blurb: 'Shifts, clock in/out, late, overtime and payable days.', available: true, featureKey: 'attendance' },
   { code: 'people', name: 'People', blurb: 'The staff directory every app refers to.', available: true, featureKey: 'people' },
   { code: 'projects', name: 'Projects', blurb: 'Projects, time, and what each cost.', available: false },
 ];

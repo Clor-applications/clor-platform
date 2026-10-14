@@ -16,7 +16,7 @@ export type FeatureDef = {
   description: string;
   /** Value for an organisation that has never touched the setting. */
   defaultEnabled: boolean;
-  category: 'Operations' | 'Accounting' | 'Inventory' | 'Governance' | 'Communication' | 'Data' | 'Payroll' | 'People';
+  category: 'Operations' | 'Accounting' | 'Inventory' | 'Governance' | 'Communication' | 'Data' | 'Payroll' | 'People' | 'Attendance';
   /** Turning the parent off forces these off too. */
   dependsOn?: string;
   /** Not switchable — listed so the screen can show why. */
@@ -377,6 +377,21 @@ export const FEATURE_CATALOG: FeatureDef[] = [
       'Your staff directory: departments, job positions, employee files with personal and work details, notes, tags and an org chart.',
     defaultEnabled: false,
     category: 'People',
+  },
+
+  // ---- Attendance -------------------------------------------------------
+  /*
+   * Native cloud attendance (after Horilla): shifts, holidays, clock in/out,
+   * daily records with late/early/overtime, corrections, and the month's
+   * payable days for payroll. ClorTime stays the on-premise biometric product.
+   */
+  {
+    key: 'attendance',
+    label: 'Attendance',
+    description:
+      'Shifts, holidays and daily attendance: staff clock in and out, managers see who is late or absent, validate days and approve overtime, and payroll reads the payable days.',
+    defaultEnabled: false,
+    category: 'Attendance',
   },
 
   // ---- Payroll ----------------------------------------------------------

@@ -220,6 +220,43 @@ export const PERMISSION_CATALOG: ModuleDef[] = [
     ],
   },
   {
+    key: 'ATTENDANCE',
+    label: 'Attendance',
+    description: 'Shifts, holidays, daily attendance, corrections and overtime',
+    resources: [
+      {
+        key: 'Attendance Records',
+        label: 'Attendance records',
+        description: 'Everyone\'s days: mark, correct, validate (Approve) and export',
+        actions: [A.VIEW, A.CREATE, A.EDIT, A.DELETE, A.APPROVE, A.EXPORT],
+      },
+      {
+        key: 'Attendance Requests',
+        label: 'Attendance requests',
+        description: 'Corrections people ask for; Approve to accept or refuse them',
+        actions: [A.VIEW, A.CREATE, A.APPROVE],
+      },
+      {
+        key: 'Shifts',
+        label: 'Shifts and assignments',
+        description: 'Working patterns and who works which',
+        actions: MASTER,
+      },
+      {
+        key: 'Holidays',
+        label: 'Holidays',
+        description: 'The company\'s holiday calendar',
+        actions: MASTER,
+      },
+      {
+        key: 'My Attendance',
+        label: 'My attendance',
+        description: 'Clock in and out, see one\'s own days, ask for a correction',
+        actions: [A.VIEW, A.CREATE],
+      },
+    ],
+  },
+  {
     key: 'PAYROLL',
     label: 'Payroll',
     description: 'Salaries, statutory deductions and what they post to the books',
@@ -580,6 +617,29 @@ export const ROLE_PRESETS: Record<string, RolePreset> = {
       ['PEOPLE', 'Employees', ['*']],
       ['PEOPLE', 'Org Structure', ['*']],
       ['PEOPLE', 'Employee Notes', ['*']],
+    ],
+  },
+
+  // ---- Attendance ----
+  EMPLOYEE_SELF_SERVICE: {
+    label: 'Employee (self-service)',
+    group: 'Attendance',
+    description: 'Clock in and out, see their own attendance, ask for corrections',
+    roleType: 'CUSTOM',
+    grants: [['ATTENDANCE', 'My Attendance', [A.VIEW, A.CREATE]]],
+  },
+  ATTENDANCE_MANAGER: {
+    label: 'Attendance Manager',
+    group: 'Attendance',
+    description: 'Run attendance: shifts, holidays, everyone\'s days, validation, overtime and requests',
+    roleType: 'CUSTOM',
+    grants: [
+      ['ATTENDANCE', 'Attendance Records', ['*']],
+      ['ATTENDANCE', 'Attendance Requests', ['*']],
+      ['ATTENDANCE', 'Shifts', ['*']],
+      ['ATTENDANCE', 'Holidays', ['*']],
+      ['ATTENDANCE', 'My Attendance', ['*']],
+      ['PEOPLE', 'Employees', [A.VIEW]],
     ],
   },
 
