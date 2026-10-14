@@ -129,13 +129,14 @@ export const billingFor = (orgId, branchId) =>
 export const visibleApps = (flagApps, billing) =>
   billing?.restricted ? flagApps.filter((a) => (billing.ownedApps || []).includes(a)) : flagApps;
 
-export const APP_FEATURE = { payroll: 'payroll' };
+export const APP_FEATURE = { payroll: 'payroll', people: 'people' };
 
 export const appsFromFeatures = (features) => {
   const on = features && typeof features === 'object' ? features : {};
   /* Accounting is not a feature flag: a company that keeps books has it, and
      every company on the platform keeps books today. */
   const apps = ['accounting'];
+  if (on.people) apps.push('people');
   if (on.payroll) apps.push('payroll');
   return apps;
 };

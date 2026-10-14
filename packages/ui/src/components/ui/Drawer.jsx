@@ -85,7 +85,9 @@ export default function Drawer({ open, onClose, title, description = '', actions
   return createPortal(
     <div
       className={`ui-scrim fixed inset-0 flex justify-end ${closing ? 'ui-out-fade' : ''}`}
-      style={{ zIndex: 'var(--z-drawer)' }}
+      /* Starts under the platform bar, which outranks every app layer by
+         design: from the very top, the drawer's title and Save sat under it. */
+      style={{ zIndex: 'var(--z-drawer)', top: 'var(--platform-bar, 0px)' }}
       onMouseDown={(e) => {
         // The scrim closes; a click inside the panel does not reach here.
         if (e.target === e.currentTarget) beginClose();

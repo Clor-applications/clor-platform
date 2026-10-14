@@ -1,8 +1,9 @@
-import { BookOpen, Briefcase, UserRound, Wallet } from 'lucide-react';
+import { BookOpen, Briefcase, Wallet } from 'lucide-react';
 
 import { accountingApp } from '../../apps/accounting/manifest.jsx';
 import { payrollApp } from '../../apps/payroll/manifest.jsx';
 import { attendanceApp } from '../../apps/attendance/manifest.jsx';
+import { peopleApp } from '../../apps/people/manifest.jsx';
 
 /**
  * The applications Clor is made of.
@@ -33,7 +34,7 @@ export const APPS = [
   accountingApp,
   payrollApp,
   attendanceApp,
-  planned('people', 'People', UserRound, 'The staff directory every other app refers to.'),
+  peopleApp,
   planned('projects', 'Projects', Briefcase, 'Projects, time, and what each of them cost.'),
 ];
 

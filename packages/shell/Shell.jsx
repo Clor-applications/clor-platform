@@ -115,6 +115,23 @@ export default function Shell() {
     if (nextPage) setPublicPage(nextPage);
   };
 
+  /* The bar's height, published page-wide: drawers and dialogs render at the
+     top of the document (portals), outside the element that sets it, and
+     start below the bar rather than under it. */
+  useEffect(() => {
+    document.documentElement.style.setProperty('--platform-bar', '3.5rem');
+    return () => document.documentElement.style.removeProperty('--platform-bar');
+  }, []);
+
+  /* The open app on <html> too, for the same reason: a drawer for a People
+     record is drawn outside the shell's element and should wear People's
+     palette (index.css, [data-app]). */
+  useEffect(() => {
+    if (activeAppId) document.documentElement.setAttribute('data-app', activeAppId);
+    else document.documentElement.removeAttribute('data-app');
+    return () => document.documentElement.removeAttribute('data-app');
+  }, [activeAppId]);
+
   /* Signed in at the front door (app.clor.in): go on to the app's own address,
      keeping any #/screen so a link into an app still lands on that screen. */
   const frontDoorTarget =

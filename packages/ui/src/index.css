@@ -6197,7 +6197,10 @@ th.ui-th {
 }
 :root[data-theme='dark'] [data-app='people'],
 :root[data-theme='dark'] [data-app='attendance'],
-:root[data-theme='dark'] [data-app='payroll'] {
+:root[data-theme='dark'] [data-app='payroll'],
+:root[data-theme='dark'][data-app='people'],
+:root[data-theme='dark'][data-app='attendance'],
+:root[data-theme='dark'][data-app='payroll'] {
   --app-bg: 9 9 11;
   --brand: 239 106 85;
   --brand-deep: 242 132 111;
@@ -6221,3 +6224,43 @@ th.ui-th {
   --page-heading-bg: 24 24 27;
 }
 
+
+/*
+ * The graphite overrides above (primary buttons, selected segments and tabs)
+ * are !important, so the HR palette has to answer them the same way, scoped
+ * to the three apps. Unselected tab text uses the theme's muted ink rather
+ * than #18181b, which is also what keeps it readable in dark mode.
+ */
+:where([data-app='people'], [data-app='attendance'], [data-app='payroll']) .ui-btn-primary,
+:where([data-app='people'], [data-app='attendance'], [data-app='payroll']) .ui-btn-brand {
+  background-color: rgb(var(--btn-primary-bg)) !important;
+  border-color: rgb(var(--btn-primary-bg)) !important;
+  color: rgb(var(--on-brand)) !important;
+}
+:where([data-app='people'], [data-app='attendance'], [data-app='payroll']) .ui-btn-primary:hover:not(:disabled),
+:where([data-app='people'], [data-app='attendance'], [data-app='payroll']) .ui-btn-brand:hover:not(:disabled) {
+  background-color: rgb(var(--btn-primary-hover)) !important;
+  border-color: rgb(var(--btn-primary-hover)) !important;
+}
+:where([data-app='people'], [data-app='attendance'], [data-app='payroll']) .ui-btn-primary:active:not(:disabled),
+:where([data-app='people'], [data-app='attendance'], [data-app='payroll']) .ui-btn-brand:active:not(:disabled) {
+  background-color: rgb(var(--brand-pressed)) !important;
+  border-color: rgb(var(--brand-pressed)) !important;
+}
+:where([data-app='people'], [data-app='attendance'], [data-app='payroll']) .ui-segment[aria-selected='true'],
+:where([data-app='people'], [data-app='attendance'], [data-app='payroll']) [role='tab'][aria-selected='true'].ui-segment {
+  background-color: rgb(var(--btn-primary-bg)) !important;
+  border-color: rgb(var(--btn-primary-bg)) !important;
+  color: rgb(var(--on-brand)) !important;
+}
+:where([data-app='people'], [data-app='attendance'], [data-app='payroll']) .ui-segment:not([aria-selected='true']),
+:where([data-app='people'], [data-app='attendance'], [data-app='payroll']) [role='tab']:not([aria-selected='true']) {
+  color: rgb(var(--fg-muted)) !important;
+}
+:where([data-app='people'], [data-app='attendance'], [data-app='payroll']) .ui-tab.is-active,
+:where([data-app='people'], [data-app='attendance'], [data-app='payroll']) [role='tab'][aria-selected='true']:not(.ui-segment) {
+  color: rgb(var(--brand-ink));
+}
+:where([data-app='people'], [data-app='attendance'], [data-app='payroll']) .ui-tab.is-active::after {
+  background-color: rgb(var(--brand));
+}

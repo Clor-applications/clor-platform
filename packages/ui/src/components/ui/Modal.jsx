@@ -129,7 +129,7 @@ const Modal = ({ children, onClose, title = 'Form', maxWidthClass = 'max-w-4xl',
     <OverlayLayerContext.Provider value="modal">
     <div
       className={`ui-scrim fixed inset-0 flex items-center justify-center p-4 ${closing ? 'ui-out-fade' : ''}`}
-      style={{ zIndex: 'var(--z-modal)' }}
+      style={{ zIndex: 'var(--z-modal)', top: 'var(--platform-bar, 0px)' }}
       onMouseDown={(e) => {
         // Backdrop click closes; clicks inside the panel don't bubble here.
         if (e.target === e.currentTarget) beginClose();
