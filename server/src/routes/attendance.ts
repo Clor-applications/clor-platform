@@ -55,19 +55,18 @@ const toRule = (s: any): ShiftRule => ({
 });
 
 /**
- * The shift someone works on a date: their latest assignment on or before it;
- * failing that the org's first active shift; failing that 09:00–18:00.
+ * The shift someone works on a date: their latest assignment on or before it,
+ * else the standard 09:00–18:00. Never "the org's first shift": creating a
+ * night shift must not quietly move everyone unassigned onto nights.
  */
 async function shiftFor(orgId: string, employeeId: string, date: string): Promise<{ shiftId: string | null; rule: ShiftRule; name: string }> {
   const a = await peoplePrisma.shiftAssignment.findFirst({
     where: { orgId, employeeId, effectiveFrom: { lte: date } },
     orderBy: { effectiveFrom: 'desc' },
   });
-  const shift = a
-    ? await peoplePrisma.shift.findFirst({ where: { id: a.shiftId, orgId } })
-    : await peoplePrisma.shift.findFirst({ where: { orgId, isActive: true }, orderBy: { createdAt: 'asc' } });
+  const shift = a ? await peoplePrisma.shift.findFirst({ where: { id: a.shiftId, orgId } }) : null;
   if (shift) return { shiftId: shift.id, rule: toRule(shift), name: shift.name };
-  return { shiftId: null, rule: DEFAULT_SHIFT, name: 'Standard 09:00–18:00' };
+  return { shiftId: null, rule: DEFAULT_SHIFT, name: 'Standard' };
 }
 
 async function isHoliday(orgId: string, date: string, branchId: string | null) {
@@ -321,6 +320,18 @@ attendanceRouter.post('/orgs/:orgId/attendance/records/:id/overtime', can(Permis
     data: { overtimeApproved: req.body?.approved !== false },
   });
   res.json({ record: updated });
+});
+
+/** Who can be marked: the people pickers in Attendance, without needing People. */
+attendanceRouter.get('/orgs/:orgId/attendance/employees', can(PermissionAction.VIEW, R.records), async (req, res) => {
+  if (!(await attendanceRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const employees = await peoplePrisma.employee.findMany({
+    where: { accountId, orgId, status: { not: 'LEFT' } },
+    select: { id: true, name: true, code: true, department: true },
+    orderBy: { name: 'asc' },
+  });
+  res.json({ employees });
 });
 
 // ---------------------------------------------------------------------------
@@ -664,7 +675,16 @@ attendanceRouter.get('/orgs/:orgId/attendance/summary', can(PermissionAction.VIE
   const last = days[days.length - 1];
   const [people, records, holidays, shifts, assignments] = await Promise.all([
     peoplePrisma.employee.findMany({
-      where: { accountId, orgId, OR: [{ dateOfLeaving: null }, { dateOfLeaving: { gte: first } }], NOT: { dateOfJoining: { gt: last } } },
+      /* A missing joining or leaving date means "no limit" — never a filter
+         on NULL, which SQL treats as unknown and drops the person. */
+      where: {
+        accountId,
+        orgId,
+        AND: [
+          { OR: [{ dateOfLeaving: null }, { dateOfLeaving: { gte: first } }] },
+          { OR: [{ dateOfJoining: null }, { dateOfJoining: { lte: last } }] },
+        ],
+      },
       select: { id: true, name: true, code: true, department: true, dateOfJoining: true, dateOfLeaving: true },
       orderBy: { name: 'asc' },
     }),
@@ -675,13 +695,12 @@ attendanceRouter.get('/orgs/:orgId/attendance/summary', can(PermissionAction.VIE
   ]);
   const holidaySet = new Set(holidays.map((h) => h.date));
   const shiftById = new Map(shifts.map((s) => [s.id, toRule(s)]));
-  const fallback = shifts.find((s) => s.isActive) ? toRule(shifts.find((s) => s.isActive)!) : DEFAULT_SHIFT;
   const t = today();
   const rows = people.map((p) => {
     const mine = assignments.filter((a) => a.employeeId === p.id);
     const ruleFor = (date: string) => {
       const a = [...mine].reverse().find((x) => x.effectiveFrom <= date);
-      return (a && shiftById.get(a.shiftId)) || fallback;
+      return (a && shiftById.get(a.shiftId)) || DEFAULT_SHIFT;
     };
     /* Only the days they were employed. */
     const span = days.filter((d) => (!p.dateOfJoining || d >= p.dateOfJoining) && (!p.dateOfLeaving || d <= p.dateOfLeaving));

@@ -129,7 +129,7 @@ export const billingFor = (orgId, branchId) =>
 export const visibleApps = (flagApps, billing) =>
   billing?.restricted ? flagApps.filter((a) => (billing.ownedApps || []).includes(a)) : flagApps;
 
-export const APP_FEATURE = { payroll: 'payroll', people: 'people' };
+export const APP_FEATURE = { payroll: 'payroll', people: 'people', attendance: 'attendance' };
 
 export const appsFromFeatures = (features) => {
   const on = features && typeof features === 'object' ? features : {};
@@ -137,6 +137,7 @@ export const appsFromFeatures = (features) => {
      every company on the platform keeps books today. */
   const apps = ['accounting'];
   if (on.people) apps.push('people');
+  if (on.attendance) apps.push('attendance');
   if (on.payroll) apps.push('payroll');
   return apps;
 };

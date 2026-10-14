@@ -1,35 +1,60 @@
-import { Fingerprint, Activity, Cpu, FileText } from 'lucide-react';
+import { CalendarDays, ClipboardCheck, Clock3, Cpu, FileText, Fingerprint, Inbox, LayoutDashboard, ListChecks, UserRoundCheck, Users } from 'lucide-react';
 
-import AttendanceOverview from './src/screens/AttendanceOverview';
+import AttendanceToday from './src/screens/AttendanceToday';
+import MyAttendance from './src/screens/MyAttendance';
+import AttendanceRecords from './src/screens/AttendanceRecords';
+import AttendanceRequests from './src/screens/AttendanceRequests';
+import MonthSummary from './src/screens/MonthSummary';
+import Shifts from './src/screens/Shifts';
+import ShiftAssignments from './src/screens/ShiftAssignments';
+import Holidays from './src/screens/Holidays';
 import AttendanceDevices from './src/screens/AttendanceDevices';
 import AttendanceRegisters from './src/screens/AttendanceRegisters';
 
 /**
  * Everything the shell knows about Attendance.
  *
- * Attendance is different from Accounting and Payroll in one way that matters:
- * its backend is a separate Clor application (readers, ADMS, its own Postgres),
- * run as one instance per customer, not a set of tables in the platform's
- * database. So this app is a thin UI in the shell that reaches that company's
- * own attendance instance through a single adapter — the same boundary Payroll
- * uses to reach Accounting. Single sign-on and per-company routing are the next
- * steps; until then these screens say plainly that they are not yet connected.
+ * Native attendance on the People database: clock in/out, shifts, holidays,
+ * corrections, validation and overtime approval, and a month summary of
+ * payable days for Payroll. Modules and operations follow Horilla HRMS's
+ * attendance app (reference only; LGPL code is not copied).
+ *
+ * Biometric readers stay a separate on-prem Clor application, one instance
+ * per customer; its screens are kept under "Biometric (on-prem)" until single
+ * sign-on and per-company routing to that instance land.
  */
 export const attendanceApp = {
   id: 'attendance',
   name: 'Attendance',
   icon: Fingerprint,
-  blurb: 'Live attendance, statutory registers and payroll input from your biometric readers.',
+  blurb: 'Clock in and out, shifts, holidays, corrections and payable days for payroll.',
   available: true,
-  home: 'overview',
+  database: 'people.db',
+  home: 'today',
 
   nav: [
-    { key: 'overview', label: 'Overview', icon: Activity },
+    { key: 'today', label: 'Today', icon: LayoutDashboard },
+    { key: 'me', label: 'My attendance', icon: UserRoundCheck },
+    { key: 'records', label: 'Records', icon: ListChecks },
+    { key: 'requests', label: 'Requests', icon: Inbox },
+    { key: 'summary', label: 'Month summary', icon: ClipboardCheck },
+    { section: 'Settings' },
+    { key: 'shifts', label: 'Shifts', icon: Clock3 },
+    { key: 'shiftAssignments', label: 'Shift assignments', icon: Users },
+    { key: 'holidays', label: 'Holidays', icon: CalendarDays },
+    { section: 'Biometric (on-prem)' },
     { key: 'readers', label: 'Readers', icon: Cpu },
     { key: 'registers', label: 'Registers', icon: FileText },
   ],
   screens: {
-    overview: AttendanceOverview,
+    today: AttendanceToday,
+    me: MyAttendance,
+    records: AttendanceRecords,
+    requests: AttendanceRequests,
+    summary: MonthSummary,
+    shifts: Shifts,
+    shiftAssignments: ShiftAssignments,
+    holidays: Holidays,
     readers: AttendanceDevices,
     registers: AttendanceRegisters,
   },

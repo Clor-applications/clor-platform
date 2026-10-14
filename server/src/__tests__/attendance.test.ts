@@ -147,11 +147,24 @@ describe('the month for payroll', () => {
     expect(row.payableDays).toBe(30 - row.absent - 0.5);
   });
 
+  it('includes people with no joining date on file', async () => {
+    const c = await makeOwner();
+    const p = await person(c, { name: 'No Dates' });
+    const rows = (await api(c).get('/summary?month=2026-09').expect(200)).body.rows;
+    expect(rows.find((r: any) => r.employeeId === p.id)).toMatchObject({ totalDays: 30 });
+  });
+
   it('will not delete a shift with days on it', async () => {
     const c = await makeOwner();
     const s = (await api(c).post('/shifts', { name: 'Only', startTime: '09:00', endTime: '18:00' }).expect(201)).body.shift;
     const p = await person(c, { name: 'Shifted' });
+    const loose = await person(c, { name: 'Unassigned' });
+    await api(c).post('/shift-assignments', { employeeIds: [p.id], shiftId: s.id, effectiveFrom: '2026-01-01' }).expect(200);
     await api(c).put('/records', { employeeId: p.id, date: pastWeekday, checkIn: '09:00', checkOut: '18:00' }).expect(200);
+    // Someone with no assignment stays on the standard shift, not the org's only shift.
+    const day = (await api(c).put('/records', { employeeId: loose.id, date: pastWeekday, checkIn: '09:00', checkOut: '18:00' }).expect(200)).body.record;
+    expect(day.shiftId).toBeNull();
+    await api(c).del(`/shift-assignments/${(await api(c).get(`/shift-assignments?employeeId=${p.id}`).expect(200)).body.assignments[0].id}`).expect(200);
     await api(c).del(`/shifts/${s.id}`).expect(409);
   });
 });
