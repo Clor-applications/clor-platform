@@ -7,8 +7,8 @@ import { requirePermission } from '../middleware/rbac.js';
 import { PermissionAction } from '../constants/enums.js';
 import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { ATTENDANCE_MODULE, ATTENDANCE_RESOURCE, attendanceRouteOk } from '../services/attendance/guards.js';
-import { COMMANDS, FACE, FETCH_TEMPLATE_COMMANDS, ONLINE_WINDOW_MS, SEQ, pinKey, userInfoCommand } from '../services/attendance/adms.js';
-import { sendError, today } from './attendance.js';
+import { COMMANDS, FACE, FETCH_TEMPLATE_COMMANDS, ONLINE_WINDOW_MS, SEQ, VERIFY_MODES, pinKey, userInfoCommand } from '../services/attendance/adms.js';
+import { ISO_DATE, sendError, today } from './attendance.js';
 import { copyAllTemplatesTo, pinMatcher, recomputeDeviceDay, shiftDayFor } from './iclock.js';
 
 /**
@@ -253,4 +253,76 @@ devicesRouter.get('/orgs/:orgId/attendance/biometrics', can(PermissionAction.VIE
     byPin.set(r.pin, row);
   }
   res.json({ people: [...byPin.values()].sort((a, b) => String(a.employeeName || a.pin).localeCompare(String(b.employeeName || b.pin))) });
+});
+
+// ---------------------------------------------------------------------------
+// Transactions: punches exactly as the readers sent them (ClorTime's Transaction view)
+// ---------------------------------------------------------------------------
+
+const range = (q: any) => {
+  const t = today();
+  const to = ISO_DATE.test(String(q.to || '')) ? String(q.to) : t;
+  const from = ISO_DATE.test(String(q.from || '')) ? String(q.from) : to;
+  return { from, to };
+};
+const LIMIT = 5000;
+
+devicesRouter.get('/orgs/:orgId/attendance/transactions', can(PermissionAction.VIEW), async (req, res) => {
+  if (!(await attendanceRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const { from, to } = range(req.query);
+  const employeeId = String(req.query.employeeId || '').trim();
+  const deviceId = String(req.query.deviceId || '').trim();
+  const unmatched = req.query.unmatched === 'true';
+  const where: any = {
+    accountId,
+    orgId,
+    localTime: { gte: `${from} 00:00:00`, lte: `${to} 23:59:59` },
+    ...(deviceId ? { deviceId } : {}),
+    ...(unmatched ? { employeeId: null } : employeeId ? { employeeId } : {}),
+  };
+  const [rows, total, devices, people] = await Promise.all([
+    peoplePrisma.devicePunch.findMany({ where, orderBy: { at: 'desc' }, take: LIMIT }),
+    peoplePrisma.devicePunch.count({ where }),
+    peoplePrisma.attendanceDevice.findMany({ where: { orgId }, select: { id: true, name: true } }),
+    peoplePrisma.employee.findMany({ where: { orgId }, select: { id: true, name: true, code: true } }),
+  ]);
+  const dev = new Map(devices.map((d) => [d.id, d.name]));
+  const emp = new Map(people.map((p) => [p.id, p]));
+  res.json({
+    from,
+    to,
+    total,
+    truncated: total > rows.length,
+    transactions: rows.map((r) => ({
+      id: r.id,
+      pin: r.pin,
+      localTime: r.localTime,
+      kind: r.kind,
+      state: r.state,
+      verifyMode: r.verifyMode,
+      verify: VERIFY_MODES[r.verifyMode] || `Code ${r.verifyMode}`,
+      deviceId: r.deviceId,
+      deviceName: dev.get(r.deviceId) || r.serialNumber,
+      employeeId: r.employeeId,
+      employeeName: r.employeeId ? emp.get(r.employeeId)?.name || null : null,
+      employeeCode: r.employeeId ? emp.get(r.employeeId)?.code || null : null,
+      shiftDate: r.shiftDate,
+    })),
+  });
+});
+
+devicesRouter.get('/orgs/:orgId/attendance/device-logs', can(PermissionAction.VIEW), async (req, res) => {
+  if (!(await attendanceRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const { from, to } = range(req.query);
+  const kind = req.query.kind === 'ERROR' ? 'ERROR' : 'OPERATION';
+  const deviceId = String(req.query.deviceId || '').trim();
+  const where: any = { accountId, orgId, kind, localTime: { gte: `${from} 00:00:00`, lte: `${to} 23:59:59` }, ...(deviceId ? { deviceId } : {}) };
+  const [rows, devices] = await Promise.all([
+    peoplePrisma.deviceLog.findMany({ where, orderBy: { localTime: 'desc' }, take: LIMIT }),
+    peoplePrisma.attendanceDevice.findMany({ where: { orgId }, select: { id: true, name: true } }),
+  ]);
+  const dev = new Map(devices.map((d) => [d.id, d.name]));
+  res.json({ from, to, kind, logs: rows.map((r) => ({ ...r, deviceName: dev.get(r.deviceId) || '—' })) });
 });

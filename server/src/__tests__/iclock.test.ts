@@ -326,3 +326,28 @@ describe('request limit', () => {
     }
   }, 120_000);
 });
+
+describe('transactions and reader logs', () => {
+  it('lists punches as the readers sent them, matched or not, and keeps the readers’ operation and error logs', async () => {
+    const c = await makeOwner();
+    const sn = serial();
+    const { device } = await addReader(c, sn);
+    const p = await person(c, { name: 'Tx Person', code: '601' });
+    await reader(sn).push(['601\t2026-09-10 09:01:00\t0\t15', '777\t2026-09-10 09:02:00\t0\t1', '601\t2026-09-10 18:00:00\t1\t1']).expect(200);
+    await reader(sn).push(['OPLOG 6\t1\t2026-09-10 08:00:00\t104\t0\t0\t0', 'FP PIN=1\tFID=0\tTMP=short'], 'OPERLOG').expect(200);
+    await reader(sn).push(['OP_ERR_LOG 3\t0\t2026-09-10 08:05:00\tdisk'], 'ERRORLOG').expect(200);
+
+    const all = (await api(c).get('/transactions?from=2026-09-10&to=2026-09-10').expect(200)).body;
+    expect(all.total).toBe(3);
+    expect(all.transactions[0]).toMatchObject({ localTime: '2026-09-10 18:00:00', kind: 'OUT', employeeName: 'Tx Person', deviceName: device.name });
+    expect(all.transactions.find((t: any) => t.pin === '601' && t.localTime.endsWith('09:01:00')).verify).toBe('Face');
+    expect((await api(c).get(`/transactions?from=2026-09-10&to=2026-09-10&employeeId=${p.id}`).expect(200)).body.total).toBe(2);
+    expect((await api(c).get('/transactions?from=2026-09-10&to=2026-09-10&unmatched=true').expect(200)).body.transactions.map((t: any) => t.pin)).toEqual(['777']);
+
+    const ops = (await api(c).get('/device-logs?from=2026-09-10&to=2026-09-10').expect(200)).body.logs;
+    expect(ops).toHaveLength(1);
+    expect(ops[0]).toMatchObject({ kind: 'OPERATION', code: '6', operator: '1', localTime: '2026-09-10 08:00:00', deviceName: device.name });
+    const errs = (await api(c).get('/device-logs?kind=ERROR&from=2026-09-10&to=2026-09-10').expect(200)).body.logs;
+    expect(errs[0]).toMatchObject({ code: '3', details: 'disk' });
+  });
+});

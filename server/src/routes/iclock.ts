@@ -14,6 +14,7 @@ import {
   parseBiodataLine,
   parseCommandResults,
   parseInfo,
+  parseOpLine,
   pinKey,
   punchKind,
   removalCommands,
@@ -351,7 +352,7 @@ iclockRouter.get(['/cdata', '/cdata.aspx'], async (req, res) => {
 });
 
 /** Tables that carry users and fingerprints / faces (ClorTime's list, upper-cased). */
-const DATA_TABLES = new Set(['OPERLOG', 'USERINFO', 'BIODATA', 'FINGERTMP', 'FACE', 'USERVF', 'FACEV7', 'TEMPLATEV10']);
+const DATA_TABLES = new Set(['OPERLOG', 'ERRORLOG', 'USERINFO', 'BIODATA', 'FINGERTMP', 'FACE', 'USERVF', 'FACEV7', 'TEMPLATEV10']);
 
 /** 2. Data: punches (ATTLOG), users and templates; other tables are acknowledged. */
 iclockRouter.post(['/cdata', '/cdata.aspx'], async (req, res) => {
@@ -373,14 +374,20 @@ iclockRouter.post(['/cdata', '/cdata.aspx'], async (req, res) => {
     }
     if (DATA_TABLES.has(table)) {
       const match = await pinMatcher(device.orgId);
+      const logs: any[] = [];
       for (const line of body.split(/\r?\n/).map((l) => l.trim()).filter(Boolean)) {
-        /* OPERLOG also carries operation records (OPLOG …); only user and template lines matter here. */
-        if (table === 'OPERLOG' && !/^(USER|FP|FACE|BIODATA)\b/.test(line)) continue;
+        /* OPERLOG mixes operation records (OPLOG …) with users and templates; ERRORLOG is errors. */
+        if (table === 'ERRORLOG' || (table === 'OPERLOG' && !/^(USER|FP|FACE|BIODATA)\b/.test(line))) {
+          const op = parseOpLine(line);
+          if (op) logs.push({ accountId: device.accountId, orgId: device.orgId, deviceId: device.id, kind: table === 'ERRORLOG' ? 'ERROR' : 'OPERATION', ...op });
+          continue;
+        }
         const r = parseBiodataLine(line, table);
         if (!r) continue;
         if (r.kind === 'USER') await storeUser(device, r);
         else await storeTemplate(device, r.template, match);
       }
+      if (logs.length) await peoplePrisma.deviceLog.createMany({ data: logs });
     }
     return text(res, 'OK');
   } catch {

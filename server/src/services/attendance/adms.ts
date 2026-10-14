@@ -311,3 +311,18 @@ export function parseUserLine(line: string) {
   const pin = fields.PIN || '';
   return pin ? { pin, name: fields.NAME || null } : null;
 }
+
+/**
+ * An operation or error record: "OPLOG 4 0 2026-10-14 09:00:00 0 0 0 0" —
+ * tag, type/code, who, date, time, values (ClorTime handleAttendanceLogs).
+ */
+export function parseOpLine(line: string) {
+  const parts = line.trim().split(/\s+/);
+  if (parts.length < 5) return null;
+  const localTime = `${parts[3]} ${parts[4]}`;
+  if (!LOCAL_TIME.test(localTime)) return null;
+  return { code: parts[1].slice(0, 20), operator: parts[2] && parts[2] !== '0' ? parts[2].slice(0, 40) : null, localTime, details: parts.slice(5).join(' ').slice(0, 300) || null };
+}
+
+/** How a punch was verified, as ZKTeco / eSSL readers number it. */
+export const VERIFY_MODES: Record<number, string> = { 0: 'Password', 1: 'Fingerprint', 2: 'Card', 3: 'Password', 4: 'Card', 15: 'Face', 25: 'Palm' };

@@ -114,3 +114,5 @@ export const readerServer = () => {
   }
 };
 export const listBiometrics = () => get('/biometrics').then((r) => r?.people || []);
+export const listTransactions = (params) => get(`/transactions${query(params)}`);
+export const listDeviceLogs = (params) => get(`/device-logs${query(params)}`);

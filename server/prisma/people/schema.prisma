@@ -614,3 +614,26 @@ model BiometricTemplate {
   @@unique([orgId, pin, type, no])
   @@index([accountId, orgId, employeeId])
 }
+
+/// What a reader reports about itself: operations done at the reader
+/// (enrolments, deletions, menu access — OPERLOG "OPLOG" lines) and errors
+/// (ERRORLOG). ClorTime's Operation Log and Error Log.
+model DeviceLog {
+  id        String   @id @default(cuid())
+  accountId String
+  orgId     String
+  deviceId  String
+  /// OPERATION | ERROR
+  kind      String
+  /// The operation type or error code, as the reader numbers it.
+  code      String
+  /// Who did it at the reader (admin user ID), when given.
+  operator  String?
+  /// The reader's wall clock, "YYYY-MM-DD HH:mm:ss".
+  localTime String
+  details   String?
+  createdAt DateTime @default(now())
+
+  @@index([accountId, orgId, deviceId, localTime])
+  @@index([orgId, kind, localTime])
+}
