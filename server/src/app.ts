@@ -30,6 +30,7 @@ import { payrollPayGroupsRouter } from './routes/payrollPayGroups.js';
 import { payrollPeriodsRouter } from './routes/payrollPeriods.js';
 import { payrollStructuresRouter } from './routes/payrollStructures.js';
 import { payrollEmployeesRouter } from './routes/payrollEmployees.js';
+import { peopleRouter } from './routes/people.js';
 import { payrollAssignmentsRouter } from './routes/payrollAssignments.js';
 import { payrollRunsRouter } from './routes/payrollRuns.js';
 import { payrollPostingRouter } from './routes/payrollPosting.js';
@@ -230,6 +231,7 @@ export function buildApp() {
   app.use('/api', payrollPeriodsRouter);
   app.use('/api', payrollStructuresRouter);
   app.use('/api', payrollEmployeesRouter);
+  app.use('/api', peopleRouter);
   app.use('/api', payrollAssignmentsRouter);
   app.use('/api', payrollRunsRouter);
   app.use('/api', payrollPostingRouter);

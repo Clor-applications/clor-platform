@@ -195,6 +195,31 @@ export const PERMISSION_CATALOG: ModuleDef[] = [
     ],
   },
   {
+    key: 'PEOPLE',
+    label: 'People',
+    description: 'The staff directory: employee files, org structure and notes',
+    resources: [
+      {
+        key: 'Employees',
+        label: 'Employees',
+        description: 'Employee files: personal and work details, tags, photo',
+        actions: [A.VIEW, A.CREATE, A.EDIT, A.DELETE, A.EXPORT],
+      },
+      {
+        key: 'Org Structure',
+        label: 'Org structure',
+        description: 'Departments, job positions and roles, employee and work types',
+        actions: MASTER,
+      },
+      {
+        key: 'Employee Notes',
+        label: 'Employee notes',
+        description: 'HR notes on a person\'s file',
+        actions: MASTER,
+      },
+    ],
+  },
+  {
     key: 'PAYROLL',
     label: 'Payroll',
     description: 'Salaries, statutory deductions and what they post to the books',
@@ -531,6 +556,30 @@ export const ROLE_PRESETS: Record<string, RolePreset> = {
       ['MASTERS', 'Units of Measure', ['*']],
       ['MASTERS', 'Company/Branch setup', [A.VIEW]],
       ['MASTERS', 'GST Rates', [A.VIEW]],
+    ],
+  },
+
+  // ---- People (Horilla / ERPNext: HR User / HR Manager) ----
+  HR_USER: {
+    label: 'HR User',
+    group: 'People',
+    description: 'Keep employee files and notes up to date; read the org structure',
+    roleType: 'CUSTOM',
+    grants: [
+      ['PEOPLE', 'Employees', USER_EXPORT],
+      ['PEOPLE', 'Org Structure', [A.VIEW]],
+      ['PEOPLE', 'Employee Notes', USER],
+    ],
+  },
+  HR_MANAGER: {
+    label: 'HR Manager',
+    group: 'People',
+    description: 'Everything in People: employee files, org structure, notes, removal',
+    roleType: 'CUSTOM',
+    grants: [
+      ['PEOPLE', 'Employees', ['*']],
+      ['PEOPLE', 'Org Structure', ['*']],
+      ['PEOPLE', 'Employee Notes', ['*']],
     ],
   },
 

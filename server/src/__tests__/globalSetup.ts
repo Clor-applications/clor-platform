@@ -262,6 +262,7 @@ export default async function setup() {
   await applyPolicies(asOwner(accounting), 'prisma/migrations/20261014120000_stock_ledger');
   await applyPolicies(asOwner(payroll), 'prisma/payroll/migrations/20260924120000_row_level_security');
   await applyPolicies(asOwner(people), 'prisma/people/migrations/20260924120000_row_level_security');
+  await applyPolicies(asOwner(people), 'prisma/people/migrations/20261014130100_people_org_structure_rls');
   await applyPolicies(asOwner(platform), 'prisma/platform/migrations/20260924120000_row_level_security');
 
   await grantToAppRole(database, schemas);

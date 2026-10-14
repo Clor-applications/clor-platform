@@ -31,7 +31,6 @@ datasource db {
   url      = env("PEOPLE_DATABASE_URL")
 }
 
-
 /// A person the company pays. Small on purpose: the payroll-only fields are
 /// next door, and an HR module later adds its own table beside this one.
 model Employee {
@@ -59,6 +58,45 @@ model Employee {
 
   notes String?
 
+  // ---- Personal (People app) -----------------------------------------
+  firstName                String?
+  lastName                 String?
+  gender                   String? /// MALE | FEMALE | OTHER
+  dateOfBirth              String? /// YYYY-MM-DD
+  maritalStatus            String? /// SINGLE | MARRIED | DIVORCED | WIDOWED
+  personalEmail            String?
+  /// A small square image, resized client-side, stored as a data URL (as the
+  /// platform does for avatars) — no object storage for a few kilobytes.
+  photoUrl                 String?
+  addressLine              String?
+  city                     String?
+  state                    String?
+  country                  String?
+  pincode                  String?
+  emergencyContactName     String?
+  emergencyContactPhone    String?
+  emergencyContactRelation String?
+
+  // ---- Work (People app) ---------------------------------------------
+  // Ids into the org-structure tables below. `department` and `designation`
+  // above stay as the display strings every existing reader uses, and are
+  // written alongside these.
+  departmentId       String?
+  jobPositionId      String?
+  jobRoleId          String?
+  employeeTypeId     String?
+  workTypeId         String?
+  /// Another Employee in the same org; drives the org chart.
+  reportingManagerId String?
+  workEmail          String?
+  workPhone          String?
+  workLocation       String?
+  probationEndDate   String?
+  contractEndDate    String?
+
+  tags     EmployeeTagLink[]
+  notesLog EmployeeNote[]
+
   createdByUserId String
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
@@ -66,4 +104,142 @@ model Employee {
   @@unique([orgId, code])
   @@index([accountId, orgId, status])
   @@index([accountId, orgId, branchId])
+  @@index([accountId, orgId, departmentId])
+  @@index([accountId, orgId, reportingManagerId])
+}
+
+// ============================================================================
+// Org structure (People app) — after Horilla's base: Department, JobPosition,
+// JobRole, EmployeeType, WorkType. Per org; names unique within it.
+// ============================================================================
+
+model Department {
+  id          String  @id @default(cuid())
+  accountId   String
+  orgId       String
+  name        String
+  /// A sub-department points at its parent; null = top level.
+  parentId    String?
+  description String?
+  isActive    Boolean @default(true)
+
+  createdByUserId String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([orgId, name])
+  @@index([accountId, orgId])
+}
+
+model JobPosition {
+  id           String  @id @default(cuid())
+  accountId    String
+  orgId        String
+  departmentId String?
+  name         String
+  description  String?
+  isActive     Boolean @default(true)
+
+  createdByUserId String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([orgId, name])
+  @@index([accountId, orgId, departmentId])
+}
+
+model JobRole {
+  id            String  @id @default(cuid())
+  accountId     String
+  orgId         String
+  jobPositionId String?
+  name          String
+  description   String?
+  isActive      Boolean @default(true)
+
+  createdByUserId String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([orgId, jobPositionId, name])
+  @@index([accountId, orgId, jobPositionId])
+}
+
+/// Permanent, Probation, Contract, Intern, Consultant…
+model EmployeeType {
+  id        String  @id @default(cuid())
+  accountId String
+  orgId     String
+  name      String
+  isActive  Boolean @default(true)
+
+  createdByUserId String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([orgId, name])
+  @@index([accountId, orgId])
+}
+
+/// Office, Remote, Hybrid, Field…
+model WorkType {
+  id        String  @id @default(cuid())
+  accountId String
+  orgId     String
+  name      String
+  isActive  Boolean @default(true)
+
+  createdByUserId String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([orgId, name])
+  @@index([accountId, orgId])
+}
+
+model EmployeeTag {
+  id        String @id @default(cuid())
+  accountId String
+  orgId     String
+  name      String
+  /// Hex colour for the chip.
+  color     String @default("#E54F38")
+
+  createdByUserId String
+  createdAt       DateTime @default(now())
+
+  links EmployeeTagLink[]
+
+  @@unique([orgId, name])
+  @@index([accountId, orgId])
+}
+
+model EmployeeTagLink {
+  id         String @id @default(cuid())
+  accountId  String
+  orgId      String
+  employeeId String
+  tagId      String
+
+  employee Employee    @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  tag      EmployeeTag @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@unique([employeeId, tagId])
+  @@index([accountId, orgId, tagId])
+}
+
+/// A dated note on a person's file (HR remarks, conversations, follow-ups).
+model EmployeeNote {
+  id         String @id @default(cuid())
+  accountId  String
+  orgId      String
+  employeeId String
+  body       String
+
+  createdByUserId String
+  createdAt       DateTime @default(now())
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([accountId, orgId, employeeId])
 }

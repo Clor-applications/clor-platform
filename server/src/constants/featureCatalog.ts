@@ -16,7 +16,7 @@ export type FeatureDef = {
   description: string;
   /** Value for an organisation that has never touched the setting. */
   defaultEnabled: boolean;
-  category: 'Operations' | 'Accounting' | 'Inventory' | 'Governance' | 'Communication' | 'Data' | 'Payroll';
+  category: 'Operations' | 'Accounting' | 'Inventory' | 'Governance' | 'Communication' | 'Data' | 'Payroll' | 'People';
   /** Turning the parent off forces these off too. */
   dependsOn?: string;
   /** Not switchable — listed so the screen can show why. */
@@ -362,6 +362,21 @@ export const FEATURE_CATALOG: FeatureDef[] = [
       'Import journal entries and sales invoices from a CSV file, with a downloadable template. Files are staged and validated first, so you see every problem before anything is written.',
     defaultEnabled: false,
     category: 'Data',
+  },
+
+  // ---- People -----------------------------------------------------------
+  /*
+   * The staff directory: org structure, employee files, the org chart. Payroll
+   * reads the same people, so turning on Payroll without People still works
+   * (Payroll can add an employee itself); People adds the HR side.
+   */
+  {
+    key: 'people',
+    label: 'People',
+    description:
+      'Your staff directory: departments, job positions, employee files with personal and work details, notes, tags and an org chart.',
+    defaultEnabled: false,
+    category: 'People',
   },
 
   // ---- Payroll ----------------------------------------------------------

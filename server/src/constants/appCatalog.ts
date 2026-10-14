@@ -27,7 +27,7 @@ export const APP_CATALOG: AppDef[] = [
   { code: 'payroll', name: 'Payroll', blurb: 'Pay runs, statutory, payslips.', available: true, featureKey: 'payroll' },
   // Attendance is sold on-premise today (ClorTime), not as a cloud subscription.
   { code: 'attendance', name: 'Attendance', blurb: 'Biometric attendance on your own server.', available: false },
-  { code: 'people', name: 'People', blurb: 'The staff directory every app refers to.', available: false },
+  { code: 'people', name: 'People', blurb: 'The staff directory every app refers to.', available: true, featureKey: 'people' },
   { code: 'projects', name: 'Projects', blurb: 'Projects, time, and what each cost.', available: false },
 ];
 
