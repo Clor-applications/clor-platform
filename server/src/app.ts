@@ -35,6 +35,7 @@ import { attendanceRouter } from './routes/attendance.js';
 import { leaveRouter } from './routes/leave.js';
 import { iclockRouter } from './routes/iclock.js';
 import { devicesRouter } from './routes/devices.js';
+import { attendanceReportsRouter } from './routes/attendanceReports.js';
 import { payrollAssignmentsRouter } from './routes/payrollAssignments.js';
 import { payrollRunsRouter } from './routes/payrollRuns.js';
 import { payrollPostingRouter } from './routes/payrollPosting.js';
@@ -247,6 +248,7 @@ export function buildApp() {
   app.use('/api', attendanceRouter);
   app.use('/api', leaveRouter);
   app.use('/api', devicesRouter);
+  app.use('/api', attendanceReportsRouter);
   app.use('/api', payrollAssignmentsRouter);
   app.use('/api', payrollRunsRouter);
   app.use('/api', payrollPostingRouter);

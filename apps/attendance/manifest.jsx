@@ -1,4 +1,4 @@
-import { ArrowRightLeft, CalendarCheck, CalendarDays, CalendarOff, CircleHelp, ClipboardCheck, Clock3, Cpu, FileText, Fingerprint, History, ScanFace, Inbox, LayoutDashboard, ListChecks, Scale, Tags, UserRoundCheck, Users } from 'lucide-react';
+import { ArrowRightLeft, BarChart3, CalendarCheck, CalendarDays, CalendarOff, CircleHelp, ClipboardCheck, Clock3, Cpu, FileText, Fingerprint, History, ScanFace, Inbox, LayoutDashboard, ListChecks, Scale, Tags, UserRoundCheck, Users } from 'lucide-react';
 
 import AttendanceToday from './src/screens/AttendanceToday';
 import MyAttendance from './src/screens/MyAttendance';
@@ -18,6 +18,7 @@ import UnmatchedPunches from './src/screens/UnmatchedPunches';
 import Enrolments from './src/screens/Enrolments';
 import Transactions from './src/screens/Transactions';
 import DeviceLogs from './src/screens/DeviceLogs';
+import AttendanceReports from './src/screens/AttendanceReports';
 
 /**
  * Everything the shell knows about Attendance.
@@ -46,6 +47,7 @@ export const attendanceApp = {
     { key: 'records', label: 'Records', icon: ListChecks },
     { key: 'requests', label: 'Requests', icon: Inbox },
     { key: 'summary', label: 'Month summary', icon: ClipboardCheck },
+    { key: 'reports', label: 'Reports', icon: BarChart3 },
     { section: 'Leave' },
     { key: 'myLeave', label: 'My leave', icon: CalendarOff },
     { key: 'leaveRequests', label: 'Leave requests', icon: CalendarCheck },
@@ -69,6 +71,7 @@ export const attendanceApp = {
     records: AttendanceRecords,
     requests: AttendanceRequests,
     summary: MonthSummary,
+    reports: AttendanceReports,
     shifts: Shifts,
     shiftAssignments: ShiftAssignments,
     holidays: Holidays,

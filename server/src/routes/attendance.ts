@@ -664,19 +664,26 @@ attendanceRouter.delete('/orgs/:orgId/attendance/holidays/:id', can(PermissionAc
 // The month, for payroll
 // ---------------------------------------------------------------------------
 
-const daysOfMonth = (month: string) => {
+export const daysOfMonth = (month: string) => {
   const [y, m] = month.split('-').map(Number);
   const n = new Date(Date.UTC(y, m, 0)).getUTCDate();
   return Array.from({ length: n }, (_, i) => `${month}-${String(i + 1).padStart(2, '0')}`);
 };
 
-attendanceRouter.get('/orgs/:orgId/attendance/summary', can(PermissionAction.VIEW, R.records), async (req, res) => {
-  if (!(await attendanceRouteOk(req, res))) return;
-  const { accountId, orgId } = req.tenant!;
-  const month = /^\d{4}-\d{2}$/.test(String(req.query.month || '')) ? String(req.query.month) : today().slice(0, 7);
-  const days = daysOfMonth(month);
-  const first = days[0];
-  const last = days[days.length - 1];
+/** Every date from one day to another, inclusive. */
+export const daysBetween = (from: string, to: string) => {
+  const out: string[] = [];
+  for (let d = new Date(`${from}T00:00:00Z`); d.toISOString().slice(0, 10) <= to; d.setUTCDate(d.getUTCDate() + 1)) out.push(d.toISOString().slice(0, 10));
+  return out;
+};
+
+/**
+ * Everything a period's figures are worked out from — who was employed, their
+ * days, holidays, each person's shift on each date, and which leave was
+ * unpaid. Shared by the month summary and the reports so they cannot disagree.
+ */
+export async function periodContext(accountId: string, orgId: string, from: string, to: string) {
+  const days = daysBetween(from, to);
   const [people, records, holidays, shifts, assignments] = await Promise.all([
     peoplePrisma.employee.findMany({
       /* A missing joining or leaving date means "no limit" — never a filter
@@ -685,21 +692,20 @@ attendanceRouter.get('/orgs/:orgId/attendance/summary', can(PermissionAction.VIE
         accountId,
         orgId,
         AND: [
-          { OR: [{ dateOfLeaving: null }, { dateOfLeaving: { gte: first } }] },
-          { OR: [{ dateOfJoining: null }, { dateOfJoining: { lte: last } }] },
+          { OR: [{ dateOfLeaving: null }, { dateOfLeaving: { gte: from } }] },
+          { OR: [{ dateOfJoining: null }, { dateOfJoining: { lte: to } }] },
         ],
       },
-      select: { id: true, name: true, code: true, department: true, dateOfJoining: true, dateOfLeaving: true },
+      select: { id: true, name: true, code: true, department: true, departmentId: true, dateOfJoining: true, dateOfLeaving: true, status: true },
       orderBy: { name: 'asc' },
     }),
-    peoplePrisma.attendanceRecord.findMany({ where: { accountId, orgId, date: { gte: first, lte: last } } }),
-    peoplePrisma.holiday.findMany({ where: { orgId, date: { gte: first, lte: last }, isOptional: false, branchId: null }, select: { date: true } }),
+    peoplePrisma.attendanceRecord.findMany({ where: { accountId, orgId, date: { gte: from, lte: to } } }),
+    peoplePrisma.holiday.findMany({ where: { orgId, date: { gte: from, lte: to }, isOptional: false, branchId: null }, select: { date: true, name: true } }),
     peoplePrisma.shift.findMany({ where: { orgId } }),
-    peoplePrisma.shiftAssignment.findMany({ where: { orgId, effectiveFrom: { lte: last } }, orderBy: { effectiveFrom: 'asc' } }),
+    peoplePrisma.shiftAssignment.findMany({ where: { orgId, effectiveFrom: { lte: to } }, orderBy: { effectiveFrom: 'asc' } }),
   ]);
   const holidaySet = new Set(holidays.map((h) => h.date));
-  const shiftById = new Map(shifts.map((s) => [s.id, toRule(s)]));
-  const t = today();
+  const shiftById = new Map(shifts.map((s) => [s.id, { rule: toRule(s), name: s.name }]));
   /* Days on unpaid leave are loss of pay: find which leave days came from an
      unpaid type. A day marked "on leave" by hand is treated as paid. */
   const leaveIds = [...new Set(records.filter((r) => r.status === 'ON_LEAVE' && r.leaveRequestId).map((r) => r.leaveRequestId!))];
@@ -710,18 +716,36 @@ attendanceRouter.get('/orgs/:orgId/attendance/summary', can(PermissionAction.VIE
     (await peoplePrisma.leaveType.findMany({ where: { orgId, isPaid: false }, select: { id: true } })).map((x) => x.id)
   );
   const unpaidRequest = new Set(leaveReqs.filter((r) => unpaidTypes.has(r.leaveTypeId)).map((r) => r.id));
-  const rows = people.map((p) => {
-    const mine = assignments.filter((a) => a.employeeId === p.id);
-    const ruleFor = (date: string) => {
-      const a = [...mine].reverse().find((x) => x.effectiveFrom <= date);
-      return (a && shiftById.get(a.shiftId)) || DEFAULT_SHIFT;
-    };
-    /* Only the days they were employed. */
-    const span = days.filter((d) => (!p.dateOfJoining || d >= p.dateOfJoining) && (!p.dateOfLeaving || d <= p.dateOfLeaving));
-    const recs = new Map(records.filter((r) => r.employeeId === p.id).map((r) => [r.date, r as any]));
+  const byEmployee = new Map<string, typeof assignments>();
+  for (const a of assignments) {
+    if (!byEmployee.has(a.employeeId)) byEmployee.set(a.employeeId, []);
+    byEmployee.get(a.employeeId)!.push(a);
+  }
+  const shiftOn = (employeeId: string, date: string) => {
+    const a = [...(byEmployee.get(employeeId) || [])].reverse().find((x) => x.effectiveFrom <= date);
+    return (a && shiftById.get(a.shiftId)) || { rule: DEFAULT_SHIFT, name: 'Standard' };
+  };
+  const recordsOf = new Map<string, Map<string, (typeof records)[number]>>();
+  for (const r of records) {
+    if (!recordsOf.has(r.employeeId)) recordsOf.set(r.employeeId, new Map());
+    recordsOf.get(r.employeeId)!.set(r.date, r);
+  }
+  /* Only the days someone was employed. */
+  const spanOf = (p: { dateOfJoining: string | null; dateOfLeaving: string | null }) =>
+    days.filter((d) => (!p.dateOfJoining || d >= p.dateOfJoining) && (!p.dateOfLeaving || d <= p.dateOfLeaving));
+  return { days, people, records, holidays, holidaySet, shiftOn, recordsOf, spanOf, unpaidRequest, today: today() };
+}
+
+/** Payable and loss-of-pay days per person for a month (the month summary, and Payroll's input). */
+export async function monthRows(accountId: string, orgId: string, month: string) {
+  const days = daysOfMonth(month);
+  const ctx = await periodContext(accountId, orgId, days[0], days[days.length - 1]);
+  return ctx.people.map((p) => {
+    const span = ctx.spanOf(p);
     const spanSet = new Set(span);
-    const unpaidLeaveDays = records.filter(
-      (r) => r.employeeId === p.id && spanSet.has(r.date) && r.status === 'ON_LEAVE' && r.leaveRequestId && unpaidRequest.has(r.leaveRequestId)
+    const recs = ctx.recordsOf.get(p.id) || new Map();
+    const unpaidLeaveDays = [...recs.values()].filter(
+      (r) => spanSet.has(r.date) && r.status === 'ON_LEAVE' && r.leaveRequestId && ctx.unpaidRequest.has(r.leaveRequestId)
     ).length;
     return {
       employeeId: p.id,
@@ -729,8 +753,14 @@ attendanceRouter.get('/orgs/:orgId/attendance/summary', can(PermissionAction.VIE
       code: p.code,
       department: p.department,
       unpaidLeaveDays,
-      ...monthSummary({ days: span, records: recs, shift: ruleFor, holidays: holidaySet, today: t, unpaidLeaveDays }),
+      ...monthSummary({ days: span, records: recs as any, shift: (d) => ctx.shiftOn(p.id, d).rule, holidays: ctx.holidaySet, today: ctx.today, unpaidLeaveDays }),
     };
   });
-  res.json({ month, days: days.length, rows });
+}
+
+attendanceRouter.get('/orgs/:orgId/attendance/summary', can(PermissionAction.VIEW, R.records), async (req, res) => {
+  if (!(await attendanceRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const month = /^\d{4}-\d{2}$/.test(String(req.query.month || '')) ? String(req.query.month) : today().slice(0, 7);
+  res.json({ month, days: daysOfMonth(month).length, rows: await monthRows(accountId, orgId, month) });
 });
