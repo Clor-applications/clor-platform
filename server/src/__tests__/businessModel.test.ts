@@ -30,19 +30,20 @@ describe('business model — subscriptions (gateway-agnostic)', () => {
     expect(await isAppEntitled(acct, 'accounting')).toBe(false);
   });
 
-  it('non-sellable apps (on-prem attendance) are rejected', async () => {
-    await setSubscription(acct, { apps: [{ appCode: 'payroll' }, { appCode: 'attendance' }], trialDays: 14 });
+  it('non-sellable apps (projects, not yet for sale) are rejected; native attendance is sellable', async () => {
+    await setSubscription(acct, { apps: [{ appCode: 'payroll' }, { appCode: 'attendance' }, { appCode: 'projects' }], trialDays: 14 });
     const apps = await subscribedAppCodes(acct);
     expect(apps).toContain('payroll');
-    expect(apps).not.toContain('attendance');
+    expect(apps).toContain('attendance');
+    expect(apps).not.toContain('projects');
   });
 
   it('no subscription row = unrestricted: every sellable app, nothing taken away', async () => {
     const fresh = 'test_acct_bizmodel_norow';
     const a = await appAccess(fresh);
     expect(a.restricted).toBe(false);
-    expect(a.entitledApps).toEqual(expect.arrayContaining(['accounting', 'payroll']));
-    expect(a.entitledApps).not.toContain('attendance');
+    expect(a.entitledApps).toEqual(expect.arrayContaining(['accounting', 'payroll', 'attendance', 'people']));
+    expect(a.entitledApps).not.toContain('projects');
     expect(await appOwnershipReason(fresh, 'payroll')).toBeNull();
   });
 
