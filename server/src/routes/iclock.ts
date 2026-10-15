@@ -554,7 +554,10 @@ iclockRouter.get(['/cdata', '/cdata.aspx'], async (req, res) => {
       await remember(serial, readerIp(req), null);
     }
     return text(res, HANDSHAKE_OPTIONS);
-  } catch {
+  } catch (e) {
+    /* The reader only ever sees OK or ERROR; the reason goes to the logs. */
+    // eslint-disable-next-line no-console
+    console.error(`[iclock] handshake ${serialOf(req)}:`, e instanceof Error ? e.message : e);
     return text(res, 'ERROR', 500);
   }
 });
@@ -623,7 +626,10 @@ iclockRouter.post(['/cdata', '/cdata.aspx'], async (req, res) => {
       }
     }
     return text(res, 'OK');
-  } catch {
+  } catch (e) {
+    /* The reader only ever sees OK or ERROR; the reason goes to the logs. */
+    // eslint-disable-next-line no-console
+    console.error(`[iclock] cdata ${serialOf(req)}:`, e instanceof Error ? e.message : e);
     /* Not acknowledged, so the reader keeps the batch and sends it again after ErrorDelay. */
     return text(res, 'ERROR', 500);
   }
@@ -737,7 +743,10 @@ iclockRouter.get(['/getrequest', '/getrequest.aspx'], async (req, res) => {
     if (!next) return text(res, 'OK');
     await peoplePrisma.deviceCommand.update({ where: { id: next.id }, data: { status: 'SENT', sentAt: new Date(), attempts: { increment: 1 } } });
     return text(res, `C:${next.id}:${next.command}`);
-  } catch {
+  } catch (e) {
+    /* The reader only ever sees OK or ERROR; the reason goes to the logs. */
+    // eslint-disable-next-line no-console
+    console.error(`[iclock] getrequest ${serialOf(req)}:`, e instanceof Error ? e.message : e);
     return text(res, 'OK');
   }
 });
@@ -789,7 +798,10 @@ iclockRouter.post(['/devicecmd', '/devicecmd.aspx'], async (req, res) => {
       else if (e.what === 'removeFingers') await peoplePrisma.deviceUser.updateMany({ where: { deviceId: device.id, pin: e.pin }, data: { fingers: '' } });
       else if (e.what === 'removeFace') await peoplePrisma.deviceUser.updateMany({ where: { deviceId: device.id, pin: e.pin }, data: { face: false } });
     }
-  } catch {
+  } catch (e) {
+    /* The reader only ever sees OK or ERROR; the reason goes to the logs. */
+    // eslint-disable-next-line no-console
+    console.error(`[iclock] devicecmd ${serialOf(req)}:`, e instanceof Error ? e.message : e);
     /* a lost result leaves the command SENT; the screen shows it */
   }
   return text(res, 'OK');
