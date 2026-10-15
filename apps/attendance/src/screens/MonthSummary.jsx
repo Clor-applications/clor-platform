@@ -40,6 +40,7 @@ export default function MonthSummary() {
     { key: 'lossOfPayDays', label: 'Loss of pay' },
     { key: 'payableDays', label: 'Payable days' },
     { key: 'lateCount', label: 'Late days' },
+    { key: 'latePenaltyDays', label: 'Late penalty' },
     { key: 'approvedOvertimeMinutes', label: 'Approved OT (h:mm)', value: (r) => hm(r.approvedOvertimeMinutes) },
   ];
 

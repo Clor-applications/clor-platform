@@ -1,6 +1,9 @@
 import {
   ArrowRightLeft,
   BarChart3,
+  CalendarClock,
+  CalendarRange,
+  Gavel,
   Briefcase,
   Building2,
   CalendarCheck,
@@ -51,6 +54,11 @@ import Integrations from './src/screens/Integrations';
 import Contractors from './src/screens/Contractors';
 import Resignations from './src/screens/Resignations';
 import Transfer from './src/screens/Transfer';
+import DepartmentSchedule from './src/screens/DepartmentSchedule';
+import TemporarySchedule from './src/screens/TemporarySchedule';
+import Rotations from './src/screens/Rotations';
+import ScheduleCalendar from './src/screens/ScheduleCalendar';
+import AttendanceRules from './src/screens/AttendanceRules';
 
 /**
  * Everything the shell knows about Attendance.
@@ -95,9 +103,14 @@ export const attendanceApp = {
     { key: 'summary', label: 'Month summary', icon: ClipboardCheck },
     { key: 'reports', label: 'Reports & registers', icon: BarChart3 },
     { section: 'Schedule' },
+    { key: 'scheduleCalendar', label: 'Schedule calendar', icon: CalendarRange },
     { key: 'shifts', label: 'Shifts', icon: Clock3 },
-    { key: 'shiftAssignments', label: 'Shift assignments', icon: Users },
+    { key: 'shiftAssignments', label: 'Employee schedule', icon: Users },
+    { key: 'departmentSchedule', label: 'Department schedule', icon: Building2 },
+    { key: 'temporarySchedule', label: 'Temporary schedule', icon: CalendarClock },
+    { key: 'rotations', label: 'Rotations', icon: Repeat },
     { key: 'holidays', label: 'Holidays', icon: CalendarDays },
+    { key: 'rules', label: 'Attendance rules', icon: Gavel },
     { section: 'Leave setup' },
     { key: 'leaveTypes', label: 'Leave types', icon: Tags },
     { key: 'leaveBalances', label: 'Leave balances', icon: Scale },
@@ -129,6 +142,11 @@ export const attendanceApp = {
     shifts: Shifts,
     shiftAssignments: ShiftAssignments,
     holidays: Holidays,
+    scheduleCalendar: ScheduleCalendar,
+    departmentSchedule: DepartmentSchedule,
+    temporarySchedule: TemporarySchedule,
+    rotations: Rotations,
+    rules: AttendanceRules,
     leaveTypes: LeaveTypes,
     leaveBalances: LeaveBalances,
     integrations: Integrations,

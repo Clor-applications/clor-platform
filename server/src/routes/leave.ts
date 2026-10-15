@@ -52,12 +52,12 @@ const yearParam = (v: unknown) => {
 const round = (n: number) => Math.round(n * 100) / 100;
 
 /** The days in a range that are leave: not a weekly off on that day's shift, not a holiday. */
-async function workingDays(orgId: string, employee: { id: string; branchId: string | null }, from: string, to: string) {
+async function workingDays(orgId: string, employee: { id: string; branchId: string | null; areaId?: string | null }, from: string, to: string) {
   const out: string[] = [];
   for (let d = from; d <= to; d = addDays(d, 1)) {
     const { rule } = await shiftFor(orgId, employee.id, d);
     if (isWeeklyOff(rule, d)) continue;
-    if (await isHoliday(orgId, d, employee.branchId)) continue;
+    if (await isHoliday(orgId, d, employee.branchId, employee.areaId ?? null)) continue;
     out.push(d);
   }
   return out;
@@ -238,7 +238,7 @@ const requestSchema = z.object({
   reason: z.string().trim().min(3, 'Say why.').max(500),
 });
 
-async function createLeave(req: any, res: any, employee: { id: string; branchId: string | null; status?: string | null }) {
+async function createLeave(req: any, res: any, employee: { id: string; branchId: string | null; areaId?: string | null; status?: string | null }) {
   const { accountId, orgId } = req.tenant!;
   const parsed = requestSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Invalid request.' });

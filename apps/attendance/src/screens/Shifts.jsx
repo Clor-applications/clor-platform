@@ -18,9 +18,17 @@ const BLANK = {
   fullDayMinutes: 480,
   overtimeAfterMinutes: '',
   weeklyOffDays: '0',
+  offSaturdays: '',
+  code: '',
+  color: '',
   isActive: true,
 };
-const offs = (s) => (s ? s.split(',').map((d) => DAYS[Number(d)]).join(', ') : 'None');
+const NTH = ['1st', '2nd', '3rd', '4th', '5th'];
+const offs = (s, sats) => {
+  const days = s ? s.split(',').map((d) => DAYS[Number(d)]) : [];
+  const nth = sats ? sats.split(',').map((n) => `${NTH[Number(n) - 1]} Sat`) : [];
+  return [...days, ...nth].join(', ') || 'None';
+};
 
 /**
  * Work timings. People with no shift fall back to 09:00–18:00, Sunday off.
@@ -71,8 +79,11 @@ export default function Shifts() {
               </thead>
               <tbody>
                 {rows.map((s) => (
-                  <tr key={s.id} className="ui-row-click" onClick={() => setEditing({ ...s, overtimeAfterMinutes: s.overtimeAfterMinutes ?? '' })}>
-                    <td className="ui-col-entity">{s.name}</td>
+                  <tr key={s.id} className="ui-row-click" onClick={() => setEditing({ ...s, overtimeAfterMinutes: s.overtimeAfterMinutes ?? '', code: s.code || '', color: s.color || '', offSaturdays: s.offSaturdays || '' })}>
+                    <td className="ui-col-entity">
+                      {s.code ? <span className="mr-1.5 inline-block rounded px-1.5 text-xs font-semibold text-white" style={{ backgroundColor: s.color || '#64748b' }}>{s.code}</span> : null}
+                      {s.name}
+                    </td>
                     <td className="ui-col-h-center whitespace-nowrap">
                       {s.startTime}–{s.endTime}
                       {s.endTime <= s.startTime ? <span className="ui-caption"> (night)</span> : null}
@@ -80,7 +91,7 @@ export default function Shifts() {
                     <td className="text-end tabular-nums">{s.breakMinutes}m</td>
                     <td className="text-end tabular-nums">{s.graceMinutes}m</td>
                     <td className="text-end tabular-nums">{hm(s.fullDayMinutes)}</td>
-                    <td>{offs(s.weeklyOffDays)}</td>
+                    <td>{offs(s.weeklyOffDays, s.offSaturdays)}</td>
                     <td className="text-end tabular-nums">{s.assignments}</td>
                     <td className="ui-col-h-center">{s.isActive ? '✓' : ''}</td>
                   </tr>
@@ -121,6 +132,9 @@ function ShiftForm({ initial, onClose, onSaved }) {
       fullDayMinutes: Number(form.fullDayMinutes),
       overtimeAfterMinutes: form.overtimeAfterMinutes === '' ? null : Number(form.overtimeAfterMinutes),
       weeklyOffDays: form.weeklyOffDays,
+      offSaturdays: form.offSaturdays || '',
+      code: form.code || null,
+      color: form.color || null,
       isActive: Boolean(form.isActive),
     };
     try {
@@ -191,6 +205,34 @@ function ShiftForm({ initial, onClose, onSaved }) {
             ))}
           </div>
         </fieldset>
+        <fieldset className="sm:col-span-2">
+          <legend className="ui-label">Saturdays off as well</legend>
+          <div className="flex flex-wrap gap-3">
+            {NTH.map((n, i) => {
+              const sats = new Set(String(form.offSaturdays || '').split(',').filter(Boolean));
+              const k = String(i + 1);
+              return (
+                <label key={n} className="flex items-center gap-1.5 text-sm">
+                  <input
+                    type="checkbox"
+                    className="ui-checkbox"
+                    checked={sats.has(k)}
+                    onChange={() => {
+                      const next = new Set(sats);
+                      if (next.has(k)) next.delete(k);
+                      else next.add(k);
+                      setForm((f) => ({ ...f, offSaturdays: [...next].sort().join(',') }));
+                    }}
+                  />
+                  {n}
+                </label>
+              );
+            })}
+          </div>
+          <span className="ui-caption">For “2nd and 4th Saturday off” — leave Saturday unticked above.</span>
+        </fieldset>
+        <label className="block"><span className="ui-label">Code</span><input className="ui-input w-full" maxLength={6} value={form.code || ''} onChange={set('code')} placeholder="e.g. G, N1 — for the schedule calendar" /></label>
+        <label className="block"><span className="ui-label">Colour</span><input type="color" className="ui-input h-10 w-full p-1" value={form.color || '#64748b'} onChange={set('color')} /></label>
         <label className="flex items-center gap-2 text-sm sm:col-span-2">
           <input type="checkbox" className="ui-checkbox" checked={Boolean(form.isActive)} onChange={(e) => setForm((f) => ({ ...f, isActive: e.target.checked }))} /> Active
         </label>

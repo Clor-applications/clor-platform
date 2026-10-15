@@ -296,6 +296,12 @@ model Shift {
   overtimeAfterMinutes Int?
   /// Weekdays off, 0 = Sunday … 6 = Saturday, comma separated ("0" or "0,6").
   weeklyOffDays        String  @default("0")
+  /// Which Saturdays of the month are off on top of weeklyOffDays, e.g. "2,4"
+  /// for the second and fourth (ClorTime's nth-Saturday rule).
+  offSaturdays         String  @default("")
+  /// A short code for schedule grids ("G", "N1") and a colour for them.
+  code                 String?
+  color                String?
   isActive             Boolean @default(true)
 
   createdByUserId String
@@ -315,6 +321,8 @@ model ShiftAssignment {
   employeeId    String
   shiftId       String
   effectiveFrom String /// YYYY-MM-DD
+  /// Last day, inclusive; null = until changed.
+  effectiveTo   String?
 
   createdByUserId String
   createdAt       DateTime @default(now())
@@ -333,6 +341,9 @@ model Holiday {
   isOptional Boolean @default(false)
   /// Null = every branch.
   branchId   String?
+  /// Null = the whole company; set = only people in that area (ClorTime's
+  /// holiday locations: a plant in another state keeps its own holidays).
+  areaId     String?
 
   createdByUserId String
   createdAt       DateTime @default(now())
@@ -763,4 +774,99 @@ model Contractor {
 
   @@unique([orgId, name])
   @@index([accountId, orgId])
+}
+
+/// A different shift for a few days — cover, a training week, a night swap.
+/// Wins over every other schedule for those days (ClorTime's temporary schedule).
+model TemporarySchedule {
+  id         String  @id @default(cuid())
+  accountId  String
+  orgId      String
+  employeeId String
+  shiftId    String
+  fromDate   String /// YYYY-MM-DD
+  toDate     String /// YYYY-MM-DD, inclusive
+  reason     String?
+
+  createdByUserId String
+  createdAt       DateTime @default(now())
+
+  @@index([accountId, orgId, employeeId, fromDate])
+}
+
+/// The shift a whole department works from a date, for anyone in it without a
+/// schedule of their own (ClorTime's department schedule).
+model DepartmentSchedule {
+  id            String  @id @default(cuid())
+  accountId     String
+  orgId         String
+  departmentId  String
+  shiftId       String
+  effectiveFrom String
+  effectiveTo   String?
+
+  createdByUserId String
+  createdAt       DateTime @default(now())
+
+  @@unique([departmentId, effectiveFrom])
+  @@index([accountId, orgId])
+}
+
+/// A repeating pattern — week A days, week B nights — worked out for any date
+/// from its anchor (ClorTime's shift rotations).
+model ShiftRotation {
+  id         String  @id @default(cuid())
+  accountId  String
+  orgId      String
+  name       String
+  /// Shift ids, one per period, comma separated; "OFF" = no rotation shift
+  /// that period (the person's other schedules apply).
+  sequence   String
+  /// Days each step lasts: 7 weekly, 1 daily.
+  periodDays Int     @default(7)
+  /// The day step one starts; periods are counted from here.
+  anchorDate String
+  isActive   Boolean @default(true)
+
+  createdByUserId String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([orgId, name])
+  @@index([accountId, orgId])
+}
+
+/// Someone on a rotation. An offset starts them that many steps later, so two
+/// crews on one two-step pattern cover both shifts every week.
+model RotationAssignment {
+  id         String  @id @default(cuid())
+  accountId  String
+  orgId      String
+  employeeId String
+  rotationId String
+  slotOffset Int     @default(0)
+  startsOn   String
+  endsOn     String?
+
+  createdByUserId String
+  createdAt       DateTime @default(now())
+
+  @@unique([employeeId, rotationId, startsOn])
+  @@index([accountId, orgId, rotationId])
+}
+
+/// Company-wide attendance rules (ClorTime's Attendance Rules in Settings).
+model AttendanceSettings {
+  id                    String  @id @default(cuid())
+  accountId             String
+  orgId                 String  @unique
+  /// The shift anyone with no schedule at all works; null = 09:00–18:00, Sunday off.
+  defaultShiftId        String?
+  /// Late arrivals a month that cost nothing…
+  lateAllowancePerMonth Int     @default(0)
+  /// …then every this many late arrivals is half a day's loss of pay (0 = never).
+  latePenaltyEvery      Int     @default(0)
+
+  updatedByUserId String
+  updatedAt       DateTime @updatedAt
 }

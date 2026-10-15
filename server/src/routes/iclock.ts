@@ -89,7 +89,7 @@ const readerIp = (req: Request) => {
  * matches nobody rather than the wrong person.
  */
 export async function pinMatcher(orgId: string) {
-  const people = await peoplePrisma.employee.findMany({ where: { orgId }, select: { id: true, code: true, devicePin: true, branchId: true } });
+  const people = await peoplePrisma.employee.findMany({ where: { orgId }, select: { id: true, code: true, devicePin: true, branchId: true, areaId: true } });
   const byPin = new Map<string, (typeof people)[number]>();
   const byCode = new Map<string, (typeof people)[number]>();
   const ambiguous = new Set<string>();
@@ -119,7 +119,7 @@ export async function shiftDayFor(orgId: string, employeeId: string, localTime: 
  * Work a day out again from its reader punches (and any app clock-ins on the
  * same shift day), then write it through the same path as every other day.
  */
-export async function recomputeDeviceDay(accountId: string, orgId: string, employee: { id: string; branchId: string | null }, date: string) {
+export async function recomputeDeviceDay(accountId: string, orgId: string, employee: { id: string; branchId: string | null; areaId?: string | null }, date: string) {
   const existing = await peoplePrisma.attendanceRecord.findUnique({ where: { employeeId_date: { employeeId: employee.id, date } } });
   if (existing && DECIDED.has(existing.source)) return null;
 
@@ -207,7 +207,7 @@ export async function ingestPunches(device: { id: string; accountId: string; org
   const days = new Map<string, { emp: any; date: string }>();
   for (const r of fresh) if (r._emp && r.shiftDate) days.set(`${r._emp.id}|${r.shiftDate}`, { emp: r._emp, date: r.shiftDate });
   for (const { emp, date } of days.values()) {
-    await recomputeDeviceDay(device.accountId, device.orgId, { id: emp.id, branchId: emp.branchId }, date);
+    await recomputeDeviceDay(device.accountId, device.orgId, { id: emp.id, branchId: emp.branchId, areaId: emp.areaId }, date);
   }
   return fresh.length;
 }

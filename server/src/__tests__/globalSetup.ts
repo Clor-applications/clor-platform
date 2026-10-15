@@ -270,6 +270,7 @@ export default async function setup() {
   await applyPolicies(asOwner(people), 'prisma/people/migrations/20261014180100_device_logs_rls');
   await applyPolicies(asOwner(people), 'prisma/people/migrations/20261015100100_api_integrations_rls');
   await applyPolicies(asOwner(people), 'prisma/people/migrations/20261015120100_personnel_rls');
+  await applyPolicies(asOwner(people), 'prisma/people/migrations/20261015140100_scheduling_rls');
   await applyPolicies(asOwner(platform), 'prisma/platform/migrations/20260924120000_row_level_security');
 
   await grantToAppRole(database, schemas);

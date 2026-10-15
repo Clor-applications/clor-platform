@@ -19,6 +19,7 @@ import {
   type ShiftRule,
 } from '../services/attendance/compute.js';
 import { clientIp } from '../services/auth.js';
+import { loadHolidays, loadSchedule, resolveShift } from '../services/attendance/schedule.js';
 import { emit as emitWebhook } from '../services/attendance/webhooks.js';
 
 /**
@@ -43,36 +44,28 @@ export const sendError = (res: any, e: any) => {
   throw e;
 };
 
-const toRule = (s: any): ShiftRule => ({
-  startTime: s.startTime,
-  endTime: s.endTime,
-  breakMinutes: s.breakMinutes,
-  graceMinutes: s.graceMinutes,
-  earlyOutGraceMinutes: s.earlyOutGraceMinutes,
-  halfDayMinutes: s.halfDayMinutes,
-  fullDayMinutes: s.fullDayMinutes,
-  overtimeAfterMinutes: s.overtimeAfterMinutes,
-  weeklyOffDays: s.weeklyOffDays,
-});
-
 /**
- * The shift someone works on a date: their latest assignment on or before it,
- * else the standard 09:00–18:00. Never "the org's first shift": creating a
- * night shift must not quietly move everyone unassigned onto nights.
+ * The shift someone works on a date — the one resolver (services/attendance/
+ * schedule.ts): temporary, own schedule, rotation, department, company
+ * default, else 09:00–18:00 with Sunday off. Never "the org's first shift":
+ * creating a night shift must not quietly move everyone unassigned onto nights.
  */
-export async function shiftFor(orgId: string, employeeId: string, date: string): Promise<{ shiftId: string | null; rule: ShiftRule; name: string }> {
-  const a = await peoplePrisma.shiftAssignment.findFirst({
-    where: { orgId, employeeId, effectiveFrom: { lte: date } },
-    orderBy: { effectiveFrom: 'desc' },
-  });
-  const shift = a ? await peoplePrisma.shift.findFirst({ where: { id: a.shiftId, orgId } }) : null;
-  if (shift) return { shiftId: shift.id, rule: toRule(shift), name: shift.name };
-  return { shiftId: null, rule: DEFAULT_SHIFT, name: 'Standard' };
+export async function shiftFor(orgId: string, employeeId: string, date: string) {
+  return resolveShift(await loadSchedule(orgId, [employeeId]), employeeId, date);
 }
 
-export async function isHoliday(orgId: string, date: string, branchId: string | null) {
+/** A company holiday, or one for the person's area (ClorTime's holiday locations). */
+export async function isHoliday(orgId: string, date: string, branchId: string | null, areaId: string | null = null) {
   const h = await peoplePrisma.holiday.findFirst({
-    where: { orgId, date, isOptional: false, OR: [{ branchId: null }, ...(branchId ? [{ branchId }] : [])] },
+    where: {
+      orgId,
+      date,
+      isOptional: false,
+      AND: [
+        { OR: [{ branchId: null }, ...(branchId ? [{ branchId }] : [])] },
+        { OR: [{ areaId: null }, ...(areaId ? [{ areaId }] : [])] },
+      ],
+    },
     select: { id: true },
   });
   return Boolean(h);
@@ -91,7 +84,7 @@ export async function writeDay(opts: {
   accountId: string;
   orgId: string;
   userId: string;
-  employee: { id: string; branchId: string | null };
+  employee: { id: string; branchId: string | null; areaId?: string | null };
   date: string;
   checkIn: Date | null;
   checkOut: Date | null;
@@ -102,7 +95,7 @@ export async function writeDay(opts: {
   leaveRequestId?: string | null;
 }) {
   const { shiftId, rule } = await shiftFor(opts.orgId, opts.employee.id, opts.date);
-  const holiday = await isHoliday(opts.orgId, opts.date, opts.employee.branchId);
+  const holiday = await isHoliday(opts.orgId, opts.date, opts.employee.branchId, opts.employee.areaId ?? null);
   const computed = computeDay({
     date: opts.date,
     shift: rule,
@@ -150,7 +143,7 @@ export async function writeDay(opts: {
 }
 
 export async function employeeIn(orgId: string, accountId: string, employeeId: string) {
-  const e = await peoplePrisma.employee.findFirst({ where: { id: employeeId, orgId, accountId }, select: { id: true, branchId: true, name: true, status: true } });
+  const e = await peoplePrisma.employee.findFirst({ where: { id: employeeId, orgId, accountId }, select: { id: true, branchId: true, areaId: true, name: true, status: true } });
   if (!e) throw fail(404, 'No such employee.');
   return e;
 }
@@ -517,6 +510,9 @@ const shiftSchema = z.object({
   fullDayMinutes: z.coerce.number().int().min(1).max(1440).default(480),
   overtimeAfterMinutes: z.coerce.number().int().min(0).max(1440).optional().nullable(),
   weeklyOffDays: z.string().regex(/^([0-6](,[0-6])*)?$/, 'Weekly offs are day numbers 0–6.').default('0'),
+  offSaturdays: z.string().regex(/^([1-5](,[1-5])*)?$/, 'Saturdays off are 1–5 (first to fifth).').default(''),
+  code: z.string().trim().max(6).optional().nullable(),
+  color: z.string().trim().regex(/^#[0-9a-fA-F]{6}$/, 'Colours are #RRGGBB.').optional().nullable().or(z.literal('')),
   isActive: z.boolean().optional(),
 });
 
@@ -536,7 +532,7 @@ attendanceRouter.post('/orgs/:orgId/attendance/shifts', can(PermissionAction.CRE
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Invalid shift.' });
   if (parsed.data.halfDayMinutes > parsed.data.fullDayMinutes) return res.status(400).json({ error: 'A half day cannot be longer than a full day.' });
   try {
-    const shift = await peoplePrisma.shift.create({ data: { accountId, orgId, ...parsed.data, createdByUserId: req.auth!.userId } as any });
+    const shift = await peoplePrisma.shift.create({ data: { accountId, orgId, ...parsed.data, code: parsed.data.code || null, color: parsed.data.color || null, createdByUserId: req.auth!.userId } as any });
     res.status(201).json({ shift });
   } catch (e) {
     return sendError(res, e);
@@ -552,7 +548,7 @@ attendanceRouter.put('/orgs/:orgId/attendance/shifts/:id', can(PermissionAction.
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Invalid shift.' });
   if (parsed.data.halfDayMinutes > parsed.data.fullDayMinutes) return res.status(400).json({ error: 'A half day cannot be longer than a full day.' });
   try {
-    const shift = await peoplePrisma.shift.update({ where: { id: existing.id }, data: parsed.data as any });
+    const shift = await peoplePrisma.shift.update({ where: { id: existing.id }, data: { ...parsed.data, code: parsed.data.code || null, color: parsed.data.color || null } as any });
     res.json({ shift });
   } catch (e) {
     return sendError(res, e);
@@ -588,18 +584,25 @@ attendanceRouter.post('/orgs/:orgId/attendance/shift-assignments', can(Permissio
   if (!(await attendanceRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   const parsed = z
-    .object({ employeeIds: z.array(z.string().min(1)).min(1).max(1000), shiftId: z.string().min(1), effectiveFrom: z.string().regex(ISO_DATE) })
+    .object({
+      employeeIds: z.array(z.string().min(1)).min(1).max(1000),
+      shiftId: z.string().min(1),
+      effectiveFrom: z.string().regex(ISO_DATE),
+      effectiveTo: z.string().regex(ISO_DATE).optional().nullable().or(z.literal('')),
+    })
     .safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: 'Choose people, a shift and a start date.' });
   const { employeeIds, shiftId, effectiveFrom } = parsed.data;
+  const effectiveTo = parsed.data.effectiveTo || null;
+  if (effectiveTo && effectiveTo < effectiveFrom) return res.status(400).json({ error: 'The end is before the start.' });
   const shift = await peoplePrisma.shift.findFirst({ where: { id: shiftId, orgId } });
   if (!shift) return res.status(400).json({ error: 'That shift is not in this organisation.' });
   const people = await peoplePrisma.employee.findMany({ where: { orgId, id: { in: employeeIds } }, select: { id: true } });
   for (const p of people) {
     await peoplePrisma.shiftAssignment.upsert({
       where: { employeeId_effectiveFrom: { employeeId: p.id, effectiveFrom } },
-      create: { accountId, orgId, employeeId: p.id, shiftId, effectiveFrom, createdByUserId: req.auth!.userId },
-      update: { shiftId },
+      create: { accountId, orgId, employeeId: p.id, shiftId, effectiveFrom, effectiveTo, createdByUserId: req.auth!.userId },
+      update: { shiftId, effectiveTo },
     });
   }
   res.json({ assigned: people.length });
@@ -614,11 +617,19 @@ attendanceRouter.delete('/orgs/:orgId/attendance/shift-assignments/:id', can(Per
   res.json({ ok: true });
 });
 
+const areaOrNull = async (orgId: string, areaId: string | null | undefined) => {
+  if (!areaId) return null;
+  if (!(await peoplePrisma.area.findFirst({ where: { id: areaId, orgId }, select: { id: true } }))) throw fail(400, 'That area is not in this organisation.');
+  return areaId;
+};
+
 const holidaySchema = z.object({
   date: z.string().regex(ISO_DATE, 'Dates are YYYY-MM-DD.'),
   name: z.string().trim().min(1, 'Name the holiday.').max(80),
   isOptional: z.boolean().optional(),
   branchId: z.string().trim().optional().nullable(),
+  /** Null = the whole company; set = only that area's people. */
+  areaId: z.string().trim().optional().nullable(),
 });
 
 attendanceRouter.get('/orgs/:orgId/attendance/holidays', can(PermissionAction.VIEW, R.holidays), async (req, res) => {
@@ -629,7 +640,8 @@ attendanceRouter.get('/orgs/:orgId/attendance/holidays', can(PermissionAction.VI
     where: { accountId, orgId, date: { gte: `${year}-01-01`, lte: `${year}-12-31` } },
     orderBy: { date: 'asc' },
   });
-  res.json({ holidays, year });
+  const areas = new Map((await peoplePrisma.area.findMany({ where: { orgId }, select: { id: true, name: true } })).map((x) => [x.id, x.name]));
+  res.json({ holidays: holidays.map((h) => ({ ...h, areaName: h.areaId ? areas.get(h.areaId) || null : null })), year });
 });
 
 attendanceRouter.post('/orgs/:orgId/attendance/holidays', can(PermissionAction.CREATE, R.holidays), async (req, res) => {
@@ -639,7 +651,7 @@ attendanceRouter.post('/orgs/:orgId/attendance/holidays', can(PermissionAction.C
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Invalid holiday.' });
   try {
     const holiday = await peoplePrisma.holiday.create({
-      data: { accountId, orgId, ...parsed.data, branchId: parsed.data.branchId || null, isOptional: Boolean(parsed.data.isOptional), createdByUserId: req.auth!.userId },
+      data: { accountId, orgId, ...parsed.data, branchId: parsed.data.branchId || null, areaId: await areaOrNull(orgId, parsed.data.areaId), isOptional: Boolean(parsed.data.isOptional), createdByUserId: req.auth!.userId },
     });
     res.status(201).json({ holiday });
   } catch (e) {
@@ -657,7 +669,7 @@ attendanceRouter.put('/orgs/:orgId/attendance/holidays/:id', can(PermissionActio
   try {
     const holiday = await peoplePrisma.holiday.update({
       where: { id: existing.id },
-      data: { ...parsed.data, branchId: parsed.data.branchId || null, isOptional: Boolean(parsed.data.isOptional) },
+      data: { ...parsed.data, branchId: parsed.data.branchId || null, areaId: await areaOrNull(orgId, parsed.data.areaId), isOptional: Boolean(parsed.data.isOptional) },
     });
     res.json({ holiday });
   } catch (e) {
@@ -698,7 +710,7 @@ export const daysBetween = (from: string, to: string) => {
  */
 export async function periodContext(accountId: string, orgId: string, from: string, to: string) {
   const days = daysBetween(from, to);
-  const [people, records, holidays, shifts, assignments] = await Promise.all([
+  const [people, records, holidayData, schedule] = await Promise.all([
     peoplePrisma.employee.findMany({
       /* A missing joining or leaving date means "no limit" — never a filter
          on NULL, which SQL treats as unknown and drops the person. */
@@ -716,12 +728,13 @@ export async function periodContext(accountId: string, orgId: string, from: stri
       orderBy: { name: 'asc' },
     }),
     peoplePrisma.attendanceRecord.findMany({ where: { accountId, orgId, date: { gte: from, lte: to } } }),
-    peoplePrisma.holiday.findMany({ where: { orgId, date: { gte: from, lte: to }, isOptional: false, branchId: null }, select: { date: true, name: true } }),
-    peoplePrisma.shift.findMany({ where: { orgId } }),
-    peoplePrisma.shiftAssignment.findMany({ where: { orgId, effectiveFrom: { lte: to } }, orderBy: { effectiveFrom: 'asc' } }),
+    loadHolidays(orgId, from, to),
+    loadSchedule(orgId),
   ]);
-  const holidaySet = new Set(holidays.map((h) => h.date));
-  const shiftById = new Map(shifts.map((s) => [s.id, { rule: toRule(s), name: s.name }]));
+  const holidays = holidayData.rows;
+  /* Company-wide holidays; holidaysFor(person) adds their area's. */
+  const holidaySet = holidayData.company;
+  const holidaysFor = (p: { areaId?: string | null }) => holidayData.forArea(p.areaId);
   /* Days on unpaid leave are loss of pay: find which leave days came from an
      unpaid type. A day marked "on leave" by hand is treated as paid. */
   const leaveIds = [...new Set(records.filter((r) => r.status === 'ON_LEAVE' && r.leaveRequestId).map((r) => r.leaveRequestId!))];
@@ -732,15 +745,7 @@ export async function periodContext(accountId: string, orgId: string, from: stri
     (await peoplePrisma.leaveType.findMany({ where: { orgId, isPaid: false }, select: { id: true } })).map((x) => x.id)
   );
   const unpaidRequest = new Set(leaveReqs.filter((r) => unpaidTypes.has(r.leaveTypeId)).map((r) => r.id));
-  const byEmployee = new Map<string, typeof assignments>();
-  for (const a of assignments) {
-    if (!byEmployee.has(a.employeeId)) byEmployee.set(a.employeeId, []);
-    byEmployee.get(a.employeeId)!.push(a);
-  }
-  const shiftOn = (employeeId: string, date: string) => {
-    const a = [...(byEmployee.get(employeeId) || [])].reverse().find((x) => x.effectiveFrom <= date);
-    return (a && shiftById.get(a.shiftId)) || { rule: DEFAULT_SHIFT, name: 'Standard' };
-  };
+  const shiftOn = (employeeId: string, date: string) => resolveShift(schedule, employeeId, date);
   const recordsOf = new Map<string, Map<string, (typeof records)[number]>>();
   for (const r of records) {
     if (!recordsOf.has(r.employeeId)) recordsOf.set(r.employeeId, new Map());
@@ -749,7 +754,8 @@ export async function periodContext(accountId: string, orgId: string, from: stri
   /* Only the days someone was employed. */
   const spanOf = (p: { dateOfJoining: string | null; dateOfLeaving: string | null }) =>
     days.filter((d) => (!p.dateOfJoining || d >= p.dateOfJoining) && (!p.dateOfLeaving || d <= p.dateOfLeaving));
-  return { days, people, records, holidays, holidaySet, shiftOn, recordsOf, spanOf, unpaidRequest, today: today() };
+  const settings = await peoplePrisma.attendanceSettings.findUnique({ where: { orgId } });
+  return { days, people, records, holidays, holidaySet, holidaysFor, shiftOn, recordsOf, spanOf, unpaidRequest, settings, today: today() };
 }
 
 /** Payable and loss-of-pay days per person for a month (the month summary, and Payroll's input). */
@@ -769,7 +775,16 @@ export async function monthRows(accountId: string, orgId: string, month: string)
       code: p.code,
       department: p.department,
       unpaidLeaveDays,
-      ...monthSummary({ days: span, records: recs as any, shift: (d) => ctx.shiftOn(p.id, d).rule, holidays: ctx.holidaySet, today: ctx.today, unpaidLeaveDays }),
+      ...monthSummary({
+        days: span,
+        records: recs as any,
+        shift: (d) => ctx.shiftOn(p.id, d).rule,
+        holidays: ctx.holidaysFor(p),
+        today: ctx.today,
+        unpaidLeaveDays,
+        lateAllowance: ctx.settings?.lateAllowancePerMonth ?? 0,
+        latePenaltyEvery: ctx.settings?.latePenaltyEvery ?? 0,
+      }),
     };
   });
 }

@@ -140,3 +140,23 @@ export const publicApiBase = () => {
     return '/v1';
   }
 };
+
+// Scheduling (server: routes/scheduling.ts)
+export const listTemporarySchedules = (from) => get(`/temporary-schedules${query({ from })}`).then((r) => r?.schedules || []);
+export const addTemporarySchedule = (body) => send('/temporary-schedules', 'POST', body);
+export const removeTemporarySchedule = (id) => send(`/temporary-schedules/${encodeURIComponent(id)}`, 'DELETE');
+export const listDepartmentSchedules = () => get('/department-schedules').then((r) => r?.schedules || []);
+export const addDepartmentSchedule = (body) => send('/department-schedules', 'POST', body);
+export const removeDepartmentSchedule = (id) => send(`/department-schedules/${encodeURIComponent(id)}`, 'DELETE');
+export const listRotations = () => get('/rotations').then((r) => r?.rotations || []);
+export const createRotation = (body) => send('/rotations', 'POST', body);
+export const updateRotation = (id, body) => send(`/rotations/${encodeURIComponent(id)}`, 'PUT', body);
+export const deleteRotation = (id) => send(`/rotations/${encodeURIComponent(id)}`, 'DELETE');
+export const listRotationPeople = (id) => get(`/rotations/${encodeURIComponent(id)}/assignments`).then((r) => r?.assignments || []);
+export const assignRotation = (id, body) => send(`/rotations/${encodeURIComponent(id)}/assignments`, 'POST', body);
+export const removeRotationAssignment = (id) => send(`/rotation-assignments/${encodeURIComponent(id)}`, 'DELETE');
+export const getRules = () => get('/rules').then((r) => r?.rules);
+export const saveRules = (body) => send('/rules', 'PUT', body);
+export const getSchedule = (params) => get(`/schedule${query(params)}`);
+export const recompute = (body) => send('/recompute', 'POST', body);
+export const SCHEDULE_SOURCE = { TEMPORARY: 'Temporary', EMPLOYEE: 'Own schedule', ROTATION: 'Rotation', DEPARTMENT: 'Department', DEFAULT: 'Company default' };

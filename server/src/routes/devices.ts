@@ -277,7 +277,7 @@ devicesRouter.post('/orgs/:orgId/attendance/punches/match', can(PermissionAction
   if (!parsed.success) return res.status(400).json({ error: 'Choose the employee for this reader ID.' });
   const { pin, employeeId } = parsed.data;
   try {
-    const employee = await peoplePrisma.employee.findFirst({ where: { id: employeeId, accountId, orgId }, select: { id: true, branchId: true, devicePin: true, name: true } });
+    const employee = await peoplePrisma.employee.findFirst({ where: { id: employeeId, accountId, orgId }, select: { id: true, branchId: true, areaId: true, devicePin: true, name: true } });
     if (!employee) return res.status(404).json({ error: 'No such employee.' });
     const holder = await peoplePrisma.employee.findFirst({ where: { orgId, devicePin: pin, id: { not: employee.id } }, select: { name: true } });
     if (holder) return res.status(409).json({ error: `Reader ID ${pin} already belongs to ${holder.name}.` });

@@ -32,6 +32,8 @@ export type ShiftRule = {
   fullDayMinutes: number;
   overtimeAfterMinutes: number | null;
   weeklyOffDays: string; // "0,6"
+  /** Saturdays of the month that are off as well: "2,4" = second and fourth. */
+  offSaturdays?: string;
 };
 
 export type DayStatus = 'PRESENT' | 'HALF_DAY' | 'ABSENT' | 'ON_LEAVE' | 'HOLIDAY' | 'WEEKLY_OFF';
@@ -83,13 +85,20 @@ export const weekday = (date: string) => {
   return new Date(Date.UTC(y, m - 1, d)).getUTCDay();
 };
 
-export const isWeeklyOff = (shift: ShiftRule, date: string) =>
-  String(shift.weeklyOffDays || '')
+const numbers = (s: string | undefined) =>
+  String(s || '')
     .split(',')
-    .map((s) => s.trim())
+    .map((x) => x.trim())
     .filter(Boolean)
-    .map(Number)
-    .includes(weekday(date));
+    .map(Number);
+
+/** A weekly off: one of the shift's off weekdays, or an nth Saturday it gives off (ClorTime isWeekOff). */
+export const isWeeklyOff = (shift: ShiftRule, date: string) => {
+  const wd = weekday(date);
+  if (numbers(shift.weeklyOffDays).includes(wd)) return true;
+  if (wd === 6) return numbers(shift.offSaturdays).includes(Math.ceil(Number(date.slice(8, 10)) / 7));
+  return false;
+};
 
 /** Shift start and end instants for a date, night shifts ending the next day. */
 export const shiftWindow = (shift: ShiftRule, date: string) => {
@@ -157,6 +166,13 @@ export function monthSummary(input: {
   holidays: Set<string>;
   today: string;
   unpaidLeaveDays?: number;
+  /**
+   * The common Indian rule "every 3 late arrivals is half a day's loss of pay":
+   * the first `lateAllowance` late days a month are free, then every
+   * `latePenaltyEvery` late days costs half a day. 0 = no penalty.
+   */
+  lateAllowance?: number;
+  latePenaltyEvery?: number;
 }) {
   let present = 0;
   let halfDays = 0;
@@ -187,7 +203,9 @@ export function monthSummary(input: {
     else if (status === 'WEEKLY_OFF') weeklyOffs += 1;
   }
   const unpaidLeave = Math.min(leave, Math.max(0, input.unpaidLeaveDays || 0));
-  const lossOfPayDays = absent + halfDays * 0.5 + unpaidLeave;
+  const every = Math.max(0, input.latePenaltyEvery || 0);
+  const latePenaltyDays = every ? Math.floor(Math.max(0, late - Math.max(0, input.lateAllowance || 0)) / every) * 0.5 : 0;
+  const lossOfPayDays = absent + halfDays * 0.5 + unpaidLeave + latePenaltyDays;
   return {
     totalDays: input.days.length,
     present,
@@ -198,6 +216,7 @@ export function monthSummary(input: {
     weeklyOffs,
     notYet,
     lateCount: late,
+    latePenaltyDays,
     approvedOvertimeMinutes: overtimeMinutes,
     lossOfPayDays,
     payableDays: input.days.length - notYet - lossOfPayDays,

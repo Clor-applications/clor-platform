@@ -79,10 +79,10 @@ const quietNote = (days: string[]) =>
   days.length ? [`Nobody has any attendance on ${days.length === 1 ? days[0] : `${days.length} working days (${days.slice(0, 5).join(', ')}${days.length > 5 ? '…' : ''})`}. If the readers were down or attendance was not being kept then, those days show as absent here and need correcting.`] : [];
 
 /** Each person's mark for a day, the same way the month summary counts it. */
-function dayStatus(ctx: Awaited<ReturnType<typeof periodContext>>, p: { id: string }, date: string) {
+function dayStatus(ctx: Awaited<ReturnType<typeof periodContext>>, p: { id: string; areaId?: string | null }, date: string) {
   const r = ctx.recordsOf.get(p.id)?.get(date);
   if (r) return r.status;
-  if (ctx.holidaySet.has(date)) return 'HOLIDAY';
+  if (ctx.holidaysFor(p as any).has(date)) return 'HOLIDAY';
   if (isWeeklyOff(ctx.shiftOn(p.id, date).rule, date)) return 'WEEKLY_OFF';
   if (date > ctx.today) return null;
   return 'ABSENT';

@@ -16,6 +16,7 @@ export default function ShiftAssignments() {
   const [picked, setPicked] = useState(() => new Set());
   const [shiftId, setShiftId] = useState('');
   const [from, setFrom] = useState(todayIst());
+  const [until, setUntil] = useState('');
   const [search, setSearch] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -44,7 +45,7 @@ export default function ShiftAssignments() {
   const assign = async () => {
     setSaving(true);
     try {
-      const r = await assignShift({ employeeIds: [...picked], shiftId, effectiveFrom: from });
+      const r = await assignShift({ employeeIds: [...picked], shiftId, effectiveFrom: from, effectiveTo: until || null });
       notify.success(`${r.assigned} people assigned.`);
       setPicked(new Set());
       load();
@@ -66,7 +67,11 @@ export default function ShiftAssignments() {
 
   return (
     <div className="space-y-4">
-      <PageHeader entity="attendance" title="Shift assignments" description="Pick people, a shift and the day it starts." />
+      <PageHeader
+        entity="attendance"
+        title="Employee schedule"
+        description="A person’s own shift from a date (and until a date, if it ends). It beats their rotation and department schedule; a temporary schedule beats it."
+      />
 
       <section className="ui-card space-y-3 p-5" aria-labelledby="assign-h">
         <h2 id="assign-h" className="ui-t-sec">Assign</h2>
@@ -83,6 +88,7 @@ export default function ShiftAssignments() {
                 </select>
               </label>
               <label className="block"><span className="ui-label">From</span><input type="date" className="ui-input" value={from} onChange={(e) => setFrom(e.target.value)} /></label>
+              <label className="block"><span className="ui-label">Until</span><input type="date" className="ui-input" min={from} value={until} onChange={(e) => setUntil(e.target.value)} aria-describedby="until-h" /></label>
               <button type="button" className="ui-btn ui-btn-primary" disabled={saving || !shiftId || !picked.size || !from} onClick={assign}>
                 {saving ? 'Assigning…' : `Assign ${picked.size || ''}`}
               </button>
@@ -109,7 +115,7 @@ export default function ShiftAssignments() {
       {!rows ? (
         <SkeletonCard lines={5} />
       ) : !rows.length ? (
-        <EmptyState title="No assignments" description="Everyone is on the default 09:00–18:00 shift." />
+        <EmptyState title="No one has their own schedule" description="People follow their rotation, their department’s schedule, or the company default shift (Attendance rules)." />
       ) : (
         <div className="ui-card overflow-hidden">
           <div className="overflow-x-auto ui-table-scroll">
@@ -119,6 +125,7 @@ export default function ShiftAssignments() {
                   <th scope="col" className="ui-th">Employee</th>
                   <th scope="col" className="ui-th">Shift</th>
                   <th scope="col" className="ui-th">From</th>
+                  <th scope="col" className="ui-th">Until</th>
                   <th scope="col" className="ui-th"><span className="sr-only">Remove</span></th>
                 </tr>
               </thead>
@@ -128,6 +135,7 @@ export default function ShiftAssignments() {
                     <td className="ui-col-entity">{r.employeeName}</td>
                     <td>{r.shiftName}</td>
                     <td>{r.effectiveFrom}</td>
+                    <td>{r.effectiveTo || 'until changed'}</td>
                     <td className="text-end">
                       <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" aria-label={`Remove ${r.employeeName} from ${r.shiftName}`} onClick={() => remove(r.id)}>
                         <Trash2 size={14} aria-hidden="true" />
