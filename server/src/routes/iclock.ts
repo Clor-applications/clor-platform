@@ -477,7 +477,8 @@ iclockRouter.get(['/cdata', '/cdata.aspx'], async (req, res) => {
   try {
     const device = await deviceFor(serial);
     if (device) {
-      await peoplePrisma.attendanceDevice.update({ where: { id: device.id }, data: { lastSeenAt: new Date(), ...(readerIp(req) ? { ip: readerIp(req) } : {}) } });
+      /* The LAN address the reader reports (heartbeat INFO) is the useful one; the connection's is the office router's. */
+      await peoplePrisma.attendanceDevice.update({ where: { id: device.id }, data: { lastSeenAt: new Date(), ...(readerIp(req) && !device.ip ? { ip: readerIp(req) } : {}) } });
     } else {
       await remember(serial, readerIp(req), null);
     }
@@ -590,7 +591,7 @@ iclockRouter.get(['/getrequest', '/getrequest.aspx'], async (req, res) => {
         lastSeenAt: new Date(),
         ...(info.model ? { model: info.model } : {}),
         ...(info.firmware ? { firmware: info.firmware } : {}),
-        ...(ip ? { ip } : {}),
+        ...(info.ip ? { ip: info.ip } : !device.ip && ip ? { ip } : {}),
         ...(info.faceSupported !== null ? { faceSupported: info.faceSupported } : {}),
         ...(info.fingerSupported !== null ? { fingerSupported: info.fingerSupported } : {}),
         /* A version learnt from a face template is more exact than INFO's; keep it. */

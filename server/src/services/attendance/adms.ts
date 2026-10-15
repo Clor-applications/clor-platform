@@ -231,6 +231,7 @@ export function parseInfo(info: string | undefined) {
   const parts = String(info).split(',').map((x) => x.trim());
   const head = parts[0] || '';
   const ver = head.match(/(?:^|-)Ver\s*([\d.]+)/i);
+  /* LAN address the reader reports for itself; a public one (the office router) is not the reader's. */
   const cut = head.search(/-ver/i);
   const int = (i: number) => {
     if (parts.length <= i || !/^-?\d+$/.test(parts[i])) return null;
@@ -338,6 +339,26 @@ export function parseCommandResults(body: string) {
   return out;
 }
 
+/** "Ver 8.0.4.3-20240116", "6.60", "ZAM70-NF24HA-Ver3.3.12" → "8.0.4.3", "6.60", "3.3.12". */
+export const normaliseFirmware = (s: unknown) => {
+  const t = String(s ?? '').trim();
+  if (!t) return null;
+  const m = t.match(/Ver\s*([\d.]+)/i) || t.match(/^v?([\d][\d.]*)/i);
+  return (m ? m[1] : t).slice(0, 40);
+};
+
+/**
+ * Readers state some limits in units, not items: users and fingerprints in
+ * hundreds, the punch log in ten-thousands (a real eSSL: MaxUserCount=50,
+ * MaxFingerCount=30, MaxAttLogCount=3 — 5,000 / 3,000 / 30,000). No real
+ * reader holds fewer than 1,000 of these, so a smaller number is in units.
+ */
+export const scaleLimit = (kind: 'users' | 'fingers' | 'punches' | 'faces', n: number | null) => {
+  if (n === null || n <= 0) return n;
+  if (kind === 'faces' || n >= 1000) return n;
+  return kind === 'punches' ? n * 10_000 : n * 100;
+};
+
 /** The counts and limits in a reader's answer to INFO; anything it leaves out stays unknown. */
 export function parseReaderInfo(info: Record<string, string>) {
   const n = (...keys: string[]) => {
@@ -352,12 +373,12 @@ export function parseReaderInfo(info: Record<string, string>) {
     fingerCount: n('FPCount', 'FingerCount'),
     faceCount: n('FaceCount'),
     punchCount: n('TransactionCount', 'AttLogCount'),
-    maxUsers: n('MaxUserCount'),
-    maxFingers: n('MaxFingerCount', 'MaxFPCount'),
-    maxFaces: n('MaxFaceCount'),
-    maxPunches: n('MaxAttLogCount', 'MaxTransactionCount'),
+    maxUsers: scaleLimit('users', n('MaxUserCount')),
+    maxFingers: scaleLimit('fingers', n('MaxFingerCount', 'MaxFPCount')),
+    maxFaces: scaleLimit('faces', n('MaxFaceCount')),
+    maxPunches: scaleLimit('punches', n('MaxAttLogCount', 'MaxTransactionCount')),
     mac: info.MAC ? String(info.MAC).slice(0, 40) : null,
-    firmware: info.FWVersion ? String(info.FWVersion).slice(0, 40) : null,
+    firmware: info.FWVersion ? normaliseFirmware(info.FWVersion) : null,
   };
 }
 

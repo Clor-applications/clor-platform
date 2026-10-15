@@ -7,7 +7,7 @@ import { requirePermission } from '../middleware/rbac.js';
 import { PermissionAction } from '../constants/enums.js';
 import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { ATTENDANCE_MODULE, ATTENDANCE_RESOURCE, attendanceRouteOk } from '../services/attendance/guards.js';
-import { FACE, FINGER, ONLINE_WINDOW_MS, commandEffect, pinKey, removalCommands, SEQ } from '../services/attendance/adms.js';
+import { FACE, FINGER, ONLINE_WINDOW_MS, commandEffect, normaliseFirmware, pinKey, removalCommands, SEQ } from '../services/attendance/adms.js';
 import { alertSettings, assessCollection, assessReader, collectionFacts, readerFacts, readerStatus } from '../services/attendance/readerHealth.js';
 import { readerSupports, sendPersonTo, servesArea } from './iclock.js';
 
@@ -51,7 +51,9 @@ readerOpsRouter.get(`${base}/reader-health`, can(PermissionAction.VIEW), async (
         name: d.name,
         serialNumber: d.serialNumber,
         model: d.model,
-        firmware: d.firmware,
+        firmware: normaliseFirmware(d.firmware),
+        faceSupported: d.faceSupported,
+        fingerSupported: d.fingerSupported,
         ip: d.ip,
         mac: d.mac,
         isActive: d.isActive,
@@ -64,10 +66,10 @@ readerOpsRouter.get(`${base}/reader-health`, can(PermissionAction.VIEW), async (
         clockCheckedAt: d.clockCheckedAt,
         infoAt: d.infoAt,
         capacity: {
-          users: { n: d.userCount, max: d.maxUsers, pct: pct(d.userCount, d.maxUsers) },
-          fingers: { n: d.fingerCount, max: d.maxFingers, pct: pct(d.fingerCount, d.maxFingers) },
-          faces: { n: d.faceCount, max: d.maxFaces, pct: pct(d.faceCount, d.maxFaces) },
-          punches: { n: d.punchCount, max: d.maxPunches, pct: pct(d.punchCount, d.maxPunches) },
+          users: { n: d.userCount, max: f.maxUsers, pct: pct(d.userCount, f.maxUsers) },
+          fingers: d.fingerSupported === false ? null : { n: d.fingerCount, max: f.maxFingers, pct: pct(d.fingerCount, f.maxFingers) },
+          faces: d.faceSupported === false ? null : { n: d.faceCount, max: d.maxFaces, pct: pct(d.faceCount, d.maxFaces) },
+          punches: { n: d.punchCount, max: f.maxPunches, pct: pct(d.punchCount, f.maxPunches) },
         },
         queue: { waiting: pending, failed24h: f.failed24h },
         status: d.isActive ? readerStatus(issues) : 'off',

@@ -23,7 +23,7 @@ const STATUS = {
 };
 const SEVERITY_PILL = { critical: 'ui-pill-neg', high: 'ui-pill-neg', medium: 'ui-pill-warn' };
 const clock = (sec) => {
-  if (sec === null || sec === undefined) return 'not measured yet';
+  if (sec === null || sec === undefined) return 'checked at the next punch';
   const a = Math.abs(sec);
   if (a < 60) return 'correct';
   return `${a < 3600 ? `${Math.round(a / 60)} min` : a < 172_800 ? `${(a / 3600).toFixed(1)} h` : `${Math.round(a / 86_400)} days`} ${sec > 0 ? 'ahead' : 'behind'}`;
@@ -93,7 +93,7 @@ export default function ReaderHealth() {
                       <h2 className="truncate font-semibold">{r.name}</h2>
                     </div>
                     <div className="ui-caption truncate">
-                      {[r.serialNumber, r.model, r.firmware && `v${r.firmware}`, r.ip, r.areaName && `${r.areaName} area`].filter(Boolean).join(' · ')}
+                      {[r.serialNumber, r.model, r.firmware && `firmware ${r.firmware}`, r.ip && `IP ${r.ip}`, r.areaName && `${r.areaName} area`].filter(Boolean).join(' · ')}
                     </div>
                   </div>
                   <span className="ui-caption shrink-0">{st.label}</span>
@@ -110,7 +110,7 @@ export default function ReaderHealth() {
                     ['Faces', r.capacity.faces],
                     ['Punch log', r.capacity.punches],
                   ].map(([label, c]) =>
-                    c.n === null ? null : (
+                    !c || c.n === null ? null : (
                       <div key={label} className="grid grid-cols-[6.5rem_1fr_auto] items-center gap-2 text-xs">
                         <span className="ui-caption">{label}</span>
                         <span className="h-1.5 overflow-hidden rounded-full" style={{ backgroundColor: 'rgb(var(--border))' }} role="meter" aria-label={`${label} used`} aria-valuemin={0} aria-valuemax={c.max || 0} aria-valuenow={c.n}>
@@ -122,7 +122,8 @@ export default function ReaderHealth() {
                       </div>
                     )
                   )}
-                  {r.capacity.users.n === null ? <p className="ui-caption">Counts arrive after the reader’s next report (asked every few hours).</p> : null}
+                  {r.capacity.users.n === null ? <p className="ui-caption">Counts arrive with the reader’s next report (within a few minutes).</p> : null}
+                  {r.faceSupported === false ? <p className="ui-caption">Fingerprint reader — no face recognition.</p> : null}
                 </div>
                 {r.queue.waiting || r.queue.failed24h ? (
                   <p className="ui-caption">{[r.queue.waiting && `${r.queue.waiting} change${r.queue.waiting === 1 ? '' : 's'} waiting`, r.queue.failed24h && `${r.queue.failed24h} failed today`].filter(Boolean).join(' · ')} — see the reader’s queue under Readers.</p>

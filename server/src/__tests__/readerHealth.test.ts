@@ -131,6 +131,20 @@ describe('the rules, pure', () => {
     expect(adms.addFinger('6,0', 3)).toBe('0,3,6');
   });
 
+  it('reads limits stated in units, firmware names, and ignores faces on a fingerprint-only reader', () => {
+    // A real eSSL INFO answer: MaxUserCount=50, MaxFingerCount=30, MaxAttLogCount=3.
+    expect(adms.parseReaderInfo({ UserCount: '6', MaxUserCount: '50', FPCount: '6', MaxFingerCount: '30', TransactionCount: '980', MaxAttLogCount: '3', MaxFaceCount: '400', FWVersion: 'Ver 8.0.4.3-20240116' })).toMatchObject({
+      maxUsers: 5000, maxFingers: 3000, maxPunches: 30000, maxFaces: 400, firmware: '8.0.4.3',
+    });
+    expect(adms.scaleLimit('users', 3000)).toBe(3000);
+    expect(adms.scaleLimit('punches', 3)).toBe(30000);
+    expect(adms.scaleLimit('faces', 400)).toBe(400);
+    expect(adms.normaliseFirmware('ZAM70-NF24HA-Ver3.3.12')).toBe('3.3.12');
+    expect(adms.normaliseFirmware('6.60')).toBe('6.60');
+    const essl = { ...base, userCount: 6, maxUsers: 5000, fingerCount: 6, maxFingers: 3000, faceCount: 0, maxFaces: 400, punchCount: 980, maxPunches: 30000, faceSupported: false };
+    expect(kinds(essl)).toEqual([]);
+  });
+
   it('measures the clock only from punches sent the moment they were made', () => {
     const now2 = new Date();
     const justSeen = new Date(now2.getTime() - 30_000);

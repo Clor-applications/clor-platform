@@ -7,7 +7,7 @@ import { requirePermission } from '../middleware/rbac.js';
 import { PermissionAction } from '../constants/enums.js';
 import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { ATTENDANCE_MODULE, ATTENDANCE_RESOURCE, attendanceRouteOk } from '../services/attendance/guards.js';
-import { COMMANDS, FACE, FETCH_TEMPLATE_COMMANDS, ONLINE_WINDOW_MS, SEQ, VERIFY_MODES, commandEffect, pinKey, userInfoCommand } from '../services/attendance/adms.js';
+import { COMMANDS, FACE, FETCH_TEMPLATE_COMMANDS, ONLINE_WINDOW_MS, SEQ, VERIFY_MODES, commandEffect, normaliseFirmware, pinKey, userInfoCommand } from '../services/attendance/adms.js';
 import { ISO_DATE, sendError, today } from './attendance.js';
 import { copyAllTemplatesTo, pinMatcher, recomputeDeviceDay, servesArea, shiftDayFor, syncVendorConnection } from './iclock.js';
 import { encryptSecret } from '../services/mailer.js';
@@ -35,6 +35,7 @@ const deviceSchema = z.object({
 /* Never the stored credential. */
 const shape = ({ apiSecret, ...d }: any, extra: Record<string, unknown> = {}) => ({
   ...d,
+  firmware: normaliseFirmware(d.firmware),
   hasSecret: Boolean(apiSecret),
   online: Boolean(d.lastSeenAt && Date.now() - new Date(d.lastSeenAt).getTime() < ONLINE_WINDOW_MS),
   ...extra,
@@ -452,6 +453,13 @@ devicesRouter.get('/orgs/:orgId/attendance/transactions', can(PermissionAction.V
     peoplePrisma.attendanceDevice.findMany({ where: { orgId }, select: { id: true, name: true } }),
     peoplePrisma.employee.findMany({ where: { orgId }, select: { id: true, name: true, code: true } }),
   ]);
+  /* For an unmatched ID, the name the reader has for it helps say who it is. */
+  const unmatchedPins = [...new Set(rows.filter((r) => !r.employeeId).map((r) => r.pin))];
+  const onReader = unmatchedPins.length
+    ? await peoplePrisma.deviceUser.findMany({ where: { orgId, pin: { in: unmatchedPins } }, select: { deviceId: true, pin: true, name: true } })
+    : [];
+  const readerName = (deviceId: string, pin: string) =>
+    onReader.find((u) => u.deviceId === deviceId && u.pin === pin)?.name || onReader.find((u) => u.pin === pin && u.name)?.name || null;
   const fenceIds = [...new Set(rows.map((r) => r.geofenceId).filter(Boolean))] as string[];
   const fences = fenceIds.length ? await peoplePrisma.geofence.findMany({ where: { orgId, id: { in: fenceIds } }, select: { id: true, name: true } }) : [];
   const site = new Map(fences.map((f) => [f.id, f.name]));
@@ -475,6 +483,7 @@ devicesRouter.get('/orgs/:orgId/attendance/transactions', can(PermissionAction.V
       employeeId: r.employeeId,
       employeeName: r.employeeId ? emp.get(r.employeeId)?.name || null : null,
       employeeCode: r.employeeId ? emp.get(r.employeeId)?.code || null : null,
+      nameOnReader: r.employeeId ? null : readerName(r.deviceId, r.pin),
       shiftDate: r.shiftDate,
       /* Phone punches: where, which site, and the selfie while it is kept. */
       latitude: r.latitude,

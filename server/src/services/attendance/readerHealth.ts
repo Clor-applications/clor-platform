@@ -3,6 +3,7 @@ import { platformPrisma } from '../../utils/platformPrisma.js';
 import { isFeatureEnabled } from '../features.js';
 import { sendTemplate } from '../mailer.js';
 import { istDate } from './compute.js';
+import { scaleLimit } from './adms.js';
 import { loadHolidays } from './schedule.js';
 
 /**
@@ -51,6 +52,8 @@ export type ReaderFacts = {
   maxFingers: number | null;
   maxFaces: number | null;
   maxPunches: number | null;
+  /** False for a reader without face recognition: its face count is not a problem. */
+  faceSupported?: boolean | null;
   /** Commands the reader refused or never answered, last 24 hours. */
   failed24h: number;
   /** The oldest command still waiting, if any. */
@@ -96,7 +99,7 @@ export function assessReader(r: ReaderFacts, now: Date, opts: { offlineMinutes: 
   for (const [what, n, max] of [
     ['users', r.userCount, r.maxUsers],
     ['fingerprints', r.fingerCount, r.maxFingers],
-    ['faces', r.faceCount, r.maxFaces],
+    ['faces', r.faceSupported === false ? null : r.faceCount, r.maxFaces],
     ['punch log', r.punchCount, r.maxPunches],
   ] as const) {
     if (n === null || !max) continue;
@@ -183,10 +186,12 @@ export async function readerFacts(orgId: string, devices?: any[]) {
         fingerCount: r.fingerCount,
         faceCount: r.faceCount,
         punchCount: r.punchCount,
-        maxUsers: r.maxUsers,
-        maxFingers: r.maxFingers,
+        /* Stored before limits were read in units: scaled here too (idempotent). */
+        maxUsers: scaleLimit('users', r.maxUsers),
+        maxFingers: scaleLimit('fingers', r.maxFingers),
         maxFaces: r.maxFaces,
-        maxPunches: r.maxPunches,
+        maxPunches: scaleLimit('punches', r.maxPunches),
+        faceSupported: r.faceSupported,
         failed24h: (failed as any[]).find((x) => x.deviceId === r.id)?._count._all || 0,
         oldestPendingAt: p?._min.createdAt || null,
       } as ReaderFacts,

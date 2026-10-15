@@ -5,7 +5,7 @@ import { PageHeader, SkeletonCard, EmptyState } from '@ui/components/ui/Primitiv
 import { notify } from '@ui/components/ui/notify';
 import { downloadCsv } from '@ui/utils/csv';
 import Modal from '@ui/components/ui/Modal';
-import { getPunchPhoto, listDevices, listEmployees, listTransactions, todayIst } from '../api/attendance';
+import { getPunchPhoto, listDevices, listEmployees, listTransactions, matchPunches, todayIst } from '../api/attendance';
 
 /**
  * Every punch exactly as a reader sent it — before it is paired into a day.
@@ -18,6 +18,18 @@ export default function Transactions() {
   const [people, setPeople] = useState([]);
   const [devices, setDevices] = useState([]);
   const [photo, setPhoto] = useState(null);
+  /* Who an unmatched reader ID is — answered once, from here; their later punches match by themselves. */
+  const matchId = async (pin, employeeId) => {
+    if (!employeeId) return;
+    const who = people.find((p) => p.id === employeeId)?.name || 'them';
+    try {
+      const r = await matchPunches(pin, employeeId);
+      notify.success(`Reader ID ${pin} is ${who}: ${r.matched} ${r.matched === 1 ? 'punch' : 'punches'} matched, ${r.days} ${r.days === 1 ? 'day' : 'days'} worked out.`);
+      load();
+    } catch (e) {
+      notify.error(String(e?.message || 'Not matched.'));
+    }
+  };
   const showPhoto = async (t) => {
     try {
       const r = await getPunchPhoto(t.photoId);
@@ -115,14 +127,30 @@ export default function Transactions() {
                 {data.transactions.map((t) => (
                   <tr key={t.id}>
                     <td className="whitespace-nowrap tabular-nums">{t.localTime}</td>
-                    <td className="ui-col-entity">{t.employeeName || <span className="ui-caption" style={{ color: 'rgb(var(--warn-ink))' }}>unmatched</span>}</td>
+                    <td className="ui-col-entity">
+                      {t.employeeName || (
+                        <span className="flex flex-col gap-1">
+                          <span className="ui-caption" style={{ color: 'rgb(var(--warn-ink))' }}>
+                            Not matched{t.nameOnReader ? ` · “${t.nameOnReader}” on the reader` : ''}
+                          </span>
+                          <select className="ui-select ui-btn-sm !w-auto" value="" onChange={(e) => matchId(t.pin, e.target.value)} aria-label={`Who is reader ID ${t.pin}?`}>
+                            <option value="">Who is ID {t.pin}?</option>
+                            {people.map((p) => <option key={p.id} value={p.id}>{p.name}{p.code ? ` (${p.code})` : ''}</option>)}
+                          </select>
+                        </span>
+                      )}
+                    </td>
                     <td className="font-mono">{t.pin}</td>
                     <td className="ui-col-h-center">
-                      {t.kind ? <span className={`ui-pill ${t.kind === 'IN' ? 'ui-pill-pos' : 'ui-pill-neutral'}`}>{t.kind}</span> : <span className="ui-caption" title={`Punch state ${t.state}`}>—</span>}
+                      {t.kind ? (
+                        <span className={`ui-pill ${t.kind === 'IN' ? 'ui-pill-pos' : 'ui-pill-neutral'}`}>{t.kind}</span>
+                      ) : (
+                        <span className="ui-caption" title={`The reader sent punch state ${t.state}: no in/out key pressed. The day counts the first punch as in and the last as out.`}>auto</span>
+                      )}
                     </td>
                     <td>{t.verify}</td>
                     <td>{t.deviceName}</td>
-                    <td className="ui-col-meta whitespace-nowrap">{t.shiftDate || '—'}</td>
+                    <td className="ui-col-meta whitespace-nowrap">{t.shiftDate || (t.employeeId ? '—' : 'once matched')}</td>
                     <td className="whitespace-nowrap">
                       {t.latitude != null ? (
                         <span className="inline-flex items-center gap-2">
