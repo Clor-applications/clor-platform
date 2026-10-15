@@ -7,9 +7,9 @@ import { requirePermission } from '../middleware/rbac.js';
 import { PermissionAction } from '../constants/enums.js';
 import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { ATTENDANCE_MODULE, ATTENDANCE_RESOURCE, attendanceRouteOk } from '../services/attendance/guards.js';
-import { COMMANDS, FACE, FETCH_TEMPLATE_COMMANDS, ONLINE_WINDOW_MS, SEQ, VERIFY_MODES, pinKey, userInfoCommand } from '../services/attendance/adms.js';
+import { COMMANDS, FACE, FETCH_TEMPLATE_COMMANDS, ONLINE_WINDOW_MS, SEQ, VERIFY_MODES, commandEffect, pinKey, userInfoCommand } from '../services/attendance/adms.js';
 import { ISO_DATE, sendError, today } from './attendance.js';
-import { copyAllTemplatesTo, pinMatcher, recomputeDeviceDay, shiftDayFor, syncVendorConnection } from './iclock.js';
+import { copyAllTemplatesTo, pinMatcher, recomputeDeviceDay, servesArea, shiftDayFor, syncVendorConnection } from './iclock.js';
 import { encryptSecret } from '../services/mailer.js';
 import { etoFetchPunches } from '../services/attendance/etimeoffice.js';
 
@@ -141,6 +141,8 @@ devicesRouter.put(`${base}/:id`, can(PermissionAction.EDIT), async (req, res) =>
       name: z.string().trim().min(1).max(80),
       direction: z.enum(['both', 'in', 'out']),
       isActive: z.boolean().optional(),
+      /* A site's reader takes only that area's staff; null = everyone. */
+      areaId: z.string().min(1).nullable().optional(),
       /* e-Time Office only; a blank password keeps the stored one. */
       apiUrl: z.string().trim().url().max(200).optional().nullable().or(z.literal('')),
       corporateId: z.string().trim().max(80).optional().nullable(),
@@ -149,7 +151,10 @@ devicesRouter.put(`${base}/:id`, can(PermissionAction.EDIT), async (req, res) =>
     })
     .safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: 'Name the reader and choose its direction.' });
-  const { apiUrl, corporateId, username, password, ...common } = parsed.data;
+  const { apiUrl, corporateId, username, password, areaId, ...common } = parsed.data;
+  if (areaId && !(await peoplePrisma.area.findFirst({ where: { id: areaId, orgId }, select: { id: true } }))) {
+    return res.status(400).json({ error: 'That area is not in this organisation.' });
+  }
   const vendorFields =
     existing.vendor === 'ADMS'
       ? {}
@@ -159,8 +164,12 @@ devicesRouter.put(`${base}/:id`, can(PermissionAction.EDIT), async (req, res) =>
           ...(username ? { apiUsername: username } : {}),
           ...(password ? { apiSecret: encryptSecret(password) } : {}),
         };
-  const device = await peoplePrisma.attendanceDevice.update({ where: { id: existing.id }, data: { ...common, ...vendorFields } });
-  res.json({ device: shape(device) });
+  const device = await peoplePrisma.attendanceDevice.update({
+    where: { id: existing.id },
+    data: { ...common, ...vendorFields, ...(existing.vendor === 'ADMS' && areaId !== undefined ? { areaId } : {}) },
+  });
+  /* A new area changes who belongs on it; Sync status shows the gaps and the extras. */
+  res.json({ device: shape(device), areaChanged: areaId !== undefined && (areaId ?? null) !== (existing.areaId ?? null) });
 });
 
 devicesRouter.delete(`${base}/:id`, can(PermissionAction.DELETE), async (req, res) => {
@@ -190,9 +199,15 @@ devicesRouter.post(`${base}/:id/commands`, can(PermissionAction.EDIT), async (re
   if (device.vendor !== 'ADMS') return res.status(400).json({ error: 'Commands go to readers. This is a cloud connection — use Sync now.' });
   const queue = (command: string, sequence: number = SEQ.OTHER) => ({ accountId, orgId, deviceId: device.id, serialNumber: device.serialNumber, command, sequence, createdByUserId: req.auth!.userId });
 
-  if (action === 'FETCH_PUNCHES' || action === 'FETCH_USERS' || action === 'REBOOT') {
+  if (action === 'FETCH_PUNCHES' || action === 'FETCH_USERS' || action === 'REBOOT' || action === 'INFO') {
     await peoplePrisma.deviceCommand.create({ data: queue(COMMANDS[action]) });
     return res.json({ queued: 1 });
+  }
+  if (action === 'READ_ALL') {
+    /* Learn what the reader holds — its users, fingerprints, faces, counts — so Sync status is true for a reader set up before CLOR. */
+    const cmds = [COMMANDS.INFO, COMMANDS.FETCH_USERS, ...FETCH_TEMPLATE_COMMANDS];
+    await peoplePrisma.deviceCommand.createMany({ data: cmds.map((c) => queue(c)) });
+    return res.json({ queued: cmds.length });
   }
   if (action === 'FETCH_TEMPLATES') {
     /* What it sends back is stored and, if new, copied to the other readers. */
@@ -211,11 +226,12 @@ devicesRouter.post(`${base}/:id/commands`, can(PermissionAction.EDIT), async (re
      * the reader. Fingerprints and faces are still enrolled at the reader.
      */
     const [people, onReader] = await Promise.all([
-      peoplePrisma.employee.findMany({ where: { accountId, orgId, status: { not: 'LEFT' } }, select: { name: true, code: true, devicePin: true } }),
+      peoplePrisma.employee.findMany({ where: { accountId, orgId, status: { not: 'LEFT' } }, select: { name: true, code: true, devicePin: true, areaId: true } }),
       peoplePrisma.deviceUser.findMany({ where: { orgId, deviceId: device.id }, select: { pin: true } }),
     ]);
     const have = new Set(onReader.map((u) => pinKey(u.pin)));
     const toSend = people
+      .filter((p) => servesArea(device, p.areaId))
       .map((p) => ({ pin: p.devicePin || p.code || '', name: p.name }))
       .filter((p) => p.pin && !have.has(pinKey(p.pin)));
     if (toSend.length) await peoplePrisma.deviceCommand.createMany({ data: toSend.map((p) => queue(userInfoCommand(p.pin, p.name), SEQ.USER)) });
@@ -229,9 +245,88 @@ devicesRouter.get(`${base}/:id/commands`, can(PermissionAction.VIEW), async (req
   const { accountId, orgId } = req.tenant!;
   const device = await peoplePrisma.attendanceDevice.findFirst({ where: { id: String(req.params.id), accountId, orgId }, select: { id: true } });
   if (!device) return res.status(404).json({ error: 'No such reader.' });
-  const commands = await peoplePrisma.deviceCommand.findMany({ where: { orgId, deviceId: device.id }, orderBy: { id: 'desc' }, take: 50 });
-  /* User commands are long and repetitive; the screen needs the gist. */
-  res.json({ commands: commands.map((c) => ({ ...c, command: c.command.split('\t')[0] })) });
+  const status = String(req.query.status || '').toUpperCase();
+  const where: any = { orgId, deviceId: device.id, ...(['PENDING', 'SENT', 'DONE', 'FAILED', 'CANCELLED'].includes(status) ? { status } : {}) };
+  const [commands, counts] = await Promise.all([
+    peoplePrisma.deviceCommand.findMany({ where, orderBy: { id: 'desc' }, take: 200 }),
+    peoplePrisma.deviceCommand.groupBy({ by: ['status'], where: { orgId, deviceId: device.id }, _count: { _all: true } }),
+  ]);
+  const match = await pinMatcher(orgId);
+  const names = new Map((await peoplePrisma.employee.findMany({ where: { orgId }, select: { id: true, name: true } })).map((e) => [e.id, e.name]));
+  res.json({
+    counts: Object.fromEntries(counts.map((c) => [c.status, c._count._all])),
+    /* User and template commands are long, and templates are biometric data: the screen gets the gist and who it is for. */
+    commands: commands.map((c) => {
+      const e = commandEffect(c.command);
+      return {
+        id: c.id,
+        status: c.status,
+        attempts: c.attempts,
+        returnCode: c.returnCode,
+        lastError: c.lastError,
+        createdAt: c.createdAt,
+        sentAt: c.sentAt,
+        doneAt: c.doneAt,
+        what: describeCommand(c.command),
+        pin: e?.pin || null,
+        employeeName: e ? names.get(match(e.pin)?.id || '') || null : null,
+      };
+    }),
+  });
+});
+
+const describeCommand = (command: string) => {
+  const e = commandEffect(command);
+  if (e) {
+    return {
+      user: 'Add or update user',
+      finger: `Add fingerprint ${e.no ?? ''}`.trim(),
+      face: 'Add face',
+      removeUser: 'Remove user',
+      removeFingers: 'Remove fingerprints',
+      removeFace: 'Remove face',
+    }[e.what];
+  }
+  const head = command.split('\t')[0];
+  return (
+    {
+      [COMMANDS.FETCH_PUNCHES]: 'Send all punches',
+      [COMMANDS.FETCH_USERS]: 'Send its users',
+      [COMMANDS.REBOOT]: 'Restart',
+      [COMMANDS.INFO]: 'Report counts and capacity',
+      'DATA QUERY FINGERTMP': 'Send fingerprints',
+      'DATA QUERY FACE': 'Send faces',
+      'DATA QUERY BIODATA': 'Send biometric data',
+    } as Record<string, string>
+  )[head] || head;
+};
+
+/** Send failed commands again (all, or the ones picked). */
+devicesRouter.post(`${base}/:id/commands/retry`, can(PermissionAction.EDIT), async (req, res) => {
+  if (!(await attendanceRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const device = await peoplePrisma.attendanceDevice.findFirst({ where: { id: String(req.params.id), accountId, orgId }, select: { id: true } });
+  if (!device) return res.status(404).json({ error: 'No such reader.' });
+  const ids = Array.isArray(req.body?.ids) ? req.body.ids.map(Number).filter(Number.isInteger) : null;
+  const r = await peoplePrisma.deviceCommand.updateMany({
+    where: { orgId, deviceId: device.id, status: 'FAILED', ...(ids ? { id: { in: ids } } : {}) },
+    data: { status: 'PENDING', attempts: 0, lastError: null, returnCode: null, doneAt: null, sentAt: null },
+  });
+  res.json({ retried: r.count });
+});
+
+/** Drop changes still waiting for the reader (all, or the ones picked). */
+devicesRouter.post(`${base}/:id/commands/cancel`, can(PermissionAction.EDIT), async (req, res) => {
+  if (!(await attendanceRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const device = await peoplePrisma.attendanceDevice.findFirst({ where: { id: String(req.params.id), accountId, orgId }, select: { id: true } });
+  if (!device) return res.status(404).json({ error: 'No such reader.' });
+  const ids = Array.isArray(req.body?.ids) ? req.body.ids.map(Number).filter(Number.isInteger) : null;
+  const r = await peoplePrisma.deviceCommand.updateMany({
+    where: { orgId, deviceId: device.id, status: 'PENDING', ...(ids ? { id: { in: ids } } : {}) },
+    data: { status: 'CANCELLED', doneAt: new Date() },
+  });
+  res.json({ cancelled: r.count });
 });
 
 devicesRouter.get(`${base}/:id/users`, can(PermissionAction.VIEW), async (req, res) => {

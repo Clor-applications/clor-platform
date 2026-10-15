@@ -2,7 +2,7 @@ import 'dotenv/config';
 import { buildApp } from './app.js';
 import { startRecurringScheduler } from './services/recurringScheduler.js';
 import { startRetentionPurge } from './services/retention.js';
-import { startPhotoPurge, startVendorSync } from './services/vendorSyncScheduler.js';
+import { startPhotoPurge, startReaderChecks, startVendorSync } from './services/vendorSyncScheduler.js';
 
 const app = buildApp();
 const port = Number(process.env.PORT || 4001);
@@ -21,6 +21,7 @@ startRecurringScheduler();
 /* Punches from vendor clouds (e-Time Office) — see services/vendorSyncScheduler.ts. */
 startVendorSync();
 startPhotoPurge();
+startReaderChecks();
 
 /* Sign-in records past their use are removed daily — see services/retention.ts. */
 startRetentionPurge();

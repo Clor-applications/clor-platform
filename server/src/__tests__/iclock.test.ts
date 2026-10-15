@@ -177,6 +177,10 @@ describe('commands through the heartbeat', () => {
     const m = first.text.match(/^C:(\d+):DATA QUERY ATTLOG$/);
     expect(m).toBeTruthy();
     await r.result(`ID=${m![1]}&Return=0&CMD=DATA`).expect(200);
+    // Then its counts and limits, once every few hours.
+    const info = (await r.heartbeat().expect(200)).text.match(/^C:(\d+):INFO$/);
+    expect(info).toBeTruthy();
+    await r.result(`ID=${info![1]}&Return=0&CMD=INFO\nUserCount=2\nMaxUserCount=3000`).expect(200);
     expect((await r.heartbeat().expect(200)).text).toBe('OK');
 
     const list = (await api(c).get('/devices').expect(200)).body.devices.find((d: any) => d.id === device.id);

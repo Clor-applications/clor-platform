@@ -42,6 +42,7 @@ import { personnelRouter } from './routes/personnel.js';
 import { schedulingRouter } from './routes/scheduling.js';
 import { portalRouter } from './routes/portal.js';
 import { portalAdminRouter } from './routes/portalAdmin.js';
+import { readerOpsRouter } from './routes/readerOps.js';
 import { payrollAssignmentsRouter } from './routes/payrollAssignments.js';
 import { payrollRunsRouter } from './routes/payrollRuns.js';
 import { payrollPostingRouter } from './routes/payrollPosting.js';
@@ -264,6 +265,7 @@ export function buildApp() {
   app.use('/api', attendanceRouter);
   app.use('/api', schedulingRouter);
   app.use('/api', portalAdminRouter);
+  app.use('/api', readerOpsRouter);
   app.use('/api', leaveRouter);
   app.use('/api', devicesRouter);
   app.use('/api', attendanceReportsRouter);

@@ -9,6 +9,8 @@ import {
   FINGER,
   HANDSHAKE_OPTIONS,
   SEQ,
+  addFinger,
+  commandEffect,
   instantOf,
   pairDay,
   parseAttlogLine,
@@ -16,8 +18,10 @@ import {
   parseCommandResults,
   parseInfo,
   parseOpLine,
+  parseReaderInfo,
   pinKey,
   punchKind,
+  refusalReason,
   removalCommands,
   shiftDayOf,
   templateCommands,
@@ -216,7 +220,32 @@ export async function ingestPunches(device: { id: string; accountId: string; org
 // Users and fingerprints / faces
 // ---------------------------------------------------------------------------
 
-type Device = { id: string; accountId: string; orgId: string; serialNumber: string; faceSupported?: boolean | null; fingerSupported?: boolean | null; faceMajorVer?: number | null; faceMinorVer?: number | null };
+type Device = { id: string; accountId: string; orgId: string; serialNumber: string; areaId?: string | null; faceSupported?: boolean | null; fingerSupported?: boolean | null; faceMajorVer?: number | null; faceMinorVer?: number | null };
+
+/**
+ * Which readers someone belongs on. A reader given an area (a site) takes only
+ * that area's staff, so a 40-site company does not fill every gate with every
+ * employee; a reader with no area takes everyone. Someone with no area goes
+ * to every reader — nobody is locked out by a field left blank.
+ */
+export const servesArea = (reader: { areaId?: string | null }, areaId: string | null | undefined) => !reader.areaId || !areaId || reader.areaId === areaId;
+
+/** What a reader holds for a person, as it changes: from what the reader sends and from commands it confirms. */
+async function markOnReader(device: { id: string; accountId: string; orgId: string }, pin: string, change: { user?: boolean; name?: string | null; finger?: number; face?: boolean; clearFingers?: boolean; remove?: boolean }) {
+  const key = { deviceId_pin: { deviceId: device.id, pin } };
+  if (change.remove) {
+    await peoplePrisma.deviceUser.deleteMany({ where: { deviceId: device.id, pin } });
+    return;
+  }
+  const existing = await peoplePrisma.deviceUser.findUnique({ where: key, select: { fingers: true } });
+  const data: any = {
+    ...(change.name ? { name: change.name.slice(0, 120) } : {}),
+    ...(change.finger !== undefined ? { fingers: addFinger(existing?.fingers || '', change.finger) } : {}),
+    ...(change.clearFingers ? { fingers: '' } : {}),
+    ...(change.face !== undefined ? { face: change.face } : {}),
+  };
+  await peoplePrisma.deviceUser.upsert({ where: key, create: { accountId: device.accountId, orgId: device.orgId, deviceId: device.id, pin, ...data }, update: data });
+}
 
 async function storeUser(device: Device, u: { pin: string; name: string | null; privilege: number | null; password: string | null; card: string | null }) {
   const pin = u.pin.slice(0, 40);
@@ -297,20 +326,51 @@ async function storeTemplate(device: Device, t: Template, match: Awaited<ReturnT
   if (t.type === FACE && t.majorVer > 0 && (device.faceMajorVer !== t.majorVer || device.faceMinorVer !== t.minorVer)) {
     await peoplePrisma.attendanceDevice.update({ where: { id: device.id }, data: { faceMajorVer: t.majorVer, faceMinorVer: t.minorVer || null, faceSupported: true } });
   }
+  /* This reader certainly has it. */
+  if (t.type === FINGER) await markOnReader(device, pin, { finger: t.no });
+  else if (t.type === FACE) await markOnReader(device, pin, { face: true });
   if (!changed) return;
   const user = await userFor(device.orgId, pin, device.id);
-  for (const target of await otherReaders(device)) await queueOnto(target, pin, [{ ...t, pin }], user, null);
+  const area = match(pin)?.areaId ?? null;
+  for (const target of await otherReaders(device)) if (servesArea(target, area)) await queueOnto(target, pin, [{ ...t, pin }], user, null);
 }
+
+/**
+ * Put one person on one reader as CLOR has them: their user record (card,
+ * door PIN and privilege from the employee file, else as a reader holds them)
+ * and whichever of their fingerprints and face this reader lacks.
+ */
+export async function sendPersonTo(target: Device, employee: { name: string; cardNumber?: string | null; devicePassword?: string | null; devicePrivilege?: number | null }, pin: string, templates: Template[], createdByUserId: string | null) {
+  const held = await peoplePrisma.deviceUser.findFirst({ where: { orgId: target.orgId, pin }, orderBy: { updatedAt: 'desc' } });
+  const rows = [
+    {
+      seq: SEQ.USER as number,
+      command: userInfoCommand(pin, employee.name, {
+        privilege: employee.devicePrivilege ?? held?.privilege ?? 0,
+        password: employee.devicePassword ?? held?.password ?? '',
+        card: employee.cardNumber ?? held?.card ?? '',
+      }),
+    },
+    ...templates.filter((t) => supports(target, t.type)).flatMap((t) => templateCommands({ ...t, pin }, target)),
+  ];
+  await supersedeUserInfo(target.id, pin);
+  await peoplePrisma.deviceCommand.createMany({
+    data: rows.map((r) => ({ accountId: target.accountId, orgId: target.orgId, deviceId: target.id, serialNumber: target.serialNumber, command: r.command, sequence: r.seq, createdByUserId })),
+  });
+  return rows.length;
+}
+
+export { supports as readerSupports };
 
 /** Copy every stored template of people still employed (and of reader IDs not yet matched) onto one reader. */
 export async function copyAllTemplatesTo(target: Device, createdByUserId: string | null) {
   const templates = await peoplePrisma.biometricTemplate.findMany({ where: { orgId: target.orgId }, orderBy: [{ pin: 'asc' }, { type: 'asc' }, { no: 'asc' }] });
-  const left = new Set(
-    (await peoplePrisma.employee.findMany({ where: { orgId: target.orgId, status: 'LEFT' }, select: { id: true } })).map((e) => e.id)
-  );
+  const people = await peoplePrisma.employee.findMany({ where: { orgId: target.orgId }, select: { id: true, status: true, areaId: true } });
+  const left = new Set(people.filter((e) => e.status === 'LEFT').map((e) => e.id));
+  const elsewhere = new Set(people.filter((e) => !servesArea(target, e.areaId)).map((e) => e.id));
   const byPin = new Map<string, Template[]>();
   for (const t of templates) {
-    if (t.employeeId && left.has(t.employeeId)) continue;
+    if (t.employeeId && (left.has(t.employeeId) || elsewhere.has(t.employeeId))) continue;
     if (!byPin.has(t.pin)) byPin.set(t.pin, []);
     byPin.get(t.pin)!.push(t);
   }
@@ -345,7 +405,7 @@ export async function revokeFromReaders(orgId: string, employee: { id: string; c
 
 /** Did anything a reader holds change: the ID, name, card, PIN or privilege? */
 export const readerFieldsChanged = (before: any, after: any) =>
-  ['code', 'devicePin', 'name', 'cardNumber', 'devicePassword', 'devicePrivilege'].some((k) => (before?.[k] ?? null) !== (after?.[k] ?? null)) ||
+  ['code', 'devicePin', 'name', 'cardNumber', 'devicePassword', 'devicePrivilege', 'areaId'].some((k) => (before?.[k] ?? null) !== (after?.[k] ?? null)) ||
   (before?.status === 'LEFT' && after?.status !== 'LEFT');
 
 /**
@@ -359,7 +419,17 @@ export async function pushEmployeeToReaders(orgId: string, employee: any, create
   const pin = String(employee.devicePin || employee.code || '').trim();
   const oldPin = before ? String(before.devicePin || before.code || '').trim() : '';
   if (!pin && !oldPin) return { readers: 0 };
-  const readers = await peoplePrisma.attendanceDevice.findMany({ where: { orgId, isActive: true, vendor: 'ADMS' } });
+  const all = await peoplePrisma.attendanceDevice.findMany({ where: { orgId, isActive: true, vendor: 'ADMS' } });
+  const readers = all.filter((r) => servesArea(r, employee.areaId));
+  /* Moved to another site: off the readers that no longer serve them. */
+  if (before && (before.areaId ?? null) !== (employee.areaId ?? null)) {
+    const pins = [...new Set([oldPin, pin].filter(Boolean))];
+    for (const r of all.filter((x) => servesArea(x, before.areaId) && !servesArea(x, employee.areaId))) {
+      await peoplePrisma.deviceCommand.createMany({
+        data: pins.flatMap((p) => removalCommands(p).map((command) => ({ accountId: r.accountId, orgId, deviceId: r.id, serialNumber: r.serialNumber, command, sequence: SEQ.USER, createdByUserId }))),
+      });
+    }
+  }
   if (!readers.length) return { readers: 0 };
   const held = pin ? await peoplePrisma.deviceUser.findFirst({ where: { orgId, pin }, orderBy: { updatedAt: 'desc' } }) : null;
   const rows: Array<{ command: string; sequence: number }> = [];
@@ -374,11 +444,24 @@ export async function pushEmployeeToReaders(orgId: string, employee: any, create
       sequence: SEQ.USER,
     });
   }
+  /* Readers that did not serve them before (a new site) get their fingerprints and face too. */
+  const templates =
+    pin && before && (before.areaId ?? null) !== (employee.areaId ?? null)
+      ? await peoplePrisma.biometricTemplate.findMany({ where: { orgId, pin }, orderBy: [{ type: 'asc' }, { no: 'asc' }] })
+      : [];
   for (const r of readers) {
     if (pin) await supersedeUserInfo(r.id, pin);
     await peoplePrisma.deviceCommand.createMany({
       data: rows.map((x) => ({ accountId: r.accountId, orgId, deviceId: r.id, serialNumber: r.serialNumber, command: x.command, sequence: x.sequence, createdByUserId })),
     });
+    if (templates.length && !servesArea(r, before.areaId)) {
+      const extra = templates.filter((t) => supports(r, t.type)).flatMap((t) => templateCommands(t, r));
+      if (extra.length) {
+        await peoplePrisma.deviceCommand.createMany({
+          data: extra.map((x) => ({ accountId: r.accountId, orgId, deviceId: r.id, serialNumber: r.serialNumber, command: x.command, sequence: x.seq, createdByUserId })),
+        });
+      }
+    }
   }
   return { readers: readers.length };
 }
@@ -404,6 +487,24 @@ iclockRouter.get(['/cdata', '/cdata.aspx'], async (req, res) => {
   }
 });
 
+/**
+ * How far a reader's clock is out, from a punch it sent the moment it was
+ * made: a reader that was online a minute ago, sending one to three new
+ * punches (real-time upload), has just made them — so the time on the punch
+ * minus the time now is its clock error. Batches (a reader catching up after
+ * being offline, or answering "fetch all") prove nothing and are ignored.
+ */
+export function clockOffsetOf(body: string, lastSeenAt: Date | null, now: Date) {
+  if (!lastSeenAt || now.getTime() - lastSeenAt.getTime() > 2 * 60_000) return null;
+  const lines = body.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  if (!lines.length || lines.length > 3) return null;
+  const times = lines.map((l) => parseAttlogLine(l)).filter(Boolean).map((p) => instantOf(p!.localTime)).filter((d): d is Date => Boolean(d));
+  if (!times.length) return null;
+  const newest = Math.max(...times.map((d) => d.getTime()));
+  const sec = Math.round((newest - now.getTime()) / 1000);
+  return Math.max(-2_000_000_000, Math.min(2_000_000_000, sec));
+}
+
 /** Tables that carry users and fingerprints / faces (ClorTime's list, upper-cased). */
 const DATA_TABLES = new Set(['OPERLOG', 'ERRORLOG', 'USERINFO', 'BIODATA', 'FINGERTMP', 'FACE', 'USERVF', 'FACEV7', 'TEMPLATEV10']);
 
@@ -419,10 +520,13 @@ iclockRouter.post(['/cdata', '/cdata.aspx'], async (req, res) => {
       await remember(serial, readerIp(req), null);
       return text(res, 'OK');
     }
-    await peoplePrisma.attendanceDevice.update({ where: { id: device.id }, data: { lastSeenAt: new Date() } });
+    const now = new Date();
+    await peoplePrisma.attendanceDevice.update({ where: { id: device.id }, data: { lastSeenAt: now } });
 
     if (table === 'ATTLOG' || table === '') {
       const n = await ingestPunches(device, body);
+      const offset = n ? clockOffsetOf(body, device.lastSeenAt, now) : null;
+      if (offset !== null) await peoplePrisma.attendanceDevice.update({ where: { id: device.id }, data: { clockOffsetSec: offset, clockCheckedAt: now } });
       return text(res, `OK: ${n}`);
     }
     if (DATA_TABLES.has(table)) {
@@ -448,6 +552,25 @@ iclockRouter.post(['/cdata', '/cdata.aspx'], async (req, res) => {
     return text(res, 'ERROR', 500);
   }
 });
+
+const INFO_EVERY_MS = 6 * 3_600_000;
+/** A command sent and not answered in this long is sent again; after MAX_ATTEMPTS it has failed. */
+export const ANSWER_WITHIN_MS = 10 * 60_000;
+export const MAX_ATTEMPTS = 3;
+
+/**
+ * Commands a reader took and never answered (a lost reply, a restart mid-way)
+ * go back in the queue, at most three times; then they have failed, visibly,
+ * instead of sitting "sent" for ever (ClorTime command-queue retries).
+ */
+export async function retryUnanswered(deviceId: string, now = new Date()) {
+  const stale = { deviceId, status: 'SENT', sentAt: { lt: new Date(now.getTime() - ANSWER_WITHIN_MS) } };
+  await peoplePrisma.deviceCommand.updateMany({ where: { ...stale, attempts: { lt: MAX_ATTEMPTS } }, data: { status: 'PENDING' } });
+  await peoplePrisma.deviceCommand.updateMany({
+    where: { ...stale, attempts: { gte: MAX_ATTEMPTS } },
+    data: { status: 'FAILED', doneAt: now, lastError: `The reader did not answer (sent ${MAX_ATTEMPTS} times).` },
+  });
+}
 
 /** 3. Heartbeat: "OK", or the next command for this reader. */
 iclockRouter.get(['/getrequest', '/getrequest.aspx'], async (req, res) => {
@@ -494,9 +617,21 @@ iclockRouter.get(['/getrequest', '/getrequest.aspx'], async (req, res) => {
       });
     }
 
+    await retryUnanswered(device.id);
+    /* Counts and limits (users, fingers, faces, punch log) every six hours, for "nearly full". */
+    if (!device.infoAt || Date.now() - device.infoAt.getTime() > INFO_EVERY_MS) {
+      const asked = await peoplePrisma.deviceCommand.findFirst({
+        where: { deviceId: device.id, command: COMMANDS.INFO, OR: [{ status: { in: ['PENDING', 'SENT'] } }, { createdAt: { gt: new Date(Date.now() - INFO_EVERY_MS) } }] },
+        select: { id: true },
+      });
+      if (!asked) {
+        await peoplePrisma.deviceCommand.create({ data: { accountId: device.accountId, orgId: device.orgId, deviceId: device.id, serialNumber: serial, command: COMMANDS.INFO } });
+      }
+    }
+
     const next = await peoplePrisma.deviceCommand.findFirst({ where: { deviceId: device.id, status: 'PENDING' }, orderBy: [{ sequence: 'asc' }, { id: 'asc' }] });
     if (!next) return text(res, 'OK');
-    await peoplePrisma.deviceCommand.update({ where: { id: next.id }, data: { status: 'SENT', sentAt: new Date() } });
+    await peoplePrisma.deviceCommand.update({ where: { id: next.id }, data: { status: 'SENT', sentAt: new Date(), attempts: { increment: 1 } } });
     return text(res, `C:${next.id}:${next.command}`);
   } catch {
     return text(res, 'OK');
@@ -509,11 +644,34 @@ iclockRouter.post(['/devicecmd', '/devicecmd.aspx'], async (req, res) => {
   if (!serial) return text(res, 'OK');
   try {
     const results = parseCommandResults(typeof req.body === 'string' ? req.body : '');
+    const device = results.length ? await deviceFor(serial) : null;
     for (const r of results) {
-      await peoplePrisma.deviceCommand.updateMany({
-        where: { id: r.id, serialNumber: serial },
-        data: { status: r.returnCode >= 0 ? 'DONE' : 'FAILED', returnCode: r.returnCode, doneAt: new Date() },
+      const ok = r.returnCode >= 0;
+      const cmd = await peoplePrisma.deviceCommand.findFirst({ where: { id: r.id, serialNumber: serial } });
+      if (!cmd) continue;
+      await peoplePrisma.deviceCommand.update({
+        where: { id: cmd.id },
+        data: { status: ok ? 'DONE' : 'FAILED', returnCode: r.returnCode, doneAt: new Date(), lastError: ok ? null : refusalReason(r.returnCode) },
       });
+      if (!ok || !device || cmd.deviceId !== device.id) continue;
+      if (cmd.command === COMMANDS.INFO) {
+        const info = parseReaderInfo(r.info);
+        const { firmware, ...counts } = info;
+        await peoplePrisma.attendanceDevice.update({
+          where: { id: device.id },
+          data: { ...Object.fromEntries(Object.entries(counts).filter(([, v]) => v !== null)), ...(firmware ? { firmware } : {}), infoAt: new Date() },
+        });
+        continue;
+      }
+      /* The reader confirmed it: now it holds (or no longer holds) this. */
+      const e = commandEffect(cmd.command);
+      if (!e) continue;
+      if (e.what === 'user') await markOnReader(device, e.pin, { user: true, name: /\tName=([^\t]*)/.exec(cmd.command)?.[1] || null });
+      else if (e.what === 'finger') await markOnReader(device, e.pin, { finger: e.no ?? 0 });
+      else if (e.what === 'face') await markOnReader(device, e.pin, { face: true });
+      else if (e.what === 'removeUser') await markOnReader(device, e.pin, { remove: true });
+      else if (e.what === 'removeFingers') await peoplePrisma.deviceUser.updateMany({ where: { deviceId: device.id, pin: e.pin }, data: { fingers: '' } });
+      else if (e.what === 'removeFace') await peoplePrisma.deviceUser.updateMany({ where: { deviceId: device.id, pin: e.pin }, data: { face: false } });
     }
   } catch {
     /* a lost result leaves the command SENT; the screen shows it */

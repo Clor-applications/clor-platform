@@ -550,6 +550,23 @@ model AttendanceDevice {
   /// Punches are pulled from here on (with a few minutes' overlap; duplicates drop).
   lastFetchedAt  DateTime?
   lastError      String?
+  /// Readers of one site: only staff of this area are sent to it (null = everyone).
+  areaId         String?
+  /// What the reader holds and can hold, from its answer to INFO (asked every few hours).
+  userCount      Int?
+  fingerCount    Int?
+  faceCount      Int?
+  punchCount     Int?
+  maxUsers       Int?
+  maxFingers     Int?
+  maxFaces       Int?
+  maxPunches     Int?
+  mac            String?
+  infoAt         DateTime?
+  /// How far the reader's clock is from true time (seconds; + = reader ahead),
+  /// measured from punches it sent the moment they were made.
+  clockOffsetSec Int?
+  clockCheckedAt DateTime?
 
   createdByUserId String
   createdAt       DateTime @default(now())
@@ -605,9 +622,12 @@ model DeviceCommand {
   /// Sent lowest first: 1 user record, 2 delete, 3 template, 999 everything
   /// else — a reader rejects a template for a user it does not have yet.
   sequence        Int       @default(999)
-  /// PENDING | SENT | DONE | FAILED
+  /// PENDING | SENT | DONE | FAILED | CANCELLED
   status          String    @default("PENDING")
   returnCode      Int?
+  /// Times sent. A command the reader never answers is sent again, up to 3 times.
+  attempts        Int       @default(0)
+  lastError       String?
   sentAt          DateTime?
   doneAt          DateTime?
   createdByUserId String?
@@ -631,6 +651,11 @@ model DeviceUser {
   privilege  Int?
   password   String?
   card       String?
+  /// What this reader holds for the person, as far as CLOR knows: finger
+  /// numbers ("0,6") and whether a face — from what the reader sent, and from
+  /// commands it confirmed.
+  fingers    String   @default("")
+  face       Boolean  @default(false)
   updatedAt  DateTime @updatedAt
 
   @@unique([deviceId, pin])
@@ -887,6 +912,13 @@ model AttendanceSettings {
   /// Punch selfies are personal data (DPDP): kept this many days, then deleted;
   /// the punch itself stays (ClorTime purgePunchPhotos).
   photoRetentionDays    Int     @default(90)
+  /// Reader alerts (ClorTime alerts.js): e-mailed once when a problem starts
+  /// and once when it clears; off until someone is named.
+  alertEmails           String?
+  /// A reader silent this long is offline.
+  offlineAlertMinutes   Int     @default(30)
+  /// On a working day, no punch from any reader by this hour means collection is broken.
+  noPunchAfterHour      Int     @default(11)
 
   updatedByUserId String
   updatedAt       DateTime @updatedAt
@@ -924,4 +956,31 @@ model PunchPhoto {
   createdAt  DateTime @default(now())
 
   @@index([orgId, createdAt])
+}
+
+/// A reader problem, open until it clears (ClorTime alert_state). One row per
+/// problem per reader — "Back door offline" and "Main gate offline" are two —
+/// so fixing one never hides the other, and nobody is mailed twice for one.
+model ReaderAlert {
+  id         String    @id @default(cuid())
+  accountId  String
+  orgId      String
+  /// e.g. "offline:<deviceId>", "clock:<deviceId>", "no-punches"
+  key        String
+  kind       String
+  deviceId   String?
+  /// critical | high | medium
+  severity   String
+  title      String
+  details    String
+  openedAt   DateTime  @default(now())
+  resolvedAt DateTime?
+  /// When the "started" and "cleared" e-mails went, and why one did not.
+  notifiedAt         DateTime?
+  resolvedNotifiedAt DateTime?
+  lastError          String?
+  updatedAt  DateTime  @updatedAt
+
+  @@index([orgId, resolvedAt])
+  @@index([orgId, key, resolvedAt])
 }

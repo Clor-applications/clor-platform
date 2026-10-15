@@ -1,5 +1,6 @@
 import { syncAllVendorConnections } from '../routes/iclock.js';
 import { purgePunchPhotos } from '../routes/portalAdmin.js';
+import { runReaderChecks } from './attendance/readerHealth.js';
 
 /**
  * Pulls punches from vendor clouds (e-Time Office) every five minutes, the
@@ -48,6 +49,39 @@ export function startPhotoPurge({ intervalMs = 6 * 3_600_000, startupDelayMs = 9
     } catch (e) {
       // eslint-disable-next-line no-console
       console.error('[photo-purge] run failed:', e instanceof Error ? e.message : e);
+    }
+  };
+  const startup = setTimeout(tick, startupDelayMs);
+  const timer = setInterval(tick, intervalMs);
+  startup.unref?.();
+  timer.unref?.();
+  return () => {
+    clearTimeout(startup);
+    clearInterval(timer);
+  };
+}
+
+/**
+ * Reader health checks every five minutes: offline readers, wrong clocks, full
+ * readers, failing commands, and no punches at all on a working day. Each
+ * problem is alerted once when it starts and once when it clears.
+ * READER_CHECKS=off disables it.
+ */
+export function startReaderChecks({ intervalMs = 5 * 60_000, startupDelayMs = 60_000 } = {}) {
+  if (String(process.env.READER_CHECKS || '').toLowerCase() === 'off') return () => {};
+  let running = false;
+  const tick = async () => {
+    if (running) return;
+    running = true;
+    try {
+      const r = await runReaderChecks();
+      // eslint-disable-next-line no-console
+      if (r.opened || r.resolved) console.log(`[reader-checks] ${r.opened} opened, ${r.resolved} cleared`);
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.error('[reader-checks] run failed:', e instanceof Error ? e.message : e);
+    } finally {
+      running = false;
     }
   };
   const startup = setTimeout(tick, startupDelayMs);

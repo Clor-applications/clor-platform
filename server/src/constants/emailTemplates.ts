@@ -137,6 +137,28 @@ and choose your own password. The code works once and runs out on {{expires}}. N
     fields: ['employeeName', 'orgName', 'portalUrl', 'companyCode', 'employeeCode', 'activationCode', 'expires', 'phoneLine'],
     transactional: true,
   },
+  {
+    key: 'attendance.reader_alert',
+    label: 'Reader alert',
+    description: 'Sent to the people named under Attendance → Reader health when a reader problem starts.',
+    subject: '[{{severity}}] {{title}} — {{orgName}}',
+    body: `{{title}}
+
+{{details}}
+
+You get one message when a problem starts and one when it clears. Reader health in Attendance shows every reader and what is wrong.`,
+    fields: ['orgName', 'title', 'details', 'severity'],
+    transactional: true,
+  },
+  {
+    key: 'attendance.reader_alert_cleared',
+    label: 'Reader alert cleared',
+    description: 'Sent when a reader problem that was alerted has cleared.',
+    subject: 'Cleared: {{title}} — {{orgName}}',
+    body: `This has cleared after {{openedFor}}: {{title}}`,
+    fields: ['orgName', 'title', 'openedFor'],
+    transactional: true,
+  },
 ];
 
 export const TEMPLATE_BY_KEY = new Map(EMAIL_TEMPLATES.map((t) => [t.key, t]));

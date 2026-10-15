@@ -46,7 +46,7 @@ describe('reading what a reader sends', () => {
   });
 
   it('reads command results, several to a body', () => {
-    expect(parseCommandResults('ID=7&Return=0&CMD=DATA\nID=8&Return=-1004&CMD=DATA')).toEqual([
+    expect(parseCommandResults('ID=7&Return=0&CMD=DATA\nID=8&Return=-1004&CMD=DATA')).toMatchObject([
       { id: 7, returnCode: 0 },
       { id: 8, returnCode: -1004 },
     ]);

@@ -114,6 +114,8 @@ export const COMMANDS = {
   FETCH_PUNCHES: 'DATA QUERY ATTLOG',
   FETCH_USERS: 'DATA QUERY USERINFO',
   REBOOT: 'REBOOT',
+  /** The reader answers with its counts and limits (users, fingers, faces, punch log). */
+  INFO: 'INFO',
 } as const;
 
 /**
@@ -291,14 +293,83 @@ export function parseBiodataLine(line: string, table = '') {
 
 /** "ID=12&Return=0&CMD=DATA" — one per line when a reader reports several at once. */
 export function parseCommandResults(body: string) {
-  return String(body || '')
-    .split(/\r?\n/)
-    .map((l) => l.trim())
-    .filter(Boolean)
-    .map((l) => new URLSearchParams(l))
-    .map((p) => ({ id: Number.parseInt(p.get('ID') || '', 10), returnCode: Number.parseInt(p.get('Return') || '', 10) }))
-    .filter((r) => Number.isInteger(r.id) && Number.isInteger(r.returnCode));
+  /*
+   * One result per "ID=…&Return=…&CMD=…" line. INFO's answer follows its
+   * result line as key=value lines ("~DeviceName=…", "UserCount=…"), which
+   * belong to that result.
+   */
+  const out: Array<{ id: number; returnCode: number; cmd: string | null; info: Record<string, string> }> = [];
+  for (const raw of String(body || '').split(/\r?\n/)) {
+    const line = raw.trim();
+    if (!line) continue;
+    if (/(^|&)ID=/.test(line) && /(^|&)Return=/.test(line)) {
+      const p = new URLSearchParams(line);
+      const id = Number.parseInt(p.get('ID') || '', 10);
+      const returnCode = Number.parseInt(p.get('Return') || '', 10);
+      if (!Number.isInteger(id) || !Number.isInteger(returnCode)) continue;
+      const info: Record<string, string> = {};
+      for (const [k, v] of p) if (!['ID', 'Return', 'CMD'].includes(k)) info[k.replace(/^~/, '')] = v;
+      out.push({ id, returnCode, cmd: p.get('CMD'), info });
+      continue;
+    }
+    const last = out[out.length - 1];
+    const i = line.indexOf('=');
+    if (last && i > 0) last.info[line.slice(0, i).replace(/^~/, '').trim()] = line.slice(i + 1).trim();
+  }
+  return out;
 }
+
+/** The counts and limits in a reader's answer to INFO; anything it leaves out stays unknown. */
+export function parseReaderInfo(info: Record<string, string>) {
+  const n = (...keys: string[]) => {
+    for (const k of keys) {
+      const v = Number.parseInt(info[k] ?? '', 10);
+      if (Number.isInteger(v) && v >= 0) return v;
+    }
+    return null;
+  };
+  return {
+    userCount: n('UserCount'),
+    fingerCount: n('FPCount', 'FingerCount'),
+    faceCount: n('FaceCount'),
+    punchCount: n('TransactionCount', 'AttLogCount'),
+    maxUsers: n('MaxUserCount'),
+    maxFingers: n('MaxFingerCount', 'MaxFPCount'),
+    maxFaces: n('MaxFaceCount'),
+    maxPunches: n('MaxAttLogCount', 'MaxTransactionCount'),
+    mac: info.MAC ? String(info.MAC).slice(0, 40) : null,
+    firmware: info.FWVersion ? String(info.FWVersion).slice(0, 40) : null,
+  };
+}
+
+/**
+ * Why a reader refused a command, in words. Only -1004 is known for certain
+ * (ClorTime: the reader does not recognise the command — the 12 user
+ * deletions it rejected in production for naming USER, not USERINFO); anything else is reported with its code.
+ */
+export const refusalReason = (code: number) =>
+  code === -1004 ? 'The reader does not accept this command (-1004).' : `The reader refused it (code ${code}).`;
+
+/**
+ * What a confirmed command changed on the reader, for knowing who is on which
+ * reader: a user added or removed, a finger or face added or removed.
+ */
+export function commandEffect(command: string): { pin: string; what: 'user' | 'finger' | 'face' | 'removeUser' | 'removeFingers' | 'removeFace'; no?: number } | null {
+  const m = /^DATA (UPDATE|DELETE) (USERINFO|FINGERTMP|FACE|BIODATA) (?:PIN|Pin)=([^\t]*)/.exec(String(command || ''));
+  if (!m) return null;
+  const [, verb, table, pin] = m;
+  const field = (k: string) => new RegExp(`\\t${k}=([^\\t]*)`).exec(command)?.[1];
+  if (verb === 'DELETE') return { pin, what: table === 'USERINFO' ? 'removeUser' : table === 'FINGERTMP' ? 'removeFingers' : 'removeFace' };
+  if (table === 'USERINFO') return { pin, what: 'user' };
+  if (table === 'FINGERTMP') return { pin, what: 'finger', no: Number.parseInt(field('FID') || '0', 10) || 0 };
+  if (table === 'BIODATA' && field('Type') === String(FACE)) return { pin, what: 'face' };
+  if (table === 'BIODATA' && field('Type') === String(FINGER)) return { pin, what: 'finger', no: Number.parseInt(field('No') || '0', 10) || 0 };
+  return null;
+}
+
+/** "0,6" + 3 → "0,3,6". */
+export const addFinger = (list: string, no: number) =>
+  [...new Set([...String(list || '').split(',').filter(Boolean).map(Number), no])].sort((a, b) => a - b).join(',');
 
 /** "USER PIN=104\tName=Ravi Kumar\tPri=0\t…" from a user query. */
 export function parseUserLine(line: string) {
