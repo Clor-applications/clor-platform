@@ -96,7 +96,15 @@ export const addDevice = (body) => send('/devices', 'POST', body);
 export const updateDevice = (id, body) => send(`/devices/${encodeURIComponent(id)}`, 'PUT', body);
 export const deleteDevice = (id) => send(`/devices/${encodeURIComponent(id)}`, 'DELETE');
 export const deviceCommand = (id, action) => send(`/devices/${encodeURIComponent(id)}/commands`, 'POST', { action });
-export const listDeviceCommands = (id) => get(`/devices/${encodeURIComponent(id)}/commands`).then((r) => r?.commands || []);
+export const listDeviceCommands = (id, status) => get(`/devices/${encodeURIComponent(id)}/commands${query({ status })}`);
+export const retryDeviceCommands = (id, ids) => send(`/devices/${encodeURIComponent(id)}/commands/retry`, 'POST', ids ? { ids } : {});
+export const cancelDeviceCommands = (id, ids) => send(`/devices/${encodeURIComponent(id)}/commands/cancel`, 'POST', ids ? { ids } : {});
+// Running the fleet (server: routes/readerOps.ts)
+export const getReaderHealth = () => get('/reader-health');
+export const saveReaderAlertSettings = (body) => send('/reader-alerts/settings', 'PUT', body);
+export const getReaderSync = () => get('/reader-sync');
+export const fixReaderGaps = (body = {}) => send('/reader-sync/fix', 'POST', body);
+export const removeReaderExtras = (deviceId) => send('/reader-sync/remove-extras', 'POST', { deviceId });
 export const listDeviceUsers = (id) => get(`/devices/${encodeURIComponent(id)}/users`).then((r) => r?.users || []);
 export const listUnmatchedPunches = () => get('/punches/unmatched').then((r) => r?.pins || []);
 export const matchPunches = (pin, employeeId) => send('/punches/match', 'POST', { pin, employeeId });

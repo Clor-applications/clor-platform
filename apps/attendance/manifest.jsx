@@ -15,6 +15,7 @@ import {
   Cpu,
   Fingerprint,
   HardHat,
+  HeartPulse,
   KeyRound,
   LocateFixed,
   History,
@@ -24,6 +25,7 @@ import {
   MapPin,
   Plug,
   Repeat,
+  RefreshCcwDot,
   Scale,
   ScanFace,
   Tags,
@@ -47,6 +49,8 @@ import LeaveRequests from './src/screens/LeaveRequests';
 import LeaveBalances from './src/screens/LeaveBalances';
 import LeaveTypes from './src/screens/LeaveTypes';
 import AttendanceDevices from './src/screens/AttendanceDevices';
+import ReaderHealth from './src/screens/ReaderHealth';
+import ReaderSync from './src/screens/ReaderSync';
 import UnmatchedPunches from './src/screens/UnmatchedPunches';
 import Enrolments from './src/screens/Enrolments';
 import Transactions from './src/screens/Transactions';
@@ -98,7 +102,9 @@ export const attendanceApp = {
     { key: 'resignations', label: 'Resignations', icon: UserMinus },
     { key: 'transfer', label: 'Transfer', icon: Repeat },
     { section: 'Device' },
+    { key: 'readerHealth', label: 'Reader health', icon: HeartPulse },
     { key: 'readers', label: 'Readers', icon: Cpu },
+    { key: 'readerSync', label: 'Sync status', icon: RefreshCcwDot },
     { key: 'transactions', label: 'Transactions', icon: ArrowRightLeft },
     { key: 'enrolments', label: 'Enrolments', icon: ScanFace },
     { key: 'unmatched', label: 'Unmatched punches', icon: CircleHelp },
@@ -139,7 +145,9 @@ export const attendanceApp = {
     contractors: Contractors,
     resignations: Resignations,
     transfer: Transfer,
+    readerHealth: ReaderHealth,
     readers: AttendanceDevices,
+    readerSync: ReaderSync,
     transactions: Transactions,
     enrolments: Enrolments,
     unmatched: UnmatchedPunches,

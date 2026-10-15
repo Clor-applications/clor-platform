@@ -24,7 +24,8 @@ portalAdminRouter.use(requireAuth, requireTenantContext);
 
 const can = (action: string) => requirePermission(ATTENDANCE_MODULE, action as any, ATTENDANCE_RESOURCE.portal);
 const base = '/orgs/:orgId/attendance';
-const portalUrl = () => `${process.env.APP_URL || 'http://localhost:5173'}/#/portal`;
+/* Where the employee portal is: PORTAL_URL (https://attendance.clor.in/#/portal in production), else the app's own address. */
+const portalUrl = () => process.env.PORTAL_URL || `${process.env.APP_URL || 'http://localhost:5173'}/#/portal`;
 
 /** The company code people sign in with; given now if the company has none yet. */
 async function companyCode(accountId: string, orgId: string) {

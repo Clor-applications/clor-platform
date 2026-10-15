@@ -11,8 +11,12 @@
  * switching apps happens in place, as before.
  */
 
-/** Apps that have their own subdomain. Attendance does not: attendance.clor.in is the on-prem licence host. */
-export const APP_HOST_IDS = ['accounting', 'payroll'];
+/**
+ * Apps that have their own subdomain. attendance.clor.in used to serve the
+ * old ClorTime cloud screen; from 16 Oct 2026 it opens CLOR Attendance (with
+ * the employee portal at attendance.clor.in/#/portal).
+ */
+export const APP_HOST_IDS = ['accounting', 'payroll', 'attendance'];
 
 /** The front door's first label. */
 const FRONT_DOOR = 'app';

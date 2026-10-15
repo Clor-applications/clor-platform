@@ -4,14 +4,17 @@ import { Cpu, Plus } from 'lucide-react';
 import { PageHeader, SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import Drawer from '@ui/components/ui/Drawer';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
+import { listStructure } from '@ui/personnel/api';
 import {
   addDevice,
+  cancelDeviceCommands,
   deleteDevice,
   deviceCommand,
   listDeviceCommands,
   listDeviceUsers,
   listDevices,
   readerServer,
+  retryDeviceCommands,
   syncConnection,
   testEtimeOffice,
   todayIst,
@@ -328,24 +331,37 @@ function CloudDrawer({ device, onClose, onChanged }) {
   );
 }
 
+const QUEUE_STATUS = {
+  PENDING: { label: 'Waiting', pill: 'ui-pill-warn' },
+  SENT: { label: 'Sent', pill: 'ui-pill-info' },
+  DONE: { label: 'Done', pill: 'ui-pill-pos' },
+  FAILED: { label: 'Failed', pill: 'ui-pill-neg' },
+  CANCELLED: { label: 'Cancelled', pill: 'ui-pill-neutral' },
+};
+
 function ReaderDrawer({ device, onClose, onChanged }) {
-  const [form, setForm] = useState({ name: device.name, direction: device.direction, isActive: device.isActive });
-  const [commands, setCommands] = useState(null);
+  const [form, setForm] = useState({ name: device.name, direction: device.direction, isActive: device.isActive, areaId: device.areaId || '' });
+  const [queue, setQueue] = useState(null);
+  const [queueStatus, setQueueStatus] = useState('');
   const [users, setUsers] = useState(null);
+  const [areas, setAreas] = useState([]);
 
   const loadDetail = useCallback(() => {
-    listDeviceCommands(device.id).then(setCommands).catch(() => setCommands([]));
+    listDeviceCommands(device.id, queueStatus).then(setQueue).catch(() => setQueue({ commands: [], counts: {} }));
     listDeviceUsers(device.id).then(setUsers).catch(() => setUsers([]));
-  }, [device.id]);
+  }, [device.id, queueStatus]);
   useEffect(() => {
     loadDetail();
   }, [loadDetail]);
+  useEffect(() => {
+    listStructure('areas').then(setAreas).catch(() => setAreas([]));
+  }, []);
 
   const save = async (e) => {
     e.preventDefault();
     try {
-      await updateDevice(device.id, form);
-      notify.success('Reader saved.');
+      const r = await updateDevice(device.id, { ...form, areaId: form.areaId || null });
+      notify.success(r?.areaChanged ? 'Reader saved. Its area changed — see Sync status to add the new people and remove the rest.' : 'Reader saved.');
       onChanged();
       onClose();
     } catch (err) {
@@ -398,6 +414,16 @@ function ReaderDrawer({ device, onClose, onChanged }) {
             </select>
             <span className="ui-caption">Applies to punches from now on.</span>
           </label>
+          {areas.length ? (
+            <label className="block">
+              <span className="ui-label">Serves</span>
+              <select className="ui-select w-full" value={form.areaId} onChange={(e) => setForm({ ...form, areaId: e.target.value })}>
+                <option value="">Everyone</option>
+                {areas.map((a) => <option key={a.id} value={a.id}>Only {a.name} area</option>)}
+              </select>
+              <span className="ui-caption">A site’s reader holds only that site’s staff — smaller, faster, and nobody else’s finger opens it. People with no area go to every reader.</span>
+            </label>
+          ) : null}
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" className="ui-checkbox" checked={form.isActive} onChange={(e) => setForm({ ...form, isActive: e.target.checked })} /> Collecting punches
           </label>
@@ -416,6 +442,8 @@ function ReaderDrawer({ device, onClose, onChanged }) {
             >
               Send new staff
             </button>
+            <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => run('READ_ALL', 'Asked for its users, fingerprints, faces and counts. Sync status fills in as they arrive.')}>Read what is on it</button>
+            <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => run('INFO', 'Asked for its counts and capacity.')}>Refresh counts</button>
             <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => run('REBOOT', 'Reboot queued.')}>Reboot</button>
           </div>
           <p className="ui-caption mt-2">“Send new staff” adds people the reader does not have, by employee code or Reader ID. Fetch its users first so people already on it are skipped.</p>
@@ -443,18 +471,43 @@ function ReaderDrawer({ device, onClose, onChanged }) {
         </section>
 
         <section aria-labelledby="cmds-h">
-          <h3 id="cmds-h" className="ui-t-sec mb-2">Recent commands</h3>
-          {!commands ? (
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+            <h3 id="cmds-h" className="ui-t-sec">Queue</h3>
+            <select className="ui-select ui-btn-sm !w-auto" value={queueStatus} onChange={(e) => setQueueStatus(e.target.value)} aria-label="Show">
+              <option value="">Latest</option>
+              {Object.entries(QUEUE_STATUS).map(([k, v]) => (
+                <option key={k} value={k}>{v.label}{queue?.counts?.[k] ? ` (${queue.counts[k]})` : ''}</option>
+              ))}
+            </select>
+          </div>
+          {queue?.counts?.FAILED || queue?.counts?.PENDING ? (
+            <div className="mb-2 flex flex-wrap gap-2">
+              {queue.counts.FAILED ? (
+                <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={async () => { const r = await retryDeviceCommands(device.id); notify.success(`${r.retried} sent again.`); loadDetail(); onChanged(); }}>
+                  Retry {queue.counts.FAILED} failed
+                </button>
+              ) : null}
+              {queue.counts.PENDING ? (
+                <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" onClick={async () => { if (!(await confirmDialog({ title: 'Cancel waiting changes?', message: `${queue.counts.PENDING} changes have not reached the reader yet. Cancelled ones are not sent.`, confirmLabel: 'Cancel them' }))) return; const r = await cancelDeviceCommands(device.id); notify.success(`${r.cancelled} cancelled.`); loadDetail(); onChanged(); }}>
+                  Cancel {queue.counts.PENDING} waiting
+                </button>
+              ) : null}
+            </div>
+          ) : null}
+          {!queue ? (
             <SkeletonCard lines={2} />
-          ) : !commands.length ? (
-            <p className="ui-muted text-sm">None yet.</p>
+          ) : !queue.commands.length ? (
+            <p className="ui-muted text-sm">Nothing here.</p>
           ) : (
-            <ul className="space-y-1 text-sm">
-              {commands.slice(0, 12).map((c) => (
-                <li key={c.id} className="flex items-center justify-between gap-2">
-                  <span className="truncate font-mono text-xs">{c.command}</span>
-                  <span className={`ui-pill ${c.status === 'DONE' ? 'ui-pill-pos' : c.status === 'FAILED' ? 'ui-pill-neg' : 'ui-pill-warn'}`} title={c.returnCode != null ? `Return ${c.returnCode}` : ''}>
-                    {c.status.toLowerCase()}
+            <ul className="divide-y text-sm" style={{ borderColor: 'rgb(var(--border))' }}>
+              {queue.commands.slice(0, 40).map((c) => (
+                <li key={c.id} className="flex items-start justify-between gap-2 py-1.5">
+                  <span className="min-w-0">
+                    <span className="block truncate">{c.what}{c.employeeName ? ` — ${c.employeeName}` : c.pin ? ` — ID ${c.pin}` : ''}</span>
+                    {c.lastError ? <span className="ui-caption block" style={{ color: 'rgb(var(--neg))' }}>{c.lastError}</span> : null}
+                  </span>
+                  <span className={`ui-pill shrink-0 ${QUEUE_STATUS[c.status]?.pill || 'ui-pill-neutral'}`} title={c.attempts > 1 ? `Sent ${c.attempts} times` : ''}>
+                    {QUEUE_STATUS[c.status]?.label || c.status}
                   </span>
                 </li>
               ))}
