@@ -1,10 +1,11 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Download } from 'lucide-react';
+import { Camera, Download, MapPin } from 'lucide-react';
 
 import { PageHeader, SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import { notify } from '@ui/components/ui/notify';
 import { downloadCsv } from '@ui/utils/csv';
-import { listDevices, listEmployees, listTransactions, todayIst } from '../api/attendance';
+import Modal from '@ui/components/ui/Modal';
+import { getPunchPhoto, listDevices, listEmployees, listTransactions, todayIst } from '../api/attendance';
 
 /**
  * Every punch exactly as a reader sent it — before it is paired into a day.
@@ -16,6 +17,15 @@ export default function Transactions() {
   const [data, setData] = useState(null);
   const [people, setPeople] = useState([]);
   const [devices, setDevices] = useState([]);
+  const [photo, setPhoto] = useState(null);
+  const showPhoto = async (t) => {
+    try {
+      const r = await getPunchPhoto(t.photoId);
+      setPhoto({ src: r.photo, caption: `${t.employeeName || t.pin} · ${t.localTime}${t.siteName ? ` · ${t.siteName}` : ''}` });
+    } catch (e) {
+      notify.error(String(e?.message || 'The photo could not be loaded.'));
+    }
+  };
 
   const load = useCallback(() => {
     listTransactions(filters).then(setData).catch((e) => notify.error(String(e?.message || 'Could not load transactions.')));
@@ -53,6 +63,9 @@ export default function Transactions() {
                   { key: 'verify', label: 'Verified by' },
                   { key: 'deviceName', label: 'Reader' },
                   { key: 'shiftDate', label: 'Counted on day' },
+                  { key: 'siteName', label: 'Site (phone)' },
+                  { key: 'latitude', label: 'Latitude' },
+                  { key: 'longitude', label: 'Longitude' },
                 ],
                 rows: data.transactions,
               })
@@ -95,6 +108,7 @@ export default function Transactions() {
                   <th scope="col" className="ui-th">Verified by</th>
                   <th scope="col" className="ui-th">Reader</th>
                   <th scope="col" className="ui-th">Counted on</th>
+                  <th scope="col" className="ui-th">Where</th>
                 </tr>
               </thead>
               <tbody>
@@ -109,6 +123,22 @@ export default function Transactions() {
                     <td>{t.verify}</td>
                     <td>{t.deviceName}</td>
                     <td className="ui-col-meta whitespace-nowrap">{t.shiftDate || '—'}</td>
+                    <td className="whitespace-nowrap">
+                      {t.latitude != null ? (
+                        <span className="inline-flex items-center gap-2">
+                          <a className="ui-link inline-flex items-center gap-1" href={`https://www.openstreetmap.org/?mlat=${t.latitude}&mlon=${t.longitude}#map=18/${t.latitude}/${t.longitude}`} target="_blank" rel="noreferrer" title={t.accuracyM != null ? `Accurate to about ${Math.round(t.accuracyM)} m` : undefined}>
+                            <MapPin size={14} aria-hidden="true" />{t.siteName || 'Map'}
+                          </a>
+                          {t.photoId ? (
+                            <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" aria-label={`Selfie with ${t.employeeName || t.pin}'s punch at ${t.localTime}`} onClick={() => showPhoto(t)}>
+                              <Camera size={14} aria-hidden="true" />
+                            </button>
+                          ) : null}
+                        </span>
+                      ) : (
+                        <span className="ui-caption">—</span>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -116,6 +146,14 @@ export default function Transactions() {
           </div>
         </div>
       )}
+      {photo ? (
+        <Modal onClose={() => setPhoto(null)} title="Punch selfie" maxWidthClass="max-w-md">
+          <figure className="space-y-2">
+            <img src={photo.src} alt={`Selfie: ${photo.caption}`} className="mx-auto max-h-[60vh] rounded-md" />
+            <figcaption className="ui-caption text-center">{photo.caption}</figcaption>
+          </figure>
+        </Modal>
+      ) : null}
     </div>
   );
 }

@@ -21,6 +21,7 @@ import ResetPassword from './ResetPassword';
 import VerifyEmail from './VerifyEmail';
 import LegalPage from './legal/LegalPage';
 import { useLegalRoute } from './legal/useLegalRoute';
+import { renderPublicPage, usePublicPage } from './usePublicPage';
 
 /**
  * The Clor shell.
@@ -85,6 +86,8 @@ export default function Shell() {
 
   /* A policy page is open to everyone, signed in or not, at #/legal/<doc>. */
   const legalDoc = useLegalRoute();
+  /* An app's page for people without a CLOR user (the employee portal, #/portal). */
+  const appPublicPage = usePublicPage();
 
   /*
    * Links in Clor's emails: `/?reset=<token>` and `/?verify=<token>`. Read once
@@ -150,6 +153,14 @@ export default function Shell() {
    * day.
    */
   if (legalDoc) return <LegalPage doc={legalDoc} />;
+  if (appPublicPage) {
+    return (
+      <>
+        {renderPublicPage(appPublicPage)}
+        <Toaster />
+      </>
+    );
+  }
 
   if (restoring) {
     return (

@@ -85,3 +85,15 @@ export const readerLimiter = [
   readerBucket(READER_LIMITS.perSerial, (req) => `sn:${readerSerial(req)}`, (req) => !readerSerial(req)),
   readerBucket(READER_LIMITS.perAddress, (req) => `ip:${ipOf(req)}`),
 ];
+
+/**
+ * Employee portal sign-in and activation: per address, and per company +
+ * employee code so many machines cannot work through one person's password or
+ * activation code (40 bits, 24 hours) between them.
+ */
+const portalIdentity = (req: any) =>
+  req.body?.company && req.body?.employeeCode ? `${String(req.body.company).trim().toUpperCase()}|${String(req.body.employeeCode).trim().toUpperCase()}` : '';
+export const portalLimiter = [
+  bucket(15 * 60 * 1000, 60, 'sign-in attempts', (req) => `portal-ip:${ipOf(req)}`),
+  bucket(15 * 60 * 1000, 10, 'sign-in attempts', (req) => `portal-id:${portalIdentity(req)}`, (req) => !portalIdentity(req)),
+];

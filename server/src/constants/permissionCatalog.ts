@@ -273,6 +273,12 @@ export const PERMISSION_CATALOG: ModuleDef[] = [
         actions: MASTER,
       },
       {
+        key: 'Employee Portal',
+        label: 'Employee portal and phone punch',
+        description: 'Give employees portal activation codes, allow punching from a phone, and set the work sites (geofences) it works inside',
+        actions: MASTER,
+      },
+      {
         key: 'Leave Requests',
         label: 'Leave requests and balances',
         description: 'Everyone\'s leave: apply on someone\'s behalf, Approve, cancel, set balances (Edit)',
@@ -667,6 +673,7 @@ export const ROLE_PRESETS: Record<string, RolePreset> = {
       ['ATTENDANCE', 'Leave Requests', ['*']],
       ['ATTENDANCE', 'Attendance Devices', ['*']],
       ['ATTENDANCE', 'Attendance Integrations', ['*']],
+      ['ATTENDANCE', 'Employee Portal', ['*']],
       ['PEOPLE', 'Employees', [A.VIEW]],
     ],
   },

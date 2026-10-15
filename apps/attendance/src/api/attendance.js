@@ -160,3 +160,14 @@ export const saveRules = (body) => send('/rules', 'PUT', body);
 export const getSchedule = (params) => get(`/schedule${query(params)}`);
 export const recompute = (body) => send('/recompute', 'POST', body);
 export const SCHEDULE_SOURCE = { TEMPORARY: 'Temporary', EMPLOYEE: 'Own schedule', ROTATION: 'Rotation', DEPARTMENT: 'Department', DEFAULT: 'Company default' };
+
+/* Employee portal: who may sign in, activation codes, phone punching, work sites. */
+export const getPortalAccess = () => get('/portal-access');
+export const issuePortalCodes = (employeeIds, email = false) => send('/portal-access/codes', 'POST', { employeeIds, email });
+export const setPortalAccess = (body) => send('/portal-access', 'PUT', body);
+export const resetPortalPassword = (employeeId) => send(`/portal-access/${encodeURIComponent(employeeId)}/reset`, 'POST', {});
+export const listGeofences = () => get('/geofences').then((r) => r?.geofences || []);
+export const createGeofence = (body) => send('/geofences', 'POST', body);
+export const updateGeofence = (id, body) => send(`/geofences/${encodeURIComponent(id)}`, 'PUT', body);
+export const deleteGeofence = (id) => send(`/geofences/${encodeURIComponent(id)}`, 'DELETE');
+export const getPunchPhoto = (id) => get(`/punch-photos/${encodeURIComponent(id)}`);

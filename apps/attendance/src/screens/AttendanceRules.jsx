@@ -8,8 +8,8 @@ const monthStart = () => `${todayIst().slice(0, 7)}-01`;
 
 /**
  * Company-wide attendance rules (ClorTime's Attendance Rules): the shift for
- * anyone with no schedule at all, and the late-arrival penalty. Plus working
- * days out again after schedules change.
+ * anyone with no schedule at all, the late-arrival penalty, and how long
+ * phone-punch selfies are kept. Plus working days out again after schedules change.
  */
 export default function AttendanceRules() {
   const [rules, setRules] = useState(null);
@@ -64,6 +64,11 @@ export default function AttendanceRules() {
           <span className="ui-label">Then every … late arrivals = half a day’s loss of pay</span>
           <input type="number" min={0} max={31} className="ui-input w-full" value={rules.latePenaltyEvery} onChange={(e) => setRules({ ...rules, latePenaltyEvery: Number(e.target.value) })} />
           <span className="ui-caption">0 = no penalty. E.g. 3 → every third late arrival costs half a day.</span>
+        </label>
+        <label className="block">
+          <span className="ui-label">Keep phone-punch selfies for (days)</span>
+          <input type="number" min={7} max={365} className="ui-input w-full" value={rules.photoRetentionDays ?? 90} onChange={(e) => setRules({ ...rules, photoRetentionDays: Number(e.target.value) })} />
+          <span className="ui-caption">Then the photo is deleted; the punch stays. Personal data — keep it no longer than you need.</span>
         </label>
         <div className="sm:col-span-2"><button type="submit" className="ui-btn ui-btn-primary">Save rules</button></div>
       </form>

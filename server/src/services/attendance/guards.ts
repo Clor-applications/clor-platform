@@ -23,4 +23,5 @@ export const ATTENDANCE_RESOURCE = {
   leave: 'Leave Requests',
   devices: 'Attendance Devices',
   integrations: 'Attendance Integrations',
+  portal: 'Employee Portal',
 } as const;

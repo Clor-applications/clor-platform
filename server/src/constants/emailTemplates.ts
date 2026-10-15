@@ -118,6 +118,25 @@ If you have already paid, please ignore this message.
 {{orgName}}`,
     fields: ['customerName', 'invoiceNumber', 'amount', 'dueDate', 'orgName'],
   },
+  {
+    key: 'attendance.portal_invite',
+    label: 'Employee portal activation',
+    description: 'Sent when HR gives an employee an activation code for the employee portal.',
+    subject: 'Your {{orgName}} employee portal code',
+    body: `Hello {{employeeName}},
+
+{{orgName}} has set you up on the employee portal: your attendance, schedule and leave{{phoneLine}}.
+
+Open {{portalUrl}} and choose "First time? Activate", then enter:
+
+  Company code:     {{companyCode}}
+  Employee code:    {{employeeCode}}
+  Activation code:  {{activationCode}}
+
+and choose your own password. The code works once and runs out on {{expires}}. Nobody at {{orgName}} will ever know your password.`,
+    fields: ['employeeName', 'orgName', 'portalUrl', 'companyCode', 'employeeCode', 'activationCode', 'expires', 'phoneLine'],
+    transactional: true,
+  },
 ];
 
 export const TEMPLATE_BY_KEY = new Map(EMAIL_TEMPLATES.map((t) => [t.key, t]));

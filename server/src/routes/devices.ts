@@ -357,6 +357,9 @@ devicesRouter.get('/orgs/:orgId/attendance/transactions', can(PermissionAction.V
     peoplePrisma.attendanceDevice.findMany({ where: { orgId }, select: { id: true, name: true } }),
     peoplePrisma.employee.findMany({ where: { orgId }, select: { id: true, name: true, code: true } }),
   ]);
+  const fenceIds = [...new Set(rows.map((r) => r.geofenceId).filter(Boolean))] as string[];
+  const fences = fenceIds.length ? await peoplePrisma.geofence.findMany({ where: { orgId, id: { in: fenceIds } }, select: { id: true, name: true } }) : [];
+  const site = new Map(fences.map((f) => [f.id, f.name]));
   const dev = new Map(devices.map((d) => [d.id, d.name]));
   const emp = new Map(people.map((p) => [p.id, p]));
   res.json({
@@ -378,6 +381,12 @@ devicesRouter.get('/orgs/:orgId/attendance/transactions', can(PermissionAction.V
       employeeName: r.employeeId ? emp.get(r.employeeId)?.name || null : null,
       employeeCode: r.employeeId ? emp.get(r.employeeId)?.code || null : null,
       shiftDate: r.shiftDate,
+      /* Phone punches: where, which site, and the selfie while it is kept. */
+      latitude: r.latitude,
+      longitude: r.longitude,
+      accuracyM: r.accuracyM,
+      siteName: r.geofenceId ? site.get(r.geofenceId) || null : null,
+      photoId: r.photoId,
     })),
   });
 });

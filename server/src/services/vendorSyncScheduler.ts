@@ -1,4 +1,5 @@
 import { syncAllVendorConnections } from '../routes/iclock.js';
+import { purgePunchPhotos } from '../routes/portalAdmin.js';
 
 /**
  * Pulls punches from vendor clouds (e-Time Office) every five minutes, the
@@ -25,6 +26,28 @@ export function startVendorSync({ intervalMs = 5 * 60_000, startupDelayMs = 45_0
       console.error('[vendor-sync] run failed:', e instanceof Error ? e.message : e);
     } finally {
       running = false;
+    }
+  };
+  const startup = setTimeout(tick, startupDelayMs);
+  const timer = setInterval(tick, intervalMs);
+  startup.unref?.();
+  timer.unref?.();
+  return () => {
+    clearTimeout(startup);
+    clearInterval(timer);
+  };
+}
+
+/** Deletes phone-punch selfies past each company's retention period, every six hours. */
+export function startPhotoPurge({ intervalMs = 6 * 3_600_000, startupDelayMs = 90_000 } = {}) {
+  const tick = async () => {
+    try {
+      const n = await purgePunchPhotos();
+      // eslint-disable-next-line no-console
+      if (n) console.log(`[photo-purge] ${n} punch photo(s) past retention deleted`);
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.error('[photo-purge] run failed:', e instanceof Error ? e.message : e);
     }
   };
   const startup = setTimeout(tick, startupDelayMs);

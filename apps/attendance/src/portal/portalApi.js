@@ -1,0 +1,139 @@
+import { API_BASE } from '@platform/http';
+
+/**
+ * The employee portal's own transport (server: routes/portal.ts). Its token is
+ * kept apart from a CLOR user's ("token"): someone may be signed in to CLOR as
+ * HR in one tab and test the portal in another, and neither may become the other.
+ */
+const KEY = 'clor.portal.token';
+const REMEMBER = 'clor.portal.ids';
+
+const store = {
+  get: (k) => {
+    try {
+      return localStorage.getItem(k) || '';
+    } catch {
+      return '';
+    }
+  },
+  set: (k, v) => {
+    try {
+      if (v) localStorage.setItem(k, v);
+      else localStorage.removeItem(k);
+    } catch {
+      /* private window: signed in for this page only */
+    }
+  },
+};
+
+export const portalToken = () => store.get(KEY);
+export const setPortalToken = (t) => store.set(KEY, t);
+
+/** Company and employee code from the last sign-in, so a phone does not ask every time. */
+export const rememberedIds = () => {
+  try {
+    return JSON.parse(store.get(REMEMBER) || '{}');
+  } catch {
+    return {};
+  }
+};
+const remember = (company, employeeCode) => store.set(REMEMBER, JSON.stringify({ company, employeeCode }));
+
+export class SignedOut extends Error {}
+
+async function call(path, { method = 'GET', body } = {}) {
+  const token = portalToken();
+  let res;
+  try {
+    res = await fetch(`${API_BASE}/portal${path}`, {
+      method,
+      headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+  } catch {
+    throw new Error('Could not reach the server. Check your connection and try again.');
+  }
+  let data = null;
+  try {
+    data = await res.json();
+  } catch {
+    data = null;
+  }
+  if (res.status === 401 && data?.code === 'PORTAL_SIGNIN') {
+    setPortalToken('');
+    throw new SignedOut(data.error);
+  }
+  if (!res.ok) throw Object.assign(new Error(data?.error || `Something went wrong (${res.status}).`), { code: data?.code, status: res.status });
+  return data;
+}
+
+const signedIn = (company, employeeCode) => (r) => {
+  setPortalToken(r.token);
+  remember(String(company).trim().toUpperCase(), String(employeeCode).trim());
+  return r;
+};
+
+export const signIn = ({ company, employeeCode, password }) =>
+  call('/login', { method: 'POST', body: { company, employeeCode, password } }).then(signedIn(company, employeeCode));
+export const activate = ({ company, employeeCode, activationCode, password }) =>
+  call('/activate', { method: 'POST', body: { company, employeeCode, activationCode, password } }).then(signedIn(company, employeeCode));
+export const signOut = () => setPortalToken('');
+
+export const getMe = () => call('/me');
+export const punch = (body) => call('/punch', { method: 'POST', body });
+export const getAttendance = (month) => call(`/attendance${month ? `?month=${encodeURIComponent(month)}` : ''}`);
+export const askCorrection = (body) => call('/corrections', { method: 'POST', body });
+export const getSchedule = (month) => call(`/schedule${month ? `?month=${encodeURIComponent(month)}` : ''}`);
+export const getLeave = () => call('/leave');
+export const askLeave = (body) => call('/leave', { method: 'POST', body });
+export const cancelLeave = (id) => call(`/leave/${encodeURIComponent(id)}/cancel`, { method: 'POST' });
+export const changePassword = (current, next) =>
+  call('/password', { method: 'POST', body: { current, next } }).then((r) => {
+    setPortalToken(r.token);
+    return r;
+  });
+
+/** Where the phone is, as precisely as it will say (15 s at most). */
+export const locate = () =>
+  new Promise((resolve, reject) => {
+    if (!navigator.geolocation) return reject(new Error('This browser cannot give your location.'));
+    navigator.geolocation.getCurrentPosition(
+      (p) => resolve({ latitude: p.coords.latitude, longitude: p.coords.longitude, accuracy: Math.round(p.coords.accuracy) }),
+      (e) =>
+        reject(
+          new Error(
+            e.code === 1
+              ? 'Location is blocked for this site. Allow it in the browser’s site settings, then try again.'
+              : 'Your location could not be found. Turn on location (GPS) and try again.'
+          )
+        ),
+      { enableHighAccuracy: true, timeout: 15_000, maximumAge: 0 }
+    );
+  });
+
+/** A selfie made small on the phone (640 px, JPEG) before it is sent. */
+export const shrinkPhoto = (file) =>
+  new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      const scale = Math.min(1, 640 / Math.max(img.width, img.height));
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.round(img.width * scale);
+      canvas.height = Math.round(img.height * scale);
+      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+      URL.revokeObjectURL(url);
+      resolve(canvas.toDataURL('image/jpeg', 0.75));
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error('That photo could not be read.'));
+    };
+    img.src = url;
+  });
+
+export const todayIst = () => new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
+export const hm = (minutes) => {
+  const m = Math.max(0, Number(minutes) || 0);
+  return `${Math.floor(m / 60)}:${String(m % 60).padStart(2, '0')}`;
+};

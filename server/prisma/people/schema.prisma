@@ -113,6 +113,18 @@ model Employee {
   /// When they left: RESIGNED | TERMINATED | RETIRED | ABSCONDED | CONTRACT_ENDED | DECEASED
   leavingType        String?
   leavingReason      String?
+  /// Employee portal (ClorTime's self-service): the person chooses their own
+  /// password with a one-time activation code from HR; only hashes are kept,
+  /// so nobody else ever knows it.
+  portalEnabled        Boolean   @default(false)
+  portalPasswordHash   String?
+  portalPasswordSetAt  DateTime?
+  portalSetupHash      String?
+  portalSetupExpires   DateTime?
+  /// May punch from a phone (inside a geofence). Off unless HR allows it.
+  mobilePunch          Boolean   @default(false)
+  /// Only this site counts for their phone punches; null = any active site.
+  geofenceId           String?
   probationEndDate   String?
   contractEndDate    String?
 
@@ -569,6 +581,12 @@ model DevicePunch {
   /// The shift day the punch belongs to (a night shift's morning exit is the previous day).
   shiftDate    String?
   raw          String?
+  /// Phone punches: where it was made, which site it matched, and the selfie.
+  latitude     Float?
+  longitude    Float?
+  accuracyM    Float?
+  geofenceId   String?
+  photoId      String?
   createdAt    DateTime @default(now())
 
   @@unique([orgId, pin, at])
@@ -866,7 +884,44 @@ model AttendanceSettings {
   lateAllowancePerMonth Int     @default(0)
   /// …then every this many late arrivals is half a day's loss of pay (0 = never).
   latePenaltyEvery      Int     @default(0)
+  /// Punch selfies are personal data (DPDP): kept this many days, then deleted;
+  /// the punch itself stays (ClorTime purgePunchPhotos).
+  photoRetentionDays    Int     @default(90)
 
   updatedByUserId String
   updatedAt       DateTime @updatedAt
+}
+
+/// A work site for phone punches: a circle around a point (ClorTime's geofences).
+model Geofence {
+  id           String  @id @default(cuid())
+  accountId    String
+  orgId        String
+  name         String
+  latitude     Float
+  longitude    Float
+  radiusMeters Int     @default(200)
+  /// Null = for anyone; set = only people in that area may use it.
+  areaId       String?
+  isActive     Boolean @default(true)
+
+  createdByUserId String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([accountId, orgId])
+}
+
+/// The selfie taken with a phone punch. In the database (Cloud Run has no
+/// disk), small (resized on the phone), and deleted after the retention period.
+model PunchPhoto {
+  id         String   @id @default(cuid())
+  accountId  String
+  orgId      String
+  employeeId String
+  mime       String
+  data       Bytes
+  createdAt  DateTime @default(now())
+
+  @@index([orgId, createdAt])
 }

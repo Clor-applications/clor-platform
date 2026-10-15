@@ -15,6 +15,8 @@ import {
   Cpu,
   Fingerprint,
   HardHat,
+  KeyRound,
+  LocateFixed,
   History,
   Inbox,
   LayoutDashboard,
@@ -59,6 +61,9 @@ import TemporarySchedule from './src/screens/TemporarySchedule';
 import Rotations from './src/screens/Rotations';
 import ScheduleCalendar from './src/screens/ScheduleCalendar';
 import AttendanceRules from './src/screens/AttendanceRules';
+import PortalAccess from './src/screens/PortalAccess';
+import Geofences from './src/screens/Geofences';
+import EmployeePortal from './src/portal/EmployeePortal';
 
 /**
  * Everything the shell knows about Attendance.
@@ -69,7 +74,9 @@ import AttendanceRules from './src/screens/AttendanceRules';
  * Payroll use, so buying those too adds to it rather than duplicating it.
  *
  * Biometric readers (ZKTeco / eSSL) push punches to /iclock — ClorTime's
- * protocol; e-Time Office and the /v1 API bring in everything else.
+ * protocol; e-Time Office and the /v1 API bring in everything else. Staff
+ * without a CLOR user use the employee portal (#/portal): their days, leave,
+ * and punching from a phone inside a work site.
  */
 export const attendanceApp = {
   id: 'attendance',
@@ -114,6 +121,9 @@ export const attendanceApp = {
     { section: 'Leave setup' },
     { key: 'leaveTypes', label: 'Leave types', icon: Tags },
     { key: 'leaveBalances', label: 'Leave balances', icon: Scale },
+    { section: 'Employee portal' },
+    { key: 'portalAccess', label: 'Portal access', icon: KeyRound },
+    { key: 'sites', label: 'Work sites', icon: LocateFixed },
     { section: 'System' },
     { key: 'integrations', label: 'Integrations', icon: Plug },
     { section: 'Me' },
@@ -150,7 +160,13 @@ export const attendanceApp = {
     leaveTypes: LeaveTypes,
     leaveBalances: LeaveBalances,
     integrations: Integrations,
+    portalAccess: PortalAccess,
+    sites: Geofences,
     me: MyAttendance,
     myLeave: MyLeave,
+  },
+  /** For people who are not CLOR users, at #/<key>; the shell routes, the app draws. */
+  publicPages: {
+    portal: EmployeePortal,
   },
 };

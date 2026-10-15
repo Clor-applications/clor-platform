@@ -37,6 +37,12 @@ const ago = (iso) => {
  * nothing is opened at the office — and is claimed here by its serial number.
  * The same push protocol the on-premise ClorTime server uses.
  */
+/** Not readers: punches sent with an API key, and from the employee portal on phones. */
+const VIRTUAL = {
+  API: { label: 'API key', title: 'Punches sent with an API key — manage it under Integrations' },
+  MOBILE: { label: 'Employee portal', title: 'Punches from phones in the employee portal — see Portal access and Work sites' },
+};
+
 export default function AttendanceDevices() {
   const [data, setData] = useState(null);
   const [adding, setAdding] = useState(false);
@@ -103,14 +109,14 @@ export default function AttendanceDevices() {
               </thead>
               <tbody>
                 {data.devices.map((d) => (
-                  <tr key={d.id} className={d.vendor === 'API' ? undefined : 'ui-row-click'} onClick={d.vendor === 'API' ? undefined : () => setOpen(d)} title={d.vendor === 'API' ? 'Punches sent with an API key — manage it under Integrations' : undefined}>
+                  <tr key={d.id} className={VIRTUAL[d.vendor] ? undefined : 'ui-row-click'} onClick={VIRTUAL[d.vendor] ? undefined : () => setOpen(d)} title={VIRTUAL[d.vendor]?.title}>
                     <td className="ui-col-entity">{d.name}</td>
-                    <td className="ui-col-meta">{d.vendor === 'ETIMEOFFICE' ? 'e-Time Office' : d.vendor === 'API' ? 'API key' : d.serialNumber}</td>
+                    <td className="ui-col-meta">{d.vendor === 'ETIMEOFFICE' ? 'e-Time Office' : VIRTUAL[d.vendor]?.label || d.serialNumber}</td>
                     <td>{d.direction === 'both' ? 'In / out' : d.direction === 'in' ? 'Entry' : 'Exit'}</td>
                     <td className="ui-col-h-center whitespace-nowrap">
                       {!d.isActive ? (
                         <span className="ui-pill ui-pill-neutral">off</span>
-                      ) : d.vendor === 'API' ? (
+                      ) : VIRTUAL[d.vendor] ? (
                         <span className="ui-pill ui-pill-neutral">{d.lastSeenAt ? `used ${ago(d.lastSeenAt)}` : 'not used yet'}</span>
                       ) : d.vendor === 'ETIMEOFFICE' ? (
                         <span className={`ui-pill ${d.lastError ? 'ui-pill-neg' : 'ui-pill-pos'}`} title={d.lastError || ''}>{d.lastError ? 'pull failing' : `pulled ${ago(d.lastFetchedAt)}`}</span>

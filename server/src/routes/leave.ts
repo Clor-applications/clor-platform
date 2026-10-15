@@ -66,7 +66,7 @@ async function workingDays(orgId: string, employee: { id: string; branchId: stri
 type Balance = { allocated: number; used: number; pending: number; available: number };
 
 /** Each person's balance of each type for a year. Unpaid types have no limit (allocated = null). */
-async function balancesFor(accountId: string, orgId: string, employeeIds: string[], year: number) {
+export async function balancesFor(accountId: string, orgId: string, employeeIds: string[], year: number) {
   const [types, allocations, requests] = await Promise.all([
     peoplePrisma.leaveType.findMany({ where: { accountId, orgId }, orderBy: { name: 'asc' } }),
     peoplePrisma.leaveAllocation.findMany({ where: { accountId, orgId, year, employeeId: { in: employeeIds } } }),
@@ -91,7 +91,7 @@ async function balancesFor(accountId: string, orgId: string, employeeIds: string
   return { types, balances: out };
 }
 
-const withTypes = async (orgId: string, rows: any[]) => {
+export const withTypes = async (orgId: string, rows: any[]) => {
   const types = new Map(
     (await peoplePrisma.leaveType.findMany({ where: { orgId }, select: { id: true, name: true, isPaid: true } })).map((t) => [t.id, t])
   );
@@ -238,8 +238,14 @@ const requestSchema = z.object({
   reason: z.string().trim().min(3, 'Say why.').max(500),
 });
 
-async function createLeave(req: any, res: any, employee: { id: string; branchId: string | null; areaId?: string | null; status?: string | null }) {
-  const { accountId, orgId } = req.tenant!;
+/** `by` is who asks: the signed-in user, or — from the employee portal — the employee themselves. */
+export async function createLeave(
+  req: any,
+  res: any,
+  employee: { id: string; branchId: string | null; areaId?: string | null; status?: string | null },
+  by?: { accountId: string; orgId: string; userId: string }
+) {
+  const { accountId, orgId } = by || req.tenant!;
   const parsed = requestSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Invalid request.' });
   const b = parsed.data;
@@ -263,7 +269,7 @@ async function createLeave(req: any, res: any, employee: { id: string; branchId:
     }
   }
   const row = await peoplePrisma.leaveRequest.create({
-    data: { accountId, orgId, employeeId: employee.id, leaveTypeId: type.id, fromDate: b.fromDate, toDate: b.toDate, days: days.length, reason: b.reason, requestedByUserId: req.auth!.userId },
+    data: { accountId, orgId, employeeId: employee.id, leaveTypeId: type.id, fromDate: b.fromDate, toDate: b.toDate, days: days.length, reason: b.reason, requestedByUserId: by?.userId || req.auth!.userId },
   });
   res.status(201).json({ request: (await withTypes(orgId, [row]))[0] });
 }
@@ -418,20 +424,23 @@ leaveRouter.post('/orgs/:orgId/attendance/me/leave', can(PermissionAction.CREATE
 });
 
 /** One's own request: a pending one any time, an approved one only before it starts. */
+export async function cancelOwnLeave(accountId: string, orgId: string, employeeId: string, id: string): Promise<{ status: number; body: any }> {
+  const r = await peoplePrisma.leaveRequest.findFirst({ where: { id, accountId, orgId, employeeId } });
+  if (!r) return { status: 404, body: { error: 'No such request.' } };
+  if (!OPEN.includes(r.status)) return { status: 409, body: { error: `This request was already ${r.status.toLowerCase()}.` } };
+  if (r.status === 'APPROVED' && r.fromDate <= today()) return { status: 409, body: { error: 'This leave has started. Ask your manager to cancel it.' } };
+  if (r.status === 'APPROVED') await clearLeaveDays(orgId, r.id);
+  const updated = await peoplePrisma.leaveRequest.update({ where: { id: r.id }, data: { status: 'CANCELLED' } });
+  return { status: 200, body: { request: (await withTypes(orgId, [updated]))[0] } };
+}
+
 leaveRouter.post('/orgs/:orgId/attendance/me/leave/:id/cancel', can(PermissionAction.CREATE, R.self), async (req, res) => {
   if (!(await attendanceRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   try {
     const me = await myEmployee(accountId, orgId, req.auth!.userId);
-    const r = await peoplePrisma.leaveRequest.findFirst({ where: { id: String(req.params.id), accountId, orgId, employeeId: me.id } });
-    if (!r) return res.status(404).json({ error: 'No such request.' });
-    if (!OPEN.includes(r.status)) return res.status(409).json({ error: `This request was already ${r.status.toLowerCase()}.` });
-    if (r.status === 'APPROVED' && r.fromDate <= today()) {
-      return res.status(409).json({ error: 'This leave has started. Ask your manager to cancel it.' });
-    }
-    if (r.status === 'APPROVED') await clearLeaveDays(orgId, r.id);
-    const updated = await peoplePrisma.leaveRequest.update({ where: { id: r.id }, data: { status: 'CANCELLED' } });
-    res.json({ request: (await withTypes(orgId, [updated]))[0] });
+    const out = await cancelOwnLeave(accountId, orgId, me.id, String(req.params.id));
+    res.status(out.status).json(out.body);
   } catch (e) {
     return sendError(res, e);
   }

@@ -40,6 +40,8 @@ import { integrationsRouter } from './routes/integrations.js';
 import { publicApiRouter } from './routes/publicApi.js';
 import { personnelRouter } from './routes/personnel.js';
 import { schedulingRouter } from './routes/scheduling.js';
+import { portalRouter } from './routes/portal.js';
+import { portalAdminRouter } from './routes/portalAdmin.js';
 import { payrollAssignmentsRouter } from './routes/payrollAssignments.js';
 import { payrollRunsRouter } from './routes/payrollRuns.js';
 import { payrollPostingRouter } from './routes/payrollPosting.js';
@@ -166,6 +168,8 @@ export function buildApp() {
    * batch of punches is a few hundred KB (ClorTime caps at 8 MB).
    */
   app.use('/iclock', express.text({ type: () => true, limit: '8mb' }), iclockRouter);
+  /* A phone punch may carry a selfie (≤ 2 MB, base64): its own, larger limit. */
+  app.use('/api/portal/punch', express.json({ limit: '3mb' }));
   app.use(express.json({ limit: '1mb' }));
   // The API for outside systems: an API key, no user session (routes/publicApi.ts).
   app.use('/v1', publicApiRouter);
@@ -221,6 +225,11 @@ export function buildApp() {
      runs its middleware for every '/api' request that reaches it. */
   app.use('/api', sharePublicRouter);
 
+  /* The employee portal: its own sign-in (company + employee code), no CLOR
+     user and no tenant headers — so, like the two above, before the routers
+     that require both. */
+  app.use('/api/portal', portalRouter);
+
   /*
    * Mounted before every tenant-scoped router, and that position is the point.
    *
@@ -254,6 +263,7 @@ export function buildApp() {
   app.use('/api', personnelRouter);
   app.use('/api', attendanceRouter);
   app.use('/api', schedulingRouter);
+  app.use('/api', portalAdminRouter);
   app.use('/api', leaveRouter);
   app.use('/api', devicesRouter);
   app.use('/api', attendanceReportsRouter);

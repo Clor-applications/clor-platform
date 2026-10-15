@@ -422,15 +422,16 @@ const requestSchema = z.object({
   reason: z.string().trim().min(3, 'Say why.').max(500),
 });
 
-const createRequest = async (req: any, res: any, employeeId: string) => {
-  const { accountId, orgId } = req.tenant!;
+/** `by` is who asks: the signed-in user, or — from the employee portal — the employee themselves. */
+export const createRequest = async (req: any, res: any, employeeId: string, by?: { accountId: string; orgId: string; userId: string }) => {
+  const { accountId, orgId } = by || req.tenant!;
   const parsed = requestSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Invalid request.' });
   const b = parsed.data;
   if (b.date > today()) return res.status(400).json({ error: 'A correction is for a day that has happened.' });
   const { checkIn, checkOut } = instants(b.date, b.checkIn, b.checkOut || null);
   const row = await peoplePrisma.attendanceRequest.create({
-    data: { accountId, orgId, employeeId, date: b.date, checkIn, checkOut, reason: b.reason, requestedByUserId: req.auth!.userId },
+    data: { accountId, orgId, employeeId, date: b.date, checkIn, checkOut, reason: b.reason, requestedByUserId: by?.userId || req.auth!.userId },
   });
   res.status(201).json({ request: row });
 };

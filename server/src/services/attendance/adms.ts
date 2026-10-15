@@ -325,4 +325,4 @@ export function parseOpLine(line: string) {
 }
 
 /** How a punch was verified, as ZKTeco / eSSL readers number it. */
-export const VERIFY_MODES: Record<number, string> = { 0: 'Password', 1: 'Fingerprint', 2: 'Card', 3: 'Password', 4: 'Card', 15: 'Face', 25: 'Palm' };
+export const VERIFY_MODES: Record<number, string> = { 0: 'Password', 1: 'Fingerprint', 2: 'Card', 3: 'Password', 4: 'Card', 15: 'Face', 25: 'Palm', 100: 'Phone' };
