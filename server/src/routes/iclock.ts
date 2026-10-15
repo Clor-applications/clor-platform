@@ -5,6 +5,7 @@ import { isFeatureEnabled } from '../services/features.js';
 import {
   COMMANDS,
   FACE,
+  FETCH_TEMPLATE_COMMANDS,
   admsField,
   FINGER,
   HANDSHAKE_OPTIONS,
@@ -249,6 +250,76 @@ async function markOnReader(device: { id: string; accountId: string; orgId: stri
 
 async function storeUser(device: Device, u: { pin: string; name: string | null; privilege: number | null; password: string | null; card: string | null }) {
   const pin = u.pin.slice(0, 40);
+  await keepUser(device, pin, u);
+  await adoptReaderUser(device, pin, u);
+}
+
+/** A name CLOR gave someone it only knew from a reader, until the reader says who they are. */
+export const READER_PLACEHOLDER = 'Reader user ';
+
+/**
+ * Sync from the reader into CLOR (ClorTime processBiodataLine): someone added
+ * at a reader whose ID matches no employee becomes one — named as the reader
+ * names them, with the ID as their employee code — and the punches they have
+ * already made are theirs. Someone CLOR knows keeps CLOR's details; a
+ * placeholder name and an empty card are filled from the reader.
+ */
+async function adoptReaderUser(device: Device, pin: string, u: { name: string | null; card: string | null }) {
+  const match = await pinMatcher(device.orgId);
+  const known = match(pin);
+  const name = String(u.name || '').trim().slice(0, 120);
+  if (known) {
+    const e = await peoplePrisma.employee.findUnique({ where: { id: known.id }, select: { name: true, cardNumber: true } });
+    const data: any = {};
+    if (name && e?.name.startsWith(READER_PLACEHOLDER)) data.name = name;
+    if (u.card && u.card !== '0' && !e?.cardNumber) data.cardNumber = String(u.card).slice(0, 40);
+    if (Object.keys(data).length) await peoplePrisma.employee.update({ where: { id: known.id }, data });
+    return;
+  }
+  const settings = await peoplePrisma.attendanceSettings.findUnique({ where: { orgId: device.orgId }, select: { readerUsersBecomeEmployees: true } });
+  if (settings && !settings.readerUsersBecomeEmployees) return;
+  let employee;
+  try {
+    employee = await peoplePrisma.employee.create({
+      data: {
+        accountId: device.accountId,
+        orgId: device.orgId,
+        code: pin,
+        name: name || `${READER_PLACEHOLDER}${pin}`,
+        status: 'ACTIVE',
+        ...(u.card && u.card !== '0' ? { cardNumber: String(u.card).slice(0, 40) } : {}),
+        createdByUserId: 'reader',
+      } as any,
+    });
+  } catch {
+    /* Two readers reporting the same new person at once: the other one made it. */
+    return;
+  }
+  await attachPunchesTo(device.accountId, device.orgId, employee, pin);
+  await peoplePrisma.biometricTemplate.updateMany({ where: { orgId: device.orgId, pin, employeeId: null }, data: { employeeId: employee.id } });
+  /* …and on to the company's other readers. */
+  const others = (await peoplePrisma.attendanceDevice.findMany({ where: { orgId: device.orgId, isActive: true, vendor: 'ADMS', id: { not: device.id } }, select: { id: true } })).length;
+  if (others) await pushEmployeeToReaders(device.orgId, employee, null, undefined, device.id);
+}
+
+/**
+ * Punches already made under a reader ID now belong to this employee: each is
+ * given its shift day and the days are worked out. (Matching by hand, and a
+ * reader user becoming an employee, both end here.)
+ */
+export async function attachPunchesTo(accountId: string, orgId: string, employee: { id: string; branchId: string | null; areaId?: string | null }, pin: string) {
+  const punches = await peoplePrisma.devicePunch.findMany({ where: { orgId, pin, employeeId: null }, select: { id: true, localTime: true } });
+  const days = new Set<string>();
+  for (const p of punches) {
+    const shiftDate = await shiftDayFor(orgId, employee.id, p.localTime);
+    await peoplePrisma.devicePunch.update({ where: { id: p.id }, data: { employeeId: employee.id, shiftDate } });
+    days.add(shiftDate);
+  }
+  for (const date of days) await recomputeDeviceDay(accountId, orgId, employee, date);
+  return { matched: punches.length, days: days.size };
+}
+
+async function keepUser(device: Device, pin: string, u: { name: string | null; privilege: number | null; password: string | null; card: string | null }) {
   const fields = {
     ...(u.name !== null ? { name: u.name.slice(0, 120) } : {}),
     ...(u.privilege !== null ? { privilege: u.privilege } : {}),
@@ -415,12 +486,12 @@ export const readerFieldsChanged = (before: any, after: any) =>
  * from what a reader already holds, so pushing never wipes one set at a reader.
  * If their ID changed, the old ID is taken off the readers first.
  */
-export async function pushEmployeeToReaders(orgId: string, employee: any, createdByUserId: string | null, before?: any) {
+export async function pushEmployeeToReaders(orgId: string, employee: any, createdByUserId: string | null, before?: any, skipDeviceId?: string) {
   const pin = String(employee.devicePin || employee.code || '').trim();
   const oldPin = before ? String(before.devicePin || before.code || '').trim() : '';
   if (!pin && !oldPin) return { readers: 0 };
   const all = await peoplePrisma.attendanceDevice.findMany({ where: { orgId, isActive: true, vendor: 'ADMS' } });
-  const readers = all.filter((r) => servesArea(r, employee.areaId));
+  const readers = all.filter((r) => servesArea(r, employee.areaId) && r.id !== skipDeviceId);
   /* Moved to another site: off the readers that no longer serve them. */
   if (before && (before.areaId ?? null) !== (employee.areaId ?? null)) {
     const pins = [...new Set([oldPin, pin].filter(Boolean))];
@@ -545,7 +616,11 @@ iclockRouter.post(['/cdata', '/cdata.aspx'], async (req, res) => {
         if (r.kind === 'USER') await storeUser(device, r);
         else await storeTemplate(device, r.template, match);
       }
-      if (logs.length) await peoplePrisma.deviceLog.createMany({ data: logs });
+      if (logs.length) {
+        await peoplePrisma.deviceLog.createMany({ data: logs });
+        /* Someone used the reader: read its users again shortly, so a person enrolled there reaches CLOR and the other readers. */
+        if (table === 'OPERLOG') await readUsersIfDue(device, true);
+      }
     }
     return text(res, 'OK');
   } catch {
@@ -555,6 +630,26 @@ iclockRouter.post(['/cdata', '/cdata.aspx'], async (req, res) => {
 });
 
 const INFO_EVERY_MS = 6 * 3_600_000;
+const USERS_EVERY_MS = 24 * 3_600_000;
+const READ_COMMANDS = () => [COMMANDS.FETCH_USERS, ...FETCH_TEMPLATE_COMMANDS];
+
+/**
+ * Sync from the reader: CLOR asks for its users (and fingerprints / faces)
+ * when the reader is new to it, once a day, and — `soon` — a couple of minutes
+ * after someone uses the reader's menu (enrolling or editing a person shows up
+ * as operation records). Never while a read is already on its way.
+ */
+async function readUsersIfDue(device: { id: string; accountId: string; orgId: string; serialNumber: string }, soon = false) {
+  const last = await peoplePrisma.deviceCommand.findFirst({ where: { deviceId: device.id, command: COMMANDS.FETCH_USERS }, orderBy: { id: 'desc' }, select: { status: true, createdAt: true } });
+  if (last && (last.status === 'PENDING' || last.status === 'SENT')) return false;
+  const age = last ? Date.now() - last.createdAt.getTime() : Infinity;
+  const due = soon ? age > 2 * 60_000 : age > USERS_EVERY_MS || (!last && !(await peoplePrisma.deviceUser.findFirst({ where: { deviceId: device.id }, select: { id: true } })));
+  if (!due) return false;
+  await peoplePrisma.deviceCommand.createMany({
+    data: READ_COMMANDS().map((command) => ({ accountId: device.accountId, orgId: device.orgId, deviceId: device.id, serialNumber: device.serialNumber, command })),
+  });
+  return true;
+}
 /** A command sent and not answered in this long is sent again; after MAX_ATTEMPTS it has failed. */
 export const ANSWER_WITHIN_MS = 10 * 60_000;
 export const MAX_ATTEMPTS = 3;
@@ -634,6 +729,9 @@ iclockRouter.get(['/getrequest', '/getrequest.aspx'], async (req, res) => {
         await peoplePrisma.deviceCommand.create({ data: { accountId: device.accountId, orgId: device.orgId, deviceId: device.id, serialNumber: serial, command: COMMANDS.INFO } });
       }
     }
+
+    /* Who is on it (sync from the reader): when new to CLOR, then daily. */
+    await readUsersIfDue(device);
 
     const next = await peoplePrisma.deviceCommand.findFirst({ where: { deviceId: device.id, status: 'PENDING' }, orderBy: [{ sequence: 'asc' }, { id: 'asc' }] });
     if (!next) return text(res, 'OK');

@@ -9,7 +9,7 @@ import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { ATTENDANCE_MODULE, ATTENDANCE_RESOURCE, attendanceRouteOk } from '../services/attendance/guards.js';
 import { COMMANDS, FACE, FETCH_TEMPLATE_COMMANDS, ONLINE_WINDOW_MS, SEQ, VERIFY_MODES, commandEffect, normaliseFirmware, pinKey, userInfoCommand } from '../services/attendance/adms.js';
 import { ISO_DATE, sendError, today } from './attendance.js';
-import { copyAllTemplatesTo, pinMatcher, recomputeDeviceDay, servesArea, shiftDayFor, syncVendorConnection } from './iclock.js';
+import { attachPunchesTo, copyAllTemplatesTo, pinMatcher, recomputeDeviceDay, servesArea, shiftDayFor, syncVendorConnection } from './iclock.js';
 import { encryptSecret } from '../services/mailer.js';
 import { etoFetchPunches } from '../services/attendance/etimeoffice.js';
 
@@ -382,16 +382,7 @@ devicesRouter.post('/orgs/:orgId/attendance/punches/match', can(PermissionAction
     }
     await peoplePrisma.employee.update({ where: { id: employee.id }, data: { devicePin: pin } });
     await peoplePrisma.biometricTemplate.updateMany({ where: { orgId, pin, employeeId: null }, data: { employeeId: employee.id } });
-
-    const punches = await peoplePrisma.devicePunch.findMany({ where: { orgId, pin, employeeId: null }, select: { id: true, localTime: true } });
-    const days = new Set<string>();
-    for (const p of punches) {
-      const shiftDate = await shiftDayFor(orgId, employee.id, p.localTime);
-      await peoplePrisma.devicePunch.update({ where: { id: p.id }, data: { employeeId: employee.id, shiftDate } });
-      days.add(shiftDate);
-    }
-    for (const date of days) await recomputeDeviceDay(accountId, orgId, employee, date);
-    res.json({ matched: punches.length, days: days.size });
+    res.json(await attachPunchesTo(accountId, orgId, employee, pin));
   } catch (e) {
     return sendError(res, e);
   }

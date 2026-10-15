@@ -311,3 +311,48 @@ describe('who is on which reader', () => {
     expect(cells).toEqual({ [hq.device.id]: 'OK', [n.device.id]: 'NA', [s.device.id]: 'OK' });
   });
 });
+
+describe('sync from the reader into CLOR', () => {
+  it('reads a new reader’s users, makes unknown ones employees with their punches, and sends them to the other readers', async () => {
+    const c = await makeOwner();
+    const a = await addReader(c, 'Gate A');
+    const b = await addReader(c, 'Gate B');
+    // Punches from ID 4 before CLOR knows who that is.
+    await drain(a.r);
+    await drain(b.r);
+    await a.r.push([`4\t${istNow(-3_600_000)}\t0\t1`]).expect(200);
+    expect(await peoplePrisma.devicePunch.count({ where: { orgId: c.orgId, pin: '4', employeeId: null } })).toBe(1);
+
+    // The reader answers "who is on you".
+    await a.r.push(['USER PIN=4\tName=Suresh K\tPri=14\tPasswd=\tCard=55667788'], 'USERINFO').expect(200);
+    const emp = await peoplePrisma.employee.findFirst({ where: { orgId: c.orgId, code: '4' } });
+    expect(emp).toMatchObject({ name: 'Suresh K', status: 'ACTIVE', cardNumber: '55667788' });
+    expect(await peoplePrisma.devicePunch.count({ where: { orgId: c.orgId, pin: '4', employeeId: emp!.id } })).toBe(1);
+    // On to the other reader; nothing sent back to the one it came from.
+    expect((await drain(b.r)).map((x) => x.split('\t')[0])).toEqual(['DATA UPDATE USERINFO PIN=4']);
+    expect(await peoplePrisma.deviceCommand.count({ where: { deviceId: a.device.id, status: 'PENDING', command: { contains: 'USERINFO PIN=4' } } })).toBe(0);
+
+    // Someone CLOR knows keeps CLOR's name; a placeholder takes the reader's.
+    await a.r.push(['USER PIN=4\tName=SURESH\tPri=0'], 'USERINFO').expect(200);
+    expect((await peoplePrisma.employee.findUnique({ where: { id: emp!.id } }))!.name).toBe('Suresh K');
+    await a.r.push(['USER PIN=9\tName=\tPri=0'], 'USERINFO').expect(200);
+    const nine = await peoplePrisma.employee.findFirst({ where: { orgId: c.orgId, code: '9' } });
+    expect(nine!.name).toBe('Reader user 9');
+    await a.r.push(['USER PIN=9\tName=Meena\tPri=0'], 'USERINFO').expect(200);
+    expect((await peoplePrisma.employee.findUnique({ where: { id: nine!.id } }))!.name).toBe('Meena');
+  });
+
+  it('reads again soon after someone uses the reader, and can be switched off', async () => {
+    const c = await makeOwner();
+    const a = await addReader(c, 'Gate');
+    await drain(a.r);
+    await peoplePrisma.deviceCommand.updateMany({ where: { deviceId: a.device.id }, data: { createdAt: new Date(Date.now() - 5 * 60_000) } });
+    await a.r.push([`OPLOG 6\t0\t${istNow()}\t12\t0\t0\t0`], 'OPERLOG').expect(200);
+    expect((await drain(a.r)).slice(0, 1)).toEqual(['DATA QUERY USERINFO']);
+
+    await api(c).put('/rules', { defaultShiftId: null, lateAllowancePerMonth: 0, latePenaltyEvery: 0, photoRetentionDays: 90, readerUsersBecomeEmployees: false }).expect(200);
+    await a.r.push(['USER PIN=77\tName=Visitor\tPri=0'], 'USERINFO').expect(200);
+    expect(await peoplePrisma.employee.count({ where: { orgId: c.orgId, code: '77' } })).toBe(0);
+    expect(await peoplePrisma.deviceUser.count({ where: { deviceId: a.device.id, pin: '77' } })).toBe(1);
+  });
+});

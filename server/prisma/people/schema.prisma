@@ -919,6 +919,9 @@ model AttendanceSettings {
   offlineAlertMinutes   Int     @default(30)
   /// On a working day, no punch from any reader by this hour means collection is broken.
   noPunchAfterHour      Int     @default(11)
+  /// Sync both ways (ClorTime): someone added at a reader whose ID matches no
+  /// employee becomes one, named as on the reader. Off = they wait in Unmatched.
+  readerUsersBecomeEmployees Boolean @default(true)
 
   updatedByUserId String
   updatedAt       DateTime @updatedAt

@@ -242,7 +242,7 @@ schedulingRouter.get(`${base}/rules`, can(PermissionAction.VIEW), async (req, re
   if (!(await attendanceRouteOk(req, res))) return;
   const { orgId } = req.tenant!;
   const s = await peoplePrisma.attendanceSettings.findUnique({ where: { orgId } });
-  res.json({ rules: { defaultShiftId: s?.defaultShiftId || null, lateAllowancePerMonth: s?.lateAllowancePerMonth ?? 0, latePenaltyEvery: s?.latePenaltyEvery ?? 0, photoRetentionDays: s?.photoRetentionDays ?? 90 } });
+  res.json({ rules: { defaultShiftId: s?.defaultShiftId || null, lateAllowancePerMonth: s?.lateAllowancePerMonth ?? 0, latePenaltyEvery: s?.latePenaltyEvery ?? 0, photoRetentionDays: s?.photoRetentionDays ?? 90, readerUsersBecomeEmployees: s?.readerUsersBecomeEmployees ?? true } });
 });
 
 schedulingRouter.put(`${base}/rules`, can(PermissionAction.EDIT), async (req, res) => {
@@ -254,6 +254,7 @@ schedulingRouter.put(`${base}/rules`, can(PermissionAction.EDIT), async (req, re
       lateAllowancePerMonth: z.coerce.number().int().min(0).max(31),
       latePenaltyEvery: z.coerce.number().int().min(0).max(31),
       photoRetentionDays: z.coerce.number().int().min(7, 'Keep punch photos at least 7 days.').max(365, 'Keep punch photos at most a year.').default(90),
+      readerUsersBecomeEmployees: z.boolean().default(true),
     })
     .safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Check the rules.' });
@@ -264,7 +265,7 @@ schedulingRouter.put(`${base}/rules`, can(PermissionAction.EDIT), async (req, re
       create: { accountId, orgId, ...parsed.data, updatedByUserId: req.auth!.userId },
       update: { ...parsed.data, updatedByUserId: req.auth!.userId },
     });
-    res.json({ rules: { defaultShiftId: s.defaultShiftId, lateAllowancePerMonth: s.lateAllowancePerMonth, latePenaltyEvery: s.latePenaltyEvery, photoRetentionDays: s.photoRetentionDays } });
+    res.json({ rules: { defaultShiftId: s.defaultShiftId, lateAllowancePerMonth: s.lateAllowancePerMonth, latePenaltyEvery: s.latePenaltyEvery, photoRetentionDays: s.photoRetentionDays, readerUsersBecomeEmployees: s.readerUsersBecomeEmployees } });
   } catch (e) {
     return sendError(res, e);
   }

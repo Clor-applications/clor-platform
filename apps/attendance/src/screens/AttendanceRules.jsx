@@ -70,6 +70,13 @@ export default function AttendanceRules() {
           <input type="number" min={7} max={365} className="ui-input w-full" value={rules.photoRetentionDays ?? 90} onChange={(e) => setRules({ ...rules, photoRetentionDays: Number(e.target.value) })} />
           <span className="ui-caption">Then the photo is deleted; the punch stays. Personal data — keep it no longer than you need.</span>
         </label>
+        <label className="flex items-start gap-2 text-sm sm:col-span-2">
+          <input type="checkbox" className="ui-checkbox mt-0.5" checked={rules.readerUsersBecomeEmployees !== false} onChange={(e) => setRules({ ...rules, readerUsersBecomeEmployees: e.target.checked })} />
+          <span>
+            People added on a reader become employees
+            <span className="ui-caption block">Sync both ways: someone enrolled at a reader whose ID matches no employee is added here, named as on the reader, and sent to the other readers. Off: their punches wait under Unmatched punches.</span>
+          </span>
+        </label>
         <div className="sm:col-span-2"><button type="submit" className="ui-btn ui-btn-primary">Save rules</button></div>
       </form>
 

@@ -181,7 +181,13 @@ describe('commands through the heartbeat', () => {
     const info = (await r.heartbeat().expect(200)).text.match(/^C:(\d+):INFO$/);
     expect(info).toBeTruthy();
     await r.result(`ID=${info![1]}&Return=0&CMD=INFO\nUserCount=2\nMaxUserCount=3000`).expect(200);
-    expect((await r.heartbeat().expect(200)).text).toBe('OK');
+    // Then who is on it — users, fingerprints, faces (sync from the reader).
+    const asked: string[] = [];
+    for (let t = (await r.heartbeat().expect(200)).text; t !== 'OK'; t = (await r.heartbeat().expect(200)).text) {
+      asked.push(t.split(':').slice(2).join(':'));
+      await r.result(`ID=${t.split(':')[1]}&Return=0&CMD=DATA`).expect(200);
+    }
+    expect(asked).toEqual(['DATA QUERY USERINFO', 'DATA QUERY FINGERTMP', 'DATA QUERY FACE', 'DATA QUERY BIODATA']);
 
     const list = (await api(c).get('/devices').expect(200)).body.devices.find((d: any) => d.id === device.id);
     expect(list).toMatchObject({ model: 'ZAM70-NF24HA', firmware: '3.3.12', online: true });
@@ -189,7 +195,7 @@ describe('commands through the heartbeat', () => {
     // A new employee goes to the readers at once.
     await person(c, { name: 'On Reader', code: '104' });
     await person(c, { name: 'New Hire', code: '105' });
-    expect((await peoplePrisma.deviceCommand.findMany({ where: { deviceId: device.id, status: 'PENDING' } })).map((x) => x.command.split('\t')[0])).toEqual([
+    expect((await peoplePrisma.deviceCommand.findMany({ where: { deviceId: device.id, status: 'PENDING' }, orderBy: { id: 'asc' } })).map((x) => x.command.split('\t')[0])).toEqual([
       'DATA UPDATE USERINFO PIN=104',
       'DATA UPDATE USERINFO PIN=105',
     ]);
@@ -278,7 +284,7 @@ describe('fingerprints and faces between readers', () => {
     // Reader B, asked for its templates, sends the same face back.
     await reader(b).push([face], 'BIODATA').expect(200);
     expect(await peoplePrisma.deviceCommand.count({ where: { orgId: c.orgId, command: { contains: 'PIN=301' } } })).toBe(before);
-    expect(await peoplePrisma.deviceCommand.count({ where: { serialNumber: fingerOnly, command: { contains: 'BIODATA' } } })).toBe(0);
+    expect(await peoplePrisma.deviceCommand.count({ where: { serialNumber: fingerOnly, command: { contains: 'UPDATE BIODATA' } } })).toBe(0);
   });
 
   it('copies everything stored onto a new reader on request, and shows counts — never template data', async () => {
