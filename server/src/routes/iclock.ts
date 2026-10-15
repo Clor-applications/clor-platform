@@ -595,6 +595,11 @@ iclockRouter.get(['/getrequest', '/getrequest.aspx'], async (req, res) => {
         ...(info.fingerSupported !== null ? { fingerSupported: info.fingerSupported } : {}),
         /* A version learnt from a face template is more exact than INFO's; keep it. */
         ...(info.faceMajorVer && !device.faceMajorVer ? { faceMajorVer: info.faceMajorVer } : {}),
+        /* Live counts ride on every heartbeat; limits come from the INFO command. */
+        ...(info.userCount !== null ? { userCount: info.userCount } : {}),
+        ...(info.fingerCount !== null ? { fingerCount: info.fingerCount } : {}),
+        ...(info.punchCount !== null ? { punchCount: info.punchCount } : {}),
+        ...(info.faceCount !== null ? { faceCount: info.faceCount } : {}),
       },
     });
 
@@ -656,6 +661,18 @@ iclockRouter.post(['/devicecmd', '/devicecmd.aspx'], async (req, res) => {
       if (!ok || !device || cmd.deviceId !== device.id) continue;
       if (cmd.command === COMMANDS.INFO) {
         const info = parseReaderInfo(r.info);
+        /* Kept under Reader logs as the reader said it: firmware differs in what it names its counts. */
+        await peoplePrisma.deviceLog.create({
+          data: {
+            accountId: device.accountId,
+            orgId: device.orgId,
+            deviceId: device.id,
+            kind: 'OPERATION',
+            code: 'INFO',
+            localTime: new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 19).replace('T', ' '),
+            details: Object.entries(r.info).map(([k, v]) => `${k}=${v}`).join('; ').slice(0, 2000) || null,
+          },
+        });
         const { firmware, ...counts } = info;
         await peoplePrisma.attendanceDevice.update({
           where: { id: device.id },

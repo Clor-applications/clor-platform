@@ -215,25 +215,44 @@ export const pinKey = (pin: string) => {
 };
 
 /**
- * The INFO a reader sends on its heartbeat:
- * "ZAM70-NF24HA-Ver3.3.12,1,1,0,192.168.1.201,10,40,12,1,11010,0,0,0".
+ * The INFO a reader sends on its heartbeat. The standard ADMS layout:
+ *   firmware, users, fingerprints, punches, IP, finger algorithm, face algorithm, faces, …
+ *   "ZAM70-NF24HA-Ver3.3.12,1,1,0,192.168.1.201,10,40,12,1,11010,0,0,0"
+ *   "Ver 8.0.4.3-20240116,6,6,980,10.81.20.225,10,-1,0,0,100,0,0,0"   (eSSL, fingerprint only)
+ * A finger or face algorithm version above 0 means the reader has it; -1 or 0
+ * means it does not. (ClorTime read [1] and [2] as face/finger flags; on a real
+ * eSSL they are user and fingerprint counts — 6 and 6 — which marked a
+ * fingerprint reader as having no fingerprint support.)
  * The IP is accepted only if it looks like one (ClorTime: it was later used in a command).
  */
 export function parseInfo(info: string | undefined) {
-  if (!info) return { model: null, firmware: null, ip: null, faceSupported: null, fingerSupported: null, faceMajorVer: null };
-  const parts = String(info).split(',');
+  const none = { model: null, firmware: null, ip: null, faceSupported: null, fingerSupported: null, faceMajorVer: null, userCount: null, fingerCount: null, punchCount: null, faceCount: null };
+  if (!info) return none;
+  const parts = String(info).split(',').map((x) => x.trim());
   const head = parts[0] || '';
-  const ver = head.match(/-[Vv]er([\d.]+)/);
+  const ver = head.match(/(?:^|-)Ver\s*([\d.]+)/i);
   const cut = head.search(/-ver/i);
-  /* [1] face, [2] finger, [6] face algorithm major version (ClorTime device-capabilities.js). */
-  const major = parts.length > 6 ? Number.parseInt(parts[6], 10) : NaN;
+  const int = (i: number) => {
+    if (parts.length <= i || !/^-?\d+$/.test(parts[i])) return null;
+    return Number.parseInt(parts[i], 10);
+  };
+  const count = (i: number) => {
+    const n = int(i);
+    return n !== null && n >= 0 ? n : null;
+  };
+  const fingerAlgo = int(5);
+  const faceAlgo = int(6);
   return {
     model: cut > 0 ? head.slice(0, cut).slice(0, 80) : null,
     firmware: ver ? ver[1].slice(0, 40) : null,
     ip: parts.length > 4 && /^(\d{1,3}\.){3}\d{1,3}$/.test(parts[4]) ? parts[4] : null,
-    faceSupported: parts.length > 1 ? parts[1] === '1' : null,
-    fingerSupported: parts.length > 2 ? parts[2] === '1' : null,
-    faceMajorVer: major >= 30 && major <= 100 ? major : null,
+    faceSupported: faceAlgo === null ? null : faceAlgo > 0,
+    fingerSupported: fingerAlgo === null ? null : fingerAlgo > 0,
+    faceMajorVer: faceAlgo !== null && faceAlgo >= 30 && faceAlgo <= 100 ? faceAlgo : null,
+    userCount: count(1),
+    fingerCount: count(2),
+    punchCount: count(3),
+    faceCount: faceAlgo !== null && faceAlgo > 0 ? count(7) : null,
   };
 }
 

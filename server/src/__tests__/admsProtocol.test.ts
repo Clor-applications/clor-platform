@@ -33,15 +33,29 @@ describe('reading what a reader sends', () => {
   });
 
   it('reads model, firmware and only a real IP from INFO', () => {
-    expect(parseInfo('ZAM70-NF24HA-Ver3.3.12,1,1,0,192.168.1.201,10,40')).toEqual({
+    expect(parseInfo('ZAM70-NF24HA-Ver3.3.12,1,1,0,192.168.1.201,10,40,12')).toMatchObject({
       model: 'ZAM70-NF24HA',
       firmware: '3.3.12',
       ip: '192.168.1.201',
       faceSupported: true,
       fingerSupported: true,
       faceMajorVer: 40,
+      faceCount: 12,
     });
-    expect(parseInfo('MB20-Ver6.0,0,1,0,10.0.0.7').faceSupported).toBe(false);
+    // A real eSSL fingerprint reader (15 Oct 2026): 6 users, 6 fingerprints, 980 punches, no face.
+    expect(parseInfo('Ver 8.0.4.3-20240116,6,6,980,10.81.20.225,10,-1,0,0,100,0,0,0')).toEqual({
+      model: null,
+      firmware: '8.0.4.3',
+      ip: '10.81.20.225',
+      faceSupported: false,
+      fingerSupported: true,
+      faceMajorVer: null,
+      userCount: 6,
+      fingerCount: 6,
+      punchCount: 980,
+      faceCount: null,
+    });
+    expect(parseInfo('MB20-Ver6.0,0,1,0,10.0.0.7').faceSupported).toBeNull();
     expect(parseInfo('X-Ver1,1,1,0,;rm -rf /').ip).toBeNull();
   });
 

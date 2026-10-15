@@ -271,7 +271,7 @@ describe('fingerprints and faces between readers', () => {
     await addReader(c, a);
     await addReader(c, b);
     await addReader(c, fingerOnly);
-    await reader(fingerOnly).heartbeat('MB20-Ver6.0,0,1,0,10.0.0.7').expect(200);
+    await reader(fingerOnly).heartbeat('Ver 8.0.4.3-20240116,6,6,980,10.0.0.7,10,-1,0').expect(200); // eSSL fingerprint-only: face algorithm -1
     const face = `BIODATA Pin=301\tNo=0\tIndex=0\tValid=1\tDuress=0\tType=9\tMajorVer=40\tMinorVer=1\tFormat=0\tTmp=${tmpl('face-301')}`;
     await reader(a).push([face], 'BIODATA').expect(200);
     const before = await peoplePrisma.deviceCommand.count({ where: { orgId: c.orgId, command: { contains: 'PIN=301' } } });
