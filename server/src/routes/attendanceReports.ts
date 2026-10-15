@@ -171,7 +171,7 @@ async function build(id: string, accountId: string, orgId: string, q: any): Prom
     const people = ctx.people.filter(inDept(departmentId));
     const rows = people.map((p) => {
       const span = new Set(ctx.spanOf(p));
-      const row: Record<string, unknown> = { code: p.code, name: p.name, department: p.department };
+      const row: Record<string, unknown> = { code: p.code, name: p.name, guardian: p.guardianName || '', department: p.department };
       const tally: Record<string, number> = { P: 0, HD: 0, A: 0, L: 0, H: 0, W: 0 };
       for (const d of days) {
         const s = span.has(d) ? dayStatus(ctx, p, d) : 'OUT';
@@ -187,6 +187,7 @@ async function build(id: string, accountId: string, orgId: string, q: any): Prom
       columns: [
         { key: 'code', label: 'Employee ID' },
         { key: 'name', label: 'Name' },
+        { key: 'guardian', label: 'Father’s / husband’s name' },
         ...days.map((d) => ({ key: d.slice(8), label: String(Number(d.slice(8))), align: 'center' as const })),
         { key: 'present', label: 'Present', align: 'end' },
         { key: 'absent', label: 'Absent', align: 'end' },
@@ -196,7 +197,10 @@ async function build(id: string, accountId: string, orgId: string, q: any): Prom
       rows,
       notes: [
         'P present · HD half day · A absent · L leave · H holiday · W weekly off · – not employed that day.',
-        'Includes everyone employed during the month, including people who have since left.',
+        'Includes everyone employed during the month, including people who have since left; door-only staff are not on it.',
+        ...(people.some((p) => !p.guardianName)
+          ? [`${people.filter((p) => !p.guardianName).length} of ${people.length} have no father’s or husband’s name on file — the muster roll asks for it (employee file → Attendance).`]
+          : []),
         ...quietNote(quietDays(ctx)),
       ],
     };

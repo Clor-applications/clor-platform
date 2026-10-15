@@ -182,9 +182,15 @@ describe('commands through the heartbeat', () => {
     const list = (await api(c).get('/devices').expect(200)).body.devices.find((d: any) => d.id === device.id);
     expect(list).toMatchObject({ model: 'ZAM70-NF24HA', firmware: '3.3.12', online: true });
 
-    // Users the reader already has are not sent again.
+    // A new employee goes to the readers at once.
     await person(c, { name: 'On Reader', code: '104' });
     await person(c, { name: 'New Hire', code: '105' });
+    expect((await peoplePrisma.deviceCommand.findMany({ where: { deviceId: device.id, status: 'PENDING' } })).map((x) => x.command.split('\t')[0])).toEqual([
+      'DATA UPDATE USERINFO PIN=104',
+      'DATA UPDATE USERINFO PIN=105',
+    ]);
+    await peoplePrisma.deviceCommand.deleteMany({ where: { deviceId: device.id, status: 'PENDING' } });
+    // "Send new staff" skips users the reader already has.
     await r.push(['USER PIN=104\tName=On Reader\tPri=0'], 'OPERLOG').expect(200);
     expect((await api(c).post(`/devices/${device.id}/commands`, { action: 'SEND_STAFF' }).expect(200)).body.queued).toBe(1);
     const cmd = await r.heartbeat().expect(200);

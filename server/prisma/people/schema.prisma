@@ -94,6 +94,25 @@ model Employee {
   /// The person's user ID on the biometric readers, when it is not their
   /// employee code (readers drop leading zeros; old enrolments used prefixes).
   devicePin          String?
+  /// Attendance (ClorTime's personnel fields): the site they work at, the
+  /// contractor that supplies them, and what the readers hold for them.
+  areaId             String?
+  contractorId       String?
+  /// RFID card number on the readers.
+  cardNumber         String?
+  /// The PIN a person may type at a reader instead of a finger. Kept as the
+  /// reader keeps it, so it can be copied to every reader.
+  devicePassword     String?
+  /// 0 user, 14 reader administrator.
+  devicePrivilege    Int     @default(0)
+  /// False for door-only staff (guards, drivers, a tenant's people): they open
+  /// doors but are not expected at work, so are never marked absent.
+  attendanceRequired Boolean @default(true)
+  /// Father's or husband's name — the statutory muster roll asks for it.
+  guardianName       String?
+  /// When they left: RESIGNED | TERMINATED | RETIRED | ABSCONDED | CONTRACT_ENDED | DECEASED
+  leavingType        String?
+  leavingReason      String?
   probationEndDate   String?
   contractEndDate    String?
 
@@ -106,6 +125,8 @@ model Employee {
 
   @@unique([orgId, code])
   @@unique([orgId, devicePin])
+  @@index([accountId, orgId, areaId])
+  @@index([accountId, orgId, contractorId])
   @@index([accountId, orgId, status])
   @@index([accountId, orgId, branchId])
   @@index([accountId, orgId, departmentId])
@@ -696,5 +717,50 @@ model Webhook {
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
+  @@index([accountId, orgId])
+}
+
+/// A site or zone people work at (ClorTime's Area): a plant, a branch office,
+/// a floor. Areas nest; readers and holidays will hang off them.
+model Area {
+  id          String  @id @default(cuid())
+  accountId   String
+  orgId       String
+  name        String
+  parentId    String?
+  description String?
+  isActive    Boolean @default(true)
+
+  createdByUserId String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([orgId, name])
+  @@index([accountId, orgId])
+}
+
+/// A company that supplies workers (ClorTime's Contractors). Their people are
+/// employees with contractorId set, so their attendance is recorded the same way.
+model Contractor {
+  id             String  @id @default(cuid())
+  accountId      String
+  orgId          String
+  name           String
+  code           String?
+  contactPerson  String?
+  phone          String?
+  email          String?
+  gstin          String?
+  /// Contract Labour Act licence and its expiry.
+  licenceNo      String?
+  licenceValidTo String?
+  address        String?
+  isActive       Boolean @default(true)
+
+  createdByUserId String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([orgId, name])
   @@index([accountId, orgId])
 }

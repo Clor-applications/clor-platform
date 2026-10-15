@@ -2,8 +2,8 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 
 import { PageHeader, SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
-import { getOrgChart } from '../api/people';
-import { Avatar } from './Employees';
+import { getOrgChart } from '@ui/personnel/api';
+import { Avatar } from '@ui/personnel/Employees';
 
 /**
  * Who reports to whom, as an outline: easier to read than boxes and lines

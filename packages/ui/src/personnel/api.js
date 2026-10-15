@@ -41,3 +41,21 @@ export const deleteTag = (id) => send(`/tags/${encodeURIComponent(id)}`, 'DELETE
 export const listNotes = (employeeId) => apiFetch(`${base()}/employees/${encodeURIComponent(employeeId)}/notes`, opts).then((r) => r?.notes || []);
 export const addNote = (employeeId, body) => send(`/employees/${encodeURIComponent(employeeId)}/notes`, 'POST', { body });
 export const deleteNote = (noteId) => send(`/notes/${encodeURIComponent(noteId)}`, 'DELETE');
+
+// Personnel operations (server: routes/personnel.ts) — used by People and by Attendance's Personnel section
+export const listContractors = () => apiFetch(`${base()}/contractors`, opts).then((r) => r?.contractors || []);
+export const createContractor = (body) => send('/contractors', 'POST', body);
+export const updateContractor = (id, body) => send(`/contractors/${encodeURIComponent(id)}`, 'PUT', body);
+export const deleteContractor = (id) => send(`/contractors/${encodeURIComponent(id)}`, 'DELETE');
+export const resignEmployee = (id, body) => send(`/employees/${encodeURIComponent(id)}/resign`, 'POST', body);
+export const rehireEmployee = (id, body) => send(`/employees/${encodeURIComponent(id)}/rehire`, 'POST', body || {});
+export const transferEmployees = (body) => send('/employees/transfer', 'POST', body);
+
+export const LEAVING_TYPES = {
+  RESIGNED: 'Resigned',
+  TERMINATED: 'Terminated',
+  RETIRED: 'Retired',
+  ABSCONDED: 'Absconded',
+  CONTRACT_ENDED: 'Contract ended',
+  DECEASED: 'Deceased',
+};

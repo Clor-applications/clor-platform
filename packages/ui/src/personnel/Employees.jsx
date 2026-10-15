@@ -6,7 +6,9 @@ import { PageHeader } from '@ui/components/ui/Primitives';
 import Drawer from '@ui/components/ui/Drawer';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { downloadCsv, downloadCsvTemplate, parseCsv, readFileText } from '@ui/utils/csv';
+import { hasApp } from '@platform/context';
 import {
+  LEAVING_TYPES,
   addNote,
   createEmployee,
   deleteEmployee,
@@ -17,8 +19,11 @@ import {
   listNotes,
   listStructure,
   listTags,
+  listContractors,
+  rehireEmployee,
+  resignEmployee,
   updateEmployee,
-} from '../api/people';
+} from './api';
 
 /**
  * The staff directory, after Horilla's employee view: cards or a list, a
@@ -96,21 +101,24 @@ export default function Employees() {
     }
   });
   const [filters, setFilters] = useState({ q: '', status: 'ACTIVE', departmentId: '', jobPositionId: '', employeeTypeId: '', tagId: '' });
-  const [lists, setLists] = useState({ departments: [], positions: [], roles: [], types: [], workTypes: [], tags: [] });
+  const [lists, setLists] = useState({ departments: [], positions: [], roles: [], types: [], workTypes: [], tags: [], areas: [], contractors: [] });
   const [openId, setOpenId] = useState(null);
   const [editing, setEditing] = useState(null);
   const fileRef = useRef(null);
 
   const loadLists = useCallback(async () => {
-    const [departments, positions, roles, types, workTypes, tags] = await Promise.all([
+    const withAttendance = hasApp('attendance');
+    const [departments, positions, roles, types, workTypes, tags, areas, contractors] = await Promise.all([
       listStructure('departments'),
       listStructure('job-positions'),
       listStructure('job-roles'),
       listStructure('employee-types'),
       listStructure('work-types'),
       listTags(),
+      withAttendance ? listStructure('areas') : [],
+      withAttendance ? listContractors() : [],
     ]);
-    setLists({ departments, positions, roles, types, workTypes, tags });
+    setLists({ departments, positions, roles, types, workTypes, tags, areas, contractors });
   }, []);
 
   const load = useCallback(async () => {
@@ -354,6 +362,7 @@ const Field = ({ label, value }) => (
 
 function EmployeeFile({ id, onClose, onEdit, onDeleted }) {
   const [person, setPerson] = useState(null);
+  const [resigning, setResigning] = useState(false);
   const [tab, setTab] = useState('about');
   const [notes, setNotes] = useState([]);
   const [draft, setDraft] = useState('');
@@ -390,6 +399,19 @@ function EmployeeFile({ id, onClose, onEdit, onDeleted }) {
     }
   };
 
+  const rehire = async () => {
+    const ok = await confirmDialog({ title: `Rehire ${person.name}?`, message: 'They become active again and are put back on every reader. Fingerprints and faces were deleted when they left, so they enrol again.', confirmLabel: 'Rehire', tone: 'primary' });
+    if (!ok) return;
+    try {
+      const r = await rehireEmployee(person.id);
+      notify.success(r.readers ? `${person.name} is back, and on ${r.readers} reader${r.readers === 1 ? '' : 's'}.` : `${person.name} is back.`);
+      setPerson((x) => ({ ...x, ...r.employee }));
+      onDeleted();
+    } catch (e) {
+      notify.error(String(e?.message || 'Not rehired.'));
+    }
+  };
+
   const post = async (e) => {
     e.preventDefault();
     if (!draft.trim()) return;
@@ -417,11 +439,27 @@ function EmployeeFile({ id, onClose, onEdit, onDeleted }) {
             <button type="button" className="ui-btn ui-btn-secondary" onClick={remove}>
               <Trash2 size={16} aria-hidden="true" /> Delete
             </button>
+            {person.status === 'LEFT' ? (
+              <button type="button" className="ui-btn ui-btn-secondary" onClick={rehire}>Rehire</button>
+            ) : (
+              <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setResigning(true)}>Record leaving</button>
+            )}
             <button type="button" className="ui-btn ui-btn-primary" onClick={() => onEdit(person)}>Edit</button>
           </>
         ) : null
       }
     >
+      {resigning && person ? (
+        <ResignForm
+          person={person}
+          onClose={() => setResigning(false)}
+          onDone={(p) => {
+            setResigning(false);
+            setPerson((x) => ({ ...x, ...p }));
+            onDeleted();
+          }}
+        />
+      ) : null}
       {!person ? (
         <SkeletonCard lines={6} />
       ) : (
@@ -483,11 +521,22 @@ function EmployeeFile({ id, onClose, onEdit, onDeleted }) {
               <Field label="Work email" value={person.workEmail} />
               <Field label="Work phone" value={person.workPhone} />
               <Field label="Work location" value={person.workLocation} />
-              <Field label="Reader ID" value={person.devicePin || (person.code ? `${person.code} (employee code)` : null)} />
+              {hasApp('attendance') ? (
+                <>
+                  <Field label="Area" value={person.areaName} />
+                  <Field label="Contractor" value={person.contractorName} />
+                  <Field label="Reader ID" value={person.devicePin || (person.code ? `${person.code} (employee code)` : null)} />
+                  <Field label="Card" value={person.cardNumber} />
+                  <Field label="Reader PIN" value={person.hasDevicePassword ? 'Set' : null} />
+                  <Field label="On the readers as" value={person.devicePrivilege === 14 ? 'Reader administrator' : 'User'} />
+                  <Field label="Attendance expected" value={person.attendanceRequired === false ? 'No — door-only' : 'Yes'} />
+                  <Field label="Father’s / husband’s name" value={person.guardianName} />
+                </>
+              ) : null}
               <Field label="Joined" value={person.dateOfJoining} />
               <Field label="Probation ends" value={person.probationEndDate} />
               <Field label="Contract ends" value={person.contractEndDate} />
-              <Field label="Left" value={person.dateOfLeaving} />
+              <Field label="Left" value={person.dateOfLeaving ? `${person.dateOfLeaving}${person.leavingType ? ` · ${LEAVING_TYPES[person.leavingType] || person.leavingType}` : ''}${person.leavingReason ? ` — ${person.leavingReason}` : ''}` : null} />
               <div className="sm:col-span-2">
                 <dt className="ui-t-label">Direct reports</dt>
                 <dd className="mt-1 flex flex-wrap gap-2">
@@ -545,6 +594,50 @@ function EmployeeFile({ id, onClose, onEdit, onDeleted }) {
 
 // ---------------------------------------------------------------------------
 
+/** Someone leaving: last day, why. They come off every reader at once. */
+function ResignForm({ person, onClose, onDone }) {
+  const [form, setForm] = useState({ lastDay: new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10), leavingType: 'RESIGNED', reason: '' });
+  const [saving, setSaving] = useState(false);
+  const save = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      const r = await resignEmployee(person.id, { ...form, reason: form.reason || null });
+      notify.success(r.readers ? `${person.name} recorded as left and removed from ${r.readers} reader${r.readers === 1 ? '' : 's'}.` : `${person.name} recorded as left.`);
+      onDone(r.employee);
+    } catch (err) {
+      notify.error(String(err?.message || 'Not saved.'));
+    } finally {
+      setSaving(false);
+    }
+  };
+  return (
+    <Drawer
+      open
+      onClose={onClose}
+      title={`${person.name} is leaving`}
+      description="From the day after the last day they are not expected at work, and they come off every reader now."
+      actions={
+        <>
+          <button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button>
+          <button type="submit" form="resign-form" className="ui-btn ui-btn-primary" disabled={saving}>{saving ? 'Saving…' : 'Record leaving'}</button>
+        </>
+      }
+    >
+      <form id="resign-form" onSubmit={save} className="grid gap-4">
+        <label className="block"><span className="ui-label">Last working day *</span><input type="date" className="ui-input w-full" required value={form.lastDay} onChange={(e) => setForm({ ...form, lastDay: e.target.value })} /></label>
+        <label className="block">
+          <span className="ui-label">Why</span>
+          <select className="ui-select w-full" value={form.leavingType} onChange={(e) => setForm({ ...form, leavingType: e.target.value })}>
+            {Object.entries(LEAVING_TYPES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+          </select>
+        </label>
+        <label className="block"><span className="ui-label">Note</span><input className="ui-input w-full" maxLength={500} value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} /></label>
+      </form>
+    </Drawer>
+  );
+}
+
 /** A square photo, scaled down to 160px and stored as a small JPEG data URL. */
 const shrinkPhoto = (file) =>
   new Promise((resolve, reject) => {
@@ -585,8 +678,11 @@ function EmployeeForm({ initial, lists, people, onClose, onSaved }) {
       'maritalStatus', 'personalEmail', 'photoUrl', 'addressLine', 'city', 'state', 'country', 'pincode', 'emergencyContactName',
       'emergencyContactPhone', 'emergencyContactRelation', 'departmentId', 'jobPositionId', 'jobRoleId', 'employeeTypeId', 'workTypeId',
       'reportingManagerId', 'workEmail', 'workPhone', 'workLocation', 'devicePin', 'probationEndDate', 'contractEndDate', 'tagIds',
+      'areaId', 'contractorId', 'cardNumber', 'devicePrivilege', 'attendanceRequired', 'guardianName',
     ];
     const body = Object.fromEntries(keys.filter((k) => form[k] !== undefined).map((k) => [k, form[k] === '' ? null : form[k]]));
+    /* The reader PIN is write-only: sent only when typed. */
+    if (form.devicePassword) body.devicePassword = form.devicePassword;
     try {
       const res = form.id ? await updateEmployee(form.id, body) : await createEmployee(body);
       notify.success(`${res.employee?.name || 'Employee'} saved.`);
@@ -694,12 +790,46 @@ function EmployeeForm({ initial, lists, people, onClose, onSaved }) {
           {input('workEmail', 'Work email', { type: 'email' })}
           {input('workPhone', 'Work phone', { type: 'tel' })}
           {input('workLocation', 'Work location')}
-          {input('devicePin', 'Reader ID', { placeholder: form.code ? `Blank = employee code (${form.code})` : 'ID on the biometric reader' })}
           {input('dateOfJoining', 'Date of joining', { type: 'date' })}
           {input('probationEndDate', 'Probation ends', { type: 'date' })}
           {input('contractEndDate', 'Contract ends', { type: 'date' })}
           {form.status === 'LEFT' || form.dateOfLeaving ? input('dateOfLeaving', 'Date of leaving', { type: 'date' }) : null}
         </section>
+
+        {hasApp('attendance') ? (
+          <section className="grid gap-4 sm:grid-cols-2">
+            <h3 className="ui-t-sec sm:col-span-2">Attendance and readers</h3>
+            {select('areaId', 'Area', lists.areas)}
+            {select('contractorId', 'Contractor', lists.contractors)}
+            {input('devicePin', 'Reader ID', { placeholder: form.code ? `Blank = employee code (${form.code})` : 'ID on the biometric reader' })}
+            {input('cardNumber', 'Card number')}
+            <label className="block">
+              <span className="ui-label">Reader PIN</span>
+              <input
+                className="ui-input w-full"
+                type="password"
+                inputMode="numeric"
+                autoComplete="new-password"
+                maxLength={20}
+                value={form.devicePassword || ''}
+                onChange={set('devicePassword')}
+                placeholder={form.hasDevicePassword ? 'Set — leave blank to keep' : 'Optional, instead of a finger'}
+              />
+            </label>
+            <label className="block">
+              <span className="ui-label">On the readers as</span>
+              <select className="ui-select w-full" value={String(form.devicePrivilege ?? 0)} onChange={(e) => setForm((f) => ({ ...f, devicePrivilege: Number(e.target.value) }))}>
+                <option value="0">User</option>
+                <option value="14">Reader administrator</option>
+              </select>
+            </label>
+            {input('guardianName', 'Father’s / husband’s name', { placeholder: 'For the muster roll' })}
+            <label className="flex items-center gap-2 self-end pb-2 text-sm">
+              <input type="checkbox" className="ui-checkbox" checked={form.attendanceRequired !== false} onChange={(e) => setForm((f) => ({ ...f, attendanceRequired: e.target.checked }))} />
+              Attendance expected <span className="ui-caption">— untick for door-only staff (guards, drivers)</span>
+            </label>
+          </section>
+        ) : null}
 
         {lists.tags.length ? (
           <section>

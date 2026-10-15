@@ -2,8 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { Cake, UserMinus, UserPlus, Users } from 'lucide-react';
 
 import { PageHeader, SkeletonCard, StatTile } from '@ui/components/ui/Primitives';
-import { getOverview } from '../api/people';
-import { Avatar } from './Employees';
+import { getOverview } from '@ui/personnel/api';
+import { Avatar } from '@ui/personnel/Employees';
 
 /** People at a glance, after Horilla's employee dashboard. */
 export default function PeopleOverview() {

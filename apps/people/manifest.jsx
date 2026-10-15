@@ -1,10 +1,10 @@
 import { Briefcase, Building2, IdCard, LayoutDashboard, Network, Shapes, Tag, UserRound, Users } from 'lucide-react';
 
 import PeopleOverview from './src/screens/PeopleOverview';
-import Employees from './src/screens/Employees';
+import Employees from '@ui/personnel/Employees';
 import OrgChart from './src/screens/OrgChart';
 import Tags from './src/screens/Tags';
-import { Departments, EmployeeTypes, JobPositions, JobRoles, WorkTypes } from './src/screens/StructureList';
+import { Departments, EmployeeTypes, JobPositions, JobRoles, WorkTypes } from '@ui/personnel/StructureList';
 
 /**
  * Everything the shell knows about People.

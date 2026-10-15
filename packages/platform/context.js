@@ -22,6 +22,8 @@ let context = {
   /** Optional narrowings some endpoints accept. */
   branchId: '',
   warehouseId: '',
+  /** The apps this company has switched on (e.g. a shared screen shows reader fields only with Attendance). */
+  apps: [],
 };
 
 const listeners = new Set();
@@ -58,6 +60,7 @@ export const orgId = () => context.orgId || stored('activeOrgId');
 export const branchId = () => context.branchId || stored('activeBranchId') || stored('branchId');
 export const warehouseId = () => context.warehouseId || stored('activeWarehouseId');
 export const currentUser = () => context.user;
+export const hasApp = (id) => (context.apps || []).includes(id);
 
 /** Ask the platform to tell you when the company changes. */
 export function onPlatformContextChange(fn) {

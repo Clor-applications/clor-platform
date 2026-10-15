@@ -5,6 +5,7 @@ import { isFeatureEnabled } from '../services/features.js';
 import {
   COMMANDS,
   FACE,
+  admsField,
   FINGER,
   HANDSHAKE_OPTIONS,
   SEQ,
@@ -244,6 +245,15 @@ async function userFor(orgId: string, pin: string, preferDeviceId?: string) {
   return { name: name || 'Unknown', privilege: u?.privilege ?? 0, password: u?.password ?? '', card: u?.card ?? '' };
 }
 
+/**
+ * A user record still waiting for a reader is replaced by a newer one, so the
+ * latest name, card and PIN win (a record queued when the employee was created
+ * must not stand in for the one carrying the card a reader enrolled later).
+ * Ones already sent are left alone.
+ */
+const supersedeUserInfo = (deviceId: string, pin: string) =>
+  peoplePrisma.deviceCommand.deleteMany({ where: { deviceId, status: 'PENDING', command: { startsWith: `DATA UPDATE USERINFO PIN=${admsField(pin)}\t` } } });
+
 const supports = (target: Device, type: number) =>
   !(type === FACE && target.faceSupported === false) && !(type === FINGER && target.fingerSupported === false);
 
@@ -255,14 +265,8 @@ async function queueOnto(target: Device, pin: string, templates: Template[], use
   const usable = templates.filter((t) => supports(target, t.type));
   if (!usable.length) return 0;
   const userCmd = userInfoCommand(pin, user.name, user);
-  const pendingUser = await peoplePrisma.deviceCommand.findFirst({
-    where: { deviceId: target.id, status: { in: ['PENDING', 'SENT'] }, command: { startsWith: `DATA UPDATE USERINFO PIN=${userCmd.split('\t')[0].slice('DATA UPDATE USERINFO PIN='.length)}\t` }, createdAt: { gt: new Date(Date.now() - 2 * 60_000) } },
-    select: { id: true },
-  });
-  const rows = [
-    ...(pendingUser ? [] : [{ seq: SEQ.USER, command: userCmd }]),
-    ...usable.flatMap((t) => templateCommands(t, target)),
-  ];
+  await supersedeUserInfo(target.id, pin);
+  const rows = [{ seq: SEQ.USER, command: userCmd }, ...usable.flatMap((t) => templateCommands(t, target))];
   await peoplePrisma.deviceCommand.createMany({
     data: rows.map((r) => ({ accountId: target.accountId, orgId: target.orgId, deviceId: target.id, serialNumber: target.serialNumber, command: r.command, sequence: r.seq, createdByUserId })),
   });
@@ -337,6 +341,46 @@ export async function revokeFromReaders(orgId: string, employee: { id: string; c
   await peoplePrisma.biometricTemplate.deleteMany({ where: { orgId, OR: [{ employeeId: employee.id }, { pin: { in: [...pins] } }] } });
   await peoplePrisma.deviceUser.deleteMany({ where: { orgId, pin: { in: [...pins] } } });
   return { readers: readers.length, pins: pins.size };
+}
+
+/** Did anything a reader holds change: the ID, name, card, PIN or privilege? */
+export const readerFieldsChanged = (before: any, after: any) =>
+  ['code', 'devicePin', 'name', 'cardNumber', 'devicePassword', 'devicePrivilege'].some((k) => (before?.[k] ?? null) !== (after?.[k] ?? null)) ||
+  (before?.status === 'LEFT' && after?.status !== 'LEFT');
+
+/**
+ * Put one employee on every reader of the company (ClorTime: POST/PUT
+ * /api/employees and rehire queue DATA UPDATE USERINFO to all readers). Their
+ * Reader ID, else their employee code. A card or PIN not set in CLOR is taken
+ * from what a reader already holds, so pushing never wipes one set at a reader.
+ * If their ID changed, the old ID is taken off the readers first.
+ */
+export async function pushEmployeeToReaders(orgId: string, employee: any, createdByUserId: string | null, before?: any) {
+  const pin = String(employee.devicePin || employee.code || '').trim();
+  const oldPin = before ? String(before.devicePin || before.code || '').trim() : '';
+  if (!pin && !oldPin) return { readers: 0 };
+  const readers = await peoplePrisma.attendanceDevice.findMany({ where: { orgId, isActive: true, vendor: 'ADMS' } });
+  if (!readers.length) return { readers: 0 };
+  const held = pin ? await peoplePrisma.deviceUser.findFirst({ where: { orgId, pin }, orderBy: { updatedAt: 'desc' } }) : null;
+  const rows: Array<{ command: string; sequence: number }> = [];
+  if (oldPin && oldPin !== pin) for (const c of removalCommands(oldPin)) rows.push({ command: c, sequence: SEQ.USER });
+  if (pin) {
+    rows.push({
+      command: userInfoCommand(pin, employee.name, {
+        privilege: employee.devicePrivilege ?? held?.privilege ?? 0,
+        password: employee.devicePassword ?? held?.password ?? '',
+        card: employee.cardNumber ?? held?.card ?? '',
+      }),
+      sequence: SEQ.USER,
+    });
+  }
+  for (const r of readers) {
+    if (pin) await supersedeUserInfo(r.id, pin);
+    await peoplePrisma.deviceCommand.createMany({
+      data: rows.map((x) => ({ accountId: r.accountId, orgId, deviceId: r.id, serialNumber: r.serialNumber, command: x.command, sequence: x.sequence, createdByUserId })),
+    });
+  }
+  return { readers: readers.length };
 }
 
 // ---------------------------------------------------------------------------

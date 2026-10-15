@@ -97,6 +97,7 @@ export function SessionProvider({ children }) {
     user,
     orgId: user && tenant ? tenant.id : '',
     branchId: user && tenant ? tenant.branchId || '' : '',
+    apps: user && tenant ? tenant.subscriptions || [] : [],
   });
 
   /** Which apps a company has, asked once per company and then remembered. */

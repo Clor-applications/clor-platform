@@ -1,5 +1,34 @@
-import { ArrowRightLeft, BarChart3, CalendarCheck, CalendarDays, CalendarOff, CircleHelp, ClipboardCheck, Clock3, Cpu, FileText, Fingerprint, History, ScanFace, Inbox, LayoutDashboard, Plug, ListChecks, Scale, Tags, UserRoundCheck, Users } from 'lucide-react';
+import {
+  ArrowRightLeft,
+  BarChart3,
+  Briefcase,
+  Building2,
+  CalendarCheck,
+  CalendarDays,
+  CalendarOff,
+  CircleHelp,
+  ClipboardCheck,
+  Clock3,
+  Cpu,
+  Fingerprint,
+  HardHat,
+  History,
+  Inbox,
+  LayoutDashboard,
+  ListChecks,
+  MapPin,
+  Plug,
+  Repeat,
+  Scale,
+  ScanFace,
+  Tags,
+  UserMinus,
+  UserRoundCheck,
+  Users,
+} from 'lucide-react';
 
+import Employees from '@ui/personnel/Employees';
+import { Areas, Departments, JobPositions } from '@ui/personnel/StructureList';
 import AttendanceToday from './src/screens/AttendanceToday';
 import MyAttendance from './src/screens/MyAttendance';
 import AttendanceRecords from './src/screens/AttendanceRecords';
@@ -13,80 +42,97 @@ import LeaveRequests from './src/screens/LeaveRequests';
 import LeaveBalances from './src/screens/LeaveBalances';
 import LeaveTypes from './src/screens/LeaveTypes';
 import AttendanceDevices from './src/screens/AttendanceDevices';
-import AttendanceRegisters from './src/screens/AttendanceRegisters';
 import UnmatchedPunches from './src/screens/UnmatchedPunches';
 import Enrolments from './src/screens/Enrolments';
 import Transactions from './src/screens/Transactions';
 import DeviceLogs from './src/screens/DeviceLogs';
 import AttendanceReports from './src/screens/AttendanceReports';
 import Integrations from './src/screens/Integrations';
+import Contractors from './src/screens/Contractors';
+import Resignations from './src/screens/Resignations';
+import Transfer from './src/screens/Transfer';
 
 /**
  * Everything the shell knows about Attendance.
  *
- * Native attendance on the People database: clock in/out, shifts, holidays,
- * corrections, validation and overtime approval, basic leave (types,
- * balances, requests), and a month summary of payable days for Payroll. Modules and operations follow Horilla HRMS's
- * attendance app (reference only; LGPL code is not copied).
+ * A complete product on its own, laid out like the on-premise ClorTime
+ * (Personnel · Device · Attendance · System): a company that buys only
+ * Attendance keeps its staff here. The employee list is the one People and
+ * Payroll use, so buying those too adds to it rather than duplicating it.
  *
- * Biometric readers (ZKTeco / eSSL) push punches to /iclock, the same
- * protocol the on-premise ClorTime server speaks; a company claims a reader by
- * its serial number under Readers.
+ * Biometric readers (ZKTeco / eSSL) push punches to /iclock — ClorTime's
+ * protocol; e-Time Office and the /v1 API bring in everything else.
  */
 export const attendanceApp = {
   id: 'attendance',
   name: 'Attendance',
   icon: Fingerprint,
-  blurb: 'Clock in and out, shifts, holidays, leave, corrections and payable days for payroll.',
+  blurb: 'Biometric readers, shifts, leave, corrections, registers and payable days — on its own or with People and Payroll.',
   available: true,
   database: 'people.db',
   home: 'today',
 
   nav: [
     { key: 'today', label: 'Today', icon: LayoutDashboard },
-    { key: 'me', label: 'My attendance', icon: UserRoundCheck },
-    { key: 'records', label: 'Records', icon: ListChecks },
-    { key: 'requests', label: 'Requests', icon: Inbox },
-    { key: 'summary', label: 'Month summary', icon: ClipboardCheck },
-    { key: 'reports', label: 'Reports', icon: BarChart3 },
-    { section: 'Leave' },
-    { key: 'myLeave', label: 'My leave', icon: CalendarOff },
-    { key: 'leaveRequests', label: 'Leave requests', icon: CalendarCheck },
-    { key: 'leaveBalances', label: 'Leave balances', icon: Scale },
-    { section: 'Settings' },
-    { key: 'shifts', label: 'Shifts', icon: Clock3 },
-    { key: 'shiftAssignments', label: 'Shift assignments', icon: Users },
-    { key: 'holidays', label: 'Holidays', icon: CalendarDays },
-    { key: 'leaveTypes', label: 'Leave types', icon: Tags },
-    { key: 'integrations', label: 'Integrations', icon: Plug },
-    { section: 'Biometric readers' },
+    { section: 'Personnel' },
+    { key: 'employees', label: 'Employees', icon: Users },
+    { key: 'departments', label: 'Departments', icon: Building2 },
+    { key: 'positions', label: 'Positions', icon: Briefcase },
+    { key: 'areas', label: 'Areas', icon: MapPin },
+    { key: 'contractors', label: 'Contractors', icon: HardHat },
+    { key: 'resignations', label: 'Resignations', icon: UserMinus },
+    { key: 'transfer', label: 'Transfer', icon: Repeat },
+    { section: 'Device' },
     { key: 'readers', label: 'Readers', icon: Cpu },
     { key: 'transactions', label: 'Transactions', icon: ArrowRightLeft },
     { key: 'enrolments', label: 'Enrolments', icon: ScanFace },
     { key: 'unmatched', label: 'Unmatched punches', icon: CircleHelp },
     { key: 'deviceLogs', label: 'Reader logs', icon: History },
-    { key: 'registers', label: 'Registers', icon: FileText },
+    { section: 'Attendance' },
+    { key: 'records', label: 'Records', icon: ListChecks },
+    { key: 'requests', label: 'Corrections', icon: Inbox },
+    { key: 'leaveRequests', label: 'Leave requests', icon: CalendarCheck },
+    { key: 'summary', label: 'Month summary', icon: ClipboardCheck },
+    { key: 'reports', label: 'Reports & registers', icon: BarChart3 },
+    { section: 'Schedule' },
+    { key: 'shifts', label: 'Shifts', icon: Clock3 },
+    { key: 'shiftAssignments', label: 'Shift assignments', icon: Users },
+    { key: 'holidays', label: 'Holidays', icon: CalendarDays },
+    { section: 'Leave setup' },
+    { key: 'leaveTypes', label: 'Leave types', icon: Tags },
+    { key: 'leaveBalances', label: 'Leave balances', icon: Scale },
+    { section: 'System' },
+    { key: 'integrations', label: 'Integrations', icon: Plug },
+    { section: 'Me' },
+    { key: 'me', label: 'My attendance', icon: UserRoundCheck },
+    { key: 'myLeave', label: 'My leave', icon: CalendarOff },
   ],
   screens: {
     today: AttendanceToday,
-    me: MyAttendance,
+    employees: Employees,
+    departments: Departments,
+    positions: JobPositions,
+    areas: Areas,
+    contractors: Contractors,
+    resignations: Resignations,
+    transfer: Transfer,
+    readers: AttendanceDevices,
+    transactions: Transactions,
+    enrolments: Enrolments,
+    unmatched: UnmatchedPunches,
+    deviceLogs: DeviceLogs,
     records: AttendanceRecords,
     requests: AttendanceRequests,
+    leaveRequests: LeaveRequests,
     summary: MonthSummary,
     reports: AttendanceReports,
     shifts: Shifts,
     shiftAssignments: ShiftAssignments,
     holidays: Holidays,
-    myLeave: MyLeave,
-    leaveRequests: LeaveRequests,
-    leaveBalances: LeaveBalances,
     leaveTypes: LeaveTypes,
+    leaveBalances: LeaveBalances,
     integrations: Integrations,
-    readers: AttendanceDevices,
-    transactions: Transactions,
-    enrolments: Enrolments,
-    deviceLogs: DeviceLogs,
-    unmatched: UnmatchedPunches,
-    registers: AttendanceRegisters,
+    me: MyAttendance,
+    myLeave: MyLeave,
   },
 };

@@ -5,7 +5,7 @@ import { SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import SettingsScreenHeader from '@ui/chrome/SettingsScreenHeader';
 import Drawer from '@ui/components/ui/Drawer';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
-import { createStructure, deleteStructure, listStructure, updateStructure } from '../api/people';
+import { createStructure, deleteStructure, listStructure, updateStructure } from './api';
 
 /**
  * One screen for the five org-structure lists: departments, job positions,
@@ -40,6 +40,12 @@ const KINDS = {
     title: 'Work types',
     singular: 'work type',
     description: 'Where the work happens — office, remote, hybrid, field.',
+  },
+  areas: {
+    title: 'Areas',
+    singular: 'area',
+    description: 'Sites and zones people work at — a plant, a branch, a floor. An area can sit inside another.',
+    parent: { key: 'parentId', kind: 'areas', label: 'Inside area' },
   },
 };
 
@@ -229,3 +235,4 @@ export const JobPositions = () => <StructureList kind="job-positions" />;
 export const JobRoles = () => <StructureList kind="job-roles" />;
 export const EmployeeTypes = () => <StructureList kind="employee-types" />;
 export const WorkTypes = () => <StructureList kind="work-types" />;
+export const Areas = () => <StructureList kind="areas" />;

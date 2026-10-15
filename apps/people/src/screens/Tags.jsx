@@ -4,7 +4,7 @@ import { Plus, Trash2 } from 'lucide-react';
 import { SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import SettingsScreenHeader from '@ui/chrome/SettingsScreenHeader';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
-import { createTag, deleteTag, listTags } from '../api/people';
+import { createTag, deleteTag, listTags } from '@ui/personnel/api';
 
 const SWATCHES = ['#E54F38', '#0EA5E9', '#22C55E', '#F59E0B', '#8B5CF6', '#64748B'];
 

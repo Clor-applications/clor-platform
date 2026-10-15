@@ -215,7 +215,7 @@ attendanceRouter.get('/orgs/:orgId/attendance/overview', can(PermissionAction.VI
   const date = dateParam(req.query.date, today());
   const [people, records, holiday] = await Promise.all([
     peoplePrisma.employee.findMany({
-      where: { accountId, orgId, status: { in: ['ACTIVE', 'ON_NOTICE'] } },
+      where: { accountId, orgId, status: { in: ['ACTIVE', 'ON_NOTICE'] }, attendanceRequired: true },
       select: { id: true, name: true, code: true, department: true, photoUrl: true },
       orderBy: { name: 'asc' },
     }),
@@ -705,12 +705,14 @@ export async function periodContext(accountId: string, orgId: string, from: stri
       where: {
         accountId,
         orgId,
+        /* Door-only staff (guards, drivers) open doors but are not expected at work (ClorTime attendance_required). */
+        attendanceRequired: true,
         AND: [
           { OR: [{ dateOfLeaving: null }, { dateOfLeaving: { gte: from } }] },
           { OR: [{ dateOfJoining: null }, { dateOfJoining: { lte: to } }] },
         ],
       },
-      select: { id: true, name: true, code: true, department: true, departmentId: true, dateOfJoining: true, dateOfLeaving: true, status: true },
+      select: { id: true, name: true, code: true, department: true, departmentId: true, areaId: true, contractorId: true, guardianName: true, dateOfJoining: true, dateOfLeaving: true, status: true },
       orderBy: { name: 'asc' },
     }),
     peoplePrisma.attendanceRecord.findMany({ where: { accountId, orgId, date: { gte: from, lte: to } } }),

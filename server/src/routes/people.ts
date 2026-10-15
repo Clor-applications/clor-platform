@@ -8,7 +8,7 @@ import { PermissionAction } from '../constants/enums.js';
 import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { payrollPrisma } from '../utils/payrollPrisma.js';
 import { PEOPLE_MODULE, PEOPLE_RESOURCE, peopleRouteOk } from '../services/people/guards.js';
-import { revokeFromReaders } from './iclock.js';
+import { pushEmployeeToReaders, readerFieldsChanged, revokeFromReaders } from './iclock.js';
 
 /**
  * People: the staff directory.
@@ -74,6 +74,13 @@ const employeeSchema = z.object({
   workPhone: text(40),
   workLocation: text(120),
   devicePin: text(40),
+  areaId: text(60),
+  contractorId: text(60),
+  cardNumber: text(40),
+  devicePassword: text(20),
+  devicePrivilege: z.coerce.number().int().refine((n) => n === 0 || n === 14, 'Reader privilege is user or administrator.').optional(),
+  attendanceRequired: z.boolean().optional(),
+  guardianName: text(150),
   probationEndDate: date,
   contractEndDate: date,
 
@@ -109,6 +116,8 @@ async function resolveStructure(orgId: string, b: EmployeeBody) {
   await check('jobRoleId', (id) => peoplePrisma.jobRole.findFirst({ where: { id, orgId }, select: { name: true } }));
   await check('employeeTypeId', (id) => peoplePrisma.employeeType.findFirst({ where: { id, orgId }, select: { name: true } }));
   await check('workTypeId', (id) => peoplePrisma.workType.findFirst({ where: { id, orgId }, select: { name: true } }));
+  await check('areaId', (id) => peoplePrisma.area.findFirst({ where: { id, orgId }, select: { name: true } }));
+  await check('contractorId', (id) => peoplePrisma.contractor.findFirst({ where: { id, orgId }, select: { name: true } }));
   if (b.departmentId !== undefined) out.department = dept?.name ?? null;
   if (b.jobPositionId !== undefined) out.designation = pos?.name ?? null;
   return out;
@@ -142,8 +151,11 @@ const employeeData = (b: EmployeeBody) => {
     'maritalStatus', 'photoUrl', 'addressLine', 'city', 'state', 'country', 'pincode', 'emergencyContactName',
     'emergencyContactPhone', 'emergencyContactRelation', 'reportingManagerId', 'workPhone', 'workLocation',
     'probationEndDate', 'contractEndDate', 'email', 'personalEmail', 'workEmail', 'devicePin',
+    'cardNumber', 'devicePassword', 'guardianName',
   ] as const;
   for (const k of keys) if (b[k] !== undefined) d[k] = blank(b[k]);
+  if (b.devicePrivilege !== undefined) d.devicePrivilege = b.devicePrivilege;
+  if (b.attendanceRequired !== undefined) d.attendanceRequired = b.attendanceRequired;
   if (b.status) d.status = b.status;
   return d;
 };
@@ -154,8 +166,18 @@ const withMeta = async (orgId: string, rows: any[]) => {
     ? await peoplePrisma.employee.findMany({ where: { orgId, id: { in: managerIds } }, select: { id: true, name: true } })
     : [];
   const managerName = new Map(managers.map((m) => [m.id, m.name]));
-  return rows.map((r) => ({
+  const [areas, contractors] = await Promise.all([
+    peoplePrisma.area.findMany({ where: { orgId }, select: { id: true, name: true } }),
+    peoplePrisma.contractor.findMany({ where: { orgId }, select: { id: true, name: true } }),
+  ]);
+  const areaName = new Map(areas.map((a) => [a.id, a.name]));
+  const contractorName = new Map(contractors.map((c) => [c.id, c.name]));
+  return rows.map(({ devicePassword, ...r }) => ({
     ...r,
+    /* The reader PIN is write-only here; screens only need to know one is set. */
+    hasDevicePassword: Boolean(devicePassword),
+    areaName: r.areaId ? areaName.get(r.areaId) || null : null,
+    contractorName: r.contractorId ? contractorName.get(r.contractorId) || null : null,
     reportingManagerName: r.reportingManagerId ? managerName.get(r.reportingManagerId) || null : null,
     tags: (r.tags || []).map((l: any) => ({ id: l.tag.id, name: l.tag.name, color: l.tag.color })),
   }));
@@ -311,7 +333,9 @@ peopleRouter.post('/orgs/:orgId/people/employees', can(PermissionAction.CREATE, 
       } as any,
     });
     if (b.tagIds?.length) await setTags(accountId, orgId, row.id, b.tagIds);
-    res.status(201).json({ employee: row });
+    /* On every reader straight away, as ClorTime does: enrolment can start the same minute. */
+    await pushEmployeeToReaders(orgId, row, req.auth!.userId);
+    res.status(201).json({ employee: (await withMeta(orgId, [row]))[0] });
   } catch (e) {
     return sendError(res, e);
   }
@@ -344,7 +368,8 @@ peopleRouter.put('/orgs/:orgId/people/employees/:id', can(PermissionAction.EDIT,
     if (b.tagIds) await setTags(accountId, orgId, row.id, b.tagIds);
     /* Leaving ends door access: off every biometric reader, fingerprints and faces deleted. */
     if (row.status === 'LEFT' && existing.status !== 'LEFT') await revokeFromReaders(orgId, existing, req.auth!.userId);
-    res.json({ employee: row });
+    else if (row.status !== 'LEFT' && readerFieldsChanged(existing, row)) await pushEmployeeToReaders(orgId, row, req.auth!.userId, existing);
+    res.json({ employee: (await withMeta(orgId, [row]))[0] });
   } catch (e) {
     return sendError(res, e);
   }
@@ -494,6 +519,7 @@ const STRUCTURE_KINDS = {
   'job-roles': { model: 'jobRole', usedBy: 'jobRoleId', extra: ['jobPositionId', 'description'] },
   'employee-types': { model: 'employeeType', usedBy: 'employeeTypeId', extra: [] },
   'work-types': { model: 'workType', usedBy: 'workTypeId', extra: [] },
+  areas: { model: 'area', usedBy: 'areaId', extra: ['parentId', 'description'] },
 } as const;
 type Kind = keyof typeof STRUCTURE_KINDS;
 

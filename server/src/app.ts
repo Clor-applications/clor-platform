@@ -38,6 +38,7 @@ import { devicesRouter } from './routes/devices.js';
 import { attendanceReportsRouter } from './routes/attendanceReports.js';
 import { integrationsRouter } from './routes/integrations.js';
 import { publicApiRouter } from './routes/publicApi.js';
+import { personnelRouter } from './routes/personnel.js';
 import { payrollAssignmentsRouter } from './routes/payrollAssignments.js';
 import { payrollRunsRouter } from './routes/payrollRuns.js';
 import { payrollPostingRouter } from './routes/payrollPosting.js';
@@ -249,6 +250,7 @@ export function buildApp() {
   app.use('/api', payrollStructuresRouter);
   app.use('/api', payrollEmployeesRouter);
   app.use('/api', peopleRouter);
+  app.use('/api', personnelRouter);
   app.use('/api', attendanceRouter);
   app.use('/api', leaveRouter);
   app.use('/api', devicesRouter);
