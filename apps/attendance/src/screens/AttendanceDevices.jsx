@@ -103,13 +103,15 @@ export default function AttendanceDevices() {
               </thead>
               <tbody>
                 {data.devices.map((d) => (
-                  <tr key={d.id} className="ui-row-click" onClick={() => setOpen(d)}>
+                  <tr key={d.id} className={d.vendor === 'API' ? undefined : 'ui-row-click'} onClick={d.vendor === 'API' ? undefined : () => setOpen(d)} title={d.vendor === 'API' ? 'Punches sent with an API key — manage it under Integrations' : undefined}>
                     <td className="ui-col-entity">{d.name}</td>
-                    <td className="ui-col-meta">{d.vendor === 'ETIMEOFFICE' ? 'e-Time Office' : d.serialNumber}</td>
+                    <td className="ui-col-meta">{d.vendor === 'ETIMEOFFICE' ? 'e-Time Office' : d.vendor === 'API' ? 'API key' : d.serialNumber}</td>
                     <td>{d.direction === 'both' ? 'In / out' : d.direction === 'in' ? 'Entry' : 'Exit'}</td>
                     <td className="ui-col-h-center whitespace-nowrap">
                       {!d.isActive ? (
                         <span className="ui-pill ui-pill-neutral">off</span>
+                      ) : d.vendor === 'API' ? (
+                        <span className="ui-pill ui-pill-neutral">{d.lastSeenAt ? `used ${ago(d.lastSeenAt)}` : 'not used yet'}</span>
                       ) : d.vendor === 'ETIMEOFFICE' ? (
                         <span className={`ui-pill ${d.lastError ? 'ui-pill-neg' : 'ui-pill-pos'}`} title={d.lastError || ''}>{d.lastError ? 'pull failing' : `pulled ${ago(d.lastFetchedAt)}`}</span>
                       ) : d.online ? (

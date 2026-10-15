@@ -26,6 +26,7 @@ import {
 import { readerLimiter } from '../middleware/rateLimit.js';
 import { decryptSecret } from '../services/mailer.js';
 import { etoFetchPunches } from '../services/attendance/etimeoffice.js';
+import { emit as emitWebhook } from '../services/attendance/webhooks.js';
 import { shiftFor, writeDay } from './attendance.js';
 
 /**
@@ -144,7 +145,7 @@ export async function recomputeDeviceDay(accountId: string, orgId: string, emplo
 }
 
 /** Store a batch of punch lines from one reader; returns how many were new. */
-export async function ingestPunches(device: { id: string; accountId: string; orgId: string; serialNumber: string; direction: string }, body: string) {
+export async function ingestPunches(device: { id: string; accountId: string; orgId: string; serialNumber: string; direction: string; vendor?: string }, body: string) {
   const match = await pinMatcher(device.orgId);
   const parsed = body
     .split(/\r?\n/)
@@ -167,7 +168,8 @@ export async function ingestPunches(device: { id: string; accountId: string; org
       at,
       localTime: p.localTime,
       state: p.state,
-      kind: punchKind(p.state, device.direction),
+      /* Over the JSON API, "in" is sent as state 0 and means in (ClorTime vendor_ingest); from a reader, 0 alone says nothing. */
+      kind: device.vendor === 'API' && p.state === '0' ? 'IN' : punchKind(p.state, device.direction),
       verifyMode: p.verifyMode,
       employeeId: emp?.id ?? null,
       shiftDate: emp ? await shiftDayFor(device.orgId, emp.id, p.localTime) : null,
@@ -196,6 +198,10 @@ export async function ingestPunches(device: { id: string; accountId: string; org
   }
   if (!fresh.length) return 0;
   await peoplePrisma.devicePunch.createMany({ data: fresh.map(({ _emp, ...r }) => r), skipDuplicates: true });
+  emitWebhook(device.orgId, 'punch', {
+    reader: device.serialNumber,
+    punches: fresh.map((r) => ({ readerId: r.pin, employeeId: r.employeeId, time: r.localTime, direction: r.kind, verifyMode: r.verifyMode })),
+  });
 
   const days = new Map<string, { emp: any; date: string }>();
   for (const r of fresh) if (r._emp && r.shiftDate) days.set(`${r._emp.id}|${r.shiftDate}`, { emp: r._emp, date: r.shiftDate });
@@ -507,7 +513,7 @@ export async function syncVendorConnection(device: any, opts: { from?: Date; fet
 
 /** Every active vendor connection of companies with Attendance on — the timer's job. */
 export async function syncAllVendorConnections(opts: { fetchImpl?: typeof fetch } = {}) {
-  const devices = await peoplePrisma.attendanceDevice.findMany({ where: { vendor: { not: 'ADMS' }, isActive: true } });
+  const devices = await peoplePrisma.attendanceDevice.findMany({ where: { vendor: 'ETIMEOFFICE', isActive: true } });
   let added = 0;
   for (const d of devices) {
     if (!(await isFeatureEnabled(d.accountId, d.orgId, 'attendance'))) continue;

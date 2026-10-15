@@ -267,6 +267,12 @@ export const PERMISSION_CATALOG: ModuleDef[] = [
         actions: MASTER,
       },
       {
+        key: 'Attendance Integrations',
+        label: 'API keys and webhooks',
+        description: 'Keys outside systems use to read attendance or send punches, and webhooks CLOR sends events to',
+        actions: MASTER,
+      },
+      {
         key: 'Leave Requests',
         label: 'Leave requests and balances',
         description: 'Everyone\'s leave: apply on someone\'s behalf, Approve, cancel, set balances (Edit)',
@@ -660,6 +666,7 @@ export const ROLE_PRESETS: Record<string, RolePreset> = {
       ['ATTENDANCE', 'Leave Types', ['*']],
       ['ATTENDANCE', 'Leave Requests', ['*']],
       ['ATTENDANCE', 'Attendance Devices', ['*']],
+      ['ATTENDANCE', 'Attendance Integrations', ['*']],
       ['PEOPLE', 'Employees', [A.VIEW]],
     ],
   },

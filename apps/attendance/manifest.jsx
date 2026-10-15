@@ -1,4 +1,4 @@
-import { ArrowRightLeft, BarChart3, CalendarCheck, CalendarDays, CalendarOff, CircleHelp, ClipboardCheck, Clock3, Cpu, FileText, Fingerprint, History, ScanFace, Inbox, LayoutDashboard, ListChecks, Scale, Tags, UserRoundCheck, Users } from 'lucide-react';
+import { ArrowRightLeft, BarChart3, CalendarCheck, CalendarDays, CalendarOff, CircleHelp, ClipboardCheck, Clock3, Cpu, FileText, Fingerprint, History, ScanFace, Inbox, LayoutDashboard, Plug, ListChecks, Scale, Tags, UserRoundCheck, Users } from 'lucide-react';
 
 import AttendanceToday from './src/screens/AttendanceToday';
 import MyAttendance from './src/screens/MyAttendance';
@@ -19,6 +19,7 @@ import Enrolments from './src/screens/Enrolments';
 import Transactions from './src/screens/Transactions';
 import DeviceLogs from './src/screens/DeviceLogs';
 import AttendanceReports from './src/screens/AttendanceReports';
+import Integrations from './src/screens/Integrations';
 
 /**
  * Everything the shell knows about Attendance.
@@ -57,6 +58,7 @@ export const attendanceApp = {
     { key: 'shiftAssignments', label: 'Shift assignments', icon: Users },
     { key: 'holidays', label: 'Holidays', icon: CalendarDays },
     { key: 'leaveTypes', label: 'Leave types', icon: Tags },
+    { key: 'integrations', label: 'Integrations', icon: Plug },
     { section: 'Biometric readers' },
     { key: 'readers', label: 'Readers', icon: Cpu },
     { key: 'transactions', label: 'Transactions', icon: ArrowRightLeft },
@@ -79,6 +81,7 @@ export const attendanceApp = {
     leaveRequests: LeaveRequests,
     leaveBalances: LeaveBalances,
     leaveTypes: LeaveTypes,
+    integrations: Integrations,
     readers: AttendanceDevices,
     transactions: Transactions,
     enrolments: Enrolments,

@@ -22,4 +22,5 @@ export const ATTENDANCE_RESOURCE = {
   leaveTypes: 'Leave Types',
   leave: 'Leave Requests',
   devices: 'Attendance Devices',
+  integrations: 'Attendance Integrations',
 } as const;

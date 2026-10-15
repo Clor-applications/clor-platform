@@ -648,3 +648,53 @@ model DeviceLog {
   @@index([accountId, orgId, deviceId, localTime])
   @@index([orgId, kind, localTime])
 }
+
+/// A key an outside system uses to call CLOR's API (an HRMS pulling
+/// attendance, middleware pushing punches). Only a SHA-256 hash is kept; the
+/// key is shown once when issued or rotated (ClorTime routes/api_clients.js).
+model ApiClient {
+  id              String    @id @default(cuid())
+  accountId       String
+  orgId           String
+  name            String
+  tokenHash       String    @unique
+  /// The first characters, to recognise a key in lists and logs.
+  tokenPrefix     String
+  /// Comma separated: attendance:read, employees:read, punches:write
+  scopes          String
+  /// Comma separated addresses the key may be used from; null = anywhere.
+  allowedIps      String?
+  isActive        Boolean   @default(true)
+  revokedAt       DateTime?
+  lastUsedAt      DateTime?
+  lastUsedIp      String?
+  /// The reader row punches pushed with this key are recorded under.
+  deviceId        String?
+  createdByUserId String
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([accountId, orgId])
+}
+
+/// Where CLOR sends events (punches, days) as they happen, signed with HMAC.
+model Webhook {
+  id              String    @id @default(cuid())
+  accountId       String
+  orgId           String
+  name            String
+  url             String
+  /// Encrypted (encryptSecret); shown once when created.
+  secret          String
+  /// Comma separated: punch, day
+  events          String
+  isActive        Boolean   @default(true)
+  lastStatus      Int?
+  lastError       String?
+  lastDeliveredAt DateTime?
+  createdByUserId String
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([accountId, orgId])
+}

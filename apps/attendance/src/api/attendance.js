@@ -120,3 +120,23 @@ export const listReports = () => get('/reports');
 export const runReport = (id, params) => get(`/reports/${encodeURIComponent(id)}${query(params)}`);
 export const testEtimeOffice = (body) => send('/devices/test-etimeoffice', 'POST', body);
 export const syncConnection = (id, from) => send(`/devices/${encodeURIComponent(id)}/sync`, 'POST', from ? { from } : {});
+
+// Integrations (server: routes/integrations.ts; the outside API is routes/publicApi.ts at /v1)
+export const listApiKeys = () => get('/integrations/keys');
+export const createApiKey = (body) => send('/integrations/keys', 'POST', body);
+export const rotateApiKey = (id) => send(`/integrations/keys/${encodeURIComponent(id)}/rotate`, 'POST', {});
+export const revokeApiKey = (id) => send(`/integrations/keys/${encodeURIComponent(id)}/revoke`, 'POST', {});
+export const listWebhooks = () => get('/integrations/webhooks');
+export const createWebhook = (body) => send('/integrations/webhooks', 'POST', body);
+export const updateWebhook = (id, body) => send(`/integrations/webhooks/${encodeURIComponent(id)}`, 'PUT', body);
+export const deleteWebhook = (id) => send(`/integrations/webhooks/${encodeURIComponent(id)}`, 'DELETE');
+export const testWebhook = (id) => send(`/integrations/webhooks/${encodeURIComponent(id)}/test`, 'POST', {});
+/** Where outside systems call: the API host's /v1. */
+export const publicApiBase = () => {
+  try {
+    const u = new URL(API_BASE, window.location.origin);
+    return `${u.origin}/v1`;
+  } catch {
+    return '/v1';
+  }
+};

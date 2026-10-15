@@ -19,6 +19,7 @@ import {
   type ShiftRule,
 } from '../services/attendance/compute.js';
 import { clientIp } from '../services/auth.js';
+import { emit as emitWebhook } from '../services/attendance/webhooks.js';
 
 /**
  * Attendance, native (after Horilla HRMS's attendance; reference only).
@@ -128,11 +129,24 @@ export async function writeDay(opts: {
     validatedAt: null,
     ...(opts.note !== undefined ? { note: opts.note } : {}),
   };
-  return peoplePrisma.attendanceRecord.upsert({
+  const record = await peoplePrisma.attendanceRecord.upsert({
     where: { employeeId_date: { employeeId: opts.employee.id, date: opts.date } },
     create: { accountId: opts.accountId, orgId: opts.orgId, employeeId: opts.employee.id, date: opts.date, createdByUserId: opts.userId, ...data },
     update: { ...data, overtimeApproved: false },
   });
+  emitWebhook(opts.orgId, 'day', {
+    employeeId: record.employeeId,
+    date: record.date,
+    status: record.status,
+    checkIn: record.checkIn ? istTime(record.checkIn) : null,
+    checkOut: record.checkOut ? istTime(record.checkOut) : null,
+    workedMinutes: record.workedMinutes,
+    lateMinutes: record.lateMinutes,
+    earlyOutMinutes: record.earlyOutMinutes,
+    overtimeMinutes: record.overtimeMinutes,
+    source: record.source,
+  });
+  return record;
 }
 
 export async function employeeIn(orgId: string, accountId: string, employeeId: string) {

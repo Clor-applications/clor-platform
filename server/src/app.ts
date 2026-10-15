@@ -36,6 +36,8 @@ import { leaveRouter } from './routes/leave.js';
 import { iclockRouter } from './routes/iclock.js';
 import { devicesRouter } from './routes/devices.js';
 import { attendanceReportsRouter } from './routes/attendanceReports.js';
+import { integrationsRouter } from './routes/integrations.js';
+import { publicApiRouter } from './routes/publicApi.js';
 import { payrollAssignmentsRouter } from './routes/payrollAssignments.js';
 import { payrollRunsRouter } from './routes/payrollRuns.js';
 import { payrollPostingRouter } from './routes/payrollPosting.js';
@@ -163,6 +165,8 @@ export function buildApp() {
    */
   app.use('/iclock', express.text({ type: () => true, limit: '8mb' }), iclockRouter);
   app.use(express.json({ limit: '1mb' }));
+  // The API for outside systems: an API key, no user session (routes/publicApi.ts).
+  app.use('/v1', publicApiRouter);
   // `tiny`, with share tokens, GSTINs and search terms taken out of the URL.
   morgan.token('safe-url', (req: any) => safeUrl(req.originalUrl || req.url));
   app.use(morgan(':method :safe-url :status :res[content-length] - :response-time ms'));
@@ -249,6 +253,7 @@ export function buildApp() {
   app.use('/api', leaveRouter);
   app.use('/api', devicesRouter);
   app.use('/api', attendanceReportsRouter);
+  app.use('/api', integrationsRouter);
   app.use('/api', payrollAssignmentsRouter);
   app.use('/api', payrollRunsRouter);
   app.use('/api', payrollPostingRouter);
