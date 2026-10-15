@@ -1,0 +1,38 @@
+import { syncAllVendorConnections } from '../routes/iclock.js';
+
+/**
+ * Pulls punches from vendor clouds (e-Time Office) every five minutes, the
+ * same in-process interval the recurring-invoice run uses (see
+ * recurringScheduler.ts). Readers that push (ADMS) need nothing like this.
+ *
+ * On a host that sleeps when idle (Cloud Run scaled to zero) the interval does
+ * not fire while asleep; the next pull starts from the last one, so nothing is
+ * lost — punches just arrive later. "Sync now" on the connection pulls at once.
+ * VENDOR_SYNC=off disables it.
+ */
+export function startVendorSync({ intervalMs = 5 * 60_000, startupDelayMs = 45_000 } = {}) {
+  if (String(process.env.VENDOR_SYNC || '').toLowerCase() === 'off') return () => {};
+  let running = false;
+  const tick = async () => {
+    if (running) return;
+    running = true;
+    try {
+      const r = await syncAllVendorConnections();
+      // eslint-disable-next-line no-console
+      if (r.added) console.log(`[vendor-sync] ${r.added} punch(es) from ${r.connections} connection(s)`);
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.error('[vendor-sync] run failed:', e instanceof Error ? e.message : e);
+    } finally {
+      running = false;
+    }
+  };
+  const startup = setTimeout(tick, startupDelayMs);
+  const timer = setInterval(tick, intervalMs);
+  startup.unref?.();
+  timer.unref?.();
+  return () => {
+    clearTimeout(startup);
+    clearInterval(timer);
+  };
+}

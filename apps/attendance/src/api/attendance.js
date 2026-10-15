@@ -118,3 +118,5 @@ export const listTransactions = (params) => get(`/transactions${query(params)}`)
 export const listDeviceLogs = (params) => get(`/device-logs${query(params)}`);
 export const listReports = () => get('/reports');
 export const runReport = (id, params) => get(`/reports/${encodeURIComponent(id)}${query(params)}`);
+export const testEtimeOffice = (body) => send('/devices/test-etimeoffice', 'POST', body);
+export const syncConnection = (id, from) => send(`/devices/${encodeURIComponent(id)}/sync`, 'POST', from ? { from } : {});

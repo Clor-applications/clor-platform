@@ -495,6 +495,17 @@ model AttendanceDevice {
   fingerSupported Boolean?
   faceMajorVer   Int?
   faceMinorVer   Int?
+  /// ADMS: a reader pushing to /iclock. ETIMEOFFICE: eSSL's e-Time Office
+  /// cloud, which CLOR pulls punches from (the serial is "ETO-<account>").
+  vendor         String   @default("ADMS")
+  apiUrl         String?
+  apiCorporateId String?
+  apiUsername    String?
+  /// Encrypted (AES-256-GCM, services/mailer.ts encryptSecret); never sent to the browser.
+  apiSecret      String?
+  /// Punches are pulled from here on (with a few minutes' overlap; duplicates drop).
+  lastFetchedAt  DateTime?
+  lastError      String?
 
   createdByUserId String
   createdAt       DateTime @default(now())

@@ -12,6 +12,9 @@ import {
   listDeviceUsers,
   listDevices,
   readerServer,
+  syncConnection,
+  testEtimeOffice,
+  todayIst,
   updateDevice,
 } from '../api/attendance';
 
@@ -102,11 +105,13 @@ export default function AttendanceDevices() {
                 {data.devices.map((d) => (
                   <tr key={d.id} className="ui-row-click" onClick={() => setOpen(d)}>
                     <td className="ui-col-entity">{d.name}</td>
-                    <td className="ui-col-meta">{d.serialNumber}</td>
+                    <td className="ui-col-meta">{d.vendor === 'ETIMEOFFICE' ? 'e-Time Office' : d.serialNumber}</td>
                     <td>{d.direction === 'both' ? 'In / out' : d.direction === 'in' ? 'Entry' : 'Exit'}</td>
                     <td className="ui-col-h-center whitespace-nowrap">
                       {!d.isActive ? (
                         <span className="ui-pill ui-pill-neutral">off</span>
+                      ) : d.vendor === 'ETIMEOFFICE' ? (
+                        <span className={`ui-pill ${d.lastError ? 'ui-pill-neg' : 'ui-pill-pos'}`} title={d.lastError || ''}>{d.lastError ? 'pull failing' : `pulled ${ago(d.lastFetchedAt)}`}</span>
                       ) : d.online ? (
                         <span className="ui-pill ui-pill-pos">online</span>
                       ) : (
@@ -134,20 +139,43 @@ export default function AttendanceDevices() {
       ) : null}
 
       {adding ? <AddReader onClose={() => setAdding(false)} onSaved={() => { setAdding(false); load(); }} /> : null}
-      {open ? <ReaderDrawer device={open} onClose={() => setOpen(null)} onChanged={load} /> : null}
+      {open ? (
+        open.vendor && open.vendor !== 'ADMS' ? (
+          <CloudDrawer device={open} onClose={() => setOpen(null)} onChanged={load} />
+        ) : (
+          <ReaderDrawer device={open} onClose={() => setOpen(null)} onChanged={load} />
+        )
+      ) : null}
     </div>
   );
 }
 
 function AddReader({ onClose, onSaved }) {
-  const [form, setForm] = useState({ serialNumber: '', name: '', direction: 'both' });
+  const [kind, setKind] = useState('ADMS');
+  const [form, setForm] = useState({ serialNumber: '', name: '', direction: 'both', corporateId: '', username: '', password: '', apiUrl: '' });
   const [saving, setSaving] = useState(false);
+  const [tested, setTested] = useState(null);
+  const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
+  const cloud = kind === 'ETIMEOFFICE';
+  const creds = () => ({ corporateId: form.corporateId || null, username: form.username, password: form.password, apiUrl: form.apiUrl || null });
+
+  const test = async () => {
+    try {
+      setTested(await testEtimeOffice(creds()));
+    } catch (err) {
+      setTested({ ok: false, message: String(err?.message || 'Could not test.') });
+    }
+  };
   const save = async (e) => {
     e.preventDefault();
     setSaving(true);
     try {
-      const r = await addDevice(form);
-      notify.success(r.seenBefore ? `${r.device.name} added — it is already talking to CLOR.` : `${r.device.name} added. It shows online once it connects.`);
+      const r = cloud
+        ? await addDevice({ vendor: 'ETIMEOFFICE', name: form.name, direction: form.direction, ...creds() })
+        : await addDevice({ serialNumber: form.serialNumber, name: form.name, direction: form.direction });
+      notify.success(
+        cloud ? `${r.device.name} connected. Punches are pulled every few minutes.` : r.seenBefore ? `${r.device.name} added — it is already talking to CLOR.` : `${r.device.name} added. It shows online once it connects.`
+      );
       onSaved();
     } catch (err) {
       notify.error(String(err?.message || 'Not added.'));
@@ -160,7 +188,7 @@ function AddReader({ onClose, onSaved }) {
       open
       onClose={onClose}
       title="Add reader"
-      description="A serial number belongs to one company. Punches from a reader nobody has added are not recorded."
+      description={cloud ? 'eSSL readers that sync to e-Time Office: CLOR pulls their punches from it.' : 'A serial number belongs to one company. Punches from a reader nobody has added are not recorded.'}
       actions={
         <>
           <button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button>
@@ -169,13 +197,41 @@ function AddReader({ onClose, onSaved }) {
       }
     >
       <form id="add-reader" onSubmit={save} className="grid gap-4">
-        <label className="block">
-          <span className="ui-label">Serial number *</span>
-          <input className="ui-input w-full font-mono" required pattern="[A-Za-z0-9_\-]{4,40}" value={form.serialNumber} onChange={(e) => setForm({ ...form, serialNumber: e.target.value.trim() })} placeholder="e.g. CQZ7224460123" />
-        </label>
+        <fieldset>
+          <legend className="ui-label">How it connects</legend>
+          <label className="flex items-start gap-2 py-1 text-sm">
+            <input type="radio" name="kind" className="mt-1" checked={!cloud} onChange={() => setKind('ADMS')} />
+            <span>The reader sends punches to CLOR <span className="ui-caption">— ZKTeco and most eSSL models (Cloud Server Setting)</span></span>
+          </label>
+          <label className="flex items-start gap-2 py-1 text-sm">
+            <input type="radio" name="kind" className="mt-1" checked={cloud} onChange={() => setKind('ETIMEOFFICE')} />
+            <span>From e-Time Office <span className="ui-caption">— readers already syncing to eSSL’s cloud</span></span>
+          </label>
+        </fieldset>
+        {cloud ? (
+          <>
+            <label className="block"><span className="ui-label">Corporate ID</span><input className="ui-input w-full" value={form.corporateId} onChange={set('corporateId')} placeholder="As on your e-Time Office login" /></label>
+            <label className="block"><span className="ui-label">User name *</span><input className="ui-input w-full" required autoComplete="off" value={form.username} onChange={set('username')} /></label>
+            <label className="block"><span className="ui-label">Password *</span><input type="password" className="ui-input w-full" required autoComplete="new-password" value={form.password} onChange={set('password')} /></label>
+            <label className="block"><span className="ui-label">API address</span><input className="ui-input w-full" value={form.apiUrl} onChange={set('apiUrl')} placeholder="https://api.etimeoffice.com/api/" /></label>
+            <div className="flex flex-wrap items-center gap-2">
+              <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={!form.username || !form.password} onClick={test}>Test connection</button>
+              {tested ? (
+                <span className="text-sm" role="status" style={{ color: tested.ok ? 'rgb(var(--pos))' : 'rgb(var(--neg))' }}>
+                  {tested.ok ? `Connected — ${tested.punchesToday} punches today.` : tested.message}
+                </span>
+              ) : null}
+            </div>
+          </>
+        ) : (
+          <label className="block">
+            <span className="ui-label">Serial number *</span>
+            <input className="ui-input w-full font-mono" required pattern="[A-Za-z0-9_\-]{4,40}" value={form.serialNumber} onChange={(e) => setForm({ ...form, serialNumber: e.target.value.trim() })} placeholder="e.g. CQZ7224460123" />
+          </label>
+        )}
         <label className="block">
           <span className="ui-label">Name *</span>
-          <input className="ui-input w-full" required maxLength={80} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. Main gate" />
+          <input className="ui-input w-full" required maxLength={80} value={form.name} onChange={set('name')} placeholder={cloud ? 'e.g. eSSL cloud' : 'e.g. Main gate'} />
         </label>
         <fieldset>
           <legend className="ui-label">Direction</legend>
@@ -186,6 +242,80 @@ function AddReader({ onClose, onSaved }) {
           ))}
         </fieldset>
       </form>
+    </Drawer>
+  );
+}
+
+/** An e-Time Office connection: credentials, last pull, Sync now, fetch older punches. */
+function CloudDrawer({ device, onClose, onChanged }) {
+  const [form, setForm] = useState({ name: device.name, direction: device.direction, isActive: device.isActive, corporateId: device.apiCorporateId || '', username: device.apiUsername || '', password: '', apiUrl: device.apiUrl || '' });
+  const [from, setFrom] = useState('');
+  const [busy, setBusy] = useState(false);
+  const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
+  const save = async (e) => {
+    e.preventDefault();
+    try {
+      await updateDevice(device.id, { ...form, apiUrl: form.apiUrl || null, corporateId: form.corporateId || null, password: form.password || undefined });
+      notify.success('Connection saved.');
+      onChanged();
+      onClose();
+    } catch (err) {
+      notify.error(String(err?.message || 'Not saved.'));
+    }
+  };
+  const sync = async (fromDate) => {
+    setBusy(true);
+    try {
+      const r = await syncConnection(device.id, fromDate);
+      notify.success(`${r.received} punches received, ${r.added} new.`);
+      onChanged();
+    } catch (err) {
+      notify.error(String(err?.message || 'Sync failed.'));
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <Drawer
+      open
+      onClose={onClose}
+      title={device.name}
+      description={`e-Time Office · last pulled ${ago(device.lastFetchedAt)}`}
+      actions={
+        <>
+          <button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Close</button>
+          <button type="submit" form="cloud-form" className="ui-btn ui-btn-primary">Save</button>
+        </>
+      }
+    >
+      <div className="space-y-6">
+        {device.lastError ? <div className="ui-card p-3 text-sm" role="alert" style={{ color: 'rgb(var(--neg))' }}>Last pull failed: {device.lastError}</div> : null}
+        <section className="space-y-2" aria-labelledby="sync-h">
+          <h3 id="sync-h" className="ui-t-sec">Punches</h3>
+          <p className="ui-caption">Pulled every few minutes. Sync now pulls at once; a date fetches older punches (up to 31 days back).</p>
+          <div className="flex flex-wrap items-end gap-2">
+            <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={busy} onClick={() => sync()}>{busy ? 'Pulling…' : 'Sync now'}</button>
+            <input type="date" className="ui-input !w-auto" value={from} max={todayIst()} onChange={(e) => setFrom(e.target.value)} aria-label="Fetch from" />
+            <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={busy || !from} onClick={() => sync(from)}>Fetch from this date</button>
+          </div>
+        </section>
+        <form id="cloud-form" onSubmit={save} className="grid gap-4">
+          <label className="block"><span className="ui-label">Name</span><input className="ui-input w-full" required maxLength={80} value={form.name} onChange={set('name')} /></label>
+          <label className="block"><span className="ui-label">Corporate ID</span><input className="ui-input w-full" value={form.corporateId} onChange={set('corporateId')} /></label>
+          <label className="block"><span className="ui-label">User name</span><input className="ui-input w-full" autoComplete="off" value={form.username} onChange={set('username')} /></label>
+          <label className="block"><span className="ui-label">Password</span><input type="password" className="ui-input w-full" autoComplete="new-password" value={form.password} onChange={set('password')} placeholder="Leave blank to keep the saved one" /></label>
+          <label className="block"><span className="ui-label">API address</span><input className="ui-input w-full" value={form.apiUrl} onChange={set('apiUrl')} placeholder="https://api.etimeoffice.com/api/" /></label>
+          <label className="block">
+            <span className="ui-label">Direction</span>
+            <select className="ui-select w-full" value={form.direction} onChange={set('direction')}>
+              {Object.entries(DIRECTIONS).map(([k, label]) => <option key={k} value={k}>{label}</option>)}
+            </select>
+          </label>
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" className="ui-checkbox" checked={form.isActive} onChange={(e) => setForm({ ...form, isActive: e.target.checked })} /> Pulling punches
+          </label>
+        </form>
+      </div>
     </Drawer>
   );
 }

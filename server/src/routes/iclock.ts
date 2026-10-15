@@ -24,6 +24,8 @@ import {
   type Template,
 } from '../services/attendance/adms.js';
 import { readerLimiter } from '../middleware/rateLimit.js';
+import { decryptSecret } from '../services/mailer.js';
+import { etoFetchPunches } from '../services/attendance/etimeoffice.js';
 import { shiftFor, writeDay } from './attendance.js';
 
 /**
@@ -55,7 +57,8 @@ const DECIDED = new Set(['MANUAL', 'REQUEST', 'LEAVE']);
 
 async function deviceFor(serial: string) {
   const device = await peoplePrisma.attendanceDevice.findUnique({ where: { serialNumber: serial } });
-  if (!device || !device.isActive) return null;
+  /* Only push readers talk here; a vendor-cloud connection's "serial" is not a reader's. */
+  if (!device || !device.isActive || device.vendor !== 'ADMS') return null;
   /* A company that switched Attendance off is not collecting punches. */
   if (!(await isFeatureEnabled(device.accountId, device.orgId, 'attendance'))) return null;
   return device;
@@ -470,3 +473,49 @@ iclockRouter.post(['/devicecmd', '/devicecmd.aspx'], async (req, res) => {
 
 /** Anything else a reader asks for (firmware varies): acknowledge. */
 iclockRouter.all('*', (_req, res) => text(res, 'OK'));
+
+// ---------------------------------------------------------------------------
+// Vendor clouds (e-Time Office): pulled, not pushed
+// ---------------------------------------------------------------------------
+
+/**
+ * Pull new punches from an e-Time Office connection and run them through the
+ * same ingest as a reader's: same matching, same days, duplicates dropped.
+ * From the last pull (less ten minutes' overlap, for punches that reached the
+ * vendor late), or from midnight on the first pull; `from` backfills.
+ */
+export async function syncVendorConnection(device: any, opts: { from?: Date; fetchImpl?: typeof fetch } = {}) {
+  const now = new Date();
+  const midnight = new Date(`${new Date(now.getTime() + 330 * 60_000).toISOString().slice(0, 10)}T00:00:00+05:30`);
+  const from = opts.from || (device.lastFetchedAt ? new Date(device.lastFetchedAt.getTime() - 10 * 60_000) : midnight);
+  const result = await etoFetchPunches(
+    { apiUrl: device.apiUrl, corporateId: device.apiCorporateId, username: device.apiUsername || '', password: decryptSecret(device.apiSecret || '') },
+    from,
+    now,
+    opts.fetchImpl
+  );
+  if (!result.ok) {
+    await peoplePrisma.attendanceDevice.update({ where: { id: device.id }, data: { lastError: result.message } });
+    return { ok: false, message: result.message, received: 0, added: 0 };
+  }
+  /* Same lines a reader would send; state 255 = direction not given (the connection's direction setting decides). */
+  const lines = result.punches.map((p) => `${p.pin}\t${p.localTime}\t255\t0`).join('\n');
+  const added = lines ? await ingestPunches(device, lines) : 0;
+  await peoplePrisma.attendanceDevice.update({ where: { id: device.id }, data: { lastFetchedAt: now, lastSeenAt: now, lastError: null } });
+  return { ok: true, message: 'Success', received: result.punches.length, added };
+}
+
+/** Every active vendor connection of companies with Attendance on — the timer's job. */
+export async function syncAllVendorConnections(opts: { fetchImpl?: typeof fetch } = {}) {
+  const devices = await peoplePrisma.attendanceDevice.findMany({ where: { vendor: { not: 'ADMS' }, isActive: true } });
+  let added = 0;
+  for (const d of devices) {
+    if (!(await isFeatureEnabled(d.accountId, d.orgId, 'attendance'))) continue;
+    try {
+      added += (await syncVendorConnection(d, opts)).added;
+    } catch (e: any) {
+      await peoplePrisma.attendanceDevice.update({ where: { id: d.id }, data: { lastError: String(e?.message || e).slice(0, 300) } }).catch(() => undefined);
+    }
+  }
+  return { connections: devices.length, added };
+}

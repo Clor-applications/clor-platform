@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import request from 'supertest';
 
 /**
@@ -349,5 +349,69 @@ describe('transactions and reader logs', () => {
     expect(ops[0]).toMatchObject({ kind: 'OPERATION', code: '6', operator: '1', localTime: '2026-09-10 08:00:00', deviceName: device.name });
     const errs = (await api(c).get('/device-logs?kind=ERROR&from=2026-09-10&to=2026-09-10').expect(200)).body.logs;
     expect(errs[0]).toMatchObject({ code: '3', details: 'disk' });
+  });
+});
+
+describe('e-Time Office (vendor cloud, pulled)', () => {
+
+  it('formats dates and reads punch times the way the API uses them', async () => {
+    const { etoDate, etoPunchTime, etoAuthHeader } = await import('../services/attendance/etimeoffice.js');
+    expect(etoDate(new Date('2026-10-14T03:35:00Z'))).toBe('14/10/2026_09:05');
+    expect(etoPunchTime('14/10/2026 09:05:12')).toBe('2026-10-14 09:05:12');
+    expect(etoPunchTime('nonsense')).toBeNull();
+    expect(Buffer.from(etoAuthHeader({ username: 'u', password: 'p' }).slice(6), 'base64').toString()).toBe('u:p');
+    expect(Buffer.from(etoAuthHeader({ corporateId: 'acme', username: 'u', password: 'p' }).slice(6), 'base64').toString()).toBe('acme:u:p:true');
+  });
+
+  it('connects, pulls punches into days, keeps the password out of every answer, and records failures', async () => {
+    const c = await makeOwner();
+    const p = await person(c, { name: 'Cloud Punch', code: '701' });
+    const calls: string[] = [];
+    let reply: any = { Error: false, Msg: 'Success', PunchData: [] };
+    vi.stubGlobal('fetch', async (url: string, init: any) => {
+      calls.push(`${url} ${init?.headers?.Authorization}`);
+      return new Response(JSON.stringify(reply), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    });
+    try {
+      const test = (await api(c).post('/devices/test-etimeoffice', { corporateId: 'acme', username: 'api', password: 's3cret' }).expect(200)).body;
+      expect(test).toMatchObject({ ok: true, punchesToday: 0 });
+      expect(calls[0]).toContain('DownloadPunchData?Empcode=ALL&FromDate=');
+
+      const { device } = (await api(c).post('/devices', { vendor: 'ETIMEOFFICE', name: 'eSSL cloud', corporateId: 'acme', username: 'api', password: 's3cret' }).expect(201)).body;
+      expect(device).toMatchObject({ vendor: 'ETIMEOFFICE', serialNumber: 'ETO-acme', hasSecret: true });
+      expect(JSON.stringify(device)).not.toContain('s3cret');
+      expect(device.apiSecret).toBeUndefined();
+
+      /* A recent weekday (backfill goes back at most 31 days). */
+      const d = new Date(Date.now() + 330 * 60_000 - 3 * 86_400_000);
+      if (d.getUTCDay() === 0) d.setUTCDate(d.getUTCDate() - 1);
+      const iso = d.toISOString().slice(0, 10);
+      const dmy = `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}`;
+      reply = { Error: false, Msg: 'Success', PunchData: [
+        { Empcode: '701', Name: 'Cloud Punch', PunchDate: `${dmy} 18:10:00` },
+        { Empcode: '701', Name: 'Cloud Punch', PunchDate: `${dmy} 09:20:00` },
+      ] };
+      const sync = (await api(c).post(`/devices/${device.id}/sync`, { from: iso }).expect(200)).body;
+      expect(sync).toMatchObject({ ok: true, received: 2, added: 2 });
+      expect(await day(c, p.id, iso)).toMatchObject({ source: 'DEVICE', checkInTime: '09:20', checkOutTime: '18:10', lateMinutes: 20 });
+      // Pulled again: nothing doubles.
+      expect((await api(c).post(`/devices/${device.id}/sync`, { from: iso }).expect(200)).body.added).toBe(0);
+      await api(c).post(`/devices/${device.id}/sync`, { from: '2026-01-01' }).expect(400);
+
+      const list = (await api(c).get('/devices').expect(200)).body.devices;
+      expect(JSON.stringify(list)).not.toContain('s3cret');
+      expect(JSON.stringify(list)).not.toContain('apiSecret');
+
+      reply = { Error: true, Msg: 'Invalid credentials' };
+      expect((await api(c).post(`/devices/${device.id}/sync`, {}).expect(502)).body.error).toBe('Invalid credentials');
+      expect((await api(c).get('/devices').expect(200)).body.devices[0].lastError).toBe('Invalid credentials');
+
+      // Its "serial" is not a reader: /iclock ignores it, and commands are refused.
+      await reader('ETO-acme').push(['701\t2026-09-12 09:00:00\t0\t1']).expect(200);
+      expect(await peoplePrisma.devicePunch.count({ where: { orgId: c.orgId, localTime: { startsWith: '2026-09-12' } } })).toBe(0);
+      await api(c).post(`/devices/${device.id}/commands`, { action: 'REBOOT' }).expect(400);
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });

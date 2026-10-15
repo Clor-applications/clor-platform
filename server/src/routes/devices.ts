@@ -9,7 +9,9 @@ import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { ATTENDANCE_MODULE, ATTENDANCE_RESOURCE, attendanceRouteOk } from '../services/attendance/guards.js';
 import { COMMANDS, FACE, FETCH_TEMPLATE_COMMANDS, ONLINE_WINDOW_MS, SEQ, VERIFY_MODES, pinKey, userInfoCommand } from '../services/attendance/adms.js';
 import { ISO_DATE, sendError, today } from './attendance.js';
-import { copyAllTemplatesTo, pinMatcher, recomputeDeviceDay, shiftDayFor } from './iclock.js';
+import { copyAllTemplatesTo, pinMatcher, recomputeDeviceDay, shiftDayFor, syncVendorConnection } from './iclock.js';
+import { encryptSecret } from '../services/mailer.js';
+import { etoFetchPunches } from '../services/attendance/etimeoffice.js';
 
 /**
  * Biometric readers, as the company manages them: claim a reader by its serial
@@ -30,8 +32,10 @@ const deviceSchema = z.object({
   direction: z.enum(['both', 'in', 'out']).default('both'),
 });
 
-const shape = (d: any, extra: Record<string, unknown> = {}) => ({
+/* Never the stored credential. */
+const shape = ({ apiSecret, ...d }: any, extra: Record<string, unknown> = {}) => ({
   ...d,
+  hasSecret: Boolean(apiSecret),
   online: Boolean(d.lastSeenAt && Date.now() - new Date(d.lastSeenAt).getTime() < ONLINE_WINDOW_MS),
   ...extra,
 });
@@ -56,9 +60,55 @@ devicesRouter.get(base, can(PermissionAction.VIEW), async (req, res) => {
   });
 });
 
+const etoSchema = z.object({
+  name: z.string().trim().min(1, 'Name the connection.').max(80),
+  direction: z.enum(['both', 'in', 'out']).default('both'),
+  apiUrl: z.string().trim().url('That is not a web address.').max(200).optional().nullable().or(z.literal('')),
+  corporateId: z.string().trim().max(80).optional().nullable(),
+  username: z.string().trim().min(1, 'The e-Time Office user name is needed.').max(120),
+  password: z.string().min(1, 'The e-Time Office password is needed.').max(200),
+});
+
+/** Try e-Time Office credentials on today's punches before saving them. */
+devicesRouter.post(`${base}/test-etimeoffice`, can(PermissionAction.CREATE), async (req, res) => {
+  if (!(await attendanceRouteOk(req, res))) return;
+  const parsed = etoSchema.safeParse({ name: 'test', ...req.body });
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Check the details.' });
+  const b = parsed.data;
+  const now = new Date();
+  const midnight = new Date(`${new Date(now.getTime() + 330 * 60_000).toISOString().slice(0, 10)}T00:00:00+05:30`);
+  const r = await etoFetchPunches({ apiUrl: b.apiUrl || null, corporateId: b.corporateId || null, username: b.username, password: b.password }, midnight, now);
+  res.json({ ok: r.ok, message: r.message, punchesToday: r.punches.length });
+});
+
 devicesRouter.post(base, can(PermissionAction.CREATE), async (req, res) => {
   if (!(await attendanceRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
+  if (req.body?.vendor === 'ETIMEOFFICE') {
+    const p = etoSchema.safeParse(req.body);
+    if (!p.success) return res.status(400).json({ error: p.error.issues[0]?.message || 'Check the details.' });
+    const b = p.data;
+    /* One connection per e-Time Office account, across all companies. */
+    const serialNumber = `ETO-${(b.corporateId || b.username).replace(/[^A-Za-z0-9_-]/g, '').slice(0, 36)}`;
+    const taken = await peoplePrisma.attendanceDevice.findUnique({ where: { serialNumber } });
+    if (taken) return res.status(409).json({ error: taken.orgId === orgId ? 'This e-Time Office account is already connected.' : 'This e-Time Office account is connected to another organisation.' });
+    const device = await peoplePrisma.attendanceDevice.create({
+      data: {
+        accountId,
+        orgId,
+        serialNumber,
+        name: b.name,
+        direction: b.direction,
+        vendor: 'ETIMEOFFICE',
+        apiUrl: b.apiUrl || null,
+        apiCorporateId: b.corporateId || null,
+        apiUsername: b.username,
+        apiSecret: encryptSecret(b.password),
+        createdByUserId: req.auth!.userId,
+      },
+    });
+    return res.status(201).json({ device: shape(device), seenBefore: null });
+  }
   const parsed = deviceSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Invalid reader.' });
   const b = parsed.data;
@@ -87,10 +137,29 @@ devicesRouter.put(`${base}/:id`, can(PermissionAction.EDIT), async (req, res) =>
   const existing = await peoplePrisma.attendanceDevice.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
   if (!existing) return res.status(404).json({ error: 'No such reader.' });
   const parsed = z
-    .object({ name: z.string().trim().min(1).max(80), direction: z.enum(['both', 'in', 'out']), isActive: z.boolean().optional() })
+    .object({
+      name: z.string().trim().min(1).max(80),
+      direction: z.enum(['both', 'in', 'out']),
+      isActive: z.boolean().optional(),
+      /* e-Time Office only; a blank password keeps the stored one. */
+      apiUrl: z.string().trim().url().max(200).optional().nullable().or(z.literal('')),
+      corporateId: z.string().trim().max(80).optional().nullable(),
+      username: z.string().trim().max(120).optional(),
+      password: z.string().max(200).optional(),
+    })
     .safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: 'Name the reader and choose its direction.' });
-  const device = await peoplePrisma.attendanceDevice.update({ where: { id: existing.id }, data: parsed.data });
+  const { apiUrl, corporateId, username, password, ...common } = parsed.data;
+  const vendorFields =
+    existing.vendor === 'ADMS'
+      ? {}
+      : {
+          ...(apiUrl !== undefined ? { apiUrl: apiUrl || null } : {}),
+          ...(corporateId !== undefined ? { apiCorporateId: corporateId || null } : {}),
+          ...(username ? { apiUsername: username } : {}),
+          ...(password ? { apiSecret: encryptSecret(password) } : {}),
+        };
+  const device = await peoplePrisma.attendanceDevice.update({ where: { id: existing.id }, data: { ...common, ...vendorFields } });
   res.json({ device: shape(device) });
 });
 
@@ -118,6 +187,7 @@ devicesRouter.post(`${base}/:id/commands`, can(PermissionAction.EDIT), async (re
   const device = await peoplePrisma.attendanceDevice.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
   if (!device) return res.status(404).json({ error: 'No such reader.' });
   const action = String(req.body?.action || '');
+  if (device.vendor !== 'ADMS') return res.status(400).json({ error: 'Commands go to readers. This is a cloud connection — use Sync now.' });
   const queue = (command: string, sequence: number = SEQ.OTHER) => ({ accountId, orgId, deviceId: device.id, serialNumber: device.serialNumber, command, sequence, createdByUserId: req.auth!.userId });
 
   if (action === 'FETCH_PUNCHES' || action === 'FETCH_USERS' || action === 'REBOOT') {
@@ -325,4 +395,21 @@ devicesRouter.get('/orgs/:orgId/attendance/device-logs', can(PermissionAction.VI
   ]);
   const dev = new Map(devices.map((d) => [d.id, d.name]));
   res.json({ from, to, kind, logs: rows.map((r) => ({ ...r, deviceName: dev.get(r.deviceId) || '—' })) });
+});
+
+/** Pull from a vendor cloud now; `from` (YYYY-MM-DD, up to 31 days back) fetches older punches. */
+devicesRouter.post(`${base}/:id/sync`, can(PermissionAction.EDIT), async (req, res) => {
+  if (!(await attendanceRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const device = await peoplePrisma.attendanceDevice.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
+  if (!device) return res.status(404).json({ error: 'No such connection.' });
+  if (device.vendor === 'ADMS') return res.status(400).json({ error: 'A reader sends its punches itself. Use “Fetch all punches” instead.' });
+  let from: Date | undefined;
+  if (req.body?.from) {
+    if (!ISO_DATE.test(String(req.body.from))) return res.status(400).json({ error: 'Dates are YYYY-MM-DD.' });
+    from = new Date(`${req.body.from}T00:00:00+05:30`);
+    if (Date.now() - from.getTime() > 31 * 86_400_000) return res.status(400).json({ error: 'Go back at most 31 days at a time.' });
+  }
+  const r = await syncVendorConnection(device, { from });
+  res.status(r.ok ? 200 : 502).json(r.ok ? r : { error: r.message, ...r });
 });
