@@ -735,14 +735,17 @@ iclockRouter.post(['/cdata', '/cdata.aspx'], async (req, res) => {
 });
 
 const INFO_EVERY_MS = 6 * 3_600_000;
-const USERS_EVERY_MS = 24 * 3_600_000;
-const READ_COMMANDS = () => [COMMANDS.FETCH_USERS, ...FETCH_TEMPLATE_COMMANDS];
+/** The user list is small (IDs, names, cards): read hourly. Fingerprints and faces are not: daily, or when they change. */
+export const USERS_EVERY_MS = 3_600_000;
+export const TEMPLATES_EVERY_MS = 24 * 3_600_000;
 
 /**
- * Sync from the reader: CLOR asks for its users (and fingerprints / faces)
- * when the reader is new to it, once a day, and — `soon` — a couple of minutes
- * after someone uses the reader's menu (enrolling or editing a person shows up
- * as operation records). Never while a read is already on its way.
+ * Sync from the reader: CLOR asks for its users when the reader is new to it,
+ * every hour, and — `soon` — a couple of minutes after the reader shows a
+ * change (its user, fingerprint or face count moved, or someone used its menu).
+ * Fingerprints and faces come with the first read, once a day after that, and
+ * with every `soon` read, since enrolling at the reader is what changes them.
+ * Never while a read is already on its way.
  */
 async function readUsersIfDue(device: { id: string; accountId: string; orgId: string; serialNumber: string }, soon = false) {
   const last = await peoplePrisma.deviceCommand.findFirst({ where: { deviceId: device.id, command: COMMANDS.FETCH_USERS }, orderBy: { id: 'desc' }, select: { status: true, createdAt: true } });
@@ -750,8 +753,16 @@ async function readUsersIfDue(device: { id: string; accountId: string; orgId: st
   const age = last ? Date.now() - last.createdAt.getTime() : Infinity;
   const due = soon ? age > 2 * 60_000 : age > USERS_EVERY_MS || (!last && !(await peoplePrisma.deviceUser.findFirst({ where: { deviceId: device.id }, select: { id: true } })));
   if (!due) return false;
+  const lastTemplates = await peoplePrisma.deviceCommand.findFirst({
+    where: { deviceId: device.id, command: FETCH_TEMPLATE_COMMANDS[0] },
+    orderBy: { id: 'desc' },
+    select: { status: true, createdAt: true },
+  });
+  const templatesWaiting = lastTemplates && (lastTemplates.status === 'PENDING' || lastTemplates.status === 'SENT');
+  const templatesDue = !templatesWaiting && (soon || !lastTemplates || Date.now() - lastTemplates.createdAt.getTime() > TEMPLATES_EVERY_MS);
+  const commands = [COMMANDS.FETCH_USERS, ...(templatesDue ? FETCH_TEMPLATE_COMMANDS : [])];
   await peoplePrisma.deviceCommand.createMany({
-    data: READ_COMMANDS().map((command) => ({ accountId: device.accountId, orgId: device.orgId, deviceId: device.id, serialNumber: device.serialNumber, command })),
+    data: commands.map((command) => ({ accountId: device.accountId, orgId: device.orgId, deviceId: device.id, serialNumber: device.serialNumber, command })),
   });
   return true;
 }
@@ -787,6 +798,10 @@ iclockRouter.get(['/getrequest', '/getrequest.aspx'], async (req, res) => {
     }
     /* Commands carry names, cards and fingerprints: only to a reader on an approved network. */
     if (!(await admitted(device, req))) return text(res, 'OK');
+    /* Someone was enrolled, changed or deleted at the reader: its counts say so before any operation record does. */
+    const moved = (now: number | null, before: number | null) => now !== null && before !== null && now !== before;
+    const changedAtReader =
+      moved(info.userCount, device.userCount) || moved(info.fingerCount, device.fingerCount) || moved(info.faceCount, device.faceCount);
     await peoplePrisma.attendanceDevice.update({
       where: { id: device.id },
       data: {
@@ -837,8 +852,8 @@ iclockRouter.get(['/getrequest', '/getrequest.aspx'], async (req, res) => {
       }
     }
 
-    /* Who is on it (sync from the reader): when new to CLOR, then daily. */
-    await readUsersIfDue(device);
+    /* Who is on it (sync from the reader): when new to CLOR, hourly, and soon after a change there. */
+    await readUsersIfDue(device, changedAtReader);
 
     const next = await peoplePrisma.deviceCommand.findFirst({ where: { deviceId: device.id, status: 'PENDING' }, orderBy: [{ sequence: 'asc' }, { id: 'asc' }] });
     if (!next) return text(res, 'OK');

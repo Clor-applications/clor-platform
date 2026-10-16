@@ -623,3 +623,38 @@ describe('the network lock', () => {
     await request(app).post(`/api/orgs/${squatter.orgId}/attendance/devices/${d.id}/approve-network`).set(at(squatter)).expect(409);
   });
 });
+
+describe('reading who is on a reader', () => {
+  const reads = (sn: string) =>
+    peoplePrisma.deviceCommand.findMany({ where: { serialNumber: sn, status: { in: ['PENDING', 'SENT'] }, command: { startsWith: 'DATA QUERY' } }, select: { command: true } }).then((r) => r.map((x) => x.command).filter((x) => !x.startsWith('DATA QUERY ATTLOG')).sort());
+  const settle = async (sn: string, minutesAgo: number, command?: string) =>
+    peoplePrisma.deviceCommand.updateMany({
+      where: { serialNumber: sn, command: command ?? { startsWith: 'DATA QUERY' } },
+      data: { status: 'DONE', createdAt: new Date(Date.now() - minutesAgo * 60_000) },
+    });
+
+  it('reads again soon after someone is enrolled at the reader, and hourly without fingerprints', async () => {
+    const c = await makeOwner();
+    const sn = serial();
+    await addReader(c, sn);
+    await reader(sn).heartbeat('Ver 8.0.4.3-20240116,6,6,980,10.0.0.5').expect(200);
+    const first = await reads(sn);
+    expect(first).toContain('DATA QUERY USERINFO');
+    expect(first.length).toBeGreaterThan(1); // fingerprints and faces too, the first time
+    await settle(sn, 5);
+
+    // Same counts: nothing new to read.
+    await reader(sn).heartbeat('Ver 8.0.4.3-20240116,6,6,980,10.0.0.5').expect(200);
+    expect(await reads(sn)).toEqual([]);
+
+    // One more user on the reader: read users and templates again.
+    await reader(sn).heartbeat('Ver 8.0.4.3-20240116,7,7,981,10.0.0.5').expect(200);
+    expect(await reads(sn)).toEqual(first);
+    await settle(sn, 61);
+    await settle(sn, 120, 'DATA QUERY FINGERTMP');
+
+    // An hour on, no change: the user list only.
+    await reader(sn).heartbeat('Ver 8.0.4.3-20240116,7,7,990,10.0.0.5').expect(200);
+    expect(await reads(sn)).toEqual(['DATA QUERY USERINFO']);
+  });
+});
