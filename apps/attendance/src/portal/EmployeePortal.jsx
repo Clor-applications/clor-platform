@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { CalendarDays, CalendarOff, Camera, Clock3, Fingerprint, ListChecks, LogIn, LogOut, MapPin, UserRound, X } from 'lucide-react';
 
 import { STATUS } from '../api/attendance';
+import LoadFailed from '../components/LoadFailed';
 import {
   SignedOut,
   activate,
@@ -354,10 +355,16 @@ const dayLabel = (d) => new Date(`${d}T00:00:00Z`).toLocaleDateString('en-IN', {
 function MyDays({ guard }) {
   const [month, setMonth] = useState(todayIst().slice(0, 7));
   const [data, setData] = useState(null);
+  const [error, setError] = useState('');
   const [form, setForm] = useState({ date: '', checkIn: '', checkOut: '', reason: '' });
   const [note, setNote] = useState(null);
+  /* Only the latest request may fill the screen: a slow earlier month must not overwrite the one picked since. */
+  const latest = useRef(0);
   const load = useCallback(() => {
-    guard(getAttendance(month)).then(setData).catch(() => undefined);
+    const n = ++latest.current;
+    guard(getAttendance(month))
+      .then((d) => n === latest.current && (setData(d), setError('')))
+      .catch((e) => n === latest.current && setError(String(e?.message || 'Could not load your days.')));
   }, [month, guard]);
   useEffect(() => {
     load();
@@ -382,8 +389,9 @@ function MyDays({ guard }) {
         <h2 className="ui-t-sec">My days</h2>
         <input type="month" className="ui-input !w-auto" value={month} max={todayIst().slice(0, 7)} onChange={(e) => setMonth(e.target.value)} aria-label="Month" />
       </div>
+      <LoadFailed message={error} onRetry={load} />
       {!data ? (
-        <div className="ui-card p-6 ui-caption">Loading…</div>
+        error ? null : <div className="ui-card p-6 ui-caption">Loading…</div>
       ) : (
         <>
           <div className="grid grid-cols-5 gap-1 text-center text-xs">
@@ -467,13 +475,17 @@ const RequestPill = ({ status }) => <span className={`ui-pill ${REQUEST_PILL[sta
 function MySchedule({ guard }) {
   const [month, setMonth] = useState(todayIst().slice(0, 7));
   const [data, setData] = useState(null);
+  const [error, setError] = useState('');
+  const [attempt, setAttempt] = useState(0);
   useEffect(() => {
     let off = false;
-    guard(getSchedule(month)).then((d) => !off && setData(d)).catch(() => undefined);
+    guard(getSchedule(month))
+      .then((d) => !off && (setData(d), setError('')))
+      .catch((e) => !off && setError(String(e?.message || 'Could not load your schedule.')));
     return () => {
       off = true;
     };
-  }, [month, guard]);
+  }, [month, guard, attempt]);
   const t = todayIst();
   return (
     <>
@@ -481,8 +493,9 @@ function MySchedule({ guard }) {
         <h2 className="ui-t-sec">My schedule</h2>
         <input type="month" className="ui-input !w-auto" value={month} onChange={(e) => setMonth(e.target.value)} aria-label="Month" />
       </div>
+      <LoadFailed message={error} onRetry={() => setAttempt((n) => n + 1)} />
       {!data ? (
-        <div className="ui-card p-6 ui-caption">Loading…</div>
+        error ? null : <div className="ui-card p-6 ui-caption">Loading…</div>
       ) : (
         <ul className="ui-card divide-y text-sm" style={{ borderColor: 'rgb(var(--border))' }}>
           {data.days.map((d) => (
@@ -512,8 +525,11 @@ function MyLeave({ guard }) {
   const [data, setData] = useState(null);
   const [form, setForm] = useState({ leaveTypeId: '', fromDate: '', toDate: '', reason: '' });
   const [note, setNote] = useState(null);
+  const [error, setError] = useState('');
   const load = useCallback(() => {
-    guard(getLeave()).then(setData).catch(() => undefined);
+    guard(getLeave())
+      .then((d) => (setData(d), setError('')))
+      .catch((e) => setError(String(e?.message || 'Could not load your leave.')));
   }, [guard]);
   useEffect(() => {
     load();
@@ -540,7 +556,7 @@ function MyLeave({ guard }) {
     }
   };
 
-  if (!data) return <div className="ui-card p-6 ui-caption">Loading…</div>;
+  if (!data) return error ? <LoadFailed message={error} onRetry={load} /> : <div className="ui-card p-6 ui-caption">Loading…</div>;
   return (
     <>
       <h2 className="ui-t-sec">My leave {data.year}</h2>

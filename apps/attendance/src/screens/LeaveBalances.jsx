@@ -4,6 +4,7 @@ import { PageHeader, SkeletonCard, EmptyState } from '@ui/components/ui/Primitiv
 import { notify } from '@ui/components/ui/notify';
 import { downloadCsv } from '@ui/utils/csv';
 import { getLeaveBalances, setAllocation, todayIst } from '../api/attendance';
+import LoadFailed from '../components/LoadFailed';
 
 /**
  * Days left per person and type. Click a paid type's figure to give someone a
@@ -13,10 +14,11 @@ import { getLeaveBalances, setAllocation, todayIst } from '../api/attendance';
 export default function LeaveBalances() {
   const [year, setYear] = useState(Number(todayIst().slice(0, 4)));
   const [data, setData] = useState(null);
+  const [loadError, setLoadError] = useState('');
   const [editing, setEditing] = useState(null); // { employeeId, leaveTypeId, value }
 
   const load = useCallback(() => {
-    getLeaveBalances(year).then(setData).catch((e) => notify.error(String(e?.message || 'Could not load balances.')));
+    getLeaveBalances(year).then((v) => { setData(v); setLoadError(''); }).catch((e) => setLoadError(String(e?.message || 'Could not load balances.')));
   }, [year]);
   useEffect(() => {
     load();
@@ -70,8 +72,9 @@ export default function LeaveBalances() {
           </div>
         }
       />
+      <LoadFailed message={loadError} onRetry={load} />
       {!data ? (
-        <SkeletonCard lines={6} />
+        loadError ? null : <SkeletonCard lines={6} />
       ) : !types.length ? (
         <EmptyState title="No leave types" description="Create leave types first (Leave types)." />
       ) : (

@@ -95,6 +95,7 @@ export const listDevices = () => get('/devices');
 export const addDevice = (body) => send('/devices', 'POST', body);
 export const updateDevice = (id, body) => send(`/devices/${encodeURIComponent(id)}`, 'PUT', body);
 export const deleteDevice = (id) => send(`/devices/${encodeURIComponent(id)}`, 'DELETE');
+export const approveDeviceNetwork = (id) => send(`/devices/${encodeURIComponent(id)}/approve-network`, 'POST', {});
 export const deviceCommand = (id, action) => send(`/devices/${encodeURIComponent(id)}/commands`, 'POST', { action });
 export const listDeviceCommands = (id, status) => get(`/devices/${encodeURIComponent(id)}/commands${query({ status })}`);
 export const retryDeviceCommands = (id, ids) => send(`/devices/${encodeURIComponent(id)}/commands/retry`, 'POST', ids ? { ids } : {});
@@ -164,7 +165,8 @@ export const listRotationPeople = (id) => get(`/rotations/${encodeURIComponent(i
 export const assignRotation = (id, body) => send(`/rotations/${encodeURIComponent(id)}/assignments`, 'POST', body);
 export const removeRotationAssignment = (id) => send(`/rotation-assignments/${encodeURIComponent(id)}`, 'DELETE');
 export const getRules = () => get('/rules').then((r) => r?.rules);
-export const saveRules = (body) => send('/rules', 'PUT', body);
+/* Both unwrap { rules }: the screen keeps what it gets back as the form. */
+export const saveRules = (body) => send('/rules', 'PUT', body).then((r) => r?.rules);
 export const getSchedule = (params) => get(`/schedule${query(params)}`);
 export const recompute = (body) => send('/recompute', 'POST', body);
 export const SCHEDULE_SOURCE = { TEMPORARY: 'Temporary', EMPLOYEE: 'Own schedule', ROTATION: 'Rotation', DEPARTMENT: 'Department', DEFAULT: 'Company default' };

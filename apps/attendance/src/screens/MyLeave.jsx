@@ -3,6 +3,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { LEAVE_STATUS, applyLeave, cancelMyLeave, getMyLeave, leaveRange, todayIst } from '../api/attendance';
+import LoadFailed from '../components/LoadFailed';
 
 const BLANK = { leaveTypeId: '', fromDate: '', toDate: '', reason: '' };
 
@@ -56,7 +57,7 @@ export default function MyLeave() {
     return (
       <div className="space-y-4">
         <PageHeader entity="attendance" title="My leave" />
-        <div className="ui-card p-4 text-sm" role="alert">{error}</div>
+        <LoadFailed message={error} onRetry={load} />
       </div>
     );
   }

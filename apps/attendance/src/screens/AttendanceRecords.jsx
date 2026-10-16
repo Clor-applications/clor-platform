@@ -6,6 +6,7 @@ import Drawer from '@ui/components/ui/Drawer';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { downloadCsv } from '@ui/utils/csv';
 import { STATUS, approveOvertime, deleteDay, hm, listEmployees, listRecords, markDay, todayIst, validateDays } from '../api/attendance';
+import LoadFailed from '../components/LoadFailed';
 
 /**
  * Everyone's days: filter, correct, validate, approve overtime. After
@@ -16,6 +17,7 @@ const weekAgo = () => new Date(Date.now() + 330 * 60_000 - 6 * 86_400_000).toISO
 export default function AttendanceRecords() {
   const [filters, setFilters] = useState({ from: weekAgo(), to: todayIst(), employeeId: '', status: '', validated: '', late: '' });
   const [rows, setRows] = useState(null);
+  const [loadError, setLoadError] = useState('');
   const [people, setPeople] = useState([]);
   const [selected, setSelected] = useState(() => new Set());
   const [editing, setEditing] = useState(null);
@@ -24,9 +26,10 @@ export default function AttendanceRecords() {
     listRecords(filters)
       .then((r) => {
         setRows(r.records || []);
+        setLoadError('');
         setSelected(new Set());
       })
-      .catch((e) => notify.error(String(e?.message || 'Could not load days.')));
+      .catch((e) => setLoadError(String(e?.message || 'Could not load days.')));
   }, [filters]);
   useEffect(() => {
     load();
@@ -120,8 +123,9 @@ export default function AttendanceRecords() {
         </label>
       </div>
 
+      <LoadFailed message={loadError} onRetry={load} />
       {!rows ? (
-        <SkeletonCard lines={6} />
+        loadError ? null : <SkeletonCard lines={6} />
       ) : !rows.length ? (
         <EmptyState title="No days in this range" description="Mark attendance, or widen the dates." />
       ) : (

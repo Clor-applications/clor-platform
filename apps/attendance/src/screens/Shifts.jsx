@@ -5,6 +5,7 @@ import { PageHeader, SkeletonCard, EmptyState } from '@ui/components/ui/Primitiv
 import Drawer from '@ui/components/ui/Drawer';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { createShift, deleteShift, hm, listShifts, updateShift } from '../api/attendance';
+import LoadFailed from '../components/LoadFailed';
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const BLANK = {
@@ -36,10 +37,11 @@ const offs = (s, sats) => {
  */
 export default function Shifts() {
   const [rows, setRows] = useState(null);
+  const [loadError, setLoadError] = useState('');
   const [editing, setEditing] = useState(null);
 
   const load = useCallback(() => {
-    listShifts().then(setRows).catch((e) => notify.error(String(e?.message || 'Could not load shifts.')));
+    listShifts().then((v) => { setRows(v); setLoadError(''); }).catch((e) => setLoadError(String(e?.message || 'Could not load shifts.')));
   }, []);
   useEffect(() => {
     load();
@@ -57,8 +59,9 @@ export default function Shifts() {
           </button>
         }
       />
+      <LoadFailed message={loadError} onRetry={load} />
       {!rows ? (
-        <SkeletonCard lines={4} />
+        loadError ? null : <SkeletonCard lines={4} />
       ) : !rows.length ? (
         <EmptyState title="No shifts yet" description="Create one, then assign people to it." />
       ) : (

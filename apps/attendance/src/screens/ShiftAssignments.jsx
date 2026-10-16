@@ -4,6 +4,7 @@ import { Trash2 } from 'lucide-react';
 import { PageHeader, SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import { notify } from '@ui/components/ui/notify';
 import { assignShift, listAssignments, listEmployees, listShifts, removeAssignment, todayIst } from '../api/attendance';
+import LoadFailed from '../components/LoadFailed';
 
 /**
  * Who works which shift, from when. Assigning again from a later date
@@ -11,6 +12,7 @@ import { assignShift, listAssignments, listEmployees, listShifts, removeAssignme
  */
 export default function ShiftAssignments() {
   const [rows, setRows] = useState(null);
+  const [loadError, setLoadError] = useState('');
   const [people, setPeople] = useState([]);
   const [shifts, setShifts] = useState([]);
   const [picked, setPicked] = useState(() => new Set());
@@ -21,7 +23,7 @@ export default function ShiftAssignments() {
   const [saving, setSaving] = useState(false);
 
   const load = useCallback(() => {
-    listAssignments().then(setRows).catch((e) => notify.error(String(e?.message || 'Could not load assignments.')));
+    listAssignments().then((v) => { setRows(v); setLoadError(''); }).catch((e) => setLoadError(String(e?.message || 'Could not load assignments.')));
   }, []);
   useEffect(() => {
     load();
@@ -112,8 +114,10 @@ export default function ShiftAssignments() {
         )}
       </section>
 
+      <LoadFailed message={loadError} onRetry={load} />
+
       {!rows ? (
-        <SkeletonCard lines={5} />
+        loadError ? null : <SkeletonCard lines={5} />
       ) : !rows.length ? (
         <EmptyState title="No one has their own schedule" description="People follow their rotation, their department’s schedule, or the company default shift (Attendance rules)." />
       ) : (

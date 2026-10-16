@@ -7,6 +7,7 @@ import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { listStructure } from '@ui/personnel/api';
 import {
   addDevice,
+  approveDeviceNetwork,
   cancelDeviceCommands,
   deleteDevice,
   deviceCommand,
@@ -20,6 +21,7 @@ import {
   todayIst,
   updateDevice,
 } from '../api/attendance';
+import LoadFailed from '../components/LoadFailed';
 
 const DIRECTIONS = {
   both: 'In and out (the reader’s keys decide)',
@@ -46,13 +48,49 @@ const VIRTUAL = {
   MOBILE: { label: 'Employee portal', title: 'Punches from phones in the employee portal — see Portal access and Work sites' },
 };
 
+/**
+ * A reader calling from a network that is not approved. Only someone on that
+ * same network can approve it (the server checks), so the button shows only there.
+ */
+function NetworkApproval({ device, yourNetwork, onDone }) {
+  const [busy, setBusy] = useState(false);
+  const here = yourNetwork && yourNetwork === device.awaitingNetwork;
+  const approve = async () => {
+    setBusy(true);
+    try {
+      await approveDeviceNetwork(device.id);
+      notify.success(`${device.name} approved on this network. Its punches come across on its next heartbeat.`);
+      onDone();
+    } catch (e) {
+      notify.error(String(e?.message || 'Not approved.'));
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="ui-card flex flex-wrap items-center justify-between gap-3 p-4 text-sm" role="status">
+      <span>
+        <strong>{device.name}</strong> is calling from <code className="font-mono">{device.awaitingNetwork}</code>, a network not approved for it. Its punches wait on the
+        reader until it is.
+        {!here ? ' To approve it, open this page on the same internet connection as the reader (the office Wi-Fi, not mobile data). If you did not move this reader, leave it.' : ''}
+      </span>
+      {here ? (
+        <button type="button" className="ui-btn ui-btn-primary ui-btn-sm" disabled={busy} onClick={approve}>
+          Approve this network
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
 export default function AttendanceDevices() {
   const [data, setData] = useState(null);
+  const [loadError, setLoadError] = useState('');
   const [adding, setAdding] = useState(false);
   const [open, setOpen] = useState(null);
 
   const load = useCallback(() => {
-    listDevices().then(setData).catch((e) => notify.error(String(e?.message || 'Could not load readers.')));
+    listDevices().then((v) => { setData(v); setLoadError(''); }).catch((e) => setLoadError(String(e?.message || 'Could not load readers.')));
   }, []);
   useEffect(() => {
     load();
@@ -85,14 +123,21 @@ export default function AttendanceDevices() {
           </li>
           <li>Set the reader’s date and time to Indian time — punches are recorded at the reader’s clock.</li>
           <li>
-            Add it here with the serial number from <strong>Menu → System Info → Device Info</strong>. Its stored punches come across on the first heartbeat.
+            Add it here with the serial number from <strong>Menu → System Info → Device Info</strong>, from a computer or phone on the same internet connection as the
+            reader (the office Wi-Fi). Its stored punches come across on the first heartbeat.
+          </li>
+          <li>
+            A reader only sends to CLOR from networks you approved, so someone who learns its serial number cannot use it. If it moves to a new internet connection,
+            approve it here from that connection.
           </li>
           <li>Each person’s user ID on the reader should be their employee code, or the Reader ID on their employee file.</li>
         </ol>
       </section>
 
+      <LoadFailed message={loadError} onRetry={load} />
+
       {!data ? (
-        <SkeletonCard lines={4} />
+        loadError ? null : <SkeletonCard lines={4} />
       ) : !data.devices.length ? (
         <EmptyState icon={Cpu} title="No readers yet" description="Point a reader at CLOR as above, then add it by its serial number." />
       ) : (
@@ -123,6 +168,8 @@ export default function AttendanceDevices() {
                         <span className="ui-pill ui-pill-neutral">{d.lastSeenAt ? `used ${ago(d.lastSeenAt)}` : 'not used yet'}</span>
                       ) : d.vendor === 'ETIMEOFFICE' ? (
                         <span className={`ui-pill ${d.lastError ? 'ui-pill-neg' : 'ui-pill-pos'}`} title={d.lastError || ''}>{d.lastError ? 'pull failing' : `pulled ${ago(d.lastFetchedAt)}`}</span>
+                      ) : d.awaitingNetwork ? (
+                        <span className="ui-pill ui-pill-warn" title={`Calling from ${d.awaitingNetwork}, which is not approved`}>new network</span>
                       ) : d.online ? (
                         <span className="ui-pill ui-pill-pos">online</span>
                       ) : (
@@ -139,6 +186,12 @@ export default function AttendanceDevices() {
           </div>
         </div>
       )}
+
+      {(data?.devices || [])
+        .filter((d) => d.awaitingNetwork)
+        .map((d) => (
+          <NetworkApproval key={d.id} device={d} yourNetwork={data.yourNetwork} onDone={load} />
+        ))}
 
       {data?.unmatchedPunches ? (
         <div className="ui-card flex flex-wrap items-center justify-between gap-3 p-4 text-sm" role="status">

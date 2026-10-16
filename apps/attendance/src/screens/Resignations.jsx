@@ -4,6 +4,7 @@ import { PageHeader, SkeletonCard, EmptyState } from '@ui/components/ui/Primitiv
 import Drawer from '@ui/components/ui/Drawer';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { LEAVING_TYPES, listEmployees, rehireEmployee, resignEmployee } from '@ui/personnel/api';
+import LoadFailed from '../components/LoadFailed';
 
 const todayIst = () => new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
 
@@ -14,12 +15,16 @@ const todayIst = () => new Date(Date.now() + 330 * 60_000).toISOString().slice(0
  */
 export default function Resignations() {
   const [rows, setRows] = useState(null);
+  const [loadError, setLoadError] = useState('');
   const [active, setActive] = useState([]);
   const [adding, setAdding] = useState(false);
   const load = useCallback(() => {
     listEmployees({ status: 'LEFT', limit: 500 })
-      .then((r) => setRows((r?.employees || []).sort((a, b) => String(b.dateOfLeaving || '').localeCompare(String(a.dateOfLeaving || '')))))
-      .catch((e) => notify.error(String(e?.message || 'Could not load.')));
+      .then((r) => {
+        setRows((r?.employees || []).sort((a, b) => String(b.dateOfLeaving || '').localeCompare(String(a.dateOfLeaving || ''))));
+        setLoadError('');
+      })
+      .catch((e) => setLoadError(String(e?.message || 'Could not load.')));
     listEmployees({ status: 'ACTIVE', limit: 500 }).then((r) => setActive(r?.employees || [])).catch(() => setActive([]));
   }, []);
   useEffect(() => {
@@ -45,8 +50,9 @@ export default function Resignations() {
         description="Who has left and why. Recording someone leaving removes them from every reader."
         actions={<button type="button" className="ui-btn ui-btn-primary" onClick={() => setAdding(true)}>Record leaving</button>}
       />
+      <LoadFailed message={loadError} onRetry={load} />
       {!rows ? (
-        <SkeletonCard lines={4} />
+        loadError ? null : <SkeletonCard lines={4} />
       ) : !rows.length ? (
         <EmptyState title="Nobody has left" description="People who leave are listed here, with the reason." />
       ) : (

@@ -4,6 +4,7 @@ import { Download } from 'lucide-react';
 import { PageHeader, SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import { downloadCsv } from '@ui/utils/csv';
 import { getSummary, hm, todayIst } from '../api/attendance';
+import LoadFailed from '../components/LoadFailed';
 
 /**
  * The month as payroll sees it: payable days and loss-of-pay days per
@@ -14,6 +15,7 @@ export default function MonthSummary() {
   const [month, setMonth] = useState(todayIst().slice(0, 7));
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -23,7 +25,7 @@ export default function MonthSummary() {
     return () => {
       cancelled = true;
     };
-  }, [month]);
+  }, [month, attempt]);
 
   const columns = [
     { key: 'code', label: 'Employee ID' },
@@ -32,6 +34,7 @@ export default function MonthSummary() {
     { key: 'present', label: 'Present' },
     { key: 'halfDays', label: 'Half days' },
     { key: 'absent', label: 'Absent' },
+    { key: 'incompleteDays', label: 'No check-out' },
     { key: 'leave', label: 'Leave' },
     { key: 'unpaidLeaveDays', label: 'Unpaid leave' },
     { key: 'holidays', label: 'Holidays' },
@@ -59,9 +62,9 @@ export default function MonthSummary() {
           </div>
         }
       />
-      {error ? <div className="ui-card p-3 text-sm" role="alert" style={{ color: 'rgb(var(--neg))' }}>{error}</div> : null}
+      <LoadFailed message={error} onRetry={() => setAttempt((n) => n + 1)} />
       {!data ? (
-        <SkeletonCard lines={6} />
+        error ? null : <SkeletonCard lines={6} />
       ) : !data.rows.length ? (
         <EmptyState title="Nobody employed this month" description="Add people in People, with their joining dates." />
       ) : (

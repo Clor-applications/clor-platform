@@ -5,6 +5,7 @@ import { PageHeader, SkeletonCard, EmptyState } from '@ui/components/ui/Primitiv
 import { notify } from '@ui/components/ui/notify';
 import { listStructure } from '@ui/personnel/api';
 import { addDepartmentSchedule, listDepartmentSchedules, listShifts, removeDepartmentSchedule, todayIst } from '../api/attendance';
+import LoadFailed from '../components/LoadFailed';
 
 /**
  * The shift a whole department works (ClorTime's Department Schedule). Applies
@@ -12,11 +13,12 @@ import { addDepartmentSchedule, listDepartmentSchedules, listShifts, removeDepar
  */
 export default function DepartmentSchedule() {
   const [rows, setRows] = useState(null);
+  const [loadError, setLoadError] = useState('');
   const [departments, setDepartments] = useState([]);
   const [shifts, setShifts] = useState([]);
   const [form, setForm] = useState({ departmentId: '', shiftId: '', effectiveFrom: todayIst(), effectiveTo: '' });
   const load = useCallback(() => {
-    listDepartmentSchedules().then(setRows).catch((e) => notify.error(String(e?.message || 'Could not load.')));
+    listDepartmentSchedules().then((v) => { setRows(v); setLoadError(''); }).catch((e) => setLoadError(String(e?.message || 'Could not load.')));
   }, []);
   useEffect(() => {
     load();
@@ -58,8 +60,9 @@ export default function DepartmentSchedule() {
         <label className="block"><span className="ui-label">Until</span><input type="date" className="ui-input" min={form.effectiveFrom} value={form.effectiveTo} onChange={(e) => setForm({ ...form, effectiveTo: e.target.value })} /></label>
         <button type="submit" className="ui-btn ui-btn-primary">Save</button>
       </form>
+      <LoadFailed message={loadError} onRetry={load} />
       {!rows ? (
-        <SkeletonCard lines={4} />
+        loadError ? null : <SkeletonCard lines={4} />
       ) : !rows.length ? (
         <EmptyState title="No department schedules" description={departments.length ? 'Give a department its shift above.' : 'Create departments under Personnel first.'} />
       ) : (

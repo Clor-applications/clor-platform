@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
 
 import { PageHeader, SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
-import { notify } from '@ui/components/ui/notify';
 import { listStructure } from '@ui/personnel/api';
 import { SCHEDULE_SOURCE, getSchedule, todayIst } from '../api/attendance';
+import LoadFailed from '../components/LoadFailed';
 
 const WD = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 const wd = (d) => new Date(`${d}T00:00:00Z`).getUTCDay();
@@ -17,6 +17,8 @@ export default function ScheduleCalendar() {
   const [filters, setFilters] = useState({ departmentId: '', areaId: '' });
   const [lists, setLists] = useState({ departments: [], areas: [] });
   const [data, setData] = useState(null);
+  const [loadError, setLoadError] = useState('');
+  const [attempt, setAttempt] = useState(0);
   useEffect(() => {
     Promise.all([listStructure('departments'), listStructure('areas')])
       .then(([departments, areas]) => setLists({ departments, areas }))
@@ -25,12 +27,12 @@ export default function ScheduleCalendar() {
   useEffect(() => {
     let cancelled = false;
     getSchedule({ month, ...filters })
-      .then((d) => !cancelled && setData(d))
-      .catch((e) => notify.error(String(e?.message || 'Could not load the schedule.')));
+      .then((d) => !cancelled && (setData(d), setLoadError('')))
+      .catch((e) => !cancelled && setLoadError(String(e?.message || 'Could not load the schedule.')));
     return () => {
       cancelled = true;
     };
-  }, [month, filters]);
+  }, [month, filters, attempt]);
 
   return (
     <div className="space-y-4">
@@ -63,8 +65,9 @@ export default function ScheduleCalendar() {
           </div>
         ) : null}
       </div>
+      <LoadFailed message={loadError} onRetry={() => setAttempt((n) => n + 1)} />
       {!data ? (
-        <SkeletonCard lines={8} />
+        loadError ? null : <SkeletonCard lines={8} />
       ) : !data.rows.length ? (
         <EmptyState title="Nobody here" description="No one employed in this month matches." />
       ) : (

@@ -6,6 +6,7 @@ import { useDismissable } from '@ui/components/ui/useDismissable';
 import { formatDateIn } from '@ui/utils/dates';
 import { ProfileScreen } from '@ui/profile/ProfileScreen';
 import Toaster from '@ui/components/ui/Toaster';
+import { getMyPermissions } from '@ui/api/permissions';
 
 import { APPS, appById, availableApps, landingApp, subscribedApps } from './registry';
 import { appFromHost, hostForApp, isFrontDoor } from './appHosts';
@@ -52,6 +53,28 @@ export default function Shell() {
      as none: treating it as none would flash an empty rail. */
   const subscriptions = tenant?.subscriptions;
   const mine = useMemo(() => subscribedApps(subscriptions || []), [subscriptions]);
+
+  /*
+   * What this person may open in this company, so an app's menu offers only
+   * that. Null until known, or if it could not be read: then nothing is hidden
+   * — the server checks every request anyway, and a menu emptied by a failed
+   * lookup would be worse than one with an item that answers "no access".
+   */
+  const tenantKey = user && tenant ? `${tenant.id}|${tenant.branchId || ''}` : '';
+  const [grants, setGrants] = useState({ key: '', set: null });
+  /* Read for the company on screen only: another company's answer is no answer. */
+  const granted = grants.key === tenantKey ? grants.set : null;
+  useEffect(() => {
+    if (!tenantKey) return undefined;
+    let off = false;
+    Promise.resolve()
+      .then(getMyPermissions)
+      .then((d) => !off && setGrants({ key: tenantKey, set: new Set(Array.isArray(d?.permissions) ? d.permissions : []) }))
+      .catch(() => undefined);
+    return () => {
+      off = true;
+    };
+  }, [tenantKey]);
   /*
    * Which app is open, derived rather than stored.
    *
@@ -216,6 +239,9 @@ export default function Shell() {
   if (!tenant) return <CompanySetup />;
 
   const app = appById(activeAppId);
+  /* Items whose `permission` this person lacks go, then any section heading left with nothing under it. */
+  const allowed = (app?.nav || []).filter((item) => item.section || !item.permission || !granted || granted.has(item.permission));
+  const nav = allowed.filter((item, i) => !item.section || (allowed[i + 1] && !allowed[i + 1].section));
   /* A screen the open app does not have is not a screen: the same company
      switch that changes the app leaves last app's screen key behind, and
      honouring it shows "Nothing selected" instead of the new app's home. */
@@ -401,7 +427,7 @@ export default function Shell() {
           style={{ borderRight: '1px solid rgb(var(--border))', minHeight: 'calc(100vh - 3.5rem)' }}
           aria-label={app ? `${app.name} navigation` : 'Navigation'}
         >
-          {(app?.nav || []).map((item) =>
+          {nav.map((item) =>
             /* `{ section: 'Settings' }` starts a group: setup apart from daily work. */
             item.section ? (
               <p key={`section:${item.section}`} className="ui-caption px-2 pt-4 pb-1 uppercase tracking-wide">

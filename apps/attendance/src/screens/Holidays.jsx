@@ -4,6 +4,7 @@ import { Trash2 } from 'lucide-react';
 import { PageHeader, SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { createHoliday, deleteHoliday, listHolidays, todayIst, updateHoliday } from '../api/attendance';
+import LoadFailed from '../components/LoadFailed';
 import { listStructure } from '@ui/personnel/api';
 
 const WEEKDAY = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -13,6 +14,7 @@ const weekday = (iso) => WEEKDAY[new Date(`${iso}T00:00:00Z`).getUTCDay()];
 export default function Holidays() {
   const [year, setYear] = useState(Number(todayIst().slice(0, 4)));
   const [rows, setRows] = useState(null);
+  const [loadError, setLoadError] = useState('');
   const [form, setForm] = useState({ date: '', name: '', isOptional: false, areaId: '' });
   const [areas, setAreas] = useState([]);
   useEffect(() => {
@@ -20,7 +22,7 @@ export default function Holidays() {
   }, []);
 
   const load = useCallback(() => {
-    listHolidays(year).then(setRows).catch((e) => notify.error(String(e?.message || 'Could not load holidays.')));
+    listHolidays(year).then((v) => { setRows(v); setLoadError(''); }).catch((e) => setLoadError(String(e?.message || 'Could not load holidays.')));
   }, [year]);
   useEffect(() => {
     load();
@@ -89,8 +91,10 @@ export default function Holidays() {
         <button type="submit" className="ui-btn ui-btn-primary">Add holiday</button>
       </form>
 
+      <LoadFailed message={loadError} onRetry={load} />
+
       {!rows ? (
-        <SkeletonCard lines={5} />
+        loadError ? null : <SkeletonCard lines={5} />
       ) : !rows.length ? (
         <EmptyState title={`No holidays in ${year}`} description="Add the year's holidays above." />
       ) : (

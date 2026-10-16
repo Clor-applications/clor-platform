@@ -5,6 +5,7 @@ import { PageHeader, SkeletonCard, EmptyState } from '@ui/components/ui/Primitiv
 import Drawer from '@ui/components/ui/Drawer';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { createContractor, deleteContractor, listContractors, updateContractor } from '@ui/personnel/api';
+import LoadFailed from '../components/LoadFailed';
 
 const BLANK = { name: '', code: '', contactPerson: '', phone: '', email: '', gstin: '', licenceNo: '', licenceValidTo: '', address: '', isActive: true };
 
@@ -15,9 +16,10 @@ const BLANK = { name: '', code: '', contactPerson: '', phone: '', email: '', gst
  */
 export default function Contractors() {
   const [rows, setRows] = useState(null);
+  const [loadError, setLoadError] = useState('');
   const [editing, setEditing] = useState(null);
   const load = useCallback(() => {
-    listContractors().then(setRows).catch((e) => notify.error(String(e?.message || 'Could not load contractors.')));
+    listContractors().then((v) => { setRows(v); setLoadError(''); }).catch((e) => setLoadError(String(e?.message || 'Could not load contractors.')));
   }, []);
   useEffect(() => {
     load();
@@ -31,8 +33,9 @@ export default function Contractors() {
         description="Companies that supply workers. Link a worker to their contractor on their employee file."
         actions={<button type="button" className="ui-btn ui-btn-primary" onClick={() => setEditing({ ...BLANK })}><Plus size={16} aria-hidden="true" /> New contractor</button>}
       />
+      <LoadFailed message={loadError} onRetry={load} />
       {!rows ? (
-        <SkeletonCard lines={4} />
+        loadError ? null : <SkeletonCard lines={4} />
       ) : !rows.length ? (
         <EmptyState title="No contractors" description="Add the agencies and labour contractors who supply people." />
       ) : (

@@ -3,6 +3,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { PageHeader, SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import { notify } from '@ui/components/ui/notify';
 import { listEmployees, listUnmatchedPunches, matchPunches } from '../api/attendance';
+import LoadFailed from '../components/LoadFailed';
 
 /**
  * Punches from reader user IDs that match no employee (by Reader ID or
@@ -11,11 +12,12 @@ import { listEmployees, listUnmatchedPunches, matchPunches } from '../api/attend
  */
 export default function UnmatchedPunches() {
   const [rows, setRows] = useState(null);
+  const [loadError, setLoadError] = useState('');
   const [people, setPeople] = useState([]);
   const [choice, setChoice] = useState({});
 
   const load = useCallback(() => {
-    listUnmatchedPunches().then(setRows).catch((e) => notify.error(String(e?.message || 'Could not load punches.')));
+    listUnmatchedPunches().then((v) => { setRows(v); setLoadError(''); }).catch((e) => setLoadError(String(e?.message || 'Could not load punches.')));
   }, []);
   useEffect(() => {
     load();
@@ -35,8 +37,9 @@ export default function UnmatchedPunches() {
   return (
     <div className="space-y-4">
       <PageHeader entity="attendance" title="Unmatched punches" description="Reader user IDs that match no employee. Choose who each one is." />
+      <LoadFailed message={loadError} onRetry={load} />
       {!rows ? (
-        <SkeletonCard lines={4} />
+        loadError ? null : <SkeletonCard lines={4} />
       ) : !rows.length ? (
         <EmptyState title="Every punch is matched" description="Punches from an unknown reader ID will list here." />
       ) : (

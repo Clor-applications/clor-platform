@@ -6,6 +6,7 @@ import { notify } from '@ui/components/ui/notify';
 import { downloadCsv } from '@ui/utils/csv';
 import Modal from '@ui/components/ui/Modal';
 import { getPunchPhoto, listDevices, listEmployees, listTransactions, matchPunches, todayIst } from '../api/attendance';
+import LoadFailed from '../components/LoadFailed';
 
 /**
  * Every punch exactly as a reader sent it — before it is paired into a day.
@@ -15,6 +16,7 @@ import { getPunchPhoto, listDevices, listEmployees, listTransactions, matchPunch
 export default function Transactions() {
   const [filters, setFilters] = useState({ from: todayIst(), to: todayIst(), employeeId: '', deviceId: '', unmatched: '' });
   const [data, setData] = useState(null);
+  const [loadError, setLoadError] = useState('');
   const [people, setPeople] = useState([]);
   const [devices, setDevices] = useState([]);
   const [photo, setPhoto] = useState(null);
@@ -40,7 +42,7 @@ export default function Transactions() {
   };
 
   const load = useCallback(() => {
-    listTransactions(filters).then(setData).catch((e) => notify.error(String(e?.message || 'Could not load transactions.')));
+    listTransactions(filters).then((v) => { setData(v); setLoadError(''); }).catch((e) => setLoadError(String(e?.message || 'Could not load transactions.')));
   }, [filters]);
   useEffect(() => {
     load();
@@ -102,8 +104,9 @@ export default function Transactions() {
           <input type="checkbox" className="ui-checkbox" checked={filters.unmatched === 'true'} onChange={(e) => setFilters((f) => ({ ...f, unmatched: e.target.checked ? 'true' : '' }))} /> Unmatched only
         </label>
       </div>
+      <LoadFailed message={loadError} onRetry={load} />
       {!data ? (
-        <SkeletonCard lines={6} />
+        loadError ? null : <SkeletonCard lines={6} />
       ) : !data.transactions.length ? (
         <EmptyState title="No punches" description="No reader sent a punch in this range." />
       ) : (

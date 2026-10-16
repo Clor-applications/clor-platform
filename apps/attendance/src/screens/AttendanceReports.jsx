@@ -5,6 +5,7 @@ import { PageHeader, SkeletonCard, EmptyState } from '@ui/components/ui/Primitiv
 import { notify } from '@ui/components/ui/notify';
 import { downloadCsv } from '@ui/utils/csv';
 import { listReports, runReport, todayIst } from '../api/attendance';
+import LoadFailed from '../components/LoadFailed';
 
 const escapeHtml = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
@@ -38,14 +39,16 @@ table{border-collapse:collapse;width:100%}th,td{border:1px solid #bbb;padding:3p
  */
 export default function AttendanceReports() {
   const [catalogue, setCatalogue] = useState(null);
+  const [loadError, setLoadError] = useState('');
+  const [attempt, setAttempt] = useState(0);
   const [active, setActive] = useState(null);
   const [form, setForm] = useState({ date: todayIst(), month: todayIst().slice(0, 7), from: `${todayIst().slice(0, 7)}-01`, to: todayIst(), departmentId: '' });
   const [result, setResult] = useState(null);
   const [running, setRunning] = useState(false);
 
   useEffect(() => {
-    listReports().then(setCatalogue).catch((e) => notify.error(String(e?.message || 'Could not load reports.')));
-  }, []);
+    listReports().then((v) => { setCatalogue(v); setLoadError(''); }).catch((e) => setLoadError(String(e?.message || 'Could not load reports.')));
+  }, [attempt]);
 
   const pick = (r) => {
     setActive(r);
@@ -69,7 +72,7 @@ export default function AttendanceReports() {
   };
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
 
-  if (!catalogue) return <SkeletonCard lines={6} />;
+  if (!catalogue) return loadError ? <LoadFailed message={loadError} onRetry={() => setAttempt((n) => n + 1)} /> : <SkeletonCard lines={6} />;
 
   return (
     <div className="space-y-4">

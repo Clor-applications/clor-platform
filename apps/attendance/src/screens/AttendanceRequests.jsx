@@ -4,6 +4,7 @@ import { Check, X } from 'lucide-react';
 import { PageHeader, SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import { notify } from '@ui/components/ui/notify';
 import { approveRequest, listRequests, rejectRequest } from '../api/attendance';
+import LoadFailed from '../components/LoadFailed';
 
 const time = (iso) => (iso ? new Date(new Date(iso).getTime() + 330 * 60_000).toISOString().slice(11, 16) : '—');
 
@@ -11,9 +12,10 @@ const time = (iso) => (iso ? new Date(new Date(iso).getTime() + 330 * 60_000).to
 export default function AttendanceRequests() {
   const [status, setStatus] = useState('PENDING');
   const [rows, setRows] = useState(null);
+  const [loadError, setLoadError] = useState('');
 
   const load = useCallback(() => {
-    listRequests(status).then(setRows).catch((e) => notify.error(String(e?.message || 'Could not load requests.')));
+    listRequests(status).then((v) => { setRows(v); setLoadError(''); }).catch((e) => setLoadError(String(e?.message || 'Could not load requests.')));
   }, [status]);
   useEffect(() => {
     load();
@@ -39,8 +41,9 @@ export default function AttendanceRequests() {
           </button>
         ))}
       </div>
+      <LoadFailed message={loadError} onRetry={load} />
       {!rows ? (
-        <SkeletonCard lines={5} />
+        loadError ? null : <SkeletonCard lines={5} />
       ) : !rows.length ? (
         <EmptyState title="Nothing here" description={status === 'PENDING' ? 'No corrections are waiting.' : 'No requests in this list.'} />
       ) : (

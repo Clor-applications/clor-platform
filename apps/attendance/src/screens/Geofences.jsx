@@ -6,6 +6,7 @@ import Drawer from '@ui/components/ui/Drawer';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { listStructure } from '@ui/personnel/api';
 import { createGeofence, deleteGeofence, listGeofences, updateGeofence } from '../api/attendance';
+import LoadFailed from '../components/LoadFailed';
 
 const mapLink = (f) => `https://www.openstreetmap.org/?mlat=${f.latitude}&mlon=${f.longitude}#map=17/${f.latitude}/${f.longitude}`;
 
@@ -16,10 +17,11 @@ const mapLink = (f) => `https://www.openstreetmap.org/?mlat=${f.latitude}&mlon=$
  */
 export default function Geofences() {
   const [rows, setRows] = useState(null);
+  const [loadError, setLoadError] = useState('');
   const [areas, setAreas] = useState([]);
   const [editing, setEditing] = useState(null);
   const load = useCallback(() => {
-    listGeofences().then(setRows).catch((e) => notify.error(String(e?.message || 'Could not load sites.')));
+    listGeofences().then((v) => { setRows(v); setLoadError(''); }).catch((e) => setLoadError(String(e?.message || 'Could not load sites.')));
   }, []);
   useEffect(() => {
     load();
@@ -38,8 +40,9 @@ export default function Geofences() {
           </button>
         }
       />
+      <LoadFailed message={loadError} onRetry={load} />
       {!rows ? (
-        <SkeletonCard lines={4} />
+        loadError ? null : <SkeletonCard lines={4} />
       ) : !rows.length ? (
         <EmptyState title="No work sites" description="Add the office, the factory gate or a client site. Standing there, “Use where I am” fills in the position." />
       ) : (

@@ -4,6 +4,7 @@ import { LogIn, LogOut } from 'lucide-react';
 import { PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
 import { notify } from '@ui/components/ui/notify';
 import { STATUS, clock, getMe, hm, requestCorrection, todayIst } from '../api/attendance';
+import LoadFailed from '../components/LoadFailed';
 
 /**
  * Clock in, clock out, and one's own month — Horilla's check-in/out widget.
@@ -56,7 +57,7 @@ export default function MyAttendance() {
     return (
       <div className="space-y-4">
         <PageHeader entity="attendance" title="My attendance" />
-        <div className="ui-card p-4 text-sm" role="alert">{error}</div>
+        <LoadFailed message={error} onRetry={load} />
       </div>
     );
   }

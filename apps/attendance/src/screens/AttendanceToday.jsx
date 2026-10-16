@@ -3,12 +3,14 @@ import { Clock, UserCheck, UserX, Users } from 'lucide-react';
 
 import { PageHeader, SkeletonCard, StatTile } from '@ui/components/ui/Primitives';
 import { getOverview, todayIst } from '../api/attendance';
+import LoadFailed from '../components/LoadFailed';
 
 /** Who is in today, who is late, who has not come — after Horilla's dashboard. */
 export default function AttendanceToday() {
   const [date, setDate] = useState(todayIst());
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -18,7 +20,7 @@ export default function AttendanceToday() {
     return () => {
       cancelled = true;
     };
-  }, [date]);
+  }, [date, attempt]);
 
   return (
     <div className="space-y-6">
@@ -30,9 +32,9 @@ export default function AttendanceToday() {
           <input type="date" className="ui-input" value={date} max={todayIst()} onChange={(e) => setDate(e.target.value)} aria-label="Day" />
         }
       />
-      {error ? <div className="ui-card p-3 text-sm" role="alert" style={{ color: 'rgb(var(--neg))' }}>{error}</div> : null}
+      <LoadFailed message={error} onRetry={() => setAttempt((n) => n + 1)} />
       {!data ? (
-        <SkeletonCard lines={6} />
+        error ? null : <SkeletonCard lines={6} />
       ) : (
         <>
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">

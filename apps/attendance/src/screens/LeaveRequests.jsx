@@ -16,6 +16,7 @@ import {
   listLeaveTypes,
   rejectLeave,
 } from '../api/attendance';
+import LoadFailed from '../components/LoadFailed';
 
 const TABS = ['PENDING', 'APPROVED', 'REJECTED', 'CANCELLED', ''];
 
@@ -23,10 +24,11 @@ const TABS = ['PENDING', 'APPROVED', 'REJECTED', 'CANCELLED', ''];
 export default function LeaveRequests() {
   const [status, setStatus] = useState('PENDING');
   const [rows, setRows] = useState(null);
+  const [loadError, setLoadError] = useState('');
   const [adding, setAdding] = useState(false);
 
   const load = useCallback(() => {
-    listLeaveRequests({ status }).then(setRows).catch((e) => notify.error(String(e?.message || 'Could not load leave.')));
+    listLeaveRequests({ status }).then((v) => { setRows(v); setLoadError(''); }).catch((e) => setLoadError(String(e?.message || 'Could not load leave.')));
   }, [status]);
   useEffect(() => {
     load();
@@ -95,8 +97,9 @@ export default function LeaveRequests() {
           </button>
         ))}
       </div>
+      <LoadFailed message={loadError} onRetry={load} />
       {!rows ? (
-        <SkeletonCard lines={5} />
+        loadError ? null : <SkeletonCard lines={5} />
       ) : !rows.length ? (
         <EmptyState title="Nothing here" description={status === 'PENDING' ? 'No leave is waiting for approval.' : 'No leave in this list.'} />
       ) : (

@@ -5,6 +5,7 @@ import { PageHeader, SkeletonCard, EmptyState } from '@ui/components/ui/Primitiv
 import Drawer from '@ui/components/ui/Drawer';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { getPortalAccess, issuePortalCodes, listGeofences, resetPortalPassword, setPortalAccess } from '../api/attendance';
+import LoadFailed from '../components/LoadFailed';
 
 const STATE = {
   off: { label: 'Not set up', pill: 'ui-pill-neutral' },
@@ -21,13 +22,14 @@ const stateOf = (e) => (!e.portalEnabled ? (e.activated ? 'paused' : 'off') : e.
  */
 export default function PortalAccess() {
   const [data, setData] = useState(null);
+  const [loadError, setLoadError] = useState('');
   const [fences, setFences] = useState([]);
   const [picked, setPicked] = useState(() => new Set());
   const [q, setQ] = useState('');
   const [email, setEmail] = useState(false);
   const [issued, setIssued] = useState(null);
   const load = useCallback(() => {
-    getPortalAccess().then(setData).catch((e) => notify.error(String(e?.message || 'Could not load.')));
+    getPortalAccess().then((v) => { setData(v); setLoadError(''); }).catch((e) => setLoadError(String(e?.message || 'Could not load.')));
   }, []);
   useEffect(() => {
     load();
@@ -83,7 +85,7 @@ export default function PortalAccess() {
   const portalUrl = data ? `${window.location.origin}/#/portal?c=${encodeURIComponent(data.company.code)}` : '';
   const copy = (text) => navigator.clipboard?.writeText(text).then(() => notify.success('Copied.'), () => undefined);
 
-  if (!data) return <SkeletonCard lines={8} />;
+  if (!data) return loadError ? <LoadFailed message={loadError} onRetry={load} /> : <SkeletonCard lines={8} />;
   return (
     <div className="space-y-4">
       <PageHeader entity="attendance" title="Portal access" description="Employees sign in to the portal with the company code, their employee code and a password they choose." />

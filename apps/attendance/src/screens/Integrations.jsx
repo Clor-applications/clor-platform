@@ -15,6 +15,7 @@ import {
   testWebhook,
   updateWebhook,
 } from '../api/attendance';
+import LoadFailed from '../components/LoadFailed';
 
 const SCOPE_LABEL = {
   'attendance:read': 'Read attendance (days, punches, month summary)',
@@ -53,6 +54,7 @@ function ShownOnce({ label, value, onDone }) {
  */
 export default function Integrations() {
   const [keys, setKeys] = useState(null);
+  const [loadError, setLoadError] = useState('');
   const [hooks, setHooks] = useState(null);
   const [shown, setShown] = useState(null);
   const [keyForm, setKeyForm] = useState({ name: '', scopes: ['attendance:read'], allowedIps: '' });
@@ -60,7 +62,7 @@ export default function Integrations() {
   const base = publicApiBase();
 
   const load = useCallback(() => {
-    listApiKeys().then((r) => setKeys(r?.keys || [])).catch((e) => notify.error(String(e?.message || 'Could not load keys.')));
+    listApiKeys().then((r) => { setKeys(r?.keys || []); setLoadError(''); }).catch((e) => setLoadError(String(e?.message || 'Could not load keys.')));
     listWebhooks().then((r) => setHooks(r?.webhooks || [])).catch(() => setHooks([]));
   }, []);
   useEffect(() => {
@@ -132,8 +134,9 @@ export default function Integrations() {
           </fieldset>
           <div className="md:col-span-2"><button type="submit" className="ui-btn ui-btn-primary" disabled={!keyForm.scopes.length}><Plus size={16} aria-hidden="true" /> Create key</button></div>
         </form>
+        <LoadFailed message={loadError} onRetry={load} />
         {!keys ? (
-          <SkeletonCard lines={2} />
+          loadError ? null : <SkeletonCard lines={2} />
         ) : keys.length ? (
           <div className="overflow-x-auto ui-table-scroll">
             <table className="ui-table w-full text-sm">

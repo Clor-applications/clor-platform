@@ -3,6 +3,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
 import { notify } from '@ui/components/ui/notify';
 import { listContractors, listEmployees, listStructure, transferEmployees } from '@ui/personnel/api';
+import LoadFailed from '../components/LoadFailed';
 
 const FIELDS = {
   departmentId: { label: 'Department', list: 'departments', current: 'department' },
@@ -14,6 +15,7 @@ const FIELDS = {
 /** Move many people to another department, area, position or contractor at once (ClorTime's Personnel transfer). */
 export default function Transfer() {
   const [people, setPeople] = useState(null);
+  const [loadError, setLoadError] = useState('');
   const [lists, setLists] = useState({ departments: [], areas: [], positions: [], contractors: [] });
   const [field, setField] = useState('departmentId');
   const [from, setFrom] = useState('');
@@ -24,8 +26,11 @@ export default function Transfer() {
 
   const load = () =>
     listEmployees({ status: 'ACTIVE', limit: 2000 })
-      .then((r) => setPeople(r?.employees || []))
-      .catch((e) => notify.error(String(e?.message || 'Could not load people.')));
+      .then((r) => {
+        setPeople(r?.employees || []);
+        setLoadError('');
+      })
+      .catch((e) => setLoadError(String(e?.message || 'Could not load people.')));
   useEffect(() => {
     load();
     Promise.all([listStructure('departments'), listStructure('areas'), listStructure('job-positions'), listContractors()])
@@ -92,8 +97,9 @@ export default function Transfer() {
           {saving ? 'Moving…' : `Move ${picked.size || ''}`}
         </button>
       </section>
+      <LoadFailed message={loadError} onRetry={load} />
       {!people ? (
-        <SkeletonCard lines={6} />
+        loadError ? null : <SkeletonCard lines={6} />
       ) : (
         <section className="ui-card p-4" aria-label="People">
           <div className="mb-3 flex flex-wrap items-center gap-2">

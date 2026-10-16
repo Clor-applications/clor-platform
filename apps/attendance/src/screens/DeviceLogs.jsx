@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useState } from 'react';
 
 import { PageHeader, SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
-import { notify } from '@ui/components/ui/notify';
 import { listDeviceLogs, todayIst } from '../api/attendance';
+import LoadFailed from '../components/LoadFailed';
 
 const weekAgo = () => new Date(Date.now() + 330 * 60_000 - 6 * 86_400_000).toISOString().slice(0, 10);
 
@@ -15,11 +15,15 @@ export default function DeviceLogs() {
   const [kind, setKind] = useState('OPERATION');
   const [range, setRange] = useState({ from: weekAgo(), to: todayIst() });
   const [rows, setRows] = useState(null);
+  const [loadError, setLoadError] = useState('');
 
   const load = useCallback(() => {
     listDeviceLogs({ kind, ...range })
-      .then((r) => setRows(r?.logs || []))
-      .catch((e) => notify.error(String(e?.message || 'Could not load reader logs.')));
+      .then((r) => {
+        setRows(r?.logs || []);
+        setLoadError('');
+      })
+      .catch((e) => setLoadError(String(e?.message || 'Could not load reader logs.')));
   }, [kind, range]);
   useEffect(() => {
     load();
@@ -37,8 +41,9 @@ export default function DeviceLogs() {
         <input type="date" className="ui-input !w-auto" value={range.from} max={range.to} onChange={(e) => setRange({ ...range, from: e.target.value })} aria-label="From" />
         <input type="date" className="ui-input !w-auto" value={range.to} max={todayIst()} onChange={(e) => setRange({ ...range, to: e.target.value })} aria-label="To" />
       </div>
+      <LoadFailed message={loadError} onRetry={load} />
       {!rows ? (
-        <SkeletonCard lines={5} />
+        loadError ? null : <SkeletonCard lines={5} />
       ) : !rows.length ? (
         <EmptyState title={kind === 'ERROR' ? 'No errors' : 'No operations'} description="Readers send these with their punches." />
       ) : (

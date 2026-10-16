@@ -5,6 +5,7 @@ import { PageHeader, SkeletonCard, EmptyState } from '@ui/components/ui/Primitiv
 import Drawer from '@ui/components/ui/Drawer';
 import { notify } from '@ui/components/ui/notify';
 import { getReaderHealth, saveReaderAlertSettings } from '../api/attendance';
+import LoadFailed from '../components/LoadFailed';
 
 const ago = (iso) => {
   if (!iso) return 'never';
@@ -36,9 +37,10 @@ const clock = (sec) => {
  */
 export default function ReaderHealth() {
   const [data, setData] = useState(null);
+  const [loadError, setLoadError] = useState('');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const load = useCallback(() => {
-    getReaderHealth().then(setData).catch((e) => notify.error(String(e?.message || 'Could not load reader health.')));
+    getReaderHealth().then((v) => { setData(v); setLoadError(''); }).catch((e) => setLoadError(String(e?.message || 'Could not load reader health.')));
   }, []);
   useEffect(() => {
     load();
@@ -46,7 +48,7 @@ export default function ReaderHealth() {
     return () => clearInterval(t);
   }, [load]);
 
-  if (!data) return <SkeletonCard lines={8} />;
+  if (!data) return loadError ? <LoadFailed message={loadError} onRetry={load} /> : <SkeletonCard lines={8} />;
   const open = data.alerts.filter((a) => !a.resolvedAt);
   const recent = data.alerts.filter((a) => a.resolvedAt).slice(0, 10);
   const problems = data.readers.filter((r) => r.status !== 'ok' && r.status !== 'off').length;

@@ -4,6 +4,7 @@ import { Wrench } from 'lucide-react';
 import { PageHeader, SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { deviceCommand, fixReaderGaps, getReaderSync, removeReaderExtras } from '../api/attendance';
+import LoadFailed from '../components/LoadFailed';
 
 const CELL = {
   OK: { mark: '✓', label: 'On the reader', color: 'rgb(var(--pos))' },
@@ -21,10 +22,11 @@ const CELL = {
  */
 export default function ReaderSync() {
   const [data, setData] = useState(null);
+  const [loadError, setLoadError] = useState('');
   const [onlyGaps, setOnlyGaps] = useState(true);
   const [q, setQ] = useState('');
   const load = useCallback(() => {
-    getReaderSync().then(setData).catch((e) => notify.error(String(e?.message || 'Could not load.')));
+    getReaderSync().then((v) => { setData(v); setLoadError(''); }).catch((e) => setLoadError(String(e?.message || 'Could not load.')));
   }, []);
   useEffect(() => {
     load();
@@ -66,7 +68,7 @@ export default function ReaderSync() {
     }
   };
 
-  if (!data) return <SkeletonCard lines={8} />;
+  if (!data) return loadError ? <LoadFailed message={loadError} onRetry={load} /> : <SkeletonCard lines={8} />;
   const gaps = data.summary.reduce((s, x) => s + x.missing + x.partial, 0);
   return (
     <div className="space-y-4">

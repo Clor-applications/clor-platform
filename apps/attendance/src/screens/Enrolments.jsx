@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 
 import { PageHeader, SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
-import { notify } from '@ui/components/ui/notify';
 import { listBiometrics } from '../api/attendance';
+import LoadFailed from '../components/LoadFailed';
 
 /**
  * Who has fingerprints and a face on record, as the readers enrolled them.
@@ -11,10 +11,12 @@ import { listBiometrics } from '../api/attendance';
  */
 export default function Enrolments() {
   const [rows, setRows] = useState(null);
+  const [loadError, setLoadError] = useState('');
+  const [attempt, setAttempt] = useState(0);
   const [q, setQ] = useState('');
   useEffect(() => {
-    listBiometrics().then(setRows).catch((e) => notify.error(String(e?.message || 'Could not load enrolments.')));
-  }, []);
+    listBiometrics().then((v) => { setRows(v); setLoadError(''); }).catch((e) => setLoadError(String(e?.message || 'Could not load enrolments.')));
+  }, [attempt]);
   const shown = (rows || []).filter((r) => !q.trim() || `${r.employeeName || ''} ${r.employeeCode || ''} ${r.pin}`.toLowerCase().includes(q.trim().toLowerCase()));
 
   return (
@@ -25,8 +27,9 @@ export default function Enrolments() {
         description="Fingerprints and faces enrolled on the readers. Enrol once on any reader; it is copied to the others."
         actions={<input type="search" className="ui-input" placeholder="Search" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search enrolments" />}
       />
+      <LoadFailed message={loadError} onRetry={() => setAttempt((n) => n + 1)} />
       {!rows ? (
-        <SkeletonCard lines={5} />
+        loadError ? null : <SkeletonCard lines={5} />
       ) : !rows.length ? (
         <EmptyState title="Nothing enrolled yet" description="Enrol people at a reader, or use “Fetch fingerprints & faces” on a reader that already has them." />
       ) : (

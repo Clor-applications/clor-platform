@@ -4,6 +4,7 @@ import { Trash2 } from 'lucide-react';
 import { PageHeader, SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import { notify } from '@ui/components/ui/notify';
 import { addTemporarySchedule, listEmployees, listShifts, listTemporarySchedules, removeTemporarySchedule, todayIst } from '../api/attendance';
+import LoadFailed from '../components/LoadFailed';
 
 /**
  * A different shift for a few days — cover, a training week, a swap. Wins over
@@ -11,13 +12,14 @@ import { addTemporarySchedule, listEmployees, listShifts, listTemporarySchedules
  */
 export default function TemporarySchedule() {
   const [rows, setRows] = useState(null);
+  const [loadError, setLoadError] = useState('');
   const [people, setPeople] = useState([]);
   const [shifts, setShifts] = useState([]);
   const [picked, setPicked] = useState(() => new Set());
   const [q, setQ] = useState('');
   const [form, setForm] = useState({ shiftId: '', fromDate: todayIst(), toDate: todayIst(), reason: '' });
   const load = useCallback(() => {
-    listTemporarySchedules().then(setRows).catch((e) => notify.error(String(e?.message || 'Could not load.')));
+    listTemporarySchedules().then((v) => { setRows(v); setLoadError(''); }).catch((e) => setLoadError(String(e?.message || 'Could not load.')));
   }, []);
   useEffect(() => {
     load();
@@ -76,8 +78,9 @@ export default function TemporarySchedule() {
           ))}
         </ul>
       </section>
+      <LoadFailed message={loadError} onRetry={load} />
       {!rows ? (
-        <SkeletonCard lines={4} />
+        loadError ? null : <SkeletonCard lines={4} />
       ) : !rows.length ? (
         <EmptyState title="No temporary schedules" description="None from this month on." />
       ) : (

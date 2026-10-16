@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
 import { notify } from '@ui/components/ui/notify';
 import { getRules, listShifts, recompute, saveRules, todayIst } from '../api/attendance';
+import LoadFailed from '../components/LoadFailed';
 
 const monthStart = () => `${todayIst().slice(0, 7)}-01`;
 
@@ -13,13 +14,15 @@ const monthStart = () => `${todayIst().slice(0, 7)}-01`;
  */
 export default function AttendanceRules() {
   const [rules, setRules] = useState(null);
+  const [loadError, setLoadError] = useState('');
+  const [attempt, setAttempt] = useState(0);
   const [shifts, setShifts] = useState([]);
   const [range, setRange] = useState({ from: monthStart(), to: todayIst() });
   const [busy, setBusy] = useState(false);
   useEffect(() => {
-    getRules().then(setRules).catch((e) => notify.error(String(e?.message || 'Could not load the rules.')));
+    getRules().then((v) => { setRules(v); setLoadError(''); }).catch((e) => setLoadError(String(e?.message || 'Could not load the rules.')));
     listShifts().then((s) => setShifts(s.filter((x) => x.isActive))).catch(() => setShifts([]));
-  }, []);
+  }, [attempt]);
 
   const save = async (e) => {
     e.preventDefault();
@@ -42,7 +45,7 @@ export default function AttendanceRules() {
     }
   };
 
-  if (!rules) return <SkeletonCard lines={6} />;
+  if (!rules) return loadError ? <LoadFailed message={loadError} onRetry={() => setAttempt((n) => n + 1)} /> : <SkeletonCard lines={6} />;
   return (
     <div className="space-y-6">
       <PageHeader entity="attendance" title="Attendance rules" description="Company-wide rules. Late grace, half day, overtime and weekly offs are set on each shift." />

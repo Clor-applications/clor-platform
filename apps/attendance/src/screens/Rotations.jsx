@@ -16,6 +16,7 @@ import {
   todayIst,
   updateRotation,
 } from '../api/attendance';
+import LoadFailed from '../components/LoadFailed';
 
 const PERIODS = { 7: 'a week', 14: 'two weeks', 1: 'a day' };
 
@@ -26,11 +27,12 @@ const PERIODS = { 7: 'a week', 14: 'two weeks', 1: 'a day' };
  */
 export default function Rotations() {
   const [rows, setRows] = useState(null);
+  const [loadError, setLoadError] = useState('');
   const [shifts, setShifts] = useState([]);
   const [editing, setEditing] = useState(null);
   const [crew, setCrew] = useState(null);
   const load = useCallback(() => {
-    listRotations().then(setRows).catch((e) => notify.error(String(e?.message || 'Could not load rotations.')));
+    listRotations().then((v) => { setRows(v); setLoadError(''); }).catch((e) => setLoadError(String(e?.message || 'Could not load rotations.')));
   }, []);
   useEffect(() => {
     load();
@@ -50,8 +52,9 @@ export default function Rotations() {
           </button>
         }
       />
+      <LoadFailed message={loadError} onRetry={load} />
       {!rows ? (
-        <SkeletonCard lines={4} />
+        loadError ? null : <SkeletonCard lines={4} />
       ) : !rows.length ? (
         <EmptyState title="No rotations" description={shifts.length ? 'Create a pattern, e.g. Day week → Night week.' : 'Create shifts first.'} />
       ) : (
