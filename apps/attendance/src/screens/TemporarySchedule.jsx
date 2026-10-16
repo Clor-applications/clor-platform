@@ -3,7 +3,7 @@ import { Trash2 } from 'lucide-react';
 
 import { PageHeader, SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import { notify } from '@ui/components/ui/notify';
-import { addTemporarySchedule, listEmployees, listShifts, listTemporarySchedules, removeTemporarySchedule, todayIst } from '../api/attendance';
+import { addTemporarySchedule, dayLabel, listEmployees, listShifts, listTemporarySchedules, removeTemporarySchedule, todayIst } from '../api/attendance';
 import LoadFailed from '../components/LoadFailed';
 
 /**
@@ -101,8 +101,8 @@ export default function TemporarySchedule() {
                 <tr key={r.id}>
                   <td className="ui-col-entity">{r.employeeName}</td>
                   <td>{r.shiftName}</td>
-                  <td>{r.fromDate}</td>
-                  <td>{r.toDate}</td>
+                  <td className="whitespace-nowrap">{dayLabel(r.fromDate)}</td>
+                  <td className="whitespace-nowrap">{dayLabel(r.toDate)}</td>
                   <td className="ui-col-meta">{r.reason || '—'}</td>
                   <td className="text-end">
                     <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" aria-label={`Remove ${r.employeeName}'s temporary schedule`} onClick={async () => { await removeTemporarySchedule(r.id); load(); }}>

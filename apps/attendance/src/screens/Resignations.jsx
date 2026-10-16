@@ -57,7 +57,7 @@ export default function Resignations() {
         <EmptyState title="Nobody has left" description="People who leave are listed here, with the reason." />
       ) : (
         <div className="ui-card overflow-hidden">
-          <div className="overflow-x-auto ui-table-scroll">
+          <div className="overflow-x-auto ui-table-scroll ui-table-fit">
             <table className="ui-table w-full">
               <thead>
                 <tr>
@@ -110,6 +110,7 @@ function RecordLeaving({ people, onClose, onSaved }) {
   };
   return (
     <Drawer
+      widthClass="w-[min(40rem,96vw)]"
       open
       onClose={onClose}
       title="Record leaving"

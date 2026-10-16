@@ -99,11 +99,12 @@ export default function Drawer({ open, onClose, title, description = '', actions
         aria-modal="true"
         aria-label={title}
         tabIndex={-1}
-        className={`ui-surface h-full ${widthClass} max-w-full shadow-xl flex flex-col ${closing ? 'ui-out-edge' : 'ui-in-right'}`}
+        className={`ui-surface h-full ${widthClass} max-w-full flex flex-col ${closing ? 'ui-out-edge' : 'ui-in-right'}`}
         onAnimationEnd={(e) => {
           if (closing && e.target === e.currentTarget) onClose?.();
         }}
-        style={{ borderInlineStart: '1px solid rgb(var(--border))' }}
+        /* A floating surface takes the token shadow, which dark mode redefines (DESIGN.md: no Tailwind shadow utilities). */
+        style={{ borderInlineStart: '1px solid rgb(var(--border))', boxShadow: 'var(--shadow-pop)' }}
       >
         <div
           className="flex items-start justify-between gap-3 px-5 py-4 shrink-0"

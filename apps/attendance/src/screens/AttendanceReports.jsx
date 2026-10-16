@@ -157,7 +157,7 @@ export default function AttendanceReports() {
                   {!result.rows.length ? (
                     <p className="ui-muted p-6 text-center text-sm">Nothing in this period.</p>
                   ) : (
-                    <div className="mt-2 overflow-x-auto ui-table-scroll">
+                    <div className="mt-2 overflow-x-auto ui-table-scroll ui-table-fit">
                       <table className="ui-table w-full text-sm">
                         <thead>
                           <tr>

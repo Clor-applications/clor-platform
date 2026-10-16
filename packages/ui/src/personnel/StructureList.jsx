@@ -141,7 +141,7 @@ export default function StructureList({ kind }) {
         <EmptyState title={`No ${cfg.title.toLowerCase()} yet`} description={cfg.description} />
       ) : (
         <div className="ui-card overflow-hidden">
-          <div className="overflow-x-auto ui-table-scroll">
+          <div className="overflow-x-auto ui-table-scroll ui-table-fit">
             <table className="ui-table w-full">
               <thead>
                 <tr>
@@ -180,6 +180,7 @@ export default function StructureList({ kind }) {
       )}
 
       <Drawer
+      widthClass="w-[min(40rem,96vw)]"
         open={Boolean(editing)}
         onClose={() => setEditing(null)}
         title={editing?.id ? `Edit ${cfg.singular}` : `New ${cfg.singular}`}

@@ -104,7 +104,7 @@ export default function LeaveRequests() {
         <EmptyState title="Nothing here" description={status === 'PENDING' ? 'No leave is waiting for approval.' : 'No leave in this list.'} />
       ) : (
         <div className="ui-card overflow-hidden">
-          <div className="overflow-x-auto ui-table-scroll">
+          <div className="overflow-x-auto ui-table-scroll ui-table-fit">
             <table className="ui-table w-full">
               <thead>
                 <tr>
@@ -183,6 +183,7 @@ function AddLeave({ onClose, onSaved }) {
 
   return (
     <Drawer
+      widthClass="w-[min(40rem,96vw)]"
       open
       onClose={onClose}
       title="Add leave"

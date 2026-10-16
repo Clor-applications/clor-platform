@@ -1,3 +1,4 @@
+import { formatDateIn } from '@ui/utils/dates';
 import { API_BASE, apiFetch } from '@platform/http';
 import { orgId as platformOrgId } from '@platform/context';
 
@@ -52,6 +53,18 @@ export const getSummary = (month) => get(`/summary${query({ month })}`);
 
 /** IST "today", the attendance day. */
 export const todayIst = () => new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
+/**
+ * A calendar date as people read it: the platform's dd/mm/yyyy (formatDateIn,
+ * as Accounting shows dates), or "Fri, 16 Oct" with `weekday` for a list of
+ * days. Read as UTC so the date never moves a day with the browser's time zone.
+ */
+export const dayLabel = (iso, { weekday = false, year = true } = {}) => {
+  if (!iso) return '—';
+  if (!weekday) return formatDateIn(iso);
+  const d = new Date(`${String(iso).slice(0, 10)}T00:00:00Z`);
+  if (Number.isNaN(d.getTime())) return String(iso);
+  return d.toLocaleDateString('en-IN', { timeZone: 'UTC', day: '2-digit', month: 'short', weekday: 'short', ...(year ? { year: 'numeric' } : {}) });
+};
 export const hm = (minutes) => {
   const m = Math.max(0, Number(minutes) || 0);
   return `${Math.floor(m / 60)}:${String(m % 60).padStart(2, '0')}`;

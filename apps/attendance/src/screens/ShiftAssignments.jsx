@@ -122,7 +122,7 @@ export default function ShiftAssignments() {
         <EmptyState title="No one has their own schedule" description="People follow their rotation, their department’s schedule, or the company default shift (Attendance rules)." />
       ) : (
         <div className="ui-card overflow-hidden">
-          <div className="overflow-x-auto ui-table-scroll">
+          <div className="overflow-x-auto ui-table-scroll ui-table-fit">
             <table className="ui-table w-full">
               <thead>
                 <tr>

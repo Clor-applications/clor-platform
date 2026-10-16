@@ -3,7 +3,7 @@ import { LogIn, LogOut } from 'lucide-react';
 
 import { PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
 import { notify } from '@ui/components/ui/notify';
-import { STATUS, clock, getMe, hm, requestCorrection, todayIst } from '../api/attendance';
+import { clock, dayLabel, getMe, hm, requestCorrection, STATUS, todayIst } from '../api/attendance';
 import LoadFailed from '../components/LoadFailed';
 
 /**
@@ -84,7 +84,7 @@ export default function MyAttendance() {
 
       <section className="ui-card overflow-hidden" aria-labelledby="mine-h">
         <h2 id="mine-h" className="ui-t-sec px-5 pt-4">Last 30 days</h2>
-        <div className="overflow-x-auto ui-table-scroll">
+        <div className="overflow-x-auto ui-table-scroll ui-table-fit">
           <table className="ui-table w-full">
             <thead>
               <tr>
@@ -99,7 +99,7 @@ export default function MyAttendance() {
             <tbody>
               {me.records.map((r) => (
                 <tr key={r.id}>
-                  <td>{r.date}</td>
+                  <td className="whitespace-nowrap">{dayLabel(r.date, { weekday: true, year: false })}</td>
                   <td className="ui-col-h-center">{r.checkInTime || '—'}</td>
                   <td className="ui-col-h-center">{r.checkOutTime || '—'}</td>
                   <td className="text-end tabular-nums">{r.checkOut ? hm(r.workedMinutes) : '—'}</td>
@@ -128,7 +128,7 @@ export default function MyAttendance() {
           <ul className="mt-4 space-y-1 text-sm">
             {me.requests.map((r) => (
               <li key={r.id} className="flex items-center justify-between">
-                <span>{r.date} — {r.reason}</span>
+                <span>{dayLabel(r.date)} — {r.reason}</span>
                 <span className={`ui-pill ${r.status === 'APPROVED' ? 'ui-pill-pos' : r.status === 'REJECTED' ? 'ui-pill-neg' : 'ui-pill-warn'}`}>{r.status.toLowerCase()}</span>
               </li>
             ))}

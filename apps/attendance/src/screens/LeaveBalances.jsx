@@ -79,7 +79,7 @@ export default function LeaveBalances() {
         <EmptyState title="No leave types" description="Create leave types first (Leave types)." />
       ) : (
         <div className="ui-card overflow-hidden">
-          <div className="overflow-x-auto ui-table-scroll">
+          <div className="overflow-x-auto ui-table-scroll ui-table-fit">
             <table className="ui-table w-full">
               <thead>
                 <tr>

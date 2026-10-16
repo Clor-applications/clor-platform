@@ -91,7 +91,7 @@ export default function PortalAccess() {
       <PageHeader entity="attendance" title="Portal access" description="Employees sign in to the portal with the company code, their employee code and a password they choose." />
 
       <section className="ui-card flex flex-wrap items-center gap-x-8 gap-y-2 p-4 text-sm">
-        <div><span className="ui-t-label block">Company code</span><span className="font-mono text-base font-semibold">{data.company.code}</span></div>
+        <div><span className="ui-t-label block">Company code</span><span className="ui-mono text-base font-semibold">{data.company.code}</span></div>
         <div className="min-w-0 flex-1">
           <span className="ui-t-label block">Portal address</span>
           <span className="flex items-center gap-2">
@@ -133,7 +133,7 @@ export default function PortalAccess() {
         <EmptyState title="No employees" description="Add employees first." />
       ) : (
         <div className="ui-card overflow-hidden">
-          <div className="overflow-x-auto ui-table-scroll">
+          <div className="overflow-x-auto ui-table-scroll ui-table-fit">
             <table className="ui-table w-full">
               <thead>
                 <tr>
@@ -161,9 +161,9 @@ export default function PortalAccess() {
                     <tr key={p.id}>
                       <td><input type="checkbox" className="ui-checkbox" aria-label={`Pick ${p.name}`} checked={picked.has(p.id)} onChange={() => toggle(p.id)} /></td>
                       <td className="ui-col-entity">{p.name}<span className="ui-caption block">{p.department || ''}</span></td>
-                      <td className="font-mono">{p.code || <span className="ui-caption">none</span>}</td>
+                      <td className="ui-mono">{p.code || <span className="ui-caption">none</span>}</td>
                       <td><span className={`ui-pill ${st.pill}`}>{st.label}</span></td>
-                      <td className="ui-col-h-center">{p.mobilePunch ? '✓' : ''}</td>
+                      <td className="ui-col-h-center">{p.mobilePunch ? <span className="ui-pill ui-pill-pos">On</span> : <span className="ui-caption">Off</span>}</td>
                       <td className="ui-col-meta">{p.mobilePunch ? p.geofenceName ? `Only ${p.geofenceName}` : 'Any' : '—'}</td>
                       <td className="text-end">
                         {p.activated ? <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" onClick={() => reset(p)}>Forget password</button> : null}
@@ -201,7 +201,7 @@ function IssuedCodes({ issued, portalUrl, onClose }) {
     >
       <div className="space-y-3">
         <p className="text-sm">
-          Company code <span className="font-mono font-semibold">{issued.company.code}</span> · portal <span className="font-mono">{portalUrl}</span>
+          Company code <span className="ui-mono font-semibold">{issued.company.code}</span> · portal <span className="ui-mono">{portalUrl}</span>
         </p>
         <table className="ui-table w-full">
           <thead>
@@ -216,8 +216,8 @@ function IssuedCodes({ issued, portalUrl, onClose }) {
             {issued.codes.map((c) => (
               <tr key={c.employeeId}>
                 <td className="ui-col-entity">{c.name}</td>
-                <td className="font-mono">{c.employeeCode}</td>
-                <td className="font-mono text-base font-semibold tracking-wider">{c.activationCode}</td>
+                <td className="ui-mono">{c.employeeCode}</td>
+                <td className="ui-mono text-base font-semibold tracking-wider">{c.activationCode}</td>
                 <td className="ui-col-meta">{c.emailedTo || '—'}</td>
               </tr>
             ))}

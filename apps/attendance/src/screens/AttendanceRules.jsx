@@ -28,7 +28,7 @@ export default function AttendanceRules() {
     e.preventDefault();
     try {
       setRules(await saveRules({ ...rules, defaultShiftId: rules.defaultShiftId || null }));
-      notify.success('Rules saved. Past days keep their figures until you work them out again below.');
+      notify.success('Rules saved. Past days keep their figures until you recalculate them below.');
     } catch (err) {
       notify.error(String(err?.message || 'Not saved.'));
     }
@@ -37,7 +37,7 @@ export default function AttendanceRules() {
     setBusy(true);
     try {
       const r = await recompute(range);
-      notify.success(`${r.recomputed} days worked out again.`);
+      notify.success(`${r.recomputed} days recalculated.`);
     } catch (err) {
       notify.error(String(err?.message || 'Not done.'));
     } finally {
@@ -46,50 +46,76 @@ export default function AttendanceRules() {
   };
 
   if (!rules) return loadError ? <LoadFailed message={loadError} onRetry={() => setAttempt((n) => n + 1)} /> : <SkeletonCard lines={6} />;
+  const num = (k, fallback = 0) => (e) => setRules({ ...rules, [k]: e.target.value === '' ? fallback : Number(e.target.value) });
   return (
     <div className="space-y-6">
-      <PageHeader entity="attendance" title="Attendance rules" description="Company-wide rules. Late grace, half day, overtime and weekly offs are set on each shift." />
+      <PageHeader entity="attendance" title="Attendance rules" description="Company-wide. Grace, half day, overtime and weekly offs are set on each shift." />
 
-      <form onSubmit={save} className="ui-card grid gap-4 p-5 sm:grid-cols-2">
-        <label className="block sm:col-span-2">
-          <span className="ui-label">Shift for anyone with no schedule</span>
-          <select className="ui-select w-full" value={rules.defaultShiftId || ''} onChange={(e) => setRules({ ...rules, defaultShiftId: e.target.value })}>
-            <option value="">Standard 09:00–18:00, Sunday off</option>
-            {shifts.map((s) => <option key={s.id} value={s.id}>{s.name} ({s.startTime}–{s.endTime})</option>)}
-          </select>
-          <span className="ui-caption">Order: temporary schedule, own schedule, rotation, department schedule, then this.</span>
-        </label>
-        <label className="block">
-          <span className="ui-label">Late arrivals a month without penalty</span>
-          <input type="number" min={0} max={31} className="ui-input w-full" value={rules.lateAllowancePerMonth} onChange={(e) => setRules({ ...rules, lateAllowancePerMonth: Number(e.target.value) })} />
-        </label>
-        <label className="block">
-          <span className="ui-label">Then every … late arrivals = half a day’s loss of pay</span>
-          <input type="number" min={0} max={31} className="ui-input w-full" value={rules.latePenaltyEvery} onChange={(e) => setRules({ ...rules, latePenaltyEvery: Number(e.target.value) })} />
-          <span className="ui-caption">0 = no penalty. E.g. 3 → every third late arrival costs half a day.</span>
-        </label>
-        <label className="block">
-          <span className="ui-label">Keep phone-punch selfies for (days)</span>
-          <input type="number" min={7} max={365} className="ui-input w-full" value={rules.photoRetentionDays ?? 90} onChange={(e) => setRules({ ...rules, photoRetentionDays: Number(e.target.value) })} />
-          <span className="ui-caption">Then the photo is deleted; the punch stays. Personal data — keep it no longer than you need.</span>
-        </label>
-        <label className="flex items-start gap-2 text-sm sm:col-span-2">
-          <input type="checkbox" className="ui-checkbox mt-0.5" checked={rules.readerUsersBecomeEmployees !== false} onChange={(e) => setRules({ ...rules, readerUsersBecomeEmployees: e.target.checked })} />
-          <span>
-            People added on a reader become employees
-            <span className="ui-caption block">Sync both ways: someone enrolled at a reader whose ID matches no employee is added here, named as on the reader, and sent to the other readers. Off: their punches wait under Unmatched punches.</span>
-          </span>
-        </label>
-        <div className="sm:col-span-2"><button type="submit" className="ui-btn ui-btn-primary">Save rules</button></div>
+      {/* A settings page: the compact column (DESIGN.md, Content width), not a field stretched across the screen. */}
+      <form onSubmit={save} className="max-w-2xl space-y-6">
+        <section className="ui-card space-y-3 p-5" aria-labelledby="rules-default-h">
+          <h2 id="rules-default-h" className="ui-t-sec">Default shift</h2>
+          <label className="block">
+            <span className="ui-label">For anyone with no schedule</span>
+            <select className="ui-select w-full" value={rules.defaultShiftId || ''} onChange={(e) => setRules({ ...rules, defaultShiftId: e.target.value })}>
+              <option value="">Standard 09:00–18:00, Sunday off</option>
+              {shifts.map((s) => <option key={s.id} value={s.id}>{s.name} ({s.startTime}–{s.endTime})</option>)}
+            </select>
+            <span className="ui-caption">Used only when no temporary, personal, rotation or department schedule applies.</span>
+          </label>
+        </section>
+
+        <section className="ui-card space-y-3 p-5" aria-labelledby="rules-late-h">
+          <h2 id="rules-late-h" className="ui-t-sec">Late arrivals</h2>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="block">
+              <span className="ui-label">Free late arrivals a month</span>
+              <input type="number" inputMode="numeric" min={0} max={31} className="ui-input w-full" value={rules.lateAllowancePerMonth} onChange={num('lateAllowancePerMonth')} />
+            </label>
+            <label className="block">
+              <span className="ui-label">Then half a day’s pay lost every</span>
+              <div className="flex items-center gap-2">
+                <input type="number" inputMode="numeric" min={0} max={31} className="ui-input w-24" value={rules.latePenaltyEvery} onChange={num('latePenaltyEvery')} aria-describedby="late-every-hint" />
+                <span className="text-sm">late arrivals</span>
+              </div>
+            </label>
+          </div>
+          <p id="late-every-hint" className="ui-caption">
+            {Number(rules.latePenaltyEvery) > 0
+              ? `After ${Number(rules.lateAllowancePerMonth) || 0} free, every ${rules.latePenaltyEvery} late arrivals cost half a day.`
+              : 'No penalty: set a number above 0 to turn it on.'}
+          </p>
+        </section>
+
+        <section className="ui-card space-y-3 p-5" aria-labelledby="rules-readers-h">
+          <h2 id="rules-readers-h" className="ui-t-sec">Readers and phone punches</h2>
+          <label className="flex items-start gap-2 text-sm">
+            <input type="checkbox" className="ui-checkbox mt-0.5" checked={rules.readerUsersBecomeEmployees !== false} onChange={(e) => setRules({ ...rules, readerUsersBecomeEmployees: e.target.checked })} />
+            <span>
+              Add people enrolled on a reader as employees
+              <span className="ui-caption block">Named as on the reader and copied to your other readers. Off: their punches wait under Unmatched punches.</span>
+            </span>
+          </label>
+          <label className="block">
+            <span className="ui-label">Keep phone-punch selfies for</span>
+            <div className="flex items-center gap-2">
+              <input type="number" inputMode="numeric" min={7} max={365} className="ui-input w-24" value={rules.photoRetentionDays ?? 90} onChange={num('photoRetentionDays', 90)} />
+              <span className="text-sm">days</span>
+            </div>
+            <span className="ui-caption">Then the photo is deleted; the punch stays.</span>
+          </label>
+        </section>
+
+        <div><button type="submit" className="ui-btn ui-btn-primary">Save rules</button></div>
       </form>
 
-      <section className="ui-card space-y-3 p-5" aria-labelledby="recompute-h">
-        <h2 id="recompute-h" className="ui-t-sec">Work days out again</h2>
-        <p className="ui-caption">After changing shifts or schedules: days from readers and the clock are scored again against the schedules as they are now. Days someone set by hand, corrections and leave are not touched. Up to 62 days at a time.</p>
+      <section className="ui-card max-w-2xl space-y-3 p-5" aria-labelledby="recompute-h">
+        <h2 id="recompute-h" className="ui-t-sec">Recalculate past days</h2>
+        <p className="ui-caption">After changing shifts or schedules. Days set by hand, corrections and leave stay as they are. Up to 62 days at a time.</p>
         <div className="flex flex-wrap items-end gap-3">
           <label className="block"><span className="ui-label">From</span><input type="date" className="ui-input" value={range.from} max={range.to} onChange={(e) => setRange({ ...range, from: e.target.value })} /></label>
           <label className="block"><span className="ui-label">To</span><input type="date" className="ui-input" value={range.to} max={todayIst()} onChange={(e) => setRange({ ...range, to: e.target.value })} /></label>
-          <button type="button" className="ui-btn ui-btn-secondary" disabled={busy} onClick={run}>{busy ? 'Working…' : 'Work out again'}</button>
+          <button type="button" className="ui-btn ui-btn-secondary" disabled={busy} onClick={run}>{busy ? 'Recalculating…' : 'Recalculate'}</button>
         </div>
       </section>
     </div>

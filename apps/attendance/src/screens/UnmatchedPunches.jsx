@@ -44,7 +44,7 @@ export default function UnmatchedPunches() {
         <EmptyState title="Every punch is matched" description="Punches from an unknown reader ID will list here." />
       ) : (
         <div className="ui-card overflow-hidden">
-          <div className="overflow-x-auto ui-table-scroll">
+          <div className="overflow-x-auto ui-table-scroll ui-table-fit">
             <table className="ui-table w-full">
               <thead>
                 <tr>
@@ -59,7 +59,7 @@ export default function UnmatchedPunches() {
               <tbody>
                 {rows.map((r) => (
                   <tr key={r.pin}>
-                    <td className="font-mono">{r.pin}</td>
+                    <td className="ui-mono">{r.pin}</td>
                     <td>{r.readerName || '—'}</td>
                     <td className="text-end tabular-nums">{r.punches}</td>
                     <td className="whitespace-nowrap ui-col-meta">{r.first}</td>

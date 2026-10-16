@@ -6,6 +6,7 @@ import { PageHeader } from '@ui/components/ui/Primitives';
 import Drawer from '@ui/components/ui/Drawer';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { downloadCsv, downloadCsvTemplate, parseCsv, readFileText } from '@ui/utils/csv';
+import { formatDateIn } from '@ui/utils/dates';
 import { hasApp } from '@platform/context';
 import {
   LEAVING_TYPES,
@@ -270,7 +271,7 @@ export default function Employees() {
               <Avatar person={p} size={44} />
               <span className="min-w-0 flex-1">
                 <span className="block truncate font-medium">{p.name}</span>
-                <span className="block truncate ui-caption">{[p.designation, p.department].filter(Boolean).join(' · ') || '—'}</span>
+                <span className="block truncate ui-caption">{[p.designation, p.department].filter(Boolean).join(' · ') || 'No department or position'}</span>
                 <span className="mt-1.5 flex flex-wrap items-center gap-1">
                   <span className={`ui-pill ${statusOf(p.status).pill}`}>{statusOf(p.status).label}</span>
                   {p.code ? <span className="ui-pill ui-pill-neutral">{p.code}</span> : null}
@@ -284,7 +285,7 @@ export default function Employees() {
         </div>
       ) : (
         <div className="ui-card overflow-hidden">
-          <div className="overflow-x-auto ui-table-scroll">
+          <div className="overflow-x-auto ui-table-scroll ui-table-fit">
             <table className="ui-table w-full">
               <thead>
                 <tr>
@@ -310,7 +311,7 @@ export default function Employees() {
                     <td className="ui-col-meta">{p.department || '—'}</td>
                     <td className="ui-col-meta">{p.designation || '—'}</td>
                     <td className="ui-col-meta">{p.reportingManagerName || '—'}</td>
-                    <td className="ui-col-h-center">{p.dateOfJoining || '—'}</td>
+                    <td className="ui-col-h-center">{p.dateOfJoining ? formatDateIn(p.dateOfJoining) : '—'}</td>
                     <td className="ui-col-h-center"><span className={`ui-pill ${statusOf(p.status).pill}`}>{statusOf(p.status).label}</span></td>
                   </tr>
                 ))}
@@ -753,36 +754,21 @@ function EmployeeForm({ initial, lists, people, onClose, onSaved }) {
           ) : null}
         </section>
 
+        {/* What HR fills in for every new person comes first; personal details last. */}
         <section className="grid gap-4 sm:grid-cols-2">
-          <h3 className="ui-t-sec sm:col-span-2">Personal</h3>
+          <h3 className="ui-t-sec sm:col-span-2">Basics</h3>
           {input('firstName', 'First name', { autoFocus: true })}
           {input('lastName', 'Last name')}
-          {input('email', 'Personal email', { type: 'email' })}
+          {input('code', 'Employee ID')}
           {input('phone', 'Phone', { type: 'tel' })}
-          {input('dateOfBirth', 'Date of birth', { type: 'date' })}
-          {select('gender', 'Gender', [{ id: 'MALE', label: 'Male' }, { id: 'FEMALE', label: 'Female' }, { id: 'OTHER', label: 'Other' }])}
-          {select('maritalStatus', 'Marital status', [
-            { id: 'SINGLE', label: 'Single' },
-            { id: 'MARRIED', label: 'Married' },
-            { id: 'DIVORCED', label: 'Divorced' },
-            { id: 'WIDOWED', label: 'Widowed' },
-          ])}
-          <div className="sm:col-span-2">{input('addressLine', 'Address')}</div>
-          {input('city', 'City')}
-          {input('state', 'State')}
-          {input('pincode', 'PIN code')}
-          {input('country', 'Country')}
-          {input('emergencyContactName', 'Emergency contact')}
-          {input('emergencyContactRelation', 'Relation')}
-          {input('emergencyContactPhone', 'Emergency phone', { type: 'tel' })}
+          {select('departmentId', 'Department', lists.departments)}
+          {select('jobPositionId', 'Job position', positions)}
+          {input('dateOfJoining', 'Date of joining', { type: 'date' })}
+          {select('status', 'Status', STATUSES, {}, { required: true })}
         </section>
 
         <section className="grid gap-4 sm:grid-cols-2">
-          <h3 className="ui-t-sec sm:col-span-2">Work</h3>
-          {input('code', 'Employee ID')}
-          {select('status', 'Status', STATUSES, {}, { required: true })}
-          {select('departmentId', 'Department', lists.departments)}
-          {select('jobPositionId', 'Job position', positions)}
+          <h3 className="ui-t-sec sm:col-span-2">More about the job</h3>
           {select('jobRoleId', 'Job role', roles)}
           {select('employeeTypeId', 'Employee type', lists.types)}
           {select('workTypeId', 'Work type', lists.workTypes)}
@@ -790,7 +776,6 @@ function EmployeeForm({ initial, lists, people, onClose, onSaved }) {
           {input('workEmail', 'Work email', { type: 'email' })}
           {input('workPhone', 'Work phone', { type: 'tel' })}
           {input('workLocation', 'Work location')}
-          {input('dateOfJoining', 'Date of joining', { type: 'date' })}
           {input('probationEndDate', 'Probation ends', { type: 'date' })}
           {input('contractEndDate', 'Contract ends', { type: 'date' })}
           {form.status === 'LEFT' || form.dateOfLeaving ? input('dateOfLeaving', 'Date of leaving', { type: 'date' }) : null}
@@ -830,6 +815,28 @@ function EmployeeForm({ initial, lists, people, onClose, onSaved }) {
             </label>
           </section>
         ) : null}
+
+        <section className="grid gap-4 sm:grid-cols-2">
+          <h3 className="ui-t-sec sm:col-span-2">Personal details</h3>
+          {input('email', 'Personal email', { type: 'email' })}
+          {input('dateOfBirth', 'Date of birth', { type: 'date' })}
+          {select('gender', 'Gender', [{ id: 'MALE', label: 'Male' }, { id: 'FEMALE', label: 'Female' }, { id: 'OTHER', label: 'Other' }])}
+          {select('maritalStatus', 'Marital status', [
+            { id: 'SINGLE', label: 'Single' },
+            { id: 'MARRIED', label: 'Married' },
+            { id: 'DIVORCED', label: 'Divorced' },
+            { id: 'WIDOWED', label: 'Widowed' },
+          ])}
+          <div className="sm:col-span-2">{input('addressLine', 'Address')}</div>
+          {input('city', 'City')}
+          {input('state', 'State')}
+          {input('pincode', 'PIN code')}
+          {input('country', 'Country')}
+          {input('emergencyContactName', 'Emergency contact')}
+          {input('emergencyContactRelation', 'Relation')}
+          {input('emergencyContactPhone', 'Emergency phone', { type: 'tel' })}
+        </section>
+
 
         {lists.tags.length ? (
           <section>

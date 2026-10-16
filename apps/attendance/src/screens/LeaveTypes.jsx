@@ -105,6 +105,7 @@ function TypeForm({ initial, onClose, onSaved }) {
 
   return (
     <Drawer
+      widthClass="w-[min(40rem,96vw)]"
       open
       onClose={onClose}
       title={form.id ? form.name : 'New leave type'}

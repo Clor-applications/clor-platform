@@ -188,6 +188,7 @@ function AlertSettings({ initial, onClose, onSaved }) {
   };
   return (
     <Drawer
+      widthClass="w-[min(40rem,96vw)]"
       open
       onClose={onClose}
       title="Reader alerts"

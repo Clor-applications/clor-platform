@@ -12,6 +12,15 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * Dividers drawn with divide-y / divide-x take the theme's hairline. Tailwind
+ * paints them in its own light grey, which in dark mode is a bright white rule
+ * between every row. :where() keeps this weaker than any divide-{colour} class.
+ */
+:where(.divide-y, .divide-x) > :not([hidden]) ~ :not([hidden]) {
+  border-color: rgb(var(--border));
+}
+
 /* ---------------------------------------------------------------------------
    CLOR — design tokens.
 
@@ -2207,6 +2216,12 @@
     max-height: var(--table-scroll-h, calc(100dvh - 18rem));
     min-height: 8rem;
     overflow: auto;
+  }
+  /* Sized to its rows, up to the same cap: a two-row list (readers, holidays)
+     is not a screen-tall white box. The header still sticks once it scrolls. */
+  .ui-table-scroll.ui-table-fit {
+    height: auto;
+    min-height: 0;
   }
   .cash-bank-empty-table {
     width: 100%;

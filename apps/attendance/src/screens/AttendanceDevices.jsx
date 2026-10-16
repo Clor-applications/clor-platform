@@ -70,7 +70,7 @@ function NetworkApproval({ device, yourNetwork, onDone }) {
   return (
     <div className="ui-card flex flex-wrap items-center justify-between gap-3 p-4 text-sm" role="status">
       <span>
-        <strong>{device.name}</strong> is calling from <code className="font-mono">{device.awaitingNetwork}</code>, a network not approved for it. Its punches wait on the
+        <strong>{device.name}</strong> is calling from <code className="ui-mono">{device.awaitingNetwork}</code>, a network not approved for it. Its punches wait on the
         reader until it is.
         {!here ? ' To approve it, open this page on the same internet connection as the reader (the office Wi-Fi, not mobile data). If you did not move this reader, leave it.' : ''}
       </span>
@@ -83,7 +83,7 @@ function NetworkApproval({ device, yourNetwork, onDone }) {
   );
 }
 
-export default function AttendanceDevices() {
+export default function AttendanceDevices({ openScreen }) {
   const [data, setData] = useState(null);
   const [loadError, setLoadError] = useState('');
   const [adding, setAdding] = useState(false);
@@ -114,12 +114,13 @@ export default function AttendanceDevices() {
         }
       />
 
-      <section className="ui-card p-5 text-sm" aria-labelledby="setup-h">
-        <h2 id="setup-h" className="ui-t-sec mb-2">Connecting a reader</h2>
-        <ol className="list-decimal space-y-1 pl-5">
+      {/* Set-up steps are read once: open while there is no reader, folded away after. */}
+      <details className="ui-card p-5 text-sm" open={Boolean(data) && !data.devices.some((d) => !VIRTUAL[d.vendor])}>
+        <summary className="ui-t-sec cursor-pointer select-none">How to connect a reader</summary>
+        <ol className="mt-3 list-decimal space-y-1 pl-5">
           <li>
-            On the reader: <strong>Menu → Comm → Cloud Server Setting</strong>. Server address <code className="font-mono font-semibold">{server.host}</code>, port{' '}
-            <code className="font-mono font-semibold">80</code>, domain name <strong>on</strong>, proxy <strong>off</strong>. (Port 443 with HTTPS on, if the model offers it.)
+            On the reader: <strong>Menu → Comm → Cloud Server Setting</strong>. Server address <code className="ui-mono font-semibold">{server.host}</code>, port{' '}
+            <code className="ui-mono font-semibold">80</code>, domain name <strong>on</strong>, proxy <strong>off</strong>. (Port 443 with HTTPS on, if the model offers it.)
           </li>
           <li>Set the reader’s date and time to Indian time — punches are recorded at the reader’s clock.</li>
           <li>
@@ -132,7 +133,7 @@ export default function AttendanceDevices() {
           </li>
           <li>Each person’s user ID on the reader should be their employee code, or the Reader ID on their employee file.</li>
         </ol>
-      </section>
+      </details>
 
       <LoadFailed message={loadError} onRetry={load} />
 
@@ -142,7 +143,7 @@ export default function AttendanceDevices() {
         <EmptyState icon={Cpu} title="No readers yet" description="Point a reader at CLOR as above, then add it by its serial number." />
       ) : (
         <div className="ui-card overflow-hidden">
-          <div className="overflow-x-auto ui-table-scroll">
+          <div className="overflow-x-auto ui-table-scroll ui-table-fit">
             <table className="ui-table w-full">
               <thead>
                 <tr>
@@ -173,7 +174,7 @@ export default function AttendanceDevices() {
                       ) : d.online ? (
                         <span className="ui-pill ui-pill-pos">online</span>
                       ) : (
-                        <span className="ui-pill ui-pill-warn" title={d.lastSeenAt || ''}>last seen {ago(d.lastSeenAt)}</span>
+                        <span className="ui-pill ui-pill-warn" title={d.lastSeenAt || ''}>{d.lastSeenAt ? `last seen ${ago(d.lastSeenAt)}` : 'never connected'}</span>
                       )}
                     </td>
                     <td className="ui-col-meta">{[d.model, d.firmware && `v${d.firmware}`].filter(Boolean).join(' · ') || '—'}</td>
@@ -198,7 +199,11 @@ export default function AttendanceDevices() {
           <span>
             <strong>{data.unmatchedPunches}</strong> {data.unmatchedPunches === 1 ? 'punch is' : 'punches are'} from reader IDs that match no employee.
           </span>
-          <span className="ui-caption">Match them under Unmatched punches.</span>
+          {openScreen ? (
+            <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => openScreen('unmatched')}>Match them</button>
+          ) : (
+            <span className="ui-caption">Match them under Unmatched punches.</span>
+          )}
         </div>
       ) : null}
 
@@ -249,6 +254,7 @@ function AddReader({ onClose, onSaved }) {
   };
   return (
     <Drawer
+      widthClass="w-[min(40rem,96vw)]"
       open
       onClose={onClose}
       title="Add reader"
@@ -290,7 +296,7 @@ function AddReader({ onClose, onSaved }) {
         ) : (
           <label className="block">
             <span className="ui-label">Serial number *</span>
-            <input className="ui-input w-full font-mono" required pattern="[A-Za-z0-9_\-]{4,40}" value={form.serialNumber} onChange={(e) => setForm({ ...form, serialNumber: e.target.value.trim() })} placeholder="e.g. CQZ7224460123" />
+            <input className="ui-input w-full ui-mono" required pattern="[A-Za-z0-9_\-]{4,40}" value={form.serialNumber} onChange={(e) => setForm({ ...form, serialNumber: e.target.value.trim() })} placeholder="e.g. CQZ7224460123" />
           </label>
         )}
         <label className="block">
@@ -341,6 +347,7 @@ function CloudDrawer({ device, onClose, onChanged }) {
   };
   return (
     <Drawer
+      widthClass="w-[min(52rem,96vw)]"
       open
       onClose={onClose}
       title={device.name}
@@ -445,6 +452,7 @@ function ReaderDrawer({ device, onClose, onChanged }) {
 
   return (
     <Drawer
+      widthClass="w-[min(52rem,96vw)]"
       open
       onClose={onClose}
       title={device.name}
@@ -578,7 +586,7 @@ function ReaderDrawer({ device, onClose, onChanged }) {
             <ul className="grid gap-1 text-sm sm:grid-cols-2">
               {users.map((u) => (
                 <li key={u.id} className="flex justify-between gap-2">
-                  <span className="truncate"><span className="font-mono">{u.pin}</span> {u.name || ''}</span>
+                  <span className="truncate"><span className="ui-mono">{u.pin}</span> {u.name || ''}</span>
                   <span className="ui-caption" style={u.employeeName ? undefined : { color: 'rgb(var(--warn-ink))' }}>
                     {u.employeeName || 'no employee'}
                   </span>

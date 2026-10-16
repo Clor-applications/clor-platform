@@ -422,9 +422,11 @@ export default function Shell() {
       ) : (
       <div className="flex">
         {/* One app's navigation. Never four apps' worth. */}
+        {/* Pinned under the 56px header and scrolled on its own: a long menu (Attendance has 35 items)
+            scrolled the whole page, so a screen opened from its lower half was out of view. */}
         <nav
-          className="w-56 shrink-0 p-3 space-y-0.5"
-          style={{ borderRight: '1px solid rgb(var(--border))', minHeight: 'calc(100vh - 3.5rem)' }}
+          className="sticky top-14 w-56 shrink-0 self-start overflow-y-auto p-3 space-y-0.5"
+          style={{ borderRight: '1px solid rgb(var(--border))', height: 'calc(100vh - 3.5rem)' }}
           aria-label={app ? `${app.name} navigation` : 'Navigation'}
         >
           {nav.map((item) =>
@@ -443,10 +445,13 @@ export default function Shell() {
                   ? { backgroundColor: 'rgb(var(--surface-sunken))', fontWeight: 500 }
                   : undefined
               }
+              aria-current={screen === item.key && !platformScreen ? 'page' : undefined}
               onClick={() => {
                 setScreenKey(item.key);
                 setPlatformScreen(null);
                 setShowMoreApps(false);
+                /* A new screen starts at its top, not at the last one's scroll position. */
+                window.scrollTo(0, 0);
               }}
             >
               {item.icon ? <item.icon size={16} aria-hidden="true" /> : null}
@@ -478,7 +483,16 @@ export default function Shell() {
             <ScreenBoundary appName={app?.name} resetKey={`${app?.id}:${screen}:${tenant.id}`}>
               {/* Same rule as an app that draws itself: a company change is a
                   remount, not a re-render with stale figures on screen. */}
-              <Screen key={tenant.id} />
+              {/* `openScreen(key)` lets a screen link to another of its app's screens (a "3 waiting" note opening the list). */}
+              <Screen
+                key={tenant.id}
+                openScreen={(key) => {
+                  if (!app?.screens?.[key]) return;
+                  setScreenKey(key);
+                  setPlatformScreen(null);
+                  window.scrollTo(0, 0);
+                }}
+              />
             </ScreenBoundary>
           ) : (
             <p className="ui-caption">Nothing selected.</p>

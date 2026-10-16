@@ -34,7 +34,7 @@ export default function Enrolments() {
         <EmptyState title="Nothing enrolled yet" description="Enrol people at a reader, or use “Fetch fingerprints & faces” on a reader that already has them." />
       ) : (
         <div className="ui-card overflow-hidden">
-          <div className="overflow-x-auto ui-table-scroll">
+          <div className="overflow-x-auto ui-table-scroll ui-table-fit">
             <table className="ui-table w-full">
               <thead>
                 <tr>
@@ -49,7 +49,7 @@ export default function Enrolments() {
                 {shown.map((r) => (
                   <tr key={r.pin}>
                     <td className="ui-col-entity">{r.employeeName || <span className="ui-caption" style={{ color: 'rgb(var(--warn-ink))' }}>not matched to an employee</span>}</td>
-                    <td className="font-mono">{r.pin}</td>
+                    <td className="ui-mono">{r.pin}</td>
                     <td className="text-end tabular-nums">{r.fingers || '—'}</td>
                     <td className="ui-col-h-center">{r.faces ? '✓' : '—'}</td>
                     <td className="ui-col-meta whitespace-nowrap">{r.updatedAt ? new Date(r.updatedAt).toLocaleString() : '—'}</td>

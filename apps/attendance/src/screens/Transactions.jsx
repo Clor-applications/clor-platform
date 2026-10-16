@@ -112,7 +112,7 @@ export default function Transactions() {
       ) : (
         <div className="ui-card overflow-hidden">
           {data.truncated ? <p className="ui-caption px-4 pt-3">Showing the latest {data.transactions.length} of {data.total}. Narrow the dates or export to see the rest.</p> : null}
-          <div className="overflow-x-auto ui-table-scroll">
+          <div className="overflow-x-auto ui-table-scroll ui-table-fit">
             <table className="ui-table w-full">
               <thead>
                 <tr>
@@ -143,7 +143,7 @@ export default function Transactions() {
                         </span>
                       )}
                     </td>
-                    <td className="font-mono">{t.pin}</td>
+                    <td className="ui-mono">{t.pin}</td>
                     <td className="ui-col-h-center">
                       {t.kind ? (
                         <span className={`ui-pill ${t.kind === 'IN' ? 'ui-pill-pos' : 'ui-pill-neutral'}`}>{t.kind}</span>

@@ -48,7 +48,7 @@ export default function DeviceLogs() {
         <EmptyState title={kind === 'ERROR' ? 'No errors' : 'No operations'} description="Readers send these with their punches." />
       ) : (
         <div className="ui-card overflow-hidden">
-          <div className="overflow-x-auto ui-table-scroll">
+          <div className="overflow-x-auto ui-table-scroll ui-table-fit">
             <table className="ui-table w-full">
               <thead>
                 <tr>
@@ -64,8 +64,8 @@ export default function DeviceLogs() {
                   <tr key={r.id}>
                     <td className="whitespace-nowrap tabular-nums">{r.localTime}</td>
                     <td>{r.deviceName}</td>
-                    <td className="font-mono">{r.code}</td>
-                    <td className="font-mono">{r.operator || '—'}</td>
+                    <td className="ui-mono">{r.code}</td>
+                    <td className="ui-mono">{r.operator || '—'}</td>
                     <td className="ui-col-meta">{r.details || '—'}</td>
                   </tr>
                 ))}

@@ -5,7 +5,7 @@ import { PageHeader, SkeletonCard, EmptyState } from '@ui/components/ui/Primitiv
 import Drawer from '@ui/components/ui/Drawer';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { downloadCsv } from '@ui/utils/csv';
-import { STATUS, approveOvertime, deleteDay, hm, listEmployees, listRecords, markDay, todayIst, validateDays } from '../api/attendance';
+import { approveOvertime, dayLabel, deleteDay, hm, listEmployees, listRecords, markDay, STATUS, todayIst, validateDays } from '../api/attendance';
 import LoadFailed from '../components/LoadFailed';
 
 /**
@@ -130,7 +130,7 @@ export default function AttendanceRecords() {
         <EmptyState title="No days in this range" description="Mark attendance, or widen the dates." />
       ) : (
         <div className="ui-card overflow-hidden">
-          <div className="overflow-x-auto ui-table-scroll">
+          <div className="overflow-x-auto ui-table-scroll ui-table-fit">
             <table className="ui-table w-full">
               <thead>
                 <tr>
@@ -160,7 +160,7 @@ export default function AttendanceRecords() {
                     <td onClick={(e) => e.stopPropagation()}>
                       <input type="checkbox" className="ui-checkbox" aria-label={`Select ${r.employeeName} ${r.date}`} disabled={r.validated || !r.checkOut} checked={selected.has(r.id)} onChange={() => toggle(r.id)} />
                     </td>
-                    <td className="whitespace-nowrap">{r.date}</td>
+                    <td className="whitespace-nowrap">{dayLabel(r.date, { weekday: true, year: false })}</td>
                     <td className="ui-col-entity">{r.employeeName}{r.employeeCode ? <span className="ui-caption"> · {r.employeeCode}</span> : null}</td>
                     <td className="ui-col-h-center">{r.checkInTime || '—'}</td>
                     <td className="ui-col-h-center">{r.checkOutTime || '—'}</td>
@@ -168,10 +168,13 @@ export default function AttendanceRecords() {
                     <td className="text-end tabular-nums">{r.lateMinutes ? `${r.lateMinutes}m` : '—'}</td>
                     <td className="text-end tabular-nums" onClick={(e) => e.stopPropagation()}>
                       {r.overtimeMinutes ? (
+                        <span className="inline-flex items-center justify-end gap-2">
+                        <span>{hm(r.overtimeMinutes)}</span>
                         <button
                           type="button"
-                          className={`ui-pill ${r.overtimeApproved ? 'ui-pill-pos' : 'ui-pill-warn'}`}
+                          className={`ui-btn ui-btn-sm ${r.overtimeApproved ? 'ui-btn-ghost' : 'ui-btn-secondary'}`}
                           aria-label={r.overtimeApproved ? `Overtime ${hm(r.overtimeMinutes)} approved; withdraw approval` : `Approve ${hm(r.overtimeMinutes)} overtime`}
+                          title={r.overtimeApproved ? 'Approved: counts in the month summary. Click to withdraw.' : 'Not approved yet: does not count in the month summary.'}
                           onClick={async () => {
                             try {
                               await approveOvertime(r.id, !r.overtimeApproved);
@@ -181,12 +184,13 @@ export default function AttendanceRecords() {
                             }
                           }}
                         >
-                          {hm(r.overtimeMinutes)} {r.overtimeApproved ? '✓' : '?'}
+                          {r.overtimeApproved ? 'Approved' : 'Approve'}
                         </button>
+                        </span>
                       ) : '—'}
                     </td>
                     <td className="ui-col-h-center"><span className={`ui-pill ${STATUS[r.status]?.pill || 'ui-pill-neutral'}`}>{STATUS[r.status]?.label || r.status}</span></td>
-                    <td className="ui-col-h-center">{r.validated ? '✓' : ''}</td>
+                    <td className="ui-col-h-center">{r.validated ? <span className="ui-pill ui-pill-pos">Validated</span> : <span className="ui-caption">—</span>}</td>
                   </tr>
                 ))}
               </tbody>
@@ -239,6 +243,7 @@ function MarkDay({ initial, people, onClose, onSaved }) {
 
   return (
     <Drawer
+      widthClass="w-[min(40rem,96vw)]"
       open
       onClose={onClose}
       title={form.id ? `${form.employeeName} · ${form.date}` : 'Mark attendance'}

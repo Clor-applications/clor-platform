@@ -126,7 +126,7 @@ export default function ReaderSync() {
             <EmptyState title={onlyGaps ? 'No gaps' : 'Nobody'} description={onlyGaps ? 'Everyone is on every reader they belong on.' : 'No one with an employee code or Reader ID.'} />
           ) : (
             <div className="ui-card overflow-hidden">
-              <div className="overflow-x-auto ui-table-scroll">
+              <div className="overflow-x-auto ui-table-scroll ui-table-fit">
                 <table className="ui-table w-full text-sm">
                   <thead>
                     <tr>

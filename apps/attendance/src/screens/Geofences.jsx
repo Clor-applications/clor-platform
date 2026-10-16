@@ -62,7 +62,7 @@ export default function Geofences() {
               {rows.map((f) => (
                 <tr key={f.id}>
                   <td className="ui-col-entity"><button type="button" className="ui-link" onClick={() => setEditing({ ...f, areaId: f.areaId || '' })}>{f.name}</button></td>
-                  <td className="font-mono text-xs"><a className="ui-link" href={mapLink(f)} target="_blank" rel="noreferrer">{f.latitude.toFixed(5)}, {f.longitude.toFixed(5)}</a></td>
+                  <td className="ui-mono text-xs"><a className="ui-link" href={mapLink(f)} target="_blank" rel="noreferrer">{f.latitude.toFixed(5)}, {f.longitude.toFixed(5)}</a></td>
                   <td className="text-end tabular-nums">{f.radiusMeters} m</td>
                   <td>{f.areaName ? `${f.areaName} area` : 'Everyone'}</td>
                   <td className="text-end tabular-nums">{f.people}</td>
@@ -131,6 +131,7 @@ function SiteForm({ initial, areas, onClose, onSaved }) {
 
   return (
     <Drawer
+      widthClass="w-[min(40rem,96vw)]"
       open
       onClose={onClose}
       title={form.id ? form.name : 'New work site'}
@@ -144,8 +145,8 @@ function SiteForm({ initial, areas, onClose, onSaved }) {
     >
       <form id="site-form" onSubmit={save} className="grid gap-4 sm:grid-cols-2">
         <label className="block sm:col-span-2"><span className="ui-label">Name *</span><input className="ui-input w-full" required maxLength={80} value={form.name} onChange={set('name')} placeholder="e.g. Head office" /></label>
-        <label className="block"><span className="ui-label">Latitude *</span><input className="ui-input w-full font-mono" required inputMode="decimal" value={form.latitude} onChange={set('latitude')} placeholder="12.975700" /></label>
-        <label className="block"><span className="ui-label">Longitude *</span><input className="ui-input w-full font-mono" required inputMode="decimal" value={form.longitude} onChange={set('longitude')} placeholder="77.606100" /></label>
+        <label className="block"><span className="ui-label">Latitude *</span><input className="ui-input w-full ui-mono" required inputMode="decimal" value={form.latitude} onChange={set('latitude')} placeholder="12.975700" /></label>
+        <label className="block"><span className="ui-label">Longitude *</span><input className="ui-input w-full ui-mono" required inputMode="decimal" value={form.longitude} onChange={set('longitude')} placeholder="77.606100" /></label>
         <div className="sm:col-span-2 flex flex-wrap items-center gap-3">
           <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={here} disabled={locating}><LocateFixed size={14} aria-hidden="true" /> {locating ? 'Finding…' : 'Use where I am'}</button>
           {form.latitude && form.longitude ? <a className="ui-link text-sm" href={mapLink(form)} target="_blank" rel="noreferrer">See it on a map</a> : null}

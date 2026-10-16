@@ -27,10 +27,12 @@ export default function MonthSummary() {
     };
   }, [month, attempt]);
 
+  /* What payroll reads first, then why: payable and loss of pay lead, the breakdown follows. */
   const columns = [
     { key: 'code', label: 'Employee ID' },
     { key: 'name', label: 'Name' },
-    { key: 'totalDays', label: 'Days' },
+    { key: 'payableDays', label: 'Payable days', lead: true },
+    { key: 'lossOfPayDays', label: 'Loss of pay', lead: true },
     { key: 'present', label: 'Present' },
     { key: 'halfDays', label: 'Half days' },
     { key: 'absent', label: 'Absent' },
@@ -39,20 +41,24 @@ export default function MonthSummary() {
     { key: 'unpaidLeaveDays', label: 'Unpaid leave' },
     { key: 'holidays', label: 'Holidays' },
     { key: 'weeklyOffs', label: 'Weekly offs' },
-    { key: 'notYet', label: 'To come' },
-    { key: 'lossOfPayDays', label: 'Loss of pay' },
-    { key: 'payableDays', label: 'Payable days' },
     { key: 'lateCount', label: 'Late days' },
     { key: 'latePenaltyDays', label: 'Late penalty' },
-    { key: 'approvedOvertimeMinutes', label: 'Approved OT (h:mm)', value: (r) => hm(r.approvedOvertimeMinutes) },
+    { key: 'approvedOvertimeMinutes', label: 'Approved OT', value: (r) => hm(r.approvedOvertimeMinutes) },
+    { key: 'notYet', label: 'To come' },
+    { key: 'totalDays', label: 'Days' },
   ];
+  /* A table of mostly zeros hides the few figures that matter; a zero reads as a dash (the export keeps the 0). */
+  const shown = (c, r) => {
+    const v = c.value ? (r[c.key] ? c.value(r) : 0) : r[c.key];
+    return v === 0 || v === '0:00' ? '—' : v ?? '—';
+  };
 
   return (
     <div className="space-y-4">
       <PageHeader
         entity="attendance"
         title="Month summary"
-        description="Payable days for payroll. Days still to come are neither paid nor lost yet; once the month ends, payable days are the month less loss of pay."
+        description="Payable days for payroll. Days still to come are neither paid nor lost yet."
         actions={
           <div className="flex gap-2">
             <input type="month" className="ui-input" value={month} max={todayIst().slice(0, 7)} onChange={(e) => setMonth(e.target.value)} aria-label="Month" />
@@ -69,12 +75,12 @@ export default function MonthSummary() {
         <EmptyState title="Nobody employed this month" description="Add people in People, with their joining dates." />
       ) : (
         <div className="ui-card overflow-hidden">
-          <div className="overflow-x-auto ui-table-scroll">
+          <div className="overflow-x-auto ui-table-scroll ui-table-fit">
             <table className="ui-table w-full">
               <thead>
                 <tr>
                   {columns.map((c) => (
-                    <th key={c.key} scope="col" className={`ui-th ${['code', 'name'].includes(c.key) ? '' : 'text-end'}`}>{c.label}</th>
+                    <th key={c.key} scope="col" className={`ui-th whitespace-nowrap ${['code', 'name'].includes(c.key) ? '' : 'text-end'}`}>{c.label}</th>
                   ))}
                 </tr>
               </thead>
@@ -82,8 +88,12 @@ export default function MonthSummary() {
                 {data.rows.map((r) => (
                   <tr key={r.employeeId}>
                     {columns.map((c) => (
-                      <td key={c.key} className={['code', 'name'].includes(c.key) ? (c.key === 'name' ? 'ui-col-entity' : 'ui-col-meta') : 'text-end tabular-nums'}>
-                        {c.value ? c.value(r) : r[c.key] ?? '—'}
+                      <td
+                        key={c.key}
+                        className={['code', 'name'].includes(c.key) ? (c.key === 'name' ? 'ui-col-entity whitespace-nowrap' : 'ui-col-meta') : 'text-end tabular-nums'}
+                        style={c.lead ? { fontWeight: 600 } : undefined}
+                      >
+                        {['code', 'name'].includes(c.key) ? r[c.key] ?? '—' : shown(c, r)}
                       </td>
                     ))}
                   </tr>

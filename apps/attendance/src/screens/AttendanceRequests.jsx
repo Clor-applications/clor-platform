@@ -3,7 +3,7 @@ import { Check, X } from 'lucide-react';
 
 import { PageHeader, SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import { notify } from '@ui/components/ui/notify';
-import { approveRequest, listRequests, rejectRequest } from '../api/attendance';
+import { approveRequest, dayLabel, listRequests, rejectRequest } from '../api/attendance';
 import LoadFailed from '../components/LoadFailed';
 
 const time = (iso) => (iso ? new Date(new Date(iso).getTime() + 330 * 60_000).toISOString().slice(11, 16) : '—');
@@ -48,7 +48,7 @@ export default function AttendanceRequests() {
         <EmptyState title="Nothing here" description={status === 'PENDING' ? 'No corrections are waiting.' : 'No requests in this list.'} />
       ) : (
         <div className="ui-card overflow-hidden">
-          <div className="overflow-x-auto ui-table-scroll">
+          <div className="overflow-x-auto ui-table-scroll ui-table-fit">
             <table className="ui-table w-full">
               <thead>
                 <tr>
@@ -65,7 +65,7 @@ export default function AttendanceRequests() {
                 {rows.map((r) => (
                   <tr key={r.id}>
                     <td className="ui-col-entity">{r.employeeName}</td>
-                    <td>{r.date}</td>
+                    <td className="whitespace-nowrap">{dayLabel(r.date, { weekday: true, year: false })}</td>
                     <td className="ui-col-h-center">{time(r.checkIn)}</td>
                     <td className="ui-col-h-center">{time(r.checkOut)}</td>
                     <td className="max-w-[20rem] truncate" title={r.reason}>{r.reason}</td>

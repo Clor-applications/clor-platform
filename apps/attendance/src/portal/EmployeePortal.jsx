@@ -203,7 +203,7 @@ function PortalSignIn({ onDone }) {
           {mode === 'activate' ? (
             <label className="block">
               <span className="ui-label">Activation code from HR</span>
-              <input className="ui-input w-full font-mono uppercase tracking-widest" required autoComplete="one-time-code" autoCapitalize="characters" value={form.activationCode} onChange={set('activationCode')} placeholder="ABCD-EFGH" />
+              <input className="ui-input w-full ui-mono uppercase tracking-widest" required autoComplete="one-time-code" autoCapitalize="characters" value={form.activationCode} onChange={set('activationCode')} placeholder="ABCD-EFGH" />
             </label>
           ) : null}
           <label className="block">
@@ -334,7 +334,8 @@ function Today({ me, reload, guard }) {
               <li key={i} className="flex items-center justify-between py-2">
                 <span className="tabular-nums font-medium">{p.time}</span>
                 <span className="ui-caption">{p.phone ? `Phone${p.site ? ` · ${p.site}` : ''}` : 'Reader'}</span>
-                <span className={`ui-pill ${p.kind === 'IN' ? 'ui-pill-pos' : 'ui-pill-neutral'}`}>{p.kind || '—'}</span>
+                {/* A reader that does not say in or out gets no badge: an empty one reads as an error. */}
+                {p.kind ? <span className={`ui-pill ${p.kind === 'IN' ? 'ui-pill-pos' : 'ui-pill-neutral'}`}>{p.kind === 'IN' ? 'In' : 'Out'}</span> : <span />}
               </li>
             ))}
           </ul>
@@ -412,19 +413,30 @@ function MyDays({ guard }) {
                   <tr>
                     <th scope="col" className="ui-th">Day</th>
                     <th scope="col" className="ui-th">Status</th>
-                    <th scope="col" className="ui-th text-end">In</th>
-                    <th scope="col" className="ui-th text-end">Out</th>
+                    <th scope="col" className="ui-th text-end">In – out</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {[...data.days].reverse().map((d) => (
-                    <tr key={d.date}>
-                      <td className="whitespace-nowrap">{dayLabel(d.date)}</td>
-                      <td><span className={`ui-pill ${STATUS[d.status]?.pill || 'ui-pill-neutral'}`}>{STATUS[d.status]?.label || d.status}</span>{d.lateMinutes ? <span className="ui-caption"> · late {d.lateMinutes}m</span> : null}</td>
-                      <td className="text-end tabular-nums">{d.checkIn || '—'}</td>
-                      <td className="text-end tabular-nums">{d.checkOut || '—'}</td>
-                    </tr>
-                  ))}
+                  {[...data.days].reverse().map((d) => {
+                    /* A past day with an in and no out is not paid until it is corrected: say so, here where it can be. */
+                    const open = d.status === 'PRESENT' && d.checkIn && !d.checkOut && d.date < todayIst();
+                    return (
+                      <tr key={d.date}>
+                        <td className="whitespace-nowrap">{dayLabel(d.date)}</td>
+                        <td>
+                          {open ? (
+                            <span className="ui-pill ui-pill-warn">No check-out</span>
+                          ) : (
+                            <span className={`ui-pill ${STATUS[d.status]?.pill || 'ui-pill-neutral'}`}>{STATUS[d.status]?.label || d.status}</span>
+                          )}
+                          {d.lateMinutes ? <span className="ui-caption block">late {d.lateMinutes} min</span> : null}
+                        </td>
+                        <td className="whitespace-nowrap text-end tabular-nums">
+                          {d.checkIn ? `${d.checkIn} – ${d.checkOut || ''}`.trim() : '—'}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             ) : (

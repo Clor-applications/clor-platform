@@ -39,7 +39,7 @@ function ShownOnce({ label, value, onDone }) {
     <div className="ui-card space-y-2 p-4" role="alert" style={{ borderColor: 'rgb(var(--warn-ink))' }}>
       <div className="text-sm font-semibold">{label} — shown once. Copy it now; CLOR keeps only a hash and cannot show it again.</div>
       <div className="flex items-center gap-2">
-        <code className="min-w-0 flex-1 overflow-x-auto whitespace-nowrap rounded bg-[rgb(var(--surface-sunken))] px-2 py-1 font-mono text-xs">{value}</code>
+        <code className="min-w-0 flex-1 overflow-x-auto whitespace-nowrap rounded bg-[rgb(var(--surface-sunken))] px-2 py-1 ui-mono text-xs">{value}</code>
         <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => copy(value)}><Copy size={14} aria-hidden="true" /> Copy</button>
         <button type="button" className="ui-btn ui-btn-primary ui-btn-sm" onClick={onDone}>I have copied it</button>
       </div>
@@ -138,7 +138,7 @@ export default function Integrations() {
         {!keys ? (
           loadError ? null : <SkeletonCard lines={2} />
         ) : keys.length ? (
-          <div className="overflow-x-auto ui-table-scroll">
+          <div className="overflow-x-auto ui-table-scroll ui-table-fit">
             <table className="ui-table w-full text-sm">
               <thead>
                 <tr>
@@ -154,7 +154,7 @@ export default function Integrations() {
                 {keys.map((k) => (
                   <tr key={k.id}>
                     <td className="ui-col-entity">{k.name}</td>
-                    <td className="font-mono text-xs">{k.tokenPrefix}…</td>
+                    <td className="ui-mono text-xs">{k.tokenPrefix}…</td>
                     <td className="ui-col-meta">{k.scopes.join(', ')}{k.allowedIps.length ? ` · from ${k.allowedIps.join(', ')}` : ''}</td>
                     <td className="ui-col-meta whitespace-nowrap">{ago(k.lastUsedAt)}{k.lastUsedIp ? ` · ${k.lastUsedIp}` : ''}</td>
                     <td className="ui-col-h-center">{k.isActive ? <span className="ui-pill ui-pill-pos">active</span> : <span className="ui-pill ui-pill-neutral">revoked</span>}</td>
@@ -226,13 +226,13 @@ export default function Integrations() {
           <p className="ui-muted text-sm">No webhooks yet.</p>
         )}
         <p className="ui-caption">
-          Each call is a POST with JSON <code className="font-mono">{'{ event, orgId, sentAt, data }'}</code> and the header <code className="font-mono">X-Clor-Signature: sha256=…</code> — an HMAC-SHA256 of the body with the webhook’s secret. Check it before trusting the call.
+          Each call is a POST with JSON <code className="ui-mono">{'{ event, orgId, sentAt, data }'}</code> and the header <code className="ui-mono">X-Clor-Signature: sha256=…</code> — an HMAC-SHA256 of the body with the webhook’s secret. Check it before trusting the call.
         </p>
       </section>
 
       <section className="ui-card space-y-3 p-5 text-sm" aria-labelledby="api-h">
         <h2 id="api-h" className="ui-t-sec">The API</h2>
-        <p>Base address <code className="font-mono font-semibold">{base}</code>. Send the key as <code className="font-mono">Authorization: Bearer clor_…</code>. Times are Indian Standard Time; at most 92 days per call, 120 calls a minute per key.</p>
+        <p>Base address <code className="ui-mono font-semibold">{base}</code>. Send the key as <code className="ui-mono">Authorization: Bearer clor_…</code>. Times are Indian Standard Time; at most 92 days per call, 120 calls a minute per key.</p>
         <table className="ui-table w-full text-xs">
           <tbody>
             {[
@@ -244,9 +244,9 @@ export default function Integrations() {
               ['POST', '/attendance/punches', 'punches:write', 'Up to 500 punches: { "punches": [{ "employee_code", "timestamp": "YYYY-MM-DD HH:mm:ss", "direction": "in" | "out" }] }'],
             ].map(([m, path, scope, what]) => (
               <tr key={path}>
-                <td className="font-mono">{m}</td>
-                <td className="font-mono">{path}</td>
-                <td className="font-mono ui-col-meta">{scope}</td>
+                <td className="ui-mono">{m}</td>
+                <td className="ui-mono">{path}</td>
+                <td className="ui-mono ui-col-meta">{scope}</td>
                 <td>{what}</td>
               </tr>
             ))}

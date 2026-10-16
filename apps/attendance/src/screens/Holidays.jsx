@@ -3,7 +3,7 @@ import { Trash2 } from 'lucide-react';
 
 import { PageHeader, SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
-import { createHoliday, deleteHoliday, listHolidays, todayIst, updateHoliday } from '../api/attendance';
+import { createHoliday, dayLabel, deleteHoliday, listHolidays, todayIst, updateHoliday } from '../api/attendance';
 import LoadFailed from '../components/LoadFailed';
 import { listStructure } from '@ui/personnel/api';
 
@@ -113,7 +113,7 @@ export default function Holidays() {
             <tbody>
               {rows.map((h) => (
                 <tr key={h.id}>
-                  <td className="whitespace-nowrap">{h.date}</td>
+                  <td className="whitespace-nowrap">{dayLabel(h.date)}</td>
                   <td className="ui-col-meta">{weekday(h.date)}</td>
                   <td className="ui-col-entity">{h.name}</td>
                   <td className="ui-col-meta">{h.areaName || 'Everyone'}</td>

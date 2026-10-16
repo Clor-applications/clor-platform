@@ -40,7 +40,7 @@ export default function Contractors() {
         <EmptyState title="No contractors" description="Add the agencies and labour contractors who supply people." />
       ) : (
         <div className="ui-card overflow-hidden">
-          <div className="overflow-x-auto ui-table-scroll">
+          <div className="overflow-x-auto ui-table-scroll ui-table-fit">
             <table className="ui-table w-full">
               <thead>
                 <tr>
@@ -111,6 +111,7 @@ function ContractorForm({ initial, onClose, onSaved }) {
   );
   return (
     <Drawer
+      widthClass="w-[min(40rem,96vw)]"
       open
       onClose={onClose}
       title={form.id ? form.name : 'New contractor'}

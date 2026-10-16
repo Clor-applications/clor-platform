@@ -123,7 +123,7 @@ export default function MyLeave() {
 
       <section className="ui-card overflow-hidden" aria-labelledby="mine-h">
         <h2 id="mine-h" className="ui-t-sec px-5 pt-4">Asked for in {year}</h2>
-        <div className="overflow-x-auto ui-table-scroll">
+        <div className="overflow-x-auto ui-table-scroll ui-table-fit">
           <table className="ui-table w-full">
             <thead>
               <tr>
