@@ -102,6 +102,60 @@ export async function eligibleEmployees(
 
 type LoadedRun = Awaited<ReturnType<typeof loadRunContext>>;
 
+/** 1 April of the Indian financial year a date falls in. */
+export const financialYearStart = (isoDate: string) => {
+  const y = Number(isoDate.slice(0, 4));
+  return Number(isoDate.slice(5, 7)) >= 4 ? `${y}-04-01` : `${y - 1}-04-01`;
+};
+
+/** Months left in the financial year, this one included: April 12 … March 1. */
+export const monthsLeftInFinancialYear = (isoDate: string) => {
+  const month = Number(isoDate.slice(5, 7)) || 4;
+  return month >= 4 ? 16 - month : 4 - month;
+};
+
+/**
+ * What each person has already been paid and had deducted as TDS this
+ * financial year, from earlier runs that went past review. Tax is projected
+ * on pay so far plus this month for the months left, and only what is still
+ * owed is spread over them — not the full year's tax over the months left,
+ * which deducted more every month and the whole year's tax in March.
+ */
+async function taxPaidSoFar(orgId: string, run: { id: string; payrollDate: string }, employeeIds: string[]) {
+  const out = new Map<string, { gross: number; tds: number }>();
+  if (!employeeIds.length) return out;
+  const earlier = await payrollPrisma.payrollRun.findMany({
+    where: {
+      orgId,
+      id: { not: run.id },
+      status: { in: ['APPROVED', 'LOCKED', 'PAID', 'POSTED'] },
+      payrollDate: { gte: financialYearStart(run.payrollDate), lt: run.payrollDate },
+    },
+    select: { id: true },
+  });
+  if (!earlier.length) return out;
+  const slips = await payrollPrisma.salarySlip.findMany({
+    where: { orgId, runId: { in: earlier.map((r) => r.id) }, employeeId: { in: employeeIds } },
+    select: { id: true, employeeId: true, grossEarnings: true },
+  });
+  const tdsComponents = await payrollPrisma.salaryComponent.findMany({ where: { orgId, statutoryScheme: 'TDS' }, select: { id: true } });
+  const lines = slips.length && tdsComponents.length
+    ? await payrollPrisma.salarySlipLine.findMany({
+        where: { orgId, slipId: { in: slips.map((x) => x.id) }, componentId: { in: tdsComponents.map((c) => c.id) } },
+        select: { slipId: true, amount: true },
+      })
+    : [];
+  const tdsBySlip = new Map<string, number>();
+  for (const l of lines) tdsBySlip.set(l.slipId, (tdsBySlip.get(l.slipId) || 0) + Number(l.amount));
+  for (const x of slips) {
+    const cur = out.get(x.employeeId) || { gross: 0, tds: 0 };
+    cur.gross = round2(cur.gross + Number(x.grossEarnings));
+    cur.tds = round2(cur.tds + (tdsBySlip.get(x.id) || 0));
+    out.set(x.employeeId, cur);
+  }
+  return out;
+}
+
 /**
  * Everything the run needs, in a handful of queries.
  *
@@ -202,8 +256,11 @@ async function loadRunContext(orgId: string, runId: string) {
     include: { conditions: { orderBy: { displayOrder: 'asc' } }, employeeTargets: true },
   });
 
+  const taxSoFar = await taxPaidSoFar(orgId, run, employeeIds);
+
   return {
     statutoryRules,
+    taxSoFar,
     recoveriesByEmployee: recoveries.reduce((m, r) => {
       const list = m.get(r.employeeId) || [];
       list.push(r);
@@ -400,9 +457,11 @@ function calculateWithStatutory(
     return { result: firstPass, statutory: { amounts: {}, results: [], versions: {} } };
   }
 
-  /* Months left in the Indian financial year, which is what TDS spreads over. */
-  const month = Number(ctx.run.payrollDate.slice(5, 7)) || 1;
-  const monthsRemaining = month >= 4 ? 12 - month + 1 : 4 - month;
+  /* Months left in the Indian financial year, this one included, which is what TDS spreads over. */
+  const monthsRemaining = monthsLeftInFinancialYear(ctx.run.payrollDate);
+  const soFar = ctx.taxSoFar.get(assignment.employeeId) || { gross: 0, tds: 0 };
+  /* Monthly pay: the year is what was paid so far plus this month for the months left. Other frequencies keep the simple annualisation. */
+  const annualTaxable = periodsPerYear === 12 ? soFar.gross + firstPass.grossEarnings * monthsRemaining : firstPass.grossEarnings * periodsPerYear;
 
   const statutory = applyStatutory({
     rules: ctx.statutoryRules,
@@ -411,7 +470,7 @@ function calculateWithStatutory(
       pfWage: firstPass.pfWage,
       esiWage: firstPass.esiWage,
       gross: firstPass.grossEarnings,
-      annualTaxable: firstPass.grossEarnings * periodsPerYear,
+      annualTaxable,
     },
     employee: {
       pfApplicable: !!profile?.pfApplicable,
@@ -422,7 +481,7 @@ function calculateWithStatutory(
     },
     components: engine.map((c) => ({ code: c.code, statutoryScheme: c.statutoryScheme, type: c.type })),
     monthsRemaining: Math.max(1, monthsRemaining),
-    taxAlreadyDeducted: 0,
+    taxAlreadyDeducted: periodsPerYear === 12 ? soFar.tds : 0,
   });
 
   if (!Object.keys(statutory.amounts).length) {
