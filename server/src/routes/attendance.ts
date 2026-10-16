@@ -725,7 +725,7 @@ export async function periodContext(accountId: string, orgId: string, from: stri
           { OR: [{ dateOfJoining: null }, { dateOfJoining: { lte: to } }] },
         ],
       },
-      select: { id: true, name: true, code: true, department: true, departmentId: true, areaId: true, contractorId: true, guardianName: true, dateOfJoining: true, dateOfLeaving: true, status: true },
+      select: { id: true, name: true, code: true, department: true, departmentId: true, areaId: true, branchId: true, contractorId: true, guardianName: true, dateOfJoining: true, dateOfLeaving: true, status: true },
       orderBy: { name: 'asc' },
     }),
     peoplePrisma.attendanceRecord.findMany({ where: { accountId, orgId, date: { gte: from, lte: to } } }),
@@ -733,9 +733,9 @@ export async function periodContext(accountId: string, orgId: string, from: stri
     loadSchedule(orgId),
   ]);
   const holidays = holidayData.rows;
-  /* Company-wide holidays; holidaysFor(person) adds their area's. */
+  /* Company-wide holidays; holidaysFor(person) adds their area's and branch's. */
   const holidaySet = holidayData.company;
-  const holidaysFor = (p: { areaId?: string | null }) => holidayData.forArea(p.areaId);
+  const holidaysFor = (p: { areaId?: string | null; branchId?: string | null }) => holidayData.forArea(p.areaId, p.branchId);
   /* Days on unpaid leave are loss of pay: find which leave days came from an
      unpaid type. A day marked "on leave" by hand is treated as paid. */
   const leaveIds = [...new Set(records.filter((r) => r.status === 'ON_LEAVE' && r.leaveRequestId).map((r) => r.leaveRequestId!))];

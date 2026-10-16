@@ -141,25 +141,23 @@ export async function loadSchedule(orgId: string, employeeIds?: string[]): Promi
 
 /**
  * Holidays a person has, by date: the company's, plus their area's (ClorTime's
- * holiday locations). Optional holidays are not days off.
+ * holiday locations) and their branch's. A holiday set for an area and a branch
+ * is for people in both — the same rule as isHoliday, which writes the days.
+ * Optional holidays are not days off.
  */
 export async function loadHolidays(orgId: string, from: string, to: string) {
   const rows = await peoplePrisma.holiday.findMany({ where: { orgId, date: { gte: from, lte: to }, isOptional: false }, select: { date: true, name: true, areaId: true, branchId: true } });
   const company = new Set(rows.filter((h) => !h.areaId && !h.branchId).map((h) => h.date));
-  const byArea = new Map<string, Set<string>>();
-  for (const h of rows) {
-    if (!h.areaId) continue;
-    if (!byArea.has(h.areaId)) byArea.set(h.areaId, new Set());
-    byArea.get(h.areaId)!.add(h.date);
-  }
   const cache = new Map<string, Set<string>>();
   return {
     rows,
     company,
-    /** The set of holiday dates for someone in this area (null = no area). */
-    forArea(areaId: string | null | undefined) {
-      const k = areaId || '';
-      if (!cache.has(k)) cache.set(k, new Set([...company, ...(areaId ? byArea.get(areaId) || [] : [])]));
+    /** The set of holiday dates for someone in this area and branch (null = none). */
+    forArea(areaId: string | null | undefined, branchId: string | null | undefined = null) {
+      const k = `${areaId || ''}|${branchId || ''}`;
+      if (!cache.has(k)) {
+        cache.set(k, new Set(rows.filter((h) => (!h.areaId || h.areaId === areaId) && (!h.branchId || h.branchId === branchId)).map((h) => h.date)));
+      }
       return cache.get(k)!;
     },
   };

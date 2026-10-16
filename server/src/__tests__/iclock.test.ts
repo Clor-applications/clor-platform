@@ -228,7 +228,7 @@ describe('commands through the heartbeat', () => {
 const tmpl = (seed: string) => Buffer.from(`${seed}-`.repeat(60)).toString('base64');
 
 describe('fingerprints and faces between readers', () => {
-  it('copies a fingerprint enrolled on one reader to the others, with the user first and the card and PIN kept', async () => {
+  it('copies a fingerprint enrolled on one reader to the others, with the user first and the card kept', async () => {
     const c = await makeOwner();
     const a = serial();
     const b = serial();
@@ -241,12 +241,39 @@ describe('fingerprints and faces between readers', () => {
       .expect(200);
 
     const first = (await reader(b).heartbeat().expect(200)).text;
-    expect(first).toMatch(/^C:\d+:DATA UPDATE USERINFO PIN=104\tName=Ravi Kumar\tPri=0\tPasswd=1234\tCard=998877\t/);
+    // The card goes with them; a door PIN a reader reports does not (only CLOR's employee file sets one).
+    expect(first).toMatch(/^C:\d+:DATA UPDATE USERINFO PIN=104\tName=Ravi Kumar\tPri=0\tPasswd=\tCard=998877\t/);
     const second = (await reader(b).heartbeat().expect(200)).text;
     expect(second).toMatch(new RegExp(`^C:\\d+:DATA UPDATE FINGERTMP PIN=104\\tFID=6\\tSize=\\d+\\tValid=1\\tTMP=${finger.replace(/[+/=]/g, '.')}$`));
     // Nothing goes back to the reader it came from.
     const own = await peoplePrisma.deviceCommand.findMany({ where: { serialNumber: a, command: { contains: 'FINGERTMP' } } });
     expect(own).toHaveLength(0);
+  });
+
+  it('never spreads administrator rights or a door PIN that only a reader reports', async () => {
+    const c = await makeOwner();
+    const a = serial();
+    const b = serial();
+    await addReader(c, a);
+    await addReader(c, b);
+    // Anything that knows reader A's serial can claim to be it.
+    await reader(a)
+      .push([`USER PIN=999\tName=Intruder\tPri=14\tPasswd=4321\tCard=`, `FP PIN=999\tFID=1\tSize=1200\tValid=1\tTMP=${tmpl('finger-999')}`], 'OPERLOG')
+      .expect(200);
+    const toB = await peoplePrisma.deviceCommand.findMany({ where: { serialNumber: b, command: { startsWith: 'DATA UPDATE USERINFO PIN=999\t' } } });
+    expect(toB.length).toBeGreaterThan(0);
+    for (const cmd of toB) {
+      expect(cmd.command).toContain('\tPri=0\t');
+      expect(cmd.command).toContain('\tPasswd=\t');
+    }
+
+    // Set in CLOR, they do go to the readers.
+    const emp = await peoplePrisma.employee.findFirst({ where: { orgId: c.orgId, code: '999' } });
+    expect(emp).toBeTruthy();
+    await peoplePrisma.deviceCommand.deleteMany({ where: { serialNumber: b } });
+    await request(app).put(`/api/orgs/${c.orgId}/people/employees/${emp!.id}`).set(at(c)).send({ devicePrivilege: 14, devicePassword: '2468' }).expect(200);
+    const set = await peoplePrisma.deviceCommand.findFirst({ where: { serialNumber: b, command: { startsWith: 'DATA UPDATE USERINFO PIN=999\t' } } });
+    expect(set?.command).toContain('\tPri=14\tPasswd=2468\t');
   });
 
   it('sends a face with the target reader’s own face algorithm version, deleting the old face first', async () => {
@@ -429,5 +456,170 @@ describe('e-Time Office (vendor cloud, pulled)', () => {
     } finally {
       vi.unstubAllGlobals();
     }
+  });
+});
+
+describe('readers after someone leaves or is deleted', () => {
+  /** Hand out the reader's queue, answering each command, and return what it was sent. */
+  const drain = async (sn: string) => {
+    const sent: string[] = [];
+    for (let i = 0; i < 60; i++) {
+      const t = (await reader(sn).heartbeat().expect(200)).text;
+      if (t === 'OK') break;
+      sent.push(t.split(':').slice(2).join(':'));
+      await reader(sn).result(`ID=${t.split(':')[1]}&Return=0&CMD=DATA`).expect(200);
+    }
+    return sent;
+  };
+
+  it('does not put a leaver’s fingerprint back after taking them off', async () => {
+    const c = await makeOwner();
+    const a = serial();
+    const b = serial();
+    await addReader(c, a);
+    await addReader(c, b);
+    const p = await person(c, { name: 'Leaver', code: '601' });
+    await reader(a).push([`FP PIN=601\tFID=1\tSize=1200\tValid=1\tTMP=${tmpl('finger-601')}`], 'FINGERTMP').expect(200);
+    // The copy to B is still waiting when they leave.
+    expect(await peoplePrisma.deviceCommand.count({ where: { serialNumber: b, status: 'PENDING', command: { startsWith: 'DATA UPDATE FINGERTMP PIN=601\t' } } })).toBe(1);
+    await request(app).put(`/api/orgs/${c.orgId}/people/employees/${p.id}`).set(at(c)).send({ status: 'LEFT', dateOfLeaving: '2026-10-01' }).expect(200);
+
+    const toB = (await drain(b)).filter((x) => /PIN=601\b/.test(x));
+    expect(toB.some((x) => x.startsWith('DATA DELETE USERINFO PIN=601'))).toBe(true);
+    expect(toB.filter((x) => x.startsWith('DATA UPDATE'))).toEqual([]);
+  });
+
+  it('takes someone deleted in Payroll off the readers, so a reader read does not bring them back', async () => {
+    const c = await makeOwner({ people: true, attendance: true, payroll: true });
+    const a = serial();
+    await addReader(c, a);
+    const p = await person(c, { name: 'Gone', code: '701' });
+    await reader(a).push(['USER PIN=701\tName=Gone\tPri=0'], 'OPERLOG').expect(200);
+    await peoplePrisma.deviceCommand.deleteMany({ where: { serialNumber: a } });
+
+    await request(app).delete(`/api/orgs/${c.orgId}/payroll/employees/${p.id}`).set(at(c)).expect(200);
+    expect(await peoplePrisma.deviceCommand.count({ where: { serialNumber: a, command: 'DATA DELETE USERINFO PIN=701' } })).toBe(1);
+    // CLOR no longer believes the reader holds them, so its next read of the reader is all it goes on.
+    expect(await peoplePrisma.deviceUser.count({ where: { orgId: c.orgId, pin: '701' } })).toBe(0);
+  });
+
+  it('takes someone marked as left in Payroll off the readers', async () => {
+    const c = await makeOwner({ people: true, attendance: true, payroll: true });
+    const a = serial();
+    await addReader(c, a);
+    const p = await person(c, { name: 'Leaving', code: '702' });
+    await peoplePrisma.deviceCommand.deleteMany({ where: { serialNumber: a } });
+    await request(app)
+      .put(`/api/orgs/${c.orgId}/payroll/employees/${p.id}`)
+      .set(at(c))
+      .send({ name: 'Leaving', code: '702', status: 'LEFT', dateOfJoining: '2026-01-01', dateOfLeaving: '2026-10-01' })
+      .expect(200);
+    expect(await peoplePrisma.deviceCommand.count({ where: { serialNumber: a, command: 'DATA DELETE USERINFO PIN=702' } })).toBe(1);
+  });
+});
+
+describe('the day a punch belongs to', () => {
+  const sched = (c: Ctx) => ({ post: (p: string, b: unknown) => request(app).post(`/api/orgs/${c.orgId}/attendance${p}`).set(at(c)).send(b as any) });
+
+  it('puts the end of a night shift on the night, even when the next day is a day shift', async () => {
+    const c = await makeOwner();
+    const sn = serial();
+    await addReader(c, sn);
+    const p = await person(c, { name: 'Nights', code: '801' });
+    const night = (await sched(c).post('/shifts', { name: `Night ${rnd()}`, startTime: '22:00', endTime: '06:00', breakMinutes: 0 }).expect(201)).body.shift;
+    // Nights on the 14th only; the default 09:00–18:00 from the 15th.
+    await sched(c).post('/temporary-schedules', { employeeIds: [p.id], shiftId: night.id, fromDate: '2026-10-14', toDate: '2026-10-14', reason: 'Cover' }).expect(201);
+    await reader(sn)
+      .push(['801\t2026-10-14 21:58:00\t0\t1', '801\t2026-10-15 06:03:00\t1\t1', '801\t2026-10-15 09:01:00\t0\t1', '801\t2026-10-15 18:00:00\t1\t1'])
+      .expect(200);
+    expect(await day(c, p.id, '2026-10-14')).toMatchObject({ checkInTime: '21:58', checkOutTime: '06:03' });
+    expect(await day(c, p.id, '2026-10-15')).toMatchObject({ checkInTime: '09:01', checkOutTime: '18:00', overtimeMinutes: 0 });
+  });
+});
+
+describe('holidays for one branch', () => {
+  it('count as a holiday in the month summary, not an absence', async () => {
+    const c = await makeOwner();
+    const p = await person(c, { name: 'Branch staff', code: '901', branchId: c.branchId });
+    await api(c).post('/holidays', { date: '2026-09-15', name: 'Branch day', branchId: c.branchId }).expect(201);
+    const row = (await api(c).get('/summary?month=2026-09').expect(200)).body.rows.find((r: any) => r.employeeId === p.id);
+    expect(row.holidays).toBe(1);
+  });
+});
+
+describe('the network lock', () => {
+  /** A reader (or someone pretending to be it) calling from a given internet address. */
+  const from = (sn: string, ip: string) => ({
+    heartbeat: () => request(app).get(`/iclock/getrequest?SN=${sn}`).set('X-Forwarded-For', ip),
+    push: (lines: string[], table = 'ATTLOG') =>
+      request(app).post(`/iclock/cdata?SN=${sn}&table=${table}&Stamp=9999`).set('X-Forwarded-For', ip).set('Content-Type', 'text/plain').send(lines.join('\n')),
+    result: (body: string) => request(app).post(`/iclock/devicecmd?SN=${sn}`).set('X-Forwarded-For', ip).set('Content-Type', 'text/plain').send(body),
+  });
+  const devices = (c: Ctx, ip?: string) => {
+    const r = request(app).get(`/api/orgs/${c.orgId}/attendance/devices`).set(at(c));
+    return ip ? r.set('X-Forwarded-For', ip) : r;
+  };
+
+  it('gives someone who only knows the serial nothing, and takes nothing from them', async () => {
+    const c = await makeOwner();
+    const sn = serial();
+    await addReader(c, sn);
+    const p = await person(c, { name: 'Real Person', code: '311' });
+    // The real reader, from the office (the network it was added from), is taken.
+    expect((await reader(sn).push(['311\t2026-09-01 09:00:00\t0\t1']).expect(200)).text).toBe('OK: 1');
+    const queued = await peoplePrisma.deviceCommand.count({ where: { serialNumber: sn, status: 'PENDING' } });
+    expect(queued).toBeGreaterThan(0);
+
+    const intruder = from(sn, '203.0.113.9');
+    // Punches: refused, not acknowledged (a real reader would keep them).
+    const r = await intruder.push(['311\t2026-09-01 10:00:00\t0\t1']);
+    expect(r.status).toBe(503);
+    expect(await peoplePrisma.devicePunch.count({ where: { serialNumber: sn } })).toBe(1);
+    // Users and fingerprints: nothing stored, nothing spread.
+    await intruder.push([`USER PIN=666\tName=Ghost\tPri=14\tPasswd=1111`, `FP PIN=311\tFID=2\tSize=1200\tValid=1\tTMP=${tmpl('fake')}`], 'OPERLOG').expect(503);
+    expect(await peoplePrisma.deviceUser.count({ where: { orgId: c.orgId, pin: '666' } })).toBe(0);
+    expect(await peoplePrisma.biometricTemplate.count({ where: { orgId: c.orgId, pin: '311', no: 2 } })).toBe(0);
+    expect(await peoplePrisma.employee.count({ where: { orgId: c.orgId, code: '666' } })).toBe(0);
+    // Commands (names, cards, templates): none handed out, none marked done.
+    expect((await intruder.heartbeat().expect(200)).text).toBe('OK');
+    const one = await peoplePrisma.deviceCommand.findFirst({ where: { serialNumber: sn, status: 'PENDING' } });
+    await intruder.result(`ID=${one!.id}&Return=0&CMD=DATA`).expect(200);
+    expect((await peoplePrisma.deviceCommand.findUnique({ where: { id: one!.id } }))!.status).toBe('PENDING');
+    expect(await peoplePrisma.deviceCommand.count({ where: { serialNumber: sn, status: 'PENDING' } })).toBe(queued);
+    // The company sees an address waiting, but only from that address can it be approved.
+    const d = (await devices(c).expect(200)).body.devices[0];
+    expect(d.awaitingNetwork).toBe('203.0.113.9');
+    await request(app).post(`/api/orgs/${c.orgId}/attendance/devices/${d.id}/approve-network`).set(at(c)).expect(409);
+    expect(p.id).toBeTruthy();
+  });
+
+  it('lets a company add a reader from home and approve it from the office', async () => {
+    const c = await makeOwner();
+    const sn = serial();
+    const added = await addReader(c, sn); // from 127.0.0.1
+    expect(added.device.networkVerified).toBe(false);
+    const office = from(sn, '198.51.100.7');
+    expect((await office.push(['1\t2026-09-01 09:00:00\t0\t1'])).status).toBe(503);
+
+    // At the office, on its Wi-Fi.
+    await request(app).post(`/api/orgs/${c.orgId}/attendance/devices/${added.device.id}/approve-network`).set(at(c)).set('X-Forwarded-For', '198.51.100.7').expect(200);
+    expect((await office.push(['1\t2026-09-01 09:00:00\t0\t1']).expect(200)).text).toBe('OK: 1');
+    // The office line's dynamic address moving within its block is fine; another city is not.
+    expect((await from(sn, '198.51.100.42').push(['1\t2026-09-01 18:00:00\t1\t1']).expect(200)).text).toBe('OK: 1');
+    expect((await from(sn, '192.0.2.10').push(['1\t2026-09-02 09:00:00\t0\t1'])).status).toBe(503);
+    const d = (await devices(c).expect(200)).body.devices[0];
+    expect(d.allowedNetworks).toEqual(['198.51.100.7', '198.51.100.42']);
+  });
+
+  it('does not let another company that claimed the serial first receive the reader', async () => {
+    const sn = serial();
+    const squatter = await makeOwner();
+    await addReader(squatter, sn); // claimed from 127.0.0.1, far from the reader
+    const real = from(sn, '198.51.100.70');
+    expect((await real.push(['501\t2026-09-01 09:00:00\t0\t1'])).status).toBe(503);
+    expect((await real.heartbeat().expect(200)).text).toBe('OK');
+    expect(await peoplePrisma.devicePunch.count({ where: { serialNumber: sn } })).toBe(0);
+    const d = (await devices(squatter).expect(200)).body.devices[0];
+    await request(app).post(`/api/orgs/${squatter.orgId}/attendance/devices/${d.id}/approve-network`).set(at(squatter)).expect(409);
   });
 });

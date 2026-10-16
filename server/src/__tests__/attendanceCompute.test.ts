@@ -89,6 +89,33 @@ describe('a working day', () => {
   it('refuses an out before the in', () => {
     expect(() => computeDay({ date: day, shift: DEFAULT_SHIFT, checkIn: at('18:00'), checkOut: at('09:00') })).toThrow();
   });
+
+  it('never scores staying longer worse than leaving earlier', () => {
+    const status = (out: string) => computeDay({ date: day, shift: DEFAULT_SHIFT, checkIn: at('09:00'), checkOut: at(out) });
+    expect(status('13:00').status).toBe('HALF_DAY');
+    // Past half a day the break comes off — but not below half a day.
+    expect(status('13:01').status).toBe('HALF_DAY');
+    expect(status('13:30').status).toBe('HALF_DAY');
+    let last = 0;
+    for (let m = 12 * 60; m <= 19 * 60; m += 1) {
+      const hhmm = `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+      const w = status(hhmm).workedMinutes;
+      expect(w).toBeGreaterThanOrEqual(last);
+      last = w;
+    }
+  });
+
+  it('keeps a day off paid when someone works part of it', () => {
+    const sunday = '2026-10-11';
+    const r = computeDay({ date: sunday, shift: DEFAULT_SHIFT, checkIn: at('09:00', sunday), checkOut: at('15:00', sunday) });
+    expect(r.status).toBe('WEEKLY_OFF');
+    expect(r.overtimeMinutes).toBe(r.workedMinutes);
+    const holiday = computeDay({ date: day, shift: DEFAULT_SHIFT, checkIn: at('09:00'), checkOut: at('14:00'), isHoliday: true });
+    expect(holiday.status).toBe('HOLIDAY');
+    const s = monthSummary({ days: [sunday], records: new Map([[sunday, { ...r, overtimeApproved: false }]]), shift: () => DEFAULT_SHIFT, holidays: new Set(), today: '2026-10-20' });
+    expect(s.lossOfPayDays).toBe(0);
+    expect(s.payableDays).toBe(1);
+  });
 });
 
 describe('a month for payroll', () => {
@@ -118,5 +145,22 @@ describe('a month for payroll', () => {
     const s = monthSummary({ days: ['2026-10-20', '2026-10-21'], records: new Map(), shift: () => DEFAULT_SHIFT, holidays: new Set(), today: '2026-10-14' });
     expect(s.notYet).toBe(2);
     expect(s.lossOfPayDays).toBe(0);
+  });
+
+  it('does not pay a past working day that has a check-in and no check-out', () => {
+    const open = { status: 'PRESENT', lateMinutes: 0, overtimeMinutes: 0, overtimeApproved: false, checkIn: at('09:00', '2026-10-13'), checkOut: null };
+    const sunday = { ...open, checkIn: at('09:00', '2026-10-18') };
+    const today = { ...open, checkIn: at('09:00', '2026-10-20') };
+    const s = monthSummary({
+      days: ['2026-10-13', '2026-10-18', '2026-10-20'],
+      records: new Map<string, any>([['2026-10-13', open], ['2026-10-18', sunday], ['2026-10-20', today]]),
+      shift: () => DEFAULT_SHIFT,
+      holidays: new Set(),
+      today: '2026-10-20',
+    });
+    /* 13th: past, open, a working day → incomplete, not paid. 18th: Sunday → still a paid off. 20th: today → under way. */
+    expect(s).toMatchObject({ incompleteDays: 1, weeklyOffs: 1, present: 1 });
+    expect(s.lossOfPayDays).toBe(1);
+    expect(s.payableDays).toBe(2);
   });
 });

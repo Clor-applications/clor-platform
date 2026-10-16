@@ -12,6 +12,7 @@ import { ISO_DATE, sendError, today } from './attendance.js';
 import { attachPunchesTo, copyAllTemplatesTo, pinMatcher, recomputeDeviceDay, servesArea, shiftDayFor, syncVendorConnection } from './iclock.js';
 import { encryptSecret } from '../services/mailer.js';
 import { etoFetchPunches } from '../services/attendance/etimeoffice.js';
+import { MAX_NETWORKS, networkOf } from '../services/attendance/network.js';
 
 /**
  * Biometric readers, as the company manages them: claim a reader by its serial
@@ -33,11 +34,18 @@ const deviceSchema = z.object({
 });
 
 /* Never the stored credential. */
-const shape = ({ apiSecret, ...d }: any, extra: Record<string, unknown> = {}) => ({
+/** A network the reader called from in the last day, not approved yet. */
+const APPROVE_WITHIN_MS = 24 * 3_600_000;
+const awaiting = (d: any) =>
+  d.vendor === 'ADMS' && d.pendingNetwork && d.pendingNetworkAt && Date.now() - new Date(d.pendingNetworkAt).getTime() < APPROVE_WITHIN_MS ? d.pendingNetwork : null;
+
+const shape = ({ apiSecret, claimNetwork, pendingNetwork, pendingNetworkAt, ...d }: any, extra: Record<string, unknown> = {}) => ({
   ...d,
   firmware: normaliseFirmware(d.firmware),
   hasSecret: Boolean(apiSecret),
   online: Boolean(d.lastSeenAt && Date.now() - new Date(d.lastSeenAt).getTime() < ONLINE_WINDOW_MS),
+  networkVerified: Boolean(d.networkVerifiedAt),
+  awaitingNetwork: awaiting({ ...d, pendingNetwork, pendingNetworkAt }),
   ...extra,
 });
 
@@ -58,6 +66,8 @@ devicesRouter.get(base, can(PermissionAction.VIEW), async (req, res) => {
   res.json({
     devices: devices.map((d) => shape(d, { punchesToday: n(todayCounts as any[], d.id), commandsWaiting: n(pending as any[], d.id) })),
     unmatchedPunches: unmatched,
+    /* So the screen can tell whoever is looking whether they are on a reader's network. */
+    yourNetwork: networkOf(req),
   });
 });
 
@@ -92,7 +102,7 @@ devicesRouter.post(base, can(PermissionAction.CREATE), async (req, res) => {
     /* One connection per e-Time Office account, across all companies. */
     const serialNumber = `ETO-${(b.corporateId || b.username).replace(/[^A-Za-z0-9_-]/g, '').slice(0, 36)}`;
     const taken = await peoplePrisma.attendanceDevice.findUnique({ where: { serialNumber } });
-    if (taken) return res.status(409).json({ error: taken.orgId === orgId ? 'This e-Time Office account is already connected.' : 'This e-Time Office account is connected to another organisation.' });
+    if (taken) return res.status(409).json({ error: taken.orgId === orgId ? 'This e-Time Office account is already connected.' : 'This e-Time Office account cannot be connected. Contact support if it is yours.' });
     const device = await peoplePrisma.attendanceDevice.create({
       data: {
         accountId,
@@ -116,20 +126,83 @@ devicesRouter.post(base, can(PermissionAction.CREATE), async (req, res) => {
   const taken = await peoplePrisma.attendanceDevice.findUnique({ where: { serialNumber: b.serialNumber } });
   if (taken) {
     return res.status(409).json({
-      error: taken.orgId === orgId ? 'This reader is already added.' : 'This serial number is registered to another organisation. Contact support if the reader is yours.',
+      /* Never say whose it is: an answer naming another company tells anyone which serials are in use. */
+      error: taken.orgId === orgId ? 'This reader is already added.' : 'This serial number cannot be added. Contact support if the reader is yours.',
     });
   }
   /* A reader already pointed at us shows up as "seen" straight away. */
   const seen = await peoplePrisma.unclaimedReader.findUnique({ where: { serialNumber: b.serialNumber } });
+  /*
+   * Ownership is proved by being on the reader's network (see allowedNetworks):
+   * added from the network it already calls from, it is approved now; else
+   * it is approved when it calls in from this network, or by "approve" from its own.
+   */
+  const net = networkOf(req);
+  const proven = Boolean(net && seen?.network === net);
   try {
     const device = await peoplePrisma.attendanceDevice.create({
-      data: { accountId, orgId, ...b, ip: seen?.ip || null, lastSeenAt: seen?.lastSeenAt || null, createdByUserId: req.auth!.userId },
+      data: {
+        accountId,
+        orgId,
+        ...b,
+        ip: seen?.ip || null,
+        lastSeenAt: seen?.lastSeenAt || null,
+        claimNetwork: net,
+        ...(proven ? { allowedNetworks: [net!], networkVerifiedAt: new Date() } : {}),
+        createdByUserId: req.auth!.userId,
+      },
     });
     if (seen) await peoplePrisma.unclaimedReader.delete({ where: { serialNumber: b.serialNumber } }).catch(() => undefined);
     res.status(201).json({ device: shape(device), seenBefore: seen ? seen.lastSeenAt : null });
   } catch (e) {
     return sendError(res, e);
   }
+});
+
+/**
+ * Approve the network a reader is calling from — only from that network: the
+ * admin's own connection must come from the same address. Someone elsewhere
+ * who claimed the serial can see the address but can never approve it.
+ */
+devicesRouter.post(`${base}/:id/approve-network`, can(PermissionAction.EDIT), async (req, res) => {
+  if (!(await attendanceRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const d = await peoplePrisma.attendanceDevice.findFirst({ where: { id: String(req.params.id), accountId, orgId, vendor: 'ADMS' } });
+  if (!d) return res.status(404).json({ error: 'No such reader.' });
+  const net = networkOf(req);
+  if (!net || awaiting(d) !== net) {
+    return res.status(409).json({
+      error: 'Approve it from the reader’s own network: open CLOR on a computer or phone on the same internet connection as the reader (the office Wi-Fi, not mobile data) while the reader is on.',
+      code: 'NOT_ON_READER_NETWORK',
+    });
+  }
+  const device = await peoplePrisma.attendanceDevice.update({
+    where: { id: d.id },
+    data: {
+      allowedNetworks: [...d.allowedNetworks.filter((x) => x !== net), net].slice(-MAX_NETWORKS),
+      networkVerifiedAt: d.networkVerifiedAt ?? new Date(),
+      pendingNetwork: null,
+      pendingNetworkAt: null,
+    },
+  });
+  res.json({ device: shape(device) });
+});
+
+/** Stop taking data from a network (an office that moved, a line given up). */
+devicesRouter.delete(`${base}/:id/networks`, can(PermissionAction.EDIT), async (req, res) => {
+  if (!(await attendanceRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const d = await peoplePrisma.attendanceDevice.findFirst({ where: { id: String(req.params.id), accountId, orgId, vendor: 'ADMS' } });
+  if (!d) return res.status(404).json({ error: 'No such reader.' });
+  const network = String(req.body?.network || '');
+  if (!d.allowedNetworks.includes(network)) return res.status(404).json({ error: 'That network is not approved for this reader.' });
+  const rest = d.allowedNetworks.filter((x) => x !== network);
+  /* With none left, the next network must be approved from that network — never taken on trust. */
+  const device = await peoplePrisma.attendanceDevice.update({
+    where: { id: d.id },
+    data: { allowedNetworks: rest, ...(rest.length ? {} : { networkVerifiedAt: null, claimNetwork: null }) },
+  });
+  res.json({ device: shape(device) });
 });
 
 devicesRouter.put(`${base}/:id`, can(PermissionAction.EDIT), async (req, res) => {

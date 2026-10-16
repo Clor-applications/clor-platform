@@ -298,7 +298,7 @@ schedulingRouter.get(`${base}/schedule`, can(PermissionAction.VIEW), async (req,
       ...(areaId ? { areaId } : {}),
       AND: [{ OR: [{ dateOfLeaving: null }, { dateOfLeaving: { gte: first } }] }, { OR: [{ dateOfJoining: null }, { dateOfJoining: { lte: last } }] }],
     },
-    select: { id: true, name: true, code: true, department: true, areaId: true, dateOfJoining: true, dateOfLeaving: true },
+    select: { id: true, name: true, code: true, department: true, areaId: true, branchId: true, dateOfJoining: true, dateOfLeaving: true },
     orderBy: { name: 'asc' },
   });
   const [schedule, holidays, leaveDays] = await Promise.all([
@@ -317,7 +317,7 @@ schedulingRouter.get(`${base}/schedule`, can(PermissionAction.VIEW), async (req,
       if ((p.dateOfJoining && d < p.dateOfJoining) || (p.dateOfLeaving && d > p.dateOfLeaving)) return { date: d, kind: 'OUT' };
       const r = resolveShift(schedule, p.id, d);
       if (r.shiftId && !shiftsUsed.has(r.shiftId)) shiftsUsed.set(r.shiftId, { id: r.shiftId, name: r.name, code: r.code, color: r.color, startTime: r.rule.startTime, endTime: r.rule.endTime });
-      const kind = onLeave.has(`${p.id}|${d}`) ? 'LEAVE' : holidays.forArea(p.areaId).has(d) ? 'HOLIDAY' : isWeeklyOff(r.rule, d) ? 'OFF' : 'WORK';
+      const kind = onLeave.has(`${p.id}|${d}`) ? 'LEAVE' : holidays.forArea(p.areaId, p.branchId).has(d) ? 'HOLIDAY' : isWeeklyOff(r.rule, d) ? 'OFF' : 'WORK';
       return { date: d, kind, shiftId: r.shiftId, code: r.code, color: r.color, name: r.name, source: r.source };
     }),
   }));

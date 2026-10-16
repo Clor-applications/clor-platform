@@ -200,7 +200,7 @@ portalRouter.get('/me', async (req, res) => {
       startTime: shift.rule.startTime,
       endTime: shift.rule.endTime,
       off: isWeeklyOff(shift.rule, t),
-      holiday: holidays.forArea(e.areaId).has(t) ? holidayName(holidays.rows, t, e.areaId) || 'Holiday' : null,
+      holiday: holidays.forArea(e.areaId, e.branchId).has(t) ? holidayName(holidays.rows, t, e.areaId) || 'Holiday' : null,
     },
     record: record ? (await withNames(e.orgId, [record]))[0] : null,
     punches: punches.map((p) => ({ time: p.localTime.slice(11, 16), kind: p.kind, phone: p.latitude != null, site: p.geofenceId ? fenceNames.get(p.geofenceId) || null : null })),
@@ -322,7 +322,7 @@ portalRouter.get('/schedule', async (req, res) => {
     peoplePrisma.attendanceRecord.findMany({ where: { orgId: e.orgId, employeeId: e.id, date: { gte: days[0], lte: days[days.length - 1] }, status: 'ON_LEAVE' }, select: { date: true } }),
   ]);
   const onLeave = new Set(leave.map((l) => l.date));
-  const mine = holidays.forArea(e.areaId);
+  const mine = holidays.forArea(e.areaId, e.branchId);
   res.json({
     month,
     days: days.map((d) => {

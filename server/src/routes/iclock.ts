@@ -33,6 +33,7 @@ import { readerLimiter } from '../middleware/rateLimit.js';
 import { decryptSecret } from '../services/mailer.js';
 import { etoFetchPunches } from '../services/attendance/etimeoffice.js';
 import { emit as emitWebhook } from '../services/attendance/webhooks.js';
+import { MAX_NETWORKS, networkOf, sameBlock } from '../services/attendance/network.js';
 import { shiftFor, writeDay } from './attendance.js';
 
 /**
@@ -71,12 +72,51 @@ async function deviceFor(serial: string) {
   return device;
 }
 
-async function remember(serial: string, ip: string | null, info: string | null) {
+async function remember(serial: string, ip: string | null, info: string | null, network: string | null) {
   await peoplePrisma.unclaimedReader.upsert({
     where: { serialNumber: serial },
-    create: { serialNumber: serial, ip, info: info?.slice(0, 300) || null },
-    update: { lastSeenAt: new Date(), ...(ip ? { ip } : {}), ...(info ? { info: info.slice(0, 300) } : {}) },
+    create: { serialNumber: serial, ip, network, info: info?.slice(0, 300) || null },
+    update: { lastSeenAt: new Date(), ...(ip ? { ip } : {}), ...(network ? { network } : {}), ...(info ? { info: info.slice(0, 300) } : {}) },
   });
+}
+
+type Lockable = {
+  id: string;
+  allowedNetworks: string[];
+  networkVerifiedAt: Date | null;
+  claimNetwork: string | null;
+  pendingNetwork: string | null;
+  pendingNetworkAt: Date | null;
+};
+
+/**
+ * The network lock (AttendanceDevice.allowedNetworks): may this request speak
+ * for the reader? Approved addresses may. So may, once, the address the reader
+ * was added from, the first address of a reader added before the lock existed,
+ * and a new address in the same small block as an approved one (a dynamic
+ * office line). Anything else is held: the reader is told it is busy, keeps
+ * its punches, and is given no commands until an admin on that network
+ * approves it — someone who only knows the serial gets nothing and adds nothing.
+ */
+async function admitted(device: Lockable, req: Request) {
+  const net = networkOf(req);
+  if (!net) return false;
+  const allowed = device.allowedNetworks || [];
+  if (allowed.includes(net)) return true;
+  const approve = device.networkVerifiedAt
+    ? !allowed.length || allowed.some((a) => sameBlock(a, net))
+    : device.claimNetwork === net;
+  if (approve) {
+    await peoplePrisma.attendanceDevice.update({
+      where: { id: device.id },
+      data: { allowedNetworks: [...allowed, net].slice(-MAX_NETWORKS), networkVerifiedAt: device.networkVerifiedAt ?? new Date(), pendingNetwork: null, pendingNetworkAt: null },
+    });
+    return true;
+  }
+  if (device.pendingNetwork !== net || !device.pendingNetworkAt || Date.now() - device.pendingNetworkAt.getTime() > 5 * 60_000) {
+    await peoplePrisma.attendanceDevice.update({ where: { id: device.id }, data: { pendingNetwork: net, pendingNetworkAt: new Date() } });
+  }
+  return false;
 }
 
 const readerIp = (req: Request) => {
@@ -115,9 +155,35 @@ const isNight = (rule: { startTime: string; endTime: string }) => rule.endTime <
 /** An instant as the IST wall clock a reader would print: "YYYY-MM-DD HH:mm:ss". */
 const istLocal = (at: Date) => new Date(at.getTime() + 330 * 60_000).toISOString().slice(0, 19).replace('T', ' ');
 
+const dayBefore = (date: string) => {
+  const d = new Date(`${date}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() - 1);
+  return d.toISOString().slice(0, 10);
+};
+
+const minutesOfDay = (hhmm: string) => Number(hhmm.slice(0, 2)) * 60 + Number(hhmm.slice(3, 5));
+
+/**
+ * The shift day a punch belongs to. A morning punch is the end of last night's
+ * shift only if the shift that started the evening before was a night shift —
+ * the shift on the punch's own date says nothing about that — and only until
+ * the morning's own shift could have begun: halfway from the night's end to the
+ * day shift's start, and never more than four hours after the night ends.
+ * (Moving from nights back to days put the night's 06:00 exit on the day shift,
+ * or the day shift's 09:00 arrival on the night.)
+ */
 export async function shiftDayFor(orgId: string, employeeId: string, localTime: string) {
-  const { rule } = await shiftFor(orgId, employeeId, localTime.slice(0, 10));
-  return shiftDayOf(localTime, isNight(rule));
+  const date = localTime.slice(0, 10);
+  if (Number(localTime.slice(11, 13)) >= 12) return date;
+  const before = dayBefore(date);
+  const { rule: last } = await shiftFor(orgId, employeeId, before);
+  if (!isNight(last)) return date;
+  const end = minutesOfDay(last.endTime);
+  let cutoff = end + 240;
+  const { rule: own } = await shiftFor(orgId, employeeId, date);
+  const start = minutesOfDay(own.startTime);
+  if (!isNight(own) && start > end) cutoff = Math.min(cutoff, Math.max(end + 60, Math.floor((end + start) / 2)));
+  return minutesOfDay(localTime.slice(11, 16)) < cutoff ? before : date;
 }
 
 /**
@@ -178,7 +244,7 @@ export async function ingestPunches(device: { id: string; accountId: string; org
       kind: device.vendor === 'API' && p.state === '0' ? 'IN' : punchKind(p.state, device.direction),
       verifyMode: p.verifyMode,
       employeeId: emp?.id ?? null,
-      shiftDate: emp ? await shiftDayFor(device.orgId, emp.id, p.localTime) : null,
+      shiftDate: null as string | null,
       raw: raw.slice(0, 300),
       _emp: emp,
     });
@@ -203,6 +269,14 @@ export async function ingestPunches(device: { id: string; accountId: string; org
     }
   }
   if (!fresh.length) return 0;
+  /* Shift days only for new punches: a reader resending its whole log costs one lookup per person-hour, not one per line. */
+  const dayOf = new Map<string, string>();
+  for (const r of fresh) {
+    if (!r._emp) continue;
+    const k = `${r._emp.id}|${r.localTime.slice(0, 13)}`;
+    if (!dayOf.has(k)) dayOf.set(k, await shiftDayFor(device.orgId, r._emp.id, r.localTime));
+    r.shiftDate = dayOf.get(k)!;
+  }
   await peoplePrisma.devicePunch.createMany({ data: fresh.map(({ _emp, ...r }) => r), skipDuplicates: true });
   emitWebhook(device.orgId, 'punch', {
     reader: device.serialNumber,
@@ -333,16 +407,26 @@ async function keepUser(device: Device, pin: string, u: { name: string | null; p
   });
 }
 
-/** The user record to send with a template: as the reader it came from holds it, else the employee's name. */
-async function userFor(orgId: string, pin: string, preferDeviceId?: string) {
+/**
+ * The user record to send with a template: the name and card as the reader it
+ * came from holds them, else the employee's. Administrator rights and the door
+ * PIN only ever come from CLOR's employee file: a reader is known by its serial
+ * number alone, so what "a reader" reports must never become admin rights or a
+ * known door PIN on every other reader of the company.
+ */
+async function userFor(orgId: string, pin: string, preferDeviceId?: string, match?: Awaited<ReturnType<typeof pinMatcher>>) {
   const held = await peoplePrisma.deviceUser.findMany({ where: { orgId, pin }, orderBy: { updatedAt: 'desc' } });
   const u = held.find((h) => h.deviceId === preferDeviceId) || held[0];
-  let name = u?.name || null;
-  if (!name) {
-    const emp = (await pinMatcher(orgId))(pin);
-    if (emp) name = (await peoplePrisma.employee.findUnique({ where: { id: emp.id }, select: { name: true } }))?.name || null;
-  }
-  return { name: name || 'Unknown', privilege: u?.privilege ?? 0, password: u?.password ?? '', card: u?.card ?? '' };
+  const emp = (match ?? (await pinMatcher(orgId)))(pin);
+  const file = emp
+    ? await peoplePrisma.employee.findUnique({ where: { id: emp.id }, select: { name: true, cardNumber: true, devicePassword: true, devicePrivilege: true } })
+    : null;
+  return {
+    name: u?.name || file?.name || 'Unknown',
+    privilege: file?.devicePrivilege ?? 0,
+    password: file?.devicePassword ?? '',
+    card: file?.cardNumber || u?.card || '',
+  };
 }
 
 /**
@@ -401,15 +485,16 @@ async function storeTemplate(device: Device, t: Template, match: Awaited<ReturnT
   if (t.type === FINGER) await markOnReader(device, pin, { finger: t.no });
   else if (t.type === FACE) await markOnReader(device, pin, { face: true });
   if (!changed) return;
-  const user = await userFor(device.orgId, pin, device.id);
+  const user = await userFor(device.orgId, pin, device.id, match);
   const area = match(pin)?.areaId ?? null;
   for (const target of await otherReaders(device)) if (servesArea(target, area)) await queueOnto(target, pin, [{ ...t, pin }], user, null);
 }
 
 /**
- * Put one person on one reader as CLOR has them: their user record (card,
- * door PIN and privilege from the employee file, else as a reader holds them)
- * and whichever of their fingerprints and face this reader lacks.
+ * Put one person on one reader as CLOR has them: their user record (card from
+ * the employee file, else as a reader holds it; door PIN and privilege from the
+ * employee file only — see userFor) and whichever of their fingerprints and
+ * face this reader lacks.
  */
 export async function sendPersonTo(target: Device, employee: { name: string; cardNumber?: string | null; devicePassword?: string | null; devicePrivilege?: number | null }, pin: string, templates: Template[], createdByUserId: string | null) {
   const held = await peoplePrisma.deviceUser.findFirst({ where: { orgId: target.orgId, pin }, orderBy: { updatedAt: 'desc' } });
@@ -417,8 +502,8 @@ export async function sendPersonTo(target: Device, employee: { name: string; car
     {
       seq: SEQ.USER as number,
       command: userInfoCommand(pin, employee.name, {
-        privilege: employee.devicePrivilege ?? held?.privilege ?? 0,
-        password: employee.devicePassword ?? held?.password ?? '',
+        privilege: employee.devicePrivilege ?? 0,
+        password: employee.devicePassword ?? '',
         card: employee.cardNumber ?? held?.card ?? '',
       }),
     },
@@ -446,7 +531,8 @@ export async function copyAllTemplatesTo(target: Device, createdByUserId: string
     byPin.get(t.pin)!.push(t);
   }
   let commands = 0;
-  for (const [pin, list] of byPin) commands += await queueOnto(target, pin, list, await userFor(target.orgId, pin), createdByUserId);
+  const match = await pinMatcher(target.orgId);
+  for (const [pin, list] of byPin) commands += await queueOnto(target, pin, list, await userFor(target.orgId, pin, undefined, match), createdByUserId);
   return { people: byPin.size, commands };
 }
 
@@ -461,6 +547,14 @@ export async function revokeFromReaders(orgId: string, employee: { id: string; c
   const own = employee.devicePin || employee.code;
   if (own) pins.add(own);
   if (!pins.size) return { readers: 0, pins: 0 };
+  /*
+   * Anything still waiting to go to a reader for them goes first: the removals
+   * below are handed out before fingerprint copies (lower sequence), so a copy
+   * left in the queue would put a leaver's fingerprint back after removal.
+   */
+  const waiting = await peoplePrisma.deviceCommand.findMany({ where: { orgId, status: 'PENDING' }, select: { id: true, command: true } });
+  const theirs = waiting.filter((c) => pins.has(/\b(?:PIN|Pin)=([^\t]*)/.exec(c.command)?.[1] ?? '')).map((c) => c.id);
+  if (theirs.length) await peoplePrisma.deviceCommand.deleteMany({ where: { id: { in: theirs } } });
   const readers = await peoplePrisma.attendanceDevice.findMany({ where: { orgId, isActive: true } });
   for (const r of readers) {
     await peoplePrisma.deviceCommand.createMany({
@@ -482,8 +576,8 @@ export const readerFieldsChanged = (before: any, after: any) =>
 /**
  * Put one employee on every reader of the company (ClorTime: POST/PUT
  * /api/employees and rehire queue DATA UPDATE USERINFO to all readers). Their
- * Reader ID, else their employee code. A card or PIN not set in CLOR is taken
- * from what a reader already holds, so pushing never wipes one set at a reader.
+ * Reader ID, else their employee code. A card not set in CLOR is taken from
+ * what a reader already holds, so pushing never wipes one enrolled at a reader.
  * If their ID changed, the old ID is taken off the readers first.
  */
 export async function pushEmployeeToReaders(orgId: string, employee: any, createdByUserId: string | null, before?: any, skipDeviceId?: string) {
@@ -507,9 +601,10 @@ export async function pushEmployeeToReaders(orgId: string, employee: any, create
   if (oldPin && oldPin !== pin) for (const c of removalCommands(oldPin)) rows.push({ command: c, sequence: SEQ.USER });
   if (pin) {
     rows.push({
+      /* Privilege and door PIN from the employee file only (see userFor); a card enrolled at a reader is kept. */
       command: userInfoCommand(pin, employee.name, {
-        privilege: employee.devicePrivilege ?? held?.privilege ?? 0,
-        password: employee.devicePassword ?? held?.password ?? '',
+        privilege: employee.devicePrivilege ?? 0,
+        password: employee.devicePassword ?? '',
         card: employee.cardNumber ?? held?.card ?? '',
       }),
       sequence: SEQ.USER,
@@ -547,11 +642,13 @@ iclockRouter.get(['/cdata', '/cdata.aspx'], async (req, res) => {
   if (!serial) return text(res, 'ADMS Server Ready');
   try {
     const device = await deviceFor(serial);
+    /* Options are no secret; a reader on a network not approved yet is not marked as seen. */
+    if (device && !(await admitted(device, req))) return text(res, HANDSHAKE_OPTIONS);
     if (device) {
       /* The LAN address the reader reports (heartbeat INFO) is the useful one; the connection's is the office router's. */
       await peoplePrisma.attendanceDevice.update({ where: { id: device.id }, data: { lastSeenAt: new Date(), ...(readerIp(req) && !device.ip ? { ip: readerIp(req) } : {}) } });
     } else {
-      await remember(serial, readerIp(req), null);
+      await remember(serial, readerIp(req), null, networkOf(req));
     }
     return text(res, HANDSHAKE_OPTIONS);
   } catch (e) {
@@ -592,9 +689,11 @@ iclockRouter.post(['/cdata', '/cdata.aspx'], async (req, res) => {
   try {
     const device = await deviceFor(serial);
     if (!device) {
-      await remember(serial, readerIp(req), null);
+      await remember(serial, readerIp(req), null, networkOf(req));
       return text(res, 'OK');
     }
+    /* Not from an approved network: not taken, and not acknowledged — the reader keeps the batch and sends it again. */
+    if (!(await admitted(device, req))) return text(res, 'BUSY', 503);
     const now = new Date();
     await peoplePrisma.attendanceDevice.update({ where: { id: device.id }, data: { lastSeenAt: now } });
 
@@ -683,9 +782,11 @@ iclockRouter.get(['/getrequest', '/getrequest.aspx'], async (req, res) => {
     const info = parseInfo(req.query.INFO ? String(req.query.INFO) : undefined);
     const ip = info.ip || readerIp(req);
     if (!device) {
-      await remember(serial, ip, req.query.INFO ? String(req.query.INFO) : null);
+      await remember(serial, ip, req.query.INFO ? String(req.query.INFO) : null, networkOf(req));
       return text(res, 'OK');
     }
+    /* Commands carry names, cards and fingerprints: only to a reader on an approved network. */
+    if (!(await admitted(device, req))) return text(res, 'OK');
     await peoplePrisma.attendanceDevice.update({
       where: { id: device.id },
       data: {
@@ -758,6 +859,8 @@ iclockRouter.post(['/devicecmd', '/devicecmd.aspx'], async (req, res) => {
   try {
     const results = parseCommandResults(typeof req.body === 'string' ? req.body : '');
     const device = results.length ? await deviceFor(serial) : null;
+    /* Only the reader itself, from an approved network, can say a command was carried out. */
+    if (!device || !(await admitted(device, req))) return text(res, 'OK');
     for (const r of results) {
       const ok = r.returnCode >= 0;
       const cmd = await peoplePrisma.deviceCommand.findFirst({ where: { id: r.id, serialNumber: serial } });

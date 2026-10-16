@@ -568,6 +568,21 @@ model AttendanceDevice {
   clockOffsetSec Int?
   clockCheckedAt DateTime?
 
+  /// The network lock. A reader is known by its serial number alone, so the one
+  /// thing that cannot be faked is the internet address its requests come from.
+  /// Data is taken only from approved addresses, and an address is approved
+  /// only by an admin on that same network (adding the reader, or "approve")
+  /// — another company that claims the serial can never approve this one's.
+  allowedNetworks   String[]  @default([])
+  /// Set once the company proved it is on the reader's network (or for readers
+  /// added before the lock existed, which keep the first network they call from).
+  networkVerifiedAt DateTime?
+  /// The address the reader was added from, approved if the reader calls in from it.
+  claimNetwork      String?
+  /// An address the reader is calling from that is not approved (yet).
+  pendingNetwork    String?
+  pendingNetworkAt  DateTime?
+
   createdByUserId String
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
@@ -669,6 +684,8 @@ model UnclaimedReader {
   firstSeenAt  DateTime @default(now())
   lastSeenAt   DateTime @default(now())
   ip           String?
+  /// The internet address its requests came from (ip may be the LAN one it reports).
+  network      String?
   info         String?
 }
 

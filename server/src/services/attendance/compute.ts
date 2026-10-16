@@ -139,14 +139,16 @@ export function computeDay(input: {
   if (checkOut.getTime() < checkIn.getTime()) throw new Error('Check-out is before check-in.');
 
   const span = mins(checkOut.getTime() - checkIn.getTime());
-  const workedMinutes = span > shift.halfDayMinutes ? Math.max(0, span - shift.breakMinutes) : span;
+  /* The break comes off a longer day, but never takes it back under half a day: staying longer must not score worse. */
+  const workedMinutes = span > shift.halfDayMinutes ? Math.max(shift.halfDayMinutes, span - shift.breakMinutes) : span;
   const earlyBy = mins(end.getTime() - checkOut.getTime());
   const earlyOutMinutes = restDay ? 0 : earlyBy > shift.earlyOutGraceMinutes ? earlyBy : 0;
   const otThreshold = shift.overtimeAfterMinutes ?? shift.fullDayMinutes;
   const overtimeMinutes = restDay ? workedMinutes : Math.max(0, workedMinutes - otThreshold);
 
+  /* A day off stays paid whatever was worked on it; the hours are overtime, never a half day's loss of pay. */
   const status: DayStatus =
-    workedMinutes >= shift.fullDayMinutes ? 'PRESENT' : workedMinutes >= shift.halfDayMinutes ? 'HALF_DAY' : restDay || 'ABSENT';
+    workedMinutes >= shift.fullDayMinutes ? 'PRESENT' : restDay ? restDay : workedMinutes >= shift.halfDayMinutes ? 'HALF_DAY' : 'ABSENT';
 
   return { workedMinutes, lateMinutes, earlyOutMinutes, overtimeMinutes, status };
 }
@@ -157,11 +159,13 @@ export function computeDay(input: {
  * Present, holidays, weekly offs and paid leave are paid; a half day is half;
  * absent days (and unpaid leave, counted by the caller as `unpaidLeaveDays`)
  * are loss of pay. Days with no record at all are counted as absent only up
- * to today — a future day is not a day lost.
+ * to today — a future day is not a day lost. A past working day with a
+ * check-in and no check-out is `incomplete`: it is not paid until someone
+ * corrects it, because "in at 09:00" alone says nothing about a day's work.
  */
 export function monthSummary(input: {
   days: string[]; // every date in the period, YYYY-MM-DD
-  records: Map<string, { status: DayStatus; lateMinutes: number; overtimeMinutes: number; overtimeApproved: boolean }>;
+  records: Map<string, { status: DayStatus; lateMinutes: number; overtimeMinutes: number; overtimeApproved: boolean; checkIn?: Date | null; checkOut?: Date | null }>;
   shift: (date: string) => ShiftRule;
   holidays: Set<string>;
   today: string;
@@ -183,13 +187,19 @@ export function monthSummary(input: {
   let late = 0;
   let overtimeMinutes = 0;
   let notYet = 0;
+  let incomplete = 0;
   for (const date of input.days) {
     const r = input.records.get(date);
     if (r) {
       if (r.lateMinutes > 0) late += 1;
       if (r.overtimeApproved) overtimeMinutes += r.overtimeMinutes;
     }
-    const status: DayStatus | null = r?.status ?? (input.holidays.has(date) ? 'HOLIDAY' : isWeeklyOff(input.shift(date), date) ? 'WEEKLY_OFF' : null);
+    const restDay: DayStatus | null = input.holidays.has(date) ? 'HOLIDAY' : isWeeklyOff(input.shift(date), date) ? 'WEEKLY_OFF' : null;
+    if (r?.status === 'PRESENT' && r.checkIn && !r.checkOut && date < input.today && !restDay) {
+      incomplete += 1;
+      continue;
+    }
+    const status: DayStatus | null = r?.status === 'PRESENT' && r.checkIn && !r.checkOut && restDay ? restDay : r?.status ?? restDay;
     if (!status) {
       if (date > input.today) notYet += 1;
       else absent += 1;
@@ -205,7 +215,7 @@ export function monthSummary(input: {
   const unpaidLeave = Math.min(leave, Math.max(0, input.unpaidLeaveDays || 0));
   const every = Math.max(0, input.latePenaltyEvery || 0);
   const latePenaltyDays = every ? Math.floor(Math.max(0, late - Math.max(0, input.lateAllowance || 0)) / every) * 0.5 : 0;
-  const lossOfPayDays = absent + halfDays * 0.5 + unpaidLeave + latePenaltyDays;
+  const lossOfPayDays = absent + incomplete + halfDays * 0.5 + unpaidLeave + latePenaltyDays;
   return {
     totalDays: input.days.length,
     present,
@@ -215,6 +225,7 @@ export function monthSummary(input: {
     holidays,
     weeklyOffs,
     notYet,
+    incompleteDays: incomplete,
     lateCount: late,
     latePenaltyDays,
     approvedOvertimeMinutes: overtimeMinutes,

@@ -9,6 +9,7 @@ import { payrollPrisma } from '../utils/payrollPrisma.js';
 import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { PAYROLL_MODULE, PAYROLL_RESOURCE, payrollRouteOk } from '../services/payroll/guards.js';
 import { levelFor, resolveAccess } from '../services/access.js';
+import { pushEmployeeToReaders, readerFieldsChanged, revokeFromReaders } from './iclock.js';
 
 /**
  * The people payroll pays, and the payroll-specific things known about them.
@@ -321,6 +322,9 @@ payrollEmployeesRouter.put(
         notes: blank(body.notes),
       },
     });
+    /* The same reader rules as the People app: leaving ends door access; a new name or code goes to the readers. */
+    if (row.status === 'LEFT' && existing.status !== 'LEFT') await revokeFromReaders(orgId, existing, req.auth!.userId);
+    else if (row.status !== 'LEFT' && readerFieldsChanged(existing, row)) await pushEmployeeToReaders(orgId, row, req.auth!.userId, existing);
 
     let payroll = await payrollPrisma.employeePayrollProfile.findFirst({ where: { orgId, employeeId: row.id } });
 
@@ -378,6 +382,8 @@ payrollEmployeesRouter.delete(
       });
     }
 
+    /* Off the readers first, or the next read of a reader brings them back as a new employee. */
+    await revokeFromReaders(orgId, existing, req.auth!.userId);
     await payrollPrisma.employeePayrollProfile.deleteMany({ where: { orgId, employeeId: existing.id } });
     await peoplePrisma.employee.delete({ where: { id: existing.id } });
     res.json({ ok: true });
