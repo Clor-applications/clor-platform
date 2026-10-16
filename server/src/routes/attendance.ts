@@ -761,7 +761,11 @@ export async function periodContext(accountId: string, orgId: string, from: stri
 
 /** Payable and loss-of-pay days per person for a month (the month summary, and Payroll's input). */
 export async function monthRows(accountId: string, orgId: string, month: string) {
-  const days = daysOfMonth(month);
+  return periodRows(accountId, orgId, daysOfMonth(month));
+}
+
+/** The same figures for any run of days — a pay period need not be a calendar month. */
+export async function periodRows(accountId: string, orgId: string, days: string[]) {
   const ctx = await periodContext(accountId, orgId, days[0], days[days.length - 1]);
   return ctx.people.map((p) => {
     const span = ctx.spanOf(p);

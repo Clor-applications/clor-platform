@@ -39,6 +39,10 @@ export const setRunEmployeeIncluded = (id, employeeId, include) =>
 export const saveRunInputs = (id, inputs) =>
   apiFetch(`${base()}/${encodeURIComponent(id)}/inputs`, { ...opts, method: 'PUT', body: { inputs } });
 
+/** Payable days and loss of pay from Attendance; days typed by hand are kept unless `overwrite`. */
+export const takeDaysFromAttendance = (id, overwrite = false) =>
+  apiFetch(`${base()}/${encodeURIComponent(id)}/inputs/from-attendance`, { ...opts, method: 'POST', body: { overwrite } });
+
 /** What would stop this payroll producing a payslip somebody could defend. */
 export const validatePayrollRun = (id) =>
   apiFetch(`${base()}/${encodeURIComponent(id)}/validate`, { ...opts, method: 'POST' });

@@ -3,6 +3,7 @@ import { AlertTriangle, ArrowLeft, Check, Info, Play, Plus } from 'lucide-react'
 
 import { PageHeader, SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
+import { hasApp } from '@platform/context';
 import { listPayrollPeriods, listPayGroups } from '../api/payrollCalendar';
 import {
   listPayrollRuns,
@@ -10,6 +11,7 @@ import {
   createPayrollRun,
   setRunEmployeeIncluded,
   saveRunInputs,
+  takeDaysFromAttendance,
   validatePayrollRun,
   calculatePayrollRun,
   submitRunForReview,
@@ -320,7 +322,14 @@ const RunWorkflow = ({ runId, onBack }) => {
       {stage === 'people' ? (
         <PeopleStage data={data} editable={editable} runId={runId} onChanged={load} />
       ) : stage === 'inputs' ? (
-        <DaysStage data={data} editable={editable} runId={runId} onSaved={load} />
+        <DaysStage
+          /* Rows are copied into the stage once; new figures (taken from Attendance, say) remount it. */
+          key={data.employees.map((m) => `${m.employeeId}:${m.input?.payableDays ?? ''}:${m.input?.lwpDays ?? ''}:${m.input?.source ?? ''}`).join('|')}
+          data={data}
+          editable={editable}
+          runId={runId}
+          onSaved={load}
+        />
       ) : stage === 'issues' ? (
         <ChecksStage issues={issues} byEmployee={byEmployee} data={data} />
       ) : stage === 'review' ? (
@@ -528,9 +537,34 @@ const DaysStage = ({ data, editable, runId, onSaved }) => {
         payableDays: m.input?.payableDays ?? 30,
         lwpDays: m.input?.lwpDays ?? 0,
         variablePay: m.input?.variablePay ?? 0,
+        source: m.input?.source || null,
+        notes: m.input?.notes || '',
       }))
   );
   const [saving, setSaving] = useState(false);
+  const [taking, setTaking] = useState(false);
+  const fromAttendance = async () => {
+    setTaking(true);
+    try {
+      let out = await takeDaysFromAttendance(runId);
+      if (out.keptManual) {
+        const replace = await confirmDialog({
+          title: 'Replace days typed by hand?',
+          message: `${out.keptManual} ${out.keptManual === 1 ? 'person has' : 'people have'} days entered by hand. Replace them with Attendance's figures too?`,
+          confirmLabel: 'Replace',
+          tone: 'default',
+        });
+        if (replace) out = await takeDaysFromAttendance(runId, true);
+      }
+      const unresolved = (out.toResolve || []).length;
+      notify.success(`Days taken from Attendance for ${out.saved} ${out.saved === 1 ? 'person' : 'people'}.${unresolved ? ` ${unresolved} still have days with no check-out — those count as loss of pay until corrected in Attendance.` : ''}`);
+      onSaved();
+    } catch (e) {
+      notify.error(String(e?.message || 'Could not take days from Attendance.'));
+    } finally {
+      setTaking(false);
+    }
+  };
   const patch = (idx, p) => setRows((list) => list.map((r, i) => (i === idx ? { ...r, ...p } : r)));
 
   const save = async () => {
@@ -557,10 +591,18 @@ const DaysStage = ({ data, editable, runId, onSaved }) => {
 
   return (
     <div className="space-y-3">
-      <p className="ui-caption">
-        Days are worked out from the period and each person&apos;s joining and leaving dates. Change them where somebody took
-        unpaid leave.
-      </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <p className="ui-caption max-w-[60ch]">
+          {hasApp('attendance')
+            ? 'Take payable days and loss of pay from Attendance, or type them. Without either, days come from the period and each person’s joining and leaving dates.'
+            : 'Days are worked out from the period and each person’s joining and leaving dates. Change them where somebody lost pay.'}
+        </p>
+        {editable && hasApp('attendance') ? (
+          <button type="button" className="ui-btn ui-btn-secondary" onClick={fromAttendance} disabled={taking}>
+            {taking ? 'Taking…' : 'Take days from Attendance'}
+          </button>
+        ) : null}
+      </div>
       <div className="ui-card overflow-hidden">
         <div className="overflow-x-auto ui-table-scroll">
           <table className="ui-table w-full">
@@ -569,7 +611,7 @@ const DaysStage = ({ data, editable, runId, onSaved }) => {
                 <th scope="col" className="ui-th">Employee</th>
                 <th scope="col" className="ui-th ui-col-h-right">Working days</th>
                 <th scope="col" className="ui-th ui-col-h-right">Payable days</th>
-                <th scope="col" className="ui-th ui-col-h-right">Unpaid leave</th>
+                <th scope="col" className="ui-th ui-col-h-right">Loss of pay</th>
                 <th scope="col" className="ui-th ui-col-h-right">Variable pay</th>
               </tr>
             </thead>
@@ -577,14 +619,21 @@ const DaysStage = ({ data, editable, runId, onSaved }) => {
               <fieldset className="contents" disabled={!editable}>
                 {rows.map((r, idx) => (
                   <tr key={r.employeeId}>
-                    <td className="ui-col-entity">{r.name}</td>
+                    <td className="ui-col-entity">
+                      {r.name}
+                      {r.source === 'ATTENDANCE' ? (
+                        <span className="ui-caption block" title={r.notes}>From Attendance</span>
+                      ) : r.source === 'MANUAL' ? (
+                        <span className="ui-caption block">Typed</span>
+                      ) : null}
+                    </td>
                     {['workingDays', 'payableDays', 'lwpDays', 'variablePay'].map((field) => (
                       <td key={field} className="ui-col-amount">
                         <input
                           type="number"
                           min="0"
                           className="ui-input ui-num w-full min-w-0 px-2 py-1"
-                          aria-label={`${field === 'workingDays' ? 'Working days' : field === 'payableDays' ? 'Payable days' : field === 'lwpDays' ? 'Unpaid leave days' : 'Variable pay'} for ${r.name}`}
+                          aria-label={`${field === 'workingDays' ? 'Working days' : field === 'payableDays' ? 'Payable days' : field === 'lwpDays' ? 'Loss of pay days' : 'Variable pay'} for ${r.name}`}
                           value={r[field]}
                           onChange={(e) => patch(idx, { [field]: e.target.value })}
                         />

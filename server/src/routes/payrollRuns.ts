@@ -9,6 +9,8 @@ import { payrollPrisma } from '../utils/payrollPrisma.js';
 import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { PAYROLL_MODULE, PAYROLL_RESOURCE, payrollRouteOk } from '../services/payroll/guards.js';
 import { calculateRun, daysBetween, eligibleEmployees, validateRun } from '../services/payroll/run.js';
+import { isFeatureEnabled } from '../services/features.js';
+import { daysBetween as datesBetween, periodRows } from './attendance.js';
 
 /**
  * A payroll run, from who is in it to payslips somebody can approve.
@@ -144,6 +146,9 @@ payrollRunsRouter.get(
               lwpDays: Number(inputByEmployee.get(m.employeeId)!.lwpDays),
               variablePay: Number(inputByEmployee.get(m.employeeId)!.variablePay),
               overtimeAmount: Number(inputByEmployee.get(m.employeeId)!.overtimeAmount),
+              /* Where the days came from (MANUAL, ATTENDANCE), and the attendance breakdown when they came from there. */
+              source: inputByEmployee.get(m.employeeId)!.source,
+              notes: inputByEmployee.get(m.employeeId)!.notes,
             }
           : null,
       })),
@@ -355,6 +360,81 @@ payrollRunsRouter.put(
       });
     }
     res.json({ ok: true, saved: parsed.data.inputs.length });
+  }
+);
+
+/**
+ * Days from Attendance. Payable days and loss of pay per person come from the
+ * attendance summary for the pay period — the same figures as Attendance →
+ * Month summary — instead of being typed in. Variable pay and overtime amounts
+ * already entered are kept. Days entered by hand are kept too unless
+ * `overwrite` is set: a correction somebody made on purpose is not silently
+ * replaced. Days of the period still to come are counted as paid, and say so.
+ */
+payrollRunsRouter.post(
+  '/orgs/:orgId/payroll/runs/:id/inputs/from-attendance',
+  requirePermission(PAYROLL_MODULE, PermissionAction.EDIT, RESOURCE),
+  async (req, res) => {
+    if (!(await payrollRouteOk(req, res))) return;
+    const { accountId, orgId } = req.tenant!;
+    const run = await runOr404(req, res);
+    if (!run) return;
+    if (!editable(run, res)) return;
+    if (!(await isFeatureEnabled(accountId, orgId, 'attendance'))) {
+      return res.status(409).json({ error: 'Attendance is not switched on for this company.', code: 'ATTENDANCE_DISABLED' });
+    }
+    const overwrite = req.body?.overwrite === true;
+    const period = await payrollPrisma.payrollPeriod.findFirst({ where: { orgId, id: run.periodId } });
+    if (!period) return res.status(409).json({ error: 'This run has no payroll period.' });
+
+    const members = await payrollPrisma.payrollRunEmployee.findMany({ where: { orgId, runId: run.id, inclusion: 'INCLUDED' }, select: { employeeId: true } });
+    const inRun = new Set(members.map((m) => m.employeeId));
+    const rows = (await periodRows(accountId, orgId, datesBetween(period.startDate, period.endDate))).filter((r) => inRun.has(r.employeeId));
+    const existing = new Map(
+      (await payrollPrisma.payrollInput.findMany({ where: { orgId, runId: run.id } })).map((i) => [i.employeeId, i])
+    );
+    const workingDays = datesBetween(period.startDate, period.endDate).length;
+
+    let saved = 0;
+    const keptManual: string[] = [];
+    const toResolve: Array<{ employeeId: string; name: string; incompleteDays: number }> = [];
+    for (const r of rows) {
+      const had = existing.get(r.employeeId);
+      if (had && had.source === 'MANUAL' && !overwrite) {
+        keptManual.push(r.employeeId);
+        continue;
+      }
+      const lop = Number(r.lossOfPayDays) || 0;
+      const payableDays = Math.max(0, r.totalDays - lop);
+      if (r.incompleteDays) toResolve.push({ employeeId: r.employeeId, name: r.name, incompleteDays: r.incompleteDays });
+      const parts = [
+        r.absent ? `${r.absent} absent` : '',
+        r.halfDays ? `${r.halfDays} half` : '',
+        r.incompleteDays ? `${r.incompleteDays} no check-out` : '',
+        r.unpaidLeaveDays ? `${r.unpaidLeaveDays} unpaid leave` : '',
+        r.latePenaltyDays ? `${r.latePenaltyDays} late penalty` : '',
+      ].filter(Boolean);
+      const notes = [
+        `From attendance: loss of pay ${lop}${parts.length ? ` (${parts.join(', ')})` : ''}.`,
+        r.notYet ? `${r.notYet} days still to come counted as paid.` : '',
+      ].filter(Boolean).join(' ').slice(0, 300);
+      const days = { workingDays, payableDays, lwpDays: lop, source: 'ATTENDANCE', notes };
+      await payrollPrisma.payrollInput.upsert({
+        where: { runId_employeeId: { runId: run.id, employeeId: r.employeeId } },
+        create: { accountId, orgId, runId: run.id, employeeId: r.employeeId, ...days, createdByUserId: req.auth!.userId },
+        /* Days only: variable pay and overtime amounts somebody entered stay. */
+        update: days,
+      });
+      saved += 1;
+    }
+    res.json({
+      ok: true,
+      saved,
+      keptManual: keptManual.length,
+      /* People in the run Attendance has no figures for (not employed in the period per People, or not expected at work). */
+      missing: [...inRun].filter((id) => !rows.some((r) => r.employeeId === id)).length,
+      toResolve,
+    });
   }
 );
 
