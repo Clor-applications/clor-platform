@@ -106,6 +106,40 @@ model EmployeePayrollProfile {
   @@index([accountId, orgId, payrollStatus])
 }
 
+/// Full and final settlement for somebody who has left: what is still owed
+/// to them or by them, worked out once and then reviewed, approved and paid.
+/// The Code on Wages expects it within two working days of leaving (dueDate).
+/// Lines are proposals HR can change before approval — gratuity, leave
+/// encashment, loan recovery, notice pay — and are fixed once approved.
+model FinalSettlement {
+  id         String @id @default(cuid())
+  accountId  String
+  orgId      String
+  employeeId String
+
+  /// DRAFT | APPROVED | PAID | CANCELLED
+  status      String @default("DRAFT")
+  leavingDate String
+  /// Two working days after leaving.
+  dueDate     String
+  /// [{ code, label, kind: EARNING | DEDUCTION | INFO, amount, explanation }]
+  linesJson   String @default("[]")
+  /// Earnings less deductions.
+  netPayable  Decimal @default(0)
+  notes       String?
+
+  createdByUserId  String
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  approvedByUserId String?
+  approvedAt       DateTime?
+  paidAt           DateTime?
+  paidReference    String?
+
+  @@index([accountId, orgId, status])
+  @@index([orgId, employeeId])
+}
+
 /// A change to where someone is paid. Bank details are what payroll fraud
 /// goes after (an e-mail asking HR to "update my account"), so a change to
 /// details already on file does not apply until somebody other than the

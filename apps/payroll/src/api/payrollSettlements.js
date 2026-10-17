@@ -1,0 +1,22 @@
+import { apiFetch } from '@platform/http';
+import { orgId as platformOrgId } from '@platform/context';
+
+/** Full and final settlements for people who have left. */
+
+const orgId = () => {
+  const id = platformOrgId();
+  if (!id) throw new Error('Missing active org. Please select an organization.');
+  return id;
+};
+const base = () => `/orgs/${encodeURIComponent(orgId())}/payroll/settlements`;
+const opts = { skipWarehouseHeader: true };
+const one = (r) => r?.settlement;
+
+export const listSettlements = () => apiFetch(base(), opts).then((r) => ({ settlements: r?.settlements || [], waiting: r?.waiting || [] }));
+export const startSettlement = (employeeId) => apiFetch(base(), { ...opts, method: 'POST', body: { employeeId } }).then(one);
+export const updateSettlement = (id, body) => apiFetch(`${base()}/${encodeURIComponent(id)}`, { ...opts, method: 'PUT', body }).then(one);
+const act = (id, what, body) => apiFetch(`${base()}/${encodeURIComponent(id)}/${what}`, { ...opts, method: 'POST', body }).then(one);
+export const recalculateSettlement = (id) => act(id, 'recalculate');
+export const approveSettlement = (id) => act(id, 'approve');
+export const markSettlementPaid = (id, reference) => act(id, 'paid', { reference });
+export const cancelSettlement = (id) => act(id, 'cancel');

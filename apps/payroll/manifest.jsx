@@ -1,4 +1,4 @@
-import { ArrowUpRight, BadgePercent, Banknote, BarChart3, CalendarClock, FileText, Landmark, Layers, ListChecks, Percent, RefreshCw, SlidersHorizontal, Table2, Users, Wallet } from 'lucide-react';
+import { ArrowUpRight, BadgePercent, Banknote, BarChart3, CalendarClock, FileText, Handshake, Landmark, Layers, ListChecks, Percent, RefreshCw, SlidersHorizontal, Table2, Users, Wallet } from 'lucide-react';
 
 import PayrollOverview from './src/screens/PayrollOverview';
 import PayRuns from './src/screens/PayRuns';
@@ -17,6 +17,7 @@ import PayGroups from './src/screens/PayGroups';
 import PayrollPeriods from './src/screens/PayrollPeriods';
 import PayrollSetup from './src/screens/PayrollSetup';
 import BankChanges from './src/screens/BankChanges';
+import FinalSettlements from './src/screens/FinalSettlements';
 
 /**
  * Everything the shell knows about Payroll.
@@ -49,6 +50,7 @@ export const payrollApp = {
     { key: 'assignments', label: 'Salary Assignments', icon: Users },
     { key: 'revisions', label: 'Salary Revisions', icon: RefreshCw },
     { key: 'loans', label: 'Loans & Advances', icon: Landmark },
+    { key: 'settlements', label: 'Full & final', icon: Handshake },
     { key: 'reports', label: 'Reports', icon: Table2 },
     /*
      * What payroll is configured with, apart from the month's work: the setup
@@ -76,6 +78,7 @@ export const payrollApp = {
     assignments: SalaryAssignments,
     revisions: SalaryRevisions,
     loans: PayrollLoans,
+    settlements: FinalSettlements,
     compliance: PayrollCompliance,
     reports: PayrollReports,
     ledgers: PayrollLedgerMapping,
