@@ -3,13 +3,14 @@ import { z } from 'zod';
 
 import { requireAuth } from '../middleware/auth.js';
 import { requireTenantContext } from '../middleware/tenantContext.js';
-import { requirePermission } from '../middleware/rbac.js';
+import { authorize, requirePermission } from '../middleware/rbac.js';
 import { PermissionAction } from '../constants/enums.js';
 import { payrollPrisma } from '../utils/payrollPrisma.js';
 import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { PAYROLL_MODULE, PAYROLL_RESOURCE, payrollRouteOk } from '../services/payroll/guards.js';
 import { calculateRun, daysBetween, eligibleEmployees, validateRun } from '../services/payroll/run.js';
 import { isFeatureEnabled } from '../services/features.js';
+import { recordAudit } from '../services/auditTrail.js';
 import { closedMonths, daysBetween as datesBetween, periodRows } from './attendance.js';
 
 /**
@@ -575,6 +576,23 @@ payrollRunsRouter.post(
         code: 'RUN_SETTLED',
       });
     }
+    /* Locked is final: corrections go in a later run as adjustments, not by unmaking this one. */
+    if (run.status === 'LOCKED') {
+      return res.status(409).json({ error: 'This payroll is locked. Correct it with adjustments in the next run.', code: 'RUN_LOCKED' });
+    }
+    /* Undoing an approval is an approver's call, not anyone who can delete a draft. */
+    const approved = run.status === 'APPROVED';
+    if (approved) {
+      if (await authorize(req, PAYROLL_MODULE, PermissionAction.APPROVE, RESOURCE)) {
+        return res.status(403).json({ error: 'Only somebody who can approve payroll can cancel an approved one.', code: 'APPROVE_REQUIRED' });
+      }
+    }
+    /* What is about to be removed, kept in the audit log for good. */
+    const gone = await payrollPrisma.salarySlip.findMany({
+      where: { orgId, runId: run.id },
+      select: { number: true, employeeId: true, grossEarnings: true, totalDeductions: true, netPay: true },
+      orderBy: { number: 'asc' },
+    });
 
     const updated = await payrollPrisma.$transaction(async (tx) => {
       const slips = await tx.salarySlip.findMany({ where: { orgId, runId: run.id }, select: { id: true } });
@@ -585,6 +603,16 @@ payrollRunsRouter.post(
         await tx.salarySlip.deleteMany({ where: { id: { in: ids } } });
       }
       return tx.payrollRun.update({ where: { id: run.id }, data: { status: 'CANCELLED' } });
+    });
+    await recordAudit(req, {
+      entity: 'PAYROLL_RUN',
+      entityId: run.id,
+      action: 'CANCEL',
+      message: `Payroll ${run.number || run.id} cancelled from ${run.status} (${gone.length} payslips removed)`,
+      metadata: {
+        fromStatus: run.status,
+        slips: gone.map((x) => ({ number: x.number, employeeId: x.employeeId, gross: Number(x.grossEarnings), deductions: Number(x.totalDeductions), net: Number(x.netPay) })),
+      },
     });
     res.json({ run: shape(updated) });
   }

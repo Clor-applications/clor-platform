@@ -3,7 +3,8 @@ import { z } from 'zod';
 
 import { requireAuth } from '../middleware/auth.js';
 import { requireTenantContext } from '../middleware/tenantContext.js';
-import { requirePermission } from '../middleware/rbac.js';
+import { authorize, requirePermission } from '../middleware/rbac.js';
+import { recordAudit } from '../services/auditTrail.js';
 import { PermissionAction } from '../constants/enums.js';
 import { payrollPrisma } from '../utils/payrollPrisma.js';
 import { PAYROLL_MODULE, PAYROLL_RESOURCE, payrollRouteOk } from '../services/payroll/guards.js';
@@ -235,6 +236,13 @@ payrollPeriodsRouter.post(
 
     const locked = req.body?.locked !== false;
 
+    /* Reopening a closed period lets its payroll change again: an approver's decision, and on the record. */
+    if (!locked && existing.isLocked) {
+      if (await authorize(req, PAYROLL_MODULE, PermissionAction.APPROVE, PAYROLL_RESOURCE.runs)) {
+        return res.status(403).json({ error: 'Only somebody who can approve payroll can reopen a locked period.', code: 'APPROVE_REQUIRED' });
+      }
+    }
+
     if (locked && !existing.isLocked) {
       /* Locking a period with a run still in progress would strand it: the run
          could never be approved, and could never be abandoned cleanly either. */
@@ -253,6 +261,14 @@ payrollPeriodsRouter.post(
       where: { id: existing.id },
       data: { isLocked: locked, status: locked ? 'CLOSED' : 'OPEN' },
     });
+    if (locked !== existing.isLocked) {
+      await recordAudit(req, {
+        entity: 'PAYROLL_PERIOD',
+        entityId: existing.id,
+        action: locked ? 'LOCK' : 'UNLOCK',
+        message: `Payroll period ${existing.name} ${locked ? 'locked' : 'reopened'}`,
+      });
+    }
     res.json({ period: { ...shape(row), usage: await usage(orgId, row.id) } });
   }
 );
