@@ -2502,10 +2502,15 @@
     background: linear-gradient(90deg, transparent, rgb(var(--border)), transparent);
   }
 
-  /* --- link with a drawn underline --- */
+  /* --- link with a drawn underline ---
+     A quiet underline at rest, so a link is a link before anyone hovers (on
+     a touch screen nobody hovers); the full-strength rule draws in on hover. */
   .ui-link {
     color: rgb(var(--fg));
-    text-decoration: none;
+    text-decoration: underline;
+    text-decoration-color: rgb(var(--accent) / 0.45);
+    text-underline-offset: 3px;
+    text-decoration-thickness: 1px;
     background-image: linear-gradient(rgb(var(--accent)), rgb(var(--accent)));
     background-size: 0% 1.5px;
     background-position: 0 100%;
@@ -2514,6 +2519,7 @@
   }
   .ui-link:hover {
     color: rgb(var(--brand-ink));
+    text-decoration-color: transparent;
     background-size: 100% 1.5px;
   }
 }
