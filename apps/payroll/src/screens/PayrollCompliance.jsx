@@ -266,7 +266,7 @@ const RateForm = ({ scheme, onClose, onSaved }) => {
      old one with one number moved. */
   const current = scheme.rules.find((r) => r.status === 'ACTIVE') || scheme.rules[0] || null;
   const [form, setForm] = useState({
-    jurisdiction: current?.jurisdiction || (scheme.code === 'PT' ? '' : 'IN'),
+    jurisdiction: current?.jurisdiction || (scheme.code === 'PT' || scheme.code === 'LWF' ? '' : 'IN'),
     effectiveFrom: new Date().toISOString().slice(0, 10),
     employeeRate: current?.employeeRate ?? 0,
     employerRate: current?.employerRate ?? 0,
@@ -425,10 +425,12 @@ const RateForm = ({ scheme, onClose, onSaved }) => {
         />
         <span className="ui-caption">
           {scheme.code === 'PT'
-            ? 'A list of slabs, each with a from, a to and an amount. A slab may name the months it applies in.'
-            : scheme.code === 'PF'
+            ? 'A list of slabs, each with a from, a to and an amount. A slab may name the months it applies in. Take the figures from the state’s current notification.'
+            : scheme.code === 'LWF'
+              ? 'For the state above, from its current notification: employeeAmount and employerAmount in rupees (or rates above, capped by employeeCap / employerCap), months it is collected in, and eligibleUpTo if it stops above a monthly pay. E.g. {"employeeAmount": 25, "employerAmount": 75, "months": [6, 12]} — example figures only.'
+              : scheme.code === 'PF'
               ? 'The pension split — epsRate and epsWageCeiling — and whether to contribute on the whole wage.'
-              : 'Anything the scheme needs beyond the rates above.'}
+                : 'Anything the scheme needs beyond the rates above.'}
         </span>
       </div>
 

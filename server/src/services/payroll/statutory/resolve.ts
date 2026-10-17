@@ -105,8 +105,8 @@ export function applyStatutory(opts: {
   const month = Number(opts.onDate.slice(5, 7)) || 1;
 
   for (const [scheme, rows] of opts.rules) {
-    /* Professional tax is the one that varies by where somebody is taxed. */
-    const jurisdiction = scheme === 'PT' ? opts.employee.professionalTaxState : null;
+    /* Professional tax and LWF are state levies: the rule of the state somebody works in. */
+    const jurisdiction = scheme === 'PT' || scheme === 'LWF' ? opts.employee.professionalTaxState : null;
     const row = ruleInForce(rows, opts.onDate, jurisdiction);
     if (!row) continue;
 

@@ -208,6 +208,43 @@ function computeEsi(rule: StatutoryRuleInput, wages: StatutoryWages, employee: S
 export type PtSlab = { from: number; to: number | null; amount: number; months?: number[] };
 
 /**
+ * Labour Welfare Fund: a state levy like PT, collected by the state where
+ * somebody works, usually as small fixed amounts in a few months of the year.
+ * The rule says how much and when (config), never the engine:
+ *
+ *   employeeAmount / employerAmount   fixed rupees each time it is collected, or
+ *   employeeRate / employerRate       % of gross, capped by employeeCap / employerCap
+ *   months                            the months it is collected (default: every month)
+ *   eligibleUpTo                      monthly gross above which it does not apply
+ *
+ * No state's figures are built in: they change, and must come from the state.
+ */
+function computeLwf(rule: StatutoryRuleInput, wages: StatutoryWages, month: number): StatutoryAmount {
+  const c = rule.config || {};
+  const base = { scheme: 'LWF' as const, ruleId: rule.id, ruleVersion: rule.version, wageApplied: wages.gross, rateApplied: 0, ceilingApplied: null };
+  const months: number[] = Array.isArray(c.months) && c.months.length ? c.months.map(Number) : [];
+  const where = rule.jurisdiction || 'This state';
+  if (months.length && !months.includes(month)) {
+    return { ...base, employee: 0, employer: 0, explanation: `${where} collects LWF in month${months.length === 1 ? '' : 's'} ${months.join(', ')}, not this one.`, exemptReason: 'NOT_THIS_MONTH' };
+  }
+  const ceiling = Number(c.eligibleUpTo) || 0;
+  if (ceiling && wages.gross > ceiling) {
+    return { ...base, employee: 0, employer: 0, explanation: `LWF applies up to ${money(ceiling)} a month; this is ${money(wages.gross)}.`, exemptReason: 'ABOVE_CEILING' };
+  }
+  const part = (amount: unknown, rate: number, cap: unknown) => {
+    if (amount !== undefined && amount !== null && amount !== '') return Number(amount) || 0;
+    const v = (wages.gross * (Number(rate) || 0)) / 100;
+    return Number(cap) ? Math.min(v, Number(cap)) : v;
+  };
+  const employee = applyRounding(part(c.employeeAmount, rule.employeeRate, c.employeeCap), rule.rounding);
+  const employer = applyRounding(part(c.employerAmount, rule.employerRate, c.employerCap), rule.rounding);
+  if (!employee && !employer) {
+    return { ...base, employee: 0, employer: 0, explanation: `No LWF amounts are set for ${where}.`, exemptReason: 'NO_AMOUNTS' };
+  }
+  return { ...base, employee, employer, explanation: `${where} Labour Welfare Fund: ${money(employee)} from pay, ${money(employer)} from the employer.` };
+}
+
+/**
  * Professional tax.
  *
  * A state levy, and every state that charges it does so differently — different
@@ -394,6 +431,8 @@ export function computeStatutory(
       return computeEsi(rule, wages, employee);
     case 'PT':
       return computePt(rule, wages, employee, context.month);
+    case 'LWF':
+      return computeLwf(rule, wages, context.month);
     case 'TDS':
       return computeTds(rule, wages, employee, {
         monthsRemaining: context.monthsRemaining,

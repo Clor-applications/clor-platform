@@ -320,3 +320,43 @@ describe('the seeded rates', () => {
     expect(states.length).toBeGreaterThan(1);
   });
 });
+
+describe('Labour Welfare Fund', () => {
+  /* No state's figures are built in: these are made-up amounts for the arithmetic. */
+  const lwf = (config: Record<string, unknown>, over: Partial<StatutoryRuleInput> = {}): StatutoryRuleInput => ({
+    id: 'rule-lwf',
+    scheme: 'LWF',
+    version: 'test',
+    jurisdiction: 'SOME STATE',
+    employeeRate: 0,
+    employerRate: 0,
+    wageCeiling: null,
+    eligibilityThreshold: null,
+    rounding: 'NEAREST',
+    config,
+    ...over,
+  });
+  const pay = (gross: number) => ({ pfWage: 0, esiWage: 0, gross });
+
+  it('collects fixed amounts in the months the state names, and nothing in the others', () => {
+    const r = lwf({ employeeAmount: 25, employerAmount: 75, months: [6, 12] });
+    expect(computeStatutory(r, pay(30000), employee(), { ...context, month: 6 })).toMatchObject({ employee: 25, employer: 75 });
+    expect(computeStatutory(r, pay(30000), employee(), { ...context, month: 7 })).toMatchObject({ employee: 0, employer: 0, exemptReason: 'NOT_THIS_MONTH' });
+  });
+
+  it('stops above the pay ceiling a state sets', () => {
+    const r = lwf({ employeeAmount: 10, employerAmount: 20, eligibleUpTo: 25000 });
+    expect(computeStatutory(r, pay(30000), employee(), context)).toMatchObject({ employee: 0, exemptReason: 'ABOVE_CEILING' });
+    expect(computeStatutory(r, pay(20000), employee(), context)).toMatchObject({ employee: 10, employer: 20 });
+  });
+
+  it('takes a capped percentage where a state charges one', () => {
+    const r = lwf({ employeeCap: 34, employerCap: 68 }, { employeeRate: 0.2, employerRate: 0.4 });
+    expect(computeStatutory(r, pay(10000), employee(), context)).toMatchObject({ employee: 20, employer: 40 });
+    expect(computeStatutory(r, pay(50000), employee(), context)).toMatchObject({ employee: 34, employer: 68 });
+  });
+
+  it('says so when a state has no amounts set', () => {
+    expect(computeStatutory(lwf({}), pay(30000), employee(), context)).toMatchObject({ employee: 0, exemptReason: 'NO_AMOUNTS' });
+  });
+});
