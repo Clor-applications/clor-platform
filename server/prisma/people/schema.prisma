@@ -590,6 +590,21 @@ model AttendanceDevice {
   @@index([accountId, orgId])
 }
 
+/// A month HR has closed: its days are final, and what Payroll takes from
+/// Attendance cannot move under it. Reopening deletes the row.
+model AttendanceMonthLock {
+  id             String   @id @default(cuid())
+  accountId      String
+  orgId          String
+  /// YYYY-MM
+  month          String
+  lockedByUserId String
+  lockedAt       DateTime @default(now())
+
+  @@unique([orgId, month])
+  @@index([accountId, orgId])
+}
+
 /// A punch exactly as a reader sent it. The day is worked out from these.
 model DevicePunch {
   id           String   @id @default(cuid())

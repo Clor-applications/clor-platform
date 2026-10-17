@@ -10,6 +10,7 @@ import { ATTENDANCE_MODULE, ATTENDANCE_RESOURCE, attendanceRouteOk } from '../se
 import { isWeeklyOff } from '../services/attendance/compute.js';
 import {
   ISO_DATE,
+  closedMonths,
   employeeIn,
   fail,
   isHoliday,
@@ -327,6 +328,9 @@ leaveRouter.post(`${base}/requests/:id/approve`, can(PermissionAction.APPROVE, R
       const left = (bal.available ?? Infinity) + r.days;
       if (days.length > left) throw fail(409, `Only ${round(left)} days of ${type.name} are left this year; this is ${days.length}.`, 'NO_BALANCE');
     }
+    /* Checked before any day is written, so an approval never stops halfway through a closed month. */
+    const shut = await closedMonths(orgId, days.map((d) => d.slice(0, 7)));
+    if (shut.size) throw fail(409, `${[...shut].sort().join(', ')} ${shut.size === 1 ? 'is' : 'are'} closed in Attendance. Reopen it to approve leave in it.`, 'ATTENDANCE_MONTH_CLOSED');
     for (const date of days) {
       await writeDay({
         accountId,

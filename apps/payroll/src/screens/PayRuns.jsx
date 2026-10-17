@@ -557,7 +557,11 @@ const DaysStage = ({ data, editable, runId, onSaved }) => {
         if (replace) out = await takeDaysFromAttendance(runId, true);
       }
       const unresolved = (out.toResolve || []).length;
-      notify.success(`Days taken from Attendance for ${out.saved} ${out.saved === 1 ? 'person' : 'people'}.${unresolved ? ` ${unresolved} still have days with no check-out — those count as loss of pay until corrected in Attendance.` : ''}`);
+      notify.success(
+        `Days taken from Attendance for ${out.saved} ${out.saved === 1 ? 'person' : 'people'}.` +
+          (unresolved ? ` ${unresolved} still have days with no check-out — those count as loss of pay until corrected in Attendance.` : '') +
+          (out.attendanceClosed ? '' : ' The month is not closed in Attendance yet, so its figures can still change there; take the days again before calculating.')
+      );
       onSaved();
     } catch (e) {
       notify.error(String(e?.message || 'Could not take days from Attendance.'));

@@ -9,7 +9,7 @@ import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { ATTENDANCE_MODULE, ATTENDANCE_RESOURCE, attendanceRouteOk } from '../services/attendance/guards.js';
 import { isWeeklyOff } from '../services/attendance/compute.js';
 import { loadHolidays, loadSchedule, resolveShift } from '../services/attendance/schedule.js';
-import { ISO_DATE, daysBetween, daysOfMonth, sendError, today, withNames, writeDay } from './attendance.js';
+import { ISO_DATE, closedMonths, daysBetween, daysOfMonth, sendError, today, withNames, writeDay } from './attendance.js';
 import { recomputeDeviceDay } from './iclock.js';
 
 /**
@@ -348,12 +348,19 @@ schedulingRouter.post(`${base}/recompute`, can(PermissionAction.EDIT), async (re
     (await peoplePrisma.employee.findMany({ where: { orgId, id: { in: [...new Set(records.map((r) => r.employeeId))] } }, select: { id: true, branchId: true, areaId: true } })).map((p) => [p.id, p])
   );
   let done = 0;
+  /* Closed months keep their figures: skipped, and counted so the screen can say so. */
+  const closed = await closedMonths(orgId, records.map((r) => r.date.slice(0, 7)));
+  let skippedClosed = 0;
   for (const r of records) {
     const employee = people.get(r.employeeId);
     if (!employee) continue;
+    if (closed.has(r.date.slice(0, 7))) {
+      skippedClosed += 1;
+      continue;
+    }
     if (r.source === 'DEVICE') await recomputeDeviceDay(accountId, orgId, employee, r.date);
     else await writeDay({ accountId, orgId, userId: req.auth!.userId, employee, date: r.date, checkIn: r.checkIn, checkOut: r.checkOut, source: 'CLOCK' });
     done += 1;
   }
-  res.json({ recomputed: done });
+  res.json({ recomputed: done, skippedClosed });
 });

@@ -10,7 +10,7 @@ import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { PAYROLL_MODULE, PAYROLL_RESOURCE, payrollRouteOk } from '../services/payroll/guards.js';
 import { calculateRun, daysBetween, eligibleEmployees, validateRun } from '../services/payroll/run.js';
 import { isFeatureEnabled } from '../services/features.js';
-import { daysBetween as datesBetween, periodRows } from './attendance.js';
+import { closedMonths, daysBetween as datesBetween, periodRows } from './attendance.js';
 
 /**
  * A payroll run, from who is in it to payslips somebody can approve.
@@ -427,10 +427,14 @@ payrollRunsRouter.post(
       });
       saved += 1;
     }
+    const periodMonths = [...new Set(datesBetween(period.startDate, period.endDate).map((d) => d.slice(0, 7)))];
+    const shut = await closedMonths(orgId, periodMonths);
     res.json({
       ok: true,
       saved,
       keptManual: keptManual.length,
+      /* Closed in Attendance, the figures cannot move after this; open, a correction there would not reach this run. */
+      attendanceClosed: periodMonths.every((m) => shut.has(m)),
       /* People in the run Attendance has no figures for (not employed in the period per People, or not expected at work). */
       missing: [...inRun].filter((id) => !rows.some((r) => r.employeeId === id)).length,
       toResolve,

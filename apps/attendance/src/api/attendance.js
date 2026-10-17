@@ -50,6 +50,9 @@ export const updateHoliday = (id, body) => send(`/holidays/${encodeURIComponent(
 export const deleteHoliday = (id) => send(`/holidays/${encodeURIComponent(id)}`, 'DELETE');
 
 export const getSummary = (month) => get(`/summary${query({ month })}`);
+/** Close a month (its days become final) or reopen it. */
+export const closeMonth = (month) => send(`/months/${encodeURIComponent(month)}/close`, 'POST', {});
+export const reopenMonth = (month) => send(`/months/${encodeURIComponent(month)}/reopen`, 'POST', {});
 
 /** IST "today", the attendance day. */
 export const todayIst = () => new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);

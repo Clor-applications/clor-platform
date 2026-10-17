@@ -80,6 +80,28 @@ const instants = (date: string, inHHMM?: string | null, outHHMM?: string | null)
 };
 
 /** Work a day out and write it: the single path every write goes through. */
+/** A day in a month HR closed cannot change (AttendanceMonthLock). */
+export class MonthClosedError extends Error {
+  status = 409;
+  code = 'ATTENDANCE_MONTH_CLOSED';
+  constructor(month: string) {
+    super(`${month} is closed in Attendance. Reopen the month to change its days.`);
+  }
+}
+
+/** Which of these months (YYYY-MM) are closed for the company. */
+export async function closedMonths(orgId: string, months: string[]) {
+  const wanted = [...new Set(months.filter(Boolean))];
+  if (!wanted.length) return new Set<string>();
+  const rows = await peoplePrisma.attendanceMonthLock.findMany({ where: { orgId, month: { in: wanted } }, select: { month: true } });
+  return new Set(rows.map((r) => r.month));
+}
+
+export async function assertMonthOpen(orgId: string, date: string) {
+  const month = date.slice(0, 7);
+  if ((await closedMonths(orgId, [month])).has(month)) throw new MonthClosedError(month);
+}
+
 export async function writeDay(opts: {
   accountId: string;
   orgId: string;
@@ -94,6 +116,8 @@ export async function writeDay(opts: {
   /** Set when an approved leave writes the day; cleared by any other write. */
   leaveRequestId?: string | null;
 }) {
+  /* Every way a day is written comes through here, so a closed month is held shut in one place. */
+  await assertMonthOpen(opts.orgId, opts.date);
   const { shiftId, rule } = await shiftFor(opts.orgId, opts.employee.id, opts.date);
   const holiday = await isHoliday(opts.orgId, opts.date, opts.employee.branchId, opts.employee.areaId ?? null);
   const computed = computeDay({
@@ -299,6 +323,11 @@ attendanceRouter.delete('/orgs/:orgId/attendance/records/:id', can(PermissionAct
   const { accountId, orgId } = req.tenant!;
   const r = await peoplePrisma.attendanceRecord.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
   if (!r) return res.status(404).json({ error: 'No such day.' });
+  try {
+    await assertMonthOpen(orgId, r.date);
+  } catch (e) {
+    return sendError(res, e);
+  }
   await peoplePrisma.attendanceRecord.delete({ where: { id: r.id } });
   res.json({ ok: true });
 });
@@ -798,5 +827,34 @@ attendanceRouter.get('/orgs/:orgId/attendance/summary', can(PermissionAction.VIE
   if (!(await attendanceRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   const month = /^\d{4}-\d{2}$/.test(String(req.query.month || '')) ? String(req.query.month) : today().slice(0, 7);
-  res.json({ month, days: daysOfMonth(month).length, rows: await monthRows(accountId, orgId, month) });
+  const lock = await peoplePrisma.attendanceMonthLock.findUnique({ where: { orgId_month: { orgId, month } } });
+  res.json({ month, days: daysOfMonth(month).length, rows: await monthRows(accountId, orgId, month), closed: lock ? { at: lock.lockedAt, byUserId: lock.lockedByUserId } : null });
+});
+
+/**
+ * Close a month: its days are final. Corrections, leave, manual marks and late
+ * reader uploads can no longer change them (reader punches are still kept), so
+ * the payable days Payroll takes cannot move afterwards. Approve permission,
+ * as validating days is; only a month that has ended can be closed.
+ */
+attendanceRouter.post('/orgs/:orgId/attendance/months/:month/close', can(PermissionAction.APPROVE, R.records), async (req, res) => {
+  if (!(await attendanceRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const month = String(req.params.month);
+  if (!/^\d{4}-\d{2}$/.test(month)) return res.status(400).json({ error: 'Months are YYYY-MM.' });
+  if (month >= today().slice(0, 7)) return res.status(400).json({ error: 'Only a month that has ended can be closed.' });
+  const lock = await peoplePrisma.attendanceMonthLock.upsert({
+    where: { orgId_month: { orgId, month } },
+    create: { accountId, orgId, month, lockedByUserId: req.auth!.userId },
+    update: {},
+  });
+  res.json({ month, closed: { at: lock.lockedAt, byUserId: lock.lockedByUserId } });
+});
+
+/** Reopen a closed month, to correct it. Payroll already taken from it is not changed. */
+attendanceRouter.post('/orgs/:orgId/attendance/months/:month/reopen', can(PermissionAction.APPROVE, R.records), async (req, res) => {
+  if (!(await attendanceRouteOk(req, res))) return;
+  const { orgId } = req.tenant!;
+  await peoplePrisma.attendanceMonthLock.deleteMany({ where: { orgId, month: String(req.params.month) } });
+  res.json({ month: String(req.params.month), closed: null });
 });

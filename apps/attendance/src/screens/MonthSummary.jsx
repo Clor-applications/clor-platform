@@ -3,7 +3,8 @@ import { Download } from 'lucide-react';
 
 import { PageHeader, SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import { downloadCsv } from '@ui/utils/csv';
-import { getSummary, hm, todayIst } from '../api/attendance';
+import { closeMonth, getSummary, hm, reopenMonth, todayIst } from '../api/attendance';
+import { confirmDialog, notify } from '@ui/components/ui/notify';
 import LoadFailed from '../components/LoadFailed';
 
 /**
@@ -16,6 +17,31 @@ export default function MonthSummary() {
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
   const [attempt, setAttempt] = useState(0);
+  const [busy, setBusy] = useState(false);
+  const ended = month < todayIst().slice(0, 7);
+  const toggleClosed = async () => {
+    const closing = !data?.closed;
+    if (closing) {
+      const noOut = (data?.rows || []).reduce((n, r) => n + (r.incompleteDays || 0), 0);
+      const ok = await confirmDialog({
+        title: `Close ${month}?`,
+        message: `Its days become final: corrections, leave, manual changes and late reader uploads can no longer change them, so Payroll takes fixed figures.${noOut ? ` ${noOut} days still have no check-out and will stay as loss of pay.` : ''} You can reopen it.`,
+        confirmLabel: 'Close month',
+        tone: 'default',
+      });
+      if (!ok) return;
+    }
+    setBusy(true);
+    try {
+      await (closing ? closeMonth(month) : reopenMonth(month));
+      notify.success(closing ? `${month} closed.` : `${month} reopened.`);
+      setAttempt((n) => n + 1);
+    } catch (e) {
+      notify.error(String(e?.message || 'Not done.'));
+    } finally {
+      setBusy(false);
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -62,6 +88,11 @@ export default function MonthSummary() {
         actions={
           <div className="flex gap-2">
             <input type="month" className="ui-input" value={month} max={todayIst().slice(0, 7)} onChange={(e) => setMonth(e.target.value)} aria-label="Month" />
+            {ended && data ? (
+              <button type="button" className="ui-btn ui-btn-secondary" disabled={busy} onClick={toggleClosed}>
+                {data.closed ? 'Reopen month' : 'Close month'}
+              </button>
+            ) : null}
             <button type="button" className="ui-btn ui-btn-secondary" disabled={!data?.rows?.length} onClick={() => downloadCsv({ fileName: `Attendance summary ${month}`, columns, rows: data.rows })}>
               <Download size={16} aria-hidden="true" /> Export
             </button>
@@ -69,6 +100,11 @@ export default function MonthSummary() {
         }
       />
       <LoadFailed message={error} onRetry={() => setAttempt((n) => n + 1)} />
+      {data?.closed ? (
+        <div className="ui-card p-3 text-sm" role="status">
+          <span className="ui-pill ui-pill-pos">Closed</span> <span className="ui-caption">These days are final. Reopen the month to change them.</span>
+        </div>
+      ) : null}
       {!data ? (
         error ? null : <SkeletonCard lines={6} />
       ) : !data.rows.length ? (

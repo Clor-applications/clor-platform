@@ -34,7 +34,7 @@ import { decryptSecret } from '../services/mailer.js';
 import { etoFetchPunches } from '../services/attendance/etimeoffice.js';
 import { emit as emitWebhook } from '../services/attendance/webhooks.js';
 import { MAX_NETWORKS, networkOf, sameBlock } from '../services/attendance/network.js';
-import { shiftFor, writeDay } from './attendance.js';
+import { closedMonths, shiftFor, writeDay } from './attendance.js';
 
 /**
  * /iclock — where biometric readers push punches (ZKTeco / eSSL "ADMS").
@@ -191,6 +191,8 @@ export async function shiftDayFor(orgId: string, employeeId: string, localTime: 
  * same shift day), then write it through the same path as every other day.
  */
 export async function recomputeDeviceDay(accountId: string, orgId: string, employee: { id: string; branchId: string | null; areaId?: string | null }, date: string) {
+  /* A closed month keeps its days: the punch is stored, the day does not move (and the reader is not told to resend). */
+  if ((await closedMonths(orgId, [date.slice(0, 7)])).size) return null;
   const existing = await peoplePrisma.attendanceRecord.findUnique({ where: { employeeId_date: { employeeId: employee.id, date } } });
   if (existing && DECIDED.has(existing.source)) return null;
 
