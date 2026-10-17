@@ -41,6 +41,8 @@ export const payrollApp = {
   database: 'payroll.db',
   home: 'overview',
 
+  /** The phone tab bar: what a payroll admin opens most. */
+  mobileTabs: ['overview', 'runs', 'slips', 'payments'],
   nav: [
     { key: 'overview', label: 'Overview', icon: BarChart3 },
     { key: 'runs', label: 'Pay Runs', icon: CalendarClock },

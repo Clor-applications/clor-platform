@@ -152,9 +152,9 @@ export default function PayRuns() {
                 <tr>
                   <th scope="col" className="ui-th">Payroll</th>
                   <th scope="col" className="ui-th">Period</th>
-                  <th scope="col" className="ui-th ui-col-h-center">Pay date</th>
-                  <th scope="col" className="ui-th ui-col-h-right">People</th>
-                  <th scope="col" className="ui-th ui-col-h-right">Gross</th>
+                  <th scope="col" className="ui-th ui-col-h-center hidden md:table-cell">Pay date</th>
+                  <th scope="col" className="ui-th ui-col-h-right hidden md:table-cell">People</th>
+                  <th scope="col" className="ui-th ui-col-h-right hidden md:table-cell">Gross</th>
                   <th scope="col" className="ui-th ui-col-h-right">Net pay</th>
                   <th scope="col" className="ui-th ui-col-h-center">Status</th>
                 </tr>
@@ -164,9 +164,9 @@ export default function PayRuns() {
                   <tr key={r.id} className="ui-row-click" onClick={() => setOpenId(r.id)}>
                     <td className="ui-col-id">{r.number}</td>
                     <td className="ui-col-entity">{r.period?.name || '—'}</td>
-                    <td className="ui-col-date ui-col-h-center">{shownDate(r.payrollDate)}</td>
-                    <td className="ui-col-amount">{r.employeeCount}</td>
-                    <td className="ui-col-amount">{money(r.grossTotal)}</td>
+                    <td className="ui-col-date ui-col-h-center hidden md:table-cell">{shownDate(r.payrollDate)}</td>
+                    <td className="ui-col-amount hidden md:table-cell">{r.employeeCount}</td>
+                    <td className="ui-col-amount hidden md:table-cell">{money(r.grossTotal)}</td>
                     <td className="ui-col-amount">{money(r.netTotal)}</td>
                     <td>
                       <span className={`ui-pill ${['APPROVED', 'LOCKED', 'PAID', 'POSTED'].includes(r.status) ? 'ui-pill-pos' : 'ui-pill-neutral'}`}>
