@@ -8,6 +8,7 @@ import { PermissionAction } from '../constants/enums.js';
 import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { ATTENDANCE_MODULE, ATTENDANCE_RESOURCE, attendanceRouteOk } from '../services/attendance/guards.js';
 import { isWeeklyOff } from '../services/attendance/compute.js';
+import { balanceFor } from '../services/attendance/leaveAccrual.js';
 import {
   ISO_DATE,
   closedMonths,
@@ -66,26 +67,52 @@ async function workingDays(orgId: string, employee: { id: string; branchId: stri
 
 type Balance = { allocated: number; used: number; pending: number; available: number };
 
-/** Each person's balance of each type for a year. Unpaid types have no limit (allocated = null). */
-export async function balancesFor(accountId: string, orgId: string, employeeIds: string[], year: number) {
-  const [types, allocations, requests] = await Promise.all([
+/**
+ * Each person's balance of each type for a year (services/attendance/leaveAccrual.ts).
+ * Unpaid types have no limit (allocated = null). `asOf` is the date earned
+ * days are counted to: today in the current year, the year end for a past
+ * one; a request is checked against what will have been earned by its first day.
+ */
+export async function balancesFor(accountId: string, orgId: string, employeeIds: string[], year: number, asOf?: string) {
+  const t0 = today();
+  const on = asOf || (Number(t0.slice(0, 4)) > year ? `${year}-12-31` : Number(t0.slice(0, 4)) < year ? `${year}-01-01` : t0);
+  const from = year - 10;
+  const [types, allocations, requests, people] = await Promise.all([
     peoplePrisma.leaveType.findMany({ where: { accountId, orgId }, orderBy: { name: 'asc' } }),
-    peoplePrisma.leaveAllocation.findMany({ where: { accountId, orgId, year, employeeId: { in: employeeIds } } }),
+    peoplePrisma.leaveAllocation.findMany({ where: { accountId, orgId, year: { gte: from, lte: year }, employeeId: { in: employeeIds } } }),
     peoplePrisma.leaveRequest.findMany({
-      where: { accountId, orgId, employeeId: { in: employeeIds }, status: { in: OPEN }, fromDate: { gte: `${year}-01-01`, lte: `${year}-12-31` } },
-      select: { employeeId: true, leaveTypeId: true, status: true, days: true },
+      where: { accountId, orgId, employeeId: { in: employeeIds }, status: { in: OPEN }, fromDate: { gte: `${from}-01-01`, lte: `${year}-12-31` } },
+      select: { employeeId: true, leaveTypeId: true, status: true, days: true, fromDate: true },
     }),
+    peoplePrisma.employee.findMany({ where: { orgId, id: { in: employeeIds } }, select: { id: true, dateOfJoining: true } }),
   ]);
-  const out = new Map<string, Map<string, Balance & { allocated: number | null; available: number | null }>>();
+  const joinedOf = new Map(people.map((p) => [p.id, p.dateOfJoining || null]));
+  const out = new Map<string, Map<string, Balance & { allocated: number | null; available: number | null; allocationId: string | null; earned?: number; carriedIn?: number; fullYear?: number | null }>>();
   for (const id of employeeIds) {
     const m = new Map();
     for (const t of types) {
-      const a = allocations.find((x) => x.employeeId === id && x.leaveTypeId === t.id);
       const mine = requests.filter((r) => r.employeeId === id && r.leaveTypeId === t.id);
-      const used = round(mine.filter((r) => r.status === 'APPROVED').reduce((s, r) => s + r.days, 0));
-      const pending = round(mine.filter((r) => r.status === 'PENDING').reduce((s, r) => s + r.days, 0));
-      const allocated = t.isPaid ? (a ? a.days : t.annualDays) : null;
-      m.set(t.id, { allocated, allocationId: a?.id || null, used, pending, available: allocated === null ? null : round(allocated - used - pending) });
+      const thisYear = mine.filter((r) => r.fromDate.startsWith(`${year}-`));
+      const used = round(thisYear.filter((r) => r.status === 'APPROVED').reduce((s, r) => s + r.days, 0));
+      const pending = round(thisYear.filter((r) => r.status === 'PENDING').reduce((s, r) => s + r.days, 0));
+      if (!t.isPaid) {
+        m.set(t.id, { allocated: null, allocationId: null, used, pending, available: null });
+        continue;
+      }
+      const allocs = allocations.filter((a) => a.employeeId === id && a.leaveTypeId === t.id);
+      const taken = new Map<number, number>();
+      for (const r of mine) taken.set(Number(r.fromDate.slice(0, 4)), (taken.get(Number(r.fromDate.slice(0, 4))) || 0) + r.days);
+      const b = balanceFor(t, year, joinedOf.get(id) ?? null, on, new Map(allocs.map((a) => [a.year, a.days])), taken);
+      m.set(t.id, {
+        allocated: b.allocated,
+        allocationId: allocs.find((a) => a.year === year)?.id || null,
+        used,
+        pending,
+        available: round(b.allocated - used - pending),
+        earned: b.earned,
+        carriedIn: b.carriedIn,
+        fullYear: b.fullYear,
+      });
     }
     out.set(id, m);
   }
@@ -113,6 +140,10 @@ const typeSchema = z.object({
   isPaid: z.boolean().default(true),
   annualDays: z.coerce.number().min(0, 'Days cannot be negative.').max(366).default(0),
   isActive: z.boolean().optional(),
+  accrual: z.enum(['YEARLY', 'MONTHLY']).default('YEARLY'),
+  prorateForJoiners: z.boolean().default(false),
+  /** null: unused days lapse at the year end. */
+  carryForwardMax: z.coerce.number().min(0).max(366).nullable().optional(),
 });
 
 leaveRouter.get(`${base}/types`, can(PermissionAction.VIEW, R.leaveTypes), async (req, res) => {
@@ -263,7 +294,7 @@ export async function createLeave(
   const days = await workingDays(orgId, employee, b.fromDate, b.toDate);
   if (!days.length) return res.status(400).json({ error: 'Those are all weekly offs or holidays — there is nothing to take leave from.' });
   if (type.isPaid) {
-    const { balances } = await balancesFor(accountId, orgId, [employee.id], Number(b.fromDate.slice(0, 4)));
+    const { balances } = await balancesFor(accountId, orgId, [employee.id], Number(b.fromDate.slice(0, 4)), b.fromDate > today() ? b.fromDate : undefined);
     const bal = balances.get(employee.id)!.get(type.id)!;
     if (days.length > (bal.available ?? Infinity)) {
       return res.status(400).json({ error: `Only ${bal.available} days of ${type.name} are left this year; this is ${days.length}.`, code: 'NO_BALANCE' });
@@ -322,7 +353,7 @@ leaveRouter.post(`${base}/requests/:id/approve`, can(PermissionAction.APPROVE, R
     });
     if (worked) throw fail(409, `${worked.date} has a clock-in. Correct that day first, or reject this request.`);
     if (type.isPaid) {
-      const { balances } = await balancesFor(accountId, orgId, [r.employeeId], Number(r.fromDate.slice(0, 4)));
+      const { balances } = await balancesFor(accountId, orgId, [r.employeeId], Number(r.fromDate.slice(0, 4)), r.fromDate > today() ? r.fromDate : undefined);
       const bal = balances.get(r.employeeId)!.get(type.id)!;
       /* This request is in "pending" already; what matters is what is left without it. */
       const left = (bal.available ?? Infinity) + r.days;

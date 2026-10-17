@@ -45,6 +45,7 @@ export default function LeaveBalances() {
         ...types.flatMap((t) =>
           t.isPaid
             ? [
+                { key: `${t.id}-c`, label: `${t.name} carried in`, value: (r) => r.balances[t.id]?.carriedIn ?? '' },
                 { key: `${t.id}-a`, label: `${t.name} allotted`, value: (r) => r.balances[t.id]?.allocated },
                 { key: `${t.id}-u`, label: `${t.name} taken`, value: (r) => r.balances[t.id]?.used },
                 { key: `${t.id}-l`, label: `${t.name} left`, value: (r) => r.balances[t.id]?.available },
@@ -123,11 +124,12 @@ export default function LeaveBalances() {
                             <button
                               type="button"
                               className="ui-btn ui-btn-ghost ui-btn-sm"
-                              title={b.allocationId ? 'Set for this person' : `The type's ${t.annualDays} days`}
+                              title={b.allocationId ? 'Set for this person' : `${b.earned ?? b.allocated} earned so far${b.carriedIn ? ` + ${b.carriedIn} carried in` : ''}; ${b.fullYear ?? b.allocated} by 31 December`}
                               aria-label={`${r.name}: ${b.available} of ${b.allocated} ${t.name} left; change allotted days`}
                               onClick={() => setEditing({ employeeId: r.employeeId, leaveTypeId: t.id, value: b.allocationId ? String(b.allocated) : '' })}
                             >
                               {b.available}<span className="ui-caption"> / {b.allocated}{b.allocationId ? '*' : ''}</span>
+                              {b.carriedIn ? <span className="ui-caption block">{b.carriedIn} carried in</span> : null}
                             </button>
                           )}
                         </td>

@@ -462,6 +462,15 @@ model LeaveType {
   annualDays Float   @default(0)
   isActive   Boolean @default(true)
 
+  /// YEARLY: the year's days are there from 1 January. MONTHLY: a twelfth is
+  /// credited at the start of each month.
+  accrual           String  @default("YEARLY")
+  /// Someone joining during the year gets the months left (joining after the
+  /// 15th counts from the next month).
+  prorateForJoiners Boolean @default(false)
+  /// Days of an unused balance taken into the next year; null lets it lapse.
+  carryForwardMax   Float?
+
   createdByUserId String
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt

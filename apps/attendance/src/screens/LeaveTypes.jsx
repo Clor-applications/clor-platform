@@ -7,7 +7,15 @@ import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { createLeaveType, deleteLeaveType, listLeaveTypes, updateLeaveType } from '../api/attendance';
 import LoadFailed from '../components/LoadFailed';
 
-const BLANK = { name: '', code: '', isPaid: true, annualDays: 12, isActive: true };
+const BLANK = { name: '', code: '', isPaid: true, annualDays: 12, isActive: true, accrual: 'YEARLY', prorateForJoiners: true, carryForwardMax: '' };
+
+const monthlyNote = (days) => {
+  const n = Math.round(((Number(days) || 0) / 12) * 100) / 100;
+  return `${n} day${n === 1 ? '' : 's'} at the start of each month; balances round to the half day.`;
+};
+
+const policy = (t) =>
+  [t.accrual === 'MONTHLY' ? 'monthly' : 'from 1 January', t.carryForwardMax != null ? `carry up to ${t.carryForwardMax}` : 'lapses at year end'].join(' · ');
 
 /** Kinds of leave: paid ones give days a year, unpaid ones are loss of pay. */
 export default function LeaveTypes() {
@@ -48,6 +56,7 @@ export default function LeaveTypes() {
                 <th scope="col" className="ui-th">Code</th>
                 <th scope="col" className="ui-th ui-col-h-center">Paid</th>
                 <th scope="col" className="ui-th text-end">Days a year</th>
+                <th scope="col" className="ui-th">How it is earned</th>
                 <th scope="col" className="ui-th text-end">Requests</th>
                 <th scope="col" className="ui-th ui-col-h-center">Active</th>
               </tr>
@@ -59,6 +68,7 @@ export default function LeaveTypes() {
                   <td className="ui-col-meta">{t.code || '—'}</td>
                   <td className="ui-col-h-center">{t.isPaid ? '✓' : <span className="ui-pill ui-pill-warn">unpaid</span>}</td>
                   <td className="text-end tabular-nums">{t.isPaid ? t.annualDays : '—'}</td>
+                  <td className="ui-col-meta">{t.isPaid ? policy(t) : '—'}</td>
                   <td className="text-end tabular-nums">{t.requests}</td>
                   <td className="ui-col-h-center">{t.isActive ? '✓' : ''}</td>
                 </tr>
@@ -67,7 +77,7 @@ export default function LeaveTypes() {
           </table>
         </div>
       )}
-      {editing ? <TypeForm initial={editing} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); load(); }} /> : null}
+      {editing ? <TypeForm initial={{ ...editing, carryForwardMax: editing.carryForwardMax ?? '' }} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); load(); }} /> : null}
     </div>
   );
 }
@@ -79,7 +89,16 @@ function TypeForm({ initial, onClose, onSaved }) {
   const save = async (e) => {
     e.preventDefault();
     setSaving(true);
-    const body = { name: form.name, code: form.code || null, isPaid: Boolean(form.isPaid), annualDays: form.isPaid ? Number(form.annualDays) || 0 : 0, isActive: Boolean(form.isActive) };
+    const body = {
+      name: form.name,
+      code: form.code || null,
+      isPaid: Boolean(form.isPaid),
+      annualDays: form.isPaid ? Number(form.annualDays) || 0 : 0,
+      isActive: Boolean(form.isActive),
+      accrual: form.accrual || 'YEARLY',
+      prorateForJoiners: Boolean(form.prorateForJoiners),
+      carryForwardMax: form.isPaid && form.carryForwardMax !== '' && form.carryForwardMax != null ? Number(form.carryForwardMax) || 0 : null,
+    };
     try {
       if (form.id) await updateLeaveType(form.id, body);
       else await createLeaveType(body);
@@ -128,6 +147,32 @@ function TypeForm({ initial, onClose, onSaved }) {
             <span className="ui-label">Days a year</span>
             <input type="number" min={0} max={366} step={0.5} className="ui-input w-full" value={form.annualDays} onChange={(e) => setForm({ ...form, annualDays: e.target.value })} />
             <span className="ui-caption">Change one person's days in Leave balances.</span>
+          </label>
+        ) : null}
+        {form.isPaid ? (
+          <label className="block">
+            <span className="ui-label">Earned</span>
+            <select className="ui-select w-full" value={form.accrual || 'YEARLY'} onChange={(e) => setForm({ ...form, accrual: e.target.value })}>
+              <option value="YEARLY">All on 1 January</option>
+              <option value="MONTHLY">A twelfth each month</option>
+            </select>
+            <span className="ui-caption">{form.accrual === 'MONTHLY' ? monthlyNote(form.annualDays) : 'The year’s days are there from the start.'}</span>
+          </label>
+        ) : null}
+        {form.isPaid ? (
+          <label className="block">
+            <span className="ui-label">Carry into next year, up to</span>
+            <input type="number" min={0} max={366} step={0.5} className="ui-input w-full" placeholder="Nothing — unused days lapse" value={form.carryForwardMax} onChange={(e) => setForm({ ...form, carryForwardMax: e.target.value })} />
+            <span className="ui-caption">Unused days at 31 December move to the new year, up to this many.</span>
+          </label>
+        ) : null}
+        {form.isPaid ? (
+          <label className="flex items-start gap-2 text-sm sm:col-span-2">
+            <input type="checkbox" className="ui-checkbox mt-0.5" checked={Boolean(form.prorateForJoiners) || form.accrual === 'MONTHLY'} disabled={form.accrual === 'MONTHLY'} onChange={(e) => setForm({ ...form, prorateForJoiners: e.target.checked })} />
+            <span>
+              Joiners get the months left in their first year
+              <span className="ui-caption block">Joining by the 15th counts that month. Monthly leave always starts from joining.</span>
+            </span>
           </label>
         ) : (
           <p className="ui-caption sm:col-span-2">Unpaid: no balance, and each day taken is loss of pay in the month summary.</p>

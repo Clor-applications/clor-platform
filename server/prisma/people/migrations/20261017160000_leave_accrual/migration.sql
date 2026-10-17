@@ -1,0 +1,4 @@
+-- AlterTable
+ALTER TABLE "LeaveType" ADD COLUMN "accrual" TEXT NOT NULL DEFAULT 'YEARLY',
+ADD COLUMN "prorateForJoiners" BOOLEAN NOT NULL DEFAULT false,
+ADD COLUMN "carryForwardMax" DOUBLE PRECISION;
