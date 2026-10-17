@@ -14,6 +14,7 @@ import {
 } from '../../api/security';
 import { EmptyState, Spinner, StatusPill, SkeletonCard } from '@ui/components/ui/Primitives';
 import SettingsScreenHeader from './SettingsScreenHeader';
+import AuthenticatorCard from '@ui/profile/AuthenticatorCard';
 
 const TABS = [
   { key: 'signin', label: 'Sign-in methods' },
@@ -396,6 +397,7 @@ export const SecuritySettings = () => {
               { key: 'passwordRequireNumber', label: 'Password must contain a number' },
               { key: 'passwordRequireSymbol', label: 'Password must contain a symbol' },
               { key: 'requireVerifiedEmail', label: 'Require a confirmed email address' },
+              { key: 'requirePayrollStepUp', label: 'Ask for an authenticator code before approving pay runs, bank account changes, settlements and payments' },
             ].map((f) => (
               <label key={f.key} className="flex items-center gap-2 cursor-pointer">
                 <input
@@ -433,6 +435,7 @@ export const SecuritySettings = () => {
 
       {tab === 'devices' ? (
         <div className="space-y-3">
+          <AuthenticatorCard />
           <div className="ui-card p-4 space-y-3">
             <div className="ui-title text-sm">Change your password</div>
             <div className="grid gap-3 sm:grid-cols-3">

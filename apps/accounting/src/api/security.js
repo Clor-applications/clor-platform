@@ -28,3 +28,4 @@ export const changePassword = (currentPassword, newPassword) =>
   apiFetch(`${base()}/change-password`, { method: 'POST', body: { currentPassword, newPassword }, ...opts });
 
 export const getAuthEvents = (params = '') => apiFetch(`${base()}/events${params}`, opts);
+
