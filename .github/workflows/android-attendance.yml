@@ -29,6 +29,9 @@ jobs:
     timeout-minutes: 40
     env:
       VERSION_NAME: ${{ github.ref_type == 'tag' && github.ref_name || format('0.0.0-{0}', github.run_number) }}
+      # `secrets` cannot be read in a step's `if`, so the presence checks live here.
+      HAS_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
+      HAS_R2: ${{ secrets.R2_BUCKET != '' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -61,7 +64,7 @@ jobs:
 
       - name: Signing (release) when the keystore is set
         id: signing
-        if: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
+        if: env.HAS_KEYSTORE == 'true'
         run: |
           echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > mobile/attendance/android/upload.jks
           cat >> mobile/attendance/android/gradle.properties <<EOF
@@ -96,7 +99,7 @@ jobs:
           if-no-files-found: error
 
       - name: Publish the APK to the download bucket
-        if: ${{ steps.signing.outputs.release == 'true' && secrets.R2_BUCKET != '' }}
+        if: steps.signing.outputs.release == 'true' && env.HAS_R2 == 'true'
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
