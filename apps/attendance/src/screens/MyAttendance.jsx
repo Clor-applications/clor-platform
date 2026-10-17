@@ -3,12 +3,18 @@ import { LogIn, LogOut } from 'lucide-react';
 
 import { PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
 import { notify } from '@ui/components/ui/notify';
-import { clock, dayLabel, getMe, hm, requestCorrection, STATUS, todayIst } from '../api/attendance';
+import { clock, dayLabel, getMe, hm, phonePunch, requestCorrection, STATUS, todayIst } from '../api/attendance';
 import LoadFailed from '../components/LoadFailed';
+import PhonePunch from '../components/PhonePunch';
 
 /**
  * Clock in, clock out, and one's own month — Horilla's check-in/out widget.
  * The time recorded is the server's, not this device's.
+ *
+ * When HR has switched phone punching on for this person (Portal access), the
+ * plain clock gives way to the same punch card the employee portal uses:
+ * location against the work sites, an optional selfie, the punch recorded
+ * under the "Phone punches" reader so Transactions and the day's record see it.
  */
 export default function MyAttendance() {
   const [me, setMe] = useState(null);
@@ -68,11 +74,14 @@ export default function MyAttendance() {
     <div className="space-y-6">
       <PageHeader entity="attendance" title="My attendance" description={`${me.employee.name}${me.employee.code ? ` · ${me.employee.code}` : ''} · ${me.shift.name} (${me.shift.startTime}–${me.shift.endTime})`} />
 
+      {me.phone?.allowed ? (
+        <PhonePunch phone={me.phone} punches={me.punches} onPunch={phonePunch} onDone={load} />
+      ) : null}
       <section className="ui-card flex flex-wrap items-center gap-6 p-6">
-        <button type="button" className="ui-btn ui-btn-primary !h-12 !px-6 text-base" onClick={punch} disabled={busy}>
+        {!me.phone?.allowed ? <button type="button" className="ui-btn ui-btn-primary !h-12 !px-6 text-base" onClick={punch} disabled={busy}>
           {me.clockedIn ? <LogOut size={18} aria-hidden="true" /> : <LogIn size={18} aria-hidden="true" />}
           {busy ? 'Saving…' : me.clockedIn ? 'Clock out' : 'Clock in'}
-        </button>
+        </button> : null}
         <dl className="flex flex-wrap gap-6 text-sm">
           <div><dt className="ui-t-label">Today</dt><dd>{me.today}</dd></div>
           <div><dt className="ui-t-label">In</dt><dd>{t?.checkInTime || '—'}</dd></div>

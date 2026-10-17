@@ -92,7 +92,7 @@ export const attendanceApp = {
   database: 'people.db',
   home: 'today',
   /* The phone's tab bar; the rest is behind Menu (packages/shell/mobileTabs.js). */
-  mobileTabs: ['today', 'records', 'leaveRequests', 'requests'],
+  mobileTabs: ['today', 'me', 'records', 'requests'],
   /*
    * The split sidebar (ClorTime's MainLayout): a rail of modules, and the
    * open module's screens grouped under plain headings. Keys are nav keys;

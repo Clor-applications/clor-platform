@@ -30,6 +30,8 @@ export const approveOvertime = (id, approved = true) => send(`/records/${encodeU
 
 export const getMe = () => get('/me');
 export const clock = (kind) => send('/clock', 'POST', kind ? { kind } : {});
+/** A punch from the phone: position (and an optional selfie) checked against the work sites. */
+export const phonePunch = (body) => send('/me/punch', 'POST', body);
 export const requestCorrection = (body) => send('/me/requests', 'POST', body);
 
 export const listRequests = (status) => get(`/requests${query({ status })}`).then((r) => r?.requests || []);
