@@ -21,3 +21,10 @@ export const verifyTaxDeclaration = (employeeId, fy) =>
   apiFetch(`${base()}/${encodeURIComponent(employeeId)}/verify${fyq(fy)}`, { ...opts, method: 'POST' }).then(one);
 export const reopenTaxDeclaration = (employeeId, fy) =>
   apiFetch(`${base()}/${encodeURIComponent(employeeId)}/reopen${fyq(fy)}`, { ...opts, method: 'POST' }).then(one);
+
+const reports = () => `/orgs/${encodeURIComponent(orgId())}/payroll/reports`;
+/** Form 16 Part B figures for the year: one person, or everybody. */
+export const getForm16 = (fy, employeeId) =>
+  apiFetch(`${reports()}/form16?fy=${encodeURIComponent(fy)}${employeeId ? `&employeeId=${encodeURIComponent(employeeId)}` : ''}`, opts);
+/** Form 24Q Annexure I rows for a quarter (1 = April–June). */
+export const get24q = (fy, quarter) => apiFetch(`${reports()}/24q?fy=${encodeURIComponent(fy)}&quarter=${quarter}`, opts);

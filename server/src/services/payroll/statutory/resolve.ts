@@ -25,7 +25,7 @@ import { SEED_RULES, SCHEME_NAMES } from './defaults.js';
 
 export type RuleSet = Map<StatutoryScheme, { general: StatutoryRuleInput[]; all: any[] }>;
 
-const toEngineRule = (row: any): StatutoryRuleInput => ({
+export const toEngineRule = (row: any): StatutoryRuleInput => ({
   id: row.id,
   scheme: row.scheme as StatutoryScheme,
   version: row.version,

@@ -1,11 +1,12 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Check, RotateCcw } from 'lucide-react';
+import { Check, Download, Printer, RotateCcw } from 'lucide-react';
 
 import { PageHeader, SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import Drawer from '@ui/components/ui/Drawer';
 import { formatDateIn } from '@ui/utils/dates';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
-import { getTaxDeclaration, listTaxDeclarations, reopenTaxDeclaration, saveTaxDeclaration, verifyTaxDeclaration } from '../api/payrollTaxDeclarations';
+import { downloadCsv } from '@ui/utils/csv';
+import { get24q, getForm16, getTaxDeclaration, listTaxDeclarations, reopenTaxDeclaration, saveTaxDeclaration, verifyTaxDeclaration } from '../api/payrollTaxDeclarations';
 
 const STATUS = {
   NONE: { label: 'Not declared', pill: 'ui-pill-neutral' },
@@ -58,10 +59,13 @@ export default function TaxDeclarations() {
         title="Tax declarations"
         description="Regime and investments for income tax. Tax is withheld on what was declared until the proofs are verified."
         actions={
-          <select className="ui-select" value={fy} onChange={(e) => setFy(e.target.value)} aria-label="Financial year">
-            <option value={thisYear}>FY {thisYear}</option>
-            <option value={lastYear}>FY {lastYear}</option>
-          </select>
+          <div className="flex flex-wrap items-center gap-2">
+            <select className="ui-select w-36" value={fy} onChange={(e) => setFy(e.target.value)} aria-label="Financial year">
+              <option value={thisYear}>FY {thisYear}</option>
+              <option value={lastYear}>FY {lastYear}</option>
+            </select>
+            <Return24q fy={fy} />
+          </div>
         }
       />
       {error ? (
@@ -195,10 +199,19 @@ function Declaration({ employeeId, fy, onClose, onChanged }) {
       description={d ? `${STATUS[d.status]?.label || d.status}${d.submittedAt ? ` · declared ${formatDateIn(String(d.submittedAt).slice(0, 10))}` : ''}` : ''}
       actions={
         !form ? null : verified ? (
-          <button type="button" className="ui-btn ui-btn-secondary" disabled={busy} onClick={() => run(() => reopenTaxDeclaration(employeeId, fy), 'Reopened.')}>
-            <RotateCcw size={14} aria-hidden="true" /> Reopen
-          </button>
+          <>
+            <button type="button" className="ui-btn ui-btn-ghost" onClick={() => printForm16(employeeId, fy)}>
+              <Printer size={14} aria-hidden="true" /> Form 16
+            </button>
+            <button type="button" className="ui-btn ui-btn-secondary" disabled={busy} onClick={() => run(() => reopenTaxDeclaration(employeeId, fy), 'Reopened.')}>
+              <RotateCcw size={14} aria-hidden="true" /> Reopen
+            </button>
+          </>
         ) : (
+          <>
+            <button type="button" className="ui-btn ui-btn-ghost" onClick={() => printForm16(employeeId, fy)}>
+              <Printer size={14} aria-hidden="true" /> Form 16
+            </button>
           <>
             <button type="button" className="ui-btn ui-btn-secondary" disabled={busy} onClick={save}>Save</button>
             {form.regime === 'OLD' ? (
@@ -206,6 +219,7 @@ function Declaration({ employeeId, fy, onClose, onChanged }) {
                 <Check size={14} aria-hidden="true" /> Verify proofs
               </button>
             ) : null}
+          </>
           </>
         )
       }
@@ -293,4 +307,122 @@ function Declaration({ employeeId, fy, onClose, onChanged }) {
       )}
     </Drawer>
   );
+}
+
+const escapeHtml = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+const inr = (n) => (n == null ? '—' : Number(n).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+const QUARTERS = [
+  [1, 'Q1 · Apr–Jun'],
+  [2, 'Q2 · Jul–Sep'],
+  [3, 'Q3 · Oct–Dec'],
+  [4, 'Q4 · Jan–Mar'],
+];
+
+/** Form 24Q Annexure I for a quarter, as a spreadsheet a return tool can take. */
+function Return24q({ fy }) {
+  const [quarter, setQuarter] = useState(1);
+  const [busy, setBusy] = useState(false);
+  const go = async () => {
+    setBusy(true);
+    try {
+      const r = await get24q(fy, quarter);
+      if (!r.rows.length) {
+        notify.error('No tax was deducted in that quarter.');
+        return;
+      }
+      downloadCsv({
+        fileName: `24Q Annexure I FY ${fy} Q${quarter}`,
+        prefixRows: [[`Deductor: ${r.employer.name}`, `TAN: ${r.employer.tan || 'not set'}`, `FY ${fy}`, `Quarter ${quarter}`]],
+        columns: [
+          { key: 'code', label: 'Employee code' },
+          { key: 'pan', label: 'PAN', value: (x) => x.pan || 'PANNOTAVBL' },
+          { key: 'name', label: 'Name' },
+          { key: 'section', label: 'Section' },
+          { key: 'paymentDate', label: 'Date of payment', value: (x) => formatDateIn(x.paymentDate) },
+          { key: 'amountPaid', label: 'Amount paid', value: (x) => Number(x.amountPaid).toFixed(2) },
+          { key: 'tds', label: 'Tax deducted', value: (x) => Number(x.tds).toFixed(2) },
+          { key: 'deducted', label: 'Date of deduction', value: (x) => formatDateIn(x.paymentDate) },
+        ],
+        rows: r.rows,
+      });
+      if (r.problems.length) notify.error(`${r.problems.length} without a valid PAN: ${r.problems.map((p) => p.name).join(', ')}.`);
+      else notify.success('Downloaded.');
+    } catch (e) {
+      notify.error(String(e?.message || 'Could not build the return.'));
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <span className="inline-flex items-center gap-2">
+      <select className="ui-select w-36" value={quarter} onChange={(e) => setQuarter(Number(e.target.value))} aria-label="Quarter for 24Q">
+        {QUARTERS.map(([q, label]) => (
+          <option key={q} value={q}>{label}</option>
+        ))}
+      </select>
+      <button type="button" className="ui-btn ui-btn-secondary" disabled={busy} onClick={go}>
+        <Download size={16} aria-hidden="true" /> 24Q
+      </button>
+    </span>
+  );
+}
+
+/** Form 16 Part B, printable. Part A is downloaded from TRACES. */
+async function printForm16(employeeId, fy) {
+  const w = window.open('', '_blank', 'noopener=no');
+  if (!w) {
+    notify.error('Allow pop-ups for this site to print.');
+    return;
+  }
+  let r;
+  try {
+    r = await getForm16(fy, employeeId);
+  } catch (e) {
+    w.close();
+    notify.error(String(e?.message || 'Could not build Form 16.'));
+    return;
+  }
+  const p = r.people[0];
+  if (!p) {
+    w.close();
+    notify.error('Nothing has been paid to them in this year yet.');
+    return;
+  }
+  const row = (label, amount, strong) => `<tr${strong ? ' class="t"' : ''}><td>${escapeHtml(label)}</td><td class="r">${inr(amount)}</td></tr>`;
+  const lines = (rows) => rows.map((l) => row(`${l.label}${l.claimed !== l.allowed ? ` (claimed ${inr(l.claimed)})` : ''}`, l.allowed)).join('');
+  const sum = (rows) => rows.reduce((t, l) => t + l.allowed, 0);
+  const months = p.months.map((m) => `<tr><td>${escapeHtml(m.month)}</td><td>${escapeHtml(formatDateIn(m.paymentDate))}</td><td class="r">${inr(m.gross)}</td><td class="r">${inr(m.tds)}</td></tr>`).join('');
+  w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Form 16 Part B ${escapeHtml(p.name)} FY ${escapeHtml(fy)}</title>
+<style>body{font:12px system-ui,sans-serif;margin:16px;color:#111}h1{font-size:16px;margin:0}h2{font-size:13px;margin:16px 0 6px}p{margin:2px 0;color:#333}
+table{border-collapse:collapse;width:100%;margin-top:4px}td,th{border:1px solid #bbb;padding:4px 6px;text-align:left}th{background:#f2f2f2}.r{text-align:right}tr.t td{font-weight:600;background:#fafafa}.n{color:#555;margin-top:12px}
+@page{size:portrait;margin:12mm}</style></head><body>
+<h1>Form 16 — Part B</h1>
+<p>Details of salary paid and tax deducted, financial year ${escapeHtml(fy)} (assessment year ${escapeHtml(`${Number(fy.slice(0, 4)) + 1}-${String((Number(fy.slice(0, 4)) + 2) % 100).padStart(2, '0')}`)})</p>
+<h2>Employer and employee</h2>
+<table><tr><th>Employer</th><td>${escapeHtml(r.employer.name)}</td><th>TAN</th><td>${escapeHtml(r.employer.tan || 'not set')}</td><th>PAN</th><td>${escapeHtml(r.employer.pan || '—')}</td></tr>
+<tr><th>Employee</th><td>${escapeHtml(p.name)}${p.designation ? `, ${escapeHtml(p.designation)}` : ''}</td><th>PAN</th><td>${escapeHtml(p.pan || 'not on file')}</td><th>Period</th><td>${escapeHtml(formatDateIn(p.periodFrom))} – ${escapeHtml(formatDateIn(p.periodTo))}</td></tr></table>
+<h2>Computation (${p.regime === 'OLD' ? 'old regime' : 'new regime, section 115BAC'})</h2>
+<table>
+${row('1. Gross salary', p.gross, true)}
+${lines(p.exemptions)}
+${row('2. Less: allowances exempt under section 10', sum(p.exemptions))}
+${row('3. Less: standard deduction under section 16(ia)', p.standardDeduction)}
+${p.houseProperty.length ? lines(p.houseProperty) + row('4. Less: loss from house property (interest on housing loan)', sum(p.houseProperty)) : ''}
+${lines(p.chapterVIA)}
+${row('5. Less: deductions under Chapter VI-A', sum(p.chapterVIA))}
+${row('6. Total taxable income', p.taxable, true)}
+${row('7. Tax on total income', p.slabTax)}
+${row('8. Less: rebate under section 87A', p.rebate)}
+${row('9. Health and education cess', p.cess)}
+${row('10. Tax payable', p.taxPayable, true)}
+${row('11. Tax deducted at source', p.tdsDeducted)}
+${row(p.balance >= 0 ? '12. Tax still payable' : '12. Deducted in excess', Math.abs(p.balance || 0), true)}
+</table>
+<h2>Tax deducted, month by month</h2>
+<table><thead><tr><th>Month</th><th>Paid on</th><th class="r">Salary</th><th class="r">TDS</th></tr></thead><tbody>${months}</tbody></table>
+<p class="n">${p.regime === 'OLD' ? `Deductions are as ${p.deductionBasis === 'VERIFIED' ? 'verified from proofs' : 'declared, not yet verified'}. ` : ''}Worked out from approved payslips. Part A (details of tax deposited) is issued from TRACES. Printed ${escapeHtml(new Date().toLocaleString())}.</p>
+</body></html>`);
+  w.document.close();
+  w.focus();
+  w.print();
 }

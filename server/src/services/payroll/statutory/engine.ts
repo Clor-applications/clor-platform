@@ -310,6 +310,71 @@ export type TaxBand = { upTo: number | null; rate: number };
 const OLD_REGIME_TERMS = { standardDeduction: 50000, rebateUpTo: 500000, rebateMax: 12500, marginalRelief: false };
 
 /**
+ * The year's income tax on a year's salary, under one regime: standard
+ * deduction, declared deductions (old regime only), slabs, rebate, marginal
+ * relief and cess. Shared by monthly TDS and Form 16, so the certificate and
+ * the payslips cannot disagree about how tax was worked out.
+ */
+export function incomeTax(rule: StatutoryRuleInput, regime: 'OLD' | 'NEW', annualIncome: number, deductions = 0) {
+  const bands: TaxBand[] = Array.isArray(rule.config?.[regime === 'OLD' ? 'oldRegimeBands' : 'newRegimeBands'])
+    ? rule.config[regime === 'OLD' ? 'oldRegimeBands' : 'newRegimeBands']
+    : [];
+  if (!bands.length) return null;
+
+  /*
+   * The standard deduction and the rebate are not the same in both regimes:
+   * new ₹75,000 and a rebate up to ₹12 lakh (at most ₹60,000), old ₹50,000 and
+   * up to ₹5 lakh (at most ₹12,500). The top-level figures are the new
+   * regime's; `config.oldRegime` holds the old. Applying the new figures to an
+   * old-regime employee withheld nothing up to about ₹8 lakh and too little
+   * above it (₹39,000 instead of ₹1,06,600 on ₹10 lakh). A rule seeded before
+   * `oldRegime` existed falls back to the old regime's own figures.
+   */
+  const terms =
+    regime === 'OLD' ? { ...OLD_REGIME_TERMS, ...(rule.config?.oldRegime || {}) } : rule.config || {};
+
+  const standardDeduction = Math.min(Math.max(0, annualIncome), Number(terms.standardDeduction ?? 0));
+  const declared = regime === 'OLD' ? Math.max(0, deductions) : 0;
+  const taxable = Math.max(0, annualIncome - standardDeduction - declared);
+
+  /* Slab by slab, each rate applying only to the part of income inside it. */
+  let slabTax = 0;
+  let previous = 0;
+  for (const band of bands) {
+    const ceiling = band.upTo ?? Infinity;
+    if (taxable <= previous) break;
+    const inBand = Math.min(taxable, ceiling) - previous;
+    if (inBand > 0) slabTax += (inBand * band.rate) / 100;
+    previous = ceiling;
+    if (!Number.isFinite(ceiling)) break;
+  }
+
+  /* A rebate wipes the tax out entirely below a threshold rather than reducing
+     it — somebody just under the line pays nothing at all. */
+  let tax = slabTax;
+  const rebateUpTo = Number(terms.rebateUpTo ?? 0);
+  const rebateMax = Number(terms.rebateMax ?? 0);
+  if (rebateUpTo && taxable <= rebateUpTo) tax = Math.max(0, tax - rebateMax);
+  /* Marginal relief (new regime): just over the rebate line, the tax may not
+     exceed the income above the line, or earning ₹1,000 more would cost
+     ₹60,000 in tax. */
+  else if (rebateUpTo && terms.marginalRelief) tax = Math.min(tax, taxable - rebateUpTo);
+
+  const cessRate = Number(rule.config?.cessRate ?? 0);
+  const cess = round2(tax * (cessRate / 100));
+  return {
+    standardDeduction,
+    deductions: declared,
+    taxable,
+    slabTax: round2(slabTax),
+    rebate: round2(slabTax - tax),
+    tax: round2(tax),
+    cess,
+    total: round2(tax + cess),
+  };
+}
+
+/**
  * Income tax withheld from salary.
  *
  * Deliberately the foundation rather than the whole of it. What is here is the
@@ -338,55 +403,12 @@ function computeTds(
   };
 
   const regime = employee.taxRegime || 'NEW';
-  const bands: TaxBand[] = Array.isArray(rule.config?.[regime === 'OLD' ? 'oldRegimeBands' : 'newRegimeBands'])
-    ? rule.config[regime === 'OLD' ? 'oldRegimeBands' : 'newRegimeBands']
-    : [];
-  if (!bands.length) {
+  const declared = regime === 'OLD' ? Math.max(0, Number(wages.taxDeductions?.total) || 0) : 0;
+  const year = incomeTax(rule, regime, Number(wages.annualTaxable ?? 0), declared);
+  if (!year) {
     return { ...base, employee: 0, employer: 0, explanation: 'No income tax bands are set.', exemptReason: 'NO_BANDS' };
   }
-
-  /*
-   * The standard deduction and the rebate are not the same in both regimes:
-   * new ₹75,000 and a rebate up to ₹12 lakh (at most ₹60,000), old ₹50,000 and
-   * up to ₹5 lakh (at most ₹12,500). The top-level figures are the new
-   * regime's; `config.oldRegime` holds the old. Applying the new figures to an
-   * old-regime employee withheld nothing up to about ₹8 lakh and too little
-   * above it (₹39,000 instead of ₹1,06,600 on ₹10 lakh). A rule seeded before
-   * `oldRegime` existed falls back to the old regime's own figures.
-   */
-  const terms =
-    regime === 'OLD' ? { ...OLD_REGIME_TERMS, ...(rule.config?.oldRegime || {}) } : rule.config || {};
-
-  const annual = Number(wages.annualTaxable ?? 0);
-  const standardDeduction = Number(terms.standardDeduction ?? 0);
-  /* Declared investments, HRA and home loan interest reduce taxable pay only under the old regime. */
-  const declared = regime === 'OLD' ? Math.max(0, Number(wages.taxDeductions?.total) || 0) : 0;
-  const taxable = Math.max(0, annual - standardDeduction - declared);
-
-  /* Slab by slab, each rate applying only to the part of income inside it. */
-  let tax = 0;
-  let previous = 0;
-  for (const band of bands) {
-    const ceiling = band.upTo ?? Infinity;
-    if (taxable <= previous) break;
-    const inBand = Math.min(taxable, ceiling) - previous;
-    if (inBand > 0) tax += (inBand * band.rate) / 100;
-    previous = ceiling;
-    if (!Number.isFinite(ceiling)) break;
-  }
-
-  /* A rebate wipes the tax out entirely below a threshold rather than reducing
-     it — somebody just under the line pays nothing at all. */
-  const rebateUpTo = Number(terms.rebateUpTo ?? 0);
-  const rebateMax = Number(terms.rebateMax ?? 0);
-  if (rebateUpTo && taxable <= rebateUpTo) tax = Math.max(0, tax - rebateMax);
-  /* Marginal relief (new regime): just over the rebate line, the tax may not
-     exceed the income above the line, or earning ₹1,000 more would cost
-     ₹60,000 in tax. */
-  else if (rebateUpTo && terms.marginalRelief) tax = Math.min(tax, taxable - rebateUpTo);
-
-  const cessRate = Number(rule.config?.cessRate ?? 0);
-  const withCess = round2(tax * (1 + cessRate / 100));
+  const { taxable, total: withCess } = year;
 
   const remaining = Math.max(0, round2(withCess - Number(opts.taxAlreadyDeducted || 0)));
   const months = Math.max(1, opts.monthsRemaining);

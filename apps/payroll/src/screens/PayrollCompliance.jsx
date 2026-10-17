@@ -52,6 +52,14 @@ const describeRate = (scheme, rule) => {
   return parts.join(' · ');
 };
 
+const REG_LABEL = {
+  TDS: 'TAN',
+  PF: 'PF establishment code',
+  ESI: 'ESI employer code',
+  PT: 'PT registration number',
+  LWF: 'LWF registration number',
+};
+
 export default function PayrollCompliance() {
   const [schemes, setSchemes] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -95,6 +103,22 @@ export default function PayrollCompliance() {
       load();
     } catch (e) {
       notify.error(String(e?.message || 'Could not change that scheme.'));
+    } finally {
+      setBusy('');
+    }
+  };
+
+  /* The number each return is filed under: TAN for TDS, the establishment codes for PF and ESI. */
+  const saveNumber = async (scheme, value) => {
+    const next = value.trim();
+    if (next === (scheme.registrationNumber || '')) return;
+    setBusy(scheme.id);
+    try {
+      await setSchemeEnabled(scheme.id, scheme.isEnabled, next || null);
+      notify.success(`${REG_LABEL[scheme.code] || 'Registration number'} saved.`);
+      load();
+    } catch (e) {
+      notify.error(String(e?.message || 'Could not save that number.'));
     } finally {
       setBusy('');
     }
@@ -161,6 +185,19 @@ export default function PayrollCompliance() {
                     </span>
                   </div>
                   {scheme.description ? <p className="ui-caption mt-0.5">{scheme.description}</p> : null}
+                  {REG_LABEL[scheme.code] ? (
+                    <label className="mt-2 flex flex-wrap items-center gap-2 text-sm">
+                      <span className="ui-caption">{REG_LABEL[scheme.code]}</span>
+                      <input
+                        key={scheme.registrationNumber || ''}
+                        className="ui-input w-52 uppercase"
+                        maxLength={60}
+                        defaultValue={scheme.registrationNumber || ''}
+                        disabled={busy === scheme.id}
+                        onBlur={(e) => saveNumber(scheme, e.target.value.toUpperCase())}
+                      />
+                    </label>
+                  ) : null}
                 </div>
                 <label className="flex items-center gap-2 text-sm" htmlFor={`scheme-${scheme.id}`}>
                   <input

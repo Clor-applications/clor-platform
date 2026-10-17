@@ -10,6 +10,7 @@ import { PAYROLL_MODULE, PAYROLL_RESOURCE, payrollRouteOk } from '../services/pa
 import { snapshotPerson } from '../services/payroll/payment.js';
 import { round2 } from '../utils/money.js';
 import { buildFilings } from '../services/payroll/filings.js';
+import { employerFor, form24q, taxYear } from '../services/payroll/form16.js';
 
 /**
  * Payroll reports.
@@ -350,5 +351,40 @@ payrollReportsRouter.get(
     const period = await payrollPrisma.payrollPeriod.findFirst({ where: { orgId, id: periodId }, select: { id: true, name: true, startDate: true, endDate: true } });
     if (!period) return res.status(404).json({ error: 'No such pay period.' });
     res.json({ period, ...(await buildFilings(orgId, period)) });
+  }
+);
+
+/**
+ * Salary TDS for a financial year: Form 16 Part B per person (or everybody,
+ * for the Q4 salary details), and Form 24Q Annexure I for a quarter
+ * (services/payroll/form16.ts).
+ */
+const FY = /^\d{4}-\d{2}$/;
+
+payrollReportsRouter.get(
+  '/orgs/:orgId/payroll/reports/form16',
+  requirePermission(PAYROLL_MODULE, PermissionAction.VIEW, RESOURCE),
+  async (req, res) => {
+    if (!(await payrollRouteOk(req, res))) return;
+    const { orgId } = req.tenant!;
+    const fy = String(req.query.fy || '');
+    if (!FY.test(fy)) return res.status(400).json({ error: 'Choose a financial year, like 2026-27.' });
+    const employeeId = req.query.employeeId ? String(req.query.employeeId) : undefined;
+    const [people, employer] = await Promise.all([taxYear(orgId, fy, employeeId), employerFor(orgId)]);
+    res.json({ financialYear: fy, employer, people });
+  }
+);
+
+payrollReportsRouter.get(
+  '/orgs/:orgId/payroll/reports/24q',
+  requirePermission(PAYROLL_MODULE, PermissionAction.VIEW, RESOURCE),
+  async (req, res) => {
+    if (!(await payrollRouteOk(req, res))) return;
+    const { orgId } = req.tenant!;
+    const fy = String(req.query.fy || '');
+    const quarter = Number(req.query.quarter);
+    if (!FY.test(fy) || ![1, 2, 3, 4].includes(quarter)) return res.status(400).json({ error: 'Choose a financial year and a quarter.' });
+    const [data, employer] = await Promise.all([form24q(orgId, fy, quarter), employerFor(orgId)]);
+    res.json({ financialYear: fy, quarter, employer, ...data });
   }
 );
