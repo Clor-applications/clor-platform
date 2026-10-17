@@ -74,6 +74,7 @@ import { stockLedgerRouter } from './routes/stockLedger.js';
 import { notFound, errorHandler } from './middleware/errors.js';
 import { billingRouter } from './routes/billing.js';
 import { edgeGuard } from './middleware/edgeGuard.js';
+import { auditMutations } from './middleware/auditMutations.js';
 import { clearAccessCacheOnWrite } from './utils/accessCache.js';
 import { safeUrl } from './utils/safeUrl.js';
 
@@ -224,6 +225,8 @@ export function buildApp() {
   /* No auth and no tenant headers: the customer has no account here. Mounted
      with authRouter for the same reason gstinRouter is — a router at '/api'
      runs its middleware for every '/api' request that reaches it. */
+  /* Payroll and Attendance changes go in the audit log (middleware/auditMutations.ts). */
+  app.use(auditMutations);
   app.use('/api', sharePublicRouter);
 
   /* The employee portal: its own sign-in (company + employee code), no CLOR

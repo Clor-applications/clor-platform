@@ -13,6 +13,8 @@ export async function recordAudit(
   req: Request,
   entry: { entity: string; entityId: string; action: string; message: string; metadata?: Record<string, unknown> }
 ) {
+  /* Logged here with the detail; the generic change log (middleware/auditMutations.ts) skips this request. */
+  if (req.res) req.res.locals.audited = true;
   try {
     await platformPrisma.auditLog.create({
       data: {
