@@ -161,7 +161,7 @@ export function buildApp() {
         return cb(null, defaultDevAllow.has(origin));
       },
       credentials: true,
-      allowedHeaders: ['Content-Type', 'Authorization', 'x-org-id', 'x-branch-id', 'x-warehouse-id'],
+      allowedHeaders: ['Content-Type', 'Authorization', 'x-org-id', 'x-branch-id', 'x-warehouse-id', 'x-step-up'],
     })
   );
   /*
