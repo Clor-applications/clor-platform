@@ -10,6 +10,7 @@ import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { PAYROLL_MODULE, PAYROLL_RESOURCE, payrollRouteOk } from '../services/payroll/guards.js';
 import { levelFor, resolveAccess } from '../services/access.js';
 import { pushEmployeeToReaders, readerFieldsChanged, revokeFromReaders } from './iclock.js';
+import { emit as emitWebhook, employeeEvent } from '../services/attendance/webhooks.js';
 import { BANK_FIELDS, BankChangeError, approveBankChange, maskNumber, rejectBankChange, routeBankUpdate } from '../services/payroll/bankChanges.js';
 import { requirePayrollStepUp } from '../services/stepUp.js';
 
@@ -282,6 +283,7 @@ payrollEmployeesRouter.post(
     }
 
     res.status(201).json({ employee: shape({ ...row, payroll }, await mayRevealSensitive(req)) });
+    emitWebhook(orgId, 'employee.created', employeeEvent(row));
   }
 );
 
@@ -370,6 +372,7 @@ payrollEmployeesRouter.put(
     }
 
     res.json({ employee: shape({ ...row, payroll }, await mayRevealSensitive(req)), bankChangePending });
+    emitWebhook(orgId, row.status === 'LEFT' && existing.status !== 'LEFT' ? 'employee.left' : 'employee.updated', employeeEvent(row));
   }
 );
 

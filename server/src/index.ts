@@ -2,7 +2,7 @@ import 'dotenv/config';
 import { buildApp } from './app.js';
 import { startRecurringScheduler } from './services/recurringScheduler.js';
 import { startRetentionPurge } from './services/retention.js';
-import { startPhotoPurge, startReaderChecks, startVendorSync } from './services/vendorSyncScheduler.js';
+import { startPhotoPurge, startReaderChecks, startVendorSync, startWebhookRetries } from './services/vendorSyncScheduler.js';
 
 const app = buildApp();
 const port = Number(process.env.PORT || 4001);
@@ -22,6 +22,8 @@ startRecurringScheduler();
 startVendorSync();
 startPhotoPurge();
 startReaderChecks();
+/* Failed webhook deliveries are tried again on a schedule. */
+startWebhookRetries();
 
 /* Sign-in records past their use are removed daily — see services/retention.ts. */
 startRetentionPurge();

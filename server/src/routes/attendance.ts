@@ -518,6 +518,7 @@ const review = (approve: boolean) => async (req: any, res: any) => {
       },
     });
     res.json({ request: updated });
+    if (approve) emitWebhook(orgId, 'correction.approved', { id: updated.id, employeeId: updated.employeeId, date: updated.date, checkIn: updated.checkIn, checkOut: updated.checkOut, reason: (updated as any).reason ?? null, reviewNote: updated.reviewNote });
   } catch (e) {
     return sendError(res, e);
   }
@@ -849,6 +850,7 @@ attendanceRouter.post('/orgs/:orgId/attendance/months/:month/close', can(Permiss
     update: {},
   });
   res.json({ month, closed: { at: lock.lockedAt, byUserId: lock.lockedByUserId } });
+  emitWebhook(orgId, 'month.closed', { month, closedAt: lock.lockedAt, byUserId: lock.lockedByUserId });
 });
 
 /** Reopen a closed month, to correct it. Payroll already taken from it is not changed. */
@@ -857,4 +859,5 @@ attendanceRouter.post('/orgs/:orgId/attendance/months/:month/reopen', can(Permis
   const { orgId } = req.tenant!;
   await peoplePrisma.attendanceMonthLock.deleteMany({ where: { orgId, month: String(req.params.month) } });
   res.json({ month: String(req.params.month), closed: null });
+  emitWebhook(orgId, 'month.reopened', { month: String(req.params.month), byUserId: req.auth!.userId });
 });

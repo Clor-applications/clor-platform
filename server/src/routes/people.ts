@@ -9,6 +9,7 @@ import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { payrollPrisma } from '../utils/payrollPrisma.js';
 import { PEOPLE_MODULE, PEOPLE_RESOURCE, peopleRouteOk } from '../services/people/guards.js';
 import { pushEmployeeToReaders, readerFieldsChanged, revokeFromReaders } from './iclock.js';
+import { emit as emitWebhook, employeeEvent } from '../services/attendance/webhooks.js';
 
 /**
  * People: the staff directory.
@@ -336,6 +337,7 @@ peopleRouter.post('/orgs/:orgId/people/employees', can(PermissionAction.CREATE, 
     /* On every reader straight away, as ClorTime does: enrolment can start the same minute. */
     await pushEmployeeToReaders(orgId, row, req.auth!.userId);
     res.status(201).json({ employee: (await withMeta(orgId, [row]))[0] });
+    emitWebhook(orgId, 'employee.created', employeeEvent(row));
   } catch (e) {
     return sendError(res, e);
   }
@@ -370,6 +372,7 @@ peopleRouter.put('/orgs/:orgId/people/employees/:id', can(PermissionAction.EDIT,
     if (row.status === 'LEFT' && existing.status !== 'LEFT') await revokeFromReaders(orgId, existing, req.auth!.userId);
     else if (row.status !== 'LEFT' && readerFieldsChanged(existing, row)) await pushEmployeeToReaders(orgId, row, req.auth!.userId, existing);
     res.json({ employee: (await withMeta(orgId, [row]))[0] });
+    emitWebhook(orgId, row.status === 'LEFT' && existing.status !== 'LEFT' ? 'employee.left' : 'employee.updated', employeeEvent(row));
   } catch (e) {
     return sendError(res, e);
   }

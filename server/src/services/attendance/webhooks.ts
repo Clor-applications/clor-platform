@@ -5,23 +5,68 @@ import { decryptSecret } from '../mailer.js';
 import { guardedPost } from '../outbound.js';
 
 /**
- * Events CLOR sends to a company's webhooks, as they happen:
- *   punch — punches from readers, e-Time Office or the API (a batch per arrival)
- *   day   — a day worked out or changed (in, out, status, late, overtime)
+ * Events CLOR sends to a company's webhooks, as they happen.
  *
  *   POST <url>
  *   Content-Type: application/json
- *   X-Clor-Event: punch | day
+ *   X-Clor-Event: <event>
+ *   X-Clor-Delivery: <id>            the same on every retry of one event
+ *   X-Clor-Attempt: 1, 2, …
+ *   X-Clor-Timestamp: <unix seconds> when this attempt was sent
  *   X-Clor-Signature: sha256=<hex HMAC-SHA256 of the raw body with the webhook secret>
- *   { "event": "punch", "orgId": "…", "sentAt": "…", "data": … }
+ *   { "event": "…", "orgId": "…", "sentAt": "…", "data": … }
  *
- * Delivery is after the response, never holding up a punch; one attempt with a
- * 10-second limit, and the outcome kept on the webhook (last status / error).
+ * Every event is a WebhookDelivery row first, then sent. A failure (no 2xx,
+ * no answer) is retried on a schedule that backs off — a minute, five, thirty,
+ * two hours, twelve — and then marked failed; the Integrations screen lists
+ * deliveries and can send any one again. Delivery never holds up the action
+ * that caused it.
  */
-export const WEBHOOK_EVENTS = ['punch', 'day'] as const;
+export const WEBHOOK_EVENTS = [
+  'punch',
+  'day',
+  'employee.created',
+  'employee.updated',
+  'employee.left',
+  'leave.requested',
+  'leave.approved',
+  'leave.rejected',
+  'leave.cancelled',
+  'correction.approved',
+  'month.closed',
+  'month.reopened',
+  'reader.offline',
+  'reader.online',
+] as const;
 export type WebhookEvent = (typeof WEBHOOK_EVENTS)[number];
 
+export const EVENT_HELP: Record<WebhookEvent, string> = {
+  punch: 'Punches as they arrive (a batch per arrival)',
+  day: 'A day worked out or changed (in, out, status, late, overtime)',
+  'employee.created': 'Somebody added',
+  'employee.updated': 'An employee’s details changed',
+  'employee.left': 'Somebody marked as having left',
+  'leave.requested': 'Leave asked for',
+  'leave.approved': 'Leave approved',
+  'leave.rejected': 'Leave rejected',
+  'leave.cancelled': 'Leave cancelled',
+  'correction.approved': 'An attendance correction approved',
+  'month.closed': 'An attendance month closed for payroll',
+  'month.reopened': 'An attendance month reopened',
+  'reader.offline': 'A reader has gone quiet',
+  'reader.online': 'A reader is back',
+};
+
+/** Minutes to wait before each retry; after the last, the delivery is marked failed. */
+export const RETRY_MINUTES = [1, 5, 30, 120, 720];
+export const MAX_ATTEMPTS = RETRY_MINUTES.length + 1;
+
 const inFlight = new Set<Promise<unknown>>();
+const track = <T>(p: Promise<T>) => {
+  inFlight.add(p);
+  p.finally(() => inFlight.delete(p)).catch(() => undefined);
+  return p;
+};
 
 /** For tests: wait until every delivery started so far has finished. */
 export async function flushWebhooks() {
@@ -30,27 +75,87 @@ export async function flushWebhooks() {
 
 export const signBody = (secret: string, body: string) => `sha256=${createHmac('sha256', secret).update(body).digest('hex')}`;
 
-export async function deliver(hook: { id: string; url: string; secret: string }, event: string, orgId: string, data: unknown) {
-  const body = JSON.stringify({ event, orgId, sentAt: new Date().toISOString(), data });
+type Hook = { id: string; url: string; secret: string };
+
+/** One attempt at one delivery; schedules the next or settles it. */
+async function attempt(delivery: { id: string; webhookId: string; event: string; body: string; attempts: number }, hook: Hook, now = new Date()) {
   const secret = decryptSecret(hook.secret);
+  const n = delivery.attempts + 1;
+  let status = 0;
+  let error: string | null = null;
   try {
-    const r = await guardedPost(hook.url, body, {
+    const r = await guardedPost(hook.url, delivery.body, {
       'Content-Type': 'application/json',
-      'User-Agent': 'CLOR-Webhooks/1',
-      'X-Clor-Event': event,
-      'X-Clor-Signature': signBody(secret, body),
+      'User-Agent': 'CLOR-Webhooks/2',
+      'X-Clor-Event': delivery.event,
+      'X-Clor-Delivery': delivery.id,
+      'X-Clor-Attempt': String(n),
+      'X-Clor-Timestamp': String(Math.floor(now.getTime() / 1000)),
+      'X-Clor-Signature': signBody(secret, delivery.body),
     });
-    const ok = r.status >= 200 && r.status < 300;
-    await peoplePrisma.webhook.update({
-      where: { id: hook.id },
-      data: { lastStatus: r.status, lastError: ok ? null : `Answered ${r.status}`, lastDeliveredAt: new Date() },
-    });
-    return { ok, status: r.status };
+    status = r.status;
+    if (status < 200 || status >= 300) error = `Answered ${status}`;
   } catch (e: any) {
-    const message = String(e?.message || e).slice(0, 300);
-    await peoplePrisma.webhook.update({ where: { id: hook.id }, data: { lastStatus: null, lastError: message, lastDeliveredAt: new Date() } }).catch(() => undefined);
-    return { ok: false, status: 0, error: message };
+    error = String(e?.message || e).slice(0, 300);
   }
+  const ok = !error;
+  const retryIn = ok || n >= MAX_ATTEMPTS ? null : RETRY_MINUTES[n - 1];
+  await peoplePrisma.webhookDelivery.update({
+    where: { id: delivery.id },
+    data: {
+      attempts: n,
+      lastStatus: status || null,
+      lastError: error,
+      status: ok ? 'OK' : retryIn == null ? 'FAILED' : 'PENDING',
+      nextAttemptAt: retryIn == null ? null : new Date(now.getTime() + retryIn * 60_000),
+      deliveredAt: ok ? now : null,
+    },
+  });
+  await peoplePrisma.webhook
+    .update({ where: { id: hook.id }, data: { lastStatus: status || null, lastError: error, lastDeliveredAt: now } })
+    .catch(() => undefined);
+  return { ok, status, error: error ?? undefined };
+}
+
+/** Record and send one event to one webhook now. Returns the first attempt's outcome. */
+export async function deliver(hook: Hook & { accountId?: string }, event: string, orgId: string, data: unknown) {
+  const body = JSON.stringify({ event, orgId, sentAt: new Date().toISOString(), data });
+  const accountId = hook.accountId || (await peoplePrisma.webhook.findUnique({ where: { id: hook.id }, select: { accountId: true } }))?.accountId || '';
+  const row = await peoplePrisma.webhookDelivery.create({ data: { accountId, orgId, webhookId: hook.id, event, body: body.slice(0, 20_000) } });
+  return attempt(row, hook);
+}
+
+/** Try every delivery whose time has come. Run every minute by the scheduler. */
+export async function retryDueDeliveries(now = new Date(), limit = 50) {
+  const due = await peoplePrisma.webhookDelivery.findMany({ where: { status: 'PENDING', nextAttemptAt: { lte: now } }, orderBy: { nextAttemptAt: 'asc' }, take: limit });
+  if (!due.length) return 0;
+  const hooks = new Map((await peoplePrisma.webhook.findMany({ where: { id: { in: [...new Set(due.map((d) => d.webhookId))] } } })).map((h) => [h.id, h]));
+  let tried = 0;
+  for (const d of due) {
+    const hook = hooks.get(d.webhookId);
+    if (!hook || !hook.isActive) {
+      await peoplePrisma.webhookDelivery.update({ where: { id: d.id }, data: { status: 'FAILED', lastError: 'Webhook switched off or removed', nextAttemptAt: null } });
+      continue;
+    }
+    await attempt(d, hook, now);
+    tried += 1;
+  }
+  return tried;
+}
+
+/** Send a past delivery again, whatever its state — from the Integrations screen. */
+export async function resendDelivery(orgId: string, id: string) {
+  const d = await peoplePrisma.webhookDelivery.findFirst({ where: { id, orgId } });
+  if (!d) return null;
+  const hook = await peoplePrisma.webhook.findFirst({ where: { id: d.webhookId, orgId } });
+  if (!hook) return null;
+  return attempt({ ...d, attempts: 0 }, hook);
+}
+
+/** Old deliveries are history nobody reads: keep a month. */
+export async function pruneDeliveries(now = new Date()) {
+  const r = await peoplePrisma.webhookDelivery.deleteMany({ where: { createdAt: { lt: new Date(now.getTime() - 30 * 86_400_000) } } });
+  return r.count;
 }
 
 /*
@@ -70,11 +175,45 @@ async function hasWebhooks(orgId: string) {
 
 /** Send an event to every active webhook of the company that wants it. Never throws, never waits. */
 export function emit(orgId: string, event: WebhookEvent, data: unknown) {
-  const p = (async () => {
-    if (!(await hasWebhooks(orgId))) return;
-    const hooks = await peoplePrisma.webhook.findMany({ where: { orgId, isActive: true, events: { contains: event } } });
-    await Promise.all(hooks.filter((h) => h.events.split(',').includes(event)).map((h) => deliver(h, event, orgId, data)));
-  })().catch(() => undefined);
-  inFlight.add(p);
-  p.finally(() => inFlight.delete(p));
+  track(
+    (async () => {
+      if (!(await hasWebhooks(orgId))) return;
+      const hooks = await peoplePrisma.webhook.findMany({ where: { orgId, isActive: true, events: { contains: event } } });
+      await Promise.all(hooks.filter((h) => h.events.split(',').includes(event)).map((h) => deliver(h, event, orgId, data)));
+    })()
+  );
 }
+
+/* ---- The shapes events carry, so every emitter says the same thing. ---- */
+
+export const employeeEvent = (e: any) => ({
+  id: e.id,
+  code: e.code ?? null,
+  name: e.name,
+  status: e.status,
+  department: e.department ?? null,
+  designation: e.designation ?? null,
+  dateOfJoining: e.dateOfJoining ?? null,
+  dateOfLeaving: e.dateOfLeaving ?? null,
+  readerId: e.devicePin || e.code || null,
+  updatedAt: e.updatedAt ?? null,
+});
+
+export const leaveEvent = (r: any) => ({
+  id: r.id,
+  employeeId: r.employeeId,
+  employeeCode: r.employeeCode ?? null,
+  employeeName: r.employeeName ?? null,
+  leaveType: r.leaveTypeName ?? null,
+  isPaid: r.isPaid ?? null,
+  fromDate: r.fromDate,
+  toDate: r.toDate,
+  days: r.days,
+  status: r.status,
+  reason: r.reason,
+  reviewNote: r.reviewNote ?? null,
+});
+
+/** Which leave event a request's new status is. */
+export const leaveEventFor = (status: string): WebhookEvent | null =>
+  status === 'APPROVED' ? 'leave.approved' : status === 'REJECTED' ? 'leave.rejected' : status === 'CANCELLED' ? 'leave.cancelled' : status === 'PENDING' ? 'leave.requested' : null;

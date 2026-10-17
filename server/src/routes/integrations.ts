@@ -10,7 +10,7 @@ import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { ATTENDANCE_MODULE, ATTENDANCE_RESOURCE, attendanceRouteOk } from '../services/attendance/guards.js';
 import { encryptSecret } from '../services/mailer.js';
 import { checkUrl } from '../services/outbound.js';
-import { WEBHOOK_EVENTS, deliver, forgetWebhooks } from '../services/attendance/webhooks.js';
+import { EVENT_HELP, WEBHOOK_EVENTS, deliver, forgetWebhooks, resendDelivery } from '../services/attendance/webhooks.js';
 import { SCOPES, hashToken } from './publicApi.js';
 
 /**
@@ -100,7 +100,7 @@ integrationsRouter.get(`${base}/webhooks`, can(PermissionAction.VIEW), async (re
   if (!(await attendanceRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   const hooks = await peoplePrisma.webhook.findMany({ where: { accountId, orgId }, orderBy: { createdAt: 'desc' } });
-  res.json({ webhooks: hooks.map(hookRow), events: WEBHOOK_EVENTS });
+  res.json({ webhooks: hooks.map(hookRow), events: WEBHOOK_EVENTS, eventHelp: EVENT_HELP });
 });
 
 integrationsRouter.post(`${base}/webhooks`, can(PermissionAction.CREATE), async (req, res) => {
@@ -146,6 +146,31 @@ integrationsRouter.delete(`${base}/webhooks/:id`, can(PermissionAction.DELETE), 
 });
 
 /** Send a test event now and answer with what the endpoint said. */
+/** What was sent to a webhook lately, and how it went. */
+integrationsRouter.get(`${base}/webhooks/:id/deliveries`, can(PermissionAction.VIEW), async (req, res) => {
+  if (!(await attendanceRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const hook = await peoplePrisma.webhook.findFirst({ where: { id: String(req.params.id), accountId, orgId }, select: { id: true } });
+  if (!hook) return res.status(404).json({ error: 'No such webhook.' });
+  const status = String(req.query.status || '').trim();
+  const rows = await peoplePrisma.webhookDelivery.findMany({
+    where: { orgId, webhookId: hook.id, ...(status ? { status } : {}) },
+    orderBy: { createdAt: 'desc' },
+    take: 100,
+  });
+  res.json({
+    deliveries: rows.map((d) => ({ id: d.id, event: d.event, status: d.status, attempts: d.attempts, lastStatus: d.lastStatus, lastError: d.lastError, nextAttemptAt: d.nextAttemptAt, deliveredAt: d.deliveredAt, createdAt: d.createdAt, body: d.body.slice(0, 2_000) })),
+  });
+});
+
+integrationsRouter.post(`${base}/webhooks/:id/deliveries/:deliveryId/resend`, can(PermissionAction.EDIT), async (req, res) => {
+  if (!(await attendanceRouteOk(req, res))) return;
+  const { orgId } = req.tenant!;
+  const r = await resendDelivery(orgId, String(req.params.deliveryId));
+  if (!r) return res.status(404).json({ error: 'No such delivery.' });
+  res.json(r);
+});
+
 integrationsRouter.post(`${base}/webhooks/:id/test`, can(PermissionAction.EDIT), async (req, res) => {
   if (!(await attendanceRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;

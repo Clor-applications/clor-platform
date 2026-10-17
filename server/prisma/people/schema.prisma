@@ -830,6 +830,50 @@ model Webhook {
   @@index([accountId, orgId])
 }
 
+/// One attempt-set at sending one event to one webhook: what was sent, how
+/// it went, when it is tried again. Kept so a missed event can be seen and
+/// sent again from the Integrations screen.
+model WebhookDelivery {
+  id         String @id @default(cuid())
+  accountId  String
+  orgId      String
+  webhookId  String
+  event      String
+  /// The JSON body as sent (signature is over exactly this), trimmed at 20k.
+  body       String
+  /// PENDING | OK | FAILED
+  status     String @default("PENDING")
+  attempts   Int    @default(0)
+  lastStatus Int?
+  lastError  String?
+  nextAttemptAt DateTime?
+  deliveredAt   DateTime?
+  createdAt     DateTime @default(now())
+
+  @@index([orgId, webhookId, createdAt])
+  @@index([status, nextAttemptAt])
+}
+
+/// A write to the public API repeated with the same Idempotency-Key gets the
+/// same answer instead of a second employee or a second leave request.
+model ApiIdempotency {
+  id        String   @id @default(cuid())
+  accountId String
+  orgId     String
+  clientId  String
+  key       String
+  method    String
+  path      String
+  /// SHA-256 of the request body: the same key with a different body is a mistake, not a retry.
+  bodyHash  String
+  status    Int
+  body      String
+  createdAt DateTime @default(now())
+
+  @@unique([clientId, key])
+  @@index([createdAt])
+}
+
 /// A site or zone people work at (ClorTime's Area): a plant, a branch office,
 /// a floor. Areas nest; readers and holidays will hang off them.
 model Area {

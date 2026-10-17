@@ -6,6 +6,13 @@ import { istDate } from './compute.js';
 import { scaleLimit } from './adms.js';
 import { loadHolidays } from './schedule.js';
 import { vendorsWith } from './drivers.js';
+import { emit as emitWebhook } from './webhooks.js';
+
+/** What a reader event says about the reader. */
+async function readerEvent(deviceId: string | null, at: Date) {
+  const d = deviceId ? await peoplePrisma.attendanceDevice.findUnique({ where: { id: deviceId }, select: { id: true, name: true, serialNumber: true, vendor: true, lastSeenAt: true, areaId: true } }) : null;
+  return { deviceId, name: d?.name ?? null, serialNumber: d?.serialNumber ?? null, vendor: d?.vendor ?? null, lastSeenAt: d?.lastSeenAt ?? null, areaId: d?.areaId ?? null, at };
+}
 
 /**
  * Is each reader doing its job, and is attendance arriving at all? After
@@ -276,6 +283,7 @@ export async function trackAlerts(org: { accountId: string; orgId: string; name:
       data: { accountId: org.accountId, orgId: org.orgId, key: f.key, kind: f.kind, deviceId: f.deviceId || null, severity: f.severity, title: f.title, details: f.details, openedAt: now },
     });
     opened += 1;
+    if (f.kind === 'offline') emitWebhook(org.orgId, 'reader.offline', await readerEvent(f.deviceId || null, now));
     const m = await mail(org.orgId, org.accountId, to, 'attendance.reader_alert', { orgName: org.name, title: f.title, details: f.details, severity: f.severity });
     if (m.sent || m.error) await peoplePrisma.readerAlert.update({ where: { id: row.id }, data: m.sent ? { notifiedAt: now } : { lastError: m.error } });
   }
@@ -284,6 +292,7 @@ export async function trackAlerts(org: { accountId: string; orgId: string; name:
     if (still.has(a.key) || !managedKeys(a.key)) continue;
     await peoplePrisma.readerAlert.update({ where: { id: a.id }, data: { resolvedAt: now } });
     resolved += 1;
+    if (a.kind === 'offline') emitWebhook(org.orgId, 'reader.online', { ...(await readerEvent(a.deviceId, now)), offlineSince: a.openedAt });
     /* Only say it cleared if anyone was told it started. */
     if (a.notifiedAt) {
       const m = await mail(org.orgId, org.accountId, to, 'attendance.reader_alert_cleared', { orgName: org.name, title: a.title, openedFor: span(mins(now.getTime() - a.openedAt.getTime())) });

@@ -93,3 +93,43 @@ export function startReaderChecks({ intervalMs = 5 * 60_000, startupDelayMs = 60
     clearInterval(timer);
   };
 }
+
+/**
+ * Webhook retries: deliveries that failed are tried again on their schedule
+ * (services/attendance/webhooks.ts); old deliveries and used idempotency keys
+ * are pruned once an hour.
+ */
+export function startWebhookRetries({ intervalMs = 60_000, startupDelayMs = 30_000 } = {}) {
+  if (process.env.WEBHOOK_RETRIES === 'off' || process.env.NODE_ENV === 'test') return () => undefined;
+  let running = false;
+  let ticks = 0;
+  const tick = async () => {
+    if (running) return;
+    running = true;
+    try {
+      const { retryDueDeliveries, pruneDeliveries } = await import('./attendance/webhooks.js');
+      const n = await retryDueDeliveries();
+      // eslint-disable-next-line no-console
+      if (n) console.log(`[webhooks] retried ${n} deliver${n === 1 ? 'y' : 'ies'}`);
+      ticks += 1;
+      if (ticks % 60 === 1) {
+        await pruneDeliveries();
+        const { pruneIdempotency } = await import('./attendance/idempotency.js');
+        await pruneIdempotency();
+      }
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.error('[webhooks] retry tick failed:', e instanceof Error ? e.message : e);
+    } finally {
+      running = false;
+    }
+  };
+  const startup = setTimeout(tick, startupDelayMs);
+  const timer = setInterval(tick, intervalMs);
+  timer.unref?.();
+  startup.unref?.();
+  return () => {
+    clearTimeout(startup);
+    clearInterval(timer);
+  };
+}

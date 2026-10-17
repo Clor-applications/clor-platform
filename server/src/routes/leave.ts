@@ -9,6 +9,7 @@ import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { ATTENDANCE_MODULE, ATTENDANCE_RESOURCE, attendanceRouteOk } from '../services/attendance/guards.js';
 import { isWeeklyOff } from '../services/attendance/compute.js';
 import { balanceFor } from '../services/attendance/leaveAccrual.js';
+import { emit as emitWebhook, leaveEvent, leaveEventFor } from '../services/attendance/webhooks.js';
 import {
   ISO_DATE,
   closedMonths,
@@ -303,7 +304,7 @@ export async function createLeave(
   const row = await peoplePrisma.leaveRequest.create({
     data: { accountId, orgId, employeeId: employee.id, leaveTypeId: type.id, fromDate: b.fromDate, toDate: b.toDate, days: days.length, reason: b.reason, requestedByUserId: by?.userId || req.auth!.userId },
   });
-  res.status(201).json({ request: (await withTypes(orgId, [row]))[0] });
+  res.status(201).json({ request: await announce(orgId, row) });
 }
 
 /** Undo an approved leave's days. Days someone clocked in on anyway are theirs, and stay. */
@@ -334,6 +335,73 @@ leaveRouter.post(`${base}/requests`, can(PermissionAction.CREATE, R.leave), asyn
   }
 });
 
+/**
+ * Approve a pending request: count its working days again, check nothing was
+ * worked on them, the balance, and that no month is closed, then write the
+ * days. Throws `fail` errors (sendError or the public API answer them).
+ */
+export async function approveLeave(accountId: string, orgId: string, r: any, userId: string, note: string | null) {
+  const employee = await employeeIn(orgId, accountId, r.employeeId);
+  const type = await peoplePrisma.leaveType.findFirst({ where: { id: r.leaveTypeId, orgId } });
+  if (!type) throw fail(409, 'The leave type is gone.');
+  /* Holidays or shifts may have changed since it was asked for: count again. */
+  const days = await workingDays(orgId, employee, r.fromDate, r.toDate);
+  if (!days.length) throw fail(409, 'Nothing in this range is a working day any more. Reject it instead.');
+  const worked = await peoplePrisma.attendanceRecord.findFirst({
+    where: { orgId, employeeId: r.employeeId, date: { in: days }, checkIn: { not: null } },
+    select: { date: true },
+  });
+  if (worked) throw fail(409, `${worked.date} has a clock-in. Correct that day first, or reject this request.`);
+  if (type.isPaid) {
+    const { balances } = await balancesFor(accountId, orgId, [r.employeeId], Number(r.fromDate.slice(0, 4)), r.fromDate > today() ? r.fromDate : undefined);
+    const bal = balances.get(r.employeeId)!.get(type.id)!;
+    /* This request is in "pending" already; what matters is what is left without it. */
+    const left = (bal.available ?? Infinity) + r.days;
+    if (days.length > left) throw fail(409, `Only ${round(left)} days of ${type.name} are left this year; this is ${days.length}.`, 'NO_BALANCE');
+  }
+  /* Checked before any day is written, so an approval never stops halfway through a closed month. */
+  const shut = await closedMonths(orgId, days.map((d) => d.slice(0, 7)));
+  if (shut.size) throw fail(409, `${[...shut].sort().join(', ')} ${shut.size === 1 ? 'is' : 'are'} closed in Attendance. Reopen it to approve leave in it.`, 'ATTENDANCE_MONTH_CLOSED');
+  for (const date of days) {
+    await writeDay({
+      accountId,
+      orgId,
+      userId,
+      employee,
+      date,
+      checkIn: null,
+      checkOut: null,
+      statusOverride: 'ON_LEAVE',
+      source: 'LEAVE',
+      leaveRequestId: r.id,
+      note: `${type.name}: ${r.reason}`.slice(0, 500),
+    });
+  }
+  const updated = await peoplePrisma.leaveRequest.update({
+    where: { id: r.id },
+    data: { status: 'APPROVED', days: days.length, reviewedByUserId: userId, reviewedAt: new Date(), reviewNote: note },
+  });
+  return announce(orgId, updated);
+}
+
+export async function rejectLeave(orgId: string, r: any, userId: string, note: string | null) {
+  const updated = await peoplePrisma.leaveRequest.update({
+    where: { id: r.id },
+    data: { status: 'REJECTED', reviewedByUserId: userId, reviewedAt: new Date(), reviewNote: note },
+  });
+  return announce(orgId, updated);
+}
+
+/** The request with names, sent to webhooks as the event its status is. */
+async function announce(orgId: string, row: any) {
+  const shaped = (await withTypes(orgId, [row]))[0];
+  const event = leaveEventFor(row.status);
+  if (event) emitWebhook(orgId, event, leaveEvent(shaped));
+  return shaped;
+}
+
+const noteOf = (req: any) => String(req.body?.note || '').trim().slice(0, 500) || null;
+
 leaveRouter.post(`${base}/requests/:id/approve`, can(PermissionAction.APPROVE, R.leave), async (req, res) => {
   if (!(await attendanceRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
@@ -341,53 +409,7 @@ leaveRouter.post(`${base}/requests/:id/approve`, can(PermissionAction.APPROVE, R
   if (!r) return res.status(404).json({ error: 'No such request.' });
   if (r.status !== 'PENDING') return res.status(409).json({ error: `This request was already ${r.status.toLowerCase()}.` });
   try {
-    const employee = await employeeIn(orgId, accountId, r.employeeId);
-    const type = await peoplePrisma.leaveType.findFirst({ where: { id: r.leaveTypeId, orgId } });
-    if (!type) throw fail(409, 'The leave type is gone.');
-    /* Holidays or shifts may have changed since it was asked for: count again. */
-    const days = await workingDays(orgId, employee, r.fromDate, r.toDate);
-    if (!days.length) throw fail(409, 'Nothing in this range is a working day any more. Reject it instead.');
-    const worked = await peoplePrisma.attendanceRecord.findFirst({
-      where: { orgId, employeeId: r.employeeId, date: { in: days }, checkIn: { not: null } },
-      select: { date: true },
-    });
-    if (worked) throw fail(409, `${worked.date} has a clock-in. Correct that day first, or reject this request.`);
-    if (type.isPaid) {
-      const { balances } = await balancesFor(accountId, orgId, [r.employeeId], Number(r.fromDate.slice(0, 4)), r.fromDate > today() ? r.fromDate : undefined);
-      const bal = balances.get(r.employeeId)!.get(type.id)!;
-      /* This request is in "pending" already; what matters is what is left without it. */
-      const left = (bal.available ?? Infinity) + r.days;
-      if (days.length > left) throw fail(409, `Only ${round(left)} days of ${type.name} are left this year; this is ${days.length}.`, 'NO_BALANCE');
-    }
-    /* Checked before any day is written, so an approval never stops halfway through a closed month. */
-    const shut = await closedMonths(orgId, days.map((d) => d.slice(0, 7)));
-    if (shut.size) throw fail(409, `${[...shut].sort().join(', ')} ${shut.size === 1 ? 'is' : 'are'} closed in Attendance. Reopen it to approve leave in it.`, 'ATTENDANCE_MONTH_CLOSED');
-    for (const date of days) {
-      await writeDay({
-        accountId,
-        orgId,
-        userId: req.auth!.userId,
-        employee,
-        date,
-        checkIn: null,
-        checkOut: null,
-        statusOverride: 'ON_LEAVE',
-        source: 'LEAVE',
-        leaveRequestId: r.id,
-        note: `${type.name}: ${r.reason}`.slice(0, 500),
-      });
-    }
-    const updated = await peoplePrisma.leaveRequest.update({
-      where: { id: r.id },
-      data: {
-        status: 'APPROVED',
-        days: days.length,
-        reviewedByUserId: req.auth!.userId,
-        reviewedAt: new Date(),
-        reviewNote: String(req.body?.note || '').trim().slice(0, 500) || null,
-      },
-    });
-    res.json({ request: (await withTypes(orgId, [updated]))[0] });
+    res.json({ request: await approveLeave(accountId, orgId, r, req.auth!.userId, noteOf(req)) });
   } catch (e) {
     return sendError(res, e);
   }
@@ -399,11 +421,7 @@ leaveRouter.post(`${base}/requests/:id/reject`, can(PermissionAction.APPROVE, R.
   const r = await peoplePrisma.leaveRequest.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
   if (!r) return res.status(404).json({ error: 'No such request.' });
   if (r.status !== 'PENDING') return res.status(409).json({ error: `This request was already ${r.status.toLowerCase()}.` });
-  const updated = await peoplePrisma.leaveRequest.update({
-    where: { id: r.id },
-    data: { status: 'REJECTED', reviewedByUserId: req.auth!.userId, reviewedAt: new Date(), reviewNote: String(req.body?.note || '').trim().slice(0, 500) || null },
-  });
-  res.json({ request: (await withTypes(orgId, [updated]))[0] });
+  res.json({ request: await rejectLeave(orgId, r, req.auth!.userId, noteOf(req)) });
 });
 
 leaveRouter.post(`${base}/requests/:id/cancel`, can(PermissionAction.EDIT, R.leave), async (req, res) => {
@@ -417,7 +435,7 @@ leaveRouter.post(`${base}/requests/:id/cancel`, can(PermissionAction.EDIT, R.lea
     where: { id: r.id },
     data: { status: 'CANCELLED', reviewedByUserId: req.auth!.userId, reviewedAt: new Date() },
   });
-  res.json({ request: (await withTypes(orgId, [updated]))[0] });
+  res.json({ request: await announce(orgId, updated) });
 });
 
 // ---------------------------------------------------------------------------

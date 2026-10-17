@@ -6,7 +6,17 @@ import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { isFeatureEnabled } from '../services/features.js';
 import { istTime } from '../services/attendance/compute.js';
 import { ISO_DATE, daysOfMonth, monthRows, today } from './attendance.js';
-import { ingestPunches } from './iclock.js';
+import { ingestPunches, pushEmployeeToReaders, readerFieldsChanged, revokeFromReaders } from './iclock.js';
+import { z } from 'zod';
+import { isWeeklyOff } from '../services/attendance/compute.js';
+import { loadHolidays, loadSchedule, resolveShift } from '../services/attendance/schedule.js';
+import { closedMonths } from './attendance.js';
+import { approveLeave, balancesFor, createLeave, rejectLeave, withTypes } from './leave.js';
+import { emit as emitWebhook, employeeEvent } from '../services/attendance/webhooks.js';
+import { idempotent } from '../services/attendance/idempotency.js';
+import { driverOf } from '../services/attendance/drivers.js';
+import { ONLINE_WINDOW_MS } from '../services/attendance/adms.js';
+import { OPENAPI, docsHtml } from '../services/attendance/openapi.js';
 
 /**
  * CLOR's API for outside systems — an HRMS or payroll pulling attendance, or
@@ -31,7 +41,7 @@ import { ingestPunches } from './iclock.js';
  */
 export const publicApiRouter = Router();
 
-export const SCOPES = ['attendance:read', 'employees:read', 'punches:write'] as const;
+export const SCOPES = ['attendance:read', 'employees:read', 'employees:write', 'punches:write', 'leave:read', 'leave:write', 'readers:read'] as const;
 export const hashToken = (t: string) => createHash('sha256').update(t).digest('hex');
 
 type Client = { id: string; accountId: string; orgId: string; scopes: string[]; deviceId: string | null; tokenPrefix: string };
@@ -64,6 +74,10 @@ async function authenticate(req: Request, res: Response, next: NextFunction) {
 const scope = (s: (typeof SCOPES)[number]) => (req: Request, res: Response, next: NextFunction) =>
   req.apiClient!.scopes.includes(s) ? next() : fail(res, 403, `This key does not have the ${s} scope.`);
 
+/* The description of this API needs no key. */
+publicApiRouter.get('/openapi.json', (_req, res) => res.json(OPENAPI));
+publicApiRouter.get('/docs', (_req, res) => res.type('html').send(docsHtml(OPENAPI)));
+
 publicApiRouter.use(authenticate);
 /* 120 calls a minute per key — an integration polling, not a crawler. */
 publicApiRouter.use(
@@ -77,6 +91,8 @@ publicApiRouter.use(
     message: { error: 'Too many requests for this key. Wait a minute.' },
   })
 );
+/* Writes repeated with the same Idempotency-Key answer once (services/attendance/idempotency.ts). */
+publicApiRouter.use(idempotent);
 
 const range = (q: any) => {
   const to = ISO_DATE.test(String(q.to || '')) ? String(q.to) : today();
@@ -90,29 +106,151 @@ publicApiRouter.get('/ping', (req, res) => {
   res.json({ ok: true, orgId: req.apiClient!.orgId, key: req.apiClient!.tokenPrefix, scopes: req.apiClient!.scopes });
 });
 
+/* ---- Paging for lists that sync by change time: cursor = updatedAt|id, base64url. ---- */
+const cursorOf = (row: { updatedAt: Date; id: string }) => Buffer.from(`${row.updatedAt.toISOString()}|${row.id}`).toString('base64url');
+const readCursor = (q: any) => {
+  const raw = String(q.cursor || '').trim();
+  if (!raw) return null;
+  const [at, id] = Buffer.from(raw, 'base64url').toString('utf8').split('|');
+  const d = new Date(at);
+  return Number.isNaN(d.getTime()) || !id ? { error: 'That cursor is not one of ours.' } : { at: d, id };
+};
+const isErr = (x: unknown): x is { error: string } => Boolean(x) && typeof (x as any).error === 'string';
+const sinceOf = (q: any): { since: Date } | { error: string } | null => {
+  const raw = String(q.updated_since || '').trim();
+  if (!raw) return null;
+  const d = new Date(raw);
+  return Number.isNaN(d.getTime()) ? { error: '"updated_since" is an ISO date-time, e.g. 2026-10-17T00:00:00Z.' } : { since: d };
+};
+const limitOf = (q: any, dflt: number, max: number) => Math.min(max, Math.max(1, Number(q.limit) || dflt));
+/** The `where` for "changed since, after this cursor", in (updatedAt, id) order. */
+const changedSince = (since: Date | null, cursor: { at: Date; id: string } | null) =>
+  cursor ? { OR: [{ updatedAt: { gt: cursor.at } }, { updatedAt: cursor.at, id: { gt: cursor.id } }] } : since ? { updatedAt: { gt: since } } : {};
+
+const EMPLOYEE_FIELDS = { id: true, code: true, name: true, department: true, designation: true, status: true, dateOfJoining: true, dateOfLeaving: true, devicePin: true, workEmail: true, updatedAt: true } as const;
+const publicEmployee = ({ devicePin, ...e }: any) => ({ ...e, readerId: devicePin || e.code || null });
+
 publicApiRouter.get('/employees', scope('employees:read'), async (req, res) => {
   const { accountId, orgId } = req.apiClient!;
+  const sinceQ = sinceOf(req.query);
+  if (isErr(sinceQ)) return fail(res, 400, sinceQ.error);
+  const since = sinceQ ? sinceQ.since : null;
+  const cursorQ = readCursor(req.query);
+  if (isErr(cursorQ)) return fail(res, 400, cursorQ.error);
+  const cursor = cursorQ as { at: Date; id: string } | null;
+  const paged = Boolean(since || cursor);
+  const limit = limitOf(req.query, 200, 500);
   const rows = await peoplePrisma.employee.findMany({
-    where: { accountId, orgId },
-    select: { id: true, code: true, name: true, department: true, designation: true, status: true, dateOfJoining: true, dateOfLeaving: true, devicePin: true, workEmail: true },
-    orderBy: { name: 'asc' },
+    where: { accountId, orgId, ...changedSince(since, cursor) },
+    select: EMPLOYEE_FIELDS,
+    orderBy: paged ? [{ updatedAt: 'asc' }, { id: 'asc' }] : { name: 'asc' },
+    ...(paged ? { take: limit + 1 } : {}),
   });
-  res.json({ employees: rows.map(({ devicePin, ...e }) => ({ ...e, readerId: devicePin || e.code || null })) });
+  const page = paged ? rows.slice(0, limit) : rows;
+  res.json({ employees: page.map(publicEmployee), next_cursor: paged && rows.length > limit ? cursorOf(page[page.length - 1]) : null });
+});
+
+const ISO = /^\d{4}-\d{2}-\d{2}$/;
+const employeeWrite = z.object({
+  code: z.string().trim().min(1).max(40),
+  name: z.string().trim().min(1).max(120).optional(),
+  department: z.string().trim().max(120).nullable().optional(),
+  designation: z.string().trim().max(120).nullable().optional(),
+  dateOfJoining: z.string().regex(ISO, 'Dates are YYYY-MM-DD.').nullable().optional(),
+  dateOfLeaving: z.string().regex(ISO, 'Dates are YYYY-MM-DD.').nullable().optional(),
+  status: z.enum(['ACTIVE', 'ON_NOTICE', 'LEFT', 'SUSPENDED']).optional(),
+  workEmail: z.string().trim().email().max(160).nullable().optional().or(z.literal('')),
+  readerId: z.string().trim().max(40).nullable().optional(),
+});
+
+/** Apply a write to one employee (create or update), with the reader side effects CLOR's own screens have. */
+async function writeEmployee(req: Request, existing: any | null, b: z.infer<typeof employeeWrite>) {
+  const { accountId, orgId, id: clientId } = req.apiClient!;
+  const by = `api:${clientId}`;
+  const data: Record<string, unknown> = {};
+  if (b.name !== undefined) data.name = b.name;
+  if (b.department !== undefined) data.department = b.department || null;
+  if (b.designation !== undefined) data.designation = b.designation || null;
+  if (b.dateOfJoining !== undefined) data.dateOfJoining = b.dateOfJoining || null;
+  if (b.dateOfLeaving !== undefined) data.dateOfLeaving = b.dateOfLeaving || null;
+  if (b.status !== undefined) data.status = b.status;
+  if (b.workEmail !== undefined) data.workEmail = b.workEmail || null;
+  if (b.readerId !== undefined) data.devicePin = b.readerId || null;
+  const joined = (data.dateOfJoining ?? existing?.dateOfJoining) as string | null;
+  const left = (data.dateOfLeaving ?? existing?.dateOfLeaving) as string | null;
+  if (joined && left && left < joined) throw Object.assign(new Error('Somebody cannot leave before they joined.'), { status: 400 });
+  if (!existing) {
+    if (!b.name) throw Object.assign(new Error('A new employee needs a name.'), { status: 400 });
+    const row = await peoplePrisma.employee.create({ data: { accountId, orgId, code: b.code, ...data, status: (data.status as string) || 'ACTIVE', createdByUserId: by } as any });
+    await pushEmployeeToReaders(orgId, row, by);
+    emitWebhook(orgId, 'employee.created', employeeEvent(row));
+    return { row, created: true };
+  }
+  const row = await peoplePrisma.employee.update({ where: { id: existing.id }, data: data as any });
+  if (row.status === 'LEFT' && existing.status !== 'LEFT') await revokeFromReaders(orgId, existing, by);
+  else if (row.status !== 'LEFT' && readerFieldsChanged(existing, row)) await pushEmployeeToReaders(orgId, row, by, existing);
+  emitWebhook(orgId, row.status === 'LEFT' && existing.status !== 'LEFT' ? 'employee.left' : 'employee.updated', employeeEvent(row));
+  return { row, created: false };
+}
+const sendErr = (res: Response, e: any) => (e?.status ? fail(res, e.status, e.message) : (() => { throw e; })());
+const shaped = async (orgId: string, id: string) => publicEmployee(await peoplePrisma.employee.findUnique({ where: { id }, select: EMPLOYEE_FIELDS }));
+
+publicApiRouter.post('/employees', scope('employees:write'), async (req, res) => {
+  const parsed = employeeWrite.safeParse(req.body);
+  if (!parsed.success) return fail(res, 400, parsed.error.issues[0]?.message || 'Check the employee.');
+  const { accountId, orgId } = req.apiClient!;
+  const existing = await peoplePrisma.employee.findFirst({ where: { accountId, orgId, code: parsed.data.code } });
+  try {
+    const { row, created } = await writeEmployee(req, existing, parsed.data);
+    res.status(created ? 201 : 200).json({ employee: await shaped(orgId, row.id), created });
+  } catch (e) {
+    return sendErr(res, e);
+  }
+});
+
+publicApiRouter.patch('/employees/:code', scope('employees:write'), async (req, res) => {
+  const parsed = employeeWrite.omit({ code: true }).safeParse(req.body);
+  if (!parsed.success) return fail(res, 400, parsed.error.issues[0]?.message || 'Check the employee.');
+  const { accountId, orgId } = req.apiClient!;
+  const code = String(req.params.code);
+  const existing = await peoplePrisma.employee.findFirst({ where: { accountId, orgId, code } });
+  if (!existing) return fail(res, 404, `No employee with code ${code}.`);
+  try {
+    const { row } = await writeEmployee(req, existing, { ...parsed.data, code });
+    res.json({ employee: await shaped(orgId, row.id) });
+  } catch (e) {
+    return sendErr(res, e);
+  }
 });
 
 publicApiRouter.get('/attendance/days', scope('attendance:read'), async (req, res) => {
-  const r = range(req.query);
-  if ('error' in r) return fail(res, 400, r.error!);
   const { accountId, orgId } = req.apiClient!;
-  const [rows, people] = await Promise.all([
-    peoplePrisma.attendanceRecord.findMany({ where: { accountId, orgId, date: { gte: r.from, lte: r.to } }, orderBy: [{ date: 'asc' }] }),
+  const sinceQ = sinceOf(req.query);
+  if (isErr(sinceQ)) return fail(res, 400, sinceQ.error);
+  const since = sinceQ ? sinceQ.since : null;
+  const cursorQ = readCursor(req.query);
+  if (isErr(cursorQ)) return fail(res, 400, cursorQ.error);
+  const cursor = cursorQ as { at: Date; id: string } | null;
+  const paged = Boolean(since || cursor);
+  const r = paged ? { from: null, to: null } : range(req.query);
+  if ('error' in r) return fail(res, 400, r.error!);
+  const limit = limitOf(req.query, 500, 1000);
+  const [all, people] = await Promise.all([
+    peoplePrisma.attendanceRecord.findMany({
+      where: { accountId, orgId, ...(paged ? changedSince(since, cursor) : { date: { gte: r.from!, lte: r.to! } }) },
+      orderBy: paged ? [{ updatedAt: 'asc' }, { id: 'asc' }] : [{ date: 'asc' }],
+      ...(paged ? { take: limit + 1 } : {}),
+    }),
     peoplePrisma.employee.findMany({ where: { orgId }, select: { id: true, code: true } }),
   ]);
+  const rows = paged ? all.slice(0, limit) : all;
   const code = new Map(people.map((p) => [p.id, p.code]));
   res.json({
     from: r.from,
     to: r.to,
+    next_cursor: paged && all.length > limit ? cursorOf(rows[rows.length - 1]) : null,
     days: rows.map((d) => ({
+      updatedAt: d.updatedAt,
       employeeId: d.employeeId,
       employeeCode: code.get(d.employeeId) || null,
       date: d.date,
@@ -197,4 +335,132 @@ publicApiRouter.post('/attendance/punches', scope('punches:write'), async (req, 
   res.json({ received: punches.length, accepted: lines.length, added, duplicates: lines.length - added, rejected: errors.length, errors });
 });
 
-publicApiRouter.use((_req, res) => fail(res, 404, 'No such endpoint. See the API page under Attendance → Integrations.'));
+/* ---- Months closed for payroll ---- */
+publicApiRouter.get('/attendance/months', scope('attendance:read'), async (req, res) => {
+  const year = /^\d{4}$/.test(String(req.query.year || '')) ? Number(req.query.year) : Number(today().slice(0, 4));
+  const months = Array.from({ length: 12 }, (_, i) => `${year}-${String(i + 1).padStart(2, '0')}`);
+  const shut = await closedMonths(req.apiClient!.orgId, months);
+  res.json({ year, months: months.map((m) => ({ month: m, closed: shut.has(m) })) });
+});
+
+/* ---- Shifts per person per day ---- */
+publicApiRouter.get('/attendance/shifts', scope('attendance:read'), async (req, res) => {
+  const r = range(req.query);
+  if ('error' in r) return fail(res, 400, r.error!);
+  if ((Date.parse(`${r.to}T00:00:00Z`) - Date.parse(`${r.from}T00:00:00Z`)) / 86_400_000 + 1 > 31) return fail(res, 400, 'At most 31 days of shifts per call.');
+  const { accountId, orgId } = req.apiClient!;
+  const code = String(req.query.employee_code || '').trim();
+  const people = await peoplePrisma.employee.findMany({
+    where: { accountId, orgId, status: { not: 'LEFT' }, ...(code ? { code } : {}) },
+    select: { id: true, code: true, areaId: true, branchId: true },
+    orderBy: { name: 'asc' },
+  });
+  if (code && !people.length) return fail(res, 404, `No employee with code ${code}.`);
+  const [schedule, holidays] = await Promise.all([loadSchedule(orgId, people.map((p) => p.id)), loadHolidays(orgId, r.from, r.to)]);
+  const shifts: any[] = [];
+  for (let d = r.from; d <= r.to; d = new Date(Date.parse(`${d}T00:00:00Z`) + 86_400_000).toISOString().slice(0, 10)) {
+    for (const p of people) {
+      const sh = resolveShift(schedule, p.id, d);
+      const hol = holidays.forArea(p.areaId, p.branchId).has(d) ? holidays.rows.find((h: any) => h.date === d && (!h.areaId || h.areaId === p.areaId))?.name || 'Holiday' : null;
+      shifts.push({ employeeId: p.id, employeeCode: p.code, date: d, shift: sh.name, shiftCode: sh.code, start: sh.rule.startTime, end: sh.rule.endTime, weeklyOff: isWeeklyOff(sh.rule, d), holiday: hol });
+    }
+  }
+  res.json({ from: r.from, to: r.to, shifts });
+});
+
+/* ---- Readers ---- */
+publicApiRouter.get('/readers', scope('readers:read'), async (req, res) => {
+  const { accountId, orgId } = req.apiClient!;
+  const devices = await peoplePrisma.attendanceDevice.findMany({ where: { accountId, orgId }, orderBy: { name: 'asc' } });
+  const t = today();
+  const counts = devices.length ? await peoplePrisma.devicePunch.groupBy({ by: ['deviceId'], where: { orgId, deviceId: { in: devices.map((d) => d.id) }, localTime: { startsWith: t } }, _count: { _all: true } }) : [];
+  res.json({
+    readers: devices.map((d) => ({
+      id: d.id,
+      name: d.name,
+      serialNumber: d.serialNumber,
+      driver: driverOf(d.vendor).label,
+      vendor: d.vendor,
+      isActive: d.isActive,
+      online: Boolean(d.lastSeenAt && Date.now() - new Date(d.lastSeenAt).getTime() < ONLINE_WINDOW_MS),
+      lastSeenAt: d.lastSeenAt,
+      areaId: d.areaId,
+      model: d.model,
+      punchesToday: (counts as any[]).find((c) => c.deviceId === d.id)?._count._all || 0,
+    })),
+  });
+});
+
+/* ---- Leave ---- */
+const employeeByCode = async (accountId: string, orgId: string, code: string) =>
+  code ? peoplePrisma.employee.findFirst({ where: { accountId, orgId, code } }) : null;
+
+publicApiRouter.get('/leave/types', scope('leave:read'), async (req, res) => {
+  const { accountId, orgId } = req.apiClient!;
+  const types = await peoplePrisma.leaveType.findMany({ where: { accountId, orgId, isActive: true }, orderBy: { name: 'asc' } });
+  res.json({ types: types.map((t) => ({ id: t.id, name: t.name, code: t.code, isPaid: t.isPaid, annualDays: t.annualDays, accrual: t.accrual, prorateForJoiners: t.prorateForJoiners, carryForwardMax: t.carryForwardMax })) });
+});
+
+publicApiRouter.get('/leave/balances', scope('leave:read'), async (req, res) => {
+  const { accountId, orgId } = req.apiClient!;
+  const year = /^\d{4}$/.test(String(req.query.year || '')) ? Number(req.query.year) : Number(today().slice(0, 4));
+  const code = String(req.query.employee_code || '').trim();
+  const people = await peoplePrisma.employee.findMany({ where: { accountId, orgId, status: { not: 'LEFT' }, ...(code ? { code } : {}) }, select: { id: true, code: true, name: true }, orderBy: { name: 'asc' } });
+  if (code && !people.length) return fail(res, 404, `No employee with code ${code}.`);
+  const { types, balances } = await balancesFor(accountId, orgId, people.map((p) => p.id), year);
+  res.json({
+    year,
+    rows: people.map((p) => ({
+      employeeId: p.id,
+      employeeCode: p.code,
+      name: p.name,
+      balances: types.filter((t) => t.isActive).map((t) => ({ leaveType: t.name, leaveTypeCode: t.code, isPaid: t.isPaid, ...balances.get(p.id)!.get(t.id) })),
+    })),
+  });
+});
+
+publicApiRouter.get('/leave/requests', scope('leave:read'), async (req, res) => {
+  const { accountId, orgId } = req.apiClient!;
+  const status = String(req.query.status || '').trim().toUpperCase();
+  const code = String(req.query.employee_code || '').trim();
+  const emp = await employeeByCode(accountId, orgId, code);
+  if (code && !emp) return fail(res, 404, `No employee with code ${code}.`);
+  const from = ISO_DATE.test(String(req.query.from || '')) ? String(req.query.from) : null;
+  const to = ISO_DATE.test(String(req.query.to || '')) ? String(req.query.to) : null;
+  const rows = await peoplePrisma.leaveRequest.findMany({
+    where: { accountId, orgId, ...(status ? { status } : {}), ...(emp ? { employeeId: emp.id } : {}), ...(from ? { toDate: { gte: from } } : {}), ...(to ? { fromDate: { lte: to } } : {}) },
+    orderBy: [{ fromDate: 'desc' }, { createdAt: 'desc' }],
+    take: 1000,
+  });
+  res.json({ requests: await withTypes(orgId, rows) });
+});
+
+publicApiRouter.post('/leave/requests', scope('leave:write'), async (req, res) => {
+  const { accountId, orgId, id: clientId } = req.apiClient!;
+  const b = req.body || {};
+  const emp = await employeeByCode(accountId, orgId, String(b.employee_code || '').trim());
+  if (!emp) return fail(res, 404, `No employee with code ${String(b.employee_code || '')}.`);
+  const want = String(b.leave_type || '').trim();
+  const type = want ? await peoplePrisma.leaveType.findFirst({ where: { accountId, orgId, isActive: true, OR: [{ code: want }, { name: want }] } }) : null;
+  if (!type) return fail(res, 400, 'Say which leave type, by its code or name (GET /leave/types).');
+  req.body = { employeeId: emp.id, leaveTypeId: type.id, fromDate: String(b.from || ''), toDate: String(b.to || ''), reason: String(b.reason || '') };
+  return createLeave(req, res, emp, { accountId, orgId, userId: `api:${clientId}` });
+});
+
+const decideLeave = (approve: boolean) => async (req: Request, res: Response) => {
+  const { accountId, orgId, id: clientId } = req.apiClient!;
+  const r = await peoplePrisma.leaveRequest.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
+  if (!r) return fail(res, 404, 'No such leave request.');
+  if (r.status !== 'PENDING') return fail(res, 409, `This request was already ${r.status.toLowerCase()}.`);
+  const note = String(req.body?.note || '').trim().slice(0, 500) || null;
+  try {
+    const request = approve ? await approveLeave(accountId, orgId, r, `api:${clientId}`, note) : await rejectLeave(orgId, r, `api:${clientId}`, note);
+    res.json({ request });
+  } catch (e) {
+    return sendErr(res, e);
+  }
+};
+publicApiRouter.post('/leave/requests/:id/approve', scope('leave:write'), decideLeave(true));
+publicApiRouter.post('/leave/requests/:id/reject', scope('leave:write'), decideLeave(false));
+
+publicApiRouter.use((_req, res) => fail(res, 404, 'No such endpoint. See /v1/docs.'));
