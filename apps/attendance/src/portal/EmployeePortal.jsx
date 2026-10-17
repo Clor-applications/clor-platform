@@ -283,9 +283,9 @@ function Today({ me, reload, guard }) {
           {s.holiday ? `Holiday — ${s.holiday}` : s.off ? 'Weekly off' : `${s.name} · ${s.startTime}–${s.endTime}`}
         </p>
         <dl className="grid grid-cols-3 gap-2 text-center">
-          <div className="rounded-md p-2" style={{ backgroundColor: 'rgb(var(--app-bg))' }}><dt className="ui-caption">In</dt><dd className="text-lg font-semibold tabular-nums">{r?.checkInTime || '—'}</dd></div>
-          <div className="rounded-md p-2" style={{ backgroundColor: 'rgb(var(--app-bg))' }}><dt className="ui-caption">Out</dt><dd className="text-lg font-semibold tabular-nums">{r?.checkOutTime || '—'}</dd></div>
-          <div className="rounded-md p-2" style={{ backgroundColor: 'rgb(var(--app-bg))' }}><dt className="ui-caption">Worked</dt><dd className="text-lg font-semibold tabular-nums">{r?.checkOut ? hm(r.workedMinutes) : '—'}</dd></div>
+          <div className="rounded-lg p-2" style={{ backgroundColor: 'rgb(var(--app-bg))' }}><dt className="ui-caption">In</dt><dd className="text-lg font-semibold tabular-nums">{r?.checkInTime || '—'}</dd></div>
+          <div className="rounded-lg p-2" style={{ backgroundColor: 'rgb(var(--app-bg))' }}><dt className="ui-caption">Out</dt><dd className="text-lg font-semibold tabular-nums">{r?.checkOutTime || '—'}</dd></div>
+          <div className="rounded-lg p-2" style={{ backgroundColor: 'rgb(var(--app-bg))' }}><dt className="ui-caption">Worked</dt><dd className="text-lg font-semibold tabular-nums">{r?.checkOut ? hm(r.workedMinutes) : '—'}</dd></div>
         </dl>
         {r?.lateMinutes ? <p className="ui-caption">Late by {r.lateMinutes} min.</p> : null}
       </section>
@@ -299,7 +299,7 @@ function Today({ me, reload, guard }) {
           <div className="flex items-center gap-3">
             {photo ? (
               <span className="relative inline-block">
-                <img src={photo} alt="Your selfie for this punch" className="h-14 w-14 rounded-md object-cover" />
+                <img src={photo} alt="Your selfie for this punch" className="h-14 w-14 rounded-lg object-cover" />
                 <button type="button" className="absolute -right-2 -top-2 rounded-full p-0.5 text-white" style={{ backgroundColor: 'rgb(0 0 0 / 0.6)' }} aria-label="Remove the selfie" onClick={() => setPhoto(null)}>
                   <X size={14} aria-hidden="true" />
                 </button>

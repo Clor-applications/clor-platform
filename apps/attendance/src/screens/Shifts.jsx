@@ -84,7 +84,7 @@ export default function Shifts() {
                 {rows.map((s) => (
                   <tr key={s.id} className="ui-row-click" onClick={() => setEditing({ ...s, overtimeAfterMinutes: s.overtimeAfterMinutes ?? '', code: s.code || '', color: s.color || '', offSaturdays: s.offSaturdays || '' })}>
                     <td className="ui-col-entity">
-                      {s.code ? <span className="mr-1.5 inline-block rounded px-1.5 text-xs font-semibold text-white" style={{ backgroundColor: s.color || '#64748b' }}>{s.code}</span> : null}
+                      {s.code ? <span className="mr-1.5 inline-block rounded-full px-1.5 text-xs font-semibold text-white" style={{ backgroundColor: s.color || '#64748b' }}>{s.code}</span> : null}
                       {s.name}
                     </td>
                     <td className="ui-col-h-center whitespace-nowrap">

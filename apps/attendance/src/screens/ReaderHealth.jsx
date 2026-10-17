@@ -133,7 +133,7 @@ export default function ReaderHealth() {
                 {r.issues.length ? (
                   <ul className="space-y-2">
                     {r.issues.map((i) => (
-                      <li key={i.kind} className="rounded-md p-2 text-sm" style={{ backgroundColor: 'rgb(var(--app-bg))' }}>
+                      <li key={i.kind} className="rounded-lg p-2 text-sm" style={{ backgroundColor: 'rgb(var(--app-bg))' }}>
                         <span className={`ui-pill mr-2 ${SEVERITY_PILL[i.severity]}`}>{i.severity === 'medium' ? 'check' : 'fix'}</span>
                         <span className="font-medium">{i.title}</span>
                         <p className="ui-caption mt-1">{i.details}</p>

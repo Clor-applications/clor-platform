@@ -57,7 +57,7 @@ export default function ScheduleCalendar() {
           <div className="flex flex-wrap gap-2 text-xs">
             {data.shifts.map((s) => (
               <span key={s.id} className="inline-flex items-center gap-1">
-                <span className="inline-block rounded px-1.5 font-semibold text-white" style={{ backgroundColor: s.color || 'rgb(var(--fg-subtle))' }}>{s.code || s.name.slice(0, 2)}</span>
+                <span className="inline-block rounded-full px-1.5 font-semibold text-white" style={{ backgroundColor: s.color || 'rgb(var(--fg-subtle))' }}>{s.code || s.name.slice(0, 2)}</span>
                 {s.name} {s.startTime}–{s.endTime}
               </span>
             ))}

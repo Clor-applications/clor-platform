@@ -329,7 +329,7 @@ const FilterPanel = ({ column, state, anchorRect, onClose }) => {
       </div>
 
       <details className="border-b py-1" style={{ borderColor: 'rgb(var(--border))' }}>
-        <summary className="flex cursor-pointer list-none items-center justify-between rounded px-2 py-1.5 text-xs ui-hover-sunken">
+        <summary className="flex cursor-pointer list-none items-center justify-between rounded-lg px-2 py-1.5 text-xs ui-hover-sunken">
           <span>{isDate ? 'Date Filters' : isNumber ? 'Number Filters' : isChoice ? 'Select Values' : 'Text Filters'}</span>
           <span aria-hidden="true">›</span>
         </summary>
@@ -380,7 +380,7 @@ const FilterPanel = ({ column, state, anchorRect, onClose }) => {
         type="button"
         onClick={clearNow}
         disabled={!state.filters[key] && state.sort?.key !== key}
-        className="flex items-center gap-2 rounded px-2 py-1.5 text-left text-xs ui-hover-sunken disabled:opacity-40"
+        className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs ui-hover-sunken disabled:opacity-40"
       >
         <span className="w-5 text-center" aria-hidden="true">⌫</span>
         Clear Filter From “{column.label || key}”
@@ -419,7 +419,7 @@ const FilterPanel = ({ column, state, anchorRect, onClose }) => {
         </label>
         {shown.length === 0 ? <div className="ui-muted text-xs px-1">No values</div> : null}
         {isDate ? dateTree.map(([year, months]) => (
-          <details key={year} open className="rounded-md">
+          <details key={year} open className="rounded-lg">
             <summary className="cursor-pointer font-medium">{year}</summary>
             <div className="pl-3 space-y-1">
               {[...months.entries()].sort(([a], [b]) => b.localeCompare(a)).map(([month, days]) => (

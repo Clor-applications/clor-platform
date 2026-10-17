@@ -53,7 +53,7 @@ function ShownOnce({ label, value, onDone }) {
     <div className="ui-card space-y-2 p-4" role="alert" style={{ borderColor: 'rgb(var(--warn-ink))' }}>
       <div className="text-sm font-semibold">{label} — shown once. Copy it now; CLOR keeps only a hash and cannot show it again.</div>
       <div className="flex items-center gap-2">
-        <code className="min-w-0 flex-1 overflow-x-auto whitespace-nowrap rounded bg-[rgb(var(--surface-sunken))] px-2 py-1 ui-mono text-xs">{value}</code>
+        <code className="min-w-0 flex-1 overflow-x-auto whitespace-nowrap rounded-lg bg-[rgb(var(--surface-sunken))] px-2 py-1 ui-mono text-xs">{value}</code>
         <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => copy(value)}><Copy size={14} aria-hidden="true" /> Copy</button>
         <button type="button" className="ui-btn ui-btn-primary ui-btn-sm" onClick={onDone}>I have copied it</button>
       </div>
@@ -290,7 +290,7 @@ export default function Integrations() {
             ))}
           </tbody>
         </table>
-        <pre className="overflow-x-auto rounded bg-[rgb(var(--surface-sunken))] p-3 text-xs">{`curl -H "Authorization: Bearer clor_…" "${base}/attendance/days?from=2026-10-01&to=2026-10-31"`}</pre>
+        <pre className="overflow-x-auto rounded-lg bg-[rgb(var(--surface-sunken))] p-3 text-xs">{`curl -H "Authorization: Bearer clor_…" "${base}/attendance/days?from=2026-10-01&to=2026-10-31"`}</pre>
       </section>
     </div>
   );
