@@ -31,6 +31,7 @@ const PHRASES: Array<[RegExp, string]> = [
   [/^POST payroll\/runs\/:id\/inputs\/from-attendance$/, 'Took pay-run days from Attendance'],
   [/^POST payroll\/bank-changes\/:id\/approve$/, 'Approved a bank account change'],
   [/^POST payroll\/bank-changes\/:id\/reject$/, 'Rejected a bank account change'],
+  [/^PUT payroll\/tax-declarations\/:id$/, 'Changed a tax declaration'],
   [/^POST payroll\/settlements$/, 'Drafted a full and final settlement'],
   [/^(PUT payroll\/settlements\/:id|POST payroll\/settlements\/:id\/recalculate)$/, 'Changed a full and final settlement'],
   [/^(POST|PUT) payroll\/employees/, 'Changed an employee’s payroll details'],

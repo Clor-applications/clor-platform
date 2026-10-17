@@ -4,6 +4,8 @@ import jwt from 'jsonwebtoken';
 
 import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { platformPrisma } from '../utils/platformPrisma.js';
+import { payrollPrisma } from '../utils/payrollPrisma.js';
+import { DeclarationError, financialYearOf, saveDeclaration, shapeDeclaration } from '../services/payroll/taxDeclaration.js';
 import { isDevOrTest } from '../utils/devMode.js';
 import { isFeatureEnabled } from '../services/features.js';
 import { portalLimiter } from '../middleware/rateLimit.js';
@@ -377,6 +379,37 @@ portalRouter.post('/password', async (req, res) => {
     select: PORTAL_FIELDS,
   });
   res.json({ token: sign(updated) });
+});
+
+/**
+ * Income tax: the regime chosen for the year and what is declared under the
+ * old one (services/payroll/taxDeclaration.ts). Only where the company runs
+ * payroll in CLOR and pays this person through it.
+ */
+async function paidHere(e: { accountId: string; orgId: string; id: string }) {
+  if (!(await isFeatureEnabled(e.accountId, e.orgId, 'payroll'))) return false;
+  return !!(await payrollPrisma.employeePayrollProfile.findFirst({ where: { orgId: e.orgId, employeeId: e.id, payrollStatus: 'IN_PAYROLL' }, select: { id: true } }));
+}
+
+portalRouter.get('/tax', async (req, res) => {
+  const e = req.portal!.employee;
+  if (!(await paidHere(e))) return res.json({ available: false });
+  const financialYear = financialYearOf(today());
+  const row = await payrollPrisma.taxDeclaration.findUnique({ where: { orgId_employeeId_financialYear: { orgId: e.orgId, employeeId: e.id, financialYear } } });
+  res.json({ available: true, declaration: shapeDeclaration(row, e.id, financialYear) });
+});
+
+portalRouter.put('/tax', async (req, res) => {
+  const e = req.portal!.employee;
+  if (!(await paidHere(e))) return res.status(404).json({ error: 'Your company does not run payroll here.' });
+  const financialYear = financialYearOf(today());
+  try {
+    const row = await saveDeclaration({ accountId: e.accountId, orgId: e.orgId }, e.id, financialYear, req.body, { userId: who(req).userId, asEmployee: true });
+    res.json({ available: true, declaration: shapeDeclaration(row, e.id, financialYear) });
+  } catch (err) {
+    if (err instanceof DeclarationError) return res.status(err.status).json({ error: err.message, code: err.code });
+    throw err;
+  }
 });
 
 portalRouter.use((_req, res) => res.status(404).json({ error: 'No such page.' }));

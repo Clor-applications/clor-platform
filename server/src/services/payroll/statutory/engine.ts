@@ -53,6 +53,8 @@ export type StatutoryWages = {
   gross: number;
   /** Annual taxable pay, for income tax. */
   annualTaxable?: number;
+  /** Old regime only: the year's deductions from a tax declaration (services/payroll/taxDeclaration.ts). */
+  taxDeductions?: { total: number; note: string };
 };
 
 export type StatutoryEmployee = {
@@ -357,7 +359,9 @@ function computeTds(
 
   const annual = Number(wages.annualTaxable ?? 0);
   const standardDeduction = Number(terms.standardDeduction ?? 0);
-  const taxable = Math.max(0, annual - standardDeduction);
+  /* Declared investments, HRA and home loan interest reduce taxable pay only under the old regime. */
+  const declared = regime === 'OLD' ? Math.max(0, Number(wages.taxDeductions?.total) || 0) : 0;
+  const taxable = Math.max(0, annual - standardDeduction - declared);
 
   /* Slab by slab, each rate applying only to the part of income inside it. */
   let tax = 0;
@@ -396,7 +400,7 @@ function computeTds(
     explanation:
       withCess <= 0
         ? `No tax is due on ${money(taxable)} of taxable pay under the ${regime.toLowerCase()} regime.`
-        : `${money(withCess)} of tax on ${money(taxable)} for the year, less ${money(
+        : `${money(withCess)} of tax on ${money(taxable)} for the year${declared ? ` (after ${money(declared)} of ${wages.taxDeductions?.note || 'declared deductions'})` : ''}, less ${money(
             opts.taxAlreadyDeducted || 0
           )} already deducted, spread over ${months} month${months === 1 ? '' : 's'}.`,
   };

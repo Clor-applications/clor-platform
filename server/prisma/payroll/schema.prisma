@@ -1135,3 +1135,40 @@ model PayrollPostingLine {
   @@index([accountId, orgId, postingId])
   @@index([postingId])
 }
+
+/// What somebody declares they will invest or spend this financial year, for
+/// income tax under the old regime, and what HR verified from their proofs.
+/// One per person per financial year.
+model TaxDeclaration {
+  id         String @id @default(cuid())
+  accountId  String
+  orgId      String
+  employeeId String
+
+  /// "2026-27": April 2026 to March 2027.
+  financialYear String
+  /// NEW | OLD — the regime chosen for this year.
+  regime        String @default("NEW")
+  /// DRAFT | SUBMITTED | VERIFIED
+  status        String @default("DRAFT")
+
+  /// [{code, declared, verified, note}] — codes from services/payroll/taxDeclaration.ts.
+  itemsJson   String  @default("[]")
+  /// House rent, for the HRA exemption.
+  monthlyRent Decimal @default(0)
+  metroCity   Boolean @default(false)
+  landlordPan String?
+  /// Self or parents aged 60 or more, for the higher 80D limits.
+  seniorSelf    Boolean @default(false)
+  seniorParents Boolean @default(false)
+
+  submittedAt      DateTime?
+  verifiedAt       DateTime?
+  verifiedByUserId String?
+  updatedByUserId  String
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@unique([orgId, employeeId, financialYear])
+  @@index([accountId, orgId, financialYear, status])
+}

@@ -3,6 +3,7 @@ import { peoplePrisma } from '../../utils/peoplePrisma.js';
 import { calculateStructure, ENGINE_VERSION, type EngineComponent } from './engine/calculator.js';
 import { loadRules, applyStatutory } from './statutory/resolve.js';
 import { recoveriesDue, recoverable, type DueRecovery } from './loan.js';
+import { financialYearOf, deductionsFor } from './taxDeclaration.js';
 import { round2 } from '../../utils/money.js';
 import { componentApplies, monthsOfService, type EligibilityFacts } from './eligibility.js';
 
@@ -257,9 +258,15 @@ async function loadRunContext(orgId: string, runId: string) {
   });
 
   const taxSoFar = await taxPaidSoFar(orgId, run, employeeIds);
+  const taxDeclarations = new Map(
+    (
+      await payrollPrisma.taxDeclaration.findMany({ where: { orgId, financialYear: financialYearOf(run.payrollDate), employeeId: { in: employeeIds } } })
+    ).map((d) => [d.employeeId, d])
+  );
 
   return {
     statutoryRules,
+    taxDeclarations,
     taxSoFar,
     recoveriesByEmployee: recoveries.reduce((m, r) => {
       const list = m.get(r.employeeId) || [];
@@ -463,13 +470,18 @@ function calculateWithStatutory(
   /* Months left in the Indian financial year, this one included, which is what TDS spreads over. */
   const monthsRemaining = monthsLeftInFinancialYear(ctx.run.payrollDate);
   const soFar = ctx.taxSoFar.get(assignment.employeeId) || { gross: 0, tds: 0 };
+  const declaration = ctx.taxDeclarations.get(assignment.employeeId) || null;
   const employee = {
     pfApplicable: !!profile?.pfApplicable,
     esiApplicable: !!profile?.esiApplicable,
     ptApplicable: !!profile?.ptApplicable,
     professionalTaxState: profile?.professionalTaxState ?? null,
-    taxRegime: (profile?.taxRegime as 'OLD' | 'NEW') || 'NEW',
+    /* The year's declaration, where there is one, says which regime they chose. */
+    taxRegime: ((declaration?.regime || profile?.taxRegime) as 'OLD' | 'NEW') || 'NEW',
   };
+  /* Basic and DA (or PF wages, where a structure names them otherwise) and HRA, for the HRA exemption. */
+  const byCode = (pass: ReturnType<typeof calculateStructure>, codes: string[]) =>
+    pass.lines.filter((l) => l.type === 'EARNING' && codes.includes(l.code.toUpperCase())).reduce((t, l) => t + l.amount, 0);
   const statutoryOn = (pass: ReturnType<typeof calculateStructure>) =>
     applyStatutory({
       rules: ctx.statutoryRules,
@@ -485,6 +497,16 @@ function calculateWithStatutory(
       components: engine.map((c) => ({ code: c.code, statutoryScheme: c.statutoryScheme, type: c.type })),
       monthsRemaining: Math.max(1, monthsRemaining),
       taxAlreadyDeducted: periodsPerYear === 12 ? soFar.tds : 0,
+      taxDeductionsFor: declaration
+        ? (employeePf) => {
+            const d = deductionsFor(declaration, {
+              basic: (byCode(pass, ['BASIC', 'DA']) || pass.pfWage) * periodsPerYear,
+              hra: byCode(pass, ['HRA']) * periodsPerYear,
+              employeePf: employeePf * periodsPerYear,
+            });
+            return { total: d.total, note: d.basis === 'VERIFIED' ? 'verified deductions' : 'declared deductions' };
+          }
+        : undefined,
     });
 
   let result = firstPass;

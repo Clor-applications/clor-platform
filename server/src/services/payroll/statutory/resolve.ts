@@ -97,6 +97,8 @@ export function applyStatutory(opts: {
   components: { code: string; statutoryScheme?: string | null; type: string }[];
   monthsRemaining: number;
   taxAlreadyDeducted: number;
+  /** The year's declared deductions, given this period's employee PF (which counts towards 80C). */
+  taxDeductionsFor?: (employeePf: number) => { total: number; note: string };
 }): StatutoryOutcome {
   const amounts: Record<string, number> = {};
   const results: StatutoryAmount[] = [];
@@ -104,14 +106,20 @@ export function applyStatutory(opts: {
 
   const month = Number(opts.onDate.slice(5, 7)) || 1;
 
-  for (const [scheme, rows] of opts.rules) {
+  /* Income tax last: it needs this period's PF for 80C. */
+  const ordered = [...opts.rules].sort(([a], [b]) => Number(a === 'TDS') - Number(b === 'TDS'));
+  for (const [scheme, rows] of ordered) {
     /* Professional tax and LWF are state levies: the rule of the state somebody works in. */
     const jurisdiction = scheme === 'PT' || scheme === 'LWF' ? opts.employee.professionalTaxState : null;
     const row = ruleInForce(rows, opts.onDate, jurisdiction);
     if (!row) continue;
 
     const rule = toEngineRule(row);
-    const result = computeStatutory(rule, opts.wages, opts.employee, {
+    const wages =
+      scheme === 'TDS' && opts.taxDeductionsFor
+        ? { ...opts.wages, taxDeductions: opts.taxDeductionsFor(results.find((r) => r.scheme === 'PF')?.employee || 0) }
+        : opts.wages;
+    const result = computeStatutory(rule, wages, opts.employee, {
       month,
       monthsRemaining: opts.monthsRemaining,
       taxAlreadyDeducted: opts.taxAlreadyDeducted,
