@@ -11,6 +11,7 @@ import { getMyPermissions } from '@ui/api/permissions';
 import { APPS, appById, availableApps, landingApp, subscribedApps } from './registry';
 import { appFromHost, hostForApp, isFrontDoor } from './appHosts';
 import { PHONE_QUERY, mobileTabsFor } from './mobileTabs';
+import { moduleForScreen, resolveModules } from './splitNav';
 import { useSession } from './session';
 import ClorMark from './ClorMark';
 import CompanySetup from './CompanySetup';
@@ -100,6 +101,7 @@ export default function Shell() {
     ? chosenAppId
     : landingApp(subscriptions || [])?.id || null;
   const [screenKey, setScreenKey] = useState(null);
+  const [browseModule, setBrowseModule] = useState(null);
   /* A page the platform owns rather than the app (My profile), shown in an
      app's main area. Only for apps that use the shell's menu: an app that
      draws its own (Accounting) has its own profile entry. */
@@ -259,6 +261,15 @@ export default function Shell() {
   const Screen = app?.screens?.[screen] || null;
   /* An app may draw its own navigation instead of handing the shell a list. */
   const Root = app?.Root || null;
+  /* Or ask for the split sidebar: modules on a rail, the open module's screens beside it (splitNav.js). */
+  const modules = resolveModules(app, nav);
+  const split = modules.length > 0;
+  const currentModule = moduleForScreen(modules, screen) || modules[0] || null;
+  /* The module whose panel is open; follows the screen unless the person is browsing another on the rail. */
+  const openModule =
+    (browseModule && modules.find((m) => m.key === browseModule)) ||
+    /* In the phone sheet a single-screen module has nothing to list, so the sheet opens on the first module that has. */
+    (phone && currentModule?.single ? modules.find((m) => !m.single) || currentModule : currentModule);
 
   const openApp = (id) => {
     const next = appById(id);
@@ -275,6 +286,80 @@ export default function Shell() {
     setSwitcherOpen(false);
     setShowMoreApps(false);
   };
+
+  const goTo = (key) => {
+    setScreenKey(key);
+    setPlatformScreen(null);
+    setShowMoreApps(false);
+    setNavOpen(false);
+    setBrowseModule(null);
+    /* A new screen starts at its top, not at the last one's scroll position. */
+    window.scrollTo(0, 0);
+  };
+  const isCurrent = (key) => screen === key && !platformScreen && !showMoreApps;
+
+  /* The rail of modules. On a desktop a tap opens the module's first screen; in the phone sheet it only
+     switches the panel, so the person can pick a screen before the sheet closes (ClorTime's drawer). */
+  const moduleRail = (
+    <nav className="ui-split-rail" aria-label={`${app?.name || ''} modules`}>
+      {modules.map((m) => {
+        const Icon = m.icon;
+        const active = openModule?.key === m.key;
+        return (
+          <button
+            key={m.key}
+            type="button"
+            className="ui-split-mod"
+            aria-pressed={active}
+            title={m.label}
+            onClick={() => {
+              if (m.single || !phone) goTo(m.home);
+              else setBrowseModule(m.key);
+            }}
+          >
+            {Icon ? <Icon size={20} aria-hidden="true" /> : null}
+            <span>{m.label}</span>
+          </button>
+        );
+      })}
+    </nav>
+  );
+  /* The open module's screens under plain headings; a single-screen module has no panel. */
+  const modulePanel = openModule && !openModule.single ? (
+    <nav className="ui-split-panel" aria-label={`${openModule.label} screens`}>
+      <div className="ui-split-panel-head">
+        <span className="ui-t-sec">{openModule.label}</span>
+        {phone ? (
+          <button type="button" className="ui-icon-btn" aria-label="Close menu" onClick={() => setNavOpen(false)}>
+            <X size={18} aria-hidden="true" />
+          </button>
+        ) : null}
+      </div>
+      {openModule.groups.map((g, gi) => (
+        <div key={g.label || gi} className={gi ? 'mt-4' : ''}>
+          {g.label ? <p className="ui-caption px-2 pb-1 uppercase tracking-wide">{g.label}</p> : null}
+          {g.items.map((item) => (
+            <button
+              key={item.key}
+              type="button"
+              className="ui-split-item"
+              aria-current={isCurrent(item.key) ? 'page' : undefined}
+              onClick={() => goTo(item.key)}
+            >
+              {item.icon ? <item.icon size={15} aria-hidden="true" /> : null}
+              <span className="min-w-0 truncate">{item.label}</span>
+            </button>
+          ))}
+        </div>
+      ))}
+      <div style={{ borderTop: '1px solid rgb(var(--border))' }} className="mt-4 pt-3">
+        <button type="button" className="ui-split-item" onClick={() => { setShowMoreApps(true); setNavOpen(false); }}>
+          <LayoutGrid size={15} aria-hidden="true" />
+          More apps
+        </button>
+      </div>
+    </nav>
+  ) : null;
 
   const navItems = (
     <>
@@ -496,7 +581,13 @@ export default function Shell() {
         {/* Pinned under the 56px header and scrolled on its own: a long menu (Attendance has 35 items)
             scrolled the whole page, so a screen opened from its lower half was out of view. */}
         {/* One app's navigation. Never four apps' worth. On a phone it is a sheet from the menu button and a tab bar below. */}
-        {!phone ? (
+        {!phone && split ? (
+          <div className="ui-split" aria-label={app ? `${app.name} navigation` : 'Navigation'}>
+            {moduleRail}
+            {modulePanel}
+          </div>
+        ) : null}
+        {!phone && !split ? (
           <nav
             className="sticky top-14 w-56 shrink-0 self-start overflow-y-auto p-3 space-y-0.5"
             style={{ borderRight: '1px solid rgb(var(--border))', height: 'calc(100vh - 3.5rem)' }}
@@ -508,6 +599,22 @@ export default function Shell() {
         {phone && navOpen ? (
           <div className="ui-nav-sheet" role="dialog" aria-modal="true" aria-label={app ? `${app.name} navigation` : 'Navigation'}>
             <div className="ui-nav-sheet-backdrop" onClick={() => setNavOpen(false)} aria-hidden="true" />
+            {split ? (
+              <div className="ui-nav-sheet-panel ui-nav-sheet-split">
+                {moduleRail}
+                {modulePanel || (
+                  <div className="ui-split-panel">
+                    <div className="ui-split-panel-head">
+                      <span className="ui-t-sec">{openModule?.label || app?.name}</span>
+                      <button type="button" className="ui-icon-btn" aria-label="Close menu" onClick={() => setNavOpen(false)}>
+                        <X size={18} aria-hidden="true" />
+                      </button>
+                    </div>
+                    <p className="ui-caption px-2">Pick a module on the left.</p>
+                  </div>
+                )}
+              </div>
+            ) : (
             <nav className="ui-nav-sheet-panel">
               <div className="flex items-center justify-between px-2 pb-2">
                 <span className="ui-t-sec">{app?.name || 'Menu'}</span>
@@ -517,6 +624,7 @@ export default function Shell() {
               </div>
               {navItems}
             </nav>
+            )}
           </div>
         ) : null}
 

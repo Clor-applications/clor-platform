@@ -43,6 +43,24 @@ export const payrollApp = {
 
   /** The phone tab bar: what a payroll admin opens most. */
   mobileTabs: ['overview', 'runs', 'slips', 'payments'],
+  /* The split sidebar: modules on a rail, the open module's screens grouped (see Attendance). */
+  modules: [
+    { key: 'overview', label: 'Overview', items: ['overview'] },
+    { key: 'runs', label: 'Pay runs', groups: [
+      { label: 'Each month', items: ['runs', 'slips', 'payments'] },
+      { label: 'Before the run', items: ['adjustments', 'bankChanges'] },
+    ] },
+    { key: 'people', label: 'Salaries', groups: [
+      { label: 'Per employee', items: ['assignments', 'revisions', 'loans', 'taxDeclarations'] },
+      { label: 'Leaving', items: ['settlements'] },
+    ] },
+    { key: 'reports', label: 'Reports', items: ['reports'] },
+    { key: 'settings', label: 'Settings', groups: [
+      { label: 'Setup', items: ['setup', 'periods', 'payGroups'] },
+      { label: 'Salary design', items: ['components', 'structures'] },
+      { label: 'Statutory', items: ['compliance', 'ledgers'] },
+    ] },
+  ],
   nav: [
     { key: 'overview', label: 'Overview', icon: BarChart3 },
     { key: 'runs', label: 'Pay Runs', icon: CalendarClock },

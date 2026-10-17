@@ -3,6 +3,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { readFileSync, existsSync } from 'node:fs';
 
 import { mobileTabsFor, MAX_TABS } from '../packages/shell/mobileTabs';
+import { moduleForScreen, resolveModules } from '../packages/shell/splitNav';
 import { attendanceApp } from '../apps/attendance/manifest.jsx';
 import { payrollApp } from '../apps/payroll/manifest.jsx';
 
@@ -84,4 +85,25 @@ describe('a build pinned to one app', () => {
       expect(readFileSync(`mobile/${app}/android/app/build.gradle`, 'utf8')).toContain(`applicationId "in.clor.${app}"`);
     });
   }
+});
+
+describe('the split sidebar', () => {
+  for (const app of [attendanceApp, payrollApp]) {
+    it(`${app.name}: every module screen is a nav screen, every nav screen has a module`, () => {
+      const navKeys = app.nav.filter((i) => i.key).map((i) => i.key);
+      const moduleKeys = app.modules.flatMap((m) => (m.groups ? m.groups.flatMap((g) => g.items) : m.items));
+      for (const k of moduleKeys) expect(navKeys, k).toContain(k);
+      for (const k of navKeys) expect(moduleKeys, k).toContain(k);
+      expect(new Set(moduleKeys).size).toBe(moduleKeys.length);
+      expect(app.screens[app.home]).toBeTruthy();
+    });
+  }
+  it('drops what the person may not open, and a module left empty', () => {
+    const nav = attendanceApp.nav.filter((i) => i.key && !String(i.key).startsWith('reader') && !['transactions', 'enrolments', 'unmatched', 'deviceLogs'].includes(i.key));
+    const modules = resolveModules(attendanceApp, nav);
+    expect(modules.map((m) => m.key)).not.toContain('device');
+    expect(moduleForScreen(modules, 'records').key).toBe('attendance');
+    expect(moduleForScreen(modules, 'today').single).toBe(true);
+    expect(moduleForScreen(modules, 'nope')).toBeNull();
+  });
 });
