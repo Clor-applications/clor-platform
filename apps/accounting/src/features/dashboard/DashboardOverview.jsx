@@ -1362,7 +1362,7 @@ export default function DashboardOverview({
     const profitSeries = homePerformance.chart.map((row) => row.inAmt - row.outAmt);
 
     return (
-      <div className="space-y-3">
+      <div className="space-y-3 max-md:px-3">
         <header className="flex flex-wrap items-start justify-between gap-3 px-0.5">
           <div>
             <h1 className="ui-t-page">{greetingFor(new Date(now).getHours())}{heroName ? `, ${heroName}` : ''}</h1>
@@ -1462,7 +1462,8 @@ export default function DashboardOverview({
   }
 
   return (
-    <div className="ui-hero-ground space-y-6">
+    /* The shell gives Home no side padding; on a phone the greeting would touch the glass. */
+    <div className="ui-hero-ground space-y-6 max-md:px-3">
       {/*
         The opening composition, in place of a page header and four cards.
 

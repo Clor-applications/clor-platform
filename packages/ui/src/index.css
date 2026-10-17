@@ -4011,6 +4011,9 @@
   .sales-list-page > .ui-page-heading {
     margin-bottom: 0;
     padding-block: .35rem;
+    /* The page is a fixed-height column; when its actions wrap onto three
+       rows on a phone the heading must grow, not be squeezed over the cards. */
+    flex: 0 0 auto;
   }
   .customer-list-page > section[aria-label='Summary'] .ui-card,
   .journal-list-page > section[aria-label='Summary'] .ui-card,
