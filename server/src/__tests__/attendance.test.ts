@@ -42,10 +42,10 @@ const api = (c: Ctx) => ({
 const person = async (c: Ctx, body: Record<string, unknown>) =>
   (await request(app).post(`/api/orgs/${c.orgId}/people/employees`).set(at(c)).send(body).expect(201)).body.employee;
 
-/** A past weekday that is not a Sunday. */
+/** A past weekday: a week ago, stepped back off Saturday and Sunday (the default shift's weekly off). */
 const pastWeekday = (() => {
   const d = new Date(Date.now() - 7 * 86_400_000);
-  if (d.getUTCDay() === 0) d.setUTCDate(d.getUTCDate() - 1);
+  while (d.getUTCDay() === 0 || d.getUTCDay() === 6) d.setUTCDate(d.getUTCDate() - 1);
   return istDate(d);
 })();
 

@@ -514,6 +514,25 @@ attendanceRouter.get('/orgs/:orgId/attendance/requests', can(PermissionAction.VI
   res.json({ requests: await withNames(orgId, rows) });
 });
 
+/**
+ * The decision on a correction request: approving writes the day, both ways
+ * record who decided and when. HR decides from Corrections; a manager decides
+ * from the employee portal's Approvals (routes/portal.ts) — one function, so
+ * the two never drift.
+ */
+export async function reviewCorrection(accountId: string, orgId: string, r: any, approve: boolean, userId: string, note: string | null) {
+  if (approve) {
+    const employee = await employeeIn(orgId, accountId, r.employeeId);
+    await writeDay({ accountId, orgId, userId, employee, date: r.date, checkIn: r.checkIn, checkOut: r.checkOut, source: 'REQUEST' });
+  }
+  const updated = await peoplePrisma.attendanceRequest.update({
+    where: { id: r.id },
+    data: { status: approve ? 'APPROVED' : 'REJECTED', reviewedByUserId: userId, reviewedAt: new Date(), reviewNote: note },
+  });
+  if (approve) emitWebhook(orgId, 'correction.approved', { id: updated.id, employeeId: updated.employeeId, date: updated.date, checkIn: updated.checkIn, checkOut: updated.checkOut, reason: (updated as any).reason ?? null, reviewNote: updated.reviewNote });
+  return updated;
+}
+
 const review = (approve: boolean) => async (req: any, res: any) => {
   if (!(await attendanceRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
@@ -521,21 +540,8 @@ const review = (approve: boolean) => async (req: any, res: any) => {
   if (!r) return res.status(404).json({ error: 'No such request.' });
   if (r.status !== 'PENDING') return res.status(409).json({ error: `This request was already ${r.status.toLowerCase()}.` });
   try {
-    if (approve) {
-      const employee = await employeeIn(orgId, accountId, r.employeeId);
-      await writeDay({ accountId, orgId, userId: req.auth!.userId, employee, date: r.date, checkIn: r.checkIn, checkOut: r.checkOut, source: 'REQUEST' });
-    }
-    const updated = await peoplePrisma.attendanceRequest.update({
-      where: { id: r.id },
-      data: {
-        status: approve ? 'APPROVED' : 'REJECTED',
-        reviewedByUserId: req.auth!.userId,
-        reviewedAt: new Date(),
-        reviewNote: String(req.body?.note || '').trim().slice(0, 500) || null,
-      },
-    });
+    const updated = await reviewCorrection(accountId, orgId, r, approve, req.auth!.userId, String(req.body?.note || '').trim().slice(0, 500) || null);
     res.json({ request: updated });
-    if (approve) emitWebhook(orgId, 'correction.approved', { id: updated.id, employeeId: updated.employeeId, date: updated.date, checkIn: updated.checkIn, checkOut: updated.checkOut, reason: (updated as any).reason ?? null, reviewNote: updated.reviewNote });
   } catch (e) {
     return sendError(res, e);
   }

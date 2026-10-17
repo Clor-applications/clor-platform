@@ -147,6 +147,29 @@ describe('the employee portal', () => {
     expect(JSON.stringify(r.body)).not.toMatch(/portalPasswordHash|portalSetupHash|\$2[aby]\$/);
   });
 
+  it('lets a manager approve what their reportees ask for, and nobody else', async () => {
+    expect((await me(token).get('/me').expect(200)).body.approver).toBe(false);
+    expect((await me(token).get('/approvals').expect(200)).body).toMatchObject({ approver: false, leaves: [], corrections: [] });
+
+    /* Ravi reports to Asha; Kiran reports to nobody. */
+    const ravi = (await request(app).post(`/api/orgs/${c.orgId}/people/employees`).set(at(c)).send({ name: 'Ravi Nair', code: 'P102', dateOfJoining: '2026-01-01', reportingManagerId: emp.id }).expect(201)).body.employee;
+    const raviId = ravi.id;
+    expect((await me(token).get('/me').expect(200)).body.approver).toBe(true);
+
+    const askedBy = await hr(c).post('/requests', { employeeId: raviId, date: '2026-10-05', checkIn: '09:00', checkOut: '18:00', reason: 'Reader was down' }).expect(201);
+    const list = await me(token).get('/approvals').expect(200);
+    expect(list.body.approver).toBe(true);
+    expect(list.body.corrections.map((x: any) => x.id)).toContain(askedBy.body.request.id);
+    expect(list.body.corrections[0]).toMatchObject({ employeeName: 'Ravi Nair', checkIn: '09:00' });
+
+    await me(token).post(`/approvals/correction/${askedBy.body.request.id}`, { decision: 'maybe' }).expect(400);
+    await me(token).post(`/approvals/correction/nope`, { decision: 'approve' }).expect(404);
+    const ok = await me(token).post(`/approvals/correction/${askedBy.body.request.id}`, { decision: 'approve', note: 'Seen the reader log' }).expect(200);
+    expect(ok.body.request).toMatchObject({ status: 'APPROVED', reviewedByUserId: `portal:${emp.id}`, reviewNote: 'Seen the reader log' });
+    expect((await me(token).post(`/approvals/correction/${askedBy.body.request.id}`, { decision: 'reject' }).expect(409)).body.error).toMatch(/already approved/);
+    expect((await me(token).get('/approvals').expect(200)).body.corrections).toEqual([]);
+  });
+
   it('punches from the phone only when allowed, at a site, inside it', async () => {
     const off = await me(token).post('/punch', { ...SITE, accuracy: 10 }).expect(403);
     expect(off.body.code).toBe('PHONE_OFF');

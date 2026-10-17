@@ -13,8 +13,8 @@ import { isWeeklyOff, istDate, istTime } from '../services/attendance/compute.js
 import { loadHolidays, loadSchedule, resolveShift } from '../services/attendance/schedule.js';
 import { phoneStatus, recordPhonePunch } from '../services/attendance/phonePunch.js';
 import { normaliseCode, passwordProblem } from '../services/attendance/portal.js';
-import { createRequest, daysOfMonth, sendError, today, withNames } from './attendance.js';
-import { balancesFor, cancelOwnLeave, createLeave, withTypes } from './leave.js';
+import { createRequest, daysOfMonth, reviewCorrection, sendError, today, withNames } from './attendance.js';
+import { approveLeave, balancesFor, cancelOwnLeave, createLeave, rejectLeave, withTypes } from './leave.js';
 import { recomputeDeviceDay, shiftDayFor } from './iclock.js';
 
 /**
@@ -180,6 +180,8 @@ portalRouter.get('/me', async (req, res) => {
     record: record ? (await withNames(e.orgId, [record]))[0] : null,
     punches: status.punches,
     phone: status.phone,
+    /* Anyone reporting to this person makes them an approver: the portal shows the Approvals tab. */
+    approver: (await peoplePrisma.employee.count({ where: { orgId: e.orgId, reportingManagerId: e.id, status: { not: 'LEFT' } } })) > 0,
   });
 });
 
@@ -273,6 +275,70 @@ portalRouter.post('/leave/:id/cancel', async (req, res) => {
   const { accountId, orgId, employeeId } = req.portal!;
   const out = await cancelOwnLeave(accountId, orgId, employeeId, String(req.params.id));
   res.status(out.status).json(out.body);
+});
+
+// ---------------------------------------------------------------------------
+// Approvals: what the people reporting to me are waiting on (ClorTime's portal Approvals)
+// ---------------------------------------------------------------------------
+
+/** The employees whose "Reports to" is this person. */
+async function reportees(e: { orgId: string; id: string }) {
+  return peoplePrisma.employee.findMany({ where: { orgId: e.orgId, reportingManagerId: e.id, status: { not: 'LEFT' } }, select: { id: true, name: true, code: true } });
+}
+
+portalRouter.get('/approvals', async (req, res) => {
+  const e = req.portal!.employee;
+  const team = await reportees(e);
+  const ids = team.map((t) => t.id);
+  const names = new Map(team.map((t) => [t.id, t]));
+  const [leaves, corrections] = ids.length
+    ? await Promise.all([
+        peoplePrisma.leaveRequest.findMany({ where: { orgId: e.orgId, employeeId: { in: ids }, status: 'PENDING' }, orderBy: { createdAt: 'asc' } }),
+        peoplePrisma.attendanceRequest.findMany({ where: { orgId: e.orgId, employeeId: { in: ids }, status: 'PENDING' }, orderBy: { createdAt: 'asc' } }),
+      ])
+    : [[], []];
+  const who = (id: string) => ({ employeeName: names.get(id)?.name || '', employeeCode: names.get(id)?.code || null });
+  res.json({
+    approver: ids.length > 0,
+    team: team.length,
+    leaves: (await withTypes(e.orgId, leaves)).map((r) => ({ id: r.id, type: 'leave', ...who(r.employeeId), leaveTypeName: r.leaveTypeName, fromDate: r.fromDate, toDate: r.toDate, days: r.days, reason: r.reason, askedAt: r.createdAt })),
+    corrections: corrections.map((r) => ({ id: r.id, type: 'correction', ...who(r.employeeId), date: r.date, checkIn: r.checkIn ? istTime(r.checkIn) : null, checkOut: r.checkOut ? istTime(r.checkOut) : null, reason: r.reason, askedAt: r.createdAt })),
+  });
+});
+
+/**
+ * Approve or reject one request. The right to decide is checked here, on this
+ * request — the list is a convenience, anyone can post an id — and a request
+ * already decided is a conflict, not a silent overwrite: two approvers opening
+ * the same queue is normal, and the second should be told.
+ */
+portalRouter.post('/approvals/:type/:id', async (req, res) => {
+  const e = req.portal!.employee;
+  const type = String(req.params.type);
+  const decision = String(req.body?.decision || '');
+  if (!['leave', 'correction'].includes(type)) return res.status(400).json({ error: 'Unknown request type.' });
+  if (!['approve', 'reject'].includes(decision)) return res.status(400).json({ error: 'decision must be approve or reject.' });
+  const note = String(req.body?.note || '').trim().slice(0, 500) || null;
+  const id = String(req.params.id);
+  const r: any =
+    type === 'leave'
+      ? await peoplePrisma.leaveRequest.findFirst({ where: { id, orgId: e.orgId } })
+      : await peoplePrisma.attendanceRequest.findFirst({ where: { id, orgId: e.orgId } });
+  if (!r) return res.status(404).json({ error: 'No such request.' });
+  const owner = await peoplePrisma.employee.findFirst({ where: { id: r.employeeId, orgId: e.orgId }, select: { reportingManagerId: true } });
+  if (owner?.reportingManagerId !== e.id) return res.status(403).json({ error: 'This request is not yours to decide.' });
+  if (r.status !== 'PENDING') return res.status(409).json({ error: `This request was already ${String(r.status).toLowerCase()}.` });
+  try {
+    const userId = `portal:${e.id}`;
+    if (type === 'leave') {
+      const out = decision === 'approve' ? await approveLeave(e.accountId, e.orgId, r, userId, note) : await rejectLeave(e.orgId, r, userId, note);
+      return res.json({ request: out });
+    }
+    const out = await reviewCorrection(e.accountId, e.orgId, r, decision === 'approve', userId, note);
+    return res.json({ request: out });
+  } catch (err) {
+    return sendError(res, err);
+  }
 });
 
 /** A new password ends every other session; this one gets a fresh token. */
