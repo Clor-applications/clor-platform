@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { CalendarDays, CalendarOff, Camera, Clock3, Fingerprint, ListChecks, LogIn, LogOut, MapPin, UserRound, X } from 'lucide-react';
+import { CalendarDays, CalendarOff, Camera, CheckSquare, Clock3, Fingerprint, ListChecks, LogIn, LogOut, MapPin, UserRound, X } from 'lucide-react';
 
 import { STATUS } from '../api/attendance';
 import LoadFailed from '../components/LoadFailed';
@@ -11,6 +11,8 @@ import {
   askLeave,
   cancelLeave,
   changePassword,
+  decideApproval,
+  getApprovals,
   getAttendance,
   getLeave,
   getMe,
@@ -79,9 +81,11 @@ export default function EmployeePortal() {
     setTab('today');
   };
 
+  /* Approvals shows only for someone people report to (ClorTime's portal did the same). */
   const TABS = [
     { key: 'today', label: 'Today', icon: Clock3 },
     { key: 'days', label: 'My days', icon: ListChecks },
+    ...(me?.approver ? [{ key: 'approvals', label: 'Approvals', icon: CheckSquare }] : []),
     { key: 'schedule', label: 'Schedule', icon: CalendarDays },
     { key: 'leave', label: 'Leave', icon: CalendarOff },
     { key: 'me', label: 'Me', icon: UserRound },
@@ -103,13 +107,14 @@ export default function EmployeePortal() {
         {error ? <div className="ui-card p-4 text-sm" role="alert">{error}</div> : null}
         {tab === 'today' ? <Today me={me} reload={loadMe} guard={guard} /> : null}
         {tab === 'days' ? <MyDays guard={guard} /> : null}
+        {tab === 'approvals' ? <Approvals guard={guard} /> : null}
         {tab === 'schedule' ? <MySchedule guard={guard} /> : null}
         {tab === 'leave' ? <MyLeave guard={guard} /> : null}
         {tab === 'me' ? <Account me={me} guard={guard} onSignOut={leave} /> : null}
       </main>
 
       <nav aria-label="Portal" className="fixed inset-x-0 bottom-0 z-10 border-t" style={{ backgroundColor: 'rgb(var(--surface))', borderColor: 'rgb(var(--border))' }}>
-        <ul className="mx-auto grid max-w-md grid-cols-5">
+        <ul className="mx-auto grid max-w-md" style={{ gridTemplateColumns: `repeat(${TABS.length}, minmax(0, 1fr))` }}>
           {TABS.map((t) => {
             const Icon = t.icon;
             const on = tab === t.key;
@@ -746,4 +751,90 @@ function MyTax({ guard }) {
       )}
     </form>
   );
+}// ---------------------------------------------------------------------------
+// Approvals — what my reportees are waiting on
+// ---------------------------------------------------------------------------
+
+function Approvals({ guard }) {
+  const [data, setData] = useState(null);
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState('');
+  const [rejecting, setRejecting] = useState(null);
+  const [note, setNote] = useState('');
+
+  const load = useCallback(() => {
+    guard(getApprovals())
+      .then((d) => { setData(d); setError(''); })
+      .catch((e) => !(e instanceof SignedOut) && setError(String(e?.message || 'Could not load.')));
+  }, [guard]);
+  useEffect(() => { load(); }, [load]);
+
+  const decide = async (item, decision) => {
+    setBusy(`${item.type}:${item.id}`);
+    try {
+      await guard(decideApproval(item.type, item.id, { decision, note: decision === 'reject' ? note : undefined }));
+      setRejecting(null);
+      setNote('');
+      load();
+    } catch (e) {
+      /* 409 means another approver got there first — worth saying, then showing the fresh queue. */
+      if (!(e instanceof SignedOut)) setError(String(e?.message || 'That decision was not recorded.'));
+      load();
+    } finally {
+      setBusy('');
+    }
+  };
+
+  if (error && !data) return <LoadFailed message={error} onRetry={load} />;
+  if (!data) return <div className="ui-card p-6 ui-caption">Loading…</div>;
+  const items = [...data.leaves, ...data.corrections].sort((a, b) => String(a.askedAt).localeCompare(String(b.askedAt)));
+  const fmt = (d) => new Date(`${d}T00:00:00Z`).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', timeZone: 'UTC' });
+
+  return (
+    <>
+      <section className="ui-card p-5">
+        <div className="flex items-baseline justify-between gap-2">
+          <h2 className="ui-t-sec">Waiting for you</h2>
+          <span className="ui-caption">{data.team} report{data.team === 1 ? 's' : ''} to you</span>
+        </div>
+        {error ? <p className="mt-2 text-sm" role="alert" style={{ color: 'rgb(var(--neg))' }}>{error}</p> : null}
+        {!items.length ? <p className="ui-caption mt-2">Nothing waiting. Leave and correction requests from your team appear here.</p> : null}
+      </section>
+      {items.map((item) => {
+        const key = `${item.type}:${item.id}`;
+        return (
+          <section key={key} className="ui-card space-y-3 p-5" aria-label={`${item.type} request from ${item.employeeName}`}>
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <div className="font-semibold">{item.employeeName}{item.employeeCode ? <span className="ui-caption font-normal"> · {item.employeeCode}</span> : null}</div>
+                <div className="text-sm">
+                  {item.type === 'leave'
+                    ? <>{item.leaveTypeName} · {fmt(item.fromDate)}{item.toDate !== item.fromDate ? ` – ${fmt(item.toDate)}` : ''} · {item.days} day{item.days === 1 ? '' : 's'}</>
+                    : <>Correction · {fmt(item.date)} · in {item.checkIn || '—'}{item.checkOut ? `, out ${item.checkOut}` : ''}</>}
+                </div>
+              </div>
+              <span className={`ui-pill ${item.type === 'leave' ? 'ui-pill-neutral' : 'ui-pill-warn'}`}>{item.type === 'leave' ? 'Leave' : 'Correction'}</span>
+            </div>
+            {item.reason ? <p className="text-sm ui-muted">“{item.reason}”</p> : null}
+            {rejecting === key ? (
+              <div className="space-y-2">
+                <textarea className="ui-input w-full" rows={2} placeholder="Why not? (optional, the person sees this)" value={note} onChange={(e) => setNote(e.target.value)} />
+                <div className="flex gap-2">
+                  <button type="button" className="ui-btn ui-btn-danger flex-1" disabled={busy === key} onClick={() => decide(item, 'reject')}>Reject</button>
+                  <button type="button" className="ui-btn ui-btn-secondary" onClick={() => { setRejecting(null); setNote(''); }}>Cancel</button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex gap-2">
+                <button type="button" className="ui-btn ui-btn-primary flex-1" disabled={busy === key} onClick={() => decide(item, 'approve')}>{busy === key ? 'Saving…' : 'Approve'}</button>
+                <button type="button" className="ui-btn ui-btn-secondary" disabled={busy === key} onClick={() => setRejecting(key)}>Reject</button>
+              </div>
+            )}
+          </section>
+        );
+      })}
+    </>
+  );
 }
+
+

@@ -81,6 +81,9 @@ export const signOut = () => setPortalToken('');
 
 export const getMe = () => call('/me');
 export const punch = (body) => call('/punch', { method: 'POST', body });
+/* Approvals: what the people reporting to me are waiting on, and my decision on one. */
+export const getApprovals = () => call('/approvals');
+export const decideApproval = (type, id, body) => call(`/approvals/${encodeURIComponent(type)}/${encodeURIComponent(id)}`, { method: 'POST', body });
 export const getAttendance = (month) => call(`/attendance${month ? `?month=${encodeURIComponent(month)}` : ''}`);
 export const askCorrection = (body) => call('/corrections', { method: 'POST', body });
 export const getSchedule = (month) => call(`/schedule${month ? `?month=${encodeURIComponent(month)}` : ''}`);
