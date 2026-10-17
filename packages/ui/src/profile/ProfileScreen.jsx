@@ -19,6 +19,7 @@ import {
 import { changePassword, exportMyData, forgotPassword, getProfile, resendVerification, updateProfile } from '@platform/auth';
 import { operator } from '@platform/operator';
 import { PageHeader, Spinner, SkeletonCard } from '@ui/components/ui/Primitives';
+import AuthenticatorCard from './AuthenticatorCard';
 
 /**
  * The largest data URL the server will store, matched to the cap in the route.
@@ -494,6 +495,7 @@ export const ProfileScreen = ({ Header = PageHeader }) => {
       </section>
 
       <PasswordCard email={user.email} />
+      <AuthenticatorCard />
 
       <PrivacySection />
     </div>

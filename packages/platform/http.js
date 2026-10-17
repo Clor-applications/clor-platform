@@ -111,6 +111,53 @@ function describeHttpFailure(status, text) {
   return raw.slice(0, 300);
 }
 
+/*
+ * Step-up (server: services/stepUp.ts). Where a company asks for it, an action
+ * that moves money answers 403 STEP_UP_REQUIRED; the person is asked for the
+ * code from their authenticator app, it is exchanged for a fifteen-minute
+ * token, and the action is sent again with it. The token is kept in memory
+ * only — a new tab or a reload asks again.
+ */
+let stepUp = null;
+const stepUpHeader = () => (stepUp && stepUp.expiresAt > Date.now() + 5000 ? { 'x-step-up': stepUp.token } : {});
+
+/** Asks for a code through the app's dialog (Toaster listens), or the browser's prompt. */
+function askForCode(message) {
+  return new Promise((resolve) => {
+    if (typeof window === 'undefined') return resolve(null);
+    if (window.__clorStepUpHost) {
+      window.dispatchEvent(new CustomEvent('clor:step-up', { detail: { message, resolve } }));
+    } else {
+      const v = window.prompt(`${message}\n\nCode from your authenticator app:`);
+      resolve(v ? v.trim() : null);
+    }
+  });
+}
+
+async function stepUpAndRetry(path, opts, data) {
+  let message = data?.error || 'Enter the code from your authenticator app to continue.';
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const code = await askForCode(message);
+    if (!code) {
+      const err = new Error('Not done: no authenticator code was given.');
+      err.status = 403;
+      err.code = 'STEP_UP_REQUIRED';
+      throw err;
+    }
+    try {
+      const r = await apiFetch(`/orgs/${encodeURIComponent(getOrgId())}/security/step-up`, { method: 'POST', body: { code }, stepUpRetried: true });
+      stepUp = { token: r.token, expiresAt: new Date(r.expiresAt).getTime() };
+      return apiFetch(path, { ...opts, stepUpRetried: true });
+    } catch (e) {
+      if (e?.code !== 'BAD_CODE') throw e;
+      message = e.message;
+    }
+  }
+  const err = new Error('Not done: the authenticator code was not accepted.');
+  err.status = 403;
+  throw err;
+}
+
 export async function apiFetch(
   path,
   {
@@ -130,6 +177,7 @@ export async function apiFetch(
     skipAuth = false,
     isRetry = false,
     transientRetryCount = 0,
+    stepUpRetried = false,
   } = {}
 ) {
   const token = skipAuth ? '' : getToken();
@@ -150,6 +198,7 @@ export async function apiFetch(
         ...(!skipAuth && orgId ? { 'x-org-id': orgId } : {}),
         ...(!skipAuth && !skipBranchHeader && branchId ? { 'x-branch-id': branchId } : {}),
         ...(!skipAuth && !skipWarehouseHeader && warehouseId ? { 'x-warehouse-id': warehouseId } : {}),
+        ...(!skipAuth ? stepUpHeader() : {}),
         ...(headers || {}),
       },
       body: body ? JSON.stringify(body) : undefined,
@@ -193,6 +242,11 @@ export async function apiFetch(
 
   if (res.status === 401) {
     throw endSession(data?.error);
+  }
+
+  if (res.status === 403 && data?.code === 'STEP_UP_REQUIRED' && !stepUpRetried && !skipAuth) {
+    stepUp = null;
+    return stepUpAndRetry(path, { method, body, headers, skipBranchHeader, skipWarehouseHeader, skipAuth, isRetry, transientRetryCount }, data);
   }
 
   if (!res.ok) {

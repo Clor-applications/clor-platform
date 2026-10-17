@@ -21,6 +21,29 @@ export default function Toaster() {
 
   const [confirm, setConfirm] = useState(null);
   const cancelRef = useRef(null);
+  /* An authenticator code asked for by @platform/http (step-up). */
+  const [codeAsk, setCodeAsk] = useState(null);
+  const [code, setCode] = useState('');
+
+  useEffect(() => {
+    window.__clorStepUpHost = (Number(window.__clorStepUpHost) || 0) + 1;
+    const onAsk = (e) => {
+      /* Two Toasters can be mounted (shell and an app); one answers. */
+      if (e.detail.taken) return;
+      e.detail.taken = true;
+      setCode('');
+      setCodeAsk(e.detail);
+    };
+    window.addEventListener('clor:step-up', onAsk);
+    return () => {
+      window.__clorStepUpHost = Math.max(0, (Number(window.__clorStepUpHost) || 1) - 1);
+      window.removeEventListener('clor:step-up', onAsk);
+    };
+  }, []);
+  const answer = (value) => {
+    codeAsk?.resolve(value);
+    setCodeAsk(null);
+  };
 
   useEffect(() => {
     const offToasts = subscribeToasts((t) => {
@@ -123,6 +146,43 @@ export default function Toaster() {
               </button>
             </div>
           </div>
+        </div>
+      ) : null}
+
+      {/* --- authenticator code (step-up) --- */}
+      {codeAsk ? (
+        <div className="fixed inset-0 flex items-center justify-center p-4" style={{ zIndex: 'var(--z-toast)' }} role="dialog" aria-modal="true" aria-labelledby="code-title">
+          <div className="absolute inset-0" style={{ backgroundColor: 'rgb(0 0 0 / 0.45)' }} onClick={() => answer(null)} aria-hidden="true" />
+          <form
+            className="ui-card ui-in-pop relative w-full max-w-sm p-5"
+            style={{ boxShadow: 'var(--shadow-pop)' }}
+            onSubmit={(e) => {
+              e.preventDefault();
+              answer(code.trim() || null);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') answer(null);
+            }}
+          >
+            <h2 id="code-title" className="ui-t-sec">Authenticator code</h2>
+            <p className="ui-muted mt-2 text-sm leading-relaxed">{codeAsk.message}</p>
+            <input
+              autoFocus
+              className="ui-input ui-num mt-3 w-full text-center tracking-widest"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              maxLength={9}
+              aria-label="Code from your authenticator app"
+              placeholder="123456"
+              value={code}
+              onChange={(e) => setCode(e.target.value)}
+            />
+            <p className="ui-caption mt-2">Lost your phone? A recovery code works once instead.</p>
+            <div className="mt-5 flex justify-end gap-2">
+              <button type="button" onClick={() => answer(null)} className="ui-btn ui-btn-secondary">Cancel</button>
+              <button type="submit" className="ui-btn ui-btn-primary" disabled={!code.trim()}>Continue</button>
+            </div>
+          </form>
         </div>
       ) : null}
     </>
