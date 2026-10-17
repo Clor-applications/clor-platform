@@ -33,7 +33,7 @@ In CI (no local toolchain needed): push a tag.
 
 2. **Play Console** (one-time USD 25): create the app *CLOR Attendance*, package `in.clor.attendance`. Upload the AAB from the workflow artifact to *Internal testing* first. Listing needs: the 512px icon (`public/icons/attendance-512.png`), a 1024×500 feature graphic (`public/store/attendance-feature.png`), 2–8 phone screenshots, the privacy policy URL `https://attendance.clor.in/#/legal/privacy`, a Data safety form (the app sends attendance, location when punching, and an optional selfie to CLOR's own servers in India; nothing to third parties), and a contact e-mail. Content rating: Business, no ads.
 
-3. **Direct download** (your own site): a Cloudflare R2 bucket, e.g. `clor-downloads`, with a public custom domain `downloads.clor.in`. Secrets: `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`. The workflow writes `clor-attendance-latest.apk`, a versioned copy and `clor-attendance-latest.json`; the page at `attendance.clor.in/download/` reads that JSON and turns the button on. Set CORS on the bucket to allow `https://attendance.clor.in` for the JSON read.
+3. **Direct download** (your own site): the Cloudflare Pages project `clor-downloads` (no billing, unlike R2). Secrets: `CLOUDFLARE_API_TOKEN` (dashboard → My Profile → API Tokens → Create → *Edit Cloudflare Workers* template, or custom with *Cloudflare Pages: Edit*) and `CLOUDFLARE_ACCOUNT_ID` (`75db448c3bf439d9c369e3b491e20e20`). Each release run publishes `clor-<app>-latest.apk` + `clor-<app>-latest.json` there, keeping the other apps' files; `<app>.clor.in/download/` reads the JSON and turns the button on. Optional: attach `downloads.clor.in` as a custom domain of that project and set it in the page's `download-base` meta.
 
 4. **Play Store badge** on the download page: once the listing is live, replace the "coming soon" link in `public/download/index.html` with `https://play.google.com/store/apps/details?id=in.clor.attendance`.
 
@@ -52,6 +52,6 @@ In CI (no local toolchain needed): push a tag.
 | Payroll | `in.clor.payroll` | `mobile/payroll` | `android-payroll.yml`, `payroll-v1.2.3` | `public/icons/payroll-512.png`, `public/store/payroll-feature.png` |
 | Accounting | `in.clor.accounting` | `mobile/accounting` | `android-accounting.yml`, `accounting-v1.2.3` | `public/icons/accounting-512.png`, `public/store/accounting-feature.png` |
 
-Every app shares the same four signing secrets and the same download bucket; the workflow writes `clor-<app>-latest.apk` and `clor-<app>-latest.json`, and `<app>.clor.in/download/` (one static page) reads the one for its hostname. Each Play listing is its own app in the Console.
+Every app shares the same four signing secrets and the same download site; the workflow writes `clor-<app>-latest.apk` and `clor-<app>-latest.json`, and `<app>.clor.in/download/` (one static page) reads the one for its hostname. Each Play listing is its own app in the Console.
 
 Accounting draws its own screens under the platform bar (`Root` in its manifest) and carries its own phone drawer, so the shell shows no Menu button or tab bar for it.

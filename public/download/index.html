@@ -62,7 +62,7 @@
       <p class="meta">Privacy: <a href="/#/legal/privacy" style="color: var(--muted)">how CLOR handles your data</a>.</p>
     </main>
     <script>
-      /* Where releases are published (R2 bucket behind downloads.clor.in). Until the first signed build lands, the button stays off. */
+      /* Where releases are published (the clor-downloads Pages project). Until the first signed build lands, the button stays off. */
       (function () {
         var APPS = {
           attendance: { name: 'CLOR Attendance', blurb: 'Punch in from your phone, see your days and leave, approve as HR — the same app as the web.', portal: true,
@@ -83,7 +83,7 @@
         document.getElementById('favicon').href = '/icons/' + app + '-192.png';
         if (!a.portal) document.getElementById('portal-note').remove();
         Array.prototype.forEach.call(document.querySelectorAll('.host'), function (el) { el.textContent = location.hostname; });
-        var base = (document.querySelector('meta[name="download-base"]') || {}).content || 'https://downloads.clor.in';
+        var base = (document.querySelector('meta[name="download-base"]') || {}).content || 'https://clor-downloads.pages.dev';
         var apk = document.getElementById('apk');
         var meta = document.getElementById('apk-meta');
         fetch(base + '/clor-' + app + '-latest.json', { cache: 'no-store' })

@@ -4,16 +4,15 @@ name: Android — CLOR Attendance
 #
 #   - On a tag `attendance-v1.2.3`: a signed release APK and AAB (the AAB is
 #     what Play Console takes), when the signing secrets are set; a debug APK
-#     otherwise. The APK is also pushed to the download bucket when the R2
-#     secrets are set, so attendance.clor.in/download/ links to it.
+#     otherwise. The APK is also published to the clor-downloads Pages site
+#     when the Cloudflare secrets are set, so <app>.clor.in/download/ links to it.
 #   - On "Run workflow": the same, from whatever branch is chosen.
 #
 # Secrets (Settings → Secrets and variables → Actions):
 #   ANDROID_KEYSTORE_BASE64   the upload keystore, base64 (base64 -i clor-upload.jks)
 #   ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD
-#   R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET   (optional)
-# Variables:
-#   DOWNLOAD_BASE_URL   e.g. https://downloads.clor.in                  (optional)
+#   CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID   (optional: publishes the APK to the
+#                       clor-downloads Pages project, which the download pages read)
 
 on:
   push:
@@ -31,7 +30,7 @@ jobs:
       VERSION_NAME: ${{ github.ref_type == 'tag' && github.ref_name || format('0.0.0-{0}', github.run_number) }}
       # `secrets` cannot be read in a step's `if`, so the presence checks live here.
       HAS_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
-      HAS_R2: ${{ secrets.R2_BUCKET != '' }}
+      HAS_CF: ${{ secrets.CLOUDFLARE_API_TOKEN != '' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -101,16 +100,30 @@ jobs:
           path: out/*
           if-no-files-found: error
 
-      - name: Publish the APK to the download bucket
-        if: steps.signing.outputs.release == 'true' && env.HAS_R2 == 'true'
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-          AWS_DEFAULT_REGION: auto
+      - name: Publish the APK to the download site
+        # One Pages project (clor-downloads) serves every app's latest APK. A
+        # deploy replaces the whole site, so the other apps' current files are
+        # fetched first and shipped again alongside this one.
+        if: steps.signing.outputs.release == 'true' && env.HAS_CF == 'true'
         run: |
+          set -e
           APK=$(ls out/*release*.apk | head -1)
-          ENDPOINT="https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com"
-          aws s3 cp "$APK" "s3://${{ secrets.R2_BUCKET }}/clor-attendance-${VERSION_NAME#attendance-v}.apk" --endpoint-url "$ENDPOINT" --content-type application/vnd.android.package-archive
-          aws s3 cp "$APK" "s3://${{ secrets.R2_BUCKET }}/clor-attendance-latest.apk" --endpoint-url "$ENDPOINT" --content-type application/vnd.android.package-archive
-          echo "{\"app\":\"attendance\",\"version\":\"${VERSION_NAME#attendance-v}\",\"builtAt\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",\"apk\":\"clor-attendance-latest.apk\"}" > out/latest.json
-          aws s3 cp out/latest.json "s3://${{ secrets.R2_BUCKET }}/clor-attendance-latest.json" --endpoint-url "$ENDPOINT" --content-type application/json
+          VER="${VERSION_NAME#attendance-v}"
+          BASE="https://clor-downloads.pages.dev"
+          mkdir -p site
+          for other in attendance payroll accounting; do
+            [ "$other" = "attendance" ] && continue
+            curl -fsSL "$BASE/clor-$other-latest.json" -o "site/clor-$other-latest.json" || { rm -f "site/clor-$other-latest.json"; continue; }
+            curl -fsSL "$BASE/clor-$other-latest.apk" -o "site/clor-$other-latest.apk" || rm -f "site/clor-$other-latest.json" "site/clor-$other-latest.apk"
+          done
+          cp "$APK" "site/clor-attendance-latest.apk"
+          echo "{\"app\":\"attendance\",\"version\":\"$VER\",\"builtAt\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",\"apk\":\"clor-attendance-latest.apk\"}" > "site/clor-attendance-latest.json"
+          printf '/*\n  Access-Control-Allow-Origin: *\n' > site/_headers
+          ls -la site
+
+      - uses: cloudflare/wrangler-action@v3
+        if: steps.signing.outputs.release == 'true' && env.HAS_CF == 'true'
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy site --project-name=clor-downloads --branch=main --commit-dirty=true
