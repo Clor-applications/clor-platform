@@ -9,6 +9,7 @@ import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { PAYROLL_MODULE, PAYROLL_RESOURCE, payrollRouteOk } from '../services/payroll/guards.js';
 import { snapshotPerson } from '../services/payroll/payment.js';
 import { round2 } from '../utils/money.js';
+import { buildFilings } from '../services/payroll/filings.js';
 
 /**
  * Payroll reports.
@@ -330,5 +331,24 @@ payrollReportsRouter.get(
         employerCost: round2(rows.reduce((t, r) => t + r.employerCost, 0)),
       },
     });
+  }
+);
+
+/**
+ * The month's statutory files: the PF ECR, the ESIC contribution rows and the
+ * professional tax counts per state (services/payroll/filings.ts). One pay
+ * period at a time, because each return is for one month.
+ */
+payrollReportsRouter.get(
+  '/orgs/:orgId/payroll/reports/filings',
+  requirePermission(PAYROLL_MODULE, PermissionAction.VIEW, RESOURCE),
+  async (req, res) => {
+    if (!(await payrollRouteOk(req, res))) return;
+    const { orgId } = req.tenant!;
+    const periodId = String(req.query.periodId || '').trim();
+    if (!periodId) return res.status(400).json({ error: 'Choose a pay period.' });
+    const period = await payrollPrisma.payrollPeriod.findFirst({ where: { orgId, id: periodId }, select: { id: true, name: true, startDate: true, endDate: true } });
+    if (!period) return res.status(404).json({ error: 'No such pay period.' });
+    res.json({ period, ...(await buildFilings(orgId, period)) });
   }
 );

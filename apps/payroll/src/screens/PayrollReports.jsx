@@ -5,7 +5,7 @@ import { PageHeader, SkeletonCard, EmptyState } from '@ui/components/ui/Primitiv
 import { notify } from '@ui/components/ui/notify';
 import { downloadCsv } from '@ui/utils/csv';
 import { listPayrollPeriods } from '../api/payrollCalendar';
-import { getSalaryRegister, getStatutoryReport, getVarianceReport, getCostReport } from '../api/payrollReports';
+import { getSalaryRegister, getStatutoryReport, getVarianceReport, getCostReport, getFilings } from '../api/payrollReports';
 
 /**
  * Payroll reports.
@@ -22,6 +22,7 @@ import { getSalaryRegister, getStatutoryReport, getVarianceReport, getCostReport
 const REPORTS = [
   { id: 'register', label: 'Salary register', hint: 'Everybody, every component — the one an auditor asks for.' },
   { id: 'statutory', label: 'Statutory', hint: 'What is owed to provident fund, ESI, professional tax and income tax.' },
+  { id: 'filings', label: 'Returns to file', hint: 'The PF ECR, the ESIC upload and professional tax, ready for the portals.' },
   { id: 'variance', label: 'What changed', hint: 'Who moved since last month, and every new joiner.' },
   { id: 'cost', label: 'Cost by department', hint: 'Where the money went.' },
 ];
@@ -78,7 +79,9 @@ export default function PayrollReports() {
       const fetcher =
         report === 'statutory'
           ? getStatutoryReport
-          : report === 'variance'
+          : report === 'filings'
+            ? getFilings
+            : report === 'variance'
             ? getVarianceReport
             : report === 'cost'
               ? getCostReport
@@ -111,7 +114,7 @@ export default function PayrollReports() {
 
   /* Only ever the payload for the report currently chosen. */
   const shown = data?.report === report ? data.payload : null;
-  const hasRows = shown && (report === 'statutory' ? shown.schemes?.length > 0 : shown.rows?.length > 0);
+  const hasRows = shown && (report === 'statutory' ? shown.schemes?.length > 0 : report === 'filings' ? shown.slips > 0 : shown.rows?.length > 0);
 
   const exportCsv = () => {
     try {
@@ -185,9 +188,11 @@ export default function PayrollReports() {
         title="Payroll reports"
         description="Read from the payslips themselves, so a report of a month says what was paid rather than what today's rates would say."
         actions={
-          <button type="button" className="ui-btn ui-btn-secondary" onClick={exportCsv} disabled={!hasRows}>
-            <Download size={16} aria-hidden="true" /> Download
-          </button>
+          report === 'filings' ? null : (
+            <button type="button" className="ui-btn ui-btn-secondary" onClick={exportCsv} disabled={!hasRows}>
+              <Download size={16} aria-hidden="true" /> Download
+            </button>
+          )
         }
       />
 
@@ -197,8 +202,8 @@ export default function PayrollReports() {
         </div>
       ) : null}
 
-      <div className="flex flex-wrap items-end gap-3">
-        <div className="min-w-[14rem]">
+      <div className="flex flex-wrap items-start gap-3">
+        <div className="min-w-[14rem] max-w-sm">
           <label className="ui-label" htmlFor="report-kind">Report</label>
           <select id="report-kind" className="ui-select w-full" value={report} onChange={(e) => setReport(e.target.value)}>
             {REPORTS.map((r) => (
@@ -248,6 +253,8 @@ export default function PayrollReports() {
         <Register data={shown} />
       ) : report === 'statutory' ? (
         <Statutory data={shown} />
+      ) : report === 'filings' ? (
+        <Filings data={shown} periodName={periodName} />
       ) : report === 'variance' ? (
         <Variance data={shown} />
       ) : (
@@ -435,3 +442,132 @@ const Cost = ({ data }) => (
     </div>
   </div>
 );
+
+/** A plain-text file, as the EPFO portal takes the ECR. */
+function downloadText(fileName, text) {
+  const url = URL.createObjectURL(new Blob([text], { type: 'text/plain;charset=utf-8' }));
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = fileName;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+const Problems = ({ rows }) =>
+  rows.length ? (
+    <ul className="space-y-1 px-4 pb-3 text-sm" aria-label="Left out">
+      {rows.map((p) => (
+        <li key={p.employeeId} className="flex items-start gap-2">
+          <AlertTriangle size={14} aria-hidden="true" className="mt-0.5 shrink-0" style={{ color: 'rgb(var(--warn-ink))' }} />
+          <span>
+            <span className="font-medium">{p.name}</span> — {p.message}
+          </span>
+        </li>
+      ))}
+    </ul>
+  ) : null;
+
+function FilingCard({ title, summary, note, problems, onDownload, disabled, label }) {
+  return (
+    <section className="ui-card overflow-hidden">
+      <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+        <div className="min-w-0">
+          <div className="ui-sec-head">{title}</div>
+          <div className="ui-caption">{summary}</div>
+        </div>
+        <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={onDownload} disabled={disabled}>
+          <Download size={14} aria-hidden="true" /> {label}
+        </button>
+      </div>
+      <Problems rows={problems} />
+      {note ? <p className="ui-caption px-4 pb-3">{note}</p> : null}
+    </section>
+  );
+}
+
+const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+
+function Filings({ data, periodName }) {
+  const { ecr, esic, pt } = data;
+  const done = (fn) => {
+    try {
+      fn();
+      notify.success('Downloaded.');
+    } catch (e) {
+      notify.error(String(e?.message || 'Could not build that file.'));
+    }
+  };
+  return (
+    <div className="space-y-6">
+      <FilingCard
+        title="Provident Fund — ECR"
+        label="ECR file"
+        summary={
+          ecr.rows.length
+            ? `${plural(ecr.totals.members, 'member', 'members')} · PF wages ${money(ecr.totals.epfWages)} · employees ${money(ecr.totals.employee)} · pension ${money(ecr.totals.eps)} · company PF ${money(ecr.totals.epf)}`
+            : 'Nobody had PF deducted this month.'
+        }
+        problems={ecr.problems}
+        disabled={!ecr.rows.length}
+        onDownload={() => done(() => downloadText(`ECR ${periodName}.txt`, ecr.text))}
+        note="Upload on the EPFO employer portal under ECR Upload. Admin and EDLI charges are added by the portal on the challan."
+      />
+      <FilingCard
+        title="ESI — monthly contribution"
+        label="ESIC rows"
+        summary={
+          esic.rows.length
+            ? `${plural(esic.totals.people, 'person', 'people')} · wages ${money(esic.totals.wages)} · employees ${money(esic.totals.employee)} · company ${money(esic.totals.employer)}`
+            : 'Nobody had ESI deducted this month.'
+        }
+        problems={esic.problems}
+        disabled={!esic.rows.length}
+        onDownload={() =>
+          done(() =>
+            downloadCsv({
+              fileName: `ESIC ${periodName}`,
+              columns: [
+                { key: 'ipNumber', label: 'IP Number' },
+                { key: 'name', label: 'IP Name' },
+                { key: 'days', label: 'No of Days for which wages paid/payable during the month' },
+                { key: 'wages', label: 'Total Monthly Wages' },
+                { key: 'reason', label: 'Reason Code for Zero workings days', value: (r) => (r.days > 0 && !r.lastWorkingDay ? '' : String(r.reason)) },
+                { key: 'lastWorkingDay', label: 'Last Working Day' },
+              ],
+              rows: esic.rows,
+            })
+          )
+        }
+        note="The ESIC portal takes these columns in its Excel template: open the file, copy the rows into the template, and upload it."
+      />
+      <FilingCard
+        title="Professional tax"
+        label="PT summary"
+        summary={
+          pt.states.length
+            ? pt.states.map((s) => `${s.state}: ${plural(s.people, 'person', 'people')}, ${money(s.total)}`).join(' · ')
+            : 'Nobody had professional tax deducted this month.'
+        }
+        problems={pt.problems}
+        disabled={!pt.rows.length}
+        onDownload={() =>
+          done(() =>
+            downloadCsv({
+              fileName: `Professional tax ${periodName}`,
+              columns: [
+                { key: 'state', label: 'State' },
+                { key: 'amount', label: 'Tax per person', value: (r) => Number(r.amount).toFixed(2) },
+                { key: 'count', label: 'People' },
+                { key: 'total', label: 'Tax', value: (r) => Number(r.total).toFixed(2) },
+              ],
+              rows: pt.states.flatMap((s) => s.slabs.map((x) => ({ ...x, state: s.state }))),
+            })
+          )
+        }
+        note="The count of people at each rate, per state — what the monthly PT return asks for."
+      />
+    </div>
+  );
+}

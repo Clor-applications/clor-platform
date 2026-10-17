@@ -35,3 +35,5 @@ export const getStatutoryReport = (filters) => get('statutory', filters);
 export const getVarianceReport = (filters) => get('variance', filters);
 /** What payroll cost, by department. */
 export const getCostReport = (filters) => get('cost', filters);
+/** The month's PF ECR, ESIC contribution rows and PT counts, with whoever a file cannot carry. */
+export const getFilings = (filters) => get('filings', filters);
