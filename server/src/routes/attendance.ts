@@ -5,6 +5,7 @@ import { requireAuth } from '../middleware/auth.js';
 import { requireTenantContext } from '../middleware/tenantContext.js';
 import { requirePermission } from '../middleware/rbac.js';
 import { PermissionAction } from '../constants/enums.js';
+import { phoneStatus, recordPhonePunch } from '../services/attendance/phonePunch.js';
 import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { platformPrisma } from '../utils/platformPrisma.js';
 import { ATTENDANCE_MODULE, ATTENDANCE_RESOURCE, attendanceRouteOk } from '../services/attendance/guards.js';
@@ -401,7 +402,23 @@ attendanceRouter.get('/orgs/:orgId/attendance/me', can(PermissionAction.VIEW, R.
       todayRecord: shaped.find((r) => r.date === t) || open,
       records: shaped,
       requests,
+      /* The phone punch card, when HR has switched it on for this person (Portal access). */
+      ...(await phoneStatus(me)),
     });
+  } catch (e) {
+    return sendError(res, e);
+  }
+});
+
+/** A punch from the phone, with the same checks as the employee portal's (services/attendance/phonePunch.ts). */
+attendanceRouter.post('/orgs/:orgId/attendance/me/punch', can(PermissionAction.CREATE, R.self), async (req, res) => {
+  if (!(await attendanceRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  try {
+    const me = await myEmployee(accountId, orgId, req.auth!.userId);
+    if (me.status === 'LEFT') throw fail(403, 'This employee file is marked as having left.');
+    const out = await recordPhonePunch(me, req.body);
+    res.status(out.status).json(out.body);
   } catch (e) {
     return sendError(res, e);
   }

@@ -1,4 +1,3 @@
-import { punchPhotoRetentionDays } from '../services/retention.js';
 import { Router, type NextFunction, type Request, type Response } from 'express';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
@@ -12,18 +11,8 @@ import { isFeatureEnabled } from '../services/features.js';
 import { portalLimiter } from '../middleware/rateLimit.js';
 import { isWeeklyOff, istDate, istTime } from '../services/attendance/compute.js';
 import { loadHolidays, loadSchedule, resolveShift } from '../services/attendance/schedule.js';
-import { emit as emitWebhook } from '../services/attendance/webhooks.js';
-import {
-  MAX_ACCURACY_M,
-  MIN_GAP_MS,
-  decodePhoto,
-  describeDistance,
-  matchFence,
-  nextDirection,
-  normaliseCode,
-  passwordProblem,
-  validPosition,
-} from '../services/attendance/portal.js';
+import { phoneStatus, recordPhonePunch } from '../services/attendance/phonePunch.js';
+import { normaliseCode, passwordProblem } from '../services/attendance/portal.js';
 import { createRequest, daysOfMonth, sendError, today, withNames } from './attendance.js';
 import { balancesFor, cancelOwnLeave, createLeave, withTypes } from './leave.js';
 import { recomputeDeviceDay, shiftDayFor } from './iclock.js';
@@ -51,8 +40,6 @@ const secret = () => process.env.JWT_SECRET || (isDevOrTest() ? 'dev-secret' : '
 const WRONG = 'Company code, employee code or password is not right.';
 const WRONG_CODE = 'That activation code is not right or has run out. Ask HR for a new one.';
 const ROUNDS = 10;
-/** verifyMode for a phone punch (readers use 0–25). */
-export const PHONE_VERIFY = 100;
 
 type PortalUser = { employeeId: string; accountId: string; orgId: string };
 declare module 'express-serve-static-core' {
@@ -162,38 +149,23 @@ portalRouter.use(authenticate);
 const who = (req: Request) => ({ accountId: req.portal!.accountId, orgId: req.portal!.orgId, userId: `portal:${req.portal!.employeeId}` });
 const monthParam = (v: unknown) => (/^\d{4}-\d{2}$/.test(String(v || '')) ? String(v) : today().slice(0, 7));
 
-/** Sites this person may punch at: their own, else any active one for everyone or for their area. */
-async function sitesFor(e: { orgId: string; geofenceId: string | null; areaId: string | null }) {
-  if (e.geofenceId) {
-    const own = await peoplePrisma.geofence.findFirst({ where: { id: e.geofenceId, orgId: e.orgId, isActive: true } });
-    return own ? [own] : [];
-  }
-  return peoplePrisma.geofence.findMany({
-    where: { orgId: e.orgId, isActive: true, OR: [{ areaId: null }, ...(e.areaId ? [{ areaId: e.areaId }] : [])] },
-    orderBy: { name: 'asc' },
-  });
-}
 
 const holidayName = (rows: Array<{ date: string; name: string; areaId: string | null }>, date: string, areaId: string | null) =>
   rows.find((h) => h.date === date && (!h.areaId || h.areaId === areaId))?.name || null;
 
-const nowLocal = (at: Date) => `${istDate(at)} ${new Date(at.getTime() + 330 * 60_000).toISOString().slice(11, 19)}`;
 
 /** Today at a glance: shift, the day so far, and whether the phone may punch. */
 portalRouter.get('/me', async (req, res) => {
   const e = req.portal!.employee;
   const t = today();
-  const [org, schedule, holidays, record, sites] = await Promise.all([
+  const [org, schedule, holidays, record] = await Promise.all([
     platformPrisma.org.findUnique({ where: { id: e.orgId }, select: { name: true, code: true } }),
     loadSchedule(e.orgId, [e.id]),
     loadHolidays(e.orgId, t, t),
     peoplePrisma.attendanceRecord.findUnique({ where: { employeeId_date: { employeeId: e.id, date: t } } }),
-    e.mobilePunch ? sitesFor(e) : Promise.resolve([]),
   ]);
   const shift = resolveShift(schedule, e.id, t);
-  const shiftDay = await shiftDayFor(e.orgId, e.id, nowLocal(new Date()));
-  const punches = await peoplePrisma.devicePunch.findMany({ where: { orgId: e.orgId, employeeId: e.id, shiftDate: shiftDay }, orderBy: { at: 'asc' } });
-  const fenceNames = new Map(sites.map((s) => [s.id, s.name]));
+  const status = await phoneStatus(e);
   res.json({
     employee: { name: e.name, code: e.code, department: e.department, designation: e.designation, photoUrl: e.photoUrl },
     company: { name: org?.name || '', code: org?.code || '' },
@@ -206,14 +178,8 @@ portalRouter.get('/me', async (req, res) => {
       holiday: holidays.forArea(e.areaId, e.branchId).has(t) ? holidayName(holidays.rows, t, e.areaId) || 'Holiday' : null,
     },
     record: record ? (await withNames(e.orgId, [record]))[0] : null,
-    punches: punches.map((p) => ({ time: p.localTime.slice(11, 16), kind: p.kind, phone: p.latitude != null, site: p.geofenceId ? fenceNames.get(p.geofenceId) || null : null })),
-    phone: {
-      allowed: Boolean(e.mobilePunch),
-      next: nextDirection(punches),
-      /* For the notice on the punch card: how long a selfie is kept. */
-      photoRetentionDays: punchPhotoRetentionDays(),
-      sites: sites.map((s) => ({ id: s.id, name: s.name, latitude: s.latitude, longitude: s.longitude, radiusMeters: s.radiusMeters })),
-    },
+    punches: status.punches,
+    phone: status.phone,
   });
 });
 
@@ -223,69 +189,8 @@ portalRouter.get('/me', async (req, res) => {
  * required (a camera that will not open must not stop someone punching).
  */
 portalRouter.post('/punch', async (req, res) => {
-  const e = req.portal!.employee;
-  if (!e.mobilePunch) return res.status(403).json({ error: 'Punching from your phone is not switched on for you. Ask HR.', code: 'PHONE_OFF' });
-  const { latitude, longitude } = req.body || {};
-  const accuracy = typeof req.body?.accuracy === 'number' && Number.isFinite(req.body.accuracy) ? req.body.accuracy : null;
-  if (!validPosition(latitude, longitude)) return res.status(400).json({ error: 'Your location did not come through. Allow location for this site and try again.', code: 'NO_LOCATION' });
-  if (accuracy != null && accuracy > MAX_ACCURACY_M) {
-    return res.status(400).json({ error: `Your location is only accurate to ${describeDistance(accuracy)}. Turn on precise location, or step outside, and try again.`, code: 'ROUGH_LOCATION' });
-  }
-  const sites = await sitesFor(e);
-  if (!sites.length) return res.status(409).json({ error: 'No work site is set up for your phone punches yet. Ask HR.', code: 'NO_SITE' });
-  const { inside, nearest } = matchFence({ latitude, longitude }, sites);
-  if (!inside) {
-    return res.status(403).json({
-      error: `You are ${describeDistance(nearest!.distance)} from ${nearest!.fence.name}. Punch from within ${describeDistance(nearest!.fence.radiusMeters)} of it.`,
-      code: 'OUTSIDE',
-    });
-  }
-  const photo = decodePhoto(req.body?.photo);
-  if (photo && 'error' in photo) return res.status(400).json({ error: photo.error, code: 'BAD_PHOTO' });
-
-  const at = new Date();
-  const localTime = nowLocal(at);
-  const shiftDate = await shiftDayFor(e.orgId, e.id, localTime);
-  const today_ = await peoplePrisma.devicePunch.findMany({ where: { orgId: e.orgId, employeeId: e.id, shiftDate }, orderBy: { at: 'asc' }, select: { at: true, kind: true } });
-  const last = today_[today_.length - 1];
-  if (last && at.getTime() - last.at.getTime() < MIN_GAP_MS) return res.status(409).json({ error: 'You punched less than a minute ago.', code: 'TOO_SOON' });
-  const kind = nextDirection(today_);
-
-  /* Phone punches sit under one "reader" per company, so Transactions and reports show them like any other. */
-  const serialNumber = `MOBILE-${e.orgId}`;
-  const device = await peoplePrisma.attendanceDevice.upsert({
-    where: { serialNumber },
-    create: { accountId: e.accountId, orgId: e.orgId, serialNumber, name: 'Phone punches', vendor: 'MOBILE', createdByUserId: 'portal' },
-    update: { lastSeenAt: at },
-  });
-  const saved = photo ? await peoplePrisma.punchPhoto.create({ data: { accountId: e.accountId, orgId: e.orgId, employeeId: e.id, mime: photo.mime, data: photo.data } }) : null;
-  await peoplePrisma.devicePunch.create({
-    data: {
-      accountId: e.accountId,
-      orgId: e.orgId,
-      deviceId: device.id,
-      serialNumber,
-      pin: e.devicePin || e.code || e.id,
-      at,
-      localTime,
-      state: kind === 'IN' ? '0' : '1',
-      kind,
-      verifyMode: PHONE_VERIFY,
-      employeeId: e.id,
-      shiftDate,
-      latitude,
-      longitude,
-      accuracyM: accuracy,
-      geofenceId: inside.fence.id,
-      photoId: saved?.id || null,
-    },
-  });
-  emitWebhook(e.orgId, 'punch', {
-    reader: serialNumber,
-    punches: [{ readerId: e.devicePin || e.code, employeeId: e.id, time: localTime, direction: kind, verifyMode: PHONE_VERIFY, site: inside.fence.name }],
-  });
-  await recomputeDeviceDay(e.accountId, e.orgId, { id: e.id, branchId: e.branchId, areaId: e.areaId }, shiftDate);
-  res.status(201).json({ kind, time: istTime(at), site: inside.fence.name, distance: Math.round(inside.distance), photo: Boolean(saved) });
+  const out = await recordPhonePunch(req.portal!.employee, req.body);
+  res.status(out.status).json(out.body);
 });
 
 /** A month of one's own days, with the month's figures. */

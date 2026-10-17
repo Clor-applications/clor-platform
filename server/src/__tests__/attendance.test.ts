@@ -118,6 +118,30 @@ describe('the clock', () => {
   });
 });
 
+describe('the phone punch in the app', () => {
+  const SITE = { latitude: 12.9757, longitude: 77.6061 };
+  const FAR = { latitude: 13.0207, longitude: 77.6061 };
+
+  it('is the portal’s punch for a signed-in person: off until HR allows it, then checked against the work sites', async () => {
+    const c = await makeOwner();
+    const emp = await person(c, { name: 'Self Puncher', workEmail: c.email });
+    expect((await api(c).get('/me').expect(200)).body.phone).toMatchObject({ allowed: false, next: 'IN' });
+    expect((await api(c).post('/me/punch', { ...SITE, accuracy: 10 }).expect(403)).body.code).toBe('PHONE_OFF');
+
+    await api(c).put('/portal-access', { employeeIds: [emp.id], mobilePunch: true }).expect(200);
+    await api(c).post('/geofences', { name: 'MG Road office', ...SITE, radiusMeters: 200 }).expect(201);
+    expect((await api(c).post('/me/punch', { ...FAR, accuracy: 10 }).expect(403)).body.code).toBe('OUTSIDE');
+
+    const punched = await api(c).post('/me/punch', { ...SITE, accuracy: 10 }).expect(201);
+    expect(punched.body).toMatchObject({ kind: 'IN', site: 'MG Road office', photo: false });
+    const me = await api(c).get('/me').expect(200);
+    expect(me.body.phone).toMatchObject({ allowed: true, next: 'OUT' });
+    expect(me.body.phone.sites.map((x: any) => x.name)).toEqual(['MG Road office']);
+    expect(me.body.punches).toHaveLength(1);
+    expect(me.body.punches[0]).toMatchObject({ kind: 'IN', phone: true, site: 'MG Road office' });
+  });
+});
+
 describe('corrections', () => {
   it('turns an approved request into the day, and will not approve it twice', async () => {
     const c = await makeOwner();
