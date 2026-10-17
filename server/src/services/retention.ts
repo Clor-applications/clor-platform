@@ -1,4 +1,5 @@
 import { platformPrisma } from '../utils/platformPrisma.js';
+import { peoplePrisma } from '../utils/peoplePrisma.js';
 
 /**
  * Deletes sign-in records once they have no further use.
@@ -16,7 +17,11 @@ import { platformPrisma } from '../utils/platformPrisma.js';
  *    (default 90 — long enough to investigate a suspicious sign-in);
  *  - sign-in events (AuthEvent): only when AUTH_EVENT_RETENTION_DAYS is set.
  *    They are the security log, so how long to keep them is the operator's
- *    decision, not a default here.
+ *    decision, not a default here;
+ *  - punch selfies (PunchPhoto): after PUNCH_PHOTO_RETENTION_DAYS (default
+ *    30). The photo exists so a reviewer can see who punched; a month covers
+ *    the payroll cycle it belongs to. The punch itself stays, with its
+ *    position and site — only the image goes.
  * Business records and the audit log are never touched.
  */
 const days = (name: string, fallback: number | null) => {
@@ -26,6 +31,9 @@ const days = (name: string, fallback: number | null) => {
   return Number.isFinite(n) && n > 0 ? n : fallback;
 };
 const ago = (d: number) => new Date(Date.now() - d * 86_400_000);
+
+/** How long a punch selfie is kept, for the notice employees read before sending one. */
+export const punchPhotoRetentionDays = () => days('PUNCH_PHOTO_RETENTION_DAYS', 30)!;
 
 export async function purgeExpiredRecords() {
   const tokenDays = days('TOKEN_RETENTION_DAYS', 7)!;
@@ -44,11 +52,21 @@ export async function purgeExpiredRecords() {
 
   const events = eventDays ? await platformPrisma.authEvent.deleteMany({ where: { createdAt: { lt: ago(eventDays) } } }) : { count: 0 };
 
+  const photoCutoff = ago(punchPhotoRetentionDays());
+  const stale = await peoplePrisma.punchPhoto.findMany({ where: { createdAt: { lt: photoCutoff } }, select: { id: true } });
+  let photos = 0;
+  if (stale.length) {
+    const ids = stale.map((x) => x.id);
+    await peoplePrisma.devicePunch.updateMany({ where: { photoId: { in: ids } }, data: { photoId: null } });
+    photos = (await peoplePrisma.punchPhoto.deleteMany({ where: { id: { in: ids } } })).count;
+  }
+
   return {
     passwordResetTokens: resets.count,
     emailVerificationTokens: verifications.count,
     sessions: sessions.count,
     authEvents: events.count,
+    punchPhotos: photos,
   };
 }
 

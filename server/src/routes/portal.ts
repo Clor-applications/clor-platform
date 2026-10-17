@@ -1,3 +1,4 @@
+import { punchPhotoRetentionDays } from '../services/retention.js';
 import { Router, type NextFunction, type Request, type Response } from 'express';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
@@ -209,6 +210,8 @@ portalRouter.get('/me', async (req, res) => {
     phone: {
       allowed: Boolean(e.mobilePunch),
       next: nextDirection(punches),
+      /* For the notice on the punch card: how long a selfie is kept. */
+      photoRetentionDays: punchPhotoRetentionDays(),
       sites: sites.map((s) => ({ id: s.id, name: s.name, latitude: s.latitude, longitude: s.longitude, radiusMeters: s.radiusMeters })),
     },
   });
