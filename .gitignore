@@ -62,3 +62,13 @@ server/src/generated/
 
 # Secrets: the JWT key and the database URLs.
 server/.env
+
+# Mobile shells (Capacitor)
+dist-mobile/
+mobile/*/node_modules/
+mobile/*/android/app/build/
+mobile/*/android/.gradle/
+mobile/*/android/build/
+mobile/*/android/local.properties
+*.keystore
+*.jks

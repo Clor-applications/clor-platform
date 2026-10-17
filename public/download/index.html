@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Get CLOR Attendance</title>
+    <link rel="icon" href="/icons/attendance-192.png" />
+    <meta name="theme-color" content="#18181B" />
+    <style>
+      :root { --fg: #18181b; --muted: #52525b; --border: #e4e4e7; --surface: #fff; --bg: #fafafa; --brand: #18181b; }
+      @media (prefers-color-scheme: dark) { :root { --fg: #fafafa; --muted: #a1a1aa; --border: #27272a; --surface: #09090b; --bg: #000; --brand: #fafafa; } }
+      body { margin: 0; font: 16px/1.5 Inter, system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--fg); background: var(--bg); }
+      main { max-width: 640px; margin: 0 auto; padding: 32px 16px 64px; }
+      header { display: flex; align-items: center; gap: 14px; margin-bottom: 24px; }
+      header img { width: 64px; height: 64px; border-radius: 14px; }
+      h1 { font-size: 28px; line-height: 1.2; margin: 0; letter-spacing: -0.02em; }
+      p { margin: 6px 0; color: var(--muted); }
+      section { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-top: 16px; }
+      h2 { font-size: 16px; margin: 0 0 8px; }
+      ol { margin: 8px 0 0 18px; padding: 0; color: var(--fg); }
+      li { margin: 4px 0; }
+      .btn { display: inline-flex; align-items: center; gap: 8px; height: 44px; padding: 0 18px; border-radius: 8px; font-weight: 600; text-decoration: none; color: var(--bg); background: var(--brand); }
+      .btn[aria-disabled="true"] { opacity: 0.5; pointer-events: none; }
+      .meta { font-size: 13px; color: var(--muted); margin-top: 8px; }
+      code { font-family: ui-monospace, Menlo, monospace; font-size: 14px; }
+      .row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <img src="/icons/attendance-192.png" alt="" />
+        <div>
+          <h1>CLOR Attendance</h1>
+          <p>Punch in from your phone, see your days and leave, approve as HR — the same app as the web.</p>
+        </div>
+      </header>
+
+      <section>
+        <h2>Android</h2>
+        <div class="row">
+          <a id="apk" class="btn" href="#" aria-disabled="true">Download the APK</a>
+          <a id="play" class="btn" href="#" aria-disabled="true" style="background: transparent; color: var(--fg); border: 1px solid var(--border)">Google Play — coming soon</a>
+        </div>
+        <p class="meta" id="apk-meta">Checking for the latest build…</p>
+        <ol>
+          <li>Open the downloaded file. If asked, allow installs from your browser.</li>
+          <li>Sign in with your company code, employee code and password — or your CLOR login as HR.</li>
+        </ol>
+      </section>
+
+      <section>
+        <h2>iPhone and iPad</h2>
+        <p>Open <code>attendance.clor.in</code> in Safari, tap <strong>Share</strong>, then <strong>Add to Home Screen</strong>. It opens full screen with its own icon and works like an app.</p>
+      </section>
+
+      <section>
+        <h2>Any phone, no install</h2>
+        <p>Everything works in the browser at <a href="/" style="color: var(--fg)">attendance.clor.in</a>; employees use <a href="/#/portal" style="color: var(--fg)">attendance.clor.in/#/portal</a>.</p>
+      </section>
+
+      <p class="meta">Privacy: <a href="/#/legal/privacy" style="color: var(--muted)">how CLOR handles your data</a>.</p>
+    </main>
+    <script>
+      /* Where releases are published (R2 bucket behind downloads.clor.in). Until the first signed build lands, the button stays off. */
+      (function () {
+        var base = (document.querySelector('meta[name="download-base"]') || {}).content || 'https://downloads.clor.in';
+        var apk = document.getElementById('apk');
+        var meta = document.getElementById('apk-meta');
+        fetch(base + '/clor-attendance-latest.json', { cache: 'no-store' })
+          .then(function (r) { if (!r.ok) throw new Error(); return r.json(); })
+          .then(function (j) {
+            apk.href = base + '/' + (j.apk || 'clor-attendance-latest.apk');
+            apk.removeAttribute('aria-disabled');
+            meta.textContent = 'Version ' + j.version + ' · built ' + new Date(j.builtAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+          })
+          .catch(function () { meta.textContent = 'The first Android build is not published yet. Use the browser or Add to Home Screen meanwhile.'; });
+      })();
+    </script>
+  </body>
+</html>
