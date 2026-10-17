@@ -68,7 +68,7 @@ export default function ShiftAssignments() {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <PageHeader
         entity="attendance"
         title="Employee schedule"

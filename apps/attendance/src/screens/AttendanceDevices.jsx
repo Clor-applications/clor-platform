@@ -123,7 +123,7 @@ export default function AttendanceDevices({ openScreen }) {
   const server = readerServer();
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <PageHeader
         entity="attendance"
         title="Readers"

@@ -87,7 +87,7 @@ export default function PortalAccess() {
 
   if (!data) return loadError ? <LoadFailed message={loadError} onRetry={load} /> : <SkeletonCard lines={8} />;
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <PageHeader entity="attendance" title="Portal access" description="Employees sign in to the portal with the company code, their employee code and a password they choose." />
 
       <section className="ui-card flex flex-wrap items-center gap-x-8 gap-y-2 p-4 text-sm">

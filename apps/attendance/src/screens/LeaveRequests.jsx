@@ -53,7 +53,7 @@ export default function LeaveRequests() {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <PageHeader
         entity="attendance"
         title="Leave requests"

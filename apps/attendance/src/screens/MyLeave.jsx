@@ -55,7 +55,7 @@ export default function MyLeave() {
 
   if (error) {
     return (
-      <div className="space-y-4">
+      <div className="space-y-6">
         <PageHeader entity="attendance" title="My leave" />
         <LoadFailed message={error} onRetry={load} />
       </div>

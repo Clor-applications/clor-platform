@@ -68,7 +68,7 @@ export default function Transfer() {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <PageHeader entity="attendance" title="Transfer" description="Move people to another department, area, position or contractor in one go." />
       <section className="ui-card flex flex-wrap items-end gap-3 p-4" aria-label="Transfer options">
         <label className="block">

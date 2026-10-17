@@ -75,7 +75,7 @@ export default function AttendanceReports() {
   if (!catalogue) return loadError ? <LoadFailed message={loadError} onRetry={() => setAttempt((n) => n + 1)} /> : <SkeletonCard lines={6} />;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <PageHeader entity="attendance" title="Reports" description="Attendance reports and the statutory registers — muster roll, overtime and leave." />
       <div className="grid gap-4 lg:grid-cols-[18rem_1fr]">
         <nav aria-label="Reports" className="ui-card p-2">

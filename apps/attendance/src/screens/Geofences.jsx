@@ -29,7 +29,7 @@ export default function Geofences() {
   }, [load]);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <PageHeader
         entity="attendance"
         title="Work sites"

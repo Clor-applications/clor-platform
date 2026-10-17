@@ -35,7 +35,7 @@ export default function ScheduleCalendar() {
   }, [month, filters, attempt]);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <PageHeader
         entity="attendance"
         title="Schedule calendar"

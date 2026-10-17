@@ -54,7 +54,7 @@ export default function Transactions() {
   const set = (k) => (e) => setFilters((f) => ({ ...f, [k]: e.target.value }));
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <PageHeader
         entity="attendance"
         title="Transactions"

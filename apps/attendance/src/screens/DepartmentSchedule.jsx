@@ -39,7 +39,7 @@ export default function DepartmentSchedule() {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <PageHeader entity="attendance" title="Department schedule" description="The shift a department works from a date. People with their own schedule or a rotation keep theirs." />
       <form onSubmit={add} className="ui-card flex flex-wrap items-end gap-3 p-4">
         <label className="block">

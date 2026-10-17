@@ -54,7 +54,7 @@ export default function ReaderHealth() {
   const problems = data.readers.filter((r) => r.status !== 'ok' && r.status !== 'off').length;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <PageHeader
         entity="attendance"
         title="Reader health"

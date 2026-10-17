@@ -55,7 +55,7 @@ export default function MyAttendance() {
 
   if (error) {
     return (
-      <div className="space-y-4">
+      <div className="space-y-6">
         <PageHeader entity="attendance" title="My attendance" />
         <LoadFailed message={error} onRetry={load} />
       </div>
