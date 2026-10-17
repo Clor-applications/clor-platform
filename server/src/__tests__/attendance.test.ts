@@ -142,6 +142,46 @@ describe('the phone punch in the app', () => {
   });
 });
 
+describe('imports', () => {
+  it('marks days from rows, says which rows failed, and keeps going', async () => {
+    const c = await makeOwner();
+    const p = await person(c, { name: 'Imported Day', code: 'IMP1' });
+    const r = await api(c).post('/records/import', { rows: [
+      { employeeCode: 'IMP1', date: pastWeekday, checkIn: '09:10', checkOut: '18:05' },
+      { employeeCode: 'NOPE', date: pastWeekday, checkIn: '09:00' },
+      { employeeCode: 'imp1', date: '2026-13-40', checkIn: '09:00' },
+      { employeeCode: 'IMP1', date: pastWeekday, status: 'on leave' },
+    ] }).expect(200);
+    expect(r.body).toMatchObject({ imported: 2, failed: 2 });
+    expect(r.body.results.map((x: any) => x.row)).toEqual([2, 3]);
+    expect(r.body.results[0].error).toMatch(/No employee with code NOPE/);
+    const day = (await api(c).get(`/records?from=${pastWeekday}&to=${pastWeekday}&employeeId=${p.id}`).expect(200)).body.records[0];
+    expect(day.status).toBe('ON_LEAVE');
+    await api(c).post('/records/import', { rows: [] }).expect(400);
+  });
+
+  it('imports holidays once, and shift assignments by shift name', async () => {
+    const c = await makeOwner();
+    const p = await person(c, { name: 'Shifted', code: 'SH1' });
+    const h = await api(c).post('/holidays/import', { rows: [
+      { date: '2026-11-01', name: 'Founders Day' },
+      { date: '2026-11-01', name: 'founders day' },
+      { date: '2026-11-02', name: 'Area day', area: 'Nowhere' },
+      { date: 'bad', name: 'X' },
+    ] }).expect(200);
+    expect(h.body).toMatchObject({ imported: 1, skipped: 1, failed: 2 });
+    const shift = (await api(c).post('/shifts', { name: 'Night', startTime: '22:00', endTime: '06:00' }).expect(201)).body.shift;
+    const a = await api(c).post('/shift-assignments/import', { rows: [
+      { employeeCode: 'SH1', shift: 'night', from: '2026-11-01' },
+      { employeeCode: 'SH1', shift: 'Day', from: '2026-11-01' },
+      { employeeCode: 'SH1', shift: 'Night', from: '2026-11-10', to: '2026-11-01' },
+    ] }).expect(200);
+    expect(a.body).toMatchObject({ imported: 1, failed: 2 });
+    const mine = (await api(c).get(`/shift-assignments?employeeId=${p.id}`).expect(200)).body.assignments;
+    expect(mine.some((x: any) => x.shiftId === shift.id && x.effectiveFrom === '2026-11-01')).toBe(true);
+  });
+});
+
 describe('corrections', () => {
   it('turns an approved request into the day, and will not approve it twice', async () => {
     const c = await makeOwner();

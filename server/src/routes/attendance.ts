@@ -319,6 +319,123 @@ attendanceRouter.put('/orgs/:orgId/attendance/records', can(PermissionAction.EDI
   }
 });
 
+// ---------------------------------------------------------------------------
+// Bulk imports (the Import screen): rows in, a verdict per row out
+// ---------------------------------------------------------------------------
+
+const IMPORT_MAX = 2000;
+type RowResult = { row: number; ok: boolean; error?: string };
+
+/** Employees by code or Reader ID, once per import rather than once per row. */
+async function peopleByCode(orgId: string) {
+  const people = await peoplePrisma.employee.findMany({ where: { orgId }, select: { id: true, code: true, devicePin: true, name: true, status: true, branchId: true, areaId: true, dateOfJoining: true, dateOfLeaving: true } });
+  const byCode = new Map<string, (typeof people)[number]>();
+  for (const p of people) {
+    if (p.code) byCode.set(p.code.trim().toLowerCase(), p);
+    if (p.devicePin) byCode.set(p.devicePin.trim().toLowerCase(), p);
+  }
+  return byCode;
+}
+const codeKey = (v: unknown) => String(v ?? '').trim().toLowerCase();
+
+/**
+ * Days from a spreadsheet: employee code, date, in, out, status, note. Each
+ * row is marked the way the Records screen marks one day, so the shift,
+ * late minutes, overtime and closed months are all honoured. Rows that fail
+ * say why and the rest still go in — a 300-row file with three bad dates
+ * should not come back empty.
+ */
+attendanceRouter.post('/orgs/:orgId/attendance/records/import', can(PermissionAction.EDIT, R.records), async (req, res) => {
+  if (!(await attendanceRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const rows = Array.isArray(req.body?.rows) ? req.body.rows : [];
+  if (!rows.length) return res.status(400).json({ error: 'Nothing to import.' });
+  if (rows.length > IMPORT_MAX) return res.status(400).json({ error: `Import up to ${IMPORT_MAX.toLocaleString('en-IN')} days at a time.` });
+  const byCode = await peopleByCode(orgId);
+  const results: RowResult[] = [];
+  for (let i = 0; i < rows.length; i += 1) {
+    const r = rows[i] || {};
+    const emp = byCode.get(codeKey(r.employeeCode ?? r.code));
+    if (!emp) { results.push({ row: i + 1, ok: false, error: `No employee with code ${String(r.employeeCode ?? r.code ?? '').trim() || '(blank)'}.` }); continue; }
+    const parsed = markSchema.safeParse({ employeeId: emp.id, date: String(r.date || '').trim(), checkIn: r.checkIn || null, checkOut: r.checkOut || null, status: r.status ? String(r.status).trim().toUpperCase().replace(/[\s-]+/g, '_') : null, note: r.note || null });
+    if (!parsed.success) { results.push({ row: i + 1, ok: false, error: parsed.error.issues[0]?.message || 'Invalid row.' }); continue; }
+    const b = parsed.data;
+    try {
+      if ((b.checkIn && !isHHMM(b.checkIn)) || (b.checkOut && !isHHMM(b.checkOut))) throw fail(400, 'Times are HH:MM, 24-hour.');
+      if (b.checkOut && !b.checkIn) throw fail(400, 'A check-out needs a check-in.');
+      if (b.date > today()) throw fail(400, 'That day has not happened yet.');
+      const employee = await employeeIn(orgId, accountId, b.employeeId);
+      const { checkIn, checkOut } = instants(b.date, b.checkIn, b.checkOut);
+      await writeDay({ accountId, orgId, userId: req.auth!.userId, employee, date: b.date, checkIn, checkOut, statusOverride: b.status ?? null, source: 'IMPORT', note: b.note ?? null });
+      results.push({ row: i + 1, ok: true });
+    } catch (e: any) {
+      results.push({ row: i + 1, ok: false, error: e?.message || 'Not imported.' });
+    }
+  }
+  const imported = results.filter((x) => x.ok).length;
+  res.json({ imported, failed: results.length - imported, results: results.filter((x) => !x.ok) });
+});
+
+/** Holidays from a list: date, name, optional (yes/no), area (by name; blank = everyone). A date already on the calendar with the same name is skipped. */
+attendanceRouter.post('/orgs/:orgId/attendance/holidays/import', can(PermissionAction.CREATE, R.holidays), async (req, res) => {
+  if (!(await attendanceRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const rows = Array.isArray(req.body?.rows) ? req.body.rows : [];
+  if (!rows.length) return res.status(400).json({ error: 'Nothing to import.' });
+  if (rows.length > 500) return res.status(400).json({ error: 'Import up to 500 holidays at a time.' });
+  const areas = new Map((await peoplePrisma.area.findMany({ where: { orgId }, select: { id: true, name: true } })).map((a) => [a.name.trim().toLowerCase(), a.id]));
+  const existing = await peoplePrisma.holiday.findMany({ where: { orgId }, select: { date: true, name: true } });
+  const have = new Set(existing.map((h) => `${h.date}|${h.name.trim().toLowerCase()}`));
+  const results: RowResult[] = [];
+  let imported = 0;
+  let skipped = 0;
+  for (let i = 0; i < rows.length; i += 1) {
+    const r = rows[i] || {};
+    const areaName = String(r.area || '').trim();
+    const areaId = areaName ? areas.get(areaName.toLowerCase()) : null;
+    if (areaName && !areaId) { results.push({ row: i + 1, ok: false, error: `No area called ${areaName}.` }); continue; }
+    const parsed = holidaySchema.safeParse({ date: String(r.date || '').trim(), name: String(r.name || '').trim(), isOptional: /^(y|yes|true|1)$/i.test(String(r.optional ?? r.isOptional ?? '')), areaId: areaId || null });
+    if (!parsed.success) { results.push({ row: i + 1, ok: false, error: parsed.error.issues[0]?.message || 'Invalid row.' }); continue; }
+    const key = `${parsed.data.date}|${parsed.data.name.toLowerCase()}`;
+    if (have.has(key)) { skipped += 1; continue; }
+    await peoplePrisma.holiday.create({ data: { accountId, orgId, date: parsed.data.date, name: parsed.data.name, isOptional: Boolean(parsed.data.isOptional), branchId: null, areaId: parsed.data.areaId || null, createdByUserId: req.auth!.userId } });
+    have.add(key);
+    imported += 1;
+  }
+  res.json({ imported, skipped, failed: results.length, results });
+});
+
+/** Shift assignments from a list: employee code, shift (by name), from, to (blank = open-ended). */
+attendanceRouter.post('/orgs/:orgId/attendance/shift-assignments/import', can(PermissionAction.EDIT, R.shifts), async (req, res) => {
+  if (!(await attendanceRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const rows = Array.isArray(req.body?.rows) ? req.body.rows : [];
+  if (!rows.length) return res.status(400).json({ error: 'Nothing to import.' });
+  if (rows.length > IMPORT_MAX) return res.status(400).json({ error: `Import up to ${IMPORT_MAX.toLocaleString('en-IN')} assignments at a time.` });
+  const [byCode, shifts] = await Promise.all([peopleByCode(orgId), peoplePrisma.shift.findMany({ where: { orgId }, select: { id: true, name: true } })]);
+  const shiftByName = new Map(shifts.map((x) => [x.name.trim().toLowerCase(), x.id]));
+  const results: RowResult[] = [];
+  let imported = 0;
+  for (let i = 0; i < rows.length; i += 1) {
+    const r = rows[i] || {};
+    const emp = byCode.get(codeKey(r.employeeCode ?? r.code));
+    if (!emp) { results.push({ row: i + 1, ok: false, error: `No employee with code ${String(r.employeeCode ?? r.code ?? '').trim() || '(blank)'}.` }); continue; }
+    const shiftId = shiftByName.get(String(r.shift || '').trim().toLowerCase());
+    if (!shiftId) { results.push({ row: i + 1, ok: false, error: `No shift called ${String(r.shift || '').trim() || '(blank)'}.` }); continue; }
+    const from = String(r.from ?? r.effectiveFrom ?? '').trim();
+    const to = String(r.to ?? r.effectiveTo ?? '').trim() || null;
+    if (!ISO_DATE.test(from) || (to && !ISO_DATE.test(to))) { results.push({ row: i + 1, ok: false, error: 'Dates are YYYY-MM-DD.' }); continue; }
+    if (to && to < from) { results.push({ row: i + 1, ok: false, error: 'The end is before the start.' }); continue; }
+    await peoplePrisma.shiftAssignment.upsert({
+      where: { employeeId_effectiveFrom: { employeeId: emp.id, effectiveFrom: from } },
+      create: { accountId, orgId, employeeId: emp.id, shiftId, effectiveFrom: from, effectiveTo: to, createdByUserId: req.auth!.userId },
+      update: { shiftId, effectiveTo: to },
+    });
+    imported += 1;
+  }
+  res.json({ imported, failed: results.length, results });
+});
+
 attendanceRouter.delete('/orgs/:orgId/attendance/records/:id', can(PermissionAction.DELETE, R.records), async (req, res) => {
   if (!(await attendanceRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;

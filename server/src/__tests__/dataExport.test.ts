@@ -72,6 +72,20 @@ describe('exporting a company', () => {
     expect(res.body.configuration.branches.length).toBeGreaterThan(0);
   });
 
+  it('carries people, attendance and payroll too, with nothing that looks like a secret', async () => {
+    const r = await request(app).get(`/api/orgs/${mine.orgId}/export?scope=data`).set(auth(mine)).expect(200);
+    const keys = Object.keys(r.body.data);
+    expect(keys.some((k) => k.startsWith('people.'))).toBe(true);
+    expect(keys.some((k) => k.startsWith('payroll.'))).toBe(true);
+    expect(keys).toContain('people.employee');
+    expect(keys).not.toContain('people.devicePunch');
+    /* The accounting rows keep their audit-chain hashes; the people and payroll rows carry no hash, token or secret. */
+    for (const [name, rows] of Object.entries(r.body.data) as any[]) {
+      if (!/^(people|payroll)\./.test(name)) continue;
+      for (const row of rows) for (const k of Object.keys(row)) expect(k, `${name}.${k}`).not.toMatch(/hash|secret|token/i);
+    }
+  });
+
   it('says what it contains, so the file explains itself later', async () => {
     const res = await request(app).get(`/api/orgs/${mine.orgId}/export`).set(auth(mine)).expect(200);
     expect(res.body.export.counts.invoices).toBe(res.body.data.invoices.length);

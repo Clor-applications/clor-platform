@@ -2,6 +2,10 @@ import { Router } from 'express';
 
 import { prisma } from '../utils/prisma.js';
 import { platformPrisma } from '../utils/platformPrisma.js';
+import { peoplePrisma } from '../utils/peoplePrisma.js';
+import { payrollPrisma } from '../utils/payrollPrisma.js';
+import { Prisma as PeoplePrisma } from '../generated/people/index.js';
+import { Prisma as PayrollPrisma } from '../generated/payroll/index.js';
 import { requireAuth } from '../middleware/auth.js';
 import { requireTenantContext } from '../middleware/tenantContext.js';
 import { requirePermission } from '../middleware/rbac.js';
@@ -63,6 +67,29 @@ const num = (v: unknown) => {
 };
 
 /** Decimal columns come back as objects; a file should hold numbers. */
+/*
+ * People, Attendance and Payroll: every model that belongs to a company, by
+ * schema rather than by a list that would fall behind the schema. Heavy raw
+ * data is left out — punches as the readers sent them, reader logs, selfies,
+ * fingerprint and face templates — the attendance days built from them are
+ * in. Anything that looks like a secret (a hash, a token, an encrypted
+ * value) is dropped from every row.
+ */
+const HEAVY = new Set(['DevicePunch', 'DeviceLog', 'PunchPhoto', 'BiometricTemplate', 'WebhookDelivery', 'ApiIdempotency', 'DeviceCommand', 'UnclaimedReader']);
+const SECRETISH = /hash|secret|token|passwordenc|enc$|salt|apikey/i;
+const scrub = (rows: any[]) => rows.map((r) => Object.fromEntries(Object.entries(r).filter(([k]) => !SECRETISH.test(k))));
+async function exportDomain(client: any, dmmf: { datamodel: { models: Array<{ name: string; fields: Array<{ name: string }> }> } }, prefix: string, scope: { orgId: string }) {
+  const out: Record<string, any[]> = {};
+  for (const m of dmmf.datamodel.models) {
+    if (HEAVY.has(m.name) || !m.fields.some((f) => f.name === 'orgId')) continue;
+    const key = m.name.charAt(0).toLowerCase() + m.name.slice(1);
+    const delegate = client[key];
+    if (!delegate?.findMany) continue;
+    out[`${prefix}.${key}`] = scrub(await delegate.findMany({ where: { orgId: scope.orgId } }));
+  }
+  return out;
+}
+
 const plain = (rows: any[]): any[] =>
   rows.map((r) => {
     const out: Record<string, unknown> = {};
@@ -185,6 +212,11 @@ dataExportRouter.get('/orgs/:orgId/export', EXPORT, async (req, res) => {
       einvoiceSettings: withoutSecrets(einvoiceSettings),
       recurringSchedules: recurring,
     });
+  }
+
+  if (asked === 'data' || asked === 'all') {
+    Object.assign(data, await exportDomain(peoplePrisma, PeoplePrisma.dmmf as any, 'people', scope));
+    Object.assign(data, await exportDomain(payrollPrisma, PayrollPrisma.dmmf as any, 'payroll', scope));
   }
 
   const counts: Record<string, number> = {};
