@@ -71,7 +71,7 @@ describe('a build pinned to one app', () => {
     expect(fresh.appFromHost('attendance.clor.in')).toBe('attendance');
     expect(fresh.appFromHost('localhost')).toBeNull();
   });
-  for (const app of ['attendance', 'payroll']) {
+  for (const app of ['attendance', 'payroll', 'accounting']) {
     it(`the ${app} Capacitor project is pinned to its app, reads its own build and has a workflow`, () => {
       const cfg = JSON.parse(readFileSync(`mobile/${app}/capacitor.config.json`, 'utf8'));
       expect(cfg.appId).toBe(`in.clor.${app}`);

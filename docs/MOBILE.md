@@ -50,8 +50,8 @@ In CI (no local toolchain needed): push a tag.
 |---|---|---|---|---|
 | Attendance | `in.clor.attendance` | `mobile/attendance` | `android-attendance.yml`, `attendance-v1.2.3` | `public/icons/attendance-512.png`, `public/store/attendance-feature.png` |
 | Payroll | `in.clor.payroll` | `mobile/payroll` | `android-payroll.yml`, `payroll-v1.2.3` | `public/icons/payroll-512.png`, `public/store/payroll-feature.png` |
-| Accounting | — | not yet | — | icons ready in `public/icons/accounting-*` |
+| Accounting | `in.clor.accounting` | `mobile/accounting` | `android-accounting.yml`, `accounting-v1.2.3` | `public/icons/accounting-512.png`, `public/store/accounting-feature.png` |
 
 Every app shares the same four signing secrets and the same download bucket; the workflow writes `clor-<app>-latest.apk` and `clor-<app>-latest.json`, and `<app>.clor.in/download/` (one static page) reads the one for its hostname. Each Play listing is its own app in the Console.
 
-Accounting draws its own screens under the platform bar (`Root` in its manifest) rather than using the shell's navigation, so it needs its own phone layout before a shell is worth wrapping.
+Accounting draws its own screens under the platform bar (`Root` in its manifest) and carries its own phone drawer, so the shell shows no Menu button or tab bar for it.
