@@ -85,7 +85,7 @@ export default function BankChanges() {
         <EmptyState title={show === 'PENDING' ? 'Nothing waiting' : 'No bank changes yet'} description={show === 'PENDING' ? 'Bank detail changes waiting for approval appear here.' : ''} />
       ) : (
         <div className="ui-card overflow-hidden">
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto ui-table-scroll ui-table-fit">
             <table className="ui-table w-full">
               <thead>
                 <tr>

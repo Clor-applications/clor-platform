@@ -240,7 +240,7 @@ function Settlement({ settlement, onClose, onChanged }) {
       }
     >
       <div className="space-y-6">
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto ui-table-scroll ui-table-fit">
           <table className="ui-table w-full">
             <thead>
               <tr>

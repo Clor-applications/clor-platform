@@ -81,7 +81,7 @@ export default function TaxDeclarations() {
       ) : (
         <div className="ui-card overflow-hidden">
           {waiting ? <div className="ui-caption px-4 pt-3">{waiting} waiting for proofs to be checked.</div> : null}
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto ui-table-scroll ui-table-fit">
             <table className="ui-table w-full">
               <thead>
                 <tr>
@@ -245,7 +245,7 @@ function Declaration({ employeeId, fy, onClose, onChanged }) {
 
           {form.regime === 'OLD' ? (
             <>
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto ui-table-scroll ui-table-fit">
                 <table className="ui-table w-full">
                   <thead>
                     <tr>
