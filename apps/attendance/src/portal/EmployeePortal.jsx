@@ -14,11 +14,13 @@ import {
   getLeave,
   getMe,
   getSchedule,
+  getTax,
   hm,
   locate,
   portalToken,
   punch,
   rememberedIds,
+  saveTax,
   shrinkPhoto,
   signIn,
   signOut,
@@ -665,6 +667,7 @@ function Account({ me, guard, onSignOut }) {
           <div className="ui-caption">{me.company.name}{me.company.code ? ` · ${me.company.code}` : ''}</div>
         </section>
       ) : null}
+      <MyTax guard={guard} />
       <form onSubmit={save} className="ui-card space-y-3 p-5" aria-labelledby="pw-h">
         <h2 id="pw-h" className="ui-t-sec">Change password</h2>
         <label className="block"><span className="ui-label">Current password</span><input type="password" className="ui-input w-full" required autoComplete="current-password" value={form.current} onChange={(e) => setForm({ ...form, current: e.target.value })} /></label>
@@ -677,5 +680,134 @@ function Account({ me, guard, onSignOut }) {
         <LogOut size={16} aria-hidden="true" /> Sign out
       </button>
     </>
+  );
+}
+
+const rupees = (n) => `₹${Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
+
+/**
+ * Income tax for the year: choose the regime, and under the old one declare
+ * investments, rent and home loan interest. HR checks the proofs; tax is taken
+ * on what is declared until then. Shown only where payroll runs in CLOR.
+ */
+function MyTax({ guard }) {
+  const [d, setD] = useState(null);
+  const [form, setForm] = useState(null);
+  const [note, setNote] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const take = (r) => {
+    if (!r?.available) return setD(false);
+    const x = r.declaration;
+    setD(x);
+    setForm({
+      regime: x.regime,
+      items: Object.fromEntries(x.items.map((i) => [i.code, i.declared || ''])),
+      monthlyRent: x.monthlyRent || '',
+      metroCity: x.metroCity,
+      landlordPan: x.landlordPan || '',
+      seniorSelf: x.seniorSelf,
+      seniorParents: x.seniorParents,
+    });
+  };
+  useEffect(() => {
+    guard(getTax())
+      .then(take)
+      .catch(() => setD(false));
+  }, [guard]);
+  if (!d || !form) return null;
+
+  const locked = d.status === 'VERIFIED';
+  const set = (patch) => setForm((f) => ({ ...f, ...patch }));
+  const send = async (e) => {
+    e.preventDefault();
+    setNote(null);
+    setBusy(true);
+    try {
+      take(
+        await guard(
+          saveTax({
+            regime: form.regime,
+            items: Object.entries(form.items).map(([code, v]) => ({ code, declared: Number(v) || 0 })),
+            monthlyRent: Number(form.monthlyRent) || 0,
+            metroCity: form.metroCity,
+            landlordPan: form.landlordPan || null,
+            seniorSelf: form.seniorSelf,
+            seniorParents: form.seniorParents,
+          })
+        )
+      );
+      setNote({ ok: true, text: 'Sent to HR. Tax from the next payslip uses it.' });
+    } catch (err) {
+      if (!(err instanceof SignedOut)) setNote({ ok: false, text: String(err?.message || 'Not saved.') });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <form onSubmit={send} className="ui-card space-y-3 p-5" aria-labelledby="tax-h">
+      <h2 id="tax-h" className="ui-t-sec">Income tax · FY {d.financialYear}</h2>
+      <p className="ui-caption">
+        {locked ? 'HR has checked your proofs. Ask HR if something needs changing.' : d.status === 'SUBMITTED' ? 'Sent to HR. You can still change it until your proofs are checked.' : 'Choose your regime. Under the old one, tell us what you will invest so less tax is taken each month.'}
+      </p>
+      <fieldset disabled={locked || busy} className="space-y-3">
+        <div className="space-y-2 text-sm">
+          {[
+            ['NEW', 'New regime', 'Lower rates; no deductions to declare.'],
+            ['OLD', 'Old regime', 'Deductions for investments, rent and home loan.'],
+          ].map(([v, label, hint]) => (
+            <label key={v} className="flex items-start gap-2">
+              <input type="radio" name="tax-regime" className="mt-1" checked={form.regime === v} onChange={() => set({ regime: v })} />
+              <span>
+                <span className="font-medium">{label}</span>
+                <span className="ui-caption block">{hint}</span>
+              </span>
+            </label>
+          ))}
+        </div>
+        {form.regime === 'OLD' ? (
+          <>
+            {d.items.map((i) => (
+              <label key={i.code} className="block">
+                <span className="ui-label">{i.label}</span>
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  min="0"
+                  className="ui-input ui-num w-full"
+                  value={form.items[i.code]}
+                  onChange={(e) => set({ items: { ...form.items, [i.code]: e.target.value } })}
+                />
+                <span className="ui-caption">
+                  {i.hint}
+                  {i.cap ? ` Up to ${rupees(i.cap)}.` : ''}
+                  {locked && i.verified != null ? ` Verified: ${rupees(i.verified)}.` : ''}
+                </span>
+              </label>
+            ))}
+            <label className="block">
+              <span className="ui-label">Rent you pay a month</span>
+              <input type="number" inputMode="numeric" min="0" className="ui-input ui-num w-full" value={form.monthlyRent} onChange={(e) => set({ monthlyRent: e.target.value })} />
+            </label>
+            {Number(form.monthlyRent) * 12 > 100000 ? (
+              <label className="block">
+                <span className="ui-label">Landlord’s PAN</span>
+                <input className="ui-input w-full uppercase" maxLength={10} autoCapitalize="characters" value={form.landlordPan} onChange={(e) => set({ landlordPan: e.target.value })} required />
+              </label>
+            ) : null}
+            <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.metroCity} onChange={(e) => set({ metroCity: e.target.checked })} /> I live in Delhi, Mumbai, Kolkata or Chennai</label>
+            <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.seniorSelf} onChange={(e) => set({ seniorSelf: e.target.checked })} /> I am 60 or older</label>
+            <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.seniorParents} onChange={(e) => set({ seniorParents: e.target.checked })} /> My parents are 60 or older</label>
+            <p className="ui-caption">Your PF from salary already counts towards 80C. Keep the receipts: HR will ask for proofs.</p>
+          </>
+        ) : null}
+      </fieldset>
+      {note ? <p className="text-sm" role={note.ok ? 'status' : 'alert'}>{note.text}</p> : null}
+      {locked ? null : (
+        <button type="submit" className="ui-btn ui-btn-primary w-full" disabled={busy}>
+          Send to HR
+        </button>
+      )}
+    </form>
   );
 }

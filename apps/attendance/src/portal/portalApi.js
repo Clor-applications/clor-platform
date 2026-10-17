@@ -87,6 +87,8 @@ export const getSchedule = (month) => call(`/schedule${month ? `?month=${encodeU
 export const getLeave = () => call('/leave');
 export const askLeave = (body) => call('/leave', { method: 'POST', body });
 export const cancelLeave = (id) => call(`/leave/${encodeURIComponent(id)}/cancel`, { method: 'POST' });
+export const getTax = () => call('/tax');
+export const saveTax = (body) => call('/tax', { method: 'PUT', body });
 export const changePassword = (current, next) =>
   call('/password', { method: 'POST', body: { current, next } }).then((r) => {
     setPortalToken(r.token);
