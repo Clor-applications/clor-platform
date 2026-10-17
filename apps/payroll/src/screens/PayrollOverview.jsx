@@ -119,7 +119,7 @@ export default function PayrollOverview({ onOpen = () => {} }) {
               {setup.nextStep ? ` · next: ${setup.nextStep.title} — ${setup.nextStep.detail}` : ''}
             </p>
           </div>
-          <button type="button" className="ui-btn ui-btn-primary shrink-0" onClick={() => onOpen('payrollSetup')}>
+          <button type="button" className="ui-btn ui-btn-secondary shrink-0" onClick={() => onOpen('payrollSetup')}>
             Finish setting up <ArrowRight size={16} aria-hidden="true" />
           </button>
         </div>
