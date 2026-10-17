@@ -54,6 +54,8 @@ export const userInfoCommand = (pin: string, name: string, extra: { privilege?: 
 export const SEQ = { USER: 1, DELETE: 2, TEMPLATE: 3, OTHER: 999 } as const;
 
 export const FACE = 9;
+/** Not a template: the person's photo as the reader shows it (USERPIC). Kept with the templates so it travels between readers too. */
+export const USERPIC = 100;
 export const FINGER = 1;
 
 /** Bytes in a base64 template (FINGERTMP carries it as Size=). */
@@ -88,6 +90,9 @@ export function templateCommands(t: Template, target: { faceMajorVer?: number | 
   if (t.type === FINGER) {
     return [{ seq: SEQ.TEMPLATE, command: `DATA UPDATE FINGERTMP PIN=${pin}\tFID=${admsField(t.no)}\tSize=${templateSize(data)}\tValid=${admsField(t.valid || 1)}\tTMP=${admsField(data)}` }];
   }
+  if (t.type === USERPIC) {
+    return [{ seq: SEQ.TEMPLATE, command: `DATA UPDATE USERPIC PIN=${pin}\tSize=${templateSize(data)}\tContent=${admsField(data)}` }];
+  }
   const major = t.type === FACE ? target.faceMajorVer || t.majorVer || 40 : t.majorVer;
   const minor = t.type === FACE ? target.faceMinorVer || t.minorVer || 1 : t.minorVer;
   const biodata = `DATA UPDATE BIODATA Pin=${pin}\tNo=${admsField(t.no)}\tIndex=${admsField(t.indexNo)}\tValid=${admsField(t.valid || 1)}\tDuress=${admsField(t.duress)}\tType=${admsField(t.type)}\tMajorVer=${admsField(major)}\tMinorVer=${admsField(minor)}\tFormat=${admsField(t.format)}\tTmp=${admsField(data)}`;
@@ -119,13 +124,28 @@ export const COMMANDS = {
 } as const;
 
 /**
+ * A message on the reader's screen (ADMS SMS). TAG 253 is for everyone who
+ * walks up; 254 is for one person and shows when they punch (UID = their
+ * reader ID). MIN is how long it stays. StartTime is the reader's clock, IST.
+ * ClorTime's Device → Message stored these but never sent them; here the
+ * command goes out on the next heartbeat like any other.
+ */
+export function messageCommand(text: string, minutes: number, pin: string | null, startAt: Date = new Date()) {
+  const clean = String(text || '').replace(/[\t\r\n]/g, ' ').trim().slice(0, 200);
+  const min = Math.min(Math.max(Math.round(minutes) || 60, 1), 7 * 24 * 60);
+  const start = new Date(startAt.getTime() + 330 * 60_000).toISOString().slice(0, 19).replace('T', ' ');
+  const tag = pin ? 254 : 253;
+  return `DATA UPDATE SMS MSG=${clean}\tTAG=${tag}\tUID=${pin ? admsField(pin) : 0}\tMIN=${min}\tStartTime=${start}`;
+}
+
+/**
  * Asking a reader for its templates. USERVF is deliberately absent: ClorTime's
  * readers rejected it every time (44 of 44), and FACE and BIODATA return the
  * same data. BIODATA is where newer firmware keeps them.
  */
 export const FETCH_TEMPLATE_COMMANDS = ['DATA QUERY FINGERTMP', 'DATA QUERY FACE', 'DATA QUERY BIODATA'];
 
-export type ParsedPunch = { pin: string; localTime: string; state: string; verifyMode: number };
+export type ParsedPunch = { pin: string; localTime: string; state: string; verifyMode: number; workCode: string | null };
 
 const LOCAL_TIME = /^(\d{4}-\d{2}-\d{2}) (\d{2}):(\d{2}):(\d{2})$/;
 
@@ -147,7 +167,9 @@ export function parseAttlogLine(line: string): ParsedPunch | null {
   const pin = String(parts[0] || '').trim();
   const localTime = String(parts[1] || '').trim();
   if (!pin || !LOCAL_TIME.test(localTime)) return null;
-  return { pin, localTime, state: String(parts[2] ?? '0').trim() || '0', verifyMode: Number.parseInt(String(parts[3] ?? '0'), 10) || 0 };
+  /* The work code: what the person was punching for (a job, a site). Readers send 0 when none was chosen. */
+  const wc = String(parts[4] ?? '').trim();
+  return { pin, localTime, state: String(parts[2] ?? '0').trim() || '0', verifyMode: Number.parseInt(String(parts[3] ?? '0'), 10) || 0, workCode: wc && wc !== '0' ? wc.slice(0, 32) : null };
 }
 
 /** The reader's wall clock is Indian Standard Time. */
@@ -270,17 +292,23 @@ export function parseBiodataLine(line: string, table = '') {
   const parts = line.includes('\t') ? line.split('\t') : line.split(/\s+/);
   const fields: Record<string, string> = {};
   for (const part of parts) {
-    const kv = part.replace(/^(BIODATA|FACE|FP|USER)\s+/, '');
+    const kv = part.replace(/^(BIODATA|FACE|FP|USERPIC|USER)\s+/, '');
     const i = kv.indexOf('=');
     if (i > 0) fields[kv.slice(0, i).trim().toUpperCase()] = kv.slice(i + 1).trim();
   }
   const pin = fields.PIN || '';
   if (!pin) return null;
-  const data = fields.TEMP || fields.TMP || fields.V || fields.DATA || '';
+  const data = fields.TEMP || fields.TMP || fields.V || fields.DATA || fields.CONTENT || '';
   const int = (k: string, d = 0) => {
     const n = Number.parseInt(fields[k] ?? '', 10);
     return Number.isNaN(n) ? d : n;
   };
+
+  /* USERPIC PIN=104\tFileName=104.jpg\tSize=…\tContent=<base64 jpeg>: the person's photo, not a template. */
+  if (line.startsWith('USERPIC')) {
+    if (!data || data.length < 100) return null;
+    return { kind: 'TEMPLATE' as const, template: { pin, type: USERPIC, no: 0, data: data.replace(/[\r\n]/g, ''), valid: 1, duress: 0, majorVer: 0, minorVer: 0, format: 0, indexNo: 0 } satisfies Template };
+  }
 
   if (line.startsWith('USER') && !data) {
     return { kind: 'USER' as const, pin, name: fields.NAME || null, privilege: fields.PRI !== undefined ? int('PRI') : null, password: fields.PASSWD ?? null, card: fields.CARD ?? null };
@@ -437,3 +465,5 @@ export function parseOpLine(line: string) {
 
 /** How a punch was verified, as ZKTeco / eSSL readers number it. */
 export const VERIFY_MODES: Record<number, string> = { 0: 'Password', 1: 'Fingerprint', 2: 'Card', 3: 'Password', 4: 'Card', 15: 'Face', 25: 'Palm', 100: 'Phone' };
+/** Which the fetch commands bring back, so a stored photo is not asked for as a template. */
+export const isPhoto = (type: number) => type === USERPIC;

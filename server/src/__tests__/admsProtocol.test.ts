@@ -16,13 +16,15 @@ import {
   punchKind,
   shiftDayOf,
   userInfoCommand,
+  messageCommand,
+  USERPIC,
 } from '../services/attendance/adms.js';
 
 /** The ADMS rules, ported from ClorTime (server/services/adms.js and friends). */
 
 describe('reading what a reader sends', () => {
   it('reads tab and space separated punch lines', () => {
-    expect(parseAttlogLine('104\t2026-10-14 09:02:11\t0\t15\t0\t0')).toEqual({ pin: '104', localTime: '2026-10-14 09:02:11', state: '0', verifyMode: 15 });
+    expect(parseAttlogLine('104\t2026-10-14 09:02:11\t0\t15\t0\t0')).toEqual({ pin: '104', localTime: '2026-10-14 09:02:11', state: '0', verifyMode: 15, workCode: null });
     expect(parseAttlogLine('104  2026-10-14 18:30:00  1  1  0')).toMatchObject({ pin: '104', localTime: '2026-10-14 18:30:00', state: '1' });
     expect(parseAttlogLine('garbage')).toBeNull();
     expect(parseAttlogLine('104\tnot a time\t0\t1')).toBeNull();
@@ -180,5 +182,32 @@ describe('command vocabulary', () => {
       for (const m of src.matchAll(/DATA\s+(UPDATE|DELETE|QUERY)\s+([A-Za-z]+)/g)) if (!KNOWN.has(m[2].toUpperCase())) found.push(`${rel}: ${m[0]}`);
     }
     expect(found).toEqual([]);
+  });
+});
+
+describe('work codes, reader messages and photos', () => {
+  it('keeps the work code a reader sends, and drops the 0 that means none', () => {
+    expect(parseAttlogLine('104\t2026-10-17 09:01:00\t0\t1\t12')!.workCode).toBe('12');
+    expect(parseAttlogLine('104\t2026-10-17 09:01:00\t0\t15\t0')!.workCode).toBeNull();
+    expect(parseAttlogLine('104\t2026-10-17 09:01:00\t0\t1')!.workCode).toBeNull();
+  });
+  it('writes a message for everyone or for one person, in the reader’s own clock', () => {
+    const at = new Date('2026-10-17T12:00:00Z');
+    expect(messageCommand('Office closes at 4', 60, null, at)).toBe('DATA UPDATE SMS MSG=Office closes at 4\tTAG=253\tUID=0\tMIN=60\tStartTime=2026-10-17 17:30:00');
+    expect(messageCommand('See HR\tnow\n', 0, '104', at)).toBe('DATA UPDATE SMS MSG=See HR now\tTAG=254\tUID=104\tMIN=60\tStartTime=2026-10-17 17:30:00');
+    expect(messageCommand('x'.repeat(300), 99_999, null, at)).toContain(`MSG=${'x'.repeat(200)}\t`);
+    expect(messageCommand('x', 99_999, null, at)).toContain('MIN=10080');
+  });
+  it('reads a USERPIC line as the person’s photo and sends it on as one', () => {
+    const jpeg = Buffer.alloc(300, 1).toString('base64');
+    const r = parseBiodataLine(`USERPIC PIN=104\tFileName=104.jpg\tSize=300\tContent=${jpeg}`, 'OPERLOG');
+    expect(r?.kind).toBe('TEMPLATE');
+    if (r?.kind !== 'TEMPLATE') throw new Error('not a template');
+    expect(r.template).toMatchObject({ pin: '104', type: USERPIC, no: 0 });
+    const cmds = templateCommands(r.template);
+    expect(cmds).toHaveLength(1);
+    expect(cmds[0].command.startsWith('DATA UPDATE USERPIC PIN=104\tSize=')).toBe(true);
+    expect(cmds[0].command).toContain(`Content=${jpeg}`);
+    expect(parseBiodataLine('USERPIC PIN=104\tFileName=104.jpg\tSize=0\tContent=', 'OPERLOG')).toBeNull();
   });
 });

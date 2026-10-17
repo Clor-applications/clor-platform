@@ -7,7 +7,7 @@ import { requirePermission } from '../middleware/rbac.js';
 import { PermissionAction } from '../constants/enums.js';
 import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { ATTENDANCE_MODULE, ATTENDANCE_RESOURCE, attendanceRouteOk } from '../services/attendance/guards.js';
-import { COMMANDS, FACE, FETCH_TEMPLATE_COMMANDS, ONLINE_WINDOW_MS, SEQ, VERIFY_MODES, commandEffect, normaliseFirmware, pinKey, userInfoCommand } from '../services/attendance/adms.js';
+import { COMMANDS, FACE, FETCH_TEMPLATE_COMMANDS, ONLINE_WINDOW_MS, SEQ, USERPIC, VERIFY_MODES, commandEffect, messageCommand, normaliseFirmware, pinKey, userInfoCommand } from '../services/attendance/adms.js';
 import { ISO_DATE, sendError, today } from './attendance.js';
 import { attachPunchesTo, copyAllTemplatesTo, pinMatcher, recomputeDeviceDay, servesArea, shiftDayFor, syncVendorConnection } from './iclock.js';
 import { decryptSecret, encryptSecret } from '../services/mailer.js';
@@ -428,6 +428,21 @@ devicesRouter.post(`${base}/:id/commands`, can(PermissionAction.EDIT), async (re
     await peoplePrisma.deviceCommand.create({ data: queue(COMMANDS[action]) });
     return res.json({ queued: 1 });
   }
+  if (action === 'MESSAGE') {
+    /* A line on the reader's screen: for everyone, or for one person when they punch. */
+    const text = String(req.body?.text || '').trim();
+    if (!text) return res.status(400).json({ error: 'Say what the reader should show.' });
+    const minutes = Number(req.body?.minutes) || 60;
+    let pin: string | null = null;
+    if (req.body?.employeeId) {
+      const e = await peoplePrisma.employee.findFirst({ where: { id: String(req.body.employeeId), orgId }, select: { devicePin: true, code: true } });
+      if (!e) return res.status(404).json({ error: 'No such employee.' });
+      pin = e.devicePin || e.code || null;
+      if (!pin) return res.status(400).json({ error: 'This person has no Reader ID or employee code to address the message to.' });
+    }
+    await peoplePrisma.deviceCommand.create({ data: queue(messageCommand(text, minutes, pin)) });
+    return res.json({ queued: 1, to: pin ? 'person' : 'everyone' });
+  }
   if (action === 'READ_ALL') {
     /* Learn what the reader holds — its users, fingerprints, faces, counts — so Sync status is true for a reader set up before CLOR. */
     const cmds = [COMMANDS.INFO, COMMANDS.FETCH_USERS, ...FETCH_TEMPLATE_COMMANDS];
@@ -626,14 +641,26 @@ devicesRouter.get('/orgs/:orgId/attendance/biometrics', can(PermissionAction.VIE
   const byPin = new Map<string, any>();
   for (const r of rows) {
     const e = r.employeeId ? names.get(r.employeeId) : null;
-    const row = byPin.get(r.pin) || { pin: r.pin, employeeId: r.employeeId, employeeName: e?.name || null, employeeCode: e?.code || null, fingers: 0, faces: 0, other: 0, updatedAt: null };
+    const row = byPin.get(r.pin) || { pin: r.pin, employeeId: r.employeeId, employeeName: e?.name || null, employeeCode: e?.code || null, fingers: 0, faces: 0, other: 0, photo: false, updatedAt: null };
     if (r.type === FACE) row.faces += r._count._all;
     else if (r.type === 1) row.fingers += r._count._all;
+    else if (r.type === USERPIC) row.photo = true;
     else row.other += r._count._all;
     if (!row.updatedAt || (r._max.updatedAt && r._max.updatedAt > row.updatedAt)) row.updatedAt = r._max.updatedAt;
     byPin.set(r.pin, row);
   }
   res.json({ people: [...byPin.values()].sort((a, b) => String(a.employeeName || a.pin).localeCompare(String(b.employeeName || b.pin))) });
+});
+
+/** The photo a reader holds for one Reader ID (USERPIC), as a data URL. */
+devicesRouter.get('/orgs/:orgId/attendance/biometrics/photo', can(PermissionAction.VIEW), async (req, res) => {
+  if (!(await attendanceRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const pin = String(req.query.pin || '').trim();
+  if (!pin) return res.status(400).json({ error: 'Which Reader ID?' });
+  const t = await peoplePrisma.biometricTemplate.findFirst({ where: { accountId, orgId, pin, type: USERPIC }, orderBy: { updatedAt: 'desc' }, select: { data: true, updatedAt: true } });
+  if (!t) return res.status(404).json({ error: 'No photo from a reader for this person.' });
+  res.json({ pin, photo: `data:image/jpeg;base64,${t.data}`, updatedAt: t.updatedAt });
 });
 
 // ---------------------------------------------------------------------------
@@ -693,6 +720,7 @@ devicesRouter.get('/orgs/:orgId/attendance/transactions', can(PermissionAction.V
       state: r.state,
       verifyMode: r.verifyMode,
       verify: VERIFY_MODES[r.verifyMode] || `Code ${r.verifyMode}`,
+      workCode: r.workCode ?? null,
       deviceId: r.deviceId,
       deviceName: dev.get(r.deviceId) || r.serialNumber,
       employeeId: r.employeeId,

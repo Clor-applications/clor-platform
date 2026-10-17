@@ -647,6 +647,8 @@ model DevicePunch {
   kind         String?
   /// 1 finger, 15 face, 2 card…, as the reader reports it.
   verifyMode   Int      @default(0)
+  /// The work code chosen at the reader (a job, a site); null when none.
+  workCode     String?
   /// Null until the pin is matched to an employee.
   employeeId   String?
   /// The shift day the punch belongs to (a night shift's morning exit is the previous day).

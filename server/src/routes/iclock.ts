@@ -246,6 +246,7 @@ export async function ingestPunches(device: { id: string; accountId: string; org
       /* Sources that say in/out outright send state 0 / 1 (ClorTime vendor_ingest); from a reader, 0 alone says nothing (services/attendance/drivers.ts). */
       kind: driverOf(device.vendor).explicitDirection ? (p.state === '0' ? 'IN' : p.state === '1' ? 'OUT' : punchKind(p.state, device.direction)) : punchKind(p.state, device.direction),
       verifyMode: p.verifyMode,
+      workCode: p.workCode,
       employeeId: emp?.id ?? null,
       shiftDate: null as string | null,
       raw: raw.slice(0, 300),
@@ -711,7 +712,7 @@ iclockRouter.post(['/cdata', '/cdata.aspx'], async (req, res) => {
       const logs: any[] = [];
       for (const line of body.split(/\r?\n/).map((l) => l.trim()).filter(Boolean)) {
         /* OPERLOG mixes operation records (OPLOG …) with users and templates; ERRORLOG is errors. */
-        if (table === 'ERRORLOG' || (table === 'OPERLOG' && !/^(USER|FP|FACE|BIODATA)\b/.test(line))) {
+        if (table === 'ERRORLOG' || (table === 'OPERLOG' && !/^(USER|FP|FACE|BIODATA|USERPIC)\b/.test(line))) {
           const op = parseOpLine(line);
           if (op) logs.push({ accountId: device.accountId, orgId: device.orgId, deviceId: device.id, kind: table === 'ERRORLOG' ? 'ERROR' : 'OPERATION', ...op });
           continue;
