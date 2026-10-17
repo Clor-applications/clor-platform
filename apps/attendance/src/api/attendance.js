@@ -118,7 +118,7 @@ export const previewMapping = (id, body) => send(`/devices/${encodeURIComponent(
 export const rotatePushToken = (id) => send(`/devices/${encodeURIComponent(id)}/rotate-token`, 'POST', {});
 export const lastPayload = (id) => get(`/devices/${encodeURIComponent(id)}/last-payload`);
 export const approveDeviceNetwork = (id) => send(`/devices/${encodeURIComponent(id)}/approve-network`, 'POST', {});
-export const deviceCommand = (id, action) => send(`/devices/${encodeURIComponent(id)}/commands`, 'POST', { action });
+export const deviceCommand = (id, action, extra = {}) => send(`/devices/${encodeURIComponent(id)}/commands`, 'POST', { action, ...extra });
 export const listDeviceCommands = (id, status) => get(`/devices/${encodeURIComponent(id)}/commands${query({ status })}`);
 export const retryDeviceCommands = (id, ids) => send(`/devices/${encodeURIComponent(id)}/commands/retry`, 'POST', ids ? { ids } : {});
 export const cancelDeviceCommands = (id, ids) => send(`/devices/${encodeURIComponent(id)}/commands/cancel`, 'POST', ids ? { ids } : {});
@@ -145,6 +145,8 @@ export const readerServer = () => {
   }
 };
 export const listBiometrics = () => get('/biometrics').then((r) => r?.people || []);
+/** The photo a reader holds for a Reader ID (USERPIC), as a data URL. */
+export const getReaderPhoto = (pin) => get(`/biometrics/photo${query({ pin })}`);
 export const listTransactions = (params) => get(`/transactions${query(params)}`);
 export const listDeviceLogs = (params) => get(`/device-logs${query(params)}`);
 export const listReports = () => get('/reports');

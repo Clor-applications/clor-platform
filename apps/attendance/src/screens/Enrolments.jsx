@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 
 import { PageHeader, SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
-import { listBiometrics } from '../api/attendance';
+import { getReaderPhoto, listBiometrics } from '../api/attendance';
+import { notify } from '@ui/components/ui/notify';
 import LoadFailed from '../components/LoadFailed';
 
 /**
@@ -14,6 +15,15 @@ export default function Enrolments() {
   const [loadError, setLoadError] = useState('');
   const [attempt, setAttempt] = useState(0);
   const [q, setQ] = useState('');
+  const [photo, setPhoto] = useState(null);
+  const showPhoto = async (r) => {
+    try {
+      const p = await getReaderPhoto(r.pin);
+      setPhoto({ src: p.photo, caption: `${r.employeeName || r.pin} · from the reader` });
+    } catch (e) {
+      notify.error(String(e?.message || 'No photo.'));
+    }
+  };
   useEffect(() => {
     listBiometrics().then((v) => { setRows(v); setLoadError(''); }).catch((e) => setLoadError(String(e?.message || 'Could not load enrolments.')));
   }, [attempt]);
@@ -42,6 +52,7 @@ export default function Enrolments() {
                   <th scope="col" className="ui-th">Reader ID</th>
                   <th scope="col" className="ui-th text-end">Fingerprints</th>
                   <th scope="col" className="ui-th ui-col-h-center">Face</th>
+                  <th scope="col" className="ui-th ui-col-h-center hidden md:table-cell">Photo</th>
                   <th scope="col" className="ui-th">Last enrolled</th>
                 </tr>
               </thead>
@@ -52,6 +63,7 @@ export default function Enrolments() {
                     <td className="ui-mono">{r.pin}</td>
                     <td className="text-end tabular-nums">{r.fingers || '—'}</td>
                     <td className="ui-col-h-center">{r.faces ? '✓' : '—'}</td>
+                    <td className="ui-col-h-center hidden md:table-cell">{r.photo ? <button type="button" className="ui-link text-sm" onClick={() => showPhoto(r)}>View</button> : '—'}</td>
                     <td className="ui-col-meta whitespace-nowrap">{r.updatedAt ? new Date(r.updatedAt).toLocaleString() : '—'}</td>
                   </tr>
                 ))}
@@ -60,6 +72,18 @@ export default function Enrolments() {
           </div>
         </div>
       )}
+      {photo ? (
+        <div className="ui-nav-sheet" role="dialog" aria-modal="true" aria-label="Photo from the reader" onClick={() => setPhoto(null)}>
+          <div className="ui-nav-sheet-backdrop" aria-hidden="true" />
+          <div className="ui-card p-3 space-y-2" style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', maxWidth: '20rem' }} onClick={(e) => e.stopPropagation()}>
+            <img src={photo.src} alt={photo.caption} className="w-full rounded-lg" />
+            <div className="flex items-center justify-between gap-2">
+              <span className="ui-caption">{photo.caption}</span>
+              <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => setPhoto(null)}>Close</button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

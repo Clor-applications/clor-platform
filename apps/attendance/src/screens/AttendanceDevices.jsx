@@ -15,6 +15,7 @@ import {
   cancelDeviceCommands,
   deleteDevice,
   deviceCommand,
+  listEmployees,
   listDeviceCommands,
   listDeviceUsers,
   listDevices,
@@ -986,6 +987,8 @@ function ReaderDrawer({ device, onClose, onChanged }) {
           <p className="ui-caption mt-2">“Send new staff” adds people the reader does not have, by employee code or Reader ID. Fetch its users first so people already on it are skipped.</p>
         </section>
 
+        <ReaderMessage device={device} onSent={() => { loadDetail(); onChanged(); }} />
+
         <section aria-labelledby="bio-h">
           <h3 id="bio-h" className="ui-t-sec mb-2">Fingerprints and faces</h3>
           <p className="ui-caption mb-2">
@@ -1073,5 +1076,66 @@ function ReaderDrawer({ device, onClose, onChanged }) {
         </section>
       </div>
     </Drawer>
+  );
+}
+
+/**
+ * A line on the reader's screen (ClorTime's Device → Message, which stored
+ * the text but never sent it). For everyone who walks up, or for one person
+ * when they punch; it stays for the minutes given.
+ */
+function ReaderMessage({ device, onSent }) {
+  const [text, setText] = useState('');
+  const [minutes, setMinutes] = useState(60);
+  const [employeeId, setEmployeeId] = useState('');
+  const [people, setPeople] = useState([]);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    listEmployees().then((d) => setPeople(d?.employees || d || [])).catch(() => {});
+  }, []);
+  const submit = async (e) => {
+    e.preventDefault();
+    if (!text.trim()) return;
+    setBusy(true);
+    try {
+      const r = await deviceCommand(device.id, 'MESSAGE', { text: text.trim(), minutes: Number(minutes) || 60, ...(employeeId ? { employeeId } : {}) });
+      notify.success(r.to === 'person' ? 'Queued — it shows the next time they punch.' : 'Queued — it shows on the reader within a minute.');
+      setText('');
+      onSent?.();
+    } catch (err) {
+      notify.error(String(err?.message || 'Not queued.'));
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <section aria-labelledby="msg-h">
+      <h3 id="msg-h" className="ui-t-sec mb-2">Message on the reader</h3>
+      <form className="flex flex-wrap items-end gap-2" onSubmit={submit}>
+        <label className="block min-w-[16rem] flex-1">
+          <span className="ui-t-label block mb-1">Text</span>
+          <input className="ui-input w-full" value={text} maxLength={200} placeholder="e.g. Office closes at 4 today" onChange={(e) => setText(e.target.value)} />
+        </label>
+        <label className="block">
+          <span className="ui-t-label block mb-1">Shows for</span>
+          <select className="ui-select" value={minutes} onChange={(e) => setMinutes(e.target.value)}>
+            <option value={30}>30 min</option>
+            <option value={60}>1 hour</option>
+            <option value={240}>4 hours</option>
+            <option value={1440}>1 day</option>
+            <option value={10080}>1 week</option>
+          </select>
+        </label>
+        <label className="block">
+          <span className="ui-t-label block mb-1">To</span>
+          <select className="ui-select" value={employeeId} onChange={(e) => setEmployeeId(e.target.value)}>
+            <option value="">Everyone</option>
+            {people.map((p) => <option key={p.id} value={p.id}>{p.name}{p.code ? ` · ${p.code}` : ''}</option>)}
+          </select>
+        </label>
+        <button type="submit" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={busy || !text.trim()}>{busy ? 'Queuing…' : 'Show it'}</button>
+      </form>
+      <p className="ui-caption mt-2">A message to one person appears when they punch; to everyone, on the idle screen.</p>
+    </section>
   );
 }

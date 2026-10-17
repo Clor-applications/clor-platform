@@ -53,6 +53,9 @@ export default function Transactions() {
   }, []);
   const set = (k) => (e) => setFilters((f) => ({ ...f, [k]: e.target.value }));
 
+  /* The work-code column only when a reader sent one; most never do. */
+  const anyWorkCode = Boolean(data?.transactions?.some((t) => t.workCode));
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -121,6 +124,7 @@ export default function Transactions() {
                   <th scope="col" className="ui-th">Reader ID</th>
                   <th scope="col" className="ui-th ui-col-h-center">Direction</th>
                   <th scope="col" className="ui-th">Verified by</th>
+                  {anyWorkCode ? <th scope="col" className="ui-th hidden md:table-cell">Work code</th> : null}
                   <th scope="col" className="ui-th">Reader</th>
                   <th scope="col" className="ui-th">Counted on</th>
                   <th scope="col" className="ui-th">Where</th>
@@ -152,6 +156,7 @@ export default function Transactions() {
                       )}
                     </td>
                     <td>{t.verify}</td>
+                    {anyWorkCode ? <td className="ui-mono hidden md:table-cell">{t.workCode || ''}</td> : null}
                     <td>{t.deviceName}</td>
                     <td className="ui-col-meta whitespace-nowrap">{t.shiftDate || (t.employeeId ? '—' : 'once matched')}</td>
                     <td className="whitespace-nowrap">
