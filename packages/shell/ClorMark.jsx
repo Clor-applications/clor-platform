@@ -1,20 +1,29 @@
 import React from 'react';
 
 /**
- * The Clor mark — the brand swirl icon (public/brand/clor-icon.svg), the same
- * artwork used on the attendance app and the marketing site. Rendered as an
- * <img> so the one file keeps every surface in sync; replaces the earlier
- * hand-drawn ribbon "C" so the platform matches the rest of the brand.
+ * The CLOR symbol from the brand kit (v1.0, "Slant"): two 20° blocks, ink over
+ * orange. The ink block takes `currentColor`, so on a dark surface the mark is
+ * the kit's reversed version (white + orange) without a second asset. The
+ * orange is fixed — the guidelines allow no recolouring of the accent.
  */
 export default function ClorMark({ size = 24, className = '', title = 'Clor' }) {
+  const height = size;
+  const width = Math.round((size * 165.74) / 160);
   return (
-    <img
-      src="/brand/clor-icon.svg"
-      width={size}
-      height={size}
-      alt={title}
+    <svg
+      width={width}
+      height={height}
+      viewBox="0 0 165.74 160"
       className={className}
-      style={{ height: 'auto', display: 'block' }}
-    />
+      role={title ? 'img' : undefined}
+      aria-hidden={title ? undefined : 'true'}
+      aria-label={title || undefined}
+      focusable="false"
+      style={{ display: 'block' }}
+    >
+      {title ? <title>{title}</title> : null}
+      <path fill="currentColor" d="M30.74 0 L165.74 0 L142.08 65 L7.08 65 Z" />
+      <path fill="#FF6B00" d="M23.66 95 L158.66 95 L135 160 L0 160 Z" />
+    </svg>
   );
 }

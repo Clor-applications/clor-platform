@@ -1,3 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
-<rect x="0" y="0" width="512" height="512" rx="0" fill="#18181B"/>
-<g fill="none" stroke="#FAFAFA" stroke-width="26" stroke-linecap="round" stroke-linejoin="round" transform="translate(256 256) scale(0.78) translate(-256 -256)"><path d="M256 140a116 116 0 0 1 116 116v24"/><path d="M196 196a84 84 0 0 1 144 60v52c0 20-4 40-12 58"/><path d="M256 236a40 40 0 0 1 40 40v40c0 32-10 62-28 86"/><path d="M216 300v24c0 36-12 70-32 96"/><path d="M164 236a92 92 0 0 1 20-56"/><path d="M152 320c-6 24-18 46-34 64"/></g></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="title">
+  <title id="title">CLOR Attendance app icon, maskable</title>
+  <rect width="256" height="256" fill="#14152B"/><g transform="translate(128 128) scale(0.8) translate(-128 -128)">
+  <g transform="translate(0 -8)"><path fill="#FFFFFF" fill-rule="evenodd" d="M78 74 H178 A16 16 0 0 1 194 90 V164 A16 16 0 0 1 178 180 H78 A16 16 0 0 1 62 164 V90 A16 16 0 0 1 78 74 Z M84 106 H172 A8 8 0 0 1 180 114 V158 A8 8 0 0 1 172 166 H84 A8 8 0 0 1 76 158 V114 A8 8 0 0 1 84 106 Z"/><path fill="#FFFFFF" d="M95 62 H95 A7 7 0 0 1 102 69 V83 A7 7 0 0 1 95 90 H95 A7 7 0 0 1 88 83 V69 A7 7 0 0 1 95 62 Z M161 62 H161 A7 7 0 0 1 168 69 V83 A7 7 0 0 1 161 90 H161 A7 7 0 0 1 154 83 V69 A7 7 0 0 1 161 62 Z"/><path fill="none" stroke="#FFFFFF" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" d="M106 136 L122 151 L152 121"/></g>
+  <path fill="#FF6B00" d="M90.55 186 L174.55 186 L168 204 L84 204 Z"/>
+
+</g></svg>
