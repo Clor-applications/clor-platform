@@ -491,9 +491,12 @@ const EmployeeForm = ({ initial, sensitiveVisible, onClose, onSaved }) => {
         notes: form.notes || null,
         payroll: form.payroll,
       };
-      if (initial.id) await updateEmployee(initial.id, payload);
-      else await createEmployee(payload);
-      notify.success(`${form.name} saved.`);
+      const saved = initial.id ? await updateEmployee(initial.id, payload) : await createEmployee(payload);
+      notify.success(
+        saved?.bankChangePending
+          ? `${form.name} saved. The new bank account waits for approval under Bank changes; pay goes to the current account until then.`
+          : `${form.name} saved.`
+      );
       onSaved();
     } catch (err) {
       notify.error(String(err?.message || 'Could not save that person.'));

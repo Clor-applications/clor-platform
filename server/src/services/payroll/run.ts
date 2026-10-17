@@ -537,6 +537,13 @@ export async function validateRun(orgId: string, runId: string): Promise<{ issue
   const ctx = await loadRunContext(orgId, runId);
   const issues: RunIssue[] = [];
   const byEmployee = new Map<string, RunIssue[]>();
+  /* Bank details approved in the last 30 days (not the first ones on file), and changes still waiting. */
+  const recentBank = await payrollPrisma.bankDetailChange.findMany({
+    where: { orgId, employeeId: { in: ctx.members.map((m) => m.employeeId) }, OR: [{ status: 'PENDING' }, { status: 'APPROVED', decidedAt: { gte: new Date(Date.now() - 30 * 86_400_000) }, oldAccountNumber: { not: null } }] },
+    select: { employeeId: true, status: true, decidedAt: true },
+  });
+  const bankChanges = new Map(recentBank.filter((c) => c.status === 'APPROVED' && c.decidedAt).map((c) => [c.employeeId, c.decidedAt!]));
+  const pendingBank = new Set(recentBank.filter((c) => c.status === 'PENDING').map((c) => c.employeeId));
 
   const add = (issue: RunIssue) => {
     issues.push(issue);
@@ -725,6 +732,19 @@ export async function validateRun(orgId: string, runId: string): Promise<{ issue
        only paying needs them. Saying so now saves a scramble on payment day. */
     if (!profile?.bankAccountNumber) {
       add({ severity: 'WARNING', code: 'NO_BANK_ACCOUNT', employeeId: employee.id, message: `${who} has no bank account on file.` });
+    }
+    /* Changed accounts are where diverted pay goes: worth a second look before paying. */
+    const changed = bankChanges.get(employee.id);
+    if (changed) {
+      add({
+        severity: 'WARNING',
+        code: 'BANK_CHANGED_RECENTLY',
+        employeeId: employee.id,
+        message: `${who}'s bank account was changed on ${changed.toISOString().slice(0, 10)}. Confirm it with them before paying.`,
+      });
+    }
+    if (pendingBank.has(employee.id)) {
+      add({ severity: 'INFO', code: 'BANK_CHANGE_PENDING', employeeId: employee.id, message: `${who} has a bank change waiting for approval; pay goes to the account on file until then.` });
     }
     if (!profile?.pan) {
       add({ severity: 'INFO', code: 'NO_PAN', employeeId: employee.id, message: `${who} has no PAN on file.` });

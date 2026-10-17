@@ -43,13 +43,22 @@ export async function createEmployee(payload) {
 }
 
 export async function updateEmployee(id, payload) {
-  const { employee } = await apiFetch(`${base()}/employees/${encodeURIComponent(id)}`, {
+  const { employee, bankChangePending } = await apiFetch(`${base()}/employees/${encodeURIComponent(id)}`, {
     ...opts,
     method: 'PUT',
     body: payload,
   });
-  return employee;
+  /* A change to bank details on file waits for approval instead of applying. */
+  return { ...employee, bankChangePending: Boolean(bankChangePending) };
 }
+
+/** Bank detail changes: waiting by default, `status: 'ALL'` for the history. */
+export const listBankChanges = ({ status = 'PENDING', employeeId = '' } = {}) => {
+  const q = new URLSearchParams({ status, ...(employeeId ? { employeeId } : {}) });
+  return apiFetch(`${base()}/bank-changes?${q}`, opts).then((r) => r?.changes || []);
+};
+export const approveBankChange = (id) => apiFetch(`${base()}/bank-changes/${encodeURIComponent(id)}/approve`, { ...opts, method: 'POST' });
+export const rejectBankChange = (id, note) => apiFetch(`${base()}/bank-changes/${encodeURIComponent(id)}/reject`, { ...opts, method: 'POST', body: { note } });
 
 export const deleteEmployee = (id) =>
   apiFetch(`${base()}/employees/${encodeURIComponent(id)}`, { ...opts, method: 'DELETE' });

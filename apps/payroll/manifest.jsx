@@ -1,4 +1,4 @@
-import { ArrowUpRight, BadgePercent, BarChart3, CalendarClock, FileText, Landmark, Layers, ListChecks, Percent, RefreshCw, SlidersHorizontal, Table2, Users, Wallet } from 'lucide-react';
+import { ArrowUpRight, BadgePercent, Banknote, BarChart3, CalendarClock, FileText, Landmark, Layers, ListChecks, Percent, RefreshCw, SlidersHorizontal, Table2, Users, Wallet } from 'lucide-react';
 
 import PayrollOverview from './src/screens/PayrollOverview';
 import PayRuns from './src/screens/PayRuns';
@@ -16,6 +16,7 @@ import SalaryComponents from './src/screens/SalaryComponents';
 import PayGroups from './src/screens/PayGroups';
 import PayrollPeriods from './src/screens/PayrollPeriods';
 import PayrollSetup from './src/screens/PayrollSetup';
+import BankChanges from './src/screens/BankChanges';
 
 /**
  * Everything the shell knows about Payroll.
@@ -43,6 +44,7 @@ export const payrollApp = {
     { key: 'runs', label: 'Pay Runs', icon: CalendarClock },
     { key: 'slips', label: 'Salary Slips', icon: FileText },
     { key: 'payments', label: 'Payments', icon: ArrowUpRight },
+    { key: 'bankChanges', label: 'Bank changes', icon: Banknote },
     { key: 'adjustments', label: 'Adjustments', icon: Percent },
     { key: 'assignments', label: 'Salary Assignments', icon: Users },
     { key: 'revisions', label: 'Salary Revisions', icon: RefreshCw },
@@ -68,6 +70,7 @@ export const payrollApp = {
     runs: PayRuns,
     slips: SalarySlips,
     payments: PayrollPayments,
+    bankChanges: BankChanges,
     adjustments: PayrollAdjustments,
     structures: SalaryStructures,
     assignments: SalaryAssignments,

@@ -10,6 +10,7 @@ import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { PAYROLL_MODULE, PAYROLL_RESOURCE, payrollRouteOk } from '../services/payroll/guards.js';
 import { levelFor, resolveAccess } from '../services/access.js';
 import { pushEmployeeToReaders, readerFieldsChanged, revokeFromReaders } from './iclock.js';
+import { BANK_FIELDS, BankChangeError, approveBankChange, maskNumber, rejectBankChange, routeBankUpdate } from '../services/payroll/bankChanges.js';
 
 /**
  * The people payroll pays, and the payroll-specific things known about them.
@@ -274,6 +275,10 @@ payrollEmployeesRouter.post(
           data: { accountId, orgId, employeeId: row.id, createdByUserId: req.auth!.userId, ...payrollData(body.payroll) },
         })
       : null;
+    /* First details on file apply at once, and go in the history of where pay goes. */
+    if (payroll && (payroll.bankAccountNumber || payroll.bankIfsc)) {
+      await routeBankUpdate({ accountId, orgId, employeeId: row.id, userId: req.auth!.userId, current: null, incoming: payroll });
+    }
 
     res.status(201).json({ employee: shape({ ...row, payroll }, await mayRevealSensitive(req)) });
   }
@@ -327,6 +332,7 @@ payrollEmployeesRouter.put(
     else if (row.status !== 'LEFT' && readerFieldsChanged(existing, row)) await pushEmployeeToReaders(orgId, row, req.auth!.userId, existing);
 
     let payroll = await payrollPrisma.employeePayrollProfile.findFirst({ where: { orgId, employeeId: row.id } });
+    let bankChangePending = false;
 
     if (body.payroll) {
       const reveal = await mayRevealSensitive(req);
@@ -344,6 +350,17 @@ payrollEmployeesRouter.put(
         incoming.pan = payroll?.pan ?? null;
       }
 
+      /*
+       * Where pay goes is not changed by a save: a change to bank details
+       * already on file waits for approval (services/payroll/bankChanges.ts).
+       * IFSC and bank name included — they redirect pay as surely as the number.
+       */
+      const bank = Object.fromEntries(BANK_FIELDS.map((k) => [k, (incoming as any)[k]]));
+      for (const k of BANK_FIELDS) delete (incoming as any)[k];
+      const routed = await routeBankUpdate({ accountId, orgId, employeeId: row.id, userId: req.auth!.userId, current: payroll, incoming: bank });
+      Object.assign(incoming, routed.apply);
+      bankChangePending = Boolean(routed.pending);
+
       payroll = payroll
         ? await payrollPrisma.employeePayrollProfile.update({ where: { id: payroll.id }, data: incoming })
         : await payrollPrisma.employeePayrollProfile.create({
@@ -351,9 +368,64 @@ payrollEmployeesRouter.put(
           });
     }
 
-    res.json({ employee: shape({ ...row, payroll }, await mayRevealSensitive(req)) });
+    res.json({ employee: shape({ ...row, payroll }, await mayRevealSensitive(req)), bankChangePending });
   }
 );
+
+/* ---------------------------------------------------------------- bank changes */
+
+const APPROVE_BANK = requirePermission(PAYROLL_MODULE, PermissionAction.APPROVE, PAYROLL_RESOURCE.runs);
+const bankError = (res: any, e: unknown) => {
+  if (e instanceof BankChangeError) return res.status(e.status).json({ error: e.message, code: e.code });
+  throw e;
+};
+
+/** Bank detail changes: waiting ones by default, or the history (`?status=ALL`, `?employeeId=`). */
+payrollEmployeesRouter.get('/orgs/:orgId/payroll/bank-changes', requirePermission(PAYROLL_MODULE, PermissionAction.VIEW, RESOURCE), async (req, res) => {
+  if (!(await payrollRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const status = String(req.query.status || 'PENDING');
+  const employeeId = req.query.employeeId ? String(req.query.employeeId) : undefined;
+  const rows = await payrollPrisma.bankDetailChange.findMany({
+    where: { accountId, orgId, ...(status === 'ALL' ? {} : { status }), ...(employeeId ? { employeeId } : {}) },
+    orderBy: { requestedAt: 'desc' },
+    take: 200,
+  });
+  const people = new Map(
+    (await peoplePrisma.employee.findMany({ where: { orgId, id: { in: [...new Set(rows.map((r) => r.employeeId))] } }, select: { id: true, name: true, code: true } })).map((p) => [p.id, p])
+  );
+  /* Account numbers by their last four only, here: the list is for deciding, not for copying. */
+  res.json({
+    changes: rows.map(({ oldAccountNumber, newAccountNumber, ...r }) => ({
+      ...r,
+      oldAccount: maskNumber(oldAccountNumber),
+      newAccount: maskNumber(newAccountNumber),
+      employeeName: people.get(r.employeeId)?.name || null,
+      employeeCode: people.get(r.employeeId)?.code || null,
+      mine: r.requestedByUserId === req.auth!.userId,
+    })),
+  });
+});
+
+payrollEmployeesRouter.post('/orgs/:orgId/payroll/bank-changes/:id/approve', APPROVE_BANK, async (req, res) => {
+  if (!(await payrollRouteOk(req, res))) return;
+  try {
+    const change = await approveBankChange(req.tenant!.orgId, String(req.params.id), req.auth!.userId);
+    res.json({ change: { id: change.id, status: change.status } });
+  } catch (e) {
+    return bankError(res, e);
+  }
+});
+
+payrollEmployeesRouter.post('/orgs/:orgId/payroll/bank-changes/:id/reject', APPROVE_BANK, async (req, res) => {
+  if (!(await payrollRouteOk(req, res))) return;
+  try {
+    const change = await rejectBankChange(req.tenant!.orgId, String(req.params.id), req.auth!.userId, req.body?.note ? String(req.body.note) : null);
+    res.json({ change: { id: change.id, status: change.status } });
+  } catch (e) {
+    return bankError(res, e);
+  }
+});
 
 payrollEmployeesRouter.delete(
   '/orgs/:orgId/payroll/employees/:id',

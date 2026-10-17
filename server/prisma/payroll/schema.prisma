@@ -106,6 +106,39 @@ model EmployeePayrollProfile {
   @@index([accountId, orgId, payrollStatus])
 }
 
+/// A change to where someone is paid. Bank details are what payroll fraud
+/// goes after (an e-mail asking HR to "update my account"), so a change to
+/// details already on file does not apply until somebody other than the
+/// person who entered it approves it — or, in a one-person company, the same
+/// person after a day's wait. Kept for good as the history of where pay went.
+model BankDetailChange {
+  id         String @id @default(cuid())
+  accountId  String
+  orgId      String
+  employeeId String
+
+  /// PENDING | APPROVED | REJECTED | CANCELLED. First details on file are APPROVED at once.
+  status String @default("PENDING")
+
+  oldAccountName   String?
+  oldAccountNumber String?
+  oldIfsc          String?
+  oldBankName      String?
+  newAccountName   String?
+  newAccountNumber String?
+  newIfsc          String?
+  newBankName      String?
+
+  requestedByUserId String
+  requestedAt       DateTime  @default(now())
+  decidedByUserId   String?
+  decidedAt         DateTime?
+  note              String?
+
+  @@index([accountId, orgId, status])
+  @@index([orgId, employeeId])
+}
+
 /// A population that is paid on the same rhythm: monthly staff, weekly labour,
 /// contractors. Filters runs and narrows which structures apply.
 model PayGroup {

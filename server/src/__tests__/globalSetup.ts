@@ -261,6 +261,7 @@ export default async function setup() {
   await applyPolicies(asOwner(accounting), 'prisma/migrations/20261014110000_reconciliation_on_server');
   await applyPolicies(asOwner(accounting), 'prisma/migrations/20261014120000_stock_ledger');
   await applyPolicies(asOwner(payroll), 'prisma/payroll/migrations/20260924120000_row_level_security');
+  await applyPolicies(asOwner(payroll), 'prisma/payroll/migrations/20261017120100_bank_detail_changes_rls');
   await applyPolicies(asOwner(people), 'prisma/people/migrations/20260924120000_row_level_security');
   await applyPolicies(asOwner(people), 'prisma/people/migrations/20261014130100_people_org_structure_rls');
   await applyPolicies(asOwner(people), 'prisma/people/migrations/20261014140100_attendance_rls');

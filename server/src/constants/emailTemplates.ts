@@ -119,6 +119,21 @@ If you have already paid, please ignore this message.
     fields: ['customerName', 'invoiceNumber', 'amount', 'dueDate', 'orgName'],
   },
   {
+    key: 'payroll.bank_change_requested',
+    label: 'Bank details change requested',
+    description: 'Sent to an employee when somebody asks to change the bank account their salary is paid into.',
+    subject: 'Your salary bank account at {{orgName}} is being changed',
+    body: `Hello {{employeeName}},
+
+Somebody at {{orgName}} has asked to change the bank account your salary is paid into, to an account ending {{newAccountEnding}}.
+
+If you asked for this, there is nothing to do: it takes effect once it is approved.
+
+If you did not, tell HR straight away — by phone or in person, not by replying to an e-mail. Your salary keeps going to your current account until the change is approved.`,
+    fields: ['employeeName', 'orgName', 'newAccountEnding'],
+    transactional: true,
+  },
+  {
     key: 'attendance.portal_invite',
     label: 'Employee portal activation',
     description: 'Sent when HR gives an employee an activation code for the employee portal.',
