@@ -148,6 +148,7 @@ export const listDeviceLogs = (params) => get(`/device-logs${query(params)}`);
 export const listReports = () => get('/reports');
 export const runReport = (id, params) => get(`/reports/${encodeURIComponent(id)}${query(params)}`);
 export const testEtimeOffice = (body) => send('/devices/test-etimeoffice', 'POST', body);
+export const testPull = (body) => send('/devices/test-pull', 'POST', body);
 export const syncConnection = (id, from) => send(`/devices/${encodeURIComponent(id)}/sync`, 'POST', from ? { from } : {});
 
 // Integrations (server: routes/integrations.ts; the outside API is routes/publicApi.ts at /v1)

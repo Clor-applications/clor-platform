@@ -22,6 +22,7 @@ import {
   retryDeviceCommands,
   syncConnection,
   testEtimeOffice,
+  testPull,
   todayIst,
   updateDevice,
 } from '../api/attendance';
@@ -50,7 +51,18 @@ const ago = (iso) => {
  * driver can do (server: services/attendance/drivers.ts).
  */
 /** Sources with a field mapping instead of a protocol. */
-const MAPPED = { HTTP_PUSH: true, FILE: true };
+const MAPPED = { HTTP_PUSH: true, FILE: true, HTTP_PULL: true };
+/** Devices and servers CLOR pulls from with an address and credentials. */
+const PULL = { HIKVISION: true, DAHUA: true, BIOSTAR: true, HTTP_PULL: true };
+const ADDRESS_HINT = { HIKVISION: 'http://203.0.113.10:80', DAHUA: 'http://203.0.113.10:80', BIOSTAR: 'https://biostar.example.com', HTTP_PULL: 'https://host/api/punches?from={from}&to={to}' };
+const TIME_STAMPS = [
+  ['iso', 'ISO, UTC — 2026-10-17T03:30:00.000Z'],
+  ['local', 'Local — 2026-10-17 09:00:00'],
+  ['date', 'Date only — 2026-10-17'],
+  ['dmy', 'Day first — 17/10/2026 09:00'],
+  ['epoch', 'Seconds since 1970'],
+  ['epoch_ms', 'Milliseconds since 1970'],
+];
 /** Not readers: punches sent with an API key, and from the employee portal on phones. */
 const VIRTUAL = {
   API: { label: 'API key', title: 'Punches sent with an API key — manage it under Integrations' },
@@ -140,6 +152,10 @@ export default function AttendanceDevices({ openScreen }) {
             A reader only sends to CLOR from networks you approved, so someone who learns its serial number cannot use it. If it moves to a new internet connection,
             approve it here from that connection.
           </li>
+          <li>
+            Other makes: Hikvision, Dahua and BioStar are pulled by CLOR, so the device or server needs an address reachable from the internet (a public address or a
+            forwarded port). Anything that can post JSON gets its own push URL; any software with a JSON API can be polled; a CSV from any software can be imported.
+          </li>
           <li>Each person’s user ID on the reader should be their employee code, or the Reader ID on their employee file.</li>
         </ol>
       </details>
@@ -169,7 +185,7 @@ export default function AttendanceDevices({ openScreen }) {
                 {data.devices.map((d) => (
                   <tr key={d.id} className={VIRTUAL[d.vendor] ? undefined : 'ui-row-click'} onClick={VIRTUAL[d.vendor] ? undefined : () => setOpen(d)} title={VIRTUAL[d.vendor]?.title}>
                     <td className="ui-col-entity">{d.name}</td>
-                    <td className="ui-col-meta">{d.vendor === 'ETIMEOFFICE' ? 'e-Time Office' : MAPPED[d.vendor] ? d.driverLabel : VIRTUAL[d.vendor]?.label || d.serialNumber}</td>
+                    <td className="ui-col-meta">{d.vendor === 'ETIMEOFFICE' ? 'e-Time Office' : MAPPED[d.vendor] || PULL[d.vendor] ? d.driverLabel : VIRTUAL[d.vendor]?.label || d.serialNumber}</td>
                     <td>{d.direction === 'both' ? 'In / out' : d.direction === 'in' ? 'Entry' : 'Exit'}</td>
                     <td className="ui-col-h-center whitespace-nowrap">
                       {!d.isActive ? (
@@ -184,8 +200,8 @@ export default function AttendanceDevices({ openScreen }) {
                         ) : (
                           <span className="ui-pill ui-pill-neutral">{d.lastSeenAt ? `${d.vendor === 'FILE' ? 'imported' : 'pushed'} ${ago(d.lastSeenAt)}` : d.vendor === 'FILE' ? 'nothing imported yet' : 'nothing received yet'}</span>
                         )
-                      ) : d.vendor === 'ETIMEOFFICE' ? (
-                        <span className={`ui-pill ${d.lastError ? 'ui-pill-neg' : 'ui-pill-pos'}`} title={d.lastError || ''}>{d.lastError ? 'pull failing' : `pulled ${ago(d.lastFetchedAt)}`}</span>
+                      ) : d.vendor === 'ETIMEOFFICE' || (PULL[d.vendor] && !MAPPED[d.vendor]) ? (
+                        <span className={`ui-pill ${d.lastError ? 'ui-pill-neg' : d.lastFetchedAt ? 'ui-pill-pos' : 'ui-pill-neutral'}`} title={d.lastError || ''}>{d.lastError ? 'pull failing' : d.lastFetchedAt ? `pulled ${ago(d.lastFetchedAt)}` : 'not pulled yet'}</span>
                       ) : d.awaitingNetwork ? (
                         <span className="ui-pill ui-pill-warn" title={`Calling from ${d.awaitingNetwork}, which is not approved`}>new network</span>
                       ) : d.online ? (
@@ -228,6 +244,8 @@ export default function AttendanceDevices({ openScreen }) {
       {open ? (
         MAPPED[open.vendor] ? (
           <MappedDrawer device={open} pushBase={data?.pushBase} onClose={() => setOpen(null)} onChanged={load} />
+        ) : PULL[open.vendor] ? (
+          <PullDrawer device={open} onClose={() => setOpen(null)} onChanged={load} />
         ) : open.vendor && open.vendor !== 'ADMS' ? (
           <CloudDrawer device={open} onClose={() => setOpen(null)} onChanged={load} />
         ) : (
@@ -242,19 +260,30 @@ const ZONES = ['Asia/Kolkata', 'Asia/Dubai', 'Asia/Riyadh', 'Asia/Qatar', 'Asia/
 
 function AddReader({ drivers, pushBase, onClose, onSaved }) {
   const [kind, setKind] = useState('ADMS');
-  const [form, setForm] = useState({ serialNumber: '', name: '', direction: 'both', corporateId: '', username: '', password: '', apiUrl: '', sourceTimezone: 'Asia/Kolkata' });
+  const [form, setForm] = useState({ serialNumber: '', name: '', direction: 'both', corporateId: '', username: '', password: '', apiUrl: '', sourceTimezone: 'Asia/Kolkata', baseUrl: '', method: 'GET', timeFormat: 'iso', auth: 'basic', body: '' });
   const [saving, setSaving] = useState(false);
   const [tested, setTested] = useState(null);
   const [made, setMade] = useState(null);
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
   const cloud = kind === 'ETIMEOFFICE';
-  const mapped = Boolean(MAPPED[kind]);
+  const pull = Boolean(PULL[kind]);
+  const mapped = Boolean(MAPPED[kind]) && !pull;
   const creds = () => ({ corporateId: form.corporateId || null, username: form.username, password: form.password, apiUrl: form.apiUrl || null });
+  const pullBody = () => ({
+    vendor: kind,
+    name: form.name,
+    direction: form.direction,
+    sourceTimezone: form.sourceTimezone,
+    baseUrl: kind === 'HTTP_PULL' ? null : form.baseUrl || null,
+    username: form.username || null,
+    password: form.password || null,
+    config: kind === 'HTTP_PULL' ? { url: form.baseUrl, method: form.method, timeFormat: form.timeFormat, auth: form.auth, ...(form.method === 'POST' && form.body ? { body: form.body } : {}) } : null,
+  });
   const choices = drivers.length ? drivers : [{ vendor: 'ADMS', label: 'Push reader (ADMS)', blurb: 'ZKTeco, eSSL and other readers with a Cloud Server setting.' }];
 
   const test = async () => {
     try {
-      setTested(await testEtimeOffice(creds()));
+      setTested(pull ? await testPull(pullBody()) : await testEtimeOffice(creds()));
     } catch (err) {
       setTested({ ok: false, message: String(err?.message || 'Could not test.') });
     }
@@ -265,7 +294,9 @@ function AddReader({ drivers, pushBase, onClose, onSaved }) {
     try {
       const r = cloud
         ? await addDevice({ vendor: 'ETIMEOFFICE', name: form.name, direction: form.direction, ...creds() })
-        : mapped
+        : pull
+          ? await addDevice(pullBody())
+          : mapped
           ? await addDevice({ vendor: kind, name: form.name, direction: form.direction, sourceTimezone: form.sourceTimezone })
           : await addDevice({ serialNumber: form.serialNumber, name: form.name, direction: form.direction });
       if (r.pushToken) {
@@ -274,7 +305,7 @@ function AddReader({ drivers, pushBase, onClose, onSaved }) {
         return;
       }
       notify.success(
-        cloud ? `${r.device.name} connected. Punches are pulled every few minutes.` : mapped ? `${r.device.name} added. Open it to import a file.` : r.seenBefore ? `${r.device.name} added — it is already talking to CLOR.` : `${r.device.name} added. It shows online once it connects.`
+        cloud || pull ? `${r.device.name} connected. Punches are pulled every few minutes${kind === 'HTTP_PULL' ? '; open it to set where each field is' : ''}.` : mapped ? `${r.device.name} added. Open it to import a file.` : r.seenBefore ? `${r.device.name} added — it is already talking to CLOR.` : `${r.device.name} added. It shows online once it connects.`
       );
       onSaved();
     } catch (err) {
@@ -343,6 +374,41 @@ function AddReader({ drivers, pushBase, onClose, onSaved }) {
               ) : null}
             </div>
           </>
+        ) : pull ? (
+          <>
+            <label className="block">
+              <span className="ui-label">{kind === 'HTTP_PULL' ? 'URL to call *' : 'Address *'}</span>
+              <input className="ui-input w-full ui-mono" required value={form.baseUrl} onChange={set('baseUrl')} placeholder={ADDRESS_HINT[kind]} />
+              <span className="ui-caption">
+                {kind === 'HTTP_PULL' ? 'Write {from} and {to} where the time window goes.' : 'The device or server must be reachable from the internet (a public address or a forwarded port). Readers on the office network alone are for the on-site connector, coming later.'}
+              </span>
+            </label>
+            {kind === 'HTTP_PULL' ? (
+              <div className="grid gap-3 sm:grid-cols-3">
+                <label className="block"><span className="ui-label">Method</span><select className="ui-select w-full" value={form.method} onChange={set('method')}><option>GET</option><option>POST</option></select></label>
+                <label className="block"><span className="ui-label">{'{from}'} and {'{to}'} written as</span><select className="ui-select w-full" value={form.timeFormat} onChange={set('timeFormat')}>{TIME_STAMPS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></label>
+                <label className="block"><span className="ui-label">Sign in with</span><select className="ui-select w-full" value={form.auth} onChange={set('auth')}><option value="none">Nothing</option><option value="basic">User name and password (Basic)</option><option value="digest">User name and password (Digest)</option><option value="header">A header (name + value)</option></select></label>
+              </div>
+            ) : null}
+            {kind === 'HTTP_PULL' && form.method === 'POST' ? (
+              <label className="block"><span className="ui-label">Body to send</span><textarea className="ui-input w-full ui-mono" rows={2} value={form.body} onChange={set('body')} placeholder='{"from":"{from}","to":"{to}"}' /></label>
+            ) : null}
+            {kind !== 'HTTP_PULL' || form.auth !== 'none' ? (
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="block"><span className="ui-label">{kind === 'HTTP_PULL' && form.auth === 'header' ? 'Header name' : 'User name'}{kind === 'HTTP_PULL' ? '' : ' *'}</span><input className="ui-input w-full" required={kind !== 'HTTP_PULL'} autoComplete="off" value={form.username} onChange={set('username')} placeholder={kind === 'HTTP_PULL' && form.auth === 'header' ? 'X-API-Key' : 'admin'} /></label>
+                <label className="block"><span className="ui-label">{kind === 'HTTP_PULL' && form.auth === 'header' ? 'Header value' : 'Password'}{kind === 'HTTP_PULL' ? '' : ' *'}</span><input type="password" className="ui-input w-full" required={kind !== 'HTTP_PULL'} autoComplete="new-password" value={form.password} onChange={set('password')} /></label>
+              </div>
+            ) : null}
+            <ZoneField value={form.sourceTimezone} onChange={(v) => setForm({ ...form, sourceTimezone: v })} />
+            <div className="flex flex-wrap items-center gap-2">
+              <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={!form.baseUrl} onClick={test}>Test connection</button>
+              {tested ? (
+                <span className="text-sm" role="status" style={{ color: tested.ok ? 'rgb(var(--pos))' : 'rgb(var(--neg))' }}>
+                  {tested.ok ? `Connected — ${tested.punchesToday} record${tested.punchesToday === 1 ? '' : 's'} today${kind === 'HTTP_PULL' ? `, ${tested.readable} readable with the mapping` : ''}.` : tested.message}
+                </span>
+              ) : null}
+            </div>
+          </>
         ) : mapped ? (
           <ZoneField value={form.sourceTimezone} onChange={(v) => setForm({ ...form, sourceTimezone: v })} />
         ) : (
@@ -353,7 +419,7 @@ function AddReader({ drivers, pushBase, onClose, onSaved }) {
         )}
         <label className="block">
           <span className="ui-label">Name *</span>
-          <input className="ui-input w-full" required maxLength={80} value={form.name} onChange={set('name')} placeholder={cloud ? 'e.g. eSSL cloud' : kind === 'FILE' ? 'e.g. Monthly export from Matrix' : kind === 'HTTP_PUSH' ? 'e.g. Hikvision gate' : 'e.g. Main gate'} />
+          <input className="ui-input w-full" required maxLength={80} value={form.name} onChange={set('name')} placeholder={cloud ? 'e.g. eSSL cloud' : kind === 'FILE' ? 'e.g. Monthly export from Matrix' : kind === 'HTTP_PUSH' ? 'e.g. Turnstile middleware' : kind === 'HIKVISION' ? 'e.g. Hikvision gate' : kind === 'DAHUA' ? 'e.g. Dahua back door' : kind === 'BIOSTAR' ? 'e.g. BioStar HQ' : kind === 'HTTP_PULL' ? 'e.g. Old attendance software' : 'e.g. Main gate'} />
         </label>
         <fieldset>
           <legend className="ui-label">Direction</legend>
@@ -431,6 +497,7 @@ const sniffHeaders = (text) => {
  */
 function MappedDrawer({ device, pushBase, onClose, onChanged }) {
   const isFile = device.vendor === 'FILE';
+  const isPull = device.vendor === 'HTTP_PULL';
   const [form, setForm] = useState({ name: device.name, direction: device.direction, isActive: device.isActive, sourceTimezone: device.sourceTimezone || 'Asia/Kolkata' });
   const [map, setMap] = useState(fromMapping(device.mapping));
   const [sample, setSample] = useState('');
@@ -515,7 +582,7 @@ function MappedDrawer({ device, pushBase, onClose, onChanged }) {
       open
       onClose={onClose}
       title={device.name}
-      description={`${device.driverLabel} · ${device.lastSeenAt ? `${isFile ? 'imported' : 'last push'} ${ago(device.lastSeenAt)}` : isFile ? 'nothing imported yet' : 'nothing received yet'}`}
+      description={`${device.driverLabel} · ${device.lastSeenAt ? `${isFile ? 'imported' : isPull ? 'last pull' : 'last push'} ${ago(device.lastSeenAt)}` : isFile ? 'nothing imported yet' : isPull ? 'not pulled yet' : 'nothing received yet'}`}
       actions={
         <>
           <button type="button" className="ui-btn ui-btn-ghost" disabled={busy === 'delete'} onClick={remove}>Remove</button>
@@ -525,8 +592,9 @@ function MappedDrawer({ device, pushBase, onClose, onChanged }) {
       }
     >
       <div className="space-y-6">
-        {device.lastError ? <div className="ui-card p-3 text-sm" role="alert" style={{ color: 'rgb(var(--neg))' }}>Last push: {device.lastError}</div> : null}
-        {!isFile ? (
+        {device.lastError ? <div className="ui-card p-3 text-sm" role="alert" style={{ color: 'rgb(var(--neg))' }}>Last {isPull ? 'pull' : 'push'}: {device.lastError}</div> : null}
+        {isPull ? <PullControls device={device} onChanged={onChanged} /> : null}
+        {!isFile && !isPull ? (
           <section className="space-y-2" aria-labelledby="url-h">
             <h3 id="url-h" className="ui-t-sec">Push URL</h3>
             {newUrl ? (
@@ -543,7 +611,7 @@ function MappedDrawer({ device, pushBase, onClose, onChanged }) {
         <section className="space-y-3" aria-labelledby="map-h">
           <h3 id="map-h" className="ui-t-sec">Set up fields</h3>
           <p className="ui-caption">
-            {isFile ? 'Choose a file; its column names appear below. Say which column holds what, preview, then import.' : 'Load what the device last sent, say which field holds what, and preview. Punches are read from the next push.'}
+            {isFile ? 'Choose a file; its column names appear below. Say which column holds what, preview, then import.' : isPull ? 'Sync now once, then load what the API answered, say which field holds what, and preview. Punches are read from the next pull.' : 'Load what the device last sent, say which field holds what, and preview. Punches are read from the next push.'}
           </p>
           <div className="flex flex-wrap items-center gap-2">
             {isFile ? (
@@ -570,7 +638,7 @@ function MappedDrawer({ device, pushBase, onClose, onChanged }) {
           ) : null}
           <datalist id="hdr-list">{headers.map((h) => <option key={h} value={h} />)}</datalist>
           <div className="grid gap-3 sm:grid-cols-2">
-            {!isFile ? field('records', 'Where the list of punches is', 'e.g. data.events — blank if the body is the list') : null}
+            {!isFile ? field('records', 'Where the list of punches is', 'e.g. data.events — blank if the answer is the list') : null}
             {field('employeeCode', 'Employee code *', isFile ? 'column name' : 'e.g. employeeNoString or user.id')}
             {field('timestamp', 'Date and time, one field', 'e.g. dateTime — or use the two below')}
             <label className="block">
@@ -690,6 +758,102 @@ function CloudDrawer({ device, onClose, onChanged }) {
           <label className="block"><span className="ui-label">API address</span><input className="ui-input w-full" value={form.apiUrl} onChange={set('apiUrl')} placeholder="https://api.etimeoffice.com/api/" /></label>
           <label className="block">
             <span className="ui-label">Direction</span>
+            <select className="ui-select w-full" value={form.direction} onChange={set('direction')}>
+              {Object.entries(DIRECTIONS).map(([k, label]) => <option key={k} value={k}>{label}</option>)}
+            </select>
+          </label>
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" className="ui-checkbox" checked={form.isActive} onChange={(e) => setForm({ ...form, isActive: e.target.checked })} /> Pulling punches
+          </label>
+        </form>
+      </div>
+    </Drawer>
+  );
+}
+
+/** Sync now / fetch older, for anything CLOR pulls from. */
+function PullControls({ device, onChanged }) {
+  const [from, setFrom] = useState('');
+  const [busy, setBusy] = useState(false);
+  const sync = async (date) => {
+    setBusy(true);
+    try {
+      const r = await syncConnection(device.id, date);
+      notify.success(`${r.added} new punch${r.added === 1 ? '' : 'es'} (${r.received} record${r.received === 1 ? '' : 's'} received${r.readable != null ? `, ${r.readable} readable` : ''}).`);
+      onChanged();
+    } catch (err) {
+      notify.error(String(err?.message || 'Could not pull.'));
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <section className="space-y-2" aria-labelledby="sync-h">
+      <h3 id="sync-h" className="ui-t-sec">Punches</h3>
+      <p className="ui-caption">Pulled every few minutes. Sync now pulls at once; a date fetches older punches (up to 31 days back).</p>
+      <div className="flex flex-wrap items-end gap-2">
+        <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={busy} onClick={() => sync()}>{busy ? 'Pulling…' : 'Sync now'}</button>
+        <input type="date" className="ui-input !w-auto" value={from} max={todayIst()} onChange={(e) => setFrom(e.target.value)} aria-label="Fetch from" />
+        <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={busy || !from} onClick={() => sync(from)}>Fetch from this date</button>
+      </div>
+    </section>
+  );
+}
+
+/** A Hikvision, Dahua or BioStar connection: address and credentials, last pull, Sync now. */
+function PullDrawer({ device, onClose, onChanged }) {
+  const [form, setForm] = useState({ name: device.name, direction: device.direction, isActive: device.isActive, baseUrl: device.apiUrl || '', username: device.apiUsername || '', password: '', sourceTimezone: device.sourceTimezone || 'Asia/Kolkata' });
+  const [tested, setTested] = useState(null);
+  const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
+  const save = async (e) => {
+    e.preventDefault();
+    try {
+      await updateDevice(device.id, { name: form.name, direction: form.direction, isActive: form.isActive, baseUrl: form.baseUrl, username: form.username, password: form.password || undefined, sourceTimezone: form.sourceTimezone });
+      notify.success('Connection saved.');
+      onChanged();
+    } catch (err) {
+      notify.error(String(err?.message || 'Not saved.'));
+    }
+  };
+  const test = async () => {
+    try {
+      setTested(await testPull({ vendor: device.vendor, name: device.name, direction: form.direction, sourceTimezone: form.sourceTimezone, baseUrl: form.baseUrl, username: form.username, password: form.password || null, deviceId: device.id }));
+    } catch (err) {
+      setTested({ ok: false, message: String(err?.message || 'Could not test.') });
+    }
+  };
+  return (
+    <Drawer
+      widthClass="w-[min(52rem,96vw)]"
+      open
+      onClose={onClose}
+      title={device.name}
+      description={`${device.driverLabel} · ${device.lastFetchedAt ? `last pulled ${ago(device.lastFetchedAt)}` : 'not pulled yet'}`}
+      actions={
+        <>
+          <button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Close</button>
+          <button type="submit" form="pull-form" className="ui-btn ui-btn-primary">Save</button>
+        </>
+      }
+    >
+      <div className="space-y-6">
+        {device.lastError ? <div className="ui-card p-3 text-sm" role="alert" style={{ color: 'rgb(var(--neg))' }}>Last pull failed: {device.lastError}</div> : null}
+        <p className="ui-caption">This driver follows the maker’s published API and has not been tried on a real device by CLOR. If a pull fails, send us the error shown above.</p>
+        <PullControls device={device} onChanged={onChanged} />
+        <form id="pull-form" onSubmit={save} className="grid gap-4">
+          <label className="block"><span className="ui-label">Name</span><input className="ui-input w-full" required maxLength={80} value={form.name} onChange={set('name')} /></label>
+          <label className="block"><span className="ui-label">Address</span><input className="ui-input w-full ui-mono" required value={form.baseUrl} onChange={set('baseUrl')} placeholder={ADDRESS_HINT[device.vendor]} /></label>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="block"><span className="ui-label">User name</span><input className="ui-input w-full" autoComplete="off" value={form.username} onChange={set('username')} /></label>
+            <label className="block"><span className="ui-label">Password</span><input type="password" className="ui-input w-full" autoComplete="new-password" value={form.password} onChange={set('password')} placeholder="Leave blank to keep the saved one" /></label>
+          </div>
+          <ZoneField value={form.sourceTimezone} onChange={(v) => setForm({ ...form, sourceTimezone: v })} />
+          <div className="flex flex-wrap items-center gap-2">
+            <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={!form.baseUrl} onClick={test}>Test connection</button>
+            {tested ? <span className="text-sm" role="status" style={{ color: tested.ok ? 'rgb(var(--pos))' : 'rgb(var(--neg))' }}>{tested.ok ? `Connected — ${tested.punchesToday} records today.` : tested.message}</span> : null}
+          </div>
+          <label className="block">
+            <span className="ui-label">Direction when not said</span>
             <select className="ui-select w-full" value={form.direction} onChange={set('direction')}>
               {Object.entries(DIRECTIONS).map(([k, label]) => <option key={k} value={k}>{label}</option>)}
             </select>
