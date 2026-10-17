@@ -687,3 +687,101 @@ peopleRouter.delete('/orgs/:orgId/people/notes/:noteId', can(PermissionAction.DE
   await peoplePrisma.employeeNote.delete({ where: { id: note.id } });
   res.json({ ok: true });
 });
+
+// ---------------------------------------------------------------------------
+// Documents on the employee file (ClorTime's Employee Document)
+// ---------------------------------------------------------------------------
+
+const DOC_KINDS = new Set(['ID_PROOF', 'ADDRESS_PROOF', 'EDUCATION', 'CONTRACT', 'PAYSLIP', 'OTHER']);
+const DOC_MAX_BYTES = 5 * 1024 * 1024;
+const DOC_MIMES = /^(application\/pdf|image\/(jpeg|png|webp)|application\/vnd\.openxmlformats-officedocument\.(wordprocessingml\.document|spreadsheetml\.sheet)|application\/msword|text\/plain)$/;
+
+/** data:<mime>;base64,… or bare base64 — the file itself, decoded and checked. */
+function decodeDocument(input: unknown, mimeHint?: unknown): { mime: string; data: Buffer } | { error: string } {
+  const str = String(input || '');
+  if (!str) return { error: 'The file did not come through.' };
+  const m = /^data:([\w.+/-]+);base64,(.+)$/s.exec(str);
+  const mime = (m ? m[1] : String(mimeHint || '')).toLowerCase();
+  if (!DOC_MIMES.test(mime)) return { error: 'PDF, JPEG, PNG, WebP, Word, Excel or plain text only.' };
+  let data: Buffer;
+  try {
+    data = Buffer.from(m ? m[2] : str, 'base64');
+  } catch {
+    return { error: 'The file could not be read.' };
+  }
+  if (!data.length) return { error: 'The file is empty.' };
+  if (data.length > DOC_MAX_BYTES) return { error: 'Files up to 5 MB.' };
+  return { mime, data };
+}
+const docRow = (d: any) => ({ id: d.id, employeeId: d.employeeId, kind: d.kind, title: d.title, mime: d.mime, size: d.size, expiresOn: d.expiresOn, visibleToEmployee: d.visibleToEmployee, uploadedByUserId: d.uploadedByUserId, createdAt: d.createdAt });
+
+peopleRouter.get('/orgs/:orgId/people/employees/:id/documents', can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const rows = await peoplePrisma.employeeDocument.findMany({ where: { accountId, orgId, employeeId: String(req.params.id) }, orderBy: { createdAt: 'desc' }, select: { id: true, employeeId: true, kind: true, title: true, mime: true, size: true, expiresOn: true, visibleToEmployee: true, uploadedByUserId: true, createdAt: true } });
+  res.json({ documents: rows.map(docRow) });
+});
+
+peopleRouter.post('/orgs/:orgId/people/employees/:id/documents', can(PermissionAction.EDIT, EMPLOYEES), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const employee = await peoplePrisma.employee.findFirst({ where: { id: String(req.params.id), accountId, orgId }, select: { id: true } });
+  if (!employee) return res.status(404).json({ error: 'No such employee.' });
+  const kind = String(req.body?.kind || 'OTHER').toUpperCase();
+  if (!DOC_KINDS.has(kind)) return res.status(400).json({ error: 'Unknown document kind.' });
+  const title = String(req.body?.title || '').trim().slice(0, 120);
+  if (!title) return res.status(400).json({ error: 'Name the document.' });
+  const expiresOn = String(req.body?.expiresOn || '').trim() || null;
+  if (expiresOn && !/^\d{4}-\d{2}-\d{2}$/.test(expiresOn)) return res.status(400).json({ error: 'Dates are YYYY-MM-DD.' });
+  const file = decodeDocument(req.body?.data, req.body?.mime);
+  if ('error' in file) return res.status(400).json({ error: file.error });
+  const d = await peoplePrisma.employeeDocument.create({
+    data: { accountId, orgId, employeeId: employee.id, kind, title, mime: file.mime, size: file.data.length, data: file.data, expiresOn, visibleToEmployee: req.body?.visibleToEmployee !== false, uploadedByUserId: req.auth!.userId },
+  });
+  res.status(201).json({ document: docRow(d) });
+});
+
+/** The file itself, as a data URL — small enough to carry inline, and the same shape the portal uses. */
+peopleRouter.get('/orgs/:orgId/people/documents/:docId', can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const d = await peoplePrisma.employeeDocument.findFirst({ where: { id: String(req.params.docId), accountId, orgId } });
+  if (!d) return res.status(404).json({ error: 'No such document.' });
+  res.json({ document: { ...docRow(d), dataUrl: `data:${d.mime};base64,${Buffer.from(d.data).toString('base64')}` } });
+});
+
+peopleRouter.delete('/orgs/:orgId/people/documents/:docId', can(PermissionAction.EDIT, EMPLOYEES), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const d = await peoplePrisma.employeeDocument.findFirst({ where: { id: String(req.params.docId), accountId, orgId }, select: { id: true } });
+  if (!d) return res.status(404).json({ error: 'No such document.' });
+  await peoplePrisma.employeeDocument.delete({ where: { id: d.id } });
+  res.json({ ok: true });
+});
+
+// ---------------------------------------------------------------------------
+// Data requests (DPDP): raised in the portal, answered here
+// ---------------------------------------------------------------------------
+
+peopleRouter.get('/orgs/:orgId/people/data-requests', can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const status = String(req.query.status || '').toUpperCase();
+  const rows = await peoplePrisma.dataRequest.findMany({ where: { accountId, orgId, ...(['PENDING', 'RESOLVED', 'REJECTED'].includes(status) ? { status } : {}) }, orderBy: [{ status: 'desc' }, { createdAt: 'desc' }], take: 500 });
+  const names = new Map((await peoplePrisma.employee.findMany({ where: { orgId, id: { in: [...new Set(rows.map((r) => r.employeeId))] } }, select: { id: true, name: true, code: true } })).map((e) => [e.id, e]));
+  res.json({ requests: rows.map((r) => ({ ...r, employeeName: names.get(r.employeeId)?.name || null, employeeCode: names.get(r.employeeId)?.code || null })), pending: rows.filter((r) => r.status === 'PENDING').length });
+});
+
+peopleRouter.post('/orgs/:orgId/people/data-requests/:id/resolve', can(PermissionAction.EDIT, EMPLOYEES), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const r = await peoplePrisma.dataRequest.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
+  if (!r) return res.status(404).json({ error: 'No such request.' });
+  if (r.status !== 'PENDING') return res.status(409).json({ error: `This request was already ${r.status.toLowerCase()}.` });
+  const status = String(req.body?.status || '').toUpperCase();
+  if (!['RESOLVED', 'REJECTED'].includes(status)) return res.status(400).json({ error: 'status must be RESOLVED or REJECTED.' });
+  const resolution = String(req.body?.resolution || '').trim().slice(0, 2000);
+  if (!resolution) return res.status(400).json({ error: 'Say what was done — the person reads this.' });
+  const updated = await peoplePrisma.dataRequest.update({ where: { id: r.id }, data: { status, resolution, reviewedByUserId: req.auth!.userId, reviewedAt: new Date() } });
+  res.json({ request: updated });
+});

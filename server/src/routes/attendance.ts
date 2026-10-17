@@ -6,6 +6,7 @@ import { requireTenantContext } from '../middleware/tenantContext.js';
 import { requirePermission } from '../middleware/rbac.js';
 import { PermissionAction } from '../constants/enums.js';
 import { phoneStatus, recordPhonePunch } from '../services/attendance/phonePunch.js';
+import { hrMayDecide } from '../services/attendance/approvalChain.js';
 import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { platformPrisma } from '../utils/platformPrisma.js';
 import { ATTENDANCE_MODULE, ATTENDANCE_RESOURCE, attendanceRouteOk } from '../services/attendance/guards.js';
@@ -656,6 +657,10 @@ const review = (approve: boolean) => async (req: any, res: any) => {
   const r = await peoplePrisma.attendanceRequest.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
   if (!r) return res.status(404).json({ error: 'No such request.' });
   if (r.status !== 'PENDING') return res.status(409).json({ error: `This request was already ${r.status.toLowerCase()}.` });
+  if (approve) {
+    const turn = await hrMayDecide(orgId, 'correction', r);
+    if (!turn.ok) return res.status(409).json({ error: turn.error, code: 'MANAGER_FIRST' });
+  }
   try {
     const updated = await reviewCorrection(accountId, orgId, r, approve, req.auth!.userId, String(req.body?.note || '').trim().slice(0, 500) || null);
     res.json({ request: updated });

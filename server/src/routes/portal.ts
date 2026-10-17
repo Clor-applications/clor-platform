@@ -13,6 +13,7 @@ import { isWeeklyOff, istDate, istTime } from '../services/attendance/compute.js
 import { loadHolidays, loadSchedule, resolveShift } from '../services/attendance/schedule.js';
 import { phoneStatus, recordPhonePunch } from '../services/attendance/phonePunch.js';
 import { normaliseCode, passwordProblem } from '../services/attendance/portal.js';
+import { chainFor } from '../services/attendance/approvalChain.js';
 import { createRequest, daysOfMonth, reviewCorrection, sendError, today, withNames } from './attendance.js';
 import { approveLeave, balancesFor, cancelOwnLeave, createLeave, rejectLeave, withTypes } from './leave.js';
 import { recomputeDeviceDay, shiftDayFor } from './iclock.js';
@@ -298,11 +299,14 @@ portalRouter.get('/approvals', async (req, res) => {
       ])
     : [[], []];
   const who = (id: string) => ({ employeeName: names.get(id)?.name || '', employeeCode: names.get(id)?.code || null });
+  /* What the manager already passed to HR is HR's now, not theirs to decide again. */
+  const [leaveChain, correctionChain] = await Promise.all([chainFor(e.orgId, 'leave'), chainFor(e.orgId, 'correction')]);
   res.json({
     approver: ids.length > 0,
     team: team.length,
-    leaves: (await withTypes(e.orgId, leaves)).map((r) => ({ id: r.id, type: 'leave', ...who(r.employeeId), leaveTypeName: r.leaveTypeName, fromDate: r.fromDate, toDate: r.toDate, days: r.days, reason: r.reason, askedAt: r.createdAt })),
-    corrections: corrections.map((r) => ({ id: r.id, type: 'correction', ...who(r.employeeId), date: r.date, checkIn: r.checkIn ? istTime(r.checkIn) : null, checkOut: r.checkOut ? istTime(r.checkOut) : null, reason: r.reason, askedAt: r.createdAt })),
+    chain: { leave: leaveChain, correction: correctionChain },
+    leaves: (await withTypes(e.orgId, leaves.filter((r) => !r.managerApprovedAt))).map((r) => ({ id: r.id, type: 'leave', ...who(r.employeeId), leaveTypeName: r.leaveTypeName, fromDate: r.fromDate, toDate: r.toDate, days: r.days, reason: r.reason, askedAt: r.createdAt })),
+    corrections: corrections.filter((r) => !r.managerApprovedAt).map((r) => ({ id: r.id, type: 'correction', ...who(r.employeeId), date: r.date, checkIn: r.checkIn ? istTime(r.checkIn) : null, checkOut: r.checkOut ? istTime(r.checkOut) : null, reason: r.reason, askedAt: r.createdAt })),
   });
 });
 
@@ -330,6 +334,14 @@ portalRouter.post('/approvals/:type/:id', async (req, res) => {
   if (r.status !== 'PENDING') return res.status(409).json({ error: `This request was already ${String(r.status).toLowerCase()}.` });
   try {
     const userId = `portal:${e.id}`;
+    const chain = await chainFor(e.orgId, type as 'leave' | 'correction');
+    if (decision === 'approve' && chain === 'MANAGER_THEN_HR') {
+      /* The manager's step: recorded, and the request moves on to HR still pending. */
+      if (r.managerApprovedAt) return res.status(409).json({ error: 'You have already approved this; it is with HR now.' });
+      const data = { managerApprovedAt: new Date(), managerApprovedById: e.id, reviewNote: note };
+      const out = type === 'leave' ? await peoplePrisma.leaveRequest.update({ where: { id: r.id }, data }) : await peoplePrisma.attendanceRequest.update({ where: { id: r.id }, data });
+      return res.json({ request: out, stage: 'HR' });
+    }
     if (type === 'leave') {
       const out = decision === 'approve' ? await approveLeave(e.accountId, e.orgId, r, userId, note) : await rejectLeave(e.orgId, r, userId, note);
       return res.json({ request: out });
@@ -339,6 +351,44 @@ portalRouter.post('/approvals/:type/:id', async (req, res) => {
   } catch (err) {
     return sendError(res, err);
   }
+});
+
+// ---------------------------------------------------------------------------
+// My documents and my data (DPDP)
+// ---------------------------------------------------------------------------
+
+portalRouter.get('/documents', async (req, res) => {
+  const e = req.portal!.employee;
+  const rows = await peoplePrisma.employeeDocument.findMany({ where: { orgId: e.orgId, employeeId: e.id, visibleToEmployee: true }, orderBy: { createdAt: 'desc' }, select: { id: true, kind: true, title: true, mime: true, size: true, expiresOn: true, createdAt: true } });
+  res.json({ documents: rows });
+});
+
+portalRouter.get('/documents/:id', async (req, res) => {
+  const e = req.portal!.employee;
+  const d = await peoplePrisma.employeeDocument.findFirst({ where: { id: String(req.params.id), orgId: e.orgId, employeeId: e.id, visibleToEmployee: true } });
+  if (!d) return res.status(404).json({ error: 'No such document.' });
+  res.json({ document: { id: d.id, title: d.title, mime: d.mime, size: d.size, dataUrl: `data:${d.mime};base64,${Buffer.from(d.data).toString('base64')}` } });
+});
+
+const DATA_REQUEST_TYPES = new Set(['ACCESS', 'CORRECTION', 'ERASURE']);
+
+portalRouter.get('/data-requests', async (req, res) => {
+  const e = req.portal!.employee;
+  const rows = await peoplePrisma.dataRequest.findMany({ where: { orgId: e.orgId, employeeId: e.id }, orderBy: { createdAt: 'desc' }, take: 50, select: { id: true, type: true, details: true, status: true, resolution: true, createdAt: true, reviewedAt: true } });
+  res.json({ requests: rows });
+});
+
+/** See my data, correct it, or erase it — a right under the DPDP Act; HR answers under Personnel → Data requests. */
+portalRouter.post('/data-requests', async (req, res) => {
+  const e = req.portal!.employee;
+  const type = String(req.body?.type || '').toUpperCase();
+  if (!DATA_REQUEST_TYPES.has(type)) return res.status(400).json({ error: 'Ask to see, correct or erase your data.' });
+  const details = String(req.body?.details || '').trim().slice(0, 2000);
+  if (!details) return res.status(400).json({ error: 'Say what you are asking for.' });
+  const open = await peoplePrisma.dataRequest.count({ where: { orgId: e.orgId, employeeId: e.id, status: 'PENDING' } });
+  if (open >= 3) return res.status(409).json({ error: 'You already have three requests waiting. HR will answer those first.' });
+  const r = await peoplePrisma.dataRequest.create({ data: { accountId: e.accountId, orgId: e.orgId, employeeId: e.id, type, details } });
+  res.status(201).json({ request: r });
 });
 
 /** A new password ends every other session; this one gets a fresh token. */

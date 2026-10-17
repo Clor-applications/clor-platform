@@ -128,8 +128,9 @@ model Employee {
   probationEndDate   String?
   contractEndDate    String?
 
-  tags     EmployeeTagLink[]
-  notesLog EmployeeNote[]
+  tags      EmployeeTagLink[]
+  notesLog  EmployeeNote[]
+  documents EmployeeDocument[]
 
   createdByUserId String
   createdAt       DateTime @default(now())
@@ -440,6 +441,9 @@ model AttendanceRequest {
   reviewedByUserId  String?
   reviewedAt        DateTime?
   reviewNote        String?
+  /// The manager's step, when the company asks for it before HR (AttendanceSettings.*Approval).
+  managerApprovedAt   DateTime?
+  managerApprovedById String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -518,6 +522,9 @@ model LeaveRequest {
   reviewedByUserId  String?
   reviewedAt        DateTime?
   reviewNote        String?
+  /// The manager's step, when the company asks for it before HR (AttendanceSettings.*Approval).
+  managerApprovedAt   DateTime?
+  managerApprovedById String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1024,6 +1031,9 @@ model AttendanceSettings {
   /// Sync both ways (ClorTime): someone added at a reader whose ID matches no
   /// employee becomes one, named as on the reader. Off = they wait in Unmatched.
   readerUsersBecomeEmployees Boolean @default(true)
+  /// Who decides leave and correction requests: HR (default), MANAGER (the person's "Reports to"), or MANAGER_THEN_HR (both, in that order).
+  leaveApproval         String  @default("HR")
+  correctionApproval    String  @default("HR")
 
   updatedByUserId String
   updatedAt       DateTime @updatedAt
@@ -1088,4 +1098,51 @@ model ReaderAlert {
 
   @@index([orgId, resolvedAt])
   @@index([orgId, key, resolvedAt])
+}
+
+/// A file on an employee's record — ID proof, contract, certificate — kept in
+/// the database like punch selfies, capped at 5 MB. Visible to the person in
+/// the portal unless HR says otherwise.
+model EmployeeDocument {
+  id                String   @id @default(cuid())
+  accountId         String
+  orgId             String
+  employeeId        String
+  /// ID_PROOF | ADDRESS_PROOF | EDUCATION | CONTRACT | PAYSLIP | OTHER
+  kind              String
+  title             String
+  mime              String
+  size              Int
+  data              Bytes
+  /// When it stops being valid (a visa, a licence), YYYY-MM-DD.
+  expiresOn         String?
+  visibleToEmployee Boolean  @default(true)
+  uploadedByUserId  String
+  createdAt         DateTime @default(now())
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, employeeId])
+}
+
+/// A DPDP data-subject request raised from the portal: see my data, correct
+/// it, or erase it. HR answers; the answer is shown back to the person.
+model DataRequest {
+  id               String    @id @default(cuid())
+  accountId        String
+  orgId            String
+  employeeId       String
+  /// ACCESS | CORRECTION | ERASURE
+  type             String
+  details          String
+  /// PENDING | RESOLVED | REJECTED
+  status           String    @default("PENDING")
+  resolution       String?
+  reviewedByUserId String?
+  reviewedAt       DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@index([orgId, status])
+  @@index([orgId, employeeId])
 }

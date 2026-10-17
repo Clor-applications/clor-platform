@@ -142,6 +142,30 @@ describe('the phone punch in the app', () => {
   });
 });
 
+describe('the approval chain', () => {
+  it('under MANAGER_THEN_HR, HR is refused until the manager has approved', async () => {
+    const c = await makeOwner();
+    const boss = await person(c, { name: 'Boss', code: 'B1' });
+    const p = await person(c, { name: 'Reportee', code: 'R1', reportingManagerId: boss.id });
+    const loner = await person(c, { name: 'Loner', code: 'L1' });
+    const rules = (await api(c).get('/rules').expect(200)).body.rules;
+    expect(rules.correctionApproval).toBe('HR');
+    await api(c).put('/rules', { ...rules, correctionApproval: 'MANAGER_THEN_HR' }).expect(200);
+
+    const ask = async (employeeId: string) => (await api(c).post('/requests', { employeeId, date: pastWeekday, checkIn: '09:00', checkOut: '18:00', reason: 'Reader down' }).expect(201)).body.request;
+    const r1 = await ask(p.id);
+    const refused = await api(c).post(`/requests/${r1.id}/approve`).expect(409);
+    expect(refused.body.code).toBe('MANAGER_FIRST');
+    expect(refused.body.error).toMatch(/Boss has not approved/);
+    /* Someone with no manager goes straight to HR. */
+    const r2 = await ask(loner.id);
+    await api(c).post(`/requests/${r2.id}/approve`).expect(200);
+    /* Rejecting never needs the manager first. */
+    const r3 = await ask(p.id);
+    await api(c).post(`/requests/${r3.id}/reject`).expect(200);
+  });
+});
+
 describe('imports', () => {
   it('marks days from rows, says which rows failed, and keeps going', async () => {
     const c = await makeOwner();

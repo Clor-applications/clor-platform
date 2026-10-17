@@ -170,6 +170,41 @@ describe('the employee portal', () => {
     expect((await me(token).get('/approvals').expect(200)).body.corrections).toEqual([]);
   });
 
+  it('shows the person their documents, but only those HR marked visible', async () => {
+    const pdf = `data:application/pdf;base64,${Buffer.from('%PDF-1.4 test').toString('base64')}`;
+    const up = (body: any) => request(app).post(`/api/orgs/${c.orgId}/people/employees/${emp.id}/documents`).set(at(c)).send(body);
+    expect((await up({ kind: 'CONTRACT', title: 'Offer letter', data: pdf }).expect(201)).body.document).toMatchObject({ kind: 'CONTRACT', title: 'Offer letter', mime: 'application/pdf', visibleToEmployee: true });
+    await up({ kind: 'OTHER', title: 'HR note', data: pdf, visibleToEmployee: false }).expect(201);
+    expect((await up({ kind: 'OTHER', title: 'Bad', data: 'data:application/x-msdownload;base64,AAAA' }).expect(400)).body.error).toMatch(/PDF, JPEG/);
+    await up({ kind: 'WHAT', title: 'x', data: pdf }).expect(400);
+    const hr = (await request(app).get(`/api/orgs/${c.orgId}/people/employees/${emp.id}/documents`).set(at(c)).expect(200)).body.documents;
+    expect(hr).toHaveLength(2);
+    expect(hr[0]).not.toHaveProperty('data');
+    const mine = (await me(token).get('/documents').expect(200)).body.documents;
+    expect(mine.map((d: any) => d.title)).toEqual(['Offer letter']);
+    const file = (await me(token).get(`/documents/${mine[0].id}`).expect(200)).body.document;
+    expect(file.dataUrl.startsWith('data:application/pdf;base64,')).toBe(true);
+    const hidden = hr.find((d: any) => d.title === 'HR note');
+    await me(token).get(`/documents/${hidden.id}`).expect(404);
+    await request(app).delete(`/api/orgs/${c.orgId}/people/documents/${hidden.id}`).set(at(c)).expect(200);
+    expect((await request(app).get(`/api/orgs/${c.orgId}/people/employees/${emp.id}/documents`).set(at(c)).expect(200)).body.documents).toHaveLength(1);
+  });
+
+  it('carries a data request to HR and the answer back', async () => {
+    await me(token).post('/data-requests', { type: 'WHATEVER', details: 'x' }).expect(400);
+    await me(token).post('/data-requests', { type: 'ACCESS', details: '' }).expect(400);
+    const r = (await me(token).post('/data-requests', { type: 'ACCESS', details: 'Please send me everything you hold about me.' }).expect(201)).body.request;
+    expect(r).toMatchObject({ type: 'ACCESS', status: 'PENDING' });
+    const queue = (await request(app).get(`/api/orgs/${c.orgId}/people/data-requests?status=PENDING`).set(at(c)).expect(200)).body;
+    expect(queue.pending).toBeGreaterThanOrEqual(1);
+    expect(queue.requests.find((x: any) => x.id === r.id)).toMatchObject({ employeeName: 'Asha Rao' });
+    await request(app).post(`/api/orgs/${c.orgId}/people/data-requests/${r.id}/resolve`).set(at(c)).send({ status: 'RESOLVED' }).expect(400);
+    await request(app).post(`/api/orgs/${c.orgId}/people/data-requests/${r.id}/resolve`).set(at(c)).send({ status: 'RESOLVED', resolution: 'Sent by e-mail on 18 Oct.' }).expect(200);
+    await request(app).post(`/api/orgs/${c.orgId}/people/data-requests/${r.id}/resolve`).set(at(c)).send({ status: 'REJECTED', resolution: 'again' }).expect(409);
+    const mine = (await me(token).get('/data-requests').expect(200)).body.requests;
+    expect(mine.find((x: any) => x.id === r.id)).toMatchObject({ status: 'RESOLVED', resolution: 'Sent by e-mail on 18 Oct.' });
+  });
+
   it('punches from the phone only when allowed, at a site, inside it', async () => {
     const off = await me(token).post('/punch', { ...SITE, accuracy: 10 }).expect(403);
     expect(off.body.code).toBe('PHONE_OFF');

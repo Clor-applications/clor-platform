@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { hrMayDecide } from '../services/attendance/approvalChain.js';
 import { z } from 'zod';
 
 import { requireAuth } from '../middleware/auth.js';
@@ -408,6 +409,8 @@ leaveRouter.post(`${base}/requests/:id/approve`, can(PermissionAction.APPROVE, R
   const r = await peoplePrisma.leaveRequest.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
   if (!r) return res.status(404).json({ error: 'No such request.' });
   if (r.status !== 'PENDING') return res.status(409).json({ error: `This request was already ${r.status.toLowerCase()}.` });
+  const turn = await hrMayDecide(orgId, 'leave', r);
+  if (!turn.ok) return res.status(409).json({ error: turn.error, code: 'MANAGER_FIRST' });
   try {
     res.json({ request: await approveLeave(accountId, orgId, r, req.auth!.userId, noteOf(req)) });
   } catch (e) {

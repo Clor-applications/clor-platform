@@ -186,6 +186,8 @@ export function buildApp() {
   app.use('/ingest', express.json({ limit: '4mb', type: ['application/json', 'application/*+json'] }), express.urlencoded({ extended: true, limit: '4mb' }), express.text({ type: () => true, limit: '4mb' }), ingestRouter);
   /* A phone punch may carry a selfie (≤ 2 MB, base64): its own, larger limit. */
   app.use('/api/portal/punch', express.json({ limit: '3mb' }));
+  /* A document on an employee file (≤ 5 MB, base64). */
+  app.use('/api/orgs/:orgId/people/employees/:id/documents', express.json({ limit: '7mb' }));
   app.use(express.json({ limit: '1mb' }));
   // The API for outside systems: an API key, no user session (routes/publicApi.ts).
   app.use('/v1', publicApiRouter);
