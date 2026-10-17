@@ -49,6 +49,7 @@ export default function LeaveTypes() {
         <EmptyState title="No leave types yet" description="Add the kinds of leave your company gives, e.g. Casual 12, Sick 6, Loss of pay (unpaid)." />
       ) : (
         <div className="ui-card overflow-hidden">
+          <div className="overflow-x-auto ui-table-scroll ui-table-fit">
           <table className="ui-table w-full">
             <thead>
               <tr>
@@ -75,6 +76,7 @@ export default function LeaveTypes() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
       {editing ? <TypeForm initial={{ ...editing, carryForwardMax: editing.carryForwardMax ?? '' }} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); load(); }} /> : null}

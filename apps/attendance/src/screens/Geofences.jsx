@@ -47,6 +47,7 @@ export default function Geofences() {
         <EmptyState title="No work sites" description="Add the office, the factory gate or a client site. Standing there, “Use where I am” fills in the position." />
       ) : (
         <div className="ui-card overflow-hidden">
+          <div className="overflow-x-auto ui-table-scroll ui-table-fit">
           <table className="ui-table w-full">
             <thead>
               <tr>
@@ -71,6 +72,7 @@ export default function Geofences() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
       {editing ? <SiteForm initial={editing} areas={areas} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); load(); }} /> : null}

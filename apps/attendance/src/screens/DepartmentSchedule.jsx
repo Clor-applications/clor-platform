@@ -67,6 +67,7 @@ export default function DepartmentSchedule() {
         <EmptyState title="No department schedules" description={departments.length ? 'Give a department its shift above.' : 'Create departments under Personnel first.'} />
       ) : (
         <div className="ui-card overflow-hidden">
+          <div className="overflow-x-auto ui-table-scroll ui-table-fit">
           <table className="ui-table w-full">
             <thead>
               <tr>
@@ -93,6 +94,7 @@ export default function DepartmentSchedule() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
     </div>

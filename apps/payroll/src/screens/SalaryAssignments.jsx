@@ -316,6 +316,7 @@ const SalaryTab = ({ person, structures, history, onSaved }) => {
               {person.name} has no salary yet. Set one, and payroll can pay them from that date.
             </p>
           ) : (
+            <div className="overflow-x-auto ui-table-scroll ui-table-fit">
             <table className="ui-table w-full">
               <thead>
                 <tr>
@@ -340,6 +341,7 @@ const SalaryTab = ({ person, structures, history, onSaved }) => {
                 ))}
               </tbody>
             </table>
+            </div>
           )}
 
           <p className="ui-caption">

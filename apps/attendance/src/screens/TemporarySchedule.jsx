@@ -85,6 +85,7 @@ export default function TemporarySchedule() {
         <EmptyState title="No temporary schedules" description="None from this month on." />
       ) : (
         <div className="ui-card overflow-hidden">
+          <div className="overflow-x-auto ui-table-scroll ui-table-fit">
           <table className="ui-table w-full">
             <thead>
               <tr>
@@ -113,6 +114,7 @@ export default function TemporarySchedule() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
     </div>

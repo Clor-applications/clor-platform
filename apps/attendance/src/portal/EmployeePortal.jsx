@@ -410,6 +410,7 @@ function MyDays({ guard }) {
           </div>
           <section className="ui-card overflow-hidden">
             {data.days.length ? (
+              <div className="overflow-x-auto ui-table-scroll ui-table-fit">
               <table className="ui-table w-full text-sm">
                 <thead>
                   <tr>
@@ -441,6 +442,7 @@ function MyDays({ guard }) {
                   })}
                 </tbody>
               </table>
+              </div>
             ) : (
               <p className="ui-caption p-4">Nothing recorded this month yet.</p>
             )}

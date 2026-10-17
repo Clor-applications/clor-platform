@@ -99,6 +99,7 @@ export default function Holidays() {
         <EmptyState title={`No holidays in ${year}`} description="Add the year's holidays above." />
       ) : (
         <div className="ui-card overflow-hidden">
+          <div className="overflow-x-auto ui-table-scroll ui-table-fit">
           <table className="ui-table w-full">
             <thead>
               <tr>
@@ -129,6 +130,7 @@ export default function Holidays() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
     </div>

@@ -59,6 +59,7 @@ export default function Rotations() {
         <EmptyState title="No rotations" description={shifts.length ? 'Create a pattern, e.g. Day week → Night week.' : 'Create shifts first.'} />
       ) : (
         <div className="ui-card overflow-hidden">
+          <div className="overflow-x-auto ui-table-scroll ui-table-fit">
           <table className="ui-table w-full">
             <thead>
               <tr>
@@ -85,6 +86,7 @@ export default function Rotations() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
       {editing ? <RotationForm initial={editing} shifts={shifts} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); load(); }} /> : null}
@@ -222,6 +224,7 @@ function RotationCrew({ rotation, name, onClose }) {
         ) : !rows.length ? (
           <p className="ui-muted text-sm">Nobody on this rotation yet.</p>
         ) : (
+          <div className="overflow-x-auto ui-table-scroll ui-table-fit">
           <table className="ui-table w-full text-sm">
             <thead>
               <tr>
@@ -248,6 +251,7 @@ function RotationCrew({ rotation, name, onClose }) {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </div>
     </Drawer>
