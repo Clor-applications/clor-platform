@@ -1,0 +1,116 @@
+name: Android — CLOR Payroll
+
+# Builds the Android app from the web build (mobile/payroll, Capacitor).
+#
+#   - On a tag `payroll-v1.2.3`: a signed release APK and AAB (the AAB is
+#     what Play Console takes), when the signing secrets are set; a debug APK
+#     otherwise. The APK is also pushed to the download bucket when the R2
+#     secrets are set, so payroll.clor.in/download/ links to it.
+#   - On "Run workflow": the same, from whatever branch is chosen.
+#
+# Secrets (Settings → Secrets and variables → Actions):
+#   ANDROID_KEYSTORE_BASE64   the upload keystore, base64 (base64 -i clor-upload.jks)
+#   ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD
+#   R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET   (optional)
+# Variables:
+#   DOWNLOAD_BASE_URL   e.g. https://downloads.clor.in                  (optional)
+
+on:
+  push:
+    tags: ['payroll-v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      VERSION_NAME: ${{ github.ref_type == 'tag' && github.ref_name || format('0.0.0-{0}', github.run_number) }}
+      # `secrets` cannot be read in a step's `if`, so the presence checks live here.
+      HAS_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
+      HAS_R2: ${{ secrets.R2_BUCKET != '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      # ubuntu-latest ships the Android SDK (ANDROID_HOME set); Gradle fetches
+      # the exact platform/build-tools it needs once the licences are accepted.
+      - name: Accept Android SDK licences
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null 2>&1 || true
+
+      - name: Install
+        run: |
+          npm ci --no-audit --no-fund
+          cd mobile/payroll && npm ci --no-audit --no-fund
+
+      - name: Web build pinned to Payroll, copied into the Android project
+        run: npm run build:mobile:payroll
+
+      - name: Version from the tag
+        # payroll-v1.2.3 → versionName 1.2.3, versionCode = run number (always increasing).
+        run: |
+          NAME="${VERSION_NAME#payroll-v}"
+          sed -i "s/versionName \"[^\"]*\"/versionName \"$NAME\"/; s/versionCode [0-9]*/versionCode ${{ github.run_number }}/" mobile/payroll/android/app/build.gradle
+          grep -E "versionName|versionCode" mobile/payroll/android/app/build.gradle
+
+      - name: Signing (release) when the keystore is set
+        id: signing
+        if: env.HAS_KEYSTORE == 'true'
+        run: |
+          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > mobile/payroll/android/upload.jks
+          cat >> mobile/payroll/android/gradle.properties <<EOF
+          CLOR_STORE_FILE=../upload.jks
+          CLOR_STORE_PASSWORD=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          CLOR_KEY_ALIAS=${{ secrets.ANDROID_KEY_ALIAS }}
+          CLOR_KEY_PASSWORD=${{ secrets.ANDROID_KEY_PASSWORD }}
+          EOF
+          echo "release=true" >> "$GITHUB_OUTPUT"
+
+      - name: Build
+        working-directory: mobile/payroll/android
+        run: |
+          chmod +x gradlew
+          if [ "${{ steps.signing.outputs.release }}" = "true" ]; then
+            ./gradlew --no-daemon assembleRelease bundleRelease
+          else
+            ./gradlew --no-daemon assembleDebug
+          fi
+
+      - name: Collect
+        run: |
+          mkdir -p out
+          find mobile/payroll/android/app/build/outputs -name '*.apk' -exec cp {} out/ \;
+          find mobile/payroll/android/app/build/outputs -name '*.aab' -exec cp {} out/ \; || true
+          ls -la out
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: clor-payroll-android-${{ env.VERSION_NAME }}
+          path: out/*
+          if-no-files-found: error
+
+      - name: Publish the APK to the download bucket
+        if: steps.signing.outputs.release == 'true' && env.HAS_R2 == 'true'
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+        run: |
+          APK=$(ls out/*release*.apk | head -1)
+          ENDPOINT="https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com"
+          aws s3 cp "$APK" "s3://${{ secrets.R2_BUCKET }}/clor-payroll-${VERSION_NAME#payroll-v}.apk" --endpoint-url "$ENDPOINT" --content-type application/vnd.android.package-archive
+          aws s3 cp "$APK" "s3://${{ secrets.R2_BUCKET }}/clor-payroll-latest.apk" --endpoint-url "$ENDPOINT" --content-type application/vnd.android.package-archive
+          echo "{\"app\":\"payroll\",\"version\":\"${VERSION_NAME#payroll-v}\",\"builtAt\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",\"apk\":\"clor-payroll-latest.apk\"}" > out/latest.json
+          aws s3 cp out/latest.json "s3://${{ secrets.R2_BUCKET }}/clor-payroll-latest.json" --endpoint-url "$ENDPOINT" --content-type application/json

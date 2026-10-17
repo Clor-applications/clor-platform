@@ -4,6 +4,7 @@ import { readFileSync, existsSync } from 'node:fs';
 
 import { mobileTabsFor, MAX_TABS } from '../packages/shell/mobileTabs';
 import { attendanceApp } from '../apps/attendance/manifest.jsx';
+import { payrollApp } from '../apps/payroll/manifest.jsx';
 
 /**
  * CLOR on a phone: the tab bar shows what the app names, every app address has
@@ -32,6 +33,9 @@ describe('the phone tab bar', () => {
   });
   it('Attendance names Today, Records, Leave requests and Corrections', () => {
     expect(mobileTabsFor(attendanceApp, attendanceApp.nav).map((t) => t.key)).toEqual(['today', 'records', 'leaveRequests', 'requests']);
+  });
+  it('Payroll names Overview, Pay runs, Salary slips and Payments', () => {
+    expect(mobileTabsFor(payrollApp, payrollApp.nav).map((t) => t.key)).toEqual(['overview', 'runs', 'slips', 'payments']);
   });
 });
 
@@ -67,11 +71,17 @@ describe('a build pinned to one app', () => {
     expect(fresh.appFromHost('attendance.clor.in')).toBe('attendance');
     expect(fresh.appFromHost('localhost')).toBeNull();
   });
-  it('the Capacitor project is pinned to Attendance and reads the pinned build', () => {
-    const cfg = JSON.parse(readFileSync('mobile/attendance/capacitor.config.json', 'utf8'));
-    expect(cfg.appId).toBe('in.clor.attendance');
-    expect(cfg.webDir).toBe('../../dist-mobile/attendance');
-    const pkg = JSON.parse(readFileSync('package.json', 'utf8'));
-    expect(pkg.scripts['build:mobile:attendance']).toContain('VITE_MOBILE_APP=attendance');
-  });
+  for (const app of ['attendance', 'payroll']) {
+    it(`the ${app} Capacitor project is pinned to its app, reads its own build and has a workflow`, () => {
+      const cfg = JSON.parse(readFileSync(`mobile/${app}/capacitor.config.json`, 'utf8'));
+      expect(cfg.appId).toBe(`in.clor.${app}`);
+      expect(cfg.webDir).toBe(`../../dist-mobile/${app}`);
+      const pkg = JSON.parse(readFileSync('package.json', 'utf8'));
+      expect(pkg.scripts[`build:mobile:${app}`]).toContain(`VITE_MOBILE_APP=${app}`);
+      const wf = readFileSync(`.github/workflows/android-${app}.yml`, 'utf8');
+      expect(wf).toContain(`'${app}-v*'`);
+      expect(wf).toContain(`mobile/${app}/android`);
+      expect(readFileSync(`mobile/${app}/android/app/build.gradle`, 'utf8')).toContain(`applicationId "in.clor.${app}"`);
+    });
+  }
 });

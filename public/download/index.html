@@ -3,8 +3,8 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Get CLOR Attendance</title>
-    <link rel="icon" href="/icons/attendance-192.png" />
+    <title>Get CLOR</title>
+    <link rel="icon" id="favicon" href="/icons/attendance-192.png" />
     <meta name="theme-color" content="#18181B" />
     <style>
       :root { --fg: #18181b; --muted: #52525b; --border: #e4e4e7; --surface: #fff; --bg: #fafafa; --brand: #18181b; }
@@ -29,10 +29,10 @@
   <body>
     <main>
       <header>
-        <img src="/icons/attendance-192.png" alt="" />
+        <img id="app-icon" src="/icons/attendance-192.png" alt="" />
         <div>
-          <h1>CLOR Attendance</h1>
-          <p>Punch in from your phone, see your days and leave, approve as HR — the same app as the web.</p>
+          <h1 id="app-name">CLOR Attendance</h1>
+          <p id="app-blurb">Punch in from your phone, see your days and leave, approve as HR — the same app as the web.</p>
         </div>
       </header>
 
@@ -45,18 +45,18 @@
         <p class="meta" id="apk-meta">Checking for the latest build…</p>
         <ol>
           <li>Open the downloaded file. If asked, allow installs from your browser.</li>
-          <li>Sign in with your company code, employee code and password — or your CLOR login as HR.</li>
+          <li id="signin-hint">Sign in with your company code, employee code and password — or your CLOR login as HR.</li>
         </ol>
       </section>
 
       <section>
         <h2>iPhone and iPad</h2>
-        <p>Open <code>attendance.clor.in</code> in Safari, tap <strong>Share</strong>, then <strong>Add to Home Screen</strong>. It opens full screen with its own icon and works like an app.</p>
+        <p>Open <code class="host">attendance.clor.in</code> in Safari, tap <strong>Share</strong>, then <strong>Add to Home Screen</strong>. It opens full screen with its own icon and works like an app.</p>
       </section>
 
       <section>
         <h2>Any phone, no install</h2>
-        <p>Everything works in the browser at <a href="/" style="color: var(--fg)">attendance.clor.in</a>; employees use <a href="/#/portal" style="color: var(--fg)">attendance.clor.in/#/portal</a>.</p>
+        <p>Everything works in the browser at <a href="/" style="color: var(--fg)" class="host">attendance.clor.in</a><span id="portal-note">; employees use <a href="/#/portal" style="color: var(--fg)">attendance.clor.in/#/portal</a></span>.</p>
       </section>
 
       <p class="meta">Privacy: <a href="/#/legal/privacy" style="color: var(--muted)">how CLOR handles your data</a>.</p>
@@ -64,13 +64,32 @@
     <script>
       /* Where releases are published (R2 bucket behind downloads.clor.in). Until the first signed build lands, the button stays off. */
       (function () {
+        var APPS = {
+          attendance: { name: 'CLOR Attendance', blurb: 'Punch in from your phone, see your days and leave, approve as HR — the same app as the web.', portal: true,
+            hint: 'Sign in with your company code, employee code and password — or your CLOR login as HR.' },
+          payroll: { name: 'CLOR Payroll', blurb: 'Approve pay runs, read payslips and release payments from your phone — the same app as the web.', portal: true,
+            hint: 'Sign in with your CLOR login; employees use their company code, employee code and password.' },
+          accounting: { name: 'CLOR Accounting', blurb: 'Invoices, bills and the ledger in your pocket — the same app as the web.', portal: false,
+            hint: 'Sign in with your CLOR login.' },
+        };
+        var app = location.hostname.split('.')[0];
+        if (!APPS[app]) app = 'attendance';
+        var a = APPS[app];
+        document.title = 'Get ' + a.name;
+        document.getElementById('app-name').textContent = a.name;
+        document.getElementById('app-blurb').textContent = a.blurb;
+        document.getElementById('signin-hint').textContent = a.hint;
+        document.getElementById('app-icon').src = '/icons/' + app + '-192.png';
+        document.getElementById('favicon').href = '/icons/' + app + '-192.png';
+        if (!a.portal) document.getElementById('portal-note').remove();
+        Array.prototype.forEach.call(document.querySelectorAll('.host'), function (el) { el.textContent = location.hostname; });
         var base = (document.querySelector('meta[name="download-base"]') || {}).content || 'https://downloads.clor.in';
         var apk = document.getElementById('apk');
         var meta = document.getElementById('apk-meta');
-        fetch(base + '/clor-attendance-latest.json', { cache: 'no-store' })
+        fetch(base + '/clor-' + app + '-latest.json', { cache: 'no-store' })
           .then(function (r) { if (!r.ok) throw new Error(); return r.json(); })
           .then(function (j) {
-            apk.href = base + '/' + (j.apk || 'clor-attendance-latest.apk');
+            apk.href = base + '/' + (j.apk || 'clor-' + app + '-latest.apk');
             apk.removeAttribute('aria-disabled');
             meta.textContent = 'Version ' + j.version + ' · built ' + new Date(j.builtAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
           })
