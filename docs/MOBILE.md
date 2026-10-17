@@ -12,7 +12,7 @@ iOS native wrapper: the same Capacitor project takes `npx cap add ios`; it needs
 
 ## Building the Android app
 
-Locally (needs Java 17 and the Android SDK — not on the development Mac today):
+Locally (needs Java 21 and the Android SDK — not on the development Mac today):
 
     npm run build:mobile:attendance          # web build → dist-mobile/attendance → android project
     cd mobile/attendance && npx cap open android   # Android Studio: Build → Generate signed bundle/APK

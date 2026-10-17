@@ -43,7 +43,7 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 17
+          java-version: 21
 
       # ubuntu-latest ships the Android SDK (ANDROID_HOME set); Gradle fetches
       # the exact platform/build-tools it needs once the licences are accepted.
