@@ -90,7 +90,7 @@ export default function FinalSettlements() {
           {data.waiting.length ? (
             <div className="ui-card overflow-hidden">
               <div className="ui-sec-head px-4 pt-4">Leaving, not settled yet</div>
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto ui-table-scroll ui-table-fit">
                 <table className="ui-table w-full">
                   <thead>
                     <tr>
@@ -130,7 +130,8 @@ export default function FinalSettlements() {
             />
           ) : (
             <div className="ui-card overflow-hidden">
-              <div className="overflow-x-auto">
+              <div className="ui-sec-head px-4 pt-4">Settlements</div>
+              <div className="overflow-x-auto ui-table-scroll ui-table-fit">
                 <table className="ui-table w-full">
                   <thead>
                     <tr>
