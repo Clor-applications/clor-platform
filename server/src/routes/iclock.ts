@@ -31,7 +31,7 @@ import {
 } from '../services/attendance/adms.js';
 import { readerLimiter } from '../middleware/rateLimit.js';
 import { decryptSecret } from '../services/mailer.js';
-import { etoFetchPunches } from '../services/attendance/etimeoffice.js';
+import { pullPunches } from '../services/attendance/pull/index.js';
 import { emit as emitWebhook } from '../services/attendance/webhooks.js';
 import { MAX_NETWORKS, networkOf, sameBlock } from '../services/attendance/network.js';
 import { closedMonths, shiftFor, writeDay } from './attendance.js';
@@ -941,30 +941,30 @@ iclockRouter.all('*', (_req, res) => text(res, 'OK'));
  * From the last pull (less ten minutes' overlap, for punches that reached the
  * vendor late), or from midnight on the first pull; `from` backfills.
  */
-export async function syncVendorConnection(device: any, opts: { from?: Date; fetchImpl?: typeof fetch } = {}) {
+export async function syncVendorConnection(device: any, opts: { from?: Date; fetchImpl?: typeof fetch; dryRun?: boolean } = {}) {
   const now = new Date();
   const midnight = new Date(`${new Date(now.getTime() + 330 * 60_000).toISOString().slice(0, 10)}T00:00:00+05:30`);
   const from = opts.from || (device.lastFetchedAt ? new Date(device.lastFetchedAt.getTime() - 10 * 60_000) : midnight);
-  const result = await etoFetchPunches(
-    { apiUrl: device.apiUrl, corporateId: device.apiCorporateId, username: device.apiUsername || '', password: decryptSecret(device.apiSecret || '') },
-    from,
-    now,
-    opts.fetchImpl
-  );
-  if (!result.ok) {
-    await peoplePrisma.attendanceDevice.update({ where: { id: device.id }, data: { lastError: result.message } });
-    return { ok: false, message: result.message, received: 0, added: 0 };
+  let result;
+  try {
+    result = await pullPunches(device, from, now, { fetchImpl: opts.fetchImpl });
+  } catch (e: any) {
+    result = { ok: false, message: String(e?.message || e).slice(0, 300), lines: [], received: 0 };
   }
-  /* Same lines a reader would send; state 255 = direction not given (the connection's direction setting decides). */
-  const lines = result.punches.map((p) => `${p.pin}\t${p.localTime}\t255\t0`).join('\n');
-  const added = lines ? await ingestPunches(device, lines) : 0;
-  await peoplePrisma.attendanceDevice.update({ where: { id: device.id }, data: { lastFetchedAt: now, lastSeenAt: now, lastError: null } });
-  return { ok: true, message: 'Success', received: result.punches.length, added };
+  const seen = result.payload ? { lastPayload: result.payload, lastPayloadAt: now } : {};
+  if (!result.ok) {
+    if (!opts.dryRun) await peoplePrisma.attendanceDevice.update({ where: { id: device.id }, data: { lastError: result.message, ...seen } });
+    return { ok: false, message: result.message, received: result.received, added: 0 };
+  }
+  if (opts.dryRun) return { ok: true, message: result.message, received: result.received, added: 0, readable: result.lines.length };
+  const added = result.lines.length ? await ingestPunches(device, result.lines.join('\n')) : 0;
+  await peoplePrisma.attendanceDevice.update({ where: { id: device.id }, data: { lastFetchedAt: now, lastSeenAt: now, lastError: null, ...seen } });
+  return { ok: true, message: result.message, received: result.received, added, readable: result.lines.length };
 }
 
 /** Every active vendor connection of companies with Attendance on — the timer's job. */
 export async function syncAllVendorConnections(opts: { fetchImpl?: typeof fetch } = {}) {
-  const devices = await peoplePrisma.attendanceDevice.findMany({ where: { vendor: 'ETIMEOFFICE', isActive: true } });
+  const devices = await peoplePrisma.attendanceDevice.findMany({ where: { vendor: { in: vendorsWith('pull') }, isActive: true } });
   let added = 0;
   for (const d of devices) {
     if (!(await isFeatureEnabled(d.accountId, d.orgId, 'attendance'))) continue;

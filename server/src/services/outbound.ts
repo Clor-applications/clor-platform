@@ -120,3 +120,37 @@ export function guardedPost(url: string, body: string, headers: Record<string, s
     req.end(body);
   });
 }
+
+export type GuardedResponse = { status: number; headers: http.IncomingHttpHeaders; text: string };
+
+/** Any request through the guarded agents, answer read as text (≤ 4 MB); no redirects followed. */
+export function guardedRequest(method: string, url: string, opts: { headers?: Record<string, string>; body?: string; timeoutMs?: number } = {}): Promise<GuardedResponse> {
+  const timeoutMs = opts.timeoutMs ?? 15_000;
+  return new Promise((resolve, reject) => {
+    let u: URL;
+    try {
+      u = new URL(url);
+    } catch {
+      return reject(new Error('That is not a web address.'));
+    }
+    if (u.protocol !== 'https:' && u.protocol !== 'http:') return reject(new Error('Use an http or https address.'));
+    const lib = u.protocol === 'https:' ? https : http;
+    const body = opts.body;
+    const req = lib.request(
+      u,
+      { method, agent: u.protocol === 'https:' ? httpsAgent : httpAgent, headers: { ...(opts.headers || {}), ...(body != null ? { 'Content-Length': Buffer.byteLength(body) } : {}) }, timeout: timeoutMs },
+      (res) => {
+        const chunks: Buffer[] = [];
+        let size = 0;
+        res.on('data', (c: Buffer) => {
+          size += c.length;
+          if (size <= 4 * 1024 * 1024) chunks.push(c);
+        });
+        res.on('end', () => resolve({ status: res.statusCode || 0, headers: res.headers, text: Buffer.concat(chunks).toString('utf8') }));
+      }
+    );
+    req.on('timeout', () => req.destroy(new Error(`No answer within ${timeoutMs / 1000} s`)));
+    req.on('error', reject);
+    req.end(body);
+  });
+}

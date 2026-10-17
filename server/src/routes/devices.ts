@@ -10,7 +10,8 @@ import { ATTENDANCE_MODULE, ATTENDANCE_RESOURCE, attendanceRouteOk } from '../se
 import { COMMANDS, FACE, FETCH_TEMPLATE_COMMANDS, ONLINE_WINDOW_MS, SEQ, VERIFY_MODES, commandEffect, normaliseFirmware, pinKey, userInfoCommand } from '../services/attendance/adms.js';
 import { ISO_DATE, sendError, today } from './attendance.js';
 import { attachPunchesTo, copyAllTemplatesTo, pinMatcher, recomputeDeviceDay, servesArea, shiftDayFor, syncVendorConnection } from './iclock.js';
-import { encryptSecret } from '../services/mailer.js';
+import { decryptSecret, encryptSecret } from '../services/mailer.js';
+import { checkUrl } from '../services/outbound.js';
 import { etoFetchPunches } from '../services/attendance/etimeoffice.js';
 import { MAX_NETWORKS, networkOf } from '../services/attendance/network.js';
 import { randomBytes } from 'node:crypto';
@@ -105,6 +106,57 @@ devicesRouter.post(`${base}/test-etimeoffice`, can(PermissionAction.CREATE), asy
   res.json({ ok: r.ok, message: r.message, punchesToday: r.punches.length });
 });
 
+const PULL_VENDORS = ['HIKVISION', 'DAHUA', 'BIOSTAR', 'HTTP_PULL'] as const;
+const pullConfigSchema = z
+  .object({
+    method: z.enum(['GET', 'POST']).optional(),
+    url: z.string().trim().max(500).optional(),
+    timeFormat: z.enum(['iso', 'local', 'date', 'epoch', 'epoch_ms', 'dmy']).optional(),
+    auth: z.enum(['none', 'basic', 'digest', 'header']).optional(),
+    body: z.string().max(4000).optional(),
+  })
+  .strict();
+const pullSchema = z.object({
+  vendor: z.enum(PULL_VENDORS),
+  name: z.string().trim().min(1, 'Name the connection, e.g. "Hikvision gate".').max(80),
+  direction: z.enum(['both', 'in', 'out']).default('both'),
+  sourceTimezone: z.string().trim().max(60).default('Asia/Kolkata'),
+  /* The device or server address; for "any software" the URL template can be in config.url instead. */
+  baseUrl: z.string().trim().max(500).optional().nullable().or(z.literal('')),
+  username: z.string().trim().max(200).optional().nullable(),
+  password: z.string().max(500).optional().nullable(),
+  config: pullConfigSchema.optional().nullable(),
+  mapping: mappingSchema.optional().nullable(),
+  areaId: z.string().min(1).nullable().optional(),
+});
+const pullUrlOk = (vendor: string, baseUrl: string | null | undefined, config: any) => {
+  const url = vendor === 'HTTP_PULL' ? config?.url || baseUrl : baseUrl;
+  if (!url) return vendor === 'HTTP_PULL' ? 'Give the URL to call.' : 'Give the device or server address, e.g. http://203.0.113.10:80.';
+  return checkUrl(String(url).replace(/\{from\}|\{to\}/g, 'x'));
+};
+
+/** Try a pull connection on today's punches before saving it (or with a saved one's password when blank). */
+devicesRouter.post(`${base}/test-pull`, can(PermissionAction.CREATE), async (req, res) => {
+  if (!(await attendanceRouteOk(req, res))) return;
+  const parsed = pullSchema.safeParse({ name: 'test', ...req.body });
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Check the details.' });
+  const b = parsed.data;
+  const bad = pullUrlOk(b.vendor, b.baseUrl, b.config);
+  if (bad) return res.status(400).json({ error: bad });
+  let password = b.password || '';
+  if (!password && req.body?.deviceId) {
+    const saved = await peoplePrisma.attendanceDevice.findFirst({ where: { id: String(req.body.deviceId), orgId: req.tenant!.orgId }, select: { apiSecret: true } });
+    password = saved?.apiSecret ? decryptSecret(saved.apiSecret) : '';
+  }
+  const now = new Date();
+  const midnight = new Date(`${new Date(now.getTime() + 330 * 60_000).toISOString().slice(0, 10)}T00:00:00+05:30`);
+  const r = await syncVendorConnection(
+    { id: 'test', vendor: b.vendor, apiUrl: b.baseUrl || null, apiCorporateId: null, apiUsername: b.username || null, apiSecret: password ? encryptSecret(password) : null, sourceTimezone: b.sourceTimezone, configJson: b.config ? JSON.stringify(b.config) : null, mappingJson: b.mapping ? JSON.stringify(b.mapping) : null, lastFetchedAt: null },
+    { from: midnight, dryRun: true }
+  );
+  res.json({ ok: r.ok, message: r.message, punchesToday: r.received, readable: (r as any).readable ?? 0 });
+});
+
 const mappedSchema = z.object({
   name: z.string().trim().min(1, 'Name the source, e.g. "Hikvision gate" or "Monthly export".').max(80),
   direction: z.enum(['both', 'in', 'out']).default('both'),
@@ -143,6 +195,33 @@ devicesRouter.post(base, can(PermissionAction.CREATE), async (req, res) => {
     });
     /* The push URL token is shown once; only its hash is kept. */
     return res.status(201).json({ device: shape(device), seenBefore: null, pushToken: token });
+  }
+  if ((PULL_VENDORS as readonly string[]).includes(String(req.body?.vendor || ''))) {
+    const p = pullSchema.safeParse(req.body);
+    if (!p.success) return res.status(400).json({ error: p.error.issues[0]?.message || 'Check the details.' });
+    const b = p.data;
+    if (!validZone(b.sourceTimezone)) return res.status(400).json({ error: 'That is not a timezone name (e.g. Asia/Kolkata, Asia/Dubai).' });
+    const bad = pullUrlOk(b.vendor, b.baseUrl, b.config);
+    if (bad) return res.status(400).json({ error: bad });
+    const device = await peoplePrisma.attendanceDevice.create({
+      data: {
+        accountId,
+        orgId,
+        serialNumber: `${b.vendor.slice(0, 4)}-${randomBytes(6).toString('hex').toUpperCase()}`,
+        name: b.name,
+        direction: b.direction,
+        vendor: b.vendor,
+        sourceTimezone: b.sourceTimezone,
+        apiUrl: b.baseUrl || null,
+        apiUsername: b.username || null,
+        apiSecret: b.password ? encryptSecret(b.password) : null,
+        configJson: b.config ? JSON.stringify(b.config) : null,
+        mappingJson: b.mapping ? JSON.stringify(b.mapping) : null,
+        areaId: b.areaId ?? null,
+        createdByUserId: req.auth!.userId,
+      },
+    });
+    return res.status(201).json({ device: shape(device), seenBefore: null, pushToken: null });
   }
   if (req.body?.vendor === 'ETIMEOFFICE') {
     const p = etoSchema.safeParse(req.body);
@@ -271,13 +350,29 @@ devicesRouter.put(`${base}/:id`, can(PermissionAction.EDIT), async (req, res) =>
       corporateId: z.string().trim().max(80).optional().nullable(),
       username: z.string().trim().max(120).optional(),
       password: z.string().max(200).optional(),
-      /* Mapped sources (HTTP push, file). */
+      /* Mapped sources (HTTP push, file, HTTP pull). */
       sourceTimezone: z.string().trim().max(60).optional(),
       mapping: mappingSchema.optional().nullable(),
+      /* Pull connections. */
+      baseUrl: z.string().trim().max(500).optional().nullable().or(z.literal('')),
+      config: pullConfigSchema.optional().nullable(),
     })
     .safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Name the reader and choose its direction.' });
-  const { apiUrl, corporateId, username, password, areaId, sourceTimezone, mapping, ...common } = parsed.data;
+  const { apiUrl, corporateId, username, password, areaId, sourceTimezone, mapping, baseUrl, config, ...common } = parsed.data;
+  const pullFields = (PULL_VENDORS as readonly string[]).includes(existing.vendor)
+    ? {
+        ...(baseUrl !== undefined ? { apiUrl: baseUrl || null } : {}),
+        ...(username !== undefined ? { apiUsername: username || null } : {}),
+        ...(password ? { apiSecret: encryptSecret(password) } : {}),
+        ...(config !== undefined ? { configJson: config ? JSON.stringify(config) : null } : {}),
+        ...(sourceTimezone !== undefined ? { sourceTimezone } : {}),
+      }
+    : {};
+  if (pullFields.apiUrl !== undefined || pullFields.configJson !== undefined) {
+    const bad = pullUrlOk(existing.vendor, (pullFields as any).apiUrl ?? existing.apiUrl, config === undefined ? JSON.parse(existing.configJson || 'null') : config);
+    if (bad) return res.status(400).json({ error: bad });
+  }
   if (sourceTimezone !== undefined && !validZone(sourceTimezone)) return res.status(400).json({ error: 'That is not a timezone name (e.g. Asia/Kolkata, Asia/Dubai).' });
   const mapped = driverOf(existing.vendor).capabilities.includes('mapping')
     ? { ...(sourceTimezone !== undefined ? { sourceTimezone } : {}), ...(mapping !== undefined ? { mappingJson: mapping ? JSON.stringify(mapping) : null } : {}) }
@@ -296,7 +391,7 @@ devicesRouter.put(`${base}/:id`, can(PermissionAction.EDIT), async (req, res) =>
         };
   const device = await peoplePrisma.attendanceDevice.update({
     where: { id: existing.id },
-    data: { ...common, ...vendorFields, ...mapped, ...(existing.vendor !== 'ETIMEOFFICE' && areaId !== undefined ? { areaId } : {}) },
+    data: { ...common, ...vendorFields, ...mapped, ...pullFields, ...(existing.vendor !== 'ETIMEOFFICE' && areaId !== undefined ? { areaId } : {}) },
   });
   /* A new area changes who belongs on it; Sync status shows the gaps and the extras. */
   res.json({ device: shape(device), areaChanged: areaId !== undefined && (areaId ?? null) !== (existing.areaId ?? null) });
