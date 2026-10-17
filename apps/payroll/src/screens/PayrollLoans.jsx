@@ -145,7 +145,7 @@ export default function PayrollLoans() {
           title="No loans yet"
           description="Lend somebody money and payroll takes it back a month at a time, capped at what they actually earn."
           action={
-            <button type="button" className="ui-btn ui-btn-primary" onClick={() => setStarting(true)}>
+            <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setStarting(true)}>
               <Plus size={16} aria-hidden="true" /> New loan
             </button>
           }

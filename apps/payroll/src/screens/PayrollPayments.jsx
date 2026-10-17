@@ -155,7 +155,7 @@ export default function PayrollPayments() {
           title="Nothing has been paid yet"
           description="Start a payment and it gathers everybody on an approved payroll who is still owed, with the bank details to pay them at."
           action={
-            <button type="button" className="ui-btn ui-btn-primary" onClick={() => setStarting(true)}>
+            <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setStarting(true)}>
               <Plus size={16} aria-hidden="true" /> New payment
             </button>
           }

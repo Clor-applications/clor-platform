@@ -156,7 +156,7 @@ export default function SalaryStructures() {
           title="No salary structures yet"
           description="Build the salary shapes this company pays on. One structure can serve everybody on the same arrangement, whatever their individual package."
           action={
-            <button type="button" className="ui-btn ui-btn-primary" onClick={() => setEditing(blankStructure())}>
+            <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setEditing(blankStructure())}>
               <Plus size={16} aria-hidden="true" /> New structure
             </button>
           }

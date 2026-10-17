@@ -139,7 +139,7 @@ export default function PayRuns() {
           title="No payroll has been run yet"
           description="Start a run for a period and payroll will gather everybody eligible, check them, and work out what each is owed."
           action={
-            <button type="button" className="ui-btn ui-btn-primary" onClick={() => setStarting(true)}>
+            <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setStarting(true)}>
               <Plus size={16} aria-hidden="true" /> Run payroll
             </button>
           }

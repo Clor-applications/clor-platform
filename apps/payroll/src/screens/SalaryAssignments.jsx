@@ -148,7 +148,7 @@ export default function SalaryAssignments() {
           title="Nobody on payroll yet"
           description="Add the people this company pays, and give each of them a salary."
           action={
-            <button type="button" className="ui-btn ui-btn-primary" onClick={() => setAdding(true)}>
+            <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setAdding(true)}>
               <Plus size={16} aria-hidden="true" /> Add person
             </button>
           }
