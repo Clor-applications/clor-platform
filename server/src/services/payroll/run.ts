@@ -448,7 +448,7 @@ function calculateWithStatutory(
     workingDays: input.workingDays,
     payableDays: input.payableDays,
     lwpDays: input.lwpDays,
-    variableAmounts: { VARIABLE_PAY: input.variablePay, OVERTIME: input.overtimeAmount },
+    variableAmounts: { VARIABLE_PAY: input.variablePay, OVERTIME: input.overtimeAmount, OVERTIME_HOURS: input.overtimeHours },
   };
 
   const firstPass = calculateStructure(engine, engineInput);
@@ -521,6 +521,7 @@ function inputFor(ctx: LoadedRun, employeeId: string) {
     lwpDays: stored ? Number(stored.lwpDays) || 0 : 0,
     variablePay: stored ? Number(stored.variablePay) || 0 : 0,
     overtimeAmount: stored ? Number(stored.overtimeAmount) || 0 : 0,
+    overtimeHours: stored ? Number(stored.overtimeHours) || 0 : 0,
     source: stored?.source || 'DERIVED',
     derived: !stored,
   };

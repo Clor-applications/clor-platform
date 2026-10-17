@@ -297,6 +297,7 @@ export function calculateStructure(components: EngineComponent[], input: EngineI
     LWP_DAYS: Number(input.lwpDays) || 0,
     VARIABLE_PAY: Number(input.variableAmounts?.VARIABLE_PAY) || 0,
     OVERTIME: Number(input.variableAmounts?.OVERTIME) || 0,
+    OVERTIME_HOURS: Number(input.variableAmounts?.OVERTIME_HOURS) || 0,
   };
 
   const resolved = new Map<string, number>();

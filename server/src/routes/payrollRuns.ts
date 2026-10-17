@@ -147,6 +147,7 @@ payrollRunsRouter.get(
               lwpDays: Number(inputByEmployee.get(m.employeeId)!.lwpDays),
               variablePay: Number(inputByEmployee.get(m.employeeId)!.variablePay),
               overtimeAmount: Number(inputByEmployee.get(m.employeeId)!.overtimeAmount),
+              overtimeHours: Number(inputByEmployee.get(m.employeeId)!.overtimeHours),
               /* Where the days came from (MANUAL, ATTENDANCE), and the attendance breakdown when they came from there. */
               source: inputByEmployee.get(m.employeeId)!.source,
               notes: inputByEmployee.get(m.employeeId)!.notes,
@@ -324,6 +325,7 @@ payrollRunsRouter.put(
             lwpDays: z.number().finite().min(0).max(366).default(0),
             variablePay: z.number().finite().min(0).default(0),
             overtimeAmount: z.number().finite().min(0).default(0),
+            overtimeHours: z.number().finite().min(0).max(744).optional(),
             notes: z.string().trim().max(300).optional().nullable(),
           })
         )
@@ -345,6 +347,7 @@ payrollRunsRouter.put(
           lwpDays: row.lwpDays,
           variablePay: row.variablePay,
           overtimeAmount: row.overtimeAmount,
+          ...(row.overtimeHours !== undefined ? { overtimeHours: row.overtimeHours } : {}),
           notes: row.notes || null,
           source: 'MANUAL',
           createdByUserId: req.auth!.userId,
@@ -355,6 +358,7 @@ payrollRunsRouter.put(
           lwpDays: row.lwpDays,
           variablePay: row.variablePay,
           overtimeAmount: row.overtimeAmount,
+          ...(row.overtimeHours !== undefined ? { overtimeHours: row.overtimeHours } : {}),
           notes: row.notes || null,
           source: 'MANUAL',
         },
@@ -419,7 +423,9 @@ payrollRunsRouter.post(
         `From attendance: loss of pay ${lop}${parts.length ? ` (${parts.join(', ')})` : ''}.`,
         r.notYet ? `${r.notYet} days still to come counted as paid.` : '',
       ].filter(Boolean).join(' ').slice(0, 300);
-      const days = { workingDays, payableDays, lwpDays: lop, source: 'ATTENDANCE', notes };
+      /* Approved overtime only, as hours: a component's formula prices it (OVERTIME_HOURS). */
+      const overtimeHours = Math.round(((Number(r.approvedOvertimeMinutes) || 0) / 60) * 100) / 100;
+      const days = { workingDays, payableDays, lwpDays: lop, overtimeHours, source: 'ATTENDANCE', notes };
       await payrollPrisma.payrollInput.upsert({
         where: { runId_employeeId: { runId: run.id, employeeId: r.employeeId } },
         create: { accountId, orgId, runId: run.id, employeeId: r.employeeId, ...days, createdByUserId: req.auth!.userId },

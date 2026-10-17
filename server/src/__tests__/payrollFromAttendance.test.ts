@@ -95,6 +95,30 @@ describe('days from Attendance', () => {
     expect(Number(replaced!.variablePay)).toBe(1500);
   });
 
+  it('brings approved overtime hours, priced by a formula component at twice the hourly rate', async () => {
+    const c = await makeOwner({ payroll: true, people: true, attendance: true });
+    const { employeeId, runId } = await setUp(c);
+    // 09:00–20:00 less the 60-minute break is 600 minutes: 120 over the 480-minute day.
+    const day = await request(app).put(`/api/orgs/${c.orgId}/attendance/records`).set(at(c)).send({ employeeId, date: '2026-09-01', checkIn: '09:00', checkOut: '20:00' }).expect(200);
+    await request(app).post(`/api/orgs/${c.orgId}/attendance/records/${day.body.record.id}/overtime`).set(at(c)).send({ approved: true }).expect(200);
+    // Unapproved overtime on another day does not count.
+    await request(app).put(`/api/orgs/${c.orgId}/attendance/records`).set(at(c)).send({ employeeId, date: '2026-09-02', checkIn: '09:00', checkOut: '21:00' }).expect(200);
+
+    await pay.post(c, `/runs/${runId}/inputs/from-attendance`).expect(200);
+    expect(Number((await inputOf(runId, employeeId))!.overtimeHours)).toBe(2);
+
+    // Overtime for everyone: twice the hourly Basic (Basic / 26 days / 8 hours), not cut by loss-of-pay days.
+    await pay
+      .post(c, '/components', { name: 'Overtime', code: 'OT', type: 'EARNING', calculationMethod: 'FORMULA', formula: 'BASIC / 26 / 8 * 2 * OVERTIME_HOURS', prorate: false, appliesTo: 'ALL_EMPLOYEES', displayOrder: 5 })
+      .expect(201);
+    await pay.post(c, `/runs/${runId}/validate`).expect(200);
+    await pay.post(c, `/runs/${runId}/calculate`).expect(200);
+    const slip = await payrollPrisma.salarySlip.findFirst({ where: { runId, employeeId } });
+    const line = await payrollPrisma.salarySlipLine.findFirst({ where: { slipId: slip!.id, componentCode: 'OT' } });
+    /* Basic ₹30,000 a month: 30000 / 26 / 8 × 2 × 2 hours = ₹576.92, rounded to the rupee as components are. */
+    expect(Number(line!.amount)).toBe(577);
+  });
+
   it('is refused when Attendance is off', async () => {
     const c = await makeOwner({ payroll: true, people: true });
     const { runId } = await setUp(c);

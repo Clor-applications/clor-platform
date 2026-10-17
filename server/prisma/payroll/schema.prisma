@@ -634,6 +634,8 @@ model PayrollInput {
   lwpDays     Decimal @default(0)
 
   overtimeAmount Decimal @default(0)
+  /// Approved overtime hours, for a formula component (OVERTIME_HOURS) to price — from Attendance or entered.
+  overtimeHours  Decimal @default(0)
   variablePay    Decimal @default(0)
 
   /// MANUAL | ATTENDANCE | IMPORT — where the numbers came from.

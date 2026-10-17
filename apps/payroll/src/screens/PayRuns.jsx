@@ -537,6 +537,7 @@ const DaysStage = ({ data, editable, runId, onSaved }) => {
         payableDays: m.input?.payableDays ?? 30,
         lwpDays: m.input?.lwpDays ?? 0,
         variablePay: m.input?.variablePay ?? 0,
+        overtimeHours: m.input?.overtimeHours ?? 0,
         source: m.input?.source || null,
         notes: m.input?.notes || '',
       }))
@@ -582,6 +583,7 @@ const DaysStage = ({ data, editable, runId, onSaved }) => {
           payableDays: Number(r.payableDays) || 0,
           lwpDays: Number(r.lwpDays) || 0,
           variablePay: Number(r.variablePay) || 0,
+          overtimeHours: Number(r.overtimeHours) || 0,
         }))
       );
       notify.success('Days saved.');
@@ -616,6 +618,7 @@ const DaysStage = ({ data, editable, runId, onSaved }) => {
                 <th scope="col" className="ui-th ui-col-h-right">Working days</th>
                 <th scope="col" className="ui-th ui-col-h-right">Payable days</th>
                 <th scope="col" className="ui-th ui-col-h-right">Loss of pay</th>
+                <th scope="col" className="ui-th ui-col-h-right" title="Approved overtime hours. An earning component prices them with OVERTIME_HOURS in its formula.">OT hours</th>
                 <th scope="col" className="ui-th ui-col-h-right">Variable pay</th>
               </tr>
             </thead>
@@ -631,13 +634,13 @@ const DaysStage = ({ data, editable, runId, onSaved }) => {
                         <span className="ui-caption block">Typed</span>
                       ) : null}
                     </td>
-                    {['workingDays', 'payableDays', 'lwpDays', 'variablePay'].map((field) => (
+                    {['workingDays', 'payableDays', 'lwpDays', 'overtimeHours', 'variablePay'].map((field) => (
                       <td key={field} className="ui-col-amount">
                         <input
                           type="number"
                           min="0"
                           className="ui-input ui-num w-full min-w-0 px-2 py-1"
-                          aria-label={`${field === 'workingDays' ? 'Working days' : field === 'payableDays' ? 'Payable days' : field === 'lwpDays' ? 'Loss of pay days' : 'Variable pay'} for ${r.name}`}
+                          aria-label={`${field === 'workingDays' ? 'Working days' : field === 'payableDays' ? 'Payable days' : field === 'lwpDays' ? 'Loss of pay days' : field === 'overtimeHours' ? 'Overtime hours' : 'Variable pay'} for ${r.name}`}
                           value={r[field]}
                           onChange={(e) => patch(idx, { [field]: e.target.value })}
                         />
