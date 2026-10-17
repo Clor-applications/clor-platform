@@ -147,11 +147,11 @@ export default function AttendanceRecords() {
                   <th scope="col" className="ui-th">Employee</th>
                   <th scope="col" className="ui-th ui-col-h-center">In</th>
                   <th scope="col" className="ui-th ui-col-h-center">Out</th>
-                  <th scope="col" className="ui-th text-end">Worked</th>
-                  <th scope="col" className="ui-th text-end">Late</th>
-                  <th scope="col" className="ui-th text-end">Overtime</th>
+                  <th scope="col" className="ui-th text-end hidden md:table-cell">Worked</th>
+                  <th scope="col" className="ui-th text-end hidden md:table-cell">Late</th>
+                  <th scope="col" className="ui-th text-end hidden md:table-cell">Overtime</th>
                   <th scope="col" className="ui-th ui-col-h-center">Status</th>
-                  <th scope="col" className="ui-th ui-col-h-center">Validated</th>
+                  <th scope="col" className="ui-th ui-col-h-center hidden md:table-cell">Validated</th>
                 </tr>
               </thead>
               <tbody>
@@ -164,9 +164,9 @@ export default function AttendanceRecords() {
                     <td className="ui-col-entity">{r.employeeName}{r.employeeCode ? <span className="ui-caption"> · {r.employeeCode}</span> : null}</td>
                     <td className="ui-col-h-center">{r.checkInTime || '—'}</td>
                     <td className="ui-col-h-center">{r.checkOutTime || '—'}</td>
-                    <td className="text-end tabular-nums">{r.checkOut ? hm(r.workedMinutes) : '—'}</td>
-                    <td className="text-end tabular-nums">{r.lateMinutes ? `${r.lateMinutes}m` : '—'}</td>
-                    <td className="text-end tabular-nums" onClick={(e) => e.stopPropagation()}>
+                    <td className="text-end tabular-nums hidden md:table-cell">{r.checkOut ? hm(r.workedMinutes) : '—'}</td>
+                    <td className="text-end tabular-nums hidden md:table-cell">{r.lateMinutes ? `${r.lateMinutes}m` : '—'}</td>
+                    <td className="text-end tabular-nums hidden md:table-cell" onClick={(e) => e.stopPropagation()}>
                       {r.overtimeMinutes ? (
                         <span className="inline-flex items-center justify-end gap-2">
                         <span>{hm(r.overtimeMinutes)}</span>
@@ -190,7 +190,7 @@ export default function AttendanceRecords() {
                       ) : '—'}
                     </td>
                     <td className="ui-col-h-center"><span className={`ui-pill ${STATUS[r.status]?.pill || 'ui-pill-neutral'}`}>{STATUS[r.status]?.label || r.status}</span></td>
-                    <td className="ui-col-h-center">{r.validated ? <span className="ui-pill ui-pill-pos">Validated</span> : <span className="ui-caption">—</span>}</td>
+                    <td className="ui-col-h-center hidden md:table-cell">{r.validated ? <span className="ui-pill ui-pill-pos">Validated</span> : <span className="ui-caption">—</span>}</td>
                   </tr>
                 ))}
               </tbody>

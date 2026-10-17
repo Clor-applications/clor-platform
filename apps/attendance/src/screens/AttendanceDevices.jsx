@@ -173,19 +173,19 @@ export default function AttendanceDevices({ openScreen }) {
               <thead>
                 <tr>
                   <th scope="col" className="ui-th">Reader</th>
-                  <th scope="col" className="ui-th">Serial</th>
+                  <th scope="col" className="ui-th hidden md:table-cell">Serial</th>
                   <th scope="col" className="ui-th">Direction</th>
                   <th scope="col" className="ui-th ui-col-h-center">Status</th>
-                  <th scope="col" className="ui-th">Model</th>
+                  <th scope="col" className="ui-th hidden md:table-cell">Model</th>
                   <th scope="col" className="ui-th text-end">Punches today</th>
-                  <th scope="col" className="ui-th text-end">Commands waiting</th>
+                  <th scope="col" className="ui-th text-end hidden md:table-cell">Commands waiting</th>
                 </tr>
               </thead>
               <tbody>
                 {data.devices.map((d) => (
                   <tr key={d.id} className={VIRTUAL[d.vendor] ? undefined : 'ui-row-click'} onClick={VIRTUAL[d.vendor] ? undefined : () => setOpen(d)} title={VIRTUAL[d.vendor]?.title}>
                     <td className="ui-col-entity">{d.name}</td>
-                    <td className="ui-col-meta">{d.vendor === 'ETIMEOFFICE' ? 'e-Time Office' : MAPPED[d.vendor] || PULL[d.vendor] ? d.driverLabel : VIRTUAL[d.vendor]?.label || d.serialNumber}</td>
+                    <td className="ui-col-meta hidden md:table-cell">{d.vendor === 'ETIMEOFFICE' ? 'e-Time Office' : MAPPED[d.vendor] || PULL[d.vendor] ? d.driverLabel : VIRTUAL[d.vendor]?.label || d.serialNumber}</td>
                     <td>{d.direction === 'both' ? 'In / out' : d.direction === 'in' ? 'Entry' : 'Exit'}</td>
                     <td className="ui-col-h-center whitespace-nowrap">
                       {!d.isActive ? (
@@ -210,9 +210,9 @@ export default function AttendanceDevices({ openScreen }) {
                         <span className="ui-pill ui-pill-warn" title={d.lastSeenAt || ''}>{d.lastSeenAt ? `last seen ${ago(d.lastSeenAt)}` : 'never connected'}</span>
                       )}
                     </td>
-                    <td className="ui-col-meta">{[d.model, d.firmware && `v${d.firmware}`].filter(Boolean).join(' · ') || '—'}</td>
+                    <td className="ui-col-meta hidden md:table-cell">{[d.model, d.firmware && `v${d.firmware}`].filter(Boolean).join(' · ') || '—'}</td>
                     <td className="text-end tabular-nums">{d.punchesToday}</td>
-                    <td className="text-end tabular-nums">{d.commandsWaiting || '—'}</td>
+                    <td className="text-end tabular-nums hidden md:table-cell">{d.commandsWaiting || '—'}</td>
                   </tr>
                 ))}
               </tbody>

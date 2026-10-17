@@ -37,7 +37,7 @@ export default function AttendanceToday({ openScreen }) {
         error ? null : <SkeletonCard lines={6} />
       ) : (
         <>
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+          <div className="grid grid-cols-2 gap-3 xl:grid-cols-5">
             <StatTile label="Headcount" value={data.headcount} icon={Users} />
             <StatTile label="Present" value={data.present + data.halfDay} icon={UserCheck} tone="pos" hint={data.halfDay ? `${data.halfDay} half day` : null} />
             <StatTile label="Late" value={data.late.length} icon={Clock} tone={data.late.length ? 'warn' : 'neutral'} />

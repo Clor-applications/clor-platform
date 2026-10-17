@@ -90,6 +90,8 @@ export const attendanceApp = {
   available: true,
   database: 'people.db',
   home: 'today',
+  /* The phone's tab bar; the rest is behind Menu (packages/shell/mobileTabs.js). */
+  mobileTabs: ['today', 'records', 'leaveRequests', 'requests'],
 
   /* `permission`: what the screen's data needs (server routes); the shell hides what this user cannot open. */
   nav: [
