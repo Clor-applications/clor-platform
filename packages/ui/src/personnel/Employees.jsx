@@ -18,6 +18,10 @@ import {
   importEmployees,
   listEmployees,
   listNotes,
+  listDocuments,
+  uploadDocument,
+  getDocument,
+  deleteDocument,
   listStructure,
   listTags,
   listContractors,
@@ -483,6 +487,7 @@ function EmployeeFile({ id, onClose, onEdit, onDeleted }) {
               ['about', 'About'],
               ['work', 'Work'],
               ['notes', 'Notes'],
+              ['documents', 'Documents'],
             ].map(([k, label]) => (
               <button
                 key={k}
@@ -587,6 +592,7 @@ function EmployeeFile({ id, onClose, onEdit, onDeleted }) {
               )}
             </div>
           ) : null}
+          {tab === 'documents' ? <EmployeeDocuments employeeId={id} /> : null}
         </div>
       )}
     </Drawer>
@@ -864,5 +870,101 @@ function EmployeeForm({ initial, lists, people, onClose, onSaved }) {
         ) : null}
       </form>
     </Drawer>
+  );
+}
+
+const DOC_KINDS = [
+  ['ID_PROOF', 'ID proof'],
+  ['ADDRESS_PROOF', 'Address proof'],
+  ['EDUCATION', 'Education'],
+  ['CONTRACT', 'Contract / offer'],
+  ['PAYSLIP', 'Payslip'],
+  ['OTHER', 'Other'],
+];
+const kb = (n) => (n >= 1048576 ? `${(n / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`);
+
+/**
+ * Files on the employee's record — ID proof, contract, certificates — read
+ * into the browser and sent as a data URL (≤ 5 MB). The person sees what HR
+ * marks visible, in the portal under Me.
+ */
+function EmployeeDocuments({ employeeId }) {
+  const [docs, setDocs] = useState(null);
+  const [form, setForm] = useState({ kind: 'ID_PROOF', title: '', expiresOn: '', visibleToEmployee: true });
+  const [file, setFile] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const input = useRef(null);
+  const load = useCallback(() => listDocuments(employeeId).then(setDocs).catch(() => setDocs([])), [employeeId]);
+  useEffect(() => { load(); }, [load]);
+
+  const upload = async (e) => {
+    e.preventDefault();
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) return notify.error('Files up to 5 MB.');
+    setBusy(true);
+    try {
+      const dataUrl = await new Promise((resolve, reject) => { const r = new FileReader(); r.onload = () => resolve(r.result); r.onerror = () => reject(new Error('Could not read the file.')); r.readAsDataURL(file); });
+      await uploadDocument(employeeId, { ...form, title: form.title.trim() || file.name.replace(/\.[^.]+$/, ''), expiresOn: form.expiresOn || null, data: dataUrl, mime: file.type });
+      setFile(null);
+      setForm({ kind: 'ID_PROOF', title: '', expiresOn: '', visibleToEmployee: true });
+      if (input.current) input.current.value = '';
+      notify.success('Added to the file.');
+      load();
+    } catch (err) {
+      notify.error(String(err?.message || 'Not uploaded.'));
+    } finally {
+      setBusy(false);
+    }
+  };
+  const open = async (d) => {
+    try {
+      const full = await getDocument(d.id);
+      const a = document.createElement('a');
+      a.href = full.dataUrl;
+      a.download = `${d.title}.${(d.mime.split('/')[1] || 'bin').replace('vnd.openxmlformats-officedocument.wordprocessingml.document', 'docx').replace('vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'xlsx').replace('jpeg', 'jpg')}`;
+      a.click();
+    } catch (err) {
+      notify.error(String(err?.message || 'Could not open.'));
+    }
+  };
+  const remove = async (d) => {
+    if (!(await confirmDialog({ title: `Remove ${d.title}?`, message: 'The file is deleted from the record.', confirmLabel: 'Remove' }))) return;
+    await deleteDocument(d.id).catch((e) => notify.error(String(e?.message || 'Could not remove.')));
+    load();
+  };
+  const [today] = useState(() => new Date().toISOString().slice(0, 10));
+
+  return (
+    <div className="space-y-3">
+      <form onSubmit={upload} className="ui-card p-3 space-y-2">
+        <div className="flex flex-wrap gap-2">
+          <select className="ui-select" value={form.kind} onChange={(e) => setForm({ ...form, kind: e.target.value })} aria-label="Kind">
+            {DOC_KINDS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+          </select>
+          <input className="ui-input flex-1 min-w-[10rem]" placeholder="Title (blank: the file name)" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} aria-label="Title" />
+          <input type="date" className="ui-input" style={{ width: 'auto' }} value={form.expiresOn} onChange={(e) => setForm({ ...form, expiresOn: e.target.value })} aria-label="Valid until" title="Valid until (optional)" />
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
+          <input ref={input} type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx,.xlsx,.txt" className="text-sm" onChange={(e) => setFile(e.target.files?.[0] || null)} aria-label="File" />
+          <label className="flex items-center gap-1.5 text-sm"><input type="checkbox" checked={form.visibleToEmployee} onChange={(e) => setForm({ ...form, visibleToEmployee: e.target.checked })} /> Visible to the person</label>
+          <button type="submit" className="ui-btn ui-btn-primary ui-btn-sm ml-auto" disabled={!file || busy}>{busy ? 'Uploading…' : 'Add to file'}</button>
+        </div>
+      </form>
+      {!docs ? <p className="ui-caption">Loading…</p> : !docs.length ? <p className="ui-caption">No documents on this file yet.</p> : (
+        <ul className="space-y-2">
+          {docs.map((d) => (
+            <li key={d.id} className="ui-card p-3 text-sm flex flex-wrap items-center gap-2">
+              <span className="min-w-0 flex-1">
+                <span className="font-medium">{d.title}</span>
+                <span className="ui-caption block">{DOC_KINDS.find(([k]) => k === d.kind)?.[1] || d.kind} · {kb(d.size)} · {new Date(d.createdAt).toLocaleDateString('en-IN', { dateStyle: 'medium' })}{d.expiresOn ? ` · valid until ${d.expiresOn}` : ''}{!d.visibleToEmployee ? ' · HR only' : ''}</span>
+                {d.expiresOn && d.expiresOn < today ? <span className="ui-pill ui-pill-neg mt-1">Expired</span> : null}
+              </span>
+              <button type="button" className="ui-link" onClick={() => open(d)}>Download</button>
+              <button type="button" className="ui-link" onClick={() => remove(d)}>Remove</button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }

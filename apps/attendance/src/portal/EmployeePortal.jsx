@@ -12,7 +12,11 @@ import {
   cancelLeave,
   changePassword,
   decideApproval,
+  askData,
   getApprovals,
+  getDataRequests,
+  getDocument,
+  getDocuments,
   getAttendance,
   getLeave,
   getMe,
@@ -609,6 +613,8 @@ function Account({ me, guard, onSignOut }) {
         </section>
       ) : null}
       <MyTax guard={guard} />
+      <MyDocuments guard={guard} />
+      <MyData guard={guard} />
       <form onSubmit={save} className="ui-card space-y-3 p-5" aria-labelledby="pw-h">
         <h2 id="pw-h" className="ui-t-sec">Change password</h2>
         <label className="block"><span className="ui-label">Current password</span><input type="password" className="ui-input w-full" required autoComplete="current-password" value={form.current} onChange={(e) => setForm({ ...form, current: e.target.value })} /></label>
@@ -772,9 +778,10 @@ function Approvals({ guard }) {
   const decide = async (item, decision) => {
     setBusy(`${item.type}:${item.id}`);
     try {
-      await guard(decideApproval(item.type, item.id, { decision, note: decision === 'reject' ? note : undefined }));
+      const r = await guard(decideApproval(item.type, item.id, { decision, note: decision === 'reject' ? note : undefined }));
       setRejecting(null);
       setNote('');
+      if (r?.stage === 'HR') setError('');
       load();
     } catch (e) {
       /* 409 means another approver got there first — worth saying, then showing the fresh queue. */
@@ -834,6 +841,110 @@ function Approvals({ guard }) {
         );
       })}
     </>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// My documents, and my data (DPDP)
+// ---------------------------------------------------------------------------
+
+const sizeOf = (n) => (n >= 1048576 ? `${(n / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`);
+
+/** What HR has put on my file and marked for me: download, nothing else. */
+function MyDocuments({ guard }) {
+  const [docs, setDocs] = useState(null);
+  useEffect(() => {
+    guard(getDocuments()).then((d) => setDocs(d?.documents || [])).catch(() => setDocs([]));
+  }, [guard]);
+  const open = async (d) => {
+    try {
+      const full = await guard(getDocument(d.id));
+      const a = document.createElement('a');
+      a.href = full.document.dataUrl;
+      a.download = d.title;
+      a.click();
+    } catch (err) {
+      if (!(err instanceof SignedOut)) alert(String(err?.message || 'Could not open.'));
+    }
+  };
+  if (!docs || !docs.length) return null;
+  return (
+    <section className="ui-card space-y-2 p-5" aria-labelledby="docs-h">
+      <h2 id="docs-h" className="ui-t-sec">My documents</h2>
+      <ul className="divide-y" style={{ borderColor: 'rgb(var(--border))' }}>
+        {docs.map((d) => (
+          <li key={d.id} className="flex items-center justify-between gap-2 py-2 text-sm">
+            <span className="min-w-0"><span className="block truncate font-medium">{d.title}</span><span className="ui-caption">{sizeOf(d.size)}{d.expiresOn ? ` · valid until ${d.expiresOn}` : ''}</span></span>
+            <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm shrink-0" onClick={() => open(d)}>Download</button>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+const DATA_TYPES = [
+  ['ACCESS', 'See the data held about me'],
+  ['CORRECTION', 'Correct something that is wrong'],
+  ['ERASURE', 'Erase data that is no longer needed'],
+];
+
+/** The three DPDP rights, as a form; HR answers under Personnel → Data requests and the answer shows here. */
+function MyData({ guard }) {
+  const [list, setList] = useState(null);
+  const [open, setOpen] = useState(false);
+  const [form, setForm] = useState({ type: 'ACCESS', details: '' });
+  const [note, setNote] = useState(null);
+  const load = useCallback(() => guard(getDataRequests()).then((d) => setList(d?.requests || [])).catch(() => setList([])), [guard]);
+  useEffect(() => { load(); }, [load]);
+  const send = async (e) => {
+    e.preventDefault();
+    setNote(null);
+    try {
+      await guard(askData(form));
+      setForm({ type: 'ACCESS', details: '' });
+      setOpen(false);
+      setNote({ ok: true, text: 'Sent to HR. The answer appears here.' });
+      load();
+    } catch (err) {
+      if (!(err instanceof SignedOut)) setNote({ ok: false, text: String(err?.message || 'Not sent.') });
+    }
+  };
+  return (
+    <section className="ui-card space-y-3 p-5" aria-labelledby="data-h">
+      <div className="flex items-baseline justify-between gap-2">
+        <h2 id="data-h" className="ui-t-sec">My data</h2>
+        {!open ? <button type="button" className="ui-link text-sm" onClick={() => setOpen(true)}>Ask about my data</button> : null}
+      </div>
+      <p className="ui-caption">You can ask to see the data held about you, have it corrected, or have what is no longer needed erased. <a className="ui-link" href="#/legal/privacy">Privacy notice</a></p>
+      {open ? (
+        <form onSubmit={send} className="space-y-2">
+          <select className="ui-select w-full" value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })} aria-label="What you are asking">
+            {DATA_TYPES.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+          </select>
+          <textarea className="ui-input w-full" rows={3} required maxLength={2000} placeholder="What exactly, and why" value={form.details} onChange={(e) => setForm({ ...form, details: e.target.value })} aria-label="Details" />
+          <div className="flex gap-2">
+            <button type="submit" className="ui-btn ui-btn-primary flex-1">Send to HR</button>
+            <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setOpen(false)}>Cancel</button>
+          </div>
+        </form>
+      ) : null}
+      {note ? <p className="text-sm" role={note.ok ? 'status' : 'alert'} style={{ color: note.ok ? 'rgb(var(--pos))' : 'rgb(var(--neg))' }}>{note.text}</p> : null}
+      {list?.length ? (
+        <ul className="divide-y" style={{ borderColor: 'rgb(var(--border))' }}>
+          {list.map((r) => (
+            <li key={r.id} className="py-2 text-sm space-y-0.5">
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-medium">{DATA_TYPES.find(([k]) => k === r.type)?.[1] || r.type}</span>
+                <span className={`ui-pill ${r.status === 'RESOLVED' ? 'ui-pill-pos' : r.status === 'REJECTED' ? 'ui-pill-neg' : 'ui-pill-warn'}`}>{r.status === 'PENDING' ? 'With HR' : r.status === 'RESOLVED' ? 'Done' : 'Declined'}</span>
+              </div>
+              <p className="ui-caption">{r.details}</p>
+              {r.resolution ? <p className="text-sm">HR: {r.resolution}</p> : null}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </section>
   );
 }
 

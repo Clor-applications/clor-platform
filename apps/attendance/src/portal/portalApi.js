@@ -83,6 +83,11 @@ export const getMe = () => call('/me');
 export const punch = (body) => call('/punch', { method: 'POST', body });
 /* Approvals: what the people reporting to me are waiting on, and my decision on one. */
 export const getApprovals = () => call('/approvals');
+/* My documents (what HR marked visible) and my data requests (DPDP). */
+export const getDocuments = () => call('/documents');
+export const getDocument = (id) => call(`/documents/${encodeURIComponent(id)}`);
+export const getDataRequests = () => call('/data-requests');
+export const askData = (body) => call('/data-requests', { method: 'POST', body });
 export const decideApproval = (type, id, body) => call(`/approvals/${encodeURIComponent(type)}/${encodeURIComponent(id)}`, { method: 'POST', body });
 export const getAttendance = (month) => call(`/attendance${month ? `?month=${encodeURIComponent(month)}` : ''}`);
 export const askCorrection = (body) => call('/corrections', { method: 'POST', body });

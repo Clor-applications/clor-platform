@@ -35,6 +35,7 @@ import {
   Grid3x3,
   Upload,
   Download,
+  ShieldCheck,
 } from 'lucide-react';
 
 import Employees from '@ui/personnel/Employees';
@@ -75,6 +76,7 @@ import Geofences from './src/screens/Geofences';
 import SiteCheck from './src/screens/SiteCheck';
 import DataImport from './src/screens/DataImport';
 import DataExport from './src/screens/DataExport';
+import DataRequests from './src/screens/DataRequests';
 import EmployeePortal from './src/portal/EmployeePortal';
 
 /**
@@ -110,6 +112,7 @@ export const attendanceApp = {
     { key: 'personnel', label: 'Personnel', groups: [
       { label: 'Organization', items: ['departments', 'positions', 'areas'] },
       { label: 'Employees', items: ['employees', 'contractors', 'resignations', 'transfer'] },
+      { label: 'Privacy', items: ['dataRequests'] },
     ] },
     { key: 'device', label: 'Readers', groups: [
       { label: 'Readers', items: ['readerHealth', 'readers', 'readerSync'] },
@@ -143,6 +146,7 @@ export const attendanceApp = {
     { key: 'contractors', label: 'Contractors', icon: HardHat, permission: 'PEOPLE::Org Structure::VIEW' },
     { key: 'resignations', label: 'Resignations', icon: UserMinus, permission: 'PEOPLE::Employees::VIEW' },
     { key: 'transfer', label: 'Transfer', icon: Repeat, permission: 'PEOPLE::Employees::VIEW' },
+    { key: 'dataRequests', label: 'Data requests', icon: ShieldCheck, permission: 'PEOPLE::Employees::VIEW' },
     { section: 'Device' },
     { key: 'readerHealth', label: 'Reader health', icon: HeartPulse, permission: 'ATTENDANCE::Attendance Devices::VIEW' },
     { key: 'readers', label: 'Readers', icon: Cpu, permission: 'ATTENDANCE::Attendance Devices::VIEW' },
@@ -223,6 +227,7 @@ export const attendanceApp = {
     siteCheck: SiteCheck,
     dataImport: DataImport,
     dataExport: DataExport,
+    dataRequests: DataRequests,
     me: MyAttendance,
     myLeave: MyLeave,
   },

@@ -106,6 +106,21 @@ export default function AttendanceRules() {
           </label>
         </section>
 
+        <section className="ui-card space-y-3 p-5" aria-labelledby="approvals-h">
+          <h2 id="approvals-h" className="ui-t-sec">Who approves</h2>
+          <p className="ui-caption">A manager is the person named in “Reports to” on the employee file; they decide from the portal. Someone with no manager goes straight to HR.</p>
+          {[['leaveApproval', 'Leave requests'], ['correctionApproval', 'Attendance corrections']].map(([k, label]) => (
+            <label key={k} className="block">
+              <span className="ui-label">{label}</span>
+              <select className="ui-select w-full" value={rules[k] || 'HR'} onChange={(e) => setRules({ ...rules, [k]: e.target.value })}>
+                <option value="HR">HR decides (a manager may also decide from the portal)</option>
+                <option value="MANAGER">The manager decides (HR can still step in)</option>
+                <option value="MANAGER_THEN_HR">The manager first, then HR</option>
+              </select>
+            </label>
+          ))}
+        </section>
+
         <div><button type="submit" className="ui-btn ui-btn-primary">Save rules</button></div>
       </form>
 

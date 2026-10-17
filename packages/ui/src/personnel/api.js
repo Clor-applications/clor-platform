@@ -38,6 +38,14 @@ export const listTags = () => apiFetch(`${base()}/tags`, opts).then((r) => r?.ta
 export const createTag = (body) => send('/tags', 'POST', body);
 export const deleteTag = (id) => send(`/tags/${encodeURIComponent(id)}`, 'DELETE');
 
+/* Documents on the file (≤ 5 MB each, as data URLs). */
+export const listDocuments = (id) => apiFetch(`${base()}/employees/${encodeURIComponent(id)}/documents`, opts).then((r) => r?.documents || []);
+export const uploadDocument = (id, body) => send(`/employees/${encodeURIComponent(id)}/documents`, 'POST', body);
+export const getDocument = (docId) => apiFetch(`${base()}/documents/${encodeURIComponent(docId)}`, opts).then((r) => r?.document);
+export const deleteDocument = (docId) => send(`/documents/${encodeURIComponent(docId)}`, 'DELETE');
+/* DPDP data requests raised from the portal. */
+export const listDataRequests = (status) => apiFetch(`${base()}/data-requests${status ? `?status=${encodeURIComponent(status)}` : ''}`, opts);
+export const resolveDataRequest = (id, body) => send(`/data-requests/${encodeURIComponent(id)}/resolve`, 'POST', body);
 export const listNotes = (employeeId) => apiFetch(`${base()}/employees/${encodeURIComponent(employeeId)}/notes`, opts).then((r) => r?.notes || []);
 export const addNote = (employeeId, body) => send(`/employees/${encodeURIComponent(employeeId)}/notes`, 'POST', { body });
 export const deleteNote = (noteId) => send(`/notes/${encodeURIComponent(noteId)}`, 'DELETE');
