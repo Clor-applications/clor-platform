@@ -23,6 +23,10 @@ export const getOverview = (date) => get(`/overview${query({ date })}`);
 export const listEmployees = () => get('/employees').then((r) => r?.employees || []);
 
 export const listRecords = (params) => get(`/records${query(params)}`);
+/* Bulk imports (the Import screen): rows in, a verdict per failed row out. */
+export const importRecords = (rows) => send('/records/import', 'POST', { rows });
+export const importHolidays = (rows) => send('/holidays/import', 'POST', { rows });
+export const importAssignments = (rows) => send('/shift-assignments/import', 'POST', { rows });
 export const markDay = (body) => send('/records', 'PUT', body);
 export const deleteDay = (id) => send(`/records/${encodeURIComponent(id)}`, 'DELETE');
 export const validateDays = (ids) => send('/records/validate', 'POST', { ids });

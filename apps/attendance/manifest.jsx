@@ -33,6 +33,8 @@ import {
   UserRoundCheck,
   Users,
   Grid3x3,
+  Upload,
+  Download,
 } from 'lucide-react';
 
 import Employees from '@ui/personnel/Employees';
@@ -71,6 +73,8 @@ import AttendanceRules from './src/screens/AttendanceRules';
 import PortalAccess from './src/screens/PortalAccess';
 import Geofences from './src/screens/Geofences';
 import SiteCheck from './src/screens/SiteCheck';
+import DataImport from './src/screens/DataImport';
+import DataExport from './src/screens/DataExport';
 import EmployeePortal from './src/portal/EmployeePortal';
 
 /**
@@ -121,6 +125,7 @@ export const attendanceApp = {
     { key: 'system', label: 'System', groups: [
       { label: 'Employee portal', items: ['portalAccess', 'sites', 'siteCheck'] },
       { label: 'Integrations', items: ['integrations'] },
+      { label: 'Data', items: ['dataImport', 'dataExport'] },
     ] },
     { key: 'me', label: 'Me', groups: [
       { label: 'Mine', items: ['me', 'myLeave'] },
@@ -172,6 +177,9 @@ export const attendanceApp = {
     { key: 'siteCheck', label: 'Site check', icon: LocateFixed, permission: 'ATTENDANCE::Employee Portal::VIEW' },
     { section: 'System' },
     { key: 'integrations', label: 'Integrations', icon: Plug, permission: 'ATTENDANCE::Attendance Integrations::VIEW' },
+    { section: 'Data' },
+    { key: 'dataImport', label: 'Import', icon: Upload, permission: 'ATTENDANCE::Attendance Records::VIEW' },
+    { key: 'dataExport', label: 'Export', icon: Download, permission: 'ATTENDANCE::Attendance Records::VIEW' },
     { section: 'Me' },
     { key: 'me', label: 'My attendance', icon: UserRoundCheck, permission: 'ATTENDANCE::My Attendance::VIEW' },
     { key: 'myLeave', label: 'My leave', icon: CalendarOff, permission: 'ATTENDANCE::My Attendance::VIEW' },
@@ -213,6 +221,8 @@ export const attendanceApp = {
     portalAccess: PortalAccess,
     sites: Geofences,
     siteCheck: SiteCheck,
+    dataImport: DataImport,
+    dataExport: DataExport,
     me: MyAttendance,
     myLeave: MyLeave,
   },
