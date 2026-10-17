@@ -101,7 +101,10 @@ export default function LeaveRequests() {
       {!rows ? (
         loadError ? null : <SkeletonCard lines={5} />
       ) : !rows.length ? (
-        <EmptyState title="Nothing here" description={status === 'PENDING' ? 'No leave is waiting for approval.' : 'No leave in this list.'} />
+        <EmptyState
+          title={status === 'PENDING' ? 'Nothing waiting for approval' : status ? `No ${status.toLowerCase()} leave` : 'No leave requests yet'}
+          description={status === 'PENDING' ? 'Requests from the portal and from Add leave land here.' : status ? 'Try another tab.' : 'Add leave for somebody, or let them ask from the employee portal.'}
+        />
       ) : (
         <div className="ui-card overflow-hidden">
           <div className="overflow-x-auto ui-table-scroll ui-table-fit">
