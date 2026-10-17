@@ -69,7 +69,7 @@ export default function PayrollOverview({ onOpen = () => {} }) {
   if (error) {
     return (
       <div className="space-y-6">
-        <PageHeader entity="settings" title="Payroll" description="Where this month is, and what is in the way." />
+        <PageHeader entity="payroll" title="Payroll" description="Where this month is, and what is in the way." />
         <div className="ui-card p-3 text-sm" role="alert" style={{ borderColor: 'rgb(var(--neg))', color: 'rgb(var(--neg))' }}>
           {error}
         </div>
@@ -85,7 +85,7 @@ export default function PayrollOverview({ onOpen = () => {} }) {
   return (
     <div className="space-y-6">
       <PageHeader
-        entity="settings"
+        entity="payroll"
         title="Payroll"
         description={
           currentPeriod

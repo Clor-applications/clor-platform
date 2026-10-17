@@ -130,7 +130,7 @@ export default function SalaryStructures() {
   return (
     <div className="space-y-6">
       <PageHeader
-        entity="settings"
+        entity="payroll"
         title="Salary structures"
         description="Reusable salary templates. A structure becomes a salary when somebody is assigned to it."
         actions={
@@ -312,7 +312,7 @@ const StructureEditor = ({ initial, components, onBack, onSaved }) => {
   return (
     <form onSubmit={save} className="space-y-6">
       <PageHeader
-        entity="settings"
+        entity="payroll"
         title={initial.id ? 'Edit salary structure' : 'New salary structure'}
         description="Which components somebody on this structure is paid, and how each one is worked out."
         actions={

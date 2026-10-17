@@ -112,7 +112,7 @@ export default function PayrollLedgerMapping() {
   return (
     <div className="space-y-6">
       <SettingsScreenHeader
-        entity="settings"
+        entity="payroll"
         title="Ledger mapping"
         description="Which account each part of a salary posts to. Payroll cannot be written into the books until every component here has one."
       />

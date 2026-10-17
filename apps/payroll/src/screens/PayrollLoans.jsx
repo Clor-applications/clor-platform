@@ -106,7 +106,7 @@ export default function PayrollLoans() {
   return (
     <div className="space-y-6">
       <PageHeader
-        entity="settings"
+        entity="payroll"
         title="Loans & advances"
         description="Money lent to staff, and the schedule it comes back out of their pay on."
         actions={
@@ -451,7 +451,7 @@ const LoanDetail = ({ loanId, onBack }) => {
   return (
     <div className="space-y-6">
       <PageHeader
-        entity="settings"
+        entity="payroll"
         title={loan.number}
         description={`${loan.employeeName} · ${TYPES.find((t) => t.id === loan.type)?.label || loan.type} · ${money(loan.principal)} lent${
           loan.recoveryComponentName ? ` · shows as ${loan.recoveryComponentName}` : ''

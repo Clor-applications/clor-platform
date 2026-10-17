@@ -81,7 +81,7 @@ export default function PayrollSetup({ onOpen = () => {} }) {
   if (error) {
     return (
       <div className="space-y-6">
-        <PageHeader entity="settings" title="Payroll" description="Paying people, and the books that follow from it." />
+        <PageHeader entity="payroll" title="Payroll" description="Paying people, and the books that follow from it." />
         <div className="ui-card p-3 text-sm" role="alert" style={{ borderColor: 'rgb(var(--neg))', color: 'rgb(var(--neg))' }}>
           {error}
         </div>
@@ -96,7 +96,7 @@ export default function PayrollSetup({ onOpen = () => {} }) {
   if (!setup.enabled) {
     return (
       <div className="space-y-6">
-        <PageHeader entity="settings" title="Payroll" description="Paying people, and the books that follow from it." />
+        <PageHeader entity="payroll" title="Payroll" description="Paying people, and the books that follow from it." />
 
         <div className="ui-card p-6 space-y-3" style={{ maxWidth: '44rem' }}>
           <div className="flex items-center gap-2">
@@ -124,7 +124,7 @@ export default function PayrollSetup({ onOpen = () => {} }) {
   return (
     <div className="space-y-6">
       <PageHeader
-        entity="settings"
+        entity="payroll"
         title="Set up Payroll"
         description={
           setup.ready

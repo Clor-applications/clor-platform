@@ -117,7 +117,7 @@ export default function PayrollPayments() {
   return (
     <div className="space-y-6">
       <PageHeader
-        entity="settings"
+        entity="payroll"
         title="Salary payments"
         description="The money going out for an approved payroll, what the bank did with each line, and the entry that clears it."
         actions={
@@ -456,7 +456,7 @@ const PaymentDetail = ({ paymentId, onBack }) => {
   return (
     <div className="space-y-6">
       <PageHeader
-        entity="settings"
+        entity="payroll"
         title={payment.number}
         description={`${payment.runNumber || 'Payroll'} · ${shownDate(payment.paymentDate)} · ${
           METHODS.find((m) => m.id === payment.method)?.label || payment.method

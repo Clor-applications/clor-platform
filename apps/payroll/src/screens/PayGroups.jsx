@@ -83,7 +83,7 @@ export default function PayGroups() {
   return (
     <div className="space-y-6">
       <SettingsScreenHeader
-        entity="settings"
+        entity="payroll"
         title="Pay groups"
         description="Populations paid on the same rhythm — monthly staff, weekly labour, contractors."
         actions={

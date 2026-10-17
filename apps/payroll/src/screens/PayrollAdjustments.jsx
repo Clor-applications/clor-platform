@@ -116,7 +116,7 @@ export default function PayrollAdjustments() {
   return (
     <div className="space-y-6">
       <PageHeader
-        entity="settings"
+        entity="payroll"
         title="Adjustments"
         description="One-off earnings and deductions for a single month — a bonus, an arrear, a recovery. Approved before payroll pays them."
         actions={

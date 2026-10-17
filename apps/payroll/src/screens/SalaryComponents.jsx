@@ -186,7 +186,7 @@ export default function SalaryComponents() {
   return (
     <div className="space-y-6">
       <SettingsScreenHeader
-        entity="settings"
+        entity="payroll"
         title="Salary components"
         description="The earnings, deductions and employer costs a salary is built from."
         actions={

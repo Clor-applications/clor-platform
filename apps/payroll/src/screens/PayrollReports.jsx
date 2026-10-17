@@ -184,7 +184,7 @@ export default function PayrollReports() {
   return (
     <div className="space-y-6">
       <PageHeader
-        entity="settings"
+        entity="payroll"
         title="Payroll reports"
         description="Read from the payslips themselves, so a report of a month says what was paid rather than what today's rates would say."
         actions={

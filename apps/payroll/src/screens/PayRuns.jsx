@@ -109,7 +109,7 @@ export default function PayRuns() {
   return (
     <div className="space-y-6">
       <PageHeader
-        entity="settings"
+        entity="payroll"
         title="Pay runs"
         description="Payroll for a period and a population — checked, reviewed and approved before anybody is paid."
         actions={
@@ -270,7 +270,7 @@ const RunWorkflow = ({ runId, onBack }) => {
   return (
     <div className="space-y-6">
       <PageHeader
-        entity="settings"
+        entity="payroll"
         title={`${run.number} — ${run.period?.name || 'payroll'}`}
         description={`${run.employeeCount} ${run.employeeCount === 1 ? 'person' : 'people'}, paid on ${shownDate(run.payrollDate)}.`}
         actions={

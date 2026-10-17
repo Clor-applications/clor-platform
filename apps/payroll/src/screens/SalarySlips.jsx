@@ -56,7 +56,7 @@ export default function SalarySlips() {
   return (
     <div className="space-y-6">
       <PageHeader
-        entity="settings"
+        entity="payroll"
         title="Salary slips"
         description="Every payslip produced, and how each figure on it was reached."
       />

@@ -128,7 +128,7 @@ export default function PayrollPeriods() {
   return (
     <div className="space-y-6">
       <SettingsScreenHeader
-        entity="settings"
+        entity="payroll"
         title="Payroll periods"
         description="The pay cycles a run belongs to, and which of them are closed."
         actions={

@@ -103,7 +103,7 @@ export default function SalaryRevisions() {
   return (
     <div className="space-y-6">
       <PageHeader
-        entity="settings"
+        entity="payroll"
         title="Salary revisions"
         description="Increments, with what each one does to take-home pay and to the company's cost before anybody agrees to it."
         actions={
@@ -509,7 +509,7 @@ const RevisionDetail = ({ revisionId, onBack }) => {
   return (
     <div className="space-y-6">
       <PageHeader
-        entity="settings"
+        entity="payroll"
         title={revision.employeeName}
         description={`${money(revision.currentAnnualCtc)} → ${money(revision.proposedAnnualCtc)} a year${
           revision.incrementPercent ? ` · ${revision.incrementPercent}%` : ''

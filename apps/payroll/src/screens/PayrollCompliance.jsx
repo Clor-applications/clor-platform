@@ -146,7 +146,7 @@ export default function PayrollCompliance() {
   return (
     <div className="space-y-6">
       <SettingsScreenHeader
-        entity="settings"
+        entity="payroll"
         title="Compliance"
         description="Provident fund, ESI, professional tax and income tax — the rates payroll deducts under, and when each took effect."
         actions={

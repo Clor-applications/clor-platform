@@ -122,7 +122,7 @@ export default function SalaryAssignments() {
   return (
     <div className="space-y-6">
       <PageHeader
-        entity="customer"
+        entity="payroll"
         title="Salary assignments"
         description="Who is paid what, and from when. A raise records a new salary rather than changing the old one."
         actions={
