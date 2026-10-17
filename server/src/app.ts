@@ -152,12 +152,21 @@ export function buildApp() {
     .map((s) => s.trim())
     .filter(Boolean);
   const defaultDevAllow = new Set(['http://127.0.0.1:5173', 'http://localhost:5173']);
+  /*
+   * The Android and iOS shells (mobile/<app>, Capacitor) serve the web build
+   * from their own origin — `https://localhost` on Android, `capacitor://localhost`
+   * on iOS — so every request from the installed app carries one of these.
+   * They are the same code as the web app, talking to the same API with the
+   * same logins, and are allowed whatever CORS_ORIGIN says.
+   */
+  const nativeShellAllow = new Set(['https://localhost', 'capacitor://localhost']);
 
   app.use(
     cors({
       origin(origin, cb) {
         // Allow server-to-server tools with no Origin.
         if (!origin) return cb(null, true);
+        if (nativeShellAllow.has(origin)) return cb(null, true);
         if (allowList.length > 0) return cb(null, allowList.includes(origin));
         return cb(null, defaultDevAllow.has(origin));
       },
