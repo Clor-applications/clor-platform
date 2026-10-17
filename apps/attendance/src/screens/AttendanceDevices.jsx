@@ -5,8 +5,12 @@ import { PageHeader, SkeletonCard, EmptyState } from '@ui/components/ui/Primitiv
 import Drawer from '@ui/components/ui/Drawer';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { listStructure } from '@ui/personnel/api';
+import { readFileText } from '@ui/utils/csv';
 import {
   addDevice,
+  lastPayload,
+  previewMapping,
+  rotatePushToken,
   approveDeviceNetwork,
   cancelDeviceCommands,
   deleteDevice,
@@ -38,10 +42,15 @@ const ago = (iso) => {
 };
 
 /**
- * Biometric readers (ZKTeco / eSSL). The reader sends its punches to CLOR —
- * nothing is opened at the office — and is claimed here by its serial number.
- * The same push protocol the on-premise ClorTime server uses.
+ * Readers and other sources of punches. Push readers (ZKTeco, eSSL and the
+ * rest of the ADMS family) send their punches to CLOR and are claimed by
+ * serial number; anything else that can post JSON to a URL gets its own push
+ * URL and a field mapping; a CSV from any reader software can be imported;
+ * e-Time Office is pulled. Which buttons a reader shows comes from what its
+ * driver can do (server: services/attendance/drivers.ts).
  */
+/** Sources with a field mapping instead of a protocol. */
+const MAPPED = { HTTP_PUSH: true, FILE: true };
 /** Not readers: punches sent with an API key, and from the employee portal on phones. */
 const VIRTUAL = {
   API: { label: 'API key', title: 'Punches sent with an API key — manage it under Integrations' },
@@ -106,7 +115,7 @@ export default function AttendanceDevices({ openScreen }) {
       <PageHeader
         entity="attendance"
         title="Readers"
-        description="ZKTeco and eSSL biometric readers sending punches to CLOR."
+        description="Readers of any make, software that can send punches to a URL, files from reader software, and e-Time Office — all landing on the same days."
         actions={
           <button type="button" className="ui-btn ui-btn-primary" onClick={() => setAdding(true)}>
             <Plus size={16} aria-hidden="true" /> Add reader
@@ -160,13 +169,21 @@ export default function AttendanceDevices({ openScreen }) {
                 {data.devices.map((d) => (
                   <tr key={d.id} className={VIRTUAL[d.vendor] ? undefined : 'ui-row-click'} onClick={VIRTUAL[d.vendor] ? undefined : () => setOpen(d)} title={VIRTUAL[d.vendor]?.title}>
                     <td className="ui-col-entity">{d.name}</td>
-                    <td className="ui-col-meta">{d.vendor === 'ETIMEOFFICE' ? 'e-Time Office' : VIRTUAL[d.vendor]?.label || d.serialNumber}</td>
+                    <td className="ui-col-meta">{d.vendor === 'ETIMEOFFICE' ? 'e-Time Office' : MAPPED[d.vendor] ? d.driverLabel : VIRTUAL[d.vendor]?.label || d.serialNumber}</td>
                     <td>{d.direction === 'both' ? 'In / out' : d.direction === 'in' ? 'Entry' : 'Exit'}</td>
                     <td className="ui-col-h-center whitespace-nowrap">
                       {!d.isActive ? (
                         <span className="ui-pill ui-pill-neutral">off</span>
                       ) : VIRTUAL[d.vendor] ? (
                         <span className="ui-pill ui-pill-neutral">{d.lastSeenAt ? `used ${ago(d.lastSeenAt)}` : 'not used yet'}</span>
+                      ) : MAPPED[d.vendor] ? (
+                        !d.mapping ? (
+                          <span className="ui-pill ui-pill-warn" title="Open it and set where each field is">mapping needed</span>
+                        ) : d.lastError ? (
+                          <span className="ui-pill ui-pill-neg" title={d.lastError}>last push failed</span>
+                        ) : (
+                          <span className="ui-pill ui-pill-neutral">{d.lastSeenAt ? `${d.vendor === 'FILE' ? 'imported' : 'pushed'} ${ago(d.lastSeenAt)}` : d.vendor === 'FILE' ? 'nothing imported yet' : 'nothing received yet'}</span>
+                        )
                       ) : d.vendor === 'ETIMEOFFICE' ? (
                         <span className={`ui-pill ${d.lastError ? 'ui-pill-neg' : 'ui-pill-pos'}`} title={d.lastError || ''}>{d.lastError ? 'pull failing' : `pulled ${ago(d.lastFetchedAt)}`}</span>
                       ) : d.awaitingNetwork ? (
@@ -207,9 +224,11 @@ export default function AttendanceDevices({ openScreen }) {
         </div>
       ) : null}
 
-      {adding ? <AddReader onClose={() => setAdding(false)} onSaved={() => { setAdding(false); load(); }} /> : null}
+      {adding ? <AddReader drivers={data?.drivers || []} pushBase={data?.pushBase} onClose={() => setAdding(false)} onSaved={() => { setAdding(false); load(); }} /> : null}
       {open ? (
-        open.vendor && open.vendor !== 'ADMS' ? (
+        MAPPED[open.vendor] ? (
+          <MappedDrawer device={open} pushBase={data?.pushBase} onClose={() => setOpen(null)} onChanged={load} />
+        ) : open.vendor && open.vendor !== 'ADMS' ? (
           <CloudDrawer device={open} onClose={() => setOpen(null)} onChanged={load} />
         ) : (
           <ReaderDrawer device={open} onClose={() => setOpen(null)} onChanged={load} />
@@ -219,14 +238,19 @@ export default function AttendanceDevices({ openScreen }) {
   );
 }
 
-function AddReader({ onClose, onSaved }) {
+const ZONES = ['Asia/Kolkata', 'Asia/Dubai', 'Asia/Riyadh', 'Asia/Qatar', 'Asia/Kuwait', 'Asia/Muscat', 'Asia/Bahrain', 'Asia/Singapore', 'Asia/Kuala_Lumpur', 'Asia/Dhaka', 'Asia/Kathmandu', 'Asia/Colombo', 'Europe/London', 'UTC'];
+
+function AddReader({ drivers, pushBase, onClose, onSaved }) {
   const [kind, setKind] = useState('ADMS');
-  const [form, setForm] = useState({ serialNumber: '', name: '', direction: 'both', corporateId: '', username: '', password: '', apiUrl: '' });
+  const [form, setForm] = useState({ serialNumber: '', name: '', direction: 'both', corporateId: '', username: '', password: '', apiUrl: '', sourceTimezone: 'Asia/Kolkata' });
   const [saving, setSaving] = useState(false);
   const [tested, setTested] = useState(null);
+  const [made, setMade] = useState(null);
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
   const cloud = kind === 'ETIMEOFFICE';
+  const mapped = Boolean(MAPPED[kind]);
   const creds = () => ({ corporateId: form.corporateId || null, username: form.username, password: form.password, apiUrl: form.apiUrl || null });
+  const choices = drivers.length ? drivers : [{ vendor: 'ADMS', label: 'Push reader (ADMS)', blurb: 'ZKTeco, eSSL and other readers with a Cloud Server setting.' }];
 
   const test = async () => {
     try {
@@ -241,9 +265,16 @@ function AddReader({ onClose, onSaved }) {
     try {
       const r = cloud
         ? await addDevice({ vendor: 'ETIMEOFFICE', name: form.name, direction: form.direction, ...creds() })
-        : await addDevice({ serialNumber: form.serialNumber, name: form.name, direction: form.direction });
+        : mapped
+          ? await addDevice({ vendor: kind, name: form.name, direction: form.direction, sourceTimezone: form.sourceTimezone })
+          : await addDevice({ serialNumber: form.serialNumber, name: form.name, direction: form.direction });
+      if (r.pushToken) {
+        /* Shown once: only its hash is kept. */
+        setMade({ device: r.device, url: `${pushBase || ''}${r.pushToken}` });
+        return;
+      }
       notify.success(
-        cloud ? `${r.device.name} connected. Punches are pulled every few minutes.` : r.seenBefore ? `${r.device.name} added — it is already talking to CLOR.` : `${r.device.name} added. It shows online once it connects.`
+        cloud ? `${r.device.name} connected. Punches are pulled every few minutes.` : mapped ? `${r.device.name} added. Open it to import a file.` : r.seenBefore ? `${r.device.name} added — it is already talking to CLOR.` : `${r.device.name} added. It shows online once it connects.`
       );
       onSaved();
     } catch (err) {
@@ -252,13 +283,30 @@ function AddReader({ onClose, onSaved }) {
       setSaving(false);
     }
   };
+
+  if (made) {
+    return (
+      <Drawer
+        widthClass="w-[min(40rem,96vw)]"
+        open
+        onClose={onSaved}
+        title={`${made.device.name} added`}
+        description="Give this URL to the reader, its software or your middleware. It is shown once; you can make a new one later."
+        actions={<button type="button" className="ui-btn ui-btn-primary" onClick={onSaved}>Done</button>}
+      >
+        <PushUrl url={made.url} />
+        <p className="ui-caption mt-4">Send punches with POST, as JSON, in whatever shape the device uses. The first thing it sends is kept so you can set where each field is — open the reader afterwards and choose <strong>Set up fields</strong>.</p>
+      </Drawer>
+    );
+  }
+
   return (
     <Drawer
       widthClass="w-[min(40rem,96vw)]"
       open
       onClose={onClose}
       title="Add reader"
-      description={cloud ? 'eSSL readers that sync to e-Time Office: CLOR pulls their punches from it.' : 'A serial number belongs to one company. Punches from a reader nobody has added are not recorded.'}
+      description={choices.find((d) => d.vendor === kind)?.blurb || ''}
       actions={
         <>
           <button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button>
@@ -269,14 +317,16 @@ function AddReader({ onClose, onSaved }) {
       <form id="add-reader" onSubmit={save} className="grid gap-4">
         <fieldset>
           <legend className="ui-label">How it connects</legend>
-          <label className="flex items-start gap-2 py-1 text-sm">
-            <input type="radio" name="kind" className="mt-1" checked={!cloud} onChange={() => setKind('ADMS')} />
-            <span>The reader sends punches to CLOR <span className="ui-caption">— ZKTeco and most eSSL models (Cloud Server Setting)</span></span>
-          </label>
-          <label className="flex items-start gap-2 py-1 text-sm">
-            <input type="radio" name="kind" className="mt-1" checked={cloud} onChange={() => setKind('ETIMEOFFICE')} />
-            <span>From e-Time Office <span className="ui-caption">— readers already syncing to eSSL’s cloud</span></span>
-          </label>
+          {choices.map((d) => (
+            <label key={d.vendor} className="flex items-start gap-2 py-1 text-sm">
+              <input type="radio" name="kind" className="mt-1" checked={kind === d.vendor} onChange={() => setKind(d.vendor)} />
+              <span>
+                {d.label}
+                {d.unverified ? <span className="ui-pill ui-pill-warn ms-2">not tested on hardware</span> : null}
+                <span className="ui-caption block">{d.blurb}</span>
+              </span>
+            </label>
+          ))}
         </fieldset>
         {cloud ? (
           <>
@@ -293,6 +343,8 @@ function AddReader({ onClose, onSaved }) {
               ) : null}
             </div>
           </>
+        ) : mapped ? (
+          <ZoneField value={form.sourceTimezone} onChange={(v) => setForm({ ...form, sourceTimezone: v })} />
         ) : (
           <label className="block">
             <span className="ui-label">Serial number *</span>
@@ -301,7 +353,7 @@ function AddReader({ onClose, onSaved }) {
         )}
         <label className="block">
           <span className="ui-label">Name *</span>
-          <input className="ui-input w-full" required maxLength={80} value={form.name} onChange={set('name')} placeholder={cloud ? 'e.g. eSSL cloud' : 'e.g. Main gate'} />
+          <input className="ui-input w-full" required maxLength={80} value={form.name} onChange={set('name')} placeholder={cloud ? 'e.g. eSSL cloud' : kind === 'FILE' ? 'e.g. Monthly export from Matrix' : kind === 'HTTP_PUSH' ? 'e.g. Hikvision gate' : 'e.g. Main gate'} />
         </label>
         <fieldset>
           <legend className="ui-label">Direction</legend>
@@ -310,8 +362,268 @@ function AddReader({ onClose, onSaved }) {
               <input type="radio" name="direction" checked={form.direction === k} onChange={() => setForm({ ...form, direction: k })} /> {label}
             </label>
           ))}
+          {mapped ? <span className="ui-caption">Used when what it sends does not say in or out.</span> : null}
         </fieldset>
       </form>
+    </Drawer>
+  );
+}
+
+function ZoneField({ value, onChange }) {
+  return (
+    <label className="block">
+      <span className="ui-label">Times it sends are in</span>
+      <input className="ui-input w-full" list="tz-list" value={value} onChange={(e) => onChange(e.target.value)} placeholder="Asia/Kolkata" />
+      <datalist id="tz-list">{ZONES.map((z) => <option key={z} value={z} />)}</datalist>
+      <span className="ui-caption">A time with its own offset (…+04:00, …Z) is converted whatever this says.</span>
+    </label>
+  );
+}
+
+function PushUrl({ url }) {
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(url);
+      notify.success('Copied.');
+    } catch {
+      notify.error('Could not copy — select it and copy by hand.');
+    }
+  };
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <code className="ui-mono ui-card min-w-0 flex-1 break-all px-3 py-2 text-sm">{url}</code>
+      <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={copy}>Copy</button>
+    </div>
+  );
+}
+
+const TIME_FORMATS = [
+  ['auto', 'Work it out (ISO, YYYY-MM-DD, epoch)'],
+  ['DMY', 'Day first — 31/12/2026 09:05'],
+  ['MDY', 'Month first — 12/31/2026 09:05'],
+  ['epoch', 'Seconds since 1970'],
+  ['epoch_ms', 'Milliseconds since 1970'],
+];
+const BLANK_MAPPING = { records: '', employeeCode: '', timestamp: '', date: '', time: '', timeFormat: 'auto', direction: '', inValues: 'in, 0, checkin, entry', outValues: 'out, 1, checkout, exit', verifyMode: '', filterField: '', filterValues: '' };
+const list = (v) => String(v || '').split(',').map((x) => x.trim()).filter(Boolean);
+const fromMapping = (m) => (m ? { ...BLANK_MAPPING, ...m, inValues: (m.inValues || []).join(', '), outValues: (m.outValues || []).join(', '), filterValues: (m.filterValues || []).join(', ') } : { ...BLANK_MAPPING });
+const toMapping = (f) => ({ ...f, inValues: list(f.inValues), outValues: list(f.outValues), filterValues: list(f.filterValues) });
+/** Field names in a JSON body: the first record's keys, wherever the list is. */
+const sniffHeaders = (text) => {
+  try {
+    let v = JSON.parse(text);
+    for (let depth = 0; depth < 3 && v && typeof v === 'object' && !Array.isArray(v); depth += 1) {
+      const arr = Object.values(v).find((x) => Array.isArray(x));
+      if (!arr) break;
+      v = arr;
+    }
+    const first = Array.isArray(v) ? v[0] : v;
+    return first && typeof first === 'object' ? Object.keys(first) : [];
+  } catch {
+    return [];
+  }
+};
+
+/**
+ * A source read through a field mapping: HTTP push (its own URL) or a file.
+ * The mapping is set against a real sample — the last thing the device sent,
+ * or the file about to be imported — and previewed before anything is saved.
+ */
+function MappedDrawer({ device, pushBase, onClose, onChanged }) {
+  const isFile = device.vendor === 'FILE';
+  const [form, setForm] = useState({ name: device.name, direction: device.direction, isActive: device.isActive, sourceTimezone: device.sourceTimezone || 'Asia/Kolkata' });
+  const [map, setMap] = useState(fromMapping(device.mapping));
+  const [sample, setSample] = useState('');
+  const [fileName, setFileName] = useState('');
+  const [preview, setPreview] = useState(null);
+  const [busy, setBusy] = useState('');
+  const [newUrl, setNewUrl] = useState('');
+  const setM = (k) => (e) => setMap((m) => ({ ...m, [k]: e.target.value }));
+  const headers = preview?.headers || [];
+
+  const act = async (key, fn) => {
+    setBusy(key);
+    try {
+      await fn();
+    } catch (err) {
+      notify.error(String(err?.message || 'Not done.'));
+    } finally {
+      setBusy('');
+    }
+  };
+  const loadLast = () =>
+    act('last', async () => {
+      const r = await lastPayload(device.id);
+      if (!r.payload) {
+        notify.error('Nothing has been sent to this URL yet.');
+        return;
+      }
+      setSample(r.payload);
+      /* Before any field is set, only show what came in and the names in it; a preview needs the employee code field. */
+      if (map.employeeCode) setPreview(await previewMapping(device.id, { mapping: toMapping(map), sourceTimezone: form.sourceTimezone, sample: r.payload }));
+      else setPreview({ records: 0, readable: 0, headers: sniffHeaders(r.payload), sample: [], errors: [] });
+    });
+  const pickFile = async (e) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    const text = await readFileText(f);
+    setSample(text);
+    setFileName(f.name);
+    setPreview(null);
+  };
+  const run = (save) =>
+    act(save ? 'import' : 'preview', async () => {
+      const r = await previewMapping(device.id, { mapping: toMapping(map), sourceTimezone: form.sourceTimezone, sample: sample || undefined, save });
+      setPreview(r);
+      if (save) {
+        notify.success(`${r.added} punch${r.added === 1 ? '' : 'es'} imported${r.duplicates ? `, ${r.duplicates} already there` : ''}.`);
+        onChanged();
+      }
+    });
+  const save = async (e) => {
+    e.preventDefault();
+    await act('save', async () => {
+      await updateDevice(device.id, { ...form, mapping: map.employeeCode ? toMapping(map) : null });
+      notify.success('Saved.');
+      onChanged();
+    });
+  };
+  const rotate = async () => {
+    const ok = await confirmDialog({ title: 'Make a new URL?', message: 'The old URL stops working at once. Update the reader or software with the new one.', confirmLabel: 'New URL' });
+    if (!ok) return;
+    await act('rotate', async () => setNewUrl(`${pushBase || ''}${(await rotatePushToken(device.id)).pushToken}`));
+  };
+  const remove = async () => {
+    const ok = await confirmDialog({ title: `Remove ${device.name}?`, message: 'Only a source with no punches on record can be removed.', confirmLabel: 'Remove' });
+    if (!ok) return;
+    await act('delete', async () => {
+      await deleteDevice(device.id);
+      onChanged();
+      onClose();
+    });
+  };
+  const field = (k, label, hint) => (
+    <label className="block">
+      <span className="ui-label">{label}</span>
+      <input className="ui-input w-full ui-mono" list={headers.length ? 'hdr-list' : undefined} value={map[k]} onChange={setM(k)} placeholder={hint} />
+    </label>
+  );
+
+  return (
+    <Drawer
+      widthClass="w-[min(56rem,96vw)]"
+      open
+      onClose={onClose}
+      title={device.name}
+      description={`${device.driverLabel} · ${device.lastSeenAt ? `${isFile ? 'imported' : 'last push'} ${ago(device.lastSeenAt)}` : isFile ? 'nothing imported yet' : 'nothing received yet'}`}
+      actions={
+        <>
+          <button type="button" className="ui-btn ui-btn-ghost" disabled={busy === 'delete'} onClick={remove}>Remove</button>
+          <button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Close</button>
+          <button type="submit" form="mapped-form" className="ui-btn ui-btn-primary" disabled={busy === 'save'}>Save</button>
+        </>
+      }
+    >
+      <div className="space-y-6">
+        {device.lastError ? <div className="ui-card p-3 text-sm" role="alert" style={{ color: 'rgb(var(--neg))' }}>Last push: {device.lastError}</div> : null}
+        {!isFile ? (
+          <section className="space-y-2" aria-labelledby="url-h">
+            <h3 id="url-h" className="ui-t-sec">Push URL</h3>
+            {newUrl ? (
+              <PushUrl url={newUrl} />
+            ) : (
+              <p className="text-sm">
+                <code className="ui-mono">{pushBase}{device.pushTokenPrefix}…</code> <span className="ui-caption">— the full URL was shown when it was added.</span>
+              </p>
+            )}
+            <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={busy === 'rotate'} onClick={rotate}>Make a new URL</button>
+          </section>
+        ) : null}
+
+        <section className="space-y-3" aria-labelledby="map-h">
+          <h3 id="map-h" className="ui-t-sec">Set up fields</h3>
+          <p className="ui-caption">
+            {isFile ? 'Choose a file; its column names appear below. Say which column holds what, preview, then import.' : 'Load what the device last sent, say which field holds what, and preview. Punches are read from the next push.'}
+          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            {isFile ? (
+              <label className="ui-btn ui-btn-secondary ui-btn-sm cursor-pointer">
+                Choose file…
+                <input type="file" accept=".csv,.txt,text/csv" className="sr-only" onChange={pickFile} />
+              </label>
+            ) : (
+              <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={busy === 'last'} onClick={loadLast}>Load last payload</button>
+            )}
+            {fileName ? <span className="ui-caption">{fileName}</span> : null}
+            <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={!map.employeeCode || busy === 'preview' || (isFile && !sample)} onClick={() => run(false)}>Preview</button>
+            {isFile ? (
+              <button type="button" className="ui-btn ui-btn-primary ui-btn-sm" disabled={!preview || !preview.readable || busy === 'import'} onClick={() => run(true)}>
+                {busy === 'import' ? 'Importing…' : `Import ${preview?.readable || ''} punches`}
+              </button>
+            ) : null}
+          </div>
+          {sample && !isFile ? <pre className="ui-card ui-mono max-h-40 overflow-auto p-3 text-xs">{sample.slice(0, 3000)}</pre> : null}
+          {headers.length ? (
+            <p className="ui-caption">
+              {isFile ? 'Columns' : 'Fields'} found: {headers.map((h) => <code key={h} className="ui-mono me-2">{h}</code>)}
+            </p>
+          ) : null}
+          <datalist id="hdr-list">{headers.map((h) => <option key={h} value={h} />)}</datalist>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {!isFile ? field('records', 'Where the list of punches is', 'e.g. data.events — blank if the body is the list') : null}
+            {field('employeeCode', 'Employee code *', isFile ? 'column name' : 'e.g. employeeNoString or user.id')}
+            {field('timestamp', 'Date and time, one field', 'e.g. dateTime — or use the two below')}
+            <label className="block">
+              <span className="ui-label">How the time is written</span>
+              <select className="ui-select w-full" value={map.timeFormat} onChange={setM('timeFormat')}>
+                {TIME_FORMATS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+              </select>
+            </label>
+            {field('date', 'Date (if separate)', 'e.g. PunchDate')}
+            {field('time', 'Time (if separate)', 'e.g. PunchTime')}
+            {field('direction', 'In / out field', 'e.g. attendanceStatus — blank uses the direction above')}
+            <div className="grid grid-cols-2 gap-3">
+              <label className="block"><span className="ui-label">Means in</span><input className="ui-input w-full" value={map.inValues} onChange={setM('inValues')} /></label>
+              <label className="block"><span className="ui-label">Means out</span><input className="ui-input w-full" value={map.outValues} onChange={setM('outValues')} /></label>
+            </div>
+            {field('verifyMode', 'How they were verified', 'e.g. verifyMode (face, finger, card)')}
+            <div className="grid grid-cols-2 gap-3">
+              {field('filterField', 'Only records where', 'e.g. eventType')}
+              <label className="block"><span className="ui-label">equals one of</span><input className="ui-input w-full" value={map.filterValues} onChange={setM('filterValues')} placeholder="e.g. granted" /></label>
+            </div>
+          </div>
+          {preview && preview.records ? (
+            <div className="ui-card space-y-2 p-3 text-sm" role="status">
+              <div>
+                <strong>{preview.readable}</strong> of {preview.records} record{preview.records === 1 ? '' : 's'} readable
+                {preview.skipped ? ` · ${preview.skipped} skipped by the filter` : ''}
+                {preview.added != null ? ` · ${preview.added} imported, ${preview.duplicates} already there` : ''}
+              </div>
+              {preview.sample?.length ? (
+                <table className="ui-table w-full">
+                  <thead><tr><th className="ui-th">Code</th><th className="ui-th">Time (India)</th><th className="ui-th">Direction</th></tr></thead>
+                  <tbody>{preview.sample.map((p, i) => <tr key={i}><td className="ui-mono">{p.code}</td><td className="ui-mono">{p.localTime}</td><td>{p.direction || '—'}</td></tr>)}</tbody>
+                </table>
+              ) : null}
+              {preview.errors?.length ? <ul className="ui-caption list-disc ps-5">{preview.errors.slice(0, 8).map((e, i) => <li key={i}>{e}</li>)}</ul> : null}
+            </div>
+          ) : null}
+        </section>
+
+        <form id="mapped-form" onSubmit={save} className="grid gap-4 sm:grid-cols-2">
+          <label className="block"><span className="ui-label">Name</span><input className="ui-input w-full" required maxLength={80} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></label>
+          <label className="block">
+            <span className="ui-label">Direction when not said</span>
+            <select className="ui-select w-full" value={form.direction} onChange={(e) => setForm({ ...form, direction: e.target.value })}>
+              {Object.entries(DIRECTIONS).map(([k, label]) => <option key={k} value={k}>{label}</option>)}
+            </select>
+          </label>
+          <div className="sm:col-span-2"><ZoneField value={form.sourceTimezone} onChange={(v) => setForm({ ...form, sourceTimezone: v })} /></div>
+          <label className="flex items-center gap-2 text-sm sm:col-span-2">
+            <input type="checkbox" className="ui-checkbox" checked={form.isActive} onChange={(e) => setForm({ ...form, isActive: e.target.checked })} /> {isFile ? 'In use' : 'Accepting punches'}
+          </label>
+        </form>
+      </div>
     </Drawer>
   );
 }

@@ -111,6 +111,10 @@ export const listDevices = () => get('/devices');
 export const addDevice = (body) => send('/devices', 'POST', body);
 export const updateDevice = (id, body) => send(`/devices/${encodeURIComponent(id)}`, 'PUT', body);
 export const deleteDevice = (id) => send(`/devices/${encodeURIComponent(id)}`, 'DELETE');
+/* Readers of any vendor: HTTP push (own URL) and file import, read through a field mapping. */
+export const previewMapping = (id, body) => send(`/devices/${encodeURIComponent(id)}/preview`, 'POST', body);
+export const rotatePushToken = (id) => send(`/devices/${encodeURIComponent(id)}/rotate-token`, 'POST', {});
+export const lastPayload = (id) => get(`/devices/${encodeURIComponent(id)}/last-payload`);
 export const approveDeviceNetwork = (id) => send(`/devices/${encodeURIComponent(id)}/approve-network`, 'POST', {});
 export const deviceCommand = (id, action) => send(`/devices/${encodeURIComponent(id)}/commands`, 'POST', { action });
 export const listDeviceCommands = (id, status) => get(`/devices/${encodeURIComponent(id)}/commands${query({ status })}`);
