@@ -5,6 +5,7 @@ import { sendTemplate } from '../mailer.js';
 import { istDate } from './compute.js';
 import { scaleLimit } from './adms.js';
 import { loadHolidays } from './schedule.js';
+import { vendorsWith } from './drivers.js';
 
 /**
  * Is each reader doing its job, and is attendance arriving at all? After
@@ -165,7 +166,7 @@ export function assessCollection(f: { localHour: number; sunday: boolean; holida
 // ---------------------------------------------------------------------------
 
 export async function readerFacts(orgId: string, devices?: any[]) {
-  const readers = devices || (await peoplePrisma.attendanceDevice.findMany({ where: { orgId, vendor: 'ADMS' }, orderBy: { name: 'asc' } }));
+  const readers = devices || (await peoplePrisma.attendanceDevice.findMany({ where: { orgId, vendor: { in: vendorsWith('health') } }, orderBy: { name: 'asc' } }));
   const ids = readers.map((r) => r.id);
   const since = new Date(Date.now() - 86_400_000);
   const [failed, pending] = await Promise.all([
@@ -294,7 +295,7 @@ export async function trackAlerts(org: { accountId: string; orgId: string; name:
 
 /** Check every company that has readers; run every few minutes. Never throws for one company. */
 export async function runReaderChecks(now = new Date()) {
-  const orgs = await peoplePrisma.attendanceDevice.groupBy({ by: ['accountId', 'orgId'], where: { vendor: 'ADMS', isActive: true } });
+  const orgs = await peoplePrisma.attendanceDevice.groupBy({ by: ['accountId', 'orgId'], where: { vendor: { in: vendorsWith('health') }, isActive: true } });
   let opened = 0;
   let resolved = 0;
   for (const { accountId, orgId } of orgs) {

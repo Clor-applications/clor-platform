@@ -550,7 +550,22 @@ model AttendanceDevice {
   faceMinorVer   Int?
   /// ADMS: a reader pushing to /iclock. ETIMEOFFICE: eSSL's e-Time Office
   /// cloud, which CLOR pulls punches from (the serial is "ETO-<account>").
+  /// Which driver speaks to it (services/attendance/drivers.ts): ADMS,
+  /// ETIMEOFFICE, API, HTTP_PUSH, FILE, and the pull drivers as they arrive.
   vendor         String   @default("ADMS")
+  /// HTTP_PUSH: the reader's own push URL token, kept as a hash (prefix shown).
+  pushTokenHash   String?  @unique
+  pushTokenPrefix String?
+  /// HTTP_PUSH / FILE / pull drivers: where each field is in what they send
+  /// (services/attendance/punchMapping.ts).
+  mappingJson     String?
+  /// Driver settings that are not secrets (host, port, event filters).
+  configJson      String?
+  /// The zone times without an offset are read in.
+  sourceTimezone  String   @default("Asia/Kolkata")
+  /// The last thing it sent, trimmed, so a mapping can be checked against it.
+  lastPayload     String?
+  lastPayloadAt   DateTime?
   apiUrl         String?
   apiCorporateId String?
   apiUsername    String?

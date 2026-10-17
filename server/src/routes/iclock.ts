@@ -35,6 +35,7 @@ import { etoFetchPunches } from '../services/attendance/etimeoffice.js';
 import { emit as emitWebhook } from '../services/attendance/webhooks.js';
 import { MAX_NETWORKS, networkOf, sameBlock } from '../services/attendance/network.js';
 import { closedMonths, shiftFor, writeDay } from './attendance.js';
+import { driverOf, vendorsWith } from '../services/attendance/drivers.js';
 
 /**
  * /iclock — where biometric readers push punches (ZKTeco / eSSL "ADMS").
@@ -242,8 +243,8 @@ export async function ingestPunches(device: { id: string; accountId: string; org
       at,
       localTime: p.localTime,
       state: p.state,
-      /* Over the JSON API, "in" is sent as state 0 and means in (ClorTime vendor_ingest); from a reader, 0 alone says nothing. */
-      kind: device.vendor === 'API' && p.state === '0' ? 'IN' : punchKind(p.state, device.direction),
+      /* Sources that say in/out outright send state 0 / 1 (ClorTime vendor_ingest); from a reader, 0 alone says nothing (services/attendance/drivers.ts). */
+      kind: driverOf(device.vendor).explicitDirection ? (p.state === '0' ? 'IN' : p.state === '1' ? 'OUT' : punchKind(p.state, device.direction)) : punchKind(p.state, device.direction),
       verifyMode: p.verifyMode,
       employeeId: emp?.id ?? null,
       shiftDate: null as string | null,
@@ -374,7 +375,7 @@ async function adoptReaderUser(device: Device, pin: string, u: { name: string | 
   await attachPunchesTo(device.accountId, device.orgId, employee, pin);
   await peoplePrisma.biometricTemplate.updateMany({ where: { orgId: device.orgId, pin, employeeId: null }, data: { employeeId: employee.id } });
   /* …and on to the company's other readers. */
-  const others = (await peoplePrisma.attendanceDevice.findMany({ where: { orgId: device.orgId, isActive: true, vendor: 'ADMS', id: { not: device.id } }, select: { id: true } })).length;
+  const others = (await peoplePrisma.attendanceDevice.findMany({ where: { orgId: device.orgId, isActive: true, vendor: { in: vendorsWith('templates') }, id: { not: device.id } }, select: { id: true } })).length;
   if (others) await pushEmployeeToReaders(device.orgId, employee, null, undefined, device.id);
 }
 
@@ -586,7 +587,7 @@ export async function pushEmployeeToReaders(orgId: string, employee: any, create
   const pin = String(employee.devicePin || employee.code || '').trim();
   const oldPin = before ? String(before.devicePin || before.code || '').trim() : '';
   if (!pin && !oldPin) return { readers: 0 };
-  const all = await peoplePrisma.attendanceDevice.findMany({ where: { orgId, isActive: true, vendor: 'ADMS' } });
+  const all = await peoplePrisma.attendanceDevice.findMany({ where: { orgId, isActive: true, vendor: { in: vendorsWith('users') } } });
   const readers = all.filter((r) => servesArea(r, employee.areaId) && r.id !== skipDeviceId);
   /* Moved to another site: off the readers that no longer serve them. */
   if (before && (before.areaId ?? null) !== (employee.areaId ?? null)) {

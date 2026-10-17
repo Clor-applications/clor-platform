@@ -13,6 +13,12 @@ import { attachPunchesTo, copyAllTemplatesTo, pinMatcher, recomputeDeviceDay, se
 import { encryptSecret } from '../services/mailer.js';
 import { etoFetchPunches } from '../services/attendance/etimeoffice.js';
 import { MAX_NETWORKS, networkOf } from '../services/attendance/network.js';
+import { randomBytes } from 'node:crypto';
+import { can as can_, driverOf, publicDrivers, vendorsWith } from '../services/attendance/drivers.js';
+import { mappingSchema, recordsOf, toAttlog, validZone } from '../services/attendance/punchMapping.js';
+import { parseCsv } from '../services/attendance/csv.js';
+import { hashToken } from './publicApi.js';
+import { ingestPunches } from './iclock.js';
 
 /**
  * Biometric readers, as the company manages them: claim a reader by its serial
@@ -37,10 +43,15 @@ const deviceSchema = z.object({
 /** A network the reader called from in the last day, not approved yet. */
 const APPROVE_WITHIN_MS = 24 * 3_600_000;
 const awaiting = (d: any) =>
-  d.vendor === 'ADMS' && d.pendingNetwork && d.pendingNetworkAt && Date.now() - new Date(d.pendingNetworkAt).getTime() < APPROVE_WITHIN_MS ? d.pendingNetwork : null;
+  can_(d.vendor, 'networkLock') && d.pendingNetwork && d.pendingNetworkAt && Date.now() - new Date(d.pendingNetworkAt).getTime() < APPROVE_WITHIN_MS ? d.pendingNetwork : null;
 
-const shape = ({ apiSecret, claimNetwork, pendingNetwork, pendingNetworkAt, ...d }: any, extra: Record<string, unknown> = {}) => ({
+const shape = ({ apiSecret, claimNetwork, pendingNetwork, pendingNetworkAt, pushTokenHash, mappingJson, configJson, lastPayload, ...d }: any, extra: Record<string, unknown> = {}) => ({
   ...d,
+  capabilities: driverOf(d.vendor).capabilities,
+  driverLabel: driverOf(d.vendor).label,
+  mapping: mappingJson ? JSON.parse(mappingJson) : null,
+  config: configJson ? JSON.parse(configJson) : null,
+  hasPayload: Boolean(lastPayload),
   firmware: normaliseFirmware(d.firmware),
   hasSecret: Boolean(apiSecret),
   online: Boolean(d.lastSeenAt && Date.now() - new Date(d.lastSeenAt).getTime() < ONLINE_WINDOW_MS),
@@ -68,6 +79,8 @@ devicesRouter.get(base, can(PermissionAction.VIEW), async (req, res) => {
     unmatchedPunches: unmatched,
     /* So the screen can tell whoever is looking whether they are on a reader's network. */
     yourNetwork: networkOf(req),
+    drivers: publicDrivers(),
+    pushBase: `${process.env.PUBLIC_API_URL || process.env.API_PUBLIC_URL || 'https://api.clor.in'}/ingest/`,
   });
 });
 
@@ -92,9 +105,45 @@ devicesRouter.post(`${base}/test-etimeoffice`, can(PermissionAction.CREATE), asy
   res.json({ ok: r.ok, message: r.message, punchesToday: r.punches.length });
 });
 
+const mappedSchema = z.object({
+  name: z.string().trim().min(1, 'Name the source, e.g. "Hikvision gate" or "Monthly export".').max(80),
+  direction: z.enum(['both', 'in', 'out']).default('both'),
+  sourceTimezone: z.string().trim().max(60).default('Asia/Kolkata'),
+  mapping: mappingSchema.optional().nullable(),
+  areaId: z.string().min(1).nullable().optional(),
+});
+const newPushToken = () => `clorp_${randomBytes(24).toString('base64url')}`;
+
 devicesRouter.post(base, can(PermissionAction.CREATE), async (req, res) => {
   if (!(await attendanceRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
+  if (req.body?.vendor === 'HTTP_PUSH' || req.body?.vendor === 'FILE') {
+    const vendor = String(req.body.vendor);
+    const p = mappedSchema.safeParse(req.body);
+    if (!p.success) return res.status(400).json({ error: p.error.issues[0]?.message || 'Check the details.' });
+    const b = p.data;
+    if (!validZone(b.sourceTimezone)) return res.status(400).json({ error: 'That is not a timezone name (e.g. Asia/Kolkata, Asia/Dubai).' });
+    const token = vendor === 'HTTP_PUSH' ? newPushToken() : null;
+    const serialNumber = `${vendor === 'HTTP_PUSH' ? 'PUSH' : 'FILE'}-${randomBytes(6).toString('hex').toUpperCase()}`;
+    const device = await peoplePrisma.attendanceDevice.create({
+      data: {
+        accountId,
+        orgId,
+        serialNumber,
+        name: b.name,
+        direction: b.direction,
+        vendor,
+        sourceTimezone: b.sourceTimezone,
+        mappingJson: b.mapping ? JSON.stringify(b.mapping) : null,
+        areaId: b.areaId ?? null,
+        pushTokenHash: token ? hashToken(token) : null,
+        pushTokenPrefix: token ? token.slice(0, 12) : null,
+        createdByUserId: req.auth!.userId,
+      },
+    });
+    /* The push URL token is shown once; only its hash is kept. */
+    return res.status(201).json({ device: shape(device), seenBefore: null, pushToken: token });
+  }
   if (req.body?.vendor === 'ETIMEOFFICE') {
     const p = etoSchema.safeParse(req.body);
     if (!p.success) return res.status(400).json({ error: p.error.issues[0]?.message || 'Check the details.' });
@@ -167,7 +216,7 @@ devicesRouter.post(base, can(PermissionAction.CREATE), async (req, res) => {
 devicesRouter.post(`${base}/:id/approve-network`, can(PermissionAction.EDIT), async (req, res) => {
   if (!(await attendanceRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
-  const d = await peoplePrisma.attendanceDevice.findFirst({ where: { id: String(req.params.id), accountId, orgId, vendor: 'ADMS' } });
+  const d = await peoplePrisma.attendanceDevice.findFirst({ where: { id: String(req.params.id), accountId, orgId, vendor: { in: vendorsWith('networkLock') } } });
   if (!d) return res.status(404).json({ error: 'No such reader.' });
   const net = networkOf(req);
   if (!net || awaiting(d) !== net) {
@@ -192,7 +241,7 @@ devicesRouter.post(`${base}/:id/approve-network`, can(PermissionAction.EDIT), as
 devicesRouter.delete(`${base}/:id/networks`, can(PermissionAction.EDIT), async (req, res) => {
   if (!(await attendanceRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
-  const d = await peoplePrisma.attendanceDevice.findFirst({ where: { id: String(req.params.id), accountId, orgId, vendor: 'ADMS' } });
+  const d = await peoplePrisma.attendanceDevice.findFirst({ where: { id: String(req.params.id), accountId, orgId, vendor: { in: vendorsWith('networkLock') } } });
   if (!d) return res.status(404).json({ error: 'No such reader.' });
   const network = String(req.body?.network || '');
   if (!d.allowedNetworks.includes(network)) return res.status(404).json({ error: 'That network is not approved for this reader.' });
@@ -222,15 +271,22 @@ devicesRouter.put(`${base}/:id`, can(PermissionAction.EDIT), async (req, res) =>
       corporateId: z.string().trim().max(80).optional().nullable(),
       username: z.string().trim().max(120).optional(),
       password: z.string().max(200).optional(),
+      /* Mapped sources (HTTP push, file). */
+      sourceTimezone: z.string().trim().max(60).optional(),
+      mapping: mappingSchema.optional().nullable(),
     })
     .safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ error: 'Name the reader and choose its direction.' });
-  const { apiUrl, corporateId, username, password, areaId, ...common } = parsed.data;
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Name the reader and choose its direction.' });
+  const { apiUrl, corporateId, username, password, areaId, sourceTimezone, mapping, ...common } = parsed.data;
+  if (sourceTimezone !== undefined && !validZone(sourceTimezone)) return res.status(400).json({ error: 'That is not a timezone name (e.g. Asia/Kolkata, Asia/Dubai).' });
+  const mapped = driverOf(existing.vendor).capabilities.includes('mapping')
+    ? { ...(sourceTimezone !== undefined ? { sourceTimezone } : {}), ...(mapping !== undefined ? { mappingJson: mapping ? JSON.stringify(mapping) : null } : {}) }
+    : {};
   if (areaId && !(await peoplePrisma.area.findFirst({ where: { id: areaId, orgId }, select: { id: true } }))) {
     return res.status(400).json({ error: 'That area is not in this organisation.' });
   }
   const vendorFields =
-    existing.vendor === 'ADMS'
+    existing.vendor !== 'ETIMEOFFICE'
       ? {}
       : {
           ...(apiUrl !== undefined ? { apiUrl: apiUrl || null } : {}),
@@ -240,7 +296,7 @@ devicesRouter.put(`${base}/:id`, can(PermissionAction.EDIT), async (req, res) =>
         };
   const device = await peoplePrisma.attendanceDevice.update({
     where: { id: existing.id },
-    data: { ...common, ...vendorFields, ...(existing.vendor === 'ADMS' && areaId !== undefined ? { areaId } : {}) },
+    data: { ...common, ...vendorFields, ...mapped, ...(existing.vendor !== 'ETIMEOFFICE' && areaId !== undefined ? { areaId } : {}) },
   });
   /* A new area changes who belongs on it; Sync status shows the gaps and the extras. */
   res.json({ device: shape(device), areaChanged: areaId !== undefined && (areaId ?? null) !== (existing.areaId ?? null) });
@@ -270,7 +326,7 @@ devicesRouter.post(`${base}/:id/commands`, can(PermissionAction.EDIT), async (re
   const device = await peoplePrisma.attendanceDevice.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
   if (!device) return res.status(404).json({ error: 'No such reader.' });
   const action = String(req.body?.action || '');
-  if (device.vendor !== 'ADMS') return res.status(400).json({ error: 'Commands go to readers. This is a cloud connection — use Sync now.' });
+  if (!can_(device.vendor, 'commands')) return res.status(400).json({ error: 'This source takes no commands; it only sends punches.' });
   const queue = (command: string, sequence: number = SEQ.OTHER) => ({ accountId, orgId, deviceId: device.id, serialNumber: device.serialNumber, command, sequence, createdByUserId: req.auth!.userId });
 
   if (action === 'FETCH_PUNCHES' || action === 'FETCH_USERS' || action === 'REBOOT' || action === 'INFO') {
@@ -580,7 +636,7 @@ devicesRouter.post(`${base}/:id/sync`, can(PermissionAction.EDIT), async (req, r
   const { accountId, orgId } = req.tenant!;
   const device = await peoplePrisma.attendanceDevice.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
   if (!device) return res.status(404).json({ error: 'No such connection.' });
-  if (device.vendor === 'ADMS') return res.status(400).json({ error: 'A reader sends its punches itself. Use “Fetch all punches” instead.' });
+  if (!can_(device.vendor, 'pull')) return res.status(400).json({ error: 'This source sends its punches itself; there is nothing to pull.' });
   let from: Date | undefined;
   if (req.body?.from) {
     if (!ISO_DATE.test(String(req.body.from))) return res.status(400).json({ error: 'Dates are YYYY-MM-DD.' });
@@ -589,4 +645,84 @@ devicesRouter.post(`${base}/:id/sync`, can(PermissionAction.EDIT), async (req, r
   }
   const r = await syncVendorConnection(device, { from });
   res.status(r.ok ? 200 : 502).json(r.ok ? r : { error: r.message, ...r });
+});
+
+// ---------------------------------------------------------------------------
+// Mapped sources: HTTP push and file import (services/attendance/punchMapping.ts)
+// ---------------------------------------------------------------------------
+
+const mappedDevice = async (req: any, res: any) => {
+  const d = await peoplePrisma.attendanceDevice.findFirst({ where: { id: String(req.params.id), accountId: req.tenant.accountId, orgId: req.tenant.orgId } });
+  if (!d) {
+    res.status(404).json({ error: 'No such reader.' });
+    return null;
+  }
+  if (!driverOf(d.vendor).capabilities.includes('mapping')) {
+    res.status(400).json({ error: 'This reader has no field mapping; it speaks its own protocol.' });
+    return null;
+  }
+  return d;
+};
+
+/** A new push URL; the old one stops working at once. */
+devicesRouter.post(`${base}/:id/rotate-token`, can(PermissionAction.EDIT), async (req, res) => {
+  if (!(await attendanceRouteOk(req, res))) return;
+  const d = await mappedDevice(req, res);
+  if (!d) return;
+  if (d.vendor !== 'HTTP_PUSH') return res.status(400).json({ error: 'Only an HTTP push source has a URL.' });
+  const token = newPushToken();
+  await peoplePrisma.attendanceDevice.update({ where: { id: d.id }, data: { pushTokenHash: hashToken(token), pushTokenPrefix: token.slice(0, 12) } });
+  res.json({ pushToken: token });
+});
+
+/** The last thing the source sent, so the mapping can be checked against it. */
+devicesRouter.get(`${base}/:id/last-payload`, can(PermissionAction.VIEW), async (req, res) => {
+  if (!(await attendanceRouteOk(req, res))) return;
+  const d = await mappedDevice(req, res);
+  if (!d) return;
+  res.json({ payload: d.lastPayload || null, at: d.lastPayloadAt || null });
+});
+
+const previewSchema = z.object({
+  mapping: mappingSchema,
+  sourceTimezone: z.string().trim().max(60).optional(),
+  /** A JSON body (HTTP push) or CSV text (file); when absent, the last payload the source sent. */
+  sample: z.string().max(2_000_000).optional(),
+  save: z.boolean().optional(),
+});
+
+/** Run a mapping over a sample (or the last payload) without saving punches; `save` writes the punches too (file import). */
+devicesRouter.post(`${base}/:id/preview`, can(PermissionAction.EDIT), async (req, res) => {
+  if (!(await attendanceRouteOk(req, res))) return;
+  const d = await mappedDevice(req, res);
+  if (!d) return;
+  const parsed = previewSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Check the mapping.' });
+  const { mapping, sample, save } = parsed.data;
+  const zone = parsed.data.sourceTimezone || d.sourceTimezone;
+  if (!validZone(zone)) return res.status(400).json({ error: 'That is not a timezone name.' });
+  const text = sample ?? d.lastPayload ?? '';
+  if (!text.trim()) return res.status(400).json({ error: d.vendor === 'FILE' ? 'Choose a file first.' : 'Nothing has been sent to this URL yet. Send one punch from the reader, then come back.' });
+  let records: unknown[];
+  let headers: string[] = [];
+  if (d.vendor === 'FILE' || !/^\s*[\[{]/.test(text)) {
+    const csv = parseCsv(text);
+    headers = csv.headers;
+    records = csv.rows;
+  } else {
+    try {
+      records = recordsOf(JSON.parse(text), mapping);
+    } catch {
+      return res.status(400).json({ error: 'That is not JSON.' });
+    }
+    const first = records[0];
+    headers = first && typeof first === 'object' ? Object.keys(first as object) : [];
+  }
+  const out = toAttlog(records, mapping, zone);
+  let added = 0;
+  if (save && out.lines.length) {
+    added = await ingestPunches(d, out.lines.join('\n'));
+    await peoplePrisma.attendanceDevice.update({ where: { id: d.id }, data: { lastSeenAt: new Date(), lastFetchedAt: new Date(), mappingJson: JSON.stringify(mapping), sourceTimezone: zone } });
+  }
+  res.json({ records: records.length, readable: out.lines.length, skipped: out.skipped, errors: out.errors, sample: out.sample, headers, ...(save ? { added, duplicates: out.lines.length - added } : {}) });
 });

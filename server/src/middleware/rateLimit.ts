@@ -54,6 +54,8 @@ const build = (windowMs: number, max: number, what: string) => [
 export const loginLimiter = build(15 * 60 * 1000, 10, 'sign-in attempts');
 export const signupLimiter = build(60 * 60 * 1000, 5, 'sign-up attempts');
 export const resetLimiter = build(60 * 60 * 1000, 5, 'password reset requests');
+/** Punches pushed to a reader's own URL (/ingest/:token): per token, generous — middleware batches. */
+export const ingestLimiter = [bucket(60 * 1000, 600, 'pushes', (req) => `ingest:${String(req.params?.token || '').slice(0, 16) || ipOf(req)}`)];
 /** Authenticator codes: ten tries in fifteen minutes per signed-in user, so six digits cannot be walked. */
 export const codeLimiter = [bucket(15 * 60 * 1000, 10, 'code attempts', (req) => `code:${req.auth?.userId || ipOf(req)}`)];
 

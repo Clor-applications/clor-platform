@@ -10,6 +10,7 @@ import { ATTENDANCE_MODULE, ATTENDANCE_RESOURCE, attendanceRouteOk } from '../se
 import { FACE, FINGER, ONLINE_WINDOW_MS, commandEffect, normaliseFirmware, pinKey, removalCommands, SEQ } from '../services/attendance/adms.js';
 import { alertSettings, assessCollection, assessReader, collectionFacts, readerFacts, readerStatus } from '../services/attendance/readerHealth.js';
 import { readerSupports, sendPersonTo, servesArea } from './iclock.js';
+import { vendorsWith } from '../services/attendance/drivers.js';
 
 /**
  * Running a fleet of readers: how each one is (health, capacity, clock,
@@ -32,7 +33,7 @@ readerOpsRouter.get(`${base}/reader-health`, can(PermissionAction.VIEW), async (
   const now = new Date();
   const settings = await alertSettings(orgId);
   const [facts, collection, alerts, lastPunches, areas] = await Promise.all([
-    readerFacts(orgId, await peoplePrisma.attendanceDevice.findMany({ where: { accountId, orgId, vendor: 'ADMS' }, orderBy: { name: 'asc' } })),
+    readerFacts(orgId, await peoplePrisma.attendanceDevice.findMany({ where: { accountId, orgId, vendor: { in: vendorsWith('users') } }, orderBy: { name: 'asc' } })),
     collectionFacts(orgId, settings.noPunchAfterHour, now),
     peoplePrisma.readerAlert.findMany({ where: { orgId, OR: [{ resolvedAt: null }, { resolvedAt: { gte: new Date(now.getTime() - 7 * 86_400_000) } }] }, orderBy: { openedAt: 'desc' }, take: 100 }),
     peoplePrisma.devicePunch.groupBy({ by: ['deviceId'], where: { orgId }, _max: { at: true } }),
@@ -121,7 +122,7 @@ readerOpsRouter.put(`${base}/reader-alerts/settings`, can(PermissionAction.EDIT)
  */
 export async function syncMatrix(accountId: string, orgId: string) {
   const [readers, people, held, templates, queued] = await Promise.all([
-    peoplePrisma.attendanceDevice.findMany({ where: { accountId, orgId, vendor: 'ADMS', isActive: true }, orderBy: { name: 'asc' } }),
+    peoplePrisma.attendanceDevice.findMany({ where: { accountId, orgId, vendor: { in: vendorsWith('users') }, isActive: true }, orderBy: { name: 'asc' } }),
     peoplePrisma.employee.findMany({
       where: { accountId, orgId },
       select: { id: true, name: true, code: true, devicePin: true, status: true, areaId: true, department: true, cardNumber: true, devicePassword: true, devicePrivilege: true },

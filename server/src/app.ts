@@ -40,6 +40,7 @@ import { devicesRouter } from './routes/devices.js';
 import { attendanceReportsRouter } from './routes/attendanceReports.js';
 import { integrationsRouter } from './routes/integrations.js';
 import { publicApiRouter } from './routes/publicApi.js';
+import { ingestRouter } from './routes/ingest.js';
 import { personnelRouter } from './routes/personnel.js';
 import { schedulingRouter } from './routes/scheduling.js';
 import { portalRouter } from './routes/portal.js';
@@ -172,6 +173,8 @@ export function buildApp() {
    * batch of punches is a few hundred KB (ClorTime caps at 8 MB).
    */
   app.use('/iclock', express.text({ type: () => true, limit: '8mb' }), iclockRouter);
+  /* Any shape of body: JSON when it says so, a form, or plain text we try as JSON. */
+  app.use('/ingest', express.json({ limit: '4mb', type: ['application/json', 'application/*+json'] }), express.urlencoded({ extended: true, limit: '4mb' }), express.text({ type: () => true, limit: '4mb' }), ingestRouter);
   /* A phone punch may carry a selfie (≤ 2 MB, base64): its own, larger limit. */
   app.use('/api/portal/punch', express.json({ limit: '3mb' }));
   app.use(express.json({ limit: '1mb' }));
