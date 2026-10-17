@@ -2526,6 +2526,70 @@
   }
 }
 
+  /* --- phone navigation (packages/shell: a sheet from the menu button, a tab bar below) --- */
+  .ui-nav-sheet {
+    position: fixed;
+    inset: 0;
+    z-index: var(--z-drawer);
+  }
+  .ui-nav-sheet-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgb(0 0 0 / 0.45);
+  }
+  .ui-nav-sheet-panel {
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: min(18rem, 86vw);
+    overflow-y: auto;
+    padding: 0.75rem;
+    padding-bottom: calc(0.75rem + env(safe-area-inset-bottom));
+    background: rgb(var(--surface));
+    border-right: 1px solid rgb(var(--border));
+    box-shadow: var(--shadow-pop);
+    animation: ui-sheet-in var(--dur-surface) var(--ease-out) both;
+  }
+  @keyframes ui-sheet-in {
+    from { transform: translateX(-100%); }
+    to { transform: translateX(0); }
+  }
+  .ui-tabbar {
+    position: fixed;
+    inset: auto 0 0 0;
+    z-index: var(--z-header);
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: 1fr;
+    padding-bottom: env(safe-area-inset-bottom);
+    background: rgb(var(--surface));
+    border-top: 1px solid rgb(var(--border));
+  }
+  .ui-tabbar-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    min-height: 3.5rem;
+    padding: 0.5rem 0.25rem;
+    font-size: 11px;
+    line-height: 1;
+    color: rgb(var(--fg-muted));
+  }
+  .ui-tabbar-item[aria-current="page"] {
+    color: rgb(var(--fg));
+    font-weight: 600;
+  }
+  /* A page heading's actions drop under the title on a phone instead of squeezing beside it. */
+  @media (max-width: 639px) {
+    .ui-page-heading > div:last-child {
+      width: 100%;
+      justify-content: flex-start;
+    }
+    .ui-page-heading .ui-btn {
+      flex: 1 1 auto;
+    }
+  }
+
 @layer components {
   /* --- migration utilities -------------------------------------------------
      The feature screens were written with fixed light-mode Tailwind colours

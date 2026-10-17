@@ -24,7 +24,15 @@ const FRONT_DOOR = 'app';
 const labels = (hostname) => String(hostname || '').toLowerCase().split('.').filter(Boolean);
 
 /** The app this address is for, or null (front door, localhost, previews). */
+/**
+ * The native wrapper (mobile/<app>, Capacitor) serves the build from its own
+ * origin, so no hostname can say which app it is; the build is pinned to one
+ * at build time instead (VITE_MOBILE_APP=attendance).
+ */
+export const PINNED_APP = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_MOBILE_APP) || null;
+
 export const appFromHost = (hostname = globalThis.location?.hostname) => {
+  if (PINNED_APP) return PINNED_APP;
   const [first, ...rest] = labels(hostname);
   return rest.length >= 2 && APP_HOST_IDS.includes(first) ? first : null;
 };
@@ -40,6 +48,7 @@ export const isFrontDoor = (hostname = globalThis.location?.hostname) => {
  * address of its own or this host is not part of the scheme (open in place).
  */
 export const hostForApp = (id, hostname = globalThis.location?.hostname) => {
+  if (PINNED_APP) return null;
   if (!APP_HOST_IDS.includes(id)) return null;
   const [first, ...rest] = labels(hostname);
   if (rest.length < 2) return null;

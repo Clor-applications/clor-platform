@@ -54,10 +54,32 @@ async function trim() {
   }
 }
 
+/**
+ * The app shell for when there is no network at all. A navigation is always
+ * tried on the network first (stale books are worse than no books); only when
+ * that fails does the last good copy of the page open, so an installed app
+ * starts instead of showing the browser's dinosaur. The page itself holds no
+ * data — every screen then says it could not reach the server.
+ */
+const SHELL = '/__shell';
 self.addEventListener('fetch', (e) => {
   const url = new URL(e.request.url);
   if (e.request.method !== 'GET') return;
   if (url.pathname.startsWith('/api/')) return; // books are never cached
+  if (e.request.mode === 'navigate' && url.origin === self.location.origin) {
+    e.respondWith(
+      fetch(e.request)
+        .then((res) => {
+          if (res.ok) {
+            const copy = res.clone();
+            e.waitUntil(caches.open(CACHE).then((c) => c.put(SHELL, copy)).catch(() => {}));
+          }
+          return res;
+        })
+        .catch(() => caches.match(SHELL).then((hit) => hit || Response.error()))
+    );
+    return;
+  }
   const isStatic = url.pathname.startsWith('/assets/') || /\.(js|css|svg|png|woff2?)$/.test(url.pathname);
   if (!isStatic) return;
 

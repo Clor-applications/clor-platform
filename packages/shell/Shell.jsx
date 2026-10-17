@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ChevronDown, LayoutGrid, LogOut, Moon, Plus, Sun, UserRound } from 'lucide-react';
+import { ChevronDown, LayoutGrid, LogOut, Menu, Moon, Plus, Sun, UserRound, X } from 'lucide-react';
 
 import { useTheme } from '@ui/components/ui/useTheme';
 import { useDismissable } from '@ui/components/ui/useDismissable';
@@ -10,6 +10,7 @@ import { getMyPermissions } from '@ui/api/permissions';
 
 import { APPS, appById, availableApps, landingApp, subscribedApps } from './registry';
 import { appFromHost, hostForApp, isFrontDoor } from './appHosts';
+import { PHONE_QUERY, mobileTabsFor } from './mobileTabs';
 import { useSession } from './session';
 import ClorMark from './ClorMark';
 import CompanySetup from './CompanySetup';
@@ -43,6 +44,15 @@ import { renderPublicPage, usePublicPage } from './usePublicPage';
  */
 
 export default function Shell() {
+  /* A phone: no rail, a menu sheet and a tab bar instead (mobileTabs.js). */
+  const [phone, setPhone] = useState(() => typeof window !== 'undefined' && window.matchMedia(PHONE_QUERY).matches);
+  const [navOpen, setNavOpen] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia(PHONE_QUERY);
+    const onChange = (e) => setPhone(e.matches);
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
   const { user, tenant, tenants, restoring, setTenantId, signOut, addApp } = useSession();
 
   /* The shared hook, not a second copy: the public page has a toggle too, and
@@ -266,6 +276,57 @@ export default function Shell() {
     setShowMoreApps(false);
   };
 
+  const navItems = (
+    <>
+          {nav.map((item) =>
+            /* `{ section: 'Settings' }` starts a group: setup apart from daily work. */
+            item.section ? (
+              <p key={`section:${item.section}`} className="ui-caption px-2 pt-4 pb-1 uppercase tracking-wide">
+                {item.section}
+              </p>
+            ) : (
+            <button
+              key={item.key}
+              type="button"
+              className="w-full flex items-center gap-2 rounded-lg px-2 py-2 text-left text-sm ui-hover-sunken"
+              style={
+                screen === item.key && !platformScreen
+                  ? { backgroundColor: 'rgb(var(--surface-sunken))', fontWeight: 500 }
+                  : undefined
+              }
+              aria-current={screen === item.key && !platformScreen ? 'page' : undefined}
+              onClick={() => {
+                setScreenKey(item.key);
+                setPlatformScreen(null);
+                setShowMoreApps(false);
+                setNavOpen(false);
+                /* A new screen starts at its top, not at the last one's scroll position. */
+                window.scrollTo(0, 0);
+              }}
+            >
+              {item.icon ? <item.icon size={16} aria-hidden="true" /> : null}
+              {item.label}
+            </button>
+            )
+          )}
+
+          <div style={{ borderTop: '1px solid rgb(var(--border))' }} className="!mt-3 pt-3">
+            <button
+              type="button"
+              className="w-full flex items-center gap-2 rounded-lg px-2 py-2 text-left text-sm ui-hover-sunken"
+              onClick={() => {
+                setShowMoreApps(true);
+                setNavOpen(false);
+              }}
+            >
+              <LayoutGrid size={16} aria-hidden="true" />
+              More apps
+            </button>
+          </div>
+    </>
+  );
+  const tabs = phone && app ? mobileTabsFor(app, nav) : [];
+
   return (
     <div
       className="min-h-screen"
@@ -285,9 +346,14 @@ export default function Shell() {
           zIndex: 'var(--z-platform-bar)',
         }}
       >
+        {phone && app ? (
+          <button type="button" className="ui-icon-btn" aria-label="Menu" aria-expanded={navOpen} onClick={() => setNavOpen(true)}>
+            <Menu size={20} aria-hidden="true" />
+          </button>
+        ) : null}
         <button type="button" className="flex items-center gap-2" onClick={() => openApp(mine[0]?.id)}>
           <ClorMark size={24} />
-          <span className="ui-display text-base">Clor</span>
+          <span className={phone ? 'sr-only' : 'ui-display text-base'}>Clor</span>
         </button>
 
         {/* The app switcher. Named for the app you are in, because that is the
@@ -352,27 +418,32 @@ export default function Shell() {
 
         <div className="flex-1" />
 
-        <select
-          className="ui-select ui-select-sm"
-          style={{ width: 'auto', minWidth: '12rem' }}
-          value={tenant.id}
-          disabled={tenants.length < 2}
-          onChange={(e) => setTenantId(e.target.value)}
-          aria-label="Company"
-        >
-          {tenants.map((t) => (
-            <option key={t.id} value={t.id}>{t.name}</option>
-          ))}
-        </select>
+        {/* On a phone the bar holds menu, mark, app, profile and sign-out; one company needs no picker and the theme follows the phone. */}
+        {!phone || tenants.length > 1 ? (
+          <select
+            className="ui-select ui-select-sm min-w-0"
+            style={{ width: 'auto', minWidth: phone ? '7rem' : '12rem', maxWidth: phone ? '38vw' : undefined }}
+            value={tenant.id}
+            disabled={tenants.length < 2}
+            onChange={(e) => setTenantId(e.target.value)}
+            aria-label="Company"
+          >
+            {tenants.map((t) => (
+              <option key={t.id} value={t.id}>{t.name}</option>
+            ))}
+          </select>
+        ) : null}
 
-        <button
-          type="button"
-          className="ui-icon-btn"
-          onClick={toggleTheme}
-          aria-label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
-        >
-          {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
-        </button>
+        {!phone ? (
+          <button
+            type="button"
+            className="ui-icon-btn"
+            onClick={toggleTheme}
+            aria-label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+          >
+            {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+          </button>
+        ) : null}
 
         {!Root ? (
           <button
@@ -424,55 +495,32 @@ export default function Shell() {
         {/* One app's navigation. Never four apps' worth. */}
         {/* Pinned under the 56px header and scrolled on its own: a long menu (Attendance has 35 items)
             scrolled the whole page, so a screen opened from its lower half was out of view. */}
-        <nav
-          className="sticky top-14 w-56 shrink-0 self-start overflow-y-auto p-3 space-y-0.5"
-          style={{ borderRight: '1px solid rgb(var(--border))', height: 'calc(100vh - 3.5rem)' }}
-          aria-label={app ? `${app.name} navigation` : 'Navigation'}
-        >
-          {nav.map((item) =>
-            /* `{ section: 'Settings' }` starts a group: setup apart from daily work. */
-            item.section ? (
-              <p key={`section:${item.section}`} className="ui-caption px-2 pt-4 pb-1 uppercase tracking-wide">
-                {item.section}
-              </p>
-            ) : (
-            <button
-              key={item.key}
-              type="button"
-              className="w-full flex items-center gap-2 rounded-lg px-2 py-2 text-left text-sm ui-hover-sunken"
-              style={
-                screen === item.key && !platformScreen
-                  ? { backgroundColor: 'rgb(var(--surface-sunken))', fontWeight: 500 }
-                  : undefined
-              }
-              aria-current={screen === item.key && !platformScreen ? 'page' : undefined}
-              onClick={() => {
-                setScreenKey(item.key);
-                setPlatformScreen(null);
-                setShowMoreApps(false);
-                /* A new screen starts at its top, not at the last one's scroll position. */
-                window.scrollTo(0, 0);
-              }}
-            >
-              {item.icon ? <item.icon size={16} aria-hidden="true" /> : null}
-              {item.label}
-            </button>
-            )
-          )}
-
-          <div style={{ borderTop: '1px solid rgb(var(--border))' }} className="!mt-3 pt-3">
-            <button
-              type="button"
-              className="w-full flex items-center gap-2 rounded-lg px-2 py-2 text-left text-sm ui-hover-sunken"
-              onClick={() => setShowMoreApps(true)}
-            >
-              <LayoutGrid size={16} aria-hidden="true" />
-              More apps
-            </button>
+        {/* One app's navigation. Never four apps' worth. On a phone it is a sheet from the menu button and a tab bar below. */}
+        {!phone ? (
+          <nav
+            className="sticky top-14 w-56 shrink-0 self-start overflow-y-auto p-3 space-y-0.5"
+            style={{ borderRight: '1px solid rgb(var(--border))', height: 'calc(100vh - 3.5rem)' }}
+            aria-label={app ? `${app.name} navigation` : 'Navigation'}
+          >
+            {navItems}
+          </nav>
+        ) : null}
+        {phone && navOpen ? (
+          <div className="ui-nav-sheet" role="dialog" aria-modal="true" aria-label={app ? `${app.name} navigation` : 'Navigation'}>
+            <div className="ui-nav-sheet-backdrop" onClick={() => setNavOpen(false)} aria-hidden="true" />
+            <nav className="ui-nav-sheet-panel">
+              <div className="flex items-center justify-between px-2 pb-2">
+                <span className="ui-t-sec">{app?.name || 'Menu'}</span>
+                <button type="button" className="ui-icon-btn" aria-label="Close menu" onClick={() => setNavOpen(false)}>
+                  <X size={18} aria-hidden="true" />
+                </button>
+              </div>
+              {navItems}
+            </nav>
           </div>
-        </nav>
+        ) : null}
 
-        <main className="flex-1 min-w-0 p-6">
+        <main className={`flex-1 min-w-0 ${phone ? 'p-4 pb-24' : 'p-6'}`}>
           {showMoreApps ? (
             <MoreApps tenant={tenant} onAdd={addApp} onOpen={openApp} />
           ) : platformScreen === 'profile' ? (
@@ -498,6 +546,34 @@ export default function Shell() {
             <p className="ui-caption">Nothing selected.</p>
           )}
         </main>
+        {phone && tabs.length ? (
+          <nav className="ui-tabbar" aria-label={`${app.name} quick navigation`}>
+            {tabs.map((t) => {
+              const active = screen === t.key && !platformScreen && !showMoreApps;
+              return (
+                <button
+                  key={t.key}
+                  type="button"
+                  className="ui-tabbar-item"
+                  aria-current={active ? 'page' : undefined}
+                  onClick={() => {
+                    setScreenKey(t.key);
+                    setPlatformScreen(null);
+                    setShowMoreApps(false);
+                    window.scrollTo(0, 0);
+                  }}
+                >
+                  {t.icon ? <t.icon size={20} aria-hidden="true" /> : null}
+                  <span>{t.label}</span>
+                </button>
+              );
+            })}
+            <button type="button" className="ui-tabbar-item" onClick={() => setNavOpen(true)} aria-expanded={navOpen}>
+              <Menu size={20} aria-hidden="true" />
+              <span>Menu</span>
+            </button>
+          </nav>
+        ) : null}
         {/* Apps with a nav (People, Attendance, Payroll) have no root of their
             own to mount this, so toasts and "Are you sure?" dialogs live here.
             Accounting draws itself and mounts its own. */}
