@@ -102,6 +102,20 @@ describe('reports', () => {
     expect(lv.rows).toEqual([expect.objectContaining({ name: 'Asha', type: 'Casual', days: 2, paid: 'Yes' })]);
   });
 
+  it('calendar: a day carries its counts, a holiday its name, a day to come no absences', async () => {
+    const cal = (await api(c).get('/calendar?month=2026-09').expect(200)).body;
+    expect(cal.month).toBe('2026-09');
+    expect(cal.days).toHaveLength(30);
+    const first = cal.days.find((d: any) => d.date === '2026-09-01');
+    expect(first).toMatchObject({ present: 1, halfDay: 1, absent: 0, leave: 0, employed: 2, late: 1, off: false, holiday: null });
+    expect(cal.days.find((d: any) => d.date === '2026-09-02')).toMatchObject({ present: 0, absent: 2 });
+    expect(cal.days.find((d: any) => d.date === '2026-09-03')).toMatchObject({ leave: 1, absent: 1 });
+    expect(cal.days.find((d: any) => d.date === '2026-09-15')).toMatchObject({ holiday: 'Test holiday', off: true });
+    expect(cal.days.find((d: any) => d.date === '2026-09-06')).toMatchObject({ weeklyOff: 2, off: true });
+    const ahead = (await api(c).get('/calendar?month=2027-01').expect(200)).body;
+    expect(ahead.days.every((d: any) => d.future && d.absent === 0)).toBe(true);
+  });
+
   it('flags working days nobody has any attendance for', async () => {
     const r = await report('absent', 'from=2026-09-07&to=2026-09-08');
     expect(r.notes.join(' ')).toContain('Nobody has any attendance');

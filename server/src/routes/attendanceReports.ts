@@ -435,6 +435,41 @@ async function build(id: string, accountId: string, orgId: string, q: any): Prom
   throw Object.assign(new Error('No such report.'), { status: 404 });
 }
 
+/**
+ * The month as a calendar: for each day, how many were present, on half day,
+ * absent, on leave, and whether it was a holiday or (for everyone) a weekly
+ * off. ClorTime's Attendance Calendar. Days to come carry only what is known
+ * — leave already approved, holidays — and no absences.
+ */
+attendanceReportsRouter.get('/orgs/:orgId/attendance/calendar', can(), async (req, res) => {
+  if (!(await attendanceRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const month = /^\d{4}-\d{2}$/.test(String(req.query.month || '')) ? String(req.query.month) : today().slice(0, 7);
+  const days = daysOfMonth(month);
+  const ctx = await periodContext(accountId, orgId, days[0], days[days.length - 1]);
+  const departmentId = String(req.query.departmentId || '').trim() || null;
+  const people = ctx.people.filter(inDept(departmentId));
+  const out = days.map((date) => {
+    const counts = { present: 0, halfDay: 0, absent: 0, leave: 0, holiday: 0, weeklyOff: 0, late: 0, employed: 0 };
+    let holiday: string | null = null;
+    for (const p of people) {
+      if (!ctx.spanOf(p).includes(date)) continue;
+      counts.employed += 1;
+      const s = dayStatus(ctx, p, date);
+      if (s === 'PRESENT') counts.present += 1;
+      else if (s === 'HALF_DAY') counts.halfDay += 1;
+      else if (s === 'ABSENT') counts.absent += 1;
+      else if (s === 'ON_LEAVE') counts.leave += 1;
+      else if (s === 'HOLIDAY') counts.holiday += 1;
+      else if (s === 'WEEKLY_OFF') counts.weeklyOff += 1;
+      if ((ctx.recordsOf.get(p.id)?.get(date)?.lateMinutes || 0) > 0) counts.late += 1;
+      if (!holiday && ctx.holidaysFor(p as any).has(date)) holiday = ctx.holidays.find((h) => h.date === date && (!h.areaId || h.areaId === p.areaId))?.name || 'Holiday';
+    }
+    return { date, ...counts, holiday, off: counts.employed > 0 && counts.weeklyOff + counts.holiday === counts.employed, future: date > ctx.today };
+  });
+  res.json({ month, today: ctx.today, days: out });
+});
+
 attendanceReportsRouter.get('/orgs/:orgId/attendance/reports', can(), async (req, res) => {
   if (!(await attendanceRouteOk(req, res))) return;
   const departments = await peoplePrisma.department.findMany({ where: { orgId: req.tenant!.orgId }, select: { id: true, name: true }, orderBy: { name: 'asc' } });
