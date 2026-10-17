@@ -50,7 +50,39 @@ Size: framework M; greytHR S; Keka M; Zoho M; Tally S (XML) + on-site agent L (s
 
 ## 2. Reader vendors and protocols
 
-_(filled from the vendor research — see below)_
+### "Bio Park B100" — identified (high confidence)
+A real product, not a typo: **Bio-Park B100** (fingerprint + RFID + password, 3,000 users, Wi-Fi "cloud sync", USB Excel export, ~₹5.5k), siblings B200 and the D02 face unit, sold by **Chiptronics Solutions, Vadodara — the company behind Team Office / e-Time Office**. No manual or protocol document exists publicly. Two plausible paths, both already in CLOR: it pushes to the e-Time Office cloud (our e-Time Office pull covers it), or it is a generic ZK-style clock with an ADMS "Cloud Server" menu (our ADMS push covers it). **Founder check**: open the device menu — if *Comm → Cloud Server Setting / ADMS* exists, point it at `api.clor.in/iclock` and it works today. (Biomax has no "N-B100"; drop that reading.)
+
+### Vendor table
+
+| Vendor | Families | Path into CLOR | Docs public? | Template sync? |
+|---|---|---|---|---|
+| ZKTeco / eSSL / Identix / most Indian rebrands | K30/K40, F22, iFace, uFace, SpeedFace, MB | **ADMS push — have it** | Dealer spec; well-known | Finger + face (BIODATA type 9), photo |
+| **Matrix COSEC** | ARGO (face), Vega, Door V3, PVR, FMX, ARC DC200 | **COSEC Devices PUSH API**: device polls our server — `/login`, `/poll`, `/getcmd`, `/updatecmd`, `/getconfig`, `/updateconfig`, `/setevent` | **Yes — official PDF** | Card, finger, palm via Get/Set Credential; face enrolled on device |
+| Hikvision | DS-K1T341/671/320/804 | ISAPI pull — have it; **ISAPI HTTP push** (`PUT /ISAPI/Event/notification/httpHosts`) makes it real-time | Partner portal + community | Users, faces (JPEG), fingerprints via ISAPI |
+| Dahua | ASI/ASA series | CGI pull — have it; long-poll `snapManager.cgi` for live events | **Yes — official integration PDF** | Cards/users; face photo |
+| Anviz | W1/W2 Pro, FacePass, CrossChex | **CrossChex Cloud API** (JSON envelope, token) + webhooks (support-enabled) | Inside the cloud portal + community | No (cloud holds attendance only) |
+| Suprema (direct) | BioStation 2/3, FaceStation | **G-SDK** gRPC via a Device Gateway process | **Yes — GitHub** | Yes | 
+| Realtime Biometrics | T-series, RS10 | Device "cloud push" (ADMS-like per integrators) | No spec | Unknown |
+| Biomax | N-BM30W/60W/70W, N-K30, SpeedFace 5SE Lite | New N-series advertise push/cloud (likely ADMS); old BM30 proprietary TCP | BM30 manual only | If ADMS firmware, yes |
+| Mantra | MFSTAB (AEBAS-locked), mBio, MINOP cloud | SDK or MINOP cloud API; MFSTAB no third-party | No | No |
+| Secureye, Timewatch, CP Plus, Honeywell-India | fingerprint/face clocks | TCP/IP "cloud sync", protocol undisclosed; Cams dropped Secureye in 2023 | No | Unknown |
+| FingerTec | Face ID, TA/TC | ZK-made; Webster/AWDMS push (iclock family), developer programme | Programme | Via SDK |
+| Virdi, IDEMIA | AC-2100/7000; MorphoWave, SIGMA | Windows SDK / Thrift server behind partner portal | Partner-gated | Via SDK |
+
+### Build next (in order)
+1. **Matrix COSEC push driver** (M) — the one fully documented Indian vendor we lack. Device-initiated GETs with `device-type`, `serial-no`; events via `/setevent` (`seq-no`, `evt_id`, date/time fields, `field-1` = user id, `field-3` bit-field = entry/exit + credential). Dedupe on (serial, seq-no). Clock set via `/updateconfig config-id=1`. Users via `config-id=10`; finger/card/palm templates via Set Credential. Auth: user/password set on device (header form to confirm on hardware).
+2. **Hikvision ISAPI push** (S) — register CLOR as an HTTP host on the terminal; parse the multipart `event_log` JSON (capture one real event before freezing field names); keep the pull as gap-fill. Time via `/ISAPI/System/time` and `/ntpServers`.
+3. **Anviz CrossChex Cloud** (S) — token from the portal's CloudAPI page, `attendance.record/getrecord` pull with paging, webhook when Anviz enables developer mode. (Alternative: Suprema G-SDK — public, but needs a gateway process → on-site agent.)
+
+### NTP / time sync — what the protocols allow
+- **ADMS**: the device takes its clock from our handshake — local time = HTTP `Date` response header + `TimeZone` option; newer firmware reads **minutes** (`TimeZone=330` for IST), older hours. CLOR must send an accurate `Date` header on every `/iclock/*` reply and `TimeZone=330`. The explicit `SET OPTIONS TimeZone=…` then `SET OPTIONS DateTime=<packed>` command works on at least one firmware (device then fetches `/iclock/rtdata?type=time`, which we must answer) — treat as experimental, behind a per-reader switch. No native NTP on ZK clocks.
+- **Matrix**: `config-id=1` sets the clock; device UI has NTP and a zone table (IST = index 48).
+- **Hikvision**: NTP servers via ISAPI; digest auth fails if drift > 5 min — so fix the clock before anything else.
+- **Dahua**: `global.cgi?action=setCurrentTime` (unverified).
+- Plan: threshold (default 60 s) → vendor set-time command → reader-log line "clock corrected"; alert if it keeps drifting.
+
+Not verifiable from official sources: Bio Park's protocol; Realtime, new Biomax, Secureye, Timewatch, Honeywell-India push formats; Hikvision push field names; ADMS DateTime on other firmware.
 
 ## 3. Customer-side set-up: SMTP, SSO, LDAP, NTP
 
@@ -84,7 +116,7 @@ Gap against ClorTime's 28 plus what customers ask for:
 
 1. SSO (OIDC first) — L. Unblocks enterprise and Google-Workspace SMBs alike; the config half already exists.
 2. HR adapter framework + greytHR + Keka — M+S+M. Two biggest open SMB APIs.
-3. Reader drivers from §2 (top three) + NTP correction — sizes in §2, NTP S.
+3. Matrix COSEC push (M), Hikvision push (S), Anviz cloud (S) + clock correction (S). Bio Park B100: a device-menu check, no code.
 4. Zoho People/Payroll, Tally XML, SCIM inbound — M, S, M.
 5. Advanced reports + scheduled e-mail — M.
 6. On-site agent (LAN readers, LDAP/AD, Tally delivery) — L. Then LDAP sync on it — M.
