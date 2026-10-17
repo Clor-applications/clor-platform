@@ -5,6 +5,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import { authRouter } from './routes/auth.js';
+import { ssoRouter } from './routes/sso.js';
 import { branchesRouter } from './routes/branches.js';
 import { rolesRouter } from './routes/roles.js';
 import { usersRouter } from './routes/users.js';
@@ -236,6 +237,8 @@ export function buildApp() {
 
   app.get('/health', (_req, res) => res.json({ ok: true }));
 
+  /* Single sign-on lands here from the identity provider; mounted before the password routes. */
+  app.use('/api/auth/sso', ssoRouter);
   app.use('/api/auth', authRouter);
 
   /* No auth and no tenant headers: the customer has no account here. Mounted

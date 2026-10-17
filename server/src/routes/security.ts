@@ -8,6 +8,7 @@ import { requireTenantContext } from '../middleware/tenantContext.js';
 import { requirePermission } from '../middleware/rbac.js';
 import { PermissionAction } from '../constants/enums.js';
 import { decryptSecret, encryptSecret } from '../services/mailer.js';
+import { callbackUrl } from './sso.js';
 import { codeLimiter } from '../middleware/rateLimit.js';
 import { hashRecovery, newSecret, otpauthUri, recoveryCodes, verifyCode } from '../services/totp.js';
 import { STEP_UP_MINUTES, issueStepUp } from '../services/stepUp.js';
@@ -133,9 +134,8 @@ const publicProvider = (p: any) => ({
   defaultRoleId: p.defaultRoleId,
   lastUsedAt: p.lastUsedAt,
   lastError: p.lastError,
-  // Until the handshake ships, a configured provider cannot actually sign
-  // anyone in. Saying so here keeps the UI from implying otherwise.
-  status: 'CONFIGURED_NOT_ACTIVE' as const,
+  // OIDC signs people in (routes/sso.ts); SAML is stored but not yet spoken.
+  status: p.kind === 'OIDC' ? (p.enabled ? ('ACTIVE' as const) : ('DISABLED' as const)) : ('CONFIGURED_NOT_ACTIVE' as const),
 });
 
 securityRouter.get('/orgs/:orgId/security/providers', VIEW, async (req, res) => {
@@ -148,6 +148,8 @@ securityRouter.get('/orgs/:orgId/security/providers', VIEW, async (req, res) => 
     providers: rows.map(publicProvider),
     // LOCAL is implicit and always available, so it is described rather than stored.
     local: { kind: 'LOCAL', name: 'Email and password', enabled: true, status: 'ACTIVE' },
+    // What the administrator registers at the provider as the allowed redirect.
+    redirectUri: callbackUrl(),
   });
 });
 
