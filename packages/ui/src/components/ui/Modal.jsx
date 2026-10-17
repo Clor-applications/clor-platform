@@ -149,7 +149,7 @@ const Modal = ({ children, onClose, title = 'Form', maxWidthClass = 'max-w-4xl',
           moves — which is what "fits the screen" means for a form that is
           genuinely taller than the screen.
         */
-        className={`ui-surface ui-dialog shadow-xl w-full max-h-[90vh] flex flex-col ${maxWidthClass} ${closing ? 'ui-out' : ''}`}
+        className={`ui-surface ui-dialog w-full max-h-[90vh] flex flex-col ${maxWidthClass} ${closing ? 'ui-out' : ''}`}
         onAnimationEnd={(e) => {
           /* Only the panel's own exit, never a child's animation bubbling up. */
           if (closing && e.target === e.currentTarget) onClose?.();

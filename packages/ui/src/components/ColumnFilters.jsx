@@ -296,8 +296,8 @@ const FilterPanel = ({ column, state, anchorRect, onClose }) => {
   return (
     <div
       ref={panelRef}
-      className="fixed flex w-[21.5rem] flex-col overflow-hidden ui-surface border rounded-md shadow-lg p-2 gap-1 text-xs"
-      style={{ top, left, maxHeight, zIndex: 'var(--z-popover)' }}
+      className="fixed flex w-[21.5rem] flex-col overflow-hidden ui-surface border rounded-lg p-2 gap-1 text-xs"
+      style={{ top, left, maxHeight, zIndex: 'var(--z-popover)', boxShadow: 'var(--shadow-pop)' }}
       role="dialog"
       aria-label={`Filter ${column.label || key}`}
     >

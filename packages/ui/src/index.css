@@ -2078,6 +2078,8 @@
   .ui-dialog {
     border-radius: var(--radius);
     border: 1px solid rgb(var(--border));
+    /* Floating over the page: the popover tier, redefined for dark mode. */
+    box-shadow: var(--shadow-pop);
     /* The product's primary surface — 38 call sites, every document form —
        had no entrance while the drawer, the popover, the toast and the
        command palette all had one. Centred, because a modal owns the screen
