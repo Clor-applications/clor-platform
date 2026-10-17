@@ -430,9 +430,12 @@ function factsFor(ctx: LoadedRun, employeeId: string, onDate: string): Eligibili
  * schemes are computed on those wages, and the structure is calculated again
  * with the real amounts supplied.
  *
- * Two passes rather than an iteration: statutory deductions come out of pay and
- * never feed back into the wages they are computed on, so the second pass is
- * final. A third would produce the same numbers.
+ * Repeated until the wages stop moving. Usually the second pass is final, but
+ * not when a balancing component absorbs the company's own contributions: the
+ * employer's PF and ESI come out of CTC, the balancing allowance shrinks, and
+ * the ESI wages, gross (PT) and taxable pay shrink with it. Computing ESI on
+ * the first pass's wages charged it on money nobody was paid. Each round moves
+ * by a fraction of the last, so a few rounds settle it.
  */
 function calculateWithStatutory(
   ctx: LoadedRun,
@@ -460,38 +463,42 @@ function calculateWithStatutory(
   /* Months left in the Indian financial year, this one included, which is what TDS spreads over. */
   const monthsRemaining = monthsLeftInFinancialYear(ctx.run.payrollDate);
   const soFar = ctx.taxSoFar.get(assignment.employeeId) || { gross: 0, tds: 0 };
-  /* Monthly pay: the year is what was paid so far plus this month for the months left. Other frequencies keep the simple annualisation. */
-  const annualTaxable = periodsPerYear === 12 ? soFar.gross + firstPass.grossEarnings * monthsRemaining : firstPass.grossEarnings * periodsPerYear;
-
-  const statutory = applyStatutory({
-    rules: ctx.statutoryRules,
-    onDate: ctx.run.payrollDate,
-    wages: {
-      pfWage: firstPass.pfWage,
-      esiWage: firstPass.esiWage,
-      gross: firstPass.grossEarnings,
-      annualTaxable,
-    },
-    employee: {
-      pfApplicable: !!profile?.pfApplicable,
-      esiApplicable: !!profile?.esiApplicable,
-      ptApplicable: !!profile?.ptApplicable,
-      professionalTaxState: profile?.professionalTaxState ?? null,
-      taxRegime: (profile?.taxRegime as 'OLD' | 'NEW') || 'NEW',
-    },
-    components: engine.map((c) => ({ code: c.code, statutoryScheme: c.statutoryScheme, type: c.type })),
-    monthsRemaining: Math.max(1, monthsRemaining),
-    taxAlreadyDeducted: periodsPerYear === 12 ? soFar.tds : 0,
-  });
-
-  if (!Object.keys(statutory.amounts).length) {
-    return { result: firstPass, statutory };
-  }
-
-  return {
-    result: calculateStructure(engine, { ...engineInput, statutoryAmounts: statutory.amounts }),
-    statutory,
+  const employee = {
+    pfApplicable: !!profile?.pfApplicable,
+    esiApplicable: !!profile?.esiApplicable,
+    ptApplicable: !!profile?.ptApplicable,
+    professionalTaxState: profile?.professionalTaxState ?? null,
+    taxRegime: (profile?.taxRegime as 'OLD' | 'NEW') || 'NEW',
   };
+  const statutoryOn = (pass: ReturnType<typeof calculateStructure>) =>
+    applyStatutory({
+      rules: ctx.statutoryRules,
+      onDate: ctx.run.payrollDate,
+      wages: {
+        pfWage: pass.pfWage,
+        esiWage: pass.esiWage,
+        gross: pass.grossEarnings,
+        /* Monthly pay: the year is what was paid so far plus this month for the months left. Other frequencies keep the simple annualisation. */
+        annualTaxable: periodsPerYear === 12 ? soFar.gross + pass.grossEarnings * monthsRemaining : pass.grossEarnings * periodsPerYear,
+      },
+      employee,
+      components: engine.map((c) => ({ code: c.code, statutoryScheme: c.statutoryScheme, type: c.type })),
+      monthsRemaining: Math.max(1, monthsRemaining),
+      taxAlreadyDeducted: periodsPerYear === 12 ? soFar.tds : 0,
+    });
+
+  let result = firstPass;
+  let statutory = statutoryOn(firstPass);
+  let settled = !Object.keys(statutory.amounts).length;
+  for (let round = 0; round < 6 && !settled; round += 1) {
+    result = calculateStructure(engine, { ...engineInput, statutoryAmounts: statutory.amounts });
+    /* Worked out again on the wages this pass actually pays. */
+    const again = statutoryOn(result);
+    settled = JSON.stringify(again.amounts) === JSON.stringify(statutory.amounts);
+    statutory = again;
+  }
+  if (!settled) result = calculateStructure(engine, { ...engineInput, statutoryAmounts: statutory.amounts });
+  return { result, statutory };
 }
 
 /** Days in the period, and the input a run was given for one person. */
