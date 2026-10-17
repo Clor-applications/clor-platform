@@ -4,7 +4,8 @@
   "webDir": "../../dist-mobile/payroll",
   "android": {
     "allowMixedContent": false,
-    "backgroundColor": "#FAFAFA"
+    "backgroundColor": "#FAFAFA",
+    "adjustMarginsForEdgeToEdge": "auto"
   },
   "server": {
     "androidScheme": "https"
