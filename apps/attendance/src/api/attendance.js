@@ -159,6 +159,8 @@ export const listWebhooks = () => get('/integrations/webhooks');
 export const createWebhook = (body) => send('/integrations/webhooks', 'POST', body);
 export const updateWebhook = (id, body) => send(`/integrations/webhooks/${encodeURIComponent(id)}`, 'PUT', body);
 export const deleteWebhook = (id) => send(`/integrations/webhooks/${encodeURIComponent(id)}`, 'DELETE');
+export const listWebhookDeliveries = (id, status) => get(`/integrations/webhooks/${encodeURIComponent(id)}/deliveries${query({ status })}`);
+export const resendWebhookDelivery = (id, deliveryId) => send(`/integrations/webhooks/${encodeURIComponent(id)}/deliveries/${encodeURIComponent(deliveryId)}/resend`, 'POST', {});
 export const testWebhook = (id) => send(`/integrations/webhooks/${encodeURIComponent(id)}/test`, 'POST', {});
 /** Where outside systems call: the API host's /v1. */
 export const publicApiBase = () => {
