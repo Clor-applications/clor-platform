@@ -32,6 +32,7 @@ import {
   UserMinus,
   UserRoundCheck,
   Users,
+  Grid3x3,
 } from 'lucide-react';
 
 import Employees from '@ui/personnel/Employees';
@@ -41,6 +42,8 @@ import MyAttendance from './src/screens/MyAttendance';
 import AttendanceRecords from './src/screens/AttendanceRecords';
 import AttendanceRequests from './src/screens/AttendanceRequests';
 import MonthSummary from './src/screens/MonthSummary';
+import AttendanceRegister from './src/screens/AttendanceRegister';
+import AttendanceCalendar from './src/screens/AttendanceCalendar';
 import Shifts from './src/screens/Shifts';
 import ShiftAssignments from './src/screens/ShiftAssignments';
 import Holidays from './src/screens/Holidays';
@@ -110,7 +113,7 @@ export const attendanceApp = {
     ] },
     { key: 'attendance', label: 'Attendance', groups: [
       { label: 'Daily', items: ['records', 'requests', 'leaveRequests'] },
-      { label: 'Reports', items: ['summary', 'reports'] },
+      { label: 'Reports', items: ['register', 'calendar', 'summary', 'reports'] },
       { label: 'Schedule', items: ['scheduleCalendar', 'shifts', 'shiftAssignments', 'departmentSchedule', 'temporarySchedule', 'rotations'] },
       { label: 'Rules', items: ['holidays', 'rules'] },
       { label: 'Leave setup', items: ['leaveTypes', 'leaveBalances'] },
@@ -148,6 +151,8 @@ export const attendanceApp = {
     { key: 'requests', label: 'Corrections', icon: Inbox, permission: 'ATTENDANCE::Attendance Requests::VIEW' },
     { key: 'leaveRequests', label: 'Leave requests', icon: CalendarCheck, permission: 'ATTENDANCE::Leave Requests::VIEW' },
     { key: 'summary', label: 'Month summary', icon: ClipboardCheck, permission: 'ATTENDANCE::Attendance Records::VIEW' },
+    { key: 'register', label: 'Register', icon: Grid3x3, permission: 'ATTENDANCE::Attendance Records::VIEW' },
+    { key: 'calendar', label: 'Calendar', icon: CalendarRange, permission: 'ATTENDANCE::Attendance Records::VIEW' },
     { key: 'reports', label: 'Reports & registers', icon: BarChart3, permission: 'ATTENDANCE::Attendance Records::VIEW' },
     { section: 'Schedule' },
     { key: 'scheduleCalendar', label: 'Schedule calendar', icon: CalendarRange, permission: 'ATTENDANCE::Shifts::VIEW' },
@@ -191,6 +196,8 @@ export const attendanceApp = {
     requests: AttendanceRequests,
     leaveRequests: LeaveRequests,
     summary: MonthSummary,
+    register: AttendanceRegister,
+    calendar: AttendanceCalendar,
     reports: AttendanceReports,
     shifts: Shifts,
     shiftAssignments: ShiftAssignments,

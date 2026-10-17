@@ -2674,6 +2674,33 @@
   .ui-nav-sheet-split .ui-split-panel { width: auto; flex: 1 1 auto; min-width: 0; padding-top: 0; }
   .ui-nav-sheet-split .ui-split-panel-head { margin: 0 -0.75rem 0.5rem; padding: 0 0.75rem 0 1rem; }
 
+  /* --- attendance register and calendar ------------------------------------ */
+  .ui-table-register td, .ui-table-register th { padding-inline: 0.25rem; }
+  .ui-register-day { width: 2.1rem; min-width: 2.1rem; }
+  .ui-register-sticky { position: sticky; left: 0; z-index: var(--z-base); background: rgb(var(--surface)); }
+  .ui-table-register thead .ui-register-sticky { background: rgb(var(--heading-bg)); z-index: calc(var(--z-base) + 1); }
+  .ui-register-mark {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 1.6rem; height: 1.4rem; padding: 0 0.25rem;
+    border-radius: 0.3rem; font-size: 11px; font-weight: 600; letter-spacing: 0.02em;
+  }
+  .ui-calendar { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 0.25rem; }
+  .ui-calendar-head { padding: 0.25rem 0.5rem; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: rgb(var(--fg-muted)); }
+  .ui-calendar-day {
+    display: flex; flex-direction: column; align-items: flex-start; gap: 0.25rem;
+    min-height: 5rem; padding: 0.4rem 0.5rem; border-radius: var(--radius-btn);
+    border: 1px solid rgb(var(--border)); background: rgb(var(--surface)); text-align: left;
+    transition: background-color var(--dur-surface) ease;
+  }
+  .ui-calendar-day:hover { background: rgb(var(--surface-sunken)); }
+  .ui-calendar-day[data-off] { background: rgb(var(--surface-sunken)); color: rgb(var(--fg-muted)); }
+  .ui-calendar-day[data-today] .ui-calendar-date { color: rgb(var(--brand)); font-weight: 700; }
+  .ui-calendar-day[aria-pressed='true'] { box-shadow: inset 0 0 0 2px rgb(var(--brand)); }
+  .ui-calendar-date { font-size: 13px; font-weight: 600; }
+  .ui-calendar-tag { font-size: 11px; color: rgb(var(--fg-muted)); line-height: 1.1; }
+  .ui-calendar-counts { display: flex; gap: 0.5rem; margin-top: auto; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  @media (max-width: 639px) { .ui-calendar-day { min-height: 3.6rem; padding: 0.3rem; } .ui-calendar-tag { display: none; } }
+
   /* A page heading's actions drop under the title on a phone instead of squeezing beside it. */
   @media (max-width: 639px) {
     .ui-page-heading > div:last-child {
