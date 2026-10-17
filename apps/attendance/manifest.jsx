@@ -67,6 +67,7 @@ import ScheduleCalendar from './src/screens/ScheduleCalendar';
 import AttendanceRules from './src/screens/AttendanceRules';
 import PortalAccess from './src/screens/PortalAccess';
 import Geofences from './src/screens/Geofences';
+import SiteCheck from './src/screens/SiteCheck';
 import EmployeePortal from './src/portal/EmployeePortal';
 
 /**
@@ -92,6 +93,36 @@ export const attendanceApp = {
   home: 'today',
   /* The phone's tab bar; the rest is behind Menu (packages/shell/mobileTabs.js). */
   mobileTabs: ['today', 'records', 'leaveRequests', 'requests'],
+  /*
+   * The split sidebar (ClorTime's MainLayout): a rail of modules, and the
+   * open module's screens grouped under plain headings. Keys are nav keys;
+   * a module with one screen and no groups has no panel.
+   */
+  modules: [
+    { key: 'today', label: 'Today', items: ['today'] },
+    { key: 'personnel', label: 'Personnel', groups: [
+      { label: 'Organization', items: ['departments', 'positions', 'areas'] },
+      { label: 'Employees', items: ['employees', 'contractors', 'resignations', 'transfer'] },
+    ] },
+    { key: 'device', label: 'Readers', groups: [
+      { label: 'Readers', items: ['readerHealth', 'readers', 'readerSync'] },
+      { label: 'Data', items: ['transactions', 'enrolments', 'unmatched', 'deviceLogs'] },
+    ] },
+    { key: 'attendance', label: 'Attendance', groups: [
+      { label: 'Daily', items: ['records', 'requests', 'leaveRequests'] },
+      { label: 'Reports', items: ['summary', 'reports'] },
+      { label: 'Schedule', items: ['scheduleCalendar', 'shifts', 'shiftAssignments', 'departmentSchedule', 'temporarySchedule', 'rotations'] },
+      { label: 'Rules', items: ['holidays', 'rules'] },
+      { label: 'Leave setup', items: ['leaveTypes', 'leaveBalances'] },
+    ] },
+    { key: 'system', label: 'System', groups: [
+      { label: 'Employee portal', items: ['portalAccess', 'sites', 'siteCheck'] },
+      { label: 'Integrations', items: ['integrations'] },
+    ] },
+    { key: 'me', label: 'Me', groups: [
+      { label: 'Mine', items: ['me', 'myLeave'] },
+    ] },
+  ],
 
   /* `permission`: what the screen's data needs (server routes); the shell hides what this user cannot open. */
   nav: [
@@ -133,6 +164,7 @@ export const attendanceApp = {
     { section: 'Employee portal' },
     { key: 'portalAccess', label: 'Portal access', icon: KeyRound, permission: 'ATTENDANCE::Employee Portal::VIEW' },
     { key: 'sites', label: 'Work sites', icon: LocateFixed, permission: 'ATTENDANCE::Employee Portal::VIEW' },
+    { key: 'siteCheck', label: 'Site check', icon: LocateFixed, permission: 'ATTENDANCE::Employee Portal::VIEW' },
     { section: 'System' },
     { key: 'integrations', label: 'Integrations', icon: Plug, permission: 'ATTENDANCE::Attendance Integrations::VIEW' },
     { section: 'Me' },
@@ -173,6 +205,7 @@ export const attendanceApp = {
     integrations: Integrations,
     portalAccess: PortalAccess,
     sites: Geofences,
+    siteCheck: SiteCheck,
     me: MyAttendance,
     myLeave: MyLeave,
   },
