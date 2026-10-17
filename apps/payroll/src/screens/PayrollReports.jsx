@@ -266,7 +266,7 @@ export default function PayrollReports() {
 
 const Register = ({ data }) => (
   <div className="ui-card overflow-hidden">
-    <div className="overflow-x-auto ui-table-scroll">
+    <div className="overflow-x-auto ui-table-scroll ui-table-fit">
       <table className="ui-table w-full">
         <thead>
           <tr>
@@ -322,7 +322,7 @@ const Statutory = ({ data }) => (
             {s.employer ? ` · ${money(s.employer)} from the company` : ''} · {money(s.total)} owed
           </div>
         </div>
-        <div className="overflow-x-auto ui-table-scroll">
+        <div className="overflow-x-auto ui-table-scroll ui-table-fit">
           <table className="ui-table w-full">
             <thead>
               <tr>
@@ -370,7 +370,7 @@ const Variance = ({ data }) => (
         Anybody whose take-home moved {data.threshold}% or more since last month, and everybody being paid for the first time.
       </p>
     </div>
-    <div className="overflow-x-auto ui-table-scroll">
+    <div className="overflow-x-auto ui-table-scroll ui-table-fit">
       <table className="ui-table w-full">
         <thead>
           <tr>
@@ -404,7 +404,7 @@ const Variance = ({ data }) => (
 
 const Cost = ({ data }) => (
   <div className="ui-card overflow-hidden">
-    <div className="overflow-x-auto ui-table-scroll">
+    <div className="overflow-x-auto ui-table-scroll ui-table-fit">
       <table className="ui-table w-full">
         <thead>
           <tr>

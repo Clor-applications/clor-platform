@@ -148,7 +148,7 @@ export default function SalaryRevisions() {
         />
       ) : rows.length ? (
         <div className="ui-card overflow-hidden">
-          <div className="overflow-x-auto ui-table-scroll">
+          <div className="overflow-x-auto ui-table-scroll ui-table-fit">
             <table className="ui-table w-full">
               <thead>
                 <tr>
@@ -364,7 +364,7 @@ const Impact = ({ impact, compact = false }) => (
         <div className="px-4 py-3 ui-sec-head" style={{ borderBottom: '1px solid rgb(var(--border))' }}>
           What changes, line by line
         </div>
-        <div className="overflow-x-auto ui-table-scroll">
+        <div className="overflow-x-auto ui-table-scroll ui-table-fit">
           <table className="ui-table w-full">
             <thead>
               <tr>

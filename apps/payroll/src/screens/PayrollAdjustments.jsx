@@ -165,7 +165,7 @@ export default function PayrollAdjustments() {
         />
       ) : (
         <div className="ui-card overflow-hidden">
-          <div className="overflow-x-auto ui-table-scroll">
+          <div className="overflow-x-auto ui-table-scroll ui-table-fit">
             <table className="ui-table w-full">
               <thead>
                 <tr>

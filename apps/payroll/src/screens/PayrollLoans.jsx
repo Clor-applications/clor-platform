@@ -152,7 +152,7 @@ export default function PayrollLoans() {
         />
       ) : loans.length ? (
         <div className="ui-card overflow-hidden">
-          <div className="overflow-x-auto ui-table-scroll">
+          <div className="overflow-x-auto ui-table-scroll ui-table-fit">
             <table className="ui-table w-full">
               <thead>
                 <tr>
@@ -493,7 +493,7 @@ const LoanDetail = ({ loanId, onBack }) => {
           <div className="px-4 py-3 ui-sec-head" style={{ borderBottom: '1px solid rgb(var(--border))' }}>
             The schedule
           </div>
-          <div className="overflow-x-auto ui-table-scroll">
+          <div className="overflow-x-auto ui-table-scroll ui-table-fit">
             <table className="ui-table w-full">
               <thead>
                 <tr>

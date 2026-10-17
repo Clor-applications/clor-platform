@@ -162,7 +162,7 @@ export default function PayrollPayments() {
         />
       ) : payments.length ? (
         <div className="ui-card overflow-hidden">
-          <div className="overflow-x-auto ui-table-scroll">
+          <div className="overflow-x-auto ui-table-scroll ui-table-fit">
             <table className="ui-table w-full">
               <thead>
                 <tr>
@@ -506,7 +506,7 @@ const PaymentDetail = ({ paymentId, onBack }) => {
           <div className="px-4 py-3 ui-sec-head" style={{ borderBottom: '1px solid rgb(var(--border))' }}>
             What this writes to the books
           </div>
-          <div className="overflow-x-auto ui-table-scroll">
+          <div className="overflow-x-auto ui-table-scroll ui-table-fit">
             <table className="ui-table w-full">
               <thead>
                 <tr>
@@ -559,7 +559,7 @@ const PaymentDetail = ({ paymentId, onBack }) => {
           </div>
         </div>
 
-        <div className="overflow-x-auto ui-table-scroll">
+        <div className="overflow-x-auto ui-table-scroll ui-table-fit">
           <table className="ui-table w-full">
             <thead>
               <tr>

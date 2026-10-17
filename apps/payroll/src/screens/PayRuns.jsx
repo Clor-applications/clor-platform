@@ -146,7 +146,7 @@ export default function PayRuns() {
         />
       ) : runs.length ? (
         <div className="ui-card overflow-hidden">
-          <div className="overflow-x-auto ui-table-scroll">
+          <div className="overflow-x-auto ui-table-scroll ui-table-fit">
             <table className="ui-table w-full">
               <thead>
                 <tr>
@@ -481,7 +481,7 @@ const Tile = ({ label, value, strong = false }) => (
 
 const PeopleStage = ({ data, editable, runId, onChanged }) => (
   <div className="ui-card overflow-hidden">
-    <div className="overflow-x-auto ui-table-scroll">
+    <div className="overflow-x-auto ui-table-scroll ui-table-fit">
       <table className="ui-table w-full">
         <thead>
           <tr>
@@ -610,7 +610,7 @@ const DaysStage = ({ data, editable, runId, onSaved }) => {
         ) : null}
       </div>
       <div className="ui-card overflow-hidden">
-        <div className="overflow-x-auto ui-table-scroll">
+        <div className="overflow-x-auto ui-table-scroll ui-table-fit">
           <table className="ui-table w-full">
             <thead>
               <tr>
@@ -710,7 +710,7 @@ const ReviewStage = ({ data, byEmployee }) => {
   }
   return (
     <div className="ui-card overflow-hidden">
-      <div className="overflow-x-auto ui-table-scroll">
+      <div className="overflow-x-auto ui-table-scroll ui-table-fit">
         <table className="ui-table w-full">
           <thead>
             <tr>
@@ -818,7 +818,7 @@ const BooksStage = ({ runId, run, onPosted }) => {
       ) : null}
 
       <div className="ui-card overflow-hidden">
-        <div className="overflow-x-auto ui-table-scroll">
+        <div className="overflow-x-auto ui-table-scroll ui-table-fit">
           <table className="ui-table w-full">
             <thead>
               <tr>
