@@ -10,6 +10,7 @@ import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { PAYROLL_MODULE, PAYROLL_RESOURCE, payrollRouteOk } from '../services/payroll/guards.js';
 import { recordAudit } from '../services/auditTrail.js';
 import { netOf, proposeSettlement, type SettlementLine } from '../services/payroll/finalSettlement.js';
+import { requirePayrollStepUp } from '../services/stepUp.js';
 
 /**
  * Full and final settlements for people who have left. Drafted from what CLOR
@@ -163,7 +164,7 @@ payrollSettlementsRouter.post('/orgs/:orgId/payroll/settlements/:id/recalculate'
   }
 });
 
-payrollSettlementsRouter.post('/orgs/:orgId/payroll/settlements/:id/approve', APPROVE, async (req, res) => {
+payrollSettlementsRouter.post('/orgs/:orgId/payroll/settlements/:id/approve', APPROVE, requirePayrollStepUp, async (req, res) => {
   if (!(await payrollRouteOk(req, res))) return;
   const row = await findOwn(req, res);
   if (!row) return;
@@ -182,7 +183,7 @@ payrollSettlementsRouter.post('/orgs/:orgId/payroll/settlements/:id/approve', AP
   res.json({ settlement: shape(updated, await peopleFor(row.orgId, [row.employeeId])) });
 });
 
-payrollSettlementsRouter.post('/orgs/:orgId/payroll/settlements/:id/paid', APPROVE, async (req, res) => {
+payrollSettlementsRouter.post('/orgs/:orgId/payroll/settlements/:id/paid', APPROVE, requirePayrollStepUp, async (req, res) => {
   if (!(await payrollRouteOk(req, res))) return;
   const row = await findOwn(req, res);
   if (!row) return;

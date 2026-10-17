@@ -7,7 +7,10 @@ import { requireAuth } from '../middleware/auth.js';
 import { requireTenantContext } from '../middleware/tenantContext.js';
 import { requirePermission } from '../middleware/rbac.js';
 import { PermissionAction } from '../constants/enums.js';
-import { encryptSecret } from '../services/mailer.js';
+import { decryptSecret, encryptSecret } from '../services/mailer.js';
+import { codeLimiter } from '../middleware/rateLimit.js';
+import { hashRecovery, newSecret, otpauthUri, recoveryCodes, verifyCode } from '../services/totp.js';
+import { STEP_UP_MINUTES, issueStepUp } from '../services/stepUp.js';
 import {
   clientIp,
   recordAuthEvent,
@@ -53,6 +56,7 @@ const policySchema = z.object({
   passwordRequireSymbol: z.boolean(),
   requireVerifiedEmail: z.boolean(),
   allowedEmailDomains: z.string().max(500).optional().nullable(),
+  requirePayrollStepUp: z.boolean().optional(),
 });
 
 securityRouter.get('/orgs/:orgId/security/policy', VIEW, async (req, res) => {
@@ -333,6 +337,82 @@ securityRouter.post('/orgs/:orgId/security/change-password', async (req, res) =>
   });
 
   res.json({ ok: true, message: 'Password changed. Other devices were signed out.' });
+});
+
+// ---------------------------------------------------------------------------
+// Authenticator app (TOTP) and step-up — services/totp.ts, services/stepUp.ts
+// ---------------------------------------------------------------------------
+
+const me2fa = (req: any) =>
+  platformPrisma.user.findUnique({ where: { id: req.auth!.userId }, select: { id: true, email: true, passwordHash: true, totpSecretEnc: true, totpEnabledAt: true, totpLastStep: true, totpRecoveryJson: true } });
+
+securityRouter.get('/orgs/:orgId/security/two-factor', async (req, res) => {
+  if (!orgOk(req, res)) return;
+  const [u, policy] = await Promise.all([me2fa(req), platformPrisma.authPolicy.findUnique({ where: { orgId: req.tenant!.orgId }, select: { requirePayrollStepUp: true } })]);
+  const left = u?.totpRecoveryJson ? (JSON.parse(u.totpRecoveryJson) as string[]).length : 0;
+  res.json({ enabled: !!u?.totpEnabledAt, enabledAt: u?.totpEnabledAt || null, recoveryCodesLeft: left, payrollStepUp: !!policy?.requirePayrollStepUp, stepUpMinutes: STEP_UP_MINUTES });
+});
+
+/** A new secret, not yet in force: it is switched on only by a code from it. */
+securityRouter.post('/orgs/:orgId/security/two-factor/setup', async (req, res) => {
+  if (!orgOk(req, res)) return;
+  const u = await me2fa(req);
+  if (!u) return res.status(401).json({ error: 'Unauthorized' });
+  if (u.totpEnabledAt) return res.status(409).json({ error: 'An authenticator is already set up. Turn it off first to set up another.', code: 'ALREADY_ENABLED' });
+  const secret = newSecret();
+  await platformPrisma.user.update({ where: { id: u.id }, data: { totpSecretEnc: encryptSecret(secret), totpLastStep: null } });
+  res.json({ secret, uri: otpauthUri(secret, u.email) });
+});
+
+securityRouter.post('/orgs/:orgId/security/two-factor/enable', ...codeLimiter, async (req, res) => {
+  if (!orgOk(req, res)) return;
+  const u = await me2fa(req);
+  if (!u?.totpSecretEnc) return res.status(400).json({ error: 'Start the set-up first.' });
+  if (u.totpEnabledAt) return res.status(409).json({ error: 'Already set up.', code: 'ALREADY_ENABLED' });
+  const step = verifyCode(decryptSecret(u.totpSecretEnc), String(req.body?.code || ''), null);
+  if (step == null) return res.status(400).json({ error: 'That code is not right. Check the time on your phone and try the newest code.', code: 'BAD_CODE' });
+  const { codes, hashes } = recoveryCodes();
+  await platformPrisma.user.update({ where: { id: u.id }, data: { totpEnabledAt: new Date(), totpLastStep: step, totpRecoveryJson: JSON.stringify(hashes) } });
+  await recordAuthEvent({ accountId: req.tenant!.accountId, userId: u.id, eventType: 'TWO_FACTOR_ENABLED', ip: clientIp(req) });
+  res.json({ enabled: true, recoveryCodes: codes });
+});
+
+securityRouter.post('/orgs/:orgId/security/two-factor/disable', ...codeLimiter, async (req, res) => {
+  if (!orgOk(req, res)) return;
+  const u = await me2fa(req);
+  if (!u?.totpEnabledAt) return res.status(400).json({ error: 'No authenticator is set up.' });
+  if (!(await bcrypt.compare(String(req.body?.password || ''), u.passwordHash))) return res.status(400).json({ error: 'Your password is not correct.', code: 'BAD_PASSWORD' });
+  await platformPrisma.user.update({ where: { id: u.id }, data: { totpSecretEnc: null, totpEnabledAt: null, totpLastStep: null, totpRecoveryJson: null } });
+  await recordAuthEvent({ accountId: req.tenant!.accountId, userId: u.id, eventType: 'TWO_FACTOR_DISABLED', ip: clientIp(req) });
+  res.json({ enabled: false });
+});
+
+/** A code (or a recovery code) for fifteen minutes of money-moving payroll actions. */
+securityRouter.post('/orgs/:orgId/security/step-up', ...codeLimiter, async (req, res) => {
+  if (!orgOk(req, res)) return;
+  const u = await me2fa(req);
+  if (!u?.totpEnabledAt || !u.totpSecretEnc) return res.status(400).json({ error: 'Set up an authenticator app first.', code: 'TWO_FACTOR_SETUP_REQUIRED' });
+  const code = String(req.body?.code || '').trim();
+  let used: 'CODE' | 'RECOVERY' | null = null;
+  const step = verifyCode(decryptSecret(u.totpSecretEnc), code, u.totpLastStep);
+  if (step != null) {
+    /* Only if no other request used this step in the meantime: a code works once. */
+    const won = await platformPrisma.user.updateMany({ where: { id: u.id, OR: [{ totpLastStep: null }, { totpLastStep: { lt: step } }] }, data: { totpLastStep: step } });
+    if (won.count) used = 'CODE';
+  } else if (/^[A-Z2-7]{4}-?[A-Z2-7]{4}$/i.test(code)) {
+    const hashes = JSON.parse(u.totpRecoveryJson || '[]') as string[];
+    const h = hashRecovery(code);
+    if (hashes.includes(h)) {
+      await platformPrisma.user.update({ where: { id: u.id }, data: { totpRecoveryJson: JSON.stringify(hashes.filter((x) => x !== h)) } });
+      used = 'RECOVERY';
+    }
+  }
+  if (!used) {
+    await recordAuthEvent({ accountId: req.tenant!.accountId, userId: u.id, eventType: 'STEP_UP_FAILED', ip: clientIp(req) });
+    return res.status(400).json({ error: 'That code is not right, or has been used. Wait for the next one.', code: 'BAD_CODE' });
+  }
+  await recordAuthEvent({ accountId: req.tenant!.accountId, userId: u.id, eventType: 'STEP_UP', ip: clientIp(req), detail: used === 'RECOVERY' ? 'With a recovery code' : undefined });
+  res.json(issueStepUp(u.id, req.auth!.sessionId));
 });
 
 // ---------------------------------------------------------------------------

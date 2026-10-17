@@ -12,6 +12,7 @@ import { calculateRun, daysBetween, eligibleEmployees, validateRun } from '../se
 import { isFeatureEnabled } from '../services/features.js';
 import { recordAudit } from '../services/auditTrail.js';
 import { closedMonths, daysBetween as datesBetween, periodRows } from './attendance.js';
+import { requirePayrollStepUp } from '../services/stepUp.js';
 
 /**
  * A payroll run, from who is in it to payslips somebody can approve.
@@ -519,6 +520,8 @@ const transition = (
   payrollRunsRouter.post(
     `/orgs/:orgId/payroll/runs/:id/${path}`,
     requirePermission(PAYROLL_MODULE, action, RESOURCE),
+    /* Approving is what lets the money go: a fresh authenticator code, where the company asks for one. */
+    path === 'approve' ? requirePayrollStepUp : (_req: any, _res: any, next: any) => next(),
     async (req, res) => {
       if (!(await payrollRouteOk(req, res))) return;
       const run = await runOr404(req, res);

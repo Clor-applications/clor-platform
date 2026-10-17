@@ -54,6 +54,8 @@ const build = (windowMs: number, max: number, what: string) => [
 export const loginLimiter = build(15 * 60 * 1000, 10, 'sign-in attempts');
 export const signupLimiter = build(60 * 60 * 1000, 5, 'sign-up attempts');
 export const resetLimiter = build(60 * 60 * 1000, 5, 'password reset requests');
+/** Authenticator codes: ten tries in fifteen minutes per signed-in user, so six digits cannot be walked. */
+export const codeLimiter = [bucket(15 * 60 * 1000, 10, 'code attempts', (req) => `code:${req.auth?.userId || ipOf(req)}`)];
 
 /**
  * Biometric readers (/iclock). One bucket per serial number and one per

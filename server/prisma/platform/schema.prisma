@@ -168,6 +168,14 @@ model User {
   // keeps working on an install with no network egress.
   avatarUrl String?
 
+  // Authenticator app (TOTP, RFC 6238). The secret is encrypted at rest;
+  // enabled only once a code from it has been checked. The last time step
+  // used stops a code being replayed; recovery codes are stored hashed.
+  totpSecretEnc     String?
+  totpEnabledAt     DateTime?
+  totpLastStep      Int?
+  totpRecoveryJson  String?
+
   // Lockout state. Cleared on a successful sign-in.
   failedLoginCount Int       @default(0)
   lockedUntil      DateTime?
@@ -667,6 +675,9 @@ model AuthPolicy {
   requireVerifiedEmail Boolean @default(false)
   /// Comma-separated domains; empty means any address may be invited.
   allowedEmailDomains  String?
+  /// Ask for an authenticator code before money-moving payroll actions:
+  /// approving a pay run, a bank account change, a settlement, a payment.
+  requirePayrollStepUp Boolean @default(false)
 
   updatedByUserId String
   createdAt       DateTime @default(now())

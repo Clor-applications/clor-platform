@@ -19,6 +19,7 @@ export type Policy = {
   passwordRequireSymbol: boolean;
   requireVerifiedEmail: boolean;
   allowedEmailDomains: string | null;
+  requirePayrollStepUp: boolean;
 };
 
 export const DEFAULT_POLICY: Policy = {
@@ -32,6 +33,7 @@ export const DEFAULT_POLICY: Policy = {
   passwordRequireSymbol: false,
   requireVerifiedEmail: false,
   allowedEmailDomains: null,
+  requirePayrollStepUp: false,
 };
 
 export async function getAuthPolicy(accountId: string, orgId: string): Promise<Policy> {
@@ -48,6 +50,7 @@ export async function getAuthPolicy(accountId: string, orgId: string): Promise<P
     passwordRequireSymbol: row.passwordRequireSymbol,
     requireVerifiedEmail: row.requireVerifiedEmail,
     allowedEmailDomains: row.allowedEmailDomains,
+    requirePayrollStepUp: row.requirePayrollStepUp,
   };
 }
 
@@ -80,6 +83,7 @@ export async function policyForUser(accountId: string, userId: string): Promise<
       passwordRequireSymbol: strictest.passwordRequireSymbol || r.passwordRequireSymbol,
       requireVerifiedEmail: strictest.requireVerifiedEmail || r.requireVerifiedEmail,
       allowedEmailDomains: strictest.allowedEmailDomains || r.allowedEmailDomains,
+      requirePayrollStepUp: strictest.requirePayrollStepUp || r.requirePayrollStepUp,
     }),
     { ...DEFAULT_POLICY, maxFailedLogins: 999, sessionDays: 999, accessTokenMinutes: 999, lockoutMinutes: 0 }
   );

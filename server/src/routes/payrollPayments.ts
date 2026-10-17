@@ -22,6 +22,7 @@ import {
   settleLines,
   snapshotPerson,
 } from '../services/payroll/payment.js';
+import { requirePayrollStepUp } from '../services/stepUp.js';
 
 /**
  * Paying a payroll, and recording what the bank did with it.
@@ -164,6 +165,7 @@ payrollPaymentsRouter.get(
 payrollPaymentsRouter.post(
   '/orgs/:orgId/payroll/payments',
   requirePermission(PAYROLL_MODULE, PermissionAction.CREATE, RESOURCE),
+  requirePayrollStepUp,
   async (req, res) => {
     if (!(await payrollRouteOk(req, res))) return;
     const { accountId, orgId, branchId } = req.tenant!;
@@ -226,6 +228,7 @@ payrollPaymentsRouter.get(
 payrollPaymentsRouter.post(
   '/orgs/:orgId/payroll/payments/:id/settle',
   requirePermission(PAYROLL_MODULE, PermissionAction.EDIT, RESOURCE),
+  requirePayrollStepUp,
   async (req, res) => {
     if (!(await payrollRouteOk(req, res))) return;
     const { accountId, orgId } = req.tenant!;

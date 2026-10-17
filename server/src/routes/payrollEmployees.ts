@@ -11,6 +11,7 @@ import { PAYROLL_MODULE, PAYROLL_RESOURCE, payrollRouteOk } from '../services/pa
 import { levelFor, resolveAccess } from '../services/access.js';
 import { pushEmployeeToReaders, readerFieldsChanged, revokeFromReaders } from './iclock.js';
 import { BANK_FIELDS, BankChangeError, approveBankChange, maskNumber, rejectBankChange, routeBankUpdate } from '../services/payroll/bankChanges.js';
+import { requirePayrollStepUp } from '../services/stepUp.js';
 
 /**
  * The people payroll pays, and the payroll-specific things known about them.
@@ -407,7 +408,7 @@ payrollEmployeesRouter.get('/orgs/:orgId/payroll/bank-changes', requirePermissio
   });
 });
 
-payrollEmployeesRouter.post('/orgs/:orgId/payroll/bank-changes/:id/approve', APPROVE_BANK, async (req, res) => {
+payrollEmployeesRouter.post('/orgs/:orgId/payroll/bank-changes/:id/approve', APPROVE_BANK, requirePayrollStepUp, async (req, res) => {
   if (!(await payrollRouteOk(req, res))) return;
   try {
     const change = await approveBankChange(req.tenant!.orgId, String(req.params.id), req.auth!.userId);
