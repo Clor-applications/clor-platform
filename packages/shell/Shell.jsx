@@ -346,7 +346,7 @@ export default function Shell() {
           zIndex: 'var(--z-platform-bar)',
         }}
       >
-        {phone && app ? (
+        {phone && app && !Root ? (
           <button type="button" className="ui-icon-btn" aria-label="Menu" aria-expanded={navOpen} onClick={() => setNavOpen(true)}>
             <Menu size={20} aria-hidden="true" />
           </button>
