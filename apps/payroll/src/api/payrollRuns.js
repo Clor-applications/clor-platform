@@ -69,6 +69,10 @@ export async function previewPayrollPosting(id) {
 export const getPayrollPosting = (id) => apiFetch(`${base()}/${encodeURIComponent(id)}/posting`, opts);
 /** The same entry as Tally import XML: { filename, xml, … }. */
 export const payrollTallyXml = (id) => apiFetch(`${base()}/${encodeURIComponent(id)}/tally`, opts);
+/** Hand the entry to an on-site connector that posts it into Tally. */
+export const sendPayrollToTally = (id, agentId) => apiFetch(`${base()}/${encodeURIComponent(id)}/tally/send`, { ...opts, method: 'POST', body: { agentId } });
+/** Connectors with a Tally address (Attendance → Integrations); empty when attendance is not on. */
+export const tallyConnectors = () => apiFetch(`/orgs/${encodeURIComponent(orgId())}/attendance/integrations/agents`, opts).then((r) => (r?.agents || []).filter((a) => a.tally && a.isActive)).catch(() => []);
 
 export const submitRunForReview = stage('submit-review');
 export const approvePayrollRun = stage('approve');
