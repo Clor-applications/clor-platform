@@ -23,16 +23,16 @@ export const peopleApp = {
   home: 'overview',
 
   nav: [
-    { key: 'overview', label: 'Overview', icon: LayoutDashboard },
-    { key: 'employees', label: 'Employees', icon: Users },
-    { key: 'orgChart', label: 'Org chart', icon: Network },
+    { key: 'overview', label: 'Overview', icon: LayoutDashboard, permission: 'PEOPLE::Employees::VIEW' },
+    { key: 'employees', label: 'Employees', icon: Users, permission: 'PEOPLE::Employees::VIEW' },
+    { key: 'orgChart', label: 'Org chart', icon: Network, permission: 'PEOPLE::Org Structure::VIEW' },
     { section: 'Settings' },
-    { key: 'departments', label: 'Departments', icon: Building2 },
-    { key: 'jobPositions', label: 'Job positions', icon: Briefcase },
-    { key: 'jobRoles', label: 'Job roles', icon: IdCard },
-    { key: 'employeeTypes', label: 'Employee types', icon: Shapes },
-    { key: 'workTypes', label: 'Work types', icon: Shapes },
-    { key: 'tags', label: 'Tags', icon: Tag },
+    { key: 'departments', label: 'Departments', icon: Building2, permission: 'PEOPLE::Org Structure::VIEW' },
+    { key: 'jobPositions', label: 'Job positions', icon: Briefcase, permission: 'PEOPLE::Org Structure::VIEW' },
+    { key: 'jobRoles', label: 'Job roles', icon: IdCard, permission: 'PEOPLE::Org Structure::VIEW' },
+    { key: 'employeeTypes', label: 'Employee types', icon: Shapes, permission: 'PEOPLE::Org Structure::VIEW' },
+    { key: 'workTypes', label: 'Work types', icon: Shapes, permission: 'PEOPLE::Org Structure::VIEW' },
+    { key: 'tags', label: 'Tags', icon: Tag, permission: 'PEOPLE::Org Structure::VIEW' },
   ],
 
   screens: {

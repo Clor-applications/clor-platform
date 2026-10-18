@@ -61,32 +61,33 @@ export const payrollApp = {
       { label: 'Statutory', items: ['compliance', 'ledgers'] },
     ] },
   ],
+  /* `permission`: what the screen's data needs (server routes); the shell hides what this user cannot open and shows read-only what they cannot change. */
   nav: [
-    { key: 'overview', label: 'Overview', icon: BarChart3 },
-    { key: 'runs', label: 'Pay Runs', icon: CalendarClock },
-    { key: 'slips', label: 'Salary Slips', icon: FileText },
-    { key: 'payments', label: 'Payments', icon: ArrowUpRight },
-    { key: 'bankChanges', label: 'Bank changes', icon: Banknote },
-    { key: 'adjustments', label: 'Adjustments', icon: Percent },
-    { key: 'assignments', label: 'Salary Assignments', icon: Users },
-    { key: 'revisions', label: 'Salary Revisions', icon: RefreshCw },
-    { key: 'loans', label: 'Loans & Advances', icon: Landmark },
-    { key: 'settlements', label: 'Full & final', icon: Handshake },
-    { key: 'taxDeclarations', label: 'Tax declarations', icon: Receipt },
-    { key: 'reports', label: 'Reports', icon: Table2 },
+    { key: 'overview', label: 'Overview', icon: BarChart3, permission: 'PAYROLL::Payroll Runs::VIEW' },
+    { key: 'runs', label: 'Pay Runs', icon: CalendarClock, permission: 'PAYROLL::Payroll Runs::VIEW' },
+    { key: 'slips', label: 'Salary Slips', icon: FileText, permission: 'PAYROLL::Salary Slips::VIEW' },
+    { key: 'payments', label: 'Payments', icon: ArrowUpRight, permission: 'PAYROLL::Payroll Payments::VIEW' },
+    { key: 'bankChanges', label: 'Bank changes', icon: Banknote, permission: 'PAYROLL::Employee Payroll Profile::VIEW' },
+    { key: 'adjustments', label: 'Adjustments', icon: Percent, permission: 'PAYROLL::Payroll Adjustments::VIEW' },
+    { key: 'assignments', label: 'Salary Assignments', icon: Users, permission: 'PAYROLL::Salary Assignments::VIEW' },
+    { key: 'revisions', label: 'Salary Revisions', icon: RefreshCw, permission: 'PAYROLL::Salary Revisions::VIEW' },
+    { key: 'loans', label: 'Loans & Advances', icon: Landmark, permission: 'PAYROLL::Payroll Loans::VIEW' },
+    { key: 'settlements', label: 'Full & final', icon: Handshake, permission: 'PAYROLL::Payroll Runs::VIEW' },
+    { key: 'taxDeclarations', label: 'Tax declarations', icon: Receipt, permission: 'PAYROLL::Employee Payroll Profile::VIEW' },
+    { key: 'reports', label: 'Reports', icon: Table2, permission: 'PAYROLL::Payroll Reports::VIEW' },
     /*
      * What payroll is configured with, apart from the month's work: the setup
      * checklist, the calendar and groups a run happens in, what a salary is
      * made of, the statutory rates it deducts under, and where it posts.
      */
     { section: 'Settings' },
-    { key: 'setup', label: 'Setup', icon: ListChecks },
-    { key: 'periods', label: 'Pay Calendar', icon: CalendarClock },
-    { key: 'payGroups', label: 'Pay Groups', icon: Users },
-    { key: 'components', label: 'Salary Components', icon: SlidersHorizontal },
-    { key: 'structures', label: 'Salary Structures', icon: Layers },
-    { key: 'compliance', label: 'Compliance', icon: BadgePercent },
-    { key: 'ledgers', label: 'Ledger mapping', icon: Landmark },
+    { key: 'setup', label: 'Setup', icon: ListChecks, permission: 'PAYROLL::Payroll Settings::VIEW' },
+    { key: 'periods', label: 'Pay Calendar', icon: CalendarClock, permission: 'PAYROLL::Payroll Settings::VIEW' },
+    { key: 'payGroups', label: 'Pay Groups', icon: Users, permission: 'PAYROLL::Payroll Settings::VIEW' },
+    { key: 'components', label: 'Salary Components', icon: SlidersHorizontal, permission: 'PAYROLL::Salary Structures::VIEW' },
+    { key: 'structures', label: 'Salary Structures', icon: Layers, permission: 'PAYROLL::Salary Structures::VIEW' },
+    { key: 'compliance', label: 'Compliance', icon: BadgePercent, permission: 'PAYROLL::Payroll Settings::VIEW' },
+    { key: 'ledgers', label: 'Ledger mapping', icon: Landmark, permission: 'PAYROLL::Payroll Posting::VIEW' },
   ],
 
   screens: {

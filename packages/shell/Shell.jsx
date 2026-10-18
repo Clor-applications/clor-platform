@@ -7,6 +7,8 @@ import { formatDateIn } from '@ui/utils/dates';
 import { ProfileScreen } from '@ui/profile/ProfileScreen';
 import Toaster from '@ui/components/ui/Toaster';
 import { getMyPermissions } from '@ui/api/permissions';
+import { PermissionProvider } from '@ui/permissions/PermissionContext';
+import { WriteGuard } from '@ui/permissions/WriteGuard';
 
 import { APPS, appById, availableApps, landingApp, subscribedApps } from './registry';
 import { appFromHost, hostForApp, isFrontDoor } from './appHosts';
@@ -640,15 +642,20 @@ export default function Shell() {
               {/* Same rule as an app that draws itself: a company change is a
                   remount, not a re-render with stale figures on screen. */}
               {/* `openScreen(key)` lets a screen link to another of its app's screens (a "3 waiting" note opening the list). */}
-              <Screen
-                key={tenant.id}
-                openScreen={(key) => {
-                  if (!app?.screens?.[key]) return;
-                  setScreenKey(key);
-                  setPlatformScreen(null);
-                  window.scrollTo(0, 0);
-                }}
-              />
+              {/* One permission set for every app's screens; a screen whose resource this person may not change is shown read-only (WriteGuard). */}
+              <PermissionProvider key={tenantKey} enabled>
+                <WriteGuard permission={(app?.nav || []).find((n) => n.key === screen)?.permission}>
+                  <Screen
+                    key={tenant.id}
+                    openScreen={(key) => {
+                      if (!app?.screens?.[key]) return;
+                      setScreenKey(key);
+                      setPlatformScreen(null);
+                      window.scrollTo(0, 0);
+                    }}
+                  />
+                </WriteGuard>
+              </PermissionProvider>
             </ScreenBoundary>
           ) : (
             <p className="ui-caption">Nothing selected.</p>
