@@ -7,7 +7,7 @@ import { requirePermission } from '../middleware/rbac.js';
 import { PermissionAction } from '../constants/enums.js';
 import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { ATTENDANCE_MODULE, ATTENDANCE_RESOURCE, attendanceRouteOk } from '../services/attendance/guards.js';
-import { COMMANDS, FACE, FETCH_TEMPLATE_COMMANDS, ONLINE_WINDOW_MS, SEQ, USERPIC, VERIFY_MODES, commandEffect, messageCommand, normaliseFirmware, pinKey, userInfoCommand } from '../services/attendance/adms.js';
+import { COMMANDS, FACE, FETCH_TEMPLATE_COMMANDS, ONLINE_WINDOW_MS, SEQ, USERPIC, VERIFY_MODES, commandEffect, messageCommand, normaliseFirmware, pinKey, userCommandFor } from '../services/attendance/adms.js';
 import { ISO_DATE, sendError, today } from './attendance.js';
 import { attachPunchesTo, copyAllTemplatesTo, pinMatcher, recomputeDeviceDay, servesArea, shiftDayFor, syncVendorConnection } from './iclock.js';
 import { decryptSecret, encryptSecret } from '../services/mailer.js';
@@ -446,9 +446,12 @@ devicesRouter.post(`${base}/:id/commands`, can(PermissionAction.EDIT), async (re
       await peoplePrisma.attendanceDevice.update({ where: { id: device.id }, data: { configJson: JSON.stringify({ ...st, forceClock: true }) } });
       return res.json({ queued: 1 });
     }
-    if (action !== 'REBOOT' && action !== 'INFO') return res.status(400).json({ error: 'A Matrix controller takes Restart, Report user count and Set the time.' });
-    await peoplePrisma.deviceCommand.create({ data: queue(MATRIX_COMMANDS[action]) });
-    return res.json({ queued: 1 });
+    if (action === 'REBOOT' || action === 'INFO') {
+      await peoplePrisma.deviceCommand.create({ data: queue(MATRIX_COMMANDS[action]) });
+      return res.json({ queued: 1 });
+    }
+    /* Users go to it as configuration (config-id 10); fingerprints, cards and palms are enrolled at the door. */
+    if (action !== 'SEND_STAFF') return res.status(400).json({ error: 'A Matrix controller takes Restart, Report user count, Set the time and Send new staff.' });
   }
   if (action === 'SET_TIME') {
     /* ADMS: the reader's clock set to now (IST, which is what its punches are read as). Drift is measured again from its next live punch. */
@@ -497,15 +500,20 @@ devicesRouter.post(`${base}/:id/commands`, can(PermissionAction.EDIT), async (re
      * the reader. Fingerprints and faces are still enrolled at the reader.
      */
     const [people, onReader] = await Promise.all([
-      peoplePrisma.employee.findMany({ where: { accountId, orgId, status: { not: 'LEFT' } }, select: { name: true, code: true, devicePin: true, areaId: true } }),
+      peoplePrisma.employee.findMany({ where: { accountId, orgId, status: { not: 'LEFT' } }, select: { name: true, code: true, devicePin: true, areaId: true, cardNumber: true } }),
       peoplePrisma.deviceUser.findMany({ where: { orgId, deviceId: device.id }, select: { pin: true } }),
     ]);
     const have = new Set(onReader.map((u) => pinKey(u.pin)));
+    /* Already on their way (queued when the person was added or changed): not twice. */
+    for (const c of await peoplePrisma.deviceCommand.findMany({ where: { deviceId: device.id, status: { in: ['PENDING', 'SENT'] } }, select: { command: true } })) {
+      const e = commandEffect(c.command);
+      if (e?.what === 'user') have.add(pinKey(e.pin));
+    }
     const toSend = people
       .filter((p) => servesArea(device, p.areaId))
-      .map((p) => ({ pin: p.devicePin || p.code || '', name: p.name }))
+      .map((p) => ({ pin: p.devicePin || p.code || '', name: p.name, card: p.cardNumber }))
       .filter((p) => p.pin && !have.has(pinKey(p.pin)));
-    if (toSend.length) await peoplePrisma.deviceCommand.createMany({ data: toSend.map((p) => queue(userInfoCommand(p.pin, p.name), SEQ.USER)) });
+    if (toSend.length) await peoplePrisma.deviceCommand.createMany({ data: toSend.map((p) => queue(userCommandFor(device.vendor, p.pin, p.name, { card: p.card }), SEQ.USER)) });
     return res.json({ queued: toSend.length, skippedWithoutId: people.filter((p) => !p.devicePin && !p.code).length, knownUsers: onReader.length });
   }
   return res.status(400).json({ error: 'Unknown action.' });

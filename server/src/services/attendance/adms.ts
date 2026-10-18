@@ -50,6 +50,32 @@ export const admsField = (value: unknown) => String(value ?? '').replace(/[\u000
 export const userInfoCommand = (pin: string, name: string, extra: { privilege?: number | null; password?: string | null; card?: string | null } = {}) =>
   `DATA UPDATE USERINFO PIN=${admsField(pin)}\tName=${admsField(name)}\tPri=${admsField(extra.privilege ?? 0)}\tPasswd=${admsField(extra.password ?? '')}\tCard=${admsField(extra.card ?? '')}\tGrp=1\tTZ=1\tVerify=0\tFace=1\tFPCount=1`;
 
+/* ------------------------------------------------------------ Matrix COSEC */
+
+/** A numeric reference a Matrix controller needs for every user (8 digits): the reader ID when it is one, else a stable hash of it. */
+export function matrixRefId(pin: string) {
+  const p = String(pin || '').trim();
+  if (/^\d{1,8}$/.test(p) && Number(p) > 0) return String(Number(p));
+  let h = 2166136261;
+  for (const ch of p) h = Math.imul(h ^ ch.charCodeAt(0), 16777619) >>> 0;
+  return String((h % 99_999_999) + 1);
+}
+const matrixField = (v: unknown, max: number) => String(v ?? '').replace(/[\s&=]+/g, ' ').trim().slice(0, max);
+
+/** A user as a Matrix controller takes it: configuration 10, served through /getconfig (routes/matrix.ts). user-id first so a queued one can be found and replaced. */
+export const matrixUserConfig = (pin: string, name: string, extra: { card?: string | null; active?: boolean } = {}) => {
+  const ref = matrixRefId(pin);
+  const card = String(extra.card || '').replace(/\D/g, '');
+  return `config-id=10 user-id=${matrixField(pin, 15)} ref-user-id=${ref} user-index=${ref} name=${matrixField(name, 15)} user-active=${extra.active === false ? 0 : 1}${card ? ` card1=${card}` : ''}`;
+};
+export const matrixRemoveUser = (pin: string) => `cmd-id=7 user-id=${matrixField(pin, 15)}`;
+
+/** The user record for a reader of this make. */
+export const userCommandFor = (vendor: string | null | undefined, pin: string, name: string, extra: { privilege?: number | null; password?: string | null; card?: string | null } = {}) =>
+  vendor === 'MATRIX_COSEC' ? matrixUserConfig(pin, name, { card: extra.card }) : userInfoCommand(pin, name, extra);
+/** Everything that takes a person off a reader of this make. */
+export const removalCommandsFor = (vendor: string | null | undefined, pin: string) => (vendor === 'MATRIX_COSEC' ? [matrixRemoveUser(pin)] : removalCommands(pin));
+
 /** Command order on a reader (ClorTime's sequence): user, then delete, then template. */
 export const SEQ = { USER: 1, DELETE: 2, TEMPLATE: 3, OTHER: 999 } as const;
 
@@ -434,6 +460,8 @@ export const refusalReason = (code: number) =>
  * reader: a user added or removed, a finger or face added or removed.
  */
 export function commandEffect(command: string): { pin: string; what: 'user' | 'finger' | 'face' | 'removeUser' | 'removeFingers' | 'removeFace'; no?: number } | null {
+  const mx = /^(config-id=10|cmd-id=7) user-id=([^ ]+)/.exec(String(command || ''));
+  if (mx) return { pin: mx[2], what: mx[1] === 'cmd-id=7' ? 'removeUser' : 'user' };
   const m = /^DATA (UPDATE|DELETE) (USERINFO|FINGERTMP|FACE|BIODATA) (?:PIN|Pin)=([^\t]*)/.exec(String(command || ''));
   if (!m) return null;
   const [, verb, table, pin] = m;

@@ -10,6 +10,7 @@ import request from 'supertest';
 const { buildApp } = await import('../app.js');
 const { peoplePrisma } = await import('../utils/peoplePrisma.js');
 const { readField3, clockFixDue, clockParts } = await import('../routes/matrix.js');
+const { matrixRefId, matrixUserConfig, commandEffect, removalCommandsFor } = await import('../services/attendance/adms.js');
 const { setTimeCommand } = await import('../services/attendance/adms.js');
 
 const app = buildApp().listen(0);
@@ -92,6 +93,10 @@ describe('a controller talking to CLOR', () => {
     expect(seen?.lastSeenAt).toBeTruthy();
     expect(seen?.model).toBe('COSEC Door V3 MX12345');
 
+    /* The person just added is on their way to the controller as configuration; take it. */
+    expect(kv((await m.poll().expect(200)).text)).toEqual({ 'cmd-avlbl': '0', 'cnfg-avlbl': '1', status: '1' });
+    expect((await m.getconfig().expect(200)).text).toMatch(/^config-id=10 user-id=7001 /);
+    expect(kv((await m.updateconfig(10, 1).expect(200)).text)).toEqual({ 'cnfg-avlbl': '0', status: '1' });
     expect(kv((await m.poll().expect(200)).text)).toEqual({ 'cmd-avlbl': '0', 'cnfg-avlbl': '0', status: '1' });
 
     /* Entry by finger (field-3 bit 6), then exit by card (bit 5 + bit 0). */
@@ -156,16 +161,59 @@ describe('a controller talking to CLOR', () => {
     ]);
   });
 
+  it('takes people as configuration, confirms them, and lets them go', async () => {
+    const c = await makeOwner();
+    const { pushToken, device } = await addMatrix(c);
+    const m = controller(pushToken);
+    await m.login().expect(200);
+    await person(c, { name: 'Door User Longname Here', code: '7001', cardNumber: '0012345678' });
+    await person(c, { name: 'No Card', code: 'EMP-9' });
+    /* Adding the people queued their records already; Send new staff does not queue them twice. */
+    expect(await peoplePrisma.deviceCommand.count({ where: { deviceId: device.id, status: 'PENDING' } })).toBe(2);
+    const sent = await api(c).post(`/devices/${device.id}/commands`, { action: 'SEND_STAFF' }).expect(200);
+    expect(sent.body.queued).toBe(0);
+    /* Users are configuration, not commands: the poll says so, and /getcmd has nothing. */
+    expect(kv((await m.poll().expect(200)).text)).toMatchObject({ 'cmd-avlbl': '0', 'cnfg-avlbl': '1' });
+    expect(kv((await m.getcmd().expect(200)).text)).toEqual({ status: '0' });
+    const first = (await m.getconfig().expect(200)).text;
+    expect(first).toMatch(/^config-id=10 user-id=(7001|EMP-9) ref-user-id=\d{1,8} user-index=\d{1,8} name=.{1,15} user-active=1/);
+    const second = (await m.updateconfig(10, 1).expect(200));
+    expect(kv(second.text)).toEqual({ 'cnfg-avlbl': '1', status: '1' });
+    const next = (await m.getconfig().expect(200)).text;
+    expect(next).not.toBe(first);
+    expect(kv((await m.updateconfig(10, 0).expect(200)).text)).toEqual({ 'cnfg-avlbl': '0', status: '1' });
+    const cmds = (await api(c).get(`/devices/${device.id}/commands`).expect(200)).body.commands;
+    expect(cmds.map((x: any) => [x.what, x.status]).sort()).toEqual([['Add or update user', 'DONE'], ['Add or update user', 'FAILED']]);
+    const held = await peoplePrisma.deviceUser.findMany({ where: { deviceId: device.id } });
+    expect(held).toHaveLength(1);
+    const both = [first, next].join(' ');
+    expect(both).toContain('user-id=7001 ref-user-id=7001 user-index=7001 name=Door User Longn user-active=1 card1=0012345678');
+    expect(both).toMatch(/user-id=EMP-9 ref-user-id=\d{1,8} user-index=\d{1,8} name=No Card user-active=1(?! card1)/);
+    /* Sent again: only the one the controller refused. */
+    expect((await api(c).post(`/devices/${device.id}/commands`, { action: 'SEND_STAFF' }).expect(200)).body.queued).toBe(1);
+    /* Removal is a command (7), confirmed through /updatecmd. */
+    await api(c).post('/reader-sync/remove-extras', { deviceId: device.id }).expect(200);
+    const rm = await peoplePrisma.deviceCommand.create({ data: { accountId: held[0].accountId, orgId: c.orgId, agentId: undefined, deviceId: device.id, serialNumber: device.serialNumber, command: `cmd-id=7 user-id=${held[0].pin}`, sequence: 2, createdByUserId: 'test' } as any });
+    expect((await m.getcmd().expect(200)).text).toBe(`cmd-id=7 user-id=${held[0].pin}`);
+    await m.updatecmd(7, 1).expect(200);
+    expect((await peoplePrisma.deviceCommand.findUnique({ where: { id: rm.id } }))?.status).toBe('DONE');
+    expect(await peoplePrisma.deviceUser.count({ where: { deviceId: device.id } })).toBe(0);
+    expect((await api(c).post(`/devices/${device.id}/commands`, { action: 'FETCH_USERS' }).expect(400)).body.error).toMatch(/Send new staff/);
+  });
+
   it('is given the time when its clock drifts, or when asked', async () => {
     const c = await makeOwner();
     const { pushToken, device } = await addMatrix(c);
     const m = controller(pushToken);
     await m.login().expect(200);
+    await person(c, { name: 'Fast Clock', code: '7100' });
+    /* Their user record goes first; then nothing is waiting. */
+    expect((await m.getconfig().expect(200)).text).toMatch(/^config-id=10 user-id=7100 /);
+    await m.updateconfig(10, 1).expect(200);
     expect(kv((await m.poll().expect(200)).text)['cnfg-avlbl']).toBe('0');
     expect(kv((await m.getconfig().expect(200)).text)).toEqual({ status: '0' });
 
     /* Drift measured from a live punch: the controller is four minutes fast. */
-    await person(c, { name: 'Fast Clock', code: '7100' });
     const fast = new Date(Date.now() + 4 * 60_000 + 330 * 60_000).toISOString().slice(0, 19).replace('T', ' ');
     await m.event(1, 101, fast, { 'field-1': '7100', 'field-3': 1 << 6 }).expect(200);
     const d1 = await peoplePrisma.attendanceDevice.findUnique({ where: { id: device.id } });
@@ -208,6 +256,18 @@ describe('a controller talking to CLOR', () => {
 });
 
 describe('the bits and the clock', () => {
+  it('writes users the way the controller takes them', () => {
+    expect(matrixRefId('7001')).toBe('7001');
+    expect(matrixRefId('00042')).toBe('42');
+    expect(matrixRefId('EMP-9')).toMatch(/^\d{1,8}$/);
+    expect(matrixRefId('EMP-9')).toBe(matrixRefId('EMP-9'));
+    expect(matrixRefId('123456789')).toMatch(/^\d{1,8}$/);
+    expect(matrixUserConfig('7001', 'A very long name indeed', { card: '12-34' })).toBe('config-id=10 user-id=7001 ref-user-id=7001 user-index=7001 name=A very long nam user-active=1 card1=1234');
+    expect(commandEffect('config-id=10 user-id=EMP-9 ref-user-id=5 user-index=5 name=X user-active=1')).toEqual({ pin: 'EMP-9', what: 'user' });
+    expect(commandEffect('cmd-id=7 user-id=EMP-9')).toEqual({ pin: 'EMP-9', what: 'removeUser' });
+    expect(removalCommandsFor('MATRIX_COSEC', 'EMP-9')).toEqual(['cmd-id=7 user-id=EMP-9']);
+    expect(removalCommandsFor('ADMS', 'EMP-9')).toHaveLength(3);
+  });
   it('reads field-3 as direction and credential', () => {
     expect(readField3('64')).toEqual({ exit: false, verifyMode: 1 });
     expect(readField3(String(32 | 1))).toEqual({ exit: true, verifyMode: 2 });

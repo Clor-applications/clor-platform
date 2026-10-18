@@ -7,7 +7,7 @@ import { requirePermission } from '../middleware/rbac.js';
 import { PermissionAction } from '../constants/enums.js';
 import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { ATTENDANCE_MODULE, ATTENDANCE_RESOURCE, attendanceRouteOk } from '../services/attendance/guards.js';
-import { FACE, FINGER, ONLINE_WINDOW_MS, commandEffect, normaliseFirmware, pinKey, removalCommands, SEQ } from '../services/attendance/adms.js';
+import { FACE, FINGER, ONLINE_WINDOW_MS, commandEffect, normaliseFirmware, pinKey, removalCommandsFor, SEQ } from '../services/attendance/adms.js';
 import { alertSettings, assessCollection, assessReader, collectionFacts, readerFacts, readerStatus } from '../services/attendance/readerHealth.js';
 import { readerSupports, sendPersonTo, servesArea } from './iclock.js';
 import { vendorsWith } from '../services/attendance/drivers.js';
@@ -239,7 +239,7 @@ readerOpsRouter.post(`${base}/reader-sync/remove-extras`, can(PermissionAction.E
   if (extras.length) {
     await peoplePrisma.deviceCommand.createMany({
       data: extras.flatMap((row) =>
-        removalCommands(row.pin).map((command) => ({ accountId, orgId, deviceId: r.id, serialNumber: r.serialNumber, command, sequence: SEQ.USER, createdByUserId: req.auth!.userId }))
+        removalCommandsFor(r.vendor, row.pin).map((command) => ({ accountId, orgId, deviceId: r.id, serialNumber: r.serialNumber, command, sequence: SEQ.USER, createdByUserId: req.auth!.userId }))
       ),
     });
   }

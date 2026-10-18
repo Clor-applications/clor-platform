@@ -946,7 +946,22 @@ function MatrixDrawer({ device, matrixBase, onClose, onChanged }) {
             <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={Boolean(busy)} onClick={() => run('INFO', 'Asked for its user count.')}>Report user count</button>
             <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={Boolean(busy)} onClick={() => run('SET_TIME', 'The time goes to the controller on its next poll.')}>Set the time</button>
             <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={Boolean(busy)} onClick={() => run('REBOOT', 'Restart queued; it goes on its next poll.')}>Restart</button>
+            <button
+              type="button"
+              className="ui-btn ui-btn-secondary ui-btn-sm"
+              disabled={Boolean(busy)}
+              onClick={() =>
+                act('SEND_STAFF', async () => {
+                  const r = await deviceCommand(device.id, 'SEND_STAFF');
+                  notify.success(r.queued ? `${r.queued} new ${r.queued === 1 ? 'person' : 'people'} queued; they reach the controller on its next polls.` : 'Everyone is already on the controller.');
+                  onChanged();
+                })
+              }
+            >
+              Send new staff
+            </button>
           </div>
+          <p className="ui-caption">People go to the controller with their Reader ID (else employee code), name and card number; fingerprints, cards and palms are enrolled at the door. Sync status shows who it holds.</p>
         </section>
 
         <section className="space-y-2" aria-labelledby="mx-url-h">

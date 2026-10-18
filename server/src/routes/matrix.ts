@@ -4,7 +4,8 @@ import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { ingestLimiter } from '../middleware/rateLimit.js';
 import { fromZone, istLocal } from '../services/attendance/punchMapping.js';
 import { hashToken } from './publicApi.js';
-import { ingestPunches } from './iclock.js';
+import { ingestPunches, markOnReader } from './iclock.js';
+import { commandEffect } from '../services/attendance/adms.js';
 
 /**
  * /matrix/<token> — Matrix COSEC door controllers (Door V3, PVR, Vega, FMX,
@@ -161,7 +162,9 @@ async function seen(req: Request, device: Device, extra: Record<string, unknown>
   return next;
 }
 
-const pendingCount = (device: Device) => peoplePrisma.deviceCommand.count({ where: { deviceId: device.id, status: 'PENDING' } });
+/* Commands (cmd-id=…) go through /getcmd; user records and the like (config-id=…) through /getconfig. */
+const pendingCount = (device: Device) => peoplePrisma.deviceCommand.count({ where: { deviceId: device.id, status: 'PENDING', command: { startsWith: 'cmd-id=' } } });
+const pendingConfigs = (device: Device) => peoplePrisma.deviceCommand.count({ where: { deviceId: device.id, status: 'PENDING', command: { startsWith: 'config-id=' } } });
 
 const handle = (path: string, fn: (req: Request, res: Response, device: Device) => Promise<unknown>) =>
   matrixRouter.all(`/:token${path}`, ...ingestLimiter, async (req, res) => {
@@ -184,14 +187,14 @@ handle('/login', async (req, res, device) => {
 /* 2. Poll: is a command or the time waiting? */
 handle('/poll', async (req, res, device) => {
   const st = await seen(req, device);
-  const pending = await pendingCount(device);
-  reply(res, { 'cmd-avlbl': pending ? 1 : 0, 'cnfg-avlbl': clockFixDue(device, st, new Date()) ? 1 : 0, status: 1 });
+  const [pending, configs] = await Promise.all([pendingCount(device), pendingConfigs(device)]);
+  reply(res, { 'cmd-avlbl': pending ? 1 : 0, 'cnfg-avlbl': clockFixDue(device, st, new Date()) || configs ? 1 : 0, status: 1 });
 });
 
 /* 3. Get command: the oldest waiting one, marked sent. */
 handle('/getcmd', async (req, res, device) => {
   await seen(req, device);
-  const next = await peoplePrisma.deviceCommand.findFirst({ where: { deviceId: device.id, status: 'PENDING' }, orderBy: [{ sequence: 'asc' }, { id: 'asc' }] });
+  const next = await peoplePrisma.deviceCommand.findFirst({ where: { deviceId: device.id, status: 'PENDING', command: { startsWith: 'cmd-id=' } }, orderBy: [{ sequence: 'asc' }, { id: 'asc' }] });
   if (!next) return reply(res, { status: 0 });
   await peoplePrisma.deviceCommand.update({ where: { id: next.id }, data: { status: 'SENT', sentAt: new Date(), attempts: { increment: 1 } } });
   res.type('text/plain').send(next.command);
@@ -210,6 +213,9 @@ handle('/updatecmd', async (req, res, device) => {
       where: { id: cmd.id },
       data: { status: ok ? 'DONE' : 'FAILED', returnCode: ok ? 0 : -1, doneAt: new Date(), lastError: ok ? null : 'The controller reported failure.' },
     });
+    /* A user taken off: no longer held. */
+    const eff = commandEffect(cmd.command);
+    if (ok && eff?.what === 'removeUser') await markOnReader(device, eff.pin, { remove: true });
     if (ok && cmdId === '22') {
       const users = Number.parseInt(q(req, 'user-count') || q(req, 'usercount'), 10);
       await peoplePrisma.attendanceDevice.update({ where: { id: device.id }, data: { ...(Number.isFinite(users) ? { userCount: users } : {}), infoAt: new Date() } });
@@ -225,9 +231,15 @@ handle('/updatecmd', async (req, res, device) => {
 handle('/getconfig', async (req, res, device) => {
   const st = await seen(req, device);
   const now = new Date();
-  if (!clockFixDue(device, st, now)) return reply(res, { status: 0 });
-  await seen(req, device, {}, { clockSentAt: now.toISOString(), forceClock: false });
-  reply(res, { 'config-id': 1, ...clockParts(now, device.sourceTimezone || 'Asia/Kolkata') });
+  if (clockFixDue(device, st, now)) {
+    await seen(req, device, {}, { clockSentAt: now.toISOString(), forceClock: false });
+    return reply(res, { 'config-id': 1, ...clockParts(now, device.sourceTimezone || 'Asia/Kolkata') });
+  }
+  /* Then whatever configuration is queued: user records, oldest first. */
+  const next = await peoplePrisma.deviceCommand.findFirst({ where: { deviceId: device.id, status: 'PENDING', command: { startsWith: 'config-id=' } }, orderBy: [{ sequence: 'asc' }, { id: 'asc' }] });
+  if (!next) return reply(res, { status: 0 });
+  await peoplePrisma.deviceCommand.update({ where: { id: next.id }, data: { status: 'SENT', sentAt: now, attempts: { increment: 1 } } });
+  res.type('text/plain').send(next.command);
 });
 
 /* 6. Update configuration: the controller stored it (or not). */
@@ -240,7 +252,16 @@ handle('/updateconfig', async (req, res, device) => {
       data: { accountId: device.accountId, orgId: device.orgId, deviceId: device.id, kind: ok ? 'OPERATION' : 'ERROR', code: 'CLOCK_SET', localTime: istLocal(new Date()), details: ok ? 'Date and time set from CLOR.' : 'The controller refused the time.' },
     });
   }
-  reply(res, { 'cnfg-avlbl': clockFixDue({ ...device, clockOffsetSec: ok ? 0 : device.clockOffsetSec }, { ...st, forceClock: false }, new Date()) ? 1 : 0, status: 1 });
+  const configId = q(req, 'config-id');
+  if (configId && configId !== '1') {
+    const cmd = await peoplePrisma.deviceCommand.findFirst({ where: { deviceId: device.id, status: 'SENT', command: { startsWith: `config-id=${configId} ` } }, orderBy: { id: 'asc' } });
+    if (cmd) {
+      await peoplePrisma.deviceCommand.update({ where: { id: cmd.id }, data: { status: ok ? 'DONE' : 'FAILED', returnCode: ok ? 0 : -1, doneAt: new Date(), lastError: ok ? null : 'The controller refused the record.' } });
+      const eff = commandEffect(cmd.command);
+      if (ok && eff?.what === 'user') await markOnReader(device, eff.pin, { user: true, name: / name=(.*?)(?: user-active=| card1=|$)/.exec(cmd.command)?.[1] || null });
+    }
+  }
+  reply(res, { 'cnfg-avlbl': clockFixDue({ ...device, clockOffsetSec: ok ? 0 : device.clockOffsetSec }, { ...st, forceClock: false }, new Date()) || (await pendingConfigs(device)) ? 1 : 0, status: 1 });
 });
 
 /* 7. Set event: a punch (101 / 105), or something else for the reader log. */

@@ -24,10 +24,10 @@ import {
   pinKey,
   punchKind,
   refusalReason,
-  removalCommands,
+  removalCommandsFor,
   shiftDayOf,
   templateCommands,
-  userInfoCommand,
+  userCommandFor,
   type Template,
 } from '../services/attendance/adms.js';
 import { readerLimiter } from '../middleware/rateLimit.js';
@@ -302,7 +302,7 @@ export async function ingestPunches(device: { id: string; accountId: string; org
 // Users and fingerprints / faces
 // ---------------------------------------------------------------------------
 
-type Device = { id: string; accountId: string; orgId: string; serialNumber: string; areaId?: string | null; faceSupported?: boolean | null; fingerSupported?: boolean | null; faceMajorVer?: number | null; faceMinorVer?: number | null };
+type Device = { id: string; accountId: string; orgId: string; serialNumber: string; vendor?: string | null; areaId?: string | null; faceSupported?: boolean | null; fingerSupported?: boolean | null; faceMajorVer?: number | null; faceMinorVer?: number | null };
 
 /**
  * Which readers someone belongs on. A reader given an area (a site) takes only
@@ -313,7 +313,7 @@ type Device = { id: string; accountId: string; orgId: string; serialNumber: stri
 export const servesArea = (reader: { areaId?: string | null }, areaId: string | null | undefined) => !reader.areaId || !areaId || reader.areaId === areaId;
 
 /** What a reader holds for a person, as it changes: from what the reader sends and from commands it confirms. */
-async function markOnReader(device: { id: string; accountId: string; orgId: string }, pin: string, change: { user?: boolean; name?: string | null; finger?: number; face?: boolean; clearFingers?: boolean; remove?: boolean }) {
+export async function markOnReader(device: { id: string; accountId: string; orgId: string }, pin: string, change: { user?: boolean; name?: string | null; finger?: number; face?: boolean; clearFingers?: boolean; remove?: boolean }) {
   const key = { deviceId_pin: { deviceId: device.id, pin } };
   if (change.remove) {
     await peoplePrisma.deviceUser.deleteMany({ where: { deviceId: device.id, pin } });
@@ -443,10 +443,11 @@ async function userFor(orgId: string, pin: string, preferDeviceId?: string, matc
  * Ones already sent are left alone.
  */
 const supersedeUserInfo = (deviceId: string, pin: string) =>
-  peoplePrisma.deviceCommand.deleteMany({ where: { deviceId, status: 'PENDING', command: { startsWith: `DATA UPDATE USERINFO PIN=${admsField(pin)}\t` } } });
+  peoplePrisma.deviceCommand.deleteMany({ where: { deviceId, status: 'PENDING', OR: [{ command: { startsWith: `DATA UPDATE USERINFO PIN=${admsField(pin)}\t` } }, { command: { startsWith: `config-id=10 user-id=${pin} ` } }] } });
 
+/* Templates travel only between ADMS readers; a Matrix controller enrols at the door. */
 const supports = (target: Device, type: number) =>
-  !(type === FACE && target.faceSupported === false) && !(type === FINGER && target.fingerSupported === false);
+  target.vendor !== 'MATRIX_COSEC' && !(type === FACE && target.faceSupported === false) && !(type === FINGER && target.fingerSupported === false);
 
 /**
  * Queue one person's templates onto one reader: their user record first
@@ -455,7 +456,7 @@ const supports = (target: Device, type: number) =>
 async function queueOnto(target: Device, pin: string, templates: Template[], user: Awaited<ReturnType<typeof userFor>>, createdByUserId: string | null) {
   const usable = templates.filter((t) => supports(target, t.type));
   if (!usable.length) return 0;
-  const userCmd = userInfoCommand(pin, user.name, user);
+  const userCmd = userCommandFor(target.vendor, pin, user.name, user);
   await supersedeUserInfo(target.id, pin);
   const rows = [{ seq: SEQ.USER, command: userCmd }, ...usable.flatMap((t) => templateCommands(t, target))];
   await peoplePrisma.deviceCommand.createMany({
@@ -508,7 +509,7 @@ export async function sendPersonTo(target: Device, employee: { name: string; car
   const rows = [
     {
       seq: SEQ.USER as number,
-      command: userInfoCommand(pin, employee.name, {
+      command: userCommandFor(target.vendor, pin, employee.name, {
         privilege: employee.devicePrivilege ?? 0,
         password: employee.devicePassword ?? '',
         card: employee.cardNumber ?? held?.card ?? '',
@@ -560,13 +561,13 @@ export async function revokeFromReaders(orgId: string, employee: { id: string; c
    * left in the queue would put a leaver's fingerprint back after removal.
    */
   const waiting = await peoplePrisma.deviceCommand.findMany({ where: { orgId, status: 'PENDING' }, select: { id: true, command: true } });
-  const theirs = waiting.filter((c) => pins.has(/\b(?:PIN|Pin)=([^\t]*)/.exec(c.command)?.[1] ?? '')).map((c) => c.id);
+  const theirs = waiting.filter((c) => pins.has(/\b(?:PIN|Pin)=([^\t]*)/.exec(c.command)?.[1] ?? /\buser-id=([^ ]+)/.exec(c.command)?.[1] ?? '')).map((c) => c.id);
   if (theirs.length) await peoplePrisma.deviceCommand.deleteMany({ where: { id: { in: theirs } } });
   const readers = await peoplePrisma.attendanceDevice.findMany({ where: { orgId, isActive: true } });
   for (const r of readers) {
     await peoplePrisma.deviceCommand.createMany({
       data: [...pins].flatMap((pin) =>
-        removalCommands(pin).map((command) => ({ accountId: r.accountId, orgId, deviceId: r.id, serialNumber: r.serialNumber, command, sequence: SEQ.USER, createdByUserId }))
+        removalCommandsFor(r.vendor, pin).map((command) => ({ accountId: r.accountId, orgId, deviceId: r.id, serialNumber: r.serialNumber, command, sequence: SEQ.USER, createdByUserId }))
       ),
     });
   }
@@ -598,18 +599,19 @@ export async function pushEmployeeToReaders(orgId: string, employee: any, create
     const pins = [...new Set([oldPin, pin].filter(Boolean))];
     for (const r of all.filter((x) => servesArea(x, before.areaId) && !servesArea(x, employee.areaId))) {
       await peoplePrisma.deviceCommand.createMany({
-        data: pins.flatMap((p) => removalCommands(p).map((command) => ({ accountId: r.accountId, orgId, deviceId: r.id, serialNumber: r.serialNumber, command, sequence: SEQ.USER, createdByUserId }))),
+        data: pins.flatMap((p) => removalCommandsFor(r.vendor, p).map((command) => ({ accountId: r.accountId, orgId, deviceId: r.id, serialNumber: r.serialNumber, command, sequence: SEQ.USER, createdByUserId }))),
       });
     }
   }
   if (!readers.length) return { readers: 0 };
   const held = pin ? await peoplePrisma.deviceUser.findFirst({ where: { orgId, pin }, orderBy: { updatedAt: 'desc' } }) : null;
+  const rowsFor = (vendor: string | null | undefined) => {
   const rows: Array<{ command: string; sequence: number }> = [];
-  if (oldPin && oldPin !== pin) for (const c of removalCommands(oldPin)) rows.push({ command: c, sequence: SEQ.USER });
+  if (oldPin && oldPin !== pin) for (const c of removalCommandsFor(vendor, oldPin)) rows.push({ command: c, sequence: SEQ.USER });
   if (pin) {
     rows.push({
       /* Privilege and door PIN from the employee file only (see userFor); a card enrolled at a reader is kept. */
-      command: userInfoCommand(pin, employee.name, {
+      command: userCommandFor(vendor, pin, employee.name, {
         privilege: employee.devicePrivilege ?? 0,
         password: employee.devicePassword ?? '',
         card: employee.cardNumber ?? held?.card ?? '',
@@ -617,6 +619,8 @@ export async function pushEmployeeToReaders(orgId: string, employee: any, create
       sequence: SEQ.USER,
     });
   }
+    return rows;
+  };
   /* Readers that did not serve them before (a new site) get their fingerprints and face too. */
   const templates =
     pin && before && (before.areaId ?? null) !== (employee.areaId ?? null)
@@ -625,7 +629,7 @@ export async function pushEmployeeToReaders(orgId: string, employee: any, create
   for (const r of readers) {
     if (pin) await supersedeUserInfo(r.id, pin);
     await peoplePrisma.deviceCommand.createMany({
-      data: rows.map((x) => ({ accountId: r.accountId, orgId, deviceId: r.id, serialNumber: r.serialNumber, command: x.command, sequence: x.sequence, createdByUserId })),
+      data: rowsFor(r.vendor).map((x) => ({ accountId: r.accountId, orgId, deviceId: r.id, serialNumber: r.serialNumber, command: x.command, sequence: x.sequence, createdByUserId })),
     });
     if (templates.length && !servesArea(r, before.areaId)) {
       const extra = templates.filter((t) => supports(r, t.type)).flatMap((t) => templateCommands(t, r));
