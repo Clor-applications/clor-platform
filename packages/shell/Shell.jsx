@@ -122,6 +122,13 @@ export default function Shell() {
      way out of the app switcher was to click the app switcher again. */
   const switcherRef = useDismissable(switcherOpen, () => setSwitcherOpen(false));
   const [showMoreApps, setShowMoreApps] = useState(false);
+  /* The API refused an app this account has not bought (402): say so once, with the way to add it. */
+  const [unbought, setUnbought] = useState(null);
+  useEffect(() => {
+    const on = (e) => setUnbought({ app: e.detail?.app || null, message: e.detail?.message || '' });
+    window.addEventListener('clor:app-not-subscribed', on);
+    return () => window.removeEventListener('clor:app-not-subscribed', on);
+  }, []);
 
   /*
    * What an unauthenticated visitor is looking at: the public page, or one of
@@ -598,6 +605,13 @@ export default function Shell() {
       </header>
 
       <SubscriptionBanner billing={tenant.billing} />
+      {unbought ? (
+        <div role="status" className="flex flex-wrap items-center gap-3 px-6 py-2 text-sm" style={{ backgroundColor: 'rgb(var(--warn-soft))', color: 'rgb(var(--warn-ink))', borderBottom: '1px solid rgb(var(--border))' }}>
+          <span className="min-w-0 flex-1">{appById(unbought.app)?.name || 'This app'} is not on your plan, so it cannot be used here yet. {unbought.message ? `(${unbought.message})` : ''}</span>
+          <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => { setShowMoreApps(true); setUnbought(null); }}>See apps and plans</button>
+          <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => setUnbought(null)}>Dismiss</button>
+        </div>
+      ) : null}
 
       {Root ? (
         /* The app owns the area under the platform bar. Reached from here by

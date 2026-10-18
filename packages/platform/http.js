@@ -262,6 +262,10 @@ export async function apiFetch(
     err.data = data;
     /* 402 APP_NOT_SUBSCRIBED and friends: callers branch on the code, not the text. */
     err.code = data?.code || null;
+    /* An app the account has not bought: the shell offers the way forward once, whichever screen asked. */
+    if (res.status === 402 && err.code === 'APP_NOT_SUBSCRIBED' && typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('clor:app-not-subscribed', { detail: { app: data?.app || null, message: data?.error || '' } }));
+    }
     throw err;
   }
 
