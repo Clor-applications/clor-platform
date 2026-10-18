@@ -770,6 +770,18 @@ model Notification {
   @@index([orgId, createdAt])
 }
 
+/// Kinds of notification a person does not want in their bell, per company.
+model NotificationMute {
+  id        String   @id @default(cuid())
+  accountId String
+  orgId     String
+  userId    String
+  kind      String
+  createdAt DateTime @default(now())
+
+  @@unique([userId, orgId, kind])
+}
+
 /// SAML assertions already used to sign in, until they would have expired
 /// anyway: a captured assertion cannot be posted a second time.
 model SsoAssertionSeen {

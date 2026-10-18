@@ -54,3 +54,23 @@ notificationsRouter.post(`${base}/read`, async (req, res) => {
   const unread = await platformPrisma.notification.count({ where: { orgId, userId, readAt: null } });
   res.json({ marked: r.count, unread });
 });
+
+/** Kinds this person muted for this company. */
+notificationsRouter.get(`${base}/mutes`, async (req, res) => {
+  if (!orgOk(req, res)) return;
+  const rows = await platformPrisma.notificationMute.findMany({ where: { orgId: req.tenant!.orgId, userId: req.auth!.userId }, orderBy: { createdAt: 'asc' } });
+  res.json({ mutes: rows.map((r) => r.kind) });
+});
+
+/** Mute or unmute one kind: { kind, muted }. */
+notificationsRouter.post(`${base}/mutes`, async (req, res) => {
+  if (!orgOk(req, res)) return;
+  const p = z.object({ kind: z.string().trim().min(1).max(60).regex(/^[a-z][a-z0-9._-]*$/), muted: z.boolean() }).safeParse(req.body || {});
+  if (!p.success) return res.status(400).json({ error: 'Say which kind, and whether muted.' });
+  const { accountId, orgId } = req.tenant!;
+  const userId = req.auth!.userId;
+  if (p.data.muted) await platformPrisma.notificationMute.upsert({ where: { userId_orgId_kind: { userId, orgId, kind: p.data.kind } }, create: { accountId, orgId, userId, kind: p.data.kind }, update: {} });
+  else await platformPrisma.notificationMute.deleteMany({ where: { userId, orgId, kind: p.data.kind } });
+  const rows = await platformPrisma.notificationMute.findMany({ where: { orgId, userId } });
+  res.json({ mutes: rows.map((r) => r.kind) });
+});

@@ -11,7 +11,7 @@ import request from 'supertest';
 const { buildApp } = await import('../app.js');
 const { platformPrisma } = await import('../utils/platformPrisma.js');
 const { peoplePrisma } = await import('../utils/peoplePrisma.js');
-const { usersWithPermission, notifyPermission, notifyPermissionOnce } = await import('../services/notifications.js');
+const { usersWithPermission, notifyPermission, notifyPermissionOnce, pruneNotifications } = await import('../services/notifications.js');
 const { runReaderChecks } = await import('../services/attendance/readerHealth.js');
 const { runDocumentReminders } = await import('../services/people/documentReminders.js');
 
@@ -76,6 +76,29 @@ describe('the inbox', () => {
     expect(await notifyPermissionOnce(a.accountId, a.orgId, 'SETTINGS::Users::EDIT', { kind: 'reader.alert', title: 'Gate down again', dedupeKey: 'offline:dev1' })).toBe(1);
     /* B cannot read A's inbox through A's organisation id. */
     await request(app).get(`/api/orgs/${a.orgId}/notifications/inbox`).set(at(b)).expect(403);
+  });
+});
+
+describe('a person’s own choices', () => {
+  it('muting a kind stops it reaching them, for that company only; old rows are pruned', async () => {
+    const c = await makeOwner();
+    const mutes = (b: unknown) => request(app).post(`/api/orgs/${c.orgId}/notifications/inbox/mutes`).set(at(c)).send(b as any);
+    expect((await mutes({ kind: 'reader.alert', muted: true }).expect(200)).body.mutes).toEqual(['reader.alert']);
+    await mutes({ kind: 'Bad Kind!', muted: true }).expect(400);
+    expect(await notifyPermission(c.accountId, c.orgId, 'SETTINGS::Users::EDIT', { kind: 'reader.alert', title: 'Muted one' })).toBe(0);
+    expect(await notifyPermission(c.accountId, c.orgId, 'SETTINGS::Users::EDIT', { kind: 'scim.user', title: 'Still here' })).toBe(1);
+    expect((await request(app).get(`/api/orgs/${c.orgId}/notifications/inbox/mutes`).set(at(c)).expect(200)).body.mutes).toEqual(['reader.alert']);
+    expect((await mutes({ kind: 'reader.alert', muted: false }).expect(200)).body.mutes).toEqual([]);
+    expect(await notifyPermission(c.accountId, c.orgId, 'SETTINGS::Users::EDIT', { kind: 'reader.alert', title: 'Back' })).toBe(1);
+    /* Pruning: read rows older than 90 days and unread older than 180 go; the rest stay. */
+    const rows = await platformPrisma.notification.findMany({ where: { orgId: c.orgId } });
+    const day = 86_400_000;
+    await platformPrisma.notification.update({ where: { id: rows[0].id }, data: { readAt: new Date(), createdAt: new Date(Date.now() - 91 * day) } });
+    await platformPrisma.notification.update({ where: { id: rows[1].id }, data: { createdAt: new Date(Date.now() - 120 * day) } });
+    expect(await pruneNotifications()).toBeGreaterThanOrEqual(1);
+    const left = await platformPrisma.notification.findMany({ where: { orgId: c.orgId } });
+    expect(left.map((r) => r.id)).not.toContain(rows[0].id);
+    expect(left.map((r) => r.id)).toContain(rows[1].id);
   });
 });
 

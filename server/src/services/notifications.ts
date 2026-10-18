@@ -44,9 +44,14 @@ export async function usersHoldingRoles(accountId: string, orgId: string, roleId
 
 /** One row per person. Never throws: a notification must not break the thing it is about. */
 export async function notifyUsers(accountId: string, orgId: string, userIds: string[], notice: Notice, opts: { except?: string | null } = {}) {
-  const ids = [...new Set(userIds)].filter((id) => id && id !== opts.except);
+  let ids = [...new Set(userIds)].filter((id) => id && id !== opts.except);
   if (!ids.length) return 0;
   try {
+    /* People who muted this kind for this company are skipped. */
+    const muted = await platformPrisma.notificationMute.findMany({ where: { orgId, kind: notice.kind, userId: { in: ids } }, select: { userId: true } });
+    const off = new Set(muted.map((m) => m.userId));
+    ids = ids.filter((id) => !off.has(id));
+    if (!ids.length) return 0;
     const r = await platformPrisma.notification.createMany({
       data: ids.map((userId) => ({ accountId, orgId, userId, kind: notice.kind, title: notice.title.slice(0, 200), body: notice.body ? String(notice.body).slice(0, 1000) : null, linkJson: notice.link ? JSON.stringify(notice.link) : null })),
     });
@@ -78,4 +83,24 @@ export async function recipientsWithPermission(accountId: string, orgId: string,
   const ids = await usersWithPermission(accountId, orgId, permission);
   if (!ids.length) return [] as Array<{ id: string; email: string; fullName: string }>;
   return platformPrisma.user.findMany({ where: { id: { in: ids } }, select: { id: true, email: true, fullName: true } });
+}
+
+/** Keep the inbox small: read rows go after 90 days, unread after 180. */
+export async function pruneNotifications(now = new Date()) {
+  const day = 86_400_000;
+  const r = await platformPrisma.notification.deleteMany({
+    where: { OR: [{ readAt: { not: null }, createdAt: { lt: new Date(now.getTime() - 90 * day) } }, { readAt: null, createdAt: { lt: new Date(now.getTime() - 180 * day) } }] },
+  });
+  return r.count;
+}
+
+export function startNotificationPruning({ intervalMs = 24 * 3_600_000, startupDelayMs = 240_000 } = {}) {
+  if (process.env.NODE_ENV === 'test' || process.env.VITEST) return () => {};
+  const tick = () => pruneNotifications().catch((e) => console.error('[notifications] prune failed:', e instanceof Error ? e.message : e));
+  const t = setTimeout(() => {
+    tick();
+    const i = setInterval(tick, intervalMs);
+    i.unref?.();
+  }, startupDelayMs);
+  return () => clearTimeout(t);
 }

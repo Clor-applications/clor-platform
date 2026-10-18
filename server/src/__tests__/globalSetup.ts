@@ -286,6 +286,7 @@ export default async function setup() {
   await applyPolicies(asOwner(platform), 'prisma/platform/migrations/20260924120000_row_level_security');
   await applyPolicies(asOwner(platform), 'prisma/platform/migrations/20261018040100_scim_tokens_rls');
   await applyPolicies(asOwner(platform), 'prisma/platform/migrations/20261018060100_notifications_rls');
+  await applyPolicies(asOwner(platform), 'prisma/platform/migrations/20261018090100_notification_mutes_rls');
 
   await grantToAppRole(database, schemas);
 
