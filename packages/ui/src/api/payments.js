@@ -72,3 +72,11 @@ export async function reconcilePayment(paymentId, { reconciled, bankDate, statem
   });
   return data?.payment || null;
 }
+
+/* ------------------------------------------------------------ UPI Direct */
+
+/** A pay link for an invoice, paid straight into the company's UPI ID: { request, url, upi }. */
+export const createPayRequest = (body) => apiFetch(`${base()}/pay-requests`, { ...opts, method: 'POST', body });
+export const listPayRequests = (docId) => apiFetch(`${base()}/pay-requests${docId ? `?docId=${encodeURIComponent(docId)}` : ''}`, opts).then((r) => r?.requests || []);
+export const confirmPayRequest = (id, paymentId) => apiFetch(`${base()}/pay-requests/${encodeURIComponent(id)}/confirm`, { ...opts, method: 'POST', body: { paymentId } });
+export const cancelPayRequest = (id) => apiFetch(`${base()}/pay-requests/${encodeURIComponent(id)}/cancel`, { ...opts, method: 'POST', body: {} });

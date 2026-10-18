@@ -4,6 +4,7 @@ import KnockOffForm from '@ui/components/KnockOffForm';
 import { isOnAccount, noteBalance } from '@ui/utils/onAccount';
 import WarehouseField from '@ui/components/WarehouseField';
 import { notify, confirmDialog } from '@ui/components/ui/notify';
+import UpiPayLink from './UpiPayLink';
 import { Ban, Bell, Building2, ChevronDown, ClipboardList, Copy, CreditCard, Download, Eye, FileText, Lock, Mail, MessageCircle, MoreVertical, Package, Plus, Printer, Receipt, RefreshCw, Search, Settings2, SlidersHorizontal, Table2, Tag, Trash2, Upload, Users, X } from 'lucide-react';
 
 import CustomerPicker from '../../components/pickers/CustomerPicker';
@@ -112,8 +113,13 @@ const GRID_COLUMNS = [
   { key: 'warehouse', label: 'Warehouse', off: true },
 ];
 
-const InvoicePreviewActions = ({ onPrint, onPdf, onExcel, onTemplates, onFields }) => (
+const InvoicePreviewActions = ({ onPrint, onPdf, onExcel, onTemplates, onFields, onUpi }) => (
   <div className="flex items-center gap-2">
+    {onUpi ? (
+      <button type="button" className="ui-btn ui-btn-secondary" onClick={onUpi} title="A link your customer pays straight into your UPI ID: no gateway, no fee">
+        <CreditCard size={16} /> UPI pay link
+      </button>
+    ) : null}
     <button type="button" className="ui-btn ui-btn-secondary" onClick={onPrint}>
       <Printer size={16} /> Print
     </button>
@@ -715,6 +721,7 @@ export const InvoicesList = ({
             onExcel={() => exportInvoiceExcel(invoice)}
             onTemplates={() => goFromPreviewToSettings('invoiceTemplates')}
             onFields={() => goFromPreviewToSettings('settingsInvoiceFields')}
+            onUpi={String(invoice?.status || '') === 'Draft' || !invoice?.backendInvoiceId ? null : () => openModal(<UpiPayLink invoice={invoice} currentCompany={currentCompany} />, { title: `UPI pay link · Invoice ${invoice?.number || ''}`.trim(), maxWidthClass: 'max-w-2xl' })}
           />
         ),
       }
