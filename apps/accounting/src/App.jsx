@@ -11727,7 +11727,7 @@ const AppShell = () => {
   const [active, setActive] = useState(() => {
     try {
       const open = String(new URLSearchParams(window.location.search).get('open') || '').trim();
-      if (open && (open === 'settings' || isSettingsKey(open))) {
+      if (open && (open === 'settings' || isSettingsKey(open) || ['invoices', 'bills', 'receipts', 'approvals', 'expenses'].includes(open))) {
         window.history.replaceState(null, '', window.location.pathname);
         return open;
       }
@@ -12332,11 +12332,6 @@ const AppShell = () => {
      are, and Command-K reaches the same list from anywhere. Its state and its
      ref outlived it by several releases, wired into the dismissal effect
      below and attached to no element at all. */
-  const [notifOpen, setNotifOpen] = useState(false);
-  const notifRef = useDismissable(notifOpen, () => setNotifOpen(false));
-  const [notifSeenKey, setNotifSeenKey] = useState(() => localStorage.getItem('notifSeenKey') || '');
-  // Pinned per mount so overdue bucketing is stable across renders.
-  const [shellNowTs] = useState(() => Date.now());
 
   // The drawer closes itself on navigation — tapping a destination should
   // reveal the page, not leave a panel covering it.
@@ -12353,67 +12348,8 @@ const AppShell = () => {
   }, [mobileNavOpen]);
 
 
-  /**
-   * Notification feed computed from the books — never invented. Two event
-   * classes today: receivables past due, and payables falling due this week.
-   */
-  const notifications = useMemo(() => {
-    const out = [];
-    const companyId = currentCompany?.id;
-    if (!companyId) return out;
-    const todayStr = new Date(shellNowTs).toISOString().slice(0, 10);
-    const weekStr = new Date(shellNowTs + 7 * 86_400_000).toISOString().slice(0, 10);
-    const numv = (x) => (Number.isFinite(Number(x)) ? Number(x) : 0);
+  /* Reminders from the books (invoices overdue, payables due this week) now come from the server into the bell every app shares (server/src/services/booksDigest.ts). */
 
-    const overdue = (Array.isArray(db?.invoices) ? db.invoices : []).filter((i) => {
-      if (i.companyId !== companyId) return false;
-      const st = String(i.status || '').toLowerCase();
-      if (st === 'draft' || st === 'cancelled') return false;
-      const due = numv(i.total) - numv(i.paidAmount);
-      return due > 0.0001 && String(i.dueDate || '') && String(i.dueDate) < todayStr;
-    });
-    if (overdue.length) {
-      const total = overdue.reduce((sum, i) => sum + numv(i.total) - numv(i.paidAmount), 0);
-      out.push({
-        id: 'overdue-invoices',
-        tone: 'neg',
-        title: `${overdue.length} invoice${overdue.length === 1 ? '' : 's'} overdue`,
-        body: `${formatMoney(total, currentCompany)} past due date`,
-        target: 'invoices',
-      });
-    }
-
-    const payables = [
-      ...(Array.isArray(db?.bills) ? db.bills : []),
-      ...(Array.isArray(db?.expenses) ? db.expenses : []),
-    ].filter((b) => {
-      if (b.companyId !== companyId) return false;
-      const st = String(b.status || '').toLowerCase();
-      if (st === 'draft' || st === 'cancelled' || st === 'paid') return false;
-      const due = numv(b.total) - numv(b.paidAmount);
-      const d = String(b.dueDate || '');
-      return due > 0.0001 && d && d >= todayStr && d <= weekStr;
-    });
-    if (payables.length) {
-      const total = payables.reduce((sum, b) => sum + numv(b.total) - numv(b.paidAmount), 0);
-      out.push({
-        id: 'payables-week',
-        tone: 'warn',
-        title: `${payables.length} payable${payables.length === 1 ? '' : 's'} due this week`,
-        body: `${formatMoney(total, currentCompany)} to schedule`,
-        target: 'bills',
-      });
-    }
-
-    return out;
-  }, [db, currentCompany, shellNowTs]);
-
-  const notifKey = notifications.map((n) => `${n.id}:${n.body}`).join('|');
-  const notifUnseen = notifications.length > 0 && notifKey !== notifSeenKey;
-  const markNotifsSeen = () => {
-    setNotifSeenKey(notifKey);
-    try { localStorage.setItem('notifSeenKey', notifKey); } catch { /* best effort */ }
-  };
 
   const QUICK_CREATE = [
     { label: 'Invoice', run: () => { setActive('invoices'); setInvoiceEditor({ open: true, initial: null }); } },
@@ -14644,67 +14580,6 @@ const AppShell = () => {
 
           <div className="flex items-center gap-1.5">
 
-            {/* Notifications: computed from the books, never invented. */}
-            <div className="relative" ref={notifRef}>
-              <button
-                type="button"
-                onClick={() => {
-                  setNotifOpen((v) => !v);
-                  if (!notifOpen) markNotifsSeen();
-                }}
-                className="ui-icon-btn relative !h-8 !w-8"
-                aria-haspopup="menu"
-                aria-expanded={notifOpen}
-                aria-label={`Notifications${notifications.length ? `, ${notifications.length} item${notifications.length === 1 ? '' : 's'}` : ''}`}
-              >
-                <Bell size={16} aria-hidden="true" />
-                {notifUnseen ? (
-                  <span
-                    className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full"
-                    style={{ backgroundColor: 'rgb(var(--brand))' }}
-                    aria-hidden="true"
-                  />
-                ) : null}
-              </button>
-              {notifOpen ? (
-                <div
-                  role="menu"
-                  className="ui-card ui-in-pop absolute right-0 top-full z-50 mt-2 w-80 overflow-hidden"
-                  style={{ boxShadow: 'var(--shadow-pop)', '--pop-origin': 'top right' }}
-                >
-                  <div className="px-4 py-2.5" style={{ borderBottom: '1px solid rgb(var(--border))' }}>
-                    <span className="ui-card-label" style={{ color: 'rgb(var(--fg))' }}>Notifications</span>
-                  </div>
-                  {notifications.length === 0 ? (
-                    <p className="ui-caption px-4 py-6 text-center">All clear — nothing needs attention.</p>
-                  ) : (
-                    notifications.map((n) => (
-                      <button
-                        key={n.id}
-                        type="button"
-                        role="menuitem"
-                        onClick={() => {
-                          setNotifOpen(false);
-                          setActive(n.target);
-                        }}
-                        className="flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-[rgb(var(--surface-sunken))]"
-                        style={{ borderBottom: '1px solid rgb(var(--border))' }}
-                      >
-                        <span
-                          className="mt-1.5 h-2 w-2 flex-shrink-0 rounded-full"
-                          style={{ backgroundColor: `rgb(var(--${n.tone}))` }}
-                          aria-hidden="true"
-                        />
-                        <span>
-                          <span className="block text-sm">{n.title}</span>
-                          <span className="ui-caption">{n.body}</span>
-                        </span>
-                      </button>
-                    ))
-                  )}
-                </div>
-              ) : null}
-            </div>
 
             <span className="ui-pill ui-pill-neutral hidden lg:inline-flex">{activeLabel}</span>
             {/* The theme belongs to the platform bar above: one control, and
