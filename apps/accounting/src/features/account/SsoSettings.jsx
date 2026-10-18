@@ -1,10 +1,10 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { KeyRound, ShieldCheck, Trash2 } from 'lucide-react';
+import { KeyRound, ShieldCheck, Trash2, Users } from 'lucide-react';
 
 import { PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { orgId as platformOrgId } from '@platform/context';
-import { createProvider, deleteProvider, getProviders, updateProvider } from '../../api/security';
+import { createProvider, createScimToken, deleteProvider, getProviders, getScim, revokeScimToken, updateProvider } from '../../api/security';
 import { listRoles } from '../../api/admin';
 
 /**
@@ -30,12 +30,39 @@ export default function SsoSettings() {
   const [roles, setRoles] = useState([]);
   const [form, setForm] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [scim, setScim] = useState(null);
+  const [scimRole, setScimRole] = useState('');
+  const [newToken, setNewToken] = useState('');
 
   const load = useCallback(() => getProviders().then(setData).catch((e) => notify.error(String(e?.message || 'Could not load sign-in methods.'))), []);
+  const loadScim = useCallback(() => getScim().then(setScim).catch(() => setScim({ baseUrl: '', tokens: [] })), []);
   useEffect(() => {
     load();
+    loadScim();
     listRoles(platformOrgId()).then((r) => setRoles(r?.roles || r || [])).catch(() => {});
-  }, [load]);
+  }, [load, loadScim]);
+  const makeToken = async () => {
+    try {
+      const r = await createScimToken(scimRole || null);
+      setNewToken(r.token);
+      loadScim();
+    } catch (err) {
+      notify.error(String(err?.message || 'Not made.'));
+    }
+  };
+  const revoke = async (t) => {
+    if (!(await confirmDialog({ title: 'Revoke this token?', message: 'The identity provider using it stops being able to add or remove people at once.', confirmLabel: 'Revoke' }))) return;
+    await revokeScimToken(t.id).catch((err) => notify.error(String(err?.message || 'Not revoked.')));
+    loadScim();
+  };
+  const copyToken = async () => {
+    try {
+      await navigator.clipboard.writeText(newToken);
+      notify.success('Copied.');
+    } catch {
+      notify.error('Could not copy — select it and copy by hand.');
+    }
+  };
 
   const save = async (e) => {
     e.preventDefault();
@@ -155,6 +182,51 @@ export default function SsoSettings() {
           </div>
         </form>
       ) : null}
+
+      <section className="ui-card p-4 space-y-3" aria-labelledby="scim-h">
+        <div className="flex items-start gap-3">
+          <Users size={18} aria-hidden="true" className="ui-muted mt-0.5" />
+          <div className="min-w-0 flex-1">
+            <h3 id="scim-h" className="font-medium">Directory sync (SCIM 2.0)</h3>
+            <p className="ui-caption">Let Microsoft Entra, Okta, JumpCloud or Google add, update and remove people here automatically. Roles stay in CLOR; groups are not synced.</p>
+            {scim?.baseUrl ? (
+              <div className="mt-2">
+                <div className="ui-label">Tenant URL to give the provider</div>
+                <code className="ui-mono text-sm break-all">{scim.baseUrl}</code>
+              </div>
+            ) : null}
+          </div>
+        </div>
+        {newToken ? (
+          <div className="ui-card p-3" role="status">
+            <div className="ui-label">Secret token — shown once</div>
+            <div className="flex flex-wrap items-center gap-2">
+              <code className="ui-mono text-sm break-all min-w-0 flex-1">{newToken}</code>
+              <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={copyToken}>Copy</button>
+            </div>
+            <p className="ui-caption mt-1">Paste it as the provider’s “Secret token” along with the tenant URL, then test the connection there.</p>
+          </div>
+        ) : null}
+        {(scim?.tokens || []).length ? (
+          <ul className="divide-y" style={{ borderColor: 'rgb(var(--border))' }}>
+            {scim.tokens.map((t) => (
+              <li key={t.id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
+                <span><code className="ui-mono">{t.tokenPrefix}…</code> · made {new Date(t.createdAt).toLocaleDateString('en-IN', { dateStyle: 'medium' })}{t.lastUsedAt ? ` · last used ${new Date(t.lastUsedAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}` : ' · not used yet'}{t.defaultRoleId ? ` · role: ${roles.find((r) => r.id === t.defaultRoleId)?.name || 'set'}` : ''}</span>
+                <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => revoke(t)}>Revoke</button>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+        <div className="flex flex-wrap items-end gap-2">
+          <label className="block"><span className="ui-label">Role for people the provider adds</span>
+            <select className="ui-select" value={scimRole} onChange={(e) => setScimRole(e.target.value)}>
+              <option value="">No role (view nothing until assigned)</option>
+              {roles.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
+            </select>
+          </label>
+          <button type="button" className="ui-btn ui-btn-secondary" onClick={makeToken}>Make a token</button>
+        </div>
+      </section>
 
       <div className="ui-card p-4">
         <div className="flex items-start gap-3">
