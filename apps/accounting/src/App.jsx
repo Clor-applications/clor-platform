@@ -195,6 +195,7 @@ import { MoreButton } from '@ui/components/list/ListPageParts';
 import DocHeaderStrip from '@ui/components/ui/DocHeaderStrip';
 import Drawer from '@ui/components/ui/Drawer';
 import { PermissionProvider } from '@ui/permissions/PermissionContext';
+import { WriteGuard } from '@ui/permissions/WriteGuard';
 import { usePermissions } from '@ui/permissions/usePermissions';
 import { PermissionButton } from '@ui/permissions/ActionGuard';
 import RolePermissionManager from './features/admin/RolePermissionManager';
@@ -202,7 +203,7 @@ import SettingsHub from './features/settings/SettingsHub';
 import SettingsWorkspace from './features/settings/SettingsWorkspace';
 import MasterDataWorkspace, { MASTER_DATA_KEYS } from './features/masters/MasterDataWorkspace';
 import { TcsRatesMaster } from './features/masters/TaxRateMaster';
-import { isSettingsKey, isSettingsRoute, settingsBackTarget, visibleSettings, SETTINGS_KEYS } from './features/settings/settingsRegistry';
+import { isSettingsKey, isSettingsRoute, settingFor, settingsBackTarget, visibleSettings, SETTINGS_KEYS } from './features/settings/settingsRegistry';
 import FeaturesPage from './features/features/FeaturesPage';
 import FeaturesPanel from './features/features/FeaturesPanel';
 import { featuresPresentationFor } from './features/features/featuresPresentation';
@@ -12914,6 +12915,8 @@ const AppShell = () => {
     });
   }, [db, currentCompany.id]);
 
+  /* The VIEW permission behind the open screen: the write guard turns it into "may you change anything here". */
+  const activePerm = useMemo(() => permForActive(navModel, active) || settingFor(active)?.perm || null, [navModel, active]);
   const page = useMemo(() => {
     switch (active) {
       case 'settings':
@@ -15138,7 +15141,7 @@ const AppShell = () => {
               onNavigate={setActive}
               onExit={exitWorkspace}
             >
-              <Suspense fallback={<SkeletonStats count={4} />}>{page}</Suspense>
+              <Suspense fallback={<SkeletonStats count={4} />}><WriteGuard permission={activePerm}>{page}</WriteGuard></Suspense>
             </MasterDataWorkspace>
           ) : reportPageKeys.has(String(active)) && !['reports', 'tds'].includes(String(active)) ? (
             <div className="space-y-4">
@@ -15151,7 +15154,7 @@ const AppShell = () => {
                   Back
                 </button>
               </div>
-              <Suspense fallback={<SkeletonStats count={4} />}>{page}</Suspense>
+              <Suspense fallback={<SkeletonStats count={4} />}><WriteGuard permission={activePerm}>{page}</WriteGuard></Suspense>
             </div>
           ) : isSettingsKey(active) ? (
             /*
@@ -15177,10 +15180,10 @@ const AppShell = () => {
                 setActive(target);
               }}
             >
-              <Suspense fallback={<SkeletonStats count={4} />}>{page}</Suspense>
+              <Suspense fallback={<SkeletonStats count={4} />}><WriteGuard permission={activePerm}>{page}</WriteGuard></Suspense>
             </SettingsWorkspace>
           ) : (
-            <Suspense fallback={<SkeletonStats count={4} />}>{page}</Suspense>
+            <Suspense fallback={<SkeletonStats count={4} />}><WriteGuard permission={activePerm}>{page}</WriteGuard></Suspense>
           )}
         </main>
       </div>
@@ -15225,6 +15228,19 @@ const shareTokenFromUrl = () => {
   } catch {
     return '';
   }
+};
+
+/** The `perm` of the navigation entry (any depth) whose key is open, for the screen-wide write guard. */
+const permForActive = (model, key) => {
+  const walk = (items) => {
+    for (const item of items || []) {
+      if (item?.key === key && item.perm) return item.perm;
+      const found = walk(item?.items || item?.children);
+      if (found) return found;
+    }
+    return null;
+  };
+  return walk(Array.isArray(model) ? model : model?.items);
 };
 
 const App = () => {
