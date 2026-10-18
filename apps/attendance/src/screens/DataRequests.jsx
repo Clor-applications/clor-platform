@@ -37,7 +37,7 @@ export default function DataRequests() {
 
   if (error && !data) return <LoadFailed error={error} onRetry={load} />;
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <PageHeader entity="attendance" title="Data requests" description="What employees asked about their personal data, and your answers. The DPDP Act gives 30 days." />
       <div className="flex flex-wrap gap-2">
         {[['PENDING', 'Waiting'], ['RESOLVED', 'Done'], ['REJECTED', 'Declined'], ['ALL', 'All']].map(([k, l]) => (
@@ -51,7 +51,7 @@ export default function DataRequests() {
           {data.requests.map((r) => {
             const age = Math.floor((now - new Date(r.createdAt).getTime()) / 86_400_000);
             return (
-              <section key={r.id} className="ui-card p-5 space-y-3" aria-label={`${TYPES[r.type] || r.type} from ${r.employeeName}`}>
+              <section key={r.id} className="ui-card p-4 space-y-3" aria-label={`${TYPES[r.type] || r.type} from ${r.employeeName}`}>
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div>
                     <div className="font-semibold">{r.employeeName || 'Unknown'}{r.employeeCode ? <span className="ui-caption font-normal"> · {r.employeeCode}</span> : null}</div>

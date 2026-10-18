@@ -71,7 +71,7 @@ export default function ReaderSync() {
   if (!data) return loadError ? <LoadFailed message={loadError} onRetry={load} /> : <SkeletonCard lines={8} />;
   const gaps = data.summary.reduce((s, x) => s + x.missing + x.partial, 0);
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <PageHeader
         entity="attendance"
         title="Sync status"

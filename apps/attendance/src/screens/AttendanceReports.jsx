@@ -47,7 +47,7 @@ export default function AttendanceReports() {
   const [running, setRunning] = useState(false);
 
   useEffect(() => {
-    listReports().then((v) => { setCatalogue(v); setLoadError(''); }).catch((e) => setLoadError(String(e?.message || 'Could not load reports.')));
+    listReports().then((v) => { setCatalogue(v); setLoadError(''); setActive((a) => a || v?.reports?.[0] || null); }).catch((e) => setLoadError(String(e?.message || 'Could not load reports.')));
   }, [attempt]);
 
   const pick = (r) => {
@@ -76,22 +76,24 @@ export default function AttendanceReports() {
   if (!catalogue) return loadError ? <LoadFailed message={loadError} onRetry={() => setAttempt((n) => n + 1)} /> : <SkeletonCard lines={6} />;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <PageHeader entity="attendance" title="Reports" description="Attendance reports and the statutory registers — muster roll, overtime and leave." />
-      <div className="grid gap-4 lg:grid-cols-[18rem_1fr]">
+      <div className="grid items-start gap-4 lg:grid-cols-[16rem_1fr]">
         <nav aria-label="Reports" className="ui-card p-2">
-          <ul className="space-y-1">
+          <ul className="space-y-0.5">
             {catalogue.reports.map((r) => (
               <li key={r.id}>
                 <button
                   type="button"
                   aria-current={active?.id === r.id ? 'true' : undefined}
-                  className={`w-full rounded-lg px-3 py-2 text-left text-sm ui-hover-sunken ${active?.id === r.id ? 'font-medium' : ''}`}
+                  className={`w-full rounded-lg px-3 py-1.5 text-left text-sm ui-hover-sunken ${active?.id === r.id ? 'font-medium' : ''}`}
+                  title={r.description}
                   style={active?.id === r.id ? { backgroundColor: 'rgb(var(--surface-sunken))' } : undefined}
                   onClick={() => pick(r)}
                 >
                   <div>{r.name}</div>
-                  <div className="ui-caption">{r.description}</div>
+                  {/* Only the chosen one explains itself; twelve descriptions at once is a page of reading. */}
+                  {active?.id === r.id ? <div className="ui-caption">{r.description}</div> : null}
                 </button>
               </li>
             ))}
@@ -235,7 +237,7 @@ function Scheduled({ catalogue, form, active }) {
   };
   const when = (s) => `${s.cadence === 'DAILY' ? 'Every day' : s.cadence === 'WEEKLY' ? `Every ${DOW[(s.dayOfWeek || 1) - 1]}` : `On the ${s.dayOfMonth || 1}${[1, 21].includes(s.dayOfMonth) ? 'st' : [2, 22].includes(s.dayOfMonth) ? 'nd' : [3, 23].includes(s.dayOfMonth) ? 'rd' : 'th'}`} at ${String(s.hour).padStart(2, '0')}:00`;
   return (
-    <section className="ui-card space-y-3 p-5" aria-labelledby="sched-h">
+    <section className="ui-card space-y-3 p-4" aria-labelledby="sched-h">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 id="sched-h" className="ui-t-sec flex items-center gap-2"><Mail size={16} aria-hidden="true" /> Scheduled</h2>
         {!draft ? <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={start}>{active ? `E-mail “${active.name}” on a schedule` : 'E-mail a report on a schedule'}</button> : null}

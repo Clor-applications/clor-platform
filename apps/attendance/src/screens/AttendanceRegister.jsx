@@ -50,7 +50,7 @@ export default function AttendanceRegister() {
   if (error && !report) return <LoadFailed error={error} onRetry={load} />;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <PageHeader
         entity="attendance"
         title="Register"

@@ -128,7 +128,7 @@ export default function AttendanceDevices({ openScreen }) {
   const server = readerServer();
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <PageHeader
         entity="attendance"
         title="Readers"
@@ -141,7 +141,7 @@ export default function AttendanceDevices({ openScreen }) {
       />
 
       {/* Set-up steps are read once: open while there is no reader, folded away after. */}
-      <details className="ui-card p-5 text-sm" open={Boolean(data) && !data.devices.some((d) => !VIRTUAL[d.vendor])}>
+      <details className="ui-card p-4 text-sm" open={Boolean(data) && !data.devices.some((d) => !VIRTUAL[d.vendor])}>
         <summary className="ui-t-sec cursor-pointer select-none">How to connect a reader</summary>
         <ol className="mt-3 list-decimal space-y-1 pl-5">
           <li>
@@ -613,7 +613,7 @@ function MappedDrawer({ device, pushBase, onClose, onChanged }) {
         </>
       }
     >
-      <div className="space-y-6">
+      <div className="space-y-4">
         {device.lastError ? <div className="ui-card p-3 text-sm" role="alert" style={{ color: 'rgb(var(--neg))' }}>Last {isPull ? 'pull' : 'push'}: {device.lastError}</div> : null}
         {isPull ? <PullControls device={device} onChanged={onChanged} /> : null}
         {!isFile && !isPull ? (
@@ -795,7 +795,7 @@ function HikvisionPushDrawer({ device, hikvisionBase, onClose, onChanged }) {
         </>
       }
     >
-      <div className="space-y-6">
+      <div className="space-y-4">
         {device.lastError ? <div className="ui-card p-3 text-sm" role="alert" style={{ color: 'rgb(var(--neg))' }}>{device.lastError}</div> : null}
 
         <section className="space-y-2" aria-labelledby="hk-status-h">
@@ -928,7 +928,7 @@ function MatrixDrawer({ device, matrixBase, onClose, onChanged }) {
         </>
       }
     >
-      <div className="space-y-6">
+      <div className="space-y-4">
         {device.lastError ? <div className="ui-card p-3 text-sm" role="alert" style={{ color: 'rgb(var(--neg))' }}>{device.lastError}</div> : null}
 
         <section className="space-y-2" aria-labelledby="mx-status-h">
@@ -1044,7 +1044,7 @@ function CloudDrawer({ device, onClose, onChanged }) {
         </>
       }
     >
-      <div className="space-y-6">
+      <div className="space-y-4">
         {device.lastError ? <div className="ui-card p-3 text-sm" role="alert" style={{ color: 'rgb(var(--neg))' }}>Last pull failed: {device.lastError}</div> : null}
         <section className="space-y-2" aria-labelledby="sync-h">
           <h3 id="sync-h" className="ui-t-sec">Punches</h3>
@@ -1145,7 +1145,7 @@ function PullDrawer({ device, onClose, onChanged }) {
         </>
       }
     >
-      <div className="space-y-6">
+      <div className="space-y-4">
         {device.lastError ? <div className="ui-card p-3 text-sm" role="alert" style={{ color: 'rgb(var(--neg))' }}>Last pull failed: {device.lastError}</div> : null}
         <p className="ui-caption">This driver follows the maker’s published API and has not been tried on a real device by CLOR. If a pull fails, send us the error shown above.</p>
         <PullControls device={device} onChanged={onChanged} />
@@ -1266,7 +1266,7 @@ function ReaderDrawer({ device, onClose, onChanged }) {
         </>
       }
     >
-      <div className="space-y-6">
+      <div className="space-y-4">
         <form id="reader-form" onSubmit={save} className="grid gap-4">
           <label className="block"><span className="ui-label">Name</span><input className="ui-input w-full" required maxLength={80} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></label>
           <label className="block">

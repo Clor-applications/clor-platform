@@ -50,7 +50,7 @@ export default function TemporarySchedule() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <PageHeader entity="attendance" title="Temporary schedule" description="A different shift for some days. It wins over every other schedule on those days." />
       <section className="ui-card space-y-3 p-4" aria-label="New temporary schedule">
         <div className="flex flex-wrap items-end gap-3">

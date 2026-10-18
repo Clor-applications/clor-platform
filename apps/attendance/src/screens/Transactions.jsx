@@ -57,7 +57,7 @@ export default function Transactions() {
   const anyWorkCode = Boolean(data?.transactions?.some((t) => t.workCode));
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <PageHeader
         entity="attendance"
         title="Transactions"

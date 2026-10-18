@@ -35,7 +35,7 @@ export default function UnmatchedPunches() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <PageHeader entity="attendance" title="Unmatched punches" description="Reader user IDs that match no employee. Choose who each one is." />
       <LoadFailed message={loadError} onRetry={load} />
       {!rows ? (

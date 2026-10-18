@@ -75,10 +75,10 @@ export default function DataExport() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <PageHeader entity="attendance" title="Export" description="Take data out: what, for when, as a spreadsheet or for another system." />
       <ol className="grid gap-4 lg:grid-cols-3">
-        <li className="ui-card p-5 space-y-3">
+        <li className="ui-card p-4 space-y-3">
           <h2 className="ui-t-sec"><span className="ui-caption mr-2">1</span>What to export</h2>
           <div className="space-y-1">
             {DATASETS.map((x) => (
@@ -89,7 +89,7 @@ export default function DataExport() {
             ))}
           </div>
         </li>
-        <li className="ui-card p-5 space-y-3">
+        <li className="ui-card p-4 space-y-3">
           <h2 className="ui-t-sec"><span className="ui-caption mr-2">2</span>Period</h2>
           {dataset.period ? (
             <>
@@ -104,7 +104,7 @@ export default function DataExport() {
             </>
           ) : <p className="ui-caption">{dataset.id === 'holidays' ? 'This year.' : 'Everything on file.'}</p>}
         </li>
-        <li className="ui-card p-5 space-y-3">
+        <li className="ui-card p-4 space-y-3">
           <h2 className="ui-t-sec"><span className="ui-caption mr-2">3</span>Shape</h2>
           <div className="space-y-1">
             {[['csv', 'CSV', 'Opens in Excel or Google Sheets'], ['json', 'JSON', 'For importing into another system']].map(([id, label, hint]) => (

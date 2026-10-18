@@ -48,12 +48,12 @@ export default function AttendanceRules() {
   if (!rules) return loadError ? <LoadFailed message={loadError} onRetry={() => setAttempt((n) => n + 1)} /> : <SkeletonCard lines={6} />;
   const num = (k, fallback = 0) => (e) => setRules({ ...rules, [k]: e.target.value === '' ? fallback : Number(e.target.value) });
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <PageHeader entity="attendance" title="Attendance rules" description="Company-wide. Grace, half day, overtime and weekly offs are set on each shift." />
 
       {/* A settings page: the compact column (DESIGN.md, Content width), not a field stretched across the screen. */}
-      <form onSubmit={save} className="max-w-2xl space-y-6">
-        <section className="ui-card space-y-3 p-5" aria-labelledby="rules-default-h">
+      <form onSubmit={save} className="grid items-start gap-4 xl:grid-cols-2">
+        <section className="ui-card space-y-3 p-4" aria-labelledby="rules-default-h">
           <h2 id="rules-default-h" className="ui-t-sec">Default shift</h2>
           <label className="block">
             <span className="ui-label">For anyone with no schedule</span>
@@ -65,7 +65,7 @@ export default function AttendanceRules() {
           </label>
         </section>
 
-        <section className="ui-card space-y-3 p-5" aria-labelledby="rules-late-h">
+        <section className="ui-card space-y-3 p-4" aria-labelledby="rules-late-h">
           <h2 id="rules-late-h" className="ui-t-sec">Late arrivals</h2>
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="block">
@@ -87,7 +87,7 @@ export default function AttendanceRules() {
           </p>
         </section>
 
-        <section className="ui-card space-y-3 p-5" aria-labelledby="rules-readers-h">
+        <section className="ui-card space-y-3 p-4" aria-labelledby="rules-readers-h">
           <h2 id="rules-readers-h" className="ui-t-sec">Readers and phone punches</h2>
           <label className="flex items-start gap-2 text-sm">
             <input type="checkbox" className="ui-checkbox mt-0.5" checked={rules.readerUsersBecomeEmployees !== false} onChange={(e) => setRules({ ...rules, readerUsersBecomeEmployees: e.target.checked })} />
@@ -106,7 +106,7 @@ export default function AttendanceRules() {
           </label>
         </section>
 
-        <section className="ui-card space-y-3 p-5" aria-labelledby="approvals-h">
+        <section className="ui-card space-y-3 p-4" aria-labelledby="approvals-h">
           <h2 id="approvals-h" className="ui-t-sec">Who approves</h2>
           <p className="ui-caption">A manager is the person named in “Reports to” on the employee file; they decide from the portal. Someone with no manager goes straight to HR.</p>
           {[['leaveApproval', 'Leave requests'], ['correctionApproval', 'Attendance corrections']].map(([k, label]) => (
@@ -121,10 +121,10 @@ export default function AttendanceRules() {
           ))}
         </section>
 
-        <div><button type="submit" className="ui-btn ui-btn-primary">Save rules</button></div>
+        <div className="xl:col-span-2"><button type="submit" className="ui-btn ui-btn-primary">Save rules</button></div>
       </form>
 
-      <section className="ui-card max-w-2xl space-y-3 p-5" aria-labelledby="recompute-h">
+      <section className="ui-card space-y-3 p-4" aria-labelledby="recompute-h">
         <h2 id="recompute-h" className="ui-t-sec">Recalculate past days</h2>
         <p className="ui-caption">After changing shifts or schedules. Days set by hand, corrections and leave stay as they are. Up to 62 days at a time.</p>
         <div className="flex flex-wrap items-end gap-3">

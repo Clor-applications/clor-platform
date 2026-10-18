@@ -68,14 +68,14 @@ export default function ShiftAssignments() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <PageHeader
         entity="attendance"
         title="Employee schedule"
         description="A person’s own shift from a date (and until a date, if it ends). It beats their rotation and department schedule; a temporary schedule beats it."
       />
 
-      <section className="ui-card space-y-3 p-5" aria-labelledby="assign-h">
+      <section className="ui-card space-y-3 p-4" aria-labelledby="assign-h">
         <h2 id="assign-h" className="ui-t-sec">Assign</h2>
         {!shifts.length ? (
           <p className="ui-muted text-sm">Create a shift first (Shifts).</p>

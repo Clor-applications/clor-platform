@@ -80,7 +80,7 @@ export default function MonthSummary() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <PageHeader
         entity="attendance"
         title="Month summary"

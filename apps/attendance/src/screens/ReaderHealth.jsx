@@ -54,7 +54,7 @@ export default function ReaderHealth() {
   const problems = data.readers.filter((r) => r.status !== 'ok' && r.status !== 'off').length;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <PageHeader
         entity="attendance"
         title="Reader health"
@@ -83,11 +83,11 @@ export default function ReaderHealth() {
       {!data.readers.length ? (
         <EmptyState title="No readers yet" description="Add a reader under Readers. Its health shows here once it connects." />
       ) : (
-        <div className="grid gap-3 lg:grid-cols-2">
+        <div className="gap-3 lg:columns-2 2xl:columns-3 [&>*]:mb-3 [&>*]:break-inside-avoid">
           {data.readers.map((r) => {
             const st = STATUS[r.status] || STATUS.ok;
             return (
-              <section key={r.id} className="ui-card space-y-3 p-4" aria-label={r.name}>
+              <section key={r.id} className="ui-card space-y-2.5 p-4" aria-label={r.name}>
                 <header className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
@@ -124,11 +124,11 @@ export default function ReaderHealth() {
                       </div>
                     )
                   )}
-                  {r.capacity.users.n === null ? <p className="ui-caption">Counts arrive with the reader’s next report (within a few minutes).</p> : null}
-                  {r.faceSupported === false ? <p className="ui-caption">Fingerprint reader — no face recognition.</p> : null}
+                  {r.capacity.users.n === null ? <p className="ui-caption">Counts come with the next report.</p> : null}
+                  {r.faceSupported === false ? <p className="ui-caption">Fingerprint only.</p> : null}
                 </div>
                 {r.queue.waiting || r.queue.failed24h ? (
-                  <p className="ui-caption">{[r.queue.waiting && `${r.queue.waiting} change${r.queue.waiting === 1 ? '' : 's'} waiting`, r.queue.failed24h && `${r.queue.failed24h} failed today`].filter(Boolean).join(' · ')} — see the reader’s queue under Readers.</p>
+                  <p className="ui-caption">{[r.queue.waiting && `${r.queue.waiting} change${r.queue.waiting === 1 ? '' : 's'} waiting`, r.queue.failed24h && `${r.queue.failed24h} failed today`].filter(Boolean).join(' · ')}</p>
                 ) : null}
                 {r.issues.length ? (
                   <ul className="space-y-2">

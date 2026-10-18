@@ -30,18 +30,25 @@ export default function AttendanceCalendar() {
     listReports().then((d) => setDepartments(d?.departments || [])).catch(() => {});
   }, []);
   /* No synchronous resets in the effect: the old month stays until the new one arrives, then the picked day clears. */
-  const load = useCallback(
-    () => getCalendar({ month, ...(departmentId ? { departmentId } : {}) }).then((d) => { setData(d); setError(null); setPicked(null); setDay(null); }).catch(setError),
-    [month, departmentId]
-  );
-  useEffect(() => { load(); }, [load]);
-  const loading = !data || data.month !== month;
-
-  const open = (d) => {
+  const open = useCallback((d) => {
     setPicked(d.date);
     setDay(null);
     runReport('daily', { date: d.date, ...(departmentId ? { departmentId } : {}) }).then(setDay).catch(() => setDay({ rows: [] }));
-  };
+  }, [departmentId]);
+  /* The side panel opens on today (or the month's last day so far), not on an
+     empty "tap a day" — the first question here is always "who is in today". */
+  const load = useCallback(
+    () => getCalendar({ month, ...(departmentId ? { departmentId } : {}) }).then((d) => {
+      setData(d);
+      setError(null);
+      const shown = (d?.days || []).filter((x) => x.date <= (d.today || todayIst()));
+      const first = shown.find((x) => x.date === d.today) || shown[shown.length - 1];
+      if (first) open(first); else { setPicked(null); setDay(null); }
+    }).catch(setError),
+    [month, departmentId, open]
+  );
+  useEffect(() => { load(); }, [load]);
+  const loading = !data || data.month !== month;
 
   if (error && !data) return <LoadFailed error={error} onRetry={load} />;
   const title = new Date(`${month}-01T00:00:00Z`).toLocaleDateString('en-IN', { month: 'long', year: 'numeric', timeZone: 'UTC' });
@@ -49,7 +56,7 @@ export default function AttendanceCalendar() {
   const lead = (new Date(`${month}-01T00:00:00Z`).getUTCDay() + 6) % 7;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <PageHeader entity="attendance" title="Calendar" description="The month at a glance; tap a day for who was in." />
       <div className="flex flex-wrap items-center gap-3">
         <div className="flex items-center gap-1">
@@ -63,7 +70,7 @@ export default function AttendanceCalendar() {
         </select>
       </div>
       {loading ? <SkeletonCard lines={8} /> : (
-        <div className="grid gap-6 xl:grid-cols-[1fr_22rem]">
+        <div className="grid items-start gap-4 xl:grid-cols-[1fr_22rem]">
           <div className="ui-card p-3">
             <div className="ui-calendar">
               {WEEK.map((w) => <div key={w} className="ui-calendar-head">{w}</div>)}

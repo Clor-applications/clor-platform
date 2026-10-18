@@ -32,7 +32,7 @@ export default function AttendanceRequests() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <PageHeader entity="attendance" title="Requests" description="Corrections people asked for. Approving one writes that day." />
       <div role="tablist" className="flex gap-1">
         {['PENDING', 'APPROVED', 'REJECTED', ''].map((s) => (

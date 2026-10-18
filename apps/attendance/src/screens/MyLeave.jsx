@@ -55,7 +55,7 @@ export default function MyLeave() {
 
   if (error) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-4">
         <PageHeader entity="attendance" title="My leave" />
         <LoadFailed message={error} onRetry={load} />
       </div>
@@ -64,7 +64,7 @@ export default function MyLeave() {
   if (!me) return <SkeletonCard lines={6} />;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <PageHeader
         entity="attendance"
         title="My leave"
@@ -102,7 +102,7 @@ export default function MyLeave() {
       )}
 
       {me.types.length ? (
-        <section className="ui-card p-5" aria-labelledby="apply-h">
+        <section className="ui-card p-4" aria-labelledby="apply-h">
           <h2 id="apply-h" className="ui-t-sec mb-3">Ask for leave</h2>
           <form onSubmit={apply} className="grid gap-3 sm:grid-cols-4">
             <label className="block">

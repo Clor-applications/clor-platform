@@ -60,7 +60,7 @@ export default function AttendanceRecords() {
   const set = (k) => (e) => setFilters((f) => ({ ...f, [k]: e.target.value }));
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <PageHeader
         entity="attendance"
         title="Records"

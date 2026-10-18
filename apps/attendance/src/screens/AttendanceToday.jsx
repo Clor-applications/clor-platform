@@ -23,7 +23,7 @@ export default function AttendanceToday({ openScreen }) {
   }, [date, attempt]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <PageHeader
         entity="attendance"
         title="Today"
@@ -37,7 +37,7 @@ export default function AttendanceToday({ openScreen }) {
         error ? null : <SkeletonCard lines={6} />
       ) : (
         <>
-          <div className="grid grid-cols-2 gap-3 xl:grid-cols-5">
+          <div className="grid grid-cols-2 gap-3 xl:grid-cols-5 [&>*:last-child]:col-span-2 xl:[&>*:last-child]:col-span-1">
             <StatTile label="Headcount" value={data.headcount} icon={Users} />
             <StatTile label="Present" value={data.present + data.halfDay} icon={UserCheck} tone="pos" hint={data.halfDay ? `${data.halfDay} half day` : null} />
             <StatTile label="Late" value={data.late.length} icon={Clock} tone={data.late.length ? 'warn' : 'neutral'} />
@@ -69,8 +69,8 @@ export default function AttendanceToday({ openScreen }) {
             </div>
           ) : null}
 
-          <div className="grid gap-4 xl:grid-cols-2">
-            <section className="ui-card p-5" aria-labelledby="late-h">
+          <div className="grid items-start gap-4 xl:grid-cols-2">
+            <section className="ui-card p-4" aria-labelledby="late-h">
               <h2 id="late-h" className="ui-t-sec mb-3">Late {date === todayIst() ? 'today' : 'that day'}</h2>
               {data.late.length ? (
                 <ul className="divide-y">
@@ -85,10 +85,10 @@ export default function AttendanceToday({ openScreen }) {
                 <p className="ui-muted text-sm">Nobody.</p>
               )}
             </section>
-            <section className="ui-card p-5" aria-labelledby="notin-h">
+            <section className="ui-card p-4" aria-labelledby="notin-h">
               <h2 id="notin-h" className="ui-t-sec mb-3">Not clocked in</h2>
               {data.notIn.length ? (
-                <ul className="grid gap-1 sm:grid-cols-2">
+                <ul className="grid gap-x-4 gap-y-1 sm:grid-cols-2 2xl:grid-cols-3">
                   {data.notIn.map((p) => (
                     <li key={p.id} className="truncate text-sm">{p.name}<span className="ui-caption"> {p.department ? `· ${p.department}` : ''}</span></li>
                   ))}

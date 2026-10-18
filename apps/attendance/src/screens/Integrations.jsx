@@ -151,7 +151,7 @@ export default function Integrations() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <PageHeader entity="attendance" title="Integrations" description="Let other systems read attendance or send punches, and have CLOR tell them when things happen." />
       {shown ? <ShownOnce label={shown.label} value={shown.value} onDone={() => setShown(null)} /> : null}
 
@@ -159,7 +159,7 @@ export default function Integrations() {
 
       <Connectors onShown={setShown} />
 
-      <section className="ui-card space-y-4 p-5" aria-labelledby="keys-h">
+      <section className="ui-card space-y-4 p-4" aria-labelledby="keys-h">
         <h2 id="keys-h" className="ui-t-sec flex items-center gap-2"><KeyRound size={16} aria-hidden="true" /> API keys</h2>
         <form onSubmit={addKey} className="grid gap-3 md:grid-cols-[1fr_1fr]">
           <label className="block"><span className="ui-label">Name *</span><input className="ui-input w-full" required maxLength={80} value={keyForm.name} onChange={(e) => setKeyForm({ ...keyForm, name: e.target.value })} placeholder="e.g. greytHR sync" /></label>
@@ -212,7 +212,7 @@ export default function Integrations() {
         )}
       </section>
 
-      <section className="ui-card space-y-4 p-5" aria-labelledby="hooks-h">
+      <section className="ui-card space-y-4 p-4" aria-labelledby="hooks-h">
         <h2 id="hooks-h" className="ui-t-sec flex items-center gap-2"><Webhook size={16} aria-hidden="true" /> Webhooks</h2>
         <form onSubmit={addHook} className="grid gap-3 md:grid-cols-[1fr_2fr]">
           <label className="block"><span className="ui-label">Name *</span><input className="ui-input w-full" required maxLength={80} value={hookForm.name} onChange={(e) => setHookForm({ ...hookForm, name: e.target.value })} placeholder="e.g. Payroll system" /></label>
@@ -280,7 +280,7 @@ export default function Integrations() {
         </p>
       </section>
 
-      <section className="ui-card space-y-3 p-5 text-sm" aria-labelledby="api-h">
+      <section className="ui-card space-y-3 p-4 text-sm" aria-labelledby="api-h">
         <h2 id="api-h" className="ui-t-sec">The API</h2>
         <p>Base address <code className="ui-mono font-semibold">{base}</code>. Send the key as <code className="ui-mono">Authorization: Bearer clor_…</code>. Times are Indian Standard Time; at most 92 days per call, 120 calls a minute per key. Full reference: <a className="ui-link" href={`${base}/docs`} target="_blank" rel="noreferrer">{base}/docs</a> · <a className="ui-link" href={`${base}/openapi.json`} target="_blank" rel="noreferrer">openapi.json</a>. Lists take <code className="ui-mono">updated_since</code> + <code className="ui-mono">cursor</code> to sync only what changed; writes may carry an <code className="ui-mono">Idempotency-Key</code> header so a retry is never a second record.</p>
         <table className="ui-table w-full text-xs">
@@ -447,7 +447,7 @@ function Connectors({ onShown }) {
   };
 
   return (
-    <section className="ui-card space-y-4 p-5" aria-labelledby="agents-h">
+    <section className="ui-card space-y-4 p-4" aria-labelledby="agents-h">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 id="agents-h" className="ui-t-sec flex items-center gap-2"><Server size={16} aria-hidden="true" /> On-site connectors</h2>
         {!form ? <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => setForm({ ...EMPTY_AGENT })}><Plus size={14} aria-hidden="true" /> Add a connector</button> : null}
@@ -600,7 +600,7 @@ function HrTools() {
   const showLog = async (c) => setLog({ c, ...(await hrConnectionLog(c.id).catch(() => ({ log: [], failed: [] }))) });
 
   return (
-    <section className="ui-card space-y-4 p-5" aria-labelledby="hr-h">
+    <section className="ui-card space-y-4 p-4" aria-labelledby="hr-h">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 id="hr-h" className="ui-t-sec flex items-center gap-2"><Plug size={16} aria-hidden="true" /> HR tools</h2>
         {!form ? (

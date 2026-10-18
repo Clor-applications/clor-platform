@@ -30,7 +30,7 @@ export default function Enrolments() {
   const shown = (rows || []).filter((r) => !q.trim() || `${r.employeeName || ''} ${r.employeeCode || ''} ${r.pin}`.toLowerCase().includes(q.trim().toLowerCase()));
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <PageHeader
         entity="attendance"
         title="Enrolments"

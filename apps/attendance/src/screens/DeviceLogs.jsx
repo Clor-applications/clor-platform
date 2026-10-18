@@ -30,7 +30,7 @@ export default function DeviceLogs() {
   }, [load]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <PageHeader entity="attendance" title="Reader logs" description="Operations done at the readers, and errors they report." />
       <div className="flex flex-wrap items-center gap-2">
         <div role="tablist" className="flex gap-1">

@@ -41,7 +41,7 @@ export default function Rotations() {
   const name = (id) => (id === 'OFF' ? 'Off' : shifts.find((s) => s.id === id)?.name || '?');
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <PageHeader
         entity="attendance"
         title="Rotations"

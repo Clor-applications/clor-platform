@@ -61,7 +61,7 @@ export default function MyAttendance() {
 
   if (error) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-4">
         <PageHeader entity="attendance" title="My attendance" />
         <LoadFailed message={error} onRetry={load} />
       </div>
@@ -71,13 +71,13 @@ export default function MyAttendance() {
   const t = me.todayRecord;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <PageHeader entity="attendance" title="My attendance" description={`${me.employee.name}${me.employee.code ? ` · ${me.employee.code}` : ''} · ${me.shift.name} (${me.shift.startTime}–${me.shift.endTime})`} />
 
       {me.phone?.allowed ? (
         <PhonePunch phone={me.phone} punches={me.punches} onPunch={phonePunch} onDone={load} />
       ) : null}
-      <section className="ui-card flex flex-wrap items-center gap-6 p-6">
+      <section className="ui-card flex flex-wrap items-center gap-4 p-4">
         {!me.phone?.allowed ? <button type="button" className="ui-btn ui-btn-primary !h-12 !px-6 text-base" onClick={punch} disabled={busy}>
           {me.clockedIn ? <LogOut size={18} aria-hidden="true" /> : <LogIn size={18} aria-hidden="true" />}
           {busy ? 'Saving…' : me.clockedIn ? 'Clock out' : 'Clock in'}
@@ -124,7 +124,7 @@ export default function MyAttendance() {
         </div>
       </section>
 
-      <section className="ui-card p-5" aria-labelledby="fix-h">
+      <section className="ui-card p-4" aria-labelledby="fix-h">
         <h2 id="fix-h" className="ui-t-sec mb-3">Ask for a correction</h2>
         <form onSubmit={ask} className="grid gap-3 sm:grid-cols-4">
           <label className="block"><span className="ui-label">Day</span><input type="date" className="ui-input w-full" max={todayIst()} required value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} /></label>

@@ -121,10 +121,10 @@ export default function DataImport() {
   const reset = () => { setFile(null); setRows(null); setResult(null); setProblem(''); };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <PageHeader entity="attendance" title="Import" description="Bring a spreadsheet in: pick what it holds, use the template, drop the file." />
       <ol className="grid gap-4 lg:grid-cols-3">
-        <li className="ui-card p-5 space-y-3">
+        <li className="ui-card p-4 space-y-3">
           <h2 className="ui-t-sec"><span className="ui-caption mr-2">1</span>What the file holds</h2>
           <div className="space-y-1">
             {KINDS.map((k) => (
@@ -136,7 +136,7 @@ export default function DataImport() {
           </div>
           <p className="ui-caption">Punches straight from a reader’s export go in under Readers → add a reader → File import.</p>
         </li>
-        <li className="ui-card p-5 space-y-3">
+        <li className="ui-card p-4 space-y-3">
           <h2 className="ui-t-sec"><span className="ui-caption mr-2">2</span>The template</h2>
           <p className="ui-caption">Columns, in any order; extra columns are ignored.</p>
           <ul className="text-sm space-y-0.5">
@@ -146,7 +146,7 @@ export default function DataImport() {
             <Download size={16} aria-hidden="true" /> Download template
           </button>
         </li>
-        <li className="ui-card p-5 space-y-3">
+        <li className="ui-card p-4 space-y-3">
           <h2 className="ui-t-sec"><span className="ui-caption mr-2">3</span>The file</h2>
           <input ref={input} type="file" accept=".csv,text/csv" className="sr-only" onChange={(e) => pick(e.target.files?.[0])} />
           <button type="button" className="ui-btn ui-btn-secondary w-full" onClick={() => input.current?.click()}>

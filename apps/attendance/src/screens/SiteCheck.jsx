@@ -74,7 +74,7 @@ export default function SiteCheck() {
   if (loadError) return <LoadFailed error={loadError} onRetry={() => { setLoadError(null); load(); }} />;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <PageHeader
         title="Site check"
         subtitle="Stand where staff will punch and see whether this spot is inside a work site. Nothing is recorded."
