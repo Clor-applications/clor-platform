@@ -14,6 +14,7 @@ const { peoplePrisma } = await import('../utils/peoplePrisma.js');
 const { usersWithPermission, notifyPermission, notifyPermissionOnce, pruneNotifications } = await import('../services/notifications.js');
 const { runReaderChecks } = await import('../services/attendance/readerHealth.js');
 const { runDocumentReminders } = await import('../services/people/documentReminders.js');
+const { runBooksDigest, booksDigestFor } = await import('../services/booksDigest.js');
 
 const app = buildApp().listen(0);
 afterAll(async () => {
@@ -136,3 +137,20 @@ describe('what produces them', () => {
     expect(await platformPrisma.emailOutbox.count({ where: { orgId: c.orgId, templateKey: 'people.document_expiring' } })).toBe(1);
   });
 });
+
+describe('the books, in the shared bell', () => {
+  it('overdue invoices and payables due this week become one reminder each, once while unread', async () => {
+    const c = await makeOwner();
+    const inv = (await request(app).post(`/api/orgs/${c.orgId}/invoices`).set(at(c)).send({ date: '2026-09-01', dueDate: '2026-09-15', customerName: 'Late Payer', subtotal: 1000, gstTotal: 0, total: 1000, items: [{ description: 'Work', quantity: 1, rate: 1000, gstRate: 0 }] }).expect(201)).body.invoice;
+    const { prisma } = await import('../utils/prisma.js');
+    await prisma.invoice.update({ where: { id: inv.id }, data: { status: 'Unpaid', dueDate: '2026-09-15' } });
+    const d = await booksDigestFor(c.orgId, new Date('2026-10-18T04:00:00Z'));
+    expect(d.overdue).toEqual({ count: 1, amount: 1000 });
+    await runBooksDigest(new Date('2026-10-18T04:00:00Z'));
+    await runBooksDigest(new Date('2026-10-19T04:00:00Z'));
+    const rows = (await inbox(c).expect(200)).body.notifications.filter((n: any) => n.kind === 'books.overdue');
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ title: '1 invoice overdue', body: '₹1,000.00 past due date', link: { app: 'accounting', screen: 'invoices' } });
+  });
+});
+

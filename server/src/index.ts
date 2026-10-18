@@ -6,6 +6,7 @@ import { startHrSync } from './services/hr/sync.js';
 import { startReportSchedules } from './services/attendance/reportSchedules.js';
 import { startDocumentReminders } from './services/people/documentReminders.js';
 import { startNotificationPruning } from './services/notifications.js';
+import { startBooksDigest } from './services/booksDigest.js';
 import { build as buildReport } from './routes/attendanceReports.js';
 import { startPhotoPurge, startReaderChecks, startVendorSync, startWebhookRetries } from './services/vendorSyncScheduler.js';
 
@@ -36,5 +37,6 @@ startRetentionPurge();
 startHrSync();
 startDocumentReminders();
 startNotificationPruning();
+startBooksDigest();
 /* Reports that go out by e-mail on their own — every 15 minutes the due ones are sent. */
 startReportSchedules(buildReport);
