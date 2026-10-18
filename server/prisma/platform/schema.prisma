@@ -726,6 +726,25 @@ model AuthProvider {
   @@index([accountId, orgId, enabled])
 }
 
+/// A bearer token an identity provider (Microsoft Entra, Okta, …) uses to
+/// provision users into one organisation over SCIM 2.0 (routes/scim.ts). The
+/// token is shown once; only its hash is kept.
+model ScimToken {
+  id              String    @id @default(cuid())
+  accountId       String
+  orgId           String
+  tokenHash       String    @unique
+  tokenPrefix     String
+  /// Role given to users the provider creates (none = view nothing until assigned).
+  defaultRoleId   String?
+  lastUsedAt      DateTime?
+  lastError       String?
+  createdByUserId String
+  createdAt       DateTime  @default(now())
+
+  @@index([accountId, orgId])
+}
+
 // ============================================================================
 // Billing / subscriptions — the commercial layer (gateway-agnostic)
 // ============================================================================

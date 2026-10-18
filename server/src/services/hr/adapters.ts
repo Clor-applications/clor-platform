@@ -146,6 +146,100 @@ const keka: HrAdapter = {
   },
 };
 
-export const ADAPTERS: HrAdapter[] = [greythr, keka];
+/* ---------------------------------------------------------------- Zoho People */
+
+/** Access tokens from a refresh token, kept per connection until they expire. */
+const zohoTokens = new Map<string, { token: string; exp: number }>();
+const zohoAccounts = (config: Record<string, string>) => (config.apiBase ? site(config.apiBase) : `https://accounts.zoho.${config.dc || 'in'}`);
+const zohoPeople = (config: Record<string, string>) => (config.apiBase ? site(config.apiBase) : `https://people.zoho.${config.dc || 'in'}`);
+
+export const zohoToken = async (config: Record<string, string>, secrets: Record<string, string>) => {
+  const key = `${config.clientId}|${secrets.refreshToken?.slice(-12)}`;
+  const have = zohoTokens.get(key);
+  if (have && have.exp > Date.now() + 60_000) return have.token;
+  const body = new URLSearchParams({ grant_type: 'refresh_token', client_id: need(config, 'clientId', 'Client ID'), client_secret: need(secrets, 'clientSecret', 'Client secret'), refresh_token: need(secrets, 'refreshToken', 'Refresh token') }).toString();
+  const res = await guardedRequest('POST', `${zohoAccounts(config)}/oauth/v2/token`, { headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body, timeoutMs: 20_000 });
+  const j: any = JSON.parse(res.text || '{}');
+  if (res.status !== 200 || !j.access_token) throw new Error(j.error ? `Zoho refused the refresh token (${j.error})` : `Zoho answered ${res.status} for the token`);
+  zohoTokens.set(key, { token: String(j.access_token), exp: Date.now() + (Number(j.expires_in) || 3600) * 1000 });
+  return String(j.access_token);
+};
+
+/** `[{ empId, checkIn }]` / `[{ empId, checkOut }]` — Zoho wants one or the other per record. A punch with no direction goes as a check-in. */
+export const zohoRecords = (punches: Punch[]) => punches.map((p) => ({ empId: p.code, ...(p.direction === 'OUT' ? { checkOut: p.time } : { checkIn: p.time }) }));
+
+const zoho: HrAdapter = {
+  id: 'ZOHO_PEOPLE',
+  label: 'Zoho People',
+  blurb: 'Punches go in as check-ins and check-outs (the attendance bulk-import API); people can be read from Zoho so the two lists match. Needs a Zoho API client with a refresh token.',
+  docsUrl: 'https://www.zoho.com/people/api/attendance-bulkimport.html',
+  capabilities: ['pushPunches', 'pullEmployees'],
+  fields: [
+    { key: 'dc', label: 'Zoho data centre', placeholder: 'in', required: true, help: 'in for zoho.in (India), com for zoho.com, eu, com.au, jp' },
+    { key: 'clientId', label: 'Client ID', required: true, help: 'api-console.zoho.in → Self Client' },
+    { key: 'clientSecret', label: 'Client secret', secret: true, required: true },
+    { key: 'refreshToken', label: 'Refresh token', secret: true, required: true, help: 'Generated once with scopes ZOHOPEOPLE.attendance.ALL and ZOHOPEOPLE.forms.READ' },
+    { key: 'apiBase', label: 'API base URL override', help: 'Leave blank. Only for a proxy or a test double; replaces the accounts and people hosts.' },
+  ],
+  async test(config, secrets) {
+    try {
+      const token = await zohoToken(config, secrets);
+      const res = await guardedRequest('GET', `${zohoPeople(config)}/people/api/forms/employee/getRecords?sIndex=1&limit=1`, { headers: { Authorization: `Zoho-oauthtoken ${token}` }, timeoutMs: 20_000 });
+      if (res.status !== 200) return { ok: false, message: `Zoho People answered ${res.status} when reading one employee — check the scopes on the token.` };
+      return { ok: true, message: 'Zoho People accepted the token.' };
+    } catch (e: any) {
+      return { ok: false, message: String(e?.message || e) };
+    }
+  },
+  async pushPunches(config, secrets, punches) {
+    const token = await zohoToken(config, secrets);
+    const body = new URLSearchParams({ data: JSON.stringify(zohoRecords(punches)), dateFormat: 'yyyy-MM-dd HH:mm:ss' }).toString();
+    const res = await guardedRequest('POST', `${zohoPeople(config)}/people/api/attendance/bulkImport`, { headers: { Authorization: `Zoho-oauthtoken ${token}`, 'Content-Type': 'application/x-www-form-urlencoded' }, body, timeoutMs: 30_000 });
+    let j: any = {};
+    try {
+      j = JSON.parse(res.text || '{}');
+    } catch {
+      /* not JSON */
+    }
+    if (res.status >= 200 && res.status < 300 && (j.response === 'success' || j.response?.status === 0)) {
+      /* Employee IDs Zoho does not know come back as skipped: those punches are rejected for good, the rest went in. */
+      const skipped = new Set<string>((Array.isArray(j.skippedEmpInfo) ? j.skippedEmpInfo : []).map(String));
+      const rejected = punches.filter((p) => skipped.has(p.code)).map((p) => ({ key: p.key, error: `Zoho People has no employee ${p.code}` }));
+      return { accepted: punches.length - rejected.length, rejected };
+    }
+    const why = j.response?.message || j.message || j.error || `Zoho People answered ${res.status}`;
+    return { accepted: 0, rejected: punches.map((p) => ({ key: p.key, error: String(why) })), retryAll: res.status >= 500 || res.status === 429 || res.status === 0 };
+  },
+  async pullEmployees(config, secrets) {
+    const token = await zohoToken(config, secrets);
+    const out: RemoteEmployee[] = [];
+    for (let sIndex = 1; sIndex <= 10_001; sIndex += 200) {
+      const res = await guardedRequest('GET', `${zohoPeople(config)}/people/api/forms/employee/getRecords?sIndex=${sIndex}&limit=200`, { headers: { Authorization: `Zoho-oauthtoken ${token}` }, timeoutMs: 30_000 });
+      if (res.status !== 200) throw new Error(`Zoho People answered ${res.status} when listing employees`);
+      const j: any = JSON.parse(res.text || '{}');
+      const result: any[] = Array.isArray(j.response?.result) ? j.response.result : [];
+      let n = 0;
+      for (const wrapper of result) {
+        for (const [zohoId, recs] of Object.entries(wrapper || {})) {
+          const e: any = Array.isArray(recs) ? recs[0] : recs;
+          if (!e) continue;
+          n += 1;
+          out.push({
+            externalId: String(zohoId),
+            code: e.EmployeeID ? String(e.EmployeeID) : null,
+            name: String(`${e.FirstName || ''} ${e.LastName || ''}`.trim() || e.EmployeeID || ''),
+            email: e.EmailID ? String(e.EmailID) : null,
+            department: e.Department ? String(e.Department) : null,
+            active: !/inactive|resign|terminat|exit/i.test(String(e.Employeestatus || 'Active')),
+          });
+        }
+      }
+      if (n < 200) break;
+    }
+    return out;
+  },
+};
+
+export const ADAPTERS: HrAdapter[] = [greythr, keka, zoho];
 export const adapterOf = (id: string) => ADAPTERS.find((a) => a.id === String(id || '').toUpperCase()) || null;
 export const publicAdapter = (a: HrAdapter) => ({ id: a.id, label: a.label, blurb: a.blurb, docsUrl: a.docsUrl, capabilities: a.capabilities, fields: a.fields });

@@ -44,6 +44,7 @@ import { publicApiRouter } from './routes/publicApi.js';
 import { ingestRouter } from './routes/ingest.js';
 import { matrixRouter } from './routes/matrix.js';
 import { hikvisionPushRouter } from './routes/hikvisionPush.js';
+import { scimRouter } from './routes/scim.js';
 import { personnelRouter } from './routes/personnel.js';
 import { schedulingRouter } from './routes/scheduling.js';
 import { portalRouter } from './routes/portal.js';
@@ -191,6 +192,8 @@ export function buildApp() {
   app.use('/matrix', matrixRouter);
   /* Hikvision terminals post multipart (JSON + a picture): the raw body is parsed in the route. */
   app.use('/hikvision', express.raw({ type: () => true, limit: '8mb' }), hikvisionPushRouter);
+  /* SCIM provisioning from an identity provider: its own bearer token, JSON as application/scim+json. */
+  app.use('/scim/v2', express.json({ limit: '1mb', type: ['application/json', 'application/scim+json'] }), scimRouter);
   /* A phone punch may carry a selfie (≤ 2 MB, base64): its own, larger limit. */
   app.use('/api/portal/punch', express.json({ limit: '3mb' }));
   /* A document on an employee file (≤ 5 MB, base64). */

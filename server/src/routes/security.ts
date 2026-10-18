@@ -9,6 +9,8 @@ import { requirePermission } from '../middleware/rbac.js';
 import { PermissionAction } from '../constants/enums.js';
 import { decryptSecret, encryptSecret } from '../services/mailer.js';
 import { callbackUrl } from './sso.js';
+import { newScimToken } from './scim.js';
+import { hashToken } from './publicApi.js';
 import { codeLimiter } from '../middleware/rateLimit.js';
 import { hashRecovery, newSecret, otpauthUri, recoveryCodes, verifyCode } from '../services/totp.js';
 import { STEP_UP_MINUTES, issueStepUp } from '../services/stepUp.js';
@@ -136,6 +138,38 @@ const publicProvider = (p: any) => ({
   lastError: p.lastError,
   // OIDC signs people in (routes/sso.ts); SAML is stored but not yet spoken.
   status: p.kind === 'OIDC' ? (p.enabled ? ('ACTIVE' as const) : ('DISABLED' as const)) : ('CONFIGURED_NOT_ACTIVE' as const),
+});
+
+/* ------------------------------------------------------------ SCIM tokens */
+
+const scimBase = () => `${process.env.API_PUBLIC_URL || process.env.PUBLIC_API_URL || 'https://api.clor.in'}/scim/v2`;
+const publicScim = (t: { id: string; tokenPrefix: string; defaultRoleId: string | null; lastUsedAt: Date | null; lastError: string | null; createdAt: Date }) => ({ id: t.id, tokenPrefix: t.tokenPrefix, defaultRoleId: t.defaultRoleId, lastUsedAt: t.lastUsedAt, lastError: t.lastError, createdAt: t.createdAt });
+
+/** Directory sync: the SCIM address and the tokens made for it. */
+securityRouter.get('/orgs/:orgId/security/scim', VIEW, async (req, res) => {
+  if (!orgOk(req, res)) return;
+  const rows = await platformPrisma.scimToken.findMany({ where: { accountId: req.tenant!.accountId, orgId: req.tenant!.orgId }, orderBy: { createdAt: 'asc' } });
+  res.json({ baseUrl: scimBase(), tokens: rows.map(publicScim) });
+});
+
+/** A new token, shown once. */
+securityRouter.post('/orgs/:orgId/security/scim', EDIT, async (req, res) => {
+  if (!orgOk(req, res)) return;
+  const { accountId, orgId } = req.tenant!;
+  const defaultRoleId = req.body?.defaultRoleId ? String(req.body.defaultRoleId) : null;
+  if (defaultRoleId && !(await platformPrisma.role.findFirst({ where: { id: defaultRoleId, orgId }, select: { id: true } }))) return res.status(400).json({ error: 'That role is not in this organisation.' });
+  if ((await platformPrisma.scimToken.count({ where: { orgId } })) >= 5) return res.status(400).json({ error: 'Five tokens is the most; revoke one first.' });
+  const token = newScimToken();
+  const row = await platformPrisma.scimToken.create({ data: { accountId, orgId, tokenHash: hashToken(token), tokenPrefix: token.slice(0, 12), defaultRoleId, createdByUserId: req.auth!.userId } });
+  res.status(201).json({ token, scim: publicScim(row), baseUrl: scimBase() });
+});
+
+securityRouter.delete('/orgs/:orgId/security/scim/:id', EDIT, async (req, res) => {
+  if (!orgOk(req, res)) return;
+  const row = await platformPrisma.scimToken.findFirst({ where: { id: String(req.params.id), orgId: req.tenant!.orgId } });
+  if (!row) return res.status(404).json({ error: 'No such token.' });
+  await platformPrisma.scimToken.delete({ where: { id: row.id } });
+  res.json({ ok: true });
 });
 
 securityRouter.get('/orgs/:orgId/security/providers', VIEW, async (req, res) => {

@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { tallyJournalXml } from '../services/payroll/tally.js';
 import { z } from 'zod';
 
 import { requireAuth } from '../middleware/auth.js';
@@ -76,6 +77,40 @@ payrollPostingRouter.post(
           postedAt: posting.postedAt,
         },
       });
+    } catch (e) {
+      return handle(res, e);
+    }
+  }
+);
+
+/**
+ * The same entry as Tally import XML (Gateway of Tally → Import Data →
+ * Vouchers). Ledger names are CLOR's account names; they must exist in the
+ * Tally company by the same name.
+ */
+payrollPostingRouter.get(
+  '/orgs/:orgId/payroll/runs/:id/tally',
+  requirePermission(PAYROLL_MODULE, PermissionAction.VIEW, RESOURCE),
+  async (req, res) => {
+    if (!(await payrollRouteOk(req, res))) return;
+    const { accountId, orgId } = req.tenant!;
+    try {
+      const run = await payrollPrisma.payrollRun.findFirst({ where: { accountId, orgId, id: String(req.params.id) } });
+      if (!run) return res.status(404).json({ error: 'No such payroll run.' });
+      const period = await payrollPrisma.payrollPeriod.findFirst({ where: { id: run.periodId } });
+      const preview = await previewPosting(accountId, orgId, run.id);
+      if (!preview.lines.length) return res.status(400).json({ error: 'Nothing to export: the run has no amounts, or no component is mapped to a ledger.' });
+      const ledgers = await accountingFor(accountId).getLedgersByIds(orgId, [...new Set(preview.lines.map((l) => l.ledgerAccountId))]);
+      const names = new Map(ledgers.map((l) => [l.id, l.name]));
+      const date = period?.endDate || new Date().toISOString().slice(0, 10);
+      const label = period?.name || date.slice(0, 7);
+      const xml = tallyJournalXml({
+        date,
+        voucherNumber: `PAY-${label.replace(/\s+/g, '-')}`,
+        narration: `Payroll ${label} (CLOR run ${run.id.slice(-6)})`,
+        lines: preview.lines.map((l) => ({ ledgerName: names.get(l.ledgerAccountId) || l.ledgerName, debit: l.debit, credit: l.credit })),
+      });
+      res.json({ filename: `payroll-${label.replace(/[^\w.-]+/g, '-')}-tally.xml`, xml, lines: preview.lines.length, totalDebit: preview.totalDebit, totalCredit: preview.totalCredit, balanced: preview.balanced, problems: preview.problems });
     } catch (e) {
       return handle(res, e);
     }
