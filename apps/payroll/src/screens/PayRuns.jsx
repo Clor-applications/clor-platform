@@ -18,6 +18,7 @@ import {
   approvePayrollRun,
   rejectPayrollRun,
   lockPayrollRun,
+  payrollTallyXml,
   previewPayrollPosting,
   postPayrollRun,
 } from '../api/payrollRuns';
@@ -781,6 +782,20 @@ const BooksStage = ({ runId, run, onPosted }) => {
   }
   if (!preview) return <SkeletonCard lines={4} />;
 
+  const tally = async () => {
+    try {
+      const r = await payrollTallyXml(runId);
+      const url = URL.createObjectURL(new Blob([r.xml], { type: 'application/xml' }));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = r.filename;
+      a.click();
+      URL.revokeObjectURL(url);
+      notify.success('Tally XML downloaded. Import it under Gateway of Tally → Import Data → Vouchers; ledger names must match.');
+    } catch (e) {
+      notify.error(String(e?.message || 'Could not make the Tally file.'));
+    }
+  };
   const post = async () => {
     setPosting(true);
     try {
@@ -849,11 +864,18 @@ const BooksStage = ({ runId, run, onPosted }) => {
         <span className={`ui-pill ${preview.balanced ? 'ui-pill-pos' : 'ui-pill-neg'}`}>
           {preview.balanced ? 'Balanced' : 'Does not balance'}
         </span>
-        {!preview.alreadyPosted && preview.balanced && !preview.problems.length && ['APPROVED', 'LOCKED'].includes(run.status) ? (
-          <button type="button" className="ui-btn ui-btn-primary" onClick={post} disabled={posting}>
-            {posting ? 'Posting…' : 'Post to accounts'}
-          </button>
-        ) : null}
+        <span className="flex flex-wrap items-center gap-2">
+          {preview.balanced && !preview.problems.length ? (
+            <button type="button" className="ui-btn ui-btn-secondary" onClick={tally} title="Tally Prime / ERP 9 import file">
+              Tally XML
+            </button>
+          ) : null}
+          {!preview.alreadyPosted && preview.balanced && !preview.problems.length && ['APPROVED', 'LOCKED'].includes(run.status) ? (
+            <button type="button" className="ui-btn ui-btn-primary" onClick={post} disabled={posting}>
+              {posting ? 'Posting…' : 'Post to accounts'}
+            </button>
+          ) : null}
+        </span>
       </div>
     </div>
   );

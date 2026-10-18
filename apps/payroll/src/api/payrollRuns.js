@@ -67,6 +67,8 @@ export async function previewPayrollPosting(id) {
 
 /** The journal a run produced, and the entry as accounting holds it. */
 export const getPayrollPosting = (id) => apiFetch(`${base()}/${encodeURIComponent(id)}/posting`, opts);
+/** The same entry as Tally import XML: { filename, xml, … }. */
+export const payrollTallyXml = (id) => apiFetch(`${base()}/${encodeURIComponent(id)}/tally`, opts);
 
 export const submitRunForReview = stage('submit-review');
 export const approvePayrollRun = stage('approve');
