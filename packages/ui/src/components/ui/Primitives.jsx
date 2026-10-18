@@ -96,8 +96,8 @@ export const StatTile = ({ label, value, hint, tone = 'neutral', icon: Icon = nu
           />
         ) : null}
       </div>
-      <div className={`ui-kpi mt-3 ${toneClass}`} title={title || undefined}>{shown}</div>
-      {hint ? <div className="ui-caption mt-2">{hint}</div> : null}
+      <div className={`ui-kpi ${toneClass}`} title={title || undefined}>{shown}</div>
+      {hint ? <div className="ui-caption">{hint}</div> : null}
     </div>
   );
 };
@@ -233,7 +233,7 @@ export const EmptyState = ({
       : null);
 
   return (
-    <div className="ui-in flex flex-col items-center justify-center text-center py-12 px-6">
+    <div className="ui-in flex flex-col items-center justify-center text-center py-8 px-6">
       {/*
         An illustration rather than an icon in a grey circle.
 
@@ -251,7 +251,7 @@ export const EmptyState = ({
         glyphs standing in for art that did not exist; the art exists now.
         The prop stays in the signature so no caller breaks.
       */}
-      <Illustration kind={kind} size={104} className="mb-4 opacity-90" />
+      <Illustration kind={kind} size={64} className="mb-3 opacity-90" />
 
       <div className="ui-t-sec">{headline}</div>
       {/*

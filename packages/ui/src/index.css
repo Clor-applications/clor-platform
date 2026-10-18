@@ -2448,38 +2448,22 @@
     .ui-strip > * + * { border-left: 0; border-top: 1px solid rgb(var(--border)); }
   }
 
+  /* A figure and its label. Compact: a row of these sits above a list, and
+     the list is what people came for. Not clickable, so no hover lift. */
   .ui-stat {
     position: relative;
-    overflow: hidden;
     background-color: rgb(var(--surface));
     border: 1px solid rgb(var(--border));
     border-radius: var(--radius);
-    padding: var(--space-4);
+    padding: var(--space-3) var(--space-4);
     box-shadow: var(--shadow-card);
-    transition: transform var(--dur-surface) var(--ease-out), box-shadow var(--dur-surface) ease,
-      border-color var(--dur-surface) ease;
   }
-  @media (hover: hover) and (pointer: fine) {
-  .ui-stat:hover {
-      transform: translate3d(0, -2px, 0);
-      box-shadow: var(--shadow-lift);
-      border-color: rgb(var(--border-strong));
-    }
+  .ui-stat .ui-kpi {
+    font-size: clamp(1.375rem, 1.6vw, 1.75rem);
+    margin-top: var(--space-1);
   }
-  /* A hairline of brand colour on the top edge, revealed on hover. Enough to
-     acknowledge the pointer without repainting the card. */
-  .ui-stat::after {
-    content: '';
-    position: absolute;
-    inset: 0 0 auto 0;
-    height: 2px;
-    background: rgb(var(--brand));
-    transform: scaleX(0);
-    transform-origin: left center;
-    transition: transform 260ms var(--ease-out);
-  }
-  @media (hover: hover) and (pointer: fine) {
-  .ui-stat:hover::after { transform: scaleX(1); }
+  .ui-stat .ui-caption {
+    margin-top: 0.125rem;
   }
 
   /* --- marketing sections --- */
