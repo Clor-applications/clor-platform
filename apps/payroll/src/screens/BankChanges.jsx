@@ -116,10 +116,10 @@ export default function BankChanges() {
                     <td className="whitespace-nowrap text-end">
                       {r.status === 'PENDING' ? (
                         <span className="inline-flex gap-2">
-                          <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={busy === r.id} onClick={() => decide(r, true)}>
+                          <button type="button" data-permission="PAYROLL::Payroll Runs::APPROVE" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={busy === r.id} onClick={() => decide(r, true)}>
                             <Check size={14} aria-hidden="true" /> Approve
                           </button>
-                          <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" disabled={busy === r.id} onClick={() => decide(r, false)}>
+                          <button type="button" data-permission="PAYROLL::Payroll Runs::APPROVE" className="ui-btn ui-btn-ghost ui-btn-sm" disabled={busy === r.id} onClick={() => decide(r, false)}>
                             <X size={14} aria-hidden="true" /> Reject
                           </button>
                         </span>

@@ -24,6 +24,9 @@ import { describePermission } from './ActionGuard';
 export const WRITE_ACTIONS = ['EDIT', 'CREATE', 'DELETE', 'APPROVE'];
 
 const WRITE_SELECTOR = 'button.ui-btn-primary, button.ui-btn-danger, button[type="submit"], [data-write], .ui-btn-danger, input[type="submit"]';
+/** A decision, not an edit: needs APPROVE on the screen's resource (or the control's own data-permission). */
+const DECISION = /^(approve|reject|decline|sign off)\b/i;
+const decisionText = (el) => String(el.getAttribute('aria-label') || el.textContent || '').trim();
 
 /** The write permissions behind a VIEW permission, or [] when the key is not of that shape. */
 export const writeKeysOf = (viewPermission) => {
@@ -44,6 +47,8 @@ export const readOnlyFor = (viewPermission, { permissions, loading, error, isAdm
 export const WriteGuard = ({ permission, children }) => {
   const perms = usePermissions();
   const readOnly = useMemo(() => readOnlyFor(permission, perms), [permission, perms]);
+  const known = !perms.loading && !perms.error && perms.permissions && perms.permissions.size > 0 && !perms.isAdmin;
+  const approveKey = useMemo(() => writeKeysOf(permission).find((k) => k.endsWith('::APPROVE')) || null, [permission]);
   const reason = useMemo(() => {
     const edit = writeKeysOf(permission)[0];
     return edit ? `View only: you need ${describePermission(edit)} to change anything here. Ask an administrator.` : '';
@@ -52,6 +57,17 @@ export const WriteGuard = ({ permission, children }) => {
   /* Capture phase, so the screen's own handler never runs. Links and plain navigation are untouched. */
   const stop = useCallback(
     (e) => {
+      /* Approve / reject: allowed only with APPROVE, whatever else the person may change here. */
+      const btn = known ? e.target?.closest?.('button, [role="button"]') : null;
+      if (btn && DECISION.test(decisionText(btn)) && !btn.closest('[data-write-allowed]')) {
+        const need = btn.getAttribute('data-permission') || approveKey;
+        if (need && !perms.permissions.has(need)) {
+          e.preventDefault();
+          e.stopPropagation();
+          notify.error(`You need ${describePermission(need)} to do this. Ask an administrator.`);
+          return;
+        }
+      }
       if (!readOnly) return;
       const el = e.target?.closest?.(WRITE_SELECTOR);
       if (!el || el.closest('[data-write-allowed]')) return;
@@ -59,10 +75,10 @@ export const WriteGuard = ({ permission, children }) => {
       e.stopPropagation();
       notify.error(reason);
     },
-    [readOnly, reason],
+    [readOnly, reason, known, approveKey, perms.permissions],
   );
 
-  if (!readOnly) return children;
+  if (!readOnly) return known && approveKey ? <div style={{ display: 'contents' }} onClickCapture={stop}>{children}</div> : children;
   return (
     <div data-readonly="true" onClickCapture={stop} onSubmitCapture={stop}>
       <div className="ui-card mb-4 flex items-start gap-3 p-3 text-sm" role="status" style={{ borderColor: 'rgb(var(--warn, 234 88 12))' }}>
