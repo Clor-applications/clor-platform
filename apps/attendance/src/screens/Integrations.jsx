@@ -1,10 +1,19 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Copy, KeyRound, Plus, Webhook } from 'lucide-react';
+import { Copy, KeyRound, Plug, Plus, Webhook } from 'lucide-react';
 
 import { PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import {
   createApiKey,
+  createHrConnection,
+  deleteHrConnection,
+  flushHrConnection,
+  hrConnectionLog,
+  listHrAdapters,
+  listHrConnections,
+  pullHrConnection,
+  testHrConnection,
+  updateHrConnection,
   createWebhook,
   deleteWebhook,
   listApiKeys,
@@ -139,6 +148,8 @@ export default function Integrations() {
     <div className="space-y-6">
       <PageHeader entity="attendance" title="Integrations" description="Let other systems read attendance or send punches, and have CLOR tell them when things happen." />
       {shown ? <ShownOnce label={shown.label} value={shown.value} onDone={() => setShown(null)} /> : null}
+
+      <HrTools />
 
       <section className="ui-card space-y-4 p-5" aria-labelledby="keys-h">
         <h2 id="keys-h" className="ui-t-sec flex items-center gap-2"><KeyRound size={16} aria-hidden="true" /> API keys</h2>
@@ -350,5 +361,157 @@ function Deliveries({ hook }) {
         </tbody>
       </table>
     </div>
+  );
+}
+
+/**
+ * HR tools the company runs alongside CLOR — greytHR, Keka — connected by
+ * their own credentials. Punches go out as they arrive (an outbox that
+ * retries); people can be read in so the two lists match. What a tool can
+ * do is what its adapter declares; the screen offers nothing more.
+ */
+function HrTools() {
+  const [adapters, setAdapters] = useState([]);
+  const [rows, setRows] = useState(null);
+  const [form, setForm] = useState(null);
+  const [busy, setBusy] = useState('');
+  const [log, setLog] = useState(null);
+  const load = useCallback(() => listHrConnections().then(setRows).catch(() => setRows([])), []);
+  useEffect(() => {
+    listHrAdapters().then(setAdapters).catch(() => {});
+    load();
+  }, [load]);
+  const adapter = (id) => adapters.find((a) => a.id === id);
+
+  const save = async (e) => {
+    e.preventDefault();
+    setBusy('save');
+    try {
+      const body = { adapter: form.adapter, name: form.name, fields: form.fields, enabled: form.enabled, pushPunches: form.pushPunches, pullEmployees: form.pullEmployees, createEmployees: form.createEmployees };
+      if (form.id) await updateHrConnection(form.id, body);
+      else await createHrConnection(body);
+      notify.success(form.id ? 'Saved.' : 'Connected. Test it, then switch it on.');
+      setForm(null);
+      load();
+    } catch (err) {
+      notify.error(String(err?.message || 'Not saved.'));
+    } finally {
+      setBusy('');
+    }
+  };
+  const act = async (id, fn, label) => {
+    setBusy(id + label);
+    try {
+      const r = await fn(id);
+      if (label === 'test') (r.ok ? notify.success : notify.error)(r.message);
+      else if (label === 'pull') notify.success(`Read ${r.pulled}, matched ${r.matched}${r.created ? `, added ${r.created}` : ''}.`);
+      else if (label === 'flush') notify.success(`${r.sent} sent.`);
+      load();
+    } catch (err) {
+      notify.error(String(err?.message || 'Failed.'));
+    } finally {
+      setBusy('');
+    }
+  };
+  const remove = async (c) => {
+    if (!(await confirmDialog({ title: `Disconnect ${c.name}?`, message: 'Nothing already sent is withdrawn; waiting punches are dropped.', confirmLabel: 'Disconnect' }))) return;
+    await deleteHrConnection(c.id).catch((e) => notify.error(String(e?.message || 'Not removed.')));
+    load();
+  };
+  const startNew = (a) => setForm({ adapter: a.id, name: a.label, fields: {}, enabled: false, pushPunches: a.capabilities.includes('pushPunches'), pullEmployees: false, createEmployees: false });
+  const edit = (c) => setForm({ id: c.id, adapter: c.adapter, name: c.name, fields: { ...c.config }, enabled: c.enabled, pushPunches: c.pushPunches, pullEmployees: c.pullEmployees, createEmployees: c.createEmployees, secretsSet: c.secretsSet });
+  const showLog = async (c) => setLog({ c, ...(await hrConnectionLog(c.id).catch(() => ({ log: [], failed: [] }))) });
+
+  return (
+    <section className="ui-card space-y-4 p-5" aria-labelledby="hr-h">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 id="hr-h" className="ui-t-sec flex items-center gap-2"><Plug size={16} aria-hidden="true" /> HR tools</h2>
+        {!form ? (
+          <div className="flex flex-wrap gap-2">
+            {adapters.map((a) => <button key={a.id} type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => startNew(a)}><Plus size={14} aria-hidden="true" /> {a.label}</button>)}
+          </div>
+        ) : null}
+      </div>
+      <p className="ui-caption">Punches reach the tool as they arrive, with retries; people can be read in so the two lists match. Each tool’s own credentials, kept encrypted.</p>
+
+      {!rows ? <SkeletonCard lines={3} /> : rows.length ? (
+        <ul className="divide-y" style={{ borderColor: 'rgb(var(--border))' }}>
+          {rows.map((c) => (
+            <li key={c.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
+              <div className="min-w-0">
+                <div className="font-medium">{c.name} <span className="ui-caption font-normal">· {c.adapterLabel}</span></div>
+                <div className="ui-caption">
+                  {c.pushPunches ? 'punches out' : ''}{c.pushPunches && c.pullEmployees ? ' · ' : ''}{c.pullEmployees ? `people in${c.createEmployees ? ' (adding new)' : ''}` : ''}
+                  {c.outbox?.PENDING ? ` · ${c.outbox.PENDING} waiting` : ''}{c.outbox?.FAILED ? ` · ${c.outbox.FAILED} failed` : ''}
+                  {c.lastRunAt ? ` · last run ${new Date(c.lastRunAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}` : ''}
+                </div>
+                {c.lastSummary && !c.lastError ? <div className="ui-caption">{c.lastSummary}</div> : null}
+                {c.lastError ? <div className="ui-caption" style={{ color: 'rgb(var(--neg))' }}>{c.lastError}</div> : null}
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className={`ui-pill ${c.enabled ? 'ui-pill-pos' : 'ui-pill-neutral'}`}>{c.enabled ? 'On' : 'Off'}</span>
+                <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={Boolean(busy)} onClick={() => act(c.id, testHrConnection, 'test')}>Test</button>
+                {c.capabilities.includes('pullEmployees') ? <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={Boolean(busy)} onClick={() => act(c.id, pullHrConnection, 'pull')}>Read people now</button> : null}
+                {c.outbox?.PENDING || c.outbox?.FAILED ? <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={Boolean(busy)} onClick={() => act(c.id, flushHrConnection, 'flush')}>Send now</button> : null}
+                <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => updateHrConnection(c.id, { enabled: !c.enabled }).then(load).catch((e) => notify.error(String(e?.message || 'Not changed.')))}>{c.enabled ? 'Switch off' : 'Switch on'}</button>
+                <button type="button" className="ui-link text-sm" onClick={() => showLog(c)}>Log</button>
+                <button type="button" className="ui-link text-sm" onClick={() => edit(c)}>Edit</button>
+                <button type="button" className="ui-link text-sm" onClick={() => remove(c)}>Disconnect</button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      ) : <p className="ui-caption">Nothing connected yet.</p>}
+
+      {form ? (
+        <form onSubmit={save} className="rounded-lg p-4 space-y-3" style={{ backgroundColor: 'rgb(var(--surface-sunken))' }} aria-label={form.id ? 'Edit connection' : 'New connection'}>
+          <div className="flex items-baseline justify-between gap-2">
+            <h3 className="ui-t-sec">{adapter(form.adapter)?.label || form.adapter}</h3>
+            {adapter(form.adapter)?.docsUrl ? <a className="ui-link text-sm" href={adapter(form.adapter).docsUrl} target="_blank" rel="noreferrer">How to get the keys</a> : null}
+          </div>
+          <p className="ui-caption">{adapter(form.adapter)?.blurb}</p>
+          <div className="grid gap-3 md:grid-cols-2">
+            <label className="block"><span className="ui-label">Shown as</span><input className="ui-input w-full" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></label>
+            {(adapter(form.adapter)?.fields || []).map((f) => (
+              <label key={f.key} className={`block ${f.key === 'privateKey' ? 'md:col-span-2' : ''}`}>
+                <span className="ui-label">{f.label}{f.required ? '' : ' (optional)'}</span>
+                {f.key === 'privateKey' ? (
+                  <textarea className="ui-input w-full ui-mono text-xs" rows={4} placeholder={form.secretsSet?.includes(f.key) ? 'Stored — paste to replace' : '-----BEGIN PRIVATE KEY-----'} value={form.fields[f.key] || ''} onChange={(e) => setForm({ ...form, fields: { ...form.fields, [f.key]: e.target.value } })} />
+                ) : (
+                  <input type={f.secret ? 'password' : 'text'} className="ui-input w-full" placeholder={f.secret && form.secretsSet?.includes(f.key) ? 'Stored — type to replace' : f.placeholder || ''} value={form.fields[f.key] || ''} autoComplete="off" onChange={(e) => setForm({ ...form, fields: { ...form.fields, [f.key]: e.target.value } })} />
+                )}
+                {f.help ? <span className="ui-caption">{f.help}</span> : null}
+              </label>
+            ))}
+          </div>
+          <div className="flex flex-wrap gap-4 text-sm">
+            {adapter(form.adapter)?.capabilities.includes('pushPunches') ? <label className="flex items-center gap-1.5"><input type="checkbox" checked={form.pushPunches} onChange={(e) => setForm({ ...form, pushPunches: e.target.checked })} /> Send punches as they arrive</label> : null}
+            {adapter(form.adapter)?.capabilities.includes('pullEmployees') ? (
+              <>
+                <label className="flex items-center gap-1.5"><input type="checkbox" checked={form.pullEmployees} onChange={(e) => setForm({ ...form, pullEmployees: e.target.checked })} /> Read its people hourly</label>
+                <label className="flex items-center gap-1.5"><input type="checkbox" checked={form.createEmployees} onChange={(e) => setForm({ ...form, createEmployees: e.target.checked })} /> Add people CLOR does not have</label>
+              </>
+            ) : null}
+            <label className="flex items-center gap-1.5"><input type="checkbox" checked={form.enabled} onChange={(e) => setForm({ ...form, enabled: e.target.checked })} /> Switched on</label>
+          </div>
+          <div className="flex gap-2">
+            <button type="submit" className="ui-btn ui-btn-primary ui-btn-sm" disabled={busy === 'save'}>{busy === 'save' ? 'Saving…' : form.id ? 'Save' : 'Connect'}</button>
+            <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => setForm(null)}>Cancel</button>
+          </div>
+        </form>
+      ) : null}
+
+      {log ? (
+        <div className="rounded-lg p-4 space-y-2" style={{ backgroundColor: 'rgb(var(--surface-sunken))' }}>
+          <div className="flex items-center justify-between"><h3 className="ui-t-sec">{log.c.name} — recent runs</h3><button type="button" className="ui-link text-sm" onClick={() => setLog(null)}>Close</button></div>
+          {!log.log.length ? <p className="ui-caption">No runs yet.</p> : (
+            <ul className="text-sm space-y-1">
+              {log.log.map((l) => <li key={l.id}><span className="ui-caption">{new Date(l.createdAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })} · {l.kind}</span> <span style={l.ok ? undefined : { color: 'rgb(var(--neg))' }}>{l.detail}</span></li>)}
+            </ul>
+          )}
+          {log.failed.length ? <p className="ui-caption">{log.failed.length} punch{log.failed.length === 1 ? '' : 'es'} gave up after retries — first: {log.failed[0].key} · {log.failed[0].lastError}</p> : null}
+        </div>
+      ) : null}
+    </section>
   );
 }

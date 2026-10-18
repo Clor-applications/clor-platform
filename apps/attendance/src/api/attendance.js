@@ -167,6 +167,16 @@ export const createApiKey = (body) => send('/integrations/keys', 'POST', body);
 export const rotateApiKey = (id) => send(`/integrations/keys/${encodeURIComponent(id)}/rotate`, 'POST', {});
 export const revokeApiKey = (id) => send(`/integrations/keys/${encodeURIComponent(id)}/revoke`, 'POST', {});
 export const listWebhooks = () => get('/integrations/webhooks');
+/* HR tools (greytHR, Keka, …): connections the company runs alongside CLOR. */
+export const listHrAdapters = () => get('/integrations/hr/adapters').then((r) => r?.adapters || []);
+export const listHrConnections = () => get('/integrations/hr').then((r) => r?.connections || []);
+export const createHrConnection = (body) => send('/integrations/hr', 'POST', body);
+export const updateHrConnection = (id, body) => send(`/integrations/hr/${encodeURIComponent(id)}`, 'PUT', body);
+export const deleteHrConnection = (id) => send(`/integrations/hr/${encodeURIComponent(id)}`, 'DELETE');
+export const testHrConnection = (id) => send(`/integrations/hr/${encodeURIComponent(id)}/test`, 'POST', {});
+export const pullHrConnection = (id) => send(`/integrations/hr/${encodeURIComponent(id)}/pull`, 'POST', {});
+export const flushHrConnection = (id) => send(`/integrations/hr/${encodeURIComponent(id)}/flush`, 'POST', {});
+export const hrConnectionLog = (id) => get(`/integrations/hr/${encodeURIComponent(id)}/log`);
 export const createWebhook = (body) => send('/integrations/webhooks', 'POST', body);
 export const updateWebhook = (id, body) => send(`/integrations/webhooks/${encodeURIComponent(id)}`, 'PUT', body);
 export const deleteWebhook = (id) => send(`/integrations/webhooks/${encodeURIComponent(id)}`, 'DELETE');
