@@ -120,7 +120,7 @@ export default function SalaryAssignments() {
   if (loading) return <SkeletonCard lines={6} />;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <PageHeader
         entity="payroll"
         title="Salary assignments"
@@ -260,7 +260,7 @@ const PersonPanel = ({ person, structures, sensitiveVisible, onClose, onChanged 
   }, [reload]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div className="ui-segmented" role="tablist" aria-label="Employee detail">
         <button type="button" role="tab" aria-selected={tab === 'salary'} className="ui-segment" onClick={() => setTab('salary')}>
           Salary
@@ -293,7 +293,7 @@ const SalaryTab = ({ person, structures, history, onSaved }) => {
   const current = history.find((a) => a.status === 'ACTIVE') || history[0] || null;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {raising ? (
         <RaiseForm
           person={person}
@@ -387,7 +387,7 @@ const RaiseForm = ({ person, structures, current, onCancel, onSaved }) => {
   };
 
   return (
-    <form onSubmit={save} className="space-y-6">
+    <form onSubmit={save} className="space-y-4">
       <div className="ui-sec-head">{current ? 'Record a raise' : 'Set a salary'}</div>
 
       <div>
@@ -508,7 +508,7 @@ const EmployeeForm = ({ initial, sensitiveVisible, onClose, onSaved }) => {
   };
 
   return (
-    <form onSubmit={save} className="space-y-6">
+    <form onSubmit={save} className="space-y-4">
       <div className="grid grid-cols-1 sm:grid-cols-[1fr_9rem] gap-3">
         <div>
           <label className="ui-label" htmlFor="employee-name">Name</label>

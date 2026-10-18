@@ -128,7 +128,7 @@ export default function SalaryStructures() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <PageHeader
         entity="payroll"
         title="Salary structures"
@@ -310,7 +310,7 @@ const StructureEditor = ({ initial, components, onBack, onSaved }) => {
   const unused = components.filter((c) => !lines.some((l) => l.componentId === c.id));
 
   return (
-    <form onSubmit={save} className="space-y-6">
+    <form onSubmit={save} className="space-y-4">
       <PageHeader
         entity="payroll"
         title={initial.id ? 'Edit salary structure' : 'New salary structure'}

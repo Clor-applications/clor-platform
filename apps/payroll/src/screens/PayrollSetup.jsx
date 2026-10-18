@@ -80,7 +80,7 @@ export default function PayrollSetup({ onOpen = () => {} }) {
 
   if (error) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-4">
         <PageHeader entity="payroll" title="Payroll" description="Paying people, and the books that follow from it." />
         <div className="ui-card p-3 text-sm" role="alert" style={{ borderColor: 'rgb(var(--neg))', color: 'rgb(var(--neg))' }}>
           {error}
@@ -95,10 +95,10 @@ export default function PayrollSetup({ onOpen = () => {} }) {
      whole screen. */
   if (!setup.enabled) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-4">
         <PageHeader entity="payroll" title="Payroll" description="Paying people, and the books that follow from it." />
 
-        <div className="ui-card p-6 space-y-3" style={{ maxWidth: '44rem' }}>
+        <div className="ui-card p-4 space-y-3" style={{ maxWidth: '44rem' }}>
           <div className="flex items-center gap-2">
             <Wallet size={18} aria-hidden="true" />
             <div className="ui-t-sec">Start using Payroll</div>
@@ -122,7 +122,7 @@ export default function PayrollSetup({ onOpen = () => {} }) {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <PageHeader
         entity="payroll"
         title="Set up Payroll"
@@ -144,7 +144,7 @@ export default function PayrollSetup({ onOpen = () => {} }) {
         }
       />
 
-      <ol className="ui-card overflow-hidden divide-y" style={{ borderColor: 'rgb(var(--border))', maxWidth: '54rem' }}>
+      <ol className="ui-card overflow-hidden divide-y" style={{ borderColor: 'rgb(var(--border))' }}>
         {setup.steps.map((step, i) => (
           <li key={step.key} className="flex items-start gap-3 px-4 py-3">
             <span
@@ -177,10 +177,6 @@ export default function PayrollSetup({ onOpen = () => {} }) {
         ))}
       </ol>
 
-      <p className="ui-caption" style={{ maxWidth: '54rem' }}>
-        The steps can be done in any order and by different people — somebody types the salary structure, somebody in finance maps the
-        ledgers. This list reads what is actually there, so it stays right whoever did what.
-      </p>
     </div>
   );
 }

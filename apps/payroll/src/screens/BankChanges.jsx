@@ -61,7 +61,7 @@ export default function BankChanges() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <PageHeader
         entity="payroll"
         title="Bank changes"

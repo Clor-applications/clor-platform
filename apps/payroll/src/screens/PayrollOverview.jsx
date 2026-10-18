@@ -68,7 +68,7 @@ export default function PayrollOverview({ onOpen = () => {} }) {
 
   if (error) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-4">
         <PageHeader entity="payroll" title="Payroll" description="Where this month is, and what is in the way." />
         <div className="ui-card p-3 text-sm" role="alert" style={{ borderColor: 'rgb(var(--neg))', color: 'rgb(var(--neg))' }}>
           {error}
@@ -83,7 +83,7 @@ export default function PayrollOverview({ onOpen = () => {} }) {
   const change = previous && latest ? percentChange(previous.employerCost, latest.employerCost) : null;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <PageHeader
         entity="payroll"
         title="Payroll"

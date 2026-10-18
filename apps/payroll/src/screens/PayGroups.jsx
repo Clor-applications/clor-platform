@@ -81,7 +81,7 @@ export default function PayGroups() {
   if (loading) return <SkeletonCard lines={5} />;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <SettingsScreenHeader
         entity="payroll"
         title="Pay groups"
@@ -206,7 +206,7 @@ const PayGroupForm = ({ initial, onClose, onSaved }) => {
   };
 
   return (
-    <form onSubmit={save} className="space-y-6">
+    <form onSubmit={save} className="space-y-4">
       <div className="grid grid-cols-1 sm:grid-cols-[1fr_9rem] gap-3">
         <div>
           <label className="ui-label" htmlFor="paygroup-name">Name</label>

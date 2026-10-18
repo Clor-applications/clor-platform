@@ -114,7 +114,7 @@ export default function PayrollAdjustments() {
   if (loading) return <SkeletonCard lines={6} />;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <PageHeader
         entity="payroll"
         title="Adjustments"
@@ -324,7 +324,7 @@ const AdjustmentForm = ({ row, people, components, periods, onCancel, onSaved })
   };
 
   return (
-    <form onSubmit={save} className="space-y-6">
+    <form onSubmit={save} className="space-y-4">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div className="sm:col-span-2">
           <label className="ui-label" htmlFor="adj-employee">Who</label>

@@ -101,7 +101,7 @@ export default function SalaryRevisions() {
   const canStart = people.length > 0 && structures.length > 0;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <PageHeader
         entity="payroll"
         title="Salary revisions"
@@ -507,7 +507,7 @@ const RevisionDetail = ({ revisionId, onBack }) => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <PageHeader
         entity="payroll"
         title={revision.employeeName}

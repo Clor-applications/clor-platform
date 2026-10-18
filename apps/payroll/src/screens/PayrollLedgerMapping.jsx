@@ -110,7 +110,7 @@ export default function PayrollLedgerMapping() {
   if (loading) return <SkeletonCard lines={6} />;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <SettingsScreenHeader
         entity="payroll"
         title="Ledger mapping"
@@ -222,8 +222,7 @@ export default function PayrollLedgerMapping() {
           </div>
 
           <p className="ui-caption">
-            {NEEDS.DEDUCTION.why} {NEEDS.EMPLOYER_CONTRIBUTION.why} A payslip already produced keeps the mapping it was calculated with;
-            changing one here applies to what is posted from now on.
+            A change applies to what is posted from now on; payslips already produced keep theirs.
           </p>
         </>
       )}

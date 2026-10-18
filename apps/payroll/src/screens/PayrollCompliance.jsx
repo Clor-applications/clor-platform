@@ -144,7 +144,7 @@ export default function PayrollCompliance() {
   if (loading) return <SkeletonCard lines={6} />;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <SettingsScreenHeader
         entity="payroll"
         title="Compliance"
@@ -173,7 +173,7 @@ export default function PayrollCompliance() {
           }
         />
       ) : (
-        <div className="space-y-6">
+        <div className="space-y-4">
           {schemes.map((scheme) => (
             <section key={scheme.id} className="ui-card overflow-hidden">
               <div className="flex flex-wrap items-start justify-between gap-3 px-4 py-3" style={{ borderBottom: '1px solid rgb(var(--border))' }}>
@@ -351,7 +351,7 @@ const RateForm = ({ scheme, onClose, onSaved }) => {
   };
 
   return (
-    <form onSubmit={save} className="space-y-6">
+    <form onSubmit={save} className="space-y-4">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <label className="ui-label" htmlFor="rate-from">Applies from</label>

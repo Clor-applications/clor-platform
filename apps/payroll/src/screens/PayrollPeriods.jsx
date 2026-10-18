@@ -126,7 +126,7 @@ export default function PayrollPeriods() {
   if (loading) return <SkeletonCard lines={5} />;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <SettingsScreenHeader
         entity="payroll"
         title="Payroll periods"
@@ -271,7 +271,7 @@ const PeriodForm = ({ initial, onClose, onSaved }) => {
   };
 
   return (
-    <form onSubmit={save} className="space-y-6">
+    <form onSubmit={save} className="space-y-4">
       <div className="grid grid-cols-1 sm:grid-cols-[1fr_10rem] gap-3">
         <div>
           <label className="ui-label" htmlFor="period-name">Name</label>

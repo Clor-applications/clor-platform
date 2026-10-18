@@ -54,7 +54,7 @@ export default function SalarySlips() {
   if (loading) return <SkeletonCard lines={6} />;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <PageHeader
         entity="payroll"
         title="Salary slips"
@@ -148,7 +148,7 @@ const SlipDocument = ({ slipId }) => {
   const trace = (code) => slip.calculation.find((t) => t.code === code) || null;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Who, and for when. A payslip is identified by the person and the
           period before it is read as a set of numbers. */}
       <section className="space-y-1">
@@ -268,7 +268,7 @@ const Explanation = ({ line, trace, slip }) => {
     return <p className="ui-caption">No working was recorded for this line.</p>;
   }
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <section className="space-y-1.5">
         <div className="ui-sec-head">The rule</div>
         <p className="text-sm">{trace.ruleText || '—'}</p>

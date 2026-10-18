@@ -104,7 +104,7 @@ export default function PayrollLoans() {
   const canStart = people.length > 0 && components.length > 0 && periods.length > 0;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <PageHeader
         entity="payroll"
         title="Loans & advances"
@@ -449,7 +449,7 @@ const LoanDetail = ({ loanId, onBack }) => {
   const running = loan.status === 'ACTIVE';
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <PageHeader
         entity="payroll"
         title={loan.number}

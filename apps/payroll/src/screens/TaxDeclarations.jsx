@@ -53,7 +53,7 @@ export default function TaxDeclarations() {
   const waiting = people.filter((p) => p.status === 'SUBMITTED').length;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <PageHeader
         entity="payroll"
         title="Tax declarations"
@@ -228,7 +228,7 @@ function Declaration({ employeeId, fy, onClose, onChanged }) {
       {!form ? (
         error ? null : <SkeletonCard lines={6} />
       ) : (
-        <fieldset disabled={verified || busy} className="space-y-6">
+        <fieldset disabled={verified || busy} className="space-y-4">
           <div>
             <span className="ui-label">Tax regime</span>
             <div className="flex flex-wrap gap-4 text-sm">

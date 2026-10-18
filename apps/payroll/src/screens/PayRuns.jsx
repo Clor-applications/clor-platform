@@ -132,7 +132,7 @@ export default function PayRuns() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <PageHeader
         entity="payroll"
         title="Pay runs"
@@ -383,7 +383,7 @@ const RunWorkflow = ({ runId, onBack }) => {
   const warningCount = issues ? issues.warnings : run.warningCount;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <PageHeader
         entity="payroll"
         title={`${run.number} — ${run.period?.name || "payroll"}`}

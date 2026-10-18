@@ -182,7 +182,7 @@ export default function PayrollReports() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <PageHeader
         entity="payroll"
         title="Payroll reports"
@@ -312,7 +312,7 @@ const Register = ({ data }) => (
 );
 
 const Statutory = ({ data }) => (
-  <div className="space-y-6">
+  <div className="space-y-4">
     {data.schemes.map((s) => (
       <section key={s.scheme} className="ui-card overflow-hidden">
         <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3" style={{ borderBottom: '1px solid rgb(var(--border))' }}>
@@ -500,7 +500,7 @@ function Filings({ data, periodName }) {
     }
   };
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <FilingCard
         title="Provident Fund — ECR"
         label="ECR file"

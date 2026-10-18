@@ -71,7 +71,7 @@ export default function FinalSettlements() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <PageHeader
         entity="payroll"
         title="Full & final"
@@ -239,7 +239,7 @@ function Settlement({ settlement, onClose, onChanged }) {
         ) : null
       }
     >
-      <div className="space-y-6">
+      <div className="space-y-4">
         <div className="overflow-x-auto ui-table-scroll ui-table-fit">
           <table className="ui-table w-full">
             <thead>

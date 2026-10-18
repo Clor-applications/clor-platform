@@ -184,7 +184,7 @@ export default function SalaryComponents() {
   if (loading) return <SkeletonCard lines={6} />;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <SettingsScreenHeader
         entity="payroll"
         title="Salary components"
@@ -432,7 +432,7 @@ const ComponentForm = ({ initial, onClose, onSaved }) => {
   );
 
   return (
-    <form onSubmit={save} className="space-y-6">
+    <form onSubmit={save} className="space-y-4">
       <section className="space-y-3">
         <div className="grid grid-cols-1 sm:grid-cols-[1fr_10rem] gap-3">
           <div>

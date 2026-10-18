@@ -115,7 +115,7 @@ export default function PayrollPayments() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <PageHeader
         entity="payroll"
         title="Salary payments"
@@ -454,7 +454,7 @@ const PaymentDetail = ({ paymentId, onBack }) => {
   if (!payment) return null;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <PageHeader
         entity="payroll"
         title={payment.number}
