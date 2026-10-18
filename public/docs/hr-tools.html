@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>HR tools · CLOR help</title><link rel="stylesheet" href="/docs/docs.css"><link rel="icon" href="/icon.svg"></head>
+<body><div class="wrap"><header><img src="/clor-logo.png" alt=""><a href="/docs/">CLOR help</a></header><nav><a href="/docs/index.html">Help</a> <a href="/docs/readers.html">Readers</a> <a href="/docs/connector.html">On-site connector</a> <a href="/docs/hr-tools.html">HR tools</a> <a href="/docs/tally.html">Tally</a> <a href="/docs/sso.html">Single sign-on</a> <a href="/docs/scim.html">Directory sync (SCIM 2.0)</a></nav>
+<h1>HR tools</h1><p class="lead">Punches reach your HR tool as they arrive; people can be read back so the two lists match.</p>
+<p>Attendance → System → Integrations → HR tools. Each tool's own credentials, kept encrypted. A punch that fails to send is retried after 1, 5, 30, 120 and 720 minutes; the connection's log shows every attempt.</p>
+<h2>greytHR</h2>
+<p>greytHR admin → Attendance → Swipe API key gives an API ID and a private key. Enter your greytHR address (<code>yourcompany.greythr.com</code>), the ID and the key. Punches go in as swipes with the employee code and the reader name. greytHR's swipe API does not read people back.</p>
+<h2>Keka</h2>
+<p>Keka → Settings → Integrations → API gives a client ID, client secret and API key; the attendance-log API key is issued by Keka support. Enter your subdomain, the attendance server from Keka's guide (India is usually <code>cin01</code> or <code>cin02</code>) and a device ID to show in Keka. People are read from Keka and, if you tick it, added to CLOR.</p>
+<h2>Zoho People</h2>
+<p>At <code>api-console.zoho.in</code> (or .com for your data centre) make a Self Client, generate a refresh token with scopes <code>ZOHOPEOPLE.attendance.ALL</code> and <code>ZOHOPEOPLE.forms.READ</code>, and enter the data centre, client ID, client secret and refresh token. Punches go in as check-ins and check-outs against the Zoho Employee ID (which must equal the CLOR employee code); people are read from the employee form.</p>
+<h2>Everything else</h2>
+<p>Any tool with an API can be fed from CLOR's own API (Integrations → API keys, documentation at <code>https://api.clor.in/v1/docs</code>) or told about punches and days by a webhook.</p>
+
+<footer>CLOR · <a href="https://app.clor.in">app.clor.in</a> · Questions: support@clor.in</footer></div></body></html>

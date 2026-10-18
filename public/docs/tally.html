@@ -1,0 +1,12 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Tally · CLOR help</title><link rel="stylesheet" href="/docs/docs.css"><link rel="icon" href="/icon.svg"></head>
+<body><div class="wrap"><header><img src="/clor-logo.png" alt=""><a href="/docs/">CLOR help</a></header><nav><a href="/docs/index.html">Help</a> <a href="/docs/readers.html">Readers</a> <a href="/docs/connector.html">On-site connector</a> <a href="/docs/hr-tools.html">HR tools</a> <a href="/docs/tally.html">Tally</a> <a href="/docs/sso.html">Single sign-on</a> <a href="/docs/scim.html">Directory sync (SCIM 2.0)</a></nav>
+<h1>Tally</h1><p class="lead">A payroll run’s accounting entry, the way Tally imports it.</p>
+<h2>As a file</h2>
+<p>Payroll → Pay runs → open a run → Books → “Tally XML”. The file holds one Journal voucher dated the period end, with CLOR's ledger names. In Tally: Gateway of Tally → Import Data → Vouchers, choose the file. Ledger names must exist in the Tally company by the same name; Tally says which one is missing.</p>
+<h2>Straight into Tally</h2>
+<p>With an <a href="/docs/connector.html">on-site connector</a> set up with Tally's address, the same screen offers “Send to Tally via …”. The connector posts the voucher to Tally's HTTP port and reports Tally's answer (created, or the ledger it refused) under the connector's Jobs.</p>
+<h2>Before it balances</h2>
+<p>Every salary component needs an expense ledger (and deductions a liability ledger) under Payroll → Ledger mapping; the Books stage lists what is unmapped. Nothing is exported until the entry balances.</p>
+
+<footer>CLOR · <a href="https://app.clor.in">app.clor.in</a> · Questions: support@clor.in</footer></div></body></html>

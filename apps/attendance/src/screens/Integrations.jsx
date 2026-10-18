@@ -452,7 +452,7 @@ function Connectors({ onShown }) {
         <h2 id="agents-h" className="ui-t-sec flex items-center gap-2"><Server size={16} aria-hidden="true" /> On-site connectors</h2>
         {!form ? <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => setForm({ ...EMPTY_AGENT })}><Plus size={14} aria-hidden="true" /> Add a connector</button> : null}
       </div>
-      <p className="ui-caption max-w-3xl">A small program on a computer in your office, for what CLOR cannot reach from the internet: readers on the office network, Tally’s HTTP port, and Active Directory. It only ever calls out to CLOR over HTTPS.</p>
+      <p className="ui-caption max-w-3xl">A small program on a computer in your office, for what CLOR cannot reach from the internet: readers on the office network, Tally’s HTTP port, and Active Directory. It only ever calls out to CLOR over HTTPS. <a className="ui-link" href="/docs/connector.html" target="_blank" rel="noreferrer">Guide</a></p>
 
       {!data ? <SkeletonCard lines={3} /> : data.agents.length ? (
         <ul className="divide-y" style={{ borderColor: 'rgb(var(--border))' }}>
@@ -609,7 +609,7 @@ function HrTools() {
           </div>
         ) : null}
       </div>
-      <p className="ui-caption">Punches reach the tool as they arrive, with retries; people can be read in so the two lists match. Each tool’s own credentials, kept encrypted.</p>
+      <p className="ui-caption">Punches reach the tool as they arrive, with retries; people can be read in so the two lists match. Each tool’s own credentials, kept encrypted. <a className="ui-link" href="/docs/hr-tools.html" target="_blank" rel="noreferrer">Guide</a></p>
 
       {!rows ? <SkeletonCard lines={3} /> : rows.length ? (
         <ul className="divide-y" style={{ borderColor: 'rgb(var(--border))' }}>

@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Readers · CLOR help</title><link rel="stylesheet" href="/docs/docs.css"><link rel="icon" href="/icon.svg"></head>
+<body><div class="wrap"><header><img src="/clor-logo.png" alt=""><a href="/docs/">CLOR help</a></header><nav><a href="/docs/index.html">Help</a> <a href="/docs/readers.html">Readers</a> <a href="/docs/connector.html">On-site connector</a> <a href="/docs/hr-tools.html">HR tools</a> <a href="/docs/tally.html">Tally</a> <a href="/docs/sso.html">Single sign-on</a> <a href="/docs/scim.html">Directory sync (SCIM 2.0)</a></nav>
+<h1>Readers</h1><p class="lead">Every make ends in the same place: a punch with a time, a person and a direction. What differs is how it reaches CLOR.</p>
+<h2>Which option for which reader</h2>
+<table><tr><th>Reader</th><th>Choose</th><th>How it connects</th></tr>
+<tr><td>ZKTeco, eSSL, Biomax, Realtime, Identix, Mantra — anything with a “Cloud server / ADMS” menu</td><td>Push reader (ADMS)</td><td>The reader pushes to CLOR. Enter the serial number in CLOR, then on the reader set the cloud server address and port as shown under “How to connect a reader”.</td></tr>
+<tr><td>Matrix COSEC Door V3 / PVR / Vega / FMX / ARC DC 200 / ARGO</td><td>Matrix COSEC door controller (push)</td><td>The controller logs in to a CLOR URL (shown once) and sends each event. Set it under Basic Settings → Communication → Server → Push API. CLOR also sets its clock and can restart it.</td></tr>
+<tr><td>Hikvision face / card terminals behind your router</td><td>Hikvision terminal (push to CLOR)</td><td>Configuration → Network → Advanced → HTTP Listening: HTTPS, api.clor.in, port 443, the path CLOR gave. Event → Access Control must notify the listening host. No port forwarding needed.</td></tr>
+<tr><td>Hikvision / Dahua / Suprema BioStar 2 reachable from the internet, or through the <a href="/docs/connector.html">on-site connector</a></td><td>Hikvision (ISAPI) / Dahua / BioStar 2</td><td>CLOR (or the connector) signs in with the device's user name and password and pulls events every few minutes.</td></tr>
+<tr><td>Anviz readers reporting to CrossChex Cloud</td><td>Anviz CrossChex Cloud</td><td>API key and secret from the portal (System → Cloud API), and the region your portal is on.</td></tr>
+<tr><td>eSSL e-Time Office cloud</td><td>e-Time Office cloud</td><td>Your e-Time Office login.</td></tr>
+<tr><td>Turnstiles, middleware, other software</td><td>Any reader or software that can send HTTP / any software with a JSON API</td><td>A URL to post to (or one for CLOR to call), then say which field is which.</td></tr>
+<tr><td>Anything else</td><td>File import</td><td>A CSV exported from the reader's own software, whenever you have one.</td></tr></table>
+<div class="note">Matrix, Hikvision push, Dahua, Suprema and Anviz drivers are built from the vendors' documentation and public integrations and have not yet been tried on hardware by CLOR. The reader's page shows the last thing it sent; if a field looks wrong, send it to support@clor.in and we fix the driver.</div>
+<h2>Direction (in / out)</h2>
+<p>Readers with in/out keys send the key pressed. A reader at an entrance only can be set to “Entry only” so every punch is an entry. Where a reader says nothing, the first punch of the day is in and the last is out.</p>
+<h2>Clocks</h2>
+<p>CLOR measures each reader's drift from punches it sends as they happen. ADMS readers get a “Set the time” button on their page; Matrix controllers and readers behind the on-site connector are set automatically when a minute or more out. Reader health warns when a clock is out.</p>
+<h2>Health and alerts</h2>
+<p>Attendance → Readers → Reader health shows every reader, how long since it was heard, its clock, how full it is and what is queued. Name who gets e-mailed under Alerts; a reader that goes quiet, a day with no punches, a connector that stops checking in — each is one e-mail when it starts and one when it clears.</p>
+
+<footer>CLOR · <a href="https://app.clor.in">app.clor.in</a> · Questions: support@clor.in</footer></div></body></html>

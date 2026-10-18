@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>On-site connector · CLOR help</title><link rel="stylesheet" href="/docs/docs.css"><link rel="icon" href="/icon.svg"></head>
+<body><div class="wrap"><header><img src="/clor-logo.png" alt=""><a href="/docs/">CLOR help</a></header><nav><a href="/docs/index.html">Help</a> <a href="/docs/readers.html">Readers</a> <a href="/docs/connector.html">On-site connector</a> <a href="/docs/hr-tools.html">HR tools</a> <a href="/docs/tally.html">Tally</a> <a href="/docs/sso.html">Single sign-on</a> <a href="/docs/scim.html">Directory sync (SCIM 2.0)</a></nav>
+<h1>On-site connector</h1><p class="lead">A small program on a computer in your office, for what CLOR cannot reach from the internet.</p>
+<h2>What it does</h2>
+<ul><li>Pulls punches from readers on the office network (Hikvision, Dahua, Suprema BioStar, any JSON API) and sends them to CLOR.</li>
+<li>Reads each Hikvision and Dahua reader's clock and sets it when it is a minute or more out.</li>
+<li>Posts payroll vouchers from CLOR straight into Tally over Tally's HTTP port.</li>
+<li>Syncs people from Active Directory / LDAP into CLOR.</li></ul>
+<p>It only ever calls out — to CLOR over HTTPS, and to the devices on your network. Nothing needs to be opened on your router.</p>
+<h2>Install</h2>
+<ol><li>Pick a computer in the office that stays on (Windows, Linux or macOS) and install Node.js 20 or newer from <a href="https://nodejs.org">nodejs.org</a>.</li>
+<li>In CLOR: Attendance → System → Integrations → On-site connectors → Add a connector. Name it; tick Tally and/or directory sync if you need them. Copy the token — it is shown once.</li>
+<li>Download the connector: <code>https://api.clor.in/agent/v1/download</code> (one file, <code>clor-agent.cjs</code>). Put it in a folder of its own.</li>
+<li>In a terminal run as administrator (Windows) or with sudo (Linux):<pre>node clor-agent.cjs --install --token clora_…</pre>It registers itself to start at boot (Task Scheduler, systemd or launchd), keeps the token in <code>clor-agent.json</code> beside the file, and shows as online in CLOR within a minute.</li></ol>
+<p>To try it first without installing: <code>node clor-agent.cjs --token clora_… --once</code>. It updates itself when CLOR has a newer version; add <code>--no-update</code> to stop that.</p>
+<h2>Readers behind it</h2>
+<p>Add the reader under Attendance → Readers as Hikvision (ISAPI), Dahua, BioStar 2 or “Any software with a JSON API”, open it and choose the connector under “Reached through”. The address can then be the reader's own on your network, e.g. <code>http://192.168.1.64</code>.</p>
+<h2>Tally</h2>
+<p>On the connector set the Tally computer's host or IP, port (9000 by default) and the company name. In Tally: F1 → Settings → Connectivity → enable the HTTP server on that port, with the company open. Then Payroll → Pay runs → open a run → Books → “Send to Tally via …”. The result shows under the connector's Jobs. See <a href="/docs/tally.html">Tally</a>.</p>
+<h2>Active Directory / LDAP</h2>
+<p>Give the connector the directory address (<code>ldaps://dc1.corp.local</code>), a bind user and password, the search base and optionally a filter. Every hour it reads the users with an e-mail and adds the ones CLOR lacks (with no role until one is assigned), follows the directory's enabled/disabled flag, and — if you tick it — switches off people it added when they leave the directory. It never touches people added by hand. The bind password stays on CLOR encrypted and is given only to this connector.</p>
+<h2>If it stops</h2>
+<p>Reader health raises an alert when a connector has not checked in for the “offline after” minutes, naming how many readers sit behind it. Check that the computer is on and the service is running: <code>systemctl status clor-agent</code> on Linux; Task Scheduler → “CLOR connector” on Windows. Its log is <code>clor-agent.log</code> beside the file (macOS) or the service's journal.</p>
+
+<footer>CLOR · <a href="https://app.clor.in">app.clor.in</a> · Questions: support@clor.in</footer></div></body></html>
