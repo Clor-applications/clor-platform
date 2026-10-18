@@ -1,0 +1,138 @@
+name: iOS — CLOR apps
+
+# Builds an iPhone/iPad app from the web build (mobile/<app>/ios, Capacitor,
+# Swift Package Manager — no CocoaPods).
+#
+#   - On a tag `ios-attendance-v1.2.3` (or ios-payroll-…, ios-accounting-…):
+#       * always: a Simulator build, kept as a workflow artifact, so every
+#         release is proven to compile;
+#       * when the Apple secrets below are set: a signed App Store build
+#         uploaded to App Store Connect, where it appears in TestFlight and
+#         can be submitted for review.
+#   - On "Run workflow": the same for the app chosen, from the branch chosen.
+#
+# Secrets (Settings → Secrets and variables → Actions) — all from your Apple
+# Developer account (docs/MOBILE.md, "iOS"):
+#   APPLE_TEAM_ID                 10-character team id (developer.apple.com → Membership)
+#   IOS_DIST_CERT_P12_BASE64      Apple Distribution certificate + key, exported as .p12, base64
+#   IOS_DIST_CERT_PASSWORD        the .p12's password
+#   APPSTORE_API_KEY_ID           App Store Connect API key id (Users and Access → Integrations)
+#   APPSTORE_API_ISSUER_ID        its issuer id
+#   APPSTORE_API_KEY_P8_BASE64    the downloaded AuthKey_XXXX.p8, base64
+# Signing uses automatic provisioning with the API key, so no profile secret
+# is needed: Xcode creates or reuses the App Store profile for the bundle id.
+
+on:
+  push:
+    tags: ['ios-attendance-v*', 'ios-payroll-v*', 'ios-accounting-v*']
+  workflow_dispatch:
+    inputs:
+      app:
+        description: Which app
+        type: choice
+        options: [attendance, payroll, accounting]
+        default: attendance
+
+permissions:
+  contents: read
+
+jobs:
+  ios:
+    runs-on: macos-15
+    timeout-minutes: 60
+    env:
+      HAS_SIGNING: ${{ secrets.IOS_DIST_CERT_P12_BASE64 != '' && secrets.APPSTORE_API_KEY_P8_BASE64 != '' && secrets.APPLE_TEAM_ID != '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Which app and version
+        id: v
+        run: |
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            APP=$(echo "${GITHUB_REF_NAME}" | sed -E 's/^ios-([a-z]+)-v.*/\1/')
+            VER=$(echo "${GITHUB_REF_NAME}" | sed -E 's/^ios-[a-z]+-v//')
+          else
+            APP="${{ inputs.app }}"
+            VER="0.0.${GITHUB_RUN_NUMBER}"
+          fi
+          echo "app=$APP" >> "$GITHUB_OUTPUT"
+          echo "version=$VER" >> "$GITHUB_OUTPUT"
+          echo "build=${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
+          echo "Building $APP $VER (build ${GITHUB_RUN_NUMBER})"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: |
+          npm ci --no-audit --no-fund
+          cd mobile/${{ steps.v.outputs.app }} && npm ci --no-audit --no-fund
+
+      - name: Web build and iOS sync
+        run: npm run build:mobile:${{ steps.v.outputs.app }}:ios
+
+      - name: Simulator build (always)
+        working-directory: mobile/${{ steps.v.outputs.app }}/ios/App
+        run: |
+          xcodebuild -project App.xcodeproj -scheme App -configuration Release \
+            -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath build MARKETING_VERSION=${{ steps.v.outputs.version }} CURRENT_PROJECT_VERSION=${{ steps.v.outputs.build }} \
+            CODE_SIGNING_ALLOWED=NO build | tail -20
+          cd build/Build/Products/Release-iphonesimulator && zip -qry "$GITHUB_WORKSPACE/clor-${{ steps.v.outputs.app }}-simulator.zip" App.app
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: clor-${{ steps.v.outputs.app }}-ios-simulator-${{ steps.v.outputs.version }}
+          path: clor-${{ steps.v.outputs.app }}-simulator.zip
+
+      - name: Signing keychain
+        if: env.HAS_SIGNING == 'true'
+        env:
+          P12: ${{ secrets.IOS_DIST_CERT_P12_BASE64 }}
+          P12_PASSWORD: ${{ secrets.IOS_DIST_CERT_PASSWORD }}
+          KEY_P8: ${{ secrets.APPSTORE_API_KEY_P8_BASE64 }}
+        run: |
+          KC="$RUNNER_TEMP/build.keychain-db"; KP="$(openssl rand -hex 16)"
+          security create-keychain -p "$KP" "$KC"
+          security set-keychain-settings -lut 3600 "$KC"
+          security unlock-keychain -p "$KP" "$KC"
+          echo "$P12" | base64 --decode > "$RUNNER_TEMP/dist.p12"
+          security import "$RUNNER_TEMP/dist.p12" -P "$P12_PASSWORD" -A -t cert -f pkcs12 -k "$KC"
+          security set-key-partition-list -S apple-tool:,apple: -k "$KP" "$KC" >/dev/null
+          security list-keychains -d user -s "$KC" $(security list-keychains -d user | tr -d '"')
+          echo "$KEY_P8" | base64 --decode > "$RUNNER_TEMP/AuthKey.p8"
+
+      - name: Archive and upload to App Store Connect (TestFlight)
+        if: env.HAS_SIGNING == 'true'
+        working-directory: mobile/${{ steps.v.outputs.app }}/ios/App
+        env:
+          TEAM: ${{ secrets.APPLE_TEAM_ID }}
+          KEY_ID: ${{ secrets.APPSTORE_API_KEY_ID }}
+          ISSUER: ${{ secrets.APPSTORE_API_ISSUER_ID }}
+        run: |
+          AUTH="-allowProvisioningUpdates -authenticationKeyPath $RUNNER_TEMP/AuthKey.p8 -authenticationKeyID $KEY_ID -authenticationKeyIssuerID $ISSUER"
+          xcodebuild -project App.xcodeproj -scheme App -configuration Release \
+            -destination 'generic/platform=iOS' -archivePath "$RUNNER_TEMP/App.xcarchive" \
+            DEVELOPMENT_TEAM="$TEAM" CODE_SIGN_STYLE=Automatic \
+            MARKETING_VERSION=${{ steps.v.outputs.version }} CURRENT_PROJECT_VERSION=${{ steps.v.outputs.build }} \
+            $AUTH archive | tail -20
+          cat > "$RUNNER_TEMP/ExportOptions.plist" <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict>
+            <key>method</key><string>app-store-connect</string>
+            <key>destination</key><string>upload</string>
+            <key>teamID</key><string>$TEAM</string>
+            <key>signingStyle</key><string>automatic</string>
+            <key>manageAppVersionAndBuildNumber</key><false/>
+          </dict></plist>
+          EOF
+          xcodebuild -exportArchive -archivePath "$RUNNER_TEMP/App.xcarchive" -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" \
+            -exportPath "$RUNNER_TEMP/export" $AUTH | tail -20
+          echo "Uploaded ${{ steps.v.outputs.app }} ${{ steps.v.outputs.version }} (${{ steps.v.outputs.build }}) to App Store Connect; it shows in TestFlight after Apple's processing (10–30 minutes)."
+
+      - name: No signing secrets
+        if: env.HAS_SIGNING != 'true'
+        run: echo "Apple signing secrets are not set — only the Simulator build was made. See docs/MOBILE.md (iOS) to add them."

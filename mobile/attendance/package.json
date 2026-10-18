@@ -5,16 +5,19 @@
   "description": "CLOR Attendance for Android and iOS: the web build in a Capacitor shell.",
   "scripts": {
     "sync": "cap sync android",
-    "open": "cap open android"
+    "open": "cap open android",
+    "sync:ios": "cap sync ios",
+    "open:ios": "cap open ios"
   },
   "dependencies": {
-    "@capacitor/android": "^7.4.0",
+    "@capacitor/android": "^7.6.9",
     "@capacitor/app": "^7.0.0",
-    "@capacitor/core": "^7.4.0",
+    "@capacitor/core": "^7.6.9",
+    "@capacitor/ios": "^7.6.9",
     "@capacitor/splash-screen": "^7.0.0",
     "@capacitor/status-bar": "^7.0.0"
   },
   "devDependencies": {
-    "@capacitor/cli": "^7.4.0"
+    "@capacitor/cli": "^7.6.9"
   }
 }
