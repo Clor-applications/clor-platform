@@ -8,7 +8,7 @@ import { requireTenantContext } from '../middleware/tenantContext.js';
 import { requirePermission } from '../middleware/rbac.js';
 import { PermissionAction } from '../constants/enums.js';
 import { decryptSecret, encryptSecret } from '../services/mailer.js';
-import { callbackUrl } from './sso.js';
+import { callbackUrl, samlAcsUrl, samlEntityId } from './sso.js';
 import { newScimToken } from './scim.js';
 import { hashToken } from './publicApi.js';
 import { codeLimiter } from '../middleware/rateLimit.js';
@@ -136,8 +136,10 @@ const publicProvider = (p: any) => ({
   defaultRoleId: p.defaultRoleId,
   lastUsedAt: p.lastUsedAt,
   lastError: p.lastError,
-  // OIDC signs people in (routes/sso.ts); SAML is stored but not yet spoken.
-  status: p.kind === 'OIDC' ? (p.enabled ? ('ACTIVE' as const) : ('DISABLED' as const)) : ('CONFIGURED_NOT_ACTIVE' as const),
+  // Both kinds sign people in (routes/sso.ts).
+  status: p.enabled ? ('ACTIVE' as const) : ('DISABLED' as const),
+  // SAML: what the administrator enters at the identity provider for CLOR.
+  ...(p.kind === 'SAML' ? { saml: { acsUrl: samlAcsUrl(p.id), spEntityId: samlEntityId(p.id), metadataUrl: samlEntityId(p.id) } } : {}),
 });
 
 /* ------------------------------------------------------------ SCIM tokens */
@@ -188,7 +190,7 @@ securityRouter.get('/orgs/:orgId/security/providers', VIEW, async (req, res) => 
 });
 
 /** Rejects a configuration that could not possibly work. */
-function validateProvider(body: z.infer<typeof providerSchema>, hasStoredSecret: boolean) {
+function validateProvider(body: z.infer<typeof providerSchema>, hasStoredSecret: boolean, hasStoredCert = false) {
   if (body.kind === 'OIDC') {
     if (!body.issuer && !body.discoveryUrl) return 'An OIDC provider needs an issuer or a discovery URL';
     if (!body.clientId) return 'Client ID is required';
@@ -197,7 +199,7 @@ function validateProvider(body: z.infer<typeof providerSchema>, hasStoredSecret:
   if (body.kind === 'SAML') {
     if (!body.entryPoint) return 'Sign-in URL is required';
     if (!body.entityId) return 'Entity ID is required';
-    if (!body.certificate) return 'The identity provider certificate is required';
+    if (!body.certificate && !hasStoredCert) return 'The identity provider certificate is required';
   }
   return null;
 }
@@ -257,7 +259,7 @@ securityRouter.patch('/orgs/:orgId/security/providers/:providerId', EDIT, async 
   if (!existing) return res.status(404).json({ error: 'Sign-in method not found' });
 
   const body = providerSchema.parse({ ...req.body, kind: req.body.kind || existing.kind });
-  const problem = validateProvider(body, Boolean(existing.clientSecretEnc));
+  const problem = validateProvider(body, Boolean(existing.clientSecretEnc), Boolean(existing.certificate));
   if (problem) return res.status(400).json({ error: problem });
 
   const updated = await platformPrisma.authProvider.update({

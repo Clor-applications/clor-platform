@@ -30,6 +30,7 @@
     "report:settlement": "tsx src/scripts/settlementReport.ts"
   },
   "dependencies": {
+    "@node-saml/node-saml": "^5.1.0",
     "@prisma/client": "^5.22.0",
     "@types/cookie-parser": "^1.4.10",
     "bcrypt": "^6.0.0",
