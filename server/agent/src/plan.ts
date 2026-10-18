@@ -81,3 +81,47 @@ export function readTallyReply(xml: string): { ok: boolean; message: string } {
   if (lineError) return { ok: false, message: `Tally refused it: ${lineError}` };
   return { ok: false, message: `Tally gave no import count: ${xml.replace(/\s+/g, ' ').slice(0, 200)}` };
 }
+
+/* ------------------------------------------------------------- reader clocks */
+
+/** Hikvision writes zones POSIX-style, sign inverted: IST (+05:30) is "CST-5:30:00". */
+export function hikvisionTimeZone(offsetMinutes: number) {
+  const sign = offsetMinutes > 0 ? '-' : '+';
+  const a = Math.abs(offsetMinutes);
+  return `CST${sign}${Math.floor(a / 60)}:${String(a % 60).padStart(2, '0')}:00`;
+}
+
+/** Minutes a zone is ahead of UTC at an instant. */
+export function zoneOffsetMinutes(zone: string, at: Date) {
+  const parts = new Intl.DateTimeFormat('en-US', { timeZone: zone, hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' }).formatToParts(at).reduce<Record<string, string>>((m, p) => ((m[p.type] = p.value), m), {});
+  const asUtc = Date.UTC(Number(parts.year), Number(parts.month) - 1, Number(parts.day), Number(parts.hour), Number(parts.minute), Number(parts.second));
+  return Math.round((asUtc - at.getTime()) / 60_000);
+}
+
+/** "YYYY-MM-DDTHH:mm:ss" of an instant in a zone. */
+export function localStamp(at: Date, zone: string) {
+  const parts = new Intl.DateTimeFormat('en-US', { timeZone: zone, hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' }).formatToParts(at).reduce<Record<string, string>>((m, p) => ((m[p.type] = p.value), m), {});
+  return `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}:${parts.second}`;
+}
+
+/** A device's reported local time ("YYYY-MM-DD HH:mm:ss" or ISO with/without offset) → seconds its clock is ahead of now. */
+export function clockOffsetSeconds(reported: string, zone: string, now = new Date()): number | null {
+  const s = String(reported || '').trim();
+  const m = /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2}):(\d{2})(?:\.\d+)?(Z|[+-]\d{2}:?\d{2})?$/.exec(s);
+  if (!m) return null;
+  let at: number;
+  if (m[7]) at = Date.parse(`${m[1]}-${m[2]}-${m[3]}T${m[4]}:${m[5]}:${m[6]}${m[7] === 'Z' ? 'Z' : m[7].replace(/^([+-]\d{2})(\d{2})$/, '$1:$2')}`);
+  else {
+    const guess = Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]), Number(m[4]), Number(m[5]), Number(m[6]));
+    at = guess - zoneOffsetMinutes(zone, new Date(guess)) * 60_000;
+  }
+  if (!Number.isFinite(at)) return null;
+  return Math.round((at - now.getTime()) / 1000);
+}
+
+/** Set the reader's time when it is this far out, and not again within ten minutes. */
+export const CLOCK_SET_SEC = 60;
+export function clockSetDue(offsetSec: number | null, lastSetAt: number | null, now = Date.now()) {
+  if (offsetSec === null || Math.abs(offsetSec) < CLOCK_SET_SEC) return false;
+  return !lastSetAt || now - lastSetAt > 10 * 60_000;
+}

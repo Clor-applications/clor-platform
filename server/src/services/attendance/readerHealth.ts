@@ -53,6 +53,7 @@ export type ReaderFacts = {
   lastSeenAt: Date | null;
   clockOffsetSec: number | null;
   vendor?: string | null;
+  agentId?: string | null;
   userCount: number | null;
   fingerCount: number | null;
   faceCount: number | null;
@@ -100,7 +101,9 @@ export function assessReader(r: ReaderFacts, now: Date, opts: { offlineMinutes: 
       title: reset ? `${r.name}’s clock has been reset` : `${r.name}’s clock is ${clockText(r.clockOffsetSec)}`,
       details: reset
         ? `Its punches carry a date ${clockText(r.clockOffsetSec)} — usually a power cut with a flat clock battery. Set the date and time on the reader; punches already made keep the wrong time.`
-        : r.vendor === 'MATRIX_COSEC'
+        : r.agentId
+          ? `Punches from it are stamped ${clockText(r.clockOffsetSec)} of the real time. The on-site connector sets its clock on its next round; if this stays, the reader refused the time (see Reader logs).`
+          : r.vendor === 'MATRIX_COSEC'
           ? `Punches from it are stamped ${clockText(r.clockOffsetSec)} of the real time. CLOR sends the controller the time on its next poll; if this stays, check that it accepts configuration from the server.`
           : `Punches from it are stamped ${clockText(r.clockOffsetSec)} of the real time, so late and early marks are off. Choose "Set the time" on the reader's page in CLOR, or set it at the reader (Menu → System → Date/Time).`,
     });
@@ -194,6 +197,7 @@ export async function readerFacts(orgId: string, devices?: any[]) {
         lastSeenAt: r.lastSeenAt,
         clockOffsetSec: r.clockOffsetSec,
         vendor: r.vendor ?? null,
+        agentId: r.agentId ?? null,
         userCount: r.userCount,
         fingerCount: r.fingerCount,
         faceCount: r.faceCount,
@@ -306,9 +310,36 @@ export async function trackAlerts(org: { accountId: string; orgId: string; name:
   return { opened, resolved };
 }
 
-/** Check every company that has readers; run every few minutes. Never throws for one company. */
+/**
+ * On-site connectors: one going quiet silently stops every reader, Tally
+ * voucher and directory sync behind it, so it is an alert like a reader's.
+ */
+export function assessConnector(a: { id: string; name: string; isActive: boolean; lastSeenAt: Date | null; readers: number; lastError: string | null }, now: Date, opts: { offlineMinutes: number }): Issue[] {
+  if (!a.isActive) return [];
+  const behind = a.readers ? ` ${a.readers} reader${a.readers === 1 ? '' : 's'} behind it ${a.readers === 1 ? 'is' : 'are'} not being read.` : '';
+  if (!a.lastSeenAt) {
+    return [{ kind: 'connector', severity: 'medium', title: `Connector ${a.name} has not connected yet`, details: `Run clor-agent.cjs with its token on a computer in the office (Attendance → Integrations → On-site connectors has the steps).${behind}` }];
+  }
+  const m = mins(now.getTime() - a.lastSeenAt.getTime());
+  if (m >= opts.offlineMinutes) {
+    return [{ kind: 'connector', severity: 'high', title: `Connector ${a.name} has stopped checking in`, details: `Nothing from it for ${span(m)}.${behind} Check that the computer is on and clor-agent.cjs is running.` }];
+  }
+  if (a.lastError) return [{ kind: 'connector-error', severity: 'medium', title: `Connector ${a.name} reports a problem`, details: a.lastError }];
+  return [];
+}
+
+export async function connectorFacts(orgId: string) {
+  const agents = await peoplePrisma.siteAgent.findMany({ where: { orgId, isActive: true } });
+  if (!agents.length) return [];
+  const counts = await peoplePrisma.attendanceDevice.groupBy({ by: ['agentId'], where: { orgId, agentId: { in: agents.map((a) => a.id) }, isActive: true }, _count: { _all: true } });
+  return agents.map((a) => ({ id: a.id, name: a.name, isActive: a.isActive, lastSeenAt: a.lastSeenAt, lastError: a.lastError, readers: (counts as any[]).find((c) => c.agentId === a.id)?._count._all || 0 }));
+}
+
+/** Check every company that has readers or connectors; run every few minutes. Never throws for one company. */
 export async function runReaderChecks(now = new Date()) {
-  const orgs = await peoplePrisma.attendanceDevice.groupBy({ by: ['accountId', 'orgId'], where: { vendor: { in: vendorsWith('health') }, isActive: true } });
+  const withReaders = await peoplePrisma.attendanceDevice.groupBy({ by: ['accountId', 'orgId'], where: { vendor: { in: vendorsWith('health') }, isActive: true } });
+  const withAgents = await peoplePrisma.siteAgent.groupBy({ by: ['accountId', 'orgId'], where: { isActive: true } });
+  const orgs = [...new Map([...withReaders, ...withAgents].map((o) => [o.orgId, { accountId: o.accountId, orgId: o.orgId }])).values()];
   let opened = 0;
   let resolved = 0;
   for (const { accountId, orgId } of orgs) {
@@ -319,6 +350,9 @@ export async function runReaderChecks(now = new Date()) {
       const found: Array<Issue & { key: string; deviceId?: string | null }> = [];
       for (const { facts } of await readerFacts(orgId)) {
         for (const i of assessReader(facts, now, { offlineMinutes: settings.offlineAlertMinutes })) found.push({ ...i, key: `${i.kind}:${facts.id}`, deviceId: facts.id });
+      }
+      for (const a of await connectorFacts(orgId)) {
+        for (const i of assessConnector(a, now, { offlineMinutes: settings.offlineAlertMinutes })) found.push({ ...i, key: `${i.kind}:${a.id}` });
       }
       const collection = assessCollection(await collectionFacts(orgId, settings.noPunchAfterHour, now), now);
       for (const i of collection || []) found.push({ ...i, key: 'no-punches' });

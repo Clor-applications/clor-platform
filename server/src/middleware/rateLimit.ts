@@ -59,6 +59,11 @@ export const ingestLimiter = [bucket(60 * 1000, 600, 'pushes', (req) => `ingest:
 /** Authenticator codes: ten tries in fifteen minutes per signed-in user, so six digits cannot be walked. */
 export const codeLimiter = [bucket(15 * 60 * 1000, 10, 'code attempts', (req) => `code:${req.auth?.userId || ipOf(req)}`)];
 
+/** Machine clients with a bearer token (SCIM providers, on-site connectors): per token, and per address for the ones guessing. */
+const bearerOf = (req: any) => String(req.headers?.authorization || '').replace(/^Bearer\s+/i, '').slice(0, 24);
+export const scimLimiter = [bucket(60 * 1000, 600, 'SCIM requests', (req) => `scim:${bearerOf(req) || ipOf(req)}`), bucket(60 * 1000, 1200, 'SCIM requests', (req) => `scim-ip:${ipOf(req)}`)];
+export const agentLimiter = [bucket(60 * 1000, 600, 'connector requests', (req) => `agent:${bearerOf(req) || ipOf(req)}`)];
+
 /**
  * Biometric readers (/iclock). One bucket per serial number and one per
  * address. A reader sends a heartbeat every 30 s and, in real-time mode, one

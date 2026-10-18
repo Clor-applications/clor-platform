@@ -216,7 +216,9 @@ async function applyChanges(t: Tenant, u: U, changes: { email?: string; fullName
     if (!changes.active) data.lockedUntil = null;
   }
   if (!Object.keys(data).length) return u;
-  return platformPrisma.user.update({ where: { id: u.id }, data, select: SELECT });
+  const next = await platformPrisma.user.update({ where: { id: u.id }, data, select: SELECT });
+  await recordAuthEvent({ accountId: t.accountId, userId: u.id, email: next.email, eventType: data.isActive === false ? 'USER_DEACTIVATED' : data.isActive === true ? 'USER_REACTIVATED' : 'USER_UPDATED', detail: `SCIM directory sync: ${Object.keys(data).filter((k) => k !== 'lockedUntil').join(', ')}` });
+  return next;
 }
 
 const withErrors = (fn: (req: Request, res: Response) => Promise<unknown>) => async (req: Request, res: Response) => {

@@ -6,6 +6,7 @@ import path from 'node:path';
 import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { platformPrisma } from '../utils/platformPrisma.js';
 import { decryptSecret, encryptSecret } from '../services/mailer.js';
+import { istLocal } from '../services/attendance/punchMapping.js';
 import { hashToken } from './publicApi.js';
 import { ingestPunches } from './iclock.js';
 import { isFeatureEnabled } from '../services/features.js';
@@ -109,6 +110,9 @@ agentRouter.get('/config', async (req, res) => {
       mapping: d.mappingJson ? JSON.parse(d.mappingJson) : null,
       /* Pull from here (ten minutes' overlap is the agent's job). */
       lastFetchedAt: d.lastFetchedAt,
+      /* What the cloud knows of its clock; the connector reads the real thing and sets it when a minute or more out. */
+      clockOffsetSec: d.clockOffsetSec,
+      clockCheckedAt: d.clockCheckedAt,
     })),
     tally: cfg.tally && cfg.tally.host ? { host: cfg.tally.host, port: Number(cfg.tally.port) || 9000, company: cfg.tally.company || null } : null,
     ldap: cfg.ldap && cfg.ldap.url ? { ...cfg.ldap, bindPassword: secrets.ldapBindPassword || '', scimBase: `${process.env.API_PUBLIC_URL || process.env.PUBLIC_API_URL || 'https://api.clor.in'}/scim/v2` } : null,
@@ -133,6 +137,26 @@ agentRouter.post('/readers/:id/punches', async (req, res) => {
   const added = lines.length ? await ingestPunches(device, lines.join('\n')) : 0;
   await peoplePrisma.attendanceDevice.update({ where: { id: device.id }, data: { lastFetchedAt: now, lastSeenAt: now, lastError: null, ...seen } });
   res.json({ added, received: lines.length });
+});
+
+/** The reader's clock as the connector read it (and set it, when it was out). */
+agentRouter.post('/readers/:id/clock', async (req, res) => {
+  const a = req.agent!;
+  const device = await peoplePrisma.attendanceDevice.findFirst({ where: { id: String(req.params.id), orgId: a.orgId, agentId: a.id } });
+  if (!device) return fail(res, 404, 'That reader is not assigned to this connector.');
+  const now = new Date();
+  const offset = Number(req.body?.offsetSec);
+  const set = req.body?.set === true;
+  const data: Record<string, unknown> = { lastSeenAt: now };
+  if (Number.isFinite(offset)) Object.assign(data, { clockOffsetSec: set ? 0 : Math.max(-2_000_000_000, Math.min(2_000_000_000, Math.round(offset))), clockCheckedAt: now });
+  if (req.body?.error) data.lastError = String(req.body.error).slice(0, 300);
+  await peoplePrisma.attendanceDevice.update({ where: { id: device.id }, data });
+  if (set || req.body?.error) {
+    await peoplePrisma.deviceLog.create({
+      data: { accountId: device.accountId, orgId: device.orgId, deviceId: device.id, kind: req.body?.error ? 'ERROR' : 'OPERATION', code: 'CLOCK_SET', localTime: istLocal(now), details: req.body?.error ? `Could not set the time: ${String(req.body.error).slice(0, 300)}` : `Time set by the connector (was ${Math.round(offset)} s out).` },
+    });
+  }
+  res.json({ ok: true });
 });
 
 /** How a job went. */

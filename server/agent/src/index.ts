@@ -16,7 +16,12 @@
  * people it created) next to its config.
  *
  *   node clor-agent.cjs --token clora_… [--api https://api.clor.in] [--state ./clor-agent.json] [--once]
+ *   node clor-agent.cjs --install --token clora_…     keeps the token in the state file and registers
+ *                                                     a service (systemd / launchd / Task Scheduler)
  *   CLOR_AGENT_TOKEN / CLOR_API_URL / CLOR_AGENT_STATE do the same.
+ *
+ * When CLOR has a newer connector it downloads it over itself and restarts
+ * (unless --no-update), so a customer's box stays current without a visit.
  */
 import fs from 'node:fs';
 import os from 'node:os';
@@ -25,7 +30,8 @@ import http from 'node:http';
 
 import { pullByVendor } from '../../src/services/attendance/pull/drivers.js';
 import type { PullContext } from '../../src/services/attendance/pull/common.js';
-import { adActive, planLdapSync, pullWindow, readTallyReply, type DirectoryUser, type ScimUser } from './plan.js';
+import { authedRequest } from '../../src/services/attendance/digest.js';
+import { adActive, clockOffsetSeconds, clockSetDue, hikvisionTimeZone, localStamp, planLdapSync, pullWindow, readTallyReply, zoneOffsetMinutes, type DirectoryUser, type ScimUser } from './plan.js';
 
 /* The cloud's guards refuse private addresses; here the LAN is the point. */
 process.env.INTEGRATIONS_ALLOW_PRIVATE = 'true';
@@ -36,17 +42,12 @@ const arg = (name: string, env: string, dflt = '') => {
   const i = process.argv.indexOf(`--${name}`);
   return (i !== -1 && process.argv[i + 1]) || process.env[env] || dflt;
 };
-const TOKEN = arg('token', 'CLOR_AGENT_TOKEN');
-const API = arg('api', 'CLOR_API_URL', 'https://api.clor.in').replace(/\/+$/, '');
-const STATE = arg('state', 'CLOR_AGENT_STATE', path.join(process.cwd(), 'clor-agent.json'));
+const SELF = path.resolve(process.argv[1] || 'clor-agent.cjs');
+const STATE = arg('state', 'CLOR_AGENT_STATE', path.join(path.dirname(SELF), 'clor-agent.json'));
 const ONCE = process.argv.includes('--once');
+const NO_UPDATE = process.argv.includes('--no-update');
 
-if (!TOKEN) {
-  console.error('Give the connector token: --token clora_… (made under Attendance → Integrations → On-site connectors).');
-  process.exit(2);
-}
-
-type State = { scimToken?: string; created?: string[] };
+type State = { token?: string; api?: string; scimToken?: string; created?: string[] };
 const loadState = (): State => {
   try {
     return JSON.parse(fs.readFileSync(STATE, 'utf8'));
@@ -55,6 +56,81 @@ const loadState = (): State => {
   }
 };
 const saveState = (s: State) => fs.writeFileSync(STATE, JSON.stringify(s, null, 2), { mode: 0o600 });
+
+/* The token and address: from the command line or environment, else from the state file a previous --install wrote. */
+const stored = loadState();
+const TOKEN = arg('token', 'CLOR_AGENT_TOKEN') || stored.token || '';
+const API = (arg('api', 'CLOR_API_URL') || stored.api || 'https://api.clor.in').replace(/\/+$/, '');
+
+if (!TOKEN) {
+  console.error('Give the connector token: --token clora_… (made under Attendance → Integrations → On-site connectors).');
+  process.exit(2);
+}
+
+/* ------------------------------------------------------------------ install */
+
+/** Keep the token here and register a service that starts at boot and comes back after a crash. */
+function install() {
+  const { execFileSync } = require('node:child_process') as typeof import('node:child_process');
+  saveState({ ...loadState(), token: TOKEN, api: API });
+  const node = process.execPath;
+  const run = `"${node}" "${SELF}" --state "${STATE}"`;
+  const plat = process.platform;
+  try {
+    if (plat === 'win32') {
+      /* Task Scheduler: at start-up as SYSTEM, restarted every minute if it is not running. */
+      execFileSync('schtasks', ['/Create', '/F', '/SC', 'ONSTART', '/RU', 'SYSTEM', '/RL', 'HIGHEST', '/TN', 'CLOR connector', '/TR', run], { stdio: 'inherit' });
+      execFileSync('schtasks', ['/Change', '/TN', 'CLOR connector', '/RI', '1', '/DU', '9999:59'], { stdio: 'ignore' });
+      execFileSync('schtasks', ['/Run', '/TN', 'CLOR connector'], { stdio: 'inherit' });
+      console.log('Installed as the scheduled task "CLOR connector" (starts at boot, runs as SYSTEM). Remove with: schtasks /Delete /TN "CLOR connector" /F');
+    } else if (plat === 'darwin') {
+      const plist = path.join(os.homedir(), 'Library/LaunchAgents/in.clor.agent.plist');
+      fs.mkdirSync(path.dirname(plist), { recursive: true });
+      fs.writeFileSync(plist, `<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">\n<plist version="1.0"><dict>\n<key>Label</key><string>in.clor.agent</string>\n<key>ProgramArguments</key><array><string>${node}</string><string>${SELF}</string><string>--state</string><string>${STATE}</string></array>\n<key>RunAtLoad</key><true/><key>KeepAlive</key><true/>\n<key>StandardOutPath</key><string>${path.join(path.dirname(SELF), 'clor-agent.log')}</string><key>StandardErrorPath</key><string>${path.join(path.dirname(SELF), 'clor-agent.log')}</string>\n</dict></plist>\n`);
+      execFileSync('launchctl', ['unload', plist], { stdio: 'ignore' });
+      execFileSync('launchctl', ['load', plist], { stdio: 'inherit' });
+      console.log(`Installed as a launch agent (${plist}); it starts at login and is kept alive. Remove with: launchctl unload "${plist}"`);
+    } else {
+      const unit = '/etc/systemd/system/clor-agent.service';
+      const text = `[Unit]\nDescription=CLOR on-site connector\nAfter=network-online.target\nWants=network-online.target\n\n[Service]\nExecStart=${run}\nRestart=always\nRestartSec=10\nWorkingDirectory=${path.dirname(SELF)}\n\n[Install]\nWantedBy=multi-user.target\n`;
+      try {
+        fs.writeFileSync(unit, text);
+        execFileSync('systemctl', ['daemon-reload'], { stdio: 'inherit' });
+        execFileSync('systemctl', ['enable', '--now', 'clor-agent'], { stdio: 'inherit' });
+        console.log('Installed as the systemd service clor-agent (sudo systemctl status clor-agent). Remove with: sudo systemctl disable --now clor-agent');
+      } catch (e: any) {
+        console.log(`Could not write ${unit} (run with sudo?). The unit it would write:\n\n${text}`);
+        throw e;
+      }
+    }
+  } catch (e: any) {
+    console.error('Install did not finish:', String(e?.message || e));
+    process.exit(1);
+  }
+}
+if (process.argv.includes('--install')) {
+  install();
+  process.exit(0);
+}
+
+/* ------------------------------------------------------------- self-update */
+
+/** CLOR has a newer connector: fetch it over this file and start again. The service manager (or our own respawn on Windows) brings it back. */
+async function selfUpdate(latest: string) {
+  const r = await fetch(`${API}/agent/v1/download`, { signal: AbortSignal.timeout(120_000) });
+  if (!r.ok) throw new Error(`download answered ${r.status}`);
+  const code = Buffer.from(await r.arrayBuffer());
+  if (code.length < 100_000 || !code.subarray(0, 200).toString().includes('node')) throw new Error('the download does not look like the connector');
+  const tmp = `${SELF}.new`;
+  fs.writeFileSync(tmp, code, { mode: 0o755 });
+  fs.renameSync(tmp, SELF);
+  log(`updated to ${latest}; restarting`);
+  if (process.platform === 'win32' || ONCE) {
+    const { spawn } = require('node:child_process') as typeof import('node:child_process');
+    spawn(process.execPath, [SELF, '--state', STATE], { detached: true, stdio: 'ignore', cwd: path.dirname(SELF) }).unref();
+  }
+  process.exit(0);
+}
 
 const log = (...a: unknown[]) => console.log(new Date().toISOString().slice(11, 19), ...a);
 
@@ -84,6 +160,52 @@ async function pullReader(r: any): Promise<string> {
   }
   const up = await cloud('POST', `/readers/${r.id}/punches`, { ok: result.ok, message: result.message, lines: result.lines, received: result.received, payload: result.payload });
   return result.ok ? `${r.name}: ${result.received} read, ${up.added} new` : `${r.name}: ${result.message}`;
+}
+
+
+/* ------------------------------------------------------------- reader clocks */
+
+const clockSetAt = new Map<string, number>();
+
+/** Read the reader's own clock and, when it is a minute or more out, set it. Hikvision (ISAPI) and Dahua (CGI) only. */
+async function checkClock(r: any): Promise<string | null> {
+  if (r.vendor !== 'HIKVISION' && r.vendor !== 'DAHUA') return null;
+  const base = String(r.baseUrl || '').replace(/\/+$/, '');
+  const zone = r.zone || 'Asia/Kolkata';
+  let offset: number | null = null;
+  try {
+    if (r.vendor === 'HIKVISION') {
+      const g = await authedRequest('GET', `${base}/ISAPI/System/time`, r.username, r.password, { timeoutMs: 10_000 });
+      if (g.status !== 200) throw new Error(`time read answered ${g.status}`);
+      const local = /<localTime>([^<]+)<\/localTime>/.exec(g.text)?.[1] || '';
+      offset = clockOffsetSeconds(local, zone);
+    } else {
+      const g = await authedRequest('GET', `${base}/cgi-bin/global.cgi?action=getCurrentTime`, r.username, r.password, { timeoutMs: 10_000 });
+      if (g.status !== 200) throw new Error(`time read answered ${g.status}`);
+      offset = clockOffsetSeconds(/result=(.+)/.exec(g.text)?.[1]?.trim() || '', zone);
+    }
+    if (offset === null) throw new Error('the reader gave a time in a form the connector does not read');
+    if (!clockSetDue(offset, clockSetAt.get(r.id) ?? null) || r.config?.setClock === false) {
+      await cloud('POST', `/readers/${r.id}/clock`, { offsetSec: offset });
+      return Math.abs(offset) >= 60 ? `${r.name}: clock ${offset > 0 ? 'fast' : 'slow'} by ${Math.abs(offset)} s (set recently, waiting)` : null;
+    }
+    const now = new Date();
+    if (r.vendor === 'HIKVISION') {
+      const body = `<?xml version="1.0" encoding="UTF-8"?><Time version="2.0" xmlns="http://www.isapi.org/ver20/XMLSchema"><timeMode>manual</timeMode><localTime>${localStamp(now, zone)}</localTime><timeZone>${hikvisionTimeZone(zoneOffsetMinutes(zone, now))}</timeZone></Time>`;
+      const p = await authedRequest('PUT', `${base}/ISAPI/System/time`, r.username, r.password, { headers: { 'Content-Type': 'application/xml' }, body, timeoutMs: 10_000 });
+      if (p.status < 200 || p.status >= 300) throw new Error(`time set answered ${p.status}`);
+    } else {
+      const p = await authedRequest('GET', `${base}/cgi-bin/global.cgi?action=setCurrentTime&time=${encodeURIComponent(localStamp(now, zone).replace('T', ' '))}`, r.username, r.password, { timeoutMs: 10_000 });
+      if (p.status !== 200 || !/OK/i.test(p.text)) throw new Error(`time set answered ${p.status} ${p.text.slice(0, 40)}`);
+    }
+    clockSetAt.set(r.id, Date.now());
+    await cloud('POST', `/readers/${r.id}/clock`, { offsetSec: offset, set: true });
+    return `${r.name}: clock was ${offset > 0 ? 'fast' : 'slow'} by ${Math.abs(offset)} s, set`;
+  } catch (e: any) {
+    const msg = String(e?.message || e).slice(0, 200);
+    await cloud('POST', `/readers/${r.id}/clock`, { ...(offset !== null ? { offsetSec: offset } : {}), error: `clock: ${msg}` }).catch(() => {});
+    return `${r.name}: clock ${msg}`;
+  }
 }
 
 /* -------------------------------------------------------------------- Tally */
@@ -223,6 +345,8 @@ async function round() {
   for (const r of cfg.readers || []) {
     try {
       notes.push(await pullReader(r));
+      const c = await checkClock(r);
+      if (c) notes.push(c);
     } catch (e: any) {
       notes.push(`${r.name}: ${String(e?.message || e)}`);
     }
@@ -247,7 +371,16 @@ async function round() {
   const summary = notes.join(' · ').slice(0, 500) || 'Nothing to do';
   await cloud('POST', '/report', { summary, error });
   log(summary);
-  if (cfg.agent?.latestVersion && cfg.agent.latestVersion !== VERSION) log(`a newer connector (${cfg.agent.latestVersion}) is available at ${API}/agent/v1/download`);
+  if (cfg.agent?.latestVersion && cfg.agent.latestVersion !== VERSION) {
+    if (NO_UPDATE) log(`a newer connector (${cfg.agent.latestVersion}) is available at ${API}/agent/v1/download`);
+    else {
+      try {
+        await selfUpdate(cfg.agent.latestVersion);
+      } catch (e: any) {
+        log('self-update failed:', String(e?.message || e));
+      }
+    }
+  }
   return Number(cfg.agent?.pollSeconds) || 60;
 }
 

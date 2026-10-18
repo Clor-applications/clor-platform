@@ -12,7 +12,8 @@ const { buildApp } = await import('../app.js');
 const { peoplePrisma } = await import('../utils/peoplePrisma.js');
 const { platformPrisma } = await import('../utils/platformPrisma.js');
 const { syncAllVendorConnections } = await import('../routes/iclock.js');
-const { planLdapSync, adActive, pullWindow, readTallyReply } = await import('../../agent/src/plan.js');
+const { planLdapSync, adActive, pullWindow, readTallyReply, hikvisionTimeZone, clockOffsetSeconds, clockSetDue, localStamp } = await import('../../agent/src/plan.js');
+const { assessConnector, runReaderChecks } = await import('../services/attendance/readerHealth.js');
 
 const app = buildApp().listen(0);
 afterAll(async () => {
@@ -96,6 +97,27 @@ describe('an on-site connector', () => {
     expect((await peoplePrisma.attendanceDevice.findUnique({ where: { id: reader.id } }))?.lastError).toBe('Digest refused');
     await a.post(`/readers/${theirs.id}/punches`, { ok: true, lines: [] }).expect(404);
 
+    /* Its clock, as the connector read it: drift recorded; a set clears it and is logged. */
+    await a.post(`/readers/${reader.id}/clock`, { offsetSec: 95 }).expect(200);
+    expect((await peoplePrisma.attendanceDevice.findUnique({ where: { id: reader.id } }))?.clockOffsetSec).toBe(95);
+    expect((await a.get('/config').expect(200)).body.readers[0].clockOffsetSec).toBe(95);
+    await a.post(`/readers/${reader.id}/clock`, { offsetSec: 95, set: true }).expect(200);
+    expect((await peoplePrisma.attendanceDevice.findUnique({ where: { id: reader.id } }))?.clockOffsetSec).toBe(0);
+    await a.post(`/readers/${reader.id}/clock`, { error: 'clock: time set answered 403' }).expect(200);
+    const clockLogs = await peoplePrisma.deviceLog.findMany({ where: { deviceId: reader.id, code: 'CLOCK_SET' }, orderBy: { id: 'asc' } });
+    expect(clockLogs.map((l) => l.kind)).toEqual(['OPERATION', 'ERROR']);
+    await a.post(`/readers/${theirs.id}/clock`, { offsetSec: 1 }).expect(404);
+
+    /* A connector that goes quiet is an alert like a reader's; one checking in is not. */
+    await peoplePrisma.siteAgent.update({ where: { id }, data: { lastSeenAt: new Date(Date.now() - 2 * 3_600_000) } });
+    await runReaderChecks();
+    const alert = await peoplePrisma.readerAlert.findFirst({ where: { orgId: c.orgId, key: `connector:${id}`, resolvedAt: null } });
+    expect(alert).toMatchObject({ kind: 'connector', severity: 'high' });
+    expect(alert?.details).toMatch(/1 reader behind it is not being read/);
+    await a.get('/config').expect(200);
+    await runReaderChecks();
+    expect((await peoplePrisma.readerAlert.findFirst({ where: { orgId: c.orgId, key: `connector:${id}` } }))?.resolvedAt).toBeTruthy();
+
     /* A job queued for it goes out once, then its result comes back. */
     const job = await peoplePrisma.agentJob.create({ data: { accountId: dev!.accountId, orgId: c.orgId, agentId: id, kind: 'TALLY_XML', payloadJson: JSON.stringify({ label: 'Payroll Oct → Tally', xml: '<ENVELOPE/>' }), createdByUserId: 'test' } });
     const cfg2 = await a.get('/config').expect(200);
@@ -174,6 +196,30 @@ describe('what the connector decides on its own', () => {
     expect(plan.unchanged).toBe(1);
     /* Without deactivateMissing, nobody absent from the directory is touched. */
     expect(planLdapSync(directory, scim, new Set(['gone@corp.local']), false).setActive).toEqual([{ id: 'u1', email: 'left@corp.local', active: false }]);
+  });
+  it('judges connectors', () => {
+    const now = new Date();
+    const base = { id: 'a', name: 'HQ', isActive: true, lastSeenAt: now, readers: 2, lastError: null };
+    expect(assessConnector(base, now, { offlineMinutes: 30 })).toEqual([]);
+    expect(assessConnector({ ...base, lastSeenAt: null }, now, { offlineMinutes: 30 })[0]).toMatchObject({ kind: 'connector', severity: 'medium' });
+    expect(assessConnector({ ...base, lastSeenAt: new Date(now.getTime() - 31 * 60_000) }, now, { offlineMinutes: 30 })[0]).toMatchObject({ kind: 'connector', severity: 'high', details: expect.stringMatching(/2 readers behind it are not being read/) });
+    expect(assessConnector({ ...base, lastError: 'LDAP: bind failed' }, now, { offlineMinutes: 30 })[0]).toMatchObject({ kind: 'connector-error' });
+    expect(assessConnector({ ...base, isActive: false, lastSeenAt: null }, now, { offlineMinutes: 30 })).toEqual([]);
+  });
+  it('reads reader clocks the way Hikvision and Dahua write them', () => {
+    expect(hikvisionTimeZone(330)).toBe('CST-5:30:00');
+    expect(hikvisionTimeZone(-300)).toBe('CST+5:00:00');
+    expect(hikvisionTimeZone(0)).toBe('CST+0:00:00');
+    const now = new Date('2026-10-18T04:30:00Z');
+    expect(clockOffsetSeconds('2026-10-18T10:01:30+05:30', 'Asia/Kolkata', now)).toBe(90);
+    expect(clockOffsetSeconds('2026-10-18 09:59:00', 'Asia/Kolkata', now)).toBe(-60);
+    expect(clockOffsetSeconds('2026-10-18T08:30:00Z', 'Asia/Dubai', now)).toBe(14_400);
+    expect(clockOffsetSeconds('garbage', 'Asia/Kolkata', now)).toBeNull();
+    expect(localStamp(now, 'Asia/Kolkata')).toBe('2026-10-18T10:00:00');
+    expect(clockSetDue(30, null)).toBe(false);
+    expect(clockSetDue(90, null)).toBe(true);
+    expect(clockSetDue(90, Date.now() - 60_000)).toBe(false);
+    expect(clockSetDue(-90, Date.now() - 11 * 60_000)).toBe(true);
   });
   it('reads AD flags, pull windows and Tally replies', () => {
     expect(adActive(512)).toBe(true);
