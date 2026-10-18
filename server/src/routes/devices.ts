@@ -19,6 +19,8 @@ import { can as can_, driverOf, publicDrivers, vendorsWith } from '../services/a
 import { mappingSchema, recordsOf, toAttlog, validZone } from '../services/attendance/punchMapping.js';
 import { parseCsv } from '../services/attendance/csv.js';
 import { hashToken } from './publicApi.js';
+import { MATRIX_COMMANDS, MATRIX_COMMAND_LABELS } from './matrix.js';
+import { setTimeCommand } from '../services/attendance/adms.js';
 import { ingestPunches } from './iclock.js';
 
 /**
@@ -82,6 +84,8 @@ devicesRouter.get(base, can(PermissionAction.VIEW), async (req, res) => {
     yourNetwork: networkOf(req),
     drivers: publicDrivers(),
     pushBase: `${process.env.PUBLIC_API_URL || process.env.API_PUBLIC_URL || 'https://api.clor.in'}/ingest/`,
+    /* Matrix COSEC controllers are given this as their server URL; the token is the path. */
+    matrixBase: `${process.env.PUBLIC_API_URL || process.env.API_PUBLIC_URL || 'https://api.clor.in'}/matrix/`,
   });
 });
 
@@ -169,14 +173,15 @@ const newPushToken = () => `clorp_${randomBytes(24).toString('base64url')}`;
 devicesRouter.post(base, can(PermissionAction.CREATE), async (req, res) => {
   if (!(await attendanceRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
-  if (req.body?.vendor === 'HTTP_PUSH' || req.body?.vendor === 'FILE') {
+  if (req.body?.vendor === 'HTTP_PUSH' || req.body?.vendor === 'FILE' || req.body?.vendor === 'MATRIX_COSEC') {
     const vendor = String(req.body.vendor);
     const p = mappedSchema.safeParse(req.body);
     if (!p.success) return res.status(400).json({ error: p.error.issues[0]?.message || 'Check the details.' });
     const b = p.data;
     if (!validZone(b.sourceTimezone)) return res.status(400).json({ error: 'That is not a timezone name (e.g. Asia/Kolkata, Asia/Dubai).' });
-    const token = vendor === 'HTTP_PUSH' ? newPushToken() : null;
-    const serialNumber = `${vendor === 'HTTP_PUSH' ? 'PUSH' : 'FILE'}-${randomBytes(6).toString('hex').toUpperCase()}`;
+    /* A push source is known by its URL token (shown once); a Matrix controller's own serial arrives with its first login. */
+    const token = vendor === 'FILE' ? null : newPushToken();
+    const serialNumber = `${vendor === 'HTTP_PUSH' ? 'PUSH' : vendor === 'MATRIX_COSEC' ? 'MATRIX' : 'FILE'}-${randomBytes(6).toString('hex').toUpperCase()}`;
     const device = await peoplePrisma.attendanceDevice.create({
       data: {
         accountId,
@@ -376,7 +381,9 @@ devicesRouter.put(`${base}/:id`, can(PermissionAction.EDIT), async (req, res) =>
   if (sourceTimezone !== undefined && !validZone(sourceTimezone)) return res.status(400).json({ error: 'That is not a timezone name (e.g. Asia/Kolkata, Asia/Dubai).' });
   const mapped = driverOf(existing.vendor).capabilities.includes('mapping')
     ? { ...(sourceTimezone !== undefined ? { sourceTimezone } : {}), ...(mapping !== undefined ? { mappingJson: mapping ? JSON.stringify(mapping) : null } : {}) }
-    : {};
+    : existing.vendor === 'MATRIX_COSEC' && sourceTimezone !== undefined
+      ? { sourceTimezone }
+      : {};
   if (areaId && !(await peoplePrisma.area.findFirst({ where: { id: areaId, orgId }, select: { id: true } }))) {
     return res.status(400).json({ error: 'That area is not in this organisation.' });
   }
@@ -424,6 +431,22 @@ devicesRouter.post(`${base}/:id/commands`, can(PermissionAction.EDIT), async (re
   if (!can_(device.vendor, 'commands')) return res.status(400).json({ error: 'This source takes no commands; it only sends punches.' });
   const queue = (command: string, sequence: number = SEQ.OTHER) => ({ accountId, orgId, deviceId: device.id, serialNumber: device.serialNumber, command, sequence, createdByUserId: req.auth!.userId });
 
+  if (device.vendor === 'MATRIX_COSEC') {
+    /* A controller takes reboot and a user count; the time goes as configuration on its next poll (routes/matrix.ts). */
+    if (action === 'SET_TIME') {
+      const st = JSON.parse(device.configJson || '{}');
+      await peoplePrisma.attendanceDevice.update({ where: { id: device.id }, data: { configJson: JSON.stringify({ ...st, forceClock: true }) } });
+      return res.json({ queued: 1 });
+    }
+    if (action !== 'REBOOT' && action !== 'INFO') return res.status(400).json({ error: 'A Matrix controller takes Restart, Report user count and Set the time.' });
+    await peoplePrisma.deviceCommand.create({ data: queue(MATRIX_COMMANDS[action]) });
+    return res.json({ queued: 1 });
+  }
+  if (action === 'SET_TIME') {
+    /* ADMS: the reader's clock set to now (IST, which is what its punches are read as). Drift is measured again from its next live punch. */
+    await peoplePrisma.deviceCommand.create({ data: queue(setTimeCommand(new Date())) });
+    return res.json({ queued: 1 });
+  }
   if (action === 'FETCH_PUNCHES' || action === 'FETCH_USERS' || action === 'REBOOT' || action === 'INFO') {
     await peoplePrisma.deviceCommand.create({ data: queue(COMMANDS[action]) });
     return res.json({ queued: 1 });
@@ -528,12 +551,14 @@ const describeCommand = (command: string) => {
     }[e.what];
   }
   const head = command.split('\t')[0];
+  if (head.startsWith('SET OPTIONS DateTime=')) return 'Set the time';
   return (
     {
       [COMMANDS.FETCH_PUNCHES]: 'Send all punches',
       [COMMANDS.FETCH_USERS]: 'Send its users',
       [COMMANDS.REBOOT]: 'Restart',
       [COMMANDS.INFO]: 'Report counts and capacity',
+      ...MATRIX_COMMAND_LABELS,
       'DATA QUERY FINGERTMP': 'Send fingerprints',
       'DATA QUERY FACE': 'Send faces',
       'DATA QUERY BIODATA': 'Send biometric data',
@@ -790,9 +815,10 @@ const mappedDevice = async (req: any, res: any) => {
 /** A new push URL; the old one stops working at once. */
 devicesRouter.post(`${base}/:id/rotate-token`, can(PermissionAction.EDIT), async (req, res) => {
   if (!(await attendanceRouteOk(req, res))) return;
-  const d = await mappedDevice(req, res);
-  if (!d) return;
-  if (d.vendor !== 'HTTP_PUSH') return res.status(400).json({ error: 'Only an HTTP push source has a URL.' });
+  const { accountId, orgId } = req.tenant!;
+  const d = await peoplePrisma.attendanceDevice.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
+  if (!d) return res.status(404).json({ error: 'No such reader.' });
+  if (d.vendor !== 'HTTP_PUSH' && d.vendor !== 'MATRIX_COSEC') return res.status(400).json({ error: 'Only an HTTP push source or a Matrix controller has a URL.' });
   const token = newPushToken();
   await peoplePrisma.attendanceDevice.update({ where: { id: d.id }, data: { pushTokenHash: hashToken(token), pushTokenPrefix: token.slice(0, 12) } });
   res.json({ pushToken: token });

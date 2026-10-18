@@ -70,10 +70,10 @@ export const validZone = (zone: string) => {
 };
 
 /** An instant as India local time, the form punches are stored in. */
-const istLocal = (at: Date) => new Date(at.getTime() + 330 * 60_000).toISOString().slice(0, 19).replace('T', ' ');
+export const istLocal = (at: Date) => new Date(at.getTime() + 330 * 60_000).toISOString().slice(0, 19).replace('T', ' ');
 
 /** Wall-clock parts in `zone` to the instant they name. */
-function fromZone(y: number, mo: number, d: number, h: number, mi: number, s: number, zone: string) {
+export function fromZone(y: number, mo: number, d: number, h: number, mi: number, s: number, zone: string) {
   const guess = Date.UTC(y, mo - 1, d, h, mi, s);
   const off = offsetMinutes(zone, new Date(guess));
   return new Date(guess - off * 60_000);

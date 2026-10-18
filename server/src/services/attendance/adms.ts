@@ -143,6 +143,17 @@ export function messageCommand(text: string, minutes: number, pin: string | null
  * readers rejected it every time (44 of 44), and FACE and BIODATA return the
  * same data. BIODATA is where newer firmware keeps them.
  */
+/**
+ * Set the reader's clock (ADMS `SET OPTIONS DateTime`). The value is the
+ * reader's packed form: days since 2000-01-01 counted as 31 to a month, in
+ * seconds, plus the time of day — in IST, the zone its punches are read as.
+ */
+export function setTimeCommand(now: Date) {
+  const t = new Date(now.getTime() + 330 * 60_000);
+  const packed = ((t.getUTCFullYear() - 2000) * 12 * 31 + t.getUTCMonth() * 31 + (t.getUTCDate() - 1)) * 86_400 + t.getUTCHours() * 3600 + t.getUTCMinutes() * 60 + t.getUTCSeconds();
+  return `SET OPTIONS DateTime=${packed}`;
+}
+
 export const FETCH_TEMPLATE_COMMANDS = ['DATA QUERY FINGERTMP', 'DATA QUERY FACE', 'DATA QUERY BIODATA'];
 
 export type ParsedPunch = { pin: string; localTime: string; state: string; verifyMode: number; workCode: string | null };

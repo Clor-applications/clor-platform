@@ -59,6 +59,15 @@ export const DRIVERS: Driver[] = [
     explicitDirection: true,
   },
   {
+    vendor: 'MATRIX_COSEC',
+    label: 'Matrix COSEC door controller (push)',
+    blurb: 'Matrix COSEC Door V3, PVR, Vega, FMX, ARC DC 200 and ARGO with "Push API" on. The controller logs in to a CLOR URL, sends each punch as it happens, and takes reboot, counts and the time from CLOR.',
+    capabilities: ['push', 'commands', 'health'],
+    addable: true,
+    explicitDirection: true,
+    unverified: true,
+  },
+  {
     vendor: 'FILE',
     label: 'File import',
     blurb: 'A CSV exported from any reader or attendance software. Upload it whenever you have one.',

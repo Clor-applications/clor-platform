@@ -52,6 +52,7 @@ export type ReaderFacts = {
   isActive: boolean;
   lastSeenAt: Date | null;
   clockOffsetSec: number | null;
+  vendor?: string | null;
   userCount: number | null;
   fingerCount: number | null;
   faceCount: number | null;
@@ -99,7 +100,9 @@ export function assessReader(r: ReaderFacts, now: Date, opts: { offlineMinutes: 
       title: reset ? `${r.name}’s clock has been reset` : `${r.name}’s clock is ${clockText(r.clockOffsetSec)}`,
       details: reset
         ? `Its punches carry a date ${clockText(r.clockOffsetSec)} — usually a power cut with a flat clock battery. Set the date and time on the reader; punches already made keep the wrong time.`
-        : `Punches from it are stamped ${clockText(r.clockOffsetSec)} of the real time, so late and early marks are off. Set the time on the reader (Menu → System → Date/Time).`,
+        : r.vendor === 'MATRIX_COSEC'
+          ? `Punches from it are stamped ${clockText(r.clockOffsetSec)} of the real time. CLOR sends the controller the time on its next poll; if this stays, check that it accepts configuration from the server.`
+          : `Punches from it are stamped ${clockText(r.clockOffsetSec)} of the real time, so late and early marks are off. Choose "Set the time" on the reader's page in CLOR, or set it at the reader (Menu → System → Date/Time).`,
     });
   }
   const full: string[] = [];
@@ -190,6 +193,7 @@ export async function readerFacts(orgId: string, devices?: any[]) {
         isActive: r.isActive,
         lastSeenAt: r.lastSeenAt,
         clockOffsetSec: r.clockOffsetSec,
+        vendor: r.vendor ?? null,
         userCount: r.userCount,
         fingerCount: r.fingerCount,
         faceCount: r.faceCount,

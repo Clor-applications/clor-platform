@@ -42,6 +42,7 @@ import { attendanceReportsRouter } from './routes/attendanceReports.js';
 import { integrationsRouter } from './routes/integrations.js';
 import { publicApiRouter } from './routes/publicApi.js';
 import { ingestRouter } from './routes/ingest.js';
+import { matrixRouter } from './routes/matrix.js';
 import { personnelRouter } from './routes/personnel.js';
 import { schedulingRouter } from './routes/scheduling.js';
 import { portalRouter } from './routes/portal.js';
@@ -185,6 +186,8 @@ export function buildApp() {
   app.use('/iclock', express.text({ type: () => true, limit: '8mb' }), iclockRouter);
   /* Any shape of body: JSON when it says so, a form, or plain text we try as JSON. */
   app.use('/ingest', express.json({ limit: '4mb', type: ['application/json', 'application/*+json'] }), express.urlencoded({ extended: true, limit: '4mb' }), express.text({ type: () => true, limit: '4mb' }), ingestRouter);
+  /* Matrix COSEC controllers: GET requests with everything in the query string, no body (routes/matrix.ts). */
+  app.use('/matrix', matrixRouter);
   /* A phone punch may carry a selfie (≤ 2 MB, base64): its own, larger limit. */
   app.use('/api/portal/punch', express.json({ limit: '3mb' }));
   /* A document on an employee file (≤ 5 MB, base64). */
