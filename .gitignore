@@ -72,3 +72,5 @@ mobile/*/android/build/
 mobile/*/android/local.properties
 *.keystore
 *.jks
+
+server/dist-agent/

@@ -14,6 +14,8 @@ import { encryptSecret } from '../services/mailer.js';
 import { checkUrl } from '../services/outbound.js';
 import { EVENT_HELP, WEBHOOK_EVENTS, deliver, forgetWebhooks, resendDelivery } from '../services/attendance/webhooks.js';
 import { SCOPES, hashToken } from './publicApi.js';
+import { agentConfig, agentSecrets, ensureScimForAgent, newAgentToken } from './agent.js';
+import { platformPrisma } from '../utils/platformPrisma.js';
 
 /**
  * Integrations, as the company manages them: API keys for outside systems
@@ -195,6 +197,134 @@ const publicConnection = (c: any) => {
     capabilities: a?.capabilities || [], lastRunAt: c.lastRunAt, lastError: c.lastError, lastSummary: c.lastSummary, createdAt: c.createdAt,
   };
 };
+
+/* ------------------------------------------------------------ On-site connectors */
+
+const agentBase = () => `${process.env.API_PUBLIC_URL || process.env.PUBLIC_API_URL || 'https://api.clor.in'}/agent/v1`;
+const ldapSchema = z
+  .object({
+    url: z.string().trim().max(200).regex(/^ldaps?:\/\//, 'The LDAP address starts with ldap:// or ldaps://.'),
+    bindDn: z.string().trim().min(1).max(300),
+    bindPassword: z.string().max(200).optional(),
+    baseDn: z.string().trim().min(1).max(300),
+    filter: z.string().trim().max(500).optional(),
+    emailAttr: z.string().trim().max(60).optional(),
+    deactivateMissing: z.boolean().optional(),
+    defaultRoleId: z.string().nullable().optional(),
+  })
+  .nullable()
+  .optional();
+const tallySchema = z.object({ host: z.string().trim().max(120), port: z.coerce.number().int().min(1).max(65535).optional(), company: z.string().trim().max(120).optional() }).nullable().optional();
+const agentSchema = z.object({ name: z.string().trim().min(1, 'Name the connector, e.g. "Head office server".').max(80), isActive: z.boolean().optional(), pollSeconds: z.coerce.number().int().min(30).max(900).optional(), tally: tallySchema, ldap: ldapSchema });
+
+const agentRow = async (a: any) => {
+  const cfg = agentConfig(a);
+  const [readers, jobs] = await Promise.all([
+    peoplePrisma.attendanceDevice.findMany({ where: { agentId: a.id }, select: { id: true, name: true, vendor: true, lastFetchedAt: true, lastError: true } }),
+    peoplePrisma.agentJob.groupBy({ by: ['status'], where: { agentId: a.id }, _count: { _all: true } }),
+  ]);
+  const { tokenHash: _h, secretsEnc, pendingEnc, configJson: _c, ...rest } = a;
+  return {
+    ...rest,
+    online: Boolean(a.lastSeenAt && Date.now() - new Date(a.lastSeenAt).getTime() < 5 * 60_000),
+    pollSeconds: Number(cfg.pollSeconds) || 60,
+    tally: cfg.tally || null,
+    ldap: cfg.ldap ? { ...cfg.ldap, passwordSet: Boolean(agentSecrets(a).ldapBindPassword) } : null,
+    scimPending: Boolean(pendingEnc),
+    readers,
+    jobs: Object.fromEntries(jobs.map((j) => [j.status, j._count._all])),
+  };
+};
+
+integrationsRouter.get(`${base}/agents`, can(PermissionAction.VIEW), async (req, res) => {
+  if (!(await attendanceRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const rows = await peoplePrisma.siteAgent.findMany({ where: { accountId, orgId }, orderBy: { createdAt: 'asc' } });
+  res.json({ agents: await Promise.all(rows.map(agentRow)), baseUrl: agentBase(), downloadUrl: `${agentBase()}/download` });
+});
+
+integrationsRouter.post(`${base}/agents`, can(PermissionAction.CREATE), async (req, res) => {
+  if (!(await attendanceRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const p = agentSchema.safeParse(req.body);
+  if (!p.success) return res.status(400).json({ error: p.error.issues[0]?.message || 'Check the details.' });
+  if ((await peoplePrisma.siteAgent.count({ where: { orgId } })) >= 10) return res.status(400).json({ error: 'Ten connectors is the most.' });
+  const token = newAgentToken();
+  const { ldap, tally, pollSeconds, name } = p.data;
+  const { bindPassword, ...ldapCfg } = ldap || ({} as any);
+  const a = await peoplePrisma.siteAgent.create({
+    data: {
+      accountId,
+      orgId,
+      name,
+      tokenHash: hashToken(token),
+      tokenPrefix: token.slice(0, 12),
+      configJson: JSON.stringify({ ...(pollSeconds ? { pollSeconds } : {}), ...(tally ? { tally } : {}), ...(ldap ? { ldap: ldapCfg } : {}) }),
+      secretsEnc: bindPassword ? encryptSecret(JSON.stringify({ ldapBindPassword: bindPassword })) : null,
+      createdByUserId: req.auth!.userId,
+    },
+  });
+  if (ldap) await ensureScimForAgent(a, ldap.defaultRoleId ?? null);
+  res.status(201).json({ token, agent: await agentRow(await peoplePrisma.siteAgent.findUniqueOrThrow({ where: { id: a.id } })), baseUrl: agentBase(), downloadUrl: `${agentBase()}/download` });
+});
+
+integrationsRouter.put(`${base}/agents/:id`, can(PermissionAction.EDIT), async (req, res) => {
+  if (!(await attendanceRouteOk(req, res))) return;
+  const { orgId } = req.tenant!;
+  const a = await peoplePrisma.siteAgent.findFirst({ where: { id: String(req.params.id), orgId } });
+  if (!a) return res.status(404).json({ error: 'No such connector.' });
+  const p = agentSchema.safeParse(req.body);
+  if (!p.success) return res.status(400).json({ error: p.error.issues[0]?.message || 'Check the details.' });
+  const { ldap, tally, pollSeconds, name, isActive } = p.data;
+  const { bindPassword, ...ldapCfg } = ldap || ({} as any);
+  const secrets = agentSecrets(a);
+  if (ldap === null) delete secrets.ldapBindPassword;
+  if (bindPassword) secrets.ldapBindPassword = bindPassword;
+  const cfg = agentConfig(a);
+  const next = { ...cfg, ...(pollSeconds ? { pollSeconds } : {}), tally: tally === undefined ? cfg.tally : tally, ldap: ldap === undefined ? cfg.ldap : ldap ? ldapCfg : undefined };
+  if (!next.tally) delete next.tally;
+  if (!next.ldap) delete next.ldap;
+  await peoplePrisma.siteAgent.update({ where: { id: a.id }, data: { name, ...(isActive !== undefined ? { isActive } : {}), configJson: JSON.stringify(next), secretsEnc: Object.keys(secrets).length ? encryptSecret(JSON.stringify(secrets)) : null } });
+  if (ldap) await ensureScimForAgent(a, ldap.defaultRoleId ?? null);
+  res.json({ agent: await agentRow(await peoplePrisma.siteAgent.findUniqueOrThrow({ where: { id: a.id } })) });
+});
+
+/** A new token; the old one stops working at once. */
+integrationsRouter.post(`${base}/agents/:id/rotate`, can(PermissionAction.EDIT), async (req, res) => {
+  if (!(await attendanceRouteOk(req, res))) return;
+  const a = await peoplePrisma.siteAgent.findFirst({ where: { id: String(req.params.id), orgId: req.tenant!.orgId } });
+  if (!a) return res.status(404).json({ error: 'No such connector.' });
+  const token = newAgentToken();
+  /* The SCIM token goes again with the new one, so a reinstalled agent has everything. */
+  let pending: Record<string, string> = {};
+  if (a.scimTokenId) {
+    const { newScimToken } = await import('./scim.js');
+    const st = newScimToken();
+    await platformPrisma.scimToken.update({ where: { id: a.scimTokenId }, data: { tokenHash: hashToken(st), tokenPrefix: st.slice(0, 12) } }).catch(() => {});
+    pending = { scimToken: st };
+  }
+  await peoplePrisma.siteAgent.update({ where: { id: a.id }, data: { tokenHash: hashToken(token), tokenPrefix: token.slice(0, 12), pendingEnc: Object.keys(pending).length ? encryptSecret(JSON.stringify(pending)) : null } });
+  res.json({ token, baseUrl: agentBase(), downloadUrl: `${agentBase()}/download` });
+});
+
+integrationsRouter.delete(`${base}/agents/:id`, can(PermissionAction.DELETE), async (req, res) => {
+  if (!(await attendanceRouteOk(req, res))) return;
+  const a = await peoplePrisma.siteAgent.findFirst({ where: { id: String(req.params.id), orgId: req.tenant!.orgId } });
+  if (!a) return res.status(404).json({ error: 'No such connector.' });
+  await peoplePrisma.attendanceDevice.updateMany({ where: { agentId: a.id }, data: { agentId: null } });
+  await peoplePrisma.agentJob.deleteMany({ where: { agentId: a.id } });
+  if (a.scimTokenId) await platformPrisma.scimToken.deleteMany({ where: { id: a.scimTokenId } });
+  await peoplePrisma.siteAgent.delete({ where: { id: a.id } });
+  res.json({ ok: true });
+});
+
+integrationsRouter.get(`${base}/agents/:id/jobs`, can(PermissionAction.VIEW), async (req, res) => {
+  if (!(await attendanceRouteOk(req, res))) return;
+  const a = await peoplePrisma.siteAgent.findFirst({ where: { id: String(req.params.id), orgId: req.tenant!.orgId }, select: { id: true } });
+  if (!a) return res.status(404).json({ error: 'No such connector.' });
+  const jobs = await peoplePrisma.agentJob.findMany({ where: { agentId: a.id }, orderBy: { createdAt: 'desc' }, take: 50 });
+  res.json({ jobs: jobs.map(({ payloadJson, ...j }) => ({ ...j, label: (() => { try { return JSON.parse(payloadJson).label || j.kind; } catch { return j.kind; } })() })) });
+});
 
 integrationsRouter.get(`${base}/hr/adapters`, can(PermissionAction.VIEW), async (req, res) => {
   if (!(await attendanceRouteOk(req, res))) return;

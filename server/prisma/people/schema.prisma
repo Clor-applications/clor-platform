@@ -581,6 +581,8 @@ model AttendanceDevice {
   /// Punches are pulled from here on (with a few minutes' overlap; duplicates drop).
   lastFetchedAt  DateTime?
   lastError      String?
+  /// Pull readers on the office LAN: the on-site connector that reaches them (routes/agent.ts); null = CLOR pulls directly.
+  agentId        String?
   /// Readers of one site: only staff of this area are sent to it (null = everyone).
   areaId         String?
   /// What the reader holds and can hold, from its answer to INFO (asked every few hours).
@@ -1236,4 +1238,57 @@ model ReportSchedule {
   updatedAt       DateTime  @updatedAt
 
   @@index([orgId, enabled])
+}
+
+/// The on-site connector: a small service on a customer's network that pulls
+/// LAN-only readers, delivers Tally vouchers and syncs Active Directory, all
+/// over HTTPS to CLOR (routes/agent.ts, server/agent). One token per agent,
+/// shown once; only its hash is kept.
+model SiteAgent {
+  id              String    @id @default(cuid())
+  accountId       String
+  orgId           String
+  name            String
+  tokenHash       String    @unique
+  tokenPrefix     String
+  /// Tally host/port/company and LDAP settings that are not secrets, as JSON.
+  configJson      String    @default("{}")
+  /// LDAP bind password and the SCIM token made for it, encrypted (services/mailer.ts encryptSecret).
+  secretsEnc      String?
+  /// Secrets the agent has not yet fetched (the SCIM token, shown once), encrypted; cleared on delivery.
+  pendingEnc      String?
+  scimTokenId     String?
+  version         String?
+  hostname        String?
+  lastSeenAt      DateTime?
+  lastError       String?
+  lastSummary     String?
+  isActive        Boolean   @default(true)
+  createdByUserId String
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([orgId, isActive])
+}
+
+/// Work queued for an on-site connector: a Tally voucher to post, and
+/// whatever comes next. PENDING → SENT → DONE | FAILED.
+model AgentJob {
+  id          String    @id @default(cuid())
+  accountId   String
+  orgId       String
+  agentId     String
+  /// TALLY_XML
+  kind        String
+  payloadJson String
+  status      String    @default("PENDING")
+  attempts    Int       @default(0)
+  result      String?
+  createdByUserId String
+  createdAt   DateTime  @default(now())
+  sentAt      DateTime?
+  doneAt      DateTime?
+
+  @@index([agentId, status])
+  @@index([orgId, createdAt])
 }

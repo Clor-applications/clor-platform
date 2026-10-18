@@ -1,6 +1,6 @@
 import { guardedRequest } from '../../outbound.js';
 import { readTime } from '../punchMapping.js';
-import { type PullContext, type PullResult } from './index.js';
+import { type PullContext, type PullResult } from './common.js';
 
 /**
  * Suprema BioStar 2 server (its REST API), per the published API and never

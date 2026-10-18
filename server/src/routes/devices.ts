@@ -363,10 +363,14 @@ devicesRouter.put(`${base}/:id`, can(PermissionAction.EDIT), async (req, res) =>
       /* Pull connections. */
       baseUrl: z.string().trim().max(500).optional().nullable().or(z.literal('')),
       config: pullConfigSchema.optional().nullable(),
+      /* Pull readers on the office LAN: which on-site connector reaches them. */
+      agentId: z.string().min(1).nullable().optional(),
     })
     .safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Name the reader and choose its direction.' });
-  const { apiUrl, corporateId, username, password, areaId, sourceTimezone, mapping, baseUrl, config, ...common } = parsed.data;
+  const { apiUrl, corporateId, username, password, areaId, sourceTimezone, mapping, baseUrl, config, agentId, ...common } = parsed.data;
+  if (agentId && !(await peoplePrisma.siteAgent.findFirst({ where: { id: agentId, orgId }, select: { id: true } }))) return res.status(400).json({ error: 'That connector is not in this organisation.' });
+  const viaAgent = agentId !== undefined && (PULL_VENDORS as readonly string[]).includes(existing.vendor) ? { agentId } : {};
   const pullFields = (PULL_VENDORS as readonly string[]).includes(existing.vendor)
     ? {
         ...(baseUrl !== undefined ? { apiUrl: baseUrl || null } : {}),
@@ -376,7 +380,9 @@ devicesRouter.put(`${base}/:id`, can(PermissionAction.EDIT), async (req, res) =>
         ...(sourceTimezone !== undefined ? { sourceTimezone } : {}),
       }
     : {};
-  if (pullFields.apiUrl !== undefined || pullFields.configJson !== undefined) {
+  /* Through a connector the address is on the customer's LAN, which the cloud never calls: only its shape is checked. */
+  const viaAgentNow = (viaAgent as any).agentId ?? existing.agentId;
+  if ((pullFields.apiUrl !== undefined || pullFields.configJson !== undefined) && !viaAgentNow) {
     const bad = pullUrlOk(existing.vendor, (pullFields as any).apiUrl ?? existing.apiUrl, config === undefined ? JSON.parse(existing.configJson || 'null') : config);
     if (bad) return res.status(400).json({ error: bad });
   }
@@ -400,7 +406,7 @@ devicesRouter.put(`${base}/:id`, can(PermissionAction.EDIT), async (req, res) =>
         };
   const device = await peoplePrisma.attendanceDevice.update({
     where: { id: existing.id },
-    data: { ...common, ...vendorFields, ...mapped, ...pullFields, ...(existing.vendor !== 'ETIMEOFFICE' && areaId !== undefined ? { areaId } : {}) },
+    data: { ...common, ...vendorFields, ...mapped, ...pullFields, ...viaAgent, ...(existing.vendor !== 'ETIMEOFFICE' && areaId !== undefined ? { areaId } : {}) },
   });
   /* A new area changes who belongs on it; Sync status shows the gaps and the extras. */
   res.json({ device: shape(device), areaChanged: areaId !== undefined && (areaId ?? null) !== (existing.areaId ?? null) });

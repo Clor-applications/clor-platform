@@ -1,0 +1,22 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": [
+      "ES2022"
+    ],
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "rootDir": ".."
+  },
+  "include": [
+    "src/**/*.ts",
+    "../src/services/attendance/pull/*.ts",
+    "../src/services/attendance/digest.ts",
+    "../src/services/attendance/punchMapping.ts",
+    "../src/services/outbound.ts"
+  ]
+}

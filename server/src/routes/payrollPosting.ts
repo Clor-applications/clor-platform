@@ -7,6 +7,7 @@ import { requireTenantContext } from '../middleware/tenantContext.js';
 import { requirePermission } from '../middleware/rbac.js';
 import { PermissionAction } from '../constants/enums.js';
 import { payrollPrisma } from '../utils/payrollPrisma.js';
+import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { accountingFor } from '../services/payroll/accounting/client.js';
 import { PAYROLL_MODULE, PAYROLL_RESOURCE, payrollRouteOk } from '../services/payroll/guards.js';
 import { PayrollPostingError, previewPosting, postPayrollRun } from '../services/payroll/posting.js';
@@ -111,6 +112,42 @@ payrollPostingRouter.get(
         lines: preview.lines.map((l) => ({ ledgerName: names.get(l.ledgerAccountId) || l.ledgerName, debit: l.debit, credit: l.credit })),
       });
       res.json({ filename: `payroll-${label.replace(/[^\w.-]+/g, '-')}-tally.xml`, xml, lines: preview.lines.length, totalDebit: preview.totalDebit, totalCredit: preview.totalCredit, balanced: preview.balanced, problems: preview.problems });
+    } catch (e) {
+      return handle(res, e);
+    }
+  }
+);
+
+/** The same file handed to an on-site connector to post into Tally over its HTTP port. */
+payrollPostingRouter.post(
+  '/orgs/:orgId/payroll/runs/:id/tally/send',
+  requirePermission(PAYROLL_MODULE, PermissionAction.CREATE, RESOURCE),
+  async (req, res) => {
+    if (!(await payrollRouteOk(req, res))) return;
+    const { accountId, orgId } = req.tenant!;
+    const agentId = String(req.body?.agentId || '');
+    const agent = agentId ? await peoplePrisma.siteAgent.findFirst({ where: { id: agentId, orgId, isActive: true } }) : null;
+    if (!agent) return res.status(400).json({ error: 'Choose an on-site connector that is switched on.' });
+    let cfg: any = {};
+    try {
+      cfg = JSON.parse(agent.configJson || '{}');
+    } catch {
+      cfg = {};
+    }
+    if (!cfg.tally?.host) return res.status(400).json({ error: `${agent.name} has no Tally address set (Attendance → Integrations → On-site connectors).` });
+    try {
+      const run = await payrollPrisma.payrollRun.findFirst({ where: { accountId, orgId, id: String(req.params.id) } });
+      if (!run) return res.status(404).json({ error: 'No such payroll run.' });
+      const period = await payrollPrisma.payrollPeriod.findFirst({ where: { id: run.periodId } });
+      const preview = await previewPosting(accountId, orgId, run.id);
+      if (!preview.lines.length || !preview.balanced) return res.status(400).json({ error: 'The entry must balance with every component mapped before it can go to Tally.' });
+      const ledgers = await accountingFor(accountId).getLedgersByIds(orgId, [...new Set(preview.lines.map((l) => l.ledgerAccountId))]);
+      const names = new Map(ledgers.map((l) => [l.id, l.name]));
+      const date = period?.endDate || new Date().toISOString().slice(0, 10);
+      const label = period?.name || date.slice(0, 7);
+      const xml = tallyJournalXml({ date, voucherNumber: `PAY-${label.replace(/\s+/g, '-')}`, narration: `Payroll ${label} (CLOR run ${run.id.slice(-6)})`, lines: preview.lines.map((l) => ({ ledgerName: names.get(l.ledgerAccountId) || l.ledgerName, debit: l.debit, credit: l.credit })), companyName: cfg.tally.company || undefined });
+      const job = await peoplePrisma.agentJob.create({ data: { accountId, orgId, agentId: agent.id, kind: 'TALLY_XML', payloadJson: JSON.stringify({ label: `Payroll ${label} → Tally`, xml, runId: run.id }), createdByUserId: req.auth!.userId } });
+      res.status(201).json({ job: { id: job.id, status: job.status }, agent: agent.name });
     } catch (e) {
       return handle(res, e);
     }

@@ -1,6 +1,6 @@
 import { authedRequest } from '../digest.js';
 import { readTime } from '../punchMapping.js';
-import { VERIFY_WORDS, localIn, offsetIn, type PullContext, type PullResult } from './index.js';
+import { VERIFY_WORDS, localIn, offsetIn, type PullContext, type PullResult } from './common.js';
 
 /**
  * Hikvision access-control terminals (ISAPI), as the vendor's integration

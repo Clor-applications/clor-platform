@@ -1,6 +1,6 @@
 import { authedRequest } from '../digest.js';
 import { readTime } from '../punchMapping.js';
-import { type PullContext, type PullResult } from './index.js';
+import { type PullContext, type PullResult } from './common.js';
 
 /**
  * Dahua access controllers (the CGI "recordFinder"), per the vendor's HTTP

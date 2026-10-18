@@ -968,7 +968,8 @@ export async function syncVendorConnection(device: any, opts: { from?: Date; fet
 
 /** Every active vendor connection of companies with Attendance on — the timer's job. */
 export async function syncAllVendorConnections(opts: { fetchImpl?: typeof fetch } = {}) {
-  const devices = await peoplePrisma.attendanceDevice.findMany({ where: { vendor: { in: vendorsWith('pull') }, isActive: true } });
+  /* Readers behind an on-site connector are its job (routes/agent.ts), not the cloud's. */
+  const devices = await peoplePrisma.attendanceDevice.findMany({ where: { vendor: { in: vendorsWith('pull') }, isActive: true, agentId: null } });
   let added = 0;
   for (const d of devices) {
     if (!(await isFeatureEnabled(d.accountId, d.orgId, 'attendance'))) continue;

@@ -1,7 +1,7 @@
 import { guardedRequest } from '../../outbound.js';
 import { authedRequest } from '../digest.js';
 import { mappingSchema, recordsOf, toAttlog } from '../punchMapping.js';
-import { localIn, type PullContext, type PullResult } from './index.js';
+import { localIn, type PullContext, type PullResult } from './common.js';
 
 /**
  * Any attendance software or device with a JSON API nobody has written a

@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 
 import { readTime } from '../punchMapping.js';
-import type { PullContext, PullResult } from './index.js';
+import type { PullContext, PullResult } from './common.js';
 
 /**
  * Anviz CrossChex Cloud — the cloud Anviz readers report to. One endpoint
