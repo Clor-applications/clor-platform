@@ -4,7 +4,7 @@ import { KeyRound, ShieldCheck, Trash2, Users } from 'lucide-react';
 import { PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { orgId as platformOrgId } from '@platform/context';
-import { createProvider, createScimToken, deleteProvider, getProviders, getScim, revokeScimToken, updateProvider } from '../../api/security';
+import { createProvider, createScimToken, deleteProvider, getProviders, getScim, revokeScimToken, updateProvider, verifyProviderDomains } from '../../api/security';
 import { listRoles } from '../../api/admin';
 
 /**
@@ -72,7 +72,7 @@ export default function SsoSettings() {
       const body = { ...form, defaultRoleId: form.defaultRoleId || null, clientSecret: form.clientSecret === '' && form.id ? undefined : form.clientSecret };
       if (form.id) await updateProvider(form.id, body);
       else await createProvider(body);
-      notify.success(form.id ? 'Saved.' : 'Added. Register the redirect address at the provider, then switch it on.');
+      notify.success(form.id ? 'Saved.' : 'Added. Publish the DNS TXT record shown on its row, choose Verify domains, then switch it on.');
       setForm(null);
       load();
     } catch (err) {
@@ -87,6 +87,17 @@ export default function SsoSettings() {
       load();
     } catch (err) {
       notify.error(String(err?.message || 'Not changed.'));
+    }
+  };
+  const verify = async (p) => {
+    try {
+      const r = await verifyProviderDomains(p.id);
+      const missing = (r.results || []).filter((x) => !x.verified);
+      if (missing.length) notify.error(`Not verified yet: ${missing.map((x) => `${x.domain} (${x.reason})`).join(', ')}. DNS changes can take a while to appear.`);
+      else notify.success('All domains verified. You can switch it on.');
+      load();
+    } catch (err) {
+      notify.error(String(err?.message || 'Could not check.'));
     }
   };
   const remove = async (p) => {
@@ -132,6 +143,16 @@ export default function SsoSettings() {
                 <div className="font-medium">{p.name} <span className="ui-caption font-normal">· {p.kind}</span></div>
                 <div className="ui-caption">{p.emailDomains ? `Domains: ${p.emailDomains}` : 'No domains named — nobody is offered it'}{p.autoProvision ? ' · new people are added automatically' : ''}{p.lastUsedAt ? ` · last used ${new Date(p.lastUsedAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}` : ''}</div>
                 {p.lastError ? <div className="ui-caption" style={{ color: 'rgb(var(--neg))' }}>Last problem: {p.lastError}</div> : null}
+                {p.domainVerification?.domains?.length ? (
+                  <div className="ui-caption mt-1">
+                    Domains: {p.domainVerification.domains.map((d) => `${d.domain} ${d.verified ? '✓ verified' : '— not verified'}`).join(' · ')}
+                    {p.domainVerification.domains.some((d) => !d.verified) && p.domainVerification.record ? (
+                      <div className="mt-1">
+                        Prove you own them: add a DNS TXT record on each domain with the value <code className="ui-mono break-all">{p.domainVerification.record}</code>, then choose Verify. It cannot be switched on until every domain is verified.
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
                 {p.saml ? (
                   <div className="ui-caption mt-1">
                     At the provider: Reply URL / ACS <code className="ui-mono break-all">{p.saml.acsUrl}</code> · Identifier / Audience <code className="ui-mono break-all">{p.saml.spEntityId}</code> · metadata at the same address as the identifier. NameID as e-mail.
@@ -140,6 +161,7 @@ export default function SsoSettings() {
               </div>
               <div className="flex items-center gap-2">
                 <span className={`ui-pill ${pill}`}>{label}</span>
+                {p.domainVerification?.domains?.some((d) => !d.verified) ? <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => verify(p)}>Verify domains</button> : null}
                 <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => toggle(p)}>{p.enabled ? 'Switch off' : 'Switch on'}</button>
                 <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => edit(p)}>Edit</button>
                 <button type="button" className="ui-icon-btn" aria-label={`Remove ${p.name}`} onClick={() => remove(p)}><Trash2 size={16} aria-hidden="true" /></button>
@@ -181,7 +203,7 @@ export default function SsoSettings() {
             </label>
           </div>
           <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.autoProvision} onChange={set('autoProvision')} /> Add people from these domains automatically on first sign-in (otherwise they must be invited first)</label>
-          <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.enabled} onChange={set('enabled')} /> Switched on</label>
+          {form.id ? <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.enabled} onChange={set('enabled')} /> Switched on (needs every domain verified)</label> : <p className="ui-caption">It is added switched off. Verify its domains, then switch it on.</p>}
           <div className="flex gap-2">
             <button type="submit" className="ui-btn ui-btn-primary" disabled={busy}>{busy ? 'Saving…' : form.id ? 'Save' : 'Add provider'}</button>
             <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setForm(null)}>Cancel</button>

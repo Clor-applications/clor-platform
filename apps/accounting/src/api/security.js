@@ -21,6 +21,7 @@ export const updateProvider = (id, provider) =>
 export const deleteProvider = (id) =>
   apiFetch(`${base()}/providers/${encodeURIComponent(id)}`, { method: 'DELETE', ...opts });
 
+export const verifyProviderDomains = (id) => apiFetch(`${base()}/providers/${encodeURIComponent(id)}/verify-domains`, { method: 'POST', ...opts });
 export const getScim = () => apiFetch(`${base()}/scim`, opts);
 export const createScimToken = (defaultRoleId) => apiFetch(`${base()}/scim`, { method: 'POST', body: { defaultRoleId: defaultRoleId || null }, ...opts });
 export const revokeScimToken = (id) => apiFetch(`${base()}/scim/${encodeURIComponent(id)}`, { method: 'DELETE', ...opts });
