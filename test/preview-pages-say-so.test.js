@@ -57,7 +57,8 @@ const jsxFiles = (dir) =>
  * So: any page carrying invented data has to render <NotConnected>, and the
  * rule is enforced here rather than remembered.
  */
-const PREVIEW_PAGES = ['features/account/BillingPreview.jsx', 'features/account/SsoSettings.jsx'];
+/* Single sign-on is wired now (OIDC and SAML, server/src/routes/sso.ts), so its screen is no longer a preview. */
+const PREVIEW_PAGES = ['features/account/BillingPreview.jsx'];
 
 describe('a page that is not wired says so', () => {
   it.each(PREVIEW_PAGES)('%s declares itself a preview', (rel) => {
@@ -82,14 +83,13 @@ describe('a page that is not wired says so', () => {
   });
 
   /*
-   * The one mock that is genuinely unsafe. A control that appears to sign
-   * somebody in and does not is telling them something untrue about who can
-   * reach their books, so the SSO page carries no interactive control at all.
+   * The screen that once had to carry no control, because sign-on did not
+   * work, now drives real sign-in methods: it must say what each one is
+   * (active, switched off) rather than look live when it is not.
    */
-  it('offers no sign-in control on a page where sign-on does not work', () => {
+  it('the single sign-on screen states each provider’s real status', () => {
     const text = readFileSync(src('features/account/SsoSettings.jsx'), 'utf8');
-    expect(text).not.toMatch(/<button/i);
-    expect(text).not.toMatch(/<input/i);
-    expect(text).not.toMatch(/<form/i);
+    expect(text).toMatch(/STATUS\[p\.status\]/);
+    expect(text).toMatch(/domainVerification/);
   });
 });
