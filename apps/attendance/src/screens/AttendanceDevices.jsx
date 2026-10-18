@@ -186,7 +186,7 @@ export default function AttendanceDevices({ openScreen }) {
                 {data.devices.map((d) => (
                   <tr key={d.id} className={VIRTUAL[d.vendor] ? undefined : 'ui-row-click'} onClick={VIRTUAL[d.vendor] ? undefined : () => setOpen(d)} title={VIRTUAL[d.vendor]?.title}>
                     <td className="ui-col-entity">{d.name}</td>
-                    <td className="ui-col-meta hidden md:table-cell">{d.vendor === 'ETIMEOFFICE' ? 'e-Time Office' : MAPPED[d.vendor] || PULL[d.vendor] ? d.driverLabel : VIRTUAL[d.vendor]?.label || d.serialNumber}</td>
+                    <td className="ui-col-meta hidden md:table-cell">{d.vendor === 'ETIMEOFFICE' ? 'e-Time Office' : d.vendor === 'MATRIX_COSEC' ? d.model || 'Matrix · not connected yet' : MAPPED[d.vendor] || PULL[d.vendor] ? d.driverLabel : VIRTUAL[d.vendor]?.label || d.serialNumber}</td>
                     <td>{d.direction === 'both' ? 'In / out' : d.direction === 'in' ? 'Entry' : 'Exit'}</td>
                     <td className="ui-col-h-center whitespace-nowrap">
                       {!d.isActive ? (
@@ -241,10 +241,12 @@ export default function AttendanceDevices({ openScreen }) {
         </div>
       ) : null}
 
-      {adding ? <AddReader drivers={data?.drivers || []} pushBase={data?.pushBase} onClose={() => setAdding(false)} onSaved={() => { setAdding(false); load(); }} /> : null}
+      {adding ? <AddReader drivers={data?.drivers || []} pushBase={data?.pushBase} matrixBase={data?.matrixBase} onClose={() => setAdding(false)} onSaved={() => { setAdding(false); load(); }} /> : null}
       {open ? (
         MAPPED[open.vendor] ? (
           <MappedDrawer device={open} pushBase={data?.pushBase} onClose={() => setOpen(null)} onChanged={load} />
+        ) : open.vendor === 'MATRIX_COSEC' ? (
+          <MatrixDrawer device={open} matrixBase={data?.matrixBase} onClose={() => setOpen(null)} onChanged={load} />
         ) : PULL[open.vendor] ? (
           <PullDrawer device={open} onClose={() => setOpen(null)} onChanged={load} />
         ) : open.vendor && open.vendor !== 'ADMS' ? (
@@ -259,7 +261,7 @@ export default function AttendanceDevices({ openScreen }) {
 
 const ZONES = ['Asia/Kolkata', 'Asia/Dubai', 'Asia/Riyadh', 'Asia/Qatar', 'Asia/Kuwait', 'Asia/Muscat', 'Asia/Bahrain', 'Asia/Singapore', 'Asia/Kuala_Lumpur', 'Asia/Dhaka', 'Asia/Kathmandu', 'Asia/Colombo', 'Europe/London', 'UTC'];
 
-function AddReader({ drivers, pushBase, onClose, onSaved }) {
+function AddReader({ drivers, pushBase, matrixBase, onClose, onSaved }) {
   const [kind, setKind] = useState('ADMS');
   const [form, setForm] = useState({ serialNumber: '', name: '', direction: 'both', corporateId: '', username: '', password: '', apiUrl: '', sourceTimezone: 'Asia/Kolkata', baseUrl: '', method: 'GET', timeFormat: 'iso', auth: 'basic', body: '' });
   const [saving, setSaving] = useState(false);
@@ -268,7 +270,9 @@ function AddReader({ drivers, pushBase, onClose, onSaved }) {
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
   const cloud = kind === 'ETIMEOFFICE';
   const pull = Boolean(PULL[kind]);
-  const mapped = Boolean(MAPPED[kind]) && !pull;
+  const matrix = kind === 'MATRIX_COSEC';
+  /* Sources set up with a name and a zone only: a URL (push, Matrix) or a file. */
+  const mapped = (Boolean(MAPPED[kind]) && !pull) || matrix;
   const creds = () => ({ corporateId: form.corporateId || null, username: form.username, password: form.password, apiUrl: form.apiUrl || null });
   const pullBody = () => ({
     vendor: kind,
@@ -302,7 +306,7 @@ function AddReader({ drivers, pushBase, onClose, onSaved }) {
           : await addDevice({ serialNumber: form.serialNumber, name: form.name, direction: form.direction });
       if (r.pushToken) {
         /* Shown once: only its hash is kept. */
-        setMade({ device: r.device, url: `${pushBase || ''}${r.pushToken}` });
+        setMade({ device: r.device, url: `${(matrix ? matrixBase : pushBase) || ''}${r.pushToken}` });
         return;
       }
       notify.success(
@@ -323,11 +327,11 @@ function AddReader({ drivers, pushBase, onClose, onSaved }) {
         open
         onClose={onSaved}
         title={`${made.device.name} added`}
-        description="Give this URL to the reader, its software or your middleware. It is shown once; you can make a new one later."
+        description={matrix ? 'Set this as the controller’s Push API server URL. It is shown once; you can make a new one later.' : 'Give this URL to the reader, its software or your middleware. It is shown once; you can make a new one later.'}
         actions={<button type="button" className="ui-btn ui-btn-primary" onClick={onSaved}>Done</button>}
       >
         <PushUrl url={made.url} />
-        <p className="ui-caption mt-4">Send punches with POST, as JSON, in whatever shape the device uses. The first thing it sends is kept so you can set where each field is — open the reader afterwards and choose <strong>Set up fields</strong>.</p>
+        {matrix ? <MatrixSetupNote /> : <p className="ui-caption mt-4">Send punches with POST, as JSON, in whatever shape the device uses. The first thing it sends is kept so you can set where each field is — open the reader afterwards and choose <strong>Set up fields</strong>.</p>}
       </Drawer>
     );
   }
@@ -420,7 +424,7 @@ function AddReader({ drivers, pushBase, onClose, onSaved }) {
         )}
         <label className="block">
           <span className="ui-label">Name *</span>
-          <input className="ui-input w-full" required maxLength={80} value={form.name} onChange={set('name')} placeholder={cloud ? 'e.g. eSSL cloud' : kind === 'FILE' ? 'e.g. Monthly export from Matrix' : kind === 'HTTP_PUSH' ? 'e.g. Turnstile middleware' : kind === 'HIKVISION' ? 'e.g. Hikvision gate' : kind === 'DAHUA' ? 'e.g. Dahua back door' : kind === 'BIOSTAR' ? 'e.g. BioStar HQ' : kind === 'HTTP_PULL' ? 'e.g. Old attendance software' : 'e.g. Main gate'} />
+          <input className="ui-input w-full" required maxLength={80} value={form.name} onChange={set('name')} placeholder={cloud ? 'e.g. eSSL cloud' : kind === 'FILE' ? 'e.g. Monthly export from Matrix' : kind === 'HTTP_PUSH' ? 'e.g. Turnstile middleware' : kind === 'MATRIX_COSEC' ? 'e.g. Main door controller' : kind === 'HIKVISION' ? 'e.g. Hikvision gate' : kind === 'DAHUA' ? 'e.g. Dahua back door' : kind === 'BIOSTAR' ? 'e.g. BioStar HQ' : kind === 'HTTP_PULL' ? 'e.g. Old attendance software' : 'e.g. Main gate'} />
         </label>
         <fieldset>
           <legend className="ui-label">Direction</legend>
@@ -429,7 +433,8 @@ function AddReader({ drivers, pushBase, onClose, onSaved }) {
               <input type="radio" name="direction" checked={form.direction === k} onChange={() => setForm({ ...form, direction: k })} /> {label}
             </label>
           ))}
-          {mapped ? <span className="ui-caption">Used when what it sends does not say in or out.</span> : null}
+          {mapped && !matrix ? <span className="ui-caption">Used when what it sends does not say in or out.</span> : null}
+          {matrix ? <span className="ui-caption">A controller says entry or exit on every event; “Entry only” or “Exit only” overrides it.</span> : null}
         </fieldset>
       </form>
     </Drawer>
@@ -698,6 +703,142 @@ function MappedDrawer({ device, pushBase, onClose, onChanged }) {
 }
 
 /** An e-Time Office connection: credentials, last pull, Sync now, fetch older punches. */
+/** Where the URL goes on a Matrix controller. The menus differ a little by model; the guide calls it the Push API. */
+function MatrixSetupNote() {
+  return (
+    <div className="ui-caption mt-4 space-y-1">
+      <p>On the controller (or in its web page): <strong>Basic Settings → Communication → Server</strong>, switch <strong>Push API</strong> on, and enter this as the server URL (host, port 443 and path, as the screen splits them). Leave the device type as it is. The controller logs in and sends every event as it happens.</p>
+      <p>CLOR has not yet tried this on a Matrix controller. If it connects but nothing arrives, the reader log and “last seen” here show how far it got.</p>
+    </div>
+  );
+}
+
+const clockWords = (sec) => {
+  if (sec === null || sec === undefined) return 'not measured yet';
+  const a = Math.abs(sec);
+  if (a < 60) return 'right';
+  const t = a < 3600 ? `${Math.round(a / 60)} min` : a < 86_400 ? `${Math.round(a / 360) / 10} h` : `${Math.round(a / 86_400)} days`;
+  return `${t} ${sec > 0 ? 'fast' : 'slow'}`;
+};
+
+function MatrixDrawer({ device, matrixBase, onClose, onChanged }) {
+  const [form, setForm] = useState({ name: device.name, direction: device.direction, isActive: device.isActive, sourceTimezone: device.sourceTimezone || 'Asia/Kolkata' });
+  const [newUrl, setNewUrl] = useState('');
+  const [busy, setBusy] = useState('');
+  const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
+  const act = async (key, fn) => {
+    setBusy(key);
+    try {
+      await fn();
+    } catch (err) {
+      notify.error(String(err?.message || 'Not done.'));
+    } finally {
+      setBusy('');
+    }
+  };
+  const save = (e) => {
+    e.preventDefault();
+    act('save', async () => {
+      await updateDevice(device.id, form);
+      notify.success('Saved.');
+      onChanged();
+    });
+  };
+  const run = (action, done) =>
+    act(action, async () => {
+      await deviceCommand(device.id, action);
+      notify.success(done);
+      onChanged();
+    });
+  const rotate = async () => {
+    const ok = await confirmDialog({ title: 'Make a new URL?', message: 'The old URL stops working at once. Enter the new one on the controller.', confirmLabel: 'New URL' });
+    if (!ok) return;
+    await act('rotate', async () => setNewUrl(`${matrixBase || ''}${(await rotatePushToken(device.id)).pushToken}`));
+  };
+  const remove = async () => {
+    const ok = await confirmDialog({ title: `Remove ${device.name}?`, message: 'Only a controller with no punches on record can be removed; otherwise switch it off.', confirmLabel: 'Remove' });
+    if (!ok) return;
+    await act('delete', async () => {
+      await deleteDevice(device.id);
+      onChanged();
+      onClose();
+    });
+  };
+  const cfg = device.config || {};
+
+  return (
+    <Drawer
+      widthClass="w-[min(52rem,96vw)]"
+      open
+      onClose={onClose}
+      title={device.name}
+      description={`Matrix COSEC · ${device.online ? 'online' : device.lastSeenAt ? `last seen ${ago(device.lastSeenAt)}` : 'never connected'}`}
+      actions={
+        <>
+          <button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Close</button>
+          <button type="submit" form="matrix-form" className="ui-btn ui-btn-primary" disabled={busy === 'save'}>Save</button>
+        </>
+      }
+    >
+      <div className="space-y-6">
+        {device.lastError ? <div className="ui-card p-3 text-sm" role="alert" style={{ color: 'rgb(var(--neg))' }}>{device.lastError}</div> : null}
+
+        <section className="space-y-2" aria-labelledby="mx-status-h">
+          <h3 id="mx-status-h" className="ui-t-sec">Controller</h3>
+          <dl className="grid gap-x-6 gap-y-1 text-sm sm:grid-cols-2">
+            <div className="flex justify-between gap-3"><dt className="ui-muted">Model</dt><dd>{device.model || '— (fills in at first login)'}</dd></div>
+            <div className="flex justify-between gap-3"><dt className="ui-muted">Serial on the controller</dt><dd className="ui-mono">{cfg.serialNo || '—'}</dd></div>
+            <div className="flex justify-between gap-3"><dt className="ui-muted">Users on it</dt><dd>{device.userCount ?? '—'}</dd></div>
+            <div className="flex justify-between gap-3"><dt className="ui-muted">Last event number</dt><dd>{cfg.lastSeq ?? '—'}</dd></div>
+            <div className="flex justify-between gap-3"><dt className="ui-muted">Clock</dt><dd>{clockWords(device.clockOffsetSec)}</dd></div>
+            <div className="flex justify-between gap-3"><dt className="ui-muted">Commands waiting</dt><dd>{device.commandsWaiting || '0'}</dd></div>
+          </dl>
+          <p className="ui-caption">The clock is measured from each live event. When it is a minute or more out, CLOR sends the controller the time on its next poll.</p>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={Boolean(busy)} onClick={() => run('INFO', 'Asked for its user count.')}>Report user count</button>
+            <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={Boolean(busy)} onClick={() => run('SET_TIME', 'The time goes to the controller on its next poll.')}>Set the time</button>
+            <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={Boolean(busy)} onClick={() => run('REBOOT', 'Restart queued; it goes on its next poll.')}>Restart</button>
+          </div>
+        </section>
+
+        <section className="space-y-2" aria-labelledby="mx-url-h">
+          <h3 id="mx-url-h" className="ui-t-sec">Server URL on the controller</h3>
+          {newUrl ? (
+            <PushUrl url={newUrl} />
+          ) : (
+            <p className="text-sm">
+              Starts <code className="ui-mono">{matrixBase}{device.pushTokenPrefix}…</code> — the full URL was shown when the controller was added.
+            </p>
+          )}
+          <div className="flex flex-wrap items-center gap-2">
+            <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={Boolean(busy)} onClick={rotate}>{busy === 'rotate' ? 'Making…' : 'New URL'}</button>
+          </div>
+          <MatrixSetupNote />
+        </section>
+
+        <form id="matrix-form" onSubmit={save} className="grid gap-4">
+          <label className="block"><span className="ui-label">Name</span><input className="ui-input w-full" required maxLength={80} value={form.name} onChange={set('name')} /></label>
+          <label className="block">
+            <span className="ui-label">Direction</span>
+            <select className="ui-select w-full" value={form.direction} onChange={set('direction')}>
+              {Object.entries(DIRECTIONS).map(([k, label]) => <option key={k} value={k}>{label}</option>)}
+            </select>
+            <span className="ui-caption">The controller says entry or exit on every event; “Entry only” or “Exit only” overrides it.</span>
+          </label>
+          <ZoneField value={form.sourceTimezone} onChange={(v) => setForm({ ...form, sourceTimezone: v })} />
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" className="ui-checkbox" checked={form.isActive} onChange={(e) => setForm({ ...form, isActive: e.target.checked })} /> Taking events
+          </label>
+        </form>
+
+        <div>
+          <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={Boolean(busy)} onClick={remove}>Remove controller</button>
+        </div>
+      </div>
+    </Drawer>
+  );
+}
+
 function CloudDrawer({ device, onClose, onChanged }) {
   const [form, setForm] = useState({ name: device.name, direction: device.direction, isActive: device.isActive, corporateId: device.apiCorporateId || '', username: device.apiUsername || '', password: '', apiUrl: device.apiUrl || '' });
   const [from, setFrom] = useState('');
@@ -982,6 +1123,7 @@ function ReaderDrawer({ device, onClose, onChanged }) {
             </button>
             <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => run('READ_ALL', 'Asked for its users, fingerprints, faces and counts. Sync status fills in as they arrive.')}>Read what is on it</button>
             <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => run('INFO', 'Asked for its counts and capacity.')}>Refresh counts</button>
+            <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => run('SET_TIME', 'Time set queued. Its drift is measured again from its next live punch.')}>Set the time</button>
             <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => run('REBOOT', 'Reboot queued.')}>Reboot</button>
           </div>
           <p className="ui-caption mt-2">“Send new staff” adds people the reader does not have, by employee code or Reader ID. Fetch its users first so people already on it are skipped.</p>

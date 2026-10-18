@@ -117,6 +117,7 @@ Gap against ClorTime's 28 plus what customers ask for:
 1. SSO (OIDC first) — L. Unblocks enterprise and Google-Workspace SMBs alike; the config half already exists.
 2. HR adapter framework + greytHR + Keka — M+S+M. Two biggest open SMB APIs.
 3. Matrix COSEC push (M), Hikvision push (S), Anviz cloud (S) + clock correction (S). Bio Park B100: a device-menu check, no code.
+   - **Done 18 Oct 2026 — Matrix COSEC push** (`server/src/routes/matrix.ts`, driver `MATRIX_COSEC`): login/poll/getcmd/updatecmd/getconfig/updateconfig/setevent; punches from events 101/105 with field-3 bits; other events to the reader log; Restart and user-count commands; clock set automatically when drift ≥ 60 s (and on "Set the time"). ADMS gained a "Set the time" command (`SET OPTIONS DateTime=<packed>`). Not yet tried on hardware — marked so on the Readers screen. Users / credentials (config-id 10, Set Credential) not built: enrol at the controller.
 4. Zoho People/Payroll, Tally XML, SCIM inbound — M, S, M.
 5. Advanced reports + scheduled e-mail — M.
 6. On-site agent (LAN readers, LDAP/AD, Tally delivery) — L. Then LDAP sync on it — M.
