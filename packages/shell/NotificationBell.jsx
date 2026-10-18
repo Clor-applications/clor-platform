@@ -21,6 +21,8 @@ const KIND = {
   'people.left': 'Leavers',
   'people.document_expiring': 'Documents expiring',
   'payment.claimed': 'UPI payments to confirm',
+  'books.overdue': 'Overdue invoices',
+  'books.payables': 'Payables due this week',
 };
 const kindLabel = (k) => KIND[k] || k;
 
