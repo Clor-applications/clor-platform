@@ -1875,3 +1875,43 @@ model RecurringScheduleRun {
   @@unique([scheduleId, periodDate])
   @@index([accountId, orgId])
 }
+
+/// A request for money paid straight to the company's own UPI ID ("UPI
+/// Direct"): no gateway, no fee. CLOR makes the link and the QR, the payer
+/// pays in their UPI app and tells CLOR the UTR, and someone who handles
+/// receipts confirms it against the bank (the receipt is recorded the usual
+/// way and linked here). PENDING → CLAIMED → PAID, or CANCELLED / EXPIRED.
+model PaymentRequest {
+  id              String    @id @default(cuid())
+  accountId       String
+  orgId           String
+  /// INVOICE today; the public link and the confirmation work the same for anything else.
+  purpose         String    @default("INVOICE")
+  docId           String?
+  docNumber       String?
+  partyName       String?
+  /// In paise, so what the payer sees is exactly what was asked.
+  amountPaise     Int
+  currency        String    @default("INR")
+  payeeVpa        String
+  payeeName       String
+  /// Short code the payer sees and the bank statement carries (tn / tr): CLR-XXXXXX.
+  reference       String    @unique
+  tokenHash       String    @unique
+  tokenPrefix     String
+  status          String    @default("PENDING")
+  payerUtr        String?
+  payerName       String?
+  claimedAt       DateTime?
+  paidAt          DateTime?
+  paymentId       String?
+  expiresAt       DateTime?
+  createdByUserId String
+  confirmedByUserId String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([orgId, docId])
+  @@index([orgId, status])
+}
+

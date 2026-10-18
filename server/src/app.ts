@@ -47,6 +47,7 @@ import { hikvisionPushRouter } from './routes/hikvisionPush.js';
 import { scimRouter } from './routes/scim.js';
 import { agentRouter } from './routes/agent.js';
 import { notificationsRouter } from './routes/notifications.js';
+import { payPageRouter, payRequestsRouter } from './routes/payRequests.js';
 import { agentLimiter, hikvisionLimiter, scimLimiter } from './middleware/rateLimit.js';
 import { personnelRouter } from './routes/personnel.js';
 import { schedulingRouter } from './routes/scheduling.js';
@@ -204,6 +205,8 @@ export function buildApp() {
   );
   /* SCIM provisioning from an identity provider: its own bearer token, JSON as application/scim+json. */
   app.use('/scim/v2', ...scimLimiter, express.json({ limit: '1mb', type: ['application/json', 'application/scim+json'] }), scimRouter);
+  /* UPI Direct pay pages: public, the token is the credential; the claim is a plain HTML form post. */
+  app.use('/pay', express.urlencoded({ extended: false, limit: '8kb' }), payPageRouter);
   /* The on-site connector: its own token, JSON. */
   app.use('/agent/v1', ...agentLimiter, express.json({ limit: '4mb' }), agentRouter);
   /* A phone punch may carry a selfie (≤ 2 MB, base64): its own, larger limit. */
@@ -345,6 +348,7 @@ export function buildApp() {
   app.use('/api', emailRouter);
   app.use('/api', securityRouter);
   app.use('/api', notificationsRouter);
+  app.use('/api', payRequestsRouter);
   app.use('/api', itemsRouter);
   app.use('/api', paymentsRouter);
   app.use('/api', batchSerialRouter);
