@@ -538,8 +538,8 @@ function Connectors({ onShown }) {
         <ol className="mt-2 list-decimal space-y-1 ps-5 ui-caption">
           <li>On a computer in the office that stays on (Windows, Linux or macOS), install Node.js 20 or newer from nodejs.org.</li>
           <li>Download the connector: <code className="ui-mono break-all">{data?.downloadUrl || '…/agent/v1/download'}</code> (one file, clor-agent.cjs).</li>
-          <li>Run it with the token shown when the connector was made: <code className="ui-mono">node clor-agent.cjs --token clora_…</code>. It appears as online here within a minute.</li>
-          <li>To keep it running after a restart: on Windows, a Task Scheduler task “At startup” running that command (or NSSM as a service); on Linux, a systemd service.</li>
+          <li>Install it as a service with the token shown when the connector was made: <code className="ui-mono">node clor-agent.cjs --install --token clora_…</code> (as administrator / with sudo). It registers itself to start at boot (Task Scheduler, systemd or launchd), keeps the token in <code className="ui-mono">clor-agent.json</code> beside the file, and appears as online here within a minute.</li>
+          <li>To try it first without installing: <code className="ui-mono">node clor-agent.cjs --token clora_… --once</code>. It updates itself when CLOR has a newer version.</li>
           <li>Assign readers to it under Readers → open a pull reader → “Reached through”. Tally and the directory are set on the connector above.</li>
         </ol>
       </details>
