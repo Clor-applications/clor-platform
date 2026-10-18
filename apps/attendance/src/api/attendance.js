@@ -155,6 +155,12 @@ export const listTransactions = (params) => get(`/transactions${query(params)}`)
 export const listDeviceLogs = (params) => get(`/device-logs${query(params)}`);
 export const listReports = () => get('/reports');
 export const runReport = (id, params) => get(`/reports/${encodeURIComponent(id)}${query(params)}`);
+/* Reports that go out by e-mail on their own. */
+export const listReportSchedules = () => get('/reports/schedules').then((r) => r?.schedules || []);
+export const createReportSchedule = (body) => send('/reports/schedules', 'POST', body);
+export const updateReportSchedule = (id, body) => send(`/reports/schedules/${encodeURIComponent(id)}`, 'PUT', body);
+export const deleteReportSchedule = (id) => send(`/reports/schedules/${encodeURIComponent(id)}`, 'DELETE');
+export const sendReportSchedule = (id) => send(`/reports/schedules/${encodeURIComponent(id)}/send`, 'POST', {});
 /** The month as a calendar: per-day counts (ClorTime's Attendance Calendar). */
 export const getCalendar = (params) => get(`/calendar${query(params)}`);
 export const testEtimeOffice = (body) => send('/devices/test-etimeoffice', 'POST', body);
