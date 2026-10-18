@@ -11722,7 +11722,19 @@ const AppShell = () => {
     return scoped;
   }, [dbForAccess, branchesForUser, warehousesForUser, currentCompany?.id, displayedFinancialYear, financialYearCollections, financialYearForDate]);
 
-  const [active, setActive] = useState('dashboard');
+  /* Another app's shell may send someone straight to settings (?open=settings or a settings key); taken once, then forgotten from the address. */
+  const [active, setActive] = useState(() => {
+    try {
+      const open = String(new URLSearchParams(window.location.search).get('open') || '').trim();
+      if (open && (open === 'settings' || isSettingsKey(open))) {
+        window.history.replaceState(null, '', window.location.pathname);
+        return open;
+      }
+    } catch {
+      /* no address to read */
+    }
+    return 'dashboard';
+  });
   const dedicatedSettingsMode = active === 'settings' || isSettingsKey(active);
   const dedicatedReportsMode = active === 'reports';
   const dedicatedMasterDataMode = MASTER_DATA_KEYS.has(active);

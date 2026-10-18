@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ChevronDown, LayoutGrid, LogOut, Menu, Moon, Plus, Sun, UserRound, X } from 'lucide-react';
+import { ChevronDown, LayoutGrid, LogOut, Menu, Moon, Plus, Settings, Sun, UserRound, X } from 'lucide-react';
 
 import { useTheme } from '@ui/components/ui/useTheme';
 import { useDismissable } from '@ui/components/ui/useDismissable';
@@ -273,15 +273,18 @@ export default function Shell() {
     /* In the phone sheet a single-screen module has nothing to list, so the sheet opens on the first module that has. */
     (phone && currentModule?.single ? modules.find((m) => !m.single) || currentModule : currentModule);
 
-  const openApp = (id) => {
+  /* `open` names a screen inside the app (Accounting's settings): carried in the address so it survives the hop to the app's own host. */
+  const openApp = (id, open = '') => {
     const next = appById(id);
+    const search = open ? `?open=${encodeURIComponent(open)}` : '';
     /* An app with its own address opens there, so the address bar says which
        app this is. The session follows through the API's refresh cookie. */
     const host = hostForApp(id);
     if (host && host !== window.location.hostname) {
-      window.location.assign(`${window.location.protocol}//${host}/`);
+      window.location.assign(`${window.location.protocol}//${host}/${search}`);
       return;
     }
+    if (open) window.history.replaceState(null, '', `${window.location.pathname}${search}`);
     setChosenAppId(id);
     setScreenKey(next?.home || null);
     setPlatformScreen(null);
@@ -498,6 +501,18 @@ export default function Shell() {
                   <LayoutGrid size={16} aria-hidden="true" />
                   <span className="text-sm">More apps</span>
                 </button>
+                {/* Users, roles, sign-in, e-mail and the audit trail are the company's, not one app's: reachable from every app, kept in one place. */}
+                {mine.some((a) => a.id === 'accounting') ? (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="w-full flex items-center gap-2 rounded-lg px-2 py-2 text-left ui-hover-sunken"
+                    onClick={() => openApp('accounting', 'settings')}
+                  >
+                    <Settings size={16} aria-hidden="true" />
+                    <span className="text-sm">Company settings</span>
+                  </button>
+                ) : null}
               </div>
             ) : null}
           </div>
