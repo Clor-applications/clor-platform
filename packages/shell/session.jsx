@@ -136,7 +136,19 @@ export function SessionProvider({ children }) {
      address, the refresh cookie is not. Asking anyway lets the transport's
      silent refresh pick the session up from the cookie. */
   useEffect(() => {
-    if (!readToken() && !appFromHost()) return undefined;
+    /* Back from single sign-on: no token in this browser yet, only the refresh cookie the API just set. */
+    let fromSso = false;
+    try {
+      const q = new URLSearchParams(window.location.search);
+      fromSso = q.get('sso') === 'ok';
+      if (fromSso) {
+        q.delete('sso');
+        window.history.replaceState({}, '', `${window.location.pathname}${q.toString() ? `?${q}` : ''}${window.location.hash}`);
+      }
+    } catch {
+      /* no window to read */
+    }
+    if (!readToken() && !appFromHost() && !fromSso) return undefined;
     let cancelled = false;
     (async () => {
       try {

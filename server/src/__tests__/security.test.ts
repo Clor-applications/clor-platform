@@ -3,6 +3,8 @@ import request from 'supertest';
 import { buildApp } from '../app.js';
 import { prisma } from '../utils/prisma.js';
 import { platformPrisma } from '../utils/platformPrisma.js';
+import { createServer, type Server } from 'node:http';
+import { SignJWT, exportJWK, generateKeyPair } from 'jose';
 
 /**
  * One listening server for the whole file, not one per request.
@@ -186,8 +188,8 @@ describe('sign-in methods', () => {
 
     expect(res.body.provider.hasClientSecret).toBe(true);
     expect(JSON.stringify(res.body)).not.toContain('the-actual-secret');
-    // Honest about not being usable yet.
-    expect(res.body.provider.status).toBe('CONFIGURED_NOT_ACTIVE');
+    // OIDC can sign people in now; this one is still switched off.
+    expect(res.body.provider.status).toBe('DISABLED');
 
     const stored = await platformPrisma.authProvider.findUnique({ where: { id: res.body.provider.id } });
     expect(stored?.clientSecretEnc).toBeTruthy();
@@ -311,5 +313,95 @@ describe('warehouse header does not break unrelated requests', () => {
     // Either the permission or the warehouse check refuses it; what matters is
     // that it is not allowed through.
     expect([400, 403]).toContain(res.status);
+  });
+});
+
+/**
+ * A pretend identity provider on localhost: discovery, keys, an authorise
+ * endpoint that bounces straight back with a code, a token endpoint that
+ * mints an ID token for whichever e-mail the test asked for. Enough to walk
+ * the whole OpenID Connect flow without the internet.
+ */
+async function fakeIssuer(email: string, name: string) {
+  const { privateKey, publicKey } = await generateKeyPair('RS256');
+  const jwk = { ...(await exportJWK(publicKey)), kid: 'k1', alg: 'RS256', use: 'sig' };
+  let base = '';
+  let lastNonce = '';
+  const server: Server = createServer(async (req, res) => {
+    const url = new URL(req.url || '/', base);
+    const json = (b: unknown) => { res.setHeader('content-type', 'application/json'); res.end(JSON.stringify(b)); };
+    if (url.pathname === '/.well-known/openid-configuration') {
+      return json({ issuer: base, authorization_endpoint: `${base}/authorize`, token_endpoint: `${base}/token`, jwks_uri: `${base}/jwks`, response_types_supported: ['code'], id_token_signing_alg_values_supported: ['RS256'], code_challenge_methods_supported: ['S256'], token_endpoint_auth_methods_supported: ['client_secret_basic', 'client_secret_post'] });
+    }
+    if (url.pathname === '/jwks') return json({ keys: [jwk] });
+    if (url.pathname === '/authorize') {
+      lastNonce = url.searchParams.get('nonce') || '';
+      const back = new URL(url.searchParams.get('redirect_uri') || '');
+      back.searchParams.set('code', 'the-code');
+      back.searchParams.set('state', url.searchParams.get('state') || '');
+      res.statusCode = 302; res.setHeader('location', back.href); return res.end();
+    }
+    if (url.pathname === '/token') {
+      const idToken = await new SignJWT({ email, email_verified: true, name, nonce: lastNonce }).setProtectedHeader({ alg: 'RS256', kid: 'k1' }).setIssuer(base).setAudience('clor-client').setSubject('sub-1').setIssuedAt().setExpirationTime('5m').sign(privateKey);
+      return json({ access_token: 'at', token_type: 'Bearer', expires_in: 300, id_token: idToken });
+    }
+    res.statusCode = 404; res.end();
+  });
+  await new Promise<void>((r) => server.listen(0, '127.0.0.1', r));
+  base = `http://127.0.0.1:${(server.address() as any).port}`;
+  return { base, close: () => new Promise<void>((r) => server.close(() => r())) };
+}
+
+describe('signing in with OpenID Connect', () => {
+  it('offers the provider for its domain, walks the code flow, and makes the person a member', async () => {
+    const domain = `sso-${rnd()}.example`;
+    const issuer = await fakeIssuer(`asha@${domain}`, 'Asha Rao');
+    try {
+      const created = await request(app)
+        .post(`/api/orgs/${owner.orgId}/security/providers`)
+        .set(auth(owner))
+        .send({ kind: 'OIDC', name: `Okta ${rnd()}`, discoveryUrl: `${issuer.base}/.well-known/openid-configuration`, clientId: 'clor-client', clientSecret: 's3cret', emailDomains: domain, autoProvision: true, enabled: true })
+        .expect(201);
+      expect(created.body.provider.status).toBe('ACTIVE');
+      const pid = created.body.provider.id;
+
+      expect((await request(app).get(`/api/auth/sso/lookup?email=asha@${domain}`).expect(200)).body.providers.map((p: any) => p.id)).toEqual([pid]);
+      expect((await request(app).get('/api/auth/sso/lookup?email=asha@elsewhere.example').expect(200)).body.providers).toEqual([]);
+
+      const start = await request(app).get(`/api/auth/sso/${pid}/start?return=/attendance`).expect(302);
+      const to = new URL(start.headers.location);
+      expect(to.origin).toBe(issuer.base);
+      expect(to.searchParams.get('code_challenge_method')).toBe('S256');
+      expect(to.searchParams.get('redirect_uri')).toContain('/api/auth/sso/callback');
+      const cookie = String(start.headers['set-cookie']).split(';')[0];
+
+      /* The provider bounces back with a code and the state it was given. */
+      const bounced = await fetch(to.href, { redirect: 'manual' });
+      const back = new URL(bounced.headers.get('location') || '');
+      const done = await request(app).get(`/api/auth/sso/callback?${back.searchParams.toString()}`).set('Cookie', cookie).expect(302);
+      expect(done.headers.location).toMatch(/\/attendance\?sso=ok$/);
+      expect(String(done.headers['set-cookie'])).toMatch(/neev_rt=/);
+
+      const user = await platformPrisma.user.findFirst({ where: { email: `asha@${domain}` } });
+      expect(user?.fullName).toBe('Asha Rao');
+      expect(await platformPrisma.userOrgMembership.findFirst({ where: { userId: user!.id, orgId: owner.orgId } })).toBeTruthy();
+
+      /* Replaying the callback without a fresh start is refused. */
+      const replay = await request(app).get(`/api/auth/sso/callback?${back.searchParams.toString()}`).expect(302);
+      expect(replay.headers.location).toMatch(/sso_error=/);
+
+      /* With provisioning off, a stranger is turned away by name. */
+      await request(app).patch(`/api/orgs/${owner.orgId}/security/providers/${pid}`).set(auth(owner)).send({ kind: 'OIDC', name: created.body.provider.name, discoveryUrl: `${issuer.base}/.well-known/openid-configuration`, clientId: 'clor-client', emailDomains: domain, autoProvision: false, enabled: true }).expect(200);
+      const issuer2 = await fakeIssuer(`new@${domain}`, 'New Person');
+      await request(app).patch(`/api/orgs/${owner.orgId}/security/providers/${pid}`).set(auth(owner)).send({ kind: 'OIDC', name: created.body.provider.name, discoveryUrl: `${issuer2.base}/.well-known/openid-configuration`, clientId: 'clor-client', emailDomains: domain, autoProvision: false, enabled: true }).expect(200);
+      const start2 = await request(app).get(`/api/auth/sso/${pid}/start`).expect(302);
+      const cookie2 = String(start2.headers['set-cookie']).split(';')[0];
+      const back2 = new URL((await fetch(start2.headers.location, { redirect: 'manual' })).headers.get('location') || '');
+      const refused = await request(app).get(`/api/auth/sso/callback?${back2.searchParams.toString()}`).set('Cookie', cookie2).expect(302);
+      expect(decodeURIComponent(refused.headers.location)).toMatch(/has no CLOR login yet/);
+      await issuer2.close();
+    } finally {
+      await issuer.close();
+    }
   });
 });

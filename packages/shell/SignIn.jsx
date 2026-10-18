@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ArrowRight } from 'lucide-react';
 
 import AuthLayout from './AuthLayout';
 import { useSession } from './session';
+import { API_BASE, apiFetch } from '@platform/http';
 
 /**
  * One sign-in for the platform, not for an application.
@@ -21,7 +22,38 @@ export default function SignIn({ onHome, onSignUp, onForgot }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState(() => {
+    /* Back from a provider that could not finish: the API sends the reason in the address. */
+    try {
+      const msg = new URLSearchParams(window.location.search).get('sso_error');
+      if (msg) window.history.replaceState({}, '', window.location.pathname + window.location.hash);
+      return msg || '';
+    } catch {
+      return '';
+    }
+  });
+  /* Single sign-on: once the e-mail's domain is known, ask which provider (if any) owns it. */
+  const [providers, setProviders] = useState([]);
+  useEffect(() => {
+    const at = email.indexOf('@');
+    if (at < 1 || email.length - at < 4) {
+      setProviders([]);
+      return undefined;
+    }
+    let live = true;
+    const t = setTimeout(() => {
+      apiFetch(`/auth/sso/lookup?email=${encodeURIComponent(email.trim())}`, { skipAuth: true })
+        .then((r) => live && setProviders(r?.providers || []))
+        .catch(() => live && setProviders([]));
+    }, 350);
+    return () => {
+      live = false;
+      clearTimeout(t);
+    };
+  }, [email]);
+  const continueWith = (p) => {
+    window.location.assign(`${API_BASE}/auth/sso/${encodeURIComponent(p.id)}/start?return=${encodeURIComponent('/')}&hint=${encodeURIComponent(email.trim())}`);
+  };
 
   const submit = async (e) => {
     e.preventDefault();
@@ -77,6 +109,17 @@ export default function SignIn({ onHome, onSignUp, onForgot }) {
             autoFocus
           />
         </div>
+
+        {providers.length ? (
+          <div className="space-y-2">
+            {providers.map((p) => (
+              <button key={p.id} type="button" className="ui-btn ui-btn-secondary ui-btn-lg w-full" onClick={() => continueWith(p)}>
+                Continue with {p.name}
+              </button>
+            ))}
+            <p className="ui-caption text-center">Your company signs in through {providers[0].name}. A password still works below.</p>
+          </div>
+        ) : null}
 
         <div>
           <div className="flex items-baseline justify-between gap-3">
