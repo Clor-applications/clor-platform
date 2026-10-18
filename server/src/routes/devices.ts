@@ -84,6 +84,7 @@ devicesRouter.get(base, can(PermissionAction.VIEW), async (req, res) => {
     yourNetwork: networkOf(req),
     drivers: publicDrivers(),
     pushBase: `${process.env.PUBLIC_API_URL || process.env.API_PUBLIC_URL || 'https://api.clor.in'}/ingest/`,
+    hikvisionBase: `${process.env.PUBLIC_API_URL || process.env.API_PUBLIC_URL || 'https://api.clor.in'}/hikvision/`,
     /* Matrix COSEC controllers are given this as their server URL; the token is the path. */
     matrixBase: `${process.env.PUBLIC_API_URL || process.env.API_PUBLIC_URL || 'https://api.clor.in'}/matrix/`,
   });
@@ -110,7 +111,7 @@ devicesRouter.post(`${base}/test-etimeoffice`, can(PermissionAction.CREATE), asy
   res.json({ ok: r.ok, message: r.message, punchesToday: r.punches.length });
 });
 
-const PULL_VENDORS = ['HIKVISION', 'DAHUA', 'BIOSTAR', 'HTTP_PULL'] as const;
+const PULL_VENDORS = ['HIKVISION', 'DAHUA', 'BIOSTAR', 'HTTP_PULL', 'ANVIZ_CLOUD'] as const;
 const pullConfigSchema = z
   .object({
     method: z.enum(['GET', 'POST']).optional(),
@@ -135,7 +136,8 @@ const pullSchema = z.object({
 });
 const pullUrlOk = (vendor: string, baseUrl: string | null | undefined, config: any) => {
   const url = vendor === 'HTTP_PULL' ? config?.url || baseUrl : baseUrl;
-  if (!url) return vendor === 'HTTP_PULL' ? 'Give the URL to call.' : 'Give the device or server address, e.g. http://203.0.113.10:80.';
+  if (!url) return vendor === 'HTTP_PULL' ? 'Give the URL to call.' : vendor === 'ANVIZ_CLOUD' ? 'Choose the CrossChex Cloud region.' : 'Give the device or server address, e.g. http://203.0.113.10:80.';
+  if (vendor === 'ANVIZ_CLOUD' && !/^https:\/\/api\.(us|ap|eu)\.crosschexcloud\.com\/?$/.test(String(url))) return 'The CrossChex Cloud address is https://api.us.crosschexcloud.com/, api.ap… or api.eu….';
   return checkUrl(String(url).replace(/\{from\}|\{to\}/g, 'x'));
 };
 
@@ -173,7 +175,7 @@ const newPushToken = () => `clorp_${randomBytes(24).toString('base64url')}`;
 devicesRouter.post(base, can(PermissionAction.CREATE), async (req, res) => {
   if (!(await attendanceRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
-  if (req.body?.vendor === 'HTTP_PUSH' || req.body?.vendor === 'FILE' || req.body?.vendor === 'MATRIX_COSEC') {
+  if (req.body?.vendor === 'HTTP_PUSH' || req.body?.vendor === 'FILE' || req.body?.vendor === 'MATRIX_COSEC' || req.body?.vendor === 'HIKVISION_PUSH') {
     const vendor = String(req.body.vendor);
     const p = mappedSchema.safeParse(req.body);
     if (!p.success) return res.status(400).json({ error: p.error.issues[0]?.message || 'Check the details.' });
@@ -181,7 +183,7 @@ devicesRouter.post(base, can(PermissionAction.CREATE), async (req, res) => {
     if (!validZone(b.sourceTimezone)) return res.status(400).json({ error: 'That is not a timezone name (e.g. Asia/Kolkata, Asia/Dubai).' });
     /* A push source is known by its URL token (shown once); a Matrix controller's own serial arrives with its first login. */
     const token = vendor === 'FILE' ? null : newPushToken();
-    const serialNumber = `${vendor === 'HTTP_PUSH' ? 'PUSH' : vendor === 'MATRIX_COSEC' ? 'MATRIX' : 'FILE'}-${randomBytes(6).toString('hex').toUpperCase()}`;
+    const serialNumber = `${vendor === 'HTTP_PUSH' ? 'PUSH' : vendor === 'MATRIX_COSEC' ? 'MATRIX' : vendor === 'HIKVISION_PUSH' ? 'HIK' : 'FILE'}-${randomBytes(6).toString('hex').toUpperCase()}`;
     const device = await peoplePrisma.attendanceDevice.create({
       data: {
         accountId,
@@ -381,7 +383,7 @@ devicesRouter.put(`${base}/:id`, can(PermissionAction.EDIT), async (req, res) =>
   if (sourceTimezone !== undefined && !validZone(sourceTimezone)) return res.status(400).json({ error: 'That is not a timezone name (e.g. Asia/Kolkata, Asia/Dubai).' });
   const mapped = driverOf(existing.vendor).capabilities.includes('mapping')
     ? { ...(sourceTimezone !== undefined ? { sourceTimezone } : {}), ...(mapping !== undefined ? { mappingJson: mapping ? JSON.stringify(mapping) : null } : {}) }
-    : existing.vendor === 'MATRIX_COSEC' && sourceTimezone !== undefined
+    : (existing.vendor === 'MATRIX_COSEC' || existing.vendor === 'HIKVISION_PUSH') && sourceTimezone !== undefined
       ? { sourceTimezone }
       : {};
   if (areaId && !(await peoplePrisma.area.findFirst({ where: { id: areaId, orgId }, select: { id: true } }))) {
@@ -818,7 +820,7 @@ devicesRouter.post(`${base}/:id/rotate-token`, can(PermissionAction.EDIT), async
   const { accountId, orgId } = req.tenant!;
   const d = await peoplePrisma.attendanceDevice.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
   if (!d) return res.status(404).json({ error: 'No such reader.' });
-  if (d.vendor !== 'HTTP_PUSH' && d.vendor !== 'MATRIX_COSEC') return res.status(400).json({ error: 'Only an HTTP push source or a Matrix controller has a URL.' });
+  if (d.vendor !== 'HTTP_PUSH' && d.vendor !== 'MATRIX_COSEC' && d.vendor !== 'HIKVISION_PUSH') return res.status(400).json({ error: 'Only a source that pushes to a URL has one.' });
   const token = newPushToken();
   await peoplePrisma.attendanceDevice.update({ where: { id: d.id }, data: { pushTokenHash: hashToken(token), pushTokenPrefix: token.slice(0, 12) } });
   res.json({ pushToken: token });
@@ -827,8 +829,10 @@ devicesRouter.post(`${base}/:id/rotate-token`, can(PermissionAction.EDIT), async
 /** The last thing the source sent, so the mapping can be checked against it. */
 devicesRouter.get(`${base}/:id/last-payload`, can(PermissionAction.VIEW), async (req, res) => {
   if (!(await attendanceRouteOk(req, res))) return;
-  const d = await mappedDevice(req, res);
-  if (!d) return;
+  const { accountId, orgId } = req.tenant!;
+  const d = await peoplePrisma.attendanceDevice.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
+  if (!d) return res.status(404).json({ error: 'No such reader.' });
+  if (!driverOf(d.vendor).capabilities.includes('mapping') && d.vendor !== 'HIKVISION_PUSH') return res.status(400).json({ error: 'This reader keeps no last payload.' });
   res.json({ payload: d.lastPayload || null, at: d.lastPayloadAt || null });
 });
 

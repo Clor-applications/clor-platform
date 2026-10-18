@@ -85,6 +85,15 @@ export const DRIVERS: Driver[] = [
     unverified: true,
   },
   {
+    vendor: 'HIKVISION_PUSH',
+    label: 'Hikvision terminal (push to CLOR)',
+    blurb: 'Hikvision face or card terminals behind the office router: set CLOR as the terminal’s "HTTP listening" host and it sends each event as it happens. No port forwarding needed.',
+    capabilities: ['push', 'health'],
+    addable: true,
+    explicitDirection: true,
+    unverified: true,
+  },
+  {
     vendor: 'DAHUA',
     label: 'Dahua access controller',
     blurb: 'Dahua controllers reachable from the internet. CLOR pulls access records every few minutes.',
@@ -109,6 +118,15 @@ export const DRIVERS: Driver[] = [
     capabilities: ['pull', 'mapping'],
     addable: true,
     explicitDirection: true,
+  },
+  {
+    vendor: 'ANVIZ_CLOUD',
+    label: 'Anviz CrossChex Cloud',
+    blurb: 'Anviz readers that report to CrossChex Cloud. CLOR pulls punches every few minutes with the API key and secret from the portal (System → Cloud API).',
+    capabilities: ['pull'],
+    addable: true,
+    explicitDirection: false,
+    unverified: true,
   },
   {
     vendor: 'ETIMEOFFICE',

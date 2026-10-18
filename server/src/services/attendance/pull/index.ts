@@ -4,6 +4,7 @@ import { pullHikvision } from './hikvision.js';
 import { pullDahua } from './dahua.js';
 import { pullBiostar } from './biostar.js';
 import { pullHttp } from './httpPull.js';
+import { pullAnviz } from './anviz.js';
 
 /**
  * Pulling punches from a device or a vendor server on a schedule. One entry
@@ -54,7 +55,7 @@ const fromEto = async (d: PullDevice, from: Date, to: Date, fetchImpl?: typeof f
 };
 
 export async function pullPunches(d: PullDevice, from: Date, to: Date, opts: { fetchImpl?: typeof fetch } = {}): Promise<PullResult> {
-  const ctx = { baseUrl: (d.apiUrl || '').replace(/\/+$/, ''), username: d.apiUsername || '', password: decryptSecret(d.apiSecret || ''), zone: d.sourceTimezone || 'Asia/Kolkata', config: parseJson(d.configJson) || {}, mapping: parseJson(d.mappingJson), from, to };
+  const ctx = { baseUrl: (d.apiUrl || '').replace(/\/+$/, ''), username: d.apiUsername || '', password: decryptSecret(d.apiSecret || ''), zone: d.sourceTimezone || 'Asia/Kolkata', config: parseJson(d.configJson) || {}, mapping: parseJson(d.mappingJson), from, to, fetchImpl: opts.fetchImpl };
   switch (d.vendor) {
     case 'ETIMEOFFICE':
       return fromEto(d, from, to, opts.fetchImpl);
@@ -66,12 +67,14 @@ export async function pullPunches(d: PullDevice, from: Date, to: Date, opts: { f
       return pullBiostar(ctx);
     case 'HTTP_PULL':
       return pullHttp(ctx);
+    case 'ANVIZ_CLOUD':
+      return pullAnviz(ctx);
     default:
       return { ok: false, message: `${d.vendor} has no pull driver.`, lines: [], received: 0 };
   }
 }
 
-export type PullContext = { baseUrl: string; username: string; password: string; zone: string; config: Record<string, any>; mapping: any; from: Date; to: Date };
+export type PullContext = { baseUrl: string; username: string; password: string; zone: string; config: Record<string, any>; mapping: any; from: Date; to: Date; fetchImpl?: typeof fetch };
 
 /** "YYYY-MM-DD HH:mm:ss" of an instant in a zone, for devices that take local times. */
 export function localIn(at: Date, zone: string) {
