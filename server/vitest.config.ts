@@ -81,6 +81,9 @@ export default defineConfig({
       // Failure-path tests point at a host that does not answer; a short
       // timeout keeps them fast instead of waiting on the OS.
       SMTP_TIMEOUT_MS: '800',
+      // SSO suites name domains they cannot publish DNS for; the one suite
+      // about domain proof switches this back on for itself.
+      SSO_DOMAIN_VERIFY: 'off',
     },
     include: ['src/**/*.test.ts'],
     /*

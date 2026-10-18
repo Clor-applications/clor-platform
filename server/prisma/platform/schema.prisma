@@ -711,6 +711,10 @@ model AuthProvider {
 
   /// Restricts which addresses may use this provider.
   emailDomains  String?
+  /// TXT value the company publishes on each domain to prove it owns it: clor-domain-verification=<this>.
+  domainVerifyToken String?
+  /// Domains proven by that record (comma separated). A provider signs in only addresses at these.
+  verifiedDomains   String?
   /// Create a user on first successful sign-in instead of refusing.
   autoProvision Boolean @default(false)
   defaultRoleId String?
@@ -764,6 +768,15 @@ model Notification {
 
   @@index([userId, orgId, readAt])
   @@index([orgId, createdAt])
+}
+
+/// SAML assertions already used to sign in, until they would have expired
+/// anyway: a captured assertion cannot be posted a second time.
+model SsoAssertionSeen {
+  id        String   @id
+  expiresAt DateTime
+
+  @@index([expiresAt])
 }
 
 // ============================================================================

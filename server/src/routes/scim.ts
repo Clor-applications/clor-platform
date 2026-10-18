@@ -182,6 +182,8 @@ scimRouter.post('/Users', async (req, res) => {
   const userAgent = String(req.headers['user-agent'] || '').slice(0, 200);
 
   let user = await platformPrisma.user.findFirst({ where: { email }, select: SELECT });
+  /* A person of another CLOR account is theirs: neither attached nor described here. Invite them instead. */
+  if (user && user.accountId !== t.accountId) return fail(res, 409, `${email} already has a CLOR login under another account; invite them from Settings → Users instead.`, 'uniqueness');
   if (user) {
     const member = await platformPrisma.userOrgMembership.findFirst({ where: { orgId: t.orgId, userId: user.id }, select: { id: true } });
     if (member) return fail(res, 409, `${email} is already a user of this organisation.`, 'uniqueness');
@@ -205,6 +207,9 @@ scimRouter.post('/Users', async (req, res) => {
 /** What a replace or a patch may change, applied the same way. */
 async function applyChanges(t: Tenant, u: U, changes: { email?: string; fullName?: string; active?: boolean }) {
   const data: any = {};
+  /* Another account's person: this provider may drop their membership, never change who they are. */
+  const touches = (changes.email && changes.email !== u.email) || (changes.fullName && changes.fullName !== u.fullName) || (changes.active !== undefined && changes.active !== u.isActive);
+  if (touches && u.accountId !== t.accountId) throw Object.assign(new Error('This person belongs to another account; only their membership here can be removed.'), { status: 403 });
   if (changes.email && changes.email !== u.email) {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(changes.email)) throw Object.assign(new Error('userName must be an e-mail address.'), { status: 400, scimType: 'invalidValue' });
     if (await platformPrisma.user.findFirst({ where: { email: changes.email, NOT: { id: u.id } }, select: { id: true } })) throw Object.assign(new Error(`${changes.email} is already another user’s address.`), { status: 409, scimType: 'uniqueness' });

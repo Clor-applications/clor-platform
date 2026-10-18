@@ -10,6 +10,8 @@ import { platformPrisma } from '../utils/platformPrisma.js';
 import { createSession, clientIp, recordAuthEvent } from '../services/auth.js';
 import { decryptSecret } from '../services/mailer.js';
 import { setRefreshCookie } from '../utils/refreshCookie.js';
+import { providerSpeaksFor } from '../services/ssoDomains.js';
+import { ssoLimiter } from '../middleware/rateLimit.js';
 
 /**
  * Single sign-on, OpenID Connect.
@@ -42,18 +44,18 @@ export const callbackUrl = () => `${(process.env.API_PUBLIC_URL || process.env.A
 const isProduction = () => String(process.env.NODE_ENV || '') === 'production';
 
 const domainOf = (email: string) => String(email || '').trim().toLowerCase().split('@')[1] || '';
-const domainsOf = (csv: string | null) => String(csv || '').split(/[,\s]+/).map((d) => d.trim().toLowerCase()).filter(Boolean);
+/* A provider speaks only for domains its company has proved it owns (services/ssoDomains.ts). */
 
 /** Providers that own this e-mail's domain, enabled — the ones a sign-in screen may offer. */
 export async function providersForEmail(email: string) {
   const domain = domainOf(email);
   if (!domain) return [];
-  const rows = await platformPrisma.authProvider.findMany({ where: { enabled: true, kind: { in: ['OIDC', 'SAML'] } }, select: { id: true, name: true, kind: true, orgId: true, emailDomains: true } });
-  return rows.filter((p) => domainsOf(p.emailDomains).includes(domain)).map((p) => ({ id: p.id, name: p.name, kind: p.kind }));
+  const rows = await platformPrisma.authProvider.findMany({ where: { enabled: true, kind: { in: ['OIDC', 'SAML'] } }, select: { id: true, name: true, kind: true, orgId: true, emailDomains: true, verifiedDomains: true } });
+  return rows.filter((p) => providerSpeaksFor(p, domain)).map((p) => ({ id: p.id, name: p.name, kind: p.kind }));
 }
 
 /** The sign-in screen asks which providers an e-mail may use. Public, so it says nothing but names. */
-ssoRouter.get('/lookup', async (req, res) => {
+ssoRouter.get('/lookup', ...ssoLimiter, async (req, res) => {
   const email = String(req.query.email || '');
   res.json({ providers: await providersForEmail(email) });
 });
@@ -129,7 +131,7 @@ const safeReturn = (v: unknown) => {
 };
 
 /** Step 1: off to the provider, with PKCE, state and nonce kept in a short-lived signed cookie. */
-ssoRouter.get('/:providerId/start', async (req, res) => {
+ssoRouter.get('/:providerId/start', ...ssoLimiter, async (req, res) => {
   const p = await platformPrisma.authProvider.findFirst({ where: { id: String(req.params.providerId), enabled: true, kind: { in: ['OIDC', 'SAML'] } } });
   if (!p) return res.status(404).json({ error: 'No such sign-in method.' });
   try {
@@ -199,12 +201,12 @@ ssoRouter.get('/callback', async (req: Request, res: Response) => {
  * CLOR user at a domain the provider owns, or — when the provider says so — a
  * new one made on the spot as a member of that company with its default role.
  */
-async function finishSignIn(p: { id: string; name: string; accountId: string; orgId: string; emailDomains: string | null; autoProvision: boolean; defaultRoleId: string | null }, who: { email: string; name: string }, req: Request, res: Response, back: string) {
+async function finishSignIn(p: { id: string; name: string; accountId: string; orgId: string; emailDomains: string | null; verifiedDomains: string | null; autoProvision: boolean; defaultRoleId: string | null }, who: { email: string; name: string }, req: Request, res: Response, back: string) {
   const fail = (msg: string) => res.redirect(`${appUrl()}/?sso_error=${encodeURIComponent(msg)}`);
   const ip = clientIp(req);
   const userAgent = req.headers['user-agent'] as string | undefined;
   const email = who.email;
-  if (!domainsOf(p.emailDomains).includes(domainOf(email))) throw new Error(`${email} is not at a domain this sign-in method is set up for`);
+  if (!providerSpeaksFor(p, domainOf(email))) throw new Error(`${email} is not at a verified domain of this sign-in method`);
 
   let user = await platformPrisma.user.findFirst({ where: { email }, select: { id: true, accountId: true, isActive: true, fullName: true } });
   if (user && !user.isActive) throw new Error('This user is switched off');
@@ -223,9 +225,21 @@ async function finishSignIn(p: { id: string; name: string; accountId: string; or
     if (p.defaultRoleId) await platformPrisma.userRoleAssignment.create({ data: { accountId: p.accountId, orgId: p.orgId, userId: user.id, roleId: p.defaultRoleId, createdByUserId: user.id } }).catch(() => {});
     await recordAuthEvent({ accountId: p.accountId, userId: user.id, email, eventType: 'USER_PROVISIONED', ip, userAgent, detail: `SSO ${p.name}` });
   } else {
-    /* A known person signing in to a company the provider belongs to joins it if they were not a member yet. */
+    /*
+     * A provider vouches only for its own company's people. Someone who is not a
+     * member of the provider's organisation is refused — whatever the provider
+     * asserts — unless they belong to the provider's own account and it may add
+     * people. Signing in a user of another account would hand one company's
+     * identity provider the keys to another company's logins.
+     */
     const member = await platformPrisma.userOrgMembership.findFirst({ where: { orgId: p.orgId, userId: user.id }, select: { id: true } });
-    if (!member && p.autoProvision) await platformPrisma.userOrgMembership.create({ data: { accountId: p.accountId, orgId: p.orgId, userId: user.id } });
+    if (!member) {
+      if (user.accountId !== p.accountId || !p.autoProvision) {
+        await recordAuthEvent({ email, eventType: 'LOGIN_FAILED', ip, userAgent, detail: `SSO ${p.name}: not a member of the provider's organisation` });
+        return fail(`${email} is not a member of the company this sign-in method belongs to.`);
+      }
+      await platformPrisma.userOrgMembership.create({ data: { accountId: p.accountId, orgId: p.orgId, userId: user.id } });
+    }
   }
   const { refreshToken } = await createSession({ accountId: user.accountId, userId: user.id, ip, userAgent });
   await platformPrisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date(), failedLoginCount: 0, lockedUntil: null } });
@@ -236,7 +250,7 @@ async function finishSignIn(p: { id: string; name: string; accountId: string; or
 }
 
 /** SAML step 2: the provider posts the signed assertion here. */
-ssoRouter.post('/saml/:providerId/acs', express.urlencoded({ extended: false, limit: '256kb' }), async (req: Request, res: Response) => {
+ssoRouter.post('/saml/:providerId/acs', ...ssoLimiter, express.urlencoded({ extended: false, limit: '256kb' }), async (req: Request, res: Response) => {
   const fail = (msg: string) => res.redirect(`${appUrl()}/?sso_error=${encodeURIComponent(msg)}`);
   const p = await platformPrisma.authProvider.findFirst({ where: { id: String(req.params.providerId), enabled: true, kind: 'SAML' } });
   if (!p) return fail('That sign-in method is no longer available.');
@@ -252,6 +266,16 @@ ssoRouter.post('/saml/:providerId/acs', express.urlencoded({ extended: false, li
   try {
     const { profile, loggedOut } = await samlFor(p).validatePostResponseAsync(req.body || {});
     if (loggedOut || !profile) throw new Error('The provider sent no assertion');
+    /* Each assertion signs in once: a captured one posted again is refused until it would have expired anyway. */
+    const assertionXml = typeof (profile as any).getAssertionXml === 'function' ? String((profile as any).getAssertionXml() || '') : '';
+    const assertionId = String(/<(?:[\w-]+:)?Assertion\b[^>]*\sID="([^"]+)"/.exec(assertionXml)?.[1] || (profile as any).sessionIndex || '').slice(0, 200);
+    if (!assertionId) throw new Error('The assertion carries no ID');
+    await platformPrisma.ssoAssertionSeen.deleteMany({ where: { expiresAt: { lt: new Date() } } }).catch(() => {});
+    try {
+      await platformPrisma.ssoAssertionSeen.create({ data: { id: `${p.id}:${assertionId}`, expiresAt: new Date(Date.now() + 15 * 60_000) } });
+    } catch {
+      throw new Error('This sign-in was already used; start again');
+    }
     const who = samlClaims(profile as any);
     if (!who.email) throw new Error('The assertion carries no e-mail address (NameID or an e-mail claim is needed)');
     return await finishSignIn(p, who, req, res, back);

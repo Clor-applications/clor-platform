@@ -55,14 +55,18 @@ export const loginLimiter = build(15 * 60 * 1000, 10, 'sign-in attempts');
 export const signupLimiter = build(60 * 60 * 1000, 5, 'sign-up attempts');
 export const resetLimiter = build(60 * 60 * 1000, 5, 'password reset requests');
 /** Punches pushed to a reader's own URL (/ingest/:token): per token, generous — middleware batches. */
-export const ingestLimiter = [bucket(60 * 1000, 600, 'pushes', (req) => `ingest:${String(req.params?.token || '').slice(0, 16) || ipOf(req)}`)];
+export const ingestLimiter = [bucket(60 * 1000, 600, 'pushes', (req) => `ingest:${String(req.params?.token || '').slice(0, 16) || ipOf(req)}`), bucket(60 * 1000, 3000, 'pushes', (req) => `ingest-ip:${ipOf(req)}`)];
 /** Authenticator codes: ten tries in fifteen minutes per signed-in user, so six digits cannot be walked. */
 export const codeLimiter = [bucket(15 * 60 * 1000, 10, 'code attempts', (req) => `code:${req.auth?.userId || ipOf(req)}`)];
 
 /** Machine clients with a bearer token (SCIM providers, on-site connectors): per token, and per address for the ones guessing. */
 const bearerOf = (req: any) => String(req.headers?.authorization || '').replace(/^Bearer\s+/i, '').slice(0, 24);
 export const scimLimiter = [bucket(60 * 1000, 600, 'SCIM requests', (req) => `scim:${bearerOf(req) || ipOf(req)}`), bucket(60 * 1000, 1200, 'SCIM requests', (req) => `scim-ip:${ipOf(req)}`)];
-export const agentLimiter = [bucket(60 * 1000, 600, 'connector requests', (req) => `agent:${bearerOf(req) || ipOf(req)}`)];
+export const agentLimiter = [bucket(60 * 1000, 600, 'connector requests', (req) => `agent:${bearerOf(req) || ipOf(req)}`), bucket(60 * 1000, 1200, 'connector requests', (req) => `agent-ip:${ipOf(req)}`)];
+/** Hikvision pushes, before the body is read: per URL token (from the path) and per address. */
+export const hikvisionLimiter = [bucket(60 * 1000, 600, 'pushes', (req) => `hik:${String(req.path || '').slice(1, 17) || ipOf(req)}`), bucket(60 * 1000, 3000, 'pushes', (req) => `hik-ip:${ipOf(req)}`)];
+/** Single sign-on: lookups, starts and assertions, per address. */
+export const ssoLimiter = [bucket(60 * 1000, 60, 'sign-in attempts', (req) => `sso:${ipOf(req)}`)];
 
 /**
  * Biometric readers (/iclock). One bucket per serial number and one per

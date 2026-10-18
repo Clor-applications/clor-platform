@@ -381,8 +381,10 @@ devicesRouter.put(`${base}/:id`, can(PermissionAction.EDIT), async (req, res) =>
       }
     : {};
   /* Through a connector the address is on the customer's LAN, which the cloud never calls: only its shape is checked. */
-  const viaAgentNow = (viaAgent as any).agentId ?? existing.agentId;
-  if ((pullFields.apiUrl !== undefined || pullFields.configJson !== undefined) && !viaAgentNow) {
+  const viaAgentNow = (viaAgent as any).agentId !== undefined ? (viaAgent as any).agentId : existing.agentId;
+  /* Leaving a connector puts the cloud back in charge of the address: it is checked again, as on any change. */
+  const leftAgent = Boolean(existing.agentId) && (viaAgent as any).agentId === null;
+  if ((pullFields.apiUrl !== undefined || pullFields.configJson !== undefined || leftAgent) && !viaAgentNow && (PULL_VENDORS as readonly string[]).includes(existing.vendor)) {
     const bad = pullUrlOk(existing.vendor, (pullFields as any).apiUrl ?? existing.apiUrl, config === undefined ? JSON.parse(existing.configJson || 'null') : config);
     if (bad) return res.status(400).json({ error: bad });
   }

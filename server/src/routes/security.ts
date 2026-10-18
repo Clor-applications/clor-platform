@@ -9,6 +9,7 @@ import { requirePermission } from '../middleware/rbac.js';
 import { PermissionAction } from '../constants/enums.js';
 import { decryptSecret, encryptSecret } from '../services/mailer.js';
 import { callbackUrl, samlAcsUrl, samlEntityId } from './sso.js';
+import { VERIFY_PREFIX, checkDomains, domainProblem, domainsOf, keptVerified, newDomainToken, verificationSkipped } from '../services/ssoDomains.js';
 import { newScimToken } from './scim.js';
 import { hashToken } from './publicApi.js';
 import { codeLimiter } from '../middleware/rateLimit.js';
@@ -136,6 +137,11 @@ const publicProvider = (p: any) => ({
   defaultRoleId: p.defaultRoleId,
   lastUsedAt: p.lastUsedAt,
   lastError: p.lastError,
+  /* Proof of each domain: the TXT record to publish, and which are proven. */
+  domainVerification: {
+    record: p.domainVerifyToken ? `${VERIFY_PREFIX}${p.domainVerifyToken}` : null,
+    domains: domainsOf(p.emailDomains).map((d) => ({ domain: d, verified: domainsOf(p.verifiedDomains).includes(d) })),
+  },
   // Both kinds sign people in (routes/sso.ts).
   status: p.enabled ? ('ACTIVE' as const) : ('DISABLED' as const),
   // SAML: what the administrator enters at the identity provider for CLOR.
@@ -159,7 +165,9 @@ securityRouter.post('/orgs/:orgId/security/scim', EDIT, async (req, res) => {
   if (!orgOk(req, res)) return;
   const { accountId, orgId } = req.tenant!;
   const defaultRoleId = req.body?.defaultRoleId ? String(req.body.defaultRoleId) : null;
-  if (defaultRoleId && !(await platformPrisma.role.findFirst({ where: { id: defaultRoleId, orgId }, select: { id: true } }))) return res.status(400).json({ error: 'That role is not in this organisation.' });
+  const role = defaultRoleId ? await platformPrisma.role.findFirst({ where: { id: defaultRoleId, orgId }, select: { roleType: true } }) : null;
+  if (defaultRoleId && !role) return res.status(400).json({ error: 'That role is not in this organisation.' });
+  if (role?.roleType === 'ADMIN') return res.status(400).json({ error: 'People from the directory cannot be given an administrator role automatically; assign it by hand.' });
   if ((await platformPrisma.scimToken.count({ where: { orgId } })) >= 5) return res.status(400).json({ error: 'Five tokens is the most; revoke one first.' });
   const token = newScimToken();
   const row = await platformPrisma.scimToken.create({ data: { accountId, orgId, tokenHash: hashToken(token), tokenPrefix: token.slice(0, 12), defaultRoleId, createdByUserId: req.auth!.userId } });
@@ -209,8 +217,10 @@ securityRouter.post('/orgs/:orgId/security/providers', EDIT, async (req, res) =>
   const { accountId, orgId } = req.tenant!;
   const body = providerSchema.parse(req.body);
 
-  const problem = validateProvider(body, false);
+  const problem = validateProvider(body, false) || (await domainProblem(accountId, body.emailDomains));
   if (problem) return res.status(400).json({ error: problem });
+  /* Switched on only once its domains are proven (verify-domains below). */
+  if (body.enabled && !verificationSkipped()) return res.status(400).json({ error: 'Add it switched off, publish the TXT record on each domain, choose Verify, then switch it on.' });
 
   try {
     const created = await platformPrisma.authProvider.create({
@@ -229,6 +239,8 @@ securityRouter.post('/orgs/:orgId/security/providers', EDIT, async (req, res) =>
         entityId: body.entityId ?? null,
         certificate: body.certificate ?? null,
         emailDomains: body.emailDomains ?? null,
+        domainVerifyToken: newDomainToken(),
+        verifiedDomains: verificationSkipped() ? domainsOf(body.emailDomains).join(',') || null : null,
         autoProvision: body.autoProvision ?? false,
         defaultRoleId: body.defaultRoleId ?? null,
         createdByUserId: req.auth!.userId,
@@ -261,6 +273,14 @@ securityRouter.patch('/orgs/:orgId/security/providers/:providerId', EDIT, async 
   const body = providerSchema.parse({ ...req.body, kind: req.body.kind || existing.kind });
   const problem = validateProvider(body, Boolean(existing.clientSecretEnc), Boolean(existing.certificate));
   if (problem) return res.status(400).json({ error: problem });
+  const domainIssue = await domainProblem(accountId, body.emailDomains ?? existing.emailDomains);
+  if (domainIssue) return res.status(400).json({ error: domainIssue });
+  const nextDomains = body.emailDomains ?? null;
+  const nextVerified = verificationSkipped() ? domainsOf(nextDomains).join(',') || null : keptVerified(existing.verifiedDomains, nextDomains);
+  const wantsOn = body.enabled ?? existing.enabled;
+  if (wantsOn && domainsOf(nextDomains).some((d) => !domainsOf(nextVerified).includes(d))) {
+    return res.status(400).json({ error: 'Every domain must be verified before this sign-in method is switched on. Publish the TXT record and choose Verify.' });
+  }
 
   const updated = await platformPrisma.authProvider.update({
     where: { id: existing.id },
@@ -278,13 +298,28 @@ securityRouter.patch('/orgs/:orgId/security/providers/:providerId', EDIT, async 
       entryPoint: body.entryPoint ?? null,
       entityId: body.entityId ?? null,
       certificate: body.certificate ?? existing.certificate,
-      emailDomains: body.emailDomains ?? null,
+      emailDomains: nextDomains,
+      verifiedDomains: nextVerified,
+      domainVerifyToken: existing.domainVerifyToken || newDomainToken(),
       autoProvision: body.autoProvision ?? existing.autoProvision,
       defaultRoleId: body.defaultRoleId ?? null,
     },
   });
 
   res.json({ provider: publicProvider(updated) });
+});
+
+/** Look for the TXT record on each of the provider's domains and keep the ones proven. */
+securityRouter.post('/orgs/:orgId/security/providers/:providerId/verify-domains', EDIT, async (req, res) => {
+  if (!orgOk(req, res)) return;
+  const { accountId, orgId } = req.tenant!;
+  const p = await platformPrisma.authProvider.findFirst({ where: { id: String(req.params.providerId), accountId, orgId } });
+  if (!p) return res.status(404).json({ error: 'Sign-in method not found' });
+  const token = p.domainVerifyToken || newDomainToken();
+  const results = await checkDomains(accountId, token, p.emailDomains);
+  const verified = results.filter((r) => r.verified).map((r) => r.domain).join(',') || null;
+  const updated = await platformPrisma.authProvider.update({ where: { id: p.id }, data: { domainVerifyToken: token, verifiedDomains: verified } });
+  res.json({ provider: publicProvider(updated), results, record: `${VERIFY_PREFIX}${token}` });
 });
 
 securityRouter.delete('/orgs/:orgId/security/providers/:providerId', EDIT, async (req, res) => {

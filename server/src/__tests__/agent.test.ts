@@ -158,6 +158,12 @@ describe('an on-site connector', () => {
     expect((await request(app).get('/scim/v2/Users').set('Authorization', `Bearer ${scimToken}`).expect(200)).body.totalResults).toBe(1);
     expect((await request(app).get(`/api/orgs/${c.orgId}/security/scim`).set(at(c)).expect(200)).body.tokens).toHaveLength(1);
     await api(c).post('/integrations/agents', { name: 'Bad', ldap: { url: 'http://x', bindDn: 'a', baseDn: 'b' } }).expect(400);
+    /* Directory sync may not hand out an administrator role, nor a role of another organisation. */
+    const adminRole = await platformPrisma.role.findFirst({ where: { orgId: c.orgId, roleType: 'ADMIN' }, select: { id: true } });
+    expect((await api(c).post('/integrations/agents', { name: 'Escalate', ldap: { url: 'ldaps://dc', bindDn: 'a', bindPassword: 'b', baseDn: 'c', defaultRoleId: adminRole!.id } }).expect(400)).body.error).toMatch(/administrator role/);
+    const elsewhere = await makeOwner();
+    const foreign = await platformPrisma.role.findFirst({ where: { orgId: elsewhere.orgId }, select: { id: true } });
+    expect((await api(c).post('/integrations/agents', { name: 'Foreign', ldap: { url: 'ldaps://dc', bindDn: 'a', bindPassword: 'b', baseDn: 'c', defaultRoleId: foreign!.id } }).expect(400)).body.error).toMatch(/not in this organisation/);
     await api(c).del(`/integrations/agents/${made.body.agent.id}`).expect(200);
     await request(app).get('/scim/v2/Users').set('Authorization', `Bearer ${scimToken}`).expect(401);
   });

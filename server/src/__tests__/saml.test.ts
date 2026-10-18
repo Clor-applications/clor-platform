@@ -103,6 +103,19 @@ describe('SAML sign-in', () => {
     expect(await platformPrisma.userOrgMembership.count({ where: { orgId: c.orgId, userId: user!.id } })).toBe(1);
     expect((await platformPrisma.authProvider.findUnique({ where: { id: p.id } }))?.lastUsedAt).toBeTruthy();
 
+    /* The same assertion posted a second time is refused. */
+    const once = signedResponse({ acs: p.saml.acsUrl, audience: p.saml.spEntityId, issuer: 'https://idp.example.com/adfs/services/trust', email });
+    expect((await request(app).post(`/api/auth/sso/saml/${p.id}/acs`).type('form').send({ SAMLResponse: once }).expect(302)).headers.location).toMatch(/sso=ok/);
+    expect(decodeURIComponent((await request(app).post(`/api/auth/sso/saml/${p.id}/acs`).type('form').send({ SAMLResponse: once }).expect(302)).headers.location)).toMatch(/already used/);
+
+    /* A person of another CLOR account at this domain is never signed in by this company's provider. */
+    const other = await makeOwner(`elsewhere${rnd()}.example.com`);
+    const stranger = `stranger.${rnd()}@${domain}`;
+    await platformPrisma.user.update({ where: { email: other.email }, data: { email: stranger } });
+    const takeover = await request(app).post(`/api/auth/sso/saml/${p.id}/acs`).type('form').send({ SAMLResponse: signedResponse({ acs: p.saml.acsUrl, audience: p.saml.spEntityId, issuer: 'https://idp.example.com/adfs/services/trust', email: stranger }) }).expect(302);
+    expect(decodeURIComponent(takeover.headers.location)).toMatch(/not a member of the company/);
+    expect(String(takeover.headers['set-cookie'] || '')).not.toMatch(/neev_rt=[^;]+;/);
+
     /* The owner, already a user, signs in the same way; no RelayState lands on the home page. */
     const again = await request(app).post(`/api/auth/sso/saml/${p.id}/acs`).type('form').send({ SAMLResponse: signedResponse({ acs: p.saml.acsUrl, audience: p.saml.spEntityId, issuer: 'https://idp.example.com/adfs/services/trust', email: c.email }) }).expect(302);
     expect(again.headers.location).toMatch(/\/\?sso=ok$/);
@@ -116,7 +129,7 @@ describe('SAML sign-in', () => {
     const base = { acs: p.saml.acsUrl, audience: p.saml.spEntityId, issuer: 'https://idp.example.com/adfs/services/trust' };
     await bad(signedResponse({ ...base, email: `x@${domain}`, audienceOverride: 'https://other.example.com' }), /audience/i);
     await bad(signedResponse({ ...base, email: `x@${domain}`, notOnOrAfterMs: -600_000 }), /expired|NotOnOrAfter/i);
-    await bad(signedResponse({ ...base, email: 'x@elsewhere.example.com' }), /not at a domain/);
+    await bad(signedResponse({ ...base, email: 'x@elsewhere.example.com' }), /not at a verified domain/);
     const otherDir = fs.mkdtempSync(path.join(os.tmpdir(), 'clor-saml2-'));
     execFileSync('openssl', ['req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-keyout', path.join(otherDir, 'k.pem'), '-out', path.join(otherDir, 'c.pem'), '-subj', '/CN=other', '-days', '2'], { stdio: 'ignore' });
     await bad(signedResponse({ ...base, email: `x@${domain}`, keyPem: fs.readFileSync(path.join(otherDir, 'k.pem'), 'utf8') }), /signature|Invalid/i);
@@ -134,5 +147,47 @@ describe('SAML sign-in', () => {
     expect(samlClaims({ nameID: 'opaque-id', nameIDFormat: 'x', 'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress': 'A@B.com', 'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/givenname': 'A', 'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/surname': 'B' })).toEqual({ email: 'a@b.com', name: 'A B' });
     expect(samlClaims({ nameID: 'opaque', nameIDFormat: 'x', attributes: { mail: ['m@c.com'], displayName: ['M C'] } })).toEqual({ email: 'm@c.com', name: 'M C' });
     expect(samlClaims({ nameID: 'opaque', nameIDFormat: 'x' })).toEqual({ email: '', name: '' });
+  });
+});
+
+describe('domain proof', () => {
+  it('a provider switches on only for domains its company proved, never public mail, never another account’s', async () => {
+    const { dnsTxt } = await import('../services/ssoDomains.js');
+    const prev = process.env.SSO_DOMAIN_VERIFY;
+    const prevResolve = dnsTxt.resolve;
+    process.env.SSO_DOMAIN_VERIFY = 'on';
+    const published = new Map<string, string[][]>();
+    dnsTxt.resolve = async (d: string) => published.get(d) || Promise.reject(new Error('ENODATA'));
+    try {
+      const domain = `proof${rnd()}.example.com`;
+      const c = await makeOwner(domain);
+      const sec = (path: string) => `/api/orgs/${c.orgId}/security/providers${path}`;
+      const base = { kind: 'SAML', name: 'Corp IdP', entryPoint: 'https://idp.example.com/sso', entityId: 'https://idp.example.com', certificate: certPem, emailDomains: domain };
+      expect((await request(app).post(sec('')).set(at(c)).send({ ...base, emailDomains: 'gmail.com' }).expect(400)).body.error).toMatch(/public mail/);
+      expect((await request(app).post(sec('')).set(at(c)).send({ ...base, enabled: true }).expect(400)).body.error).toMatch(/switched off/);
+      const made = (await request(app).post(sec('')).set(at(c)).send(base).expect(201)).body.provider;
+      expect(made.domainVerification.record).toMatch(/^clor-domain-verification=/);
+      expect(made.domainVerification.domains).toEqual([{ domain, verified: false }]);
+      expect((await request(app).patch(sec(`/${made.id}`)).set(at(c)).send({ ...base, enabled: true }).expect(400)).body.error).toMatch(/verified/);
+      /* Not offered for its domain while unproven. */
+      expect((await request(app).get(`/api/auth/sso/lookup?email=a@${domain}`).expect(200)).body.providers).toEqual([]);
+      const r1 = await request(app).post(sec(`/${made.id}/verify-domains`)).set(at(c)).expect(200);
+      expect(r1.body.results).toEqual([{ domain, verified: false, reason: 'no TXT records found' }]);
+      published.set(domain, [['v=spf1 -all'], [made.domainVerification.record]]);
+      const r2 = await request(app).post(sec(`/${made.id}/verify-domains`)).set(at(c)).expect(200);
+      expect(r2.body.results).toEqual([{ domain, verified: true }]);
+      await request(app).patch(sec(`/${made.id}`)).set(at(c)).send({ ...base, enabled: true }).expect(200);
+      expect((await request(app).get(`/api/auth/sso/lookup?email=a@${domain}`).expect(200)).body.providers).toHaveLength(1);
+      /* Another account cannot claim the same domain, even with the record. */
+      const rival = await makeOwner(`rival${rnd()}.example.com`);
+      expect((await request(app).post(`/api/orgs/${rival.orgId}/security/providers`).set(at(rival)).send(base).expect(400)).body.error).toMatch(/another CLOR account/);
+      /* Taking a domain off drops its proof. */
+      const other = `second${rnd()}.example.com`;
+      await request(app).patch(sec(`/${made.id}`)).set(at(c)).send({ ...base, emailDomains: other, enabled: false }).expect(200);
+      expect((await platformPrisma.authProvider.findUnique({ where: { id: made.id } }))?.verifiedDomains).toBeNull();
+    } finally {
+      process.env.SSO_DOMAIN_VERIFY = prev;
+      dnsTxt.resolve = prevResolve;
+    }
   });
 });

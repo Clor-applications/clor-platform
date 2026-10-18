@@ -1,4 +1,6 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
+
+import { guardedRequest } from '../../outbound.js';
 
 import { readTime } from '../punchMapping.js';
 import type { PullContext, PullResult } from './common.js';
@@ -40,9 +42,9 @@ async function call(ctx: PullContext, nameSpace: string, nameAction: string, pay
   lastAt.set(key, Date.now());
   const body: Record<string, unknown> = { header: { nameSpace, nameAction, version: '1.0', requestId: randomUUID(), timestamp: tsNow() }, payload };
   if (token) body.authorize = { type: 'token', token };
-  const f = ctx.fetchImpl || fetch;
-  const r = await f(`${ctx.baseUrl}/`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: AbortSignal.timeout(20_000) });
-  const text = await r.text();
+  /* Through the outbound guard like every other driver: no private or metadata addresses, no redirects followed. */
+  const r = await guardedRequest('POST', `${ctx.baseUrl}/`, { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), timeoutMs: 20_000 });
+  const text = r.text;
   let json: any = null;
   try {
     json = JSON.parse(text);
@@ -55,7 +57,8 @@ async function call(ctx: PullContext, nameSpace: string, nameAction: string, pay
 const errorOf = (json: any) => (json?.payload?.type === 'AUTH_ERROR' ? 'auth' : json?.payload?.type === 'TOKEN_EXPIRES' ? 'expired' : json?.header?.name === 'Exception' ? String(json?.payload?.message || json?.payload?.type || 'error') : null);
 
 async function tokenFor(ctx: PullContext, fresh = false) {
-  const key = `${ctx.baseUrl}|${ctx.username}`;
+  /* Keyed on the secret too: knowing another company's API key alone must not reach its cached token. */
+  const key = `${ctx.baseUrl}|${ctx.username}|${createHash('sha256').update(ctx.password).digest('hex')}`;
   const have = tokens.get(key);
   if (!fresh && have && have.exp > Date.now() + 60_000) return { token: have.token };
   const r = await call(ctx, 'authorize.token', 'token', { api_key: ctx.username, api_secret: ctx.password });

@@ -1,4 +1,4 @@
-import { createSign } from 'node:crypto';
+import { createHash, createSign } from 'node:crypto';
 import { guardedRequest } from '../outbound.js';
 
 /**
@@ -35,6 +35,23 @@ const need = (o: Record<string, string>, k: string, label: string) => {
 const host = (v: string) => v.trim().replace(/^https?:\/\//, '').replace(/\/.*$/, '');
 /** A bare host becomes https://host; a full URL (a proxy, a test double) is taken as given. */
 const site = (v: string) => (/^https?:\/\//.test(v.trim()) ? v.trim().replace(/\/$/, '') : `https://${host(v)}`);
+
+/** apiBase replaces a vendor's host: for a proxy or a test double, never in production (stored secrets would follow it). */
+export const apiBaseAllowed = () => process.env.NODE_ENV !== 'production' || process.env.HR_ALLOW_API_BASE === 'true';
+const ZOHO_DCS = new Set(['in', 'com', 'eu', 'com.au', 'jp', 'ca', 'sa', 'uk', 'com.cn']);
+/** Settings that decide which host the stored secrets are sent to. */
+export const HOST_FIELDS = ['apiBase', 'dc', 'domain', 'tenant', 'server', 'sandbox'];
+/** Why a connection's host settings are not acceptable, or null. */
+export function hostProblem(adapterId: string, config: Record<string, string>) {
+  if (config.apiBase && !apiBaseAllowed()) return 'An API base URL override is not allowed here.';
+  if (adapterId === 'ZOHO_PEOPLE' && config.dc && !ZOHO_DCS.has(String(config.dc).trim())) return `Zoho data centre must be one of: ${[...ZOHO_DCS].join(', ')}.`;
+  if (adapterId === 'KEKA') {
+    if (config.server && !/^[a-z0-9-]{2,40}$/i.test(String(config.server).trim())) return 'Keka attendance server is a short name like cin01.';
+    if (config.tenant && !/^[a-z0-9-]{1,63}$/i.test(String(config.tenant).trim())) return 'Keka subdomain is the part before .keka.com.';
+  }
+  if (adapterId === 'GREYTHR' && config.domain && !apiBaseAllowed() && !/^[a-z0-9-]+\.greythr\.com$/i.test(host(String(config.domain)))) return 'The greytHR address ends in .greythr.com.';
+  return null;
+}
 
 /* ---------------------------------------------------------------- greytHR */
 
@@ -154,7 +171,7 @@ const zohoAccounts = (config: Record<string, string>) => (config.apiBase ? site(
 const zohoPeople = (config: Record<string, string>) => (config.apiBase ? site(config.apiBase) : `https://people.zoho.${config.dc || 'in'}`);
 
 export const zohoToken = async (config: Record<string, string>, secrets: Record<string, string>) => {
-  const key = `${config.clientId}|${secrets.refreshToken?.slice(-12)}`;
+  const key = createHash('sha256').update(`${config.clientId}|${secrets.clientSecret}|${secrets.refreshToken}`).digest('hex');
   const have = zohoTokens.get(key);
   if (have && have.exp > Date.now() + 60_000) return have.token;
   const body = new URLSearchParams({ grant_type: 'refresh_token', client_id: need(config, 'clientId', 'Client ID'), client_secret: need(secrets, 'clientSecret', 'Client secret'), refresh_token: need(secrets, 'refreshToken', 'Refresh token') }).toString();

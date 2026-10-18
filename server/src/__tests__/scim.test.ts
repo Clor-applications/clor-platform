@@ -132,10 +132,18 @@ describe('an identity provider provisioning users', () => {
     await idp(tokenB).patch(`/Users/${made.body.id}`, { Operations: [{ op: 'replace', path: 'active', value: false }] }).expect(404);
     await idp(tokenB).del(`/Users/${made.body.id}`).expect(404);
     expect((await idp(tokenB).get(`/Users?filter=${encodeURIComponent(`userName eq "${email}"`)}`).expect(200)).body.totalResults).toBe(0);
-    /* B adding the same e-mail joins the existing person to B rather than making a twin — and may not switch A's person off. */
-    const joined = await idp(tokenB).post('/Users', { userName: email, name: { givenName: 'Ravi' } }).expect(201);
-    expect(joined.body.id).toBe(made.body.id);
-    expect((await idp(tokenB).patch(`/Users/${made.body.id}`, { Operations: [{ op: 'replace', path: 'active', value: false }] }).expect(403)).body.detail).toMatch(/another account/);
+    /* B naming A's person is refused outright: not attached to B, not described, no id handed over. */
+    const refused = await idp(tokenB).post('/Users', { userName: email, name: { givenName: 'Ravi' } }).expect(409);
+    expect(refused.body.scimType).toBe('uniqueness');
+    expect(JSON.stringify(refused.body)).not.toContain(made.body.id);
+    expect(await platformPrisma.userOrgMembership.count({ where: { orgId: b.orgId, userId: made.body.id } })).toBe(0);
+    /* Even if A's person were a member of B (invited by hand), B's provider may not change who they are. */
+    await platformPrisma.userOrgMembership.create({ data: { accountId: (await platformPrisma.org.findUniqueOrThrow({ where: { id: b.orgId } })).accountId, orgId: b.orgId, userId: made.body.id } });
+    for (const op of [{ path: 'userName', value: `taken.${rnd()}@evil.example` }, { path: 'name.formatted', value: 'Someone Else' }, { path: 'active', value: false }]) {
+      expect((await idp(tokenB).patch(`/Users/${made.body.id}`, { Operations: [{ op: 'replace', ...op }] }).expect(403)).body.detail).toMatch(/another account/);
+    }
+    expect((await idp(tokenB).put(`/Users/${made.body.id}`, { userName: `taken.${rnd()}@evil.example`, name: { givenName: 'X' } }).expect(403)).body.detail).toMatch(/another account/);
+    expect((await platformPrisma.user.findUnique({ where: { id: made.body.id } }))?.email).toBe(email);
     /* B removing them leaves A's membership and their login alone. */
     await idp(tokenB).del(`/Users/${made.body.id}`).expect(204);
     expect(await platformPrisma.userOrgMembership.count({ where: { orgId: a.orgId, userId: made.body.id } })).toBe(1);

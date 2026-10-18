@@ -1,12 +1,12 @@
 import { Router } from 'express';
-import { ADAPTERS, adapterOf, publicAdapter } from '../services/hr/adapters.js';
+import { ADAPTERS, HOST_FIELDS, adapterOf, hostProblem, publicAdapter } from '../services/hr/adapters.js';
 import { configOf, encryptSecrets, flushOutbox, pullEmployees, secretsOf } from '../services/hr/sync.js';
 import { randomBytes } from 'node:crypto';
 import { z } from 'zod';
 
 import { requireAuth } from '../middleware/auth.js';
 import { requireTenantContext } from '../middleware/tenantContext.js';
-import { requirePermission } from '../middleware/rbac.js';
+import { authorize, requirePermission } from '../middleware/rbac.js';
 import { PermissionAction } from '../constants/enums.js';
 import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { ATTENDANCE_MODULE, ATTENDANCE_RESOURCE, attendanceRouteOk } from '../services/attendance/guards.js';
@@ -236,6 +236,17 @@ const agentRow = async (a: any) => {
   };
 };
 
+/** A role the connector's directory sync may give: this organisation's, and never an administrator role. */
+async function ldapRoleProblem(orgId: string, roleId: string | null | undefined) {
+  if (!roleId) return null;
+  const role = await platformPrisma.role.findFirst({ where: { id: roleId, orgId }, select: { roleType: true } });
+  if (!role) return 'That role is not in this organisation.';
+  if (role.roleType === 'ADMIN') return 'People from the directory cannot be given an administrator role automatically; assign it by hand.';
+  return null;
+}
+/* Turning on directory sync makes a SCIM token: the same right as making one under Settings → Single sign-on. */
+const mayManageUsers = async (req: any) => !(await authorize(req, 'SETTINGS', PermissionAction.EDIT, 'Users'));
+
 integrationsRouter.get(`${base}/agents`, can(PermissionAction.VIEW), async (req, res) => {
   if (!(await attendanceRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
@@ -249,6 +260,11 @@ integrationsRouter.post(`${base}/agents`, can(PermissionAction.CREATE), async (r
   const p = agentSchema.safeParse(req.body);
   if (!p.success) return res.status(400).json({ error: p.error.issues[0]?.message || 'Check the details.' });
   if ((await peoplePrisma.siteAgent.count({ where: { orgId } })) >= 10) return res.status(400).json({ error: 'Ten connectors is the most.' });
+  if (p.data.ldap) {
+    if (!(await mayManageUsers(req))) return res.status(403).json({ error: 'Directory sync adds people to CLOR: it needs permission to edit users (Settings → Users).' });
+    const bad = await ldapRoleProblem(orgId, p.data.ldap.defaultRoleId);
+    if (bad) return res.status(400).json({ error: bad });
+  }
   const token = newAgentToken();
   const { ldap, tally, pollSeconds, name } = p.data;
   const { bindPassword, ...ldapCfg } = ldap || ({} as any);
@@ -276,6 +292,11 @@ integrationsRouter.put(`${base}/agents/:id`, can(PermissionAction.EDIT), async (
   const p = agentSchema.safeParse(req.body);
   if (!p.success) return res.status(400).json({ error: p.error.issues[0]?.message || 'Check the details.' });
   const { ldap, tally, pollSeconds, name, isActive } = p.data;
+  if (ldap !== undefined && (ldap || agentConfig(a).ldap)) {
+    if (!(await mayManageUsers(req))) return res.status(403).json({ error: 'Directory sync adds people to CLOR: it needs permission to edit users (Settings → Users).' });
+    const bad = await ldapRoleProblem(orgId, ldap?.defaultRoleId);
+    if (bad) return res.status(400).json({ error: bad });
+  }
   const { bindPassword, ...ldapCfg } = ldap || ({} as any);
   const secrets = agentSecrets(a);
   if (ldap === null) delete secrets.ldapBindPassword;
@@ -362,6 +383,8 @@ integrationsRouter.post(`${base}/hr`, can(PermissionAction.EDIT), async (req, re
   if (!split) return res.status(400).json({ error: 'Unknown HR tool.' });
   const missing = split.a.fields.filter((f) => f.required && !(f.secret ? split.secrets : split.config)[f.key]).map((f) => f.label);
   if (missing.length) return res.status(400).json({ error: `Missing: ${missing.join(', ')}.` });
+  const hostIssue = hostProblem(split.a.id, split.config as Record<string, string>);
+  if (hostIssue) return res.status(400).json({ error: hostIssue });
   const name = String(req.body?.name || split.a.label).trim().slice(0, 80);
   const row = await peoplePrisma.hrConnection.create({
     data: {
@@ -380,13 +403,22 @@ integrationsRouter.put(`${base}/hr/:id`, can(PermissionAction.EDIT), async (req,
   if (!c) return res.status(404).json({ error: 'No such connection.' });
   const split = splitFields(c.adapter, req.body?.fields || {});
   if (!split) return res.status(400).json({ error: 'Unknown HR tool.' });
+  const nextConfig = { ...configOf(c), ...split.config } as Record<string, string>;
+  const hostIssue = hostProblem(c.adapter, nextConfig);
+  if (hostIssue) return res.status(400).json({ error: hostIssue });
+  /* Pointing the connection somewhere else means giving the secrets again: stored ones never follow a new host. */
+  const moved = HOST_FIELDS.some((k) => String(nextConfig[k] ?? '') !== String((configOf(c) as Record<string, string>)[k] ?? ''));
+  const given = Object.fromEntries(Object.entries(split.secrets).filter(([, v]) => v !== ''));
+  if (moved && split.a.fields.filter((f) => f.secret && f.required).some((f) => !given[f.key])) {
+    return res.status(400).json({ error: 'The address changed: enter the secrets again for the new address.' });
+  }
   /* A blank secret keeps the stored one; a value replaces it. */
-  const secrets = { ...secretsOf(c), ...Object.fromEntries(Object.entries(split.secrets).filter(([, v]) => v !== '')) };
+  const secrets = moved ? given : { ...secretsOf(c), ...given };
   const row = await peoplePrisma.hrConnection.update({
     where: { id: c.id },
     data: {
       name: req.body?.name !== undefined ? String(req.body.name).trim().slice(0, 80) : c.name,
-      configJson: JSON.stringify({ ...configOf(c), ...split.config }), secretsEnc: Object.keys(secrets).length ? encryptSecrets(secrets) : null,
+      configJson: JSON.stringify(nextConfig), secretsEnc: Object.keys(secrets).length ? encryptSecrets(secrets) : null,
       enabled: req.body?.enabled !== undefined ? Boolean(req.body.enabled) : c.enabled,
       pushPunches: req.body?.pushPunches !== undefined ? Boolean(req.body.pushPunches) && split.a.capabilities.includes('pushPunches') : c.pushPunches,
       pullEmployees: req.body?.pullEmployees !== undefined ? Boolean(req.body.pullEmployees) && split.a.capabilities.includes('pullEmployees') : c.pullEmployees,

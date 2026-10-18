@@ -109,6 +109,9 @@ describe('Zoho People', () => {
       const id = made.body.connection.id;
       expect(JSON.stringify(made.body)).not.toContain('rt-good');
       expect((await api(c).post(`/integrations/hr/${id}/test`).expect(200)).body.ok).toBe(true);
+      /* Moving the connection to another host needs the secrets again; a made-up data centre is refused. */
+      expect((await request(app).put(`/api/orgs/${c.orgId}/attendance/integrations/hr/${id}`).set(at(c)).send({ fields: { dc: 'com' } }).expect(400)).body.error).toMatch(/enter the secrets again/);
+      expect((await request(app).put(`/api/orgs/${c.orgId}/attendance/integrations/hr/${id}`).set(at(c)).send({ fields: { dc: 'evil.example' } }).expect(400)).body.error).toMatch(/data centre/);
 
       /* Punches: one in, one out, one for somebody Zoho does not know. */
       const p = await person(c, { name: 'Zed', code: 'Z100' });

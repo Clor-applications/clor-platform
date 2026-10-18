@@ -47,7 +47,7 @@ import { hikvisionPushRouter } from './routes/hikvisionPush.js';
 import { scimRouter } from './routes/scim.js';
 import { agentRouter } from './routes/agent.js';
 import { notificationsRouter } from './routes/notifications.js';
-import { agentLimiter, scimLimiter } from './middleware/rateLimit.js';
+import { agentLimiter, hikvisionLimiter, scimLimiter } from './middleware/rateLimit.js';
 import { personnelRouter } from './routes/personnel.js';
 import { schedulingRouter } from './routes/scheduling.js';
 import { portalRouter } from './routes/portal.js';
@@ -194,7 +194,14 @@ export function buildApp() {
   /* Matrix COSEC controllers: GET requests with everything in the query string, no body (routes/matrix.ts). */
   app.use('/matrix', matrixRouter);
   /* Hikvision terminals post multipart (JSON + a picture): the raw body is parsed in the route. */
-  app.use('/hikvision', express.raw({ type: () => true, limit: '8mb' }), hikvisionPushRouter);
+  app.use(
+    '/hikvision',
+    /* Nothing is buffered for a request that cannot be a terminal's: the token's shape and the limiter come first. */
+    (req, res, next) => (/^\/clorp_[A-Za-z0-9_-]{20,}\/?$/.test(req.path) ? next() : res.status(404).json({ error: 'No such URL.' })),
+    ...hikvisionLimiter,
+    express.raw({ type: () => true, limit: '2mb' }),
+    hikvisionPushRouter,
+  );
   /* SCIM provisioning from an identity provider: its own bearer token, JSON as application/scim+json. */
   app.use('/scim/v2', ...scimLimiter, express.json({ limit: '1mb', type: ['application/json', 'application/scim+json'] }), scimRouter);
   /* The on-site connector: its own token, JSON. */
