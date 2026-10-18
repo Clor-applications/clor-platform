@@ -18,6 +18,7 @@ import {
   listEmployees,
   listDeviceCommands,
   listDeviceUsers,
+  listAgents,
   listDevices,
   readerServer,
   retryDeviceCommands,
@@ -1091,13 +1092,17 @@ function PullControls({ device, onChanged }) {
 
 /** A Hikvision, Dahua or BioStar connection: address and credentials, last pull, Sync now. */
 function PullDrawer({ device, onClose, onChanged }) {
-  const [form, setForm] = useState({ name: device.name, direction: device.direction, isActive: device.isActive, baseUrl: device.apiUrl || '', username: device.apiUsername || '', password: '', sourceTimezone: device.sourceTimezone || 'Asia/Kolkata' });
+  const [form, setForm] = useState({ name: device.name, direction: device.direction, isActive: device.isActive, baseUrl: device.apiUrl || '', username: device.apiUsername || '', password: '', sourceTimezone: device.sourceTimezone || 'Asia/Kolkata', agentId: device.agentId || '' });
+  const [agents, setAgents] = useState([]);
+  useEffect(() => {
+    listAgents().then((r) => setAgents(r?.agents || [])).catch(() => setAgents([]));
+  }, []);
   const [tested, setTested] = useState(null);
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
   const save = async (e) => {
     e.preventDefault();
     try {
-      await updateDevice(device.id, { name: form.name, direction: form.direction, isActive: form.isActive, baseUrl: form.baseUrl, username: form.username, password: form.password || undefined, sourceTimezone: form.sourceTimezone });
+      await updateDevice(device.id, { name: form.name, direction: form.direction, isActive: form.isActive, baseUrl: form.baseUrl, username: form.username, password: form.password || undefined, sourceTimezone: form.sourceTimezone, agentId: form.agentId || null });
       notify.success('Connection saved.');
       onChanged();
     } catch (err) {
@@ -1142,6 +1147,16 @@ function PullDrawer({ device, onClose, onChanged }) {
             <label className="block"><span className="ui-label">{device.vendor === 'ANVIZ_CLOUD' ? 'API key' : 'User name'}</span><input className="ui-input w-full" autoComplete="off" value={form.username} onChange={set('username')} /></label>
             <label className="block"><span className="ui-label">{device.vendor === 'ANVIZ_CLOUD' ? 'API secret' : 'Password'}</span><input type="password" className="ui-input w-full" autoComplete="new-password" value={form.password} onChange={set('password')} placeholder="Leave blank to keep the saved one" /></label>
           </div>
+          {device.vendor !== 'ANVIZ_CLOUD' && agents.length ? (
+            <label className="block">
+              <span className="ui-label">Reached through</span>
+              <select className="ui-select w-full" value={form.agentId} onChange={set('agentId')}>
+                <option value="">CLOR directly (the address must be reachable from the internet)</option>
+                {agents.map((a) => <option key={a.id} value={a.id}>On-site connector: {a.name}{a.online ? '' : ' (offline)'}</option>)}
+              </select>
+              <span className="ui-caption">Through a connector the address can be the reader’s own on the office network, e.g. http://192.168.1.64.</span>
+            </label>
+          ) : null}
           <ZoneField value={form.sourceTimezone} onChange={(v) => setForm({ ...form, sourceTimezone: v })} />
           <div className="flex flex-wrap items-center gap-2">
             <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={!form.baseUrl} onClick={test}>Test connection</button>

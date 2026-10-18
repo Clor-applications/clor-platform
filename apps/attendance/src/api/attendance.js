@@ -182,6 +182,13 @@ export const deleteHrConnection = (id) => send(`/integrations/hr/${encodeURIComp
 export const testHrConnection = (id) => send(`/integrations/hr/${encodeURIComponent(id)}/test`, 'POST', {});
 export const pullHrConnection = (id) => send(`/integrations/hr/${encodeURIComponent(id)}/pull`, 'POST', {});
 export const flushHrConnection = (id) => send(`/integrations/hr/${encodeURIComponent(id)}/flush`, 'POST', {});
+/* On-site connectors. */
+export const listAgents = () => get('/integrations/agents');
+export const createAgent = (body) => send('/integrations/agents', 'POST', body);
+export const updateAgent = (id, body) => send(`/integrations/agents/${encodeURIComponent(id)}`, 'PUT', body);
+export const deleteAgent = (id) => send(`/integrations/agents/${encodeURIComponent(id)}`, 'DELETE');
+export const rotateAgentToken = (id) => send(`/integrations/agents/${encodeURIComponent(id)}/rotate`, 'POST', {});
+export const listAgentJobs = (id) => get(`/integrations/agents/${encodeURIComponent(id)}/jobs`);
 export const hrConnectionLog = (id) => get(`/integrations/hr/${encodeURIComponent(id)}/log`);
 export const createWebhook = (body) => send('/integrations/webhooks', 'POST', body);
 export const updateWebhook = (id, body) => send(`/integrations/webhooks/${encodeURIComponent(id)}`, 'PUT', body);

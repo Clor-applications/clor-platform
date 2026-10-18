@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Copy, KeyRound, Plug, Plus, Webhook } from 'lucide-react';
+import { Copy, KeyRound, Plug, Plus, Server, Webhook } from 'lucide-react';
 
 import { PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
@@ -8,6 +8,12 @@ import {
   createHrConnection,
   deleteHrConnection,
   flushHrConnection,
+  createAgent,
+  deleteAgent,
+  listAgentJobs,
+  listAgents,
+  rotateAgentToken,
+  updateAgent,
   hrConnectionLog,
   listHrAdapters,
   listHrConnections,
@@ -150,6 +156,8 @@ export default function Integrations() {
       {shown ? <ShownOnce label={shown.label} value={shown.value} onDone={() => setShown(null)} /> : null}
 
       <HrTools />
+
+      <Connectors onShown={setShown} />
 
       <section className="ui-card space-y-4 p-5" aria-labelledby="keys-h">
         <h2 id="keys-h" className="ui-t-sec flex items-center gap-2"><KeyRound size={16} aria-hidden="true" /> API keys</h2>
@@ -370,6 +378,175 @@ function Deliveries({ hook }) {
  * retries); people can be read in so the two lists match. What a tool can
  * do is what its adapter declares; the screen offers nothing more.
  */
+/**
+ * On-site connectors: a small service the company runs on its own network
+ * for what the cloud cannot reach — readers on the LAN, Tally's HTTP port,
+ * Active Directory. Made here with a token shown once; it fetches its work.
+ */
+const EMPTY_AGENT = { name: '', pollSeconds: 60, tallyOn: false, tally: { host: '', port: 9000, company: '' }, ldapOn: false, ldap: { url: '', bindDn: '', bindPassword: '', baseDn: '', filter: '', emailAttr: 'mail', deactivateMissing: false } };
+
+function Connectors({ onShown }) {
+  const [data, setData] = useState(null);
+  const [form, setForm] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [jobs, setJobs] = useState(null);
+  const load = useCallback(() => listAgents().then(setData).catch(() => setData({ agents: [], baseUrl: '', downloadUrl: '' })), []);
+  useEffect(() => {
+    load();
+  }, [load]);
+  const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.type === 'checkbox' ? e.target.checked : e.target.value }));
+  const setT = (k) => (e) => setForm((f) => ({ ...f, tally: { ...f.tally, [k]: e.target.value } }));
+  const setL = (k) => (e) => setForm((f) => ({ ...f, ldap: { ...f.ldap, [k]: e.target.type === 'checkbox' ? e.target.checked : e.target.value } }));
+  const body = () => ({
+    name: form.name,
+    pollSeconds: Number(form.pollSeconds) || 60,
+    tally: form.tallyOn && form.tally.host ? { host: form.tally.host, port: Number(form.tally.port) || 9000, company: form.tally.company || undefined } : null,
+    ldap: form.ldapOn && form.ldap.url ? { url: form.ldap.url, bindDn: form.ldap.bindDn, bindPassword: form.ldap.bindPassword || undefined, baseDn: form.ldap.baseDn, filter: form.ldap.filter || undefined, emailAttr: form.ldap.emailAttr || undefined, deactivateMissing: Boolean(form.ldap.deactivateMissing) } : null,
+  });
+  const save = async (e) => {
+    e.preventDefault();
+    setBusy(true);
+    try {
+      if (form.id) {
+        await updateAgent(form.id, body());
+        notify.success('Connector saved. It picks the change up on its next round.');
+      } else {
+        const r = await createAgent(body());
+        onShown({ label: `Token for “${r.agent.name}” — run the connector with it`, value: r.token });
+      }
+      setForm(null);
+      load();
+    } catch (err) {
+      notify.error(String(err?.message || 'Not saved.'));
+    } finally {
+      setBusy(false);
+    }
+  };
+  const edit = (a) => setForm({ id: a.id, name: a.name, pollSeconds: a.pollSeconds || 60, tallyOn: Boolean(a.tally), tally: { host: a.tally?.host || '', port: a.tally?.port || 9000, company: a.tally?.company || '' }, ldapOn: Boolean(a.ldap), ldap: { ...EMPTY_AGENT.ldap, ...(a.ldap || {}), bindPassword: '' } });
+  const rotate = async (a) => {
+    if (!(await confirmDialog({ title: `New token for ${a.name}?`, message: 'The running connector stops at once until it is restarted with the new token.', confirmLabel: 'New token' }))) return;
+    try {
+      const r = await rotateAgentToken(a.id);
+      onShown({ label: `New token for “${a.name}”`, value: r.token });
+      load();
+    } catch (err) {
+      notify.error(String(err?.message || 'Not rotated.'));
+    }
+  };
+  const remove = async (a) => {
+    if (!(await confirmDialog({ title: `Remove ${a.name}?`, message: 'Its readers go back to being pulled by CLOR directly (which only works if they are reachable from the internet).', confirmLabel: 'Remove' }))) return;
+    await deleteAgent(a.id).catch((err) => notify.error(String(err?.message || 'Not removed.')));
+    load();
+  };
+  const showJobs = async (a) => {
+    try {
+      setJobs({ agent: a, rows: (await listAgentJobs(a.id)).jobs });
+    } catch (err) {
+      notify.error(String(err?.message || 'Could not load.'));
+    }
+  };
+
+  return (
+    <section className="ui-card space-y-4 p-5" aria-labelledby="agents-h">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 id="agents-h" className="ui-t-sec flex items-center gap-2"><Server size={16} aria-hidden="true" /> On-site connectors</h2>
+        {!form ? <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => setForm({ ...EMPTY_AGENT })}><Plus size={14} aria-hidden="true" /> Add a connector</button> : null}
+      </div>
+      <p className="ui-caption max-w-3xl">A small program on a computer in your office, for what CLOR cannot reach from the internet: readers on the office network, Tally’s HTTP port, and Active Directory. It only ever calls out to CLOR over HTTPS.</p>
+
+      {!data ? <SkeletonCard lines={3} /> : data.agents.length ? (
+        <ul className="divide-y" style={{ borderColor: 'rgb(var(--border))' }}>
+          {data.agents.map((a) => (
+            <li key={a.id} className="flex flex-wrap items-start justify-between gap-3 py-3">
+              <div className="min-w-0">
+                <div className="font-medium">{a.name} <span className="ui-caption font-normal">· <code className="ui-mono">{a.tokenPrefix}…</code>{a.hostname ? ` · ${a.hostname}` : ''}{a.version ? ` · v${a.version}` : ''}</span></div>
+                <div className="ui-caption">
+                  {a.readers.length ? `${a.readers.length} reader${a.readers.length === 1 ? '' : 's'}` : 'no readers assigned'}
+                  {a.tally ? ` · Tally at ${a.tally.host}:${a.tally.port || 9000}` : ''}
+                  {a.ldap ? ` · directory ${a.ldap.url}${a.scimPending ? ' (SCIM token waiting for its first poll)' : ''}` : ''}
+                  {a.jobs?.PENDING ? ` · ${a.jobs.PENDING} job${a.jobs.PENDING === 1 ? '' : 's'} waiting` : ''}
+                  {a.jobs?.FAILED ? ` · ${a.jobs.FAILED} failed` : ''}
+                </div>
+                {a.lastSummary ? <div className="ui-caption">Last round: {a.lastSummary}</div> : null}
+                {a.lastError ? <div className="ui-caption" style={{ color: 'rgb(var(--neg))' }}>{a.lastError}</div> : null}
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className={`ui-pill ${!a.isActive ? 'ui-pill-neutral' : a.online ? 'ui-pill-pos' : 'ui-pill-warn'}`}>{!a.isActive ? 'off' : a.online ? 'online' : a.lastSeenAt ? `last seen ${ago(a.lastSeenAt)}` : 'never connected'}</span>
+                <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => edit(a)}>Edit</button>
+                <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => showJobs(a)}>Jobs</button>
+                <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => rotate(a)}>New token</button>
+                <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => remove(a)}>Remove</button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+
+      {jobs ? (
+        <div className="ui-card p-3 text-sm">
+          <div className="flex items-center justify-between gap-2"><span className="font-medium">Jobs for {jobs.agent.name}</span><button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => setJobs(null)}>Close</button></div>
+          {jobs.rows.length ? (
+            <ul className="mt-2 divide-y" style={{ borderColor: 'rgb(var(--border))' }}>
+              {jobs.rows.map((j) => (
+                <li key={j.id} className="flex flex-wrap items-center justify-between gap-2 py-1.5">
+                  <span>{j.label} <span className="ui-caption">· {ago(j.createdAt)}{j.result ? ` · ${j.result}` : ''}</span></span>
+                  <span className={`ui-pill ${j.status === 'DONE' ? 'ui-pill-pos' : j.status === 'FAILED' ? 'ui-pill-neg' : 'ui-pill-warn'}`}>{j.status.toLowerCase()}</span>
+                </li>
+              ))}
+            </ul>
+          ) : <p className="ui-caption mt-1">Nothing queued yet. Payroll → Pay runs → Books sends a run to Tally through a connector.</p>}
+        </div>
+      ) : null}
+
+      {form ? (
+        <form onSubmit={save} className="ui-card grid gap-4 p-4" aria-label={form.id ? 'Edit connector' : 'New connector'}>
+          <div className="grid gap-3 md:grid-cols-2">
+            <label className="block"><span className="ui-label">Name *</span><input className="ui-input w-full" required maxLength={80} value={form.name} onChange={set('name')} placeholder="e.g. Head office server" /></label>
+            <label className="block"><span className="ui-label">Checks in every (seconds)</span><input type="number" min={30} max={900} className="ui-input w-full" value={form.pollSeconds} onChange={set('pollSeconds')} /></label>
+          </div>
+          <label className="flex items-center gap-2 text-sm"><input type="checkbox" className="ui-checkbox" checked={form.tallyOn} onChange={set('tallyOn')} /> Posts payroll vouchers to Tally on this network</label>
+          {form.tallyOn ? (
+            <div className="grid gap-3 md:grid-cols-3">
+              <label className="block"><span className="ui-label">Tally computer (host or IP) *</span><input className="ui-input w-full ui-mono" required value={form.tally.host} onChange={setT('host')} placeholder="192.168.1.20" /></label>
+              <label className="block"><span className="ui-label">Port</span><input type="number" className="ui-input w-full" value={form.tally.port} onChange={setT('port')} placeholder="9000" /></label>
+              <label className="block"><span className="ui-label">Company name in Tally</span><input className="ui-input w-full" value={form.tally.company} onChange={setT('company')} placeholder="As Tally shows it (blank = the open company)" /></label>
+              <p className="ui-caption md:col-span-3">In Tally: F1 → Settings → Connectivity → “Enable ODBC / HTTP server” on port 9000, with the company open. Ledger names in Tally must match the account names in CLOR.</p>
+            </div>
+          ) : null}
+          <label className="flex items-center gap-2 text-sm"><input type="checkbox" className="ui-checkbox" checked={form.ldapOn} onChange={set('ldapOn')} /> Syncs people from Active Directory / LDAP into CLOR (over SCIM)</label>
+          {form.ldapOn ? (
+            <div className="grid gap-3 md:grid-cols-2">
+              <label className="block"><span className="ui-label">Directory address *</span><input className="ui-input w-full ui-mono" required value={form.ldap.url} onChange={setL('url')} placeholder="ldaps://dc1.corp.local:636" /></label>
+              <label className="block"><span className="ui-label">Search base *</span><input className="ui-input w-full ui-mono" required value={form.ldap.baseDn} onChange={setL('baseDn')} placeholder="OU=Staff,DC=corp,DC=local" /></label>
+              <label className="block"><span className="ui-label">Bind user (DN or UPN) *</span><input className="ui-input w-full ui-mono" required value={form.ldap.bindDn} onChange={setL('bindDn')} placeholder="svc-clor@corp.local" autoComplete="off" /></label>
+              <label className="block"><span className="ui-label">Bind password{form.id ? '' : ' *'}</span><input type="password" className="ui-input w-full" required={!form.id} value={form.ldap.bindPassword} onChange={setL('bindPassword')} placeholder={form.id ? 'Leave blank to keep the saved one' : ''} autoComplete="new-password" /></label>
+              <label className="block"><span className="ui-label">Filter</span><input className="ui-input w-full ui-mono" value={form.ldap.filter} onChange={setL('filter')} placeholder="(&(objectClass=user)(mail=*))" /></label>
+              <label className="block"><span className="ui-label">E-mail attribute</span><input className="ui-input w-full ui-mono" value={form.ldap.emailAttr} onChange={setL('emailAttr')} placeholder="mail" /></label>
+              <label className="flex items-center gap-2 text-sm md:col-span-2"><input type="checkbox" className="ui-checkbox" checked={Boolean(form.ldap.deactivateMissing)} onChange={setL('deactivateMissing')} /> Switch off people the connector added when they leave the directory (never anyone added by hand)</label>
+              <p className="ui-caption md:col-span-2">People found in the directory are added as CLOR users with no role until one is assigned; disabled accounts follow. The bind password stays on CLOR encrypted and is given only to this connector.</p>
+            </div>
+          ) : null}
+          <div className="flex flex-wrap gap-2">
+            <button type="submit" className="ui-btn ui-btn-primary" disabled={busy}>{busy ? 'Saving…' : form.id ? 'Save' : 'Make the connector'}</button>
+            <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setForm(null)}>Cancel</button>
+          </div>
+        </form>
+      ) : null}
+
+      <details className="text-sm">
+        <summary className="cursor-pointer">How to install it</summary>
+        <ol className="mt-2 list-decimal space-y-1 ps-5 ui-caption">
+          <li>On a computer in the office that stays on (Windows, Linux or macOS), install Node.js 20 or newer from nodejs.org.</li>
+          <li>Download the connector: <code className="ui-mono break-all">{data?.downloadUrl || '…/agent/v1/download'}</code> (one file, clor-agent.cjs).</li>
+          <li>Run it with the token shown when the connector was made: <code className="ui-mono">node clor-agent.cjs --token clora_…</code>. It appears as online here within a minute.</li>
+          <li>To keep it running after a restart: on Windows, a Task Scheduler task “At startup” running that command (or NSSM as a service); on Linux, a systemd service.</li>
+          <li>Assign readers to it under Readers → open a pull reader → “Reached through”. Tally and the directory are set on the connector above.</li>
+        </ol>
+      </details>
+    </section>
+  );
+}
+
 function HrTools() {
   const [adapters, setAdapters] = useState([]);
   const [rows, setRows] = useState(null);
