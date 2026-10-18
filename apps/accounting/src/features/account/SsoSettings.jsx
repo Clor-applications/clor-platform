@@ -14,15 +14,16 @@ import { listRoles } from '../../api/admin';
  * Keycloak…) is configured here; from then on an e-mail at one of the domains
  * named is offered "Continue with <provider>" on the sign-in screen, and the
  * API runs the code flow (server/src/routes/sso.ts). The provider says who
- * somebody is; roles and company access stay here. SAML can be stored but is
- * not yet spoken, and the status says so rather than implying otherwise.
+ * somebody is; roles and company access stay here. SAML 2.0 providers go the
+ * same way: CLOR is the service provider, with its reply URL and identifier
+ * shown on the row for the administrator to enter at the provider.
  */
 const EMPTY = { kind: 'OIDC', name: '', discoveryUrl: '', issuer: '', clientId: '', clientSecret: '', scopes: 'openid email profile', emailDomains: '', autoProvision: true, defaultRoleId: '', enabled: false };
 
 const STATUS = {
   ACTIVE: ['Active', 'ui-pill-pos'],
   DISABLED: ['Switched off', 'ui-pill-neutral'],
-  CONFIGURED_NOT_ACTIVE: ['Stored — SAML sign-in not yet available', 'ui-pill-warn'],
+  CONFIGURED_NOT_ACTIVE: ['Stored', 'ui-pill-warn'],
 };
 
 export default function SsoSettings() {
@@ -131,10 +132,15 @@ export default function SsoSettings() {
                 <div className="font-medium">{p.name} <span className="ui-caption font-normal">· {p.kind}</span></div>
                 <div className="ui-caption">{p.emailDomains ? `Domains: ${p.emailDomains}` : 'No domains named — nobody is offered it'}{p.autoProvision ? ' · new people are added automatically' : ''}{p.lastUsedAt ? ` · last used ${new Date(p.lastUsedAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}` : ''}</div>
                 {p.lastError ? <div className="ui-caption" style={{ color: 'rgb(var(--neg))' }}>Last problem: {p.lastError}</div> : null}
+                {p.saml ? (
+                  <div className="ui-caption mt-1">
+                    At the provider: Reply URL / ACS <code className="ui-mono break-all">{p.saml.acsUrl}</code> · Identifier / Audience <code className="ui-mono break-all">{p.saml.spEntityId}</code> · metadata at the same address as the identifier. NameID as e-mail.
+                  </div>
+                ) : null}
               </div>
               <div className="flex items-center gap-2">
                 <span className={`ui-pill ${pill}`}>{label}</span>
-                {p.kind === 'OIDC' ? <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => toggle(p)}>{p.enabled ? 'Switch off' : 'Switch on'}</button> : null}
+                <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => toggle(p)}>{p.enabled ? 'Switch off' : 'Switch on'}</button>
                 <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => edit(p)}>Edit</button>
                 <button type="button" className="ui-icon-btn" aria-label={`Remove ${p.name}`} onClick={() => remove(p)}><Trash2 size={16} aria-hidden="true" /></button>
               </div>
@@ -149,7 +155,7 @@ export default function SsoSettings() {
             <label className="block"><span className="ui-label">Kind</span>
               <select className="ui-select w-full" value={form.kind} onChange={set('kind')} disabled={Boolean(form.id)}>
                 <option value="OIDC">OpenID Connect (Google, Microsoft, Okta, Keycloak)</option>
-                <option value="SAML">SAML 2.0 — stored now, sign-in later</option>
+                <option value="SAML">SAML 2.0 (Entra enterprise app, Okta, ADFS, Google)</option>
               </select>
             </label>
             <label className="block"><span className="ui-label">Name shown on the sign-in button</span><input className="ui-input w-full" required maxLength={60} value={form.name} onChange={set('name')} placeholder="e.g. Google Workspace" /></label>
@@ -161,7 +167,7 @@ export default function SsoSettings() {
               </>
             ) : (
               <>
-                <label className="block md:col-span-2"><span className="ui-label">IdP sign-in URL (entry point)</span><input className="ui-input w-full" value={form.entryPoint || ''} onChange={set('entryPoint')} /></label>
+                <label className="block md:col-span-2"><span className="ui-label">IdP sign-in URL (entry point)</span><input className="ui-input w-full" value={form.entryPoint || ''} onChange={set('entryPoint')} placeholder="https://login.microsoftonline.com/<tenant>/saml2" /><span className="ui-caption">Entra: the “Login URL” of the enterprise app · Okta: the “Sign on URL” · Google: the SSO URL. After adding, the row shows CLOR’s Reply URL and Identifier to enter there.</span></label>
                 <label className="block"><span className="ui-label">Entity ID</span><input className="ui-input w-full" value={form.entityId || ''} onChange={set('entityId')} /></label>
                 <label className="block md:col-span-2"><span className="ui-label">IdP certificate (PEM)</span><textarea className="ui-input w-full" rows={3} value={form.certificate || ''} onChange={set('certificate')} /></label>
               </>
