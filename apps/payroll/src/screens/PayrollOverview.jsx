@@ -242,14 +242,14 @@ export default function PayrollOverview({ onOpen = () => {} }) {
 const Cell = ({ label, value }) => (
   <div className="px-4 py-3">
     <div className="ui-caption">{label}</div>
-    <div className="ui-amount mt-0.5">{value}</div>
+    <div className="ui-amount mt-1 text-lg font-semibold tabular-nums">{value}</div>
   </div>
 );
 
 const Figure = ({ label, value, hint }) => (
   <div className="ui-card p-3">
     <div className="ui-caption">{label}</div>
-    <div className="ui-amount mt-0.5">{value}</div>
+    <div className="ui-amount mt-1 text-lg font-semibold tabular-nums">{value}</div>
     {hint ? <div className="ui-caption">{hint}</div> : null}
   </div>
 );
