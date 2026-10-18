@@ -4,6 +4,7 @@ import jwt from 'jsonwebtoken';
 
 import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { platformPrisma } from '../utils/platformPrisma.js';
+import { notifyPermission } from '../services/notifications.js';
 import { payrollPrisma } from '../utils/payrollPrisma.js';
 import { DeclarationError, financialYearOf, saveDeclaration, shapeDeclaration } from '../services/payroll/taxDeclaration.js';
 import { isDevOrTest } from '../utils/devMode.js';
@@ -388,6 +389,7 @@ portalRouter.post('/data-requests', async (req, res) => {
   const open = await peoplePrisma.dataRequest.count({ where: { orgId: e.orgId, employeeId: e.id, status: 'PENDING' } });
   if (open >= 3) return res.status(409).json({ error: 'You already have three requests waiting. HR will answer those first.' });
   const r = await peoplePrisma.dataRequest.create({ data: { accountId: e.accountId, orgId: e.orgId, employeeId: e.id, type, details } });
+  await notifyPermission(e.accountId, e.orgId, 'PEOPLE::Employees::EDIT', { kind: 'people.data_request', title: `${e.name} asked to ${type === 'ACCESS' ? 'see' : type === 'ERASE' ? 'erase' : 'correct'} their personal data`, body: details || null, link: { app: 'attendance', screen: 'dataRequests' } });
   res.status(201).json({ request: r });
 });
 

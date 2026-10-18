@@ -1,3 +1,4 @@
+import { notifyPermissionOnce } from '../notifications.js';
 import { peoplePrisma } from '../../utils/peoplePrisma.js';
 import { platformPrisma } from '../../utils/platformPrisma.js';
 import { isFeatureEnabled } from '../features.js';
@@ -291,6 +292,7 @@ export async function trackAlerts(org: { accountId: string; orgId: string; name:
       data: { accountId: org.accountId, orgId: org.orgId, key: f.key, kind: f.kind, deviceId: f.deviceId || null, severity: f.severity, title: f.title, details: f.details, openedAt: now },
     });
     opened += 1;
+    await notifyPermissionOnce(org.accountId, org.orgId, 'ATTENDANCE::Attendance Devices::VIEW', { kind: f.kind.startsWith('connector') ? 'connector.alert' : 'reader.alert', title: f.title, body: f.details, link: { app: 'attendance', screen: 'readerHealth' }, dedupeKey: f.key });
     if (f.kind === 'offline') emitWebhook(org.orgId, 'reader.offline', await readerEvent(f.deviceId || null, now));
     const m = await mail(org.orgId, org.accountId, to, 'attendance.reader_alert', { orgName: org.name, title: f.title, details: f.details, severity: f.severity });
     if (m.sent || m.error) await peoplePrisma.readerAlert.update({ where: { id: row.id }, data: m.sent ? { notifiedAt: now } : { lastError: m.error } });

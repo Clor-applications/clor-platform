@@ -4,6 +4,7 @@ import { startRecurringScheduler } from './services/recurringScheduler.js';
 import { startRetentionPurge } from './services/retention.js';
 import { startHrSync } from './services/hr/sync.js';
 import { startReportSchedules } from './services/attendance/reportSchedules.js';
+import { startDocumentReminders } from './services/people/documentReminders.js';
 import { build as buildReport } from './routes/attendanceReports.js';
 import { startPhotoPurge, startReaderChecks, startVendorSync, startWebhookRetries } from './services/vendorSyncScheduler.js';
 
@@ -32,5 +33,6 @@ startWebhookRetries();
 startRetentionPurge();
 /* HR tools: the outbox every minute, their people hourly — see services/hr/sync.ts. */
 startHrSync();
+startDocumentReminders();
 /* Reports that go out by e-mail on their own — every 15 minutes the due ones are sent. */
 startReportSchedules(buildReport);

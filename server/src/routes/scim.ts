@@ -5,6 +5,7 @@ import { randomBytes } from 'node:crypto';
 import { platformPrisma } from '../utils/platformPrisma.js';
 import { recordAuthEvent, clientIp } from '../services/auth.js';
 import { hashToken } from './publicApi.js';
+import { notifyPermission } from '../services/notifications.js';
 
 /**
  * /scim/v2 — SCIM 2.0 provisioning (RFC 7643 / 7644), the way Microsoft
@@ -196,6 +197,7 @@ scimRouter.post('/Users', async (req, res) => {
     await platformPrisma.userRoleAssignment.create({ data: { accountId: t.accountId, orgId: t.orgId, userId: user.id, roleId: t.defaultRoleId, createdByUserId: user.id } }).catch(() => {});
   }
   await recordAuthEvent({ accountId: t.accountId, userId: user.id, email, eventType: 'USER_PROVISIONED', ip, userAgent, detail: 'SCIM directory sync' });
+  await notifyPermission(t.accountId, t.orgId, 'SETTINGS::Users::EDIT', { kind: 'scim.user', title: `${fullName} (${email}) was added by directory sync`, body: t.defaultRoleId ? 'With the role chosen for directory sync.' : 'With no role yet: assign one under Settings → Users.', link: { app: 'accounting', screen: 'settingsUsers' } });
   res.setHeader('Location', `${base(req)}/Users/${user.id}`);
   scim(res, 201, resource(req, user));
 });

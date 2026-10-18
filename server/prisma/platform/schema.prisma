@@ -745,6 +745,27 @@ model ScimToken {
   @@index([accountId, orgId])
 }
 
+/// Something a person should know, shown in the bell every app shares:
+/// an approval waiting, a reader gone quiet, a bank change to review, a
+/// person provisioned by the directory. One row per person; read state is
+/// theirs alone. `link` says where to go: { app, screen, params }.
+model Notification {
+  id        String    @id @default(cuid())
+  accountId String
+  orgId     String
+  userId    String
+  /// approval.requested | reader.alert | connector.alert | payroll.bank_change | scim.user | people.data_request | people.document_expiring | …
+  kind      String
+  title     String
+  body      String?
+  linkJson  String?
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, orgId, readAt])
+  @@index([orgId, createdAt])
+}
+
 // ============================================================================
 // Billing / subscriptions — the commercial layer (gateway-agnostic)
 // ============================================================================

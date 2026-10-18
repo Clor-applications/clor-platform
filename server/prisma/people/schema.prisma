@@ -1118,6 +1118,8 @@ model EmployeeDocument {
   data              Bytes
   /// When it stops being valid (a visa, a licence), YYYY-MM-DD.
   expiresOn         String?
+  /// When HR was told it is about to expire (once per document).
+  expiryNotifiedAt  DateTime?
   visibleToEmployee Boolean  @default(true)
   uploadedByUserId  String
   createdAt         DateTime @default(now())

@@ -46,6 +46,7 @@ import { matrixRouter } from './routes/matrix.js';
 import { hikvisionPushRouter } from './routes/hikvisionPush.js';
 import { scimRouter } from './routes/scim.js';
 import { agentRouter } from './routes/agent.js';
+import { notificationsRouter } from './routes/notifications.js';
 import { agentLimiter, scimLimiter } from './middleware/rateLimit.js';
 import { personnelRouter } from './routes/personnel.js';
 import { schedulingRouter } from './routes/scheduling.js';
@@ -336,6 +337,7 @@ export function buildApp() {
   app.use('/api', partiesRouter);
   app.use('/api', emailRouter);
   app.use('/api', securityRouter);
+  app.use('/api', notificationsRouter);
   app.use('/api', itemsRouter);
   app.use('/api', paymentsRouter);
   app.use('/api', batchSerialRouter);

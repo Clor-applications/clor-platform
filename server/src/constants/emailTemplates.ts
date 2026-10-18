@@ -164,6 +164,33 @@ and choose your own password. The code works once and runs out on {{expires}}. N
     transactional: true,
   },
   {
+    key: 'people.joined',
+    label: 'Somebody joined',
+    description: 'Sent to the people who manage employees when a person is added to People.',
+    subject: '{{name}} joined {{orgName}}',
+    body: `{{name}} ({{code}}) was added to People{{department}} by {{byName}}.
+Open People to complete their file: documents, reader ID, salary, shift.`,
+    fields: ['name', 'code', 'department', 'byName', 'orgName'],
+  },
+  {
+    key: 'people.left',
+    label: 'Somebody left',
+    description: 'Sent to the people who manage employees when a person is marked as left.',
+    subject: '{{name}} has left {{orgName}}',
+    body: `{{name}} ({{code}}) was marked as left by {{byName}}.
+Readers have been told; payroll may need a full and final settlement, and their login (if any) can be switched off under Settings → Users.`,
+    fields: ['name', 'code', 'byName', 'orgName'],
+  },
+  {
+    key: 'people.document_expiring',
+    label: 'Document expiring',
+    description: 'Sent to the people who manage employees when an employee document (visa, licence, contract) expires within 30 days.',
+    subject: '{{title}} for {{name}} expires on {{expiresOn}}',
+    body: `{{name}}’s {{kind}} “{{title}}” expires on {{expiresOn}} ({{days}} days).
+Open People → the employee → Documents to renew it.`,
+    fields: ['name', 'title', 'kind', 'expiresOn', 'days', 'orgName'],
+  },
+  {
     key: 'attendance.reader_alert',
     label: 'Reader alert',
     description: 'Sent to the people named under Attendance → Reader health when a reader problem starts.',

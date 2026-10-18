@@ -1,3 +1,4 @@
+import { notifyUsers } from './notifications.js';
 import { Prisma } from '@prisma/client';
 import { prisma } from '../utils/prisma.js';
 import { platformPrisma } from '../utils/platformPrisma.js';
@@ -190,6 +191,12 @@ async function notifyApprovers(
   ]);
 
   const docNumber = await documentNumber(opts.docType, opts.docId);
+  await notifyUsers(opts.accountId, opts.orgId, userIds, {
+    kind: 'approval.requested',
+    title: `${requester?.fullName || 'A colleague'} needs approval on ${opts.docType.toLowerCase()} ${docNumber}`,
+    body: `${opts.amount.toFixed(2)} under the rule “${rule.name}”.`,
+    link: { app: 'accounting', screen: 'approvals' },
+  });
 
   for (const approver of approvers) {
     await sendTemplate({

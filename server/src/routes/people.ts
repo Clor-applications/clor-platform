@@ -6,6 +6,7 @@ import { requireTenantContext } from '../middleware/tenantContext.js';
 import { requirePermission } from '../middleware/rbac.js';
 import { PermissionAction } from '../constants/enums.js';
 import { peoplePrisma } from '../utils/peoplePrisma.js';
+import { peopleEvent } from '../services/people/documentReminders.js';
 import { payrollPrisma } from '../utils/payrollPrisma.js';
 import { PEOPLE_MODULE, PEOPLE_RESOURCE, peopleRouteOk } from '../services/people/guards.js';
 import { pushEmployeeToReaders, readerFieldsChanged, revokeFromReaders } from './iclock.js';
@@ -338,6 +339,7 @@ peopleRouter.post('/orgs/:orgId/people/employees', can(PermissionAction.CREATE, 
     await pushEmployeeToReaders(orgId, row, req.auth!.userId);
     res.status(201).json({ employee: (await withMeta(orgId, [row]))[0] });
     emitWebhook(orgId, 'employee.created', employeeEvent(row));
+    void peopleEvent(accountId, orgId, 'people.joined', row, req.auth!.userId);
   } catch (e) {
     return sendError(res, e);
   }
@@ -373,6 +375,7 @@ peopleRouter.put('/orgs/:orgId/people/employees/:id', can(PermissionAction.EDIT,
     else if (row.status !== 'LEFT' && readerFieldsChanged(existing, row)) await pushEmployeeToReaders(orgId, row, req.auth!.userId, existing);
     res.json({ employee: (await withMeta(orgId, [row]))[0] });
     emitWebhook(orgId, row.status === 'LEFT' && existing.status !== 'LEFT' ? 'employee.left' : 'employee.updated', employeeEvent(row));
+    if (row.status === 'LEFT' && existing.status !== 'LEFT') void peopleEvent(accountId, orgId, 'people.left', row, req.auth!.userId);
   } catch (e) {
     return sendError(res, e);
   }

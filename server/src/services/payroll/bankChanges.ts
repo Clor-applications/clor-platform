@@ -1,3 +1,4 @@
+import { notifyPermission } from '../notifications.js';
 import { payrollPrisma } from '../../utils/payrollPrisma.js';
 import { peoplePrisma } from '../../utils/peoplePrisma.js';
 import { platformPrisma } from '../../utils/platformPrisma.js';
@@ -81,6 +82,9 @@ export async function routeBankUpdate(opts: {
   });
   const pending = await payrollPrisma.bankDetailChange.create({ data: row });
   await tellEmployee(opts.accountId, opts.orgId, opts.employeeId, after.bankAccountNumber).catch(() => undefined);
+  /* Whoever may approve pay runs sees it waiting, in whichever app they have open. */
+  const who = await peoplePrisma.employee.findFirst({ where: { orgId: opts.orgId, id: opts.employeeId }, select: { name: true } });
+  await notifyPermission(opts.accountId, opts.orgId, 'PAYROLL::Payroll Runs::APPROVE', { kind: 'payroll.bank_change', title: `Bank account change for ${who?.name || 'an employee'} waits for approval`, link: { app: 'payroll', screen: 'bankChanges' } }, { except: opts.userId });
   return { apply: {} as BankDetails, pending };
 }
 
