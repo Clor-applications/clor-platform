@@ -360,7 +360,7 @@ function AddReader({ drivers, pushBase, matrixBase, hikvisionBase, onClose, onSa
     >
       <form id="add-reader" onSubmit={save} className="grid gap-4">
         <fieldset>
-          <legend className="ui-label">How it connects <a className="ui-link font-normal" href="/docs/readers.html" target="_blank" rel="noreferrer">(which one for my reader?)</a></legend>
+          <legend className="ui-label">How it connects <a className="ui-link font-normal" href="/docs/readers" target="_blank" rel="noreferrer">(which one for my reader?)</a></legend>
           {choices.map((d) => (
             <label key={d.vendor} className="flex items-start gap-2 py-1 text-sm">
               <input type="radio" name="kind" className="mt-1" checked={kind === d.vendor} onChange={() => setKind(d.vendor)} />

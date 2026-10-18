@@ -104,7 +104,7 @@ export default function SsoSettings() {
       <PageHeader
         entity="settings"
         title="Single Sign-On"
-        description="Let people at your domain sign in through your identity provider. Roles and company access stay here. Guide: app.clor.in/docs/sso.html"
+        description="Let people at your domain sign in through your identity provider. Roles and company access stay here. Guide: app.clor.in/docs/sso"
         actions={!form ? <button type="button" className="ui-btn ui-btn-primary" onClick={() => setForm({ ...EMPTY })}>Add a provider</button> : null}
       />
 
@@ -194,7 +194,7 @@ export default function SsoSettings() {
           <Users size={18} aria-hidden="true" className="ui-muted mt-0.5" />
           <div className="min-w-0 flex-1">
             <h3 id="scim-h" className="font-medium">Directory sync (SCIM 2.0)</h3>
-            <p className="ui-caption">Let Microsoft Entra, Okta, JumpCloud or Google add, update and remove people here automatically. Roles stay in CLOR; groups are not synced. <a className="ui-link" href="/docs/scim.html" target="_blank" rel="noreferrer">Guide</a></p>
+            <p className="ui-caption">Let Microsoft Entra, Okta, JumpCloud or Google add, update and remove people here automatically. Roles stay in CLOR; groups are not synced. <a className="ui-link" href="/docs/scim" target="_blank" rel="noreferrer">Guide</a></p>
             {scim?.baseUrl ? (
               <div className="mt-2">
                 <div className="ui-label">Tenant URL to give the provider</div>

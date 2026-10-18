@@ -101,7 +101,7 @@ const activeOf = (v: unknown, dflt: boolean) => (v === undefined || v === null ?
 scimRouter.get('/ServiceProviderConfig', (req, res) =>
   scim(res, 200, {
     schemas: ['urn:ietf:params:scim:schemas:core:2.0:ServiceProviderConfig'],
-    documentationUri: 'https://app.clor.in/docs/scim.html',
+    documentationUri: 'https://app.clor.in/docs/scim',
     patch: { supported: true },
     bulk: { supported: false, maxOperations: 0, maxPayloadSize: 0 },
     filter: { supported: true, maxResults: 200 },
