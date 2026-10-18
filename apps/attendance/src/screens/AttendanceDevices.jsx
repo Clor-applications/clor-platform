@@ -54,8 +54,11 @@ const ago = (iso) => {
 /** Sources with a field mapping instead of a protocol. */
 const MAPPED = { HTTP_PUSH: true, FILE: true, HTTP_PULL: true };
 /** Devices and servers CLOR pulls from with an address and credentials. */
-const PULL = { HIKVISION: true, DAHUA: true, BIOSTAR: true, HTTP_PULL: true };
-const ADDRESS_HINT = { HIKVISION: 'http://203.0.113.10:80', DAHUA: 'http://203.0.113.10:80', BIOSTAR: 'https://biostar.example.com', HTTP_PULL: 'https://host/api/punches?from={from}&to={to}' };
+const PULL = { HIKVISION: true, DAHUA: true, BIOSTAR: true, HTTP_PULL: true, ANVIZ_CLOUD: true };
+/** Sources that push to a URL CLOR gives them and speak their own protocol (no field mapping). */
+const URL_PUSH = { MATRIX_COSEC: true, HIKVISION_PUSH: true };
+const ANVIZ_REGIONS = [['https://api.us.crosschexcloud.com/', 'Americas (api.us)'], ['https://api.ap.crosschexcloud.com/', 'Asia-Pacific incl. India (api.ap)'], ['https://api.eu.crosschexcloud.com/', 'Europe (api.eu)']];
+const ADDRESS_HINT = { HIKVISION: 'http://203.0.113.10:80', DAHUA: 'http://203.0.113.10:80', BIOSTAR: 'https://biostar.example.com', HTTP_PULL: 'https://host/api/punches?from={from}&to={to}', ANVIZ_CLOUD: 'https://api.ap.crosschexcloud.com/' };
 const TIME_STAMPS = [
   ['iso', 'ISO, UTC — 2026-10-17T03:30:00.000Z'],
   ['local', 'Local — 2026-10-17 09:00:00'],
@@ -186,7 +189,7 @@ export default function AttendanceDevices({ openScreen }) {
                 {data.devices.map((d) => (
                   <tr key={d.id} className={VIRTUAL[d.vendor] ? undefined : 'ui-row-click'} onClick={VIRTUAL[d.vendor] ? undefined : () => setOpen(d)} title={VIRTUAL[d.vendor]?.title}>
                     <td className="ui-col-entity">{d.name}</td>
-                    <td className="ui-col-meta hidden md:table-cell">{d.vendor === 'ETIMEOFFICE' ? 'e-Time Office' : d.vendor === 'MATRIX_COSEC' ? d.model || 'Matrix · not connected yet' : MAPPED[d.vendor] || PULL[d.vendor] ? d.driverLabel : VIRTUAL[d.vendor]?.label || d.serialNumber}</td>
+                    <td className="ui-col-meta hidden md:table-cell">{d.vendor === 'ETIMEOFFICE' ? 'e-Time Office' : URL_PUSH[d.vendor] ? d.model || `${d.driverLabel} · not connected yet` : MAPPED[d.vendor] || PULL[d.vendor] ? d.driverLabel : VIRTUAL[d.vendor]?.label || d.serialNumber}</td>
                     <td>{d.direction === 'both' ? 'In / out' : d.direction === 'in' ? 'Entry' : 'Exit'}</td>
                     <td className="ui-col-h-center whitespace-nowrap">
                       {!d.isActive ? (
@@ -241,12 +244,14 @@ export default function AttendanceDevices({ openScreen }) {
         </div>
       ) : null}
 
-      {adding ? <AddReader drivers={data?.drivers || []} pushBase={data?.pushBase} matrixBase={data?.matrixBase} onClose={() => setAdding(false)} onSaved={() => { setAdding(false); load(); }} /> : null}
+      {adding ? <AddReader drivers={data?.drivers || []} pushBase={data?.pushBase} matrixBase={data?.matrixBase} hikvisionBase={data?.hikvisionBase} onClose={() => setAdding(false)} onSaved={() => { setAdding(false); load(); }} /> : null}
       {open ? (
         MAPPED[open.vendor] ? (
           <MappedDrawer device={open} pushBase={data?.pushBase} onClose={() => setOpen(null)} onChanged={load} />
         ) : open.vendor === 'MATRIX_COSEC' ? (
           <MatrixDrawer device={open} matrixBase={data?.matrixBase} onClose={() => setOpen(null)} onChanged={load} />
+        ) : open.vendor === 'HIKVISION_PUSH' ? (
+          <HikvisionPushDrawer device={open} hikvisionBase={data?.hikvisionBase} onClose={() => setOpen(null)} onChanged={load} />
         ) : PULL[open.vendor] ? (
           <PullDrawer device={open} onClose={() => setOpen(null)} onChanged={load} />
         ) : open.vendor && open.vendor !== 'ADMS' ? (
@@ -261,7 +266,7 @@ export default function AttendanceDevices({ openScreen }) {
 
 const ZONES = ['Asia/Kolkata', 'Asia/Dubai', 'Asia/Riyadh', 'Asia/Qatar', 'Asia/Kuwait', 'Asia/Muscat', 'Asia/Bahrain', 'Asia/Singapore', 'Asia/Kuala_Lumpur', 'Asia/Dhaka', 'Asia/Kathmandu', 'Asia/Colombo', 'Europe/London', 'UTC'];
 
-function AddReader({ drivers, pushBase, matrixBase, onClose, onSaved }) {
+function AddReader({ drivers, pushBase, matrixBase, hikvisionBase, onClose, onSaved }) {
   const [kind, setKind] = useState('ADMS');
   const [form, setForm] = useState({ serialNumber: '', name: '', direction: 'both', corporateId: '', username: '', password: '', apiUrl: '', sourceTimezone: 'Asia/Kolkata', baseUrl: '', method: 'GET', timeFormat: 'iso', auth: 'basic', body: '' });
   const [saving, setSaving] = useState(false);
@@ -271,8 +276,10 @@ function AddReader({ drivers, pushBase, matrixBase, onClose, onSaved }) {
   const cloud = kind === 'ETIMEOFFICE';
   const pull = Boolean(PULL[kind]);
   const matrix = kind === 'MATRIX_COSEC';
-  /* Sources set up with a name and a zone only: a URL (push, Matrix) or a file. */
-  const mapped = (Boolean(MAPPED[kind]) && !pull) || matrix;
+  const hikPush = kind === 'HIKVISION_PUSH';
+  const anviz = kind === 'ANVIZ_CLOUD';
+  /* Sources set up with a name and a zone only: a URL (push, Matrix, Hikvision) or a file. */
+  const mapped = (Boolean(MAPPED[kind]) && !pull) || matrix || hikPush;
   const creds = () => ({ corporateId: form.corporateId || null, username: form.username, password: form.password, apiUrl: form.apiUrl || null });
   const pullBody = () => ({
     vendor: kind,
@@ -306,7 +313,7 @@ function AddReader({ drivers, pushBase, matrixBase, onClose, onSaved }) {
           : await addDevice({ serialNumber: form.serialNumber, name: form.name, direction: form.direction });
       if (r.pushToken) {
         /* Shown once: only its hash is kept. */
-        setMade({ device: r.device, url: `${(matrix ? matrixBase : pushBase) || ''}${r.pushToken}` });
+        setMade({ device: r.device, url: `${(matrix ? matrixBase : hikPush ? hikvisionBase : pushBase) || ''}${r.pushToken}` });
         return;
       }
       notify.success(
@@ -327,11 +334,11 @@ function AddReader({ drivers, pushBase, matrixBase, onClose, onSaved }) {
         open
         onClose={onSaved}
         title={`${made.device.name} added`}
-        description={matrix ? 'Set this as the controller’s Push API server URL. It is shown once; you can make a new one later.' : 'Give this URL to the reader, its software or your middleware. It is shown once; you can make a new one later.'}
+        description={matrix ? 'Set this as the controller’s Push API server URL. It is shown once; you can make a new one later.' : hikPush ? 'Set this as the terminal’s HTTP listening address. It is shown once; you can make a new one later.' : 'Give this URL to the reader, its software or your middleware. It is shown once; you can make a new one later.'}
         actions={<button type="button" className="ui-btn ui-btn-primary" onClick={onSaved}>Done</button>}
       >
         <PushUrl url={made.url} />
-        {matrix ? <MatrixSetupNote /> : <p className="ui-caption mt-4">Send punches with POST, as JSON, in whatever shape the device uses. The first thing it sends is kept so you can set where each field is — open the reader afterwards and choose <strong>Set up fields</strong>.</p>}
+        {matrix ? <MatrixSetupNote /> : hikPush ? <HikvisionSetupNote /> : <p className="ui-caption mt-4">Send punches with POST, as JSON, in whatever shape the device uses. The first thing it sends is kept so you can set where each field is — open the reader afterwards and choose <strong>Set up fields</strong>.</p>}
       </Drawer>
     );
   }
@@ -382,10 +389,17 @@ function AddReader({ drivers, pushBase, matrixBase, onClose, onSaved }) {
         ) : pull ? (
           <>
             <label className="block">
-              <span className="ui-label">{kind === 'HTTP_PULL' ? 'URL to call *' : 'Address *'}</span>
-              <input className="ui-input w-full ui-mono" required value={form.baseUrl} onChange={set('baseUrl')} placeholder={ADDRESS_HINT[kind]} />
+              <span className="ui-label">{anviz ? 'CrossChex Cloud region *' : kind === 'HTTP_PULL' ? 'URL to call *' : 'Address *'}</span>
+              {anviz ? (
+                <select className="ui-select w-full" required value={form.baseUrl} onChange={set('baseUrl')}>
+                  <option value="">Choose the region your portal is on</option>
+                  {ANVIZ_REGIONS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                </select>
+              ) : (
+                <input className="ui-input w-full ui-mono" required value={form.baseUrl} onChange={set('baseUrl')} placeholder={ADDRESS_HINT[kind]} />
+              )}
               <span className="ui-caption">
-                {kind === 'HTTP_PULL' ? 'Write {from} and {to} where the time window goes.' : 'The device or server must be reachable from the internet (a public address or a forwarded port). Readers on the office network alone are for the on-site connector, coming later.'}
+                {anviz ? 'The same region as the portal you sign in to (us., ap. or eu.crosschexcloud.com).' : kind === 'HTTP_PULL' ? 'Write {from} and {to} where the time window goes.' : 'The device or server must be reachable from the internet (a public address or a forwarded port). Readers on the office network alone are for the on-site connector, coming later.'}
               </span>
             </label>
             {kind === 'HTTP_PULL' ? (
@@ -400,8 +414,8 @@ function AddReader({ drivers, pushBase, matrixBase, onClose, onSaved }) {
             ) : null}
             {kind !== 'HTTP_PULL' || form.auth !== 'none' ? (
               <div className="grid gap-3 sm:grid-cols-2">
-                <label className="block"><span className="ui-label">{kind === 'HTTP_PULL' && form.auth === 'header' ? 'Header name' : 'User name'}{kind === 'HTTP_PULL' ? '' : ' *'}</span><input className="ui-input w-full" required={kind !== 'HTTP_PULL'} autoComplete="off" value={form.username} onChange={set('username')} placeholder={kind === 'HTTP_PULL' && form.auth === 'header' ? 'X-API-Key' : 'admin'} /></label>
-                <label className="block"><span className="ui-label">{kind === 'HTTP_PULL' && form.auth === 'header' ? 'Header value' : 'Password'}{kind === 'HTTP_PULL' ? '' : ' *'}</span><input type="password" className="ui-input w-full" required={kind !== 'HTTP_PULL'} autoComplete="new-password" value={form.password} onChange={set('password')} /></label>
+                <label className="block"><span className="ui-label">{anviz ? 'API key' : kind === 'HTTP_PULL' && form.auth === 'header' ? 'Header name' : 'User name'}{kind === 'HTTP_PULL' ? '' : ' *'}</span><input className="ui-input w-full" required={kind !== 'HTTP_PULL'} autoComplete="off" value={form.username} onChange={set('username')} placeholder={anviz ? 'From System → Cloud API in the portal' : kind === 'HTTP_PULL' && form.auth === 'header' ? 'X-API-Key' : 'admin'} /></label>
+                <label className="block"><span className="ui-label">{anviz ? 'API secret' : kind === 'HTTP_PULL' && form.auth === 'header' ? 'Header value' : 'Password'}{kind === 'HTTP_PULL' ? '' : ' *'}</span><input type="password" className="ui-input w-full" required={kind !== 'HTTP_PULL'} autoComplete="new-password" value={form.password} onChange={set('password')} /></label>
               </div>
             ) : null}
             <ZoneField value={form.sourceTimezone} onChange={(v) => setForm({ ...form, sourceTimezone: v })} />
@@ -412,6 +426,7 @@ function AddReader({ drivers, pushBase, matrixBase, onClose, onSaved }) {
                   {tested.ok ? `Connected — ${tested.punchesToday} record${tested.punchesToday === 1 ? '' : 's'} today${kind === 'HTTP_PULL' ? `, ${tested.readable} readable with the mapping` : ''}.` : tested.message}
                 </span>
               ) : null}
+              {anviz ? <span className="ui-caption">CrossChex Cloud allows one request every 15 seconds; a test takes about that long.</span> : null}
             </div>
           </>
         ) : mapped ? (
@@ -424,7 +439,7 @@ function AddReader({ drivers, pushBase, matrixBase, onClose, onSaved }) {
         )}
         <label className="block">
           <span className="ui-label">Name *</span>
-          <input className="ui-input w-full" required maxLength={80} value={form.name} onChange={set('name')} placeholder={cloud ? 'e.g. eSSL cloud' : kind === 'FILE' ? 'e.g. Monthly export from Matrix' : kind === 'HTTP_PUSH' ? 'e.g. Turnstile middleware' : kind === 'MATRIX_COSEC' ? 'e.g. Main door controller' : kind === 'HIKVISION' ? 'e.g. Hikvision gate' : kind === 'DAHUA' ? 'e.g. Dahua back door' : kind === 'BIOSTAR' ? 'e.g. BioStar HQ' : kind === 'HTTP_PULL' ? 'e.g. Old attendance software' : 'e.g. Main gate'} />
+          <input className="ui-input w-full" required maxLength={80} value={form.name} onChange={set('name')} placeholder={cloud ? 'e.g. eSSL cloud' : kind === 'FILE' ? 'e.g. Monthly export from Matrix' : kind === 'HTTP_PUSH' ? 'e.g. Turnstile middleware' : kind === 'MATRIX_COSEC' ? 'e.g. Main door controller' : kind === 'HIKVISION_PUSH' ? 'e.g. Front terminal' : kind === 'ANVIZ_CLOUD' ? 'e.g. Anviz cloud' : kind === 'HIKVISION' ? 'e.g. Hikvision gate' : kind === 'DAHUA' ? 'e.g. Dahua back door' : kind === 'BIOSTAR' ? 'e.g. BioStar HQ' : kind === 'HTTP_PULL' ? 'e.g. Old attendance software' : 'e.g. Main gate'} />
         </label>
         <fieldset>
           <legend className="ui-label">Direction</legend>
@@ -434,7 +449,7 @@ function AddReader({ drivers, pushBase, matrixBase, onClose, onSaved }) {
             </label>
           ))}
           {mapped && !matrix ? <span className="ui-caption">Used when what it sends does not say in or out.</span> : null}
-          {matrix ? <span className="ui-caption">A controller says entry or exit on every event; “Entry only” or “Exit only” overrides it.</span> : null}
+          {matrix || hikPush ? <span className="ui-caption">The device says entry or exit on every event; “Entry only” or “Exit only” overrides it.</span> : null}
         </fieldset>
       </form>
     </Drawer>
@@ -703,6 +718,138 @@ function MappedDrawer({ device, pushBase, onClose, onChanged }) {
 }
 
 /** An e-Time Office connection: credentials, last pull, Sync now, fetch older punches. */
+/** Where the URL goes on a Hikvision terminal. Menu names from the terminal web page; wording differs a little by firmware. */
+function HikvisionSetupNote() {
+  return (
+    <div className="ui-caption mt-4 space-y-1">
+      <p>On the terminal’s web page: <strong>Configuration → Network → Advanced → HTTP Listening</strong> (some firmware: <strong>Platform Access → HTTP Listening</strong>). Protocol HTTPS, address <code className="ui-mono">api.clor.in</code>, port 443, URL the path above (from <code className="ui-mono">/hikvision/…</code>). Then under <strong>Event → Access Control</strong> make sure events are sent to the listening host (“Notify Surveillance Center” / “Upload to Alarm Host”).</p>
+      <p>CLOR has not yet tried this on a Hikvision terminal. The last event it sent can be seen on its page, so a firmware that names fields differently shows up at once.</p>
+    </div>
+  );
+}
+
+function HikvisionPushDrawer({ device, hikvisionBase, onClose, onChanged }) {
+  const [form, setForm] = useState({ name: device.name, direction: device.direction, isActive: device.isActive, sourceTimezone: device.sourceTimezone || 'Asia/Kolkata' });
+  const [newUrl, setNewUrl] = useState('');
+  const [last, setLast] = useState(null);
+  const [busy, setBusy] = useState('');
+  const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
+  const act = async (key, fn) => {
+    setBusy(key);
+    try {
+      await fn();
+    } catch (err) {
+      notify.error(String(err?.message || 'Not done.'));
+    } finally {
+      setBusy('');
+    }
+  };
+  const save = (e) => {
+    e.preventDefault();
+    act('save', async () => {
+      await updateDevice(device.id, form);
+      notify.success('Saved.');
+      onChanged();
+    });
+  };
+  const rotate = async () => {
+    const ok = await confirmDialog({ title: 'Make a new URL?', message: 'The old URL stops working at once. Enter the new one on the terminal.', confirmLabel: 'New URL' });
+    if (!ok) return;
+    await act('rotate', async () => setNewUrl(`${hikvisionBase || ''}${(await rotatePushToken(device.id)).pushToken}`));
+  };
+  const showLast = () =>
+    act('last', async () => {
+      const r = await lastPayload(device.id);
+      if (!r.payload) {
+        notify.error('Nothing has arrived from the terminal yet.');
+        return;
+      }
+      try {
+        setLast(JSON.stringify(JSON.parse(r.payload), null, 2));
+      } catch {
+        setLast(r.payload);
+      }
+    });
+  const remove = async () => {
+    const ok = await confirmDialog({ title: `Remove ${device.name}?`, message: 'Only a terminal with no punches on record can be removed; otherwise switch it off.', confirmLabel: 'Remove' });
+    if (!ok) return;
+    await act('delete', async () => {
+      await deleteDevice(device.id);
+      onChanged();
+      onClose();
+    });
+  };
+
+  return (
+    <Drawer
+      widthClass="w-[min(52rem,96vw)]"
+      open
+      onClose={onClose}
+      title={device.name}
+      description={`Hikvision (push) · ${device.online ? 'online' : device.lastSeenAt ? `last event ${ago(device.lastSeenAt)}` : 'nothing received yet'}`}
+      actions={
+        <>
+          <button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Close</button>
+          <button type="submit" form="hik-form" className="ui-btn ui-btn-primary" disabled={busy === 'save'}>Save</button>
+        </>
+      }
+    >
+      <div className="space-y-6">
+        {device.lastError ? <div className="ui-card p-3 text-sm" role="alert" style={{ color: 'rgb(var(--neg))' }}>{device.lastError}</div> : null}
+
+        <section className="space-y-2" aria-labelledby="hk-status-h">
+          <h3 id="hk-status-h" className="ui-t-sec">Terminal</h3>
+          <dl className="grid gap-x-6 gap-y-1 text-sm sm:grid-cols-2">
+            <div className="flex justify-between gap-3"><dt className="ui-muted">Name it reports</dt><dd>{device.model || '—'}</dd></div>
+            <div className="flex justify-between gap-3"><dt className="ui-muted">Its address</dt><dd className="ui-mono">{device.ip || '—'}</dd></div>
+            <div className="flex justify-between gap-3"><dt className="ui-muted">Clock</dt><dd>{clockWords(device.clockOffsetSec)}</dd></div>
+            <div className="flex justify-between gap-3"><dt className="ui-muted">Punches today</dt><dd>{device.punchesToday ?? '—'}</dd></div>
+          </dl>
+          <p className="ui-caption">Events with an employee number that passed verification are punches; failed attempts and door events go to Reader logs. The clock is measured from each live event; set NTP on the terminal if it drifts.</p>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={Boolean(busy)} onClick={showLast}>{busy === 'last' ? 'Loading…' : 'Show the last event it sent'}</button>
+          </div>
+          {last ? <pre className="ui-card ui-mono max-h-64 overflow-auto p-3 text-xs">{last}</pre> : null}
+        </section>
+
+        <section className="space-y-2" aria-labelledby="hk-url-h">
+          <h3 id="hk-url-h" className="ui-t-sec">HTTP listening address on the terminal</h3>
+          {newUrl ? (
+            <PushUrl url={newUrl} />
+          ) : (
+            <p className="text-sm">
+              Starts <code className="ui-mono">{hikvisionBase}{device.pushTokenPrefix}…</code> — the full URL was shown when the terminal was added.
+            </p>
+          )}
+          <div className="flex flex-wrap items-center gap-2">
+            <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={Boolean(busy)} onClick={rotate}>{busy === 'rotate' ? 'Making…' : 'New URL'}</button>
+          </div>
+          <HikvisionSetupNote />
+        </section>
+
+        <form id="hik-form" onSubmit={save} className="grid gap-4">
+          <label className="block"><span className="ui-label">Name</span><input className="ui-input w-full" required maxLength={80} value={form.name} onChange={set('name')} /></label>
+          <label className="block">
+            <span className="ui-label">Direction</span>
+            <select className="ui-select w-full" value={form.direction} onChange={set('direction')}>
+              {Object.entries(DIRECTIONS).map(([k, label]) => <option key={k} value={k}>{label}</option>)}
+            </select>
+            <span className="ui-caption">The terminal’s check-in / check-out status says entry or exit; “Entry only” or “Exit only” overrides it.</span>
+          </label>
+          <ZoneField value={form.sourceTimezone} onChange={(v) => setForm({ ...form, sourceTimezone: v })} />
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" className="ui-checkbox" checked={form.isActive} onChange={(e) => setForm({ ...form, isActive: e.target.checked })} /> Taking events
+          </label>
+        </form>
+
+        <div>
+          <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={Boolean(busy)} onClick={remove}>Remove terminal</button>
+        </div>
+      </div>
+    </Drawer>
+  );
+}
+
 /** Where the URL goes on a Matrix controller. The menus differ a little by model; the guide calls it the Push API. */
 function MatrixSetupNote() {
   return (
@@ -984,10 +1131,16 @@ function PullDrawer({ device, onClose, onChanged }) {
         <PullControls device={device} onChanged={onChanged} />
         <form id="pull-form" onSubmit={save} className="grid gap-4">
           <label className="block"><span className="ui-label">Name</span><input className="ui-input w-full" required maxLength={80} value={form.name} onChange={set('name')} /></label>
-          <label className="block"><span className="ui-label">Address</span><input className="ui-input w-full ui-mono" required value={form.baseUrl} onChange={set('baseUrl')} placeholder={ADDRESS_HINT[device.vendor]} /></label>
+          {device.vendor === 'ANVIZ_CLOUD' ? (
+            <label className="block"><span className="ui-label">CrossChex Cloud region</span>
+              <select className="ui-select w-full" required value={form.baseUrl} onChange={set('baseUrl')}>{ANVIZ_REGIONS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
+            </label>
+          ) : (
+            <label className="block"><span className="ui-label">Address</span><input className="ui-input w-full ui-mono" required value={form.baseUrl} onChange={set('baseUrl')} placeholder={ADDRESS_HINT[device.vendor]} /></label>
+          )}
           <div className="grid gap-3 sm:grid-cols-2">
-            <label className="block"><span className="ui-label">User name</span><input className="ui-input w-full" autoComplete="off" value={form.username} onChange={set('username')} /></label>
-            <label className="block"><span className="ui-label">Password</span><input type="password" className="ui-input w-full" autoComplete="new-password" value={form.password} onChange={set('password')} placeholder="Leave blank to keep the saved one" /></label>
+            <label className="block"><span className="ui-label">{device.vendor === 'ANVIZ_CLOUD' ? 'API key' : 'User name'}</span><input className="ui-input w-full" autoComplete="off" value={form.username} onChange={set('username')} /></label>
+            <label className="block"><span className="ui-label">{device.vendor === 'ANVIZ_CLOUD' ? 'API secret' : 'Password'}</span><input type="password" className="ui-input w-full" autoComplete="new-password" value={form.password} onChange={set('password')} placeholder="Leave blank to keep the saved one" /></label>
           </div>
           <ZoneField value={form.sourceTimezone} onChange={(v) => setForm({ ...form, sourceTimezone: v })} />
           <div className="flex flex-wrap items-center gap-2">
