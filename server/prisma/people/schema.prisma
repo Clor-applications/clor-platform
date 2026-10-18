@@ -1208,3 +1208,32 @@ model HrSyncLog {
 
   @@index([orgId, connectionId, createdAt])
 }
+
+/// A report that goes out by e-mail on its own: which report, with what
+/// filters, how often, to whom. The period is implied by the cadence — a
+/// daily one covers yesterday, a weekly one the week just ended, a monthly
+/// one the month just ended.
+model ReportSchedule {
+  id              String    @id @default(cuid())
+  accountId       String
+  orgId           String
+  reportId        String
+  paramsJson      String    @default("{}")
+  /// DAILY | WEEKLY | MONTHLY
+  cadence         String
+  /// 1 = Monday … 7 = Sunday, for WEEKLY
+  dayOfWeek       Int?
+  /// 1..28, for MONTHLY
+  dayOfMonth      Int?
+  /// Hour of the day, IST, 0..23
+  hour            Int       @default(7)
+  recipients      String
+  enabled         Boolean   @default(true)
+  lastSentAt      DateTime?
+  lastError       String?
+  createdByUserId String
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([orgId, enabled])
+}

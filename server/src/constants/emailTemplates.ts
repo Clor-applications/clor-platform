@@ -20,6 +20,17 @@ export type TemplateDef = {
 
 export const EMAIL_TEMPLATES: TemplateDef[] = [
   {
+    key: 'reports.scheduled',
+    label: 'Scheduled report',
+    description: 'A report somebody asked to receive by e-mail on a schedule (Attendance → Reports).',
+    subject: '{{reportTitle}} — {{period}}',
+    body: `{{reportTitle}} for {{period}} from {{companyName}}.
+{{summary}}
+The full table is in this message; open {{appUrl}} for the report with filters and export.
+To stop these, ask whoever set the schedule up under Attendance → Reports → Scheduled.`,
+    fields: ['reportTitle', 'period', 'companyName', 'summary', 'appName', 'appUrl'],
+  },
+  {
     key: 'auth.verify_email',
     label: 'Verify your email',
     description: 'Sent when someone signs up, and when they ask for a new link.',

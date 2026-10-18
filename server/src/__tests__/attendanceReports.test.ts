@@ -5,6 +5,7 @@ import request from 'supertest';
 
 const { buildApp } = await import('../app.js');
 const { peoplePrisma } = await import('../utils/peoplePrisma.js');
+const { platformPrisma } = await import('../utils/platformPrisma.js');
 
 const app = buildApp().listen(0);
 afterAll(async () => {
@@ -58,7 +59,7 @@ const row = (rep: any, name: string) => rep.rows.find((r: any) => r.name === nam
 describe('the catalogue', () => {
   it('lists the reports', async () => {
     const ids = (await api(c).get('/reports').expect(200)).body.reports.map((r: any) => r.id);
-    expect(ids).toEqual(['daily', 'monthly', 'muster', 'late-early', 'absent', 'overtime', 'leave', 'department', 'readers', 'biometrics']);
+    expect(ids).toEqual(['daily', 'monthly', 'muster', 'late-early', 'absent', 'overtime', 'leave', 'department', 'readers', 'biometrics', 'first-last', 'missed', 'timecard', 'work-duration', 'people-dates', 'documents', 'reader-punches', 'mobile']);
   });
 
   it('refuses an unknown report and too long a range', async () => {
@@ -114,6 +115,71 @@ describe('reports', () => {
     expect(cal.days.find((d: any) => d.date === '2026-09-06')).toMatchObject({ weeklyOff: 2, off: true });
     const ahead = (await api(c).get('/calendar?month=2027-01').expect(200)).body;
     expect(ahead.days.every((d: any) => d.future && d.absent === 0)).toBe(true);
+  });
+
+  it('the new catalogue: first/last, missed, time card, work duration, milestones, documents, readers, phone', async () => {
+    const ids = (await api(c).get('/reports').expect(200)).body.reports.map((r: any) => r.id);
+    expect(ids).toEqual(expect.arrayContaining(['first-last', 'missed', 'timecard', 'work-duration', 'people-dates', 'documents', 'reader-punches', 'mobile']));
+    expect((await api(c).get('/reports').expect(200)).body.employees.map((e: any) => e.name)).toEqual(expect.arrayContaining(['Asha', 'Ravi']));
+
+    const tc = await report('timecard', `month=2026-09&employeeId=${asha.id}`);
+    expect(tc.title).toBe('Time card — Asha');
+    expect(tc.columns.some((x: any) => x.key === 'name')).toBe(false);
+    expect(tc.rows.find((r: any) => r.date === '2026-09-01')).toMatchObject({ in: '09:30', out: '19:30', late: 30 });
+    const tcAll = await report('timecard', 'month=2026-09');
+    expect(tcAll.columns.some((x: any) => x.key === 'name')).toBe(true);
+
+    const wd = await report('work-duration', 'month=2026-09');
+    expect(row(wd, 'Asha')).toMatchObject({ days: 1, h8to10: 1 });
+    expect(row(wd, 'Ravi')).toMatchObject({ days: 1, h4to8: 1 });
+
+    const missed = await report('missed', 'from=2026-09-01&to=2026-09-30');
+    expect(missed.rows).toEqual([]);
+    await api(c).put('/records', { employeeId: ravi.id, date: '2026-09-07', checkIn: '09:00' }).expect(200);
+    expect((await report('missed', 'from=2026-09-01&to=2026-09-30')).rows.map((r: any) => [r.name, r.date])).toEqual([['Ravi', '2026-09-07']]);
+
+    await request(app).put(`/api/orgs/${c.orgId}/people/employees/${asha.id}`).set(at(c)).send({ dateOfBirth: '1990-09-20', probationEndDate: '2026-09-25' }).expect(200);
+    const dates = await report('people-dates', 'month=2026-09');
+    expect(dates.rows.map((r: any) => r.what)).toEqual(expect.arrayContaining(['Birthday', 'Probation ends']));
+
+    const pdf = `data:application/pdf;base64,${Buffer.from('%PDF-1.4 x').toString('base64')}`;
+    await request(app).post(`/api/orgs/${c.orgId}/people/employees/${asha.id}/documents`).set(at(c)).send({ kind: 'CONTRACT', title: 'Visa', data: pdf, expiresOn: '2020-01-01' }).expect(201);
+    const docs = await report('documents', '');
+    expect(docs.rows.find((r: any) => r.document === 'Visa')).toMatchObject({ state: 'Expired', name: 'Asha' });
+
+    expect((await report('first-last', 'from=2026-09-01&to=2026-09-30')).columns.map((x: any) => x.key)).toContain('first');
+    expect((await report('reader-punches', 'from=2026-09-01&to=2026-09-30')).rows).toEqual([]);
+    expect((await report('mobile', 'from=2026-09-01&to=2026-09-30')).rows).toEqual([]);
+  });
+
+  it('schedules a report, works out its period and sends it as a table', async () => {
+    const { dueNow, periodFor, slotOf, renderReportHtml } = await import('../services/attendance/reportSchedules.js');
+    const base = { cadence: 'WEEKLY', dayOfWeek: 1, dayOfMonth: null, hour: 7 };
+    const monday0730 = new Date('2026-10-19T02:00:00Z'); // 07:30 IST, Monday
+    const sunday = new Date('2026-10-18T02:00:00Z');
+    expect(slotOf(base as any, monday0730)).toBe('2026-10-19');
+    expect(slotOf(base as any, sunday)).toBeNull();
+    expect(slotOf({ ...base, hour: 9 } as any, monday0730)).toBeNull();
+    expect(periodFor({ cadence: 'WEEKLY' }, monday0730)).toMatchObject({ from: '2026-10-12', to: '2026-10-18' });
+    expect(periodFor({ cadence: 'MONTHLY' }, monday0730)).toMatchObject({ month: '2026-09', from: '2026-09-01', to: '2026-09-30' });
+    expect(periodFor({ cadence: 'DAILY' }, monday0730)).toMatchObject({ date: '2026-10-18', from: '2026-10-18', to: '2026-10-18' });
+    const sched: any = { ...base, id: 'x', accountId: 'a', orgId: 'o', reportId: 'daily', paramsJson: '{}', recipients: 'x@y.z', enabled: true, lastSentAt: null };
+    expect(dueNow(sched, monday0730)).toBe(true);
+    expect(dueNow({ ...sched, lastSentAt: new Date('2026-10-19T01:00:00Z') }, monday0730)).toBe(false);
+    expect(dueNow({ ...sched, lastSentAt: new Date('2026-10-12T01:00:00Z') }, monday0730)).toBe(true);
+    expect(renderReportHtml({ title: 'T', period: 'P', columns: [{ key: 'a', label: 'A<' }], rows: [{ a: '1&' }] }, 'Co')).toContain('A&lt;');
+
+    const made = await api(c).post('/reports/schedules', { reportId: 'monthly', cadence: 'MONTHLY', dayOfMonth: 1, hour: 7, recipients: 'boss@example.com, hr@example.com', params: {} }).expect(201);
+    expect(made.body.schedule).toMatchObject({ reportName: 'Monthly summary', dayOfMonth: 1, dayOfWeek: null, enabled: true });
+    await api(c).post('/reports/schedules', { reportId: 'nope', cadence: 'DAILY', recipients: 'a@b.c' }).expect(400);
+    await api(c).post('/reports/schedules', { reportId: 'daily', cadence: 'DAILY', recipients: 'not-an-address' }).expect(400);
+    const sent = await api(c).post(`/reports/schedules/${made.body.schedule.id}/send`).expect(200);
+    expect(sent.body).toMatchObject({ ok: true, sent: 2 });
+    const mail = await platformPrisma.emailOutbox.findFirst({ where: { orgId: c.orgId, templateKey: 'reports.scheduled', toEmail: 'boss@example.com' }, orderBy: { createdAt: 'desc' } });
+    expect(mail?.subject).toMatch(/^Monthly summary — \d{4}-\d{2}$/);
+    expect(mail?.bodyHtml).toContain('<table');
+    expect((await api(c).get('/reports/schedules').expect(200)).body.schedules[0].lastSentAt).toBeTruthy();
+    await request(app).delete(`/api/orgs/${c.orgId}/attendance/reports/schedules/${made.body.schedule.id}`).set(at(c)).expect(200);
   });
 
   it('flags working days nobody has any attendance for', async () => {

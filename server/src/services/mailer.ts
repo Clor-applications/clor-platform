@@ -153,6 +153,8 @@ export type SendOptions = {
   relatedId?: string;
   /** Set for messages the recipient cannot opt out of. */
   transactional?: boolean;
+  /** An HTML rendering to send alongside the text (a report table); the text stays the fallback. */
+  html?: string;
 };
 
 /**
@@ -207,6 +209,7 @@ export async function sendTemplate(opts: SendOptions) {
       toName: opts.toName ?? null,
       subject,
       bodyText,
+      bodyHtml: opts.html ?? null,
       status: 'QUEUED',
       relatedType: opts.relatedType ?? null,
       relatedId: opts.relatedId ?? null,
