@@ -16,6 +16,7 @@ import { PHONE_QUERY, mobileTabsFor } from './mobileTabs';
 import { moduleForScreen, resolveModules } from './splitNav';
 import { useSession } from './session';
 import ClorMark from './ClorMark';
+import NotificationBell from './NotificationBell';
 import CompanySetup from './CompanySetup';
 import Home from './Home';
 import ScreenBoundary from './ScreenBoundary';
@@ -102,7 +103,15 @@ export default function Shell() {
   const activeAppId = mine.some((a) => a.id === chosenAppId)
     ? chosenAppId
     : landingApp(subscriptions || [])?.id || null;
-  const [screenKey, setScreenKey] = useState(null);
+  /* Arriving on an app's own host with ?open=<screen> (a notification followed across apps): land there. */
+  const [screenKey, setScreenKey] = useState(() => {
+    try {
+      const open = String(new URLSearchParams(window.location.search).get('open') || '').trim();
+      return open || null;
+    } catch {
+      return null;
+    }
+  });
   const [browseModule, setBrowseModule] = useState(null);
   /* A page the platform owns rather than the app (My profile), shown in an
      app's main area. Only for apps that use the shell's menu: an app that
@@ -286,7 +295,8 @@ export default function Shell() {
     }
     if (open) window.history.replaceState(null, '', `${window.location.pathname}${search}`);
     setChosenAppId(id);
-    setScreenKey(next?.home || null);
+    /* A shell app's screen named outright (a notification's link); Accounting reads the address itself. */
+    setScreenKey(open && next?.screens?.[open] ? open : next?.home || null);
     setPlatformScreen(null);
     setSwitcherOpen(false);
     setShowMoreApps(false);
@@ -536,6 +546,18 @@ export default function Shell() {
           </select>
         ) : null}
 
+        {/* One inbox for every app: an approval, a quiet reader, a bank change, a person the directory added. */}
+        <NotificationBell
+          tenantKey={tenantKey}
+          onOpen={(link) => {
+            if (!link?.app) return;
+            if (link.app === activeAppId && !Root) {
+              if (link.screen && app?.screens?.[link.screen]) goTo(link.screen);
+              return;
+            }
+            openApp(link.app, link.screen || '');
+          }}
+        />
         {!phone ? (
           <button
             type="button"
