@@ -1146,3 +1146,65 @@ model DataRequest {
   @@index([orgId, status])
   @@index([orgId, employeeId])
 }
+
+/// A connection to an HR or payroll tool the company also runs — greytHR,
+/// Keka, … — spoken by one adapter (services/hr/adapters). Non-secret
+/// settings in configJson; keys and secrets encrypted in secretsEnc and never
+/// returned. What it does is declared per connection and only within what
+/// the adapter can do.
+model HrConnection {
+  id              String    @id @default(cuid())
+  accountId       String
+  orgId           String
+  adapter         String
+  name            String
+  configJson      String    @default("{}")
+  secretsEnc      String?
+  enabled         Boolean   @default(false)
+  pushPunches     Boolean   @default(true)
+  pullEmployees   Boolean   @default(false)
+  createEmployees Boolean   @default(false)
+  lastRunAt       DateTime?
+  lastError       String?
+  lastSummary     String?
+  createdByUserId String
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([orgId, enabled])
+}
+
+/// What is to be sent to an HR tool and has not been yet, or failed: one row
+/// per punch per connection, keyed so a retry never posts twice.
+model HrOutbox {
+  id            String    @id @default(cuid())
+  accountId     String
+  orgId         String
+  connectionId  String
+  kind          String
+  key           String
+  payload       String
+  status        String    @default("PENDING")
+  attempts      Int       @default(0)
+  lastError     String?
+  nextAttemptAt DateTime?
+  sentAt        DateTime?
+  createdAt     DateTime  @default(now())
+
+  @@unique([connectionId, key])
+  @@index([orgId, status, nextAttemptAt])
+}
+
+/// What each run did, for the Integrations screen: pulled N people, pushed N punches, or why not.
+model HrSyncLog {
+  id           String   @id @default(cuid())
+  accountId    String
+  orgId        String
+  connectionId String
+  kind         String
+  ok           Boolean
+  detail       String
+  createdAt    DateTime @default(now())
+
+  @@index([orgId, connectionId, createdAt])
+}

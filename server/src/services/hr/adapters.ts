@@ -1,0 +1,151 @@
+import { createSign } from 'node:crypto';
+import { guardedRequest } from '../outbound.js';
+
+/**
+ * Adapters to the HR and payroll tools a company also runs.
+ *
+ * Each adapter states what it can do; a connection may only ask for that,
+ * and the sync says plainly when something is not possible rather than
+ * logging a success that moved nothing (the ClorTime lesson). Credentials
+ * come in as `config` (plain) and `secrets` (decrypted just for the call).
+ */
+export type Punch = { code: string; readerId: string; time: string; direction: 'IN' | 'OUT' | null; verifyMode: number };
+export type RemoteEmployee = { externalId: string; code: string | null; name: string; email: string | null; department: string | null; active: boolean };
+export type Field = { key: string; label: string; secret?: boolean; placeholder?: string; help?: string; required?: boolean };
+export type PushResult = { accepted: number; rejected: Array<{ key: string; error: string }>; retryAll?: boolean };
+
+export interface HrAdapter {
+  id: string;
+  label: string;
+  blurb: string;
+  docsUrl: string;
+  capabilities: Array<'pushPunches' | 'pullEmployees'>;
+  fields: Field[];
+  /** Fast proof the credentials work; never writes. */
+  test(config: Record<string, string>, secrets: Record<string, string>): Promise<{ ok: boolean; message: string }>;
+  pushPunches?(config: Record<string, string>, secrets: Record<string, string>, punches: Array<Punch & { key: string }>): Promise<PushResult>;
+  pullEmployees?(config: Record<string, string>, secrets: Record<string, string>): Promise<RemoteEmployee[]>;
+}
+
+const need = (o: Record<string, string>, k: string, label: string) => {
+  const v = String(o[k] || '').trim();
+  if (!v) throw new Error(`${label} is not set`);
+  return v;
+};
+const host = (v: string) => v.trim().replace(/^https?:\/\//, '').replace(/\/.*$/, '');
+/** A bare host becomes https://host; a full URL (a proxy, a test double) is taken as given. */
+const site = (v: string) => (/^https?:\/\//.test(v.trim()) ? v.trim().replace(/\/$/, '') : `https://${host(v)}`);
+
+/* ---------------------------------------------------------------- greytHR */
+
+/** `YYYY-MM-DDTHH:mm:ss,empcode,door,1|0` per swipe — 1 in, 0 out — signed SHA1-with-RSA with the swipe API's private key. */
+export const greythrSwipeLines = (punches: Punch[]) =>
+  punches.map((p) => `${p.time.replace(' ', 'T')},${p.code},${p.readerId.slice(0, 20)},${p.direction === 'OUT' ? 0 : 1}`).join('\n');
+export const greythrSign = (privateKeyPem: string, swipes: string) => createSign('RSA-SHA1').update(swipes).end().sign(privateKeyPem, 'base64');
+
+const greythr: HrAdapter = {
+  id: 'GREYTHR',
+  label: 'greytHR',
+  blurb: 'Punches go to greytHR as attendance swipes (its swipe-upload API, self-serve from the greytHR admin).',
+  docsUrl: 'https://www.greythr.com/help-admin/attendance-management/generate-api-key-attendance-swipe/',
+  capabilities: ['pushPunches'],
+  fields: [
+    { key: 'domain', label: 'greytHR address', placeholder: 'yourcompany.greythr.com', required: true },
+    { key: 'apiId', label: 'Attendance swipe API ID', required: true, help: 'greytHR admin → Attendance → Swipe API key' },
+    { key: 'privateKey', label: 'Private key (PEM)', secret: true, required: true, help: 'The key greytHR gave with the API ID; kept encrypted' },
+  ],
+  async test(config, secrets) {
+    need(config, 'domain', 'greytHR address');
+    need(config, 'apiId', 'API ID');
+    const pem = need(secrets, 'privateKey', 'Private key');
+    try {
+      greythrSign(pem, 'test');
+    } catch {
+      return { ok: false, message: 'The private key is not a valid PEM key.' };
+    }
+    /* No read endpoint comes with the swipe key; an empty, signed upload proves the address and the key. */
+    const r = await this.pushPunches!(config, secrets, []);
+    return r.retryAll ? { ok: false, message: r.rejected[0]?.error || 'greytHR did not accept the request.' } : { ok: true, message: 'greytHR accepted a signed request.' };
+  },
+  async pushPunches(config, secrets, punches) {
+    const swipes = greythrSwipeLines(punches);
+    const body = new URLSearchParams({ id: config.apiId, swipes, sign: greythrSign(secrets.privateKey, swipes) }).toString();
+    const res = await guardedRequest('POST', `${site(config.domain)}/v2/attendance/asca/swipes`, {
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest' },
+      body,
+      timeoutMs: 20_000,
+    });
+    if (res.status >= 200 && res.status < 300) return { accepted: punches.length, rejected: [] };
+    return { accepted: 0, rejected: punches.map((p) => ({ key: p.key, error: `greytHR answered ${res.status}` })), retryAll: res.status >= 500 || res.status === 429 || res.status === 0 };
+  },
+};
+
+/* ---------------------------------------------------------------- Keka */
+
+const kekaToken = async (config: Record<string, string>, secrets: Record<string, string>) => {
+  const body = new URLSearchParams({ grant_type: 'kekaapi', scope: 'kekaapi', client_id: need(config, 'clientId', 'Client ID'), client_secret: need(secrets, 'clientSecret', 'Client secret'), api_key: need(secrets, 'apiKey', 'API key') }).toString();
+  const res = await guardedRequest('POST', `${config.apiBase ? site(config.apiBase) : `https://${config.sandbox === 'yes' ? 'login.kekademo.com' : 'login.keka.com'}`}/connect/token`, { headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body, timeoutMs: 20_000 });
+  if (res.status !== 200) throw new Error(`Keka refused the credentials (${res.status})`);
+  const token = String((JSON.parse(res.text || '{}') as any).access_token || '');
+  if (!token) throw new Error('Keka gave no token');
+  return token;
+};
+
+const keka: HrAdapter = {
+  id: 'KEKA',
+  label: 'Keka',
+  blurb: 'Punches go in as attendance logs; people can be read from Keka so the two lists match.',
+  docsUrl: 'https://developers.keka.com/',
+  capabilities: ['pushPunches', 'pullEmployees'],
+  fields: [
+    { key: 'tenant', label: 'Keka subdomain', placeholder: 'yourcompany', required: true, help: 'yourcompany.keka.com' },
+    { key: 'server', label: 'Attendance server', placeholder: 'cin01', required: true, help: 'From Keka’s attendance-log API guide; India is cin01 or cin02' },
+    { key: 'clientId', label: 'Client ID', required: true },
+    { key: 'clientSecret', label: 'Client secret', secret: true, required: true },
+    { key: 'apiKey', label: 'API key', secret: true, required: true, help: 'Keka → Settings → Integrations → API' },
+    { key: 'attendanceApiKey', label: 'Attendance-log API key', secret: true, required: true, help: 'Issued by Keka support for log ingestion' },
+    { key: 'deviceId', label: 'Device ID shown in Keka', placeholder: 'CLOR', required: true },
+    { key: 'sandbox', label: 'Sandbox (kekademo)', placeholder: 'no' },
+    { key: 'apiBase', label: 'API base URL override', help: 'Leave blank. Only for a proxy or a test double; replaces every Keka host.' },
+  ],
+  async test(config, secrets) {
+    try {
+      await kekaToken(config, secrets);
+      return { ok: true, message: 'Keka accepted the credentials.' };
+    } catch (e: any) {
+      return { ok: false, message: String(e?.message || e) };
+    }
+  },
+  async pushPunches(config, secrets, punches) {
+    const body = JSON.stringify(punches.map((p) => ({ deviceId: config.deviceId, attendanceNumber: p.code, timestamp: p.time.replace(' ', 'T'), status: p.direction === 'OUT' ? 1 : 0 })));
+    const res = await guardedRequest('POST', `${config.apiBase ? site(config.apiBase) : `https://${host(config.server)}.a.keka.com`}/v1/logs`, { headers: { 'Content-Type': 'application/json', 'X-API-Key': need(secrets, 'attendanceApiKey', 'Attendance-log API key') }, body, timeoutMs: 20_000 });
+    if (res.status >= 200 && res.status < 300) return { accepted: punches.length, rejected: [] };
+    return { accepted: 0, rejected: punches.map((p) => ({ key: p.key, error: `Keka answered ${res.status}` })), retryAll: res.status >= 500 || res.status === 429 || res.status === 0 };
+  },
+  async pullEmployees(config, secrets) {
+    const token = await kekaToken(config, secrets);
+    const out: RemoteEmployee[] = [];
+    for (let page = 1; page <= 50; page += 1) {
+      const res = await guardedRequest('GET', `${config.apiBase ? site(config.apiBase) : `https://${host(config.tenant)}.keka.com`}/api/v1/hris/employees?pageNumber=${page}&pageSize=100`, { headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' }, timeoutMs: 30_000 });
+      if (res.status !== 200) throw new Error(`Keka answered ${res.status} when listing employees`);
+      const j: any = JSON.parse(res.text || '{}');
+      const rows: any[] = j.data || j.employees || [];
+      for (const e of rows) {
+        out.push({
+          externalId: String(e.id || e.employeeId || ''),
+          code: e.employeeNumber ? String(e.employeeNumber) : null,
+          name: String(e.displayName || `${e.firstName || ''} ${e.lastName || ''}`.trim() || e.employeeNumber || ''),
+          email: e.email ? String(e.email) : null,
+          department: e.department?.name || (Array.isArray(e.groups) ? e.groups.find((g: any) => /depart/i.test(String(g.groupType || g.type || '')))?.title : null) || null,
+          active: !(e.employmentStatus === 1 || e.exitStatus === 1 || e.isExited === true),
+        });
+      }
+      if (rows.length < 100 || (j.totalPages && page >= j.totalPages)) break;
+    }
+    return out;
+  },
+};
+
+export const ADAPTERS: HrAdapter[] = [greythr, keka];
+export const adapterOf = (id: string) => ADAPTERS.find((a) => a.id === String(id || '').toUpperCase()) || null;
+export const publicAdapter = (a: HrAdapter) => ({ id: a.id, label: a.label, blurb: a.blurb, docsUrl: a.docsUrl, capabilities: a.capabilities, fields: a.fields });

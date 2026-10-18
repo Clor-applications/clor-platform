@@ -2,6 +2,7 @@ import 'dotenv/config';
 import { buildApp } from './app.js';
 import { startRecurringScheduler } from './services/recurringScheduler.js';
 import { startRetentionPurge } from './services/retention.js';
+import { startHrSync } from './services/hr/sync.js';
 import { startPhotoPurge, startReaderChecks, startVendorSync, startWebhookRetries } from './services/vendorSyncScheduler.js';
 
 const app = buildApp();
@@ -27,3 +28,5 @@ startWebhookRetries();
 
 /* Sign-in records past their use are removed daily — see services/retention.ts. */
 startRetentionPurge();
+/* HR tools: the outbox every minute, their people hourly — see services/hr/sync.ts. */
+startHrSync();

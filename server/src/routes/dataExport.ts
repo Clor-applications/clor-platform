@@ -75,7 +75,7 @@ const num = (v: unknown) => {
  * in. Anything that looks like a secret (a hash, a token, an encrypted
  * value) is dropped from every row.
  */
-const HEAVY = new Set(['DevicePunch', 'DeviceLog', 'PunchPhoto', 'BiometricTemplate', 'WebhookDelivery', 'ApiIdempotency', 'DeviceCommand', 'UnclaimedReader']);
+const HEAVY = new Set(['DevicePunch', 'DeviceLog', 'PunchPhoto', 'BiometricTemplate', 'WebhookDelivery', 'ApiIdempotency', 'DeviceCommand', 'UnclaimedReader', 'HrOutbox', 'HrSyncLog']);
 const SECRETISH = /hash|secret|token|passwordenc|enc$|salt|apikey/i;
 const scrub = (rows: any[]) => rows.map((r) => Object.fromEntries(Object.entries(r).filter(([k]) => !SECRETISH.test(k))));
 async function exportDomain(client: any, dmmf: { datamodel: { models: Array<{ name: string; fields: Array<{ name: string }> }> } }, prefix: string, scope: { orgId: string }) {

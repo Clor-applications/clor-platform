@@ -1,4 +1,6 @@
 import { Router } from 'express';
+import { ADAPTERS, adapterOf, publicAdapter } from '../services/hr/adapters.js';
+import { configOf, encryptSecrets, flushOutbox, pullEmployees, secretsOf } from '../services/hr/sync.js';
 import { randomBytes } from 'node:crypto';
 import { z } from 'zod';
 
@@ -178,4 +180,147 @@ integrationsRouter.post(`${base}/webhooks/:id/test`, can(PermissionAction.EDIT),
   if (!hook) return res.status(404).json({ error: 'No such webhook.' });
   const r = await deliver(hook, 'test', orgId, { message: 'Test from CLOR. If you can read this, the webhook works.' });
   res.json(r);
+});
+
+// ---------------------------------------------------------------------------
+// HR tools (greytHR, Keka, …): connections the company runs alongside
+// ---------------------------------------------------------------------------
+
+const publicConnection = (c: any) => {
+  const a = adapterOf(c.adapter);
+  const secretsPresent = Object.keys(secretsOf(c));
+  return {
+    id: c.id, adapter: c.adapter, adapterLabel: a?.label || c.adapter, name: c.name, config: configOf(c), secretsSet: secretsPresent,
+    enabled: c.enabled, pushPunches: c.pushPunches, pullEmployees: c.pullEmployees, createEmployees: c.createEmployees,
+    capabilities: a?.capabilities || [], lastRunAt: c.lastRunAt, lastError: c.lastError, lastSummary: c.lastSummary, createdAt: c.createdAt,
+  };
+};
+
+integrationsRouter.get(`${base}/hr/adapters`, can(PermissionAction.VIEW), async (req, res) => {
+  if (!(await attendanceRouteOk(req, res))) return;
+  res.json({ adapters: ADAPTERS.map(publicAdapter) });
+});
+
+integrationsRouter.get(`${base}/hr`, can(PermissionAction.VIEW), async (req, res) => {
+  if (!(await attendanceRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const rows = await peoplePrisma.hrConnection.findMany({ where: { accountId, orgId }, orderBy: { createdAt: 'asc' } });
+  const pending = await peoplePrisma.hrOutbox.groupBy({ by: ['connectionId', 'status'], where: { orgId }, _count: { _all: true } });
+  const counts = new Map<string, Record<string, number>>();
+  for (const p of pending) counts.set(p.connectionId, { ...(counts.get(p.connectionId) || {}), [p.status]: p._count._all });
+  res.json({ connections: rows.map((c) => ({ ...publicConnection(c), outbox: counts.get(c.id) || {} })) });
+});
+
+/** Fields come in as one object; the adapter says which are secret and those are encrypted together. */
+function splitFields(adapterId: string, body: any) {
+  const a = adapterOf(adapterId);
+  if (!a) return null;
+  const config: Record<string, string> = {};
+  const secrets: Record<string, string> = {};
+  for (const f of a.fields) {
+    const v = body?.[f.key];
+    if (v === undefined || v === null) continue;
+    (f.secret ? secrets : config)[f.key] = String(v);
+  }
+  return { a, config, secrets };
+}
+
+integrationsRouter.post(`${base}/hr`, can(PermissionAction.EDIT), async (req, res) => {
+  if (!(await attendanceRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const split = splitFields(String(req.body?.adapter || ''), req.body?.fields || {});
+  if (!split) return res.status(400).json({ error: 'Unknown HR tool.' });
+  const missing = split.a.fields.filter((f) => f.required && !(f.secret ? split.secrets : split.config)[f.key]).map((f) => f.label);
+  if (missing.length) return res.status(400).json({ error: `Missing: ${missing.join(', ')}.` });
+  const name = String(req.body?.name || split.a.label).trim().slice(0, 80);
+  const row = await peoplePrisma.hrConnection.create({
+    data: {
+      accountId, orgId, adapter: split.a.id, name, configJson: JSON.stringify(split.config), secretsEnc: Object.keys(split.secrets).length ? encryptSecrets(split.secrets) : null,
+      enabled: Boolean(req.body?.enabled), pushPunches: req.body?.pushPunches !== false && split.a.capabilities.includes('pushPunches'),
+      pullEmployees: Boolean(req.body?.pullEmployees) && split.a.capabilities.includes('pullEmployees'), createEmployees: Boolean(req.body?.createEmployees), createdByUserId: req.auth!.userId,
+    },
+  });
+  res.status(201).json({ connection: publicConnection(row) });
+});
+
+integrationsRouter.put(`${base}/hr/:id`, can(PermissionAction.EDIT), async (req, res) => {
+  if (!(await attendanceRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const c = await peoplePrisma.hrConnection.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
+  if (!c) return res.status(404).json({ error: 'No such connection.' });
+  const split = splitFields(c.adapter, req.body?.fields || {});
+  if (!split) return res.status(400).json({ error: 'Unknown HR tool.' });
+  /* A blank secret keeps the stored one; a value replaces it. */
+  const secrets = { ...secretsOf(c), ...Object.fromEntries(Object.entries(split.secrets).filter(([, v]) => v !== '')) };
+  const row = await peoplePrisma.hrConnection.update({
+    where: { id: c.id },
+    data: {
+      name: req.body?.name !== undefined ? String(req.body.name).trim().slice(0, 80) : c.name,
+      configJson: JSON.stringify({ ...configOf(c), ...split.config }), secretsEnc: Object.keys(secrets).length ? encryptSecrets(secrets) : null,
+      enabled: req.body?.enabled !== undefined ? Boolean(req.body.enabled) : c.enabled,
+      pushPunches: req.body?.pushPunches !== undefined ? Boolean(req.body.pushPunches) && split.a.capabilities.includes('pushPunches') : c.pushPunches,
+      pullEmployees: req.body?.pullEmployees !== undefined ? Boolean(req.body.pullEmployees) && split.a.capabilities.includes('pullEmployees') : c.pullEmployees,
+      createEmployees: req.body?.createEmployees !== undefined ? Boolean(req.body.createEmployees) : c.createEmployees,
+    },
+  });
+  res.json({ connection: publicConnection(row) });
+});
+
+integrationsRouter.delete(`${base}/hr/:id`, can(PermissionAction.EDIT), async (req, res) => {
+  if (!(await attendanceRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const c = await peoplePrisma.hrConnection.findFirst({ where: { id: String(req.params.id), accountId, orgId }, select: { id: true } });
+  if (!c) return res.status(404).json({ error: 'No such connection.' });
+  await peoplePrisma.hrOutbox.deleteMany({ where: { connectionId: c.id } });
+  await peoplePrisma.hrSyncLog.deleteMany({ where: { connectionId: c.id } });
+  await peoplePrisma.hrConnection.delete({ where: { id: c.id } });
+  res.json({ ok: true });
+});
+
+/** Prove the credentials work, without sending anything that counts. */
+integrationsRouter.post(`${base}/hr/:id/test`, can(PermissionAction.EDIT), async (req, res) => {
+  if (!(await attendanceRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const c = await peoplePrisma.hrConnection.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
+  if (!c) return res.status(404).json({ error: 'No such connection.' });
+  const a = adapterOf(c.adapter);
+  if (!a) return res.status(400).json({ error: 'Unknown HR tool.' });
+  try {
+    const r = await a.test(configOf(c), secretsOf(c));
+    await peoplePrisma.hrConnection.update({ where: { id: c.id }, data: { lastError: r.ok ? null : r.message } });
+    res.json(r);
+  } catch (e: any) {
+    res.json({ ok: false, message: String(e?.message || e) });
+  }
+});
+
+/** Read its people now, rather than at the next hour. */
+integrationsRouter.post(`${base}/hr/:id/pull`, can(PermissionAction.EDIT), async (req, res) => {
+  if (!(await attendanceRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const c = await peoplePrisma.hrConnection.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
+  if (!c) return res.status(404).json({ error: 'No such connection.' });
+  res.json(await pullEmployees(c, req.auth!.userId));
+});
+
+/** Send what is waiting now, rather than at the next minute. */
+integrationsRouter.post(`${base}/hr/:id/flush`, can(PermissionAction.EDIT), async (req, res) => {
+  if (!(await attendanceRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const c = await peoplePrisma.hrConnection.findFirst({ where: { id: String(req.params.id), accountId, orgId }, select: { id: true } });
+  if (!c) return res.status(404).json({ error: 'No such connection.' });
+  await peoplePrisma.hrOutbox.updateMany({ where: { connectionId: c.id, status: 'PENDING' }, data: { nextAttemptAt: new Date() } });
+  res.json({ sent: await flushOutbox() });
+});
+
+integrationsRouter.get(`${base}/hr/:id/log`, can(PermissionAction.VIEW), async (req, res) => {
+  if (!(await attendanceRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const c = await peoplePrisma.hrConnection.findFirst({ where: { id: String(req.params.id), accountId, orgId }, select: { id: true } });
+  if (!c) return res.status(404).json({ error: 'No such connection.' });
+  const [log, failed] = await Promise.all([
+    peoplePrisma.hrSyncLog.findMany({ where: { connectionId: c.id }, orderBy: { createdAt: 'desc' }, take: 50 }),
+    peoplePrisma.hrOutbox.findMany({ where: { connectionId: c.id, status: 'FAILED' }, orderBy: { createdAt: 'desc' }, take: 50, select: { id: true, key: true, lastError: true, attempts: true, createdAt: true } }),
+  ]);
+  res.json({ log, failed });
 });

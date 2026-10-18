@@ -4,6 +4,7 @@ import { emit as emitWebhook } from './webhooks.js';
 import { punchPhotoRetentionDays } from '../retention.js';
 import { MAX_ACCURACY_M, MIN_GAP_MS, decodePhoto, describeDistance, matchFence, nextDirection, validPosition } from './portal.js';
 import { recomputeDeviceDay, shiftDayFor } from '../../routes/iclock.js';
+import { enqueuePunches } from '../hr/sync.js';
 
 /**
  * A punch from a phone, for whoever is holding it: an employee in the portal,
@@ -128,6 +129,7 @@ export async function recordPhonePunch(e: PunchingEmployee, input: any): Promise
     reader: serialNumber,
     punches: [{ readerId: e.devicePin || e.code, employeeId: e.id, time: localTime, direction: kind, verifyMode: PHONE_VERIFY, site: inside.fence.name }],
   });
+  void enqueuePunches(e.orgId, [{ employeeId: e.id, code: e.code || e.devicePin || null, readerId: serialNumber, time: localTime, direction: kind, verifyMode: PHONE_VERIFY }]);
   await recomputeDeviceDay(e.accountId, e.orgId, { id: e.id, branchId: e.branchId, areaId: e.areaId }, shiftDate);
   return { status: 201, body: { kind, time: istTime(at), site: inside.fence.name, distance: Math.round(inside.distance), photo: Boolean(saved) } };
 }

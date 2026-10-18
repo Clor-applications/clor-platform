@@ -1,4 +1,5 @@
 import { Router, type Request, type Response } from 'express';
+import { enqueuePunches } from '../services/hr/sync.js';
 
 import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { isFeatureEnabled } from '../services/features.js';
@@ -286,6 +287,8 @@ export async function ingestPunches(device: { id: string; accountId: string; org
     reader: device.serialNumber,
     punches: fresh.map((r) => ({ readerId: r.pin, employeeId: r.employeeId, time: r.localTime, direction: r.kind, verifyMode: r.verifyMode })),
   });
+  /* And to any HR tool the company connected (services/hr/sync.ts); never waits. */
+  void enqueuePunches(device.orgId, fresh.map((r) => ({ employeeId: r.employeeId, code: r._emp?.code || r._emp?.devicePin || null, readerId: r.pin, time: r.localTime, direction: r.kind, verifyMode: r.verifyMode })));
 
   const days = new Map<string, { emp: any; date: string }>();
   for (const r of fresh) if (r._emp && r.shiftDate) days.set(`${r._emp.id}|${r.shiftDate}`, { emp: r._emp, date: r.shiftDate });
