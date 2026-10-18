@@ -13,7 +13,7 @@ import { platformPrisma } from '../utils/platformPrisma.js';
  * the response, and is not logged twice. Never delays or fails the request.
  */
 
-const MODULES: Record<string, string> = { payroll: 'PAYROLL', attendance: 'ATTENDANCE' };
+const MODULES: Record<string, string> = { payroll: 'PAYROLL', attendance: 'ATTENDANCE', people: 'PEOPLE' };
 
 /** Not changes to anything: checks and trial runs. */
 const SKIP = [/\/payroll\/runs\/[^/]+\/validate$/, /\/attendance\/devices\/test-etimeoffice$/];
@@ -55,6 +55,13 @@ const PHRASES: Array<[RegExp, string]> = [
   [/^DELETE attendance\/devices\/:id$/, 'Removed a reader'],
   [/^POST attendance\/devices\/:id\/approve-network$/, 'Approved a reader’s network'],
   [/^POST attendance\/portal-access\/codes$/, 'Gave portal activation codes'],
+  [/^POST people\/employees$/, 'Added an employee'],
+  [/^(PUT|PATCH) people\/employees\/:id$/, 'Changed an employee'],
+  [/^DELETE people\/employees\/:id$/, 'Removed an employee'],
+  [/^POST people\/employees\/:id\/documents/, 'Added an employee document'],
+  [/^DELETE people\/employees\/:id\/documents/, 'Removed an employee document'],
+  [/^(POST|PUT|DELETE) people\/(departments|positions|areas|contractors)/, 'Changed the org structure'],
+  [/^POST people\/data-requests/, 'Raised a data request'],
 ];
 
 /** Request fields never written to the log. */
@@ -74,7 +81,7 @@ const ID = /^(c[a-z0-9]{20,}|[0-9a-f-]{24,}|\d{4}-\d{2})$/i;
 export function auditMutations(req: Request, res: Response, next: NextFunction) {
   if (!['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method)) return next();
   const path = req.originalUrl.split('?')[0];
-  const m = /^\/api\/orgs\/[^/]+\/(payroll|attendance)(\/.*)?$/.exec(path);
+  const m = /^\/api\/orgs\/[^/]+\/(payroll|attendance|people)(\/.*)?$/.exec(path);
   if (!m || SKIP.some((re) => re.test(path))) return next();
 
   res.on('finish', () => {

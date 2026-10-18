@@ -1,3 +1,4 @@
+import { isAppEntitled } from '../subscriptions.js';
 import type { Request, Response } from 'express';
 
 import { isFeatureEnabled } from '../features.js';
@@ -41,7 +42,13 @@ export const payrollEnabled = async (req: Request, res: Response): Promise<boole
 /** Both, in the order a route wants them. Returns false when it has replied. */
 export const payrollRouteOk = async (req: Request, res: Response): Promise<boolean> => {
   if (!orgMatches(req, res)) return false;
-  return payrollEnabled(req, res);
+  if (!(await payrollEnabled(req, res))) return false;
+  /* Bought, and the subscription in good standing: the shell hides an unowned app, the API refuses it too. */
+  if (!(await isAppEntitled(req.tenant!.accountId, 'payroll'))) {
+    res.status(402).json({ error: 'Payroll is not on this account’s subscription.', app: 'payroll', code: 'APP_NOT_SUBSCRIBED' });
+    return false;
+  }
+  return true;
 };
 
 /** The module and resources payroll permissions are granted against. */

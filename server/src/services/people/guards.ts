@@ -1,3 +1,4 @@
+import { isAppEntitled } from '../subscriptions.js';
 import type { Request, Response } from 'express';
 
 import { isFeatureEnabled } from '../features.js';
@@ -21,7 +22,13 @@ export const peopleEnabled = async (req: Request, res: Response): Promise<boolea
 
 export const peopleRouteOk = async (req: Request, res: Response): Promise<boolean> => {
   if (!orgMatches(req, res)) return false;
-  return peopleEnabled(req, res);
+  if (!(await peopleEnabled(req, res))) return false;
+  /* Bought, and the subscription in good standing: the shell hides an unowned app, the API refuses it too. */
+  if (!(await isAppEntitled(req.tenant!.accountId, 'people'))) {
+    res.status(402).json({ error: 'People is not on this account’s subscription.', app: 'people', code: 'APP_NOT_SUBSCRIBED' });
+    return false;
+  }
+  return true;
 };
 
 export const PEOPLE_MODULE = 'PEOPLE';
