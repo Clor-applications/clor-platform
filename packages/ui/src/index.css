@@ -6460,3 +6460,245 @@ th.ui-th {
 :where([data-app='people'], [data-app='attendance'], [data-app='payroll']) .ui-tab.is-active::after {
   background-color: rgb(var(--brand));
 }
+
+/*
+ * HR apps, second pass (People, Attendance, Payroll).
+ *
+ * The coral palette above was borrowed from another product and fought the
+ * Clor mark: coral buttons, teal names, pink table heads and a pink band
+ * behind every title, at 13px body and 11px all-caps headers. This layer
+ * puts the HR apps on Clor's own ink and orange, one neutral ground, and a
+ * type scale that reads at a glance. Accounting is untouched.
+ *
+ *   ground  #F5F6F4    surface #FFFFFF    hairline #E4E7E4   field #CDD2CE
+ *   ink     #1A1D21    muted   #5E6670    subtle   #7A828A
+ *   action  #C2410C (white text 5.2:1)    accent #EA580C (focus, selection)
+ *
+ * Type: 14px body, 13px tables, 12px sentence-case column heads, 22px page
+ * titles, 15px section titles. Radius 8px on surfaces, 6px on controls.
+ */
+:is([data-app='people'], [data-app='attendance'], [data-app='payroll']) {
+  --app-bg: 245 246 244;
+  --surface: 255 255 255;
+  --surface-sunken: 248 249 248;
+  --border: 228 231 228;
+  --border-strong: 205 210 206;
+  --border-field: 205 210 206;
+  --fg: 26 29 33;
+  --fg-muted: 94 102 112;
+  --fg-subtle: 122 130 138;
+  --brand: 234 88 12;
+  --brand-deep: 154 52 18;
+  --brand-hover: 154 52 18;
+  --brand-pressed: 124 45 18;
+  --btn-primary-bg: 194 65 12;
+  --btn-primary-hover: 154 52 18;
+  --brand-soft: 255 241 232;
+  --brand-subtle: 255 248 243;
+  --brand-border: 254 215 190;
+  --brand-ink: 154 52 18;
+  --on-brand: 255 255 255;
+  --accent-soft: 255 241 232;
+  --ring: 234 88 12;
+  --link: 154 52 18;
+  --link-hover: 124 45 18;
+  --col-party: 26 29 33;
+  --rail-hover: 255 248 243;
+  --rail-active: 255 241 232;
+  --heading-bg: 248 249 248;
+  --heading-hover: 241 243 241;
+  --page-heading-bg: 245 246 244;
+}
+:root[data-theme='dark'] :is([data-app='people'], [data-app='attendance'], [data-app='payroll']),
+:root[data-theme='dark']:is([data-app='people'], [data-app='attendance'], [data-app='payroll']) {
+  --app-bg: 14 16 17;
+  --surface: 22 25 27;
+  --surface-sunken: 28 32 34;
+  --border: 42 47 51;
+  --border-strong: 62 69 74;
+  --border-field: 62 69 74;
+  --fg: 236 237 238;
+  --fg-muted: 163 168 174;
+  --fg-subtle: 133 139 146;
+  --brand: 251 146 60;
+  --brand-deep: 253 186 116;
+  --btn-primary-bg: 251 146 60;
+  --btn-primary-hover: 253 186 116;
+  --brand-pressed: 234 88 12;
+  --on-brand: 24 20 16;
+  --brand-soft: 67 32 12;
+  --brand-subtle: 40 22 12;
+  --brand-border: 124 45 18;
+  --brand-ink: 253 186 116;
+  --accent-soft: 67 32 12;
+  --ring: 251 146 60;
+  --link: 253 186 116;
+  --link-hover: 254 215 170;
+  --col-party: 236 237 238;
+  --rail-hover: 40 22 12;
+  --rail-active: 67 32 12;
+  --heading-bg: 28 32 34;
+  --heading-hover: 36 41 44;
+  --page-heading-bg: 14 16 17;
+}
+
+:root:is([data-app='people'], [data-app='attendance'], [data-app='payroll']) main {
+  font-size: 0.875rem;
+  line-height: 1.45;
+}
+
+/* Page title: on the ground, not in a tinted band. */
+:root:is([data-app='people'], [data-app='attendance'], [data-app='payroll']) main .ui-page-heading {
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0;
+  padding: 0.25rem 0 0.75rem !important;
+  margin-bottom: 0.25rem !important;
+  align-items: center;
+}
+:root:is([data-app='people'], [data-app='attendance'], [data-app='payroll']) main .ui-t-page {
+  font-size: 1.375rem !important;
+  line-height: 1.75rem !important;
+  font-weight: 650 !important;
+  letter-spacing: -0.015em;
+}
+:root:is([data-app='people'], [data-app='attendance'], [data-app='payroll']) main .ui-page-heading p {
+  font-size: 0.8125rem;
+  color: rgb(var(--fg-muted));
+  margin-top: 0.125rem;
+  max-width: 80ch;
+}
+:root:is([data-app='people'], [data-app='attendance'], [data-app='payroll']) main .ui-page-heading .ui-entity-mark { display: none; }
+
+/* Surfaces */
+:root:is([data-app='people'], [data-app='attendance'], [data-app='payroll']) main :is(.ui-card, .ui-stat) {
+  border-color: rgb(var(--border));
+  border-radius: 8px;
+  box-shadow: 0 1px 2px rgb(16 24 40 / 0.04);
+}
+:root:is([data-app='people'], [data-app='attendance'], [data-app='payroll']) main .ui-card-head {
+  background: transparent !important;
+}
+:root:is([data-app='people'], [data-app='attendance'], [data-app='payroll']) main .ui-t-sec {
+  font-size: 0.9375rem !important;
+  line-height: 1.375rem !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.005em;
+}
+:root:is([data-app='people'], [data-app='attendance'], [data-app='payroll']) main :is(.ui-caption, .ui-muted) {
+  color: rgb(var(--fg-muted));
+}
+:root:is([data-app='people'], [data-app='attendance'], [data-app='payroll']) main .ui-card-label {
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+  color: rgb(var(--fg-muted));
+}
+
+/* Forms: labels are read, not squinted at. */
+:root:is([data-app='people'], [data-app='attendance'], [data-app='payroll']) main .ui-label {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+  color: rgb(var(--fg));
+  margin-bottom: 0.3125rem;
+}
+:root:is([data-app='people'], [data-app='attendance'], [data-app='payroll']) main :is(.ui-input, .ui-select, textarea.ui-input) {
+  font-size: 0.875rem;
+  min-height: 2.25rem;
+  border-radius: 6px;
+  border-color: rgb(var(--border-field));
+  background-color: rgb(var(--surface));
+}
+:root:is([data-app='people'], [data-app='attendance'], [data-app='payroll']) main :is(.ui-input, .ui-select):hover:not(:disabled) {
+  border-color: rgb(var(--fg-subtle));
+}
+:root:is([data-app='people'], [data-app='attendance'], [data-app='payroll']) main :is(.ui-input, .ui-select):focus-visible,
+:root:is([data-app='people'], [data-app='attendance'], [data-app='payroll']) main :is(.ui-input, .ui-select):focus {
+  border-color: rgb(var(--brand));
+  box-shadow: 0 0 0 3px rgb(var(--brand) / 0.18);
+  outline: none;
+}
+:root:is([data-app='people'], [data-app='attendance'], [data-app='payroll']) main :is(input[type='checkbox'], input[type='radio']) {
+  accent-color: rgb(var(--btn-primary-bg));
+}
+
+/* Buttons: one height, one radius; disabled is grey, never pale coral. */
+:root:is([data-app='people'], [data-app='attendance'], [data-app='payroll']) main .ui-btn {
+  border-radius: 6px;
+  min-height: 2.25rem;
+  font-weight: 600;
+}
+:root:is([data-app='people'], [data-app='attendance'], [data-app='payroll']) main .ui-btn-sm {
+  min-height: 1.875rem;
+}
+:root:is([data-app='people'], [data-app='attendance'], [data-app='payroll']) main .ui-btn-secondary {
+  border-color: rgb(var(--border-field));
+  background-color: rgb(var(--surface));
+}
+:root:is([data-app='people'], [data-app='attendance'], [data-app='payroll']) main .ui-btn-secondary:hover:not(:disabled) {
+  border-color: rgb(var(--fg-subtle));
+  background-color: rgb(var(--surface-sunken));
+}
+:root:is([data-app='people'], [data-app='attendance'], [data-app='payroll']) main .ui-btn:disabled,
+:root:is([data-app='people'], [data-app='attendance'], [data-app='payroll']) main .ui-btn-primary:disabled {
+  background-color: rgb(var(--surface-sunken)) !important;
+  border-color: rgb(var(--border)) !important;
+  color: rgb(var(--fg-subtle)) !important;
+  opacity: 1;
+}
+
+/* Tables: quiet sentence-case heads, ink names, hover row. */
+:root:is([data-app='people'], [data-app='attendance'], [data-app='payroll']) main :is(.ui-table thead th, .ui-th) {
+  background-color: rgb(var(--heading-bg));
+  color: rgb(var(--fg-muted));
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+}
+:root:is([data-app='people'], [data-app='attendance'], [data-app='payroll']) main .ui-table tbody td {
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+}
+:root:is([data-app='people'], [data-app='attendance'], [data-app='payroll']) main .ui-table tbody tr:hover > td {
+  background-color: rgb(var(--surface-sunken));
+}
+:root:is([data-app='people'], [data-app='attendance'], [data-app='payroll']) main .ui-col-entity.ui-col-entity {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: rgb(var(--fg));
+}
+:root:is([data-app='people'], [data-app='attendance'], [data-app='payroll']) main :is(a.ui-col-entity, .ui-col-entity a, .ui-col-entity button, td button.ui-link, td a.ui-link) {
+  color: rgb(var(--fg));
+  font-weight: 600;
+  text-decoration: none;
+}
+:root:is([data-app='people'], [data-app='attendance'], [data-app='payroll']) main :is(a.ui-col-entity, .ui-col-entity a, .ui-col-entity button, td button.ui-link, td a.ui-link):hover {
+  color: rgb(var(--brand-ink));
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* Pills: square-ish tags, the same height as a line of table text. */
+:root:is([data-app='people'], [data-app='attendance'], [data-app='payroll']) main .ui-pill {
+  border-radius: 5px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.0625rem 0.4375rem;
+}
+
+/* Tables in the HR apps: rows, not a spreadsheet grid; actions sized to the row. */
+:root:is([data-app='people'], [data-app='attendance'], [data-app='payroll']) main :is(.ui-table thead th + th, .ui-table tbody td + td) {
+  border-left: 0;
+}
+:root:is([data-app='people'], [data-app='attendance'], [data-app='payroll']) main .ui-table tbody td .ui-btn {
+  min-height: 1.75rem;
+  height: 1.75rem;
+  padding: 0 0.625rem;
+  font-size: 0.75rem;
+}
