@@ -119,7 +119,7 @@ export default function Resignations() {
                   <ColumnHeader label="Joined" col="joined" state={filters} type="date" />
                   <ColumnHeader label="Last day" col="left" state={filters} type="date" />
                   <th scope="col">Why</th>
-                  <ColumnHeader label="Note" col="note" state={filters} />
+                  <ColumnHeader label="Note" col="note" state={filters}  className="ui-col-grow" />
                   <th scope="col"><span className="sr-only">Rehire</span></th>
                 </tr>
               </thead>
@@ -147,7 +147,7 @@ export default function Resignations() {
                       <td className="ui-col-date whitespace-nowrap">{p.dateOfJoining || '—'}</td>
                       <td className="ui-col-date whitespace-nowrap">{p.dateOfLeaving || '—'}</td>
                       <td>{LEAVING_TYPES[p.leavingType] || '—'}</td>
-                      <td className="max-w-[16rem] truncate" title={p.leavingReason || ''}>{p.leavingReason || '—'}</td>
+                      <td className="ui-col-grow whitespace-normal min-w-[10rem]">{p.leavingReason || '—'}</td>
                       <td className="ui-col-meta text-end"><button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" aria-label={`Rehire ${p.name}`} onClick={() => rehire(p)}><UserCheck size={14} aria-hidden="true" /> Rehire</button></td>
                     </tr>
                   ))

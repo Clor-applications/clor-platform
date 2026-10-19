@@ -97,7 +97,7 @@ export default function MonthClose({ openScreen, params }) {
         description="Check the month before Payroll takes it. Closing makes its days final and keeps a snapshot of the figures."
         actions={<input type="month" className="ui-input !w-auto" value={month} max={todayIst().slice(0, 7)} onChange={(e) => setMonth(e.target.value)} aria-label="Month" />}
       />
-      <div className="px-5 lg:px-7 pb-8 space-y-6">
+      <div className="pb-8 space-y-6">
       <LoadFailed message={error} onRetry={load} />
       {!data ? (
         error ? null : <SkeletonCard lines={8} />
@@ -169,7 +169,7 @@ export default function MonthClose({ openScreen, params }) {
               <table className="ui-table ui-table-sticky w-full">
                 <thead>
                   <tr>
-                    <ColumnHeader label="Employee" col="employee" state={filters} />
+                    <ColumnHeader label="Employee" col="employee" state={filters}  className="ui-col-grow" />
                     <th scope="col" className="ui-num">No check-out</th>
                     <th scope="col" className="ui-num">No attendance</th>
                     <th scope="col" className="ui-num">Overtime to approve</th>

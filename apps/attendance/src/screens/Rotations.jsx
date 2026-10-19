@@ -99,7 +99,7 @@ export default function Rotations() {
           <table className="ui-table ui-table-sticky w-full">
             <thead>
               <tr>
-                <ColumnHeader label="Rotation" col="name" state={filters} />
+                <ColumnHeader label="Rotation" col="name" state={filters}  className="ui-col-grow" />
                 <th scope="col">Pattern</th>
                 <th scope="col">Each step</th>
                 <ColumnHeader label="From" col="from" state={filters} type="date" />
@@ -286,7 +286,7 @@ function RotationCrew({ rotation, name, onClose }) {
           <table className="ui-table w-full text-sm">
             <thead>
               <tr>
-                <th scope="col" className="ui-th">Employee</th>
+                <th scope="col" className="ui-col-grow ui-th">Employee</th>
                 <th scope="col" className="ui-th">Starts at step</th>
                 <th scope="col" className="ui-th">From</th>
                 <th scope="col" className="ui-th">Until</th>

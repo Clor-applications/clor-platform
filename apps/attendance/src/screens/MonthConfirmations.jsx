@@ -64,7 +64,7 @@ export default function MonthConfirmations() {
             <thead>
               <tr>
                 <ColumnHeader label="Employee" col="name" state={filters} />
-                <ColumnHeader label="What they say" col="note" state={filters} />
+                <ColumnHeader label="What they say" col="note" state={filters}  className="ui-col-grow" />
                 <ColumnHeader label="When" col="at" state={filters} type="date" />
               </tr>
             </thead>
@@ -83,7 +83,7 @@ export default function MonthConfirmations() {
                 rows.map((d) => (
                   <tr key={d.employeeId}>
                     <td className="ui-col-entity">{d.name}</td>
-                    <td className="max-w-md">{d.note}</td>
+                    <td className="ui-col-grow whitespace-normal">{d.note}</td>
                     <td className="ui-col-date whitespace-nowrap">{new Date(d.at).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}</td>
                   </tr>
                 ))

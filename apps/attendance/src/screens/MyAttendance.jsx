@@ -66,17 +66,17 @@ export default function MyAttendance() {
     return (
       <div className="space-y-3">
         <PageHeader entity="attendance" title="My attendance" />
-        <div className="px-5 lg:px-7 pb-8"><LoadFailed message={error} onRetry={load} /></div>
+        <div className="pb-8"><LoadFailed message={error} onRetry={load} /></div>
       </div>
     );
   }
-  if (!me) return <div className="space-y-3"><PageHeader entity="attendance" title="My attendance" /><div className="px-5 lg:px-7 pb-8"><SkeletonCard lines={6} /></div></div>;
+  if (!me) return <div className="space-y-3"><PageHeader entity="attendance" title="My attendance" /><div className="pb-8"><SkeletonCard lines={6} /></div></div>;
   const t = me.todayRecord;
 
   return (
     <div className="space-y-3">
       <PageHeader entity="attendance" title="My attendance" description={`${me.employee.name}${me.employee.code ? ` · ${me.employee.code}` : ''} · ${me.shift.name} (${me.shift.startTime}–${me.shift.endTime})`} />
-      <div className="px-5 lg:px-7 pb-8 space-y-6">
+      <div className="pb-8 space-y-6">
 
       {me.phone?.allowed ? (
         <PhonePunch phone={me.phone} punches={me.punches} onPunch={phonePunch} onDone={load} />

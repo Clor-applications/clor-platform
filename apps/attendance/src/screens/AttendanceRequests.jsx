@@ -134,7 +134,7 @@ export default function AttendanceRequests() {
                   <ColumnHeader label="Day" col="date" state={filters} type="date" />
                   <th scope="col">Was</th>
                   <th scope="col">Asked for</th>
-                  <ColumnHeader label="Reason" col="reason" state={filters} />
+                  <ColumnHeader label="Reason" col="reason" state={filters}  className="ui-col-grow" />
                   <ColumnHeader label="Status" col="status" state={filters} align="center" />
                   <th scope="col"><span className="sr-only">Actions</span></th>
                 </tr>
@@ -164,7 +164,7 @@ export default function AttendanceRequests() {
                         {r.beforeStatus || r.beforeCheckIn ? `${time(r.beforeCheckIn)}–${time(r.beforeCheckOut)}${r.beforeStatus ? ` · ${STATUS_WORD[r.beforeStatus] || r.beforeStatus}` : ''}` : 'Nothing recorded'}
                       </td>
                       <td className="whitespace-nowrap font-medium tabular-nums">{time(r.checkIn)}–{time(r.checkOut)}</td>
-                      <td className="max-w-[20rem]">
+                      <td className="ui-col-grow whitespace-normal min-w-[12rem]">
                         {r.reasonCode ? <span className="ui-pill ui-pill-neutral mr-1.5">{reasonLabel(r.reasonCode)}</span> : null}
                         <span className="truncate" title={r.reason}>{r.reason}</span>
                       </td>

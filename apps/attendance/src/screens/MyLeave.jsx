@@ -60,11 +60,11 @@ export default function MyLeave() {
     return (
       <div className="space-y-3">
         <PageHeader entity="leave" title="My leave" />
-        <div className="px-5 lg:px-7 pb-8"><LoadFailed message={error} onRetry={load} /></div>
+        <div className="pb-8"><LoadFailed message={error} onRetry={load} /></div>
       </div>
     );
   }
-  if (!me) return <div className="space-y-3"><PageHeader entity="leave" title="My leave" /><div className="px-5 lg:px-7 pb-8"><SkeletonCard lines={6} /></div></div>;
+  if (!me) return <div className="space-y-3"><PageHeader entity="leave" title="My leave" /><div className="pb-8"><SkeletonCard lines={6} /></div></div>;
 
   return (
     <div className="space-y-3">
@@ -80,7 +80,7 @@ export default function MyLeave() {
           </div>
         }
       />
-      <div className="px-5 lg:px-7 pb-8 space-y-6">
+      <div className="pb-8 space-y-6">
 
       {me.types.length ? (
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -135,7 +135,7 @@ export default function MyLeave() {
                 <th scope="col" className="ui-col-date">Dates</th>
                 <th scope="col">Type</th>
                 <th scope="col" className="ui-num">Days</th>
-                <th scope="col">Reason</th>
+                <th className="ui-col-grow" scope="col">Reason</th>
                 <th scope="col" className="ui-col-h-center">Status</th>
                 <th scope="col"><span className="sr-only">Cancel</span></th>
               </tr>
@@ -148,7 +148,7 @@ export default function MyLeave() {
                     <td className="ui-col-date whitespace-nowrap">{leaveRange(r.fromDate, r.toDate)}</td>
                     <td>{r.leaveTypeName}</td>
                     <td className="ui-num">{r.days}</td>
-                    <td className="max-w-[20rem] truncate" title={r.reason}>{r.reason}</td>
+                    <td className="ui-col-grow whitespace-normal min-w-[10rem]">{r.reason}</td>
                     <td className="ui-col-h-center"><span className={`ui-pill ${LEAVE_STATUS[r.status] || 'ui-pill-neutral'}`}>{r.status.toLowerCase()}</span></td>
                     <td className="ui-col-meta text-end">
                       {cancellable ? <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" onClick={() => cancel(r)}>Cancel</button> : null}

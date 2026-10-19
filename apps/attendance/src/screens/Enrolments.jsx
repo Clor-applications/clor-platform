@@ -80,7 +80,7 @@ export default function Enrolments() {
             <table className="ui-table ui-table-sticky w-full">
               <thead>
                 <tr>
-                  <ColumnHeader label="Employee" col="employee" state={filters} />
+                  <ColumnHeader label="Employee" col="employee" state={filters}  className="ui-col-grow" />
                   <ColumnHeader label="Reader ID" col="pin" state={filters} />
                   <th scope="col" className="ui-num">Fingerprints</th>
                   <ColumnHeader label="Face" col="face" state={filters} align="center" />

@@ -157,7 +157,7 @@ export default function LeaveRequests() {
                   <ColumnHeader label="Type" col="type" state={filters} />
                   <ColumnHeader label="Dates" col="from" state={filters} type="date" />
                   <th scope="col" className="ui-num">Days</th>
-                  <ColumnHeader label="Reason" col="reason" state={filters} />
+                  <ColumnHeader label="Reason" col="reason" state={filters}  className="ui-col-grow" />
                   <ColumnHeader label="Status" col="status" state={filters} align="center" />
                   <th scope="col"><span className="sr-only">Actions</span></th>
                 </tr>
@@ -188,7 +188,7 @@ export default function LeaveRequests() {
                       <td className="whitespace-nowrap">{r.leaveTypeName}{r.isPaid ? '' : <span className="ui-caption"> · unpaid</span>}</td>
                       <td className="ui-col-date whitespace-nowrap" title={leaveRange(r.fromDate, r.toDate)}>{span(r.fromDate, r.toDate)}</td>
                       <td className="ui-num">{r.days}</td>
-                      <td className="max-w-[8rem] truncate" title={r.reason}>{r.reason}</td>
+                      <td className="ui-col-grow whitespace-normal min-w-[10rem]">{r.reason}</td>
                       <td className="ui-col-h-center"><StatusPill status={r.status} /></td>
                       <td className="ui-col-meta">
                         <span className="flex justify-end gap-1">

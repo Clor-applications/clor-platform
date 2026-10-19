@@ -101,7 +101,7 @@ export default function LeaveTypes() {
                 <ColumnHeader label="Code" col="code" state={filters} />
                 <th scope="col" className="ui-col-h-center">Paid</th>
                 <th scope="col" className="ui-num">Days a year</th>
-                <th scope="col">How it is earned</th>
+                <th className="ui-col-grow" scope="col">How it is earned</th>
                 <th scope="col" className="ui-num">Requests</th>
                 <ColumnHeader label="Active" col="active" state={filters} align="center" />
               </tr>
@@ -129,7 +129,7 @@ export default function LeaveTypes() {
                     <td className="ui-col-meta">{t.code || '—'}</td>
                     <td className="ui-col-h-center">{t.isPaid ? '✓' : <span className="ui-pill ui-pill-warn">unpaid</span>}</td>
                     <td className="ui-num">{t.isPaid ? t.annualDays : '—'}</td>
-                    <td className="ui-col-meta">{t.isPaid ? policy(t) : '—'}</td>
+                    <td className="ui-col-meta ui-col-grow whitespace-normal">{t.isPaid ? policy(t) : '—'}</td>
                     <td className="ui-num">{t.requests}</td>
                     <td className="ui-col-h-center">{t.isActive ? <StatusPill status="active" /> : <span className="ui-caption">Inactive</span>}</td>
                   </tr>

@@ -118,7 +118,7 @@ export default function AttendanceToday({ openScreen }) {
           <input type="date" className="ui-input" value={date} max={todayIst()} onChange={(e) => setDate(e.target.value)} aria-label="Day" />
         }
       />
-      <div className="px-5 lg:px-7 pb-8 space-y-6">
+      <div className="pb-8 space-y-6">
       <DpdpNotice openScreen={openScreen} />
       <LoadFailed message={error} onRetry={() => setAttempt((n) => n + 1)} />
       {!data ? (

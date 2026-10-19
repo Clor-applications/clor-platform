@@ -127,7 +127,7 @@ export default function OvertimeRequests() {
                   <ColumnHeader label="Employee" col="employee" state={filters} />
                   <ColumnHeader label="Day" col="date" state={filters} type="date" />
                   <ColumnHeader label="Asks for" col="kind" state={filters} />
-                  <ColumnHeader label="Reason" col="reason" state={filters} />
+                  <ColumnHeader label="Reason" col="reason" state={filters}  className="ui-col-grow" />
                   <th scope="col">{status === 'PENDING' ? <span className="sr-only">Decide</span> : 'Note'}</th>
                 </tr>
               </thead>
@@ -152,7 +152,7 @@ export default function OvertimeRequests() {
                       <td className="ui-col-entity">{r.employeeName}{r.employeeCode ? <span className="ui-caption"> · {r.employeeCode}</span> : null}</td>
                       <td className="ui-col-date whitespace-nowrap">{r.date}</td>
                       <td>{r.kind === 'COMP_OFF' ? `Comp-off, ${r.days} day${r.days === 1 ? '' : 's'} (worked ${hours(r.minutes)})` : `Overtime ${hours(r.minutes)}`}</td>
-                      <td className="max-w-xs">{r.reason}</td>
+                      <td className="ui-col-grow whitespace-normal min-w-[10rem]">{r.reason}</td>
                       <td className="ui-col-meta">
                         {status !== 'PENDING' ? (
                           r.reviewNote || '—'

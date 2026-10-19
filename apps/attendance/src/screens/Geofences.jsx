@@ -101,7 +101,7 @@ export default function Geofences() {
             <thead>
               <tr>
                 <ColumnHeader label="Site" col="name" state={filters} />
-                <ColumnHeader label="Where" col="where" state={filters} />
+                <ColumnHeader label="Where" col="where" state={filters}  className="ui-col-grow" />
                 <th scope="col" className="ui-num">Radius</th>
                 <ColumnHeader label="For" col="for" state={filters} />
                 <th scope="col" className="ui-num">Tied to it</th>
@@ -128,7 +128,7 @@ export default function Geofences() {
                 rows.map((f) => (
                   <tr key={f.id} className="ui-row-click" onClick={() => setEditing({ ...f, address: f.address || '', areaId: f.areaId || '' })}>
                     <td className="ui-col-entity">{f.name}</td>
-                    <td className="max-w-[22rem]" onClick={(e) => e.stopPropagation()}><a className="ui-link block truncate text-sm font-normal" href={mapLink(f)} target="_blank" rel="noreferrer" title={f.address || `${f.latitude}, ${f.longitude}`}>{f.address || <span className="ui-mono text-xs">{f.latitude.toFixed(5)}, {f.longitude.toFixed(5)}</span>}</a></td>
+                    <td className="ui-col-grow max-w-[1px]" onClick={(e) => e.stopPropagation()}><a className="ui-link block truncate text-sm font-normal" href={mapLink(f)} target="_blank" rel="noreferrer" title={f.address || `${f.latitude}, ${f.longitude}`}>{f.address || <span className="ui-mono text-xs">{f.latitude.toFixed(5)}, {f.longitude.toFixed(5)}</span>}</a></td>
                     <td className="ui-num">{f.radiusMeters} m</td>
                     <td>{f.areaName ? `${f.areaName} area` : 'Everyone'}</td>
                     <td className="ui-num">{f.people}</td>

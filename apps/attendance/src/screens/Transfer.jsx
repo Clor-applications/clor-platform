@@ -81,7 +81,7 @@ export default function Transfer() {
           </button>
         }
       />
-      <div className="px-5 lg:px-7 pb-8 space-y-6">
+      <div className="pb-8 space-y-6">
         <section className="ui-card flex flex-wrap items-end gap-3 p-4" aria-label="Transfer options">
           <label className="block">
             <span className="ui-label">Change</span>

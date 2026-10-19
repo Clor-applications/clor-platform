@@ -106,7 +106,7 @@ export default function DepartmentSchedule() {
           <table className="ui-table ui-table-sticky w-full">
             <thead>
               <tr>
-                <ColumnHeader label="Department" col="department" state={filters} />
+                <ColumnHeader label="Department" col="department" state={filters}  className="ui-col-grow" />
                 <ColumnHeader label="Shift" col="shift" state={filters} />
                 <ColumnHeader label="From" col="from" state={filters} type="date" />
                 <ColumnHeader label="Until" col="until" state={filters} type="date" />

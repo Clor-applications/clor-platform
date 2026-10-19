@@ -113,7 +113,7 @@ export default function DeviceLogs() {
                   <ColumnHeader label="Reader" col="reader" state={filters} />
                   <ColumnHeader label={kind === 'ERROR' ? 'Error' : 'Operation'} col="code" state={filters} />
                   <ColumnHeader label="By" col="by" state={filters} />
-                  <th scope="col">Details</th>
+                  <th className="ui-col-grow" scope="col">Details</th>
                 </tr>
               </thead>
               <tbody className="ui-rows">
@@ -138,7 +138,7 @@ export default function DeviceLogs() {
                       <td className="ui-col-entity">{r.deviceName}</td>
                       <td className="ui-mono">{r.code}</td>
                       <td className="ui-mono">{r.operator || '—'}</td>
-                      <td className="ui-col-meta">{r.details || '—'}</td>
+                      <td className="ui-col-meta ui-col-grow whitespace-normal">{r.details || '—'}</td>
                     </tr>
                   ))
                 )}

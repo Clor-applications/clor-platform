@@ -75,7 +75,7 @@ export default function AttendanceCalendar() {
           </>
         }
       />
-      <div className="px-5 lg:px-7 pb-8 space-y-6">
+      <div className="pb-8 space-y-6">
       {loading ? <SkeletonCard lines={8} /> : (
         <div className="grid items-start gap-3 xl:grid-cols-[1fr_22rem]">
           <div className="ui-card p-2 sm:p-3">

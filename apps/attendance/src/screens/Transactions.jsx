@@ -167,7 +167,7 @@ export default function Transactions() {
               <thead>
                 <tr>
                   <ColumnHeader label="Time" col="time" state={columns} type="date" />
-                  <ColumnHeader label="Employee" col="employee" state={columns} />
+                  <ColumnHeader label="Employee" col="employee" state={columns}  className="ui-col-grow" />
                   <ColumnHeader label="Reader ID" col="pin" state={columns} />
                   <th scope="col" className="ui-col-h-center">Direction</th>
                   <ColumnHeader label="Verified by" col="verify" state={columns} />

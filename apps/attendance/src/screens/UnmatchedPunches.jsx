@@ -87,7 +87,7 @@ export default function UnmatchedPunches() {
               <tr>
                 <ColumnHeader label="Reader ID" col="pin" state={filters} />
                 <ColumnHeader label="Site" col="site" state={filters} />
-                <ColumnHeader label="Name on reader" col="name" state={filters} />
+                <ColumnHeader label="Name on reader" col="name" state={filters}  className="ui-col-grow" />
                 <th scope="col" className="ui-num">Punches</th>
                 <ColumnHeader label="First" col="first" state={filters} type="date" />
                 <ColumnHeader label="Last" col="last" state={filters} type="date" />

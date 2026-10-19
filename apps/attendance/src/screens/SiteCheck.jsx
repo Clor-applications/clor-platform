@@ -83,7 +83,7 @@ export default function SiteCheck() {
           </button>
         }
       />
-      <div className="px-5 lg:px-7 pb-8 space-y-3">
+      <div className="pb-8 space-y-3">
         {loadError ? <LoadFailed error={loadError} onRetry={() => { setLoadError(null); load(); }} /> : !sites ? <SkeletonCard /> : (
           <>
             {locating && !position ? <p className="ui-caption" role="status">Finding this device’s location…</p> : null}
@@ -98,7 +98,7 @@ export default function SiteCheck() {
                 <table className="ui-table ui-table-sticky w-full">
                   <thead>
                     <tr>
-                      <th scope="col">Work site</th>
+                      <th className="ui-col-grow" scope="col">Work site</th>
                       <th scope="col" className="ui-num">Radius</th>
                       <th scope="col" className="ui-num">Distance from here</th>
                       <th scope="col" className="ui-col-h-center">A punch here</th>

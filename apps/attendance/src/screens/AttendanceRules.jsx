@@ -50,7 +50,7 @@ export default function AttendanceRules() {
     return (
       <div className="space-y-3">
         {header}
-        <div className="px-5 lg:px-7 pb-8 max-w-3xl">
+        <div className="pb-8 max-w-3xl">
           {loadError ? <LoadFailed message={loadError} onRetry={() => setAttempt((n) => n + 1)} /> : <SkeletonCard lines={6} />}
         </div>
       </div>
@@ -62,7 +62,7 @@ export default function AttendanceRules() {
       {header}
 
       {/* A settings page: the compact column (DESIGN.md, Content width), not a field stretched across the screen. */}
-      <div className="px-5 lg:px-7 pb-8 max-w-3xl space-y-6">
+      <div className="pb-8 max-w-3xl space-y-6">
       <form onSubmit={save} className="space-y-3">
         <section className="ui-card space-y-3 p-4" aria-labelledby="rules-default-h">
           <h2 id="rules-default-h" className="ui-t-sec">Default shift</h2>
@@ -224,7 +224,7 @@ function RulePreview({ shifts }) {
           {result.days.length ? (
             <div className="ui-table-scroll">
                 <table className="ui-table ui-table-sticky w-full">
-                  <thead><tr><th scope="col">Day</th><th scope="col">Employee</th><th scope="col">In–out</th><th scope="col">Would change</th></tr></thead>
+                  <thead><tr><th scope="col">Day</th><th scope="col">Employee</th><th scope="col">In–out</th><th className="ui-col-grow" scope="col">Would change</th></tr></thead>
                   <tbody className="ui-rows">
                     {result.days.map((d) => (
                       <tr key={`${d.employeeId}-${d.date}`}>

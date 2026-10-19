@@ -163,7 +163,7 @@ export default function Exceptions({ openScreen }) {
                   <ColumnHeader label="What" col="what" state={filters} />
                   <ColumnHeader label="Who" col="who" state={filters} />
                   <ColumnHeader label="Day" col="date" state={filters} type="date" />
-                  <th scope="col" className="hidden lg:table-cell">Detail</th>
+                  <th scope="col" className="ui-col-grow hidden lg:table-cell">Detail</th>
                   <ColumnHeader label="Owner" col="owner" state={filters} />
                   <th scope="col"><span className="sr-only">Actions</span></th>
                 </tr>
@@ -182,7 +182,7 @@ export default function Exceptions({ openScreen }) {
                 ) : (
                   pageRows.map((x) => (
                     <tr key={x.key} data-severity={x.severity}>
-                      <td className="min-w-[9.5rem]">
+                      <td className="min-w-[10rem] whitespace-normal">
                         <span className="ui-exc-title">
                           <span className="ui-exc-dot" data-severity={x.severity} aria-hidden="true" />
                           <span>
@@ -193,7 +193,7 @@ export default function Exceptions({ openScreen }) {
                       </td>
                       <td className="ui-col-entity">{x.employeeName || '—'}</td>
                       <td className="ui-col-date whitespace-nowrap">{x.date ? dayLabel(x.date, { weekday: true, year: false }) : '—'}</td>
-                      <td className="hidden lg:table-cell ui-caption min-w-[12rem] max-w-[24rem]">{x.detail}{x.note ? ` · Note: ${x.note}` : ''}</td>
+                      <td className="hidden lg:table-cell ui-caption ui-col-grow whitespace-normal min-w-[9rem]">{x.detail}{x.note ? ` · Note: ${x.note}` : ''}</td>
                       <td className="whitespace-nowrap">{x.assignee || <span className="ui-caption">Nobody</span>}</td>
                       <td className="ui-col-meta">
                         <span className="flex items-center justify-end gap-1">

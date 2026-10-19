@@ -114,7 +114,7 @@ export default function Shifts() {
           <table className="ui-table ui-table-sticky w-full">
             <thead>
               <tr>
-                <ColumnHeader label="Shift" col="name" state={filters} />
+                <ColumnHeader label="Shift" col="name" state={filters}  className="ui-col-grow" />
                 <th scope="col" className="ui-col-h-center">Timing</th>
                 <th scope="col" className="ui-num">Break</th>
                 <th scope="col" className="ui-num">Grace</th>

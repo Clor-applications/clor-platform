@@ -54,7 +54,7 @@ export default function ReaderHealth() {
     return (
       <div className="space-y-3">
         <PageHeader entity="reader" title="Reader health" />
-        <div className="px-5 lg:px-7 pb-8 space-y-6">{loadError ? <LoadFailed message={loadError} onRetry={load} /> : <SkeletonCard lines={8} />}</div>
+        <div className="pb-8 space-y-6">{loadError ? <LoadFailed message={loadError} onRetry={load} /> : <SkeletonCard lines={8} />}</div>
       </div>
     );
   }
@@ -76,7 +76,7 @@ export default function ReaderHealth() {
         }
       />
 
-      <div className="px-5 lg:px-7 pb-8 space-y-6">
+      <div className="pb-8 space-y-6">
       {data.collection.map((i) => (
         <div key={i.kind} className="ui-card border-l-4 p-4" role="alert" style={{ borderLeftColor: 'rgb(var(--neg))' }}>
           <div className="font-semibold">{i.title}</div>

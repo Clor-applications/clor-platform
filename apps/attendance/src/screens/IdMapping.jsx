@@ -58,7 +58,7 @@ export default function IdMapping({ openScreen }) {
         description="Reader IDs against employees: what matches nobody, who has left but is still on a reader, who has no ID."
         actions={<button type="button" className="ui-btn ui-btn-primary" onClick={() => setEditing({})}><Plus size={16} aria-hidden="true" /> Add ID at a site</button>}
       />
-      <div className="px-5 lg:px-7 pb-8 space-y-6">
+      <div className="pb-8 space-y-6">
       <details className="ui-card p-4 text-sm">
         <summary className="cursor-pointer font-medium">How a punch finds its person</summary>
         <ol className="mt-2 list-decimal space-y-1 ps-5 ui-caption">
@@ -87,7 +87,7 @@ export default function IdMapping({ openScreen }) {
             {data.unmatched.length ? (
               <div className="ui-table-scroll">
                 <table className="ui-table ui-table-sticky w-full">
-                  <thead><tr><th scope="col">Reader ID</th><th scope="col">Site</th><th scope="col">Name on the reader</th><th scope="col" className="ui-num">Punches</th><th scope="col">Last punch</th><th scope="col">Likely match</th><th scope="col"><span className="sr-only">Actions</span></th></tr></thead>
+                  <thead><tr><th scope="col">Reader ID</th><th scope="col">Site</th><th className="ui-col-grow" scope="col">Name on the reader</th><th scope="col" className="ui-num">Punches</th><th scope="col">Last punch</th><th scope="col">Likely match</th><th scope="col"><span className="sr-only">Actions</span></th></tr></thead>
                   <tbody className="ui-rows">
                     {data.unmatched.map((u) => (
                       <tr key={`${u.areaId || ''}|${u.pin}`}>
@@ -137,7 +137,7 @@ export default function IdMapping({ openScreen }) {
             {sites.length ? (
               <div className="ui-table-scroll">
                 <table className="ui-table ui-table-sticky w-full">
-                  <thead><tr><th scope="col">Employee</th><th scope="col">Site</th><th scope="col">ID there</th><th scope="col">Company-wide ID</th><th scope="col"><span className="sr-only">Edit</span></th></tr></thead>
+                  <thead><tr><th className="ui-col-grow" scope="col">Employee</th><th scope="col">Site</th><th scope="col">ID there</th><th scope="col">Company-wide ID</th><th scope="col"><span className="sr-only">Edit</span></th></tr></thead>
                   <tbody className="ui-rows">
                     {sites.map((x) => (
                       <tr key={x.id}>

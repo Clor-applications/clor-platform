@@ -77,7 +77,7 @@ export default function DataExport() {
   return (
     <div className="space-y-3">
       <PageHeader entity="settings" title="Export" description="Take data out: what, for when, as a spreadsheet or for another system." />
-      <div className="px-5 lg:px-7 pb-8 space-y-6">
+      <div className="pb-8 space-y-6">
       <ol className="grid gap-4 lg:grid-cols-3">
         <li className="ui-card p-4 space-y-3">
           <h2 className="ui-t-sec"><span className="ui-caption mr-2">1</span>What to export</h2>

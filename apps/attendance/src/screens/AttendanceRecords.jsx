@@ -206,7 +206,7 @@ export default function AttendanceRecords({ params } = {}) {
                     />
                   </th>
                   <ColumnHeader label="Day" col="date" state={columns} type="date" />
-                  <ColumnHeader label="Employee" col="employee" state={columns} />
+                  <ColumnHeader label="Employee" col="employee" state={columns}  className="ui-col-grow" />
                   <th scope="col" className="ui-col-h-center">In</th>
                   <th scope="col" className="ui-col-h-center">Out</th>
                   <th scope="col" className="ui-num hidden md:table-cell">Worked</th>

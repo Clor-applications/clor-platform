@@ -227,7 +227,7 @@ export default function AttendanceDevices({ openScreen }) {
             <table className="ui-table ui-table-sticky w-full">
               <thead>
                 <tr>
-                  <ColumnHeader label="Reader" col="name" state={columns} />
+                  <ColumnHeader label="Reader" col="name" state={columns}  className="ui-col-grow" />
                   <th scope="col" className="hidden md:table-cell">Serial</th>
                   <ColumnHeader label="Direction" col="direction" state={columns} />
                   <th scope="col" className="ui-col-h-center">Status</th>
@@ -293,7 +293,7 @@ export default function AttendanceDevices({ openScreen }) {
       )}
     </DocumentListShell>
 
-    <div className="px-5 lg:px-7 pb-8 space-y-3">
+    <div className="pb-8 space-y-3">
       {/* Set-up steps are read once: open while there is no reader, folded away after. */}
       <details className="ui-card p-4 text-sm" open={Boolean(data) && !data.devices.some((d) => !VIRTUAL[d.vendor])}>
         <summary className="ui-t-sec cursor-pointer select-none">How to connect a reader</summary>

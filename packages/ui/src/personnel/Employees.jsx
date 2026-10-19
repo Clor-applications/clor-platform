@@ -326,7 +326,7 @@ export default function Employees() {
             <table className="ui-table ui-table-sticky w-full">
               <thead>
                 <tr>
-                  <th scope="col">Employee</th>
+                  <th scope="col" className="ui-col-grow">Employee</th>
                   <th scope="col">ID</th>
                   <th scope="col">Department</th>
                   <th scope="col">Position</th>

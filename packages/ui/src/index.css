@@ -6903,3 +6903,51 @@ th.ui-th {
 .clor-site-ring { stroke: rgb(var(--accent)); fill: rgb(var(--accent)); fill-opacity: 0.12; }
 .leaflet-marker-draggable.clor-site-pin { cursor: grab; }
 @media (max-width: 640px) { .clor-site-map { height: 15rem; } }
+
+/*
+ * Attendance pages: one gutter, tables sized to what they hold.
+ *
+ * - 16px either side of everything under the title band, so the figure cards,
+ *   the tab row and the table start where the title does; the band itself
+ *   still runs edge to edge.
+ * - A table box is as tall as its rows (capped, then it scrolls), not a
+ *   screen-tall white area under five rows.
+ * - Columns take their content's width and one column takes what is left —
+ *   the one marked `ui-col-grow` (a reason, a detail, a name), or else the
+ *   last one, so actions sit at the right edge. A full-width table otherwise
+ *   spreads its spare width over every column as dead space.
+ * Written with :where() so a cell's own utility (whitespace-normal, a width)
+ * still wins.
+ */
+:root[data-app='attendance'] main.ui-content {
+  padding: 0 1rem 1.5rem;
+}
+:root[data-app='attendance'] main.ui-content .ui-page-heading {
+  margin-inline: -1rem;
+  padding-inline: 1rem;
+}
+:where(:root[data-app='attendance'] main) .ui-table-scroll {
+  height: auto;
+  min-height: 0;
+}
+:where(:root[data-app='attendance'] main .ui-table) :is(th, td) {
+  white-space: nowrap;
+}
+:where(:root[data-app='attendance'] main .ui-table) thead th {
+  width: 1%;
+}
+:where(:root[data-app='attendance'] main .ui-table) thead th.ui-col-grow,
+:where(:root[data-app='attendance'] main .ui-table:not(:has(thead th.ui-col-grow))) thead th:last-child {
+  width: auto;
+}
+/* Only the headings size the columns here: the product-wide 1% on name and
+   centred cells would otherwise pin the growing column to its content too. */
+:root[data-app='attendance'] main .ui-table tbody td {
+  width: auto;
+}
+/* Two figure cards a row on a phone: one a row put four cards above the list. */
+@media (max-width: 639px) {
+  :root[data-app='attendance'] main section[aria-label='Summary'] {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

@@ -218,7 +218,7 @@ export default function PortalAccess() {
                       onChange={() => setPicked((s) => { const n = new Set(s); shown.forEach((p) => (allShown ? n.delete(p.id) : n.add(p.id))); return n; })}
                     />
                   </th>
-                  <ColumnHeader label="Employee" col="employee" state={filters} />
+                  <ColumnHeader label="Employee" col="employee" state={filters}  className="ui-col-grow" />
                   <ColumnHeader label="Code" col="code" state={filters} />
                   <ColumnHeader label="Portal" col="portal" state={filters} />
                   <th scope="col" className="ui-col-h-center">Phone punch</th>
@@ -293,7 +293,7 @@ function IssuedCodes({ issued, portalUrl, onClose }) {
         <table className="ui-table w-full">
           <thead>
             <tr>
-              <th scope="col" className="ui-th">Employee</th>
+              <th scope="col" className="ui-col-grow ui-th">Employee</th>
               <th scope="col" className="ui-th">Employee code</th>
               <th scope="col" className="ui-th">Activation code</th>
               <th scope="col" className="ui-th">E-mailed</th>

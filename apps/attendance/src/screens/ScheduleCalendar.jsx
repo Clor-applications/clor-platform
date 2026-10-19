@@ -43,7 +43,7 @@ export default function ScheduleCalendar() {
         description="Each person’s shift for each day of the month — what their attendance is scored against."
         actions={<input type="month" className="ui-input ui-ctl-compact !w-auto" value={month} onChange={(e) => setMonth(e.target.value)} aria-label="Month" />}
       />
-      <div className="px-5 lg:px-7 pb-8 space-y-3">
+      <div className="pb-8 space-y-3">
       <div className="flex flex-wrap items-center gap-2">
         <select className="ui-select ui-ctl-compact !w-auto" value={filters.departmentId} onChange={(e) => setFilters({ ...filters, departmentId: e.target.value })} aria-label="Department">
           <option value="">All departments</option>

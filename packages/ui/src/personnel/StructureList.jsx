@@ -184,7 +184,7 @@ export default function StructureList({ kind }) {
             <table className="ui-table ui-table-sticky w-full">
               <thead>
                 <tr>
-                  <ColumnHeader label="Name" col="name" state={columns} />
+                  <ColumnHeader label="Name" col="name" state={columns} className="ui-col-grow" />
                   {cfg.parent ? <ColumnHeader label={cfg.parent.label} col="parent" state={columns} /> : null}
                   <th scope="col" className="ui-col-h-center">People</th>
                   <th scope="col" className="ui-col-h-center">Status</th>

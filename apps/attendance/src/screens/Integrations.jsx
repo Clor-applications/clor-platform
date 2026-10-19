@@ -153,7 +153,7 @@ export default function Integrations() {
   return (
     <div className="space-y-3">
       <PageHeader entity="settings" title="Integrations" description="Let other systems read attendance or send punches, and have CLOR tell them when things happen." />
-      <div className="px-5 lg:px-7 pb-8 space-y-6">
+      <div className="pb-8 space-y-6">
       {shown ? <ShownOnce label={shown.label} value={shown.value} onDone={() => setShown(null)} /> : null}
 
       <HrTools />
@@ -183,7 +183,7 @@ export default function Integrations() {
             <table className="ui-table ui-table-sticky w-full">
               <thead>
                 <tr>
-                  <th scope="col">Name</th>
+                  <th className="ui-col-grow" scope="col">Name</th>
                   <th scope="col">Key</th>
                   <th scope="col">May</th>
                   <th scope="col" className="ui-col-date">Last used</th>

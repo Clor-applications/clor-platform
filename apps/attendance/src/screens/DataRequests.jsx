@@ -103,7 +103,7 @@ export default function DataRequests() {
             <thead>
               <tr>
                 <ColumnHeader label="Employee" col="employee" state={filters} />
-                <ColumnHeader label="Request" col="type" state={filters} />
+                <ColumnHeader label="Request" col="type" state={filters}  className="ui-col-grow" />
                 <ColumnHeader label="Asked" col="asked" state={filters} type="date" />
                 <th scope="col" className="ui-col-date">Answer by</th>
                 <th scope="col" className="ui-col-h-center">Status</th>
@@ -131,7 +131,7 @@ export default function DataRequests() {
                   return (
                     <tr key={r.id} className="align-top">
                       <td className="ui-col-entity">{r.employeeName || 'Unknown'}{r.employeeCode ? <span className="ui-caption"> · {r.employeeCode}</span> : null}</td>
-                      <td className="min-w-[14rem]">
+                      <td className="ui-col-grow whitespace-normal min-w-[14rem]">
                         <div>{TYPES[r.type] || r.type}</div>
                         <p className="ui-caption">“{r.details}”</p>
                       </td>

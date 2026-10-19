@@ -141,7 +141,7 @@ export default function Holidays() {
               <tr>
                 <ColumnHeader label="Date" col="date" state={filters} type="date" />
                 <th scope="col">Day</th>
-                <ColumnHeader label="Holiday" col="name" state={filters} />
+                <ColumnHeader label="Holiday" col="name" state={filters}  className="ui-col-grow" />
                 <ColumnHeader label="For" col="area" state={filters} />
                 <th scope="col" className="ui-col-h-center">Optional</th>
                 <th scope="col"><span className="sr-only">Actions</span></th>

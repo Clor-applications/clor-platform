@@ -93,7 +93,7 @@ export default function Contractors() {
           <table className="ui-table ui-table-sticky w-full">
             <thead>
               <tr>
-                <ColumnHeader label="Contractor" col="name" state={filters} />
+                <ColumnHeader label="Contractor" col="name" state={filters}  className="ui-col-grow" />
                 <ColumnHeader label="Contact" col="contact" state={filters} />
                 <ColumnHeader label="Licence" col="licence" state={filters} />
                 <th scope="col" className="ui-num">Workers</th>

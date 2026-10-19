@@ -138,7 +138,7 @@ export default function TemporarySchedule() {
                   <ColumnHeader label="Shift" col="shift" state={filters} />
                   <ColumnHeader label="From" col="from" state={filters} type="date" />
                   <ColumnHeader label="To" col="to" state={filters} type="date" />
-                  <ColumnHeader label="Why" col="reason" state={filters} />
+                  <ColumnHeader label="Why" col="reason" state={filters}  className="ui-col-grow" />
                   <th scope="col"><span className="sr-only">Actions</span></th>
                 </tr>
               </thead>
@@ -164,7 +164,7 @@ export default function TemporarySchedule() {
                       <td>{r.shiftName}</td>
                       <td className="ui-col-date whitespace-nowrap">{dayLabel(r.fromDate)}</td>
                       <td className="ui-col-date whitespace-nowrap">{dayLabel(r.toDate)}</td>
-                      <td className="max-w-[12rem] truncate" title={r.reason || ''}>{r.reason || '—'}</td>
+                      <td className="ui-col-grow whitespace-normal min-w-[10rem]">{r.reason || '—'}</td>
                       <td className="ui-col-meta">
                         <span className="flex justify-end">
                           <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" aria-label={`Remove ${r.employeeName}'s temporary schedule`} onClick={async () => { await removeTemporarySchedule(r.id); load(); }}>

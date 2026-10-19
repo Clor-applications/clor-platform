@@ -162,7 +162,7 @@ export default function ShiftAssignments() {
             <table className="ui-table ui-table-sticky w-full">
               <thead>
                 <tr>
-                  <ColumnHeader label="Employee" col="employee" state={filters} />
+                  <ColumnHeader label="Employee" col="employee" state={filters}  className="ui-col-grow" />
                   <ColumnHeader label="Shift" col="shift" state={filters} />
                   <ColumnHeader label="From" col="from" state={filters} type="date" />
                   <ColumnHeader label="Until" col="until" state={filters} type="date" />
