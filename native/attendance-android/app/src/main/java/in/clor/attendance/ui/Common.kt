@@ -154,3 +154,57 @@ fun IconTile(icon: androidx.compose.ui.graphics.vector.ImageVector, tint: Color)
         androidx.compose.material3.Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(20.dp))
     }
 }
+
+/**
+ * A typed time, read the way people type it on a number pad: 9.10, 9:10,
+ * 910, 0910 and 9 all mean a time; returns "HH:MM" (24-hour) or null.
+ */
+fun normalizeTime(raw: String): String? {
+    val s = raw.trim().replace(Regex("[.,\\- h]"), ":")
+    if (s.isEmpty()) return null
+    val (h, m) = when {
+        ':' in s -> s.substringBefore(':') to s.substringAfter(':').ifEmpty { "0" }
+        s.length <= 2 -> s to "0"
+        s.length == 3 -> s.take(1) to s.drop(1)
+        s.length == 4 -> s.take(2) to s.drop(2)
+        else -> return null
+    }
+    val hh = h.toIntOrNull() ?: return null
+    val mm = m.toIntOrNull() ?: return null
+    if (hh !in 0..23 || mm !in 0..59 || m.length > 2) return null
+    return "%02d:%02d".format(hh, mm)
+}
+
+/** A time box: type it (any of the forms above) or tap the clock for a picker. Shows how it was read. */
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@Composable
+fun TimeField(value: String, onChange: (String) -> Unit, label: String, modifier: Modifier = Modifier, optional: Boolean = false) {
+    var picking by remember { mutableStateOf(false) }
+    val read = normalizeTime(value)
+    val bad = value.isNotBlank() && read == null
+    androidx.compose.material3.OutlinedTextField(
+        value = value,
+        onValueChange = { onChange(it.take(5)) },
+        label = { Text(label) },
+        singleLine = true,
+        isError = bad,
+        supportingText = { Text(if (bad) "Use 24-hour, e.g. 09:10" else if (read != null && read != value) "Read as $read" else if (optional && value.isBlank()) "Optional" else "") },
+        trailingIcon = {
+            androidx.compose.material3.IconButton(onClick = { picking = true }) {
+                androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.Outlined.Schedule, contentDescription = "Pick a time")
+            }
+        },
+        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
+        modifier = modifier,
+    )
+    if (picking) {
+        val start = read ?: "09:00"
+        val state = androidx.compose.material3.rememberTimePickerState(initialHour = start.take(2).toInt(), initialMinute = start.takeLast(2).toInt(), is24Hour = true)
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { picking = false },
+            confirmButton = { androidx.compose.material3.TextButton(onClick = { onChange("%02d:%02d".format(state.hour, state.minute)); picking = false }) { Text("OK") } },
+            dismissButton = { androidx.compose.material3.TextButton(onClick = { picking = false }) { Text("Cancel") } },
+            text = { androidx.compose.material3.TimePicker(state = state) },
+        )
+    }
+}

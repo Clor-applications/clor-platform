@@ -66,7 +66,12 @@ fun LeaveTab(api: Api, version: Int, onChanged: () -> Unit, onSignedOut: () -> U
                     }
                 }
             }
-            if (asking) {
+            if (asking && l.types.isEmpty()) {
+                Section("Apply for leave") {
+                    Text("No leave types are set up for your company yet, so leave cannot be applied for. Ask HR to add them (Attendance → Leave types).", style = MaterialTheme.typography.bodyMedium)
+                    TextButton(onClick = { asking = false }) { Text("Close") }
+                }
+            } else if (asking) {
                 LeaveForm(api, l.types, onDone = { asking = false; onChanged() }, onCancel = { asking = false }, onSignedOut = onSignedOut)
             } else if (l.types.isNotEmpty()) {
                 Button(onClick = { asking = true }, modifier = Modifier.fillMaxWidth()) { Text("Apply for leave") }

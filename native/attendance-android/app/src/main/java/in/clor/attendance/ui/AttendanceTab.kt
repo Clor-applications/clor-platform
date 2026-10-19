@@ -141,7 +141,6 @@ private fun DaySheet(api: Api, date: String, onClose: () -> Unit, onAsked: () ->
     }
 }
 
-private val HHMM = Regex("^([01]\\d|2[0-3]):[0-5]\\d$")
 
 @Composable
 private fun CorrectionForm(api: Api, date: String, onDone: () -> Unit, onSignedOut: () -> Unit) {
@@ -151,12 +150,14 @@ private fun CorrectionForm(api: Api, date: String, onDone: () -> Unit, onSignedO
     var reason by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
-    val okIn = HHMM.matches(checkIn)
-    val okOut = checkOut.isEmpty() || HHMM.matches(checkOut)
+    val inAt = normalizeTime(checkIn)
+    val outAt = normalizeTime(checkOut)
+    val okIn = inAt != null
+    val okOut = checkOut.isBlank() || outAt != null
     Section("What should it be?") {
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            OutlinedTextField(checkIn, { checkIn = it.take(5) }, label = { Text("In (HH:MM)") }, singleLine = true, isError = checkIn.isNotEmpty() && !okIn, modifier = Modifier.weight(1f), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
-            OutlinedTextField(checkOut, { checkOut = it.take(5) }, label = { Text("Out (HH:MM)") }, singleLine = true, isError = !okOut, modifier = Modifier.weight(1f), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
+            TimeField(checkIn, { checkIn = it }, "In", Modifier.weight(1f))
+            TimeField(checkOut, { checkOut = it }, "Out", Modifier.weight(1f), optional = true)
         }
         OutlinedTextField(reason, { reason = it.take(500) }, label = { Text("Why") }, placeholder = { Text("e.g. The reader was down") }, modifier = Modifier.fillMaxWidth(), minLines = 2)
         error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
@@ -167,7 +168,7 @@ private fun CorrectionForm(api: Api, date: String, onDone: () -> Unit, onSignedO
                     error = null
                     scope.launch {
                         try {
-                            api.askCorrection(date, checkIn, checkOut.ifEmpty { null }, reason.trim())
+                            api.askCorrection(date, inAt!!, outAt, reason.trim())
                             onDone()
                         } catch (e: SignedOut) {
                             onSignedOut()

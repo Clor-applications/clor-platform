@@ -215,7 +215,6 @@ private fun RequestCard(q: MyRequest, onEdit: () -> Unit, onCancel: () -> Unit) 
     }
 }
 
-private val HHMM = Regex("^([01]\\d|2[0-3]):[0-5]\\d$")
 
 /** Missed / wrong punch, or on duty: a day, the times, and why. Editing keeps the day. */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -231,8 +230,10 @@ private fun CorrectionRequestForm(api: Api, kind: NewKind, editing: MyRequest?, 
     var reason by remember { mutableStateOf(editing?.reason ?: "") }
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
-    val okIn = HHMM.matches(checkIn)
-    val okOut = checkOut.isEmpty() || HHMM.matches(checkOut)
+    val inAt = normalizeTime(checkIn)
+    val outAt = normalizeTime(checkOut)
+    val okIn = inAt != null
+    val okOut = checkOut.isBlank() || outAt != null
     Section(if (editing != null) "Change request" else kind.title) {
         OutlinedButton(onClick = { picking = true }, enabled = editing == null, modifier = Modifier.fillMaxWidth()) { Text("Day: ${longDate(date.toString())}") }
         if (kind == NewKind.Missed) {
@@ -241,8 +242,8 @@ private fun CorrectionRequestForm(api: Api, kind: NewKind, editing: MyRequest?, 
             }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            OutlinedTextField(checkIn, { checkIn = it.take(5) }, label = { Text(if (kind == NewKind.OnDuty) "From" else "In (HH:MM)") }, singleLine = true, isError = checkIn.isNotEmpty() && !okIn, modifier = Modifier.weight(1f), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
-            OutlinedTextField(checkOut, { checkOut = it.take(5) }, label = { Text(if (kind == NewKind.OnDuty) "To" else "Out (HH:MM)") }, singleLine = true, isError = !okOut, modifier = Modifier.weight(1f), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
+            TimeField(checkIn, { checkIn = it }, if (kind == NewKind.OnDuty) "From" else "In", Modifier.weight(1f))
+            TimeField(checkOut, { checkOut = it }, if (kind == NewKind.OnDuty) "To" else "Out", Modifier.weight(1f), optional = true)
         }
         OutlinedTextField(reason, { reason = it.take(500) }, label = { Text(if (kind == NewKind.OnDuty) "Where and why" else "What happened") }, placeholder = { Text(if (kind == NewKind.OnDuty) "e.g. Client visit, Peenya" else "e.g. Reader was down at the gate") }, modifier = Modifier.fillMaxWidth(), minLines = 2)
         error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
@@ -253,8 +254,8 @@ private fun CorrectionRequestForm(api: Api, kind: NewKind, editing: MyRequest?, 
                     error = null
                     scope.launch {
                         try {
-                            if (editing != null) api.editCorrection(editing.id, checkIn, checkOut.ifEmpty { null }, reason.trim(), code)
-                            else api.askCorrection(date.toString(), checkIn, checkOut.ifEmpty { null }, reason.trim(), code)
+                            if (editing != null) api.editCorrection(editing.id, inAt!!, outAt, reason.trim(), code)
+                            else api.askCorrection(date.toString(), inAt!!, outAt, reason.trim(), code)
                             onDone(if (editing != null) "Changed." else "Sent. You will hear when it is decided.")
                         } catch (e: SignedOut) {
                             onSignedOut()
@@ -269,7 +270,12 @@ private fun CorrectionRequestForm(api: Api, kind: NewKind, editing: MyRequest?, 
             ) { Text(if (editing != null) "Save" else "Send") }
             TextButton(onClick = onCancel) { Text("Cancel") }
         }
-        Hint("Times are 24-hour, e.g. 09:05 and 18:30. Your manager or HR decides.")
+        Hint(when {
+            !okIn -> "Give the in time (24-hour, e.g. 09:10), or tap the clock."
+            !okOut -> "The out time is not a time; leave it empty or use 24-hour, e.g. 18:10."
+            reason.trim().length < 3 -> "Say what happened."
+            else -> "Your manager or HR decides."
+        })
     }
     if (picking) {
         val state = rememberDatePickerState(
