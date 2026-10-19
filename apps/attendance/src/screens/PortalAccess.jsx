@@ -223,13 +223,15 @@ export default function PortalAccess() {
                   <ColumnHeader label="Portal" col="portal" state={filters} />
                   <th scope="col" className="ui-col-h-center">Phone punch</th>
                   <ColumnHeader label="Site" col="site" state={filters} />
+                  <th scope="col" className="hidden 2xl:table-cell">E-mail</th>
+                  <th scope="col" className="hidden 2xl:table-cell">Signed up</th>
                   <th scope="col"><span className="sr-only">Actions</span></th>
                 </tr>
               </thead>
               <tbody className="ui-rows">
                 {!shown.length ? (
                   <tr>
-                    <td colSpan={7}>
+                    <td colSpan={9}>
                       {inTab.length ? (
                         <EmptyState kind="filtered" totalCount={inTab.length} title="Nobody matches" description="Nothing in this tab matches the search or the column filters." />
                       ) : all.length ? (
@@ -250,6 +252,8 @@ export default function PortalAccess() {
                         <td><span className={`ui-pill ${st.pill}`}>{st.label}</span></td>
                         <td className="ui-col-h-center">{p.mobilePunch ? <span className="ui-pill ui-pill-pos">On</span> : <span className="ui-caption">Off</span>}</td>
                         <td>{siteOf(p)}</td>
+                        <td className="ui-col-meta hidden 2xl:table-cell">{p.email || <span className="ui-caption">—</span>}</td>
+                        <td className="ui-col-date hidden 2xl:table-cell">{p.portalPasswordSetAt ? new Date(p.portalPasswordSetAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : <span className="ui-caption">—</span>}</td>
                         <td className="ui-col-meta text-end">
                           {p.activated ? <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" onClick={() => reset(p)}>Forget password</button> : null}
                         </td>

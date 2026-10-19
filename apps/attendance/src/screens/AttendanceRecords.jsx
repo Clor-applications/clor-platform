@@ -31,7 +31,12 @@ const TABS = [
   { value: 'HOLIDAY', label: 'Holiday', tone: 'cancelled' },
   { value: 'WEEKLY_OFF', label: 'Weekly off', tone: 'cancelled' },
 ];
+/* Where a day came from: the reader, a phone, a person, an approved request, leave. */
+const SOURCE = { DEVICE: 'Reader', CLOCK: 'Phone or web', MANUAL: 'By hand', REQUEST: 'Correction', LEAVE: 'Leave', IMPORT: 'Import', DEFAULT: 'Rule' };
+
 const COLUMNS = {
+  department: (r) => r.department || '',
+  source: (r) => SOURCE[r.source] || r.source || '',
   date: (r) => r.date,
   employee: (r) => r.employeeName,
   status: (r) => STATUS[r.status]?.label || r.status,
@@ -41,6 +46,7 @@ const EXPORT_COLUMNS = [
   { key: 'date', label: 'Date' },
   { key: 'employeeCode', label: 'Employee ID' },
   { key: 'employeeName', label: 'Name' },
+  { key: 'department', label: 'Department' },
   { key: 'checkInTime', label: 'In' },
   { key: 'checkOutTime', label: 'Out' },
   { key: 'workedMinutes', label: 'Worked (h:mm)', value: (r) => hm(r.workedMinutes) },
@@ -49,6 +55,7 @@ const EXPORT_COLUMNS = [
   { key: 'overtimeMinutes', label: 'Overtime (min)' },
   { key: 'status', label: 'Status', value: (r) => STATUS[r.status]?.label || r.status },
   { key: 'validated', label: 'Validated', value: (r) => (r.validated ? 'Yes' : 'No') },
+  { key: 'source', label: 'Source', value: (r) => SOURCE[r.source] || r.source || '' },
 ];
 
 export default function AttendanceRecords({ params } = {}) {
@@ -207,12 +214,15 @@ export default function AttendanceRecords({ params } = {}) {
                   </th>
                   <ColumnHeader label="Day" col="date" state={columns} type="date" />
                   <ColumnHeader label="Employee" col="employee" state={columns}  className="ui-col-grow" />
+                  <ColumnHeader label="Department" col="department" state={columns} className="hidden min-[1800px]:table-cell" />
                   <th scope="col" className="ui-col-h-center">In</th>
                   <th scope="col" className="ui-col-h-center">Out</th>
                   <th scope="col" className="ui-num hidden md:table-cell">Worked</th>
                   <th scope="col" className="ui-num hidden md:table-cell">Late</th>
+                  <th scope="col" className="ui-num hidden 2xl:table-cell">Early out</th>
                   <th scope="col" className="ui-num hidden md:table-cell">Overtime</th>
                   <ColumnHeader label="Status" col="status" state={columns} align="center" />
+                  <ColumnHeader label="Source" col="source" state={columns} className="hidden 2xl:table-cell" />
                   <ColumnHeader label="Validated" col="validated" state={columns} align="center" className="hidden 2xl:table-cell" />
                   <th scope="col" className="w-10"><span className="sr-only">Explain</span></th>
                 </tr>
@@ -220,7 +230,7 @@ export default function AttendanceRecords({ params } = {}) {
               <tbody className="ui-rows">
                 {!rows.length ? (
                   <tr>
-                    <td colSpan={11}>
+                    <td colSpan={14}>
                       {all.length ? (
                         <EmptyState kind="filtered" totalCount={inTab.length || all.length} title="No days match" description="Nothing in this tab matches the search or the column filters." />
                       ) : (
@@ -241,10 +251,12 @@ export default function AttendanceRecords({ params } = {}) {
                       </td>
                       <td className="ui-col-date whitespace-nowrap">{dayLabel(r.date, { weekday: true, year: false })}</td>
                       <td className="ui-col-entity">{r.employeeName}{r.employeeCode ? <span className="ui-caption"> · {r.employeeCode}</span> : null}</td>
+                      <td className="hidden min-[1800px]:table-cell">{r.department || <span className="ui-caption">—</span>}</td>
                       <td className="ui-col-h-center">{r.checkInTime || '—'}</td>
                       <td className="ui-col-h-center">{r.checkOutTime || '—'}</td>
                       <td className="ui-num hidden md:table-cell">{r.checkOut ? hm(r.workedMinutes) : '—'}</td>
                       <td className="ui-num hidden md:table-cell">{r.lateMinutes ? `${r.lateMinutes}m` : '—'}</td>
+                      <td className="ui-num hidden 2xl:table-cell">{r.earlyOutMinutes ? `${r.earlyOutMinutes}m` : '—'}</td>
                       <td className="ui-num hidden md:table-cell" onClick={(e) => e.stopPropagation()}>
                         {r.overtimeMinutes ? (
                           <span className="inline-flex items-center justify-end gap-2">
@@ -269,6 +281,7 @@ export default function AttendanceRecords({ params } = {}) {
                         ) : '—'}
                       </td>
                       <td className="ui-col-h-center"><span className={`ui-pill ${STATUS[r.status]?.pill || 'ui-pill-neutral'}`}>{STATUS[r.status]?.label || r.status}</span></td>
+                      <td className="ui-col-meta hidden 2xl:table-cell">{SOURCE[r.source] || r.source || '—'}</td>
                       <td className="ui-col-h-center hidden 2xl:table-cell">{r.validated ? <span className="ui-pill ui-pill-pos">Validated</span> : <span className="ui-caption">—</span>}</td>
                       <td onClick={(e) => e.stopPropagation()}>
                         <button type="button" className="ui-icon-btn" aria-label={`Why is ${r.employeeName} ${STATUS[r.status]?.label?.toLowerCase() || r.status} on ${r.date}?`} title="Why does this day say this?" onClick={() => setExplaining(r)}>

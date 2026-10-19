@@ -137,6 +137,11 @@ const COLUMNS = {
 
 export default function AttendanceDevices({ openScreen }) {
   const [data, setData] = useState(null);
+  /* Site names for the list; a reader holds only the area's id. */
+  const [siteNames, setSiteNames] = useState(() => new Map());
+  useEffect(() => {
+    listStructure('areas').then((a) => setSiteNames(new Map(a.map((x) => [x.id, x.name])))).catch(() => {});
+  }, []);
   const [loadError, setLoadError] = useState('');
   const [adding, setAdding] = useState(false);
   const [open, setOpen] = useState(null);
@@ -229,9 +234,12 @@ export default function AttendanceDevices({ openScreen }) {
                 <tr>
                   <ColumnHeader label="Reader" col="name" state={columns}  className="ui-col-grow" />
                   <th scope="col" className="hidden md:table-cell">Serial</th>
+                  <th scope="col" className="hidden 2xl:table-cell">Site</th>
+                  <th scope="col" className="hidden 2xl:table-cell">Connection</th>
                   <ColumnHeader label="Direction" col="direction" state={columns} />
                   <th scope="col" className="ui-col-h-center">Status</th>
                   <ColumnHeader label="Model" col="model" state={columns} className="hidden md:table-cell" />
+                  <th scope="col" className="ui-num hidden 2xl:table-cell" title="People and fingerprints held on the reader">Enrolled</th>
                   <th scope="col" className="ui-num">Punches today</th>
                   <th scope="col" className="ui-num hidden md:table-cell">Commands waiting</th>
                 </tr>
@@ -239,7 +247,7 @@ export default function AttendanceDevices({ openScreen }) {
               <tbody className="ui-rows">
                 {!rows.length ? (
                   <tr>
-                    <td colSpan={7}>
+                    <td colSpan={10}>
                       {inTabRows.length ? (
                         <EmptyState kind="filtered" totalCount={inTabRows.length} title="No readers match" description="Nothing in this tab matches the search or the column filters." />
                       ) : all.length ? (
@@ -258,6 +266,8 @@ export default function AttendanceDevices({ openScreen }) {
                   <tr key={d.id} className={VIRTUAL[d.vendor] ? undefined : 'ui-row-click'} onClick={VIRTUAL[d.vendor] ? undefined : () => setOpen(d)} title={VIRTUAL[d.vendor]?.title}>
                     <td className="ui-col-entity">{d.name}{!VIRTUAL[d.vendor] && d.support ? <span className="block text-xs font-normal"><SupportPill support={d.support} /></span> : null}</td>
                     <td className="ui-col-meta hidden md:table-cell">{d.vendor === 'ETIMEOFFICE' ? 'e-Time Office' : URL_PUSH[d.vendor] ? d.model || `${d.driverLabel} · not connected yet` : MAPPED[d.vendor] || PULL[d.vendor] ? d.driverLabel : VIRTUAL[d.vendor]?.label || d.serialNumber}</td>
+                    <td className="hidden 2xl:table-cell">{siteNames.get(d.areaId) || <span className="ui-caption">All sites</span>}</td>
+                    <td className="ui-col-meta hidden 2xl:table-cell">{d.driverLabel || '—'}{d.ip ? <span className="ui-caption block">{d.ip}</span> : null}</td>
                     <td>{directionWord(d)}</td>
                     <td className="ui-col-h-center whitespace-nowrap">
                       {!d.isActive ? (
@@ -283,6 +293,7 @@ export default function AttendanceDevices({ openScreen }) {
                       )}
                     </td>
                     <td className="ui-col-meta hidden md:table-cell">{[d.model, d.firmware && `v${d.firmware}`].filter(Boolean).join(' · ') || '—'}</td>
+                    <td className="ui-num hidden 2xl:table-cell">{d.userCount === null || d.userCount === undefined ? '—' : `${d.userCount.toLocaleString('en-IN')}${d.fingerCount ? ` · ${d.fingerCount.toLocaleString('en-IN')} fp` : ''}`}</td>
                     <td className="ui-num">{d.punchesToday}</td>
                     <td className="ui-num hidden md:table-cell">{d.commandsWaiting || '—'}</td>
                   </tr>

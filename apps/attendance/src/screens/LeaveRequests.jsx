@@ -42,10 +42,13 @@ const COLUMNS = {
   from: (r) => r.fromDate,
   reason: (r) => r.reason,
   status: (r) => r.status,
+  department: (r) => r.department || '',
+  asked: (r) => String(r.createdAt || '').slice(0, 10),
 };
 const EXPORT_COLUMNS = [
   { key: 'employeeCode', label: 'Employee ID' },
   { key: 'employeeName', label: 'Name' },
+  { key: 'department', label: 'Department' },
   { key: 'leaveTypeName', label: 'Type' },
   { key: 'isPaid', label: 'Paid', value: (r) => (r.isPaid ? 'Yes' : 'No') },
   { key: 'fromDate', label: 'From' },
@@ -53,6 +56,7 @@ const EXPORT_COLUMNS = [
   { key: 'days', label: 'Days' },
   { key: 'reason', label: 'Reason' },
   { key: 'status', label: 'Status' },
+  { key: 'createdAt', label: 'Asked on', value: (r) => String(r.createdAt || '').slice(0, 10) },
 ];
 
 /** Everyone's leave. Approving marks the working days in it "on leave". */
@@ -154,10 +158,12 @@ export default function LeaveRequests() {
               <thead>
                 <tr>
                   <ColumnHeader label="Employee" col="employee" state={filters} />
+                  <ColumnHeader label="Department" col="department" state={filters} className="hidden 2xl:table-cell" />
                   <ColumnHeader label="Type" col="type" state={filters} />
                   <ColumnHeader label="Dates" col="from" state={filters} type="date" />
                   <th scope="col" className="ui-num">Days</th>
                   <ColumnHeader label="Reason" col="reason" state={filters}  className="ui-col-grow" />
+                  <ColumnHeader label="Asked" col="asked" state={filters} type="date" className="hidden 2xl:table-cell" />
                   <ColumnHeader label="Status" col="status" state={filters} align="center" />
                   <th scope="col"><span className="sr-only">Actions</span></th>
                 </tr>
@@ -165,7 +171,7 @@ export default function LeaveRequests() {
               <tbody className="ui-rows">
                 {!rows.length ? (
                   <tr>
-                    <td colSpan={7}>
+                    <td colSpan={9}>
                       {inTab.length ? (
                         <EmptyState kind="filtered" totalCount={inTab.length} title="No leave matches" description="Nothing in this tab matches the search or the column filters." />
                       ) : (
@@ -185,10 +191,12 @@ export default function LeaveRequests() {
                         {r.employeeName}
                         {r.employeeCode ? <span className="ui-caption"> · {r.employeeCode}</span> : null}
                       </td>
+                      <td className="hidden 2xl:table-cell">{r.department || <span className="ui-caption">—</span>}</td>
                       <td className="whitespace-nowrap">{r.leaveTypeName}{r.isPaid ? '' : <span className="ui-caption"> · unpaid</span>}</td>
                       <td className="ui-col-date whitespace-nowrap" title={leaveRange(r.fromDate, r.toDate)}>{span(r.fromDate, r.toDate)}</td>
                       <td className="ui-num">{r.days}</td>
                       <td className="ui-col-grow whitespace-normal min-w-[10rem]">{r.reason}</td>
+                      <td className="ui-col-date hidden 2xl:table-cell" title={new Date(r.createdAt).toLocaleString('en-IN')}>{short(String(r.createdAt).slice(0, 10))}</td>
                       <td className="ui-col-h-center"><StatusPill status={r.status} /></td>
                       <td className="ui-col-meta">
                         <span className="flex justify-end gap-1">

@@ -1,8 +1,9 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { BellRing, History, RefreshCw, Router } from 'lucide-react';
+import { AlertTriangle, BellRing, CheckCircle2, Cpu, Fingerprint, History, RefreshCw, Router, Wifi, WifiOff } from 'lucide-react';
 
 import { PageHeader, SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import Drawer from '@ui/components/ui/Drawer';
+import { StatCards } from '@ui/components/list/ListPageParts';
 import { notify } from '@ui/components/ui/notify';
 import { getReaderHealth, getReaderTimeline, saveReaderAlertSettings } from '../api/attendance';
 import LoadFailed from '../components/LoadFailed';
@@ -16,13 +17,23 @@ const ago = (iso) => {
   return `${Math.round(m / 1440)} days ago`;
 };
 const STATUS = {
-  ok: { label: 'Healthy', dot: 'rgb(var(--pos))' },
-  delayed: { label: 'Late checking in', dot: 'rgb(var(--warn-ink, 180 120 0))' },
-  warn: { label: 'Needs a look', dot: 'rgb(var(--warn-ink, 180 120 0))' },
-  bad: { label: 'Problem', dot: 'rgb(var(--neg))' },
-  offline: { label: 'Offline', dot: 'rgb(var(--neg))' },
-  off: { label: 'Switched off', dot: 'rgb(var(--fg-subtle, 150 150 150))' },
+  ok: { label: 'Healthy', dot: 'rgb(var(--pos))', pill: 'ui-pill-pos' },
+  delayed: { label: 'Late checking in', dot: 'rgb(var(--warn-ink, 180 120 0))', pill: 'ui-pill-warn' },
+  warn: { label: 'Needs a look', dot: 'rgb(var(--warn-ink, 180 120 0))', pill: 'ui-pill-warn' },
+  bad: { label: 'Problem', dot: 'rgb(var(--neg))', pill: 'ui-pill-neg' },
+  offline: { label: 'Offline', dot: 'rgb(var(--neg))', pill: 'ui-pill-neg' },
+  off: { label: 'Switched off', dot: 'rgb(var(--fg-subtle, 150 150 150))', pill: 'ui-pill-neutral' },
 };
+const when = (iso) => (iso ? new Date(iso).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : null);
+
+/** One figure in a reader card: a label, the value, and what it means. */
+const Metric = ({ label, value, hint, tone }) => (
+  <div className="rounded-lg px-3 py-2" style={{ backgroundColor: 'rgb(var(--surface-sunken))' }}>
+    <dt className="ui-caption">{label}</dt>
+    <dd className="text-sm font-semibold tabular-nums" style={tone ? { color: `rgb(var(--${tone}))` } : undefined}>{value}</dd>
+    {hint ? <dd className="ui-caption truncate" title={hint}>{hint}</dd> : null}
+  </div>
+);
 const SEVERITY_PILL = { critical: 'ui-pill-neg', high: 'ui-pill-neg', medium: 'ui-pill-warn' };
 const clock = (sec) => {
   if (sec === null || sec === undefined) return 'checked at the next punch';
@@ -67,13 +78,24 @@ export default function ReaderHealth() {
       <PageHeader
         entity="reader"
         title="Reader health"
-        description={`${data.readers.length} reader${data.readers.length === 1 ? '' : 's'} · ${problems ? `${problems} need${problems === 1 ? 's' : ''} a look` : 'all healthy'} · ${data.punchesToday} punch${data.punchesToday === 1 ? '' : 'es'} today`}
+        description="Is each reader reporting, is its clock right, how full is it. Problems are e-mailed once when they start and once when they clear."
         actions={
           <>
             <button type="button" className="ui-btn ui-btn-secondary" onClick={load}><RefreshCw size={16} aria-hidden="true" /> Refresh</button>
             <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setSettingsOpen(true)}><BellRing size={16} aria-hidden="true" /> Alerts</button>
           </>
         }
+      />
+
+      <StatCards
+        dense
+        cards={[
+          { label: 'Readers', value: data.readers.length, count: true, tone: 'sent', Icon: Cpu },
+          { label: 'Online now', value: data.readers.filter((r) => r.online).length, count: true, tone: 'paid', Icon: Wifi },
+          { label: 'Need a look', value: problems, count: true, tone: 'overdue', Icon: AlertTriangle },
+          { label: 'Punches today', value: data.punchesToday, count: true, tone: 'partial', Icon: Fingerprint },
+          { label: 'Open alerts', value: open.length, count: true, tone: 'outstanding', Icon: BellRing },
+        ]}
       />
 
       <div className="pb-8 space-y-6">
@@ -93,69 +115,98 @@ export default function ReaderHealth() {
       {!data.readers.length ? (
         <EmptyState icon={Router} title="No readers yet" description="Add a reader under Readers. Its health shows here once it connects." />
       ) : (
-        <div className="gap-3 lg:columns-2 2xl:columns-3 [&>*]:mb-3 [&>*]:break-inside-avoid">
+        <div className={`grid gap-3 items-start ${data.readers.length > 1 ? 'xl:grid-cols-2' : ''} ${data.readers.length > 2 ? '2xl:grid-cols-3' : ''}`}>
           {data.readers.map((r) => {
             const st = STATUS[r.status] || STATUS.ok;
+            const drift = r.clockOffsetSec !== null && r.clockOffsetSec !== undefined && Math.abs(r.clockOffsetSec) >= 120;
+            const facts = [
+              ['Model', r.model],
+              ['Firmware', r.firmware],
+              ['IP address', r.ip],
+              ['MAC', r.mac],
+              ['Site', r.areaName],
+              ['Recognises', [r.fingerSupported && 'fingerprint', r.faceSupported && 'face'].filter(Boolean).join(' and ') || null],
+              ['Last info', when(r.infoAt)],
+            ];
             return (
-              <section key={r.id} className="ui-card space-y-2.5 p-4" aria-label={r.name}>
-                <header className="flex items-start justify-between gap-2">
+              <section key={r.id} className="ui-card p-4 space-y-3" aria-label={r.name}>
+                <header className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
                       <span className="inline-block h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: st.dot }} aria-hidden="true" />
-                      <h2 className="truncate font-semibold">{r.name}</h2>
+                      <h2 className="truncate ui-t-sec">{r.name}</h2>
+                      <span className={`ui-pill ${st.pill}`}>{st.label}</span>
                     </div>
-                    <div className="ui-caption truncate">
-                      {[r.serialNumber, r.model, r.firmware && `firmware ${r.firmware}`, r.ip && `IP ${r.ip}`, r.areaName && `${r.areaName} area`].filter(Boolean).join(' · ')}
-                    </div>
+                    <div className="ui-caption truncate mt-0.5">{[r.serialNumber, r.areaName && `${r.areaName}`, r.isActive ? null : 'switched off'].filter(Boolean).join(' · ')}</div>
                   </div>
-                  <span className="flex shrink-0 items-center gap-1">
-                    <span className="ui-caption">{st.label}</span>
-                    <button type="button" className="ui-icon-btn" title="Timeline: punches received, changes sent, errors" aria-label={`${r.name} timeline`} onClick={() => setTimelineOf(r)}>
-                      <History size={16} aria-hidden="true" />
-                    </button>
-                  </span>
+                  <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm shrink-0" title="Punches received, changes sent, errors" aria-label={`${r.name} timeline`} onClick={() => setTimelineOf(r)}>
+                    <History size={14} aria-hidden="true" /> Timeline
+                  </button>
                 </header>
-                <dl className="grid grid-cols-3 gap-2 text-xs">
-                  <div><dt className="ui-caption">Last heard</dt><dd className="font-medium">{ago(r.lastSeenAt)}</dd></div>
-                  <div><dt className="ui-caption">Last punch</dt><dd className="font-medium">{ago(r.lastPunchAt)}</dd></div>
-                  <div><dt className="ui-caption">Clock</dt><dd className="font-medium" style={r.clockOffsetSec && Math.abs(r.clockOffsetSec) >= 120 ? { color: 'rgb(var(--neg))' } : undefined}>{clock(r.clockOffsetSec)}</dd></div>
+
+                <dl className="grid gap-2 grid-cols-[repeat(auto-fit,minmax(9rem,1fr))]">
+                  <Metric label="Last heard" value={ago(r.lastSeenAt)} hint={r.online ? 'Connected' : when(r.lastSeenAt) || 'Never connected'} tone={r.online ? 'pos' : r.lastSeenAt ? 'neg' : undefined} />
+                  <Metric label="Last punch" value={ago(r.lastPunchAt)} hint={when(r.lastPunchAt)} />
+                  <Metric label="Clock" value={r.clockOffsetSec === null || r.clockOffsetSec === undefined ? 'Not checked' : clock(r.clockOffsetSec)} hint={r.clockCheckedAt ? `checked ${ago(r.clockCheckedAt)}` : 'at the next punch'} tone={drift ? 'neg' : undefined} />
+                  <Metric label="Changes waiting" value={r.queue.waiting} hint={r.queue.failed24h ? `${r.queue.failed24h} failed today` : 'none failed'} tone={r.queue.failed24h ? 'neg' : undefined} />
                 </dl>
-                <div className="space-y-1.5">
-                  {[
-                    ['Users', r.capacity.users],
-                    ['Fingerprints', r.capacity.fingers],
-                    ['Faces', r.capacity.faces],
-                    ['Punch log', r.capacity.punches],
-                  ].map(([label, c]) =>
-                    !c || c.n === null ? null : (
-                      <div key={label} className="grid grid-cols-[6.5rem_1fr_auto] items-center gap-2 text-xs">
+
+                <div className={`grid gap-x-6 gap-y-3 ${data.readers.length === 1 ? 'lg:grid-cols-2' : ''}`}>
+                <div>
+                  <div className="ui-caption mb-1.5">Memory on the reader</div>
+                  <div className="space-y-1.5">
+                    {[
+                      ['Users', r.capacity.users],
+                      ['Fingerprints', r.capacity.fingers],
+                      ['Faces', r.capacity.faces],
+                      ['Punch log', r.capacity.punches],
+                    ].map(([label, c]) => (
+                      <div key={label} className="grid grid-cols-[6.5rem_1fr_7rem] items-center gap-2 text-xs">
                         <span className="ui-caption">{label}</span>
-                        <span className="h-1.5 overflow-hidden rounded-full" style={{ backgroundColor: 'rgb(var(--border))' }} role="meter" aria-label={`${label} used`} aria-valuemin={0} aria-valuemax={c.max || 0} aria-valuenow={c.n}>
-                          {c.pct !== null ? (
-                            <span className="block h-full rounded-full" style={{ width: `${Math.min(100, c.pct)}%`, backgroundColor: c.pct >= 90 ? 'rgb(var(--neg))' : 'rgb(var(--accent))' }} />
+                        <span className="h-1.5 overflow-hidden rounded-full" style={{ backgroundColor: 'rgb(var(--border))' }} role="meter" aria-label={`${label} used`} aria-valuemin={0} aria-valuemax={c?.max || 0} aria-valuenow={c?.n || 0}>
+                          {c?.pct !== null && c?.pct !== undefined ? (
+                            <span className="block h-full rounded-full" style={{ width: `${Math.min(100, c.pct)}%`, backgroundColor: c.pct >= 90 ? 'rgb(var(--neg))' : 'rgb(var(--fg-muted))' }} />
                           ) : null}
                         </span>
-                        <span className="tabular-nums">{c.n.toLocaleString('en-IN')}{c.max ? ` / ${c.max.toLocaleString('en-IN')}` : ''}</span>
+                        <span className="tabular-nums text-end">
+                          {c?.n === null || c?.n === undefined ? <span className="ui-caption">—</span> : `${c.n.toLocaleString('en-IN')}${c.max ? ` / ${c.max.toLocaleString('en-IN')}` : ''}`}
+                        </span>
                       </div>
-                    )
-                  )}
-                  {r.capacity.users.n === null ? <p className="ui-caption">Counts come with the next report.</p> : null}
-                  {r.faceSupported === false ? <p className="ui-caption">Fingerprint only.</p> : null}
+                    ))}
+                  </div>
+                  {r.capacity.users.n === null ? <p className="ui-caption mt-1.5">The reader sends these counts with its next info report.</p> : null}
                 </div>
-                {r.queue.waiting || r.queue.failed24h ? (
-                  <p className="ui-caption">{[r.queue.waiting && `${r.queue.waiting} change${r.queue.waiting === 1 ? '' : 's'} waiting`, r.queue.failed24h && `${r.queue.failed24h} failed today`].filter(Boolean).join(' · ')}</p>
-                ) : null}
+
+                <div>
+                  <div className="ui-caption mb-1.5">About the reader</div>
+                  <dl className="grid grid-cols-[repeat(auto-fit,minmax(7rem,1fr))] gap-x-3 gap-y-1.5 text-xs">
+                    {facts.map(([k, v]) => (
+                      <div key={k} className="min-w-0">
+                        <dt className="ui-caption">{k}</dt>
+                        <dd className="truncate" title={v || ''}>{v || <span className="ui-caption">Not reported</span>}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                </div>
+                </div>
+
                 {r.issues.length ? (
                   <ul className="space-y-2">
                     {r.issues.map((i) => (
-                      <li key={i.kind} className="rounded-lg p-2 text-sm" style={{ backgroundColor: 'rgb(var(--app-bg))' }}>
-                        <span className={`ui-pill mr-2 ${SEVERITY_PILL[i.severity]}`}>{i.severity === 'medium' ? 'check' : 'fix'}</span>
-                        <span className="font-medium">{i.title}</span>
+                      <li key={i.kind} className="rounded-lg p-3 text-sm" style={{ backgroundColor: 'rgb(var(--surface-sunken))' }}>
+                        <div className="flex items-center gap-2">
+                          <span className={`ui-pill ${SEVERITY_PILL[i.severity] || 'ui-pill-warn'}`}>{i.severity === 'medium' ? 'Check' : 'Fix now'}</span>
+                          <span className="font-medium">{i.title}</span>
+                        </div>
                         <p className="ui-caption mt-1">{i.details}</p>
                       </li>
                     ))}
                   </ul>
-                ) : null}
+                ) : (
+                  <p className="flex items-center gap-1.5 text-sm" style={{ color: 'rgb(var(--pos))' }}>
+                    {r.online ? <CheckCircle2 size={16} aria-hidden="true" /> : <WifiOff size={16} aria-hidden="true" />} {r.online ? 'Nothing to fix.' : 'No problems recorded.'}
+                  </p>
+                )}
               </section>
             );
           })}
