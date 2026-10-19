@@ -298,3 +298,9 @@ export const listBreaches = () => get('/data-protection/breaches').then((r) => r
 export const recordBreach = (body) => send('/data-protection/breaches', 'POST', body);
 export const updateBreach = (id, body) => send(`/data-protection/breaches/${encodeURIComponent(id)}`, 'PUT', body);
 export const notifyBreach = (id) => send(`/data-protection/breaches/${encodeURIComponent(id)}/notify`, 'POST', {});
+
+// Overtime and comp-off: the company's rules and the requests waiting on HR.
+export const getOvertimeRules = () => get('/overtime/rules');
+export const saveOvertimeRules = (rules) => send('/overtime/rules', 'PUT', rules);
+export const listOvertimeRequests = (status = 'PENDING') => get(`/overtime/requests${query({ status })}`);
+export const decideOvertimeRequest = (id, approve, note) => send(`/overtime/requests/${encodeURIComponent(id)}/${approve ? 'approve' : 'reject'}`, 'POST', { note });

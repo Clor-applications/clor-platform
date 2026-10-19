@@ -158,7 +158,7 @@ export async function confirmMonth(e: Who, month: string, dispute: string | null
       kind: 'attendance.month_disputed',
       title: `${e.name}${e.code ? ` (${e.code})` : ''} says their ${month} attendance is wrong`,
       body: dispute.slice(0, 300),
-      link: { app: 'attendance', screen: 'monthClose' },
+      link: { app: 'attendance', screen: 'confirmations' },
     }).catch(() => null);
   }
   return row;

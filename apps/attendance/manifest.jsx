@@ -38,6 +38,8 @@ import {
   ShieldCheck,
   ShieldAlert,
   Lock,
+  Timer,
+  BadgeCheck,
   Smartphone,
   Link2,
   ClipboardList,
@@ -87,6 +89,8 @@ import SsoSettings from '../accounting/src/features/account/SsoSettings';
 import EmployeePortal from './src/portal/EmployeePortal';
 import Exceptions from './src/screens/Exceptions';
 import MonthClose from './src/screens/MonthClose';
+import OvertimeRequests from './src/screens/OvertimeRequests';
+import MonthConfirmations from './src/screens/MonthConfirmations';
 import PhonePunches from './src/screens/PhonePunches';
 import IdMapping from './src/screens/IdMapping';
 import AttendanceSetup from './src/screens/AttendanceSetup';
@@ -131,8 +135,8 @@ export const attendanceApp = {
       { label: 'Data', items: ['transactions', 'phonePunches', 'enrolments', 'unmatched', 'idMapping', 'deviceLogs'] },
     ] },
     { key: 'attendance', label: 'Attendance', groups: [
-      { label: 'Daily', items: ['exceptions', 'records', 'requests', 'leaveRequests'] },
-      { label: 'Reports', items: ['register', 'calendar', 'summary', 'monthClose', 'reports'] },
+      { label: 'Daily', items: ['exceptions', 'records', 'requests', 'leaveRequests', 'overtime'] },
+      { label: 'Reports', items: ['register', 'calendar', 'summary', 'confirmations', 'monthClose', 'reports'] },
       { label: 'Schedule', items: ['scheduleCalendar', 'shifts', 'shiftAssignments', 'departmentSchedule', 'temporarySchedule', 'rotations'] },
       { label: 'Rules', items: ['holidays', 'rules'] },
       { label: 'Leave setup', items: ['leaveTypes', 'leaveBalances'] },
@@ -203,6 +207,8 @@ export const attendanceApp = {
     { key: 'dataExport', label: 'Export', icon: Download, permission: 'ATTENDANCE::Attendance Records::VIEW' },
     { key: 'exceptions', label: 'Exceptions', icon: ShieldAlert, permission: 'ATTENDANCE::Attendance Records::VIEW' },
     { key: 'monthClose', label: 'Month close', icon: Lock, permission: 'ATTENDANCE::Attendance Records::VIEW' },
+    { key: 'overtime', label: 'Overtime & comp-off', icon: Timer, permission: 'ATTENDANCE::Attendance Records::VIEW' },
+    { key: 'confirmations', label: 'Employee confirmations', icon: BadgeCheck, permission: 'ATTENDANCE::Attendance Records::VIEW' },
     { key: 'phonePunches', label: 'Phone punches', icon: Smartphone, permission: 'ATTENDANCE::Attendance Devices::VIEW' },
     { key: 'idMapping', label: 'ID mapping', icon: Link2, permission: 'ATTENDANCE::Attendance Devices::VIEW' },
     { key: 'setup', label: 'Setup', icon: ClipboardList, permission: 'ATTENDANCE::Attendance Records::VIEW' },
@@ -256,6 +262,8 @@ export const attendanceApp = {
     myLeave: MyLeave,
     exceptions: Exceptions,
     monthClose: MonthClose,
+    overtime: OvertimeRequests,
+    confirmations: MonthConfirmations,
     phonePunches: PhonePunches,
     idMapping: IdMapping,
     setup: AttendanceSetup,
