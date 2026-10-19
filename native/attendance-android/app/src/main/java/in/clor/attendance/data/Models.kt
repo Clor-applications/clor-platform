@@ -135,7 +135,7 @@ data class LeaveRequest(
 )
 
 @Serializable
-data class Approvals(val approver: Boolean = false, val leaves: List<Ask> = emptyList(), val corrections: List<Ask> = emptyList(), val punches: List<Ask> = emptyList())
+data class Approvals(val approver: Boolean = false, val leaves: List<Ask> = emptyList(), val corrections: List<Ask> = emptyList(), val punches: List<Ask> = emptyList(), val overtime: List<Ask> = emptyList())
 
 /** A leave or correction waiting on me, as an approver. */
 @Serializable
@@ -158,6 +158,7 @@ data class Ask(
     val longitude: Double? = null,
     val accuracy: Int? = null,
     val photo: Boolean = false,
+    val minutes: Int? = null,
 )
 
 @Serializable
@@ -258,7 +259,15 @@ data class MyRequest(
     val createdAt: String = "",
     val dueAt: String? = null,
     val canChange: Boolean = false,
+    val minutes: Int? = null,
+    val withHr: Boolean = false,
+    /** Sent, the manager, HR, decided: what is done and who acts next. */
+    val steps: List<TimelineStep> = emptyList(),
+    val next: String? = null,
 )
+
+@Serializable
+data class TimelineStep(val label: String = "", val state: String = "LATER", val at: String? = null, val who: String? = null)
 
 @Serializable
 data class MyRequests(val requests: List<MyRequest> = emptyList(), val reasons: List<String> = emptyList())
@@ -275,3 +284,94 @@ data class Decided(val key: String = "", val text: String = "")
 
 @Serializable
 data class PhotoAnswer(val photo: String = "")
+
+/** Past days with something missing or waiting (GET /portal/attention). */
+@Serializable
+data class AttentionList(val items: List<AttentionItem> = emptyList(), val count: Int = 0, val waiting: Int = 0)
+
+@Serializable
+data class AttentionItem(val date: String = "", val kind: String = "", val text: String = "", val action: String = "NONE", val checkIn: String? = null)
+
+/** A month to check and confirm (GET /portal/month-review). */
+@Serializable
+data class MonthReview(
+    val month: String = "",
+    val summary: ReviewSummary = ReviewSummary(),
+    val unresolved: List<AttentionItem> = emptyList(),
+    val pendingOvertime: Int = 0,
+    val cutoff: String = "",
+    val canConfirm: Boolean = false,
+    val why: String? = null,
+    val confirmation: Confirmation? = null,
+)
+
+@Serializable
+data class ReviewSummary(
+    val present: Double = 0.0,
+    val halfDays: Double = 0.0,
+    val absent: Double = 0.0,
+    val leave: Double = 0.0,
+    val holidays: Double = 0.0,
+    val weeklyOffs: Double = 0.0,
+    val late: Double = 0.0,
+    val latePenaltyDays: Double = 0.0,
+    val lossOfPayDays: Double = 0.0,
+    val payableDays: Double = 0.0,
+    val notYet: Double = 0.0,
+    val workedMinutes: Double = 0.0,
+    val overtimeMinutes: Double = 0.0,
+    val approvedOvertimeMinutes: Double = 0.0,
+)
+
+@Serializable
+data class Confirmation(val status: String = "", val note: String? = null, val unresolved: Int = 0, val at: String? = null)
+
+/** The days coming up (GET /portal/schedule?from=&days=). */
+@Serializable
+data class Upcoming(val from: String = "", val days: List<ShiftDay> = emptyList())
+
+@Serializable
+data class ShiftDay(
+    val date: String = "",
+    val kind: String = "WORK",
+    val shift: String = "",
+    val startTime: String = "",
+    val endTime: String = "",
+    val crossesMidnight: Boolean = false,
+    val holiday: String? = null,
+    val halfDay: String? = null,
+    val source: String = "",
+    val changed: Boolean = false,
+    val sourceText: String = "",
+)
+
+/** Overtime and comp-off for a month (GET /portal/overtime). */
+@Serializable
+data class OvertimeView(
+    val month: String = "",
+    val recordedMinutes: Int = 0,
+    val approvedMinutes: Int = 0,
+    val pendingMinutes: Int = 0,
+    val policy: OvertimePolicy = OvertimePolicy(),
+    val days: List<OvertimeDay> = emptyList(),
+)
+
+@Serializable
+data class OvertimePolicy(val overtimeRequests: Boolean = true, val compOff: Boolean = false)
+
+@Serializable
+data class OvertimeDay(
+    val date: String = "",
+    val workedMinutes: Int = 0,
+    val overtimeMinutes: Int = 0,
+    val overtimeApproved: Boolean = false,
+    val restDay: Boolean = false,
+    val compOffDays: Double = 0.0,
+    val overtimeRequest: OvertimeAsk? = null,
+    val compOffRequest: OvertimeAsk? = null,
+    val canAskOvertime: Boolean = false,
+    val canAskCompOff: Boolean = false,
+)
+
+@Serializable
+data class OvertimeAsk(val id: String = "", val status: String = "", val days: Double? = null, val note: String? = null)

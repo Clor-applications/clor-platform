@@ -55,11 +55,17 @@ import java.util.Locale
  * does (the same explanation HR sees) and to ask for it to be fixed.
  */
 @Composable
-fun AttendanceTab(api: Api, version: Int, onChanged: () -> Unit, onSignedOut: () -> Unit) {
+fun AttendanceTab(api: Api, version: Int, onChanged: () -> Unit, onSignedOut: () -> Unit, panel: Panel? = null, onPanel: (Panel?) -> Unit = {}, onFix: (String, String?) -> Unit = { _, _ -> }) {
+    if (panel != null) {
+        PanelScreen(api, panel, version, onBack = { onPanel(null) }, onFix = onFix, onChanged = onChanged, onSignedOut = onSignedOut)
+        return
+    }
     var month by rememberSaveable { mutableStateOf(YearMonth.now().toString()) }
     var open by remember { mutableStateOf<String?>(null) }
     val data = rememberLoad(onSignedOut, month, version) { api.month(month) }
+    val attention = rememberLoad(onSignedOut, version) { api.attention() }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(screenPadding), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        PanelTiles((attention.state as? Load.Ready)?.value?.count) { onPanel(it) }
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
             IconButton(onClick = { month = YearMonth.parse(month).minusMonths(1).toString() }) { Icon(Icons.AutoMirrored.Outlined.KeyboardArrowLeft, contentDescription = "Previous month") }
             Text(YearMonth.parse(month).format(DateTimeFormatter.ofPattern("MMMM yyyy", Locale.ENGLISH)), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)

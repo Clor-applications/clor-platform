@@ -91,6 +91,9 @@ fun RequestsTab(
     phoneAllowed: Boolean,
     startNew: NewKind?,
     onStarted: () -> Unit,
+    /** A day to fix, from Needs attention: the form opens on it, with the in time if one was recorded. */
+    startDate: String? = null,
+    startCheckIn: String? = null,
     openLeave: () -> Unit,
     onChanged: () -> Unit,
     onSignedOut: () -> Unit,
@@ -103,7 +106,7 @@ fun RequestsTab(
     val data = rememberLoad(onSignedOut, version) { api.requests() }
     LaunchedEffect(startNew) {
         if (startNew != null) {
-            if (startNew == NewKind.Leave) openLeave() else form = startNew to null
+            if (startNew == NewKind.Leave) openLeave() else form = startNew to startDate?.let { MyRequest(date = it, checkIn = startCheckIn) }
             onStarted()
         }
     }
@@ -143,7 +146,11 @@ fun RequestsTab(
                             onCancel = {
                                 scope.launch {
                                     try {
-                                        if (q.kind == "leave") api.cancelLeave(q.id) else api.cancelCorrection(q.id)
+                                        when (q.kind) {
+                                            "leave" -> api.cancelLeave(q.id)
+                                            "overtime", "compoff" -> api.cancelOvertime(q.id)
+                                            else -> api.cancelCorrection(q.id)
+                                        }
                                         message = "Withdrawn."
                                         data.reload()
                                         onChanged()
@@ -187,12 +194,15 @@ fun RequestsTab(
 private fun RequestCard(q: MyRequest, onEdit: () -> Unit, onCancel: () -> Unit) {
     val title = when (q.kind) {
         "leave" -> "${q.leaveTypeName ?: "Leave"} · ${if (q.halfDay != null) "half day (${if (q.halfDay == "FIRST") "first" else "second"} half)" else q.days?.let { days(it) } ?: ""}"
+        "overtime" -> "Overtime · ${hm(q.minutes)}"
+        "compoff" -> "Comp-off · ${q.days?.let { days(it) } ?: ""}"
         "data" -> when (q.type) { "CORRECTION" -> "Update my details"; "GRIEVANCE" -> "Concern raised"; "WITHDRAW" -> "Consent withdrawn"; "NOMINATE" -> "Nominee"; "ACCESS" -> "See my data"; "ERASURE" -> "Erase my data"; else -> "Data request" }
         else -> when (q.reasonCode) { "ON_DUTY" -> "On duty"; "READER_DOWN" -> "Reader not working"; "WRONG_SHIFT" -> "Wrong shift"; "FORGOT_PUNCH" -> "Missed punch"; else -> "Attendance correction" }
     }
     val sub = when (q.kind) {
         "leave" -> if (q.fromDate == q.toDate) shortDate(q.fromDate.orEmpty()) else "${shortDate(q.fromDate.orEmpty())} to ${shortDate(q.toDate.orEmpty())}"
         "data" -> q.dueAt?.let { "Answer by ${shortDate(it.take(10))}" } ?: ""
+        "overtime", "compoff" -> shortDate(q.date.orEmpty())
         else -> "${shortDate(q.date.orEmpty())} · ${q.checkIn ?: "—"}${q.checkOut?.let { " – $it" } ?: ""}"
     }
     Section {
@@ -205,7 +215,8 @@ private fun RequestCard(q: MyRequest, onEdit: () -> Unit, onCancel: () -> Unit) 
             StatusPill(t, tone)
         }
         q.reason?.takeIf { it.isNotBlank() }?.let { Text("“$it”", style = MaterialTheme.typography.bodyMedium) }
-        q.note?.takeIf { it.isNotBlank() && q.status != "PENDING" }?.let { Hint("HR: $it") }
+        if (q.status != "REJECTED") q.note?.takeIf { it.isNotBlank() && q.status != "PENDING" }?.let { Hint("Note: $it") }
+        Timeline(q.steps, q.next)
         if (q.canChange) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (q.kind == "correction") OutlinedButton(onClick = onEdit) { Text("Edit") }
@@ -219,12 +230,14 @@ private fun RequestCard(q: MyRequest, onEdit: () -> Unit, onCancel: () -> Unit) 
 /** Missed / wrong punch, or on duty: a day, the times, and why. Editing keeps the day. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun CorrectionRequestForm(api: Api, kind: NewKind, editing: MyRequest?, onDone: (String) -> Unit, onCancel: () -> Unit, onSignedOut: () -> Unit) {
+private fun CorrectionRequestForm(api: Api, kind: NewKind, start: MyRequest?, onDone: (String) -> Unit, onCancel: () -> Unit, onSignedOut: () -> Unit) {
     val scope = rememberCoroutineScope()
     val zone = ZoneId.of("Asia/Kolkata")
-    var date by remember { mutableStateOf(editing?.date?.let { LocalDate.parse(it) } ?: LocalDate.now(zone)) }
+    val prefill = start
+    val editing = prefill?.takeIf { it.id.isNotEmpty() }
+    var date by remember { mutableStateOf(prefill?.date?.let { LocalDate.parse(it) } ?: LocalDate.now(zone)) }
     var picking by remember { mutableStateOf(false) }
-    var checkIn by remember { mutableStateOf(editing?.checkIn ?: if (kind == NewKind.OnDuty) "09:00" else "") }
+    var checkIn by remember { mutableStateOf(prefill?.checkIn ?: if (kind == NewKind.OnDuty) "09:00" else "") }
     var checkOut by remember { mutableStateOf(editing?.checkOut ?: if (kind == NewKind.OnDuty) "18:00" else "") }
     var code by remember { mutableStateOf(editing?.reasonCode ?: if (kind == NewKind.OnDuty) "ON_DUTY" else "FORGOT_PUNCH") }
     var reason by remember { mutableStateOf(editing?.reason ?: "") }

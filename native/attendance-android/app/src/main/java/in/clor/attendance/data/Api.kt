@@ -115,6 +115,18 @@ class Api(private val session: Session, private val base: String = BuildConfig.A
     suspend fun punchPhoto(id: String): PhotoAnswer = get("/approvals/punch/$id/photo")
     suspend fun cancelLeave(id: String) { call("POST", "/leave/$id/cancel") }
 
+    suspend fun attention(): AttentionList = get("/attention")
+    suspend fun monthReview(month: String): MonthReview = get("/month-review?month=$month")
+    suspend fun confirmMonth(month: String) { call("POST", "/month-review/$month/confirm") }
+    suspend fun disputeMonth(month: String, note: String) { call("POST", "/month-review/$month/dispute", buildJsonObject { put("note", note) }) }
+    suspend fun upcoming(from: String, days: Int): Upcoming = get("/schedule?from=$from&days=$days")
+    suspend fun overtime(month: String): OvertimeView = get("/overtime?month=$month")
+    /** kind: OVERTIME (approve the recorded overtime) or COMP_OFF (a day off for a worked rest day). */
+    suspend fun askOvertime(date: String, kind: String, reason: String) {
+        call("POST", "/overtime", buildJsonObject { put("date", date); put("kind", kind); put("reason", reason) })
+    }
+    suspend fun cancelOvertime(id: String) { call("POST", "/overtime/$id/cancel") }
+
     suspend fun approvals(): Approvals = get("/approvals")
     suspend fun decide(type: String, id: String, approve: Boolean, note: String?) {
         call("POST", "/approvals/$type/$id", buildJsonObject { put("decision", if (approve) "approve" else "reject"); note?.let { put("note", it) } })

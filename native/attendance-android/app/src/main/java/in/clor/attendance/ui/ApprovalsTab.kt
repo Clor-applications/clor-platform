@@ -43,7 +43,7 @@ fun ApprovalsTab(api: Api, onSignedOut: () -> Unit) {
 fun ApprovalsContent(api: Api, onSignedOut: () -> Unit) {
     val data = rememberLoad(onSignedOut) { api.approvals() }
     LoadView(data) { a ->
-        val all = a.leaves + a.corrections + a.punches
+        val all = a.leaves + a.corrections + a.punches + a.overtime
         if (all.isEmpty()) Section { Hint("Nothing waiting. Requests from people who report to you appear here.") }
         all.forEach { ask -> AskCard(api, ask, onDecided = data.reload, onSignedOut = onSignedOut) }
     }
@@ -71,8 +71,10 @@ private fun AskCard(api: Api, ask: Ask, onDecided: () -> Unit, onSignedOut: () -
             }
         }
     }
-    Section(when (ask.type) { "leave" -> "Leave · ${ask.employeeName}"; "punch" -> "Field punch · ${ask.employeeName}"; else -> "Correction · ${ask.employeeName}" }) {
-        if (ask.type == "punch") {
+    Section(when (ask.type) { "leave" -> "Leave · ${ask.employeeName}"; "punch" -> "Field punch · ${ask.employeeName}"; "overtime" -> "${if (ask.kind == "COMP_OFF") "Comp-off" else "Overtime"} · ${ask.employeeName}"; else -> "Correction · ${ask.employeeName}" }) {
+        if (ask.type == "overtime") {
+            Text(if (ask.kind == "COMP_OFF") "${shortDate(ask.date.orEmpty())} · worked ${hm(ask.minutes)} on a rest day · ${ask.days?.let { days(it) } ?: ""}" else "${shortDate(ask.date.orEmpty())} · ${hm(ask.minutes)} beyond the shift", style = MaterialTheme.typography.bodyLarge)
+        } else if (ask.type == "punch") {
             Text("${shortDate(ask.date.orEmpty())} · ${if (ask.kind == "OUT") "Out" else "In"} at ${ask.checkIn ?: "—"}", style = MaterialTheme.typography.bodyLarge)
             FieldEvidence(api, ask)
         } else if (ask.type == "leave") {

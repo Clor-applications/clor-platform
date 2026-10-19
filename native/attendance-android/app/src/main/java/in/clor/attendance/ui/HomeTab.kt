@@ -74,6 +74,7 @@ class HomeLinks(
     val leave: () -> Unit,
     val approvals: () -> Unit,
     val me: () -> Unit,
+    val attention: () -> Unit = attendance,
 )
 
 /**
@@ -188,7 +189,7 @@ private fun Alerts(h: Home, links: HomeLinks) {
             tone = Tone.Neg,
             title = "${h.attentionCount} day${if (h.attentionCount == 1) "" else "s"} need${if (h.attentionCount == 1) "s" else ""} attention",
             text = h.attention.take(2).joinToString(" · ") { "${shortDate(it.date)}: ${it.why}" } + if (h.attentionCount > 2) " · …" else "",
-            onClick = links.attendance,
+            onClick = links.attention,
         )
     }
     if (h.approvals.waiting > 0) {

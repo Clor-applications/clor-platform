@@ -98,6 +98,14 @@ private fun Tabs(api: Api, approver: Boolean, phoneAllowed: Boolean, version: In
     var applyLeave by remember { mutableStateOf(false) }
     /* A request to start from Home (a missed punch, on duty, …), opened on the Requests tab. */
     var newRequest by remember { mutableStateOf<NewKind?>(null) }
+    /* A day to fix from Needs attention, and which self-service screen the Attendance tab shows. */
+    var fixDay by remember { mutableStateOf<Pair<String, String?>?>(null) }
+    var panel by remember { mutableStateOf<Panel?>(null) }
+    val fix: (String, String?) -> Unit = { date, checkIn ->
+        fixDay = date to checkIn
+        newRequest = NewKind.Missed
+        tab = Tab.Requests
+    }
     val links = HomeLinks(
         request = { k ->
             if (k == NewKind.Leave) {
@@ -115,6 +123,7 @@ private fun Tabs(api: Api, approver: Boolean, phoneAllowed: Boolean, version: In
         leave = { tab = Tab.Leave },
         approvals = { tab = Tab.Requests },
         me = { tab = Tab.Me },
+        attention = { panel = Panel.Attention; tab = Tab.Attendance },
     )
     val tabs = Tab.entries
     /* Wide screens (tablets, landscape, foldables): a side rail instead of the bottom bar, and content held to a readable width. */
@@ -131,9 +140,9 @@ private fun Tabs(api: Api, approver: Boolean, phoneAllowed: Boolean, version: In
     val content: @Composable () -> Unit = {
         when (tab) {
             Tab.Home -> HomeTab(api, version, links, onChanged, onSignedOut)
-            Tab.Attendance -> AttendanceTab(api, version, onChanged, onSignedOut)
+            Tab.Attendance -> AttendanceTab(api, version, onChanged, onSignedOut, panel = panel, onPanel = { panel = it }, onFix = fix)
             Tab.Leave -> LeaveTab(api, version, onChanged, onSignedOut, startApplying = applyLeave, onApplyShown = { applyLeave = false })
-            Tab.Requests -> RequestsTab(api, version, approver, phoneAllowed, startNew = newRequest, onStarted = { newRequest = null }, openLeave = { applyLeave = true; tab = Tab.Leave }, onChanged = onChanged, onSignedOut = onSignedOut)
+            Tab.Requests -> RequestsTab(api, version, approver, phoneAllowed, startNew = newRequest, onStarted = { newRequest = null; fixDay = null }, startDate = fixDay?.first, startCheckIn = fixDay?.second, openLeave = { applyLeave = true; tab = Tab.Leave }, onChanged = onChanged, onSignedOut = onSignedOut)
             Tab.Me -> MeTab(api, onSignedOut, appearance, onAppearance)
         }
     }
