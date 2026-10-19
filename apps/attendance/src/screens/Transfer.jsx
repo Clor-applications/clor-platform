@@ -1,5 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 
+import { ArrowRightLeft, CheckCheck } from 'lucide-react';
+
 import { PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
 import { notify } from '@ui/components/ui/notify';
 import { listContractors, listEmployees, listStructure, transferEmployees } from '@ui/personnel/api';
@@ -68,57 +70,68 @@ export default function Transfer() {
   };
 
   return (
-    <div className="space-y-4">
-      <PageHeader entity="attendance" title="Transfer" description="Move people to another department, area, position or contractor in one go." />
-      <section className="ui-card flex flex-wrap items-end gap-3 p-4" aria-label="Transfer options">
-        <label className="block">
-          <span className="ui-label">Change</span>
-          <select className="ui-select" value={field} onChange={(e) => { setField(e.target.value); setFrom(''); setTarget(''); setPicked(new Set()); }}>
-            {Object.entries(FIELDS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
-          </select>
-        </label>
-        <label className="block">
-          <span className="ui-label">Show people in</span>
-          <select className="ui-select" value={from} onChange={(e) => { setFrom(e.target.value); setPicked(new Set()); }}>
-            <option value="">Any</option>
-            <option value="__none">None set</option>
-            {options.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
-          </select>
-        </label>
-        <label className="block">
-          <span className="ui-label">Move to *</span>
-          <select className="ui-select" value={target} onChange={(e) => setTarget(e.target.value)}>
-            <option value="">Choose…</option>
-            <option value="__none">None (clear it)</option>
-            {options.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
-          </select>
-        </label>
-        <button type="button" className="ui-btn ui-btn-primary" disabled={saving || !picked.size || !target} onClick={move}>
-          {saving ? 'Moving…' : `Move ${picked.size || ''}`}
-        </button>
-      </section>
-      <LoadFailed message={loadError} onRetry={load} />
-      {!people ? (
-        loadError ? null : <SkeletonCard lines={6} />
-      ) : (
-        <section className="ui-card p-4" aria-label="People">
-          <div className="mb-3 flex flex-wrap items-center gap-2">
-            <input type="search" className="ui-input" placeholder="Search" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search people" />
-            <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => setPicked(new Set(shown.map((p) => p.id)))}>Select {shown.length}</button>
-            {picked.size ? <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" onClick={() => setPicked(new Set())}>Clear</button> : null}
-          </div>
-          <ul className="grid max-h-[28rem] gap-1 overflow-y-auto sm:grid-cols-2 lg:grid-cols-3">
-            {shown.map((p) => (
-              <li key={p.id}>
-                <label className="flex items-center gap-2 text-sm">
-                  <input type="checkbox" className="ui-checkbox" checked={picked.has(p.id)} onChange={() => toggle(p.id)} />
-                  <span className="truncate">{p.name}<span className="ui-caption"> · {p[cfg.current] || `no ${cfg.label.toLowerCase()}`}</span></span>
-                </label>
-              </li>
-            ))}
-          </ul>
+    <div className="space-y-3">
+      <PageHeader
+        entity="employee"
+        title="Transfer"
+        description="Move people to another department, area, position or contractor in one go."
+        actions={
+          <button type="button" className="ui-btn ui-btn-primary" disabled={saving || !picked.size || !target} onClick={move}>
+            <ArrowRightLeft size={16} aria-hidden="true" /> {saving ? 'Moving…' : `Move ${picked.size || ''}`}
+          </button>
+        }
+      />
+      <div className="px-5 lg:px-7 pb-8 space-y-6">
+        <section className="ui-card flex flex-wrap items-end gap-3 p-4" aria-label="Transfer options">
+          <label className="block">
+            <span className="ui-label">Change</span>
+            <select className="ui-select" value={field} onChange={(e) => { setField(e.target.value); setFrom(''); setTarget(''); setPicked(new Set()); }}>
+              {Object.entries(FIELDS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+            </select>
+          </label>
+          <label className="block">
+            <span className="ui-label">Show people in</span>
+            <select className="ui-select" value={from} onChange={(e) => { setFrom(e.target.value); setPicked(new Set()); }}>
+              <option value="">Any</option>
+              <option value="__none">None set</option>
+              {options.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+            </select>
+          </label>
+          <label className="block">
+            <span className="ui-label">Move to *</span>
+            <select className="ui-select" value={target} onChange={(e) => setTarget(e.target.value)}>
+              <option value="">Choose…</option>
+              <option value="__none">None (clear it)</option>
+              {options.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+            </select>
+          </label>
         </section>
-      )}
+        <LoadFailed message={loadError} onRetry={load} />
+        {!people ? (
+          loadError ? null : <SkeletonCard lines={6} />
+        ) : (
+          <section className="ui-card" aria-label="People">
+            <div className="ui-card-head flex flex-wrap items-center justify-between gap-2">
+              <h2 className="ui-t-sec">People <span className="ui-caption tabular-nums">· {picked.size} of {shown.length} picked</span></h2>
+              <div className="flex flex-wrap items-center gap-2">
+                <input type="search" className="ui-input ui-ctl-compact !w-auto" placeholder="Search people…" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search people" />
+                <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => setPicked(new Set(shown.map((p) => p.id)))}><CheckCheck size={14} aria-hidden="true" /> Select {shown.length}</button>
+                {picked.size ? <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" onClick={() => setPicked(new Set())}>Clear</button> : null}
+              </div>
+            </div>
+            <ul className="grid max-h-[28rem] gap-1 overflow-y-auto p-4 sm:grid-cols-2 lg:grid-cols-3">
+              {shown.map((p) => (
+                <li key={p.id}>
+                  <label className="flex items-center gap-2 text-sm">
+                    <input type="checkbox" className="ui-checkbox" checked={picked.has(p.id)} onChange={() => toggle(p.id)} />
+                    <span className="truncate">{p.name}<span className="ui-caption"> · {p[cfg.current] || `no ${cfg.label.toLowerCase()}`}</span></span>
+                  </label>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+      </div>
     </div>
   );
 }

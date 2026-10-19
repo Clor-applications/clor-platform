@@ -1,7 +1,10 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { Plus } from 'lucide-react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { CheckCircle2, Clock3, Moon, Plus, Users } from 'lucide-react';
 
-import { PageHeader, SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
+import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
+import { useListSearch } from '@ui/components/ListToolbar';
+import DocumentListShell from '@ui/components/list/DocumentListShell';
+import { SkeletonCard, EmptyState, StatusPill } from '@ui/components/ui/Primitives';
 import Drawer from '@ui/components/ui/Drawer';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { createShift, deleteShift, hm, listShifts, updateShift } from '../api/attendance';
@@ -31,81 +34,138 @@ const offs = (s, sats) => {
   return [...days, ...nth].join(', ') || 'None';
 };
 
+const TABS = [
+  { value: '', label: 'All', tone: 'all' },
+  { value: 'ACTIVE', label: 'Active', tone: 'paid' },
+  { value: 'INACTIVE', label: 'Inactive', tone: 'cancelled' },
+];
+const COLUMNS = {
+  name: (s) => s.name,
+  off: (s) => offs(s.weeklyOffDays, s.offSaturdays),
+  active: (s) => (s.isActive ? 'Active' : 'Inactive'),
+};
+
 /**
  * Work timings. People with no shift fall back to 09:00–18:00, Sunday off.
  * An end at or before the start is a night shift (ends the next morning).
  */
 export default function Shifts() {
-  const [rows, setRows] = useState(null);
+  const [all, setAll] = useState(null);
   const [loadError, setLoadError] = useState('');
   const [editing, setEditing] = useState(null);
+  const [status, setStatus] = useState('');
 
   const load = useCallback(() => {
-    listShifts().then((v) => { setRows(v); setLoadError(''); }).catch((e) => setLoadError(String(e?.message || 'Could not load shifts.')));
+    listShifts().then((v) => { setAll(v); setLoadError(''); }).catch((e) => setLoadError(String(e?.message || 'Could not load shifts.')));
   }, []);
   useEffect(() => {
     load();
   }, [load]);
 
+  const counts = useMemo(() => {
+    const list = all || [];
+    const active = list.filter((s) => s.isActive).length;
+    return { '': list.length, ACTIVE: active, INACTIVE: list.length - active };
+  }, [all]);
+  const inTab = useMemo(() => (all || []).filter((s) => !status || (status === 'ACTIVE') === Boolean(s.isActive)), [all, status]);
+  const search = useListSearch(inTab, ['name', 'code', 'startTime', 'endTime']);
+  const filters = useColumnFilters();
+  const rows = filters.applyFilters(search.filtered, COLUMNS);
+  const figures = useMemo(() => {
+    const list = all || [];
+    return {
+      night: list.filter((s) => s.endTime <= s.startTime).length,
+      people: list.reduce((a, s) => a + Number(s.assignments || 0), 0),
+    };
+  }, [all]);
+  const create = () => setEditing({ ...BLANK });
+
   return (
-    <div className="space-y-4">
-      <PageHeader
-        entity="attendance"
-        title="Shifts"
-        description="Timings, grace and weekly offs. Anyone without a shift works 09:00–18:00 with Sunday off."
-        actions={
-          <button type="button" className="ui-btn ui-btn-primary" onClick={() => setEditing({ ...BLANK })}>
-            <Plus size={16} aria-hidden="true" /> New shift
-          </button>
-        }
-      />
+    <DocumentListShell
+      entity="shift"
+      title="Shifts"
+      description="Timings, grace and weekly offs. Anyone without a shift works 09:00–18:00 with Sunday off."
+      compact
+      tight
+      denseCards
+      search={{ value: search.query, onChange: search.setQuery, placeholder: 'Search shifts…', label: 'Search shifts' }}
+      primary={
+        <button type="button" className="ui-btn ui-btn-primary" onClick={create}>
+          <Plus size={16} aria-hidden="true" /> New shift
+        </button>
+      }
+      cards={[
+        { label: 'Shifts', value: counts[''], count: true, tone: 'all', Icon: Clock3 },
+        { label: 'Active', value: counts.ACTIVE, count: true, tone: 'paid', Icon: CheckCircle2, onSelect: () => setStatus('ACTIVE') },
+        { label: 'Night shifts', value: figures.night, count: true, tone: 'sent', Icon: Moon },
+        { label: 'People assigned', value: figures.people, count: true, tone: 'outstanding', Icon: Users },
+      ]}
+      tabs={TABS}
+      statusValue={status}
+      statusCounts={counts}
+      onStatusChange={setStatus}
+      tabsLabel="Shift status"
+    >
       <LoadFailed message={loadError} onRetry={load} />
-      {!rows ? (
+      {!all ? (
         loadError ? null : <SkeletonCard lines={4} />
-      ) : !rows.length ? (
-        <EmptyState title="No shifts yet" description="Create one, then assign people to it." />
       ) : (
-        <div className="ui-card overflow-hidden">
-          <div className="overflow-x-auto ui-table-scroll ui-table-fit">
-            <table className="ui-table w-full">
-              <thead>
+        <div className="ui-table-scroll">
+          <table className="ui-table ui-table-sticky w-full">
+            <thead>
+              <tr>
+                <ColumnHeader label="Shift" col="name" state={filters} />
+                <th scope="col" className="ui-col-h-center">Timing</th>
+                <th scope="col" className="ui-num">Break</th>
+                <th scope="col" className="ui-num">Grace</th>
+                <th scope="col" className="ui-num">Full day</th>
+                <ColumnHeader label="Weekly off" col="off" state={filters} />
+                <th scope="col" className="ui-num">People</th>
+                <ColumnHeader label="Active" col="active" state={filters} align="center" />
+              </tr>
+            </thead>
+            <tbody className="ui-rows">
+              {!rows.length ? (
                 <tr>
-                  <th scope="col" className="ui-th">Shift</th>
-                  <th scope="col" className="ui-th ui-col-h-center">Timing</th>
-                  <th scope="col" className="ui-th text-end">Break</th>
-                  <th scope="col" className="ui-th text-end">Grace</th>
-                  <th scope="col" className="ui-th text-end">Full day</th>
-                  <th scope="col" className="ui-th">Weekly off</th>
-                  <th scope="col" className="ui-th text-end">People</th>
-                  <th scope="col" className="ui-th ui-col-h-center">Active</th>
+                  <td colSpan={8}>
+                    {inTab.length ? (
+                      <EmptyState kind="filtered" totalCount={inTab.length} title="No shifts match" description="Nothing in this tab matches the search or the column filters." />
+                    ) : (
+                      <EmptyState
+                        icon={Clock3}
+                        title={status ? `No ${status.toLowerCase()} shifts` : 'No shifts yet'}
+                        description="Timings, grace and weekly offs. Anyone without a shift works 09:00–18:00 with Sunday off. Create one, then assign people to it."
+                        routes={status ? undefined : [{ label: 'New shift', description: 'Timings, grace and weekly offs; then assign people to it.', onSelect: create }]}
+                      />
+                    )}
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {rows.map((s) => (
+              ) : (
+                rows.map((s) => (
                   <tr key={s.id} className="ui-row-click" onClick={() => setEditing({ ...s, overtimeAfterMinutes: s.overtimeAfterMinutes ?? '', code: s.code || '', color: s.color || '', offSaturdays: s.offSaturdays || '' })}>
                     <td className="ui-col-entity">
-                      {s.code ? <span className="mr-1.5 inline-block rounded-full px-1.5 text-xs font-semibold text-white" style={{ backgroundColor: s.color || '#64748b' }}>{s.code}</span> : null}
+                      {s.code ? <span className="mr-1.5 inline-block rounded-full px-1.5 text-xs font-semibold text-white" style={{ backgroundColor: s.color || 'rgb(var(--fg-subtle))' }}>{s.code}</span> : null}
                       {s.name}
                     </td>
                     <td className="ui-col-h-center whitespace-nowrap">
                       {s.startTime}–{s.endTime}
                       {s.endTime <= s.startTime ? <span className="ui-caption"> (night)</span> : null}
                     </td>
-                    <td className="text-end tabular-nums">{s.breakMinutes}m</td>
-                    <td className="text-end tabular-nums">{s.graceMinutes}m</td>
-                    <td className="text-end tabular-nums">{hm(s.fullDayMinutes)}</td>
+                    <td className="ui-num">{s.breakMinutes}m</td>
+                    <td className="ui-num">{s.graceMinutes}m</td>
+                    <td className="ui-num">{hm(s.fullDayMinutes)}</td>
                     <td>{offs(s.weeklyOffDays, s.offSaturdays)}</td>
-                    <td className="text-end tabular-nums">{s.assignments}</td>
-                    <td className="ui-col-h-center">{s.isActive ? '✓' : ''}</td>
+                    <td className="ui-num">{s.assignments}</td>
+                    <td className="ui-col-h-center">{s.isActive ? <StatusPill status="active" /> : <span className="ui-caption">Inactive</span>}</td>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
       )}
       {editing ? <ShiftForm initial={editing} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); load(); }} /> : null}
-    </div>
+    </DocumentListShell>
   );
 }
 

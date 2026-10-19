@@ -1,7 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Check, HelpCircle, X } from 'lucide-react';
+import { Check, CheckCheck, ClipboardClock, HelpCircle, X } from 'lucide-react';
 
-import { PageHeader, SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
+import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
+import { useListSearch } from '@ui/components/ListToolbar';
+import DocumentListShell from '@ui/components/list/DocumentListShell';
+import { Pagination, usePaged } from '@ui/components/list/ListPageParts';
+import { SkeletonCard, EmptyState, StatusPill } from '@ui/components/ui/Primitives';
 import { notify } from '@ui/components/ui/notify';
 import { approveRequest, bulkReviewRequests, dayLabel, explainDay, listRequests, reasonLabel, rejectRequest } from '../api/attendance';
 import LoadFailed from '../components/LoadFailed';
@@ -16,22 +20,51 @@ const STATUS_WORD = { PRESENT: 'Present', HALF_DAY: 'Half day', ABSENT: 'Absent'
  * Approving writes the day; several can be decided at once, each with the
  * same checks (a manager first, when the company asks for that).
  */
+const TABS = [
+  { value: 'PENDING', label: 'Pending', tone: 'partial' },
+  { value: 'APPROVED', label: 'Approved', tone: 'paid' },
+  { value: 'REJECTED', label: 'Rejected', tone: 'overdue' },
+  { value: '', label: 'All', tone: 'all' },
+];
+const COLUMNS = {
+  employee: (r) => r.employeeName,
+  date: (r) => r.date,
+  reason: (r) => `${r.reasonCode ? reasonLabel(r.reasonCode) : ''} ${r.reason || ''}`.trim(),
+  status: (r) => r.status,
+};
+
 export default function AttendanceRequests() {
   const [status, setStatus] = useState('PENDING');
-  const [rows, setRows] = useState(null);
+  const [all, setAll] = useState(null);
   const [loadError, setLoadError] = useState('');
   const [selected, setSelected] = useState(() => new Set());
   const [explaining, setExplaining] = useState(null);
+  const [page, setPage] = useState(1);
+  const [perPage, setPerPage] = useState(25);
 
+  /* All of them at once: the tabs count every status. */
   const load = useCallback(() => {
-    listRequests(status)
-      .then((v) => { setRows(v); setLoadError(''); setSelected(new Set()); })
+    listRequests('')
+      .then((v) => { setAll(v); setLoadError(''); setSelected(new Set()); })
       .catch((e) => setLoadError(String(e?.message || 'Could not load requests.')));
-  }, [status]);
+  }, []);
   useEffect(() => { load(); }, [load]);
+  useEffect(() => { setSelected(new Set()); setPage(1); }, [status]);
   const explainLoad = useCallback(() => explainDay(explaining?.employeeId, explaining?.date), [explaining]);
 
-  const pending = useMemo(() => (rows || []).filter((r) => r.status === 'PENDING'), [rows]);
+  const counts = useMemo(() => {
+    const c = { '': (all || []).length };
+    for (const r of all || []) c[r.status] = (c[r.status] || 0) + 1;
+    return c;
+  }, [all]);
+  const inTab = useMemo(() => (all || []).filter((r) => !status || r.status === status), [all, status]);
+  const search = useListSearch(inTab, ['employeeName', 'date', 'reason']);
+  const filters = useColumnFilters();
+  const rows = filters.applyFilters(search.filtered, COLUMNS);
+  const { pageCount, safePage, pageRows } = usePaged(rows, perPage, page);
+  useEffect(() => setPage(1), [search.query]);
+
+  const pending = useMemo(() => rows.filter((r) => r.status === 'PENDING'), [rows]);
   const act = async (fn, r, done) => {
     try {
       await fn(r.id);
@@ -54,83 +87,109 @@ export default function AttendanceRequests() {
   const toggle = (id) => setSelected((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
 
   return (
-    <div className="space-y-4">
-      <PageHeader entity="attendance" title="Corrections" description="What people asked to change, beside the day as it stood. Approving one writes that day." />
-      <div className="flex flex-wrap items-center gap-2">
-        <div role="tablist" className="flex gap-1">
-          {['PENDING', 'APPROVED', 'REJECTED', ''].map((s) => (
-            <button key={s || 'all'} type="button" role="tab" aria-selected={status === s} className="ui-segment" onClick={() => setStatus(s)}>
-              {s ? s[0] + s.slice(1).toLowerCase() : 'All'}
-            </button>
-          ))}
-        </div>
-        {selected.size ? (
-          <div className="ui-bulkbar ml-auto" role="region" aria-label="Decide the selected corrections">
+    <DocumentListShell
+      entity="request"
+      title="Corrections"
+      description="What people asked to change, beside the day as it stood. Approving one writes that day."
+      compact
+      tight
+      denseCards
+      search={{ value: search.query, onChange: search.setQuery, placeholder: 'Search corrections…', label: 'Search corrections' }}
+      cards={[
+        { label: 'Waiting', value: counts.PENDING || 0, count: true, tone: 'partial', Icon: ClipboardClock, onSelect: () => setStatus('PENDING') },
+        { label: 'Approved', value: counts.APPROVED || 0, count: true, tone: 'paid', Icon: CheckCheck, onSelect: () => setStatus('APPROVED') },
+        { label: 'Rejected', value: counts.REJECTED || 0, count: true, tone: 'overdue', Icon: X, onSelect: () => setStatus('REJECTED') },
+      ]}
+      tabs={TABS}
+      statusValue={status}
+      statusCounts={counts}
+      onStatusChange={setStatus}
+      tabsLabel="Correction status"
+      above={
+        selected.size ? (
+          <div className="ui-bulkbar" role="region" aria-label="Decide the selected corrections">
             <span className="text-sm"><strong className="tabular-nums">{selected.size}</strong> selected</span>
-            <button type="button" className="ui-btn ui-btn-primary ui-btn-sm" onClick={() => decideMany(true)}><Check size={14} aria-hidden="true" /> Approve</button>
+            <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => decideMany(true)}><Check size={14} aria-hidden="true" /> Approve</button>
             <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => decideMany(false)}><X size={14} aria-hidden="true" /> Reject</button>
+            <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" onClick={() => setSelected(new Set())}>Clear</button>
           </div>
-        ) : null}
-      </div>
+        ) : null
+      }
+    >
       <LoadFailed message={loadError} onRetry={load} />
-      {!rows ? (
+      {!all ? (
         loadError ? null : <SkeletonCard lines={5} />
-      ) : !rows.length ? (
-        <EmptyState title="Nothing here" description={status === 'PENDING' ? 'No corrections are waiting.' : 'No requests in this list.'} />
       ) : (
-        <div className="ui-card overflow-hidden">
-          <div className="overflow-x-auto ui-table-scroll ui-table-fit">
-            <table className="ui-table w-full">
+        <>
+          <div className="ui-table-scroll">
+            <table className="ui-table ui-table-sticky w-full">
               <thead>
                 <tr>
-                  <th scope="col" className="ui-th w-8">
+                  <th scope="col" className="w-8">
                     {pending.length ? (
                       <input type="checkbox" className="ui-checkbox" aria-label="Select every waiting correction" checked={pending.every((r) => selected.has(r.id))} onChange={(e) => setSelected(e.target.checked ? new Set(pending.map((r) => r.id)) : new Set())} />
                     ) : null}
                   </th>
-                  <th scope="col" className="ui-th">Employee</th>
-                  <th scope="col" className="ui-th">Day</th>
-                  <th scope="col" className="ui-th">Was</th>
-                  <th scope="col" className="ui-th">Asked for</th>
-                  <th scope="col" className="ui-th">Reason</th>
-                  <th scope="col" className="ui-th ui-col-h-center">Status</th>
-                  <th scope="col" className="ui-th"><span className="sr-only">Actions</span></th>
+                  <ColumnHeader label="Employee" col="employee" state={filters} />
+                  <ColumnHeader label="Day" col="date" state={filters} type="date" />
+                  <th scope="col">Was</th>
+                  <th scope="col">Asked for</th>
+                  <ColumnHeader label="Reason" col="reason" state={filters} />
+                  <ColumnHeader label="Status" col="status" state={filters} align="center" />
+                  <th scope="col"><span className="sr-only">Actions</span></th>
                 </tr>
               </thead>
-              <tbody>
-                {rows.map((r) => (
-                  <tr key={r.id}>
-                    <td>{r.status === 'PENDING' ? <input type="checkbox" className="ui-checkbox" aria-label={`Select ${r.employeeName}'s correction for ${r.date}`} checked={selected.has(r.id)} onChange={() => toggle(r.id)} /> : null}</td>
-                    <td className="ui-col-entity">{r.employeeName}</td>
-                    <td className="whitespace-nowrap">{dayLabel(r.date, { weekday: true, year: false })}</td>
-                    <td className="whitespace-nowrap ui-caption">
-                      {r.beforeStatus || r.beforeCheckIn ? `${time(r.beforeCheckIn)}–${time(r.beforeCheckOut)}${r.beforeStatus ? ` · ${STATUS_WORD[r.beforeStatus] || r.beforeStatus}` : ''}` : 'Nothing recorded'}
-                    </td>
-                    <td className="whitespace-nowrap font-medium tabular-nums">{time(r.checkIn)}–{time(r.checkOut)}</td>
-                    <td className="max-w-[20rem]">
-                      {r.reasonCode ? <span className="ui-pill ui-pill-neutral mr-1.5">{reasonLabel(r.reasonCode)}</span> : null}
-                      <span className="truncate" title={r.reason}>{r.reason}</span>
-                    </td>
-                    <td className="ui-col-h-center"><span className={`ui-pill ${r.status === 'APPROVED' ? 'ui-pill-pos' : r.status === 'REJECTED' ? 'ui-pill-neg' : 'ui-pill-warn'}`}>{r.status.toLowerCase()}</span></td>
-                    <td className="whitespace-nowrap">
-                      <span className="flex items-center justify-end gap-1">
-                        <button type="button" className="ui-icon-btn" title="See the day, its punches and history" aria-label={`Explain ${r.employeeName}'s day ${r.date}`} onClick={() => setExplaining(r)}><HelpCircle size={16} aria-hidden="true" /></button>
-                        {r.status === 'PENDING' ? (
-                          <>
-                            <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" aria-label={`Approve ${r.employeeName}'s correction for ${r.date}`} onClick={() => act(approveRequest, r, 'Approved; the day is updated.')}><Check size={14} aria-hidden="true" /> Approve</button>
-                            <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" aria-label={`Reject ${r.employeeName}'s correction for ${r.date}`} onClick={() => act(rejectRequest, r, 'Rejected.')}><X size={14} aria-hidden="true" /> Reject</button>
-                          </>
-                        ) : null}
-                      </span>
+              <tbody className="ui-rows">
+                {!rows.length ? (
+                  <tr>
+                    <td colSpan={8}>
+                      {inTab.length ? (
+                        <EmptyState kind="filtered" totalCount={inTab.length} title="No corrections match" description="Nothing in this tab matches the search or the column filters." />
+                      ) : (
+                        <EmptyState
+                          icon={ClipboardClock}
+                          title={status === 'PENDING' ? 'No corrections are waiting' : status ? `No ${status.toLowerCase()} corrections` : 'No corrections yet'}
+                          description="What people asked to change shows here beside the day as it stood. Approving one writes that day."
+                        />
+                      )}
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  pageRows.map((r) => (
+                    <tr key={r.id}>
+                      <td>{r.status === 'PENDING' ? <input type="checkbox" className="ui-checkbox" aria-label={`Select ${r.employeeName}'s correction for ${r.date}`} checked={selected.has(r.id)} onChange={() => toggle(r.id)} /> : null}</td>
+                      <td className="ui-col-entity">{r.employeeName}</td>
+                      <td className="ui-col-date whitespace-nowrap">{dayLabel(r.date, { weekday: true, year: false })}</td>
+                      <td className="whitespace-nowrap ui-caption">
+                        {r.beforeStatus || r.beforeCheckIn ? `${time(r.beforeCheckIn)}–${time(r.beforeCheckOut)}${r.beforeStatus ? ` · ${STATUS_WORD[r.beforeStatus] || r.beforeStatus}` : ''}` : 'Nothing recorded'}
+                      </td>
+                      <td className="whitespace-nowrap font-medium tabular-nums">{time(r.checkIn)}–{time(r.checkOut)}</td>
+                      <td className="max-w-[20rem]">
+                        {r.reasonCode ? <span className="ui-pill ui-pill-neutral mr-1.5">{reasonLabel(r.reasonCode)}</span> : null}
+                        <span className="truncate" title={r.reason}>{r.reason}</span>
+                      </td>
+                      <td className="ui-col-h-center"><StatusPill status={r.status} /></td>
+                      <td className="ui-col-meta">
+                        <span className="flex items-center justify-end gap-1">
+                          <button type="button" className="ui-icon-btn" title="See the day, its punches and history" aria-label={`Explain ${r.employeeName}'s day ${r.date}`} onClick={() => setExplaining(r)}><HelpCircle size={16} aria-hidden="true" /></button>
+                          {r.status === 'PENDING' ? (
+                            <>
+                              <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" aria-label={`Approve ${r.employeeName}'s correction for ${r.date}`} onClick={() => act(approveRequest, r, 'Approved; the day is updated.')}><Check size={14} aria-hidden="true" /> Approve</button>
+                              <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" aria-label={`Reject ${r.employeeName}'s correction for ${r.date}`} onClick={() => act(rejectRequest, r, 'Rejected.')}><X size={14} aria-hidden="true" /> Reject</button>
+                            </>
+                          ) : null}
+                        </span>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
-        </div>
+          <Pagination total={rows.length} page={safePage} perPage={perPage} pageCount={pageCount} onPage={setPage} onPerPage={(n) => { setPerPage(n); setPage(1); }} noun="corrections" />
+        </>
       )}
       <DayExplain open={Boolean(explaining)} onClose={() => setExplaining(null)} load={explainLoad} />
-    </div>
+    </DocumentListShell>
   );
 }

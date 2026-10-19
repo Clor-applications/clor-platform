@@ -1,6 +1,10 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { CheckCheck, Clock, MessageSquareWarning, Smartphone } from 'lucide-react';
 
-import { EmptyState, PageHeader, SkeletonCard, StatTile } from '@ui/components/ui/Primitives';
+import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
+import { useListSearch } from '@ui/components/ListToolbar';
+import DocumentListShell from '@ui/components/list/DocumentListShell';
+import { EmptyState, SkeletonCard } from '@ui/components/ui/Primitives';
 import { getMonthReadiness, todayIst } from '../api/attendance';
 import LoadFailed from '../components/LoadFailed';
 
@@ -13,6 +17,12 @@ const lastMonth = () => {
   return new Date(Date.UTC(y, m - 2, 1)).toISOString().slice(0, 7);
 };
 
+const COLUMNS = {
+  name: (d) => d.name,
+  note: (d) => d.note,
+  at: (d) => String(d.at || '').slice(0, 10),
+};
+
 export default function MonthConfirmations() {
   const [month, setMonth] = useState(lastMonth());
   const [data, setData] = useState(null);
@@ -23,41 +33,65 @@ export default function MonthConfirmations() {
   }, [month]);
   useEffect(() => { load(); }, [load]);
 
+  const disputed = data?.disputed || [];
+  const search = useListSearch(disputed, ['name', 'note']);
+  const filters = useColumnFilters();
+  const rows = filters.applyFilters(search.filtered, COLUMNS);
+
   return (
-    <div className="space-y-4">
-      <PageHeader
-        entity="attendance"
-        title="Employee confirmations"
-        description="Who has confirmed their month in the app, and who says something is wrong."
-        actions={<input type="month" className="ui-input !w-auto" value={month} max={todayIst().slice(0, 7)} onChange={(e) => setMonth(e.target.value)} aria-label="Month" />}
-      />
+    <DocumentListShell
+      entity="report"
+      title="Employee confirmations"
+      description="Who has confirmed their month in the app, and who says something is wrong."
+      compact
+      tight
+      denseCards
+      search={{ value: search.query, onChange: search.setQuery, placeholder: 'Search disputes…', label: 'Search disputes' }}
+      headerExtras={<input type="month" className="ui-input ui-ctl-compact !w-auto" value={month} max={todayIst().slice(0, 7)} onChange={(e) => setMonth(e.target.value)} aria-label="Month" />}
+      cards={data ? [
+        { label: 'Using the app', value: data.portalPeople, count: true, tone: 'all', Icon: Smartphone },
+        { label: 'Confirmed', value: data.confirmed, count: true, tone: 'paid', Icon: CheckCheck },
+        { label: 'Say it is wrong', value: data.disputed.length, count: true, tone: 'overdue', Icon: MessageSquareWarning },
+        { label: 'Not yet', value: data.notYet, count: true, tone: 'partial', Icon: Clock },
+      ] : null}
+    >
       <LoadFailed message={error} onRetry={load} />
       {!data ? (
-        <SkeletonCard />
+        error ? null : <SkeletonCard lines={5} />
       ) : (
-        <>
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-            <StatTile label="Using the app" value={data.portalPeople} />
-            <StatTile label="Confirmed" value={data.confirmed} />
-            <StatTile label="Say it is wrong" value={data.disputed.length} />
-            <StatTile label="Not yet" value={data.notYet} />
-          </div>
-          {data.disputed.length === 0 ? (
-            <EmptyState title="No disputes" description="When someone says their month is wrong, what they wrote appears here." />
-          ) : (
-            <div className="ui-card overflow-x-auto">
-              <table className="ui-table w-full">
-                <thead><tr><th>Employee</th><th>What they say</th><th>When</th></tr></thead>
-                <tbody>
-                  {data.disputed.map((d) => (
-                    <tr key={d.employeeId}><td>{d.name}</td><td className="max-w-md">{d.note}</td><td>{new Date(d.at).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}</td></tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </>
+        <div className="ui-table-scroll">
+          <table className="ui-table ui-table-sticky w-full">
+            <thead>
+              <tr>
+                <ColumnHeader label="Employee" col="name" state={filters} />
+                <ColumnHeader label="What they say" col="note" state={filters} />
+                <ColumnHeader label="When" col="at" state={filters} type="date" />
+              </tr>
+            </thead>
+            <tbody className="ui-rows">
+              {!rows.length ? (
+                <tr>
+                  <td colSpan={3}>
+                    {disputed.length ? (
+                      <EmptyState kind="filtered" totalCount={disputed.length} title="No disputes match" description="Nothing matches the search or the column filters." />
+                    ) : (
+                      <EmptyState icon={CheckCheck} title="No disputes" description="When someone says their month is wrong, what they wrote appears here." />
+                    )}
+                  </td>
+                </tr>
+              ) : (
+                rows.map((d) => (
+                  <tr key={d.employeeId}>
+                    <td className="ui-col-entity">{d.name}</td>
+                    <td className="max-w-md">{d.note}</td>
+                    <td className="ui-col-date whitespace-nowrap">{new Date(d.at).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       )}
-    </div>
+    </DocumentListShell>
   );
 }

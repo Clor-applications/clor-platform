@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { AlertTriangle, CheckCircle2, Download, Lock, Unlock } from 'lucide-react';
+import { AlertTriangle, CalendarDays, CheckCircle2, Download, Lock, Unlock } from 'lucide-react';
 
-import { PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
+import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
+import { EmptyState, PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { downloadCsv } from '@ui/utils/csv';
 import { closeMonth, getMonthReadiness, getMonthSnapshot, reopenMonth, todayIst } from '../api/attendance';
@@ -38,6 +39,9 @@ export default function MonthClose({ openScreen, params }) {
   useEffect(() => { load(); }, [load]);
 
   const openItems = (data?.checks || []).filter((c) => c.count > 0);
+  const filters = useColumnFilters();
+  const openPeople = (data?.people || []).filter((p) => p.missingOut || p.noRecord || p.unapprovedOvertime || p.unvalidated).slice(0, 500);
+  const people = filters.applyFilters(openPeople, { employee: (p) => `${p.name}${p.code ? ` · ${p.code}` : ''}` });
   const close = async () => {
     setBusy(true);
     try {
@@ -86,13 +90,14 @@ export default function MonthClose({ openScreen, params }) {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <PageHeader
-        entity="attendance"
+        entity="report"
         title="Month close"
         description="Check the month before Payroll takes it. Closing makes its days final and keeps a snapshot of the figures."
         actions={<input type="month" className="ui-input !w-auto" value={month} max={todayIst().slice(0, 7)} onChange={(e) => setMonth(e.target.value)} aria-label="Month" />}
       />
+      <div className="px-5 lg:px-7 pb-8 space-y-6">
       <LoadFailed message={error} onRetry={load} />
       {!data ? (
         error ? null : <SkeletonCard lines={8} />
@@ -160,32 +165,43 @@ export default function MonthClose({ openScreen, params }) {
 
           <section className="ui-card overflow-hidden" aria-labelledby="people-h">
             <h2 id="people-h" className="ui-t-sec px-4 pt-4 pb-2">By person</h2>
-            <div className="overflow-x-auto ui-table-scroll">
-              <table className="ui-table w-full">
+            <div className="ui-table-scroll">
+              <table className="ui-table ui-table-sticky w-full">
                 <thead>
                   <tr>
-                    <th className="ui-th">Employee</th>
-                    <th className="ui-th text-end">No check-out</th>
-                    <th className="ui-th text-end">No attendance</th>
-                    <th className="ui-th text-end">Overtime to approve</th>
-                    <th className="ui-th text-end">Not validated</th>
-                    <th className="ui-th"><span className="sr-only">Open</span></th>
+                    <ColumnHeader label="Employee" col="employee" state={filters} />
+                    <th scope="col" className="ui-num">No check-out</th>
+                    <th scope="col" className="ui-num">No attendance</th>
+                    <th scope="col" className="ui-num">Overtime to approve</th>
+                    <th scope="col" className="ui-num">Not validated</th>
+                    <th scope="col"><span className="sr-only">Open</span></th>
                   </tr>
                 </thead>
-                <tbody>
-                  {data.people.filter((p) => p.missingOut || p.noRecord || p.unapprovedOvertime || p.unvalidated).slice(0, 500).map((p) => (
-                    <tr key={p.employeeId}>
-                      <td className="ui-col-entity">{p.name}{p.code ? <span className="ui-caption"> · {p.code}</span> : null}</td>
-                      <td className="text-end tabular-nums">{p.missingOut ? <strong style={{ color: 'rgb(var(--neg))' }}>{p.missingOut}</strong> : '—'}</td>
-                      <td className="text-end tabular-nums">{p.noRecord || '—'}</td>
-                      <td className="text-end tabular-nums">{p.unapprovedOvertime || '—'}</td>
-                      <td className="text-end tabular-nums">{p.unvalidated || '—'}</td>
-                      <td>{openScreen ? <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" onClick={() => openScreen('records', { employeeId: p.employeeId, from: `${month}-01`, to: `${month}-${String(new Date(Date.UTC(Number(month.slice(0, 4)), Number(month.slice(5, 7)), 0)).getUTCDate()).padStart(2, '0')}` })}>Days</button> : null}</td>
+                <tbody className="ui-rows">
+                  {!people.length ? (
+                    <tr>
+                      <td colSpan={6}>
+                        {openPeople.length ? (
+                          <EmptyState kind="filtered" totalCount={openPeople.length} title="Nobody matches" description="Nobody matches the column filter." />
+                        ) : (
+                          <EmptyState icon={CheckCircle2} title="Everyone’s days are complete" />
+                        )}
+                      </td>
                     </tr>
-                  ))}
+                  ) : (
+                    people.map((p) => (
+                      <tr key={p.employeeId}>
+                        <td className="ui-col-entity">{p.name}{p.code ? <span className="ui-caption"> · {p.code}</span> : null}</td>
+                        <td className="ui-num">{p.missingOut ? <strong style={{ color: 'rgb(var(--neg))' }}>{p.missingOut}</strong> : '—'}</td>
+                        <td className="ui-num">{p.noRecord || '—'}</td>
+                        <td className="ui-num">{p.unapprovedOvertime || '—'}</td>
+                        <td className="ui-num">{p.unvalidated || '—'}</td>
+                        <td className="ui-col-meta">{openScreen ? <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" onClick={() => openScreen('records', { employeeId: p.employeeId, from: `${month}-01`, to: `${month}-${String(new Date(Date.UTC(Number(month.slice(0, 4)), Number(month.slice(5, 7)), 0)).getUTCDate()).padStart(2, '0')}` })}><CalendarDays size={14} aria-hidden="true" /> Days</button> : null}</td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
-              {!data.people.some((p) => p.missingOut || p.noRecord || p.unapprovedOvertime || p.unvalidated) ? <p className="ui-caption px-4 pb-4">Everyone&rsquo;s days are complete.</p> : null}
             </div>
           </section>
 
@@ -205,6 +221,7 @@ export default function MonthClose({ openScreen, params }) {
           ) : null}
         </>
       )}
+      </div>
     </div>
   );
 }

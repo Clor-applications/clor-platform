@@ -1,7 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Copy, KeyRound, Printer } from 'lucide-react';
+import { Copy, ExternalLink, KeyRound, MapPin, Printer, Smartphone, UserCheck } from 'lucide-react';
 
-import { PageHeader, SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
+import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
+import { useListSearch } from '@ui/components/ListToolbar';
+import DocumentListShell from '@ui/components/list/DocumentListShell';
+import { Pagination, usePaged } from '@ui/components/list/ListPageParts';
+import { SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import Drawer from '@ui/components/ui/Drawer';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { getPortalAccess, issuePortalCodes, listGeofences, resetPortalPassword, setPortalAccess } from '../api/attendance';
@@ -13,7 +17,21 @@ const STATE = {
   active: { label: 'Active', pill: 'ui-pill-pos' },
   paused: { label: 'Switched off', pill: 'ui-pill-neutral' },
 };
+const TABS = [
+  { value: 'active', label: 'Active', tone: 'paid' },
+  { value: 'pending', label: 'Code given', tone: 'partial' },
+  { value: 'off', label: 'Not set up', tone: 'draft' },
+  { value: 'paused', label: 'Switched off', tone: 'cancelled' },
+  { value: '', label: 'All', tone: 'all' },
+];
+const siteOf = (p) => (p.mobilePunch ? `${p.phonePunchMode === 'FIELD' ? 'Field: anywhere' : p.geofenceName ? `Only ${p.geofenceName}` : 'Any site'}${p.selfieRequired ? ' · selfie' : ''}` : '—');
 const stateOf = (e) => (!e.portalEnabled ? (e.activated ? 'paused' : 'off') : e.activated ? 'active' : e.codePending ? 'pending' : 'off');
+const COLUMNS = {
+  employee: (p) => p.name,
+  code: (p) => p.code,
+  portal: (p) => STATE[stateOf(p)].label,
+  site: siteOf,
+};
 
 /**
  * Who may use the employee portal and punch from a phone (ClorTime's portal
@@ -25,7 +43,9 @@ export default function PortalAccess() {
   const [loadError, setLoadError] = useState('');
   const [fences, setFences] = useState([]);
   const [picked, setPicked] = useState(() => new Set());
-  const [q, setQ] = useState('');
+  const [status, setStatus] = useState('');
+  const [page, setPage] = useState(1);
+  const [perPage, setPerPage] = useState(25);
   const [email, setEmail] = useState(false);
   const [issued, setIssued] = useState(null);
   const load = useCallback(() => {
@@ -36,11 +56,24 @@ export default function PortalAccess() {
     listGeofences().then((f) => setFences(f.filter((x) => x.isActive))).catch(() => setFences([]));
   }, [load]);
 
-  const shown = useMemo(() => {
-    const n = q.trim().toLowerCase();
-    const rows = data?.employees || [];
-    return n ? rows.filter((p) => `${p.name} ${p.code || ''} ${p.department || ''}`.toLowerCase().includes(n)) : rows;
-  }, [data, q]);
+  const all = useMemo(() => data?.employees || [], [data]);
+  const counts = useMemo(() => {
+    const c = { '': all.length };
+    for (const p of all) c[stateOf(p)] = (c[stateOf(p)] || 0) + 1;
+    return c;
+  }, [all]);
+  const inTab = useMemo(() => all.filter((p) => !status || stateOf(p) === status), [all, status]);
+  const search = useListSearch(inTab, ['name', 'code', 'department']);
+  const filters = useColumnFilters();
+  const shown = filters.applyFilters(search.filtered, COLUMNS);
+  const { pageCount, safePage, pageRows } = usePaged(shown, perPage, page);
+  useEffect(() => setPage(1), [status, search.query]);
+  const figures = useMemo(() => ({
+    active: counts.active || 0,
+    pending: counts.pending || 0,
+    phone: all.filter((p) => p.mobilePunch).length,
+    field: all.filter((p) => p.mobilePunch && p.phonePunchMode === 'FIELD').length,
+  }), [all, counts]);
   const ids = [...picked];
   const toggle = (id) =>
     setPicked((s) => {
@@ -85,79 +118,98 @@ export default function PortalAccess() {
   const portalUrl = data ? `${window.location.origin}/#/portal?c=${encodeURIComponent(data.company.code)}` : '';
   const copy = (text) => navigator.clipboard?.writeText(text).then(() => notify.success('Copied.'), () => undefined);
 
-  if (!data) return loadError ? <LoadFailed message={loadError} onRetry={load} /> : <SkeletonCard lines={8} />;
   return (
-    <div className="space-y-4">
-      <PageHeader entity="attendance" title="Portal access" description="Employees sign in to the portal with the company code, their employee code and a password they choose." />
-
-      <section className="ui-card flex flex-wrap items-center gap-x-8 gap-y-2 p-4 text-sm">
-        <div><span className="ui-t-label block">Company code</span><span className="ui-mono text-base font-semibold">{data.company.code}</span></div>
-        <div className="min-w-0 flex-1">
-          <span className="ui-t-label block">Portal address</span>
-          <span className="flex items-center gap-2">
-            <a className="ui-link truncate" href={portalUrl} target="_blank" rel="noreferrer">{portalUrl}</a>
-            <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" aria-label="Copy the portal address" onClick={() => copy(portalUrl)}><Copy size={14} aria-hidden="true" /></button>
-          </span>
-        </div>
-        <p className="ui-caption w-full">On a phone, open the address and use “Add to Home screen” — it then opens like an app.</p>
-      </section>
-
-      <section className="ui-card space-y-3 p-4" aria-label="Change access for the people picked">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-sm font-medium">{picked.size ? `${picked.size} picked` : 'Pick people below, then:'}</span>
-          <button type="button" className="ui-btn ui-btn-primary ui-btn-sm" disabled={!picked.size} onClick={give}><KeyRound size={14} aria-hidden="true" /> Give activation codes</button>
-          <label className="flex items-center gap-1.5 text-sm">
-            <input type="checkbox" className="ui-checkbox" checked={email} onChange={(e) => setEmail(e.target.checked)} /> and e-mail them
-          </label>
-          <span className="mx-1 h-5 w-px" style={{ backgroundColor: 'rgb(var(--border))' }} aria-hidden="true" />
-          <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={!picked.size} onClick={() => change({ mobilePunch: true }, 'may punch from their phone')}>Allow phone punch</button>
-          <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={!picked.size} onClick={() => change({ mobilePunch: false }, 'may no longer punch from their phone')}>Stop phone punch</button>
-          <select
-            className="ui-select ui-btn-sm !w-auto"
-            disabled={!picked.size}
-            value=""
-            aria-label="Site for phone punches"
-            onChange={(e) => e.target.value && change({ geofenceId: e.target.value === 'ANY' ? null : e.target.value }, e.target.value === 'ANY' ? 'may punch at any site' : 'tied to that site')}
-          >
-            <option value="">Site…</option>
-            <option value="ANY">Any site</option>
-            {fences.map((f) => <option key={f.id} value={f.id}>Only {f.name}</option>)}
-          </select>
-          <select
-            className="ui-select ui-btn-sm !w-auto"
-            disabled={!picked.size}
-            value=""
-            aria-label="Where phone punches are accepted"
-            onChange={(e) => {
-              const v = e.target.value;
-              if (v === 'SITE') change({ phonePunchMode: 'SITE' }, 'may punch only inside a work site');
-              else if (v === 'FIELD') change({ phonePunchMode: 'FIELD', mobilePunch: true }, 'may punch from anywhere (field), recorded with the address');
-              else if (v === 'SELFIE') change({ selfieRequired: true }, 'must add a selfie to each phone punch');
-              else if (v === 'NOSELFIE') change({ selfieRequired: false }, 'may punch without a selfie');
-            }}
-          >
-            <option value="">Mode…</option>
-            <option value="SITE">Work sites only</option>
-            <option value="FIELD">Field: anywhere</option>
-            <option value="SELFIE">Selfie required</option>
-            <option value="NOSELFIE">Selfie optional</option>
-          </select>
-          <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" disabled={!picked.size} onClick={() => change({ portalEnabled: false }, 'switched off')}>Switch portal off</button>
-        </div>
-        {!fences.length ? <p className="ui-caption">No work sites yet — phone punches need one, except for people set to Field. Add them under Work sites.</p> : null}
-        <p className="ui-caption">Field: for sales, service and site staff. A phone punch is accepted anywhere; the place and its address are recorded, marked outside a site, and wait for approval under Phone punches (or the person’s manager) when the company asks.</p>
-      </section>
-
-      <input type="search" className="ui-input max-w-xs" placeholder="Search people" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search people" />
-      {!data.employees.length ? (
-        <EmptyState title="No employees" description="Add employees first." />
+    <DocumentListShell
+      entity="employee"
+      title="Portal access"
+      description="Employees sign in to the portal with the company code, their employee code and a password they choose."
+      compact
+      tight
+      denseCards
+      search={{ value: search.query, onChange: search.setQuery, placeholder: 'Search people…', label: 'Search people' }}
+      primary={
+        <button type="button" className="ui-btn ui-btn-primary" disabled={!picked.size} onClick={give} title={picked.size ? undefined : 'Pick people in the list first'}>
+          <KeyRound size={16} aria-hidden="true" /> Give activation codes{picked.size ? ` (${picked.size})` : ''}
+        </button>
+      }
+      cards={[
+        { label: 'Active', value: figures.active, count: true, tone: 'paid', Icon: UserCheck, onSelect: () => setStatus('active') },
+        { label: 'Code given', value: figures.pending, count: true, tone: 'partial', Icon: KeyRound, onSelect: () => setStatus('pending') },
+        { label: 'Phone punch on', value: figures.phone, count: true, tone: 'sent', Icon: Smartphone },
+        { label: 'Field: anywhere', value: figures.field, count: true, tone: 'outstanding', Icon: MapPin },
+      ]}
+      tabs={TABS}
+      statusValue={status}
+      statusCounts={counts}
+      onStatusChange={setStatus}
+      tabsLabel="Portal state"
+      tabsExtras={
+        data ? (
+          <>
+            <span className="text-sm">Company code <span className="ui-mono font-semibold">{data.company.code}</span></span>
+            <a className="ui-btn ui-btn-ghost ui-btn-sm" href={portalUrl} target="_blank" rel="noreferrer" title="On a phone, open the address and use “Add to Home screen” — it then opens like an app.">
+              <ExternalLink size={14} aria-hidden="true" /> Open portal
+            </a>
+            <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" onClick={() => copy(portalUrl)}><Copy size={14} aria-hidden="true" /> Copy address</button>
+          </>
+        ) : null
+      }
+      above={
+        picked.size ? (
+          <div className="ui-bulkbar" role="region" aria-label="Change access for the people picked">
+            <span className="text-sm"><strong className="tabular-nums">{picked.size}</strong> picked</span>
+            <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={give}><KeyRound size={14} aria-hidden="true" /> Give activation codes</button>
+            <label className="flex items-center gap-1.5 text-sm">
+              <input type="checkbox" className="ui-checkbox" checked={email} onChange={(e) => setEmail(e.target.checked)} /> and e-mail them
+            </label>
+            <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => change({ mobilePunch: true }, 'may punch from their phone')}><Smartphone size={14} aria-hidden="true" /> Allow phone punch</button>
+            <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => change({ mobilePunch: false }, 'may no longer punch from their phone')}>Stop phone punch</button>
+            <select
+              className="ui-select ui-ctl-compact !w-auto"
+              value=""
+              aria-label="Site for phone punches"
+              onChange={(e) => e.target.value && change({ geofenceId: e.target.value === 'ANY' ? null : e.target.value }, e.target.value === 'ANY' ? 'may punch at any site' : 'tied to that site')}
+            >
+              <option value="">Site…</option>
+              <option value="ANY">Any site</option>
+              {fences.map((f) => <option key={f.id} value={f.id}>Only {f.name}</option>)}
+            </select>
+            <select
+              className="ui-select ui-ctl-compact !w-auto"
+              value=""
+              aria-label="Where phone punches are accepted"
+              onChange={(e) => {
+                const v = e.target.value;
+                if (v === 'SITE') change({ phonePunchMode: 'SITE' }, 'may punch only inside a work site');
+                else if (v === 'FIELD') change({ phonePunchMode: 'FIELD', mobilePunch: true }, 'may punch from anywhere (field), recorded with the address');
+                else if (v === 'SELFIE') change({ selfieRequired: true }, 'must add a selfie to each phone punch');
+                else if (v === 'NOSELFIE') change({ selfieRequired: false }, 'may punch without a selfie');
+              }}
+            >
+              <option value="">Mode…</option>
+              <option value="SITE">Work sites only</option>
+              <option value="FIELD">Field: anywhere</option>
+              <option value="SELFIE">Selfie required</option>
+              <option value="NOSELFIE">Selfie optional</option>
+            </select>
+            <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" onClick={() => change({ portalEnabled: false }, 'switched off')}>Switch portal off</button>
+            <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" onClick={() => setPicked(new Set())}>Clear</button>
+            {!fences.length ? <p className="ui-caption w-full">No work sites yet — phone punches need one, except for people set to Field. Add them under Work sites.</p> : null}
+            <p className="ui-caption w-full">Field: for sales, service and site staff. A phone punch is accepted anywhere; the place and its address are recorded, marked outside a site, and wait for approval under Phone punches (or the person’s manager) when the company asks.</p>
+          </div>
+        ) : null
+      }
+    >
+      <LoadFailed message={loadError} onRetry={load} />
+      {!data ? (
+        loadError ? null : <SkeletonCard lines={8} />
       ) : (
-        <div className="ui-card overflow-hidden">
-          <div className="overflow-x-auto ui-table-scroll ui-table-fit">
-            <table className="ui-table w-full">
+        <>
+          <div className="ui-table-scroll">
+            <table className="ui-table ui-table-sticky w-full">
               <thead>
                 <tr>
-                  <th scope="col" className="ui-th w-8">
+                  <th scope="col" className="w-8">
                     <input
                       type="checkbox"
                       className="ui-checkbox"
@@ -166,39 +218,54 @@ export default function PortalAccess() {
                       onChange={() => setPicked((s) => { const n = new Set(s); shown.forEach((p) => (allShown ? n.delete(p.id) : n.add(p.id))); return n; })}
                     />
                   </th>
-                  <th scope="col" className="ui-th">Employee</th>
-                  <th scope="col" className="ui-th">Code</th>
-                  <th scope="col" className="ui-th">Portal</th>
-                  <th scope="col" className="ui-th ui-col-h-center">Phone punch</th>
-                  <th scope="col" className="ui-th">Site</th>
-                  <th scope="col" className="ui-th"><span className="sr-only">Actions</span></th>
+                  <ColumnHeader label="Employee" col="employee" state={filters} />
+                  <ColumnHeader label="Code" col="code" state={filters} />
+                  <ColumnHeader label="Portal" col="portal" state={filters} />
+                  <th scope="col" className="ui-col-h-center">Phone punch</th>
+                  <ColumnHeader label="Site" col="site" state={filters} />
+                  <th scope="col"><span className="sr-only">Actions</span></th>
                 </tr>
               </thead>
-              <tbody>
-                {shown.map((p) => {
-                  const st = STATE[stateOf(p)];
-                  return (
-                    <tr key={p.id}>
-                      <td><input type="checkbox" className="ui-checkbox" aria-label={`Pick ${p.name}`} checked={picked.has(p.id)} onChange={() => toggle(p.id)} /></td>
-                      <td className="ui-col-entity">{p.name}<span className="ui-caption block">{p.department || ''}</span></td>
-                      <td className="ui-mono">{p.code || <span className="ui-caption">none</span>}</td>
-                      <td><span className={`ui-pill ${st.pill}`}>{st.label}</span></td>
-                      <td className="ui-col-h-center">{p.mobilePunch ? <span className="ui-pill ui-pill-pos">On</span> : <span className="ui-caption">Off</span>}</td>
-                      <td className="ui-col-meta">{p.mobilePunch ? `${p.phonePunchMode === 'FIELD' ? 'Field: anywhere' : p.geofenceName ? `Only ${p.geofenceName}` : 'Any site'}${p.selfieRequired ? ' · selfie' : ''}` : '—'}</td>
-                      <td className="text-end">
-                        {p.activated ? <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" onClick={() => reset(p)}>Forget password</button> : null}
-                      </td>
-                    </tr>
-                  );
-                })}
+              <tbody className="ui-rows">
+                {!shown.length ? (
+                  <tr>
+                    <td colSpan={7}>
+                      {inTab.length ? (
+                        <EmptyState kind="filtered" totalCount={inTab.length} title="Nobody matches" description="Nothing in this tab matches the search or the column filters." />
+                      ) : all.length ? (
+                        <EmptyState icon={KeyRound} title="Nobody here" description="Try another tab." />
+                      ) : (
+                        <EmptyState icon={KeyRound} title="No employees" description="Add employees first." />
+                      )}
+                    </td>
+                  </tr>
+                ) : (
+                  pageRows.map((p) => {
+                    const st = STATE[stateOf(p)];
+                    return (
+                      <tr key={p.id}>
+                        <td><input type="checkbox" className="ui-checkbox" aria-label={`Pick ${p.name}`} checked={picked.has(p.id)} onChange={() => toggle(p.id)} /></td>
+                        <td className="ui-col-entity">{p.name}<span className="ui-caption block">{p.department || ''}</span></td>
+                        <td className="ui-mono">{p.code || <span className="ui-caption">none</span>}</td>
+                        <td><span className={`ui-pill ${st.pill}`}>{st.label}</span></td>
+                        <td className="ui-col-h-center">{p.mobilePunch ? <span className="ui-pill ui-pill-pos">On</span> : <span className="ui-caption">Off</span>}</td>
+                        <td>{siteOf(p)}</td>
+                        <td className="ui-col-meta text-end">
+                          {p.activated ? <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" onClick={() => reset(p)}>Forget password</button> : null}
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
               </tbody>
             </table>
           </div>
-        </div>
+          <Pagination total={shown.length} page={safePage} perPage={perPage} pageCount={pageCount} onPage={setPage} onPerPage={(n) => { setPerPage(n); setPage(1); }} noun="people" />
+        </>
       )}
 
       {issued ? <IssuedCodes issued={issued} portalUrl={portalUrl} onClose={() => setIssued(null)} /> : null}
-    </div>
+    </DocumentListShell>
   );
 }
 

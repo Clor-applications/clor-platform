@@ -1,7 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Wrench } from 'lucide-react';
+import { AlertTriangle, Clock, Fingerprint, Router, UserX, Wrench } from 'lucide-react';
 
-import { PageHeader, SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
+import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
+import { useListSearch } from '@ui/components/ListToolbar';
+import DocumentListShell from '@ui/components/list/DocumentListShell';
+import { SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { deviceCommand, fixReaderGaps, getReaderSync, removeReaderExtras } from '../api/attendance';
 import LoadFailed from '../components/LoadFailed';
@@ -15,6 +18,12 @@ const CELL = {
   NA: { mark: '', label: 'Not for this reader', color: 'rgb(var(--fg-muted))' },
 };
 
+const TABS = [
+  { value: 'gaps', label: 'With a gap', tone: 'overdue' },
+  { value: 'all', label: 'Everyone', tone: 'all' },
+];
+const COLUMNS = { employee: (r) => r.name };
+
 /**
  * Who is on which reader — the question behind "my finger doesn't work at
  * the back gate". Each person against each reader, with the gaps closed in
@@ -24,7 +33,6 @@ export default function ReaderSync() {
   const [data, setData] = useState(null);
   const [loadError, setLoadError] = useState('');
   const [onlyGaps, setOnlyGaps] = useState(true);
-  const [q, setQ] = useState('');
   const load = useCallback(() => {
     getReaderSync().then((v) => { setData(v); setLoadError(''); }).catch((e) => setLoadError(String(e?.message || 'Could not load.')));
   }, []);
@@ -32,13 +40,13 @@ export default function ReaderSync() {
     load();
   }, [load]);
 
-  const rows = useMemo(() => {
-    if (!data) return [];
-    const n = q.trim().toLowerCase();
-    return data.rows.filter(
-      (r) => (!onlyGaps || r.cells.some((c) => c.state !== 'OK' && c.state !== 'NA')) && (!n || `${r.name} ${r.code || ''} ${r.pin}`.toLowerCase().includes(n))
-    );
-  }, [data, onlyGaps, q]);
+  const withGap = (r) => r.cells.some((c) => c.state !== 'OK' && c.state !== 'NA');
+  const counts = useMemo(() => ({ gaps: (data?.rows || []).filter(withGap).length, all: (data?.rows || []).length }), [data]);
+  const inTab = useMemo(() => (data ? data.rows.filter((r) => !onlyGaps || withGap(r)) : []), [data, onlyGaps]);
+  const search = useListSearch(inTab, ['name', 'code', 'pin', 'department']);
+  const filters = useColumnFilters();
+  const rows = filters.applyFilters(search.filtered, COLUMNS);
+  const totals = useMemo(() => (data?.summary || []).reduce((t, x) => ({ missing: t.missing + (x.missing || 0), partial: t.partial + (x.partial || 0), queued: t.queued + (x.queued || 0), extra: t.extra + (x.extra || 0) }), { missing: 0, partial: 0, queued: 0, extra: 0 }), [data]);
 
   const fix = async (body, what) => {
     try {
@@ -68,24 +76,40 @@ export default function ReaderSync() {
     }
   };
 
-  if (!data) return loadError ? <LoadFailed message={loadError} onRetry={load} /> : <SkeletonCard lines={8} />;
-  const gaps = data.summary.reduce((s, x) => s + x.missing + x.partial, 0);
+  const gaps = (data?.summary || []).reduce((s, x) => s + x.missing + x.partial, 0);
+  const noReaders = data && !data.readers.length;
   return (
-    <div className="space-y-4">
-      <PageHeader
-        entity="attendance"
-        title="Sync status"
-        description="Who is on which reader. Enrol once on any reader — CLOR copies fingerprints and faces to the rest."
-        actions={
-          <button type="button" className="ui-btn ui-btn-primary" disabled={!gaps} onClick={() => fix({}, 'on every reader')}>
-            <Wrench size={16} aria-hidden="true" /> Fix all gaps{gaps ? ` (${gaps})` : ''}
-          </button>
-        }
-      />
-      {!data.readers.length ? (
-        <EmptyState title="No readers" description="Add a reader under Readers first." />
-      ) : (
-        <>
+    <DocumentListShell
+      entity="reader"
+      title="Sync status"
+      description="Who is on which reader. Enrol once on any reader — CLOR copies fingerprints and faces to the rest."
+      compact
+      tight
+      denseCards
+      search={{ value: search.query, onChange: search.setQuery, placeholder: 'Search people…', label: 'Search people' }}
+      primary={
+        <button type="button" className="ui-btn ui-btn-primary" disabled={!gaps} onClick={() => fix({}, 'on every reader')}>
+          <Wrench size={16} aria-hidden="true" /> Fix all gaps{gaps ? ` (${gaps})` : ''}
+        </button>
+      }
+      cards={
+        data && !noReaders
+          ? [
+              { label: 'Missing', value: totals.missing, count: true, tone: 'overdue', Icon: UserX },
+              { label: 'Partly enrolled', value: totals.partial, count: true, tone: 'partial', Icon: Fingerprint },
+              { label: 'On the way', value: totals.queued, count: true, tone: 'sent', Icon: Clock },
+              { label: 'Extras', value: totals.extra, count: true, tone: 'outstanding', Icon: AlertTriangle },
+            ]
+          : null
+      }
+      tabs={noReaders ? null : TABS}
+      statusValue={onlyGaps ? 'gaps' : 'all'}
+      statusCounts={counts}
+      onStatusChange={(v) => setOnlyGaps(v === 'gaps')}
+      tabsLabel="Who to show"
+      tabsExtras={<span className="ui-caption">{Object.entries(CELL).filter(([k]) => k !== 'NA').map(([, v]) => `${v.mark} ${v.label.toLowerCase()}`).join(' · ')}</span>}
+      above={
+        data && !noReaders ? (
           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
             {data.readers.map((r) => {
               const s = data.summary.find((x) => x.deviceId === r.id) || {};
@@ -103,7 +127,7 @@ export default function ReaderSync() {
                     {s.extra ? <span style={{ color: CELL.EXTRA.color }}>! {s.extra} should not be on it</span> : null}
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    {s.missing || s.partial ? <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => fix({ deviceId: r.id }, `for ${r.name}`)}>Fix gaps</button> : null}
+                    {s.missing || s.partial ? <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => fix({ deviceId: r.id }, `for ${r.name}`)}><Wrench size={14} aria-hidden="true" /> Fix gaps</button> : null}
                     {s.extra ? <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => extras(r, s.extra)}>Remove extras</button> : null}
                     {!s.known ? (
                       <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" onClick={() => readAll(r)} title="CLOR does not yet know who this reader holds">Read what is on it</button>
@@ -113,60 +137,69 @@ export default function ReaderSync() {
               );
             })}
           </div>
-
-          <div className="flex flex-wrap items-center gap-3">
-            <input type="search" className="ui-input max-w-xs" placeholder="Search people" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search people" />
-            <label className="flex items-center gap-1.5 text-sm">
-              <input type="checkbox" className="ui-checkbox" checked={onlyGaps} onChange={(e) => setOnlyGaps(e.target.checked)} /> Only people with a gap
-            </label>
-            <span className="ui-caption">{Object.entries(CELL).filter(([k]) => k !== 'NA').map(([, v]) => `${v.mark} ${v.label.toLowerCase()}`).join(' · ')}</span>
-          </div>
-
-          {!rows.length ? (
-            <EmptyState title={onlyGaps ? 'No gaps' : 'Nobody'} description={onlyGaps ? 'Everyone is on every reader they belong on.' : 'No one with an employee code or Reader ID.'} />
-          ) : (
-            <div className="ui-card overflow-hidden">
-              <div className="overflow-x-auto ui-table-scroll ui-table-fit">
-                <table className="ui-table w-full text-sm">
-                  <thead>
-                    <tr>
-                      <th scope="col" className="ui-th">Employee</th>
-                      <th scope="col" className="ui-th">Enrolled</th>
-                      {data.readers.map((r) => <th key={r.id} scope="col" className="ui-th ui-col-h-center">{r.name}</th>)}
-                      <th scope="col" className="ui-th"><span className="sr-only">Fix</span></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {rows.map((row) => (
-                      <tr key={row.employeeId}>
-                        <td className="ui-col-entity">
-                          {row.name}
-                          <span className="ui-caption block">ID {row.pin}{row.left ? ' · left' : ''}{row.department ? ` · ${row.department}` : ''}</span>
+        ) : null
+      }
+    >
+      <LoadFailed message={loadError} onRetry={load} />
+      {!data ? (
+        loadError ? null : <SkeletonCard lines={8} />
+      ) : noReaders ? (
+        <EmptyState icon={Router} title="No readers" description="Who is on which reader shows here. Add a reader under Readers first." />
+      ) : (
+        <div className="ui-table-scroll">
+          <table className="ui-table ui-table-sticky w-full text-sm">
+            <thead>
+              <tr>
+                <ColumnHeader label="Employee" col="employee" state={filters} />
+                <th scope="col">Enrolled</th>
+                {data.readers.map((r) => <th key={r.id} scope="col" className="ui-col-h-center">{r.name}</th>)}
+                <th scope="col"><span className="sr-only">Fix</span></th>
+              </tr>
+            </thead>
+            <tbody className="ui-rows">
+              {!rows.length ? (
+                <tr>
+                  <td colSpan={data.readers.length + 3}>
+                    {inTab.length ? (
+                      <EmptyState kind="filtered" totalCount={inTab.length} title="Nobody matches" description="Nobody in this tab matches the search or the column filters." />
+                    ) : (
+                      <EmptyState
+                        icon={Fingerprint}
+                        title={onlyGaps ? 'No gaps' : 'Nobody'}
+                        description={onlyGaps ? 'Everyone is on every reader they belong on. Enrol once on any reader — CLOR copies fingerprints and faces to the rest.' : 'No one with an employee code or Reader ID.'}
+                      />
+                    )}
+                  </td>
+                </tr>
+              ) : (
+                rows.map((row) => (
+                  <tr key={row.employeeId}>
+                    <td className="ui-col-entity">
+                      {row.name}
+                      <span className="ui-caption block">ID {row.pin}{row.left ? ' · left' : ''}{row.department ? ` · ${row.department}` : ''}</span>
+                    </td>
+                    <td className="whitespace-nowrap">{[row.enrolled.fingers ? `${row.enrolled.fingers} finger${row.enrolled.fingers === 1 ? '' : 's'}` : null, row.enrolled.face ? 'face' : null].filter(Boolean).join(' + ') || '—'}</td>
+                    {row.cells.map((c) => {
+                      const v = CELL[c.state];
+                      const title = c.state === 'PARTIAL' ? `${v.label}: ${[c.lackFingers && `${c.lackFingers} finger${c.lackFingers === 1 ? '' : 's'}`, c.lackFace && 'face'].filter(Boolean).join(' and ')} missing` : v.label;
+                      return (
+                        <td key={c.deviceId} className="ui-col-h-center font-semibold" style={{ color: v.color }} title={title}>
+                          <span aria-label={title}>{v.mark}</span>
                         </td>
-                        <td className="ui-col-meta whitespace-nowrap">{[row.enrolled.fingers ? `${row.enrolled.fingers} finger${row.enrolled.fingers === 1 ? '' : 's'}` : null, row.enrolled.face ? 'face' : null].filter(Boolean).join(' + ') || '—'}</td>
-                        {row.cells.map((c) => {
-                          const v = CELL[c.state];
-                          const title = c.state === 'PARTIAL' ? `${v.label}: ${[c.lackFingers && `${c.lackFingers} finger${c.lackFingers === 1 ? '' : 's'}`, c.lackFace && 'face'].filter(Boolean).join(' and ')} missing` : v.label;
-                          return (
-                            <td key={c.deviceId} className="ui-col-h-center font-semibold" style={{ color: v.color }} title={title}>
-                              <span aria-label={title}>{v.mark}</span>
-                            </td>
-                          );
-                        })}
-                        <td className="text-end">
-                          {row.cells.some((c) => c.state === 'MISSING' || c.state === 'PARTIAL') ? (
-                            <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" onClick={() => fix({ employeeIds: [row.employeeId] }, `for ${row.name}`)}>Fix</button>
-                          ) : null}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-        </>
+                      );
+                    })}
+                    <td className="ui-col-meta text-end">
+                      {row.cells.some((c) => c.state === 'MISSING' || c.state === 'PARTIAL') ? (
+                        <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" onClick={() => fix({ employeeIds: [row.employeeId] }, `for ${row.name}`)}>Fix</button>
+                      ) : null}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       )}
-    </div>
+    </DocumentListShell>
   );
 }

@@ -151,8 +151,9 @@ export default function Integrations() {
   };
 
   return (
-    <div className="space-y-4">
-      <PageHeader entity="attendance" title="Integrations" description="Let other systems read attendance or send punches, and have CLOR tell them when things happen." />
+    <div className="space-y-3">
+      <PageHeader entity="settings" title="Integrations" description="Let other systems read attendance or send punches, and have CLOR tell them when things happen." />
+      <div className="px-5 lg:px-7 pb-8 space-y-6">
       {shown ? <ShownOnce label={shown.label} value={shown.value} onDone={() => setShown(null)} /> : null}
 
       <HrTools />
@@ -178,27 +179,27 @@ export default function Integrations() {
         {!keys ? (
           loadError ? null : <SkeletonCard lines={2} />
         ) : keys.length ? (
-          <div className="overflow-x-auto ui-table-scroll ui-table-fit">
-            <table className="ui-table w-full text-sm">
+          <div className="ui-table-scroll">
+            <table className="ui-table ui-table-sticky w-full">
               <thead>
                 <tr>
-                  <th scope="col" className="ui-th">Name</th>
-                  <th scope="col" className="ui-th">Key</th>
-                  <th scope="col" className="ui-th">May</th>
-                  <th scope="col" className="ui-th">Last used</th>
-                  <th scope="col" className="ui-th ui-col-h-center">Status</th>
-                  <th scope="col" className="ui-th"><span className="sr-only">Actions</span></th>
+                  <th scope="col">Name</th>
+                  <th scope="col">Key</th>
+                  <th scope="col">May</th>
+                  <th scope="col" className="ui-col-date">Last used</th>
+                  <th scope="col" className="ui-col-h-center">Status</th>
+                  <th scope="col"><span className="sr-only">Actions</span></th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="ui-rows">
                 {keys.map((k) => (
                   <tr key={k.id}>
                     <td className="ui-col-entity">{k.name}</td>
                     <td className="ui-mono text-xs">{k.tokenPrefix}…</td>
-                    <td className="ui-col-meta">{k.scopes.join(', ')}{k.allowedIps.length ? ` · from ${k.allowedIps.join(', ')}` : ''}</td>
-                    <td className="ui-col-meta whitespace-nowrap">{ago(k.lastUsedAt)}{k.lastUsedIp ? ` · ${k.lastUsedIp}` : ''}</td>
+                    <td>{k.scopes.join(', ')}{k.allowedIps.length ? ` · from ${k.allowedIps.join(', ')}` : ''}</td>
+                    <td className="ui-col-date whitespace-nowrap">{ago(k.lastUsedAt)}{k.lastUsedIp ? ` · ${k.lastUsedIp}` : ''}</td>
                     <td className="ui-col-h-center">{k.isActive ? <span className="ui-pill ui-pill-pos">active</span> : <span className="ui-pill ui-pill-neutral">revoked</span>}</td>
-                    <td className="whitespace-nowrap text-end">
+                    <td className="ui-col-meta whitespace-nowrap text-end">
                       <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" aria-label={`Rotate ${k.name}`} onClick={() => rotate(k)}>Rotate</button>
                       {k.isActive ? <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" aria-label={`Revoke ${k.name}`} onClick={() => revoke(k)}>Revoke</button> : null}
                     </td>
@@ -313,6 +314,7 @@ export default function Integrations() {
         </div>
         <pre className="overflow-x-auto rounded-lg bg-[rgb(var(--surface-sunken))] p-3 text-xs">{`curl -H "Authorization: Bearer clor_…" "${base}/attendance/days?from=2026-10-01&to=2026-10-31"`}</pre>
       </section>
+      </div>
     </div>
   );
 }

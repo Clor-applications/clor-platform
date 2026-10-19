@@ -1,9 +1,21 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Fingerprint, ScanFace, Users, UserX } from 'lucide-react';
 
-import { PageHeader, SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
+import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
+import { useListSearch } from '@ui/components/ListToolbar';
+import DocumentListShell from '@ui/components/list/DocumentListShell';
+import { Pagination, usePaged } from '@ui/components/list/ListPageParts';
+import { SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import { getReaderPhoto, listBiometrics } from '../api/attendance';
 import { notify } from '@ui/components/ui/notify';
 import LoadFailed from '../components/LoadFailed';
+
+const COLUMNS = {
+  employee: (r) => r.employeeName || 'Not matched',
+  pin: (r) => r.pin,
+  face: (r) => (r.faces ? 'Face' : 'No face'),
+  updated: (r) => (r.updatedAt ? String(r.updatedAt).slice(0, 10) : ''),
+};
 
 /**
  * Who has fingerprints and a face on record, as the readers enrolled them.
@@ -14,7 +26,8 @@ export default function Enrolments() {
   const [rows, setRows] = useState(null);
   const [loadError, setLoadError] = useState('');
   const [attempt, setAttempt] = useState(0);
-  const [q, setQ] = useState('');
+  const [page, setPage] = useState(1);
+  const [perPage, setPerPage] = useState(50);
   const [photo, setPhoto] = useState(null);
   const showPhoto = async (r) => {
     try {
@@ -27,50 +40,86 @@ export default function Enrolments() {
   useEffect(() => {
     listBiometrics().then((v) => { setRows(v); setLoadError(''); }).catch((e) => setLoadError(String(e?.message || 'Could not load enrolments.')));
   }, [attempt]);
-  const shown = (rows || []).filter((r) => !q.trim() || `${r.employeeName || ''} ${r.employeeCode || ''} ${r.pin}`.toLowerCase().includes(q.trim().toLowerCase()));
+  const search = useListSearch(rows || [], ['employeeName', 'employeeCode', 'pin']);
+  const filters = useColumnFilters();
+  const shown = filters.applyFilters(search.filtered, COLUMNS);
+  const { pageCount, safePage, pageRows } = usePaged(shown, perPage, page);
+  useEffect(() => setPage(1), [search.query]);
+  const figures = useMemo(() => {
+    const list = rows || [];
+    return {
+      enrolled: list.length,
+      fingers: list.filter((r) => r.fingers).length,
+      faces: list.filter((r) => r.faces).length,
+      unmatched: list.filter((r) => !r.employeeName).length,
+    };
+  }, [rows]);
 
   return (
-    <div className="space-y-4">
-      <PageHeader
-        entity="attendance"
-        title="Enrolments"
-        description="Fingerprints and faces enrolled on the readers. Enrol once on any reader; it is copied to the others."
-        actions={<input type="search" className="ui-input" placeholder="Search" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search enrolments" />}
-      />
+    <DocumentListShell
+      entity="reader"
+      title="Enrolments"
+      description="Fingerprints and faces enrolled on the readers. Enrol once on any reader; it is copied to the others."
+      compact
+      tight
+      denseCards
+      search={{ value: search.query, onChange: search.setQuery, placeholder: 'Search enrolments…', label: 'Search enrolments' }}
+      cards={[
+        { label: 'Enrolled', value: figures.enrolled, count: true, tone: 'all', Icon: Users },
+        { label: 'With fingerprints', value: figures.fingers, count: true, tone: 'paid', Icon: Fingerprint },
+        { label: 'With a face', value: figures.faces, count: true, tone: 'sent', Icon: ScanFace },
+        { label: 'Not matched', value: figures.unmatched, count: true, tone: 'outstanding', Icon: UserX },
+      ]}
+    >
       <LoadFailed message={loadError} onRetry={() => setAttempt((n) => n + 1)} />
       {!rows ? (
         loadError ? null : <SkeletonCard lines={5} />
-      ) : !rows.length ? (
-        <EmptyState title="Nothing enrolled yet" description="Enrol people at a reader, or use “Fetch fingerprints & faces” on a reader that already has them." />
       ) : (
-        <div className="ui-card overflow-hidden">
-          <div className="overflow-x-auto ui-table-scroll ui-table-fit">
-            <table className="ui-table w-full">
+        <>
+          <div className="ui-table-scroll">
+            <table className="ui-table ui-table-sticky w-full">
               <thead>
                 <tr>
-                  <th scope="col" className="ui-th">Employee</th>
-                  <th scope="col" className="ui-th">Reader ID</th>
-                  <th scope="col" className="ui-th text-end">Fingerprints</th>
-                  <th scope="col" className="ui-th ui-col-h-center">Face</th>
-                  <th scope="col" className="ui-th ui-col-h-center hidden md:table-cell">Photo</th>
-                  <th scope="col" className="ui-th">Last enrolled</th>
+                  <ColumnHeader label="Employee" col="employee" state={filters} />
+                  <ColumnHeader label="Reader ID" col="pin" state={filters} />
+                  <th scope="col" className="ui-num">Fingerprints</th>
+                  <ColumnHeader label="Face" col="face" state={filters} align="center" />
+                  <th scope="col" className="ui-col-h-center hidden md:table-cell">Photo</th>
+                  <ColumnHeader label="Last enrolled" col="updated" state={filters} type="date" />
                 </tr>
               </thead>
-              <tbody>
-                {shown.map((r) => (
-                  <tr key={r.pin}>
-                    <td className="ui-col-entity">{r.employeeName || <span className="ui-caption" style={{ color: 'rgb(var(--warn-ink))' }}>not matched to an employee</span>}</td>
-                    <td className="ui-mono">{r.pin}</td>
-                    <td className="text-end tabular-nums">{r.fingers || '—'}</td>
-                    <td className="ui-col-h-center">{r.faces ? '✓' : '—'}</td>
-                    <td className="ui-col-h-center hidden md:table-cell">{r.photo ? <button type="button" className="ui-link text-sm" onClick={() => showPhoto(r)}>View</button> : '—'}</td>
-                    <td className="ui-col-meta whitespace-nowrap">{r.updatedAt ? new Date(r.updatedAt).toLocaleString() : '—'}</td>
+              <tbody className="ui-rows">
+                {!shown.length ? (
+                  <tr>
+                    <td colSpan={6}>
+                      {rows.length ? (
+                        <EmptyState kind="filtered" totalCount={rows.length} title="No enrolments match" description="Nothing matches the search or the column filters." />
+                      ) : (
+                        <EmptyState
+                          icon={Fingerprint}
+                          title="Nothing enrolled yet"
+                          description="Enrol once on any reader; it is copied to the others. Enrol people at a reader, or use “Fetch fingerprints & faces” on a reader that already has them."
+                        />
+                      )}
+                    </td>
                   </tr>
-                ))}
+                ) : (
+                  pageRows.map((r) => (
+                    <tr key={r.pin}>
+                      <td className="ui-col-entity">{r.employeeName || <span className="ui-caption" style={{ color: 'rgb(var(--warn-ink))' }}>not matched to an employee</span>}</td>
+                      <td className="ui-mono">{r.pin}</td>
+                      <td className="ui-num">{r.fingers || '—'}</td>
+                      <td className="ui-col-h-center">{r.faces ? '✓' : '—'}</td>
+                      <td className="ui-col-h-center hidden md:table-cell">{r.photo ? <button type="button" className="ui-link text-sm" onClick={() => showPhoto(r)}>View</button> : '—'}</td>
+                      <td className="ui-col-date whitespace-nowrap">{r.updatedAt ? new Date(r.updatedAt).toLocaleString() : '—'}</td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
-        </div>
+          <Pagination total={shown.length} page={safePage} perPage={perPage} pageCount={pageCount} onPage={setPage} onPerPage={(n) => { setPerPage(n); setPage(1); }} noun="people" />
+        </>
       )}
       {photo ? (
         <div className="ui-nav-sheet" role="dialog" aria-modal="true" aria-label="Photo from the reader" onClick={() => setPhoto(null)}>
@@ -84,6 +133,6 @@ export default function Enrolments() {
           </div>
         </div>
       ) : null}
-    </div>
+    </DocumentListShell>
   );
 }

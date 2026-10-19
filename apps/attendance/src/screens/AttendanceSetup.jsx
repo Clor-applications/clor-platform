@@ -50,18 +50,19 @@ export default function AttendanceSetup({ openScreen }) {
     load();
   }, [load]);
 
-  if (!steps) return <SkeletonCard lines={8} />;
+  if (!steps) return <div className="space-y-3"><PageHeader entity="settings" title="Set up attendance" /><div className="px-5 lg:px-7 pb-8 max-w-3xl"><SkeletonCard lines={8} /></div></div>;
   const required = steps.filter((s) => !s.optional);
   const done = required.filter((s) => s.done).length;
   const next = steps.find((s) => !s.done && s.can);
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <PageHeader
-        entity="attendance"
+        entity="settings"
         title="Set up attendance"
         description={done === required.length ? 'Everything needed is in place.' : `${done} of ${required.length} done. Do them in any order; each step checks what is really there.`}
         actions={next && openScreen ? <button type="button" className="ui-btn ui-btn-primary" onClick={() => openScreen(next.screen)}>{next.title} <ArrowRight size={16} aria-hidden="true" /></button> : null}
       />
+      <div className="px-5 lg:px-7 pb-8 space-y-6 max-w-3xl">
       <ol className="ui-card overflow-hidden divide-y">
         {steps.map((s, i) => (
           <li key={s.key} className="ui-setup-step" data-done={s.done || undefined}>
@@ -78,6 +79,7 @@ export default function AttendanceSetup({ openScreen }) {
           </li>
         ))}
       </ol>
+      </div>
     </div>
   );
 }

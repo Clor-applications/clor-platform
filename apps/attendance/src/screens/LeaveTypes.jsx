@@ -1,7 +1,10 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { Plus } from 'lucide-react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { CalendarCheck, CalendarOff, CircleSlash, Plus, Wallet } from 'lucide-react';
 
-import { PageHeader, SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
+import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
+import { useListSearch } from '@ui/components/ListToolbar';
+import DocumentListShell from '@ui/components/list/DocumentListShell';
+import { SkeletonCard, EmptyState, StatusPill } from '@ui/components/ui/Primitives';
 import Drawer from '@ui/components/ui/Drawer';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { createLeaveType, deleteLeaveType, listLeaveTypes, updateLeaveType } from '../api/attendance';
@@ -17,70 +20,127 @@ const monthlyNote = (days) => {
 const policy = (t) =>
   [t.accrual === 'MONTHLY' ? 'monthly' : 'from 1 January', t.carryForwardMax != null ? `carry up to ${t.carryForwardMax}` : 'lapses at year end'].join(' · ');
 
+const TABS = [
+  { value: '', label: 'All', tone: 'all' },
+  { value: 'PAID', label: 'Paid', tone: 'paid' },
+  { value: 'UNPAID', label: 'Unpaid', tone: 'outstanding' },
+];
+const COLUMNS = {
+  name: (t) => t.name,
+  code: (t) => t.code,
+  active: (t) => (t.isActive ? 'Active' : 'Inactive'),
+};
+
 /** Kinds of leave: paid ones give days a year, unpaid ones are loss of pay. */
 export default function LeaveTypes() {
-  const [rows, setRows] = useState(null);
+  const [all, setAll] = useState(null);
   const [loadError, setLoadError] = useState('');
   const [editing, setEditing] = useState(null);
+  const [kind, setKind] = useState('');
 
   const load = useCallback(() => {
-    listLeaveTypes().then((v) => { setRows(v); setLoadError(''); }).catch((e) => setLoadError(String(e?.message || 'Could not load leave types.')));
+    listLeaveTypes().then((v) => { setAll(v); setLoadError(''); }).catch((e) => setLoadError(String(e?.message || 'Could not load leave types.')));
   }, []);
   useEffect(() => {
     load();
   }, [load]);
 
+  const counts = useMemo(() => {
+    const list = all || [];
+    const paid = list.filter((t) => t.isPaid).length;
+    return { '': list.length, PAID: paid, UNPAID: list.length - paid };
+  }, [all]);
+  const inTab = useMemo(() => (all || []).filter((t) => !kind || (kind === 'PAID') === Boolean(t.isPaid)), [all, kind]);
+  const search = useListSearch(inTab, ['name', 'code']);
+  const filters = useColumnFilters();
+  const rows = filters.applyFilters(search.filtered, COLUMNS);
+  const figures = useMemo(() => {
+    const list = all || [];
+    return {
+      inactive: list.filter((t) => !t.isActive).length,
+      requests: list.reduce((a, t) => a + Number(t.requests || 0), 0),
+    };
+  }, [all]);
+  const create = () => setEditing({ ...BLANK });
+
   return (
-    <div className="space-y-4">
-      <PageHeader
-        entity="attendance"
-        title="Leave types"
-        description="Casual, sick, earned… Each paid type gives everyone its days a year; unpaid leave is deducted from pay."
-        actions={
-          <button type="button" className="ui-btn ui-btn-primary" onClick={() => setEditing({ ...BLANK })}>
-            <Plus size={16} aria-hidden="true" /> New leave type
-          </button>
-        }
-      />
+    <DocumentListShell
+      entity="leave"
+      title="Leave types"
+      description="Casual, sick, earned… Each paid type gives everyone its days a year; unpaid leave is deducted from pay."
+      compact
+      tight
+      denseCards
+      search={{ value: search.query, onChange: search.setQuery, placeholder: 'Search leave types…', label: 'Search leave types' }}
+      primary={
+        <button type="button" className="ui-btn ui-btn-primary" onClick={create}>
+          <Plus size={16} aria-hidden="true" /> New leave type
+        </button>
+      }
+      cards={[
+        { label: 'Paid types', value: counts.PAID, count: true, tone: 'paid', Icon: Wallet, onSelect: () => setKind('PAID') },
+        { label: 'Unpaid types', value: counts.UNPAID, count: true, tone: 'outstanding', Icon: CircleSlash, onSelect: () => setKind('UNPAID') },
+        { label: 'Inactive', value: figures.inactive, count: true, tone: 'cancelled', Icon: CalendarOff },
+        { label: 'Requests', value: figures.requests, count: true, tone: 'sent', Icon: CalendarCheck },
+      ]}
+      tabs={TABS}
+      statusValue={kind}
+      statusCounts={counts}
+      onStatusChange={setKind}
+      tabsLabel="Paid or unpaid"
+    >
       <LoadFailed message={loadError} onRetry={load} />
-      {!rows ? (
+      {!all ? (
         loadError ? null : <SkeletonCard lines={4} />
-      ) : !rows.length ? (
-        <EmptyState title="No leave types yet" description="Add the kinds of leave your company gives, e.g. Casual 12, Sick 6, Loss of pay (unpaid)." />
       ) : (
-        <div className="ui-card overflow-hidden">
-          <div className="overflow-x-auto ui-table-scroll ui-table-fit">
-          <table className="ui-table w-full">
+        <div className="ui-table-scroll">
+          <table className="ui-table ui-table-sticky w-full">
             <thead>
               <tr>
-                <th scope="col" className="ui-th">Leave type</th>
-                <th scope="col" className="ui-th">Code</th>
-                <th scope="col" className="ui-th ui-col-h-center">Paid</th>
-                <th scope="col" className="ui-th text-end">Days a year</th>
-                <th scope="col" className="ui-th">How it is earned</th>
-                <th scope="col" className="ui-th text-end">Requests</th>
-                <th scope="col" className="ui-th ui-col-h-center">Active</th>
+                <ColumnHeader label="Leave type" col="name" state={filters} />
+                <ColumnHeader label="Code" col="code" state={filters} />
+                <th scope="col" className="ui-col-h-center">Paid</th>
+                <th scope="col" className="ui-num">Days a year</th>
+                <th scope="col">How it is earned</th>
+                <th scope="col" className="ui-num">Requests</th>
+                <ColumnHeader label="Active" col="active" state={filters} align="center" />
               </tr>
             </thead>
-            <tbody>
-              {rows.map((t) => (
-                <tr key={t.id} className="ui-row-click" onClick={() => setEditing({ ...t, code: t.code || '' })}>
-                  <td className="ui-col-entity">{t.name}</td>
-                  <td className="ui-col-meta">{t.code || '—'}</td>
-                  <td className="ui-col-h-center">{t.isPaid ? '✓' : <span className="ui-pill ui-pill-warn">unpaid</span>}</td>
-                  <td className="text-end tabular-nums">{t.isPaid ? t.annualDays : '—'}</td>
-                  <td className="ui-col-meta">{t.isPaid ? policy(t) : '—'}</td>
-                  <td className="text-end tabular-nums">{t.requests}</td>
-                  <td className="ui-col-h-center">{t.isActive ? '✓' : ''}</td>
+            <tbody className="ui-rows">
+              {!rows.length ? (
+                <tr>
+                  <td colSpan={7}>
+                    {inTab.length ? (
+                      <EmptyState kind="filtered" totalCount={inTab.length} title="No leave types match" description="Nothing in this tab matches the search or the column filters." />
+                    ) : (
+                      <EmptyState
+                        icon={CalendarCheck}
+                        title={kind ? `No ${kind.toLowerCase()} leave types` : 'No leave types yet'}
+                        description="Casual, sick, earned… Each paid type gives everyone its days a year; unpaid leave is deducted from pay. E.g. Casual 12, Sick 6, Loss of pay (unpaid)."
+                        routes={kind ? undefined : [{ label: 'New leave type', description: 'E.g. Casual 12, Sick 6, Loss of pay (unpaid).', onSelect: create }]}
+                      />
+                    )}
+                  </td>
                 </tr>
-              ))}
+              ) : (
+                rows.map((t) => (
+                  <tr key={t.id} className="ui-row-click" onClick={() => setEditing({ ...t, code: t.code || '' })}>
+                    <td className="ui-col-entity">{t.name}</td>
+                    <td className="ui-col-meta">{t.code || '—'}</td>
+                    <td className="ui-col-h-center">{t.isPaid ? '✓' : <span className="ui-pill ui-pill-warn">unpaid</span>}</td>
+                    <td className="ui-num">{t.isPaid ? t.annualDays : '—'}</td>
+                    <td className="ui-col-meta">{t.isPaid ? policy(t) : '—'}</td>
+                    <td className="ui-num">{t.requests}</td>
+                    <td className="ui-col-h-center">{t.isActive ? <StatusPill status="active" /> : <span className="ui-caption">Inactive</span>}</td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
-          </div>
         </div>
       )}
       {editing ? <TypeForm initial={{ ...editing, carryForwardMax: editing.carryForwardMax ?? '' }} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); load(); }} /> : null}
-    </div>
+    </DocumentListShell>
   );
 }
 

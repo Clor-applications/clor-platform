@@ -1,6 +1,10 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { Clock, Fingerprint, Link2, MapPin } from 'lucide-react';
 
-import { PageHeader, SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
+import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
+import { useListSearch } from '@ui/components/ListToolbar';
+import DocumentListShell from '@ui/components/list/DocumentListShell';
+import { SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import { notify } from '@ui/components/ui/notify';
 import { listEmployees, listUnmatchedPunches, matchPunches } from '../api/attendance';
 import LoadFailed from '../components/LoadFailed';
@@ -13,6 +17,13 @@ import LoadFailed from '../components/LoadFailed';
  * next ones match on their own.
  */
 const keyOf = (r) => `${r.areaId || ''}|${r.pin}`;
+const COLUMNS = {
+  pin: (r) => r.pin,
+  site: (r) => r.areaName || 'No site',
+  name: (r) => r.readerName,
+  first: (r) => String(r.first || '').slice(0, 10),
+  last: (r) => String(r.last || '').slice(0, 10),
+};
 export default function UnmatchedPunches() {
   const [rows, setRows] = useState(null);
   const [loadError, setLoadError] = useState('');
@@ -28,6 +39,18 @@ export default function UnmatchedPunches() {
     listEmployees().then(setPeople).catch(() => setPeople([]));
   }, [load]);
 
+  const search = useListSearch(rows || [], ['pin', 'areaName', 'readerName']);
+  const filters = useColumnFilters();
+  const shown = filters.applyFilters(search.filtered, COLUMNS);
+  const figures = useMemo(() => {
+    const list = rows || [];
+    return {
+      ids: list.length,
+      punches: list.reduce((a, r) => a + Number(r.punches || 0), 0),
+      sites: new Set(list.map((r) => r.areaId).filter(Boolean)).size,
+    };
+  }, [rows]);
+
   const match = async (row) => {
     const k = keyOf(row);
     try {
@@ -40,41 +63,65 @@ export default function UnmatchedPunches() {
   };
 
   return (
-    <div className="space-y-4">
-      <PageHeader entity="attendance" title="Unmatched punches" description="Reader user IDs that match no employee. Choose who each one is." />
+    <DocumentListShell
+      entity="reader"
+      title="Unmatched punches"
+      description="Reader user IDs that match no employee. Choose who each one is."
+      compact
+      tight
+      denseCards
+      search={{ value: search.query, onChange: search.setQuery, placeholder: 'Search reader IDs…', label: 'Search unmatched punches' }}
+      cards={[
+        { label: 'Reader IDs', value: figures.ids, count: true, tone: 'outstanding', Icon: Fingerprint },
+        { label: 'Punches waiting', value: figures.punches, count: true, tone: 'partial', Icon: Clock },
+        { label: 'Sites', value: figures.sites, count: true, tone: 'sent', Icon: MapPin },
+      ]}
+    >
       <LoadFailed message={loadError} onRetry={load} />
       {!rows ? (
         loadError ? null : <SkeletonCard lines={4} />
-      ) : !rows.length ? (
-        <EmptyState title="Every punch is matched" description="Punches from an unknown reader ID will list here." />
       ) : (
-        <div className="ui-card overflow-hidden">
-          <div className="overflow-x-auto ui-table-scroll ui-table-fit">
-            <table className="ui-table w-full">
-              <thead>
+        <div className="ui-table-scroll">
+          <table className="ui-table ui-table-sticky w-full">
+            <thead>
+              <tr>
+                <ColumnHeader label="Reader ID" col="pin" state={filters} />
+                <ColumnHeader label="Site" col="site" state={filters} />
+                <ColumnHeader label="Name on reader" col="name" state={filters} />
+                <th scope="col" className="ui-num">Punches</th>
+                <ColumnHeader label="First" col="first" state={filters} type="date" />
+                <ColumnHeader label="Last" col="last" state={filters} type="date" />
+                <th scope="col">Employee</th>
+              </tr>
+            </thead>
+            <tbody className="ui-rows">
+              {!shown.length ? (
                 <tr>
-                  <th scope="col" className="ui-th">Reader ID</th>
-                  <th scope="col" className="ui-th">Site</th>
-                  <th scope="col" className="ui-th">Name on reader</th>
-                  <th scope="col" className="ui-th text-end">Punches</th>
-                  <th scope="col" className="ui-th">First</th>
-                  <th scope="col" className="ui-th">Last</th>
-                  <th scope="col" className="ui-th">Employee</th>
+                  <td colSpan={7}>
+                    {rows.length ? (
+                      <EmptyState kind="filtered" totalCount={rows.length} title="No reader IDs match" description="Nothing matches the search or the column filters." />
+                    ) : (
+                      <EmptyState
+                        icon={Fingerprint}
+                        title="Every punch is matched"
+                        description="Reader user IDs that match no employee list here. Choose who each one is; their past punches become days and their next ones match on their own."
+                      />
+                    )}
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {rows.map((r) => (
+              ) : (
+                shown.map((r) => (
                   <tr key={keyOf(r)}>
                     <td className="ui-mono">{r.pin}</td>
                     <td>{r.areaName || <span className="ui-caption">No site</span>}</td>
-                    <td>{r.readerName || '—'}</td>
-                    <td className="text-end tabular-nums">{r.punches}</td>
-                    <td className="whitespace-nowrap ui-col-meta">{r.first}</td>
-                    <td className="whitespace-nowrap ui-col-meta">{r.last}</td>
-                    <td>
+                    <td className="ui-col-entity">{r.readerName || '—'}</td>
+                    <td className="ui-num">{r.punches}</td>
+                    <td className="ui-col-date whitespace-nowrap">{r.first}</td>
+                    <td className="ui-col-date whitespace-nowrap">{r.last}</td>
+                    <td className="ui-col-meta">
                       <span className="flex flex-wrap items-center gap-2">
                         <select
-                          className="ui-select"
+                          className="ui-select ui-ctl-compact !w-auto"
                           aria-label={`Employee for reader ID ${r.pin}`}
                           value={choice[keyOf(r)] || ''}
                           onChange={(e) => setChoice({ ...choice, [keyOf(r)]: e.target.value })}
@@ -83,21 +130,23 @@ export default function UnmatchedPunches() {
                           {people.map((p) => <option key={p.id} value={p.id}>{p.name}{p.code ? ` · ${p.code}` : ''}</option>)}
                         </select>
                         {r.areaId ? (
-                          <select className="ui-select" aria-label={`Where reader ID ${r.pin} is theirs`} value={siteOnly[keyOf(r)] ? 'site' : 'all'} onChange={(e) => setSiteOnly({ ...siteOnly, [keyOf(r)]: e.target.value === 'site' })}>
+                          <select className="ui-select ui-ctl-compact !w-auto" aria-label={`Where reader ID ${r.pin} is theirs`} value={siteOnly[keyOf(r)] ? 'site' : 'all'} onChange={(e) => setSiteOnly({ ...siteOnly, [keyOf(r)]: e.target.value === 'site' })}>
                             <option value="all">Their ID everywhere</option>
                             <option value="site">Only at {r.areaName}</option>
                           </select>
                         ) : null}
-                        <button type="button" className="ui-btn ui-btn-primary ui-btn-sm" aria-label={`Match reader ID ${r.pin}`} disabled={!choice[keyOf(r)]} onClick={() => match(r)}>Match</button>
+                        <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" aria-label={`Match reader ID ${r.pin}`} disabled={!choice[keyOf(r)]} onClick={() => match(r)}>
+                          <Link2 size={14} aria-hidden="true" /> Match
+                        </button>
                       </span>
                     </td>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
       )}
-    </div>
+    </DocumentListShell>
   );
 }

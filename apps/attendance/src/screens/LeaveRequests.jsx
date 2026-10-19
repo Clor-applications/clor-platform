@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { CalendarCheck, CalendarClock, CalendarX, Check, Plus, Wallet, X } from 'lucide-react';
+import { Ban, CalendarCheck, CalendarClock, CalendarX, Check, Plus, Wallet, X } from 'lucide-react';
 
 import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
 import { useListSearch } from '@ui/components/ListToolbar';
@@ -20,6 +20,14 @@ import {
   rejectLeave,
 } from '../api/attendance';
 import LoadFailed from '../components/LoadFailed';
+
+/* "27 – 28 Oct", "30 Oct – 2 Nov": the range in the width of a date. Exports keep the ISO dates. */
+const short = (iso) => new Date(`${iso}T00:00:00Z`).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', timeZone: 'UTC' });
+const span = (from, to) => {
+  if (!from) return '—';
+  if (!to || to === from) return short(from);
+  return from.slice(0, 7) === to.slice(0, 7) ? `${Number(from.slice(8))} – ${short(to)}` : `${short(from)} – ${short(to)}`;
+};
 
 const TABS = [
   { value: 'PENDING', label: 'Pending', tone: 'partial' },
@@ -106,8 +114,9 @@ export default function LeaveRequests() {
 
   return (
     <DocumentListShell
-      entity="attendance"
+      entity="leave"
       title="Leave requests"
+      description="Approving marks each working day in the range on leave. Unpaid leave is loss of pay."
       compact
       tight
       denseCards
@@ -177,7 +186,7 @@ export default function LeaveRequests() {
                         {r.employeeCode ? <span className="ui-caption"> · {r.employeeCode}</span> : null}
                       </td>
                       <td className="whitespace-nowrap">{r.leaveTypeName}{r.isPaid ? '' : <span className="ui-caption"> · unpaid</span>}</td>
-                      <td className="ui-col-date whitespace-nowrap">{leaveRange(r.fromDate, r.toDate)}</td>
+                      <td className="ui-col-date whitespace-nowrap" title={leaveRange(r.fromDate, r.toDate)}>{span(r.fromDate, r.toDate)}</td>
                       <td className="ui-num">{r.days}</td>
                       <td className="max-w-[8rem] truncate" title={r.reason}>{r.reason}</td>
                       <td className="ui-col-h-center"><StatusPill status={r.status} /></td>
@@ -188,13 +197,15 @@ export default function LeaveRequests() {
                               <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" aria-label={`Approve ${r.employeeName}'s leave`} onClick={() => act(approveLeave, r, 'Approved; the days are marked on leave.')}>
                                 <Check size={14} aria-hidden="true" /> Approve
                               </button>
-                              <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" aria-label={`Reject ${r.employeeName}'s leave`} onClick={() => act(rejectLeave, r, 'Rejected.')}>
-                                <X size={14} aria-hidden="true" /> Reject
+                              <button type="button" className="ui-icon-btn" aria-label={`Reject ${r.employeeName}'s leave`} title="Reject" onClick={() => act(rejectLeave, r, 'Rejected.')}>
+                                <X size={16} aria-hidden="true" />
                               </button>
                             </>
                           ) : null}
                           {r.status === 'PENDING' || r.status === 'APPROVED' ? (
-                            <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" aria-label={`Cancel ${r.employeeName}'s leave`} onClick={() => cancel(r)}>Cancel</button>
+                            <button type="button" className="ui-icon-btn" aria-label={`Cancel ${r.employeeName}'s leave`} title="Cancel leave" onClick={() => cancel(r)}>
+                              <Ban size={16} aria-hidden="true" />
+                            </button>
                           ) : null}
                         </span>
                       </td>

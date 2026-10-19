@@ -1,7 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { CheckCircle2, CircleDot, EyeOff, HelpCircle, UserRoundCheck } from 'lucide-react';
+import { AlertTriangle, ArrowUpRight, CheckCircle2, CircleDot, Clock, EyeOff, HelpCircle, UserRoundCheck } from 'lucide-react';
 
-import { EmptyState, PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
+import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
+import { useListSearch } from '@ui/components/ListToolbar';
+import DocumentListShell from '@ui/components/list/DocumentListShell';
+import { Pagination, usePaged } from '@ui/components/list/ListPageParts';
+import { EmptyState, SkeletonCard } from '@ui/components/ui/Primitives';
 import Drawer from '@ui/components/ui/Drawer';
 import { notify } from '@ui/components/ui/notify';
 import { dayLabel, explainDay, listExceptions, setExceptionState, todayIst } from '../api/attendance';
@@ -25,6 +29,22 @@ const KIND = {
   READER: 'Reader problem',
   SHIFT_CLASH: 'Schedule clash',
 };
+const KIND_TONE = {
+  MISSING_OUT: 'overdue',
+  NO_RECORD: 'overdue',
+  OVERTIME: 'sent',
+  CORRECTION: 'partial',
+  LEAVE: 'partial',
+  UNMATCHED: 'outstanding',
+  READER: 'outstanding',
+  SHIFT_CLASH: 'draft',
+};
+const COLUMNS = {
+  what: (x) => x.title,
+  who: (x) => x.employeeName,
+  date: (x) => x.date,
+  owner: (x) => x.assignee || 'Nobody',
+};
 const SEVERITY = { high: 'Urgent', medium: 'To do', low: 'When you can' };
 const STATUS = { OPEN: 'Open', IN_PROGRESS: 'In progress', RESOLVED: 'Settled', IGNORED: 'Ignored' };
 const back = (n) => new Date(Date.now() + 330 * 60_000 - n * 86_400_000).toISOString().slice(0, 10);
@@ -38,6 +58,8 @@ export default function Exceptions({ openScreen }) {
   const [explaining, setExplaining] = useState(null);
   const [settling, setSettling] = useState(null);
   const [note, setNote] = useState('');
+  const [page, setPage] = useState(1);
+  const [perPage, setPerPage] = useState(50);
 
   const load = useCallback(() => {
     listExceptions({ ...range, show: showAll ? 'all' : 'open' })
@@ -46,7 +68,33 @@ export default function Exceptions({ openScreen }) {
   }, [range, showAll]);
   useEffect(() => { load(); }, [load]);
 
-  const rows = useMemo(() => (data?.exceptions || []).filter((x) => !kind || x.kind === kind), [data, kind]);
+  const all = data?.exceptions;
+  /* The server counts every kind (past the 1,000 shown); All is their sum. */
+  const counts = useMemo(() => {
+    const c = { ...(data?.counts || {}) };
+    c[''] = Object.values(data?.counts || {}).reduce((a, b) => a + b, 0);
+    return c;
+  }, [data]);
+  /* Only the kinds that have something, plus the one chosen, so the row is not eight empty tabs. */
+  const tabs = useMemo(
+    () => [{ value: '', label: 'All', tone: 'all' }, ...Object.entries(KIND).filter(([k]) => counts[k] || kind === k).map(([value, label]) => ({ value, label, tone: KIND_TONE[value] }))],
+    [counts, kind]
+  );
+  const inTab = useMemo(() => (all || []).filter((x) => !kind || x.kind === kind), [all, kind]);
+  const search = useListSearch(inTab, ['title', 'employeeName', 'detail', 'assignee', 'date']);
+  const filters = useColumnFilters();
+  const rows = filters.applyFilters(search.filtered, COLUMNS);
+  const { pageCount, safePage, pageRows } = usePaged(rows, perPage, page);
+  useEffect(() => setPage(1), [kind, search.query, range, showAll]);
+  const figures = useMemo(() => {
+    const list = all || [];
+    return {
+      high: list.filter((x) => x.severity === 'high').length,
+      medium: list.filter((x) => x.severity === 'medium').length,
+      low: list.filter((x) => x.severity === 'low').length,
+      unowned: list.filter((x) => !x.assigneeUserId && (x.status === 'OPEN' || x.status === 'IN_PROGRESS')).length,
+    };
+  }, [all]);
   const explainLoad = useCallback(() => explainDay(explaining?.employeeId, explaining?.date), [explaining]);
 
   const change = async (x, body, done) => {
@@ -74,94 +122,107 @@ export default function Exceptions({ openScreen }) {
   };
 
   return (
-    <div className="space-y-4">
-      <PageHeader
-        entity="attendance"
-        title="Exceptions"
-        description="Everything not settled yet, in one place. Each item opens the screen that fixes it."
-        actions={
-          <div className="flex flex-wrap items-center gap-2">
-            <input type="date" className="ui-input !w-auto" value={range.from} max={range.to} onChange={(e) => setRange((r) => ({ ...r, from: e.target.value }))} aria-label="From" />
-            <input type="date" className="ui-input !w-auto" value={range.to} max={todayIst()} onChange={(e) => setRange((r) => ({ ...r, to: e.target.value }))} aria-label="To" />
-          </div>
-        }
-      />
-
-      {data ? (
-        <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Show one kind">
-          <button type="button" className={`ui-chip ${!kind ? 'is-on' : ''}`} aria-pressed={!kind} onClick={() => setKind('')}>All <span className="tabular-nums">{Object.values(data.counts).reduce((a, b) => a + b, 0)}</span></button>
-          {Object.entries(KIND).filter(([k]) => data.counts[k]).map(([k, label]) => (
-            <button key={k} type="button" className={`ui-chip ${kind === k ? 'is-on' : ''}`} aria-pressed={kind === k} onClick={() => setKind(kind === k ? '' : k)}>
-              {label} <span className="tabular-nums">{data.counts[k]}</span>
-            </button>
-          ))}
-          <label className="ml-auto flex items-center gap-1.5 text-sm">
+    <DocumentListShell
+      entity="exception"
+      title="Exceptions"
+      description="Everything not settled yet, in one place. Each item opens the screen that fixes it."
+      compact
+      tight
+      denseCards
+      search={{ value: search.query, onChange: search.setQuery, placeholder: 'Search exceptions…', label: 'Search exceptions' }}
+      cards={[
+        { label: 'Urgent', value: figures.high, count: true, tone: 'overdue', Icon: AlertTriangle },
+        { label: 'To do', value: figures.medium, count: true, tone: 'partial', Icon: CircleDot },
+        { label: 'When you can', value: figures.low, count: true, tone: 'cancelled', Icon: Clock },
+        { label: 'Nobody owns', value: figures.unowned, count: true, tone: 'outstanding', Icon: UserRoundCheck },
+      ]}
+      tabs={tabs}
+      statusValue={kind}
+      statusCounts={counts}
+      onStatusChange={setKind}
+      tabsLabel="Kind of exception"
+      tabsExtras={
+        <>
+          <input type="date" className="ui-input ui-ctl-compact !w-auto" value={range.from} max={range.to} onChange={(e) => setRange((r) => ({ ...r, from: e.target.value }))} aria-label="From" />
+          <input type="date" className="ui-input ui-ctl-compact !w-auto" value={range.to} max={todayIst()} onChange={(e) => setRange((r) => ({ ...r, to: e.target.value }))} aria-label="To" />
+          <label className="flex items-center gap-1.5 text-sm">
             <input type="checkbox" className="ui-checkbox" checked={showAll} onChange={(e) => setShowAll(e.target.checked)} /> Show settled and ignored
           </label>
-        </div>
-      ) : null}
-
+        </>
+      }
+    >
       <LoadFailed message={error} onRetry={load} />
       {!data ? (
         error ? null : <SkeletonCard lines={6} />
-      ) : !rows.length ? (
-        <EmptyState title="Nothing to settle" description="Every day in this range is complete and every queue is clear." />
       ) : (
-        <div className="ui-card overflow-hidden">
-          <div className="overflow-x-auto ui-table-scroll">
-            <table className="ui-table w-full">
+        <>
+          <div className="ui-table-scroll">
+            <table className="ui-table ui-table-sticky w-full">
               <thead>
                 <tr>
-                  <th scope="col" className="ui-th">What</th>
-                  <th scope="col" className="ui-th">Who</th>
-                  <th scope="col" className="ui-th">Day</th>
-                  <th scope="col" className="ui-th hidden lg:table-cell">Detail</th>
-                  <th scope="col" className="ui-th">Owner</th>
-                  <th scope="col" className="ui-th"><span className="sr-only">Actions</span></th>
+                  <ColumnHeader label="What" col="what" state={filters} />
+                  <ColumnHeader label="Who" col="who" state={filters} />
+                  <ColumnHeader label="Day" col="date" state={filters} type="date" />
+                  <th scope="col" className="hidden lg:table-cell">Detail</th>
+                  <ColumnHeader label="Owner" col="owner" state={filters} />
+                  <th scope="col"><span className="sr-only">Actions</span></th>
                 </tr>
               </thead>
-              <tbody>
-                {rows.map((x) => (
-                  <tr key={x.key} data-severity={x.severity}>
-                    <td>
-                      <span className="ui-exc-title">
-                        <span className="ui-exc-dot" data-severity={x.severity} aria-hidden="true" />
-                        <span>
-                          <span className="block font-medium">{x.title}</span>
-                          <span className="ui-caption">{SEVERITY[x.severity]} · {KIND[x.kind] || x.kind}{x.status !== 'OPEN' ? ` · ${STATUS[x.status]}` : ''}</span>
-                        </span>
-                      </span>
-                    </td>
-                    <td className="ui-col-entity">{x.employeeName || '—'}</td>
-                    <td className="whitespace-nowrap">{x.date ? dayLabel(x.date, { weekday: true, year: false }) : '—'}</td>
-                    <td className="hidden lg:table-cell ui-caption max-w-[22rem]">{x.detail}{x.note ? ` · Note: ${x.note}` : ''}</td>
-                    <td className="whitespace-nowrap">{x.assignee || <span className="ui-caption">Nobody</span>}</td>
-                    <td>
-                      <div className="flex items-center justify-end gap-1">
-                        {x.employeeId && x.date && ['MISSING_OUT', 'NO_RECORD', 'OVERTIME'].includes(x.kind) ? (
-                          <button type="button" className="ui-icon-btn" title="Why does this day say this?" aria-label={`Explain ${x.employeeName}'s day`} onClick={() => setExplaining(x)}><HelpCircle size={16} aria-hidden="true" /></button>
-                        ) : null}
-                        {!x.assigneeUserId ? (
-                          <button type="button" className="ui-icon-btn" title="Take it" aria-label="Assign to me" onClick={() => change(x, { assignee: 'me', status: 'IN_PROGRESS' }, 'Assigned to you.')}><UserRoundCheck size={16} aria-hidden="true" /></button>
-                        ) : null}
-                        {x.status === 'OPEN' || x.status === 'IN_PROGRESS' ? (
-                          <>
-                            <button type="button" className="ui-icon-btn" title="Mark settled" aria-label="Mark settled" onClick={() => settle(x, 'RESOLVED')}><CheckCircle2 size={16} aria-hidden="true" /></button>
-                            <button type="button" className="ui-icon-btn" title="Ignore" aria-label="Ignore" onClick={() => settle(x, 'IGNORED')}><EyeOff size={16} aria-hidden="true" /></button>
-                          </>
-                        ) : (
-                          <button type="button" className="ui-icon-btn" title="Reopen" aria-label="Reopen" onClick={() => change(x, { status: 'OPEN' }, 'Reopened.')}><CircleDot size={16} aria-hidden="true" /></button>
-                        )}
-                        {openScreen ? <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => open(x)}>Open</button> : null}
-                      </div>
+              <tbody className="ui-rows">
+                {!rows.length ? (
+                  <tr>
+                    <td colSpan={6}>
+                      {inTab.length ? (
+                        <EmptyState kind="filtered" totalCount={inTab.length} title="No exceptions match" description="Nothing in this tab matches the search or the column filters." />
+                      ) : (
+                        <EmptyState icon={CheckCircle2} title="Nothing to settle" description="Every day in this range is complete and every queue is clear. Anything not settled shows here, and each item opens the screen that fixes it." />
+                      )}
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  pageRows.map((x) => (
+                    <tr key={x.key} data-severity={x.severity}>
+                      <td className="min-w-[9.5rem]">
+                        <span className="ui-exc-title">
+                          <span className="ui-exc-dot" data-severity={x.severity} aria-hidden="true" />
+                          <span>
+                            <span className="block font-medium">{x.title}</span>
+                            <span className="ui-caption">{SEVERITY[x.severity]} · {KIND[x.kind] || x.kind}{x.status !== 'OPEN' ? ` · ${STATUS[x.status]}` : ''}</span>
+                          </span>
+                        </span>
+                      </td>
+                      <td className="ui-col-entity">{x.employeeName || '—'}</td>
+                      <td className="ui-col-date whitespace-nowrap">{x.date ? dayLabel(x.date, { weekday: true, year: false }) : '—'}</td>
+                      <td className="hidden lg:table-cell ui-caption min-w-[12rem] max-w-[24rem]">{x.detail}{x.note ? ` · Note: ${x.note}` : ''}</td>
+                      <td className="whitespace-nowrap">{x.assignee || <span className="ui-caption">Nobody</span>}</td>
+                      <td className="ui-col-meta">
+                        <span className="flex items-center justify-end gap-1">
+                          {x.employeeId && x.date && ['MISSING_OUT', 'NO_RECORD', 'OVERTIME'].includes(x.kind) ? (
+                            <button type="button" className="ui-icon-btn" title="Why does this day say this?" aria-label={`Explain ${x.employeeName}'s day`} onClick={() => setExplaining(x)}><HelpCircle size={16} aria-hidden="true" /></button>
+                          ) : null}
+                          {!x.assigneeUserId ? (
+                            <button type="button" className="ui-icon-btn" aria-label="Assign to me" title="Take it" onClick={() => change(x, { assignee: 'me', status: 'IN_PROGRESS' }, 'Assigned to you.')}><UserRoundCheck size={16} aria-hidden="true" /></button>
+                          ) : null}
+                          {x.status === 'OPEN' || x.status === 'IN_PROGRESS' ? (
+                            <>
+                              <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => settle(x, 'RESOLVED')}><CheckCircle2 size={14} aria-hidden="true" /> Settle</button>
+                              <button type="button" className="ui-icon-btn" aria-label="Ignore" title="Ignore" onClick={() => settle(x, 'IGNORED')}><EyeOff size={16} aria-hidden="true" /></button>
+                            </>
+                          ) : (
+                            <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" onClick={() => change(x, { status: 'OPEN' }, 'Reopened.')}><CircleDot size={14} aria-hidden="true" /> Reopen</button>
+                          )}
+                          {openScreen ? <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => open(x)}><ArrowUpRight size={14} aria-hidden="true" /> Open</button> : null}
+                        </span>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
+          <Pagination total={rows.length} page={safePage} perPage={perPage} pageCount={pageCount} onPage={setPage} onPerPage={(n) => { setPerPage(n); setPage(1); }} noun="items" />
           {data.truncated ? <p className="ui-caption p-3">Showing the first 1,000. Narrow the dates or pick one kind.</p> : null}
-        </div>
+        </>
       )}
       <DayExplain open={Boolean(explaining)} onClose={() => setExplaining(null)} load={explainLoad} />
       <Drawer
@@ -183,6 +244,6 @@ export default function Exceptions({ openScreen }) {
         </label>
         <p className="ui-caption mt-2">If the data still shows the problem later, it stays listed under "Show settled and ignored".</p>
       </Drawer>
-    </div>
+    </DocumentListShell>
   );
 }

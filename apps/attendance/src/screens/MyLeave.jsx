@@ -58,18 +58,18 @@ export default function MyLeave() {
 
   if (error) {
     return (
-      <div className="space-y-4">
-        <PageHeader entity="attendance" title="My leave" />
-        <LoadFailed message={error} onRetry={load} />
+      <div className="space-y-3">
+        <PageHeader entity="leave" title="My leave" />
+        <div className="px-5 lg:px-7 pb-8"><LoadFailed message={error} onRetry={load} /></div>
       </div>
     );
   }
-  if (!me) return <SkeletonCard lines={6} />;
+  if (!me) return <div className="space-y-3"><PageHeader entity="leave" title="My leave" /><div className="px-5 lg:px-7 pb-8"><SkeletonCard lines={6} /></div></div>;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <PageHeader
-        entity="attendance"
+        entity="leave"
         title="My leave"
         description={me.employee.name}
         actions={
@@ -80,6 +80,7 @@ export default function MyLeave() {
           </div>
         }
       />
+      <div className="px-5 lg:px-7 pb-8 space-y-6">
 
       {me.types.length ? (
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -126,31 +127,31 @@ export default function MyLeave() {
       ) : null}
 
       <section className="ui-card overflow-hidden" aria-labelledby="mine-h">
-        <h2 id="mine-h" className="ui-t-sec px-5 pt-4">Asked for in {year}</h2>
-        <div className="overflow-x-auto ui-table-scroll ui-table-fit">
-          <table className="ui-table w-full">
+        <header className="ui-card-head"><h2 id="mine-h" className="ui-t-sec">Asked for in {year}</h2></header>
+        <div className="ui-table-scroll">
+          <table className="ui-table ui-table-sticky w-full">
             <thead>
               <tr>
-                <th scope="col" className="ui-th">Dates</th>
-                <th scope="col" className="ui-th">Type</th>
-                <th scope="col" className="ui-th text-end">Days</th>
-                <th scope="col" className="ui-th">Reason</th>
-                <th scope="col" className="ui-th ui-col-h-center">Status</th>
-                <th scope="col" className="ui-th"><span className="sr-only">Cancel</span></th>
+                <th scope="col" className="ui-col-date">Dates</th>
+                <th scope="col">Type</th>
+                <th scope="col" className="ui-num">Days</th>
+                <th scope="col">Reason</th>
+                <th scope="col" className="ui-col-h-center">Status</th>
+                <th scope="col"><span className="sr-only">Cancel</span></th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="ui-rows">
               {me.requests.map((r) => {
                 const cancellable = r.status === 'PENDING' || (r.status === 'APPROVED' && r.fromDate > me.today);
                 return (
                   <tr key={r.id}>
-                    <td className="whitespace-nowrap">{leaveRange(r.fromDate, r.toDate)}</td>
+                    <td className="ui-col-date whitespace-nowrap">{leaveRange(r.fromDate, r.toDate)}</td>
                     <td>{r.leaveTypeName}</td>
-                    <td className="text-end tabular-nums">{r.days}</td>
+                    <td className="ui-num">{r.days}</td>
                     <td className="max-w-[20rem] truncate" title={r.reason}>{r.reason}</td>
                     <td className="ui-col-h-center"><span className={`ui-pill ${LEAVE_STATUS[r.status] || 'ui-pill-neutral'}`}>{r.status.toLowerCase()}</span></td>
-                    <td className="text-end">
-                      {cancellable ? <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => cancel(r)}>Cancel</button> : null}
+                    <td className="ui-col-meta text-end">
+                      {cancellable ? <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" onClick={() => cancel(r)}>Cancel</button> : null}
                     </td>
                   </tr>
                 );
@@ -162,6 +163,7 @@ export default function MyLeave() {
           </table>
         </div>
       </section>
+      </div>
       <LeaveExplain open={Boolean(explaining)} onClose={() => setExplaining(null)} load={explainLoad} />
     </div>
   );

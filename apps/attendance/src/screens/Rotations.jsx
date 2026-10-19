@@ -1,7 +1,10 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { Plus, Trash2, X } from 'lucide-react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { CheckCircle2, Plus, Repeat, Trash2, Users, X } from 'lucide-react';
 
-import { PageHeader, SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
+import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
+import { useListSearch } from '@ui/components/ListToolbar';
+import DocumentListShell from '@ui/components/list/DocumentListShell';
+import { SkeletonCard, EmptyState, StatusPill } from '@ui/components/ui/Primitives';
 import Drawer from '@ui/components/ui/Drawer';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import {
@@ -19,6 +22,16 @@ import {
 import LoadFailed from '../components/LoadFailed';
 
 const PERIODS = { 7: 'a week', 14: 'two weeks', 1: 'a day' };
+const TABS = [
+  { value: '', label: 'All', tone: 'all' },
+  { value: 'ACTIVE', label: 'Active', tone: 'paid' },
+  { value: 'INACTIVE', label: 'Inactive', tone: 'cancelled' },
+];
+const COLUMNS = {
+  name: (r) => r.name,
+  from: (r) => r.anchorDate,
+  active: (r) => (r.isActive ? 'Active' : 'Inactive'),
+};
 
 /**
  * Repeating patterns — week A days, week B nights (ClorTime's Rotations).
@@ -26,13 +39,14 @@ const PERIODS = { 7: 'a week', 14: 'two weeks', 1: 'a day' };
  * week. A person's own schedule or a temporary one beats the pattern.
  */
 export default function Rotations() {
-  const [rows, setRows] = useState(null);
+  const [all, setAll] = useState(null);
   const [loadError, setLoadError] = useState('');
   const [shifts, setShifts] = useState([]);
   const [editing, setEditing] = useState(null);
   const [crew, setCrew] = useState(null);
+  const [status, setStatus] = useState('');
   const load = useCallback(() => {
-    listRotations().then((v) => { setRows(v); setLoadError(''); }).catch((e) => setLoadError(String(e?.message || 'Could not load rotations.')));
+    listRotations().then((v) => { setAll(v); setLoadError(''); }).catch((e) => setLoadError(String(e?.message || 'Could not load rotations.')));
   }, []);
   useEffect(() => {
     load();
@@ -40,58 +54,102 @@ export default function Rotations() {
   }, [load]);
   const name = (id) => (id === 'OFF' ? 'Off' : shifts.find((s) => s.id === id)?.name || '?');
 
+  const counts = useMemo(() => {
+    const list = all || [];
+    const active = list.filter((r) => r.isActive).length;
+    return { '': list.length, ACTIVE: active, INACTIVE: list.length - active };
+  }, [all]);
+  const inTab = useMemo(() => (all || []).filter((r) => !status || (status === 'ACTIVE') === Boolean(r.isActive)), [all, status]);
+  const search = useListSearch(inTab, ['name', 'anchorDate']);
+  const filters = useColumnFilters();
+  const rows = filters.applyFilters(search.filtered, COLUMNS);
+  const people = useMemo(() => (all || []).reduce((a, r) => a + Number(r.people || 0), 0), [all]);
+  const create = () => setEditing({ name: '', sequence: ['', ''], periodDays: 7, anchorDate: todayIst(), isActive: true });
+
   return (
-    <div className="space-y-4">
-      <PageHeader
-        entity="attendance"
-        title="Rotations"
-        description="Repeating shift patterns. Each step lasts a week (or a day); crews on the same pattern can start at different steps."
-        actions={
-          <button type="button" className="ui-btn ui-btn-primary" disabled={shifts.length < 1} onClick={() => setEditing({ name: '', sequence: ['', ''], periodDays: 7, anchorDate: todayIst(), isActive: true })}>
-            <Plus size={16} aria-hidden="true" /> New rotation
-          </button>
-        }
-      />
+    <DocumentListShell
+      entity="shift"
+      title="Rotations"
+      description="Repeating shift patterns. Each step lasts a week (or a day); crews on the same pattern can start at different steps."
+      compact
+      tight
+      denseCards
+      search={{ value: search.query, onChange: search.setQuery, placeholder: 'Search rotations…', label: 'Search rotations' }}
+      primary={
+        <button type="button" className="ui-btn ui-btn-primary" disabled={shifts.length < 1} onClick={create}>
+          <Plus size={16} aria-hidden="true" /> New rotation
+        </button>
+      }
+      cards={[
+        { label: 'Rotations', value: counts[''], count: true, tone: 'all', Icon: Repeat },
+        { label: 'Active', value: counts.ACTIVE, count: true, tone: 'paid', Icon: CheckCircle2, onSelect: () => setStatus('ACTIVE') },
+        { label: 'People on them', value: people, count: true, tone: 'sent', Icon: Users },
+      ]}
+      tabs={TABS}
+      statusValue={status}
+      statusCounts={counts}
+      onStatusChange={setStatus}
+      tabsLabel="Rotation status"
+    >
       <LoadFailed message={loadError} onRetry={load} />
-      {!rows ? (
+      {!all ? (
         loadError ? null : <SkeletonCard lines={4} />
-      ) : !rows.length ? (
-        <EmptyState title="No rotations" description={shifts.length ? 'Create a pattern, e.g. Day week → Night week.' : 'Create shifts first.'} />
       ) : (
-        <div className="ui-card overflow-hidden">
-          <div className="overflow-x-auto ui-table-scroll ui-table-fit">
-          <table className="ui-table w-full">
+        <div className="ui-table-scroll">
+          <table className="ui-table ui-table-sticky w-full">
             <thead>
               <tr>
-                <th scope="col" className="ui-th">Rotation</th>
-                <th scope="col" className="ui-th">Pattern</th>
-                <th scope="col" className="ui-th">Each step</th>
-                <th scope="col" className="ui-th">From</th>
-                <th scope="col" className="ui-th text-end">People</th>
-                <th scope="col" className="ui-th ui-col-h-center">Active</th>
-                <th scope="col" className="ui-th"><span className="sr-only">People</span></th>
+                <ColumnHeader label="Rotation" col="name" state={filters} />
+                <th scope="col">Pattern</th>
+                <th scope="col">Each step</th>
+                <ColumnHeader label="From" col="from" state={filters} type="date" />
+                <th scope="col" className="ui-num">People</th>
+                <ColumnHeader label="Active" col="active" state={filters} align="center" />
+                <th scope="col"><span className="sr-only">Actions</span></th>
               </tr>
             </thead>
-            <tbody>
-              {rows.map((r) => (
-                <tr key={r.id}>
-                  <td className="ui-col-entity"><button type="button" className="ui-link" onClick={() => setEditing({ ...r })}>{r.name}</button></td>
-                  <td>{r.sequence.map(name).join(' → ')}</td>
-                  <td>{PERIODS[r.periodDays] || `${r.periodDays} days`}</td>
-                  <td>{r.anchorDate}</td>
-                  <td className="text-end tabular-nums">{r.people}</td>
-                  <td className="ui-col-h-center">{r.isActive ? '✓' : ''}</td>
-                  <td className="text-end"><button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => setCrew(r)}>People</button></td>
+            <tbody className="ui-rows">
+              {!rows.length ? (
+                <tr>
+                  <td colSpan={7}>
+                    {inTab.length ? (
+                      <EmptyState kind="filtered" totalCount={inTab.length} title="No rotations match" description="Nothing in this tab matches the search or the column filters." />
+                    ) : (
+                      <EmptyState
+                        icon={Repeat}
+                        title={status ? `No ${status.toLowerCase()} rotations` : 'No rotations'}
+                        description={`Repeating shift patterns. Each step lasts a week (or a day); crews on the same pattern can start at different steps. ${shifts.length ? 'Create a pattern, e.g. Day week → Night week.' : 'Create shifts first.'}`}
+                        routes={status || !shifts.length ? undefined : [{ label: 'New rotation', description: 'A pattern, e.g. Day week → Night week.', onSelect: create }]}
+                      />
+                    )}
+                  </td>
                 </tr>
-              ))}
+              ) : (
+                rows.map((r) => (
+                  <tr key={r.id}>
+                    <td className="ui-col-entity"><button type="button" className="ui-link" onClick={() => setEditing({ ...r })}>{r.name}</button></td>
+                    <td>{r.sequence.map(name).join(' → ')}</td>
+                    <td>{PERIODS[r.periodDays] || `${r.periodDays} days`}</td>
+                    <td className="ui-col-date whitespace-nowrap">{r.anchorDate}</td>
+                    <td className="ui-num">{r.people}</td>
+                    <td className="ui-col-h-center">{r.isActive ? <StatusPill status="active" /> : <span className="ui-caption">Inactive</span>}</td>
+                    <td className="ui-col-meta">
+                      <span className="flex justify-end">
+                        <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" aria-label={`People on ${r.name}`} onClick={() => setCrew(r)}>
+                          <Users size={14} aria-hidden="true" /> People
+                        </button>
+                      </span>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
-          </div>
         </div>
       )}
       {editing ? <RotationForm initial={editing} shifts={shifts} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); load(); }} /> : null}
       {crew ? <RotationCrew rotation={crew} name={name} onClose={() => { setCrew(null); load(); }} /> : null}
-    </div>
+    </DocumentListShell>
   );
 }
 

@@ -1,7 +1,10 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { Cpu, Plus } from 'lucide-react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { AlertTriangle, Cpu, Fingerprint, Plus, UserX, Wifi } from 'lucide-react';
 
-import { PageHeader, SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
+import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
+import { useListSearch } from '@ui/components/ListToolbar';
+import DocumentListShell from '@ui/components/list/DocumentListShell';
+import { SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import Drawer from '@ui/components/ui/Drawer';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { listStructure } from '@ui/personnel/api';
@@ -111,11 +114,33 @@ function NetworkApproval({ device, yourNetwork, onDone }) {
   );
 }
 
+/* The status pill, folded into three groups for the tabs: what works, what needs a look, what is switched off. */
+const healthOf = (d) => {
+  if (!d.isActive) return 'off';
+  if (VIRTUAL[d.vendor]) return 'working';
+  if (MAPPED[d.vendor]) return !d.mapping || d.lastError ? 'attention' : 'working';
+  if (d.vendor === 'ETIMEOFFICE' || PULL[d.vendor]) return d.lastError ? 'attention' : 'working';
+  return d.awaitingNetwork || !d.online ? 'attention' : 'working';
+};
+const directionWord = (d) => (d.direction === 'both' ? 'In / out' : d.direction === 'in' ? 'Entry' : 'Exit');
+const TABS = [
+  { value: '', label: 'All', tone: 'all' },
+  { value: 'working', label: 'Working', tone: 'paid' },
+  { value: 'attention', label: 'Needs a look', tone: 'overdue' },
+  { value: 'off', label: 'Switched off', tone: 'cancelled' },
+];
+const COLUMNS = {
+  name: (d) => d.name,
+  direction: directionWord,
+  model: (d) => d.model,
+};
+
 export default function AttendanceDevices({ openScreen }) {
   const [data, setData] = useState(null);
   const [loadError, setLoadError] = useState('');
   const [adding, setAdding] = useState(false);
   const [open, setOpen] = useState(null);
+  const [tab, setTab] = useState('');
 
   const load = useCallback(() => {
     listDevices().then((v) => { setData(v); setLoadError(''); }).catch((e) => setLoadError(String(e?.message || 'Could not load readers.')));
@@ -126,22 +151,149 @@ export default function AttendanceDevices({ openScreen }) {
     const t = setInterval(load, 30_000);
     return () => clearInterval(t);
   }, [load]);
+  const inTabRows = useMemo(() => (data?.devices || []).filter((d) => !tab || healthOf(d) === tab), [data, tab]);
+  const search = useListSearch(inTabRows, ['name', 'serialNumber', 'model', 'driverLabel']);
+  const columns = useColumnFilters();
 
   const server = readerServer();
 
-  return (
-    <div className="space-y-4">
-      <PageHeader
-        entity="attendance"
-        title="Readers"
-        description="Readers of any make, software that can send punches to a URL, files from reader software, and e-Time Office — all landing on the same days."
-        actions={
-          <button type="button" className="ui-btn ui-btn-primary" onClick={() => setAdding(true)}>
-            <Plus size={16} aria-hidden="true" /> Add reader
-          </button>
-        }
-      />
+  const all = data?.devices || [];
+  const counts = { '': all.length };
+  for (const d of all) counts[healthOf(d)] = (counts[healthOf(d)] || 0) + 1;
+  const rows = columns.applyFilters(search.filtered, COLUMNS);
+  const physical = all.filter((d) => !VIRTUAL[d.vendor]);
 
+  return (
+    <div className="space-y-6">
+    <DocumentListShell
+      entity="reader"
+      title="Readers"
+      description="Readers of any make, software that can send punches to a URL, files from reader software, and e-Time Office — all landing on the same days."
+      compact
+      tight
+      denseCards
+      search={{ value: search.query, onChange: search.setQuery, placeholder: 'Search readers…', label: 'Search readers' }}
+      primary={
+        <button type="button" className="ui-btn ui-btn-primary" onClick={() => setAdding(true)}>
+          <Plus size={16} aria-hidden="true" /> Add reader
+        </button>
+      }
+      cards={
+        data
+          ? [
+              { label: 'Readers', value: physical.length, count: true, tone: 'all', Icon: Cpu },
+              { label: 'Online', value: physical.filter((d) => d.online).length, count: true, tone: 'paid', Icon: Wifi },
+              { label: 'Needs a look', value: counts.attention || 0, count: true, tone: 'overdue', Icon: AlertTriangle, onSelect: () => setTab('attention') },
+              { label: 'Punches today', value: all.reduce((a, d) => a + Number(d.punchesToday || 0), 0), count: true, tone: 'sent', Icon: Fingerprint },
+              { label: 'Unmatched', value: data.unmatchedPunches || 0, count: true, tone: 'outstanding', Icon: UserX, onSelect: openScreen ? () => openScreen('unmatched') : undefined },
+            ]
+          : null
+      }
+      tabs={TABS}
+      statusValue={tab}
+      statusCounts={counts}
+      onStatusChange={setTab}
+      tabsLabel="Reader status"
+      above={
+        (data?.devices || []).some((d) => d.awaitingNetwork) || data?.unmatchedPunches ? (
+          <div className="space-y-2">
+            {(data?.devices || [])
+              .filter((d) => d.awaitingNetwork)
+              .map((d) => (
+                <NetworkApproval key={d.id} device={d} yourNetwork={data.yourNetwork} onDone={load} />
+              ))}
+            {data?.unmatchedPunches ? (
+              <div className="ui-card flex flex-wrap items-center justify-between gap-3 p-4 text-sm" role="status">
+                <span>
+                  <strong>{data.unmatchedPunches}</strong> {data.unmatchedPunches === 1 ? 'punch is' : 'punches are'} from reader IDs that match no employee.
+                </span>
+                {openScreen ? (
+                  <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => openScreen('unmatched')}>Match them</button>
+                ) : (
+                  <span className="ui-caption">Match them under Unmatched punches.</span>
+                )}
+              </div>
+            ) : null}
+          </div>
+        ) : null
+      }
+    >
+      <LoadFailed message={loadError} onRetry={load} />
+
+      {!data ? (
+        loadError ? null : <SkeletonCard lines={4} />
+      ) : (
+          <div className="ui-table-scroll">
+            <table className="ui-table ui-table-sticky w-full">
+              <thead>
+                <tr>
+                  <ColumnHeader label="Reader" col="name" state={columns} />
+                  <th scope="col" className="hidden md:table-cell">Serial</th>
+                  <ColumnHeader label="Direction" col="direction" state={columns} />
+                  <th scope="col" className="ui-col-h-center">Status</th>
+                  <ColumnHeader label="Model" col="model" state={columns} className="hidden md:table-cell" />
+                  <th scope="col" className="ui-num">Punches today</th>
+                  <th scope="col" className="ui-num hidden md:table-cell">Commands waiting</th>
+                </tr>
+              </thead>
+              <tbody className="ui-rows">
+                {!rows.length ? (
+                  <tr>
+                    <td colSpan={7}>
+                      {inTabRows.length ? (
+                        <EmptyState kind="filtered" totalCount={inTabRows.length} title="No readers match" description="Nothing in this tab matches the search or the column filters." />
+                      ) : all.length ? (
+                        <EmptyState icon={Cpu} title="No readers here" description="Try another tab." />
+                      ) : (
+                        <EmptyState
+                          icon={Cpu}
+                          title="No readers yet"
+                          description="Readers of any make, software that can send punches to a URL, files from reader software, and e-Time Office — all landing on the same days. Point a reader at CLOR as below, then add it by its serial number."
+                          routes={[{ label: 'Add reader', description: 'By serial number, push URL, file or pull.', onSelect: () => setAdding(true) }]}
+                        />
+                      )}
+                    </td>
+                  </tr>
+                ) : rows.map((d) => (
+                  <tr key={d.id} className={VIRTUAL[d.vendor] ? undefined : 'ui-row-click'} onClick={VIRTUAL[d.vendor] ? undefined : () => setOpen(d)} title={VIRTUAL[d.vendor]?.title}>
+                    <td className="ui-col-entity">{d.name}{!VIRTUAL[d.vendor] && d.support ? <span className="block text-xs font-normal"><SupportPill support={d.support} /></span> : null}</td>
+                    <td className="ui-col-meta hidden md:table-cell">{d.vendor === 'ETIMEOFFICE' ? 'e-Time Office' : URL_PUSH[d.vendor] ? d.model || `${d.driverLabel} · not connected yet` : MAPPED[d.vendor] || PULL[d.vendor] ? d.driverLabel : VIRTUAL[d.vendor]?.label || d.serialNumber}</td>
+                    <td>{directionWord(d)}</td>
+                    <td className="ui-col-h-center whitespace-nowrap">
+                      {!d.isActive ? (
+                        <span className="ui-pill ui-pill-neutral">off</span>
+                      ) : VIRTUAL[d.vendor] ? (
+                        <span className="ui-pill ui-pill-neutral">{d.lastSeenAt ? `used ${ago(d.lastSeenAt)}` : 'not used yet'}</span>
+                      ) : MAPPED[d.vendor] ? (
+                        !d.mapping ? (
+                          <span className="ui-pill ui-pill-warn" title="Open it and set where each field is">mapping needed</span>
+                        ) : d.lastError ? (
+                          <span className="ui-pill ui-pill-neg" title={d.lastError}>last push failed</span>
+                        ) : (
+                          <span className="ui-pill ui-pill-neutral">{d.lastSeenAt ? `${d.vendor === 'FILE' ? 'imported' : 'pushed'} ${ago(d.lastSeenAt)}` : d.vendor === 'FILE' ? 'nothing imported yet' : 'nothing received yet'}</span>
+                        )
+                      ) : d.vendor === 'ETIMEOFFICE' || (PULL[d.vendor] && !MAPPED[d.vendor]) ? (
+                        <span className={`ui-pill ${d.lastError ? 'ui-pill-neg' : d.lastFetchedAt ? 'ui-pill-pos' : 'ui-pill-neutral'}`} title={d.lastError || ''}>{d.lastError ? 'pull failing' : d.lastFetchedAt ? `pulled ${ago(d.lastFetchedAt)}` : 'not pulled yet'}</span>
+                      ) : d.awaitingNetwork ? (
+                        <span className="ui-pill ui-pill-warn" title={`Calling from ${d.awaitingNetwork}, which is not approved`}>new network</span>
+                      ) : d.online ? (
+                        <span className="ui-pill ui-pill-pos">online</span>
+                      ) : (
+                        <span className="ui-pill ui-pill-warn" title={d.lastSeenAt || ''}>{d.lastSeenAt ? `last seen ${ago(d.lastSeenAt)}` : 'never connected'}</span>
+                      )}
+                    </td>
+                    <td className="ui-col-meta hidden md:table-cell">{[d.model, d.firmware && `v${d.firmware}`].filter(Boolean).join(' · ') || '—'}</td>
+                    <td className="ui-num">{d.punchesToday}</td>
+                    <td className="ui-num hidden md:table-cell">{d.commandsWaiting || '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+      )}
+    </DocumentListShell>
+
+    <div className="px-5 lg:px-7 pb-8 space-y-3">
       {/* Set-up steps are read once: open while there is no reader, folded away after. */}
       <details className="ui-card p-4 text-sm" open={Boolean(data) && !data.devices.some((d) => !VIRTUAL[d.vendor])}>
         <summary className="ui-t-sec cursor-pointer select-none">How to connect a reader</summary>
@@ -168,86 +320,7 @@ export default function AttendanceDevices({ openScreen }) {
       </details>
 
       <ReaderCompatibility />
-
-      <LoadFailed message={loadError} onRetry={load} />
-
-      {!data ? (
-        loadError ? null : <SkeletonCard lines={4} />
-      ) : !data.devices.length ? (
-        <EmptyState icon={Cpu} title="No readers yet" description="Point a reader at CLOR as above, then add it by its serial number." />
-      ) : (
-        <div className="ui-card overflow-hidden">
-          <div className="overflow-x-auto ui-table-scroll ui-table-fit">
-            <table className="ui-table w-full">
-              <thead>
-                <tr>
-                  <th scope="col" className="ui-th">Reader</th>
-                  <th scope="col" className="ui-th hidden md:table-cell">Serial</th>
-                  <th scope="col" className="ui-th">Direction</th>
-                  <th scope="col" className="ui-th ui-col-h-center">Status</th>
-                  <th scope="col" className="ui-th hidden md:table-cell">Model</th>
-                  <th scope="col" className="ui-th text-end">Punches today</th>
-                  <th scope="col" className="ui-th text-end hidden md:table-cell">Commands waiting</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.devices.map((d) => (
-                  <tr key={d.id} className={VIRTUAL[d.vendor] ? undefined : 'ui-row-click'} onClick={VIRTUAL[d.vendor] ? undefined : () => setOpen(d)} title={VIRTUAL[d.vendor]?.title}>
-                    <td className="ui-col-entity">{d.name}{!VIRTUAL[d.vendor] && d.support ? <span className="block text-xs font-normal"><SupportPill support={d.support} /></span> : null}</td>
-                    <td className="ui-col-meta hidden md:table-cell">{d.vendor === 'ETIMEOFFICE' ? 'e-Time Office' : URL_PUSH[d.vendor] ? d.model || `${d.driverLabel} · not connected yet` : MAPPED[d.vendor] || PULL[d.vendor] ? d.driverLabel : VIRTUAL[d.vendor]?.label || d.serialNumber}</td>
-                    <td>{d.direction === 'both' ? 'In / out' : d.direction === 'in' ? 'Entry' : 'Exit'}</td>
-                    <td className="ui-col-h-center whitespace-nowrap">
-                      {!d.isActive ? (
-                        <span className="ui-pill ui-pill-neutral">off</span>
-                      ) : VIRTUAL[d.vendor] ? (
-                        <span className="ui-pill ui-pill-neutral">{d.lastSeenAt ? `used ${ago(d.lastSeenAt)}` : 'not used yet'}</span>
-                      ) : MAPPED[d.vendor] ? (
-                        !d.mapping ? (
-                          <span className="ui-pill ui-pill-warn" title="Open it and set where each field is">mapping needed</span>
-                        ) : d.lastError ? (
-                          <span className="ui-pill ui-pill-neg" title={d.lastError}>last push failed</span>
-                        ) : (
-                          <span className="ui-pill ui-pill-neutral">{d.lastSeenAt ? `${d.vendor === 'FILE' ? 'imported' : 'pushed'} ${ago(d.lastSeenAt)}` : d.vendor === 'FILE' ? 'nothing imported yet' : 'nothing received yet'}</span>
-                        )
-                      ) : d.vendor === 'ETIMEOFFICE' || (PULL[d.vendor] && !MAPPED[d.vendor]) ? (
-                        <span className={`ui-pill ${d.lastError ? 'ui-pill-neg' : d.lastFetchedAt ? 'ui-pill-pos' : 'ui-pill-neutral'}`} title={d.lastError || ''}>{d.lastError ? 'pull failing' : d.lastFetchedAt ? `pulled ${ago(d.lastFetchedAt)}` : 'not pulled yet'}</span>
-                      ) : d.awaitingNetwork ? (
-                        <span className="ui-pill ui-pill-warn" title={`Calling from ${d.awaitingNetwork}, which is not approved`}>new network</span>
-                      ) : d.online ? (
-                        <span className="ui-pill ui-pill-pos">online</span>
-                      ) : (
-                        <span className="ui-pill ui-pill-warn" title={d.lastSeenAt || ''}>{d.lastSeenAt ? `last seen ${ago(d.lastSeenAt)}` : 'never connected'}</span>
-                      )}
-                    </td>
-                    <td className="ui-col-meta hidden md:table-cell">{[d.model, d.firmware && `v${d.firmware}`].filter(Boolean).join(' · ') || '—'}</td>
-                    <td className="text-end tabular-nums">{d.punchesToday}</td>
-                    <td className="text-end tabular-nums hidden md:table-cell">{d.commandsWaiting || '—'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {(data?.devices || [])
-        .filter((d) => d.awaitingNetwork)
-        .map((d) => (
-          <NetworkApproval key={d.id} device={d} yourNetwork={data.yourNetwork} onDone={load} />
-        ))}
-
-      {data?.unmatchedPunches ? (
-        <div className="ui-card flex flex-wrap items-center justify-between gap-3 p-4 text-sm" role="status">
-          <span>
-            <strong>{data.unmatchedPunches}</strong> {data.unmatchedPunches === 1 ? 'punch is' : 'punches are'} from reader IDs that match no employee.
-          </span>
-          {openScreen ? (
-            <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => openScreen('unmatched')}>Match them</button>
-          ) : (
-            <span className="ui-caption">Match them under Unmatched punches.</span>
-          )}
-        </div>
-      ) : null}
+    </div>
 
       {adding ? <AddReader drivers={data?.drivers || []} pushBase={data?.pushBase} matrixBase={data?.matrixBase} hikvisionBase={data?.hikvisionBase} onClose={() => setAdding(false)} onSaved={() => { setAdding(false); load(); }} /> : null}
       {open ? (

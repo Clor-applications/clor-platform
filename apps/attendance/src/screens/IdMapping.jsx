@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Link2, Plus, Trash2, UserX } from 'lucide-react';
+import { Link2, Pencil, Plus, Trash2, UserX } from 'lucide-react';
 
-import { EmptyState, PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
+import { EmptyState, PageHeader, SkeletonCard, StatTile } from '@ui/components/ui/Primitives';
 import Drawer from '@ui/components/ui/Drawer';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { listStructure } from '@ui/personnel/api';
@@ -51,13 +51,14 @@ export default function IdMapping({ openScreen }) {
 
   const staleByReader = (data?.stale || []).reduce((m, s) => m.set(s.deviceId, [...(m.get(s.deviceId) || []), s]), new Map());
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <PageHeader
-        entity="attendance"
+        entity="reader"
         title="ID mapping"
         description="Reader IDs against employees: what matches nobody, who has left but is still on a reader, who has no ID."
-        actions={<button type="button" className="ui-btn ui-btn-secondary" onClick={() => setEditing({})}><Plus size={16} aria-hidden="true" /> ID at a site</button>}
+        actions={<button type="button" className="ui-btn ui-btn-primary" onClick={() => setEditing({})}><Plus size={16} aria-hidden="true" /> Add ID at a site</button>}
       />
+      <div className="px-5 lg:px-7 pb-8 space-y-6">
       <details className="ui-card p-4 text-sm">
         <summary className="cursor-pointer font-medium">How a punch finds its person</summary>
         <ol className="mt-2 list-decimal space-y-1 ps-5 ui-caption">
@@ -75,35 +76,28 @@ export default function IdMapping({ openScreen }) {
       ) : (
         <>
           <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-            {[
-              ['Unknown IDs with punches', data.counts.unmatched, 'neg'],
-              ['Left, still on a reader', data.counts.stale, 'warn'],
-              ['On a reader, no employee', data.counts.orphan, 'neutral'],
-              ['Employees with no reader ID', data.counts.noPin, 'neutral'],
-            ].map(([label, n, tone]) => (
-              <div key={label} className="ui-stat">
-                <span className="ui-card-label">{label}</span>
-                <div className={`ui-kpi ${n && tone === 'neg' ? 'ui-amount-neg' : ''}`}>{n}</div>
-              </div>
-            ))}
+            <StatTile label="Unknown IDs with punches" value={data.counts.unmatched} tone={data.counts.unmatched ? 'neg' : 'neutral'} />
+            <StatTile label="Left, still on a reader" value={data.counts.stale} tone={data.counts.stale ? 'warn' : 'neutral'} />
+            <StatTile label="On a reader, no employee" value={data.counts.orphan} />
+            <StatTile label="Employees with no reader ID" value={data.counts.noPin} />
           </div>
 
           <section className="ui-card overflow-hidden" aria-labelledby="unk-h">
             <h2 id="unk-h" className="ui-t-sec px-4 pt-4 pb-2">Unknown reader IDs with punches</h2>
             {data.unmatched.length ? (
-              <div className="overflow-x-auto ui-table-scroll ui-table-fit">
-                <table className="ui-table w-full">
-                  <thead><tr><th className="ui-th">Reader ID</th><th className="ui-th">Site</th><th className="ui-th">Name on the reader</th><th className="ui-th text-end">Punches</th><th className="ui-th">Last punch</th><th className="ui-th">Likely match</th><th className="ui-th"><span className="sr-only">Actions</span></th></tr></thead>
-                  <tbody>
+              <div className="ui-table-scroll">
+                <table className="ui-table ui-table-sticky w-full">
+                  <thead><tr><th scope="col">Reader ID</th><th scope="col">Site</th><th scope="col">Name on the reader</th><th scope="col" className="ui-num">Punches</th><th scope="col">Last punch</th><th scope="col">Likely match</th><th scope="col"><span className="sr-only">Actions</span></th></tr></thead>
+                  <tbody className="ui-rows">
                     {data.unmatched.map((u) => (
                       <tr key={`${u.areaId || ''}|${u.pin}`}>
                         <td className="ui-mono">{u.pin}</td>
                         <td>{u.areaName || <span className="ui-caption">No site</span>}</td>
                         <td>{u.nameOnReader || <span className="ui-caption">—</span>}</td>
-                        <td className="text-end tabular-nums">{u.punches}</td>
-                        <td className="whitespace-nowrap ui-caption">{u.lastAt ? new Date(u.lastAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }) : '—'}</td>
-                        <td>{u.suggestion ? <span>{u.suggestion.name}{u.suggestion.code ? <span className="ui-caption"> · {u.suggestion.code}</span> : null}<span className="ui-caption block">{u.suggestion.why}</span></span> : <span className="ui-caption">No likely match</span>}</td>
-                        <td className="whitespace-nowrap text-end">
+                        <td className="ui-num">{u.punches}</td>
+                        <td className="ui-col-date whitespace-nowrap">{u.lastAt ? new Date(u.lastAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }) : '—'}</td>
+                        <td className="ui-col-entity">{u.suggestion ? <span>{u.suggestion.name}{u.suggestion.code ? <span className="ui-caption"> · {u.suggestion.code}</span> : null}<span className="ui-caption block">{u.suggestion.why}</span></span> : <span className="ui-caption">No likely match</span>}</td>
+                        <td className="ui-col-meta whitespace-nowrap text-end">
                           {u.suggestion ? (
                             <span className="inline-flex gap-1">
                               <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => match(u)}><Link2 size={14} aria-hidden="true" /> Match</button>
@@ -129,7 +123,7 @@ export default function IdMapping({ openScreen }) {
                   <li key={deviceId} className="flex flex-wrap items-center gap-3 px-4 py-3">
                     <UserX size={16} aria-hidden="true" className="ui-subtle" />
                     <span className="min-w-0 flex-1 text-sm"><strong>{list[0].reader}</strong>: {list.slice(0, 6).map((s) => `${s.employee} (${s.pin})`).join(', ')}{list.length > 6 ? ` and ${list.length - 6} more` : ''}</span>
-                    <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => removeStale(deviceId, list[0].reader)}>Remove from reader</button>
+                    <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => removeStale(deviceId, list[0].reader)}><UserX size={14} aria-hidden="true" /> Remove from reader</button>
                   </li>
                 ))}
               </ul>
@@ -141,17 +135,17 @@ export default function IdMapping({ openScreen }) {
           <section className="ui-card overflow-hidden" aria-labelledby="site-h">
             <h2 id="site-h" className="ui-t-sec px-4 pt-4 pb-2">IDs that differ by site</h2>
             {sites.length ? (
-              <div className="overflow-x-auto ui-table-scroll ui-table-fit">
-                <table className="ui-table w-full">
-                  <thead><tr><th className="ui-th">Employee</th><th className="ui-th">Site</th><th className="ui-th">ID there</th><th className="ui-th">Company-wide ID</th><th className="ui-th"><span className="sr-only">Edit</span></th></tr></thead>
-                  <tbody>
+              <div className="ui-table-scroll">
+                <table className="ui-table ui-table-sticky w-full">
+                  <thead><tr><th scope="col">Employee</th><th scope="col">Site</th><th scope="col">ID there</th><th scope="col">Company-wide ID</th><th scope="col"><span className="sr-only">Edit</span></th></tr></thead>
+                  <tbody className="ui-rows">
                     {sites.map((x) => (
                       <tr key={x.id}>
                         <td className="ui-col-entity">{x.name}{x.left ? <span className="ui-caption"> · left</span> : null}</td>
                         <td>{x.areaName}</td>
                         <td className="ui-mono">{x.pin}</td>
                         <td className="ui-mono ui-caption">{x.companyId || '—'}</td>
-                        <td className="text-end"><button type="button" className="ui-link text-sm" onClick={() => setEditing({ employeeId: x.employeeId })}>Edit</button></td>
+                        <td className="ui-col-meta text-end"><button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => setEditing({ employeeId: x.employeeId })}><Pencil size={14} aria-hidden="true" /> Edit</button></td>
                       </tr>
                     ))}
                   </tbody>
@@ -162,7 +156,7 @@ export default function IdMapping({ openScreen }) {
             )}
           </section>
 
-          <div className="grid items-start gap-4 xl:grid-cols-2">
+          <div className="grid items-start gap-3 xl:grid-cols-2">
             <section className="ui-card p-4" aria-labelledby="orphan-h">
               <h2 id="orphan-h" className="ui-t-sec mb-2">On a reader, no employee</h2>
               {data.orphan.length ? (
@@ -185,6 +179,7 @@ export default function IdMapping({ openScreen }) {
           {!data.counts.unmatched && !data.counts.stale && !data.counts.orphan && !data.counts.noPin ? <EmptyState title="Every ID matches" description="Readers and employees agree." /> : null}
         </>
       )}
+      </div>
       {editing ? <SiteIdsEditor initial={editing} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); load(); }} /> : null}
     </div>
   );

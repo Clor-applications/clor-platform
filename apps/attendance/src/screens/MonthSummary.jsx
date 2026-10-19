@@ -1,8 +1,11 @@
-import React, { useEffect, useState } from 'react';
-import { Download } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { CalendarCheck, CalendarX, Clock, Lock, Unlock, Users } from 'lucide-react';
 
-import { PageHeader, SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
-import { downloadCsv } from '@ui/utils/csv';
+import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
+import { useListSearch } from '@ui/components/ListToolbar';
+import DocumentListShell from '@ui/components/list/DocumentListShell';
+import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';
+import { SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import { closeMonth, getSummary, hm, reopenMonth, todayIst } from '../api/attendance';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import LoadFailed from '../components/LoadFailed';
@@ -12,6 +15,8 @@ import LoadFailed from '../components/LoadFailed';
  * person. Absent days, half a half day, and unpaid leave are loss of pay;
  * holidays, weekly offs and paid leave are paid.
  */
+const FILTER_COLUMNS = { code: (r) => r.code, name: (r) => r.name };
+
 export default function MonthSummary({ openScreen } = {}) {
   const [month, setMonth] = useState(todayIst().slice(0, 7));
   const [data, setData] = useState(null);
@@ -84,66 +89,102 @@ export default function MonthSummary({ openScreen } = {}) {
     return v === 0 || v === '0:00' ? '—' : v ?? '—';
   };
 
+  const search = useListSearch(data?.rows || [], ['name', 'code']);
+  const filters = useColumnFilters();
+  const rows = filters.applyFilters(search.filtered, FILTER_COLUMNS);
+  const figures = useMemo(() => {
+    const list = data?.rows || [];
+    const sum = (k) => list.reduce((a, r) => a + Number(r[k] || 0), 0);
+    return { people: list.length, payable: sum('payableDays'), lop: sum('lossOfPayDays'), noOut: sum('incompleteDays') };
+  }, [data]);
+  const round = (n) => Math.round(n * 10) / 10;
+
   return (
-    <div className="space-y-4">
-      <PageHeader
-        entity="attendance"
-        title="Month summary"
-        description="Payable days for payroll. Days still to come are neither paid nor lost yet."
-        actions={
-          <div className="flex gap-2">
-            <input type="month" className="ui-input" value={month} max={todayIst().slice(0, 7)} onChange={(e) => setMonth(e.target.value)} aria-label="Month" />
-            {ended && data ? (
-              <button type="button" className="ui-btn ui-btn-secondary" disabled={busy} onClick={toggleClosed}>
-                {data.closed ? 'Reopen month' : 'Close month'}
-              </button>
-            ) : null}
-            <button type="button" className="ui-btn ui-btn-secondary" disabled={!data?.rows?.length} onClick={() => downloadCsv({ fileName: `Attendance summary ${month}`, columns, rows: data.rows })}>
-              <Download size={16} aria-hidden="true" /> Export
-            </button>
+    <DocumentListShell
+      entity="report"
+      title="Month summary"
+      description="Payable days for payroll. Days still to come are neither paid nor lost yet."
+      compact
+      tight
+      denseCards
+      search={{ value: search.query, onChange: search.setQuery, placeholder: 'Search people…', label: 'Search people' }}
+      headerExtras={<input type="month" className="ui-input ui-ctl-compact !w-auto" value={month} max={todayIst().slice(0, 7)} onChange={(e) => setMonth(e.target.value)} aria-label="Month" />}
+      moreItems={[exportMenuItem('Export summary')]}
+      onMoreSelect={(k) => {
+        const format = exportFormatFromKey(k);
+        if (!format || !data?.rows?.length) return;
+        runListExport({ format, title: 'Attendance summary', subtitle: month, fileName: `Attendance summary ${month}`, label: 'person/people', columns, rows });
+      }}
+      primary={
+        ended && data ? (
+          data.closed ? (
+            <button type="button" className="ui-btn ui-btn-secondary" disabled={busy} onClick={toggleClosed}><Unlock size={16} aria-hidden="true" /> Reopen month</button>
+          ) : (
+            <button type="button" className="ui-btn ui-btn-primary" disabled={busy} onClick={toggleClosed}><Lock size={16} aria-hidden="true" /> Close month</button>
+          )
+        ) : null
+      }
+      cards={data ? [
+        { label: 'People', value: figures.people, count: true, tone: 'all', Icon: Users },
+        { label: 'Payable days', value: round(figures.payable), count: true, tone: 'paid', Icon: CalendarCheck },
+        { label: 'Loss of pay days', value: round(figures.lop), count: true, tone: 'overdue', Icon: CalendarX },
+        { label: 'No check-out', value: figures.noOut, count: true, tone: 'outstanding', Icon: Clock },
+      ] : null}
+      above={
+        data?.closed ? (
+          <div className="ui-card p-3 text-sm" role="status">
+            <span className="ui-pill ui-pill-pos">Closed</span> <span className="ui-caption">These days are final. Reopen the month to change them.</span>
           </div>
-        }
-      />
+        ) : null
+      }
+    >
       <LoadFailed message={error} onRetry={() => setAttempt((n) => n + 1)} />
-      {data?.closed ? (
-        <div className="ui-card p-3 text-sm" role="status">
-          <span className="ui-pill ui-pill-pos">Closed</span> <span className="ui-caption">These days are final. Reopen the month to change them.</span>
-        </div>
-      ) : null}
       {!data ? (
         error ? null : <SkeletonCard lines={6} />
-      ) : !data.rows.length ? (
-        <EmptyState title="Nobody employed this month" description="Add people in People, with their joining dates." />
       ) : (
-        <div className="ui-card overflow-hidden">
-          <div className="overflow-x-auto ui-table-scroll ui-table-fit">
-            <table className="ui-table w-full">
-              <thead>
+        <div className="ui-table-scroll">
+          <table className="ui-table ui-table-sticky w-full">
+            <thead>
+              <tr>
+                {columns.map((c) =>
+                  FILTER_COLUMNS[c.key] ? (
+                    <ColumnHeader key={c.key} label={c.label} col={c.key} state={filters} className="whitespace-nowrap" />
+                  ) : (
+                    <th key={c.key} scope="col" className="ui-num whitespace-nowrap">{c.label}</th>
+                  )
+                )}
+              </tr>
+            </thead>
+            <tbody className="ui-rows">
+              {!rows.length ? (
                 <tr>
-                  {columns.map((c) => (
-                    <th key={c.key} scope="col" className={`ui-th whitespace-nowrap ${['code', 'name'].includes(c.key) ? '' : 'text-end'}`}>{c.label}</th>
-                  ))}
+                  <td colSpan={columns.length}>
+                    {data.rows.length ? (
+                      <EmptyState kind="filtered" totalCount={data.rows.length} title="Nobody matches" description="Nobody matches the search or the column filters." />
+                    ) : (
+                      <EmptyState icon={Users} title="Nobody employed this month" description="Add people in People, with their joining dates." />
+                    )}
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {data.rows.map((r) => (
+              ) : (
+                rows.map((r) => (
                   <tr key={r.employeeId}>
                     {columns.map((c) => (
                       <td
                         key={c.key}
-                        className={['code', 'name'].includes(c.key) ? (c.key === 'name' ? 'ui-col-entity whitespace-nowrap' : 'ui-col-meta') : 'text-end tabular-nums'}
+                        className={FILTER_COLUMNS[c.key] ? (c.key === 'name' ? 'ui-col-entity whitespace-nowrap' : 'whitespace-nowrap') : 'ui-num'}
                         style={c.lead ? { fontWeight: 600 } : undefined}
                       >
-                        {['code', 'name'].includes(c.key) ? r[c.key] ?? '—' : shown(c, r)}
+                        {FILTER_COLUMNS[c.key] ? r[c.key] ?? '—' : shown(c, r)}
                       </td>
                     ))}
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
       )}
-    </div>
+    </DocumentListShell>
   );
 }

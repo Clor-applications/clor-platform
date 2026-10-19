@@ -1,7 +1,10 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { LocateFixed, MapPin, Plus, Search } from 'lucide-react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { LocateFixed, MapPin, Plus, Search, Users } from 'lucide-react';
 
-import { PageHeader, SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
+import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
+import { useListSearch } from '@ui/components/ListToolbar';
+import DocumentListShell from '@ui/components/list/DocumentListShell';
+import { SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import Drawer from '@ui/components/ui/Drawer';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { listStructure } from '@ui/personnel/api';
@@ -16,68 +19,129 @@ const mapLink = (f) => `https://www.openstreetmap.org/?mlat=${f.latitude}&mlon=$
  * phone punch counts only inside one — the person's own site if HR tied them
  * to one, else any active site for everyone or for their area.
  */
+const TABS = [
+  { value: 'ACTIVE', label: 'Active', tone: 'paid' },
+  { value: 'INACTIVE', label: 'Inactive', tone: 'cancelled' },
+  { value: '', label: 'All', tone: 'all' },
+];
+const kind = (f) => (f.isActive ? 'ACTIVE' : 'INACTIVE');
+const COLUMNS = {
+  name: (f) => f.name,
+  where: (f) => f.address || `${f.latitude}, ${f.longitude}`,
+  for: (f) => (f.areaName ? `${f.areaName} area` : 'Everyone'),
+};
+const BLANK = { name: '', address: '', latitude: '', longitude: '', radiusMeters: 200, areaId: '', isActive: true };
+
 export default function Geofences() {
-  const [rows, setRows] = useState(null);
+  const [all, setAll] = useState(null);
   const [loadError, setLoadError] = useState('');
   const [areas, setAreas] = useState([]);
   const [editing, setEditing] = useState(null);
+  const [status, setStatus] = useState('ACTIVE');
   const load = useCallback(() => {
-    listGeofences().then((v) => { setRows(v); setLoadError(''); }).catch((e) => setLoadError(String(e?.message || 'Could not load sites.')));
+    listGeofences().then((v) => { setAll(v); setLoadError(''); }).catch((e) => setLoadError(String(e?.message || 'Could not load sites.')));
   }, []);
   useEffect(() => {
     load();
     listStructure('areas').then(setAreas).catch(() => setAreas([]));
   }, [load]);
 
+  const counts = useMemo(() => {
+    const c = { '': (all || []).length };
+    for (const f of all || []) c[kind(f)] = (c[kind(f)] || 0) + 1;
+    return c;
+  }, [all]);
+  const inTab = useMemo(() => (all || []).filter((f) => !status || kind(f) === status), [all, status]);
+  const search = useListSearch(inTab, ['name', 'address', 'areaName']);
+  const filters = useColumnFilters();
+  const rows = filters.applyFilters(search.filtered, COLUMNS);
+  const figures = useMemo(() => {
+    const live = (all || []).filter((f) => f.isActive);
+    return {
+      active: live.length,
+      everyone: live.filter((f) => !f.areaName).length,
+      area: live.filter((f) => f.areaName).length,
+      tied: (all || []).reduce((a, f) => a + Number(f.people || 0), 0),
+    };
+  }, [all]);
+  const add = () => setEditing({ ...BLANK });
+
   return (
-    <div className="space-y-4">
-      <PageHeader
-        entity="attendance"
-        title="Work sites"
-        description="Where a phone punch counts: within the radius of a site."
-        actions={
-          <button type="button" className="ui-btn ui-btn-primary" onClick={() => setEditing({ name: '', address: '', latitude: '', longitude: '', radiusMeters: 200, areaId: '', isActive: true })}>
-            <Plus size={16} aria-hidden="true" /> New site
-          </button>
-        }
-      />
+    <DocumentListShell
+      entity="location"
+      title="Work sites"
+      description="Where a phone punch counts: within the radius of a site."
+      compact
+      tight
+      denseCards
+      search={{ value: search.query, onChange: search.setQuery, placeholder: 'Search sites…', label: 'Search work sites' }}
+      primary={
+        <button type="button" className="ui-btn ui-btn-primary" onClick={add}>
+          <Plus size={16} aria-hidden="true" /> New site
+        </button>
+      }
+      cards={[
+        { label: 'Active sites', value: figures.active, count: true, tone: 'paid', Icon: MapPin },
+        { label: 'For everyone', value: figures.everyone, count: true, tone: 'sent', Icon: LocateFixed },
+        { label: 'For one area', value: figures.area, count: true, tone: 'partial', Icon: LocateFixed },
+        { label: 'Tied to a site', value: figures.tied, count: true, tone: 'all', Icon: Users },
+      ]}
+      tabs={TABS}
+      statusValue={status}
+      statusCounts={counts}
+      onStatusChange={setStatus}
+      tabsLabel="Site status"
+    >
       <LoadFailed message={loadError} onRetry={load} />
-      {!rows ? (
+      {!all ? (
         loadError ? null : <SkeletonCard lines={4} />
-      ) : !rows.length ? (
-        <EmptyState title="No work sites" description="Add the office, the factory gate or a client site: search for its address and check the pin on the map." />
       ) : (
-        <div className="ui-card overflow-hidden">
-          <div className="overflow-x-auto ui-table-scroll ui-table-fit">
-          <table className="ui-table w-full">
+        <div className="ui-table-scroll">
+          <table className="ui-table ui-table-sticky w-full">
             <thead>
               <tr>
-                <th scope="col" className="ui-th">Site</th>
-                <th scope="col" className="ui-th">Where</th>
-                <th scope="col" className="ui-th text-end">Radius</th>
-                <th scope="col" className="ui-th">For</th>
-                <th scope="col" className="ui-th text-end">Tied to it</th>
-                <th scope="col" className="ui-th ui-col-h-center">Active</th>
+                <ColumnHeader label="Site" col="name" state={filters} />
+                <ColumnHeader label="Where" col="where" state={filters} />
+                <th scope="col" className="ui-num">Radius</th>
+                <ColumnHeader label="For" col="for" state={filters} />
+                <th scope="col" className="ui-num">Tied to it</th>
+                <th scope="col" className="ui-col-h-center">Active</th>
               </tr>
             </thead>
-            <tbody>
-              {rows.map((f) => (
-                <tr key={f.id}>
-                  <td className="ui-col-entity"><button type="button" className="ui-link" onClick={() => setEditing({ ...f, address: f.address || '', areaId: f.areaId || '' })}>{f.name}</button></td>
-                  <td className="max-w-[22rem]"><a className="ui-link block truncate text-sm font-normal" href={mapLink(f)} target="_blank" rel="noreferrer" title={f.address || `${f.latitude}, ${f.longitude}`}>{f.address || <span className="ui-mono text-xs">{f.latitude.toFixed(5)}, {f.longitude.toFixed(5)}</span>}</a></td>
-                  <td className="text-end tabular-nums">{f.radiusMeters} m</td>
-                  <td>{f.areaName ? `${f.areaName} area` : 'Everyone'}</td>
-                  <td className="text-end tabular-nums">{f.people}</td>
-                  <td className="ui-col-h-center">{f.isActive ? '✓' : ''}</td>
+            <tbody className="ui-rows">
+              {!rows.length ? (
+                <tr>
+                  <td colSpan={6}>
+                    {inTab.length ? (
+                      <EmptyState kind="filtered" totalCount={inTab.length} title="No sites match" description="Nothing in this tab matches the search or the column filters." />
+                    ) : (
+                      <EmptyState
+                        icon={MapPin}
+                        title={status === 'INACTIVE' ? 'No inactive sites' : 'No work sites'}
+                        description={status === 'INACTIVE' ? 'Try another tab.' : 'Add the office, the factory gate or a client site: search for its address and check the pin on the map.'}
+                        routes={status === 'INACTIVE' ? undefined : [{ label: 'New site', description: 'Search for its address and check the pin on the map.', onSelect: add }]}
+                      />
+                    )}
+                  </td>
                 </tr>
-              ))}
+              ) : (
+                rows.map((f) => (
+                  <tr key={f.id} className="ui-row-click" onClick={() => setEditing({ ...f, address: f.address || '', areaId: f.areaId || '' })}>
+                    <td className="ui-col-entity">{f.name}</td>
+                    <td className="max-w-[22rem]" onClick={(e) => e.stopPropagation()}><a className="ui-link block truncate text-sm font-normal" href={mapLink(f)} target="_blank" rel="noreferrer" title={f.address || `${f.latitude}, ${f.longitude}`}>{f.address || <span className="ui-mono text-xs">{f.latitude.toFixed(5)}, {f.longitude.toFixed(5)}</span>}</a></td>
+                    <td className="ui-num">{f.radiusMeters} m</td>
+                    <td>{f.areaName ? `${f.areaName} area` : 'Everyone'}</td>
+                    <td className="ui-num">{f.people}</td>
+                    <td className="ui-col-h-center">{f.isActive ? '✓' : ''}</td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
-          </div>
         </div>
       )}
       {editing ? <SiteForm initial={editing} areas={areas} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); load(); }} /> : null}
-    </div>
+    </DocumentListShell>
   );
 }
 

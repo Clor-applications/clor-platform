@@ -132,6 +132,7 @@ export default function AttendanceRecords({ params } = {}) {
     <DocumentListShell
       entity="attendance"
       title="Records"
+      description="Mark, correct and validate days. A corrected day needs validating again."
       compact
       tight
       denseCards
@@ -212,7 +213,7 @@ export default function AttendanceRecords({ params } = {}) {
                   <th scope="col" className="ui-num hidden md:table-cell">Late</th>
                   <th scope="col" className="ui-num hidden md:table-cell">Overtime</th>
                   <ColumnHeader label="Status" col="status" state={columns} align="center" />
-                  <ColumnHeader label="Validated" col="validated" state={columns} align="center" className="hidden md:table-cell" />
+                  <ColumnHeader label="Validated" col="validated" state={columns} align="center" className="hidden 2xl:table-cell" />
                   <th scope="col" className="w-10"><span className="sr-only">Explain</span></th>
                 </tr>
               </thead>
@@ -268,7 +269,7 @@ export default function AttendanceRecords({ params } = {}) {
                         ) : '—'}
                       </td>
                       <td className="ui-col-h-center"><span className={`ui-pill ${STATUS[r.status]?.pill || 'ui-pill-neutral'}`}>{STATUS[r.status]?.label || r.status}</span></td>
-                      <td className="ui-col-h-center hidden md:table-cell">{r.validated ? <span className="ui-pill ui-pill-pos">Validated</span> : <span className="ui-caption">—</span>}</td>
+                      <td className="ui-col-h-center hidden 2xl:table-cell">{r.validated ? <span className="ui-pill ui-pill-pos">Validated</span> : <span className="ui-caption">—</span>}</td>
                       <td onClick={(e) => e.stopPropagation()}>
                         <button type="button" className="ui-icon-btn" aria-label={`Why is ${r.employeeName} ${STATUS[r.status]?.label?.toLowerCase() || r.status} on ${r.date}?`} title="Why does this day say this?" onClick={() => setExplaining(r)}>
                           <HelpCircle size={16} aria-hidden="true" />

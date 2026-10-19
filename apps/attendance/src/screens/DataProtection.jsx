@@ -88,11 +88,17 @@ export default function DataProtection({ openScreen }) {
     save({ biometricCopy: false }, (r) => `Copying off. ${r.templatesDeleted} cop${r.templatesDeleted === 1 ? 'y' : 'ies'} deleted.`);
   };
 
-  if (!data) return <div className="space-y-4"><PageHeader entity="attendance" title="Data protection" /><LoadFailed message={error} onRetry={load} />{error ? null : <SkeletonCard lines={8} />}</div>;
+  if (!data) return <div className="space-y-3"><PageHeader entity="privacy" title="Data protection" /><div className="px-5 lg:px-7 pb-8 max-w-3xl"><LoadFailed message={error} onRetry={load} />{error ? null : <SkeletonCard lines={8} />}</div></div>;
   const s = data.status;
   return (
-    <div className="space-y-4">
-      <PageHeader entity="attendance" title="Data protection" description="How this company meets the DPDP Act for attendance. You are the Data Fiduciary; CLOR processes the data for you." />
+    <div className="space-y-3">
+      <PageHeader
+        entity="privacy"
+        title="Data protection"
+        description="How this company meets the DPDP Act for attendance. You are the Data Fiduciary; CLOR processes the data for you."
+        actions={s.requestsWaiting && openScreen ? <button type="button" className="ui-btn ui-btn-secondary" onClick={() => openScreen('dataRequests')}>Answer data requests</button> : null}
+      />
+      <div className="px-5 lg:px-7 pb-8 space-y-6 max-w-3xl">
       <Announcement />
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
@@ -101,7 +107,6 @@ export default function DataProtection({ openScreen }) {
         <StatTile label="Open breaches" value={s.breachesOpen} tone={s.breachesOpen ? 'warn' : 'neutral'} />
         <StatTile label="Under 18" value={s.minors.length} hint={s.noBirthDate ? `${s.noBirthDate} without a date of birth` : null} />
       </div>
-      {s.requestsWaiting && openScreen ? <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => openScreen('dataRequests')}>Answer data requests</button> : null}
 
       <section className="ui-card space-y-3 p-4" aria-labelledby="contact-h">
         <h2 id="contact-h" className="ui-t-sec">Privacy contact</h2>
@@ -200,6 +205,7 @@ export default function DataProtection({ openScreen }) {
       </section>
 
       {recording ? <BreachForm onClose={() => setRecording(false)} onSaved={() => { setRecording(false); load(); }} /> : null}
+      </div>
     </div>
   );
 }

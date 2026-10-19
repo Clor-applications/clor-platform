@@ -64,18 +64,19 @@ export default function MyAttendance() {
 
   if (error) {
     return (
-      <div className="space-y-4">
+      <div className="space-y-3">
         <PageHeader entity="attendance" title="My attendance" />
-        <LoadFailed message={error} onRetry={load} />
+        <div className="px-5 lg:px-7 pb-8"><LoadFailed message={error} onRetry={load} /></div>
       </div>
     );
   }
-  if (!me) return <SkeletonCard lines={6} />;
+  if (!me) return <div className="space-y-3"><PageHeader entity="attendance" title="My attendance" /><div className="px-5 lg:px-7 pb-8"><SkeletonCard lines={6} /></div></div>;
   const t = me.todayRecord;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <PageHeader entity="attendance" title="My attendance" description={`${me.employee.name}${me.employee.code ? ` · ${me.employee.code}` : ''} · ${me.shift.name} (${me.shift.startTime}–${me.shift.endTime})`} />
+      <div className="px-5 lg:px-7 pb-8 space-y-6">
 
       {me.phone?.allowed ? (
         <PhonePunch phone={me.phone} punches={me.punches} onPunch={phonePunch} onDone={load} />
@@ -95,30 +96,30 @@ export default function MyAttendance() {
       </section>
 
       <section className="ui-card overflow-hidden" aria-labelledby="mine-h">
-        <h2 id="mine-h" className="ui-t-sec px-5 pt-4">Last 30 days</h2>
-        <div className="overflow-x-auto ui-table-scroll ui-table-fit">
-          <table className="ui-table w-full">
+        <header className="ui-card-head"><h2 id="mine-h" className="ui-t-sec">Last 30 days</h2></header>
+        <div className="ui-table-scroll">
+          <table className="ui-table ui-table-sticky w-full">
             <thead>
               <tr>
-                <th scope="col" className="ui-th">Day</th>
-                <th scope="col" className="ui-th ui-col-h-center">In</th>
-                <th scope="col" className="ui-th ui-col-h-center">Out</th>
-                <th scope="col" className="ui-th text-end">Worked</th>
-                <th scope="col" className="ui-th text-end">Late</th>
-                <th scope="col" className="ui-th ui-col-h-center">Status</th>
-                <th scope="col" className="ui-th w-10"><span className="sr-only">Why</span></th>
+                <th scope="col" className="ui-col-date">Day</th>
+                <th scope="col" className="ui-col-h-center">In</th>
+                <th scope="col" className="ui-col-h-center">Out</th>
+                <th scope="col" className="ui-num">Worked</th>
+                <th scope="col" className="ui-num">Late</th>
+                <th scope="col" className="ui-col-h-center">Status</th>
+                <th scope="col" className="w-10"><span className="sr-only">Why</span></th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="ui-rows">
               {me.records.map((r) => (
                 <tr key={r.id}>
-                  <td className="whitespace-nowrap">{dayLabel(r.date, { weekday: true, year: false })}</td>
+                  <td className="ui-col-date whitespace-nowrap">{dayLabel(r.date, { weekday: true, year: false })}</td>
                   <td className="ui-col-h-center">{r.checkInTime || '—'}</td>
                   <td className="ui-col-h-center">{r.checkOutTime || '—'}</td>
-                  <td className="text-end tabular-nums">{r.checkOut ? hm(r.workedMinutes) : '—'}</td>
-                  <td className="text-end tabular-nums">{r.lateMinutes ? `${r.lateMinutes}m` : '—'}</td>
+                  <td className="ui-num">{r.checkOut ? hm(r.workedMinutes) : '—'}</td>
+                  <td className="ui-num">{r.lateMinutes ? `${r.lateMinutes}m` : '—'}</td>
                   <td className="ui-col-h-center"><span className={`ui-pill ${STATUS[r.status]?.pill || 'ui-pill-neutral'}`}>{STATUS[r.status]?.label || r.status}</span></td>
-                  <td>
+                  <td className="ui-col-meta">
                     <button type="button" className="ui-icon-btn" title="Why does this day say this?" aria-label={`Why is ${dayLabel(r.date)} ${STATUS[r.status]?.label?.toLowerCase() || r.status}?`} onClick={() => setExplaining(r.date)}>
                       <HelpCircle size={16} aria-hidden="true" />
                     </button>
@@ -160,6 +161,7 @@ export default function MyAttendance() {
           </ul>
         ) : null}
       </section>
+      </div>
       <DayExplain open={Boolean(explaining)} onClose={() => setExplaining(null)} load={explainLoad} title="Why my day says this" />
     </div>
   );

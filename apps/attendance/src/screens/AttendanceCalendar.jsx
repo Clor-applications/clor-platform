@@ -56,22 +56,29 @@ export default function AttendanceCalendar() {
   const lead = (new Date(`${month}-01T00:00:00Z`).getUTCDay() + 6) % 7;
 
   return (
-    <div className="space-y-4">
-      <PageHeader entity="attendance" title="Calendar" description="The month at a glance; tap a day for who was in." />
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="flex items-center gap-1">
-          <button type="button" className="ui-icon-btn" aria-label="Previous month" onClick={() => setMonth(shiftMonth(month, -1))}><ChevronLeft size={16} aria-hidden="true" /></button>
-          <span className="ui-t-sec min-w-[10rem] text-center">{title}</span>
-          <button type="button" className="ui-icon-btn" aria-label="Next month" onClick={() => setMonth(shiftMonth(month, 1))}><ChevronRight size={16} aria-hidden="true" /></button>
-        </div>
-        <select className="ui-select" style={{ width: 'auto' }} value={departmentId} onChange={(e) => setDepartmentId(e.target.value)} aria-label="Department">
-          <option value="">All departments</option>
-          {departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
-        </select>
-      </div>
+    <div className="space-y-3">
+      <PageHeader
+        entity="attendance"
+        title="Calendar"
+        description="The month at a glance; tap a day for who was in."
+        actions={
+          <>
+            <span className="flex items-center gap-1">
+              <button type="button" className="ui-icon-btn" aria-label="Previous month" onClick={() => setMonth(shiftMonth(month, -1))}><ChevronLeft size={16} aria-hidden="true" /></button>
+              <span className="ui-t-sec min-w-[9rem] text-center">{title}</span>
+              <button type="button" className="ui-icon-btn" aria-label="Next month" onClick={() => setMonth(shiftMonth(month, 1))}><ChevronRight size={16} aria-hidden="true" /></button>
+            </span>
+            <select className="ui-select ui-ctl-compact !w-auto" value={departmentId} onChange={(e) => setDepartmentId(e.target.value)} aria-label="Department">
+              <option value="">All departments</option>
+              {departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+            </select>
+          </>
+        }
+      />
+      <div className="px-5 lg:px-7 pb-8 space-y-6">
       {loading ? <SkeletonCard lines={8} /> : (
-        <div className="grid items-start gap-4 xl:grid-cols-[1fr_22rem]">
-          <div className="ui-card p-3">
+        <div className="grid items-start gap-3 xl:grid-cols-[1fr_22rem]">
+          <div className="ui-card p-2 sm:p-3">
             <div className="ui-calendar">
               {WEEK.map((w) => <div key={w} className="ui-calendar-head">{w}</div>)}
               {Array.from({ length: lead }).map((_, i) => <div key={`lead-${i}`} />)}
@@ -122,6 +129,7 @@ export default function AttendanceCalendar() {
           </aside>
         </div>
       )}
+      </div>
     </div>
   );
 }

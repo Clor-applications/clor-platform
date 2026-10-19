@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Download, FileSpreadsheet, History, Mail, Play, Printer } from 'lucide-react';
 
+import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
+import { MoreButton } from '@ui/components/list/ListPageParts';
 import { PageHeader, SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { downloadCsv } from '@ui/utils/csv';
@@ -62,9 +64,12 @@ export default function AttendanceReports({ openScreen } = {}) {
     listReports().then((v) => { setCatalogue(v); setLoadError(''); setActive((a) => a || v?.reports?.[0] || null); }).catch((e) => setLoadError(String(e?.message || 'Could not load reports.')));
   }, [attempt]);
 
+  const filters = useColumnFilters();
+  const shownRows = result ? filters.applyFilters(result.rows, Object.fromEntries(result.columns.filter((c) => c.align !== 'end').map((c) => [c.key, (row) => row[c.key]]))) : [];
   const pick = (r) => {
     setActive(r);
     setResult(null);
+    filters.clearAll();
   };
   const run = async () => {
     if (!active) return;
@@ -82,6 +87,7 @@ export default function AttendanceReports({ openScreen } = {}) {
         else p[k] = form[k];
       }
       setResult(await runReport(active.id, p));
+      filters.clearAll();
     } catch (e) {
       notify.error(String(e?.message || 'The report did not run.'));
     } finally {
@@ -105,9 +111,10 @@ export default function AttendanceReports({ openScreen } = {}) {
   if (!catalogue) return loadError ? <LoadFailed message={loadError} onRetry={() => setAttempt((n) => n + 1)} /> : <SkeletonCard lines={6} />;
 
   return (
-    <div className="space-y-4">
-      <PageHeader entity="attendance" title="Reports" description="Attendance reports and the statutory registers — muster roll, overtime and leave." />
-      <div className="grid items-start gap-4 lg:grid-cols-[16rem_1fr]">
+    <div className="space-y-3">
+      <PageHeader entity="report" title="Reports" description="Attendance reports and the statutory registers — muster roll, overtime and leave." />
+      <div className="px-5 lg:px-7 pb-8 space-y-6">
+      <div className="grid items-start gap-3 lg:grid-cols-[16rem_1fr]">
         <nav aria-label="Reports" className="ui-card p-2">
           <ul className="space-y-0.5">
             {catalogue.reports.map((r) => (
@@ -129,7 +136,7 @@ export default function AttendanceReports({ openScreen } = {}) {
           </ul>
         </nav>
 
-        <div className="min-w-0 space-y-4">
+        <div className="min-w-0 space-y-3">
           {!active ? (
             <EmptyState title="Choose a report" description="Pick one on the left." />
           ) : (
@@ -191,50 +198,59 @@ export default function AttendanceReports({ openScreen } = {}) {
                 <button type="button" className="ui-btn ui-btn-primary" onClick={run} disabled={running}>
                   <Play size={16} aria-hidden="true" /> {running ? 'Running…' : 'Run'}
                 </button>
-                {result ? (
-                  <>
-                    <button
-                      type="button"
-                      className="ui-btn ui-btn-secondary"
-                      onClick={() => downloadCsv({ fileName: `${result.title} ${result.period}`, columns: result.columns.map((c) => ({ key: c.key, label: c.label })), rows: result.rows, footerRows: result.totals ? [result.totals] : [] })}
-                    >
-                      <Download size={16} aria-hidden="true" /> Export
-                    </button>
-                    <button type="button" className="ui-btn ui-btn-secondary" onClick={() => exportXlsx(result)}>
-                      <FileSpreadsheet size={16} aria-hidden="true" /> Excel
-                    </button>
-                    <button type="button" className="ui-btn ui-btn-secondary" onClick={() => printReport(result)}>
-                      <Printer size={16} aria-hidden="true" /> Print
-                    </button>
-                  </>
-                ) : null}
               </section>
 
               {result ? (
                 <section className="ui-card overflow-hidden" aria-label={result.title}>
-                  <div className="px-4 pt-3">
-                    <h2 className="ui-t-sec">{result.title}</h2>
-                    <p className="ui-caption">{result.period} · {result.rows.length} rows{openScreen && result.rows.some((r) => drill(r)) ? ' · click a row to open its days' : ''}</p>
+                  <div className="flex flex-wrap items-start justify-between gap-2 px-4 pt-3">
+                    <div className="min-w-0">
+                      <h2 className="ui-t-sec">{result.title}</h2>
+                      <p className="ui-caption">{result.period} · {result.rows.length} rows{openScreen && result.rows.some((r) => drill(r)) ? ' · click a row to open its days' : ''}</p>
+                    </div>
+                    <MoreButton
+                      items={[
+                        { key: 'csv', label: 'Export CSV', Icon: Download },
+                        { key: 'xlsx', label: 'Export Excel', Icon: FileSpreadsheet },
+                        { key: 'print', label: 'Print', Icon: Printer },
+                      ]}
+                      onSelect={(k) => {
+                        if (k === 'csv') downloadCsv({ fileName: `${result.title} ${result.period}`, columns: result.columns.map((c) => ({ key: c.key, label: c.label })), rows: result.rows, footerRows: result.totals ? [result.totals] : [] });
+                        else if (k === 'xlsx') exportXlsx(result);
+                        else if (k === 'print') printReport(result);
+                      }}
+                    />
                   </div>
                   {result.notes?.length ? (
                     <ul className="space-y-1 px-4 pt-2 text-xs">
                       {result.notes.map((n) => <li key={n} className={n.startsWith('Nobody') ? '' : 'ui-muted'} style={n.startsWith('Nobody') ? { color: 'rgb(var(--warn-ink))' } : undefined}>{n}</li>)}
                     </ul>
                   ) : null}
-                  {!result.rows.length ? (
-                    <p className="ui-muted p-6 text-center text-sm">Nothing in this period.</p>
-                  ) : (
-                    <div className="mt-2 overflow-x-auto ui-table-scroll ui-table-fit">
-                      <table className="ui-table w-full text-sm">
-                        <thead>
+                  <div className="mt-2 ui-table-scroll">
+                    <table className="ui-table ui-table-sticky w-full">
+                      <thead>
+                        <tr>
+                          {result.columns.map((c) =>
+                            c.align === 'end' ? (
+                              <th key={c.key} scope="col" className="ui-num whitespace-nowrap">{c.label}</th>
+                            ) : (
+                              <ColumnHeader key={c.key} label={c.label} col={c.key} state={filters} align={c.align === 'center' ? 'center' : 'left'} className="whitespace-nowrap" />
+                            )
+                          )}
+                        </tr>
+                      </thead>
+                      <tbody className="ui-rows">
+                        {!shownRows.length ? (
                           <tr>
-                            {result.columns.map((c) => (
-                              <th key={c.key} scope="col" className={`ui-th whitespace-nowrap ${c.align === 'end' ? 'text-end' : c.align === 'center' ? 'ui-col-h-center' : ''}`}>{c.label}</th>
-                            ))}
+                            <td colSpan={result.columns.length}>
+                              {result.rows.length ? (
+                                <EmptyState kind="filtered" totalCount={result.rows.length} title="No rows match" description="Nothing matches the column filters." />
+                              ) : (
+                                <EmptyState icon={FileSpreadsheet} title="Nothing in this period" />
+                              )}
+                            </td>
                           </tr>
-                        </thead>
-                        <tbody>
-                          {result.rows.map((row, i) => (
+                        ) : (
+                          shownRows.map((row, i) => (
                             <tr
                               key={i}
                               className={drill(row) ? 'ui-row-click' : undefined}
@@ -242,21 +258,22 @@ export default function AttendanceReports({ openScreen } = {}) {
                               title={drill(row) ? 'Open these days in Records' : undefined}
                             >
                               {result.columns.map((c) => (
-                                <td key={c.key} className={`${c.align === 'end' ? 'text-end tabular-nums' : c.align === 'center' ? 'ui-col-h-center' : ''} whitespace-nowrap`}>{row[c.key] ?? ''}</td>
+                                <td key={c.key} className={`${c.align === 'end' ? 'ui-num' : c.align === 'center' ? 'ui-col-h-center' : ''} whitespace-nowrap`}>{row[c.key] ?? ''}</td>
                               ))}
                             </tr>
-                          ))}
-                          {result.totals ? (
-                            <tr className="font-semibold">
-                              {result.columns.map((c) => (
-                                <td key={c.key} className={`${c.align === 'end' ? 'text-end tabular-nums' : ''} whitespace-nowrap`}>{result.totals[c.key] ?? ''}</td>
-                              ))}
-                            </tr>
-                          ) : null}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
+                          ))
+                        )}
+                        {/* The totals are of every row; with a column filter on they would not add up to what is shown. */}
+                        {result.totals && shownRows.length && !Object.keys(filters.filters).length ? (
+                          <tr className="font-semibold">
+                            {result.columns.map((c) => (
+                              <td key={c.key} className={`${c.align === 'end' ? 'ui-num' : ''} whitespace-nowrap`}>{result.totals[c.key] ?? ''}</td>
+                            ))}
+                          </tr>
+                        ) : null}
+                      </tbody>
+                    </table>
+                  </div>
                 </section>
               ) : null}
             </>
@@ -264,6 +281,7 @@ export default function AttendanceReports({ openScreen } = {}) {
         </div>
       </div>
       <Scheduled catalogue={catalogue} form={form} active={active} />
+      </div>
     </div>
   );
 }

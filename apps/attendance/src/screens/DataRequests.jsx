@@ -1,7 +1,10 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { ShieldCheck } from 'lucide-react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { AlarmClock, Check, CheckCheck, Clock, ShieldCheck, X } from 'lucide-react';
 
-import { PageHeader, SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
+import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
+import { useListSearch } from '@ui/components/ListToolbar';
+import DocumentListShell from '@ui/components/list/DocumentListShell';
+import { SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import { notify } from '@ui/components/ui/notify';
 import { listDataRequests, resolveDataRequest } from '@ui/personnel/api';
 import LoadFailed from '../components/LoadFailed';
@@ -12,6 +15,18 @@ import LoadFailed from '../components/LoadFailed';
  * queue, so it sits with Personnel (ClorTime's Data Requests).
  */
 const TYPES = { ACCESS: 'See their data', CORRECTION: 'Correct their data', ERASURE: 'Erase their data', NOMINATE: 'Name a nominee', GRIEVANCE: 'Grievance', WITHDRAW: 'Withdrew consent' };
+const TABS = [
+  { value: 'PENDING', label: 'Waiting', tone: 'partial' },
+  { value: 'RESOLVED', label: 'Done', tone: 'paid' },
+  { value: 'REJECTED', label: 'Declined', tone: 'overdue' },
+  { value: '', label: 'All', tone: 'all' },
+];
+const COLUMNS = {
+  employee: (r) => r.employeeName,
+  type: (r) => TYPES[r.type] || r.type,
+  asked: (r) => String(r.createdAt || '').slice(0, 10),
+};
+const dateOf = (d) => d.toLocaleDateString('en-IN', { dateStyle: 'medium' });
 
 export default function DataRequests() {
   const [data, setData] = useState(null);
@@ -20,8 +35,31 @@ export default function DataRequests() {
   const [answer, setAnswer] = useState({});
   /* Read once per mount: the rule against impure calls in render, and a day's precision is all the badge needs. */
   const [now] = useState(() => Date.now());
-  const load = useCallback(() => listDataRequests(filter === 'ALL' ? '' : filter).then((d) => { setData(d); setError(null); }).catch(setError), [filter]);
+  /* All of them at once: the tabs count every status. */
+  const load = useCallback(() => listDataRequests('').then((d) => { setData(d); setError(null); }).catch(setError), []);
   useEffect(() => { load(); }, [load]);
+
+  const timing = useCallback((r) => {
+    const due = r.dueAt ? new Date(r.dueAt) : new Date(new Date(r.createdAt).getTime() + 30 * 86_400_000);
+    const late = r.status === 'PENDING' && due.getTime() < now;
+    const soon = r.status === 'PENDING' && !late && due.getTime() - now < 5 * 86_400_000;
+    return { due, late, soon, age: Math.floor((now - new Date(r.createdAt).getTime()) / 86_400_000) };
+  }, [now]);
+
+  const all = useMemo(() => data?.requests || [], [data]);
+  const counts = useMemo(() => {
+    const c = { '': all.length };
+    for (const r of all) c[r.status] = (c[r.status] || 0) + 1;
+    return c;
+  }, [all]);
+  const inTab = useMemo(() => all.filter((r) => !filter || r.status === filter), [all, filter]);
+  const search = useListSearch(inTab, ['employeeName', 'employeeCode', 'details', 'resolution']);
+  const filters = useColumnFilters();
+  const rows = filters.applyFilters(search.filtered, COLUMNS);
+  const figures = useMemo(() => {
+    const pending = all.filter((r) => r.status === 'PENDING').map(timing);
+    return { waiting: pending.length, late: pending.filter((t) => t.late).length, soon: pending.filter((t) => t.soon).length, done: counts.RESOLVED || 0 };
+  }, [all, counts, timing]);
 
   const decide = async (r, status) => {
     const resolution = (answer[r.id] || '').trim();
@@ -35,48 +73,95 @@ export default function DataRequests() {
     }
   };
 
-  if (error && !data) return <LoadFailed error={error} onRetry={load} />;
   return (
-    <div className="space-y-4">
-      <PageHeader entity="attendance" title="Data requests" description="What employees asked about their personal data, and your answers. Employees are told to expect an answer within 30 days; the DPDP Rules allow at most 90 for a grievance." />
-      <div className="flex flex-wrap gap-2">
-        {[['PENDING', 'Waiting'], ['RESOLVED', 'Done'], ['REJECTED', 'Declined'], ['ALL', 'All']].map(([k, l]) => (
-          <button key={k} type="button" className={`ui-btn ui-btn-sm ${filter === k ? 'ui-btn-primary' : 'ui-btn-secondary'}`} onClick={() => setFilter(k)}>{l}</button>
-        ))}
-      </div>
-      {!data ? <SkeletonCard lines={6} /> : !data.requests.length ? (
-        <EmptyState icon={ShieldCheck} title={filter === 'PENDING' ? 'Nothing waiting' : 'Nothing here'} description="Employees ask from the portal under Me → My data." />
+    <DocumentListShell
+      entity="privacy"
+      title="Data requests"
+      description="What employees asked about their personal data, and your answers. Employees are told to expect an answer within 30 days; the DPDP Rules allow at most 90 for a grievance."
+      compact
+      tight
+      denseCards
+      search={{ value: search.query, onChange: search.setQuery, placeholder: 'Search requests…', label: 'Search data requests' }}
+      cards={[
+        { label: 'Waiting', value: figures.waiting, count: true, tone: 'partial', Icon: Clock, onSelect: () => setFilter('PENDING') },
+        { label: 'Overdue', value: figures.late, count: true, tone: 'overdue', Icon: AlarmClock },
+        { label: 'Due in 5 days', value: figures.soon, count: true, tone: 'outstanding', Icon: AlarmClock },
+        { label: 'Done', value: figures.done, count: true, tone: 'paid', Icon: CheckCheck, onSelect: () => setFilter('RESOLVED') },
+      ]}
+      tabs={TABS}
+      statusValue={filter}
+      statusCounts={counts}
+      onStatusChange={setFilter}
+      tabsLabel="Request status"
+    >
+      {error && !data ? <LoadFailed error={error} onRetry={load} /> : null}
+      {!data ? (
+        error ? null : <SkeletonCard lines={6} />
       ) : (
-        <div className="space-y-3">
-          {data.requests.map((r) => {
-            const age = Math.floor((now - new Date(r.createdAt).getTime()) / 86_400_000);
-            const due = r.dueAt ? new Date(r.dueAt) : new Date(new Date(r.createdAt).getTime() + 30 * 86_400_000);
-            const late = r.status === 'PENDING' && due.getTime() < now;
-            const soon = r.status === 'PENDING' && !late && due.getTime() - now < 5 * 86_400_000;
-            return (
-              <section key={r.id} className="ui-card p-4 space-y-3" aria-label={`${TYPES[r.type] || r.type} from ${r.employeeName}`}>
-                <div className="flex flex-wrap items-start justify-between gap-2">
-                  <div>
-                    <div className="font-semibold">{r.employeeName || 'Unknown'}{r.employeeCode ? <span className="ui-caption font-normal"> · {r.employeeCode}</span> : null}</div>
-                    <div className="text-sm">{TYPES[r.type] || r.type} · asked {new Date(r.createdAt).toLocaleDateString('en-IN', { dateStyle: 'medium' })}{r.status === 'PENDING' ? ` · ${age} day${age === 1 ? '' : 's'} ago · answer by ${due.toLocaleDateString('en-IN', { dateStyle: 'medium' })}` : ''}</div>
-                  </div>
-                  <span className={`ui-pill ${r.status === 'RESOLVED' ? 'ui-pill-pos' : r.status === 'REJECTED' ? 'ui-pill-neg' : late || soon ? 'ui-pill-neg' : 'ui-pill-warn'}`}>{r.status === 'PENDING' ? (late ? 'Overdue' : soon ? 'Due soon' : 'Waiting') : r.status === 'RESOLVED' ? 'Done' : 'Declined'}</span>
-                </div>
-                <p className="text-sm ui-muted">“{r.details}”</p>
-                {r.status === 'PENDING' ? (
-                  <div className="space-y-2">
-                    <textarea className="ui-input w-full" rows={2} placeholder="What was done, or why not — the person reads this" value={answer[r.id] || ''} onChange={(e) => setAnswer({ ...answer, [r.id]: e.target.value })} />
-                    <div className="flex gap-2">
-                      <button type="button" className="ui-btn ui-btn-primary" onClick={() => decide(r, 'RESOLVED')}>Mark done</button>
-                      <button type="button" className="ui-btn ui-btn-secondary" onClick={() => decide(r, 'REJECTED')}>Decline</button>
-                    </div>
-                  </div>
-                ) : <p className="text-sm">Answer: {r.resolution}</p>}
-              </section>
-            );
-          })}
+        <div className="ui-table-scroll">
+          <table className="ui-table ui-table-sticky w-full">
+            <thead>
+              <tr>
+                <ColumnHeader label="Employee" col="employee" state={filters} />
+                <ColumnHeader label="Request" col="type" state={filters} />
+                <ColumnHeader label="Asked" col="asked" state={filters} type="date" />
+                <th scope="col" className="ui-col-date">Answer by</th>
+                <th scope="col" className="ui-col-h-center">Status</th>
+                <th scope="col">Answer</th>
+              </tr>
+            </thead>
+            <tbody className="ui-rows">
+              {!rows.length ? (
+                <tr>
+                  <td colSpan={6}>
+                    {inTab.length ? (
+                      <EmptyState kind="filtered" totalCount={inTab.length} title="No requests match" description="Nothing in this tab matches the search or the column filters." />
+                    ) : (
+                      <EmptyState
+                        icon={ShieldCheck}
+                        title={filter === 'PENDING' ? 'Nothing waiting' : 'Nothing here'}
+                        description="Employees ask from the portal under Me → My data."
+                      />
+                    )}
+                  </td>
+                </tr>
+              ) : (
+                rows.map((r) => {
+                  const { due, late, soon, age } = timing(r);
+                  return (
+                    <tr key={r.id} className="align-top">
+                      <td className="ui-col-entity">{r.employeeName || 'Unknown'}{r.employeeCode ? <span className="ui-caption"> · {r.employeeCode}</span> : null}</td>
+                      <td className="min-w-[14rem]">
+                        <div>{TYPES[r.type] || r.type}</div>
+                        <p className="ui-caption">“{r.details}”</p>
+                      </td>
+                      <td className="ui-col-date whitespace-nowrap">
+                        {dateOf(new Date(r.createdAt))}
+                        {r.status === 'PENDING' ? <div className="ui-caption">{age} day{age === 1 ? '' : 's'} ago</div> : null}
+                      </td>
+                      <td className="ui-col-date whitespace-nowrap">{r.status === 'PENDING' ? dateOf(due) : '—'}</td>
+                      <td className="ui-col-h-center">
+                        <span className={`ui-pill ${r.status === 'RESOLVED' ? 'ui-pill-pos' : r.status === 'REJECTED' ? 'ui-pill-neg' : late || soon ? 'ui-pill-neg' : 'ui-pill-warn'}`}>{r.status === 'PENDING' ? (late ? 'Overdue' : soon ? 'Due soon' : 'Waiting') : r.status === 'RESOLVED' ? 'Done' : 'Declined'}</span>
+                      </td>
+                      <td className="ui-col-meta min-w-[18rem]">
+                        {r.status === 'PENDING' ? (
+                          <div className="space-y-2">
+                            <textarea className="ui-input w-full" rows={2} aria-label={`Answer to ${r.employeeName}`} placeholder="What was done, or why not — the person reads this" value={answer[r.id] || ''} onChange={(e) => setAnswer({ ...answer, [r.id]: e.target.value })} />
+                            <div className="flex gap-1">
+                              <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => decide(r, 'RESOLVED')}><Check size={14} aria-hidden="true" /> Mark done</button>
+                              <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" onClick={() => decide(r, 'REJECTED')}><X size={14} aria-hidden="true" /> Decline</button>
+                            </div>
+                          </div>
+                        ) : <span className="text-sm">{r.resolution}</span>}
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
         </div>
       )}
-    </div>
+    </DocumentListShell>
   );
 }

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { CalendarRange } from 'lucide-react';
 
 import { PageHeader, SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import { listStructure } from '@ui/personnel/api';
@@ -35,20 +36,21 @@ export default function ScheduleCalendar() {
   }, [month, filters, attempt]);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <PageHeader
-        entity="attendance"
+        entity="shift"
         title="Schedule calendar"
         description="Each person’s shift for each day of the month — what their attendance is scored against."
-        actions={<input type="month" className="ui-input" value={month} onChange={(e) => setMonth(e.target.value)} aria-label="Month" />}
+        actions={<input type="month" className="ui-input ui-ctl-compact !w-auto" value={month} onChange={(e) => setMonth(e.target.value)} aria-label="Month" />}
       />
+      <div className="px-5 lg:px-7 pb-8 space-y-3">
       <div className="flex flex-wrap items-center gap-2">
-        <select className="ui-select !w-auto" value={filters.departmentId} onChange={(e) => setFilters({ ...filters, departmentId: e.target.value })} aria-label="Department">
+        <select className="ui-select ui-ctl-compact !w-auto" value={filters.departmentId} onChange={(e) => setFilters({ ...filters, departmentId: e.target.value })} aria-label="Department">
           <option value="">All departments</option>
           {lists.departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
         </select>
         {lists.areas.length ? (
-          <select className="ui-select !w-auto" value={filters.areaId} onChange={(e) => setFilters({ ...filters, areaId: e.target.value })} aria-label="Area">
+          <select className="ui-select ui-ctl-compact !w-auto" value={filters.areaId} onChange={(e) => setFilters({ ...filters, areaId: e.target.value })} aria-label="Area">
             <option value="">All areas</option>
             {lists.areas.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
           </select>
@@ -69,11 +71,11 @@ export default function ScheduleCalendar() {
       {!data ? (
         loadError ? null : <SkeletonCard lines={8} />
       ) : !data.rows.length ? (
-        <EmptyState title="Nobody here" description="No one employed in this month matches." />
+        <EmptyState icon={CalendarRange} title="Nobody here" description="No one employed in this month matches." />
       ) : (
         <div className="ui-card overflow-hidden">
-          <div className="overflow-x-auto ui-table-scroll ui-table-fit">
-            <table className="ui-table w-full text-xs">
+          <div className="ui-table-scroll">
+            <table className="ui-table ui-table-sticky w-full text-xs">
               <thead>
                 <tr>
                   <th scope="col" className="ui-th sticky left-0 z-10 bg-[rgb(var(--surface))] px-3">Employee</th>
@@ -85,7 +87,7 @@ export default function ScheduleCalendar() {
                   ))}
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="ui-rows">
                 {data.rows.map((r) => (
                   <tr key={r.employeeId}>
                     <th scope="row" className="sticky left-0 z-10 whitespace-nowrap bg-[rgb(var(--surface))] px-3 text-left font-medium">{r.name}</th>
@@ -97,7 +99,7 @@ export default function ScheduleCalendar() {
                       return (
                         <td key={c.date} title={title} className="px-0.5 text-center">
                           <span
-                            className={`inline-block min-w-[1.6rem] rounded px-1 py-0.5 ${work ? 'font-semibold text-white' : c.kind === 'WORK' ? '' : 'ui-muted'}`}
+                            className={`inline-block min-w-[1.6rem] rounded-full px-1 py-0.5 ${work ? 'font-semibold text-white' : c.kind === 'WORK' ? '' : 'ui-muted'}`}
                             style={work ? { backgroundColor: c.color || 'rgb(var(--fg-subtle))', opacity: c.source === 'TEMPORARY' ? 0.75 : 1, outline: c.source === 'TEMPORARY' ? '2px dashed currentColor' : undefined } : undefined}
                           >
                             {label}
@@ -112,6 +114,7 @@ export default function ScheduleCalendar() {
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }

@@ -1,7 +1,10 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { Plus } from 'lucide-react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { BadgeAlert, HardHat, Plus, UserCheck, Users } from 'lucide-react';
 
-import { PageHeader, SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
+import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
+import { useListSearch } from '@ui/components/ListToolbar';
+import DocumentListShell from '@ui/components/list/DocumentListShell';
+import { SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import Drawer from '@ui/components/ui/Drawer';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { createContractor, deleteContractor, listContractors, updateContractor } from '@ui/personnel/api';
@@ -9,72 +12,134 @@ import LoadFailed from '../components/LoadFailed';
 
 const BLANK = { name: '', code: '', contactPerson: '', phone: '', email: '', gstin: '', licenceNo: '', licenceValidTo: '', address: '', isActive: true };
 
+const TABS = [
+  { value: 'ACTIVE', label: 'Active', tone: 'paid' },
+  { value: 'INACTIVE', label: 'Inactive', tone: 'cancelled' },
+  { value: '', label: 'All', tone: 'all' },
+];
+const kind = (c) => (c.isActive ? 'ACTIVE' : 'INACTIVE');
+const COLUMNS = {
+  name: (c) => c.name,
+  contact: (c) => [c.contactPerson, c.phone].filter(Boolean).join(' · '),
+  licence: (c) => c.licenceNo,
+};
+
 /**
  * Companies that supply workers (ClorTime's Contractors). Their people are
  * employees linked to the contractor — enrolled, punched and counted like
  * everyone else — so the workforce present today is one look away.
  */
 export default function Contractors() {
-  const [rows, setRows] = useState(null);
+  const [all, setAll] = useState(null);
   const [loadError, setLoadError] = useState('');
   const [editing, setEditing] = useState(null);
+  const [status, setStatus] = useState('ACTIVE');
   const load = useCallback(() => {
-    listContractors().then((v) => { setRows(v); setLoadError(''); }).catch((e) => setLoadError(String(e?.message || 'Could not load contractors.')));
+    listContractors().then((v) => { setAll(v); setLoadError(''); }).catch((e) => setLoadError(String(e?.message || 'Could not load contractors.')));
   }, []);
   useEffect(() => {
     load();
   }, [load]);
 
+  const counts = useMemo(() => {
+    const c = { '': (all || []).length };
+    for (const r of all || []) c[kind(r)] = (c[kind(r)] || 0) + 1;
+    return c;
+  }, [all]);
+  const inTab = useMemo(() => (all || []).filter((r) => !status || kind(r) === status), [all, status]);
+  const search = useListSearch(inTab, ['name', 'code', 'contactPerson', 'phone', 'licenceNo']);
+  const filters = useColumnFilters();
+  const rows = filters.applyFilters(search.filtered, COLUMNS);
+
+  const figures = useMemo(() => {
+    const list = (all || []).filter((c) => c.isActive);
+    return {
+      active: list.length,
+      workers: list.reduce((a, c) => a + Number(c.workers || 0), 0),
+      present: list.reduce((a, c) => a + Number(c.presentToday || 0), 0),
+      expired: (all || []).filter((c) => c.licenceExpired).length,
+    };
+  }, [all]);
+
+  const add = () => setEditing({ ...BLANK });
+
   return (
-    <div className="space-y-4">
-      <PageHeader
-        entity="attendance"
-        title="Contractors"
-        description="Companies that supply workers. Link a worker to their contractor on their employee file."
-        actions={<button type="button" className="ui-btn ui-btn-primary" onClick={() => setEditing({ ...BLANK })}><Plus size={16} aria-hidden="true" /> New contractor</button>}
-      />
+    <DocumentListShell
+      entity="employee"
+      title="Contractors"
+      description="Companies that supply workers. Link a worker to their contractor on their employee file."
+      compact
+      tight
+      denseCards
+      search={{ value: search.query, onChange: search.setQuery, placeholder: 'Search contractors…', label: 'Search contractors' }}
+      primary={<button type="button" className="ui-btn ui-btn-primary" onClick={add}><Plus size={16} aria-hidden="true" /> New contractor</button>}
+      cards={[
+        { label: 'Active', value: figures.active, count: true, tone: 'all', Icon: HardHat },
+        { label: 'Workers', value: figures.workers, count: true, tone: 'sent', Icon: Users },
+        { label: 'In today', value: figures.present, count: true, tone: 'paid', Icon: UserCheck },
+        { label: 'Licence expired', value: figures.expired, count: true, tone: 'overdue', Icon: BadgeAlert },
+      ]}
+      tabs={TABS}
+      statusValue={status}
+      statusCounts={counts}
+      onStatusChange={setStatus}
+      tabsLabel="Contractor status"
+    >
       <LoadFailed message={loadError} onRetry={load} />
-      {!rows ? (
+      {!all ? (
         loadError ? null : <SkeletonCard lines={4} />
-      ) : !rows.length ? (
-        <EmptyState title="No contractors" description="Add the agencies and labour contractors who supply people." />
       ) : (
-        <div className="ui-card overflow-hidden">
-          <div className="overflow-x-auto ui-table-scroll ui-table-fit">
-            <table className="ui-table w-full">
-              <thead>
+        <div className="ui-table-scroll">
+          <table className="ui-table ui-table-sticky w-full">
+            <thead>
+              <tr>
+                <ColumnHeader label="Contractor" col="name" state={filters} />
+                <ColumnHeader label="Contact" col="contact" state={filters} />
+                <ColumnHeader label="Licence" col="licence" state={filters} />
+                <th scope="col" className="ui-num">Workers</th>
+                <th scope="col" className="ui-num">In today</th>
+                <th scope="col" className="ui-col-h-center">Active</th>
+              </tr>
+            </thead>
+            <tbody className="ui-rows">
+              {!rows.length ? (
                 <tr>
-                  <th scope="col" className="ui-th">Contractor</th>
-                  <th scope="col" className="ui-th">Contact</th>
-                  <th scope="col" className="ui-th">Licence</th>
-                  <th scope="col" className="ui-th text-end">Workers</th>
-                  <th scope="col" className="ui-th text-end">In today</th>
-                  <th scope="col" className="ui-th ui-col-h-center">Active</th>
+                  <td colSpan={6}>
+                    {inTab.length ? (
+                      <EmptyState kind="filtered" totalCount={inTab.length} title="No contractors match" description="Nothing in this tab matches the search or the column filters." />
+                    ) : (
+                      <EmptyState
+                        icon={HardHat}
+                        title={status === 'INACTIVE' ? 'No inactive contractors' : 'No contractors'}
+                        description={status === 'INACTIVE' ? 'Try another tab.' : 'Add the agencies and labour contractors who supply people.'}
+                        routes={status === 'INACTIVE' ? undefined : [{ label: 'New contractor', description: 'Add the agencies and labour contractors who supply people.', onSelect: add }]}
+                      />
+                    )}
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {rows.map((c) => (
+              ) : (
+                rows.map((c) => (
                   <tr key={c.id} className="ui-row-click" onClick={() => setEditing({ ...BLANK, ...c })}>
                     <td className="ui-col-entity">{c.name}{c.code ? <span className="ui-caption"> · {c.code}</span> : null}</td>
-                    <td className="ui-col-meta">{[c.contactPerson, c.phone].filter(Boolean).join(' · ') || '—'}</td>
+                    <td>{[c.contactPerson, c.phone].filter(Boolean).join(' · ') || '—'}</td>
                     <td className="whitespace-nowrap">
                       {c.licenceNo || '—'}
                       {c.licenceValidTo ? (
                         <span className={`ui-pill ml-2 ${c.licenceExpired ? 'ui-pill-neg' : 'ui-pill-neutral'}`}>{c.licenceExpired ? 'expired' : 'valid to'} {c.licenceValidTo}</span>
                       ) : null}
                     </td>
-                    <td className="text-end tabular-nums">{c.workers}</td>
-                    <td className="text-end tabular-nums">{c.presentToday}</td>
+                    <td className="ui-num">{c.workers}</td>
+                    <td className="ui-num">{c.presentToday}</td>
                     <td className="ui-col-h-center">{c.isActive ? '✓' : ''}</td>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
       )}
       {editing ? <ContractorForm initial={editing} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); load(); }} /> : null}
-    </div>
+    </DocumentListShell>
   );
 }
 

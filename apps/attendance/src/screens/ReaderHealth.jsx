@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { BellRing, History, RefreshCw } from 'lucide-react';
+import { BellRing, History, RefreshCw, Router } from 'lucide-react';
 
 import { PageHeader, SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import Drawer from '@ui/components/ui/Drawer';
@@ -50,15 +50,22 @@ export default function ReaderHealth() {
     return () => clearInterval(t);
   }, [load]);
 
-  if (!data) return loadError ? <LoadFailed message={loadError} onRetry={load} /> : <SkeletonCard lines={8} />;
+  if (!data) {
+    return (
+      <div className="space-y-3">
+        <PageHeader entity="reader" title="Reader health" />
+        <div className="px-5 lg:px-7 pb-8 space-y-6">{loadError ? <LoadFailed message={loadError} onRetry={load} /> : <SkeletonCard lines={8} />}</div>
+      </div>
+    );
+  }
   const open = data.alerts.filter((a) => !a.resolvedAt);
   const recent = data.alerts.filter((a) => a.resolvedAt).slice(0, 10);
   const problems = data.readers.filter((r) => r.status !== 'ok' && r.status !== 'off').length;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <PageHeader
-        entity="attendance"
+        entity="reader"
         title="Reader health"
         description={`${data.readers.length} reader${data.readers.length === 1 ? '' : 's'} · ${problems ? `${problems} need${problems === 1 ? 's' : ''} a look` : 'all healthy'} · ${data.punchesToday} punch${data.punchesToday === 1 ? '' : 'es'} today`}
         actions={
@@ -69,6 +76,7 @@ export default function ReaderHealth() {
         }
       />
 
+      <div className="px-5 lg:px-7 pb-8 space-y-6">
       {data.collection.map((i) => (
         <div key={i.kind} className="ui-card border-l-4 p-4" role="alert" style={{ borderLeftColor: 'rgb(var(--neg))' }}>
           <div className="font-semibold">{i.title}</div>
@@ -83,7 +91,7 @@ export default function ReaderHealth() {
       ) : null}
 
       {!data.readers.length ? (
-        <EmptyState title="No readers yet" description="Add a reader under Readers. Its health shows here once it connects." />
+        <EmptyState icon={Router} title="No readers yet" description="Add a reader under Readers. Its health shows here once it connects." />
       ) : (
         <div className="gap-3 lg:columns-2 2xl:columns-3 [&>*]:mb-3 [&>*]:break-inside-avoid">
           {data.readers.map((r) => {
@@ -175,6 +183,7 @@ export default function ReaderHealth() {
           </ul>
         </section>
       ) : null}
+      </div>
 
       {settingsOpen ? <AlertSettings initial={data.settings} onClose={() => setSettingsOpen(false)} onSaved={() => { setSettingsOpen(false); load(); }} /> : null}
       {timelineOf ? <ReaderTimeline reader={timelineOf} onClose={() => setTimelineOf(null)} /> : null}

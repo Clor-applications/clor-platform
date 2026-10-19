@@ -109,7 +109,7 @@ export default function AttendanceToday({ openScreen }) {
   const readerTrouble = readerList.filter((r) => r.status !== 'ok' && r.status !== 'off' && r.status !== 'delayed').length;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <PageHeader
         entity="attendance"
         title="Today"
@@ -118,6 +118,7 @@ export default function AttendanceToday({ openScreen }) {
           <input type="date" className="ui-input" value={date} max={todayIst()} onChange={(e) => setDate(e.target.value)} aria-label="Day" />
         }
       />
+      <div className="px-5 lg:px-7 pb-8 space-y-6">
       <DpdpNotice openScreen={openScreen} />
       <LoadFailed message={error} onRetry={() => setAttempt((n) => n + 1)} />
       {!data ? (
@@ -247,6 +248,7 @@ export default function AttendanceToday({ openScreen }) {
           </div>
         </>
       )}
+      </div>
     </div>
   );
 }

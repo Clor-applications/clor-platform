@@ -136,8 +136,9 @@ export default function DataImport() {
   const reset = () => { setFile(null); setRows(null); setResult(null); setCheck(null); setProblem(''); };
 
   return (
-    <div className="space-y-4">
-      <PageHeader entity="attendance" title="Import" description="Bring a spreadsheet in: pick what it holds, use the template, drop the file." />
+    <div className="space-y-3">
+      <PageHeader entity="settings" title="Import" description="Bring a spreadsheet in: pick what it holds, use the template, drop the file." />
+      <div className="px-5 lg:px-7 pb-8 space-y-6">
       <ol className="grid gap-4 lg:grid-cols-3">
         <li className="ui-card p-4 space-y-3">
           <h2 className="ui-t-sec"><span className="ui-caption mr-2">1</span>What the file holds</h2>
@@ -203,6 +204,7 @@ export default function DataImport() {
           ) : null}
         </li>
       </ol>
+      </div>
     </div>
   );
 }

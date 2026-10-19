@@ -45,14 +45,25 @@ export default function AttendanceRules() {
     }
   };
 
-  if (!rules) return loadError ? <LoadFailed message={loadError} onRetry={() => setAttempt((n) => n + 1)} /> : <SkeletonCard lines={6} />;
+  const header = <PageHeader entity="settings" title="Attendance rules" description="Company-wide. Grace, half day, overtime and weekly offs are set on each shift." />;
+  if (!rules) {
+    return (
+      <div className="space-y-3">
+        {header}
+        <div className="px-5 lg:px-7 pb-8 max-w-3xl">
+          {loadError ? <LoadFailed message={loadError} onRetry={() => setAttempt((n) => n + 1)} /> : <SkeletonCard lines={6} />}
+        </div>
+      </div>
+    );
+  }
   const num = (k, fallback = 0) => (e) => setRules({ ...rules, [k]: e.target.value === '' ? fallback : Number(e.target.value) });
   return (
-    <div className="space-y-4">
-      <PageHeader entity="attendance" title="Attendance rules" description="Company-wide. Grace, half day, overtime and weekly offs are set on each shift." />
+    <div className="space-y-3">
+      {header}
 
       {/* A settings page: the compact column (DESIGN.md, Content width), not a field stretched across the screen. */}
-      <form onSubmit={save} className="grid items-start gap-4 xl:grid-cols-2">
+      <div className="px-5 lg:px-7 pb-8 max-w-3xl space-y-6">
+      <form onSubmit={save} className="space-y-3">
         <section className="ui-card space-y-3 p-4" aria-labelledby="rules-default-h">
           <h2 id="rules-default-h" className="ui-t-sec">Default shift</h2>
           <label className="block">
@@ -121,7 +132,7 @@ export default function AttendanceRules() {
           ))}
         </section>
 
-        <div className="xl:col-span-2"><button type="submit" className="ui-btn ui-btn-primary">Save rules</button></div>
+        <div><button type="submit" className="ui-btn ui-btn-primary">Save rules</button></div>
       </form>
 
       <section className="ui-card space-y-3 p-4" aria-labelledby="recompute-h">
@@ -136,6 +147,7 @@ export default function AttendanceRules() {
 
       <RulePreview shifts={shifts} />
       <RuleHistory shifts={shifts} attempt={attempt} />
+      </div>
     </div>
   );
 }
@@ -210,22 +222,20 @@ function RulePreview({ shifts }) {
             {result.skipped ? <span className="ui-caption"> {result.skipped} not compared: leave, no check-in, or a closed month.</span> : null}
           </p>
           {result.days.length ? (
-            <div className="ui-card overflow-hidden">
-              <div className="overflow-x-auto ui-table-scroll">
-                <table className="ui-table w-full">
-                  <thead><tr><th className="ui-th">Day</th><th className="ui-th">Employee</th><th className="ui-th">In–out</th><th className="ui-th">Would change</th></tr></thead>
-                  <tbody>
+            <div className="ui-table-scroll">
+                <table className="ui-table ui-table-sticky w-full">
+                  <thead><tr><th scope="col">Day</th><th scope="col">Employee</th><th scope="col">In–out</th><th scope="col">Would change</th></tr></thead>
+                  <tbody className="ui-rows">
                     {result.days.map((d) => (
                       <tr key={`${d.employeeId}-${d.date}`}>
-                        <td className="whitespace-nowrap">{dayLabel(d.date, { weekday: true, year: false })}</td>
-                        <td>{d.name}</td>
+                        <td className="ui-col-date whitespace-nowrap">{dayLabel(d.date, { weekday: true, year: false })}</td>
+                        <td className="ui-col-entity">{d.name}</td>
                         <td className="tabular-nums whitespace-nowrap">{d.in}–{d.out || '—'}</td>
                         <td className="text-sm">{['status', 'lateMinutes', 'workedMinutes', 'overtimeMinutes', 'earlyOutMinutes'].filter((k) => d[k]).map((k) => <span key={k} className="mr-3 whitespace-nowrap"><span className="ui-caption">{{ status: 'Status', lateMinutes: 'Late', workedMinutes: 'Worked', overtimeMinutes: 'Overtime', earlyOutMinutes: 'Early out' }[k]}</span> {pair(k, d[k])}</span>)}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
-              </div>
             </div>
           ) : null}
           <p className="ui-caption">To apply it: edit the shift under Shifts, then recalculate these days above.</p>
