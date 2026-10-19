@@ -122,6 +122,13 @@ export async function writeDay(opts: {
   /** Why, for the day's history (a correction's reason, a bulk change's description). */
   reason?: string | null;
   historyAction?: 'WRITE' | 'BULK';
+  /**
+   * An approved half-day leave on this day: half is paid leave, the punches
+   * decide the other half — worked half a shift or more: present (paid in
+   * full); less: a half day. No lateness on a first-half leave, no early
+   * leaving on a second-half one.
+   */
+  halfDayLeave?: 'FIRST' | 'SECOND' | null;
 }) {
   /* Every way a day is written comes through here, so a closed month is held shut in one place. */
   await assertMonthOpen(opts.orgId, opts.date);
@@ -135,7 +142,12 @@ export async function writeDay(opts: {
     isHoliday: holiday,
     onLeave: opts.statusOverride === 'ON_LEAVE',
   });
-  const status = opts.statusOverride && !opts.checkIn ? opts.statusOverride : computed.status;
+  const half = opts.halfDayLeave || null;
+  const status = half
+    ? (computed.workedMinutes || 0) >= rule.halfDayMinutes ? 'PRESENT' : 'HALF_DAY'
+    : opts.statusOverride && !opts.checkIn ? opts.statusOverride : computed.status;
+  if (half === 'FIRST') computed.lateMinutes = 0;
+  if (half === 'SECOND') computed.earlyOutMinutes = 0;
   const data = {
     shiftId,
     checkIn: opts.checkIn,

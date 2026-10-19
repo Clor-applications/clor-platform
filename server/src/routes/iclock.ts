@@ -205,7 +205,9 @@ export async function recomputeDeviceDay(accountId: string, orgId: string, emplo
   ];
   const day = pairDay(points);
   if (!day) return null;
-  return writeDay({ accountId, orgId, userId: 'reader', employee, date, checkIn: day.checkIn, checkOut: day.checkOut, source: 'DEVICE' });
+  /* An approved half-day leave on this day: the punches are the other half. */
+  const half = await peoplePrisma.leaveRequest.findFirst({ where: { orgId, employeeId: employee.id, status: 'APPROVED', fromDate: date, toDate: date, halfDay: { not: null } }, select: { id: true, halfDay: true } });
+  return writeDay({ accountId, orgId, userId: 'reader', employee, date, checkIn: day.checkIn, checkOut: day.checkOut, source: 'DEVICE', ...(half ? { leaveRequestId: half.id, halfDayLeave: half.halfDay as 'FIRST' | 'SECOND' } : {}) });
 }
 
 /** What a channel knows about each line besides the line: the vendor's own record and event id, and records it set aside. */

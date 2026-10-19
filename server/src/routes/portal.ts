@@ -109,6 +109,25 @@ async function findEmployee(company: unknown, employeeCode: unknown) {
 /* A hash to compare against when there is no one, so a wrong employee code takes as long as a wrong password. */
 const DUMMY_HASH = bcrypt.hashSync('not-a-password-0', ROUNDS);
 
+/**
+ * Forgot my password: there is no e-mail to send a link to for most employees,
+ * so HR is told and gives a new activation code ("First time" in the app).
+ * The answer is the same whether or not the person exists.
+ */
+portalRouter.post('/forgot', ...portalLimiter, async (req, res) => {
+  const found = await findEmployee(req.body?.company, req.body?.employeeCode);
+  if (found?.employee?.portalEnabled) {
+    const e = found.employee;
+    await notifyPermission(e.accountId, e.orgId, 'ATTENDANCE::Employee Portal::EDIT', {
+      kind: 'attendance.portal_forgot',
+      title: `${e.name}${e.code ? ` (${e.code})` : ''} forgot their app password`,
+      body: 'Give them a new activation code under Portal access; they use it with "First time" in the app.',
+      link: { app: 'attendance', screen: 'portalAccess' },
+    }).catch(() => null);
+  }
+  res.json({ ok: true, message: 'If those codes are right, HR has been asked for a new activation code. With it, choose First time and set a new password.' });
+});
+
 portalRouter.post('/login', ...portalLimiter, async (req, res) => {
   const found = await findEmployee(req.body?.company, req.body?.employeeCode);
   const e = found?.employee;
@@ -308,6 +327,44 @@ portalRouter.get('/home', async (req, res) => {
   });
 });
 
+/**
+ * What changed for me, for the phone's notifications: requests and field
+ * punches decided in the last few days, and how much waits on me as an approver.
+ */
+portalRouter.get('/updates', async (req, res) => {
+  const e = req.portal!.employee;
+  const since = new Date(Date.now() - 7 * 86_400_000);
+  const team = (await peoplePrisma.employee.findMany({ where: { orgId: e.orgId, reportingManagerId: e.id, status: { not: 'LEFT' } }, select: { id: true } })).map((x) => x.id);
+  const [leave, corrections, punches, waitLeave, waitCorr, waitPunch] = await Promise.all([
+    peoplePrisma.leaveRequest.findMany({ where: { orgId: e.orgId, employeeId: e.id, status: { in: ['APPROVED', 'REJECTED'] }, updatedAt: { gte: since } }, select: { id: true, status: true, fromDate: true, toDate: true } }),
+    peoplePrisma.attendanceRequest.findMany({ where: { orgId: e.orgId, employeeId: e.id, status: { in: ['APPROVED', 'REJECTED'] }, updatedAt: { gte: since } }, select: { id: true, status: true, date: true, reviewNote: true } }),
+    peoplePrisma.devicePunch.findMany({ where: { orgId: e.orgId, employeeId: e.id, outsideSite: true, reviewStatus: { in: ['APPROVED', 'REJECTED'] }, at: { gte: since } }, select: { id: true, reviewStatus: true, localTime: true } }),
+    team.length ? peoplePrisma.leaveRequest.count({ where: { orgId: e.orgId, employeeId: { in: team }, status: 'PENDING', managerApprovedAt: null } }) : 0,
+    team.length ? peoplePrisma.attendanceRequest.count({ where: { orgId: e.orgId, employeeId: { in: team }, status: 'PENDING', managerApprovedAt: null } }) : 0,
+    team.length ? peoplePrisma.devicePunch.count({ where: { orgId: e.orgId, employeeId: { in: team }, outsideSite: true, reviewStatus: 'PENDING' } }) : 0,
+  ]);
+  res.json({
+    decided: [
+      ...leave.map((l) => ({ key: `leave:${l.id}:${l.status}`, text: `Leave ${l.fromDate}${l.toDate !== l.fromDate ? ` to ${l.toDate}` : ''} was ${l.status.toLowerCase()}.` })),
+      ...corrections.map((c) => ({ key: `corr:${c.id}:${c.status}`, text: `Your request for ${c.date} was ${c.status.toLowerCase()}.${c.reviewNote ? ` ${c.reviewNote}` : ''}` })),
+      ...punches.map((p) => ({ key: `punch:${p.id}:${p.reviewStatus}`, text: `Your field punch at ${p.localTime.slice(11, 16)} on ${p.localTime.slice(0, 10)} was ${p.reviewStatus === 'APPROVED' ? 'approved and counts' : 'refused'}.` })),
+    ],
+    waitingForMe: (waitLeave as number) + (waitCorr as number) + (waitPunch as number),
+  });
+});
+
+/** A field punch's selfie, for the manager deciding it. */
+portalRouter.get('/approvals/punch/:id/photo', async (req, res) => {
+  const e = req.portal!.employee;
+  const p = await peoplePrisma.devicePunch.findFirst({ where: { id: String(req.params.id), orgId: e.orgId, outsideSite: true } });
+  if (!p?.photoId) return res.status(404).json({ error: 'No selfie with this punch.' });
+  const owner = await peoplePrisma.employee.findFirst({ where: { id: p.employeeId || '', orgId: e.orgId }, select: { reportingManagerId: true } });
+  if (owner?.reportingManagerId !== e.id) return res.status(403).json({ error: 'This punch is not yours to see.' });
+  const photo = await peoplePrisma.punchPhoto.findFirst({ where: { id: p.photoId, orgId: e.orgId } });
+  if (!photo) return res.status(404).json({ error: 'The selfie has been deleted (kept for a limited time).' });
+  res.json({ photo: `data:${photo.mime};base64,${Buffer.from(photo.data).toString('base64')}` });
+});
+
 // ---------------------------------------------------------------------------
 // My requests: everything I asked for, and changing or withdrawing what is still waiting
 // ---------------------------------------------------------------------------
@@ -328,7 +385,7 @@ portalRouter.get('/requests', async (req, res) => {
       reason: r.reason, status: r.status, note: r.reviewNote, createdAt: r.createdAt, withHr: Boolean(r.managerApprovedAt), canChange: r.status === 'PENDING' && !r.managerApprovedAt,
     })),
     ...named.map((r: any) => ({
-      id: r.id, kind: 'leave', leaveTypeName: r.leaveTypeName, fromDate: r.fromDate, toDate: r.toDate, days: r.days, reason: r.reason, status: r.status, note: r.reviewNote ?? null,
+      id: r.id, kind: 'leave', leaveTypeName: r.leaveTypeName, fromDate: r.fromDate, toDate: r.toDate, days: r.days, halfDay: r.halfDay ?? null, reason: r.reason, status: r.status, note: r.reviewNote ?? null,
       createdAt: r.createdAt, canChange: r.status === 'PENDING' || (r.status === 'APPROVED' && r.fromDate > t),
     })),
     ...data.map((r) => ({ id: r.id, kind: 'data', type: r.type, reason: r.details, status: r.status, note: r.resolution, createdAt: r.createdAt, dueAt: r.dueAt, canChange: false })),
@@ -472,7 +529,7 @@ portalRouter.get('/leave', async (req, res) => {
     year,
     today: today(),
     types: types.filter((t) => t.isActive).map((t) => ({ id: t.id, name: t.name, code: t.code, isPaid: t.isPaid, ...mine.get(t.id) })),
-    requests: (await withTypes(orgId, requests)).map((r) => ({ id: r.id, leaveTypeName: r.leaveTypeName, fromDate: r.fromDate, toDate: r.toDate, days: r.days, reason: r.reason, status: r.status })),
+    requests: (await withTypes(orgId, requests)).map((r: any) => ({ id: r.id, leaveTypeName: r.leaveTypeName, fromDate: r.fromDate, toDate: r.toDate, days: r.days, halfDay: r.halfDay ?? null, reason: r.reason, status: r.status })),
   });
 });
 
@@ -518,10 +575,10 @@ portalRouter.get('/approvals', async (req, res) => {
     approver: ids.length > 0,
     team: team.length,
     chain: { leave: leaveChain, correction: correctionChain },
-    leaves: (await withTypes(e.orgId, leaves.filter((r) => !r.managerApprovedAt))).map((r) => ({ id: r.id, type: 'leave', ...who(r.employeeId), leaveTypeName: r.leaveTypeName, fromDate: r.fromDate, toDate: r.toDate, days: r.days, reason: r.reason, askedAt: r.createdAt })),
+    leaves: (await withTypes(e.orgId, leaves.filter((r) => !r.managerApprovedAt))).map((r: any) => ({ id: r.id, type: 'leave', ...who(r.employeeId), leaveTypeName: r.leaveTypeName, fromDate: r.fromDate, toDate: r.toDate, days: r.days, halfDay: r.halfDay ?? null, reason: r.reason, askedAt: r.createdAt })),
     corrections: corrections.filter((r) => !r.managerApprovedAt).map((r) => ({ id: r.id, type: 'correction', ...who(r.employeeId), date: r.date, checkIn: r.checkIn ? istTime(r.checkIn) : null, checkOut: r.checkOut ? istTime(r.checkOut) : null, reason: r.reason, askedAt: r.createdAt })),
     /* Field punches from my team waiting for a decision. */
-    punches: fieldPunches.map((p) => ({ id: p.id, type: 'punch', ...who(p.employeeId || ''), date: p.localTime.slice(0, 10), checkIn: p.localTime.slice(11, 16), kind: p.kind, reason: p.address || 'Outside the work sites', latitude: p.latitude, longitude: p.longitude, askedAt: p.createdAt })),
+    punches: fieldPunches.map((p) => ({ id: p.id, type: 'punch', ...who(p.employeeId || ''), date: p.localTime.slice(0, 10), checkIn: p.localTime.slice(11, 16), kind: p.kind, reason: p.address || 'Outside the work sites', latitude: p.latitude, longitude: p.longitude, accuracy: p.accuracyM != null ? Math.round(p.accuracyM) : null, photo: Boolean(p.photoId), askedAt: p.createdAt })),
   });
 });
 

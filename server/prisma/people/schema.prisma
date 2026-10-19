@@ -528,8 +528,10 @@ model LeaveRequest {
   leaveTypeId String
   fromDate    String /// YYYY-MM-DD
   toDate      String /// YYYY-MM-DD, inclusive
-  /// Working days in the range (weekly offs and holidays are not counted).
+  /// Working days in the range (weekly offs and holidays are not counted); 0.5 for a half day.
   days        Float
+  /// Half-day leave on a single day: FIRST or SECOND half. Null = whole days.
+  halfDay     String?
   reason      String
   /// PENDING | APPROVED | REJECTED | CANCELLED
   status      String @default("PENDING")

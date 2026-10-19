@@ -149,4 +149,48 @@ describe('the app home screen', () => {
     expect(list.summary).toMatchObject({ field: 1, waiting: 0 });
     expect(JSON.stringify((await me.get('/privacy-notice').expect(200)).body.notice)).toMatch(/Field punching/);
   });
+
+  it('half-day leave: 0.5 from the balance, and the punches decide the other half', async () => {
+    const c = await makeOwner();
+    const boss = await person(c, { name: 'Half Boss', code: 'HB' });
+    const p = await person(c, { name: 'Half Hema', code: 'HH', reportingManagerId: boss.id });
+    const type = (await api(c).post('/leave/types', { name: 'Casual', isPaid: true, annualDays: 12 }).expect(201)).body.type;
+    const me = await portalFor(c, p.id, 'HH');
+    /* A past weekday, so its punches can be sent. */
+    let d = new Date(Date.now() + 330 * 60_000 - 86_400_000);
+    while ([0, 6].includes(d.getUTCDay())) d = new Date(d.getTime() - 86_400_000);
+    const day = d.toISOString().slice(0, 10);
+    await me.post('/leave', { leaveTypeId: type.id, fromDate: day, toDate: plusOne(day), reason: 'Doctor', halfDay: 'FIRST' }).expect(400);
+    const req = (await me.post('/leave', { leaveTypeId: type.id, fromDate: day, toDate: day, reason: 'Doctor in the morning', halfDay: 'FIRST' }).expect(201)).body.request;
+    expect(req.days).toBe(0.5);
+    const mm = await portalFor(c, boss.id, 'HB');
+    await mm.post(`/approvals/leave/${req.id}`, { decision: 'approve' }).expect(200);
+    /* No punches yet: a half day (the other half is not worked). */
+    const sn = serial();
+    await addReader(c, sn);
+    const rec0 = await peoplePrisma.attendanceRecord.findUnique({ where: { employeeId_date: { employeeId: p.id, date: day } } });
+    expect(rec0!.status).toBe('HALF_DAY');
+    /* Worked the afternoon: present, and no lateness for arriving after the morning off. */
+    await reader(sn).push([`HH\t${day} 13:30:00\t0\t1`, `HH\t${day} 18:05:00\t1\t1`]).expect(200);
+    const rec = await peoplePrisma.attendanceRecord.findUnique({ where: { employeeId_date: { employeeId: p.id, date: day } } });
+    expect(rec).toMatchObject({ status: 'PRESENT', lateMinutes: 0 });
+    const bal = (await me.get('/leave').expect(200)).body.types.find((t: any) => t.id === type.id);
+    expect(bal.used).toBe(0.5);
+    expect((await me.get('/leave').expect(200)).body.requests[0].halfDay).toBe('FIRST');
+  });
+
+  it('forgot password tells HR without saying whether the person exists; updates list decisions', async () => {
+    const c = await makeOwner();
+    const p = await person(c, { name: 'Forgetful', code: 'FG' });
+    const me = await portalFor(c, p.id, 'FG');
+    const list = await api(c).get('/portal-access').expect(200);
+    const company = list.body.company.code;
+    const a = (await request(app).post('/api/portal/forgot').send({ company, employeeCode: 'FG' }).expect(200)).body.message;
+    const b = (await request(app).post('/api/portal/forgot').send({ company, employeeCode: 'NOBODY' }).expect(200)).body.message;
+    expect(a).toBe(b);
+    const u = (await me.get('/updates').expect(200)).body;
+    expect(u).toMatchObject({ decided: [], waitingForMe: 0 });
+  });
 });
+
+const plusOne = (iso: string) => new Date(Date.parse(`${iso}T00:00:00Z`) + 86_400_000).toISOString().slice(0, 10);
