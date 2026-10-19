@@ -283,6 +283,7 @@ export default function Integrations() {
       <section className="ui-card space-y-3 p-4 text-sm" aria-labelledby="api-h">
         <h2 id="api-h" className="ui-t-sec">The API</h2>
         <p>Base address <code className="ui-mono font-semibold">{base}</code>. Send the key as <code className="ui-mono">Authorization: Bearer clor_…</code>. Times are Indian Standard Time; at most 92 days per call, 120 calls a minute per key. Full reference: <a className="ui-link" href={`${base}/docs`} target="_blank" rel="noreferrer">{base}/docs</a> · <a className="ui-link" href={`${base}/openapi.json`} target="_blank" rel="noreferrer">openapi.json</a>. Lists take <code className="ui-mono">updated_since</code> + <code className="ui-mono">cursor</code> to sync only what changed; writes may carry an <code className="ui-mono">Idempotency-Key</code> header so a retry is never a second record.</p>
+        <div className="overflow-x-auto ui-table-scroll">
         <table className="ui-table w-full text-xs">
           <tbody>
             {[
@@ -300,7 +301,7 @@ export default function Integrations() {
               ['GET', '/attendance/summary?month=YYYY-MM', 'attendance:read', 'Payable and loss-of-pay days'],
               ['POST', '/attendance/punches', 'punches:write', 'Up to 500 punches: { "punches": [{ "employee_code", "timestamp": "YYYY-MM-DD HH:mm:ss", "direction": "in" | "out" }] }'],
             ].map(([m, path, scope, what]) => (
-              <tr key={path}>
+              <tr key={`${m} ${path}`}>
                 <td className="ui-mono">{m}</td>
                 <td className="ui-mono">{path}</td>
                 <td className="ui-mono ui-col-meta">{scope}</td>
@@ -309,6 +310,7 @@ export default function Integrations() {
             ))}
           </tbody>
         </table>
+        </div>
         <pre className="overflow-x-auto rounded-lg bg-[rgb(var(--surface-sunken))] p-3 text-xs">{`curl -H "Authorization: Bearer clor_…" "${base}/attendance/days?from=2026-10-01&to=2026-10-31"`}</pre>
       </section>
     </div>
