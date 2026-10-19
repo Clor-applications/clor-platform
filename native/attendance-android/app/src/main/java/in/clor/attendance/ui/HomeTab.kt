@@ -67,6 +67,8 @@ import java.util.Locale
 
 /** Where the home screen can send someone. */
 class HomeLinks(
+    val request: (NewKind) -> Unit,
+    val requests: () -> Unit,
     val attendance: () -> Unit,
     val applyLeave: () -> Unit,
     val leave: () -> Unit,
@@ -90,7 +92,8 @@ fun HomeTab(api: Api, version: Int, links: HomeLinks, onChanged: () -> Unit, onS
                 Header(h)
                 Column(Modifier.padding(horizontal = 16.dp).padding(bottom = 96.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
                     Alerts(h, links)
-                    PunchCard(api, h.shift, h.record, h.punches, h.phone, onPunched = { home.reload(); onChanged() }, onSignedOut = onSignedOut)
+                    PunchCard(api, h.shift, h.record, h.punches, h.phone, onPunched = { home.reload(); onChanged() }, onSignedOut = onSignedOut,
+                        onAskPhone = { links.request(NewKind.Phone) }, onFix = { links.request(NewKind.Missed) }, onDuty = { links.request(NewKind.OnDuty) })
                     SectionTitle("This month", YearMonth.parse(h.month.month.ifEmpty { YearMonth.now().toString() }).format(DateTimeFormatter.ofPattern("MMMM yyyy", Locale.ENGLISH)))
                     MonthGrid(h, links)
                     WeekChart(h)
@@ -116,7 +119,9 @@ fun HomeTab(api: Api, version: Int, links: HomeLinks, onChanged: () -> Unit, onS
             Column(Modifier.padding(bottom = 28.dp)) {
                 Text("Quick actions", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp))
                 SheetRow(Icons.Outlined.EventAvailable, "Apply for leave", "Pick dates and a type") { quick = false; links.applyLeave() }
-                SheetRow(Icons.Outlined.EditCalendar, "Fix a day", "A missed or wrong punch") { quick = false; links.attendance() }
+                SheetRow(Icons.Outlined.EditCalendar, "Missed or wrong punch", "Ask for a day to be fixed") { quick = false; links.request(NewKind.Missed) }
+                SheetRow(NewKind.OnDuty.icon, "On duty", "Working away from the site") { quick = false; links.request(NewKind.OnDuty) }
+                SheetRow(NewKind.Details.icon, "Update my details", "Phone, address, bank…") { quick = false; links.request(NewKind.Details) }
                 SheetRow(Icons.Outlined.Description, "My documents", "Letters and files HR shared") { quick = false; links.me() }
             }
         }
@@ -150,7 +155,7 @@ private fun Header(h: Home) {
                     }
                     Text(h.company.name, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
-                h.site?.let { site ->
+                (h.site ?: "Site not set").let { site ->
                     Row(
                         Modifier.widthIn(max = 150.dp).border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(50)).background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(50)).padding(horizontal = 10.dp, vertical = 6.dp),
                         verticalAlignment = Alignment.CenterVertically,
@@ -191,7 +196,7 @@ private fun Alerts(h: Home, links: HomeLinks) {
     }
     val mine = h.leave.pending + h.corrections.pending
     if (mine > 0 && h.attentionCount == 0) {
-        AlertBanner(Tone.Neutral, "$mine of your request${if (mine == 1) " is" else "s are"} with HR", "You get a notification when it is decided", links.leave)
+        AlertBanner(Tone.Neutral, "$mine of your request${if (mine == 1) " is" else "s are"} with HR", "You get a notification when it is decided", links.requests)
     }
 }
 
@@ -405,10 +410,10 @@ private fun Team(h: Home, links: HomeLinks) {
 private fun QuickActions(h: Home, links: HomeLinks) {
     val items = buildList {
         add(Triple(Icons.Outlined.EventAvailable to Color(0xFF2563EB), "Apply leave", links.applyLeave))
-        add(Triple(Icons.Outlined.EditCalendar to Pos, "Fix a day", links.attendance))
-        add(Triple(Icons.Outlined.CalendarMonth to Warn, "My month", links.attendance))
+        add(Triple(Icons.Outlined.EditCalendar to Pos, "Fix a punch", { links.request(NewKind.Missed) }))
+        add(Triple(NewKind.OnDuty.icon to Warn, "On duty", { links.request(NewKind.OnDuty) }))
         if (h.approvals.approver) add(Triple(Icons.Outlined.Inbox to Color(0xFF7C3AED), "Approvals", links.approvals))
-        else add(Triple(Icons.Outlined.Description to Color(0xFF7C3AED), "Documents", links.me))
+        else add(Triple(Icons.Outlined.Inbox to Color(0xFF7C3AED), "My requests", links.requests))
     }
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         items.forEach { (iconTint, label, go) ->

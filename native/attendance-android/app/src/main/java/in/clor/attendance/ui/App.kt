@@ -81,28 +81,41 @@ fun ClorApp(api: Api, session: Session) {
             if (privacy != null && !privacy.read) {
                 NoticeScreen(api, onSignedOut = signOut, mustRead = true) { me.reload() }
             } else {
-                Tabs(api, s.value.approver, version, onChanged = { version++ }, onSignedOut = signOut)
+                Tabs(api, s.value.approver, s.value.phone.allowed, version, onChanged = { version++ }, onSignedOut = signOut)
             }
         }
         else -> Fill { Column(Modifier.padding(top = 96.dp)) { LoadView(me) {} } }
     }
 }
 
-private enum class Tab(val label: String) { Home("Home"), Attendance("Attendance"), Leave("Leave"), Approvals("Approvals"), Me("Me") }
+private enum class Tab(val label: String) { Home("Home"), Attendance("Attendance"), Requests("Requests"), Leave("Leave"), Me("Me") }
 
 @Composable
-private fun Tabs(api: Api, approver: Boolean, version: Int, onChanged: () -> Unit, onSignedOut: () -> Unit) {
+private fun Tabs(api: Api, approver: Boolean, phoneAllowed: Boolean, version: Int, onChanged: () -> Unit, onSignedOut: () -> Unit) {
     var tab by rememberSaveable { mutableStateOf(Tab.Home) }
     /* "Apply for leave" from Home opens the Leave tab with the form already open. */
     var applyLeave by remember { mutableStateOf(false) }
+    /* A request to start from Home (a missed punch, on duty, …), opened on the Requests tab. */
+    var newRequest by remember { mutableStateOf<NewKind?>(null) }
     val links = HomeLinks(
+        request = { k ->
+            if (k == NewKind.Leave) {
+                applyLeave = true
+                tab = Tab.Leave
+            } else {
+                newRequest = k
+                tab = Tab.Requests
+            }
+            Unit
+        },
+        requests = { tab = Tab.Requests },
         attendance = { tab = Tab.Attendance },
         applyLeave = { applyLeave = true; tab = Tab.Leave },
         leave = { tab = Tab.Leave },
-        approvals = { tab = if (approver) Tab.Approvals else Tab.Home },
+        approvals = { tab = Tab.Requests },
         me = { tab = Tab.Me },
     )
-    val tabs = Tab.entries.filter { it != Tab.Approvals || approver }
+    val tabs = Tab.entries
     Scaffold(
         bottomBar = {
             NavigationBar {
@@ -116,7 +129,7 @@ private fun Tabs(api: Api, approver: Boolean, version: Int, onChanged: () -> Uni
                                     Tab.Home -> Icons.Outlined.Home
                                     Tab.Attendance -> Icons.Outlined.CalendarMonth
                                     Tab.Leave -> Icons.Outlined.EventAvailable
-                                    Tab.Approvals -> Icons.Outlined.Inbox
+                                    Tab.Requests -> Icons.Outlined.Inbox
                                     Tab.Me -> Icons.Outlined.Person
                                 },
                                 contentDescription = null,
@@ -133,7 +146,7 @@ private fun Tabs(api: Api, approver: Boolean, version: Int, onChanged: () -> Uni
                 Tab.Home -> HomeTab(api, version, links, onChanged, onSignedOut)
                 Tab.Attendance -> AttendanceTab(api, version, onChanged, onSignedOut)
                 Tab.Leave -> LeaveTab(api, version, onChanged, onSignedOut, startApplying = applyLeave, onApplyShown = { applyLeave = false })
-                Tab.Approvals -> ApprovalsTab(api, onSignedOut)
+                Tab.Requests -> RequestsTab(api, version, approver, phoneAllowed, startNew = newRequest, onStarted = { newRequest = null }, openLeave = { applyLeave = true; tab = Tab.Leave }, onChanged = onChanged, onSignedOut = onSignedOut)
                 Tab.Me -> MeTab(api, onSignedOut)
             }
         }

@@ -31,14 +31,20 @@ import kotlinx.coroutines.launch
 /** Leave and corrections from the people who report to me. The server checks each decision is mine to make. */
 @Composable
 fun ApprovalsTab(api: Api, onSignedOut: () -> Unit) {
-    val data = rememberLoad(onSignedOut) { api.approvals() }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(screenPadding), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text("Waiting on you", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
-        LoadView(data) { a ->
-            val all = a.leaves + a.corrections
-            if (all.isEmpty()) Section { Hint("Nothing waiting. Requests from people who report to you appear here.") }
-            all.forEach { ask -> AskCard(api, ask, onDecided = data.reload, onSignedOut = onSignedOut) }
-        }
+        ApprovalsContent(api, onSignedOut)
+    }
+}
+
+/** The list itself, also shown under Requests → My team. */
+@Composable
+fun ApprovalsContent(api: Api, onSignedOut: () -> Unit) {
+    val data = rememberLoad(onSignedOut) { api.approvals() }
+    LoadView(data) { a ->
+        val all = a.leaves + a.corrections
+        if (all.isEmpty()) Section { Hint("Nothing waiting. Requests from people who report to you appear here.") }
+        all.forEach { ask -> AskCard(api, ask, onDecided = data.reload, onSignedOut = onSignedOut) }
     }
 }
 

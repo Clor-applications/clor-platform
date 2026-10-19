@@ -89,11 +89,21 @@ class Api(private val session: Session, private val base: String = BuildConfig.A
     suspend fun month(month: String): Month = get("/attendance?month=$month")
     suspend fun explain(date: String): Explained = get("/attendance/explain?date=$date")
 
-    suspend fun askCorrection(date: String, checkIn: String, checkOut: String?, reason: String) {
+    suspend fun askCorrection(date: String, checkIn: String, checkOut: String?, reason: String, reasonCode: String? = null) {
         call("POST", "/corrections", buildJsonObject {
-            put("date", date); put("checkIn", checkIn); checkOut?.let { put("checkOut", it) }; put("reason", reason)
+            put("date", date); put("checkIn", checkIn); checkOut?.let { put("checkOut", it) }; put("reason", reason); reasonCode?.let { put("reasonCode", it) }
         })
     }
+    suspend fun editCorrection(id: String, checkIn: String, checkOut: String?, reason: String, reasonCode: String?) {
+        call("PUT", "/corrections/$id", buildJsonObject {
+            put("checkIn", checkIn); checkOut?.let { put("checkOut", it) }; put("reason", reason); reasonCode?.let { put("reasonCode", it) }
+        })
+    }
+    suspend fun cancelCorrection(id: String) { call("POST", "/corrections/$id/cancel") }
+    suspend fun requests(): MyRequests = get("/requests")
+    /** Ask HR about my data: CORRECTION (update my details), ACCESS, ERASURE, NOMINATE, GRIEVANCE. */
+    suspend fun askData(type: String, details: String) { call("POST", "/data-requests", buildJsonObject { put("type", type); put("details", details) }) }
+    suspend fun askPhonePunch(note: String?): Said = post("/phone-punch/ask", buildJsonObject { note?.let { put("note", it) } })
 
     suspend fun leave(year: Int? = null): Leave = get(if (year != null) "/leave?year=$year" else "/leave")
     suspend fun askLeave(leaveTypeId: String, fromDate: String, toDate: String, reason: String) {

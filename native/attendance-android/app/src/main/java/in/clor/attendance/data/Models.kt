@@ -229,3 +229,31 @@ data class Holiday(val date: String = "", val name: String = "")
 
 @Serializable
 data class TeamSummary(val approver: Boolean = false, val team: Int = 0, val waiting: Int = 0, val awayToday: List<String> = emptyList())
+
+/** One of my requests (GET /portal/requests): a correction / on-duty / missed punch, a leave, or a data request. */
+@Serializable
+data class MyRequest(
+    val id: String = "",
+    val kind: String = "",
+    val reasonCode: String? = null,
+    val type: String? = null,
+    val date: String? = null,
+    val checkIn: String? = null,
+    val checkOut: String? = null,
+    val leaveTypeName: String? = null,
+    val fromDate: String? = null,
+    val toDate: String? = null,
+    val days: Double? = null,
+    val reason: String? = null,
+    val status: String = "",
+    val note: String? = null,
+    val createdAt: String = "",
+    val dueAt: String? = null,
+    val canChange: Boolean = false,
+)
+
+@Serializable
+data class MyRequests(val requests: List<MyRequest> = emptyList(), val reasons: List<String> = emptyList())
+
+@Serializable
+data class Said(val ok: Boolean = true, val message: String = "")

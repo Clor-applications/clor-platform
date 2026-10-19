@@ -63,7 +63,7 @@ import java.time.format.DateTimeFormatter
  * stamps the time and checks the site, and its answer is what is shown.
  */
 @Composable
-fun PunchCard(api: Api, shift: Shift, record: DayRecord?, punches: List<TodayPunch>, phone: Phone, onPunched: () -> Unit, onSignedOut: () -> Unit) {
+fun PunchCard(api: Api, shift: Shift, record: DayRecord?, punches: List<TodayPunch>, phone: Phone, onPunched: () -> Unit, onSignedOut: () -> Unit, onAskPhone: () -> Unit = {}, onFix: () -> Unit = {}, onDuty: () -> Unit = {}) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var busy by remember { mutableStateOf(false) }
@@ -174,9 +174,15 @@ fun PunchCard(api: Api, shift: Shift, record: DayRecord?, punches: List<TodayPun
             }
             message?.let { (text, ok) -> Text(text, color = if (ok) Pos else MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium) }
         } else {
+            /* No phone punching for this person: say so, and offer what they can do instead. */
             Box(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(10.dp)).padding(12.dp)) {
                 Text(phone.why ?: "Punch at the reader at work. Punching from your phone is not switched on for you.", style = MaterialTheme.typography.bodyMedium)
             }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = onFix, modifier = Modifier.weight(1f)) { Text("Missed a punch") }
+                OutlinedButton(onClick = onDuty, modifier = Modifier.weight(1f)) { Text("On duty") }
+            }
+            if (phone.why == null) Button(onClick = onAskPhone, shape = RoundedCornerShape(14.dp), modifier = Modifier.fillMaxWidth()) { Text("Ask HR for phone punching") }
         }
         if (punches.isNotEmpty()) {
             Text("Today", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 6.dp))
