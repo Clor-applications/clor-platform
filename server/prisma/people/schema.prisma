@@ -1103,6 +1103,15 @@ model AttendanceSettings {
   privacyNoticeAt            DateTime?
   /// Field punches (outside every work site) wait for a manager's or HR's approval before they count.
   fieldPunchApproval         Boolean   @default(true)
+  /// Monthly confirmation: employees confirm (or dispute) their month by this day of the next month.
+  confirmCutoffDay           Int       @default(3)
+  /// Employees may ask for recorded overtime to be approved; and, when on, for comp-off
+  /// (a day of the comp-off leave type for work on a weekly off or holiday).
+  overtimeRequests           Boolean   @default(true)
+  compOffEnabled             Boolean   @default(false)
+  compOffLeaveTypeId         String?
+  /// Who decides overtime and comp-off requests: HR | MANAGER | MANAGER_THEN_HR.
+  overtimeApproval           String    @default("HR")
 
   updatedByUserId String
   updatedAt       DateTime @updatedAt
@@ -1559,4 +1568,49 @@ model PhonePunchAttempt {
 
   @@index([orgId, at])
   @@index([orgId, employeeId, at])
+}
+
+/// An employee's own check of their month (Attendance app "Confirm my month"):
+/// CONFIRMED, or DISPUTED with what is wrong. Kept with how many items were
+/// still open when they did it; HR sees it at month close.
+model AttendanceMonthConfirmation {
+  id         String   @id @default(cuid())
+  accountId  String
+  orgId      String
+  employeeId String
+  month      String /// YYYY-MM
+  status     String /// CONFIRMED | DISPUTED
+  note       String?
+  unresolved Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([orgId, employeeId, month])
+  @@index([orgId, month])
+}
+
+/// Overtime approval or comp-off, asked for by an employee for one day.
+/// OVERTIME: approve the overtime recorded that day. COMP_OFF: work on a weekly
+/// off or holiday becomes days of the company's comp-off leave type.
+model OvertimeRequest {
+  id                  String    @id @default(cuid())
+  accountId           String
+  orgId               String
+  employeeId          String
+  date                String /// YYYY-MM-DD
+  kind                String /// OVERTIME | COMP_OFF
+  minutes             Int       @default(0)
+  days                Float     @default(0)
+  reason              String
+  status              String    @default("PENDING")
+  managerApprovedAt   DateTime?
+  managerApprovedById String?
+  reviewedByUserId    String?
+  reviewedAt          DateTime?
+  reviewNote          String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  @@index([orgId, status])
+  @@index([orgId, employeeId, date])
 }

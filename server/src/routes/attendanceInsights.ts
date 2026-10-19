@@ -15,7 +15,8 @@ import { explainDay } from '../services/attendance/explain.js';
 import { dayDiff, daySnapshot, dayHistory } from '../services/attendance/history.js';
 import { monthReadiness, scanDays, scanQueues } from '../services/attendance/readiness.js';
 import { overrideFindings, rangedFindings, temporaryFindings } from '../services/attendance/conflicts.js';
-import { hrMayDecide } from '../services/attendance/approvalChain.js';
+import { CHAINS, hrMayDecide } from '../services/attendance/approvalChain.js';
+import { confirmationsFor, decideOvertime, overtimeChain } from '../services/attendance/selfService.js';
 import { balancesFor } from './leave.js';
 import { earned as earnedBy } from '../services/attendance/leaveAccrual.js';
 import {
@@ -271,7 +272,7 @@ attendanceInsightsRouter.get(`${base}/months/:month/readiness`, can(PermissionAc
   if (!isMonth(month)) return res.status(400).json({ error: 'Months are YYYY-MM.' });
   const r = await monthReadiness(accountId, orgId, month);
   const by = await namesOf(r.snapshots.map((s) => s.createdByUserId));
-  res.json({ ...r, snapshots: r.snapshots.map((s) => ({ ...s, by: actorName(s.createdByUserId, by) })) });
+  res.json({ ...r, snapshots: r.snapshots.map((s) => ({ ...s, by: actorName(s.createdByUserId, by) })), confirmations: await confirmationsFor(orgId, month) });
 });
 
 attendanceInsightsRouter.get(`${base}/months/:month/snapshots/:version`, can(PermissionAction.VIEW, R.records), async (req, res) => {
@@ -889,4 +890,77 @@ attendanceInsightsRouter.get(`${base}/phone-punches`, can(PermissionAction.VIEW,
     refused,
     sites: fences.map((f) => ({ id: f.id, name: f.name, latitude: f.latitude, longitude: f.longitude, radius: f.radiusMeters })),
   });
+});
+
+// ---------------------------------------------------------------------------
+// Overtime and comp-off: the company's rules, and the requests waiting on HR
+// ---------------------------------------------------------------------------
+
+const overtimeRules = (s: any) => ({
+  overtimeRequests: s?.overtimeRequests ?? true,
+  overtimeApproval: s?.overtimeApproval ?? 'HR',
+  compOffEnabled: s?.compOffEnabled ?? false,
+  compOffLeaveTypeId: s?.compOffLeaveTypeId ?? null,
+  confirmCutoffDay: s?.confirmCutoffDay ?? 3,
+});
+
+attendanceInsightsRouter.get(`${base}/overtime/rules`, can(PermissionAction.VIEW, R.records), async (req, res) => {
+  if (!(await attendanceRouteOk(req, res))) return;
+  const { orgId } = req.tenant!;
+  const [s, types] = await Promise.all([
+    peoplePrisma.attendanceSettings.findUnique({ where: { orgId } }),
+    peoplePrisma.leaveType.findMany({ where: { orgId }, select: { id: true, name: true, code: true }, orderBy: { name: 'asc' } }),
+  ]);
+  res.json({ rules: overtimeRules(s), leaveTypes: types });
+});
+
+attendanceInsightsRouter.put(`${base}/overtime/rules`, can(PermissionAction.EDIT, R.records), async (req, res) => {
+  if (!(await attendanceRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const parsed = z
+    .object({
+      overtimeRequests: z.boolean(),
+      overtimeApproval: z.enum(CHAINS as [string, ...string[]]),
+      compOffEnabled: z.boolean(),
+      compOffLeaveTypeId: z.string().nullable(),
+      confirmCutoffDay: z.number().int().min(1).max(28),
+    })
+    .safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Check the rules.' });
+  const v = parsed.data;
+  if (v.compOffEnabled && !v.compOffLeaveTypeId) return res.status(400).json({ error: 'Choose the leave type comp-off days are added to.' });
+  if (v.compOffLeaveTypeId && !(await peoplePrisma.leaveType.findFirst({ where: { id: v.compOffLeaveTypeId, orgId } }))) return res.status(400).json({ error: 'No such leave type.' });
+  const s = await peoplePrisma.attendanceSettings.upsert({ where: { orgId }, create: { accountId, orgId, ...v, updatedByUserId: req.auth!.userId }, update: { ...v, updatedByUserId: req.auth!.userId } });
+  res.json({ rules: overtimeRules(s) });
+});
+
+attendanceInsightsRouter.get(`${base}/overtime/requests`, can(PermissionAction.VIEW, R.records), async (req, res) => {
+  if (!(await attendanceRouteOk(req, res))) return;
+  const { orgId } = req.tenant!;
+  const status = ['PENDING', 'APPROVED', 'REJECTED', 'CANCELLED'].includes(String(req.query.status)) ? String(req.query.status) : 'PENDING';
+  const rows = await peoplePrisma.overtimeRequest.findMany({ where: { orgId, status }, orderBy: { createdAt: status === 'PENDING' ? 'asc' : 'desc' }, take: 300 });
+  const people = await peoplePrisma.employee.findMany({ where: { orgId, id: { in: [...new Set(rows.map((r) => r.employeeId))] } }, select: { id: true, name: true, code: true, reportingManagerId: true } });
+  const by = new Map(people.map((p) => [p.id, p]));
+  const chain = await overtimeChain(orgId);
+  res.json({
+    chain,
+    requests: rows.map((r) => {
+      const p = by.get(r.employeeId);
+      const waitingOnManager = chain === 'MANAGER_THEN_HR' && !r.managerApprovedAt && Boolean(p?.reportingManagerId) && r.status === 'PENDING';
+      return { ...r, employeeName: p?.name || '—', employeeCode: p?.code || null, waitingOnManager };
+    }),
+  });
+});
+
+attendanceInsightsRouter.post(`${base}/overtime/requests/:id/:decision`, can(PermissionAction.EDIT, R.records), async (req, res) => {
+  if (!(await attendanceRouteOk(req, res))) return;
+  const { orgId } = req.tenant!;
+  const decision = String(req.params.decision);
+  if (!['approve', 'reject'].includes(decision)) return res.status(400).json({ error: 'approve or reject.' });
+  try {
+    const r = await decideOvertime(orgId, String(req.params.id), decision === 'approve', { userId: req.auth!.userId }, String(req.body?.note || '').trim().slice(0, 500) || null);
+    res.json({ request: r });
+  } catch (err: any) {
+    res.status(err?.status || 500).json({ error: err?.message || 'Not done.' });
+  }
 });
