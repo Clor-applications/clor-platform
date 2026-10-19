@@ -11,6 +11,7 @@ import {
   lastPayload,
   previewMapping,
   rotatePushToken,
+  setPushSigning,
   approveDeviceNetwork,
   cancelDeviceCommands,
   deleteDevice,
@@ -28,6 +29,7 @@ import {
   todayIst,
   updateDevice,
 } from '../api/attendance';
+import ReaderEvidence, { ReaderCompatibility, SupportPill } from '../components/ReaderEvidence';
 import LoadFailed from '../components/LoadFailed';
 
 const DIRECTIONS = {
@@ -165,6 +167,8 @@ export default function AttendanceDevices({ openScreen }) {
         </ol>
       </details>
 
+      <ReaderCompatibility />
+
       <LoadFailed message={loadError} onRetry={load} />
 
       {!data ? (
@@ -215,7 +219,7 @@ export default function AttendanceDevices({ openScreen }) {
                         <span className="ui-pill ui-pill-warn" title={d.lastSeenAt || ''}>{d.lastSeenAt ? `last seen ${ago(d.lastSeenAt)}` : 'never connected'}</span>
                       )}
                     </td>
-                    <td className="ui-col-meta hidden md:table-cell">{[d.model, d.firmware && `v${d.firmware}`].filter(Boolean).join(' · ') || '—'}</td>
+                    <td className="ui-col-meta hidden md:table-cell">{[d.model, d.firmware && `v${d.firmware}`].filter(Boolean).join(' · ') || '—'} {!VIRTUAL[d.vendor] ? <SupportPill support={d.support} /> : null}</td>
                     <td className="text-end tabular-nums">{d.punchesToday}</td>
                     <td className="text-end tabular-nums hidden md:table-cell">{d.commandsWaiting || '—'}</td>
                   </tr>
@@ -366,7 +370,7 @@ function AddReader({ drivers, pushBase, matrixBase, hikvisionBase, onClose, onSa
               <input type="radio" name="kind" className="mt-1" checked={kind === d.vendor} onChange={() => setKind(d.vendor)} />
               <span>
                 {d.label}
-                {d.unverified ? <span className="ui-pill ui-pill-warn ms-2">not tested on hardware</span> : null}
+                {d.support ? <span className="ms-2"><SupportPill support={d.support} /></span> : d.unverified ? <span className="ui-pill ui-pill-warn ms-2">not tested on hardware</span> : null}
                 <span className="ui-caption block">{d.blurb}</span>
               </span>
             </label>
@@ -527,6 +531,7 @@ function MappedDrawer({ device, pushBase, onClose, onChanged }) {
   const [preview, setPreview] = useState(null);
   const [busy, setBusy] = useState('');
   const [newUrl, setNewUrl] = useState('');
+  const [signing, setSigning] = useState({ on: Boolean(device.signed), secret: '' });
   const setM = (k) => (e) => setMap((m) => ({ ...m, [k]: e.target.value }));
   const headers = preview?.headers || [];
 
@@ -614,6 +619,7 @@ function MappedDrawer({ device, pushBase, onClose, onChanged }) {
       }
     >
       <div className="space-y-4">
+        <ReaderEvidence device={device} />
         {device.lastError ? <div className="ui-card p-3 text-sm" role="alert" style={{ color: 'rgb(var(--neg))' }}>Last {isPull ? 'pull' : 'push'}: {device.lastError}</div> : null}
         {isPull ? <PullControls device={device} onChanged={onChanged} /> : null}
         {!isFile && !isPull ? (
@@ -627,6 +633,17 @@ function MappedDrawer({ device, pushBase, onClose, onChanged }) {
               </p>
             )}
             <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={busy === 'rotate'} onClick={rotate}>Make a new URL</button>
+            <div className="space-y-1 pt-2">
+              <h4 className="text-sm font-medium">Signed pushes {signing.on ? <span className="ui-pill ui-pill-pos">required</span> : <span className="ui-pill ui-pill-neutral">off</span>}</h4>
+              <p className="ui-caption">
+                When on, each push must carry <code className="ui-mono">X-Clor-Timestamp</code> (Unix seconds) and <code className="ui-mono">X-Clor-Signature: sha256=…</code>, an HMAC-SHA256 of <code className="ui-mono">timestamp.body</code> with the secret. A changed body, or one sent again after five minutes, is refused.
+              </p>
+              {signing.secret ? <p className="text-sm">Secret, shown once: <code className="ui-mono break-all">{signing.secret}</code></p> : null}
+              <div className="flex flex-wrap gap-2">
+                <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={busy === 'sign'} onClick={() => act('sign', async () => { const r = await setPushSigning(device.id, true); setSigning({ on: true, secret: r.secret }); onChanged?.(); })}>{signing.on ? 'Make a new secret' : 'Require signed pushes'}</button>
+                {signing.on ? <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" disabled={busy === 'sign'} onClick={() => act('sign', async () => { await setPushSigning(device.id, false); setSigning({ on: false, secret: '' }); onChanged?.(); })}>Stop requiring</button> : null}
+              </div>
+            </div>
           </section>
         ) : null}
 
@@ -796,6 +813,7 @@ function HikvisionPushDrawer({ device, hikvisionBase, onClose, onChanged }) {
       }
     >
       <div className="space-y-4">
+        <ReaderEvidence device={device} />
         {device.lastError ? <div className="ui-card p-3 text-sm" role="alert" style={{ color: 'rgb(var(--neg))' }}>{device.lastError}</div> : null}
 
         <section className="space-y-2" aria-labelledby="hk-status-h">
@@ -929,6 +947,7 @@ function MatrixDrawer({ device, matrixBase, onClose, onChanged }) {
       }
     >
       <div className="space-y-4">
+        <ReaderEvidence device={device} />
         {device.lastError ? <div className="ui-card p-3 text-sm" role="alert" style={{ color: 'rgb(var(--neg))' }}>{device.lastError}</div> : null}
 
         <section className="space-y-2" aria-labelledby="mx-status-h">
@@ -1045,6 +1064,7 @@ function CloudDrawer({ device, onClose, onChanged }) {
       }
     >
       <div className="space-y-4">
+        <ReaderEvidence device={device} />
         {device.lastError ? <div className="ui-card p-3 text-sm" role="alert" style={{ color: 'rgb(var(--neg))' }}>Last pull failed: {device.lastError}</div> : null}
         <section className="space-y-2" aria-labelledby="sync-h">
           <h3 id="sync-h" className="ui-t-sec">Punches</h3>
@@ -1146,6 +1166,7 @@ function PullDrawer({ device, onClose, onChanged }) {
       }
     >
       <div className="space-y-4">
+        <ReaderEvidence device={device} />
         {device.lastError ? <div className="ui-card p-3 text-sm" role="alert" style={{ color: 'rgb(var(--neg))' }}>Last pull failed: {device.lastError}</div> : null}
         <p className="ui-caption">This driver follows the maker’s published API and has not been tried on a real device by CLOR. If a pull fails, send us the error shown above.</p>
         <PullControls device={device} onChanged={onChanged} />
@@ -1267,6 +1288,7 @@ function ReaderDrawer({ device, onClose, onChanged }) {
       }
     >
       <div className="space-y-4">
+        <ReaderEvidence device={device} />
         <form id="reader-form" onSubmit={save} className="grid gap-4">
           <label className="block"><span className="ui-label">Name</span><input className="ui-input w-full" required maxLength={80} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></label>
           <label className="block">

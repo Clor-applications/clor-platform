@@ -122,6 +122,11 @@ export const deleteDevice = (id) => send(`/devices/${encodeURIComponent(id)}`, '
 /* Readers of any vendor: HTTP push (own URL) and file import, read through a field mapping. */
 export const previewMapping = (id, body) => send(`/devices/${encodeURIComponent(id)}/preview`, 'POST', body);
 export const rotatePushToken = (id) => send(`/devices/${encodeURIComponent(id)}/rotate-token`, 'POST', {});
+/** Signing for a push reader: on returns the secret once; off stops requiring it. */
+export const setPushSigning = (id, on) => send(`/devices/${encodeURIComponent(id)}/signing`, 'POST', { on });
+export const getReaderCertification = (id) => get(`/devices/${encodeURIComponent(id)}/certification`);
+export const getReaderEvents = (id, outcome = '') => get(`/devices/${encodeURIComponent(id)}/events${outcome ? `?outcome=${outcome}` : ''}`);
+export const getReaderCompatibility = () => get('/reader-compatibility');
 export const lastPayload = (id) => get(`/devices/${encodeURIComponent(id)}/last-payload`);
 export const approveDeviceNetwork = (id) => send(`/devices/${encodeURIComponent(id)}/approve-network`, 'POST', {});
 export const deviceCommand = (id, action, extra = {}) => send(`/devices/${encodeURIComponent(id)}/commands`, 'POST', { action, ...extra });
