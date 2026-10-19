@@ -97,6 +97,14 @@ describe('an on-site connector', () => {
     expect((await peoplePrisma.attendanceDevice.findUnique({ where: { id: reader.id } }))?.lastError).toBe('Digest refused');
     await a.post(`/readers/${theirs.id}/punches`, { ok: true, lines: [] }).expect(404);
 
+    /* Lines it kept while CLOR was out of reach: taken (repeats dropped), but the reader's cursor and error stay as they were. */
+    const before = await peoplePrisma.attendanceDevice.findUnique({ where: { id: reader.id } });
+    const replay = await a.post(`/readers/${reader.id}/punches`, { ok: true, replay: true, lines: ['501\t2026-09-01 09:00:00\t0\t15', '501\t2026-09-02 09:00:00\t0\t15'], received: 2 }).expect(200);
+    expect(replay.body).toEqual({ added: 1, received: 2 });
+    const afterReplay = await peoplePrisma.attendanceDevice.findUnique({ where: { id: reader.id } });
+    expect(afterReplay?.lastFetchedAt?.getTime()).toBe(before?.lastFetchedAt?.getTime());
+    expect(afterReplay?.lastError).toBe('Digest refused');
+
     /* Its clock, as the connector read it: drift recorded; a set clears it and is logged. */
     await a.post(`/readers/${reader.id}/clock`, { offsetSec: 95 }).expect(200);
     expect((await peoplePrisma.attendanceDevice.findUnique({ where: { id: reader.id } }))?.clockOffsetSec).toBe(95);
@@ -127,7 +135,7 @@ describe('an on-site connector', () => {
     expect((await peoplePrisma.agentJob.findUnique({ where: { id: job.id } }))).toMatchObject({ status: 'DONE', attempts: 1, result: 'Tally took it (1 created, 0 altered).' });
     const jobs = (await api(c).get(`/integrations/agents/${id}/jobs`).expect(200)).body.jobs;
     expect(jobs[0]).toMatchObject({ id: job.id, status: 'DONE', label: 'Payroll Oct → Tally' });
-    await a.post('/report', { summary: 'LAN gate: 2 read, 2 new', error: null }).expect(200);
+    await a.post('/report', { summary: 'LAN gate: 2 read, 2 new', error: null, spooled: 0 }).expect(200);
     expect((await api(c).get('/integrations/agents').expect(200)).body.agents[0].lastSummary).toBe('LAN gate: 2 read, 2 new');
 
     /* Switched off: refused; rotated: the old token dies; removed: readers come back to the cloud. */
@@ -238,5 +246,28 @@ describe('what the connector decides on its own', () => {
     expect(readTallyReply('<RESPONSE><CREATED>1</CREATED><ALTERED>0</ALTERED><ERRORS>0</ERRORS></RESPONSE>')).toEqual({ ok: true, message: 'Tally took it (1 created, 0 altered).' });
     expect(readTallyReply('<RESPONSE><CREATED>0</CREATED><ERRORS>1</ERRORS><LINEERROR>Ledger \'Salaries\' does not exist!</LINEERROR></RESPONSE>')).toMatchObject({ ok: false, message: expect.stringMatching(/does not exist/) });
     expect(readTallyReply('<html>Unknown Request, cannot be processed</html>').ok).toBe(false);
+  });
+});
+
+describe('the connector download', () => {
+  it('serves the signature beside the file, and says so plainly when there is none', async () => {
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const sigFile = path.resolve(process.cwd(), 'dist-agent/clor-agent.cjs.sig');
+    const kept = fs.existsSync(sigFile) ? fs.readFileSync(sigFile) : null;
+    try {
+      fs.rmSync(sigFile, { force: true });
+      const none = await request(app).get('/agent/v1/download.sig').expect(404);
+      expect(none.body.error).toMatch(/not signed/);
+      fs.mkdirSync(path.dirname(sigFile), { recursive: true });
+      fs.writeFileSync(sigFile, 'c2lnbmF0dXJl\n');
+      /* No token needed, like the download itself. */
+      const got = await request(app).get('/agent/v1/download.sig').expect(200);
+      expect(got.text).toBe('c2lnbmF0dXJl\n');
+      expect(got.headers['content-type']).toMatch(/text\/plain/);
+    } finally {
+      if (kept) fs.writeFileSync(sigFile, kept);
+      else fs.rmSync(sigFile, { force: true });
+    }
   });
 });

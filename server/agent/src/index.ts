@@ -13,7 +13,8 @@
  *
  * It only ever calls out — to CLOR over HTTPS, and to the LAN devices. It
  * keeps a small state file (the SCIM token it was handed once, and which
- * people it created) next to its config.
+ * people it created) next to its config, and beside it a spool of punches
+ * CLOR could not take yet (clor-agent-spool.jsonl), sent again every round.
  *
  *   node clor-agent.cjs --token clora_… [--api https://api.clor.in] [--state ./clor-agent.json] [--once]
  *   node clor-agent.cjs --install --token clora_…     keeps the token in the state file and registers
@@ -21,7 +22,9 @@
  *   CLOR_AGENT_TOKEN / CLOR_API_URL / CLOR_AGENT_STATE do the same.
  *
  * When CLOR has a newer connector it downloads it over itself and restarts
- * (unless --no-update), so a customer's box stays current without a visit.
+ * (unless --no-update), so a customer's box stays current without a visit —
+ * but only a file whose Ed25519 signature checks out against the key built
+ * into this one (signing.ts).
  */
 import fs from 'node:fs';
 import os from 'node:os';
@@ -31,6 +34,8 @@ import http from 'node:http';
 import { pullByVendor } from '../../src/services/attendance/pull/drivers.js';
 import type { PullContext } from '../../src/services/attendance/pull/common.js';
 import { authedRequest } from '../../src/services/attendance/digest.js';
+import { appendSpool, flushSpool, readSpool, retryableStatus, spooledLines, type SpoolBatch } from './spool.js';
+import { verifyAgentSignature } from './signing.js';
 import { adActive, clockOffsetSeconds, clockSetDue, hikvisionTimeZone, localStamp, planLdapSync, pullWindow, readTallyReply, zoneOffsetMinutes, type DirectoryUser, type ScimUser } from './plan.js';
 
 /* The cloud's guards refuse private addresses; here the LAN is the point. */
@@ -44,6 +49,7 @@ const arg = (name: string, env: string, dflt = '') => {
 };
 const SELF = path.resolve(process.argv[1] || 'clor-agent.cjs');
 const STATE = arg('state', 'CLOR_AGENT_STATE', path.join(path.dirname(SELF), 'clor-agent.json'));
+const SPOOL = path.join(path.dirname(STATE), 'clor-agent-spool.jsonl');
 const ONCE = process.argv.includes('--once');
 const NO_UPDATE = process.argv.includes('--no-update');
 
@@ -115,12 +121,20 @@ if (process.argv.includes('--install')) {
 
 /* ------------------------------------------------------------- self-update */
 
-/** CLOR has a newer connector: fetch it over this file and start again. The service manager (or our own respawn on Windows) brings it back. */
+/**
+ * CLOR has a newer connector: fetch it and its signature, and only when the
+ * signature checks out against the key built into this one, write it over
+ * this file and start again. The service manager (or our own respawn on
+ * Windows) brings it back. Anything wrong and this version keeps running.
+ */
 async function selfUpdate(latest: string) {
   const r = await fetch(`${API}/agent/v1/download`, { signal: AbortSignal.timeout(120_000) });
   if (!r.ok) throw new Error(`download answered ${r.status}`);
   const code = Buffer.from(await r.arrayBuffer());
   if (code.length < 100_000 || !code.subarray(0, 200).toString().includes('node')) throw new Error('the download does not look like the connector');
+  const s = await fetch(`${API}/agent/v1/download.sig`, { signal: AbortSignal.timeout(30_000) });
+  if (!s.ok) throw new Error(`the new connector has no signature (download.sig answered ${s.status}); not installing it`);
+  if (!verifyAgentSignature(code, await s.text())) throw new Error('the new connector\'s signature does not check out; not installing it');
   const tmp = `${SELF}.new`;
   fs.writeFileSync(tmp, code, { mode: 0o755 });
   fs.renameSync(tmp, SELF);
@@ -143,14 +157,37 @@ async function cloud(method: string, p: string, body?: unknown) {
   } catch {
     /* not JSON */
   }
-  if (!r.ok) throw new Error(json?.error || `CLOR answered ${r.status} for ${p}`);
+  if (!r.ok) throw Object.assign(new Error(json?.error || `CLOR answered ${r.status} for ${p}`), { status: r.status });
   return json;
 }
+
+/** Not reaching CLOR, or CLOR busy/down: worth keeping the work and trying again. A refusal (401, 404…) is not. */
+const unreachable = (e: any) => typeof e?.status !== 'number' || retryableStatus(e.status);
+
+/* ------------------------------------------------------------------- spool */
+
+/** Send one spooled batch again. `replay` keeps CLOR from moving the reader's pull cursor: these lines are old. */
+async function sendSpooled(b: SpoolBatch): Promise<number> {
+  const r = await fetch(`${API}/agent/v1/readers/${b.readerId}/punches`, { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}`, 'Content-Type': 'application/json', 'X-Clor-Agent': VERSION }, body: JSON.stringify({ ok: true, replay: true, lines: b.lines, received: b.lines.length }), signal: AbortSignal.timeout(60_000) });
+  await r.text().catch(() => '');
+  return r.status;
+}
+
+/*
+ * Where to pull a reader from while its lines are sitting in the spool. CLOR's
+ * cursor (lastFetchedAt) only moves when it takes a live batch, so without this
+ * every round of an outage would read the same stretch again and spool it again.
+ * Kept in memory: after a restart the reader is read from CLOR's cursor, and
+ * CLOR drops the repeats.
+ */
+const spooledUpTo = new Map<string, Date>();
 
 /* ------------------------------------------------------------------ readers */
 
 async function pullReader(r: any): Promise<string> {
-  const { from, to } = pullWindow(r.lastFetchedAt);
+  const local = spooledUpTo.get(r.id);
+  const cursor = local && (!r.lastFetchedAt || local > new Date(r.lastFetchedAt)) ? local.toISOString() : r.lastFetchedAt;
+  const { from, to } = pullWindow(cursor);
   const ctx: PullContext = { baseUrl: String(r.baseUrl || '').replace(/\/+$/, ''), username: r.username || '', password: r.password || '', zone: r.zone || 'Asia/Kolkata', config: r.config || {}, mapping: r.mapping, from, to };
   let result;
   try {
@@ -158,7 +195,17 @@ async function pullReader(r: any): Promise<string> {
   } catch (e: any) {
     result = { ok: false, message: String(e?.message || e).slice(0, 300), lines: [], received: 0 };
   }
-  const up = await cloud('POST', `/readers/${r.id}/punches`, { ok: result.ok, message: result.message, lines: result.lines, received: result.received, payload: result.payload });
+  let up;
+  try {
+    up = await cloud('POST', `/readers/${r.id}/punches`, { ok: result.ok, message: result.message, lines: result.lines, received: result.received, payload: result.payload });
+  } catch (e: any) {
+    if (!result.ok || !result.lines.length || !unreachable(e)) throw e;
+    /* CLOR could not take them now: keep them on disk and send them next round. */
+    const waiting = appendSpool(SPOOL, { readerId: r.id, lines: result.lines, firstTriedAt: new Date().toISOString(), attempts: 1 }, log);
+    spooledUpTo.set(r.id, to);
+    return `${r.name}: ${result.received} read, kept to send later (${String(e?.message || e).slice(0, 120)}; ${waiting} waiting)`;
+  }
+  if (result.ok) spooledUpTo.delete(r.id);
   return result.ok ? `${r.name}: ${result.received} read, ${up.added} new` : `${r.name}: ${result.message}`;
 }
 
@@ -331,10 +378,42 @@ async function syncDirectory(ldap: any, state: State): Promise<string> {
 /* -------------------------------------------------------------------- rounds */
 
 let ldapLastAt = 0;
+/* The last work list CLOR gave, in memory only: while CLOR cannot be reached, the readers are still read and their punches spooled. */
+let lastConfig: any = null;
+/* A version whose download was refused (bad or missing signature), and when: tried again hourly, not every minute. */
+let refusedUpdate: { version: string; at: number } | null = null;
+
+/** CLOR out of reach: read the readers from the last work list and keep what they give for later. */
+async function offlineRound(why: string) {
+  const notes: string[] = [];
+  for (const r of lastConfig.readers || []) {
+    try {
+      notes.push(await pullReader(r));
+    } catch (e: any) {
+      notes.push(`${r.name}: ${String(e?.message || e)}`);
+    }
+  }
+  log(`CLOR out of reach (${why}); readers read from the last work list:`, notes.join(' · ') || 'none');
+  return Number(lastConfig.agent?.pollSeconds) || 60;
+}
 
 async function round() {
   const state = loadState();
-  const cfg = await cloud('GET', `/config?version=${VERSION}&hostname=${encodeURIComponent(os.hostname())}`);
+  /* First what earlier rounds could not send, oldest first, before reading anything new. */
+  try {
+    const flushed = await flushSpool(SPOOL, sendSpooled, log);
+    if (flushed.sent || flushed.dropped) log(`spool: sent ${flushed.sent} batch(es)${flushed.dropped ? `, dropped ${flushed.dropped}` : ''}; ${flushed.waitingLines} line(s) still waiting`);
+  } catch (e: any) {
+    log(`spool: could not use ${SPOOL}:`, String(e?.message || e));
+  }
+  let cfg;
+  try {
+    cfg = await cloud('GET', `/config?version=${VERSION}&hostname=${encodeURIComponent(os.hostname())}`);
+  } catch (e: any) {
+    if (lastConfig && unreachable(e)) return offlineRound(String(e?.message || e).slice(0, 200));
+    throw e;
+  }
+  lastConfig = cfg;
   if (cfg.once?.scimToken) {
     state.scimToken = cfg.once.scimToken;
     saveState(state);
@@ -368,16 +447,20 @@ async function round() {
       notes.push(error);
     }
   }
+  const spooled = spooledLines(readSpool(SPOOL));
+  if (spooled) notes.unshift(`${spooled} punch line(s) waiting to send`);
   const summary = notes.join(' · ').slice(0, 500) || 'Nothing to do';
-  await cloud('POST', '/report', { summary, error });
+  await cloud('POST', '/report', { summary, error, spooled });
   log(summary);
   if (cfg.agent?.latestVersion && cfg.agent.latestVersion !== VERSION) {
-    if (NO_UPDATE) log(`a newer connector (${cfg.agent.latestVersion}) is available at ${API}/agent/v1/download`);
-    else {
+    const latest = String(cfg.agent.latestVersion);
+    if (NO_UPDATE) log(`a newer connector (${latest}) is available at ${API}/agent/v1/download`);
+    else if (!(refusedUpdate?.version === latest && Date.now() - refusedUpdate.at < 3_600_000)) {
       try {
-        await selfUpdate(cfg.agent.latestVersion);
+        await selfUpdate(latest);
       } catch (e: any) {
-        log('self-update failed:', String(e?.message || e));
+        refusedUpdate = { version: latest, at: Date.now() };
+        log(`self-update to ${latest} failed, staying on ${VERSION}:`, String(e?.message || e));
       }
     }
   }

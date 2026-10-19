@@ -42,6 +42,26 @@ only place two deploying machines can both see it.
 three Prisma clients, run the pre-deploy check, apply migrations, grant the
 application role, top up Owner permissions, build, restart.
 
+## The on-site connector (Cloud Run image)
+
+Connectors on customers' networks update themselves only to a build signed
+with CLOR's Ed25519 key, and that key stays on the deploying machine
+(`~/.config/clor/agent-signing.key`, mode 600, never in a repository or an
+image). So before `gcloud builds submit`, build and sign the connector:
+
+```bash
+cd server && npm run agent:build && AGENT_SIGNING_KEY_FILE=$HOME/.config/clor/agent-signing.key npm run agent:sign
+```
+
+That writes `server/dist-agent/clor-agent.cjs` with `.sig` and `.sha256`
+beside it (git ignores the folder; the upload and the Docker build include
+it). The image serves the signed file at `/agent/v1/download` and its
+signature at `/agent/v1/download.sig`. Skip this and the image builds the
+connector itself, unsigned: nothing breaks, but no connector in the field will
+update to it. Lose the key and a new one means a new public key in
+`server/agent/src/signing.ts`, which connectors already out there do not
+have — they would need reinstalling by hand.
+
 ## Roles, and which one does what
 
 | Role | Used by | May |

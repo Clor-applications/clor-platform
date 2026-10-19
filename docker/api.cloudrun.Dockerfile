@@ -6,6 +6,12 @@
 #  - starts with `npm run prisma:deploy`: the DB-URL guard first, then
 #    `migrate deploy` for all four schemas. Never `db push --accept-data-loss`.
 #  - listens on $PORT (Cloud Run sets 8080).
+#  - serves the on-site connector from dist-agent/. A connector only updates
+#    to a SIGNED build, and the signing key never enters the image or the
+#    upload, so the signed dist-agent/ is built and signed on the deploying
+#    machine (DEPLOY.md) and copied in as is. Only when no signature came with
+#    the upload is the connector built here, unsigned (connectors in the field
+#    then stay on the version they have).
 
 FROM node:22-alpine AS build
 WORKDIR /app
@@ -17,7 +23,12 @@ COPY prisma ./prisma
 COPY scripts ./scripts
 COPY src ./src
 COPY agent ./agent
-RUN npm run prisma:generate && npm run build && npm run agent:build
+# dist-agent/ is optional in the context; package.json always matches, so the
+# COPY never fails on "no source files". It is removed again just below.
+COPY package.json dist-agen[t] ./dist-agent/
+RUN rm -f dist-agent/package.json \
+ && npm run prisma:generate && npm run build \
+ && if [ -f dist-agent/clor-agent.cjs.sig ]; then echo "Using the signed connector from the upload"; else npm run agent:build; fi
 
 FROM node:22-alpine AS runtime
 WORKDIR /app

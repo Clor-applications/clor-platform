@@ -20,6 +20,8 @@ import { isFeatureEnabled } from '../services/features.js';
  *                                Tally target, LDAP settings, jobs waiting,
  *                                and the SCIM token once
  *   POST /readers/:id/punches    lines a reader gave it, as ingestPunches takes
+ *                                (replay: true for lines it kept while CLOR was
+ *                                out of reach: taken, but the cursor stays put)
  *   POST /jobs/:id/result        how a job went
  *
  * The agent is the client; CLOR never reaches into the customer's network.
@@ -59,6 +61,13 @@ agentRouter.get('/download', (_req, res) => {
   if (!fs.existsSync(file)) return fail(res, 404, 'The connector is not built on this server.');
   res.setHeader('Content-Disposition', 'attachment; filename="clor-agent.cjs"');
   res.type('application/javascript').send(fs.readFileSync(file));
+});
+
+/* Its Ed25519 signature (scripts/sign-agent.mjs). A connector installs an update only when this checks out. */
+agentRouter.get('/download.sig', (_req, res) => {
+  const file = path.resolve(process.cwd(), 'dist-agent/clor-agent.cjs.sig');
+  if (!fs.existsSync(file)) return fail(res, 404, 'The connector on this server is not signed, so connectors will not update to it. Sign it with npm run agent:sign before deploying.');
+  res.type('text/plain').send(fs.readFileSync(file, 'utf8'));
 });
 
 agentRouter.use(async (req: Request, res: Response, next: NextFunction) => {
@@ -135,6 +144,8 @@ agentRouter.post('/readers/:id/punches', async (req, res) => {
     return res.json({ added: 0 });
   }
   const added = lines.length ? await ingestPunches(device, lines.join('\n')) : 0;
+  /* Old lines from the connector's spool say nothing about how far, or when, the reader was last read: leave the reader's row alone. */
+  if (body.replay === true) return res.json({ added, received: lines.length });
   await peoplePrisma.attendanceDevice.update({ where: { id: device.id }, data: { lastFetchedAt: now, lastSeenAt: now, lastError: null, ...seen } });
   res.json({ added, received: lines.length });
 });
@@ -169,7 +180,7 @@ agentRouter.post('/jobs/:id/result', async (req, res) => {
   res.json({ ok: true });
 });
 
-/** A word on how the round went, for the Integrations screen. */
+/** A word on how the round went, for the Integrations screen. (`spooled`, the punch lines it is still holding, is already in the summary.) */
 agentRouter.post('/report', async (req, res) => {
   const a = req.agent!;
   await peoplePrisma.siteAgent.update({ where: { id: a.id }, data: { lastSeenAt: new Date(), lastSummary: String(req.body?.summary || '').slice(0, 500) || null, lastError: req.body?.error ? String(req.body.error).slice(0, 500) : null } });
