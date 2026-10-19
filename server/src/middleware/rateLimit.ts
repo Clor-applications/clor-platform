@@ -75,6 +75,8 @@ export const agentLimiter = [bucket(60 * 1000, 600, 'connector requests', (req) 
 /** Hikvision pushes, before the body is read: per URL token (from the path) and per address. */
 export const hikvisionLimiter = [bucket(60 * 1000, 600, 'pushes', (req) => `hik:${String(req.path || '').slice(1, 17) || ipOf(req)}`), bucket(60 * 1000, 3000, 'pushes', (req) => `hik-ip:${ipOf(req)}`)];
 /** Single sign-on: lookups, starts and assertions, per address. */
+/** Address search for work sites: a person typing, debounced, never this many; spares the free map services. */
+export const geocodeLimiter = [bucket(60 * 1000, 60, 'address searches', (req) => `geo:${req.auth?.userId || ipOf(req)}`)];
 export const ssoLimiter = [guard(60 * 1000, 60, 'sign-in attempts', (req) => `sso:${ipOf(req)}`)];
 
 /**

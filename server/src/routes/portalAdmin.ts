@@ -13,6 +13,8 @@ import { assignOrgCode } from '../services/displayCodes.js';
 import { sendTemplate } from '../services/mailer.js';
 import { CODE_TTL_MS, formatCode, newActivationCode, validPosition } from '../services/attendance/portal.js';
 import { sendError } from './attendance.js';
+import { geocodeLimiter } from '../middleware/rateLimit.js';
+import { placeAt, searchPlaces } from '../services/geocode.js';
 
 /**
  * HR's side of the employee portal (ClorTime's portal invite and geofences):
@@ -175,6 +177,7 @@ const fenceSchema = z
     name: z.string().trim().min(1, 'Name the site.').max(80),
     latitude: z.coerce.number(),
     longitude: z.coerce.number(),
+    address: z.string().trim().max(300).nullable().optional(),
     radiusMeters: z.coerce.number().int().min(25, 'At least 25 m — a phone cannot place itself closer than that.').max(5000, 'At most 5 km.'),
     areaId: z.string().min(1).nullable().optional(),
     isActive: z.boolean().optional(),
@@ -211,7 +214,7 @@ portalAdminRouter.post(`${base}/geofences`, can(PermissionAction.CREATE), async 
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Check the site.' });
   try {
     await areaOk(orgId, parsed.data.areaId);
-    const row = await peoplePrisma.geofence.create({ data: { accountId, orgId, ...parsed.data, areaId: parsed.data.areaId || null, createdByUserId: req.auth!.userId } });
+    const row = await peoplePrisma.geofence.create({ data: { accountId, orgId, ...parsed.data, address: parsed.data.address || null, areaId: parsed.data.areaId || null, createdByUserId: req.auth!.userId } });
     res.status(201).json({ geofence: (await fenceOut(orgId, [row]))[0] });
   } catch (e) {
     return sendError(res, e);
@@ -227,11 +230,35 @@ portalAdminRouter.put(`${base}/geofences/:id`, can(PermissionAction.EDIT), async
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Check the site.' });
   try {
     await areaOk(orgId, parsed.data.areaId);
-    const row = await peoplePrisma.geofence.update({ where: { id: existing.id }, data: { ...parsed.data, areaId: parsed.data.areaId || null } });
+    const row = await peoplePrisma.geofence.update({ where: { id: existing.id }, data: { ...parsed.data, address: parsed.data.address === undefined ? undefined : parsed.data.address || null, areaId: parsed.data.areaId || null } });
     res.json({ geofence: (await fenceOut(orgId, [row]))[0] });
   } catch (e) {
     return sendError(res, e);
   }
+});
+
+/** Address search for a new site: suggestions as the person types, near the company's other sites. */
+portalAdminRouter.get(`${base}/geocode`, can(PermissionAction.VIEW), ...geocodeLimiter, async (req, res) => {
+  if (!(await attendanceRouteOk(req, res))) return;
+  const { orgId } = req.tenant!;
+  const q = String(req.query.q || '');
+  const lat = Number(req.query.lat);
+  const lon = Number(req.query.lon);
+  let near = Number.isFinite(lat) && Number.isFinite(lon) && req.query.lat !== undefined ? { lat, lon } : undefined;
+  if (!near) {
+    const any = await peoplePrisma.geofence.findFirst({ where: { orgId }, orderBy: { createdAt: 'asc' }, select: { latitude: true, longitude: true } });
+    if (any) near = { lat: any.latitude, lon: any.longitude };
+  }
+  res.json({ places: await searchPlaces(q, near) });
+});
+
+/** What is at a point, for when the pin is moved by hand. */
+portalAdminRouter.get(`${base}/geocode/reverse`, can(PermissionAction.VIEW), ...geocodeLimiter, async (req, res) => {
+  if (!(await attendanceRouteOk(req, res))) return;
+  const lat = Number(req.query.lat);
+  const lon = Number(req.query.lon);
+  if (!validPosition(lat, lon)) return res.status(400).json({ error: 'That is not a position on the map.' });
+  res.json({ place: await placeAt(lat, lon) });
 });
 
 /** Only a site nobody is tied to and nobody has punched at; otherwise switch it off. */

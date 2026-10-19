@@ -1056,6 +1056,8 @@ model Geofence {
   latitude     Float
   longitude    Float
   radiusMeters Int     @default(200)
+  /// The address it was found by, or what is at the pin; shown beside the name.
+  address      String?
   /// Null = for anyone; set = only people in that area may use it.
   areaId       String?
   isActive     Boolean @default(true)
