@@ -81,52 +81,52 @@ model Employee {
   // Ids into the org-structure tables below. `department` and `designation`
   // above stay as the display strings every existing reader uses, and are
   // written alongside these.
-  departmentId       String?
-  jobPositionId      String?
-  jobRoleId          String?
-  employeeTypeId     String?
-  workTypeId         String?
+  departmentId        String?
+  jobPositionId       String?
+  jobRoleId           String?
+  employeeTypeId      String?
+  workTypeId          String?
   /// Another Employee in the same org; drives the org chart.
-  reportingManagerId String?
-  workEmail          String?
-  workPhone          String?
-  workLocation       String?
+  reportingManagerId  String?
+  workEmail           String?
+  workPhone           String?
+  workLocation        String?
   /// The person's user ID on the biometric readers, when it is not their
   /// employee code (readers drop leading zeros; old enrolments used prefixes).
-  devicePin          String?
+  devicePin           String?
   /// Attendance (ClorTime's personnel fields): the site they work at, the
   /// contractor that supplies them, and what the readers hold for them.
-  areaId             String?
-  contractorId       String?
+  areaId              String?
+  contractorId        String?
   /// RFID card number on the readers.
-  cardNumber         String?
+  cardNumber          String?
   /// The PIN a person may type at a reader instead of a finger. Kept as the
   /// reader keeps it, so it can be copied to every reader.
-  devicePassword     String?
+  devicePassword      String?
   /// 0 user, 14 reader administrator.
-  devicePrivilege    Int     @default(0)
+  devicePrivilege     Int       @default(0)
   /// False for door-only staff (guards, drivers, a tenant's people): they open
   /// doors but are not expected at work, so are never marked absent.
-  attendanceRequired Boolean @default(true)
+  attendanceRequired  Boolean   @default(true)
   /// Father's or husband's name — the statutory muster roll asks for it.
-  guardianName       String?
+  guardianName        String?
   /// When they left: RESIGNED | TERMINATED | RETIRED | ABSCONDED | CONTRACT_ENDED | DECEASED
-  leavingType        String?
-  leavingReason      String?
+  leavingType         String?
+  leavingReason       String?
   /// Employee portal (ClorTime's self-service): the person chooses their own
   /// password with a one-time activation code from HR; only hashes are kept,
   /// so nobody else ever knows it.
-  portalEnabled        Boolean   @default(false)
-  portalPasswordHash   String?
-  portalPasswordSetAt  DateTime?
-  portalSetupHash      String?
-  portalSetupExpires   DateTime?
+  portalEnabled       Boolean   @default(false)
+  portalPasswordHash  String?
+  portalPasswordSetAt DateTime?
+  portalSetupHash     String?
+  portalSetupExpires  DateTime?
   /// May punch from a phone (inside a geofence). Off unless HR allows it.
-  mobilePunch          Boolean   @default(false)
+  mobilePunch         Boolean   @default(false)
   /// Only this site counts for their phone punches; null = any active site.
-  geofenceId           String?
-  probationEndDate   String?
-  contractEndDate    String?
+  geofenceId          String?
+  probationEndDate    String?
+  contractEndDate     String?
 
   tags      EmployeeTagLink[]
   notesLog  EmployeeNote[]
@@ -328,7 +328,7 @@ model Shift {
 /// Which shift a person works, from a date. The latest one on or before a day
 /// applies; a change of shift is a new row, so past days keep theirs.
 model ShiftAssignment {
-  id            String @id @default(cuid())
+  id            String  @id @default(cuid())
   accountId     String
   orgId         String
   employeeId    String
@@ -437,13 +437,19 @@ model AttendanceRequest {
   /// PENDING | APPROVED | REJECTED
   status     String    @default("PENDING")
 
-  requestedByUserId String
-  reviewedByUserId  String?
-  reviewedAt        DateTime?
-  reviewNote        String?
+  requestedByUserId   String
+  reviewedByUserId    String?
+  reviewedAt          DateTime?
+  reviewNote          String?
   /// The manager's step, when the company asks for it before HR (AttendanceSettings.*Approval).
   managerApprovedAt   DateTime?
   managerApprovedById String?
+  /// The day as it stood when the request was made, so a reviewer sees what changes.
+  beforeCheckIn       DateTime?
+  beforeCheckOut      DateTime?
+  beforeStatus        String?
+  /// A category for the reason: FORGOT_PUNCH | READER_DOWN | ON_DUTY | WRONG_SHIFT | OTHER
+  reasonCode          String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -505,7 +511,7 @@ model LeaveAllocation {
 
 /// Time off someone asks for. Approving it marks each working day on leave.
 model LeaveRequest {
-  id          String  @id @default(cuid())
+  id          String @id @default(cuid())
   accountId   String
   orgId       String
   employeeId  String
@@ -516,12 +522,12 @@ model LeaveRequest {
   days        Float
   reason      String
   /// PENDING | APPROVED | REJECTED | CANCELLED
-  status      String  @default("PENDING")
+  status      String @default("PENDING")
 
-  requestedByUserId String
-  reviewedByUserId  String?
-  reviewedAt        DateTime?
-  reviewNote        String?
+  requestedByUserId   String
+  reviewedByUserId    String?
+  reviewedAt          DateTime?
+  reviewNote          String?
   /// The manager's step, when the company asks for it before HR (AttendanceSettings.*Approval).
   managerApprovedAt   DateTime?
   managerApprovedById String?
@@ -536,32 +542,32 @@ model LeaveRequest {
 /// A biometric reader (ZKTeco / eSSL) that pushes punches to /iclock. The
 /// company claims it by serial number; a serial belongs to one company.
 model AttendanceDevice {
-  id           String    @id @default(cuid())
-  accountId    String
-  orgId        String
-  serialNumber String    @unique
-  name         String
+  id              String    @id @default(cuid())
+  accountId       String
+  orgId           String
+  serialNumber    String    @unique
+  name            String
   /// both | in | out. A reader at the entrance only is "in": its punches are
   /// entries whatever key was pressed.
-  direction    String    @default("both")
-  isActive     Boolean   @default(true)
-  model        String?
-  firmware     String?
-  ip           String?
-  lastSeenAt   DateTime?
+  direction       String    @default("both")
+  isActive        Boolean   @default(true)
+  model           String?
+  firmware        String?
+  ip              String?
+  lastSeenAt      DateTime?
   /// From the reader's INFO and from face templates it sends. A face is
   /// copied to a reader with that reader's own algorithm version.
-  faceSupported  Boolean?
+  faceSupported   Boolean?
   fingerSupported Boolean?
-  faceMajorVer   Int?
-  faceMinorVer   Int?
+  faceMajorVer    Int?
+  faceMinorVer    Int?
   /// ADMS: a reader pushing to /iclock. ETIMEOFFICE: eSSL's e-Time Office
   /// cloud, which CLOR pulls punches from (the serial is "ETO-<account>").
   /// Which driver speaks to it (services/attendance/drivers.ts): ADMS,
   /// ETIMEOFFICE, API, HTTP_PUSH, FILE, and the pull drivers as they arrive.
-  vendor         String   @default("ADMS")
+  vendor          String    @default("ADMS")
   /// HTTP_PUSH: the reader's own push URL token, kept as a hash (prefix shown).
-  pushTokenHash   String?  @unique
+  pushTokenHash   String?   @unique
   pushTokenPrefix String?
   /// HTTP_PUSH / FILE / pull drivers: where each field is in what they send
   /// (services/attendance/punchMapping.ts).
@@ -569,37 +575,37 @@ model AttendanceDevice {
   /// Driver settings that are not secrets (host, port, event filters).
   configJson      String?
   /// The zone times without an offset are read in.
-  sourceTimezone  String   @default("Asia/Kolkata")
+  sourceTimezone  String    @default("Asia/Kolkata")
   /// The last thing it sent, trimmed, so a mapping can be checked against it.
   lastPayload     String?
   lastPayloadAt   DateTime?
-  apiUrl         String?
-  apiCorporateId String?
-  apiUsername    String?
+  apiUrl          String?
+  apiCorporateId  String?
+  apiUsername     String?
   /// Encrypted (AES-256-GCM, services/mailer.ts encryptSecret); never sent to the browser.
-  apiSecret      String?
+  apiSecret       String?
   /// Punches are pulled from here on (with a few minutes' overlap; duplicates drop).
-  lastFetchedAt  DateTime?
-  lastError      String?
+  lastFetchedAt   DateTime?
+  lastError       String?
   /// Pull readers on the office LAN: the on-site connector that reaches them (routes/agent.ts); null = CLOR pulls directly.
-  agentId        String?
+  agentId         String?
   /// Readers of one site: only staff of this area are sent to it (null = everyone).
-  areaId         String?
+  areaId          String?
   /// What the reader holds and can hold, from its answer to INFO (asked every few hours).
-  userCount      Int?
-  fingerCount    Int?
-  faceCount      Int?
-  punchCount     Int?
-  maxUsers       Int?
-  maxFingers     Int?
-  maxFaces       Int?
-  maxPunches     Int?
-  mac            String?
-  infoAt         DateTime?
+  userCount       Int?
+  fingerCount     Int?
+  faceCount       Int?
+  punchCount      Int?
+  maxUsers        Int?
+  maxFingers      Int?
+  maxFaces        Int?
+  maxPunches      Int?
+  mac             String?
+  infoAt          DateTime?
   /// How far the reader's clock is from true time (seconds; + = reader ahead),
   /// measured from punches it sent the moment they were made.
-  clockOffsetSec Int?
-  clockCheckedAt DateTime?
+  clockOffsetSec  Int?
+  clockCheckedAt  DateTime?
 
   /// The network lock. A reader is known by its serial number alone, so the one
   /// thing that cannot be faked is the internet address its requests come from.
@@ -705,23 +711,23 @@ model DeviceCommand {
 
 /// The users a reader holds, as it last reported them (DATA QUERY USERINFO).
 model DeviceUser {
-  id         String   @id @default(cuid())
-  accountId  String
-  orgId      String
-  deviceId   String
-  pin        String
-  name       String?
+  id        String   @id @default(cuid())
+  accountId String
+  orgId     String
+  deviceId  String
+  pin       String
+  name      String?
   /// As the reader holds them; copied with the user to the other readers so a
   /// card or door PIN set on one reader works on all.
-  privilege  Int?
-  password   String?
-  card       String?
+  privilege Int?
+  password  String?
+  card      String?
   /// What this reader holds for the person, as far as CLOR knows: finger
   /// numbers ("0,6") and whether a face — from what the reader sent, and from
   /// commands it confirmed.
-  fingers    String   @default("")
-  face       Boolean  @default(false)
-  updatedAt  DateTime @updatedAt
+  fingers   String   @default("")
+  face      Boolean  @default(false)
+  updatedAt DateTime @updatedAt
 
   @@unique([deviceId, pin])
   @@index([accountId, orgId])
@@ -845,21 +851,21 @@ model Webhook {
 /// it went, when it is tried again. Kept so a missed event can be seen and
 /// sent again from the Integrations screen.
 model WebhookDelivery {
-  id         String @id @default(cuid())
-  accountId  String
-  orgId      String
-  webhookId  String
-  event      String
+  id            String    @id @default(cuid())
+  accountId     String
+  orgId         String
+  webhookId     String
+  event         String
   /// The JSON body as sent (signature is over exactly this), trimmed at 20k.
-  body       String
+  body          String
   /// PENDING | OK | FAILED
-  status     String @default("PENDING")
-  attempts   Int    @default(0)
-  lastStatus Int?
-  lastError  String?
+  status        String    @default("PENDING")
+  attempts      Int       @default(0)
+  lastStatus    Int?
+  lastError     String?
   nextAttemptAt DateTime?
   deliveredAt   DateTime?
-  createdAt     DateTime @default(now())
+  createdAt     DateTime  @default(now())
 
   @@index([orgId, webhookId, createdAt])
   @@index([status, nextAttemptAt])
@@ -1011,31 +1017,31 @@ model RotationAssignment {
 
 /// Company-wide attendance rules (ClorTime's Attendance Rules in Settings).
 model AttendanceSettings {
-  id                    String  @id @default(cuid())
-  accountId             String
-  orgId                 String  @unique
+  id                         String  @id @default(cuid())
+  accountId                  String
+  orgId                      String  @unique
   /// The shift anyone with no schedule at all works; null = 09:00–18:00, Sunday off.
-  defaultShiftId        String?
+  defaultShiftId             String?
   /// Late arrivals a month that cost nothing…
-  lateAllowancePerMonth Int     @default(0)
+  lateAllowancePerMonth      Int     @default(0)
   /// …then every this many late arrivals is half a day's loss of pay (0 = never).
-  latePenaltyEvery      Int     @default(0)
+  latePenaltyEvery           Int     @default(0)
   /// Punch selfies are personal data (DPDP): kept this many days, then deleted;
   /// the punch itself stays (ClorTime purgePunchPhotos).
-  photoRetentionDays    Int     @default(90)
+  photoRetentionDays         Int     @default(90)
   /// Reader alerts (ClorTime alerts.js): e-mailed once when a problem starts
   /// and once when it clears; off until someone is named.
-  alertEmails           String?
+  alertEmails                String?
   /// A reader silent this long is offline.
-  offlineAlertMinutes   Int     @default(30)
+  offlineAlertMinutes        Int     @default(30)
   /// On a working day, no punch from any reader by this hour means collection is broken.
-  noPunchAfterHour      Int     @default(11)
+  noPunchAfterHour           Int     @default(11)
   /// Sync both ways (ClorTime): someone added at a reader whose ID matches no
   /// employee becomes one, named as on the reader. Off = they wait in Unmatched.
   readerUsersBecomeEmployees Boolean @default(true)
   /// Who decides leave and correction requests: HR (default), MANAGER (the person's "Reports to"), or MANAGER_THEN_HR (both, in that order).
-  leaveApproval         String  @default("HR")
-  correctionApproval    String  @default("HR")
+  leaveApproval              String  @default("HR")
+  correctionApproval         String  @default("HR")
 
   updatedByUserId String
   updatedAt       DateTime @updatedAt
@@ -1079,24 +1085,24 @@ model PunchPhoto {
 /// problem per reader — "Back door offline" and "Main gate offline" are two —
 /// so fixing one never hides the other, and nobody is mailed twice for one.
 model ReaderAlert {
-  id         String    @id @default(cuid())
-  accountId  String
-  orgId      String
+  id                 String    @id @default(cuid())
+  accountId          String
+  orgId              String
   /// e.g. "offline:<deviceId>", "clock:<deviceId>", "no-punches"
-  key        String
-  kind       String
-  deviceId   String?
+  key                String
+  kind               String
+  deviceId           String?
   /// critical | high | medium
-  severity   String
-  title      String
-  details    String
-  openedAt   DateTime  @default(now())
-  resolvedAt DateTime?
+  severity           String
+  title              String
+  details            String
+  openedAt           DateTime  @default(now())
+  resolvedAt         DateTime?
   /// When the "started" and "cleared" e-mails went, and why one did not.
   notifiedAt         DateTime?
   resolvedNotifiedAt DateTime?
   lastError          String?
-  updatedAt  DateTime  @updatedAt
+  updatedAt          DateTime  @updatedAt
 
   @@index([orgId, resolvedAt])
   @@index([orgId, key, resolvedAt])
@@ -1106,7 +1112,7 @@ model ReaderAlert {
 /// the database like punch selfies, capped at 5 MB. Visible to the person in
 /// the portal unless HR says otherwise.
 model EmployeeDocument {
-  id                String   @id @default(cuid())
+  id                String    @id @default(cuid())
   accountId         String
   orgId             String
   employeeId        String
@@ -1120,9 +1126,9 @@ model EmployeeDocument {
   expiresOn         String?
   /// When HR was told it is about to expire (once per document).
   expiryNotifiedAt  DateTime?
-  visibleToEmployee Boolean  @default(true)
+  visibleToEmployee Boolean   @default(true)
   uploadedByUserId  String
-  createdAt         DateTime @default(now())
+  createdAt         DateTime  @default(now())
 
   employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 
@@ -1276,21 +1282,155 @@ model SiteAgent {
 /// Work queued for an on-site connector: a Tally voucher to post, and
 /// whatever comes next. PENDING → SENT → DONE | FAILED.
 model AgentJob {
-  id          String    @id @default(cuid())
-  accountId   String
-  orgId       String
-  agentId     String
+  id              String    @id @default(cuid())
+  accountId       String
+  orgId           String
+  agentId         String
   /// TALLY_XML
-  kind        String
-  payloadJson String
-  status      String    @default("PENDING")
-  attempts    Int       @default(0)
-  result      String?
+  kind            String
+  payloadJson     String
+  status          String    @default("PENDING")
+  attempts        Int       @default(0)
+  result          String?
   createdByUserId String
-  createdAt   DateTime  @default(now())
-  sentAt      DateTime?
-  doneAt      DateTime?
+  createdAt       DateTime  @default(now())
+  sentAt          DateTime?
+  doneAt          DateTime?
 
   @@index([agentId, status])
   @@index([orgId, createdAt])
+}
+
+/// Every change to an attendance day: what it was, what it became, who or
+/// what changed it. Days are overwritten in place, so this is the only way to
+/// answer "why does this day say what it says" after the fact.
+model AttendanceRecordHistory {
+  id         String   @id @default(cuid())
+  accountId  String
+  orgId      String
+  employeeId String
+  date       String
+  recordId   String?
+  /// WRITE | DELETE | VALIDATE | OVERTIME | LEAVE_CANCELLED | BULK
+  action     String
+  /// The record's source after the change (DEVICE, MANUAL, REQUEST, ...)
+  source     String?
+  beforeJson String?
+  afterJson  String?
+  /// A user id, or "reader" / "system" for automatic changes.
+  userId     String
+  reason     String?
+  at         DateTime @default(now())
+
+  @@index([orgId, employeeId, date])
+  @@index([accountId, orgId, at])
+}
+
+/// What a month looked like when it was closed: the figures Payroll takes.
+/// A reopen and close makes a new version; old versions are kept.
+model AttendanceMonthSnapshot {
+  id              String   @id @default(cuid())
+  accountId       String
+  orgId           String
+  month           String
+  version         Int
+  rowsJson        String
+  readinessJson   String
+  createdByUserId String
+  createdAt       DateTime @default(now())
+
+  @@unique([orgId, month, version])
+  @@index([accountId, orgId])
+}
+
+/// Who owns an attendance exception and where it stands. The exception itself
+/// is worked out from the data each time; this row only holds the handling.
+model AttendanceExceptionState {
+  id               String    @id @default(cuid())
+  accountId        String
+  orgId            String
+  /// kind:reference, e.g. MISSING_OUT:<recordId>
+  key              String
+  kind             String
+  /// OPEN | IN_PROGRESS | RESOLVED | IGNORED
+  status           String    @default("OPEN")
+  assigneeUserId   String?
+  note             String?
+  resolvedAt       DateTime?
+  resolvedByUserId String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@unique([orgId, key])
+  @@index([accountId, orgId, status])
+}
+
+/// Each saved version of the company's attendance rules.
+model AttendanceRuleVersion {
+  id              String   @id @default(cuid())
+  accountId       String
+  orgId           String
+  version         Int
+  rulesJson       String
+  changedByUserId String
+  createdAt       DateTime @default(now())
+
+  @@unique([orgId, version])
+  @@index([accountId, orgId])
+}
+
+/// One batch of punches arriving from a reader, connector or file, with a
+/// trace id the response and logs carry.
+model IngestRun {
+  id         String   @id @default(cuid())
+  accountId  String
+  orgId      String
+  deviceId   String?
+  /// ADMS | PUSH | PULL | HIKVISION | AGENT | FILE
+  channel    String
+  traceId    String
+  received   Int      @default(0)
+  accepted   Int      @default(0)
+  duplicates Int      @default(0)
+  rejected   Int      @default(0)
+  errorsJson String?
+  at         DateTime @default(now())
+
+  @@index([orgId, deviceId, at])
+  @@index([accountId, orgId, at])
+}
+
+/// Each time a scheduled report was sent, or failed to send.
+model ReportRun {
+  id         String   @id @default(cuid())
+  accountId  String
+  orgId      String
+  scheduleId String
+  at         DateTime @default(now())
+  ok         Boolean
+  rows       Int      @default(0)
+  recipients String
+  error      String?
+
+  @@index([orgId, scheduleId, at])
+}
+
+/// A phone punch the server refused: outside every work site, a rough
+/// location, too soon after the last one. Kept so HR can see attempts that
+/// never became punches (accepted punches are DevicePunch rows).
+model PhonePunchAttempt {
+  id         String   @id @default(cuid())
+  accountId  String
+  orgId      String
+  employeeId String
+  at         DateTime @default(now())
+  /// OUTSIDE | ROUGH_LOCATION | NO_LOCATION | NO_SITE | TOO_SOON | BAD_PHOTO | PHONE_OFF
+  code       String
+  message    String
+  latitude   Float?
+  longitude  Float?
+  accuracyM  Float?
+
+  @@index([orgId, at])
+  @@index([orgId, employeeId, at])
 }

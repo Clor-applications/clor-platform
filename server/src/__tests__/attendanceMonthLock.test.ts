@@ -62,8 +62,16 @@ describe('a closed month', () => {
     await reader('401\t2026-09-05 09:00:00\t0\t1\n401\t2026-09-05 18:00:00\t1\t1').expect(200);
     expect(await peoplePrisma.attendanceRecord.count({ where: { employeeId: p.id, date: '2026-09-05', source: 'DEVICE' } })).toBe(1);
 
-    const closed = await att(c).post('/months/2026-09/close').expect(200);
+    // The checklist first: the month has working days with no attendance, so closing needs an acknowledgement.
+    const refused = await att(c).post('/months/2026-09/close').expect(409);
+    expect(refused.body.code).toBe('MONTH_NOT_READY');
+    expect(refused.body.readiness.checks.find((x: any) => x.key === 'noRecord').count).toBeGreaterThan(0);
+    const closed = await att(c).post('/months/2026-09/close', { acknowledge: true }).expect(200);
     expect(closed.body.closed).toBeTruthy();
+    // What Payroll takes is kept as a numbered snapshot.
+    expect(closed.body.snapshot.version).toBe(1);
+    const snap = await att(c).get('/months/2026-09/snapshots/1').expect(200);
+    expect(snap.body.rows.some((r: any) => r.employeeId === p.id)).toBe(true);
     expect((await att(c).get('/summary?month=2026-09').expect(200)).body.closed).toBeTruthy();
 
     // A manager's mark and a delete are refused.

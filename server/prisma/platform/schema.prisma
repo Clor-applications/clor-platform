@@ -54,19 +54,19 @@ model Account {
 }
 
 model Org {
-  id        String  @id @default(cuid())
-  accountId String
-  name      String
+  id         String  @id @default(cuid())
+  accountId  String
+  name       String
   /// The public handle: the `agc` in agc.books.clor.in. Separate from `id`
   /// on purpose — the id is what foreign keys and authorisation use and never
   /// changes, the slug is what a person reads and may one day need to change.
   /// Nullable so existing rows are valid before the backfill.
-  slug      String? @unique
+  slug       String? @unique
   /// Company code (LD-09): 3–4 letters + C + number, 100 unless the letters clash (INNO-C100, INNO-C101). Never changed.
   code       String? @unique
   codeNumber Int?
-  legalName String?
-  pan       String?
+  legalName  String?
+  pan        String?
 
   /// The currency the books are kept in. Every ledger posting is in this
   /// currency, whatever currency the document was raised in.
@@ -171,10 +171,10 @@ model User {
   // Authenticator app (TOTP, RFC 6238). The secret is encrypted at rest;
   // enabled only once a code from it has been checked. The last time step
   // used stops a code being replayed; recovery codes are stored hashed.
-  totpSecretEnc     String?
-  totpEnabledAt     DateTime?
-  totpLastStep      Int?
-  totpRecoveryJson  String?
+  totpSecretEnc    String?
+  totpEnabledAt    DateTime?
+  totpLastStep     Int?
+  totpRecoveryJson String?
 
   // Lockout state. Cleared on a successful sign-in.
   failedLoginCount Int       @default(0)
@@ -269,11 +269,11 @@ model Role {
   // Optional: branch-scoped custom role
   branchId  String?
 
-  name        String
-  description String?
+  name             String
+  description      String?
   // Stored as a string rather than a Postgres enum: adding a value to an enum
   // is a migration, and these lists grow. (ADMIN | ACCOUNTANT | SALES | CUSTOM)
-  roleType    String
+  roleType         String
   // Limits list and single-document reads to rows the holder created
   // (Odoo "Own Documents Only"). One unrestricted role lifts it.
   ownDocumentsOnly Boolean @default(false)
@@ -598,12 +598,14 @@ model EmailOutbox {
   accountId String?
   orgId     String?
 
-  templateKey String
-  toEmail     String
-  toName      String?
-  subject     String
-  bodyText    String
-  bodyHtml    String?
+  templateKey     String
+  toEmail         String
+  toName          String?
+  subject         String
+  bodyText        String
+  bodyHtml        String?
+  /// Files sent with the message, as [{ filename, contentType, base64 }] (a report CSV). Kept so a retry sends them too.
+  attachmentsJson String?
 
   status    String    @default("QUEUED") // QUEUED | SENT | FAILED | SUPPRESSED
   attempts  Int       @default(0)
@@ -710,14 +712,14 @@ model AuthProvider {
   certificate String?
 
   /// Restricts which addresses may use this provider.
-  emailDomains  String?
+  emailDomains      String?
   /// TXT value the company publishes on each domain to prove it owns it: clor-domain-verification=<this>.
   domainVerifyToken String?
   /// Domains proven by that record (comma separated). A provider signs in only addresses at these.
   verifiedDomains   String?
   /// Create a user on first successful sign-in instead of refusing.
-  autoProvision Boolean @default(false)
-  defaultRoleId String?
+  autoProvision     Boolean @default(false)
+  defaultRoleId     String?
 
   lastUsedAt DateTime?
   lastError  String?

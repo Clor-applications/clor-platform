@@ -129,7 +129,7 @@ describe('webhook deliveries', () => {
       await flushWebhooks();
       expect(rx.got.at(-1)!.headers['x-clor-event']).toBe('leave.approved');
 
-      await api(c).post('/months/2026-09/close').expect(200);
+      await api(c).post('/months/2026-09/close').send({ acknowledge: true }).expect(200);
       await flushWebhooks();
       expect(rx.got.at(-1)!.body).toMatchObject({ event: 'month.closed', data: { month: '2026-09' } });
     } finally {
@@ -215,7 +215,7 @@ describe('the API, second round', () => {
     expect(shifts.find((s: any) => s.date === '2026-09-05')).toMatchObject({ employeeCode: 'L1', weeklyOff: false });
     await v1(key).get('/attendance/shifts?from=2026-01-01&to=2026-03-01').expect(400);
 
-    await api(o).post('/months/2026-08/close').expect(200);
+    await api(o).post('/months/2026-08/close').send({ acknowledge: true }).expect(200);
     const months = (await v1(key).get('/attendance/months?year=2026').expect(200)).body.months;
     expect(months.find((m: any) => m.month === '2026-08').closed).toBe(true);
     expect(months.find((m: any) => m.month === '2026-09').closed).toBe(false);

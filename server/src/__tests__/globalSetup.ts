@@ -282,6 +282,7 @@ export default async function setup() {
   await applyPolicies(asOwner(people), 'prisma/people/migrations/20261018020100_hr_connections_rls');
   await applyPolicies(asOwner(people), 'prisma/people/migrations/20261018030100_report_schedules_rls');
   await applyPolicies(asOwner(people), 'prisma/people/migrations/20261018050100_site_agents_rls');
+  await applyPolicies(asOwner(people), 'prisma/people/migrations/20261019100100_attendance_trust_rls');
   await applyPolicies(asOwner(people), 'prisma/people/migrations/20261016100100_reader_health_rls');
   await applyPolicies(asOwner(platform), 'prisma/platform/migrations/20260924120000_row_level_security');
   await applyPolicies(asOwner(platform), 'prisma/platform/migrations/20261018040100_scim_tokens_rls');

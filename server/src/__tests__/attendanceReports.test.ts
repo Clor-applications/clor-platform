@@ -59,7 +59,7 @@ const row = (rep: any, name: string) => rep.rows.find((r: any) => r.name === nam
 describe('the catalogue', () => {
   it('lists the reports', async () => {
     const ids = (await api(c).get('/reports').expect(200)).body.reports.map((r: any) => r.id);
-    expect(ids).toEqual(['daily', 'monthly', 'muster', 'late-early', 'absent', 'overtime', 'leave', 'department', 'readers', 'biometrics', 'first-last', 'missed', 'timecard', 'work-duration', 'people-dates', 'documents', 'reader-punches', 'mobile']);
+    expect(ids).toEqual(['daily', 'monthly', 'muster', 'late-early', 'absent', 'overtime', 'leave', 'department', 'readers', 'biometrics', 'first-last', 'missed', 'timecard', 'work-duration', 'people-dates', 'documents', 'reader-punches', 'mobile', 'contractor']);
   });
 
   it('refuses an unknown report and too long a range', async () => {

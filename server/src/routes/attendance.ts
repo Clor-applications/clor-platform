@@ -23,6 +23,8 @@ import {
 import { clientIp } from '../services/auth.js';
 import { loadHolidays, loadSchedule, resolveShift } from '../services/attendance/schedule.js';
 import { emit as emitWebhook } from '../services/attendance/webhooks.js';
+import { logDayChange } from '../services/attendance/history.js';
+import { recordRuleVersion } from '../services/attendance/ruleVersions.js';
 
 /**
  * Attendance, native (after Horilla HRMS's attendance; reference only).
@@ -117,6 +119,9 @@ export async function writeDay(opts: {
   note?: string | null;
   /** Set when an approved leave writes the day; cleared by any other write. */
   leaveRequestId?: string | null;
+  /** Why, for the day's history (a correction's reason, a bulk change's description). */
+  reason?: string | null;
+  historyAction?: 'WRITE' | 'BULK';
 }) {
   /* Every way a day is written comes through here, so a closed month is held shut in one place. */
   await assertMonthOpen(opts.orgId, opts.date);
@@ -148,10 +153,15 @@ export async function writeDay(opts: {
     validatedAt: null,
     ...(opts.note !== undefined ? { note: opts.note } : {}),
   };
+  const before = await peoplePrisma.attendanceRecord.findUnique({ where: { employeeId_date: { employeeId: opts.employee.id, date: opts.date } } });
   const record = await peoplePrisma.attendanceRecord.upsert({
     where: { employeeId_date: { employeeId: opts.employee.id, date: opts.date } },
     create: { accountId: opts.accountId, orgId: opts.orgId, employeeId: opts.employee.id, date: opts.date, createdByUserId: opts.userId, ...data },
     update: { ...data, overtimeApproved: false },
+  });
+  await logDayChange({
+    accountId: opts.accountId, orgId: opts.orgId, employeeId: record.employeeId, date: record.date, recordId: record.id,
+    action: opts.historyAction || 'WRITE', before, after: record, userId: opts.userId, reason: opts.reason ?? opts.note ?? null,
   });
   emitWebhook(opts.orgId, 'day', {
     employeeId: record.employeeId,
@@ -352,6 +362,8 @@ attendanceRouter.post('/orgs/:orgId/attendance/records/import', can(PermissionAc
   const rows = Array.isArray(req.body?.rows) ? req.body.rows : [];
   if (!rows.length) return res.status(400).json({ error: 'Nothing to import.' });
   if (rows.length > IMPORT_MAX) return res.status(400).json({ error: `Import up to ${IMPORT_MAX.toLocaleString('en-IN')} days at a time.` });
+  /* dryRun: check every row the same way and save nothing, so the screen can show what would happen first. */
+  const dryRun = req.body?.dryRun === true;
   const byCode = await peopleByCode(orgId);
   const results: RowResult[] = [];
   for (let i = 0; i < rows.length; i += 1) {
@@ -367,14 +379,15 @@ attendanceRouter.post('/orgs/:orgId/attendance/records/import', can(PermissionAc
       if (b.date > today()) throw fail(400, 'That day has not happened yet.');
       const employee = await employeeIn(orgId, accountId, b.employeeId);
       const { checkIn, checkOut } = instants(b.date, b.checkIn, b.checkOut);
-      await writeDay({ accountId, orgId, userId: req.auth!.userId, employee, date: b.date, checkIn, checkOut, statusOverride: b.status ?? null, source: 'IMPORT', note: b.note ?? null });
+      if (dryRun) await assertMonthOpen(orgId, b.date);
+      else await writeDay({ accountId, orgId, userId: req.auth!.userId, employee, date: b.date, checkIn, checkOut, statusOverride: b.status ?? null, source: 'IMPORT', note: b.note ?? null });
       results.push({ row: i + 1, ok: true });
     } catch (e: any) {
       results.push({ row: i + 1, ok: false, error: e?.message || 'Not imported.' });
     }
   }
   const imported = results.filter((x) => x.ok).length;
-  res.json({ imported, failed: results.length - imported, results: results.filter((x) => !x.ok) });
+  res.json({ dryRun, imported, failed: results.length - imported, results: results.filter((x) => !x.ok) });
 });
 
 /** Holidays from a list: date, name, optional (yes/no), area (by name; blank = everyone). A date already on the calendar with the same name is skipped. */
@@ -384,6 +397,7 @@ attendanceRouter.post('/orgs/:orgId/attendance/holidays/import', can(PermissionA
   const rows = Array.isArray(req.body?.rows) ? req.body.rows : [];
   if (!rows.length) return res.status(400).json({ error: 'Nothing to import.' });
   if (rows.length > 500) return res.status(400).json({ error: 'Import up to 500 holidays at a time.' });
+  const dryRun = req.body?.dryRun === true;
   const areas = new Map((await peoplePrisma.area.findMany({ where: { orgId }, select: { id: true, name: true } })).map((a) => [a.name.trim().toLowerCase(), a.id]));
   const existing = await peoplePrisma.holiday.findMany({ where: { orgId }, select: { date: true, name: true } });
   const have = new Set(existing.map((h) => `${h.date}|${h.name.trim().toLowerCase()}`));
@@ -399,11 +413,11 @@ attendanceRouter.post('/orgs/:orgId/attendance/holidays/import', can(PermissionA
     if (!parsed.success) { results.push({ row: i + 1, ok: false, error: parsed.error.issues[0]?.message || 'Invalid row.' }); continue; }
     const key = `${parsed.data.date}|${parsed.data.name.toLowerCase()}`;
     if (have.has(key)) { skipped += 1; continue; }
-    await peoplePrisma.holiday.create({ data: { accountId, orgId, date: parsed.data.date, name: parsed.data.name, isOptional: Boolean(parsed.data.isOptional), branchId: null, areaId: parsed.data.areaId || null, createdByUserId: req.auth!.userId } });
+    if (!dryRun) await peoplePrisma.holiday.create({ data: { accountId, orgId, date: parsed.data.date, name: parsed.data.name, isOptional: Boolean(parsed.data.isOptional), branchId: null, areaId: parsed.data.areaId || null, createdByUserId: req.auth!.userId } });
     have.add(key);
     imported += 1;
   }
-  res.json({ imported, skipped, failed: results.length, results });
+  res.json({ dryRun, imported, skipped, failed: results.length, results });
 });
 
 /** Shift assignments from a list: employee code, shift (by name), from, to (blank = open-ended). */
@@ -413,6 +427,7 @@ attendanceRouter.post('/orgs/:orgId/attendance/shift-assignments/import', can(Pe
   const rows = Array.isArray(req.body?.rows) ? req.body.rows : [];
   if (!rows.length) return res.status(400).json({ error: 'Nothing to import.' });
   if (rows.length > IMPORT_MAX) return res.status(400).json({ error: `Import up to ${IMPORT_MAX.toLocaleString('en-IN')} assignments at a time.` });
+  const dryRun = req.body?.dryRun === true;
   const [byCode, shifts] = await Promise.all([peopleByCode(orgId), peoplePrisma.shift.findMany({ where: { orgId }, select: { id: true, name: true } })]);
   const shiftByName = new Map(shifts.map((x) => [x.name.trim().toLowerCase(), x.id]));
   const results: RowResult[] = [];
@@ -427,14 +442,14 @@ attendanceRouter.post('/orgs/:orgId/attendance/shift-assignments/import', can(Pe
     const to = String(r.to ?? r.effectiveTo ?? '').trim() || null;
     if (!ISO_DATE.test(from) || (to && !ISO_DATE.test(to))) { results.push({ row: i + 1, ok: false, error: 'Dates are YYYY-MM-DD.' }); continue; }
     if (to && to < from) { results.push({ row: i + 1, ok: false, error: 'The end is before the start.' }); continue; }
-    await peoplePrisma.shiftAssignment.upsert({
+    if (!dryRun) await peoplePrisma.shiftAssignment.upsert({
       where: { employeeId_effectiveFrom: { employeeId: emp.id, effectiveFrom: from } },
       create: { accountId, orgId, employeeId: emp.id, shiftId, effectiveFrom: from, effectiveTo: to, createdByUserId: req.auth!.userId },
       update: { shiftId, effectiveTo: to },
     });
     imported += 1;
   }
-  res.json({ imported, failed: results.length, results });
+  res.json({ dryRun, imported, failed: results.length, results });
 });
 
 attendanceRouter.delete('/orgs/:orgId/attendance/records/:id', can(PermissionAction.DELETE, R.records), async (req, res) => {
@@ -448,6 +463,7 @@ attendanceRouter.delete('/orgs/:orgId/attendance/records/:id', can(PermissionAct
     return sendError(res, e);
   }
   await peoplePrisma.attendanceRecord.delete({ where: { id: r.id } });
+  await logDayChange({ accountId, orgId, employeeId: r.employeeId, date: r.date, recordId: r.id, action: 'DELETE', before: r, after: null, userId: req.auth!.userId });
   res.json({ ok: true });
 });
 
@@ -461,10 +477,14 @@ attendanceRouter.post('/orgs/:orgId/attendance/records/validate', can(Permission
     where: { accountId, orgId, id: { in: ids }, checkIn: { not: null }, checkOut: null },
   });
   if (open) return res.status(409).json({ error: `${open} of those days are still open (checked in, not out).` });
+  const beforeRows = await peoplePrisma.attendanceRecord.findMany({ where: { accountId, orgId, id: { in: ids }, validated: false } });
   const r = await peoplePrisma.attendanceRecord.updateMany({
     where: { accountId, orgId, id: { in: ids } },
     data: { validated: true, validatedByUserId: req.auth!.userId, validatedAt: new Date() },
   });
+  for (const b of beforeRows) {
+    await logDayChange({ accountId, orgId, employeeId: b.employeeId, date: b.date, recordId: b.id, action: 'VALIDATE', before: b, after: { ...b, validated: true }, userId: req.auth!.userId });
+  }
   res.json({ validated: r.count });
 });
 
@@ -478,6 +498,7 @@ attendanceRouter.post('/orgs/:orgId/attendance/records/:id/overtime', can(Permis
     where: { id: r.id },
     data: { overtimeApproved: req.body?.approved !== false },
   });
+  await logDayChange({ accountId, orgId, employeeId: r.employeeId, date: r.date, recordId: r.id, action: 'OVERTIME', before: r, after: updated, userId: req.auth!.userId });
   res.json({ record: updated });
 });
 
@@ -578,12 +599,16 @@ attendanceRouter.post('/orgs/:orgId/attendance/clock', can(PermissionAction.CREA
 // Correction requests
 // ---------------------------------------------------------------------------
 
+/** Categories for a correction's reason; the free-text reason stays required. */
+export const REASON_CODES = ['FORGOT_PUNCH', 'READER_DOWN', 'ON_DUTY', 'WRONG_SHIFT', 'OTHER'] as const;
+
 const requestSchema = z.object({
   employeeId: z.string().trim().optional(),
   date: z.string().regex(ISO_DATE, 'Dates are YYYY-MM-DD.'),
   checkIn: z.string().refine(isHHMM, 'Times are HH:MM, 24-hour.'),
   checkOut: z.string().refine(isHHMM, 'Times are HH:MM, 24-hour.').optional().nullable(),
   reason: z.string().trim().min(3, 'Say why.').max(500),
+  reasonCode: z.enum(REASON_CODES).optional().nullable(),
 });
 
 /** `by` is who asks: the signed-in user, or — from the employee portal — the employee themselves. */
@@ -594,8 +619,14 @@ export const createRequest = async (req: any, res: any, employeeId: string, by?:
   const b = parsed.data;
   if (b.date > today()) return res.status(400).json({ error: 'A correction is for a day that has happened.' });
   const { checkIn, checkOut } = instants(b.date, b.checkIn, b.checkOut || null);
+  /* The day as it stands now, so whoever reviews sees what would change. */
+  const current = await peoplePrisma.attendanceRecord.findUnique({ where: { employeeId_date: { employeeId, date: b.date } } });
   const row = await peoplePrisma.attendanceRequest.create({
-    data: { accountId, orgId, employeeId, date: b.date, checkIn, checkOut, reason: b.reason, requestedByUserId: by?.userId || req.auth!.userId },
+    data: {
+      accountId, orgId, employeeId, date: b.date, checkIn, checkOut, reason: b.reason, reasonCode: b.reasonCode ?? null,
+      beforeCheckIn: current?.checkIn ?? null, beforeCheckOut: current?.checkOut ?? null, beforeStatus: current?.status ?? null,
+      requestedByUserId: by?.userId || req.auth!.userId,
+    },
   });
   res.status(201).json({ request: row });
 };
@@ -641,7 +672,7 @@ attendanceRouter.get('/orgs/:orgId/attendance/requests', can(PermissionAction.VI
 export async function reviewCorrection(accountId: string, orgId: string, r: any, approve: boolean, userId: string, note: string | null) {
   if (approve) {
     const employee = await employeeIn(orgId, accountId, r.employeeId);
-    await writeDay({ accountId, orgId, userId, employee, date: r.date, checkIn: r.checkIn, checkOut: r.checkOut, source: 'REQUEST' });
+    await writeDay({ accountId, orgId, userId, employee, date: r.date, checkIn: r.checkIn, checkOut: r.checkOut, source: 'REQUEST', reason: `Correction approved: ${r.reason}` });
   }
   const updated = await peoplePrisma.attendanceRequest.update({
     where: { id: r.id },
@@ -725,6 +756,10 @@ attendanceRouter.put('/orgs/:orgId/attendance/shifts/:id', can(PermissionAction.
   if (parsed.data.halfDayMinutes > parsed.data.fullDayMinutes) return res.status(400).json({ error: 'A half day cannot be longer than a full day.' });
   try {
     const shift = await peoplePrisma.shift.update({ where: { id: existing.id }, data: { ...parsed.data, code: parsed.data.code || null, color: parsed.data.color || null } as any });
+    const scoring = (x: any) => ({ startTime: x.startTime, endTime: x.endTime, breakMinutes: x.breakMinutes, graceMinutes: x.graceMinutes, earlyOutGraceMinutes: x.earlyOutGraceMinutes, halfDayMinutes: x.halfDayMinutes, fullDayMinutes: x.fullDayMinutes, overtimeAfterMinutes: x.overtimeAfterMinutes, weeklyOffDays: x.weeklyOffDays, offSaturdays: x.offSaturdays, isActive: x.isActive });
+    if (JSON.stringify(scoring(existing)) !== JSON.stringify(scoring(shift))) {
+      await recordRuleVersion(accountId, orgId, req.auth!.userId, { kind: 'SHIFT', ref: shift.id, name: shift.name, before: scoring(existing), after: scoring(shift) });
+    }
     res.json({ shift });
   } catch (e) {
     return sendError(res, e);
@@ -989,12 +1024,24 @@ attendanceRouter.post('/orgs/:orgId/attendance/months/:month/close', can(Permiss
   const month = String(req.params.month);
   if (!/^\d{4}-\d{2}$/.test(month)) return res.status(400).json({ error: 'Months are YYYY-MM.' });
   if (month >= today().slice(0, 7)) return res.status(400).json({ error: 'Only a month that has ended can be closed.' });
+  /* The checklist first: a month with open items closes only when someone says they have seen them. */
+  const { monthReadiness, snapshotMonth } = await import('../services/attendance/readiness.js');
+  const readiness = await monthReadiness(accountId, orgId, month);
+  const open = readiness.checks.filter((c) => c.count > 0);
+  if (open.length && req.body?.acknowledge !== true) {
+    return res.status(409).json({
+      error: `${open.length} item${open.length === 1 ? '' : 's'} on the month-close checklist ${open.length === 1 ? 'is' : 'are'} still open.`,
+      code: 'MONTH_NOT_READY',
+      readiness,
+    });
+  }
   const lock = await peoplePrisma.attendanceMonthLock.upsert({
     where: { orgId_month: { orgId, month } },
     create: { accountId, orgId, month, lockedByUserId: req.auth!.userId },
     update: {},
   });
-  res.json({ month, closed: { at: lock.lockedAt, byUserId: lock.lockedByUserId } });
+  const snapshot = await snapshotMonth(accountId, orgId, month, req.auth!.userId, { ...readiness, acknowledged: open.map((c) => ({ key: c.key, count: c.count })) });
+  res.json({ month, closed: { at: lock.lockedAt, byUserId: lock.lockedByUserId }, snapshot: { version: snapshot.version } });
   emitWebhook(orgId, 'month.closed', { month, closedAt: lock.lockedAt, byUserId: lock.lockedByUserId });
 });
 

@@ -155,6 +155,8 @@ export type SendOptions = {
   transactional?: boolean;
   /** An HTML rendering to send alongside the text (a report table); the text stays the fallback. */
   html?: string;
+  /** Small files to send with it (a report CSV). Stored with the message so a retry carries them. */
+  attachments?: Array<{ filename: string; contentType: string; content: string }>;
 };
 
 /**
@@ -210,6 +212,9 @@ export async function sendTemplate(opts: SendOptions) {
       subject,
       bodyText,
       bodyHtml: opts.html ?? null,
+      attachmentsJson: opts.attachments?.length
+        ? JSON.stringify(opts.attachments.map((a) => ({ filename: a.filename, contentType: a.contentType, base64: Buffer.from(a.content, 'utf8').toString('base64') })))
+        : null,
       status: 'QUEUED',
       relatedType: opts.relatedType ?? null,
       relatedId: opts.relatedId ?? null,
@@ -248,6 +253,9 @@ export async function deliver(outboxId: string, accountId?: string | null, orgId
         subject: row.subject,
         text: row.bodyText,
         ...(row.bodyHtml ? { html: row.bodyHtml } : {}),
+        ...(row.attachmentsJson
+          ? { attachments: (JSON.parse(row.attachmentsJson) as Array<{ filename: string; contentType: string; base64: string }>).map((a) => ({ filename: a.filename, contentType: a.contentType, content: Buffer.from(a.base64, 'base64') })) }
+          : {}),
       });
     }
     // The capture transport records the message without dialling out.

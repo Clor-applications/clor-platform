@@ -37,6 +37,8 @@ export const FULL_WARN = 0.9;
 export const FULL_BAD = 0.98;
 /** A command waiting this long on a reader that is online is stuck. */
 export const STUCK_MINUTES = 30;
+/** A push reader (ADMS) checks in every 30 seconds; this long without one is late, though not yet offline. */
+export const DELAYED_MINUTES = 3;
 
 const mins = (ms: number) => Math.round(ms / 60_000);
 const span = (minutes: number) =>
@@ -86,6 +88,15 @@ export function assessReader(r: ReaderFacts, now: Date, opts: { offlineMinutes: 
   }
   const silent = mins(now.getTime() - r.lastSeenAt.getTime());
   const online = silent < opts.offlineMinutes;
+  /* Between "late with its check-in" and offline: only readers that push on their own; polled ones are seen when polled. */
+  if (online && silent >= DELAYED_MINUTES && (r.vendor || 'ADMS') === 'ADMS' && !r.agentId) {
+    issues.push({
+      kind: 'delayed',
+      severity: 'medium',
+      title: `${r.name} is late checking in`,
+      details: `Last heard ${span(silent)} ago; it normally checks in every 30 seconds. If this lasts ${span(opts.offlineMinutes)} it is counted as offline. A busy or unstable network is the usual cause.`,
+    });
+  }
   if (!online) {
     issues.push({
       kind: 'offline',
@@ -152,7 +163,15 @@ export function assessReader(r: ReaderFacts, now: Date, opts: { offlineMinutes: 
 
 /** ok · warn · bad · offline — for a dot on the screen. */
 export const readerStatus = (issues: Issue[]) =>
-  issues.some((i) => i.kind === 'offline') ? 'offline' : issues.some((i) => i.severity !== 'medium') ? 'bad' : issues.length ? 'warn' : 'ok';
+  issues.some((i) => i.kind === 'offline')
+    ? 'offline'
+    : issues.some((i) => i.severity !== 'medium')
+      ? 'bad'
+      : issues.length && issues.every((i) => i.kind === 'delayed')
+        ? 'delayed'
+        : issues.length
+          ? 'warn'
+          : 'ok';
 
 /**
  * The outcome check (ClorTime checkNoPunches): it is a working day, the
@@ -351,7 +370,8 @@ export async function runReaderChecks(now = new Date()) {
       const settings = await alertSettings(orgId);
       const found: Array<Issue & { key: string; deviceId?: string | null }> = [];
       for (const { facts } of await readerFacts(orgId)) {
-        for (const i of assessReader(facts, now, { offlineMinutes: settings.offlineAlertMinutes })) found.push({ ...i, key: `${i.kind}:${facts.id}`, deviceId: facts.id });
+        /* "Late checking in" is shown on screen, never e-mailed: it clears itself in minutes, or becomes offline. */
+        for (const i of assessReader(facts, now, { offlineMinutes: settings.offlineAlertMinutes }).filter((x) => x.kind !== 'delayed')) found.push({ ...i, key: `${i.kind}:${facts.id}`, deviceId: facts.id });
       }
       for (const a of await connectorFacts(orgId)) {
         for (const i of assessConnector(a, now, { offlineMinutes: settings.offlineAlertMinutes })) found.push({ ...i, key: `${i.kind}:${a.id}` });

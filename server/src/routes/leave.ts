@@ -6,6 +6,7 @@ import { requireAuth } from '../middleware/auth.js';
 import { requireTenantContext } from '../middleware/tenantContext.js';
 import { requirePermission } from '../middleware/rbac.js';
 import { PermissionAction } from '../constants/enums.js';
+import { logDayChange } from '../services/attendance/history.js';
 import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { ATTENDANCE_MODULE, ATTENDANCE_RESOURCE, attendanceRouteOk } from '../services/attendance/guards.js';
 import { isWeeklyOff } from '../services/attendance/compute.js';
@@ -310,7 +311,11 @@ export async function createLeave(
 
 /** Undo an approved leave's days. Days someone clocked in on anyway are theirs, and stay. */
 async function clearLeaveDays(orgId: string, requestId: string) {
+  const cleared = await peoplePrisma.attendanceRecord.findMany({ where: { orgId, leaveRequestId: requestId, status: 'ON_LEAVE', checkIn: null } });
   await peoplePrisma.attendanceRecord.deleteMany({ where: { orgId, leaveRequestId: requestId, status: 'ON_LEAVE', checkIn: null } });
+  for (const r of cleared) {
+    await logDayChange({ accountId: r.accountId, orgId, employeeId: r.employeeId, date: r.date, recordId: r.id, action: 'LEAVE_CANCELLED', before: r, after: null, userId: 'system', reason: 'Leave cancelled or rejected' });
+  }
 }
 
 leaveRouter.get(`${base}/requests`, can(PermissionAction.VIEW, R.leave), async (req, res) => {

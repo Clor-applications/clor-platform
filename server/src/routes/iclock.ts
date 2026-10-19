@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { Router, type Request, type Response } from 'express';
 import { enqueuePunches } from '../services/hr/sync.js';
 
@@ -223,12 +224,24 @@ export async function recomputeDeviceDay(accountId: string, orgId: string, emplo
 /** Store a batch of punch lines from one reader; returns how many were new. */
 export async function ingestPunches(device: { id: string; accountId: string; orgId: string; serialNumber: string; direction: string; vendor?: string }, body: string) {
   const match = await pinMatcher(device.orgId);
-  const parsed = body
+  const lines = body
     .split(/\r?\n/)
     .map((l) => l.trim())
-    .filter(Boolean)
-    .map((raw) => ({ raw, p: parseAttlogLine(raw) }))
-    .filter((x): x is { raw: string; p: NonNullable<ReturnType<typeof parseAttlogLine>> } => Boolean(x.p));
+    .filter(Boolean);
+  const all = lines.map((raw) => ({ raw, p: parseAttlogLine(raw) }));
+  const parsed = all.filter((x): x is { raw: string; p: NonNullable<ReturnType<typeof parseAttlogLine>> } => Boolean(x.p));
+  /* One row per batch, whatever the channel: what came, what was new, what was a repeat, what could not be read. */
+  const trace = { traceId: randomUUID(), received: lines.length, rejected: lines.length - parsed.length, errors: all.filter((x) => !x.p).slice(0, 5).map((x) => x.raw.slice(0, 120)) };
+  const record = (accepted: number, duplicates: number, extraRejected = 0) =>
+    peoplePrisma.ingestRun
+      .create({
+        data: {
+          accountId: device.accountId, orgId: device.orgId, deviceId: device.id, channel: device.vendor || 'ADMS', traceId: trace.traceId,
+          received: trace.received, accepted, duplicates, rejected: trace.rejected + extraRejected,
+          errorsJson: trace.errors.length ? JSON.stringify(trace.errors) : null,
+        },
+      })
+      .catch((e) => console.error('[ingest-run]', e instanceof Error ? e.message : e));
 
   const rows: any[] = [];
   for (const { raw, p } of parsed) {
@@ -254,7 +267,10 @@ export async function ingestPunches(device: { id: string; accountId: string; org
       _emp: emp,
     });
   }
-  if (!rows.length) return 0;
+  if (!rows.length) {
+    await record(0, 0, parsed.length);
+    return 0;
+  }
 
   /* Readers resend (Stamp=0 asks for everything; outages replay). Only new punches change a day. */
   const fresh: typeof rows = [];
@@ -273,7 +289,11 @@ export async function ingestPunches(device: { id: string; accountId: string; org
       fresh.push(r);
     }
   }
-  if (!fresh.length) return 0;
+  if (!fresh.length) {
+    await record(0, rows.length, parsed.length - rows.length);
+    return 0;
+  }
+  await record(fresh.length, rows.length - fresh.length, parsed.length - rows.length);
   /* Shift days only for new punches: a reader resending its whole log costs one lookup per person-hour, not one per line. */
   const dayOf = new Map<string, string>();
   for (const r of fresh) {

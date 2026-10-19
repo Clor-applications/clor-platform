@@ -62,6 +62,20 @@ export function renderReportHtml(r: { title: string; period: string; columns: Ar
   return `<div style="font:13px system-ui,sans-serif;color:#111"><h2 style="margin:0 0 2px">${esc(r.title)}</h2><p style="margin:0 0 10px;color:#555">${esc(r.period)} · ${esc(companyName)}</p><table style="border-collapse:collapse">${head ? `<thead><tr>${head}</tr></thead>` : ''}<tbody>${body}${totals}</tbody></table>${r.rows.length > 2000 ? '<p>Showing the first 2,000 rows.</p>' : ''}${notes}</div>`;
 }
 
+/** The report as CSV, attached to the mail so it opens in Excel (RFC 4180 quoting). */
+export function reportCsv(r: { columns: Array<{ key: string; label: string }>; rows: any[]; totals?: any }) {
+  const cell = (v: unknown) => {
+    const t = String(v ?? '');
+    return /[",\n\r]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t;
+  };
+  const lines = [r.columns.map((c) => cell(c.label)).join(',')];
+  for (const row of r.rows) lines.push(r.columns.map((c) => cell(row[c.key])).join(','));
+  if (r.totals) lines.push(r.columns.map((c) => cell(r.totals[c.key] ?? '')).join(','));
+  return lines.join('\r\n');
+}
+
+const fileSafe = (t: string) => String(t || 'report').replace(/[^A-Za-z0-9]+/g, '-').replace(/^-|-$/g, '').toLowerCase();
+
 const summaryOf = (r: { rows: any[]; totals?: any }) => {
   const t = r.totals ? Object.values(r.totals).filter((v) => typeof v === 'string' && /\d/.test(v)).slice(0, 3).join(' · ') : '';
   return `${r.rows.length} row${r.rows.length === 1 ? '' : 's'}${t ? ` — ${t}` : ''}.`;
@@ -76,13 +90,19 @@ export async function runSchedule(s: Schedule, build: (reportId: string, account
     const html = renderReportHtml(report, org?.name || '');
     const to = s.recipients.split(/[,\s;]+/).map((x) => x.trim()).filter((x) => /.+@.+\..+/.test(x));
     if (!to.length) throw new Error('No valid recipient address');
+    const csv = reportCsv(report);
+    /* A CSV over ~5 MB is left off; the table in the mail still carries the first 2,000 rows. */
+    const attachments = csv.length < 5_000_000 ? [{ filename: `${fileSafe(report.title)}-${fileSafe(params.from || params.month || params.date || '')}.csv`, contentType: 'text/csv', content: csv }] : [];
     for (const addr of to) {
-      await sendTemplate({ templateKey: 'reports.scheduled', to: addr, accountId: s.accountId, orgId: s.orgId, data: { reportTitle: report.title, period: report.period, companyName: org?.name || '', summary: summaryOf(report) }, html, relatedType: 'ReportSchedule', relatedId: s.id, transactional: true });
+      await sendTemplate({ templateKey: 'reports.scheduled', to: addr, accountId: s.accountId, orgId: s.orgId, data: { reportTitle: report.title, period: report.period, companyName: org?.name || '', summary: summaryOf(report) }, html, attachments, relatedType: 'ReportSchedule', relatedId: s.id, transactional: true });
     }
     await peoplePrisma.reportSchedule.update({ where: { id: s.id }, data: { lastSentAt: now, lastError: null } });
+    await peoplePrisma.reportRun.create({ data: { accountId: s.accountId, orgId: s.orgId, scheduleId: s.id, at: now, ok: true, rows: report.rows.length, recipients: to.join(', ') } }).catch(() => {});
     return { ok: true, sent: to.length, rows: report.rows.length };
   } catch (e: any) {
-    await peoplePrisma.reportSchedule.update({ where: { id: s.id }, data: { lastError: String(e?.message || e).slice(0, 500) } }).catch(() => {});
+    const error = String(e?.message || e).slice(0, 500);
+    await peoplePrisma.reportSchedule.update({ where: { id: s.id }, data: { lastError: error } }).catch(() => {});
+    await peoplePrisma.reportRun.create({ data: { accountId: s.accountId, orgId: s.orgId, scheduleId: s.id, at: now, ok: false, rows: 0, recipients: s.recipients, error } }).catch(() => {});
     return { ok: false, sent: 0, error: String(e?.message || e) };
   }
 }

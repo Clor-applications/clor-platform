@@ -5,6 +5,7 @@ import { requireAuth } from '../middleware/auth.js';
 import { requireTenantContext } from '../middleware/tenantContext.js';
 import { requirePermission } from '../middleware/rbac.js';
 import { PermissionAction } from '../constants/enums.js';
+import { recordRuleVersion } from '../services/attendance/ruleVersions.js';
 import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { ATTENDANCE_MODULE, ATTENDANCE_RESOURCE, attendanceRouteOk } from '../services/attendance/guards.js';
 import { isWeeklyOff } from '../services/attendance/compute.js';
@@ -262,11 +263,16 @@ schedulingRouter.put(`${base}/rules`, can(PermissionAction.EDIT), async (req, re
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Check the rules.' });
   try {
     if (parsed.data.defaultShiftId) await shiftIn(orgId, parsed.data.defaultShiftId);
+    const previous = await peoplePrisma.attendanceSettings.findUnique({ where: { orgId } });
     const s = await peoplePrisma.attendanceSettings.upsert({
       where: { orgId },
       create: { accountId, orgId, ...parsed.data, updatedByUserId: req.auth!.userId },
       update: { ...parsed.data, updatedByUserId: req.auth!.userId },
     });
+    const pick = (x: any) => (x ? { defaultShiftId: x.defaultShiftId, lateAllowancePerMonth: x.lateAllowancePerMonth, latePenaltyEvery: x.latePenaltyEvery, photoRetentionDays: x.photoRetentionDays, readerUsersBecomeEmployees: x.readerUsersBecomeEmployees, leaveApproval: x.leaveApproval, correctionApproval: x.correctionApproval } : null);
+    if (JSON.stringify(pick(previous)) !== JSON.stringify(pick(s))) {
+      await recordRuleVersion(accountId, orgId, req.auth!.userId, { kind: 'RULES', before: pick(previous), after: pick(s) });
+    }
     res.json({ rules: { defaultShiftId: s.defaultShiftId, lateAllowancePerMonth: s.lateAllowancePerMonth, latePenaltyEvery: s.latePenaltyEvery, photoRetentionDays: s.photoRetentionDays, readerUsersBecomeEmployees: s.readerUsersBecomeEmployees, leaveApproval: s.leaveApproval, correctionApproval: s.correctionApproval } });
   } catch (e) {
     return sendError(res, e);

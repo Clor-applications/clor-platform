@@ -68,7 +68,34 @@ export async function phoneStatus(e: PunchingEmployee) {
 export type PunchOutcome = { status: number; body: Record<string, unknown> };
 
 /** The punch itself. Returns the HTTP status and body; the route only sends them. */
+/**
+ * A phone punch, and — when the server refuses it — a record of the attempt,
+ * so HR can see that someone tried from outside the site or with a rough
+ * location (Readers → Phone punches). The refusal itself is unchanged.
+ */
 export async function recordPhonePunch(e: PunchingEmployee, input: any): Promise<PunchOutcome> {
+  const out = await recordPhonePunchChecked(e, input);
+  if (out.status >= 400 && out.body?.code) {
+    const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
+    await peoplePrisma.phonePunchAttempt
+      .create({
+        data: {
+          accountId: e.accountId,
+          orgId: e.orgId,
+          employeeId: e.id,
+          code: String(out.body.code),
+          message: String(out.body.error || '').slice(0, 300),
+          latitude: num(input?.latitude),
+          longitude: num(input?.longitude),
+          accuracyM: num(input?.accuracy),
+        },
+      })
+      .catch((err) => console.error('[phone-punch-attempt]', err instanceof Error ? err.message : err));
+  }
+  return out;
+}
+
+async function recordPhonePunchChecked(e: PunchingEmployee, input: any): Promise<PunchOutcome> {
   if (!e.mobilePunch) return { status: 403, body: { error: 'Punching from your phone is not switched on for you. Ask HR.', code: 'PHONE_OFF' } };
   const { latitude, longitude } = input || {};
   const accuracy = typeof input?.accuracy === 'number' && Number.isFinite(input.accuracy) ? input.accuracy : null;

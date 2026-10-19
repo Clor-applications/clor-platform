@@ -437,7 +437,11 @@ payrollRunsRouter.post(
     }
     const periodMonths = [...new Set(datesBetween(period.startDate, period.endDate).map((d) => d.slice(0, 7)))];
     const shut = await closedMonths(orgId, periodMonths);
+    /* Which close of each month these figures match: the latest snapshot, kept when the month was closed. */
+    const snaps = await peoplePrisma.attendanceMonthSnapshot.findMany({ where: { orgId, month: { in: periodMonths } }, orderBy: { version: 'desc' }, select: { month: true, version: true, createdAt: true } });
+    const attendanceSnapshots = periodMonths.filter((m) => shut.has(m)).map((m) => snaps.find((x) => x.month === m)).filter(Boolean);
     res.json({
+      attendanceSnapshots,
       ok: true,
       saved,
       keptManual: keptManual.length,

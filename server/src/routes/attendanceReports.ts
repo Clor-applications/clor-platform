@@ -51,6 +51,7 @@ export const REPORTS = [
   { id: 'documents', name: 'Documents expiring', description: 'Employee documents expired or expiring within 90 days.', params: ['department'] },
   { id: 'reader-punches', name: 'Punches per reader', description: 'Each reader, each day: how many punches, how many matched to a person.', params: ['from', 'to'] },
   { id: 'mobile', name: 'Phone punches', description: 'Punches from phones: where, how accurate, with a selfie or not.', params: ['from', 'to', 'department'] },
+  { id: 'contractor', name: 'Contractor attendance', description: 'Per contractor for a month: workers, present and payable days, approved overtime — what to check a bill against.', params: ['month'] },
 ] as const;
 
 const STATUS_LABEL: Record<string, string> = {
@@ -72,7 +73,8 @@ function params(q: any) {
   if (from > to) [from, to] = [to, from];
   const span = (Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000 + 1;
   if (span > MAX_DAYS) throw Object.assign(new Error(`A report covers at most ${MAX_DAYS} days.`), { status: 400 });
-  return { month, date, from, to, departmentId: String(q.departmentId || '').trim() || null, employeeId: String(q.employeeId || '').trim() || null };
+  const pick = (k: string) => String(q[k] || '').trim() || null;
+  return { month, date, from, to, departmentId: pick('departmentId'), employeeId: pick('employeeId'), areaId: pick('areaId'), contractorId: pick('contractorId') };
 }
 
 /**
@@ -98,10 +100,18 @@ function dayStatus(ctx: Awaited<ReturnType<typeof periodContext>>, p: { id: stri
   return 'ABSENT';
 }
 
-const inDept = (departmentId: string | null) => (p: { departmentId?: string | null }) => !departmentId || p.departmentId === departmentId;
+/** Who a report covers: department, area (site), contractor and one person, any combination. */
+type Scope = { departmentId: string | null; areaId: string | null; contractorId: string | null; employeeId: string | null };
+const inScope = (f: Scope) => (p: { id?: string; departmentId?: string | null; areaId?: string | null; contractorId?: string | null }) =>
+  (!f.departmentId || p.departmentId === f.departmentId) &&
+  (!f.areaId || p.areaId === f.areaId) &&
+  (!f.contractorId || p.contractorId === f.contractorId) &&
+  (!f.employeeId || p.id === f.employeeId);
 
 export async function build(id: string, accountId: string, orgId: string, q: any): Promise<Report> {
-  const { month, date, from, to, departmentId, employeeId } = params(q);
+  const scope = params(q);
+  const { month, date, from, to, departmentId, employeeId } = scope;
+  const inDept = (_d: string | null) => inScope(scope);
 
   if (id === 'daily') {
     const ctx = await periodContext(accountId, orgId, date, date);
@@ -148,7 +158,8 @@ export async function build(id: string, accountId: string, orgId: string, q: any
 
   if (id === 'monthly') {
     const rows = await monthRows(accountId, orgId, month);
-    const ids = departmentId ? new Set((await peoplePrisma.employee.findMany({ where: { orgId, departmentId }, select: { id: true } })).map((e) => e.id)) : null;
+    const scoped = departmentId || scope.areaId || scope.contractorId || employeeId;
+    const ids = scoped ? new Set((await peoplePrisma.employee.findMany({ where: { orgId }, select: { id: true, departmentId: true, areaId: true, contractorId: true } })).filter(inScope(scope)).map((e) => e.id)) : null;
     const shown = ids ? rows.filter((r) => ids.has(r.employeeId)) : rows;
     const sum = (k: string) => shown.reduce((s, r: any) => s + (Number(r[k]) || 0), 0);
     return {
@@ -581,6 +592,60 @@ export async function build(id: string, accountId: string, orgId: string, q: any
     };
   }
 
+  if (id === 'contractor') {
+    const [rows, people, contractors] = await Promise.all([
+      monthRows(accountId, orgId, month),
+      peoplePrisma.employee.findMany({ where: { orgId }, select: { id: true, contractorId: true, departmentId: true, areaId: true } }),
+      peoplePrisma.contractor.findMany({ where: { orgId }, orderBy: { name: 'asc' } }),
+    ]);
+    const scoped = new Set(people.filter(inScope({ ...scope, contractorId: scope.contractorId })).map((p) => p.id));
+    const contractorOf = new Map(people.map((p) => [p.id, p.contractorId]));
+    const by = new Map<string, any>();
+    for (const r of rows as any[]) {
+      if (!scoped.has(r.employeeId)) continue;
+      const cid = contractorOf.get(r.employeeId);
+      if (!cid) continue;
+      const g = by.get(cid) || { workers: 0, present: 0, halfDays: 0, absent: 0, leave: 0, payable: 0, ot: 0 };
+      g.workers += 1;
+      g.present += r.present;
+      g.halfDays += r.halfDays;
+      g.absent += r.absent;
+      g.leave += r.leave;
+      g.payable += r.payableDays;
+      g.ot += r.approvedOvertimeMinutes;
+      by.set(cid, g);
+    }
+    const t = today();
+    const soon = new Date(Date.parse(`${t}T00:00:00Z`) + 30 * 86_400_000).toISOString().slice(0, 10);
+    const out = contractors
+      .filter((c) => by.has(c.id) || (!scope.contractorId && c.isActive))
+      .filter((c) => !scope.contractorId || c.id === scope.contractorId)
+      .map((c) => {
+        const g = by.get(c.id) || { workers: 0, present: 0, halfDays: 0, absent: 0, leave: 0, payable: 0, ot: 0 };
+        const lic = c.licenceValidTo ? (c.licenceValidTo < t ? `Expired ${c.licenceValidTo}` : c.licenceValidTo <= soon ? `Expires ${c.licenceValidTo}` : `Valid to ${c.licenceValidTo}`) : 'No licence date';
+        return { contractor: c.name, licence: c.licenceNo ? `${c.licenceNo}, ${lic}` : lic, workers: g.workers, present: g.present, halfDays: g.halfDays, absent: g.absent, leave: g.leave, payable: Math.round(g.payable * 10) / 10, overtime: hm(g.ot) };
+      });
+    const sum = (k: string) => out.reduce((s2, r: any) => s2 + (Number(r[k]) || 0), 0);
+    return {
+      title: 'Contractor attendance',
+      period: month,
+      columns: [
+        { key: 'contractor', label: 'Contractor' },
+        { key: 'licence', label: 'Licence' },
+        { key: 'workers', label: 'Workers', align: 'end' },
+        { key: 'present', label: 'Present', align: 'end' },
+        { key: 'halfDays', label: 'Half days', align: 'end' },
+        { key: 'absent', label: 'Absent', align: 'end' },
+        { key: 'leave', label: 'Leave', align: 'end' },
+        { key: 'payable', label: 'Payable days', align: 'end' },
+        { key: 'overtime', label: 'Approved overtime', align: 'end' },
+      ],
+      rows: out,
+      totals: { contractor: `${out.length} contractor${out.length === 1 ? '' : 's'}`, workers: sum('workers'), present: sum('present'), halfDays: sum('halfDays'), absent: sum('absent'), leave: sum('leave'), payable: Math.round(sum('payable') * 10) / 10 },
+      notes: ['Payable days are worked out exactly as for payroll (Month summary). Workers with no contractor are not included.'],
+    };
+  }
+
   throw Object.assign(new Error('No such report.'), { status: 404 });
 }
 
@@ -596,8 +661,8 @@ attendanceReportsRouter.get('/orgs/:orgId/attendance/calendar', can(), async (re
   const month = /^\d{4}-\d{2}$/.test(String(req.query.month || '')) ? String(req.query.month) : today().slice(0, 7);
   const days = daysOfMonth(month);
   const ctx = await periodContext(accountId, orgId, days[0], days[days.length - 1]);
-  const departmentId = String(req.query.departmentId || '').trim() || null;
-  const people = ctx.people.filter(inDept(departmentId));
+  const q = (k: string) => String(req.query[k] || '').trim() || null;
+  const people = ctx.people.filter(inScope({ departmentId: q('departmentId'), areaId: q('areaId'), contractorId: q('contractorId'), employeeId: null }));
   const out = days.map((date) => {
     const counts = { present: 0, halfDay: 0, absent: 0, leave: 0, holiday: 0, weeklyOff: 0, late: 0, employed: 0 };
     let holiday: string | null = null;
@@ -677,6 +742,16 @@ attendanceReportsRouter.delete('/orgs/:orgId/attendance/reports/schedules/:id', 
   res.json({ ok: true });
 });
 
+/** When a schedule ran, and whether it went. */
+attendanceReportsRouter.get('/orgs/:orgId/attendance/reports/schedules/:id/runs', can(), async (req, res) => {
+  if (!(await attendanceRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const s = await peoplePrisma.reportSchedule.findFirst({ where: { id: String(req.params.id), accountId, orgId }, select: { id: true } });
+  if (!s) return res.status(404).json({ error: 'No such schedule.' });
+  const runs = await peoplePrisma.reportRun.findMany({ where: { orgId, scheduleId: s.id }, orderBy: { at: 'desc' }, take: 50 });
+  res.json({ runs });
+});
+
 /** Send it now, for the period it would cover if it ran this morning. */
 attendanceReportsRouter.post('/orgs/:orgId/attendance/reports/schedules/:id/send', can(), async (req, res) => {
   if (!(await attendanceRouteOk(req, res))) return;
@@ -690,7 +765,11 @@ attendanceReportsRouter.get('/orgs/:orgId/attendance/reports', can(), async (req
   if (!(await attendanceRouteOk(req, res))) return;
   const departments = await peoplePrisma.department.findMany({ where: { orgId: req.tenant!.orgId }, select: { id: true, name: true }, orderBy: { name: 'asc' } });
   const employees = await peoplePrisma.employee.findMany({ where: { orgId: req.tenant!.orgId, status: { not: 'LEFT' } }, select: { id: true, name: true, code: true }, orderBy: { name: 'asc' } });
-  res.json({ reports: REPORTS, departments, employees });
+  const [areas, contractors] = await Promise.all([
+    peoplePrisma.area.findMany({ where: { orgId: req.tenant!.orgId }, select: { id: true, name: true }, orderBy: { name: 'asc' } }),
+    peoplePrisma.contractor.findMany({ where: { orgId: req.tenant!.orgId }, select: { id: true, name: true }, orderBy: { name: 'asc' } }),
+  ]);
+  res.json({ reports: REPORTS, departments, employees, areas, contractors });
 });
 
 attendanceReportsRouter.get('/orgs/:orgId/attendance/reports/:id', can(), async (req, res) => {

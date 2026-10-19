@@ -439,6 +439,9 @@ peopleRouter.post('/orgs/:orgId/people/employees/import', can(PermissionAction.C
   if (!rows.length) return res.status(400).json({ error: 'Nothing to import.' });
   if (rows.length > 1000) return res.status(400).json({ error: 'Import up to 1,000 people at a time.' });
   const userId = req.auth!.userId;
+  /* dryRun: every row checked, nothing created (departments included), so the screen can preview first. */
+  const dryRun = req.body?.dryRun === true;
+  const codesInFile = new Set<string>();
 
   /* Names to ids, creating what does not exist yet — the way a spreadsheet
      of staff usually arrives before anyone has set up departments. */
@@ -452,7 +455,7 @@ peopleRouter.post('/orgs/:orgId/people/employees/import', can(PermissionAction.C
     if (cache.has(key)) return cache.get(key)!;
     const model: any = (peoplePrisma as any)[kind];
     const found = await model.findFirst({ where: { orgId, name: { equals: n, mode: 'insensitive' } }, select: { id: true, name: true } });
-    const row = found || (await model.create({ data: { accountId, orgId, name: n, createdByUserId: userId }, select: { id: true, name: true } }));
+    const row = found || (dryRun ? { id: '', name: n } : await model.create({ data: { accountId, orgId, name: n, createdByUserId: userId }, select: { id: true, name: true } }));
     cache.set(key, row);
     return row as { id: string; name: string };
   };
@@ -469,6 +472,17 @@ peopleRouter.post('/orgs/:orgId/people/employees/import', can(PermissionAction.C
       const code = blank(r.code);
       if (code && (await peoplePrisma.employee.findFirst({ where: { orgId, code }, select: { id: true } }))) {
         results.push({ row: i + 1, ok: false, error: `Code ${code} is already used.` });
+        continue;
+      }
+      if (code && codesInFile.has(code.toLowerCase())) {
+        results.push({ row: i + 1, ok: false, error: `Code ${code} appears twice in this file.` });
+        continue;
+      }
+      if (code) codesInFile.add(code.toLowerCase());
+      if (dryRun) {
+        await ensure('department', r.department);
+        await ensure('jobPosition', r.jobPosition);
+        results.push({ row: i + 1, ok: true });
         continue;
       }
       const department = await ensure('department', r.department);
@@ -501,7 +515,7 @@ peopleRouter.post('/orgs/:orgId/people/employees/import', can(PermissionAction.C
       results.push({ row: i + 1, ok: false, error: String(e?.code) === 'P2002' ? 'Already exists.' : String(e?.message || e) });
     }
   }
-  res.json({ imported: results.filter((r) => r.ok).length, failed: results.filter((r) => !r.ok).length, results });
+  res.json({ dryRun, imported: results.filter((r) => r.ok).length, failed: results.filter((r) => !r.ok).length, results });
 });
 
 peopleRouter.get('/orgs/:orgId/people/org-chart', can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {

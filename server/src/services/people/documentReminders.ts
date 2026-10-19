@@ -1,7 +1,7 @@
 import { peoplePrisma } from '../../utils/peoplePrisma.js';
 import { platformPrisma } from '../../utils/platformPrisma.js';
 import { sendTemplate } from '../mailer.js';
-import { notifyUsers, recipientsWithPermission } from '../notifications.js';
+import { notifyPermissionOnce, notifyUsers, recipientsWithPermission } from '../notifications.js';
 import { isFeatureEnabled } from '../features.js';
 
 /**
@@ -71,10 +71,41 @@ export async function runDocumentReminders(now = new Date()) {
   return sent;
 }
 
+/**
+ * Contract Labour Act licences running out: a contractor whose licence ends
+ * within the window (or has ended) is named on the bell of whoever looks
+ * after the org structure, once per licence date — a renewed licence with a
+ * new date is announced again when it, too, runs out.
+ */
+export async function runContractorLicenceReminders(now = new Date()) {
+  const until = istDate(new Date(now.getTime() + EXPIRY_WINDOW_DAYS * 86_400_000));
+  const today = istDate(now);
+  const rows = await peoplePrisma.contractor.findMany({ where: { isActive: true, licenceValidTo: { not: null, lte: until } }, take: 500 });
+  let sent = 0;
+  for (const c of rows) {
+    try {
+      const expired = (c.licenceValidTo as string) < today;
+      sent += await notifyPermissionOnce(c.accountId, c.orgId, 'PEOPLE::Org Structure::VIEW', {
+        kind: 'people.contractor_licence',
+        title: expired ? `${c.name}’s labour licence has expired` : `${c.name}’s labour licence expires on ${c.licenceValidTo}`,
+        body: `${c.licenceNo ? `Licence ${c.licenceNo}. ` : ''}Workers supplied without a valid licence are a compliance risk.`,
+        link: { app: 'attendance', screen: 'contractors' },
+        dedupeKey: `licence:${c.id}:${c.licenceValidTo}`,
+      });
+    } catch (e) {
+      console.error(`[contractor-licence] ${c.orgId}:`, e instanceof Error ? e.message : e);
+    }
+  }
+  return sent;
+}
+
 /** Once a day; a document found expiring is announced once. */
 export function startDocumentReminders({ intervalMs = 24 * 3_600_000, startupDelayMs = 180_000 } = {}) {
   if (process.env.NODE_ENV === 'test' || process.env.VITEST) return () => {};
-  const tick = () => runDocumentReminders().catch((e) => console.error('[document-reminders] failed:', e instanceof Error ? e.message : e));
+  const tick = () => {
+    runDocumentReminders().catch((e) => console.error('[document-reminders] failed:', e instanceof Error ? e.message : e));
+    runContractorLicenceReminders().catch((e) => console.error('[contractor-licence] failed:', e instanceof Error ? e.message : e));
+  };
   const t = setTimeout(() => {
     tick();
     const i = setInterval(tick, intervalMs);

@@ -2,6 +2,7 @@ import { Router, type NextFunction, type Request, type Response } from 'express'
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 
+import { explainFor, leaveExplain } from './attendanceInsights.js';
 import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { platformPrisma } from '../utils/platformPrisma.js';
 import { notifyPermission } from '../services/notifications.js';
@@ -214,6 +215,25 @@ portalRouter.get('/attendance', async (req, res) => {
     totals: { present: count('PRESENT'), halfDay: count('HALF_DAY'), absent: count('ABSENT'), leave: count('ON_LEAVE'), late: records.filter((r) => (r.lateMinutes || 0) > 0).length },
     corrections: requests.map((r) => ({ id: r.id, date: r.date, checkIn: r.checkIn ? istTime(r.checkIn) : null, checkOut: r.checkOut ? istTime(r.checkOut) : null, reason: r.reason, status: r.status, note: r.reviewNote })),
   });
+});
+
+/** Why one of my days says what it says (the same explanation HR sees). */
+portalRouter.get('/attendance/explain', async (req, res) => {
+  const e = req.portal!.employee;
+  const date = String(req.query.date || '').trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return res.status(400).json({ error: 'Which day? Dates are YYYY-MM-DD.' });
+  res.json(await explainFor(e.orgId, e, date));
+});
+
+/** How my balance of one leave type is made up. */
+portalRouter.get('/leave/explain', async (req, res) => {
+  const { accountId, orgId, employeeId } = req.portal!;
+  try {
+    const year = Number(req.query.year) || new Date().getUTCFullYear();
+    res.json(await leaveExplain(accountId, orgId, employeeId, String(req.query.leaveTypeId || ''), year));
+  } catch (err: any) {
+    res.status(err?.status || 500).json({ error: err?.message || 'Could not explain this balance.' });
+  }
 });
 
 /** Ask for a day to be corrected (a missed punch, a reader that was down). */
