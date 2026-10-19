@@ -26,6 +26,9 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -152,9 +155,9 @@ fun MeTab(api: Api, onSignedOut: () -> Unit, appearance: Appearance = Appearance
         }
         Section("Display") {
             Text("Appearance", style = MaterialTheme.typography.bodyLarge)
-            androidx.compose.material3.SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+            SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
                 listOf(Appearance.AUTO to "Auto", Appearance.LIGHT to "Light", Appearance.DARK to "Dark").forEachIndexed { i, (a, label) ->
-                    androidx.compose.material3.SegmentedButton(selected = appearance == a, onClick = { onAppearance(a) }, shape = androidx.compose.material3.SegmentedButtonDefaults.itemShape(i, 3)) { Text(label) }
+                    SegmentedButton(selected = appearance == a, onClick = { onAppearance(a) }, shape = SegmentedButtonDefaults.itemShape(i, 3)) { Text(label) }
                 }
             }
             Hint("Auto follows your phone's light or dark setting. Text follows your phone's font size; on a tablet or in landscape the menu moves to the side.")
