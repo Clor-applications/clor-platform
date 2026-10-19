@@ -133,6 +133,8 @@ export default function Shell() {
     }
   });
   const [browseModule, setBrowseModule] = useState(null);
+  /* Filters a screen was opened with (a report row or an exception opening Records for one person and day). */
+  const [screenParams, setScreenParams] = useState(null);
   /* The screens panel beside the rail can be closed on a desktop; the choice
      is a per-browser convenience, so it survives a reload but nothing else. */
   const [panelClosed, setPanelClosed] = useState(() => {
@@ -249,6 +251,7 @@ export default function Shell() {
       const { open, app: appInUrl } = readScreenSearch(window.location.search);
       fromHistory.current = true;
       if (appInUrl && !appFromHost()) setChosenAppId(appInUrl);
+      setScreenParams(null);
       setScreenKey(open);
       setPlatformScreen(null);
       setShowMoreApps(false);
@@ -381,6 +384,7 @@ export default function Shell() {
 
   const goTo = (key) => {
     setScreenKey(key);
+    setScreenParams(null);
     setPlatformScreen(null);
     setShowMoreApps(false);
     setNavOpen(false);
@@ -789,10 +793,12 @@ export default function Shell() {
               <PermissionProvider key={tenantKey} enabled>
                 <WriteGuard permission={(app?.nav || []).find((n) => n.key === screen)?.permission}>
                   <Screen
-                    key={tenant.id}
-                    openScreen={(key) => {
+                    key={screenParams ? `${tenant.id}:${JSON.stringify(screenParams)}` : tenant.id}
+                    params={screenParams || undefined}
+                    openScreen={(key, params) => {
                       if (!app?.screens?.[key]) return;
                       setScreenKey(key);
+                      setScreenParams(params && typeof params === 'object' ? params : null);
                       setPlatformScreen(null);
                       window.scrollTo(0, 0);
                     }}

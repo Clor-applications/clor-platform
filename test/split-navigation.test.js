@@ -31,10 +31,11 @@ describe('Attendance navigation structure', () => {
     ]);
     expect(s.Readers).toEqual([
       ['Readers', ['Reader health', 'Readers', 'Sync status']],
-      ['Data', ['Transactions', 'Enrolments', 'Unmatched punches', 'Reader logs']],
+      ['Data', ['Transactions', 'Phone punches', 'Enrolments', 'Unmatched punches', 'ID mapping', 'Reader logs']],
     ]);
     expect(s.Attendance.map(([g]) => g)).toEqual(['Daily', 'Reports', 'Schedule', 'Rules', 'Leave setup']);
     expect(s.System).toEqual([
+      ['Setup', ['Setup']],
       ['Employee portal', ['Portal access', 'Work sites', 'Site check']],
       ['Integrations', ['Integrations']],
       ['Data', ['Import', 'Export']],
@@ -54,7 +55,7 @@ describe('Attendance navigation structure', () => {
     });
   }
   it('a person without a screen does not see it, and a module left empty disappears', () => {
-    const nav = attendanceApp.nav.filter((i) => !['portalAccess', 'sites', 'siteCheck', 'integrations', 'dataImport', 'dataExport'].includes(i.key));
+    const nav = attendanceApp.nav.filter((i) => !['setup', 'portalAccess', 'sites', 'siteCheck', 'integrations', 'dataImport', 'dataExport'].includes(i.key));
     const labels = resolveModules(attendanceApp, nav).map((m) => m.label);
     expect(labels).not.toContain('System');
   });

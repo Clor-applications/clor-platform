@@ -20,6 +20,7 @@ const KIND = {
   'people.joined': 'Joiners',
   'people.left': 'Leavers',
   'people.document_expiring': 'Documents expiring',
+  'people.contractor_licence': 'Contractor licences',
   'payment.claimed': 'UPI payments to confirm',
   'books.overdue': 'Overdue invoices',
   'books.payables': 'Payables due this week',

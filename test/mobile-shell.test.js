@@ -99,7 +99,8 @@ describe('the split sidebar', () => {
     });
   }
   it('drops what the person may not open, and a module left empty', () => {
-    const nav = attendanceApp.nav.filter((i) => i.key && !String(i.key).startsWith('reader') && !['transactions', 'enrolments', 'unmatched', 'deviceLogs'].includes(i.key));
+    /* Someone without the reader permission: every Readers screen goes, so the module does. */
+    const nav = attendanceApp.nav.filter((i) => i.key && !String(i.permission || '').includes('Attendance Devices'));
     const modules = resolveModules(attendanceApp, nav);
     expect(modules.map((m) => m.key)).not.toContain('device');
     expect(moduleForScreen(modules, 'records').key).toBe('attendance');
