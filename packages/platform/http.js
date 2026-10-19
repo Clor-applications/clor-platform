@@ -158,6 +158,29 @@ async function stepUpAndRetry(path, opts, data) {
   throw err;
 }
 
+/*
+ * Writes that create money records carry an Idempotency-Key (server:
+ * middleware/idempotency.ts). The same form sent again within a few seconds
+ * (a double click, a resend after a timeout or a token refresh) reuses the
+ * key, so the server answers it with the first result instead of making a
+ * second invoice, receipt or payment. A different body is a new key.
+ */
+const GUARDED_WRITE = /^\/orgs\/[^/]+\/(invoices|payments|payments\/[^/]+\/reverse|ledger\/entries|bank-book|adjustments|transfers|fixed-assets|recurring\/run|pay-requests|payroll\/payments|payroll\/payments\/[^/]+\/(settle|post|cancel)|payroll\/runs|payroll\/settlements)\/?$/;
+const recentWrites = new Map();
+const REUSE_MS = 15_000;
+const newKey = () => (globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`);
+export function idempotencyKeyFor(method, path, body) {
+  if (method !== 'POST' || !GUARDED_WRITE.test(String(path).split('?')[0])) return null;
+  const now = Date.now();
+  for (const [k, v] of recentWrites) if (now - v.at > REUSE_MS) recentWrites.delete(k);
+  const sig = `${path}|${body ? JSON.stringify(body) : ''}`;
+  const hit = recentWrites.get(sig);
+  if (hit) return hit.key;
+  const key = newKey();
+  recentWrites.set(sig, { key, at: now });
+  return key;
+}
+
 export async function apiFetch(
   path,
   {
@@ -199,6 +222,10 @@ export async function apiFetch(
         ...(!skipAuth && !skipBranchHeader && branchId ? { 'x-branch-id': branchId } : {}),
         ...(!skipAuth && !skipWarehouseHeader && warehouseId ? { 'x-warehouse-id': warehouseId } : {}),
         ...(!skipAuth ? stepUpHeader() : {}),
+        ...(() => {
+          const k = idempotencyKeyFor(method, path, body);
+          return k ? { 'Idempotency-Key': k } : {};
+        })(),
         ...(headers || {}),
       },
       body: body ? JSON.stringify(body) : undefined,

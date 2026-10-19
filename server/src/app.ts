@@ -89,9 +89,13 @@ import { edgeGuard } from './middleware/edgeGuard.js';
 import { auditMutations } from './middleware/auditMutations.js';
 import { clearAccessCacheOnWrite } from './utils/accessCache.js';
 import { safeUrl } from './utils/safeUrl.js';
+import { accessLog, requestId } from './utils/log.js';
+import { webIdempotency } from './middleware/idempotency.js';
 
 export function buildApp() {
   const app = express();
+  /* Every request has an id from the start, so every log line and error about it can be found together. */
+  app.use(requestId);
 
   /*
    * Server-Timing: how long the API spent on each request, visible per call in
@@ -180,7 +184,8 @@ export function buildApp() {
         return cb(null, defaultDevAllow.has(origin));
       },
       credentials: true,
-      allowedHeaders: ['Content-Type', 'Authorization', 'x-org-id', 'x-branch-id', 'x-warehouse-id', 'x-step-up'],
+      allowedHeaders: ['Content-Type', 'Authorization', 'x-org-id', 'x-branch-id', 'x-warehouse-id', 'x-step-up', 'Idempotency-Key'],
+      exposedHeaders: ['X-Request-Id', 'Idempotency-Replayed'],
     })
   );
   /*
@@ -215,11 +220,15 @@ export function buildApp() {
   /* A document on an employee file (≤ 5 MB, base64). */
   app.use('/api/orgs/:orgId/people/employees/:id/documents', express.json({ limit: '7mb' }));
   app.use(express.json({ limit: '1mb' }));
+  /* Invoices, receipts, payments and payroll writes are never made twice by a double click or a retry. */
+  app.use(webIdempotency);
   // The API for outside systems: an API key, no user session (routes/publicApi.ts).
   app.use('/v1', publicApiRouter);
   // `tiny`, with share tokens, GSTINs and search terms taken out of the URL.
   morgan.token('safe-url', (req: any) => safeUrl(req.originalUrl || req.url));
-  app.use(morgan(':method :safe-url :status :res[content-length] - :response-time ms'));
+  /* Production: one JSON line per request with its id (Cloud Logging); elsewhere the familiar text line. */
+  app.use(accessLog(safeUrl));
+  if (process.env.NODE_ENV !== 'production') app.use(morgan(':method :safe-url :status :res[content-length] - :response-time ms'));
 
   // Test-only anomaly capture. The suite's residual flake shows up as
   // unexplained 401/403/404s that morgan records without context; this logs
@@ -260,7 +269,30 @@ export function buildApp() {
     });
   }
 
+  /* Liveness: the process answers. Cheap on purpose; it is asked every few seconds. */
   app.get('/health', (_req, res) => res.json({ ok: true }));
+  /*
+   * Readiness: the process can do its job — each of the four databases
+   * answers within two seconds. The startup probe waits on this, so a revision
+   * that cannot reach its data never takes traffic. Says which store failed,
+   * never how (no connection strings or errors leave the server).
+   */
+  app.get('/ready', async (_req, res) => {
+    const { prisma } = await import('./utils/prisma.js');
+    const { payrollPrisma } = await import('./utils/payrollPrisma.js');
+    const { peoplePrisma } = await import('./utils/peoplePrisma.js');
+    const { platformPrisma } = await import('./utils/platformPrisma.js');
+    const within = (p: Promise<unknown>) => Promise.race([p.then(() => true), new Promise<boolean>((r) => setTimeout(() => r(false), 2000))]).catch(() => false);
+    const [accounting, payroll, people, platform] = await Promise.all([
+      within(prisma.$queryRaw`SELECT 1`),
+      within(payrollPrisma.$queryRaw`SELECT 1`),
+      within(peoplePrisma.$queryRaw`SELECT 1`),
+      within(platformPrisma.$queryRaw`SELECT 1`),
+    ]);
+    const checks = { accounting, payroll, people, platform };
+    const ok = Object.values(checks).every(Boolean);
+    res.status(ok ? 200 : 503).json({ ok, checks });
+  });
 
   /* Single sign-on lands here from the identity provider; mounted before the password routes. */
   app.use('/api/auth/sso', ssoRouter);

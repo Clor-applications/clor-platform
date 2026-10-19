@@ -1,6 +1,7 @@
 import { prisma } from '../utils/prisma.js';
 import { platformPrisma } from '../utils/platformPrisma.js';
 import { notifyPermissionOnce } from './notifications.js';
+import { exclusive, leaseFor } from './jobLease.js';
 
 /**
  * What Accounting's own bell used to work out in the browser — invoices past
@@ -67,7 +68,7 @@ export async function runBooksDigest(now = new Date()) {
 /** Each morning (and a few minutes after start). */
 export function startBooksDigest({ intervalMs = 24 * 3_600_000, startupDelayMs = 300_000 } = {}) {
   if (process.env.NODE_ENV === 'test' || process.env.VITEST) return () => {};
-  const tick = () => runBooksDigest().catch((e) => console.error('[books-digest] failed:', e instanceof Error ? e.message : e));
+  const tick = () => exclusive('books.digest', leaseFor(intervalMs), () => runBooksDigest()).catch((e) => console.error('[books-digest] failed:', e instanceof Error ? e.message : e));
   const t = setTimeout(() => {
     tick();
     const i = setInterval(tick, intervalMs);

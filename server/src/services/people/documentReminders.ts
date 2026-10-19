@@ -3,6 +3,7 @@ import { platformPrisma } from '../../utils/platformPrisma.js';
 import { sendTemplate } from '../mailer.js';
 import { notifyPermissionOnce, notifyUsers, recipientsWithPermission } from '../notifications.js';
 import { isFeatureEnabled } from '../features.js';
+import { exclusive, leaseFor } from '../jobLease.js';
 
 /**
  * People's own events, told to whoever manages employees (PEOPLE::Employees
@@ -103,8 +104,8 @@ export async function runContractorLicenceReminders(now = new Date()) {
 export function startDocumentReminders({ intervalMs = 24 * 3_600_000, startupDelayMs = 180_000 } = {}) {
   if (process.env.NODE_ENV === 'test' || process.env.VITEST) return () => {};
   const tick = () => {
-    runDocumentReminders().catch((e) => console.error('[document-reminders] failed:', e instanceof Error ? e.message : e));
-    runContractorLicenceReminders().catch((e) => console.error('[contractor-licence] failed:', e instanceof Error ? e.message : e));
+    exclusive('people.document-reminders', leaseFor(intervalMs), () => runDocumentReminders()).catch((e) => console.error('[document-reminders] failed:', e instanceof Error ? e.message : e));
+    exclusive('people.contractor-licences', leaseFor(intervalMs), () => runContractorLicenceReminders()).catch((e) => console.error('[contractor-licence] failed:', e instanceof Error ? e.message : e));
   };
   const t = setTimeout(() => {
     tick();

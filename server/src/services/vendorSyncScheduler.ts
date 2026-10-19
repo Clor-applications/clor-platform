@@ -1,6 +1,7 @@
 import { syncAllVendorConnections } from '../routes/iclock.js';
 import { purgePunchPhotos } from '../routes/portalAdmin.js';
 import { runReaderChecks } from './attendance/readerHealth.js';
+import { exclusive, leaseFor } from './jobLease.js';
 
 /**
  * Pulls punches from vendor clouds (e-Time Office) every five minutes, the
@@ -19,7 +20,7 @@ export function startVendorSync({ intervalMs = 5 * 60_000, startupDelayMs = 45_0
     if (running) return;
     running = true;
     try {
-      const r = await syncAllVendorConnections();
+      const r = (await exclusive('vendor.sync', leaseFor(intervalMs), syncAllVendorConnections)) || { added: 0, connections: 0 };
       // eslint-disable-next-line no-console
       if (r.added) console.log(`[vendor-sync] ${r.added} punch(es) from ${r.connections} connection(s)`);
     } catch (e) {
@@ -43,7 +44,7 @@ export function startVendorSync({ intervalMs = 5 * 60_000, startupDelayMs = 45_0
 export function startPhotoPurge({ intervalMs = 6 * 3_600_000, startupDelayMs = 90_000 } = {}) {
   const tick = async () => {
     try {
-      const n = await purgePunchPhotos();
+      const n = (await exclusive('photo.purge', leaseFor(intervalMs), purgePunchPhotos)) || 0;
       // eslint-disable-next-line no-console
       if (n) console.log(`[photo-purge] ${n} punch photo(s) past retention deleted`);
     } catch (e) {
@@ -74,7 +75,7 @@ export function startReaderChecks({ intervalMs = 5 * 60_000, startupDelayMs = 60
     if (running) return;
     running = true;
     try {
-      const r = await runReaderChecks();
+      const r = (await exclusive('reader.checks', leaseFor(intervalMs), runReaderChecks)) || { opened: 0, resolved: 0 };
       // eslint-disable-next-line no-console
       if (r.opened || r.resolved) console.log(`[reader-checks] ${r.opened} opened, ${r.resolved} cleared`);
     } catch (e) {
@@ -108,7 +109,7 @@ export function startWebhookRetries({ intervalMs = 60_000, startupDelayMs = 30_0
     running = true;
     try {
       const { retryDueDeliveries, pruneDeliveries } = await import('./attendance/webhooks.js');
-      const n = await retryDueDeliveries();
+      const n = (await exclusive('webhooks.retry', leaseFor(intervalMs), retryDueDeliveries)) || 0;
       // eslint-disable-next-line no-console
       if (n) console.log(`[webhooks] retried ${n} deliver${n === 1 ? 'y' : 'ies'}`);
       ticks += 1;

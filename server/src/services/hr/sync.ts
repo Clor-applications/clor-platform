@@ -1,6 +1,7 @@
 import { peoplePrisma } from '../../utils/peoplePrisma.js';
 import { decryptSecret, encryptSecret } from '../mailer.js';
 import { adapterOf, type Punch } from './adapters.js';
+import { exclusive, leaseFor } from '../jobLease.js';
 
 /**
  * The outbox and the sync runs behind HR connections.
@@ -148,9 +149,11 @@ export function startHrSync({ flushMs = 60_000, pullMs = 3_600_000, startupDelay
   if (process.env.NODE_ENV === 'test' || process.env.VITEST) return () => {};
   const safe = (fn: () => Promise<unknown>, what: string) => () => fn().catch((e) => console.error(`[hr] ${what} failed:`, e instanceof Error ? e.message : e)); // eslint-disable-line no-console
   const t1 = setTimeout(() => {
-    safe(() => flushOutbox(), 'flush')();
-    const a = setInterval(safe(() => flushOutbox(), 'flush'), flushMs);
-    const b = setInterval(safe(pullAllDue, 'pull'), pullMs);
+    const flush = safe(() => exclusive('hr.flush', leaseFor(flushMs), () => flushOutbox()), 'flush');
+    const pull = safe(() => exclusive('hr.pull', leaseFor(pullMs), pullAllDue), 'pull');
+    flush();
+    const a = setInterval(flush, flushMs);
+    const b = setInterval(pull, pullMs);
     a.unref?.();
     b.unref?.();
   }, startupDelayMs);

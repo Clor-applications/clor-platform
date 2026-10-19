@@ -1,4 +1,5 @@
 import { runDueSchedules } from './recurring.js';
+import { exclusive, leaseFor } from './jobLease.js';
 
 /**
  * The thing that makes a schedule a schedule.
@@ -37,7 +38,7 @@ export function startRecurringScheduler({
     if (running) return;
     running = true;
     try {
-      const summary = await runDueSchedules();
+      const summary = (await exclusive('recurring.invoices', leaseFor(intervalMs), runDueSchedules)) || { raised: 0, schedules: 0 };
       if (summary.raised > 0) {
         // eslint-disable-next-line no-console
         console.log(

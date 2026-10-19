@@ -1,12 +1,17 @@
 import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 
 /**
- * Rate limits on the credential endpoints.
+ * Rate limits.
  *
- * The default store is in-memory, which is correct for a single instance and
- * NOT shared across several. Running more than one API process means moving
- * this to Redis, or the limit is per process rather than per deployment.
+ * The limits that stop someone guessing a credential (sign-in, sign-up,
+ * password reset, one-time codes, the employee portal, single sign-on) are
+ * counted in Postgres, shared by every API instance, so ten tries means ten
+ * across the deployment. The flood limits on machine traffic (readers,
+ * pushes, connectors) stay in each process: they run thousands of times an
+ * hour, and a per-instance cap still stops a flood.
  */
+import { PostgresRateLimitStore } from './rateLimitStore.js';
+let storeSeq = 0;
 const message = (what: string) => ({
   error: `Too many ${what}. Please wait a few minutes and try again.`,
 });
@@ -34,7 +39,7 @@ const identityOf = (req: any) =>
     .trim()
     .toLowerCase();
 
-const bucket = (windowMs: number, max: number, what: string, key: (req: any) => string, skipWhen?: (req: any) => boolean) =>
+const bucket = (windowMs: number, max: number, what: string, key: (req: any) => string, skipWhen?: (req: any) => boolean, shared = false) =>
   rateLimit({
     windowMs,
     max,
@@ -43,12 +48,16 @@ const bucket = (windowMs: number, max: number, what: string, key: (req: any) => 
     skip: (req) => isDisabled() || Boolean(skipWhen?.(req)),
     message: message(what),
     keyGenerator: key,
+    /* A shared count, or this process's own; if the database cannot be reached the request goes on (it would fail there anyway). */
+    ...(shared ? { store: new PostgresRateLimitStore(`rl${(storeSeq += 1)}`), passOnStoreError: true } : {}),
   });
+/** A credential limit: counted across every instance. */
+const guard = (windowMs: number, max: number, what: string, key: (req: any) => string, skipWhen?: (req: any) => boolean) => bucket(windowMs, max, what, key, skipWhen, true);
 
 const build = (windowMs: number, max: number, what: string) => [
   // A shared office behind one address gets room for its people.
-  bucket(windowMs, max * 3, what, (req) => `ip:${ipOf(req)}`),
-  bucket(windowMs, max, what, (req) => `id:${identityOf(req)}`, (req) => !identityOf(req)),
+  guard(windowMs, max * 3, what, (req) => `ip:${ipOf(req)}`),
+  guard(windowMs, max, what, (req) => `id:${identityOf(req)}`, (req) => !identityOf(req)),
 ];
 
 export const loginLimiter = build(15 * 60 * 1000, 10, 'sign-in attempts');
@@ -57,7 +66,7 @@ export const resetLimiter = build(60 * 60 * 1000, 5, 'password reset requests');
 /** Punches pushed to a reader's own URL (/ingest/:token): per token, generous — middleware batches. */
 export const ingestLimiter = [bucket(60 * 1000, 600, 'pushes', (req) => `ingest:${String(req.params?.token || '').slice(0, 16) || ipOf(req)}`), bucket(60 * 1000, 3000, 'pushes', (req) => `ingest-ip:${ipOf(req)}`)];
 /** Authenticator codes: ten tries in fifteen minutes per signed-in user, so six digits cannot be walked. */
-export const codeLimiter = [bucket(15 * 60 * 1000, 10, 'code attempts', (req) => `code:${req.auth?.userId || ipOf(req)}`)];
+export const codeLimiter = [guard(15 * 60 * 1000, 10, 'code attempts', (req) => `code:${req.auth?.userId || ipOf(req)}`)];
 
 /** Machine clients with a bearer token (SCIM providers, on-site connectors): per token, and per address for the ones guessing. */
 const bearerOf = (req: any) => String(req.headers?.authorization || '').replace(/^Bearer\s+/i, '').slice(0, 24);
@@ -66,7 +75,7 @@ export const agentLimiter = [bucket(60 * 1000, 600, 'connector requests', (req) 
 /** Hikvision pushes, before the body is read: per URL token (from the path) and per address. */
 export const hikvisionLimiter = [bucket(60 * 1000, 600, 'pushes', (req) => `hik:${String(req.path || '').slice(1, 17) || ipOf(req)}`), bucket(60 * 1000, 3000, 'pushes', (req) => `hik-ip:${ipOf(req)}`)];
 /** Single sign-on: lookups, starts and assertions, per address. */
-export const ssoLimiter = [bucket(60 * 1000, 60, 'sign-in attempts', (req) => `sso:${ipOf(req)}`)];
+export const ssoLimiter = [guard(60 * 1000, 60, 'sign-in attempts', (req) => `sso:${ipOf(req)}`)];
 
 /**
  * Biometric readers (/iclock). One bucket per serial number and one per
@@ -107,6 +116,6 @@ export const readerLimiter = [
 const portalIdentity = (req: any) =>
   req.body?.company && req.body?.employeeCode ? `${String(req.body.company).trim().toUpperCase()}|${String(req.body.employeeCode).trim().toUpperCase()}` : '';
 export const portalLimiter = [
-  bucket(15 * 60 * 1000, 60, 'sign-in attempts', (req) => `portal-ip:${ipOf(req)}`),
-  bucket(15 * 60 * 1000, 10, 'sign-in attempts', (req) => `portal-id:${portalIdentity(req)}`, (req) => !portalIdentity(req)),
+  guard(15 * 60 * 1000, 60, 'sign-in attempts', (req) => `portal-ip:${ipOf(req)}`),
+  guard(15 * 60 * 1000, 10, 'sign-in attempts', (req) => `portal-id:${portalIdentity(req)}`, (req) => !portalIdentity(req)),
 ];

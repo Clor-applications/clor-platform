@@ -1,5 +1,6 @@
 import { platformPrisma } from '../utils/platformPrisma.js';
 import { peoplePrisma } from '../utils/peoplePrisma.js';
+import { exclusive, leaseFor } from './jobLease.js';
 
 /**
  * Deletes sign-in records once they have no further use.
@@ -75,7 +76,7 @@ export function startRetentionPurge() {
   if (String(process.env.RETENTION_PURGE || '').toLowerCase() === 'off') return () => {};
   const run = async () => {
     try {
-      const r = await purgeExpiredRecords();
+      const r: Record<string, number> = (await exclusive('retention.purge', leaseFor(24 * 60 * 60 * 1000), purgeExpiredRecords)) || {};
       const total = Object.values(r).reduce((a, b) => a + b, 0);
       // eslint-disable-next-line no-console
       if (total) console.log('[retention] removed', r);

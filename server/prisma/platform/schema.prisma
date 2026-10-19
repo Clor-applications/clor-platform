@@ -873,3 +873,43 @@ model PaymentEvent {
   @@unique([gateway, eventId])
   @@index([accountId])
 }
+
+/// Which API instance runs a background job right now. The API runs on more
+/// than one instance and every instance starts the same timers; the one that
+/// takes a job's lease runs that tick and the others skip until it expires.
+model JobLease {
+  name   String   @id
+  holder String
+  until  DateTime
+}
+
+/// Rate-limit counts shared by every API instance (sign-in, sign-up, password
+/// reset, one-time codes, portal and single sign-on). One row per bucket key.
+model RateLimitHit {
+  key     String   @id
+  hits    Int
+  resetAt DateTime
+
+  @@index([resetAt])
+}
+
+/// A write that must not happen twice: a double-clicked receipt, a retried
+/// invoice. The first response is kept and handed back to the repeat.
+model IdempotentRequest {
+  id        String   @id @default(cuid())
+  /// Whose request (a hash of the session token) — never shared between people.
+  scope     String
+  /// "k:<Idempotency-Key>" when the client sent one, else "auto:<path>:<body hash>".
+  key       String
+  method    String
+  path      String
+  bodyHash  String
+  /// 0 while the first request is still being handled.
+  status    Int      @default(0)
+  body      String?
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@unique([scope, key])
+  @@index([expiresAt])
+}

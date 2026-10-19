@@ -9,6 +9,10 @@ import { startNotificationPruning } from './services/notifications.js';
 import { startBooksDigest } from './services/booksDigest.js';
 import { build as buildReport } from './routes/attendanceReports.js';
 import { startPhotoPurge, startReaderChecks, startVendorSync, startWebhookRetries } from './services/vendorSyncScheduler.js';
+import { reportProcessErrors } from './utils/log.js';
+
+/* Crashes and unhandled rejections are reported, not lost. */
+reportProcessErrors();
 
 const app = buildApp();
 const port = Number(process.env.PORT || 4001);
