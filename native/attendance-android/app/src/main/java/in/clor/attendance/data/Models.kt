@@ -43,10 +43,10 @@ data class DayRecord(
 )
 
 @Serializable
-data class TodayPunch(val time: String = "", val kind: String? = null, val phone: Boolean = false, val site: String? = null)
+data class TodayPunch(val time: String = "", val kind: String? = null, val phone: Boolean = false, val site: String? = null, val outside: Boolean = false, val review: String? = null)
 
 @Serializable
-data class Phone(val allowed: Boolean = false, val next: String? = null, val why: String? = null, val sites: List<Site> = emptyList())
+data class Phone(val allowed: Boolean = false, val next: String? = null, val why: String? = null, val mode: String = "SITE", val selfieRequired: Boolean = false, val sites: List<Site> = emptyList())
 
 @Serializable
 data class Site(val id: String = "", val name: String = "", val radiusMeters: Int = 0)
@@ -55,7 +55,7 @@ data class Site(val id: String = "", val name: String = "", val radiusMeters: In
 data class PrivacyState(val version: String = "", val read: Boolean = false)
 
 @Serializable
-data class PunchResult(val kind: String = "", val time: String = "", val site: String? = null, val distance: Int? = null)
+data class PunchResult(val kind: String = "", val time: String = "", val site: String? = null, val distance: Int? = null, val outside: Boolean = false, val address: String? = null, val review: String? = null)
 
 @Serializable
 data class Month(
@@ -134,7 +134,7 @@ data class LeaveRequest(
 )
 
 @Serializable
-data class Approvals(val approver: Boolean = false, val leaves: List<Ask> = emptyList(), val corrections: List<Ask> = emptyList())
+data class Approvals(val approver: Boolean = false, val leaves: List<Ask> = emptyList(), val corrections: List<Ask> = emptyList(), val punches: List<Ask> = emptyList())
 
 /** A leave or correction waiting on me, as an approver. */
 @Serializable
@@ -151,6 +151,7 @@ data class Ask(
     val checkIn: String? = null,
     val checkOut: String? = null,
     val reason: String? = null,
+    val kind: String? = null,
 )
 
 @Serializable

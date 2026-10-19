@@ -68,7 +68,8 @@ fun PunchCard(api: Api, shift: Shift, record: DayRecord?, punches: List<TodayPun
     val scope = rememberCoroutineScope()
     var busy by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf<Pair<String, Boolean>?>(null) }
-    var withSelfie by remember { mutableStateOf(false) }
+    var withSelfie by remember { mutableStateOf(phone.selfieRequired) }
+    val field = phone.mode == "FIELD"
     var now by remember { mutableStateOf(LocalTime.now(ZoneId.of("Asia/Kolkata"))) }
     LaunchedEffect(Unit) {
         while (true) {
@@ -95,7 +96,11 @@ fun PunchCard(api: Api, shift: Shift, record: DayRecord?, punches: List<TodayPun
                     return@launch
                 }
                 val r = api.punch(where.latitude, where.longitude, where.accuracy, photo)
-                message = "${if (r.kind == "IN") "In" else "Out"} at ${r.time}${r.site?.let { " · $it" } ?: ""}. Recorded." to true
+                message = when {
+                    r.review == "PENDING" -> "${if (r.kind == "IN") "In" else "Out"} at ${r.time}${r.address?.let { " · $it" } ?: ""}. Recorded as a field punch; it counts once your manager or HR approves it." to true
+                    r.outside -> "${if (r.kind == "IN") "In" else "Out"} at ${r.time}${r.address?.let { " · $it" } ?: ""}. Recorded as a field punch." to true
+                    else -> "${if (r.kind == "IN") "In" else "Out"} at ${r.time}${r.site?.let { " · $it" } ?: ""}. Recorded." to true
+                }
                 onPunched()
             } catch (e: SignedOut) {
                 onSignedOut()
@@ -164,10 +169,15 @@ fun PunchCard(api: Api, shift: Shift, record: DayRecord?, punches: List<TodayPun
                 shape = RoundedCornerShape(14.dp),
                 modifier = Modifier.fillMaxWidth().height(58.dp).padding(top = 4.dp),
             ) { Text(if (busy) "Checking your location…" else if (phone.next == "OUT") "Punch out" else "Punch in", style = MaterialTheme.typography.titleMedium) }
+            if (field) {
+                Box(Modifier.fillMaxWidth().background(Brand.copy(alpha = 0.08f), RoundedCornerShape(10.dp)).padding(10.dp)) {
+                    Text("Field punch: you can punch wherever you are. Your location and its address are recorded${if (phone.selfieRequired) ", with a selfie" else ""}, and your manager or HR may need to approve it.", style = MaterialTheme.typography.bodySmall)
+                }
+            }
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Checkbox(checked = withSelfie, onCheckedChange = { withSelfie = it })
-                Text("Add a selfie", style = MaterialTheme.typography.bodyMedium)
-                if (phone.sites.isNotEmpty()) {
+                Checkbox(checked = withSelfie, onCheckedChange = { if (!phone.selfieRequired) withSelfie = it }, enabled = !phone.selfieRequired)
+                Text(if (phone.selfieRequired) "Selfie required" else "Add a selfie", style = MaterialTheme.typography.bodyMedium)
+                if (phone.sites.isNotEmpty() && !field) {
                     Icon(Icons.Outlined.LocationOn, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 12.dp).size(16.dp))
                     Text(phone.sites.joinToString { it.name }, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
                 }
@@ -190,7 +200,9 @@ fun PunchCard(api: Api, shift: Shift, record: DayRecord?, punches: List<TodayPun
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     Box(Modifier.size(8.dp).background(if (p.kind == "OUT") Neg else Pos, CircleShape))
                     Text("${p.time}  ${if (p.kind == "IN") "In" else if (p.kind == "OUT") "Out" else "Punch"}", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
-                    Text(if (p.phone) "Phone${p.site?.let { " · $it" } ?: ""}" else "Reader", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(if (p.phone) "${if (p.outside) "Field" else "Phone"}${p.site?.let { " · $it" } ?: ""}" else "Reader", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, modifier = Modifier.weight(1f, fill = false))
+                    if (p.review == "PENDING") StatusPill("Waiting approval", Tone.Warn)
+                    if (p.review == "REJECTED") StatusPill("Refused", Tone.Neg)
                 }
             }
         }
