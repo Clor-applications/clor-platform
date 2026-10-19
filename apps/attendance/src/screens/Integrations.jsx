@@ -549,6 +549,38 @@ function Connectors({ onShown }) {
   );
 }
 
+/** Fields in the order the vendor's admin asks for them: connection, punches, employees, then anything advanced (folded). */
+const GROUP_ORDER = ['Connection', 'Sending punches', 'Reading employees', 'Advanced'];
+const fieldGroups = (fields) => {
+  const by = new Map();
+  for (const f of fields) by.set(f.group || 'Connection', [...(by.get(f.group || 'Connection') || []), f]);
+  return [...by.entries()].sort((a, b) => GROUP_ORDER.indexOf(a[0]) - GROUP_ORDER.indexOf(b[0]));
+};
+
+/** One vendor setting: a choice, a pasted key or a line of text, with where to find it in the vendor's admin. */
+function HrField({ f, form, setForm }) {
+  const value = form.fields[f.key] ?? '';
+  const change = (e) => setForm({ ...form, fields: { ...form.fields, [f.key]: e.target.value } });
+  const stored = f.secret && form.secretsSet?.includes(f.key);
+  const id = `hr-${f.key}`;
+  return (
+    <div className={f.key === 'privateKey' ? 'md:col-span-2' : ''}>
+      <label htmlFor={id} className="ui-label">{f.label}{f.required || f.options ? '' : ' (optional)'}</label>
+      {f.options ? (
+        <select id={id} className="ui-input w-full" value={value || f.default || ''} onChange={change}>
+          {f.options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+        </select>
+      ) : f.key === 'privateKey' ? (
+        <textarea id={id} className="ui-input w-full ui-mono text-xs" rows={4} placeholder={stored ? 'Stored — paste to replace' : '-----BEGIN PRIVATE KEY-----'} value={value} onChange={change} />
+      ) : (
+        <input id={id} type={f.secret ? 'password' : 'text'} className="ui-input w-full" placeholder={stored ? 'Stored — type to replace' : f.placeholder || ''} value={value} autoComplete="off" onChange={change} />
+      )}
+      {f.where ? <span className="ui-caption block">{f.where}</span> : null}
+      {f.help ? <span className="ui-caption block">{f.help}</span> : null}
+    </div>
+  );
+}
+
 function HrTools() {
   const [adapters, setAdapters] = useState([]);
   const [rows, setRows] = useState(null);
@@ -597,7 +629,7 @@ function HrTools() {
     await deleteHrConnection(c.id).catch((e) => notify.error(String(e?.message || 'Not removed.')));
     load();
   };
-  const startNew = (a) => setForm({ adapter: a.id, name: a.label, fields: {}, enabled: false, pushPunches: a.capabilities.includes('pushPunches'), pullEmployees: false, createEmployees: false });
+  const startNew = (a) => setForm({ adapter: a.id, name: a.label, fields: Object.fromEntries(a.fields.filter((f) => f.default != null).map((f) => [f.key, f.default])), enabled: false, pushPunches: a.capabilities.includes('pushPunches'), pullEmployees: false, createEmployees: false });
   const edit = (c) => setForm({ id: c.id, adapter: c.adapter, name: c.name, fields: { ...c.config }, enabled: c.enabled, pushPunches: c.pushPunches, pullEmployees: c.pullEmployees, createEmployees: c.createEmployees, secretsSet: c.secretsSet });
   const showLog = async (c) => setLog({ c, ...(await hrConnectionLog(c.id).catch(() => ({ log: [], failed: [] }))) });
 
@@ -649,20 +681,26 @@ function HrTools() {
             {adapter(form.adapter)?.docsUrl ? <a className="ui-link text-sm" href={adapter(form.adapter).docsUrl} target="_blank" rel="noreferrer">How to get the keys</a> : null}
           </div>
           <p className="ui-caption">{adapter(form.adapter)?.blurb}</p>
-          <div className="grid gap-3 md:grid-cols-2">
-            <label className="block"><span className="ui-label">Shown as</span><input className="ui-input w-full" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></label>
-            {(adapter(form.adapter)?.fields || []).map((f) => (
-              <label key={f.key} className={`block ${f.key === 'privateKey' ? 'md:col-span-2' : ''}`}>
-                <span className="ui-label">{f.label}{f.required ? '' : ' (optional)'}</span>
-                {f.key === 'privateKey' ? (
-                  <textarea className="ui-input w-full ui-mono text-xs" rows={4} placeholder={form.secretsSet?.includes(f.key) ? 'Stored — paste to replace' : '-----BEGIN PRIVATE KEY-----'} value={form.fields[f.key] || ''} onChange={(e) => setForm({ ...form, fields: { ...form.fields, [f.key]: e.target.value } })} />
-                ) : (
-                  <input type={f.secret ? 'password' : 'text'} className="ui-input w-full" placeholder={f.secret && form.secretsSet?.includes(f.key) ? 'Stored — type to replace' : f.placeholder || ''} value={form.fields[f.key] || ''} autoComplete="off" onChange={(e) => setForm({ ...form, fields: { ...form.fields, [f.key]: e.target.value } })} />
-                )}
-                {f.help ? <span className="ui-caption">{f.help}</span> : null}
-              </label>
-            ))}
-          </div>
+          {adapter(form.adapter)?.prerequisites?.length ? (
+            <div className="rounded-md p-3 text-sm" style={{ backgroundColor: 'rgb(var(--surface))' }}>
+              <p className="font-medium">Before you start</p>
+              <ul className="mt-1 list-disc space-y-0.5 ps-5 ui-caption">{adapter(form.adapter).prerequisites.map((t) => <li key={t}>{t}</li>)}</ul>
+            </div>
+          ) : null}
+          <label className="block md:w-1/2"><span className="ui-label">Shown as</span><input className="ui-input w-full" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></label>
+          {fieldGroups(adapter(form.adapter)?.fields || []).map(([group, fields]) => group === 'Advanced' ? (
+            <details key={group} className="text-sm">
+              <summary className="ui-caption cursor-pointer">Advanced</summary>
+              <div className="mt-2 grid gap-3 md:grid-cols-2">{fields.map((f) => <HrField key={f.key} f={f} form={form} setForm={setForm} />)}</div>
+            </details>
+          ) : (
+            <fieldset key={group} className="space-y-2">
+              <legend className="ui-label !mb-1 font-medium">{group}{group === 'Reading employees' && fields.every((f) => !f.required) ? ' (optional)' : ''}</legend>
+              <div className="grid gap-3 md:grid-cols-2">
+                {fields.map((f) => <HrField key={f.key} f={f} form={form} setForm={setForm} />)}
+              </div>
+            </fieldset>
+          ))}
           <div className="flex flex-wrap gap-4 text-sm">
             {adapter(form.adapter)?.capabilities.includes('pushPunches') ? <label className="flex items-center gap-1.5"><input type="checkbox" checked={form.pushPunches} onChange={(e) => setForm({ ...form, pushPunches: e.target.checked })} /> Send punches as they arrive</label> : null}
             {adapter(form.adapter)?.capabilities.includes('pullEmployees') ? (
