@@ -198,6 +198,113 @@ portalRouter.get('/me', async (req, res) => {
 });
 
 /**
+ * Everything the phone app's home screen shows, in one answer: who and where
+ * (company, site), today (shift, record, punches, phone punch), this month's
+ * figures and the last seven days, days that need attention, leave balances,
+ * the next holidays, what is waiting on me and on others, and who in my team
+ * is away today. One round trip on a slow connection instead of eight.
+ */
+const plusDays = (iso: string, n: number) => {
+  const d = new Date(`${iso}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+};
+
+portalRouter.get('/home', async (req, res) => {
+  const e = req.portal!.employee;
+  const t = today();
+  const month = t.slice(0, 7);
+  const monthStart = `${month}-01`;
+  const weekStart = plusDays(t, -6);
+  const from = monthStart < weekStart ? monthStart : weekStart;
+  const year = Number(t.slice(0, 4));
+  const [org, area, branch, schedule, holidays, records, record, status, notice, leave, myLeave, myCorrections, team] = await Promise.all([
+    platformPrisma.org.findUnique({ where: { id: e.orgId }, select: { name: true, code: true } }),
+    e.areaId ? peoplePrisma.area.findFirst({ where: { id: e.areaId, orgId: e.orgId }, select: { name: true } }) : null,
+    e.branchId ? platformPrisma.branch.findFirst({ where: { id: e.branchId, orgId: e.orgId }, select: { branchName: true } }) : null,
+    loadSchedule(e.orgId, [e.id]),
+    loadHolidays(e.orgId, from, plusDays(t, 60)),
+    peoplePrisma.attendanceRecord.findMany({ where: { orgId: e.orgId, employeeId: e.id, date: { gte: from, lte: t } }, orderBy: { date: 'asc' } }),
+    peoplePrisma.attendanceRecord.findUnique({ where: { employeeId_date: { employeeId: e.id, date: t } } }),
+    phoneStatus(e),
+    privacyNoticeFor(e.orgId),
+    balancesFor(e.accountId, e.orgId, [e.id], year),
+    peoplePrisma.leaveRequest.count({ where: { orgId: e.orgId, employeeId: e.id, status: 'PENDING' } }),
+    peoplePrisma.attendanceRequest.count({ where: { orgId: e.orgId, employeeId: e.id, status: 'PENDING' } }),
+    peoplePrisma.employee.findMany({ where: { orgId: e.orgId, reportingManagerId: e.id, status: { not: 'LEFT' } }, select: { id: true, name: true } }),
+  ]);
+  const mine = holidays.forArea(e.areaId, e.branchId);
+  const byDate = new Map(records.map((r) => [r.date, r]));
+  const working = (d: string) => !mine.has(d) && !isWeeklyOff(resolveShift(schedule, e.id, d).rule, d);
+  /* This month, up to today. */
+  const monthDays = daysOfMonth(month).filter((d) => d <= t);
+  const workingSoFar = monthDays.filter(working);
+  const inMonth = records.filter((r) => r.date >= monthStart);
+  const count = (s: string) => inMonth.filter((r) => r.status === s).length;
+  const lateDays = inMonth.filter((r) => (r.lateMinutes || 0) > 0);
+  const present = count('PRESENT') + count('HALF_DAY') * 0.5;
+  /* The last seven days, oldest first, for the week chart. */
+  const week = Array.from({ length: 7 }, (_, i) => plusDays(t, i - 6)).map((d) => {
+    const r = byDate.get(d);
+    return { date: d, workedMinutes: r?.workedMinutes || 0, status: r?.status || (working(d) ? (d < t ? 'NO_RECORD' : 'TODAY') : 'OFF') };
+  });
+  /* Days that need a look: past working days with no record, absent, or in without out. */
+  const attention = monthDays
+    .filter((d) => d < t && working(d))
+    .map((d) => ({ d, r: byDate.get(d) }))
+    .filter(({ r }) => !r || r.status === 'ABSENT' || (r.checkIn && !r.checkOut))
+    .map(({ d, r }) => ({ date: d, why: !r ? 'No punches' : r.status === 'ABSENT' ? 'Absent' : 'No punch out' }));
+  const balances = leave.types
+    .filter((ty) => ty.isActive)
+    .map((ty) => ({ id: ty.id, name: ty.name, ...(leave.balances.get(e.id)?.get(ty.id) || {}) }))
+    .map((b: any) => ({ id: b.id, name: b.name, available: b.available ?? null, used: b.used || 0, pending: b.pending || 0 }));
+  const ids = team.map((m) => m.id);
+  const [waitingLeave, waitingCorrections, awayToday] = ids.length
+    ? await Promise.all([
+        peoplePrisma.leaveRequest.count({ where: { orgId: e.orgId, employeeId: { in: ids }, status: 'PENDING', managerApprovedAt: null } }),
+        peoplePrisma.attendanceRequest.count({ where: { orgId: e.orgId, employeeId: { in: ids }, status: 'PENDING', managerApprovedAt: null } }),
+        peoplePrisma.leaveRequest.findMany({ where: { orgId: e.orgId, employeeId: { in: ids }, status: 'APPROVED', fromDate: { lte: t }, toDate: { gte: t } }, select: { employeeId: true } }),
+      ])
+    : [0, 0, []];
+  const names = new Map(team.map((m) => [m.id, m.name]));
+  const shift = resolveShift(schedule, e.id, t);
+  res.json({
+    employee: { name: e.name, code: e.code, department: e.department, designation: e.designation, photoUrl: e.photoUrl },
+    company: { name: org?.name || '', code: org?.code || '' },
+    site: area?.name || branch?.branchName || status.phone.sites[0]?.name || null,
+    today: t,
+    shift: { name: shift.name, startTime: shift.rule.startTime, endTime: shift.rule.endTime, off: isWeeklyOff(shift.rule, t), holiday: mine.has(t) ? holidays.rows.find((h) => h.date === t)?.name || 'Holiday' : null },
+    record: record ? (await withNames(e.orgId, [record]))[0] : null,
+    punches: status.punches,
+    phone: status.phone,
+    month: {
+      month,
+      workingDays: workingSoFar.length,
+      present,
+      absent: count('ABSENT'),
+      leave: count('ON_LEAVE'),
+      late: lateDays.length,
+      lateMinutes: lateDays.reduce((a, r) => a + (r.lateMinutes || 0), 0),
+      workedMinutes: inMonth.reduce((a, r) => a + (r.workedMinutes || 0), 0),
+      rate: workingSoFar.length ? Math.round((present / workingSoFar.length) * 100) : null,
+    },
+    week,
+    attention: attention.slice(-5).reverse(),
+    attentionCount: attention.length,
+    leave: { balances, pending: myLeave },
+    corrections: { pending: myCorrections },
+    holidays: holidays.rows
+      .filter((h) => h.date > t && mine.has(h.date))
+      .sort((a, b) => a.date.localeCompare(b.date))
+      .filter((h, i, arr) => arr.findIndex((x) => x.date === h.date) === i)
+      .slice(0, 4)
+      .map((h) => ({ date: h.date, name: h.name })),
+    approvals: { approver: ids.length > 0, team: ids.length, waiting: (waitingLeave as number) + (waitingCorrections as number), awayToday: (awayToday as Array<{ employeeId: string }>).map((a) => names.get(a.employeeId) || '').filter(Boolean) },
+    privacy: { version: notice.version, read: e.privacyNoticeVersion === notice.version },
+  });
+});
+
+/**
  * A punch from the phone. The server's clock, never the phone's; the position
  * must be inside one of the person's sites; a selfie is kept if sent but never
  * required (a camera that will not open must not stop someone punching).
