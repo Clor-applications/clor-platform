@@ -6912,10 +6912,7 @@ th.ui-th {
  *   still runs edge to edge.
  * - A table box is as tall as its rows (capped, then it scrolls), not a
  *   screen-tall white area under five rows.
- * - Columns take their content's width and one column takes what is left —
- *   the one marked `ui-col-grow` (a reason, a detail, a name), or else the
- *   last one, so actions sit at the right edge. A full-width table otherwise
- *   spreads its spare width over every column as dead space.
+ * - Compact columns take their content's width; text columns share the rest.
  * Written with :where() so a cell's own utility (whitespace-normal, a width)
  * still wins.
  */
@@ -6933,12 +6930,14 @@ th.ui-th {
 :where(:root[data-app='attendance'] main .ui-table) :is(th, td) {
   white-space: nowrap;
 }
+/* Compact columns — figures, status, a checkbox, the row actions — take their
+   content's width; the text columns share what is left in proportion to what
+   they hold, so no single column swallows the spare width. */
 :where(:root[data-app='attendance'] main .ui-table) thead th {
-  width: 1%;
-}
-:where(:root[data-app='attendance'] main .ui-table) thead th.ui-col-grow,
-:where(:root[data-app='attendance'] main .ui-table:not(:has(thead th.ui-col-grow))) thead th:last-child {
   width: auto;
+}
+:where(:root[data-app='attendance'] main .ui-table) thead :is(th.ui-num, th.ui-col-h-center, th.ui-col-h-right, th:has(> input[type='checkbox']), th:has(> .sr-only)) {
+  width: 1%;
 }
 /* Only the headings size the columns here: the product-wide 1% on name and
    centred cells would otherwise pin the growing column to its content too. */
