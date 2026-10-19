@@ -28,3 +28,37 @@ export function resolveModules(app, nav) {
 export function moduleForScreen(modules, screen) {
   return modules.find((m) => m.items.some((i) => i.key === screen)) || null;
 }
+
+/**
+ * What a tap on a rail module does. Opening a panel never changes the screen:
+ * only a module with one screen (Today) navigates, because it has no panel.
+ *
+ *   go     open the module's only screen
+ *   browse show this module's panel (phone sheet, or a closed/other panel)
+ *   close  hide the panel this module already shows (desktop)
+ */
+export function railAction({ single, phone, panelShown }) {
+  if (single) return 'go';
+  if (phone) return 'browse';
+  return panelShown ? 'close' : 'browse';
+}
+
+/**
+ * The address for a screen: `?open=<screen>` (the name notification links
+ * already use) and, where the hostname does not say which app this is,
+ * `?app=<app>`. Other query parameters are kept as they are.
+ */
+export function screenSearch(search, { app, open, appInHost }) {
+  const q = new URLSearchParams(search || '');
+  if (!appInHost && app) q.set('app', app);
+  if (open) q.set('open', open);
+  else q.delete('open');
+  const s = q.toString();
+  return s ? `?${s}` : '';
+}
+
+/** The app and screen an address names, for a reload or the back button. */
+export function readScreenSearch(search) {
+  const q = new URLSearchParams(search || '');
+  return { app: q.get('app') || null, open: q.get('open') || null };
+}

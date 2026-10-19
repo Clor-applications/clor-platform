@@ -18,3 +18,5 @@ export function mobileTabsFor(app, nav) {
 
 /** True below the `md` breakpoint (767px), where the rail gives way to tabs. */
 export const PHONE_QUERY = '(max-width: 767px)';
+/** A tablet: the rail stays, the screens panel opens over the content instead of beside it. */
+export const TABLET_QUERY = '(min-width: 768px) and (max-width: 1099px)';

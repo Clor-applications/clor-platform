@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronDown, LayoutGrid, LogOut, Menu, Moon, Plus, Settings, Sun, UserRound, X } from 'lucide-react';
 
 import { useTheme } from '@ui/components/ui/useTheme';
@@ -12,8 +12,8 @@ import { WriteGuard } from '@ui/permissions/WriteGuard';
 
 import { APPS, appById, availableApps, landingApp, subscribedApps } from './registry';
 import { appFromHost, hostForApp, isFrontDoor } from './appHosts';
-import { PHONE_QUERY, mobileTabsFor } from './mobileTabs';
-import { moduleForScreen, resolveModules } from './splitNav';
+import { PHONE_QUERY, TABLET_QUERY, mobileTabsFor } from './mobileTabs';
+import { moduleForScreen, railAction, readScreenSearch, resolveModules, screenSearch } from './splitNav';
 import { useSession } from './session';
 import ClorMark from './ClorMark';
 import NotificationBell from './NotificationBell';
@@ -57,6 +57,21 @@ export default function Shell() {
     mq.addEventListener('change', onChange);
     return () => mq.removeEventListener('change', onChange);
   }, []);
+  /* A tablet keeps the rail; the panel is an overlay, open only while choosing. */
+  const [tablet, setTablet] = useState(() => typeof window !== 'undefined' && window.matchMedia(TABLET_QUERY).matches);
+  const [tabletPanel, setTabletPanel] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia(TABLET_QUERY);
+    const onChange = (e) => { setTablet(e.matches); setTabletPanel(false); };
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
+  useEffect(() => {
+    if (!tabletPanel) return undefined;
+    const onKey = (e) => { if (e.key === 'Escape') setTabletPanel(false); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [tabletPanel]);
   const { user, tenant, tenants, restoring, setTenantId, signOut, addApp } = useSession();
 
   /* The shared hook, not a second copy: the public page has a toggle too, and
@@ -99,7 +114,12 @@ export default function Shell() {
    * bought — and an app with no landing app corrected itself forever.
    */
   /* On an app's own address, that app; elsewhere nothing chosen yet. */
-  const [chosenAppId, setChosenAppId] = useState(() => appFromHost());
+  /* Where the address does not name the app (localhost, a preview), ?app= does, so a reload stays in it. */
+  const [chosenAppId, setChosenAppId] = useState(() => {
+    const fromHost = appFromHost();
+    if (fromHost) return fromHost;
+    try { return new URLSearchParams(window.location.search).get('app') || null; } catch { return null; }
+  });
   const activeAppId = mine.some((a) => a.id === chosenAppId)
     ? chosenAppId
     : landingApp(subscriptions || [])?.id || null;
@@ -113,6 +133,14 @@ export default function Shell() {
     }
   });
   const [browseModule, setBrowseModule] = useState(null);
+  /* The screens panel beside the rail can be closed on a desktop; the choice
+     is a per-browser convenience, so it survives a reload but nothing else. */
+  const [panelClosed, setPanelClosed] = useState(() => {
+    try { return window.localStorage.getItem('clor.splitPanel') === 'closed'; } catch { return false; }
+  });
+  useEffect(() => {
+    try { window.localStorage.setItem('clor.splitPanel', panelClosed ? 'closed' : 'open'); } catch { /* storage blocked */ }
+  }, [panelClosed]);
   /* A page the platform owns rather than the app (My profile), shown in an
      app's main area. Only for apps that use the shell's menu: an app that
      draws its own (Accounting) has its own profile entry. */
@@ -188,6 +216,47 @@ export default function Shell() {
     else document.documentElement.removeAttribute('data-app');
     return () => document.documentElement.removeAttribute('data-app');
   }, [activeAppId]);
+
+  /*
+   * The screen in the address bar, so a reload, a shared link and the
+   * browser's back and forward buttons all land on the same screen. Shell
+   * apps only: an app that draws itself (Accounting) owns its own address.
+   * `?open=` is the name notifications already use to link into a screen.
+   */
+  const fromHistory = useRef(false);
+  const urlReady = useRef(false);
+  const ownsAddress = Boolean(user && tenant && activeAppId && !appById(activeAppId)?.Root);
+  useEffect(() => {
+    if (!ownsAddress) return;
+    const appInHost = Boolean(appFromHost());
+    const was = readScreenSearch(window.location.search);
+    const current = was.open;
+    const appChanged = !appInHost && was.app !== activeAppId;
+    const search = screenSearch(window.location.search, { app: activeAppId, open: screenKey, appInHost });
+    const url = `${window.location.pathname}${search}${window.location.hash}`;
+    if (fromHistory.current || (!appChanged && current === (screenKey || null))) {
+      fromHistory.current = false;
+      urlReady.current = true;
+      return;
+    }
+    if (urlReady.current) window.history.pushState(null, '', url);
+    else window.history.replaceState(null, '', url);
+    urlReady.current = true;
+  }, [screenKey, ownsAddress, activeAppId]);
+  useEffect(() => {
+    if (!ownsAddress) return undefined;
+    const onPop = () => {
+      const { open, app: appInUrl } = readScreenSearch(window.location.search);
+      fromHistory.current = true;
+      if (appInUrl && !appFromHost()) setChosenAppId(appInUrl);
+      setScreenKey(open);
+      setPlatformScreen(null);
+      setShowMoreApps(false);
+      setBrowseModule(null);
+    };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, [ownsAddress]);
 
   /* Signed in at the front door (app.clor.in): go on to the app's own address,
      keeping any #/screen so a link into an app still lands on that screen. */
@@ -300,7 +369,8 @@ export default function Shell() {
       window.location.assign(`${window.location.protocol}//${host}/${search}`);
       return;
     }
-    if (open) window.history.replaceState(null, '', `${window.location.pathname}${search}`);
+    /* Always: the last app's ?open= is not this app's screen. */
+    window.history.replaceState(null, '', `${window.location.pathname}${search}${window.location.hash}`);
     setChosenAppId(id);
     /* A shell app's screen named outright (a notification's link); Accounting reads the address itself. */
     setScreenKey(open && next?.screens?.[open] ? open : next?.home || null);
@@ -315,6 +385,7 @@ export default function Shell() {
     setShowMoreApps(false);
     setNavOpen(false);
     setBrowseModule(null);
+    setTabletPanel(false);
     /* A new screen starts at its top, not at the last one's scroll position. */
     window.scrollTo(0, 0);
   };
@@ -326,17 +397,29 @@ export default function Shell() {
     <nav className="ui-split-rail" aria-label={`${app?.name || ''} modules`}>
       {modules.map((m) => {
         const Icon = m.icon;
-        const active = openModule?.key === m.key;
+        /* Two different facts: which module holds the screen you are on, and
+           which module's panel is open. A rail tap only opens a panel; it
+           does not change the screen under you. */
+        const current = currentModule?.key === m.key;
+        const panelShown = !m.single && openModule?.key === m.key && (phone || (tablet ? tabletPanel : !panelClosed));
         return (
           <button
             key={m.key}
             type="button"
             className="ui-split-mod"
-            aria-pressed={active}
+            aria-pressed={m.single ? current : panelShown}
+            aria-current={current ? 'true' : undefined}
+            aria-expanded={m.single ? undefined : panelShown}
+            data-current={current || undefined}
             title={m.label}
             onClick={() => {
-              if (m.single || !phone) goTo(m.home);
-              else setBrowseModule(m.key);
+              const action = railAction({ single: m.single, phone, panelShown });
+              if (action === 'go') goTo(m.home);
+              else if (action === 'close') { if (tablet) setTabletPanel(false); else setPanelClosed(true); }
+              else {
+                setBrowseModule(phone || m.key !== currentModule?.key ? m.key : null);
+                if (tablet) setTabletPanel(true); else setPanelClosed(false);
+              }
             }}
           >
             {Icon ? <Icon size={20} aria-hidden="true" /> : null}
@@ -347,15 +430,23 @@ export default function Shell() {
     </nav>
   );
   /* The open module's screens under plain headings; a single-screen module has no panel. */
-  const modulePanel = openModule && !openModule.single ? (
+  const modulePanel = openModule && !openModule.single && (phone || (tablet ? tabletPanel : !panelClosed)) ? (
     <nav className="ui-split-panel" aria-label={`${openModule.label} screens`}>
       <div className="ui-split-panel-head">
         <span className="ui-t-sec">{openModule.label}</span>
-        {phone ? (
-          <button type="button" className="ui-icon-btn" aria-label="Close menu" onClick={() => setNavOpen(false)}>
-            <X size={18} aria-hidden="true" />
-          </button>
-        ) : null}
+        <button
+          type="button"
+          className="ui-icon-btn"
+          aria-label={phone ? 'Close menu' : `Close ${openModule.label} menu`}
+          title="Close"
+          onClick={() => {
+            if (phone) setNavOpen(false);
+            else if (tablet) { setTabletPanel(false); setBrowseModule(null); }
+            else { setPanelClosed(true); setBrowseModule(null); }
+          }}
+        >
+          <X size={18} aria-hidden="true" />
+        </button>
       </div>
       {openModule.groups.map((g, gi) => (
         <div key={g.label || gi} className={gi ? 'mt-4' : ''}>
@@ -635,9 +726,10 @@ export default function Shell() {
             scrolled the whole page, so a screen opened from its lower half was out of view. */}
         {/* One app's navigation. Never four apps' worth. On a phone it is a sheet from the menu button and a tab bar below. */}
         {!phone && split ? (
-          <div className="ui-split" aria-label={app ? `${app.name} navigation` : 'Navigation'}>
+          <div className="ui-split" data-overlay={tablet || undefined} aria-label={app ? `${app.name} navigation` : 'Navigation'}>
             {moduleRail}
             {modulePanel}
+            {tablet && modulePanel ? <div className="ui-split-scrim" aria-hidden="true" onClick={() => { setTabletPanel(false); setBrowseModule(null); }} /> : null}
           </div>
         ) : null}
         {!phone && !split ? (
