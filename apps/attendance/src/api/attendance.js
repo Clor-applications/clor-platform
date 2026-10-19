@@ -136,7 +136,11 @@ export const fixReaderGaps = (body = {}) => send('/reader-sync/fix', 'POST', bod
 export const removeReaderExtras = (deviceId) => send('/reader-sync/remove-extras', 'POST', { deviceId });
 export const listDeviceUsers = (id) => get(`/devices/${encodeURIComponent(id)}/users`).then((r) => r?.users || []);
 export const listUnmatchedPunches = () => get('/punches/unmatched').then((r) => r?.pins || []);
-export const matchPunches = (pin, employeeId) => send('/punches/match', 'POST', { pin, employeeId });
+/** areaId: the ID is theirs only at that site's readers (a site ID), not company-wide. */
+export const matchPunches = (pin, employeeId, areaId = null) => send('/punches/match', 'POST', { pin, employeeId, ...(areaId ? { areaId } : {}) });
+export const listSiteReaderIds = () => get('/reader-ids/sites').then((r) => r?.sites || []);
+export const getEmployeeReaderIds = (id) => get(`/employees/${encodeURIComponent(id)}/reader-ids`);
+export const saveEmployeeReaderIds = (id, sites) => send(`/employees/${encodeURIComponent(id)}/reader-ids`, 'PUT', { sites });
 
 /**
  * What to type into the reader's Cloud Server Setting: the API's own host and
