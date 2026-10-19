@@ -1,0 +1,77 @@
+name: Android — CLOR Attendance (native)
+
+# The native employee app (native/attendance-android: Kotlin, Jetpack Compose).
+#   - On a tag `attendance-native-v1.2.3`, or "Run workflow": unit tests, then a
+#     debug APK, and a signed release APK + AAB when the signing secrets are set
+#     (the same upload keystore secrets as the web-based Android apps).
+#   - On changes under native/attendance-android: tests and a debug build.
+
+on:
+  push:
+    branches: [main]
+    tags: ['attendance-native-v*']
+    paths: ['native/attendance-android/**', '.github/workflows/android-attendance-native.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    defaults:
+      run:
+        working-directory: native/attendance-android
+    env:
+      HAS_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
+      VERSION_NAME: ${{ github.ref_type == 'tag' && github.ref_name || format('0.1.{0}', github.run_number) }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+
+      - name: Accept Android SDK licences
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null 2>&1 || true
+
+      - name: Version
+        run: |
+          NAME="${VERSION_NAME#attendance-native-v}"
+          echo "CLOR_VERSION_NAME=$NAME" >> gradle.properties
+          echo "CLOR_VERSION_CODE=${{ github.run_number }}" >> gradle.properties
+
+      - name: Unit tests
+        run: gradle :app:testDebugUnitTest --no-daemon
+
+      - name: Debug APK
+        run: gradle :app:assembleDebug --no-daemon
+
+      - name: Signing (release) when the keystore is set
+        if: env.HAS_KEYSTORE == 'true'
+        run: |
+          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > upload.jks
+          cat >> gradle.properties <<EOF
+          CLOR_STORE_FILE=../upload.jks
+          CLOR_STORE_PASSWORD=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          CLOR_KEY_ALIAS=${{ secrets.ANDROID_KEY_ALIAS }}
+          CLOR_KEY_PASSWORD=${{ secrets.ANDROID_KEY_PASSWORD }}
+          EOF
+
+      - name: Release APK and AAB
+        if: env.HAS_KEYSTORE == 'true'
+        run: gradle :app:assembleRelease :app:bundleRelease --no-daemon
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: clor-attendance-native-${{ env.VERSION_NAME }}
+          path: |
+            native/attendance-android/app/build/outputs/apk/**/*.apk
+            native/attendance-android/app/build/outputs/bundle/release/*.aab
+          if-no-files-found: error

@@ -1,0 +1,8 @@
+<resources>
+    <!-- The window behind Compose: the app's own ground colour, so launch shows no white flash. -->
+    <style name="Theme.Clor" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/ground</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+    </style>
+</resources>
