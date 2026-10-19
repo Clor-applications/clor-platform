@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { Router, type Request, type Response } from 'express';
 import { enqueuePunches } from '../services/hr/sync.js';
 
@@ -38,7 +38,7 @@ import { emit as emitWebhook } from '../services/attendance/webhooks.js';
 import { MAX_NETWORKS, networkOf, sameBlock } from '../services/attendance/network.js';
 import { closedMonths, shiftFor, writeDay } from './attendance.js';
 import { readerIdMatcher } from '../services/attendance/readerIds.js';
-import { driverOf, vendorsWith } from '../services/attendance/drivers.js';
+import { driverOf, parserOf, vendorsWith } from '../services/attendance/drivers.js';
 
 /**
  * /iclock — where biometric readers push punches (ZKTeco / eSSL "ADMS").
@@ -206,15 +206,18 @@ export async function recomputeDeviceDay(accountId: string, orgId: string, emplo
   return writeDay({ accountId, orgId, userId: 'reader', employee, date, checkIn: day.checkIn, checkOut: day.checkOut, source: 'DEVICE' });
 }
 
+/** What a channel knows about each line besides the line: the vendor's own record and event id, and records it set aside. */
+export type IngestMeta = { sources?: string[]; ids?: Array<string | null>; aside?: Array<{ original: string; reason: string; id?: string | null }> };
+
 /** Store a batch of punch lines from one reader; returns how many were new. */
-export async function ingestPunches(device: { id: string; accountId: string; orgId: string; serialNumber: string; direction: string; vendor?: string; areaId?: string | null }, body: string) {
+export async function ingestPunches(device: { id: string; accountId: string; orgId: string; serialNumber: string; direction: string; vendor?: string; areaId?: string | null }, body: string, meta: IngestMeta = {}) {
   const match = await pinMatcher(device.orgId);
   const lines = body
     .split(/\r?\n/)
     .map((l) => l.trim())
     .filter(Boolean);
-  const all = lines.map((raw) => ({ raw, p: parseAttlogLine(raw) }));
-  const parsed = all.filter((x): x is { raw: string; p: NonNullable<ReturnType<typeof parseAttlogLine>> } => Boolean(x.p));
+  const all = lines.map((raw, i) => ({ raw, i, p: parseAttlogLine(raw) }));
+  const parsed = all.filter((x): x is { raw: string; i: number; p: NonNullable<ReturnType<typeof parseAttlogLine>> } => Boolean(x.p));
   /* One row per batch, whatever the channel: what came, what was new, what was a repeat, what could not be read. */
   const trace = { traceId: randomUUID(), received: lines.length, rejected: lines.length - parsed.length, errors: all.filter((x) => !x.p).slice(0, 5).map((x) => x.raw.slice(0, 120)) };
   const record = (accepted: number, duplicates: number, extraRejected = 0) =>
@@ -228,10 +231,31 @@ export async function ingestPunches(device: { id: string; accountId: string; org
       })
       .catch((e) => console.error('[ingest-run]', e instanceof Error ? e.message : e));
 
+  /*
+   * The original of every line that becomes a punch, cannot be read, or is set
+   * aside — never the repeats (counted on the run). Evidence for a dispute and
+   * for certifying a reader model; deleted after 13 months (services/retention).
+   */
+  const parser = parserOf(device.vendor);
+  const channel = device.vendor || 'ADMS';
+  const evidence: any[] = [];
+  const keep = (outcome: string, original: string, extra: { reason?: string; id?: string | null; pin?: string; localTime?: string }) =>
+    evidence.push({
+      accountId: device.accountId, orgId: device.orgId, deviceId: device.id, traceId: trace.traceId, channel, outcome, parser,
+      original: original.slice(0, 8_000), payloadHash: createHash('sha256').update(original).digest('hex'),
+      reason: extra.reason ?? null, sourceEventId: extra.id ?? null, pin: extra.pin ?? null, localTime: extra.localTime ?? null,
+    });
+  for (const x of all) if (!x.p) keep('REJECTED', meta.sources?.[x.i] ?? x.raw, { reason: 'Could not be read', id: meta.ids?.[x.i] });
+  for (const a of meta.aside || []) keep('IGNORED', a.original, { reason: a.reason, id: a.id });
+  const saveEvidence = () => (evidence.length ? peoplePrisma.readerEvent.createMany({ data: evidence }).catch((e) => console.error('[reader-event]', e instanceof Error ? e.message : e)) : null);
+
   const rows: any[] = [];
-  for (const { raw, p } of parsed) {
+  for (const { raw, i, p } of parsed) {
     const at = instantOf(p.localTime);
-    if (!at) continue;
+    if (!at) {
+      keep('REJECTED', meta.sources?.[i] ?? raw, { reason: 'Not a real date and time', id: meta.ids?.[i], pin: p.pin, localTime: p.localTime });
+      continue;
+    }
     const emp = match(p.pin, device.areaId);
     rows.push({
       accountId: device.accountId,
@@ -250,10 +274,12 @@ export async function ingestPunches(device: { id: string; accountId: string; org
       shiftDate: null as string | null,
       raw: raw.slice(0, 300),
       _emp: emp,
+      _src: { original: meta.sources?.[i] ?? raw, id: meta.ids?.[i] ?? null },
     });
   }
   if (!rows.length) {
-    await record(0, 0, parsed.length);
+    await saveEvidence();
+    if (lines.length) await record(0, 0, parsed.length);
     return 0;
   }
 
@@ -277,6 +303,8 @@ export async function ingestPunches(device: { id: string; accountId: string; org
       fresh.push(r);
     }
   }
+  for (const r of fresh) keep('NEW', r._src.original, { id: r._src.id, pin: r.pin, localTime: r.localTime });
+  await saveEvidence();
   if (!fresh.length) {
     await record(0, rows.length, parsed.length - rows.length);
     return 0;
@@ -290,7 +318,7 @@ export async function ingestPunches(device: { id: string; accountId: string; org
     if (!dayOf.has(k)) dayOf.set(k, await shiftDayFor(device.orgId, r._emp.id, r.localTime));
     r.shiftDate = dayOf.get(k)!;
   }
-  await peoplePrisma.devicePunch.createMany({ data: fresh.map(({ _emp, ...r }) => r), skipDuplicates: true });
+  await peoplePrisma.devicePunch.createMany({ data: fresh.map(({ _emp, _src, ...r }) => r), skipDuplicates: true });
   emitWebhook(device.orgId, 'punch', {
     reader: device.serialNumber,
     punches: fresh.map((r) => ({ readerId: r.pin, employeeId: r.employeeId, time: r.localTime, direction: r.kind, verifyMode: r.verifyMode })),
@@ -1030,7 +1058,7 @@ export async function syncVendorConnection(device: any, opts: { from?: Date; fet
     return { ok: false, message: result.message, received: result.received, added: 0 };
   }
   if (opts.dryRun) return { ok: true, message: result.message, received: result.received, added: 0, readable: result.lines.length };
-  const added = result.lines.length ? await ingestPunches(device, result.lines.join('\n')) : 0;
+  const added = result.lines.length || result.aside?.length ? await ingestPunches(device, result.lines.join('\n'), { sources: result.sources, ids: result.ids, aside: result.aside }) : 0;
   await peoplePrisma.attendanceDevice.update({ where: { id: device.id }, data: { lastFetchedAt: now, lastSeenAt: now, lastError: null, ...seen } });
   return { ok: true, message: result.message, received: result.received, added, readable: result.lines.length };
 }

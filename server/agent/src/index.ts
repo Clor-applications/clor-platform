@@ -197,7 +197,7 @@ async function pullReader(r: any): Promise<string> {
   }
   let up;
   try {
-    up = await cloud('POST', `/readers/${r.id}/punches`, { ok: result.ok, message: result.message, lines: result.lines, received: result.received, payload: result.payload });
+    up = await cloud('POST', `/readers/${r.id}/punches`, { ok: result.ok, message: result.message, lines: result.lines, sources: result.sources, ids: result.ids, aside: result.aside, received: result.received, payload: result.payload });
   } catch (e: any) {
     if (!result.ok || !result.lines.length || !unreachable(e)) throw e;
     /* CLOR could not take them now: keep them on disk and send them next round. */

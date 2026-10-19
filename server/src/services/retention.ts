@@ -36,6 +36,9 @@ const ago = (d: number) => new Date(Date.now() - d * 86_400_000);
 /** How long a punch selfie is kept, for the notice employees read before sending one. */
 export const punchPhotoRetentionDays = () => days('PUNCH_PHOTO_RETENTION_DAYS', 30)!;
 
+/** Originals of what readers sent: 13 months by default, never under a year. */
+export const readerEventRetentionDays = () => Math.max(366, days('READER_EVENT_RETENTION_DAYS', 395)!);
+
 export async function purgeExpiredRecords() {
   const tokenDays = days('TOKEN_RETENTION_DAYS', 7)!;
   const sessionDays = days('SESSION_RETENTION_DAYS', 90)!;
@@ -62,7 +65,11 @@ export async function purgeExpiredRecords() {
     photos = (await peoplePrisma.punchPhoto.deleteMany({ where: { id: { in: ids } } })).count;
   }
 
+  /* Originals of reader lines (ReaderEvent): kept at least a year — the minimum the DPDP Rules set for processing logs — then deleted. */
+  const readerEvents = await peoplePrisma.readerEvent.deleteMany({ where: { receivedAt: { lt: ago(readerEventRetentionDays()) } } });
+
   return {
+    readerEvents: readerEvents.count,
     passwordResetTokens: resets.count,
     emailVerificationTokens: verifications.count,
     sessions: sessions.count,

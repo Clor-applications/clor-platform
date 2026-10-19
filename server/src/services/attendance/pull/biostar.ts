@@ -1,6 +1,6 @@
 import { guardedRequest } from '../../outbound.js';
 import { readTime } from '../punchMapping.js';
-import { type PullContext, type PullResult } from './common.js';
+import { originalOf, type PullContext, type PullResult } from './common.js';
 
 /**
  * Suprema BioStar 2 server (its REST API), per the published API and never
@@ -27,6 +27,9 @@ export async function pullBiostar(ctx: PullContext): Promise<PullResult> {
   if (!session) return { ok: false, message: 'BioStar gave no session — is the address its web port?', lines: [], received: 0 };
 
   const lines: string[] = [];
+  const sources: string[] = [];
+  const ids: Array<string | null> = [];
+  const aside: NonNullable<PullResult['aside']> = [];
   let received = 0;
   let offset = 0;
   const limit = 500;
@@ -48,15 +51,20 @@ export async function pullBiostar(ctx: PullContext): Promise<PullResult> {
     for (const e of rows) {
       received += 1;
       const codeNum = Number(e.event_type_id?.code);
-      if (Number.isFinite(codeNum) && (codeNum < 4096 || codeNum > 4895)) continue;
+      if (Number.isFinite(codeNum) && (codeNum < 4096 || codeNum > 4895)) {
+        aside.push({ original: originalOf(e), reason: `Event type ${codeNum} is not a verified entry`, id: e.id != null ? String(e.id) : null });
+        continue;
+      }
       const code = String(e.user_id?.user_id ?? '').trim();
       const t = readTime(e.datetime, 'auto', ctx.zone);
       if (!code || !t) continue;
       const dir = String(e.tna_key || '') === '1' ? '0' : String(e.tna_key || '') === '2' ? '1' : '255';
       lines.push(`${code}\t${t}\t${dir}\t0`);
+      sources.push(originalOf(e));
+      ids.push(e.id != null ? String(e.id) : null);
     }
     if (rows.length < limit) break;
     offset += limit;
   }
-  return { ok: true, message: 'Success', lines, received, payload };
+  return { ok: true, message: 'Success', lines, sources, ids, aside, received, payload };
 }

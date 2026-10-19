@@ -137,13 +137,20 @@ agentRouter.post('/readers/:id/punches', async (req, res) => {
   if (!device) return fail(res, 404, 'That reader is not assigned to this connector.');
   const body = req.body || {};
   const now = new Date();
-  const lines: string[] = (Array.isArray(body.lines) ? body.lines : []).map((l: unknown) => String(l)).filter((l: string) => /^[^\t]+\t\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\t/.test(l)).slice(0, 5000);
+  /* Each line with the vendor record and event id behind it, when the connector sends them (same order). */
+  const rawLines: unknown[] = Array.isArray(body.lines) ? body.lines : [];
+  const kept = rawLines
+    .map((l, i) => ({ l: String(l), source: Array.isArray(body.sources) && body.sources[i] != null ? String(body.sources[i]).slice(0, 8_000) : undefined, id: Array.isArray(body.ids) && body.ids[i] != null ? String(body.ids[i]).slice(0, 120) : null }))
+    .filter((x) => /^[^\t]+\t\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\t/.test(x.l))
+    .slice(0, 5000);
+  const lines = kept.map((x) => x.l);
+  const aside = (Array.isArray(body.aside) ? body.aside : []).slice(0, 2000).map((a: any) => ({ original: String(a?.original ?? '').slice(0, 8_000), reason: String(a?.reason ?? 'Set aside').slice(0, 200), id: a?.id != null ? String(a.id).slice(0, 120) : null }));
   const seen = body.payload ? { lastPayload: String(body.payload).slice(0, 20_000), lastPayloadAt: now } : {};
   if (body.ok === false) {
     await peoplePrisma.attendanceDevice.update({ where: { id: device.id }, data: { lastError: String(body.message || 'The connector could not read the reader.').slice(0, 300), ...seen } });
     return res.json({ added: 0 });
   }
-  const added = lines.length ? await ingestPunches(device, lines.join('\n')) : 0;
+  const added = lines.length || aside.length ? await ingestPunches(device, lines.join('\n'), { sources: kept.map((x) => x.source ?? x.l), ids: kept.map((x) => x.id), aside }) : 0;
   /* Old lines from the connector's spool say nothing about how far, or when, the reader was last read: leave the reader's row alone. */
   if (body.replay === true) return res.json({ added, received: lines.length });
   await peoplePrisma.attendanceDevice.update({ where: { id: device.id }, data: { lastFetchedAt: now, lastSeenAt: now, lastError: null, ...seen } });

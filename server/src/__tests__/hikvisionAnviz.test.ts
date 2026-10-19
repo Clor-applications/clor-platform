@@ -124,8 +124,13 @@ describe('a Hikvision terminal pushing to CLOR', () => {
     ]);
     expect(textParts(body, `multipart/form-data; boundary=${b}`)).toEqual({ event_log: '{"a":1}' });
     expect(punchOf(event(), 'Asia/Kolkata')).toMatchObject({ line: '3001\t2026-09-01 09:04:30\t0\t15' });
-    expect(punchOf(event({}, { employeeNoString: '' }), 'Asia/Kolkata')).toEqual({ skip: 'no employee number' });
-    expect(punchOf(event({}, { subEventType: 76, attendanceStatus: '' }), 'Asia/Kolkata')).toEqual({ skip: 'sub-event 76 is not a pass' });
+    expect(punchOf(event({}, { employeeNoString: '' }), 'Asia/Kolkata')).toEqual({ skip: 'No employee number (a door or alarm event)' });
+    expect(punchOf(event({}, { subEventType: 76, attendanceStatus: '' }), 'Asia/Kolkata')).toEqual({ skip: 'Event code 76 is not a verified entry' });
+    /* A door relay opening carries the person's number but no verification: never a punch. */
+    expect(punchOf(event({}, { subEventType: 21, attendanceStatus: '', currentVerifyMode: 'invalid' }), 'Asia/Kolkata')).toEqual({ skip: 'Verification failed or not a person (verify mode invalid)' });
+    expect(punchOf(event({}, { subEventType: 21, attendanceStatus: '' }), 'Asia/Kolkata')).toEqual({ skip: 'Event code 21 is not a verified entry' });
+    /* A reader given its own list of pass codes. */
+    expect(punchOf(event({}, { subEventType: 76, attendanceStatus: '' }), 'Asia/Kolkata', [76])).toMatchObject({ line: expect.stringMatching(/^3001\t/) });
     /* A terminal in Dubai: its offset is honoured, not the zone setting. */
     expect(punchOf(event({ dateTime: '2026-09-01T07:00:00+04:00' }), 'Asia/Kolkata')).toMatchObject({ line: '3001\t2026-09-01 08:30:00\t0\t15' });
   });

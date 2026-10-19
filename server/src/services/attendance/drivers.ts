@@ -1,3 +1,5 @@
+import { supportOf } from './certification.js';
+
 /**
  * The kinds of reader and source CLOR takes attendance from, and what each
  * can do. Screens and routes ask a driver what it supports instead of asking
@@ -45,7 +47,7 @@ export const DRIVERS: Driver[] = [
   {
     vendor: 'ADMS',
     label: 'Push reader (ADMS)',
-    blurb: 'ZKTeco, eSSL, Biomax, Realtime, Identix, Mantra and other readers with a "Cloud server / ADMS" setting.',
+    blurb: 'ZKTeco and eSSL readers with a "Cloud server / ADMS" setting. Other brands that offer the same setting may work; they are checked per model.',
     capabilities: ['push', 'users', 'templates', 'commands', 'networkLock', 'health'],
     addable: true,
     explicitDirection: false,
@@ -156,4 +158,26 @@ export const vendorsWith = (capability: Capability) => DRIVERS.filter((d) => d.c
 
 /** What the Readers screen needs to offer the right choices. */
 export const publicDrivers = () =>
-  DRIVERS.filter((d) => d.addable).map(({ vendor, label, blurb, capabilities, unverified }) => ({ vendor, label, blurb, capabilities, unverified: !!unverified }));
+  DRIVERS.filter((d) => d.addable).map(({ vendor, label, blurb, capabilities, unverified }) => ({ vendor, label, blurb, capabilities, unverified: !!unverified, support: supportOf(vendor) }));
+
+/**
+ * Which parser read a line, stored with its original (ReaderEvent), so a
+ * dispute months later can tell how it was read. Bump a version whenever
+ * that driver's reading of a line changes.
+ */
+const PARSERS: Record<string, string> = {
+  ADMS: 'adms@1',
+  HTTP_PUSH: 'field-mapping@1',
+  FILE: 'field-mapping@1',
+  HTTP_PULL: 'field-mapping@1',
+  MATRIX_COSEC: 'matrix-cosec@1',
+  HIKVISION: 'hikvision-isapi@2',
+  HIKVISION_PUSH: 'hikvision-push@2',
+  DAHUA: 'dahua-cgi@1',
+  BIOSTAR: 'biostar2@1',
+  ANVIZ_CLOUD: 'crosschex-cloud@1',
+  ETIMEOFFICE: 'etimeoffice@1',
+  API: 'clor-api@1',
+  MOBILE: 'phone@1',
+};
+export const parserOf = (vendor: string | null | undefined) => PARSERS[String(vendor || 'ADMS')] || `${String(vendor || 'unknown').toLowerCase()}@1`;

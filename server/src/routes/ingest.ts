@@ -1,10 +1,33 @@
 import { Router } from 'express';
+import { createHmac, timingSafeEqual } from 'node:crypto';
 
 import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { ingestLimiter } from '../middleware/rateLimit.js';
 import { mappingSchema, recordsOf, toAttlog } from '../services/attendance/punchMapping.js';
 import { hashToken } from './publicApi.js';
 import { ingestPunches } from './iclock.js';
+import { decryptSecret } from '../services/mailer.js';
+
+/** How far a signed push's timestamp may be from now (seconds): older is a replay, refused. */
+export const SIGNATURE_WINDOW_S = 300;
+
+/**
+ * A reader set to sign its pushes (a signing secret on the reader) must send
+ *   X-Clor-Timestamp: <unix seconds>
+ *   X-Clor-Signature: sha256=<hex HMAC-SHA256 of "<timestamp>.<exact body>" with the secret>
+ * so a captured request cannot be changed, and cannot be sent again after five
+ * minutes (inside them, the same punches are dropped as repeats anyway).
+ */
+export function signatureProblem(secret: string, raw: Buffer, tsHeader: unknown, sigHeader: unknown, now = Date.now()): string | null {
+  const ts = Number(String(tsHeader || ''));
+  if (!Number.isFinite(ts) || ts <= 0) return 'Missing X-Clor-Timestamp.';
+  if (Math.abs(now / 1000 - ts) > SIGNATURE_WINDOW_S) return 'X-Clor-Timestamp is more than five minutes from now; send the current time.';
+  const m = /^sha256=([0-9a-f]{64})$/i.exec(String(sigHeader || '').trim());
+  if (!m) return 'Missing X-Clor-Signature (sha256=<hex>).';
+  const want = createHmac('sha256', secret).update(`${Math.trunc(ts)}.`).update(raw).digest();
+  const got = Buffer.from(m[1], 'hex');
+  return got.length === want.length && timingSafeEqual(got, want) ? null : 'X-Clor-Signature does not match the body.';
+}
 
 /**
  * A reader's own push URL: POST /ingest/<token>. For readers, turnstiles,
@@ -24,6 +47,20 @@ ingestRouter.post('/:token', ...ingestLimiter, async (req, res) => {
   const device = await peoplePrisma.attendanceDevice.findUnique({ where: { pushTokenHash: hashToken(token) } });
   if (!device || device.vendor !== 'HTTP_PUSH') return res.status(404).json({ error: 'No such URL.' });
   if (!device.isActive) return res.status(403).json({ error: 'This reader is switched off in CLOR.' });
+
+  if (device.apiSecret) {
+    let secret = '';
+    try {
+      secret = decryptSecret(device.apiSecret);
+    } catch {
+      secret = '';
+    }
+    const problem = secret ? signatureProblem(secret, (req as any).rawBody || Buffer.alloc(0), req.headers['x-clor-timestamp'], req.headers['x-clor-signature']) : 'This reader\'s signing secret could not be read; make a new one in CLOR.';
+    if (problem) {
+      await peoplePrisma.attendanceDevice.update({ where: { id: device.id }, data: { lastError: `Refused an unsigned or badly signed push: ${problem}`.slice(0, 300) } });
+      return res.status(401).json({ error: problem });
+    }
+  }
 
   const body = req.body;
   const text = typeof body === 'string' ? body : JSON.stringify(body ?? null);
@@ -50,7 +87,7 @@ ingestRouter.post('/:token', ...ingestLimiter, async (req, res) => {
   }
   const records = recordsOf(parsed, mapping);
   const out = toAttlog(records, mapping, device.sourceTimezone);
-  const added = out.lines.length ? await ingestPunches(device, out.lines.join('\n')) : 0;
+  const added = out.lines.length || out.aside.length ? await ingestPunches(device, out.lines.join('\n'), { sources: out.sources, aside: out.aside }) : 0;
   await peoplePrisma.attendanceDevice.update({
     where: { id: device.id },
     data: { ...seen, lastError: out.errors.length && !out.lines.length ? out.errors[0] : null },

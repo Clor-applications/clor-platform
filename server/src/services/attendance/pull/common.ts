@@ -11,6 +11,21 @@ export type PullResult = {
   received: number;
   /** The raw answer, trimmed, so a mapping can be set against it (HTTP pull). */
   payload?: string;
+  /** The vendor's own record behind each line (same order as `lines`), kept as the original (ReaderEvent). */
+  sources?: string[];
+  /** The vendor's id for each line's event, where it has one. */
+  ids?: Array<string | null>;
+  /** Records read but not punches — a door event, a refused attempt — with why. */
+  aside?: Array<{ original: string; reason: string; id?: string | null }>;
+};
+
+/** A vendor record as stored: compact JSON, capped. */
+export const originalOf = (r: unknown) => {
+  try {
+    return JSON.stringify(r).slice(0, 8_000);
+  } catch {
+    return String(r).slice(0, 8_000);
+  }
 };
 
 export type PullContext = { baseUrl: string; username: string; password: string; zone: string; config: Record<string, any>; mapping: any; from: Date; to: Date; fetchImpl?: typeof fetch };

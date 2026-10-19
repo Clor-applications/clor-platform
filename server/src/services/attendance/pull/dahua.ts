@@ -1,6 +1,6 @@
 import { authedRequest } from '../digest.js';
 import { readTime } from '../punchMapping.js';
-import { type PullContext, type PullResult } from './common.js';
+import { originalOf, type PullContext, type PullResult } from './common.js';
 
 /**
  * Dahua access controllers (the CGI "recordFinder"), per the vendor's HTTP
@@ -36,6 +36,9 @@ export function parseDahuaRecords(text: string) {
 export async function pullDahua(ctx: PullContext): Promise<PullResult> {
   if (!ctx.baseUrl) return { ok: false, message: 'Set the controller’s address (http://host:port).', lines: [], received: 0 };
   const lines: string[] = [];
+  const sources: string[] = [];
+  const ids: Array<string | null> = [];
+  const aside: NonNullable<PullResult['aside']> = [];
   let received = 0;
   let start = 0;
   const count = 200;
@@ -51,16 +54,21 @@ export async function pullDahua(ctx: PullContext): Promise<PullResult> {
     const { records } = parseDahuaRecords(r.text);
     for (const rec of records) {
       received += 1;
-      if (rec.Status && rec.Status !== '1') continue;
+      if (rec.Status && rec.Status !== '1') {
+        aside.push({ original: originalOf(rec), reason: 'Not opened (a refused attempt)', id: rec.RecNo ? String(rec.RecNo) : null });
+        continue;
+      }
       const code = String(rec.UserID || rec.CardNo || '').trim();
       const t = readTime(Number(rec.CreateTime), 'epoch', ctx.zone);
       if (!code || !t) continue;
       const dir = /^entry$/i.test(rec.Type || '') ? '0' : /^exit$/i.test(rec.Type || '') ? '1' : '255';
       const verify = Number(rec.Method);
       lines.push(`${code}\t${t}\t${dir}\t${Number.isFinite(verify) ? verify : 0}`);
+      sources.push(originalOf(rec));
+      ids.push(rec.RecNo ? String(rec.RecNo) : null);
     }
     if (records.length < count) break;
     start += count;
   }
-  return { ok: true, message: 'Success', lines, received, payload };
+  return { ok: true, message: 'Success', lines, sources, ids, aside, received, payload };
 }

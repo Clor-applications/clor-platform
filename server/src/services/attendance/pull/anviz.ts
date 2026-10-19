@@ -3,7 +3,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { guardedRequest } from '../../outbound.js';
 
 import { readTime } from '../punchMapping.js';
-import type { PullContext, PullResult } from './common.js';
+import { originalOf, type PullContext, type PullResult } from './common.js';
 
 /**
  * Anviz CrossChex Cloud — the cloud Anviz readers report to. One endpoint
@@ -78,6 +78,8 @@ export async function pullAnviz(ctx: PullContext): Promise<PullResult> {
   let t = await tokenFor(ctx);
   if (!t.token) return { ok: false, message: t.error!, lines: [], received: 0 };
   const lines: string[] = [];
+  const sources: string[] = [];
+  const ids: Array<string | null> = [];
   let received = 0;
   let payload: string | undefined;
   let retried = false;
@@ -104,11 +106,13 @@ export async function pullAnviz(ctx: PullContext): Promise<PullResult> {
       const when = readTime(e?.checktime, 'auto', ctx.zone);
       if (!code || !when) continue;
       lines.push(`${code}\t${when}\t255\t0`);
+      sources.push(originalOf(e));
+      ids.push(e?.uuid != null ? String(e.uuid) : e?.id != null ? String(e.id) : null);
     }
     const pageCount = Number(r.json?.payload?.pageCount) || 0;
     if (list.length < 100 || page >= pageCount) break;
   }
-  return { ok: true, message: 'Success', lines, received, payload };
+  return { ok: true, message: 'Success', lines, sources, ids, received, payload };
 }
 
 /** For tests: forget cached tokens. */

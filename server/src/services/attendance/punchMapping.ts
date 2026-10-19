@@ -148,20 +148,31 @@ export function normalise(record: unknown, mapping: Mapping, zone: string): { pu
 /** A whole body (or file rows) to ADMS-style lines for ingestPunches, with reasons for what was refused. */
 export function toAttlog(records: unknown[], mapping: Mapping, zone: string) {
   const lines: string[] = [];
+  const sources: string[] = [];
+  const aside: Array<{ original: string; reason: string }> = [];
   const errors: string[] = [];
   let skipped = 0;
   const sample: NormalPunch[] = [];
+  const keep = (r: unknown) => {
+    try {
+      return JSON.stringify(r).slice(0, 8_000);
+    } catch {
+      return String(r).slice(0, 8_000);
+    }
+  };
   records.forEach((r, i) => {
     const out = normalise(r, mapping, zone);
     if ('error' in out) {
       if (out.error === 'skipped') skipped += 1;
       else if (errors.length < 50) errors.push(`Record ${i + 1}: ${out.error}`);
+      if (aside.length < 500) aside.push({ original: keep(r), reason: out.error === 'skipped' ? 'Skipped by the mapping' : out.error });
       return;
     }
     const p = out.punch;
     if (sample.length < 5) sample.push(p);
     lines.push(`${p.code}\t${p.localTime}\t${p.direction === 'in' ? '0' : p.direction === 'out' ? '1' : '255'}\t${p.verify}`);
+    sources.push(keep(r));
   });
-  return { lines, errors, skipped, sample };
+  return { lines, sources, aside, errors, skipped, sample };
 }
 

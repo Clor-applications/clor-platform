@@ -10,6 +10,7 @@ import { ATTENDANCE_MODULE, ATTENDANCE_RESOURCE, attendanceRouteOk } from '../se
 import { COMMANDS, FACE, FETCH_TEMPLATE_COMMANDS, ONLINE_WINDOW_MS, SEQ, USERPIC, VERIFY_MODES, commandEffect, messageCommand, normaliseFirmware, pinKey, userCommandFor } from '../services/attendance/adms.js';
 import { ISO_DATE, sendError, today } from './attendance.js';
 import { siteIdClash } from '../services/attendance/readerIds.js';
+import { CATALOGUE, SUPPORT_LABEL, TESTS, supportOf } from '../services/attendance/certification.js';
 import { moveIdAtSite, attachPunchesTo, copyAllTemplatesTo, pinMatcher, recomputeDeviceDay, servesArea, shiftDayFor, syncVendorConnection } from './iclock.js';
 import { decryptSecret, encryptSecret } from '../services/mailer.js';
 import { checkUrl } from '../services/outbound.js';
@@ -58,6 +59,8 @@ const shape = ({ apiSecret, claimNetwork, pendingNetwork, pendingNetworkAt, push
   hasPayload: Boolean(lastPayload),
   firmware: normaliseFirmware(d.firmware),
   hasSecret: Boolean(apiSecret),
+  ...(d.vendor === 'HTTP_PUSH' ? { signed: Boolean(apiSecret) } : {}),
+  support: supportOf(d.vendor, d.model, d.firmware),
   online: Boolean(d.lastSeenAt && Date.now() - new Date(d.lastSeenAt).getTime() < ONLINE_WINDOW_MS),
   networkVerified: Boolean(d.networkVerifiedAt),
   awaitingNetwork: awaiting({ ...d, pendingNetwork, pendingNetworkAt }),
@@ -925,6 +928,87 @@ const mappedDevice = async (req: any, res: any) => {
 };
 
 /** A new push URL; the old one stops working at once. */
+/**
+ * Signing for a push reader: a secret its pushes are signed with (routes/ingest.ts),
+ * shown once. `{ on: false }` stops requiring it.
+ */
+/** Which brands and devices CLOR supports, and how far (services/attendance/certification.ts). */
+devicesRouter.get('/orgs/:orgId/attendance/reader-compatibility', can(PermissionAction.VIEW), async (req, res) => {
+  if (!(await attendanceRouteOk(req, res))) return;
+  res.json({ catalogue: CATALOGUE.map((c) => ({ ...c, label: SUPPORT_LABEL[c.support] })), tests: TESTS });
+});
+
+/**
+ * One reader against the certification tests, from what CLOR has seen of it.
+ * PASS has evidence here; OPEN has none yet (not a failure); NA does not apply.
+ */
+devicesRouter.get(`${base}/:id/certification`, can(PermissionAction.VIEW), async (req, res) => {
+  if (!(await attendanceRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const d = await peoplePrisma.attendanceDevice.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
+  if (!d) return res.status(404).json({ error: 'No such reader.' });
+  const [punches, runs, refetch, sited, crossed, unknownDir, logs] = await Promise.all([
+    peoplePrisma.devicePunch.count({ where: { orgId, deviceId: d.id } }),
+    peoplePrisma.ingestRun.aggregate({ where: { orgId, deviceId: d.id }, _sum: { duplicates: true }, _count: { _all: true } }),
+    peoplePrisma.deviceCommand.count({ where: { deviceId: d.id, command: { startsWith: 'DATA QUERY ATTLOG' }, status: 'DONE' } }),
+    d.areaId ? peoplePrisma.readerIdAtSite.count({ where: { orgId, areaId: d.areaId } }) : Promise.resolve(0),
+    /* Night-shift exits: punches whose shift day is the day before the date on the punch. */
+    peoplePrisma.$queryRaw<Array<{ n: bigint }>>`SELECT COUNT(*)::bigint AS n FROM "DevicePunch" WHERE "orgId" = ${orgId} AND "deviceId" = ${d.id} AND "shiftDate" IS NOT NULL AND "shiftDate" <> substring("localTime", 1, 10)`.then((x) => Number(x[0]?.n || 0)).catch(() => 0),
+    peoplePrisma.devicePunch.count({ where: { orgId, deviceId: d.id, kind: null } }),
+    peoplePrisma.deviceLog.count({ where: { orgId, deviceId: d.id } }),
+  ]);
+  const late = await peoplePrisma.$queryRaw<Array<{ n: bigint }>>`SELECT COUNT(*)::bigint AS n FROM "DevicePunch" WHERE "orgId" = ${orgId} AND "deviceId" = ${d.id} AND "createdAt" - "at" > interval '30 minutes'`.catch(() => [{ n: 0n }]);
+  const isPush = ['ADMS', 'HTTP_PUSH', 'HIKVISION_PUSH', 'MATRIX_COSEC'].includes(d.vendor);
+  const r = (id: string, status: 'PASS' | 'OPEN' | 'NA', evidence: string) => ({ id, label: TESTS.find((t) => t.id === id)!.label, status, evidence });
+  const tests = [
+    r('T-01', d.model && d.firmware ? 'PASS' : 'OPEN', d.model ? `${d.model}${d.firmware ? `, firmware ${d.firmware}` : ', firmware not reported'}` : 'The reader has not said what it is.'),
+    r('T-02', d.vendor === 'ADMS' ? (d.networkVerifiedAt ? 'PASS' : 'OPEN') : d.pushTokenHash || d.apiSecret ? 'PASS' : 'OPEN', d.vendor === 'ADMS' ? (d.networkVerifiedAt ? 'Data taken only from its approved network.' : 'Network not approved yet.') : d.vendor === 'HTTP_PUSH' ? (d.apiSecret ? 'Own URL and signed pushes.' : 'Own secret URL; signing is off.') : 'Own credentials, kept encrypted.'),
+    r('T-03', punches ? 'PASS' : 'OPEN', `${punches} punch${punches === 1 ? '' : 'es'} received.`),
+    r('T-04', d.vendor === 'ADMS' ? (refetch ? 'PASS' : 'OPEN') : isPush ? 'NA' : d.lastFetchedAt ? 'PASS' : 'OPEN', d.vendor === 'ADMS' ? (refetch ? 'Its whole log was fetched again.' : 'Not fetched again yet (Readers → Fetch punches).') : isPush ? 'This kind of reader only pushes.' : 'Fetched by time window, with overlap.'),
+    r('T-05', (runs._sum.duplicates || 0) > 0 ? 'PASS' : 'OPEN', `${runs._sum.duplicates || 0} resent punch${(runs._sum.duplicates || 0) === 1 ? '' : 'es'} dropped as repeats across ${runs._count._all} deliveries.`),
+    r('T-06', Number(late[0]?.n || 0) > 0 ? 'PASS' : 'OPEN', Number(late[0]?.n || 0) ? `${late[0].n} punch${Number(late[0].n) === 1 ? '' : 'es'} arrived more than 30 minutes after they were made.` : 'No late delivery seen yet.'),
+    r('T-07', d.clockCheckedAt ? 'PASS' : 'OPEN', d.clockCheckedAt ? `Clock ${Math.abs(d.clockOffsetSec || 0)} s ${(d.clockOffsetSec || 0) >= 0 ? 'ahead' : 'behind'} when last measured.` : 'Not measured yet.'),
+    r('T-08', 'PASS', `Times without a zone read as ${d.sourceTimezone}.`),
+    r('T-09', crossed ? 'PASS' : 'OPEN', crossed ? `${crossed} night-shift exit${crossed === 1 ? '' : 's'} put on the night they started.` : 'No night-shift exit seen yet.'),
+    r('T-10', d.areaId ? 'PASS' : 'NA', d.areaId ? `Site reader; ${sited} site ID${sited === 1 ? '' : 's'} in use there.` : 'Not tied to a site: company-wide IDs.'),
+    r('T-11', 'PASS', unknownDir ? `${unknownDir} punch${unknownDir === 1 ? '' : 'es'} without in/out, paired by order.` : 'Every punch said in or out.'),
+    r('T-12', d.lastSeenAt ? 'PASS' : 'OPEN', d.lastSeenAt ? 'Watched on Reader health.' : 'Not heard from yet.'),
+    r('T-13', 'PASS', `Original of every punch kept (13 months); ${logs} reader log entr${logs === 1 ? 'y' : 'ies'}.`),
+    r('T-14', 'PASS', 'Speaks the reader’s own protocol; no vendor SDK.'),
+  ];
+  res.json({ ...supportOf(d.vendor, d.model, d.firmware), model: d.model, firmware: d.firmware, tests });
+});
+
+/** What a reader sent, as it came: punches, refused lines and events set aside (ReaderEvent). */
+devicesRouter.get(`${base}/:id/events`, can(PermissionAction.VIEW), async (req, res) => {
+  if (!(await attendanceRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const d = await peoplePrisma.attendanceDevice.findFirst({ where: { id: String(req.params.id), accountId, orgId }, select: { id: true } });
+  if (!d) return res.status(404).json({ error: 'No such reader.' });
+  const outcome = String(req.query.outcome || '').toUpperCase();
+  const where: any = { orgId, deviceId: d.id, ...(['NEW', 'REJECTED', 'IGNORED'].includes(outcome) ? { outcome } : {}) };
+  const [rows, counts] = await Promise.all([
+    peoplePrisma.readerEvent.findMany({ where, orderBy: { receivedAt: 'desc' }, take: 200 }),
+    peoplePrisma.readerEvent.groupBy({ by: ['outcome'], where: { orgId, deviceId: d.id }, _count: { _all: true } }),
+  ]);
+  res.json({ counts: Object.fromEntries(counts.map((c) => [c.outcome, c._count._all])), events: rows.map(({ accountId: _a, orgId: _o, ...e }) => ({ ...e, original: e.original.slice(0, 2_000) })) });
+});
+
+devicesRouter.post(`${base}/:id/signing`, can(PermissionAction.EDIT), async (req, res) => {
+  if (!(await attendanceRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const d = await peoplePrisma.attendanceDevice.findFirst({ where: { id: String(req.params.id), accountId, orgId }, select: { id: true, vendor: true } });
+  if (!d) return res.status(404).json({ error: 'No such reader.' });
+  if (d.vendor !== 'HTTP_PUSH') return res.status(400).json({ error: 'Only readers that push to their own URL can sign.' });
+  if (req.body?.on === false) {
+    await peoplePrisma.attendanceDevice.update({ where: { id: d.id }, data: { apiSecret: null } });
+    return res.json({ signing: false });
+  }
+  const secret = `clors_${randomBytes(24).toString('base64url')}`;
+  await peoplePrisma.attendanceDevice.update({ where: { id: d.id }, data: { apiSecret: encryptSecret(secret) } });
+  res.json({ signing: true, secret });
+});
+
 devicesRouter.post(`${base}/:id/rotate-token`, can(PermissionAction.EDIT), async (req, res) => {
   if (!(await attendanceRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
@@ -984,7 +1068,7 @@ devicesRouter.post(`${base}/:id/preview`, can(PermissionAction.EDIT), async (req
   const out = toAttlog(records, mapping, zone);
   let added = 0;
   if (save && out.lines.length) {
-    added = await ingestPunches(d, out.lines.join('\n'));
+    added = await ingestPunches(d, out.lines.join('\n'), { sources: out.sources, aside: out.aside });
     await peoplePrisma.attendanceDevice.update({ where: { id: d.id }, data: { lastSeenAt: new Date(), lastFetchedAt: new Date(), mappingJson: JSON.stringify(mapping), sourceTimezone: zone } });
   }
   res.json({ records: records.length, readable: out.lines.length, skipped: out.skipped, errors: out.errors, sample: out.sample, headers, ...(save ? { added, duplicates: out.lines.length - added } : {}) });

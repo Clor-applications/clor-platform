@@ -1410,6 +1410,34 @@ model AttendanceRuleVersion {
 
 /// One batch of punches arriving from a reader, connector or file, with a
 /// trace id the response and logs carry.
+/// Every line a reader or connector sent that became a punch, and every one
+/// that was refused or set aside, kept as it came: the original (the line, or
+/// the vendor's own event JSON), a SHA-256 of it, the vendor's event id where
+/// it has one, and which parser read it. Repeats are only counted (IngestRun).
+/// Kept 13 months (services/retention), then deleted.
+model ReaderEvent {
+  id            String   @id @default(cuid())
+  accountId     String
+  orgId         String
+  deviceId      String
+  traceId       String
+  channel       String
+  /// NEW (became a punch), REJECTED (could not be read), IGNORED (not a punch: a door or a refused attempt).
+  outcome       String
+  reason        String?
+  sourceEventId String?
+  pin           String?
+  localTime     String?
+  original      String
+  payloadHash   String
+  parser        String
+  receivedAt    DateTime @default(now())
+
+  @@index([orgId, deviceId, receivedAt])
+  @@index([orgId, payloadHash])
+  @@index([receivedAt])
+}
+
 model IngestRun {
   id         String   @id @default(cuid())
   accountId  String

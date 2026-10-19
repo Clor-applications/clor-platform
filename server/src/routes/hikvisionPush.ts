@@ -4,6 +4,7 @@ import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { ingestLimiter } from '../middleware/rateLimit.js';
 import { readTime, istLocal } from '../services/attendance/punchMapping.js';
 import { VERIFY_WORDS } from '../services/attendance/pull/index.js';
+import { hikvisionCounts } from '../services/attendance/pull/hikvision.js';
 import { hashToken } from './publicApi.js';
 import { ingestPunches } from './iclock.js';
 
@@ -31,8 +32,6 @@ import { ingestPunches } from './iclock.js';
 export const hikvisionPushRouter = Router();
 
 const DIRECTION: Record<string, '0' | '1'> = { checkin: '0', overtimein: '0', breakin: '0', checkout: '1', overtimeout: '1', breakout: '1' };
-/** Sub-event codes that mean "verified, door opens" on access terminals. */
-const PASSED = new Set([1, 38, 75, 21, 37, 101]);
 
 /** The text parts of a multipart body, by field name; binary parts (the picture) are skipped. */
 export function textParts(body: Buffer, contentType: string): Record<string, string> {
@@ -83,13 +82,14 @@ export function eventOf(body: unknown, contentType: string): any | null {
 }
 
 /** A punch line from an access event, or why it is not one. */
-export function punchOf(ev: any, zone: string): { line: string; at: Date } | { skip: string } {
+export function punchOf(ev: any, zone: string, countMinors?: number[] | null): { line: string; at: Date } | { skip: string } {
   const ace = ev?.AccessControllerEvent || {};
   const code = String(ace.employeeNoString ?? ace.employeeNo ?? '').trim();
-  if (!code) return { skip: 'no employee number' };
+  /* The same rule as pulling (services/attendance/pull/hikvision.ts): a verified person, never a door relay or a refused attempt. */
+  const verdict = hikvisionCounts(ace, countMinors);
+  if (!verdict.ok) return { skip: verdict.reason };
   const sub = Number(ace.subEventType);
   const status = String(ace.attendanceStatus || '').toLowerCase();
-  if (Number.isFinite(sub) && sub > 0 && !PASSED.has(sub) && !status) return { skip: `sub-event ${sub} is not a pass` };
   const when = readTime(ev.dateTime || ace.time, 'auto', zone);
   if (!when) return { skip: 'no time' };
   const at = new Date(Date.parse(ev.dateTime || ace.time));
@@ -121,9 +121,18 @@ hikvisionPushRouter.post('/:token', ...ingestLimiter, async (req, res) => {
       await peoplePrisma.attendanceDevice.update({ where: { id: device.id }, data: seen });
       return res.status(200).json({ ok: true });
     }
-    const p = punchOf(ev, device.sourceTimezone || 'Asia/Kolkata');
+    let countMinors: number[] | null = null;
+    try {
+      const cfg = JSON.parse(device.configJson || '{}');
+      if (Array.isArray(cfg.countMinors)) countMinors = cfg.countMinors.map(Number).filter(Number.isFinite);
+    } catch {
+      /* no list: the default pass codes */
+    }
+    const p = punchOf(ev, device.sourceTimezone || 'Asia/Kolkata', countMinors);
+    const original = JSON.stringify(ev).slice(0, 8_000);
+    const eventId = ev.AccessControllerEvent?.serialNo != null ? String(ev.AccessControllerEvent.serialNo) : null;
     if ('line' in p) {
-      const added = await ingestPunches(device, p.line);
+      const added = await ingestPunches(device, p.line, { sources: [original], ids: [eventId] });
       /* A single live post (activePostCount 1, not a replay) says how far the terminal's clock is out. */
       const live = Number(ev.activePostCount ?? 1) <= 1 && Math.abs(p.at.getTime() - now.getTime()) < 7 * 86_400_000;
       await peoplePrisma.attendanceDevice.update({
@@ -132,6 +141,8 @@ hikvisionPushRouter.post('/:token', ...ingestLimiter, async (req, res) => {
       });
       return res.status(200).json({ ok: true, added });
     }
+    /* Door, alarm and failed attempts: kept as set aside (ReaderEvent), and in the reader log. */
+    await ingestPunches(device, '', { aside: [{ original, reason: p.skip, id: eventId }] });
     /* Door, alarm and failed attempts: the reader log. */
     const ace = ev.AccessControllerEvent || {};
     await peoplePrisma.deviceLog.create({

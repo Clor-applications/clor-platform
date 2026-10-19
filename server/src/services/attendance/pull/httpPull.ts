@@ -68,5 +68,5 @@ export async function pullHttp(ctx: PullContext): Promise<PullResult> {
   if (!mapping.success) return { ok: true, message: 'Received. Set the field mapping to read punches from it.', lines: [], received: 0, payload };
   const records = recordsOf(data, mapping.data);
   const out = toAttlog(records, mapping.data, ctx.zone);
-  return { ok: true, message: out.errors.length && !out.lines.length ? out.errors[0] : 'Success', lines: out.lines, received: records.length, payload };
+  return { ok: true, message: out.errors.length && !out.lines.length ? out.errors[0] : 'Success', lines: out.lines, sources: out.sources, aside: out.aside, received: records.length, payload };
 }

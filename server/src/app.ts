@@ -197,7 +197,11 @@ export function buildApp() {
    */
   app.use('/iclock', express.text({ type: () => true, limit: '8mb' }), iclockRouter);
   /* Any shape of body: JSON when it says so, a form, or plain text we try as JSON. */
-  app.use('/ingest', express.json({ limit: '4mb', type: ['application/json', 'application/*+json'] }), express.urlencoded({ extended: true, limit: '4mb' }), express.text({ type: () => true, limit: '4mb' }), ingestRouter);
+  /* The exact bytes are kept beside the parsed body, so a signed push can be checked (routes/ingest.ts). */
+  const keepRaw = (req: any, _res: any, buf: Buffer) => {
+    req.rawBody = buf;
+  };
+  app.use('/ingest', express.json({ limit: '4mb', type: ['application/json', 'application/*+json'], verify: keepRaw }), express.urlencoded({ extended: true, limit: '4mb', verify: keepRaw }), express.text({ type: () => true, limit: '4mb', verify: keepRaw }), ingestRouter);
   /* Matrix COSEC controllers: GET requests with everything in the query string, no body (routes/matrix.ts). */
   app.use('/matrix', matrixRouter);
   /* Hikvision terminals post multipart (JSON + a picture): the raw body is parsed in the route. */
