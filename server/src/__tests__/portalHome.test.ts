@@ -118,4 +118,35 @@ describe('the app home screen', () => {
     await me.post(`/corrections/${made.id}/cancel`).expect(409);
     expect((await me.post('/phone-punch/ask', { note: 'I visit client sites' }).expect(200)).body.message).toMatch(/Sent to HR/);
   });
+
+  it('field punching: anywhere, with the address, waiting for the manager, and a selfie when required', async () => {
+    const c = await makeOwner();
+    const boss = await person(c, { name: 'Field Boss', code: 'F0' });
+    const p = await person(c, { name: 'Field Ravi', code: 'F1', reportingManagerId: boss.id });
+    await api(c).put('/portal-access', { employeeIds: [p.id], mobilePunch: true }).expect(200);
+    const me = await portalFor(c, p.id, 'F1');
+    /* Site mode, no site set up: refused. */
+    expect((await me.post('/punch', { latitude: 12.97, longitude: 77.59, accuracy: 10 }).expect(409)).body.code).toBe('NO_SITE');
+    await api(c).put('/portal-access', { employeeIds: [p.id], phonePunchMode: 'FIELD', selfieRequired: true }).expect(200);
+    expect((await me.get('/home').expect(200)).body.phone).toMatchObject({ allowed: true, mode: 'FIELD', selfieRequired: true });
+    expect((await me.post('/punch', { latitude: 12.97, longitude: 77.59, accuracy: 10 }).expect(400)).body.code).toBe('SELFIE_REQUIRED');
+    const jpeg = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0, 16, 74, 70, 73, 70, 0, 1]).toString('base64');
+    const r = (await me.post('/punch', { latitude: 12.97, longitude: 77.59, accuracy: 10, photo: `data:image/jpeg;base64,${jpeg}` }).expect(201)).body;
+    expect(r).toMatchObject({ kind: 'IN', outside: true, review: 'PENDING' });
+    const home = (await me.get('/home').expect(200)).body;
+    expect(home.punches[0]).toMatchObject({ outside: true, review: 'PENDING' });
+    expect(home.record).toBeNull();
+    /* The manager sees it and approves; the day now counts it. */
+    const mm = await portalFor(c, boss.id, 'F0');
+    const ap = (await mm.get('/approvals').expect(200)).body;
+    expect(ap.punches).toHaveLength(1);
+    await mm.post(`/approvals/punch/${ap.punches[0].id}`, { decision: 'approve' }).expect(200);
+    expect((await me.get('/home').expect(200)).body.record).toMatchObject({ checkInTime: expect.any(String) });
+    await mm.post(`/approvals/punch/${ap.punches[0].id}`, { decision: 'approve' }).expect(409);
+    /* HR's list shows it as a field punch; the notice now mentions field punching. */
+    const t = new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
+    const list = (await api(c).get(`/phone-punches?from=${t}&to=${t}`).expect(200)).body;
+    expect(list.summary).toMatchObject({ field: 1, waiting: 0 });
+    expect(JSON.stringify((await me.get('/privacy-notice').expect(200)).body.notice)).toMatch(/Field punching/);
+  });
 });

@@ -19,11 +19,12 @@ export type NoticeSection = { id: string; title: string; items: string[] };
 export type PrivacyNotice = { version: string; company: string; contact: { name: string | null; email: string | null; phone: string | null }; sections: NoticeSection[] };
 
 export async function privacyNoticeFor(orgId: string): Promise<PrivacyNotice> {
-  const [org, settings, hr, hooks] = await Promise.all([
+  const [org, settings, hr, hooks, fieldPeople] = await Promise.all([
     platformPrisma.org.findUnique({ where: { id: orgId }, select: { name: true } }),
     peoplePrisma.attendanceSettings.findUnique({ where: { orgId } }),
     peoplePrisma.hrConnection.findMany({ where: { orgId, enabled: true }, select: { name: true } }).catch(() => []),
     peoplePrisma.webhook.findMany({ where: { orgId, isActive: true }, select: { name: true } }).catch(() => []),
+    peoplePrisma.employee.count({ where: { orgId, phonePunchMode: 'FIELD', mobilePunch: true } }).catch(() => 0),
   ]);
   const company = org?.name || 'Your employer';
   const contact = { name: settings?.privacyContactName || null, email: settings?.privacyContactEmail || null, phone: settings?.privacyContactPhone || null };
@@ -49,6 +50,9 @@ export async function privacyNoticeFor(orgId: string): Promise<PrivacyNotice> {
         'Your name, employee code, department, site and reader ID — to know whose punch is whose.',
         'Each punch: the time, which reader, in or out, and how you were recognised (finger, face, card) — to work out your attendance, leave and pay.',
         'Phone punches, only if HR switched them on for you: where you were at the moment you punched, how accurate that was, and a selfie if asked — to check you were at a work site. Your location is read only when you press Punch, never in between.',
+        ...(fieldPeople
+          ? ['Field punching, only for people HR set to it (for work away from the sites): a punch is accepted wherever you are, and the place and its address are recorded and shown to your manager and HR, who may need to approve it before it counts.']
+          : []),
         copies
           ? 'Fingerprints and face: the readers hold them to recognise you. CLOR also keeps an encrypted copy so that being enrolled at one reader puts you on the company’s other readers. You can withdraw this at any time (below); your copies are then deleted.'
           : 'Fingerprints and face: only the readers hold them, to recognise you. CLOR keeps no copy.',

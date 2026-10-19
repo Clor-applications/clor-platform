@@ -2,7 +2,7 @@ import { Router, type NextFunction, type Request, type Response } from 'express'
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 
-import { explainFor, leaveExplain } from './attendanceInsights.js';
+import { explainFor, leaveExplain, reviewFieldPunch } from './attendanceInsights.js';
 import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { platformPrisma } from '../utils/platformPrisma.js';
 import { notifyPermission } from '../services/notifications.js';
@@ -74,6 +74,8 @@ const PORTAL_FIELDS = {
   mobilePunch: true,
   geofenceId: true,
   dateOfBirth: true,
+  phonePunchMode: true,
+  selfieRequired: true,
   biometricOptOutAt: true,
   privacyNoticeVersion: true,
   personalEmail: true,
@@ -259,13 +261,14 @@ portalRouter.get('/home', async (req, res) => {
     .map((ty) => ({ id: ty.id, name: ty.name, ...(leave.balances.get(e.id)?.get(ty.id) || {}) }))
     .map((b: any) => ({ id: b.id, name: b.name, available: b.available ?? null, used: b.used || 0, pending: b.pending || 0 }));
   const ids = team.map((m) => m.id);
-  const [waitingLeave, waitingCorrections, awayToday] = ids.length
+  const [waitingLeave, waitingCorrections, awayToday, waitingPunches] = ids.length
     ? await Promise.all([
         peoplePrisma.leaveRequest.count({ where: { orgId: e.orgId, employeeId: { in: ids }, status: 'PENDING', managerApprovedAt: null } }),
         peoplePrisma.attendanceRequest.count({ where: { orgId: e.orgId, employeeId: { in: ids }, status: 'PENDING', managerApprovedAt: null } }),
         peoplePrisma.leaveRequest.findMany({ where: { orgId: e.orgId, employeeId: { in: ids }, status: 'APPROVED', fromDate: { lte: t }, toDate: { gte: t } }, select: { employeeId: true } }),
+        peoplePrisma.devicePunch.count({ where: { orgId: e.orgId, employeeId: { in: ids }, outsideSite: true, reviewStatus: 'PENDING' } }),
       ])
-    : [0, 0, []];
+    : [0, 0, [], 0];
   const names = new Map(team.map((m) => [m.id, m.name]));
   const shift = resolveShift(schedule, e.id, t);
   res.json({
@@ -300,7 +303,7 @@ portalRouter.get('/home', async (req, res) => {
       .filter((h, i, arr) => arr.findIndex((x) => x.date === h.date) === i)
       .slice(0, 4)
       .map((h) => ({ date: h.date, name: h.name })),
-    approvals: { approver: ids.length > 0, team: ids.length, waiting: (waitingLeave as number) + (waitingCorrections as number), awayToday: (awayToday as Array<{ employeeId: string }>).map((a) => names.get(a.employeeId) || '').filter(Boolean) },
+    approvals: { approver: ids.length > 0, team: ids.length, waiting: (waitingLeave as number) + (waitingCorrections as number) + (waitingPunches as number), awayToday: (awayToday as Array<{ employeeId: string }>).map((a) => names.get(a.employeeId) || '').filter(Boolean) },
     privacy: { version: notice.version, read: e.privacyNoticeVersion === notice.version },
   });
 });
@@ -501,12 +504,13 @@ portalRouter.get('/approvals', async (req, res) => {
   const team = await reportees(e);
   const ids = team.map((t) => t.id);
   const names = new Map(team.map((t) => [t.id, t]));
-  const [leaves, corrections] = ids.length
+  const [leaves, corrections, fieldPunches] = ids.length
     ? await Promise.all([
         peoplePrisma.leaveRequest.findMany({ where: { orgId: e.orgId, employeeId: { in: ids }, status: 'PENDING' }, orderBy: { createdAt: 'asc' } }),
         peoplePrisma.attendanceRequest.findMany({ where: { orgId: e.orgId, employeeId: { in: ids }, status: 'PENDING' }, orderBy: { createdAt: 'asc' } }),
+        peoplePrisma.devicePunch.findMany({ where: { orgId: e.orgId, employeeId: { in: ids }, outsideSite: true, reviewStatus: 'PENDING' }, orderBy: { at: 'asc' }, take: 200 }),
       ])
-    : [[], []];
+    : [[], [], []];
   const who = (id: string) => ({ employeeName: names.get(id)?.name || '', employeeCode: names.get(id)?.code || null });
   /* What the manager already passed to HR is HR's now, not theirs to decide again. */
   const [leaveChain, correctionChain] = await Promise.all([chainFor(e.orgId, 'leave'), chainFor(e.orgId, 'correction')]);
@@ -516,6 +520,8 @@ portalRouter.get('/approvals', async (req, res) => {
     chain: { leave: leaveChain, correction: correctionChain },
     leaves: (await withTypes(e.orgId, leaves.filter((r) => !r.managerApprovedAt))).map((r) => ({ id: r.id, type: 'leave', ...who(r.employeeId), leaveTypeName: r.leaveTypeName, fromDate: r.fromDate, toDate: r.toDate, days: r.days, reason: r.reason, askedAt: r.createdAt })),
     corrections: corrections.filter((r) => !r.managerApprovedAt).map((r) => ({ id: r.id, type: 'correction', ...who(r.employeeId), date: r.date, checkIn: r.checkIn ? istTime(r.checkIn) : null, checkOut: r.checkOut ? istTime(r.checkOut) : null, reason: r.reason, askedAt: r.createdAt })),
+    /* Field punches from my team waiting for a decision. */
+    punches: fieldPunches.map((p) => ({ id: p.id, type: 'punch', ...who(p.employeeId || ''), date: p.localTime.slice(0, 10), checkIn: p.localTime.slice(11, 16), kind: p.kind, reason: p.address || 'Outside the work sites', latitude: p.latitude, longitude: p.longitude, askedAt: p.createdAt })),
   });
 });
 
@@ -529,8 +535,16 @@ portalRouter.post('/approvals/:type/:id', async (req, res) => {
   const e = req.portal!.employee;
   const type = String(req.params.type);
   const decision = String(req.body?.decision || '');
-  if (!['leave', 'correction'].includes(type)) return res.status(400).json({ error: 'Unknown request type.' });
+  if (!['leave', 'correction', 'punch'].includes(type)) return res.status(400).json({ error: 'Unknown request type.' });
   if (!['approve', 'reject'].includes(decision)) return res.status(400).json({ error: 'decision must be approve or reject.' });
+  if (type === 'punch') {
+    try {
+      const r = await reviewFieldPunch(e.orgId, String(req.params.id), decision === 'approve', { managerId: e.id });
+      return res.json({ punch: { id: r.id, review: r.reviewStatus } });
+    } catch (err: any) {
+      return res.status(err?.status || 500).json({ error: err?.message || 'Not done.' });
+    }
+  }
   const note = String(req.body?.note || '').trim().slice(0, 500) || null;
   const id = String(req.params.id);
   const r: any =

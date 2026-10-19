@@ -6,14 +6,17 @@ import { punchPhotoRetentionDays } from '../retention.js';
 import { MAX_ACCURACY_M, MIN_GAP_MS, decodePhoto, describeDistance, matchFence, nextDirection, validPosition } from './portal.js';
 import { recomputeDeviceDay, shiftDayFor } from '../../routes/iclock.js';
 import { enqueuePunches } from '../hr/sync.js';
+import { placeAt } from '../geocode.js';
 
 /**
  * A punch from a phone, for whoever is holding it: an employee in the portal,
  * or a CLOR user in the Attendance app whose employee file is linked. Both
  * doors run the same checks — the phone's position must sit inside one of the
- * person's work sites, the server's clock is the time, a selfie is kept if
- * sent and never required — so a punch means the same thing whichever way it
- * came in. ClorTime had this twice (mobile_attendance.js and portal.js) and
+ * person's work sites (or, for people HR set to field punching, anywhere: the
+ * position and its address are kept, marked outside a site, and the punch can
+ * wait for approval), the server's clock is the time, a selfie is kept if sent
+ * and required only when HR asks — so a punch means the same thing whichever
+ * way it came in. ClorTime had this twice (mobile_attendance.js and portal.js) and
  * they drifted; here it is once.
  */
 
@@ -32,7 +35,14 @@ export type PunchingEmployee = {
   mobilePunch: boolean;
   /** YYYY-MM-DD; under 18, the phone never reads a location (DPDP s.9: no tracking of children). */
   dateOfBirth?: string | null;
+  /** SITE: only inside a work site. FIELD: anywhere, recorded as outside a site. */
+  phonePunchMode?: string | null;
+  selfieRequired?: boolean | null;
 };
+
+const isField = (e: PunchingEmployee) => e.phonePunchMode === 'FIELD';
+/** Punches that count towards a day: not a field punch still waiting, nor one refused. */
+export const countedPunch = { OR: [{ reviewStatus: null }, { reviewStatus: 'APPROVED' }] };
 
 /** Phone punching for this person: switched on by HR, and never for someone under 18. */
 const phoneAllowed = (e: PunchingEmployee) => Boolean(e.mobilePunch) && !isMinor(e.dateOfBirth);
@@ -60,9 +70,11 @@ export async function phoneStatus(e: PunchingEmployee) {
   ]);
   const fenceNames = new Map(sites.map((s) => [s.id, s.name]));
   return {
-    punches: punches.map((p) => ({ time: p.localTime.slice(11, 16), kind: p.kind, phone: p.latitude != null, site: p.geofenceId ? fenceNames.get(p.geofenceId) || null : null })),
+    punches: punches.map((p) => ({ time: p.localTime.slice(11, 16), kind: p.kind, phone: p.latitude != null, site: p.geofenceId ? fenceNames.get(p.geofenceId) || null : p.outsideSite ? p.address || 'Outside the work sites' : null, outside: p.outsideSite, review: p.reviewStatus })),
     phone: {
       allowed: phoneAllowed(e),
+      mode: isField(e) ? 'FIELD' : 'SITE',
+      selfieRequired: Boolean(e.selfieRequired),
       ...(e.mobilePunch && isMinor(e.dateOfBirth) ? { why: 'Phone punching reads your location, which is not done for anyone under 18. Punch at a reader.' } : {}),
       next: nextDirection(punches),
       /* For the notice on the punch card: how long a selfie is kept. */
@@ -112,9 +124,10 @@ async function recordPhonePunchChecked(e: PunchingEmployee, input: any): Promise
     return { status: 400, body: { error: `Your location is only accurate to ${describeDistance(accuracy)}. Turn on precise location, or step outside, and try again.`, code: 'ROUGH_LOCATION' } };
   }
   const sites = await sitesFor(e);
-  if (!sites.length) return { status: 409, body: { error: 'No work site is set up for your phone punches yet. Ask HR.', code: 'NO_SITE' } };
-  const { inside, nearest } = matchFence({ latitude, longitude }, sites);
-  if (!inside) {
+  const field = isField(e);
+  if (!sites.length && !field) return { status: 409, body: { error: 'No work site is set up for your phone punches yet. Ask HR.', code: 'NO_SITE' } };
+  const { inside, nearest } = sites.length ? matchFence({ latitude, longitude }, sites) : { inside: null, nearest: null };
+  if (!inside && !field) {
     return {
       status: 403,
       body: { error: `You are ${describeDistance(nearest!.distance)} from ${nearest!.fence.name}. Punch from within ${describeDistance(nearest!.fence.radiusMeters)} of it.`, code: 'OUTSIDE' },
@@ -122,6 +135,12 @@ async function recordPhonePunchChecked(e: PunchingEmployee, input: any): Promise
   }
   const photo = decodePhoto(input?.photo);
   if (photo && 'error' in photo) return { status: 400, body: { error: photo.error, code: 'BAD_PHOTO' } };
+  if (!photo && e.selfieRequired) return { status: 400, body: { error: 'A selfie is needed with each punch. Take one and punch again.', code: 'SELFIE_REQUIRED' } };
+  /* A field punch outside every site: where it was (the address, best effort) and, if the company asks, a review before it counts. */
+  const outside = !inside;
+  const settings = outside ? await peoplePrisma.attendanceSettings.findUnique({ where: { orgId: e.orgId }, select: { fieldPunchApproval: true } }) : null;
+  const review = outside && (settings?.fieldPunchApproval ?? true) ? 'PENDING' : null;
+  const address = outside ? (await Promise.race([placeAt(latitude, longitude).catch(() => null), new Promise<null>((r) => setTimeout(() => r(null), 4000))]))?.address?.slice(0, 300) || null : null;
 
   const at = new Date();
   const localTime = nowLocal(at);
@@ -156,15 +175,22 @@ async function recordPhonePunchChecked(e: PunchingEmployee, input: any): Promise
       latitude,
       longitude,
       accuracyM: accuracy,
-      geofenceId: inside.fence.id,
+      geofenceId: inside?.fence.id ?? null,
       photoId: saved?.id || null,
+      outsideSite: outside,
+      address,
+      reviewStatus: review,
     },
   });
+  if (review === 'PENDING') {
+    /* Not counted, nor sent anywhere, until someone approves it. */
+    return { status: 201, body: { kind, time: istTime(at), site: null, outside: true, address, review, photo: Boolean(saved) } };
+  }
   emitWebhook(e.orgId, 'punch', {
     reader: serialNumber,
-    punches: [{ readerId: e.devicePin || e.code, employeeId: e.id, time: localTime, direction: kind, verifyMode: PHONE_VERIFY, site: inside.fence.name }],
+    punches: [{ readerId: e.devicePin || e.code, employeeId: e.id, time: localTime, direction: kind, verifyMode: PHONE_VERIFY, site: inside?.fence.name ?? address ?? 'Outside the work sites' }],
   });
   void enqueuePunches(e.orgId, [{ employeeId: e.id, code: e.code || e.devicePin || null, readerId: serialNumber, time: localTime, direction: kind, verifyMode: PHONE_VERIFY }]);
   await recomputeDeviceDay(e.accountId, e.orgId, { id: e.id, branchId: e.branchId, areaId: e.areaId }, shiftDate);
-  return { status: 201, body: { kind, time: istTime(at), site: inside.fence.name, distance: Math.round(inside.distance), photo: Boolean(saved) } };
+  return { status: 201, body: { kind, time: istTime(at), site: inside?.fence.name ?? null, distance: inside ? Math.round(inside.distance) : null, outside, address, review, photo: Boolean(saved) } };
 }

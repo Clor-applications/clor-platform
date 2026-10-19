@@ -55,6 +55,8 @@ portalAdminRouter.get(`${base}/portal-access`, can(PermissionAction.VIEW), async
         portalSetupHash: true,
         portalSetupExpires: true,
         mobilePunch: true,
+        phonePunchMode: true,
+        selfieRequired: true,
         geofenceId: true,
       },
       orderBy: { name: 'asc' },
@@ -141,6 +143,9 @@ portalAdminRouter.put(`${base}/portal-access`, can(PermissionAction.EDIT), async
       employeeIds: z.array(z.string().min(1)).min(1, 'Pick someone.').max(1000),
       portalEnabled: z.boolean().optional(),
       mobilePunch: z.boolean().optional(),
+      /* SITE: only inside a work site. FIELD: anywhere, recorded and marked outside a site. */
+      phonePunchMode: z.enum(['SITE', 'FIELD']).optional(),
+      selfieRequired: z.boolean().optional(),
       geofenceId: z.string().min(1).nullable().optional(),
     })
     .safeParse(req.body);

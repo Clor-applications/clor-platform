@@ -185,8 +185,9 @@ export async function recomputeDeviceDay(accountId: string, orgId: string, emplo
   const existing = await peoplePrisma.attendanceRecord.findUnique({ where: { employeeId_date: { employeeId: employee.id, date } } });
   if (existing && DECIDED.has(existing.source)) return null;
 
+  /* Field punches still waiting for approval, or refused, do not count. */
   const punches = await peoplePrisma.devicePunch.findMany({
-    where: { orgId, employeeId: employee.id, shiftDate: date },
+    where: { orgId, employeeId: employee.id, shiftDate: date, OR: [{ reviewStatus: null }, { reviewStatus: 'APPROVED' }] },
     select: { at: true, kind: true },
   });
   /* App clock-ins on the same shift day count too: someone may use both. */

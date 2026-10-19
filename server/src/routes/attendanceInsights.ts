@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { pinMatcher } from './iclock.js';
+import { pinMatcher, recomputeDeviceDay } from './iclock.js';
 import { z } from 'zod';
 
 import { requireAuth } from '../middleware/auth.js';
@@ -798,6 +798,46 @@ attendanceInsightsRouter.get(`${base}/devices/:id/timeline`, can(PermissionActio
 // Phone punches: where people punched from, and the attempts that were refused
 // ---------------------------------------------------------------------------
 
+/**
+ * Approve or refuse a field punch (made outside every work site). Approved, it
+ * counts and goes on to webhooks and HR tools like any punch; refused, it
+ * stays on record but never counts.
+ */
+export async function reviewFieldPunch(orgId: string, punchId: string, approve: boolean, scope?: { managerId: string }) {
+  const p = await peoplePrisma.devicePunch.findFirst({ where: { id: punchId, orgId } });
+  if (!p || !p.outsideSite) throw fail(404, 'No such field punch.');
+  if (p.reviewStatus !== 'PENDING') throw fail(409, `This punch was already ${String(p.reviewStatus || 'counted').toLowerCase()}.`);
+  if (scope) {
+    const owner = await peoplePrisma.employee.findFirst({ where: { id: p.employeeId || '', orgId }, select: { reportingManagerId: true } });
+    if (owner?.reportingManagerId !== scope.managerId) throw fail(403, 'This punch is not yours to decide.');
+  }
+  const updated = await peoplePrisma.devicePunch.update({ where: { id: p.id }, data: { reviewStatus: approve ? 'APPROVED' : 'REJECTED' } });
+  if (p.employeeId && p.shiftDate) {
+    const emp = await peoplePrisma.employee.findFirst({ where: { id: p.employeeId, orgId }, select: { id: true, accountId: true, branchId: true, areaId: true } });
+    if (emp) await recomputeDeviceDay(emp.accountId, orgId, { id: emp.id, branchId: emp.branchId, areaId: emp.areaId }, p.shiftDate);
+  }
+  return updated;
+}
+
+attendanceInsightsRouter.post(`${base}/phone-punches/:id/review`, can(PermissionAction.EDIT, R.devices), async (req, res) => {
+  if (!(await attendanceRouteOk(req, res))) return;
+  try {
+    const r = await reviewFieldPunch(req.tenant!.orgId, String(req.params.id), req.body?.approve === true);
+    res.json({ punch: { id: r.id, review: r.reviewStatus } });
+  } catch (e: any) {
+    res.status(e?.status || 500).json({ error: e?.message || 'Not done.' });
+  }
+});
+
+/** Whether field punches wait for approval before they count. */
+attendanceInsightsRouter.put(`${base}/phone-punches/settings`, can(PermissionAction.EDIT, R.devices), async (req, res) => {
+  if (!(await attendanceRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const on = req.body?.fieldPunchApproval !== false;
+  await peoplePrisma.attendanceSettings.upsert({ where: { orgId }, create: { accountId, orgId, fieldPunchApproval: on, updatedByUserId: req.auth!.userId }, update: { fieldPunchApproval: on, updatedByUserId: req.auth!.userId } });
+  res.json({ fieldPunchApproval: on });
+});
+
 attendanceInsightsRouter.get(`${base}/phone-punches`, can(PermissionAction.VIEW, R.devices), async (req, res) => {
   if (!(await attendanceRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
@@ -832,7 +872,8 @@ attendanceInsightsRouter.get(`${base}/phone-punches`, can(PermissionAction.VIEW,
   const accepted = punches.map((p: any) => {
     const fence = p.geofenceId ? fenceOf.get(p.geofenceId) : null;
     const distance = fence && p.latitude != null ? Math.round(distanceMeters({ latitude: p.latitude, longitude: p.longitude }, { latitude: fence.latitude, longitude: fence.longitude })) : null;
-    return { id: p.id, employeeId: p.employeeId, name: nameOf.get(p.employeeId) || p.pin, at: p.at, time: p.localTime, kind: p.kind, site: fence?.name || null, radius: fence?.radiusMeters ?? null, distance, accuracy: p.accuracyM != null ? Math.round(p.accuracyM) : null, latitude: p.latitude, longitude: p.longitude, photoId: p.photoId || null };
+    const near = p.outsideSite ? nearest(p.latitude, p.longitude) : null;
+    return { id: p.id, employeeId: p.employeeId, name: nameOf.get(p.employeeId) || p.pin, at: p.at, time: p.localTime, kind: p.kind, site: fence?.name || null, radius: fence?.radiusMeters ?? null, distance, accuracy: p.accuracyM != null ? Math.round(p.accuracyM) : null, latitude: p.latitude, longitude: p.longitude, photoId: p.photoId || null, outside: Boolean(p.outsideSite), address: p.address || null, review: p.reviewStatus || null, nearest: near };
   });
   const refused = attempts.map((a) => {
     const near = nearest(a.latitude, a.longitude);
@@ -842,7 +883,8 @@ attendanceInsightsRouter.get(`${base}/phone-punches`, can(PermissionAction.VIEW,
   res.json({
     from,
     to,
-    summary: { punches: accepted.length, people: people.size, withSelfie: accepted.filter((a: any) => a.photoId).length, refused: refused.length, outside: refused.filter((r) => r.code === 'OUTSIDE').length },
+    summary: { punches: accepted.length, people: people.size, withSelfie: accepted.filter((a: any) => a.photoId).length, refused: refused.length, outside: refused.filter((r) => r.code === 'OUTSIDE').length, field: accepted.filter((a: any) => a.outside).length, waiting: accepted.filter((a: any) => a.review === 'PENDING').length },
+    fieldPunchApproval: (await peoplePrisma.attendanceSettings.findUnique({ where: { orgId }, select: { fieldPunchApproval: true } }))?.fieldPunchApproval ?? true,
     accepted,
     refused,
     sites: fences.map((f) => ({ id: f.id, name: f.name, latitude: f.latitude, longitude: f.longitude, radius: f.radiusMeters })),

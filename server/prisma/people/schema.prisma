@@ -63,6 +63,11 @@ model Employee {
   lastName                 String?
   gender                   String? /// MALE | FEMALE | OTHER
   dateOfBirth              String? /// YYYY-MM-DD
+  /// Phone punch: SITE (only inside a work site) or FIELD (anywhere, location and
+  /// address recorded, marked outside a site; for sales, service and site staff).
+  phonePunchMode           String    @default("SITE")
+  /// A selfie must come with each phone punch (otherwise it is optional).
+  selfieRequired           Boolean   @default(false)
   /// Withdrew agreement to CLOR keeping copies of their fingerprints / face (DPDP).
   biometricOptOutAt        DateTime?
   /// The employee privacy notice version they last read in the portal, and when.
@@ -680,6 +685,11 @@ model DevicePunch {
   accuracyM    Float?
   geofenceId   String?
   photoId      String?
+  /// A field punch made outside every work site, with the address of where it was made.
+  outsideSite  Boolean  @default(false)
+  address      String?
+  /// Field punches waiting for a decision: PENDING (not counted yet), APPROVED, REJECTED. Null = counts.
+  reviewStatus String?
   createdAt    DateTime @default(now())
 
   /// Per reader: two sites may give the same reader ID to different people
@@ -1089,6 +1099,8 @@ model AttendanceSettings {
   /// When the company last published its employee privacy notice (its version is
   /// the notice version CLOR shows).
   privacyNoticeAt            DateTime?
+  /// Field punches (outside every work site) wait for a manager's or HR's approval before they count.
+  fieldPunchApproval         Boolean   @default(true)
 
   updatedByUserId String
   updatedAt       DateTime @updatedAt
