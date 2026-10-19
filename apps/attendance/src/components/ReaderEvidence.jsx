@@ -100,7 +100,7 @@ export function ReaderCompatibility() {
       <summary className="ui-t-sec cursor-pointer select-none">Which readers work</summary>
       {!data ? <p className="ui-caption mt-2">Loading…</p> : (
         <div className="mt-3 space-y-2">
-          <div className="overflow-x-auto ui-table-scroll">
+          <div className="overflow-x-auto ui-table-scroll ui-table-fit">
             <table className="ui-table w-full">
               <thead><tr><th className="ui-th">Reader</th><th className="ui-th">Support</th><th className="ui-th">How</th><th className="ui-th">Note</th></tr></thead>
               <tbody>

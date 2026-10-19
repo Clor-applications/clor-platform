@@ -25,6 +25,36 @@ const ago = (iso) => {
 const weekday = (d) => new Date(`${d}T00:00:00Z`).toLocaleDateString('en-IN', { weekday: 'short', timeZone: 'UTC' });
 
 /** Who is in today, who is late, who has not come, and what is waiting for HR. */
+/** The DPDP changes of 19 October 2026, announced once per browser until opened or dismissed (the Data protection screen keeps the full list). */
+const DPDP_KEY = 'clor.dpdp.announcement.2026-10-19';
+function DpdpNotice({ openScreen }) {
+  const [seen, setSeen] = useState(() => {
+    try {
+      return localStorage.getItem(DPDP_KEY) === 'seen';
+    } catch {
+      return false;
+    }
+  });
+  if (seen || !openScreen) return null;
+  const close = () => {
+    try {
+      localStorage.setItem(DPDP_KEY, 'seen');
+    } catch {
+      /* shown again next time */
+    }
+    setSeen(true);
+  };
+  return (
+    <div className="ui-card flex flex-wrap items-center justify-between gap-3 p-4 text-sm" role="status">
+      <span><strong>Data protection (DPDP):</strong> fingerprint copies are now off unless you switch them on, under-18s are never tracked, and employees get a privacy notice and their rights in the portal.</span>
+      <span className="flex gap-2">
+        <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => { close(); openScreen('dataProtection'); }}>See what changed</button>
+        <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" onClick={close}>Dismiss</button>
+      </span>
+    </div>
+  );
+}
+
 export default function AttendanceToday({ openScreen }) {
   const [date, setDate] = useState(todayIst());
   const [data, setData] = useState(null);
@@ -88,6 +118,7 @@ export default function AttendanceToday({ openScreen }) {
           <input type="date" className="ui-input" value={date} max={todayIst()} onChange={(e) => setDate(e.target.value)} aria-label="Day" />
         }
       />
+      <DpdpNotice openScreen={openScreen} />
       <LoadFailed message={error} onRetry={() => setAttempt((n) => n + 1)} />
       {!data ? (
         error ? null : <SkeletonCard lines={6} />

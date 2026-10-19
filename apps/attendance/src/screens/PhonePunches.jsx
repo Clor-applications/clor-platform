@@ -76,7 +76,7 @@ export default function PhonePunches() {
           {tab === 'accepted' ? (
             data.accepted.length ? (
               <div className="ui-card overflow-hidden">
-                <div className="overflow-x-auto ui-table-scroll">
+                <div className="overflow-x-auto ui-table-scroll ui-table-fit">
                   <table className="ui-table w-full">
                     <thead><tr><th className="ui-th">Time</th><th className="ui-th">Employee</th><th className="ui-th">In or out</th><th className="ui-th">Site</th><th className="ui-th text-end">From centre</th><th className="ui-th text-end">Accuracy</th><th className="ui-th"><span className="sr-only">Selfie and map</span></th></tr></thead>
                     <tbody>
@@ -103,7 +103,7 @@ export default function PhonePunches() {
             )
           ) : data.refused.length ? (
             <div className="ui-card overflow-hidden">
-              <div className="overflow-x-auto ui-table-scroll">
+              <div className="overflow-x-auto ui-table-scroll ui-table-fit">
                 <table className="ui-table w-full">
                   <thead><tr><th className="ui-th">Time</th><th className="ui-th">Employee</th><th className="ui-th">Why refused</th><th className="ui-th">Nearest site</th><th className="ui-th text-end">Accuracy</th><th className="ui-th"><span className="sr-only">Map</span></th></tr></thead>
                   <tbody>

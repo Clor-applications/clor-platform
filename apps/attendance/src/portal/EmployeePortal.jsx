@@ -19,6 +19,10 @@ import {
   askData,
   getApprovals,
   getDataRequests,
+  getMyData,
+  getPrivacyNotice,
+  readPrivacyNotice,
+  withdrawConsent,
   getDocument,
   getDocuments,
   getAttendance,
@@ -253,6 +257,7 @@ function Today({ me, reload, guard }) {
 
   return (
     <>
+      {me.privacy && !me.privacy.read ? <PrivacyNoticeCard guard={guard} onRead={reload} /> : null}
       <section className="ui-card space-y-3 p-5">
         <div className="flex items-baseline justify-between gap-2">
           <h2 className="ui-t-sec">{new Date(`${me.today}T00:00:00Z`).toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' })}</h2>
@@ -272,7 +277,7 @@ function Today({ me, reload, guard }) {
       {me.phone.allowed ? (
         <PhonePunch phone={me.phone} punches={me.punches} onPunch={(body) => guard(punch(body))} onDone={reload} />
       ) : (
-        <p className="ui-caption px-1">Punch at the reader at work. Punching from your phone is not switched on for you.</p>
+        <p className="ui-caption px-1">{me.phone.why || 'Punch at the reader at work. Punching from your phone is not switched on for you.'}</p>
       )}
 
       <section className="ui-card p-5" aria-labelledby="punches-h">
@@ -911,7 +916,53 @@ const DATA_TYPES = [
   ['ACCESS', 'See the data held about me'],
   ['CORRECTION', 'Correct something that is wrong'],
   ['ERASURE', 'Erase data that is no longer needed'],
+  ['NOMINATE', 'Name someone to act for me if I cannot'],
+  ['GRIEVANCE', 'Complain about how my data is handled'],
+  ['WITHDRAW', 'Withdraw consent'],
 ];
+
+/**
+ * The company's privacy notice (DPDP s.5): shown on Today until read, and
+ * under My data any time. "I have read this" records the version read.
+ */
+function PrivacyNoticeCard({ guard, onRead, always = false }) {
+  const [n, setN] = useState(null);
+  const [open, setOpen] = useState(!always);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    if (!open || n) return;
+    guard(getPrivacyNotice()).then(setN).catch(() => {});
+  }, [open, n, guard]);
+  const read = async () => {
+    setBusy(true);
+    try {
+      await guard(readPrivacyNotice(n.notice.version));
+      setN({ ...n, read: true });
+      onRead?.();
+    } catch (err) {
+      if (!(err instanceof SignedOut)) setN(null);
+    } finally {
+      setBusy(false);
+    }
+  };
+  if (always && !open) return <button type="button" className="ui-link text-sm" onClick={() => setOpen(true)}>Read the privacy notice</button>;
+  return (
+    <section className="ui-card space-y-3 p-5" aria-labelledby="notice-h" style={always ? undefined : { borderColor: 'rgb(var(--accent))' }}>
+      <h2 id="notice-h" className="ui-t-sec">{always ? 'Privacy notice' : `How ${n?.notice.company || 'your employer'} uses your attendance data`}</h2>
+      {!n ? <p className="ui-caption">Loading…</p> : (
+        <>
+          {n.notice.sections.map((x) => (
+            <div key={x.id} className="text-sm">
+              <h3 className="font-medium">{x.title}</h3>
+              <ul className="list-disc space-y-0.5 ps-5">{x.items.map((t) => <li key={t}>{t}</li>)}</ul>
+            </div>
+          ))}
+          {n.read ? <p className="ui-caption">You have read this version.</p> : <button type="button" className="ui-btn ui-btn-primary w-full" disabled={busy} onClick={read}>I have read this</button>}
+        </>
+      )}
+    </section>
+  );
+}
 
 /** The three DPDP rights, as a form; HR answers under Personnel → Data requests and the answer shows here. */
 function MyData({ guard }) {
@@ -921,6 +972,31 @@ function MyData({ guard }) {
   const [note, setNote] = useState(null);
   const load = useCallback(() => guard(getDataRequests()).then((d) => setList(d?.requests || [])).catch(() => setList([])), [guard]);
   useEffect(() => { load(); }, [load]);
+  const download = async () => {
+    try {
+      const data = await guard(getMyData());
+      const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `my-data-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (err) {
+      if (!(err instanceof SignedOut)) setNote({ ok: false, text: String(err?.message || 'Could not prepare your data.') });
+    }
+  };
+  const withdraw = async (what) => {
+    const sure = window.confirm(what === 'BIOMETRIC' ? 'CLOR will delete any copy of your fingerprints and face it keeps, and keep none. The readers still recognise you. Go ahead?' : 'Your phone will stop punching and reading your location; you will punch at a reader. Go ahead?');
+    if (!sure) return;
+    try {
+      const r = await guard(withdrawConsent(what));
+      setNote({ ok: true, text: r.message });
+      setOpen(false);
+      load();
+    } catch (err) {
+      if (!(err instanceof SignedOut)) setNote({ ok: false, text: String(err?.message || 'Not done.') });
+    }
+  };
   const send = async (e) => {
     e.preventDefault();
     setNote(null);
@@ -940,17 +1016,30 @@ function MyData({ guard }) {
         <h2 id="data-h" className="ui-t-sec">My data</h2>
         {!open ? <button type="button" className="ui-link text-sm" onClick={() => setOpen(true)}>Ask about my data</button> : null}
       </div>
-      <p className="ui-caption">You can ask to see the data held about you, have it corrected, or have what is no longer needed erased. <a className="ui-link" href="#/legal/privacy">Privacy notice</a></p>
+      <p className="ui-caption">Download what is held about you, ask for it to be corrected or erased, withdraw consent, name a nominee, or complain. Answers come within 30 days.</p>
+      <div className="flex flex-wrap gap-2">
+        <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={download}>Download my data</button>
+      </div>
+      <PrivacyNoticeCard guard={guard} always />
       {open ? (
         <form onSubmit={send} className="space-y-2">
           <select className="ui-select w-full" value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })} aria-label="What you are asking">
             {DATA_TYPES.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
           </select>
-          <textarea className="ui-input w-full" rows={3} required maxLength={2000} placeholder="What exactly, and why" value={form.details} onChange={(e) => setForm({ ...form, details: e.target.value })} aria-label="Details" />
+          {form.type === 'WITHDRAW' ? (
+            <div className="flex flex-wrap gap-2">
+              <button type="button" className="ui-btn ui-btn-secondary flex-1" onClick={() => withdraw('BIOMETRIC')}>Fingerprint and face copies</button>
+              <button type="button" className="ui-btn ui-btn-secondary flex-1" onClick={() => withdraw('PHONE')}>Phone punches and my location</button>
+            </div>
+          ) : (
+          <>
+          <textarea className="ui-input w-full" rows={3} required maxLength={2000} placeholder={form.type === 'NOMINATE' ? 'Their name, how they are related to you, and how to reach them' : 'What exactly, and why'} value={form.details} onChange={(e) => setForm({ ...form, details: e.target.value })} aria-label="Details" />
           <div className="flex gap-2">
             <button type="submit" className="ui-btn ui-btn-primary flex-1">Send to HR</button>
             <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setOpen(false)}>Cancel</button>
           </div>
+          </>
+          )}
         </form>
       ) : null}
       {note ? <p className="text-sm" role={note.ok ? 'status' : 'alert'} style={{ color: note.ok ? 'rgb(var(--pos))' : 'rgb(var(--neg))' }}>{note.text}</p> : null}
@@ -960,7 +1049,7 @@ function MyData({ guard }) {
             <li key={r.id} className="py-2 text-sm space-y-0.5">
               <div className="flex items-center justify-between gap-2">
                 <span className="font-medium">{DATA_TYPES.find(([k]) => k === r.type)?.[1] || r.type}</span>
-                <span className={`ui-pill ${r.status === 'RESOLVED' ? 'ui-pill-pos' : r.status === 'REJECTED' ? 'ui-pill-neg' : 'ui-pill-warn'}`}>{r.status === 'PENDING' ? 'With HR' : r.status === 'RESOLVED' ? 'Done' : 'Declined'}</span>
+                <span className={`ui-pill ${r.status === 'RESOLVED' ? 'ui-pill-pos' : r.status === 'REJECTED' ? 'ui-pill-neg' : 'ui-pill-warn'}`}>{r.status === 'PENDING' ? `With HR${r.dueAt ? ` · answer by ${new Date(r.dueAt).toLocaleDateString('en-IN', { dateStyle: 'medium' })}` : ''}` : r.status === 'RESOLVED' ? 'Done' : 'Declined'}</span>
               </div>
               <p className="ui-caption">{r.details}</p>
               {r.resolution ? <p className="text-sm">HR: {r.resolution}</p> : null}

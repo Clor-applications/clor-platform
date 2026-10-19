@@ -88,6 +88,11 @@ export const getDocuments = () => call('/documents');
 export const getDocument = (id) => call(`/documents/${encodeURIComponent(id)}`);
 export const getDataRequests = () => call('/data-requests');
 export const askData = (body) => call('/data-requests', { method: 'POST', body });
+/* DPDP: the company's privacy notice and its read receipt, my data as a file, and withdrawing consent. */
+export const getPrivacyNotice = () => call('/privacy-notice');
+export const readPrivacyNotice = (version) => call('/privacy-notice/read', { method: 'POST', body: { version } });
+export const getMyData = () => call('/my-data');
+export const withdrawConsent = (what) => call('/consent/withdraw', { method: 'POST', body: { what } });
 export const decideApproval = (type, id, body) => call(`/approvals/${encodeURIComponent(type)}/${encodeURIComponent(id)}`, { method: 'POST', body });
 export const getAttendance = (month) => call(`/attendance${month ? `?month=${encodeURIComponent(month)}` : ''}`);
 export const explainDay = (date) => call(`/attendance/explain?date=${encodeURIComponent(date)}`);

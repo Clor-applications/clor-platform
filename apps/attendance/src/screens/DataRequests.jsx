@@ -11,7 +11,7 @@ import LoadFailed from '../components/LoadFailed';
  * erase — and HR's answer, which the person reads back in the portal. HR's
  * queue, so it sits with Personnel (ClorTime's Data Requests).
  */
-const TYPES = { ACCESS: 'See their data', CORRECTION: 'Correct their data', ERASURE: 'Erase their data' };
+const TYPES = { ACCESS: 'See their data', CORRECTION: 'Correct their data', ERASURE: 'Erase their data', NOMINATE: 'Name a nominee', GRIEVANCE: 'Grievance', WITHDRAW: 'Withdrew consent' };
 
 export default function DataRequests() {
   const [data, setData] = useState(null);
@@ -38,7 +38,7 @@ export default function DataRequests() {
   if (error && !data) return <LoadFailed error={error} onRetry={load} />;
   return (
     <div className="space-y-4">
-      <PageHeader entity="attendance" title="Data requests" description="What employees asked about their personal data, and your answers. The DPDP Act gives 30 days." />
+      <PageHeader entity="attendance" title="Data requests" description="What employees asked about their personal data, and your answers. Employees are told to expect an answer within 30 days; the DPDP Rules allow at most 90 for a grievance." />
       <div className="flex flex-wrap gap-2">
         {[['PENDING', 'Waiting'], ['RESOLVED', 'Done'], ['REJECTED', 'Declined'], ['ALL', 'All']].map(([k, l]) => (
           <button key={k} type="button" className={`ui-btn ui-btn-sm ${filter === k ? 'ui-btn-primary' : 'ui-btn-secondary'}`} onClick={() => setFilter(k)}>{l}</button>
@@ -50,14 +50,17 @@ export default function DataRequests() {
         <div className="space-y-3">
           {data.requests.map((r) => {
             const age = Math.floor((now - new Date(r.createdAt).getTime()) / 86_400_000);
+            const due = r.dueAt ? new Date(r.dueAt) : new Date(new Date(r.createdAt).getTime() + 30 * 86_400_000);
+            const late = r.status === 'PENDING' && due.getTime() < now;
+            const soon = r.status === 'PENDING' && !late && due.getTime() - now < 5 * 86_400_000;
             return (
               <section key={r.id} className="ui-card p-4 space-y-3" aria-label={`${TYPES[r.type] || r.type} from ${r.employeeName}`}>
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div>
                     <div className="font-semibold">{r.employeeName || 'Unknown'}{r.employeeCode ? <span className="ui-caption font-normal"> · {r.employeeCode}</span> : null}</div>
-                    <div className="text-sm">{TYPES[r.type] || r.type} · asked {new Date(r.createdAt).toLocaleDateString('en-IN', { dateStyle: 'medium' })}{r.status === 'PENDING' ? ` · ${age} day${age === 1 ? '' : 's'} ago` : ''}</div>
+                    <div className="text-sm">{TYPES[r.type] || r.type} · asked {new Date(r.createdAt).toLocaleDateString('en-IN', { dateStyle: 'medium' })}{r.status === 'PENDING' ? ` · ${age} day${age === 1 ? '' : 's'} ago · answer by ${due.toLocaleDateString('en-IN', { dateStyle: 'medium' })}` : ''}</div>
                   </div>
-                  <span className={`ui-pill ${r.status === 'RESOLVED' ? 'ui-pill-pos' : r.status === 'REJECTED' ? 'ui-pill-neg' : age > 25 ? 'ui-pill-neg' : 'ui-pill-warn'}`}>{r.status === 'PENDING' ? (age > 25 ? 'Due now' : 'Waiting') : r.status === 'RESOLVED' ? 'Done' : 'Declined'}</span>
+                  <span className={`ui-pill ${r.status === 'RESOLVED' ? 'ui-pill-pos' : r.status === 'REJECTED' ? 'ui-pill-neg' : late || soon ? 'ui-pill-neg' : 'ui-pill-warn'}`}>{r.status === 'PENDING' ? (late ? 'Overdue' : soon ? 'Due soon' : 'Waiting') : r.status === 'RESOLVED' ? 'Done' : 'Declined'}</span>
                 </div>
                 <p className="text-sm ui-muted">“{r.details}”</p>
                 {r.status === 'PENDING' ? (

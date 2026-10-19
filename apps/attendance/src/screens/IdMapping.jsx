@@ -91,7 +91,7 @@ export default function IdMapping({ openScreen }) {
           <section className="ui-card overflow-hidden" aria-labelledby="unk-h">
             <h2 id="unk-h" className="ui-t-sec px-4 pt-4 pb-2">Unknown reader IDs with punches</h2>
             {data.unmatched.length ? (
-              <div className="overflow-x-auto ui-table-scroll">
+              <div className="overflow-x-auto ui-table-scroll ui-table-fit">
                 <table className="ui-table w-full">
                   <thead><tr><th className="ui-th">Reader ID</th><th className="ui-th">Site</th><th className="ui-th">Name on the reader</th><th className="ui-th text-end">Punches</th><th className="ui-th">Last punch</th><th className="ui-th">Likely match</th><th className="ui-th"><span className="sr-only">Actions</span></th></tr></thead>
                   <tbody>
@@ -141,7 +141,7 @@ export default function IdMapping({ openScreen }) {
           <section className="ui-card overflow-hidden" aria-labelledby="site-h">
             <h2 id="site-h" className="ui-t-sec px-4 pt-4 pb-2">IDs that differ by site</h2>
             {sites.length ? (
-              <div className="overflow-x-auto ui-table-scroll">
+              <div className="overflow-x-auto ui-table-scroll ui-table-fit">
                 <table className="ui-table w-full">
                   <thead><tr><th className="ui-th">Employee</th><th className="ui-th">Site</th><th className="ui-th">ID there</th><th className="ui-th">Company-wide ID</th><th className="ui-th"><span className="sr-only">Edit</span></th></tr></thead>
                   <tbody>

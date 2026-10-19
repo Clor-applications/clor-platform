@@ -82,6 +82,7 @@ import SiteCheck from './src/screens/SiteCheck';
 import DataImport from './src/screens/DataImport';
 import DataExport from './src/screens/DataExport';
 import DataRequests from './src/screens/DataRequests';
+import DataProtection from './src/screens/DataProtection';
 import EmployeePortal from './src/portal/EmployeePortal';
 import Exceptions from './src/screens/Exceptions';
 import MonthClose from './src/screens/MonthClose';
@@ -122,7 +123,7 @@ export const attendanceApp = {
     { key: 'personnel', label: 'Personnel', groups: [
       { label: 'Organization', items: ['departments', 'positions', 'areas'] },
       { label: 'Employees', items: ['employees', 'contractors', 'resignations', 'transfer'] },
-      { label: 'Privacy', items: ['dataRequests'] },
+      { label: 'Privacy', items: ['dataProtection', 'dataRequests'] },
     ] },
     { key: 'device', label: 'Readers', groups: [
       { label: 'Readers', items: ['readerHealth', 'readers', 'readerSync'] },
@@ -157,6 +158,7 @@ export const attendanceApp = {
     { key: 'contractors', label: 'Contractors', icon: HardHat, permission: 'PEOPLE::Org Structure::VIEW' },
     { key: 'resignations', label: 'Resignations', icon: UserMinus, permission: 'PEOPLE::Employees::VIEW' },
     { key: 'transfer', label: 'Transfer', icon: Repeat, permission: 'PEOPLE::Employees::VIEW' },
+    { key: 'dataProtection', label: 'Data protection', icon: ShieldCheck, permission: 'ATTENDANCE::Employee Portal::VIEW' },
     { key: 'dataRequests', label: 'Data requests', icon: ShieldCheck, permission: 'PEOPLE::Employees::VIEW' },
     { section: 'Device' },
     { key: 'readerHealth', label: 'Reader health', icon: HeartPulse, permission: 'ATTENDANCE::Attendance Devices::VIEW' },
@@ -243,6 +245,7 @@ export const attendanceApp = {
     siteCheck: SiteCheck,
     dataImport: DataImport,
     dataExport: DataExport,
+    dataProtection: DataProtection,
     dataRequests: DataRequests,
     me: MyAttendance,
     myLeave: MyLeave,

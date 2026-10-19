@@ -201,7 +201,7 @@ function PrivacyNotice() {
         <ul>
           <li>
             <strong>See your data:</strong> download everything held about your account from <em>Profile → Your data
-            and privacy</em>. A businessA business can export its own records from <em>Account → Data backup</em>.rsquo;s administrator can export the companyA business can export its own records from <em>Account → Data backup</em>.rsquo;s records from <em>Settings → Backup</em>.
+            and privacy</em>. A business can export its own records from <em>Settings → Backup</em> in Accounting, or ask us for an export.
           </li>
           <li>
             <strong>Correct it:</strong> edit your name, username, phone and picture in your profile; ask us, or your

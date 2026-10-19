@@ -287,3 +287,11 @@ export const REASON_CODES = [
 ];
 export const reasonLabel = (code) => REASON_CODES.find((r) => r.value === code)?.label || null;
 
+
+/* Data protection (DPDP): settings, the employee notice, status, and the breach register. */
+export const getDataProtection = () => get('/data-protection');
+export const saveDataProtection = (body) => send('/data-protection', 'PUT', body);
+export const listBreaches = () => get('/data-protection/breaches').then((r) => r?.breaches || []);
+export const recordBreach = (body) => send('/data-protection/breaches', 'POST', body);
+export const updateBreach = (id, body) => send(`/data-protection/breaches/${encodeURIComponent(id)}`, 'PUT', body);
+export const notifyBreach = (id) => send(`/data-protection/breaches/${encodeURIComponent(id)}/notify`, 'POST', {});

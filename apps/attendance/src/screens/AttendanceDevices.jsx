@@ -193,7 +193,7 @@ export default function AttendanceDevices({ openScreen }) {
               <tbody>
                 {data.devices.map((d) => (
                   <tr key={d.id} className={VIRTUAL[d.vendor] ? undefined : 'ui-row-click'} onClick={VIRTUAL[d.vendor] ? undefined : () => setOpen(d)} title={VIRTUAL[d.vendor]?.title}>
-                    <td className="ui-col-entity">{d.name}</td>
+                    <td className="ui-col-entity">{d.name}{!VIRTUAL[d.vendor] && d.support ? <span className="block text-xs font-normal"><SupportPill support={d.support} /></span> : null}</td>
                     <td className="ui-col-meta hidden md:table-cell">{d.vendor === 'ETIMEOFFICE' ? 'e-Time Office' : URL_PUSH[d.vendor] ? d.model || `${d.driverLabel} · not connected yet` : MAPPED[d.vendor] || PULL[d.vendor] ? d.driverLabel : VIRTUAL[d.vendor]?.label || d.serialNumber}</td>
                     <td>{d.direction === 'both' ? 'In / out' : d.direction === 'in' ? 'Entry' : 'Exit'}</td>
                     <td className="ui-col-h-center whitespace-nowrap">
@@ -219,7 +219,7 @@ export default function AttendanceDevices({ openScreen }) {
                         <span className="ui-pill ui-pill-warn" title={d.lastSeenAt || ''}>{d.lastSeenAt ? `last seen ${ago(d.lastSeenAt)}` : 'never connected'}</span>
                       )}
                     </td>
-                    <td className="ui-col-meta hidden md:table-cell">{[d.model, d.firmware && `v${d.firmware}`].filter(Boolean).join(' · ') || '—'} {!VIRTUAL[d.vendor] ? <SupportPill support={d.support} /> : null}</td>
+                    <td className="ui-col-meta hidden md:table-cell">{[d.model, d.firmware && `v${d.firmware}`].filter(Boolean).join(' · ') || '—'}</td>
                     <td className="text-end tabular-nums">{d.punchesToday}</td>
                     <td className="text-end tabular-nums hidden md:table-cell">{d.commandsWaiting || '—'}</td>
                   </tr>
