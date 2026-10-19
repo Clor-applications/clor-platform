@@ -174,7 +174,10 @@ private fun LeaveForm(api: Api, types: List<LeaveType>, onDone: () -> Unit, onCa
                         if (which == "from") {
                             from = d
                             if (to.isBefore(d)) to = d
-                        } else to = d
+                        } else {
+                            to = d
+                        }
+                        Unit
                     }
                     picking = null
                 }) { Text("OK") }

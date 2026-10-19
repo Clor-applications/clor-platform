@@ -146,7 +146,11 @@ private fun PunchCard(api: Api, m: Me, onPunched: () -> Unit, onSignedOut: () ->
         send(Base64.encodeToString(out.toByteArray(), Base64.NO_WRAP))
     }
     val camera = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
-        if (ok) selfie.launch(null) else message = "Camera not allowed. Untick the selfie to punch without one." to false
+        if (ok) {
+            selfie.launch(null)
+        } else {
+            message = "Camera not allowed. Untick the selfie to punch without one." to false
+        }
     }
     fun withPhoto() {
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) selfie.launch(null) else camera.launch(Manifest.permission.CAMERA)

@@ -67,7 +67,11 @@ fun MeTab(api: Api, onSignedOut: () -> Unit) {
     val storage = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
         val job = pending
         pending = null
-        if (ok && job != null) scope.launch { job() } else if (!ok) message = "Storage not allowed, so the file could not be saved."
+        if (ok && job != null) {
+            scope.launch { job() }
+        } else if (!ok) {
+            message = "Storage not allowed, so the file could not be saved."
+        }
     }
     fun save(job: suspend () -> Unit) {
         val needs = Build.VERSION.SDK_INT < Build.VERSION_CODES.Q &&
@@ -75,7 +79,9 @@ fun MeTab(api: Api, onSignedOut: () -> Unit) {
         if (needs) {
             pending = job
             storage.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE)
-        } else scope.launch { job() }
+        } else {
+            scope.launch { job() }
+        }
     }
     suspend fun guarded(block: suspend () -> Unit) {
         try {
