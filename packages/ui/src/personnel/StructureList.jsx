@@ -2,7 +2,10 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 
 import { SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
-import SettingsScreenHeader from '@ui/chrome/SettingsScreenHeader';
+import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
+import { useListSearch } from '@ui/components/ListToolbar';
+import DocumentListShell from '@ui/components/list/DocumentListShell';
+import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';
 import Drawer from '@ui/components/ui/Drawer';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { createStructure, deleteStructure, listStructure, updateStructure } from './api';
@@ -49,8 +52,15 @@ const KINDS = {
   },
 };
 
+const TABS = [
+  { value: 'active', label: 'Active', tone: 'paid' },
+  { value: 'inactive', label: 'Inactive', tone: 'cancelled' },
+  { value: '', label: 'All', tone: 'all' },
+];
+
 export default function StructureList({ kind }) {
   const cfg = KINDS[kind];
+  const [tab, setTab] = useState('active');
   const [rows, setRows] = useState([]);
   const [parents, setParents] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -115,47 +125,91 @@ export default function StructureList({ kind }) {
     }
   };
 
+  const counts = useMemo(() => ({ '': rows.length, active: rows.filter((r) => r.isActive).length, inactive: rows.filter((r) => !r.isActive).length }), [rows]);
+  const inTab = useMemo(() => rows.filter((r) => !tab || (tab === 'active') === Boolean(r.isActive)), [rows, tab]);
+  const search = useListSearch(inTab, ['name', 'description']);
+  const columns = useColumnFilters();
+  const shown = columns.applyFilters(search.filtered, {
+    name: (r) => r.name,
+    parent: (r) => (cfg.parent ? parentName.get(r[cfg.parent.key]) || '' : ''),
+  });
+
   if (loading) return <SkeletonCard lines={5} />;
   const newRow = () => setEditing({ name: '', description: '', isActive: true });
 
   return (
-    <div className="space-y-6">
-      <SettingsScreenHeader
-        entity="settings"
-        title={cfg.title}
-        description={cfg.description}
-        actions={
-          <button type="button" className="ui-btn ui-btn-primary" onClick={newRow}>
-            <Plus size={16} aria-hidden="true" /> New {cfg.singular}
-          </button>
-        }
-      />
-
+    <DocumentListShell
+      entity="settings"
+      title={cfg.title}
+      compact
+      tight
+      search={{ value: search.query, onChange: search.setQuery, placeholder: `Search ${cfg.title.toLowerCase()}…`, label: `Search ${cfg.title.toLowerCase()}` }}
+      moreItems={[exportMenuItem(`Export ${cfg.title.toLowerCase()}`)]}
+      onMoreSelect={(k) => {
+        const format = exportFormatFromKey(k);
+        if (!format) return;
+        runListExport({
+          format,
+          title: cfg.title,
+          fileName: cfg.title,
+          label: `${cfg.singular}/${cfg.title.toLowerCase()}`,
+          columns: [
+            { key: 'name', label: 'Name' },
+            ...(cfg.parent ? [{ key: 'parent', label: cfg.parent.label, value: (r) => parentName.get(r[cfg.parent.key]) || '' }] : []),
+            { key: 'employeeCount', label: 'People', value: (r) => r.employeeCount || 0 },
+            { key: 'isActive', label: 'Status', value: (r) => (r.isActive ? 'Active' : 'Inactive') },
+            { key: 'description', label: 'Description' },
+          ],
+          rows: shown,
+        });
+      }}
+      primary={
+        <button type="button" className="ui-btn ui-btn-primary" onClick={newRow}>
+          <Plus size={16} aria-hidden="true" /> New {cfg.singular}
+        </button>
+      }
+      tabs={TABS}
+      statusValue={tab}
+      statusCounts={counts}
+      onStatusChange={setTab}
+      tabsLabel={`${cfg.title} status`}
+    >
       {error ? (
-        <div className="ui-card p-3 text-sm" role="alert" style={{ borderColor: 'rgb(var(--neg))', color: 'rgb(var(--neg))' }}>
+        <div className="p-3 text-sm" role="alert" style={{ color: 'rgb(var(--neg))' }}>
           {error}
         </div>
       ) : null}
 
-      {rows.length === 0 ? (
-        <EmptyState title={`No ${cfg.title.toLowerCase()} yet`} description={cfg.description} />
-      ) : (
-        <div className="ui-card overflow-hidden">
-          <div className="overflow-x-auto ui-table-scroll ui-table-fit">
-            <table className="ui-table w-full">
+          <div className="ui-table-scroll">
+            <table className="ui-table ui-table-sticky w-full">
               <thead>
                 <tr>
-                  <th scope="col" className="ui-th">Name</th>
-                  {cfg.parent ? <th scope="col" className="ui-th">{cfg.parent.label}</th> : null}
-                  <th scope="col" className="ui-th ui-col-h-center">People</th>
-                  <th scope="col" className="ui-th ui-col-h-center">Status</th>
-                  <th scope="col" className="ui-th ui-col-h-center w-10">
+                  <ColumnHeader label="Name" col="name" state={columns} />
+                  {cfg.parent ? <ColumnHeader label={cfg.parent.label} col="parent" state={columns} /> : null}
+                  <th scope="col" className="ui-col-h-center">People</th>
+                  <th scope="col" className="ui-col-h-center">Status</th>
+                  <th scope="col" className="ui-col-h-center w-10">
                     <span className="sr-only">Actions</span>
                   </th>
                 </tr>
               </thead>
-              <tbody>
-                {rows.map((r) => (
+              <tbody className="ui-rows">
+                {!shown.length ? (
+                  <tr>
+                    <td colSpan={cfg.parent ? 5 : 4}>
+                      {rows.length ? (
+                        <EmptyState kind="filtered" totalCount={inTab.length || rows.length} title={`No ${cfg.title.toLowerCase()} match`} description="Nothing in this tab matches the search or the column filters." />
+                      ) : (
+                        <EmptyState
+                          title={`No ${cfg.title.toLowerCase()} yet`}
+                          description={cfg.description}
+                          routes={[{ label: `New ${cfg.singular}`, description: cfg.description, onSelect: newRow }]}
+                        />
+                      )}
+                    </td>
+                  </tr>
+                ) : (
+                  shown.map((r) => (
                   <tr key={r.id} className="ui-row-click" onClick={() => setEditing({ ...r })}>
                     <td className="ui-col-entity">
                       {r.name}
@@ -172,12 +226,11 @@ export default function StructureList({ kind }) {
                       </button>
                     </td>
                   </tr>
-                ))}
+                  ))
+                )}
               </tbody>
             </table>
           </div>
-        </div>
-      )}
 
       <Drawer
       widthClass="w-[min(40rem,96vw)]"
@@ -227,7 +280,7 @@ export default function StructureList({ kind }) {
           </form>
         ) : null}
       </Drawer>
-    </div>
+    </DocumentListShell>
   );
 }
 

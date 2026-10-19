@@ -36,6 +36,15 @@ import {
   Users,
   Warehouse,
   WalletCards,
+  CalendarCheck,
+  CalendarOff,
+  Clock,
+  Fingerprint,
+  PartyPopper,
+  Timer,
+  ShieldAlert,
+  Inbox,
+  ShieldCheck,
 } from 'lucide-react';
 
 /**
@@ -123,6 +132,17 @@ export const ENTITY_ICON = {
   dueDate: CalendarClock,
   report: BarChart3,
   settings: Settings,
+
+  /* attendance */
+  attendance: CalendarCheck,
+  leave: CalendarOff,
+  shift: Clock,
+  reader: Fingerprint,
+  holiday: PartyPopper,
+  overtime: Timer,
+  exception: ShieldAlert,
+  request: Inbox,
+  privacy: ShieldCheck,
 };
 
 /** Which colour family a screen belongs to. Matches the `--id-*` tokens. */
@@ -178,6 +198,16 @@ export const ENTITY_TONE = {
   location: 'org',
   report: 'reports',
   settings: 'settings',
+
+  attendance: 'org',
+  leave: 'crm',
+  shift: 'org',
+  reader: 'inventory',
+  holiday: 'org',
+  overtime: 'expense',
+  exception: 'expense',
+  request: 'crm',
+  privacy: 'settings',
 };
 
 export const iconFor = (entity) => ENTITY_ICON[entity] || null;

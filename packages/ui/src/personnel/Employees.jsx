@@ -1,11 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Download, LayoutGrid, List, Plus, Search, Trash2, Upload, UserRound } from 'lucide-react';
+import { FileDown, LayoutGrid, List, Plus, Trash2, Upload, UserMinus, UserPlus, UserRound, Users } from 'lucide-react';
 
 import { SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
-import { PageHeader } from '@ui/components/ui/Primitives';
+import DocumentListShell from '@ui/components/list/DocumentListShell';
+import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';
 import Drawer from '@ui/components/ui/Drawer';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
-import { downloadCsv, downloadCsvTemplate, parseCsv, readFileText } from '@ui/utils/csv';
+import { downloadCsvTemplate, parseCsv, readFileText } from '@ui/utils/csv';
 import { formatDateIn } from '@ui/utils/dates';
 import { hasApp } from '@platform/context';
 import {
@@ -43,6 +44,14 @@ const STATUSES = [
   { id: 'LEFT', label: 'Left', pill: 'ui-pill-neutral' },
 ];
 const statusOf = (id) => STATUSES.find((s) => s.id === id) || STATUSES[0];
+const TABS = [
+  { value: 'ACTIVE', label: 'Active', tone: 'paid' },
+  { value: 'ON_NOTICE', label: 'On notice', tone: 'partial' },
+  { value: 'SUSPENDED', label: 'Suspended', tone: 'overdue' },
+  { value: 'LEFT', label: 'Left', tone: 'cancelled' },
+  { value: '', label: 'All', tone: 'all' },
+];
+const daysAgo = (n) => new Date(Date.now() + 330 * 60_000 - n * 86_400_000).toISOString().slice(0, 10);
 
 const initials = (name) =>
   String(name || '?')
@@ -94,8 +103,7 @@ const IMPORT_COLUMNS = [
 ];
 
 export default function Employees() {
-  const [rows, setRows] = useState([]);
-  const [total, setTotal] = useState(0);
+  const [all, setAll] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [view, setView] = useState(() => {
@@ -105,7 +113,9 @@ export default function Employees() {
       return 'cards';
     }
   });
-  const [filters, setFilters] = useState({ q: '', status: 'ACTIVE', departmentId: '', jobPositionId: '', employeeTypeId: '', tagId: '' });
+  /* Status is a tab, counted on the client; the rest are asked of the server. */
+  const [status, setStatus] = useState('ACTIVE');
+  const [filters, setFilters] = useState({ q: '', departmentId: '', jobPositionId: '', employeeTypeId: '', tagId: '' });
   const [lists, setLists] = useState({ departments: [], positions: [], roles: [], types: [], workTypes: [], tags: [], areas: [], contractors: [] });
   const [openId, setOpenId] = useState(null);
   const [editing, setEditing] = useState(null);
@@ -128,9 +138,8 @@ export default function Employees() {
 
   const load = useCallback(async () => {
     try {
-      const res = await listEmployees({ ...filters, limit: 500 });
-      setRows(res?.employees || []);
-      setTotal(res?.total || 0);
+      const res = await listEmployees({ ...filters, status: '', limit: 500 });
+      setAll(res?.employees || []);
       setError('');
     } catch (e) {
       setError(String(e?.message || 'Could not load employees.'));
@@ -184,7 +193,7 @@ export default function Employees() {
 
   const filterSelect = (key, label, options) => (
     <select
-      className="ui-select ui-select-sm"
+      className="ui-select ui-ctl-compact"
       style={{ width: 'auto', minWidth: '9rem' }}
       aria-label={label}
       value={filters[key]}
@@ -197,79 +206,104 @@ export default function Employees() {
     </select>
   );
 
+  const counts = useMemo(() => {
+    const c = { '': all.length };
+    for (const p of all) c[p.status] = (c[p.status] || 0) + 1;
+    return c;
+  }, [all]);
+  const rows = useMemo(() => all.filter((p) => !status || p.status === status), [all, status]);
+  const figures = useMemo(() => {
+    const here = all.filter((p) => p.status !== 'LEFT');
+    return {
+      headcount: here.length,
+      joined: here.filter((p) => p.dateOfJoining && String(p.dateOfJoining).slice(0, 10) >= daysAgo(30)).length,
+      notice: counts.ON_NOTICE || 0,
+      unplaced: here.filter((p) => !p.department).length,
+    };
+  }, [all, counts]);
+  const importTemplate = () =>
+    downloadCsvTemplate({ fileName: 'Employees import template', columns: IMPORT_COLUMNS, sample: { name: 'Asha Rao', code: 'E-001', department: 'Finance', jobPosition: 'Accountant', dateOfJoining: '2026-04-01', gender: 'FEMALE' } });
+
   if (loading) return <SkeletonCard lines={6} />;
 
   return (
-    <div className="space-y-4">
-      <PageHeader
-        entity="people"
-        title="Employees"
-        description={`${total} ${total === 1 ? 'person' : 'people'}`}
-        actions={
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="inline-flex rounded-lg border" style={{ borderColor: 'rgb(var(--border))' }} role="group" aria-label="View">
-              <button type="button" className="ui-icon-btn" aria-pressed={view === 'cards'} aria-label="Cards" onClick={() => setViewMode('cards')}>
-                <LayoutGrid size={16} />
-              </button>
-              <button type="button" className="ui-icon-btn" aria-pressed={view === 'list'} aria-label="List" onClick={() => setViewMode('list')}>
-                <List size={16} />
-              </button>
-            </div>
-            <button type="button" className="ui-btn ui-btn-secondary" onClick={() => downloadCsv({ fileName: 'Employees', columns: EXPORT_COLUMNS, rows })}>
-              <Download size={16} aria-hidden="true" /> Export
-            </button>
-            <button type="button" className="ui-btn ui-btn-secondary" onClick={() => fileRef.current?.click()}>
-              <Upload size={16} aria-hidden="true" /> Import
-            </button>
-            <input ref={fileRef} type="file" accept=".csv,text/csv" className="hidden" onChange={(e) => onImport(e.target.files?.[0])} />
-            <button type="button" className="ui-btn ui-btn-primary" onClick={() => setEditing({ status: 'ACTIVE', tagIds: [] })}>
-              <Plus size={16} aria-hidden="true" /> New employee
-            </button>
-          </div>
-        }
-      />
-
-      <div className="flex flex-wrap items-center gap-2">
-        <label className="relative block w-full sm:w-72">
-          <Search size={15} className="ui-subtle absolute start-3 top-1/2 -translate-y-1/2" aria-hidden="true" />
-          <input
-            className="ui-input w-full ps-9"
-            placeholder="Search name, ID, email, phone"
-            aria-label="Search employees"
-            value={filters.q}
-            onChange={(e) => setFilters((f) => ({ ...f, q: e.target.value }))}
-          />
-        </label>
-        {filterSelect('status', 'Status', STATUSES)}
-        {filterSelect('departmentId', 'Department', lists.departments)}
-        {filterSelect('jobPositionId', 'Position', lists.positions)}
-        {filterSelect('employeeTypeId', 'Type', lists.types)}
-        {lists.tags.length ? filterSelect('tagId', 'Tag', lists.tags) : null}
-        <button
-          type="button"
-          className="ui-link text-sm"
-          onClick={() => downloadCsvTemplate({ fileName: 'Employees import template', columns: IMPORT_COLUMNS, sample: { name: 'Asha Rao', code: 'E-001', department: 'Finance', jobPosition: 'Accountant', dateOfJoining: '2026-04-01', gender: 'FEMALE' } })}
-        >
-          Import template
-        </button>
-      </div>
-
+    <DocumentListShell
+      entity="people"
+      title="Employees"
+      compact
+      tight
+      denseCards
+      surface={view === 'cards' ? 'plain' : 'card'}
+      search={{ value: filters.q, onChange: (q) => setFilters((f) => ({ ...f, q })), placeholder: 'Search name, ID, email, phone…', label: 'Search employees' }}
+      headerExtras={
+        <div className="inline-flex rounded-lg border" style={{ borderColor: 'rgb(var(--border))' }} role="group" aria-label="View">
+          <button type="button" className="ui-icon-btn" aria-pressed={view === 'cards'} aria-label="Cards" onClick={() => setViewMode('cards')}>
+            <LayoutGrid size={16} />
+          </button>
+          <button type="button" className="ui-icon-btn" aria-pressed={view === 'list'} aria-label="List" onClick={() => setViewMode('list')}>
+            <List size={16} />
+          </button>
+        </div>
+      }
+      moreItems={[
+        exportMenuItem('Export employees'),
+        { key: 'import', label: 'Import from a spreadsheet', Icon: Upload },
+        { key: 'template', label: 'Download the import template', Icon: FileDown },
+      ]}
+      onMoreSelect={(k) => {
+        if (k === 'import') return fileRef.current?.click();
+        if (k === 'template') return importTemplate();
+        const format = exportFormatFromKey(k);
+        if (format) runListExport({ format, title: 'Employees', fileName: 'Employees', label: 'person/people', columns: EXPORT_COLUMNS, rows });
+      }}
+      primary={
+        <>
+          <input ref={fileRef} type="file" accept=".csv,text/csv" className="hidden" onChange={(e) => onImport(e.target.files?.[0])} />
+          <button type="button" className="ui-btn ui-btn-primary" onClick={() => setEditing({ status: 'ACTIVE', tagIds: [] })}>
+            <Plus size={16} aria-hidden="true" /> New employee
+          </button>
+        </>
+      }
+      cards={[
+        { label: 'Headcount', value: figures.headcount, count: true, tone: 'sent', Icon: Users },
+        { label: 'Joined in 30 days', value: figures.joined, count: true, tone: 'paid', Icon: UserPlus },
+        { label: 'On notice', value: figures.notice, count: true, tone: 'partial', Icon: UserMinus, onSelect: () => setStatus('ON_NOTICE') },
+        { label: 'No department', value: figures.unplaced, count: true, tone: 'outstanding', Icon: UserRound },
+      ]}
+      tabs={TABS}
+      statusValue={status}
+      statusCounts={counts}
+      onStatusChange={setStatus}
+      tabsLabel="Employee status"
+      tabsExtras={
+        <>
+          {filterSelect('departmentId', 'Department', lists.departments)}
+          {filterSelect('jobPositionId', 'Position', lists.positions)}
+          {filterSelect('employeeTypeId', 'Type', lists.types)}
+          {lists.tags.length ? filterSelect('tagId', 'Tag', lists.tags) : null}
+        </>
+      }
+    >
       {error ? (
         <div className="ui-card p-3 text-sm" role="alert" style={{ borderColor: 'rgb(var(--neg))', color: 'rgb(var(--neg))' }}>{error}</div>
       ) : null}
 
       {rows.length === 0 ? (
-        <EmptyState
-          title="Nobody here yet"
-          description="Add people one at a time, or import a spreadsheet using the template."
-          action={
-            <button type="button" className="ui-btn ui-btn-primary" onClick={() => setEditing({ status: 'ACTIVE', tagIds: [] })}>
-              <Plus size={16} aria-hidden="true" /> New employee
-            </button>
-          }
-        />
+        all.length ? (
+          <EmptyState kind="filtered" totalCount={all.length} title="Nobody matches" description="Nobody in this tab matches the search or the filters." />
+        ) : (
+          <EmptyState
+            icon={Users}
+            title="Nobody here yet"
+            description="Add people one at a time, or import a spreadsheet using the template."
+            routes={[
+              { label: 'New employee', description: 'One person, with their department and joining date.', onSelect: () => setEditing({ status: 'ACTIVE', tagIds: [] }) },
+              { label: 'Import a spreadsheet', description: 'Fill in the template, then import it here.', onSelect: () => fileRef.current?.click() },
+            ]}
+          />
+        )
       ) : view === 'cards' ? (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+        <div className="grid gap-3 px-3 pb-6 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
           {rows.map((p) => (
             <button key={p.id} type="button" className="ui-card flex items-start gap-3 p-4 text-left ui-hover-sunken" onClick={() => setOpenId(p.id)}>
               <Avatar person={p} size={44} />
@@ -288,21 +322,20 @@ export default function Employees() {
           ))}
         </div>
       ) : (
-        <div className="ui-card overflow-hidden">
-          <div className="overflow-x-auto ui-table-scroll ui-table-fit">
-            <table className="ui-table w-full">
+          <div className="ui-table-scroll">
+            <table className="ui-table ui-table-sticky w-full">
               <thead>
                 <tr>
-                  <th scope="col" className="ui-th">Employee</th>
-                  <th scope="col" className="ui-th">ID</th>
-                  <th scope="col" className="ui-th">Department</th>
-                  <th scope="col" className="ui-th">Position</th>
-                  <th scope="col" className="ui-th">Reports to</th>
-                  <th scope="col" className="ui-th ui-col-h-center">Joined</th>
-                  <th scope="col" className="ui-th ui-col-h-center">Status</th>
+                  <th scope="col">Employee</th>
+                  <th scope="col">ID</th>
+                  <th scope="col">Department</th>
+                  <th scope="col">Position</th>
+                  <th scope="col">Reports to</th>
+                  <th scope="col" className="ui-col-h-center">Joined</th>
+                  <th scope="col" className="ui-col-h-center">Status</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="ui-rows">
                 {rows.map((p) => (
                   <tr key={p.id} className="ui-row-click" onClick={() => setOpenId(p.id)}>
                     <td className="ui-col-entity">
@@ -322,7 +355,6 @@ export default function Employees() {
               </tbody>
             </table>
           </div>
-        </div>
       )}
 
       <EmployeeFile
@@ -352,7 +384,7 @@ export default function Employees() {
           }}
         />
       ) : null}
-    </div>
+    </DocumentListShell>
   );
 }
 

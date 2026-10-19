@@ -5806,6 +5806,47 @@ th.ui-th {
   background-color: #09090b !important;
   border-color: #09090b !important;
 }
+
+/*
+ * The same graphite controls in the dark theme. The literals above are
+ * light-only: in dark they drew a #18181B button on a near-black page and
+ * #18181B tab labels on dark tints, so the primary action and every
+ * unselected tab disappeared. Inverted here from tokens (off-white control,
+ * dark ink). People and Payroll answer this in their own coral dark rules.
+ */
+:root[data-theme='dark']:not([data-app='people']):not([data-app='payroll']) :is(.ui-btn-primary, .ui-btn-brand) {
+  background-color: rgb(var(--fg)) !important;
+  border-color: rgb(var(--fg)) !important;
+  color: rgb(var(--app-bg)) !important;
+}
+:root[data-theme='dark']:not([data-app='people']):not([data-app='payroll']) :is(.ui-btn-primary, .ui-btn-brand):hover:not(:disabled) {
+  background-color: rgb(var(--fg) / 0.86) !important;
+  border-color: rgb(var(--fg) / 0.86) !important;
+  color: rgb(var(--app-bg)) !important;
+}
+:root[data-theme='dark']:not([data-app='people']):not([data-app='payroll']) :is(.ui-btn-primary, .ui-btn-brand):active:not(:disabled) {
+  background-color: rgb(var(--fg) / 0.74) !important;
+  border-color: rgb(var(--fg) / 0.74) !important;
+}
+:root[data-theme='dark']:not([data-app='people']):not([data-app='payroll']) :is(.ui-segment[aria-selected='true'], [role='tab'][aria-selected='true'].ui-segment) {
+  background-color: rgb(var(--fg)) !important;
+  border-color: rgb(var(--fg)) !important;
+  color: rgb(var(--app-bg)) !important;
+}
+:root[data-theme='dark']:not([data-app='people']):not([data-app='payroll']) .ui-segment[aria-selected='true'] .ui-segment-count {
+  background-color: rgb(0 0 0 / 0.16) !important;
+  color: rgb(var(--app-bg)) !important;
+}
+:root[data-theme='dark']:not([data-app='people']):not([data-app='payroll']) :is(.ui-segment:not([aria-selected='true']), [role='tab']:not([aria-selected='true'])),
+:root[data-theme='dark']:not([data-app='people']):not([data-app='payroll']) .ui-segment:not([aria-selected='true']) .ui-segment-count {
+  color: rgb(var(--fg)) !important;
+}
+:root[data-theme='dark']:not([data-app='people']):not([data-app='payroll']) :is(.ui-tab.is-active, [role='tab'][aria-selected='true']:not(.ui-segment)) {
+  color: rgb(var(--fg));
+}
+:root[data-theme='dark']:not([data-app='people']):not([data-app='payroll']) .ui-tab.is-active::after {
+  background-color: rgb(var(--fg));
+}
 .report-status {
   display: inline-flex;
   align-items: center;
