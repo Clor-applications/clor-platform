@@ -5,6 +5,9 @@ name: Android — CLOR Attendance (native)
 #     debug APK, and a signed release APK + AAB when the signing secrets are set
 #     (the same upload keystore secrets as the web-based Android apps).
 #   - On changes under native/attendance-android: tests and a debug build.
+#   - On a tag, with the Cloudflare secrets set: the signed APK replaces the
+#     attendance app on the public download site (clor-downloads, read by
+#     attendance.clor.in/download/). Payroll and Accounting files are kept.
 
 on:
   push:
@@ -25,6 +28,7 @@ jobs:
         working-directory: native/attendance-android
     env:
       HAS_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
+      HAS_CF: ${{ secrets.CLOUDFLARE_API_TOKEN != '' }}
       VERSION_NAME: ${{ github.ref_type == 'tag' && github.ref_name || format('0.1.{0}', github.run_number) }}
     steps:
       - uses: actions/checkout@v4
@@ -75,3 +79,29 @@ jobs:
             native/attendance-android/app/build/outputs/apk/**/*.apk
             native/attendance-android/app/build/outputs/bundle/release/*.aab
           if-no-files-found: error
+
+      - name: Publish to the download site (tags only)
+        # One Pages project serves every app's latest APK and a deploy replaces
+        # the whole site, so the other apps' current files are shipped again.
+        if: github.ref_type == 'tag' && env.HAS_KEYSTORE == 'true' && env.HAS_CF == 'true'
+        run: |
+          set -e
+          VER="${VERSION_NAME#attendance-native-v}"
+          BASE="https://clor-downloads.pages.dev"
+          mkdir -p site
+          for other in payroll accounting; do
+            curl -fsSL "$BASE/clor-$other-latest.json" -o "site/clor-$other-latest.json" || { rm -f "site/clor-$other-latest.json"; continue; }
+            curl -fsSL "$BASE/clor-$other-latest.apk" -o "site/clor-$other-latest.apk" || rm -f "site/clor-$other-latest.json" "site/clor-$other-latest.apk"
+          done
+          cp app/build/outputs/apk/release/app-release.apk site/clor-attendance-latest.apk
+          echo "{\"app\":\"attendance\",\"version\":\"$VER\",\"builtAt\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",\"apk\":\"clor-attendance-latest.apk\",\"native\":true}" > site/clor-attendance-latest.json
+          printf '/*\n  Access-Control-Allow-Origin: *\n' > site/_headers
+          ls -la site
+
+      - uses: cloudflare/wrangler-action@v3
+        if: github.ref_type == 'tag' && env.HAS_KEYSTORE == 'true' && env.HAS_CF == 'true'
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: native/attendance-android
+          command: pages deploy site --project-name=clor-downloads --branch=main --commit-dirty=true
