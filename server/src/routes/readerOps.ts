@@ -9,7 +9,7 @@ import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { ATTENDANCE_MODULE, ATTENDANCE_RESOURCE, attendanceRouteOk } from '../services/attendance/guards.js';
 import { FACE, FINGER, ONLINE_WINDOW_MS, commandEffect, normaliseFirmware, pinKey, removalCommandsFor, SEQ } from '../services/attendance/adms.js';
 import { alertSettings, assessCollection, assessReader, collectionFacts, readerFacts, readerStatus } from '../services/attendance/readerHealth.js';
-import { readerSupports, sendPersonTo, servesArea } from './iclock.js';
+import { pinMatcher, readerSupports, sendPersonTo, servesArea } from './iclock.js';
 import { vendorsWith } from '../services/attendance/drivers.js';
 
 /**
@@ -129,13 +129,15 @@ export async function syncMatrix(accountId: string, orgId: string) {
       orderBy: { name: 'asc' },
     }),
     peoplePrisma.deviceUser.findMany({ where: { orgId }, select: { deviceId: true, pin: true, fingers: true, face: true } }),
-    peoplePrisma.biometricTemplate.findMany({ where: { orgId }, select: { pin: true, type: true, no: true } }),
+    peoplePrisma.biometricTemplate.findMany({ where: { orgId }, select: { pin: true, type: true, no: true, employeeId: true } }),
     peoplePrisma.deviceCommand.findMany({ where: { orgId, status: { in: ['PENDING', 'SENT'] } }, select: { deviceId: true, command: true } }),
   ]);
+  const match = await pinMatcher(orgId);
   const heldAt = new Map(held.map((h) => [`${h.deviceId}|${pinKey(h.pin)}`, h]));
+  /* What CLOR holds for each person, whichever of their IDs it was enrolled under. */
   const bio = new Map<string, { fingers: Set<number>; face: boolean }>();
   for (const t of templates) {
-    const k = pinKey(t.pin);
+    const k = t.employeeId ? `e:${t.employeeId}` : pinKey(t.pin);
     if (!bio.has(k)) bio.set(k, { fingers: new Set(), face: false });
     if (t.type === FINGER) bio.get(k)!.fingers.add(t.no);
     if (t.type === FACE) bio.get(k)!.face = true;
@@ -147,21 +149,24 @@ export async function syncMatrix(accountId: string, orgId: string) {
   }
   const rows = people
     .map((p) => ({ ...p, pin: String(p.devicePin || p.code || '').trim() }))
-    .filter((p) => p.pin && (p.status !== 'LEFT' || readers.some((r) => heldAt.has(`${r.id}|${pinKey(p.pin)}`))))
+    .filter((p) => p.pin && (p.status !== 'LEFT' || readers.some((r) => heldAt.has(`${r.id}|${pinKey(match.pinFor(p, r.areaId))}`))))
     .map((p) => {
-      const k = pinKey(p.pin);
-      const b = bio.get(k);
+      const b = bio.get(`e:${p.id}`) || bio.get(pinKey(p.pin));
       const cells = readers.map((r) => {
+        /* Their ID on this reader: a site ID at a site's reader, else the company one. */
+        const there = match.pinFor(p, r.areaId);
+        const k = pinKey(there);
         const h = heldAt.get(`${r.id}|${k}`);
         const belongs = p.status !== 'LEFT' && servesArea(r, p.areaId);
-        if (!belongs) return { deviceId: r.id, state: h ? 'EXTRA' : 'NA' };
-        if (waiting.has(`${r.id}|${k}`)) return { deviceId: r.id, state: 'QUEUED' };
-        if (!h) return { deviceId: r.id, state: 'MISSING' };
+        const pinThere = there !== p.pin ? { pin: there } : {};
+        if (!belongs) return { deviceId: r.id, state: h ? 'EXTRA' : 'NA', ...pinThere };
+        if (waiting.has(`${r.id}|${k}`)) return { deviceId: r.id, state: 'QUEUED', ...pinThere };
+        if (!h) return { deviceId: r.id, state: 'MISSING', ...pinThere };
         const onReader = new Set(String(h.fingers || '').split(',').filter(Boolean).map(Number));
         const lackFingers = readerSupports(r, FINGER) ? [...(b?.fingers || [])].filter((n) => !onReader.has(n)).length : 0;
         const lackFace = Boolean(b?.face && !h.face && readerSupports(r, FACE));
-        if (lackFingers || lackFace) return { deviceId: r.id, state: 'PARTIAL', lackFingers, lackFace };
-        return { deviceId: r.id, state: 'OK', fingers: onReader.size, face: h.face };
+        if (lackFingers || lackFace) return { deviceId: r.id, state: 'PARTIAL', lackFingers, lackFace, ...pinThere };
+        return { deviceId: r.id, state: 'OK', fingers: onReader.size, face: h.face, ...pinThere };
       });
       return {
         employeeId: p.id,
@@ -203,11 +208,12 @@ readerOpsRouter.post(`${base}/reader-sync/fix`, can(PermissionAction.EDIT), asyn
   const { readers, rows } = await syncMatrix(accountId, orgId);
   const only = employeeIds ? new Set(employeeIds) : null;
   const templates = await peoplePrisma.biometricTemplate.findMany({ where: { orgId }, orderBy: [{ type: 'asc' }, { no: 'asc' }] });
+  /* Per person (one set even if stored under a company and a site ID), else per unknown ID. */
   const byPin = new Map<string, typeof templates>();
   for (const t of templates) {
-    const k = pinKey(t.pin);
+    const k = t.employeeId ? `e:${t.employeeId}` : pinKey(t.pin);
     if (!byPin.has(k)) byPin.set(k, []);
-    byPin.get(k)!.push(t);
+    if (!byPin.get(k)!.some((x) => x.type === t.type && x.no === t.no)) byPin.get(k)!.push(t);
   }
   let people = 0;
   let commands = 0;
@@ -217,10 +223,11 @@ readerOpsRouter.post(`${base}/reader-sync/fix`, can(PermissionAction.EDIT), asyn
       if (only && !only.has(row.employeeId)) continue;
       const cell = row.cells.find((c) => c.deviceId === r.id);
       if (!cell || (cell.state !== 'MISSING' && cell.state !== 'PARTIAL')) continue;
-      const held = await peoplePrisma.deviceUser.findUnique({ where: { deviceId_pin: { deviceId: r.id, pin: row.pin } }, select: { fingers: true, face: true } });
+      const pin = (cell as { pin?: string }).pin || row.pin;
+      const held = await peoplePrisma.deviceUser.findUnique({ where: { deviceId_pin: { deviceId: r.id, pin } }, select: { fingers: true, face: true } });
       const have = new Set(String(held?.fingers || '').split(',').filter(Boolean).map(Number));
-      const lacking = (byPin.get(pinKey(row.pin)) || []).filter((t) => !(t.type === FINGER && have.has(t.no)) && !(t.type === FACE && held?.face));
-      commands += await sendPersonTo(r, row._emp, row.pin, lacking, req.auth!.userId);
+      const lacking = (byPin.get(`e:${row.employeeId}`) || byPin.get(pinKey(row.pin)) || []).filter((t) => !(t.type === FINGER && have.has(t.no)) && !(t.type === FACE && held?.face));
+      commands += await sendPersonTo(r, row._emp, pin, lacking, req.auth!.userId);
       people += 1;
     }
   }

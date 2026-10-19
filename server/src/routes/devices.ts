@@ -9,7 +9,8 @@ import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { ATTENDANCE_MODULE, ATTENDANCE_RESOURCE, attendanceRouteOk } from '../services/attendance/guards.js';
 import { COMMANDS, FACE, FETCH_TEMPLATE_COMMANDS, ONLINE_WINDOW_MS, SEQ, USERPIC, VERIFY_MODES, commandEffect, messageCommand, normaliseFirmware, pinKey, userCommandFor } from '../services/attendance/adms.js';
 import { ISO_DATE, sendError, today } from './attendance.js';
-import { attachPunchesTo, copyAllTemplatesTo, pinMatcher, recomputeDeviceDay, servesArea, shiftDayFor, syncVendorConnection } from './iclock.js';
+import { siteIdClash } from '../services/attendance/readerIds.js';
+import { moveIdAtSite, attachPunchesTo, copyAllTemplatesTo, pinMatcher, recomputeDeviceDay, servesArea, shiftDayFor, syncVendorConnection } from './iclock.js';
 import { decryptSecret, encryptSecret } from '../services/mailer.js';
 import { checkUrl } from '../services/outbound.js';
 import { etoFetchPunches } from '../services/attendance/etimeoffice.js';
@@ -471,9 +472,9 @@ devicesRouter.post(`${base}/:id/commands`, can(PermissionAction.EDIT), async (re
     const minutes = Number(req.body?.minutes) || 60;
     let pin: string | null = null;
     if (req.body?.employeeId) {
-      const e = await peoplePrisma.employee.findFirst({ where: { id: String(req.body.employeeId), orgId }, select: { devicePin: true, code: true } });
+      const e = await peoplePrisma.employee.findFirst({ where: { id: String(req.body.employeeId), orgId }, select: { id: true, devicePin: true, code: true } });
       if (!e) return res.status(404).json({ error: 'No such employee.' });
-      pin = e.devicePin || e.code || null;
+      pin = (await pinMatcher(orgId)).pinFor(e, device.areaId) || null;
       if (!pin) return res.status(400).json({ error: 'This person has no Reader ID or employee code to address the message to.' });
     }
     await peoplePrisma.deviceCommand.create({ data: queue(messageCommand(text, minutes, pin)) });
@@ -502,7 +503,7 @@ devicesRouter.post(`${base}/:id/commands`, can(PermissionAction.EDIT), async (re
      * the reader. Fingerprints and faces are still enrolled at the reader.
      */
     const [people, onReader] = await Promise.all([
-      peoplePrisma.employee.findMany({ where: { accountId, orgId, status: { not: 'LEFT' } }, select: { name: true, code: true, devicePin: true, areaId: true, cardNumber: true } }),
+      peoplePrisma.employee.findMany({ where: { accountId, orgId, status: { not: 'LEFT' } }, select: { id: true, name: true, code: true, devicePin: true, areaId: true, cardNumber: true } }),
       peoplePrisma.deviceUser.findMany({ where: { orgId, deviceId: device.id }, select: { pin: true } }),
     ]);
     const have = new Set(onReader.map((u) => pinKey(u.pin)));
@@ -511,9 +512,10 @@ devicesRouter.post(`${base}/:id/commands`, can(PermissionAction.EDIT), async (re
       const e = commandEffect(c.command);
       if (e?.what === 'user') have.add(pinKey(e.pin));
     }
+    const match = await pinMatcher(orgId);
     const toSend = people
       .filter((p) => servesArea(device, p.areaId))
-      .map((p) => ({ pin: p.devicePin || p.code || '', name: p.name, card: p.cardNumber }))
+      .map((p) => ({ pin: match.pinFor(p, device.areaId), name: p.name, card: p.cardNumber }))
       .filter((p) => p.pin && !have.has(pinKey(p.pin)));
     if (toSend.length) await peoplePrisma.deviceCommand.createMany({ data: toSend.map((p) => queue(userCommandFor(device.vendor, p.pin, p.name, { card: p.card }), SEQ.USER)) });
     return res.json({ queued: toSend.length, skippedWithoutId: people.filter((p) => !p.devicePin && !p.code).length, knownUsers: onReader.length });
@@ -524,7 +526,7 @@ devicesRouter.post(`${base}/:id/commands`, can(PermissionAction.EDIT), async (re
 devicesRouter.get(`${base}/:id/commands`, can(PermissionAction.VIEW), async (req, res) => {
   if (!(await attendanceRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
-  const device = await peoplePrisma.attendanceDevice.findFirst({ where: { id: String(req.params.id), accountId, orgId }, select: { id: true } });
+  const device = await peoplePrisma.attendanceDevice.findFirst({ where: { id: String(req.params.id), accountId, orgId }, select: { id: true, areaId: true } });
   if (!device) return res.status(404).json({ error: 'No such reader.' });
   const status = String(req.query.status || '').toUpperCase();
   const where: any = { orgId, deviceId: device.id, ...(['PENDING', 'SENT', 'DONE', 'FAILED', 'CANCELLED'].includes(status) ? { status } : {}) };
@@ -550,7 +552,7 @@ devicesRouter.get(`${base}/:id/commands`, can(PermissionAction.VIEW), async (req
         doneAt: c.doneAt,
         what: describeCommand(c.command),
         pin: e?.pin || null,
-        employeeName: e ? names.get(match(e.pin)?.id || '') || null : null,
+        employeeName: e ? names.get(match(e.pin, device.areaId)?.id || '') || null : null,
       };
     }),
   });
@@ -615,14 +617,14 @@ devicesRouter.post(`${base}/:id/commands/cancel`, can(PermissionAction.EDIT), as
 devicesRouter.get(`${base}/:id/users`, can(PermissionAction.VIEW), async (req, res) => {
   if (!(await attendanceRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
-  const device = await peoplePrisma.attendanceDevice.findFirst({ where: { id: String(req.params.id), accountId, orgId }, select: { id: true } });
+  const device = await peoplePrisma.attendanceDevice.findFirst({ where: { id: String(req.params.id), accountId, orgId }, select: { id: true, areaId: true } });
   if (!device) return res.status(404).json({ error: 'No such reader.' });
   const users = await peoplePrisma.deviceUser.findMany({ where: { orgId, deviceId: device.id }, orderBy: { pin: 'asc' } });
   const match = await pinMatcher(orgId);
   const names = new Map(
     (await peoplePrisma.employee.findMany({ where: { orgId }, select: { id: true, name: true } })).map((e) => [e.id, e.name])
   );
-  res.json({ users: users.map((u) => ({ ...u, employeeId: match(u.pin)?.id || null, employeeName: names.get(match(u.pin)?.id || '') || null })) });
+  res.json({ users: users.map((u) => ({ ...u, employeeId: match(u.pin, device.areaId)?.id || null, employeeName: names.get(match(u.pin, device.areaId)?.id || '') || null })) });
 });
 
 // ---------------------------------------------------------------------------
@@ -632,31 +634,123 @@ devicesRouter.get(`${base}/:id/users`, can(PermissionAction.VIEW), async (req, r
 devicesRouter.get('/orgs/:orgId/attendance/punches/unmatched', can(PermissionAction.VIEW), async (req, res) => {
   if (!(await attendanceRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
-  const rows = await peoplePrisma.devicePunch.groupBy({
-    by: ['pin'],
-    where: { accountId, orgId, employeeId: null },
-    _count: { _all: true },
-    _min: { localTime: true },
-    _max: { localTime: true },
-  });
+  const [rows, readers, areas] = await Promise.all([
+    peoplePrisma.devicePunch.groupBy({ by: ['pin', 'deviceId'], where: { accountId, orgId, employeeId: null }, _count: { _all: true }, _min: { localTime: true }, _max: { localTime: true } }),
+    peoplePrisma.attendanceDevice.findMany({ where: { orgId }, select: { id: true, areaId: true } }),
+    peoplePrisma.area.findMany({ where: { orgId }, select: { id: true, name: true } }),
+  ]);
+  const areaOf = new Map(readers.map((r) => [r.id, r.areaId]));
+  const areaName = new Map(areas.map((a) => [a.id, a.name]));
   const users = await peoplePrisma.deviceUser.findMany({ where: { orgId, pin: { in: rows.map((r) => r.pin) } }, select: { pin: true, name: true } });
   const nameOf = new Map(users.filter((u) => u.name).map((u) => [u.pin, u.name]));
+  /* One line per ID per site: 105 at the depot and 105 at the factory may be two people. */
+  const byKey = new Map<string, { pin: string; areaId: string | null; areaName: string | null; readerName: string | null; punches: number; first: string | null; last: string | null }>();
+  for (const r of rows) {
+    const areaId = areaOf.get(r.deviceId) || null;
+    const k = `${areaId || ''}|${r.pin}`;
+    const g = byKey.get(k) || { pin: r.pin, areaId, areaName: areaId ? areaName.get(areaId) || null : null, readerName: nameOf.get(r.pin) || null, punches: 0, first: null, last: null };
+    g.punches += r._count._all;
+    if (r._min.localTime && (!g.first || r._min.localTime < g.first)) g.first = r._min.localTime;
+    if (r._max.localTime && (!g.last || r._max.localTime > g.last)) g.last = r._max.localTime;
+    byKey.set(k, g);
+  }
+  res.json({ pins: [...byKey.values()].sort((a, b) => String(b.last).localeCompare(String(a.last))) });
+});
+
+// ---------------------------------------------------------------------------
+// Reader IDs per site (services/attendance/readerIds.ts)
+// ---------------------------------------------------------------------------
+
+/** Every site ID in the company, for the ID mapping screen. */
+devicesRouter.get('/orgs/:orgId/attendance/reader-ids/sites', can(PermissionAction.VIEW), async (req, res) => {
+  if (!(await attendanceRouteOk(req, res))) return;
+  const { orgId } = req.tenant!;
+  const [rows, people, areas] = await Promise.all([
+    peoplePrisma.readerIdAtSite.findMany({ where: { orgId }, orderBy: [{ areaId: 'asc' }, { pin: 'asc' }] }),
+    peoplePrisma.employee.findMany({ where: { orgId }, select: { id: true, name: true, code: true, devicePin: true, status: true } }),
+    peoplePrisma.area.findMany({ where: { orgId }, select: { id: true, name: true } }),
+  ]);
+  const person = new Map(people.map((p) => [p.id, p]));
+  const areaName = new Map(areas.map((a) => [a.id, a.name]));
   res.json({
-    pins: rows
-      .map((r) => ({ pin: r.pin, readerName: nameOf.get(r.pin) || null, punches: r._count._all, first: r._min.localTime, last: r._max.localTime }))
-      .sort((a, b) => String(b.last).localeCompare(String(a.last))),
+    sites: rows.map((r) => {
+      const p = person.get(r.employeeId);
+      return { id: r.id, employeeId: r.employeeId, name: p?.name || 'Unknown', code: p?.code || null, companyId: p ? p.devicePin || p.code || null : null, left: p?.status === 'LEFT', areaId: r.areaId, areaName: areaName.get(r.areaId) || 'Unknown site', pin: r.pin };
+    }),
   });
+});
+
+/** One person's IDs: company-wide, and per site where it differs. */
+devicesRouter.get('/orgs/:orgId/attendance/employees/:id/reader-ids', can(PermissionAction.VIEW), async (req, res) => {
+  if (!(await attendanceRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const e = await peoplePrisma.employee.findFirst({ where: { id: String(req.params.id), accountId, orgId }, select: { id: true, code: true, devicePin: true } });
+  if (!e) return res.status(404).json({ error: 'No such employee.' });
+  const sites = await peoplePrisma.readerIdAtSite.findMany({ where: { orgId, employeeId: e.id }, select: { areaId: true, pin: true } });
+  res.json({ companyId: e.devicePin || e.code || null, fromCode: !e.devicePin && Boolean(e.code), sites });
+});
+
+/** Replace one person's site IDs. Each changed site's readers are told at once. */
+devicesRouter.put('/orgs/:orgId/attendance/employees/:id/reader-ids', can(PermissionAction.EDIT), async (req, res) => {
+  if (!(await attendanceRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const parsed = z.object({ sites: z.array(z.object({ areaId: z.string().min(1), pin: z.string().trim().min(1, 'Give the ID.').max(40) })).max(200) }).safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Check the site IDs.' });
+  const e = await peoplePrisma.employee.findFirst({ where: { id: String(req.params.id), accountId, orgId }, select: { id: true, name: true, code: true, devicePin: true } });
+  if (!e) return res.status(404).json({ error: 'No such employee.' });
+  const wanted = new Map<string, string>();
+  for (const s of parsed.data.sites) {
+    if (wanted.has(s.areaId)) return res.status(400).json({ error: 'One ID per site.' });
+    wanted.set(s.areaId, s.pin);
+  }
+  const areas = await peoplePrisma.area.findMany({ where: { orgId, id: { in: [...wanted.keys()] } }, select: { id: true, name: true } });
+  if (areas.length !== wanted.size) return res.status(400).json({ error: 'A site is not in this organisation.' });
+  const company = String(e.devicePin || e.code || '').trim();
+  for (const [areaId, pin] of wanted) {
+    if (pin === company) wanted.delete(areaId); // the same as everywhere: no site ID needed
+    else {
+      const clash = await siteIdClash(orgId, areaId, pin, e.id);
+      if (clash) return res.status(409).json({ error: `${areas.find((a) => a.id === areaId)?.name}: ${clash}` });
+    }
+  }
+  const before = await peoplePrisma.readerIdAtSite.findMany({ where: { orgId, employeeId: e.id } });
+  const had = new Map(before.map((b) => [b.areaId, b.pin]));
+  const changed = [...new Set([...had.keys(), ...wanted.keys()])].filter((a) => had.get(a) !== wanted.get(a));
+  await peoplePrisma.$transaction([
+    peoplePrisma.readerIdAtSite.deleteMany({ where: { orgId, employeeId: e.id, areaId: { in: changed } } }),
+    peoplePrisma.readerIdAtSite.createMany({ data: changed.filter((a) => wanted.has(a)).map((areaId) => ({ accountId, orgId, employeeId: e.id, areaId, pin: wanted.get(areaId)!, createdByUserId: req.auth!.userId })) }),
+  ]);
+  for (const areaId of changed) {
+    await moveIdAtSite(orgId, e.id, areaId, had.get(areaId) || company, req.auth!.userId);
+    /* Punches already made there under the new ID, by nobody yet, are theirs. */
+    if (wanted.has(areaId)) await attachPunchesTo(accountId, orgId, { id: e.id, branchId: null }, wanted.get(areaId)!, areaId);
+  }
+  const sites = await peoplePrisma.readerIdAtSite.findMany({ where: { orgId, employeeId: e.id }, select: { areaId: true, pin: true } });
+  res.json({ companyId: company || null, sites, changed: changed.length });
 });
 
 devicesRouter.post('/orgs/:orgId/attendance/punches/match', can(PermissionAction.EDIT), async (req, res) => {
   if (!(await attendanceRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
-  const parsed = z.object({ pin: z.string().trim().min(1).max(40), employeeId: z.string().min(1) }).safeParse(req.body);
+  const parsed = z.object({ pin: z.string().trim().min(1).max(40), employeeId: z.string().min(1), areaId: z.string().min(1).nullable().optional() }).safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: 'Choose the employee for this reader ID.' });
-  const { pin, employeeId } = parsed.data;
+  const { pin, employeeId, areaId } = parsed.data;
   try {
-    const employee = await peoplePrisma.employee.findFirst({ where: { id: employeeId, accountId, orgId }, select: { id: true, branchId: true, areaId: true, devicePin: true, name: true } });
+    const employee = await peoplePrisma.employee.findFirst({ where: { id: employeeId, accountId, orgId }, select: { id: true, branchId: true, areaId: true, devicePin: true, code: true, name: true } });
     if (!employee) return res.status(404).json({ error: 'No such employee.' });
+    if (areaId) {
+      /* Only at this site: the ID becomes their site ID there, and only that site's punches move. */
+      const area = await peoplePrisma.area.findFirst({ where: { id: areaId, orgId }, select: { id: true } });
+      if (!area) return res.status(400).json({ error: 'That site is not in this organisation.' });
+      const own = await peoplePrisma.readerIdAtSite.findFirst({ where: { orgId, areaId, employeeId: employee.id } });
+      if (own && own.pin !== pin) return res.status(409).json({ error: `${employee.name} already has ID ${own.pin} at this site. Change it under their reader IDs first.` });
+      const clash = await siteIdClash(orgId, areaId, pin, employee.id);
+      if (clash) return res.status(409).json({ error: clash });
+      if (!own) await peoplePrisma.readerIdAtSite.create({ data: { accountId, orgId, employeeId: employee.id, areaId, pin, createdByUserId: req.auth!.userId } });
+      const siteReaders = (await peoplePrisma.attendanceDevice.findMany({ where: { orgId, areaId }, select: { id: true } })).map((d) => d.id);
+      await peoplePrisma.biometricTemplate.updateMany({ where: { orgId, pin, employeeId: null, scope: '', sourceDeviceId: { in: siteReaders } }, data: { employeeId: employee.id, scope: areaId } });
+      return res.json(await attachPunchesTo(accountId, orgId, employee, pin, areaId));
+    }
     const holder = await peoplePrisma.employee.findFirst({ where: { orgId, devicePin: pin, id: { not: employee.id } }, select: { name: true } });
     if (holder) return res.status(409).json({ error: `Reader ID ${pin} already belongs to ${holder.name}.` });
     if (employee.devicePin && employee.devicePin !== pin) {

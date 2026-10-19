@@ -677,7 +677,11 @@ model DevicePunch {
   photoId      String?
   createdAt    DateTime @default(now())
 
-  @@unique([orgId, pin, at])
+  /// Per reader: two sites may give the same reader ID to different people
+  /// (ReaderIdAtSite). The same person punching on two readers at once is
+  /// dropped in ingestPunches by employee and time.
+  @@unique([orgId, deviceId, pin, at])
+  @@index([orgId, employeeId, at])
   @@index([accountId, orgId, employeeId, shiftDate])
   @@index([orgId, deviceId, at])
 }
@@ -748,10 +752,33 @@ model UnclaimedReader {
 /// A fingerprint or face as a reader enrolled it, kept so it can be copied to
 /// the company's other readers. Biometric data: never sent to the browser,
 /// deleted (and removed from the readers) when the person leaves.
+/// A person's reader ID at one site, when it is not their company-wide one
+/// (Employee.devicePin, else their code). Companies that grew site by site
+/// often have 105 at the factory and 105 at the depot as two people: each
+/// site's readers know their own 105. Readers with no site use company IDs.
+model ReaderIdAtSite {
+  id              String   @id @default(cuid())
+  accountId       String
+  orgId           String
+  employeeId      String
+  areaId          String
+  pin             String
+  createdByUserId String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([orgId, areaId, pin])
+  @@unique([orgId, areaId, employeeId])
+  @@index([orgId, employeeId])
+}
+
 model BiometricTemplate {
   id             String   @id @default(cuid())
   accountId      String
   orgId          String
+  /// "" when the ID is the company-wide one; a site (area) id when the reader
+  /// ID belongs to someone only at that site (ReaderIdAtSite).
+  scope          String   @default("")
   /// The user ID on the reader.
   pin            String
   employeeId     String?
@@ -770,7 +797,7 @@ model BiometricTemplate {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  @@unique([orgId, pin, type, no])
+  @@unique([orgId, scope, pin, type, no])
   @@index([accountId, orgId, employeeId])
 }
 

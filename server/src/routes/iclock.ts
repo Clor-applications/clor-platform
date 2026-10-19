@@ -37,6 +37,7 @@ import { pullPunches } from '../services/attendance/pull/index.js';
 import { emit as emitWebhook } from '../services/attendance/webhooks.js';
 import { MAX_NETWORKS, networkOf, sameBlock } from '../services/attendance/network.js';
 import { closedMonths, shiftFor, writeDay } from './attendance.js';
+import { readerIdMatcher } from '../services/attendance/readerIds.js';
 import { driverOf, vendorsWith } from '../services/attendance/drivers.js';
 
 /**
@@ -132,27 +133,11 @@ const readerIp = (req: Request) => {
 // ---------------------------------------------------------------------------
 
 /**
- * Who a reader's user ID is: the employee whose Reader ID is that pin, else
- * the one whose employee code is (leading zeros ignored). An ambiguous code
- * matches nobody rather than the wrong person.
+ * Who a reader's user ID is (services/attendance/readerIds.ts): a site ID at a
+ * site's readers, else the company Reader ID, else an employee code only one
+ * person has. Call the result with the reader's area.
  */
-export async function pinMatcher(orgId: string) {
-  const people = await peoplePrisma.employee.findMany({ where: { orgId }, select: { id: true, code: true, devicePin: true, branchId: true, areaId: true } });
-  const byPin = new Map<string, (typeof people)[number]>();
-  const byCode = new Map<string, (typeof people)[number]>();
-  const ambiguous = new Set<string>();
-  for (const p of people) if (p.devicePin) byPin.set(pinKey(p.devicePin), p);
-  for (const p of people) {
-    if (!p.code) continue;
-    const k = pinKey(p.code);
-    if (byCode.has(k)) ambiguous.add(k);
-    else byCode.set(k, p);
-  }
-  return (pin: string) => {
-    const k = pinKey(pin);
-    return byPin.get(k) || (ambiguous.has(k) ? null : byCode.get(k)) || null;
-  };
-}
+export const pinMatcher = (orgId: string) => readerIdMatcher(orgId);
 
 const isNight = (rule: { startTime: string; endTime: string }) => rule.endTime <= rule.startTime;
 /** An instant as the IST wall clock a reader would print: "YYYY-MM-DD HH:mm:ss". */
@@ -222,7 +207,7 @@ export async function recomputeDeviceDay(accountId: string, orgId: string, emplo
 }
 
 /** Store a batch of punch lines from one reader; returns how many were new. */
-export async function ingestPunches(device: { id: string; accountId: string; orgId: string; serialNumber: string; direction: string; vendor?: string }, body: string) {
+export async function ingestPunches(device: { id: string; accountId: string; orgId: string; serialNumber: string; direction: string; vendor?: string; areaId?: string | null }, body: string) {
   const match = await pinMatcher(device.orgId);
   const lines = body
     .split(/\r?\n/)
@@ -247,7 +232,7 @@ export async function ingestPunches(device: { id: string; accountId: string; org
   for (const { raw, p } of parsed) {
     const at = instantOf(p.localTime);
     if (!at) continue;
-    const emp = match(p.pin);
+    const emp = match(p.pin, device.areaId);
     rows.push({
       accountId: device.accountId,
       orgId: device.orgId,
@@ -276,16 +261,19 @@ export async function ingestPunches(device: { id: string; accountId: string; org
   const fresh: typeof rows = [];
   for (let i = 0; i < rows.length; i += 500) {
     const chunk = rows.slice(i, i + 500);
-    const seen = await peoplePrisma.devicePunch.findMany({
-      where: { orgId: device.orgId, OR: chunk.map((r) => ({ pin: r.pin, at: r.at })) },
-      select: { pin: true, at: true },
-    });
-    const have = new Set(seen.map((s) => `${s.pin}|${s.at.getTime()}`));
-    const batch = new Set<string>();
+    /* A repeat is the same ID on the same reader at the same second — or the same person at the same second on any reader. */
+    const people = [...new Set(chunk.map((r) => r.employeeId).filter(Boolean))] as string[];
+    const [seen, seenPeople] = await Promise.all([
+      peoplePrisma.devicePunch.findMany({ where: { orgId: device.orgId, deviceId: device.id, OR: chunk.map((r) => ({ pin: r.pin, at: r.at })) }, select: { pin: true, at: true } }),
+      people.length
+        ? peoplePrisma.devicePunch.findMany({ where: { orgId: device.orgId, employeeId: { in: people }, at: { in: [...new Set(chunk.map((r) => r.at.getTime()))].map((t) => new Date(t)) } }, select: { employeeId: true, at: true } })
+        : [],
+    ]);
+    const have = new Set([...seen.map((s) => `p|${s.pin}|${s.at.getTime()}`), ...seenPeople.map((s) => `e|${s.employeeId}|${s.at.getTime()}`)]);
     for (const r of chunk) {
-      const key = `${r.pin}|${r.at.getTime()}`;
-      if (have.has(key) || batch.has(key)) continue;
-      batch.add(key);
+      const keys = [`p|${r.pin}|${r.at.getTime()}`, ...(r.employeeId ? [`e|${r.employeeId}|${r.at.getTime()}`] : [])];
+      if (keys.some((k) => have.has(k))) continue;
+      for (const k of keys) have.add(k);
       fresh.push(r);
     }
   }
@@ -367,7 +355,7 @@ export const READER_PLACEHOLDER = 'Reader user ';
  */
 async function adoptReaderUser(device: Device, pin: string, u: { name: string | null; card: string | null }) {
   const match = await pinMatcher(device.orgId);
-  const known = match(pin);
+  const known = match(pin, device.areaId);
   const name = String(u.name || '').trim().slice(0, 120);
   if (known) {
     const e = await peoplePrisma.employee.findUnique({ where: { id: known.id }, select: { name: true, cardNumber: true } });
@@ -397,7 +385,7 @@ async function adoptReaderUser(device: Device, pin: string, u: { name: string | 
     return;
   }
   await attachPunchesTo(device.accountId, device.orgId, employee, pin);
-  await peoplePrisma.biometricTemplate.updateMany({ where: { orgId: device.orgId, pin, employeeId: null }, data: { employeeId: employee.id } });
+  await peoplePrisma.biometricTemplate.updateMany({ where: { orgId: device.orgId, scope: '', pin, employeeId: null }, data: { employeeId: employee.id } });
   /* …and on to the company's other readers. */
   const others = (await peoplePrisma.attendanceDevice.findMany({ where: { orgId: device.orgId, isActive: true, vendor: { in: vendorsWith('templates') }, id: { not: device.id } }, select: { id: true } })).length;
   if (others) await pushEmployeeToReaders(device.orgId, employee, null, undefined, device.id);
@@ -408,8 +396,10 @@ async function adoptReaderUser(device: Device, pin: string, u: { name: string | 
  * given its shift day and the days are worked out. (Matching by hand, and a
  * reader user becoming an employee, both end here.)
  */
-export async function attachPunchesTo(accountId: string, orgId: string, employee: { id: string; branchId: string | null; areaId?: string | null }, pin: string) {
-  const punches = await peoplePrisma.devicePunch.findMany({ where: { orgId, pin, employeeId: null }, select: { id: true, localTime: true } });
+export async function attachPunchesTo(accountId: string, orgId: string, employee: { id: string; branchId: string | null; areaId?: string | null }, pin: string, siteAreaId?: string | null) {
+  /* A site ID claims only the punches made on that site's readers. */
+  const readers = siteAreaId ? (await peoplePrisma.attendanceDevice.findMany({ where: { orgId, areaId: siteAreaId }, select: { id: true } })).map((d) => d.id) : null;
+  const punches = await peoplePrisma.devicePunch.findMany({ where: { orgId, pin, employeeId: null, ...(readers ? { deviceId: { in: readers } } : {}) }, select: { id: true, localTime: true } });
   const days = new Set<string>();
   for (const p of punches) {
     const shiftDate = await shiftDayFor(orgId, employee.id, p.localTime);
@@ -441,10 +431,10 @@ async function keepUser(device: Device, pin: string, u: { name: string | null; p
  * number alone, so what "a reader" reports must never become admin rights or a
  * known door PIN on every other reader of the company.
  */
-async function userFor(orgId: string, pin: string, preferDeviceId?: string, match?: Awaited<ReturnType<typeof pinMatcher>>) {
+async function userFor(orgId: string, pin: string, preferDeviceId?: string, match?: Awaited<ReturnType<typeof pinMatcher>>, areaId?: string | null) {
   const held = await peoplePrisma.deviceUser.findMany({ where: { orgId, pin }, orderBy: { updatedAt: 'desc' } });
   const u = held.find((h) => h.deviceId === preferDeviceId) || held[0];
-  const emp = (match ?? (await pinMatcher(orgId)))(pin);
+  const emp = (match ?? (await pinMatcher(orgId)))(pin, areaId);
   const file = emp
     ? await peoplePrisma.employee.findUnique({ where: { id: emp.id }, select: { name: true, cardNumber: true, devicePassword: true, devicePrivilege: true } })
     : null;
@@ -496,13 +486,16 @@ const otherReaders = (source: { orgId: string; id: string }) =>
  */
 async function storeTemplate(device: Device, t: Template, match: Awaited<ReturnType<typeof pinMatcher>>) {
   const pin = t.pin.slice(0, 40);
-  const key = { orgId_pin_type_no: { orgId: device.orgId, pin, type: t.type, no: t.no } };
+  const emp = match(pin, device.areaId);
+  /* A site ID's fingerprints are kept apart from the same number elsewhere in the company. */
+  const scope = match.isSiteId(pin, device.areaId) ? String(device.areaId) : '';
+  const key = { orgId_scope_pin_type_no: { orgId: device.orgId, scope, pin, type: t.type, no: t.no } };
   const existing = await peoplePrisma.biometricTemplate.findUnique({ where: key, select: { data: true } });
   const changed = !existing || existing.data !== t.data;
-  const values = { data: t.data, valid: t.valid, duress: t.duress, majorVer: t.majorVer, minorVer: t.minorVer, format: t.format, indexNo: t.indexNo, sourceDeviceId: device.id, employeeId: match(pin)?.id ?? null };
+  const values = { data: t.data, valid: t.valid, duress: t.duress, majorVer: t.majorVer, minorVer: t.minorVer, format: t.format, indexNo: t.indexNo, sourceDeviceId: device.id, employeeId: emp?.id ?? null };
   await peoplePrisma.biometricTemplate.upsert({
     where: key,
-    create: { accountId: device.accountId, orgId: device.orgId, pin, type: t.type, no: t.no, ...values },
+    create: { accountId: device.accountId, orgId: device.orgId, scope, pin, type: t.type, no: t.no, ...values },
     update: values,
   });
   /* The face algorithm this reader runs, learnt from what it sends. */
@@ -513,9 +506,18 @@ async function storeTemplate(device: Device, t: Template, match: Awaited<ReturnT
   if (t.type === FINGER) await markOnReader(device, pin, { finger: t.no });
   else if (t.type === FACE) await markOnReader(device, pin, { face: true });
   if (!changed) return;
-  const user = await userFor(device.orgId, pin, device.id, match);
-  const area = match(pin)?.areaId ?? null;
-  for (const target of await otherReaders(device)) if (servesArea(target, area)) await queueOnto(target, pin, [{ ...t, pin }], user, null);
+  for (const target of await otherReaders(device)) {
+    if (emp) {
+      /* A known person goes to the readers that serve them, under the ID they have on each. */
+      if (!servesArea(target, emp.areaId)) continue;
+      const there = match.pinFor(emp, target.areaId);
+      if (!there) continue;
+      await queueOnto(target, there, [{ ...t, pin: there }], await userFor(device.orgId, there, there === pin ? device.id : undefined, match, target.areaId), null);
+    } else if (!scope && !match(pin, target.areaId)) {
+      /* An ID nobody has yet travels as it is, but never onto a reader where that number is someone else. */
+      await queueOnto(target, pin, [{ ...t, pin }], await userFor(device.orgId, pin, device.id, match, target.areaId), null);
+    }
+  }
 }
 
 /**
@@ -548,20 +550,28 @@ export { supports as readerSupports };
 
 /** Copy every stored template of people still employed (and of reader IDs not yet matched) onto one reader. */
 export async function copyAllTemplatesTo(target: Device, createdByUserId: string | null) {
-  const templates = await peoplePrisma.biometricTemplate.findMany({ where: { orgId: target.orgId }, orderBy: [{ pin: 'asc' }, { type: 'asc' }, { no: 'asc' }] });
-  const people = await peoplePrisma.employee.findMany({ where: { orgId: target.orgId }, select: { id: true, status: true, areaId: true } });
+  const templates = await peoplePrisma.biometricTemplate.findMany({ where: { orgId: target.orgId, scope: { in: ['', target.areaId || ''] } }, orderBy: [{ pin: 'asc' }, { type: 'asc' }, { no: 'asc' }] });
+  const people = await peoplePrisma.employee.findMany({ where: { orgId: target.orgId }, select: { id: true, status: true, areaId: true, devicePin: true, code: true } });
+  const byId = new Map(people.map((e) => [e.id, e]));
   const left = new Set(people.filter((e) => e.status === 'LEFT').map((e) => e.id));
   const elsewhere = new Set(people.filter((e) => !servesArea(target, e.areaId)).map((e) => e.id));
-  const byPin = new Map<string, Template[]>();
+  const match = await pinMatcher(target.orgId);
+  /* One set per person (a person may have prints stored under a company and a site ID), else per unknown ID. */
+  const groups = new Map<string, { pin: string; list: Map<string, Template> }>();
   for (const t of templates) {
     if (t.employeeId && (left.has(t.employeeId) || elsewhere.has(t.employeeId))) continue;
-    if (!byPin.has(t.pin)) byPin.set(t.pin, []);
-    byPin.get(t.pin)!.push(t);
+    const emp = t.employeeId ? byId.get(t.employeeId) : null;
+    const pin = emp ? match.pinFor(emp, target.areaId) : t.pin;
+    if (!pin || (!emp && match(t.pin, target.areaId))) continue;
+    const k = emp ? `e:${emp.id}` : `p:${t.pin}`;
+    if (!groups.has(k)) groups.set(k, { pin, list: new Map() });
+    const g = groups.get(k)!;
+    const slot = `${t.type}|${t.no}`;
+    if (!g.list.has(slot) || t.scope) g.list.set(slot, { ...t, pin });
   }
   let commands = 0;
-  const match = await pinMatcher(target.orgId);
-  for (const [pin, list] of byPin) commands += await queueOnto(target, pin, list, await userFor(target.orgId, pin, undefined, match), createdByUserId);
-  return { people: byPin.size, commands };
+  for (const g of groups.values()) commands += await queueOnto(target, g.pin, [...g.list.values()], await userFor(target.orgId, g.pin, undefined, match, target.areaId), createdByUserId);
+  return { people: groups.size, commands };
 }
 
 /**
@@ -570,30 +580,65 @@ export async function copyAllTemplatesTo(target: Device, createdByUserId: string
  * employment, and biometric data is not kept longer than it is needed.
  */
 export async function revokeFromReaders(orgId: string, employee: { id: string; code: string | null; devicePin: string | null }, createdByUserId: string | null) {
-  const templates = await peoplePrisma.biometricTemplate.findMany({ where: { orgId, employeeId: employee.id }, select: { pin: true } });
-  const pins = new Set<string>(templates.map((t) => t.pin));
-  const own = employee.devicePin || employee.code;
-  if (own) pins.add(own);
-  if (!pins.size) return { readers: 0, pins: 0 };
+  const match = await pinMatcher(orgId);
+  const templates = await peoplePrisma.biometricTemplate.findMany({ where: { orgId, employeeId: employee.id }, select: { pin: true, scope: true } });
+  const readers = await peoplePrisma.attendanceDevice.findMany({ where: { orgId, isActive: true } });
+  /* On each reader, only the IDs that are this person there: at another site the same number may be someone else. */
+  const pinsAt = new Map<string, Set<string>>();
+  for (const r of readers) {
+    const set = new Set<string>();
+    const own = match.pinFor(employee, r.areaId);
+    if (own) set.add(own);
+    for (const t of templates) if ((t.scope === '' || t.scope === r.areaId) && (match(t.pin, r.areaId)?.id ?? employee.id) === employee.id) set.add(t.pin);
+    pinsAt.set(r.id, set);
+  }
+  const all = new Set([...pinsAt.values()].flatMap((x) => [...x]));
+  if (!all.size) return { readers: 0, pins: 0 };
   /*
    * Anything still waiting to go to a reader for them goes first: the removals
    * below are handed out before fingerprint copies (lower sequence), so a copy
    * left in the queue would put a leaver's fingerprint back after removal.
    */
-  const waiting = await peoplePrisma.deviceCommand.findMany({ where: { orgId, status: 'PENDING' }, select: { id: true, command: true } });
-  const theirs = waiting.filter((c) => pins.has(/\b(?:PIN|Pin)=([^\t]*)/.exec(c.command)?.[1] ?? /\buser-id=([^ ]+)/.exec(c.command)?.[1] ?? '')).map((c) => c.id);
+  const waiting = await peoplePrisma.deviceCommand.findMany({ where: { orgId, status: 'PENDING' }, select: { id: true, deviceId: true, command: true } });
+  const pinOf = (c: string) => /\b(?:PIN|Pin)=([^\t]*)/.exec(c)?.[1] ?? /\buser-id=([^ ]+)/.exec(c)?.[1] ?? '';
+  const theirs = waiting.filter((c) => pinsAt.get(c.deviceId)?.has(pinOf(c.command))).map((c) => c.id);
   if (theirs.length) await peoplePrisma.deviceCommand.deleteMany({ where: { id: { in: theirs } } });
-  const readers = await peoplePrisma.attendanceDevice.findMany({ where: { orgId, isActive: true } });
   for (const r of readers) {
+    const pins = [...(pinsAt.get(r.id) || [])];
+    if (!pins.length) continue;
     await peoplePrisma.deviceCommand.createMany({
-      data: [...pins].flatMap((pin) =>
-        removalCommandsFor(r.vendor, pin).map((command) => ({ accountId: r.accountId, orgId, deviceId: r.id, serialNumber: r.serialNumber, command, sequence: SEQ.USER, createdByUserId }))
-      ),
+      data: pins.flatMap((pin) => removalCommandsFor(r.vendor, pin).map((command) => ({ accountId: r.accountId, orgId, deviceId: r.id, serialNumber: r.serialNumber, command, sequence: SEQ.USER, createdByUserId }))),
     });
+    await peoplePrisma.deviceUser.deleteMany({ where: { orgId, deviceId: r.id, pin: { in: pins } } });
   }
-  await peoplePrisma.biometricTemplate.deleteMany({ where: { orgId, OR: [{ employeeId: employee.id }, { pin: { in: [...pins] } }] } });
-  await peoplePrisma.deviceUser.deleteMany({ where: { orgId, pin: { in: [...pins] } } });
-  return { readers: readers.length, pins: pins.size };
+  const company = String(employee.devicePin || employee.code || '').trim();
+  await peoplePrisma.biometricTemplate.deleteMany({ where: { orgId, OR: [{ employeeId: employee.id }, ...(company ? [{ employeeId: null, scope: '', pin: company }] : [])] } });
+  return { readers: readers.length, pins: all.size };
+}
+
+/**
+ * Someone's ID at one site changed (a site ID given, changed or taken away):
+ * that site's readers drop the ID they knew them by and get them under the new
+ * one, with their fingerprints and face. `oldPin` is the ID they had there.
+ */
+export async function moveIdAtSite(orgId: string, employeeId: string, areaId: string, oldPin: string, createdByUserId: string | null) {
+  const match = await pinMatcher(orgId);
+  const emp = await peoplePrisma.employee.findFirst({ where: { id: employeeId, orgId } });
+  if (!emp) return { readers: 0 };
+  const pin = match.pinFor(emp, areaId);
+  const readers = await peoplePrisma.attendanceDevice.findMany({ where: { orgId, areaId, isActive: true, vendor: { in: vendorsWith('users') } } });
+  const stored = await peoplePrisma.biometricTemplate.findMany({ where: { orgId, employeeId }, orderBy: [{ type: 'asc' }, { no: 'asc' }] });
+  const templates = [...new Map(stored.map((t) => [`${t.type}|${t.no}`, t])).values()];
+  for (const r of readers) {
+    if (oldPin && oldPin !== pin) {
+      await peoplePrisma.deviceCommand.createMany({
+        data: removalCommandsFor(r.vendor, oldPin).map((command) => ({ accountId: r.accountId, orgId, deviceId: r.id, serialNumber: r.serialNumber, command, sequence: SEQ.USER, createdByUserId })),
+      });
+      await peoplePrisma.deviceUser.deleteMany({ where: { orgId, deviceId: r.id, pin: oldPin } });
+    }
+    if (pin && emp.status !== 'LEFT' && servesArea(r, emp.areaId)) await sendPersonTo(r, emp, pin, templates.map((t) => ({ ...t, pin })), createdByUserId);
+  }
+  return { readers: readers.length };
 }
 
 /** Did anything a reader holds change: the ID, name, card, PIN or privilege? */
@@ -609,50 +654,50 @@ export const readerFieldsChanged = (before: any, after: any) =>
  * If their ID changed, the old ID is taken off the readers first.
  */
 export async function pushEmployeeToReaders(orgId: string, employee: any, createdByUserId: string | null, before?: any, skipDeviceId?: string) {
-  const pin = String(employee.devicePin || employee.code || '').trim();
-  const oldPin = before ? String(before.devicePin || before.code || '').trim() : '';
-  if (!pin && !oldPin) return { readers: 0 };
+  const match = await pinMatcher(orgId);
+  /* The ID they have on each reader: a site ID there, else the company one (services/attendance/readerIds.ts). */
+  const pinAt = (r: { areaId?: string | null }) => match.pinFor(employee, r.areaId);
+  const oldAt = (r: { areaId?: string | null }) => (before ? match.pinFor(before, r.areaId) : '');
   const all = await peoplePrisma.attendanceDevice.findMany({ where: { orgId, isActive: true, vendor: { in: vendorsWith('users') } } });
+  if (!all.some((r) => pinAt(r) || oldAt(r))) return { readers: 0 };
   const readers = all.filter((r) => servesArea(r, employee.areaId) && r.id !== skipDeviceId);
   /* Moved to another site: off the readers that no longer serve them. */
   if (before && (before.areaId ?? null) !== (employee.areaId ?? null)) {
-    const pins = [...new Set([oldPin, pin].filter(Boolean))];
     for (const r of all.filter((x) => servesArea(x, before.areaId) && !servesArea(x, employee.areaId))) {
+      const pins = [...new Set([oldAt(r), pinAt(r)].filter(Boolean))];
       await peoplePrisma.deviceCommand.createMany({
         data: pins.flatMap((p) => removalCommandsFor(r.vendor, p).map((command) => ({ accountId: r.accountId, orgId, deviceId: r.id, serialNumber: r.serialNumber, command, sequence: SEQ.USER, createdByUserId }))),
       });
     }
   }
   if (!readers.length) return { readers: 0 };
-  const held = pin ? await peoplePrisma.deviceUser.findFirst({ where: { orgId, pin }, orderBy: { updatedAt: 'desc' } }) : null;
-  const rowsFor = (vendor: string | null | undefined) => {
-  const rows: Array<{ command: string; sequence: number }> = [];
-  if (oldPin && oldPin !== pin) for (const c of removalCommandsFor(vendor, oldPin)) rows.push({ command: c, sequence: SEQ.USER });
-  if (pin) {
-    rows.push({
-      /* Privilege and door PIN from the employee file only (see userFor); a card enrolled at a reader is kept. */
-      command: userCommandFor(vendor, pin, employee.name, {
-        privilege: employee.devicePrivilege ?? 0,
-        password: employee.devicePassword ?? '',
-        card: employee.cardNumber ?? held?.card ?? '',
-      }),
-      sequence: SEQ.USER,
-    });
-  }
-    return rows;
-  };
   /* Readers that did not serve them before (a new site) get their fingerprints and face too. */
-  const templates =
-    pin && before && (before.areaId ?? null) !== (employee.areaId ?? null)
-      ? await peoplePrisma.biometricTemplate.findMany({ where: { orgId, pin }, orderBy: [{ type: 'asc' }, { no: 'asc' }] })
-      : [];
+  const movedSite = before && (before.areaId ?? null) !== (employee.areaId ?? null);
+  const stored = movedSite && employee.id ? await peoplePrisma.biometricTemplate.findMany({ where: { orgId, employeeId: employee.id }, orderBy: [{ type: 'asc' }, { no: 'asc' }] }) : [];
+  const templates = [...new Map(stored.map((t) => [`${t.type}|${t.no}`, t])).values()];
   for (const r of readers) {
-    if (pin) await supersedeUserInfo(r.id, pin);
+    const pin = pinAt(r);
+    const oldPin = oldAt(r);
+    const rows: Array<{ command: string; sequence: number }> = [];
+    if (oldPin && oldPin !== pin) for (const c of removalCommandsFor(r.vendor, oldPin)) rows.push({ command: c, sequence: SEQ.USER });
+    if (pin) {
+      const held = await peoplePrisma.deviceUser.findFirst({ where: { orgId, pin }, orderBy: { updatedAt: 'desc' } });
+      await supersedeUserInfo(r.id, pin);
+      rows.push({
+        /* Privilege and door PIN from the employee file only (see userFor); a card enrolled at a reader is kept. */
+        command: userCommandFor(r.vendor, pin, employee.name, {
+          privilege: employee.devicePrivilege ?? 0,
+          password: employee.devicePassword ?? '',
+          card: employee.cardNumber ?? held?.card ?? '',
+        }),
+        sequence: SEQ.USER,
+      });
+    }
     await peoplePrisma.deviceCommand.createMany({
-      data: rowsFor(r.vendor).map((x) => ({ accountId: r.accountId, orgId, deviceId: r.id, serialNumber: r.serialNumber, command: x.command, sequence: x.sequence, createdByUserId })),
+      data: rows.map((x) => ({ accountId: r.accountId, orgId, deviceId: r.id, serialNumber: r.serialNumber, command: x.command, sequence: x.sequence, createdByUserId })),
     });
-    if (templates.length && !servesArea(r, before.areaId)) {
-      const extra = templates.filter((t) => supports(r, t.type)).flatMap((t) => templateCommands(t, r));
+    if (pin && templates.length && !servesArea(r, before.areaId)) {
+      const extra = templates.filter((t) => supports(r, t.type)).flatMap((t) => templateCommands({ ...t, pin }, r));
       if (extra.length) {
         await peoplePrisma.deviceCommand.createMany({
           data: extra.map((x) => ({ accountId: r.accountId, orgId, deviceId: r.id, serialNumber: r.serialNumber, command: x.command, sequence: x.seq, createdByUserId })),

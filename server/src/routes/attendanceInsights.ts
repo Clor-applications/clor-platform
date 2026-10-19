@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { pinMatcher } from './iclock.js';
 import { z } from 'zod';
 
 import { requireAuth } from '../middleware/auth.js';
@@ -549,34 +550,59 @@ const normalName = (s: string) => String(s || '').toLowerCase().replace(/[^a-z]/
 attendanceInsightsRouter.get(`${base}/mapping-audit`, can(PermissionAction.VIEW, R.devices), async (req, res) => {
   if (!(await attendanceRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
-  const [employees, deviceUsers, devices, unmatched] = await Promise.all([
-    peoplePrisma.employee.findMany({ where: { accountId, orgId }, select: { id: true, name: true, code: true, devicePin: true, status: true, dateOfLeaving: true, attendanceRequired: true } }),
+  const [employees, deviceUsers, devices, unmatchedRows, sited, areas, match] = await Promise.all([
+    peoplePrisma.employee.findMany({ where: { accountId, orgId }, select: { id: true, name: true, code: true, devicePin: true, status: true, dateOfLeaving: true, attendanceRequired: true, areaId: true } }),
     peoplePrisma.deviceUser.findMany({ where: { orgId }, select: { deviceId: true, pin: true, name: true } }),
-    peoplePrisma.attendanceDevice.findMany({ where: { orgId }, select: { id: true, name: true } }),
-    peoplePrisma.devicePunch.groupBy({ by: ['pin'], where: { orgId, employeeId: null }, _count: { _all: true }, _max: { at: true } }),
+    peoplePrisma.attendanceDevice.findMany({ where: { orgId }, select: { id: true, name: true, areaId: true } }),
+    peoplePrisma.devicePunch.groupBy({ by: ['pin', 'deviceId'], where: { orgId, employeeId: null }, _count: { _all: true }, _max: { at: true } }),
+    peoplePrisma.readerIdAtSite.findMany({ where: { orgId }, select: { employeeId: true } }),
+    peoplePrisma.area.findMany({ where: { orgId }, select: { id: true, name: true } }),
+    pinMatcher(orgId),
   ]);
   const deviceName = new Map(devices.map((d) => [d.id, d.name]));
-  const byPin = new Map<string, (typeof employees)[number]>();
-  for (const e of employees) if (e.devicePin) byPin.set(String(e.devicePin).trim(), e);
+  const areaOf = new Map(devices.map((d) => [d.id, d.areaId]));
+  const areaName = new Map(areas.map((a) => [a.id, a.name]));
+  const byId = new Map(employees.map((e) => [e.id, e]));
+  /* Who a reader user is, as that reader's site sees it (a site ID there, else the company ID). */
+  const whoOn = (deviceId: string, pin: string) => {
+    const m = match(pin, areaOf.get(deviceId));
+    return m ? byId.get(m.id) || null : null;
+  };
   const t = today();
   const stale = deviceUsers
-    .map((u) => ({ u, e: byPin.get(String(u.pin).trim()) }))
+    .map((u) => ({ u, e: whoOn(u.deviceId, u.pin) }))
     .filter(({ e }) => e && (e.status === 'LEFT' || (e.dateOfLeaving && e.dateOfLeaving < t)))
     .map(({ u, e }) => ({ reader: deviceName.get(u.deviceId) || 'Reader', deviceId: u.deviceId, pin: u.pin, nameOnReader: u.name || null, employeeId: e!.id, employee: e!.name, left: e!.dateOfLeaving }));
   const orphan = deviceUsers
-    .filter((u) => !byPin.has(String(u.pin).trim()))
+    .filter((u) => !whoOn(u.deviceId, u.pin))
     .map((u) => ({ reader: deviceName.get(u.deviceId) || 'Reader', deviceId: u.deviceId, pin: u.pin, nameOnReader: u.name || null }));
-  const noPin = employees.filter((e) => !e.devicePin && e.status !== 'LEFT' && e.attendanceRequired !== false).map((e) => ({ employeeId: e.id, name: e.name, code: e.code }));
+  const hasSiteId = new Set(sited.map((x) => x.employeeId));
+  const noPin = employees.filter((e) => !e.devicePin && !hasSiteId.has(e.id) && e.status !== 'LEFT' && e.attendanceRequired !== false).map((e) => ({ employeeId: e.id, name: e.name, code: e.code }));
   const unpinned = employees.filter((e) => !e.devicePin && e.status !== 'LEFT');
-  const suggestions = unmatched.map((u) => {
-    const onReader = deviceUsers.find((d) => String(d.pin).trim() === String(u.pin).trim());
+  /* One line per ID per site: 105 at the depot and 105 at the factory may be two people. */
+  const groups = new Map<string, { pin: string; areaId: string | null; punches: number; lastAt: Date | null; deviceIds: Set<string> }>();
+  for (const u of unmatchedRows) {
+    const areaId = areaOf.get(u.deviceId) || null;
+    const k = `${areaId || ''}|${u.pin}`;
+    const g = groups.get(k) || { pin: u.pin, areaId, punches: 0, lastAt: null, deviceIds: new Set<string>() };
+    g.punches += u._count._all;
+    if (u._max.at && (!g.lastAt || u._max.at > g.lastAt)) g.lastAt = u._max.at;
+    g.deviceIds.add(u.deviceId);
+    groups.set(k, g);
+  }
+  const suggestions = [...groups.values()].map((u) => {
+    const onReader = deviceUsers.find((d) => u.deviceIds.has(d.deviceId) && String(d.pin).trim() === String(u.pin).trim()) || deviceUsers.find((d) => String(d.pin).trim() === String(u.pin).trim());
     const n = normalName(onReader?.name || '');
-    const byCode = unpinned.find((e) => e.code && String(e.code).replace(/^0+/, '') === String(u.pin).replace(/^0+/, ''));
-    const byName = n.length >= 3 ? unpinned.find((e) => normalName(e.name) === n || normalName(e.name).startsWith(n) || n.startsWith(normalName(e.name))) : null;
+    const here = unpinned.filter((e) => !u.areaId || !e.areaId || e.areaId === u.areaId);
+    const byCode = here.find((e) => e.code && String(e.code).replace(/^0+/, '') === String(u.pin).replace(/^0+/, ''));
+    const byName = n.length >= 3 ? here.find((e) => normalName(e.name) === n || normalName(e.name).startsWith(n) || n.startsWith(normalName(e.name))) : null;
     const s = byCode || byName || null;
-    return { pin: u.pin, punches: u._count._all, lastAt: u._max.at, nameOnReader: onReader?.name || null, suggestion: s ? { employeeId: s.id, name: s.name, code: s.code, why: byCode ? 'Employee code matches the reader ID' : 'Name on the reader matches' } : null };
+    return {
+      pin: u.pin, areaId: u.areaId, areaName: u.areaId ? areaName.get(u.areaId) || null : null, punches: u.punches, lastAt: u.lastAt, nameOnReader: onReader?.name || null,
+      suggestion: s ? { employeeId: s.id, name: s.name, code: s.code, why: byCode ? 'Employee code matches the reader ID' : 'Name on the reader matches' } : null,
+    };
   });
-  res.json({ stale, orphan, noPin, unmatched: suggestions, counts: { stale: stale.length, orphan: orphan.length, noPin: noPin.length, unmatched: suggestions.length } });
+  res.json({ stale, orphan, noPin, unmatched: suggestions, siteIds: sited.length, counts: { stale: stale.length, orphan: orphan.length, noPin: noPin.length, unmatched: suggestions.length } });
 });
 
 // ---------------------------------------------------------------------------
