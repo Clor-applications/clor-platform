@@ -778,7 +778,9 @@ const DaysStage = ({ data, editable, runId, onSaved }) => {
             ? ` ${unresolved} still have days with no check-out — those count as loss of pay until corrected in Attendance.`
             : "") +
           (out.attendanceClosed
-            ? ""
+            ? (out.attendanceSnapshots || []).length
+              ? ` Matches the Attendance close of ${out.attendanceSnapshots.map((x) => `${x.month} (snapshot ${x.version})`).join(", ")}.`
+              : ""
             : " The month is not closed in Attendance yet, so its figures can still change there; take the days again before calculating."),
       );
       onSaved();
