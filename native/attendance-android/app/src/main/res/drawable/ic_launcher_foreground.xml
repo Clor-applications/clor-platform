@@ -1,20 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- A clock face with a tick: attendance recorded. Drawn inside the 66dp safe zone of the 108dp canvas. -->
+<!-- Foreground of the adaptive icon: the calendar-check and the orange CLOR bar, kept inside the 66dp safe zone. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
-    android:viewportWidth="108"
-    android:viewportHeight="108">
-    <path
-        android:fillColor="#00000000"
-        android:strokeColor="#FFFFFF"
-        android:strokeWidth="5"
-        android:pathData="M54,30a24,24 0,1 1,0 48a24,24 0,1 1,0 -48z" />
-    <path
-        android:fillColor="#00000000"
-        android:strokeColor="#FFFFFF"
-        android:strokeWidth="5"
-        android:strokeLineCap="round"
-        android:strokeLineJoin="round"
-        android:pathData="M43,55 L51,63 L66,46" />
+    android:viewportWidth="256"
+    android:viewportHeight="256">
+    <group android:pivotX="128" android:pivotY="128" android:scaleX="0.78" android:scaleY="0.78">
+        <group android:translateY="-8">
+        <path android:fillColor="#FFFFFF" android:fillType="evenOdd" android:pathData="M78,74 H178 A16,16 0,0 1,194 90 V164 A16,16 0,0 1,178 180 H78 A16,16 0,0 1,62 164 V90 A16,16 0,0 1,78 74 Z M84,106 H172 A8,8 0,0 1,180 114 V158 A8,8 0,0 1,172 166 H84 A8,8 0,0 1,76 158 V114 A8,8 0,0 1,84 106 Z" />
+        <path android:fillColor="#FFFFFF" android:pathData="M95,62 A7,7 0,0 1,102 69 V83 A7,7 0,0 1,88 83 V69 A7,7 0,0 1,95 62 Z M161,62 A7,7 0,0 1,168 69 V83 A7,7 0,0 1,154 83 V69 A7,7 0,0 1,161 62 Z" />
+        <path android:fillColor="#00000000" android:strokeColor="#FFFFFF" android:strokeWidth="12" android:strokeLineCap="round" android:strokeLineJoin="round" android:pathData="M106,136 L122,151 L152,121" />
+        </group>
+        <path android:fillColor="#FF6B00" android:pathData="M90.55,186 L174.55,186 L168,204 L84,204 Z" />
+    </group>
 </vector>

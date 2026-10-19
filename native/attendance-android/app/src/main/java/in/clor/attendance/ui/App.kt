@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -156,7 +157,10 @@ private fun SignInScreen(api: Api, session: Session, onDone: () -> Unit) {
             Modifier.padding(inner).fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            Text("CLOR Attendance", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 32.dp))
+            androidx.compose.foundation.layout.Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically, modifier = Modifier.padding(top = 32.dp)) {
+                androidx.compose.foundation.Image(androidx.compose.ui.res.painterResource(`in`.clor.attendance.R.drawable.clor_app_icon), contentDescription = null, modifier = androidx.compose.ui.Modifier.padding(end = 12.dp).size(56.dp))
+                Text("CLOR Attendance", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+            }
             Text(if (firstTime) "Set up your sign-in with the code HR gave you." else "Sign in with your company code and employee code.", style = MaterialTheme.typography.bodyMedium)
             SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
                 SegmentedButton(selected = !firstTime, onClick = { firstTime = false; error = null }, shape = SegmentedButtonDefaults.itemShape(0, 2)) { Text("Sign in") }

@@ -1,19 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Status-bar and monochrome icon: the calendar-check alone, white. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
     android:height="24dp"
-    android:viewportWidth="24"
-    android:viewportHeight="24">
-    <path
-        android:fillColor="#00000000"
-        android:strokeColor="#FFFFFFFF"
-        android:strokeWidth="2"
-        android:pathData="M12,3a9,9 0,1 1,0 18a9,9 0,1 1,0 -18z" />
-    <path
-        android:fillColor="#00000000"
-        android:strokeColor="#FFFFFFFF"
-        android:strokeWidth="2"
-        android:strokeLineCap="round"
-        android:strokeLineJoin="round"
-        android:pathData="M8,12.5 L11,15.5 L16.5,9" />
+    android:viewportWidth="256"
+    android:viewportHeight="256">
+    <group android:pivotX="128" android:pivotY="128" android:scaleX="1.25" android:scaleY="1.25" android:translateY="8">
+        <group android:translateY="-8">
+        <path android:fillColor="#FFFFFF" android:fillType="evenOdd" android:pathData="M78,74 H178 A16,16 0,0 1,194 90 V164 A16,16 0,0 1,178 180 H78 A16,16 0,0 1,62 164 V90 A16,16 0,0 1,78 74 Z M84,106 H172 A8,8 0,0 1,180 114 V158 A8,8 0,0 1,172 166 H84 A8,8 0,0 1,76 158 V114 A8,8 0,0 1,84 106 Z" />
+        <path android:fillColor="#FFFFFF" android:pathData="M95,62 A7,7 0,0 1,102 69 V83 A7,7 0,0 1,88 83 V69 A7,7 0,0 1,95 62 Z M161,62 A7,7 0,0 1,168 69 V83 A7,7 0,0 1,154 83 V69 A7,7 0,0 1,161 62 Z" />
+        <path android:fillColor="#00000000" android:strokeColor="#FFFFFF" android:strokeWidth="12" android:strokeLineCap="round" android:strokeLineJoin="round" android:pathData="M106,136 L122,151 L152,121" />
+        </group>
+    </group>
 </vector>

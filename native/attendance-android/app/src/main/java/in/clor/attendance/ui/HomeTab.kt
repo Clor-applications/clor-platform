@@ -139,9 +139,8 @@ private fun Header(h: Home) {
     Surface(color = MaterialTheme.colorScheme.surface) {
         Column(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.size(46.dp).background(Brand, RoundedCornerShape(12.dp)), contentAlignment = Alignment.Center) {
-                    Text("C", color = Color.White, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Black)
-                }
+                /* The CLOR Attendance icon, as on the web app catalogue. */
+                androidx.compose.foundation.Image(androidx.compose.ui.res.painterResource(`in`.clor.attendance.R.drawable.clor_app_icon), contentDescription = "CLOR Attendance", modifier = Modifier.size(46.dp))
                 Column(Modifier.weight(1f).padding(start = 12.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text("CLOR ATTENDANCE", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold, maxLines = 1)

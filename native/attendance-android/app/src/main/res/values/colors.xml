@@ -1,4 +1,6 @@
 <resources>
     <color name="ground">#F3F3F0</color>
     <color name="brand">#FF6B00</color>
+    <!-- The app icon's ground, as on the web catalogue (public/icons/attendance.svg). -->
+    <color name="icon_ground">#14152B</color>
 </resources>

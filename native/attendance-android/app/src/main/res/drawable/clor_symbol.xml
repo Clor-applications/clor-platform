@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The CLOR symbol (public/brand/clor-icon.svg). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="23.2dp"
+    android:viewportWidth="165.74"
+    android:viewportHeight="160">
+    <path android:fillColor="#14152B" android:pathData="M30.74,0 L165.74,0 L142.08,65 L7.08,65 Z" />
+    <path android:fillColor="#FF6B00" android:pathData="M23.66,95 L158.66,95 L135,160 L0,160 Z" />
+</vector>
