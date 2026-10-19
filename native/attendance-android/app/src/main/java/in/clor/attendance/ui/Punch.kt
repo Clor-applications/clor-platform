@@ -143,7 +143,7 @@ fun PunchCard(api: Api, shift: Shift, record: DayRecord?, punches: List<TodayPun
     Section {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Column {
-                Text(now.format(DateTimeFormatter.ofPattern("hh:mm:ss a")), fontSize = 30.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                Text(now.format(DateTimeFormatter.ofPattern("hh:mm:ss a")), fontSize = (30f / androidx.compose.ui.platform.LocalDensity.current.fontScale.coerceAtLeast(1f)).coerceAtLeast(22f).sp * androidx.compose.ui.platform.LocalDensity.current.fontScale.coerceAtMost(1.3f), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface, maxLines = 1)
                 Text(state, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             record?.let { val (t, tone) = dayStatus(it.status); StatusPill(t, tone) }

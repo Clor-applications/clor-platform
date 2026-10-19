@@ -230,6 +230,17 @@ private fun SectionTitle(title: String, right: String?) {
 private fun MonthGrid(h: Home, links: HomeLinks) {
     val m = h.month
     val leaveLeft = h.leave.balances.mapNotNull { it.available }.sum()
+    /* Wide screens: the four cards in one row; phones: two by two. */
+    val wide = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp >= 600
+    if (wide) {
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            StatCard(Modifier.weight(1f), "Present", fmtDays(m.present), "of ${m.workingDays} working days", Icons.Outlined.CheckCircle, Pos, m.rate?.let { "$it%" to Tone.Pos }, links.attendance)
+            StatCard(Modifier.weight(1f), "Late", "${m.late}", if (m.lateMinutes > 0) "${m.lateMinutes} min in all" else "days this month", Icons.Outlined.Schedule, Warn, if (m.late > 0) "Late" to Tone.Warn else "On time" to Tone.Pos, links.attendance)
+            StatCard(Modifier.weight(1f), "Absent", "${m.absent}", "days this month", Icons.Outlined.EventBusy, Neg, if (m.absent > 0) "Check" to Tone.Neg else null, links.attendance)
+            StatCard(Modifier.weight(1f), "Leave left", if (h.leave.balances.any { it.available != null }) fmtDays(leaveLeft) else "—", "${m.leave} day${if (m.leave == 1) "" else "s"} taken this month", Icons.Outlined.EventAvailable, Color(0xFF2563EB), if (h.leave.pending > 0) "${h.leave.pending} waiting" to Tone.Warn else null, links.leave)
+        }
+        return
+    }
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             StatCard(Modifier.weight(1f), "Present", fmtDays(m.present), "of ${m.workingDays} working days", Icons.Outlined.CheckCircle, Pos, m.rate?.let { "$it%" to Tone.Pos }, links.attendance)

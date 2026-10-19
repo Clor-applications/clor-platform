@@ -14,6 +14,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -113,7 +114,7 @@ private fun FieldEvidence(api: Api, ask: Ask) {
                     try {
                         val data = api.punchPhoto(ask.id).photo
                         val bytes = android.util.Base64.decode(data.substringAfter(","), android.util.Base64.DEFAULT)
-                        photo = android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.let { androidx.compose.ui.graphics.asImageBitmap(it) }
+                        photo = android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.asImageBitmap()
                         showing = photo != null
                         if (photo == null) problem = "The selfie could not be read."
                     } catch (e: Exception) {

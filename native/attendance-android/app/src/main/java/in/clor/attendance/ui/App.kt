@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
@@ -56,7 +57,7 @@ import kotlinx.coroutines.launch
  * approve. Everything else stays on the web.
  */
 @Composable
-fun ClorApp(api: Api, session: Session) {
+fun ClorApp(api: Api, session: Session, appearance: Appearance = Appearance.AUTO, onAppearance: (Appearance) -> Unit = {}) {
     val context = LocalContext.current
     var signedIn by remember { mutableStateOf(session.signedIn()) }
     /* Bumped to make the tabs read again after something changes (a punch, a request). */
@@ -81,7 +82,7 @@ fun ClorApp(api: Api, session: Session) {
             if (privacy != null && !privacy.read) {
                 NoticeScreen(api, onSignedOut = signOut, mustRead = true) { me.reload() }
             } else {
-                Tabs(api, s.value.approver, s.value.phone.allowed, version, onChanged = { version++ }, onSignedOut = signOut)
+                Tabs(api, s.value.approver, s.value.phone.allowed, version, onChanged = { version++ }, onSignedOut = signOut, appearance = appearance, onAppearance = onAppearance)
             }
         }
         else -> Fill { Column(Modifier.padding(top = 96.dp)) { LoadView(me) {} } }
@@ -91,7 +92,7 @@ fun ClorApp(api: Api, session: Session) {
 private enum class Tab(val label: String) { Home("Home"), Attendance("Attendance"), Requests("Requests"), Leave("Leave"), Me("Me") }
 
 @Composable
-private fun Tabs(api: Api, approver: Boolean, phoneAllowed: Boolean, version: Int, onChanged: () -> Unit, onSignedOut: () -> Unit) {
+private fun Tabs(api: Api, approver: Boolean, phoneAllowed: Boolean, version: Int, onChanged: () -> Unit, onSignedOut: () -> Unit, appearance: Appearance, onAppearance: (Appearance) -> Unit) {
     var tab by rememberSaveable { mutableStateOf(Tab.Home) }
     /* "Apply for leave" from Home opens the Leave tab with the form already open. */
     var applyLeave by remember { mutableStateOf(false) }
@@ -116,38 +117,47 @@ private fun Tabs(api: Api, approver: Boolean, phoneAllowed: Boolean, version: In
         me = { tab = Tab.Me },
     )
     val tabs = Tab.entries
+    /* Wide screens (tablets, landscape, foldables): a side rail instead of the bottom bar, and content held to a readable width. */
+    val wide = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp >= 600
+    val icon: (Tab) -> androidx.compose.ui.graphics.vector.ImageVector = { t ->
+        when (t) {
+            Tab.Home -> Icons.Outlined.Home
+            Tab.Attendance -> Icons.Outlined.CalendarMonth
+            Tab.Leave -> Icons.Outlined.EventAvailable
+            Tab.Requests -> Icons.Outlined.Inbox
+            Tab.Me -> Icons.Outlined.Person
+        }
+    }
+    val content: @Composable () -> Unit = {
+        when (tab) {
+            Tab.Home -> HomeTab(api, version, links, onChanged, onSignedOut)
+            Tab.Attendance -> AttendanceTab(api, version, onChanged, onSignedOut)
+            Tab.Leave -> LeaveTab(api, version, onChanged, onSignedOut, startApplying = applyLeave, onApplyShown = { applyLeave = false })
+            Tab.Requests -> RequestsTab(api, version, approver, phoneAllowed, startNew = newRequest, onStarted = { newRequest = null }, openLeave = { applyLeave = true; tab = Tab.Leave }, onChanged = onChanged, onSignedOut = onSignedOut)
+            Tab.Me -> MeTab(api, onSignedOut, appearance, onAppearance)
+        }
+    }
     Scaffold(
         bottomBar = {
-            NavigationBar {
-                tabs.forEach { t ->
-                    NavigationBarItem(
-                        selected = tab == t,
-                        onClick = { tab = t },
-                        icon = {
-                            Icon(
-                                when (t) {
-                                    Tab.Home -> Icons.Outlined.Home
-                                    Tab.Attendance -> Icons.Outlined.CalendarMonth
-                                    Tab.Leave -> Icons.Outlined.EventAvailable
-                                    Tab.Requests -> Icons.Outlined.Inbox
-                                    Tab.Me -> Icons.Outlined.Person
-                                },
-                                contentDescription = null,
-                            )
-                        },
-                        label = { Text(t.label) },
-                    )
+            if (!wide) {
+                NavigationBar {
+                    tabs.forEach { t ->
+                        NavigationBarItem(selected = tab == t, onClick = { tab = t }, icon = { Icon(icon(t), contentDescription = null) }, label = { Text(t.label) })
+                    }
                 }
             }
         },
     ) { inner ->
-        Column(Modifier.padding(inner).fillMaxSize()) {
-            when (tab) {
-                Tab.Home -> HomeTab(api, version, links, onChanged, onSignedOut)
-                Tab.Attendance -> AttendanceTab(api, version, onChanged, onSignedOut)
-                Tab.Leave -> LeaveTab(api, version, onChanged, onSignedOut, startApplying = applyLeave, onApplyShown = { applyLeave = false })
-                Tab.Requests -> RequestsTab(api, version, approver, phoneAllowed, startNew = newRequest, onStarted = { newRequest = null }, openLeave = { applyLeave = true; tab = Tab.Leave }, onChanged = onChanged, onSignedOut = onSignedOut)
-                Tab.Me -> MeTab(api, onSignedOut)
+        androidx.compose.foundation.layout.Row(Modifier.padding(inner).fillMaxSize()) {
+            if (wide) {
+                androidx.compose.material3.NavigationRail {
+                    tabs.forEach { t ->
+                        androidx.compose.material3.NavigationRailItem(selected = tab == t, onClick = { tab = t }, icon = { Icon(icon(t), contentDescription = null) }, label = { Text(t.label) })
+                    }
+                }
+            }
+            androidx.compose.foundation.layout.Box(Modifier.weight(1f).fillMaxSize(), contentAlignment = androidx.compose.ui.Alignment.TopCenter) {
+                Column(Modifier.widthIn(max = 760.dp).fillMaxSize()) { content() }
             }
         }
     }

@@ -1,3 +1,5 @@
+@file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+
 package `in`.clor.attendance.ui
 
 import android.Manifest
@@ -55,7 +57,7 @@ import kotlinx.coroutines.withContext
  * else about my employment stays with HR on the web.
  */
 @Composable
-fun MeTab(api: Api, onSignedOut: () -> Unit) {
+fun MeTab(api: Api, onSignedOut: () -> Unit, appearance: Appearance = Appearance.AUTO, onAppearance: (Appearance) -> Unit = {}) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val me = rememberLoad(onSignedOut) { api.me() }
@@ -147,6 +149,15 @@ fun MeTab(api: Api, onSignedOut: () -> Unit) {
             }) { Text("Download my data") }
             TextButton(onClick = { notice = true }) { Text("Privacy notice") }
             Hint("To correct or erase data, withdraw consent, name a nominee or complain, use My data in the web portal or ask HR.")
+        }
+        Section("Display") {
+            Text("Appearance", style = MaterialTheme.typography.bodyLarge)
+            androidx.compose.material3.SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                listOf(Appearance.AUTO to "Auto", Appearance.LIGHT to "Light", Appearance.DARK to "Dark").forEachIndexed { i, (a, label) ->
+                    androidx.compose.material3.SegmentedButton(selected = appearance == a, onClick = { onAppearance(a) }, shape = androidx.compose.material3.SegmentedButtonDefaults.itemShape(i, 3)) { Text(label) }
+                }
+            }
+            Hint("Auto follows your phone's light or dark setting. Text follows your phone's font size; on a tablet or in landscape the menu moves to the side.")
         }
         PermissionsCard(context)
         PasswordCard(api, onSignedOut)

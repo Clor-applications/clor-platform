@@ -48,7 +48,15 @@ private val Dark = darkColorScheme(
     error = Color(0xFFF87171),
 )
 
+/** Appearance: AUTO follows the phone's light / dark setting; LIGHT and DARK fix it. */
+enum class Appearance { AUTO, LIGHT, DARK }
+
 @Composable
-fun ClorTheme(content: @Composable () -> Unit) {
-    MaterialTheme(colorScheme = if (isSystemInDarkTheme()) Dark else Light, content = content)
+fun ClorTheme(appearance: Appearance = Appearance.AUTO, content: @Composable () -> Unit) {
+    val dark = when (appearance) {
+        Appearance.AUTO -> isSystemInDarkTheme()
+        Appearance.LIGHT -> false
+        Appearance.DARK -> true
+    }
+    MaterialTheme(colorScheme = if (dark) Dark else Light, content = content)
 }
