@@ -10,6 +10,7 @@ import { istLocal } from '../services/attendance/punchMapping.js';
 import { hashToken } from './publicApi.js';
 import { ingestPunches } from './iclock.js';
 import { isFeatureEnabled } from '../services/features.js';
+import { runInTenant } from '../utils/tenantScope.js';
 
 /**
  * /agent/v1 — what the on-site connector (server/agent) talks to. A small
@@ -78,7 +79,7 @@ agentRouter.use(async (req: Request, res: Response, next: NextFunction) => {
   if (!a.isActive) return fail(res, 403, 'This connector is switched off in CLOR.');
   if (!(await isFeatureEnabled(a.accountId, a.orgId, 'attendance'))) return fail(res, 403, 'Attendance is not switched on for this organisation.');
   req.agent = a;
-  next();
+  runInTenant(a.orgId, () => next());
 });
 
 /** Everything the agent needs for one round. */

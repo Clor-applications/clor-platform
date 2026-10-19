@@ -1,4 +1,5 @@
 import { PrismaClient } from '../generated/platform/index.js';
+import { tenantScoped } from './tenantScope.js';
 
 /**
  * The platform database: who can sign in, which company they belong to, and
@@ -22,9 +23,10 @@ import { PrismaClient } from '../generated/platform/index.js';
  * that writes to both does it in two steps, each idempotent, in an order where
  * a crash in between leaves a state the next attempt can recognise and finish.
  */
-export const platformPrisma = new PrismaClient({
+/* Told which company the request is for (utils/tenantScope.ts). */
+export const platformPrisma = tenantScoped(new PrismaClient({
   log: ['warn', 'error'],
-});
+}));
 
 /** The platform equivalent of `DbClient`: a transaction, or the client itself. */
 export type PlatformDb = Parameters<Parameters<typeof platformPrisma.$transaction>[0]>[0] | typeof platformPrisma;

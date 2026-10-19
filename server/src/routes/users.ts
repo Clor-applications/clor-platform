@@ -26,6 +26,7 @@ import {
   LastAdminError,
   assertAnAdminRemains,
 } from '../services/roleGuards.js';
+import { outsideTenant } from '../utils/tenantScope.js';
 
 export const usersRouter = Router();
 usersRouter.use(requireAuth, requireTenantContext);
@@ -234,7 +235,8 @@ usersRouter.patch('/orgs/:orgId/users/:userId', requirePermission('SETTINGS', Pe
  * company's books, and the one thing this must never do is hand out a key to a
  * company the caller does not own.
  */
-usersRouter.get('/users/:userId/companies', requirePermission('SETTINGS', PermissionAction.VIEW, 'Users'), async (req, res) => {
+usersRouter.get('/users/:userId/companies', requirePermission('SETTINGS', PermissionAction.VIEW, 'Users'), (req, res) =>
+  outsideTenant('company access: every company on the account a person may be given', async () => {
   const accountId = req.tenant!.accountId;
   const userId = String(req.params.userId);
 
@@ -261,14 +263,15 @@ usersRouter.get('/users/:userId/companies', requirePermission('SETTINGS', Permis
       role: roleByOrg.get(o.id) || null,
     })),
   });
-});
+  }));
 
 const companyAccessSchema = z.object({
   /** The complete set. A company left out is access taken away. */
   orgIds: z.array(z.string().min(1)).max(500),
 });
 
-usersRouter.put('/users/:userId/companies', requirePermission('SETTINGS', PermissionAction.EDIT, 'Users'), async (req, res) => {
+usersRouter.put('/users/:userId/companies', requirePermission('SETTINGS', PermissionAction.EDIT, 'Users'), (req, res) =>
+  outsideTenant('company access: memberships across the companies of the account', async () => {
   const accountId = req.tenant!.accountId;
   const userId = String(req.params.userId);
   const body = companyAccessSchema.parse(req.body);
@@ -315,7 +318,7 @@ usersRouter.put('/users/:userId/companies', requirePermission('SETTINGS', Permis
   ]);
 
   res.json({ ok: true, added: toAdd.length, removed: toRemove.length });
-});
+  }));
 
 usersRouter.put('/orgs/:orgId/users/:userId/role', requirePermission('SETTINGS', PermissionAction.EDIT, 'Users'), async (req, res) => {
   const accountId = req.tenant!.accountId;

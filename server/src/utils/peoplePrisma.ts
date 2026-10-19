@@ -1,4 +1,5 @@
 import { PrismaClient } from '../generated/people/index.js';
+import { tenantScoped } from './tenantScope.js';
 
 /**
  * The people database: who works here.
@@ -13,9 +14,10 @@ import { PrismaClient } from '../generated/people/index.js';
  * right. The failure it accepts in exchange is that referential integrity
  * across the boundary is the application's job, enforced where the two meet.
  */
-export const peoplePrisma = new PrismaClient({
+/* Told which company the request is for (utils/tenantScope.ts). */
+export const peoplePrisma = tenantScoped(new PrismaClient({
   log: ['warn', 'error'],
-});
+}));
 
 /** A transaction, or the client itself. */
 export type PeopleDb = Parameters<Parameters<typeof peoplePrisma.$transaction>[0]>[0] | typeof peoplePrisma;

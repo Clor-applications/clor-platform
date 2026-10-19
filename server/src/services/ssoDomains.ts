@@ -2,6 +2,7 @@ import { promises as dns } from 'node:dns';
 import { randomBytes } from 'node:crypto';
 
 import { platformPrisma } from '../utils/platformPrisma.js';
+import { outsideTenant } from '../utils/tenantScope.js';
 
 /**
  * Which e-mail domains a sign-in method may speak for.
@@ -35,7 +36,10 @@ export const verificationSkipped = () => Boolean(process.env.VITEST) && process.
 /** Domains that another CLOR account has already proved. */
 async function heldElsewhere(accountId: string, domains: string[]) {
   if (!domains.length) return [] as string[];
-  const rows = await platformPrisma.authProvider.findMany({ where: { NOT: { accountId }, verifiedDomains: { not: null } }, select: { verifiedDomains: true } });
+  /* Other accounts' providers, on purpose: a domain proved by one account cannot be claimed by another. */
+  const rows = await outsideTenant('SSO: domains already proved by another account', () =>
+    platformPrisma.authProvider.findMany({ where: { NOT: { accountId }, verifiedDomains: { not: null } }, select: { verifiedDomains: true } })
+  );
   const taken = new Set(rows.flatMap((r) => domainsOf(r.verifiedDomains)));
   return domains.filter((d) => taken.has(d));
 }

@@ -2,6 +2,7 @@ import type { Request, Response, NextFunction } from 'express';
 import { prisma } from '../utils/prisma.js';
 import { platformPrisma } from '../utils/platformPrisma.js';
 import { cachedAccess } from '../utils/accessCache.js';
+import { runInTenant } from '../utils/tenantScope.js';
 
 export type TenantContext = {
   accountId: string;
@@ -65,7 +66,8 @@ export async function requireTenantContext(req: Request, res: Response, next: Ne
   if (!('tenant' in result)) return res.status(result.status).json({ error: result.error });
   req.tenant = { ...result.tenant }; // the cached object is shared between requests
 
-  next();
+  /* From here on every query this request makes names its company to the database (utils/tenantScope.ts). */
+  runInTenant(req.tenant.orgId, () => next());
 }
 
 type TenantResult = { tenant: TenantContext } | { status: number; error: string };

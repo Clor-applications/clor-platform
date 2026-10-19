@@ -1,4 +1,5 @@
 import { PrismaClient } from '../generated/payroll/index.js';
+import { tenantScoped } from './tenantScope.js';
 
 /**
  * The payroll database, which is not the accounting database.
@@ -21,9 +22,10 @@ import { PrismaClient } from '../generated/payroll/index.js';
  * a crash in between leaves a state the next attempt can recognise and finish.
  * `postPayrollRun` is the one place that matters, and it says so there.
  */
-export const payrollPrisma = new PrismaClient({
+/* Told which company the request is for (utils/tenantScope.ts). */
+export const payrollPrisma = tenantScoped(new PrismaClient({
   log: ['warn', 'error'],
-});
+}));
 
 /** The payroll equivalent of `DbClient`: a transaction, or the client itself. */
 export type PayrollDb = Parameters<Parameters<typeof payrollPrisma.$transaction>[0]>[0] | typeof payrollPrisma;

@@ -17,6 +17,7 @@ import { idempotent } from '../services/attendance/idempotency.js';
 import { driverOf } from '../services/attendance/drivers.js';
 import { ONLINE_WINDOW_MS } from '../services/attendance/adms.js';
 import { OPENAPI, docsHtml } from '../services/attendance/openapi.js';
+import { runInTenant } from '../utils/tenantScope.js';
 
 /**
  * CLOR's API for outside systems — an HRMS or payroll pulling attendance, or
@@ -69,7 +70,7 @@ async function authenticate(req: Request, res: Response, next: NextFunction) {
   if (!(await isFeatureEnabled(row.accountId, row.orgId, 'attendance'))) return fail(res, 403, 'Attendance is not switched on for this organisation.');
   req.apiClient = { id: row.id, accountId: row.accountId, orgId: row.orgId, scopes: row.scopes.split(','), deviceId: row.deviceId, tokenPrefix: row.tokenPrefix };
   peoplePrisma.apiClient.update({ where: { id: row.id }, data: { lastUsedAt: new Date(), lastUsedIp: ip || null } }).catch(() => undefined);
-  next();
+  runInTenant(row.orgId, () => next());
 }
 const scope = (s: (typeof SCOPES)[number]) => (req: Request, res: Response, next: NextFunction) =>
   req.apiClient!.scopes.includes(s) ? next() : fail(res, 403, `This key does not have the ${s} scope.`);

@@ -7,6 +7,7 @@ import { requireTenantContext } from '../middleware/tenantContext.js';
 import { requirePermission } from '../middleware/rbac.js';
 import { PermissionAction } from '../constants/enums.js';
 import { entitlementFor } from '../services/entitlements.js';
+import { outsideTenant } from '../utils/tenantScope.js';
 
 /**
  * The account, above any one company.
@@ -30,7 +31,8 @@ const num = (v: unknown) => {
   return Number.isFinite(n) ? n : 0;
 };
 
-accountRouter.get('/account/overview', ACCOUNT_VIEW, async (req, res) => {
+accountRouter.get('/account/overview', ACCOUNT_VIEW, (req, res) =>
+  outsideTenant('account overview: every company on the account, each with its own figures', async () => {
   const { accountId } = req.tenant!;
 
   const [account, orgs, users, entitlement] = await Promise.all([
@@ -129,6 +131,6 @@ accountRouter.get('/account/overview', ACCOUNT_VIEW, async (req, res) => {
       lastLoginAt: u.lastLoginAt,
     })),
   });
-});
+  }));
 
 export default accountRouter;

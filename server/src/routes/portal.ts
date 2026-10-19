@@ -22,6 +22,7 @@ import { askOvertime, attentionFor, chainsFor, confirmMonth, decideOvertime, mon
 import { REASON_CODES, createRequest, daysOfMonth, instants, reviewCorrection, sendError, today, withNames } from './attendance.js';
 import { approveLeave, balancesFor, cancelOwnLeave, createLeave, rejectLeave, withTypes } from './leave.js';
 import { recomputeDeviceDay, shiftDayFor } from './iclock.js';
+import { runInTenant } from '../utils/tenantScope.js';
 
 /**
  * The employee portal (ClorTime's /portal): staff without a CLOR user sign in
@@ -174,7 +175,7 @@ async function authenticate(req: Request, res: Response, next: NextFunction) {
   }
   if (!(await isFeatureEnabled(e.accountId, e.orgId, 'attendance'))) return res.status(403).json({ error: 'Attendance is not switched on for your company.' });
   req.portal = { employeeId: e.id, accountId: e.accountId, orgId: e.orgId, employee: e };
-  next();
+  runInTenant(e.orgId, () => next());
 }
 
 portalRouter.use(authenticate);
