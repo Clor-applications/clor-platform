@@ -73,6 +73,18 @@ describe("another company's admin", () => {
     expect(row?.email).toBe(alice.email);
   });
 
+  it("cannot switch off or rename an invited person everywhere", async () => {
+    for (const change of [{ isActive: false }, { fullName: 'Renamed by Mallory' }]) {
+      const res = await request(app).patch(`/api/orgs/${mallory.orgId}/users/${alice.userId}`).set(auth(mallory)).send(change);
+      expect(res.status).toBe(403);
+      expect(res.body.code).toBe('foreign_identity');
+    }
+    const row = await platformPrisma.user.findUnique({ where: { id: alice.userId! }, select: { isActive: true, fullName: true } });
+    expect(row?.isActive).toBe(true);
+    expect(row?.fullName).not.toBe('Renamed by Mallory');
+    await login(alice.email).expect(200);
+  });
+
   it('can still manage people created in its own account, and a reset signs them out', async () => {
     const email = `own.${Date.now()}.${rnd()}@example.com`;
     const made = await request(app)

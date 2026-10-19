@@ -181,6 +181,22 @@ usersRouter.patch('/orgs/:orgId/users/:userId', requirePermission('SETTINGS', Pe
     if (refusal) return res.status(refusal.status).json(refusal.body);
   }
 
+  /*
+   * A name and being able to sign in at all are global too: an invited person's
+   * own companies use the same User. Another account's admin may take away
+   * access to this company (company access), not rename or switch off the
+   * person everywhere.
+   */
+  if (('fullName' in body || 'isActive' in body) && userId !== req.auth!.userId) {
+    const target = await platformPrisma.user.findUnique({ where: { id: userId }, select: { accountId: true } });
+    if (!target || target.accountId !== accountId) {
+      return res.status(403).json({
+        error: 'This person signs in with their own account. To stop them using this company, remove their access to it; their name and sign-in are theirs.',
+        code: 'foreign_identity',
+      });
+    }
+  }
+
   // Same global-uniqueness rule as user creation: login resolves by email
   // across every account, so an email may not be moved onto a taken address.
   if ('email' in body && body.email) {
