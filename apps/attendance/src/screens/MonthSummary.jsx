@@ -12,7 +12,7 @@ import LoadFailed from '../components/LoadFailed';
  * person. Absent days, half a half day, and unpaid leave are loss of pay;
  * holidays, weekly offs and paid leave are paid.
  */
-export default function MonthSummary() {
+export default function MonthSummary({ openScreen } = {}) {
   const [month, setMonth] = useState(todayIst().slice(0, 7));
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
@@ -21,6 +21,11 @@ export default function MonthSummary() {
   const ended = month < todayIst().slice(0, 7);
   const toggleClosed = async () => {
     const closing = !data?.closed;
+    /* Closing goes through the month-close checklist, so nobody closes a month without seeing what is open. */
+    if (closing && openScreen) {
+      openScreen('monthClose', { month });
+      return;
+    }
     if (closing) {
       const noOut = (data?.rows || []).reduce((n, r) => n + (r.incompleteDays || 0), 0);
       const ok = await confirmDialog({
@@ -33,7 +38,7 @@ export default function MonthSummary() {
     }
     setBusy(true);
     try {
-      await (closing ? closeMonth(month) : reopenMonth(month));
+      await (closing ? closeMonth(month, true) : reopenMonth(month));
       notify.success(closing ? `${month} closed.` : `${month} reopened.`);
       setAttempt((n) => n + 1);
     } catch (e) {

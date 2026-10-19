@@ -2,8 +2,9 @@ import React, { useCallback, useEffect, useState } from 'react';
 
 import { PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
-import { LEAVE_STATUS, applyLeave, cancelMyLeave, getMyLeave, leaveRange, todayIst } from '../api/attendance';
+import { LEAVE_STATUS, applyLeave, cancelMyLeave, explainMyLeave, getMyLeave, leaveRange, todayIst } from '../api/attendance';
 import LoadFailed from '../components/LoadFailed';
+import LeaveExplain from '../components/LeaveExplain';
 
 const BLANK = { leaveTypeId: '', fromDate: '', toDate: '', reason: '' };
 
@@ -13,6 +14,8 @@ export default function MyLeave() {
   const [me, setMe] = useState(null);
   const [error, setError] = useState('');
   const [form, setForm] = useState(BLANK);
+  const [explaining, setExplaining] = useState(null);
+  const explainLoad = useCallback(() => explainMyLeave(explaining, year), [explaining, year]);
   const [saving, setSaving] = useState(false);
 
   const load = useCallback(() => {
@@ -87,6 +90,7 @@ export default function MyLeave() {
                 <>
                   <div className="mt-1 text-2xl font-semibold tabular-nums">{t.available}<span className="ui-caption"> of {t.allocated} left</span></div>
                   <div className="ui-caption">{t.used} taken{t.pending ? ` · ${t.pending} waiting` : ''}</div>
+                  <button type="button" className="ui-link text-xs mt-1" onClick={() => setExplaining(t.id)}>How is this worked out?</button>
                 </>
               ) : (
                 <>
@@ -158,6 +162,7 @@ export default function MyLeave() {
           </table>
         </div>
       </section>
+      <LeaveExplain open={Boolean(explaining)} onClose={() => setExplaining(null)} load={explainLoad} />
     </div>
   );
 }

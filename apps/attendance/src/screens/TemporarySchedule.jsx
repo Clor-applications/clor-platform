@@ -4,6 +4,7 @@ import { Trash2 } from 'lucide-react';
 import { PageHeader, SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import { notify } from '@ui/components/ui/notify';
 import { addTemporarySchedule, dayLabel, listEmployees, listShifts, listTemporarySchedules, removeTemporarySchedule, todayIst } from '../api/attendance';
+import { confirmScheduleChange } from '../components/scheduleCheck';
 import LoadFailed from '../components/LoadFailed';
 
 /**
@@ -39,6 +40,7 @@ export default function TemporarySchedule() {
     });
 
   const add = async () => {
+    if (!(await confirmScheduleChange({ kind: 'TEMPORARY', employeeIds: [...picked], shiftId: form.shiftId, from: form.fromDate, to: form.toDate || null }))) return;
     try {
       const r = await addTemporarySchedule({ ...form, employeeIds: [...picked], reason: form.reason || null });
       notify.success(`${r.scheduled} scheduled.`);

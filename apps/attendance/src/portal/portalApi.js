@@ -90,6 +90,8 @@ export const getDataRequests = () => call('/data-requests');
 export const askData = (body) => call('/data-requests', { method: 'POST', body });
 export const decideApproval = (type, id, body) => call(`/approvals/${encodeURIComponent(type)}/${encodeURIComponent(id)}`, { method: 'POST', body });
 export const getAttendance = (month) => call(`/attendance${month ? `?month=${encodeURIComponent(month)}` : ''}`);
+export const explainDay = (date) => call(`/attendance/explain?date=${encodeURIComponent(date)}`);
+export const explainLeave = (leaveTypeId, year) => call(`/leave/explain?leaveTypeId=${encodeURIComponent(leaveTypeId)}${year ? `&year=${year}` : ''}`);
 export const askCorrection = (body) => call('/corrections', { method: 'POST', body });
 export const getSchedule = (month) => call(`/schedule${month ? `?month=${encodeURIComponent(month)}` : ''}`);
 export const getLeave = () => call('/leave');

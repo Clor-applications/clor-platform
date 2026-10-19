@@ -46,7 +46,7 @@ const KINDS = [
       { key: 'workPhone', label: 'Phone' },
     ],
     sample: { name: 'Asha Rao', code: 'E-001', department: 'Finance', jobPosition: 'Accountant', dateOfJoining: '2026-04-01', gender: 'FEMALE', workEmail: '', workPhone: '' },
-    run: (rows) => importEmployees(rows).then((r) => ({ imported: (r.results || []).filter((x) => x.ok).length, failed: (r.results || []).filter((x) => !x.ok).length, results: (r.results || []).filter((x) => !x.ok) })),
+    run: (rows, dryRun) => importEmployees(rows, dryRun).then((r) => ({ imported: (r.results || []).filter((x) => x.ok).length, failed: (r.results || []).filter((x) => !x.ok).length, results: (r.results || []).filter((x) => !x.ok) })),
     unit: 'people',
   },
   {
@@ -87,11 +87,14 @@ export default function DataImport() {
   const [problem, setProblem] = useState('');
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState(null);
+  /* The same import with dryRun: what would go in and what would not, before anything is saved. */
+  const [check, setCheck] = useState(null);
   const input = useRef(null);
 
   const pick = async (f) => {
     setProblem('');
     setResult(null);
+    setCheck(null);
     setRows(null);
     setFile(f || null);
     if (!f) return;
@@ -106,19 +109,31 @@ export default function DataImport() {
       setProblem(String(e?.message || 'That file could not be read.'));
     }
   };
+  const checkFile = async () => {
+    if (!rows?.length) return;
+    setBusy(true);
+    setProblem('');
+    try {
+      setCheck(await kind.run(rows, true));
+    } catch (e) {
+      setProblem(String(e?.message || 'Could not check the file.'));
+    } finally {
+      setBusy(false);
+    }
+  };
   const go = async () => {
     if (!rows?.length) return;
     setBusy(true);
     setProblem('');
     try {
-      setResult(await kind.run(rows));
+      setResult(await kind.run(rows, false));
     } catch (e) {
       setProblem(String(e?.message || 'Not imported.'));
     } finally {
       setBusy(false);
     }
   };
-  const reset = () => { setFile(null); setRows(null); setResult(null); setProblem(''); };
+  const reset = () => { setFile(null); setRows(null); setResult(null); setCheck(null); setProblem(''); };
 
   return (
     <div className="space-y-4">
@@ -153,11 +168,27 @@ export default function DataImport() {
             <Upload size={16} aria-hidden="true" /> {file ? file.name : 'Choose a CSV file'}
           </button>
           {problem ? <p className="text-sm" role="alert" style={{ color: 'rgb(var(--neg))' }}>{problem}</p> : null}
-          {rows && !result ? (
+          {rows && !result && !check ? (
             <>
               <p className="text-sm">{rows.length.toLocaleString('en-IN')} row{rows.length === 1 ? '' : 's'} read. First: <span className="ui-mono text-xs">{JSON.stringify(rows[0]).slice(0, 120)}</span></p>
-              <button type="button" className="ui-btn ui-btn-primary w-full" disabled={busy} onClick={go}>{busy ? 'Importing…' : `Import ${rows.length.toLocaleString('en-IN')} ${kind.unit}`}</button>
+              <button type="button" className="ui-btn ui-btn-primary w-full" disabled={busy} onClick={checkFile}>{busy ? 'Checking…' : 'Check the file'}</button>
+              <p className="ui-caption">Every row is checked the way it would be imported. Nothing is saved until you confirm.</p>
             </>
+          ) : null}
+          {check && !result ? (
+            <div className="space-y-2" role="status">
+              <p className="text-sm"><strong>{check.imported.toLocaleString('en-IN')}</strong> {kind.unit} ready{check.skipped ? `, ${check.skipped} already there` : ''}{check.failed ? <>, <strong style={{ color: 'rgb(var(--neg))' }}>{check.failed}</strong> with a problem</> : ''}.</p>
+              {check.results?.length ? (
+                <ul className="text-sm space-y-0.5 max-h-56 overflow-y-auto">
+                  {check.results.map((x) => <li key={x.row}><span className="ui-mono text-xs">row {x.row}</span> <span className="ui-caption">{x.error}</span></li>)}
+                </ul>
+              ) : null}
+              <div className="flex gap-2">
+                <button type="button" className="ui-btn ui-btn-primary flex-1" disabled={busy || !check.imported} onClick={go}>{busy ? 'Importing…' : `Import ${check.imported.toLocaleString('en-IN')} ${kind.unit}`}</button>
+                <button type="button" className="ui-btn ui-btn-secondary" onClick={reset}>Start again</button>
+              </div>
+              {check.failed ? <p className="ui-caption">Rows with a problem are left out; fix them in the file and import it again.</p> : null}
+            </div>
           ) : null}
           {result ? (
             <div className="space-y-2" role="status">

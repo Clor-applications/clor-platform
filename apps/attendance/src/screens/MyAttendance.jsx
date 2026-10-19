@@ -1,10 +1,11 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { LogIn, LogOut } from 'lucide-react';
+import { HelpCircle, LogIn, LogOut } from 'lucide-react';
 
 import { PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
 import { notify } from '@ui/components/ui/notify';
-import { clock, dayLabel, getMe, hm, phonePunch, requestCorrection, STATUS, todayIst } from '../api/attendance';
+import { clock, dayLabel, explainMyDay, getMe, hm, phonePunch, REASON_CODES, requestCorrection, STATUS, todayIst } from '../api/attendance';
 import LoadFailed from '../components/LoadFailed';
+import DayExplain from '../components/DayExplain';
 import PhonePunch from '../components/PhonePunch';
 
 /**
@@ -20,7 +21,9 @@ export default function MyAttendance() {
   const [me, setMe] = useState(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
-  const [form, setForm] = useState({ date: '', checkIn: '', checkOut: '', reason: '' });
+  const [form, setForm] = useState({ date: '', checkIn: '', checkOut: '', reason: '', reasonCode: '' });
+  const [explaining, setExplaining] = useState(null);
+  const explainLoad = useCallback(() => explainMyDay(explaining), [explaining]);
 
   const load = useCallback(() => {
     getMe()
@@ -50,9 +53,9 @@ export default function MyAttendance() {
   const ask = async (e) => {
     e.preventDefault();
     try {
-      await requestCorrection({ ...form, checkOut: form.checkOut || null });
+      await requestCorrection({ ...form, checkOut: form.checkOut || null, reasonCode: form.reasonCode || null });
       notify.success('Correction sent for approval.');
-      setForm({ date: '', checkIn: '', checkOut: '', reason: '' });
+      setForm({ date: '', checkIn: '', checkOut: '', reason: '', reasonCode: '' });
       load();
     } catch (err) {
       notify.error(String(err?.message || 'Not sent.'));
@@ -103,6 +106,7 @@ export default function MyAttendance() {
                 <th scope="col" className="ui-th text-end">Worked</th>
                 <th scope="col" className="ui-th text-end">Late</th>
                 <th scope="col" className="ui-th ui-col-h-center">Status</th>
+                <th scope="col" className="ui-th w-10"><span className="sr-only">Why</span></th>
               </tr>
             </thead>
             <tbody>
@@ -114,10 +118,15 @@ export default function MyAttendance() {
                   <td className="text-end tabular-nums">{r.checkOut ? hm(r.workedMinutes) : '—'}</td>
                   <td className="text-end tabular-nums">{r.lateMinutes ? `${r.lateMinutes}m` : '—'}</td>
                   <td className="ui-col-h-center"><span className={`ui-pill ${STATUS[r.status]?.pill || 'ui-pill-neutral'}`}>{STATUS[r.status]?.label || r.status}</span></td>
+                  <td>
+                    <button type="button" className="ui-icon-btn" title="Why does this day say this?" aria-label={`Why is ${dayLabel(r.date)} ${STATUS[r.status]?.label?.toLowerCase() || r.status}?`} onClick={() => setExplaining(r.date)}>
+                      <HelpCircle size={16} aria-hidden="true" />
+                    </button>
+                  </td>
                 </tr>
               ))}
               {!me.records.length ? (
-                <tr><td colSpan={6} className="ui-muted py-6 text-center text-sm">No days yet.</td></tr>
+                <tr><td colSpan={7} className="ui-muted py-6 text-center text-sm">No days yet.</td></tr>
               ) : null}
             </tbody>
           </table>
@@ -130,6 +139,13 @@ export default function MyAttendance() {
           <label className="block"><span className="ui-label">Day</span><input type="date" className="ui-input w-full" max={todayIst()} required value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} /></label>
           <label className="block"><span className="ui-label">In</span><input type="time" className="ui-input w-full" required value={form.checkIn} onChange={(e) => setForm({ ...form, checkIn: e.target.value })} /></label>
           <label className="block"><span className="ui-label">Out</span><input type="time" className="ui-input w-full" value={form.checkOut} onChange={(e) => setForm({ ...form, checkOut: e.target.value })} /></label>
+          <label className="block">
+            <span className="ui-label">What happened</span>
+            <select className="ui-select w-full" value={form.reasonCode} onChange={(e) => setForm({ ...form, reasonCode: e.target.value })}>
+              <option value="">Choose…</option>
+              {REASON_CODES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
+            </select>
+          </label>
           <label className="block sm:col-span-4"><span className="ui-label">Reason</span><input className="ui-input w-full" required minLength={3} value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} /></label>
           <div className="sm:col-span-4"><button type="submit" className="ui-btn ui-btn-secondary">Send for approval</button></div>
         </form>
@@ -144,6 +160,7 @@ export default function MyAttendance() {
           </ul>
         ) : null}
       </section>
+      <DayExplain open={Boolean(explaining)} onClose={() => setExplaining(null)} load={explainLoad} title="Why my day says this" />
     </div>
   );
 }

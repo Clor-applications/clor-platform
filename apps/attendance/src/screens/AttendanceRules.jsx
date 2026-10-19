@@ -1,8 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 
 import { PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
 import { notify } from '@ui/components/ui/notify';
-import { getRules, listShifts, recompute, saveRules, todayIst } from '../api/attendance';
+import { dayLabel, getRules, hm, listRuleVersions, listShifts, recompute, saveRules, simulateRules, todayIst } from '../api/attendance';
 import LoadFailed from '../components/LoadFailed';
 
 const monthStart = () => `${todayIst().slice(0, 7)}-01`;
@@ -133,6 +133,135 @@ export default function AttendanceRules() {
           <button type="button" className="ui-btn ui-btn-secondary" disabled={busy} onClick={run}>{busy ? 'Recalculating…' : 'Recalculate'}</button>
         </div>
       </section>
+
+      <RulePreview shifts={shifts} />
+      <RuleHistory shifts={shifts} attempt={attempt} />
     </div>
+  );
+}
+
+const RULE_FIELDS = [
+  ['startTime', 'Start', 'time'],
+  ['endTime', 'End', 'time'],
+  ['graceMinutes', 'Grace (min)'],
+  ['earlyOutGraceMinutes', 'Early-out grace (min)'],
+  ['breakMinutes', 'Break (min)'],
+  ['halfDayMinutes', 'Half day (min)'],
+  ['fullDayMinutes', 'Full day (min)'],
+  ['overtimeAfterMinutes', 'Overtime after (min)'],
+];
+const STATUS_WORD = { PRESENT: 'Present', HALF_DAY: 'Half day', ABSENT: 'Absent', ON_LEAVE: 'On leave', HOLIDAY: 'Holiday', WEEKLY_OFF: 'Weekly off' };
+const pair = (k, [a, b]) => (k === 'status' ? `${STATUS_WORD[a] || a} → ${STATUS_WORD[b] || b}` : k.endsWith('Minutes') && k !== 'lateMinutes' && k !== 'earlyOutMinutes' ? `${hm(a)} → ${hm(b)}` : `${a} → ${b} min`);
+
+/**
+ * What a change to a shift would do to days already worked, before it is
+ * saved. Nothing is written: the server scores the same punches under both
+ * rules and lists every day whose figures would differ.
+ */
+function RulePreview({ shifts }) {
+  const [shiftId, setShiftId] = useState('');
+  const [changes, setChanges] = useState({});
+  const [range, setRange] = useState({ from: monthStart(), to: todayIst() });
+  const [result, setResult] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const shift = shifts.find((s) => s.id === shiftId);
+  const run = async () => {
+    setBusy(true);
+    try {
+      const body = Object.fromEntries(Object.entries(changes).filter(([, v]) => v !== '' && v !== undefined).map(([k, v]) => [k, k.endsWith('Time') ? v : Number(v)]));
+      setResult(await simulateRules({ shiftId, changes: body, ...range }));
+    } catch (err) {
+      notify.error(String(err?.message || 'Could not preview.'));
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <section className="ui-card space-y-3 p-4" aria-labelledby="preview-h">
+      <h2 id="preview-h" className="ui-t-sec">Preview a shift change</h2>
+      <p className="ui-caption">See which days would change before you edit a shift. Nothing is saved here.</p>
+      <div className="grid gap-3 sm:grid-cols-3">
+        <label className="block">
+          <span className="ui-label">Shift</span>
+          <select className="ui-select w-full" value={shiftId} onChange={(e) => { setShiftId(e.target.value); setChanges({}); setResult(null); }}>
+            <option value="">Choose…</option>
+            {shifts.map((s) => <option key={s.id} value={s.id}>{s.name} ({s.startTime}–{s.endTime})</option>)}
+          </select>
+        </label>
+        <label className="block"><span className="ui-label">Days from</span><input type="date" className="ui-input w-full" value={range.from} max={range.to} onChange={(e) => setRange({ ...range, from: e.target.value })} /></label>
+        <label className="block"><span className="ui-label">To</span><input type="date" className="ui-input w-full" value={range.to} max={todayIst()} onChange={(e) => setRange({ ...range, to: e.target.value })} /></label>
+      </div>
+      {shift ? (
+        <div className="grid gap-3 sm:grid-cols-4">
+          {RULE_FIELDS.map(([k, label, type]) => (
+            <label key={k} className="block">
+              <span className="ui-label">{label}</span>
+              <input type={type || 'number'} min={0} className="ui-input w-full" placeholder={shift[k] == null ? 'Full day' : String(shift[k])} value={changes[k] ?? ''} onChange={(e) => setChanges({ ...changes, [k]: e.target.value })} />
+            </label>
+          ))}
+        </div>
+      ) : null}
+      <button type="button" className="ui-btn ui-btn-secondary" disabled={!shift || busy || !Object.values(changes).some((v) => v !== '')} onClick={run}>{busy ? 'Working it out…' : 'Preview'}</button>
+      {result ? (
+        <div className="space-y-2">
+          <p className="text-sm">
+            <strong>{result.changedDays}</strong> of {result.compared} day{result.compared === 1 ? '' : 's'} would change
+            {result.changedDays ? ` (status ${result.tally.status}, late ${result.tally.late}, overtime ${result.tally.overtime})` : ''}.
+            {result.skipped ? <span className="ui-caption"> {result.skipped} not compared: leave, no check-in, or a closed month.</span> : null}
+          </p>
+          {result.days.length ? (
+            <div className="ui-card overflow-hidden">
+              <div className="overflow-x-auto ui-table-scroll">
+                <table className="ui-table w-full">
+                  <thead><tr><th className="ui-th">Day</th><th className="ui-th">Employee</th><th className="ui-th">In–out</th><th className="ui-th">Would change</th></tr></thead>
+                  <tbody>
+                    {result.days.map((d) => (
+                      <tr key={`${d.employeeId}-${d.date}`}>
+                        <td className="whitespace-nowrap">{dayLabel(d.date, { weekday: true, year: false })}</td>
+                        <td>{d.name}</td>
+                        <td className="tabular-nums whitespace-nowrap">{d.in}–{d.out || '—'}</td>
+                        <td className="text-sm">{['status', 'lateMinutes', 'workedMinutes', 'overtimeMinutes', 'earlyOutMinutes'].filter((k) => d[k]).map((k) => <span key={k} className="mr-3 whitespace-nowrap"><span className="ui-caption">{{ status: 'Status', lateMinutes: 'Late', workedMinutes: 'Worked', overtimeMinutes: 'Overtime', earlyOutMinutes: 'Early out' }[k]}</span> {pair(k, d[k])}</span>)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : null}
+          <p className="ui-caption">To apply it: edit the shift under Shifts, then recalculate these days above.</p>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+const RULE_LABEL = { lateAllowancePerMonth: 'Free late arrivals', latePenaltyEvery: 'Half day lost every', photoRetentionDays: 'Selfies kept (days)', defaultShiftId: 'Default shift', readerUsersBecomeEmployees: 'Reader people become employees', leaveApproval: 'Leave approval', correctionApproval: 'Correction approval', startTime: 'Start', endTime: 'End', breakMinutes: 'Break', graceMinutes: 'Grace', earlyOutGraceMinutes: 'Early-out grace', halfDayMinutes: 'Half day', fullDayMinutes: 'Full day', overtimeAfterMinutes: 'Overtime after', weeklyOffDays: 'Weekly offs', offSaturdays: 'Saturdays off', isActive: 'Active' };
+
+/** Every saved change to the rules and to shifts' scoring: when, who, and what moved. */
+function RuleHistory({ shifts, attempt }) {
+  const [versions, setVersions] = useState(null);
+  const load = useCallback(() => { listRuleVersions().then(setVersions).catch(() => setVersions([])); }, []);
+  useEffect(() => { load(); }, [load, attempt]);
+  const shiftName = (id) => shifts.find((s) => s.id === id)?.name || 'a shift';
+  const show = (k, v) => (v == null || v === '' ? '—' : k === 'defaultShiftId' ? shiftName(v) : typeof v === 'boolean' ? (v ? 'Yes' : 'No') : String(v));
+  if (!versions?.length) return null;
+  return (
+    <section className="ui-card overflow-hidden" aria-labelledby="history-h">
+      <div className="flex items-center justify-between px-4 pt-4 pb-2"><h2 id="history-h" className="ui-t-sec">Changes to the rules</h2><button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" onClick={load}>Refresh</button></div>
+      <ol className="divide-y">
+        {versions.slice(0, 30).map((v) => {
+          const keys = Object.keys({ ...(v.before || {}), ...(v.after || {}) }).filter((k) => JSON.stringify(v.before?.[k]) !== JSON.stringify(v.after?.[k]));
+          return (
+            <li key={v.version} className="px-4 py-2.5 text-sm">
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <strong>{v.kind === 'SHIFT' ? `Shift ${v.name}` : 'Company rules'}</strong>
+                <span className="ui-caption">{new Date(v.at).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })} · {v.by}</span>
+              </div>
+              <p className="ui-caption">{keys.map((k) => `${RULE_LABEL[k] || k}: ${show(k, v.before?.[k])} → ${show(k, v.after?.[k])}`).join(' · ') || 'Saved with no change to scoring.'}</p>
+            </li>
+          );
+        })}
+      </ol>
+    </section>
   );
 }

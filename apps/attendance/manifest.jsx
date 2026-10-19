@@ -36,6 +36,11 @@ import {
   Upload,
   Download,
   ShieldCheck,
+  ShieldAlert,
+  Lock,
+  Smartphone,
+  Link2,
+  ClipboardList,
 } from 'lucide-react';
 
 import Employees from '@ui/personnel/Employees';
@@ -78,6 +83,11 @@ import DataImport from './src/screens/DataImport';
 import DataExport from './src/screens/DataExport';
 import DataRequests from './src/screens/DataRequests';
 import EmployeePortal from './src/portal/EmployeePortal';
+import Exceptions from './src/screens/Exceptions';
+import MonthClose from './src/screens/MonthClose';
+import PhonePunches from './src/screens/PhonePunches';
+import IdMapping from './src/screens/IdMapping';
+import AttendanceSetup from './src/screens/AttendanceSetup';
 
 /**
  * Everything the shell knows about Attendance.
@@ -116,16 +126,17 @@ export const attendanceApp = {
     ] },
     { key: 'device', label: 'Readers', groups: [
       { label: 'Readers', items: ['readerHealth', 'readers', 'readerSync'] },
-      { label: 'Data', items: ['transactions', 'enrolments', 'unmatched', 'deviceLogs'] },
+      { label: 'Data', items: ['transactions', 'phonePunches', 'enrolments', 'unmatched', 'idMapping', 'deviceLogs'] },
     ] },
     { key: 'attendance', label: 'Attendance', groups: [
-      { label: 'Daily', items: ['records', 'requests', 'leaveRequests'] },
-      { label: 'Reports', items: ['register', 'calendar', 'summary', 'reports'] },
+      { label: 'Daily', items: ['exceptions', 'records', 'requests', 'leaveRequests'] },
+      { label: 'Reports', items: ['register', 'calendar', 'summary', 'monthClose', 'reports'] },
       { label: 'Schedule', items: ['scheduleCalendar', 'shifts', 'shiftAssignments', 'departmentSchedule', 'temporarySchedule', 'rotations'] },
       { label: 'Rules', items: ['holidays', 'rules'] },
       { label: 'Leave setup', items: ['leaveTypes', 'leaveBalances'] },
     ] },
     { key: 'system', label: 'System', groups: [
+      { label: 'Setup', items: ['setup'] },
       { label: 'Employee portal', items: ['portalAccess', 'sites', 'siteCheck'] },
       { label: 'Integrations', items: ['integrations'] },
       { label: 'Data', items: ['dataImport', 'dataExport'] },
@@ -184,6 +195,11 @@ export const attendanceApp = {
     { section: 'Data' },
     { key: 'dataImport', label: 'Import', icon: Upload, permission: 'ATTENDANCE::Attendance Records::VIEW' },
     { key: 'dataExport', label: 'Export', icon: Download, permission: 'ATTENDANCE::Attendance Records::VIEW' },
+    { key: 'exceptions', label: 'Exceptions', icon: ShieldAlert, permission: 'ATTENDANCE::Attendance Records::VIEW' },
+    { key: 'monthClose', label: 'Month close', icon: Lock, permission: 'ATTENDANCE::Attendance Records::VIEW' },
+    { key: 'phonePunches', label: 'Phone punches', icon: Smartphone, permission: 'ATTENDANCE::Attendance Devices::VIEW' },
+    { key: 'idMapping', label: 'ID mapping', icon: Link2, permission: 'ATTENDANCE::Attendance Devices::VIEW' },
+    { key: 'setup', label: 'Setup', icon: ClipboardList, permission: 'ATTENDANCE::Attendance Records::VIEW' },
     { section: 'Me' },
     { key: 'me', label: 'My attendance', icon: UserRoundCheck, permission: 'ATTENDANCE::My Attendance::VIEW' },
     { key: 'myLeave', label: 'My leave', icon: CalendarOff, permission: 'ATTENDANCE::My Attendance::VIEW' },
@@ -230,6 +246,11 @@ export const attendanceApp = {
     dataRequests: DataRequests,
     me: MyAttendance,
     myLeave: MyLeave,
+    exceptions: Exceptions,
+    monthClose: MonthClose,
+    phonePunches: PhonePunches,
+    idMapping: IdMapping,
+    setup: AttendanceSetup,
   },
   /** For people who are not CLOR users, at #/<key>; the shell routes, the app draws. */
   publicPages: {

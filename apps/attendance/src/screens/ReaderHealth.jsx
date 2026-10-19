@@ -1,10 +1,10 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { BellRing, RefreshCw } from 'lucide-react';
+import { BellRing, History, RefreshCw } from 'lucide-react';
 
 import { PageHeader, SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import Drawer from '@ui/components/ui/Drawer';
 import { notify } from '@ui/components/ui/notify';
-import { getReaderHealth, saveReaderAlertSettings } from '../api/attendance';
+import { getReaderHealth, getReaderTimeline, saveReaderAlertSettings } from '../api/attendance';
 import LoadFailed from '../components/LoadFailed';
 
 const ago = (iso) => {
@@ -17,6 +17,7 @@ const ago = (iso) => {
 };
 const STATUS = {
   ok: { label: 'Healthy', dot: 'rgb(var(--pos))' },
+  delayed: { label: 'Late checking in', dot: 'rgb(var(--warn-ink, 180 120 0))' },
   warn: { label: 'Needs a look', dot: 'rgb(var(--warn-ink, 180 120 0))' },
   bad: { label: 'Problem', dot: 'rgb(var(--neg))' },
   offline: { label: 'Offline', dot: 'rgb(var(--neg))' },
@@ -39,6 +40,7 @@ export default function ReaderHealth() {
   const [data, setData] = useState(null);
   const [loadError, setLoadError] = useState('');
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [timelineOf, setTimelineOf] = useState(null);
   const load = useCallback(() => {
     getReaderHealth().then((v) => { setData(v); setLoadError(''); }).catch((e) => setLoadError(String(e?.message || 'Could not load reader health.')));
   }, []);
@@ -98,7 +100,12 @@ export default function ReaderHealth() {
                       {[r.serialNumber, r.model, r.firmware && `firmware ${r.firmware}`, r.ip && `IP ${r.ip}`, r.areaName && `${r.areaName} area`].filter(Boolean).join(' · ')}
                     </div>
                   </div>
-                  <span className="ui-caption shrink-0">{st.label}</span>
+                  <span className="flex shrink-0 items-center gap-1">
+                    <span className="ui-caption">{st.label}</span>
+                    <button type="button" className="ui-icon-btn" title="Timeline: punches received, changes sent, errors" aria-label={`${r.name} timeline`} onClick={() => setTimelineOf(r)}>
+                      <History size={16} aria-hidden="true" />
+                    </button>
+                  </span>
                 </header>
                 <dl className="grid grid-cols-3 gap-2 text-xs">
                   <div><dt className="ui-caption">Last heard</dt><dd className="font-medium">{ago(r.lastSeenAt)}</dd></div>
@@ -170,7 +177,86 @@ export default function ReaderHealth() {
       ) : null}
 
       {settingsOpen ? <AlertSettings initial={data.settings} onClose={() => setSettingsOpen(false)} onSaved={() => { setSettingsOpen(false); load(); }} /> : null}
+      {timelineOf ? <ReaderTimeline reader={timelineOf} onClose={() => setTimelineOf(null)} /> : null}
     </div>
+  );
+}
+
+const TONE = { ok: 'pos', warn: 'warn', bad: 'neg', info: 'neutral' };
+const KIND_WORD = { batch: 'Punches', command: 'Change', log: 'Reader log', alert: 'Alert' };
+
+/**
+ * One reader, as a stream: every batch of punches it sent (with its trace id,
+ * how many were new and how many repeats), every change sent to it and what
+ * it answered, its own error log and the alerts it raised. The changes still
+ * waiting are listed first.
+ */
+function ReaderTimeline({ reader, onClose }) {
+  const [days, setDays] = useState(7);
+  const [result, setResult] = useState({ for: null, data: null, error: '' });
+  useEffect(() => {
+    let off = false;
+    const key = `${reader.id}:${days}`;
+    getReaderTimeline(reader.id, days)
+      .then((d) => !off && setResult({ for: key, data: d, error: '' }))
+      .catch((e) => !off && setResult({ for: key, data: null, error: String(e?.message || 'Could not load the timeline.') }));
+    return () => { off = true; };
+  }, [reader.id, days]);
+  const current = result.for === `${reader.id}:${days}`;
+  const data = current ? result.data : null;
+  const error = current ? result.error : '';
+  return (
+    <Drawer open onClose={onClose} title={`${reader.name}: timeline`} description={data ? `Last heard ${ago(data.reader.lastSeenAt)} · last new punches ${ago(data.lastPunchBatchAt)}` : ''} widthClass="w-[min(40rem,96vw)]">
+      <div className="mb-3 flex items-center gap-2">
+        <span className="ui-caption">Show</span>
+        {[1, 7, 30].map((n) => (
+          <button key={n} type="button" className="ui-segment" aria-selected={days === n} role="tab" onClick={() => setDays(n)}>{n === 1 ? 'Today' : `${n} days`}</button>
+        ))}
+      </div>
+      {error ? <p className="ui-caption" style={{ color: 'rgb(var(--neg))' }}>{error}</p> : null}
+      {!data && !error ? <SkeletonCard lines={6} /> : null}
+      {data ? (
+        <div className="space-y-5">
+          {data.pending.length ? (
+            <section aria-labelledby="pending-h">
+              <h3 id="pending-h" className="ui-t-sec mb-2">Waiting to reach the reader ({data.pending.length})</h3>
+              <ul className="divide-y text-sm">
+                {data.pending.slice(0, 50).map((c) => (
+                  <li key={c.id} className="flex items-center justify-between gap-3 py-1.5">
+                    <span>{c.what}{c.lastError ? <span className="ui-caption block">{c.lastError}</span> : null}</span>
+                    <span className={`ui-pill ui-pill-${c.status === 'FAILED' ? 'neg' : 'warn'}`}>{c.status === 'FAILED' ? 'failed' : c.status === 'SENT' ? `sent, ${c.attempts}×` : 'waiting'}</span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
+          <section aria-labelledby="events-h">
+            <h3 id="events-h" className="ui-t-sec mb-2">What happened</h3>
+            {data.events.length ? (
+              <ol className="ui-timeline">
+                {data.events.map((e, i) => (
+                  <li key={i} data-tone={e.tone}>
+                    <span className="ui-timeline-dot" aria-hidden="true" />
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-baseline justify-between gap-2">
+                        <span className="text-sm font-medium">{e.title}</span>
+                        <span className="ui-caption">{new Date(e.at).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
+                      </div>
+                      <p className="ui-caption">
+                        <span className={`ui-pill ui-pill-${TONE[e.tone] || 'neutral'} mr-1.5`}>{KIND_WORD[e.kind] || e.kind}</span>
+                        {e.detail}{e.traceId ? <span className="ui-mono"> · trace {e.traceId.slice(0, 8)}</span> : null}
+                      </p>
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            ) : (
+              <p className="ui-muted text-sm">Nothing in this period.</p>
+            )}
+          </section>
+        </div>
+      ) : null}
+    </Drawer>
   );
 }
 

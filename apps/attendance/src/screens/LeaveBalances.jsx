@@ -1,10 +1,12 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { HelpCircle } from 'lucide-react';
 
 import { PageHeader, SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import { notify } from '@ui/components/ui/notify';
 import { downloadCsv } from '@ui/utils/csv';
-import { getLeaveBalances, setAllocation, todayIst } from '../api/attendance';
+import { explainLeave, getLeaveBalances, setAllocation, todayIst } from '../api/attendance';
 import LoadFailed from '../components/LoadFailed';
+import LeaveExplain from '../components/LeaveExplain';
 
 /**
  * Days left per person and type. Click a paid type's figure to give someone a
@@ -15,6 +17,8 @@ export default function LeaveBalances() {
   const [year, setYear] = useState(Number(todayIst().slice(0, 4)));
   const [data, setData] = useState(null);
   const [loadError, setLoadError] = useState('');
+  const [explaining, setExplaining] = useState(null);
+  const explainLoad = useCallback(() => explainLeave(explaining?.employeeId, explaining?.leaveTypeId, explaining?.year), [explaining]);
   const [editing, setEditing] = useState(null); // { employeeId, leaveTypeId, value }
 
   const load = useCallback(() => {
@@ -132,6 +136,11 @@ export default function LeaveBalances() {
                               {b.carriedIn ? <span className="ui-caption block">{b.carriedIn} carried in</span> : null}
                             </button>
                           )}
+                          {isEditing ? null : (
+                            <button type="button" className="ui-icon-btn ui-icon-btn-xs" title="How is this worked out?" aria-label={`How ${r.name}'s ${t.name} balance is worked out`} onClick={() => setExplaining({ employeeId: r.employeeId, leaveTypeId: t.id, year })}>
+                              <HelpCircle size={14} aria-hidden="true" />
+                            </button>
+                          )}
                         </td>
                       );
                     })}
@@ -143,6 +152,7 @@ export default function LeaveBalances() {
           <p className="ui-caption px-4 py-2">* set for that person; others get the type's days. Blank and save to go back to the type's days.</p>
         </div>
       )}
+      <LeaveExplain open={Boolean(explaining)} onClose={() => setExplaining(null)} load={explainLoad} />
     </div>
   );
 }

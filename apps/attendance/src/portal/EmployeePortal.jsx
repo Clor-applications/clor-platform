@@ -1,14 +1,18 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { CalendarDays, CalendarOff, Camera, CheckSquare, Clock3, Fingerprint, ListChecks, LogIn, LogOut, MapPin, UserRound, X } from 'lucide-react';
+import { CalendarDays, CalendarOff, Camera, CheckSquare, Clock3, Fingerprint, HelpCircle, ListChecks, LogIn, LogOut, MapPin, UserRound, X } from 'lucide-react';
 
-import { STATUS } from '../api/attendance';
+import { REASON_CODES, STATUS } from '../api/attendance';
 import LoadFailed from '../components/LoadFailed';
+import DayExplain from '../components/DayExplain';
+import LeaveExplain from '../components/LeaveExplain';
 import PhonePunch from '../components/PhonePunch';
 import {
   SignedOut,
   activate,
   askCorrection,
   askLeave,
+  explainDay as portalExplainDay,
+  explainLeave as portalExplainLeave,
   cancelLeave,
   changePassword,
   decideApproval,
@@ -302,8 +306,10 @@ function MyDays({ guard }) {
   const [month, setMonth] = useState(todayIst().slice(0, 7));
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
-  const [form, setForm] = useState({ date: '', checkIn: '', checkOut: '', reason: '' });
+  const [form, setForm] = useState({ date: '', checkIn: '', checkOut: '', reason: '', reasonCode: '' });
   const [note, setNote] = useState(null);
+  const [explaining, setExplaining] = useState(null);
+  const explainLoad = useCallback(() => guard(portalExplainDay(explaining)), [explaining, guard]);
   /* Only the latest request may fill the screen: a slow earlier month must not overwrite the one picked since. */
   const latest = useRef(0);
   const load = useCallback(() => {
@@ -320,9 +326,9 @@ function MyDays({ guard }) {
     e.preventDefault();
     setNote(null);
     try {
-      await guard(askCorrection({ ...form, checkOut: form.checkOut || null }));
+      await guard(askCorrection({ ...form, checkOut: form.checkOut || null, reasonCode: form.reasonCode || null }));
       setNote({ ok: true, text: 'Sent to HR for approval.' });
-      setForm({ date: '', checkIn: '', checkOut: '', reason: '' });
+      setForm({ date: '', checkIn: '', checkOut: '', reason: '', reasonCode: '' });
       load();
     } catch (err) {
       if (!(err instanceof SignedOut)) setNote({ ok: false, text: String(err?.message || 'Not sent.') });
@@ -360,6 +366,7 @@ function MyDays({ guard }) {
                     <th scope="col" className="ui-th">Day</th>
                     <th scope="col" className="ui-th">Status</th>
                     <th scope="col" className="ui-th text-end">In – out</th>
+                    <th scope="col" className="ui-th w-10"><span className="sr-only">Why</span></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -379,6 +386,11 @@ function MyDays({ guard }) {
                         </td>
                         <td className="whitespace-nowrap text-end tabular-nums">
                           {d.checkIn ? `${d.checkIn} – ${d.checkOut || ''}`.trim() : '—'}
+                        </td>
+                        <td>
+                          <button type="button" className="ui-icon-btn" aria-label={`Why is ${dayLabel(d.date)} ${STATUS[d.status]?.label?.toLowerCase() || d.status}?`} onClick={() => setExplaining(d.date)}>
+                            <HelpCircle size={16} aria-hidden="true" />
+                          </button>
                         </td>
                       </tr>
                     );
@@ -401,6 +413,13 @@ function MyDays({ guard }) {
           <label className="block"><span className="ui-label">In</span><input type="time" className="ui-input w-full" required value={form.checkIn} onChange={(e) => setForm({ ...form, checkIn: e.target.value })} /></label>
           <label className="block"><span className="ui-label">Out</span><input type="time" className="ui-input w-full" value={form.checkOut} onChange={(e) => setForm({ ...form, checkOut: e.target.value })} /></label>
         </div>
+        <label className="block">
+          <span className="ui-label">What happened</span>
+          <select className="ui-select w-full" value={form.reasonCode} onChange={(e) => setForm({ ...form, reasonCode: e.target.value })}>
+            <option value="">Choose…</option>
+            {REASON_CODES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
+          </select>
+        </label>
         <label className="block"><span className="ui-label">Why</span><input className="ui-input w-full" required minLength={3} maxLength={500} value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} /></label>
         {note ? <p className="text-sm" role={note.ok ? 'status' : 'alert'}>{note.text}</p> : null}
         <button type="submit" className="ui-btn ui-btn-primary w-full">Send</button>
@@ -419,6 +438,7 @@ function MyDays({ guard }) {
           </ul>
         </section>
       ) : null}
+      <DayExplain open={Boolean(explaining)} onClose={() => setExplaining(null)} load={explainLoad} title="Why my day says this" />
     </>
   );
 }
@@ -485,6 +505,8 @@ function MyLeave({ guard }) {
   const [form, setForm] = useState({ leaveTypeId: '', fromDate: '', toDate: '', reason: '' });
   const [note, setNote] = useState(null);
   const [error, setError] = useState('');
+  const [explaining, setExplaining] = useState(null);
+  const explainLoad = useCallback(() => guard(portalExplainLeave(explaining)), [explaining, guard]);
   const load = useCallback(() => {
     guard(getLeave())
       .then((d) => (setData(d), setError('')))
@@ -528,6 +550,7 @@ function MyLeave({ guard }) {
                 <>
                   <div className="text-2xl font-semibold tabular-nums">{t.available}</div>
                   <div className="ui-caption">left of {t.allocated}{t.pending ? ` · ${t.pending} waiting` : ''}</div>
+                  <button type="button" className="ui-link text-xs mt-1" onClick={() => setExplaining(t.id)}>How is this worked out?</button>
                 </>
               ) : (
                 <div className="ui-caption">Unpaid · {t.used} taken</div>
@@ -580,6 +603,7 @@ function MyLeave({ guard }) {
           </ul>
         </section>
       ) : null}
+      <LeaveExplain open={Boolean(explaining)} onClose={() => setExplaining(null)} load={explainLoad} />
     </>
   );
 }

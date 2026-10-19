@@ -1,13 +1,25 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Download, Mail, Play, Printer } from 'lucide-react';
+import { Download, FileSpreadsheet, History, Mail, Play, Printer } from 'lucide-react';
 
 import { PageHeader, SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { downloadCsv } from '@ui/utils/csv';
-import { createReportSchedule, deleteReportSchedule, listReportSchedules, listReports, runReport, sendReportSchedule, todayIst, updateReportSchedule } from '../api/attendance';
+import { exportListXlsx } from '@ui/utils/listXlsx';
+import { createReportSchedule, deleteReportSchedule, listReportSchedules, listReports, listScheduleRuns, runReport, sendReportSchedule, todayIst, updateReportSchedule } from '../api/attendance';
 import LoadFailed from '../components/LoadFailed';
 
 const escapeHtml = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+
+/** The report as a real spreadsheet: a column is numeric only if every value in it is a number. */
+function exportXlsx(result) {
+  const numeric = (key) => result.rows.length > 0 && result.rows.every((r) => r[key] === '' || r[key] == null || (typeof r[key] === 'number' || /^-?\d+(\.\d+)?$/.test(String(r[key]))));
+  exportListXlsx({
+    fileName: `${result.title} ${result.period}`,
+    sheetName: result.title,
+    columns: result.columns.map((c) => ({ key: c.key, label: c.label, ...(c.align === 'end' && numeric(c.key) ? { type: 'number' } : {}) })),
+    rows: result.totals ? [...result.rows, result.totals] : result.rows,
+  });
+}
 
 /** A plain printable page: the inspector's copy of a register. */
 function printReport(r) {
@@ -37,12 +49,12 @@ table{border-collapse:collapse;width:100%}th,td{border:1px solid #bbb;padding:3p
  * Attendance reports and statutory registers (ClorTime's catalogue). Pick one,
  * set its dates, run it; export to a spreadsheet or print it.
  */
-export default function AttendanceReports() {
+export default function AttendanceReports({ openScreen } = {}) {
   const [catalogue, setCatalogue] = useState(null);
   const [loadError, setLoadError] = useState('');
   const [attempt, setAttempt] = useState(0);
   const [active, setActive] = useState(null);
-  const [form, setForm] = useState({ date: todayIst(), month: todayIst().slice(0, 7), from: `${todayIst().slice(0, 7)}-01`, to: todayIst(), departmentId: '', employeeId: '' });
+  const [form, setForm] = useState({ date: todayIst(), month: todayIst().slice(0, 7), from: `${todayIst().slice(0, 7)}-01`, to: todayIst(), departmentId: '', employeeId: '', areaId: '', contractorId: '' });
   const [result, setResult] = useState(null);
   const [running, setRunning] = useState(false);
 
@@ -60,8 +72,13 @@ export default function AttendanceReports() {
     try {
       const p = {};
       for (const k of active.params) {
-        if (k === 'department') p.departmentId = form.departmentId;
-        else if (k === 'employee') p.employeeId = form.employeeId;
+        if (k === 'department') {
+          /* Who the report covers: department, site, contractor or one person, in any combination. */
+          p.departmentId = form.departmentId;
+          p.areaId = form.areaId;
+          p.contractorId = form.contractorId;
+          p.employeeId = form.employeeId;
+        } else if (k === 'employee') p.employeeId = form.employeeId;
         else p[k] = form[k];
       }
       setResult(await runReport(active.id, p));
@@ -70,6 +87,18 @@ export default function AttendanceReports() {
     } finally {
       setRunning(false);
     }
+  };
+  /* A row that names a person (by employee code) opens their days in Records for the row's day or the report's period. */
+  const byCode = new Map((catalogue?.employees || []).filter((e) => e.code).map((e) => [String(e.code), e.id]));
+  const monthEnd = (m) => `${m}-${String(new Date(Date.UTC(Number(m.slice(0, 4)), Number(m.slice(5, 7)), 0)).getUTCDate()).padStart(2, '0')}`;
+  const drill = (row) => {
+    if (!openScreen || !row) return null;
+    const employeeId = byCode.get(String(row.code ?? row.employeeCode ?? ''));
+    if (!employeeId) return null;
+    const day = /^\d{4}-\d{2}-\d{2}$/.test(String(row.date || '')) ? row.date : null;
+    const from = day || (active?.params.includes('month') ? `${form.month}-01` : active?.params.includes('date') ? form.date : form.from);
+    const to = day || (active?.params.includes('month') ? monthEnd(form.month) : active?.params.includes('date') ? form.date : form.to);
+    return () => openScreen('records', { employeeId, from, to });
   };
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
 
@@ -126,6 +155,30 @@ export default function AttendanceReports() {
                     </select>
                   </label>
                 ) : null}
+                {active.params.includes('department') && !active.params.includes('employee') && (catalogue.employees || []).length ? (
+                  <label className="block"><span className="ui-label">Person</span>
+                    <select className="ui-select" value={form.employeeId} onChange={set('employeeId')}>
+                      <option value="">Everyone</option>
+                      {catalogue.employees.map((e) => <option key={e.id} value={e.id}>{e.name}{e.code ? ` · ${e.code}` : ''}</option>)}
+                    </select>
+                  </label>
+                ) : null}
+                {(active.params.includes('department') || active.id === 'contractor') && (catalogue.areas || []).length ? (
+                  <label className="block"><span className="ui-label">Site</span>
+                    <select className="ui-select" value={form.areaId} onChange={set('areaId')}>
+                      <option value="">All</option>
+                      {catalogue.areas.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+                    </select>
+                  </label>
+                ) : null}
+                {(active.params.includes('department') || active.id === 'contractor') && (catalogue.contractors || []).length ? (
+                  <label className="block"><span className="ui-label">Contractor</span>
+                    <select className="ui-select" value={form.contractorId} onChange={set('contractorId')}>
+                      <option value="">All</option>
+                      {catalogue.contractors.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    </select>
+                  </label>
+                ) : null}
                 {active.params.includes('department') && catalogue.departments.length ? (
                   <label className="block">
                     <span className="ui-label">Department</span>
@@ -147,6 +200,9 @@ export default function AttendanceReports() {
                     >
                       <Download size={16} aria-hidden="true" /> Export
                     </button>
+                    <button type="button" className="ui-btn ui-btn-secondary" onClick={() => exportXlsx(result)}>
+                      <FileSpreadsheet size={16} aria-hidden="true" /> Excel
+                    </button>
                     <button type="button" className="ui-btn ui-btn-secondary" onClick={() => printReport(result)}>
                       <Printer size={16} aria-hidden="true" /> Print
                     </button>
@@ -158,7 +214,7 @@ export default function AttendanceReports() {
                 <section className="ui-card overflow-hidden" aria-label={result.title}>
                   <div className="px-4 pt-3">
                     <h2 className="ui-t-sec">{result.title}</h2>
-                    <p className="ui-caption">{result.period} · {result.rows.length} rows</p>
+                    <p className="ui-caption">{result.period} · {result.rows.length} rows{openScreen && result.rows.some((r) => drill(r)) ? ' · click a row to open its days' : ''}</p>
                   </div>
                   {result.notes?.length ? (
                     <ul className="space-y-1 px-4 pt-2 text-xs">
@@ -179,7 +235,12 @@ export default function AttendanceReports() {
                         </thead>
                         <tbody>
                           {result.rows.map((row, i) => (
-                            <tr key={i}>
+                            <tr
+                              key={i}
+                              className={drill(row) ? 'ui-row-click' : undefined}
+                              onClick={drill(row) ? () => drill(row)() : undefined}
+                              title={drill(row) ? 'Open these days in Records' : undefined}
+                            >
                               {result.columns.map((c) => (
                                 <td key={c.key} className={`${c.align === 'end' ? 'text-end tabular-nums' : c.align === 'center' ? 'ui-col-h-center' : ''} whitespace-nowrap`}>{row[c.key] ?? ''}</td>
                               ))}
@@ -218,9 +279,14 @@ function Scheduled({ catalogue, form, active }) {
   const [rows, setRows] = useState(null);
   const [draft, setDraft] = useState(null);
   const [busy, setBusy] = useState('');
+  const [runs, setRuns] = useState(null);
   const load = useCallback(() => listReportSchedules().then(setRows).catch(() => setRows([])), []);
+  const showRuns = async (s) => {
+    if (runs?.id === s.id) { setRuns(null); return; }
+    try { setRuns({ id: s.id, list: await listScheduleRuns(s.id) }); } catch (err) { notify.error(String(err?.message || 'Could not load the history.')); }
+  };
   useEffect(() => { load(); }, [load]);
-  const start = () => setDraft({ reportId: active?.id || catalogue.reports[0].id, cadence: 'WEEKLY', dayOfWeek: 1, dayOfMonth: 1, hour: 7, recipients: '', params: { ...(form.departmentId ? { departmentId: form.departmentId } : {}), ...(form.employeeId ? { employeeId: form.employeeId } : {}) } });
+  const start = () => setDraft({ reportId: active?.id || catalogue.reports[0].id, cadence: 'WEEKLY', dayOfWeek: 1, dayOfMonth: 1, hour: 7, recipients: '', params: { ...(form.departmentId ? { departmentId: form.departmentId } : {}), ...(form.employeeId ? { employeeId: form.employeeId } : {}), ...(form.areaId ? { areaId: form.areaId } : {}), ...(form.contractorId ? { contractorId: form.contractorId } : {}) } });
   const save = async (e) => {
     e.preventDefault();
     setBusy('save');
@@ -242,7 +308,7 @@ function Scheduled({ catalogue, form, active }) {
         <h2 id="sched-h" className="ui-t-sec flex items-center gap-2"><Mail size={16} aria-hidden="true" /> Scheduled</h2>
         {!draft ? <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={start}>{active ? `E-mail “${active.name}” on a schedule` : 'E-mail a report on a schedule'}</button> : null}
       </div>
-      <p className="ui-caption">A daily one covers yesterday, a weekly one the week just ended, a monthly one the month just ended. Sent from the company’s mail settings as a table.</p>
+      <p className="ui-caption">A daily one covers yesterday, a weekly one the week just ended, a monthly one the month just ended. Sent from the company’s mail settings as a table, with the CSV attached.</p>
       {!rows ? null : rows.length ? (
         <ul className="divide-y" style={{ borderColor: 'rgb(var(--border))' }}>
           {rows.map((s) => (
@@ -251,10 +317,18 @@ function Scheduled({ catalogue, form, active }) {
                 <div className="text-sm font-medium">{s.reportName} <span className="ui-caption font-normal">· {when(s)}</span></div>
                 <div className="ui-caption">To {s.recipients}{s.lastSentAt ? ` · last sent ${new Date(s.lastSentAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}` : ' · not sent yet'}</div>
                 {s.lastError ? <div className="ui-caption" style={{ color: 'rgb(var(--neg))' }}>{s.lastError}</div> : null}
+                {runs?.id === s.id ? (
+                  <ul className="mt-1 space-y-0.5 text-xs">
+                    {runs.list.length ? runs.list.slice(0, 12).map((r) => (
+                      <li key={r.id} className="flex gap-2"><span className={`ui-pill ui-pill-${r.ok ? 'pos' : 'neg'}`}>{r.ok ? 'sent' : 'failed'}</span><span className="ui-caption">{new Date(r.at).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}{r.ok ? ` · ${r.rows} rows to ${r.recipients}` : ` · ${r.error}`}</span></li>
+                    )) : <li className="ui-caption">Not run yet.</li>}
+                  </ul>
+                ) : null}
               </div>
               <div className="flex items-center gap-2">
                 <span className={`ui-pill ${s.enabled ? 'ui-pill-pos' : 'ui-pill-neutral'}`}>{s.enabled ? 'On' : 'Off'}</span>
                 <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={busy === s.id} onClick={async () => { setBusy(s.id); try { const r = await sendReportSchedule(s.id); (r.ok ? notify.success : notify.error)(r.ok ? `Sent to ${r.sent}.` : r.error); load(); } finally { setBusy(''); } }}>Send now</button>
+                <button type="button" className="ui-icon-btn" title="When it was sent" aria-label={`History of ${s.reportName}`} onClick={() => showRuns(s)}><History size={15} aria-hidden="true" /></button>
                 <button type="button" className="ui-link text-sm" onClick={() => updateReportSchedule(s.id, { enabled: !s.enabled }).then(load)}>{s.enabled ? 'Pause' : 'Resume'}</button>
                 <button type="button" className="ui-link text-sm" onClick={async () => { if (await confirmDialog({ title: 'Stop this schedule?', message: `${s.reportName} will no longer be e-mailed.`, confirmLabel: 'Stop' })) { await deleteReportSchedule(s.id); load(); } }}>Stop</button>
               </div>
@@ -283,7 +357,7 @@ function Scheduled({ catalogue, form, active }) {
             <label className="block"><span className="ui-label">At (hour, IST)</span><input type="number" min={0} max={23} className="ui-input w-full" value={draft.hour} onChange={(e) => setDraft({ ...draft, hour: Number(e.target.value) })} /></label>
             <label className="block md:col-span-3"><span className="ui-label">To</span><input className="ui-input w-full" required placeholder="owner@company.in, hr@company.in" value={draft.recipients} onChange={(e) => setDraft({ ...draft, recipients: e.target.value })} /></label>
           </div>
-          {Object.keys(draft.params).length ? <p className="ui-caption">With the filters chosen above ({Object.entries(draft.params).map(([k, v]) => `${k === 'departmentId' ? 'department' : 'person'}: ${v}`).join(', ')}).</p> : null}
+          {Object.keys(draft.params).length ? <p className="ui-caption">With the filters chosen above ({Object.entries(draft.params).map(([k, v]) => `${{ departmentId: 'department', employeeId: 'person', areaId: 'site', contractorId: 'contractor' }[k] || k}: ${v}`).join(', ')}).</p> : null}
           <div className="flex gap-2">
             <button type="submit" className="ui-btn ui-btn-primary ui-btn-sm" disabled={busy === 'save'}>Schedule</button>
             <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => setDraft(null)}>Cancel</button>

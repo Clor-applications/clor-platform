@@ -8,6 +8,7 @@ import LoadFailed from '../components/LoadFailed';
 /* The reader states the server already decides (Reader health uses the same words). */
 const READER = {
   ok: { label: 'Healthy', tone: 'pos' },
+  delayed: { label: 'Late checking in', tone: 'warn' },
   warn: { label: 'Needs a look', tone: 'warn' },
   bad: { label: 'Problem', tone: 'neg' },
   offline: { label: 'Offline', tone: 'neg' },
@@ -75,7 +76,7 @@ export default function AttendanceToday({ openScreen }) {
     : [];
   const peak = week ? Math.max(1, ...week.map((d) => d.present + d.halfDay + d.absent + d.leave)) : 1;
   const readerList = readers?.readers || [];
-  const readerTrouble = readerList.filter((r) => r.status !== 'ok' && r.status !== 'off').length;
+  const readerTrouble = readerList.filter((r) => r.status !== 'ok' && r.status !== 'off' && r.status !== 'delayed').length;
 
   return (
     <div className="space-y-4">

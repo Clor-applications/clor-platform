@@ -5,6 +5,7 @@ import { PageHeader, SkeletonCard, EmptyState } from '@ui/components/ui/Primitiv
 import { notify } from '@ui/components/ui/notify';
 import { listStructure } from '@ui/personnel/api';
 import { addDepartmentSchedule, listDepartmentSchedules, listShifts, removeDepartmentSchedule, todayIst } from '../api/attendance';
+import { confirmScheduleChange } from '../components/scheduleCheck';
 import LoadFailed from '../components/LoadFailed';
 
 /**
@@ -28,6 +29,7 @@ export default function DepartmentSchedule() {
 
   const add = async (e) => {
     e.preventDefault();
+    if (!(await confirmScheduleChange({ kind: 'DEPARTMENT', departmentId: form.departmentId, shiftId: form.shiftId, from: form.effectiveFrom, to: form.effectiveTo || null }))) return;
     try {
       await addDepartmentSchedule({ ...form, effectiveTo: form.effectiveTo || null });
       notify.success('Department schedule saved.');

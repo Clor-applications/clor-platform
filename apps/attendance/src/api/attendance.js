@@ -24,9 +24,10 @@ export const listEmployees = () => get('/employees').then((r) => r?.employees ||
 
 export const listRecords = (params) => get(`/records${query(params)}`);
 /* Bulk imports (the Import screen): rows in, a verdict per failed row out. */
-export const importRecords = (rows) => send('/records/import', 'POST', { rows });
-export const importHolidays = (rows) => send('/holidays/import', 'POST', { rows });
-export const importAssignments = (rows) => send('/shift-assignments/import', 'POST', { rows });
+/* dryRun: every row checked the same way, nothing saved — the preview before an import. */
+export const importRecords = (rows, dryRun = false) => send('/records/import', 'POST', { rows, dryRun });
+export const importHolidays = (rows, dryRun = false) => send('/holidays/import', 'POST', { rows, dryRun });
+export const importAssignments = (rows, dryRun = false) => send('/shift-assignments/import', 'POST', { rows, dryRun });
 export const markDay = (body) => send('/records', 'PUT', body);
 export const deleteDay = (id) => send(`/records/${encodeURIComponent(id)}`, 'DELETE');
 export const validateDays = (ids) => send('/records/validate', 'POST', { ids });
@@ -57,7 +58,8 @@ export const deleteHoliday = (id) => send(`/holidays/${encodeURIComponent(id)}`,
 
 export const getSummary = (month) => get(`/summary${query({ month })}`);
 /** Close a month (its days become final) or reopen it. */
-export const closeMonth = (month) => send(`/months/${encodeURIComponent(month)}/close`, 'POST', {});
+/* `acknowledge`: the month-close checklist has open items and the person closing has seen them. */
+export const closeMonth = (month, acknowledge = false) => send(`/months/${encodeURIComponent(month)}/close`, 'POST', acknowledge ? { acknowledge: true } : {});
 export const reopenMonth = (month) => send(`/months/${encodeURIComponent(month)}/reopen`, 'POST', {});
 
 /** IST "today", the attendance day. */
@@ -237,3 +239,39 @@ export const createGeofence = (body) => send('/geofences', 'POST', body);
 export const updateGeofence = (id, body) => send(`/geofences/${encodeURIComponent(id)}`, 'PUT', body);
 export const deleteGeofence = (id) => send(`/geofences/${encodeURIComponent(id)}`, 'DELETE');
 export const getPunchPhoto = (id) => get(`/punch-photos/${encodeURIComponent(id)}`);
+
+/* --- Attendance you can trust (server: routes/attendanceInsights.ts) --- */
+/** Why a day says what it says: shift, grace, punches, the rule applied, its history. */
+export const explainDay = (employeeId, date) => get(`/days/explain${query({ employeeId, date })}`);
+export const explainMyDay = (date) => get(`/me/days/explain${query({ date })}`);
+/** What is unsettled: missing check-outs, unmarked days, queues, reader problems, clashing schedules. */
+export const listExceptions = (params) => get(`/exceptions${query(params)}`);
+export const setExceptionState = (body) => send('/exceptions/state', 'POST', body);
+/** The month-close checklist, and the figures Payroll took when it closed. */
+export const getMonthReadiness = (month) => get(`/months/${encodeURIComponent(month)}/readiness`);
+export const getMonthSnapshot = (month, version) => get(`/months/${encodeURIComponent(month)}/snapshots/${encodeURIComponent(version)}`);
+/** What a schedule change would do, before it is saved. */
+export const checkSchedule = (body) => send('/schedule/check', 'POST', body);
+/** Many days at once: preview first (`preview: true`), then apply. */
+export const bulkChangeDays = (body) => send('/records/bulk', 'POST', body);
+export const bulkReviewRequests = (ids, approve, note) => send('/requests/bulk-review', 'POST', { ids, approve, note });
+export const listRuleVersions = () => get('/rules/versions').then((r) => r?.versions || []);
+export const simulateRules = (body) => send('/rules/simulate', 'POST', body);
+export const getMappingAudit = () => get('/mapping-audit');
+export const getReaderTimeline = (id, days = 7) => get(`/devices/${encodeURIComponent(id)}/timeline${query({ days })}`);
+export const explainLeave = (employeeId, leaveTypeId, year) => get(`/leave/explain${query({ employeeId, leaveTypeId, year })}`);
+export const explainMyLeave = (leaveTypeId, year) => get(`/me/leave/explain${query({ leaveTypeId, year })}`);
+export const getEvidence = (employeeId, from, to) => get(`/evidence${query({ employeeId, from, to })}`);
+export const getPhonePunches = (params) => get(`/phone-punches${query(params)}`);
+export const listScheduleRuns = (id) => get(`/reports/schedules/${encodeURIComponent(id)}/runs`).then((r) => r?.runs || []);
+
+/** Reason categories for a correction (the free-text reason stays required). */
+export const REASON_CODES = [
+  { value: 'FORGOT_PUNCH', label: 'Forgot to punch' },
+  { value: 'READER_DOWN', label: 'Reader not working' },
+  { value: 'ON_DUTY', label: 'On duty elsewhere' },
+  { value: 'WRONG_SHIFT', label: 'Wrong shift' },
+  { value: 'OTHER', label: 'Other' },
+];
+export const reasonLabel = (code) => REASON_CODES.find((r) => r.value === code)?.label || null;
+
