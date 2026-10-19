@@ -1,10 +1,14 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { CheckCheck, Download, FileSpreadsheet, HelpCircle, Plus, Wand2 } from 'lucide-react';
+import { AlarmClock, CalendarCheck, CheckCheck, FileSpreadsheet, HelpCircle, Plus, Timer, UserX, Wand2, X } from 'lucide-react';
 
-import { PageHeader, SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
+import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
+import { useListSearch } from '@ui/components/ListToolbar';
+import DocumentListShell from '@ui/components/list/DocumentListShell';
+import { Pagination, usePaged } from '@ui/components/list/ListPageParts';
+import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';
+import { SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import Drawer from '@ui/components/ui/Drawer';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
-import { downloadCsv } from '@ui/utils/csv';
 import { approveOvertime, bulkChangeDays, dayLabel, deleteDay, explainDay, hm, listEmployees, listRecords, markDay, STATUS, todayIst, validateDays } from '../api/attendance';
 import LoadFailed from '../components/LoadFailed';
 import DayExplain from '../components/DayExplain';
@@ -12,26 +16,60 @@ import { downloadEvidence } from '../components/evidenceXlsx';
 
 /**
  * Everyone's days: filter, correct, validate, approve overtime. After
- * Horilla's attendance list (validate / overtime approval live here too).
+ * Horilla's attendance list (validate / overtime approval live here too);
+ * laid out as Accounting's lists are — figures, status tabs with counts,
+ * filters in the column headings, actions on the selection.
  */
 const weekAgo = () => new Date(Date.now() + 330 * 60_000 - 6 * 86_400_000).toISOString().slice(0, 10);
 
+const TABS = [
+  { value: '', label: 'All', tone: 'all' },
+  { value: 'PRESENT', label: 'Present', tone: 'paid' },
+  { value: 'HALF_DAY', label: 'Half day', tone: 'partial' },
+  { value: 'ABSENT', label: 'Absent', tone: 'overdue' },
+  { value: 'ON_LEAVE', label: 'On leave', tone: 'sent' },
+  { value: 'HOLIDAY', label: 'Holiday', tone: 'cancelled' },
+  { value: 'WEEKLY_OFF', label: 'Weekly off', tone: 'cancelled' },
+];
+const COLUMNS = {
+  date: (r) => r.date,
+  employee: (r) => r.employeeName,
+  status: (r) => STATUS[r.status]?.label || r.status,
+  validated: (r) => (r.validated ? 'Validated' : 'Not validated'),
+};
+const EXPORT_COLUMNS = [
+  { key: 'date', label: 'Date' },
+  { key: 'employeeCode', label: 'Employee ID' },
+  { key: 'employeeName', label: 'Name' },
+  { key: 'checkInTime', label: 'In' },
+  { key: 'checkOutTime', label: 'Out' },
+  { key: 'workedMinutes', label: 'Worked (h:mm)', value: (r) => hm(r.workedMinutes) },
+  { key: 'lateMinutes', label: 'Late (min)' },
+  { key: 'earlyOutMinutes', label: 'Early out (min)' },
+  { key: 'overtimeMinutes', label: 'Overtime (min)' },
+  { key: 'status', label: 'Status', value: (r) => STATUS[r.status]?.label || r.status },
+  { key: 'validated', label: 'Validated', value: (r) => (r.validated ? 'Yes' : 'No') },
+];
+
 export default function AttendanceRecords({ params } = {}) {
   /* Opened from a report row or an exception: start on that person and those days. */
-  const [filters, setFilters] = useState(() => ({ from: weekAgo(), to: todayIst(), employeeId: '', status: '', validated: '', late: '', ...(params || {}) }));
+  const [filters, setFilters] = useState(() => ({ from: weekAgo(), to: todayIst(), employeeId: '', validated: '', late: '', ...(params || {}), status: '' }));
+  const [status, setStatus] = useState(() => params?.status || '');
   const [explaining, setExplaining] = useState(null);
   const [bulk, setBulk] = useState(null);
   const explainLoad = useCallback(() => explainDay(explaining?.employeeId, explaining?.date), [explaining]);
-  const [rows, setRows] = useState(null);
+  const [all, setAll] = useState(null);
   const [loadError, setLoadError] = useState('');
   const [people, setPeople] = useState([]);
   const [selected, setSelected] = useState(() => new Set());
   const [editing, setEditing] = useState(null);
+  const [page, setPage] = useState(1);
+  const [perPage, setPerPage] = useState(50);
 
   const load = useCallback(() => {
     listRecords(filters)
       .then((r) => {
-        setRows(r.records || []);
+        setAll(r.records || []);
         setLoadError('');
         setSelected(new Set());
       })
@@ -44,6 +82,29 @@ export default function AttendanceRecords({ params } = {}) {
     listEmployees().then(setPeople).catch(() => setPeople([]));
   }, []);
 
+  const counts = useMemo(() => {
+    const c = { '': (all || []).length };
+    for (const r of all || []) c[r.status] = (c[r.status] || 0) + 1;
+    return c;
+  }, [all]);
+  const inTab = useMemo(() => (all || []).filter((r) => !status || r.status === status), [all, status]);
+  const search = useListSearch(inTab, ['employeeName', 'employeeCode', 'date']);
+  const columns = useColumnFilters();
+  const rows = columns.applyFilters(search.filtered, COLUMNS);
+  const { pageCount, safePage, pageRows } = usePaged(rows, perPage, page);
+  useEffect(() => setPage(1), [status, search.query, filters]);
+
+  const figures = useMemo(() => {
+    const list = all || [];
+    return {
+      present: list.filter((r) => r.status === 'PRESENT').length,
+      late: list.filter((r) => r.lateMinutes > 0).length,
+      absent: list.filter((r) => r.status === 'ABSENT').length,
+      open: list.filter((r) => r.checkIn && !r.checkOut).length,
+      overtime: list.filter((r) => r.overtimeMinutes > 0 && !r.overtimeApproved).length,
+    };
+  }, [all]);
+
   const toggle = (id) =>
     setSelected((s) => {
       const n = new Set(s);
@@ -52,7 +113,7 @@ export default function AttendanceRecords({ params } = {}) {
       return n;
     });
   /* Only closed days not yet validated can be validated; the rest of a selection is for bulk changes. */
-  const validatable = useMemo(() => (rows || []).filter((r) => selected.has(r.id) && !r.validated && r.checkOut).map((r) => r.id), [rows, selected]);
+  const validatable = useMemo(() => (all || []).filter((r) => selected.has(r.id) && !r.validated && r.checkOut).map((r) => r.id), [all, selected]);
 
   const validate = async () => {
     try {
@@ -65,93 +126,76 @@ export default function AttendanceRecords({ params } = {}) {
   };
 
   const set = (k) => (e) => setFilters((f) => ({ ...f, [k]: e.target.value }));
+  const onlyPerson = filters.employeeId ? people.find((p) => p.id === filters.employeeId) : null;
 
   return (
-    <div className="space-y-4">
-      <PageHeader
-        entity="attendance"
-        title="Records"
-        description="Mark, correct and validate days. A corrected day needs validating again."
-        actions={
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              className="ui-btn ui-btn-secondary"
-              onClick={() =>
-                downloadCsv({
-                  fileName: `Attendance ${filters.from} to ${filters.to}`,
-                  columns: [
-                    { key: 'date', label: 'Date' },
-                    { key: 'employeeCode', label: 'Employee ID' },
-                    { key: 'employeeName', label: 'Name' },
-                    { key: 'checkInTime', label: 'In' },
-                    { key: 'checkOutTime', label: 'Out' },
-                    { key: 'workedMinutes', label: 'Worked (h:mm)', value: (r) => hm(r.workedMinutes) },
-                    { key: 'lateMinutes', label: 'Late (min)' },
-                    { key: 'earlyOutMinutes', label: 'Early out (min)' },
-                    { key: 'overtimeMinutes', label: 'Overtime (min)' },
-                    { key: 'status', label: 'Status', value: (r) => STATUS[r.status]?.label || r.status },
-                    { key: 'validated', label: 'Validated', value: (r) => (r.validated ? 'Yes' : 'No') },
-                  ],
-                  rows: rows || [],
-                })
-              }
-            >
-              <Download size={16} aria-hidden="true" /> Export
+    <DocumentListShell
+      entity="attendance"
+      title="Records"
+      compact
+      tight
+      denseCards
+      search={{ value: search.query, onChange: search.setQuery, placeholder: 'Search people or dates…', label: 'Search records' }}
+      moreItems={[exportMenuItem('Export days')]}
+      onMoreSelect={(k) => {
+        const format = exportFormatFromKey(k);
+        if (!format) return;
+        runListExport({ format, title: 'Attendance', subtitle: `${filters.from} to ${filters.to}`, fileName: `Attendance ${filters.from} to ${filters.to}`, label: 'day/days', columns: EXPORT_COLUMNS, rows });
+      }}
+      primary={
+        <button type="button" className="ui-btn ui-btn-primary" onClick={() => setEditing({ date: todayIst(), checkIn: '', checkOut: '', status: '' })}>
+          <Plus size={16} aria-hidden="true" /> Mark attendance
+        </button>
+      }
+      cards={[
+        { label: 'Present', value: figures.present, count: true, tone: 'paid', Icon: CalendarCheck },
+        { label: 'Late', value: figures.late, count: true, tone: 'partial', Icon: AlarmClock, onSelect: () => setFilters((f) => ({ ...f, late: f.late === 'true' ? '' : 'true' })) },
+        { label: 'Absent', value: figures.absent, count: true, tone: 'overdue', Icon: UserX, onSelect: () => setStatus('ABSENT') },
+        { label: 'No punch out', value: figures.open, count: true, tone: 'outstanding', Icon: Wand2 },
+        { label: 'Overtime to approve', value: figures.overtime, count: true, tone: 'sent', Icon: Timer },
+      ]}
+      tabs={TABS}
+      statusValue={status}
+      statusCounts={counts}
+      onStatusChange={setStatus}
+      tabsLabel="Day status"
+      tabsExtras={
+        <>
+          {onlyPerson ? (
+            <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => setFilters((f) => ({ ...f, employeeId: '' }))} aria-label={`Show everyone, not only ${onlyPerson.name}`}>
+              {onlyPerson.name} <X size={14} aria-hidden="true" />
             </button>
-            <button type="button" className="ui-btn ui-btn-secondary" disabled={!validatable.length} onClick={validate}>
-              <CheckCheck size={16} aria-hidden="true" /> Validate {validatable.length || ''}
-            </button>
-            <button type="button" className="ui-btn ui-btn-primary" onClick={() => setEditing({ date: todayIst(), checkIn: '', checkOut: '', status: '' })}>
-              <Plus size={16} aria-hidden="true" /> Mark attendance
-            </button>
+          ) : null}
+          <input type="date" className="ui-input ui-ctl-compact !w-auto" value={filters.from} max={filters.to} onChange={set('from')} aria-label="From" />
+          <input type="date" className="ui-input ui-ctl-compact !w-auto" value={filters.to} max={todayIst()} onChange={set('to')} aria-label="To" />
+          <label className="flex items-center gap-1.5 text-sm">
+            <input type="checkbox" className="ui-checkbox" checked={filters.late === 'true'} onChange={(e) => setFilters((f) => ({ ...f, late: e.target.checked ? 'true' : '' }))} /> Late only
+          </label>
+        </>
+      }
+      above={
+        selected.size ? (
+          <div className="ui-bulkbar" role="region" aria-label="Change the selected days">
+            <span className="text-sm"><strong className="tabular-nums">{selected.size}</strong> selected</span>
+            <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={!validatable.length} onClick={validate}><CheckCheck size={14} aria-hidden="true" /> Validate {validatable.length || ''}</button>
+            <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => setBulk({ operation: 'SET_OUT_SHIFT_END' })}><Wand2 size={14} aria-hidden="true" /> Close at shift end</button>
+            <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => setBulk({ operation: 'APPROVE_OVERTIME' })}>Approve overtime</button>
+            <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => setBulk({ operation: 'SET_STATUS', status: 'ABSENT' })}>Mark days without times…</button>
+            <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" onClick={() => setSelected(new Set())}>Clear</button>
           </div>
-        }
-      />
-
-      <div className="flex flex-wrap items-center gap-2">
-        <input type="date" className="ui-input !w-auto" value={filters.from} max={filters.to} onChange={set('from')} aria-label="From" />
-        <input type="date" className="ui-input !w-auto" value={filters.to} max={todayIst()} onChange={set('to')} aria-label="To" />
-        <select className="ui-select" style={{ width: 'auto', minWidth: '10rem' }} value={filters.employeeId} onChange={set('employeeId')} aria-label="Employee">
-          <option value="">Everyone</option>
-          {people.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-        </select>
-        <select className="ui-select" style={{ width: 'auto' }} value={filters.status} onChange={set('status')} aria-label="Status">
-          <option value="">Any status</option>
-          {Object.entries(STATUS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
-        </select>
-        <select className="ui-select" style={{ width: 'auto' }} value={filters.validated} onChange={set('validated')} aria-label="Validated">
-          <option value="">Validated or not</option>
-          <option value="false">Not validated</option>
-          <option value="true">Validated</option>
-        </select>
-        <label className="flex items-center gap-1.5 text-sm">
-          <input type="checkbox" className="ui-checkbox" checked={filters.late === 'true'} onChange={(e) => setFilters((f) => ({ ...f, late: e.target.checked ? 'true' : '' }))} /> Late only
-        </label>
-      </div>
-
-      {selected.size ? (
-        <div className="ui-bulkbar" role="region" aria-label="Change the selected days">
-          <span className="text-sm"><strong className="tabular-nums">{selected.size}</strong> selected</span>
-          <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => setBulk({ operation: 'SET_OUT_SHIFT_END' })}><Wand2 size={14} aria-hidden="true" /> Close at shift end</button>
-          <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => setBulk({ operation: 'APPROVE_OVERTIME' })}>Approve overtime</button>
-          <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => setBulk({ operation: 'SET_STATUS', status: 'ABSENT' })}>Mark days without times…</button>
-          <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" onClick={() => setSelected(new Set())}>Clear</button>
-        </div>
-      ) : null}
-
+        ) : null
+      }
+    >
       <LoadFailed message={loadError} onRetry={load} />
-      {!rows ? (
+      {!all ? (
         loadError ? null : <SkeletonCard lines={6} />
-      ) : !rows.length ? (
-        <EmptyState title="No days in this range" description="Mark attendance, or widen the dates." />
       ) : (
-        <div className="ui-card overflow-hidden">
-          <div className="overflow-x-auto ui-table-scroll ui-table-fit">
-            <table className="ui-table w-full">
+        <>
+          <div className="ui-table-scroll">
+            <table className="ui-table ui-table-sticky w-full">
               <thead>
                 <tr>
-                  <th scope="col" className="ui-th w-8">
+                  <th scope="col" className="w-8">
                     <input
                       type="checkbox"
                       className="ui-checkbox"
@@ -160,66 +204,84 @@ export default function AttendanceRecords({ params } = {}) {
                       onChange={(e) => setSelected(e.target.checked ? new Set(rows.map((r) => r.id)) : new Set())}
                     />
                   </th>
-                  <th scope="col" className="ui-th">Day</th>
-                  <th scope="col" className="ui-th">Employee</th>
-                  <th scope="col" className="ui-th ui-col-h-center">In</th>
-                  <th scope="col" className="ui-th ui-col-h-center">Out</th>
-                  <th scope="col" className="ui-th text-end hidden md:table-cell">Worked</th>
-                  <th scope="col" className="ui-th text-end hidden md:table-cell">Late</th>
-                  <th scope="col" className="ui-th text-end hidden md:table-cell">Overtime</th>
-                  <th scope="col" className="ui-th ui-col-h-center">Status</th>
-                  <th scope="col" className="ui-th ui-col-h-center hidden md:table-cell">Validated</th>
-                  <th scope="col" className="ui-th w-10"><span className="sr-only">Explain</span></th>
+                  <ColumnHeader label="Day" col="date" state={columns} type="date" />
+                  <ColumnHeader label="Employee" col="employee" state={columns} />
+                  <th scope="col" className="ui-col-h-center">In</th>
+                  <th scope="col" className="ui-col-h-center">Out</th>
+                  <th scope="col" className="ui-num hidden md:table-cell">Worked</th>
+                  <th scope="col" className="ui-num hidden md:table-cell">Late</th>
+                  <th scope="col" className="ui-num hidden md:table-cell">Overtime</th>
+                  <ColumnHeader label="Status" col="status" state={columns} align="center" />
+                  <ColumnHeader label="Validated" col="validated" state={columns} align="center" className="hidden md:table-cell" />
+                  <th scope="col" className="w-10"><span className="sr-only">Explain</span></th>
                 </tr>
               </thead>
-              <tbody>
-                {rows.map((r) => (
-                  <tr key={r.id} className="ui-row-click" onClick={() => setEditing({ ...r, checkIn: r.checkInTime || '', checkOut: r.checkOutTime || '', status: r.checkIn ? '' : r.status })}>
-                    <td onClick={(e) => e.stopPropagation()}>
-                      <input type="checkbox" className="ui-checkbox" aria-label={`Select ${r.employeeName} ${r.date}`} checked={selected.has(r.id)} onChange={() => toggle(r.id)} />
-                    </td>
-                    <td className="whitespace-nowrap">{dayLabel(r.date, { weekday: true, year: false })}</td>
-                    <td className="ui-col-entity">{r.employeeName}{r.employeeCode ? <span className="ui-caption"> · {r.employeeCode}</span> : null}</td>
-                    <td className="ui-col-h-center">{r.checkInTime || '—'}</td>
-                    <td className="ui-col-h-center">{r.checkOutTime || '—'}</td>
-                    <td className="text-end tabular-nums hidden md:table-cell">{r.checkOut ? hm(r.workedMinutes) : '—'}</td>
-                    <td className="text-end tabular-nums hidden md:table-cell">{r.lateMinutes ? `${r.lateMinutes}m` : '—'}</td>
-                    <td className="text-end tabular-nums hidden md:table-cell" onClick={(e) => e.stopPropagation()}>
-                      {r.overtimeMinutes ? (
-                        <span className="inline-flex items-center justify-end gap-2">
-                        <span>{hm(r.overtimeMinutes)}</span>
-                        <button
-                          type="button"
-                          className={`ui-btn ui-btn-sm ${r.overtimeApproved ? 'ui-btn-ghost' : 'ui-btn-secondary'}`}
-                          aria-label={r.overtimeApproved ? `Overtime ${hm(r.overtimeMinutes)} approved; withdraw approval` : `Approve ${hm(r.overtimeMinutes)} overtime`}
-                          title={r.overtimeApproved ? 'Approved: counts in the month summary. Click to withdraw.' : 'Not approved yet: does not count in the month summary.'}
-                          onClick={async () => {
-                            try {
-                              await approveOvertime(r.id, !r.overtimeApproved);
-                              load();
-                            } catch (e) {
-                              notify.error(String(e?.message || 'Not saved.'));
-                            }
-                          }}
-                        >
-                          {r.overtimeApproved ? 'Approved' : 'Approve'}
-                        </button>
-                        </span>
-                      ) : '—'}
-                    </td>
-                    <td className="ui-col-h-center"><span className={`ui-pill ${STATUS[r.status]?.pill || 'ui-pill-neutral'}`}>{STATUS[r.status]?.label || r.status}</span></td>
-                    <td className="ui-col-h-center hidden md:table-cell">{r.validated ? <span className="ui-pill ui-pill-pos">Validated</span> : <span className="ui-caption">—</span>}</td>
-                    <td onClick={(e) => e.stopPropagation()}>
-                      <button type="button" className="ui-icon-btn" aria-label={`Why is ${r.employeeName} ${STATUS[r.status]?.label?.toLowerCase() || r.status} on ${r.date}?`} title="Why does this day say this?" onClick={() => setExplaining(r)}>
-                        <HelpCircle size={16} aria-hidden="true" />
-                      </button>
+              <tbody className="ui-rows">
+                {!rows.length ? (
+                  <tr>
+                    <td colSpan={11}>
+                      {all.length ? (
+                        <EmptyState kind="filtered" totalCount={inTab.length || all.length} title="No days match" description="Nothing in this tab matches the search or the column filters." />
+                      ) : (
+                        <EmptyState
+                          icon={CalendarCheck}
+                          title="No days in this range"
+                          description="Mark, correct and validate days here. A corrected day needs validating again. Widen the dates, or mark attendance."
+                          routes={[{ label: 'Mark attendance', description: 'One person, one day, with the times.', onSelect: () => setEditing({ date: todayIst(), checkIn: '', checkOut: '', status: '' }) }]}
+                        />
+                      )}
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  pageRows.map((r) => (
+                    <tr key={r.id} className="ui-row-click" onClick={() => setEditing({ ...r, checkIn: r.checkInTime || '', checkOut: r.checkOutTime || '', status: r.checkIn ? '' : r.status })}>
+                      <td onClick={(e) => e.stopPropagation()}>
+                        <input type="checkbox" className="ui-checkbox" aria-label={`Select ${r.employeeName} ${r.date}`} checked={selected.has(r.id)} onChange={() => toggle(r.id)} />
+                      </td>
+                      <td className="ui-col-date whitespace-nowrap">{dayLabel(r.date, { weekday: true, year: false })}</td>
+                      <td className="ui-col-entity">{r.employeeName}{r.employeeCode ? <span className="ui-caption"> · {r.employeeCode}</span> : null}</td>
+                      <td className="ui-col-h-center">{r.checkInTime || '—'}</td>
+                      <td className="ui-col-h-center">{r.checkOutTime || '—'}</td>
+                      <td className="ui-num hidden md:table-cell">{r.checkOut ? hm(r.workedMinutes) : '—'}</td>
+                      <td className="ui-num hidden md:table-cell">{r.lateMinutes ? `${r.lateMinutes}m` : '—'}</td>
+                      <td className="ui-num hidden md:table-cell" onClick={(e) => e.stopPropagation()}>
+                        {r.overtimeMinutes ? (
+                          <span className="inline-flex items-center justify-end gap-2">
+                          <span>{hm(r.overtimeMinutes)}</span>
+                          <button
+                            type="button"
+                            className={`ui-btn ui-btn-sm ${r.overtimeApproved ? 'ui-btn-ghost' : 'ui-btn-secondary'}`}
+                            aria-label={r.overtimeApproved ? `Overtime ${hm(r.overtimeMinutes)} approved; withdraw approval` : `Approve ${hm(r.overtimeMinutes)} overtime`}
+                            title={r.overtimeApproved ? 'Approved: counts in the month summary. Click to withdraw.' : 'Not approved yet: does not count in the month summary.'}
+                            onClick={async () => {
+                              try {
+                                await approveOvertime(r.id, !r.overtimeApproved);
+                                load();
+                              } catch (e) {
+                                notify.error(String(e?.message || 'Not saved.'));
+                              }
+                            }}
+                          >
+                            {r.overtimeApproved ? 'Approved' : 'Approve'}
+                          </button>
+                          </span>
+                        ) : '—'}
+                      </td>
+                      <td className="ui-col-h-center"><span className={`ui-pill ${STATUS[r.status]?.pill || 'ui-pill-neutral'}`}>{STATUS[r.status]?.label || r.status}</span></td>
+                      <td className="ui-col-h-center hidden md:table-cell">{r.validated ? <span className="ui-pill ui-pill-pos">Validated</span> : <span className="ui-caption">—</span>}</td>
+                      <td onClick={(e) => e.stopPropagation()}>
+                        <button type="button" className="ui-icon-btn" aria-label={`Why is ${r.employeeName} ${STATUS[r.status]?.label?.toLowerCase() || r.status} on ${r.date}?`} title="Why does this day say this?" onClick={() => setExplaining(r)}>
+                          <HelpCircle size={16} aria-hidden="true" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
-        </div>
+          <Pagination total={rows.length} page={safePage} perPage={perPage} pageCount={pageCount} onPage={setPage} onPerPage={(n) => { setPerPage(n); setPage(1); }} noun="days" />
+        </>
       )}
 
       {editing ? <MarkDay initial={editing} people={people} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); load(); }} /> : null}
@@ -241,7 +303,7 @@ export default function AttendanceRecords({ params } = {}) {
         }
       />
       {bulk ? <BulkChange spec={bulk} ids={[...selected]} onClose={() => setBulk(null)} onDone={() => { setBulk(null); load(); }} /> : null}
-    </div>
+    </DocumentListShell>
   );
 }
 

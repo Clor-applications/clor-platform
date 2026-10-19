@@ -123,6 +123,8 @@ export const attendanceApp = {
    * open module's screens grouped under plain headings. Keys are nav keys;
    * a module with one screen and no groups has no panel.
    */
+  /* Pages edge to edge on the white column, the way Accounting's are. */
+  flush: true,
   modules: [
     { key: 'today', label: 'Today', items: ['today'] },
     { key: 'personnel', label: 'Personnel', groups: [

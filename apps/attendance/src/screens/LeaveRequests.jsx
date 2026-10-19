@@ -1,12 +1,15 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { Check, Plus, X } from 'lucide-react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { CalendarCheck, CalendarClock, CalendarX, Check, Plus, Wallet, X } from 'lucide-react';
 
-import { PageHeader, SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
+import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
+import { useListSearch } from '@ui/components/ListToolbar';
+import DocumentListShell from '@ui/components/list/DocumentListShell';
+import { Pagination, usePaged } from '@ui/components/list/ListPageParts';
+import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';
+import { SkeletonCard, EmptyState, StatusPill } from '@ui/components/ui/Primitives';
 import Drawer from '@ui/components/ui/Drawer';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
-import { downloadCsv } from '@ui/utils/csv';
 import {
-  LEAVE_STATUS,
   approveLeave,
   cancelLeave,
   createLeaveRequest,
@@ -18,21 +21,70 @@ import {
 } from '../api/attendance';
 import LoadFailed from '../components/LoadFailed';
 
-const TABS = ['PENDING', 'APPROVED', 'REJECTED', 'CANCELLED', ''];
+const TABS = [
+  { value: 'PENDING', label: 'Pending', tone: 'partial' },
+  { value: 'APPROVED', label: 'Approved', tone: 'paid' },
+  { value: 'REJECTED', label: 'Rejected', tone: 'overdue' },
+  { value: 'CANCELLED', label: 'Cancelled', tone: 'cancelled' },
+  { value: '', label: 'All', tone: 'all' },
+];
+const COLUMNS = {
+  employee: (r) => r.employeeName,
+  type: (r) => r.leaveTypeName,
+  from: (r) => r.fromDate,
+  reason: (r) => r.reason,
+  status: (r) => r.status,
+};
+const EXPORT_COLUMNS = [
+  { key: 'employeeCode', label: 'Employee ID' },
+  { key: 'employeeName', label: 'Name' },
+  { key: 'leaveTypeName', label: 'Type' },
+  { key: 'isPaid', label: 'Paid', value: (r) => (r.isPaid ? 'Yes' : 'No') },
+  { key: 'fromDate', label: 'From' },
+  { key: 'toDate', label: 'To' },
+  { key: 'days', label: 'Days' },
+  { key: 'reason', label: 'Reason' },
+  { key: 'status', label: 'Status' },
+];
 
 /** Everyone's leave. Approving marks the working days in it "on leave". */
 export default function LeaveRequests() {
   const [status, setStatus] = useState('PENDING');
-  const [rows, setRows] = useState(null);
+  const [all, setAll] = useState(null);
   const [loadError, setLoadError] = useState('');
   const [adding, setAdding] = useState(false);
+  const [page, setPage] = useState(1);
+  const [perPage, setPerPage] = useState(25);
 
+  /* All of them at once: the tabs count every status, so the list cannot be fetched one status at a time. */
   const load = useCallback(() => {
-    listLeaveRequests({ status }).then((v) => { setRows(v); setLoadError(''); }).catch((e) => setLoadError(String(e?.message || 'Could not load leave.')));
-  }, [status]);
+    listLeaveRequests({ status: '' }).then((v) => { setAll(v); setLoadError(''); }).catch((e) => setLoadError(String(e?.message || 'Could not load leave.')));
+  }, []);
   useEffect(() => {
     load();
   }, [load]);
+
+  const counts = useMemo(() => {
+    const c = { '': (all || []).length };
+    for (const r of all || []) c[r.status] = (c[r.status] || 0) + 1;
+    return c;
+  }, [all]);
+  const inTab = useMemo(() => (all || []).filter((r) => !status || r.status === status), [all, status]);
+  const search = useListSearch(inTab, ['employeeName', 'employeeCode', 'leaveTypeName', 'reason', 'fromDate', 'toDate']);
+  const filters = useColumnFilters();
+  const rows = filters.applyFilters(search.filtered, COLUMNS);
+  const { pageCount, safePage, pageRows } = usePaged(rows, perPage, page);
+  useEffect(() => setPage(1), [status, search.query]);
+
+  const figures = useMemo(() => {
+    const live = (all || []).filter((r) => r.status === 'APPROVED');
+    return {
+      waiting: counts.PENDING || 0,
+      approvedDays: live.reduce((a, r) => a + Number(r.days || 0), 0),
+      unpaidDays: live.filter((r) => !r.isPaid).reduce((a, r) => a + Number(r.days || 0), 0),
+      rejected: counts.REJECTED || 0,
+    };
+  }, [all, counts]);
 
   const act = async (fn, r, done) => {
     try {
@@ -53,108 +105,110 @@ export default function LeaveRequests() {
   };
 
   return (
-    <div className="space-y-4">
-      <PageHeader
-        entity="attendance"
-        title="Leave requests"
-        description="Approving marks each working day in the range on leave. Unpaid leave is loss of pay."
-        actions={
-          <div className="flex gap-2">
-            <button
-              type="button"
-              className="ui-btn ui-btn-secondary"
-              disabled={!rows?.length}
-              onClick={() =>
-                downloadCsv({
-                  fileName: `Leave ${status ? status.toLowerCase() : 'all'}`,
-                  columns: [
-                    { key: 'employeeCode', label: 'Employee ID' },
-                    { key: 'employeeName', label: 'Name' },
-                    { key: 'leaveTypeName', label: 'Type' },
-                    { key: 'isPaid', label: 'Paid', value: (r) => (r.isPaid ? 'Yes' : 'No') },
-                    { key: 'fromDate', label: 'From' },
-                    { key: 'toDate', label: 'To' },
-                    { key: 'days', label: 'Days' },
-                    { key: 'reason', label: 'Reason' },
-                    { key: 'status', label: 'Status' },
-                  ],
-                  rows,
-                })
-              }
-            >
-              Export
-            </button>
-            <button type="button" className="ui-btn ui-btn-primary" onClick={() => setAdding(true)}>
-              <Plus size={16} aria-hidden="true" /> Add leave
-            </button>
-          </div>
-        }
-      />
-      <div role="tablist" className="flex flex-wrap gap-1">
-        {TABS.map((s) => (
-          <button key={s || 'all'} type="button" role="tab" aria-selected={status === s} className="ui-segment" onClick={() => setStatus(s)}>
-            {s ? s[0] + s.slice(1).toLowerCase() : 'All'}
-          </button>
-        ))}
-      </div>
+    <DocumentListShell
+      entity="attendance"
+      title="Leave requests"
+      compact
+      tight
+      denseCards
+      search={{ value: search.query, onChange: search.setQuery, placeholder: 'Search leave…', label: 'Search leave requests' }}
+      moreItems={[exportMenuItem('Export leave requests')]}
+      onMoreSelect={(k) => {
+        const format = exportFormatFromKey(k);
+        if (!format) return;
+        runListExport({ format, title: 'Leave requests', fileName: `Leave ${status ? status.toLowerCase() : 'all'}`, label: 'request/requests', columns: EXPORT_COLUMNS, rows });
+      }}
+      primary={
+        <button type="button" className="ui-btn ui-btn-primary" onClick={() => setAdding(true)}>
+          <Plus size={16} aria-hidden="true" /> Add leave
+        </button>
+      }
+      cards={[
+        { label: 'Waiting', value: figures.waiting, count: true, tone: 'partial', Icon: CalendarClock },
+        { label: 'Days approved', value: figures.approvedDays, count: true, tone: 'paid', Icon: CalendarCheck },
+        { label: 'Unpaid days', value: figures.unpaidDays, count: true, tone: 'outstanding', Icon: Wallet },
+        { label: 'Rejected', value: figures.rejected, count: true, tone: 'overdue', Icon: CalendarX },
+      ]}
+      tabs={TABS}
+      statusValue={status}
+      statusCounts={counts}
+      onStatusChange={setStatus}
+      tabsLabel="Leave status"
+    >
       <LoadFailed message={loadError} onRetry={load} />
-      {!rows ? (
+      {!all ? (
         loadError ? null : <SkeletonCard lines={5} />
-      ) : !rows.length ? (
-        <EmptyState
-          title={status === 'PENDING' ? 'Nothing waiting for approval' : status ? `No ${status.toLowerCase()} leave` : 'No leave requests yet'}
-          description={status === 'PENDING' ? 'Requests from the portal and from Add leave land here.' : status ? 'Try another tab.' : 'Add leave for somebody, or let them ask from the employee portal.'}
-        />
       ) : (
-        <div className="ui-card overflow-hidden">
-          <div className="overflow-x-auto ui-table-scroll ui-table-fit">
-            <table className="ui-table w-full">
+        <>
+          <div className="ui-table-scroll">
+            <table className="ui-table ui-table-sticky w-full">
               <thead>
                 <tr>
-                  <th scope="col" className="ui-th">Employee</th>
-                  <th scope="col" className="ui-th">Type</th>
-                  <th scope="col" className="ui-th">Dates</th>
-                  <th scope="col" className="ui-th text-end">Days</th>
-                  <th scope="col" className="ui-th">Reason</th>
-                  <th scope="col" className="ui-th ui-col-h-center">Status</th>
-                  <th scope="col" className="ui-th"><span className="sr-only">Actions</span></th>
+                  <ColumnHeader label="Employee" col="employee" state={filters} />
+                  <ColumnHeader label="Type" col="type" state={filters} />
+                  <ColumnHeader label="Dates" col="from" state={filters} type="date" />
+                  <th scope="col" className="ui-num">Days</th>
+                  <ColumnHeader label="Reason" col="reason" state={filters} />
+                  <ColumnHeader label="Status" col="status" state={filters} align="center" />
+                  <th scope="col"><span className="sr-only">Actions</span></th>
                 </tr>
               </thead>
-              <tbody>
-                {rows.map((r) => (
-                  <tr key={r.id}>
-                    <td className="ui-col-entity">{r.employeeName}</td>
-                    <td className="whitespace-nowrap">{r.leaveTypeName}{r.isPaid ? '' : <span className="ui-caption"> · unpaid</span>}</td>
-                    <td className="whitespace-nowrap">{leaveRange(r.fromDate, r.toDate)}</td>
-                    <td className="text-end tabular-nums">{r.days}</td>
-                    <td className="max-w-[14rem] truncate" title={r.reason}>{r.reason}</td>
-                    <td className="ui-col-h-center"><span className={`ui-pill ${LEAVE_STATUS[r.status] || 'ui-pill-neutral'}`}>{r.status.toLowerCase()}</span></td>
-                    <td className="whitespace-nowrap">
-                      <span className="flex justify-end gap-1">
-                        {r.status === 'PENDING' ? (
-                          <>
-                            <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" aria-label={`Approve ${r.employeeName}'s leave`} onClick={() => act(approveLeave, r, 'Approved; the days are marked on leave.')}>
-                              <Check size={14} aria-hidden="true" /> Approve
-                            </button>
-                            <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" aria-label={`Reject ${r.employeeName}'s leave`} onClick={() => act(rejectLeave, r, 'Rejected.')}>
-                              <X size={14} aria-hidden="true" /> Reject
-                            </button>
-                          </>
-                        ) : null}
-                        {r.status === 'PENDING' || r.status === 'APPROVED' ? (
-                          <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" aria-label={`Cancel ${r.employeeName}'s leave`} onClick={() => cancel(r)}>Cancel</button>
-                        ) : null}
-                      </span>
+              <tbody className="ui-rows">
+                {!rows.length ? (
+                  <tr>
+                    <td colSpan={7}>
+                      {inTab.length ? (
+                        <EmptyState kind="filtered" totalCount={inTab.length} title="No leave matches" description="Nothing in this tab matches the search or the column filters." />
+                      ) : (
+                        <EmptyState
+                          icon={CalendarCheck}
+                          title={status === 'PENDING' ? 'Nothing waiting for approval' : status ? `No ${status.toLowerCase()} leave` : 'No leave requests yet'}
+                          description={status === 'PENDING' ? 'Requests from the portal and from Add leave land here. Approving marks each working day in the range on leave; unpaid leave is loss of pay.' : status ? 'Try another tab.' : 'Add leave for somebody, or let them ask from the employee portal.'}
+                          routes={status ? undefined : [{ label: 'Add leave', description: 'On someone’s behalf; it still waits for approval.', onSelect: () => setAdding(true) }]}
+                        />
+                      )}
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  pageRows.map((r) => (
+                    <tr key={r.id}>
+                      <td className="ui-col-entity">
+                        {r.employeeName}
+                        {r.employeeCode ? <span className="ui-caption"> · {r.employeeCode}</span> : null}
+                      </td>
+                      <td className="whitespace-nowrap">{r.leaveTypeName}{r.isPaid ? '' : <span className="ui-caption"> · unpaid</span>}</td>
+                      <td className="ui-col-date whitespace-nowrap">{leaveRange(r.fromDate, r.toDate)}</td>
+                      <td className="ui-num">{r.days}</td>
+                      <td className="max-w-[8rem] truncate" title={r.reason}>{r.reason}</td>
+                      <td className="ui-col-h-center"><StatusPill status={r.status} /></td>
+                      <td className="ui-col-meta">
+                        <span className="flex justify-end gap-1">
+                          {r.status === 'PENDING' ? (
+                            <>
+                              <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" aria-label={`Approve ${r.employeeName}'s leave`} onClick={() => act(approveLeave, r, 'Approved; the days are marked on leave.')}>
+                                <Check size={14} aria-hidden="true" /> Approve
+                              </button>
+                              <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" aria-label={`Reject ${r.employeeName}'s leave`} onClick={() => act(rejectLeave, r, 'Rejected.')}>
+                                <X size={14} aria-hidden="true" /> Reject
+                              </button>
+                            </>
+                          ) : null}
+                          {r.status === 'PENDING' || r.status === 'APPROVED' ? (
+                            <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" aria-label={`Cancel ${r.employeeName}'s leave`} onClick={() => cancel(r)}>Cancel</button>
+                          ) : null}
+                        </span>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
-        </div>
+          <Pagination total={rows.length} page={safePage} perPage={perPage} pageCount={pageCount} onPage={setPage} onPerPage={(n) => { setPerPage(n); setPage(1); }} noun="requests" />
+        </>
       )}
       {adding ? <AddLeave onClose={() => setAdding(false)} onSaved={() => { setAdding(false); setStatus('PENDING'); load(); }} /> : null}
-    </div>
+    </DocumentListShell>
   );
 }
 

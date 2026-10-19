@@ -777,7 +777,8 @@ export default function Shell() {
           </div>
         ) : null}
 
-        <main className={`flex-1 min-w-0 ${phone ? 'p-4 pb-24' : 'p-6'}`}>
+        {/* `flush`: the app's pages sit edge to edge on the white content column, as Accounting's do. */}
+        <main className={`flex-1 min-w-0 ${app?.flush ? `ui-content ${phone ? 'pb-24' : ''}` : phone ? 'p-4 pb-24' : 'p-6'}`}>
           {showMoreApps ? (
             <MoreApps tenant={tenant} onAdd={addApp} onOpen={openApp} />
           ) : platformScreen === 'profile' ? (
