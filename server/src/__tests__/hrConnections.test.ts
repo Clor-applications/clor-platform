@@ -84,7 +84,7 @@ describe('HR tools', () => {
       const punches = [{ employeeId: p.id, code: 'SW1', readerId: 'MAIN', time: '2026-10-17 09:01:00', direction: 'IN', verifyMode: 1 }, { employeeId: p.id, code: 'SW1', readerId: 'MAIN', time: '2026-10-17 18:02:00', direction: 'OUT', verifyMode: 15 }];
       expect(await enqueuePunches(c.orgId, punches)).toBe(2);
       expect(await enqueuePunches(c.orgId, punches)).toBe(0); // same punches again: nothing new
-      expect(greythrSwipeLines(punches as any)).toBe('2026-10-17T09:01:00,SW1,MAIN,1\n2026-10-17T18:02:00,SW1,MAIN,0');
+      expect(greythrSwipeLines(punches as any)).toBe('2026-10-17T09:01:00.000+05:30,SW1,MAIN,1\r\n2026-10-17T18:02:00.000+05:30,SW1,MAIN,0');
       fail = true;
       expect(await flushOutbox()).toBe(0);
       const rows = await peoplePrisma.hrOutbox.findMany({ where: { connectionId: id } });
@@ -92,7 +92,7 @@ describe('HR tools', () => {
       fail = false;
       expect(await flushOutbox(new Date(Date.now() + 2 * 60_000))).toBe(2);
       expect(got).toHaveLength(1);
-      expect(got[0].split('\n')).toHaveLength(2);
+      expect(got[0].split('\r\n')).toHaveLength(2);
       const after = await peoplePrisma.hrOutbox.findMany({ where: { connectionId: id } });
       expect(after.every((r) => r.status === 'OK')).toBe(true);
       const listed = (await api(c).get('/integrations/hr').expect(200)).body.connections.find((x: any) => x.id === id);
@@ -131,6 +131,59 @@ describe('HR tools', () => {
       /* Missing required fields are named. */
       expect((await api(c).post('/integrations/hr', { adapter: 'KEKA', fields: { tenant: 'x' } }).expect(400)).body.error).toMatch(/Missing: /);
       await api(c).post('/integrations/hr', { adapter: 'NOPE', fields: {} }).expect(400);
+    } finally {
+      await fake.close();
+    }
+  });
+
+  it('greytHR: with an API user, reads employees through its REST API', async () => {
+    const seen: any[] = [];
+    const fake = await fakeServer((req, body, res) => {
+      res.setHeader('content-type', 'application/json');
+      seen.push({ url: req.url, headers: req.headers });
+      if (req.url === '/oauth2/v2/client-token') {
+        if (req.headers.authorization !== `Basic ${Buffer.from('apiuser:pw').toString('base64')}` || req.headers['x-greythr-domain'] !== 'acme.greythr.com') { res.statusCode = 401; return res.end('{}'); }
+        return res.end(JSON.stringify({ access_token: 'gtok', expires_in: 3599 }));
+      }
+      if (req.url?.startsWith('/employee/v2/employees')) {
+        if (req.headers['access-token'] !== 'gtok') { res.statusCode = 401; return res.end('{}'); }
+        return res.end(JSON.stringify({ data: [{ employeeId: 11, employeeNo: 'G1', name: 'Gita', email: 'gita@example.com', leftorg: false }, { employeeId: 12, employeeNo: 'G2', name: 'Gone', leftorg: true }], pages: { totalPages: 1 } }));
+      }
+      res.statusCode = 404; res.end('{}');
+    });
+    try {
+      const { adapterOf } = await import('../services/hr/adapters.js');
+      const g = adapterOf('GREYTHR')!;
+      expect(g.capabilities).toContain('pullEmployees');
+      expect(g.fields.find((f) => f.key === 'apiId')?.where).toMatch(/API Details/);
+      const people = await g.pullEmployees!({ domain: 'acme.greythr.com', apiUser: 'apiuser', apiBase: fake.url }, { apiPassword: 'pw' });
+      expect(people).toEqual([
+        expect.objectContaining({ code: 'G1', name: 'Gita', email: 'gita@example.com', active: true }),
+        expect.objectContaining({ code: 'G2', active: false }),
+      ]);
+      await expect(g.pullEmployees!({ domain: 'acme.greythr.com' }, {})).rejects.toThrow(/API user/);
+      await expect(g.pullEmployees!({ domain: 'acme.greythr.com', apiUser: 'apiuser', apiBase: fake.url }, { apiPassword: 'wrong' })).rejects.toThrow(/refused/);
+    } finally {
+      await fake.close();
+    }
+  });
+
+  it('Keka: attendance logs carry the field names Keka documents', async () => {
+    const bodies: any[] = [];
+    const fake = await fakeServer((req, body, res) => {
+      res.setHeader('content-type', 'application/json');
+      if (req.url === '/v1/logs') { bodies.push({ key: req.headers['x-api-key'], body: JSON.parse(body || '[]') }); return res.end('{}'); }
+      res.statusCode = 404; res.end('{}');
+    });
+    try {
+      const { adapterOf } = await import('../services/hr/adapters.js');
+      const k = adapterOf('KEKA')!;
+      const r = await k.pushPunches!({ tenant: 'acme', server: 'cin01', deviceId: 'DEV9', apiBase: fake.url }, { attendanceApiKey: 'ak' }, [{ code: 'E7', readerId: '77', time: '2026-10-17 09:01:00', direction: 'IN' } as any]);
+      expect(r.retryAll).toBeFalsy();
+      expect(bodies[0].key).toBe('ak');
+      expect(bodies[0].body[0]).toEqual({ DeviceIdentifier: 'DEV9', EmployeeAttendanceNumber: 'E7', Timestamp: '2026-10-17T09:01:00+05:30', Status: 0 });
+      await k.pushPunches!({ tenant: 'acme', server: 'cin01', deviceId: 'DEV9', matchBy: 'readerId', apiBase: fake.url }, { attendanceApiKey: 'ak' }, [{ code: 'E7', readerId: '77', time: '2026-10-17 18:00:00', direction: 'OUT' } as any]);
+      expect(bodies[1].body[0]).toMatchObject({ EmployeeAttendanceNumber: '77', Status: 1 });
     } finally {
       await fake.close();
     }
