@@ -24,6 +24,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -44,10 +45,11 @@ import java.time.ZoneOffset
 
 /** Balances, asking for leave, and what I asked for (cancel while it is still possible). */
 @Composable
-fun LeaveTab(api: Api, version: Int, onChanged: () -> Unit, onSignedOut: () -> Unit) {
+fun LeaveTab(api: Api, version: Int, onChanged: () -> Unit, onSignedOut: () -> Unit, startApplying: Boolean = false, onApplyShown: () -> Unit = {}) {
     val scope = rememberCoroutineScope()
     val data = rememberLoad(onSignedOut, version) { api.leave() }
-    var asking by remember { mutableStateOf(false) }
+    var asking by remember { mutableStateOf(startApplying) }
+    LaunchedEffect(startApplying) { if (startApplying) onApplyShown() }
     var error by remember { mutableStateOf<String?>(null) }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(screenPadding), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         LoadView(data) { l ->

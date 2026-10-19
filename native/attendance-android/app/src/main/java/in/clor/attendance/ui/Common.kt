@@ -1,5 +1,6 @@
 package `in`.clor.attendance.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -8,6 +9,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -144,3 +146,11 @@ fun Hint(text: String, color: Color = MaterialTheme.colorScheme.onSurfaceVariant
 
 @Composable
 fun Fill(content: @Composable () -> Unit) = Box(Modifier.fillMaxSize()) { content() }
+
+/** A small tinted square with an icon, as on the home cards. */
+@Composable
+fun IconTile(icon: androidx.compose.ui.graphics.vector.ImageVector, tint: Color) {
+    Box(Modifier.size(36.dp).background(tint.copy(alpha = 0.12f), RoundedCornerShape(10.dp)), contentAlignment = Alignment.Center) {
+        androidx.compose.material3.Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(20.dp))
+    }
+}

@@ -76,6 +76,7 @@ class Api(private val session: Session, private val base: String = BuildConfig.A
         post<SignedIn>("/activate", buildJsonObject { put("company", company); put("employeeCode", employeeCode); put("activationCode", activationCode); put("password", password) }).also { session.save(it.token) }
 
     suspend fun me(): Me = get("/me")
+    suspend fun home(): Home = get("/home")
 
     suspend fun punch(latitude: Double, longitude: Double, accuracy: Float, photoJpegBase64: String?): PunchResult =
         post("/punch", buildJsonObject {

@@ -11,7 +11,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.EventAvailable
-import androidx.compose.material.icons.outlined.Fingerprint
+import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Inbox
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material3.Button
@@ -87,11 +87,20 @@ fun ClorApp(api: Api, session: Session) {
     }
 }
 
-private enum class Tab(val label: String) { Today("Today"), Attendance("Attendance"), Leave("Leave"), Approvals("Approvals"), Me("Me") }
+private enum class Tab(val label: String) { Home("Home"), Attendance("Attendance"), Leave("Leave"), Approvals("Approvals"), Me("Me") }
 
 @Composable
 private fun Tabs(api: Api, approver: Boolean, version: Int, onChanged: () -> Unit, onSignedOut: () -> Unit) {
-    var tab by rememberSaveable { mutableStateOf(Tab.Today) }
+    var tab by rememberSaveable { mutableStateOf(Tab.Home) }
+    /* "Apply for leave" from Home opens the Leave tab with the form already open. */
+    var applyLeave by remember { mutableStateOf(false) }
+    val links = HomeLinks(
+        attendance = { tab = Tab.Attendance },
+        applyLeave = { applyLeave = true; tab = Tab.Leave },
+        leave = { tab = Tab.Leave },
+        approvals = { tab = if (approver) Tab.Approvals else Tab.Home },
+        me = { tab = Tab.Me },
+    )
     val tabs = Tab.entries.filter { it != Tab.Approvals || approver }
     Scaffold(
         bottomBar = {
@@ -103,7 +112,7 @@ private fun Tabs(api: Api, approver: Boolean, version: Int, onChanged: () -> Uni
                         icon = {
                             Icon(
                                 when (t) {
-                                    Tab.Today -> Icons.Outlined.Fingerprint
+                                    Tab.Home -> Icons.Outlined.Home
                                     Tab.Attendance -> Icons.Outlined.CalendarMonth
                                     Tab.Leave -> Icons.Outlined.EventAvailable
                                     Tab.Approvals -> Icons.Outlined.Inbox
@@ -120,9 +129,9 @@ private fun Tabs(api: Api, approver: Boolean, version: Int, onChanged: () -> Uni
     ) { inner ->
         Column(Modifier.padding(inner).fillMaxSize()) {
             when (tab) {
-                Tab.Today -> TodayTab(api, version, onChanged, onSignedOut)
+                Tab.Home -> HomeTab(api, version, links, onChanged, onSignedOut)
                 Tab.Attendance -> AttendanceTab(api, version, onChanged, onSignedOut)
-                Tab.Leave -> LeaveTab(api, version, onChanged, onSignedOut)
+                Tab.Leave -> LeaveTab(api, version, onChanged, onSignedOut, startApplying = applyLeave, onApplyShown = { applyLeave = false })
                 Tab.Approvals -> ApprovalsTab(api, onSignedOut)
                 Tab.Me -> MeTab(api, onSignedOut)
             }

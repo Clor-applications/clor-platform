@@ -173,3 +173,59 @@ data class DocumentFile(val document: DocumentData = DocumentData())
 
 @Serializable
 data class DocumentData(val id: String = "", val title: String = "", val mime: String = "", val dataUrl: String = "")
+
+/** The home screen in one answer (GET /portal/home). */
+@Serializable
+data class Home(
+    val employee: Person = Person(),
+    val company: Company = Company(),
+    val site: String? = null,
+    val today: String = "",
+    val shift: Shift = Shift(),
+    val record: DayRecord? = null,
+    val punches: List<TodayPunch> = emptyList(),
+    val phone: Phone = Phone(),
+    val month: MonthFigures = MonthFigures(),
+    val week: List<WeekDay> = emptyList(),
+    val attention: List<Attention> = emptyList(),
+    val attentionCount: Int = 0,
+    val leave: LeaveSummary = LeaveSummary(),
+    val corrections: Pending = Pending(),
+    val holidays: List<Holiday> = emptyList(),
+    val approvals: TeamSummary = TeamSummary(),
+    val privacy: PrivacyState? = null,
+)
+
+@Serializable
+data class MonthFigures(
+    val month: String = "",
+    val workingDays: Int = 0,
+    val present: Double = 0.0,
+    val absent: Int = 0,
+    val leave: Int = 0,
+    val late: Int = 0,
+    val lateMinutes: Int = 0,
+    val workedMinutes: Int = 0,
+    val rate: Int? = null,
+)
+
+@Serializable
+data class WeekDay(val date: String = "", val workedMinutes: Int = 0, val status: String = "")
+
+@Serializable
+data class Attention(val date: String = "", val why: String = "")
+
+@Serializable
+data class LeaveSummary(val balances: List<Balance> = emptyList(), val pending: Int = 0)
+
+@Serializable
+data class Balance(val id: String = "", val name: String = "", val available: Double? = null, val used: Double = 0.0, val pending: Double = 0.0)
+
+@Serializable
+data class Pending(val pending: Int = 0)
+
+@Serializable
+data class Holiday(val date: String = "", val name: String = "")
+
+@Serializable
+data class TeamSummary(val approver: Boolean = false, val team: Int = 0, val waiting: Int = 0, val awayToday: List<String> = emptyList())
