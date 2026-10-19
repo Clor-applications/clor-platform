@@ -36,6 +36,7 @@ import { payrollTaxDeclarationsRouter } from './routes/payrollTaxDeclarations.js
 import { peopleRouter } from './routes/people.js';
 import { attendanceRouter } from './routes/attendance.js';
 import { attendanceInsightsRouter } from './routes/attendanceInsights.js';
+import { dataProtectionRouter } from './routes/dataProtection.js';
 import { leaveRouter } from './routes/leave.js';
 import { iclockRouter } from './routes/iclock.js';
 import { devicesRouter } from './routes/devices.js';
@@ -349,6 +350,7 @@ export function buildApp() {
   app.use('/api', personnelRouter);
   app.use('/api', attendanceRouter);
   app.use('/api', attendanceInsightsRouter);
+  app.use('/api', dataProtectionRouter);
   app.use('/api', schedulingRouter);
   app.use('/api', portalAdminRouter);
   app.use('/api', readerOpsRouter);

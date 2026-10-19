@@ -38,6 +38,7 @@ import { emit as emitWebhook } from '../services/attendance/webhooks.js';
 import { MAX_NETWORKS, networkOf, sameBlock } from '../services/attendance/network.js';
 import { closedMonths, shiftFor, writeDay } from './attendance.js';
 import { readerIdMatcher } from '../services/attendance/readerIds.js';
+import { biometricPolicy, openTemplate, sealTemplate, sendableWhere } from '../services/attendance/biometrics.js';
 import { driverOf, parserOf, vendorsWith } from '../services/attendance/drivers.js';
 
 /**
@@ -517,22 +518,25 @@ async function storeTemplate(device: Device, t: Template, match: Awaited<ReturnT
   const emp = match(pin, device.areaId);
   /* A site ID's fingerprints are kept apart from the same number elsewhere in the company. */
   const scope = match.isSiteId(pin, device.areaId) ? String(device.areaId) : '';
+  /* The face algorithm this reader runs, learnt from what it sends. */
+  if (t.type === FACE && t.majorVer > 0 && (device.faceMajorVer !== t.majorVer || device.faceMinorVer !== t.minorVer)) {
+    await peoplePrisma.attendanceDevice.update({ where: { id: device.id }, data: { faceMajorVer: t.majorVer, faceMinorVer: t.minorVer || null, faceSupported: true } });
+  }
+  /* This reader certainly has it, whatever CLOR may keep. */
+  if (t.type === FINGER) await markOnReader(device, pin, { finger: t.no });
+  else if (t.type === FACE) await markOnReader(device, pin, { face: true });
+  /* DPDP: a copy only when the company switched copying on, and never for someone who withdrew or is under 18. */
+  const policy = await biometricPolicy(device.orgId);
+  if (!policy.allows(emp?.id)) return;
   const key = { orgId_scope_pin_type_no: { orgId: device.orgId, scope, pin, type: t.type, no: t.no } };
   const existing = await peoplePrisma.biometricTemplate.findUnique({ where: key, select: { data: true } });
-  const changed = !existing || existing.data !== t.data;
-  const values = { data: t.data, valid: t.valid, duress: t.duress, majorVer: t.majorVer, minorVer: t.minorVer, format: t.format, indexNo: t.indexNo, sourceDeviceId: device.id, employeeId: emp?.id ?? null };
+  const changed = !existing || openTemplate(existing.data) !== t.data;
+  const values = { data: sealTemplate(t.data), valid: t.valid, duress: t.duress, majorVer: t.majorVer, minorVer: t.minorVer, format: t.format, indexNo: t.indexNo, sourceDeviceId: device.id, employeeId: emp?.id ?? null };
   await peoplePrisma.biometricTemplate.upsert({
     where: key,
     create: { accountId: device.accountId, orgId: device.orgId, scope, pin, type: t.type, no: t.no, ...values },
     update: values,
   });
-  /* The face algorithm this reader runs, learnt from what it sends. */
-  if (t.type === FACE && t.majorVer > 0 && (device.faceMajorVer !== t.majorVer || device.faceMinorVer !== t.minorVer)) {
-    await peoplePrisma.attendanceDevice.update({ where: { id: device.id }, data: { faceMajorVer: t.majorVer, faceMinorVer: t.minorVer || null, faceSupported: true } });
-  }
-  /* This reader certainly has it. */
-  if (t.type === FINGER) await markOnReader(device, pin, { finger: t.no });
-  else if (t.type === FACE) await markOnReader(device, pin, { face: true });
   if (!changed) return;
   for (const target of await otherReaders(device)) {
     if (emp) {
@@ -578,7 +582,8 @@ export { supports as readerSupports };
 
 /** Copy every stored template of people still employed (and of reader IDs not yet matched) onto one reader. */
 export async function copyAllTemplatesTo(target: Device, createdByUserId: string | null) {
-  const templates = await peoplePrisma.biometricTemplate.findMany({ where: { orgId: target.orgId, scope: { in: ['', target.areaId || ''] } }, orderBy: [{ pin: 'asc' }, { type: 'asc' }, { no: 'asc' }] });
+  const policy = await biometricPolicy(target.orgId);
+  const templates = await peoplePrisma.biometricTemplate.findMany({ where: { orgId: target.orgId, scope: { in: ['', target.areaId || ''] }, ...sendableWhere(policy) }, orderBy: [{ pin: 'asc' }, { type: 'asc' }, { no: 'asc' }] });
   const people = await peoplePrisma.employee.findMany({ where: { orgId: target.orgId }, select: { id: true, status: true, areaId: true, devicePin: true, code: true } });
   const byId = new Map(people.map((e) => [e.id, e]));
   const left = new Set(people.filter((e) => e.status === 'LEFT').map((e) => e.id));
@@ -655,7 +660,7 @@ export async function moveIdAtSite(orgId: string, employeeId: string, areaId: st
   if (!emp) return { readers: 0 };
   const pin = match.pinFor(emp, areaId);
   const readers = await peoplePrisma.attendanceDevice.findMany({ where: { orgId, areaId, isActive: true, vendor: { in: vendorsWith('users') } } });
-  const stored = await peoplePrisma.biometricTemplate.findMany({ where: { orgId, employeeId }, orderBy: [{ type: 'asc' }, { no: 'asc' }] });
+  const stored = (await biometricPolicy(orgId)).allows(employeeId) ? await peoplePrisma.biometricTemplate.findMany({ where: { orgId, employeeId }, orderBy: [{ type: 'asc' }, { no: 'asc' }] }) : [];
   const templates = [...new Map(stored.map((t) => [`${t.type}|${t.no}`, t])).values()];
   for (const r of readers) {
     if (oldPin && oldPin !== pin) {
@@ -701,7 +706,8 @@ export async function pushEmployeeToReaders(orgId: string, employee: any, create
   if (!readers.length) return { readers: 0 };
   /* Readers that did not serve them before (a new site) get their fingerprints and face too. */
   const movedSite = before && (before.areaId ?? null) !== (employee.areaId ?? null);
-  const stored = movedSite && employee.id ? await peoplePrisma.biometricTemplate.findMany({ where: { orgId, employeeId: employee.id }, orderBy: [{ type: 'asc' }, { no: 'asc' }] }) : [];
+  const policy = movedSite ? await biometricPolicy(orgId) : null;
+  const stored = movedSite && employee.id && policy?.allows(employee.id) ? await peoplePrisma.biometricTemplate.findMany({ where: { orgId, employeeId: employee.id }, orderBy: [{ type: 'asc' }, { no: 'asc' }] }) : [];
   const templates = [...new Map(stored.map((t) => [`${t.type}|${t.no}`, t])).values()];
   for (const r of readers) {
     const pin = pinAt(r);
@@ -863,7 +869,9 @@ async function readUsersIfDue(device: { id: string; accountId: string; orgId: st
     select: { status: true, createdAt: true },
   });
   const templatesWaiting = lastTemplates && (lastTemplates.status === 'PENDING' || lastTemplates.status === 'SENT');
-  const templatesDue = !templatesWaiting && (soon || !lastTemplates || Date.now() - lastTemplates.createdAt.getTime() > TEMPLATES_EVERY_MS);
+  /* Fingerprints and faces are read from readers only when the company keeps copies (DPDP: no collection without a purpose). */
+  const copying = (await biometricPolicy(device.orgId)).copy;
+  const templatesDue = copying && !templatesWaiting && (soon || !lastTemplates || Date.now() - lastTemplates.createdAt.getTime() > TEMPLATES_EVERY_MS);
   const commands = [COMMANDS.FETCH_USERS, ...(templatesDue ? FETCH_TEMPLATE_COMMANDS : [])];
   await peoplePrisma.deviceCommand.createMany({
     data: commands.map((command) => ({ accountId: device.accountId, orgId: device.orgId, deviceId: device.id, serialNumber: device.serialNumber, command })),

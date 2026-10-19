@@ -63,6 +63,11 @@ model Employee {
   lastName                 String?
   gender                   String? /// MALE | FEMALE | OTHER
   dateOfBirth              String? /// YYYY-MM-DD
+  /// Withdrew agreement to CLOR keeping copies of their fingerprints / face (DPDP).
+  biometricOptOutAt        DateTime?
+  /// The employee privacy notice version they last read in the portal, and when.
+  privacyNoticeVersion     String?
+  privacyNoticeAckAt       DateTime?
   maritalStatus            String? /// SINGLE | MARRIED | DIVORCED | WIDOWED
   personalEmail            String?
   /// A small square image, resized client-side, stored as a data URL (as the
@@ -1070,6 +1075,21 @@ model AttendanceSettings {
   leaveApproval              String  @default("HR")
   correctionApproval         String  @default("HR")
 
+  /// DPDP (services/attendance/biometrics.ts): CLOR keeps and copies fingerprints and
+  /// faces between readers only when the company switches this on, recording who
+  /// confirmed that employees were told and agreed, and when. Off by default.
+  biometricCopy              Boolean   @default(false)
+  biometricCopyAt            DateTime?
+  biometricCopyBy            String?
+  /// The company's contact for personal-data questions and grievances (DPDP Rules:
+  /// published business contact), shown in the employee privacy notice.
+  privacyContactName         String?
+  privacyContactEmail        String?
+  privacyContactPhone        String?
+  /// When the company last published its employee privacy notice (its version is
+  /// the notice version CLOR shows).
+  privacyNoticeAt            DateTime?
+
   updatedByUserId String
   updatedAt       DateTime @updatedAt
 }
@@ -1171,7 +1191,7 @@ model DataRequest {
   accountId        String
   orgId            String
   employeeId       String
-  /// ACCESS | CORRECTION | ERASURE
+  /// ACCESS | CORRECTION | ERASURE | WITHDRAW (consent) | NOMINATE | GRIEVANCE
   type             String
   details          String
   /// PENDING | RESOLVED | REJECTED
@@ -1179,11 +1199,46 @@ model DataRequest {
   resolution       String?
   reviewedByUserId String?
   reviewedAt       DateTime?
+  /// Answer by: 30 days, inside the 90 the DPDP Rules allow for grievances.
+  dueAt            DateTime?
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 
   @@index([orgId, status])
   @@index([orgId, employeeId])
+}
+
+/// A personal-data breach the company records (DPDP Rules, rule 7): what
+/// happened, who is affected, when the affected people were told, and the
+/// Data Protection Board's first intimation (without delay) and full report
+/// (within 72 hours of becoming aware).
+model DataBreach {
+  id                 String    @id @default(cuid())
+  accountId          String
+  orgId              String
+  title              String
+  description        String
+  discoveredAt       DateTime
+  occurredFrom       DateTime?
+  occurredTo         DateTime?
+  /// What kind of data: comma-separated (identity, attendance, location, biometric, payroll, bank, contact).
+  categories         String
+  employeeIdsJson    String    @default("[]")
+  consequences       String
+  mitigation         String
+  stepsForPeople     String
+  /// OPEN | CLOSED
+  status             String    @default("OPEN")
+  boardIntimatedAt   DateTime?
+  boardReportAt      DateTime?
+  boardReference     String?
+  peopleNotifiedAt   DateTime?
+  notifiedCount      Int       @default(0)
+  createdByUserId    String
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  @@index([orgId, status])
 }
 
 /// A connection to an HR or payroll tool the company also runs — greytHR,

@@ -42,6 +42,8 @@ async function makeOwner(): Promise<Ctx> {
     .expect(200);
   const ctx = { token: signup.body.token, orgId: setup.body.company.orgId, branchId: setup.body.branch.id };
   await request(app).put(`/api/orgs/${ctx.orgId}/features`).set(at(ctx)).send({ features: { attendance: true } }).expect(200);
+  /* Reader sync copies fingerprints between readers, which a company switches on (DPDP; off by default, see dpdp.test.ts). */
+  await request(app).put(`/api/orgs/${ctx.orgId}/attendance/data-protection`).set(at(ctx)).send({ biometricCopy: true, attest: true }).expect(200);
   return ctx;
 }
 const api = (c: Ctx) => ({

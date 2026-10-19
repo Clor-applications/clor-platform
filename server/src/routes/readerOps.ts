@@ -10,6 +10,7 @@ import { ATTENDANCE_MODULE, ATTENDANCE_RESOURCE, attendanceRouteOk } from '../se
 import { FACE, FINGER, ONLINE_WINDOW_MS, commandEffect, normaliseFirmware, pinKey, removalCommandsFor, SEQ } from '../services/attendance/adms.js';
 import { alertSettings, assessCollection, assessReader, collectionFacts, readerFacts, readerStatus } from '../services/attendance/readerHealth.js';
 import { pinMatcher, readerSupports, sendPersonTo, servesArea } from './iclock.js';
+import { biometricPolicy, sendableWhere } from '../services/attendance/biometrics.js';
 import { vendorsWith } from '../services/attendance/drivers.js';
 
 /**
@@ -207,7 +208,7 @@ readerOpsRouter.post(`${base}/reader-sync/fix`, can(PermissionAction.EDIT), asyn
   const { deviceId, employeeIds } = parsed.data;
   const { readers, rows } = await syncMatrix(accountId, orgId);
   const only = employeeIds ? new Set(employeeIds) : null;
-  const templates = await peoplePrisma.biometricTemplate.findMany({ where: { orgId }, orderBy: [{ type: 'asc' }, { no: 'asc' }] });
+  const templates = await peoplePrisma.biometricTemplate.findMany({ where: { orgId, ...sendableWhere(await biometricPolicy(orgId)) }, orderBy: [{ type: 'asc' }, { no: 'asc' }] });
   /* Per person (one set even if stored under a company and a site ID), else per unknown ID. */
   const byPin = new Map<string, typeof templates>();
   for (const t of templates) {

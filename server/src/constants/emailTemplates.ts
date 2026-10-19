@@ -212,6 +212,24 @@ You get one message when a problem starts and one when it clears. Reader health 
     fields: ['orgName', 'title', 'openedFor'],
     transactional: true,
   },
+  {
+    key: 'people.data_breach',
+    label: 'Personal data breach notice',
+    description: 'Sent to each person a recorded personal-data breach affects (DPDP Rules, rule 7). Cannot be switched off.',
+    subject: 'About your personal data at {{orgName}}',
+    body: `{{orgName}} is writing to tell you about a personal-data breach that affects you.
+
+What happened: {{description}}
+When: {{when}}
+Your data involved: {{categories}}
+What it may mean for you: {{consequences}}
+What we have done: {{mitigation}}
+What you can do: {{stepsForPeople}}
+
+Questions: {{contact}}. You can also complain to the Data Protection Board of India.`,
+    fields: ['orgName', 'description', 'when', 'categories', 'consequences', 'mitigation', 'stepsForPeople', 'contact'],
+    transactional: true,
+  },
 ];
 
 export const TEMPLATE_BY_KEY = new Map(EMAIL_TEMPLATES.map((t) => [t.key, t]));

@@ -6,6 +6,8 @@ import { explainFor, leaveExplain } from './attendanceInsights.js';
 import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { platformPrisma } from '../utils/platformPrisma.js';
 import { notifyPermission } from '../services/notifications.js';
+import { privacyNoticeFor } from '../services/attendance/privacyNotice.js';
+import { clearBiometricPolicy } from '../services/attendance/biometrics.js';
 import { payrollPrisma } from '../utils/payrollPrisma.js';
 import { DeclarationError, financialYearOf, saveDeclaration, shapeDeclaration } from '../services/payroll/taxDeclaration.js';
 import { isDevOrTest } from '../utils/devMode.js';
@@ -71,6 +73,11 @@ const PORTAL_FIELDS = {
   portalSetupExpires: true,
   mobilePunch: true,
   geofenceId: true,
+  dateOfBirth: true,
+  biometricOptOutAt: true,
+  privacyNoticeVersion: true,
+  personalEmail: true,
+  workEmail: true,
 } as const;
 
 const sign = (e: { id: string; accountId: string; orgId: string; portalPasswordSetAt: Date | null }) =>
@@ -168,7 +175,7 @@ portalRouter.get('/me', async (req, res) => {
     peoplePrisma.attendanceRecord.findUnique({ where: { employeeId_date: { employeeId: e.id, date: t } } }),
   ]);
   const shift = resolveShift(schedule, e.id, t);
-  const status = await phoneStatus(e);
+  const [status, notice] = await Promise.all([phoneStatus(e), privacyNoticeFor(e.orgId)]);
   res.json({
     employee: { name: e.name, code: e.code, department: e.department, designation: e.designation, photoUrl: e.photoUrl },
     company: { name: org?.name || '', code: org?.code || '' },
@@ -185,6 +192,8 @@ portalRouter.get('/me', async (req, res) => {
     phone: status.phone,
     /* Anyone reporting to this person makes them an approver: the portal shows the Approvals tab. */
     approver: (await peoplePrisma.employee.count({ where: { orgId: e.orgId, reportingManagerId: e.id, status: { not: 'LEFT' } } })) > 0,
+    /* A new or changed privacy notice is shown until they have read it. */
+    privacy: { version: notice.version, read: e.privacyNoticeVersion === notice.version },
   });
 });
 
@@ -391,11 +400,107 @@ portalRouter.get('/documents/:id', async (req, res) => {
   res.json({ document: { id: d.id, title: d.title, mime: d.mime, size: d.size, dataUrl: `data:${d.mime};base64,${Buffer.from(d.data).toString('base64')}` } });
 });
 
-const DATA_REQUEST_TYPES = new Set(['ACCESS', 'CORRECTION', 'ERASURE']);
+const DATA_REQUEST_TYPES = new Set(['ACCESS', 'CORRECTION', 'ERASURE', 'NOMINATE', 'GRIEVANCE']);
+const DATA_REQUEST_VERB: Record<string, string> = { ACCESS: 'see their personal data', CORRECTION: 'correct their personal data', ERASURE: 'erase their personal data', NOMINATE: 'name a nominee for their data rights', GRIEVANCE: 'raise a data-protection grievance', WITHDRAW: 'withdraw consent' };
+/** Answered within 30 days: well inside the 90 the DPDP Rules allow for grievances. */
+const answerBy = () => new Date(Date.now() + 30 * 86_400_000);
+
+// ---------------------------------------------------------------------------
+// Privacy notice and my data (DPDP)
+// ---------------------------------------------------------------------------
+
+portalRouter.get('/privacy-notice', async (req, res) => {
+  const e = req.portal!.employee;
+  const notice = await privacyNoticeFor(e.orgId);
+  res.json({ notice, read: e.privacyNoticeVersion === notice.version });
+});
+
+/** "I have read this" — for the version they were shown. */
+portalRouter.post('/privacy-notice/read', async (req, res) => {
+  const e = req.portal!.employee;
+  const notice = await privacyNoticeFor(e.orgId);
+  if (String(req.body?.version || '') !== notice.version) return res.status(409).json({ error: 'The notice has changed since you opened it. Read the new one.', version: notice.version });
+  await peoplePrisma.employee.update({ where: { id: e.id }, data: { privacyNoticeVersion: notice.version, privacyNoticeAckAt: new Date() } });
+  res.json({ read: true, version: notice.version });
+});
+
+/**
+ * Everything held about me, at once (DPDP s.11): the summary and the data,
+ * as a file. Fingerprint and face data are never sent — only whether CLOR
+ * holds a copy — as the template itself is of no use to a person and a risk
+ * in a download.
+ */
+portalRouter.get('/my-data', async (req, res) => {
+  const e = req.portal!.employee;
+  const since = new Date(Date.now() - 400 * 86_400_000);
+  const [file, siteIds, punches, records, requests, leave, dataRequests, templates, org, hr, hooks, notice] = await Promise.all([
+    peoplePrisma.employee.findUnique({ where: { id: e.id } }),
+    peoplePrisma.readerIdAtSite.findMany({ where: { orgId: e.orgId, employeeId: e.id }, select: { areaId: true, pin: true } }),
+    peoplePrisma.devicePunch.findMany({ where: { orgId: e.orgId, employeeId: e.id, at: { gte: since } }, orderBy: { at: 'asc' }, select: { localTime: true, kind: true, serialNumber: true, verifyMode: true, latitude: true, longitude: true, accuracyM: true, geofenceId: true } }),
+    peoplePrisma.attendanceRecord.findMany({ where: { orgId: e.orgId, employeeId: e.id, date: { gte: since.toISOString().slice(0, 10) } }, orderBy: { date: 'asc' } }),
+    peoplePrisma.attendanceRequest.findMany({ where: { orgId: e.orgId, employeeId: e.id }, orderBy: { createdAt: 'desc' }, take: 500 }),
+    peoplePrisma.leaveRequest.findMany({ where: { orgId: e.orgId, employeeId: e.id }, orderBy: { fromDate: 'desc' }, take: 500 }),
+    peoplePrisma.dataRequest.findMany({ where: { orgId: e.orgId, employeeId: e.id }, orderBy: { createdAt: 'desc' } }),
+    peoplePrisma.biometricTemplate.groupBy({ by: ['type'], where: { orgId: e.orgId, employeeId: e.id }, _count: { _all: true } }),
+    platformPrisma.org.findUnique({ where: { id: e.orgId }, select: { name: true } }),
+    peoplePrisma.hrConnection.findMany({ where: { orgId: e.orgId, enabled: true }, select: { name: true } }),
+    peoplePrisma.webhook.findMany({ where: { orgId: e.orgId, isActive: true }, select: { name: true } }),
+    privacyNoticeFor(e.orgId),
+  ]);
+  const {
+    portalPasswordHash: _p, portalSetupHash: _s, portalSetupExpires: _x, devicePassword: _d, ...profile
+  } = (file || {}) as any;
+  const summary = {
+    company: org?.name || null,
+    role: `${org?.name || 'Your employer'} is the Data Fiduciary; CLOR processes the data for it.`,
+    heldAbout: ['Your employee file', 'Reader IDs', `Punches since ${since.toISOString().slice(0, 10)}`, 'Attendance days', 'Corrections and leave', 'Data requests', templates.length ? 'CLOR holds an encrypted copy of your fingerprints/face (not included here)' : 'CLOR holds no copy of your fingerprints or face'],
+    sharedWith: [`${org?.name || 'Your employer'} (HR and managers it allows)`, 'CLOR (Data Processor)', ...hr.map((h) => `${h.name} (HR tool)`), ...hooks.map((h) => `${h.name} (connected system)`)],
+    noticeVersion: notice.version,
+    generatedAt: new Date().toISOString(),
+  };
+  res.setHeader('Content-Disposition', `attachment; filename="my-data-${new Date().toISOString().slice(0, 10)}.json"`);
+  res.json({
+    summary,
+    profile,
+    readerIds: { company: e.devicePin || e.code || null, sites: siteIds },
+    punches,
+    attendanceDays: records,
+    corrections: requests,
+    leave,
+    dataRequests,
+    biometricCopies: Object.fromEntries(templates.map((t) => [t.type === 9 ? 'face' : t.type === 1 ? 'fingerprint' : `type ${t.type}`, t._count._all])),
+  });
+});
+
+/**
+ * Withdraw consent (DPDP s.6(4)): to CLOR keeping copies of my fingerprints
+ * and face (they are deleted now), or to phone punches reading my location
+ * (phone punching stops for me). Recorded as a request HR can see, answered.
+ */
+portalRouter.post('/consent/withdraw', async (req, res) => {
+  const e = req.portal!.employee;
+  const what = String(req.body?.what || '').toUpperCase();
+  if (what !== 'BIOMETRIC' && what !== 'PHONE') return res.status(400).json({ error: 'Say what you are withdrawing.' });
+  let done = '';
+  if (what === 'BIOMETRIC') {
+    const gone = await peoplePrisma.biometricTemplate.deleteMany({ where: { orgId: e.orgId, employeeId: e.id } });
+    await peoplePrisma.employee.update({ where: { id: e.id }, data: { biometricOptOutAt: new Date() } });
+    clearBiometricPolicy(e.orgId);
+    done = `Withdrawn. CLOR deleted ${gone.count} stored cop${gone.count === 1 ? 'y' : 'ies'} of your fingerprints/face and will keep none. The readers still recognise you; ask HR if you want to be removed from them too.`;
+  } else {
+    await peoplePrisma.employee.update({ where: { id: e.id }, data: { mobilePunch: false } });
+    done = 'Withdrawn. Your phone will no longer punch or read your location; punch at a reader.';
+  }
+  await peoplePrisma.dataRequest.create({
+    data: { accountId: e.accountId, orgId: e.orgId, employeeId: e.id, type: 'WITHDRAW', details: what === 'BIOMETRIC' ? 'Withdrew consent to CLOR keeping copies of my fingerprints and face.' : 'Withdrew consent to phone punches reading my location.', status: 'RESOLVED', resolution: done, reviewedAt: new Date(), dueAt: new Date() },
+  });
+  await notifyPermission(e.accountId, e.orgId, 'PEOPLE::Employees::EDIT', { kind: 'people.data_request', title: `${e.name} withdrew consent (${what === 'BIOMETRIC' ? 'fingerprint copies' : 'phone punches'})`, body: done, link: { app: 'attendance', screen: 'dataRequests' } });
+  res.json({ ok: true, message: done });
+});
 
 portalRouter.get('/data-requests', async (req, res) => {
   const e = req.portal!.employee;
-  const rows = await peoplePrisma.dataRequest.findMany({ where: { orgId: e.orgId, employeeId: e.id }, orderBy: { createdAt: 'desc' }, take: 50, select: { id: true, type: true, details: true, status: true, resolution: true, createdAt: true, reviewedAt: true } });
+  const rows = await peoplePrisma.dataRequest.findMany({ where: { orgId: e.orgId, employeeId: e.id }, orderBy: { createdAt: 'desc' }, take: 50, select: { id: true, type: true, details: true, status: true, resolution: true, createdAt: true, reviewedAt: true, dueAt: true } });
   res.json({ requests: rows });
 });
 
@@ -403,13 +508,13 @@ portalRouter.get('/data-requests', async (req, res) => {
 portalRouter.post('/data-requests', async (req, res) => {
   const e = req.portal!.employee;
   const type = String(req.body?.type || '').toUpperCase();
-  if (!DATA_REQUEST_TYPES.has(type)) return res.status(400).json({ error: 'Ask to see, correct or erase your data.' });
+  if (!DATA_REQUEST_TYPES.has(type)) return res.status(400).json({ error: 'Ask to see, correct or erase your data, name a nominee, or raise a grievance.' });
   const details = String(req.body?.details || '').trim().slice(0, 2000);
   if (!details) return res.status(400).json({ error: 'Say what you are asking for.' });
   const open = await peoplePrisma.dataRequest.count({ where: { orgId: e.orgId, employeeId: e.id, status: 'PENDING' } });
   if (open >= 3) return res.status(409).json({ error: 'You already have three requests waiting. HR will answer those first.' });
-  const r = await peoplePrisma.dataRequest.create({ data: { accountId: e.accountId, orgId: e.orgId, employeeId: e.id, type, details } });
-  await notifyPermission(e.accountId, e.orgId, 'PEOPLE::Employees::EDIT', { kind: 'people.data_request', title: `${e.name} asked to ${type === 'ACCESS' ? 'see' : type === 'ERASE' ? 'erase' : 'correct'} their personal data`, body: details || null, link: { app: 'attendance', screen: 'dataRequests' } });
+  const r = await peoplePrisma.dataRequest.create({ data: { accountId: e.accountId, orgId: e.orgId, employeeId: e.id, type, details, dueAt: answerBy() } });
+  await notifyPermission(e.accountId, e.orgId, 'PEOPLE::Employees::EDIT', { kind: 'people.data_request', title: `${e.name} asked to ${DATA_REQUEST_VERB[type]}`, body: details || null, link: { app: 'attendance', screen: 'dataRequests' } });
   res.status(201).json({ request: r });
 });
 

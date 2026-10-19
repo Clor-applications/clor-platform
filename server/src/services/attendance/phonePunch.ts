@@ -1,3 +1,4 @@
+import { isMinor } from './biometrics.js';
 import { peoplePrisma } from '../../utils/peoplePrisma.js';
 import { istDate, istTime } from './compute.js';
 import { emit as emitWebhook } from './webhooks.js';
@@ -29,7 +30,12 @@ export type PunchingEmployee = {
   areaId: string | null;
   geofenceId: string | null;
   mobilePunch: boolean;
+  /** YYYY-MM-DD; under 18, the phone never reads a location (DPDP s.9: no tracking of children). */
+  dateOfBirth?: string | null;
 };
+
+/** Phone punching for this person: switched on by HR, and never for someone under 18. */
+const phoneAllowed = (e: PunchingEmployee) => Boolean(e.mobilePunch) && !isMinor(e.dateOfBirth);
 
 export const nowLocal = (at: Date) => `${istDate(at)} ${new Date(at.getTime() + 330 * 60_000).toISOString().slice(11, 19)}`;
 
@@ -50,13 +56,14 @@ export async function phoneStatus(e: PunchingEmployee) {
   const shiftDay = await shiftDayFor(e.orgId, e.id, nowLocal(new Date()));
   const [punches, sites] = await Promise.all([
     peoplePrisma.devicePunch.findMany({ where: { orgId: e.orgId, employeeId: e.id, shiftDate: shiftDay }, orderBy: { at: 'asc' } }),
-    e.mobilePunch ? sitesFor(e) : Promise.resolve([]),
+    phoneAllowed(e) ? sitesFor(e) : Promise.resolve([]),
   ]);
   const fenceNames = new Map(sites.map((s) => [s.id, s.name]));
   return {
     punches: punches.map((p) => ({ time: p.localTime.slice(11, 16), kind: p.kind, phone: p.latitude != null, site: p.geofenceId ? fenceNames.get(p.geofenceId) || null : null })),
     phone: {
-      allowed: Boolean(e.mobilePunch),
+      allowed: phoneAllowed(e),
+      ...(e.mobilePunch && isMinor(e.dateOfBirth) ? { why: 'Phone punching reads your location, which is not done for anyone under 18. Punch at a reader.' } : {}),
       next: nextDirection(punches),
       /* For the notice on the punch card: how long a selfie is kept. */
       photoRetentionDays: punchPhotoRetentionDays(),
@@ -97,6 +104,7 @@ export async function recordPhonePunch(e: PunchingEmployee, input: any): Promise
 
 async function recordPhonePunchChecked(e: PunchingEmployee, input: any): Promise<PunchOutcome> {
   if (!e.mobilePunch) return { status: 403, body: { error: 'Punching from your phone is not switched on for you. Ask HR.', code: 'PHONE_OFF' } };
+  if (isMinor(e.dateOfBirth)) return { status: 403, body: { error: 'Phone punching reads your location, which is not done for anyone under 18. Punch at a reader.', code: 'MINOR' } };
   const { latitude, longitude } = input || {};
   const accuracy = typeof input?.accuracy === 'number' && Number.isFinite(input.accuracy) ? input.accuracy : null;
   if (!validPosition(latitude, longitude)) return { status: 400, body: { error: 'Your location did not come through. Allow location for this site and try again.', code: 'NO_LOCATION' } };

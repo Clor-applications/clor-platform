@@ -30,6 +30,8 @@ async function makeOwner(features: Record<string, boolean> = { people: true, att
     .expect(200);
   const ctx = { token: signup.body.token, orgId: setup.body.company.orgId, branchId: setup.body.branch.id, email };
   if (Object.keys(features).length) await request(app).put(`/api/orgs/${ctx.orgId}/features`).set(at(ctx)).send({ features }).expect(200);
+  /* These tests are about copying fingerprints between readers, which a company switches on (DPDP; off by default, see dpdp.test.ts). */
+  if (features.attendance) await request(app).put(`/api/orgs/${ctx.orgId}/attendance/data-protection`).set(at(ctx)).send({ biometricCopy: true, attest: true }).expect(200);
   return ctx;
 }
 const api = (c: Ctx) => ({

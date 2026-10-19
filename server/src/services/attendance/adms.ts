@@ -1,3 +1,5 @@
+import { openTemplate } from './biometrics.js';
+
 /**
  * The ZKTeco / eSSL push protocol ("ADMS", the /iclock endpoints), as the
  * on-premise ClorTime server speaks it in production — ported from
@@ -111,7 +113,8 @@ export type Template = {
  * Other BIODATA types are sent back as BIODATA unchanged.
  */
 export function templateCommands(t: Template, target: { faceMajorVer?: number | null; faceMinorVer?: number | null } = {}) {
-  const data = String(t.data || '').trim().replace(/[\r\n]/g, '');
+  /* Stored copies are sealed (services/attendance/biometrics.ts); a reader gets the template itself. */
+  const data = openTemplate(String(t.data || '')).trim().replace(/[\r\n]/g, '');
   const pin = admsField(t.pin);
   if (t.type === FINGER) {
     return [{ seq: SEQ.TEMPLATE, command: `DATA UPDATE FINGERTMP PIN=${pin}\tFID=${admsField(t.no)}\tSize=${templateSize(data)}\tValid=${admsField(t.valid || 1)}\tTMP=${admsField(data)}` }];

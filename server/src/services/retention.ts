@@ -1,6 +1,7 @@
 import { platformPrisma } from '../utils/platformPrisma.js';
 import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { exclusive, leaseFor } from './jobLease.js';
+import { BIOMETRIC_GRACE_UNTIL, isMinor } from './attendance/biometrics.js';
 
 /**
  * Deletes sign-in records once they have no further use.
@@ -36,13 +37,18 @@ const ago = (d: number) => new Date(Date.now() - d * 86_400_000);
 /** How long a punch selfie is kept, for the notice employees read before sending one. */
 export const punchPhotoRetentionDays = () => days('PUNCH_PHOTO_RETENTION_DAYS', 30)!;
 
+/** Where a phone punch was made: 13 months, then only the site stays (DPDP: no longer than needed). */
+export const punchLocationRetentionDays = () => Math.max(366, days('PUNCH_LOCATION_RETENTION_DAYS', 395)!);
+
 /** Originals of what readers sent: 13 months by default, never under a year. */
 export const readerEventRetentionDays = () => Math.max(366, days('READER_EVENT_RETENTION_DAYS', 395)!);
 
 export async function purgeExpiredRecords() {
   const tokenDays = days('TOKEN_RETENTION_DAYS', 7)!;
   const sessionDays = days('SESSION_RETENTION_DAYS', 90)!;
-  const eventDays = days('AUTH_EVENT_RETENTION_DAYS', null);
+  /* Sign-in events are the security log: when a period is set, never under the year the DPDP Rules ask logs be kept. */
+  const setEventDays = days('AUTH_EVENT_RETENTION_DAYS', null);
+  const eventDays = setEventDays ? Math.max(366, setEventDays) : null;
 
   const tokenCutoff = ago(tokenDays);
   const tokens = { OR: [{ expiresAt: { lt: tokenCutoff } }, { usedAt: { lt: tokenCutoff } }] };
@@ -68,8 +74,27 @@ export async function purgeExpiredRecords() {
   /* Originals of reader lines (ReaderEvent): kept at least a year — the minimum the DPDP Rules set for processing logs — then deleted. */
   const readerEvents = await peoplePrisma.readerEvent.deleteMany({ where: { receivedAt: { lt: ago(readerEventRetentionDays()) } } });
 
+  /* The position of old phone punches: the punch and its site stay, the coordinates go. */
+  const located = await peoplePrisma.devicePunch.updateMany({
+    where: { at: { lt: ago(punchLocationRetentionDays()) }, OR: [{ latitude: { not: null } }, { longitude: { not: null } }] },
+    data: { latitude: null, longitude: null, accuracyM: null },
+  });
+
+  /* Copies of fingerprints and faces a company does not keep (copying off), once the notice period is over; and anyone excluded. */
+  let templates = 0;
+  if (new Date().toISOString().slice(0, 10) > BIOMETRIC_GRACE_UNTIL) {
+    const keeping = (await peoplePrisma.attendanceSettings.findMany({ where: { biometricCopy: true }, select: { orgId: true } })).map((x) => x.orgId);
+    templates += (await peoplePrisma.biometricTemplate.deleteMany({ where: { orgId: { notIn: keeping } } })).count;
+  }
+  const excluded = (await peoplePrisma.employee.findMany({ where: { OR: [{ biometricOptOutAt: { not: null } }, { dateOfBirth: { not: null } }] }, select: { id: true, biometricOptOutAt: true, dateOfBirth: true } }))
+    .filter((x) => x.biometricOptOutAt || isMinor(x.dateOfBirth))
+    .map((x) => x.id);
+  if (excluded.length) templates += (await peoplePrisma.biometricTemplate.deleteMany({ where: { employeeId: { in: excluded } } })).count;
+
   return {
     readerEvents: readerEvents.count,
+    punchLocations: located.count,
+    biometricTemplates: templates,
     passwordResetTokens: resets.count,
     emailVerificationTokens: verifications.count,
     sessions: sessions.count,

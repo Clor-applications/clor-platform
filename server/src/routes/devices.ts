@@ -10,6 +10,7 @@ import { ATTENDANCE_MODULE, ATTENDANCE_RESOURCE, attendanceRouteOk } from '../se
 import { COMMANDS, FACE, FETCH_TEMPLATE_COMMANDS, ONLINE_WINDOW_MS, SEQ, USERPIC, VERIFY_MODES, commandEffect, messageCommand, normaliseFirmware, pinKey, userCommandFor } from '../services/attendance/adms.js';
 import { ISO_DATE, sendError, today } from './attendance.js';
 import { siteIdClash } from '../services/attendance/readerIds.js';
+import { biometricPolicy } from '../services/attendance/biometrics.js';
 import { CATALOGUE, SUPPORT_LABEL, TESTS, supportOf } from '../services/attendance/certification.js';
 import { moveIdAtSite, attachPunchesTo, copyAllTemplatesTo, pinMatcher, recomputeDeviceDay, servesArea, shiftDayFor, syncVendorConnection } from './iclock.js';
 import { decryptSecret, encryptSecret } from '../services/mailer.js';
@@ -485,16 +486,19 @@ devicesRouter.post(`${base}/:id/commands`, can(PermissionAction.EDIT), async (re
   }
   if (action === 'READ_ALL') {
     /* Learn what the reader holds — its users, fingerprints, faces, counts — so Sync status is true for a reader set up before CLOR. */
-    const cmds = [COMMANDS.INFO, COMMANDS.FETCH_USERS, ...FETCH_TEMPLATE_COMMANDS];
+    const copying = (await biometricPolicy(orgId)).copy;
+    const cmds = [COMMANDS.INFO, COMMANDS.FETCH_USERS, ...(copying ? FETCH_TEMPLATE_COMMANDS : [])];
     await peoplePrisma.deviceCommand.createMany({ data: cmds.map((c) => queue(c)) });
     return res.json({ queued: cmds.length });
   }
   if (action === 'FETCH_TEMPLATES') {
     /* What it sends back is stored and, if new, copied to the other readers. */
+    if (!(await biometricPolicy(orgId)).copy) return res.status(409).json({ error: 'CLOR keeps no copies of fingerprints and faces for this company. Switch copying on under Data protection first.' });
     await peoplePrisma.deviceCommand.createMany({ data: FETCH_TEMPLATE_COMMANDS.map((c) => queue(c)) });
     return res.json({ queued: FETCH_TEMPLATE_COMMANDS.length });
   }
   if (action === 'COPY_TEMPLATES') {
+    if (!(await biometricPolicy(orgId)).copy) return res.status(409).json({ error: 'CLOR keeps no copies of fingerprints and faces for this company. Switch copying on under Data protection first.' });
     const r = await copyAllTemplatesTo(device, req.auth!.userId);
     return res.json({ queued: r.commands, people: r.people });
   }
