@@ -6856,3 +6856,11 @@ th.ui-th {
 .ui-setup-mark { flex: none; display: inline-grid; place-items: center; width: 1.375rem; height: 1.375rem; margin-top: 0.05rem; border-radius: 50%; font-size: 0.75rem; font-weight: 600; background: rgb(var(--surface-sunken)); color: rgb(var(--fg-muted)); }
 .ui-setup-step[data-done] .ui-setup-mark { background: rgb(var(--pos)); color: #fff; }
 @media (max-width: 560px) { .ui-explain-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+/* Work-site map (attendance → Work sites). */
+.clor-site-map { height: 18rem; width: 100%; border-radius: 0.5rem; border: 1px solid rgb(var(--border)); overflow: hidden; z-index: 0; }
+.clor-site-map:focus-visible { outline: 2px solid rgb(var(--accent)); outline-offset: 2px; }
+.clor-site-pin { background: none; border: 0; }
+.clor-site-ring { stroke: rgb(var(--accent)); fill: rgb(var(--accent)); fill-opacity: 0.12; }
+.leaflet-marker-draggable.clor-site-pin { cursor: grab; }
+@media (max-width: 640px) { .clor-site-map { height: 15rem; } }

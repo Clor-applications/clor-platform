@@ -38,6 +38,7 @@
     "echarts-for-react": "^3.0.6",
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.8",
+    "leaflet": "1.9.4",
     "lucide-react": "^1.41.0",
     "qrcode": "^1.5.4",
     "react": "^19.2.0",
