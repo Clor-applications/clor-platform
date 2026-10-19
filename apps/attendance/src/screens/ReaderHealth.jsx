@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { AlertTriangle, BellRing, Cpu, Fingerprint, History, RefreshCw, Router, Wifi } from 'lucide-react';
+import { AlertTriangle, BellRing, ChevronDown, Cpu, Fingerprint, History, RefreshCw, Router, Wifi } from 'lucide-react';
 
 import { PageHeader, SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import Drawer from '@ui/components/ui/Drawer';
@@ -122,81 +122,11 @@ export default function ReaderHealth() {
       {!data.readers.length ? (
         <EmptyState icon={Router} title="No readers yet" description="Add a reader under Readers. Its health shows here once it connects." />
       ) : (
-        <div className="space-y-3">
-          {data.readers.map((r) => {
-            const st = STATUS[r.status] || STATUS.ok;
-            const drift = r.clockOffsetSec !== null && r.clockOffsetSec !== undefined && Math.abs(r.clockOffsetSec) >= 120;
-            const memory = [
-              ['Users', r.capacity.users],
-              ['Fingerprints', r.capacity.fingers],
-              ['Faces', r.capacity.faces],
-              ['Punch log', r.capacity.punches],
-            ];
-            return (
-              <section key={r.id} className="ui-card overflow-hidden" aria-label={r.name}>
-                <header className="ui-card-head flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-b" style={{ borderColor: 'rgb(var(--border))' }}>
-                  <div className="flex min-w-0 items-center gap-2.5">
-                    <span className="inline-block h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: st.dot }} aria-hidden="true" />
-                    <h2 className="truncate ui-t-sec">{r.name}</h2>
-                    <span className={`ui-pill ${st.pill}`}>{st.label}</span>
-                    <span className="ui-caption truncate">{[r.serialNumber, r.areaName].filter(Boolean).join(' · ')}</span>
-                  </div>
-                  <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" title="Punches received, changes sent, errors" aria-label={`${r.name} timeline`} onClick={() => setTimelineOf(r)}>
-                    <History size={14} aria-hidden="true" /> Timeline
-                  </button>
-                </header>
-
-                {r.issues.length ? (
-                  <ul className="border-b" style={{ borderColor: 'rgb(var(--border))' }}>
-                    {r.issues.map((i) => (
-                      <li key={i.kind} className="flex items-start gap-3 px-4 py-3">
-                        <AlertTriangle size={16} className="mt-0.5 shrink-0" style={{ color: i.severity === 'medium' ? 'rgb(var(--warn-ink, 180 120 0))' : 'rgb(var(--neg))' }} aria-hidden="true" />
-                        <div className="min-w-0">
-                          <div className="text-sm font-semibold">{i.title} <span className={`ui-pill ml-1 ${SEVERITY_PILL[i.severity] || 'ui-pill-warn'}`}>{i.severity === 'medium' ? 'Check' : 'Fix now'}</span></div>
-                          <p className="ui-caption mt-0.5">{i.details}</p>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                ) : null}
-
-                <div className="grid gap-px sm:grid-cols-2 2xl:grid-cols-4" style={{ backgroundColor: 'rgb(var(--border))' }}>
-                  <Facts title="Connection" rows={[
-                    ['Status', <span key="s" style={{ color: r.online ? 'rgb(var(--pos))' : r.lastSeenAt ? 'rgb(var(--neg))' : undefined }}>{r.online ? 'Online' : r.lastSeenAt ? 'Offline' : 'Never connected'}</span>],
-                    ['Last heard', r.lastSeenAt ? `${ago(r.lastSeenAt)} · ${when(r.lastSeenAt)}` : 'Never'],
-                    ['Last punch', r.lastPunchAt ? `${ago(r.lastPunchAt)} · ${when(r.lastPunchAt)}` : 'None yet'],
-                    ['IP address', r.ip],
-                  ]} />
-                  <Facts title="Clock and changes" rows={[
-                    ['Clock', <span key="c" style={drift ? { color: 'rgb(var(--neg))' } : undefined}>{r.clockOffsetSec === null || r.clockOffsetSec === undefined ? 'Not checked yet' : clock(r.clockOffsetSec)}</span>],
-                    ['Checked', r.clockCheckedAt ? ago(r.clockCheckedAt) : 'At the next punch'],
-                    ['Changes waiting', String(r.queue.waiting)],
-                    ['Failed today', <span key="f" style={r.queue.failed24h ? { color: 'rgb(var(--neg))' } : undefined}>{r.queue.failed24h}</span>],
-                  ]} />
-                  <Facts title="Memory used" rows={memory.map(([label, c]) => [
-                    label,
-                    c?.n === null || c?.n === undefined ? null : (
-                      <span key={label} className="inline-flex items-center gap-2">
-                        {c.pct !== null && c.pct !== undefined ? (
-                          <span className="h-1.5 w-12 overflow-hidden rounded-full" style={{ backgroundColor: 'rgb(var(--border))' }} aria-hidden="true">
-                            <span className="block h-full rounded-full" style={{ width: `${Math.min(100, c.pct)}%`, backgroundColor: c.pct >= 90 ? 'rgb(var(--neg))' : 'rgb(var(--fg-muted))' }} />
-                          </span>
-                        ) : null}
-                        <span className="tabular-nums">{c.n.toLocaleString('en-IN')}{c.max ? ` / ${c.max.toLocaleString('en-IN')}` : ''}</span>
-                      </span>
-                    ),
-                  ])} note={r.capacity.users.n === null ? 'Sent with the reader’s next info report.' : null} />
-                  <Facts title="Device" rows={[
-                    ['Model', r.model],
-                    ['Firmware', r.firmware],
-                    ['Recognises', [r.fingerSupported && 'Fingerprint', r.faceSupported && 'Face'].filter(Boolean).join(', ') || null],
-                    ['Last info', when(r.infoAt)],
-                  ]} />
-                </div>
-              </section>
-            );
-          })}
-        </div>
+        data.readers.length === 1 ? (
+          <ReaderCard r={data.readers[0]} onTimeline={setTimelineOf} />
+        ) : (
+          <ReaderList readers={data.readers} onTimeline={setTimelineOf} />
+        )
       )}
 
       {open.length || recent.length ? (
@@ -224,6 +154,181 @@ export default function ReaderHealth() {
 
       {settingsOpen ? <AlertSettings initial={data.settings} onClose={() => setSettingsOpen(false)} onSaved={() => { setSettingsOpen(false); load(); }} /> : null}
       {timelineOf ? <ReaderTimeline reader={timelineOf} onClose={() => setTimelineOf(null)} /> : null}
+    </div>
+  );
+}
+
+
+/**
+ * One reader in full: what is wrong first, then four labelled groups. On its
+ * own it is a card; opened from the list of several readers it is the row's
+ * detail, without a second heading.
+ */
+function ReaderCard({ r, onTimeline, compact = false }) {
+  const st = STATUS[r.status] || STATUS.ok;
+  const drift = r.clockOffsetSec !== null && r.clockOffsetSec !== undefined && Math.abs(r.clockOffsetSec) >= 120;
+  const memory = [
+    ['Users', r.capacity.users],
+    ['Fingerprints', r.capacity.fingers],
+    ['Faces', r.capacity.faces],
+    ['Punch log', r.capacity.punches],
+  ];
+  return (
+    <section className={compact ? '' : 'ui-card overflow-hidden'} aria-label={r.name}>
+      {compact ? null : (
+      <header className="ui-card-head flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-b" style={{ borderColor: 'rgb(var(--border))' }}>
+        <div className="flex min-w-0 items-center gap-2.5">
+          <span className="inline-block h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: st.dot }} aria-hidden="true" />
+          <h2 className="truncate ui-t-sec">{r.name}</h2>
+          <span className={`ui-pill ${st.pill}`}>{st.label}</span>
+          <span className="ui-caption truncate">{[r.serialNumber, r.areaName].filter(Boolean).join(' · ')}</span>
+        </div>
+        <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" title="Punches received, changes sent, errors" aria-label={`${r.name} timeline`} onClick={() => onTimeline(r)}>
+          <History size={14} aria-hidden="true" /> Timeline
+        </button>
+      </header>
+      )}
+
+      {r.issues.length ? (
+        <ul className="border-b" style={{ borderColor: 'rgb(var(--border))' }}>
+          {r.issues.map((i) => (
+            <li key={i.kind} className="flex items-start gap-3 px-4 py-3">
+              <AlertTriangle size={16} className="mt-0.5 shrink-0" style={{ color: i.severity === 'medium' ? 'rgb(var(--warn-ink, 180 120 0))' : 'rgb(var(--neg))' }} aria-hidden="true" />
+              <div className="min-w-0">
+                <div className="text-sm font-semibold">{i.title} <span className={`ui-pill ml-1 ${SEVERITY_PILL[i.severity] || 'ui-pill-warn'}`}>{i.severity === 'medium' ? 'Check' : 'Fix now'}</span></div>
+                <p className="ui-caption mt-0.5">{i.details}</p>
+              </div>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+
+      <div className="grid gap-px sm:grid-cols-2 2xl:grid-cols-4" style={{ backgroundColor: 'rgb(var(--border))' }}>
+        <Facts title="Connection" rows={[
+          ['Status', <span key="s" style={{ color: r.online ? 'rgb(var(--pos))' : r.lastSeenAt ? 'rgb(var(--neg))' : undefined }}>{r.online ? 'Online' : r.lastSeenAt ? 'Offline' : 'Never connected'}</span>],
+          ['Last heard', r.lastSeenAt ? `${ago(r.lastSeenAt)} · ${when(r.lastSeenAt)}` : 'Never'],
+          ['Last punch', r.lastPunchAt ? `${ago(r.lastPunchAt)} · ${when(r.lastPunchAt)}` : 'None yet'],
+          ['IP address', r.ip],
+        ]} />
+        <Facts title="Clock and changes" rows={[
+          ['Clock', <span key="c" style={drift ? { color: 'rgb(var(--neg))' } : undefined}>{r.clockOffsetSec === null || r.clockOffsetSec === undefined ? 'Not checked yet' : clock(r.clockOffsetSec)}</span>],
+          ['Checked', r.clockCheckedAt ? ago(r.clockCheckedAt) : 'At the next punch'],
+          ['Changes waiting', String(r.queue.waiting)],
+          ['Failed today', <span key="f" style={r.queue.failed24h ? { color: 'rgb(var(--neg))' } : undefined}>{r.queue.failed24h}</span>],
+        ]} />
+        <Facts title="Memory used" rows={memory.map(([label, c]) => [
+          label,
+          c?.n === null || c?.n === undefined ? null : (
+            <span key={label} className="inline-flex items-center gap-2">
+              {c.pct !== null && c.pct !== undefined ? (
+                <span className="h-1.5 w-12 overflow-hidden rounded-full" style={{ backgroundColor: 'rgb(var(--border))' }} aria-hidden="true">
+                  <span className="block h-full rounded-full" style={{ width: `${Math.min(100, c.pct)}%`, backgroundColor: c.pct >= 90 ? 'rgb(var(--neg))' : 'rgb(var(--fg-muted))' }} />
+                </span>
+              ) : null}
+              <span className="tabular-nums">{c.n.toLocaleString('en-IN')}{c.max ? ` / ${c.max.toLocaleString('en-IN')}` : ''}</span>
+            </span>
+          ),
+        ])} note={r.capacity.users.n === null ? 'Sent with the reader’s next info report.' : null} />
+        <Facts title="Device" rows={[
+          ['Model', r.model],
+          ['Firmware', r.firmware],
+          ['Recognises', [r.fingerSupported && 'Fingerprint', r.faceSupported && 'Face'].filter(Boolean).join(', ') || null],
+          ['Last info', when(r.infoAt)],
+        ]} />
+      </div>
+    </section>
+  );
+}
+
+/* Worst first: a reader that needs fixing is the one somebody opened this page for. */
+const RANK = { bad: 0, offline: 1, warn: 2, delayed: 3, ok: 4, off: 5 };
+const fullest = (r) =>
+  [['users', r.capacity.users], ['fingerprints', r.capacity.fingers], ['faces', r.capacity.faces], ['punch log', r.capacity.punches]]
+    .filter(([, c]) => c && c.pct !== null && c.pct !== undefined)
+    .sort((a, b) => b[1].pct - a[1].pct)[0] || null;
+
+/**
+ * Several readers: one row each, worst first, so twenty readers fit on a
+ * screen and the ones with a problem are at the top. A row opens the
+ * reader's full detail beneath it.
+ */
+function ReaderList({ readers, onTimeline }) {
+  const sorted = [...readers].sort((a, b) => (RANK[a.status] ?? 9) - (RANK[b.status] ?? 9) || a.name.localeCompare(b.name));
+  const [openId, setOpenId] = useState(null);
+  return (
+    <div className="ui-card overflow-hidden">
+      <div className="ui-table-scroll">
+        <table className="ui-table w-full">
+          <thead>
+            <tr>
+              <th scope="col">Reader</th>
+              <th scope="col" className="ui-col-h-center">Status</th>
+              <th scope="col">Last heard</th>
+              <th scope="col" className="hidden lg:table-cell">Last punch</th>
+              <th scope="col" className="hidden sm:table-cell">Clock</th>
+              <th scope="col" className="hidden lg:table-cell">Memory</th>
+              <th scope="col" className="hidden sm:table-cell">Needs</th>
+              <th scope="col"><span className="sr-only">Open</span></th>
+            </tr>
+          </thead>
+          <tbody className="ui-rows">
+            {sorted.map((r) => {
+              const st = STATUS[r.status] || STATUS.ok;
+              const isOpen = openId === r.id;
+              const full = fullest(r);
+              const drift = r.clockOffsetSec !== null && r.clockOffsetSec !== undefined && Math.abs(r.clockOffsetSec) >= 120;
+              return (
+                <React.Fragment key={r.id}>
+                  <tr className="ui-row-click" onClick={() => setOpenId(isOpen ? null : r.id)} aria-expanded={isOpen}>
+                    <td className="ui-col-entity">
+                      <span className="flex items-center gap-2">
+                        <span className="inline-block h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: st.dot }} aria-hidden="true" />
+                        <span className="min-w-0">
+                          <span className="block truncate">{r.name}</span>
+                          <span className="ui-caption block truncate">{[r.serialNumber, r.areaName, r.model].filter(Boolean).join(' · ')}</span>
+                          {r.issues.length ? <span className="block text-xs whitespace-normal sm:hidden" style={{ color: 'rgb(var(--neg))' }}>{r.issues[0].title}</span> : null}
+                        </span>
+                      </span>
+                    </td>
+                    <td className="ui-col-h-center"><span className={`ui-pill ${st.pill}`}>{st.label}</span></td>
+                    <td style={!r.online && r.isActive && r.lastSeenAt ? { color: 'rgb(var(--neg))' } : undefined}>{r.online ? 'Online' : ago(r.lastSeenAt)}</td>
+                    <td className="hidden lg:table-cell">{ago(r.lastPunchAt)}</td>
+                    <td className="hidden sm:table-cell" style={drift ? { color: 'rgb(var(--neg))' } : undefined}>{r.clockOffsetSec === null || r.clockOffsetSec === undefined ? <span className="ui-caption">Not checked</span> : clock(r.clockOffsetSec)}</td>
+                    <td className="hidden lg:table-cell">
+                      {full ? (
+                        <span className="inline-flex items-center gap-2" title={`Fullest: ${full[0]}`}>
+                          <span className="h-1.5 w-14 overflow-hidden rounded-full" style={{ backgroundColor: 'rgb(var(--border))' }} aria-hidden="true">
+                            <span className="block h-full rounded-full" style={{ width: `${Math.min(100, full[1].pct)}%`, backgroundColor: full[1].pct >= 90 ? 'rgb(var(--neg))' : 'rgb(var(--fg-muted))' }} />
+                          </span>
+                          <span className="tabular-nums" style={full[1].pct >= 90 ? { color: 'rgb(var(--neg))' } : undefined}>{Math.round(full[1].pct)}% {full[0]}</span>
+                        </span>
+                      ) : <span className="ui-caption">Not reported</span>}
+                    </td>
+                    <td className="whitespace-normal hidden sm:table-cell">
+                      {r.issues.length ? (
+                        <span className="text-sm">{r.issues[0].title}{r.issues.length > 1 ? <span className="ui-caption"> +{r.issues.length - 1} more</span> : null}</span>
+                      ) : <span className="ui-caption">Nothing</span>}
+                    </td>
+                    <td className="ui-col-meta">
+                      <ChevronDown size={16} aria-hidden="true" style={{ transform: isOpen ? 'rotate(180deg)' : undefined, transition: 'transform 120ms' }} />
+                    </td>
+                  </tr>
+                  {isOpen ? (
+                    <tr>
+                      <td colSpan={8} className="!p-0 whitespace-normal" style={{ backgroundColor: 'rgb(var(--surface-sunken))' }}>
+                        <div className="flex justify-end px-4 pt-3">
+                          <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => onTimeline(r)}><History size={14} aria-hidden="true" /> Timeline</button>
+                        </div>
+                        <ReaderCard r={r} onTimeline={onTimeline} compact />
+                      </td>
+                    </tr>
+                  ) : null}
+                </React.Fragment>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
