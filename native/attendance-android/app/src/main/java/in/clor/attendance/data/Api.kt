@@ -106,9 +106,13 @@ class Api(private val session: Session, private val base: String = BuildConfig.A
     suspend fun askPhonePunch(note: String?): Said = post("/phone-punch/ask", buildJsonObject { note?.let { put("note", it) } })
 
     suspend fun leave(year: Int? = null): Leave = get(if (year != null) "/leave?year=$year" else "/leave")
-    suspend fun askLeave(leaveTypeId: String, fromDate: String, toDate: String, reason: String) {
-        call("POST", "/leave", buildJsonObject { put("leaveTypeId", leaveTypeId); put("fromDate", fromDate); put("toDate", toDate); put("reason", reason) })
+    suspend fun askLeave(leaveTypeId: String, fromDate: String, toDate: String, reason: String, halfDay: String? = null) {
+        call("POST", "/leave", buildJsonObject { put("leaveTypeId", leaveTypeId); put("fromDate", fromDate); put("toDate", toDate); put("reason", reason); halfDay?.let { put("halfDay", it) } })
     }
+    /** Forgot password: HR is asked for a new activation code. */
+    suspend fun forgot(company: String, employeeCode: String): Said = post("/forgot", buildJsonObject { put("company", company); put("employeeCode", employeeCode) })
+    suspend fun updates(): Updates = get("/updates")
+    suspend fun punchPhoto(id: String): PhotoAnswer = get("/approvals/punch/$id/photo")
     suspend fun cancelLeave(id: String) { call("POST", "/leave/$id/cancel") }
 
     suspend fun approvals(): Approvals = get("/approvals")

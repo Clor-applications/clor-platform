@@ -165,6 +165,33 @@ private fun SignInScreen(api: Api, session: Session, onDone: () -> Unit) {
     var password by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
+    var forgot by remember { mutableStateOf(false) }
+    var forgotSaid by remember { mutableStateOf<String?>(null) }
+    if (forgot) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { forgot = false; forgotSaid = null },
+            title = { Text("Forgot your password?") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("HR gives you a new activation code. With it, choose First time and set a new password.", style = MaterialTheme.typography.bodyMedium)
+                    if (company.isBlank() || code.isBlank()) Hint("Fill in your company code and employee code first, so CLOR can tell your HR.")
+                    forgotSaid?.let { Text(it, color = Pos, style = MaterialTheme.typography.bodyMedium) }
+                }
+            },
+            confirmButton = {
+                if (forgotSaid == null) {
+                    TextButton(enabled = company.isNotBlank() && code.isNotBlank(), onClick = {
+                        scope.launch {
+                            forgotSaid = try { api.forgot(company.trim(), code.trim()).message } catch (e: Exception) { "Could not reach CLOR. Ask HR directly for a new activation code." }
+                        }
+                    }) { Text("Ask HR for a new code") }
+                } else {
+                    TextButton(onClick = { forgot = false; forgotSaid = null; firstTime = true }) { Text("I have a code") }
+                }
+            },
+            dismissButton = { TextButton(onClick = { forgot = false; forgotSaid = null }) { Text("Close") } },
+        )
+    }
     Scaffold { inner ->
         Column(
             Modifier.padding(inner).fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp),
@@ -212,7 +239,11 @@ private fun SignInScreen(api: Api, session: Session, onDone: () -> Unit) {
                 enabled = !busy && company.isNotBlank() && code.isNotBlank() && password.isNotEmpty() && (!firstTime || activation.isNotBlank()),
                 modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
             ) { Text(if (busy) "Please wait…" else if (firstTime) "Set password and sign in" else "Sign in") }
+            if (!firstTime) {
+                TextButton(onClick = { forgot = true }, modifier = Modifier.padding(top = 0.dp)) { Text("Forgot password?") }
+            }
             Hint("No code? Ask HR to switch on the employee portal for you.")
+            LegalLinks()
         }
     }
 }
@@ -260,4 +291,19 @@ fun NoticeScreen(api: Api, onSignedOut: () -> Unit, mustRead: Boolean, onDone: (
             }
         }
     }
+}
+
+/** Terms of use, CLOR's privacy notice and cookies, on the web; the company's own notice is shown after sign-in. */
+@Composable
+fun LegalLinks() {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    fun open(doc: String) {
+        runCatching { context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("https://attendance.clor.in/#/legal/$doc"))) }
+    }
+    androidx.compose.foundation.layout.Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.Center) {
+        TextButton(onClick = { open("terms") }) { Text("Terms of use", style = MaterialTheme.typography.labelMedium) }
+        TextButton(onClick = { open("privacy") }) { Text("Privacy", style = MaterialTheme.typography.labelMedium) }
+        TextButton(onClick = { open("cookies") }) { Text("Cookies", style = MaterialTheme.typography.labelMedium) }
+    }
+    Hint("By signing in you agree to the Terms of use. Your company's privacy notice is shown after you sign in.")
 }

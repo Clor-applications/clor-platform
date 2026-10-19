@@ -129,6 +129,7 @@ data class LeaveRequest(
     val fromDate: String = "",
     val toDate: String = "",
     val days: Double = 0.0,
+    val halfDay: String? = null,
     val reason: String? = null,
     val status: String = "",
 )
@@ -152,6 +153,11 @@ data class Ask(
     val checkOut: String? = null,
     val reason: String? = null,
     val kind: String? = null,
+    val halfDay: String? = null,
+    val latitude: Double? = null,
+    val longitude: Double? = null,
+    val accuracy: Int? = null,
+    val photo: Boolean = false,
 )
 
 @Serializable
@@ -245,6 +251,7 @@ data class MyRequest(
     val fromDate: String? = null,
     val toDate: String? = null,
     val days: Double? = null,
+    val halfDay: String? = null,
     val reason: String? = null,
     val status: String = "",
     val note: String? = null,
@@ -258,3 +265,13 @@ data class MyRequests(val requests: List<MyRequest> = emptyList(), val reasons: 
 
 @Serializable
 data class Said(val ok: Boolean = true, val message: String = "")
+
+/** What changed for me (GET /portal/updates), for notifications. */
+@Serializable
+data class Updates(val decided: List<Decided> = emptyList(), val waitingForMe: Int = 0)
+
+@Serializable
+data class Decided(val key: String = "", val text: String = "")
+
+@Serializable
+data class PhotoAnswer(val photo: String = "")

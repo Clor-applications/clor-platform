@@ -25,12 +25,14 @@ import java.time.ZoneId
 import java.util.concurrent.TimeUnit
 
 /**
- * Notifications without a push server: about every 30 minutes, while signed in
+ * Notifications without a push server: every 15 minutes (Android's shortest
+ * period for background work) and whenever the app is opened, while signed in
  * and online, the phone asks CLOR how today stands and what changed, and says
  * so when it matters —
  *  - the shift has started and there is no punch (only if phone punching is on);
  *  - the shift ended an hour ago and the last punch is an "in";
- *  - a leave or correction request was decided.
+ *  - a leave, correction or field punch of mine was decided;
+ *  - more is waiting for me to approve than when I last looked.
  * Each is said once (remembered per day / per request). Nothing is sent anywhere.
  */
 object Reminders {
@@ -38,10 +40,11 @@ object Reminders {
     private const val WORK = "clor-reminders"
 
     fun start(context: Context) {
-        val request = PeriodicWorkRequestBuilder<Check>(30, TimeUnit.MINUTES)
-            .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
-            .build()
-        WorkManager.getInstance(context).enqueueUniquePeriodicWork(WORK, ExistingPeriodicWorkPolicy.KEEP, request)
+        val online = Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()
+        val request = PeriodicWorkRequestBuilder<Check>(15, TimeUnit.MINUTES).setConstraints(online).build()
+        WorkManager.getInstance(context).enqueueUniquePeriodicWork(WORK, ExistingPeriodicWorkPolicy.UPDATE, request)
+        /* And once now, so opening the app brings news at once. */
+        WorkManager.getInstance(context).enqueueUniqueWork("$WORK-now", androidx.work.ExistingWorkPolicy.REPLACE, androidx.work.OneTimeWorkRequestBuilder<Check>().setConstraints(online).build())
     }
 
     fun stop(context: Context) = WorkManager.getInstance(context).cancelUniqueWork(WORK)
@@ -97,23 +100,22 @@ object Reminders {
                         seen.edit().putBoolean(outKey, true).apply()
                     }
                 }
-                /* Decisions on my leave and corrections: tell me once per request. */
-                val decided = mutableListOf<Pair<String, String>>()
-                api.leave().requests.filter { it.status == "APPROVED" || it.status == "REJECTED" }.forEach {
-                    decided += "leave:${it.id}:${it.status}" to "Leave ${it.fromDate}${if (it.toDate != it.fromDate) " to ${it.toDate}" else ""} was ${it.status.lowercase()}."
-                }
-                api.month(me.today.take(7)).corrections.filter { it.status == "APPROVED" || it.status == "REJECTED" }.forEach {
-                    decided += "corr:${it.id}:${it.status}" to "Your correction for ${it.date} was ${it.status.lowercase()}.${it.note?.let { n -> " $n" } ?: ""}"
-                }
+                /* Decisions on my leave, corrections and field punches: once each. */
+                val u = api.updates()
                 val first = !seen.getBoolean("primed", false)
-                decided.forEach { (key, text) ->
-                    if (!seen.contains(key)) {
+                u.decided.forEach { d ->
+                    if (!seen.contains(d.key)) {
                         /* The first run only learns what was already decided; it does not announce the past. */
-                        if (!first) show(applicationContext, key.hashCode(), "Request decided", text)
-                        seen.edit().putBoolean(key, true).apply()
+                        if (!first) show(applicationContext, d.key.hashCode(), "Decided", d.text)
+                        seen.edit().putBoolean(d.key, true).apply()
                     }
                 }
-                seen.edit().putBoolean("primed", true).apply()
+                /* For approvers: say so when more is waiting than last time. */
+                val before = seen.getInt("waiting", 0)
+                if (!first && u.waitingForMe > before) {
+                    show(applicationContext, 3, "Waiting for you", "${u.waitingForMe} request${if (u.waitingForMe == 1) "" else "s"} from your team to approve.")
+                }
+                seen.edit().putInt("waiting", u.waitingForMe).putBoolean("primed", true).apply()
                 Result.success()
             } catch (e: SignedOut) {
                 Result.success()

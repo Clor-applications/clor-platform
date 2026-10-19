@@ -83,7 +83,7 @@ fun LeaveTab(api: Api, version: Int, onChanged: () -> Unit, onSignedOut: () -> U
                     if (i > 0) HorizontalDivider()
                     Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
-                            Text("${r.leaveTypeName ?: "Leave"} · ${days(r.days)}", style = MaterialTheme.typography.bodyLarge)
+                            Text("${r.leaveTypeName ?: "Leave"} · ${if (r.halfDay != null) "half day (${if (r.halfDay == "FIRST") "first" else "second"} half)" else days(r.days)}", style = MaterialTheme.typography.bodyLarge)
                             Hint(if (r.fromDate == r.toDate) shortDate(r.fromDate) else "${shortDate(r.fromDate)} to ${shortDate(r.toDate)}")
                         }
                         Column(horizontalAlignment = Alignment.End) {
@@ -121,8 +121,11 @@ private fun LeaveForm(api: Api, types: List<LeaveType>, onDone: () -> Unit, onCa
     var to by remember { mutableStateOf(LocalDate.now()) }
     var picking by remember { mutableStateOf<String?>(null) }
     var reason by remember { mutableStateOf("") }
+    /* Null = whole day(s); FIRST / SECOND = that half of a single day. */
+    var half by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
+    val halfOf = if (from == to) half else null
     Section("Apply for leave") {
         ExposedDropdownMenuBox(expanded = typeOpen, onExpandedChange = { typeOpen = it }) {
             OutlinedTextField(
@@ -143,6 +146,14 @@ private fun LeaveForm(api: Api, types: List<LeaveType>, onDone: () -> Unit, onCa
             OutlinedButton(onClick = { picking = "from" }, modifier = Modifier.weight(1f)) { Text("From ${shortDate(from.toString())}") }
             OutlinedButton(onClick = { picking = "to" }, modifier = Modifier.weight(1f)) { Text("To ${shortDate(to.toString())}") }
         }
+        if (from == to) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf(null to "Full day", "FIRST" to "First half", "SECOND" to "Second half").forEach { (k, label) ->
+                    androidx.compose.material3.FilterChip(selected = half == k, onClick = { half = k }, label = { Text(label) })
+                }
+            }
+            if (halfOf != null) Hint("Half a day of leave. Punch for the other half: worked, the day counts in full; not worked, it is a half day.")
+        }
         OutlinedTextField(reason, { reason = it.take(500) }, label = { Text("Reason") }, modifier = Modifier.fillMaxWidth(), minLines = 2)
         error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -152,7 +163,7 @@ private fun LeaveForm(api: Api, types: List<LeaveType>, onDone: () -> Unit, onCa
                     error = null
                     scope.launch {
                         try {
-                            api.askLeave(type.id, from.toString(), to.toString(), reason.trim())
+                            api.askLeave(type.id, from.toString(), to.toString(), reason.trim(), halfOf)
                             onDone()
                         } catch (e: SignedOut) {
                             onSignedOut()

@@ -186,7 +186,7 @@ fun RequestsTab(
 @Composable
 private fun RequestCard(q: MyRequest, onEdit: () -> Unit, onCancel: () -> Unit) {
     val title = when (q.kind) {
-        "leave" -> "${q.leaveTypeName ?: "Leave"}${q.days?.let { " · ${days(it)}" } ?: ""}"
+        "leave" -> "${q.leaveTypeName ?: "Leave"} · ${if (q.halfDay != null) "half day (${if (q.halfDay == "FIRST") "first" else "second"} half)" else q.days?.let { days(it) } ?: ""}"
         "data" -> when (q.type) { "CORRECTION" -> "Update my details"; "GRIEVANCE" -> "Concern raised"; "WITHDRAW" -> "Consent withdrawn"; "NOMINATE" -> "Nominee"; "ACCESS" -> "See my data"; "ERASURE" -> "Erase my data"; else -> "Data request" }
         else -> when (q.reasonCode) { "ON_DUTY" -> "On duty"; "READER_DOWN" -> "Reader not working"; "WRONG_SHIFT" -> "Wrong shift"; "FORGOT_PUNCH" -> "Missed punch"; else -> "Attendance correction" }
     }

@@ -73,6 +73,7 @@ private fun AskCard(api: Api, ask: Ask, onDecided: () -> Unit, onSignedOut: () -
     Section(when (ask.type) { "leave" -> "Leave · ${ask.employeeName}"; "punch" -> "Field punch · ${ask.employeeName}"; else -> "Correction · ${ask.employeeName}" }) {
         if (ask.type == "punch") {
             Text("${shortDate(ask.date.orEmpty())} · ${if (ask.kind == "OUT") "Out" else "In"} at ${ask.checkIn ?: "—"}", style = MaterialTheme.typography.bodyLarge)
+            FieldEvidence(api, ask)
         } else if (ask.type == "leave") {
             Text("${ask.leaveTypeName ?: "Leave"} · ${ask.days?.let { days(it) } ?: ""}", style = MaterialTheme.typography.bodyLarge)
             Hint(if (ask.fromDate == ask.toDate) shortDate(ask.fromDate.orEmpty()) else "${shortDate(ask.fromDate.orEmpty())} to ${shortDate(ask.toDate.orEmpty())}")
@@ -86,5 +87,49 @@ private fun AskCard(api: Api, ask: Ask, onDecided: () -> Unit, onSignedOut: () -
             Button(onClick = { decide(true) }, enabled = !busy) { Text("Approve") }
             OutlinedButton(onClick = { decide(false) }, enabled = !busy) { Text("Decline") }
         }
+    }
+}
+
+/** For a field punch: where it was made (open in the phone's map app) and the selfie, so it can be judged from afar. */
+@Composable
+private fun FieldEvidence(api: Api, ask: Ask) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val scope = rememberCoroutineScope()
+    var photo by remember { mutableStateOf<androidx.compose.ui.graphics.ImageBitmap?>(null) }
+    var showing by remember { mutableStateOf(false) }
+    var problem by remember { mutableStateOf<String?>(null) }
+    ask.accuracy?.let { Hint("Location accurate to about $it m") }
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        if (ask.latitude != null && ask.longitude != null) {
+            OutlinedButton(onClick = {
+                val uri = android.net.Uri.parse("geo:${ask.latitude},${ask.longitude}?q=${ask.latitude},${ask.longitude}(${android.net.Uri.encode(ask.employeeName)})")
+                runCatching { context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, uri)) }
+                    .onFailure { runCatching { context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("https://www.openstreetmap.org/?mlat=${ask.latitude}&mlon=${ask.longitude}#map=18/${ask.latitude}/${ask.longitude}"))) } }
+            }) { Text("View on map") }
+        }
+        if (ask.photo) {
+            OutlinedButton(onClick = {
+                scope.launch {
+                    try {
+                        val data = api.punchPhoto(ask.id).photo
+                        val bytes = android.util.Base64.decode(data.substringAfter(","), android.util.Base64.DEFAULT)
+                        photo = android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.let { androidx.compose.ui.graphics.asImageBitmap(it) }
+                        showing = photo != null
+                        if (photo == null) problem = "The selfie could not be read."
+                    } catch (e: Exception) {
+                        problem = e.message ?: "The selfie could not be loaded."
+                    }
+                }
+            }) { Text("View selfie") }
+        }
+    }
+    problem?.let { Hint(it, MaterialTheme.colorScheme.error) }
+    if (showing && photo != null) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { showing = false },
+            confirmButton = { androidx.compose.material3.TextButton(onClick = { showing = false }) { Text("Close") } },
+            title = { Text("${ask.employeeName} · ${ask.checkIn ?: ""}") },
+            text = { androidx.compose.foundation.Image(photo!!, contentDescription = "Selfie with the punch", modifier = Modifier.fillMaxWidth()) },
+        )
     }
 }

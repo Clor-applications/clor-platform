@@ -151,6 +151,7 @@ fun MeTab(api: Api, onSignedOut: () -> Unit) {
         PermissionsCard(context)
         PasswordCard(api, onSignedOut)
         OutlinedButton(onClick = onSignedOut, modifier = Modifier.fillMaxWidth()) { Text("Sign out") }
+        LegalLinks()
     }
 }
 
