@@ -123,9 +123,29 @@ export default function PortalAccess() {
             <option value="ANY">Any site</option>
             {fences.map((f) => <option key={f.id} value={f.id}>Only {f.name}</option>)}
           </select>
+          <select
+            className="ui-select ui-btn-sm !w-auto"
+            disabled={!picked.size}
+            value=""
+            aria-label="Where phone punches are accepted"
+            onChange={(e) => {
+              const v = e.target.value;
+              if (v === 'SITE') change({ phonePunchMode: 'SITE' }, 'may punch only inside a work site');
+              else if (v === 'FIELD') change({ phonePunchMode: 'FIELD', mobilePunch: true }, 'may punch from anywhere (field), recorded with the address');
+              else if (v === 'SELFIE') change({ selfieRequired: true }, 'must add a selfie to each phone punch');
+              else if (v === 'NOSELFIE') change({ selfieRequired: false }, 'may punch without a selfie');
+            }}
+          >
+            <option value="">Mode…</option>
+            <option value="SITE">Work sites only</option>
+            <option value="FIELD">Field: anywhere</option>
+            <option value="SELFIE">Selfie required</option>
+            <option value="NOSELFIE">Selfie optional</option>
+          </select>
           <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" disabled={!picked.size} onClick={() => change({ portalEnabled: false }, 'switched off')}>Switch portal off</button>
         </div>
-        {!fences.length ? <p className="ui-caption">No work sites yet — phone punches need one. Add them under Work sites.</p> : null}
+        {!fences.length ? <p className="ui-caption">No work sites yet — phone punches need one, except for people set to Field. Add them under Work sites.</p> : null}
+        <p className="ui-caption">Field: for sales, service and site staff. A phone punch is accepted anywhere; the place and its address are recorded, marked outside a site, and wait for approval under Phone punches (or the person’s manager) when the company asks.</p>
       </section>
 
       <input type="search" className="ui-input max-w-xs" placeholder="Search people" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search people" />
@@ -164,7 +184,7 @@ export default function PortalAccess() {
                       <td className="ui-mono">{p.code || <span className="ui-caption">none</span>}</td>
                       <td><span className={`ui-pill ${st.pill}`}>{st.label}</span></td>
                       <td className="ui-col-h-center">{p.mobilePunch ? <span className="ui-pill ui-pill-pos">On</span> : <span className="ui-caption">Off</span>}</td>
-                      <td className="ui-col-meta">{p.mobilePunch ? p.geofenceName ? `Only ${p.geofenceName}` : 'Any' : '—'}</td>
+                      <td className="ui-col-meta">{p.mobilePunch ? `${p.phonePunchMode === 'FIELD' ? 'Field: anywhere' : p.geofenceName ? `Only ${p.geofenceName}` : 'Any site'}${p.selfieRequired ? ' · selfie' : ''}` : '—'}</td>
                       <td className="text-end">
                         {p.activated ? <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" onClick={() => reset(p)}>Forget password</button> : null}
                       </td>

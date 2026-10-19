@@ -4,7 +4,7 @@ import { Camera, ExternalLink, MapPin } from 'lucide-react';
 import { EmptyState, PageHeader, SkeletonCard, StatTile } from '@ui/components/ui/Primitives';
 import Drawer from '@ui/components/ui/Drawer';
 import { notify } from '@ui/components/ui/notify';
-import { getPhonePunches, getPunchPhoto, todayIst } from '../api/attendance';
+import { getPhonePunches, getPunchPhoto, reviewFieldPunch, setFieldPunchApproval, todayIst } from '../api/attendance';
 import LoadFailed from '../components/LoadFailed';
 
 /**
@@ -36,6 +36,24 @@ export default function PhonePunches() {
     getPhonePunches(range).then((d) => { setData(d); setError(''); }).catch((e) => setError(String(e?.message || 'Could not load phone punches.')));
   }, [range]);
   useEffect(() => { load(); }, [load]);
+  const review = async (p, approve) => {
+    try {
+      await reviewFieldPunch(p.id, approve);
+      notify.success(approve ? `${p.name}'s punch at ${p.time.slice(11, 16)} counts now.` : `${p.name}'s punch was refused; it stays on record.`);
+      load();
+    } catch (e) {
+      notify.error(String(e?.message || 'Not done.'));
+    }
+  };
+  const toggleApproval = async (on) => {
+    try {
+      await setFieldPunchApproval(on);
+      notify.success(on ? 'Field punches now wait for approval.' : 'Field punches now count at once.');
+      load();
+    } catch (e) {
+      notify.error(String(e?.message || 'Not changed.'));
+    }
+  };
   const view = async (p) => {
     try {
       const r = await getPunchPhoto(p.photoId);
@@ -63,17 +81,56 @@ export default function PhonePunches() {
         error ? null : <SkeletonCard lines={6} />
       ) : (
         <>
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
             <StatTile label="Punches" value={data.summary.punches} />
             <StatTile label="People" value={data.summary.people} />
             <StatTile label="With a selfie" value={data.summary.withSelfie} />
             <StatTile label="Refused" value={data.summary.refused} tone={data.summary.refused ? 'warn' : 'neutral'} hint={data.summary.outside ? `${data.summary.outside} outside the sites` : null} />
+            <StatTile label="Field punches" value={data.summary.field || 0} tone={data.summary.waiting ? 'warn' : 'neutral'} hint={data.summary.waiting ? `${data.summary.waiting} waiting for approval` : null} />
           </div>
           <div role="tablist" className="flex gap-1">
             <button type="button" role="tab" aria-selected={tab === 'accepted'} className="ui-segment" onClick={() => setTab('accepted')}>Recorded {data.accepted.length}</button>
             <button type="button" role="tab" aria-selected={tab === 'refused'} className="ui-segment" onClick={() => setTab('refused')}>Refused {data.refused.length}</button>
+            <button type="button" role="tab" aria-selected={tab === 'field'} className="ui-segment" onClick={() => setTab('field')}>Field {data.summary.field || 0}</button>
+            <label className="ms-auto flex items-center gap-2 text-sm">
+              <input type="checkbox" className="ui-checkbox" checked={data.fieldPunchApproval !== false} onChange={(e) => toggleApproval(e.target.checked)} /> Field punches wait for approval
+            </label>
           </div>
-          {tab === 'accepted' ? (
+          {tab === 'field' ? (
+            data.accepted.some((p) => p.outside) ? (
+              <div className="ui-card overflow-hidden">
+                <div className="overflow-x-auto ui-table-scroll ui-table-fit">
+                  <table className="ui-table w-full">
+                    <thead><tr><th className="ui-th">Time</th><th className="ui-th">Employee</th><th className="ui-th">In or out</th><th className="ui-th">Where</th><th className="ui-th">Nearest site</th><th className="ui-th">Status</th><th className="ui-th"><span className="sr-only">Actions</span></th></tr></thead>
+                    <tbody>
+                      {data.accepted.filter((p) => p.outside).map((p) => (
+                        <tr key={p.id}>
+                          <td className="whitespace-nowrap tabular-nums">{p.time}</td>
+                          <td className="ui-col-entity">{p.name}</td>
+                          <td>{p.kind === 'IN' ? 'In' : p.kind === 'OUT' ? 'Out' : '—'}</td>
+                          <td className="max-w-[20rem]"><span className="block truncate" title={p.address || ''}>{p.address || <span className="ui-caption">Address not found</span>}</span><span className="ui-caption">{p.accuracy != null ? `±${metres(p.accuracy)}` : ''}</span></td>
+                          <td>{p.nearest ? <span>{p.nearest.name}<span className="ui-caption"> · {metres(p.nearest.distance)} away</span></span> : <span className="ui-caption">—</span>}</td>
+                          <td><span className={`ui-pill ${p.review === 'PENDING' ? 'ui-pill-warn' : p.review === 'REJECTED' ? 'ui-pill-neg' : 'ui-pill-pos'}`}>{p.review === 'PENDING' ? 'Waiting' : p.review === 'REJECTED' ? 'Refused' : 'Counts'}</span></td>
+                          <td className="whitespace-nowrap text-end">
+                            {p.photoId ? <button type="button" className="ui-icon-btn" aria-label={`${p.name}'s selfie`} title="Selfie" onClick={() => view(p)}><Camera size={16} aria-hidden="true" /></button> : null}
+                            {p.latitude != null ? <a className="ui-icon-btn" href={mapUrl(p.latitude, p.longitude)} target="_blank" rel="noreferrer" aria-label={`Where ${p.name} punched, on a map`} title="On a map"><MapPin size={16} aria-hidden="true" /></a> : null}
+                            {p.review === 'PENDING' ? (
+                              <span className="ms-1 inline-flex gap-1">
+                                <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => review(p, true)}>Approve</button>
+                                <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" onClick={() => review(p, false)}>Refuse</button>
+                              </span>
+                            ) : null}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ) : (
+              <EmptyState title="No field punches" description="People set to Field under Portal access can punch from anywhere; their punches show here with the address." />
+            )
+          ) : tab === 'accepted' ? (
             data.accepted.length ? (
               <div className="ui-card overflow-hidden">
                 <div className="overflow-x-auto ui-table-scroll ui-table-fit">

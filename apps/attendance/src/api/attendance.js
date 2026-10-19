@@ -250,6 +250,9 @@ export const deleteGeofence = (id) => send(`/geofences/${encodeURIComponent(id)}
 /** Address suggestions for a work site, and what is at a point the pin was moved to. */
 export const searchPlaces = (q) => get(`/geocode?q=${encodeURIComponent(q)}`).then((r) => r?.places || []);
 export const placeAt = (lat, lon) => get(`/geocode/reverse?lat=${lat}&lon=${lon}`).then((r) => r?.place || null);
+/** Approve or refuse a field punch; and whether field punches wait for approval. */
+export const reviewFieldPunch = (id, approve) => send(`/phone-punches/${encodeURIComponent(id)}/review`, 'POST', { approve });
+export const setFieldPunchApproval = (on) => send('/phone-punches/settings', 'PUT', { fieldPunchApproval: on });
 export const getPunchPhoto = (id) => get(`/punch-photos/${encodeURIComponent(id)}`);
 
 /* --- Attendance you can trust (server: routes/attendanceInsights.ts) --- */
