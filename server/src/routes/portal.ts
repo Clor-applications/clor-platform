@@ -18,7 +18,7 @@ import { loadHolidays, loadSchedule, resolveShift } from '../services/attendance
 import { phoneStatus, recordPhonePunch } from '../services/attendance/phonePunch.js';
 import { normaliseCode, passwordProblem } from '../services/attendance/portal.js';
 import { chainFor } from '../services/attendance/approvalChain.js';
-import { createRequest, daysOfMonth, reviewCorrection, sendError, today, withNames } from './attendance.js';
+import { REASON_CODES, createRequest, daysOfMonth, instants, reviewCorrection, sendError, today, withNames } from './attendance.js';
 import { approveLeave, balancesFor, cancelOwnLeave, createLeave, rejectLeave, withTypes } from './leave.js';
 import { recomputeDeviceDay, shiftDayFor } from './iclock.js';
 
@@ -271,7 +271,8 @@ portalRouter.get('/home', async (req, res) => {
   res.json({
     employee: { name: e.name, code: e.code, department: e.department, designation: e.designation, photoUrl: e.photoUrl },
     company: { name: org?.name || '', code: org?.code || '' },
-    site: area?.name || branch?.branchName || status.phone.sites[0]?.name || null,
+    /* Where they work: their site, else their branch, else the company's main branch. */
+    site: area?.name || branch?.branchName || status.phone.sites[0]?.name || (await platformPrisma.branch.findFirst({ where: { orgId: e.orgId }, orderBy: { createdAt: 'asc' }, select: { branchName: true } }).catch(() => null))?.branchName || null,
     today: t,
     shift: { name: shift.name, startTime: shift.rule.startTime, endTime: shift.rule.endTime, off: isWeeklyOff(shift.rule, t), holiday: mine.has(t) ? holidays.rows.find((h) => h.date === t)?.name || 'Holiday' : null },
     record: record ? (await withNames(e.orgId, [record]))[0] : null,
@@ -302,6 +303,77 @@ portalRouter.get('/home', async (req, res) => {
     approvals: { approver: ids.length > 0, team: ids.length, waiting: (waitingLeave as number) + (waitingCorrections as number), awayToday: (awayToday as Array<{ employeeId: string }>).map((a) => names.get(a.employeeId) || '').filter(Boolean) },
     privacy: { version: notice.version, read: e.privacyNoticeVersion === notice.version },
   });
+});
+
+// ---------------------------------------------------------------------------
+// My requests: everything I asked for, and changing or withdrawing what is still waiting
+// ---------------------------------------------------------------------------
+
+/** Corrections, on-duty and missed punches, leave and data requests, newest first, in one list. */
+portalRouter.get('/requests', async (req, res) => {
+  const e = req.portal!.employee;
+  const [corrections, leave, data] = await Promise.all([
+    peoplePrisma.attendanceRequest.findMany({ where: { orgId: e.orgId, employeeId: e.id }, orderBy: { createdAt: 'desc' }, take: 100 }),
+    peoplePrisma.leaveRequest.findMany({ where: { orgId: e.orgId, employeeId: e.id }, orderBy: { createdAt: 'desc' }, take: 100 }),
+    peoplePrisma.dataRequest.findMany({ where: { orgId: e.orgId, employeeId: e.id }, orderBy: { createdAt: 'desc' }, take: 50 }),
+  ]);
+  const named = await withTypes(e.orgId, leave);
+  const t = today();
+  const rows = [
+    ...corrections.map((r) => ({
+      id: r.id, kind: 'correction', reasonCode: r.reasonCode, date: r.date, checkIn: r.checkIn ? istTime(r.checkIn) : null, checkOut: r.checkOut ? istTime(r.checkOut) : null,
+      reason: r.reason, status: r.status, note: r.reviewNote, createdAt: r.createdAt, withHr: Boolean(r.managerApprovedAt), canChange: r.status === 'PENDING' && !r.managerApprovedAt,
+    })),
+    ...named.map((r: any) => ({
+      id: r.id, kind: 'leave', leaveTypeName: r.leaveTypeName, fromDate: r.fromDate, toDate: r.toDate, days: r.days, reason: r.reason, status: r.status, note: r.reviewNote ?? null,
+      createdAt: r.createdAt, canChange: r.status === 'PENDING' || (r.status === 'APPROVED' && r.fromDate > t),
+    })),
+    ...data.map((r) => ({ id: r.id, kind: 'data', type: r.type, reason: r.details, status: r.status, note: r.resolution, createdAt: r.createdAt, dueAt: r.dueAt, canChange: false })),
+  ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  res.json({ requests: rows, reasons: REASON_CODES });
+});
+
+/** Change a correction that nobody has looked at yet. */
+portalRouter.put('/corrections/:id', async (req, res) => {
+  const e = req.portal!.employee;
+  const r = await peoplePrisma.attendanceRequest.findFirst({ where: { id: String(req.params.id), orgId: e.orgId, employeeId: e.id } });
+  if (!r) return res.status(404).json({ error: 'No such request.' });
+  if (r.status !== 'PENDING' || r.managerApprovedAt) return res.status(409).json({ error: 'This request is already being decided; it cannot be changed now.' });
+  const hhmm = /^([01]\d|2[0-3]):[0-5]\d$/;
+  const checkIn = String(req.body?.checkIn || '');
+  const checkOut = req.body?.checkOut ? String(req.body.checkOut) : null;
+  const reason = String(req.body?.reason || '').trim();
+  const reasonCode = req.body?.reasonCode == null ? r.reasonCode : String(req.body.reasonCode);
+  if (!hhmm.test(checkIn) || (checkOut && !hhmm.test(checkOut))) return res.status(400).json({ error: 'Times are HH:MM, 24-hour.' });
+  if (reason.length < 3) return res.status(400).json({ error: 'Say why.' });
+  if (reasonCode && !(REASON_CODES as readonly string[]).includes(reasonCode)) return res.status(400).json({ error: 'Unknown reason.' });
+  const at = instants(r.date, checkIn, checkOut);
+  const updated = await peoplePrisma.attendanceRequest.update({ where: { id: r.id }, data: { checkIn: at.checkIn, checkOut: at.checkOut, reason: reason.slice(0, 500), reasonCode } });
+  res.json({ request: updated });
+});
+
+/** Withdraw a correction that nobody has looked at yet. */
+portalRouter.post('/corrections/:id/cancel', async (req, res) => {
+  const e = req.portal!.employee;
+  const r = await peoplePrisma.attendanceRequest.findFirst({ where: { id: String(req.params.id), orgId: e.orgId, employeeId: e.id } });
+  if (!r) return res.status(404).json({ error: 'No such request.' });
+  if (r.status !== 'PENDING' || r.managerApprovedAt) return res.status(409).json({ error: 'This request is already being decided; ask HR to withdraw it.' });
+  const updated = await peoplePrisma.attendanceRequest.update({ where: { id: r.id }, data: { status: 'CANCELLED', reviewNote: 'Withdrawn by the employee.' } });
+  res.json({ request: updated });
+});
+
+/** Ask HR to allow punching from the phone. HR sees it in its notifications, with a link to Portal access. */
+portalRouter.post('/phone-punch/ask', async (req, res) => {
+  const e = req.portal!.employee;
+  if (e.mobilePunch) return res.json({ ok: true, message: 'Phone punching is already on for you.' });
+  const note = String(req.body?.note || '').trim().slice(0, 300);
+  await notifyPermission(e.accountId, e.orgId, 'ATTENDANCE::Employee Portal::EDIT', {
+    kind: 'attendance.phone_punch_request',
+    title: `${e.name}${e.code ? ` (${e.code})` : ''} asked to punch from their phone`,
+    body: note || null,
+    link: { app: 'attendance', screen: 'portalAccess' },
+  });
+  res.json({ ok: true, message: 'Sent to HR. You will be able to punch from the phone once HR switches it on.' });
 });
 
 /**

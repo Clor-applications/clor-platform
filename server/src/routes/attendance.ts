@@ -76,7 +76,7 @@ export async function isHoliday(orgId: string, date: string, branchId: string | 
 }
 
 /** Times on a form are wall-clock HH:MM on the day; an out before the in is the next morning. */
-const instants = (date: string, inHHMM?: string | null, outHHMM?: string | null) => {
+export const instants = (date: string, inHHMM?: string | null, outHHMM?: string | null) => {
   const checkIn = inHHMM ? istInstant(date, inHHMM) : null;
   let checkOut = outHHMM ? istInstant(date, outHHMM) : null;
   if (checkIn && checkOut && checkOut <= checkIn) checkOut = istInstant(date, outHHMM!, 1);

@@ -67,6 +67,7 @@ const portalFor = async (c: Ctx, employeeId: string, code: string) => {
   return {
     get: (p: string) => request(app).get(`/api/portal${p}`).set('Authorization', `Bearer ${token}`),
     post: (p: string, b: unknown = {}) => request(app).post(`/api/portal${p}`).set('Authorization', `Bearer ${token}`).send(b as any),
+    put: (p: string, b: unknown = {}) => request(app).put(`/api/portal${p}`).set('Authorization', `Bearer ${token}`).send(b as any),
   };
 };
 
@@ -98,5 +99,23 @@ describe('the app home screen', () => {
     await me.post('/corrections', { date: t, checkIn: '09:00', reason: 'Reader was slow' }).expect(201);
     const bh = (await mm.get('/home').expect(200)).body;
     expect(bh.approvals).toMatchObject({ approver: true, team: 1, waiting: 1 });
+  });
+
+  it('lets an employee list, change and withdraw their own requests, and ask for phone punching', async () => {
+    const c = await makeOwner();
+    const p = await person(c, { name: 'Lakshmi', code: 'R1' });
+    const me = await portalFor(c, p.id, 'R1');
+    const t = new Date(Date.now() + 330 * 60_000 - 86_400_000).toISOString().slice(0, 10);
+    const made = (await me.post('/corrections', { date: t, checkIn: '09:00', reason: 'Client visit', reasonCode: 'ON_DUTY' }).expect(201)).body.request;
+    const list = (await me.get('/requests').expect(200)).body;
+    expect(list.reasons).toContain('ON_DUTY');
+    expect(list.requests[0]).toMatchObject({ kind: 'correction', reasonCode: 'ON_DUTY', checkIn: '09:00', canChange: true });
+    await me.put(`/corrections/${made.id}`, { checkIn: '08:30', checkOut: '17:45', reason: 'Client visit at Peenya', reasonCode: 'ON_DUTY' }).expect(200);
+    expect((await me.get('/requests').expect(200)).body.requests[0]).toMatchObject({ checkIn: '08:30', checkOut: '17:45', reason: 'Client visit at Peenya' });
+    await me.put(`/corrections/${made.id}`, { checkIn: '8.30', reason: 'x' }).expect(400);
+    await me.post(`/corrections/${made.id}/cancel`).expect(200);
+    expect((await me.get('/requests').expect(200)).body.requests[0]).toMatchObject({ status: 'CANCELLED', canChange: false });
+    await me.post(`/corrections/${made.id}/cancel`).expect(409);
+    expect((await me.post('/phone-punch/ask', { note: 'I visit client sites' }).expect(200)).body.message).toMatch(/Sent to HR/);
   });
 });
