@@ -22,6 +22,13 @@ import DocNumberingPopover from '@ui/components/DocNumberingPopover';
  * owed.
  */
 
+/**
+ * The receipt and the Z report are written into a pop-up on this origin, so a
+ * company, customer or item name is text there, never markup: an item called
+ * `<img onerror=…>` would otherwise run in the cashier's session.
+ */
+const escapeHtml = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+
 /** The three the counter takes, in the spelling the books use. */
 const TENDERS = [
   { key: 'CASH', label: 'Cash' },
@@ -152,7 +159,7 @@ function PosBillingScreen({ db, setDb, currentCompany }) {
     if (w) {
       w.document.write(
         `<pre style="font-family:monospace;font-size:12px;padding:12px">` +
-          `${currentCompany.name}\nZ REPORT · ${today}\n` +
+          `${escapeHtml(currentCompany.name)}\nZ REPORT · ${escapeHtml(today)}\n` +
           `--------------------------------\n` +
           `Invoices     ${record.invoices}\n` +
           `Cash         ${record.cash.toFixed(2)}\nUPI          ${record.upi.toFixed(2)}\nCard         ${record.card.toFixed(2)}\n` +
@@ -391,11 +398,11 @@ function PosBillingScreen({ db, setDb, currentCompany }) {
       if (w) {
         w.document.write(
           `<pre style="font-family:monospace;font-size:12px;padding:12px">` +
-            `${currentCompany.name}\n${number} · ${today}\nCustomer: ${buyer}\n` +
+            `${escapeHtml(currentCompany.name)}\n${escapeHtml(number)} · ${escapeHtml(today)}\nCustomer: ${escapeHtml(buyer)}\n` +
             `--------------------------------\n` +
-            computed.lines.map((l) => `${l.description}\n  ${l.quantity} x ${l.rate.toFixed(2)} = ${l.lineTotal.toFixed(2)}`).join('\n') +
+            computed.lines.map((l) => `${escapeHtml(l.description)}\n  ${escapeHtml(l.quantity)} x ${l.rate.toFixed(2)} = ${l.lineTotal.toFixed(2)}`).join('\n') +
             `\n--------------------------------\n` +
-            `Subtotal  ${computed.subtotal.toFixed(2)}\nGST       ${computed.gstTotal.toFixed(2)}\nTOTAL     ${computed.total.toFixed(2)}\nPaid by   ${tenderLabel(tender)}\n\nThank you!` +
+            `Subtotal  ${computed.subtotal.toFixed(2)}\nGST       ${computed.gstTotal.toFixed(2)}\nTOTAL     ${computed.total.toFixed(2)}\nPaid by   ${escapeHtml(tenderLabel(tender))}\n\nThank you!` +
             `</pre>`
         );
         w.document.close();
