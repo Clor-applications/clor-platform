@@ -8,7 +8,7 @@ import { Pagination, usePaged } from '@ui/components/list/ListPageParts';
 import { EmptyState, SkeletonCard } from '@ui/components/ui/Primitives';
 import Drawer from '@ui/components/ui/Drawer';
 import { notify } from '@ui/components/ui/notify';
-import { dayLabel, explainDay, listExceptions, setExceptionState, todayIst } from '../api/attendance';
+import { dayLabel, explainDay, listExceptions, setExceptionState, setExceptionStates, todayIst } from '../api/attendance';
 import LoadFailed from '../components/LoadFailed';
 import DayExplain from '../components/DayExplain';
 
@@ -60,6 +60,8 @@ export default function Exceptions({ openScreen }) {
   const [note, setNote] = useState('');
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(50);
+  /* Keys of the open items ticked for a bulk Settle / Ignore. */
+  const [picked, setPicked] = useState(() => new Set());
 
   const load = useCallback(() => {
     listExceptions({ ...range, show: showAll ? 'all' : 'open' })
@@ -86,6 +88,13 @@ export default function Exceptions({ openScreen }) {
   const rows = filters.applyFilters(search.filtered, COLUMNS);
   const { pageCount, safePage, pageRows } = usePaged(rows, perPage, page);
   useEffect(() => setPage(1), [kind, search.query, range, showAll]);
+  const isOpen = (x) => x.status === 'OPEN' || x.status === 'IN_PROGRESS';
+  const pickable = useMemo(() => rows.filter(isOpen), [rows]);
+  /* Only what is still open and on screen counts, so a reload or a new filter never acts on hidden items. */
+  const pickedKeys = useMemo(() => pickable.filter((x) => picked.has(x.key)).map((x) => x.key), [pickable, picked]);
+  const allPicked = pickable.length > 0 && pickedKeys.length === pickable.length;
+  const togglePick = (key) => setPicked((s) => { const n = new Set(s); if (n.has(key)) n.delete(key); else n.add(key); return n; });
+  const toggleAll = () => setPicked(allPicked ? new Set() : new Set(pickable.map((x) => x.key)));
   const figures = useMemo(() => {
     const list = all || [];
     return {
@@ -111,9 +120,21 @@ export default function Exceptions({ openScreen }) {
     setSettling({ x, status });
   };
   const confirmSettle = async () => {
-    const { x, status } = settling;
+    const { x, keys, status } = settling;
     setSettling(null);
-    await change(x, { status, note: note.trim() || null }, status === 'RESOLVED' ? 'Marked settled.' : 'Ignored.');
+    if (!keys) return change(x, { status, note: note.trim() || null }, status === 'RESOLVED' ? 'Marked settled.' : 'Ignored.');
+    try {
+      const r = await setExceptionStates({ keys, status, note: note.trim() || null });
+      notify.success(`${r.updated} ${r.updated === 1 ? 'item' : 'items'} ${status === 'RESOLVED' ? 'marked settled' : 'ignored'}.`);
+      setPicked(new Set());
+      load();
+    } catch (e) {
+      notify.error(String(e?.message || 'Not saved.'));
+    }
+  };
+  const settleMany = (status) => {
+    setNote('');
+    setSettling({ keys: pickedKeys.slice(0, 500), status });
   };
   const open = (x) => {
     if (!openScreen) return;
@@ -156,10 +177,22 @@ export default function Exceptions({ openScreen }) {
         error ? null : <SkeletonCard lines={6} />
       ) : (
         <>
+          {pickedKeys.length ? (
+            <div className="flex flex-wrap items-center gap-2 px-1 py-2" role="region" aria-label="Selected items">
+              <span className="text-sm font-medium">{pickedKeys.length} selected</span>
+              <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => settleMany('RESOLVED')}><CheckCircle2 size={14} aria-hidden="true" /> Settle selected</button>
+              <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => settleMany('IGNORED')}><EyeOff size={14} aria-hidden="true" /> Ignore selected</button>
+              <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" onClick={() => setPicked(new Set())}>Clear</button>
+              {pickedKeys.length > 500 ? <span className="ui-caption">The first 500 are changed; run it again for the rest.</span> : null}
+            </div>
+          ) : null}
           <div className="ui-table-scroll">
             <table className="ui-table ui-table-sticky w-full">
               <thead>
                 <tr>
+                  <th scope="col" className="w-8">
+                    <input type="checkbox" className="ui-checkbox" checked={allPicked} disabled={!pickable.length} onChange={toggleAll} aria-label={allPicked ? 'Clear the selection' : `Select all ${pickable.length} open items`} />
+                  </th>
                   <ColumnHeader label="What" col="what" state={filters} />
                   <ColumnHeader label="Who" col="who" state={filters} />
                   <ColumnHeader label="Day" col="date" state={filters} type="date" />
@@ -171,7 +204,7 @@ export default function Exceptions({ openScreen }) {
               <tbody className="ui-rows">
                 {!rows.length ? (
                   <tr>
-                    <td colSpan={6}>
+                    <td colSpan={7}>
                       {inTab.length ? (
                         <EmptyState kind="filtered" totalCount={inTab.length} title="No exceptions match" description="Nothing in this tab matches the search or the column filters." />
                       ) : (
@@ -182,6 +215,9 @@ export default function Exceptions({ openScreen }) {
                 ) : (
                   pageRows.map((x) => (
                     <tr key={x.key} data-severity={x.severity}>
+                      <td className="w-8">
+                        {isOpen(x) ? <input type="checkbox" className="ui-checkbox" checked={picked.has(x.key)} onChange={() => togglePick(x.key)} aria-label={`Select ${x.title}${x.employeeName ? `, ${x.employeeName}` : ''}${x.date ? `, ${x.date}` : ''}`} /> : null}
+                      </td>
                       <td className="min-w-[10rem] whitespace-normal">
                         <span className="ui-exc-title">
                           <span className="ui-exc-dot" data-severity={x.severity} aria-hidden="true" />
@@ -228,8 +264,8 @@ export default function Exceptions({ openScreen }) {
       <Drawer
         open={Boolean(settling)}
         onClose={() => setSettling(null)}
-        title={settling?.status === 'IGNORED' ? 'Ignore this item' : 'Mark this item settled'}
-        description={settling ? `${settling.x.title}${settling.x.employeeName ? `, ${settling.x.employeeName}` : ''}${settling.x.date ? `, ${settling.x.date}` : ''}` : ''}
+        title={settling?.keys ? `${settling.status === 'IGNORED' ? 'Ignore' : 'Mark settled'}: ${settling.keys.length} ${settling.keys.length === 1 ? 'item' : 'items'}` : settling?.status === 'IGNORED' ? 'Ignore this item' : 'Mark this item settled'}
+        description={settling?.x ? `${settling.x.title}${settling.x.employeeName ? `, ${settling.x.employeeName}` : ''}${settling.x.date ? `, ${settling.x.date}` : ''}` : settling?.keys ? 'The same note is kept on each.' : ''}
         widthClass="w-[min(30rem,96vw)]"
         actions={
           <>

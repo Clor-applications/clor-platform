@@ -144,6 +144,26 @@ describe('the Exception Center', () => {
     const all = await att(c).get(`/exceptions?from=${d}&to=${d}&show=all`).expect(200);
     expect(all.body.exceptions.find((x: any) => x.key === missing.key).status).toBe('RESOLVED');
   });
+
+  it('settles or ignores many at once, with one note on each, and can reopen them', async () => {
+    const c = await makeOwner();
+    const people = [await person(c, '601'), await person(c, '602'), await person(c, '603')];
+    const d = new Date(Date.now() + 330 * 60_000 - 3 * 86_400_000).toISOString().slice(0, 10);
+    const keys: string[] = [];
+    for (const p of people) {
+      const rec = await att(c).put('/records', { employeeId: p.id, date: d, checkIn: '09:00' }).expect(200);
+      keys.push(`MISSING_OUT:${rec.body.record.id}`);
+    }
+    const r = await att(c).post('/exceptions/state/bulk', { keys: [...keys, keys[0]], status: 'IGNORED', note: 'Reader was down' }).expect(200);
+    expect(r.body.updated).toBe(3);
+    const open = await att(c).get(`/exceptions?from=${d}&to=${d}`).expect(200);
+    expect(open.body.exceptions.filter((x: any) => keys.includes(x.key))).toEqual([]);
+    const all = (await att(c).get(`/exceptions?from=${d}&to=${d}&show=all`).expect(200)).body.exceptions.filter((x: any) => keys.includes(x.key));
+    expect(all.map((x: any) => [x.status, x.note])).toEqual(keys.map(() => ['IGNORED', 'Reader was down']));
+    await att(c).post('/exceptions/state/bulk', { keys, status: 'OPEN' }).expect(200);
+    expect((await att(c).get(`/exceptions?from=${d}&to=${d}`).expect(200)).body.exceptions.filter((x: any) => keys.includes(x.key))).toHaveLength(3);
+    await att(c).post('/exceptions/state/bulk', { keys: [], status: 'RESOLVED' }).expect(400);
+  });
 });
 
 describe('month readiness', () => {

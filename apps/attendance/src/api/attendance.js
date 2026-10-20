@@ -262,6 +262,7 @@ export const explainMyDay = (date) => get(`/me/days/explain${query({ date })}`);
 /** What is unsettled: missing check-outs, unmarked days, queues, reader problems, clashing schedules. */
 export const listExceptions = (params) => get(`/exceptions${query(params)}`);
 export const setExceptionState = (body) => send('/exceptions/state', 'POST', body);
+export const setExceptionStates = (body) => send('/exceptions/state/bulk', 'POST', body);
 /** The month-close checklist, and the figures Payroll took when it closed. */
 export const getMonthReadiness = (month) => get(`/months/${encodeURIComponent(month)}/readiness`);
 export const getMonthSnapshot = (month, version) => get(`/months/${encodeURIComponent(month)}/snapshots/${encodeURIComponent(version)}`);

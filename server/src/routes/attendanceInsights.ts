@@ -261,6 +261,38 @@ attendanceInsightsRouter.post(`${base}/exceptions/state`, can(PermissionAction.E
   res.json({ state: row });
 });
 
+/*
+ * Settle or ignore many at once. A fortnight with nobody marked gives one
+ * "No attendance" item per person per day — 135 in the test company — and
+ * each used to need its own click and note.
+ */
+attendanceInsightsRouter.post(`${base}/exceptions/state/bulk`, can(PermissionAction.EDIT, R.records), async (req, res) => {
+  if (!(await attendanceRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const parsed = z
+    .object({
+      keys: z.array(z.string().trim().min(3).max(200)).min(1).max(500),
+      status: z.enum(['RESOLVED', 'IGNORED', 'OPEN']),
+      note: z.string().trim().max(500).optional().nullable(),
+    })
+    .safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Invalid change.' });
+  const { status, note } = parsed.data;
+  const keys = [...new Set(parsed.data.keys)];
+  const closing = status !== 'OPEN';
+  const closed = closing ? { resolvedAt: new Date(), resolvedByUserId: req.auth!.userId } : { resolvedAt: null, resolvedByUserId: null };
+  await peoplePrisma.$transaction(
+    keys.map((key) =>
+      peoplePrisma.attendanceExceptionState.upsert({
+        where: { orgId_key: { orgId, key } },
+        create: { accountId, orgId, key, kind: key.split(':')[0], status, note: note || null, ...(closing ? closed : {}) },
+        update: { status, ...(note !== undefined ? { note: note || null } : {}), ...closed },
+      })
+    )
+  );
+  res.json({ updated: keys.length });
+});
+
 // ---------------------------------------------------------------------------
 // Month readiness (Payroll readiness) and snapshots
 // ---------------------------------------------------------------------------
