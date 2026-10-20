@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { LocateFixed, MapPin, Plus, Search, Users } from 'lucide-react';
 
 import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
@@ -9,8 +9,10 @@ import Drawer from '@ui/components/ui/Drawer';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { listStructure } from '@ui/personnel/api';
 import { createGeofence, deleteGeofence, listGeofences, placeAt, searchPlaces, updateGeofence } from '../api/attendance';
-import SiteMap from '../components/SiteMap';
 import LoadFailed from '../components/LoadFailed';
+
+/* The map library (Leaflet, ~150 KB) loads with this drawer, not with the app every user downloads. */
+const SiteMap = lazy(() => import('../components/SiteMap'));
 
 const mapLink = (f) => `https://www.openstreetmap.org/?mlat=${f.latitude}&mlon=${f.longitude}#map=17/${f.latitude}/${f.longitude}`;
 
@@ -311,7 +313,9 @@ function SiteForm({ initial, areas, onClose, onSaved }) {
             <div className="min-w-0 flex-1 basis-full sm:basis-auto"><PlaceSearch onPick={(p) => moveTo(p.latitude, p.longitude, p.source === 'typed' ? undefined : [p.label, p.detail].filter(Boolean).join(', '))} /></div>
             <button type="button" className="ui-btn ui-btn-secondary" onClick={here} disabled={locating}><LocateFixed size={16} aria-hidden="true" /> {locating ? 'Finding…' : 'Use where I am'}</button>
           </div>
-          <SiteMap latitude={lat} longitude={lon} radius={Number(form.radiusMeters) || 200} onMove={(la, lo) => moveTo(la, lo)} />
+          <Suspense fallback={<div className="clor-site-map ui-skel" aria-hidden="true" />}>
+            <SiteMap latitude={lat} longitude={lon} radius={Number(form.radiusMeters) || 200} onMove={(la, lo) => moveTo(la, lo)} />
+          </Suspense>
           <p className="ui-caption">{placed ? 'Drag the pin to the gate or the building’s centre. The circle is where a phone punch counts.' : 'Search above, or tap the map where the site is.'}</p>
           {form.address ? <p className="text-sm"><MapPin size={14} aria-hidden="true" className="ui-subtle me-1 inline" />{form.address}</p> : null}
         </div>
