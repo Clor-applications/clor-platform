@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronDown, LayoutGrid, LogOut, Menu, Moon, Plus, Settings, Sun, UserRound, X } from 'lucide-react';
 
 import { useTheme } from '@ui/components/ui/useTheme';
@@ -9,6 +9,7 @@ import Toaster from '@ui/components/ui/Toaster';
 import { getMyPermissions } from '@ui/api/permissions';
 import { PermissionProvider } from '@ui/permissions/PermissionContext';
 import { WriteGuard } from '@ui/permissions/WriteGuard';
+import { SkeletonCard } from '@ui/components/ui/Primitives';
 
 import { APPS, appById, availableApps, landingApp, subscribedApps } from './registry';
 import { appFromHost, hostForApp, isFrontDoor } from './appHosts';
@@ -49,6 +50,15 @@ import { renderPublicPage, usePublicPage } from './usePublicPage';
  * with four apps should not face a rail with every submenu of all four — it
  * should see the app it is in, and a way to the others.
  */
+
+/* What shows while an app's file arrives, the first time it opens (WX-03). */
+function AppLoading() {
+  return (
+    <div className="p-4" role="status" aria-label="Loading">
+      <SkeletonCard lines={6} />
+    </div>
+  );
+}
 
 export default function Shell() {
   /* A phone: no rail, a menu sheet and a tab bar instead (mobileTabs.js). */
@@ -302,7 +312,7 @@ export default function Shell() {
   if (appPublicPage) {
     return (
       <>
-        {renderPublicPage(appPublicPage)}
+        <Suspense fallback={<AppLoading />}>{renderPublicPage(appPublicPage)}</Suspense>
         <Toaster />
       </>
     );
@@ -751,7 +761,9 @@ export default function Shell() {
           ) : (
             /* Keyed on the company: changing it has to remount the app, or the
                screens keep showing what they fetched for the last one. */
-            <Root key={tenant.id} />
+            <Suspense fallback={<AppLoading />}>
+              <Root key={tenant.id} />
+            </Suspense>
           )}
         </ScreenBoundary>
       ) : (
@@ -824,17 +836,19 @@ export default function Shell() {
               {/* One permission set for every app's screens; a screen whose resource this person may not change is shown read-only (WriteGuard). */}
               <PermissionProvider key={tenantKey} enabled>
                 <WriteGuard permission={(app?.nav || []).find((n) => n.key === screen)?.permission}>
-                  <Screen
-                    key={screenParams ? `${tenant.id}:${JSON.stringify(screenParams)}` : tenant.id}
-                    params={screenParams || undefined}
-                    openScreen={(key, params) => {
-                      if (!app?.screens?.[key]) return;
-                      setScreenKey(key);
-                      setScreenParams(params && typeof params === 'object' ? params : null);
-                      setPlatformScreen(null);
-                      window.scrollTo(0, 0);
-                    }}
-                  />
+                  <Suspense fallback={<AppLoading />}>
+                    <Screen
+                      key={screenParams ? `${tenant.id}:${JSON.stringify(screenParams)}` : tenant.id}
+                      params={screenParams || undefined}
+                      openScreen={(key, params) => {
+                        if (!app?.screens?.[key]) return;
+                        setScreenKey(key);
+                        setScreenParams(params && typeof params === 'object' ? params : null);
+                        setPlatformScreen(null);
+                        window.scrollTo(0, 0);
+                      }}
+                    />
+                  </Suspense>
                 </WriteGuard>
               </PermissionProvider>
             </ScreenBoundary>

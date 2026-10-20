@@ -1,10 +1,18 @@
 import { Briefcase, Building2, IdCard, LayoutDashboard, Network, Shapes, Tag, UserRound, Users } from 'lucide-react';
 
-import PeopleOverview from './src/screens/PeopleOverview';
-import Employees from '@ui/personnel/Employees';
-import OrgChart from './src/screens/OrgChart';
-import Tags from './src/screens/Tags';
-import { Departments, EmployeeTypes, JobPositions, JobRoles, WorkTypes } from '@ui/personnel/StructureList';
+import { lazyScreens } from '@ui/utils/lazyScreens';
+
+/* Screens load as one file the first time the app opens (WX-03). */
+const screen = lazyScreens(() => import('./src/screens.js'));
+const PeopleOverview = screen('PeopleOverview');
+const Employees = screen('Employees');
+const OrgChart = screen('OrgChart');
+const Tags = screen('Tags');
+const Departments = screen('Departments');
+const EmployeeTypes = screen('EmployeeTypes');
+const JobPositions = screen('JobPositions');
+const JobRoles = screen('JobRoles');
+const WorkTypes = screen('WorkTypes');
 
 /**
  * Everything the shell knows about People.

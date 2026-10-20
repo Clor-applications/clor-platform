@@ -1,24 +1,28 @@
 import { ArrowUpRight, BadgePercent, Banknote, BarChart3, CalendarClock, FileText, Handshake, Landmark, Layers, ListChecks, Percent, Receipt, RefreshCw, SlidersHorizontal, Table2, Users, Wallet } from 'lucide-react';
 
-import PayrollOverview from './src/screens/PayrollOverview';
-import PayRuns from './src/screens/PayRuns';
-import SalarySlips from './src/screens/SalarySlips';
-import PayrollPayments from './src/screens/PayrollPayments';
-import PayrollAdjustments from './src/screens/PayrollAdjustments';
-import SalaryStructures from './src/screens/SalaryStructures';
-import SalaryAssignments from './src/screens/SalaryAssignments';
-import SalaryRevisions from './src/screens/SalaryRevisions';
-import PayrollLoans from './src/screens/PayrollLoans';
-import PayrollCompliance from './src/screens/PayrollCompliance';
-import PayrollReports from './src/screens/PayrollReports';
-import PayrollLedgerMapping from './src/screens/PayrollLedgerMapping';
-import SalaryComponents from './src/screens/SalaryComponents';
-import PayGroups from './src/screens/PayGroups';
-import PayrollPeriods from './src/screens/PayrollPeriods';
-import PayrollSetup from './src/screens/PayrollSetup';
-import BankChanges from './src/screens/BankChanges';
-import FinalSettlements from './src/screens/FinalSettlements';
-import TaxDeclarations from './src/screens/TaxDeclarations';
+import { lazyScreens } from '@ui/utils/lazyScreens';
+
+/* Screens load as one file the first time the app opens (WX-03). */
+const screen = lazyScreens(() => import('./src/screens.js'));
+const PayrollOverview = screen('PayrollOverview');
+const PayRuns = screen('PayRuns');
+const SalarySlips = screen('SalarySlips');
+const PayrollPayments = screen('PayrollPayments');
+const PayrollAdjustments = screen('PayrollAdjustments');
+const SalaryStructures = screen('SalaryStructures');
+const SalaryAssignments = screen('SalaryAssignments');
+const SalaryRevisions = screen('SalaryRevisions');
+const PayrollLoans = screen('PayrollLoans');
+const PayrollCompliance = screen('PayrollCompliance');
+const PayrollReports = screen('PayrollReports');
+const PayrollLedgerMapping = screen('PayrollLedgerMapping');
+const SalaryComponents = screen('SalaryComponents');
+const PayGroups = screen('PayGroups');
+const PayrollPeriods = screen('PayrollPeriods');
+const PayrollSetup = screen('PayrollSetup');
+const BankChanges = screen('BankChanges');
+const FinalSettlements = screen('FinalSettlements');
+const TaxDeclarations = screen('TaxDeclarations');
 
 /**
  * Everything the shell knows about Payroll.

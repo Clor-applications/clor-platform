@@ -1,0 +1,53 @@
+/**
+ * Every screen Attendance shows, in one place, so the manifest can load
+ * them as one file the first time the app opens (WX-03). The manifest names
+ * them; nothing else should import from here.
+ */
+export { default as Employees } from '@ui/personnel/Employees';
+export { Areas, Departments, JobPositions } from '@ui/personnel/StructureList';
+export { default as AttendanceToday } from './screens/AttendanceToday';
+export { default as MyAttendance } from './screens/MyAttendance';
+export { default as AttendanceRecords } from './screens/AttendanceRecords';
+export { default as AttendanceRequests } from './screens/AttendanceRequests';
+export { default as MonthSummary } from './screens/MonthSummary';
+export { default as AttendanceRegister } from './screens/AttendanceRegister';
+export { default as AttendanceCalendar } from './screens/AttendanceCalendar';
+export { default as Shifts } from './screens/Shifts';
+export { default as ShiftAssignments } from './screens/ShiftAssignments';
+export { default as Holidays } from './screens/Holidays';
+export { default as MyLeave } from './screens/MyLeave';
+export { default as LeaveRequests } from './screens/LeaveRequests';
+export { default as LeaveBalances } from './screens/LeaveBalances';
+export { default as LeaveTypes } from './screens/LeaveTypes';
+export { default as AttendanceDevices } from './screens/AttendanceDevices';
+export { default as ReaderHealth } from './screens/ReaderHealth';
+export { default as ReaderSync } from './screens/ReaderSync';
+export { default as UnmatchedPunches } from './screens/UnmatchedPunches';
+export { default as Enrolments } from './screens/Enrolments';
+export { default as Transactions } from './screens/Transactions';
+export { default as DeviceLogs } from './screens/DeviceLogs';
+export { default as AttendanceReports } from './screens/AttendanceReports';
+export { default as Integrations } from './screens/Integrations';
+export { default as Contractors } from './screens/Contractors';
+export { default as Resignations } from './screens/Resignations';
+export { default as Transfer } from './screens/Transfer';
+export { default as DepartmentSchedule } from './screens/DepartmentSchedule';
+export { default as TemporarySchedule } from './screens/TemporarySchedule';
+export { default as Rotations } from './screens/Rotations';
+export { default as ScheduleCalendar } from './screens/ScheduleCalendar';
+export { default as AttendanceRules } from './screens/AttendanceRules';
+export { default as PortalAccess } from './screens/PortalAccess';
+export { default as Geofences } from './screens/Geofences';
+export { default as SiteCheck } from './screens/SiteCheck';
+export { default as DataImport } from './screens/DataImport';
+export { default as DataExport } from './screens/DataExport';
+export { default as DataRequests } from './screens/DataRequests';
+export { default as DataProtection } from './screens/DataProtection';
+export { default as SsoSettings } from '../../accounting/src/features/account/SsoSettings';
+export { default as Exceptions } from './screens/Exceptions';
+export { default as MonthClose } from './screens/MonthClose';
+export { default as OvertimeRequests } from './screens/OvertimeRequests';
+export { default as MonthConfirmations } from './screens/MonthConfirmations';
+export { default as PhonePunches } from './screens/PhonePunches';
+export { default as IdMapping } from './screens/IdMapping';
+export { default as AttendanceSetup } from './screens/AttendanceSetup';

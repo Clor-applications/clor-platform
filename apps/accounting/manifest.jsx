@@ -1,6 +1,8 @@
+import { lazy } from 'react';
 import { BookOpen } from 'lucide-react';
 
-import AccountingRoot from './src/App';
+/* Fetched the first time Accounting opens, not with every other app (WX-03). */
+const AccountingRoot = lazy(() => import('./src/App'));
 
 /**
  * Everything the shell knows about Accounting.
