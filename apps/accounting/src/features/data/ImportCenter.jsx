@@ -8,7 +8,7 @@ import {
   stageImport,
   validateImport,
 } from '../../api/imports';
-import { PageHeader, Spinner } from '@ui/components/ui/Primitives';
+import { PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
 import { useFeatures } from '@ui/permissions/useFeatures';
 import Modal from '@ui/components/ui/Modal';
 import { csvSafeValue } from '@ui/utils/csv';
@@ -202,7 +202,7 @@ export default function ImportCenter({ onBack = null, initialDocType = '' }) {
     }
   };
 
-  if (loading) return <Spinner />;
+  if (loading) return <SkeletonCard lines={6} />;
 
   return (
     <div className="space-y-6">

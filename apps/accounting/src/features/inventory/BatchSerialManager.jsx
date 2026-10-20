@@ -10,7 +10,7 @@ import {
   receiveBatch,
   registerSerials,
 } from '../../api/inventoryTracking';
-import { EmptyState, PageHeader, Spinner } from '@ui/components/ui/Primitives';
+import { EmptyState, PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
 
 /**
  * Batch and serial tracking — requirement 11.
@@ -173,7 +173,7 @@ export default function BatchSerialManager() {
     run(() => issueSerials({ serialNos }), () => setIssueText(''));
   };
 
-  if (loading) return <Spinner />;
+  if (loading) return <SkeletonCard lines={6} />;
 
   return (
     <div className="space-y-6">

@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Plus, Search } from 'lucide-react';
 import { createCurrency, listCurrencies } from '../../api/currencies';
-import { Spinner } from '@ui/components/ui/Primitives';
+import { SkeletonCard } from '@ui/components/ui/Primitives';
 import PopupSelect from '@ui/components/pickers/PopupSelect';
 import { CURRENCY_CATALOG, currencyMeta } from '@ui/utils/currencyCatalog';
 import { CURRENCIES_CHANGED_EVENT } from '../../hooks/useEnabledCurrencies';
@@ -51,7 +51,7 @@ export default function CurrencySettings() {
     }
   };
 
-  if (loading) return <Spinner />;
+  if (loading) return <SkeletonCard lines={6} />;
   const shown = currencies.filter((currency) =>
     `${currency.code} ${currency.name}`.toLowerCase().includes(query.trim().toLowerCase())
   );
