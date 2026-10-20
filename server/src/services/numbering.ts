@@ -127,14 +127,21 @@ export async function allocateNumber(
 
   const period = periodKeyFor(series.resetPolicy, opts.date);
 
-  // A series that resets starts again the first time it is used in a new period.
-  const startsNewPeriod = series.resetPolicy !== 'NEVER' && series.periodKey !== period;
-  const value = startsNewPeriod ? 1 : series.nextNumber;
-
-  await tx.numberSeries.update({
-    where: { id: series.id },
-    data: { nextNumber: value + 1, periodKey: period },
-  });
+  /*
+   * Read and bump in one statement. Reading nextNumber and writing it back
+   * separately let two saves at the same moment read the same value; the
+   * second then failed on the unique number. The UPDATE takes the row lock,
+   * so a concurrent save waits, re-reads the bumped row and gets the next one.
+   * A series that resets starts again the first time it is used in a new period.
+   */
+  const [row] = await tx.$queryRaw<Array<{ value: number }>>`
+    UPDATE "NumberSeries"
+       SET "nextNumber" = CASE WHEN "resetPolicy" <> 'NEVER' AND "periodKey" IS DISTINCT FROM ${period} THEN 2 ELSE "nextNumber" + 1 END,
+           "periodKey" = ${period},
+           "updatedAt" = now()
+     WHERE id = ${series.id}
+     RETURNING "nextNumber" - 1 AS value`;
+  const value = Number(row.value);
 
   return { number: formatNumber(series, value, period), seriesId: series.id, value };
 }
