@@ -654,15 +654,7 @@ function DashboardHero({ name, insights, actions, dateLabel = '' }) {
          being printed twice, which is what the page did: "Good morning,"
          over "Good morning". */
       eyebrow={name ? `${greetingFor(new Date().getHours())},` : ''}
-      title={
-        name ? (
-          <>
-            {name} <span aria-hidden="true">👋</span>
-          </>
-        ) : (
-          greetingFor(new Date().getHours())
-        )
-      }
+      title={name || greetingFor(new Date().getHours())}
       art={<HeroArt className="h-full w-full" />}
       subtitle={
         <>

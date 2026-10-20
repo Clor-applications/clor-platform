@@ -1304,6 +1304,11 @@
     background-color: rgb(var(--seg-strong, var(--surface-sunken)));
     color: rgb(var(--fg-muted));
   }
+  /* Dark backgrounds under the pills are deep, so muted ink fell to 3.55:1 on
+     green (FE-07); full ink keeps every tone above 4.5:1. */
+  :root[data-theme='dark'] .ui-pill-status {
+    color: rgb(var(--fg));
+  }
 
   .ui-pill-neutral {
     background-color: rgb(var(--surface-sunken));
