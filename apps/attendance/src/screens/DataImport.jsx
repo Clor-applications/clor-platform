@@ -3,6 +3,7 @@ import { CheckCircle2, Download, Upload } from 'lucide-react';
 
 import { PageHeader } from '@ui/components/ui/Primitives';
 import { downloadCsvTemplate, parseCsv, readFileText } from '@ui/utils/csv';
+import { normaliseDateColumns, toIsoDate } from '@ui/utils/importDates';
 import { importEmployees } from '@ui/personnel/api';
 import { importAssignments, importHolidays, importRecords } from '../api/attendance';
 
@@ -21,7 +22,7 @@ const KINDS = [
     blurb: 'One row per person per day: in and out times, or a status.',
     columns: [
       { key: 'employeeCode', label: 'Employee code' },
-      { key: 'date', label: 'Date (YYYY-MM-DD)' },
+      { key: 'date', label: 'Date (15/10/2026 or 2026-10-15)', date: true },
       { key: 'checkIn', label: 'In (HH:MM)' },
       { key: 'checkOut', label: 'Out (HH:MM)' },
       { key: 'status', label: 'Status (blank, PRESENT, HALF_DAY, ABSENT, ON_LEAVE)' },
@@ -40,7 +41,7 @@ const KINDS = [
       { key: 'code', label: 'Employee code' },
       { key: 'department', label: 'Department' },
       { key: 'jobPosition', label: 'Position' },
-      { key: 'dateOfJoining', label: 'Joined (YYYY-MM-DD)' },
+      { key: 'dateOfJoining', label: 'Joined (15/10/2026 or 2026-10-15)', date: true },
       { key: 'gender', label: 'Gender (MALE / FEMALE / OTHER)' },
       { key: 'workEmail', label: 'Work e-mail' },
       { key: 'workPhone', label: 'Phone' },
@@ -54,7 +55,7 @@ const KINDS = [
     label: 'Holidays',
     blurb: 'The year’s calendar. A date already on it with the same name is skipped.',
     columns: [
-      { key: 'date', label: 'Date (YYYY-MM-DD)' },
+      { key: 'date', label: 'Date (15/10/2026 or 2026-10-15)', date: true },
       { key: 'name', label: 'Name' },
       { key: 'optional', label: 'Optional (yes / no)' },
       { key: 'area', label: 'Area (blank = everyone)' },
@@ -70,8 +71,8 @@ const KINDS = [
     columns: [
       { key: 'employeeCode', label: 'Employee code' },
       { key: 'shift', label: 'Shift name' },
-      { key: 'from', label: 'From (YYYY-MM-DD)' },
-      { key: 'to', label: 'To (YYYY-MM-DD, blank = open)' },
+      { key: 'from', label: 'From (15/10/2026 or 2026-10-15)', date: true },
+      { key: 'to', label: 'To (a date, blank = open)', date: true },
     ],
     sample: { employeeCode: 'E-001', shift: 'General', from: '2026-10-01', to: '' },
     run: importAssignments,
@@ -104,7 +105,8 @@ export default function DataImport() {
       const wanted = new Set(kind.columns.map((c) => c.key));
       const known = parsed.headers.filter((h) => wanted.has(h));
       if (!known.length) throw new Error(`None of the columns match the template. Expected: ${kind.columns.map((c) => c.key).join(', ')}.`);
-      setRows(parsed.rows);
+      /* Day-first dates (15/10/2026, 15-Oct-2026, an Excel day number) are read here; what cannot be read goes as typed and the check names the row. */
+      setRows(normaliseDateColumns(parsed.rows, kind.columns.filter((c) => c.date).map((c) => c.key)));
     } catch (e) {
       setProblem(String(e?.message || 'That file could not be read.'));
     }
@@ -133,6 +135,16 @@ export default function DataImport() {
       setBusy(false);
     }
   };
+  /* Say how the first row's dates were read, so a month/day mix-up shows before anything is saved. */
+  const dateNote = useMemo(() => {
+    const first = rows?.[0];
+    if (!first) return '';
+    const keys = kind.columns.filter((c) => c.date && first[c.key]).map((c) => c.key);
+    if (!keys.length) return '';
+    const unread = keys.filter((k) => !toIsoDate(first[k]));
+    const shown = keys.filter((k) => toIsoDate(first[k])).map((k) => `${k} ${new Date(`${first[k]}T00:00:00`).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}`);
+    return [shown.length ? `Dates read day first: ${shown.join(', ')}.` : '', unread.length ? `Could not read ${unread.join(', ')} in the first row.` : ''].filter(Boolean).join(' ');
+  }, [rows, kind]);
   const reset = () => { setFile(null); setRows(null); setResult(null); setCheck(null); setProblem(''); };
 
   return (
@@ -172,6 +184,7 @@ export default function DataImport() {
           {rows && !result && !check ? (
             <>
               <p className="text-sm">{rows.length.toLocaleString('en-IN')} row{rows.length === 1 ? '' : 's'} read. First: <span className="ui-mono text-xs">{JSON.stringify(rows[0]).slice(0, 120)}</span></p>
+              {dateNote ? <p className="ui-caption">{dateNote}</p> : null}
               <button type="button" className="ui-btn ui-btn-primary w-full" disabled={busy} onClick={checkFile}>{busy ? 'Checking…' : 'Check the file'}</button>
               <p className="ui-caption">Every row is checked the way it would be imported. Nothing is saved until you confirm.</p>
             </>
