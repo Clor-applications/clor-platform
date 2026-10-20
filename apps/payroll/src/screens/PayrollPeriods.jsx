@@ -1,8 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Lock, LockOpen, Plus, Trash2 } from 'lucide-react';
+import { CalendarCheck, CalendarClock, CalendarDays, Lock, LockOpen, Plus, Trash2 } from 'lucide-react';
 
+import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
+import { useListSearch } from '@ui/components/ListToolbar';
+import DocumentListShell from '@ui/components/list/DocumentListShell';
+import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';
 import { SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
-import SettingsScreenHeader from '@ui/chrome/SettingsScreenHeader';
 import Drawer from '@ui/components/ui/Drawer';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import {
@@ -12,6 +15,7 @@ import {
   setPayrollPeriodLock,
   deletePayrollPeriod,
 } from '../api/payrollCalendar';
+import LoadFailed from '../components/LoadFailed';
 
 /**
  * The pay cycles a run is filed against.
@@ -61,29 +65,46 @@ const describeUsage = (u) => {
   return parts.join(', ');
 };
 
+const TABS = [
+  { value: '', label: 'All', tone: 'all' },
+  { value: 'OPEN', label: 'Open', tone: 'outstanding' },
+  { value: 'CLOSED', label: 'Closed', tone: 'cancelled' },
+];
+const COLUMNS = {
+  name: (p) => p.name,
+  cycle: (p) => labelFor(p.frequency),
+};
+const EXPORT_COLUMNS = [
+  { key: 'name', label: 'Period' },
+  { key: 'cycle', label: 'Cycle', value: (p) => labelFor(p.frequency) },
+  { key: 'startDate', label: 'From', value: (p) => shown(p.startDate) },
+  { key: 'endDate', label: 'To', value: (p) => shown(p.endDate) },
+  { key: 'paymentDate', label: 'Paid on', value: (p) => shown(p.paymentDate) },
+  { key: 'usage', label: 'Payroll', value: (p) => describeUsage(p.usage) },
+  { key: 'isLocked', label: 'Status', value: (p) => (p.isLocked ? 'Closed' : 'Open') },
+];
+
 export default function PayrollPeriods() {
-  const [rows, setRows] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [all, setAll] = useState(null);
   const [error, setError] = useState('');
   const [editing, setEditing] = useState(null);
   const [busy, setBusy] = useState('');
+  const [status, setStatus] = useState('');
 
-  const load = useCallback(async () => {
-    try {
-      setRows(await listPayrollPeriods());
-      setError('');
-    } catch (e) {
-      setError(String(e?.message || 'Could not load payroll periods.'));
-    } finally {
-      setLoading(false);
-    }
+  const load = useCallback(() => {
+    listPayrollPeriods()
+      .then((v) => {
+        setAll(v);
+        setError('');
+      })
+      .catch((e) => setError(String(e?.message || 'Could not load payroll periods.')));
   }, []);
 
   useEffect(() => {
     load();
   }, [load]);
 
-  const suggestion = useMemo(() => nextMonthFrom(rows), [rows]);
+  const suggestion = useMemo(() => nextMonthFrom(all || []), [all]);
 
   const toggleLock = async (row) => {
     if (row.isLocked) {
@@ -123,75 +144,104 @@ export default function PayrollPeriods() {
     }
   };
 
-  if (loading) return <SkeletonCard lines={5} />;
+  const counts = useMemo(() => {
+    const list = all || [];
+    const closed = list.filter((p) => p.isLocked).length;
+    return { '': list.length, OPEN: list.length - closed, CLOSED: closed };
+  }, [all]);
+  const inTab = useMemo(() => (all || []).filter((p) => !status || (status === 'CLOSED') === Boolean(p.isLocked)), [all, status]);
+  const search = useListSearch(inTab, ['name']);
+  const filters = useColumnFilters();
+  const rows = filters.applyFilters(search.filtered, COLUMNS);
+  const figures = useMemo(() => {
+    const list = all || [];
+    return {
+      run: list.filter((p) => p.usage?.runs).length,
+      waiting: list.filter((p) => !p.isLocked && !p.usage?.runs).length,
+    };
+  }, [all]);
+  const create = () => setEditing(suggestion);
 
   return (
-    <div className="space-y-4">
-      <SettingsScreenHeader
-        entity="payroll"
-        title="Payroll periods"
-        description="The pay cycles a run belongs to, and which of them are closed."
-        actions={
-          <button type="button" className="ui-btn ui-btn-primary" onClick={() => setEditing(suggestion)}>
-            <Plus size={16} aria-hidden="true" /> New period
-          </button>
-        }
-      />
-
-      {error ? (
-        <div className="ui-card p-3 text-sm" role="alert" style={{ borderColor: 'rgb(var(--neg))', color: 'rgb(var(--neg))' }}>
-          {error}
-        </div>
-      ) : null}
-
-      {rows.length === 0 ? (
-        <EmptyState
-          title="No payroll periods yet"
-          description="Every payslip is filed against a period. Add the first one and payroll has a month to run for."
-          action={
-            <button type="button" className="ui-btn ui-btn-primary" onClick={() => setEditing(suggestion)}>
-              <Plus size={16} aria-hidden="true" /> New period
-            </button>
-          }
-        />
+    <DocumentListShell
+      entity="payPeriod"
+      title="Payroll periods"
+      description="The pay cycles a run belongs to, and which of them are closed."
+      compact
+      tight
+      denseCards
+      search={{ value: search.query, onChange: search.setQuery, placeholder: 'Search periods…', label: 'Search payroll periods' }}
+      moreItems={all?.length ? [exportMenuItem('Export periods')] : null}
+      onMoreSelect={(k) => {
+        const format = exportFormatFromKey(k);
+        if (!format) return;
+        runListExport({ format, title: 'Payroll periods', fileName: 'Payroll periods', label: 'period/periods', columns: EXPORT_COLUMNS, rows });
+      }}
+      primary={
+        <button type="button" className="ui-btn ui-btn-primary" onClick={create}>
+          <Plus size={16} aria-hidden="true" /> New period
+        </button>
+      }
+      cards={[
+        { label: 'Open', value: counts.OPEN, count: true, tone: 'outstanding', Icon: LockOpen, onSelect: () => setStatus('OPEN') },
+        { label: 'Closed', value: counts.CLOSED, count: true, tone: 'cancelled', Icon: Lock, onSelect: () => setStatus('CLOSED') },
+        { label: 'Payroll run', value: figures.run, count: true, tone: 'paid', Icon: CalendarCheck },
+        { label: 'Not run yet', value: figures.waiting, count: true, tone: 'partial', Icon: CalendarClock },
+      ]}
+      tabs={TABS}
+      statusValue={status}
+      statusCounts={counts}
+      onStatusChange={setStatus}
+      tabsLabel="Open or closed"
+    >
+      <LoadFailed message={error} onRetry={load} />
+      {!all ? (
+        error ? null : <SkeletonCard lines={4} />
       ) : (
-        <div className="ui-card overflow-hidden">
-          <div className="overflow-x-auto ui-table-scroll ui-table-fit">
-            <table className="ui-table w-full">
-              <thead>
+        <div className="ui-table-scroll">
+          <table className="ui-table ui-table-sticky w-full">
+            <thead>
+              <tr>
+                <ColumnHeader label="Period" col="name" state={filters} />
+                <ColumnHeader label="Cycle" col="cycle" state={filters} />
+                <th scope="col" className="ui-col-h-center">From</th>
+                <th scope="col" className="ui-col-h-center">To</th>
+                <th scope="col" className="ui-col-h-center">Paid on</th>
+                <th scope="col">Payroll</th>
+                <th scope="col" className="ui-col-h-center">Status</th>
+                <th scope="col"><span className="sr-only">Actions</span></th>
+              </tr>
+            </thead>
+            <tbody className="ui-rows">
+              {!rows.length ? (
                 <tr>
-                  <th scope="col" className="ui-th">Period</th>
-                  <th scope="col" className="ui-th">Cycle</th>
-                  <th scope="col" className="ui-th ui-col-h-center">From</th>
-                  <th scope="col" className="ui-th ui-col-h-center">To</th>
-                  <th scope="col" className="ui-th ui-col-h-center">Paid on</th>
-                  <th scope="col" className="ui-th">Payroll</th>
-                  <th scope="col" className="ui-th ui-col-h-center">Status</th>
-                  <th scope="col" className="ui-th ui-col-h-center w-10">
-                    <span className="sr-only">Actions</span>
-                  </th>
+                  <td colSpan={8}>
+                    {inTab.length ? (
+                      <EmptyState kind="filtered" totalCount={inTab.length} title="No periods match" description="Nothing in this tab matches the search or the column filters." />
+                    ) : (
+                      <EmptyState
+                        icon={CalendarDays}
+                        title={status ? `No ${status.toLowerCase()} periods` : 'No payroll periods yet'}
+                        description="Every payslip is filed against a period. Add the first one and payroll has a month to run for."
+                        routes={status ? undefined : [{ label: 'New period', description: `Starts with ${suggestion.name}.`, onSelect: create }]}
+                      />
+                    )}
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {rows.map((p) => (
-                  <tr
-                    key={p.id}
-                    className={p.isLocked ? '' : 'ui-row-click'}
-                    onClick={p.isLocked ? undefined : () => setEditing(p)}
-                  >
+              ) : (
+                rows.map((p) => (
+                  <tr key={p.id} className={p.isLocked ? '' : 'ui-row-click'} onClick={p.isLocked ? undefined : () => setEditing(p)}>
                     <td className="ui-col-entity">{p.name}</td>
                     <td className="ui-col-meta">{labelFor(p.frequency)}</td>
                     <td className="ui-col-date ui-col-h-center">{shown(p.startDate)}</td>
                     <td className="ui-col-date ui-col-h-center">{shown(p.endDate)}</td>
                     <td className="ui-col-date ui-col-h-center">{shown(p.paymentDate)}</td>
                     <td className="ui-col-meta">{describeUsage(p.usage)}</td>
-                    <td>
-                      <span className={`ui-pill ${p.isLocked ? 'ui-pill-neutral' : 'ui-pill-pos'}`}>
-                        {p.isLocked ? 'Closed' : 'Open'}
-                      </span>
+                    <td className="ui-col-h-center">
+                      <span className={`ui-pill ${p.isLocked ? 'ui-pill-neutral' : 'ui-pill-pos'}`}>{p.isLocked ? 'Closed' : 'Open'}</span>
                     </td>
                     <td onClick={(e) => e.stopPropagation()}>
-                      <div className="flex items-center justify-center gap-1">
+                      <div className="flex items-center justify-end gap-1">
                         <button
                           type="button"
                           className="ui-icon-btn"
@@ -210,10 +260,10 @@ export default function PayrollPeriods() {
                       </div>
                     </td>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
       )}
 
@@ -234,7 +284,7 @@ export default function PayrollPeriods() {
           />
         ) : null}
       </Drawer>
-    </div>
+    </DocumentListShell>
   );
 }
 

@@ -1,7 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Ban, Check, Pencil, Plus, Trash2 } from 'lucide-react';
+import { Ban, Check, Clock, MinusCircle, Pencil, Percent, Plus, Trash2, Wallet } from 'lucide-react';
 
-import { PageHeader, SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
+import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
+import { useListSearch } from '@ui/components/ListToolbar';
+import DocumentListShell from '@ui/components/list/DocumentListShell';
+import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';
+import { SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import Drawer from '@ui/components/ui/Drawer';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { listPayrollPeriods } from '../api/payrollCalendar';
@@ -15,6 +19,7 @@ import {
   cancelPayrollAdjustment,
   deletePayrollAdjustment,
 } from '../api/payrollAdjustments';
+import LoadFailed from '../components/LoadFailed';
 
 /**
  * Bonuses, arrears, fines — what happened to one person in one month.
@@ -39,37 +44,58 @@ const STATUS = {
 
 const money = (n) => `₹${Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
 
+const TABS = [
+  { value: '', label: 'All', tone: 'all' },
+  { value: 'DRAFT', label: 'To approve', tone: 'outstanding' },
+  { value: 'APPROVED', label: 'Approved', tone: 'sent' },
+  { value: 'CONSUMED', label: 'Paid', tone: 'paid' },
+  { value: 'CANCELLED', label: 'Cancelled', tone: 'cancelled' },
+];
+const COLUMNS = {
+  employee: (r) => r.employeeName,
+  what: (r) => r.componentName,
+  month: (r) => r.periodName || '—',
+};
+const signed = (r) => (r.type === 'DEDUCTION' ? -Number(r.amount || 0) : Number(r.amount || 0));
+const EXPORT_COLUMNS = [
+  { key: 'employeeName', label: 'Employee' },
+  { key: 'employeeCode', label: 'Code' },
+  { key: 'componentName', label: 'What' },
+  { key: 'periodName', label: 'Month' },
+  { key: 'amount', label: 'Amount', value: (r) => signed(r) },
+  { key: 'reason', label: 'Why' },
+  { key: 'status', label: 'Status', value: (r) => STATUS[r.status]?.label || r.status },
+  { key: 'consumedByRunNumber', label: 'Paid on run' },
+];
+
 export default function PayrollAdjustments() {
-  const [rows, setRows] = useState([]);
+  const [all, setAll] = useState(null);
   const [periods, setPeriods] = useState([]);
   const [components, setComponents] = useState([]);
   const [people, setPeople] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [periodFilter, setPeriodFilter] = useState('');
+  const [status, setStatus] = useState('');
   const [editing, setEditing] = useState(null);
   const [busy, setBusy] = useState('');
 
-  const load = useCallback(async () => {
-    try {
-      const [adjustments, periodRows, componentRows, employeeRows] = await Promise.all([
-        listPayrollAdjustments({ periodId: periodFilter }),
-        listPayrollPeriods(),
-        listSalaryComponents({ activeOnly: true }),
-        listEmployees({ status: 'ACTIVE' }),
-      ]);
-      setRows(adjustments);
-      setPeriods(periodRows);
-      /* An employer contribution is a company cost, not something to add to or
-         take off somebody's pay, so it is not offered. */
-      setComponents(componentRows.filter((c) => c.type !== 'EMPLOYER_CONTRIBUTION'));
-      setPeople(employeeRows.employees);
-      setError('');
-    } catch (e) {
-      setError(String(e?.message || 'Could not load adjustments.'));
-    } finally {
-      setLoading(false);
-    }
+  const load = useCallback(() => {
+    Promise.all([
+      listPayrollAdjustments({ periodId: periodFilter }),
+      listPayrollPeriods(),
+      listSalaryComponents({ activeOnly: true }),
+      listEmployees({ status: 'ACTIVE' }),
+    ])
+      .then(([adjustments, periodRows, componentRows, employeeRows]) => {
+        setAll(adjustments);
+        setPeriods(periodRows);
+        /* An employer contribution is a company cost, not something to add to or
+           take off somebody's pay, so it is not offered. */
+        setComponents(componentRows.filter((c) => c.type !== 'EMPLOYER_CONTRIBUTION'));
+        setPeople(employeeRows.employees);
+        setError('');
+      })
+      .catch((e) => setError(String(e?.message || 'Could not load adjustments.')));
   }, [periodFilter]);
 
   useEffect(() => {
@@ -77,6 +103,7 @@ export default function PayrollAdjustments() {
   }, [load]);
 
   const openPeriods = useMemo(() => periods.filter((p) => !p.isLocked), [periods]);
+  const canAdd = openPeriods.length > 0 && components.length > 0;
 
   const act = async (fn, done, id) => {
     setBusy(id);
@@ -111,77 +138,111 @@ export default function PayrollAdjustments() {
     act(() => cancelPayrollAdjustment(row.id), 'Cancelled.', row.id);
   };
 
-  if (loading) return <SkeletonCard lines={6} />;
+  const counts = useMemo(() => {
+    const list = all || [];
+    const n = (st) => list.filter((r) => r.status === st).length;
+    return { '': list.length, DRAFT: n('DRAFT'), APPROVED: n('APPROVED'), CONSUMED: n('CONSUMED'), CANCELLED: n('CANCELLED') };
+  }, [all]);
+  const figures = useMemo(() => {
+    const list = all || [];
+    const sum = (f) => list.filter(f).reduce((a, r) => a + signed(r), 0);
+    return {
+      toApprove: sum((r) => r.status === 'DRAFT'),
+      toPay: sum((r) => r.status === 'APPROVED'),
+      paid: sum((r) => r.status === 'CONSUMED'),
+      deductions: list.filter((r) => r.type === 'DEDUCTION' && r.status !== 'CANCELLED').reduce((a, r) => a + Number(r.amount || 0), 0),
+    };
+  }, [all]);
+  const inTab = useMemo(() => (all || []).filter((r) => !status || r.status === status), [all, status]);
+  const search = useListSearch(inTab, ['employeeName', 'employeeCode', 'componentName', 'reason']);
+  const filters = useColumnFilters();
+  const rows = filters.applyFilters(search.filtered, COLUMNS);
+  const create = () => setEditing({});
+  const monthName = periods.find((p) => p.id === periodFilter)?.name || '';
 
   return (
-    <div className="space-y-4">
-      <PageHeader
-        entity="payroll"
-        title="Adjustments"
-        description="One-off earnings and deductions for a single month — a bonus, an arrear, a recovery. Approved before payroll pays them."
-        actions={
-          <button type="button" className="ui-btn ui-btn-primary" onClick={() => setEditing({})} disabled={!openPeriods.length || !components.length}>
-            <Plus size={16} aria-hidden="true" /> New adjustment
-          </button>
-        }
-      />
-
-      {error ? (
-        <div className="ui-card p-3 text-sm" role="alert" style={{ borderColor: 'rgb(var(--neg))', color: 'rgb(var(--neg))' }}>
-          {error}
-        </div>
-      ) : null}
-
-      {periods.length ? (
-        <div className="flex items-end gap-3">
-          <div className="max-w-xs w-full">
-            <label className="ui-label" htmlFor="adj-period-filter">Month</label>
-            <select id="adj-period-filter" className="ui-select w-full" value={periodFilter} onChange={(e) => setPeriodFilter(e.target.value)}>
-              <option value="">Every month</option>
-              {periods.map((p) => (
-                <option key={p.id} value={p.id}>{p.name}</option>
-              ))}
-            </select>
-          </div>
-        </div>
-      ) : null}
-
-      {!openPeriods.length && !rows.length ? (
-        <EmptyState
-          title="No open month to adjust"
-          description="An adjustment is paid in a particular month. Add an open payroll period under Settings → Payroll → Payroll periods first."
-        />
-      ) : rows.length === 0 ? (
-        <EmptyState
-          title={periodFilter ? 'Nothing adjusted in this month' : 'No adjustments yet'}
-          description="A bonus, an arrear, a fine — anything that happened to one person in one month rather than being part of what they are on."
-          action={
-            openPeriods.length && components.length ? (
-              <button type="button" className="ui-btn ui-btn-primary" onClick={() => setEditing({})}>
-                <Plus size={16} aria-hidden="true" /> New adjustment
-              </button>
-            ) : null
-          }
-        />
+    <DocumentListShell
+      entity="payAdjustment"
+      title="Adjustments"
+      description="One-off earnings and deductions for a single month — a bonus, an arrear, a recovery. Approved before payroll pays them."
+      compact
+      tight
+      denseCards
+      search={{ value: search.query, onChange: search.setQuery, placeholder: 'Search adjustments…', label: 'Search adjustments' }}
+      moreItems={all?.length ? [exportMenuItem('Export adjustments')] : null}
+      onMoreSelect={(k) => {
+        const format = exportFormatFromKey(k);
+        if (!format) return;
+        runListExport({ format, title: 'Adjustments', subtitle: monthName, fileName: `Adjustments${monthName ? ` ${monthName}` : ''}`, label: 'adjustment/adjustments', columns: EXPORT_COLUMNS, rows });
+      }}
+      primary={
+        <button type="button" className="ui-btn ui-btn-primary" onClick={create} disabled={!canAdd}>
+          <Plus size={16} aria-hidden="true" /> New adjustment
+        </button>
+      }
+      cards={[
+        { label: 'To approve', value: figures.toApprove, tone: 'outstanding', Icon: Clock, onSelect: () => setStatus('DRAFT') },
+        { label: 'Approved', value: figures.toPay, tone: 'sent', Icon: Check, onSelect: () => setStatus('APPROVED') },
+        { label: 'Paid', value: figures.paid, tone: 'paid', Icon: Wallet, onSelect: () => setStatus('CONSUMED') },
+        { label: 'Deductions', value: figures.deductions, tone: 'overdue', Icon: MinusCircle },
+      ]}
+      tabs={TABS}
+      statusValue={status}
+      statusCounts={counts}
+      onStatusChange={setStatus}
+      tabsLabel="Adjustment status"
+      tabsExtras={
+        periods.length ? (
+          <select className="ui-select ui-btn-sm !w-auto" value={periodFilter} onChange={(e) => setPeriodFilter(e.target.value)} aria-label="Month">
+            <option value="">Every month</option>
+            {periods.map((p) => (
+              <option key={p.id} value={p.id}>{p.name}</option>
+            ))}
+          </select>
+        ) : null
+      }
+    >
+      <LoadFailed message={error} onRetry={load} />
+      {!all ? (
+        error ? null : <SkeletonCard lines={4} />
       ) : (
-        <div className="ui-card overflow-hidden">
-          <div className="overflow-x-auto ui-table-scroll ui-table-fit">
-            <table className="ui-table w-full">
-              <thead>
+        <div className="ui-table-scroll">
+          <table className="ui-table ui-table-sticky w-full">
+            <thead>
+              <tr>
+                <ColumnHeader label="Employee" col="employee" state={filters} />
+                <ColumnHeader label="What" col="what" state={filters} />
+                <ColumnHeader label="Month" col="month" state={filters} />
+                <th scope="col" className="ui-num">Amount</th>
+                <th scope="col" className="ui-col-grow">Why</th>
+                <th scope="col" className="ui-col-h-center">Status</th>
+                <th scope="col"><span className="sr-only">Actions</span></th>
+              </tr>
+            </thead>
+            <tbody className="ui-rows">
+              {!rows.length ? (
                 <tr>
-                  <th scope="col" className="ui-th">Employee</th>
-                  <th scope="col" className="ui-th">What</th>
-                  <th scope="col" className="ui-th">Month</th>
-                  <th scope="col" className="ui-th ui-col-h-right">Amount</th>
-                  <th scope="col" className="ui-th">Why</th>
-                  <th scope="col" className="ui-th ui-col-h-center">Status</th>
-                  <th scope="col" className="ui-th ui-col-h-center">
-                    <span className="sr-only">Actions</span>
-                  </th>
+                  <td colSpan={7}>
+                    {inTab.length ? (
+                      <EmptyState kind="filtered" totalCount={inTab.length} title="No adjustments match" description="Nothing in this tab matches the search or the column filters." />
+                    ) : !openPeriods.length && !(all || []).length ? (
+                      <EmptyState
+                        icon={Percent}
+                        title="No open month to adjust"
+                        description="An adjustment is paid in a particular month. Add an open payroll period under Settings → Pay Calendar first."
+                      />
+                    ) : (
+                      <EmptyState
+                        icon={Percent}
+                        title={periodFilter ? 'Nothing adjusted in this month' : status ? `No ${TABS.find((t) => t.value === status)?.label.toLowerCase()} adjustments` : 'No adjustments yet'}
+                        description="A bonus, an arrear, a fine — anything that happened to one person in one month rather than being part of what they are on."
+                        routes={canAdd && !status ? [{ label: 'New adjustment', description: 'One person, one month, one amount.', onSelect: create }] : undefined}
+                      />
+                    )}
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {rows.map((r) => (
+              ) : (
+                rows.map((r) => (
                   <tr key={r.id}>
                     <td className="ui-col-entity">
                       {r.employeeName}
@@ -189,17 +250,17 @@ export default function PayrollAdjustments() {
                     </td>
                     <td className="ui-col-meta">{r.componentName}</td>
                     <td className="ui-col-meta">{r.periodName || '—'}</td>
-                    <td className="ui-col-amount">
+                    <td className="ui-num">
                       {/* A deduction reads as one: the sign is the point. */}
                       {r.type === 'DEDUCTION' ? `−${money(r.amount)}` : money(r.amount)}
                     </td>
-                    <td className="ui-col-meta">{r.reason || '—'}</td>
-                    <td>
+                    <td className="ui-col-meta ui-col-grow whitespace-normal">{r.reason || '—'}</td>
+                    <td className="ui-col-h-center">
                       <span className={`ui-pill ${STATUS[r.status]?.tone || 'ui-pill-neutral'}`}>{STATUS[r.status]?.label || r.status}</span>
                       {r.consumedByRunNumber ? <span className="ui-caption"> on {r.consumedByRunNumber}</span> : null}
                     </td>
                     <td>
-                      <div className="flex items-center justify-center gap-1">
+                      <div className="flex items-center justify-end gap-1">
                         {r.status === 'DRAFT' ? (
                           <button
                             type="button"
@@ -212,44 +273,27 @@ export default function PayrollAdjustments() {
                           </button>
                         ) : null}
                         {['DRAFT', 'APPROVED'].includes(r.status) ? (
-                          <button
-                            type="button"
-                            className="ui-icon-btn"
-                            aria-label={`Edit the ${r.componentName} for ${r.employeeName}`}
-                            onClick={() => setEditing(r)}
-                          >
+                          <button type="button" className="ui-icon-btn" aria-label={`Edit the ${r.componentName} for ${r.employeeName}`} onClick={() => setEditing(r)}>
                             <Pencil size={16} aria-hidden="true" />
                           </button>
                         ) : null}
                         {r.status === 'APPROVED' ? (
-                          <button
-                            type="button"
-                            className="ui-icon-btn"
-                            aria-label={`Cancel the ${r.componentName} for ${r.employeeName}`}
-                            disabled={busy === r.id}
-                            onClick={() => cancel(r)}
-                          >
+                          <button type="button" className="ui-icon-btn" aria-label={`Cancel the ${r.componentName} for ${r.employeeName}`} disabled={busy === r.id} onClick={() => cancel(r)}>
                             <Ban size={16} aria-hidden="true" />
                           </button>
                         ) : null}
                         {r.status === 'DRAFT' ? (
-                          <button
-                            type="button"
-                            className="ui-icon-btn"
-                            aria-label={`Delete the ${r.componentName} for ${r.employeeName}`}
-                            disabled={busy === r.id}
-                            onClick={() => remove(r)}
-                          >
+                          <button type="button" className="ui-icon-btn" aria-label={`Delete the ${r.componentName} for ${r.employeeName}`} disabled={busy === r.id} onClick={() => remove(r)}>
                             <Trash2 size={16} aria-hidden="true" />
                           </button>
                         ) : null}
                       </div>
                     </td>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
       )}
 
@@ -277,7 +321,7 @@ export default function PayrollAdjustments() {
           />
         ) : null}
       </Drawer>
-    </div>
+    </DocumentListShell>
   );
 }
 

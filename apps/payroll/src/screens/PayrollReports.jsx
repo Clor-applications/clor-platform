@@ -182,9 +182,9 @@ export default function PayrollReports() {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <PageHeader
-        entity="payroll"
+        entity="report"
         title="Payroll reports"
         description="Read from the payslips themselves, so a report of a month says what was paid rather than what today's rates would say."
         actions={
@@ -195,6 +195,7 @@ export default function PayrollReports() {
           )
         }
       />
+      <div className="px-5 lg:px-7 pb-8 space-y-4">
 
       {error ? (
         <div className="ui-card p-3 text-sm" role="alert" style={{ borderColor: 'rgb(var(--neg))', color: 'rgb(var(--neg))' }}>
@@ -260,26 +261,27 @@ export default function PayrollReports() {
       ) : (
         <Cost data={shown} />
       )}
+      </div>
     </div>
   );
 }
 
 const Register = ({ data }) => (
   <div className="ui-card overflow-hidden">
-    <div className="overflow-x-auto ui-table-scroll ui-table-fit">
-      <table className="ui-table w-full">
+    <div className="ui-table-scroll">
+      <table className="ui-table ui-table-sticky w-full">
         <thead>
           <tr>
-            <th scope="col" className="ui-th">Employee</th>
+            <th scope="col">Employee</th>
             {data.columns.map((c) => (
-              <th key={c.code} scope="col" className="ui-th ui-col-h-right">{c.name}</th>
+              <th key={c.code} scope="col" className="ui-col-h-right">{c.name}</th>
             ))}
-            <th scope="col" className="ui-th ui-col-h-right">Gross</th>
-            <th scope="col" className="ui-th ui-col-h-right">Deductions</th>
-            <th scope="col" className="ui-th ui-col-h-right">Take-home</th>
+            <th scope="col" className="ui-col-h-right">Gross</th>
+            <th scope="col" className="ui-col-h-right">Deductions</th>
+            <th scope="col" className="ui-col-h-right">Take-home</th>
           </tr>
         </thead>
-        <tbody>
+        <tbody className="ui-rows">
           {data.rows.map((r) => (
             <tr key={r.slipId}>
               <td className="ui-col-entity">
@@ -322,18 +324,18 @@ const Statutory = ({ data }) => (
             {s.employer ? ` · ${money(s.employer)} from the company` : ''} · {money(s.total)} owed
           </div>
         </div>
-        <div className="overflow-x-auto ui-table-scroll ui-table-fit">
-          <table className="ui-table w-full">
+        <div className="ui-table-scroll">
+          <table className="ui-table ui-table-sticky w-full">
             <thead>
               <tr>
-                <th scope="col" className="ui-th">Employee</th>
-                <th scope="col" className="ui-th">{s.scheme === 'PF' ? 'UAN' : s.scheme === 'ESI' ? 'ESI number' : 'PAN'}</th>
-                <th scope="col" className="ui-th ui-col-h-right">Wages</th>
-                <th scope="col" className="ui-th ui-col-h-right">Withheld</th>
-                <th scope="col" className="ui-th ui-col-h-right">From the company</th>
+                <th scope="col">Employee</th>
+                <th scope="col">{s.scheme === 'PF' ? 'UAN' : s.scheme === 'ESI' ? 'ESI number' : 'PAN'}</th>
+                <th scope="col" className="ui-col-h-right">Wages</th>
+                <th scope="col" className="ui-col-h-right">Withheld</th>
+                <th scope="col" className="ui-col-h-right">From the company</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="ui-rows">
               {s.rows.map((r) => (
                 <tr key={r.employeeId}>
                   <td className="ui-col-entity">
@@ -370,19 +372,19 @@ const Variance = ({ data }) => (
         Anybody whose take-home moved {data.threshold}% or more since last month, and everybody being paid for the first time.
       </p>
     </div>
-    <div className="overflow-x-auto ui-table-scroll ui-table-fit">
-      <table className="ui-table w-full">
+    <div className="ui-table-scroll">
+      <table className="ui-table ui-table-sticky w-full">
         <thead>
           <tr>
-            <th scope="col" className="ui-th">Employee</th>
-            <th scope="col" className="ui-th ui-col-h-right">Last month</th>
-            <th scope="col" className="ui-th ui-col-h-right">This month</th>
-            <th scope="col" className="ui-th ui-col-h-right">Change</th>
-            <th scope="col" className="ui-th ui-col-h-right">Percent</th>
-            <th scope="col" className="ui-th">Why it is here</th>
+            <th scope="col">Employee</th>
+            <th scope="col" className="ui-col-h-right">Last month</th>
+            <th scope="col" className="ui-col-h-right">This month</th>
+            <th scope="col" className="ui-col-h-right">Change</th>
+            <th scope="col" className="ui-col-h-right">Percent</th>
+            <th scope="col">Why it is here</th>
           </tr>
         </thead>
-        <tbody>
+        <tbody className="ui-rows">
           {data.rows.map((r) => (
             <tr key={r.slipId}>
               <td className="ui-col-entity">
@@ -404,19 +406,19 @@ const Variance = ({ data }) => (
 
 const Cost = ({ data }) => (
   <div className="ui-card overflow-hidden">
-    <div className="overflow-x-auto ui-table-scroll ui-table-fit">
-      <table className="ui-table w-full">
+    <div className="ui-table-scroll">
+      <table className="ui-table ui-table-sticky w-full">
         <thead>
           <tr>
-            <th scope="col" className="ui-th">Department</th>
-            <th scope="col" className="ui-th ui-col-h-right">People</th>
-            <th scope="col" className="ui-th ui-col-h-right">Gross</th>
-            <th scope="col" className="ui-th ui-col-h-right">Deductions</th>
-            <th scope="col" className="ui-th ui-col-h-right">Take-home</th>
-            <th scope="col" className="ui-th ui-col-h-right">Company pays</th>
+            <th scope="col">Department</th>
+            <th scope="col" className="ui-col-h-right">People</th>
+            <th scope="col" className="ui-col-h-right">Gross</th>
+            <th scope="col" className="ui-col-h-right">Deductions</th>
+            <th scope="col" className="ui-col-h-right">Take-home</th>
+            <th scope="col" className="ui-col-h-right">Company pays</th>
           </tr>
         </thead>
-        <tbody>
+        <tbody className="ui-rows">
           {data.rows.map((r) => (
             <tr key={r.department}>
               <td className="ui-col-entity">{r.department}</td>

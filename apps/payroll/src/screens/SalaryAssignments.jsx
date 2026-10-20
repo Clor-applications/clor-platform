@@ -1,7 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Plus, TrendingUp } from 'lucide-react';
+import { Banknote, CalendarClock, Plus, TrendingUp, UserX, Users } from 'lucide-react';
 
-import { PageHeader, SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
+import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
+import { useListSearch } from '@ui/components/ListToolbar';
+import DocumentListShell from '@ui/components/list/DocumentListShell';
+import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';
+import { SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import Drawer from '@ui/components/ui/Drawer';
 import { notify } from '@ui/components/ui/notify';
 import { listSalaryStructures } from '../api/payrollStructures';
@@ -12,6 +16,7 @@ import {
   listAssignments,
   createAssignment,
 } from '../api/payrollPeople';
+import LoadFailed from '../components/LoadFailed';
 
 /**
  * Who is paid what.
@@ -74,33 +79,34 @@ const blankEmployee = () => ({
   },
 });
 
+const TABS = [
+  { value: '', label: 'Everyone', tone: 'all' },
+  { value: 'PAID', label: 'On a salary', tone: 'paid' },
+  { value: 'NONE', label: 'No salary', tone: 'outstanding' },
+  { value: 'LEAVING', label: 'On notice or left', tone: 'cancelled' },
+];
+const statusLabel = (p) => STATUSES.find((s) => s.id === p.status)?.label || p.status;
+
 export default function SalaryAssignments() {
-  const [people, setPeople] = useState([]);
+  const [people, setPeople] = useState(null);
   const [assignments, setAssignments] = useState([]);
   const [structures, setStructures] = useState([]);
   const [sensitiveVisible, setSensitiveVisible] = useState(false);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [open, setOpen] = useState(null);
   const [adding, setAdding] = useState(false);
+  const [tab, setTab] = useState('');
 
-  const load = useCallback(async () => {
-    try {
-      const [roster, salaries, structureRows] = await Promise.all([
-        listEmployees(),
-        listAssignments({ status: 'ACTIVE' }),
-        listSalaryStructures({ status: 'ACTIVE' }),
-      ]);
-      setPeople(roster.employees);
-      setSensitiveVisible(roster.sensitiveVisible);
-      setAssignments(salaries);
-      setStructures(structureRows);
-      setError('');
-    } catch (e) {
-      setError(String(e?.message || 'Could not load the payroll roster.'));
-    } finally {
-      setLoading(false);
-    }
+  const load = useCallback(() => {
+    Promise.all([listEmployees(), listAssignments({ status: 'ACTIVE' }), listSalaryStructures({ status: 'ACTIVE' })])
+      .then(([roster, salaries, structureRows]) => {
+        setPeople(roster.employees);
+        setSensitiveVisible(roster.sensitiveVisible);
+        setAssignments(salaries);
+        setStructures(structureRows);
+        setError('');
+      })
+      .catch((e) => setError(String(e?.message || 'Could not load the payroll roster.')));
   }, []);
 
   useEffect(() => {
@@ -115,84 +121,144 @@ export default function SalaryAssignments() {
     return map;
   }, [assignments]);
 
-  const structureName = (id) => structures.find((s) => s.id === id)?.name || '—';
-
-  if (loading) return <SkeletonCard lines={6} />;
+  const structureName = useCallback((id) => structures.find((x) => x.id === id)?.name || '—', [structures]);
+  const inTabOf = useCallback(
+    (p, t) => {
+      if (!t) return true;
+      const has = currentByEmployee.has(p.id);
+      if (t === 'PAID') return has;
+      if (t === 'NONE') return !has && !['LEFT'].includes(p.status);
+      return ['ON_NOTICE', 'LEFT'].includes(p.status);
+    },
+    [currentByEmployee]
+  );
+  const counts = useMemo(() => Object.fromEntries(TABS.map((t) => [t.value, (people || []).filter((p) => inTabOf(p, t.value)).length])), [people, inTabOf]);
+  const figures = useMemo(() => {
+    const paid = (people || []).map((p) => currentByEmployee.get(p.id)).filter(Boolean);
+    return {
+      annual: paid.reduce((a, c) => a + Number(c.annualCtc || 0), 0),
+      monthly: paid.reduce((a, c) => a + Number(c.monthlyCtc || 0), 0),
+    };
+  }, [people, currentByEmployee]);
+  const inTab = useMemo(() => (people || []).filter((p) => inTabOf(p, tab)), [people, tab, inTabOf]);
+  const search = useListSearch(inTab, ['name', 'code', 'designation', 'department']);
+  const filters = useColumnFilters();
+  const COLUMNS = useMemo(
+    () => ({
+      name: (p) => p.name,
+      designation: (p) => p.designation || '—',
+      structure: (p) => (currentByEmployee.get(p.id) ? structureName(currentByEmployee.get(p.id).structureId) : '—'),
+      status: statusLabel,
+    }),
+    [currentByEmployee, structureName]
+  );
+  const rows = filters.applyFilters(search.filtered, COLUMNS);
+  const EXPORT_COLUMNS = [
+    { key: 'name', label: 'Employee' },
+    { key: 'code', label: 'Code' },
+    { key: 'designation', label: 'Designation' },
+    { key: 'structure', label: 'Structure', value: COLUMNS.structure },
+    { key: 'since', label: 'On this salary since', value: (p) => currentByEmployee.get(p.id)?.effectiveFrom || '' },
+    { key: 'annual', label: 'Annual CTC', value: (p) => Number(currentByEmployee.get(p.id)?.annualCtc || 0) },
+    { key: 'monthly', label: 'Per month', value: (p) => Number(currentByEmployee.get(p.id)?.monthlyCtc || 0) },
+    { key: 'status', label: 'Status', value: statusLabel },
+  ];
+  const add = () => setAdding(true);
 
   return (
-    <div className="space-y-4">
-      <PageHeader
-        entity="payroll"
-        title="Salary assignments"
-        description="Who is paid what, and from when. A raise records a new salary rather than changing the old one."
-        actions={
-          <button type="button" className="ui-btn ui-btn-primary" onClick={() => setAdding(true)}>
-            <Plus size={16} aria-hidden="true" /> Add person
-          </button>
-        }
-      />
-
-      {error ? (
-        <div className="ui-card p-3 text-sm" role="alert" style={{ borderColor: 'rgb(var(--neg))', color: 'rgb(var(--neg))' }}>
-          {error}
-        </div>
-      ) : null}
-
-      {structures.length === 0 ? (
-        <EmptyState
-          title="No active salary structures yet"
-          description="A salary is a structure plus a figure. Build a structure under Payroll → Salary structures, then people can be put on it."
-        />
-      ) : people.length === 0 ? (
-        <EmptyState
-          title="Nobody on payroll yet"
-          description="Add the people this company pays, and give each of them a salary."
-          action={
-            <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setAdding(true)}>
-              <Plus size={16} aria-hidden="true" /> Add person
-            </button>
-          }
-        />
+    <DocumentListShell
+      entity="salary"
+      title="Salary assignments"
+      description="Who is paid what, and from when. A raise records a new salary rather than changing the old one."
+      compact
+      tight
+      denseCards
+      search={{ value: search.query, onChange: search.setQuery, placeholder: 'Search people…', label: 'Search the payroll roster' }}
+      moreItems={people?.length ? [exportMenuItem('Export salaries')] : null}
+      onMoreSelect={(k) => {
+        const format = exportFormatFromKey(k);
+        if (!format) return;
+        runListExport({ format, title: 'Salary assignments', fileName: 'Salary assignments', label: 'person/people', columns: EXPORT_COLUMNS, rows });
+      }}
+      primary={
+        <button type="button" className="ui-btn ui-btn-primary" onClick={add}>
+          <Plus size={16} aria-hidden="true" /> Add person
+        </button>
+      }
+      cards={[
+        { label: 'On a salary', value: counts.PAID || 0, count: true, tone: 'paid', Icon: Users, onSelect: () => setTab('PAID') },
+        { label: 'No salary', value: counts.NONE || 0, count: true, tone: 'outstanding', Icon: UserX, onSelect: () => setTab('NONE') },
+        { label: 'Annual CTC', value: figures.annual, tone: 'sent', Icon: Banknote },
+        { label: 'A month', value: figures.monthly, tone: 'partial', Icon: CalendarClock },
+      ]}
+      tabs={TABS}
+      statusValue={tab}
+      statusCounts={counts}
+      onStatusChange={setTab}
+      tabsLabel="Salary"
+    >
+      <LoadFailed message={error} onRetry={load} />
+      {!people ? (
+        error ? null : <SkeletonCard lines={4} />
       ) : (
-        <div className="ui-card overflow-hidden">
-          <div className="overflow-x-auto ui-table-scroll ui-table-fit">
-            <table className="ui-table w-full">
-              <thead>
+        <div className="ui-table-scroll">
+          <table className="ui-table ui-table-sticky w-full">
+            <thead>
+              <tr>
+                <ColumnHeader label="Employee" col="name" state={filters} />
+                <ColumnHeader label="Designation" col="designation" state={filters} />
+                <ColumnHeader label="Structure" col="structure" state={filters} />
+                <th scope="col" className="ui-col-h-center">On this salary since</th>
+                <th scope="col" className="ui-col-h-right">Annual CTC</th>
+                <th scope="col" className="ui-col-h-right">Per month</th>
+                <ColumnHeader label="Status" col="status" state={filters} align="center" />
+              </tr>
+            </thead>
+            <tbody className="ui-rows">
+              {!rows.length ? (
                 <tr>
-                  <th scope="col" className="ui-th">Employee</th>
-                  <th scope="col" className="ui-th">Designation</th>
-                  <th scope="col" className="ui-th">Structure</th>
-                  <th scope="col" className="ui-th ui-col-h-center">On this salary since</th>
-                  <th scope="col" className="ui-th ui-col-h-right">Annual CTC</th>
-                  <th scope="col" className="ui-th ui-col-h-right">Per month</th>
-                  <th scope="col" className="ui-th ui-col-h-center">Status</th>
+                  <td colSpan={7}>
+                    {inTab.length ? (
+                      <EmptyState kind="filtered" totalCount={inTab.length} title="Nobody matches" description="Nobody in this tab matches the search or the column filters." />
+                    ) : !structures.length && !people.length ? (
+                      <EmptyState
+                        icon={Banknote}
+                        title="No active salary structures yet"
+                        description="A salary is a structure plus a figure. Build a structure under Settings → Salary Structures, then people can be put on it."
+                      />
+                    ) : (
+                      <EmptyState
+                        icon={Users}
+                        title={tab ? `Nobody ${TABS.find((t) => t.value === tab)?.label.toLowerCase()}` : 'Nobody on payroll yet'}
+                        description="Add the people this company pays, and give each of them a salary."
+                        routes={tab ? undefined : [{ label: 'Add person', description: 'Their details, bank and statutory numbers.', onSelect: add }]}
+                      />
+                    )}
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {people.map((p) => {
+              ) : (
+                rows.map((p) => {
                   const current = currentByEmployee.get(p.id);
                   return (
                     <tr key={p.id} className="ui-row-click" onClick={() => setOpen(p)}>
                       <td className="ui-col-entity">
                         {p.name}
-                        {p.code ? <span className="ui-caption block">{p.code}</span> : null}
+                        {p.code ? <span className="ui-caption"> · {p.code}</span> : null}
                       </td>
                       <td className="ui-col-meta">{p.designation || '—'}</td>
                       <td className="ui-col-meta">{current ? structureName(current.structureId) : '—'}</td>
                       <td className="ui-col-date ui-col-h-center">{current ? shownDate(current.effectiveFrom) : '—'}</td>
                       <td className="ui-col-amount">{current ? money(current.annualCtc) : '—'}</td>
                       <td className="ui-col-amount">{current ? money(current.monthlyCtc) : '—'}</td>
-                      <td>
-                        <span className={`ui-pill ${p.status === 'ACTIVE' ? 'ui-pill-pos' : 'ui-pill-neutral'}`}>
-                          {STATUSES.find((s) => s.id === p.status)?.label || p.status}
-                        </span>
+                      <td className="ui-col-h-center">
+                        <span className={`ui-pill ${p.status === 'ACTIVE' ? 'ui-pill-pos' : 'ui-pill-neutral'}`}>{statusLabel(p)}</span>
                       </td>
                     </tr>
                   );
-                })}
-              </tbody>
-            </table>
-          </div>
+                })
+              )}
+            </tbody>
+          </table>
         </div>
       )}
 
@@ -234,7 +300,7 @@ export default function SalaryAssignments() {
           />
         ) : null}
       </Drawer>
-    </div>
+    </DocumentListShell>
   );
 }
 
@@ -316,17 +382,17 @@ const SalaryTab = ({ person, structures, history, onSaved }) => {
               {person.name} has no salary yet. Set one, and payroll can pay them from that date.
             </p>
           ) : (
-            <div className="overflow-x-auto ui-table-scroll ui-table-fit">
-            <table className="ui-table w-full">
+            <div className="ui-table-scroll">
+            <table className="ui-table ui-table-sticky w-full">
               <thead>
                 <tr>
-                  <th scope="col" className="ui-th ui-col-h-center">From</th>
-                  <th scope="col" className="ui-th ui-col-h-center">To</th>
-                  <th scope="col" className="ui-th ui-col-h-right">Annual CTC</th>
-                  <th scope="col" className="ui-th ui-col-h-center">Status</th>
+                  <th scope="col" className="ui-col-h-center">From</th>
+                  <th scope="col" className="ui-col-h-center">To</th>
+                  <th scope="col" className="ui-col-h-right">Annual CTC</th>
+                  <th scope="col" className="ui-col-h-center">Status</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="ui-rows">
                 {history.map((a) => (
                   <tr key={a.id}>
                     <td className="ui-col-date ui-col-h-center">{shownDate(a.effectiveFrom)}</td>

@@ -1,6 +1,10 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { AlertTriangle, ArrowLeft, Plus } from 'lucide-react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { AlertTriangle, ArrowLeft, Check, Clock, Percent, Plus, TrendingUp } from 'lucide-react';
 
+import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
+import { useListSearch } from '@ui/components/ListToolbar';
+import DocumentListShell from '@ui/components/list/DocumentListShell';
+import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';
 import { PageHeader, SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { listSalaryStructures } from '../api/payrollStructures';
@@ -15,6 +19,7 @@ import {
   rejectSalaryRevision,
   applySalaryRevision,
 } from '../api/payrollRevisions';
+import LoadFailed from '../components/LoadFailed';
 
 /**
  * Increments, and what they really cost.
@@ -53,38 +58,66 @@ const shownDate = (iso) => {
   return `${d}/${m}/${y}`;
 };
 
+const TABS = [
+  { value: '', label: 'All', tone: 'all' },
+  { value: 'OPEN', label: 'To decide', tone: 'outstanding' },
+  { value: 'APPROVED', label: 'Approved', tone: 'sent' },
+  { value: 'APPLIED', label: 'In effect', tone: 'paid' },
+  { value: 'REJECTED', label: 'Rejected', tone: 'cancelled' },
+];
+const inTabOf = (r, tab) => !tab || (tab === 'OPEN' ? ['DRAFT', 'REVIEWED'].includes(r.status) : r.status === tab);
+const COLUMNS = {
+  employee: (r) => r.employeeName,
+};
+const EXPORT_COLUMNS = [
+  { key: 'employeeName', label: 'Employee' },
+  { key: 'employeeCode', label: 'Code' },
+  { key: 'currentAnnualCtc', label: 'From (a year)', value: (r) => Number(r.currentAnnualCtc || 0) },
+  { key: 'proposedAnnualCtc', label: 'To (a year)', value: (r) => Number(r.proposedAnnualCtc || 0) },
+  { key: 'incrementPercent', label: 'Rise %', value: (r) => r.incrementPercent ?? '' },
+  { key: 'effectiveFrom', label: 'In effect from' },
+  { key: 'reason', label: 'Why' },
+  { key: 'status', label: 'Status', value: (r) => STATUS[r.status]?.label || r.status },
+];
+
 export default function SalaryRevisions() {
-  const [rows, setRows] = useState([]);
+  const [all, setAll] = useState(null);
   const [people, setPeople] = useState([]);
   const [structures, setStructures] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [openId, setOpenId] = useState(null);
   const [starting, setStarting] = useState(false);
+  const [status, setStatus] = useState('');
 
-  const load = useCallback(async () => {
-    try {
-      const [revisions, employeeRows, structureRows] = await Promise.all([
-        listSalaryRevisions(),
-        listEmployees({ status: 'ACTIVE' }),
-        listSalaryStructures({ status: 'ACTIVE' }),
-      ]);
-      setRows(revisions);
-      setPeople(employeeRows.employees);
-      setStructures(structureRows);
-      setError('');
-    } catch (e) {
-      setError(String(e?.message || 'Could not load salary revisions.'));
-    } finally {
-      setLoading(false);
-    }
+  const load = useCallback(() => {
+    Promise.all([listSalaryRevisions(), listEmployees({ status: 'ACTIVE' }), listSalaryStructures({ status: 'ACTIVE' })])
+      .then(([revisions, employeeRows, structureRows]) => {
+        setAll(revisions);
+        setPeople(employeeRows.employees);
+        setStructures(structureRows);
+        setError('');
+      })
+      .catch((e) => setError(String(e?.message || 'Could not load salary revisions.')));
   }, []);
 
   useEffect(() => {
     load();
   }, [load]);
 
-  if (loading) return <SkeletonCard lines={6} />;
+  const counts = useMemo(() => {
+    const list = all || [];
+    return Object.fromEntries(TABS.map((t) => [t.value, list.filter((r) => inTabOf(r, t.value)).length]));
+  }, [all]);
+  const figures = useMemo(() => {
+    const live = (all || []).filter((r) => ['APPROVED', 'APPLIED'].includes(r.status));
+    const rise = live.reduce((a, r) => a + (Number(r.proposedAnnualCtc || 0) - Number(r.currentAnnualCtc || 0)), 0);
+    const pcts = live.map((r) => Number(r.incrementPercent)).filter((n) => Number.isFinite(n) && n > 0);
+    return { rise, avg: pcts.length ? Math.round((pcts.reduce((a, n) => a + n, 0) / pcts.length) * 10) / 10 : 0 };
+  }, [all]);
+  const inTab = useMemo(() => (all || []).filter((r) => inTabOf(r, status)), [all, status]);
+  const search = useListSearch(inTab, ['employeeName', 'employeeCode', 'reason']);
+  const filters = useColumnFilters();
+  const rows = filters.applyFilters(search.filtered, COLUMNS);
 
   if (openId) {
     return (
@@ -99,70 +132,90 @@ export default function SalaryRevisions() {
   }
 
   const canStart = people.length > 0 && structures.length > 0;
+  const start = () => setStarting(true);
 
   return (
-    <div className="space-y-4">
-      <PageHeader
-        entity="payroll"
-        title="Salary revisions"
-        description="Increments, with what each one does to take-home pay and to the company's cost before anybody agrees to it."
-        actions={
-          <button type="button" className="ui-btn ui-btn-primary" onClick={() => setStarting(true)} disabled={!canStart}>
-            <Plus size={16} aria-hidden="true" /> New revision
-          </button>
-        }
-      />
-
-      {error ? (
-        <div className="ui-card p-3 text-sm" role="alert" style={{ borderColor: 'rgb(var(--neg))', color: 'rgb(var(--neg))' }}>
-          {error}
-        </div>
-      ) : null}
-
-      {starting ? (
-        <RevisionForm
-          people={people}
-          structures={structures}
-          onCancel={() => setStarting(false)}
-          onCreated={(revision) => {
-            setStarting(false);
-            setOpenId(revision.id);
-          }}
-        />
-      ) : null}
-
-      {!canStart && !rows.length ? (
-        <EmptyState
-          title="Nothing to revise yet"
-          description="A revision moves somebody from one salary to another. Add people and an active salary structure first."
-        />
-      ) : rows.length === 0 && !starting ? (
-        <EmptyState
-          title="No revisions yet"
-          description="Propose an increment and see what it does to take-home pay, to deductions and to what the company spends — before anybody agrees to it."
-          action={
-            <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setStarting(true)}>
-              <Plus size={16} aria-hidden="true" /> New revision
-            </button>
-          }
-        />
-      ) : rows.length ? (
-        <div className="ui-card overflow-hidden">
-          <div className="overflow-x-auto ui-table-scroll ui-table-fit">
-            <table className="ui-table w-full">
-              <thead>
+    <DocumentListShell
+      entity="salaryRevision"
+      title="Salary revisions"
+      description="Increments, with what each one does to take-home pay and to the company's cost before anybody agrees to it."
+      compact
+      tight
+      denseCards
+      search={{ value: search.query, onChange: search.setQuery, placeholder: 'Search revisions…', label: 'Search revisions' }}
+      moreItems={all?.length ? [exportMenuItem('Export revisions')] : null}
+      onMoreSelect={(k) => {
+        const format = exportFormatFromKey(k);
+        if (!format) return;
+        runListExport({ format, title: 'Salary revisions', fileName: 'Salary revisions', label: 'revision/revisions', columns: EXPORT_COLUMNS, rows });
+      }}
+      primary={
+        <button type="button" className="ui-btn ui-btn-primary" onClick={start} disabled={!canStart || starting}>
+          <Plus size={16} aria-hidden="true" /> New revision
+        </button>
+      }
+      cards={[
+        { label: 'To decide', value: counts.OPEN || 0, count: true, tone: 'outstanding', Icon: Clock, onSelect: () => setStatus('OPEN') },
+        { label: 'Approved', value: counts.APPROVED || 0, count: true, tone: 'sent', Icon: Check, onSelect: () => setStatus('APPROVED') },
+        { label: 'Yearly rise', value: figures.rise, tone: 'partial', Icon: TrendingUp },
+        { label: 'Average rise', value: `${figures.avg}%`, count: true, tone: 'paid', Icon: Percent },
+      ]}
+      tabs={TABS}
+      statusValue={status}
+      statusCounts={counts}
+      onStatusChange={setStatus}
+      tabsLabel="Revision status"
+      above={
+        starting ? (
+          <RevisionForm
+            people={people}
+            structures={structures}
+            onCancel={() => setStarting(false)}
+            onCreated={(revision) => {
+              setStarting(false);
+              setOpenId(revision.id);
+            }}
+          />
+        ) : null
+      }
+    >
+      <LoadFailed message={error} onRetry={load} />
+      {!all ? (
+        error ? null : <SkeletonCard lines={4} />
+      ) : (
+        <div className="ui-table-scroll">
+          <table className="ui-table ui-table-sticky w-full">
+            <thead>
+              <tr>
+                <ColumnHeader label="Employee" col="employee" state={filters} />
+                <th scope="col" className="ui-col-h-right">From</th>
+                <th scope="col" className="ui-col-h-right">To</th>
+                <th scope="col" className="ui-col-h-right">Rise</th>
+                <th scope="col" className="ui-col-h-center">In effect from</th>
+                <th scope="col" className="ui-col-grow">Why</th>
+                <th scope="col" className="ui-col-h-center">Status</th>
+              </tr>
+            </thead>
+            <tbody className="ui-rows">
+              {!rows.length ? (
                 <tr>
-                  <th scope="col" className="ui-th">Employee</th>
-                  <th scope="col" className="ui-th ui-col-h-right">From</th>
-                  <th scope="col" className="ui-th ui-col-h-right">To</th>
-                  <th scope="col" className="ui-th ui-col-h-right">Rise</th>
-                  <th scope="col" className="ui-th ui-col-h-center">In effect from</th>
-                  <th scope="col" className="ui-th">Why</th>
-                  <th scope="col" className="ui-th ui-col-h-center">Status</th>
+                  <td colSpan={7}>
+                    {inTab.length ? (
+                      <EmptyState kind="filtered" totalCount={inTab.length} title="No revisions match" description="Nothing in this tab matches the search or the column filters." />
+                    ) : !canStart && !(all || []).length ? (
+                      <EmptyState icon={TrendingUp} title="Nothing to revise yet" description="A revision moves somebody from one salary to another. Add people and an active salary structure first." />
+                    ) : (
+                      <EmptyState
+                        icon={TrendingUp}
+                        title={status ? `No ${TABS.find((t) => t.value === status)?.label.toLowerCase()} revisions` : 'No revisions yet'}
+                        description="Propose an increment and see what it does to take-home pay, to deductions and to what the company spends — before anybody agrees to it."
+                        routes={canStart && !status ? [{ label: 'New revision', description: 'The impact shows as you type.', onSelect: start }] : undefined}
+                      />
+                    )}
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {rows.map((r) => (
+              ) : (
+                rows.map((r) => (
                   <tr key={r.id} className="ui-row-click" onClick={() => setOpenId(r.id)}>
                     <td className="ui-col-entity">
                       {r.employeeName}
@@ -172,18 +225,18 @@ export default function SalaryRevisions() {
                     <td className="ui-col-amount">{money(r.proposedAnnualCtc)}</td>
                     <td className="ui-col-amount">{r.incrementPercent ? `${r.incrementPercent}%` : '—'}</td>
                     <td className="ui-col-date ui-col-h-center">{shownDate(r.effectiveFrom)}</td>
-                    <td className="ui-col-meta">{r.reason || '—'}</td>
-                    <td>
+                    <td className="ui-col-meta ui-col-grow whitespace-normal">{r.reason || '—'}</td>
+                    <td className="ui-col-h-center">
                       <span className={`ui-pill ${STATUS[r.status]?.tone || 'ui-pill-neutral'}`}>{STATUS[r.status]?.label || r.status}</span>
                     </td>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
-      ) : null}
-    </div>
+      )}
+    </DocumentListShell>
   );
 }
 
@@ -364,18 +417,18 @@ const Impact = ({ impact, compact = false }) => (
         <div className="px-4 py-3 ui-sec-head" style={{ borderBottom: '1px solid rgb(var(--border))' }}>
           What changes, line by line
         </div>
-        <div className="overflow-x-auto ui-table-scroll ui-table-fit">
-          <table className="ui-table w-full">
+        <div className="ui-table-scroll">
+          <table className="ui-table ui-table-sticky w-full">
             <thead>
               <tr>
-                <th scope="col" className="ui-th">Component</th>
-                <th scope="col" className="ui-th">Kind</th>
-                <th scope="col" className="ui-th ui-col-h-right">Now</th>
-                <th scope="col" className="ui-th ui-col-h-right">After</th>
-                <th scope="col" className="ui-th ui-col-h-right">Change</th>
+                <th scope="col">Component</th>
+                <th scope="col">Kind</th>
+                <th scope="col" className="ui-col-h-right">Now</th>
+                <th scope="col" className="ui-col-h-right">After</th>
+                <th scope="col" className="ui-col-h-right">Change</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="ui-rows">
               {impact.lines.map((l) => (
                 <tr key={l.code}>
                   <td className="ui-col-entity">{l.name}</td>
@@ -507,9 +560,9 @@ const RevisionDetail = ({ revisionId, onBack }) => {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <PageHeader
-        entity="payroll"
+        entity="salaryRevision"
         title={revision.employeeName}
         description={`${money(revision.currentAnnualCtc)} → ${money(revision.proposedAnnualCtc)} a year${
           revision.incrementPercent ? ` · ${revision.incrementPercent}%` : ''
@@ -524,6 +577,7 @@ const RevisionDetail = ({ revisionId, onBack }) => {
         }
       />
 
+      <div className="px-5 lg:px-7 pb-8 space-y-4">
       <div className="flex items-center gap-2">
         <span className={`ui-pill ${STATUS[revision.status]?.tone || 'ui-pill-neutral'}`}>
           {STATUS[revision.status]?.label || revision.status}
@@ -552,6 +606,7 @@ const RevisionDetail = ({ revisionId, onBack }) => {
       )}
 
       {revision.notes ? <p className="ui-caption">{revision.notes}</p> : null}
+      </div>
     </div>
   );
 };

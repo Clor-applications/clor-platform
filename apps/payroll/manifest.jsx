@@ -43,6 +43,8 @@ export const payrollApp = {
 
   /** The phone tab bar: what a payroll admin opens most. */
   mobileTabs: ['overview', 'runs', 'slips', 'payments'],
+  /* Pages edge to edge on the white column, the way Accounting's are. */
+  flush: true,
   /* The split sidebar: modules on a rail, the open module's screens grouped (see Attendance). */
   modules: [
     { key: 'overview', label: 'Overview', items: ['overview'] },

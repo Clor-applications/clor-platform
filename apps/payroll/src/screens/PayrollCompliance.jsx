@@ -1,8 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { AlertTriangle, Plus, Trash2 } from 'lucide-react';
 
-import { SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
-import SettingsScreenHeader from '@ui/chrome/SettingsScreenHeader';
+import { PageHeader, SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import Drawer from '@ui/components/ui/Drawer';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import {
@@ -144,9 +143,9 @@ export default function PayrollCompliance() {
   if (loading) return <SkeletonCard lines={6} />;
 
   return (
-    <div className="space-y-4">
-      <SettingsScreenHeader
-        entity="payroll"
+    <div className="space-y-3">
+      <PageHeader
+        entity="compliance"
         title="Compliance"
         description="Provident fund, ESI, professional tax and income tax — the rates payroll deducts under, and when each took effect."
         actions={
@@ -155,6 +154,7 @@ export default function PayrollCompliance() {
           </button>
         }
       />
+      <div className="px-5 lg:px-7 pb-8 space-y-4">
 
       {error ? (
         <div className="ui-card p-3 text-sm" role="alert" style={{ borderColor: 'rgb(var(--neg))', color: 'rgb(var(--neg))' }}>
@@ -220,22 +220,22 @@ export default function PayrollCompliance() {
                   </p>
                 </div>
               ) : (
-                <div className="overflow-x-auto ui-table-scroll ui-table-fit">
-                  <table className="ui-table w-full">
+                <div className="ui-table-scroll">
+                  <table className="ui-table ui-table-sticky w-full">
                     <thead>
                       <tr>
-                        <th scope="col" className="ui-th ui-col-h-center">From</th>
-                        <th scope="col" className="ui-th ui-col-h-center">To</th>
-                        <th scope="col" className="ui-th">Where</th>
-                        <th scope="col" className="ui-th">Rate</th>
-                        <th scope="col" className="ui-th ui-col-h-right">On payslips</th>
-                        <th scope="col" className="ui-th ui-col-h-center">Status</th>
-                        <th scope="col" className="ui-th ui-col-h-center w-10">
+                        <th scope="col" className="ui-col-h-center">From</th>
+                        <th scope="col" className="ui-col-h-center">To</th>
+                        <th scope="col">Where</th>
+                        <th scope="col">Rate</th>
+                        <th scope="col" className="ui-col-h-right">On payslips</th>
+                        <th scope="col" className="ui-col-h-center">Status</th>
+                        <th scope="col" className="ui-col-h-center w-10">
                           <span className="sr-only">Actions</span>
                         </th>
                       </tr>
                     </thead>
-                    <tbody>
+                    <tbody className="ui-rows">
                       {scheme.rules.map((rule) => (
                         <tr key={rule.id}>
                           <td className="ui-col-date ui-col-h-center">{shownDate(rule.effectiveFrom)}</td>
@@ -294,6 +294,7 @@ export default function PayrollCompliance() {
           />
         ) : null}
       </Drawer>
+      </div>
     </div>
   );
 }

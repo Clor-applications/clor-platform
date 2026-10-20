@@ -1,8 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Plus, Trash2 } from 'lucide-react';
+import { BadgePercent, MinusCircle, Pencil, Plus, PlusCircle, SlidersHorizontal, Trash2 } from 'lucide-react';
 
-import { SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
-import SettingsScreenHeader from '@ui/chrome/SettingsScreenHeader';
+import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
+import { useListSearch } from '@ui/components/ListToolbar';
+import DocumentListShell from '@ui/components/list/DocumentListShell';
+import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';
+import { SkeletonCard, EmptyState, StatusPill } from '@ui/components/ui/Primitives';
 import Drawer from '@ui/components/ui/Drawer';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import {
@@ -14,6 +17,7 @@ import {
   ruleCatalogue,
   setComponentConditions,
 } from '../api/payrollComponents';
+import LoadFailed from '../components/LoadFailed';
 
 /**
  * The lines a salary is built from.
@@ -131,22 +135,40 @@ const describeMethod = (c) => {
   return 'Fixed amount';
 };
 
+/* Three populations, never one mixed list: a deduction and an employer cost
+   read almost the same on a row and mean opposite things to net pay. */
+const TABS = TYPES.map((t, i) => ({ value: t.id, label: t.label, tone: ['paid', 'overdue', 'partial'][i] }));
+const COLUMNS = {
+  name: (c) => c.name,
+  method: (c) => METHODS.find((m) => m.id === c.calculationMethod)?.label || c.calculationMethod,
+  status: (c) => (c.isActive ? 'Active' : 'Inactive'),
+};
+const wagesOf = (c) => [c.includeInPfWage ? 'PF' : null, c.includeInEsiWage ? 'ESI' : null, c.includeInGratuityWage ? 'Gratuity' : null].filter(Boolean);
+const EXPORT_COLUMNS = [
+  { key: 'name', label: 'Component' },
+  { key: 'code', label: 'Code' },
+  { key: 'type', label: 'Type', value: (c) => TYPES.find((t) => t.id === c.type)?.singular || c.type },
+  { key: 'method', label: 'How it is worked out', value: describeMethod },
+  { key: 'who', label: 'Who gets it', value: describeWho },
+  { key: 'isTaxable', label: 'Taxable', value: (c) => (c.isTaxable ? 'Yes' : 'No') },
+  { key: 'prorate', label: 'Prorated', value: (c) => (c.prorate ? 'Yes' : 'No') },
+  { key: 'wages', label: 'Counts towards', value: (c) => wagesOf(c).join(', ') },
+  { key: 'isActive', label: 'Status', value: (c) => (c.isActive ? 'Active' : 'Inactive') },
+];
+
 export default function SalaryComponents() {
-  const [rows, setRows] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [all, setAll] = useState(null);
   const [error, setError] = useState('');
   const [type, setType] = useState('EARNING');
   const [editing, setEditing] = useState(null);
 
-  const load = useCallback(async () => {
-    try {
-      setRows(await listSalaryComponents());
-      setError('');
-    } catch (e) {
-      setError(String(e?.message || 'Could not load salary components.'));
-    } finally {
-      setLoading(false);
-    }
+  const load = useCallback(() => {
+    listSalaryComponents()
+      .then((v) => {
+        setAll(v);
+        setError('');
+      })
+      .catch((e) => setError(String(e?.message || 'Could not load salary components.')));
   }, []);
 
   useEffect(() => {
@@ -155,14 +177,26 @@ export default function SalaryComponents() {
 
   const counts = useMemo(() => {
     const out = {};
-    for (const t of TYPES) out[t.id] = rows.filter((r) => r.type === t.id).length;
+    for (const t of TYPES) out[t.id] = (all || []).filter((r) => r.type === t.id).length;
     return out;
-  }, [rows]);
+  }, [all]);
+  const figures = useMemo(() => {
+    const list = all || [];
+    return {
+      statutory: list.filter((c) => c.calculationMethod === 'STATUTORY').length,
+      variable: list.filter((c) => c.calculationMethod === 'VARIABLE').length,
+      inactive: list.filter((c) => !c.isActive).length,
+    };
+  }, [all]);
 
-  const shown = useMemo(
-    () => rows.filter((r) => r.type === type).sort((a, b) => a.displayOrder - b.displayOrder || a.name.localeCompare(b.name)),
-    [rows, type]
+  const inTab = useMemo(
+    () => (all || []).filter((r) => r.type === type).sort((a, b) => a.displayOrder - b.displayOrder || a.name.localeCompare(b.name)),
+    [all, type]
   );
+  const search = useListSearch(inTab, ['name', 'code', 'formula']);
+  const filters = useColumnFilters();
+  const rows = filters.applyFilters(search.filtered, COLUMNS);
+  const singular = TYPES.find((t) => t.id === type)?.singular || 'component';
 
   const remove = async (row) => {
     const ok = await confirmDialog({
@@ -180,113 +214,99 @@ export default function SalaryComponents() {
       notify.error(String(e?.message || 'Could not delete that component.'));
     }
   };
-
-  if (loading) return <SkeletonCard lines={6} />;
+  const create = () => setEditing(blank(type));
 
   return (
-    <div className="space-y-4">
-      <SettingsScreenHeader
-        entity="payroll"
-        title="Salary components"
-        description="The earnings, deductions and employer costs a salary is built from."
-        actions={
-          <button type="button" className="ui-btn ui-btn-primary" onClick={() => setEditing(blank(type))}>
-            <Plus size={16} aria-hidden="true" /> New component
-          </button>
-        }
-      />
-
-      {error ? (
-        <div className="ui-card p-3 text-sm" role="alert" style={{ borderColor: 'rgb(var(--neg))', color: 'rgb(var(--neg))' }}>
-          {error}
-        </div>
-      ) : null}
-
-      {/* One strip, three populations. A deduction and an employer cost read
-          almost the same on a row and mean opposite things to net pay, so they
-          are never mixed into one list. */}
-      <div className="ui-segmented" role="tablist" aria-label="Component type">
-        {TYPES.map((t) => (
-          <button
-            key={t.id}
-            type="button"
-            role="tab"
-            aria-selected={type === t.id}
-            className="ui-segment"
-            onClick={() => setType(t.id)}
-          >
-            {t.label}
-            <span className="ui-segment-count">{counts[t.id] ?? 0}</span>
-          </button>
-        ))}
-      </div>
-
-      {shown.length === 0 ? (
-        <EmptyState
-          title={`No ${TYPES.find((t) => t.id === type)?.singular.toLowerCase()} components yet`}
-          description="A salary structure is a list of components. Add the ones this company pays, and the structure can be built from them."
-          action={
-            <button type="button" className="ui-btn ui-btn-primary" onClick={() => setEditing(blank(type))}>
-              <Plus size={16} aria-hidden="true" /> New component
-            </button>
-          }
-        />
+    <DocumentListShell
+      entity="salaryComponent"
+      title="Salary components"
+      description="The earnings, deductions and employer costs a salary is built from."
+      compact
+      tight
+      denseCards
+      search={{ value: search.query, onChange: search.setQuery, placeholder: 'Search components…', label: 'Search salary components' }}
+      moreItems={all?.length ? [exportMenuItem('Export components')] : null}
+      onMoreSelect={(k) => {
+        const format = exportFormatFromKey(k);
+        if (!format) return;
+        runListExport({ format, title: 'Salary components', subtitle: TYPES.find((t) => t.id === type)?.label, fileName: `Salary components ${TYPES.find((t) => t.id === type)?.label || ''}`.trim(), label: 'component/components', columns: EXPORT_COLUMNS, rows });
+      }}
+      primary={
+        <button type="button" className="ui-btn ui-btn-primary" onClick={create}>
+          <Plus size={16} aria-hidden="true" /> New component
+        </button>
+      }
+      cards={[
+        { label: 'Earnings', value: counts.EARNING || 0, count: true, tone: 'paid', Icon: PlusCircle, onSelect: () => setType('EARNING') },
+        { label: 'Deductions', value: counts.DEDUCTION || 0, count: true, tone: 'overdue', Icon: MinusCircle, onSelect: () => setType('DEDUCTION') },
+        { label: 'Statutory', value: figures.statutory, count: true, tone: 'sent', Icon: BadgePercent },
+        { label: 'Variable', value: figures.variable, count: true, tone: 'partial', Icon: Pencil },
+      ]}
+      tabs={TABS}
+      statusValue={type}
+      statusCounts={counts}
+      onStatusChange={setType}
+      tabsLabel="Component type"
+    >
+      <LoadFailed message={error} onRetry={load} />
+      {!all ? (
+        error ? null : <SkeletonCard lines={4} />
       ) : (
-        <div className="ui-card overflow-hidden">
-          <div className="overflow-x-auto ui-table-scroll ui-table-fit">
-            <table className="ui-table w-full">
-              <thead>
+        <div className="ui-table-scroll">
+          <table className="ui-table ui-table-sticky w-full">
+            <thead>
+              <tr>
+                <ColumnHeader label="Component" col="name" state={filters} />
+                <th scope="col">Code</th>
+                <ColumnHeader label="How it is worked out" col="method" state={filters} />
+                <th scope="col">Who gets it</th>
+                <th scope="col" className="ui-col-h-center">Taxable</th>
+                <th scope="col" className="ui-col-h-center hidden 2xl:table-cell">Prorated</th>
+                <th scope="col" className="hidden 2xl:table-cell">Counts towards</th>
+                <ColumnHeader label="Status" col="status" state={filters} align="center" />
+                <th scope="col"><span className="sr-only">Actions</span></th>
+              </tr>
+            </thead>
+            <tbody className="ui-rows">
+              {!rows.length ? (
                 <tr>
-                  <th scope="col" className="ui-th">Component</th>
-                  <th scope="col" className="ui-th">Code</th>
-                  <th scope="col" className="ui-th">How it is worked out</th>
-                  <th scope="col" className="ui-th">Who gets it</th>
-                  <th scope="col" className="ui-th ui-col-h-center">Taxable</th>
-                  <th scope="col" className="ui-th ui-col-h-center">Prorated</th>
-                  <th scope="col" className="ui-th">Counts towards</th>
-                  <th scope="col" className="ui-th ui-col-h-center">Status</th>
-                  <th scope="col" className="ui-th ui-col-h-center w-10">
-                    <span className="sr-only">Actions</span>
-                  </th>
+                  <td colSpan={9}>
+                    {inTab.length ? (
+                      <EmptyState kind="filtered" totalCount={inTab.length} title="No components match" description="Nothing in this tab matches the search or the column filters." />
+                    ) : (
+                      <EmptyState
+                        icon={SlidersHorizontal}
+                        title={`No ${singular.toLowerCase()} components yet`}
+                        description="A salary structure is a list of components. Add the ones this company pays, and the structure can be built from them."
+                        routes={[{ label: `New ${singular.toLowerCase()}`, description: type === 'EARNING' ? 'E.g. Basic 50% of CTC, HRA 40% of Basic.' : type === 'DEDUCTION' ? 'E.g. Canteen, a loan recovery.' : 'E.g. Employer PF, gratuity provision.', onSelect: create }]}
+                      />
+                    )}
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {shown.map((c) => {
-                  const wages = [
-                    c.includeInPfWage ? 'PF' : null,
-                    c.includeInEsiWage ? 'ESI' : null,
-                    c.includeInGratuityWage ? 'Gratuity' : null,
-                  ].filter(Boolean);
+              ) : (
+                rows.map((c) => {
+                  const wages = wagesOf(c);
                   return (
                     <tr key={c.id} className="ui-row-click" onClick={() => setEditing(c)}>
                       <td className="ui-col-entity">{c.name}</td>
                       <td className="ui-col-id">{c.code}</td>
-                      <td className="ui-col-meta">{describeMethod(c)}</td>
+                      <td className="ui-col-meta whitespace-normal">{describeMethod(c)}</td>
                       <td className="ui-col-meta">{describeWho(c)}</td>
                       <td className="ui-col-h-center">{c.isTaxable ? 'Yes' : 'No'}</td>
-                      <td className="ui-col-h-center">{c.prorate ? 'Yes' : 'No'}</td>
-                      <td className="ui-col-meta">{wages.length ? wages.join(', ') : '—'}</td>
-                      <td>
-                        <span className={`ui-pill ${c.isActive ? 'ui-pill-pos' : 'ui-pill-neutral'}`}>
-                          {c.isActive ? 'Active' : 'Inactive'}
-                        </span>
-                      </td>
-                      <td onClick={(e) => e.stopPropagation()}>
-                        <button
-                          type="button"
-                          className="ui-icon-btn"
-                          aria-label={`Delete ${c.name}`}
-                          onClick={() => remove(c)}
-                        >
+                      <td className="ui-col-h-center hidden 2xl:table-cell">{c.prorate ? 'Yes' : 'No'}</td>
+                      <td className="ui-col-meta hidden 2xl:table-cell">{wages.length ? wages.join(', ') : '—'}</td>
+                      <td className="ui-col-h-center">{c.isActive ? <StatusPill status="active" /> : <span className="ui-caption">Inactive</span>}</td>
+                      <td className="text-end" onClick={(e) => e.stopPropagation()}>
+                        <button type="button" className="ui-icon-btn" aria-label={`Delete ${c.name}`} onClick={() => remove(c)}>
                           <Trash2 size={16} aria-hidden="true" />
                         </button>
                       </td>
                     </tr>
                   );
-                })}
-              </tbody>
-            </table>
-          </div>
+                })
+              )}
+            </tbody>
+          </table>
         </div>
       )}
 
@@ -298,7 +318,7 @@ export default function SalaryComponents() {
           load();
         }}
       />
-    </div>
+    </DocumentListShell>
   );
 }
 

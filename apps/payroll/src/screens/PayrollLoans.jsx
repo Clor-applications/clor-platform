@@ -1,6 +1,10 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { ArrowLeft, Ban, Check, Plus, RotateCcw, SkipForward } from 'lucide-react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { ArrowLeft, Ban, CalendarClock, Check, Clock, HandCoins, Plus, RotateCcw, SkipForward, Wallet } from 'lucide-react';
 
+import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
+import { useListSearch } from '@ui/components/ListToolbar';
+import DocumentListShell from '@ui/components/list/DocumentListShell';
+import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';
 import { PageHeader, SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { listPayrollPeriods } from '../api/payrollCalendar';
@@ -15,6 +19,7 @@ import {
   setInstallmentAction,
   cancelPayrollLoan,
 } from '../api/payrollLoans';
+import LoadFailed from '../components/LoadFailed';
 
 /**
  * Money lent to somebody, and taken back out of their pay.
@@ -51,43 +56,76 @@ const TYPES = [
 
 const money = (n) => `₹${Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
 
+const TABS = [
+  { value: '', label: 'All', tone: 'all' },
+  { value: 'DRAFT', label: 'To approve', tone: 'outstanding' },
+  { value: 'ACTIVE', label: 'Being recovered', tone: 'sent' },
+  { value: 'COMPLETED', label: 'Repaid', tone: 'paid' },
+  { value: 'CANCELLED', label: 'Cancelled', tone: 'cancelled' },
+];
+const COLUMNS = {
+  employee: (l) => l.employeeName,
+  kind: (l) => TYPES.find((t) => t.id === l.type)?.label || l.type,
+};
+const EXPORT_COLUMNS = [
+  { key: 'number', label: 'Loan' },
+  { key: 'employeeName', label: 'Employee' },
+  { key: 'employeeCode', label: 'Code' },
+  { key: 'type', label: 'Kind', value: (l) => TYPES.find((t) => t.id === l.type)?.label || l.type },
+  { key: 'principal', label: 'Lent', value: (l) => Number(l.principal || 0) },
+  { key: 'installmentAmount', label: 'A month', value: (l) => Number(l.installmentAmount || 0) },
+  { key: 'outstandingBalance', label: 'Still owed', value: (l) => Number(l.outstandingBalance || 0) },
+  { key: 'status', label: 'Status', value: (l) => STATUS[l.status]?.label || l.status },
+];
+
 export default function PayrollLoans() {
-  const [loans, setLoans] = useState([]);
+  const [loans, setLoans] = useState(null);
   const [people, setPeople] = useState([]);
   const [components, setComponents] = useState([]);
   const [periods, setPeriods] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [openId, setOpenId] = useState(null);
   const [starting, setStarting] = useState(false);
+  const [status, setStatus] = useState('');
 
-  const load = useCallback(async () => {
-    try {
-      const [loanRows, employeeRows, componentRows, periodRows] = await Promise.all([
-        listPayrollLoans(),
-        listEmployees({ status: 'ACTIVE' }),
-        listSalaryComponents({ activeOnly: true }),
-        listPayrollPeriods({ openOnly: true }),
-      ]);
-      setLoans(loanRows);
-      setPeople(employeeRows.employees);
-      /* A recovery takes money off somebody's pay, so only a deduction can
-         carry one. */
-      setComponents(componentRows.filter((c) => c.type === 'DEDUCTION'));
-      setPeriods(periodRows);
-      setError('');
-    } catch (e) {
-      setError(String(e?.message || 'Could not load loans.'));
-    } finally {
-      setLoading(false);
-    }
+  const load = useCallback(() => {
+    Promise.all([listPayrollLoans(), listEmployees({ status: 'ACTIVE' }), listSalaryComponents({ activeOnly: true }), listPayrollPeriods({ openOnly: true })])
+      .then(([loanRows, employeeRows, componentRows, periodRows]) => {
+        setLoans(loanRows);
+        setPeople(employeeRows.employees);
+        /* A recovery takes money off somebody's pay, so only a deduction can
+           carry one. */
+        setComponents(componentRows.filter((c) => c.type === 'DEDUCTION'));
+        setPeriods(periodRows);
+        setError('');
+      })
+      .catch((e) => setError(String(e?.message || 'Could not load loans.')));
   }, []);
 
   useEffect(() => {
     load();
   }, [load]);
 
-  if (loading) return <SkeletonCard lines={6} />;
+  const counts = useMemo(() => {
+    const list = loans || [];
+    const n = (st) => list.filter((l) => l.status === st || (st === 'ACTIVE' && l.status === 'APPROVED')).length;
+    return { '': list.length, DRAFT: n('DRAFT'), ACTIVE: n('ACTIVE'), COMPLETED: n('COMPLETED'), CANCELLED: n('CANCELLED') };
+  }, [loans]);
+  const figures = useMemo(() => {
+    const live = (loans || []).filter((l) => ['ACTIVE', 'APPROVED'].includes(l.status));
+    return {
+      lent: live.reduce((a, l) => a + Number(l.principal || 0), 0),
+      owed: live.reduce((a, l) => a + Number(l.outstandingBalance || 0), 0),
+      monthly: live.reduce((a, l) => a + Number(l.installmentAmount || 0), 0),
+    };
+  }, [loans]);
+  const inTab = useMemo(
+    () => (loans || []).filter((l) => !status || l.status === status || (status === 'ACTIVE' && l.status === 'APPROVED')),
+    [loans, status]
+  );
+  const search = useListSearch(inTab, ['number', 'employeeName', 'employeeCode']);
+  const filters = useColumnFilters();
+  const rows = filters.applyFilters(search.filtered, COLUMNS);
 
   if (openId) {
     return (
@@ -102,71 +140,95 @@ export default function PayrollLoans() {
   }
 
   const canStart = people.length > 0 && components.length > 0 && periods.length > 0;
+  const start = () => setStarting(true);
 
   return (
-    <div className="space-y-4">
-      <PageHeader
-        entity="payroll"
-        title="Loans & advances"
-        description="Money lent to staff, and the schedule it comes back out of their pay on."
-        actions={
-          <button type="button" className="ui-btn ui-btn-primary" onClick={() => setStarting(true)} disabled={!canStart}>
-            <Plus size={16} aria-hidden="true" /> New loan
-          </button>
-        }
-      />
-
-      {error ? (
-        <div className="ui-card p-3 text-sm" role="alert" style={{ borderColor: 'rgb(var(--neg))', color: 'rgb(var(--neg))' }}>
-          {error}
-        </div>
-      ) : null}
-
-      {starting ? (
-        <LoanForm
-          people={people}
-          components={components}
-          periods={periods}
-          onCancel={() => setStarting(false)}
-          onCreated={(loan) => {
-            setStarting(false);
-            setOpenId(loan.id);
-          }}
-        />
-      ) : null}
-
-      {!canStart && !loans.length ? (
-        <EmptyState
-          title="Nothing to lend against yet"
-          description="A loan needs somebody to lend to, a deduction for the recovery to appear as on a payslip, and an open month for recovery to start in."
-        />
-      ) : loans.length === 0 && !starting ? (
-        <EmptyState
-          title="No loans yet"
-          description="Lend somebody money and payroll takes it back a month at a time, capped at what they actually earn."
-          action={
-            <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setStarting(true)}>
-              <Plus size={16} aria-hidden="true" /> New loan
-            </button>
-          }
-        />
-      ) : loans.length ? (
-        <div className="ui-card overflow-hidden">
-          <div className="overflow-x-auto ui-table-scroll ui-table-fit">
-            <table className="ui-table w-full">
-              <thead>
+    <DocumentListShell
+      entity="loan"
+      title="Loans & advances"
+      description="Money lent to staff, and the schedule it comes back out of their pay on."
+      compact
+      tight
+      denseCards
+      search={{ value: search.query, onChange: search.setQuery, placeholder: 'Search loans…', label: 'Search loans' }}
+      moreItems={loans?.length ? [exportMenuItem('Export loans')] : null}
+      onMoreSelect={(k) => {
+        const format = exportFormatFromKey(k);
+        if (!format) return;
+        runListExport({ format, title: 'Loans & advances', fileName: 'Loans and advances', label: 'loan/loans', columns: EXPORT_COLUMNS, rows });
+      }}
+      primary={
+        <button type="button" className="ui-btn ui-btn-primary" onClick={start} disabled={!canStart || starting}>
+          <Plus size={16} aria-hidden="true" /> New loan
+        </button>
+      }
+      cards={[
+        { label: 'To approve', value: counts.DRAFT, count: true, tone: 'outstanding', Icon: Clock, onSelect: () => setStatus('DRAFT') },
+        { label: 'Lent', value: figures.lent, tone: 'sent', Icon: HandCoins, onSelect: () => setStatus('ACTIVE') },
+        { label: 'Still owed', value: figures.owed, tone: 'overdue', Icon: Wallet },
+        { label: 'Monthly EMI', value: figures.monthly, tone: 'partial', Icon: CalendarClock },
+      ]}
+      tabs={TABS}
+      statusValue={status}
+      statusCounts={counts}
+      onStatusChange={setStatus}
+      tabsLabel="Loan status"
+      above={
+        starting ? (
+          <LoanForm
+            people={people}
+            components={components}
+            periods={periods}
+            onCancel={() => setStarting(false)}
+            onCreated={(loan) => {
+              setStarting(false);
+              setOpenId(loan.id);
+            }}
+          />
+        ) : null
+      }
+    >
+      <LoadFailed message={error} onRetry={load} />
+      {!loans ? (
+        error ? null : <SkeletonCard lines={4} />
+      ) : (
+        <div className="ui-table-scroll">
+          <table className="ui-table ui-table-sticky w-full">
+            <thead>
+              <tr>
+                <th scope="col">Loan</th>
+                <ColumnHeader label="Employee" col="employee" state={filters} />
+                <ColumnHeader label="Kind" col="kind" state={filters} />
+                <th scope="col" className="ui-num">Lent</th>
+                <th scope="col" className="ui-num">A month</th>
+                <th scope="col" className="ui-num">Still owed</th>
+                <th scope="col" className="ui-col-h-center">Status</th>
+              </tr>
+            </thead>
+            <tbody className="ui-rows">
+              {!rows.length ? (
                 <tr>
-                  <th scope="col" className="ui-th">Loan</th>
-                  <th scope="col" className="ui-th">Employee</th>
-                  <th scope="col" className="ui-th">Kind</th>
-                  <th scope="col" className="ui-th ui-col-h-right">Lent</th>
-                  <th scope="col" className="ui-th ui-col-h-right">A month</th>
-                  <th scope="col" className="ui-th ui-col-h-right">Still owed</th>
-                  <th scope="col" className="ui-th ui-col-h-center">Status</th>
+                  <td colSpan={7}>
+                    {inTab.length ? (
+                      <EmptyState kind="filtered" totalCount={inTab.length} title="No loans match" description="Nothing in this tab matches the search or the column filters." />
+                    ) : !canStart && !loans.length ? (
+                      <EmptyState
+                        icon={HandCoins}
+                        title="Nothing to lend against yet"
+                        description="A loan needs somebody to lend to, a deduction for the recovery to appear as on a payslip, and an open month for recovery to start in."
+                      />
+                    ) : (
+                      <EmptyState
+                        icon={HandCoins}
+                        title={status ? `No ${TABS.find((t) => t.value === status)?.label.toLowerCase()} loans` : 'No loans yet'}
+                        description="Lend somebody money and payroll takes it back a month at a time, capped at what they actually earn."
+                        routes={canStart && !status ? [{ label: 'New loan', description: 'The schedule shows before anything is approved.', onSelect: start }] : undefined}
+                      />
+                    )}
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {loans.map((l) => (
+              ) : (
+                rows.map((l) => (
                   <tr key={l.id} className="ui-row-click" onClick={() => setOpenId(l.id)}>
                     <td className="ui-col-id">{l.number}</td>
                     <td className="ui-col-entity">
@@ -174,20 +236,20 @@ export default function PayrollLoans() {
                       {l.employeeCode ? <span className="ui-caption"> · {l.employeeCode}</span> : null}
                     </td>
                     <td className="ui-col-meta">{TYPES.find((t) => t.id === l.type)?.label || l.type}</td>
-                    <td className="ui-col-amount">{money(l.principal)}</td>
-                    <td className="ui-col-amount">{l.installmentAmount ? money(l.installmentAmount) : '—'}</td>
-                    <td className="ui-col-amount">{money(l.outstandingBalance)}</td>
-                    <td>
+                    <td className="ui-num">{money(l.principal)}</td>
+                    <td className="ui-num">{l.installmentAmount ? money(l.installmentAmount) : '—'}</td>
+                    <td className="ui-num">{money(l.outstandingBalance)}</td>
+                    <td className="ui-col-h-center">
                       <span className={`ui-pill ${STATUS[l.status]?.tone || 'ui-pill-neutral'}`}>{STATUS[l.status]?.label || l.status}</span>
                     </td>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
-      ) : null}
-    </div>
+      )}
+    </DocumentListShell>
   );
 }
 
@@ -449,9 +511,9 @@ const LoanDetail = ({ loanId, onBack }) => {
   const running = loan.status === 'ACTIVE';
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <PageHeader
-        entity="payroll"
+        entity="loan"
         title={loan.number}
         description={`${loan.employeeName} · ${TYPES.find((t) => t.id === loan.type)?.label || loan.type} · ${money(loan.principal)} lent${
           loan.recoveryComponentName ? ` · shows as ${loan.recoveryComponentName}` : ''
@@ -475,6 +537,7 @@ const LoanDetail = ({ loanId, onBack }) => {
         }
       />
 
+      <div className="px-5 lg:px-7 pb-8 space-y-4">
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <Figure label="Lent" value={money(loan.principal)} />
         <Figure label="Taken back" value={money(loan.recovered ?? 0)} />
@@ -493,31 +556,31 @@ const LoanDetail = ({ loanId, onBack }) => {
           <div className="px-4 py-3 ui-sec-head" style={{ borderBottom: '1px solid rgb(var(--border))' }}>
             The schedule
           </div>
-          <div className="overflow-x-auto ui-table-scroll ui-table-fit">
-            <table className="ui-table w-full">
+          <div className="ui-table-scroll">
+            <table className="ui-table ui-table-sticky w-full">
               <thead>
                 <tr>
-                  <th scope="col" className="ui-th ui-col-h-right">#</th>
-                  <th scope="col" className="ui-th">Month</th>
-                  <th scope="col" className="ui-th ui-col-h-right">Due</th>
-                  <th scope="col" className="ui-th ui-col-h-right">Of that, interest</th>
-                  <th scope="col" className="ui-th ui-col-h-center">Status</th>
-                  <th scope="col" className="ui-th">Taken on</th>
+                  <th scope="col" className="ui-num">#</th>
+                  <th scope="col">Month</th>
+                  <th scope="col" className="ui-num">Due</th>
+                  <th scope="col" className="ui-num">Of that, interest</th>
+                  <th scope="col" className="ui-col-h-center">Status</th>
+                  <th scope="col">Taken on</th>
                   {running ? (
-                    <th scope="col" className="ui-th ui-col-h-center">
+                    <th scope="col">
                       <span className="sr-only">Actions</span>
                     </th>
                   ) : null}
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="ui-rows">
                 {loan.installments.map((i) => (
                   <tr key={i.id}>
-                    <td className="ui-col-amount">{i.sequence}</td>
+                    <td className="ui-num">{i.sequence}</td>
                     <td className="ui-col-meta">{i.periodName || 'A month not on the calendar yet'}</td>
-                    <td className="ui-col-amount">{money(i.dueAmount)}</td>
-                    <td className="ui-col-amount">{i.interestAmount ? money(i.interestAmount) : '—'}</td>
-                    <td>
+                    <td className="ui-num">{money(i.dueAmount)}</td>
+                    <td className="ui-num">{i.interestAmount ? money(i.interestAmount) : '—'}</td>
+                    <td className="ui-col-h-center">
                       <span className={`ui-pill ${INSTALLMENT[i.status]?.tone || 'ui-pill-neutral'}`}>{INSTALLMENT[i.status]?.label || i.status}</span>
                     </td>
                     <td className="ui-col-id">{i.slipNumber || '—'}</td>
@@ -572,6 +635,7 @@ const LoanDetail = ({ loanId, onBack }) => {
       ) : null}
 
       {loan.notes ? <p className="ui-caption">{loan.notes}</p> : null}
+      </div>
     </div>
   );
 };

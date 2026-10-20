@@ -1,10 +1,15 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { Printer } from 'lucide-react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { Banknote, Clock, FileText, MinusCircle, Printer, Wallet } from 'lucide-react';
 
-import { PageHeader, SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
+import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
+import { useListSearch } from '@ui/components/ListToolbar';
+import DocumentListShell from '@ui/components/list/DocumentListShell';
+import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';
+import { SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import Drawer from '@ui/components/ui/Drawer';
 import { notify } from '@ui/components/ui/notify';
 import { listSalarySlips, getSalarySlip, getSlipYearToDate } from '../api/payrollSlips';
+import LoadFailed from '../components/LoadFailed';
 
 /**
  * Payslips.
@@ -30,85 +35,145 @@ const shownDate = (iso) => {
   return `${d}/${m}/${y}`;
 };
 
+const TABS = [
+  { value: '', label: 'All', tone: 'all' },
+  { value: 'UNPAID', label: 'Unpaid', tone: 'outstanding' },
+  { value: 'PAID', label: 'Paid', tone: 'paid' },
+];
+const COLUMNS = {
+  employee: (s) => s.employee?.name || 'Unknown',
+  period: (s) => s.period?.name || '—',
+};
+const EXPORT_COLUMNS = [
+  { key: 'number', label: 'Payslip' },
+  { key: 'employee', label: 'Employee', value: (s) => s.employee?.name || '' },
+  { key: 'code', label: 'Code', value: (s) => s.employee?.code || '' },
+  { key: 'period', label: 'Period', value: (s) => s.period?.name || '' },
+  { key: 'grossEarnings', label: 'Gross', value: (s) => Number(s.grossEarnings || 0) },
+  { key: 'totalDeductions', label: 'Deductions', value: (s) => Number(s.totalDeductions || 0) },
+  { key: 'netPay', label: 'Net pay', value: (s) => Number(s.netPay || 0) },
+  { key: 'paymentStatus', label: 'Payment', value: (s) => (s.paymentStatus === 'PAID' ? 'Paid' : 'Unpaid') },
+];
+const isPaid = (s) => s.paymentStatus === 'PAID';
+
 export default function SalarySlips() {
-  const [rows, setRows] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [all, setAll] = useState(null);
   const [error, setError] = useState('');
   const [openId, setOpenId] = useState(null);
+  const [status, setStatus] = useState('');
 
-  const load = useCallback(async () => {
-    try {
-      setRows(await listSalarySlips());
-      setError('');
-    } catch (e) {
-      setError(String(e?.message || 'Could not load payslips.'));
-    } finally {
-      setLoading(false);
-    }
+  const load = useCallback(() => {
+    listSalarySlips()
+      .then((v) => {
+        setAll(v);
+        setError('');
+      })
+      .catch((e) => setError(String(e?.message || 'Could not load payslips.')));
   }, []);
 
   useEffect(() => {
     load();
   }, [load]);
 
-  if (loading) return <SkeletonCard lines={6} />;
+  const counts = useMemo(() => {
+    const list = all || [];
+    const paid = list.filter(isPaid).length;
+    return { '': list.length, PAID: paid, UNPAID: list.length - paid };
+  }, [all]);
+  const figures = useMemo(() => {
+    const list = all || [];
+    const sum = (f, k) => list.filter(f).reduce((a, x) => a + Number(x[k] || 0), 0);
+    return { gross: sum(() => true, 'grossEarnings'), net: sum(() => true, 'netPay'), unpaid: sum((x) => !isPaid(x), 'netPay'), deductions: sum(() => true, 'totalDeductions') };
+  }, [all]);
+  const inTab = useMemo(() => (all || []).filter((x) => !status || (status === 'PAID') === isPaid(x)), [all, status]);
+  const search = useListSearch(inTab, ['number']);
+  const filters = useColumnFilters();
+  const searched = useMemo(() => {
+    const q = search.query.trim().toLowerCase();
+    if (!q) return inTab;
+    return inTab.filter((x) => `${x.number} ${x.employee?.name || ''} ${x.employee?.code || ''} ${x.period?.name || ''}`.toLowerCase().includes(q));
+  }, [inTab, search.query]);
+  const rows = filters.applyFilters(searched, COLUMNS);
 
   return (
-    <div className="space-y-4">
-      <PageHeader
-        entity="payroll"
-        title="Salary slips"
-        description="Every payslip produced, and how each figure on it was reached."
-      />
-
-      {error ? (
-        <div className="ui-card p-3 text-sm" role="alert" style={{ borderColor: 'rgb(var(--neg))', color: 'rgb(var(--neg))' }}>
-          {error}
-        </div>
-      ) : null}
-
-      {rows.length === 0 ? (
-        <EmptyState
-          title="No payslips yet"
-          description="Payslips appear here once a payroll has been calculated. Start one under Payroll → Pay runs."
-        />
+    <DocumentListShell
+      entity="payslip"
+      title="Salary slips"
+      description="Every payslip produced, and how each figure on it was reached."
+      compact
+      tight
+      denseCards
+      search={{ value: search.query, onChange: search.setQuery, placeholder: 'Search payslips…', label: 'Search payslips' }}
+      moreItems={all?.length ? [exportMenuItem('Export payslips')] : null}
+      onMoreSelect={(k) => {
+        const format = exportFormatFromKey(k);
+        if (!format) return;
+        runListExport({ format, title: 'Salary slips', fileName: 'Salary slips', label: 'payslip/payslips', columns: EXPORT_COLUMNS, rows });
+      }}
+      cards={[
+        { label: 'Gross', value: figures.gross, tone: 'sent', Icon: Banknote },
+        { label: 'Deductions', value: figures.deductions, tone: 'partial', Icon: MinusCircle },
+        { label: 'Net pay', value: figures.net, tone: 'paid', Icon: Wallet },
+        { label: 'Net still unpaid', value: figures.unpaid, tone: 'outstanding', Icon: Clock, onSelect: () => setStatus('UNPAID') },
+      ]}
+      tabs={TABS}
+      statusValue={status}
+      statusCounts={counts}
+      onStatusChange={setStatus}
+      tabsLabel="Payment"
+    >
+      <LoadFailed message={error} onRetry={load} />
+      {!all ? (
+        error ? null : <SkeletonCard lines={4} />
       ) : (
-        <div className="ui-card overflow-hidden">
-          <div className="overflow-x-auto ui-table-scroll ui-table-fit">
-            <table className="ui-table w-full">
-              <thead>
+        <div className="ui-table-scroll">
+          <table className="ui-table ui-table-sticky w-full">
+            <thead>
+              <tr>
+                <th scope="col">Payslip</th>
+                <ColumnHeader label="Employee" col="employee" state={filters} />
+                <ColumnHeader label="Period" col="period" state={filters} />
+                <th scope="col" className="ui-num">Gross</th>
+                <th scope="col" className="ui-num">Deductions</th>
+                <th scope="col" className="ui-num">Net pay</th>
+                <th scope="col" className="ui-col-h-center">Payment</th>
+              </tr>
+            </thead>
+            <tbody className="ui-rows">
+              {!rows.length ? (
                 <tr>
-                  <th scope="col" className="ui-th">Payslip</th>
-                  <th scope="col" className="ui-th">Employee</th>
-                  <th scope="col" className="ui-th">Period</th>
-                  <th scope="col" className="ui-th ui-col-h-right">Gross</th>
-                  <th scope="col" className="ui-th ui-col-h-right">Deductions</th>
-                  <th scope="col" className="ui-th ui-col-h-right">Net pay</th>
-                  <th scope="col" className="ui-th ui-col-h-center">Payment</th>
+                  <td colSpan={7}>
+                    {inTab.length ? (
+                      <EmptyState kind="filtered" totalCount={inTab.length} title="No payslips match" description="Nothing in this tab matches the search or the column filters." />
+                    ) : (
+                      <EmptyState
+                        icon={FileText}
+                        title={status ? `No ${status.toLowerCase()} payslips` : 'No payslips yet'}
+                        description="Payslips appear here once a payroll has been calculated. Start one under Pay runs."
+                      />
+                    )}
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {rows.map((s) => (
-                  <tr key={s.id} className="ui-row-click" onClick={() => setOpenId(s.id)}>
-                    <td className="ui-col-id">{s.number}</td>
+              ) : (
+                rows.map((x) => (
+                  <tr key={x.id} className="ui-row-click" onClick={() => setOpenId(x.id)}>
+                    <td className="ui-col-id">{x.number}</td>
                     <td className="ui-col-entity">
-                      {s.employee?.name || 'Unknown'}
-                      {s.employee?.code ? <span className="ui-caption block">{s.employee.code}</span> : null}
+                      {x.employee?.name || 'Unknown'}
+                      {x.employee?.code ? <span className="ui-caption"> · {x.employee.code}</span> : null}
                     </td>
-                    <td className="ui-col-meta">{s.period?.name || '—'}</td>
-                    <td className="ui-col-amount">{money(s.grossEarnings)}</td>
-                    <td className="ui-col-amount">{money(s.totalDeductions)}</td>
-                    <td className="ui-col-amount font-medium">{money(s.netPay)}</td>
-                    <td>
-                      <span className={`ui-pill ${s.paymentStatus === 'PAID' ? 'ui-pill-pos' : 'ui-pill-neutral'}`}>
-                        {s.paymentStatus === 'PAID' ? 'Paid' : 'Unpaid'}
-                      </span>
+                    <td className="ui-col-meta">{x.period?.name || '—'}</td>
+                    <td className="ui-num">{money(x.grossEarnings)}</td>
+                    <td className="ui-num">{money(x.totalDeductions)}</td>
+                    <td className="ui-num font-medium">{money(x.netPay)}</td>
+                    <td className="ui-col-h-center">
+                      <span className={`ui-pill ${isPaid(x) ? 'ui-pill-pos' : 'ui-pill-neutral'}`}>{isPaid(x) ? 'Paid' : 'Unpaid'}</span>
                     </td>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
       )}
 
@@ -121,7 +186,7 @@ export default function SalarySlips() {
       >
         {openId ? <SlipDocument slipId={openId} /> : null}
       </Drawer>
-    </div>
+    </DocumentListShell>
   );
 }
 

@@ -1,8 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, Check } from 'lucide-react';
 
-import { SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
-import SettingsScreenHeader from '@ui/chrome/SettingsScreenHeader';
+import { PageHeader, SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import { notify } from '@ui/components/ui/notify';
 import { listSalaryComponents, setComponentLedgers } from '../api/payrollComponents';
 import { expenseAccounts, withheldToAccounts } from '../api/payrollAccounting';
@@ -110,12 +109,13 @@ export default function PayrollLedgerMapping() {
   if (loading) return <SkeletonCard lines={6} />;
 
   return (
-    <div className="space-y-4">
-      <SettingsScreenHeader
-        entity="payroll"
+    <div className="space-y-3">
+      <PageHeader
+        entity="ledgerMap"
         title="Ledger mapping"
         description="Which account each part of a salary posts to. Payroll cannot be written into the books until every component here has one."
       />
+      <div className="px-5 lg:px-7 pb-8 space-y-4 max-w-4xl">
 
       {error ? (
         <div className="ui-card p-3 text-sm" role="alert" style={{ borderColor: 'rgb(var(--neg))', color: 'rgb(var(--neg))' }}>
@@ -151,18 +151,18 @@ export default function PayrollLedgerMapping() {
           )}
 
           <div className="ui-card overflow-hidden">
-            <div className="overflow-x-auto ui-table-scroll ui-table-fit">
-              <table className="ui-table w-full">
+            <div className="ui-table-scroll">
+              <table className="ui-table ui-table-sticky w-full">
                 <thead>
                   <tr>
-                    <th scope="col" className="ui-th">Component</th>
-                    <th scope="col" className="ui-th">Kind</th>
-                    <th scope="col" className="ui-th">Expense account</th>
-                    <th scope="col" className="ui-th">Withheld to</th>
-                    <th scope="col" className="ui-th ui-col-h-center">Ready</th>
+                    <th scope="col">Component</th>
+                    <th scope="col">Kind</th>
+                    <th scope="col">Expense account</th>
+                    <th scope="col">Withheld to</th>
+                    <th scope="col" className="ui-col-h-center">Ready</th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="ui-rows">
                   {components.map((c) => {
                     const needs = NEEDS[c.type] || {};
                     const ready = (!needs.expense || c.expenseLedgerId) && (!needs.liability || c.liabilityLedgerId);
@@ -226,6 +226,7 @@ export default function PayrollLedgerMapping() {
           </p>
         </>
       )}
+      </div>
     </div>
   );
 }

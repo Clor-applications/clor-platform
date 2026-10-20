@@ -45,6 +45,10 @@ import {
   ShieldAlert,
   Inbox,
   ShieldCheck,
+  Banknote,
+  HandCoins,
+  Handshake,
+  Layers,
 } from 'lucide-react';
 
 /**
@@ -143,6 +147,24 @@ export const ENTITY_ICON = {
   exception: ShieldAlert,
   request: Inbox,
   privacy: ShieldCheck,
+
+  /* payroll */
+  payroll: IndianRupee,
+  payRun: CalendarClock,
+  payslip: FileText,
+  salary: Banknote,
+  salaryComponent: SlidersHorizontal,
+  salaryStructure: Layers,
+  payGroup: Users,
+  payPeriod: CalendarDays,
+  salaryRevision: RefreshCw,
+  loan: HandCoins,
+  settlement: Handshake,
+  payAdjustment: Percent,
+  bankChange: Landmark,
+  taxDeclaration: Receipt,
+  compliance: BadgePercent,
+  ledgerMap: BookOpen,
 };
 
 /** Which colour family a screen belongs to. Matches the `--id-*` tokens. */
@@ -208,6 +230,23 @@ export const ENTITY_TONE = {
   exception: 'expense',
   request: 'crm',
   privacy: 'settings',
+
+  payroll: 'expense',
+  payRun: 'expense',
+  payslip: 'expense',
+  salary: 'expense',
+  salaryComponent: 'settings',
+  salaryStructure: 'settings',
+  payGroup: 'org',
+  payPeriod: 'org',
+  salaryRevision: 'crm',
+  loan: 'banking',
+  settlement: 'crm',
+  payAdjustment: 'expense',
+  bankChange: 'banking',
+  taxDeclaration: 'tax',
+  compliance: 'tax',
+  ledgerMap: 'accounting',
 };
 
 export const iconFor = (entity) => ENTITY_ICON[entity] || null;

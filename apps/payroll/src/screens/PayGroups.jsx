@@ -1,11 +1,15 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { Plus, Trash2 } from 'lucide-react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { CalendarDays, History, Plus, Repeat, Trash2, Users } from 'lucide-react';
 
-import { SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
-import SettingsScreenHeader from '@ui/chrome/SettingsScreenHeader';
+import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
+import { useListSearch } from '@ui/components/ListToolbar';
+import DocumentListShell from '@ui/components/list/DocumentListShell';
+import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';
+import { SkeletonCard, EmptyState, StatusPill } from '@ui/components/ui/Primitives';
 import Drawer from '@ui/components/ui/Drawer';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { listPayGroups, createPayGroup, updatePayGroup, deletePayGroup } from '../api/payrollCalendar';
+import LoadFailed from '../components/LoadFailed';
 
 /**
  * Populations paid on the same rhythm.
@@ -40,21 +44,37 @@ const describeUsage = (u) => {
   return parts.join(', ');
 };
 
+const TABS = [
+  { value: '', label: 'All', tone: 'all' },
+  { value: 'ACTIVE', label: 'Active', tone: 'paid' },
+  { value: 'INACTIVE', label: 'Inactive', tone: 'cancelled' },
+];
+const COLUMNS = {
+  name: (g) => g.name,
+  cycle: (g) => labelFor(g.frequency),
+};
+const EXPORT_COLUMNS = [
+  { key: 'name', label: 'Pay group' },
+  { key: 'code', label: 'Code' },
+  { key: 'cycle', label: 'Cycle', value: (g) => labelFor(g.frequency) },
+  { key: 'paymentDay', label: 'Paid on day', value: (g) => g.paymentDay ?? '' },
+  { key: 'usage', label: 'In use by', value: (g) => describeUsage(g.usage) },
+  { key: 'isActive', label: 'Status', value: (g) => (g.isActive ? 'Active' : 'Inactive') },
+];
+
 export default function PayGroups() {
-  const [rows, setRows] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [all, setAll] = useState(null);
   const [error, setError] = useState('');
   const [editing, setEditing] = useState(null);
+  const [status, setStatus] = useState('');
 
-  const load = useCallback(async () => {
-    try {
-      setRows(await listPayGroups());
-      setError('');
-    } catch (e) {
-      setError(String(e?.message || 'Could not load pay groups.'));
-    } finally {
-      setLoading(false);
-    }
+  const load = useCallback(() => {
+    listPayGroups()
+      .then((v) => {
+        setAll(v);
+        setError('');
+      })
+      .catch((e) => setError(String(e?.message || 'Could not load pay groups.')));
   }, []);
 
   useEffect(() => {
@@ -78,75 +98,110 @@ export default function PayGroups() {
     }
   };
 
-  if (loading) return <SkeletonCard lines={5} />;
+  const counts = useMemo(() => {
+    const list = all || [];
+    const active = list.filter((g) => g.isActive).length;
+    return { '': list.length, ACTIVE: active, INACTIVE: list.length - active };
+  }, [all]);
+  const inTab = useMemo(() => (all || []).filter((g) => !status || (status === 'ACTIVE') === Boolean(g.isActive)), [all, status]);
+  const search = useListSearch(inTab, ['name', 'code']);
+  const filters = useColumnFilters();
+  const rows = filters.applyFilters(search.filtered, COLUMNS);
+  const figures = useMemo(() => {
+    const list = all || [];
+    return {
+      monthly: list.filter((g) => g.frequency === 'MONTHLY').length,
+      other: list.filter((g) => g.frequency !== 'MONTHLY').length,
+      inUse: list.filter((g) => g.usage?.total).length,
+    };
+  }, [all]);
+  const create = () => setEditing(blank());
 
   return (
-    <div className="space-y-4">
-      <SettingsScreenHeader
-        entity="payroll"
-        title="Pay groups"
-        description="Populations paid on the same rhythm — monthly staff, weekly labour, contractors."
-        actions={
-          <button type="button" className="ui-btn ui-btn-primary" onClick={() => setEditing(blank())}>
-            <Plus size={16} aria-hidden="true" /> New pay group
-          </button>
-        }
-      />
-
-      {error ? (
-        <div className="ui-card p-3 text-sm" role="alert" style={{ borderColor: 'rgb(var(--neg))', color: 'rgb(var(--neg))' }}>
-          {error}
-        </div>
-      ) : null}
-
-      {rows.length === 0 ? (
-        <EmptyState
-          title="No pay groups yet"
-          description="A payroll run is drawn from a pay group. Add the rhythms this company pays on, and a run can name who it is for."
-          action={
-            <button type="button" className="ui-btn ui-btn-primary" onClick={() => setEditing(blank())}>
-              <Plus size={16} aria-hidden="true" /> New pay group
-            </button>
-          }
-        />
+    <DocumentListShell
+      entity="payGroup"
+      title="Pay groups"
+      description="Populations paid on the same rhythm — monthly staff, weekly labour, contractors."
+      compact
+      tight
+      denseCards
+      search={{ value: search.query, onChange: search.setQuery, placeholder: 'Search pay groups…', label: 'Search pay groups' }}
+      moreItems={all?.length ? [exportMenuItem('Export pay groups')] : null}
+      onMoreSelect={(k) => {
+        const format = exportFormatFromKey(k);
+        if (!format) return;
+        runListExport({ format, title: 'Pay groups', fileName: 'Pay groups', label: 'pay group/pay groups', columns: EXPORT_COLUMNS, rows });
+      }}
+      primary={
+        <button type="button" className="ui-btn ui-btn-primary" onClick={create}>
+          <Plus size={16} aria-hidden="true" /> New pay group
+        </button>
+      }
+      cards={[
+        { label: 'Active groups', value: counts.ACTIVE, count: true, tone: 'paid', Icon: Users, onSelect: () => setStatus('ACTIVE') },
+        { label: 'Paid monthly', value: figures.monthly, count: true, tone: 'sent', Icon: CalendarDays },
+        { label: 'Other cycles', value: figures.other, count: true, tone: 'partial', Icon: Repeat },
+        { label: 'Used by payroll', value: figures.inUse, count: true, tone: 'outstanding', Icon: History },
+      ]}
+      tabs={TABS}
+      statusValue={status}
+      statusCounts={counts}
+      onStatusChange={setStatus}
+      tabsLabel="Active or inactive"
+    >
+      <LoadFailed message={error} onRetry={load} />
+      {!all ? (
+        error ? null : <SkeletonCard lines={4} />
       ) : (
-        <div className="ui-card overflow-hidden">
-          <div className="overflow-x-auto ui-table-scroll ui-table-fit">
-            <table className="ui-table w-full">
-              <thead>
+        <div className="ui-table-scroll">
+          <table className="ui-table ui-table-sticky w-full">
+            <thead>
+              <tr>
+                <ColumnHeader label="Pay group" col="name" state={filters} />
+                <ColumnHeader label="Cycle" col="cycle" state={filters} />
+                <th scope="col" className="ui-col-h-center">Paid on</th>
+                <th scope="col">In use by</th>
+                <th scope="col" className="ui-col-h-center">Status</th>
+                <th scope="col"><span className="sr-only">Actions</span></th>
+              </tr>
+            </thead>
+            <tbody className="ui-rows">
+              {!rows.length ? (
                 <tr>
-                  <th scope="col" className="ui-th">Pay group</th>
-                  <th scope="col" className="ui-th">Cycle</th>
-                  <th scope="col" className="ui-th ui-col-h-center">Paid on</th>
-                  <th scope="col" className="ui-th">In use by</th>
-                  <th scope="col" className="ui-th ui-col-h-center">Status</th>
-                  <th scope="col" className="ui-th ui-col-h-center w-10">
-                    <span className="sr-only">Actions</span>
-                  </th>
+                  <td colSpan={6}>
+                    {inTab.length ? (
+                      <EmptyState kind="filtered" totalCount={inTab.length} title="No pay groups match" description="Nothing in this tab matches the search or the column filters." />
+                    ) : (
+                      <EmptyState
+                        icon={Users}
+                        title={status ? `No ${status.toLowerCase()} pay groups` : 'No pay groups yet'}
+                        description="A payroll run is drawn from a pay group. Add the rhythms this company pays on, and a run can name who it is for."
+                        routes={status ? undefined : [{ label: 'New pay group', description: 'E.g. Monthly staff, Weekly site labour.', onSelect: create }]}
+                      />
+                    )}
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {rows.map((g) => (
+              ) : (
+                rows.map((g) => (
                   <tr key={g.id} className="ui-row-click" onClick={() => setEditing({ ...g, paymentDay: g.paymentDay ?? '' })}>
-                    <td className="ui-col-entity">{g.name}</td>
+                    <td className="ui-col-entity">
+                      {g.name}
+                      {g.code ? <span className="ui-caption ml-2 ui-mono">{g.code}</span> : null}
+                    </td>
                     <td className="ui-col-meta">{labelFor(g.frequency)}</td>
                     <td className="ui-col-h-center">{g.paymentDay ? `Day ${g.paymentDay}` : '—'}</td>
                     <td className="ui-col-meta">{describeUsage(g.usage)}</td>
-                    <td>
-                      <span className={`ui-pill ${g.isActive ? 'ui-pill-pos' : 'ui-pill-neutral'}`}>
-                        {g.isActive ? 'Active' : 'Inactive'}
-                      </span>
-                    </td>
-                    <td onClick={(e) => e.stopPropagation()}>
+                    <td className="ui-col-h-center">{g.isActive ? <StatusPill status="active" /> : <span className="ui-caption">Inactive</span>}</td>
+                    <td className="text-end" onClick={(e) => e.stopPropagation()}>
                       <button type="button" className="ui-icon-btn" aria-label={`Delete ${g.name}`} onClick={() => remove(g)}>
                         <Trash2 size={16} aria-hidden="true" />
                       </button>
                     </td>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
       )}
 
@@ -167,7 +222,7 @@ export default function PayGroups() {
           />
         ) : null}
       </Drawer>
-    </div>
+    </DocumentListShell>
   );
 }
 

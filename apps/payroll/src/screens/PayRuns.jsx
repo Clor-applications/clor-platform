@@ -2,12 +2,20 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
   ArrowLeft,
+  Calculator,
+  CalendarClock,
   Check,
+  Clock,
   Info,
   Play,
   Plus,
+  Wallet,
 } from "lucide-react";
 
+import { ColumnHeader, useColumnFilters } from "@ui/components/ColumnFilters";
+import { useListSearch } from "@ui/components/ListToolbar";
+import DocumentListShell from "@ui/components/list/DocumentListShell";
+import { exportFormatFromKey, exportMenuItem, runListExport } from "@ui/components/list/exportMenu";
 import {
   PageHeader,
   SkeletonCard,
@@ -35,6 +43,7 @@ import {
   previewPayrollPosting,
   postPayrollRun,
 } from "../api/payrollRuns";
+import LoadFailed from "../components/LoadFailed";
 
 /**
  * Running payroll.
@@ -72,31 +81,56 @@ const shownDate = (iso) => {
   return `${d}/${m}/${y}`;
 };
 
+const TABS = [
+  { value: "", label: "All", tone: "all" },
+  { value: "OPEN", label: "In progress", tone: "outstanding" },
+  { value: "APPROVED", label: "Approved", tone: "sent" },
+  { value: "DONE", label: "Paid or posted", tone: "paid" },
+  { value: "CANCELLED", label: "Cancelled", tone: "cancelled" },
+];
+const inTabOf = (r, t) => {
+  if (!t) return true;
+  if (t === "OPEN") return ["DRAFT", "CALCULATED", "REVIEW"].includes(r.status);
+  if (t === "APPROVED") return ["APPROVED", "LOCKED"].includes(r.status);
+  if (t === "DONE") return ["PAID", "POSTED"].includes(r.status);
+  return r.status === t;
+};
+const COLUMNS = {
+  period: (r) => r.period?.name || "—",
+  status: (r) => STATUS_LABEL[r.status] || r.status,
+};
+const EXPORT_COLUMNS = [
+  { key: "number", label: "Payroll" },
+  { key: "period", label: "Period", value: (r) => r.period?.name || "" },
+  { key: "payrollDate", label: "Pay date" },
+  { key: "employeeCount", label: "People" },
+  { key: "grossTotal", label: "Gross", value: (r) => Number(r.grossTotal || 0) },
+  { key: "netTotal", label: "Net pay", value: (r) => Number(r.netTotal || 0) },
+  { key: "status", label: "Status", value: (r) => STATUS_LABEL[r.status] || r.status },
+];
+
 export default function PayRuns() {
-  const [runs, setRuns] = useState([]);
+  const [runs, setRuns] = useState(null);
   const [periods, setPeriods] = useState([]);
   const [payGroups, setPayGroups] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [openId, setOpenId] = useState(null);
   const [starting, setStarting] = useState(false);
+  const [status, setStatus] = useState("");
 
-  const load = useCallback(async () => {
-    try {
-      const [runRows, periodRows, groupRows] = await Promise.all([
-        listPayrollRuns(),
-        listPayrollPeriods({ openOnly: true }),
-        listPayGroups({ activeOnly: true }),
-      ]);
-      setRuns(runRows);
-      setPeriods(periodRows);
-      setPayGroups(groupRows);
-      setError("");
-    } catch (e) {
-      setError(String(e?.message || "Could not load payroll runs."));
-    } finally {
-      setLoading(false);
-    }
+  const load = useCallback(() => {
+    Promise.all([
+      listPayrollRuns(),
+      listPayrollPeriods({ openOnly: true }),
+      listPayGroups({ activeOnly: true }),
+    ])
+      .then(([runRows, periodRows, groupRows]) => {
+        setRuns(runRows);
+        setPeriods(periodRows);
+        setPayGroups(groupRows);
+        setError("");
+      })
+      .catch((e) => setError(String(e?.message || "Could not load payroll runs.")));
   }, []);
 
   useEffect(() => {
@@ -117,7 +151,24 @@ export default function PayRuns() {
     }
   };
 
-  if (loading) return <SkeletonCard lines={6} />;
+  const counts = useMemo(
+    () => Object.fromEntries(TABS.map((t) => [t.value, (runs || []).filter((r) => inTabOf(r, t.value)).length])),
+    [runs],
+  );
+  const figures = useMemo(() => {
+    const list = runs || [];
+    const sum = (t) => list.filter((r) => inTabOf(r, t)).reduce((a, r) => a + Number(r.netTotal || 0), 0);
+    return { open: sum("OPEN"), approved: sum("APPROVED"), done: sum("DONE") };
+  }, [runs]);
+  const inTab = useMemo(() => (runs || []).filter((r) => inTabOf(r, status)), [runs, status]);
+  const search = useListSearch(inTab, ["number"]);
+  const filters = useColumnFilters();
+  const searched = useMemo(() => {
+    const q = search.query.trim().toLowerCase();
+    if (!q) return inTab;
+    return inTab.filter((r) => `${r.number} ${r.period?.name || ""}`.toLowerCase().includes(q));
+  }, [inTab, search.query]);
+  const rows = filters.applyFilters(searched, COLUMNS);
 
   if (openId) {
     return (
@@ -131,134 +182,102 @@ export default function PayRuns() {
     );
   }
 
+  const begin = () => setStarting(true);
+
   return (
-    <div className="space-y-4">
-      <PageHeader
-        entity="payroll"
-        title="Pay runs"
-        description="Payroll for a period and a population — checked, reviewed and approved before anybody is paid."
-        actions={
-          <button
-            type="button"
-            className="ui-btn ui-btn-primary"
-            onClick={() => setStarting(true)}
-            disabled={!periods.length}
-          >
-            <Play size={16} aria-hidden="true" /> Run payroll
-          </button>
-        }
-      />
-
-      {error ? (
-        <div
-          className="ui-card p-3 text-sm"
-          role="alert"
-          style={{ borderColor: "rgb(var(--neg))", color: "rgb(var(--neg))" }}
-        >
-          {error}
-        </div>
-      ) : null}
-
-      {starting ? (
-        <StartRun
-          periods={periods}
-          payGroups={payGroups}
-          onCancel={() => setStarting(false)}
-          onStart={start}
-        />
-      ) : null}
-
-      {periods.length === 0 ? (
-        <EmptyState
-          title="No open payroll period"
-          description="Payroll runs for a period. Add one under Settings → Payroll → Payroll periods, and payroll has a month to run for."
-        />
-      ) : runs.length === 0 && !starting ? (
-        <EmptyState
-          title="No payroll has been run yet"
-          description="Start a run for a period and payroll will gather everybody eligible, check them, and work out what each is owed."
-          action={
-            <button
-              type="button"
-              className="ui-btn ui-btn-secondary"
-              onClick={() => setStarting(true)}
-            >
-              <Plus size={16} aria-hidden="true" /> Run payroll
-            </button>
-          }
-        />
-      ) : runs.length ? (
-        <div className="ui-card overflow-hidden">
-          <div className="overflow-x-auto ui-table-scroll ui-table-fit">
-            <table className="ui-table w-full">
-              <thead>
+    <DocumentListShell
+      entity="payRun"
+      title="Pay runs"
+      description="Payroll for a period and a population — checked, reviewed and approved before anybody is paid."
+      compact
+      tight
+      denseCards
+      search={{ value: search.query, onChange: search.setQuery, placeholder: "Search pay runs…", label: "Search pay runs" }}
+      moreItems={runs?.length ? [exportMenuItem("Export pay runs")] : null}
+      onMoreSelect={(k) => {
+        const format = exportFormatFromKey(k);
+        if (!format) return;
+        runListExport({ format, title: "Pay runs", fileName: "Pay runs", label: "pay run/pay runs", columns: EXPORT_COLUMNS, rows });
+      }}
+      primary={
+        <button type="button" className="ui-btn ui-btn-primary" onClick={begin} disabled={!periods.length || starting}>
+          <Play size={16} aria-hidden="true" /> Run payroll
+        </button>
+      }
+      cards={[
+        { label: "In progress", value: counts.OPEN || 0, count: true, tone: "outstanding", Icon: Clock, onSelect: () => setStatus("OPEN") },
+        { label: "Net pending", value: figures.open, tone: "partial", Icon: Calculator },
+        { label: "Approved", value: figures.approved, tone: "sent", Icon: Check, onSelect: () => setStatus("APPROVED") },
+        { label: "Paid or posted", value: figures.done, tone: "paid", Icon: Wallet, onSelect: () => setStatus("DONE") },
+      ]}
+      tabs={TABS}
+      statusValue={status}
+      statusCounts={counts}
+      onStatusChange={setStatus}
+      tabsLabel="Run status"
+      above={starting ? <StartRun periods={periods} payGroups={payGroups} onCancel={() => setStarting(false)} onStart={start} /> : null}
+    >
+      <LoadFailed message={error} onRetry={load} />
+      {!runs ? (
+        error ? null : <SkeletonCard lines={4} />
+      ) : (
+        <div className="ui-table-scroll">
+          <table className="ui-table ui-table-sticky w-full">
+            <thead>
+              <tr>
+                <th scope="col">Payroll</th>
+                <ColumnHeader label="Period" col="period" state={filters} />
+                <th scope="col" className="ui-col-h-center hidden md:table-cell">Pay date</th>
+                <th scope="col" className="ui-col-h-right hidden md:table-cell">People</th>
+                <th scope="col" className="ui-col-h-right hidden md:table-cell">Gross</th>
+                <th scope="col" className="ui-col-h-right">Net pay</th>
+                <ColumnHeader label="Status" col="status" state={filters} align="center" />
+              </tr>
+            </thead>
+            <tbody className="ui-rows">
+              {!rows.length ? (
                 <tr>
-                  <th scope="col" className="ui-th">
-                    Payroll
-                  </th>
-                  <th scope="col" className="ui-th">
-                    Period
-                  </th>
-                  <th
-                    scope="col"
-                    className="ui-th ui-col-h-center hidden md:table-cell"
-                  >
-                    Pay date
-                  </th>
-                  <th
-                    scope="col"
-                    className="ui-th ui-col-h-right hidden md:table-cell"
-                  >
-                    People
-                  </th>
-                  <th
-                    scope="col"
-                    className="ui-th ui-col-h-right hidden md:table-cell"
-                  >
-                    Gross
-                  </th>
-                  <th scope="col" className="ui-th ui-col-h-right">
-                    Net pay
-                  </th>
-                  <th scope="col" className="ui-th ui-col-h-center">
-                    Status
-                  </th>
+                  <td colSpan={7}>
+                    {inTab.length ? (
+                      <EmptyState kind="filtered" totalCount={inTab.length} title="No pay runs match" description="Nothing in this tab matches the search or the column filters." />
+                    ) : !periods.length && !runs.length ? (
+                      <EmptyState
+                        icon={CalendarClock}
+                        title="No open payroll period"
+                        description="Payroll runs for a period. Add one under Settings → Pay Calendar, and payroll has a month to run for."
+                      />
+                    ) : (
+                      <EmptyState
+                        icon={CalendarClock}
+                        title={status ? `No pay runs ${TABS.find((t) => t.value === status)?.label.toLowerCase()}` : "No payroll has been run yet"}
+                        description="Start a run for a period and payroll will gather everybody eligible, check them, and work out what each is owed."
+                        routes={periods.length && !status ? [{ label: "Run payroll", description: "Pick the month and who it is for.", onSelect: begin }] : undefined}
+                      />
+                    )}
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {runs.map((r) => (
-                  <tr
-                    key={r.id}
-                    className="ui-row-click"
-                    onClick={() => setOpenId(r.id)}
-                  >
+              ) : (
+                rows.map((r) => (
+                  <tr key={r.id} className="ui-row-click" onClick={() => setOpenId(r.id)}>
                     <td className="ui-col-id">{r.number}</td>
                     <td className="ui-col-entity">{r.period?.name || "—"}</td>
-                    <td className="ui-col-date ui-col-h-center hidden md:table-cell">
-                      {shownDate(r.payrollDate)}
-                    </td>
-                    <td className="ui-col-amount hidden md:table-cell">
-                      {r.employeeCount}
-                    </td>
-                    <td className="ui-col-amount hidden md:table-cell">
-                      {money(r.grossTotal)}
-                    </td>
+                    <td className="ui-col-date ui-col-h-center hidden md:table-cell">{shownDate(r.payrollDate)}</td>
+                    <td className="ui-col-amount hidden md:table-cell">{r.employeeCount}</td>
+                    <td className="ui-col-amount hidden md:table-cell">{money(r.grossTotal)}</td>
                     <td className="ui-col-amount">{money(r.netTotal)}</td>
-                    <td>
-                      <span
-                        className={`ui-pill ${["APPROVED", "LOCKED", "PAID", "POSTED"].includes(r.status) ? "ui-pill-pos" : "ui-pill-neutral"}`}
-                      >
+                    <td className="ui-col-h-center">
+                      <span className={`ui-pill ${["APPROVED", "LOCKED", "PAID", "POSTED"].includes(r.status) ? "ui-pill-pos" : "ui-pill-neutral"}`}>
                         {STATUS_LABEL[r.status] || r.status}
                       </span>
                     </td>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
-      ) : null}
-    </div>
+      )}
+    </DocumentListShell>
   );
 }
 
@@ -383,9 +402,9 @@ const RunWorkflow = ({ runId, onBack }) => {
   const warningCount = issues ? issues.warnings : run.warningCount;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <PageHeader
-        entity="payroll"
+        entity="payRun"
         title={`${run.number} — ${run.period?.name || "payroll"}`}
         description={`${run.employeeCount} ${run.employeeCount === 1 ? "person" : "people"}, paid on ${shownDate(run.payrollDate)}.`}
         actions={
@@ -409,6 +428,7 @@ const RunWorkflow = ({ runId, onBack }) => {
         }
       />
 
+      <div className="px-5 lg:px-7 pb-8 space-y-4">
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
         <Tile label="People" value={run.employeeCount} />
         <Tile label="Gross" value={money(run.grossTotal)} />
@@ -495,6 +515,7 @@ const RunWorkflow = ({ runId, onBack }) => {
           Sent back: {run.rejectionReason}
         </div>
       ) : null}
+      </div>
     </div>
   );
 };
@@ -667,25 +688,25 @@ const Tile = ({ label, value, strong = false }) => (
 
 const PeopleStage = ({ data, editable, runId, onChanged }) => (
   <div className="ui-card overflow-hidden">
-    <div className="overflow-x-auto ui-table-scroll ui-table-fit">
-      <table className="ui-table w-full">
+    <div className="ui-table-scroll">
+      <table className="ui-table ui-table-sticky w-full">
         <thead>
           <tr>
-            <th scope="col" className="ui-th ui-col-h-center w-10">
+            <th scope="col" className="ui-col-h-center w-10">
               In
             </th>
-            <th scope="col" className="ui-th">
+            <th scope="col">
               Employee
             </th>
-            <th scope="col" className="ui-th">
+            <th scope="col">
               Designation
             </th>
-            <th scope="col" className="ui-th ui-col-h-center">
+            <th scope="col" className="ui-col-h-center">
               State
             </th>
           </tr>
         </thead>
-        <tbody>
+        <tbody className="ui-rows">
           {data.employees.map((m) => (
             <tr key={m.employeeId}>
               <td className="ui-col-h-center">
@@ -838,35 +859,35 @@ const DaysStage = ({ data, editable, runId, onSaved }) => {
         ) : null}
       </div>
       <div className="ui-card overflow-hidden">
-        <div className="overflow-x-auto ui-table-scroll ui-table-fit">
-          <table className="ui-table w-full">
+        <div className="ui-table-scroll">
+          <table className="ui-table ui-table-sticky w-full">
             <thead>
               <tr>
-                <th scope="col" className="ui-th">
+                <th scope="col">
                   Employee
                 </th>
-                <th scope="col" className="ui-th ui-col-h-right">
+                <th scope="col" className="ui-col-h-right">
                   Working days
                 </th>
-                <th scope="col" className="ui-th ui-col-h-right">
+                <th scope="col" className="ui-col-h-right">
                   Payable days
                 </th>
-                <th scope="col" className="ui-th ui-col-h-right">
+                <th scope="col" className="ui-col-h-right">
                   Loss of pay
                 </th>
                 <th
                   scope="col"
-                  className="ui-th ui-col-h-right"
+                  className="ui-col-h-right"
                   title="Approved overtime hours. An earning component prices them with OVERTIME_HOURS in its formula."
                 >
                   OT hours
                 </th>
-                <th scope="col" className="ui-th ui-col-h-right">
+                <th scope="col" className="ui-col-h-right">
                   Variable pay
                 </th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="ui-rows">
               <fieldset className="contents" disabled={!editable}>
                 {rows.map((r, idx) => (
                   <tr key={r.employeeId}>
@@ -996,34 +1017,34 @@ const ReviewStage = ({ data, byEmployee }) => {
   }
   return (
     <div className="ui-card overflow-hidden">
-      <div className="overflow-x-auto ui-table-scroll ui-table-fit">
-        <table className="ui-table w-full">
+      <div className="ui-table-scroll">
+        <table className="ui-table ui-table-sticky w-full">
           <thead>
             <tr>
-              <th scope="col" className="ui-th">
+              <th scope="col">
                 Employee
               </th>
-              <th scope="col" className="ui-th ui-col-h-right">
+              <th scope="col" className="ui-col-h-right">
                 Gross
               </th>
-              <th scope="col" className="ui-th ui-col-h-right">
+              <th scope="col" className="ui-col-h-right">
                 Deductions
               </th>
-              <th scope="col" className="ui-th ui-col-h-right">
+              <th scope="col" className="ui-col-h-right">
                 Employer cost
               </th>
-              <th scope="col" className="ui-th ui-col-h-right">
+              <th scope="col" className="ui-col-h-right">
                 Net pay
               </th>
-              <th scope="col" className="ui-th ui-col-h-right">
+              <th scope="col" className="ui-col-h-right">
                 Last period
               </th>
-              <th scope="col" className="ui-th ui-col-h-right">
+              <th scope="col" className="ui-col-h-right">
                 Change
               </th>
             </tr>
           </thead>
-          <tbody>
+          <tbody className="ui-rows">
             {data.slips.map((s) => {
               const person = byEmployee.get(s.employeeId)?.employee;
               /* A large move month on month is usually right and always worth
@@ -1183,22 +1204,22 @@ const BooksStage = ({ runId, run, onPosted }) => {
       ) : null}
 
       <div className="ui-card overflow-hidden">
-        <div className="overflow-x-auto ui-table-scroll ui-table-fit">
-          <table className="ui-table w-full">
+        <div className="ui-table-scroll">
+          <table className="ui-table ui-table-sticky w-full">
             <thead>
               <tr>
-                <th scope="col" className="ui-th">
+                <th scope="col">
                   Ledger
                 </th>
-                <th scope="col" className="ui-th ui-col-h-right">
+                <th scope="col" className="ui-col-h-right">
                   Debit
                 </th>
-                <th scope="col" className="ui-th ui-col-h-right">
+                <th scope="col" className="ui-col-h-right">
                   Credit
                 </th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="ui-rows">
               {preview.lines.map((l, i) => (
                 <tr key={`${l.ledgerAccountId}-${i}`}>
                   <td className="ui-col-entity">{l.ledgerName}</td>

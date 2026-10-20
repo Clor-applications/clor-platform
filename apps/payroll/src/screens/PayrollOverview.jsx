@@ -68,10 +68,12 @@ export default function PayrollOverview({ onOpen = () => {} }) {
 
   if (error) {
     return (
-      <div className="space-y-4">
+      <div className="space-y-3">
         <PageHeader entity="payroll" title="Payroll" description="Where this month is, and what is in the way." />
+        <div className="px-5 lg:px-7 pb-8 space-y-4">
         <div className="ui-card p-3 text-sm" role="alert" style={{ borderColor: 'rgb(var(--neg))', color: 'rgb(var(--neg))' }}>
           {error}
+        </div>
         </div>
       </div>
     );
@@ -83,7 +85,7 @@ export default function PayrollOverview({ onOpen = () => {} }) {
   const change = previous && latest ? percentChange(previous.employerCost, latest.employerCost) : null;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <PageHeader
         entity="payroll"
         title="Payroll"
@@ -100,6 +102,7 @@ export default function PayrollOverview({ onOpen = () => {} }) {
           </button>
         }
       />
+      <div className="px-5 lg:px-7 pb-8 space-y-4">
 
       {/*
         * Setup comes before anything else while it is unfinished.
@@ -205,20 +208,20 @@ export default function PayrollOverview({ onOpen = () => {} }) {
               </span>
             ) : null}
           </div>
-          <div className="overflow-x-auto ui-table-scroll ui-table-fit">
-            <table className="ui-table w-full">
+          <div className="ui-table-scroll">
+            <table className="ui-table ui-table-sticky w-full">
               <thead>
                 <tr>
-                  <th scope="col" className="ui-th">Payroll</th>
-                  <th scope="col" className="ui-th">Month</th>
-                  <th scope="col" className="ui-th ui-col-h-center">Paid on</th>
-                  <th scope="col" className="ui-th ui-col-h-right">People</th>
-                  <th scope="col" className="ui-th ui-col-h-right">Gross</th>
-                  <th scope="col" className="ui-th ui-col-h-right">Take-home</th>
-                  <th scope="col" className="ui-th ui-col-h-right">Company pays</th>
+                  <th scope="col">Payroll</th>
+                  <th scope="col">Month</th>
+                  <th scope="col" className="ui-col-h-center">Paid on</th>
+                  <th scope="col" className="ui-col-h-right">People</th>
+                  <th scope="col" className="ui-col-h-right">Gross</th>
+                  <th scope="col" className="ui-col-h-right">Take-home</th>
+                  <th scope="col" className="ui-col-h-right">Company pays</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="ui-rows">
                 {[...trend].reverse().map((t) => (
                   <tr key={t.runId}>
                     <td className="ui-col-id">{t.number}</td>
@@ -235,6 +238,7 @@ export default function PayrollOverview({ onOpen = () => {} }) {
           </div>
         </div>
       ) : null}
+      </div>
     </div>
   );
 }

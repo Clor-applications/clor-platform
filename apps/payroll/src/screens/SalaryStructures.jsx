@@ -1,6 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, GripVertical, Plus, Trash2 } from 'lucide-react';
+import { ArrowLeft, GripVertical, Layers, Pencil, Plus, SlidersHorizontal, Trash2, Users } from 'lucide-react';
 
+import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
+import { useListSearch } from '@ui/components/ListToolbar';
+import DocumentListShell from '@ui/components/list/DocumentListShell';
+import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';
 import { PageHeader, SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { listSalaryComponents } from '../api/payrollComponents';
@@ -12,6 +16,7 @@ import {
   deleteSalaryStructure,
   previewSalaryStructure,
 } from '../api/payrollStructures';
+import LoadFailed from '../components/LoadFailed';
 
 /**
  * The shape of a salary, before anybody is on it.
@@ -62,24 +67,42 @@ const blankStructure = () => ({
   components: [],
 });
 
+const TABS = [
+  { value: '', label: 'All', tone: 'all' },
+  { value: 'ACTIVE', label: 'Active', tone: 'paid' },
+  { value: 'DRAFT', label: 'Draft', tone: 'outstanding' },
+  { value: 'ARCHIVED', label: 'Archived', tone: 'cancelled' },
+];
+const cycleOf = (s) => FREQUENCIES.find((f) => f.id === s.frequency)?.label || s.frequency;
+const COLUMNS = {
+  name: (s) => s.name,
+  cycle: cycleOf,
+};
+const EXPORT_COLUMNS = [
+  { key: 'name', label: 'Structure' },
+  { key: 'code', label: 'Code' },
+  { key: 'cycle', label: 'Cycle', value: cycleOf },
+  { key: 'effectiveFrom', label: 'Effective from' },
+  { key: 'components', label: 'Components', value: (s) => s.components.length },
+  { key: 'assignedCount', label: 'People on it' },
+  { key: 'status', label: 'Status', value: (s) => STATUSES.find((x) => x.id === s.status)?.label || s.status },
+];
+
 export default function SalaryStructures() {
-  const [rows, setRows] = useState([]);
+  const [all, setAll] = useState(null);
   const [components, setComponents] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [editing, setEditing] = useState(null);
+  const [status, setStatus] = useState('');
 
-  const load = useCallback(async () => {
-    try {
-      const [structures, comps] = await Promise.all([listSalaryStructures(), listSalaryComponents({ activeOnly: true })]);
-      setRows(structures);
-      setComponents(comps);
-      setError('');
-    } catch (e) {
-      setError(String(e?.message || 'Could not load salary structures.'));
-    } finally {
-      setLoading(false);
-    }
+  const load = useCallback(() => {
+    Promise.all([listSalaryStructures(), listSalaryComponents({ activeOnly: true })])
+      .then(([structures, comps]) => {
+        setAll(structures);
+        setComponents(comps);
+        setError('');
+      })
+      .catch((e) => setError(String(e?.message || 'Could not load salary structures.')));
   }, []);
 
   useEffect(() => {
@@ -111,7 +134,16 @@ export default function SalaryStructures() {
     }
   };
 
-  if (loading) return <SkeletonCard lines={6} />;
+  const counts = useMemo(() => {
+    const list = all || [];
+    const n = (st) => list.filter((x) => x.status === st).length;
+    return { '': list.length, ACTIVE: n('ACTIVE'), DRAFT: n('DRAFT'), ARCHIVED: n('ARCHIVED') };
+  }, [all]);
+  const people = useMemo(() => (all || []).reduce((a, x) => a + Number(x.assignedCount || 0), 0), [all]);
+  const inTab = useMemo(() => (all || []).filter((x) => !status || x.status === status), [all, status]);
+  const search = useListSearch(inTab, ['name', 'code']);
+  const filters = useColumnFilters();
+  const rows = filters.applyFilters(search.filtered, COLUMNS);
 
   if (editing) {
     return (
@@ -127,85 +159,105 @@ export default function SalaryStructures() {
     );
   }
 
+  const create = () => setEditing(blankStructure());
+
   return (
-    <div className="space-y-4">
-      <PageHeader
-        entity="payroll"
-        title="Salary structures"
-        description="Reusable salary templates. A structure becomes a salary when somebody is assigned to it."
-        actions={
-          <button type="button" className="ui-btn ui-btn-primary" onClick={() => setEditing(blankStructure())}>
-            <Plus size={16} aria-hidden="true" /> New structure
-          </button>
-        }
-      />
-
-      {error ? (
-        <div className="ui-card p-3 text-sm" role="alert" style={{ borderColor: 'rgb(var(--neg))', color: 'rgb(var(--neg))' }}>
-          {error}
-        </div>
-      ) : null}
-
-      {components.length === 0 ? (
-        <EmptyState
-          title="No salary components yet"
-          description="A structure is a list of components. Add the earnings and deductions this company pays first, under Settings → Payroll → Salary components."
-        />
-      ) : rows.length === 0 ? (
-        <EmptyState
-          title="No salary structures yet"
-          description="Build the salary shapes this company pays on. One structure can serve everybody on the same arrangement, whatever their individual package."
-          action={
-            <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setEditing(blankStructure())}>
-              <Plus size={16} aria-hidden="true" /> New structure
-            </button>
-          }
-        />
+    <DocumentListShell
+      entity="salaryStructure"
+      title="Salary structures"
+      description="Reusable salary templates. A structure becomes a salary when somebody is assigned to it."
+      compact
+      tight
+      denseCards
+      search={{ value: search.query, onChange: search.setQuery, placeholder: 'Search structures…', label: 'Search salary structures' }}
+      moreItems={all?.length ? [exportMenuItem('Export structures')] : null}
+      onMoreSelect={(k) => {
+        const format = exportFormatFromKey(k);
+        if (!format) return;
+        runListExport({ format, title: 'Salary structures', fileName: 'Salary structures', label: 'structure/structures', columns: EXPORT_COLUMNS, rows });
+      }}
+      primary={
+        <button type="button" className="ui-btn ui-btn-primary" onClick={create} disabled={!components.length}>
+          <Plus size={16} aria-hidden="true" /> New structure
+        </button>
+      }
+      cards={[
+        { label: 'Active', value: counts.ACTIVE, count: true, tone: 'paid', Icon: Layers, onSelect: () => setStatus('ACTIVE') },
+        { label: 'Draft', value: counts.DRAFT, count: true, tone: 'outstanding', Icon: Pencil, onSelect: () => setStatus('DRAFT') },
+        { label: 'People', value: people, count: true, tone: 'sent', Icon: Users },
+        { label: 'Components', value: components.length, count: true, tone: 'partial', Icon: SlidersHorizontal },
+      ]}
+      tabs={TABS}
+      statusValue={status}
+      statusCounts={counts}
+      onStatusChange={setStatus}
+      tabsLabel="Structure status"
+    >
+      <LoadFailed message={error} onRetry={load} />
+      {!all ? (
+        error ? null : <SkeletonCard lines={4} />
       ) : (
-        <div className="ui-card overflow-hidden">
-          <div className="overflow-x-auto ui-table-scroll ui-table-fit">
-            <table className="ui-table w-full">
-              <thead>
+        <div className="ui-table-scroll">
+          <table className="ui-table ui-table-sticky w-full">
+            <thead>
+              <tr>
+                <ColumnHeader label="Structure" col="name" state={filters} />
+                <ColumnHeader label="Cycle" col="cycle" state={filters} />
+                <th scope="col" className="ui-col-h-center">Effective from</th>
+                <th scope="col" className="ui-col-h-right">Components</th>
+                <th scope="col" className="ui-col-h-right">People on it</th>
+                <th scope="col" className="ui-col-h-center">Status</th>
+                <th scope="col"><span className="sr-only">Actions</span></th>
+              </tr>
+            </thead>
+            <tbody className="ui-rows">
+              {!rows.length ? (
                 <tr>
-                  <th scope="col" className="ui-th">Structure</th>
-                  <th scope="col" className="ui-th">Cycle</th>
-                  <th scope="col" className="ui-th ui-col-h-center">Effective from</th>
-                  <th scope="col" className="ui-th ui-col-h-right">Components</th>
-                  <th scope="col" className="ui-th ui-col-h-right">People on it</th>
-                  <th scope="col" className="ui-th ui-col-h-center">Status</th>
-                  <th scope="col" className="ui-th ui-col-h-center w-10">
-                    <span className="sr-only">Actions</span>
-                  </th>
+                  <td colSpan={7}>
+                    {inTab.length ? (
+                      <EmptyState kind="filtered" totalCount={inTab.length} title="No structures match" description="Nothing in this tab matches the search or the column filters." />
+                    ) : !components.length ? (
+                      <EmptyState
+                        icon={Layers}
+                        title="No salary components yet"
+                        description="A structure is a list of components. Add the earnings and deductions this company pays first, under Settings → Salary Components."
+                      />
+                    ) : (
+                      <EmptyState
+                        icon={Layers}
+                        title={status ? `No ${status.toLowerCase()} structures` : 'No salary structures yet'}
+                        description="Build the salary shapes this company pays on. One structure can serve everybody on the same arrangement, whatever their individual package."
+                        routes={status ? undefined : [{ label: 'New structure', description: 'E.g. Staff: Basic 50%, HRA 40% of Basic, the rest as allowance.', onSelect: create }]}
+                      />
+                    )}
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {rows.map((s) => (
-                  <tr key={s.id} className="ui-row-click" onClick={() => open(s.id)}>
-                    <td className="ui-col-entity">{s.name}</td>
-                    <td className="ui-col-meta">{FREQUENCIES.find((f) => f.id === s.frequency)?.label || s.frequency}</td>
-                    <td className="ui-col-date ui-col-h-center">{shownDate(s.effectiveFrom)}</td>
-                    <td className="ui-col-amount">{s.components.length}</td>
-                    <td className="ui-col-amount">{s.assignedCount}</td>
-                    <td>
-                      <span className={`ui-pill ${s.status === 'ACTIVE' ? 'ui-pill-pos' : 'ui-pill-neutral'}`}>
-                        {STATUSES.find((x) => x.id === s.status)?.label || s.status}
-                      </span>
+              ) : (
+                rows.map((x) => (
+                  <tr key={x.id} className="ui-row-click" onClick={() => open(x.id)}>
+                    <td className="ui-col-entity">{x.name}</td>
+                    <td className="ui-col-meta">{cycleOf(x)}</td>
+                    <td className="ui-col-date ui-col-h-center">{shownDate(x.effectiveFrom)}</td>
+                    <td className="ui-col-amount">{x.components.length}</td>
+                    <td className="ui-col-amount">{x.assignedCount}</td>
+                    <td className="ui-col-h-center">
+                      <span className={`ui-pill ${x.status === 'ACTIVE' ? 'ui-pill-pos' : 'ui-pill-neutral'}`}>{STATUSES.find((y) => y.id === x.status)?.label || x.status}</span>
                     </td>
-                    <td onClick={(e) => e.stopPropagation()}>
-                      {s.assignedCount === 0 ? (
-                        <button type="button" className="ui-icon-btn" aria-label={`Delete ${s.name}`} onClick={() => remove(s)}>
+                    <td className="text-end" onClick={(e) => e.stopPropagation()}>
+                      {x.assignedCount === 0 ? (
+                        <button type="button" className="ui-icon-btn" aria-label={`Delete ${x.name}`} onClick={() => remove(x)}>
                           <Trash2 size={16} aria-hidden="true" />
                         </button>
                       ) : null}
                     </td>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
       )}
-    </div>
+    </DocumentListShell>
   );
 }
 
@@ -310,9 +362,9 @@ const StructureEditor = ({ initial, components, onBack, onSaved }) => {
   const unused = components.filter((c) => !lines.some((l) => l.componentId === c.id));
 
   return (
-    <form onSubmit={save} className="space-y-4">
+    <form onSubmit={save} className="space-y-3">
       <PageHeader
-        entity="payroll"
+        entity="salaryStructure"
         title={initial.id ? 'Edit salary structure' : 'New salary structure'}
         description="Which components somebody on this structure is paid, and how each one is worked out."
         actions={
@@ -326,6 +378,7 @@ const StructureEditor = ({ initial, components, onBack, onSaved }) => {
           </>
         }
       />
+      <div className="px-5 lg:px-7 pb-8 space-y-4">
 
       {locked ? (
         <div
@@ -429,19 +482,19 @@ const StructureEditor = ({ initial, components, onBack, onSaved }) => {
               </p>
             </div>
           ) : (
-            <div className="overflow-x-auto ui-table-scroll ui-table-fit">
-              <table className="ui-table w-full">
+            <div className="ui-table-scroll">
+              <table className="ui-table ui-table-sticky w-full">
                 <thead>
                   <tr>
-                    <th scope="col" className="ui-th w-10"><span className="sr-only">Order</span></th>
-                    <th scope="col" className="ui-th">Component</th>
-                    <th scope="col" className="ui-th">How it is worked out</th>
-                    <th scope="col" className="ui-th ui-col-h-center">Balance of CTC</th>
-                    <th scope="col" className="ui-th ui-col-h-right">This structure pays</th>
-                    <th scope="col" className="ui-th ui-col-h-center w-10"><span className="sr-only">Remove</span></th>
+                    <th scope="col" className="w-10"><span className="sr-only">Order</span></th>
+                    <th scope="col">Component</th>
+                    <th scope="col">How it is worked out</th>
+                    <th scope="col" className="ui-col-h-center">Balance of CTC</th>
+                    <th scope="col" className="ui-col-h-right">This structure pays</th>
+                    <th scope="col" className="ui-col-h-center w-10"><span className="sr-only">Remove</span></th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="ui-rows">
                   <fieldset className="contents" disabled={locked}>
                     {lines.map((l, idx) => {
                       const c = byId.get(l.componentId);
@@ -584,6 +637,7 @@ const StructureEditor = ({ initial, components, onBack, onSaved }) => {
             <p className="ui-caption">Add a component to see what this structure pays.</p>
           )}
         </div>
+      </div>
       </div>
     </form>
   );

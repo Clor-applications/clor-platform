@@ -80,10 +80,12 @@ export default function PayrollSetup({ onOpen = () => {} }) {
 
   if (error) {
     return (
-      <div className="space-y-4">
-        <PageHeader entity="payroll" title="Payroll" description="Paying people, and the books that follow from it." />
+      <div className="space-y-3">
+        <PageHeader entity="settings" title="Payroll" description="Paying people, and the books that follow from it." />
+        <div className="px-5 lg:px-7 pb-8 space-y-4 max-w-3xl">
         <div className="ui-card p-3 text-sm" role="alert" style={{ borderColor: 'rgb(var(--neg))', color: 'rgb(var(--neg))' }}>
           {error}
+        </div>
         </div>
       </div>
     );
@@ -95,8 +97,9 @@ export default function PayrollSetup({ onOpen = () => {} }) {
      whole screen. */
   if (!setup.enabled) {
     return (
-      <div className="space-y-4">
-        <PageHeader entity="payroll" title="Payroll" description="Paying people, and the books that follow from it." />
+      <div className="space-y-3">
+        <PageHeader entity="settings" title="Payroll" description="Paying people, and the books that follow from it." />
+        <div className="px-5 lg:px-7 pb-8 space-y-4 max-w-3xl">
 
         <div className="ui-card p-4 space-y-3" style={{ maxWidth: '44rem' }}>
           <div className="flex items-center gap-2">
@@ -117,14 +120,15 @@ export default function PayrollSetup({ onOpen = () => {} }) {
             </button>
           </div>
         </div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <PageHeader
-        entity="payroll"
+        entity="settings"
         title="Set up Payroll"
         description={
           setup.ready
@@ -143,6 +147,7 @@ export default function PayrollSetup({ onOpen = () => {} }) {
           ) : null
         }
       />
+      <div className="px-5 lg:px-7 pb-8 space-y-4 max-w-3xl">
 
       <ol className="ui-card overflow-hidden divide-y" style={{ borderColor: 'rgb(var(--border))' }}>
         {setup.steps.map((step, i) => (
@@ -177,6 +182,7 @@ export default function PayrollSetup({ onOpen = () => {} }) {
         ))}
       </ol>
 
+      </div>
     </div>
   );
 }

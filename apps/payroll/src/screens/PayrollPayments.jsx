@@ -1,6 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, ArrowLeft, Ban, Check, Download, Plus, X } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, Ban, BookOpen, Check, Download, Plus, Send, Wallet, X } from 'lucide-react';
 
+import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
+import { useListSearch } from '@ui/components/ListToolbar';
+import DocumentListShell from '@ui/components/list/DocumentListShell';
+import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';
 import { PageHeader, SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { listPayrollRuns } from '../api/payrollRuns';
@@ -17,6 +21,7 @@ import {
   cancelPayrollPayment,
   getBankAdvice,
 } from '../api/payrollPayments';
+import LoadFailed from '../components/LoadFailed';
 
 /**
  * Paying people, and saying what the bank did about it.
@@ -67,40 +72,74 @@ const shownDate = (iso) => {
 
 const today = () => new Date().toISOString().slice(0, 10);
 
+const TABS = [
+  { value: '', label: 'All', tone: 'all' },
+  { value: 'OPEN', label: 'With the bank', tone: 'outstanding' },
+  { value: 'COMPLETED', label: 'Paid', tone: 'paid' },
+  { value: 'PROBLEM', label: 'Rejections', tone: 'overdue' },
+  { value: 'CANCELLED', label: 'Called off', tone: 'cancelled' },
+];
+const inTabOf = (p, t) => {
+  if (!t) return true;
+  if (t === 'OPEN') return ['DRAFT', 'PROCESSING'].includes(p.status);
+  if (t === 'PROBLEM') return ['PARTIAL', 'FAILED'].includes(p.status);
+  return p.status === t;
+};
+const COLUMNS = {
+  run: (p) => p.runNumber || '—',
+  books: (p) => (p.postingStatus === 'POSTED' ? 'Posted' : 'Not yet'),
+};
+const EXPORT_COLUMNS = [
+  { key: 'number', label: 'Payment' },
+  { key: 'runNumber', label: 'Payroll' },
+  { key: 'paymentDate', label: 'Date' },
+  { key: 'totalAmount', label: 'Amount', value: (p) => Number(p.totalAmount || 0) },
+  { key: 'paidAmount', label: 'Paid', value: (p) => Number(p.paidAmount || 0) },
+  { key: 'failedCount', label: 'Rejected', value: (p) => Number(p.failedCount || 0) },
+  { key: 'status', label: 'Status', value: (p) => STATUS[p.status]?.label || p.status },
+  { key: 'postingStatus', label: 'In books', value: (p) => (p.postingStatus === 'POSTED' ? 'Posted' : 'Not yet') },
+];
+
 export default function PayrollPayments() {
-  const [payments, setPayments] = useState([]);
+  const [payments, setPayments] = useState(null);
   const [runs, setRuns] = useState([]);
   const [banks, setBanks] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [openId, setOpenId] = useState(null);
   const [starting, setStarting] = useState(false);
+  const [status, setStatus] = useState('');
 
-  const load = useCallback(async () => {
-    try {
-      const [paymentRows, runRows, ledger] = await Promise.all([
-        listPayrollPayments(),
-        listPayrollRuns(),
-        paymentAccounts().catch(() => []),
-      ]);
-      setPayments(paymentRows);
-      /* Only a payroll somebody has approved can be paid, so only those are
-         offered. */
-      setRuns(runRows.filter((r) => ['APPROVED', 'LOCKED', 'POSTED', 'PAID'].includes(r.status)));
-      setBanks(ledger);
-      setError('');
-    } catch (e) {
-      setError(String(e?.message || 'Could not load salary payments.'));
-    } finally {
-      setLoading(false);
-    }
+  const load = useCallback(() => {
+    Promise.all([listPayrollPayments(), listPayrollRuns(), paymentAccounts().catch(() => [])])
+      .then(([paymentRows, runRows, ledger]) => {
+        setPayments(paymentRows);
+        /* Only a payroll somebody has approved can be paid, so only those are
+           offered. */
+        setRuns(runRows.filter((r) => ['APPROVED', 'LOCKED', 'POSTED', 'PAID'].includes(r.status)));
+        setBanks(ledger);
+        setError('');
+      })
+      .catch((e) => setError(String(e?.message || 'Could not load salary payments.')));
   }, []);
 
   useEffect(() => {
     load();
   }, [load]);
 
-  if (loading) return <SkeletonCard lines={6} />;
+  const counts = useMemo(() => Object.fromEntries(TABS.map((t) => [t.value, (payments || []).filter((p) => inTabOf(p, t.value)).length])), [payments]);
+  const figures = useMemo(() => {
+    const list = (payments || []).filter((p) => p.status !== 'CANCELLED');
+    return {
+      sent: list.reduce((a, p) => a + Number(p.totalAmount || 0), 0),
+      paid: list.reduce((a, p) => a + Number(p.paidAmount || 0), 0),
+      rejected: list.reduce((a, p) => a + Number(p.failedCount || 0), 0),
+      unposted: list.filter((p) => p.postingStatus !== 'POSTED').length,
+    };
+  }, [payments]);
+  const inTab = useMemo(() => (payments || []).filter((p) => inTabOf(p, status)), [payments, status]);
+  const search = useListSearch(inTab, ['number', 'runNumber']);
+  const filters = useColumnFilters();
+  const rows = filters.applyFilters(search.filtered, COLUMNS);
 
   if (openId) {
     return (
@@ -114,70 +153,95 @@ export default function PayrollPayments() {
     );
   }
 
+  const start = () => setStarting(true);
+
   return (
-    <div className="space-y-4">
-      <PageHeader
-        entity="payroll"
-        title="Salary payments"
-        description="The money going out for an approved payroll, what the bank did with each line, and the entry that clears it."
-        actions={
-          <button type="button" className="ui-btn ui-btn-primary" onClick={() => setStarting(true)} disabled={!runs.length}>
-            <Plus size={16} aria-hidden="true" /> New payment
-          </button>
-        }
-      />
-
-      {error ? (
-        <div className="ui-card p-3 text-sm" role="alert" style={{ borderColor: 'rgb(var(--neg))', color: 'rgb(var(--neg))' }}>
-          {error}
-        </div>
-      ) : null}
-
-      {starting ? (
-        <StartPayment
-          runs={runs}
-          banks={banks}
-          onCancel={() => setStarting(false)}
-          onCreated={(payment) => {
-            setStarting(false);
-            setOpenId(payment.id);
-          }}
-        />
-      ) : null}
-
-      {runs.length === 0 && !payments.length ? (
-        <EmptyState
-          title="No approved payroll to pay"
-          description="A payroll is paid once it has been checked and approved. Run one under Pay Runs and approve it, and it becomes payable here."
-        />
-      ) : payments.length === 0 && !starting ? (
-        <EmptyState
-          title="Nothing has been paid yet"
-          description="Start a payment and it gathers everybody on an approved payroll who is still owed, with the bank details to pay them at."
-          action={
-            <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setStarting(true)}>
-              <Plus size={16} aria-hidden="true" /> New payment
-            </button>
-          }
-        />
-      ) : payments.length ? (
-        <div className="ui-card overflow-hidden">
-          <div className="overflow-x-auto ui-table-scroll ui-table-fit">
-            <table className="ui-table w-full">
-              <thead>
+    <DocumentListShell
+      entity="payment"
+      title="Salary payments"
+      description="The money going out for an approved payroll, what the bank did with each line, and the entry that clears it."
+      compact
+      tight
+      denseCards
+      search={{ value: search.query, onChange: search.setQuery, placeholder: 'Search payments…', label: 'Search salary payments' }}
+      moreItems={payments?.length ? [exportMenuItem('Export payments')] : null}
+      onMoreSelect={(k) => {
+        const format = exportFormatFromKey(k);
+        if (!format) return;
+        runListExport({ format, title: 'Salary payments', fileName: 'Salary payments', label: 'payment/payments', columns: EXPORT_COLUMNS, rows });
+      }}
+      primary={
+        <button type="button" className="ui-btn ui-btn-primary" onClick={start} disabled={!runs.length || starting}>
+          <Plus size={16} aria-hidden="true" /> New payment
+        </button>
+      }
+      cards={[
+        { label: 'Sent', value: figures.sent, tone: 'sent', Icon: Send },
+        { label: 'Paid', value: figures.paid, tone: 'paid', Icon: Check, onSelect: () => setStatus('COMPLETED') },
+        { label: 'Rejected', value: figures.rejected, count: true, tone: 'overdue', Icon: X, onSelect: () => setStatus('PROBLEM') },
+        { label: 'Not posted', value: figures.unposted, count: true, tone: 'outstanding', Icon: BookOpen },
+      ]}
+      tabs={TABS}
+      statusValue={status}
+      statusCounts={counts}
+      onStatusChange={setStatus}
+      tabsLabel="Payment status"
+      above={
+        starting ? (
+          <StartPayment
+            runs={runs}
+            banks={banks}
+            onCancel={() => setStarting(false)}
+            onCreated={(payment) => {
+              setStarting(false);
+              setOpenId(payment.id);
+            }}
+          />
+        ) : null
+      }
+    >
+      <LoadFailed message={error} onRetry={load} />
+      {!payments ? (
+        error ? null : <SkeletonCard lines={4} />
+      ) : (
+        <div className="ui-table-scroll">
+          <table className="ui-table ui-table-sticky w-full">
+            <thead>
+              <tr>
+                <th scope="col">Payment</th>
+                <ColumnHeader label="Payroll" col="run" state={filters} />
+                <th scope="col" className="ui-col-h-center">Date</th>
+                <th scope="col" className="ui-col-h-right">Amount</th>
+                <th scope="col" className="ui-col-h-right">Paid</th>
+                <th scope="col" className="ui-col-h-right">Rejected</th>
+                <th scope="col" className="ui-col-h-center">Status</th>
+                <ColumnHeader label="In books" col="books" state={filters} align="center" />
+              </tr>
+            </thead>
+            <tbody className="ui-rows">
+              {!rows.length ? (
                 <tr>
-                  <th scope="col" className="ui-th">Payment</th>
-                  <th scope="col" className="ui-th">Payroll</th>
-                  <th scope="col" className="ui-th ui-col-h-center">Date</th>
-                  <th scope="col" className="ui-th ui-col-h-right">Amount</th>
-                  <th scope="col" className="ui-th ui-col-h-right">Paid</th>
-                  <th scope="col" className="ui-th ui-col-h-right">Rejected</th>
-                  <th scope="col" className="ui-th ui-col-h-center">Status</th>
-                  <th scope="col" className="ui-th ui-col-h-center">In books</th>
+                  <td colSpan={8}>
+                    {inTab.length ? (
+                      <EmptyState kind="filtered" totalCount={inTab.length} title="No payments match" description="Nothing in this tab matches the search or the column filters." />
+                    ) : !runs.length && !payments.length ? (
+                      <EmptyState
+                        icon={Wallet}
+                        title="No approved payroll to pay"
+                        description="A payroll is paid once it has been checked and approved. Run one under Pay Runs and approve it, and it becomes payable here."
+                      />
+                    ) : (
+                      <EmptyState
+                        icon={Wallet}
+                        title={status ? `No payments ${TABS.find((t) => t.value === status)?.label.toLowerCase()}` : 'Nothing has been paid yet'}
+                        description="Start a payment and it gathers everybody on an approved payroll who is still owed, with the bank details to pay them at."
+                        routes={runs.length && !status ? [{ label: 'New payment', description: 'Preview who is owed before anything is sent.', onSelect: start }] : undefined}
+                      />
+                    )}
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {payments.map((p) => (
+              ) : (
+                rows.map((p) => (
                   <tr key={p.id} className="ui-row-click" onClick={() => setOpenId(p.id)}>
                     <td className="ui-col-id">{p.number}</td>
                     <td className="ui-col-entity">{p.runNumber || '—'}</td>
@@ -185,22 +249,20 @@ export default function PayrollPayments() {
                     <td className="ui-col-amount">{money(p.totalAmount)}</td>
                     <td className="ui-col-amount">{money(p.paidAmount)}</td>
                     <td className="ui-col-amount">{p.failedCount || '—'}</td>
-                    <td>
+                    <td className="ui-col-h-center">
                       <span className={`ui-pill ${STATUS[p.status]?.tone || 'ui-pill-neutral'}`}>{STATUS[p.status]?.label || p.status}</span>
                     </td>
-                    <td>
-                      <span className={`ui-pill ${p.postingStatus === 'POSTED' ? 'ui-pill-pos' : 'ui-pill-neutral'}`}>
-                        {p.postingStatus === 'POSTED' ? 'Posted' : 'Not yet'}
-                      </span>
+                    <td className="ui-col-h-center">
+                      <span className={`ui-pill ${p.postingStatus === 'POSTED' ? 'ui-pill-pos' : 'ui-pill-neutral'}`}>{p.postingStatus === 'POSTED' ? 'Posted' : 'Not yet'}</span>
                     </td>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
-      ) : null}
-    </div>
+      )}
+    </DocumentListShell>
   );
 }
 
@@ -454,9 +516,9 @@ const PaymentDetail = ({ paymentId, onBack }) => {
   if (!payment) return null;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <PageHeader
-        entity="payroll"
+        entity="payment"
         title={payment.number}
         description={`${payment.runNumber || 'Payroll'} · ${shownDate(payment.paymentDate)} · ${
           METHODS.find((m) => m.id === payment.method)?.label || payment.method
@@ -475,6 +537,7 @@ const PaymentDetail = ({ paymentId, onBack }) => {
         }
       />
 
+      <div className="px-5 lg:px-7 pb-8 space-y-4">
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <Figure label="In this payment" value={money(payment.totalAmount)} />
         <Figure label="Paid" value={money(payment.paidAmount)} />
@@ -506,16 +569,16 @@ const PaymentDetail = ({ paymentId, onBack }) => {
           <div className="px-4 py-3 ui-sec-head" style={{ borderBottom: '1px solid rgb(var(--border))' }}>
             What this writes to the books
           </div>
-          <div className="overflow-x-auto ui-table-scroll ui-table-fit">
-            <table className="ui-table w-full">
+          <div className="ui-table-scroll">
+            <table className="ui-table ui-table-sticky w-full">
               <thead>
                 <tr>
-                  <th scope="col" className="ui-th">Account</th>
-                  <th scope="col" className="ui-th ui-col-h-right">Debit</th>
-                  <th scope="col" className="ui-th ui-col-h-right">Credit</th>
+                  <th scope="col">Account</th>
+                  <th scope="col" className="ui-col-h-right">Debit</th>
+                  <th scope="col" className="ui-col-h-right">Credit</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="ui-rows">
                 {posting.lines.map((l) => (
                   <tr key={l.ledgerAccountId}>
                     <td className="ui-col-entity">{l.ledgerName}</td>
@@ -559,20 +622,20 @@ const PaymentDetail = ({ paymentId, onBack }) => {
           </div>
         </div>
 
-        <div className="overflow-x-auto ui-table-scroll ui-table-fit">
-          <table className="ui-table w-full">
+        <div className="ui-table-scroll">
+          <table className="ui-table ui-table-sticky w-full">
             <thead>
               <tr>
-                <th scope="col" className="ui-th">Employee</th>
-                <th scope="col" className="ui-th">Payslip</th>
-                <th scope="col" className="ui-th">Account</th>
-                <th scope="col" className="ui-th ui-col-h-right">Amount</th>
-                <th scope="col" className="ui-th ui-col-h-center">Status</th>
-                <th scope="col" className="ui-th">Reference</th>
-                {settled ? <th scope="col" className="ui-th ui-col-h-center">Mark</th> : null}
+                <th scope="col">Employee</th>
+                <th scope="col">Payslip</th>
+                <th scope="col">Account</th>
+                <th scope="col" className="ui-col-h-right">Amount</th>
+                <th scope="col" className="ui-col-h-center">Status</th>
+                <th scope="col">Reference</th>
+                {settled ? <th scope="col" className="ui-col-h-center">Mark</th> : null}
               </tr>
             </thead>
-            <tbody>
+            <tbody className="ui-rows">
               {lines.map((l) => (
                 <tr key={l.id}>
                   <td className="ui-col-entity">
@@ -629,6 +692,7 @@ const PaymentDetail = ({ paymentId, onBack }) => {
           }}
         />
       ) : null}
+      </div>
     </div>
   );
 };

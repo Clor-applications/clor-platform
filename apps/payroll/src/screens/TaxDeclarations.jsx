@@ -1,12 +1,17 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { Check, Download, Printer, RotateCcw } from 'lucide-react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { Check, Clock, Download, FileText, Printer, Receipt, RotateCcw } from 'lucide-react';
 
-import { PageHeader, SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
+import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
+import { useListSearch } from '@ui/components/ListToolbar';
+import DocumentListShell from '@ui/components/list/DocumentListShell';
+import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';
+import { SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import Drawer from '@ui/components/ui/Drawer';
 import { formatDateIn } from '@ui/utils/dates';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { downloadCsv } from '@ui/utils/csv';
 import { get24q, getForm16, getTaxDeclaration, listTaxDeclarations, reopenTaxDeclaration, saveTaxDeclaration, verifyTaxDeclaration } from '../api/payrollTaxDeclarations';
+import LoadFailed from '../components/LoadFailed';
 
 const STATUS = {
   NONE: { label: 'Not declared', pill: 'ui-pill-neutral' },
@@ -31,11 +36,33 @@ const lastYear = `${Number(thisYear.slice(0, 4)) - 1}-${thisYear.slice(2, 4)}`;
  * portal, or entered here), what their proofs support, and verification.
  * Until verified, tax is withheld on what was declared; after, on what was proved.
  */
+const TABS = [
+  { value: '', label: 'All', tone: 'all' },
+  { value: 'SUBMITTED', label: 'To verify', tone: 'outstanding' },
+  { value: 'VERIFIED', label: 'Verified', tone: 'paid' },
+  { value: 'DRAFT', label: 'Draft', tone: 'partial' },
+  { value: 'NONE', label: 'Not declared', tone: 'cancelled' },
+];
+const regimeOf = (p) => (p.regime === 'OLD' ? 'Old' : 'New');
+const COLUMNS = {
+  name: (p) => p.name,
+  regime: regimeOf,
+};
+const EXPORT_COLUMNS = [
+  { key: 'name', label: 'Employee' },
+  { key: 'code', label: 'Code' },
+  { key: 'regime', label: 'Regime', value: regimeOf },
+  { key: 'declared', label: 'Declared', value: (p) => (p.regime === 'OLD' ? Number(p.declared || 0) : '') },
+  { key: 'verified', label: 'Verified', value: (p) => (p.regime === 'OLD' && p.verified != null ? Number(p.verified) : '') },
+  { key: 'status', label: 'Status', value: (p) => STATUS[p.status]?.label || p.status },
+];
+
 export default function TaxDeclarations() {
   const [fy, setFy] = useState(thisYear);
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
   const [open, setOpen] = useState(null);
+  const [status, setStatus] = useState('');
 
   const load = useCallback(() => {
     listTaxDeclarations(fy)
@@ -49,80 +76,107 @@ export default function TaxDeclarations() {
     load();
   }, [load]);
 
-  const people = data?.people || [];
-  const waiting = people.filter((p) => p.status === 'SUBMITTED').length;
+  const people = useMemo(() => data?.people || [], [data]);
+  const counts = useMemo(() => Object.fromEntries(TABS.map((t) => [t.value, people.filter((p) => !t.value || p.status === t.value).length])), [people]);
+  const figures = useMemo(
+    () => ({
+      oldRegime: people.filter((p) => p.regime === 'OLD').length,
+      declared: people.filter((p) => p.regime === 'OLD').reduce((a, p) => a + Number(p.declared || 0), 0),
+      verified: people.filter((p) => p.regime === 'OLD' && p.verified != null).reduce((a, p) => a + Number(p.verified || 0), 0),
+    }),
+    [people]
+  );
+  const inTab = useMemo(() => people.filter((p) => !status || p.status === status), [people, status]);
+  const search = useListSearch(inTab, ['name', 'code']);
+  const filters = useColumnFilters();
+  const rows = filters.applyFilters(search.filtered, COLUMNS);
 
   return (
-    <div className="space-y-4">
-      <PageHeader
-        entity="payroll"
-        title="Tax declarations"
-        description="Regime and investments for income tax. Tax is withheld on what was declared until the proofs are verified."
-        actions={
-          <div className="flex flex-wrap items-center gap-2">
-            <select className="ui-select w-36" value={fy} onChange={(e) => setFy(e.target.value)} aria-label="Financial year">
-              <option value={thisYear}>FY {thisYear}</option>
-              <option value={lastYear}>FY {lastYear}</option>
-            </select>
-            <Return24q fy={fy} />
-          </div>
-        }
-      />
-      {error ? (
-        <div className="ui-card flex flex-wrap items-center justify-between gap-3 p-4 text-sm" role="alert">
-          <span style={{ color: 'rgb(var(--neg))' }}>{error}</span>
-          <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={load}>Try again</button>
-        </div>
-      ) : null}
+    <DocumentListShell
+      entity="taxDeclaration"
+      title="Tax declarations"
+      description="Regime and investments for income tax. Tax is withheld on what was declared until the proofs are verified."
+      compact
+      tight
+      denseCards
+      search={{ value: search.query, onChange: search.setQuery, placeholder: 'Search people…', label: 'Search tax declarations' }}
+      headerExtras={<Return24q fy={fy} />}
+      moreItems={people.length ? [exportMenuItem('Export declarations')] : null}
+      onMoreSelect={(k) => {
+        const format = exportFormatFromKey(k);
+        if (!format) return;
+        runListExport({ format, title: 'Tax declarations', subtitle: `FY ${fy}`, fileName: `Tax declarations FY ${fy}`, label: 'person/people', columns: EXPORT_COLUMNS, rows });
+      }}
+      cards={[
+        { label: 'To verify', value: counts.SUBMITTED || 0, count: true, tone: 'outstanding', Icon: Clock, onSelect: () => setStatus('SUBMITTED') },
+        { label: 'Old regime', value: figures.oldRegime, count: true, tone: 'partial', Icon: Receipt },
+        { label: 'Declared', value: figures.declared, tone: 'sent', Icon: FileText },
+        { label: 'Verified', value: figures.verified, tone: 'paid', Icon: Check, onSelect: () => setStatus('VERIFIED') },
+      ]}
+      tabs={TABS}
+      statusValue={status}
+      statusCounts={counts}
+      onStatusChange={setStatus}
+      tabsLabel="Declaration status"
+      tabsExtras={
+        <select className="ui-select ui-btn-sm !w-auto" value={fy} onChange={(e) => setFy(e.target.value)} aria-label="Financial year">
+          <option value={thisYear}>FY {thisYear}</option>
+          <option value={lastYear}>FY {lastYear}</option>
+        </select>
+      }
+    >
+      <LoadFailed message={error} onRetry={load} />
       {!data ? (
-        error ? null : <SkeletonCard lines={5} />
-      ) : !people.length ? (
-        <EmptyState title="Nobody in payroll yet" description="People paid through payroll appear here." />
+        error ? null : <SkeletonCard lines={4} />
       ) : (
-        <div className="ui-card overflow-hidden">
-          {waiting ? <div className="ui-caption px-4 pt-3">{waiting} waiting for proofs to be checked.</div> : null}
-          <div className="overflow-x-auto ui-table-scroll ui-table-fit">
-            <table className="ui-table w-full">
-              <thead>
+        <div className="ui-table-scroll">
+          <table className="ui-table ui-table-sticky w-full">
+            <thead>
+              <tr>
+                <ColumnHeader label="Employee" col="name" state={filters} />
+                <ColumnHeader label="Regime" col="regime" state={filters} />
+                <th scope="col" className="ui-col-h-right">Declared</th>
+                <th scope="col" className="ui-col-h-right">Verified</th>
+                <th scope="col" className="ui-col-h-center">Status</th>
+              </tr>
+            </thead>
+            <tbody className="ui-rows">
+              {!rows.length ? (
                 <tr>
-                  <th scope="col" className="ui-th">Employee</th>
-                  <th scope="col" className="ui-th">Regime</th>
-                  <th scope="col" className="ui-th ui-col-h-amount">Declared</th>
-                  <th scope="col" className="ui-th ui-col-h-amount">Verified</th>
-                  <th scope="col" className="ui-th ui-col-h-center">Status</th>
+                  <td colSpan={5}>
+                    {inTab.length ? (
+                      <EmptyState kind="filtered" totalCount={inTab.length} title="Nobody matches" description="Nobody in this tab matches the search or the column filters." />
+                    ) : (
+                      <EmptyState
+                        icon={Receipt}
+                        title={status ? `Nobody ${STATUS[status]?.label.toLowerCase()}` : 'Nobody in payroll yet'}
+                        description={status ? 'Pick another tab to see everyone.' : 'People paid through payroll appear here. They declare from the employee portal, or HR enters it here.'}
+                      />
+                    )}
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {people.map((p) => (
-                  <tr key={p.employeeId} className="cursor-pointer" onClick={() => setOpen(p.employeeId)}>
+              ) : (
+                rows.map((p) => (
+                  <tr key={p.employeeId} className="ui-row-click" onClick={() => setOpen(p.employeeId)}>
                     <td className="ui-col-entity">
-                      <button type="button" className="text-start" onClick={() => setOpen(p.employeeId)}>
-                        {p.name}
-                        {p.code ? <span className="ui-caption"> · {p.code}</span> : null}
-                      </button>
+                      {p.name}
+                      {p.code ? <span className="ui-caption"> · {p.code}</span> : null}
                     </td>
-                    <td className="text-sm">{p.regime === 'OLD' ? 'Old' : 'New'}</td>
+                    <td className="ui-col-meta">{regimeOf(p)}</td>
                     <td className="ui-col-amount">{p.regime === 'OLD' && p.declared ? money(p.declared) : '—'}</td>
                     <td className="ui-col-amount">{p.verified != null && p.regime === 'OLD' ? money(p.verified) : '—'}</td>
                     <td className="ui-col-h-center">
                       <span className={`ui-pill ${STATUS[p.status]?.pill || 'ui-pill-neutral'}`}>{STATUS[p.status]?.label || p.status}</span>
                     </td>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
       )}
-      {open ? (
-        <Declaration
-          employeeId={open}
-          fy={fy}
-          onClose={() => setOpen(null)}
-          onChanged={load}
-        />
-      ) : null}
-    </div>
+      {open ? <Declaration employeeId={open} fy={fy} onClose={() => setOpen(null)} onChanged={load} /> : null}
+    </DocumentListShell>
   );
 }
 
@@ -245,16 +299,16 @@ function Declaration({ employeeId, fy, onClose, onChanged }) {
 
           {form.regime === 'OLD' ? (
             <>
-              <div className="overflow-x-auto ui-table-scroll ui-table-fit">
-                <table className="ui-table w-full">
+              <div className="ui-table-scroll">
+                <table className="ui-table ui-table-sticky w-full">
                   <thead>
                     <tr>
-                      <th scope="col" className="ui-th">Section</th>
-                      <th scope="col" className="ui-th ui-col-h-amount">Declared</th>
-                      <th scope="col" className="ui-th ui-col-h-amount">Verified</th>
+                      <th scope="col">Section</th>
+                      <th scope="col" className="ui-col-h-right">Declared</th>
+                      <th scope="col" className="ui-col-h-right">Verified</th>
                     </tr>
                   </thead>
-                  <tbody>
+                  <tbody className="ui-rows">
                     {d.items.map((meta) => {
                       const i = form.items.find((x) => x.code === meta.code);
                       const cap = (meta.code === '80D_SELF' && form.seniorSelf) || (meta.code === '80D_PARENTS' && form.seniorParents) ? meta.seniorCap : meta.cap;
@@ -419,7 +473,7 @@ ${row('11. Tax deducted at source', p.tdsDeducted)}
 ${row(p.balance >= 0 ? '12. Tax still payable' : '12. Deducted in excess', Math.abs(p.balance || 0), true)}
 </table>
 <h2>Tax deducted, month by month</h2>
-<table><thead><tr><th>Month</th><th>Paid on</th><th class="r">Salary</th><th class="r">TDS</th></tr></thead><tbody>${months}</tbody></table>
+<table><thead><tr><th>Month</th><th>Paid on</th><th class="r">Salary</th><th class="r">TDS</th></tr></thead><tbody className="ui-rows">${months}</tbody></table>
 <p class="n">${p.regime === 'OLD' ? `Deductions are as ${p.deductionBasis === 'VERIFIED' ? 'verified from proofs' : 'declared, not yet verified'}. ` : ''}Worked out from approved payslips. Part A (details of tax deposited) is issued from TRACES. Printed ${escapeHtml(new Date().toLocaleString())}.</p>
 </body></html>`);
   w.document.close();

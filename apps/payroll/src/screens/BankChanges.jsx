@@ -1,10 +1,15 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { Check, X } from 'lucide-react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { Check, Clock, Landmark, UserRound, X } from 'lucide-react';
 
-import { PageHeader, SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
+import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
+import { useListSearch } from '@ui/components/ListToolbar';
+import DocumentListShell from '@ui/components/list/DocumentListShell';
+import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';
+import { SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import { formatDateIn } from '@ui/utils/dates';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { approveBankChange, listBankChanges, rejectBankChange } from '../api/payrollPeople';
+import LoadFailed from '../components/LoadFailed';
 
 const STATUS = {
   PENDING: { label: 'Waiting', pill: 'ui-pill-warn' },
@@ -20,20 +25,38 @@ const account = (num, ifsc, bank) => [num, ifsc, bank].filter(Boolean).join(' ·
  * waits here until somebody other than the person who entered it approves it
  * (or that person, a day later); pay goes to the account on file until then.
  */
+const TABS = [
+  { value: 'PENDING', label: 'Waiting', tone: 'outstanding' },
+  { value: 'APPROVED', label: 'Approved', tone: 'paid' },
+  { value: 'REJECTED', label: 'Rejected', tone: 'overdue' },
+  { value: '', label: 'All', tone: 'all' },
+];
+const COLUMNS = {
+  employee: (r) => r.employeeName || '—',
+};
+const EXPORT_COLUMNS = [
+  { key: 'employeeName', label: 'Employee' },
+  { key: 'employeeCode', label: 'Code' },
+  { key: 'from', label: 'From', value: (r) => account(r.oldAccount, r.oldIfsc, r.oldBankName) },
+  { key: 'to', label: 'To', value: (r) => account(r.newAccount, r.newIfsc, r.newBankName) },
+  { key: 'requestedAt', label: 'Asked', value: (r) => String(r.requestedAt || '').slice(0, 10) },
+  { key: 'status', label: 'Status', value: (r) => STATUS[r.status]?.label || r.status },
+];
+
 export default function BankChanges() {
-  const [show, setShow] = useState('PENDING');
-  const [rows, setRows] = useState(null);
+  const [status, setStatus] = useState('PENDING');
+  const [all, setAll] = useState(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState('');
 
   const load = useCallback(() => {
-    listBankChanges({ status: show })
+    listBankChanges({ status: 'ALL' })
       .then((r) => {
-        setRows(r);
+        setAll(r);
         setError('');
       })
       .catch((e) => setError(String(e?.message || 'Could not load bank changes.')));
-  }, [show]);
+  }, []);
   useEffect(() => {
     load();
   }, [load]);
@@ -60,45 +83,77 @@ export default function BankChanges() {
     }
   };
 
+  const counts = useMemo(() => {
+    const list = all || [];
+    const n = (st) => list.filter((r) => r.status === st).length;
+    return { '': list.length, PENDING: n('PENDING'), APPROVED: n('APPROVED'), REJECTED: n('REJECTED') };
+  }, [all]);
+  const inTab = useMemo(() => (all || []).filter((r) => !status || r.status === status), [all, status]);
+  const search = useListSearch(inTab, ['employeeName', 'employeeCode', 'newAccount', 'oldAccount']);
+  const filters = useColumnFilters();
+  const rows = filters.applyFilters(search.filtered, COLUMNS);
+  const mineWaiting = useMemo(() => (all || []).filter((r) => r.status === 'PENDING' && r.mine).length, [all]);
+
   return (
-    <div className="space-y-4">
-      <PageHeader
-        entity="payroll"
-        title="Bank changes"
-        description="Changes to where people are paid wait for a second person's approval."
-        actions={
-          <select className="ui-select" value={show} onChange={(e) => setShow(e.target.value)} aria-label="Show">
-            <option value="PENDING">Waiting</option>
-            <option value="ALL">All changes</option>
-          </select>
-        }
-      />
-      {error ? (
-        <div className="ui-card flex flex-wrap items-center justify-between gap-3 p-4 text-sm" role="alert">
-          <span style={{ color: 'rgb(var(--neg))' }}>{error}</span>
-          <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={load}>Try again</button>
-        </div>
-      ) : null}
-      {!rows ? (
+    <DocumentListShell
+      entity="bankChange"
+      title="Bank changes"
+      description="Changes to where people are paid wait for a second person's approval."
+      compact
+      tight
+      denseCards
+      search={{ value: search.query, onChange: search.setQuery, placeholder: 'Search bank changes…', label: 'Search bank changes' }}
+      moreItems={all?.length ? [exportMenuItem('Export bank changes')] : null}
+      onMoreSelect={(k) => {
+        const format = exportFormatFromKey(k);
+        if (!format) return;
+        runListExport({ format, title: 'Bank changes', fileName: 'Bank changes', label: 'change/changes', columns: EXPORT_COLUMNS, rows });
+      }}
+      cards={[
+        { label: 'Waiting', value: counts.PENDING, count: true, tone: 'outstanding', Icon: Clock, onSelect: () => setStatus('PENDING') },
+        { label: 'Entered by you', value: mineWaiting, count: true, tone: 'partial', Icon: UserRound },
+        { label: 'Approved', value: counts.APPROVED, count: true, tone: 'paid', Icon: Check, onSelect: () => setStatus('APPROVED') },
+        { label: 'Rejected', value: counts.REJECTED, count: true, tone: 'overdue', Icon: X, onSelect: () => setStatus('REJECTED') },
+      ]}
+      tabs={TABS}
+      statusValue={status}
+      statusCounts={counts}
+      onStatusChange={setStatus}
+      tabsLabel="Approval"
+    >
+      <LoadFailed message={error} onRetry={load} />
+      {!all ? (
         error ? null : <SkeletonCard lines={4} />
-      ) : !rows.length ? (
-        <EmptyState title={show === 'PENDING' ? 'Nothing waiting' : 'No bank changes yet'} description={show === 'PENDING' ? 'Bank detail changes waiting for approval appear here.' : ''} />
       ) : (
-        <div className="ui-card overflow-hidden">
-          <div className="overflow-x-auto ui-table-scroll ui-table-fit">
-            <table className="ui-table w-full">
-              <thead>
+        <div className="ui-table-scroll">
+          <table className="ui-table ui-table-sticky w-full">
+            <thead>
+              <tr>
+                <ColumnHeader label="Employee" col="employee" state={filters} />
+                <th scope="col">From</th>
+                <th scope="col">To</th>
+                <th scope="col">Asked</th>
+                <th scope="col" className="ui-col-h-center">Status</th>
+                <th scope="col"><span className="sr-only">Actions</span></th>
+              </tr>
+            </thead>
+            <tbody className="ui-rows">
+              {!rows.length ? (
                 <tr>
-                  <th scope="col" className="ui-th">Employee</th>
-                  <th scope="col" className="ui-th">From</th>
-                  <th scope="col" className="ui-th">To</th>
-                  <th scope="col" className="ui-th">Asked</th>
-                  <th scope="col" className="ui-th ui-col-h-center">Status</th>
-                  <th scope="col" className="ui-th"><span className="sr-only">Actions</span></th>
+                  <td colSpan={6}>
+                    {inTab.length ? (
+                      <EmptyState kind="filtered" totalCount={inTab.length} title="No bank changes match" description="Nothing in this tab matches the search or the column filters." />
+                    ) : (
+                      <EmptyState
+                        icon={Landmark}
+                        title={status === 'PENDING' ? 'Nothing waiting' : status ? `No ${STATUS[status]?.label.toLowerCase()} changes` : 'No bank changes yet'}
+                        description="When someone's bank details change on their payroll profile, the change waits here for a second person's approval."
+                      />
+                    )}
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {rows.map((r) => (
+              ) : (
+                rows.map((r) => (
                   <tr key={r.id}>
                     <td className="ui-col-entity">
                       {r.employeeName || '—'}
@@ -106,7 +161,7 @@ export default function BankChanges() {
                     </td>
                     <td className="ui-mono text-sm">{account(r.oldAccount, r.oldIfsc, r.oldBankName)}</td>
                     <td className="ui-mono text-sm">{account(r.newAccount, r.newIfsc, r.newBankName)}</td>
-                    <td className="whitespace-nowrap text-sm">
+                    <td className="ui-col-date whitespace-nowrap">
                       {formatDateIn(String(r.requestedAt).slice(0, 10))}
                       {r.mine ? <span className="ui-caption block">by you</span> : null}
                     </td>
@@ -115,7 +170,7 @@ export default function BankChanges() {
                     </td>
                     <td className="whitespace-nowrap text-end">
                       {r.status === 'PENDING' ? (
-                        <span className="inline-flex gap-2">
+                        <span className="inline-flex gap-1">
                           <button type="button" data-permission="PAYROLL::Payroll Runs::APPROVE" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={busy === r.id} onClick={() => decide(r, true)}>
                             <Check size={14} aria-hidden="true" /> Approve
                           </button>
@@ -128,12 +183,12 @@ export default function BankChanges() {
                       ) : null}
                     </td>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
       )}
-    </div>
+    </DocumentListShell>
   );
 }

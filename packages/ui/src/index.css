@@ -5814,37 +5814,37 @@ th.ui-th {
  * unselected tab disappeared. Inverted here from tokens (off-white control,
  * dark ink). People and Payroll answer this in their own coral dark rules.
  */
-:root[data-theme='dark']:not([data-app='people']):not([data-app='payroll']) :is(.ui-btn-primary, .ui-btn-brand) {
+:root[data-theme='dark']:not([data-app='people']) :is(.ui-btn-primary, .ui-btn-brand) {
   background-color: rgb(var(--fg)) !important;
   border-color: rgb(var(--fg)) !important;
   color: rgb(var(--app-bg)) !important;
 }
-:root[data-theme='dark']:not([data-app='people']):not([data-app='payroll']) :is(.ui-btn-primary, .ui-btn-brand):hover:not(:disabled) {
+:root[data-theme='dark']:not([data-app='people']) :is(.ui-btn-primary, .ui-btn-brand):hover:not(:disabled) {
   background-color: rgb(var(--fg) / 0.86) !important;
   border-color: rgb(var(--fg) / 0.86) !important;
   color: rgb(var(--app-bg)) !important;
 }
-:root[data-theme='dark']:not([data-app='people']):not([data-app='payroll']) :is(.ui-btn-primary, .ui-btn-brand):active:not(:disabled) {
+:root[data-theme='dark']:not([data-app='people']) :is(.ui-btn-primary, .ui-btn-brand):active:not(:disabled) {
   background-color: rgb(var(--fg) / 0.74) !important;
   border-color: rgb(var(--fg) / 0.74) !important;
 }
-:root[data-theme='dark']:not([data-app='people']):not([data-app='payroll']) :is(.ui-segment[aria-selected='true'], [role='tab'][aria-selected='true'].ui-segment) {
+:root[data-theme='dark']:not([data-app='people']) :is(.ui-segment[aria-selected='true'], [role='tab'][aria-selected='true'].ui-segment) {
   background-color: rgb(var(--fg)) !important;
   border-color: rgb(var(--fg)) !important;
   color: rgb(var(--app-bg)) !important;
 }
-:root[data-theme='dark']:not([data-app='people']):not([data-app='payroll']) .ui-segment[aria-selected='true'] .ui-segment-count {
+:root[data-theme='dark']:not([data-app='people']) .ui-segment[aria-selected='true'] .ui-segment-count {
   background-color: rgb(0 0 0 / 0.16) !important;
   color: rgb(var(--app-bg)) !important;
 }
-:root[data-theme='dark']:not([data-app='people']):not([data-app='payroll']) :is(.ui-segment:not([aria-selected='true']), [role='tab']:not([aria-selected='true'])),
-:root[data-theme='dark']:not([data-app='people']):not([data-app='payroll']) .ui-segment:not([aria-selected='true']) .ui-segment-count {
+:root[data-theme='dark']:not([data-app='people']) :is(.ui-segment:not([aria-selected='true']), [role='tab']:not([aria-selected='true'])),
+:root[data-theme='dark']:not([data-app='people']) .ui-segment:not([aria-selected='true']) .ui-segment-count {
   color: rgb(var(--fg)) !important;
 }
-:root[data-theme='dark']:not([data-app='people']):not([data-app='payroll']) :is(.ui-tab.is-active, [role='tab'][aria-selected='true']:not(.ui-segment)) {
+:root[data-theme='dark']:not([data-app='people']) :is(.ui-tab.is-active, [role='tab'][aria-selected='true']:not(.ui-segment)) {
   color: rgb(var(--fg));
 }
-:root[data-theme='dark']:not([data-app='people']):not([data-app='payroll']) .ui-tab.is-active::after {
+:root[data-theme='dark']:not([data-app='people']) .ui-tab.is-active::after {
   background-color: rgb(var(--fg));
 }
 .report-status {
@@ -6407,8 +6407,8 @@ th.ui-th {
 .legal-links a:hover { color: rgb(var(--fg)); }
 
 /*
- * HR apps palette — People, Payroll. (Attendance moved to Accounting's graphite
- * chrome on 2026-10-20 so its pages read as the same product.)
+ * HR apps palette — People. (Attendance on 2026-10-20 and Payroll on 2026-10-21
+ * moved to Accounting's graphite chrome so their pages read as the same product.)
  *
  * Coral, after Horilla HRMS (its default "Coral Red" theme: #E54F38 on a
  * #F6F6F6 ground, Inter). Accounting keeps the graphite chrome above. Shades
@@ -6421,8 +6421,7 @@ th.ui-th {
  * --brand-hover/--brand-pressed, resolved there, so overriding only the
  * brand tokens would leave the buttons graphite.
  */
-[data-app='people'],
-[data-app='payroll'] {
+[data-app='people'] {
   --app-bg: 246 246 246;
   --brand: 229 79 56;
   --brand-deep: 172 59 42;
@@ -6446,9 +6445,7 @@ th.ui-th {
   --page-heading-bg: 254 246 245;
 }
 :root[data-theme='dark'] [data-app='people'],
-:root[data-theme='dark'] [data-app='payroll'],
-:root[data-theme='dark'][data-app='people'],
-:root[data-theme='dark'][data-app='payroll'] {
+:root[data-theme='dark'][data-app='people'] {
   --app-bg: 9 9 11;
   --brand: 239 106 85;
   --brand-deep: 242 132 111;
@@ -6479,42 +6476,42 @@ th.ui-th {
  * to the three apps. Unselected tab text uses the theme's muted ink rather
  * than #18181b, which is also what keeps it readable in dark mode.
  */
-:where([data-app='people'], [data-app='payroll']) .ui-btn-primary,
-:where([data-app='people'], [data-app='payroll']) .ui-btn-brand {
+:where([data-app='people']) .ui-btn-primary,
+:where([data-app='people']) .ui-btn-brand {
   background-color: rgb(var(--btn-primary-bg)) !important;
   border-color: rgb(var(--btn-primary-bg)) !important;
   color: rgb(var(--on-brand)) !important;
 }
-:where([data-app='people'], [data-app='payroll']) .ui-btn-primary:hover:not(:disabled),
-:where([data-app='people'], [data-app='payroll']) .ui-btn-brand:hover:not(:disabled) {
+:where([data-app='people']) .ui-btn-primary:hover:not(:disabled),
+:where([data-app='people']) .ui-btn-brand:hover:not(:disabled) {
   background-color: rgb(var(--btn-primary-hover)) !important;
   border-color: rgb(var(--btn-primary-hover)) !important;
 }
-:where([data-app='people'], [data-app='payroll']) .ui-btn-primary:active:not(:disabled),
-:where([data-app='people'], [data-app='payroll']) .ui-btn-brand:active:not(:disabled) {
+:where([data-app='people']) .ui-btn-primary:active:not(:disabled),
+:where([data-app='people']) .ui-btn-brand:active:not(:disabled) {
   background-color: rgb(var(--brand-pressed)) !important;
   border-color: rgb(var(--brand-pressed)) !important;
 }
-:where([data-app='people'], [data-app='payroll']) .ui-segment[aria-selected='true'],
-:where([data-app='people'], [data-app='payroll']) [role='tab'][aria-selected='true'].ui-segment {
+:where([data-app='people']) .ui-segment[aria-selected='true'],
+:where([data-app='people']) [role='tab'][aria-selected='true'].ui-segment {
   background-color: rgb(var(--btn-primary-bg)) !important;
   border-color: rgb(var(--btn-primary-bg)) !important;
   color: rgb(var(--on-brand)) !important;
 }
-:where([data-app='people'], [data-app='payroll']) .ui-segment:not([aria-selected='true']),
-:where([data-app='people'], [data-app='payroll']) [role='tab']:not([aria-selected='true']) {
+:where([data-app='people']) .ui-segment:not([aria-selected='true']),
+:where([data-app='people']) [role='tab']:not([aria-selected='true']) {
   color: rgb(var(--fg-muted)) !important;
 }
-:where([data-app='people'], [data-app='payroll']) .ui-tab.is-active,
-:where([data-app='people'], [data-app='payroll']) [role='tab'][aria-selected='true']:not(.ui-segment) {
+:where([data-app='people']) .ui-tab.is-active,
+:where([data-app='people']) [role='tab'][aria-selected='true']:not(.ui-segment) {
   color: rgb(var(--brand-ink));
 }
-:where([data-app='people'], [data-app='payroll']) .ui-tab.is-active::after {
+:where([data-app='people']) .ui-tab.is-active::after {
   background-color: rgb(var(--brand));
 }
 
 /*
- * HR apps, second pass (People, Payroll).
+ * HR apps, second pass (People).
  *
  * The coral palette above was borrowed from another product and fought the
  * Clor mark: coral buttons, teal names, pink table heads and a pink band
@@ -6529,7 +6526,7 @@ th.ui-th {
  * Type: 14px body, 13px tables, 12px sentence-case column heads, 22px page
  * titles, 15px section titles. Radius 8px on surfaces, 6px on controls.
  */
-:is([data-app='people'], [data-app='payroll']) {
+:is([data-app='people']) {
   --app-bg: 248 250 252;        /* #F8FAFC */
   --surface: 255 255 255;
   --surface-sunken: 241 245 249; /* #F1F5F9 */
@@ -6563,8 +6560,8 @@ th.ui-th {
   --heading-hover: 241 245 249;
   --page-heading-bg: 248 250 252;
 }
-:root[data-theme='dark'] :is([data-app='people'], [data-app='payroll']),
-:root[data-theme='dark']:is([data-app='people'], [data-app='payroll']) {
+:root[data-theme='dark'] :is([data-app='people']),
+:root[data-theme='dark']:is([data-app='people']) {
   --app-bg: 11 15 25;
   --surface: 17 24 39;
   --surface-sunken: 24 32 48;
@@ -6598,13 +6595,13 @@ th.ui-th {
   --page-heading-bg: 11 15 25;
 }
 
-:root:is([data-app='people'], [data-app='payroll']) main {
+:root:is([data-app='people']) main {
   font-size: 0.875rem;
   line-height: 1.45;
 }
 
 /* Page title: on the ground, not in a tinted band. */
-:root:is([data-app='people'], [data-app='payroll']) main .ui-page-heading {
+:root:is([data-app='people']) main .ui-page-heading {
   background: transparent !important;
   border: 0 !important;
   border-radius: 0;
@@ -6612,39 +6609,39 @@ th.ui-th {
   margin-bottom: 0.25rem !important;
   align-items: center;
 }
-:root:is([data-app='people'], [data-app='payroll']) main .ui-t-page {
+:root:is([data-app='people']) main .ui-t-page {
   font-size: 1.375rem !important;
   line-height: 1.75rem !important;
   font-weight: 650 !important;
   letter-spacing: -0.015em;
 }
-:root:is([data-app='people'], [data-app='payroll']) main .ui-page-heading p {
+:root:is([data-app='people']) main .ui-page-heading p {
   font-size: 0.8125rem;
   color: rgb(var(--fg-muted));
   margin-top: 0.125rem;
   max-width: 80ch;
 }
-:root:is([data-app='people'], [data-app='payroll']) main .ui-page-heading .ui-entity-mark { display: none; }
+:root:is([data-app='people']) main .ui-page-heading .ui-entity-mark { display: none; }
 
 /* Surfaces */
-:root:is([data-app='people'], [data-app='payroll']) main :is(.ui-card, .ui-stat) {
+:root:is([data-app='people']) main :is(.ui-card, .ui-stat) {
   border-color: rgb(var(--border));
   border-radius: 8px;
   box-shadow: 0 1px 2px rgb(16 24 40 / 0.04);
 }
-:root:is([data-app='people'], [data-app='payroll']) main .ui-card-head {
+:root:is([data-app='people']) main .ui-card-head {
   background: transparent !important;
 }
-:root:is([data-app='people'], [data-app='payroll']) main .ui-t-sec {
+:root:is([data-app='people']) main .ui-t-sec {
   font-size: 0.9375rem !important;
   line-height: 1.375rem !important;
   font-weight: 600 !important;
   letter-spacing: -0.005em;
 }
-:root:is([data-app='people'], [data-app='payroll']) main :is(.ui-caption, .ui-muted) {
+:root:is([data-app='people']) main :is(.ui-caption, .ui-muted) {
   color: rgb(var(--fg-muted));
 }
-:root:is([data-app='people'], [data-app='payroll']) main .ui-card-label {
+:root:is([data-app='people']) main .ui-card-label {
   font-size: 0.75rem;
   font-weight: 500;
   letter-spacing: 0;
@@ -6653,7 +6650,7 @@ th.ui-th {
 }
 
 /* Forms: labels are read, not squinted at. */
-:root:is([data-app='people'], [data-app='payroll']) main .ui-label {
+:root:is([data-app='people']) main .ui-label {
   font-size: 0.8125rem;
   font-weight: 500;
   letter-spacing: 0;
@@ -6661,45 +6658,45 @@ th.ui-th {
   color: rgb(var(--fg));
   margin-bottom: 0.3125rem;
 }
-:root:is([data-app='people'], [data-app='payroll']) main :is(.ui-input, .ui-select, textarea.ui-input) {
+:root:is([data-app='people']) main :is(.ui-input, .ui-select, textarea.ui-input) {
   font-size: 0.875rem;
   min-height: 2.25rem;
   border-radius: 6px;
   border-color: rgb(var(--border-field));
   background-color: rgb(var(--surface));
 }
-:root:is([data-app='people'], [data-app='payroll']) main :is(.ui-input, .ui-select):hover:not(:disabled) {
+:root:is([data-app='people']) main :is(.ui-input, .ui-select):hover:not(:disabled) {
   border-color: rgb(var(--fg-subtle));
 }
-:root:is([data-app='people'], [data-app='payroll']) main :is(.ui-input, .ui-select):focus-visible,
-:root:is([data-app='people'], [data-app='payroll']) main :is(.ui-input, .ui-select):focus {
+:root:is([data-app='people']) main :is(.ui-input, .ui-select):focus-visible,
+:root:is([data-app='people']) main :is(.ui-input, .ui-select):focus {
   border-color: rgb(var(--brand));
   box-shadow: 0 0 0 3px rgb(var(--brand) / 0.18);
   outline: none;
 }
-:root:is([data-app='people'], [data-app='payroll']) main :is(input[type='checkbox'], input[type='radio']) {
+:root:is([data-app='people']) main :is(input[type='checkbox'], input[type='radio']) {
   accent-color: rgb(var(--btn-primary-bg));
 }
 
 /* Buttons: one height, one radius; disabled is grey, never pale coral. */
-:root:is([data-app='people'], [data-app='payroll']) main .ui-btn {
+:root:is([data-app='people']) main .ui-btn {
   border-radius: 6px;
   min-height: 2.25rem;
   font-weight: 600;
 }
-:root:is([data-app='people'], [data-app='payroll']) main .ui-btn-sm {
+:root:is([data-app='people']) main .ui-btn-sm {
   min-height: 1.875rem;
 }
-:root:is([data-app='people'], [data-app='payroll']) main .ui-btn-secondary {
+:root:is([data-app='people']) main .ui-btn-secondary {
   border-color: rgb(var(--border-field));
   background-color: rgb(var(--surface));
 }
-:root:is([data-app='people'], [data-app='payroll']) main .ui-btn-secondary:hover:not(:disabled) {
+:root:is([data-app='people']) main .ui-btn-secondary:hover:not(:disabled) {
   border-color: rgb(var(--fg-subtle));
   background-color: rgb(var(--surface-sunken));
 }
-:root:is([data-app='people'], [data-app='payroll']) main .ui-btn:disabled,
-:root:is([data-app='people'], [data-app='payroll']) main .ui-btn-primary:disabled {
+:root:is([data-app='people']) main .ui-btn:disabled,
+:root:is([data-app='people']) main .ui-btn-primary:disabled {
   background-color: rgb(var(--surface-sunken)) !important;
   border-color: rgb(var(--border)) !important;
   color: rgb(var(--fg-subtle)) !important;
@@ -6707,7 +6704,7 @@ th.ui-th {
 }
 
 /* Tables: quiet sentence-case heads, ink names, hover row. */
-:root:is([data-app='people'], [data-app='payroll']) main :is(.ui-table thead th, .ui-th) {
+:root:is([data-app='people']) main :is(.ui-table thead th, .ui-th) {
   background-color: rgb(var(--heading-bg));
   color: rgb(var(--fg-muted));
   font-size: 0.75rem;
@@ -6717,31 +6714,31 @@ th.ui-th {
   padding-top: 0.5rem;
   padding-bottom: 0.5rem;
 }
-:root:is([data-app='people'], [data-app='payroll']) main .ui-table tbody td {
+:root:is([data-app='people']) main .ui-table tbody td {
   padding-top: 0.5rem;
   padding-bottom: 0.5rem;
 }
-:root:is([data-app='people'], [data-app='payroll']) main .ui-table tbody tr:hover > td {
+:root:is([data-app='people']) main .ui-table tbody tr:hover > td {
   background-color: rgb(var(--surface-sunken));
 }
-:root:is([data-app='people'], [data-app='payroll']) main .ui-col-entity.ui-col-entity {
+:root:is([data-app='people']) main .ui-col-entity.ui-col-entity {
   font-size: 0.8125rem;
   font-weight: 600;
   color: rgb(var(--fg));
 }
-:root:is([data-app='people'], [data-app='payroll']) main :is(a.ui-col-entity, .ui-col-entity a, .ui-col-entity button, td button.ui-link, td a.ui-link) {
+:root:is([data-app='people']) main :is(a.ui-col-entity, .ui-col-entity a, .ui-col-entity button, td button.ui-link, td a.ui-link) {
   color: rgb(var(--fg));
   font-weight: 600;
   text-decoration: none;
 }
-:root:is([data-app='people'], [data-app='payroll']) main :is(a.ui-col-entity, .ui-col-entity a, .ui-col-entity button, td button.ui-link, td a.ui-link):hover {
+:root:is([data-app='people']) main :is(a.ui-col-entity, .ui-col-entity a, .ui-col-entity button, td button.ui-link, td a.ui-link):hover {
   color: rgb(var(--brand-ink));
   text-decoration: underline;
   text-underline-offset: 2px;
 }
 
 /* Pills: square-ish tags, the same height as a line of table text. */
-:root:is([data-app='people'], [data-app='payroll']) main .ui-pill {
+:root:is([data-app='people']) main .ui-pill {
   border-radius: 5px;
   font-size: 0.75rem;
   font-weight: 600;
@@ -6749,10 +6746,10 @@ th.ui-th {
 }
 
 /* Tables in the HR apps: rows, not a spreadsheet grid; actions sized to the row. */
-:root:is([data-app='people'], [data-app='payroll']) main :is(.ui-table thead th + th, .ui-table tbody td + td) {
+:root:is([data-app='people']) main :is(.ui-table thead th + th, .ui-table tbody td + td) {
   border-left: 0;
 }
-:root:is([data-app='people'], [data-app='payroll']) main .ui-table tbody td .ui-btn {
+:root:is([data-app='people']) main .ui-table tbody td .ui-btn {
   min-height: 1.75rem;
   height: 1.75rem;
   padding: 0 0.625rem;
@@ -6916,37 +6913,37 @@ th.ui-th {
  * Written with :where() so a cell's own utility (whitespace-normal, a width)
  * still wins.
  */
-:root[data-app='attendance'] main.ui-content {
+:root:is([data-app='attendance'], [data-app='payroll']) main.ui-content {
   padding: 0 1rem 1.5rem;
 }
-:root[data-app='attendance'] main.ui-content .ui-page-heading {
+:root:is([data-app='attendance'], [data-app='payroll']) main.ui-content .ui-page-heading {
   margin-inline: -1rem;
   padding-inline: 1rem;
 }
-:where(:root[data-app='attendance'] main) .ui-table-scroll {
+:where(:root:is([data-app='attendance'], [data-app='payroll']) main) .ui-table-scroll {
   height: auto;
   min-height: 0;
 }
-:where(:root[data-app='attendance'] main .ui-table) :is(th, td) {
+:where(:root:is([data-app='attendance'], [data-app='payroll']) main .ui-table) :is(th, td) {
   white-space: nowrap;
 }
 /* Compact columns — figures, status, a checkbox, the row actions — take their
    content's width; the text columns share what is left in proportion to what
    they hold, so no single column swallows the spare width. */
-:where(:root[data-app='attendance'] main .ui-table) thead th {
+:where(:root:is([data-app='attendance'], [data-app='payroll']) main .ui-table) thead th {
   width: auto;
 }
-:where(:root[data-app='attendance'] main .ui-table) thead :is(th.ui-num, th.ui-col-h-center, th.ui-col-h-right, th:has(> input[type='checkbox']), th:has(> .sr-only)) {
+:where(:root:is([data-app='attendance'], [data-app='payroll']) main .ui-table) thead :is(th.ui-num, th.ui-col-h-center, th.ui-col-h-right, th:has(> input[type='checkbox']), th:has(> .sr-only)) {
   width: 1%;
 }
 /* Only the headings size the columns here: the product-wide 1% on name and
    centred cells would otherwise pin the growing column to its content too. */
-:root[data-app='attendance'] main .ui-table tbody td {
+:root:is([data-app='attendance'], [data-app='payroll']) main .ui-table tbody td {
   width: auto;
 }
 /* Two figure cards a row on a phone: one a row put four cards above the list. */
 @media (max-width: 639px) {
-  :root[data-app='attendance'] main section[aria-label='Summary'] {
+  :root:is([data-app='attendance'], [data-app='payroll']) main section[aria-label='Summary'] {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }

@@ -1,7 +1,11 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { Check, Plus, RotateCcw, Trash2 } from 'lucide-react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { AlertTriangle, Check, Handshake, Plus, RotateCcw, Trash2, UserMinus, Wallet } from 'lucide-react';
 
-import { PageHeader, SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
+import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
+import { useListSearch } from '@ui/components/ListToolbar';
+import DocumentListShell from '@ui/components/list/DocumentListShell';
+import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';
+import { SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import Drawer from '@ui/components/ui/Drawer';
 import { formatDateIn } from '@ui/utils/dates';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
@@ -14,6 +18,7 @@ import {
   startSettlement,
   updateSettlement,
 } from '../api/payrollSettlements';
+import LoadFailed from '../components/LoadFailed';
 
 const STATUS = {
   DRAFT: { label: 'Draft', pill: 'ui-pill-neutral' },
@@ -34,11 +39,31 @@ const netOf = (lines) => lines.reduce((t, l) => t + (l.kind === 'EARNING' ? Numb
  * encashment, loans still owed and notice pay, proposed from the records and
  * checked by HR line by line. Due within two working days of the leaving date.
  */
+const TABS = [
+  { value: '', label: 'All', tone: 'all' },
+  { value: 'DRAFT', label: 'Draft', tone: 'outstanding' },
+  { value: 'APPROVED', label: 'Approved', tone: 'sent' },
+  { value: 'PAID', label: 'Paid', tone: 'paid' },
+];
+const COLUMNS = {
+  employee: (s) => s.employeeName || '—',
+};
+const EXPORT_COLUMNS = [
+  { key: 'employeeName', label: 'Employee' },
+  { key: 'employeeCode', label: 'Code' },
+  { key: 'leavingDate', label: 'Last day' },
+  { key: 'dueDate', label: 'Due' },
+  { key: 'netPayable', label: 'Net', value: (s) => Number(s.netPayable || 0) },
+  { key: 'status', label: 'Status', value: (s) => STATUS[s.status]?.label || s.status },
+  { key: 'overdue', label: 'Overdue', value: (s) => (s.overdue ? 'Yes' : '') },
+];
+
 export default function FinalSettlements() {
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState('');
   const [open, setOpen] = useState(null);
+  const [status, setStatus] = useState('');
 
   const load = useCallback(() => {
     listSettlements()
@@ -70,107 +95,143 @@ export default function FinalSettlements() {
     setOpen(s && s.status !== 'CANCELLED' ? s : null);
   };
 
+  const settlements = useMemo(() => data?.settlements || [], [data]);
+  const waiting = data?.waiting || [];
+  const counts = useMemo(() => {
+    const n = (st) => settlements.filter((x) => x.status === st).length;
+    return { '': settlements.length, DRAFT: n('DRAFT'), APPROVED: n('APPROVED'), PAID: n('PAID') };
+  }, [settlements]);
+  const figures = useMemo(
+    () => ({
+      overdue: settlements.filter((x) => x.overdue && x.status !== 'PAID').length,
+      toPay: settlements.filter((x) => x.status === 'APPROVED').reduce((a, x) => a + Number(x.netPayable || 0), 0),
+    }),
+    [settlements]
+  );
+  const inTab = useMemo(() => settlements.filter((x) => !status || x.status === status), [settlements, status]);
+  const search = useListSearch(inTab, ['employeeName', 'employeeCode']);
+  const filters = useColumnFilters();
+  const rows = filters.applyFilters(search.filtered, COLUMNS);
+
   return (
-    <div className="space-y-4">
-      <PageHeader
-        entity="payroll"
-        title="Full & final"
-        description="What is still owed to, or by, people who have left. Due within two working days of their last day."
-      />
-      {error ? (
-        <div className="ui-card flex flex-wrap items-center justify-between gap-3 p-4 text-sm" role="alert">
-          <span style={{ color: 'rgb(var(--neg))' }}>{error}</span>
-          <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={load}>Try again</button>
-        </div>
-      ) : null}
+    <DocumentListShell
+      entity="settlement"
+      title="Full & final"
+      description="What is still owed to, or by, people who have left. Due within two working days of their last day."
+      compact
+      tight
+      denseCards
+      search={{ value: search.query, onChange: search.setQuery, placeholder: 'Search people…', label: 'Search settlements' }}
+      moreItems={settlements.length ? [exportMenuItem('Export settlements')] : null}
+      onMoreSelect={(k) => {
+        const format = exportFormatFromKey(k);
+        if (!format) return;
+        runListExport({ format, title: 'Full & final settlements', fileName: 'Full and final settlements', label: 'settlement/settlements', columns: EXPORT_COLUMNS, rows });
+      }}
+      cards={[
+        { label: 'Not started', value: waiting.length, count: true, tone: 'partial', Icon: UserMinus },
+        { label: 'Overdue', value: figures.overdue, count: true, tone: 'overdue', Icon: AlertTriangle },
+        { label: 'To pay', value: figures.toPay, tone: 'sent', Icon: Wallet, onSelect: () => setStatus('APPROVED') },
+        { label: 'Paid', value: counts.PAID, count: true, tone: 'paid', Icon: Check, onSelect: () => setStatus('PAID') },
+      ]}
+      tabs={TABS}
+      statusValue={status}
+      statusCounts={counts}
+      onStatusChange={setStatus}
+      tabsLabel="Settlement status"
+      above={
+        waiting.length ? (
+          <section className="ui-card overflow-hidden" aria-labelledby="ff-waiting-h">
+            <h2 id="ff-waiting-h" className="ui-sec-head px-4 pt-3">Leaving, not settled yet</h2>
+            <div className="ui-table-scroll">
+              <table className="ui-table ui-table-sticky w-full">
+                <thead>
+                  <tr>
+                    <th scope="col">Employee</th>
+                    <th scope="col">Last day</th>
+                    <th scope="col"><span className="sr-only">Actions</span></th>
+                  </tr>
+                </thead>
+                <tbody className="ui-rows">
+                  {waiting.map((p) => (
+                    <tr key={p.id}>
+                      <td className="ui-col-entity">
+                        {p.name}
+                        {p.code ? <span className="ui-caption"> · {p.code}</span> : null}
+                      </td>
+                      <td className="ui-col-date whitespace-nowrap">
+                        {formatDateIn(p.dateOfLeaving)}
+                        {p.status === 'ON_NOTICE' ? <span className="ui-caption block">on notice</span> : null}
+                      </td>
+                      <td className="whitespace-nowrap text-end">
+                        <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={busy === p.id} onClick={() => start(p)}>
+                          <Plus size={14} aria-hidden="true" /> Work it out
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        ) : null
+      }
+    >
+      <LoadFailed message={error} onRetry={load} />
       {!data ? (
         error ? null : <SkeletonCard lines={4} />
       ) : (
-        <>
-          {data.waiting.length ? (
-            <div className="ui-card overflow-hidden">
-              <div className="ui-sec-head px-4 pt-4">Leaving, not settled yet</div>
-              <div className="overflow-x-auto ui-table-scroll ui-table-fit">
-                <table className="ui-table w-full">
-                  <thead>
-                    <tr>
-                      <th scope="col" className="ui-th">Employee</th>
-                      <th scope="col" className="ui-th">Last day</th>
-                      <th scope="col" className="ui-th"><span className="sr-only">Actions</span></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {data.waiting.map((p) => (
-                      <tr key={p.id}>
-                        <td className="ui-col-entity">
-                          {p.name}
-                          {p.code ? <span className="ui-caption"> · {p.code}</span> : null}
-                        </td>
-                        <td className="whitespace-nowrap text-sm">
-                          {formatDateIn(p.dateOfLeaving)}
-                          {p.status === 'ON_NOTICE' ? <span className="ui-caption block">on notice</span> : null}
-                        </td>
-                        <td className="whitespace-nowrap text-end">
-                          <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={busy === p.id} onClick={() => start(p)}>
-                            <Plus size={14} aria-hidden="true" /> Work it out
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          ) : null}
-
-          {!data.settlements.length ? (
-            <EmptyState
-              title="No settlements yet"
-              description={data.waiting.length ? 'Start with somebody above.' : 'Set a date of leaving on an employee and they appear here.'}
-            />
-          ) : (
-            <div className="ui-card overflow-hidden">
-              <div className="ui-sec-head px-4 pt-4">Settlements</div>
-              <div className="overflow-x-auto ui-table-scroll ui-table-fit">
-                <table className="ui-table w-full">
-                  <thead>
-                    <tr>
-                      <th scope="col" className="ui-th">Employee</th>
-                      <th scope="col" className="ui-th">Last day</th>
-                      <th scope="col" className="ui-th">Due</th>
-                      <th scope="col" className="ui-th ui-col-h-amount">Net</th>
-                      <th scope="col" className="ui-th ui-col-h-center">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {data.settlements.map((s) => (
-                      <tr key={s.id} className="cursor-pointer" onClick={() => setOpen(s)}>
-                        <td className="ui-col-entity">
-                          <button type="button" className="text-start" onClick={() => setOpen(s)}>
-                            {s.employeeName || '—'}
-                            {s.employeeCode ? <span className="ui-caption"> · {s.employeeCode}</span> : null}
-                          </button>
-                        </td>
-                        <td className="whitespace-nowrap text-sm">{formatDateIn(s.leavingDate)}</td>
-                        <td className="whitespace-nowrap text-sm">
-                          {formatDateIn(s.dueDate)}
-                          {s.overdue ? <span className="ui-pill ui-pill-neg ms-2">Overdue</span> : null}
-                        </td>
-                        <td className="ui-col-amount">{money(s.netPayable)}</td>
-                        <td className="ui-col-h-center">
-                          <span className={`ui-pill ${STATUS[s.status]?.pill || 'ui-pill-neutral'}`}>{STATUS[s.status]?.label || s.status}</span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-        </>
+        <div className="ui-table-scroll">
+          <table className="ui-table ui-table-sticky w-full">
+            <thead>
+              <tr>
+                <ColumnHeader label="Employee" col="employee" state={filters} />
+                <th scope="col">Last day</th>
+                <th scope="col">Due</th>
+                <th scope="col" className="ui-num">Net</th>
+                <th scope="col" className="ui-col-h-center">Status</th>
+              </tr>
+            </thead>
+            <tbody className="ui-rows">
+              {!rows.length ? (
+                <tr>
+                  <td colSpan={5}>
+                    {inTab.length ? (
+                      <EmptyState kind="filtered" totalCount={inTab.length} title="No settlements match" description="Nothing in this tab matches the search or the column filters." />
+                    ) : (
+                      <EmptyState
+                        icon={Handshake}
+                        title={status ? `No ${STATUS[status]?.label.toLowerCase()} settlements` : 'No settlements yet'}
+                        description={waiting.length ? 'Start with somebody above.' : 'Set a date of leaving on an employee and they appear here.'}
+                      />
+                    )}
+                  </td>
+                </tr>
+              ) : (
+                rows.map((x) => (
+                  <tr key={x.id} className="ui-row-click" onClick={() => setOpen(x)}>
+                    <td className="ui-col-entity">
+                      {x.employeeName || '—'}
+                      {x.employeeCode ? <span className="ui-caption"> · {x.employeeCode}</span> : null}
+                    </td>
+                    <td className="ui-col-date whitespace-nowrap">{formatDateIn(x.leavingDate)}</td>
+                    <td className="ui-col-date whitespace-nowrap">
+                      {formatDateIn(x.dueDate)}
+                      {x.overdue && x.status !== 'PAID' ? <span className="ui-pill ui-pill-neg ms-2">Overdue</span> : null}
+                    </td>
+                    <td className="ui-num">{money(x.netPayable)}</td>
+                    <td className="ui-col-h-center">
+                      <span className={`ui-pill ${STATUS[x.status]?.pill || 'ui-pill-neutral'}`}>{STATUS[x.status]?.label || x.status}</span>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       )}
       {open ? <Settlement key={`${open.id}:${open.updatedAt}`} settlement={open} onClose={() => setOpen(null)} onChanged={changed} /> : null}
-    </div>
+    </DocumentListShell>
   );
 }
 
@@ -240,17 +301,17 @@ function Settlement({ settlement, onClose, onChanged }) {
       }
     >
       <div className="space-y-4">
-        <div className="overflow-x-auto ui-table-scroll ui-table-fit">
-          <table className="ui-table w-full">
+        <div className="ui-table-scroll">
+          <table className="ui-table ui-table-sticky w-full">
             <thead>
               <tr>
-                <th scope="col" className="ui-th">Item</th>
-                <th scope="col" className="ui-th">Kind</th>
-                <th scope="col" className="ui-th ui-col-h-amount">Amount</th>
-                {draft ? <th scope="col" className="ui-th"><span className="sr-only">Remove</span></th> : null}
+                <th scope="col">Item</th>
+                <th scope="col">Kind</th>
+                <th scope="col" className="ui-col-h-right">Amount</th>
+                {draft ? <th scope="col"><span className="sr-only">Remove</span></th> : null}
               </tr>
             </thead>
-            <tbody>
+            <tbody className="ui-rows">
               {lines.map((l, i) => (
                 <tr key={i}>
                   <td>
