@@ -398,6 +398,7 @@ export const SecuritySettings = () => {
               { key: 'passwordRequireSymbol', label: 'Password must contain a symbol' },
               { key: 'requireVerifiedEmail', label: 'Require a confirmed email address' },
               { key: 'requirePayrollStepUp', label: 'Ask for an authenticator code before approving pay runs, bank account changes, settlements and payments' },
+              { key: 'requireAdminTwoFactor', label: 'Owners and admins must sign in with an authenticator app (set up your own first)' },
             ].map((f) => (
               <label key={f.key} className="flex items-center gap-2 cursor-pointer">
                 <input

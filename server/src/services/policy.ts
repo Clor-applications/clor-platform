@@ -20,6 +20,7 @@ export type Policy = {
   requireVerifiedEmail: boolean;
   allowedEmailDomains: string | null;
   requirePayrollStepUp: boolean;
+  requireAdminTwoFactor: boolean;
 };
 
 export const DEFAULT_POLICY: Policy = {
@@ -34,6 +35,7 @@ export const DEFAULT_POLICY: Policy = {
   requireVerifiedEmail: false,
   allowedEmailDomains: null,
   requirePayrollStepUp: false,
+  requireAdminTwoFactor: false,
 };
 
 export async function getAuthPolicy(accountId: string, orgId: string): Promise<Policy> {
@@ -51,6 +53,7 @@ export async function getAuthPolicy(accountId: string, orgId: string): Promise<P
     requireVerifiedEmail: row.requireVerifiedEmail,
     allowedEmailDomains: row.allowedEmailDomains,
     requirePayrollStepUp: row.requirePayrollStepUp,
+    requireAdminTwoFactor: row.requireAdminTwoFactor,
   };
 }
 
@@ -84,6 +87,7 @@ export async function policyForUser(accountId: string, userId: string): Promise<
       requireVerifiedEmail: strictest.requireVerifiedEmail || r.requireVerifiedEmail,
       allowedEmailDomains: strictest.allowedEmailDomains || r.allowedEmailDomains,
       requirePayrollStepUp: strictest.requirePayrollStepUp || r.requirePayrollStepUp,
+      requireAdminTwoFactor: strictest.requireAdminTwoFactor || r.requireAdminTwoFactor,
     }),
     { ...DEFAULT_POLICY, maxFailedLogins: 999, sessionDays: 999, accessTokenMinutes: 999, lockoutMinutes: 0 }
   );

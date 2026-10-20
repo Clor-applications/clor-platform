@@ -61,6 +61,7 @@ const policySchema = z.object({
   requireVerifiedEmail: z.boolean(),
   allowedEmailDomains: z.string().max(500).optional().nullable(),
   requirePayrollStepUp: z.boolean().optional(),
+  requireAdminTwoFactor: z.boolean().optional(),
 });
 
 securityRouter.get('/orgs/:orgId/security/policy', VIEW, async (req, res) => {
@@ -73,6 +74,18 @@ securityRouter.put('/orgs/:orgId/security/policy', EDIT, async (req, res) => {
   if (!orgOk(req, res)) return;
   const { accountId, orgId } = req.tenant!;
   const body = policySchema.parse(req.body);
+
+  /*
+   * Turning on 'two-factor for owners and admins' while the person doing it has
+   * no authenticator would lock them out of their own company on the next
+   * request. Ask them to set theirs up first.
+   */
+  if (body.requireAdminTwoFactor) {
+    const me = await platformPrisma.user.findUnique({ where: { id: req.auth!.userId }, select: { totpEnabledAt: true } });
+    if (!me?.totpEnabledAt) {
+      return res.status(400).json({ error: 'Set up your own authenticator app first (My profile → Security), then require it for owners and admins.', code: 'TWO_FACTOR_SETUP_REQUIRED' });
+    }
+  }
 
   const saved = await platformPrisma.authPolicy.upsert({
     where: { orgId },

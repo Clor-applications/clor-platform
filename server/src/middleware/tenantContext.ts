@@ -3,6 +3,7 @@ import { prisma } from '../utils/prisma.js';
 import { platformPrisma } from '../utils/platformPrisma.js';
 import { cachedAccess } from '../utils/accessCache.js';
 import { runInTenant } from '../utils/tenantScope.js';
+import { TWO_FACTOR_SETUP_PATHS, adminTwoFactorMissing } from '../services/twoFactorPolicy.js';
 
 export type TenantContext = {
   accountId: string;
@@ -65,6 +66,16 @@ export async function requireTenantContext(req: Request, res: Response, next: Ne
   );
   if (!('tenant' in result)) return res.status(result.status).json({ error: result.error });
   req.tenant = { ...result.tenant }; // the cached object is shared between requests
+
+  /*
+   * A company that requires two-factor sign-in for its owners and admins
+   * (SX-09): until this person sets up an authenticator, only their own
+   * two-factor set-up is open to them here.
+   */
+  const mustSetUp = await cachedAccess(`2fa|${userId}|${orgId}`, () => adminTwoFactorMissing(userId, orgId));
+  if (mustSetUp && !TWO_FACTOR_SETUP_PATHS.test(req.path)) {
+    return res.status(403).json({ error: 'This company asks owners and admins to sign in with an authenticator app. Set one up under My profile → Security first.', code: 'TWO_FACTOR_SETUP_REQUIRED' });
+  }
 
   /* From here on every query this request makes names its company to the database (utils/tenantScope.ts). */
   runInTenant(req.tenant.orgId, () => next());

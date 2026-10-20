@@ -680,6 +680,9 @@ model AuthPolicy {
   /// Ask for an authenticator code before money-moving payroll actions:
   /// approving a pay run, a bank account change, a settlement, a payment.
   requirePayrollStepUp Boolean @default(false)
+  /// Owners and admins must have an authenticator: until they set one up they
+  /// can only reach their own two-factor set-up (SX-09).
+  requireAdminTwoFactor Boolean @default(false)
 
   updatedByUserId String
   createdAt       DateTime @default(now())

@@ -18,6 +18,7 @@ import { useSession } from './session';
 import ClorMark from './ClorMark';
 import NotificationBell from './NotificationBell';
 import HelpMenu from './HelpMenu';
+import TwoFactorGate from './TwoFactorGate';
 import CompanySetup from './CompanySetup';
 import Home from './Home';
 import ScreenBoundary from './ScreenBoundary';
@@ -73,7 +74,7 @@ export default function Shell() {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [tabletPanel]);
-  const { user, tenant, tenants, restoring, setTenantId, signOut, addApp } = useSession();
+  const { user, tenant, tenants, restoring, setTenantId, signOut, addApp, twoFactorSetupRequired } = useSession();
 
   /* The shared hook, not a second copy: the public page has a toggle too, and
      a private key here would mean the choice did not follow you inside. */
@@ -717,7 +718,9 @@ export default function Shell() {
         </div>
       ) : null}
 
-      {Root ? (
+      {twoFactorSetupRequired ? (
+        <TwoFactorGate />
+      ) : Root ? (
         /* The app owns the area under the platform bar. Reached from here by
            the switcher and by More apps, both of which are in the bar above —
            so an app that draws its own rail never has to know they exist. */

@@ -16,6 +16,10 @@ import { orgId as contextOrgId } from './context';
 export const login = ({ email, password }) =>
   apiFetch('/auth/login', { method: 'POST', body: { email, password }, skipAuth: true });
 
+/* The second step for someone with an authenticator: the challenge /auth/login returned, and a code. */
+export const loginTwoFactor = ({ challenge, code }) =>
+  apiFetch('/auth/login/two-factor', { method: 'POST', body: { challenge, code }, skipAuth: true });
+
 /* The server calls it `name`; sending `fullName` was a silent 400. */
 export const signup = ({ email, password, fullName, noticeVersion }) =>
   apiFetch('/auth/signup', {

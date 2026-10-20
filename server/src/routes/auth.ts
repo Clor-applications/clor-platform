@@ -12,7 +12,7 @@ import { PermissionAction, RoleType } from '../constants/enums.js';
 import { ensureLedgerSetup } from '../services/ledger.js';
 import { ensurePermissionCatalog } from './permissions.js';
 import { clearRefreshCookie, refreshTokenFrom, setRefreshCookie } from '../utils/refreshCookie.js';
-import { loginLimiter, resetLimiter, signupLimiter } from '../middleware/rateLimit.js';
+import { codeLimiter, loginLimiter, resetLimiter, signupLimiter } from '../middleware/rateLimit.js';
 import {
   AuthError,
   clearFailedLogins,
@@ -31,7 +31,9 @@ import {
   issueEmailVerificationToken,
   consumeEmailVerificationToken,
 } from '../services/auth.js';
-import { sendTemplate } from '../services/mailer.js';
+import { decryptSecret, sendTemplate } from '../services/mailer.js';
+import { hashRecovery, verifyCode } from '../services/totp.js';
+import { adminTwoFactorMissing } from '../services/twoFactorPolicy.js';
 import { policyForUser, validatePassword, getAuthPolicy } from '../services/policy.js';
 import { expandPreset, permKey } from '../constants/permissionCatalog.js';
 import { validateGstinOrThrow, deriveStateCodeFromInput } from '../utils/gstin.js';
@@ -154,6 +156,8 @@ authRouter.post('/login', loginLimiter, async (req: Request, res: Response) => {
       fullName: true,
       email: true,
       lockedUntil: true,
+      totpEnabledAt: true,
+      totpSecretEnc: true,
     },
   });
 
@@ -193,6 +197,28 @@ authRouter.post('/login', loginLimiter, async (req: Request, res: Response) => {
     return invalid();
   }
 
+  /*
+   * Two-factor sign-in (SX-09). Someone with an authenticator gets no session
+   * for a password alone: a short-lived challenge comes back instead, and
+   * POST /login/two-factor finishes the sign-in with a code from the app (or
+   * a recovery code). The failed-login counter is cleared only then, so codes
+   * guessed after a correct password still count towards the lockout.
+   */
+  if (user.totpEnabledAt && user.totpSecretEnc) {
+    const challenge = jwt.sign({ typ: 'login2fa', uid: user.id }, getJwtSecret(), { expiresIn: LOGIN_2FA_TTL_S, audience: LOGIN_2FA_AUDIENCE });
+    return res.json({ twoFactorRequired: true, challenge, expiresIn: LOGIN_2FA_TTL_S });
+  }
+
+  return completeLogin(req, res, user, identity, ip, userAgent);
+});
+
+const LOGIN_2FA_TTL_S = 5 * 60;
+const LOGIN_2FA_AUDIENCE = 'clor-login-2fa';
+
+type LoginUser = { id: string; accountId: string; email: string | null; fullName: string | null };
+
+/** Everything after the person is known to be who they say: session, token, companies. */
+async function completeLogin(req: Request, res: Response, user: LoginUser, identity: string, ip: ReturnType<typeof clientIp>, userAgent: string | undefined) {
   await clearFailedLogins(user.id);
   const { session, refreshToken } = await createSession({
     accountId: user.accountId,
@@ -256,14 +282,82 @@ authRouter.post('/login', loginLimiter, async (req: Request, res: Response) => {
    */
   setRefreshCookie(res, refreshToken);
 
+  /* Any company that requires an authenticator of this owner or admin, who has none yet: the app opens on the set-up. */
+  let twoFactorSetupRequired = false;
+  for (const c of companies) {
+    if (await adminTwoFactorMissing(user.id, c.orgId)) {
+      twoFactorSetupRequired = true;
+      break;
+    }
+  }
+
   return res.json({
     token,
+    twoFactorSetupRequired,
     expiresIn: process.env.JWT_EXPIRES_IN || '15m',
     user: { id: user.id, email: user.email, fullName: user.fullName, accountId: user.accountId },
     companies,
     activeOrgId: firstOrgId,
     activeBranchId: branches[0]?.branchId ?? null,
   });
+}
+
+/**
+ * The second half of a two-factor sign-in: the challenge from /login plus a
+ * code from the authenticator app, or one of the recovery codes (each works
+ * once). A wrong code counts as a failed sign-in, towards the same lockout.
+ */
+authRouter.post('/login/two-factor', ...codeLimiter, async (req: Request, res: Response) => {
+  const ip = clientIp(req);
+  const userAgent = req.headers['user-agent'] as string | undefined;
+  let claims: any;
+  try {
+    claims = jwt.verify(String(req.body?.challenge || ''), getJwtSecret(), { audience: LOGIN_2FA_AUDIENCE });
+  } catch {
+    return res.status(401).json({ error: 'That sign-in took too long. Enter your password again.', code: 'CHALLENGE_EXPIRED' });
+  }
+  if (claims?.typ !== 'login2fa' || !claims.uid) return res.status(401).json({ error: 'Enter your password again.', code: 'CHALLENGE_EXPIRED' });
+
+  const user = await platformPrisma.user.findUnique({
+    where: { id: String(claims.uid) },
+    select: { id: true, accountId: true, email: true, fullName: true, isActive: true, lockedUntil: true, totpEnabledAt: true, totpSecretEnc: true, totpLastStep: true, totpRecoveryJson: true },
+  });
+  if (!user || !user.isActive || !user.totpEnabledAt || !user.totpSecretEnc) return res.status(401).json({ error: 'Enter your password again.', code: 'CHALLENGE_EXPIRED' });
+  const identity = String(user.email || '').toLowerCase();
+
+  const lockedFor = lockoutRemainingMs(user.lockedUntil);
+  if (lockedFor > 0) {
+    await recordAuthEvent({ accountId: user.accountId, userId: user.id, email: identity, eventType: 'LOCKED_OUT', ip, userAgent });
+    return res.status(429).json({ error: `Too many failed attempts. Try again in ${Math.ceil(lockedFor / 60000)} minute(s).` });
+  }
+
+  const code = String(req.body?.code || '').trim();
+  let used: 'CODE' | 'RECOVERY' | null = null;
+  const step = verifyCode(decryptSecret(user.totpSecretEnc), code, user.totpLastStep);
+  if (step != null) {
+    /* A code works once: only if no other request used this step in the meantime. */
+    const won = await platformPrisma.user.updateMany({ where: { id: user.id, OR: [{ totpLastStep: null }, { totpLastStep: { lt: step } }] }, data: { totpLastStep: step } });
+    if (won.count) used = 'CODE';
+  } else if (/^[A-Z2-7]{4}-?[A-Z2-7]{4}$/i.test(code)) {
+    const hashes = JSON.parse(user.totpRecoveryJson || '[]') as string[];
+    const h = hashRecovery(code);
+    if (hashes.includes(h)) {
+      await platformPrisma.user.update({ where: { id: user.id }, data: { totpRecoveryJson: JSON.stringify(hashes.filter((x) => x !== h)) } });
+      used = 'RECOVERY';
+    }
+  }
+
+  if (!used) {
+    const policy = await policyForUser(user.accountId, user.id);
+    const result = await registerFailedLogin(user.id, policy.maxFailedLogins, policy.lockoutMinutes);
+    await recordAuthEvent({ accountId: user.accountId, userId: user.id, email: identity, eventType: result.locked ? 'LOCKED_OUT' : 'LOGIN_FAILED', ip, userAgent, detail: 'Wrong authenticator code' });
+    if (result.locked) return res.status(429).json({ error: `Too many failed attempts. Try again in ${policy.lockoutMinutes} minute(s).` });
+    return res.status(400).json({ error: 'That code is not right, or has been used. Wait for the next one.', code: 'BAD_CODE' });
+  }
+  if (used === 'RECOVERY') {
+    await recordAuthEvent({ accountId: user.accountId, userId: user.id, email: identity, eventType: 'LOGIN_SUCCESS', ip, userAgent, detail: 'With a recovery code' });
+  }
+  return completeLogin(req, res, user, identity, ip, userAgent);
 });
 
 /** Exchange a refresh token for a new pair. The old one is retired. */
@@ -493,6 +587,15 @@ authRouter.get('/me', async (req: Request, res: Response) => {
     }
   }
 
+  /* SX-09: a company here requires an authenticator of this owner or admin, who has none. */
+  let twoFactorSetupRequired = false;
+  for (const m of orgMemberships) {
+    if (await adminTwoFactorMissing(user.id, m.orgId)) {
+      twoFactorSetupRequired = true;
+      break;
+    }
+  }
+
   return res.json({
     user: { ...user, accountCode: ownAccount?.code || null },
     orgs: orgMemberships.map((m) => ({
@@ -510,6 +613,7 @@ authRouter.get('/me', async (req: Request, res: Response) => {
     activeOrgId: activeOrgId || null,
     isOrgAdmin,
     allowedBranchIds,
+    twoFactorSetupRequired,
   });
 });
 

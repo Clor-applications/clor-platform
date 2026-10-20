@@ -78,9 +78,8 @@ export default function AuthenticatorCard() {
         <span className={`ui-pill ${state.enabled ? 'ui-pill-pos' : 'ui-pill-neutral'}`}>{state.enabled ? 'On' : 'Off'}</span>
       </div>
       <p className="ui-caption">
-        {state.payrollStepUp
-          ? `Your company asks for a code from it before payroll approvals and payments (good for ${state.stepUpMinutes} minutes).`
-          : 'A code from an app on your phone (Google Authenticator, Microsoft Authenticator…), asked for where your company switches it on.'}
+        A code from an app on your phone (Google Authenticator, Microsoft Authenticator…), asked for every time you sign in once it is on
+        {state.payrollStepUp ? `, and again before payroll approvals and payments (good for ${state.stepUpMinutes} minutes).` : '.'}
       </p>
 
       {codes ? (

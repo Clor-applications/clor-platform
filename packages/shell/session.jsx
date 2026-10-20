@@ -7,6 +7,7 @@ import {
   billingFor,
   featuresFor,
   login as apiLogin,
+  loginTwoFactor as apiLoginTwoFactor,
   logout as apiLogout,
   me as apiMe,
   setFeature,
@@ -75,6 +76,8 @@ export function SessionProvider({ children }) {
   const [user, setUser] = useState(null);
   const [tenants, setTenants] = useState([]);
   const [tenantId, setTenantId] = useState('');
+  /* A company here requires an authenticator of this owner or admin, who has none yet (SX-09). */
+  const [twoFactorSetupRequired, setTwoFactorSetupRequired] = useState(false);
   /* True until the token in this browser has been checked against the server.
      Rendering the public page first would flash it at somebody already signed
      in, on every reload. */
@@ -124,6 +127,7 @@ export function SessionProvider({ children }) {
     const list = (payload?.orgs || []).map(toTenant).filter((t) => t.id);
     setTenants(list);
     setUser(payload?.user || null);
+    setTwoFactorSetupRequired(Boolean(payload?.twoFactorSetupRequired));
     const wanted = String(payload?.activeOrgId || '').trim();
     const chosen = list.find((t) => t.id === wanted) || list[0] || null;
     setTenantId(chosen?.id || '');
@@ -185,9 +189,8 @@ export function SessionProvider({ children }) {
     return () => window.removeEventListener('auth:session-expired', onEnded);
   }, []);
 
-  const signIn = useCallback(
-    async ({ email, password }) => {
-      const res = await apiLogin({ email, password });
+  const finishSignIn = useCallback(
+    async (res) => {
       writeToken(res.token);
       const data = await apiMe();
       const next = adopt({ ...data, activeOrgId: res.activeOrgId });
@@ -196,6 +199,25 @@ export function SessionProvider({ children }) {
     },
     [adopt, loadApps]
   );
+
+  /* With an authenticator set up, the password alone returns a challenge, not a session: the caller asks for the code. */
+  const signIn = useCallback(
+    async ({ email, password }) => {
+      const res = await apiLogin({ email, password });
+      if (res?.twoFactorRequired) return { twoFactorRequired: true, challenge: res.challenge };
+      return finishSignIn(res);
+    },
+    [finishSignIn]
+  );
+
+  const signInWithCode = useCallback(async ({ challenge, code }) => finishSignIn(await apiLoginTwoFactor({ challenge, code })), [finishSignIn]);
+
+  /* After setting up an authenticator: ask again whether anything still requires one. */
+  const recheckTwoFactor = useCallback(async () => {
+    const data = await apiMe();
+    setTwoFactorSetupRequired(Boolean(data?.twoFactorSetupRequired));
+    return Boolean(data?.twoFactorSetupRequired);
+  }, []);
 
   /**
    * A new account. Only that.
@@ -282,8 +304,8 @@ export function SessionProvider({ children }) {
   );
 
   const value = useMemo(
-    () => ({ user, tenant, tenants, restoring, signIn, signUp, createCompany, signOut, setTenantId, addApp }),
-    [user, tenant, tenants, restoring, signIn, signUp, createCompany, signOut, addApp]
+    () => ({ user, tenant, tenants, restoring, signIn, signInWithCode, twoFactorSetupRequired, recheckTwoFactor, signUp, createCompany, signOut, setTenantId, addApp }),
+    [user, tenant, tenants, restoring, signIn, signInWithCode, twoFactorSetupRequired, recheckTwoFactor, signUp, createCompany, signOut, addApp]
   );
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
