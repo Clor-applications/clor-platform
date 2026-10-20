@@ -31,6 +31,18 @@ import { AsyncLocalStorage } from 'node:async_hooks';
 
 export const TENANT_SETTING = 'clor.org_id';
 
+/*
+ * A request's queries are also capped in time. Without a cap, a query still
+ * running after Cloud Run gave up on the request (60 s) kept one of the four
+ * main connections busy until it finished. Set with the company, transaction-
+ * local, so migrations and background jobs (which run outside a request) are
+ * not affected. REQUEST_STATEMENT_TIMEOUT_MS overrides; 0 turns it off.
+ */
+export const requestStatementTimeout = (): string => {
+  const ms = Number(process.env.REQUEST_STATEMENT_TIMEOUT_MS ?? 30_000);
+  return String(Number.isFinite(ms) && ms >= 0 ? Math.floor(ms) : 30_000);
+};
+
 type Scope = { orgId: string; inTx?: boolean };
 const store = new AsyncLocalStorage<Scope>();
 
@@ -79,7 +91,8 @@ const RAW = new Set(['$queryRaw', '$executeRaw', '$queryRawUnsafe', '$executeRaw
  */
 export function tenantScoped<C extends object>(base: C): C {
   const client = base as any;
-  const setting = (orgId: string) => client.$executeRaw`SELECT set_config(${TENANT_SETTING}, ${orgId}, true)`;
+  const setting = (orgId: string) =>
+    client.$executeRaw`SELECT set_config(${TENANT_SETTING}, ${orgId}, true), set_config('statement_timeout', ${requestStatementTimeout()}, true)`;
 
   const extended = client.$extends({
     query: {
@@ -102,7 +115,7 @@ export function tenantScoped<C extends object>(base: C): C {
           if (typeof arg === 'function') {
             /* Interactive: one connection for the whole callback, the setting made first. */
             return client.$transaction(async (tx: any) => {
-              if (org) await tx.$executeRaw`SELECT set_config(${TENANT_SETTING}, ${org}, true)`;
+              if (org) await tx.$executeRaw`SELECT set_config(${TENANT_SETTING}, ${org}, true), set_config('statement_timeout', ${requestStatementTimeout()}, true)`;
               return asInTx(() => arg(tx));
             }, options);
           }

@@ -126,6 +126,17 @@ describe('the request scope tells the database its company', () => {
     expect(org || '').toBe('');
   });
 
+  it('caps a request query in time, and only inside the request', async () => {
+    const inside = await runInTenant(a.orgId, () => prisma.$queryRaw<Array<{ t: string }>>`SELECT current_setting('statement_timeout') AS t`);
+    expect(inside[0]?.t).toBe('30s');
+    const inTx = await runInTenant(a.orgId, () =>
+      prisma.$transaction(async (tx) => (await tx.$queryRaw<Array<{ t: string }>>`SELECT current_setting('statement_timeout') AS t`)[0]?.t)
+    );
+    expect(inTx).toBe('30s');
+    const outside = (await prisma.$queryRaw<Array<{ t: string }>>`SELECT current_setting('statement_timeout') AS t`)[0]?.t;
+    expect(outside).not.toBe('30s');
+  });
+
   it('crosses companies only through outsideTenant', async () => {
     const seen = ids(await runInTenant(a.orgId, () => outsideTenant('test: both companies', async () => prisma.warehouse.findMany({ where: { id: { in: [a.warehouseId, b.warehouseId] } }, select: { id: true } }))));
     expect(seen).toEqual(expect.arrayContaining([a.warehouseId, b.warehouseId]));
