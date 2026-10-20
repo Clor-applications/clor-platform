@@ -42,7 +42,7 @@ datasource db {
 model Account {
   id        String   @id @default(cuid())
   name      String
-  /// Client ID shown to people: the code of the account's first company (INNO-C100). Never changed (LD-09).
+  /// Client ID shown to people: the code of the account's first company (KAVE-C100). Never changed (LD-09).
   code      String?  @unique
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -62,7 +62,7 @@ model Org {
   /// changes, the slug is what a person reads and may one day need to change.
   /// Nullable so existing rows are valid before the backfill.
   slug       String? @unique
-  /// Company code (LD-09): 3–4 letters + C + number, 100 unless the letters clash (INNO-C100, INNO-C101). Never changed.
+  /// Company code (LD-09): 3–4 letters + C + number, 100 unless the letters clash (KAVE-C100, KAVE-C101). Never changed.
   code       String? @unique
   codeNumber Int?
   legalName  String?
@@ -147,7 +147,7 @@ model User {
   accountId String
 
   username     String? // optional username login
-  /// User ID (LD-09): home company code + U + number (INNO-C100-U01). One per person, kept in every company they join.
+  /// User ID (LD-09): home company code + U + number (KAVE-C100-U01). One per person, kept in every company they join.
   code         String? @unique
   codeNumber   Int?
   email        String // primary login

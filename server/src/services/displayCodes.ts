@@ -3,10 +3,10 @@ import { platformPrisma } from '../utils/platformPrisma.js';
 /**
  * Display codes (LD-09): what people see, quote to support and type.
  *
- *   Company  INNO-C100       3–4 letters from the name, C, number. 100 unless
- *                            the letters are already taken (Innovate -> INNO-C101).
- *   Account  INNO-C100       the code of the account's first company
- *   User     INNO-C100-U01   home company code + U + number within that company
+ *   Company  KAVE-C100       3–4 letters from the name, C, number. 100 unless
+ *                            the letters are already taken (Kaveri -> KAVE-C101).
+ *   Account  KAVE-C100       the code of the account's first company
+ *   User     KAVE-C100-U01   home company code + U + number within that company
  *
  * The C keeps a code from ever reading like a document number (INV-2627-00001,
  * EXP-…, PO-…). Internal ids stay cuids and remain the only keys anything joins
