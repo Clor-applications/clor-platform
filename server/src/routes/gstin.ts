@@ -94,6 +94,7 @@ const mapProviderResponse = (raw: any) => {
  * details do not change on that timescale.
  */
 const CACHE_TTL_MS = 10 * 60 * 1000;
+const CACHE_MAX = 2000;
 const cache = new Map<string, { at: number; body: unknown }>();
 
 const cached = (gstin: string) => {
@@ -171,6 +172,8 @@ gstinRouter.get('/gstin/:gstin', requireAuth, async (req, res) => {
       state: derived.state || mapped.state,
       source: 'portal',
     };
+    /* Bounded like the geocode cache: entries only expire when read, so without a cap it grew with every GSTIN ever looked up. */
+    if (cache.size >= CACHE_MAX) cache.delete(cache.keys().next().value as string);
     cache.set(gstin, { at: Date.now(), body });
     return res.json(body);
   } catch (err: any) {
