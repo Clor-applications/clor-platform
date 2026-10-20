@@ -50,7 +50,7 @@ import { scimRouter } from './routes/scim.js';
 import { agentRouter } from './routes/agent.js';
 import { notificationsRouter } from './routes/notifications.js';
 import { payPageRouter, payRequestsRouter } from './routes/payRequests.js';
-import { agentLimiter, hikvisionLimiter, scimLimiter } from './middleware/rateLimit.js';
+import { agentLimiter, apiLimiter, hikvisionLimiter, scimLimiter } from './middleware/rateLimit.js';
 import { personnelRouter } from './routes/personnel.js';
 import { schedulingRouter } from './routes/scheduling.js';
 import { portalRouter } from './routes/portal.js';
@@ -185,6 +185,8 @@ export function buildApp() {
         return cb(null, defaultDevAllow.has(origin));
       },
       credentials: true,
+      /* Browsers may reuse a preflight for 2 h (Chrome caps it there) instead of asking before every call. */
+      maxAge: 7200,
       allowedHeaders: ['Content-Type', 'Authorization', 'x-org-id', 'x-branch-id', 'x-warehouse-id', 'x-step-up', 'Idempotency-Key'],
       exposedHeaders: ['X-Request-Id', 'Idempotency-Replayed'],
     })
@@ -300,6 +302,8 @@ export function buildApp() {
   });
 
   /* Single sign-on lands here from the identity provider; mounted before the password routes. */
+  /* A ceiling on every API call, per session and per address (FX-05). */
+  app.use('/api', ...apiLimiter);
   app.use('/api/auth/sso', ssoRouter);
   app.use('/api/auth', authRouter);
 
