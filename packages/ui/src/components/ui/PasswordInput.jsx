@@ -9,11 +9,11 @@ import { Eye, EyeOff } from 'lucide-react';
  * (mousedown is not allowed to take it), says what it will do, and reports
  * its state with aria-pressed. Everything else goes to the input as given.
  */
-export default function PasswordInput({ className = 'ui-input w-full', wrapperClassName = '', ...props }) {
+export default function PasswordInput({ className = '', wrapperClassName = '', ...props }) {
   const [shown, setShown] = useState(false);
   return (
     <span className={`relative block ${wrapperClassName}`}>
-      <input {...props} type={shown ? 'text' : 'password'} className={`${className} pe-11`} />
+      <input {...props} type={shown ? 'text' : 'password'} className={`ui-input w-full pe-11 ${className}`} />
       <button
         type="button"
         className="ui-icon-btn absolute end-1 top-1/2 -translate-y-1/2"
