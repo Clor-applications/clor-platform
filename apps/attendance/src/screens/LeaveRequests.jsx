@@ -153,7 +153,43 @@ export default function LeaveRequests() {
         loadError ? null : <SkeletonCard lines={5} />
       ) : (
         <>
-          <div className="ui-table-scroll">
+          {/* Phones: cards with 44 px actions, like Exceptions; the table from 768 px. */}
+          <ul className="space-y-2 md:hidden" aria-label="Leave requests">
+            {!rows.length ? (
+              <li>
+                {inTab.length ? (
+                  <EmptyState kind="filtered" totalCount={inTab.length} title="No leave matches" description="Nothing in this tab matches the search or the column filters." />
+                ) : (
+                  <EmptyState icon={CalendarCheck} title={status === 'PENDING' ? 'Nothing waiting for approval' : status ? `No ${status.toLowerCase()} leave` : 'No leave requests yet'} description="Requests from the portal and from Add leave land here." />
+                )}
+              </li>
+            ) : (
+              pageRows.map((r) => (
+                <li key={r.id} className="ui-card p-3 space-y-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="font-medium">{r.employeeName}{r.employeeCode ? <span className="ui-caption"> · {r.employeeCode}</span> : null}</p>
+                      <p className="ui-caption">{r.leaveTypeName}{r.isPaid ? '' : ' · unpaid'} · {span(r.fromDate, r.toDate)} · {r.days} {Number(r.days) === 1 ? 'day' : 'days'}</p>
+                    </div>
+                    <StatusPill status={r.status} />
+                  </div>
+                  {r.reason ? <p className="text-sm">{r.reason}</p> : null}
+                  {r.status === 'PENDING' || r.status === 'APPROVED' ? (
+                    <div className="grid grid-cols-3 gap-2">
+                      {r.status === 'PENDING' ? (
+                        <>
+                          <button type="button" className="ui-btn ui-btn-secondary min-h-[44px]" aria-label={`Approve ${r.employeeName}'s leave`} onClick={() => act(approveLeave, r, 'Approved; the days are marked on leave.')}><Check size={16} aria-hidden="true" /> Approve</button>
+                          <button type="button" className="ui-btn ui-btn-secondary min-h-[44px]" aria-label={`Reject ${r.employeeName}'s leave`} onClick={() => act(rejectLeave, r, 'Rejected.')}><X size={16} aria-hidden="true" /> Reject</button>
+                        </>
+                      ) : null}
+                      <button type="button" className={`ui-btn ui-btn-secondary min-h-[44px] ${r.status === 'APPROVED' ? 'col-span-3' : ''}`} aria-label={`Cancel ${r.employeeName}'s leave`} onClick={() => cancel(r)}><Ban size={16} aria-hidden="true" /> Cancel</button>
+                    </div>
+                  ) : null}
+                </li>
+              ))
+            )}
+          </ul>
+          <div className="ui-table-scroll hidden md:block">
             <table className="ui-table ui-table-sticky w-full">
               <thead>
                 <tr>

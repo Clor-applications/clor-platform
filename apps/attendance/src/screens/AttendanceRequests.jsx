@@ -121,7 +121,50 @@ export default function AttendanceRequests() {
         loadError ? null : <SkeletonCard lines={5} />
       ) : (
         <>
-          <div className="ui-table-scroll">
+          {/* Phones: cards with 44 px actions, like Exceptions; the table from 768 px. */}
+          <ul className="space-y-2 md:hidden" aria-label="Corrections">
+            {!rows.length ? (
+              <li>
+                {inTab.length ? (
+                  <EmptyState kind="filtered" totalCount={inTab.length} title="No corrections match" description="Nothing in this tab matches the search or the column filters." />
+                ) : (
+                  <EmptyState icon={ClipboardClock} title={status === 'PENDING' ? 'No corrections are waiting' : status ? `No ${status.toLowerCase()} corrections` : 'No corrections yet'} description="What people asked to change shows here beside the day as it stood." />
+                )}
+              </li>
+            ) : (
+              pageRows.map((r) => (
+                <li key={r.id} className="ui-card p-3 space-y-2">
+                  <div className="flex items-start gap-3">
+                    {r.status === 'PENDING' ? <input type="checkbox" className="ui-checkbox mt-1 h-5 w-5" aria-label={`Select ${r.employeeName}'s correction for ${r.date}`} checked={selected.has(r.id)} onChange={() => toggle(r.id)} /> : null}
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="font-medium">{r.employeeName}</p>
+                        <StatusPill status={r.status} />
+                      </div>
+                      <p className="ui-caption">{dayLabel(r.date, { weekday: true, year: false })}</p>
+                      <p className="text-sm mt-1">
+                        <span className="ui-caption">Was </span>
+                        {r.beforeStatus || r.beforeCheckIn ? `${time(r.beforeCheckIn)}–${time(r.beforeCheckOut)}${r.beforeStatus ? ` · ${STATUS_WORD[r.beforeStatus] || r.beforeStatus}` : ''}` : 'Nothing recorded'}
+                        <span className="ui-caption"> · asked for </span>
+                        <span className="font-medium tabular-nums">{time(r.checkIn)}–{time(r.checkOut)}</span>
+                      </p>
+                      <p className="ui-caption mt-1">{r.reasonCode ? `${reasonLabel(r.reasonCode)} · ` : ''}{r.reason}</p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <button type="button" className="ui-btn ui-btn-secondary min-h-[44px]" aria-label={`Explain ${r.employeeName}'s day ${r.date}`} onClick={() => setExplaining(r)}><HelpCircle size={16} aria-hidden="true" /> Day</button>
+                    {r.status === 'PENDING' ? (
+                      <>
+                        <button type="button" className="ui-btn ui-btn-secondary min-h-[44px]" aria-label={`Approve ${r.employeeName}'s correction for ${r.date}`} onClick={() => act(approveRequest, r, 'Approved; the day is updated.')}><Check size={16} aria-hidden="true" /> Approve</button>
+                        <button type="button" className="ui-btn ui-btn-secondary min-h-[44px]" aria-label={`Reject ${r.employeeName}'s correction for ${r.date}`} onClick={() => act(rejectRequest, r, 'Rejected.')}><X size={16} aria-hidden="true" /> Reject</button>
+                      </>
+                    ) : null}
+                  </div>
+                </li>
+              ))
+            )}
+          </ul>
+          <div className="ui-table-scroll hidden md:block">
             <table className="ui-table ui-table-sticky w-full">
               <thead>
                 <tr>
