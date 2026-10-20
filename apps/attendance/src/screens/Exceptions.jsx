@@ -186,7 +186,53 @@ export default function Exceptions({ openScreen }) {
               {pickedKeys.length > 500 ? <span className="ui-caption">The first 500 are changed; run it again for the rest.</span> : null}
             </div>
           ) : null}
-          <div className="ui-table-scroll">
+          {/*
+           * Phones get cards, not the table: the table's row actions were 28 px
+           * and off-screen to the right, on the screen a manager clears from a
+           * phone. Same rows, same page, same actions; 44 px targets.
+           */}
+          <ul className="space-y-2 md:hidden" aria-label="Exceptions">
+            {!rows.length ? (
+              <li>
+                {inTab.length ? (
+                  <EmptyState kind="filtered" totalCount={inTab.length} title="No exceptions match" description="Nothing in this tab matches the search or the column filters." />
+                ) : (
+                  <EmptyState icon={CheckCircle2} title="Nothing to settle" description="Every day in this range is complete and every queue is clear." />
+                )}
+              </li>
+            ) : (
+              pageRows.map((x) => (
+                <li key={x.key} className="ui-card p-3 space-y-2" data-severity={x.severity}>
+                  <div className="flex items-start gap-3">
+                    {isOpen(x) ? (
+                      <input type="checkbox" className="ui-checkbox mt-1 h-5 w-5" checked={picked.has(x.key)} onChange={() => togglePick(x.key)} aria-label={`Select ${x.title}${x.employeeName ? `, ${x.employeeName}` : ''}${x.date ? `, ${x.date}` : ''}`} />
+                    ) : null}
+                    <span className="ui-exc-dot mt-1.5" data-severity={x.severity} aria-hidden="true" />
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium">{x.title}</p>
+                      <p className="ui-caption">
+                        {[x.employeeName, x.date ? dayLabel(x.date, { weekday: true, year: false }) : null, SEVERITY[x.severity], x.status !== 'OPEN' ? STATUS[x.status] : null].filter(Boolean).join(' · ')}
+                      </p>
+                      {x.detail ? <p className="ui-caption mt-1">{x.detail}{x.note ? ` · Note: ${x.note}` : ''}</p> : null}
+                      <p className="ui-caption mt-1">Owner: {x.assignee || 'Nobody'}</p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    {isOpen(x) ? (
+                      <>
+                        <button type="button" className="ui-btn ui-btn-secondary min-h-[44px]" onClick={() => settle(x, 'RESOLVED')}><CheckCircle2 size={16} aria-hidden="true" /> Settle</button>
+                        <button type="button" className="ui-btn ui-btn-secondary min-h-[44px]" onClick={() => settle(x, 'IGNORED')}><EyeOff size={16} aria-hidden="true" /> Ignore</button>
+                      </>
+                    ) : (
+                      <button type="button" className="ui-btn ui-btn-secondary col-span-2 min-h-[44px]" onClick={() => change(x, { status: 'OPEN' }, 'Reopened.')}><CircleDot size={16} aria-hidden="true" /> Reopen</button>
+                    )}
+                    {openScreen ? <button type="button" className="ui-btn ui-btn-secondary min-h-[44px]" onClick={() => open(x)}><ArrowUpRight size={16} aria-hidden="true" /> Open</button> : null}
+                  </div>
+                </li>
+              ))
+            )}
+          </ul>
+          <div className="ui-table-scroll hidden md:block">
             <table className="ui-table ui-table-sticky w-full">
               <thead>
                 <tr>
