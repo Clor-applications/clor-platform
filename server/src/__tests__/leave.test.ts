@@ -185,3 +185,28 @@ describe('my leave', () => {
     await api(c).post(`/me/leave/${past.id}/cancel`).expect(409);
   });
 });
+
+describe('two requests at the same moment', () => {
+  let c: Ctx;
+  beforeAll(async () => {
+    c = await makeOwner();
+  }, 60_000);
+
+  it('saves a double tap once', async () => {
+    const t = await leaveType(c, { name: 'Casual', annualDays: 12 });
+    const p = await person(c, { name: 'Double Tap' });
+    const body = { employeeId: p.id, leaveTypeId: t.id, fromDate: '2026-09-11', toDate: '2026-09-11', reason: 'Family function' };
+    const [a, b] = await Promise.all([api(c).post('/leave/requests', body), api(c).post('/leave/requests', body)]);
+    expect([a.status, b.status].sort()).toEqual([201, 409]);
+  });
+
+  it('does not overdraw a balance across two different requests', async () => {
+    const t = await leaveType(c, { name: 'Earned', annualDays: 12 });
+    const p = await person(c, { name: 'Two Requests' });
+    await api(c).put('/leave/allocations', { employeeId: p.id, leaveTypeId: t.id, year: 2026, days: 1 }).expect(200);
+    const one = (fromDate: string) => api(c).post('/leave/requests', { employeeId: p.id, leaveTypeId: t.id, fromDate, toDate: fromDate, reason: 'Errand' });
+    const [a, b] = await Promise.all([one('2026-09-14'), one('2026-09-15')]);
+    expect([a.status, b.status].sort()).toEqual([201, 400]);
+    expect([a, b].find((r) => r.status === 400)!.body.code).toBe('NO_BALANCE');
+  });
+});

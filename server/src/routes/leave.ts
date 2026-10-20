@@ -292,25 +292,37 @@ export async function createLeave(
   if (employee.status === 'LEFT') return res.status(400).json({ error: 'This person has left.' });
   const type = await peoplePrisma.leaveType.findFirst({ where: { id: b.leaveTypeId, accountId, orgId, isActive: true } });
   if (!type) return res.status(400).json({ error: 'That leave type is not available.' });
-  const clash = await peoplePrisma.leaveRequest.findFirst({
-    where: { orgId, employeeId: employee.id, status: { in: OPEN }, fromDate: { lte: b.toDate }, toDate: { gte: b.fromDate } },
-  });
-  if (clash) return res.status(409).json({ error: `This overlaps leave already asked for (${clash.fromDate} to ${clash.toDate}).` });
   if (b.halfDay && b.fromDate !== b.toDate) return res.status(400).json({ error: 'A half-day leave is for one day.' });
   const days = await workingDays(orgId, employee, b.fromDate, b.toDate);
   if (!days.length) return res.status(400).json({ error: 'Those are all weekly offs or holidays — there is nothing to take leave from.' });
   const count = b.halfDay ? 0.5 : days.length;
-  if (type.isPaid) {
-    const { balances } = await balancesFor(accountId, orgId, [employee.id], Number(b.fromDate.slice(0, 4)), b.fromDate > today() ? b.fromDate : undefined);
-    const bal = balances.get(employee.id)!.get(type.id)!;
-    if (count > (bal.available ?? Infinity)) {
-      return res.status(400).json({ error: `Only ${bal.available} days of ${type.name} are left this year; this is ${count}.`, code: 'NO_BALANCE' });
+
+  /*
+   * Check and insert under one lock per employee. As separate steps, a double
+   * tap in the portal passed the overlap and balance checks twice and saved two
+   * overlapping requests, overdrawing the balance. The second request now waits
+   * here, then sees the first one and is refused.
+   */
+  const outcome = await peoplePrisma.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`leave:${employee.id}`}))`;
+    const clash = await tx.leaveRequest.findFirst({
+      where: { orgId, employeeId: employee.id, status: { in: OPEN }, fromDate: { lte: b.toDate }, toDate: { gte: b.fromDate } },
+    });
+    if (clash) return { status: 409, body: { error: `This overlaps leave already asked for (${clash.fromDate} to ${clash.toDate}).` } };
+    if (type.isPaid) {
+      const { balances } = await balancesFor(accountId, orgId, [employee.id], Number(b.fromDate.slice(0, 4)), b.fromDate > today() ? b.fromDate : undefined);
+      const bal = balances.get(employee.id)!.get(type.id)!;
+      if (count > (bal.available ?? Infinity)) {
+        return { status: 400, body: { error: `Only ${bal.available} days of ${type.name} are left this year; this is ${count}.`, code: 'NO_BALANCE' } };
+      }
     }
-  }
-  const row = await peoplePrisma.leaveRequest.create({
-    data: { accountId, orgId, employeeId: employee.id, leaveTypeId: type.id, fromDate: b.fromDate, toDate: b.toDate, days: count, halfDay: b.halfDay ?? null, reason: b.reason, requestedByUserId: by?.userId || req.auth!.userId },
+    const row = await tx.leaveRequest.create({
+      data: { accountId, orgId, employeeId: employee.id, leaveTypeId: type.id, fromDate: b.fromDate, toDate: b.toDate, days: count, halfDay: b.halfDay ?? null, reason: b.reason, requestedByUserId: by?.userId || req.auth!.userId },
+    });
+    return { row };
   });
-  res.status(201).json({ request: await announce(orgId, row) });
+  if (!('row' in outcome)) return res.status(outcome.status).json(outcome.body);
+  res.status(201).json({ request: await announce(orgId, outcome.row) });
 }
 
 /** Undo an approved leave's days. Days someone clocked in on anyway are theirs, and stay. */
