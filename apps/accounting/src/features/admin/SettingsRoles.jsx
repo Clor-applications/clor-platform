@@ -2,11 +2,11 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Plus, Search } from 'lucide-react';
 import { StatusPill, TableSkeleton } from '@ui/components/ui/Primitives';
-import { exportRows } from '@ui/components/ListToolbar';
 import { confirmDialog } from '@ui/components/ui/notify';
 import { listRoles, createRole, updateRole, deleteRole } from '../../api/admin';
 import Popover from '@ui/components/ui/Popover';
 import { MoreButton } from '@ui/components/list/ListPageParts';
+import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';
 import Drawer from '@ui/components/ui/Drawer';
 import { getPermissionCatalog } from '@ui/api/permissions';
 import { rbacErrorMessage } from '@ui/permissions/rbacErrors';
@@ -221,17 +221,23 @@ export function SettingsRoles({ orgId }) {
         <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search roles" aria-label="Search roles" className="ui-input ui-ctl-compact w-full ps-9 ui-surface" />
       </label>
       <MoreButton
-        items={[{ key: 'export', label: 'Export roles' }]}
-        onSelect={() => exportRows({
-          fileName: 'Roles',
-          label: 'role(s)',
-          columns: [
-            { key: 'name', label: 'Role' },
-            { key: 'description', label: 'Description' },
-            { key: 'roleType', label: 'Type' },
-          ],
-          rows: filteredRoles,
-        })}
+        items={[exportMenuItem('Export roles')]}
+        onSelect={(key) => {
+          const format = exportFormatFromKey(key);
+          if (!format) return;
+          runListExport({
+            format,
+            title: 'Roles',
+            fileName: 'Roles',
+            label: 'role(s)',
+            columns: [
+              { key: 'name', label: 'Role' },
+              { key: 'description', label: 'Description' },
+              { key: 'roleType', label: 'Type' },
+            ],
+            rows: filteredRoles,
+          });
+        }}
       />
       <PermissionButton permission="SETTINGS::Roles::CREATE" type="button" onClick={openCreate} className="ui-btn ui-btn-primary">
         <Plus size={16} aria-hidden="true" /> Create Role

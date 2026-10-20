@@ -469,7 +469,7 @@ export default function CustomerDetailPage({ db, currentCompany, customer, onBac
             <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
               <h1 className="text-xl font-bold">{name}</h1>
-              <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${customer?.isActive === false ? 'bg-slate-100 text-slate-700' : 'ui-pill ui-pill-pos'}`}>{customer?.isActive === false ? 'Inactive' : 'Active'}</span>
+              <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${customer?.isActive === false ? 'ui-pill ui-pill-neutral' : 'ui-pill ui-pill-pos'}`}>{customer?.isActive === false ? 'Inactive' : 'Active'}</span>
             </div>
             <div className="mt-1 flex flex-wrap items-center gap-x-5 gap-y-1 text-sm ui-subtle">
               <span>{displayCustomerCode || '—'}</span><span>{groupName || customer?.customerType || (isVendor ? 'Regular Vendor' : 'Regular Customer')}</span>
@@ -603,10 +603,10 @@ export default function CustomerDetailPage({ db, currentCompany, customer, onBac
                 </section>
 
                 <section className="rounded-2xl border bg-[rgb(var(--surface))] p-5 ui-border-c">
-                  <div className="flex items-center justify-between gap-3"><div><h3 className="font-bold">Top 5 outstanding {isVendor ? 'bills' : 'invoices'}</h3><p className="mt-1 text-sm ui-subtle">Oldest open balances</p></div><span className="rounded-full border px-3 py-1 text-xs font-semibold text-blue-700 ui-border-c">{openInvoices.length} open</span></div>
+                  <div className="flex items-center justify-between gap-3"><div><h3 className="font-bold">Top 5 outstanding {isVendor ? 'bills' : 'invoices'}</h3><p className="mt-1 text-sm ui-subtle">Oldest open balances</p></div><span className="rounded-full border px-3 py-1 text-xs font-semibold ui-link ui-border-c">{openInvoices.length} open</span></div>
                   <div className="mt-4 overflow-x-auto">
                     <table className="w-full text-sm"><thead><tr className="border-b text-left text-xs ui-subtle ui-border-c"><th className="py-2">Invoice</th><th className="py-2">Date</th><th className="py-2 text-right">Outstanding</th></tr></thead><tbody>
-                      {[...openInvoices].sort((a, b) => String(a.date || '').localeCompare(String(b.date || ''))).slice(0, 5).map((invoice) => <tr key={invoice.id} className="border-b last:border-0 ui-border-c"><td className="py-3 font-semibold text-blue-700">{invoice.number || '—'}</td><td className="py-3"><DocDate value={invoice.date} /></td><td className="py-3 text-right font-semibold">{formatMoney(Math.max(0, num(invoice.total) - num(invoice.paidAmount)), currentCompany)}</td></tr>)}
+                      {[...openInvoices].sort((a, b) => String(a.date || '').localeCompare(String(b.date || ''))).slice(0, 5).map((invoice) => <tr key={invoice.id} className="border-b last:border-0 ui-border-c"><td className="py-3 font-semibold ui-link">{invoice.number || '—'}</td><td className="py-3"><DocDate value={invoice.date} /></td><td className="ui-money py-3 text-right">{formatMoney(Math.max(0, num(invoice.total) - num(invoice.paidAmount)), currentCompany)}</td></tr>)}
                       {!openInvoices.length ? <tr><td colSpan={3} className="py-8 text-center ui-subtle">No outstanding {isVendor ? 'bills' : 'invoices'}</td></tr> : null}
                     </tbody></table>
                   </div>
@@ -680,7 +680,7 @@ export default function CustomerDetailPage({ db, currentCompany, customer, onBac
                       <tr key={row.id} className="cursor-pointer" onClick={() => setEntryPopup(row)}>
                         <td className="ui-col-date"><DocDate value={row.date || '—'} /></td>
                         <td className="ui-col-entity">{row.type}</td>
-                        <td className="ui-col-id"><button type="button" className="font-semibold text-blue-700 hover:underline" onClick={(event) => { event.stopPropagation(); setVoucherPopup(row); }}>{row.number || '—'}</button></td>
+                        <td className="ui-col-id"><button type="button" className="font-semibold ui-link" onClick={(event) => { event.stopPropagation(); setVoucherPopup(row); }}>{row.number || '—'}</button></td>
                         <td className="ui-col-amount">{row.debit ? <MoneyValue value={row.debit} company={currentCompany} /> : '—'}</td>
                         <td className="ui-col-amount">{row.credit ? <MoneyValue value={row.credit} company={currentCompany} /> : '—'}</td>
                         <td className="ui-col-amount"><MoneyValue value={row.balance} company={currentCompany} /></td>

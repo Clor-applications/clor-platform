@@ -57,7 +57,7 @@ function StatCard({ tone = 'blue', Icon, label, value, company, count = false, f
         <div className="ui-caption min-w-0 truncate">{label}</div>
       </div>
       <div
-        className="mt-1.5 whitespace-nowrap tabular-nums"
+        className="ui-money mt-1.5 whitespace-nowrap"
         style={{ fontSize: 'clamp(0.875rem, 1.35vw, 1rem)', lineHeight: '1.5rem', letterSpacing: '-0.025em' }}
         title={String(count ? value : formatMoney(value, company))}
       >

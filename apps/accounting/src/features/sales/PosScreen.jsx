@@ -686,7 +686,7 @@ function PosDashboard({ db, currentCompany }) {
   const cash = sales.filter((x) => String(x.tender).toUpperCase() === 'CASH').reduce((n, x) => n + Number(x.total || 0), 0);
   const byMode = ['CASH', 'UPI', 'CARD', 'CREDIT'].map((mode) => ({ mode, amount: sales.filter((x) => String(x.tender).toUpperCase() === mode).reduce((n, x) => n + Number(x.total || 0), 0) }));
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
         <PosMetric label="Today's sales" value={formatMoney(total, currentCompany)} />
         <PosMetric label="Transactions" value={sales.length} />

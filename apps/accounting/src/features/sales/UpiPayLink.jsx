@@ -90,7 +90,7 @@ export default function UpiPayLink({ invoice, currentCompany, onPaid }) {
   if (!serverId) return <p className="ui-caption">This invoice was made before invoices were kept on the server, so it cannot have a pay link. Share your UPI ID or the QR on the printed invoice instead.</p>;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <p className="ui-caption">Your customer pays straight into your UPI ID from any UPI app — no gateway and no fee. They enter the UTR after paying; you confirm when the money shows in the bank.</p>
 
       {made ? (

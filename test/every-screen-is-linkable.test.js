@@ -87,9 +87,19 @@ const railScreens = () => {
 const settingsScreens = () =>
   new Set([...registry.matchAll(/key: '([A-Za-z0-9]+)'/g)].map((m) => m[1]));
 
+/* Master Data keeps its own rail (MasterDataWorkspace's GROUPS); App.jsx knows
+   those keys through MASTER_DATA_KEYS, so TDS and TCS rates open from a link. */
+const masterDataScreens = () => {
+  const workspace = readFileSync(src('features/masters/MasterDataWorkspace.jsx'), 'utf8');
+  const from = workspace.indexOf('const GROUPS');
+  expect(from).toBeGreaterThan(-1);
+  const to = workspace.indexOf('export const MASTER_DATA_KEYS', from);
+  return new Set([...workspace.slice(from, to).matchAll(/key: '([A-Za-z0-9]+)'/g)].map((m) => m[1]));
+};
+
 describe('the address bar', () => {
   it('can open every screen the render switch knows', () => {
-    const known = new Set([...hubScreens(), ...railScreens(), ...settingsScreens()]);
+    const known = new Set([...hubScreens(), ...railScreens(), ...settingsScreens(), ...masterDataScreens()]);
     const orphans = [...screensInSwitch()].filter((k) => !known.has(k) && !NEEDS_A_DOCUMENT.has(k)).sort();
     expect(orphans).toEqual([]);
   });

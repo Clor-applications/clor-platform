@@ -2,8 +2,8 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Plus, Search } from 'lucide-react';
 import { TableSkeleton } from '@ui/components/ui/Primitives';
-import { exportRows } from '@ui/components/ListToolbar';
 import { MoreButton } from '@ui/components/list/ListPageParts';
+import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';
 import { confirmDialog } from '@ui/components/ui/notify';
 import { listUsers,
   listRoles,
@@ -426,19 +426,25 @@ export function SettingsUsers({ orgId }) {
         />
       </label>
       <MoreButton
-        items={[{ key: 'export', label: 'Export users' }]}
-        onSelect={() => exportRows({
-          fileName: 'Users',
-          label: 'user(s)',
-          columns: [
-            { key: 'fullName', label: 'Name' },
-            { key: 'code', label: 'User ID' },
-            { key: 'email', label: 'Email' },
-            { key: 'username', label: 'Username' },
-            { key: 'status', label: 'Status', value: (r) => (r.isActive === false ? 'Inactive' : 'Active') },
-          ],
-          rows: filteredUsers,
-        })}
+        items={[exportMenuItem('Export users')]}
+        onSelect={(key) => {
+          const format = exportFormatFromKey(key);
+          if (!format) return;
+          runListExport({
+            format,
+            title: 'Users',
+            fileName: 'Users',
+            label: 'user(s)',
+            columns: [
+              { key: 'fullName', label: 'Name' },
+              { key: 'code', label: 'User ID' },
+              { key: 'email', label: 'Email' },
+              { key: 'username', label: 'Username' },
+              { key: 'status', label: 'Status', value: (r) => (r.isActive === false ? 'Inactive' : 'Active') },
+            ],
+            rows: filteredUsers,
+          });
+        }}
       />
       <PermissionButton permission="SETTINGS::Users::CREATE" type="button" onClick={openCreate} className="ui-btn ui-btn-primary">
         <Plus size={16} aria-hidden="true" /> Create User

@@ -109,7 +109,8 @@ const fetchEvent = (url, method = 'GET') => {
   return e;
 };
 
-const CACHE = 'neev-static-v1';
+/* Whatever the worker names its cache this release (bumped when the cache rules change). */
+const CACHE = SW.match(/const CACHE = '([^']+)'/)[1];
 let worker;
 beforeEach(() => {
   worker = loadWorker();
