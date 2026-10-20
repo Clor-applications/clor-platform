@@ -17,6 +17,7 @@ import { moduleForScreen, railAction, readScreenSearch, resolveModules, screenSe
 import { useSession } from './session';
 import ClorMark from './ClorMark';
 import NotificationBell from './NotificationBell';
+import HelpMenu from './HelpMenu';
 import CompanySetup from './CompanySetup';
 import Home from './Home';
 import ScreenBoundary from './ScreenBoundary';
@@ -544,7 +545,8 @@ export default function Shell() {
         </a>
       ) : null}
       <header
-        className="sticky top-0 flex h-14 items-center gap-3 px-4"
+        /* Tighter on a phone: the bar carries menu, logo, switcher, alerts, help, profile and sign-out in 360 px. */
+        className={`sticky top-0 flex h-14 items-center ${phone ? 'gap-2.5 px-3' : 'gap-3 px-4'}`}
         style={{
           backgroundColor: 'rgb(var(--surface))',
           borderBottom: '1px solid rgb(var(--border))',
@@ -666,6 +668,7 @@ export default function Shell() {
             openApp(link.app, link.screen || '');
           }}
         />
+        <HelpMenu />
         {!phone ? (
           <button
             type="button"

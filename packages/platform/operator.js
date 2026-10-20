@@ -10,6 +10,7 @@
  *   VITE_OPERATOR_ADDRESS         registered address
  *   VITE_OPERATOR_REGISTRATION    company registration (e.g. CIN), optional
  *   VITE_CONTACT_EMAIL            general and support contact
+ *   VITE_SUPPORT_WHATSAPP         support WhatsApp number with country code (e.g. 919876543210), optional
  *   VITE_GRIEVANCE_OFFICER        name of the grievance / data protection contact
  *   VITE_GRIEVANCE_EMAIL          their email
  *   VITE_HOSTING_PROVIDER         where the servers run (e.g. "Oracle Cloud, Mumbai region")
@@ -27,6 +28,7 @@ export const FIELDS = {
   address: { key: 'VITE_OPERATOR_ADDRESS', label: 'Registered address' },
   registration: { key: 'VITE_OPERATOR_REGISTRATION', label: 'Company registration number', optional: true },
   contactEmail: { key: 'VITE_CONTACT_EMAIL', label: 'Contact email' },
+  supportWhatsapp: { key: 'VITE_SUPPORT_WHATSAPP', label: 'Support WhatsApp', optional: true },
   grievanceOfficer: { key: 'VITE_GRIEVANCE_OFFICER', label: 'Grievance officer' },
   grievanceEmail: { key: 'VITE_GRIEVANCE_EMAIL', label: 'Grievance email' },
   hosting: { key: 'VITE_HOSTING_PROVIDER', label: 'Hosting provider and region' },
