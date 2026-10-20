@@ -12,6 +12,7 @@ import { decryptSecret } from '../services/mailer.js';
 import { setRefreshCookie } from '../utils/refreshCookie.js';
 import { providerSpeaksFor } from '../services/ssoDomains.js';
 import { ssoLimiter } from '../middleware/rateLimit.js';
+import { isDevOrTest } from '../utils/devMode.js';
 
 /**
  * Single sign-on, OpenID Connect.
@@ -37,7 +38,8 @@ export const ssoRouter = Router();
 
 const STATE_COOKIE = 'clor_sso';
 const STATE_TTL_S = 10 * 60;
-const secret = () => process.env.JWT_SECRET || 'dev-secret';
+/* Like every other signer: no JWT_SECRET outside dev/test means SSO refuses, not a guessable key. */
+const secret = () => process.env.JWT_SECRET || (isDevOrTest() ? 'dev-secret' : '');
 const appUrl = () => (process.env.APP_URL || 'http://localhost:5173').replace(/\/$/, '');
 /** Where the provider sends the person back: this API's own public address. */
 export const callbackUrl = () => `${(process.env.API_PUBLIC_URL || process.env.API_URL || appUrl()).replace(/\/$/, '')}/api/auth/sso/callback`;
