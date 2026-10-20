@@ -45,15 +45,21 @@ const ChartFallback = ({ height = 260 }) => (
   <div className="ui-skel rounded-xl" style={{ height }} aria-hidden="true" />
 );
 
+/* Ageing buckets: current, then overdue, then badly overdue — tints of the status tokens, so both themes read. */
+const agingTone = (index) => {
+  const tone = index === 0 ? 'var(--pos)' : index < 3 ? 'var(--warn-ink, 180 83 9)' : 'var(--neg)';
+  return { borderColor: `rgb(${tone} / 0.4)`, backgroundColor: `rgb(${tone} / 0.08)` };
+};
+
 const normalizeId = (v) => String(v ?? '').trim();
 
 const getBranchLabel = branchLabel;
 
 const SALES_METRIC_TONES = {
-  green: { ink: '#10b981', wash: '#ecfdf5', line: '#a7f3d0' },
-  blue: { ink: '#3b82f6', wash: '#eff6ff', line: '#bfdbfe' },
-  red: { ink: '#fb7185', wash: '#fff1f2', line: '#fecdd3' },
-  violet: { ink: '#8b5cf6', wash: '#f5f3ff', line: '#ddd6fe' },
+  green: { ink: '#10b981', wash: '#10b9811f', line: '#10b98159' },
+  blue: { ink: '#3b82f6', wash: '#3b82f61f', line: '#3b82f659' },
+  red: { ink: '#fb7185', wash: '#fb71851f', line: '#fb718559' },
+  violet: { ink: '#8b5cf6', wash: '#8b5cf61f', line: '#8b5cf659' },
 };
 
 function SalesMetricCard({ label, value, delta: movement, Icon, tone = 'blue', series = [] }) {
@@ -67,7 +73,7 @@ function SalesMetricCard({ label, value, delta: movement, Icon, tone = 'blue', s
   })();
   const positive = Number(movement || 0) >= 0;
   return (
-    <section className="min-w-0 rounded-xl border bg-white p-3.5 shadow-sm" style={{ borderColor: '#dbe5f1' }} aria-label={label}>
+    <section className="ui-card min-w-0 p-3.5" aria-label={label}>
       <div className="flex items-center gap-2 text-xs font-semibold" style={{ color: 'rgb(var(--fg-muted))' }}>
         <span className="grid h-7 w-7 place-items-center rounded-lg" style={{ color: palette.ink, backgroundColor: palette.wash }}><Icon size={15} /></span>
         {label}
@@ -486,7 +492,7 @@ const SalesOverview = ({
        column of related things; at 24 the KPI row, the charts and the tables
        read as three separate pages stacked, and a third of the useful content
        sat below the fold. */
-    <div className="space-y-3 rounded-xl p-3" style={{ background: 'linear-gradient(180deg, #f3f8ff 0%, #f8fbff 58%, rgb(var(--surface)) 100%)' }}>
+    <div className="space-y-3 rounded-xl p-3">
       {/* The same band Home opens with. What differs is only what goes
           in it: the module names itself, and the controls that govern
           every figure below sit where Home keeps its search. */}
@@ -598,7 +604,7 @@ const SalesOverview = ({
       <div className="grid gap-4 items-stretch xl:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
         <Panel
           title="Sales Trend"
-          className="border-[#dbeafe] bg-white/95 shadow-sm"
+          className=""
           control={
             <Segmented
               ariaLabel="Chart grain"
@@ -645,7 +651,7 @@ const SalesOverview = ({
 
         <Panel
           title="Sales by Category"
-          className="border-[#dbeafe] bg-white/95 shadow-sm"
+          className=""
         >
           {breakdown.length ? (
             <div className="grid gap-4 sm:grid-cols-[minmax(0,14rem)_minmax(0,1fr)] items-center">
@@ -685,10 +691,10 @@ const SalesOverview = ({
         </Panel>
       </div>
 
-      <Panel title="Customer Receivables (Outstanding)" bodyClass="justify-start" className="border-[#dbeafe] bg-white/95 shadow-sm">
+      <Panel title="Customer Receivables (Outstanding)" bodyClass="justify-start" className="">
         <div className="grid gap-2 sm:grid-cols-3 xl:grid-cols-6">
           {receivables.buckets.map((bucket, index) => (
-            <div key={bucket.key} className="rounded-lg border p-3" style={{ borderColor: index === 0 ? '#bbf7d0' : index < 3 ? '#fde68a' : '#fecdd3', backgroundColor: index === 0 ? '#ecfdf5' : index < 3 ? '#fffbeb' : '#fff1f2' }}>
+            <div key={bucket.key} className="rounded-lg border p-3" style={agingTone(index)}>
               <div className="ui-money text-sm font-semibold">{money(bucket.amount)}</div>
               <div className="ui-caption mt-1">{bucket.label}</div>
               <div className="ui-caption">{receivables.total ? Math.round(bucket.amount / receivables.total * 100) : 0}% of dues</div>

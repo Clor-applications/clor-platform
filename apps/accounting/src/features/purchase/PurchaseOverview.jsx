@@ -47,11 +47,17 @@ const ChartFallback = ({ height = 260 }) => (
 );
 
 const metricTones = {
-  blue: { ink: '#3b82f6', soft: '#eff6ff' },
-  green: { ink: '#10b981', soft: '#ecfdf5' },
-  amber: { ink: '#f59e0b', soft: '#fffbeb' },
-  red: { ink: '#fb7185', soft: '#fff1f2' },
-  violet: { ink: '#8b5cf6', soft: '#f5f3ff' },
+  blue: { ink: '#3b82f6', soft: '#3b82f61f' },
+  green: { ink: '#10b981', soft: '#10b9811f' },
+  amber: { ink: '#f59e0b', soft: '#f59e0b1f' },
+  red: { ink: '#fb7185', soft: '#fb71851f' },
+  violet: { ink: '#8b5cf6', soft: '#8b5cf61f' },
+};
+
+/* Ageing buckets: current, then overdue, then badly overdue — tints of the status tokens, so both themes read. */
+const agingTone = (index) => {
+  const tone = index === 0 ? 'var(--pos)' : index < 3 ? 'var(--warn-ink, 180 83 9)' : 'var(--neg)';
+  return { borderColor: `rgb(${tone} / 0.4)`, backgroundColor: `rgb(${tone} / 0.08)` };
 };
 
 function PurchaseMetricCard({ icon: Icon, label, value, delta, goodWhenUp = true, tone = 'blue', series = [] }) {
@@ -67,7 +73,7 @@ function PurchaseMetricCard({ icon: Icon, label, value, delta, goodWhenUp = true
   })();
 
   return (
-    <article className="min-w-0 rounded-xl border bg-white p-3.5 shadow-sm" style={{ borderColor: '#dbe5f1' }} aria-label={label}>
+    <article className="ui-card min-w-0 p-3.5" aria-label={label}>
       <div className="flex items-center gap-2 text-xs font-semibold ui-muted">
         <span className="grid h-7 w-7 place-items-center rounded-lg" style={{ backgroundColor: palette.soft, color: palette.ink }}><Icon size={15} /></span>
         {label}
@@ -377,7 +383,7 @@ export default function PurchaseOverview({ db, currentCompany, onNavigate, onNew
   }, [allBills, db?.vendors, nowTs]);
 
   return (
-    <div className="space-y-3 rounded-xl p-3" style={{ background: 'linear-gradient(180deg, #f3f8ff 0%, #f8fbff 58%, rgb(var(--surface)) 100%)' }}>
+    <div className="space-y-3 rounded-xl p-3">
       {/* The same band Home opens with — see HeroBand. The module names
           itself, and the controls that govern every figure below sit
           where Home keeps its search. */}
@@ -506,7 +512,7 @@ export default function PurchaseOverview({ db, currentCompany, onNavigate, onNew
       <div className="grid gap-4 items-stretch xl:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
         <Panel
           title="Purchase Trend"
-          className="overflow-hidden border-[#dbeafe] bg-white/95 shadow-sm"
+          className="overflow-hidden"
           control={
             <Segmented
               ariaLabel="Grain"
@@ -551,7 +557,7 @@ export default function PurchaseOverview({ db, currentCompany, onNavigate, onNew
 
         <Panel
           title="Purchases by Category"
-          className="overflow-hidden border-[#dbeafe] bg-white/95 shadow-sm"
+          className="overflow-hidden"
         >
           {breakdown.length ? (
             <div className="grid gap-4 sm:grid-cols-[minmax(0,14rem)_minmax(0,1fr)] items-center">
@@ -591,9 +597,9 @@ export default function PurchaseOverview({ db, currentCompany, onNavigate, onNew
         </Panel>
       </div>
 
-      <Panel title="Vendor Payables (Outstanding)" bodyClass="justify-start" className="border-[#dbeafe] bg-white/95 shadow-sm">
+      <Panel title="Vendor Payables (Outstanding)" bodyClass="justify-start" className="">
         <div className="grid gap-2 sm:grid-cols-3 xl:grid-cols-6">
-          {payables.buckets.map((bucket, index) => <div key={bucket.key} className="rounded-lg border p-3" style={{ borderColor: index === 0 ? '#bbf7d0' : index < 3 ? '#fde68a' : '#fecdd3', backgroundColor: index === 0 ? '#ecfdf5' : index < 3 ? '#fffbeb' : '#fff1f2' }}><div className="ui-money text-sm font-semibold">{money(bucket.amount)}</div><div className="ui-caption mt-1">{bucket.label}</div><div className="ui-caption">{payables.total ? Math.round(bucket.amount / payables.total * 100) : 0}% of dues</div></div>)}
+          {payables.buckets.map((bucket, index) => <div key={bucket.key} className="rounded-lg border p-3" style={agingTone(index)}><div className="ui-money text-sm font-semibold">{money(bucket.amount)}</div><div className="ui-caption mt-1">{bucket.label}</div><div className="ui-caption">{payables.total ? Math.round(bucket.amount / payables.total * 100) : 0}% of dues</div></div>)}
         </div>
         <div className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,1fr)_17rem]">
           <div className="min-w-0">
