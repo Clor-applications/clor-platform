@@ -1,5 +1,6 @@
 import { prisma } from '../utils/prisma.js';
 import { platformPrisma } from '../utils/platformPrisma.js';
+import { isCommonPassword } from './commonPasswords.js';
 
 /**
  * The security policy an organisation enforces.
@@ -107,6 +108,9 @@ export function validatePassword(password: string, policy: Policy) {
   }
   if (policy.passwordRequireSymbol && !/[^A-Za-z0-9]/.test(value)) {
     return 'Password must contain a symbol';
+  }
+  if (isCommonPassword(value)) {
+    return 'That password is too common. Choose one that is harder to guess';
   }
   return null;
 }

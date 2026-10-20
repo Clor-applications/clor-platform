@@ -5,6 +5,7 @@ import bcrypt from 'bcrypt';
 import { prisma } from '../utils/prisma.js';
 import { platformPrisma } from '../utils/platformPrisma.js';
 import { userLimitReason } from '../services/entitlements.js';
+import { getAuthPolicy, policyForUser, validatePassword } from '../services/policy.js';
 import { requireAuth } from '../middleware/auth.js';
 import { requireTenantContext } from '../middleware/tenantContext.js';
 import { requirePermission } from '../middleware/rbac.js';
@@ -504,6 +505,10 @@ usersRouter.post('/orgs/:orgId/users/:userId/password', requirePermission('SETTI
   const refusal = await identityChangeRefusal(req, accountId, orgId, userId);
   if (refusal) return res.status(refusal.status).json(refusal.body);
 
+  /* The strictest rules of every company this person is in, not just this one (SX-13). */
+  const weak = validatePassword(body.password, await policyForUser(accountId, userId));
+  if (weak) return res.status(400).json({ error: weak, code: 'WEAK_PASSWORD' });
+
   const rounds = Number(process.env.BCRYPT_ROUNDS || 12);
   const passwordHash = await bcrypt.hash(body.password, rounds);
 
@@ -607,6 +612,12 @@ usersRouter.post('/users', requirePermission('SETTINGS', PermissionAction.CREATE
       select: { id: true },
     });
     if (usernameTaken) return res.status(409).json({ error: 'That username is already taken' });
+  }
+
+  /* A new login meets the adding company's password rules (SX-13). */
+  if (!invited) {
+    const weak = validatePassword(body.password, await getAuthPolicy(accountId, req.tenant!.orgId));
+    if (weak) return res.status(400).json({ error: weak, code: 'WEAK_PASSWORD' });
   }
 
   /*

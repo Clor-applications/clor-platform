@@ -18,6 +18,7 @@ import {
   clearFailedLogins,
   clientIp,
   consumePasswordResetToken,
+  peekPasswordResetToken,
   createSession,
   issuePasswordResetToken,
   listSessions,
@@ -34,11 +35,14 @@ import {
 import { decryptSecret, sendTemplate } from '../services/mailer.js';
 import { hashRecovery, verifyCode } from '../services/totp.js';
 import { adminTwoFactorMissing } from '../services/twoFactorPolicy.js';
-import { policyForUser, validatePassword, getAuthPolicy } from '../services/policy.js';
+import { DEFAULT_POLICY, policyForUser, validatePassword, getAuthPolicy } from '../services/policy.js';
 import { expandPreset, permKey } from '../constants/permissionCatalog.js';
 import { validateGstinOrThrow, deriveStateCodeFromInput } from '../utils/gstin.js';
 import { isDevOrTest } from '../utils/devMode.js';
 import { requireAuth as requireLiveAuth } from '../middleware/auth.js';
+
+/* Compared against when no such user exists, so a miss costs a real bcrypt check (SX-14). */
+const LOGIN_DUMMY_HASH = bcrypt.hashSync('not-a-password-0', Number(process.env.BCRYPT_ROUNDS || 12));
 
 export const authRouter = Router();
 
@@ -166,6 +170,9 @@ authRouter.post('/login', loginLimiter, async (req: Request, res: Response) => {
   const invalid = () => res.status(401).json({ error: 'Invalid credentials' });
 
   if (!user || !user.isActive) {
+    /* Spend the same bcrypt time as a real check, so how long the answer takes
+       does not tell which emails have accounts (SX-14). */
+    await bcrypt.compare(body.password, LOGIN_DUMMY_HASH);
     await recordAuthEvent({ email: identity, eventType: 'LOGIN_FAILED', ip, userAgent, detail: 'No such active user' });
     return invalid();
   }
@@ -628,6 +635,10 @@ authRouter.post('/signup', signupLimiter, async (req: Request, res: Response) =>
     })
     .parse(req.body);
 
+  /* A new person belongs to no company yet, so the product's own rules apply (SX-13). */
+  const weak = validatePassword(body.password, DEFAULT_POLICY);
+  if (weak) return res.status(400).json({ error: weak, code: 'WEAK_PASSWORD' });
+
   const email = body.email.trim().toLowerCase();
   const existing = await platformPrisma.user.findFirst({ where: { email }, select: { id: true } });
   if (existing) return res.status(409).json({ error: 'User already exists. Please login.' });
@@ -910,6 +921,14 @@ authRouter.post('/forgot-password', resetLimiter, async (req: Request, res: Resp
 
 authRouter.post('/reset-password', resetLimiter, async (req: Request, res: Response) => {
   const body = z.object({ token: z.string().min(10), password: z.string().min(8) }).parse(req.body);
+
+  /* The person's companies' password rules, checked before the link is used up,
+     so a refused password leaves the link working for a second try (SX-13). */
+  const pending = await peekPasswordResetToken(body.token);
+  if (pending) {
+    const weak = validatePassword(body.password, await policyForUser(pending.accountId, pending.userId));
+    if (weak) return res.status(400).json({ error: weak, code: 'WEAK_PASSWORD' });
+  }
 
   let record;
   try {

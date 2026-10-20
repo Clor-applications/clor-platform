@@ -243,6 +243,13 @@ export async function issuePasswordResetToken(user: { id: string; accountId: str
   return token;
 }
 
+/** The reset link's row if it is still usable, without using it up; null otherwise. */
+export async function peekPasswordResetToken(token: string) {
+  const row = await platformPrisma.passwordResetToken.findUnique({ where: { tokenHash: sha256(String(token || '')) } });
+  if (!row || row.usedAt || row.expiresAt.getTime() < Date.now()) return null;
+  return row;
+}
+
 export async function consumePasswordResetToken(token: string) {
   const row = await platformPrisma.passwordResetToken.findUnique({ where: { tokenHash: sha256(String(token || '')) } });
   if (!row) throw new AuthError('Invalid or expired reset link', 400);
