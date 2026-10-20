@@ -4,6 +4,7 @@ import { ArrowRight } from 'lucide-react';
 import AuthLayout from './AuthLayout';
 import { useSession } from './session';
 import { API_BASE, apiFetch } from '@platform/http';
+import PasswordInput from '@ui/components/ui/PasswordInput';
 
 /**
  * One sign-in for the platform, not for an application.
@@ -130,9 +131,8 @@ export default function SignIn({ onHome, onSignUp, onForgot }) {
               </button>
             ) : null}
           </div>
-          <input
+          <PasswordInput
             id="signin-password"
-            type="password"
             className="ui-input h-11 w-full"
             value={password}
             onChange={(e) => setPassword(e.target.value)}

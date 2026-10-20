@@ -5,6 +5,7 @@ import AuthLayout from './AuthLayout';
 import { useSession } from './session';
 import { legalHref } from './legal/useLegalRoute';
 import { NOTICE_VERSION } from './legal/version';
+import PasswordInput from '@ui/components/ui/PasswordInput';
 
 /**
  * Creating an account, and nothing else.
@@ -93,9 +94,8 @@ export default function SignUp({ onHome, onSignIn }) {
 
         <div>
           <label className="ui-label" htmlFor="signup-password">Password</label>
-          <input
+          <PasswordInput
             id="signup-password"
-            type="password"
             className="ui-input h-11 w-full"
             value={form.password}
             onChange={(e) => set({ password: e.target.value })}

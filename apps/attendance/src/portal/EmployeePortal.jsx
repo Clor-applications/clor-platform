@@ -39,6 +39,7 @@ import {
   signOut,
   todayIst,
 } from './portalApi';
+import PasswordInput from '@ui/components/ui/PasswordInput';
 
 /**
  * The employee portal (ClorTime's /portal), at #/portal: for staff who have no
@@ -212,7 +213,7 @@ function PortalSignIn({ onDone }) {
         <form onSubmit={submit} className="ui-card space-y-4 p-5">
           <label className="block">
             <span className="ui-label">Company code</span>
-            <input className="ui-input w-full uppercase" required autoCapitalize="characters" autoComplete="organization" value={form.company} onChange={set('company')} placeholder="e.g. INNO-C100" />
+            <input className="ui-input w-full uppercase" required autoCapitalize="characters" autoComplete="organization" value={form.company} onChange={set('company')} placeholder="e.g. KAVE-C100" />
           </label>
           <label className="block">
             <span className="ui-label">Employee code</span>
@@ -226,13 +227,13 @@ function PortalSignIn({ onDone }) {
           ) : null}
           <label className="block">
             <span className="ui-label">{mode === 'activate' ? 'Choose a password' : 'Password'}</span>
-            <input type="password" className="ui-input w-full" required autoComplete={mode === 'activate' ? 'new-password' : 'current-password'} value={form.password} onChange={set('password')} />
+            <PasswordInput className="ui-input w-full" required autoComplete={mode === 'activate' ? 'new-password' : 'current-password'} value={form.password} onChange={set('password')} />
             {mode === 'activate' ? <span className="ui-caption">8 or more characters, with a letter and a digit. Only you will know it.</span> : null}
           </label>
           {mode === 'activate' ? (
             <label className="block">
               <span className="ui-label">Same password again</span>
-              <input type="password" className="ui-input w-full" required autoComplete="new-password" value={form.confirm} onChange={set('confirm')} />
+              <PasswordInput className="ui-input w-full" required autoComplete="new-password" value={form.confirm} onChange={set('confirm')} />
             </label>
           ) : null}
           {error ? <p className="text-sm" role="alert" style={{ color: 'rgb(var(--neg))' }}>{error}</p> : null}
@@ -646,9 +647,9 @@ function Account({ me, guard, onSignOut }) {
       <MyData guard={guard} />
       <form onSubmit={save} className="ui-card space-y-3 p-5" aria-labelledby="pw-h">
         <h2 id="pw-h" className="ui-t-sec">Change password</h2>
-        <label className="block"><span className="ui-label">Current password</span><input type="password" className="ui-input w-full" required autoComplete="current-password" value={form.current} onChange={(e) => setForm({ ...form, current: e.target.value })} /></label>
-        <label className="block"><span className="ui-label">New password</span><input type="password" className="ui-input w-full" required autoComplete="new-password" value={form.next} onChange={(e) => setForm({ ...form, next: e.target.value })} /></label>
-        <label className="block"><span className="ui-label">New password again</span><input type="password" className="ui-input w-full" required autoComplete="new-password" value={form.confirm} onChange={(e) => setForm({ ...form, confirm: e.target.value })} /></label>
+        <label className="block"><span className="ui-label">Current password</span><PasswordInput className="ui-input w-full" required autoComplete="current-password" value={form.current} onChange={(e) => setForm({ ...form, current: e.target.value })} /></label>
+        <label className="block"><span className="ui-label">New password</span><PasswordInput className="ui-input w-full" required autoComplete="new-password" value={form.next} onChange={(e) => setForm({ ...form, next: e.target.value })} /></label>
+        <label className="block"><span className="ui-label">New password again</span><PasswordInput className="ui-input w-full" required autoComplete="new-password" value={form.confirm} onChange={(e) => setForm({ ...form, confirm: e.target.value })} /></label>
         {note ? <p className="text-sm" role={note.ok ? 'status' : 'alert'}>{note.text}</p> : null}
         <button type="submit" className="ui-btn ui-btn-primary w-full">Change password</button>
       </form>

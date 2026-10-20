@@ -3,6 +3,7 @@ import { ArrowRight } from 'lucide-react';
 
 import AuthLayout from './AuthLayout';
 import { resetPassword } from '../platform/auth';
+import PasswordInput from '@ui/components/ui/PasswordInput';
 
 /**
  * Where the link in a reset email lands (`/?reset=<token>`).
@@ -47,9 +48,8 @@ export default function ResetPassword({ token, onDone }) {
         <form onSubmit={submit} className="space-y-5">
           <div>
             <label className="ui-label" htmlFor="reset-password">New password</label>
-            <input
+            <PasswordInput
               id="reset-password"
-              type="password"
               className="ui-input h-11 w-full"
               value={password}
               onChange={(e) => {
@@ -62,9 +62,8 @@ export default function ResetPassword({ token, onDone }) {
           </div>
           <div>
             <label className="ui-label" htmlFor="reset-confirm">Type it again</label>
-            <input
+            <PasswordInput
               id="reset-confirm"
-              type="password"
               className="ui-input h-11 w-full"
               value={confirm}
               onChange={(e) => {
