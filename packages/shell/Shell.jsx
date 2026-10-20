@@ -537,6 +537,12 @@ export default function Shell() {
       data-app={activeAppId || undefined}
       style={{ backgroundColor: 'rgb(var(--app-bg))', '--platform-bar': '3.5rem' }}
     >
+      {/* Keyboard users skip the bar and the rail. Accounting (a Root app) carries its own. */}
+      {!Root ? (
+        <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:top-2 focus:left-2 ui-btn ui-btn-primary">
+          Skip to main content
+        </a>
+      ) : null}
       <header
         className="sticky top-0 flex h-14 items-center gap-3 px-4"
         style={{
@@ -778,7 +784,7 @@ export default function Shell() {
         ) : null}
 
         {/* `flush`: the app's pages sit edge to edge on the white content column, as Accounting's do. */}
-        <main className={`flex-1 min-w-0 ${app?.flush ? `ui-content ${phone ? 'pb-24' : ''}` : phone ? 'p-4 pb-24' : 'p-6'}`}>
+        <main id="main-content" tabIndex={-1} className={`flex-1 min-w-0 outline-none ${app?.flush ? `ui-content ${phone ? 'pb-24' : ''}` : phone ? 'p-4 pb-24' : 'p-6'}`}>
           {showMoreApps ? (
             <MoreApps tenant={tenant} onAdd={addApp} onOpen={openApp} />
           ) : platformScreen === 'profile' ? (
