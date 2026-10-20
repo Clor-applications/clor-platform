@@ -74,6 +74,18 @@ export const scimLimiter = [bucket(60 * 1000, 600, 'SCIM requests', (req) => `sc
 export const agentLimiter = [bucket(60 * 1000, 600, 'connector requests', (req) => `agent:${bearerOf(req) || ipOf(req)}`), bucket(60 * 1000, 1200, 'connector requests', (req) => `agent-ip:${ipOf(req)}`)];
 /** Hikvision pushes, before the body is read: per URL token (from the path) and per address. */
 export const hikvisionLimiter = [bucket(60 * 1000, 600, 'pushes', (req) => `hik:${String(req.path || '').slice(1, 17) || ipOf(req)}`), bucket(60 * 1000, 3000, 'pushes', (req) => `hik-ip:${ipOf(req)}`)];
+/**
+ * Every /api call: a ceiling that no real person reaches, so one stolen token
+ * or runaway script cannot hammer the API. Per session token (the bearer is
+ * unique to a sign-in) and per address (a shared office gets more room).
+ * Counted in each process, not Postgres: it runs on every request. The
+ * per-minute numbers can be lowered with API_RATE_LIMIT_PER_MIN.
+ */
+const apiPerMin = () => Math.max(1, Number(process.env.API_RATE_LIMIT_PER_MIN || 600));
+export const apiLimiter = [
+  bucket(60 * 1000, apiPerMin(), 'requests', (req) => `api:${bearerOf(req) || ipOf(req)}`, (req) => !bearerOf(req)),
+  bucket(60 * 1000, apiPerMin() * 3, 'requests', (req) => `api-ip:${ipOf(req)}`),
+];
 /** Single sign-on: lookups, starts and assertions, per address. */
 /** Address search for work sites: a person typing, debounced, never this many; spares the free map services. */
 export const geocodeLimiter = [bucket(60 * 1000, 60, 'address searches', (req) => `geo:${req.auth?.userId || ipOf(req)}`)];
