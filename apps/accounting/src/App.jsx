@@ -14376,7 +14376,7 @@ const AppShell = () => {
 
   if (hasBranchRestriction && !authCtx.loading && authCtx.data && allowedBranchIds.length === 0) {
     return (
-      <div className="min-h-screen ui-sunken flex items-center justify-center p-6">
+      <div className="ui-min-h-viewport ui-sunken flex items-center justify-center p-6">
         <div className="max-w-lg w-full ui-surface border rounded-xl p-6">
           <div className="ui-t-sec">No branches assigned</div>
           <div className="text-sm ui-muted mt-2">

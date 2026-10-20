@@ -531,7 +531,7 @@ export default function Shell() {
 
   return (
     <div
-      className="min-h-screen"
+      className="ui-min-h-viewport"
       /* Which app is open, for styling: People, Attendance and Payroll wear the
          HR palette (index.css, [data-app]); Accounting keeps its own. */
       data-app={activeAppId || undefined}

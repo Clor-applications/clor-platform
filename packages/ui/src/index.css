@@ -2573,6 +2573,7 @@
     align-self: flex-start;
     flex-shrink: 0;
     height: calc(100vh - 3.5rem);
+    height: calc(100dvh - 3.5rem);
     border-right: 1px solid rgb(var(--border));
   }
   .ui-split-rail {
