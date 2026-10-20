@@ -162,19 +162,19 @@ describe('addresses', () => {
     expect(screen.getByRole('button', { name: /Delete Shipping 2/i })).toBeEnabled();
   });
 
-  it('enables city selection only after country and state are selected', async () => {
+  /*
+   * States of India come from the GST list (the state decides the tax split);
+   * the city is typed. Both lists used to come from a GPL-3.0 package.
+   */
+  it('picks an Indian state from the GST list and takes the city as typed', async () => {
     const user = userEvent.setup();
     renderForm();
 
+    await setBillingState(user, 'Karnataka');
     const city = screen.getByLabelText('City, address 1');
-    expect(city).toBeDisabled();
-
-    await waitFor(() => expect(screen.getByLabelText('Country, address 1').options.length).toBeGreaterThan(1));
-    const state = screen.getByLabelText('State, address 1');
-    expect(state).toBeEnabled();
-    await user.selectOptions(state, 'Karnataka');
-    await waitFor(() => expect(screen.getByLabelText('City, address 1')).toBeEnabled());
-    expect(screen.getByLabelText('City, address 1').options.length).toBeGreaterThan(1);
+    expect(city.tagName).toBe('INPUT');
+    await user.type(city, 'Mysuru');
+    expect(city).toHaveValue('Mysuru');
   });
 
   it('asks only for what an Indian address prints — district is not one of them', () => {

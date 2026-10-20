@@ -1,7 +1,7 @@
 import { Info, MapPin, Plus, Trash2 } from 'lucide-react';
-import { useEffect, useState } from 'react';
-
 import PopupSelect from '@ui/components/pickers/PopupSelect';
+
+import { allCountries } from './countries';
 
 /**
  * The parts of the customer master that repeat.
@@ -30,18 +30,6 @@ export const CURRENCY_OPTIONS = [
   { value: 'SGD', label: 'SGD - Singapore Dollar' },
 ];
 
-const countriesFrom = (api) => api ? api.Country.getAllCountries() : [{ isoCode: 'IN', name: 'India' }];
-const countryByName = (api, name) => countriesFrom(api).find((country) => country.name === name);
-const statesForCountry = (api, countryName) => {
-  const country = countryByName(api, countryName);
-  return country && api ? api.State.getStatesOfCountry(country.isoCode) : [];
-};
-const citiesForState = (api, countryName, stateName) => {
-  const country = countryByName(api, countryName);
-  if (!country || !api) return [];
-  const state = statesForCountry(api, countryName).find((entry) => entry.name === stateName);
-  return state ? api.City.getCitiesOfState(country.isoCode, state.isoCode) : [];
-};
 
 /**
  * Label on the left, control on the right, explanation behind the icon.
@@ -239,15 +227,7 @@ const AddressCard = ({ row, index, states, onChange, onRemove, tone, title, subt
 };
 
 const CustomerAddressTable = ({ rows, states, onChange, onAdd, onRemove, sameAsBilling, onSameAsBilling }) => {
-  const [locationApi, setLocationApi] = useState(null);
-  useEffect(() => {
-    let active = true;
-    import('country-state-city').then((api) => {
-      if (active) setLocationApi(api);
-    });
-    return () => { active = false; };
-  }, []);
-  const addressCountries = countriesFrom(locationApi);
+  const addressCountries = allCountries();
   return (
   <section className="customer-address-table space-y-2">
     <div className="overflow-visible rounded border border-[rgb(var(--border))]">
@@ -275,12 +255,9 @@ const CustomerAddressTable = ({ rows, states, onChange, onAdd, onRemove, sameAsB
           {rows.map((row, index) => {
             const linked = index === 1 && sameAsBilling;
             const locationName = index === 0 ? 'Billing' : index === 1 ? 'Shipping' : row.label || `Address ${index - 1}`;
-            const countryStates = locationApi
-              ? statesForCountry(locationApi, row.country)
-              : row.country === 'India'
-                ? states.map((state) => ({ isoCode: state.code, name: state.name }))
-                : [];
-            const stateCities = citiesForState(locationApi, row.country, row.state);
+            /* India picks from the GST state list (the state decides CGST + SGST or IGST); elsewhere it is typed. */
+            const indian = !row.country || row.country === 'India';
+            const countryStates = indian ? states.map((state) => ({ isoCode: state.code, name: state.name })) : [];
             return (
               <tr key={row.key ?? index}>
                 <td className="border-e border-t border-[rgb(var(--border))] p-1 align-middle">
@@ -329,16 +306,17 @@ const CustomerAddressTable = ({ rows, states, onChange, onAdd, onRemove, sameAsB
                   />
                 </td>
                 <td className="border-e border-t border-[rgb(var(--border))] p-1 align-middle">
-                  <PopupSelect value={row.state || ''} onChange={(value) => { onChange(index, 'state', value); onChange(index, 'city', ''); }} disabled={linked || !row.country} ariaLabel={`State, address ${index + 1}`} title="Select State" placeholder="Select" alwaysSearch icon={null} options={[
-                    ...countryStates.map((state) => ({ value: state.name, label: state.name, code: state.isoCode })),
-                    ...(row.state && !countryStates.some((state) => state.name === row.state) ? [{ value: row.state, label: row.state }] : []),
-                  ]} />
+                  {indian ? (
+                    <PopupSelect value={row.state || ''} onChange={(value) => onChange(index, 'state', value)} disabled={linked || !row.country} ariaLabel={`State, address ${index + 1}`} title="Select State" placeholder="Select" alwaysSearch icon={null} options={[
+                      ...countryStates.map((state) => ({ value: state.name, label: state.name, code: state.isoCode })),
+                      ...(row.state && !countryStates.some((state) => state.name === row.state) ? [{ value: row.state, label: row.state }] : []),
+                    ]} />
+                  ) : (
+                    <input value={row.state || ''} onChange={(event) => onChange(index, 'state', event.target.value)} disabled={linked} className="ui-input w-full" maxLength={80} aria-label={`State, address ${index + 1}`} placeholder="State / region" />
+                  )}
                 </td>
                 <td className="border-e border-t border-[rgb(var(--border))] p-1 align-middle">
-                  <PopupSelect value={row.city || ''} onChange={(value) => onChange(index, 'city', value)} disabled={linked || !row.state} ariaLabel={`City, address ${index + 1}`} title="Select City" placeholder="City" alwaysSearch icon={null} options={[
-                    ...stateCities.map((city) => ({ value: city.name, label: city.name })),
-                    ...(row.city && !stateCities.some((city) => city.name === row.city) ? [{ value: row.city, label: row.city }] : []),
-                  ]} />
+                  <input value={row.city || ''} onChange={(event) => onChange(index, 'city', event.target.value)} disabled={linked} className="ui-input w-full" maxLength={80} aria-label={`City, address ${index + 1}`} placeholder="City" autoComplete="address-level2" />
                 </td>
                 <td className="border-e border-t border-[rgb(var(--border))] p-1 align-middle">
                   <input value={row.pincode || ''} onChange={(event) => onChange(index, 'pincode', event.target.value)} disabled={linked} className="ui-input ui-mono w-full" maxLength={10} aria-label="Pincode" />
