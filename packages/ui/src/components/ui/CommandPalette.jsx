@@ -32,7 +32,7 @@ const score = (label, group, q) => {
  * there is no reset-on-open effect to synchronise. A palette that reopens
  * showing the previous query is a palette people stop trusting.
  */
-export default function CommandPalette({ onClose, items = [], onSelect, searchRecords }) {
+export default function CommandPalette({ onClose, items = [], onSelect, searchRecords, placeholder = 'Search invoices, customers, reports, settings…' }) {
   const [query, setQuery] = useState('');
   // The highlight is stored with the query it belongs to, so a new query
   // resets it during render rather than in an effect that fires a second pass.
@@ -143,7 +143,7 @@ export default function CommandPalette({ onClose, items = [], onSelect, searchRe
                and the listbox pattern expects the combobox itself to own
                arrow/enter/escape rather than depending on bubbling. */
             onKeyDown={onKeyDown}
-            placeholder="Search invoices, customers, reports, settings…"
+            placeholder={placeholder}
             className="w-full bg-transparent border-0 outline-none py-3.5 text-sm"
             style={{ color: 'rgb(var(--fg))' }}
             role="combobox"

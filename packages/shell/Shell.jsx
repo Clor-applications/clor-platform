@@ -19,6 +19,7 @@ import ClorMark from './ClorMark';
 import NotificationBell from './NotificationBell';
 import HelpMenu from './HelpMenu';
 import TwoFactorGate from './TwoFactorGate';
+import CommandPalette from '@ui/components/ui/CommandPalette';
 import CompanySetup from './CompanySetup';
 import Home from './Home';
 import ScreenBoundary from './ScreenBoundary';
@@ -149,6 +150,23 @@ export default function Shell() {
      app's main area. Only for apps that use the shell's menu: an app that
      draws its own (Accounting) has its own profile entry. */
   const [platformScreen, setPlatformScreen] = useState(null);
+  /*
+   * ⌘K / Ctrl+K: jump to any screen of the open app, another app, or My
+   * profile (UX-03). Accounting draws itself and has its own palette, so the
+   * shell's stays out of its way.
+   */
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const paletteAppRef = useRef('');
+  useEffect(() => {
+    const onKey = (e) => {
+      if (!(e.metaKey || e.ctrlKey) || e.key.toLowerCase() !== 'k') return;
+      if (appById(paletteAppRef.current)?.Root) return;
+      e.preventDefault();
+      setPaletteOpen((v) => !v);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
   const [switcherOpen, setSwitcherOpen] = useState(false);
   /* Closes on a click anywhere else, and on Escape. It did neither: the only
      way out of the app switcher was to click the app switcher again. */
@@ -216,6 +234,7 @@ export default function Shell() {
      record is drawn outside the shell's element and should wear People's
      palette (index.css, [data-app]). */
   useEffect(() => {
+    paletteAppRef.current = activeAppId || '';
     if (activeAppId) document.documentElement.setAttribute('data-app', activeAppId);
     else document.documentElement.removeAttribute('data-app');
     return () => document.documentElement.removeAttribute('data-app');
@@ -857,6 +876,27 @@ export default function Shell() {
         <Toaster />
       </div>
       )}
+      {paletteOpen && !Root ? (
+        <CommandPalette
+          onClose={() => setPaletteOpen(false)}
+          placeholder={`Search ${app?.name || 'CLOR'} screens and apps…`}
+          items={[
+            /* A screen can sit in two places in the menu; it is one destination here. */
+            ...[...new Map(nav.filter((i) => !i.section && app?.screens?.[i.key]).map((i) => [i.key, i])).values()].map((i) => ({ key: `screen:${i.key}`, label: i.label, group: app.name, icon: i.icon, screen: i.key })),
+            ...mine.filter((a) => a.id !== activeAppId).map((a) => ({ key: `app:${a.id}`, label: `Open ${a.name}`, group: 'Apps', icon: a.icon, appId: a.id })),
+            { key: 'profile', label: 'My profile', group: 'You', icon: UserRound },
+          ]}
+          onSelect={(item) => {
+            setPaletteOpen(false);
+            if (item.screen) goTo(item.screen);
+            else if (item.appId) openApp(item.appId);
+            else if (item.key === 'profile') {
+              setPlatformScreen('profile');
+              setShowMoreApps(false);
+            }
+          }}
+        />
+      ) : null}
     </div>
   );
 }
