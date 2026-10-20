@@ -6772,28 +6772,172 @@ th.ui-th {
 .ui-today-action > svg:last-child { color: rgb(var(--fg-subtle)); flex: none; }
 .ui-today-action:hover:not(:disabled) { border-color: rgb(var(--border-strong)); background-color: rgb(var(--surface-sunken)); }
 .ui-today-action:focus-visible { outline: 2px solid rgb(var(--ring, var(--brand))); outline-offset: 2px; }
+/*
+ * Today: the greeting — open on the page, no card. The day in one sentence,
+ * how many are in, and the queues beside it. Motion runs once on arrival
+ * (lines rise in, the meter fills); only the time-of-day mark keeps a slow
+ * glow. All of it stops for people who ask for reduced motion.
+ */
+.ui-today-hero {
+  display: grid;
+  gap: 1.25rem 1.5rem;
+  padding: 0.75rem 0 0.25rem;
+  color: rgb(var(--fg));
+}
+@media (min-width: 1280px) {
+  .ui-today-hero { grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: center; }
+  .ui-today-hero-main { grid-column: span 2; }
+}
+.ui-today-hero-main { min-width: 0; display: flex; align-items: flex-start; gap: 1rem; }
+.ui-today-hero-text { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 0.25rem; }
+.ui-today-hero-sun {
+  position: relative; flex: none;
+  display: grid; place-items: center;
+  width: 3rem; height: 3rem; margin-top: 0.125rem;
+  border-radius: 999px;
+  color: rgb(var(--brand-ink));
+  background: rgb(var(--brand-soft));
+}
+.ui-today-hero-sun::before,
+.ui-today-hero-sun::after {
+  content: ''; position: absolute; inset: 0; border-radius: inherit;
+  border: 1.5px solid rgb(var(--brand) / 0.45);
+  opacity: 0; pointer-events: none;
+}
+.ui-today-hero-sun > svg { position: relative; }
+.ui-today-hero-date { font-size: 0.8125rem; color: rgb(var(--fg-muted)); }
+/* The one display line on the page, so it steps outside the forced heading scale. */
+.ui-today-hero .ui-today-hero-greet { font-size: 1.75rem !important; line-height: 2.125rem !important; font-weight: 700; letter-spacing: -0.025em; color: inherit; }
+.ui-today-hero-hi { color: rgb(var(--hero-hi, var(--brand))); }
+.ui-today-hero-line { font-size: 0.9375rem; color: rgb(var(--fg-muted)); max-width: 62ch; }
+.ui-today-hero-meter {
+  margin-top: 0.625rem; height: 0.375rem; max-width: 28rem; border-radius: 999px; overflow: hidden;
+  background: rgb(var(--border));
+}
+.ui-today-hero-meter > span {
+  display: block; height: 100%; border-radius: inherit; background: rgb(var(--brand));
+  transform-origin: left center;
+}
+.ui-today-hero-side { min-width: 0; display: flex; flex-direction: column; gap: 0.5rem; }
+.ui-today-hero .ui-today-hero-label { font-size: 0.8125rem !important; line-height: 1.25rem !important; font-weight: 600; color: rgb(var(--fg-muted)); }
+.ui-today-hero-queue { display: flex; flex-direction: column; gap: 0.375rem; list-style: none; margin: 0; padding: 0; }
+.ui-today-hero-action {
+  display: flex; align-items: center; gap: 0.625rem; width: 100%;
+  min-height: 2.75rem; padding: 0.5rem 0.75rem; border-radius: var(--radius);
+  font-size: 0.875rem; color: rgb(var(--fg)); text-align: left;
+  background: rgb(var(--surface)); border: 1px solid rgb(var(--border));
+  box-shadow: var(--shadow-card);
+  transition: background-color var(--dur-surface, 150ms) ease, border-color var(--dur-surface, 150ms) ease, transform var(--dur-surface, 150ms) ease;
+}
+.ui-today-hero-action:hover:not(:disabled) { border-color: rgb(var(--brand) / 0.55); }
+.ui-today-hero-action:hover:not(:disabled) > svg:last-child { transform: translateX(2px); color: rgb(var(--brand-ink)); }
+.ui-today-hero-action:active:not(:disabled) { transform: translateY(1px); }
+.ui-today-hero-action:focus-visible { outline: 2px solid rgb(var(--ring, var(--brand))); outline-offset: 2px; }
+.ui-today-hero-action > svg:first-child { color: rgb(var(--brand-ink)); flex: none; }
+.ui-today-hero-action > svg:last-child { color: rgb(var(--fg-subtle)); flex: none; transition: transform var(--dur-surface, 150ms) ease, color var(--dur-surface, 150ms) ease; }
+.ui-today-hero-clear { font-size: 0.875rem; color: rgb(var(--fg-muted)); }
+
+@keyframes ui-hero-rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@keyframes ui-hero-fill { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@keyframes ui-hero-pop { from { opacity: 0; transform: scale(0.6) rotate(-30deg); } to { opacity: 1; transform: none; } }
+@keyframes ui-hero-ring { 0% { opacity: 0.9; transform: scale(1); } 100% { opacity: 0; transform: scale(1.7); } }
+@keyframes ui-hero-turn { to { transform: rotate(360deg); } }
+@keyframes ui-hero-dawn { 0%, 100% { transform: translateY(2px); } 50% { transform: translateY(-2px); } }
+@keyframes ui-hero-sway { 0%, 100% { transform: rotate(-8deg); } 50% { transform: rotate(8deg); } }
+
+@media (prefers-reduced-motion: no-preference) {
+  .ui-today-hero-sun { animation: ui-hero-pop 520ms cubic-bezier(.2,.9,.3,1.3) both; }
+  /* Two rings ripple out from the mark, a beat apart, then rest for a while. */
+  .ui-today-hero-sun::before { animation: ui-hero-ring 2.8s ease-out 700ms infinite; }
+  .ui-today-hero-sun::after { animation: ui-hero-ring 2.8s ease-out 2.1s infinite; }
+  .ui-today-hero-sun[data-time='morning'] > svg { animation: ui-hero-dawn 3.6s ease-in-out infinite; }
+  .ui-today-hero-sun[data-time='afternoon'] > svg { animation: ui-hero-turn 24s linear infinite; }
+  .ui-today-hero-sun[data-time='evening'] > svg { animation: ui-hero-sway 5s ease-in-out infinite; transform-origin: 50% 60%; }
+  .ui-today-hero-text > *,
+  .ui-today-hero-side > *,
+  .ui-today-hero-queue > li { animation: ui-hero-rise 480ms cubic-bezier(.2,.7,.2,1) both; }
+  .ui-today-hero-date { animation-delay: 60ms; }
+  .ui-today-hero .ui-today-hero-greet { animation-delay: 120ms; }
+  .ui-today-hero-line { animation-delay: 200ms; }
+  .ui-today-hero-meter { animation-delay: 260ms; }
+  .ui-today-hero-meter > span { animation: ui-hero-fill 900ms cubic-bezier(.2,.7,.2,1) 420ms both; }
+  .ui-today-hero-side > * { animation-delay: 240ms; }
+  .ui-today-hero-queue > li:nth-child(1) { animation-delay: 320ms; }
+  .ui-today-hero-queue > li:nth-child(2) { animation-delay: 390ms; }
+  .ui-today-hero-queue > li:nth-child(3) { animation-delay: 460ms; }
+}
+
+/*
+ * The week as a rate: each bar is everyone expected that day, filled by the
+ * share who came in (the accent), then those on leave (grey). What is left
+ * empty is absence, so a poor week reads as gaps against the gridlines rather
+ * than a wall of red. Numbers on top are "in / expected". Today carries a dot;
+ * days off show a hatched, empty bar.
+ */
+.ui-week-plot { --week-h: 9rem; --week-top: 1.75rem; position: relative; display: flex; gap: 0.5rem; }
+.ui-week-axis {
+  flex: none; position: relative; width: 2.25rem; margin-top: var(--week-top); height: var(--week-h);
+  font-size: 0.6875rem; color: rgb(var(--fg-subtle)); font-variant-numeric: tabular-nums;
+}
+.ui-week-axis i { position: absolute; right: 0; font-style: normal; transform: translateY(-50%); }
+.ui-week-axis i:nth-child(1) { top: 0; }
+.ui-week-axis i:nth-child(2) { top: 50%; }
+.ui-week-axis i:nth-child(3) { top: 100%; }
+.ui-week-plot::before {
+  content: ''; position: absolute; left: 2.75rem; right: 0; top: var(--week-top); height: var(--week-h);
+  border-top: 1px dashed rgb(var(--border)); border-bottom: 1px solid rgb(var(--border-strong, var(--border)));
+  background: linear-gradient(to bottom, transparent calc(50% - 0.5px), rgb(var(--border)) calc(50% - 0.5px), rgb(var(--border)) calc(50% + 0.5px), transparent calc(50% + 0.5px));
+  pointer-events: none;
+}
 .ui-week {
+  position: relative; flex: 1; min-width: 0;
   list-style: none; margin: 0; padding: 0;
   display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 0.75rem;
-  align-items: end;
+  align-items: start;
 }
-.ui-week li { display: flex; flex-direction: column; align-items: center; gap: 0.375rem; min-width: 0; }
+.ui-week li { display: flex; flex-direction: column; align-items: center; gap: 0.5rem; min-width: 0; }
+.ui-week-n { height: 1.25rem; font-size: 0.875rem; font-weight: 650; color: rgb(var(--fg)); white-space: nowrap; }
+.ui-week-n small { font-size: 0.6875rem; font-weight: 500; color: rgb(var(--fg-subtle)); }
 .ui-week-bar {
-  width: 100%; max-width: 2.75rem; height: 8rem;
+  width: 100%; max-width: 2.25rem; height: var(--week-h);
   display: flex; flex-direction: column-reverse; justify-content: flex-start;
-  border-radius: 6px; overflow: hidden; background: rgb(var(--surface-sunken));
+  border-radius: 6px 6px 2px 2px; overflow: hidden;
+  background: rgb(var(--fg) / 0.045);
+  box-shadow: inset 0 0 0 1px rgb(var(--fg) / 0.06);
 }
-.ui-week-bar > span { display: block; width: 100%; opacity: .82; }
-.ui-week-day { display: flex; flex-direction: column; align-items: center; line-height: 1.15; font-size: 0.75rem; color: rgb(var(--fg-muted)); white-space: nowrap; }
+.ui-week-bar > span { display: block; width: 100%; flex: none; }
+.ui-week li[data-off] .ui-week-bar {
+  background: repeating-linear-gradient(135deg, transparent 0 6px, rgb(var(--border)) 6px 7px);
+}
+.ui-week-day { display: flex; flex-direction: column; align-items: center; gap: 1px; line-height: 1.15; font-size: 0.75rem; color: rgb(var(--fg-muted)); white-space: nowrap; }
 .ui-week-day b { font-weight: 600; color: rgb(var(--fg)); }
-.ui-week [data-k='in'], .ui-legend [data-k='in'] { background: rgb(var(--pos)); }
-.ui-week [data-k='absent'], .ui-legend [data-k='absent'] { background: rgb(var(--neg)); }
-.ui-week [data-k='leave'], .ui-legend [data-k='leave'] { background: rgb(var(--fg-subtle)); }
-.ui-week-n { font-size: 0.8125rem; font-weight: 600; }
+.ui-week-day::after { content: ''; width: 0.3125rem; height: 0.3125rem; margin-top: 3px; border-radius: 999px; }
+.ui-week li[data-today] .ui-week-day,
+.ui-week li[data-today] .ui-week-day b { color: rgb(var(--brand-ink)); }
+.ui-week li[data-today] .ui-week-day::after { background: rgb(var(--brand)); }
+.ui-week li[data-today] .ui-week-bar { box-shadow: inset 0 0 0 1px rgb(var(--brand) / 0.45); }
+.ui-week li:hover:not([data-off]) .ui-week-bar { box-shadow: inset 0 0 0 1px rgb(var(--fg) / 0.22); }
+.ui-week [data-k='in'], .ui-legend [data-k='in'] { background: rgb(var(--brand)); }
+.ui-week [data-k='leave'], .ui-legend [data-k='leave'] { background: rgb(var(--fg-subtle) / 0.55); }
+.ui-legend [data-k='absent'] { background: rgb(var(--fg) / 0.045); box-shadow: inset 0 0 0 1px rgb(var(--fg) / 0.22); }
 .ui-legend { display: inline-flex; align-items: center; gap: 0.375rem; }
-.ui-legend i { display: inline-block; width: 0.625rem; height: 0.625rem; border-radius: 2px; margin-left: 0.5rem; }
+.ui-legend i { display: inline-block; width: 0.625rem; height: 0.625rem; border-radius: 3px; margin-left: 0.625rem; }
 .ui-legend i:first-child { margin-left: 0; }
-@media (max-width: 480px) { .ui-week { gap: 0.375rem; } .ui-week-bar { height: 6rem; } }
+@media (max-width: 480px) {
+  .ui-week-plot { --week-h: 7rem; }
+  .ui-week { gap: 0.375rem; }
+  .ui-week-n small { display: none; }
+}
+@keyframes ui-week-grow { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+@media (prefers-reduced-motion: no-preference) {
+  .ui-week-bar > span { transform-origin: bottom; animation: ui-week-grow 700ms cubic-bezier(.2,.7,.2,1) both; }
+  .ui-week li:nth-child(2) .ui-week-bar > span { animation-delay: 50ms; }
+  .ui-week li:nth-child(3) .ui-week-bar > span { animation-delay: 100ms; }
+  .ui-week li:nth-child(4) .ui-week-bar > span { animation-delay: 150ms; }
+  .ui-week li:nth-child(5) .ui-week-bar > span { animation-delay: 200ms; }
+  .ui-week li:nth-child(6) .ui-week-bar > span { animation-delay: 250ms; }
+  .ui-week li:nth-child(7) .ui-week-bar > span { animation-delay: 300ms; }
+}
 
 /* Tablet: the rail stays put, the screens panel opens over the content. */
 .ui-split[data-overlay] { z-index: calc(var(--z-base, 1) + 30); }
@@ -6947,4 +7091,223 @@ th.ui-th {
   :root:is([data-app='attendance'], [data-app='payroll']) main section[aria-label='Summary'] {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+}
+
+/*
+ * Attendance palette — Blaze Orange and Graphite (2026-10-21).
+ *
+ * Colour only: no size, spacing or layout changes. Accounting and Payroll keep
+ * the graphite chrome above; People keeps its own. Mapping from the brand
+ * palette (Blaze #FF6700, Graphite #23272B, Almost Black #070D0D, Cloud White
+ * #F7F8FA):
+ *
+ *   page ground          Cloud White #F7F8FA
+ *   ink                  Almost Black #070D0D (18.4:1 on the ground)
+ *   sidebar (icon rail)  Graphite #23272B, labels #C9CDD2 (9.4:1)
+ *   current module       Blaze #FF6700 with Almost Black text (6.7:1)
+ *   primary buttons      Graphite with white text (15:1)
+ *   accent on light      #EB5E00 for focus, active bars, tab underline (3.4:1 —
+ *                        non-text); #B84A00 where orange is text (5.2:1).
+ *                        Blaze itself on white is 2.9:1, so it never carries
+ *                        text on light surfaces.
+ *   tables, forms        neutral white and grey, names in ink
+ */
+:root[data-app='attendance'],
+[data-app='attendance'] {
+  --app-bg: 247 248 250;
+  --fg: 7 13 13;
+  --brand: 235 94 0;
+  --brand-deep: 184 74 0;
+  --brand-hover: 47 52 56;
+  --brand-pressed: 7 13 13;
+  --btn-primary-bg: 35 39 43;
+  --btn-primary-hover: 47 52 56;
+  --brand-soft: 255 236 222;
+  --brand-subtle: 255 246 239;
+  --brand-border: 255 196 153;
+  --brand-ink: 184 74 0;
+  --on-brand: 255 255 255;
+  --accent-soft: 255 236 222;
+  --ring: 235 94 0;
+  --link: 35 39 43;
+  --link-hover: 7 13 13;
+  --col-party: 7 13 13;
+  --page-heading-bg: 238 240 243;
+  --heading-bg: 238 240 243;
+  --rail-graphite: 35 39 43;
+  --rail-graphite-top: 43 48 53;
+  --rail-graphite-hover: 47 52 56;
+  --rail-ink: 201 205 210;
+  --rail-ink-strong: 255 255 255;
+  --rail-blaze: 255 103 0;
+  --rail-blaze-ink: 7 13 13;
+  /* Blaze on Cloud White is 2.9:1: enough for 28px bold, so the greeting may wear it. */
+  --hero-hi: 255 103 0;
+}
+:root[data-theme='dark'][data-app='attendance'],
+:root[data-theme='dark'] [data-app='attendance'] {
+  --app-bg: 7 13 13;
+  --fg: 247 248 250;
+  --brand: 255 103 0;
+  --brand-deep: 255 138 64;
+  --brand-hover: 255 122 38;
+  --brand-pressed: 235 94 0;
+  --btn-primary-bg: 255 103 0;
+  --btn-primary-hover: 255 122 38;
+  --brand-soft: 61 30 10;
+  --brand-subtle: 31 19 11;
+  --brand-border: 122 55 14;
+  --brand-ink: 255 138 64;
+  --on-brand: 7 13 13;
+  --accent-soft: 61 30 10;
+  --ring: 255 103 0;
+  --link: 236 238 241;
+  --link-hover: 255 255 255;
+  --col-party: 247 248 250;
+  --page-heading-bg: 18 23 24;
+  --heading-bg: 18 23 24;
+  --rail-graphite: 18 23 24;
+  --rail-graphite-top: 24 30 32;
+  --rail-graphite-hover: 35 39 43;
+}
+
+/* The dashboard ground is Cloud White; cards, tables and forms stay white on it. */
+:root[data-app='attendance'] main.ui-content {
+  background-color: rgb(var(--app-bg));
+}
+
+/*
+ * Sidebar: the icon rail in Graphite. The module you are in gets a Blaze bar
+ * on the rail's edge, a Blaze icon and a warm tint behind it; the label stays
+ * white so it reads at 11px. Hover lifts the icon a touch. "Me" is about you,
+ * not the company, so it sits apart at the foot of the rail.
+ */
+:root[data-app='attendance'] .ui-split-rail {
+  background: linear-gradient(to bottom, rgb(var(--rail-graphite-top)), rgb(var(--rail-graphite)) 14rem);
+  border-right-color: rgb(var(--rail-graphite));
+  box-shadow: inset -1px 0 0 rgb(255 255 255 / 0.04);
+  gap: 0.375rem;
+}
+:root[data-app='attendance'] .ui-split-mod {
+  position: relative;
+  padding-block: 0.625rem;
+  color: rgb(var(--rail-ink));
+  transition: background-color var(--dur-surface) ease, color var(--dur-surface) ease;
+}
+:root[data-app='attendance'] .ui-split-mod > svg {
+  transition: transform var(--dur-surface, 150ms) ease, color var(--dur-surface, 150ms) ease;
+}
+:root[data-app='attendance'] .ui-split-mod:hover {
+  background: rgb(255 255 255 / 0.06);
+  color: rgb(var(--rail-ink-strong));
+}
+:root[data-app='attendance'] .ui-split-mod:hover > svg { transform: translateY(-1px); }
+:root[data-app='attendance'] .ui-split-mod[data-current] {
+  background: rgb(var(--rail-blaze) / 0.16);
+  color: rgb(var(--rail-ink-strong));
+  font-weight: 600;
+  box-shadow: inset 0 0 0 1px rgb(var(--rail-blaze) / 0.28);
+}
+:root[data-app='attendance'] .ui-split-mod[data-current] > svg { color: rgb(var(--rail-blaze)); }
+/* The bar sits on the rail's left edge, outside the tile's padding. */
+:root[data-app='attendance'] .ui-split-mod[data-current]::before {
+  content: '';
+  position: absolute;
+  left: -0.375rem; top: 22%; bottom: 22%;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: rgb(var(--rail-blaze));
+}
+:root[data-app='attendance'] .ui-split-mod[aria-pressed='true']:not([data-current]) {
+  background: rgb(255 255 255 / 0.09);
+  color: rgb(var(--rail-ink-strong));
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.14);
+}
+:root[data-app='attendance'] .ui-split-mod:focus-visible {
+  outline-color: rgb(var(--rail-ink-strong));
+}
+:root[data-app='attendance'] .ui-split-rail > .ui-split-mod:last-child:not(:first-child) {
+  margin-top: auto;
+}
+:root[data-app='attendance'] .ui-split-rail > .ui-split-mod:last-child:not(:first-child)::after {
+  content: '';
+  position: absolute;
+  left: 22%; right: 22%; top: -0.5rem;
+  height: 1px;
+  background: rgb(255 255 255 / 0.1);
+}
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes ui-rail-mark { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+  :root[data-app='attendance'] .ui-split-mod[data-current]::before { animation: ui-rail-mark 260ms cubic-bezier(.2,.8,.2,1) both; }
+}
+
+/* The current screen in the module panel: Blaze bar and icon, the name in ink. */
+:root[data-app='attendance'] .ui-split-item[aria-current='page'] {
+  box-shadow: inset 3px 0 0 rgb(var(--brand));
+}
+:root[data-app='attendance'] .ui-split-item[aria-current='page'] > svg {
+  color: rgb(var(--brand-ink));
+}
+
+/* Phone tab bar: the screen you are on gets a Blaze top bar and icon. */
+:root[data-app='attendance'] .ui-tabbar-item[aria-current='page'] {
+  box-shadow: inset 0 2px 0 rgb(var(--brand));
+}
+:root[data-app='attendance'] .ui-tabbar-item[aria-current='page'] > svg {
+  color: rgb(var(--brand-ink));
+}
+
+/*
+ * Primary actions, selected segments and the active tab. The graphite rules
+ * further up are !important, so these answer them the same way and come later.
+ */
+:root[data-app='attendance'] :is(.ui-btn-primary, .ui-btn-brand) {
+  background-color: rgb(var(--btn-primary-bg)) !important;
+  border-color: rgb(var(--btn-primary-bg)) !important;
+  color: rgb(var(--on-brand)) !important;
+}
+:root[data-app='attendance'] :is(.ui-btn-primary, .ui-btn-brand):hover:not(:disabled) {
+  background-color: rgb(var(--btn-primary-hover)) !important;
+  border-color: rgb(var(--btn-primary-hover)) !important;
+  color: rgb(var(--on-brand)) !important;
+}
+:root[data-app='attendance'] :is(.ui-btn-primary, .ui-btn-brand):active:not(:disabled) {
+  background-color: rgb(var(--brand-pressed)) !important;
+  border-color: rgb(var(--brand-pressed)) !important;
+}
+:root[data-app='attendance'] :is(.ui-segment[aria-selected='true'], [role='tab'][aria-selected='true'].ui-segment) {
+  background-color: rgb(var(--btn-primary-bg)) !important;
+  border-color: rgb(var(--btn-primary-bg)) !important;
+  color: rgb(var(--on-brand)) !important;
+}
+:root[data-app='attendance'] .ui-segment[aria-selected='true'] .ui-segment-count {
+  color: rgb(var(--on-brand)) !important;
+}
+:root[data-app='attendance'] :is(.ui-tab.is-active, [role='tab'][aria-selected='true']:not(.ui-segment)) {
+  color: rgb(var(--fg));
+}
+:root[data-app='attendance'] .ui-tab.is-active::after {
+  background-color: rgb(var(--brand));
+}
+:root[data-theme='dark'][data-app='attendance'] :is(.ui-btn-primary, .ui-btn-brand) {
+  background-color: rgb(var(--btn-primary-bg)) !important;
+  border-color: rgb(var(--btn-primary-bg)) !important;
+  color: rgb(var(--on-brand)) !important;
+}
+:root[data-theme='dark'][data-app='attendance'] :is(.ui-btn-primary, .ui-btn-brand):hover:not(:disabled) {
+  background-color: rgb(var(--btn-primary-hover)) !important;
+  border-color: rgb(var(--btn-primary-hover)) !important;
+  color: rgb(var(--on-brand)) !important;
+}
+:root[data-theme='dark'][data-app='attendance'] :is(.ui-segment[aria-selected='true'], [role='tab'][aria-selected='true'].ui-segment) {
+  background-color: rgb(var(--btn-primary-bg)) !important;
+  border-color: rgb(var(--btn-primary-bg)) !important;
+  color: rgb(var(--on-brand)) !important;
+}
+:root[data-theme='dark'][data-app='attendance'] .ui-segment[aria-selected='true'] .ui-segment-count {
+  background-color: rgb(0 0 0 / 0.16) !important;
+  color: rgb(var(--on-brand)) !important;
+}
+:root[data-theme='dark'][data-app='attendance'] .ui-tab.is-active::after {
+  background-color: rgb(var(--brand));
 }

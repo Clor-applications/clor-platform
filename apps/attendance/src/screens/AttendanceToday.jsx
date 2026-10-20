@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { CalendarCheck, CalendarOff, ChevronRight, Clock, Cpu, Inbox, ListChecks, UserCheck, UserX, Users } from 'lucide-react';
+import { CalendarCheck, CalendarOff, ChevronRight, Clock, Cpu, Inbox, ListChecks, Moon, Sun, Sunrise, UserCheck, UserX, Users } from 'lucide-react';
 
 import { PageHeader, SkeletonCard, StatTile } from '@ui/components/ui/Primitives';
+import { currentUser } from '@platform/context';
 import { getCalendar, getOverview, getReaderHealth, todayIst } from '../api/attendance';
 import LoadFailed from '../components/LoadFailed';
 
@@ -23,6 +24,28 @@ const ago = (iso) => {
   return `${Math.round(m / 1440)} days ago`;
 };
 const weekday = (d) => new Date(`${d}T00:00:00Z`).toLocaleDateString('en-IN', { weekday: 'short', timeZone: 'UTC' });
+const longDate = (d) => new Date(`${d}T00:00:00Z`).toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' });
+/* The greeting follows the clock in India, where the company's day runs. */
+const greeting = () => {
+  const h = Number(new Date().toLocaleString('en-GB', { hour: '2-digit', hour12: false, timeZone: 'Asia/Kolkata' }));
+  if (h < 12) return { text: 'Good morning', Icon: Sunrise, time: 'morning' };
+  if (h < 17) return { text: 'Good afternoon', Icon: Sun, time: 'afternoon' };
+  return { text: 'Good evening', Icon: Moon, time: 'evening' };
+};
+const firstName = () => String(currentUser()?.fullName || '').trim().split(/\s+/)[0] || '';
+
+/** One plain sentence for the day: who is in, who is late, who is away. */
+function daySentence(data, isToday) {
+  const inn = data.present + data.halfDay;
+  if (data.holiday) return `${data.holiday}, a holiday.`;
+  if (!data.headcount) return 'Add people under Personnel to start tracking attendance.';
+  if (!inn && isToday) return `Nobody has clocked in yet. ${data.headcount} ${data.headcount === 1 ? 'person is' : 'people are'} expected.`;
+  const parts = [`${inn} of ${data.headcount} ${isToday ? 'in so far' : 'were in'}`];
+  if (data.late.length) parts.push(`${data.late.length} late`);
+  if (data.onLeave) parts.push(`${data.onLeave} on leave`);
+  if (data.absent) parts.push(`${data.absent} absent`);
+  return `${parts.join(', ')}.`;
+}
 
 /** Who is in today, who is late, who has not come, and what is waiting for HR. */
 /** The DPDP changes of 19 October 2026, announced once per browser until opened or dismissed (the Data protection screen keeps the full list). */
@@ -56,6 +79,7 @@ function DpdpNotice({ openScreen }) {
 }
 
 export default function AttendanceToday({ openScreen }) {
+  const hello = greeting();
   const [date, setDate] = useState(todayIst());
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
@@ -104,7 +128,13 @@ export default function AttendanceToday({ openScreen }) {
         { n: data.pendingLeave, label: data.pendingLeave === 1 ? 'leave request' : 'leave requests', key: 'leaveRequests', icon: CalendarCheck },
       ]
     : [];
-  const peak = week ? Math.max(1, ...week.map((d) => d.present + d.halfDay + d.absent + d.leave)) : 1;
+  const weekRate = week
+    ? (() => {
+        const work = week.filter((d) => !d.off && !d.holiday);
+        const exp = work.reduce((t, d) => t + d.present + d.halfDay + d.absent + d.leave, 0);
+        return exp ? Math.round((work.reduce((t, d) => t + d.present + d.halfDay, 0) / exp) * 100) : null;
+      })()
+    : null;
   const readerList = readers?.readers || [];
   const readerTrouble = readerList.filter((r) => r.status !== 'ok' && r.status !== 'off' && r.status !== 'delayed').length;
 
@@ -119,12 +149,51 @@ export default function AttendanceToday({ openScreen }) {
         }
       />
       <div className="pb-8 space-y-6">
-      <DpdpNotice openScreen={openScreen} />
       <LoadFailed message={error} onRetry={() => setAttempt((n) => n + 1)} />
       {!data ? (
         error ? null : <SkeletonCard lines={6} />
       ) : (
         <>
+          <section className="ui-today-hero" aria-labelledby="hello-h">
+            <div className="ui-today-hero-main">
+              <span className="ui-today-hero-sun" data-time={hello.time} aria-hidden="true">
+                <hello.Icon size={22} />
+              </span>
+              <div className="ui-today-hero-text">
+              <p className="ui-today-hero-date">{longDate(date)}</p>
+              <h2 id="hello-h" className="ui-today-hero-greet"><span className="ui-today-hero-hi">{hello.text}</span>{firstName() ? `, ${firstName()}` : ''}</h2>
+              <p className="ui-today-hero-line">{daySentence(data, date === todayIst())}</p>
+              {data.headcount ? (
+                <div className="ui-today-hero-meter" role="img" aria-label={`${data.present + data.halfDay} of ${data.headcount} in`}>
+                  <span style={{ width: `${Math.min(100, ((data.present + data.halfDay) / data.headcount) * 100)}%` }} />
+                </div>
+              ) : null}
+              </div>
+            </div>
+            <div className="ui-today-hero-side">
+              <h3 className="ui-today-hero-label">Waiting for you</h3>
+              {waiting.some((w) => w.n) ? (
+                <ul className="ui-today-hero-queue">
+                  {waiting.filter((w) => w.n).map((w) => (
+                    <li key={w.key}>
+                      <button type="button" className="ui-today-hero-action" onClick={() => go(w.key)} disabled={!openScreen}>
+                        <w.icon size={16} aria-hidden="true" />
+                        <span className="min-w-0 flex-1 text-left">
+                          <strong className="tabular-nums">{w.n}</strong> {w.label}
+                        </span>
+                        <ChevronRight size={16} aria-hidden="true" />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="ui-today-hero-clear">Nothing to validate or approve.</p>
+              )}
+            </div>
+          </section>
+
+          <DpdpNotice openScreen={openScreen} />
+
           <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
             <StatTile label="Headcount" value={data.headcount} icon={Users} />
             <StatTile label="Present" value={data.present + data.halfDay} icon={UserCheck} tone="pos" hint={data.halfDay ? `${data.halfDay} half day` : null} />
@@ -135,49 +204,42 @@ export default function AttendanceToday({ openScreen }) {
             <StatTile label="Not marked" value={data.notMarked} />
           </div>
 
-          {waiting.some((w) => w.n) ? (
-            <section aria-labelledby="waiting-h" className="space-y-2">
-              <h2 id="waiting-h" className="ui-t-sec">Waiting for you</h2>
-              <div className="grid gap-3 sm:grid-cols-3">
-                {waiting.filter((w) => w.n).map((w) => (
-                  <button key={w.key} type="button" className="ui-card ui-today-action" onClick={() => go(w.key)} disabled={!openScreen}>
-                    <w.icon size={18} aria-hidden="true" />
-                    <span className="min-w-0 flex-1 text-left">
-                      <strong className="tabular-nums">{w.n}</strong> {w.label}
-                    </span>
-                    <ChevronRight size={16} aria-hidden="true" />
-                  </button>
-                ))}
-              </div>
-            </section>
-          ) : null}
-
-          <div className="grid items-start gap-4 xl:grid-cols-3">
+          <div className="grid items-stretch gap-4 xl:grid-cols-3">
             <section className={`ui-card p-4 ${readers ? 'xl:col-span-2' : 'xl:col-span-3'}`} aria-labelledby="week-h">
-              <div className="mb-3 flex flex-wrap items-baseline justify-between gap-3">
-                <h2 id="week-h" className="ui-t-sec">Last {week?.length || 7} days</h2>
+              <div className="mb-4 flex flex-wrap items-baseline justify-between gap-3">
+                <span className="flex items-baseline gap-3">
+                  <h2 id="week-h" className="ui-t-sec">Last {week?.length || 7} days</h2>
+                  {weekRate != null ? <span className="ui-caption tabular-nums">{weekRate}% turned up on working days</span> : null}
+                </span>
                 <span className="ui-caption ui-legend">
-                  <i data-k="in" aria-hidden="true" />In <i data-k="absent" aria-hidden="true" />Absent <i data-k="leave" aria-hidden="true" />Leave
+                  <i data-k="in" aria-hidden="true" />In <i data-k="leave" aria-hidden="true" />On leave <i data-k="absent" aria-hidden="true" />Absent
                 </span>
               </div>
               {week ? (
-                <ol className="ui-week" aria-label="People in, absent and on leave each day">
-                  {week.map((d) => {
-                    const inn = d.present + d.halfDay;
-                    const label = `${weekday(d.date)} ${Number(d.date.slice(8))}: ${inn} in, ${d.absent} absent, ${d.leave} on leave${d.holiday ? `, ${d.holiday}` : d.off ? ', weekly off' : ''}`;
-                    return (
-                      <li key={d.date} aria-label={label} title={label}>
-                        <span className="ui-week-n tabular-nums" aria-hidden="true">{inn}</span>
-                        <span className="ui-week-bar" aria-hidden="true">
-                          <span data-k="leave" style={{ height: `${(d.leave / peak) * 100}%` }} />
-                          <span data-k="absent" style={{ height: `${(d.absent / peak) * 100}%` }} />
-                          <span data-k="in" style={{ height: `${(inn / peak) * 100}%` }} />
-                        </span>
-                        <span className="ui-week-day" aria-hidden="true">{d.holiday || d.off ? 'Off' : weekday(d.date)}<b>{Number(d.date.slice(8))}</b></span>
-                      </li>
-                    );
-                  })}
-                </ol>
+                <div className="ui-week-plot">
+                  <span className="ui-week-axis" aria-hidden="true"><i>100%</i><i>50%</i><i>0</i></span>
+                  <ol className="ui-week" aria-label="Share of people in each day">
+                    {week.map((d) => {
+                      const inn = d.present + d.halfDay;
+                      const total = inn + d.absent + d.leave;
+                      const off = Boolean(d.holiday || d.off);
+                      const pct = (n) => (total ? (n / total) * 100 : 0);
+                      const label = `${weekday(d.date)} ${Number(d.date.slice(8))}: ${inn} in, ${d.absent} absent, ${d.leave} on leave${d.holiday ? `, ${d.holiday}` : d.off ? ', weekly off' : ''}`;
+                      return (
+                        <li key={d.date} aria-label={label} title={label} data-today={d.date === todayIst() ? '' : undefined} data-off={off ? '' : undefined}>
+                          <span className="ui-week-n tabular-nums" aria-hidden="true">
+                            {off || !total ? '' : <>{inn}<small>/{total}</small></>}
+                          </span>
+                          <span className="ui-week-bar" aria-hidden="true">
+                            <span data-k="in" style={{ height: `${pct(inn)}%` }} />
+                            <span data-k="leave" style={{ height: `${pct(d.leave)}%` }} />
+                          </span>
+                          <span className="ui-week-day" aria-hidden="true">{off ? 'Off' : weekday(d.date)}<b>{Number(d.date.slice(8))}</b></span>
+                        </li>
+                      );
+                    })}
+                  </ol>
+                </div>
               ) : (
                 <p className="ui-muted text-sm">No days recorded yet this month.</p>
               )}
@@ -217,7 +279,7 @@ export default function AttendanceToday({ openScreen }) {
             ) : null}
           </div>
 
-          <div className="grid items-start gap-4 xl:grid-cols-2">
+          <div className="grid items-stretch gap-4 xl:grid-cols-3">
             <section className="ui-card p-4" aria-labelledby="late-h">
               <h2 id="late-h" className="ui-t-sec mb-3">Late {date === todayIst() ? 'today' : 'that day'}</h2>
               {data.late.length ? (
@@ -233,10 +295,10 @@ export default function AttendanceToday({ openScreen }) {
                 <p className="ui-muted text-sm">Nobody.</p>
               )}
             </section>
-            <section className="ui-card p-4" aria-labelledby="notin-h">
+            <section className="ui-card p-4 xl:col-span-2" aria-labelledby="notin-h">
               <h2 id="notin-h" className="ui-t-sec mb-3">Not clocked in <span className="ui-caption tabular-nums">{data.notIn.length}</span></h2>
               {data.notIn.length ? (
-                <ul className="grid gap-x-4 gap-y-1 sm:grid-cols-2 2xl:grid-cols-3">
+                <ul className="grid gap-x-4 gap-y-1 sm:grid-cols-2 xl:grid-cols-3">
                   {data.notIn.map((p) => (
                     <li key={p.id} className="truncate text-sm">{p.name}<span className="ui-caption">{p.department ? `, ${p.department}` : ''}</span></li>
                   ))}
