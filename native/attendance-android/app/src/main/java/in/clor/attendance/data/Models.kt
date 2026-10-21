@@ -197,6 +197,8 @@ data class Home(
     val week: List<WeekDay> = emptyList(),
     val attention: List<Attention> = emptyList(),
     val attentionCount: Int = 0,
+    /** The company runs payroll in CLOR: payslips are in the app. */
+    val payroll: Boolean = false,
     val leave: LeaveSummary = LeaveSummary(),
     val corrections: Pending = Pending(),
     val holidays: List<Holiday> = emptyList(),
@@ -375,3 +377,41 @@ data class OvertimeDay(
 
 @Serializable
 data class OvertimeAsk(val id: String = "", val status: String = "", val days: Double? = null, val note: String? = null)
+
+/* Payslips (portal /payslips): only from a final payroll; PAN and account arrive masked. */
+@Serializable
+data class Payslips(val available: Boolean = false, val slips: List<PayslipRow> = emptyList())
+
+@Serializable
+data class PayslipRow(val id: String, val number: String = "", val period: String = "", val payrollDate: String = "", val gross: Double = 0.0, val deductions: Double = 0.0, val net: Double = 0.0, val paid: Boolean = false)
+
+@Serializable
+data class PayslipAnswer(val slip: Payslip)
+
+@Serializable
+data class Payslip(
+    val id: String,
+    val number: String = "",
+    val company: String = "",
+    val period: String = "",
+    val from: String? = null,
+    val to: String? = null,
+    val payrollDate: String = "",
+    val employee: PayslipPerson = PayslipPerson(),
+    val days: PayslipDays = PayslipDays(),
+    val earnings: List<PayLine> = emptyList(),
+    val deductions: List<PayLine> = emptyList(),
+    val gross: Double = 0.0,
+    val totalDeductions: Double = 0.0,
+    val net: Double = 0.0,
+    val paid: Boolean = false,
+)
+
+@Serializable
+data class PayslipPerson(val name: String = "", val code: String = "", val designation: String = "", val department: String = "", val pan: String = "", val uan: String = "", val bank: String = "", val account: String = "")
+
+@Serializable
+data class PayslipDays(val working: Double = 0.0, val payable: Double = 0.0, val lossOfPay: Double = 0.0)
+
+@Serializable
+data class PayLine(val name: String = "", val amount: Double = 0.0)

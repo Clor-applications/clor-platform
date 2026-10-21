@@ -136,6 +136,8 @@ class Api(private val session: Session, private val base: String = BuildConfig.A
     suspend fun readNotice(version: String) { call("POST", "/privacy-notice/read", buildJsonObject { put("version", version) }) }
 
     suspend fun documents(): Documents = get("/documents")
+    suspend fun payslips(): Payslips = get("/payslips")
+    suspend fun payslip(id: String): PayslipAnswer = get("/payslips/$id")
     suspend fun document(id: String): DocumentFile = get("/documents/$id")
     /** Everything held about me, as the JSON file the server prepares. */
     suspend fun myData(): String = call("GET", "/my-data")

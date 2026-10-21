@@ -215,7 +215,7 @@ private fun Calendar(month: String, days: List<Day>, onOpen: (String) -> Unit) {
                                 "PRESENT" -> Pos
                                 "HALF_DAY" -> Warn
                                 "ABSENT" -> Neg
-                                "ON_LEAVE" -> androidx.compose.ui.graphics.Color(0xFF2563EB)
+                                "ON_LEAVE" -> LeaveTone
                                 else -> null
                             }
                             val isToday = d == today
@@ -238,7 +238,7 @@ private fun Calendar(month: String, days: List<Day>, onOpen: (String) -> Unit) {
             }
         }
         Row(Modifier.fillMaxWidth().padding(top = 4.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-            listOf("Present" to Pos, "Half day" to Warn, "Absent" to Neg, "Leave" to androidx.compose.ui.graphics.Color(0xFF2563EB)).forEach { (t, c) ->
+            listOf("Present" to Pos, "Half day" to Warn, "Absent" to Neg, "Leave" to LeaveTone).forEach { (t, c) ->
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(Modifier.size(8.dp).background(c, androidx.compose.foundation.shape.CircleShape))
                     Text(t, style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(start = 4.dp))

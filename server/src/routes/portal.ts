@@ -272,12 +272,8 @@ portalRouter.get('/home', async (req, res) => {
     const r = byDate.get(d);
     return { date: d, workedMinutes: r?.workedMinutes || 0, status: r?.status || (working(d) ? (d < t ? 'NO_RECORD' : 'TODAY') : 'OFF') };
   });
-  /* Days that need a look: past working days with no record, absent, or in without out. */
-  const attention = monthDays
-    .filter((d) => d < t && working(d))
-    .map((d) => ({ d, r: byDate.get(d) }))
-    .filter(({ r }) => !r || r.status === 'ABSENT' || (r.checkIn && !r.checkOut))
-    .map(({ d, r }) => ({ date: d, why: !r ? 'No punches' : r.status === 'ABSENT' ? 'Absent' : 'No punch out' }));
+  /* Days to fix: the same list as the Needs attention screen, newest first. */
+  const attention = (await attentionNow(e)).filter((i) => i.action === 'FIX').map((i) => ({ date: i.date, why: i.text }));
   const balances = leave.types
     .filter((ty) => ty.isActive)
     .map((ty) => ({ id: ty.id, name: ty.name, ...(leave.balances.get(e.id)?.get(ty.id) || {}) }))
@@ -315,8 +311,10 @@ portalRouter.get('/home', async (req, res) => {
       rate: workingSoFar.length ? Math.round((present / workingSoFar.length) * 100) : null,
     },
     week,
-    attention: attention.slice(-5).reverse(),
+    attention: attention.slice(0, 5),
     attentionCount: attention.length,
+    /* Payslips in the app only where the company runs payroll in CLOR. */
+    payroll: await isFeatureEnabled(e.accountId, e.orgId, 'payroll'),
     leave: { balances, pending: myLeave },
     corrections: { pending: myCorrections },
     holidays: holidays.rows
@@ -684,8 +682,12 @@ const plusDaysIso = (iso: string, n: number) => {
 };
 
 /** Past days with something missing or waiting: this month and last, up to yesterday. */
-portalRouter.get('/attention', async (req, res) => {
-  const e = req.portal!.employee;
+/**
+ * What needs attention: last month and this one, from the joining date, up to
+ * yesterday. One rule for Home's banner and the Needs attention screen, so the
+ * two never show different numbers (MX-11).
+ */
+async function attentionNow(e: Parameters<typeof attentionFor>[0]) {
   const t = today();
   const [y, m] = t.slice(0, 7).split('-').map(Number);
   const from = new Date(Date.UTC(y, m - 2, 1)).toISOString().slice(0, 10);
@@ -693,7 +695,12 @@ portalRouter.get('/attention', async (req, res) => {
   const joined = await peoplePrisma.employee.findFirst({ where: { id: e.id, orgId: e.orgId }, select: { dateOfJoining: true } });
   const doj = /^\d{4}-\d{2}-\d{2}/.test(joined?.dateOfJoining || '') ? joined!.dateOfJoining!.slice(0, 10) : '';
   const start = doj > from ? doj : from;
-  const items = await attentionFor(e, start, plusDaysIso(t, -1));
+  return attentionFor(e, start, plusDaysIso(t, -1));
+}
+
+portalRouter.get('/attention', async (req, res) => {
+  const e = req.portal!.employee;
+  const items = await attentionNow(e);
   res.json({ items, count: items.filter((i) => i.action === 'FIX').length, waiting: items.filter((i) => i.action === 'NONE').length });
 });
 
@@ -963,6 +970,95 @@ portalRouter.put('/tax', async (req, res) => {
     if (err instanceof DeclarationError) return res.status(err.status).json({ error: err.message, code: err.code });
     throw err;
   }
+});
+
+/**
+ * Payslips: the person's own, once the payroll that made them is final
+ * (locked, paid or posted), never a draft or one under review. Served from the
+ * payslip's snapshot like the Payroll app does (routes/payrollSlips.ts), so a
+ * past month shows the job and pay as they were. PAN and bank account are
+ * always masked here: a payslip on a phone is the document most often
+ * forwarded.
+ */
+const FINAL_RUN = ['LOCKED', 'PAID', 'POSTED'];
+const maskEnd = (v: string | null | undefined, keep = 4) => {
+  const s = String(v || '');
+  return s ? `${'•'.repeat(Math.max(0, s.length - keep))}${s.slice(-keep)}` : '';
+};
+async function finalSlips(e: { orgId: string; id: string }, id?: string) {
+  const runs = await payrollPrisma.payrollRun.findMany({ where: { orgId: e.orgId, status: { in: FINAL_RUN } }, select: { id: true } });
+  if (!runs.length) return [];
+  return payrollPrisma.salarySlip.findMany({
+    where: { orgId: e.orgId, employeeId: e.id, runId: { in: runs.map((r) => r.id) }, status: { not: 'CANCELLED' }, ...(id ? { id } : {}) },
+    orderBy: { payrollDate: 'desc' },
+    take: 36,
+    include: id ? { lines: { orderBy: { displayOrder: 'asc' } } } : undefined,
+  });
+}
+
+portalRouter.get('/payslips', async (req, res) => {
+  const e = req.portal!.employee;
+  if (!(await isFeatureEnabled(e.accountId, e.orgId, 'payroll'))) return res.json({ available: false, slips: [] });
+  const slips = await finalSlips(e);
+  const periods = await payrollPrisma.payrollPeriod.findMany({ where: { orgId: e.orgId, id: { in: [...new Set(slips.map((s) => s.periodId))] } }, select: { id: true, name: true, startDate: true, endDate: true } });
+  const byId = new Map(periods.map((p) => [p.id, p]));
+  res.json({
+    available: true,
+    slips: slips.map((s) => ({
+      id: s.id,
+      number: s.number,
+      period: byId.get(s.periodId)?.name || s.payrollDate.slice(0, 7),
+      payrollDate: s.payrollDate,
+      gross: Number(s.grossEarnings),
+      deductions: Number(s.totalDeductions),
+      net: Number(s.netPay),
+      paid: s.paymentStatus === 'PAID',
+    })),
+  });
+});
+
+portalRouter.get('/payslips/:id', async (req, res) => {
+  const e = req.portal!.employee;
+  if (!(await isFeatureEnabled(e.accountId, e.orgId, 'payroll'))) return res.status(404).json({ error: 'No such payslip.' });
+  const [slip] = (await finalSlips(e, String(req.params.id))) as any[];
+  if (!slip) return res.status(404).json({ error: 'No such payslip.' });
+  const [period, profile, org] = await Promise.all([
+    payrollPrisma.payrollPeriod.findFirst({ where: { orgId: e.orgId, id: slip.periodId }, select: { name: true, startDate: true, endDate: true } }),
+    payrollPrisma.employeePayrollProfile.findFirst({ where: { orgId: e.orgId, employeeId: e.id }, select: { pan: true, uan: true, bankName: true, bankAccountNumber: true } }),
+    platformPrisma.org.findUnique({ where: { id: e.orgId }, select: { name: true } }),
+  ]);
+  const parse = (j: string) => { try { return JSON.parse(j || '{}'); } catch { return {}; } };
+  const person = parse(slip.employeeSnapshotJson);
+  const input = parse(slip.inputSnapshotJson);
+  const line = (l: any) => ({ name: l.componentName, amount: Number(l.amount) });
+  res.json({
+    slip: {
+      id: slip.id,
+      number: slip.number,
+      company: org?.name || '',
+      period: period?.name || slip.payrollDate.slice(0, 7),
+      from: period?.startDate || null,
+      to: period?.endDate || null,
+      payrollDate: slip.payrollDate,
+      employee: {
+        name: person.name || e.name,
+        code: person.code || e.code || '',
+        designation: person.designation || '',
+        department: person.department || '',
+        pan: maskEnd(profile?.pan),
+        uan: profile?.uan || '',
+        bank: profile?.bankName || '',
+        account: maskEnd(profile?.bankAccountNumber),
+      },
+      days: { working: Number(input.workingDays ?? 0), payable: Number(input.payableDays ?? 0), lossOfPay: Number(input.lwpDays ?? 0) },
+      earnings: slip.lines.filter((l: any) => l.type === 'EARNING').map(line),
+      deductions: slip.lines.filter((l: any) => l.type === 'DEDUCTION').map(line),
+      gross: Number(slip.grossEarnings),
+      totalDeductions: Number(slip.totalDeductions),
+      net: Number(slip.netPay),
+      paid: slip.paymentStatus === 'PAID',
+    },
+  });
 });
 
 portalRouter.use((_req, res) => res.status(404).json({ error: 'No such page.' }));

@@ -66,6 +66,8 @@ fun MeTab(api: Api, onSignedOut: () -> Unit, appearance: Appearance = Appearance
     val me = rememberLoad(onSignedOut) { api.me() }
     val docs = rememberLoad(onSignedOut) { api.documents() }
     var notice by remember { mutableStateOf(false) }
+    /* The payslip open on its own screen, if any. */
+    var slip by remember { mutableStateOf<String?>(null) }
     var message by remember { mutableStateOf<String?>(null) }
     /* A save waiting for the storage permission (Android 8 and 9 only). */
     var pending by remember { mutableStateOf<(suspend () -> Unit)?>(null) }
@@ -104,6 +106,22 @@ fun MeTab(api: Api, onSignedOut: () -> Unit, appearance: Appearance = Appearance
         NoticeScreen(api, onSignedOut, mustRead = false) { notice = false }
         return
     }
+    slip?.let { id ->
+        Column {
+            message?.let { Text(it, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) }
+            PayslipScreen(api, id, onBack = { slip = null; message = null }, onSignedOut = onSignedOut) { p ->
+                save {
+                    guarded {
+                        val name = Files.safeName("Payslip ${p.period}", "application/pdf")
+                        val uri = withContext(Dispatchers.IO) { Files.saveToDownloads(context, name, "application/pdf", PayslipPdf.build(p)) }
+                        message = "Saved to Downloads: $name"
+                        Files.open(context, uri, "application/pdf")
+                    }
+                }
+            }
+        }
+        return
+    }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(screenPadding), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         LoadView(me) { m ->
             Section {
@@ -113,6 +131,7 @@ fun MeTab(api: Api, onSignedOut: () -> Unit, appearance: Appearance = Appearance
             }
         }
         message?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
+        PayslipsSection(api, onSignedOut) { slip = it }
         Section("My documents") {
             LoadView(docs) { d ->
                 if (d.documents.isEmpty()) Hint("HR has not shared any documents with you.")

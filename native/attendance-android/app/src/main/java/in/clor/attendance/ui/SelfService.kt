@@ -60,11 +60,12 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 /** The self-service screens reached from the Attendance tab (and Home's banner). */
-enum class Panel(val title: String, val sub: String, val icon: ImageVector) {
+/** `tile`: the shorter name on the Attendance tab's tiles, which are half a phone wide (MX-10). */
+enum class Panel(val title: String, val sub: String, val icon: ImageVector, val tile: String = title) {
     Attention("Needs attention", "Missing punches and days to fix", Icons.Outlined.WarningAmber),
-    Review("Confirm my month", "Check the month before HR closes it", Icons.Outlined.EditCalendar),
+    Review("Confirm my month", "Check the month before HR closes it", Icons.Outlined.EditCalendar, "Confirm month"),
     Shifts("Shifts ahead", "Shifts, weekly offs and holidays", Icons.Outlined.CalendarMonth),
-    Overtime("Overtime & comp-off", "Extra hours and worked rest days", Icons.Outlined.Schedule),
+    Overtime("Overtime & comp-off", "Extra hours and worked rest days", Icons.Outlined.Schedule, "Overtime"),
 }
 
 private val zone = ZoneId.of("Asia/Kolkata")
@@ -89,7 +90,7 @@ fun PanelTiles(attention: Int?, onOpen: (Panel) -> Unit) {
                     ) {
                         IconTile(p.icon, tint)
                         Column(Modifier.weight(1f)) {
-                            Text(p.title, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold, maxLines = 1)
+                            Text(p.tile, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
                             Text(
                                 if (p == Panel.Attention && attention != null) (if (attention == 0) "All clear" else "$attention to fix") else p.sub,
                                 style = MaterialTheme.typography.bodySmall,

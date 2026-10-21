@@ -12,7 +12,7 @@ need on a phone, and leaves everything else to the web.
 | Attendance | Month, totals, why a day counts as it does, ask to fix a day | `GET /attendance`, `GET /attendance/explain`, `POST /corrections` |
 | Leave | Balances, apply, cancel | `GET /leave`, `POST /leave`, `POST /leave/:id/cancel` |
 | Approvals | Only for people with reportees: approve / decline | `GET /approvals`, `POST /approvals/:type/:id` |
-| Me | Documents, my data, privacy notice, permissions, password, sign out | `GET /documents`, `GET /my-data`, `POST /password` |
+| Me | My payslips (from locked payroll; Save PDF made on the phone), documents, my data, privacy notice, permissions, password, sign out | `GET /payslips`, `GET /payslips/:id`, `GET /documents`, `GET /my-data`, `POST /password` |
 
 The server decides everything (the time of a punch, whether it is inside a
 site, what a day counts as); the app asks and shows the answer.
@@ -46,3 +46,14 @@ No Android tools are needed locally; GitHub Actions builds it
 
 Application id `in.clor.attendance.employee` (installs beside the web-based
 `in.clor.attendance` while that is retired).
+
+### Against a local API (emulator)
+
+Debug builds may use plain HTTP (`app/src/debug/AndroidManifest.xml`); release
+builds never do. Point a debug build at the API on your machine:
+
+```
+gradle :app:assembleDebug -PCLOR_API_BASE=http://10.0.2.2:4011/api/portal
+```
+
+Set the emulator's position for a phone punch with `adb emu geo fix <lng> <lat>`.

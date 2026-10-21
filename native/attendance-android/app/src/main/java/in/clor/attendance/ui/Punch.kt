@@ -167,6 +167,8 @@ fun PunchCard(api: Api, shift: Shift, record: DayRecord?, punches: List<TodayPun
                 },
                 enabled = !busy,
                 shape = RoundedCornerShape(14.dp),
+                /* The one Blaze action on the screen: Blaze with Almost Black text (6.9:1), as the web's dark-mode primary. */
+                colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = Blaze, contentColor = AlmostBlack),
                 modifier = Modifier.fillMaxWidth().height(58.dp).padding(top = 4.dp),
             ) { Text(if (busy) "Checking your location…" else if (phone.next == "OUT") "Punch out" else "Punch in", style = MaterialTheme.typography.titleMedium) }
             if (field) {

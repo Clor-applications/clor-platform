@@ -75,6 +75,8 @@ class HomeLinks(
     val approvals: () -> Unit,
     val me: () -> Unit,
     val attention: () -> Unit = attendance,
+    /** My payslips, in Me. */
+    val payslips: () -> Unit = me,
 )
 
 /**
@@ -86,15 +88,16 @@ class HomeLinks(
 @Composable
 fun HomeTab(api: Api, version: Int, links: HomeLinks, onChanged: () -> Unit, onSignedOut: () -> Unit) {
     val home = rememberLoad(onSignedOut, version) { api.home() }
-    var quick by remember { mutableStateOf(false) }
     Box(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
             LoadView(home) { h ->
                 Header(h)
-                Column(Modifier.padding(horizontal = 16.dp).padding(bottom = 96.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                Column(Modifier.padding(horizontal = 16.dp).padding(bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
                     Alerts(h, links)
                     PunchCard(api, h.shift, h.record, h.punches, h.phone, onPunched = { home.reload(); onChanged() }, onSignedOut = onSignedOut,
                         onAskPhone = { links.request(NewKind.Phone) }, onFix = { links.request(NewKind.Missed) }, onDuty = { links.request(NewKind.OnDuty) })
+                    /* Right under the punch, where a thumb reaches; this replaces the + button that duplicated them and covered the cards (MX-07, MX-09). */
+                    QuickActions(h, links)
                     SectionTitle("This month", YearMonth.parse(h.month.month.ifEmpty { YearMonth.now().toString() }).format(DateTimeFormatter.ofPattern("MMMM yyyy", Locale.ENGLISH)))
                     MonthGrid(h, links)
                     WeekChart(h)
@@ -102,42 +105,13 @@ fun HomeTab(api: Api, version: Int, links: HomeLinks, onChanged: () -> Unit, onS
                     if (h.leave.balances.isNotEmpty()) LeaveStrip(h, links)
                     if (h.holidays.isNotEmpty()) Holidays(h)
                     if (h.approvals.approver) Team(h, links)
-                    SectionTitle("Quick actions", null)
-                    QuickActions(h, links)
                     RemindersCard()
                 }
-            }
-        }
-        FloatingActionButton(
-            onClick = { quick = true },
-            containerColor = MaterialTheme.colorScheme.primary,
-            contentColor = MaterialTheme.colorScheme.onPrimary,
-            modifier = Modifier.align(Alignment.BottomEnd).padding(20.dp),
-        ) { Icon(Icons.Outlined.Add, contentDescription = "Quick actions") }
-    }
-    if (quick) {
-        ModalBottomSheet(onDismissRequest = { quick = false }) {
-            Column(Modifier.padding(bottom = 28.dp)) {
-                Text("Quick actions", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp))
-                SheetRow(Icons.Outlined.EventAvailable, "Apply for leave", "Pick dates and a type") { quick = false; links.applyLeave() }
-                SheetRow(Icons.Outlined.EditCalendar, "Missed or wrong punch", "Ask for a day to be fixed") { quick = false; links.request(NewKind.Missed) }
-                SheetRow(NewKind.OnDuty.icon, "On duty", "Working away from the site") { quick = false; links.request(NewKind.OnDuty) }
-                SheetRow(NewKind.Details.icon, "Update my details", "Phone, address, bank…") { quick = false; links.request(NewKind.Details) }
-                SheetRow(Icons.Outlined.Description, "My documents", "Letters and files HR shared") { quick = false; links.me() }
             }
         }
     }
 }
 
-@Composable
-private fun SheetRow(icon: ImageVector, title: String, sub: String, onClick: () -> Unit) {
-    ListItem(
-        headlineContent = { Text(title) },
-        supportingContent = { Text(sub) },
-        leadingContent = { IconTile(icon, Brand) },
-        modifier = Modifier.clickable(onClick = onClick),
-    )
-}
 
 /** Brand, product and client, with the site on the right — and a strip with the person and the period. */
 @Composable
@@ -148,12 +122,8 @@ private fun Header(h: Home) {
                 /* The CLOR Attendance icon, as on the web app catalogue. */
                 androidx.compose.foundation.Image(androidx.compose.ui.res.painterResource(`in`.clor.attendance.R.drawable.clor_app_icon), contentDescription = "CLOR Attendance", modifier = Modifier.size(46.dp))
                 Column(Modifier.weight(1f).padding(start = 12.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("CLOR ATTENDANCE", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold, maxLines = 1)
-                        Box(Modifier.background(Pos.copy(alpha = 0.12f), RoundedCornerShape(6.dp)).padding(horizontal = 6.dp, vertical = 2.dp)) {
-                            Text("EMPLOYEE", color = Pos, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
-                        }
-                    }
+                    /* One line that gives way to the site chip; the "Employee" chip used to wrap a syllable per line (MX-08). */
+                    Text("CLOR Attendance", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text(h.company.name, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
                 (h.site ?: "Site not set").let { site ->
@@ -238,7 +208,7 @@ private fun MonthGrid(h: Home, links: HomeLinks) {
             StatCard(Modifier.weight(1f), "Present", fmtDays(m.present), "of ${m.workingDays} working days", Icons.Outlined.CheckCircle, Pos, m.rate?.let { "$it%" to Tone.Pos }, links.attendance)
             StatCard(Modifier.weight(1f), "Late", "${m.late}", if (m.lateMinutes > 0) "${m.lateMinutes} min in all" else "days this month", Icons.Outlined.Schedule, Warn, if (m.late > 0) "Late" to Tone.Warn else "On time" to Tone.Pos, links.attendance)
             StatCard(Modifier.weight(1f), "Absent", "${m.absent}", "days this month", Icons.Outlined.EventBusy, Neg, if (m.absent > 0) "Check" to Tone.Neg else null, links.attendance)
-            StatCard(Modifier.weight(1f), "Leave left", if (h.leave.balances.any { it.available != null }) fmtDays(leaveLeft) else "—", "${m.leave} day${if (m.leave == 1) "" else "s"} taken this month", Icons.Outlined.EventAvailable, Color(0xFF2563EB), if (h.leave.pending > 0) "${h.leave.pending} waiting" to Tone.Warn else null, links.leave)
+            StatCard(Modifier.weight(1f), "Leave left", if (h.leave.balances.any { it.available != null }) fmtDays(leaveLeft) else "—", "${m.leave} day${if (m.leave == 1) "" else "s"} taken this month", Icons.Outlined.EventAvailable, LeaveTone, if (h.leave.pending > 0) "${h.leave.pending} waiting" to Tone.Warn else null, links.leave)
         }
         return
     }
@@ -249,7 +219,7 @@ private fun MonthGrid(h: Home, links: HomeLinks) {
         }
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             StatCard(Modifier.weight(1f), "Absent", "${m.absent}", "days this month", Icons.Outlined.EventBusy, Neg, if (m.absent > 0) "Check" to Tone.Neg else null, links.attendance)
-            StatCard(Modifier.weight(1f), "Leave left", if (h.leave.balances.any { it.available != null }) fmtDays(leaveLeft) else "—", "${m.leave} day${if (m.leave == 1) "" else "s"} taken this month", Icons.Outlined.EventAvailable, Color(0xFF2563EB), if (h.leave.pending > 0) "${h.leave.pending} waiting" to Tone.Warn else null, links.leave)
+            StatCard(Modifier.weight(1f), "Leave left", if (h.leave.balances.any { it.available != null }) fmtDays(leaveLeft) else "—", "${m.leave} day${if (m.leave == 1) "" else "s"} taken this month", Icons.Outlined.EventAvailable, LeaveTone, if (h.leave.pending > 0) "${h.leave.pending} waiting" to Tone.Warn else null, links.leave)
         }
     }
 }
@@ -300,11 +270,12 @@ private fun WeekChart(h: Home) {
                 Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(if (d.workedMinutes > 0) "%.1f".format(d.workedMinutes / 60f) else if (d.status == "OFF") "off" else "", style = MaterialTheme.typography.labelSmall, color = if (isToday) Brand else MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(Modifier.height(4.dp))
+                    val accent = Brand
                     Canvas(Modifier.width(26.dp).height(100.dp)) {
                         val frac = (d.workedMinutes / max).coerceIn(0f, 1f)
                         val barH = if (d.workedMinutes > 0) size.height * frac else 6f
                         drawRoundRect(
-                            color = if (isToday) Brand else if (d.workedMinutes > 0) grey.copy(alpha = 1f) else muted,
+                            color = if (isToday) accent else if (d.workedMinutes > 0) grey.copy(alpha = 1f) else muted,
                             topLeft = Offset(0f, size.height - barH),
                             size = Size(size.width, barH),
                             cornerRadius = CornerRadius(10f, 10f),
@@ -336,14 +307,14 @@ private fun RateBar(h: Home) {
         }
         Row(Modifier.fillMaxWidth().height(10.dp).background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(50))) {
             if (p > 0) Box(Modifier.weight(p).fillMaxSize().background(Pos, RoundedCornerShape(50)))
-            if (l > 0) Box(Modifier.weight(l).fillMaxSize().background(Color(0xFF2563EB)))
+            if (l > 0) Box(Modifier.weight(l).fillMaxSize().background(LeaveTone))
             if (a > 0) Box(Modifier.weight(a).fillMaxSize().background(Neg))
             val rest = 1f - p - l - a
             if (rest > 0.001f) Spacer(Modifier.weight(rest))
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Legend(Pos, "Present ${fmtDays(m.present)}")
-            Legend(Color(0xFF2563EB), "Leave ${m.leave}")
+            Legend(LeaveTone, "Leave ${m.leave}")
             Legend(Neg, "Absent ${m.absent}")
         }
     }
@@ -408,7 +379,7 @@ private fun Holidays(h: Home) {
 private fun Team(h: Home, links: HomeLinks) {
     Section {
         Row(Modifier.fillMaxWidth().clickable(onClick = links.approvals), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            IconTile(Icons.Outlined.Groups, Color(0xFF7C3AED))
+            IconTile(Icons.Outlined.Groups, Brand)
             Column(Modifier.weight(1f)) {
                 Text("My team · ${h.approvals.team}", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
                 Hint(if (h.approvals.awayToday.isEmpty()) "Nobody on leave today" else "On leave today: ${h.approvals.awayToday.joinToString()}")
@@ -421,11 +392,12 @@ private fun Team(h: Home, links: HomeLinks) {
 @Composable
 private fun QuickActions(h: Home, links: HomeLinks) {
     val items = buildList {
-        add(Triple(Icons.Outlined.EventAvailable to Color(0xFF2563EB), "Apply leave", links.applyLeave))
+        add(Triple(Icons.Outlined.EventAvailable to LeaveTone, "Apply leave", links.applyLeave))
         add(Triple(Icons.Outlined.EditCalendar to Pos, "Fix a punch", { links.request(NewKind.Missed) }))
-        add(Triple(NewKind.OnDuty.icon to Warn, "On duty", { links.request(NewKind.OnDuty) }))
-        if (h.approvals.approver) add(Triple(Icons.Outlined.Inbox to Color(0xFF7C3AED), "Approvals", links.approvals))
-        else add(Triple(Icons.Outlined.Inbox to Color(0xFF7C3AED), "My requests", links.requests))
+        if (h.payroll) add(Triple(Icons.Outlined.Description to Brand, "Payslips", links.payslips))
+        else add(Triple(NewKind.OnDuty.icon to Warn, "On duty", { links.request(NewKind.OnDuty) }))
+        if (h.approvals.approver) add(Triple(Icons.Outlined.Inbox to Brand, "Approvals", links.approvals))
+        else add(Triple(Icons.Outlined.Inbox to Brand, "Requests", links.requests))
     }
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         items.forEach { (iconTint, label, go) ->

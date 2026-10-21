@@ -123,6 +123,7 @@ private fun Tabs(api: Api, approver: Boolean, phoneAllowed: Boolean, version: In
         leave = { tab = Tab.Leave },
         approvals = { tab = Tab.Requests },
         me = { tab = Tab.Me },
+        payslips = { tab = Tab.Me },
         attention = { panel = Panel.Attention; tab = Tab.Attendance },
     )
     val tabs = Tab.entries
