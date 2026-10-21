@@ -889,7 +889,7 @@ export default function Shell() {
                     }}
                   >
                     {t.icon ? <t.icon size={20} aria-hidden="true" /> : null}
-                    <span>{t.label}</span>
+                    <span>{t.short || t.label}</span>
                   </button>
                 );
               })}

@@ -50,8 +50,12 @@ table{border-collapse:collapse;width:100%}th,td{border:1px solid #bbb;padding:3p
 /**
  * Attendance reports and statutory registers (ClorTime's catalogue). Pick one,
  * set its dates, run it; export to a spreadsheet or print it.
+ *
+ * `initialReport` opens it on one report: the sidebar's named reports (Late
+ * Arrivals & Early Exits, Overtime Report, ...) are this screen, so there is
+ * one catalogue and one way to run a report.
  */
-export default function AttendanceReports({ openScreen } = {}) {
+export default function AttendanceReports({ openScreen, initialReport = '' } = {}) {
   const [catalogue, setCatalogue] = useState(null);
   const [loadError, setLoadError] = useState('');
   const [attempt, setAttempt] = useState(0);
@@ -61,8 +65,8 @@ export default function AttendanceReports({ openScreen } = {}) {
   const [running, setRunning] = useState(false);
 
   useEffect(() => {
-    listReports().then((v) => { setCatalogue(v); setLoadError(''); setActive((a) => a || v?.reports?.[0] || null); }).catch((e) => setLoadError(String(e?.message || 'Could not load reports.')));
-  }, [attempt]);
+    listReports().then((v) => { setCatalogue(v); setLoadError(''); setActive((a) => a || (initialReport && v?.reports?.find((r) => r.id === initialReport)) || v?.reports?.[0] || null); }).catch((e) => setLoadError(String(e?.message || 'Could not load reports.')));
+  }, [attempt, initialReport]);
 
   const filters = useColumnFilters();
   const shownRows = result ? filters.applyFilters(result.rows, Object.fromEntries(result.columns.filter((c) => c.align !== 'end').map((c) => [c.key, (row) => row[c.key]]))) : [];
