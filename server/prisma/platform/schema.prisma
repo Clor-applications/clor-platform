@@ -916,3 +916,31 @@ model IdempotentRequest {
   @@unique([scope, key])
   @@index([expiresAt])
 }
+
+/// LX-07: a company's closure. The owner asks (after taking a full export),
+/// the company stays usable for the notice period (COMPANY_CLOSURE_NOTICE_DAYS,
+/// default 30) and can be cancelled; then the scheduled purge deletes every
+/// row the company has in every database and marks this DELETED. This row is
+/// kept as the record that, when and at whose request it happened (no
+/// relation to Org, which is gone by then). See docs/compliance/DATA_DELETION_AND_CLOSURE.md.
+model OrgClosure {
+  id                String    @id @default(cuid())
+  accountId         String
+  orgId             String    @unique
+  orgName           String
+  /// SCHEDULED | CANCELLED | DELETED
+  status            String
+  reason            String?
+  requestedByUserId String
+  requestedAt       DateTime
+  deleteAfter       DateTime
+  cancelledByUserId String?
+  cancelledAt       DateTime?
+  deletedAt         DateTime?
+  /// Rows deleted per table, as JSON, once DELETED.
+  deletedCounts     String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@index([status, deleteAfter])
+}

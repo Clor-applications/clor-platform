@@ -55,7 +55,7 @@ describe('Attendance navigation structure', () => {
       ['Work Policy', ['Attendance Policy', 'Weekly Off Policy', 'Overtime Policy', 'Leave Policy', 'Holidays']],
       ['Integrations', ['Integrations']],
       ['Access & Security', ['Single Sign-On']],
-      ['Data Management', ['Import Data', 'Export Data']],
+      ['Data Management', ['Import Data', 'Export Data', 'Close Company']],
       ['Privacy', ['Data Protection', 'Data Requests']],
     ]);
     expect(s.Me).toEqual([['Self-Service', ['My Attendance', 'My Leave']]]);
@@ -91,7 +91,7 @@ describe('Attendance navigation structure', () => {
     });
   }
   it('a person without a screen does not see it, and a module left empty disappears', () => {
-    const settings = new Set(['setup', 'sites', 'siteCheck', 'holidays', 'rules', 'weeklyOffPolicy', 'overtimePolicy', 'leaveTypes', 'integrations', 'sso', 'dataImport', 'dataExport', 'dataProtection', 'dataRequests']);
+    const settings = new Set(['setup', 'sites', 'siteCheck', 'holidays', 'rules', 'weeklyOffPolicy', 'overtimePolicy', 'leaveTypes', 'integrations', 'sso', 'dataImport', 'dataExport', 'closeCompany', 'dataProtection', 'dataRequests']);
     const nav = attendanceApp.nav.filter((i) => !settings.has(i.key));
     const labels = resolveModules(attendanceApp, nav).map((m) => m.label);
     expect(labels).not.toContain('Settings');

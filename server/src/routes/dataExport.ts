@@ -10,6 +10,7 @@ import { requireAuth } from '../middleware/auth.js';
 import { requireTenantContext } from '../middleware/tenantContext.js';
 import { requirePermission } from '../middleware/rbac.js';
 import { PermissionAction } from '../constants/enums.js';
+import { recordAudit } from '../services/auditTrail.js';
 
 /**
  * A company's own books and its own settings, in files its owner can keep.
@@ -229,6 +230,11 @@ dataExportRouter.get('/orgs/:orgId/export', EXPORT, async (req, res) => {
   for (const [name, rows] of Object.entries(configuration)) {
     counts[name] = rows.length;
     outConfig[name] = plain(rows);
+  }
+
+  /* A full export is what closing the company requires first (services/companyClosure.ts). */
+  if (wantData && wantConfiguration) {
+    await recordAudit(req, { entity: 'Company', entityId: orgId, action: 'EXPORT_ALL', message: `Full company export (${Object.values(counts).reduce((a, b) => a + b, 0)} rows)` });
   }
 
   res.json({

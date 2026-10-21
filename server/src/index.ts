@@ -2,6 +2,7 @@ import 'dotenv/config';
 import { buildApp } from './app.js';
 import { startRecurringScheduler } from './services/recurringScheduler.js';
 import { startRetentionPurge } from './services/retention.js';
+import { startClosurePurge } from './services/companyClosure.js';
 import { startHrSync } from './services/hr/sync.js';
 import { startReportSchedules } from './services/attendance/reportSchedules.js';
 import { startDocumentReminders } from './services/people/documentReminders.js';
@@ -50,6 +51,8 @@ startWebhookRetries();
 
 /* Sign-in records past their use are removed daily — see services/retention.ts. */
 startRetentionPurge();
+/* Companies whose closure notice has ended are deleted daily — see services/companyClosure.ts. */
+startClosurePurge();
 /* HR tools: the outbox every minute, their people hourly — see services/hr/sync.ts. */
 startHrSync();
 startDocumentReminders();

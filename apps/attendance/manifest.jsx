@@ -91,6 +91,7 @@ const Geofences = screen('Geofences');
 const SiteCheck = screen('SiteCheck');
 const DataImport = screen('DataImport');
 const DataExport = screen('DataExport');
+const CloseCompany = screen('CloseCompany');
 const DataRequests = screen('DataRequests');
 const DataProtection = screen('DataProtection');
 const SsoSettings = screen('SsoSettings');
@@ -238,7 +239,7 @@ export const attendanceApp = {
       { label: 'Work Policy', items: ['rules', 'weeklyOffPolicy', 'overtimePolicy', 'leaveTypes', 'holidays'] },
       { label: 'Integrations', items: ['integrations'] },
       { label: 'Access & Security', items: ['sso'] },
-      { label: 'Data Management', items: ['dataImport', 'dataExport'] },
+      { label: 'Data Management', items: ['dataImport', 'dataExport', 'closeCompany'] },
       { label: 'Privacy', items: ['dataProtection', 'dataRequests'] },
     ] },
     { key: 'me', label: 'Me', groups: [
@@ -316,6 +317,8 @@ export const attendanceApp = {
     { key: 'sso', label: 'Single Sign-On', icon: KeyRound, permission: 'SETTINGS::Users::VIEW' },
     { key: 'dataImport', label: 'Import Data', icon: Upload, permission: 'ATTENDANCE::Attendance Records::VIEW' },
     { key: 'dataExport', label: 'Export Data', icon: Download, permission: 'ATTENDANCE::Attendance Records::VIEW' },
+    /* LX-07: shared screen; the server lets only the company's owner ask or cancel. */
+    { key: 'closeCompany', label: 'Close Company', icon: Lock, permission: 'SETTINGS::Company data::VIEW' },
     { key: 'dataProtection', label: 'Data Protection', icon: ShieldCheck, permission: 'ATTENDANCE::Employee Portal::VIEW' },
     { key: 'dataRequests', label: 'Data Requests', icon: ShieldCheck, permission: 'PEOPLE::Employees::VIEW' },
 
@@ -370,6 +373,7 @@ export const attendanceApp = {
     siteCheck: SiteCheck,
     dataImport: DataImport,
     dataExport: DataExport,
+    closeCompany: CloseCompany,
     dataProtection: DataProtection,
     sso: SsoSettings,
     dataRequests: DataRequests,
