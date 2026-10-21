@@ -61,10 +61,10 @@ jobs:
             RANGE="$BEFORE..$AFTER"
           fi
           docker run --rm -v "$PWD:/repo" -w /repo ghcr.io/gitleaks/gitleaks:v8.21.2 \
-            git --no-banner --redact --config /repo/.gitleaks.toml --log-opts="$RANGE" /repo
+            git --no-banner --redact --verbose --config /repo/.gitleaks.toml --log-opts="$RANGE" /repo
 
       - name: Whole working tree
         if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         run: |
           docker run --rm -v "$PWD:/repo" -w /repo ghcr.io/gitleaks/gitleaks:v8.21.2 \
-            dir --no-banner --redact --config /repo/.gitleaks.toml /repo
+            dir --no-banner --redact --verbose --config /repo/.gitleaks.toml /repo
