@@ -82,7 +82,11 @@ describe('an on-site connector', () => {
     /* The cloud's own pull leaves that reader alone. */
     const synced = await syncAllVendorConnections();
     expect((await peoplePrisma.attendanceDevice.findUnique({ where: { id: reader.id } }))?.lastError).toBeNull();
-    expect(synced.connections).toBe(await peoplePrisma.attendanceDevice.count({ where: { vendor: { in: ['HIKVISION', 'DAHUA', 'BIOSTAR', 'HTTP_PULL', 'ANVIZ_CLOUD'] }, isActive: true, agentId: null } }));
+    /* At least the other company's reader. Not an exact count of the whole
+       database: test files run in parallel and add readers of their own
+       between the pull and a count, which failed this on CI (2 vs 1). The two
+       readers above say what this test is about. */
+    expect(synced.connections).toBeGreaterThanOrEqual(1);
     expect((await peoplePrisma.attendanceDevice.findUnique({ where: { id: theirs.id } }))?.lastError).toBeTruthy(); // the cloud did try that one
 
     /* Punches it read. */
