@@ -6872,6 +6872,25 @@ th.ui-th {
   .ui-today-hero-queue > li:nth-child(3) { animation-delay: 460ms; }
 }
 
+/* Reports: a report in the library, and the Insights trend bars. */
+.ui-report-card {
+  display: flex; flex-direction: column; gap: 0.25rem; width: 100%; height: 100%;
+  padding: 0.875rem 1rem; text-align: left; color: rgb(var(--fg));
+  transition: border-color var(--dur-surface, 150ms) ease, background-color var(--dur-surface, 150ms) ease;
+}
+.ui-report-card:hover { border-color: rgb(var(--border-strong)); background-color: rgb(var(--surface-sunken)); }
+.ui-report-card:focus-visible { outline: 2px solid rgb(var(--ring, var(--brand))); outline-offset: 2px; }
+.ui-trend { list-style: none; margin: 0; padding: 0; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 0.75rem; align-items: end; }
+.ui-trend li { display: flex; flex-direction: column; align-items: center; gap: 0.375rem; min-width: 0; }
+.ui-trend-bar { width: 100%; max-width: 2.75rem; height: 7rem; display: flex; flex-direction: column-reverse; border-radius: 6px 6px 2px 2px; overflow: hidden; background: rgb(var(--fg) / 0.045); }
+.ui-trend-bar > span { display: block; width: 100%; background: rgb(var(--brand)); }
+.ui-trend-bar[data-tone='warn'] > span { background: rgb(var(--warn)); }
+.ui-trend-bar[data-tone='neutral'] > span { background: rgb(var(--fg-subtle) / 0.7); }
+.ui-trend-value { font-size: 0.8125rem; font-weight: 650; color: rgb(var(--fg)); white-space: nowrap; }
+.ui-trend-label { font-size: 0.75rem; color: rgb(var(--fg-muted)); white-space: nowrap; }
+.ui-meter { height: 0.5rem; border-radius: 999px; background: rgb(var(--fg) / 0.06); overflow: hidden; min-width: 4rem; }
+.ui-meter > span { display: block; height: 100%; border-radius: inherit; background: rgb(var(--neg) / 0.7); }
+
 /*
  * The week as a rate: each bar is everyone expected that day, filled by the
  * share who came in (the accent), then those on leave (grey). What is left

@@ -17,6 +17,7 @@ import {
   ClockAlarmColor,
   ClockColor,
   DataBarVerticalAscendingColor,
+  DataTrendingColor,
   DataPieColor,
   DocumentAddColor,
   DocumentEditColor,
@@ -92,6 +93,7 @@ const SiteCheck = screen('SiteCheck');
 const DataImport = screen('DataImport');
 const DataExport = screen('DataExport');
 const CloseCompany = screen('CloseCompany');
+const ReportInsights = screen('ReportInsights');
 const DataRequests = screen('DataRequests');
 const DataProtection = screen('DataProtection');
 const SsoSettings = screen('SsoSettings');
@@ -119,6 +121,7 @@ const reportScreen = (id) => {
    the line icons. */
 const ArrowRightLeft = colorIcon(ArrowSyncColor, 'ArrowSync');
 const BarChart3 = colorIcon(DataBarVerticalAscendingColor, 'DataBarVerticalAscending');
+const TrendChart = colorIcon(DataTrendingColor, 'DataTrending');
 const CalendarClock = colorIcon(CalendarClockColor, 'CalendarClock');
 const CalendarRange = colorIcon(CalendarDataBarColor, 'CalendarDataBar');
 const Gavel = colorIcon(ClipboardTextEditColor, 'ClipboardTextEdit');
@@ -226,6 +229,7 @@ export const attendanceApp = {
       { label: 'Period Closing', items: ['confirmations', 'monthClose'] },
     ] },
     { key: 'reports', label: 'Reports', groups: [
+      { label: 'Overview', items: ['reportInsights'] },
       { label: 'Attendance', items: ['register', 'summary', 'calendar', 'reportLateEarly', 'reportAbsent'] },
       { label: 'Workforce', items: ['reportDepartment', 'reportTimecard'] },
       { label: 'Time & Leave', items: ['reportOvertime', 'reportLeave'] },
@@ -291,6 +295,7 @@ export const attendanceApp = {
     { key: 'monthClose', label: 'Month Close', icon: Lock, permission: 'ATTENDANCE::Attendance Records::VIEW' },
 
     { section: 'Reports' },
+    { key: 'reportInsights', label: 'Attendance Insights', icon: TrendChart, permission: 'ATTENDANCE::Attendance Records::VIEW' },
     { key: 'register', label: 'Daily Attendance Register', icon: Grid3x3, permission: 'ATTENDANCE::Attendance Records::VIEW' },
     { key: 'summary', label: 'Monthly Attendance Summary', icon: ClipboardCheck, permission: 'ATTENDANCE::Attendance Records::VIEW' },
     { key: 'calendar', label: 'Attendance Calendar', icon: CalendarDays, permission: 'ATTENDANCE::Attendance Records::VIEW' },
@@ -349,6 +354,7 @@ export const attendanceApp = {
     register: AttendanceRegister,
     calendar: AttendanceCalendar,
     reports: AttendanceReports,
+    reportInsights: ReportInsights,
     /* Named reports: the Reports screen opened on that report (same screen, same permission). */
     reportLateEarly: reportScreen('late-early'),
     reportAbsent: reportScreen('absent'),

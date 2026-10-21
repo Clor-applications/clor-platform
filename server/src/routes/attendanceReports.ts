@@ -32,26 +32,27 @@ const hm = (m: number) => `${Math.floor(Math.max(0, m) / 60)}:${String(Math.max(
 type Col = { key: string; label: string; align?: 'end' | 'center' };
 type Report = { title: string; period: string; columns: Col[]; rows: Record<string, unknown>[]; totals?: Record<string, unknown>; notes?: string[] };
 
+/* `group` is where a report sits on the Reports page; names match the sidebar's (docs/ui/ATTENDANCE_NAVIGATION.md). */
 export const REPORTS = [
-  { id: 'daily', name: 'Daily attendance', description: 'One day: everyone’s in and out, hours, late, overtime and status.', params: ['date', 'department'] },
-  { id: 'monthly', name: 'Monthly summary', description: 'Per person: present, absent, leave, holidays, payable and loss-of-pay days.', params: ['month', 'department'] },
-  { id: 'muster', name: 'Muster roll', description: 'Statutory register: each worker, each day of the month — P, A, HD, L, H, W.', params: ['month', 'department'] },
-  { id: 'late-early', name: 'Late arrival and early departure', description: 'Days someone came late or left early.', params: ['from', 'to', 'department'] },
-  { id: 'absent', name: 'Absent', description: 'Working days with no attendance, by date.', params: ['from', 'to', 'department'] },
-  { id: 'overtime', name: 'Overtime register', description: 'Statutory register: overtime worked, approved or not, with totals per person.', params: ['from', 'to', 'department'] },
-  { id: 'leave', name: 'Leave register', description: 'Statutory register: leave approved in the period, paid and unpaid.', params: ['from', 'to', 'department'] },
-  { id: 'department', name: 'Department monthly', description: 'Per department: headcount, present, absent, late and overtime for a month.', params: ['month'] },
-  { id: 'readers', name: 'Reader health', description: 'Each biometric reader: online, last seen, punches, failed commands.', params: [] },
-  { id: 'biometrics', name: 'Biometric enrolment', description: 'Who has fingerprints and a face enrolled — and who has none.', params: [] },
-  { id: 'first-last', name: 'First and last punch', description: 'Per person per day: the first punch, the last, and how many between.', params: ['from', 'to', 'department'] },
-  { id: 'missed', name: 'Missed punches', description: 'Days with an in and no out — the ones to chase before payroll.', params: ['from', 'to', 'department'] },
-  { id: 'timecard', name: 'Time card', description: 'One person, every day of a month: shift, in, out, worked, late, overtime, status. Everyone if no one is chosen.', params: ['month', 'employee', 'department'] },
-  { id: 'work-duration', name: 'Work duration', description: 'Per person for a month: days under 4 hours, 4–8, 8–10, over 10, and the average.', params: ['month', 'department'] },
-  { id: 'people-dates', name: 'Birthdays and milestones', description: 'Birthdays, work anniversaries, probation and contract ends falling in a month.', params: ['month', 'department'] },
-  { id: 'documents', name: 'Documents expiring', description: 'Employee documents expired or expiring within 90 days.', params: ['department'] },
-  { id: 'reader-punches', name: 'Punches per reader', description: 'Each reader, each day: how many punches, how many matched to a person.', params: ['from', 'to'] },
-  { id: 'mobile', name: 'Phone punches', description: 'Punches from phones: where, how accurate, with a selfie or not.', params: ['from', 'to', 'department'] },
-  { id: 'contractor', name: 'Contractor attendance', description: 'Per contractor for a month: workers, present and payable days, approved overtime — what to check a bill against.', params: ['month'] },
+  { id: 'daily', group: 'Attendance', name: 'Daily Attendance', description: 'One day: everyone’s in and out, hours, late, overtime and status.', params: ['date', 'department'] },
+  { id: 'monthly', group: 'Attendance', name: 'Monthly Attendance Summary', description: 'Per person: present, absent, leave, holidays, payable and loss-of-pay days.', params: ['month', 'department'] },
+  { id: 'muster', group: 'Statutory Registers', name: 'Muster Roll', description: 'Statutory register: each worker, each day of the month — P, A, HD, L, H, W.', params: ['month', 'department'] },
+  { id: 'late-early', group: 'Attendance', name: 'Late Arrivals & Early Exits', description: 'Days someone came late or left early.', params: ['from', 'to', 'department'] },
+  { id: 'absent', group: 'Attendance', name: 'Absence Report', description: 'Working days with no attendance, by date.', params: ['from', 'to', 'department'] },
+  { id: 'overtime', group: 'Statutory Registers', name: 'Overtime Register', description: 'Statutory register: overtime worked, approved or not, with totals per person.', params: ['from', 'to', 'department'] },
+  { id: 'leave', group: 'Statutory Registers', name: 'Leave Register', description: 'Statutory register: leave approved in the period, paid and unpaid.', params: ['from', 'to', 'department'] },
+  { id: 'department', group: 'Workforce', name: 'Department Attendance', description: 'Per department: headcount, present, absent, late and overtime for a month.', params: ['month'] },
+  { id: 'readers', group: 'Devices', name: 'Reader Health', description: 'Each biometric reader: online, last seen, punches, failed commands.', params: [] },
+  { id: 'biometrics', group: 'Devices', name: 'Biometric Enrolment', description: 'Who has fingerprints and a face enrolled — and who has none.', params: [] },
+  { id: 'first-last', group: 'Attendance', name: 'First & Last Punch', description: 'Per person per day: the first punch, the last, and how many between.', params: ['from', 'to', 'department'] },
+  { id: 'missed', group: 'Attendance', name: 'Missed Punches', description: 'Days with an in and no out — the ones to chase before payroll.', params: ['from', 'to', 'department'] },
+  { id: 'timecard', group: 'Workforce', name: 'Employee Attendance History', description: 'One person, every day of a month: shift, in, out, worked, late, overtime, status. Everyone if no one is chosen.', params: ['month', 'employee', 'department'] },
+  { id: 'work-duration', group: 'Workforce', name: 'Work Duration', description: 'Per person for a month: days under 4 hours, 4–8, 8–10, over 10, and the average.', params: ['month', 'department'] },
+  { id: 'people-dates', group: 'People', name: 'Birthdays & Milestones', description: 'Birthdays, work anniversaries, probation and contract ends falling in a month.', params: ['month', 'department'] },
+  { id: 'documents', group: 'People', name: 'Expiring Documents', description: 'Employee documents expired or expiring within 90 days.', params: ['department'] },
+  { id: 'reader-punches', group: 'Devices', name: 'Reader Activity', description: 'Each reader, each day: how many punches, how many matched to a person.', params: ['from', 'to'] },
+  { id: 'mobile', group: 'Devices', name: 'Mobile Punches', description: 'Punches from phones: where, how accurate, with a selfie or not.', params: ['from', 'to', 'department'] },
+  { id: 'contractor', group: 'Workforce', name: 'Contractor Attendance', description: 'Per contractor for a month: workers, present and payable days, approved overtime — what to check a bill against.', params: ['month'] },
 ] as const;
 
 const STATUS_LABEL: Record<string, string> = {
@@ -98,6 +99,124 @@ function dayStatus(ctx: Awaited<ReturnType<typeof periodContext>>, p: { id: stri
   if (isWeeklyOff(ctx.shiftOn(p.id, date).rule, date)) return 'WEEKLY_OFF';
   if (date > ctx.today) return null;
   return 'ABSENT';
+}
+
+/**
+ * The few figures shown above a report's table: what someone opening it wants
+ * to know before reading rows. Worked out from the rows the report returns, so
+ * they can never disagree with the table.
+ */
+type Figure = { label: string; value: string | number; hint?: string; tone?: 'pos' | 'neg' | 'warn' };
+const pct = (a: number, b: number) => (b ? `${Math.round((a / b) * 1000) / 10}%` : '—');
+export function figuresFor(id: string, r: Report): Figure[] {
+  const rows = r.rows as any[];
+  const n = (k: string) => rows.reduce((t, x) => t + (Number(x[k]) || 0), 0);
+  const people = () => new Set(rows.map((x) => x.code ?? x.name)).size;
+  const byPerson = (pick: (x: any) => boolean) => {
+    const m = new Map<string, { name: string; days: number }>();
+    for (const x of rows.filter(pick)) {
+      const k = String(x.code ?? x.name);
+      m.set(k, { name: x.name, days: (m.get(k)?.days || 0) + 1 });
+    }
+    return [...m.values()].sort((a, b) => b.days - a.days);
+  };
+  switch (id) {
+    case 'daily': {
+      const st = (re: RegExp) => rows.filter((x) => re.test(String(x.status))).length;
+      const present = st(/^Present/);
+      const half = st(/^Half/);
+      const absent = st(/^Absent/);
+      return [
+        { label: 'Present', value: present + half, hint: half ? `${half} half day` : undefined, tone: 'pos' },
+        { label: 'Absent', value: absent, tone: absent ? 'neg' : undefined },
+        { label: 'On leave', value: st(/^On leave/) },
+        { label: 'Late', value: rows.filter((x) => Number(x.late) > 0).length, tone: 'warn' },
+        { label: 'Attendance rate', value: pct(present + half / 2, present + half + absent) },
+      ];
+    }
+    case 'monthly':
+    case 'muster': {
+      const present = id === 'monthly' ? n('present') : rows.reduce((t, x) => t + (Number(x.present) || 0), 0);
+      const half = id === 'monthly' ? n('halfDays') : 0;
+      const absent = n('absent');
+      const out: Figure[] = [
+        { label: 'People', value: rows.length },
+        { label: 'Attendance rate', value: pct(present + half / 2, present + half + absent), hint: 'of working days' },
+        { label: 'Absent days', value: absent, tone: absent ? 'neg' : undefined },
+      ];
+      if (id === 'monthly') out.push({ label: 'Payable days', value: n('payableDays') }, { label: 'Loss of pay days', value: n('lossOfPayDays'), tone: n('lossOfPayDays') ? 'warn' : undefined }, { label: 'Late days', value: n('lateCount') });
+      else out.push({ label: 'Leave days', value: n('leave') });
+      return out;
+    }
+    case 'late-early': {
+      const late = rows.filter((x) => Number(x.late) > 0);
+      const repeat = byPerson((x) => Number(x.late) > 0).filter((p) => p.days >= 3).length;
+      return [
+        { label: 'Late days', value: late.length, tone: late.length ? 'warn' : undefined },
+        { label: 'People late 3+ times', value: repeat, tone: repeat ? 'neg' : undefined },
+        { label: 'Average minutes late', value: late.length ? Math.round(late.reduce((t, x) => t + Number(x.late), 0) / late.length) : 0 },
+        { label: 'Early exits', value: rows.filter((x) => Number(x.earlyOut) > 0).length },
+      ];
+    }
+    case 'absent': {
+      const top = byPerson(() => true)[0];
+      return [
+        { label: 'Absent days', value: rows.length, tone: rows.length ? 'neg' : undefined },
+        { label: 'People absent', value: people() },
+        { label: 'Not marked at all', value: rows.filter((x) => x.how === 'No attendance').length, hint: 'no punch or mark' },
+        ...(top ? [{ label: 'Most absent', value: top.name, hint: `${top.days} day${top.days === 1 ? '' : 's'}` }] : []),
+      ];
+    }
+    case 'overtime':
+      return [
+        { label: 'People with overtime', value: people() },
+        { label: 'Overtime', value: String(r.totals?.overtime ?? '0:00') },
+      ];
+    case 'leave':
+      return [
+        { label: 'Requests', value: rows.length },
+        { label: 'Leave days', value: n('days') },
+        { label: 'People', value: people() },
+      ];
+    case 'department': {
+      const present = n('present');
+      const half = n('halfDays');
+      const absent = n('absent');
+      const worst = [...rows].filter((x) => Number(x.present) + Number(x.halfDays) + Number(x.absent) > 0)
+        .sort((a, b) => Number(b.absent) / (Number(b.present) + Number(b.halfDays) + Number(b.absent)) - Number(a.absent) / (Number(a.present) + Number(a.halfDays) + Number(a.absent)))[0];
+      return [
+        { label: 'Departments', value: rows.length },
+        { label: 'People', value: n('headcount') },
+        { label: 'Attendance rate', value: pct(present + half / 2, present + half + absent) },
+        ...(worst ? [{ label: 'Most absence', value: String(worst.department), hint: pct(Number(worst.absent), Number(worst.present) + Number(worst.halfDays) + Number(worst.absent)) }] : []),
+      ];
+    }
+    case 'missed':
+      return [
+        { label: 'Days with no check-out', value: rows.length, tone: rows.length ? 'warn' : undefined },
+        { label: 'People', value: people() },
+      ];
+    case 'reader-punches':
+      return [
+        { label: 'Punches', value: n('punches') },
+        { label: 'Matched to a person', value: pct(n('matched'), n('punches')) },
+        { label: 'Unmatched', value: n('unmatched'), tone: n('unmatched') ? 'warn' : undefined },
+      ];
+    case 'mobile':
+      return [
+        { label: 'Phone punches', value: rows.length },
+        { label: 'People', value: people() },
+        { label: 'With a selfie', value: rows.filter((x) => x.selfie === 'Yes').length },
+      ];
+    case 'contractor':
+      return [
+        { label: 'Contractors', value: rows.length },
+        { label: 'Workers', value: n('workers') },
+        { label: 'Payable days', value: Math.round(n('payable') * 10) / 10 },
+      ];
+    default:
+      return [{ label: 'Rows', value: rows.length }];
+  }
 }
 
 /** Who a report covers: department, area (site), contractor and one person, any combination. */
@@ -772,11 +891,84 @@ attendanceReportsRouter.get('/orgs/:orgId/attendance/reports', can(), async (req
   res.json({ reports: REPORTS, departments, employees, areas, contractors });
 });
 
+/*
+ * Insights: the last few months at a glance (attendance and absenteeism
+ * rates, late days, overtime), and this month by department and by person.
+ * Built from the same month figures payroll uses (monthRows), so a number
+ * here is the number in the Monthly Attendance Summary.
+ */
+attendanceReportsRouter.get('/orgs/:orgId/attendance/reports/insights', can(), async (req, res) => {
+  if (!(await attendanceRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const count = Math.min(12, Math.max(3, Number(req.query.months) || 6));
+  const scope = { departmentId: String(req.query.departmentId || '') || null, areaId: String(req.query.areaId || '') || null, contractorId: String(req.query.contractorId || '') || null, employeeId: null };
+  const scoped = scope.departmentId || scope.areaId || scope.contractorId;
+  const ids = scoped ? new Set((await peoplePrisma.employee.findMany({ where: { orgId }, select: { id: true, departmentId: true, areaId: true, contractorId: true } })).filter(inScope(scope)).map((e) => e.id)) : null;
+  const current = today().slice(0, 7);
+  const months: string[] = [];
+  for (let i = count - 1; i >= 0; i -= 1) {
+    const [y, m] = current.split('-').map(Number);
+    const d = new Date(Date.UTC(y, m - 1 - i, 1));
+    months.push(`${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`);
+  }
+  const rowsByMonth = new Map<string, any[]>();
+  for (const month of months) {
+    const rows = await monthRows(accountId, orgId, month);
+    rowsByMonth.set(month, (ids ? rows.filter((r: any) => ids.has(r.employeeId)) : rows).filter((r: any) => r.totalDays - (r.notYet || 0) > 0));
+  }
+  const rates = (rows: any[]) => {
+    const sum = (k: string) => rows.reduce((t, r) => t + (Number(r[k]) || 0), 0);
+    const present = sum('present');
+    const half = sum('halfDays');
+    const absent = sum('absent');
+    const worked = present + half + absent;
+    /* A month with nobody present at all is a month CLOR was not yet used (or
+       the readers were down), not a month everyone was absent: no rate. */
+    const measured = worked > 0 && present + half > 0;
+    return {
+      people: rows.length,
+      attendanceRate: measured ? Math.round(((present + half / 2) / worked) * 1000) / 10 : null,
+      absenteeismRate: measured ? Math.round((absent / worked) * 1000) / 10 : null,
+      absentDays: absent,
+      leaveDays: sum('leave'),
+      lateDays: sum('lateCount'),
+      overtimeHours: Math.round((sum('approvedOvertimeMinutes') / 60) * 10) / 10,
+      lossOfPayDays: sum('lossOfPayDays'),
+    };
+  };
+  const trend = months.map((month) => ({ month, ...rates(rowsByMonth.get(month)!) }));
+  const now = rowsByMonth.get(current)!;
+  const depts = new Map<string, any[]>();
+  for (const r of now) {
+    const k = r.department || 'No department';
+    depts.set(k, [...(depts.get(k) || []), r]);
+  }
+  const byDepartment = [...depts.entries()].map(([department, rows]) => ({ department, ...rates(rows) })).sort((a, b) => (b.absenteeismRate ?? 0) - (a.absenteeismRate ?? 0));
+  const person = (r: any) => ({ employeeId: r.employeeId, name: r.name, code: r.code, department: r.department });
+  const mostLate = now.filter((r) => r.lateCount > 0).sort((a, b) => b.lateCount - a.lateCount).slice(0, 5).map((r) => ({ ...person(r), days: r.lateCount }));
+  const mostAbsent = now.filter((r) => r.absent > 0).sort((a, b) => b.absent - a.absent).slice(0, 5).map((r) => ({ ...person(r), days: r.absent }));
+  res.json({
+    months,
+    current,
+    trend,
+    byDepartment,
+    mostLate,
+    mostAbsent,
+    repeatLate: now.filter((r) => r.lateCount >= 3).length,
+    definitions: {
+      attendanceRate: 'Days present (a half day counts half) out of days present, half and absent. Leave, holidays and weekly offs are not counted.',
+      absenteeismRate: 'Absent days out of days present, half and absent.',
+    },
+  });
+});
+
 attendanceReportsRouter.get('/orgs/:orgId/attendance/reports/:id', can(), async (req, res) => {
   if (!(await attendanceRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   try {
-    res.json({ id: req.params.id, ...(await build(String(req.params.id), accountId, orgId, req.query)) });
+    const id = String(req.params.id);
+    const report = await build(id, accountId, orgId, req.query);
+    res.json({ id, ...report, figures: figuresFor(id, report) });
   } catch (e: any) {
     if (e?.status) return res.status(e.status).json({ error: e.message });
     throw e;

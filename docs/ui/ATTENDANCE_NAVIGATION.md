@@ -46,6 +46,7 @@ days and leave; removing it would remove that access.
 - Period Closing: Employee Confirmations, Month Close
 
 **Reports**
+- Overview: Attendance Insights
 - Attendance: Daily Attendance Register, Monthly Attendance Summary, Attendance Calendar, Late Arrivals & Early Exits, Absence Report
 - Workforce: Department Attendance, Employee Attendance History
 - Time & Leave: Overtime Report, Leave Report
@@ -102,6 +103,7 @@ days and leave; removing it would remove that access.
 | Month summary | `summary` | Monthly Attendance Summary | Attendance | Reports | Moved to Reports |
 | Calendar | `calendar` | Attendance Calendar | Attendance | Reports | Moved to Reports |
 | Reports & registers | `reports` | Report Catalogue | All Reports | Reports | Moved to Reports |
+| (new) | `reportInsights` | Attendance Insights | Overview | Reports | New: monthly trends, departments, most late/absent |
 | (catalogue report) | `reportLateEarly` | Late Arrivals & Early Exits | Attendance | Reports | New link to existing report |
 | (catalogue report) | `reportAbsent` | Absence Report | Attendance | Reports | New link to existing report |
 | (catalogue report) | `reportDepartment` | Department Attendance | Workforce | Reports | New link to existing report |
@@ -142,14 +144,14 @@ A named report is the Report Catalogue opened on that report
 | Data Retention | Data Protection (retention table) |
 | Scheduled Exports | Each report's "Scheduled" section in the Report Catalogue |
 | Connect a Reader | "Add reader" on All Readers |
+| Location Attendance | The Location filter on every report and on Attendance Insights |
+| Attendance Exceptions (report), Synchronization Failures (report) | Exceptions screen; Sync Monitoring and Reader Health |
 
 ## Planned — not implemented
 
 Pending Actions, Activity, Device Commands (screen), Approvals (combined
-inbox), Leave Calendar, Timesheets, Location Attendance, Attendance
-Exceptions (report), Shift Report, Punch Reconciliation, Synchronization
-Failures (report), Saved Reports, Roles & Permissions (in Attendance), Audit
-Logs. None has a menu entry or a placeholder page.
+inbox), Leave Calendar, Timesheets, Shift Report, Punch Reconciliation,
+Saved Reports, Roles & Permissions (in Attendance), Audit Logs. None has a menu entry or a placeholder page.
 
 ## Page titles
 

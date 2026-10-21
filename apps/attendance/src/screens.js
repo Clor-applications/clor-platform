@@ -53,4 +53,5 @@ export { default as IdMapping } from './screens/IdMapping';
 export { default as WeeklyOffPolicy } from './screens/WeeklyOffPolicy';
 export { default as OvertimePolicy } from './screens/OvertimePolicy';
 export { default as AttendanceSetup } from './screens/AttendanceSetup';
+export { default as ReportInsights } from './screens/ReportInsights';
 export { default as CloseCompany } from '@ui/company/CloseCompany';

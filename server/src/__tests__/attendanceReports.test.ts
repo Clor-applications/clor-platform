@@ -103,6 +103,30 @@ describe('reports', () => {
     expect(lv.rows).toEqual([expect.objectContaining({ name: 'Asha', type: 'Casual', days: 2, paid: 'Yes' })]);
   });
 
+  it('puts the figures that matter above the table, from the same rows', async () => {
+    const le = await report('late-early', 'from=2026-09-01&to=2026-09-02');
+    const fig = Object.fromEntries(le.figures.map((f: any) => [f.label, f.value]));
+    expect(fig).toMatchObject({ 'Late days': 1, 'People late 3+ times': 0, 'Average minutes late': 30, 'Early exits': 1 });
+    const ab = await report('absent', 'from=2026-09-02&to=2026-09-02');
+    expect(Object.fromEntries(ab.figures.map((f: any) => [f.label, f.value]))).toMatchObject({ 'Absent days': 2, 'People absent': 2, 'Not marked at all': 1 });
+    const daily = await report('daily', 'date=2026-09-01');
+    expect(daily.figures.find((f: any) => f.label === 'Present').value).toBe(2);
+    expect(daily.figures.find((f: any) => f.label === 'Attendance rate').value).toBe('75%'); // Ravi's 7 hours is a half day
+  });
+
+  it('insights: recent months, this month by department and person, months with no attendance left blank', async () => {
+    const r = (await api(c).get('/reports/insights?months=3').expect(200)).body;
+    expect(r.months).toHaveLength(3);
+    expect(r.trend).toHaveLength(3);
+    expect(r.trend[2].month).toBe(r.current);
+    for (const t of r.trend) expect(t).toEqual(expect.objectContaining({ month: expect.any(String), people: expect.any(Number), lateDays: expect.any(Number), overtimeHours: expect.any(Number) }));
+    /* A month nobody was present in has no rate rather than 100% absence. */
+    for (const t of r.trend.filter((x: any) => x.attendanceRate == null)) expect(t.absenteeismRate).toBeNull();
+    expect(Array.isArray(r.byDepartment)).toBe(true);
+    expect(Array.isArray(r.mostLate)).toBe(true);
+    expect(r.definitions.attendanceRate).toMatch(/half day/);
+  });
+
   it('calendar: a day carries its counts, a holiday its name, a day to come no absences', async () => {
     const cal = (await api(c).get('/calendar?month=2026-09').expect(200)).body;
     expect(cal.month).toBe('2026-09');
@@ -170,7 +194,7 @@ describe('reports', () => {
     expect(renderReportHtml({ title: 'T', period: 'P', columns: [{ key: 'a', label: 'A<' }], rows: [{ a: '1&' }] }, 'Co')).toContain('A&lt;');
 
     const made = await api(c).post('/reports/schedules', { reportId: 'monthly', cadence: 'MONTHLY', dayOfMonth: 1, hour: 7, recipients: 'boss@example.com, hr@example.com', params: {} }).expect(201);
-    expect(made.body.schedule).toMatchObject({ reportName: 'Monthly summary', dayOfMonth: 1, dayOfWeek: null, enabled: true });
+    expect(made.body.schedule).toMatchObject({ reportName: 'Monthly Attendance Summary', dayOfMonth: 1, dayOfWeek: null, enabled: true });
     await api(c).post('/reports/schedules', { reportId: 'nope', cadence: 'DAILY', recipients: 'a@b.c' }).expect(400);
     await api(c).post('/reports/schedules', { reportId: 'daily', cadence: 'DAILY', recipients: 'not-an-address' }).expect(400);
     const sent = await api(c).post(`/reports/schedules/${made.body.schedule.id}/send`).expect(200);

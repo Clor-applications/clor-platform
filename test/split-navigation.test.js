@@ -44,6 +44,7 @@ describe('Attendance navigation structure', () => {
       ['Period Closing', ['Employee Confirmations', 'Month Close']],
     ]);
     expect(s.Reports).toEqual([
+      ['Overview', ['Attendance Insights']],
       ['Attendance', ['Daily Attendance Register', 'Monthly Attendance Summary', 'Attendance Calendar', 'Late Arrivals & Early Exits', 'Absence Report']],
       ['Workforce', ['Department Attendance', 'Employee Attendance History']],
       ['Time & Leave', ['Overtime Report', 'Leave Report']],
