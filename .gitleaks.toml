@@ -1,0 +1,22 @@
+# gitleaks settings for the Security workflow (SX-03).
+#
+# The default rules, minus places that hold made-up values on purpose: test
+# fixtures (CI secrets like "ci-test-secret", sample tokens), example env
+# files and documentation. Anything real belongs in ~/Documents/Clor-Business
+# or Secret Manager, never in this repository.
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Fixtures, examples and docs with placeholder values"
+paths = [
+  '''(^|/)__tests__/''',
+  '''(^|/)test/''',
+  '''\.test\.(js|jsx|ts|tsx|mjs)$''',
+  '''(^|/)\.env\.example$''',
+  '''(^|/)docs/''',
+  '''(^|/)node_modules/''',
+  '''(^|/)dist(-mobile)?/''',
+  '''package-lock\.json$''',
+]
