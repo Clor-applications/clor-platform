@@ -1665,3 +1665,42 @@ model EmploymentEvent {
 
   @@index([orgId, employeeId, effectiveDate])
 }
+
+/// Joining / leaving checklist a company uses (services/people/checklists.ts).
+/// `items`: [{ title, owner, dueDays }], dueDays counted from the joining date
+/// or the last working day (negative = before it). No row = CLOR's defaults.
+model ChecklistTemplate {
+  id              String   @id @default(cuid())
+  accountId       String
+  orgId           String
+  /// JOINING or LEAVING
+  kind            String
+  items           Json
+  updatedByUserId String?
+  updatedAt       DateTime @updatedAt
+  createdAt       DateTime @default(now())
+
+  @@unique([orgId, kind])
+}
+
+/// One thing to do for one person joining or leaving.
+model ChecklistTask {
+  id           String    @id @default(cuid())
+  accountId    String
+  orgId        String
+  employeeId   String
+  /// JOINING or LEAVING
+  kind         String
+  title        String
+  /// HR, MANAGER, PAYROLL, IT, EMPLOYEE
+  owner        String
+  dueDate      String?
+  sortOrder    Int       @default(0)
+  doneAt       DateTime?
+  doneByUserId String?
+  note         String?
+  createdAt    DateTime  @default(now())
+
+  @@index([orgId, employeeId])
+  @@index([orgId, doneAt, dueDate])
+}

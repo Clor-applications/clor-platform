@@ -26,7 +26,7 @@ describe('Attendance navigation structure', () => {
     const s = Object.fromEntries(shape(attendanceApp).map((m) => [m.module, m.groups]));
     expect(s.People).toEqual([
       ['Directory', ['Employees', 'Contractors']],
-      ['Employment Changes', ['Resignations', 'Transfers']],
+      ['Employment Changes', ['Onboarding & Exit', 'Resignations', 'Transfers']],
       ['Organization', ['Departments', 'Designations', 'Locations & Sites']],
       ['Access', ['Employee Portal Access']],
     ]);

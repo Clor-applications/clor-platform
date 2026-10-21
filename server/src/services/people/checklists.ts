@@ -1,0 +1,145 @@
+import { peoplePrisma } from '../../utils/peoplePrisma.js';
+import { platformPrisma } from '../../utils/platformPrisma.js';
+
+/**
+ * Joining and leaving checklists (HR research, People first release:
+ * "onboarding and exit checklists"). A company's template, or CLOR's
+ * defaults, becomes one task per item when someone joins or leaves, each with
+ * an owner and a due date counted from the joining date or the last working
+ * day. What CLOR itself does (taking someone off the readers) is ticked by
+ * CLOR, so HR sees it happened.
+ */
+
+export type Kind = 'JOINING' | 'LEAVING';
+export type Owner = 'HR' | 'MANAGER' | 'PAYROLL' | 'IT' | 'EMPLOYEE';
+export type Item = { title: string; owner: Owner; dueDays: number; note?: string };
+type Who = { accountId: string; orgId: string; userId: string | null };
+
+export const OWNERS: Owner[] = ['HR', 'MANAGER', 'PAYROLL', 'IT', 'EMPLOYEE'];
+export const KINDS: Kind[] = ['JOINING', 'LEAVING'];
+
+/** Marks the item CLOR completes itself when someone leaves. */
+export const READER_ACCESS_ITEM = 'Readers and app access removed';
+
+export const DEFAULT_ITEMS: Record<Kind, Item[]> = {
+  JOINING: [
+    { title: 'Collect ID and address proof', owner: 'HR', dueDays: 0 },
+    { title: 'Collect PAN, UAN (or apply for one) and bank details for payroll', owner: 'HR', dueDays: 0 },
+    { title: 'Set the shift and work site', owner: 'HR', dueDays: 0 },
+    { title: 'Give the employee app activation code', owner: 'HR', dueDays: 1 },
+    { title: 'Enrol fingerprint or face at a reader', owner: 'HR', dueDays: 1 },
+    { title: 'Assign the salary structure', owner: 'PAYROLL', dueDays: 3 },
+    { title: 'Signed appointment letter on file', owner: 'HR', dueDays: 7 },
+    { title: 'PF nomination (Form 2) and ESIC declaration filed', owner: 'PAYROLL', dueDays: 30 },
+    { title: 'Probation review', owner: 'MANAGER', dueDays: 90 },
+  ],
+  LEAVING: [
+    { title: 'Accept the resignation and confirm the last day in writing', owner: 'HR', dueDays: -30 },
+    { title: 'Handover plan agreed', owner: 'MANAGER', dueDays: -7 },
+    { title: 'Exit interview', owner: 'HR', dueDays: -2 },
+    { title: 'Recover laptop, ID card, keys and other company property', owner: 'IT', dueDays: 0 },
+    { title: READER_ACCESS_ITEM, owner: 'HR', dueDays: 0 },
+    { title: 'Relieving and experience letters issued', owner: 'HR', dueDays: 0 },
+    { title: 'Full and final settlement paid', owner: 'PAYROLL', dueDays: 2, note: 'Code on Wages: wages are due within two working days of someone leaving.' },
+  ],
+};
+
+const plusDays = (iso: string, n: number) => {
+  const d = new Date(`${iso}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+};
+const todayIst = () => new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
+const ISO = /^\d{4}-\d{2}-\d{2}$/;
+
+/** The items a company uses for a kind: its own template, else the defaults. */
+export async function itemsFor(orgId: string, kind: Kind): Promise<{ items: Item[]; custom: boolean }> {
+  const t = await peoplePrisma.checklistTemplate.findUnique({ where: { orgId_kind: { orgId, kind } } });
+  return t ? { items: t.items as unknown as Item[], custom: true } : { items: DEFAULT_ITEMS[kind], custom: false };
+}
+
+/**
+ * Starts a checklist for someone. Does nothing when that kind is already
+ * under way (so a re-save never doubles it); a finished one may start again
+ * (a rehire). `done` titles are ticked by CLOR at once.
+ */
+export async function startChecklist(who: Who, employee: { id: string }, kind: Kind, baseDate: string | null | undefined, opts: { done?: string[] } = {}) {
+  try {
+    const open = await peoplePrisma.checklistTask.count({ where: { orgId: who.orgId, employeeId: employee.id, kind, doneAt: null } });
+    if (open) return 0;
+    const base = baseDate && ISO.test(String(baseDate).slice(0, 10)) ? String(baseDate).slice(0, 10) : todayIst();
+    const { items } = await itemsFor(who.orgId, kind);
+    const done = new Set(opts.done || []);
+    const now = new Date();
+    await peoplePrisma.checklistTask.createMany({
+      data: items.map((it, i) => ({
+        accountId: who.accountId,
+        orgId: who.orgId,
+        employeeId: employee.id,
+        kind,
+        title: it.title.slice(0, 200),
+        owner: OWNERS.includes(it.owner) ? it.owner : 'HR',
+        dueDate: plusDays(base, Math.round(Number(it.dueDays) || 0)),
+        sortOrder: i,
+        note: it.note ? it.note.slice(0, 500) : null,
+        ...(done.has(it.title) ? { doneAt: now, note: 'Done by CLOR.' } : {}),
+      })),
+    });
+    return items.length;
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.error(`[checklists] ${kind} not started:`, e instanceof Error ? e.message : e);
+    return 0;
+  }
+}
+
+/** Someone's checklists, with who ticked each item. */
+export async function checklistOf(orgId: string, employeeId: string) {
+  const tasks = await peoplePrisma.checklistTask.findMany({ where: { orgId, employeeId }, orderBy: [{ kind: 'asc' }, { createdAt: 'desc' }, { sortOrder: 'asc' }] });
+  const ids = [...new Set(tasks.map((t) => t.doneByUserId).filter(Boolean))] as string[];
+  const users = ids.length ? await platformPrisma.user.findMany({ where: { id: { in: ids } }, select: { id: true, fullName: true, email: true } }) : [];
+  const nameOf = new Map(users.map((u) => [u.id, u.fullName || u.email]));
+  const today = todayIst();
+  const shape = (t: (typeof tasks)[number]) => ({
+    id: t.id,
+    title: t.title,
+    owner: t.owner,
+    dueDate: t.dueDate,
+    overdue: !t.doneAt && !!t.dueDate && t.dueDate < today,
+    done: !!t.doneAt,
+    doneAt: t.doneAt,
+    doneBy: t.doneByUserId ? nameOf.get(t.doneByUserId) || '' : t.doneAt ? 'CLOR' : '',
+    note: t.note,
+  });
+  const of = (kind: Kind) => {
+    const list = tasks.filter((t) => t.kind === kind).map(shape);
+    return { tasks: list, done: list.filter((t) => t.done).length, total: list.length };
+  };
+  return { joining: of('JOINING'), leaving: of('LEAVING') };
+}
+
+/** Open tasks across the company, overdue first: the HR to-do list. */
+export async function openTasks(orgId: string, limit = 200) {
+  const tasks = await peoplePrisma.checklistTask.findMany({ where: { orgId, doneAt: null }, orderBy: [{ dueDate: 'asc' }, { sortOrder: 'asc' }], take: limit });
+  const people = await peoplePrisma.employee.findMany({ where: { orgId, id: { in: [...new Set(tasks.map((t) => t.employeeId))] } }, select: { id: true, name: true, code: true } });
+  const byId = new Map(people.map((p) => [p.id, p]));
+  const today = todayIst();
+  return tasks
+    .filter((t) => byId.has(t.employeeId))
+    .map((t) => ({ id: t.id, kind: t.kind, title: t.title, owner: t.owner, dueDate: t.dueDate, overdue: !!t.dueDate && t.dueDate < today, employee: byId.get(t.employeeId) }));
+}
+
+/** Validates a template sent by a company. */
+export function cleanItems(raw: unknown): Item[] | string {
+  if (!Array.isArray(raw)) return 'Items must be a list.';
+  if (raw.length > 40) return 'Up to 40 items.';
+  const out: Item[] = [];
+  for (const r of raw as any[]) {
+    const title = String(r?.title || '').trim();
+    if (!title) continue;
+    const owner = OWNERS.includes(r?.owner) ? r.owner : 'HR';
+    const dueDays = Math.max(-365, Math.min(365, Math.round(Number(r?.dueDays) || 0)));
+    out.push({ title: title.slice(0, 200), owner, dueDays, ...(r?.note ? { note: String(r.note).slice(0, 500) } : {}) });
+  }
+  return out.length ? out : 'Add at least one item.';
+}

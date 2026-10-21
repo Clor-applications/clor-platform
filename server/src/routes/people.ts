@@ -17,6 +17,7 @@ import { deleteToBin } from '../services/recycleBin.js';
 import { recordChanges, recordJoined, timelineOf } from '../services/people/employmentHistory.js';
 import { dataHealth } from '../services/people/dataHealth.js';
 import { PAYROLL_MODULE, PAYROLL_RESOURCE } from '../services/payroll/guards.js';
+import { KINDS, READER_ACCESS_ITEM, checklistOf, cleanItems, itemsFor, openTasks, startChecklist, type Kind as ChecklistKind } from '../services/people/checklists.js';
 
 /**
  * People: the staff directory.
@@ -342,6 +343,7 @@ peopleRouter.post('/orgs/:orgId/people/employees', can(PermissionAction.CREATE, 
     });
     if (b.tagIds?.length) await setTags(accountId, orgId, row.id, b.tagIds);
     await recordJoined({ accountId, orgId, userId: req.auth!.userId }, row, 'FORM');
+    await startChecklist({ accountId, orgId, userId: req.auth!.userId }, row, 'JOINING', row.dateOfJoining);
     /* On every reader straight away, as ClorTime does: enrolment can start the same minute. */
     await pushEmployeeToReaders(orgId, row, req.auth!.userId);
     res.status(201).json({ employee: (await withMeta(orgId, [row]))[0] });
@@ -383,6 +385,9 @@ peopleRouter.put('/orgs/:orgId/people/employees/:id', can(PermissionAction.EDIT,
       effectiveDate: typeof req.body?.effectiveFrom === 'string' ? req.body.effectiveFrom : null,
       note: typeof req.body?.changeNote === 'string' ? req.body.changeNote : null,
     });
+    /* Leaving or coming back starts that checklist; CLOR takes them off the readers itself, so it ticks that item. */
+    if (row.status === 'LEFT' && existing.status !== 'LEFT') await startChecklist({ accountId, orgId, userId: req.auth!.userId }, row, 'LEAVING', row.dateOfLeaving, { done: [READER_ACCESS_ITEM] });
+    else if (row.status !== 'LEFT' && existing.status === 'LEFT') await startChecklist({ accountId, orgId, userId: req.auth!.userId }, row, 'JOINING', row.dateOfJoining);
     /* Leaving ends door access: off every biometric reader, fingerprints and faces deleted. */
     if (row.status === 'LEFT' && existing.status !== 'LEFT') await revokeFromReaders(orgId, existing, req.auth!.userId);
     else if (row.status !== 'LEFT' && readerFieldsChanged(existing, row)) await pushEmployeeToReaders(orgId, row, req.auth!.userId, existing);
@@ -404,6 +409,89 @@ peopleRouter.get('/orgs/:orgId/people/data-health', can(PermissionAction.VIEW, E
   const { accountId, orgId } = req.tenant!;
   const payroll = !(await authorize(req, PAYROLL_MODULE, PermissionAction.VIEW as any, PAYROLL_RESOURCE.profile));
   res.json(await dataHealth(accountId, orgId, { payroll }));
+});
+
+// ---------------------------------------------------------------------------
+// Joining and leaving checklists (services/people/checklists.ts)
+// ---------------------------------------------------------------------------
+
+const kindParam = (v: unknown): ChecklistKind | null => (KINDS.includes(String(v).toUpperCase() as ChecklistKind) ? (String(v).toUpperCase() as ChecklistKind) : null);
+
+peopleRouter.get('/orgs/:orgId/people/employees/:id/checklist', can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const employee = await peoplePrisma.employee.findFirst({ where: { id: String(req.params.id), accountId, orgId }, select: { id: true } });
+  if (!employee) return res.status(404).json({ error: 'No such employee.' });
+  res.json(await checklistOf(orgId, employee.id));
+});
+
+/** Start a checklist by hand (someone added before checklists existed). */
+peopleRouter.post('/orgs/:orgId/people/employees/:id/checklist/:kind', can(PermissionAction.EDIT, EMPLOYEES), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const kind = kindParam(req.params.kind);
+  if (!kind) return res.status(404).json({ error: 'Checklists are JOINING or LEAVING.' });
+  const employee = await peoplePrisma.employee.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
+  if (!employee) return res.status(404).json({ error: 'No such employee.' });
+  const started = await startChecklist({ accountId, orgId, userId: req.auth!.userId }, employee, kind, kind === 'JOINING' ? employee.dateOfJoining : employee.dateOfLeaving);
+  if (!started) return res.status(409).json({ error: 'That checklist is already under way.' });
+  res.status(201).json(await checklistOf(orgId, employee.id));
+});
+
+peopleRouter.patch('/orgs/:orgId/people/checklist-tasks/:id', can(PermissionAction.EDIT, EMPLOYEES), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const parsed = z.object({ done: z.boolean().optional(), note: z.string().trim().max(500).optional().nullable() }).safeParse(req.body || {});
+  if (!parsed.success) return res.status(400).json({ error: 'Check the details.' });
+  const task = await peoplePrisma.checklistTask.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
+  if (!task) return res.status(404).json({ error: 'No such task.' });
+  const { done, note } = parsed.data;
+  await peoplePrisma.checklistTask.update({
+    where: { id: task.id },
+    data: {
+      ...(done === true ? { doneAt: task.doneAt || new Date(), doneByUserId: task.doneAt ? task.doneByUserId : req.auth!.userId } : done === false ? { doneAt: null, doneByUserId: null } : {}),
+      ...(note !== undefined ? { note: note || null } : {}),
+    },
+  });
+  res.json(await checklistOf(orgId, task.employeeId));
+});
+
+/** Open checklist items across the company, overdue first. */
+peopleRouter.get('/orgs/:orgId/people/checklist-tasks', can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  res.json({ tasks: await openTasks(req.tenant!.orgId) });
+});
+
+peopleRouter.get('/orgs/:orgId/people/checklist-templates', can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  const { orgId } = req.tenant!;
+  const [joining, leaving] = await Promise.all([itemsFor(orgId, 'JOINING'), itemsFor(orgId, 'LEAVING')]);
+  res.json({ joining, leaving });
+});
+
+/** A company's own checklist; DELETE goes back to CLOR's defaults. */
+peopleRouter.put('/orgs/:orgId/people/checklist-templates/:kind', can(PermissionAction.EDIT, STRUCTURE), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const kind = kindParam(req.params.kind);
+  if (!kind) return res.status(404).json({ error: 'Checklists are JOINING or LEAVING.' });
+  const items = cleanItems(req.body?.items);
+  if (typeof items === 'string') return res.status(400).json({ error: items });
+  await peoplePrisma.checklistTemplate.upsert({
+    where: { orgId_kind: { orgId, kind } },
+    create: { accountId, orgId, kind, items: items as any, updatedByUserId: req.auth!.userId },
+    update: { items: items as any, updatedByUserId: req.auth!.userId },
+  });
+  res.json(await itemsFor(orgId, kind));
+});
+
+peopleRouter.delete('/orgs/:orgId/people/checklist-templates/:kind', can(PermissionAction.EDIT, STRUCTURE), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  const { orgId } = req.tenant!;
+  const kind = kindParam(req.params.kind);
+  if (!kind) return res.status(404).json({ error: 'Checklists are JOINING or LEAVING.' });
+  await peoplePrisma.checklistTemplate.deleteMany({ where: { orgId, kind } });
+  res.json(await itemsFor(orgId, kind));
 });
 
 /** Employment history: joined, moved, changed, left, rehired — newest first, with what each meant for payroll. */

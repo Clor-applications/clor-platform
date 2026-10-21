@@ -8,4 +8,5 @@ export { default as Employees } from '@ui/personnel/Employees';
 export { default as OrgChart } from './screens/OrgChart';
 export { default as Tags } from './screens/Tags';
 export { DataHealth } from './screens/DataHealth';
+export { default as Checklists } from '@ui/personnel/Checklists';
 export { Departments, EmployeeTypes, JobPositions, JobRoles, WorkTypes } from '@ui/personnel/StructureList';

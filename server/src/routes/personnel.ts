@@ -11,6 +11,7 @@ import { istDate } from '../services/attendance/compute.js';
 import { pushEmployeeToReaders, revokeFromReaders } from './iclock.js';
 import { deleteToBin } from '../services/recycleBin.js';
 import { recordChanges } from '../services/people/employmentHistory.js';
+import { READER_ACCESS_ITEM, startChecklist } from '../services/people/checklists.js';
 
 /**
  * Personnel operations from ClorTime (routes/personnel_expansion.js,
@@ -197,6 +198,7 @@ personnelRouter.post(`${base}/employees/:id/resign`, can(PermissionAction.EDIT, 
   });
   await recordChanges({ accountId, orgId, userId: req.auth!.userId }, existing, employee, { source: 'RESIGNATION', effectiveDate: parsed.data.lastDay, note: blank(parsed.data.reason) || parsed.data.leavingType.replace(/_/g, ' ').toLowerCase() });
   const removed = await revokeFromReaders(orgId, existing, req.auth!.userId);
+  await startChecklist({ accountId, orgId, userId: req.auth!.userId }, employee, 'LEAVING', parsed.data.lastDay, { done: [READER_ACCESS_ITEM] });
   res.json({ employee, readers: removed.readers });
 });
 
@@ -220,6 +222,7 @@ personnelRouter.post(`${base}/employees/:id/rehire`, can(PermissionAction.EDIT, 
     },
   });
   await recordChanges({ accountId, orgId, userId: req.auth!.userId }, existing, employee, { source: 'REHIRE', effectiveDate: parsed.data.rejoinDate || null });
+  await startChecklist({ accountId, orgId, userId: req.auth!.userId }, employee, 'JOINING', employee.dateOfJoining);
   /* Their fingerprints and faces were deleted when they left: they enrol again at a reader. */
   const pushed = await pushEmployeeToReaders(orgId, employee, req.auth!.userId);
   res.json({ employee, readers: pushed.readers });

@@ -174,9 +174,13 @@ export async function restoreFromBin(orgId: string, id: string) {
 
 /** Once a day: items past their days in the bin are deleted for good. */
 export async function purgeRecycleBin(now = new Date()) {
-  /* An employee gone for good takes their employment history along (it is kept while they can still be restored). */
+  /* An employee gone for good takes their employment history and checklists along (it is kept while they can still be restored). */
   const people = await peoplePrisma.deletedItem.findMany({ where: { purgeAfter: { lte: now }, kind: 'employee' }, select: { entityId: true } });
-  if (people.length) await peoplePrisma.employmentEvent.deleteMany({ where: { employeeId: { in: people.map((p) => p.entityId) } } });
+  if (people.length) {
+    const ids = people.map((p) => p.entityId);
+    await peoplePrisma.employmentEvent.deleteMany({ where: { employeeId: { in: ids } } });
+    await peoplePrisma.checklistTask.deleteMany({ where: { employeeId: { in: ids } } });
+  }
   return (await peoplePrisma.deletedItem.deleteMany({ where: { purgeAfter: { lte: now } } })).count;
 }
 

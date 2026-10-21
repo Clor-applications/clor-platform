@@ -10,6 +10,7 @@ import { downloadCsvTemplate, parseCsv, readFileText } from '@ui/utils/csv';
 import { formatDateIn } from '@ui/utils/dates';
 import { hasApp } from '@platform/context';
 import {
+  CHECKLIST_OWNER,
   LEAVING_TYPES,
   addNote,
   createEmployee,
@@ -26,7 +27,10 @@ import {
   listStructure,
   listTags,
   listContractors,
+  getChecklist,
   getEmploymentHistory,
+  startChecklist,
+  updateChecklistTask,
   rehireEmployee,
   resignEmployee,
   updateEmployee,
@@ -520,6 +524,7 @@ function EmployeeFile({ id, onClose, onEdit, onDeleted }) {
               ['about', 'About'],
               ['work', 'Work'],
               ['history', 'History'],
+              ['checklist', 'Checklist'],
               ['notes', 'Notes'],
               ['documents', 'Documents'],
             ].map(([k, label]) => (
@@ -628,6 +633,7 @@ function EmployeeFile({ id, onClose, onEdit, onDeleted }) {
           ) : null}
           {tab === 'documents' ? <EmployeeDocuments employeeId={id} /> : null}
           {tab === 'history' ? <EmploymentHistory employeeId={id} /> : null}
+          {tab === 'checklist' ? <EmployeeChecklist person={person} /> : null}
         </div>
       )}
     </Drawer>
@@ -678,6 +684,80 @@ function EmploymentHistory({ employeeId }) {
         </li>
       ))}
     </ol>
+  );
+}
+
+/**
+ * Joining and leaving checklists: what is done and what is due, ticked here.
+ * Started when someone joins or leaves; by hand for anyone added before.
+ */
+function EmployeeChecklist({ person }) {
+  const [data, setData] = useState(null);
+  const [busy, setBusy] = useState('');
+  useEffect(() => {
+    let live = true;
+    getChecklist(person.id).then((d) => live && setData(d)).catch(() => live && setData({ joining: { tasks: [] }, leaving: { tasks: [] } }));
+    return () => {
+      live = false;
+    };
+  }, [person.id]);
+  const tick = async (t) => {
+    setBusy(t.id);
+    try {
+      setData(await updateChecklistTask(t.id, { done: !t.done }));
+    } catch (e) {
+      notify.error(String(e?.message || 'Not saved.'));
+    } finally {
+      setBusy('');
+    }
+  };
+  const start = async (kind) => {
+    try {
+      setData(await startChecklist(person.id, kind));
+    } catch (e) {
+      notify.error(String(e?.message || 'Not started.'));
+    }
+  };
+  if (!data) return <SkeletonCard lines={4} />;
+  const section = (kind, title, list) => (
+    <section key={kind} className="space-y-2" aria-label={title}>
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="text-sm font-semibold">{title}</h3>
+        {list.total ? <span className="ui-caption tabular-nums">{list.done} of {list.total} done</span> : null}
+      </div>
+      {list.total ? (
+        <>
+          <div className="ui-meter" aria-hidden="true"><span style={{ width: `${Math.round((list.done / list.total) * 100)}%` }} /></div>
+          <ul className="divide-y">
+            {list.tasks.map((t) => (
+              <li key={t.id} className="flex items-start gap-3 py-2">
+                <input type="checkbox" className="mt-1" checked={t.done} disabled={busy === t.id} onChange={() => tick(t)} aria-label={t.title} />
+                <div className="min-w-0 flex-1">
+                  <p className={`text-sm ${t.done ? 'line-through ui-muted' : ''}`}>{t.title}</p>
+                  <p className="ui-caption">
+                    {CHECKLIST_OWNER[t.owner] || t.owner}
+                    {t.dueDate ? <span className={t.overdue ? 'text-[rgb(var(--neg))] font-medium' : ''}> · due {t.dueDate}{t.overdue ? ' (late)' : ''}</span> : null}
+                    {t.done && t.doneBy ? ` · done by ${t.doneBy}` : ''}
+                  </p>
+                  {t.note ? <p className="ui-caption">{t.note}</p> : null}
+                </div>
+              </li>
+            ))}
+          </ul>
+        </>
+      ) : (
+        <p className="ui-muted text-sm">
+          Not started.{' '}
+          <button type="button" className="ui-link" onClick={() => start(kind)}>Start the {kind === 'JOINING' ? 'joining' : 'leaving'} checklist</button>
+        </p>
+      )}
+    </section>
+  );
+  return (
+    <div className="space-y-5">
+      {section('JOINING', 'Joining', data.joining)}
+      {person.status === 'LEFT' || data.leaving.total ? section('LEAVING', 'Leaving', data.leaving) : null}
+    </div>
   );
 }
 
