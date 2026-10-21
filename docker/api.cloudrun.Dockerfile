@@ -13,7 +13,10 @@
 #    the upload is the connector built here, unsigned (connectors in the field
 #    then stay on the version they have).
 
-FROM node:22-alpine AS build
+# Pinned (22 Oct 2026): the floating node:22-alpine of 21 Oct (sha256:ce8d97f7…)
+# crashed the API with signal 11 seconds after start. Move the pin deliberately,
+# after a staged revision has started and served traffic.
+FROM node:22-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402 AS build
 WORKDIR /app
 RUN apk add --no-cache openssl python3 make g++
 COPY package.json package-lock.json ./
@@ -30,7 +33,7 @@ RUN rm -f dist-agent/package.json \
  && npm run prisma:generate && npm run build \
  && if [ -f dist-agent/clor-agent.cjs.sig ]; then echo "Using the signed connector from the upload"; else npm run agent:build; fi
 
-FROM node:22-alpine AS runtime
+FROM node:22-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402 AS runtime
 WORKDIR /app
 RUN apk add --no-cache openssl
 ENV NODE_ENV=production
