@@ -12,6 +12,7 @@ import {
   CalendarClockColor,
   CalendarColor,
   CalendarDataBarColor,
+  CheckboxPersonColor,
   ClipboardTaskColor,
   ClipboardTextEditColor,
   ClockAlarmColor,
@@ -21,6 +22,8 @@ import {
   DataPieColor,
   DocumentAddColor,
   DocumentEditColor,
+  DocumentFolderColor,
+  DocumentTextColor,
   GaugeColor,
   HistoryColor,
   LinkColor,
@@ -76,6 +79,9 @@ const ReaderSync = screen('ReaderSync');
 const UnmatchedPunches = screen('UnmatchedPunches');
 const Enrolments = screen('Enrolments');
 const Transactions = screen('Transactions');
+const Punches = screen('Punches');
+const AuditLogs = screen('AuditLogs');
+const RecycleBin = screen('RecycleBin');
 const DeviceLogs = screen('DeviceLogs');
 const AttendanceReports = screen('AttendanceReports');
 const Integrations = screen('Integrations');
@@ -164,6 +170,9 @@ const BadgeCheck = colorIcon(RibbonStarColor, 'RibbonStar');
 const Smartphone = colorIcon(PhoneColor, 'Phone');
 const Link2 = colorIcon(LinkColor, 'Link');
 const ClipboardList = colorIcon(SettingsColor, 'Settings');
+const PunchIcon = colorIcon(CheckboxPersonColor, 'CheckboxPerson');
+const AuditIcon = colorIcon(DocumentTextColor, 'DocumentText');
+const BinIcon = colorIcon(DocumentFolderColor, 'DocumentFolder');
 
 /**
  * Everything the shell knows about Attendance.
@@ -222,7 +231,7 @@ export const attendanceApp = {
       { label: 'Other Punch Sources', items: ['phonePunches'] },
     ] },
     { key: 'attendance', label: 'Attendance', groups: [
-      { label: 'Daily Operations', items: ['records', 'exceptions', 'requests'] },
+      { label: 'Daily Operations', items: ['records', 'punches', 'exceptions', 'requests'] },
       { label: 'Scheduling', items: ['scheduleCalendar', 'shifts', 'shiftAssignments', 'departmentSchedule', 'temporarySchedule', 'rotations'] },
       { label: 'Leave', items: ['leaveRequests', 'leaveBalances'] },
       { label: 'Time Management', items: ['overtime'] },
@@ -245,6 +254,8 @@ export const attendanceApp = {
       { label: 'Access & Security', items: ['sso'] },
       { label: 'Data Management', items: ['dataImport', 'dataExport', 'closeCompany'] },
       { label: 'Privacy', items: ['dataProtection', 'dataRequests'] },
+      /* Founder, 21 Oct 2026: what changed, and what was deleted by mistake. */
+      { label: 'Audit & Recovery', items: ['auditLogs', 'recycleBin'] },
     ] },
     { key: 'me', label: 'Me', groups: [
       { label: 'Self-Service', items: ['me', 'myLeave'] },
@@ -274,6 +285,8 @@ export const attendanceApp = {
     { key: 'readers', label: 'All Readers', icon: Cpu, permission: 'ATTENDANCE::Attendance Devices::VIEW' },
     { key: 'enrolments', label: 'Device Enrollment', icon: ScanFace, permission: 'ATTENDANCE::Attendance Devices::VIEW' },
     { key: 'transactions', label: 'Punch Transactions', icon: ArrowRightLeft, permission: 'ATTENDANCE::Attendance Devices::VIEW' },
+    /* The same punch log, where attendance staff look for it (founder, 21 Oct 2026). */
+    { key: 'punches', label: 'Punches', icon: PunchIcon, permission: 'ATTENDANCE::Attendance Devices::VIEW' },
     { key: 'unmatched', label: 'Unmatched Punches', icon: CircleHelp, permission: 'ATTENDANCE::Attendance Devices::VIEW' },
     { key: 'idMapping', label: 'Employee ID Mapping', icon: Link2, permission: 'ATTENDANCE::Attendance Devices::VIEW' },
     { key: 'phonePunches', label: 'Mobile Punches', icon: Smartphone, permission: 'ATTENDANCE::Attendance Devices::VIEW' },
@@ -324,6 +337,9 @@ export const attendanceApp = {
     { key: 'dataExport', label: 'Export Data', icon: Download, permission: 'ATTENDANCE::Attendance Records::VIEW' },
     /* LX-07: shared screen; the server lets only the company's owner ask or cancel. */
     { key: 'closeCompany', label: 'Close Company', icon: Lock, permission: 'SETTINGS::Company data::VIEW' },
+    { key: 'auditLogs', label: 'Audit Logs', icon: AuditIcon, permission: 'SETTINGS::Audit trail::VIEW' },
+    /* Each person sees only what they may delete (server: routes/recycleBin.ts). */
+    { key: 'recycleBin', label: 'Recycle Bin', icon: BinIcon, permission: 'ATTENDANCE::Attendance Records::VIEW' },
     { key: 'dataProtection', label: 'Data Protection', icon: ShieldCheck, permission: 'ATTENDANCE::Employee Portal::VIEW' },
     { key: 'dataRequests', label: 'Data Requests', icon: ShieldCheck, permission: 'PEOPLE::Employees::VIEW' },
 
@@ -344,6 +360,7 @@ export const attendanceApp = {
     readers: AttendanceDevices,
     readerSync: ReaderSync,
     transactions: Transactions,
+    punches: Punches,
     enrolments: Enrolments,
     unmatched: UnmatchedPunches,
     deviceLogs: DeviceLogs,
@@ -380,6 +397,8 @@ export const attendanceApp = {
     dataImport: DataImport,
     dataExport: DataExport,
     closeCompany: CloseCompany,
+    auditLogs: AuditLogs,
+    recycleBin: RecycleBin,
     dataProtection: DataProtection,
     sso: SsoSettings,
     dataRequests: DataRequests,

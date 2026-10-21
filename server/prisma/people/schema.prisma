@@ -1617,3 +1617,21 @@ model OvertimeRequest {
   @@index([orgId, status])
   @@index([orgId, employeeId, date])
 }
+
+/// The recycle bin (services/recycleBin.ts): a deleted row, kept whole with
+/// what went with it, until it is restored or `purgeAfter` passes.
+model DeletedItem {
+  id              String   @id @default(cuid())
+  accountId       String
+  orgId           String
+  kind            String
+  entityId        String
+  label           String
+  snapshot        Json
+  deletedByUserId String
+  deletedAt       DateTime @default(now())
+  purgeAfter      DateTime
+
+  @@index([orgId, deletedAt])
+  @@index([purgeAfter])
+}

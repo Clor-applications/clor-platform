@@ -310,3 +310,11 @@ export const getOvertimeRules = () => get('/overtime/rules');
 export const saveOvertimeRules = (rules) => send('/overtime/rules', 'PUT', rules);
 export const listOvertimeRequests = (status = 'PENDING') => get(`/overtime/requests${query({ status })}`);
 export const decideOvertimeRequest = (id, approve, note) => send(`/overtime/requests/${encodeURIComponent(id)}/${approve ? 'approve' : 'reject'}`, 'POST', { note });
+
+/* The recycle bin (server: routes/recycleBin.ts) and the audit log (routes/audit.ts), both company-wide. */
+const orgPath = (path) => `/orgs/${encodeURIComponent(orgId())}${path}`;
+export const listRecycleBin = () => apiFetch(orgPath('/recycle-bin'), opts);
+export const restoreFromBin = (id) => apiFetch(orgPath(`/recycle-bin/${encodeURIComponent(id)}/restore`), { method: 'POST', body: {}, ...opts });
+export const deleteFromBin = (id) => apiFetch(orgPath(`/recycle-bin/${encodeURIComponent(id)}`), { method: 'DELETE', ...opts });
+export const listAuditLog = (params) => apiFetch(orgPath(`/audit${query({ app: 'attendance', ...params })}`), opts);
+export const getAuditFacets = () => apiFetch(orgPath('/audit/facets?app=attendance'), opts);

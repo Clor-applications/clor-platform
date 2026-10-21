@@ -13,6 +13,7 @@ import { payrollPrisma } from '../utils/payrollPrisma.js';
 import { PEOPLE_MODULE, PEOPLE_RESOURCE, peopleRouteOk } from '../services/people/guards.js';
 import { pushEmployeeToReaders, readerFieldsChanged, revokeFromReaders } from './iclock.js';
 import { emit as emitWebhook, employeeEvent } from '../services/attendance/webhooks.js';
+import { deleteToBin } from '../services/recycleBin.js';
 
 /**
  * People: the staff directory.
@@ -404,13 +405,17 @@ peopleRouter.delete('/orgs/:orgId/people/employees/:id', can(PermissionAction.DE
     });
   }
   await revokeFromReaders(orgId, existing, req.auth!.userId);
-  await peoplePrisma.$transaction([
-    peoplePrisma.employee.updateMany({
-      where: { orgId, reportingManagerId: existing.id },
-      data: { reportingManagerId: existing.reportingManagerId },
-    }),
-    peoplePrisma.employee.delete({ where: { id: existing.id } }),
-  ]);
+  /* Their reports move up to their manager; the bin remembers who they were, to put them back on restore. */
+  const reports = await peoplePrisma.employee.findMany({ where: { orgId, reportingManagerId: existing.id }, select: { id: true } });
+  await deleteToBin(req, 'employee', existing, {
+    links: { reportingManagerId: reports.map((r) => r.id) },
+    alongside: [
+      peoplePrisma.employee.updateMany({
+        where: { orgId, reportingManagerId: existing.id },
+        data: { reportingManagerId: existing.reportingManagerId },
+      }),
+    ],
+  });
   res.json({ ok: true });
 });
 
@@ -635,7 +640,7 @@ peopleRouter.delete('/orgs/:orgId/people/structure/:kind/:id', can(PermissionAct
   if (inUse) {
     return res.status(409).json({ error: `${inUse} ${inUse === 1 ? 'person uses' : 'people use'} this. Move them first, or mark it inactive.` });
   }
-  await model.delete({ where: { id: existing.id } });
+  await deleteToBin(req, cfg.model, existing);
   res.json({ ok: true });
 });
 
@@ -703,7 +708,7 @@ peopleRouter.delete('/orgs/:orgId/people/notes/:noteId', can(PermissionAction.DE
   const { accountId, orgId } = req.tenant!;
   const note = await peoplePrisma.employeeNote.findFirst({ where: { id: String(req.params.noteId), accountId, orgId } });
   if (!note) return res.status(404).json({ error: 'No such note.' });
-  await peoplePrisma.employeeNote.delete({ where: { id: note.id } });
+  await deleteToBin(req, 'employeeNote', note);
   res.json({ ok: true });
 });
 
@@ -774,7 +779,7 @@ peopleRouter.delete('/orgs/:orgId/people/documents/:docId', can(PermissionAction
   const { accountId, orgId } = req.tenant!;
   const d = await peoplePrisma.employeeDocument.findFirst({ where: { id: String(req.params.docId), accountId, orgId }, select: { id: true } });
   if (!d) return res.status(404).json({ error: 'No such document.' });
-  await peoplePrisma.employeeDocument.delete({ where: { id: d.id } });
+  await deleteToBin(req, 'employeeDocument', d);
   res.json({ ok: true });
 });
 

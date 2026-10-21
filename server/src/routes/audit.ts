@@ -37,7 +37,17 @@ const querySchema = z.object({
   q: z.string().max(200).optional(),
   limit: z.coerce.number().int().min(1).max(200).optional(),
   cursor: z.string().max(60).optional(),
+  /**
+   * One app's entries: `attendance` is everything recorded under ATTENDANCE_
+   * and PEOPLE_ (auditMutations.ts) plus the employee and company actions
+   * written by name (anonymising, full export, closure). Unset: everything.
+   */
+  app: z.enum(['attendance']).optional(),
 });
+
+const APP_ENTITIES = {
+  attendance: [{ entity: { startsWith: 'ATTENDANCE_' } }, { entity: { startsWith: 'PEOPLE_' } }, { entity: { in: ['Employee', 'Company'] } }],
+};
 
 auditRouter.get('/orgs/:orgId/audit', AUDIT_VIEW, async (req, res) => {
   if (String(req.params.orgId) !== req.tenant!.orgId) {
@@ -67,7 +77,8 @@ auditRouter.get('/orgs/:orgId/audit', AUDIT_VIEW, async (req, res) => {
     ...(q.action ? { action: q.action } : {}),
     ...(q.userId ? { createdByUserId: q.userId } : {}),
     ...(Object.keys(createdAt).length ? { createdAt } : {}),
-    ...(q.q ? { message: { contains: q.q } } : {}),
+    ...(q.q ? { message: { contains: q.q, mode: 'insensitive' as const } } : {}),
+    ...(q.app ? { OR: APP_ENTITIES[q.app] } : {}),
   };
 
   /*
@@ -122,9 +133,11 @@ auditRouter.get('/orgs/:orgId/audit/facets', AUDIT_VIEW, async (req, res) => {
    * heaviest query on the screen. A group-by is answered by the database
    * rather than by fetching rows and reducing them here.
    */
+  const app = querySchema.shape.app.safeParse(req.query.app).data;
+  const where = { accountId, orgId, ...(app ? { OR: APP_ENTITIES[app] } : {}) };
   const [entities, actions] = await Promise.all([
-    platformPrisma.auditLog.groupBy({ by: ['entity'], where: { accountId, orgId } }),
-    platformPrisma.auditLog.groupBy({ by: ['action'], where: { accountId, orgId } }),
+    platformPrisma.auditLog.groupBy({ by: ['entity'], where }),
+    platformPrisma.auditLog.groupBy({ by: ['action'], where }),
   ]);
   res.json({
     entities: entities.map((e) => e.entity).sort(),

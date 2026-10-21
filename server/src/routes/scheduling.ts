@@ -12,6 +12,7 @@ import { isWeeklyOff } from '../services/attendance/compute.js';
 import { loadHolidays, loadSchedule, resolveShift } from '../services/attendance/schedule.js';
 import { ISO_DATE, closedMonths, daysBetween, daysOfMonth, sendError, today, withNames, writeDay } from './attendance.js';
 import { recomputeDeviceDay } from './iclock.js';
+import { deleteToBin } from '../services/recycleBin.js';
 
 /**
  * Scheduling — ClorTime's Shift and Schedule modules: temporary schedules,
@@ -72,7 +73,7 @@ schedulingRouter.delete(`${base}/temporary-schedules/:id`, can(PermissionAction.
   const { accountId, orgId } = req.tenant!;
   const r = await peoplePrisma.temporarySchedule.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
   if (!r) return res.status(404).json({ error: 'No such schedule.' });
-  await peoplePrisma.temporarySchedule.delete({ where: { id: r.id } });
+  await deleteToBin(req, 'temporarySchedule', r);
   res.json({ ok: true });
 });
 
@@ -119,7 +120,7 @@ schedulingRouter.delete(`${base}/department-schedules/:id`, can(PermissionAction
   const { accountId, orgId } = req.tenant!;
   const r = await peoplePrisma.departmentSchedule.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
   if (!r) return res.status(404).json({ error: 'No such schedule.' });
-  await peoplePrisma.departmentSchedule.delete({ where: { id: r.id } });
+  await deleteToBin(req, 'departmentSchedule', r);
   res.json({ ok: true });
 });
 
@@ -194,7 +195,7 @@ schedulingRouter.delete(`${base}/rotations/:id`, can(PermissionAction.DELETE), a
   if (await peoplePrisma.rotationAssignment.count({ where: { orgId, rotationId: existing.id } })) {
     return res.status(409).json({ error: 'People are on this rotation. Take them off it, or switch it off instead.' });
   }
-  await peoplePrisma.shiftRotation.delete({ where: { id: existing.id } });
+  await deleteToBin(req, 'shiftRotation', existing);
   res.json({ ok: true });
 });
 
@@ -231,7 +232,7 @@ schedulingRouter.delete(`${base}/rotation-assignments/:id`, can(PermissionAction
   const { accountId, orgId } = req.tenant!;
   const r = await peoplePrisma.rotationAssignment.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
   if (!r) return res.status(404).json({ error: 'No such assignment.' });
-  await peoplePrisma.rotationAssignment.delete({ where: { id: r.id } });
+  await deleteToBin(req, 'rotationAssignment', r);
   res.json({ ok: true });
 });
 

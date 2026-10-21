@@ -86,6 +86,7 @@ days and leave; removing it would remove that access.
 | ID mapping | `idMapping` | Employee ID Mapping | Punch Data | Readers | Renamed |
 | Phone punches | `phonePunches` | Mobile Punches | Other Punch Sources | Readers | Renamed |
 | Records | `records` | Attendance Records | Daily Operations | Attendance | Renamed |
+| (new) | `punches` | Punches | Daily Operations | Attendance | New: the punch log (same screen as Punch Transactions) where attendance staff look |
 | Exceptions | `exceptions` | Exceptions | Daily Operations | Attendance | Kept |
 | Corrections | `requests` | Corrections | Daily Operations | Attendance | Kept |
 | Schedule calendar | `scheduleCalendar` | Schedule Calendar | Scheduling | Attendance | Renamed |
@@ -125,6 +126,8 @@ days and leave; removing it would remove that access.
 | Export | `dataExport` | Export Data | Data Management | Settings | Renamed |
 | Data protection | `dataProtection` | Data Protection | Privacy | Settings | Moved from Personnel |
 | Data requests | `dataRequests` | Data Requests | Privacy | Settings | Moved from Personnel |
+| (new) | `auditLogs` | Audit Logs | Audit & Recovery | Settings | New: who changed what in People and Attendance (read-only) |
+| (new) | `recycleBin` | Recycle Bin | Audit & Recovery | Settings | New: deleted items kept 30 days, restorable |
 | My attendance | `me` | My Attendance | Self-Service | Me | Renamed |
 | My leave | `myLeave` | My Leave | Self-Service | Me | Renamed |
 

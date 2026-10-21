@@ -68,6 +68,8 @@ export async function anonymiseEmployee(args: { accountId: string; orgId: string
       tx.employeeTagLink.deleteMany({ where }),
       tx.employeeDocument.deleteMany({ where: { ...where, kind: { notIn: [...KEPT_DOCUMENT_KINDS] } } }),
       tx.phonePunchAttempt.deleteMany({ where }),
+      /* Their notes and documents sitting in the recycle bin go too, or the erasure would wait 30 days. */
+      tx.deletedItem.deleteMany({ where: { orgId, kind: { in: ['employeeNote', 'employeeDocument'] }, snapshot: { path: ['row', 'employeeId'], equals: employeeId } } }),
     ]);
     const punchLocations = await tx.devicePunch.updateMany({
       where: { ...where, OR: [{ latitude: { not: null } }, { address: { not: null } }, { photoId: { not: null } }] },

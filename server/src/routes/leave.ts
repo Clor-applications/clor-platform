@@ -27,6 +27,7 @@ import {
   withNames,
   writeDay,
 } from './attendance.js';
+import { deleteToBin } from '../services/recycleBin.js';
 
 /**
  * Leave, basic (after Horilla HRMS's leave app; reference only).
@@ -202,7 +203,7 @@ leaveRouter.delete(`${base}/types/:id`, can(PermissionAction.DELETE, R.leaveType
     (await peoplePrisma.leaveRequest.count({ where: { orgId, leaveTypeId: existing.id } })) +
     (await peoplePrisma.leaveAllocation.count({ where: { orgId, leaveTypeId: existing.id } }));
   if (used) return res.status(409).json({ error: 'This leave type has requests or balances. Mark it inactive instead.' });
-  await peoplePrisma.leaveType.delete({ where: { id: existing.id } });
+  await deleteToBin(req, 'leaveType', existing);
   res.json({ ok: true });
 });
 

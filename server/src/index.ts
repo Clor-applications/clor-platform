@@ -3,6 +3,7 @@ import { buildApp } from './app.js';
 import { startRecurringScheduler } from './services/recurringScheduler.js';
 import { startRetentionPurge } from './services/retention.js';
 import { startClosurePurge } from './services/companyClosure.js';
+import { startRecycleBinPurge } from './services/recycleBin.js';
 import { startHrSync } from './services/hr/sync.js';
 import { startReportSchedules } from './services/attendance/reportSchedules.js';
 import { startDocumentReminders } from './services/people/documentReminders.js';
@@ -53,6 +54,8 @@ startWebhookRetries();
 startRetentionPurge();
 /* Companies whose closure notice has ended are deleted daily — see services/companyClosure.ts. */
 startClosurePurge();
+/* Recycle-bin items past their days are deleted for good — see services/recycleBin.ts. */
+startRecycleBinPurge();
 /* HR tools: the outbox every minute, their people hourly — see services/hr/sync.ts. */
 startHrSync();
 startDocumentReminders();

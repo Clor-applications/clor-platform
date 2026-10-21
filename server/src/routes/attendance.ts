@@ -25,6 +25,7 @@ import { loadHolidays, loadSchedule, resolveShift } from '../services/attendance
 import { emit as emitWebhook } from '../services/attendance/webhooks.js';
 import { logDayChange } from '../services/attendance/history.js';
 import { recordRuleVersion } from '../services/attendance/ruleVersions.js';
+import { deleteToBin } from '../services/recycleBin.js';
 
 /**
  * Attendance, native (after Horilla HRMS's attendance; reference only).
@@ -474,7 +475,7 @@ attendanceRouter.delete('/orgs/:orgId/attendance/records/:id', can(PermissionAct
   } catch (e) {
     return sendError(res, e);
   }
-  await peoplePrisma.attendanceRecord.delete({ where: { id: r.id } });
+  await deleteToBin(req, 'attendanceRecord', r);
   await logDayChange({ accountId, orgId, employeeId: r.employeeId, date: r.date, recordId: r.id, action: 'DELETE', before: r, after: null, userId: req.auth!.userId });
   res.json({ ok: true });
 });
@@ -786,7 +787,7 @@ attendanceRouter.delete('/orgs/:orgId/attendance/shifts/:id', can(PermissionActi
   const used = (await peoplePrisma.shiftAssignment.count({ where: { orgId, shiftId: existing.id } })) +
     (await peoplePrisma.attendanceRecord.count({ where: { orgId, shiftId: existing.id } }));
   if (used) return res.status(409).json({ error: 'This shift is assigned or has days recorded on it. Mark it inactive instead.' });
-  await peoplePrisma.shift.delete({ where: { id: existing.id } });
+  await deleteToBin(req, 'shift', existing);
   res.json({ ok: true });
 });
 
@@ -836,7 +837,7 @@ attendanceRouter.delete('/orgs/:orgId/attendance/shift-assignments/:id', can(Per
   const { accountId, orgId } = req.tenant!;
   const r = await peoplePrisma.shiftAssignment.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
   if (!r) return res.status(404).json({ error: 'No such assignment.' });
-  await peoplePrisma.shiftAssignment.delete({ where: { id: r.id } });
+  await deleteToBin(req, 'shiftAssignment', r);
   res.json({ ok: true });
 });
 
@@ -905,7 +906,7 @@ attendanceRouter.delete('/orgs/:orgId/attendance/holidays/:id', can(PermissionAc
   const { accountId, orgId } = req.tenant!;
   const existing = await peoplePrisma.holiday.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
   if (!existing) return res.status(404).json({ error: 'No such holiday.' });
-  await peoplePrisma.holiday.delete({ where: { id: existing.id } });
+  await deleteToBin(req, 'holiday', existing);
   res.json({ ok: true });
 });
 

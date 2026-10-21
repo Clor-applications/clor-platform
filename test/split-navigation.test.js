@@ -37,7 +37,7 @@ describe('Attendance navigation structure', () => {
       ['Other Punch Sources', ['Mobile Punches']],
     ]);
     expect(s.Attendance).toEqual([
-      ['Daily Operations', ['Attendance Records', 'Exceptions', 'Corrections']],
+      ['Daily Operations', ['Attendance Records', 'Punches', 'Exceptions', 'Corrections']],
       ['Scheduling', ['Schedule Calendar', 'Shifts', 'Shift Assignments', 'Department Schedules', 'Temporary Schedules', 'Shift Rotations']],
       ['Leave', ['Leave Requests', 'Leave Balances']],
       ['Time Management', ['Overtime & Comp-Off']],
@@ -58,6 +58,7 @@ describe('Attendance navigation structure', () => {
       ['Access & Security', ['Single Sign-On']],
       ['Data Management', ['Import Data', 'Export Data', 'Close Company']],
       ['Privacy', ['Data Protection', 'Data Requests']],
+      ['Audit & Recovery', ['Audit Logs', 'Recycle Bin']],
     ]);
     expect(s.Me).toEqual([['Self-Service', ['My Attendance', 'My Leave']]]);
   });
@@ -92,7 +93,7 @@ describe('Attendance navigation structure', () => {
     });
   }
   it('a person without a screen does not see it, and a module left empty disappears', () => {
-    const settings = new Set(['setup', 'sites', 'siteCheck', 'holidays', 'rules', 'weeklyOffPolicy', 'overtimePolicy', 'leaveTypes', 'integrations', 'sso', 'dataImport', 'dataExport', 'closeCompany', 'dataProtection', 'dataRequests']);
+    const settings = new Set(['setup', 'sites', 'siteCheck', 'holidays', 'rules', 'weeklyOffPolicy', 'overtimePolicy', 'leaveTypes', 'integrations', 'sso', 'dataImport', 'dataExport', 'closeCompany', 'dataProtection', 'dataRequests', 'auditLogs', 'recycleBin']);
     const nav = attendanceApp.nav.filter((i) => !settings.has(i.key));
     const labels = resolveModules(attendanceApp, nav).map((m) => m.label);
     expect(labels).not.toContain('Settings');

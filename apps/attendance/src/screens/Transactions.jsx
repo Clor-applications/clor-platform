@@ -47,7 +47,8 @@ const EXPORT_COLUMNS = [
  * Where to look when a day seems wrong: was the punch made, on which reader,
  * how was it verified, whose ID was it? (ClorTime's Transaction view.)
  */
-export default function Transactions() {
+/* `title`: the same log is Punches under Attendance and Punch Transactions under Readers. */
+export default function Transactions({ title = 'Punch transactions' }) {
   const [filters, setFilters] = useState({ from: todayIst(), to: todayIst(), employeeId: '', deviceId: '', unmatched: '' });
   const [data, setData] = useState(null);
   const [loadError, setLoadError] = useState('');
@@ -115,7 +116,7 @@ export default function Transactions() {
   return (
     <DocumentListShell
       entity="reader"
-      title="Punch transactions"
+      title={title}
       description="Every punch as the readers sent it, before it becomes a day."
       compact
       tight
@@ -257,3 +258,6 @@ export default function Transactions() {
     </DocumentListShell>
   );
 }
+
+/* Punches under Attendance: the same log, titled as the menu names it. */
+export const Punches = (props) => <Transactions {...props} title="Punches" />;

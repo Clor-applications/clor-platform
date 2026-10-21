@@ -9,6 +9,7 @@ import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { PEOPLE_MODULE, PEOPLE_RESOURCE, peopleRouteOk } from '../services/people/guards.js';
 import { istDate } from '../services/attendance/compute.js';
 import { pushEmployeeToReaders, revokeFromReaders } from './iclock.js';
+import { deleteToBin } from '../services/recycleBin.js';
 
 /**
  * Personnel operations from ClorTime (routes/personnel_expansion.js,
@@ -158,7 +159,7 @@ personnelRouter.delete(`${base}/contractors/:id`, can(PermissionAction.DELETE, R
   if (await peoplePrisma.employee.count({ where: { orgId, contractorId: existing.id } })) {
     return res.status(409).json({ error: 'People are linked to this contractor. Mark it inactive instead.' });
   }
-  await peoplePrisma.contractor.delete({ where: { id: existing.id } });
+  await deleteToBin(req, 'contractor', existing);
   res.json({ ok: true });
 });
 

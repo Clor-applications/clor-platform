@@ -103,19 +103,54 @@ closure record remains after it.
 
 ---
 
-## 3. Settings (for whoever runs CLOR)
+## 3. Recycle bin (deleted by mistake)
+
+Added 21 Oct 2026 at the founder's request.
+
+**Where:** Attendance → Settings → Audit & Recovery → Recycle Bin.
+
+- When someone deletes an employee, a note or document, a department,
+  designation, location, contractor, shift, shift assignment, schedule,
+  rotation, holiday, leave type or an attendance day, CLOR keeps a copy in the
+  recycle bin for **30 days**.
+- Anyone allowed to delete that kind of item can **restore** it (it comes back
+  exactly as it was, with an employee's notes, documents and tags, and the
+  people who reported to them) or **delete it for good** sooner.
+- After 30 days it is deleted for good automatically.
+- Restores and deletions for good are recorded in the audit log.
+- Readers (biometric devices) are not kept in the bin: removing one changes the
+  device itself.
+
+**Effect on erasure and closure**
+- Anonymising a former employee (section 1) also deletes their notes and
+  documents waiting in the recycle bin at once.
+- Closing a company (section 2) deletes its recycle bin with everything else.
+- Otherwise a deleted item can stay up to 30 days before it is gone for good.
+  Tell a client this when they ask how soon a deletion is final.
+
+> **Draft clause: deleted items.** Items you delete in CLOR are kept in a
+> recycle bin for 30 days, so they can be restored if deleted by mistake, and
+> are then permanently deleted. You can permanently delete an item from the
+> recycle bin sooner.
+
+---
+
+## 4. Settings (for whoever runs CLOR)
 
 | Setting | Default | What it does |
 |---|---|---|
 | `COMPANY_CLOSURE_NOTICE_DAYS` | 30 | Notice period before a closed company is deleted |
 | `COMPANY_CLOSURE_PURGE` | on | `off` stops the daily deletion job (closures stay scheduled) |
+| `RECYCLE_BIN_DAYS` | 30 | Days a deleted item stays in the recycle bin |
+| `RECYCLE_BIN_PURGE` | on | `off` stops the daily removal of expired recycle-bin items |
 
 The deletion job runs once a day on the API server. Code:
-`server/src/services/companyClosure.ts`, `server/src/services/anonymiseEmployee.ts`.
+`server/src/services/companyClosure.ts`, `server/src/services/anonymiseEmployee.ts`,
+`server/src/services/recycleBin.ts`.
 
 ---
 
-## 4. Draft clauses for the Terms and Conditions (for legal review)
+## 5. Draft clauses for the Terms and Conditions (for legal review)
 
 > **Closing your account.** The account owner may close the company's CLOR
 > account from Settings. Before closing, the owner must download a full export
