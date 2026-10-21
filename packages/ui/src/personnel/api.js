@@ -63,6 +63,8 @@ export const resignEmployee = (id, body) => send(`/employees/${encodeURIComponen
 export const rehireEmployee = (id, body) => send(`/employees/${encodeURIComponent(id)}/rehire`, 'POST', body || {});
 export const transferEmployees = (body) => send('/employees/transfer', 'POST', body);
 /* Employment history: joined, moved, changed, left, rehired, with payroll impact (server: services/people/employmentHistory.ts). */
+/* Data health: the implementation auditor (server: services/people/dataHealth.ts). */
+export const getDataHealth = () => apiFetch(`${base()}/data-health`, opts);
 export const getEmploymentHistory = (id) => apiFetch(`${base()}/employees/${encodeURIComponent(id)}/history`, opts).then((r) => r?.events || []);
 
 export const LEAVING_TYPES = {

@@ -81,6 +81,7 @@ const Enrolments = screen('Enrolments');
 const Transactions = screen('Transactions');
 const Punches = screen('Punches');
 const AuditLogs = screen('AuditLogs');
+const DataHealth = screen('DataHealth');
 const RecycleBin = screen('RecycleBin');
 const DeviceLogs = screen('DeviceLogs');
 const AttendanceReports = screen('AttendanceReports');
@@ -252,7 +253,7 @@ export const attendanceApp = {
       { label: 'Work Policy', items: ['rules', 'weeklyOffPolicy', 'overtimePolicy', 'leaveTypes', 'holidays'] },
       { label: 'Integrations', items: ['integrations'] },
       { label: 'Access & Security', items: ['sso'] },
-      { label: 'Data Management', items: ['dataImport', 'dataExport', 'closeCompany'] },
+      { label: 'Data Management', items: ['dataHealth', 'dataImport', 'dataExport', 'closeCompany'] },
       { label: 'Privacy', items: ['dataProtection', 'dataRequests'] },
       /* Founder, 21 Oct 2026: what changed, and what was deleted by mistake. */
       { label: 'Audit & Recovery', items: ['auditLogs', 'recycleBin'] },
@@ -337,6 +338,8 @@ export const attendanceApp = {
     { key: 'dataExport', label: 'Export Data', icon: Download, permission: 'ATTENDANCE::Attendance Records::VIEW' },
     /* LX-07: shared screen; the server lets only the company's owner ask or cancel. */
     { key: 'closeCompany', label: 'Close Company', icon: Lock, permission: 'SETTINGS::Company data::VIEW' },
+    /* HR research Phase 1: the implementation auditor. */
+    { key: 'dataHealth', label: 'Data Health', icon: ShieldCheck, permission: 'PEOPLE::Employees::VIEW' },
     { key: 'auditLogs', label: 'Audit Logs', icon: AuditIcon, permission: 'SETTINGS::Audit trail::VIEW' },
     /* Each person sees only what they may delete (server: routes/recycleBin.ts). */
     { key: 'recycleBin', label: 'Recycle Bin', icon: BinIcon, permission: 'ATTENDANCE::Attendance Records::VIEW' },
@@ -398,6 +401,7 @@ export const attendanceApp = {
     dataExport: DataExport,
     closeCompany: CloseCompany,
     auditLogs: AuditLogs,
+    dataHealth: DataHealth,
     recycleBin: RecycleBin,
     dataProtection: DataProtection,
     sso: SsoSettings,

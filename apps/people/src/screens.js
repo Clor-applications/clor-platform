@@ -7,4 +7,5 @@ export { default as PeopleOverview } from './screens/PeopleOverview';
 export { default as Employees } from '@ui/personnel/Employees';
 export { default as OrgChart } from './screens/OrgChart';
 export { default as Tags } from './screens/Tags';
+export { DataHealth } from './screens/DataHealth';
 export { Departments, EmployeeTypes, JobPositions, JobRoles, WorkTypes } from '@ui/personnel/StructureList';

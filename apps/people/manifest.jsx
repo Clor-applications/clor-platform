@@ -1,4 +1,4 @@
-import { Briefcase, Building2, IdCard, LayoutDashboard, Network, Shapes, Tag, UserRound, Users } from 'lucide-react';
+import { Briefcase, Building2, IdCard, LayoutDashboard, Network, Shapes, ShieldCheck, Tag, UserRound, Users } from 'lucide-react';
 
 import { lazyScreens } from '@ui/utils/lazyScreens';
 
@@ -13,6 +13,7 @@ const EmployeeTypes = screen('EmployeeTypes');
 const JobPositions = screen('JobPositions');
 const JobRoles = screen('JobRoles');
 const WorkTypes = screen('WorkTypes');
+const DataHealth = screen('DataHealth');
 
 /**
  * Everything the shell knows about People.
@@ -34,6 +35,7 @@ export const peopleApp = {
     { key: 'overview', label: 'Overview', icon: LayoutDashboard, permission: 'PEOPLE::Employees::VIEW' },
     { key: 'employees', label: 'Employees', icon: Users, permission: 'PEOPLE::Employees::VIEW' },
     { key: 'orgChart', label: 'Org chart', icon: Network, permission: 'PEOPLE::Org Structure::VIEW' },
+    { key: 'dataHealth', label: 'Data health', icon: ShieldCheck, permission: 'PEOPLE::Employees::VIEW' },
     { section: 'Settings' },
     { key: 'departments', label: 'Departments', icon: Building2, permission: 'PEOPLE::Org Structure::VIEW' },
     { key: 'jobPositions', label: 'Job positions', icon: Briefcase, permission: 'PEOPLE::Org Structure::VIEW' },
@@ -47,6 +49,7 @@ export const peopleApp = {
     overview: PeopleOverview,
     employees: Employees,
     orgChart: OrgChart,
+    dataHealth: DataHealth,
     departments: Departments,
     jobPositions: JobPositions,
     jobRoles: JobRoles,

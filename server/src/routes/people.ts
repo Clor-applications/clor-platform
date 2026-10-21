@@ -3,7 +3,7 @@ import { z } from 'zod';
 
 import { requireAuth } from '../middleware/auth.js';
 import { requireTenantContext } from '../middleware/tenantContext.js';
-import { requirePermission } from '../middleware/rbac.js';
+import { authorize, requirePermission } from '../middleware/rbac.js';
 import { PermissionAction } from '../constants/enums.js';
 import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { AnonymiseError, anonymiseEmployee } from '../services/anonymiseEmployee.js';
@@ -15,6 +15,8 @@ import { pushEmployeeToReaders, readerFieldsChanged, revokeFromReaders } from '.
 import { emit as emitWebhook, employeeEvent } from '../services/attendance/webhooks.js';
 import { deleteToBin } from '../services/recycleBin.js';
 import { recordChanges, recordJoined, timelineOf } from '../services/people/employmentHistory.js';
+import { dataHealth } from '../services/people/dataHealth.js';
+import { PAYROLL_MODULE, PAYROLL_RESOURCE } from '../services/payroll/guards.js';
 
 /**
  * People: the staff directory.
@@ -390,6 +392,18 @@ peopleRouter.put('/orgs/:orgId/people/employees/:id', can(PermissionAction.EDIT,
   } catch (e) {
     return sendError(res, e);
   }
+});
+
+/**
+ * Data health: what is wrong in the employee data before it costs a payroll
+ * (services/people/dataHealth.ts). Payroll checks only for someone who may
+ * see payroll profiles.
+ */
+peopleRouter.get('/orgs/:orgId/people/data-health', can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const payroll = !(await authorize(req, PAYROLL_MODULE, PermissionAction.VIEW as any, PAYROLL_RESOURCE.profile));
+  res.json(await dataHealth(accountId, orgId, { payroll }));
 });
 
 /** Employment history: joined, moved, changed, left, rehired — newest first, with what each meant for payroll. */

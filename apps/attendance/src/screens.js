@@ -5,7 +5,7 @@
  */
 export { default as Employees } from '@ui/personnel/Employees';
 export { Departments } from '@ui/personnel/StructureList';
-export { Areas, JobPositions } from './screens/OrgLists';
+export { Areas, DataHealth, JobPositions } from './screens/OrgLists';
 export { default as AttendanceToday } from './screens/AttendanceToday';
 export { default as MyAttendance } from './screens/MyAttendance';
 export { default as AttendanceRecords } from './screens/AttendanceRecords';
