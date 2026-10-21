@@ -10,6 +10,7 @@ import { getMyPermissions } from '@ui/api/permissions';
 import { PermissionProvider } from '@ui/permissions/PermissionContext';
 import { WriteGuard } from '@ui/permissions/WriteGuard';
 import { SkeletonCard } from '@ui/components/ui/Primitives';
+import { IconSetContext } from '@ui/components/ui/iconSet';
 
 import { APPS, appById, availableApps, landingApp, subscribedApps } from './registry';
 import { appFromHost, hostForApp, isFrontDoor } from './appHosts';
@@ -571,358 +572,362 @@ export default function Shell() {
   const tabs = phone && app ? mobileTabsFor(app, nav) : [];
 
   return (
-    <div
-      className="ui-min-h-viewport"
-      /* Which app is open, for styling: People, Attendance and Payroll wear the
-         HR palette (index.css, [data-app]); Accounting keeps its own. */
-      data-app={activeAppId || undefined}
-      data-palette={activePalette || undefined}
-      style={{ backgroundColor: 'rgb(var(--app-bg))', '--platform-bar': '3.5rem' }}
-    >
-      {/* Keyboard users skip the bar and the rail. Accounting (a Root app) carries its own. */}
-      {!Root ? (
-        <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:top-2 focus:left-2 ui-btn ui-btn-primary">
-          Skip to main content
-        </a>
-      ) : null}
-      <header
-        /* Tighter on a phone: the bar carries menu, logo, switcher, alerts, help, profile and sign-out in 360 px. */
-        className={`sticky top-0 flex h-14 items-center ${phone ? 'gap-2.5 px-3' : 'gap-3 px-4'}`}
-        style={{
-          backgroundColor: 'rgb(var(--surface))',
-          borderBottom: '1px solid rgb(var(--border))',
-          /* Above every layer an app can draw — see --z-platform-bar. An app's
-             own header is z-40 and its popovers z-60, so a bar at z-30 was
-             covered by the application it contains. */
-          zIndex: 'var(--z-platform-bar)',
-        }}
+    /* The open app's icon set (`iconSet` in its manifest): shared marks such as
+       the page-header icon draw in it. No icon set, the line icons as before. */
+    <IconSetContext.Provider value={app?.iconSet || 'line'}>
+      <div
+        className="ui-min-h-viewport"
+        /* Which app is open, for styling: People, Attendance and Payroll wear the
+           HR palette (index.css, [data-app]); Accounting keeps its own. */
+        data-app={activeAppId || undefined}
+        data-palette={activePalette || undefined}
+        style={{ backgroundColor: 'rgb(var(--app-bg))', '--platform-bar': '3.5rem' }}
       >
-        {phone && app && !Root ? (
-          <button type="button" className="ui-icon-btn" aria-label="Menu" aria-expanded={navOpen} onClick={() => setNavOpen(true)}>
-            <Menu size={20} aria-hidden="true" />
-          </button>
+        {/* Keyboard users skip the bar and the rail. Accounting (a Root app) carries its own. */}
+        {!Root ? (
+          <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:top-2 focus:left-2 ui-btn ui-btn-primary">
+            Skip to main content
+          </a>
         ) : null}
-        <button type="button" className="flex items-center gap-2" onClick={() => openApp(mine[0]?.id)}>
-          <ClorMark size={24} />
-          <span className={phone ? 'sr-only' : 'ui-display text-base'}>Clor</span>
-        </button>
-
-        {/* The app switcher. Named for the app you are in, because that is the
-            question it answers before it is the control it offers. */}
-        {app ? (
-          <div className="relative" ref={switcherRef}>
-            <button
-              type="button"
-              className="ui-btn ui-btn-secondary ui-btn-sm"
-              onClick={() => setSwitcherOpen((v) => !v)}
-              aria-expanded={switcherOpen}
-              aria-haspopup="menu"
-            >
-              <app.icon size={15} aria-hidden="true" />
-              {app.name}
-              <ChevronDown size={14} aria-hidden="true" />
+        <header
+          /* Tighter on a phone: the bar carries menu, logo, switcher, alerts, help, profile and sign-out in 360 px. */
+          className={`sticky top-0 flex h-14 items-center ${phone ? 'gap-2.5 px-3' : 'gap-3 px-4'}`}
+          style={{
+            backgroundColor: 'rgb(var(--surface))',
+            borderBottom: '1px solid rgb(var(--border))',
+            /* Above every layer an app can draw — see --z-platform-bar. An app's
+               own header is z-40 and its popovers z-60, so a bar at z-30 was
+               covered by the application it contains. */
+            zIndex: 'var(--z-platform-bar)',
+          }}
+        >
+          {phone && app && !Root ? (
+            <button type="button" className="ui-icon-btn" aria-label="Menu" aria-expanded={navOpen} onClick={() => setNavOpen(true)}>
+              <Menu size={20} aria-hidden="true" />
             </button>
+          ) : null}
+          <button type="button" className="flex items-center gap-2" onClick={() => openApp(mine[0]?.id)}>
+            <ClorMark size={24} />
+            <span className={phone ? 'sr-only' : 'ui-display text-base'}>Clor</span>
+          </button>
 
-            {switcherOpen ? (
-              <div
-                role="menu"
-                className="absolute left-0 mt-1 w-64 rounded-xl p-1"
-                style={{
-                  backgroundColor: 'rgb(var(--surface))',
-                  border: '1px solid rgb(var(--border))',
-                  boxShadow: 'var(--shadow-lift)',
-                  zIndex: 'var(--z-platform-menu)',
-                }}
+          {/* The app switcher. Named for the app you are in, because that is the
+              question it answers before it is the control it offers. */}
+          {app ? (
+            <div className="relative" ref={switcherRef}>
+              <button
+                type="button"
+                className="ui-btn ui-btn-secondary ui-btn-sm"
+                onClick={() => setSwitcherOpen((v) => !v)}
+                aria-expanded={switcherOpen}
+                aria-haspopup="menu"
               >
-                {mine.map((a) => (
-                  <button
-                    key={a.id}
-                    type="button"
-                    role="menuitem"
-                    className="w-full flex items-start gap-2 rounded-lg px-2 py-2 text-left ui-hover-sunken"
-                    onClick={() => openApp(a.id)}
-                  >
-                    <a.icon size={16} aria-hidden="true" className="mt-0.5 shrink-0" />
-                    <span className="min-w-0">
-                      <span className="block text-sm">{a.name}</span>
-                      <span className="block ui-caption">{a.blurb}</span>
-                    </span>
-                  </button>
-                ))}
-                <div style={{ borderTop: '1px solid rgb(var(--border))' }} className="my-1" />
-                <button
-                  type="button"
-                  role="menuitem"
-                  className="w-full flex items-center gap-2 rounded-lg px-2 py-2 text-left ui-hover-sunken"
-                  onClick={() => {
-                    setShowMoreApps(true);
-                    setSwitcherOpen(false);
+                <app.icon size={15} aria-hidden="true" />
+                {app.name}
+                <ChevronDown size={14} aria-hidden="true" />
+              </button>
+
+              {switcherOpen ? (
+                <div
+                  role="menu"
+                  className="absolute left-0 mt-1 w-64 rounded-xl p-1"
+                  style={{
+                    backgroundColor: 'rgb(var(--surface))',
+                    border: '1px solid rgb(var(--border))',
+                    boxShadow: 'var(--shadow-lift)',
+                    zIndex: 'var(--z-platform-menu)',
                   }}
                 >
-                  <LayoutGrid size={16} aria-hidden="true" />
-                  <span className="text-sm">More apps</span>
-                </button>
-                {/* Users, roles, sign-in, e-mail and the audit trail are the company's, not one app's: reachable from every app, kept in one place. */}
-                {mine.some((a) => a.id === 'accounting') ? (
+                  {mine.map((a) => (
+                    <button
+                      key={a.id}
+                      type="button"
+                      role="menuitem"
+                      className="w-full flex items-start gap-2 rounded-lg px-2 py-2 text-left ui-hover-sunken"
+                      onClick={() => openApp(a.id)}
+                    >
+                      <a.icon size={16} aria-hidden="true" className="mt-0.5 shrink-0" />
+                      <span className="min-w-0">
+                        <span className="block text-sm">{a.name}</span>
+                        <span className="block ui-caption">{a.blurb}</span>
+                      </span>
+                    </button>
+                  ))}
+                  <div style={{ borderTop: '1px solid rgb(var(--border))' }} className="my-1" />
                   <button
                     type="button"
                     role="menuitem"
                     className="w-full flex items-center gap-2 rounded-lg px-2 py-2 text-left ui-hover-sunken"
-                    onClick={() => openApp('accounting', 'settings')}
+                    onClick={() => {
+                      setShowMoreApps(true);
+                      setSwitcherOpen(false);
+                    }}
                   >
-                    <Settings size={16} aria-hidden="true" />
-                    <span className="text-sm">Company settings</span>
+                    <LayoutGrid size={16} aria-hidden="true" />
+                    <span className="text-sm">More apps</span>
                   </button>
-                ) : null}
-              </div>
-            ) : null}
-          </div>
-        ) : null}
+                  {/* Users, roles, sign-in, e-mail and the audit trail are the company's, not one app's: reachable from every app, kept in one place. */}
+                  {mine.some((a) => a.id === 'accounting') ? (
+                    <button
+                      type="button"
+                      role="menuitem"
+                      className="w-full flex items-center gap-2 rounded-lg px-2 py-2 text-left ui-hover-sunken"
+                      onClick={() => openApp('accounting', 'settings')}
+                    >
+                      <Settings size={16} aria-hidden="true" />
+                      <span className="text-sm">Company settings</span>
+                    </button>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
 
-        <div className="flex-1" />
+          <div className="flex-1" />
 
-        {/* On a phone the bar holds menu, mark, app, profile and sign-out; one company needs no picker and the theme follows the phone. */}
-        {!phone || tenants.length > 1 ? (
-          <select
-            className="ui-select ui-select-sm min-w-0"
-            style={{ width: 'auto', minWidth: phone ? '7rem' : '12rem', maxWidth: phone ? '38vw' : undefined }}
-            value={tenant.id}
-            disabled={tenants.length < 2}
-            onChange={(e) => setTenantId(e.target.value)}
-            aria-label="Company"
-          >
-            {tenants.map((t) => (
-              <option key={t.id} value={t.id}>{t.name}</option>
-            ))}
-          </select>
-        ) : null}
+          {/* On a phone the bar holds menu, mark, app, profile and sign-out; one company needs no picker and the theme follows the phone. */}
+          {!phone || tenants.length > 1 ? (
+            <select
+              className="ui-select ui-select-sm min-w-0"
+              style={{ width: 'auto', minWidth: phone ? '7rem' : '12rem', maxWidth: phone ? '38vw' : undefined }}
+              value={tenant.id}
+              disabled={tenants.length < 2}
+              onChange={(e) => setTenantId(e.target.value)}
+              aria-label="Company"
+            >
+              {tenants.map((t) => (
+                <option key={t.id} value={t.id}>{t.name}</option>
+              ))}
+            </select>
+          ) : null}
 
-        {/* One inbox for every app: an approval, a quiet reader, a bank change, a person the directory added. */}
-        <NotificationBell
-          tenantKey={tenantKey}
-          onOpen={(link) => {
-            if (!link?.app) return;
-            if (link.app === activeAppId && !Root) {
-              if (link.screen && app?.screens?.[link.screen]) goTo(link.screen);
-              return;
-            }
-            openApp(link.app, link.screen || '');
-          }}
-        />
-        <HelpMenu />
-        {!phone ? (
-          <button
-            type="button"
-            className="ui-icon-btn"
-            onClick={toggleTheme}
-            aria-label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
-          >
-            {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
-          </button>
-        ) : null}
+          {/* One inbox for every app: an approval, a quiet reader, a bank change, a person the directory added. */}
+          <NotificationBell
+            tenantKey={tenantKey}
+            onOpen={(link) => {
+              if (!link?.app) return;
+              if (link.app === activeAppId && !Root) {
+                if (link.screen && app?.screens?.[link.screen]) goTo(link.screen);
+                return;
+              }
+              openApp(link.app, link.screen || '');
+            }}
+          />
+          <HelpMenu />
+          {!phone ? (
+            <button
+              type="button"
+              className="ui-icon-btn"
+              onClick={toggleTheme}
+              aria-label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+            >
+              {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+            </button>
+          ) : null}
 
-        {!Root ? (
+          {!Root ? (
+            <button
+              type="button"
+              className="ui-icon-btn"
+              onClick={() => {
+                setPlatformScreen('profile');
+                setShowMoreApps(false);
+              }}
+              aria-label="My profile"
+              title="My profile"
+            >
+              <UserRound size={16} />
+            </button>
+          ) : null}
+
           <button
             type="button"
             className="ui-icon-btn"
             onClick={() => {
-              setPlatformScreen('profile');
-              setShowMoreApps(false);
+              setPublicPage('home');
+              signOut();
             }}
-            aria-label="My profile"
-            title="My profile"
+            aria-label="Sign out"
           >
-            <UserRound size={16} />
+            <LogOut size={16} />
           </button>
-        ) : null}
+        </header>
 
-        <button
-          type="button"
-          className="ui-icon-btn"
-          onClick={() => {
-            setPublicPage('home');
-            signOut();
-          }}
-          aria-label="Sign out"
-        >
-          <LogOut size={16} />
-        </button>
-      </header>
-
-      <SubscriptionBanner billing={tenant.billing} />
-      {unbought ? (
-        <div role="status" className="flex flex-wrap items-center gap-3 px-6 py-2 text-sm" style={{ backgroundColor: 'rgb(var(--warn-soft))', color: 'rgb(var(--warn-ink))', borderBottom: '1px solid rgb(var(--border))' }}>
-          <span className="min-w-0 flex-1">{appById(unbought.app)?.name || 'This app'} is not on your plan, so it cannot be used here yet. {unbought.message ? `(${unbought.message})` : ''}</span>
-          <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => { setShowMoreApps(true); setUnbought(null); }}>See apps and plans</button>
-          <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => setUnbought(null)}>Dismiss</button>
-        </div>
-      ) : null}
-
-      {twoFactorSetupRequired ? (
-        <TwoFactorGate />
-      ) : Root ? (
-        /* The app owns the area under the platform bar. Reached from here by
-           the switcher and by More apps, both of which are in the bar above —
-           so an app that draws its own rail never has to know they exist. */
-        <ScreenBoundary appName={app?.name} resetKey={`${app?.id}:${tenant.id}`}>
-          {showMoreApps ? (
-            <main className="p-6">
-              <MoreApps tenant={tenant} onAdd={addApp} onOpen={openApp} />
-            </main>
-          ) : (
-            /* Keyed on the company: changing it has to remount the app, or the
-               screens keep showing what they fetched for the last one. */
-            <Suspense fallback={<AppLoading />}>
-              <Root key={tenant.id} />
-            </Suspense>
-          )}
-        </ScreenBoundary>
-      ) : (
-      <div className="flex">
-        {/* One app's navigation. Never four apps' worth. */}
-        {/* Pinned under the 56px header and scrolled on its own: a long menu (Attendance has 35 items)
-            scrolled the whole page, so a screen opened from its lower half was out of view. */}
-        {/* One app's navigation. Never four apps' worth. On a phone it is a sheet from the menu button and a tab bar below. */}
-        {!phone && split ? (
-          <div className="ui-split" data-overlay={tablet || undefined} aria-label={app ? `${app.name} navigation` : 'Navigation'}>
-            {moduleRail}
-            {modulePanel}
-            {tablet && modulePanel ? <div className="ui-split-scrim" aria-hidden="true" onClick={() => { setTabletPanel(false); setBrowseModule(null); }} /> : null}
+        <SubscriptionBanner billing={tenant.billing} />
+        {unbought ? (
+          <div role="status" className="flex flex-wrap items-center gap-3 px-6 py-2 text-sm" style={{ backgroundColor: 'rgb(var(--warn-soft))', color: 'rgb(var(--warn-ink))', borderBottom: '1px solid rgb(var(--border))' }}>
+            <span className="min-w-0 flex-1">{appById(unbought.app)?.name || 'This app'} is not on your plan, so it cannot be used here yet. {unbought.message ? `(${unbought.message})` : ''}</span>
+            <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => { setShowMoreApps(true); setUnbought(null); }}>See apps and plans</button>
+            <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => setUnbought(null)}>Dismiss</button>
           </div>
         ) : null}
-        {!phone && !split ? (
-          <nav
-            className="sticky top-14 w-56 shrink-0 self-start overflow-y-auto p-3 space-y-0.5"
-            style={{ borderRight: '1px solid rgb(var(--border))', height: 'calc(100vh - 3.5rem)' }}
-            aria-label={app ? `${app.name} navigation` : 'Navigation'}
-          >
-            {navItems}
-          </nav>
-        ) : null}
-        {phone && navOpen ? (
-          <div className="ui-nav-sheet" role="dialog" aria-modal="true" aria-label={app ? `${app.name} navigation` : 'Navigation'}>
-            <div className="ui-nav-sheet-backdrop" onClick={() => setNavOpen(false)} aria-hidden="true" />
-            {split ? (
-              <div className="ui-nav-sheet-panel ui-nav-sheet-split">
-                {moduleRail}
-                {modulePanel || (
-                  <div className="ui-split-panel">
-                    <div className="ui-split-panel-head">
-                      <span className="ui-t-sec">{openModule?.label || app?.name}</span>
-                      <button type="button" className="ui-icon-btn" aria-label="Close menu" onClick={() => setNavOpen(false)}>
-                        <X size={18} aria-hidden="true" />
-                      </button>
-                    </div>
-                    <p className="ui-caption px-2">Pick a module on the left.</p>
-                  </div>
-                )}
-              </div>
+
+        {twoFactorSetupRequired ? (
+          <TwoFactorGate />
+        ) : Root ? (
+          /* The app owns the area under the platform bar. Reached from here by
+             the switcher and by More apps, both of which are in the bar above —
+             so an app that draws its own rail never has to know they exist. */
+          <ScreenBoundary appName={app?.name} resetKey={`${app?.id}:${tenant.id}`}>
+            {showMoreApps ? (
+              <main className="p-6">
+                <MoreApps tenant={tenant} onAdd={addApp} onOpen={openApp} />
+              </main>
             ) : (
-            <nav className="ui-nav-sheet-panel">
-              <div className="flex items-center justify-between px-2 pb-2">
-                <span className="ui-t-sec">{app?.name || 'Menu'}</span>
-                <button type="button" className="ui-icon-btn" aria-label="Close menu" onClick={() => setNavOpen(false)}>
-                  <X size={18} aria-hidden="true" />
-                </button>
-              </div>
+              /* Keyed on the company: changing it has to remount the app, or the
+                 screens keep showing what they fetched for the last one. */
+              <Suspense fallback={<AppLoading />}>
+                <Root key={tenant.id} />
+              </Suspense>
+            )}
+          </ScreenBoundary>
+        ) : (
+        <div className="flex">
+          {/* One app's navigation. Never four apps' worth. */}
+          {/* Pinned under the 56px header and scrolled on its own: a long menu (Attendance has 35 items)
+              scrolled the whole page, so a screen opened from its lower half was out of view. */}
+          {/* One app's navigation. Never four apps' worth. On a phone it is a sheet from the menu button and a tab bar below. */}
+          {!phone && split ? (
+            <div className="ui-split" data-overlay={tablet || undefined} aria-label={app ? `${app.name} navigation` : 'Navigation'}>
+              {moduleRail}
+              {modulePanel}
+              {tablet && modulePanel ? <div className="ui-split-scrim" aria-hidden="true" onClick={() => { setTabletPanel(false); setBrowseModule(null); }} /> : null}
+            </div>
+          ) : null}
+          {!phone && !split ? (
+            <nav
+              className="sticky top-14 w-56 shrink-0 self-start overflow-y-auto p-3 space-y-0.5"
+              style={{ borderRight: '1px solid rgb(var(--border))', height: 'calc(100vh - 3.5rem)' }}
+              aria-label={app ? `${app.name} navigation` : 'Navigation'}
+            >
               {navItems}
             </nav>
-            )}
-          </div>
-        ) : null}
+          ) : null}
+          {phone && navOpen ? (
+            <div className="ui-nav-sheet" role="dialog" aria-modal="true" aria-label={app ? `${app.name} navigation` : 'Navigation'}>
+              <div className="ui-nav-sheet-backdrop" onClick={() => setNavOpen(false)} aria-hidden="true" />
+              {split ? (
+                <div className="ui-nav-sheet-panel ui-nav-sheet-split">
+                  {moduleRail}
+                  {modulePanel || (
+                    <div className="ui-split-panel">
+                      <div className="ui-split-panel-head">
+                        <span className="ui-t-sec">{openModule?.label || app?.name}</span>
+                        <button type="button" className="ui-icon-btn" aria-label="Close menu" onClick={() => setNavOpen(false)}>
+                          <X size={18} aria-hidden="true" />
+                        </button>
+                      </div>
+                      <p className="ui-caption px-2">Pick a module on the left.</p>
+                    </div>
+                  )}
+                </div>
+              ) : (
+              <nav className="ui-nav-sheet-panel">
+                <div className="flex items-center justify-between px-2 pb-2">
+                  <span className="ui-t-sec">{app?.name || 'Menu'}</span>
+                  <button type="button" className="ui-icon-btn" aria-label="Close menu" onClick={() => setNavOpen(false)}>
+                    <X size={18} aria-hidden="true" />
+                  </button>
+                </div>
+                {navItems}
+              </nav>
+              )}
+            </div>
+          ) : null}
 
-        {/* `flush`: the app's pages sit edge to edge on the white content column, as Accounting's do. */}
-        <main id="main-content" tabIndex={-1} className={`flex-1 min-w-0 outline-none ${app?.flush ? `ui-content ${phone ? 'pb-24' : ''}` : phone ? 'p-4 pb-24' : 'p-6'}`}>
-          {showMoreApps ? (
-            <MoreApps tenant={tenant} onAdd={addApp} onOpen={openApp} />
-          ) : platformScreen === 'profile' ? (
-            <ScreenBoundary appName="My profile" resetKey={`profile:${tenant.id}`}>
-              <ProfileScreen key={tenant.id} />
-            </ScreenBoundary>
-          ) : Screen ? (
-            <ScreenBoundary appName={app?.name} resetKey={`${app?.id}:${screen}:${tenant.id}`}>
-              {/* Same rule as an app that draws itself: a company change is a
-                  remount, not a re-render with stale figures on screen. */}
-              {/* `openScreen(key)` lets a screen link to another of its app's screens (a "3 waiting" note opening the list). */}
-              {/* One permission set for every app's screens; a screen whose resource this person may not change is shown read-only (WriteGuard). */}
-              <PermissionProvider key={tenantKey} enabled>
-                <WriteGuard permission={(app?.nav || []).find((n) => n.key === screen)?.permission}>
-                  <Suspense fallback={<AppLoading />}>
-                    <Screen
-                      key={screenParams ? `${tenant.id}:${JSON.stringify(screenParams)}` : tenant.id}
-                      params={screenParams || undefined}
-                      openScreen={(key, params) => {
-                        if (!app?.screens?.[key]) return;
-                        setScreenKey(key);
-                        setScreenParams(params && typeof params === 'object' ? params : null);
-                        setPlatformScreen(null);
-                        window.scrollTo(0, 0);
-                      }}
-                    />
-                  </Suspense>
-                </WriteGuard>
-              </PermissionProvider>
-            </ScreenBoundary>
-          ) : (
-            <p className="ui-caption">Nothing selected.</p>
-          )}
-        </main>
-        {phone && tabs.length ? (
-          <nav className="ui-tabbar" aria-label={`${app.name} quick navigation`}>
-            {tabs.map((t) => {
-              const active = screen === t.key && !platformScreen && !showMoreApps;
-              return (
-                <button
-                  key={t.key}
-                  type="button"
-                  className="ui-tabbar-item"
-                  aria-current={active ? 'page' : undefined}
-                  onClick={() => {
-                    setScreenKey(t.key);
-                    setPlatformScreen(null);
-                    setShowMoreApps(false);
-                    window.scrollTo(0, 0);
-                  }}
-                >
-                  {t.icon ? <t.icon size={20} aria-hidden="true" /> : null}
-                  <span>{t.label}</span>
-                </button>
-              );
-            })}
-            <button type="button" className="ui-tabbar-item" onClick={() => setNavOpen(true)} aria-expanded={navOpen}>
-              <Menu size={20} aria-hidden="true" />
-              <span>Menu</span>
-            </button>
-          </nav>
+          {/* `flush`: the app's pages sit edge to edge on the white content column, as Accounting's do. */}
+          <main id="main-content" tabIndex={-1} className={`flex-1 min-w-0 outline-none ${app?.flush ? `ui-content ${phone ? 'pb-24' : ''}` : phone ? 'p-4 pb-24' : 'p-6'}`}>
+            {showMoreApps ? (
+              <MoreApps tenant={tenant} onAdd={addApp} onOpen={openApp} />
+            ) : platformScreen === 'profile' ? (
+              <ScreenBoundary appName="My profile" resetKey={`profile:${tenant.id}`}>
+                <ProfileScreen key={tenant.id} />
+              </ScreenBoundary>
+            ) : Screen ? (
+              <ScreenBoundary appName={app?.name} resetKey={`${app?.id}:${screen}:${tenant.id}`}>
+                {/* Same rule as an app that draws itself: a company change is a
+                    remount, not a re-render with stale figures on screen. */}
+                {/* `openScreen(key)` lets a screen link to another of its app's screens (a "3 waiting" note opening the list). */}
+                {/* One permission set for every app's screens; a screen whose resource this person may not change is shown read-only (WriteGuard). */}
+                <PermissionProvider key={tenantKey} enabled>
+                  <WriteGuard permission={(app?.nav || []).find((n) => n.key === screen)?.permission}>
+                    <Suspense fallback={<AppLoading />}>
+                      <Screen
+                        key={screenParams ? `${tenant.id}:${JSON.stringify(screenParams)}` : tenant.id}
+                        params={screenParams || undefined}
+                        openScreen={(key, params) => {
+                          if (!app?.screens?.[key]) return;
+                          setScreenKey(key);
+                          setScreenParams(params && typeof params === 'object' ? params : null);
+                          setPlatformScreen(null);
+                          window.scrollTo(0, 0);
+                        }}
+                      />
+                    </Suspense>
+                  </WriteGuard>
+                </PermissionProvider>
+              </ScreenBoundary>
+            ) : (
+              <p className="ui-caption">Nothing selected.</p>
+            )}
+          </main>
+          {phone && tabs.length ? (
+            <nav className="ui-tabbar" aria-label={`${app.name} quick navigation`}>
+              {tabs.map((t) => {
+                const active = screen === t.key && !platformScreen && !showMoreApps;
+                return (
+                  <button
+                    key={t.key}
+                    type="button"
+                    className="ui-tabbar-item"
+                    aria-current={active ? 'page' : undefined}
+                    onClick={() => {
+                      setScreenKey(t.key);
+                      setPlatformScreen(null);
+                      setShowMoreApps(false);
+                      window.scrollTo(0, 0);
+                    }}
+                  >
+                    {t.icon ? <t.icon size={20} aria-hidden="true" /> : null}
+                    <span>{t.label}</span>
+                  </button>
+                );
+              })}
+              <button type="button" className="ui-tabbar-item" onClick={() => setNavOpen(true)} aria-expanded={navOpen}>
+                <Menu size={20} aria-hidden="true" />
+                <span>Menu</span>
+              </button>
+            </nav>
+          ) : null}
+          {/* Apps with a nav (People, Attendance, Payroll) have no root of their
+              own to mount this, so toasts and "Are you sure?" dialogs live here.
+              Accounting draws itself and mounts its own. */}
+          <Toaster />
+        </div>
+        )}
+        {paletteOpen && !Root ? (
+          <CommandPalette
+            onClose={() => setPaletteOpen(false)}
+            placeholder={`Search ${app?.name || 'CLOR'} screens and apps…`}
+            items={[
+              /* A screen can sit in two places in the menu; it is one destination here. */
+              ...[...new Map(nav.filter((i) => !i.section && app?.screens?.[i.key]).map((i) => [i.key, i])).values()].map((i) => ({ key: `screen:${i.key}`, label: i.label, group: app.name, icon: i.icon, screen: i.key })),
+              ...mine.filter((a) => a.id !== activeAppId).map((a) => ({ key: `app:${a.id}`, label: `Open ${a.name}`, group: 'Apps', icon: a.icon, appId: a.id })),
+              { key: 'profile', label: 'My profile', group: 'You', icon: UserRound },
+            ]}
+            onSelect={(item) => {
+              setPaletteOpen(false);
+              if (item.screen) goTo(item.screen);
+              else if (item.appId) openApp(item.appId);
+              else if (item.key === 'profile') {
+                setPlatformScreen('profile');
+                setShowMoreApps(false);
+              }
+            }}
+          />
         ) : null}
-        {/* Apps with a nav (People, Attendance, Payroll) have no root of their
-            own to mount this, so toasts and "Are you sure?" dialogs live here.
-            Accounting draws itself and mounts its own. */}
-        <Toaster />
       </div>
-      )}
-      {paletteOpen && !Root ? (
-        <CommandPalette
-          onClose={() => setPaletteOpen(false)}
-          placeholder={`Search ${app?.name || 'CLOR'} screens and apps…`}
-          items={[
-            /* A screen can sit in two places in the menu; it is one destination here. */
-            ...[...new Map(nav.filter((i) => !i.section && app?.screens?.[i.key]).map((i) => [i.key, i])).values()].map((i) => ({ key: `screen:${i.key}`, label: i.label, group: app.name, icon: i.icon, screen: i.key })),
-            ...mine.filter((a) => a.id !== activeAppId).map((a) => ({ key: `app:${a.id}`, label: `Open ${a.name}`, group: 'Apps', icon: a.icon, appId: a.id })),
-            { key: 'profile', label: 'My profile', group: 'You', icon: UserRound },
-          ]}
-          onSelect={(item) => {
-            setPaletteOpen(false);
-            if (item.screen) goTo(item.screen);
-            else if (item.appId) openApp(item.appId);
-            else if (item.key === 'profile') {
-              setPlatformScreen('profile');
-              setShowMoreApps(false);
-            }
-          }}
-        />
-      ) : null}
-    </div>
+    </IconSetContext.Provider>
   );
 }
 

@@ -7119,6 +7119,17 @@ th.ui-th {
 }
 
 /*
+ * Duotone icons (shared, opt-in through an app's `iconSet: 'duotone'`; see
+ * components/ui/iconSet.jsx). Phosphor draws the fill layer as shapes with an
+ * opacity attribute; it takes the outline's colour at 20% unless a palette
+ * names a fill.
+ */
+.ui-duo [opacity] {
+  fill: var(--duo-fill, currentColor);
+  opacity: var(--duo-opacity, 0.2);
+}
+
+/*
  * The Blaze palette: Blaze Orange and Graphite (2026-10-21). Shared.
  *
  * A palette, not an app's styling: any Clor app opts in with
@@ -7179,6 +7190,9 @@ th.ui-th {
   --rail-blaze-ink: 7 13 13;
   /* Blaze on Cloud White is 2.9:1: enough for 28px bold, so the greeting may wear it. */
   --hero-hi: 255 103 0;
+  /* Duotone icons: Blaze in the fill layer, the outline stays in the text colour. */
+  --duo-fill: rgb(255 103 0);
+  --duo-opacity: 0.32;
 }
 :root[data-theme='dark'][data-palette='blaze'],
 :root[data-theme='dark'] [data-palette='blaze'] {

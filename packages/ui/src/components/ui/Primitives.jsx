@@ -3,6 +3,7 @@ import { Check, Moon, Sun } from 'lucide-react';
 
 import Illustration from './Illustration';
 import { iconFor } from './entityIdentity';
+import { DUOTONE_ENTITY_ICON, useIconSet } from './iconSet';
 import { resolveStatus } from '../../utils/statusRegistry';
 
 /**
@@ -33,7 +34,8 @@ import { resolveStatus } from '../../utils/statusRegistry';
  * rather than choosing an icon and a colour for itself.
  */
 export const EntityMark = ({ entity, size = 18 }) => {
-  const icon = iconFor(entity);
+  const iconSet = useIconSet();
+  const icon = (iconSet === 'duotone' && DUOTONE_ENTITY_ICON[entity]) || iconFor(entity);
   if (!icon) return null;
   return (
     <span

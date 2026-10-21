@@ -28,4 +28,12 @@ describe('shared palettes', () => {
     expect(start).toBeGreaterThan(-1);
     expect(css.slice(start)).not.toMatch(/\[data-app='attendance'\]/);
   });
+
+  it('only Attendance draws in the duotone icon set for now', () => {
+    expect(APPS.filter((a) => a.iconSet === 'duotone').map((a) => a.id)).toEqual(['attendance']);
+  });
+
+  it('duotone icons take the palette fill through one rule', () => {
+    expect(css).toMatch(/\.ui-duo \[opacity\] \{\s*fill: var\(--duo-fill, currentColor\);/);
+  });
 });

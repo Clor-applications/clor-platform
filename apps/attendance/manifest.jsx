@@ -1,49 +1,51 @@
 import {
-  ArrowRightLeft,
-  BarChart3,
-  CalendarClock,
-  CalendarRange,
-  Gavel,
-  Briefcase,
-  Building2,
-  CalendarCheck,
-  CalendarDays,
-  CalendarOff,
-  CircleHelp,
-  ClipboardCheck,
-  Clock3,
-  Cpu,
-  Fingerprint,
-  HardHat,
-  HeartPulse,
-  KeyRound,
-  LocateFixed,
-  History,
-  Inbox,
-  LayoutDashboard,
-  ListChecks,
-  MapPin,
-  Plug,
-  Repeat,
-  RefreshCcwDot,
-  Scale,
-  ScanFace,
-  Tags,
-  UserMinus,
-  UserRoundCheck,
-  Users,
-  Grid3x3,
-  Upload,
-  Download,
-  ShieldCheck,
-  ShieldAlert,
-  Lock,
-  Timer,
-  BadgeCheck,
-  Smartphone,
-  Link2,
-  ClipboardList,
-} from 'lucide-react';
+  ArrowsClockwise as PhArrowsClockwise,
+  ArrowsLeftRight as PhArrowsLeftRight,
+  Briefcase as PhBriefcase,
+  Buildings as PhBuildings,
+  Calendar as PhCalendar,
+  CalendarBlank as PhCalendarBlank,
+  CalendarCheck as PhCalendarCheck,
+  CalendarDots as PhCalendarDots,
+  CalendarSlash as PhCalendarSlash,
+  ChartBar as PhChartBar,
+  Clipboard as PhClipboard,
+  ClipboardText as PhClipboardText,
+  Clock as PhClock,
+  ClockCounterClockwise as PhClockCounterClockwise,
+  Cpu as PhCpu,
+  Crosshair as PhCrosshair,
+  DeviceMobile as PhDeviceMobile,
+  DownloadSimple as PhDownloadSimple,
+  Fingerprint as PhFingerprint,
+  Gavel as PhGavel,
+  GridNine as PhGridNine,
+  HardHat as PhHardHat,
+  Heartbeat as PhHeartbeat,
+  Key as PhKey,
+  LinkSimple as PhLinkSimple,
+  ListChecks as PhListChecks,
+  Lock as PhLock,
+  MapPin as PhMapPin,
+  Plug as PhPlug,
+  Question as PhQuestion,
+  Repeat as PhRepeat,
+  Scales as PhScales,
+  ScanSmiley as PhScanSmiley,
+  SealCheck as PhSealCheck,
+  ShieldCheck as PhShieldCheck,
+  ShieldWarning as PhShieldWarning,
+  SquaresFour as PhSquaresFour,
+  Tag as PhTag,
+  Timer as PhTimer,
+  Tray as PhTray,
+  UploadSimple as PhUploadSimple,
+  UserCheck as PhUserCheck,
+  UserMinus as PhUserMinus,
+  Users as PhUsers,
+} from '@phosphor-icons/react';
+
+import { duotone } from '@ui/components/ui/iconSet';
 
 import { lazy } from 'react';
 import { lazyScreens } from '@ui/utils/lazyScreens';
@@ -103,6 +105,54 @@ const AttendanceSetup = screen('AttendanceSetup');
 /* The employee portal is its own file: a phone at the gate needs nothing else. */
 const EmployeePortal = lazy(() => import('./src/portal/EmployeePortal'));
 
+/* Duotone icons (Phosphor), under the names the nav below already uses: the
+   Blaze palette tints their fill layer orange. Attendance opts into this set
+   with `iconSet: 'duotone'`; other apps keep the line icons. */
+const ArrowRightLeft = duotone(PhArrowsLeftRight, 'ArrowsLeftRight');
+const BarChart3 = duotone(PhChartBar, 'ChartBar');
+const CalendarClock = duotone(PhCalendarDots, 'CalendarDots');
+const CalendarRange = duotone(PhCalendarBlank, 'CalendarBlank');
+const Gavel = duotone(PhGavel, 'Gavel');
+const Briefcase = duotone(PhBriefcase, 'Briefcase');
+const Building2 = duotone(PhBuildings, 'Buildings');
+const CalendarCheck = duotone(PhCalendarCheck, 'CalendarCheck');
+const CalendarDays = duotone(PhCalendar, 'Calendar');
+const CalendarOff = duotone(PhCalendarSlash, 'CalendarSlash');
+const CircleHelp = duotone(PhQuestion, 'Question');
+const ClipboardCheck = duotone(PhClipboardText, 'ClipboardText');
+const Clock3 = duotone(PhClock, 'Clock');
+const Cpu = duotone(PhCpu, 'Cpu');
+const Fingerprint = duotone(PhFingerprint, 'Fingerprint');
+const HardHat = duotone(PhHardHat, 'HardHat');
+const HeartPulse = duotone(PhHeartbeat, 'Heartbeat');
+const KeyRound = duotone(PhKey, 'Key');
+const LocateFixed = duotone(PhCrosshair, 'Crosshair');
+const History = duotone(PhClockCounterClockwise, 'ClockCounterClockwise');
+const Inbox = duotone(PhTray, 'Tray');
+const LayoutDashboard = duotone(PhSquaresFour, 'SquaresFour');
+const ListChecks = duotone(PhListChecks, 'ListChecks');
+const MapPin = duotone(PhMapPin, 'MapPin');
+const Plug = duotone(PhPlug, 'Plug');
+const Repeat = duotone(PhRepeat, 'Repeat');
+const RefreshCcwDot = duotone(PhArrowsClockwise, 'ArrowsClockwise');
+const Scale = duotone(PhScales, 'Scales');
+const ScanFace = duotone(PhScanSmiley, 'ScanSmiley');
+const Tags = duotone(PhTag, 'Tag');
+const UserMinus = duotone(PhUserMinus, 'UserMinus');
+const UserRoundCheck = duotone(PhUserCheck, 'UserCheck');
+const Users = duotone(PhUsers, 'Users');
+const Grid3x3 = duotone(PhGridNine, 'GridNine');
+const Upload = duotone(PhUploadSimple, 'UploadSimple');
+const Download = duotone(PhDownloadSimple, 'DownloadSimple');
+const ShieldCheck = duotone(PhShieldCheck, 'ShieldCheck');
+const ShieldAlert = duotone(PhShieldWarning, 'ShieldWarning');
+const Lock = duotone(PhLock, 'Lock');
+const Timer = duotone(PhTimer, 'Timer');
+const BadgeCheck = duotone(PhSealCheck, 'SealCheck');
+const Smartphone = duotone(PhDeviceMobile, 'DeviceMobile');
+const Link2 = duotone(PhLinkSimple, 'LinkSimple');
+const ClipboardList = duotone(PhClipboard, 'Clipboard');
+
 /**
  * Everything the shell knows about Attendance.
  *
@@ -126,6 +176,8 @@ export const attendanceApp = {
   home: 'today',
   /** The shared Blaze palette (packages/ui/src/index.css, [data-palette='blaze']). */
   palette: 'blaze',
+  /** Shared duotone icons (packages/ui/src/components/ui/iconSet.jsx). */
+  iconSet: 'duotone',
   /* The phone's tab bar; the rest is behind Menu (packages/shell/mobileTabs.js). */
   /* In order of preference, among the screens this person may open: a manager
      gets Exceptions, their main to-do (UX-14); someone without it gets My attendance. */

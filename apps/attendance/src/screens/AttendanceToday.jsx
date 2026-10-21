@@ -1,8 +1,37 @@
 import React, { useEffect, useState } from 'react';
-import { CalendarCheck, CalendarOff, ChevronRight, Clock, Cpu, Inbox, ListChecks, Moon, Sun, Sunrise, UserCheck, UserX, Users } from 'lucide-react';
+import { ChevronRight } from 'lucide-react';
+import {
+  CalendarCheck as PhCalendarCheck,
+  CalendarSlash as PhCalendarSlash,
+  Clock as PhClock,
+  Cpu as PhCpu,
+  ListChecks as PhListChecks,
+  Moon as PhMoon,
+  Sun as PhSun,
+  SunHorizon as PhSunHorizon,
+  Tray as PhTray,
+  UserCheck as PhUserCheck,
+  UserMinus as PhUserMinus,
+  Users as PhUsers,
+} from '@phosphor-icons/react';
+import { duotone } from '@ui/components/ui/iconSet';
 
 import { PageHeader, SkeletonCard, StatTile } from '@ui/components/ui/Primitives';
 import { currentUser } from '@platform/context';
+
+/* Attendance draws in the shared duotone set; the Blaze palette tints the fill. */
+const CalendarCheck = duotone(PhCalendarCheck, 'CalendarCheck');
+const CalendarOff = duotone(PhCalendarSlash, 'CalendarSlash');
+const Clock = duotone(PhClock, 'Clock');
+const Cpu = duotone(PhCpu, 'Cpu');
+const Inbox = duotone(PhTray, 'Tray');
+const ListChecks = duotone(PhListChecks, 'ListChecks');
+const Moon = duotone(PhMoon, 'Moon');
+const Sun = duotone(PhSun, 'Sun');
+const Sunrise = duotone(PhSunHorizon, 'SunHorizon');
+const UserCheck = duotone(PhUserCheck, 'UserCheck');
+const UserX = duotone(PhUserMinus, 'UserMinus');
+const Users = duotone(PhUsers, 'Users');
 import { getCalendar, getOverview, getReaderHealth, todayIst } from '../api/attendance';
 import LoadFailed from '../components/LoadFailed';
 
