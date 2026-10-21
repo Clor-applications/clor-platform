@@ -6,6 +6,8 @@ import { requireTenantContext } from '../middleware/tenantContext.js';
 import { requirePermission } from '../middleware/rbac.js';
 import { PermissionAction } from '../constants/enums.js';
 import { peoplePrisma } from '../utils/peoplePrisma.js';
+import { AnonymiseError, anonymiseEmployee } from '../services/anonymiseEmployee.js';
+import { recordAudit } from '../services/auditTrail.js';
 import { peopleEvent } from '../services/people/documentReminders.js';
 import { payrollPrisma } from '../utils/payrollPrisma.js';
 import { PEOPLE_MODULE, PEOPLE_RESOURCE, peopleRouteOk } from '../services/people/guards.js';
@@ -801,4 +803,54 @@ peopleRouter.post('/orgs/:orgId/people/data-requests/:id/resolve', can(Permissio
   if (!resolution) return res.status(400).json({ error: 'Say what was done — the person reads this.' });
   const updated = await peoplePrisma.dataRequest.update({ where: { id: r.id }, data: { status, resolution, reviewedByUserId: req.auth!.userId, reviewedAt: new Date() } });
   res.json({ request: updated });
+});
+
+/*
+ * Anonymise a former employee (LX-07): erase what no law makes the company
+ * keep; see services/anonymiseEmployee.ts for exactly what goes and stays.
+ * Irreversible, so the caller types the person's name, and it needs the right
+ * to delete employees. With an erasure request's id, that request is answered
+ * as done, in words the person will read in the portal.
+ */
+peopleRouter.post('/orgs/:orgId/people/employees/:id/anonymise', can(PermissionAction.DELETE, EMPLOYEES), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const employeeId = String(req.params.id);
+  const e = await peoplePrisma.employee.findFirst({ where: { id: employeeId, accountId, orgId }, select: { name: true } });
+  if (!e) return res.status(404).json({ error: 'No such employee.' });
+  if (String(req.body?.confirmName || '').trim().toLowerCase() !== e.name.trim().toLowerCase()) {
+    return res.status(400).json({ error: `Type ${e.name} exactly to confirm.`, code: 'CONFIRM_NAME' });
+  }
+  const requestId = req.body?.dataRequestId ? String(req.body.dataRequestId) : '';
+  const request = requestId
+    ? await peoplePrisma.dataRequest.findFirst({ where: { id: requestId, accountId, orgId, employeeId, type: 'ERASURE', status: 'PENDING' } })
+    : null;
+  if (requestId && !request) return res.status(409).json({ error: 'That erasure request is not open for this person.' });
+
+  let result;
+  try {
+    result = await anonymiseEmployee({ accountId, orgId, employeeId });
+  } catch (err) {
+    if (err instanceof AnonymiseError) return res.status(err.status).json({ error: err.message, code: err.code });
+    throw err;
+  }
+  if (request) {
+    await peoplePrisma.dataRequest.update({
+      where: { id: request.id },
+      data: {
+        status: 'RESOLVED',
+        resolution: `Your personal data was erased on ${result.anonymisedAt.slice(0, 10)}. The law makes us keep your name, employee code, dates of employment, attendance and pay records for a fixed period; they are deleted when it ends.`,
+        reviewedByUserId: req.auth!.userId,
+        reviewedAt: new Date(),
+      },
+    });
+  }
+  await recordAudit(req, {
+    entity: 'Employee',
+    entityId: employeeId,
+    action: 'ANONYMISE',
+    message: `Anonymised ${result.name}${result.code ? ` (${result.code})` : ''}${request ? ', answering their erasure request' : ''}`,
+    metadata: { erased: result.erased, kept: result.kept, dataRequestId: request?.id || null },
+  });
+  res.json({ result, requestResolved: Boolean(request) });
 });

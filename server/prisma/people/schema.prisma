@@ -73,6 +73,9 @@ model Employee {
   /// The employee privacy notice version they last read in the portal, and when.
   privacyNoticeVersion     String?
   privacyNoticeAckAt       DateTime?
+  /// LX-07: personal data erased on this date (contact, address, biometrics, photos, notes, ID documents);
+  /// what labour, tax and PF law keep (name, code, dates, attendance, pay) stays until its retention ends.
+  anonymisedAt             DateTime?
   maritalStatus            String? /// SINGLE | MARRIED | DIVORCED | WIDOWED
   personalEmail            String?
   /// A small square image, resized client-side, stored as a data URL (as the

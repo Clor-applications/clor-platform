@@ -1,12 +1,13 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { AlarmClock, Check, CheckCheck, Clock, ShieldCheck, X } from 'lucide-react';
+import { AlarmClock, Check, CheckCheck, Clock, Eraser, ShieldCheck, X } from 'lucide-react';
 
 import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
 import { useListSearch } from '@ui/components/ListToolbar';
 import DocumentListShell from '@ui/components/list/DocumentListShell';
 import { SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
+import Drawer from '@ui/components/ui/Drawer';
 import { notify } from '@ui/components/ui/notify';
-import { listDataRequests, resolveDataRequest } from '@ui/personnel/api';
+import { anonymiseEmployee, listDataRequests, resolveDataRequest } from '@ui/personnel/api';
 import LoadFailed from '../components/LoadFailed';
 
 /**
@@ -60,6 +61,24 @@ export default function DataRequests() {
     const pending = all.filter((r) => r.status === 'PENDING').map(timing);
     return { waiting: pending.length, late: pending.filter((t) => t.late).length, soon: pending.filter((t) => t.soon).length, done: counts.RESOLVED || 0 };
   }, [all, counts, timing]);
+
+  /* LX-07: an erasure request is answered by anonymising the person, not by a note saying it was done. */
+  const [erasing, setErasing] = useState(null);
+  const [typed, setTyped] = useState('');
+  const [busy, setBusy] = useState(false);
+  const anonymise = async () => {
+    setBusy(true);
+    try {
+      await anonymiseEmployee(erasing.employeeId, { confirmName: typed, dataRequestId: erasing.id });
+      notify.success(`${erasing.employeeName}'s personal data was erased. Their request is answered.`);
+      setErasing(null);
+      load();
+    } catch (e) {
+      notify.error(String(e?.message || 'Not done.'));
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const decide = async (r, status) => {
     const resolution = (answer[r.id] || '').trim();
@@ -148,7 +167,11 @@ export default function DataRequests() {
                           <div className="space-y-2">
                             <textarea className="ui-input w-full" rows={2} aria-label={`Answer to ${r.employeeName}`} placeholder="What was done, or why not — the person reads this" value={answer[r.id] || ''} onChange={(e) => setAnswer({ ...answer, [r.id]: e.target.value })} />
                             <div className="flex gap-1">
-                              <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => decide(r, 'RESOLVED')}><Check size={14} aria-hidden="true" /> Mark done</button>
+                              {r.type === 'ERASURE' ? (
+                                <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => { setTyped(''); setErasing(r); }}><Eraser size={14} aria-hidden="true" /> Anonymise…</button>
+                              ) : (
+                                <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => decide(r, 'RESOLVED')}><Check size={14} aria-hidden="true" /> Mark done</button>
+                              )}
                               <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" onClick={() => decide(r, 'REJECTED')}><X size={14} aria-hidden="true" /> Decline</button>
                             </div>
                           </div>
@@ -162,6 +185,41 @@ export default function DataRequests() {
           </table>
         </div>
       )}
+      {erasing ? (
+        <Drawer
+          open
+          onClose={() => setErasing(null)}
+          title={`Anonymise ${erasing.employeeName}`}
+          description="Erases their personal data. This cannot be undone."
+          widthClass="w-[min(36rem,96vw)]"
+          actions={
+            <>
+              <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setErasing(null)} disabled={busy}>Cancel</button>
+              <button type="button" className="ui-btn ui-btn-danger" data-write onClick={anonymise} disabled={busy || typed.trim().toLowerCase() !== String(erasing.employeeName || '').trim().toLowerCase()}>
+                {busy ? 'Erasing…' : 'Anonymise'}
+              </button>
+            </>
+          }
+        >
+          <div className="space-y-4 text-sm">
+            <p>Only for someone who has left. Record their leaving under Resignations first if you have not.</p>
+            <div>
+              <p className="ui-label">Erased now</p>
+              <p>Phone, emails, home address, emergency contact, date of birth, gender, marital status, photo, notes and tags, reader PIN, card and password, portal sign-in, fingerprint and face copies held by CLOR, punch selfies and phone-punch locations, and documents other than contracts and payslips.</p>
+            </div>
+            <div>
+              <p className="ui-label">Kept, because labour, tax and PF law require it</p>
+              <p>Name and employee code, joining and leaving dates, department and designation, attendance and punch times, leave and overtime, payroll and statutory numbers, contracts and payslips. These are deleted when their retention period ends.</p>
+            </div>
+            <p className="ui-caption">Fingerprints and faces already on the readers stay there until the person is removed from each reader.</p>
+            <label className="block">
+              <span className="ui-label">Type {erasing.employeeName} to confirm</span>
+              <input className="ui-input w-full" value={typed} onChange={(e) => setTyped(e.target.value)} autoComplete="off" aria-label={`Type ${erasing.employeeName} to confirm`} />
+            </label>
+            <p className="ui-caption">Their request is answered as done, and the erasure is recorded in the audit log.</p>
+          </div>
+        </Drawer>
+      ) : null}
     </DocumentListShell>
   );
 }

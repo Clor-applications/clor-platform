@@ -47,6 +47,8 @@ export const deleteDocument = (docId) => send(`/documents/${encodeURIComponent(d
 /* DPDP data requests raised from the portal. */
 export const listDataRequests = (status) => apiFetch(`${base()}/data-requests${status ? `?status=${encodeURIComponent(status)}` : ''}`, opts);
 export const resolveDataRequest = (id, body) => send(`/data-requests/${encodeURIComponent(id)}/resolve`, 'POST', body);
+/** LX-07: erase a former employee's personal data (irreversible); `dataRequestId` answers their erasure request. */
+export const anonymiseEmployee = (employeeId, body) => send(`/employees/${encodeURIComponent(employeeId)}/anonymise`, 'POST', body);
 export const listNotes = (employeeId) => apiFetch(`${base()}/employees/${encodeURIComponent(employeeId)}/notes`, opts).then((r) => r?.notes || []);
 export const addNote = (employeeId, body) => send(`/employees/${encodeURIComponent(employeeId)}/notes`, 'POST', { body });
 export const deleteNote = (noteId) => send(`/notes/${encodeURIComponent(noteId)}`, 'DELETE');
