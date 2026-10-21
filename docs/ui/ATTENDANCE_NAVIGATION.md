@@ -43,7 +43,7 @@ days and leave; removing it would remove that access.
 - Scheduling: Schedule Calendar, Shifts, Shift Assignments, Department Schedules, Temporary Schedules, Shift Rotations
 - Leave: Leave Requests, Leave Balances
 - Time Management: Overtime & Comp-Off
-- Period Closing: Employee Confirmations, Month Close
+- Period Closing: Payroll Readiness, Employee Confirmations, Month Close
 
 **Reports**
 - Overview: Attendance Insights
@@ -98,6 +98,7 @@ days and leave; removing it would remove that access.
 | Leave requests | `leaveRequests` | Leave Requests | Leave | Attendance | Renamed |
 | Leave balances | `leaveBalances` | Leave Balances | Leave | Attendance | Moved from Leave setup |
 | Overtime & comp-off | `overtime` | Overtime & Comp-Off | Time Management | Attendance | Renamed |
+| (new) | `payrollReadiness` | Payroll Readiness | Period Closing | Attendance | New: HR research control tower (issues, owners, people blocking, pay at stake) |
 | Employee confirmations | `confirmations` | Employee Confirmations | Period Closing | Attendance | Moved from Reports group |
 | Month close | `monthClose` | Month Close | Period Closing | Attendance | Moved from Reports group |
 | Register | `register` | Daily Attendance Register | Attendance | Reports | Moved to Reports |
@@ -126,6 +127,7 @@ days and leave; removing it would remove that access.
 | Export | `dataExport` | Export Data | Data Management | Settings | Renamed |
 | Data protection | `dataProtection` | Data Protection | Privacy | Settings | Moved from Personnel |
 | Data requests | `dataRequests` | Data Requests | Privacy | Settings | Moved from Personnel |
+| (new) | `dataHealth` | Data Health | Data Management | Settings | New: HR research implementation auditor |
 | (new) | `auditLogs` | Audit Logs | Audit & Recovery | Settings | New: who changed what in People and Attendance (read-only) |
 | (new) | `recycleBin` | Recycle Bin | Audit & Recovery | Settings | New: deleted items kept 30 days, restorable |
 | My attendance | `me` | My Attendance | Self-Service | Me | Renamed |

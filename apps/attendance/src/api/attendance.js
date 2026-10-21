@@ -270,6 +270,8 @@ export const setExceptionState = (body) => send('/exceptions/state', 'POST', bod
 export const setExceptionStates = (body) => send('/exceptions/state/bulk', 'POST', body);
 /** The month-close checklist, and the figures Payroll took when it closed. */
 export const getMonthReadiness = (month) => get(`/months/${encodeURIComponent(month)}/readiness`);
+/* Payroll readiness across Attendance and People / Payroll data, with money at stake (server: services/payroll/readinessTower.ts). */
+export const getPayrollReadiness = (month) => get(`/months/${encodeURIComponent(month)}/payroll-readiness`);
 export const getMonthSnapshot = (month, version) => get(`/months/${encodeURIComponent(month)}/snapshots/${encodeURIComponent(version)}`);
 /** What a schedule change would do, before it is saved. */
 export const checkSchedule = (body) => send('/schedule/check', 'POST', body);

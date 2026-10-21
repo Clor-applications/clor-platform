@@ -41,7 +41,7 @@ describe('Attendance navigation structure', () => {
       ['Scheduling', ['Schedule Calendar', 'Shifts', 'Shift Assignments', 'Department Schedules', 'Temporary Schedules', 'Shift Rotations']],
       ['Leave', ['Leave Requests', 'Leave Balances']],
       ['Time Management', ['Overtime & Comp-Off']],
-      ['Period Closing', ['Employee Confirmations', 'Month Close']],
+      ['Period Closing', ['Payroll Readiness', 'Employee Confirmations', 'Month Close']],
     ]);
     expect(s.Reports).toEqual([
       ['Overview', ['Attendance Insights']],

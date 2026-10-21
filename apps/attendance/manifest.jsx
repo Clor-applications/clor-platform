@@ -82,6 +82,7 @@ const Transactions = screen('Transactions');
 const Punches = screen('Punches');
 const AuditLogs = screen('AuditLogs');
 const DataHealth = screen('DataHealth');
+const PayrollReadiness = screen('PayrollReadiness');
 const RecycleBin = screen('RecycleBin');
 const DeviceLogs = screen('DeviceLogs');
 const AttendanceReports = screen('AttendanceReports');
@@ -236,7 +237,7 @@ export const attendanceApp = {
       { label: 'Scheduling', items: ['scheduleCalendar', 'shifts', 'shiftAssignments', 'departmentSchedule', 'temporarySchedule', 'rotations'] },
       { label: 'Leave', items: ['leaveRequests', 'leaveBalances'] },
       { label: 'Time Management', items: ['overtime'] },
-      { label: 'Period Closing', items: ['confirmations', 'monthClose'] },
+      { label: 'Period Closing', items: ['payrollReadiness', 'confirmations', 'monthClose'] },
     ] },
     { key: 'reports', label: 'Reports', groups: [
       { label: 'Overview', items: ['reportInsights'] },
@@ -338,6 +339,8 @@ export const attendanceApp = {
     { key: 'dataExport', label: 'Export Data', icon: Download, permission: 'ATTENDANCE::Attendance Records::VIEW' },
     /* LX-07: shared screen; the server lets only the company's owner ask or cancel. */
     { key: 'closeCompany', label: 'Close Company', icon: Lock, permission: 'SETTINGS::Company data::VIEW' },
+    /* HR research Phase 1: the control tower for one month's payroll. */
+    { key: 'payrollReadiness', label: 'Payroll Readiness', icon: ClipboardCheck, permission: 'ATTENDANCE::Attendance Records::VIEW' },
     /* HR research Phase 1: the implementation auditor. */
     { key: 'dataHealth', label: 'Data Health', icon: ShieldCheck, permission: 'PEOPLE::Employees::VIEW' },
     { key: 'auditLogs', label: 'Audit Logs', icon: AuditIcon, permission: 'SETTINGS::Audit trail::VIEW' },
@@ -402,6 +405,7 @@ export const attendanceApp = {
     closeCompany: CloseCompany,
     auditLogs: AuditLogs,
     dataHealth: DataHealth,
+    payrollReadiness: PayrollReadiness,
     recycleBin: RecycleBin,
     dataProtection: DataProtection,
     sso: SsoSettings,

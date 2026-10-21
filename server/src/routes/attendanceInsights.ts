@@ -4,7 +4,7 @@ import { z } from 'zod';
 
 import { requireAuth } from '../middleware/auth.js';
 import { requireTenantContext } from '../middleware/tenantContext.js';
-import { requirePermission } from '../middleware/rbac.js';
+import { authorize, requirePermission } from '../middleware/rbac.js';
 import { PermissionAction } from '../constants/enums.js';
 import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { platformPrisma } from '../utils/platformPrisma.js';
@@ -31,6 +31,8 @@ import {
   withNames,
   writeDay,
 } from './attendance.js';
+import { payrollReadiness } from '../services/payroll/readinessTower.js';
+import { PAYROLL_MODULE, PAYROLL_RESOURCE } from '../services/payroll/guards.js';
 
 /**
  * Attendance you can trust: the reads and the careful writes built on top of
@@ -305,6 +307,20 @@ attendanceInsightsRouter.get(`${base}/months/:month/readiness`, can(PermissionAc
   const r = await monthReadiness(accountId, orgId, month);
   const by = await namesOf(r.snapshots.map((s) => s.createdByUserId));
   res.json({ ...r, snapshots: r.snapshots.map((s) => ({ ...s, by: actorName(s.createdByUserId, by) })), confirmations: await confirmationsFor(orgId, month) });
+});
+
+/**
+ * Payroll readiness across Attendance and People / Payroll data, with the
+ * money at stake (services/payroll/readinessTower.ts). Rupees only for
+ * someone who may see salary assignments.
+ */
+attendanceInsightsRouter.get(`${base}/months/:month/payroll-readiness`, can(PermissionAction.VIEW, R.records), async (req, res) => {
+  if (!(await attendanceRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const month = String(req.params.month);
+  if (!isMonth(month)) return res.status(400).json({ error: 'Months are YYYY-MM.' });
+  const pay = !(await authorize(req, PAYROLL_MODULE, PermissionAction.VIEW as any, PAYROLL_RESOURCE.assignments));
+  res.json(await payrollReadiness(accountId, orgId, month, { pay }));
 });
 
 attendanceInsightsRouter.get(`${base}/months/:month/snapshots/:version`, can(PermissionAction.VIEW, R.records), async (req, res) => {

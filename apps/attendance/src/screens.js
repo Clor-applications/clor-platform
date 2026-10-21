@@ -27,6 +27,7 @@ export { default as UnmatchedPunches } from './screens/UnmatchedPunches';
 export { default as Enrolments } from './screens/Enrolments';
 export { default as Transactions, Punches } from './screens/Transactions';
 export { default as AuditLogs } from './screens/AuditLogs';
+export { default as PayrollReadiness } from './screens/PayrollReadiness';
 export { default as RecycleBin } from './screens/RecycleBin';
 export { default as DeviceLogs } from './screens/DeviceLogs';
 export { default as AttendanceReports } from './screens/AttendanceReports';
