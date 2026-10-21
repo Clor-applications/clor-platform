@@ -50,4 +50,6 @@ export { default as OvertimeRequests } from './screens/OvertimeRequests';
 export { default as MonthConfirmations } from './screens/MonthConfirmations';
 export { default as PhonePunches } from './screens/PhonePunches';
 export { default as IdMapping } from './screens/IdMapping';
+export { default as WeeklyOffPolicy } from './screens/WeeklyOffPolicy';
+export { default as OvertimePolicy } from './screens/OvertimePolicy';
 export { default as AttendanceSetup } from './screens/AttendanceSetup';

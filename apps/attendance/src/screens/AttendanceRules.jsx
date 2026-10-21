@@ -45,7 +45,7 @@ export default function AttendanceRules() {
     }
   };
 
-  const header = <PageHeader entity="settings" title="Attendance policies" description="Company-wide. Grace, half day, overtime and weekly offs are set on each shift." />;
+  const header = <PageHeader entity="settings" title="Attendance policy" description="Company-wide. Grace, half day, overtime and weekly offs are set on each shift." />;
   if (!rules) {
     return (
       <div className="space-y-3">

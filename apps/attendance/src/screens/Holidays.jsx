@@ -89,7 +89,7 @@ export default function Holidays() {
   return (
     <DocumentListShell
       entity="holiday"
-      title="Holiday calendars"
+      title="Holidays"
       description="Paid days off — for everyone, or only one area’s people (a plant in another state keeps its own). Optional holidays do not change anyone's attendance."
       compact
       tight

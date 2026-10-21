@@ -102,6 +102,8 @@ const MonthConfirmations = screen('MonthConfirmations');
 const PhonePunches = screen('PhonePunches');
 const IdMapping = screen('IdMapping');
 const AttendanceSetup = screen('AttendanceSetup');
+const WeeklyOffPolicy = screen('WeeklyOffPolicy');
+const OvertimePolicy = screen('OvertimePolicy');
 /* The employee portal is its own file: a phone at the gate needs nothing else. */
 const EmployeePortal = lazy(() => import('./src/portal/EmployeePortal'));
 
@@ -231,8 +233,10 @@ export const attendanceApp = {
       { label: 'All Reports', items: ['reports'] },
     ] },
     { key: 'system', label: 'Settings', groups: [
-      { label: 'Organization', items: ['setup', 'sites', 'siteCheck', 'holidays'] },
-      { label: 'Policies', items: ['rules', 'leaveTypes'] },
+      { label: 'Organization', items: ['setup', 'sites', 'siteCheck'] },
+      /* Founder's Work Policy group (NV-02). Weekly off and overtime are views
+         over the shifts' own fields and the company rules, not new rules. */
+      { label: 'Work Policy', items: ['rules', 'weeklyOffPolicy', 'overtimePolicy', 'leaveTypes', 'holidays'] },
       { label: 'Integrations', items: ['integrations'] },
       { label: 'Access & Security', items: ['sso'] },
       { label: 'Data Management', items: ['dataImport', 'dataExport'] },
@@ -303,9 +307,11 @@ export const attendanceApp = {
     { key: 'setup', label: 'Attendance Setup', icon: ClipboardList, permission: 'ATTENDANCE::Attendance Records::VIEW' },
     { key: 'sites', label: 'Work Sites', icon: LocateFixed, permission: 'ATTENDANCE::Employee Portal::VIEW' },
     { key: 'siteCheck', label: 'Work Site Check', icon: MapPin, permission: 'ATTENDANCE::Employee Portal::VIEW' },
-    { key: 'holidays', label: 'Holiday Calendars', icon: CalendarDays, permission: 'ATTENDANCE::Holidays::VIEW' },
-    { key: 'rules', label: 'Attendance Policies', icon: Gavel, permission: 'ATTENDANCE::Shifts::VIEW' },
-    { key: 'leaveTypes', label: 'Leave Policies', icon: Tags, permission: 'ATTENDANCE::Leave Types::VIEW' },
+    { key: 'rules', label: 'Attendance Policy', icon: Gavel, permission: 'ATTENDANCE::Shifts::VIEW' },
+    { key: 'weeklyOffPolicy', label: 'Weekly Off Policy', icon: CalendarOff, permission: 'ATTENDANCE::Shifts::VIEW' },
+    { key: 'overtimePolicy', label: 'Overtime Policy', icon: Timer, permission: 'ATTENDANCE::Attendance Records::VIEW' },
+    { key: 'leaveTypes', label: 'Leave Policy', icon: Tags, permission: 'ATTENDANCE::Leave Types::VIEW' },
+    { key: 'holidays', label: 'Holidays', icon: CalendarDays, permission: 'ATTENDANCE::Holidays::VIEW' },
     { key: 'integrations', label: 'Integrations', icon: Plug, permission: 'ATTENDANCE::Attendance Integrations::VIEW' },
     /* The same SSO set-up as Accounting's Settings → Single Sign-On: one per company, for every CLOR app. */
     { key: 'sso', label: 'Single Sign-On', icon: KeyRound, permission: 'SETTINGS::Users::VIEW' },
@@ -377,6 +383,8 @@ export const attendanceApp = {
     phonePunches: PhonePunches,
     idMapping: IdMapping,
     setup: AttendanceSetup,
+    weeklyOffPolicy: WeeklyOffPolicy,
+    overtimePolicy: OvertimePolicy,
   },
   /** For people who are not CLOR users, at #/<key>; the shell routes, the app draws. */
   publicPages: {

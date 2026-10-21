@@ -10,17 +10,13 @@ import Drawer from '@ui/components/ui/Drawer';
 import { notify } from '@ui/components/ui/notify';
 import { decideOvertimeRequest, getOvertimeRules, listOvertimeRequests, saveOvertimeRules } from '../api/attendance';
 import LoadFailed from '../components/LoadFailed';
+import OvertimeRuleFields from '../components/OvertimeRuleFields';
 
 /**
  * Overtime and comp-off asked for from the employee app, and the company's
  * rules for them. Approved overtime is marked approved on the day (and so is
  * paid); approved comp-off adds its days to the chosen leave type.
  */
-const CHAINS = {
-  HR: 'HR decides',
-  MANAGER: 'The manager decides (HR can still step in)',
-  MANAGER_THEN_HR: 'The manager, then HR',
-};
 const hours = (m) => `${Math.floor(m / 60)}h ${String(m % 60).padStart(2, '0')}m`;
 
 const TABS = [
@@ -186,28 +182,7 @@ export default function OvertimeRequests() {
           actions={<button type="button" className="ui-btn ui-btn-secondary" onClick={() => setShowRules(false)}>Done</button>}
         >
           <div className="space-y-3">
-            <label className="flex items-center gap-2">
-              <input type="checkbox" checked={rules.overtimeRequests} onChange={(e) => save({ ...rules, overtimeRequests: e.target.checked })} />
-              Employees can ask for their overtime to be approved
-            </label>
-            <label className="block">
-              <span className="ui-label">Who decides overtime and comp-off</span>
-              <select className="ui-input" value={rules.overtimeApproval} onChange={(e) => save({ ...rules, overtimeApproval: e.target.value })}>
-                {Object.entries(CHAINS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-              </select>
-            </label>
-            <label className="flex items-center gap-2">
-              <input type="checkbox" checked={rules.compOffEnabled} disabled={!rules.compOffLeaveTypeId} onChange={(e) => save({ ...rules, compOffEnabled: e.target.checked })} />
-              Give comp-off for work on a weekly off or holiday
-            </label>
-            <label className="block">
-              <span className="ui-label">Comp-off days are added to</span>
-              <select className="ui-input" value={rules.compOffLeaveTypeId || ''} onChange={(e) => save({ ...rules, compOffLeaveTypeId: e.target.value || null, compOffEnabled: e.target.value ? rules.compOffEnabled : false })}>
-                <option value="">Choose a leave type</option>
-                {types.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
-              </select>
-              <span className="ui-caption">Use a leave type with no yearly days of its own (for example “Comp-off”), so its balance is only what was earned. A full day worked earns 1 day; a half day earns ½.</span>
-            </label>
+            <OvertimeRuleFields rules={rules} types={types} save={save} />
             <label className="block">
               <span className="ui-label">Employees confirm their month by this day of the next month</span>
               <input type="number" min={1} max={28} className="ui-input !w-24" value={rules.confirmCutoffDay} onChange={(e) => setRules({ ...rules, confirmCutoffDay: Number(e.target.value) })} onBlur={() => save(rules)} />

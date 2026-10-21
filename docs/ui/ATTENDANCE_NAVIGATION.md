@@ -53,8 +53,8 @@ days and leave; removing it would remove that access.
 - All Reports: Report Catalogue
 
 **Settings**
-- Organization: Attendance Setup, Work Sites, Work Site Check, Holiday Calendars
-- Policies: Attendance Policies, Leave Policies
+- Organization: Attendance Setup, Work Sites, Work Site Check
+- Work Policy: Attendance Policy, Weekly Off Policy, Overtime Policy, Leave Policy, Holidays
 - Integrations: Integrations
 - Access & Security: Single Sign-On
 - Data Management: Import Data, Export Data
@@ -112,9 +112,11 @@ days and leave; removing it would remove that access.
 | Setup | `setup` | Attendance Setup | Organization | Settings | Renamed |
 | Work sites | `sites` | Work Sites | Organization | Settings | Moved from Employee portal |
 | Site check | `siteCheck` | Work Site Check | Organization | Settings | Renamed |
-| Holidays | `holidays` | Holiday Calendars | Organization | Settings | Moved from Attendance |
-| Attendance rules | `rules` | Attendance Policies | Policies | Settings | Moved from Attendance |
-| Leave types | `leaveTypes` | Leave Policies | Policies | Settings | Moved from Attendance |
+| Holidays | `holidays` | Holidays | Work Policy | Settings | Moved from Attendance |
+| Attendance rules | `rules` | Attendance Policy | Work Policy | Settings | Moved from Attendance |
+| (new view) | `weeklyOffPolicy` | Weekly Off Policy | Work Policy | Settings | New screen over each shift's weekly offs (NV-03) |
+| (new view) | `overtimePolicy` | Overtime Policy | Work Policy | Settings | New screen over shift overtime starts and the overtime rules (NV-04) |
+| Leave types | `leaveTypes` | Leave Policy | Work Policy | Settings | Moved from Attendance |
 | Integrations | `integrations` | Integrations | Integrations | Settings | Kept |
 | Single sign-on | `sso` | Single Sign-On | Access & Security | Settings | Renamed |
 | Import | `dataImport` | Import Data | Data Management | Settings | Renamed |
@@ -131,7 +133,7 @@ A named report is the Report Catalogue opened on that report
 
 | Proposed item | Where it already lives |
 |---|---|
-| Weekly-Off Policies, Overtime Policies, Shift Policies | Set on each shift (Shifts) |
+| Shift Policies | Set on each shift (Shifts) |
 | Punch Policies | Attendance Policies ("Readers and phone punches") |
 | API Credentials, Webhooks | Integrations (API keys, webhooks sections) |
 | API / Middleware, Local Connectors (punch sources) | Integrations (on-site connectors) |
