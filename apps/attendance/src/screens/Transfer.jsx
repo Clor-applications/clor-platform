@@ -25,6 +25,9 @@ export default function Transfer() {
   const [q, setQ] = useState('');
   const [picked, setPicked] = useState(() => new Set());
   const [saving, setSaving] = useState(false);
+  /* Employment history: from when the move counts, and why. */
+  const [effectiveDate, setEffectiveDate] = useState(() => new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10));
+  const [note, setNote] = useState('');
 
   const load = () =>
     listEmployees({ status: 'ACTIVE', limit: 2000 })
@@ -58,7 +61,7 @@ export default function Transfer() {
   const move = async () => {
     setSaving(true);
     try {
-      const r = await transferEmployees({ employeeIds: [...picked], field, targetId: target === '__none' ? null : target });
+      const r = await transferEmployees({ employeeIds: [...picked], field, targetId: target === '__none' ? null : target, effectiveDate, note: note || null });
       notify.success(`${r.moved} moved.`);
       setPicked(new Set());
       load();
@@ -104,6 +107,14 @@ export default function Transfer() {
               <option value="__none">None (clear it)</option>
               {options.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
             </select>
+          </label>
+          <label className="block">
+            <span className="ui-label">Counts from</span>
+            <input type="date" className="ui-input" value={effectiveDate} onChange={(e) => setEffectiveDate(e.target.value)} />
+          </label>
+          <label className="block">
+            <span className="ui-label">Reason (optional)</span>
+            <input className="ui-input" value={note} onChange={(e) => setNote(e.target.value)} maxLength={500} placeholder="Reorganisation…" />
           </label>
         </section>
         <LoadFailed message={loadError} onRetry={load} />

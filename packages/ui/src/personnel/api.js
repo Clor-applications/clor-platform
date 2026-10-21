@@ -62,6 +62,8 @@ export const deleteContractor = (id) => send(`/contractors/${encodeURIComponent(
 export const resignEmployee = (id, body) => send(`/employees/${encodeURIComponent(id)}/resign`, 'POST', body);
 export const rehireEmployee = (id, body) => send(`/employees/${encodeURIComponent(id)}/rehire`, 'POST', body || {});
 export const transferEmployees = (body) => send('/employees/transfer', 'POST', body);
+/* Employment history: joined, moved, changed, left, rehired, with payroll impact (server: services/people/employmentHistory.ts). */
+export const getEmploymentHistory = (id) => apiFetch(`${base()}/employees/${encodeURIComponent(id)}/history`, opts).then((r) => r?.events || []);
 
 export const LEAVING_TYPES = {
   RESIGNED: 'Resigned',

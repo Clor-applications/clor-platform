@@ -113,6 +113,7 @@ recycleBinRouter.delete(`${base}/:id`, async (req, res) => {
   const item = await itemFor(req, res);
   if (!item) return;
   await peoplePrisma.deletedItem.delete({ where: { id: item.id } });
+  if (item.kind === 'employee') await peoplePrisma.employmentEvent.deleteMany({ where: { orgId: item.orgId, employeeId: item.entityId } });
   const k = BIN_KINDS[item.kind]!;
   await recordAudit(req, {
     entity: `${k.module}_RECYCLE_BIN`,

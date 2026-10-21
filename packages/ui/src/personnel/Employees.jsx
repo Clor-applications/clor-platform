@@ -26,6 +26,7 @@ import {
   listStructure,
   listTags,
   listContractors,
+  getEmploymentHistory,
   rehireEmployee,
   resignEmployee,
   updateEmployee,
@@ -518,6 +519,7 @@ function EmployeeFile({ id, onClose, onEdit, onDeleted }) {
             {[
               ['about', 'About'],
               ['work', 'Work'],
+              ['history', 'History'],
               ['notes', 'Notes'],
               ['documents', 'Documents'],
             ].map(([k, label]) => (
@@ -625,6 +627,7 @@ function EmployeeFile({ id, onClose, onEdit, onDeleted }) {
             </div>
           ) : null}
           {tab === 'documents' ? <EmployeeDocuments employeeId={id} /> : null}
+          {tab === 'history' ? <EmploymentHistory employeeId={id} /> : null}
         </div>
       )}
     </Drawer>
@@ -632,6 +635,51 @@ function EmployeeFile({ id, onClose, onEdit, onDeleted }) {
 }
 
 // ---------------------------------------------------------------------------
+
+/* The fields whose change is recorded in employment history (server: TRACKED in services/people/employmentHistory.ts). */
+const HISTORY_FIELDS = ['departmentId', 'areaId', 'state', 'jobPositionId', 'jobRoleId', 'reportingManagerId', 'employeeTypeId', 'workTypeId', 'contractorId'];
+const HISTORY_SOURCE = { FORM: 'Employee form', TRANSFER: 'Transfer', RESIGNATION: 'Resignation', REHIRE: 'Rehire', IMPORT: 'Import' };
+const HISTORY_TONE = { JOINED: 'pos', LEFT: 'neg', REHIRED: 'pos', TRANSFERRED: 'warn', CHANGED: 'neutral' };
+
+/**
+ * Employment history: every change to where and how someone works, newest
+ * first, each with the date it counts from, before and after, who recorded it
+ * and what it means for payroll.
+ */
+function EmploymentHistory({ employeeId }) {
+  const [events, setEvents] = useState(null);
+  useEffect(() => {
+    let live = true;
+    getEmploymentHistory(employeeId).then((e) => live && setEvents(e)).catch(() => live && setEvents([]));
+    return () => {
+      live = false;
+    };
+  }, [employeeId]);
+  if (!events) return <SkeletonCard lines={4} />;
+  if (!events.length) return <p className="ui-muted text-sm">No history yet. Changes to department, location, designation, manager, type and leaving are recorded here from now on.</p>;
+  return (
+    <ol className="space-y-3" aria-label="Employment history">
+      {events.map((e) => (
+        <li key={e.id} className="ui-card p-3 space-y-1">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className="flex items-center gap-2">
+              <span className={`ui-pill ui-pill-${HISTORY_TONE[e.kind] || 'neutral'}`}>{e.title}</span>
+              <span className="text-sm font-medium tabular-nums">from {e.effectiveDate}</span>
+            </span>
+            <span className="ui-caption">{[HISTORY_SOURCE[e.source] || e.source, e.by].filter(Boolean).join(' · ')}</span>
+          </div>
+          {e.field ? (
+            <p className="text-sm">
+              <span className="ui-muted">{e.from || 'None'}</span> → <strong>{e.to || 'None'}</strong>
+            </p>
+          ) : null}
+          {e.note ? <p className="text-sm">{e.note}</p> : null}
+          {e.payrollImpact ? <p className="ui-caption">Impact: {e.payrollImpact}</p> : null}
+        </li>
+      ))}
+    </ol>
+  );
+}
 
 /** Someone leaving: last day, why. They come off every reader at once. */
 function ResignForm({ person, onClose, onDone }) {
@@ -709,6 +757,10 @@ function EmployeeForm({ initial, lists, people, onClose, onSaved }) {
     [lists.roles, form?.jobPositionId]
   );
 
+  /* A change to where or how someone works goes into their employment history: from when, and why. */
+  const today = new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
+  const moved = Boolean(form.id) && HISTORY_FIELDS.some((k) => (form[k] || '') !== (initial[k] || ''));
+
   const save = async (e) => {
     e.preventDefault();
     setSaving(true);
@@ -722,6 +774,10 @@ function EmployeeForm({ initial, lists, people, onClose, onSaved }) {
     const body = Object.fromEntries(keys.filter((k) => form[k] !== undefined).map((k) => [k, form[k] === '' ? null : form[k]]));
     /* The reader PIN is write-only: sent only when typed. */
     if (form.devicePassword) body.devicePassword = form.devicePassword;
+    if (moved) {
+      body.effectiveFrom = form.effectiveFrom || today;
+      if (form.changeNote) body.changeNote = form.changeNote;
+    }
     try {
       const res = form.id ? await updateEmployee(form.id, body) : await createEmployee(body);
       notify.success(`${res.employee?.name || 'Employee'} saved.`);
@@ -767,6 +823,21 @@ function EmployeeForm({ initial, lists, people, onClose, onSaved }) {
       }
     >
       <form id="employee-form" onSubmit={save} className="space-y-6">
+        {moved ? (
+          <section className="ui-card p-3 space-y-2" aria-label="Employment change">
+            <p className="text-sm font-medium">This changes where or how {form.name || 'they'} work. It goes into their employment history.</p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="block">
+                <span className="ui-label">Counts from</span>
+                <input type="date" className="ui-input w-full" value={form.effectiveFrom || today} onChange={set('effectiveFrom')} />
+              </label>
+              <label className="block">
+                <span className="ui-label">Reason (optional)</span>
+                <input className="ui-input w-full" value={form.changeNote || ''} onChange={set('changeNote')} maxLength={500} placeholder="Promotion, reorganisation…" />
+              </label>
+            </div>
+          </section>
+        ) : null}
         <section className="flex items-center gap-3">
           <Avatar person={form} size={56} />
           <label className="ui-btn ui-btn-secondary cursor-pointer">

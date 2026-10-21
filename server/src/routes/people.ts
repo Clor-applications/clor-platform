@@ -14,6 +14,7 @@ import { PEOPLE_MODULE, PEOPLE_RESOURCE, peopleRouteOk } from '../services/peopl
 import { pushEmployeeToReaders, readerFieldsChanged, revokeFromReaders } from './iclock.js';
 import { emit as emitWebhook, employeeEvent } from '../services/attendance/webhooks.js';
 import { deleteToBin } from '../services/recycleBin.js';
+import { recordChanges, recordJoined, timelineOf } from '../services/people/employmentHistory.js';
 
 /**
  * People: the staff directory.
@@ -338,6 +339,7 @@ peopleRouter.post('/orgs/:orgId/people/employees', can(PermissionAction.CREATE, 
       } as any,
     });
     if (b.tagIds?.length) await setTags(accountId, orgId, row.id, b.tagIds);
+    await recordJoined({ accountId, orgId, userId: req.auth!.userId }, row, 'FORM');
     /* On every reader straight away, as ClorTime does: enrolment can start the same minute. */
     await pushEmployeeToReaders(orgId, row, req.auth!.userId);
     res.status(201).json({ employee: (await withMeta(orgId, [row]))[0] });
@@ -373,6 +375,12 @@ peopleRouter.put('/orgs/:orgId/people/employees/:id', can(PermissionAction.EDIT,
       } as any,
     });
     if (b.tagIds) await setTags(accountId, orgId, row.id, b.tagIds);
+    /* Employment history: the form may say from when a change counts (effectiveFrom) and why (changeNote). */
+    await recordChanges({ accountId, orgId, userId: req.auth!.userId }, existing, row, {
+      source: 'FORM',
+      effectiveDate: typeof req.body?.effectiveFrom === 'string' ? req.body.effectiveFrom : null,
+      note: typeof req.body?.changeNote === 'string' ? req.body.changeNote : null,
+    });
     /* Leaving ends door access: off every biometric reader, fingerprints and faces deleted. */
     if (row.status === 'LEFT' && existing.status !== 'LEFT') await revokeFromReaders(orgId, existing, req.auth!.userId);
     else if (row.status !== 'LEFT' && readerFieldsChanged(existing, row)) await pushEmployeeToReaders(orgId, row, req.auth!.userId, existing);
@@ -382,6 +390,15 @@ peopleRouter.put('/orgs/:orgId/people/employees/:id', can(PermissionAction.EDIT,
   } catch (e) {
     return sendError(res, e);
   }
+});
+
+/** Employment history: joined, moved, changed, left, rehired — newest first, with what each meant for payroll. */
+peopleRouter.get('/orgs/:orgId/people/employees/:id/history', can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const employee = await peoplePrisma.employee.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
+  if (!employee) return res.status(404).json({ error: 'No such employee.' });
+  res.json({ events: await timelineOf(orgId, employee) });
 });
 
 /**
@@ -515,8 +532,8 @@ peopleRouter.post('/orgs/:orgId/people/employees/import', can(PermissionAction.C
           status: 'ACTIVE',
           createdByUserId: userId,
         },
-        select: { id: true },
       });
+      await recordJoined({ accountId, orgId, userId }, created, 'IMPORT');
       results.push({ row: i + 1, ok: true, id: created.id });
     } catch (e: any) {
       results.push({ row: i + 1, ok: false, error: String(e?.code) === 'P2002' ? 'Already exists.' : String(e?.message || e) });

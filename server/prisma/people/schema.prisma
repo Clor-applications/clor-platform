@@ -1635,3 +1635,33 @@ model DeletedItem {
   @@index([orgId, deletedAt])
   @@index([purgeAfter])
 }
+
+/// Employment history (services/people/employmentHistory.ts): every change to
+/// where and how someone works — joined, moved, promoted, new manager, left,
+/// rehired — with the date it takes effect, where it came from, who made it,
+/// before and after, and what it means for payroll. Append-only.
+model EmploymentEvent {
+  id               String   @id @default(cuid())
+  accountId        String
+  orgId            String
+  employeeId       String
+  /// JOINED, CHANGED, TRANSFERRED, LEFT, REHIRED
+  kind             String
+  /// The field that changed (departmentId, jobPositionId, state…); null for JOINED / LEFT / REHIRED.
+  field            String?
+  fromId           String?
+  toId             String?
+  /// Names as they were when it happened, so history reads right after a rename.
+  fromLabel        String?
+  toLabel          String?
+  /// YYYY-MM-DD the change counts from.
+  effectiveDate    String
+  /// FORM, TRANSFER, RESIGNATION, REHIRE, IMPORT
+  source           String
+  note             String?
+  payrollImpact    String?
+  recordedByUserId String?
+  createdAt        DateTime @default(now())
+
+  @@index([orgId, employeeId, effectiveDate])
+}

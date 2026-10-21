@@ -10,6 +10,7 @@ import { PEOPLE_MODULE, PEOPLE_RESOURCE, peopleRouteOk } from '../services/peopl
 import { istDate } from '../services/attendance/compute.js';
 import { pushEmployeeToReaders, revokeFromReaders } from './iclock.js';
 import { deleteToBin } from '../services/recycleBin.js';
+import { recordChanges } from '../services/people/employmentHistory.js';
 
 /**
  * Personnel operations from ClorTime (routes/personnel_expansion.js,
@@ -194,6 +195,7 @@ personnelRouter.post(`${base}/employees/:id/resign`, can(PermissionAction.EDIT, 
     where: { id: existing.id },
     data: { status: 'LEFT', dateOfLeaving: parsed.data.lastDay, leavingType: parsed.data.leavingType, leavingReason: blank(parsed.data.reason) },
   });
+  await recordChanges({ accountId, orgId, userId: req.auth!.userId }, existing, employee, { source: 'RESIGNATION', effectiveDate: parsed.data.lastDay, note: blank(parsed.data.reason) || parsed.data.leavingType.replace(/_/g, ' ').toLowerCase() });
   const removed = await revokeFromReaders(orgId, existing, req.auth!.userId);
   res.json({ employee, readers: removed.readers });
 });
@@ -217,6 +219,7 @@ personnelRouter.post(`${base}/employees/:id/rehire`, can(PermissionAction.EDIT, 
       ...(parsed.data.rejoinDate ? { dateOfJoining: parsed.data.rejoinDate } : {}),
     },
   });
+  await recordChanges({ accountId, orgId, userId: req.auth!.userId }, existing, employee, { source: 'REHIRE', effectiveDate: parsed.data.rejoinDate || null });
   /* Their fingerprints and faces were deleted when they left: they enrol again at a reader. */
   const pushed = await pushEmployeeToReaders(orgId, employee, req.auth!.userId);
   res.json({ employee, readers: pushed.readers });
@@ -235,6 +238,9 @@ personnelRouter.post(`${base}/employees/transfer`, can(PermissionAction.EDIT, R.
       employeeIds: z.array(z.string().min(1)).min(1, 'Choose people to move.').max(2000),
       field: z.enum(['departmentId', 'areaId', 'jobPositionId', 'contractorId']),
       targetId: z.string().min(1).nullable(),
+      /** From when the move counts (employment history); today when not given. */
+      effectiveDate: z.string().regex(ISO_DATE, 'Dates are YYYY-MM-DD.').optional().nullable(),
+      note: text(500),
     })
     .safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Check the details.' });
@@ -252,6 +258,9 @@ personnelRouter.post(`${base}/employees/transfer`, can(PermissionAction.EDIT, R.
   if (!target) return res.status(400).json({ error: 'That is not in this organisation.' });
   /* The department and position names are kept on the employee for lists and payslips. */
   const mirror = field === 'departmentId' ? { department: target.name } : field === 'jobPositionId' ? { designation: target.name } : {};
+  const before = await peoplePrisma.employee.findMany({ where: { accountId, orgId, id: { in: employeeIds } } });
   const r = await peoplePrisma.employee.updateMany({ where: { accountId, orgId, id: { in: employeeIds } }, data: { [field]: targetId, ...mirror } as any });
+  const who = { accountId, orgId, userId: req.auth!.userId };
+  for (const e of before) await recordChanges(who, e, { ...e, [field]: targetId }, { source: 'TRANSFER', effectiveDate: parsed.data.effectiveDate || null, note: blank(parsed.data.note) });
   res.json({ moved: r.count });
 });
