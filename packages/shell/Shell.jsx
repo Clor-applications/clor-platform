@@ -1,5 +1,5 @@
 import React, { Suspense, useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronDown, LayoutGrid, LogOut, Menu, Moon, Plus, Settings, Sun, UserRound, X } from 'lucide-react';
+import { ArrowLeft, ChevronDown, LayoutGrid, LogOut, Menu, Moon, Plus, Settings, Sun, UserRound, X } from 'lucide-react';
 
 import { useTheme } from '@ui/components/ui/useTheme';
 import { useDismissable } from '@ui/components/ui/useDismissable';
@@ -841,6 +841,13 @@ export default function Shell() {
               <MoreApps tenant={tenant} onAdd={addApp} onOpen={openApp} />
             ) : platformScreen === 'profile' ? (
               <ScreenBoundary appName="My profile" resetKey={`profile:${tenant.id}`}>
+                {/* The profile opens from the header, not the sidebar, so it needs
+                    its own way back to the screen it was opened from. */}
+                <div className={app?.flush ? 'pt-3' : 'mb-3'}>
+                  <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" onClick={() => setPlatformScreen(null)}>
+                    <ArrowLeft size={16} aria-hidden="true" /> Back{app ? ` to ${app.name}` : ''}
+                  </button>
+                </div>
                 <ProfileScreen key={tenant.id} />
               </ScreenBoundary>
             ) : Screen ? (
