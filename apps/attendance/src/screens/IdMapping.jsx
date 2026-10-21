@@ -19,6 +19,10 @@ export default function IdMapping({ openScreen }) {
   const [error, setError] = useState('');
   const [sites, setSites] = useState([]);
   const [editing, setEditing] = useState(null);
+  /* One search across every list on the page (AT-03): a name, a code or a reader ID. */
+  const [query, setQuery] = useState('');
+  const q = query.trim().toLowerCase();
+  const hit = (...vals) => !q || vals.filter(Boolean).join(' ').toLowerCase().includes(q);
   const load = useCallback(() => {
     getMappingAudit().then((d) => { setData(d); setError(''); }).catch((e) => setError(String(e?.message || 'Could not check the reader IDs.')));
     listSiteReaderIds().then(setSites).catch(() => setSites([]));
@@ -49,7 +53,7 @@ export default function IdMapping({ openScreen }) {
     }
   };
 
-  const staleByReader = (data?.stale || []).reduce((m, s) => m.set(s.deviceId, [...(m.get(s.deviceId) || []), s]), new Map());
+  const staleByReader = (data?.stale || []).filter((s) => hit(s.employee, s.pin, s.reader)).reduce((m, s) => m.set(s.deviceId, [...(m.get(s.deviceId) || []), s]), new Map());
   return (
     <div className="space-y-3">
       <PageHeader
@@ -59,6 +63,7 @@ export default function IdMapping({ openScreen }) {
         actions={<button type="button" className="ui-btn ui-btn-primary" onClick={() => setEditing({})}><Plus size={16} aria-hidden="true" /> Add ID at a site</button>}
       />
       <div className="pb-8 space-y-6">
+      <input type="search" className="ui-input w-full max-w-md" placeholder="Search a name, employee code or reader ID…" aria-label="Search ID mapping" value={query} onChange={(e) => setQuery(e.target.value)} />
       <details className="ui-card p-4 text-sm">
         <summary className="cursor-pointer font-medium">How a punch finds its person</summary>
         <ol className="mt-2 list-decimal space-y-1 ps-5 ui-caption">
@@ -89,7 +94,7 @@ export default function IdMapping({ openScreen }) {
                 <table className="ui-table ui-table-sticky w-full">
                   <thead><tr><th scope="col">Reader ID</th><th scope="col">Site</th><th className="ui-col-grow" scope="col">Name on the reader</th><th scope="col" className="ui-num">Punches</th><th scope="col">Last punch</th><th scope="col">Likely match</th><th scope="col"><span className="sr-only">Actions</span></th></tr></thead>
                   <tbody className="ui-rows">
-                    {data.unmatched.map((u) => (
+                    {data.unmatched.filter((u) => hit(u.pin, u.nameOnReader, u.areaName, u.suggestion?.name, u.suggestion?.code)).map((u) => (
                       <tr key={`${u.areaId || ''}|${u.pin}`}>
                         <td className="ui-mono">{u.pin}</td>
                         <td>{u.areaName || <span className="ui-caption">No site</span>}</td>
@@ -139,7 +144,7 @@ export default function IdMapping({ openScreen }) {
                 <table className="ui-table ui-table-sticky w-full">
                   <thead><tr><th className="ui-col-grow" scope="col">Employee</th><th scope="col">Site</th><th scope="col">ID there</th><th scope="col">Company-wide ID</th><th scope="col"><span className="sr-only">Edit</span></th></tr></thead>
                   <tbody className="ui-rows">
-                    {sites.map((x) => (
+                    {sites.filter((x) => hit(x.name, x.pin, x.areaName, x.companyId)).map((x) => (
                       <tr key={x.id}>
                         <td className="ui-col-entity">{x.name}{x.left ? <span className="ui-caption"> · left</span> : null}</td>
                         <td>{x.areaName}</td>
@@ -161,7 +166,7 @@ export default function IdMapping({ openScreen }) {
               <h2 id="orphan-h" className="ui-t-sec mb-2">On a reader, no employee</h2>
               {data.orphan.length ? (
                 <ul className="divide-y text-sm">
-                  {data.orphan.slice(0, 100).map((o) => <li key={`${o.deviceId}-${o.pin}`} className="flex justify-between gap-3 py-1.5"><span>{o.nameOnReader || 'No name'} <span className="ui-mono ui-caption">{o.pin}</span></span><span className="ui-caption">{o.reader}</span></li>)}
+                  {data.orphan.filter((o) => hit(o.nameOnReader, o.pin, o.reader)).slice(0, 100).map((o) => <li key={`${o.deviceId}-${o.pin}`} className="flex justify-between gap-3 py-1.5"><span>{o.nameOnReader || 'No name'} <span className="ui-mono ui-caption">{o.pin}</span></span><span className="ui-caption">{o.reader}</span></li>)}
                 </ul>
               ) : <p className="ui-caption">None.</p>}
               {data.orphan.length ? <p className="ui-caption mt-2">Give these IDs to an employee under Personnel, or remove them at the reader.</p> : null}
@@ -170,7 +175,7 @@ export default function IdMapping({ openScreen }) {
               <h2 id="nopin-h" className="ui-t-sec mb-2">Employees with no reader ID</h2>
               {data.noPin.length ? (
                 <ul className="grid gap-x-4 gap-y-1 text-sm sm:grid-cols-2">
-                  {data.noPin.slice(0, 200).map((p) => <li key={p.employeeId} className="truncate">{p.name}{p.code ? <span className="ui-caption"> · {p.code}</span> : null}</li>)}
+                  {data.noPin.filter((p) => hit(p.name, p.code)).slice(0, 200).map((p) => <li key={p.employeeId} className="truncate">{p.name}{p.code ? <span className="ui-caption"> · {p.code}</span> : null}</li>)}
                 </ul>
               ) : <p className="ui-caption">Everyone has one.</p>}
               {data.noPin.length && openScreen ? <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm mt-2" onClick={() => openScreen('employees')}>Open employees</button> : null}

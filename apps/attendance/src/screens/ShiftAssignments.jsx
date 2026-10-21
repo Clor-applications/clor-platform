@@ -1,9 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { CalendarClock, CalendarRange, Clock3, Plus, Trash2, Users } from 'lucide-react';
+import { CalendarClock, CalendarRange, Clock3, Plus, Trash2, Upload, Users } from 'lucide-react';
 
 import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
 import { useListSearch } from '@ui/components/ListToolbar';
 import DocumentListShell from '@ui/components/list/DocumentListShell';
+import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';
 import { Pagination, usePaged } from '@ui/components/list/ListPageParts';
 import { SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import { notify } from '@ui/components/ui/notify';
@@ -22,7 +23,15 @@ const COLUMNS = {
  * Who works which shift, from when. Assigning again from a later date
  * changes the shift from that day; earlier days keep the old one.
  */
-export default function ShiftAssignments() {
+/* What Export writes (AT-01). */
+const EXPORT_COLUMNS = [
+  { key: 'employeeName', label: 'Employee' },
+  { key: 'shiftName', label: 'Shift' },
+  { key: 'effectiveFrom', label: 'From' },
+  { key: 'effectiveTo', label: 'Until', value: (r) => r.effectiveTo || 'until changed' },
+];
+
+export default function ShiftAssignments({ openScreen } = {}) {
   const [rows, setRows] = useState(null);
   const [loadError, setLoadError] = useState('');
   const [people, setPeople] = useState([]);
@@ -101,6 +110,12 @@ export default function ShiftAssignments() {
     <DocumentListShell
       entity="shift"
       title="Shift assignments"
+      moreItems={[exportMenuItem('Export'), ...(openScreen ? [{ key: 'import', label: 'Import from a spreadsheet', Icon: Upload }] : [])]}
+      onMoreSelect={(k) => {
+        if (k === 'import') return openScreen('dataImport', { kind: 'assignments' });
+        const format = exportFormatFromKey(k);
+        if (format) runListExport({ format, title: 'Shift assignments', fileName: 'Shift assignments', label: 'assignment/assignments', columns: EXPORT_COLUMNS, rows: shownRows });
+      }}
       description="A person’s own shift from a date (and until a date, if it ends). It beats their rotation and department schedule; a temporary schedule beats it."
       compact
       tight

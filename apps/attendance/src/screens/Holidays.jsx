@@ -1,9 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { CalendarCheck, CalendarClock, CalendarDays, CalendarMinus, Plus, Trash2 } from 'lucide-react';
+import { CalendarCheck, CalendarClock, CalendarDays, CalendarMinus, Plus, Trash2, Upload } from 'lucide-react';
 
 import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
 import { useListSearch } from '@ui/components/ListToolbar';
 import DocumentListShell from '@ui/components/list/DocumentListShell';
+import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';
 import { SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { createHoliday, dayLabel, deleteHoliday, listHolidays, todayIst, updateHoliday } from '../api/attendance';
@@ -25,7 +26,15 @@ const COLUMNS = {
 };
 
 /** The year's holidays. A day worked on a holiday is all overtime. */
-export default function Holidays() {
+/* What Export writes (AT-01). */
+const EXPORT_COLUMNS = [
+  { key: 'date', label: 'Date' },
+  { key: 'name', label: 'Holiday' },
+  { key: 'areaName', label: 'For', value: (h) => h.areaName || 'Everyone' },
+  { key: 'isOptional', label: 'Optional', value: (h) => (h.isOptional ? 'Yes' : 'No') },
+];
+
+export default function Holidays({ openScreen } = {}) {
   const [year, setYear] = useState(Number(todayIst().slice(0, 4)));
   const [all, setAll] = useState(null);
   const [kind, setKind] = useState('');
@@ -90,6 +99,12 @@ export default function Holidays() {
     <DocumentListShell
       entity="holiday"
       title="Holidays"
+      moreItems={[exportMenuItem('Export'), ...(openScreen ? [{ key: 'import', label: 'Import from a spreadsheet', Icon: Upload }] : [])]}
+      onMoreSelect={(k) => {
+        if (k === 'import') return openScreen('dataImport', { kind: 'holidays' });
+        const format = exportFormatFromKey(k);
+        if (format) runListExport({ format, title: 'Holidays', fileName: 'Holidays', label: 'holiday/holidays', columns: EXPORT_COLUMNS, rows });
+      }}
       description="Paid days off — for everyone, or only one area’s people (a plant in another state keeps its own). Optional holidays do not change anyone's attendance."
       compact
       tight

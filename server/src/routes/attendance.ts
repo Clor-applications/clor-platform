@@ -350,7 +350,7 @@ const IMPORT_MAX = 2000;
 type RowResult = { row: number; ok: boolean; error?: string };
 
 /** Employees by code or Reader ID, once per import rather than once per row. */
-async function peopleByCode(orgId: string) {
+export async function peopleByCode(orgId: string) {
   const people = await peoplePrisma.employee.findMany({ where: { orgId }, select: { id: true, code: true, devicePin: true, name: true, status: true, branchId: true, areaId: true, dateOfJoining: true, dateOfLeaving: true } });
   const byCode = new Map<string, (typeof people)[number]>();
   for (const p of people) {
@@ -359,7 +359,7 @@ async function peopleByCode(orgId: string) {
   }
   return byCode;
 }
-const codeKey = (v: unknown) => String(v ?? '').trim().toLowerCase();
+export const codeKey = (v: unknown) => String(v ?? '').trim().toLowerCase();
 
 /**
  * Days from a spreadsheet: employee code, date, in, out, status, note. Each

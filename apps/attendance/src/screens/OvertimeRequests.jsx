@@ -4,6 +4,7 @@ import { CalendarPlus, Check, Clock, Settings2, Timer, UserRound, X } from 'luci
 import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
 import { useListSearch } from '@ui/components/ListToolbar';
 import DocumentListShell from '@ui/components/list/DocumentListShell';
+import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';
 import { Pagination, usePaged, useResetPage } from '@ui/components/list/ListPageParts';
 import { EmptyState, SkeletonCard } from '@ui/components/ui/Primitives';
 import Drawer from '@ui/components/ui/Drawer';
@@ -32,6 +33,18 @@ const COLUMNS = {
   reason: (r) => r.reason,
 };
 
+
+/* What Export writes: the rows on screen, as shown (AT-01). */
+const EXPORT_COLUMNS = [
+  { key: 'employeeCode', label: 'Employee ID' },
+  { key: 'employeeName', label: 'Employee' },
+  { key: 'date', label: 'Day' },
+  { key: 'kind', label: 'Asks for', value: (r) => (r.kind === 'COMP_OFF' ? 'Comp-off' : 'Overtime') },
+  { key: 'minutes', label: 'Worked over', value: (r) => hours(r.minutes || 0) },
+  { key: 'days', label: 'Comp-off days', value: (r) => (r.kind === 'COMP_OFF' ? r.days : '') },
+  { key: 'reason', label: 'Reason' },
+  { key: 'status', label: 'Status' },
+];
 export default function OvertimeRequests() {
   const [status, setStatus] = useState('PENDING');
   const [byStatus, setByStatus] = useState(null);
@@ -97,8 +110,12 @@ export default function OvertimeRequests() {
       tight
       denseCards
       search={{ value: search.query, onChange: search.setQuery, placeholder: 'Search requests…', label: 'Search overtime and comp-off requests' }}
-      moreItems={rules ? [{ key: 'rules', label: 'Rules', Icon: Settings2 }] : null}
-      onMoreSelect={(k) => { if (k === 'rules') setShowRules(true); }}
+      moreItems={[exportMenuItem('Export'), ...(rules ? [{ key: 'rules', label: 'Rules', Icon: Settings2 }] : [])]}
+      onMoreSelect={(k) => {
+        if (k === 'rules') return setShowRules(true);
+        const format = exportFormatFromKey(k);
+        if (format) runListExport({ format, title: 'Overtime & comp-off', fileName: 'Overtime and comp-off', label: 'request/requests', columns: EXPORT_COLUMNS, rows: rows });
+      }}
       cards={[
         { label: 'Waiting', value: counts.PENDING, count: true, tone: 'partial', Icon: Clock, onSelect: () => setStatus('PENDING') },
         { label: 'With the manager', value: figures.withManager, count: true, tone: 'sent', Icon: UserRound },

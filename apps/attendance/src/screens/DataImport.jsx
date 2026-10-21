@@ -4,8 +4,8 @@ import { CheckCircle2, Download, Upload } from 'lucide-react';
 import { PageHeader } from '@ui/components/ui/Primitives';
 import { downloadCsvTemplate, parseCsv, readFileText } from '@ui/utils/csv';
 import { normaliseDateColumns, toIsoDate } from '@ui/utils/importDates';
-import { importEmployees } from '@ui/personnel/api';
-import { importAssignments, importHolidays, importRecords } from '../api/attendance';
+import { importContractors, importEmployees } from '@ui/personnel/api';
+import { importAssignments, importHolidays, importLeaveBalances, importLeaveHistory, importRecords } from '../api/attendance';
 
 /**
  * ClorTime's Import Wizard: pick what the file holds, take the template,
@@ -78,10 +78,61 @@ const KINDS = [
     run: importAssignments,
     unit: 'assignments',
   },
+  {
+    id: 'leaveBalances',
+    label: 'Leave balances',
+    blurb: 'Each person’s days for the year, per paid leave type: for a company moving to CLOR mid-year. Replaces the type’s own days for that person.',
+    columns: [
+      { key: 'employeeCode', label: 'Employee code' },
+      { key: 'leaveType', label: 'Leave type (as in Leave Policy)' },
+      { key: 'year', label: 'Year (blank = this year)' },
+      { key: 'days', label: 'Days for the year' },
+      { key: 'note', label: 'Note' },
+    ],
+    sample: { employeeCode: 'E-001', leaveType: 'Casual', year: '2026', days: '12', note: 'Carried from the old system' },
+    run: importLeaveBalances,
+    unit: 'balances',
+  },
+  {
+    id: 'leaveHistory',
+    label: 'Leave already taken',
+    blurb: 'Past leave: each row is recorded as approved, its days marked on leave, and counted in the balance.',
+    columns: [
+      { key: 'employeeCode', label: 'Employee code' },
+      { key: 'leaveType', label: 'Leave type (as in Leave Policy)' },
+      { key: 'from', label: 'From (15/10/2026 or 2026-10-15)', date: true },
+      { key: 'to', label: 'To (blank = one day)', date: true },
+      { key: 'halfDay', label: 'Half day (FIRST, SECOND or blank)' },
+      { key: 'reason', label: 'Reason' },
+    ],
+    sample: { employeeCode: 'E-001', leaveType: 'Casual', from: '2026-09-15', to: '2026-09-16', halfDay: '', reason: 'Family function' },
+    run: importLeaveHistory,
+    unit: 'leave rows',
+  },
+  {
+    id: 'contractors',
+    label: 'Contractors',
+    blurb: 'Labour contractors with their licence. A name already on the list is updated.',
+    columns: [
+      { key: 'name', label: 'Contractor name' },
+      { key: 'code', label: 'Code' },
+      { key: 'contactPerson', label: 'Contact person' },
+      { key: 'phone', label: 'Phone' },
+      { key: 'email', label: 'E-mail' },
+      { key: 'gstin', label: 'GSTIN' },
+      { key: 'licenceNo', label: 'Licence number' },
+      { key: 'licenceValidTo', label: 'Licence valid to (15/10/2027 or 2027-10-15)', date: true },
+      { key: 'address', label: 'Address' },
+    ],
+    sample: { name: 'Sri Ganesh Labour Services', code: 'C-01', contactPerson: 'Ramesh', phone: '9800000000', email: '', gstin: '', licenceNo: 'CLRA/123/2026', licenceValidTo: '2027-03-31', address: '' },
+    run: importContractors,
+    unit: 'contractors',
+  },
 ];
 
-export default function DataImport() {
-  const [kindId, setKindId] = useState('records');
+/* `params.kind` opens it on one kind: the Import entry on a list (Holidays, Records, ...) says which. */
+export default function DataImport({ params } = {}) {
+  const [kindId, setKindId] = useState(() => (KINDS.some((k) => k.id === params?.kind) ? params.kind : 'records'));
   const kind = useMemo(() => KINDS.find((k) => k.id === kindId), [kindId]);
   const [file, setFile] = useState(null);
   const [rows, setRows] = useState(null);

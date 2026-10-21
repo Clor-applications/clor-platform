@@ -4,6 +4,7 @@ import { CalendarDays, CalendarX, Plus, UserCheck, UserMinus, UserX } from 'luci
 import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
 import { useListSearch } from '@ui/components/ListToolbar';
 import DocumentListShell from '@ui/components/list/DocumentListShell';
+import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';
 import { Pagination, usePaged, useResetPage } from '@ui/components/list/ListPageParts';
 import { SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import Drawer from '@ui/components/ui/Drawer';
@@ -22,6 +23,17 @@ const COLUMNS = {
   left: (p) => p.dateOfLeaving,
   note: (p) => p.leavingReason,
 };
+
+/* What Export writes: the rows on screen, as shown (AT-01). */
+const EXPORT_COLUMNS = [
+  { key: 'code', label: 'Employee ID' },
+  { key: 'name', label: 'Name' },
+  { key: 'department', label: 'Department' },
+  { key: 'dateOfJoining', label: 'Joined' },
+  { key: 'dateOfLeaving', label: 'Last day' },
+  { key: 'leavingType', label: 'Why', value: (r) => LEAVING_TYPES[r.leavingType] || '' },
+  { key: 'leavingReason', label: 'Note' },
+];
 
 /**
  * People who have left, and recording someone leaving (ClorTime's
@@ -87,6 +99,11 @@ export default function Resignations() {
     <DocumentListShell
       entity="employee"
       title="Resignations"
+      moreItems={[exportMenuItem('Export')]}
+      onMoreSelect={(k) => {
+        const format = exportFormatFromKey(k);
+        if (format) runListExport({ format, title: 'Resignations', fileName: 'Leavers', label: 'person/people', columns: EXPORT_COLUMNS, rows: rows });
+      }}
       description="Who has left and why. Recording someone leaving removes them from every reader."
       compact
       tight

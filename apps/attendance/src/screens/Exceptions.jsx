@@ -4,6 +4,7 @@ import { AlertTriangle, ArrowUpRight, CheckCircle2, CircleDot, Clock, EyeOff, He
 import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
 import { useListSearch } from '@ui/components/ListToolbar';
 import DocumentListShell from '@ui/components/list/DocumentListShell';
+import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';
 import { Pagination, usePaged, useResetPage } from '@ui/components/list/ListPageParts';
 import { EmptyState, SkeletonCard } from '@ui/components/ui/Primitives';
 import Drawer from '@ui/components/ui/Drawer';
@@ -49,6 +50,19 @@ const SEVERITY = { high: 'Urgent', medium: 'To do', low: 'When you can' };
 const STATUS = { OPEN: 'Open', IN_PROGRESS: 'In progress', RESOLVED: 'Settled', IGNORED: 'Ignored' };
 const back = (n) => new Date(Date.now() + 330 * 60_000 - n * 86_400_000).toISOString().slice(0, 10);
 
+
+/* What Export writes: the rows on screen, as shown (AT-01). */
+const EXPORT_COLUMNS = [
+  { key: 'title', label: 'What' },
+  { key: 'severity', label: 'Urgency', value: (r) => SEVERITY[r.severity] || r.severity },
+  { key: 'kind', label: 'Kind', value: (r) => KIND[r.kind] || r.kind },
+  { key: 'employeeName', label: 'Who' },
+  { key: 'date', label: 'Day' },
+  { key: 'detail', label: 'Detail' },
+  { key: 'note', label: 'Note' },
+  { key: 'assignee', label: 'Owner', value: (r) => r.assignee || 'Nobody' },
+  { key: 'status', label: 'Status', value: (r) => STATUS[r.status] || r.status },
+];
 export default function Exceptions({ openScreen }) {
   const [range, setRange] = useState({ from: back(14), to: back(1) });
   const [kind, setKind] = useState('');
@@ -146,6 +160,11 @@ export default function Exceptions({ openScreen }) {
     <DocumentListShell
       entity="exception"
       title="Exceptions"
+      moreItems={[exportMenuItem('Export')]}
+      onMoreSelect={(k) => {
+        const format = exportFormatFromKey(k);
+        if (format) runListExport({ format, title: 'Exceptions', fileName: 'Exceptions', label: 'item/items', columns: EXPORT_COLUMNS, rows: rows });
+      }}
       description="Everything not settled yet, in one place. Each item opens the screen that fixes it."
       compact
       tight

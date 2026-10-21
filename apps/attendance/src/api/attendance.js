@@ -28,6 +28,9 @@ export const listRecords = (params) => get(`/records${query(params)}`);
 export const importRecords = (rows, dryRun = false) => send('/records/import', 'POST', { rows, dryRun });
 export const importHolidays = (rows, dryRun = false) => send('/holidays/import', 'POST', { rows, dryRun });
 export const importAssignments = (rows, dryRun = false) => send('/shift-assignments/import', 'POST', { rows, dryRun });
+/* AT-02: opening leave balances and leave already taken. */
+export const importLeaveBalances = (rows, dryRun = false) => send('/leave/allocations/import', 'POST', { rows, dryRun });
+export const importLeaveHistory = (rows, dryRun = false) => send('/leave/requests/import', 'POST', { rows, dryRun });
 export const markDay = (body) => send('/records', 'PUT', body);
 export const deleteDay = (id) => send(`/records/${encodeURIComponent(id)}`, 'DELETE');
 export const validateDays = (ids) => send('/records/validate', 'POST', { ids });

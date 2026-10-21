@@ -4,6 +4,7 @@ import { Clock, Fingerprint, Link2, MapPin } from 'lucide-react';
 import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
 import { useListSearch } from '@ui/components/ListToolbar';
 import DocumentListShell from '@ui/components/list/DocumentListShell';
+import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';
 import { SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import { notify } from '@ui/components/ui/notify';
 import { listEmployees, listUnmatchedPunches, matchPunches } from '../api/attendance';
@@ -24,6 +25,16 @@ const COLUMNS = {
   first: (r) => String(r.first || '').slice(0, 10),
   last: (r) => String(r.last || '').slice(0, 10),
 };
+
+/* What Export writes: the rows on screen, as shown (AT-01). */
+const EXPORT_COLUMNS = [
+  { key: 'pin', label: 'Reader ID' },
+  { key: 'areaName', label: 'Site' },
+  { key: 'readerName', label: 'Name on reader' },
+  { key: 'punches', label: 'Punches' },
+  { key: 'first', label: 'First' },
+  { key: 'last', label: 'Last' },
+];
 export default function UnmatchedPunches() {
   const [rows, setRows] = useState(null);
   const [loadError, setLoadError] = useState('');
@@ -66,6 +77,11 @@ export default function UnmatchedPunches() {
     <DocumentListShell
       entity="reader"
       title="Unmatched punches"
+      moreItems={[exportMenuItem('Export')]}
+      onMoreSelect={(k) => {
+        const format = exportFormatFromKey(k);
+        if (format) runListExport({ format, title: 'Unmatched punches', fileName: 'Unmatched punches', label: 'reader ID/reader IDs', columns: EXPORT_COLUMNS, rows: shown });
+      }}
       description="Reader user IDs that match no employee. Choose who each one is."
       compact
       tight

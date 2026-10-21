@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { CalendarCheck, HelpCircle, UserCog, Users, Wallet } from 'lucide-react';
+import { CalendarCheck, HelpCircle, UserCog, Upload, Users, Wallet } from 'lucide-react';
 
 import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
 import { useListSearch } from '@ui/components/ListToolbar';
@@ -19,7 +19,7 @@ const COLUMNS = { employee: (r) => r.name };
  * different number of days for the year (a joiner, a carry-over); clear it to
  * put them back on the type's days.
  */
-export default function LeaveBalances() {
+export default function LeaveBalances({ openScreen } = {}) {
   const [year, setYear] = useState(Number(todayIst().slice(0, 4)));
   const [data, setData] = useState(null);
   const [loadError, setLoadError] = useState('');
@@ -98,8 +98,9 @@ export default function LeaveBalances() {
           <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => setYear((y) => y + 1)} aria-label="Next year">›</button>
         </div>
       }
-      moreItems={data?.rows?.length ? [exportMenuItem('Export leave balances')] : null}
+      moreItems={[...(data?.rows?.length ? [exportMenuItem('Export leave balances')] : []), ...(openScreen ? [{ key: 'import', label: 'Import opening balances', Icon: Upload }] : [])]}
       onMoreSelect={(k) => {
+        if (k === 'import') return openScreen('dataImport', { kind: 'leaveBalances' });
         const format = exportFormatFromKey(k);
         if (!format) return;
         runListExport({ format, title: `Leave balances ${year}`, fileName: `Leave balances ${year}`, label: 'person/people', columns: exportColumns, rows: data.rows });

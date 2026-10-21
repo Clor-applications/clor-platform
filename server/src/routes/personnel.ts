@@ -98,6 +98,43 @@ personnelRouter.post(`${base}/contractors`, can(PermissionAction.CREATE, R.struc
   }
 });
 
+/** Contractors from a list (AT-02): name, code, contact, phone, e-mail, GSTIN, licence and its expiry, address. A name already on the list is updated, not repeated. */
+personnelRouter.post(`${base}/contractors/import`, can(PermissionAction.CREATE, R.structure), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const rows = Array.isArray(req.body?.rows) ? req.body.rows : [];
+  if (!rows.length) return res.status(400).json({ error: 'Nothing to import.' });
+  if (rows.length > 500) return res.status(400).json({ error: 'Import up to 500 contractors at a time.' });
+  const dryRun = req.body?.dryRun === true;
+  const existing = new Map((await peoplePrisma.contractor.findMany({ where: { accountId, orgId }, select: { id: true, name: true } })).map((c) => [c.name.trim().toLowerCase(), c.id]));
+  const results: Array<{ row: number; ok: boolean; error?: string }> = [];
+  let imported = 0;
+  let updated = 0;
+  for (let i = 0; i < rows.length; i += 1) {
+    const r = rows[i] || {};
+    const parsed = contractorSchema.safeParse({
+      name: String(r.name || '').trim(),
+      code: String(r.code || '').trim() || null,
+      contactPerson: String(r.contactPerson || '').trim() || null,
+      phone: String(r.phone || '').trim() || null,
+      email: String(r.email || '').trim() || null,
+      gstin: String(r.gstin || '').trim() || null,
+      licenceNo: String(r.licenceNo || '').trim() || null,
+      licenceValidTo: String(r.licenceValidTo || '').trim() || null,
+      address: String(r.address || '').trim() || null,
+    });
+    if (!parsed.success) { results.push({ row: i + 1, ok: false, error: parsed.error.issues[0]?.message || 'Check the row.' }); continue; }
+    const id = existing.get(parsed.data.name.trim().toLowerCase());
+    if (!dryRun) {
+      if (id) await peoplePrisma.contractor.update({ where: { id }, data: contractorData(parsed.data) });
+      else existing.set(parsed.data.name.trim().toLowerCase(), (await peoplePrisma.contractor.create({ data: { accountId, orgId, ...contractorData(parsed.data), createdByUserId: req.auth!.userId } })).id);
+    } else if (!id) existing.set(parsed.data.name.trim().toLowerCase(), 'new');
+    if (id) updated += 1;
+    else imported += 1;
+  }
+  res.json({ dryRun, imported, updated, failed: results.length, results });
+});
+
 personnelRouter.put(`${base}/contractors/:id`, can(PermissionAction.EDIT, R.structure), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;

@@ -4,6 +4,7 @@ import { AlarmClock, Check, CheckCheck, Clock, Eraser, ShieldCheck, X } from 'lu
 import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
 import { useListSearch } from '@ui/components/ListToolbar';
 import DocumentListShell from '@ui/components/list/DocumentListShell';
+import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';
 import { SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import Drawer from '@ui/components/ui/Drawer';
 import { notify } from '@ui/components/ui/notify';
@@ -29,6 +30,18 @@ const COLUMNS = {
 };
 const dateOf = (d) => d.toLocaleDateString('en-IN', { dateStyle: 'medium' });
 
+
+/* What Export writes: the rows on screen, as shown (AT-01). */
+const EXPORT_COLUMNS = [
+  { key: 'employeeCode', label: 'Employee ID' },
+  { key: 'employeeName', label: 'Employee' },
+  { key: 'type', label: 'Request', value: (r) => TYPES[r.type] || r.type },
+  { key: 'details', label: 'Their words' },
+  { key: 'createdAt', label: 'Asked', value: (r) => String(r.createdAt || '').slice(0, 10) },
+  { key: 'dueAt', label: 'Answer by', value: (r) => String(r.dueAt || '').slice(0, 10) },
+  { key: 'status', label: 'Status' },
+  { key: 'resolution', label: 'Answer' },
+];
 export default function DataRequests() {
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
@@ -96,6 +109,11 @@ export default function DataRequests() {
     <DocumentListShell
       entity="privacy"
       title="Data requests"
+      moreItems={[exportMenuItem('Export')]}
+      onMoreSelect={(k) => {
+        const format = exportFormatFromKey(k);
+        if (format) runListExport({ format, title: 'Data requests', fileName: 'Data requests', label: 'request/requests', columns: EXPORT_COLUMNS, rows: rows });
+      }}
       description="What employees asked about their personal data, and your answers. Employees are told to expect an answer within 30 days; the DPDP Rules allow at most 90 for a grievance."
       compact
       tight

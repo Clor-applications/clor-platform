@@ -58,8 +58,11 @@ const TABS = [
   { value: '', label: 'All', tone: 'all' },
 ];
 
-export default function StructureList({ kind }) {
-  const cfg = KINDS[kind];
+/* `title` and `singular` let an app name a list in its own words (Attendance's
+   "Designations" for job positions); without them the list keeps its own. */
+export default function StructureList({ kind, title = '', singular = '' }) {
+  /* Memoised: load() depends on cfg, and a fresh object each render re-ran it without end. */
+  const cfg = useMemo(() => ({ ...KINDS[kind], ...(title ? { title } : {}), ...(singular ? { singular } : {}) }), [kind, title, singular]);
   const [tab, setTab] = useState('active');
   const [rows, setRows] = useState([]);
   const [parents, setParents] = useState([]);
@@ -285,8 +288,8 @@ export default function StructureList({ kind }) {
 }
 
 export const Departments = () => <StructureList kind="departments" />;
-export const JobPositions = () => <StructureList kind="job-positions" />;
+export const JobPositions = (props) => <StructureList kind="job-positions" {...props} />;
 export const JobRoles = () => <StructureList kind="job-roles" />;
 export const EmployeeTypes = () => <StructureList kind="employee-types" />;
 export const WorkTypes = () => <StructureList kind="work-types" />;
-export const Areas = () => <StructureList kind="areas" />;
+export const Areas = (props) => <StructureList kind="areas" {...props} />;

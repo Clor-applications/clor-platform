@@ -1,9 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { BadgeAlert, HardHat, Plus, UserCheck, Users } from 'lucide-react';
+import { BadgeAlert, HardHat, Plus, Upload, UserCheck, Users } from 'lucide-react';
 
 import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
 import { useListSearch } from '@ui/components/ListToolbar';
 import DocumentListShell from '@ui/components/list/DocumentListShell';
+import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';
 import { SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import Drawer from '@ui/components/ui/Drawer';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
@@ -24,12 +25,25 @@ const COLUMNS = {
   licence: (c) => c.licenceNo,
 };
 
+/* What Export writes: the rows on screen, as shown (AT-01). */
+const EXPORT_COLUMNS = [
+  { key: 'name', label: 'Contractor' },
+  { key: 'code', label: 'Code' },
+  { key: 'contactPerson', label: 'Contact person' },
+  { key: 'phone', label: 'Phone' },
+  { key: 'licenceNo', label: 'Licence' },
+  { key: 'licenceValidTo', label: 'Licence valid to' },
+  { key: 'workers', label: 'Workers' },
+  { key: 'presentToday', label: 'In today' },
+  { key: 'isActive', label: 'Active', value: (r) => (r.isActive ? 'Yes' : 'No') },
+];
+
 /**
  * Companies that supply workers (ClorTime's Contractors). Their people are
  * employees linked to the contractor — enrolled, punched and counted like
  * everyone else — so the workforce present today is one look away.
  */
-export default function Contractors() {
+export default function Contractors({ openScreen } = {}) {
   const [all, setAll] = useState(null);
   const [loadError, setLoadError] = useState('');
   const [editing, setEditing] = useState(null);
@@ -67,6 +81,12 @@ export default function Contractors() {
     <DocumentListShell
       entity="employee"
       title="Contractors"
+      moreItems={[exportMenuItem('Export'), ...(openScreen ? [{ key: 'import', label: 'Import from a spreadsheet', Icon: Upload }] : [])]}
+      onMoreSelect={(k) => {
+        if (k === 'import') return openScreen('dataImport', { kind: 'contractors' });
+        const format = exportFormatFromKey(k);
+        if (format) runListExport({ format, title: 'Contractors', fileName: 'Contractors', label: 'contractor/contractors', columns: EXPORT_COLUMNS, rows: rows });
+      }}
       description="Companies that supply workers. Link a worker to their contractor on their employee file."
       compact
       tight

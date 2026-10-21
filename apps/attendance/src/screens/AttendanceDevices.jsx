@@ -4,6 +4,7 @@ import { AlertTriangle, Cpu, Fingerprint, Plus, UserX, Wifi } from 'lucide-react
 import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
 import { useListSearch } from '@ui/components/ListToolbar';
 import DocumentListShell from '@ui/components/list/DocumentListShell';
+import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';
 import { SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import Drawer from '@ui/components/ui/Drawer';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
@@ -135,6 +136,22 @@ const COLUMNS = {
   model: (d) => d.model,
 };
 
+
+/* What Export writes: the rows on screen, as shown (AT-01). */
+const exportColumns = (siteNames) => [
+  { key: 'name', label: 'Reader' },
+  { key: 'vendor', label: 'Make' },
+  { key: 'model', label: 'Model' },
+  { key: 'firmware', label: 'Firmware' },
+  { key: 'serialNumber', label: 'Serial' },
+  { key: 'site', label: 'Site', value: (r) => siteNames.get(r.areaId) || 'All sites' },
+  { key: 'ip', label: 'IP address' },
+  { key: 'direction', label: 'Direction', value: (r) => directionWord(r) },
+  { key: 'online', label: 'Status', value: (r) => (!r.isActive ? 'Switched off' : r.online ? 'Online' : 'Offline') },
+  { key: 'lastSeenAt', label: 'Last heard', value: (r) => (r.lastSeenAt ? new Date(r.lastSeenAt).toLocaleString('en-IN') : '') },
+  { key: 'userCount', label: 'Enrolled' },
+  { key: 'punchesToday', label: 'Punches today' },
+];
 export default function AttendanceDevices({ openScreen }) {
   const [data, setData] = useState(null);
   /* Site names for the list; a reader holds only the area's id. */
@@ -173,6 +190,11 @@ export default function AttendanceDevices({ openScreen }) {
     <DocumentListShell
       entity="reader"
       title="All readers"
+      moreItems={[exportMenuItem('Export')]}
+      onMoreSelect={(k) => {
+        const format = exportFormatFromKey(k);
+        if (format) runListExport({ format, title: 'All readers', fileName: 'Readers', label: 'reader/readers', columns: exportColumns(siteNames), rows: rows });
+      }}
       description="Readers of any make, software that can send punches to a URL, files from reader software, and e-Time Office — all landing on the same days."
       compact
       tight

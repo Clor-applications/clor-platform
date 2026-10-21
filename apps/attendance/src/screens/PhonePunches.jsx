@@ -4,6 +4,7 @@ import { Ban, Camera, Check, ExternalLink, MapPin, Navigation, Smartphone, Users
 import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
 import { useListSearch } from '@ui/components/ListToolbar';
 import DocumentListShell from '@ui/components/list/DocumentListShell';
+import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';
 import { EmptyState, SkeletonCard } from '@ui/components/ui/Primitives';
 import Drawer from '@ui/components/ui/Drawer';
 import { notify } from '@ui/components/ui/notify';
@@ -44,6 +45,22 @@ const COLUMNS = {
 const metres = (m) => (m == null ? '—' : m >= 1000 ? `${(m / 1000).toFixed(1)} km` : `${m} m`);
 const mapUrl = (lat, lon) => `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lon}#map=18/${lat}/${lon}`;
 
+
+/* What Export writes: the rows on screen, as shown (AT-01). */
+const EXPORT_COLUMNS = [
+  { key: 'time', label: 'Time' },
+  { key: 'name', label: 'Employee' },
+  { key: 'kind', label: 'In or out', value: (r) => kindLabel(r) },
+  { key: 'site', label: 'Site', value: (r) => r.site || '' },
+  { key: 'address', label: 'Where', value: (r) => r.address || '' },
+  { key: 'nearest', label: 'Nearest site', value: (r) => (r.nearest ? `${r.nearest.name} (${metres(r.nearest.distance)})` : '') },
+  { key: 'distance', label: 'From centre', value: (r) => (r.distance != null ? metres(r.distance) : '') },
+  { key: 'accuracy', label: 'Accuracy', value: (r) => (r.accuracy != null ? `±${metres(r.accuracy)}` : '') },
+  { key: 'review', label: 'Status', value: (r) => r.review || (r.code ? REFUSED[r.code] || r.code : '') },
+  { key: 'message', label: 'Why refused', value: (r) => r.message || '' },
+  { key: 'latitude', label: 'Latitude' },
+  { key: 'longitude', label: 'Longitude' },
+];
 export default function PhonePunches() {
   const [range, setRange] = useState({ from: todayIst(), to: todayIst() });
   const [tab, setTab] = useState('accepted');
@@ -112,6 +129,11 @@ export default function PhonePunches() {
     <DocumentListShell
       entity="reader"
       title="Mobile punches"
+      moreItems={[exportMenuItem('Export')]}
+      onMoreSelect={(k) => {
+        const format = exportFormatFromKey(k);
+        if (format) runListExport({ format, title: 'Mobile punches', fileName: 'Mobile punches', label: 'punch/punches', columns: EXPORT_COLUMNS, rows: rows });
+      }}
       description="Punches made from phones, where they were made, and the attempts that were refused."
       compact
       tight

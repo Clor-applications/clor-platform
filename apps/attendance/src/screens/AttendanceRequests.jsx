@@ -4,6 +4,7 @@ import { Check, CheckCheck, ClipboardClock, HelpCircle, X } from 'lucide-react';
 import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
 import { useListSearch } from '@ui/components/ListToolbar';
 import DocumentListShell from '@ui/components/list/DocumentListShell';
+import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';
 import { Pagination, usePaged, useResetPage } from '@ui/components/list/ListPageParts';
 import { SkeletonCard, EmptyState, StatusPill } from '@ui/components/ui/Primitives';
 import { notify } from '@ui/components/ui/notify';
@@ -33,6 +34,17 @@ const COLUMNS = {
   status: (r) => r.status,
 };
 
+
+/* What Export writes: the rows on screen, as shown (AT-01). */
+const EXPORT_COLUMNS = [
+  { key: 'employeeName', label: 'Employee' },
+  { key: 'date', label: 'Day' },
+  { key: 'was', label: 'Was', value: (r) => (r.beforeStatus || r.beforeCheckIn ? `${time(r.beforeCheckIn)}-${time(r.beforeCheckOut)}${r.beforeStatus ? ` ${STATUS_WORD[r.beforeStatus] || r.beforeStatus}` : ''}` : 'Nothing recorded') },
+  { key: 'asked', label: 'Asked for', value: (r) => `${time(r.checkIn)}-${time(r.checkOut)}` },
+  { key: 'reasonCode', label: 'Reason', value: (r) => (r.reasonCode ? reasonLabel(r.reasonCode) : '') },
+  { key: 'reason', label: 'Their words' },
+  { key: 'status', label: 'Status' },
+];
 export default function AttendanceRequests() {
   const [status, setStatus] = useState('PENDING');
   const [all, setAll] = useState(null);
@@ -96,6 +108,11 @@ export default function AttendanceRequests() {
     <DocumentListShell
       entity="request"
       title="Corrections"
+      moreItems={[exportMenuItem('Export')]}
+      onMoreSelect={(k) => {
+        const format = exportFormatFromKey(k);
+        if (format) runListExport({ format, title: 'Corrections', fileName: 'Corrections', label: 'request/requests', columns: EXPORT_COLUMNS, rows: rows });
+      }}
       description="What people asked to change, beside the day as it stood. Approving one writes that day."
       compact
       tight

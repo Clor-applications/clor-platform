@@ -4,6 +4,7 @@ import { Fingerprint, ScanFace, Users, UserX } from 'lucide-react';
 import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
 import { useListSearch } from '@ui/components/ListToolbar';
 import DocumentListShell from '@ui/components/list/DocumentListShell';
+import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';
 import { Pagination, usePaged, useResetPage } from '@ui/components/list/ListPageParts';
 import { SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import { getReaderPhoto, listBiometrics } from '../api/attendance';
@@ -16,6 +17,16 @@ const COLUMNS = {
   face: (r) => (r.faces ? 'Face' : 'No face'),
   updated: (r) => (r.updatedAt ? String(r.updatedAt).slice(0, 10) : ''),
 };
+
+/* What Export writes: the rows on screen, as shown (AT-01). */
+const EXPORT_COLUMNS = [
+  { key: 'employeeName', label: 'Employee', value: (r) => r.employeeName || 'Not matched' },
+  { key: 'pin', label: 'Reader ID' },
+  { key: 'fingers', label: 'Fingerprints' },
+  { key: 'faces', label: 'Face', value: (r) => (r.faces ? 'Yes' : 'No') },
+  { key: 'photo', label: 'Photo', value: (r) => (r.photo ? 'Yes' : 'No') },
+  { key: 'updatedAt', label: 'Last enrolled', value: (r) => (r.updatedAt ? new Date(r.updatedAt).toLocaleString('en-IN') : '') },
+];
 
 /**
  * Who has fingerprints and a face on record, as the readers enrolled them.
@@ -59,6 +70,11 @@ export default function Enrolments() {
     <DocumentListShell
       entity="reader"
       title="Device enrollment"
+      moreItems={[exportMenuItem('Export')]}
+      onMoreSelect={(k) => {
+        const format = exportFormatFromKey(k);
+        if (format) runListExport({ format, title: 'Device enrollment', fileName: 'Enrolments', label: 'person/people', columns: EXPORT_COLUMNS, rows: shown });
+      }}
       description="Fingerprints and faces enrolled on the readers. Enrol once on any reader; it is copied to the others."
       compact
       tight

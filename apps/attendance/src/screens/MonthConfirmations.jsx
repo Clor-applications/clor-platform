@@ -4,6 +4,7 @@ import { CheckCheck, Clock, MessageSquareWarning, Smartphone } from 'lucide-reac
 import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
 import { useListSearch } from '@ui/components/ListToolbar';
 import DocumentListShell from '@ui/components/list/DocumentListShell';
+import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';
 import { EmptyState, SkeletonCard } from '@ui/components/ui/Primitives';
 import { getMonthReadiness, todayIst } from '../api/attendance';
 import LoadFailed from '../components/LoadFailed';
@@ -23,6 +24,13 @@ const COLUMNS = {
   at: (d) => String(d.at || '').slice(0, 10),
 };
 
+
+/* What Export writes: the rows on screen, as shown (AT-01). */
+const EXPORT_COLUMNS = [
+  { key: 'name', label: 'Employee' },
+  { key: 'note', label: 'What they say' },
+  { key: 'at', label: 'When', value: (r) => (r.at ? new Date(r.at).toLocaleString('en-IN') : '') },
+];
 export default function MonthConfirmations() {
   const [month, setMonth] = useState(lastMonth());
   const [data, setData] = useState(null);
@@ -47,6 +55,11 @@ export default function MonthConfirmations() {
     <DocumentListShell
       entity="report"
       title="Employee confirmations"
+      moreItems={[exportMenuItem('Export')]}
+      onMoreSelect={(k) => {
+        const format = exportFormatFromKey(k);
+        if (format) runListExport({ format, title: 'Employee confirmations', fileName: 'Month disputes', label: 'dispute/disputes', columns: EXPORT_COLUMNS, rows: rows });
+      }}
       description="Who has confirmed their month in the app, and who says something is wrong."
       compact
       tight

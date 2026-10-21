@@ -27,6 +27,7 @@ export const updateEmployee = (id, body) => send(`/employees/${encodeURIComponen
 export const deleteEmployee = (id) => send(`/employees/${encodeURIComponent(id)}`, 'DELETE');
 /* dryRun: every row checked, nothing created — the preview before an import. */
 export const importEmployees = (rows, dryRun = false) => send('/employees/import', 'POST', { rows, dryRun });
+export const importContractors = (rows, dryRun = false) => send('/contractors/import', 'POST', { rows, dryRun });
 export const getOrgChart = () => apiFetch(`${base()}/org-chart`, opts);
 
 /** kind: departments | job-positions | job-roles | employee-types | work-types */

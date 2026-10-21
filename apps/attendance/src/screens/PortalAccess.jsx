@@ -4,6 +4,7 @@ import { Copy, ExternalLink, KeyRound, MapPin, Printer, Smartphone, UserCheck } 
 import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
 import { useListSearch } from '@ui/components/ListToolbar';
 import DocumentListShell from '@ui/components/list/DocumentListShell';
+import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';
 import { Pagination, usePaged, useResetPage } from '@ui/components/list/ListPageParts';
 import { SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import Drawer from '@ui/components/ui/Drawer';
@@ -32,6 +33,18 @@ const COLUMNS = {
   portal: (p) => STATE[stateOf(p)].label,
   site: siteOf,
 };
+
+/* What Export writes: the rows on screen, as shown (AT-01). */
+const EXPORT_COLUMNS = [
+  { key: 'code', label: 'Employee ID' },
+  { key: 'name', label: 'Name' },
+  { key: 'department', label: 'Department' },
+  { key: 'portal', label: 'Portal', value: (r) => STATE[stateOf(r)]?.label || '' },
+  { key: 'mobilePunch', label: 'Phone punch', value: (r) => (r.mobilePunch ? 'On' : 'Off') },
+  { key: 'site', label: 'Where they may punch', value: (r) => siteOf(r) },
+  { key: 'email', label: 'E-mail' },
+  { key: 'portalPasswordSetAt', label: 'Signed up', value: (r) => (r.portalPasswordSetAt ? String(r.portalPasswordSetAt).slice(0, 10) : '') },
+];
 
 /**
  * Who may use the employee portal and punch from a phone (ClorTime's portal
@@ -122,6 +135,11 @@ export default function PortalAccess() {
     <DocumentListShell
       entity="employee"
       title="Employee portal access"
+      moreItems={[exportMenuItem('Export')]}
+      onMoreSelect={(k) => {
+        const format = exportFormatFromKey(k);
+        if (format) runListExport({ format, title: 'Employee portal access', fileName: 'Portal access', label: 'person/people', columns: EXPORT_COLUMNS, rows: shown });
+      }}
       description="Employees sign in to the portal with the company code, their employee code and a password they choose."
       compact
       tight

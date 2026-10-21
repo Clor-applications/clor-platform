@@ -15,10 +15,12 @@ import { emit as emitWebhook, leaveEvent, leaveEventFor } from '../services/atte
 import {
   ISO_DATE,
   closedMonths,
+  codeKey,
   employeeIn,
   fail,
   isHoliday,
   myEmployee,
+  peopleByCode,
   sendError,
   shiftFor,
   today,
@@ -259,6 +261,102 @@ leaveRouter.put(`${base}/allocations`, can(PermissionAction.EDIT, R.leave), asyn
   } catch (e) {
     return sendError(res, e);
   }
+});
+
+/*
+ * Opening balances from a list (AT-02): a company moving to CLOR mid-year
+ * brings each person's days for the year. Same as setting a balance on Leave
+ * Balances: the days a person has for that year, in place of the type's own.
+ * Rows: employeeCode, leaveType (by name), year, days, note.
+ */
+leaveRouter.post(`${base}/allocations/import`, can(PermissionAction.EDIT, R.leave), async (req, res) => {
+  if (!(await attendanceRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const rows = Array.isArray(req.body?.rows) ? req.body.rows : [];
+  if (!rows.length) return res.status(400).json({ error: 'Nothing to import.' });
+  if (rows.length > 5000) return res.status(400).json({ error: 'Import up to 5,000 balances at a time.' });
+  const dryRun = req.body?.dryRun === true;
+  const [byCode, types] = await Promise.all([peopleByCode(orgId), peoplePrisma.leaveType.findMany({ where: { accountId, orgId }, select: { id: true, name: true, isPaid: true } })]);
+  const typeByName = new Map(types.map((t) => [t.name.trim().toLowerCase(), t]));
+  const results: Array<{ row: number; ok: boolean; error?: string }> = [];
+  let imported = 0;
+  for (let i = 0; i < rows.length; i += 1) {
+    const r = rows[i] || {};
+    const emp = byCode.get(codeKey(r.employeeCode ?? r.code));
+    if (!emp) { results.push({ row: i + 1, ok: false, error: `No employee with code ${String(r.employeeCode ?? '').trim() || '(blank)'}.` }); continue; }
+    const type = typeByName.get(String(r.leaveType || '').trim().toLowerCase());
+    if (!type) { results.push({ row: i + 1, ok: false, error: `No leave type called ${String(r.leaveType || '').trim() || '(blank)'}.` }); continue; }
+    if (!type.isPaid) { results.push({ row: i + 1, ok: false, error: `${type.name} is unpaid: it has no balance.` }); continue; }
+    const year = Number(String(r.year || '').trim() || today().slice(0, 4));
+    const days = Number(String(r.days ?? '').trim());
+    if (!Number.isInteger(year) || year < 2000 || year > 2100) { results.push({ row: i + 1, ok: false, error: 'The year is a four-digit year.' }); continue; }
+    if (!Number.isFinite(days) || days < 0 || days > 366) { results.push({ row: i + 1, ok: false, error: 'Days are a number from 0 to 366.' }); continue; }
+    const note = String(r.note || '').trim().slice(0, 200) || 'Imported opening balance';
+    if (!dryRun) {
+      await peoplePrisma.leaveAllocation.upsert({
+        where: { employeeId_leaveTypeId_year: { employeeId: emp.id, leaveTypeId: type.id, year } },
+        create: { accountId, orgId, employeeId: emp.id, leaveTypeId: type.id, year, days, note, createdByUserId: req.auth!.userId },
+        update: { days, note },
+      });
+    }
+    imported += 1;
+  }
+  res.json({ dryRun, imported, failed: results.length, results });
+});
+
+/*
+ * Leave already taken, from a list (AT-02): each row becomes an approved
+ * request, through the same approval as any other, so its days are marked
+ * "on leave" and the balance counts it. A row that overlaps leave already on
+ * file, or covers only weekly offs and holidays, is refused and named.
+ * Rows: employeeCode, leaveType, from, to, halfDay (FIRST / SECOND / blank), reason.
+ */
+leaveRouter.post(`${base}/requests/import`, can(PermissionAction.EDIT, R.leave), async (req, res) => {
+  if (!(await attendanceRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const rows = Array.isArray(req.body?.rows) ? req.body.rows : [];
+  if (!rows.length) return res.status(400).json({ error: 'Nothing to import.' });
+  if (rows.length > 2000) return res.status(400).json({ error: 'Import up to 2,000 leave rows at a time.' });
+  const dryRun = req.body?.dryRun === true;
+  const [byCode, types] = await Promise.all([peopleByCode(orgId), peoplePrisma.leaveType.findMany({ where: { accountId, orgId }, select: { id: true, name: true } })]);
+  const typeByName = new Map(types.map((t) => [t.name.trim().toLowerCase(), t]));
+  const results: Array<{ row: number; ok: boolean; error?: string }> = [];
+  let imported = 0;
+  for (let i = 0; i < rows.length; i += 1) {
+    const r = rows[i] || {};
+    const emp = byCode.get(codeKey(r.employeeCode ?? r.code));
+    if (!emp) { results.push({ row: i + 1, ok: false, error: `No employee with code ${String(r.employeeCode ?? '').trim() || '(blank)'}.` }); continue; }
+    const type = typeByName.get(String(r.leaveType || '').trim().toLowerCase());
+    if (!type) { results.push({ row: i + 1, ok: false, error: `No leave type called ${String(r.leaveType || '').trim() || '(blank)'}.` }); continue; }
+    const from = String(r.from || '').trim();
+    const to = String(r.to || '').trim() || from;
+    if (!ISO_DATE.test(from) || !ISO_DATE.test(to)) { results.push({ row: i + 1, ok: false, error: 'Dates are YYYY-MM-DD.' }); continue; }
+    if (to < from) { results.push({ row: i + 1, ok: false, error: 'The last day is before the first.' }); continue; }
+    if (from.slice(0, 4) !== to.slice(0, 4)) { results.push({ row: i + 1, ok: false, error: 'Leave stays inside one year. Split it at 31 December.' }); continue; }
+    const half = String(r.halfDay || '').trim().toUpperCase();
+    if (half && !['FIRST', 'SECOND'].includes(half)) { results.push({ row: i + 1, ok: false, error: 'Half day is FIRST, SECOND or blank.' }); continue; }
+    if (half && from !== to) { results.push({ row: i + 1, ok: false, error: 'A half-day leave is for one day.' }); continue; }
+    const days = await workingDays(orgId, emp, from, to);
+    if (!days.length) { results.push({ row: i + 1, ok: false, error: 'Those are all weekly offs or holidays.' }); continue; }
+    const clash = await peoplePrisma.leaveRequest.findFirst({ where: { orgId, employeeId: emp.id, status: { in: OPEN }, fromDate: { lte: to }, toDate: { gte: from } } });
+    if (clash) { results.push({ row: i + 1, ok: false, error: `Overlaps leave already on file (${clash.fromDate} to ${clash.toDate}).` }); continue; }
+    if (!dryRun) {
+      let row: any = null;
+      try {
+        row = await peoplePrisma.leaveRequest.create({
+          data: { accountId, orgId, employeeId: emp.id, leaveTypeId: type.id, fromDate: from, toDate: to, days: half ? 0.5 : days.length, halfDay: half || null, reason: String(r.reason || '').trim().slice(0, 500) || 'Imported leave', requestedByUserId: req.auth!.userId },
+        });
+        await approveLeave(accountId, orgId, row, req.auth!.userId, 'Imported');
+      } catch (e: any) {
+        /* Approval refused (a closed month, punches on the day): do not leave a stray pending request behind. */
+        if (row) await peoplePrisma.leaveRequest.delete({ where: { id: row.id } }).catch(() => null);
+        results.push({ row: i + 1, ok: false, error: String(e?.message || 'Not imported.') });
+        continue;
+      }
+    }
+    imported += 1;
+  }
+  res.json({ dryRun, imported, failed: results.length, results });
 });
 
 // ---------------------------------------------------------------------------

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { AlarmClock, CalendarCheck, CheckCheck, FileSpreadsheet, HelpCircle, Plus, Timer, UserX, Wand2, X } from 'lucide-react';
+import { AlarmClock, CalendarCheck, CheckCheck, FileSpreadsheet, HelpCircle, Plus, Timer, UserX, Upload, Wand2, X } from 'lucide-react';
 
 import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
 import { useListSearch } from '@ui/components/ListToolbar';
@@ -58,7 +58,7 @@ const EXPORT_COLUMNS = [
   { key: 'source', label: 'Source', value: (r) => SOURCE[r.source] || r.source || '' },
 ];
 
-export default function AttendanceRecords({ params } = {}) {
+export default function AttendanceRecords({ params, openScreen } = {}) {
   /* Opened from a report row or an exception: start on that person and those days. */
   const [filters, setFilters] = useState(() => ({ from: weekAgo(), to: todayIst(), employeeId: '', validated: '', late: '', ...(params || {}), status: '' }));
   const [status, setStatus] = useState(() => params?.status || '');
@@ -144,8 +144,9 @@ export default function AttendanceRecords({ params } = {}) {
       tight
       denseCards
       search={{ value: search.query, onChange: search.setQuery, placeholder: 'Search people or dates…', label: 'Search records' }}
-      moreItems={[exportMenuItem('Export days')]}
+      moreItems={[exportMenuItem('Export days'), ...(openScreen ? [{ key: 'import', label: 'Import from a spreadsheet', Icon: Upload }] : [])]}
       onMoreSelect={(k) => {
+        if (k === 'import') return openScreen('dataImport', { kind: 'records' });
         const format = exportFormatFromKey(k);
         if (!format) return;
         runListExport({ format, title: 'Attendance', subtitle: `${filters.from} to ${filters.to}`, fileName: `Attendance ${filters.from} to ${filters.to}`, label: 'day/days', columns: EXPORT_COLUMNS, rows });
