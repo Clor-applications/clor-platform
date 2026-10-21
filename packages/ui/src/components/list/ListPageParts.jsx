@@ -541,6 +541,21 @@ export function usePaged(rows, perPage, page) {
   return { pageCount, safePage, pageRows: rows.slice((safePage - 1) * perPage, safePage * perPage) };
 }
 
+/**
+ * Back to page 1 when what the list shows changes (a tab, the search, a date
+ * window). Done while rendering, the way React asks, rather than in an effect
+ * that first paints the old page and then renders again. `deps` are compared
+ * by value, so a new but equal filter object does not reset the page.
+ */
+export function useResetPage(setPage, deps) {
+  const key = JSON.stringify(deps);
+  const [seen, setSeen] = useState(key);
+  if (seen !== key) {
+    setSeen(key);
+    setPage(1);
+  }
+}
+
 
 /**
  * The strip of filters at the head of a list's table.

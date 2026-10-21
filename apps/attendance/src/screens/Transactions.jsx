@@ -4,7 +4,7 @@ import { Camera, Fingerprint, MapPin, Router, Users, UserX } from 'lucide-react'
 import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
 import { useListSearch } from '@ui/components/ListToolbar';
 import DocumentListShell from '@ui/components/list/DocumentListShell';
-import { Pagination, usePaged } from '@ui/components/list/ListPageParts';
+import { Pagination, usePaged, useResetPage } from '@ui/components/list/ListPageParts';
 import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';
 import { SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import { notify } from '@ui/components/ui/notify';
@@ -104,7 +104,7 @@ export default function Transactions() {
   const columns = useColumnFilters();
   const rows = columns.applyFilters(search.filtered, COLUMNS);
   const { pageCount, safePage, pageRows } = usePaged(rows, perPage, page);
-  useEffect(() => setPage(1), [direction, search.query, filters]);
+  useResetPage(setPage, [direction, search.query, filters]);
   const figures = useMemo(() => ({
     punches: all.length,
     people: new Set(all.map((t) => t.employeeId).filter(Boolean)).size,

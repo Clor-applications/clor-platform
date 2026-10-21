@@ -4,7 +4,7 @@ import { CalendarCheck, HelpCircle, UserCog, Users, Wallet } from 'lucide-react'
 import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
 import { useListSearch } from '@ui/components/ListToolbar';
 import DocumentListShell from '@ui/components/list/DocumentListShell';
-import { Pagination, usePaged } from '@ui/components/list/ListPageParts';
+import { Pagination, usePaged, useResetPage } from '@ui/components/list/ListPageParts';
 import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';
 import { SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import { notify } from '@ui/components/ui/notify';
@@ -66,7 +66,7 @@ export default function LeaveBalances() {
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(50);
   const { pageCount, safePage, pageRows } = usePaged(rows, perPage, page);
-  useEffect(() => setPage(1), [search.query, year]);
+  useResetPage(setPage, [search.query, year]);
   const figures = useMemo(() => {
     const all = data?.rows || [];
     const paid = (data?.types || []).filter((t) => t.isPaid);

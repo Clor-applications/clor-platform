@@ -27,8 +27,13 @@ export default function MonthConfirmations() {
   const [month, setMonth] = useState(lastMonth());
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
-  const load = useCallback(() => {
+  /* Another month clears the last one's figures at once, while rendering; the fetch fills them in. */
+  const [seenMonth, setSeenMonth] = useState(month);
+  if (seenMonth !== month) {
+    setSeenMonth(month);
     setData(null);
+  }
+  const load = useCallback(() => {
     getMonthReadiness(month).then((d) => { setData(d.confirmations); setError(''); }).catch((e) => setError(String(e?.message || 'Could not load.')));
   }, [month]);
   useEffect(() => { load(); }, [load]);

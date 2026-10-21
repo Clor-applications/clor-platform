@@ -4,7 +4,7 @@ import { AlertTriangle, ClipboardList, Router, ScrollText } from 'lucide-react';
 import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
 import { useListSearch } from '@ui/components/ListToolbar';
 import DocumentListShell from '@ui/components/list/DocumentListShell';
-import { Pagination, usePaged } from '@ui/components/list/ListPageParts';
+import { Pagination, usePaged, useResetPage } from '@ui/components/list/ListPageParts';
 import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';
 import { SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import { listDeviceLogs, todayIst } from '../api/attendance';
@@ -62,7 +62,7 @@ export default function DeviceLogs() {
   const filters = useColumnFilters();
   const rows = filters.applyFilters(search.filtered, COLUMNS);
   const { pageCount, safePage, pageRows } = usePaged(rows, perPage, page);
-  useEffect(() => setPage(1), [kind, search.query, range]);
+  useResetPage(setPage, [kind, search.query, range]);
 
   const readersWithErrors = useMemo(() => new Set((logs?.ERROR || []).map((r) => r.deviceId)).size, [logs]);
   const readersReporting = useMemo(() => new Set([...(logs?.OPERATION || []), ...(logs?.ERROR || [])].map((r) => r.deviceId)).size, [logs]);

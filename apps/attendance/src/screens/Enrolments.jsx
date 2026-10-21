@@ -4,7 +4,7 @@ import { Fingerprint, ScanFace, Users, UserX } from 'lucide-react';
 import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
 import { useListSearch } from '@ui/components/ListToolbar';
 import DocumentListShell from '@ui/components/list/DocumentListShell';
-import { Pagination, usePaged } from '@ui/components/list/ListPageParts';
+import { Pagination, usePaged, useResetPage } from '@ui/components/list/ListPageParts';
 import { SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import { getReaderPhoto, listBiometrics } from '../api/attendance';
 import { notify } from '@ui/components/ui/notify';
@@ -44,7 +44,7 @@ export default function Enrolments() {
   const filters = useColumnFilters();
   const shown = filters.applyFilters(search.filtered, COLUMNS);
   const { pageCount, safePage, pageRows } = usePaged(shown, perPage, page);
-  useEffect(() => setPage(1), [search.query]);
+  useResetPage(setPage, [search.query]);
   const figures = useMemo(() => {
     const list = rows || [];
     return {

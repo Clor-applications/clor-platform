@@ -4,7 +4,7 @@ import { CalendarCheck, CalendarClock, CalendarRange, Plus, Trash2, Users } from
 import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
 import { useListSearch } from '@ui/components/ListToolbar';
 import DocumentListShell from '@ui/components/list/DocumentListShell';
-import { Pagination, usePaged } from '@ui/components/list/ListPageParts';
+import { Pagination, usePaged, useResetPage } from '@ui/components/list/ListPageParts';
 import { SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import { notify } from '@ui/components/ui/notify';
 import { addTemporarySchedule, dayLabel, listEmployees, listShifts, listTemporarySchedules, removeTemporarySchedule, todayIst } from '../api/attendance';
@@ -57,7 +57,7 @@ export default function TemporarySchedule() {
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(25);
   const { pageCount, safePage, pageRows } = usePaged(shownRows, perPage, page);
-  useEffect(() => setPage(1), [list.query]);
+  useResetPage(setPage, [list.query]);
   const figures = useMemo(() => {
     const all = rows || [];
     const today = todayIst();

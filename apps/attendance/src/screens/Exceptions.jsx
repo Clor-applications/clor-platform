@@ -4,7 +4,7 @@ import { AlertTriangle, ArrowUpRight, CheckCircle2, CircleDot, Clock, EyeOff, He
 import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
 import { useListSearch } from '@ui/components/ListToolbar';
 import DocumentListShell from '@ui/components/list/DocumentListShell';
-import { Pagination, usePaged } from '@ui/components/list/ListPageParts';
+import { Pagination, usePaged, useResetPage } from '@ui/components/list/ListPageParts';
 import { EmptyState, SkeletonCard } from '@ui/components/ui/Primitives';
 import Drawer from '@ui/components/ui/Drawer';
 import { notify } from '@ui/components/ui/notify';
@@ -87,7 +87,7 @@ export default function Exceptions({ openScreen }) {
   const filters = useColumnFilters();
   const rows = filters.applyFilters(search.filtered, COLUMNS);
   const { pageCount, safePage, pageRows } = usePaged(rows, perPage, page);
-  useEffect(() => setPage(1), [kind, search.query, range, showAll]);
+  useResetPage(setPage, [kind, search.query, range, showAll]);
   const isOpen = (x) => x.status === 'OPEN' || x.status === 'IN_PROGRESS';
   const pickable = useMemo(() => rows.filter(isOpen), [rows]);
   /* Only what is still open and on screen counts, so a reload or a new filter never acts on hidden items. */

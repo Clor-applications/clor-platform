@@ -4,7 +4,7 @@ import { Copy, ExternalLink, KeyRound, MapPin, Printer, Smartphone, UserCheck } 
 import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
 import { useListSearch } from '@ui/components/ListToolbar';
 import DocumentListShell from '@ui/components/list/DocumentListShell';
-import { Pagination, usePaged } from '@ui/components/list/ListPageParts';
+import { Pagination, usePaged, useResetPage } from '@ui/components/list/ListPageParts';
 import { SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import Drawer from '@ui/components/ui/Drawer';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
@@ -67,7 +67,7 @@ export default function PortalAccess() {
   const filters = useColumnFilters();
   const shown = filters.applyFilters(search.filtered, COLUMNS);
   const { pageCount, safePage, pageRows } = usePaged(shown, perPage, page);
-  useEffect(() => setPage(1), [status, search.query]);
+  useResetPage(setPage, [status, search.query]);
   const figures = useMemo(() => ({
     active: counts.active || 0,
     pending: counts.pending || 0,

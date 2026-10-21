@@ -4,7 +4,7 @@ import { CalendarDays, CalendarX, Plus, UserCheck, UserMinus, UserX } from 'luci
 import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
 import { useListSearch } from '@ui/components/ListToolbar';
 import DocumentListShell from '@ui/components/list/DocumentListShell';
-import { Pagination, usePaged } from '@ui/components/list/ListPageParts';
+import { Pagination, usePaged, useResetPage } from '@ui/components/list/ListPageParts';
 import { SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import Drawer from '@ui/components/ui/Drawer';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
@@ -59,7 +59,7 @@ export default function Resignations() {
   const filters = useColumnFilters();
   const rows = filters.applyFilters(search.filtered, COLUMNS);
   const { pageCount, safePage, pageRows } = usePaged(rows, perPage, page);
-  useEffect(() => setPage(1), [status, search.query]);
+  useResetPage(setPage, [status, search.query]);
 
   const figures = useMemo(() => {
     const today = todayIst();

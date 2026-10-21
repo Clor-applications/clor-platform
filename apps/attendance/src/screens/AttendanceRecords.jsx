@@ -4,7 +4,7 @@ import { AlarmClock, CalendarCheck, CheckCheck, FileSpreadsheet, HelpCircle, Plu
 import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
 import { useListSearch } from '@ui/components/ListToolbar';
 import DocumentListShell from '@ui/components/list/DocumentListShell';
-import { Pagination, usePaged } from '@ui/components/list/ListPageParts';
+import { Pagination, usePaged, useResetPage } from '@ui/components/list/ListPageParts';
 import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';
 import { SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import Drawer from '@ui/components/ui/Drawer';
@@ -99,7 +99,7 @@ export default function AttendanceRecords({ params } = {}) {
   const columns = useColumnFilters();
   const rows = columns.applyFilters(search.filtered, COLUMNS);
   const { pageCount, safePage, pageRows } = usePaged(rows, perPage, page);
-  useEffect(() => setPage(1), [status, search.query, filters]);
+  useResetPage(setPage, [status, search.query, filters]);
 
   const figures = useMemo(() => {
     const list = all || [];

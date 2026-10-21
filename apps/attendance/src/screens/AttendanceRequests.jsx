@@ -4,7 +4,7 @@ import { Check, CheckCheck, ClipboardClock, HelpCircle, X } from 'lucide-react';
 import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
 import { useListSearch } from '@ui/components/ListToolbar';
 import DocumentListShell from '@ui/components/list/DocumentListShell';
-import { Pagination, usePaged } from '@ui/components/list/ListPageParts';
+import { Pagination, usePaged, useResetPage } from '@ui/components/list/ListPageParts';
 import { SkeletonCard, EmptyState, StatusPill } from '@ui/components/ui/Primitives';
 import { notify } from '@ui/components/ui/notify';
 import { approveRequest, bulkReviewRequests, dayLabel, explainDay, listRequests, reasonLabel, rejectRequest } from '../api/attendance';
@@ -49,7 +49,13 @@ export default function AttendanceRequests() {
       .catch((e) => setLoadError(String(e?.message || 'Could not load requests.')));
   }, []);
   useEffect(() => { load(); }, [load]);
-  useEffect(() => { setSelected(new Set()); setPage(1); }, [status]);
+  /* A new tab starts unselected on its first page; reset while rendering, not in an effect. */
+  const [seenStatus, setSeenStatus] = useState(status);
+  if (seenStatus !== status) {
+    setSeenStatus(status);
+    setSelected(new Set());
+    setPage(1);
+  }
   const explainLoad = useCallback(() => explainDay(explaining?.employeeId, explaining?.date), [explaining]);
 
   const counts = useMemo(() => {
@@ -62,7 +68,7 @@ export default function AttendanceRequests() {
   const filters = useColumnFilters();
   const rows = filters.applyFilters(search.filtered, COLUMNS);
   const { pageCount, safePage, pageRows } = usePaged(rows, perPage, page);
-  useEffect(() => setPage(1), [search.query]);
+  useResetPage(setPage, [search.query]);
 
   const pending = useMemo(() => rows.filter((r) => r.status === 'PENDING'), [rows]);
   const act = async (fn, r, done) => {
