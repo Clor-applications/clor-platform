@@ -18,6 +18,7 @@ import { recordChanges, recordJoined, timelineOf } from '../services/people/empl
 import { dataHealth } from '../services/people/dataHealth.js';
 import { PAYROLL_MODULE, PAYROLL_RESOURCE } from '../services/payroll/guards.js';
 import { KINDS, READER_ACCESS_ITEM, checklistOf, cleanItems, itemsFor, openTasks, startChecklist, type Kind as ChecklistKind } from '../services/people/checklists.js';
+import { addCustom, calendar, evidenceOf, updateTask } from '../services/people/compliance.js';
 
 /**
  * People: the staff directory.
@@ -492,6 +493,45 @@ peopleRouter.delete('/orgs/:orgId/people/checklist-templates/:kind', can(Permiss
   if (!kind) return res.status(404).json({ error: 'Checklists are JOINING or LEAVING.' });
   await peoplePrisma.checklistTemplate.deleteMany({ where: { orgId, kind } });
   res.json(await itemsFor(orgId, kind));
+});
+
+// ---------------------------------------------------------------------------
+// Compliance calendar (services/people/compliance.ts)
+// ---------------------------------------------------------------------------
+
+peopleRouter.get('/orgs/:orgId/people/compliance', can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  res.json(await calendar({ accountId, orgId, userId: req.auth!.userId }));
+});
+
+peopleRouter.post('/orgs/:orgId/people/compliance', can(PermissionAction.EDIT, EMPLOYEES), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  try {
+    const task = await addCustom({ accountId, orgId, userId: req.auth!.userId }, req.body);
+    res.status(201).json({ id: task.id });
+  } catch (e) {
+    return sendError(res, e);
+  }
+});
+
+peopleRouter.patch('/orgs/:orgId/people/compliance/:id', can(PermissionAction.EDIT, EMPLOYEES), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  try {
+    await updateTask({ accountId, orgId, userId: req.auth!.userId }, String(req.params.id), req.body || {});
+    res.json(await calendar({ accountId, orgId, userId: req.auth!.userId }));
+  } catch (e) {
+    return sendError(res, e);
+  }
+});
+
+peopleRouter.get('/orgs/:orgId/people/compliance/:id/evidence', can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  const file = await evidenceOf(req.tenant!.orgId, String(req.params.id));
+  if (!file) return res.status(404).json({ error: 'No evidence kept for this deadline.' });
+  res.json({ evidence: file });
 });
 
 /** Employment history: joined, moved, changed, left, rehired — newest first, with what each meant for payroll. */

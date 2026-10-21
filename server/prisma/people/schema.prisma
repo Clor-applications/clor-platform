@@ -1704,3 +1704,33 @@ model ChecklistTask {
   @@index([orgId, employeeId])
   @@index([orgId, doneAt, dueDate])
 }
+
+/// One statutory or company deadline for one period (services/people/compliance.ts):
+/// PF ECR for 2026-09, 24Q for 2026-Q2, a licence renewal… with who owns it,
+/// whether it is done, the challan or acknowledgement number, and evidence.
+model ComplianceTask {
+  id            String    @id @default(cuid())
+  accountId     String
+  orgId         String
+  /// PF_ECR, ESIC, TDS_DEPOSIT, TDS_24Q, FORM16, PT, BONUS, POSH_REPORT, or CUSTOM
+  code          String
+  /// YYYY-MM, YYYY-Qn (financial-year quarter) or YYYY; a cuid for CUSTOM
+  period        String
+  title         String
+  dueDate       String
+  /// OPEN, DONE, NOT_APPLICABLE
+  status        String    @default("OPEN")
+  owner         String?
+  reference     String?
+  note          String?
+  evidenceName  String?
+  evidenceMime  String?
+  evidenceData  Bytes?
+  doneAt        DateTime?
+  doneByUserId  String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@unique([orgId, code, period])
+  @@index([orgId, dueDate])
+}

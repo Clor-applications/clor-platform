@@ -57,6 +57,7 @@ describe('Attendance navigation structure', () => {
       ['Integrations', ['Integrations']],
       ['Access & Security', ['Single Sign-On']],
       ['Data Management', ['Data Health', 'Import Data', 'Export Data', 'Close Company']],
+      ['Compliance', ['Compliance Calendar']],
       ['Privacy', ['Data Protection', 'Data Requests']],
       ['Audit & Recovery', ['Audit Logs', 'Recycle Bin']],
     ]);
@@ -93,7 +94,7 @@ describe('Attendance navigation structure', () => {
     });
   }
   it('a person without a screen does not see it, and a module left empty disappears', () => {
-    const settings = new Set(['setup', 'sites', 'siteCheck', 'holidays', 'rules', 'weeklyOffPolicy', 'overtimePolicy', 'leaveTypes', 'integrations', 'sso', 'dataImport', 'dataExport', 'closeCompany', 'dataProtection', 'dataRequests', 'auditLogs', 'recycleBin', 'dataHealth']);
+    const settings = new Set(['setup', 'sites', 'siteCheck', 'holidays', 'rules', 'weeklyOffPolicy', 'overtimePolicy', 'leaveTypes', 'integrations', 'sso', 'dataImport', 'dataExport', 'closeCompany', 'dataProtection', 'dataRequests', 'auditLogs', 'recycleBin', 'dataHealth', 'complianceCalendar']);
     const nav = attendanceApp.nav.filter((i) => !settings.has(i.key));
     const labels = resolveModules(attendanceApp, nav).map((m) => m.label);
     expect(labels).not.toContain('Settings');

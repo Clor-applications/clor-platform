@@ -128,6 +128,7 @@ days and leave; removing it would remove that access.
 | Data protection | `dataProtection` | Data Protection | Privacy | Settings | Moved from Personnel |
 | Data requests | `dataRequests` | Data Requests | Privacy | Settings | Moved from Personnel |
 | (new) | `checklists` | Onboarding & Exit | Employment Changes | People | New: HR research joining and leaving checklists |
+| (new) | `complianceCalendar` | Compliance Calendar | Compliance | Settings | New: HR research statutory and company deadlines with owners and evidence |
 | (new) | `dataHealth` | Data Health | Data Management | Settings | New: HR research implementation auditor |
 | (new) | `auditLogs` | Audit Logs | Audit & Recovery | Settings | New: who changed what in People and Attendance (read-only) |
 | (new) | `recycleBin` | Recycle Bin | Audit & Recovery | Settings | New: deleted items kept 30 days, restorable |

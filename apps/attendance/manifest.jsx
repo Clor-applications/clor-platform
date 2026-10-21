@@ -84,6 +84,7 @@ const AuditLogs = screen('AuditLogs');
 const DataHealth = screen('DataHealth');
 const PayrollReadiness = screen('PayrollReadiness');
 const Checklists = screen('Checklists');
+const ComplianceCalendar = screen('ComplianceCalendar');
 const RecycleBin = screen('RecycleBin');
 const DeviceLogs = screen('DeviceLogs');
 const AttendanceReports = screen('AttendanceReports');
@@ -256,6 +257,7 @@ export const attendanceApp = {
       { label: 'Integrations', items: ['integrations'] },
       { label: 'Access & Security', items: ['sso'] },
       { label: 'Data Management', items: ['dataHealth', 'dataImport', 'dataExport', 'closeCompany'] },
+      { label: 'Compliance', items: ['complianceCalendar'] },
       { label: 'Privacy', items: ['dataProtection', 'dataRequests'] },
       /* Founder, 21 Oct 2026: what changed, and what was deleted by mistake. */
       { label: 'Audit & Recovery', items: ['auditLogs', 'recycleBin'] },
@@ -340,6 +342,8 @@ export const attendanceApp = {
     { key: 'dataExport', label: 'Export Data', icon: Download, permission: 'ATTENDANCE::Attendance Records::VIEW' },
     /* LX-07: shared screen; the server lets only the company's owner ask or cancel. */
     { key: 'closeCompany', label: 'Close Company', icon: Lock, permission: 'SETTINGS::Company data::VIEW' },
+    /* HR research Phase 2: statutory and company deadlines with owners and evidence. */
+    { key: 'complianceCalendar', label: 'Compliance Calendar', icon: CalendarCheck, permission: 'PEOPLE::Employees::VIEW' },
     /* HR research: joining and leaving checklists. */
     { key: 'checklists', label: 'Onboarding & Exit', icon: ClipboardCheck, permission: 'PEOPLE::Employees::VIEW' },
     /* HR research Phase 1: the control tower for one month's payroll. */
@@ -410,6 +414,7 @@ export const attendanceApp = {
     dataHealth: DataHealth,
     payrollReadiness: PayrollReadiness,
     checklists: Checklists,
+    complianceCalendar: ComplianceCalendar,
     recycleBin: RecycleBin,
     dataProtection: DataProtection,
     sso: SsoSettings,

@@ -72,6 +72,11 @@ export const listOpenChecklistTasks = () => apiFetch(`${base()}/checklist-tasks`
 export const getChecklistTemplates = () => apiFetch(`${base()}/checklist-templates`, opts);
 export const saveChecklistTemplate = (kind, items) => send(`/checklist-templates/${kind}`, 'PUT', { items });
 export const resetChecklistTemplate = (kind) => send(`/checklist-templates/${kind}`, 'DELETE');
+/* Compliance calendar (server: services/people/compliance.ts). */
+export const getComplianceCalendar = () => apiFetch(`${base()}/compliance`, opts);
+export const updateComplianceTask = (id, body) => send(`/compliance/${encodeURIComponent(id)}`, 'PATCH', body);
+export const addComplianceTask = (body) => send('/compliance', 'POST', body);
+export const getComplianceEvidence = (id) => apiFetch(`${base()}/compliance/${encodeURIComponent(id)}/evidence`, opts).then((r) => r?.evidence);
 /* Data health: the implementation auditor (server: services/people/dataHealth.ts). */
 export const getDataHealth = () => apiFetch(`${base()}/data-health`, opts);
 export const getEmploymentHistory = (id) => apiFetch(`${base()}/employees/${encodeURIComponent(id)}/history`, opts).then((r) => r?.events || []);
