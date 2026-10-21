@@ -124,6 +124,8 @@ export const attendanceApp = {
   available: true,
   database: 'people.db',
   home: 'today',
+  /** The shared Blaze palette (packages/ui/src/index.css, [data-palette='blaze']). */
+  palette: 'blaze',
   /* The phone's tab bar; the rest is behind Menu (packages/shell/mobileTabs.js). */
   /* In order of preference, among the screens this person may open: a manager
      gets Exceptions, their main to-do (UX-14); someone without it gets My attendance. */

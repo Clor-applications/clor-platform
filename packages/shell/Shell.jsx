@@ -250,6 +250,16 @@ export default function Shell() {
     return () => document.documentElement.removeAttribute('data-app');
   }, [activeAppId]);
 
+  /* The shared palette the open app has chosen (`palette` in its manifest,
+     e.g. 'blaze'), on <html> for the same reason. An app without one keeps
+     the platform's colours. */
+  const activePalette = appById(activeAppId)?.palette || '';
+  useEffect(() => {
+    if (activePalette) document.documentElement.setAttribute('data-palette', activePalette);
+    else document.documentElement.removeAttribute('data-palette');
+    return () => document.documentElement.removeAttribute('data-palette');
+  }, [activePalette]);
+
   /*
    * The screen in the address bar, so a reload, a shared link and the
    * browser's back and forward buttons all land on the same screen. Shell
@@ -566,6 +576,7 @@ export default function Shell() {
       /* Which app is open, for styling: People, Attendance and Payroll wear the
          HR palette (index.css, [data-app]); Accounting keeps its own. */
       data-app={activeAppId || undefined}
+      data-palette={activePalette || undefined}
       style={{ backgroundColor: 'rgb(var(--app-bg))', '--platform-bar': '3.5rem' }}
     >
       {/* Keyboard users skip the bar and the rail. Accounting (a Root app) carries its own. */}
