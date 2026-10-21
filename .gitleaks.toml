@@ -20,3 +20,9 @@ paths = [
   '''(^|/)dist(-mobile)?/''',
   '''package-lock\.json$''',
 ]
+# Browser storage keys are named clor.<area>.<what>[.<date>], e.g.
+# clor.dpdp.announcement.2026-10-19: names, not secrets, but long enough for
+# the generic-api-key rule to flag.
+regexes = [
+  '''^clor\.[a-z0-9.-]+$''',
+]
