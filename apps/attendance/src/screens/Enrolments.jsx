@@ -58,7 +58,7 @@ export default function Enrolments() {
   return (
     <DocumentListShell
       entity="reader"
-      title="Enrolments"
+      title="Device enrollment"
       description="Fingerprints and faces enrolled on the readers. Enrol once on any reader; it is copied to the others."
       compact
       tight

@@ -75,7 +75,7 @@ export default function SiteCheck() {
     <div className="space-y-3">
       <PageHeader
         entity="location"
-        title="Site check"
+        title="Work site check"
         description="Stand where staff will punch and see whether this spot is inside a work site. Nothing is recorded."
         actions={
           <button type="button" className="ui-btn ui-btn-primary" onClick={start} disabled={locating}>

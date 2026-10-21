@@ -100,7 +100,7 @@ export default function ShiftAssignments() {
   return (
     <DocumentListShell
       entity="shift"
-      title="Employee schedule"
+      title="Shift assignments"
       description="A person’s own shift from a date (and until a date, if it ends). It beats their rotation and department schedule; a temporary schedule beats it."
       compact
       tight

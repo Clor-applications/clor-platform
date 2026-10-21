@@ -121,7 +121,7 @@ export default function PortalAccess() {
   return (
     <DocumentListShell
       entity="employee"
-      title="Portal access"
+      title="Employee portal access"
       description="Employees sign in to the portal with the company code, their employee code and a password they choose."
       compact
       tight

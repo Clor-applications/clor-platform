@@ -69,7 +69,7 @@ export default function Rotations() {
   return (
     <DocumentListShell
       entity="shift"
-      title="Rotations"
+      title="Shift rotations"
       description="Repeating shift patterns. Each step lasts a week (or a day); crews on the same pattern can start at different steps."
       compact
       tight

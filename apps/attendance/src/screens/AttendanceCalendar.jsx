@@ -59,7 +59,7 @@ export default function AttendanceCalendar() {
     <div className="space-y-3">
       <PageHeader
         entity="attendance"
-        title="Calendar"
+        title="Attendance calendar"
         description="The month at a glance; tap a day for who was in."
         actions={
           <>

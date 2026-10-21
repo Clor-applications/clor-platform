@@ -81,7 +81,7 @@ export default function ReaderSync() {
   return (
     <DocumentListShell
       entity="reader"
-      title="Sync status"
+      title="Sync monitoring"
       description="Who is on which reader. Enrol once on any reader — CLOR copies fingerprints and faces to the rest."
       compact
       tight

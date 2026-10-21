@@ -59,7 +59,7 @@ export default function AttendanceRegister() {
   return (
     <DocumentListShell
       entity="report"
-      title="Register"
+      title="Daily attendance register"
       description="One mark per person per day — the muster roll, read across."
       compact
       tight

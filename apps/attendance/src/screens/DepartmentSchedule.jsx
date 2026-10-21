@@ -65,7 +65,7 @@ export default function DepartmentSchedule() {
   return (
     <DocumentListShell
       entity="shift"
-      title="Department schedule"
+      title="Department schedules"
       description="The shift a department works from a date. People with their own schedule or a rotation keep theirs."
       compact
       tight

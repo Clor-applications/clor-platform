@@ -116,7 +116,7 @@ export default function AttendanceReports({ openScreen, initialReport = '' } = {
 
   return (
     <div className="space-y-3">
-      <PageHeader entity="report" title="Reports" description="Attendance reports and the statutory registers — muster roll, overtime and leave." />
+      <PageHeader entity="report" title="Report catalogue" description="Attendance reports and the statutory registers — muster roll, overtime and leave." />
       <div className="pb-8 space-y-6">
       <div className="grid items-start gap-3 lg:grid-cols-[16rem_1fr]">
         <nav aria-label="Reports" className="ui-card p-2">

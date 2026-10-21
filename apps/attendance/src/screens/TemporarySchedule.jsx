@@ -84,7 +84,7 @@ export default function TemporarySchedule() {
   return (
     <DocumentListShell
       entity="shift"
-      title="Temporary schedule"
+      title="Temporary schedules"
       description="A different shift for some days. It wins over every other schedule on those days."
       compact
       tight

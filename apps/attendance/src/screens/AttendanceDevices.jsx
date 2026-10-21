@@ -172,7 +172,7 @@ export default function AttendanceDevices({ openScreen }) {
     <div className="space-y-6">
     <DocumentListShell
       entity="reader"
-      title="Readers"
+      title="All readers"
       description="Readers of any make, software that can send punches to a URL, files from reader software, and e-Time Office — all landing on the same days."
       compact
       tight

@@ -138,7 +138,7 @@ export default function AttendanceRecords({ params } = {}) {
   return (
     <DocumentListShell
       entity="attendance"
-      title="Records"
+      title="Attendance records"
       description="Mark, correct and validate days. A corrected day needs validating again."
       compact
       tight

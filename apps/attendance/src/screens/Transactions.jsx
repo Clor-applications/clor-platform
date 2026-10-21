@@ -115,7 +115,7 @@ export default function Transactions() {
   return (
     <DocumentListShell
       entity="reader"
-      title="Transactions"
+      title="Punch transactions"
       description="Every punch as the readers sent it, before it becomes a day."
       compact
       tight

@@ -111,7 +111,7 @@ export default function PhonePunches() {
   return (
     <DocumentListShell
       entity="reader"
-      title="Phone punches"
+      title="Mobile punches"
       description="Punches made from phones, where they were made, and the attempts that were refused."
       compact
       tight

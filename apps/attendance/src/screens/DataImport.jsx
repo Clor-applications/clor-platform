@@ -149,7 +149,7 @@ export default function DataImport() {
 
   return (
     <div className="space-y-3">
-      <PageHeader entity="settings" title="Import" description="Bring a spreadsheet in: pick what it holds, use the template, drop the file." />
+      <PageHeader entity="settings" title="Import data" description="Bring a spreadsheet in: pick what it holds, use the template, drop the file." />
       <div className="pb-8 space-y-6">
       <ol className="grid gap-4 lg:grid-cols-3">
         <li className="ui-card p-4 space-y-3">

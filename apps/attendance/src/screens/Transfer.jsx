@@ -73,7 +73,7 @@ export default function Transfer() {
     <div className="space-y-3">
       <PageHeader
         entity="employee"
-        title="Transfer"
+        title="Transfers"
         description="Move people to another department, area, position or contractor in one go."
         actions={
           <button type="button" className="ui-btn ui-btn-primary" disabled={saving || !picked.size || !target} onClick={move}>

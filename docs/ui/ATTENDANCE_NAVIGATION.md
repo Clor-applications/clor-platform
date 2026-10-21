@@ -149,7 +149,10 @@ Exceptions (report), Shift Report, Punch Reconciliation, Synchronization
 Failures (report), Saved Reports, Roles & Permissions (in Attendance), Audit
 Logs. None has a menu entry or a placeholder page.
 
-## Not changed
+## Page titles
 
-Page titles inside screens (e.g. "Attendance rules") keep their wording; this
-change covers navigation only.
+Each Attendance screen's own title now uses its menu name, in the platform's
+sentence case for headings (Attendance records, Sync monitoring, Attendance
+policies, ...). Screens shared with People or Accounting (Employees,
+Departments, Designations, Locations & Sites, Single Sign-On) keep their
+titles, so those apps do not change.

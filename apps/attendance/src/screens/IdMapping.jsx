@@ -54,7 +54,7 @@ export default function IdMapping({ openScreen }) {
     <div className="space-y-3">
       <PageHeader
         entity="reader"
-        title="ID mapping"
+        title="Employee ID mapping"
         description="Reader IDs against employees: what matches nobody, who has left but is still on a reader, who has no ID."
         actions={<button type="button" className="ui-btn ui-btn-primary" onClick={() => setEditing({})}><Plus size={16} aria-hidden="true" /> Add ID at a site</button>}
       />

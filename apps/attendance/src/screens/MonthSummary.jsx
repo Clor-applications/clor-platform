@@ -102,7 +102,7 @@ export default function MonthSummary({ openScreen } = {}) {
   return (
     <DocumentListShell
       entity="report"
-      title="Month summary"
+      title="Monthly attendance summary"
       description="Payable days for payroll. Days still to come are neither paid nor lost yet."
       compact
       tight
