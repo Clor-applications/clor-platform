@@ -83,6 +83,9 @@ export default function PayrollOverview({ onOpen = () => {} }) {
 
   const { currentPeriod, currentRun, people, previous, latest, trend, pending, blockers } = overview;
   const change = previous && latest ? percentChange(previous.employerCost, latest.employerCost) : null;
+  /* While setup is unfinished, finishing it is the one thing to do here (UX-13):
+     a "Run payroll" that cannot run is not offered as the main action. */
+  const notReady = Boolean(setup && !setup.ready);
 
   return (
     <div className="space-y-3">
@@ -97,9 +100,15 @@ export default function PayrollOverview({ onOpen = () => {} }) {
             : 'No open payroll period.'
         }
         actions={
-          <button type="button" className="ui-btn ui-btn-primary" onClick={() => onOpen('payrollRuns')}>
-            {currentRun ? 'Open this payroll' : 'Run payroll'} <ArrowRight size={16} aria-hidden="true" />
-          </button>
+          notReady && !currentRun ? (
+            <button type="button" className="ui-btn ui-btn-primary" onClick={() => onOpen('payrollSetup')}>
+              Finish setting up <ArrowRight size={16} aria-hidden="true" />
+            </button>
+          ) : (
+            <button type="button" className="ui-btn ui-btn-primary" onClick={() => onOpen('payrollRuns')}>
+              {currentRun ? 'Open this payroll' : 'Run payroll'} <ArrowRight size={16} aria-hidden="true" />
+            </button>
+          )
         }
       />
       <div className="px-5 lg:px-7 pb-8 space-y-4">
@@ -113,7 +122,7 @@ export default function PayrollOverview({ onOpen = () => {} }) {
         * yet. Those are very different problems and the screen should not make
         * them look alike.
         */}
-      {setup && !setup.ready ? (
+      {notReady ? (
         <div className="ui-card p-4 flex flex-wrap items-center justify-between gap-3">
           <div className="min-w-0">
             <div className="ui-sec-head">Payroll is not ready to run yet</div>
@@ -162,9 +171,17 @@ export default function PayrollOverview({ onOpen = () => {} }) {
             <div className="ui-sec-head">{currentPeriod.name} has not been run</div>
             <p className="ui-caption">
               {people.inPayroll} {people.inPayroll === 1 ? 'person is' : 'people are'} in payroll and waiting to be paid.
+              {notReady ? ' It can run once setup is finished.' : ''}
             </p>
           </div>
-          <button type="button" className="ui-btn ui-btn-primary" onClick={() => onOpen('payrollRuns')}>
+          {/* The header carries the main action; this one only repeats it, quietly. */}
+          <button
+            type="button"
+            className="ui-btn ui-btn-secondary"
+            onClick={() => onOpen('payrollRuns')}
+            disabled={notReady}
+            title={notReady ? 'Finish setting up payroll first' : undefined}
+          >
             Run payroll
           </button>
         </div>

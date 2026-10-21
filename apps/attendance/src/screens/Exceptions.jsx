@@ -162,6 +162,7 @@ export default function Exceptions({ openScreen }) {
       statusCounts={counts}
       onStatusChange={setKind}
       tabsLabel="Kind of exception"
+      phoneCompact
       tabsExtras={
         <>
           <input type="date" className="ui-input ui-ctl-compact !w-auto" value={range.from} max={range.to} onChange={(e) => setRange((r) => ({ ...r, from: e.target.value }))} aria-label="From" />

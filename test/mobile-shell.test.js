@@ -32,8 +32,12 @@ describe('the phone tab bar', () => {
     /* The shell hands the permission-filtered nav; a named tab the person cannot open is simply absent. */
     expect(mobileTabsFor({ mobileTabs: ['e'] }, nav.filter((i) => i.key !== 'e')).map((t) => t.key)).toEqual(['a', 'b', 'c', 'd']);
   });
-  it('Attendance names Today, My attendance (the punch), Records and Corrections', () => {
-    expect(mobileTabsFor(attendanceApp, attendanceApp.nav).map((t) => t.key)).toEqual(['today', 'me', 'records', 'requests']);
+  it('Attendance gives a manager Today, Exceptions, Records and Corrections (UX-14)', () => {
+    expect(mobileTabsFor(attendanceApp, attendanceApp.nav).map((t) => t.key)).toEqual(['today', 'exceptions', 'records', 'requests']);
+  });
+  it('Attendance gives someone who may only see their own days My attendance first', () => {
+    const own = attendanceApp.nav.filter((i) => i.section || i.permission === 'ATTENDANCE::My Attendance::VIEW');
+    expect(mobileTabsFor(attendanceApp, own).map((t) => t.key)[0]).toBe('me');
   });
   it('Payroll names Overview, Pay runs, Salary slips and Payments', () => {
     expect(mobileTabsFor(payrollApp, payrollApp.nav).map((t) => t.key)).toEqual(['overview', 'runs', 'slips', 'payments']);

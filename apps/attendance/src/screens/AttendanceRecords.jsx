@@ -167,6 +167,7 @@ export default function AttendanceRecords({ params } = {}) {
       statusCounts={counts}
       onStatusChange={setStatus}
       tabsLabel="Day status"
+      phoneCompact
       tabsExtras={
         <>
           {onlyPerson ? (

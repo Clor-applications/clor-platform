@@ -54,6 +54,13 @@ export default function DocumentListShell({
    * already there and already half empty.
    */
   tabsExtras = null,
+  /*
+   * A phone's first screen should start with rows (UX-14). With this on, below
+   * the md breakpoint the figure cards shrink to one line of counts and the
+   * status-row controls (dates, toggles) fold behind a "Filters" disclosure.
+   * Opt-in, so a list that has not been looked at on a phone keeps its layout.
+   */
+  phoneCompact = false,
   above = null,
   /*
    * Where the rows sit. Almost every list is a table and takes the card;
@@ -119,7 +126,24 @@ export default function DocumentListShell({
     <div className={`${compact ? (tight ? 'space-y-2' : 'space-y-3') : 'space-y-6'} ${tight ? 'document-list-tight' : ''} ${className}`}>
       {headerHost ? createPortal(header, headerHost) : header}
 
-      {cards?.length ? <StatCards company={company} cards={cards} dense={denseCards} /> : null}
+      {cards?.length ? (
+        phoneCompact ? (
+          <>
+            <div className="hidden md:block">
+              <StatCards company={company} cards={cards} dense={denseCards} />
+            </div>
+            <p className="ui-phone-figures md:hidden" aria-label="Summary">
+              {cards.filter(Boolean).map((c) => (
+                <span key={c.label} data-tone={c.tone}>
+                  <strong className="tabular-nums">{c.value}</strong> {c.label}
+                </span>
+              ))}
+            </p>
+          </>
+        ) : (
+          <StatCards company={company} cards={cards} dense={denseCards} />
+        )
+      ) : null}
 
       {tabs?.length && !statusInHeader ? (
         <div className="flex items-center justify-between gap-2 flex-wrap">
@@ -148,7 +172,15 @@ export default function DocumentListShell({
             })}
           </div>
 
-          {tabsExtras ? (
+          {tabsExtras && phoneCompact ? (
+            <>
+              <div className="hidden md:flex flex-wrap items-center gap-2 ms-auto">{tabsExtras}</div>
+              <details className="ui-phone-filters md:hidden">
+                <summary>Filters</summary>
+                <div className="flex flex-wrap items-center gap-2 pt-2">{tabsExtras}</div>
+              </details>
+            </>
+          ) : tabsExtras ? (
             <div className="flex flex-wrap items-center gap-2 ms-auto">{tabsExtras}</div>
           ) : null}
         </div>
