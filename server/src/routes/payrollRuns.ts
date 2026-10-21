@@ -13,6 +13,7 @@ import { isFeatureEnabled } from '../services/features.js';
 import { recordAudit } from '../services/auditTrail.js';
 import { closedMonths, daysBetween as datesBetween, periodRows } from './attendance.js';
 import { requirePayrollStepUp } from '../services/stepUp.js';
+import { emit as emitWebhook } from '../services/attendance/webhooks.js';
 
 /**
  * A payroll run, from who is in it to payslips somebody can approve.
@@ -549,6 +550,8 @@ const transition = (
         data: { status: to, ...stamp(req.auth!.userId, req.body || {}) },
       });
       res.json({ run: shape(updated) });
+      /* Payslips are final: attendance for the period is settled, accounting can post (HR research: PayrollPeriodLocked). */
+      if (to === 'LOCKED') emitWebhook(updated.orgId, 'payroll.locked', { runId: updated.id, number: updated.number, periodId: updated.periodId, status: updated.status, lockedAt: (updated as any).lockedAt ?? null });
     }
   );
 

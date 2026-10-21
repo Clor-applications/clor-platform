@@ -28,6 +28,8 @@ export const WEBHOOK_EVENTS = [
   'employee.created',
   'employee.updated',
   'employee.left',
+  'employee.transferred',
+  'employee.rehired',
   'leave.requested',
   'leave.approved',
   'leave.rejected',
@@ -37,6 +39,7 @@ export const WEBHOOK_EVENTS = [
   'month.reopened',
   'reader.offline',
   'reader.online',
+  'payroll.locked',
 ] as const;
 export type WebhookEvent = (typeof WEBHOOK_EVENTS)[number];
 
@@ -46,6 +49,8 @@ export const EVENT_HELP: Record<WebhookEvent, string> = {
   'employee.created': 'Somebody added',
   'employee.updated': 'An employee’s details changed',
   'employee.left': 'Somebody marked as having left',
+  'employee.transferred': 'Somebody moved: department, location, branch, work state, designation, manager or type (with the date it counts from)',
+  'employee.rehired': 'Somebody who had left is back',
   'leave.requested': 'Leave asked for',
   'leave.approved': 'Leave approved',
   'leave.rejected': 'Leave rejected',
@@ -55,6 +60,7 @@ export const EVENT_HELP: Record<WebhookEvent, string> = {
   'month.reopened': 'An attendance month reopened',
   'reader.offline': 'A reader has gone quiet',
   'reader.online': 'A reader is back',
+  'payroll.locked': 'A pay run locked: payslips are final',
 };
 
 /** Minutes to wait before each retry; after the last, the delivery is marked failed. */

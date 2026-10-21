@@ -1,5 +1,6 @@
 import { peoplePrisma } from '../../utils/peoplePrisma.js';
 import { platformPrisma } from '../../utils/platformPrisma.js';
+import { emit as emitWebhook, employeeEvent } from '../attendance/webhooks.js';
 
 /**
  * Employment history (HR research, Phase 1: "every change must retain
@@ -81,6 +82,11 @@ export function impactOf(kind: string, field: string | null, to: string | null, 
 
 async function write(who: Who, employee: Row, e: { kind: string; field?: string | null; fromId?: string | null; toId?: string | null; effectiveDate: string; source: HistorySource; note?: string | null }) {
   const [fromLabel, toLabel] = e.field ? await Promise.all([labelOf(who.orgId, e.field, e.fromId), labelOf(who.orgId, e.field, e.toId)]) : [null, null];
+  /* Lifecycle events for other systems (HR research: EmployeeTransferred, EmploymentEnded…). The employee form already sends employee.left itself. */
+  const change = { effectiveDate: e.effectiveDate, source: e.source, note: e.note ?? null };
+  if (e.kind === 'TRANSFERRED' || e.kind === 'CHANGED') emitWebhook(who.orgId, 'employee.transferred', { employee: employeeEvent(employee), field: e.field, from: { id: e.fromId ?? null, name: fromLabel }, to: { id: e.toId ?? null, name: toLabel }, ...change });
+  else if (e.kind === 'REHIRED') emitWebhook(who.orgId, 'employee.rehired', { employee: employeeEvent(employee), ...change });
+  else if (e.kind === 'LEFT' && e.source !== 'FORM') emitWebhook(who.orgId, 'employee.left', employeeEvent(employee));
   return peoplePrisma.employmentEvent.create({
     data: {
       accountId: who.accountId,

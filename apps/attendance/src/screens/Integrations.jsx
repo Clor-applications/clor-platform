@@ -46,8 +46,9 @@ const SCOPE_LABEL = {
 /* Groups for the webhook form; the words come from the server (eventHelp). */
 const EVENT_GROUPS = [
   ['Attendance', ['punch', 'day', 'correction.approved', 'month.closed', 'month.reopened']],
-  ['People', ['employee.created', 'employee.updated', 'employee.left']],
+  ['People', ['employee.created', 'employee.updated', 'employee.transferred', 'employee.left', 'employee.rehired']],
   ['Leave', ['leave.requested', 'leave.approved', 'leave.rejected', 'leave.cancelled']],
+  ['Payroll', ['payroll.locked']],
   ['Readers', ['reader.offline', 'reader.online']],
 ];
 const FALLBACK_HELP = { punch: 'Punches as they arrive', day: 'Days as they are worked out or changed' };
