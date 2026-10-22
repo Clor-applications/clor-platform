@@ -4,6 +4,7 @@ import { CheckCheck, ChevronRight, Cake, Megaphone, UserMinus, UserPlus, Users }
 import { EmptyState, PageHeader, SkeletonCard, StatTile } from '@ui/components/ui/Primitives';
 import { getOverview, getPeopleHome } from '@ui/personnel/api';
 import { Avatar } from '@ui/personnel/Employees';
+import { HomeCheckIn } from '../timeOff/MyDays';
 
 const TONE = { urgent: { label: 'Now', pill: 'neg' }, soon: { label: 'This week', pill: 'warn' }, info: { label: 'When you can', pill: 'neutral' } };
 const greeting = () => {
@@ -40,6 +41,7 @@ export default function PeopleOverview({ openScreen }) {
   return (
     <div className="space-y-6">
       <PageHeader entity="people" title={greeting()} description="What needs you today, then who works here." />
+      <HomeCheckIn />
 
       <section className="space-y-2" aria-labelledby="todo-h">
         <h2 id="todo-h" className="ui-t-sec">To do</h2>

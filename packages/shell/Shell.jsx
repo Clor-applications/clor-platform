@@ -469,7 +469,8 @@ export default function Shell() {
             }}
           >
             {Icon ? <Icon size={20} aria-hidden="true" /> : null}
-            <span>{m.label}</span>
+            {/* The rail is narrow: a module may give it a shorter name; the panel and the tooltip keep the full one. */}
+            <span>{m.short || m.label}</span>
           </button>
         );
       })}

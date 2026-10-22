@@ -14,7 +14,7 @@ describe('People navigation', () => {
   const inModules = new Set(modules.flatMap((m) => m.items.map((i) => i.key)));
 
   it('keeps the sidebar to the day’s work, Settings last', () => {
-    expect(modules.map((m) => m.label)).toEqual(['Home', 'Employees', 'Time Off', 'Hiring', 'Performance', 'Engage', 'Insights', 'Settings']);
+    expect(modules.map((m) => m.label)).toEqual(['Home', 'Employees', 'Leave & Attendance', 'Hiring', 'Performance', 'Engage', 'Insights', 'Settings']);
     expect(modules.find((m) => m.label === 'Settings').single).toBe(true);
   });
 

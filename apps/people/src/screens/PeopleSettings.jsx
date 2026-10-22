@@ -30,10 +30,10 @@ const GROUPS = [
     ],
   },
   {
-    title: 'Time Off',
-    note: 'Leave rules and the company calendar.',
+    title: 'Leave & Holidays',
+    note: 'Leave rules and the company calendar; Attendance uses the same ones.',
     items: [
-      ['leaveTypes', 'Leave types, yearly days, carry forward'],
+      ['leaveTypes', 'Each kind of leave: days, who it is for, notice, carry forward, pay-out'],
       ['holidays', 'Company and location holidays'],
     ],
   },

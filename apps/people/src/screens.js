@@ -18,9 +18,13 @@ export { default as PeopleDocuments } from './screens/PeopleDocuments';
 export { default as Holidays } from '../../attendance/src/screens/Holidays';
 export { default as PortalAccess } from '../../attendance/src/screens/PortalAccess';
 export { default as SalaryRevisions } from '../../payroll/src/screens/SalaryRevisions';
-export { default as LeaveRequests } from '../../attendance/src/screens/LeaveRequests';
-export { default as LeaveBalances } from '../../attendance/src/screens/LeaveBalances';
-export { default as LeaveTypes } from '../../attendance/src/screens/LeaveTypes';
+/* Leave is HR's (founder, 22 Oct 2026): People's own screens over the same records Attendance reads. */
+export { default as LeaveRequests } from './timeOff/LeaveRequests';
+export { default as LeaveBalances } from './timeOff/LeaveBalances';
+export { default as LeaveTypes } from './timeOff/LeavePolicy';
+export { default as LeaveCalendar } from './timeOff/LeaveCalendar';
+export { default as TeamAttendance } from './timeOff/TeamAttendance';
+export { default as MyDays } from './timeOff/MyDays';
 export { default as MyLeave } from '../../attendance/src/screens/MyLeave';
 export { default as DataImport } from '../../attendance/src/screens/DataImport';
 export { default as AuditLogs } from '../../attendance/src/screens/AuditLogs';
