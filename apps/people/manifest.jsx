@@ -1,5 +1,6 @@
 import React from 'react';
 import {
+  ArrowSyncColor,
   BeachColor,
   BookOpenLightbulbColor,
   BookmarkColor,
@@ -13,13 +14,24 @@ import {
   ChatBubblesQuestionColor,
   ClipboardTaskColor,
   CoinMultipleColor,
+  DatabaseColor,
+  DataPieColor,
   ContactCardColor,
   DataBarVerticalAscendingColor,
   DocumentAddColor,
   DocumentTextColor,
   DocumentFolderColor,
   GiftColor,
+  GlobeShieldColor,
+  HistoryColor,
+  LockClosedColor,
+  LocationRippleColor,
   HomeColor,
+  LinkMultipleColor,
+  RibbonStarColor,
+  SettingsColor,
+  ShieldColor,
+  ArrowSquareDownColor,
   LaptopColor,
   MegaphoneLoudColor,
   OrgColor,
@@ -64,6 +76,18 @@ const LeaveTypes = screen('LeaveTypes');
 const MyLeave = screen('MyLeave');
 const DataImport = screen('DataImport');
 const AuditLogs = screen('AuditLogs');
+const PeopleSettings = screen('PeopleSettings');
+const CompanyDetails = screen('CompanyDetails');
+const BusinessUnits = screen('BusinessUnits');
+const Grades = screen('Grades');
+const CostCentres = screen('CostCentres');
+const Locations = screen('Locations');
+const Integrations = screen('Integrations');
+const DataExport = screen('DataExport');
+const RecycleBin = screen('RecycleBin');
+const DataProtection = screen('DataProtection');
+const DataRequests = screen('DataRequests');
+const SsoSettings = screen('SsoSettings');
 
 /* Full-colour icons, the same family as Attendance (packages/ui/src/components/ui/iconSet.jsx). */
 const I = {
@@ -99,6 +123,19 @@ const I = {
   tag: colorIcon(BookmarkColor, 'Bookmark'),
   import: colorIcon(DocumentAddColor, 'DocumentAdd'),
   audit: colorIcon(DocumentTextColor, 'DocumentText'),
+  settings: colorIcon(SettingsColor, 'Settings'),
+  company: colorIcon(BuildingColor, 'Building'),
+  unit: colorIcon(DataPieColor, 'DataPie'),
+  grade: colorIcon(RibbonStarColor, 'RibbonStar'),
+  costCentre: colorIcon(DatabaseColor, 'Database'),
+  location: colorIcon(LocationRippleColor, 'LocationRipple'),
+  integrations: colorIcon(LinkMultipleColor, 'LinkMultiple'),
+  export: colorIcon(ArrowSquareDownColor, 'ArrowSquareDown'),
+  bin: colorIcon(HistoryColor, 'History'),
+  privacy: colorIcon(ShieldColor, 'Shield'),
+  requests: colorIcon(GlobeShieldColor, 'GlobeShield'),
+  sso: colorIcon(LockClosedColor, 'LockClosed'),
+  sync: colorIcon(ArrowSyncColor, 'ArrowSync'),
 };
 
 /* One register screen per kind, with the shell's props (openScreen, params). */
@@ -129,31 +166,20 @@ export const peopleApp = {
   palette: 'blaze',
   iconSet: 'color',
 
+  /* The sidebar holds the day's work; everything set up once lives on one Settings page (PeopleSettings), its pages marked `parent: 'settings'`. */
   modules: [
     { key: 'overview', label: 'Home', items: ['overview'] },
-    { key: 'employees', label: 'People', groups: [
+    { key: 'employees', label: 'Employees', groups: [
       { label: 'Directory', items: ['employees', 'orgChart', 'documents'] },
-      { label: 'Joining & Leaving', items: ['checklists'] },
-      { label: 'Access', items: ['selfService'] },
+      { label: 'Joining & Leaving', items: ['checklists', 'assets'] },
+      { label: 'Pay & Benefits', items: ['compensation', 'benefits'] },
     ] },
-    { key: 'leave', label: 'Time Off', groups: [
-      { label: 'Leave', items: ['leaveRequests', 'leaveBalances', 'myLeave'] },
-      { label: 'Policy', items: ['leaveTypes', 'holidays'] },
-    ] },
+    { key: 'leave', label: 'Time Off', items: ['leaveRequests', 'leaveBalances', 'myLeave'] },
     { key: 'hiring', label: 'Hiring', items: ['recruitment', 'candidates'] },
-    { key: 'growth', label: 'Growth', items: ['performance', 'learning'] },
-    { key: 'workplace', label: 'Workplace', groups: [
-      { label: 'Updates', items: ['announcements', 'events'] },
-      { label: 'Support', items: ['helpdesk', 'assets', 'benefits', 'compensation'] },
-    ] },
-    { key: 'reports', label: 'Insights', groups: [
-      { label: 'Reports', items: ['reports'] },
-      { label: 'Checks', items: ['dataHealth', 'complianceCalendar'] },
-    ] },
-    { key: 'settings', label: 'Settings', groups: [
-      { label: 'Organization', items: ['departments', 'jobPositions', 'jobRoles', 'employeeTypes', 'workTypes', 'tags'] },
-      { label: 'Data', items: ['dataImport', 'auditLogs'] },
-    ] },
+    { key: 'growth', label: 'Performance', items: ['performance', 'learning'] },
+    { key: 'workplace', label: 'Engage', items: ['announcements', 'events', 'helpdesk'] },
+    { key: 'reports', label: 'Insights', items: ['reports', 'dataHealth', 'complianceCalendar'] },
+    { key: 'settings', label: 'Settings', items: ['settings'] },
   ],
 
   /* `permission`: what the screen's data needs; the shell hides what this user cannot open. */
@@ -163,12 +189,12 @@ export const peopleApp = {
     { key: 'orgChart', label: 'Org Chart', icon: I.org, permission: 'PEOPLE::Org Structure::VIEW' },
     { key: 'documents', label: 'Documents', icon: I.folder, permission: 'PEOPLE::Employees::VIEW' },
     { key: 'checklists', label: 'Onboarding & Exit', icon: I.checklist, permission: 'PEOPLE::Employees::VIEW' },
-    { key: 'selfService', label: 'Employee Portal Access', icon: I.key, permission: 'ATTENDANCE::Employee Portal::VIEW' },
+    { key: 'selfService', label: 'Employee Portal Access', icon: I.key, permission: 'ATTENDANCE::Employee Portal::VIEW', parent: 'settings' },
     { key: 'leaveRequests', label: 'Leave Requests', icon: I.leave, permission: 'ATTENDANCE::Leave Requests::VIEW' },
     { key: 'leaveBalances', label: 'Leave Balances', icon: I.balance, permission: 'ATTENDANCE::Leave Requests::VIEW' },
     { key: 'myLeave', label: 'My Leave', icon: I.myLeave, permission: 'ATTENDANCE::My Attendance::VIEW' },
-    { key: 'leaveTypes', label: 'Leave Policy', icon: I.policy, permission: 'ATTENDANCE::Leave Types::VIEW' },
-    { key: 'holidays', label: 'Holidays', icon: I.holiday, permission: 'ATTENDANCE::Holidays::VIEW' },
+    { key: 'leaveTypes', label: 'Leave Policy', icon: I.policy, permission: 'ATTENDANCE::Leave Types::VIEW', parent: 'settings' },
+    { key: 'holidays', label: 'Holidays', icon: I.holiday, permission: 'ATTENDANCE::Holidays::VIEW', parent: 'settings' },
     { key: 'recruitment', label: 'Jobs', icon: I.job, permission: 'PEOPLE::Recruitment::VIEW' },
     { key: 'candidates', label: 'Candidates', icon: I.candidate, permission: 'PEOPLE::Recruitment::VIEW' },
     { key: 'performance', label: 'Goals & Feedback', icon: I.goal, permission: 'PEOPLE::Performance::VIEW' },
@@ -182,14 +208,26 @@ export const peopleApp = {
     { key: 'reports', label: 'Workforce Report', icon: I.report, permission: 'PEOPLE::Employees::VIEW' },
     { key: 'dataHealth', label: 'Data Health', icon: I.health, permission: 'PEOPLE::Employees::VIEW' },
     { key: 'complianceCalendar', label: 'Compliance Calendar', icon: I.compliance, permission: 'PEOPLE::Employees::VIEW' },
-    { key: 'departments', label: 'Departments', icon: I.department, permission: 'PEOPLE::Org Structure::VIEW' },
-    { key: 'jobPositions', label: 'Designations', icon: I.designation, permission: 'PEOPLE::Org Structure::VIEW' },
-    { key: 'jobRoles', label: 'Job Roles', icon: I.role, permission: 'PEOPLE::Org Structure::VIEW' },
-    { key: 'employeeTypes', label: 'Employee Types', icon: I.type, permission: 'PEOPLE::Org Structure::VIEW' },
-    { key: 'workTypes', label: 'Work Types', icon: I.workType, permission: 'PEOPLE::Org Structure::VIEW' },
-    { key: 'tags', label: 'Tags', icon: I.tag, permission: 'PEOPLE::Org Structure::VIEW' },
-    { key: 'dataImport', label: 'Import Data', icon: I.import, permission: 'PEOPLE::Employees::CREATE' },
-    { key: 'auditLogs', label: 'Audit Logs', icon: I.audit, permission: 'SETTINGS::Audit trail::VIEW' },
+    { key: 'departments', label: 'Departments', icon: I.department, permission: 'PEOPLE::Org Structure::VIEW', parent: 'settings' },
+    { key: 'jobPositions', label: 'Designations', icon: I.designation, permission: 'PEOPLE::Org Structure::VIEW', parent: 'settings' },
+    { key: 'jobRoles', label: 'Job Roles', icon: I.role, permission: 'PEOPLE::Org Structure::VIEW', parent: 'settings' },
+    { key: 'employeeTypes', label: 'Employee Types', icon: I.type, permission: 'PEOPLE::Org Structure::VIEW', parent: 'settings' },
+    { key: 'workTypes', label: 'Work Types', icon: I.workType, permission: 'PEOPLE::Org Structure::VIEW', parent: 'settings' },
+    { key: 'tags', label: 'Tags', icon: I.tag, permission: 'PEOPLE::Org Structure::VIEW', parent: 'settings' },
+    { key: 'dataImport', label: 'Import Data', icon: I.import, permission: 'PEOPLE::Employees::CREATE', parent: 'settings' },
+    { key: 'settings', label: 'Settings', icon: I.settings, permission: 'PEOPLE::Employees::VIEW' },
+    { key: 'companyDetails', label: 'Company Details', icon: I.company, permission: 'SETTINGS::Company Profile::VIEW', parent: 'settings' },
+    { key: 'businessUnits', label: 'Business Units', icon: I.unit, permission: 'PEOPLE::Org Structure::VIEW', parent: 'settings' },
+    { key: 'areas', label: 'Locations & Sites', icon: I.location, permission: 'PEOPLE::Org Structure::VIEW', parent: 'settings' },
+    { key: 'grades', label: 'Grades', icon: I.grade, permission: 'PEOPLE::Org Structure::VIEW', parent: 'settings' },
+    { key: 'costCentres', label: 'Cost Centres', icon: I.costCentre, permission: 'PEOPLE::Org Structure::VIEW', parent: 'settings' },
+    { key: 'sso', label: 'Single Sign-On', icon: I.sso, permission: 'SETTINGS::Users::VIEW', parent: 'settings' },
+    { key: 'integrations', label: 'Integrations', icon: I.integrations, permission: 'ATTENDANCE::Attendance Integrations::VIEW', parent: 'settings' },
+    { key: 'dataExport', label: 'Export Data', icon: I.export, permission: 'ATTENDANCE::Attendance Records::VIEW', parent: 'settings' },
+    { key: 'recycleBin', label: 'Recycle Bin', icon: I.bin, permission: 'ATTENDANCE::Attendance Records::VIEW', parent: 'settings' },
+    { key: 'dataProtection', label: 'Data Protection', icon: I.privacy, permission: 'ATTENDANCE::Employee Portal::VIEW', parent: 'settings' },
+    { key: 'dataRequests', label: 'Data Requests', icon: I.requests, permission: 'PEOPLE::Employees::VIEW', parent: 'settings' },
+    { key: 'auditLogs', label: 'Audit Logs', icon: I.audit, permission: 'SETTINGS::Audit trail::VIEW', parent: 'settings' },
   ],
 
   screens: {
@@ -225,5 +263,17 @@ export const peopleApp = {
     tags: Tags,
     dataImport: DataImport,
     auditLogs: AuditLogs,
+    settings: PeopleSettings,
+    companyDetails: CompanyDetails,
+    businessUnits: BusinessUnits,
+    areas: Locations,
+    grades: Grades,
+    costCentres: CostCentres,
+    sso: SsoSettings,
+    integrations: Integrations,
+    dataExport: DataExport,
+    recycleBin: RecycleBin,
+    dataProtection: DataProtection,
+    dataRequests: DataRequests,
   },
 };

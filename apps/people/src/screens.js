@@ -24,3 +24,14 @@ export { default as LeaveTypes } from '../../attendance/src/screens/LeaveTypes';
 export { default as MyLeave } from '../../attendance/src/screens/MyLeave';
 export { default as DataImport } from '../../attendance/src/screens/DataImport';
 export { default as AuditLogs } from '../../attendance/src/screens/AuditLogs';
+/* Settings (People → Settings): the hub, company master data, and the shared screens it opens. */
+export { default as PeopleSettings } from './screens/PeopleSettings';
+export { default as CompanyDetails } from '@ui/company/CompanyDetails';
+export { BusinessUnits, Grades, CostCentres } from '@ui/personnel/StructureList';
+export { Areas as Locations } from '../../attendance/src/screens/OrgLists';
+export { default as Integrations } from '../../attendance/src/screens/Integrations';
+export { default as DataExport } from '../../attendance/src/screens/DataExport';
+export { default as RecycleBin } from '../../attendance/src/screens/RecycleBin';
+export { default as DataProtection } from '../../attendance/src/screens/DataProtection';
+export { default as DataRequests } from '../../attendance/src/screens/DataRequests';
+export { default as SsoSettings } from '../../accounting/src/features/account/SsoSettings';

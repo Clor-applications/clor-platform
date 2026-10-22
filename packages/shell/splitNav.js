@@ -24,9 +24,16 @@ export function resolveModules(app, nav) {
     .filter(Boolean);
 }
 
-/** The module whose screens include this one, else null. */
-export function moduleForScreen(modules, screen) {
-  return modules.find((m) => m.items.some((i) => i.key === screen)) || null;
+/**
+ * The module whose screens include this one, else null. A screen kept off the
+ * sidebar (a page under a Settings hub) names its `parent` in the nav, and
+ * belongs to the parent's module.
+ */
+export function moduleForScreen(modules, screen, nav = []) {
+  const direct = modules.find((m) => m.items.some((i) => i.key === screen));
+  if (direct) return direct;
+  const parent = (nav || []).find((i) => i.key === screen)?.parent;
+  return parent ? modules.find((m) => m.items.some((i) => i.key === parent)) || null : null;
 }
 
 /**

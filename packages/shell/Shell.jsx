@@ -396,7 +396,7 @@ export default function Shell() {
   /* Or ask for the split sidebar: modules on a rail, the open module's screens beside it (splitNav.js). */
   const modules = resolveModules(app, nav);
   const split = modules.length > 0;
-  const currentModule = moduleForScreen(modules, screen) || modules[0] || null;
+  const currentModule = moduleForScreen(modules, screen, nav) || modules[0] || null;
   /* The module whose panel is open; follows the screen unless the person is browsing another on the rail. */
   const openModule =
     (browseModule && modules.find((m) => m.key === browseModule)) ||
@@ -858,10 +858,22 @@ export default function Shell() {
                 {/* One permission set for every app's screens; a screen whose resource this person may not change is shown read-only (WriteGuard). */}
                 <PermissionProvider key={tenantKey} enabled>
                   <WriteGuard permission={(app?.nav || []).find((n) => n.key === screen)?.permission}>
+                    {(() => {
+                      /* A page under a hub (People → Settings → Departments) shows the way back to it. */
+                      const parentKey = (app?.nav || []).find((n) => n.key === screen)?.parent;
+                      const parent = parentKey && nav.find((n) => n.key === parentKey);
+                      return parent ? (
+                        <button type="button" className="ui-link mb-2 inline-flex items-center gap-1 text-sm" onClick={() => goTo(parent.key)}>
+                          ← {parent.label}
+                        </button>
+                      ) : null;
+                    })()}
                     <Suspense fallback={<AppLoading />}>
                       <Screen
                         key={screenParams ? `${tenant.id}:${JSON.stringify(screenParams)}` : tenant.id}
                         params={screenParams || undefined}
+                        /* The screens this person may open, for a hub page (People's Settings) to list. */
+                        navItems={nav}
                         openScreen={(key, params) => {
                           if (!app?.screens?.[key]) return;
                           setScreenKey(key);

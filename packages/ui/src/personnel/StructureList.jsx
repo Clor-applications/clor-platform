@@ -50,6 +50,21 @@ const KINDS = {
     description: 'Sites and zones people work at — a plant, a branch, a floor. An area can sit inside another.',
     parent: { key: 'parentId', kind: 'areas', label: 'Inside area' },
   },
+  'business-units': {
+    title: 'Business Units',
+    singular: 'business unit',
+    description: 'The divisions or domains the company runs as one business — Retail, Manufacturing, Services.',
+  },
+  grades: {
+    title: 'Grades',
+    singular: 'grade',
+    description: 'Levels or pay bands — L1, L2, M1 — that group designations and salaries.',
+  },
+  'cost-centres': {
+    title: 'Cost Centres',
+    singular: 'cost centre',
+    description: 'Where a person’s salary cost is booked in the accounts — a plant, a project, a client.',
+  },
 };
 
 const TABS = [
@@ -293,3 +308,6 @@ export const JobRoles = () => <StructureList kind="job-roles" />;
 export const EmployeeTypes = () => <StructureList kind="employee-types" />;
 export const WorkTypes = () => <StructureList kind="work-types" />;
 export const Areas = (props) => <StructureList kind="areas" {...props} />;
+export const BusinessUnits = (props) => <StructureList kind="business-units" {...props} />;
+export const Grades = (props) => <StructureList kind="grades" {...props} />;
+export const CostCentres = (props) => <StructureList kind="cost-centres" {...props} />;

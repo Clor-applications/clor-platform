@@ -122,24 +122,27 @@ export default function Employees() {
   /* Status is a tab, counted on the client; the rest are asked of the server. */
   const [status, setStatus] = useState('ACTIVE');
   const [filters, setFilters] = useState({ q: '', departmentId: '', jobPositionId: '', employeeTypeId: '', tagId: '' });
-  const [lists, setLists] = useState({ departments: [], positions: [], roles: [], types: [], workTypes: [], tags: [], areas: [], contractors: [] });
+  const [lists, setLists] = useState({ departments: [], positions: [], roles: [], types: [], workTypes: [], tags: [], areas: [], contractors: [], units: [], grades: [], centres: [] });
   const [openId, setOpenId] = useState(null);
   const [editing, setEditing] = useState(null);
   const fileRef = useRef(null);
 
   const loadLists = useCallback(async () => {
     const withAttendance = hasApp('attendance');
-    const [departments, positions, roles, types, workTypes, tags, areas, contractors] = await Promise.all([
+    const [departments, positions, roles, types, workTypes, tags, areas, contractors, units, grades, centres] = await Promise.all([
       listStructure('departments'),
       listStructure('job-positions'),
       listStructure('job-roles'),
       listStructure('employee-types'),
       listStructure('work-types'),
       listTags(),
-      withAttendance ? listStructure('areas') : [],
+      listStructure('areas').catch(() => []),
       withAttendance ? listContractors() : [],
+      listStructure('business-units').catch(() => []),
+      listStructure('grades').catch(() => []),
+      listStructure('cost-centres').catch(() => []),
     ]);
-    setLists({ departments, positions, roles, types, workTypes, tags, areas, contractors });
+    setLists({ departments, positions, roles, types, workTypes, tags, areas, contractors, units, grades, centres });
   }, []);
 
   const load = useCallback(async () => {
@@ -562,15 +565,18 @@ function EmployeeFile({ id, onClose, onEdit, onDeleted }) {
             <>
             <dl className="grid gap-4 sm:grid-cols-2">
               <Field label="Employee ID" value={person.code} />
+              <Field label="Business unit" value={person.businessUnitName} />
               <Field label="Department" value={person.department} />
               <Field label="Designation" value={person.designation} />
+              <Field label="Grade" value={person.gradeName} />
+              <Field label="Location" value={person.areaName} />
+              <Field label="Cost centre" value={person.costCenterName} />
               <Field label="Reports to" value={person.reportingManagerName} />
               <Field label="Work email" value={person.workEmail} />
               <Field label="Work phone" value={person.workPhone} />
               <Field label="Work location" value={person.workLocation} />
               {hasApp('attendance') ? (
                 <>
-                  <Field label="Area" value={person.areaName} />
                   <Field label="Contractor" value={person.contractorName} />
                   <Field label="Reader ID" value={person.devicePin || (person.code ? `${person.code} (employee code)` : null)} />
                   <Field label="Card" value={person.cardNumber} />
@@ -647,7 +653,7 @@ function EmployeeFile({ id, onClose, onEdit, onDeleted }) {
 // ---------------------------------------------------------------------------
 
 /* The fields whose change is recorded in employment history (server: TRACKED in services/people/employmentHistory.ts). */
-const HISTORY_FIELDS = ['departmentId', 'areaId', 'state', 'jobPositionId', 'jobRoleId', 'reportingManagerId', 'employeeTypeId', 'workTypeId', 'contractorId'];
+const HISTORY_FIELDS = ['businessUnitId', 'gradeId', 'costCenterId', 'departmentId', 'areaId', 'state', 'jobPositionId', 'jobRoleId', 'reportingManagerId', 'employeeTypeId', 'workTypeId', 'contractorId'];
 const HISTORY_SOURCE = { FORM: 'Employee form', TRANSFER: 'Transfer', RESIGNATION: 'Resignation', REHIRE: 'Rehire', IMPORT: 'Import' };
 const HISTORY_TONE = { JOINED: 'pos', LEFT: 'neg', REHIRED: 'pos', TRANSFERRED: 'warn', CHANGED: 'neutral' };
 
@@ -886,7 +892,7 @@ function EmployeeForm({ initial, lists, people, onClose, onSaved }) {
       'maritalStatus', 'personalEmail', 'photoUrl', 'addressLine', 'city', 'state', 'country', 'pincode', 'emergencyContactName',
       'emergencyContactPhone', 'emergencyContactRelation', 'departmentId', 'jobPositionId', 'jobRoleId', 'employeeTypeId', 'workTypeId',
       'reportingManagerId', 'workEmail', 'workPhone', 'workLocation', 'devicePin', 'probationEndDate', 'contractEndDate', 'tagIds',
-      'areaId', 'contractorId', 'cardNumber', 'devicePrivilege', 'attendanceRequired', 'guardianName',
+      'areaId', 'contractorId', 'businessUnitId', 'gradeId', 'costCenterId', 'cardNumber', 'devicePrivilege', 'attendanceRequired', 'guardianName',
     ];
     const body = Object.fromEntries(keys.filter((k) => form[k] !== undefined).map((k) => [k, form[k] === '' ? null : form[k]]));
     /* The reader PIN is write-only: sent only when typed. */
@@ -987,18 +993,29 @@ function EmployeeForm({ initial, lists, people, onClose, onSaved }) {
           {input('lastName', 'Last name')}
           {input('code', 'Employee ID')}
           {input('phone', 'Phone', { type: 'tel' })}
-          {select('departmentId', 'Department', lists.departments)}
-          {select('jobPositionId', 'Job position', positions)}
           {input('dateOfJoining', 'Date of joining', { type: 'date' })}
           {select('status', 'Status', STATUSES, {}, { required: true })}
         </section>
 
         <section className="grid gap-4 sm:grid-cols-2">
-          <h3 className="ui-t-sec sm:col-span-2">More about the job</h3>
-          {select('jobRoleId', 'Job role', roles)}
+          <div className="sm:col-span-2">
+            <h3 className="ui-t-sec">Where They Work</h3>
+            <p className="ui-caption">The lists come from Settings → Company.</p>
+          </div>
+          {lists.units.length ? select('businessUnitId', 'Business unit', lists.units) : null}
+          {select('departmentId', 'Department', lists.departments)}
+          {select('jobPositionId', 'Designation', positions)}
+          {lists.grades.length ? select('gradeId', 'Grade', lists.grades) : null}
+          {lists.areas.length ? select('areaId', 'Location', lists.areas) : null}
+          {lists.centres.length ? select('costCenterId', 'Cost centre', lists.centres) : null}
+          {select('reportingManagerId', 'Reports to', people.filter((p) => p.id !== form.id && p.status !== 'LEFT'))}
+        </section>
+
+        <section className="grid gap-4 sm:grid-cols-2">
+          <h3 className="ui-t-sec sm:col-span-2">Employment</h3>
           {select('employeeTypeId', 'Employee type', lists.types)}
           {select('workTypeId', 'Work type', lists.workTypes)}
-          {select('reportingManagerId', 'Reports to', people.filter((p) => p.id !== form.id && p.status !== 'LEFT'))}
+          {select('jobRoleId', 'Job role', roles)}
           {input('workEmail', 'Work email', { type: 'email' })}
           {input('workPhone', 'Work phone', { type: 'tel' })}
           {input('workLocation', 'Work location')}
@@ -1009,8 +1026,7 @@ function EmployeeForm({ initial, lists, people, onClose, onSaved }) {
 
         {hasApp('attendance') ? (
           <section className="grid gap-4 sm:grid-cols-2">
-            <h3 className="ui-t-sec sm:col-span-2">Attendance and readers</h3>
-            {select('areaId', 'Area', lists.areas)}
+            <h3 className="ui-t-sec sm:col-span-2">Attendance and Readers</h3>
             {select('contractorId', 'Contractor', lists.contractors)}
             {input('devicePin', 'Reader ID', { placeholder: form.code ? `Blank = employee code (${form.code})` : 'ID on the biometric reader' })}
             {input('cardNumber', 'Card number')}
@@ -1043,7 +1059,7 @@ function EmployeeForm({ initial, lists, people, onClose, onSaved }) {
         ) : null}
 
         <section className="grid gap-4 sm:grid-cols-2">
-          <h3 className="ui-t-sec sm:col-span-2">Personal details</h3>
+          <h3 className="ui-t-sec sm:col-span-2">Personal Details</h3>
           {input('email', 'Personal email', { type: 'email' })}
           {input('dateOfBirth', 'Date of birth', { type: 'date' })}
           {select('gender', 'Gender', [{ id: 'MALE', label: 'Male' }, { id: 'FEMALE', label: 'Female' }, { id: 'OTHER', label: 'Other' }])}
