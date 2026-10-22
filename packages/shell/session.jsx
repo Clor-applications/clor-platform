@@ -75,7 +75,13 @@ const toTenant = (membership) => ({
 export function SessionProvider({ children }) {
   const [user, setUser] = useState(null);
   const [tenants, setTenants] = useState([]);
-  const [tenantId, setTenantId] = useState('');
+  const [tenantId, setTenantIdState] = useState('');
+  const setTenantId = useCallback((id) => {
+    setTenantIdState(id);
+    // A browser preference, scoped to the signed-in user and checked against
+    // current memberships again on restore. It never grants company access.
+    try { if (user?.id && id) localStorage.setItem(`clor.tenant.${user.id}`, id); } catch { /* storage unavailable */ }
+  }, [user?.id]);
   /* A company here requires an authenticator of this owner or admin, who has none yet (SX-09). */
   const [twoFactorSetupRequired, setTwoFactorSetupRequired] = useState(false);
   /* True until the token in this browser has been checked against the server.
@@ -123,14 +129,16 @@ export function SessionProvider({ children }) {
     }
   }, []);
 
-  const adopt = useCallback((payload) => {
+  const adopt = useCallback((payload, preferRequested = false) => {
     const list = (payload?.orgs || []).map(toTenant).filter((t) => t.id);
     setTenants(list);
     setUser(payload?.user || null);
     setTwoFactorSetupRequired(Boolean(payload?.twoFactorSetupRequired));
-    const wanted = String(payload?.activeOrgId || '').trim();
+    let remembered = '';
+    try { remembered = String(localStorage.getItem(`clor.tenant.${payload?.user?.id}`) || ''); } catch { /* storage unavailable */ }
+    const wanted = !preferRequested && list.some((t) => t.id === remembered) ? remembered : String(payload?.activeOrgId || '').trim();
     const chosen = list.find((t) => t.id === wanted) || list[0] || null;
-    setTenantId(chosen?.id || '');
+    setTenantIdState(chosen?.id || '');
     return chosen;
   }, []);
 
@@ -183,7 +191,7 @@ export function SessionProvider({ children }) {
       writeToken('');
       setUser(null);
       setTenants([]);
-      setTenantId('');
+      setTenantIdState('');
     };
     window.addEventListener('auth:session-expired', onEnded);
     return () => window.removeEventListener('auth:session-expired', onEnded);
@@ -261,7 +269,7 @@ export function SessionProvider({ children }) {
       const data = await apiMe();
       /* The company just created, not whichever one sorts first. */
       const made = (data?.orgs || []).find((m) => String(m.org?.name || '') === String(name));
-      const next = adopt({ ...data, activeOrgId: made?.orgId || data?.activeOrgId });
+      const next = adopt({ ...data, activeOrgId: made?.orgId || data?.activeOrgId }, true);
 
       for (const app of apps) {
         const key = APP_FEATURE[app];
@@ -282,7 +290,7 @@ export function SessionProvider({ children }) {
     writeToken('');
     setUser(null);
     setTenants([]);
-    setTenantId('');
+    setTenantIdState('');
   }, []);
 
   /**
@@ -305,7 +313,7 @@ export function SessionProvider({ children }) {
 
   const value = useMemo(
     () => ({ user, tenant, tenants, restoring, signIn, signInWithCode, twoFactorSetupRequired, recheckTwoFactor, signUp, createCompany, signOut, setTenantId, addApp }),
-    [user, tenant, tenants, restoring, signIn, signInWithCode, twoFactorSetupRequired, recheckTwoFactor, signUp, createCompany, signOut, addApp]
+    [user, tenant, tenants, restoring, signIn, signInWithCode, twoFactorSetupRequired, recheckTwoFactor, signUp, createCompany, signOut, setTenantId, addApp]
   );
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
