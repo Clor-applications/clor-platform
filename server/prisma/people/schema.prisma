@@ -95,6 +95,10 @@ model Employee {
   // above stay as the display strings every existing reader uses, and are
   // written alongside these.
   departmentId        String?
+  /// Company master data (People → Settings → Company): business unit, grade, cost centre.
+  businessUnitId      String?
+  gradeId             String?
+  costCenterId        String?
   jobPositionId       String?
   jobRoleId           String?
   employeeTypeId      String?
@@ -1754,4 +1758,55 @@ model PeopleRecord {
   updatedAt   DateTime @updatedAt
 
   @@index([accountId, orgId, kind, status])
+}
+
+/// A business unit (division / domain) of the company: Retail, Manufacturing, Services.
+model BusinessUnit {
+  id          String  @id @default(cuid())
+  accountId   String
+  orgId       String
+  name        String
+  description String?
+  isActive    Boolean @default(true)
+
+  createdByUserId String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([orgId, name])
+  @@index([accountId, orgId])
+}
+
+/// A grade or pay band: L1, L2, M1… Used to group designations and salaries.
+model Grade {
+  id          String  @id @default(cuid())
+  accountId   String
+  orgId       String
+  name        String
+  description String?
+  isActive    Boolean @default(true)
+
+  createdByUserId String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([orgId, name])
+  @@index([accountId, orgId])
+}
+
+/// Where a person's cost is booked in the accounts: a project, a plant, a client.
+model CostCenter {
+  id          String  @id @default(cuid())
+  accountId   String
+  orgId       String
+  name        String
+  description String?
+  isActive    Boolean @default(true)
+
+  createdByUserId String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([orgId, name])
+  @@index([accountId, orgId])
 }

@@ -78,6 +78,7 @@ import { recurringRouter } from './routes/recurring.js';
 import { dataExportRouter } from './routes/dataExport.js';
 import { companyClosureRouter } from './routes/companyClosure.js';
 import { recycleBinRouter } from './routes/recycleBin.js';
+import { companyProfileRouter } from './routes/companyProfile.js';
 import { einvoiceRouter } from './routes/einvoice.js';
 import { revaluationRouter } from './routes/revaluation.js';
 import { currenciesRouter } from './routes/currencies.js';
@@ -388,6 +389,7 @@ export function buildApp() {
   app.use('/api', dataExportRouter);
   app.use('/api', companyClosureRouter);
   app.use('/api', recycleBinRouter);
+  app.use('/api', companyProfileRouter);
   app.use('/api', inventoryAdjustmentsRouter);
   app.use('/api', invoicesRouter);
   app.use('/api', ledgerRouter);

@@ -18,6 +18,7 @@ type Row = Record<string, any>;
 /** The fields whose change is part of someone's employment, with how to name them. */
 export const TRACKED: Record<string, { label: string; kind: 'TRANSFERRED' | 'CHANGED' }> = {
   departmentId: { label: 'Department', kind: 'TRANSFERRED' },
+  businessUnitId: { label: 'Business unit', kind: 'TRANSFERRED' },
   areaId: { label: 'Location', kind: 'TRANSFERRED' },
   branchId: { label: 'Branch', kind: 'TRANSFERRED' },
   state: { label: 'Work state', kind: 'TRANSFERRED' },
@@ -27,6 +28,8 @@ export const TRACKED: Record<string, { label: string; kind: 'TRANSFERRED' | 'CHA
   employeeTypeId: { label: 'Employee type', kind: 'CHANGED' },
   workTypeId: { label: 'Work type', kind: 'CHANGED' },
   contractorId: { label: 'Contractor', kind: 'CHANGED' },
+  gradeId: { label: 'Grade', kind: 'CHANGED' },
+  costCenterId: { label: 'Cost centre', kind: 'CHANGED' },
 };
 
 const todayIst = () => new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
@@ -45,6 +48,9 @@ async function labelOf(orgId: string, field: string, id: string | null | undefin
     case 'workTypeId': return (await peoplePrisma.workType.findFirst(by))?.name ?? null;
     case 'contractorId': return (await peoplePrisma.contractor.findFirst(by))?.name ?? null;
     case 'reportingManagerId': return (await peoplePrisma.employee.findFirst(by))?.name ?? null;
+    case 'businessUnitId': return (await peoplePrisma.businessUnit.findFirst(by))?.name ?? null;
+    case 'gradeId': return (await peoplePrisma.grade.findFirst(by))?.name ?? null;
+    case 'costCenterId': return (await peoplePrisma.costCenter.findFirst(by))?.name ?? null;
     case 'branchId': return (await platformPrisma.branch.findFirst({ where: { id, orgId }, select: { branchName: true } }))?.branchName ?? null;
     default: return id;
   }
@@ -76,6 +82,9 @@ export function impactOf(kind: string, field: string | null, to: string | null, 
     case 'employeeTypeId':
     case 'workTypeId': return to ? `Check the salary structure and PF/ESI eligibility for ${to}.` : null;
     case 'contractorId': return to ? `Counted under ${to} in contractor registers.` : 'Now on the company roll, not under a contractor.';
+    case 'costCenterId': return to ? `Salary cost is booked to cost centre ${to} from ${date}.` : 'No cost centre for salary cost.';
+    case 'gradeId': return to ? `Check the salary structure for grade ${to}.` : null;
+    case 'businessUnitId': return to ? `Reports and costs count this person under ${to}.` : null;
     default: return null;
   }
 }

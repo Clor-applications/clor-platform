@@ -78,6 +78,9 @@ const employeeSchema = z.object({
   departmentId: text(60),
   jobPositionId: text(60),
   jobRoleId: text(60),
+  businessUnitId: text(60),
+  gradeId: text(60),
+  costCenterId: text(60),
   employeeTypeId: text(60),
   workTypeId: text(60),
   reportingManagerId: text(60),
@@ -129,6 +132,9 @@ async function resolveStructure(orgId: string, b: EmployeeBody) {
   await check('workTypeId', (id) => peoplePrisma.workType.findFirst({ where: { id, orgId }, select: { name: true } }));
   await check('areaId', (id) => peoplePrisma.area.findFirst({ where: { id, orgId }, select: { name: true } }));
   await check('contractorId', (id) => peoplePrisma.contractor.findFirst({ where: { id, orgId }, select: { name: true } }));
+  await check('businessUnitId', (id) => peoplePrisma.businessUnit.findFirst({ where: { id, orgId }, select: { name: true } }));
+  await check('gradeId', (id) => peoplePrisma.grade.findFirst({ where: { id, orgId }, select: { name: true } }));
+  await check('costCenterId', (id) => peoplePrisma.costCenter.findFirst({ where: { id, orgId }, select: { name: true } }));
   if (b.departmentId !== undefined) out.department = dept?.name ?? null;
   if (b.jobPositionId !== undefined) out.designation = pos?.name ?? null;
   return out;
@@ -177,18 +183,27 @@ const withMeta = async (orgId: string, rows: any[]) => {
     ? await peoplePrisma.employee.findMany({ where: { orgId, id: { in: managerIds } }, select: { id: true, name: true } })
     : [];
   const managerName = new Map(managers.map((m) => [m.id, m.name]));
-  const [areas, contractors] = await Promise.all([
+  const [areas, contractors, units, grades, centres] = await Promise.all([
     peoplePrisma.area.findMany({ where: { orgId }, select: { id: true, name: true } }),
     peoplePrisma.contractor.findMany({ where: { orgId }, select: { id: true, name: true } }),
+    peoplePrisma.businessUnit.findMany({ where: { orgId }, select: { id: true, name: true } }),
+    peoplePrisma.grade.findMany({ where: { orgId }, select: { id: true, name: true } }),
+    peoplePrisma.costCenter.findMany({ where: { orgId }, select: { id: true, name: true } }),
   ]);
   const areaName = new Map(areas.map((a) => [a.id, a.name]));
   const contractorName = new Map(contractors.map((c) => [c.id, c.name]));
+  const unitName = new Map(units.map((u) => [u.id, u.name]));
+  const gradeName = new Map(grades.map((g) => [g.id, g.name]));
+  const centreName = new Map(centres.map((c) => [c.id, c.name]));
   return rows.map(({ devicePassword, ...r }) => ({
     ...r,
     /* The reader PIN is write-only here; screens only need to know one is set. */
     hasDevicePassword: Boolean(devicePassword),
     areaName: r.areaId ? areaName.get(r.areaId) || null : null,
     contractorName: r.contractorId ? contractorName.get(r.contractorId) || null : null,
+    businessUnitName: r.businessUnitId ? unitName.get(r.businessUnitId) || null : null,
+    gradeName: r.gradeId ? gradeName.get(r.gradeId) || null : null,
+    costCenterName: r.costCenterId ? centreName.get(r.costCenterId) || null : null,
     reportingManagerName: r.reportingManagerId ? managerName.get(r.reportingManagerId) || null : null,
     tags: (r.tags || []).map((l: any) => ({ id: l.tag.id, name: l.tag.name, color: l.tag.color })),
   }));
@@ -300,6 +315,9 @@ peopleRouter.get('/orgs/:orgId/people/employees', can(PermissionAction.VIEW, EMP
     ...(pick('jobPositionId') ? { jobPositionId: pick('jobPositionId') } : {}),
     ...(pick('employeeTypeId') ? { employeeTypeId: pick('employeeTypeId') } : {}),
     ...(pick('workTypeId') ? { workTypeId: pick('workTypeId') } : {}),
+    ...(pick('businessUnitId') ? { businessUnitId: pick('businessUnitId') } : {}),
+    ...(pick('gradeId') ? { gradeId: pick('gradeId') } : {}),
+    ...(pick('costCenterId') ? { costCenterId: pick('costCenterId') } : {}),
     ...(pick('managerId') ? { reportingManagerId: pick('managerId') } : {}),
     ...(tagId ? { tags: { some: { tagId } } } : {}),
     ...(q
@@ -632,6 +650,9 @@ const importRow = z.object({
   jobPosition: text(120),
   employeeType: text(120),
   workType: text(120),
+  businessUnit: text(120),
+  grade: text(120),
+  costCentre: text(120),
   dateOfJoining: date,
   dateOfBirth: date,
   gender: z.enum(['MALE', 'FEMALE', 'OTHER']).optional().nullable().or(z.literal('')),
@@ -654,7 +675,7 @@ peopleRouter.post('/orgs/:orgId/people/employees/import', can(PermissionAction.C
   /* Matched case-insensitively, and the stored name is the one used after: a
      row typing "warehouse" joins Warehouse rather than starting a second. */
   const cache = new Map<string, { id: string; name: string }>();
-  const ensure = async (kind: 'department' | 'jobPosition' | 'employeeType' | 'workType', name: string | null | undefined) => {
+  const ensure = async (kind: 'department' | 'jobPosition' | 'employeeType' | 'workType' | 'businessUnit' | 'grade' | 'costCenter', name: string | null | undefined) => {
     const n = blank(name);
     if (!n) return null;
     const key = `${kind}:${n.toLowerCase()}`;
@@ -708,6 +729,9 @@ peopleRouter.post('/orgs/:orgId/people/employees/import', can(PermissionAction.C
           jobPositionId: jobPosition?.id ?? null,
           employeeTypeId: (await ensure('employeeType', r.employeeType))?.id ?? null,
           workTypeId: (await ensure('workType', r.workType))?.id ?? null,
+          businessUnitId: (await ensure('businessUnit', r.businessUnit))?.id ?? null,
+          gradeId: (await ensure('grade', r.grade))?.id ?? null,
+          costCenterId: (await ensure('costCenter', r.costCentre))?.id ?? null,
           dateOfJoining: blank(r.dateOfJoining),
           dateOfBirth: blank(r.dateOfBirth),
           gender: blank(r.gender),
@@ -746,6 +770,9 @@ const STRUCTURE_KINDS = {
   'employee-types': { model: 'employeeType', usedBy: 'employeeTypeId', extra: [] },
   'work-types': { model: 'workType', usedBy: 'workTypeId', extra: [] },
   areas: { model: 'area', usedBy: 'areaId', extra: ['parentId', 'description'] },
+  'business-units': { model: 'businessUnit', usedBy: 'businessUnitId', extra: ['description'] },
+  grades: { model: 'grade', usedBy: 'gradeId', extra: ['description'] },
+  'cost-centres': { model: 'costCenter', usedBy: 'costCenterId', extra: ['description'] },
 } as const;
 type Kind = keyof typeof STRUCTURE_KINDS;
 
