@@ -8,7 +8,7 @@ import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/componen
 import { EmptyState, SkeletonCard } from '@ui/components/ui/Primitives';
 import Drawer from '@ui/components/ui/Drawer';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
-import { listEmployees } from '@ui/personnel/api';
+import { listAllEmployees } from '@ui/personnel/api';
 import { deleteRecord, hireCandidate, listRecords, saveRecord } from '../api/workspace';
 import { WORKSPACE_CONFIG, statusLabel } from './workspaceConfig';
 
@@ -30,7 +30,7 @@ export default function WorkspaceList({ kind, openScreen }) {
   const [hiring, setHiring] = useState(null);
   const load = useCallback(async () => {
     try {
-      const [records, people, vacancies] = await Promise.all([listRecords(kind), cfg.employee ? listEmployees() : null, kind === 'candidates' ? listRecords('recruitment') : null]);
+      const [records, people, vacancies] = await Promise.all([listRecords(kind), cfg.employee ? listAllEmployees() : null, kind === 'candidates' ? listRecords('recruitment') : null]);
       setRows(records); setEmployees(people?.employees || []); setJobs(vacancies || []); setError('');
     } catch (e) { setError(e.message || 'Could not load this module.'); }
     finally { setLoading(false); }

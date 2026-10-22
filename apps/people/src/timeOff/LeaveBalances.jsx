@@ -15,7 +15,7 @@ import { addLeaveAdjustment, colorOf, deleteLeaveAdjustment, getLeaveBalances, g
  * added or taken away by HR, paid out, taken, waiting — and change it with a
  * reason that stays on the record.
  */
-const KIND = { CARRIED: 'Carried in', EARNED: 'Earned', CREDIT: 'Credited', UPCOMING: 'To be credited', ALLOCATED: 'Set for this person', ADJUST: 'Changed by HR', ENCASH: 'Paid out', TAKEN: 'Approved', PENDING: 'Waiting' };
+const KIND = { CARRIED: 'Carried in', EARNED: 'Earned', CREDIT: 'Credited', UPCOMING: 'To be credited', ALLOCATED: 'Set for this person', ADJUST: 'Changed by HR', ENCASH: 'Reserved for payout', TAKEN: 'Approved', PENDING: 'Waiting' };
 
 export default function LeaveBalances() {
   const [year, setYear] = useState(null);
@@ -129,7 +129,7 @@ function Ledger({ person, year, label, onClose, onChanged }) {
         days: form.how === 'TAKE' ? -days : days,
         reason: form.reason,
       });
-      notify.success(form.how === 'ENCASH' ? 'Pay-out recorded on the ledger. Add the amount to this month’s payroll.' : 'Balance changed.');
+      notify.success(form.how === 'ENCASH' ? 'Days reserved. In Payroll → Adjustments, select this leave encashment and enter its payout amount.' : 'Balance changed.');
       setForm({ leaveTypeId: form.leaveTypeId, how: 'ADD', days: '', reason: '' });
       load();
       onChanged();

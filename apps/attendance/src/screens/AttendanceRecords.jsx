@@ -390,7 +390,7 @@ function BulkChange({ spec, ids, onClose, onDone }) {
             <span className="ui-label">Mark them as</span>
             <select className="ui-select w-full" value={status} onChange={(e) => setStatus(e.target.value)}>
               <option value="ABSENT">Absent</option>
-              <option value="ON_LEAVE">On leave</option>
+
               <option value="HOLIDAY">Holiday</option>
               <option value="WEEKLY_OFF">Weekly off</option>
               <option value="PRESENT">Present</option>
@@ -504,7 +504,7 @@ function MarkDay({ initial, people, onClose, onSaved }) {
             <span className="ui-label">No times — mark as</span>
             <select className="ui-select w-full" value={form.status || 'ABSENT'} onChange={set('status')}>
               <option value="ABSENT">Absent</option>
-              <option value="ON_LEAVE">On leave</option>
+
               <option value="HOLIDAY">Holiday</option>
               <option value="WEEKLY_OFF">Weekly off</option>
             </select>

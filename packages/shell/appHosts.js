@@ -16,7 +16,7 @@
  * old ClorTime cloud screen; from 16 Oct 2026 it opens CLOR Attendance (with
  * the employee portal at attendance.clor.in/#/portal).
  */
-export const APP_HOST_IDS = ['accounting', 'payroll', 'attendance'];
+export const APP_HOST_IDS = ['accounting', 'payroll', 'attendance', 'people'];
 
 /** The front door's first label. */
 const FRONT_DOOR = 'app';

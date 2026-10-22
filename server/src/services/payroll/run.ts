@@ -1187,6 +1187,13 @@ export async function calculateRun(orgId: string, runId: string, userId: string)
     }
   });
 
+  // The earning is canonical; this marker is reconciled after each committed calculation.
+  const encashments = await payrollPrisma.payrollAdjustment.findMany({ where: { orgId, id: { startsWith: 'leave-encash:' } } });
+  for (const earning of encashments) await peoplePrisma.leaveAdjustment.updateMany({
+    where: { orgId, id: earning.id.slice('leave-encash:'.length) },
+    data: { paidInRunId: earning.status === 'CONSUMED' ? earning.consumedByRunId : null },
+  });
+
   return { slips: results, issues };
 }
 

@@ -57,7 +57,7 @@ describe('days from leave, without Attendance', () => {
 
     const r = (await pay(c, `/runs/${runId}/inputs/from-leave`).expect(200)).body;
     expect(r).toMatchObject({ saved: 1, unpaidLeaveDays: 2 });
-    expect(r.encashments).toEqual([{ employeeId, days: 2, leaveType: 'Casual' }]);
+    expect(r.encashments).toEqual([expect.objectContaining({ employeeId, days: 2, leaveType: 'Casual' })]);
     const input = await inputOf(runId, employeeId);
     expect(input).toMatchObject({ source: 'LEAVE' });
     expect(Number(input!.lwpDays)).toBe(2);
@@ -70,6 +70,30 @@ describe('days from leave, without Attendance', () => {
     const again = await inputOf(runId, employeeId);
     expect(Number(again!.lwpDays)).toBe(0);
     expect(Number(again!.payableDays)).toBe(30);
+  }, 60_000);
+
+  it('matches the attendance summary on a linked half day: the leave half and the unworked half are separate', async () => {
+    const c = await makeOwner({ payroll: true, people: true });
+    const { employeeId, runId } = await setUp(c);
+    /* An unpaid half day with nothing worked: both halves are lost (0.5 leave + 0.5 unworked) */
+    const lop = (await att(c, '/leave/types', { name: 'Loss of pay', isPaid: false }).expect(201)).body.type;
+    const unpaidHalf = (await att(c, '/leave/requests', { employeeId, leaveTypeId: lop.id, fromDate: '2026-09-03', toDate: '2026-09-03', halfDay: 'FIRST', reason: 'Clinic' }).expect(201)).body.request;
+    await att(c, `/leave/requests/${unpaidHalf.id}/approve`).expect(200);
+    let r = (await pay(c, `/runs/${runId}/inputs/from-leave`).expect(200)).body;
+    expect(r.unpaidLeaveDays).toBe(0.5);
+    let input = await inputOf(runId, employeeId);
+    expect(Number(input!.lwpDays)).toBe(1);
+    expect(Number(input!.payableDays)).toBe(29);
+
+    /* A paid half day still loses the half the person did not work */
+    const casual = (await att(c, '/leave/types', { name: 'Casual', annualDays: 12 }).expect(201)).body.type;
+    const paidHalf = (await att(c, '/leave/requests', { employeeId, leaveTypeId: casual.id, fromDate: '2026-09-04', toDate: '2026-09-04', halfDay: 'SECOND', reason: 'Errand' }).expect(201)).body.request;
+    await att(c, `/leave/requests/${paidHalf.id}/approve`).expect(200);
+    r = (await pay(c, `/runs/${runId}/inputs/from-leave`).expect(200)).body;
+    expect(r.unpaidLeaveDays).toBe(0.5);
+    input = await inputOf(runId, employeeId);
+    expect(Number(input!.lwpDays)).toBe(1.5);
+    expect(Number(input!.payableDays)).toBe(28.5);
   }, 60_000);
 
   it('sends a company with Attendance to Attendance, which already counts leave', async () => {

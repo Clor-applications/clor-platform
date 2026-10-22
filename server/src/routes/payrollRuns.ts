@@ -493,13 +493,23 @@ payrollRunsRouter.post(
     const requests = await peoplePrisma.leaveRequest.findMany({ where: { orgId, id: { in: [...new Set(days.map((d) => d.leaveRequestId!))] } }, select: { id: true, leaveTypeId: true } });
     const types = new Map((await peoplePrisma.leaveType.findMany({ where: { orgId }, select: { id: true, name: true, isPaid: true } })).map((t) => [t.id, t]));
     const typeOf = new Map(requests.map((r) => [r.id, types.get(r.leaveTypeId)]));
-    const unpaid = new Map<string, { days: number; names: Set<string> }>();
+    /* Per person: cost = the leave fraction the person lost (0.5 for a half
+       day, 1 for a whole day, only on an unpaid type) plus the unworked other
+       half of a linked half day, whatever the type. The leave fraction alone
+       is what the attendance summary calls unpaid leave; with the unworked
+       half it is the same loss of pay both handoffs report. */
+    const unpaid = new Map<string, { days: number; leaveDays: number; names: Set<string> }>();
     for (const d of days) {
       const t = typeOf.get(d.leaveRequestId!);
-      if (!t || t.isPaid) continue;
-      const u = unpaid.get(d.employeeId) || { days: 0, names: new Set<string>() };
-      u.days += d.status === 'ON_LEAVE' ? 1 : 0.5;
-      u.names.add(t.name);
+      if (!t) continue;
+      const onLeave = d.status === 'ON_LEAVE';
+      const leaveFraction = t.isPaid ? 0 : onLeave ? 1 : 0.5;
+      const loss = leaveFraction + (d.status === 'HALF_DAY' ? 0.5 : 0);
+      if (!loss) continue;
+      const u = unpaid.get(d.employeeId) || { days: 0, leaveDays: 0, names: new Set<string>() };
+      u.days += loss;
+      u.leaveDays += leaveFraction;
+      if (leaveFraction) u.names.add(`${t.name}${onLeave ? '' : ' half'}`);
       unpaid.set(d.employeeId, u);
     }
     const existing = new Map((await payrollPrisma.payrollInput.findMany({ where: { orgId, runId: run.id } })).map((i) => [i.employeeId, i]));
@@ -528,13 +538,13 @@ payrollRunsRouter.post(
     }
     /* Paid out in HR and not yet paid by a run: shown so the amount is added, never paid twice. */
     const year = Number(period.endDate.slice(0, 4));
-    const encash = await peoplePrisma.leaveAdjustment.findMany({ where: { orgId, kind: 'ENCASH', paidInRunId: null, employeeId: { in: members }, year: { lte: year } }, select: { employeeId: true, days: true, leaveTypeId: true } });
+    const encash = await peoplePrisma.leaveAdjustment.findMany({ where: { orgId, kind: 'ENCASH', paidInRunId: null, employeeId: { in: members }, year: { lte: year } }, select: { id: true, employeeId: true, days: true, leaveTypeId: true } });
     res.json({
       ok: true,
       saved,
       keptManual: keptManual.length,
-      unpaidLeaveDays: [...unpaid.values()].reduce((a, u) => a + u.days, 0),
-      encashments: encash.map((e) => ({ employeeId: e.employeeId, days: -e.days, leaveType: types.get(e.leaveTypeId)?.name || '' })),
+      unpaidLeaveDays: [...unpaid.values()].reduce((a, u) => a + u.leaveDays, 0),
+      encashments: encash.map((e) => ({ id: e.id, employeeId: e.employeeId, days: -e.days, leaveType: types.get(e.leaveTypeId)?.name || '' })),
     });
   }
 );

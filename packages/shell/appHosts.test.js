@@ -8,6 +8,7 @@ describe('app addresses', () => {
     expect(appFromHost('payroll.clor.in')).toBe('payroll');
     expect(appFromHost('app.clor.in')).toBeNull();
     expect(appFromHost('attendance.clor.in')).toBe('attendance');
+    expect(appFromHost('people.clor.in')).toBe('people');
     expect(appFromHost('localhost')).toBeNull();
     expect(appFromHost('64de3a9f.clor-app.pages.dev')).toBeNull();
   });
@@ -22,7 +23,7 @@ describe('app addresses', () => {
     expect(hostForApp('payroll', 'accounting.clor.in')).toBe('payroll.clor.in');
     expect(hostForApp('accounting', 'app.clor.in')).toBe('accounting.clor.in');
     expect(hostForApp('attendance', 'accounting.clor.in')).toBe('attendance.clor.in');
-    expect(hostForApp('people', 'accounting.clor.in')).toBeNull();
+    expect(hostForApp('people', 'accounting.clor.in')).toBe('people.clor.in');
   });
 
   it('switches in place where there are no app addresses', () => {

@@ -23,6 +23,15 @@ export const getOverview = () => apiFetch(`${base()}/overview`, opts);
 export const getPeopleHome = () => apiFetch(`${base()}/home`, opts).then((r) => r?.todos || []);
 
 export const listEmployees = (params) => apiFetch(`${base()}/employees${query(params)}`, opts);
+/** Fetch every API page for complete reports and employee pickers. */
+export async function listAllEmployees(params = {}) {
+  const employees = [];
+  for (let offset = 0; ; offset += 500) {
+    const page = await listEmployees({ ...params, limit: 500, offset });
+    employees.push(...page.employees);
+    if (!page.employees.length || employees.length >= page.total) return { employees, total: page.total };
+  }
+}
 export const getEmployee = (id) => apiFetch(`${base()}/employees/${encodeURIComponent(id)}`, opts);
 export const createEmployee = (body) => send('/employees', 'POST', body);
 export const updateEmployee = (id, body) => send(`/employees/${encodeURIComponent(id)}`, 'PUT', body);

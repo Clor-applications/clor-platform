@@ -830,7 +830,7 @@ const DaysStage = ({ data, editable, runId, onSaved }) => {
       const paidOut = (out.encashments || []).reduce((a, e) => a + e.days, 0);
       notify.success(
         `Unpaid leave taken from People: ${out.unpaidLeaveDays} ${out.unpaidLeaveDays === 1 ? "day" : "days"} of loss of pay.` +
-          (paidOut ? ` ${paidOut} leave ${paidOut === 1 ? "day was" : "days were"} paid out in People; add the amount as variable pay.` : ""),
+          (paidOut ? ` ${paidOut} leave ${paidOut === 1 ? "day was" : "days were"} reserved in People; link the payout under Payroll → Adjustments.` : ""),
       );
       onSaved();
     } catch (e) {

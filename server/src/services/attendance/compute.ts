@@ -212,10 +212,10 @@ export function monthSummary(input: {
     else if (status === 'HOLIDAY') holidays += 1;
     else if (status === 'WEEKLY_OFF') weeklyOffs += 1;
   }
-  const unpaidLeave = Math.min(leave, Math.max(0, input.unpaidLeaveDays || 0));
+  const unpaidLeave = Math.min(input.days.length, Math.max(0, input.unpaidLeaveDays || 0));
   const every = Math.max(0, input.latePenaltyEvery || 0);
   const latePenaltyDays = every ? Math.floor(Math.max(0, late - Math.max(0, input.lateAllowance || 0)) / every) * 0.5 : 0;
-  const lossOfPayDays = absent + incomplete + halfDays * 0.5 + unpaidLeave + latePenaltyDays;
+  const lossOfPayDays = Math.min(input.days.length - notYet, absent + incomplete + halfDays * 0.5 + unpaidLeave + latePenaltyDays);
   return {
     totalDays: input.days.length,
     present,

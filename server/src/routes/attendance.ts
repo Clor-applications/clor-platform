@@ -7,13 +7,14 @@ import { requirePermission } from '../middleware/rbac.js';
 import { PermissionAction } from '../constants/enums.js';
 import { phoneStatus, recordPhonePunch } from '../services/attendance/phonePunch.js';
 import { hrMayDecide } from '../services/attendance/approvalChain.js';
-import { peoplePrisma } from '../utils/peoplePrisma.js';
+import { peoplePrisma, peopleWrite, afterPeopleCommit } from '../utils/peoplePrisma.js';
 import { platformPrisma } from '../utils/platformPrisma.js';
 import { ATTENDANCE_MODULE, ATTENDANCE_RESOURCE, attendanceRouteOk } from '../services/attendance/guards.js';
 import { hrOrAttendanceRouteOk } from '../services/people/guards.js';
 import {
   DEFAULT_SHIFT,
   computeDay,
+  isWeeklyOff,
   isHHMM,
   istDate,
   istInstant,
@@ -119,7 +120,7 @@ export async function writeDay(opts: {
   statusOverride?: (typeof STATUSES)[number] | null;
   source: string;
   note?: string | null;
-  /** Set when an approved leave writes the day; cleared by any other write. */
+  /** The approved leave attached to this day; resolved centrally for every source. */
   leaveRequestId?: string | null;
   /** Why, for the day's history (a correction's reason, a bulk change's description). */
   reason?: string | null;
@@ -132,64 +133,81 @@ export async function writeDay(opts: {
    */
   halfDayLeave?: 'FIRST' | 'SECOND' | null;
 }) {
-  /* Every way a day is written comes through here, so a closed month is held shut in one place. */
-  await assertMonthOpen(opts.orgId, opts.date);
-  const { shiftId, rule } = await shiftFor(opts.orgId, opts.employee.id, opts.date);
-  const holiday = await isHoliday(opts.orgId, opts.date, opts.employee.branchId, opts.employee.areaId ?? null);
-  const computed = computeDay({
-    date: opts.date,
-    shift: rule,
-    checkIn: opts.checkIn,
-    checkOut: opts.checkOut,
-    isHoliday: holiday,
-    onLeave: opts.statusOverride === 'ON_LEAVE',
+  return peopleWrite(opts.orgId, async () => {
+    /* Every way a day is written comes through here, so a closed month is held shut in one place. */
+    await assertMonthOpen(opts.orgId, opts.date);
+    // Resolve leave for every source, not just biometric readers.
+    const { shiftId, rule } = await shiftFor(opts.orgId, opts.employee.id, opts.date);
+    const holiday = await isHoliday(opts.orgId, opts.date, opts.employee.branchId, opts.employee.areaId ?? null);
+    const before = await peoplePrisma.attendanceRecord.findUnique({ where: { employeeId_date: { employeeId: opts.employee.id, date: opts.date } } });
+    const approved = await peoplePrisma.leaveRequest.findFirst({ where: {
+      orgId: opts.orgId, employeeId: opts.employee.id, status: 'APPROVED',
+      fromDate: { lte: opts.date }, toDate: { gte: opts.date },
+    } });
+    if (approved && (approved.halfDay || before?.leaveRequestId === approved.id || (!holiday && !isWeeklyOff(rule, opts.date))) && opts.leaveRequestId === undefined) {
+      opts = { ...opts, leaveRequestId: approved.id, halfDayLeave: approved.halfDay as 'FIRST' | 'SECOND' | null };
+      if (!approved.halfDay) {
+        if (opts.checkIn) throw fail(409, 'Cancel the approved leave before recording work on this day.', 'LEAVE_CONFLICT');
+        opts.statusOverride = 'ON_LEAVE';
+      }
+    }
+    if (opts.statusOverride === 'ON_LEAVE' && !opts.leaveRequestId) {
+      throw fail(409, 'Apply and approve a leave type in People → Leave Requests so the balance is deducted.', 'LEAVE_REQUEST_REQUIRED');
+    }
+    const computed = computeDay({
+      date: opts.date,
+      shift: rule,
+      checkIn: opts.checkIn,
+      checkOut: opts.checkOut,
+      isHoliday: holiday,
+      onLeave: opts.statusOverride === 'ON_LEAVE',
+    });
+    const half = opts.halfDayLeave || null;
+    const status = half
+      ? (computed.workedMinutes || 0) >= rule.halfDayMinutes ? 'PRESENT' : 'HALF_DAY'
+      : opts.statusOverride && !opts.checkIn ? opts.statusOverride : computed.status;
+    if (half === 'FIRST') computed.lateMinutes = 0;
+    if (half === 'SECOND') computed.earlyOutMinutes = 0;
+    const data = {
+      shiftId,
+      checkIn: opts.checkIn,
+      checkOut: opts.checkOut,
+      workedMinutes: computed.workedMinutes,
+      lateMinutes: computed.lateMinutes,
+      earlyOutMinutes: computed.earlyOutMinutes,
+      overtimeMinutes: computed.overtimeMinutes,
+      status,
+      source: opts.source,
+      leaveRequestId: opts.leaveRequestId ?? null,
+      /* A changed day needs checking again. */
+      validated: false,
+      validatedByUserId: null,
+      validatedAt: null,
+      ...(opts.note !== undefined ? { note: opts.note } : {}),
+    };
+    const record = await peoplePrisma.attendanceRecord.upsert({
+      where: { employeeId_date: { employeeId: opts.employee.id, date: opts.date } },
+      create: { accountId: opts.accountId, orgId: opts.orgId, employeeId: opts.employee.id, date: opts.date, createdByUserId: opts.userId, ...data },
+      update: { ...data, overtimeApproved: false },
+    });
+    await logDayChange({
+      accountId: opts.accountId, orgId: opts.orgId, employeeId: record.employeeId, date: record.date, recordId: record.id,
+      action: opts.historyAction || 'WRITE', before, after: record, userId: opts.userId, reason: opts.reason ?? opts.note ?? null,
+    });
+    afterPeopleCommit(() => emitWebhook(opts.orgId, 'day', {
+      employeeId: record.employeeId,
+      date: record.date,
+      status: record.status,
+      checkIn: record.checkIn ? istTime(record.checkIn) : null,
+      checkOut: record.checkOut ? istTime(record.checkOut) : null,
+      workedMinutes: record.workedMinutes,
+      lateMinutes: record.lateMinutes,
+      earlyOutMinutes: record.earlyOutMinutes,
+      overtimeMinutes: record.overtimeMinutes,
+      source: record.source,
+    }));
+    return record;
   });
-  const half = opts.halfDayLeave || null;
-  const status = half
-    ? (computed.workedMinutes || 0) >= rule.halfDayMinutes ? 'PRESENT' : 'HALF_DAY'
-    : opts.statusOverride && !opts.checkIn ? opts.statusOverride : computed.status;
-  if (half === 'FIRST') computed.lateMinutes = 0;
-  if (half === 'SECOND') computed.earlyOutMinutes = 0;
-  const data = {
-    shiftId,
-    checkIn: opts.checkIn,
-    checkOut: opts.checkOut,
-    workedMinutes: computed.workedMinutes,
-    lateMinutes: computed.lateMinutes,
-    earlyOutMinutes: computed.earlyOutMinutes,
-    overtimeMinutes: computed.overtimeMinutes,
-    status,
-    source: opts.source,
-    leaveRequestId: opts.leaveRequestId ?? null,
-    /* A changed day needs checking again. */
-    validated: false,
-    validatedByUserId: null,
-    validatedAt: null,
-    ...(opts.note !== undefined ? { note: opts.note } : {}),
-  };
-  const before = await peoplePrisma.attendanceRecord.findUnique({ where: { employeeId_date: { employeeId: opts.employee.id, date: opts.date } } });
-  const record = await peoplePrisma.attendanceRecord.upsert({
-    where: { employeeId_date: { employeeId: opts.employee.id, date: opts.date } },
-    create: { accountId: opts.accountId, orgId: opts.orgId, employeeId: opts.employee.id, date: opts.date, createdByUserId: opts.userId, ...data },
-    update: { ...data, overtimeApproved: false },
-  });
-  await logDayChange({
-    accountId: opts.accountId, orgId: opts.orgId, employeeId: record.employeeId, date: record.date, recordId: record.id,
-    action: opts.historyAction || 'WRITE', before, after: record, userId: opts.userId, reason: opts.reason ?? opts.note ?? null,
-  });
-  emitWebhook(opts.orgId, 'day', {
-    employeeId: record.employeeId,
-    date: record.date,
-    status: record.status,
-    checkIn: record.checkIn ? istTime(record.checkIn) : null,
-    checkOut: record.checkOut ? istTime(record.checkOut) : null,
-    workedMinutes: record.workedMinutes,
-    lateMinutes: record.lateMinutes,
-    earlyOutMinutes: record.earlyOutMinutes,
-    overtimeMinutes: record.overtimeMinutes,
-    source: record.source,
-  });
-  return record;
 }
 
 export async function employeeIn(orgId: string, accountId: string, employeeId: string) {
@@ -469,16 +487,17 @@ attendanceRouter.post('/orgs/:orgId/attendance/shift-assignments/import', can(Pe
 attendanceRouter.delete('/orgs/:orgId/attendance/records/:id', can(PermissionAction.DELETE, R.records), async (req, res) => {
   if (!(await attendanceRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
-  const r = await peoplePrisma.attendanceRecord.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
-  if (!r) return res.status(404).json({ error: 'No such day.' });
   try {
-    await assertMonthOpen(orgId, r.date);
-  } catch (e) {
-    return sendError(res, e);
-  }
-  await deleteToBin(req, 'attendanceRecord', r);
-  await logDayChange({ accountId, orgId, employeeId: r.employeeId, date: r.date, recordId: r.id, action: 'DELETE', before: r, after: null, userId: req.auth!.userId });
-  res.json({ ok: true });
+    await peopleWrite(orgId, async () => {
+      const r = await peoplePrisma.attendanceRecord.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
+      if (!r) throw fail(404, 'No such day.');
+      await assertMonthOpen(orgId, r.date);
+      if (r.leaveRequestId) throw fail(409, 'Cancel the linked leave request before deleting this day.', 'LEAVE_CONFLICT');
+      await deleteToBin(req, 'attendanceRecord', r);
+      await logDayChange({ accountId, orgId, employeeId: r.employeeId, date: r.date, recordId: r.id, action: 'DELETE', before: r, after: null, userId: req.auth!.userId });
+    });
+    res.json({ ok: true });
+  } catch (e) { return sendError(res, e); }
 });
 
 /** Validate days (a manager confirms them). Only past or closed days. */
@@ -961,15 +980,15 @@ export async function periodContext(accountId: string, orgId: string, from: stri
   const holidaySet = holidayData.company;
   const holidaysFor = (p: { areaId?: string | null; branchId?: string | null }) => holidayData.forArea(p.areaId, p.branchId);
   /* Days on unpaid leave are loss of pay: find which leave days came from an
-     unpaid type. A day marked "on leave" by hand is treated as paid. */
-  const leaveIds = [...new Set(records.filter((r) => r.status === 'ON_LEAVE' && r.leaveRequestId).map((r) => r.leaveRequestId!))];
+     unpaid type, including half-day fractions alongside worked time. */
+  const leaveIds = [...new Set(records.filter((r) => r.leaveRequestId).map((r) => r.leaveRequestId!))];
   const leaveReqs = leaveIds.length
-    ? await peoplePrisma.leaveRequest.findMany({ where: { orgId, id: { in: leaveIds } }, select: { id: true, leaveTypeId: true } })
+    ? await peoplePrisma.leaveRequest.findMany({ where: { orgId, id: { in: leaveIds } }, select: { id: true, leaveTypeId: true, halfDay: true, status: true } })
     : [];
   const unpaidTypes = new Set(
     (await peoplePrisma.leaveType.findMany({ where: { orgId, isPaid: false }, select: { id: true } })).map((x) => x.id)
   );
-  const unpaidRequest = new Set(leaveReqs.filter((r) => unpaidTypes.has(r.leaveTypeId)).map((r) => r.id));
+  const unpaidRequest = new Map(leaveReqs.filter((r) => r.status === 'APPROVED' && unpaidTypes.has(r.leaveTypeId)).map((r) => [r.id, r.halfDay ? 0.5 : 1]));
   const shiftOn = (employeeId: string, date: string) => resolveShift(schedule, employeeId, date);
   const recordsOf = new Map<string, Map<string, (typeof records)[number]>>();
   for (const r of records) {
@@ -996,8 +1015,8 @@ export async function periodRows(accountId: string, orgId: string, days: string[
     const spanSet = new Set(span);
     const recs = ctx.recordsOf.get(p.id) || new Map();
     const unpaidLeaveDays = [...recs.values()].filter(
-      (r) => spanSet.has(r.date) && r.status === 'ON_LEAVE' && r.leaveRequestId && ctx.unpaidRequest.has(r.leaveRequestId)
-    ).length;
+      (r) => spanSet.has(r.date) && r.leaveRequestId && ctx.unpaidRequest.has(r.leaveRequestId)
+    ).reduce((sum, r) => sum + (ctx.unpaidRequest.get(r.leaveRequestId!) || 0), 0);
     return {
       employeeId: p.id,
       name: p.name,
@@ -1049,21 +1068,26 @@ attendanceRouter.post('/orgs/:orgId/attendance/months/:month/close', can(Permiss
       readiness,
     });
   }
-  const lock = await peoplePrisma.attendanceMonthLock.upsert({
-    where: { orgId_month: { orgId, month } },
-    create: { accountId, orgId, month, lockedByUserId: req.auth!.userId },
-    update: {},
+  const result = await peopleWrite(orgId, async () => {
+    const latest = await monthReadiness(accountId, orgId, month);
+    if (latest.checks.some((c) => c.count > 0) && req.body?.acknowledge !== true) throw fail(409, 'The register changed. Review the month-close checklist again.', 'MONTH_NOT_READY');
+    const lock = await peoplePrisma.attendanceMonthLock.upsert({
+      where: { orgId_month: { orgId, month } },
+      create: { accountId, orgId, month, lockedByUserId: req.auth!.userId },
+      update: {},
+    });
+    const snapshot = await snapshotMonth(accountId, orgId, month, req.auth!.userId, { ...latest, acknowledged: latest.checks.filter((c) => c.count > 0).map((c) => ({ key: c.key, count: c.count })) });
+    return { month, closed: { at: lock.lockedAt, byUserId: lock.lockedByUserId }, snapshot: { version: snapshot.version } };
   });
-  const snapshot = await snapshotMonth(accountId, orgId, month, req.auth!.userId, { ...readiness, acknowledged: open.map((c) => ({ key: c.key, count: c.count })) });
-  res.json({ month, closed: { at: lock.lockedAt, byUserId: lock.lockedByUserId }, snapshot: { version: snapshot.version } });
-  emitWebhook(orgId, 'month.closed', { month, closedAt: lock.lockedAt, byUserId: lock.lockedByUserId });
+  res.json(result);
+  emitWebhook(orgId, 'month.closed', { month, closedAt: result.closed.at, byUserId: req.auth!.userId });
 });
 
 /** Reopen a closed month, to correct it. Payroll already taken from it is not changed. */
 attendanceRouter.post('/orgs/:orgId/attendance/months/:month/reopen', can(PermissionAction.APPROVE, R.records), async (req, res) => {
   if (!(await attendanceRouteOk(req, res))) return;
   const { orgId } = req.tenant!;
-  await peoplePrisma.attendanceMonthLock.deleteMany({ where: { orgId, month: String(req.params.month) } });
+  await peopleWrite(orgId, () => peoplePrisma.attendanceMonthLock.deleteMany({ where: { orgId, month: String(req.params.month) } }));
   res.json({ month: String(req.params.month), closed: null });
   emitWebhook(orgId, 'month.reopened', { month: String(req.params.month), byUserId: req.auth!.userId });
 });

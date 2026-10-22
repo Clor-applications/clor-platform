@@ -712,7 +712,10 @@ portalRouter.post('/approvals/:type/:id', async (req, res) => {
       /* The manager's step: recorded, and the request moves on to HR still pending. */
       if (r.managerApprovedAt) return res.status(409).json({ error: 'You have already approved this; it is with HR now.' });
       const data = { managerApprovedAt: new Date(), managerApprovedById: e.id, reviewNote: note };
-      const out = type === 'leave' ? await peoplePrisma.leaveRequest.update({ where: { id: r.id }, data }) : await peoplePrisma.attendanceRequest.update({ where: { id: r.id }, data });
+      const where = { id: r.id, status: 'PENDING', managerApprovedAt: null };
+      const changed = type === 'leave' ? await peoplePrisma.leaveRequest.updateMany({ where, data }) : await peoplePrisma.attendanceRequest.updateMany({ where, data });
+      if (!changed.count) return res.status(409).json({ error: 'This request is no longer waiting for your approval.' });
+      const out = type === 'leave' ? await peoplePrisma.leaveRequest.findFirst({ where: { id: r.id, orgId: e.orgId } }) : await peoplePrisma.attendanceRequest.findFirst({ where: { id: r.id, orgId: e.orgId } });
       return res.json({ request: out, stage: 'HR' });
     }
     if (type === 'leave') {

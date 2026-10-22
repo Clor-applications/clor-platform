@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { requireAuth } from '../middleware/auth.js';
 import { requireTenantContext } from '../middleware/tenantContext.js';
 import { authorize, requirePermission } from '../middleware/rbac.js';
-import { peoplePrisma } from '../utils/peoplePrisma.js';
+import { peoplePrisma, peopleWrite, afterPeopleCommit } from '../utils/peoplePrisma.js';
 import { peopleRouteOk } from '../services/people/guards.js';
 import { recordAudit } from '../services/auditTrail.js';
 import { MODULE_OF_KIND, WORKSPACE, parseRecord, type WorkspaceKind } from '../services/people/workspace.js';
@@ -78,32 +78,35 @@ peopleWorkspaceRouter.post(`${path}/:id/hire`, async (req, res) => {
   const joining = String(req.body?.dateOfJoining || '');
   if (!/^\d{4}-\d{2}-\d{2}$/.test(joining)) return res.status(400).json({ error: 'Choose the joining date.' });
   const code = String(req.body?.code || '').trim() || null;
-  const candidate = await peoplePrisma.peopleRecord.findFirst({ where: { id: req.params.id, accountId, orgId, kind: 'candidates' } });
-  if (!candidate) return res.status(404).json({ error: 'That candidate was not found.' });
-  if (candidate.employeeId) return res.status(409).json({ error: 'Already an employee.' });
-  if (!['OFFERED', 'HIRED'].includes(candidate.status)) return res.status(409).json({ error: 'Make an offer first: only an offered candidate is hired.' });
-  if (code && (await peoplePrisma.employee.findFirst({ where: { orgId, code }, select: { id: true } }))) return res.status(409).json({ error: `Employee ID ${code} is already used.` });
-  const d = (candidate.details || {}) as Record<string, any>;
-  const job = d.jobId ? await peoplePrisma.peopleRecord.findFirst({ where: { id: String(d.jobId), orgId, kind: 'recruitment' } }) : null;
-  const deptName = String((job?.details as any)?.department || '').trim();
-  const dept = deptName ? await peoplePrisma.department.findFirst({ where: { orgId, name: { equals: deptName, mode: 'insensitive' } } }) : null;
-  const employee = await peoplePrisma.employee.create({
-    data: {
-      accountId, orgId, name: candidate.title, code,
-      email: d.email || null, phone: d.phone || null,
-      dateOfJoining: joining, status: 'ACTIVE',
-      departmentId: dept?.id ?? null, department: dept?.name ?? null,
-      createdByUserId: req.auth!.userId,
-    } as any,
+  const hired = await peopleWrite(orgId, async () => {
+    const candidate = await peoplePrisma.peopleRecord.findFirst({ where: { id: req.params.id, accountId, orgId, kind: 'candidates' } });
+    if (!candidate) throw Object.assign(new Error('That candidate was not found.'), { status: 404 });
+    if (candidate.employeeId) throw Object.assign(new Error('Already an employee.'), { status: 409 });
+    if (!['OFFERED', 'HIRED'].includes(candidate.status)) throw Object.assign(new Error('Make an offer first: only an offered candidate is hired.'), { status: 409 });
+    if (code && (await peoplePrisma.employee.findFirst({ where: { orgId, code }, select: { id: true } }))) throw Object.assign(new Error(`Employee ID ${code} is already used.`), { status: 409 });
+    const d = (candidate.details || {}) as Record<string, any>;
+    const job = d.jobId ? await peoplePrisma.peopleRecord.findFirst({ where: { id: String(d.jobId), orgId, kind: 'recruitment' } }) : null;
+    const deptName = String((job?.details as any)?.department || '').trim();
+    const dept = deptName ? await peoplePrisma.department.findFirst({ where: { orgId, name: { equals: deptName, mode: 'insensitive' } } }) : null;
+    const employee = await peoplePrisma.employee.create({
+      data: {
+        accountId, orgId, name: candidate.title, code,
+        email: d.email || null, phone: d.phone || null,
+        dateOfJoining: joining, status: 'ACTIVE',
+        departmentId: dept?.id ?? null, department: dept?.name ?? null,
+        createdByUserId: req.auth!.userId,
+      } as any,
+    });
+    await peoplePrisma.peopleRecord.update({ where: { id: candidate.id }, data: { status: 'HIRED', employeeId: employee.id, version: { increment: 1 }, updatedBy: req.auth!.userId } });
+    const who = { accountId, orgId, userId: req.auth!.userId };
+    await recordJoined(who, employee, 'FORM');
+    await startChecklist(who, employee, 'JOINING', joining);
+    afterPeopleCommit(() => { void pushEmployeeToReaders(orgId, employee, req.auth!.userId).catch(() => undefined); });
+    afterPeopleCommit(() => emitWebhook(orgId, 'employee.created', employeeEvent(employee)));
+    await recordAudit(req, { entity: 'Employee', entityId: employee.id, action: 'HIRED', message: `Hired ${candidate.title}${job ? ` for ${job.title}` : ''}`, metadata: { candidateId: candidate.id, jobId: job?.id ?? null } });
+    return { id: employee.id, name: employee.name, code: employee.code };
   });
-  await peoplePrisma.peopleRecord.update({ where: { id: candidate.id }, data: { status: 'HIRED', employeeId: employee.id, version: { increment: 1 }, updatedBy: req.auth!.userId } });
-  const who = { accountId, orgId, userId: req.auth!.userId };
-  await recordJoined(who, employee, 'FORM');
-  await startChecklist(who, employee, 'JOINING', joining);
-  await pushEmployeeToReaders(orgId, employee, req.auth!.userId).catch(() => undefined);
-  emitWebhook(orgId, 'employee.created', employeeEvent(employee));
-  await recordAudit(req, { entity: 'Employee', entityId: employee.id, action: 'HIRED', message: `Hired ${candidate.title}${job ? ` for ${job.title}` : ''}`, metadata: { candidateId: candidate.id, jobId: job?.id ?? null } });
-  res.status(201).json({ employee: { id: employee.id, name: employee.name, code: employee.code } });
+  res.status(201).json({ employee: hired });
 });
 
 peopleWorkspaceRouter.delete(`${path}/:id`, async (req, res) => {

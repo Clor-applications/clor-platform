@@ -40,7 +40,8 @@ const SCOPE_LABEL = {
   'employees:write': 'Add and change employees (your HRMS as the master)',
   'punches:write': 'Send punches (other readers, turnstiles, apps)',
   'leave:read': 'Read leave types, balances and requests',
-  'leave:write': 'Ask for, approve and reject leave',
+  'leave:write': 'Ask for leave',
+  'leave:approve': 'Approve and reject leave',
   'readers:read': 'Read readers and whether they are online',
 };
 /* Groups for the webhook form; the words come from the server (eventHelp). */
@@ -297,7 +298,8 @@ export default function Integrations() {
               ['GET', '/attendance/months', 'attendance:read', 'Which months are closed for payroll'],
               ['GET', '/readers', 'readers:read', 'Readers and whether they are online'],
               ['GET', '/leave/types · /leave/balances · /leave/requests', 'leave:read', 'Leave types, balances for a year, requests'],
-              ['POST', '/leave/requests · /leave/requests/{id}/approve · /reject', 'leave:write', 'Ask for leave; approve or reject with CLOR’s own checks'],
+              ['POST', '/leave/requests', 'leave:write', 'Ask for leave'],
+              ['POST', '/leave/requests/{id}/approve · /reject', 'leave:approve', 'Decide leave with the configured approval chain'],
               ['GET', '/attendance/days?from=YYYY-MM-DD&to=YYYY-MM-DD', 'attendance:read', 'Each person’s days: in, out, worked, late, overtime, status'],
               ['GET', '/attendance/punches?from=…&to=…', 'attendance:read', 'Every punch as received'],
               ['GET', '/attendance/summary?month=YYYY-MM', 'attendance:read', 'Payable and loss-of-pay days'],

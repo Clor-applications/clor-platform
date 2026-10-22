@@ -8,7 +8,7 @@ import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/componen
 import { SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import Drawer from '@ui/components/ui/Drawer';
 import { notify } from '@ui/components/ui/notify';
-import { listCompanyDocuments, listEmployees, getDocument } from '@ui/personnel/api';
+import { listCompanyDocuments, listAllEmployees, getDocument } from '@ui/personnel/api';
 import { EmployeeDocuments } from '@ui/personnel/Employees';
 const COLUMNS = [{ key: 'title', label: 'Document' }, { key: 'employeeName', label: 'Employee' }, { key: 'kind', label: 'Type' }, { key: 'expiresOn', label: 'Valid until' }];
 export default function PeopleDocuments() {
@@ -22,7 +22,7 @@ export default function PeopleDocuments() {
   const [perPage, setPerPage] = useState(25);
   const [today] = useState(() => new Date().toISOString().slice(0, 10));
   const load = useCallback(() => {
-    Promise.all([listCompanyDocuments(), listEmployees()])
+    Promise.all([listCompanyDocuments(), listAllEmployees()])
       .then(([docs, people]) => { setData(docs); setEmployees(people.employees); setError(''); })
       .catch((e) => setError(e.message));
   }, []);

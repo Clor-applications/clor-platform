@@ -92,8 +92,8 @@ export const OPENAPI = {
         responses: { 201: { description: 'Created', content: { 'application/json': { schema: obj({ request: { $ref: '#/components/schemas/Leave' } }) } } } },
       },
     },
-    '/leave/requests/{id}/approve': { post: { summary: 'Approve a pending request', description: 'Scope leave:write. The same checks as in CLOR: balance, worked days, closed months.', parameters: [p('id', 'Request id')], requestBody: { content: { 'application/json': { schema: obj({ note: str }) } } }, responses: okJson('Approved', obj({ request: { $ref: '#/components/schemas/Leave' } })) } },
-    '/leave/requests/{id}/reject': { post: { summary: 'Reject a pending request', description: 'Scope leave:write.', parameters: [p('id', 'Request id')], requestBody: { content: { 'application/json': { schema: obj({ note: str }) } } }, responses: okJson('Rejected', obj({ request: { $ref: '#/components/schemas/Leave' } })) } },
+    '/leave/requests/{id}/approve': { post: { summary: 'Approve a pending request', description: 'Scope leave:approve. The same checks as in CLOR: balance, worked days, closed months.', parameters: [p('id', 'Request id')], requestBody: { content: { 'application/json': { schema: obj({ note: str }) } } }, responses: okJson('Approved', obj({ request: { $ref: '#/components/schemas/Leave' } })) } },
+    '/leave/requests/{id}/reject': { post: { summary: 'Reject a pending request', description: 'Scope leave:approve.', parameters: [p('id', 'Request id')], requestBody: { content: { 'application/json': { schema: obj({ note: str }) } } }, responses: okJson('Rejected', obj({ request: { $ref: '#/components/schemas/Leave' } })) } },
   },
   'x-webhooks': {
     description: 'CLOR calls your URL with POST JSON { event, orgId, sentAt, data } and headers X-Clor-Event, X-Clor-Delivery, X-Clor-Attempt, X-Clor-Timestamp and X-Clor-Signature (sha256= HMAC-SHA256 of the raw body with the webhook secret). Failed deliveries are retried after 1, 5, 30, 120 and 720 minutes.',

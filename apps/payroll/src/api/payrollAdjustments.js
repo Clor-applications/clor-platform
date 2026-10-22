@@ -48,3 +48,5 @@ export async function cancelPayrollAdjustment(id) {
 }
 
 export const deletePayrollAdjustment = (id) => apiFetch(`${base()}/${encodeURIComponent(id)}`, { ...opts, method: 'DELETE' });
+
+export const listLeaveEncashments = () => apiFetch(`/orgs/${encodeURIComponent(orgId())}/payroll/leave-encashments`, opts).then((r) => r.encashments);

@@ -5,7 +5,7 @@ import { useListSearch } from '@ui/components/ListToolbar';
 import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';
 import { Pagination, usePaged, useResetPage } from '@ui/components/list/ListPageParts';
 import { SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
-import { listEmployees } from '@ui/personnel/api';
+import { listAllEmployees } from '@ui/personnel/api';
 const fields = ['name', 'code', 'department', 'designation', 'status', 'dateOfJoining', 'dateOfLeaving'];
 const labels = ['Employee', 'Code', 'Department', 'Designation', 'Status', 'Joined', 'Left'];
 const STATUS_LABEL = { ACTIVE: 'Active', ON_NOTICE: 'On notice', LEFT: 'Left', SUSPENDED: 'Suspended' };
@@ -16,7 +16,7 @@ export default function PeopleReports() {
   const [status, setStatus] = useState('');
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(25);
-  const load = useCallback(() => listEmployees().then((r) => { setRows(r.employees); setError(''); }).catch((e) => setError(e.message)), []);
+  const load = useCallback(() => listAllEmployees().then((r) => { setRows(r.employees); setError(''); }).catch((e) => setError(e.message)), []);
   useEffect(() => { load(); }, [load]);
   const inTab = useMemo(() => (rows || []).filter((r) => !status || r.status === status), [rows, status]);
   const search = useListSearch(inTab, fields);

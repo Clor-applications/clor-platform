@@ -46,7 +46,7 @@ describe('credits on the policy’s dates', () => {
   it('prorates a joiner’s part when the type says so, and credits nothing after leaving', () => {
     /* Joined 10 May: of the April–June quarter, May and June count. */
     const q = creditsFor(type({ accrual: 'QUARTERLY', prorateForJoiners: true }), 2026, '2026-05-10', { period: APRIL });
-    expect(q[0]).toMatchObject({ date: '2026-04-01', days: 2 });
+    expect(q[0]).toMatchObject({ date: '2026-05-10', days: 2 });
     const m = creditsFor(type(), 2026, '2020-01-01', { period: APRIL, left: '2026-08-20' });
     expect(m.map((x) => x.date)).toEqual(['2026-04-01', '2026-05-01', '2026-06-01', '2026-07-01', '2026-08-01']);
   });

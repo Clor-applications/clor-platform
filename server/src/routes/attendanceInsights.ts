@@ -438,6 +438,7 @@ attendanceInsightsRouter.post(`${base}/records/bulk`, can(PermissionAction.EDIT,
       row.checkOut = out;
       row.changes = dayDiff(daySnapshot(r), daySnapshot({ ...r, checkOut: out, ...c, source: 'MANUAL', validated: false, overtimeApproved: false }));
     } else {
+      if (b.operation === 'SET_STATUS' && b.status === 'ON_LEAVE') { plan.push({ ...row, ok: false, error: 'On leave comes from an approved leave request, not a bulk change.' }); continue; }
       if (r.checkIn) { plan.push({ ...row, ok: false, error: 'Has a check-in; set its times instead.' }); continue; }
       row.changes = dayDiff(daySnapshot(r), daySnapshot({ ...r, status: b.status!, source: 'MANUAL', validated: false }));
     }

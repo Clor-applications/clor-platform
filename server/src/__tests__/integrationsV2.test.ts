@@ -189,7 +189,7 @@ describe('the API, second round', () => {
 
   it('handles leave, shifts, readers and closed months', async () => {
     const o = await makeOwner();
-    const key = await newKey(o, ['attendance:read', 'leave:read', 'leave:write', 'readers:read']);
+    const key = await newKey(o, ['attendance:read', 'leave:read', 'leave:write', 'leave:approve', 'readers:read']);
     const noLeave = await newKey(o, ['attendance:read']);
     await request(app).post(`/api/orgs/${o.orgId}/people/employees`).set(at(o)).send({ name: 'Priya', code: 'L1', dateOfJoining: '2026-01-01' }).expect(201);
     await api(o).post('/leave/types', { name: 'Earned', code: 'EL', annualDays: 15 }).expect(201);

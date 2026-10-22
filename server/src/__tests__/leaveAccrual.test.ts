@@ -9,7 +9,7 @@ import request from 'supertest';
 
 const { buildApp } = await import('../app.js');
 const { peoplePrisma } = await import('../utils/peoplePrisma.js');
-const { balanceFor, earned, firstMonth } = await import('../services/attendance/leaveAccrual.js');
+const { balanceFor, earned, firstMonth, creditsFor } = await import('../services/attendance/leaveAccrual.js');
 
 const app = buildApp().listen(0);
 afterAll(async () => {
@@ -41,6 +41,12 @@ describe('earned days', () => {
     expect(earned(type(), 2026, '2026-07-01', '2026-07-01')).toBe(12);
     expect(earned(type({ prorateForJoiners: true }), 2026, '2026-07-01', '2026-07-01')).toBe(6);
     expect(earned(type({ prorateForJoiners: true }), 2026, '2026-08-20', '2026-09-01')).toBe(4); // September–December, 4 of 12
+  });
+
+  it('never earns anything before the person has joined', () => {
+    const joiner = type({ prorateForJoiners: true, creditOn: 'DAY', creditDay: 15 });
+    expect(earned(joiner, 2026, '2026-11-02', '2026-10-22')).toBe(0); // the audit repro: 2 days dated January
+    for (const c of creditsFor(joiner, 2026, '2026-11-02')) expect(c.date >= '2026-11-02').toBe(true);
   });
 });
 

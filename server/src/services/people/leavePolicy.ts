@@ -36,6 +36,7 @@ export function policyProblem(
   today: string,
   onBehalf: boolean
 ): string | null {
+  if (person?.dateOfJoining && ask.fromDate < person.dateOfJoining) return `Leave cannot start before joining on ${person.dateOfJoining}.`;
   if (type.gender && person?.gender !== type.gender) {
     return `${type.name} is for ${type.gender === 'FEMALE' ? 'women' : 'men'}. Check the gender on this person’s file if that is wrong.`;
   }

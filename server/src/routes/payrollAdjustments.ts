@@ -6,7 +6,7 @@ import { requireTenantContext } from '../middleware/tenantContext.js';
 import { requirePermission } from '../middleware/rbac.js';
 import { PermissionAction } from '../constants/enums.js';
 import { payrollPrisma } from '../utils/payrollPrisma.js';
-import { peoplePrisma } from '../utils/peoplePrisma.js';
+import { peoplePrisma, peopleWrite } from '../utils/peoplePrisma.js';
 import { PAYROLL_MODULE, PAYROLL_RESOURCE, payrollRouteOk } from '../services/payroll/guards.js';
 
 /**
@@ -114,6 +114,16 @@ payrollAdjustmentsRouter.get(
   }
 );
 
+/** HR days awaiting an earning; valuation remains an explicit payroll decision. */
+payrollAdjustmentsRouter.get('/orgs/:orgId/payroll/leave-encashments', requirePermission(PAYROLL_MODULE, PermissionAction.VIEW, RESOURCE), async (req, res) => {
+  if (!(await payrollRouteOk(req, res))) return;
+  const { orgId, accountId } = req.tenant!;
+  const rows = await peoplePrisma.leaveAdjustment.findMany({ where: { orgId, accountId, kind: 'ENCASH' }, orderBy: { createdAt: 'asc' } });
+  const linked = await payrollPrisma.payrollAdjustment.findMany({ where: { orgId, id: { in: rows.map((r) => `leave-encash:${r.id}`) }, status: { not: 'CANCELLED' } }, select: { id: true } });
+  const used = new Set(linked.map((r) => r.id));
+  res.json({ encashments: rows.filter((r) => !used.has(`leave-encash:${r.id}`)).map((r) => ({ id: r.id, employeeId: r.employeeId, days: -r.days, reason: r.reason })) });
+});
+
 const body = z.object({
   employeeId: z.string().trim().min(1, 'Say who this is for.'),
   componentId: z.string().trim().min(1, 'Say what this is — a bonus, an arrear, a fine.'),
@@ -121,6 +131,7 @@ const body = z.object({
   amount: z.number().finite().positive('An adjustment of nothing changes nothing.'),
   reason: z.string().trim().max(240).optional().nullable(),
   reference: z.string().trim().max(120).optional().nullable(),
+  leaveEncashmentId: z.string().trim().min(1).optional(),
 });
 
 /**
@@ -171,22 +182,36 @@ payrollAdjustmentsRouter.post(
     const checked = await check(orgId, parsed.data);
     if (!checked.ok) return res.status(checked.status).json({ error: checked.error, code: checked.code });
 
-    const row = await payrollPrisma.payrollAdjustment.create({
-      data: {
-        accountId,
-        orgId,
-        branchId: branchId || null,
-        employeeId: parsed.data.employeeId,
-        componentId: parsed.data.componentId,
-        periodId: parsed.data.periodId,
-        type: checked.type,
-        amount: parsed.data.amount,
-        reason: parsed.data.reason?.trim() || null,
-        reference: parsed.data.reference?.trim() || null,
-        status: 'DRAFT',
-        createdByUserId: req.auth!.userId,
-      },
-    });
+    const create = async () => {
+      const source = parsed.data.leaveEncashmentId ? await peoplePrisma.leaveAdjustment.findFirst({ where: { id: parsed.data.leaveEncashmentId, accountId, orgId, employeeId: parsed.data.employeeId, kind: 'ENCASH' } }) : null;
+      if (parsed.data.leaveEncashmentId && (!source || checked.type !== 'EARNING')) throw Object.assign(new Error('Choose an encashment for this employee and an earning component.'), { status: 400 });
+      if (source) {
+        const prior = await payrollPrisma.payrollAdjustment.findUnique({ where: { id: `leave-encash:${source.id}` } });
+        if (prior && prior.status !== 'CANCELLED') {
+          if (prior.periodId !== parsed.data.periodId || prior.componentId !== parsed.data.componentId || Number(prior.amount) !== parsed.data.amount) throw Object.assign(new Error('This encashment is already linked to a payroll earning.'), { status: 409 });
+          return prior;
+        }
+        if (prior) return payrollPrisma.payrollAdjustment.update({ where: { id: prior.id }, data: { componentId: parsed.data.componentId, periodId: parsed.data.periodId, amount: parsed.data.amount, status: 'DRAFT', approvedAt: null, approvedByUserId: null, consumedByRunId: null } });
+      }
+      return payrollPrisma.payrollAdjustment.create({
+        data: {
+          ...(source ? { id: `leave-encash:${source.id}` } : {}),
+          accountId,
+          orgId,
+          branchId: branchId || null,
+          employeeId: parsed.data.employeeId,
+          componentId: parsed.data.componentId,
+          periodId: parsed.data.periodId,
+          type: checked.type,
+          amount: parsed.data.amount,
+          reason: parsed.data.reason?.trim() || null,
+          reference: source ? `leave-encash:${source.id}` : parsed.data.reference?.trim() || null,
+          status: 'DRAFT',
+          createdByUserId: req.auth!.userId,
+        },
+      });
+    };
+    const row = parsed.data.leaveEncashmentId ? await peopleWrite(orgId, create) : await create();
 
     res.status(201).json({ adjustment: shape(row) });
   }
@@ -217,6 +242,7 @@ payrollAdjustmentsRouter.put(
     const checked = await check(orgId, parsed.data);
     if (!checked.ok) return res.status(checked.status).json({ error: checked.error, code: checked.code });
 
+    if (existing.id.startsWith('leave-encash:') && (parsed.data.employeeId !== existing.employeeId || checked.type !== 'EARNING')) return res.status(400).json({ error: 'An encashment earning must stay with its employee and remain an earning.' });
     const row = await payrollPrisma.payrollAdjustment.update({
       where: { id: existing.id },
       data: {
@@ -226,7 +252,7 @@ payrollAdjustmentsRouter.put(
         type: checked.type,
         amount: parsed.data.amount,
         reason: parsed.data.reason?.trim() || null,
-        reference: parsed.data.reference?.trim() || null,
+        reference: existing.id.startsWith('leave-encash:') ? existing.reference : parsed.data.reference?.trim() || null,
         /* Editing an approved adjustment sends it back for approval. The
            approval was of an amount, not of a row. */
         status: 'DRAFT',

@@ -90,10 +90,10 @@ describe('marking and checking days', () => {
     await api(owner).put('/records', { employeeId: p.id, date: pastWeekday, checkOut: '18:00' }).expect(400);
   });
 
-  it('marks someone on leave without times', async () => {
+  it('requires a leave request instead of an unlinked paid mark', async () => {
     const p = await person(owner, { name: 'Leave Taker' });
-    const r = (await api(owner).put('/records', { employeeId: p.id, date: pastWeekday, status: 'ON_LEAVE' }).expect(200)).body.record;
-    expect(r.status).toBe('ON_LEAVE');
+    const r = await api(owner).put('/records', { employeeId: p.id, date: pastWeekday, status: 'ON_LEAVE' }).expect(409);
+    expect(r.body.code).toBe('LEAVE_REQUEST_REQUIRED');
   });
 });
 
@@ -176,11 +176,12 @@ describe('imports', () => {
       { employeeCode: 'imp1', date: '2026-13-40', checkIn: '09:00' },
       { employeeCode: 'IMP1', date: pastWeekday, status: 'on leave' },
     ] }).expect(200);
-    expect(r.body).toMatchObject({ imported: 2, failed: 2 });
-    expect(r.body.results.map((x: any) => x.row)).toEqual([2, 3]);
+    expect(r.body).toMatchObject({ imported: 1, failed: 3 });
+    expect(r.body.results.map((x: any) => x.row)).toEqual([2, 3, 4]);
     expect(r.body.results[0].error).toMatch(/No employee with code NOPE/);
     const day = (await api(c).get(`/records?from=${pastWeekday}&to=${pastWeekday}&employeeId=${p.id}`).expect(200)).body.records[0];
-    expect(day.status).toBe('ON_LEAVE');
+    /* Row 1's imported day stands once the leave row is refused: 535 minutes minus a 60-minute break is 475, a half day short of 480. */
+    expect(day).toMatchObject({ status: 'HALF_DAY', workedMinutes: 475, leaveRequestId: null });
     await api(c).post('/records/import', { rows: [] }).expect(400);
   });
 

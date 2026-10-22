@@ -1,8 +1,8 @@
 /**
  * How many days of a paid leave type somebody has earned in a leave period,
  * as of a date. Worked out when asked rather than credited by a nightly job:
- * nothing to miss, nothing to run twice, and a policy change applies to every
- * period at once — yet every credit has its own date, so the ledger and the
+ * nothing to miss and nothing to run twice. Entitlement fields on a policy
+ * with recorded history cannot be edited — yet every credit has its own date, so the ledger and the
  * register show it as a line (founder, 22 Oct 2026: credits automatic, on the
  * company's own dates, not only the 1st or the last day).
  *
@@ -117,7 +117,8 @@ export function creditsFor(type: AccrualType, year: number, joined: string | nul
       share = months / step;
     }
     if (!share) continue;
-    const date = creditDate(type, from, to);
+    const scheduled = creditDate(type, from, to);
+    const date = joined && joined > scheduled ? joined : scheduled;
     if (opts.left && date > opts.left) continue;
     raw += per * share;
     const total = half(raw);

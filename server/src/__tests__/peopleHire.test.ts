@@ -43,5 +43,11 @@ describe('hire a candidate', () => {
     expect(after).toMatchObject({ status: 'HIRED', employeeId: hired.id });
 
     await people('post', `/workspace/candidates/${cand.id}/hire`, { dateOfJoining: '2026-11-02' }).expect(409);
+    const concurrent = (await people('post', '/workspace/candidates', { title: 'Concurrent Hire', status: 'OFFERED', details: { jobId: job.id, email: 'concurrent@example.com', phone: '' } }).expect(201)).body.record;
+    const attempts = await Promise.all([people('post', `/workspace/candidates/${concurrent.id}/hire`, { dateOfJoining: '2026-11-02' }), people('post', `/workspace/candidates/${concurrent.id}/hire`, { dateOfJoining: '2026-11-02' })]);
+    expect(attempts.map((a: any) => a.status).sort()).toEqual([201, 409]);
+    const directory = (await people('get', '/employees?q=Concurrent').expect(200)).body.employees;
+    expect(directory).toHaveLength(1);
+
   }, 60_000);
 });

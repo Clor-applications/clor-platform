@@ -42,7 +42,7 @@ import { runInTenant } from '../utils/tenantScope.js';
  */
 export const publicApiRouter = Router();
 
-export const SCOPES = ['attendance:read', 'employees:read', 'employees:write', 'punches:write', 'leave:read', 'leave:write', 'readers:read'] as const;
+export const SCOPES = ['attendance:read', 'employees:read', 'employees:write', 'punches:write', 'leave:read', 'leave:write', 'leave:approve', 'readers:read'] as const;
 export const hashToken = (t: string) => createHash('sha256').update(t).digest('hex');
 
 type Client = { id: string; accountId: string; orgId: string; scopes: string[]; deviceId: string | null; tokenPrefix: string };
@@ -193,7 +193,7 @@ async function writeEmployee(req: Request, existing: any | null, b: z.infer<type
   emitWebhook(orgId, row.status === 'LEFT' && existing.status !== 'LEFT' ? 'employee.left' : 'employee.updated', employeeEvent(row));
   return { row, created: false };
 }
-const sendErr = (res: Response, e: any) => (e?.status ? fail(res, e.status, e.message) : (() => { throw e; })());
+const sendErr = (res: Response, e: any) => (e?.status ? res.status(e.status).json({ error: e.message, ...(e.code ? { code: e.code } : {}) }) : (() => { throw e; })());
 const shaped = async (orgId: string, id: string) => publicEmployee(await peoplePrisma.employee.findUnique({ where: { id }, select: EMPLOYEE_FIELDS }));
 
 publicApiRouter.post('/employees', scope('employees:write'), async (req, res) => {
@@ -462,7 +462,7 @@ const decideLeave = (approve: boolean) => async (req: Request, res: Response) =>
     return sendErr(res, e);
   }
 };
-publicApiRouter.post('/leave/requests/:id/approve', scope('leave:write'), decideLeave(true));
-publicApiRouter.post('/leave/requests/:id/reject', scope('leave:write'), decideLeave(false));
+publicApiRouter.post('/leave/requests/:id/approve', scope('leave:approve'), decideLeave(true));
+publicApiRouter.post('/leave/requests/:id/reject', scope('leave:approve'), decideLeave(false));
 
 publicApiRouter.use((_req, res) => fail(res, 404, 'No such endpoint. See /v1/docs.'));

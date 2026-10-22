@@ -119,6 +119,64 @@ describe('days from Attendance', () => {
     expect(Number(line!.amount)).toBe(577);
   });
 
+  it('a linked half day costs the same through Attendance and through Leave', async () => {
+    /* The acceptance matrix: paid half worked = full pay; unpaid half worked
+       = half lost; paid half unworked = half lost; unpaid half unworked = a
+       whole day lost. Attendance's summary and Payroll's day inputs agree. */
+    const c = await makeOwner({ payroll: true, people: true, attendance: true });
+    const basic = await pay.post(c, '/components', { name: 'Basic', code: 'BASIC', type: 'EARNING', calculationMethod: 'PERCENTAGE', percentage: 100, calculationBase: 'MONTHLY_CTC', displayOrder: 1 }).expect(201);
+    const structure = await pay.post(c, '/structures', { name: `Staff ${rnd()}`, frequency: 'MONTHLY', effectiveFrom: '2026-01-01', status: 'ACTIVE', components: [{ componentId: basic.body.component.id, displayOrder: 1 }] }).expect(201);
+    const erstens = (await request(app).post(`/api/orgs/${c.orgId}/attendance/leave/types`).set(at(c)).send({ name: 'Loss of pay', isPaid: false }).expect(201)).body.type;
+    const casual = (await request(app).post(`/api/orgs/${c.orgId}/attendance/leave/types`).set(at(c)).send({ name: 'Casual', annualDays: 12 }).expect(201)).body.type;
+    const period = await pay.post(c, '/periods', { name: `Sept ${rnd()}`, startDate: '2026-09-01', endDate: '2026-09-30', paymentDate: '2026-09-30' }).expect(201);
+    const staff = async (name: string) => {
+      const person = await pay.post(c, '/employees', { name, code: `H${rnd().toUpperCase()}`, dateOfJoining: '2026-01-01', status: 'ACTIVE', payroll: { payrollStatus: 'IN_PAYROLL', taxRegime: 'NEW' } }).expect(201);
+      const employeeId = person.body.employee.id;
+      await pay.post(c, '/assignments', { employeeId, structureId: structure.body.structure.id, effectiveFrom: '2026-01-01', annualCtc: 360_000 }).expect(201);
+      return employeeId;
+    };
+    const people = {
+      unpaidAbsent: await staff('Unpaid half, absent'),
+      paidAbsent: await staff('Paid half, absent'),
+      unpaidWorked: await staff('Unpaid half, worked'),
+      paidWorked: await staff('Paid half, worked'),
+    };
+    const ask = async (who: string, type: string, date: string, half: string) =>
+      (await request(app).post(`/api/orgs/${c.orgId}/attendance/leave/requests`).set(at(c))
+        .send({ employeeId: who, leaveTypeId: type, fromDate: date, toDate: date, halfDay: half, reason: 'Half day' }).expect(201)).body.request;
+    const paid = {
+      unpaid: await ask(people.unpaidAbsent, erstens.id, '2026-09-03', 'FIRST'),
+      paid: await ask(people.paidAbsent, casual.id, '2026-09-04', 'FIRST'),
+      unpaidWorked: await ask(people.unpaidWorked, erstens.id, '2026-09-05', 'FIRST'),
+      paidWorked: await ask(people.paidWorked, casual.id, '2026-09-08', 'FIRST'),
+    };
+    for (const id of Object.values(paid)) await request(app).post(`/api/orgs/${c.orgId}/attendance/leave/requests/${id.id}/approve`).set(at(c)).expect(200);
+    /* The worked halves: four hours in the second half clears the half-day mark. */
+    for (const [who, date] of [[people.unpaidWorked, '2026-09-05'], [people.paidWorked, '2026-09-08']] as const) {
+      await request(app).put(`/api/orgs/${c.orgId}/attendance/records`).set(at(c)).send({ employeeId: who, date, checkIn: '14:00', checkOut: '18:00' }).expect(200);
+    }
+
+    /* 01 September: 30 days, 4 Sundays (6, 13, 20, 27), 26 working days. */
+    const summary = await request(app).get(`/api/orgs/${c.orgId}/attendance/summary?month=2026-09`).set(at(c)).expect(200);
+    const row = (name: string) => summary.body.rows.find((r: any) => r.name === name);
+    expect(row('Unpaid half, absent')).toMatchObject({ lossOfPayDays: 26, payableDays: 4, unpaidLeaveDays: 0.5 });
+    expect(row('Paid half, absent')).toMatchObject({ lossOfPayDays: 25.5, payableDays: 4.5, unpaidLeaveDays: 0 });
+    expect(row('Unpaid half, worked')).toMatchObject({ lossOfPayDays: 25.5, payableDays: 4.5, unpaidLeaveDays: 0.5 });
+    expect(row('Paid half, worked')).toMatchObject({ lossOfPayDays: 25, payableDays: 5, unpaidLeaveDays: 0 });
+
+    const run = await pay.post(c, '/runs', { periodId: period.body.period.id }).expect(201);
+    await pay.post(c, `/runs/${run.body.run.id}/inputs/from-attendance`).expect(200);
+    for (const [employeeId, lwpDays, payableDays] of [
+      [people.unpaidAbsent, 26, 4],
+      [people.paidAbsent, 25.5, 4.5],
+      [people.unpaidWorked, 25.5, 4.5],
+      [people.paidWorked, 25, 5],
+    ] as const) {
+      const input = await inputOf(run.body.run.id, employeeId);
+      expect({ lwpDays: Number(input!.lwpDays), payableDays: Number(input!.payableDays) }).toMatchObject({ lwpDays, payableDays });
+    }
+  }, 60_000);
+
   it('is refused when Attendance is off', async () => {
     const c = await makeOwner({ payroll: true, people: true });
     const { runId } = await setUp(c);

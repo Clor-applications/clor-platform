@@ -13,6 +13,7 @@ import { listSalaryComponents } from '../api/payrollComponents';
 import { listEmployees } from '../api/payrollPeople';
 import {
   listPayrollAdjustments,
+  listLeaveEncashments,
   createPayrollAdjustment,
   updatePayrollAdjustment,
   approvePayrollAdjustment,
@@ -70,6 +71,7 @@ const EXPORT_COLUMNS = [
 
 export default function PayrollAdjustments() {
   const [all, setAll] = useState(null);
+  const [encashments, setEncashments] = useState([]);
   const [periods, setPeriods] = useState([]);
   const [components, setComponents] = useState([]);
   const [people, setPeople] = useState([]);
@@ -85,9 +87,11 @@ export default function PayrollAdjustments() {
       listPayrollPeriods(),
       listSalaryComponents({ activeOnly: true }),
       listEmployees({ status: 'ACTIVE' }),
+      listLeaveEncashments(),
     ])
-      .then(([adjustments, periodRows, componentRows, employeeRows]) => {
+      .then(([adjustments, periodRows, componentRows, employeeRows, leaveRows]) => {
         setAll(adjustments);
+        setEncashments(leaveRows);
         setPeriods(periodRows);
         /* An employer contribution is a company cost, not something to add to or
            take off somebody's pay, so it is not offered. */
@@ -311,6 +315,7 @@ export default function PayrollAdjustments() {
           <AdjustmentForm
             row={editing}
             people={people}
+            encashments={encashments}
             components={components}
             periods={openPeriods}
             onCancel={() => setEditing(null)}
@@ -325,8 +330,9 @@ export default function PayrollAdjustments() {
   );
 }
 
-const AdjustmentForm = ({ row, people, components, periods, onCancel, onSaved }) => {
+const AdjustmentForm = ({ row, people, components, periods, encashments, onCancel, onSaved }) => {
   const [form, setForm] = useState({
+    leaveEncashmentId: '',
     employeeId: row.employeeId || people[0]?.id || '',
     componentId: row.componentId || components[0]?.id || '',
     periodId: row.periodId || periods[0]?.id || '',
@@ -349,6 +355,7 @@ const AdjustmentForm = ({ row, people, components, periods, onCancel, onSaved })
     setSaving(true);
     try {
       const payload = {
+        ...(form.leaveEncashmentId ? { leaveEncashmentId: form.leaveEncashmentId } : {}),
         employeeId: form.employeeId,
         componentId: form.componentId,
         periodId: form.periodId,
@@ -369,10 +376,12 @@ const AdjustmentForm = ({ row, people, components, periods, onCancel, onSaved })
 
   return (
     <form onSubmit={save} className="space-y-4">
+      {!row.id && encashments.some((r) => r.employeeId === form.employeeId) ? <label className="block"><span className="ui-label">Leave encashment</span><select className="ui-select w-full" value={form.leaveEncashmentId} onChange={(e) => set({ leaveEncashmentId: e.target.value })}><option value="">Not a leave payout</option>{encashments.filter((r) => r.employeeId === form.employeeId).map((r) => <option key={r.id} value={r.id}>{r.days} days · {r.reason}</option>)}</select><span className="ui-caption">Choose an earning component and enter the approved payout amount below. This links the leave debit to its payslip.</span></label> : null}
+
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div className="sm:col-span-2">
           <label className="ui-label" htmlFor="adj-employee">Who</label>
-          <select id="adj-employee" className="ui-select w-full" value={form.employeeId} onChange={(e) => set({ employeeId: e.target.value })} required>
+          <select id="adj-employee" className="ui-select w-full" value={form.employeeId} onChange={(e) => set({ employeeId: e.target.value, leaveEncashmentId: '' })} required>
             {people.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.name}{p.code ? ` · ${p.code}` : ''}
