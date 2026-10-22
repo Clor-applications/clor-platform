@@ -108,7 +108,7 @@ const IMPORT_COLUMNS = [
   { key: 'gender', label: 'gender' },
 ];
 
-export default function Employees() {
+export default function Employees({ description = '' } = {}) {
   const [all, setAll] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -239,6 +239,7 @@ export default function Employees() {
     <DocumentListShell
       entity="people"
       title="Employees"
+      description={description}
       compact
       tight
       denseCards

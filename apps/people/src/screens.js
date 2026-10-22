@@ -4,7 +4,7 @@
  * them; nothing else should import from here.
  */
 export { default as PeopleOverview } from './screens/PeopleOverview';
-export { default as Employees } from '@ui/personnel/Employees';
+export { Employees } from './screens/EmployeesList';
 export { default as OrgChart } from './screens/OrgChart';
 export { default as Tags } from './screens/Tags';
 export { DataHealth } from './screens/DataHealth';
