@@ -8,7 +8,8 @@ import { requirePermission } from '../middleware/rbac.js';
 import { PermissionAction } from '../constants/enums.js';
 import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { platformPrisma } from '../utils/platformPrisma.js';
-import { ATTENDANCE_MODULE, ATTENDANCE_RESOURCE, attendanceRouteOk } from '../services/attendance/guards.js';
+import { ATTENDANCE_MODULE, ATTENDANCE_RESOURCE } from '../services/attendance/guards.js';
+import { hrOrAttendanceRouteOk } from '../services/people/guards.js';
 import { assignOrgCode } from '../services/displayCodes.js';
 import { sendTemplate } from '../services/mailer.js';
 import { CODE_TTL_MS, formatCode, newActivationCode, validPosition } from '../services/attendance/portal.js';
@@ -36,7 +37,7 @@ async function companyCode(accountId: string, orgId: string) {
 }
 
 portalAdminRouter.get(`${base}/portal-access`, can(PermissionAction.VIEW), async (req, res) => {
-  if (!(await attendanceRouteOk(req, res))) return;
+  if (!(await hrOrAttendanceRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   const [org, people, fences] = await Promise.all([
     companyCode(accountId, orgId),
@@ -84,7 +85,7 @@ portalAdminRouter.get(`${base}/portal-access`, can(PermissionAction.VIEW), async
  * is also how someone who forgot their password gets back in.
  */
 portalAdminRouter.post(`${base}/portal-access/codes`, can(PermissionAction.EDIT), async (req, res) => {
-  if (!(await attendanceRouteOk(req, res))) return;
+  if (!(await hrOrAttendanceRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   const parsed = z.object({ employeeIds: z.array(z.string().min(1)).min(1, 'Pick someone.').max(500), email: z.boolean().default(false) }).safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Pick someone.' });
@@ -136,7 +137,7 @@ portalAdminRouter.post(`${base}/portal-access/codes`, can(PermissionAction.EDIT)
 
 /** Switch the portal or phone punching on or off for people, or set the one site they must punch at. */
 portalAdminRouter.put(`${base}/portal-access`, can(PermissionAction.EDIT), async (req, res) => {
-  if (!(await attendanceRouteOk(req, res))) return;
+  if (!(await hrOrAttendanceRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   const parsed = z
     .object({
@@ -163,7 +164,7 @@ portalAdminRouter.put(`${base}/portal-access`, can(PermissionAction.EDIT), async
 
 /** Forget someone's portal password and any code: they need a new activation code to get back in. */
 portalAdminRouter.post(`${base}/portal-access/:employeeId/reset`, can(PermissionAction.EDIT), async (req, res) => {
-  if (!(await attendanceRouteOk(req, res))) return;
+  if (!(await hrOrAttendanceRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   const r = await peoplePrisma.employee.updateMany({
     where: { accountId, orgId, id: String(req.params.employeeId) },
@@ -206,14 +207,14 @@ const areaOk = async (orgId: string, areaId: string | null | undefined) => {
 };
 
 portalAdminRouter.get(`${base}/geofences`, can(PermissionAction.VIEW), async (req, res) => {
-  if (!(await attendanceRouteOk(req, res))) return;
+  if (!(await hrOrAttendanceRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   const rows = await peoplePrisma.geofence.findMany({ where: { accountId, orgId }, orderBy: { name: 'asc' } });
   res.json({ geofences: await fenceOut(orgId, rows) });
 });
 
 portalAdminRouter.post(`${base}/geofences`, can(PermissionAction.CREATE), async (req, res) => {
-  if (!(await attendanceRouteOk(req, res))) return;
+  if (!(await hrOrAttendanceRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   const parsed = fenceSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Check the site.' });
@@ -227,7 +228,7 @@ portalAdminRouter.post(`${base}/geofences`, can(PermissionAction.CREATE), async 
 });
 
 portalAdminRouter.put(`${base}/geofences/:id`, can(PermissionAction.EDIT), async (req, res) => {
-  if (!(await attendanceRouteOk(req, res))) return;
+  if (!(await hrOrAttendanceRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   const existing = await peoplePrisma.geofence.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
   if (!existing) return res.status(404).json({ error: 'No such site.' });
@@ -244,7 +245,7 @@ portalAdminRouter.put(`${base}/geofences/:id`, can(PermissionAction.EDIT), async
 
 /** Address search for a new site: suggestions as the person types, near the company's other sites. */
 portalAdminRouter.get(`${base}/geocode`, can(PermissionAction.VIEW), ...geocodeLimiter, async (req, res) => {
-  if (!(await attendanceRouteOk(req, res))) return;
+  if (!(await hrOrAttendanceRouteOk(req, res))) return;
   const { orgId } = req.tenant!;
   const q = String(req.query.q || '');
   const lat = Number(req.query.lat);
@@ -259,7 +260,7 @@ portalAdminRouter.get(`${base}/geocode`, can(PermissionAction.VIEW), ...geocodeL
 
 /** What is at a point, for when the pin is moved by hand. */
 portalAdminRouter.get(`${base}/geocode/reverse`, can(PermissionAction.VIEW), ...geocodeLimiter, async (req, res) => {
-  if (!(await attendanceRouteOk(req, res))) return;
+  if (!(await hrOrAttendanceRouteOk(req, res))) return;
   const lat = Number(req.query.lat);
   const lon = Number(req.query.lon);
   if (!validPosition(lat, lon)) return res.status(400).json({ error: 'That is not a position on the map.' });
@@ -268,7 +269,7 @@ portalAdminRouter.get(`${base}/geocode/reverse`, can(PermissionAction.VIEW), ...
 
 /** Only a site nobody is tied to and nobody has punched at; otherwise switch it off. */
 portalAdminRouter.delete(`${base}/geofences/:id`, can(PermissionAction.DELETE), async (req, res) => {
-  if (!(await attendanceRouteOk(req, res))) return;
+  if (!(await hrOrAttendanceRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   const existing = await peoplePrisma.geofence.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
   if (!existing) return res.status(404).json({ error: 'No such site.' });
@@ -290,7 +291,7 @@ portalAdminRouter.get(
   `${base}/punch-photos/:id`,
   requirePermission(ATTENDANCE_MODULE, PermissionAction.VIEW as any, ATTENDANCE_RESOURCE.devices),
   async (req, res) => {
-    if (!(await attendanceRouteOk(req, res))) return;
+    if (!(await hrOrAttendanceRouteOk(req, res))) return;
     const { accountId, orgId } = req.tenant!;
     const photo = await peoplePrisma.punchPhoto.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
     if (!photo) return res.status(404).json({ error: 'This photo is not kept any more.' });

@@ -7,7 +7,8 @@ import { requirePermission } from '../middleware/rbac.js';
 import { PermissionAction } from '../constants/enums.js';
 import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { platformPrisma } from '../utils/platformPrisma.js';
-import { ATTENDANCE_MODULE, ATTENDANCE_RESOURCE, attendanceRouteOk } from '../services/attendance/guards.js';
+import { ATTENDANCE_MODULE, ATTENDANCE_RESOURCE } from '../services/attendance/guards.js';
+import { hrOrAttendanceRouteOk } from '../services/people/guards.js';
 import { BIOMETRIC_GRACE_UNTIL, biometricPolicy, clearBiometricPolicy, isMinor } from '../services/attendance/biometrics.js';
 import { privacyNoticeFor } from '../services/attendance/privacyNotice.js';
 import { punchLocationRetentionDays, punchPhotoRetentionDays, readerEventRetentionDays } from '../services/retention.js';
@@ -35,7 +36,7 @@ const settingsOf = async (accountId: string, orgId: string, userId: string) =>
   peoplePrisma.attendanceSettings.create({ data: { accountId, orgId, updatedByUserId: userId } });
 
 dataProtectionRouter.get(base, can(PermissionAction.VIEW), async (req, res) => {
-  if (!(await attendanceRouteOk(req, res))) return;
+  if (!(await hrOrAttendanceRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   const s = await settingsOf(accountId, orgId, req.auth!.userId);
   const now = new Date();
@@ -85,7 +86,7 @@ const settingsSchema = z.object({
 });
 
 dataProtectionRouter.put(base, can(PermissionAction.EDIT), async (req, res) => {
-  if (!(await attendanceRouteOk(req, res))) return;
+  if (!(await hrOrAttendanceRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   const parsed = settingsSchema.safeParse(req.body || {});
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Check the settings.' });
@@ -153,13 +154,13 @@ const shapeBreach = (b: any) => {
 };
 
 dataProtectionRouter.get(`${base}/breaches`, can(PermissionAction.VIEW), async (req, res) => {
-  if (!(await attendanceRouteOk(req, res))) return;
+  if (!(await hrOrAttendanceRouteOk(req, res))) return;
   const rows = await peoplePrisma.dataBreach.findMany({ where: { orgId: req.tenant!.orgId }, orderBy: { discoveredAt: 'desc' } });
   res.json({ breaches: rows.map(shapeBreach) });
 });
 
 dataProtectionRouter.post(`${base}/breaches`, can(PermissionAction.EDIT), async (req, res) => {
-  if (!(await attendanceRouteOk(req, res))) return;
+  if (!(await hrOrAttendanceRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   const parsed = breachSchema.safeParse(req.body || {});
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Check the breach.' });
@@ -177,7 +178,7 @@ dataProtectionRouter.post(`${base}/breaches`, can(PermissionAction.EDIT), async 
 
 /** Note the Board's intimation, report and reference; or close it. */
 dataProtectionRouter.put(`${base}/breaches/:id`, can(PermissionAction.EDIT), async (req, res) => {
-  if (!(await attendanceRouteOk(req, res))) return;
+  if (!(await hrOrAttendanceRouteOk(req, res))) return;
   const { orgId } = req.tenant!;
   const row = await peoplePrisma.dataBreach.findFirst({ where: { id: String(req.params.id), orgId } });
   if (!row) return res.status(404).json({ error: 'No such breach.' });
@@ -192,7 +193,7 @@ dataProtectionRouter.put(`${base}/breaches/:id`, can(PermissionAction.EDIT), asy
 
 /** Tell every affected person who has an e-mail address, in plain words (rule 7(1)). Others are listed to be told another way. */
 dataProtectionRouter.post(`${base}/breaches/:id/notify`, can(PermissionAction.EDIT), async (req, res) => {
-  if (!(await attendanceRouteOk(req, res))) return;
+  if (!(await hrOrAttendanceRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   const row = await peoplePrisma.dataBreach.findFirst({ where: { id: String(req.params.id), orgId } });
   if (!row) return res.status(404).json({ error: 'No such breach.' });

@@ -10,6 +10,7 @@ import { hrMayDecide } from '../services/attendance/approvalChain.js';
 import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { platformPrisma } from '../utils/platformPrisma.js';
 import { ATTENDANCE_MODULE, ATTENDANCE_RESOURCE, attendanceRouteOk } from '../services/attendance/guards.js';
+import { hrOrAttendanceRouteOk } from '../services/people/guards.js';
 import {
   DEFAULT_SHIFT,
   computeDay,
@@ -289,7 +290,7 @@ attendanceRouter.get('/orgs/:orgId/attendance/overview', can(PermissionAction.VI
 });
 
 attendanceRouter.get('/orgs/:orgId/attendance/records', can(PermissionAction.VIEW, R.records), async (req, res) => {
-  if (!(await attendanceRouteOk(req, res))) return;
+  if (!(await hrOrAttendanceRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   const to = dateParam(req.query.to, today());
   const from = dateParam(req.query.from, to);
@@ -405,7 +406,7 @@ attendanceRouter.post('/orgs/:orgId/attendance/records/import', can(PermissionAc
 
 /** Holidays from a list: date, name, optional (yes/no), area (by name; blank = everyone). A date already on the calendar with the same name is skipped. */
 attendanceRouter.post('/orgs/:orgId/attendance/holidays/import', can(PermissionAction.CREATE, R.holidays), async (req, res) => {
-  if (!(await attendanceRouteOk(req, res))) return;
+  if (!(await hrOrAttendanceRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   const rows = Array.isArray(req.body?.rows) ? req.body.rows : [];
   if (!rows.length) return res.status(400).json({ error: 'Nothing to import.' });
@@ -532,7 +533,7 @@ attendanceRouter.get('/orgs/:orgId/attendance/employees', can(PermissionAction.V
 // ---------------------------------------------------------------------------
 
 attendanceRouter.get('/orgs/:orgId/attendance/me', can(PermissionAction.VIEW, R.self), async (req, res) => {
-  if (!(await attendanceRouteOk(req, res))) return;
+  if (!(await hrOrAttendanceRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   try {
     const me = await myEmployee(accountId, orgId, req.auth!.userId);
@@ -564,7 +565,7 @@ attendanceRouter.get('/orgs/:orgId/attendance/me', can(PermissionAction.VIEW, R.
 
 /** A punch from the phone, with the same checks as the employee portal's (services/attendance/phonePunch.ts). */
 attendanceRouter.post('/orgs/:orgId/attendance/me/punch', can(PermissionAction.CREATE, R.self), async (req, res) => {
-  if (!(await attendanceRouteOk(req, res))) return;
+  if (!(await hrOrAttendanceRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   try {
     const me = await myEmployee(accountId, orgId, req.auth!.userId);
@@ -577,7 +578,7 @@ attendanceRouter.post('/orgs/:orgId/attendance/me/punch', can(PermissionAction.C
 });
 
 attendanceRouter.post('/orgs/:orgId/attendance/clock', can(PermissionAction.CREATE, R.self), async (req, res) => {
-  if (!(await attendanceRouteOk(req, res))) return;
+  if (!(await hrOrAttendanceRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   try {
     const me = await myEmployee(accountId, orgId, req.auth!.userId);
@@ -857,7 +858,7 @@ const holidaySchema = z.object({
 });
 
 attendanceRouter.get('/orgs/:orgId/attendance/holidays', can(PermissionAction.VIEW, R.holidays), async (req, res) => {
-  if (!(await attendanceRouteOk(req, res))) return;
+  if (!(await hrOrAttendanceRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   const year = String(req.query.year || today().slice(0, 4)).slice(0, 4);
   const holidays = await peoplePrisma.holiday.findMany({
@@ -869,7 +870,7 @@ attendanceRouter.get('/orgs/:orgId/attendance/holidays', can(PermissionAction.VI
 });
 
 attendanceRouter.post('/orgs/:orgId/attendance/holidays', can(PermissionAction.CREATE, R.holidays), async (req, res) => {
-  if (!(await attendanceRouteOk(req, res))) return;
+  if (!(await hrOrAttendanceRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   const parsed = holidaySchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Invalid holiday.' });
@@ -884,7 +885,7 @@ attendanceRouter.post('/orgs/:orgId/attendance/holidays', can(PermissionAction.C
 });
 
 attendanceRouter.put('/orgs/:orgId/attendance/holidays/:id', can(PermissionAction.EDIT, R.holidays), async (req, res) => {
-  if (!(await attendanceRouteOk(req, res))) return;
+  if (!(await hrOrAttendanceRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   const existing = await peoplePrisma.holiday.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
   if (!existing) return res.status(404).json({ error: 'No such holiday.' });
@@ -902,7 +903,7 @@ attendanceRouter.put('/orgs/:orgId/attendance/holidays/:id', can(PermissionActio
 });
 
 attendanceRouter.delete('/orgs/:orgId/attendance/holidays/:id', can(PermissionAction.DELETE, R.holidays), async (req, res) => {
-  if (!(await attendanceRouteOk(req, res))) return;
+  if (!(await hrOrAttendanceRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   const existing = await peoplePrisma.holiday.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
   if (!existing) return res.status(404).json({ error: 'No such holiday.' });

@@ -8,6 +8,7 @@ import { authorize, requirePermission } from '../middleware/rbac.js';
 import { PermissionAction } from '../constants/enums.js';
 import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { platformPrisma } from '../utils/platformPrisma.js';
+import { hrOrAttendanceRouteOk } from '../services/people/guards.js';
 import { ATTENDANCE_MODULE, ATTENDANCE_RESOURCE, attendanceRouteOk } from '../services/attendance/guards.js';
 import { computeDay, istInstant, istTime, type ShiftRule } from '../services/attendance/compute.js';
 import { loadSchedule, resolveShift, toRule } from '../services/attendance/schedule.js';
@@ -153,7 +154,7 @@ attendanceInsightsRouter.get(`${base}/days/explain`, can(PermissionAction.VIEW, 
 });
 
 attendanceInsightsRouter.get(`${base}/me/days/explain`, can(PermissionAction.VIEW, R.self), async (req, res) => {
-  if (!(await attendanceRouteOk(req, res))) return;
+  if (!(await hrOrAttendanceRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   const date = dateQ(req.query.date);
   if (!date) return res.status(400).json({ error: 'Which day? Dates are YYYY-MM-DD.' });
@@ -687,6 +688,13 @@ export async function leaveExplain(accountId: string, orgId: string, employeeId:
     if (bal?.carriedIn) lines.push({ kind: 'carried', label: `Carried in from ${year - 1}`, days: bal.carriedIn });
     if (bal?.earned != null) lines.push({ kind: 'earned', label: type.accrual === 'MONTHLY' ? `Earned so far (${type.annualDays} a year, monthly)` : `This year's entitlement (${type.annualDays} days)`, days: bal.earned });
   }
+  /* HR's ledger lines: added, taken away, paid out (People → Time Off → Balances). */
+  if (type.isPaid) {
+    const adjustments = await peoplePrisma.leaveAdjustment.findMany({ where: { orgId, employeeId, leaveTypeId: type.id, year }, orderBy: { createdAt: 'asc' } });
+    for (const a of adjustments) {
+      lines.push({ kind: a.kind === 'ENCASH' ? 'encashed' : 'adjusted', label: a.kind === 'ENCASH' ? `Paid out: ${a.reason}` : `${a.days > 0 ? 'Added' : 'Taken away'} by HR: ${a.reason}`, days: a.days, date: a.createdAt.toISOString().slice(0, 10) });
+    }
+  }
   for (const r of requests.filter((x) => x.status === 'APPROVED')) lines.push({ kind: 'taken', label: `Taken ${r.fromDate}${r.toDate !== r.fromDate ? ` to ${r.toDate}` : ''}`, days: -r.days, date: r.fromDate, status: r.status });
   for (const r of requests.filter((x) => x.status === 'PENDING')) lines.push({ kind: 'pending', label: `Waiting ${r.fromDate}${r.toDate !== r.fromDate ? ` to ${r.toDate}` : ''}`, days: -r.days, date: r.fromDate, status: r.status });
   return {
@@ -707,7 +715,7 @@ export async function leaveExplain(accountId: string, orgId: string, employeeId:
 }
 
 attendanceInsightsRouter.get(`${base}/leave/explain`, can(PermissionAction.VIEW, R.leave), async (req, res) => {
-  if (!(await attendanceRouteOk(req, res))) return;
+  if (!(await hrOrAttendanceRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   try {
     const year = Number(req.query.year) || Number(today().slice(0, 4));
@@ -718,7 +726,7 @@ attendanceInsightsRouter.get(`${base}/leave/explain`, can(PermissionAction.VIEW,
 });
 
 attendanceInsightsRouter.get(`${base}/me/leave/explain`, can(PermissionAction.VIEW, R.self), async (req, res) => {
-  if (!(await attendanceRouteOk(req, res))) return;
+  if (!(await hrOrAttendanceRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   try {
     const me = await myEmployee(accountId, orgId, req.auth!.userId);

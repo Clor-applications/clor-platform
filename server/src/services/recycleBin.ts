@@ -61,6 +61,7 @@ export const BIN_KINDS: Record<string, Kind> = {
   contractor: { model: 'contractor', noun: 'Contractor', module: PEOPLE_MODULE, resource: P.structure, label: (r) => r.name },
   holiday: { model: 'holiday', noun: 'Holiday', module: ATTENDANCE_MODULE, resource: A.holidays, label: (r) => `${r.name} · ${r.date}` },
   leaveType: { model: 'leaveType', noun: 'Leave type', module: ATTENDANCE_MODULE, resource: A.leaveTypes, label: (r) => r.name },
+  leaveAdjustment: { model: 'leaveAdjustment', noun: 'Leave adjustment', module: ATTENDANCE_MODULE, resource: A.leave, label: (r) => forPerson(`${r.days > 0 ? '+' : ''}${r.days} days, ${r.year}: ${r.reason}`, r) },
   shift: { model: 'shift', noun: 'Shift', module: ATTENDANCE_MODULE, resource: A.shifts, label: (r) => r.name },
   shiftAssignment: { model: 'shiftAssignment', noun: 'Shift assignment', module: ATTENDANCE_MODULE, resource: A.shifts, label: (r) => forPerson(`From ${r.effectiveFrom}`, r) },
   temporarySchedule: { model: 'temporarySchedule', noun: 'Temporary schedule', module: ATTENDANCE_MODULE, resource: A.shifts, label: (r) => forPerson(`${r.fromDate || ''} to ${r.toDate || ''}`, r) },

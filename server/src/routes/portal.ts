@@ -12,6 +12,7 @@ import { payrollPrisma } from '../utils/payrollPrisma.js';
 import { DeclarationError, financialYearOf, saveDeclaration, shapeDeclaration } from '../services/payroll/taxDeclaration.js';
 import { isDevOrTest } from '../utils/devMode.js';
 import { isFeatureEnabled } from '../services/features.js';
+import { hrOrAttendanceOn } from '../services/people/guards.js';
 import { portalLimiter } from '../middleware/rateLimit.js';
 import { isWeeklyOff, istDate, istTime } from '../services/attendance/compute.js';
 import { loadHolidays, loadSchedule, resolveShift } from '../services/attendance/schedule.js';
@@ -105,7 +106,7 @@ async function findEmployee(company: unknown, employeeCode: unknown) {
     take: 2,
   });
   if (rows.length !== 1) return null;
-  if (!(await isFeatureEnabled(org.accountId, org.id, 'attendance'))) return null;
+  if (!(await hrOrAttendanceOn(org.accountId, org.id))) return null;
   return { org, employee: rows[0] };
 }
 
@@ -173,7 +174,7 @@ async function authenticate(req: Request, res: Response, next: NextFunction) {
   if (!e || !e.portalEnabled || e.status === 'LEFT' || !e.portalPasswordHash || (e.portalPasswordSetAt?.getTime() || 0) !== claims.pv) {
     return res.status(401).json({ error: 'Please sign in again.', code: 'PORTAL_SIGNIN' });
   }
-  if (!(await isFeatureEnabled(e.accountId, e.orgId, 'attendance'))) return res.status(403).json({ error: 'Attendance is not switched on for your company.' });
+  if (!(await hrOrAttendanceOn(e.accountId, e.orgId))) return res.status(403).json({ error: 'The employee app is not switched on for your company.' });
   req.portal = { employeeId: e.id, accountId: e.accountId, orgId: e.orgId, employee: e };
   runInTenant(e.orgId, () => next());
 }

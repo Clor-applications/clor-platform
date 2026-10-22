@@ -37,3 +37,27 @@ export const PEOPLE_RESOURCE = {
   structure: 'Org Structure',
   notes: 'Employee Notes',
 } as const;
+
+/**
+ * Leave, holidays, the employee app and a person's own days are HR's
+ * (founder, 22 Oct 2026) and stay in step with Attendance because both read
+ * and write the same tables. So they open when either People or Attendance
+ * is on and bought: HR alone, Attendance alone, or both.
+ */
+export const hrOrAttendanceRouteOk = async (req: Request, res: Response): Promise<boolean> => {
+  if (!orgMatches(req, res)) return false;
+  const { accountId, orgId } = req.tenant!;
+  const on: string[] = [];
+  for (const app of ['people', 'attendance']) if (await isFeatureEnabled(accountId, orgId, app)) on.push(app);
+  if (!on.length) {
+    res.status(403).json({ error: 'Switch on People or Attendance for this organisation to use leave and holidays.', code: 'TIME_OFF_DISABLED' });
+    return false;
+  }
+  for (const app of on) if (await isAppEntitled(accountId, app)) return true;
+  res.status(402).json({ error: 'Neither People nor Attendance is on this account’s subscription.', app: on[0], code: 'APP_NOT_SUBSCRIBED' });
+  return false;
+};
+
+/** The same question outside a request (the employee app's sign-in). */
+export const hrOrAttendanceOn = async (accountId: string, orgId: string) =>
+  (await isFeatureEnabled(accountId, orgId, 'people')) || (await isFeatureEnabled(accountId, orgId, 'attendance'));

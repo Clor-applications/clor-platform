@@ -49,9 +49,12 @@ const leaveType = async (c: Ctx, body: Record<string, unknown>) => (await api(c)
  */
 
 describe('the switch', () => {
-  it('is refused while Attendance is off', async () => {
-    const off = await makeOwner({ people: true });
-    expect((await api(off).get('/leave/types').expect(403)).body.code).toBe('ATTENDANCE_DISABLED');
+  /* Leave is HR's as much as Attendance's (founder, 22 Oct 2026): either switch opens it (hrLeave.test.ts). */
+  it('is refused while neither People nor Attendance is on, and opens with either', async () => {
+    const off = await makeOwner({});
+    expect((await api(off).get('/leave/types').expect(403)).body.code).toBe('TIME_OFF_DISABLED');
+    await api(await makeOwner({ people: true })).get('/leave/types').expect(200);
+    await api(await makeOwner({ attendance: true })).get('/leave/types').expect(200);
   });
 });
 
