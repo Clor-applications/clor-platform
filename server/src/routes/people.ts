@@ -204,6 +204,39 @@ const sendError = (res: any, e: any) => {
 // Overview
 // ---------------------------------------------------------------------------
 
+/**
+ * Statutory and bank details on the employee file (PE-05), read from the
+ * payroll profile where Payroll keeps them, always masked here, and only for
+ * someone allowed to see payroll profiles. Nothing is edited from People.
+ */
+const maskTail = (v: string | null | undefined, keep = 4) => {
+  const s = String(v || '').replace(/\s+/g, '');
+  return s ? `${'•'.repeat(Math.max(0, s.length - keep))}${s.slice(-keep)}` : '';
+};
+peopleRouter.get('/orgs/:orgId/people/employees/:id/statutory', can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const employee = await peoplePrisma.employee.findFirst({ where: { id: String(req.params.id), accountId, orgId }, select: { id: true } });
+  if (!employee) return res.status(404).json({ error: 'No such employee.' });
+  if (await authorize(req, PAYROLL_MODULE, PermissionAction.VIEW as any, PAYROLL_RESOURCE.profile)) return res.json({ visible: false });
+  const p = await payrollPrisma.employeePayrollProfile.findFirst({ where: { orgId, employeeId: employee.id } });
+  if (!p) return res.json({ visible: true, inPayroll: false });
+  res.json({
+    visible: true,
+    inPayroll: p.payrollStatus === 'IN_PAYROLL',
+    pan: maskTail(p.pan),
+    uan: maskTail(p.uan),
+    esic: maskTail(p.esiNumber),
+    bank: p.bankName || '',
+    account: maskTail(p.bankAccountNumber),
+    ifsc: p.bankIfsc || '',
+    pf: p.pfApplicable,
+    esi: p.esiApplicable,
+    pt: p.ptApplicable ? p.professionalTaxState || 'on' : '',
+    taxRegime: p.taxRegime,
+  });
+});
+
 /** People → Home: what needs someone today (services/people/home.ts). */
 peopleRouter.get('/orgs/:orgId/people/home', can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;

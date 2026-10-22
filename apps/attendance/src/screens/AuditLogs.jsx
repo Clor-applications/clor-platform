@@ -15,6 +15,8 @@ import LoadFailed from '../components/LoadFailed';
 const when = (d) => new Date(d).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' });
 /* ATTENDANCE_SHIFT_ASSIGNMENT → Shift assignment; Employee → Employee. */
 const area = (entity) => {
+  /* People's registers (jobs, cases, assets…) are logged as one entity; the message names which. */
+  if (entity === 'PeopleRecord') return 'HR registers';
   /* The log names the resource by dropping a plural "s" from the URL, which also clips "access". */
   const s = String(entity || '').replace(/^(ATTENDANCE|PEOPLE)_/, '').replace(/_/g, ' ').toLowerCase().replace(/\bacces\b/g, 'access');
   return s ? s[0].toUpperCase() + s.slice(1) : '';

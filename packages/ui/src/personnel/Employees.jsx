@@ -28,6 +28,7 @@ import {
   listTags,
   listContractors,
   getChecklist,
+  getEmployeeStatutory,
   getEmploymentHistory,
   startChecklist,
   updateChecklistTask,
@@ -558,10 +559,11 @@ function EmployeeFile({ id, onClose, onEdit, onDeleted }) {
           ) : null}
 
           {tab === 'work' ? (
+            <>
             <dl className="grid gap-4 sm:grid-cols-2">
               <Field label="Employee ID" value={person.code} />
               <Field label="Department" value={person.department} />
-              <Field label="Job position" value={person.designation} />
+              <Field label="Designation" value={person.designation} />
               <Field label="Reports to" value={person.reportingManagerName} />
               <Field label="Work email" value={person.workEmail} />
               <Field label="Work phone" value={person.workPhone} />
@@ -597,6 +599,8 @@ function EmployeeFile({ id, onClose, onEdit, onDeleted }) {
                 </dd>
               </div>
             </dl>
+            <StatutoryDetails employeeId={id} />
+            </>
           ) : null}
 
           {tab === 'notes' ? (
@@ -758,6 +762,39 @@ function EmployeeChecklist({ person }) {
       {section('JOINING', 'Joining', data.joining)}
       {person.status === 'LEFT' || data.leaving.total ? section('LEAVING', 'Leaving', data.leaving) : null}
     </div>
+  );
+}
+
+/**
+ * Statutory and bank details, from Payroll's profile, masked (PE-05). Only for
+ * someone who may see payroll profiles; nothing is changed here.
+ */
+function StatutoryDetails({ employeeId }) {
+  const [d, setD] = useState(null);
+  useEffect(() => {
+    let live = true;
+    getEmployeeStatutory(employeeId).then((x) => live && setD(x)).catch(() => live && setD({ visible: false }));
+    return () => {
+      live = false;
+    };
+  }, [employeeId]);
+  if (!d?.visible) return null;
+  return (
+    <section className="mt-5 space-y-2" aria-label="Statutory and bank">
+      <h3 className="text-sm font-semibold">Statutory &amp; bank <span className="ui-caption font-normal">from Payroll, last digits only</span></h3>
+      {d.inPayroll === false && !d.pan && !d.uan ? (
+        <p className="ui-muted text-sm">Not set up in Payroll yet.</p>
+      ) : (
+        <dl className="grid gap-4 sm:grid-cols-2">
+          <Field label="PAN" value={d.pan} />
+          <Field label="UAN" value={d.uan} />
+          <Field label="ESIC number" value={d.esic} />
+          <Field label="Bank" value={[d.bank, d.account].filter(Boolean).join(' ')} />
+          <Field label="IFSC" value={d.ifsc} />
+          <Field label="Covered by" value={[d.pf && 'PF', d.esi && 'ESI', d.pt && `PT (${d.pt})`].filter(Boolean).join(' · ')} />
+        </dl>
+      )}
+    </section>
   );
 }
 

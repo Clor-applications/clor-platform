@@ -46,7 +46,7 @@ const querySchema = z.object({
 });
 
 const APP_ENTITIES = {
-  attendance: [{ entity: { startsWith: 'ATTENDANCE_' } }, { entity: { startsWith: 'PEOPLE_' } }, { entity: { in: ['Employee', 'Company'] } }],
+  attendance: [{ entity: { startsWith: 'ATTENDANCE_' } }, { entity: { startsWith: 'PEOPLE_' } }, { entity: { in: ['Employee', 'Company', 'PeopleRecord'] } }],
 };
 
 auditRouter.get('/orgs/:orgId/audit', AUDIT_VIEW, async (req, res) => {

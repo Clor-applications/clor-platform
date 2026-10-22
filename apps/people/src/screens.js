@@ -23,3 +23,4 @@ export { default as LeaveBalances } from '../../attendance/src/screens/LeaveBala
 export { default as LeaveTypes } from '../../attendance/src/screens/LeaveTypes';
 export { default as MyLeave } from '../../attendance/src/screens/MyLeave';
 export { default as DataImport } from '../../attendance/src/screens/DataImport';
+export { default as AuditLogs } from '../../attendance/src/screens/AuditLogs';

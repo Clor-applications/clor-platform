@@ -16,6 +16,7 @@ import {
   ContactCardColor,
   DataBarVerticalAscendingColor,
   DocumentAddColor,
+  DocumentTextColor,
   DocumentFolderColor,
   GiftColor,
   HomeColor,
@@ -62,6 +63,7 @@ const LeaveBalances = screen('LeaveBalances');
 const LeaveTypes = screen('LeaveTypes');
 const MyLeave = screen('MyLeave');
 const DataImport = screen('DataImport');
+const AuditLogs = screen('AuditLogs');
 
 /* Full-colour icons, the same family as Attendance (packages/ui/src/components/ui/iconSet.jsx). */
 const I = {
@@ -96,6 +98,7 @@ const I = {
   workType: colorIcon(ShiftsColor, 'Shifts'),
   tag: colorIcon(BookmarkColor, 'Bookmark'),
   import: colorIcon(DocumentAddColor, 'DocumentAdd'),
+  audit: colorIcon(DocumentTextColor, 'DocumentText'),
 };
 
 /* One register screen per kind, with the shell's props (openScreen, params). */
@@ -149,7 +152,7 @@ export const peopleApp = {
     ] },
     { key: 'settings', label: 'Settings', groups: [
       { label: 'Organization', items: ['departments', 'jobPositions', 'jobRoles', 'employeeTypes', 'workTypes', 'tags'] },
-      { label: 'Data', items: ['dataImport'] },
+      { label: 'Data', items: ['dataImport', 'auditLogs'] },
     ] },
   ],
 
@@ -186,6 +189,7 @@ export const peopleApp = {
     { key: 'workTypes', label: 'Work Types', icon: I.workType, permission: 'PEOPLE::Org Structure::VIEW' },
     { key: 'tags', label: 'Tags', icon: I.tag, permission: 'PEOPLE::Org Structure::VIEW' },
     { key: 'dataImport', label: 'Import Data', icon: I.import, permission: 'PEOPLE::Employees::CREATE' },
+    { key: 'auditLogs', label: 'Audit Logs', icon: I.audit, permission: 'SETTINGS::Audit trail::VIEW' },
   ],
 
   screens: {
@@ -220,5 +224,6 @@ export const peopleApp = {
     workTypes: WorkTypes,
     tags: Tags,
     dataImport: DataImport,
+    auditLogs: AuditLogs,
   },
 };
