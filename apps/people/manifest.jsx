@@ -215,7 +215,7 @@ export const peopleApp = {
     { key: 'workTypes', label: 'Work Types', icon: I.workType, permission: 'PEOPLE::Org Structure::VIEW', parent: 'settings' },
     { key: 'tags', label: 'Tags', icon: I.tag, permission: 'PEOPLE::Org Structure::VIEW', parent: 'settings' },
     { key: 'dataImport', label: 'Import Data', icon: I.import, permission: 'PEOPLE::Employees::CREATE', parent: 'settings' },
-    { key: 'settings', label: 'Settings', icon: I.settings, permission: 'PEOPLE::Employees::VIEW' },
+    { key: 'settings', label: 'Settings', icon: I.settings, hub: true },
     { key: 'companyDetails', label: 'Company Details', icon: I.company, permission: 'SETTINGS::Company Profile::VIEW', parent: 'settings' },
     { key: 'businessUnits', label: 'Business Units', icon: I.unit, permission: 'PEOPLE::Org Structure::VIEW', parent: 'settings' },
     { key: 'areas', label: 'Locations & Sites', icon: I.location, permission: 'PEOPLE::Org Structure::VIEW', parent: 'settings' },

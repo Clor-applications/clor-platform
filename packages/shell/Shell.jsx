@@ -15,7 +15,7 @@ import { IconSetContext } from '@ui/components/ui/iconSet';
 import { APPS, appById, availableApps, landingApp, subscribedApps } from './registry';
 import { appFromHost, hostForApp, isFrontDoor } from './appHosts';
 import { PHONE_QUERY, TABLET_QUERY, mobileTabsFor } from './mobileTabs';
-import { moduleForScreen, railAction, readScreenSearch, resolveModules, screenSearch } from './splitNav';
+import { moduleForScreen, railAction, readScreenSearch, resolveModules, screenSearch, withoutEmptyHubs } from './splitNav';
 import { useSession } from './session';
 import ClorMark from './ClorMark';
 import NotificationBell from './NotificationBell';
@@ -383,8 +383,8 @@ export default function Shell() {
   if (!tenant) return <CompanySetup />;
 
   const app = appById(activeAppId);
-  /* Items whose `permission` this person lacks go, then any section heading left with nothing under it. */
-  const allowed = (app?.nav || []).filter((item) => item.section || !item.permission || !granted || granted.has(item.permission));
+  /* Items whose `permission` this person lacks go, then a settings page left with nothing on it, then any section heading left with nothing under it. */
+  const allowed = withoutEmptyHubs((app?.nav || []).filter((item) => item.section || !item.permission || !granted || granted.has(item.permission)));
   const nav = allowed.filter((item, i) => !item.section || (allowed[i + 1] && !allowed[i + 1].section));
   /* A screen the open app does not have is not a screen: the same company
      switch that changes the app leaves last app's screen key behind, and

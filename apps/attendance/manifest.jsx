@@ -20,6 +20,7 @@ import {
   DataBarVerticalAscendingColor,
   DataTrendingColor,
   DataPieColor,
+  DatabaseColor,
   DocumentAddColor,
   DocumentEditColor,
   DocumentFolderColor,
@@ -116,6 +117,11 @@ const IdMapping = screen('IdMapping');
 const AttendanceSetup = screen('AttendanceSetup');
 const WeeklyOffPolicy = screen('WeeklyOffPolicy');
 const OvertimePolicy = screen('OvertimePolicy');
+const AttendanceSettings = screen('AttendanceSettings');
+const CompanyDetails = screen('CompanyDetails');
+const BusinessUnits = screen('BusinessUnits');
+const Grades = screen('Grades');
+const CostCentres = screen('CostCentres');
 /* The employee portal is its own file: a phone at the gate needs nothing else. */
 const EmployeePortal = lazy(() => import('./src/portal/EmployeePortal'));
 
@@ -177,6 +183,8 @@ const ClipboardList = colorIcon(SettingsColor, 'Settings');
 const PunchIcon = colorIcon(CheckboxPersonColor, 'CheckboxPerson');
 const AuditIcon = colorIcon(DocumentTextColor, 'DocumentText');
 const BinIcon = colorIcon(DocumentFolderColor, 'DocumentFolder');
+const SettingsIcon = colorIcon(SettingsColor, 'Settings');
+const CostIcon = colorIcon(DatabaseColor, 'Database');
 
 /**
  * Everything the shell knows about Attendance.
@@ -223,8 +231,6 @@ export const attendanceApp = {
     { key: 'personnel', label: 'People', groups: [
       { label: 'Directory', items: ['employees', 'contractors'] },
       { label: 'Employment Changes', items: ['checklists', 'resignations', 'transfer'] },
-      { label: 'Organization', items: ['departments', 'positions', 'areas'] },
-      { label: 'Access', items: ['portalAccess'] },
     ] },
     { key: 'device', label: 'Readers', groups: [
       { label: 'Monitoring', items: ['readerHealth', 'readerSync', 'deviceLogs'] },
@@ -249,19 +255,9 @@ export const attendanceApp = {
       { label: 'Devices', items: ['reportReaderPunches'] },
       { label: 'All Reports', items: ['reports'] },
     ] },
-    { key: 'system', label: 'Settings', groups: [
-      { label: 'Organization', items: ['setup', 'sites', 'siteCheck'] },
-      /* Founder's Work Policy group (NV-02). Weekly off and overtime are views
-         over the shifts' own fields and the company rules, not new rules. */
-      { label: 'Work Policy', items: ['rules', 'weeklyOffPolicy', 'overtimePolicy', 'leaveTypes', 'holidays'] },
-      { label: 'Integrations', items: ['integrations'] },
-      { label: 'Access & Security', items: ['sso'] },
-      { label: 'Data Management', items: ['dataHealth', 'dataImport', 'dataExport', 'closeCompany'] },
-      { label: 'Compliance', items: ['complianceCalendar'] },
-      { label: 'Privacy', items: ['dataProtection', 'dataRequests'] },
-      /* Founder, 21 Oct 2026: what changed, and what was deleted by mistake. */
-      { label: 'Audit & Recovery', items: ['auditLogs', 'recycleBin'] },
-    ] },
+    /* Founder, 22 Oct 2026: what is set up once lives on one Settings page
+       (AttendanceSettings), its pages marked `parent: 'settings'`, as in People. */
+    { key: 'system', label: 'Settings', items: ['settings'] },
     { key: 'me', label: 'Me', groups: [
       { label: 'Self-Service', items: ['me', 'myLeave'] },
     ] },
@@ -278,10 +274,10 @@ export const attendanceApp = {
     { key: 'contractors', label: 'Contractors', icon: HardHat, permission: 'PEOPLE::Org Structure::VIEW' },
     { key: 'resignations', label: 'Resignations', icon: UserMinus, permission: 'PEOPLE::Employees::VIEW' },
     { key: 'transfer', label: 'Transfers', icon: ArrowRightLeft, permission: 'PEOPLE::Employees::VIEW' },
-    { key: 'departments', label: 'Departments', icon: Building2, permission: 'PEOPLE::Org Structure::VIEW' },
-    { key: 'positions', label: 'Designations', icon: Briefcase, permission: 'PEOPLE::Org Structure::VIEW' },
-    { key: 'areas', label: 'Locations & Sites', icon: MapPin, permission: 'PEOPLE::Org Structure::VIEW' },
-    { key: 'portalAccess', label: 'Employee Portal Access', icon: KeyRound, permission: 'ATTENDANCE::Employee Portal::VIEW' },
+    { key: 'departments', label: 'Departments', icon: Building2, permission: 'PEOPLE::Org Structure::VIEW', parent: 'settings' },
+    { key: 'positions', label: 'Designations', icon: Briefcase, permission: 'PEOPLE::Org Structure::VIEW', parent: 'settings' },
+    { key: 'areas', label: 'Locations & Sites', icon: MapPin, permission: 'PEOPLE::Org Structure::VIEW', parent: 'settings' },
+    { key: 'portalAccess', label: 'Employee Portal Access', icon: KeyRound, permission: 'ATTENDANCE::Employee Portal::VIEW', parent: 'settings' },
 
     { section: 'Readers' },
     { key: 'readerHealth', label: 'Reader Health', icon: HeartPulse, permission: 'ATTENDANCE::Attendance Devices::VIEW' },
@@ -327,34 +323,40 @@ export const attendanceApp = {
     { key: 'reports', label: 'Report Catalogue', icon: BarChart3, permission: 'ATTENDANCE::Attendance Records::VIEW' },
 
     { section: 'Settings' },
-    { key: 'setup', label: 'Attendance Setup', icon: ClipboardList, permission: 'ATTENDANCE::Attendance Records::VIEW' },
-    { key: 'sites', label: 'Work Sites', icon: LocateFixed, permission: 'ATTENDANCE::Employee Portal::VIEW' },
-    { key: 'siteCheck', label: 'Work Site Check', icon: MapPin, permission: 'ATTENDANCE::Employee Portal::VIEW' },
-    { key: 'rules', label: 'Attendance Policy', icon: Gavel, permission: 'ATTENDANCE::Shifts::VIEW' },
-    { key: 'weeklyOffPolicy', label: 'Weekly Off Policy', icon: CalendarOff, permission: 'ATTENDANCE::Shifts::VIEW' },
-    { key: 'overtimePolicy', label: 'Overtime Policy', icon: Timer, permission: 'ATTENDANCE::Attendance Records::VIEW' },
-    { key: 'leaveTypes', label: 'Leave Policy', icon: Tags, permission: 'ATTENDANCE::Leave Types::VIEW' },
-    { key: 'holidays', label: 'Holidays', icon: CalendarDays, permission: 'ATTENDANCE::Holidays::VIEW' },
-    { key: 'integrations', label: 'Integrations', icon: Plug, permission: 'ATTENDANCE::Attendance Integrations::VIEW' },
+    { key: 'setup', label: 'Attendance Setup', icon: ClipboardList, permission: 'ATTENDANCE::Attendance Records::VIEW', parent: 'settings' },
+    { key: 'sites', label: 'Work Sites', icon: LocateFixed, permission: 'ATTENDANCE::Employee Portal::VIEW', parent: 'settings' },
+    { key: 'siteCheck', label: 'Work Site Check', icon: MapPin, permission: 'ATTENDANCE::Employee Portal::VIEW', parent: 'settings' },
+    { key: 'rules', label: 'Attendance Policy', icon: Gavel, permission: 'ATTENDANCE::Shifts::VIEW', parent: 'settings' },
+    { key: 'weeklyOffPolicy', label: 'Weekly Off Policy', icon: CalendarOff, permission: 'ATTENDANCE::Shifts::VIEW', parent: 'settings' },
+    { key: 'overtimePolicy', label: 'Overtime Policy', icon: Timer, permission: 'ATTENDANCE::Attendance Records::VIEW', parent: 'settings' },
+    { key: 'leaveTypes', label: 'Leave Policy', icon: Tags, permission: 'ATTENDANCE::Leave Types::VIEW', parent: 'settings' },
+    { key: 'holidays', label: 'Holidays', icon: CalendarDays, permission: 'ATTENDANCE::Holidays::VIEW', parent: 'settings' },
+    { key: 'integrations', label: 'Integrations', icon: Plug, permission: 'ATTENDANCE::Attendance Integrations::VIEW', parent: 'settings' },
     /* The same SSO set-up as Accounting's Settings → Single Sign-On: one per company, for every CLOR app. */
-    { key: 'sso', label: 'Single Sign-On', icon: KeyRound, permission: 'SETTINGS::Users::VIEW' },
-    { key: 'dataImport', label: 'Import Data', icon: Upload, permission: 'ATTENDANCE::Attendance Records::VIEW' },
-    { key: 'dataExport', label: 'Export Data', icon: Download, permission: 'ATTENDANCE::Attendance Records::VIEW' },
+    { key: 'sso', label: 'Single Sign-On', icon: KeyRound, permission: 'SETTINGS::Users::VIEW', parent: 'settings' },
+    { key: 'dataImport', label: 'Import Data', icon: Upload, permission: 'ATTENDANCE::Attendance Records::VIEW', parent: 'settings' },
+    { key: 'dataExport', label: 'Export Data', icon: Download, permission: 'ATTENDANCE::Attendance Records::VIEW', parent: 'settings' },
     /* LX-07: shared screen; the server lets only the company's owner ask or cancel. */
-    { key: 'closeCompany', label: 'Close Company', icon: Lock, permission: 'SETTINGS::Company data::VIEW' },
+    { key: 'closeCompany', label: 'Close Company', icon: Lock, permission: 'SETTINGS::Company data::VIEW', parent: 'settings' },
     /* HR research Phase 2: statutory and company deadlines with owners and evidence. */
-    { key: 'complianceCalendar', label: 'Compliance Calendar', icon: CalendarCheck, permission: 'PEOPLE::Employees::VIEW' },
+    { key: 'complianceCalendar', label: 'Compliance Calendar', icon: CalendarCheck, permission: 'PEOPLE::Employees::VIEW', parent: 'settings' },
     /* HR research: joining and leaving checklists. */
     { key: 'checklists', label: 'Onboarding & Exit', icon: ClipboardCheck, permission: 'PEOPLE::Employees::VIEW' },
     /* HR research Phase 1: the control tower for one month's payroll. */
     { key: 'payrollReadiness', label: 'Payroll Readiness', icon: ClipboardCheck, permission: 'ATTENDANCE::Attendance Records::VIEW' },
     /* HR research Phase 1: the implementation auditor. */
-    { key: 'dataHealth', label: 'Data Health', icon: ShieldCheck, permission: 'PEOPLE::Employees::VIEW' },
-    { key: 'auditLogs', label: 'Audit Logs', icon: AuditIcon, permission: 'SETTINGS::Audit trail::VIEW' },
+    { key: 'dataHealth', label: 'Data Health', icon: ShieldCheck, permission: 'PEOPLE::Employees::VIEW', parent: 'settings' },
+    { key: 'auditLogs', label: 'Audit Logs', icon: AuditIcon, permission: 'SETTINGS::Audit trail::VIEW', parent: 'settings' },
     /* Each person sees only what they may delete (server: routes/recycleBin.ts). */
-    { key: 'recycleBin', label: 'Recycle Bin', icon: BinIcon, permission: 'ATTENDANCE::Attendance Records::VIEW' },
-    { key: 'dataProtection', label: 'Data Protection', icon: ShieldCheck, permission: 'ATTENDANCE::Employee Portal::VIEW' },
-    { key: 'dataRequests', label: 'Data Requests', icon: ShieldCheck, permission: 'PEOPLE::Employees::VIEW' },
+    { key: 'recycleBin', label: 'Recycle Bin', icon: BinIcon, permission: 'ATTENDANCE::Attendance Records::VIEW', parent: 'settings' },
+    { key: 'dataProtection', label: 'Data Protection', icon: ShieldCheck, permission: 'ATTENDANCE::Employee Portal::VIEW', parent: 'settings' },
+    { key: 'dataRequests', label: 'Data Requests', icon: ShieldCheck, permission: 'PEOPLE::Employees::VIEW', parent: 'settings' },
+
+    { key: 'settings', label: 'Settings', icon: SettingsIcon, hub: true },
+    { key: 'companyDetails', label: 'Company Details', icon: Building2, permission: 'SETTINGS::Company Profile::VIEW', parent: 'settings' },
+    { key: 'businessUnits', label: 'Business Units', icon: Scale, permission: 'PEOPLE::Org Structure::VIEW', parent: 'settings' },
+    { key: 'grades', label: 'Grades', icon: BadgeCheck, permission: 'PEOPLE::Org Structure::VIEW', parent: 'settings' },
+    { key: 'costCentres', label: 'Cost Centres', icon: CostIcon, permission: 'PEOPLE::Org Structure::VIEW', parent: 'settings' },
 
     { section: 'Me' },
     { key: 'me', label: 'My Attendance', icon: UserRoundCheck, permission: 'ATTENDANCE::My Attendance::VIEW' },
@@ -430,6 +432,11 @@ export const attendanceApp = {
     setup: AttendanceSetup,
     weeklyOffPolicy: WeeklyOffPolicy,
     overtimePolicy: OvertimePolicy,
+    settings: AttendanceSettings,
+    companyDetails: CompanyDetails,
+    businessUnits: BusinessUnits,
+    grades: Grades,
+    costCentres: CostCentres,
   },
   /** For people who are not CLOR users, at #/<key>; the shell routes, the app draws. */
   publicPages: {

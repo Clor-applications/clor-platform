@@ -29,6 +29,16 @@ export function resolveModules(app, nav) {
  * sidebar (a page under a Settings hub) names its `parent` in the nav, and
  * belongs to the parent's module.
  */
+/**
+ * A settings page (`hub: true`) is a page of links to the screens marked
+ * `parent: <its key>`. It carries no permission of its own: it is there when
+ * this person may open at least one of them, and gone when they may open none.
+ */
+export function withoutEmptyHubs(nav) {
+  const parents = new Set(nav.filter((i) => i.parent).map((i) => i.parent));
+  return nav.filter((i) => !i.hub || parents.has(i.key));
+}
+
 export function moduleForScreen(modules, screen, nav = []) {
   const direct = modules.find((m) => m.items.some((i) => i.key === screen));
   if (direct) return direct;
