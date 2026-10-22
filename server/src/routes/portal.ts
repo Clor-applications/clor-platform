@@ -339,14 +339,14 @@ const caseRow = (r: any) => ({ id: r.id, title: r.title, status: r.status, categ
 
 portalRouter.get('/hr-cases', async (req, res) => {
   const e = req.portal!.employee;
-  if (!(await isFeatureEnabled(e.accountId, e.orgId, 'people'))) return res.json({ available: false, cases: [] });
+  if (!(await isFeatureEnabled(e.accountId, e.orgId, 'peopleEngage'))) return res.json({ available: false, cases: [] });
   const rows = await peoplePrisma.peopleRecord.findMany({ where: { accountId: e.accountId, orgId: e.orgId, kind: 'helpdesk', employeeId: e.id }, orderBy: { updatedAt: 'desc' }, take: 50 });
   res.json({ available: true, categories: HR_CATEGORIES, cases: rows.map(caseRow) });
 });
 
 portalRouter.post('/hr-cases', async (req, res) => {
   const e = req.portal!.employee;
-  if (!(await isFeatureEnabled(e.accountId, e.orgId, 'people'))) return res.status(404).json({ error: 'Your company does not take HR questions here.' });
+  if (!(await isFeatureEnabled(e.accountId, e.orgId, 'peopleEngage'))) return res.status(404).json({ error: 'Your company does not take HR questions here.' });
   const title = String(req.body?.title || '').trim().slice(0, 200);
   const description = String(req.body?.description || '').trim().slice(0, 5000);
   const category = HR_CATEGORIES.includes(req.body?.category) ? req.body.category : 'GENERAL';
@@ -370,7 +370,7 @@ portalRouter.post('/hr-cases', async (req, res) => {
 // Published People communications reach employees without granting HR access.
 portalRouter.get('/company-updates', async (req, res) => {
   const e = req.portal!.employee;
-  if (!(await isFeatureEnabled(e.accountId, e.orgId, 'people'))) return res.json({ announcements: [], events: [] });
+  if (!(await isFeatureEnabled(e.accountId, e.orgId, 'peopleEngage'))) return res.json({ announcements: [], events: [] });
   const records = await peoplePrisma.peopleRecord.findMany({
     where: { accountId: e.accountId, orgId: e.orgId, OR: [{ kind: 'announcements', status: 'PUBLISHED' }, { kind: 'events', status: 'SCHEDULED' }] },
     orderBy: { updatedAt: 'desc' }, take: 100,

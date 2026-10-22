@@ -43,6 +43,10 @@ export const saveRunInputs = (id, inputs) =>
 export const takeDaysFromAttendance = (id, overwrite = false) =>
   apiFetch(`${base()}/${encodeURIComponent(id)}/inputs/from-attendance`, { ...opts, method: 'POST', body: { overwrite } });
 
+/** Without Attendance: approved unpaid leave in People is loss of pay; days typed by hand are kept unless `overwrite`. */
+export const takeDaysFromLeave = (id, overwrite = false) =>
+  apiFetch(`${base()}/${encodeURIComponent(id)}/inputs/from-leave`, { ...opts, method: 'POST', body: { overwrite } });
+
 /** What would stop this payroll producing a payslip somebody could defend. */
 export const validatePayrollRun = (id) =>
   apiFetch(`${base()}/${encodeURIComponent(id)}/validate`, { ...opts, method: 'POST' });

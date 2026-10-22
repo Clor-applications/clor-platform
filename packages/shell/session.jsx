@@ -120,7 +120,8 @@ export function SessionProvider({ children }) {
         billingFor(orgId, branchId).catch(() => null),
       ]);
       const apps = visibleApps(appsFromFeatures(features), billing);
-      setTenants((list) => list.map((t) => (t.id === orgId ? { ...t, subscriptions: apps, billing } : t)));
+      /* The switches too: the shell hides a module the company switched off (nav items carry `feature`). */
+      setTenants((list) => list.map((t) => (t.id === orgId ? { ...t, subscriptions: apps, billing, features } : t)));
     } catch {
       /* A company whose features cannot be read still has its books. */
       setTenants((list) =>
@@ -181,6 +182,14 @@ export function SessionProvider({ children }) {
 
   useEffect(() => {
     if (tenant && tenant.subscriptions === null) loadApps(tenant.id, tenant.branchId);
+  }, [tenant, loadApps]);
+
+  /* A screen that changed the switches (People → Settings → Modules) asks for them again, so the menu follows at once. */
+  useEffect(() => {
+    if (!tenant) return undefined;
+    const reload = () => loadApps(tenant.id, tenant.branchId);
+    window.addEventListener('clor:features-changed', reload);
+    return () => window.removeEventListener('clor:features-changed', reload);
   }, [tenant, loadApps]);
 
   /* An app signing out, or the platform giving up on a refresh, ends the

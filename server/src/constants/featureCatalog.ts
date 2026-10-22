@@ -378,6 +378,45 @@ export const FEATURE_CATALOG: FeatureDef[] = [
     defaultEnabled: false,
     category: 'People',
   },
+  /*
+   * People's modules (founder, 22 Oct 2026): a company switches off what it
+   * does not use, and the People plan decides what may be on
+   * (APP_TIER_MODULES). The core — employees, documents, joining and leaving,
+   * leave and attendance, insights, settings — is People itself and has no
+   * switch. On by default, so nothing goes away from anyone.
+   */
+  {
+    key: 'peopleHiring',
+    label: 'Hiring',
+    description: 'Job openings and candidates, and hiring someone straight into an employee file with a joining checklist.',
+    defaultEnabled: true,
+    category: 'People',
+    dependsOn: 'people',
+  },
+  {
+    key: 'peoplePerformance',
+    label: 'Performance',
+    description: 'Goals, feedback and learning.',
+    defaultEnabled: true,
+    category: 'People',
+    dependsOn: 'people',
+  },
+  {
+    key: 'peopleEngage',
+    label: 'Engage',
+    description: 'Announcements and events for everyone, and Ask HR cases from the employee app.',
+    defaultEnabled: true,
+    category: 'People',
+    dependsOn: 'people',
+  },
+  {
+    key: 'peopleBenefits',
+    label: 'Pay, Benefits & Assets',
+    description: 'Compensation records, benefits, and the company assets each person holds.',
+    defaultEnabled: true,
+    category: 'People',
+    dependsOn: 'people',
+  },
 
   // ---- Attendance -------------------------------------------------------
   /*

@@ -36,3 +36,16 @@ export function parseRecord(kind: WorkspaceKind, raw: unknown) {
   if (kind === 'performance' && body.status === 'COMPLETED' && 'progress' in details && details.progress !== 100) throw Object.assign(new Error('A completed goal must have 100% progress.'), { status: 400 });
   return { ...body, employeeId: body.employeeId || null, dueDate: body.dueDate || null, details };
 }
+
+/** The People module switch each register belongs to (featureCatalog: peopleHiring…). */
+export const MODULE_OF_KIND: Record<string, { feature: string; label: string }> = {
+  recruitment: { feature: 'peopleHiring', label: 'Hiring' },
+  candidates: { feature: 'peopleHiring', label: 'Hiring' },
+  performance: { feature: 'peoplePerformance', label: 'Performance' },
+  learning: { feature: 'peoplePerformance', label: 'Performance' },
+  announcements: { feature: 'peopleEngage', label: 'Engage' },
+  events: { feature: 'peopleEngage', label: 'Engage' },
+  helpdesk: { feature: 'peopleEngage', label: 'Engage' },
+  assets: { feature: 'peopleBenefits', label: 'Pay, Benefits & Assets' },
+  benefits: { feature: 'peopleBenefits', label: 'Pay, Benefits & Assets' },
+};

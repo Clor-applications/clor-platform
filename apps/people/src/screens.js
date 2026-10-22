@@ -30,6 +30,7 @@ export { default as DataImport } from '../../attendance/src/screens/DataImport';
 export { default as AuditLogs } from '../../attendance/src/screens/AuditLogs';
 /* Settings (People → Settings): the hub, company master data, and the shared screens it opens. */
 export { default as PeopleSettings } from './screens/PeopleSettings';
+export { default as PeopleModules } from './screens/PeopleModules';
 export { default as CompanyDetails } from '@ui/company/CompanyDetails';
 export { BusinessUnits, Grades, CostCentres } from '@ui/personnel/StructureList';
 export { Areas as Locations } from '../../attendance/src/screens/OrgLists';

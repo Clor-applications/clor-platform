@@ -39,6 +39,13 @@ describe('People navigation', () => {
     for (const k of keys) expect(nav.has(k), k).toBe(true);
   });
 
+  /* Founder, 22 Oct 2026: modules switch on and off within the subscription; the shell hides an item whose `feature` is off. */
+  it('ties each switchable page to its module switch, and leaves the core without one', () => {
+    const featureOf = Object.fromEntries(peopleApp.nav.filter((i) => i.key).map((i) => [i.key, i.feature]));
+    expect(featureOf).toMatchObject({ recruitment: 'peopleHiring', candidates: 'peopleHiring', performance: 'peoplePerformance', learning: 'peoplePerformance', announcements: 'peopleEngage', helpdesk: 'peopleEngage', assets: 'peopleBenefits', benefits: 'peopleBenefits' });
+    for (const core of ['overview', 'employees', 'documents', 'checklists', 'leaveRequests', 'leaveBalances', 'attendance', 'settings', 'modules']) expect(featureOf[core], core).toBeUndefined();
+  });
+
   it('uses Title Case for every menu label', () => {
     for (const item of peopleApp.nav.filter((i) => i.key)) {
       const small = item.label.split(' ').filter((w) => /^[a-z]/.test(w) && !['and', 'of', 'to', 'in'].includes(w));

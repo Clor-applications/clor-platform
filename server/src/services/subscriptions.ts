@@ -1,5 +1,5 @@
 import { platformPrisma } from '../utils/platformPrisma.js';
-import { APP_CODES, SELLABLE_APP_CODES, appByCode, appForFeature, isSellableApp } from '../constants/appCatalog.js';
+import { APP_CATALOG, APP_CODES, SELLABLE_APP_CODES, appByCode, appForFeature, isSellableApp } from '../constants/appCatalog.js';
 import { getGateway, type NormalizedEvent } from '../billing/gateway.js';
 
 /**
@@ -123,6 +123,7 @@ export async function setSubscription(accountId: string, input: SetSubscriptionI
     input.trialEndsAt ??
     (input.trialDays && input.trialDays > 0 ? new Date(Date.now() + input.trialDays * 86400000) : null);
   const status = input.status || (trialEndsAt ? 'trialing' : 'active');
+  const before = new Set((await getSubscription(accountId))?.items.map((i) => i.appCode) || []);
 
   const sub = await platformPrisma.subscription.upsert({
     where: { accountId },
@@ -157,7 +158,31 @@ export async function setSubscription(accountId: string, input: SetSubscriptionI
   }
 
   await syncAccountEntitlement(accountId);
+  await syncAppSwitches(accountId, before, new Set(apps.map((a) => a.appCode)));
   return getSubscription(accountId);
+}
+
+/**
+ * Apps follow the subscription (founder, 22 Oct 2026): an app added is
+ * switched on for every company in the account, one taken away is switched
+ * off. Only apps that changed are touched, so a company that switched an
+ * owned app off keeps it off when something else in the subscription changes.
+ * A first subscription counts as adding what it holds.
+ */
+export async function syncAppSwitches(accountId: string, before: Set<string>, after: Set<string>) {
+  const orgs = await platformPrisma.org.findMany({ where: { accountId }, select: { id: true } });
+  for (const app of APP_CATALOG) {
+    if (!app.featureKey || !app.available) continue;
+    const now = after.has(app.code);
+    if (before.has(app.code) === now) continue;
+    for (const o of orgs) {
+      await platformPrisma.featureSetting.upsert({
+        where: { orgId_key: { orgId: o.id, key: app.featureKey } },
+        update: { enabled: now, updatedByUserId: 'subscription' },
+        create: { accountId, orgId: o.id, key: app.featureKey, enabled: now, updatedByUserId: 'subscription' },
+      });
+    }
+  }
 }
 
 /**

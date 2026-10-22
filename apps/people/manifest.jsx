@@ -1,5 +1,6 @@
 import React from 'react';
 import {
+  AppsListColor,
   ArrowSyncColor,
   BeachColor,
   BookOpenLightbulbColor,
@@ -83,6 +84,7 @@ const MyDays = screen('MyDays');
 const DataImport = screen('DataImport');
 const AuditLogs = screen('AuditLogs');
 const PeopleSettings = screen('PeopleSettings');
+const PeopleModules = screen('PeopleModules');
 const CompanyDetails = screen('CompanyDetails');
 const BusinessUnits = screen('BusinessUnits');
 const Grades = screen('Grades');
@@ -133,6 +135,7 @@ const I = {
   import: colorIcon(DocumentAddColor, 'DocumentAdd'),
   audit: colorIcon(DocumentTextColor, 'DocumentText'),
   settings: colorIcon(SettingsColor, 'Settings'),
+  modules: colorIcon(AppsListColor, 'AppsList'),
   company: colorIcon(BuildingColor, 'Building'),
   unit: colorIcon(DataPieColor, 'DataPie'),
   grade: colorIcon(RibbonStarColor, 'RibbonStar'),
@@ -212,16 +215,16 @@ export const peopleApp = {
     { key: 'myLeave', label: 'My Leave', icon: I.myLeave, permission: 'ATTENDANCE::My Attendance::VIEW' },
     { key: 'leaveTypes', label: 'Leave Policy', icon: I.policy, permission: 'ATTENDANCE::Leave Types::VIEW', parent: 'settings' },
     { key: 'holidays', label: 'Holidays', icon: I.holiday, permission: 'ATTENDANCE::Holidays::VIEW', parent: 'settings' },
-    { key: 'recruitment', label: 'Jobs', icon: I.job, permission: 'PEOPLE::Recruitment::VIEW' },
-    { key: 'candidates', label: 'Candidates', icon: I.candidate, permission: 'PEOPLE::Recruitment::VIEW' },
-    { key: 'performance', label: 'Goals & Feedback', icon: I.goal, permission: 'PEOPLE::Performance::VIEW' },
-    { key: 'learning', label: 'Training', icon: I.training, permission: 'PEOPLE::Learning::VIEW' },
-    { key: 'announcements', label: 'Announcements', icon: I.news, permission: 'PEOPLE::Announcements::VIEW' },
-    { key: 'events', label: 'Events', icon: I.event, permission: 'PEOPLE::Events::VIEW' },
-    { key: 'helpdesk', label: 'HR Cases', icon: I.hrCase, permission: 'PEOPLE::HR Cases::VIEW' },
-    { key: 'assets', label: 'Assets', icon: I.asset, permission: 'PEOPLE::Assets::VIEW' },
-    { key: 'benefits', label: 'Benefits', icon: I.benefit, permission: 'PEOPLE::Benefits::VIEW' },
-    { key: 'compensation', label: 'Salary Revisions', icon: I.salary, permission: 'PAYROLL::Salary Revisions::VIEW' },
+    { key: 'recruitment', label: 'Jobs', icon: I.job, permission: 'PEOPLE::Recruitment::VIEW', feature: 'peopleHiring' },
+    { key: 'candidates', label: 'Candidates', icon: I.candidate, permission: 'PEOPLE::Recruitment::VIEW', feature: 'peopleHiring' },
+    { key: 'performance', label: 'Goals & Feedback', icon: I.goal, permission: 'PEOPLE::Performance::VIEW', feature: 'peoplePerformance' },
+    { key: 'learning', label: 'Training', icon: I.training, permission: 'PEOPLE::Learning::VIEW', feature: 'peoplePerformance' },
+    { key: 'announcements', label: 'Announcements', icon: I.news, permission: 'PEOPLE::Announcements::VIEW', feature: 'peopleEngage' },
+    { key: 'events', label: 'Events', icon: I.event, permission: 'PEOPLE::Events::VIEW', feature: 'peopleEngage' },
+    { key: 'helpdesk', label: 'HR Cases', icon: I.hrCase, permission: 'PEOPLE::HR Cases::VIEW', feature: 'peopleEngage' },
+    { key: 'assets', label: 'Assets', icon: I.asset, permission: 'PEOPLE::Assets::VIEW', feature: 'peopleBenefits' },
+    { key: 'benefits', label: 'Benefits', icon: I.benefit, permission: 'PEOPLE::Benefits::VIEW', feature: 'peopleBenefits' },
+    { key: 'compensation', label: 'Salary Revisions', icon: I.salary, permission: 'PAYROLL::Salary Revisions::VIEW', feature: 'peopleBenefits' },
     { key: 'reports', label: 'Workforce Report', icon: I.report, permission: 'PEOPLE::Employees::VIEW' },
     { key: 'dataHealth', label: 'Data Health', icon: I.health, permission: 'PEOPLE::Employees::VIEW' },
     { key: 'complianceCalendar', label: 'Compliance Calendar', icon: I.compliance, permission: 'PEOPLE::Employees::VIEW' },
@@ -233,6 +236,8 @@ export const peopleApp = {
     { key: 'tags', label: 'Tags', icon: I.tag, permission: 'PEOPLE::Org Structure::VIEW', parent: 'settings' },
     { key: 'dataImport', label: 'Import Data', icon: I.import, permission: 'PEOPLE::Employees::CREATE', parent: 'settings' },
     { key: 'settings', label: 'Settings', icon: I.settings, hub: true },
+    /* Founder, 22 Oct 2026: modules switch on and off, within what the subscription carries. */
+    { key: 'modules', label: 'Modules & Apps', icon: I.modules, permission: 'SETTINGS::Company Profile::VIEW', parent: 'settings' },
     { key: 'companyDetails', label: 'Company Details', icon: I.company, permission: 'SETTINGS::Company Profile::VIEW', parent: 'settings' },
     { key: 'businessUnits', label: 'Business Units', icon: I.unit, permission: 'PEOPLE::Org Structure::VIEW', parent: 'settings' },
     { key: 'areas', label: 'Locations & Sites', icon: I.location, permission: 'PEOPLE::Org Structure::VIEW', parent: 'settings' },
@@ -284,6 +289,7 @@ export const peopleApp = {
     dataImport: DataImport,
     auditLogs: AuditLogs,
     settings: PeopleSettings,
+    modules: PeopleModules,
     companyDetails: CompanyDetails,
     businessUnits: BusinessUnits,
     areas: Locations,

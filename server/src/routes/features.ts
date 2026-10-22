@@ -8,7 +8,7 @@ import { requirePermission } from '../middleware/rbac.js';
 import { PermissionAction } from '../constants/enums.js';
 import { isKnownFeature } from '../constants/featureCatalog.js';
 import { featureDisableBlocker, getFeatureCatalogWithValues, getFeatures } from '../services/features.js';
-import { entitlementFor, upgradeHintFor } from '../services/entitlements.js';
+import { appOfFeature, entitlementFor, upgradeHintFor } from '../services/entitlements.js';
 import { appOwnershipReason } from '../services/subscriptions.js';
 import { MODULE_PACKS } from '../constants/planCatalog.js';
 
@@ -96,6 +96,17 @@ featuresRouter.put(
     }
 
     /*
+     * Some flags are whole apps (payroll). Switching one on is buying the app,
+     * so the subscription — the commercial ceiling above the plan — has to own
+     * it. 402, not 403: the client shows an upgrade path, not "forbidden".
+     */
+    for (const [key, enabled] of Object.entries(body.features)) {
+      if (!enabled) continue;
+      const reason = await appOwnershipReason(accountId, key);
+      if (reason) return res.status(402).json({ error: reason, code: 'APP_NOT_SUBSCRIBED', feature: key });
+    }
+
+    /*
      * The ceiling is enforced here as well as when features are read. Reading
      * alone would let a switch be stored for something the account cannot have,
      * which then turns itself on the moment anyone upgrades — a surprise, and
@@ -107,23 +118,12 @@ featuresRouter.put(
     for (const [key, enabled] of Object.entries(body.features)) {
       if (enabled && !entitlement.features.has(key)) {
         return res.status(403).json({
-          error: `${key} is not included in the ${entitlement.planName} plan.`,
+          error: appOfFeature(key) ? `${upgradeHintFor(key)}: ${key} cannot be switched on.` : `${key} is not included in the ${entitlement.planName} plan.`,
           code: 'NOT_ENTITLED',
           feature: key,
           upgradeHint: upgradeHintFor(key),
         });
       }
-    }
-
-    /*
-     * Some flags are whole apps (payroll). Switching one on is buying the app,
-     * so the subscription — the commercial ceiling above the plan — has to own
-     * it. 402, not 403: the client shows an upgrade path, not "forbidden".
-     */
-    for (const [key, enabled] of Object.entries(body.features)) {
-      if (!enabled) continue;
-      const reason = await appOwnershipReason(accountId, key);
-      if (reason) return res.status(402).json({ error: reason, code: 'APP_NOT_SUBSCRIBED', feature: key });
     }
 
     const current = await getFeatures(accountId, orgId);

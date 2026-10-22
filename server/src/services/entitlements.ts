@@ -2,6 +2,8 @@ import { prisma } from '../utils/prisma.js';
 import { platformPrisma } from '../utils/platformPrisma.js';
 import { FEATURE_CATALOG } from '../constants/featureCatalog.js';
 import { DEFAULT_PLAN_KEY, lowestPlanWith, planFor } from '../constants/planCatalog.js';
+import { appByCode, appForFeature, tierAllows } from '../constants/appCatalog.js';
+import { appAccess, getSubscription } from './subscriptions.js';
 
 /**
  * What an account is ALLOWED to have — the ceiling above the per-org settings.
@@ -29,6 +31,23 @@ export type Entitlement = {
 
 const ALL_KEYS = FEATURE_CATALOG.map((f) => f.key);
 
+/**
+ * The app a feature belongs to: an app's own switch (people, payroll,
+ * attendance) or one of its modules (payrollPf, peopleHiring), followed up
+ * the dependsOn chain. Null for Accounting's features.
+ */
+export function appOfFeature(key: string): string | null {
+  const seen = new Set<string>();
+  let k: string | undefined = key;
+  while (k && !seen.has(k)) {
+    seen.add(k);
+    const app = appForFeature(k);
+    if (app) return app.code;
+    k = FEATURE_CATALOG.find((f) => f.key === k)?.dependsOn;
+  }
+  return null;
+}
+
 export async function entitlementFor(accountId: string): Promise<Entitlement> {
   const row = await platformPrisma.accountEntitlement.findUnique({ where: { accountId } });
   const plan = planFor(row?.planKey ?? DEFAULT_PLAN_KEY);
@@ -51,11 +70,31 @@ export async function entitlementFor(accountId: string): Promise<Entitlement> {
         .filter(Boolean)
     : [];
 
+  /*
+   * The accounting plan is Accounting's ceiling. An app sold on its own
+   * (People, Attendance, Payroll) and its modules follow that app's
+   * subscription instead: owned, and carried by the item's tier. Owned, not
+   * paid up: a lapsed app stays visible (the data is the customer's) and its
+   * routes refuse work (isAppEntitled). No subscription row owns everything.
+   */
+  const fromPlan = new Set([...base, ...extras]);
+  const [access, sub] = await Promise.all([appAccess(accountId), getSubscription(accountId)]);
+  const tierOf = (code: string) => sub?.items.find((i) => i.appCode === code)?.tier ?? null;
+  const features = new Set<string>();
+  for (const k of ALL_KEYS) {
+    const app = appOfFeature(k);
+    if (!app) {
+      if (fromPlan.has(k)) features.add(k);
+    } else if (access.ownedApps.includes(app) && tierAllows(app, tierOf(app), k)) {
+      features.add(k);
+    }
+  }
+  for (const k of extras) features.add(k);
   return {
     planKey: plan.key,
     planName: plan.name,
     status,
-    features: new Set([...base, ...extras]),
+    features,
     limits: {
       maxCompanies: row?.maxCompanies ?? plan.limits.maxCompanies,
       maxUsers: row?.maxUsers ?? plan.limits.maxUsers,
@@ -78,6 +117,11 @@ export async function isEntitled(accountId: string, key: string) {
  * whole reason this layer exists.
  */
 export function upgradeHintFor(key: string): string | null {
+  const app = appOfFeature(key);
+  if (app) {
+    const name = appByCode(app)?.name || app;
+    return appByCode(app)?.featureKey === key ? `Add ${name} to your subscription` : `Not in your ${name} plan`;
+  }
   const plan = lowestPlanWith(key);
   return plan ? `Available on the ${plan.name} plan` : null;
 }

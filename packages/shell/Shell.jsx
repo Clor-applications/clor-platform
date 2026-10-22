@@ -383,8 +383,9 @@ export default function Shell() {
   if (!tenant) return <CompanySetup />;
 
   const app = appById(activeAppId);
-  /* Items whose `permission` this person lacks go, then a settings page left with nothing on it, then any section heading left with nothing under it. */
-  const allowed = withoutEmptyHubs((app?.nav || []).filter((item) => item.section || !item.permission || !granted || granted.has(item.permission)));
+  /* Items whose `permission` this person lacks go, and those of a module the company switched off (`feature`), then a settings page left with nothing on it, then any section heading left with nothing under it. */
+  const switchedOn = (item) => !item.feature || !tenant?.features || tenant.features[item.feature] !== false;
+  const allowed = withoutEmptyHubs((app?.nav || []).filter((item) => item.section || ((!item.permission || !granted || granted.has(item.permission)) && switchedOn(item))));
   const nav = allowed.filter((item, i) => !item.section || (allowed[i + 1] && !allowed[i + 1].section));
   /* A screen the open app does not have is not a screen: the same company
      switch that changes the app leaves last app's screen key behind, and

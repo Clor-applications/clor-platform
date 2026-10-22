@@ -5,7 +5,8 @@ import { authorize, requirePermission } from '../middleware/rbac.js';
 import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { peopleRouteOk } from '../services/people/guards.js';
 import { recordAudit } from '../services/auditTrail.js';
-import { WORKSPACE, parseRecord, type WorkspaceKind } from '../services/people/workspace.js';
+import { MODULE_OF_KIND, WORKSPACE, parseRecord, type WorkspaceKind } from '../services/people/workspace.js';
+import { isFeatureEnabled } from '../services/features.js';
 import { PEOPLE_MODULE, PEOPLE_RESOURCE } from '../services/people/guards.js';
 import { PermissionAction } from '../constants/enums.js';
 import { recordJoined } from '../services/people/employmentHistory.js';
@@ -20,6 +21,11 @@ peopleWorkspaceRouter.use(path, async (req, res, next) => {
   if (!(await peopleRouteOk(req, res))) return;
   const kind = req.params.kind as WorkspaceKind;
   if (!Object.hasOwn(WORKSPACE, kind)) return res.status(404).json({ error: 'Unknown People module.' });
+  /* A module the company switched off, or its People plan does not carry, takes no work (Settings → Modules). */
+  const mod = MODULE_OF_KIND[kind];
+  if (mod && !(await isFeatureEnabled(req.tenant!.accountId, req.tenant!.orgId, mod.feature))) {
+    return res.status(403).json({ error: `${mod.label} is switched off for this company. Switch it on in People → Settings → Modules.`, code: 'MODULE_OFF', feature: mod.feature });
+  }
   const action = ({ GET: 'VIEW', POST: 'CREATE', PUT: 'EDIT', DELETE: 'DELETE' } as const)[req.method as 'GET'];
   if (!action) return res.sendStatus(405);
   return requirePermission('PEOPLE', action, WORKSPACE[kind].resource)(req, res, next);

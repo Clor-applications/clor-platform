@@ -31,6 +31,7 @@ import {
   setRunEmployeeIncluded,
   saveRunInputs,
   takeDaysFromAttendance,
+  takeDaysFromLeave,
   validatePayrollRun,
   calculatePayrollRun,
   submitRunForReview,
@@ -813,6 +814,31 @@ const DaysStage = ({ data, editable, runId, onSaved }) => {
       setTaking(false);
     }
   };
+  const fromLeave = async () => {
+    setTaking(true);
+    try {
+      let out = await takeDaysFromLeave(runId);
+      if (out.keptManual) {
+        const replace = await confirmDialog({
+          title: "Replace days typed by hand?",
+          message: `${out.keptManual} ${out.keptManual === 1 ? "person has" : "people have"} unpaid leave and days entered by hand. Replace them with the leave too?`,
+          confirmLabel: "Replace",
+          tone: "default",
+        });
+        if (replace) out = await takeDaysFromLeave(runId, true);
+      }
+      const paidOut = (out.encashments || []).reduce((a, e) => a + e.days, 0);
+      notify.success(
+        `Unpaid leave taken from People: ${out.unpaidLeaveDays} ${out.unpaidLeaveDays === 1 ? "day" : "days"} of loss of pay.` +
+          (paidOut ? ` ${paidOut} leave ${paidOut === 1 ? "day was" : "days were"} paid out in People; add the amount as variable pay.` : ""),
+      );
+      onSaved();
+    } catch (e) {
+      notify.error(String(e?.message || "Could not take leave from People."));
+    } finally {
+      setTaking(false);
+    }
+  };
   const patch = (idx, p) =>
     setRows((list) => list.map((r, i) => (i === idx ? { ...r, ...p } : r)));
 
@@ -845,7 +871,9 @@ const DaysStage = ({ data, editable, runId, onSaved }) => {
         <p className="ui-caption max-w-[60ch]">
           {hasApp("attendance")
             ? "Take payable days and loss of pay from Attendance, or type them. Without either, days come from the period and each person’s joining and leaving dates."
-            : "Days are worked out from the period and each person’s joining and leaving dates. Change them where somebody lost pay."}
+            : hasApp("people")
+              ? "Days are worked out from the period and each person’s joining and leaving dates; take approved unpaid leave from People as loss of pay, or change them by hand."
+              : "Days are worked out from the period and each person’s joining and leaving dates. Change them where somebody lost pay."}
         </p>
         {editable && hasApp("attendance") ? (
           <button
@@ -855,6 +883,16 @@ const DaysStage = ({ data, editable, runId, onSaved }) => {
             disabled={taking}
           >
             {taking ? "Taking…" : "Take days from Attendance"}
+          </button>
+        ) : null}
+        {editable && !hasApp("attendance") && hasApp("people") ? (
+          <button
+            type="button"
+            className="ui-btn ui-btn-secondary"
+            onClick={fromLeave}
+            disabled={taking}
+          >
+            {taking ? "Taking…" : "Take unpaid leave from People"}
           </button>
         ) : null}
       </div>

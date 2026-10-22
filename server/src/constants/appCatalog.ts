@@ -37,3 +37,24 @@ export const isSellableApp = (code: string) => Boolean(appByCode(code)?.availabl
 export const SELLABLE_APP_CODES = APP_CATALOG.filter((a) => a.available).map((a) => a.code);
 /** The app a feature flag switches on, if that flag is an app switch. */
 export const appForFeature = (featureKey: string) => APP_CATALOG.find((a) => a.featureKey === featureKey) || null;
+
+/**
+ * Which of an app's modules each tier carries (the subscription item's
+ * `tier`). An app not listed, no tier, or a tier not listed carries all of
+ * them: nothing is taken away until a tier is assigned. The tier names and
+ * what each costs are the founder's to set; this is the switchboard, not the
+ * price list.
+ */
+export const APP_TIER_MODULES: Record<string, Record<string, string[] | '*'>> = {
+  people: {
+    CORE: [],
+    FULL: '*',
+  },
+};
+
+export function tierAllows(appCode: string, tier: string | null | undefined, featureKey: string) {
+  const app = appByCode(appCode);
+  if (app?.featureKey === featureKey) return true;
+  const allowed = tier ? APP_TIER_MODULES[appCode]?.[tier] : undefined;
+  return allowed === undefined || allowed === '*' || allowed.includes(featureKey);
+}

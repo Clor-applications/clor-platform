@@ -8,6 +8,7 @@ const GROUPS = [
     title: 'Company',
     note: 'Who the employer is and how the company is organised.',
     items: [
+      ['modules', 'Switch HR modules on or off, and see which apps the subscription carries'],
       ['companyDetails', 'Legal name, PAN, TAN, address and statutory registrations'],
       ['businessUnits', 'Divisions or domains the company runs as one business'],
       ['areas', 'Offices, plants and sites people work at'],

@@ -455,6 +455,90 @@ payrollRunsRouter.post(
   }
 );
 
+/**
+ * Days from HR's leave, for a company that runs Payroll and People without
+ * Attendance (founder, 22 Oct 2026: leave in step across the apps). Approved
+ * unpaid leave in the pay period is loss of pay, counted from the day records
+ * approval writes (a half day is half). With Attendance on, its month summary
+ * already counts leave, so this sends the user there. Days typed by hand are
+ * kept unless `overwrite`. Leave paid out in HR is listed for the run, not
+ * paid silently.
+ */
+payrollRunsRouter.post(
+  '/orgs/:orgId/payroll/runs/:id/inputs/from-leave',
+  requirePermission(PAYROLL_MODULE, PermissionAction.EDIT, RESOURCE),
+  async (req, res) => {
+    if (!(await payrollRouteOk(req, res))) return;
+    const { accountId, orgId } = req.tenant!;
+    const run = await runOr404(req, res);
+    if (!run) return;
+    if (!editable(run, res)) return;
+    if (await isFeatureEnabled(accountId, orgId, 'attendance')) {
+      return res.status(409).json({ error: 'Attendance is on: take the days from Attendance, which already counts leave.', code: 'USE_ATTENDANCE' });
+    }
+    if (!(await isFeatureEnabled(accountId, orgId, 'people'))) {
+      return res.status(409).json({ error: 'People is not switched on, so there is no leave to take.', code: 'PEOPLE_DISABLED' });
+    }
+    const overwrite = req.body?.overwrite === true;
+    const period = await payrollPrisma.payrollPeriod.findFirst({ where: { orgId, id: run.periodId } });
+    if (!period) return res.status(409).json({ error: 'This run has no payroll period.' });
+    const dates = datesBetween(period.startDate, period.endDate);
+    const workingDays = dates.length;
+
+    const members = (await payrollPrisma.payrollRunEmployee.findMany({ where: { orgId, runId: run.id, inclusion: 'INCLUDED' }, select: { employeeId: true } })).map((m) => m.employeeId);
+    const days = await peoplePrisma.attendanceRecord.findMany({
+      where: { orgId, employeeId: { in: members }, date: { gte: period.startDate, lte: period.endDate }, leaveRequestId: { not: null } },
+      select: { employeeId: true, status: true, leaveRequestId: true },
+    });
+    const requests = await peoplePrisma.leaveRequest.findMany({ where: { orgId, id: { in: [...new Set(days.map((d) => d.leaveRequestId!))] } }, select: { id: true, leaveTypeId: true } });
+    const types = new Map((await peoplePrisma.leaveType.findMany({ where: { orgId }, select: { id: true, name: true, isPaid: true } })).map((t) => [t.id, t]));
+    const typeOf = new Map(requests.map((r) => [r.id, types.get(r.leaveTypeId)]));
+    const unpaid = new Map<string, { days: number; names: Set<string> }>();
+    for (const d of days) {
+      const t = typeOf.get(d.leaveRequestId!);
+      if (!t || t.isPaid) continue;
+      const u = unpaid.get(d.employeeId) || { days: 0, names: new Set<string>() };
+      u.days += d.status === 'ON_LEAVE' ? 1 : 0.5;
+      u.names.add(t.name);
+      unpaid.set(d.employeeId, u);
+    }
+    const existing = new Map((await payrollPrisma.payrollInput.findMany({ where: { orgId, runId: run.id } })).map((i) => [i.employeeId, i]));
+
+    let saved = 0;
+    const keptManual: string[] = [];
+    for (const employeeId of members) {
+      const u = unpaid.get(employeeId);
+      const had = existing.get(employeeId);
+      if (!u && !had) continue;
+      if (had && had.source === 'MANUAL' && !overwrite) {
+        if (u) keptManual.push(employeeId);
+        continue;
+      }
+      const lop = u ? Math.round(u.days * 100) / 100 : 0;
+      /* What the person would be paid for before leave: the days already worked out for them, or the whole period. */
+      const base = had && had.source !== 'MANUAL' ? Number(had.payableDays) + Number(had.lwpDays) : workingDays;
+      const notes = lop ? `From leave: loss of pay ${lop} (${[...u!.names].join(', ')}).` : 'From leave: no unpaid leave.';
+      const data = { workingDays: had ? Number(had.workingDays) : workingDays, payableDays: Math.max(0, base - lop), lwpDays: lop, source: 'LEAVE', notes };
+      await payrollPrisma.payrollInput.upsert({
+        where: { runId_employeeId: { runId: run.id, employeeId } },
+        create: { accountId, orgId, runId: run.id, employeeId, ...data, createdByUserId: req.auth!.userId },
+        update: data,
+      });
+      saved += 1;
+    }
+    /* Paid out in HR and not yet paid by a run: shown so the amount is added, never paid twice. */
+    const year = Number(period.endDate.slice(0, 4));
+    const encash = await peoplePrisma.leaveAdjustment.findMany({ where: { orgId, kind: 'ENCASH', paidInRunId: null, employeeId: { in: members }, year: { lte: year } }, select: { employeeId: true, days: true, leaveTypeId: true } });
+    res.json({
+      ok: true,
+      saved,
+      keptManual: keptManual.length,
+      unpaidLeaveDays: [...unpaid.values()].reduce((a, u) => a + u.days, 0),
+      encashments: encash.map((e) => ({ employeeId: e.employeeId, days: -e.days, leaveType: types.get(e.leaveTypeId)?.name || '' })),
+    });
+  }
+);
+
 // ---------------------------------------------------------------- the stages
 
 payrollRunsRouter.post(
