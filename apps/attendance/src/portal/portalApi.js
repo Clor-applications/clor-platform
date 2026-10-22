@@ -103,6 +103,9 @@ export const getLeave = () => call('/leave');
 export const askLeave = (body) => call('/leave', { method: 'POST', body });
 export const cancelLeave = (id) => call(`/leave/${encodeURIComponent(id)}/cancel`, { method: 'POST' });
 export const getTax = () => call('/tax');
+/* Ask HR: my HR cases, and a new one (server: portal /hr-cases). */
+export const getHrCases = () => call('/hr-cases');
+export const askHr = (body) => call('/hr-cases', { method: 'POST', body });
 export const saveTax = (body) => call('/tax', { method: 'PUT', body });
 export const changePassword = (current, next) =>
   call('/password', { method: 'POST', body: { current, next } }).then((r) => {

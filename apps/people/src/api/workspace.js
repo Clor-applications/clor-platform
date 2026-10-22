@@ -5,3 +5,5 @@ const opts = { skipWarehouseHeader: true };
 export const listRecords = (kind) => apiFetch(base(kind), opts).then((r) => r.records);
 export const saveRecord = (kind, body) => apiFetch(`${base(kind)}${body.id ? `/${encodeURIComponent(body.id)}` : ''}`, { ...opts, method: body.id ? 'PUT' : 'POST', body: { title: body.title, status: body.status, employeeId: body.employeeId || null, dueDate: body.dueDate || null, details: body.details, ...(body.version ? { version: body.version } : {}) } });
 export const deleteRecord = (kind, id) => apiFetch(`${base(kind)}/${encodeURIComponent(id)}`, { ...opts, method: 'DELETE' });
+/* An offered candidate becomes an employee, joining checklist started (server: routes/peopleWorkspace.ts). */
+export const hireCandidate = (id, body) => apiFetch(`${base('candidates')}/${encodeURIComponent(id)}/hire`, { ...opts, method: 'POST', body });

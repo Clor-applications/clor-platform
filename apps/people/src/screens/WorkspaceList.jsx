@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useId, useMemo, useState } from 'react';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2, UserPlus } from 'lucide-react';
 import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
 import { useListSearch } from '@ui/components/ListToolbar';
 import DocumentListShell from '@ui/components/list/DocumentListShell';
@@ -9,10 +9,10 @@ import { EmptyState, SkeletonCard } from '@ui/components/ui/Primitives';
 import Drawer from '@ui/components/ui/Drawer';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { listEmployees } from '@ui/personnel/api';
-import { deleteRecord, listRecords, saveRecord } from '../api/workspace';
+import { deleteRecord, hireCandidate, listRecords, saveRecord } from '../api/workspace';
 import { WORKSPACE_CONFIG, statusLabel } from './workspaceConfig';
 
-export default function WorkspaceList({ kind }) {
+export default function WorkspaceList({ kind, openScreen }) {
   const cfg = WORKSPACE_CONFIG[kind];
   const formId = useId();
   const [rows, setRows] = useState([]);
@@ -26,6 +26,8 @@ export default function WorkspaceList({ kind }) {
   const [status, setStatus] = useState('');
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(25);
+  /* Hire: the offered candidate on the drawer, with the joining date and employee ID asked. */
+  const [hiring, setHiring] = useState(null);
   const load = useCallback(async () => {
     try {
       const [records, people, vacancies] = await Promise.all([listRecords(kind), cfg.employee ? listEmployees() : null, kind === 'candidates' ? listRecords('recruitment') : null]);
@@ -48,6 +50,16 @@ export default function WorkspaceList({ kind }) {
     e.preventDefault(); setSaving(true); setFormError('');
     try { await saveRecord(kind, editing); setEditing(null); notify.success(`${cfg.singular} saved.`); await load(); }
     catch (err) { setFormError(err.message || 'Could not save.'); }
+    finally { setSaving(false); }
+  };
+  const hire = async (e) => {
+    e.preventDefault(); setSaving(true);
+    try {
+      const { employee } = await hireCandidate(hiring.row.id, { dateOfJoining: hiring.dateOfJoining, code: hiring.code || null });
+      notify.success(`${employee.name} is now an employee. Their joining checklist has started.`);
+      setHiring(null); await load();
+      if (openScreen) openScreen('checklists');
+    } catch (err) { notify.error(err.message || 'Not hired.'); }
     finally { setSaving(false); }
   };
   const remove = async (row) => {
@@ -79,7 +91,11 @@ export default function WorkspaceList({ kind }) {
         {cfg.employee && <td>{r.employeeName || 'Company plan'}</td>}
         {cfg.columns.map((key) => <td key={key} className="max-w-60 truncate" title={detailValue(r, key)}>{detailValue(r, key)}</td>)}
         <td><span className="ui-pill ui-pill-neutral">{r.statusName}</span></td><td>{r.dueDate || '—'}</td><td>{r.updatedAt.slice(0, 10)}</td>
-        <td><button className="ui-icon-btn" aria-label={`Delete ${r.title}`} onClick={() => remove(r)}><Trash2 size={16} /></button></td>
+        <td className="whitespace-nowrap">
+          {kind === 'candidates' && !r.employeeId && ['OFFERED', 'HIRED'].includes(r.status) ? <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm mr-1" onClick={() => setHiring({ row: r, dateOfJoining: new Date().toISOString().slice(0, 10), code: '' })}><UserPlus size={14} /> Hire</button> : null}
+          {kind === 'candidates' && r.employeeId ? <span className="ui-caption mr-2">Employee</span> : null}
+          <button className="ui-icon-btn" aria-label={`Delete ${r.title}`} onClick={() => remove(r)}><Trash2 size={16} /></button>
+        </td>
       </tr>)}{!shown.length && <tr><td colSpan={(cfg.employee ? 6 : 5) + cfg.columns.length}><EmptyState title={rows.length ? 'No matching records' : `No ${(cfg.noun || cfg.title.toLowerCase())} yet`} description={rows.length ? 'Change the search or filters to see more records.' : cfg.description} routes={!rows.length ? [{ label: `New ${cfg.singular}`, onSelect: newRow }] : undefined} /></td></tr>}</tbody></table></div>
       <Pagination total={shown.length} page={safePage} perPage={perPage} pageCount={pageCount} onPage={setPage} onPerPage={setPerPage} />
     </>}
@@ -93,6 +109,12 @@ export default function WorkspaceList({ kind }) {
         {formError && <p role="alert" className="text-sm" style={{ color: 'rgb(var(--neg))' }}>{formError}</p>}
 
       </form>}
+    </Drawer>
+  <Drawer open={Boolean(hiring)} onClose={() => { if (!saving) setHiring(null); }} title={`Hire ${hiring?.row?.title || ''}`} description="They become an employee with their email and phone, in the job's department, and their joining checklist starts." actions={<><button type="button" className="ui-btn" disabled={saving} onClick={() => setHiring(null)}>Cancel</button><button type="submit" form={`${formId}-hire`} className="ui-btn ui-btn-primary" disabled={saving || !hiring?.dateOfJoining}>{saving ? 'Hiring…' : 'Hire'}</button></>}>
+      {hiring ? <form id={`${formId}-hire`} onSubmit={hire} className="space-y-4">
+        <label className="block"><span className="ui-label">Joining date</span><input type="date" className="ui-input w-full" value={hiring.dateOfJoining} onChange={(e) => setHiring((h) => ({ ...h, dateOfJoining: e.target.value }))} required /></label>
+        <label className="block"><span className="ui-label">Employee ID (optional)</span><input className="ui-input w-full" value={hiring.code} onChange={(e) => setHiring((h) => ({ ...h, code: e.target.value }))} maxLength={40} /></label>
+      </form> : null}
     </Drawer>
   </DocumentListShell>;
 }

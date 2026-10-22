@@ -29,6 +29,8 @@ import {
   getLeave,
   getMe,
   getCompanyUpdates,
+  getHrCases,
+  askHr,
   getSchedule,
   getTax,
   hm,
@@ -124,7 +126,7 @@ export default function EmployeePortal() {
         {tab === 'approvals' ? <Approvals guard={guard} /> : null}
         {tab === 'schedule' ? <MySchedule guard={guard} /> : null}
         {tab === 'leave' ? <MyLeave guard={guard} /> : null}
-        {tab === 'me' ? <Account me={me} guard={guard} onSignOut={leave} /> : null}
+        {tab === 'me' ? <><AskHr guard={guard} /><Account me={me} guard={guard} onSignOut={leave} /></> : null}
       </main>
 
       <nav aria-label="Portal" className="fixed inset-x-0 bottom-0 z-10 border-t" style={{ backgroundColor: 'rgb(var(--surface))', borderColor: 'rgb(var(--border))' }}>
@@ -1076,4 +1078,59 @@ function CompanyUpdates({ guard }) {
   return <section className="ui-card p-4" aria-labelledby="company-updates-heading"><h2 id="company-updates-heading" className="ui-t-sec mb-3">Company updates</h2>
     <ul className="divide-y" style={{ borderColor: 'rgb(var(--border))' }}>{data.announcements.map((a) => <li className="py-3" key={a.id}><h3 className="font-semibold text-sm">{a.title}</h3><p className="mt-1 whitespace-pre-wrap text-sm ui-muted">{a.body}</p></li>)}{data.events.map((e) => <li className="py-3" key={e.id}><h3 className="font-semibold text-sm">{e.title}</h3><p className="text-sm ui-muted">{e.startDate}{e.endDate && e.endDate !== e.startDate ? ` – ${e.endDate}` : ''}{e.location ? ` · ${e.location}` : ''}</p>{e.description && <p className="mt-1 text-sm">{e.description}</p>}</li>)}</ul>
   </section>;
+}
+
+const CASE_STATUS = { OPEN: 'Waiting for HR', IN_PROGRESS: 'HR is on it', RESOLVED: 'Answered', CLOSED: 'Closed' };
+const CASE_TOPIC = { GENERAL: 'General', PAYROLL: 'Pay', LEAVE: 'Leave', DOCUMENTS: 'Documents', OTHER: 'Other' };
+
+/** Ask HR: a question or a problem, and HR's answer, without an email chain. */
+function AskHr({ guard }) {
+  const [data, setData] = useState(null);
+  const [open, setOpen] = useState(false);
+  const [form, setForm] = useState({ title: '', category: 'GENERAL', description: '' });
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState('');
+  const load = useCallback(() => guard(getHrCases()).then(setData).catch(() => setData({ available: false, cases: [] })), [guard]);
+  useEffect(() => { load(); }, [load]);
+  if (!data?.available) return null;
+  const send = async (e) => {
+    e.preventDefault(); setBusy(true); setNote('');
+    try {
+      await guard(askHr(form));
+      setForm({ title: '', category: 'GENERAL', description: '' }); setOpen(false); setNote('Sent. HR will answer here.');
+      load();
+    } catch (err) { setNote(err.message || 'Not sent.'); } finally { setBusy(false); }
+  };
+  return (
+    <section className="ui-card p-4 space-y-3" aria-labelledby="ask-hr-h">
+      <div className="flex items-center justify-between gap-2">
+        <h2 id="ask-hr-h" className="ui-t-sec">Ask HR</h2>
+        {!open ? <button type="button" className="ui-btn ui-btn-primary ui-btn-sm" onClick={() => setOpen(true)}>New question</button> : null}
+      </div>
+      {note ? <p className="text-sm" role="status">{note}</p> : null}
+      {open ? (
+        <form onSubmit={send} className="space-y-3">
+          <label className="block"><span className="ui-label">About</span>
+            <select className="ui-select w-full" value={form.category} onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}>
+              {Object.entries(CASE_TOPIC).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+            </select>
+          </label>
+          <label className="block"><span className="ui-label">In a few words</span><input className="ui-input w-full" value={form.title} maxLength={200} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} placeholder="October salary is short" required /></label>
+          <label className="block"><span className="ui-label">What happened</span><textarea className="ui-input w-full" rows={4} value={form.description} maxLength={5000} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} required /></label>
+          <div className="flex gap-2"><button type="submit" className="ui-btn ui-btn-primary" disabled={busy}>{busy ? 'Sending…' : 'Send to HR'}</button><button type="button" className="ui-btn" onClick={() => setOpen(false)}>Cancel</button></div>
+        </form>
+      ) : null}
+      {data.cases.length ? (
+        <ul className="divide-y" style={{ borderColor: 'rgb(var(--border))' }}>
+          {data.cases.map((c) => (
+            <li key={c.id} className="py-2">
+              <div className="flex items-center justify-between gap-2"><span className="text-sm font-medium">{c.title}</span><span className="ui-caption">{CASE_STATUS[c.status] || c.status}</span></div>
+              <p className="ui-caption">{CASE_TOPIC[c.category] || c.category} · {String(c.createdAt).slice(0, 10)}</p>
+              {c.resolution ? <p className="text-sm mt-1">HR: {c.resolution}</p> : null}
+            </li>
+          ))}
+        </ul>
+      ) : !open ? <p className="ui-muted text-sm">Questions about pay, leave or documents go straight to HR, and the answer comes back here.</p> : null}
+    </section>
+  );
 }

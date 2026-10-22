@@ -68,7 +68,15 @@ export async function startChecklist(who: Who, employee: { id: string }, kind: K
     const open = await peoplePrisma.checklistTask.count({ where: { orgId: who.orgId, employeeId: employee.id, kind, doneAt: null } });
     if (open) return 0;
     const base = baseDate && ISO.test(String(baseDate).slice(0, 10)) ? String(baseDate).slice(0, 10) : todayIst();
-    const { items } = await itemsFor(who.orgId, kind);
+    const { items: template } = await itemsFor(who.orgId, kind);
+    /* Leaving: one item per company asset they hold, from the asset register, so nothing walks out unnoticed. */
+    const held = kind === 'LEAVING'
+      ? await peoplePrisma.peopleRecord.findMany({ where: { orgId: who.orgId, kind: 'assets', status: 'ASSIGNED', employeeId: employee.id }, select: { title: true, details: true } })
+      : [];
+    const items: Item[] = [
+      ...template,
+      ...held.map((a) => ({ title: `Return ${a.title}${(a.details as any)?.assetTag ? ` (${(a.details as any).assetTag})` : ''}`, owner: 'IT' as Owner, dueDays: 0, note: 'From the asset register: mark the asset Returned there too.' })),
+    ];
     const done = new Set(opts.done || []);
     const now = new Date();
     await peoplePrisma.checklistTask.createMany({

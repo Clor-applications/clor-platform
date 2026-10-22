@@ -1,11 +1,17 @@
 import { Router } from 'express';
 import { requireAuth } from '../middleware/auth.js';
 import { requireTenantContext } from '../middleware/tenantContext.js';
-import { requirePermission } from '../middleware/rbac.js';
+import { authorize, requirePermission } from '../middleware/rbac.js';
 import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { peopleRouteOk } from '../services/people/guards.js';
 import { recordAudit } from '../services/auditTrail.js';
 import { WORKSPACE, parseRecord, type WorkspaceKind } from '../services/people/workspace.js';
+import { PEOPLE_MODULE, PEOPLE_RESOURCE } from '../services/people/guards.js';
+import { PermissionAction } from '../constants/enums.js';
+import { recordJoined } from '../services/people/employmentHistory.js';
+import { startChecklist } from '../services/people/checklists.js';
+import { emit as emitWebhook, employeeEvent } from '../services/attendance/webhooks.js';
+import { pushEmployeeToReaders } from './iclock.js';
 
 export const peopleWorkspaceRouter = Router();
 peopleWorkspaceRouter.use(requireAuth, requireTenantContext);
@@ -52,6 +58,48 @@ peopleWorkspaceRouter.put(`${path}/:id`, async (req, res) => {
   await recordAudit(req, { entity: 'PeopleRecord', entityId: current.id, action: 'UPDATE', message: `Updated ${kind}: ${body.title}`, metadata: { kind, fromStatus: current.status, toStatus: body.status } });
   res.json({ record });
 });
+/**
+ * Hire: an offered candidate becomes an employee in one step, with their
+ * name, email and phone, the job's department when it names one the company
+ * has, and the joining checklist started (founder: one connected HR system,
+ * not separate registers). Needs Recruitment and Employees permission both.
+ */
+peopleWorkspaceRouter.post(`${path}/:id/hire`, async (req, res) => {
+  const { accountId, orgId } = req.tenant!;
+  if (req.params.kind !== 'candidates') return res.status(404).json({ error: 'Only candidates are hired.' });
+  const refused = await authorize(req, PEOPLE_MODULE, PermissionAction.CREATE as any, PEOPLE_RESOURCE.employees);
+  if (refused) return res.status(refused.status).json(refused.body);
+  const joining = String(req.body?.dateOfJoining || '');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(joining)) return res.status(400).json({ error: 'Choose the joining date.' });
+  const code = String(req.body?.code || '').trim() || null;
+  const candidate = await peoplePrisma.peopleRecord.findFirst({ where: { id: req.params.id, accountId, orgId, kind: 'candidates' } });
+  if (!candidate) return res.status(404).json({ error: 'That candidate was not found.' });
+  if (candidate.employeeId) return res.status(409).json({ error: 'Already an employee.' });
+  if (!['OFFERED', 'HIRED'].includes(candidate.status)) return res.status(409).json({ error: 'Make an offer first: only an offered candidate is hired.' });
+  if (code && (await peoplePrisma.employee.findFirst({ where: { orgId, code }, select: { id: true } }))) return res.status(409).json({ error: `Employee ID ${code} is already used.` });
+  const d = (candidate.details || {}) as Record<string, any>;
+  const job = d.jobId ? await peoplePrisma.peopleRecord.findFirst({ where: { id: String(d.jobId), orgId, kind: 'recruitment' } }) : null;
+  const deptName = String((job?.details as any)?.department || '').trim();
+  const dept = deptName ? await peoplePrisma.department.findFirst({ where: { orgId, name: { equals: deptName, mode: 'insensitive' } } }) : null;
+  const employee = await peoplePrisma.employee.create({
+    data: {
+      accountId, orgId, name: candidate.title, code,
+      email: d.email || null, phone: d.phone || null,
+      dateOfJoining: joining, status: 'ACTIVE',
+      departmentId: dept?.id ?? null, department: dept?.name ?? null,
+      createdByUserId: req.auth!.userId,
+    } as any,
+  });
+  await peoplePrisma.peopleRecord.update({ where: { id: candidate.id }, data: { status: 'HIRED', employeeId: employee.id, version: { increment: 1 }, updatedBy: req.auth!.userId } });
+  const who = { accountId, orgId, userId: req.auth!.userId };
+  await recordJoined(who, employee, 'FORM');
+  await startChecklist(who, employee, 'JOINING', joining);
+  await pushEmployeeToReaders(orgId, employee, req.auth!.userId).catch(() => undefined);
+  emitWebhook(orgId, 'employee.created', employeeEvent(employee));
+  await recordAudit(req, { entity: 'Employee', entityId: employee.id, action: 'HIRED', message: `Hired ${candidate.title}${job ? ` for ${job.title}` : ''}`, metadata: { candidateId: candidate.id, jobId: job?.id ?? null } });
+  res.status(201).json({ employee: { id: employee.id, name: employee.name, code: employee.code } });
+});
+
 peopleWorkspaceRouter.delete(`${path}/:id`, async (req, res) => {
   const { accountId, orgId } = req.tenant!;
   const where = { id: req.params.id, accountId, orgId, kind: req.params.kind };

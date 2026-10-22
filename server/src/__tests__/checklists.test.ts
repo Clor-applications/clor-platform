@@ -55,10 +55,13 @@ describe('joining and leaving checklists', () => {
       ],
     }).expect(200);
     const e = (await api('post', '/employees', { name: 'Ravi', code: 'C2', dateOfJoining: '2025-01-01' }).expect(201)).body.employee;
+    /* A laptop on the asset register comes onto the leaving checklist. */
+    await api('post', '/workspace/assets', { title: 'Laptop', status: 'ASSIGNED', employeeId: e.id, details: { assetTag: 'LT-07' } }).expect(201);
     await api('post', `/employees/${e.id}/resign`, { lastDay: '2026-12-31', leavingType: 'RESIGNED' }).expect(200);
 
     const { leaving } = (await api('get', `/employees/${e.id}/checklist`).expect(200)).body;
-    expect(leaving.tasks.map((t: any) => t.title)).toEqual(['Recover company property', 'Readers and app access removed', 'Full and final settlement paid']);
+    expect(leaving.tasks.map((t: any) => t.title)).toEqual(['Recover company property', 'Readers and app access removed', 'Full and final settlement paid', 'Return Laptop (LT-07)']);
+    expect(leaving.tasks[3]).toMatchObject({ owner: 'IT', dueDate: '2026-12-31' });
     expect(leaving.tasks[1]).toMatchObject({ done: true, doneBy: 'CLOR' });
     expect(leaving.tasks[2]).toMatchObject({ owner: 'PAYROLL', dueDate: '2027-01-02' });
 

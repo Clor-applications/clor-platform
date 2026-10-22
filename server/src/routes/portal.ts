@@ -328,6 +328,44 @@ portalRouter.get('/home', async (req, res) => {
   });
 });
 
+/**
+ * Ask HR (connected workflows): an employee raises an HR case from the app
+ * and sees how it is going; HR works it in People → HR Cases. Only their own
+ * cases, and only where the company uses People.
+ */
+const HR_CATEGORIES = ['GENERAL', 'PAYROLL', 'LEAVE', 'DOCUMENTS', 'OTHER'] as const;
+const caseRow = (r: any) => ({ id: r.id, title: r.title, status: r.status, category: (r.details as any)?.category || 'GENERAL', description: (r.details as any)?.description || '', resolution: (r.details as any)?.resolution || '', createdAt: r.createdAt, updatedAt: r.updatedAt });
+
+portalRouter.get('/hr-cases', async (req, res) => {
+  const e = req.portal!.employee;
+  if (!(await isFeatureEnabled(e.accountId, e.orgId, 'people'))) return res.json({ available: false, cases: [] });
+  const rows = await peoplePrisma.peopleRecord.findMany({ where: { accountId: e.accountId, orgId: e.orgId, kind: 'helpdesk', employeeId: e.id }, orderBy: { updatedAt: 'desc' }, take: 50 });
+  res.json({ available: true, categories: HR_CATEGORIES, cases: rows.map(caseRow) });
+});
+
+portalRouter.post('/hr-cases', async (req, res) => {
+  const e = req.portal!.employee;
+  if (!(await isFeatureEnabled(e.accountId, e.orgId, 'people'))) return res.status(404).json({ error: 'Your company does not take HR questions here.' });
+  const title = String(req.body?.title || '').trim().slice(0, 200);
+  const description = String(req.body?.description || '').trim().slice(0, 5000);
+  const category = HR_CATEGORIES.includes(req.body?.category) ? req.body.category : 'GENERAL';
+  if (!title) return res.status(400).json({ error: 'Say in a few words what it is about.' });
+  if (description.length < 5) return res.status(400).json({ error: 'Tell HR what happened.' });
+  const open = await peoplePrisma.peopleRecord.count({ where: { orgId: e.orgId, kind: 'helpdesk', employeeId: e.id, status: { in: ['OPEN', 'IN_PROGRESS'] } } });
+  if (open >= 10) return res.status(429).json({ error: 'You have ten questions open with HR already. Wait for an answer first.' });
+  const due = new Date(Date.now() + 330 * 60_000 + 3 * 86_400_000).toISOString().slice(0, 10);
+  const row = await peoplePrisma.peopleRecord.create({
+    data: { accountId: e.accountId, orgId: e.orgId, kind: 'helpdesk', title, status: 'OPEN', employeeId: e.id, dueDate: due, details: { category, priority: 'NORMAL', description, resolution: '' }, createdBy: `portal:${e.id}`, updatedBy: `portal:${e.id}` },
+  });
+  await notifyPermission(e.accountId, e.orgId, 'PEOPLE::HR Cases::VIEW', {
+    kind: 'people.hr_case',
+    title: `${e.name}${e.code ? ` (${e.code})` : ''} asked HR: ${title}`,
+    body: description.slice(0, 300),
+    link: { app: 'people', screen: 'helpdesk' },
+  }).catch(() => null);
+  res.status(201).json({ case: caseRow(row) });
+});
+
 // Published People communications reach employees without granting HR access.
 portalRouter.get('/company-updates', async (req, res) => {
   const e = req.portal!.employee;
