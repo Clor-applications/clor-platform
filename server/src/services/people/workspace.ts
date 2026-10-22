@@ -1,7 +1,8 @@
 import { z } from 'zod';
 
 const text = (max = 2000) => z.string().trim().max(max).default('');
-const date = z.string().refine((s) => !s || (/^\d{4}-\d{2}-\d{2}$/.test(s) && !Number.isNaN(Date.parse(s)) && new Date(s).toISOString().slice(0, 10) === s), 'Enter a valid calendar date.');
+/* Optional unless a register says otherwise: left out means empty, like text. */
+const date = z.string().default('').refine((s) => !s || (/^\d{4}-\d{2}-\d{2}$/.test(s) && !Number.isNaN(Date.parse(s)) && new Date(s).toISOString().slice(0, 10) === s), 'Enter a valid calendar date.');
 const email = z.union([z.string().trim().email(), z.literal('')]).default('');
 // A separate permission for each register: hiring and employee cases must not
 // become visible merely because somebody can read the staff directory.

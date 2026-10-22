@@ -19,6 +19,8 @@ const query = (params = {}) => {
 };
 
 export const getOverview = () => apiFetch(`${base()}/overview`, opts);
+/* People → Home: what needs someone today (server: services/people/home.ts). */
+export const getPeopleHome = () => apiFetch(`${base()}/home`, opts).then((r) => r?.todos || []);
 
 export const listEmployees = (params) => apiFetch(`${base()}/employees${query(params)}`, opts);
 export const getEmployee = (id) => apiFetch(`${base()}/employees/${encodeURIComponent(id)}`, opts);

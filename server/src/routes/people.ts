@@ -19,6 +19,7 @@ import { dataHealth } from '../services/people/dataHealth.js';
 import { PAYROLL_MODULE, PAYROLL_RESOURCE } from '../services/payroll/guards.js';
 import { KINDS, READER_ACCESS_ITEM, checklistOf, cleanItems, itemsFor, openTasks, startChecklist, type Kind as ChecklistKind } from '../services/people/checklists.js';
 import { addCustom, calendar, evidenceOf, updateTask } from '../services/people/compliance.js';
+import { homeTodos } from '../services/people/home.js';
 
 /**
  * People: the staff directory.
@@ -202,6 +203,12 @@ const sendError = (res: any, e: any) => {
 // ---------------------------------------------------------------------------
 // Overview
 // ---------------------------------------------------------------------------
+
+/** People → Home: what needs someone today (services/people/home.ts). */
+peopleRouter.get('/orgs/:orgId/people/home', can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  res.json({ todos: await homeTodos(req) });
+});
 
 peopleRouter.get('/orgs/:orgId/people/overview', can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
