@@ -30,6 +30,8 @@ describe('Attendance navigation structure', () => {
     expect(s.People).toEqual([
       ['Directory', ['Employees', 'Contractors']],
       ['Employment Changes', ['Onboarding & Exit', 'Resignations', 'Transfers']],
+      ['Organization', ['Departments', 'Designations', 'Locations & Sites']],
+      ['Access', ['Employee Portal Access']],
     ]);
     expect(s.Readers).toEqual([
       ['Monitoring', ['Reader Health', 'Sync Monitoring', 'Reader Logs']],
@@ -52,6 +54,16 @@ describe('Attendance navigation structure', () => {
       ['Devices', ['Reader Activity']],
       ['All Reports', ['Report Catalogue']],
     ]);
+    expect(s.Settings).toEqual([
+      ['Organization', ['Attendance Setup', 'Work Sites', 'Work Site Check']],
+      ['Work Policy', ['Attendance Policy', 'Weekly Off Policy', 'Overtime Policy', 'Leave Policy', 'Holidays']],
+      ['Integrations', ['Integrations']],
+      ['Access & Security', ['Single Sign-On']],
+      ['Data Management', ['Data Health', 'Import Data', 'Export Data', 'Close Company']],
+      ['Compliance', ['Compliance Calendar']],
+      ['Privacy', ['Data Protection', 'Data Requests']],
+      ['Audit & Recovery', ['Audit Logs', 'Recycle Bin']],
+    ]);
     expect(s.Me).toEqual([['Self-Service', ['My Attendance', 'My Leave']]]);
   });
   it('labels are Title Case and appear once', () => {
@@ -60,24 +72,15 @@ describe('Attendance navigation structure', () => {
     const small = new Set(['&', 'of', 'and', 'to', 'a', 'on']);
     for (const l of labels) for (const w of l.split(/[\s-]+/)) if (!small.has(w)) expect(w[0], l).toBe(w[0].toUpperCase());
   });
-  it('keeps what is set up once on one Settings page (founder, 22 Oct 2026)', () => {
-    const settings = resolveModules(attendanceApp, attendanceApp.nav).find((m) => m.label === 'Settings');
-    expect(settings.single).toBe(true);
-    expect(settings.items.map((i) => i.key)).toEqual(['settings']);
-    for (const k of ['companyDetails', 'businessUnits', 'departments', 'positions', 'areas', 'grades', 'costCentres', 'holidays', 'rules', 'auditLogs', 'recycleBin']) {
-      expect(attendanceApp.nav.find((i) => i.key === k)?.parent, k).toBe('settings');
-    }
-  });
-  it('every screen that existed before the regrouping still has a place in the sidebar or on Settings', () => {
+  it('every screen that existed before the regrouping still has a place in the sidebar', () => {
     const before = ['today', 'employees', 'departments', 'positions', 'areas', 'contractors', 'resignations', 'transfer', 'dataProtection', 'sso', 'dataRequests',
       'readerHealth', 'readers', 'readerSync', 'transactions', 'enrolments', 'unmatched', 'deviceLogs', 'records', 'requests', 'leaveRequests', 'summary',
       'register', 'calendar', 'reports', 'scheduleCalendar', 'shifts', 'shiftAssignments', 'departmentSchedule', 'temporarySchedule', 'rotations', 'holidays',
       'rules', 'leaveTypes', 'leaveBalances', 'portalAccess', 'sites', 'siteCheck', 'integrations', 'dataImport', 'dataExport', 'exceptions', 'monthClose',
       'overtime', 'confirmations', 'phonePunches', 'idMapping', 'setup', 'me', 'myLeave'];
     const inModules = new Set(resolveModules(attendanceApp, attendanceApp.nav).flatMap((m) => m.items.map((i) => i.key)));
-    const parentOf = Object.fromEntries(attendanceApp.nav.filter((i) => i.key).map((i) => [i.key, i.parent]));
     for (const k of before) {
-      expect(inModules.has(k) || inModules.has(parentOf[k]), k).toBe(true);
+      expect(inModules.has(k), k).toBe(true);
       expect(attendanceApp.screens[k], k).toBeTruthy();
     }
   });
@@ -89,13 +92,13 @@ describe('Attendance navigation structure', () => {
     it(`${app.name}: every screen in the nav is reachable from a module, and every module screen exists`, () => {
       const modules = resolveModules(app, app.nav);
       const inModules = new Set(modules.flatMap((m) => m.items.map((i) => i.key)));
-      for (const item of app.nav.filter((i) => i.key)) expect(inModules.has(item.key) || (item.parent && inModules.has(item.parent)), item.key).toBe(true);
-      for (const item of app.nav.filter((i) => i.parent)) expect(app.screens[item.key], item.key).toBeTruthy();
+      for (const item of app.nav.filter((i) => i.key)) expect(inModules.has(item.key), item.key).toBe(true);
       for (const k of inModules) expect(app.screens[k], k).toBeTruthy();
     });
   }
   it('a person without a screen does not see it, and a module left empty disappears', () => {
-    const nav = withoutEmptyHubs(attendanceApp.nav.filter((i) => i.parent !== 'settings'));
+    const settings = new Set(['setup', 'sites', 'siteCheck', 'holidays', 'rules', 'weeklyOffPolicy', 'overtimePolicy', 'leaveTypes', 'integrations', 'sso', 'dataImport', 'dataExport', 'closeCompany', 'dataProtection', 'dataRequests', 'auditLogs', 'recycleBin', 'dataHealth', 'complianceCalendar']);
+    const nav = attendanceApp.nav.filter((i) => !settings.has(i.key));
     const labels = resolveModules(attendanceApp, nav).map((m) => m.label);
     expect(labels).not.toContain('Settings');
     expect(labels).toContain('Readers');
@@ -103,23 +106,19 @@ describe('Attendance navigation structure', () => {
   it('the current module follows the screen', () => {
     const modules = resolveModules(attendanceApp, attendanceApp.nav);
     expect(moduleForScreen(modules, 'transactions')?.label).toBe('Readers');
-    expect(moduleForScreen(modules, 'holidays', attendanceApp.nav)?.label).toBe('Settings');
-    expect(moduleForScreen(modules, 'departments', attendanceApp.nav)?.label).toBe('Settings');
+    expect(moduleForScreen(modules, 'holidays')?.label).toBe('Settings');
     expect(moduleForScreen(modules, 'register')?.label).toBe('Reports');
     expect(moduleForScreen(modules, 'transfer')?.label).toBe('People');
   });
 });
 
 describe('settings pages', () => {
-  const cardsOf = (file) => new Set([...readFileSync(file, 'utf8').matchAll(/\['([a-zA-Z]+)', '/g)].map((m) => m[1]).filter((k) => !['payroll', 'attendance', 'people'].includes(k)));
-  for (const [app, file] of [[attendanceApp, 'apps/attendance/src/screens/AttendanceSettings.jsx'], [peopleApp, 'apps/people/src/screens/PeopleSettings.jsx']]) {
-    it(`${app.name}: every page under Settings has a card, and every card opens a page`, () => {
-      const cards = cardsOf(file);
-      const under = app.nav.filter((i) => i.parent === 'settings').map((i) => i.key);
-      expect(under.filter((k) => !cards.has(k)), 'no card').toEqual([]);
-      expect([...cards].filter((k) => !app.screens[k]), 'no page').toEqual([]);
-    });
-  }
+  it('People: every page under Settings has a card, and every card opens a page', () => {
+    const cards = new Set([...readFileSync('apps/people/src/screens/PeopleSettings.jsx', 'utf8').matchAll(/\['([a-zA-Z]+)', '/g)].map((m) => m[1]).filter((k) => !['payroll', 'attendance'].includes(k)));
+    const under = peopleApp.nav.filter((i) => i.parent === 'settings').map((i) => i.key);
+    expect(under.filter((k) => !cards.has(k)), 'no card').toEqual([]);
+    expect([...cards].filter((k) => !peopleApp.screens[k]), 'no page').toEqual([]);
+  });
   it('Settings is there while one page under it is, and goes with the last', () => {
     const nav = [{ key: 'settings', hub: true }, { key: 'holidays', parent: 'settings' }, { key: 'records' }];
     expect(withoutEmptyHubs(nav).map((i) => i.key)).toEqual(['settings', 'holidays', 'records']);

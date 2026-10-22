@@ -61,6 +61,3 @@ export { default as OvertimePolicy } from './screens/OvertimePolicy';
 export { default as AttendanceSetup } from './screens/AttendanceSetup';
 export { default as ReportInsights } from './screens/ReportInsights';
 export { default as CloseCompany } from '@ui/company/CloseCompany';
-export { default as AttendanceSettings } from './screens/AttendanceSettings';
-export { default as CompanyDetails } from '@ui/company/CompanyDetails';
-export { BusinessUnits, Grades, CostCentres } from '@ui/personnel/StructureList';

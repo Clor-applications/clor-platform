@@ -93,11 +93,10 @@ describe('a build pinned to one app', () => {
 
 describe('the split sidebar', () => {
   for (const app of [attendanceApp, payrollApp]) {
-    it(`${app.name}: every module screen is a nav screen, every nav screen has a module or a settings page`, () => {
-      const navKeys = app.nav.filter((i) => i.key && !i.parent).map((i) => i.key);
+    it(`${app.name}: every module screen is a nav screen, every nav screen has a module`, () => {
+      const navKeys = app.nav.filter((i) => i.key).map((i) => i.key);
       const moduleKeys = app.modules.flatMap((m) => (m.groups ? m.groups.flatMap((g) => g.items) : m.items));
-      for (const k of moduleKeys) expect(app.nav.map((i) => i.key), k).toContain(k);
-      for (const i of app.nav.filter((n) => n.parent)) expect(moduleKeys, i.key).toContain(i.parent);
+      for (const k of moduleKeys) expect(navKeys, k).toContain(k);
       for (const k of navKeys) expect(moduleKeys, k).toContain(k);
       expect(new Set(moduleKeys).size).toBe(moduleKeys.length);
       expect(app.screens[app.home]).toBeTruthy();
