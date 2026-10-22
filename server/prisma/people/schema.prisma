@@ -1734,3 +1734,24 @@ model ComplianceTask {
   @@unique([orgId, code, period])
   @@index([orgId, dueDate])
 }
+
+/// HR operational registers. Each kind has a validated payload and status
+/// vocabulary in services/people/workspace.ts; no arbitrary client fields.
+model PeopleRecord {
+  id          String   @id @default(cuid())
+  accountId   String
+  orgId       String
+  kind        String
+  title       String
+  status      String
+  employeeId  String?
+  dueDate     String?
+  details     Json
+  version     Int      @default(1)
+  createdBy   String
+  updatedBy   String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([accountId, orgId, kind, status])
+}

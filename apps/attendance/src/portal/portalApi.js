@@ -154,3 +154,5 @@ export const hm = (minutes) => {
   const m = Math.max(0, Number(minutes) || 0);
   return `${Math.floor(m / 60)}:${String(m % 60).padStart(2, '0')}`;
 };
+
+export const getCompanyUpdates = () => call('/company-updates');

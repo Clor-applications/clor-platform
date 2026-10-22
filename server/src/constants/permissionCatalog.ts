@@ -199,6 +199,7 @@ export const PERMISSION_CATALOG: ModuleDef[] = [
     label: 'People',
     description: 'The staff directory: employee files, org structure and notes',
     resources: [
+      ...['Announcements', 'Events', 'Recruitment', 'Performance', 'Learning', 'HR Cases', 'Assets', 'Benefits'].map((key) => ({ key, label: key, description: `${key} register`, actions: MASTER })),
       {
         key: 'Employees',
         label: 'Employees',
@@ -647,6 +648,7 @@ export const ROLE_PRESETS: Record<string, RolePreset> = {
       ['PEOPLE', 'Employees', ['*']],
       ['PEOPLE', 'Org Structure', ['*']],
       ['PEOPLE', 'Employee Notes', ['*']],
+      ...['Announcements', 'Events', 'Recruitment', 'Performance', 'Learning', 'HR Cases', 'Assets', 'Benefits'].map((key) => ['PEOPLE', key, ['*']] as [string, string, string[]]),
     ],
   },
 

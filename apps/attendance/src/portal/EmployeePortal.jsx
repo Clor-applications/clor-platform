@@ -28,6 +28,7 @@ import {
   getAttendance,
   getLeave,
   getMe,
+  getCompanyUpdates,
   getSchedule,
   getTax,
   hm,
@@ -118,7 +119,7 @@ export default function EmployeePortal() {
 
       <main className="mx-auto max-w-md space-y-4 px-4 py-4">
         {error ? <div className="ui-card p-4 text-sm" role="alert">{error}</div> : null}
-        {tab === 'today' ? <Today me={me} reload={loadMe} guard={guard} /> : null}
+        {tab === 'today' ? <><Today me={me} reload={loadMe} guard={guard} /><CompanyUpdates guard={guard} /></> : null}
         {tab === 'days' ? <MyDays guard={guard} /> : null}
         {tab === 'approvals' ? <Approvals guard={guard} /> : null}
         {tab === 'schedule' ? <MySchedule guard={guard} /> : null}
@@ -1063,3 +1064,16 @@ function MyData({ guard }) {
 }
 
 
+
+
+function CompanyUpdates({ guard }) {
+  const [data, setData] = useState(null);
+  const [error, setError] = useState('');
+  const load = useCallback(() => guard(getCompanyUpdates()).then((d) => { setData(d); setError(''); }).catch((e) => setError(e.message)), [guard]);
+  useEffect(() => { load(); }, [load]);
+  if (error) return <section className="ui-card p-4" aria-label="Company updates"><p role="alert">{error}</p><button className="ui-btn mt-2" onClick={load}>Retry updates</button></section>;
+  if (!data || (!data.announcements.length && !data.events.length)) return null;
+  return <section className="ui-card p-4" aria-labelledby="company-updates-heading"><h2 id="company-updates-heading" className="ui-t-sec mb-3">Company updates</h2>
+    <ul className="divide-y" style={{ borderColor: 'rgb(var(--border))' }}>{data.announcements.map((a) => <li className="py-3" key={a.id}><h3 className="font-semibold text-sm">{a.title}</h3><p className="mt-1 whitespace-pre-wrap text-sm ui-muted">{a.body}</p></li>)}{data.events.map((e) => <li className="py-3" key={e.id}><h3 className="font-semibold text-sm">{e.title}</h3><p className="text-sm ui-muted">{e.startDate}{e.endDate && e.endDate !== e.startDate ? ` – ${e.endDate}` : ''}{e.location ? ` · ${e.location}` : ''}</p>{e.description && <p className="mt-1 text-sm">{e.description}</p>}</li>)}</ul>
+  </section>;
+}

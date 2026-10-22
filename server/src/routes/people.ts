@@ -898,6 +898,16 @@ function decodeDocument(input: unknown, mimeHint?: unknown): { mime: string; dat
 }
 const docRow = (d: any) => ({ id: d.id, employeeId: d.employeeId, kind: d.kind, title: d.title, mime: d.mime, size: d.size, expiresOn: d.expiresOn, visibleToEmployee: d.visibleToEmployee, uploadedByUserId: d.uploadedByUserId, createdAt: d.createdAt });
 
+peopleRouter.get('/orgs/:orgId/people/documents', can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const rows = await peoplePrisma.employeeDocument.findMany({
+    where: { accountId, orgId }, orderBy: { createdAt: 'desc' },
+    select: { id: true, employeeId: true, kind: true, title: true, mime: true, size: true, expiresOn: true, visibleToEmployee: true, uploadedByUserId: true, createdAt: true, employee: { select: { name: true, code: true } } },
+  });
+  res.json({ documents: rows.map((r) => ({ ...docRow(r), employeeName: r.employee.name, employeeCode: r.employee.code })) });
+});
+
 peopleRouter.get('/orgs/:orgId/people/employees/:id/documents', can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;

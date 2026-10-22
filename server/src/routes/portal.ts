@@ -328,6 +328,22 @@ portalRouter.get('/home', async (req, res) => {
   });
 });
 
+// Published People communications reach employees without granting HR access.
+portalRouter.get('/company-updates', async (req, res) => {
+  const e = req.portal!.employee;
+  if (!(await isFeatureEnabled(e.accountId, e.orgId, 'people'))) return res.json({ announcements: [], events: [] });
+  const records = await peoplePrisma.peopleRecord.findMany({
+    where: { accountId: e.accountId, orgId: e.orgId, OR: [{ kind: 'announcements', status: 'PUBLISHED' }, { kind: 'events', status: 'SCHEDULED' }] },
+    orderBy: { updatedAt: 'desc' }, take: 100,
+    select: { id: true, kind: true, title: true, details: true, updatedAt: true },
+  });
+  const t = today();
+  res.json({
+    announcements: records.filter((r) => r.kind === 'announcements').slice(0, 20).map((r) => ({ id: r.id, title: r.title, body: (r.details as any).body, publishedAt: r.updatedAt })),
+    events: records.filter((r) => r.kind === 'events' && String((r.details as any).endDate || (r.details as any).startDate) >= t).map((r) => ({ id: r.id, title: r.title, startDate: (r.details as any).startDate, endDate: (r.details as any).endDate, location: (r.details as any).location, description: (r.details as any).description })),
+  });
+});
+
 /**
  * What changed for me, for the phone's notifications: requests and field
  * punches decided in the last few days, and how much waits on me as an approver.
