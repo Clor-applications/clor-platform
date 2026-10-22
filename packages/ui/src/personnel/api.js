@@ -41,6 +41,7 @@ export const createTag = (body) => send('/tags', 'POST', body);
 export const deleteTag = (id) => send(`/tags/${encodeURIComponent(id)}`, 'DELETE');
 
 /* Documents on the file (≤ 5 MB each, as data URLs). */
+export const listCompanyDocuments = () => apiFetch(`${base()}/documents`, opts).then((r) => r?.documents || []);
 export const listDocuments = (id) => apiFetch(`${base()}/employees/${encodeURIComponent(id)}/documents`, opts).then((r) => r?.documents || []);
 export const uploadDocument = (id, body) => send(`/employees/${encodeURIComponent(id)}/documents`, 'POST', body);
 export const getDocument = (docId) => apiFetch(`${base()}/documents/${encodeURIComponent(docId)}`, opts).then((r) => r?.document);

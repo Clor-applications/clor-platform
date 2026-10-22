@@ -1071,7 +1071,7 @@ const kb = (n) => (n >= 1048576 ? `${(n / 1048576).toFixed(1)} MB` : `${Math.max
  * into the browser and sent as a data URL (≤ 5 MB). The person sees what HR
  * marks visible, in the portal under Me.
  */
-function EmployeeDocuments({ employeeId }) {
+export function EmployeeDocuments({ employeeId }) {
   const [docs, setDocs] = useState(null);
   const [form, setForm] = useState({ kind: 'ID_PROOF', title: '', expiresOn: '', visibleToEmployee: true });
   const [file, setFile] = useState(null);
