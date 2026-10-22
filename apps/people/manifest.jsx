@@ -1,6 +1,40 @@
 import React from 'react';
-import { Archive, BarChart3, BadgeCheck, Banknote, Briefcase, Building2, CalendarCheck, CalendarDays, ClipboardCheck, FileCheck2, FileText, IdCard, LayoutDashboard, LifeBuoy, Megaphone, Network, PartyPopper, Shapes, ShieldCheck, Tag, UserRound, Users, UserPlus, WalletCards } from 'lucide-react';
+import {
+  BeachColor,
+  BookOpenLightbulbColor,
+  BookmarkColor,
+  BriefcaseColor,
+  BuildingColor,
+  CalendarCheckmarkColor,
+  CalendarClockColor,
+  CalendarColor,
+  CalendarEditColor,
+  CalendarPeopleColor,
+  ChatBubblesQuestionColor,
+  ClipboardTaskColor,
+  CoinMultipleColor,
+  ContactCardColor,
+  DataBarVerticalAscendingColor,
+  DocumentAddColor,
+  DocumentFolderColor,
+  GiftColor,
+  HomeColor,
+  LaptopColor,
+  MegaphoneLoudColor,
+  OrgColor,
+  PeopleAddColor,
+  PeopleColor,
+  PeopleListColor,
+  PersonKeyColor,
+  PersonStarburstColor,
+  SavingsColor,
+  ShieldCheckmarkColor,
+  ShiftsColor,
+  TrophyColor,
+} from '@fluentui/react-icons';
+import { UserRound } from 'lucide-react';
 
+import { colorIcon } from '@ui/components/ui/iconSet';
 import { lazyScreens } from '@ui/utils/lazyScreens';
 
 /* Screens load as one file the first time the app opens (WX-03). */
@@ -29,80 +63,155 @@ const LeaveTypes = screen('LeaveTypes');
 const MyLeave = screen('MyLeave');
 const DataImport = screen('DataImport');
 
+/* Full-colour icons, the same family as Attendance (packages/ui/src/components/ui/iconSet.jsx). */
+const I = {
+  home: colorIcon(HomeColor, 'Home'),
+  people: colorIcon(PeopleColor, 'People'),
+  org: colorIcon(OrgColor, 'Org'),
+  folder: colorIcon(DocumentFolderColor, 'DocumentFolder'),
+  checklist: colorIcon(ClipboardTaskColor, 'ClipboardTask'),
+  key: colorIcon(PersonKeyColor, 'PersonKey'),
+  leave: colorIcon(CalendarCheckmarkColor, 'CalendarCheckmark'),
+  balance: colorIcon(SavingsColor, 'Savings'),
+  policy: colorIcon(CalendarEditColor, 'CalendarEdit'),
+  myLeave: colorIcon(BeachColor, 'Beach'),
+  holiday: colorIcon(CalendarColor, 'Calendar'),
+  job: colorIcon(BriefcaseColor, 'Briefcase'),
+  candidate: colorIcon(PeopleAddColor, 'PeopleAdd'),
+  goal: colorIcon(TrophyColor, 'Trophy'),
+  training: colorIcon(BookOpenLightbulbColor, 'BookOpenLightbulb'),
+  hrCase: colorIcon(ChatBubblesQuestionColor, 'ChatBubblesQuestion'),
+  asset: colorIcon(LaptopColor, 'Laptop'),
+  benefit: colorIcon(GiftColor, 'Gift'),
+  salary: colorIcon(CoinMultipleColor, 'CoinMultiple'),
+  news: colorIcon(MegaphoneLoudColor, 'MegaphoneLoud'),
+  event: colorIcon(CalendarPeopleColor, 'CalendarPeople'),
+  report: colorIcon(DataBarVerticalAscendingColor, 'DataBarVerticalAscending'),
+  health: colorIcon(ShieldCheckmarkColor, 'ShieldCheckmark'),
+  compliance: colorIcon(CalendarClockColor, 'CalendarClock'),
+  department: colorIcon(BuildingColor, 'Building'),
+  designation: colorIcon(ContactCardColor, 'ContactCard'),
+  role: colorIcon(PersonStarburstColor, 'PersonStarburst'),
+  type: colorIcon(PeopleListColor, 'PeopleList'),
+  workType: colorIcon(ShiftsColor, 'Shifts'),
+  tag: colorIcon(BookmarkColor, 'Bookmark'),
+  import: colorIcon(DocumentAddColor, 'DocumentAdd'),
+};
+
+/* One register screen per kind, with the shell's props (openScreen, params). */
+const register = (kind) => {
+  const Register = (props) => <WorkspaceList {...props} kind={kind} />;
+  Register.displayName = `Register(${kind})`;
+  return Register;
+};
+
 /**
  * Everything the shell knows about People.
  *
- * The staff directory every other app refers to: Payroll pays these people,
- * Attendance will record their days. Modules and operations follow Horilla
- * HRMS's employee app (reference only; LGPL code is not copied).
+ * Every HR job, in plain words and at most two clicks from Home (founder,
+ * 22 Oct 2026: all the features, simpler than the apps on the market). The
+ * staff directory every other app refers to: Payroll pays these people,
+ * Attendance records their days. Workflows follow Horilla HRMS as a
+ * reference only; its LGPL code is not copied.
  */
 export const peopleApp = {
   id: 'people',
   name: 'People',
   icon: UserRound,
-  blurb: 'The staff directory every other app refers to.',
+  blurb: 'Every HR job in one place: people, time off, hiring, growth and the workplace.',
   available: true,
   database: 'people.db',
   home: 'overview',
+  /* The shared Blaze palette and colour icons, as Attendance (packages/ui/src/index.css). */
+  palette: 'blaze',
+  iconSet: 'color',
 
-  /* Match Attendance and Payroll: a module rail with grouped screens. */
   modules: [
-    { key: 'overview', label: 'Overview', items: ['overview'] },
-    { key: 'employees', label: 'Employees', groups: [
+    { key: 'overview', label: 'Home', items: ['overview'] },
+    { key: 'employees', label: 'People', groups: [
       { label: 'Directory', items: ['employees', 'orgChart', 'documents'] },
-      { label: 'Changes', items: ['checklists', 'selfService'] },
+      { label: 'Joining & Leaving', items: ['checklists'] },
+      { label: 'Access', items: ['selfService'] },
     ] },
-    { key: 'leave', label: 'Leave', items: ['leaveRequests', 'leaveBalances', 'leaveTypes', 'myLeave', 'holidays'] },
+    { key: 'leave', label: 'Time Off', groups: [
+      { label: 'Leave', items: ['leaveRequests', 'leaveBalances', 'myLeave'] },
+      { label: 'Policy', items: ['leaveTypes', 'holidays'] },
+    ] },
     { key: 'hiring', label: 'Hiring', items: ['recruitment', 'candidates'] },
     { key: 'growth', label: 'Growth', items: ['performance', 'learning'] },
     { key: 'workplace', label: 'Workplace', groups: [
       { label: 'Updates', items: ['announcements', 'events'] },
       { label: 'Support', items: ['helpdesk', 'assets', 'benefits', 'compensation'] },
     ] },
-    { key: 'reports', label: 'Reports', items: ['reports', 'dataHealth', 'complianceCalendar'] },
-    { key: 'settings', label: 'Settings', items: ['departments', 'jobPositions', 'jobRoles', 'employeeTypes', 'workTypes', 'tags'] },
+    { key: 'reports', label: 'Insights', groups: [
+      { label: 'Reports', items: ['reports'] },
+      { label: 'Checks', items: ['dataHealth', 'complianceCalendar'] },
+    ] },
+    { key: 'settings', label: 'Settings', groups: [
+      { label: 'Organization', items: ['departments', 'jobPositions', 'jobRoles', 'employeeTypes', 'workTypes', 'tags'] },
+      { label: 'Data', items: ['dataImport'] },
+    ] },
   ],
 
+  /* `permission`: what the screen's data needs; the shell hides what this user cannot open. */
   nav: [
-    { key: 'overview', label: 'Overview', icon: LayoutDashboard, permission: 'PEOPLE::Employees::VIEW' },
-    { key: 'employees', label: 'Employees', icon: Users, permission: 'PEOPLE::Employees::VIEW' },
-    { key: 'orgChart', label: 'Org chart', icon: Network, permission: 'PEOPLE::Org Structure::VIEW' },
-    { key: 'checklists', label: 'Onboarding & exit', icon: ClipboardCheck, permission: 'PEOPLE::Employees::VIEW' },
-    { key: 'candidates', label: 'Candidates', icon: Users, permission: 'PEOPLE::Recruitment::VIEW' },
-    { key: 'holidays', label: 'Holidays', icon: CalendarDays, permission: 'ATTENDANCE::Holidays::VIEW' },
-    { key: 'recruitment', label: 'Jobs', icon: UserPlus, permission: 'PEOPLE::Recruitment::VIEW' },
-    { key: 'performance', label: 'Goals & feedback', icon: BadgeCheck, permission: 'PEOPLE::Performance::VIEW' },
-    { key: 'learning', label: 'Training', icon: FileCheck2, permission: 'PEOPLE::Learning::VIEW' },
-    { key: 'helpdesk', label: 'HR cases', icon: LifeBuoy, permission: 'PEOPLE::HR Cases::VIEW' },
-    { key: 'selfService', label: 'Portal access', icon: UserRound, permission: 'ATTENDANCE::Employee Portal::VIEW' },
-    { key: 'compensation', label: 'Salary revisions', icon: Banknote, permission: 'PAYROLL::Salary Revisions::VIEW' },
-    { key: 'benefits', label: 'Benefits', icon: WalletCards, permission: 'PEOPLE::Benefits::VIEW' },
-    { key: 'assets', label: 'Assets', icon: Archive, permission: 'PEOPLE::Assets::VIEW' },
-    { key: 'reports', label: 'Reports', icon: BarChart3, permission: 'PEOPLE::Employees::VIEW' },
-    { key: 'documents', label: 'Documents', icon: FileText, permission: 'PEOPLE::Employees::VIEW' },
-    { key: 'leaveRequests', label: 'Leave requests', icon: CalendarCheck, permission: 'ATTENDANCE::Leave Requests::VIEW' },
-    { key: 'leaveBalances', label: 'Leave balances', icon: WalletCards, permission: 'ATTENDANCE::Leave Requests::VIEW' },
-    { key: 'leaveTypes', label: 'Leave policy', icon: CalendarDays, permission: 'ATTENDANCE::Leave Types::VIEW' },
-    { key: 'myLeave', label: 'My leave', icon: CalendarCheck, permission: 'ATTENDANCE::My Attendance::VIEW' },
-    { key: 'announcements', label: 'Announcements', icon: Megaphone, permission: 'PEOPLE::Announcements::VIEW' },
-    { key: 'events', label: 'Events', icon: PartyPopper, permission: 'PEOPLE::Events::VIEW' },
-    { key: 'complianceCalendar', label: 'Compliance calendar', icon: CalendarCheck, permission: 'PEOPLE::Employees::VIEW' },
-    { key: 'dataHealth', label: 'Data health', icon: ShieldCheck, permission: 'PEOPLE::Employees::VIEW' },
-    { section: 'Settings' },
-    { key: 'departments', label: 'Departments', icon: Building2, permission: 'PEOPLE::Org Structure::VIEW' },
-    { key: 'jobPositions', label: 'Job positions', icon: Briefcase, permission: 'PEOPLE::Org Structure::VIEW' },
-    { key: 'jobRoles', label: 'Job roles', icon: IdCard, permission: 'PEOPLE::Org Structure::VIEW' },
-    { key: 'employeeTypes', label: 'Employee types', icon: Shapes, permission: 'PEOPLE::Org Structure::VIEW' },
-    { key: 'workTypes', label: 'Work types', icon: Shapes, permission: 'PEOPLE::Org Structure::VIEW' },
-    { key: 'tags', label: 'Tags', icon: Tag, permission: 'PEOPLE::Org Structure::VIEW' },
+    { key: 'overview', label: 'Home', icon: I.home, permission: 'PEOPLE::Employees::VIEW' },
+    { key: 'employees', label: 'Employees', icon: I.people, permission: 'PEOPLE::Employees::VIEW' },
+    { key: 'orgChart', label: 'Org Chart', icon: I.org, permission: 'PEOPLE::Org Structure::VIEW' },
+    { key: 'documents', label: 'Documents', icon: I.folder, permission: 'PEOPLE::Employees::VIEW' },
+    { key: 'checklists', label: 'Onboarding & Exit', icon: I.checklist, permission: 'PEOPLE::Employees::VIEW' },
+    { key: 'selfService', label: 'Employee Portal Access', icon: I.key, permission: 'ATTENDANCE::Employee Portal::VIEW' },
+    { key: 'leaveRequests', label: 'Leave Requests', icon: I.leave, permission: 'ATTENDANCE::Leave Requests::VIEW' },
+    { key: 'leaveBalances', label: 'Leave Balances', icon: I.balance, permission: 'ATTENDANCE::Leave Requests::VIEW' },
+    { key: 'myLeave', label: 'My Leave', icon: I.myLeave, permission: 'ATTENDANCE::My Attendance::VIEW' },
+    { key: 'leaveTypes', label: 'Leave Policy', icon: I.policy, permission: 'ATTENDANCE::Leave Types::VIEW' },
+    { key: 'holidays', label: 'Holidays', icon: I.holiday, permission: 'ATTENDANCE::Holidays::VIEW' },
+    { key: 'recruitment', label: 'Jobs', icon: I.job, permission: 'PEOPLE::Recruitment::VIEW' },
+    { key: 'candidates', label: 'Candidates', icon: I.candidate, permission: 'PEOPLE::Recruitment::VIEW' },
+    { key: 'performance', label: 'Goals & Feedback', icon: I.goal, permission: 'PEOPLE::Performance::VIEW' },
+    { key: 'learning', label: 'Training', icon: I.training, permission: 'PEOPLE::Learning::VIEW' },
+    { key: 'announcements', label: 'Announcements', icon: I.news, permission: 'PEOPLE::Announcements::VIEW' },
+    { key: 'events', label: 'Events', icon: I.event, permission: 'PEOPLE::Events::VIEW' },
+    { key: 'helpdesk', label: 'HR Cases', icon: I.hrCase, permission: 'PEOPLE::HR Cases::VIEW' },
+    { key: 'assets', label: 'Assets', icon: I.asset, permission: 'PEOPLE::Assets::VIEW' },
+    { key: 'benefits', label: 'Benefits', icon: I.benefit, permission: 'PEOPLE::Benefits::VIEW' },
+    { key: 'compensation', label: 'Salary Revisions', icon: I.salary, permission: 'PAYROLL::Salary Revisions::VIEW' },
+    { key: 'reports', label: 'Workforce Report', icon: I.report, permission: 'PEOPLE::Employees::VIEW' },
+    { key: 'dataHealth', label: 'Data Health', icon: I.health, permission: 'PEOPLE::Employees::VIEW' },
+    { key: 'complianceCalendar', label: 'Compliance Calendar', icon: I.compliance, permission: 'PEOPLE::Employees::VIEW' },
+    { key: 'departments', label: 'Departments', icon: I.department, permission: 'PEOPLE::Org Structure::VIEW' },
+    { key: 'jobPositions', label: 'Designations', icon: I.designation, permission: 'PEOPLE::Org Structure::VIEW' },
+    { key: 'jobRoles', label: 'Job Roles', icon: I.role, permission: 'PEOPLE::Org Structure::VIEW' },
+    { key: 'employeeTypes', label: 'Employee Types', icon: I.type, permission: 'PEOPLE::Org Structure::VIEW' },
+    { key: 'workTypes', label: 'Work Types', icon: I.workType, permission: 'PEOPLE::Org Structure::VIEW' },
+    { key: 'tags', label: 'Tags', icon: I.tag, permission: 'PEOPLE::Org Structure::VIEW' },
+    { key: 'dataImport', label: 'Import Data', icon: I.import, permission: 'PEOPLE::Employees::CREATE' },
   ],
 
   screens: {
     overview: PeopleOverview,
     employees: Employees,
     orgChart: OrgChart,
-    dataHealth: DataHealth,
+    documents: PeopleDocuments,
     checklists: Checklists,
+    selfService: PortalAccess,
+    leaveRequests: LeaveRequests,
+    leaveBalances: LeaveBalances,
+    myLeave: MyLeave,
+    leaveTypes: LeaveTypes,
+    holidays: Holidays,
+    recruitment: register('recruitment'),
+    candidates: register('candidates'),
+    performance: register('performance'),
+    learning: register('learning'),
+    announcements: register('announcements'),
+    events: register('events'),
+    helpdesk: register('helpdesk'),
+    assets: register('assets'),
+    benefits: register('benefits'),
+    compensation: SalaryRevisions,
+    reports: PeopleReports,
+    dataHealth: DataHealth,
     complianceCalendar: ComplianceCalendar,
     departments: Departments,
     jobPositions: JobPositions,
@@ -110,24 +219,6 @@ export const peopleApp = {
     employeeTypes: EmployeeTypes,
     workTypes: WorkTypes,
     tags: Tags,
-    recruitment: () => <WorkspaceList kind="recruitment" />,
-    candidates: () => <WorkspaceList kind="candidates" />,
-    performance: () => <WorkspaceList kind="performance" />,
-    learning: () => <WorkspaceList kind="learning" />,
-    helpdesk: () => <WorkspaceList kind="helpdesk" />,
-    benefits: () => <WorkspaceList kind="benefits" />,
-    assets: () => <WorkspaceList kind="assets" />,
-    announcements: () => <WorkspaceList kind="announcements" />,
-    events: () => <WorkspaceList kind="events" />,
-    reports: PeopleReports,
-    documents: PeopleDocuments,
-    selfService: PortalAccess,
-    compensation: SalaryRevisions,
-    holidays: Holidays,
-    leaveRequests: LeaveRequests,
-    leaveBalances: LeaveBalances,
-    leaveTypes: LeaveTypes,
-    myLeave: MyLeave,
     dataImport: DataImport,
   },
 };

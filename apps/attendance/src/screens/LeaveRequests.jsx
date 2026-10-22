@@ -119,7 +119,7 @@ export default function LeaveRequests() {
   return (
     <DocumentListShell
       entity="leave"
-      title="Leave requests"
+      title="Leave Requests"
       description="Approving marks each working day in the range on leave. Unpaid leave is loss of pay."
       compact
       tight

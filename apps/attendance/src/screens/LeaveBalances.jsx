@@ -85,7 +85,7 @@ export default function LeaveBalances({ openScreen } = {}) {
   return (
     <DocumentListShell
       entity="leave"
-      title="Leave balances"
+      title="Leave Balances"
       description="Left of allotted, per person. Click a figure to change someone's days for the year."
       compact
       tight

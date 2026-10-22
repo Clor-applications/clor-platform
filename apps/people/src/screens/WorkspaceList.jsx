@@ -59,10 +59,10 @@ export default function WorkspaceList({ kind }) {
   const counts = Object.fromEntries(tabs.map((t) => [t.value, t.value ? rows.filter((r) => r.status === t.value).length : rows.length]));
   const detailValue = (row, key) => key === 'jobId' ? jobs.find((j) => j.id === row.details.jobId)?.title || '—' : String(row.details[key] ?? '') || '—';
   return <DocumentListShell title={cfg.title} entity="people" description={cfg.description} tight phoneCompact
-    search={{ value: search.query, onChange: search.setQuery, placeholder: `Search ${cfg.title.toLowerCase()}…` }}
+    search={{ value: search.query, onChange: search.setQuery, placeholder: `Search ${(cfg.noun || cfg.title.toLowerCase())}…` }}
     primary={<button type="button" className="ui-btn ui-btn-primary" onClick={newRow} disabled={Boolean(error)}><Plus size={16} /> New {cfg.singular}</button>}
     tabs={tabs} statusValue={status} statusCounts={counts} onStatusChange={setStatus}
-    moreItems={[exportMenuItem(`Export ${cfg.title.toLowerCase()}`)]} onMoreSelect={(key) => {
+    moreItems={[exportMenuItem(`Export ${(cfg.noun || cfg.title.toLowerCase())}`)]} onMoreSelect={(key) => {
       const format = exportFormatFromKey(key);
       if (format) runListExport({ format, title: cfg.title, fileName: cfg.title, label: cfg.title, rows: shown.map((r) => ({ ...r, ...r.details })), columns: [{ key: 'title', label: 'Name' }, { key: 'statusName', label: 'Status' }, ...(cfg.employee ? [{ key: 'employeeName', label: 'Employee' }] : []), { key: 'dueDate', label: 'Due date' }, ...cfg.fields.map((f) => ({ key: f.key, label: f.label }))] });
     }}>
@@ -80,7 +80,7 @@ export default function WorkspaceList({ kind }) {
         {cfg.columns.map((key) => <td key={key} className="max-w-60 truncate" title={detailValue(r, key)}>{detailValue(r, key)}</td>)}
         <td><span className="ui-pill ui-pill-neutral">{r.statusName}</span></td><td>{r.dueDate || '—'}</td><td>{r.updatedAt.slice(0, 10)}</td>
         <td><button className="ui-icon-btn" aria-label={`Delete ${r.title}`} onClick={() => remove(r)}><Trash2 size={16} /></button></td>
-      </tr>)}{!shown.length && <tr><td colSpan={(cfg.employee ? 6 : 5) + cfg.columns.length}><EmptyState title={rows.length ? 'No matching records' : `No ${cfg.title.toLowerCase()} yet`} description={rows.length ? 'Change the search or filters to see more records.' : cfg.description} routes={!rows.length ? [{ label: `New ${cfg.singular}`, onSelect: newRow }] : undefined} /></td></tr>}</tbody></table></div>
+      </tr>)}{!shown.length && <tr><td colSpan={(cfg.employee ? 6 : 5) + cfg.columns.length}><EmptyState title={rows.length ? 'No matching records' : `No ${(cfg.noun || cfg.title.toLowerCase())} yet`} description={rows.length ? 'Change the search or filters to see more records.' : cfg.description} routes={!rows.length ? [{ label: `New ${cfg.singular}`, onSelect: newRow }] : undefined} /></td></tr>}</tbody></table></div>
       <Pagination total={shown.length} page={safePage} perPage={perPage} pageCount={pageCount} onPage={setPage} onPerPage={setPerPage} />
     </>}
     <Drawer open={Boolean(editing)} onClose={() => { if (!saving) setEditing(null); }} title={`${editing?.id ? 'Edit' : 'New'} ${cfg.singular}`} widthClass="w-[min(40rem,96vw)]" actions={<><button type="button" className="ui-btn" disabled={saving} onClick={() => setEditing(null)}>Cancel</button><button type="submit" form={formId} className="ui-btn ui-btn-primary" disabled={saving}>{saving ? 'Saving…' : 'Save'}</button></>}>

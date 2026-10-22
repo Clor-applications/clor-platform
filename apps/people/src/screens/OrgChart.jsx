@@ -76,7 +76,7 @@ export default function OrgChart() {
 
   return (
     <div className="space-y-4">
-      <PageHeader entity="people" title="Org chart" description="Set “Reports to” on each employee file to build it." />
+      <PageHeader entity="people" title="Org Chart" description="Set “Reports to” on each employee file to build it." />
       {nodes.length === 0 ? (
         <EmptyState title="Nobody yet" description="Add employees and who they report to." />
       ) : (

@@ -23,7 +23,7 @@ export default function PeopleReports() {
   useResetPage(setPage, [status, search.query, columns.filters, perPage]);
   const { pageRows, safePage, pageCount } = usePaged(shown, perPage, page);
   if (!rows && !error) return <SkeletonCard lines={6} />;
-  return <DocumentListShell title="Workforce report" entity="people" description="Current employee records. Filter and export the rows you see; historical headcount is not inferred from today's status."
+  return <DocumentListShell title="Workforce Report" entity="people" description="Current employee records. Filter and export the rows you see; historical headcount is not inferred from today's status."
     search={{ value: search.query, onChange: search.setQuery, placeholder: 'Search workforce…' }}
     tabs={['', 'ACTIVE', 'ON_NOTICE', 'LEFT', 'SUSPENDED'].map((s) => ({ value: s, label: s ? s.replace('_', ' ').toLowerCase() : 'All', tone: 'all' }))} statusValue={status} onStatusChange={setStatus} statusCounts={Object.fromEntries(['', 'ACTIVE', 'ON_NOTICE', 'LEFT', 'SUSPENDED'].map((s) => [s, (rows || []).filter((r) => !s || r.status === s).length]))}
     moreItems={[exportMenuItem('Export workforce report')]} onMoreSelect={(k) => { const format = exportFormatFromKey(k); if (format) runListExport({ format, title: 'Workforce report', fileName: 'workforce-report', label: 'Employees', rows: shown, columns: fields.map((k, i) => ({ key: k, label: labels[i] })) }); }}>

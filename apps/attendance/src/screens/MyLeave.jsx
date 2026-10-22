@@ -59,18 +59,18 @@ export default function MyLeave() {
   if (error) {
     return (
       <div className="space-y-3">
-        <PageHeader entity="leave" title="My leave" />
+        <PageHeader entity="leave" title="My Leave" />
         <div className="pb-8"><LoadFailed message={error} onRetry={load} /></div>
       </div>
     );
   }
-  if (!me) return <div className="space-y-3"><PageHeader entity="leave" title="My leave" /><div className="pb-8"><SkeletonCard lines={6} /></div></div>;
+  if (!me) return <div className="space-y-3"><PageHeader entity="leave" title="My Leave" /><div className="pb-8"><SkeletonCard lines={6} /></div></div>;
 
   return (
     <div className="space-y-3">
       <PageHeader
         entity="leave"
-        title="My leave"
+        title="My Leave"
         description={me.employee.name}
         actions={
           <div className="flex items-center gap-1">

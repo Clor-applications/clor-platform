@@ -134,7 +134,7 @@ export default function PortalAccess() {
   return (
     <DocumentListShell
       entity="employee"
-      title="Employee portal access"
+      title="Employee Portal Access"
       moreItems={[exportMenuItem('Export')]}
       onMoreSelect={(k) => {
         const format = exportFormatFromKey(k);

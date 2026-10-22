@@ -23,24 +23,24 @@ const KINDS = {
     parent: { key: 'parentId', kind: 'departments', label: 'Under department' },
   },
   'job-positions': {
-    title: 'Job positions',
+    title: 'Job Positions',
     singular: 'job position',
     description: 'The designations people hold — Accountant, Store Manager, Driver.',
     parent: { key: 'departmentId', kind: 'departments', label: 'Department' },
   },
   'job-roles': {
-    title: 'Job roles',
+    title: 'Job Roles',
     singular: 'job role',
     description: 'Finer roles inside a position — Senior, Trainee, Night shift.',
     parent: { key: 'jobPositionId', kind: 'job-positions', label: 'Job position' },
   },
   'employee-types': {
-    title: 'Employee types',
+    title: 'Employee Types',
     singular: 'employee type',
     description: 'Permanent, probation, contract, intern, consultant.',
   },
   'work-types': {
-    title: 'Work types',
+    title: 'Work Types',
     singular: 'work type',
     description: 'Where the work happens — office, remote, hybrid, field.',
   },

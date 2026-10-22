@@ -66,7 +66,7 @@ export default function LeaveTypes() {
   return (
     <DocumentListShell
       entity="leave"
-      title="Leave policy"
+      title="Leave Policy"
       description="Casual, sick, earned… Each paid type gives everyone its days a year; unpaid leave is deducted from pay."
       compact
       tight

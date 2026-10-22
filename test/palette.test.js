@@ -12,9 +12,10 @@ import { APPS } from '../packages/shell/registry';
 const css = readFileSync('packages/ui/src/index.css', 'utf8');
 
 describe('shared palettes', () => {
-  it('only Attendance wears Blaze for now', () => {
-    const wearing = APPS.filter((a) => a.palette === 'blaze').map((a) => a.id);
-    expect(wearing).toEqual(['attendance']);
+  /* Attendance, then People (founder, 22 Oct 2026); Accounting and Payroll keep their look until they opt in. */
+  it('Attendance and People wear Blaze; Accounting and Payroll do not', () => {
+    const wearing = APPS.filter((a) => a.palette === 'blaze').map((a) => a.id).sort();
+    expect(wearing).toEqual(['attendance', 'people']);
   });
 
   it('every palette an app names exists in the shared stylesheet', () => {
@@ -29,8 +30,8 @@ describe('shared palettes', () => {
     expect(css.slice(start)).not.toMatch(/\[data-app='attendance'\]/);
   });
 
-  it('only Attendance draws in the colour icon set for now', () => {
-    expect(APPS.filter((a) => a.iconSet === 'color').map((a) => a.id)).toEqual(['attendance']);
+  it('Attendance and People draw in the colour icon set; the others do not', () => {
+    expect(APPS.filter((a) => a.iconSet === 'color').map((a) => a.id).sort()).toEqual(['attendance', 'people']);
   });
 
   it('colour icons keep their own colours: nothing tints them with the palette', () => {
