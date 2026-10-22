@@ -41,6 +41,9 @@ const dbName = `clor_test_${process.pid}`;
 const urlFor = (schema: string) => {
   const url = new URL(pgBase());
   url.pathname = `/${dbName}`;
+  // Exercise RLS as the application role, never as the database superuser.
+  url.username = process.env.CLOR_APP_ROLE || 'clor_app';
+  url.password = process.env.CLOR_APP_PASSWORD || 'clor_app_test';
   url.search = `?schema=${schema}`;
   return url.toString();
 };

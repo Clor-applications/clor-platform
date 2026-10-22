@@ -288,6 +288,11 @@ export default async function setup() {
   await applyPolicies(asOwner(people), 'prisma/people/migrations/20261019160100_dpdp_rls');
   await applyPolicies(asOwner(people), 'prisma/people/migrations/20261020090100_employee_self_service_rls');
   await applyPolicies(asOwner(people), 'prisma/people/migrations/20261016100100_reader_health_rls');
+  await applyPolicies(asOwner(people), 'prisma/people/migrations/20261022120100_people_workspace_rls');
+  await applyPolicies(asOwner(people), 'prisma/people/migrations/20261021140100_recycle_bin_rls');
+  await applyPolicies(asOwner(people), 'prisma/people/migrations/20261022090100_employment_history_rls');
+  await applyPolicies(asOwner(people), 'prisma/people/migrations/20261022100100_checklists_rls');
+  await applyPolicies(asOwner(people), 'prisma/people/migrations/20261022110100_compliance_calendar_rls');
   await applyPolicies(asOwner(platform), 'prisma/platform/migrations/20260924120000_row_level_security');
   await applyPolicies(asOwner(platform), 'prisma/platform/migrations/20261018040100_scim_tokens_rls');
   await applyPolicies(asOwner(platform), 'prisma/platform/migrations/20261018060100_notifications_rls');

@@ -9,7 +9,7 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "setup": "npm install && npm --prefix server install && npm --prefix server run prisma:generate && npm --prefix server run prisma:push",
+    "setup": "npm install && npm --prefix server install && npm --prefix server run prisma:generate && npm --prefix server run prisma:deploy",
     "api": "npm --prefix server run dev",
     "api:build": "npm --prefix server run build",
     "api:start": "npm --prefix server start",
@@ -28,7 +28,8 @@
     "build:mobile:accounting": "VITE_API_BASE=https://api.clor.in/api VITE_MOBILE_APP=accounting vite build --outDir dist-mobile/accounting --emptyOutDir && npm run --prefix mobile/accounting sync",
     "build:mobile:attendance:ios": "VITE_API_BASE=https://api.clor.in/api VITE_MOBILE_APP=attendance vite build --outDir dist-mobile/attendance --emptyOutDir && npm run --prefix mobile/attendance sync:ios",
     "build:mobile:payroll:ios": "VITE_API_BASE=https://api.clor.in/api VITE_MOBILE_APP=payroll vite build --outDir dist-mobile/payroll --emptyOutDir && npm run --prefix mobile/payroll sync:ios",
-    "build:mobile:accounting:ios": "VITE_API_BASE=https://api.clor.in/api VITE_MOBILE_APP=accounting vite build --outDir dist-mobile/accounting --emptyOutDir && npm run --prefix mobile/accounting sync:ios"
+    "build:mobile:accounting:ios": "VITE_API_BASE=https://api.clor.in/api VITE_MOBILE_APP=accounting vite build --outDir dist-mobile/accounting --emptyOutDir && npm run --prefix mobile/accounting sync:ios",
+    "setup:local": "node scripts/setup-local.mjs"
   },
   "dependencies": {
     "@fluentui/react-icons": "2.0.343",

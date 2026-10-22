@@ -1,3 +1,5 @@
+import 'dotenv/config';
+
 /**
  * Refuse to run migrations when two datasources point at the same database.
  *
