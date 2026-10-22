@@ -89,7 +89,7 @@ import { gstinRouter } from './routes/gstin.js';
 import { stockDocumentsRouter } from './routes/stockDocuments.js';
 import { stockLedgerRouter } from './routes/stockLedger.js';
 import { notFound, errorHandler } from './middleware/errors.js';
-import { billingRouter } from './routes/billing.js';
+import { billingRouter, billingOperatorRouter } from './routes/billing.js';
 import { edgeGuard } from './middleware/edgeGuard.js';
 import { auditMutations } from './middleware/auditMutations.js';
 import { clearAccessCacheOnWrite } from './utils/accessCache.js';
@@ -322,6 +322,10 @@ export function buildApp() {
      user and no tenant headers — so, like the two above, before the routers
      that require both. */
   app.use('/api/portal', portalRouter);
+
+  /* CLOR operators setting a customer's subscription: a CLOR user with no
+     membership in that account, so no tenant headers either. */
+  app.use('/api', billingOperatorRouter);
 
   /*
    * Mounted before every tenant-scoped router, and that position is the point.
