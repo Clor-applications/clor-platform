@@ -7,7 +7,7 @@ import { EmptyState, SkeletonCard } from '@ui/components/ui/Primitives';
 import Drawer from '@ui/components/ui/Drawer';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { listStructure } from '@ui/personnel/api';
-import { colorOf, createLeaveType, deleteLeaveType, listLeaveTypes, updateLeaveType } from './api';
+import { ACCRUAL_LABEL, MONTH_NAMES, colorOf, createLeaveType, creditText, deleteLeaveType, getLeaveSettings, listLeaveTypes, saveLeaveSettings, updateLeaveType } from './api';
 
 /**
  * People → Settings → Leave Policy (founder, 22 Oct 2026: the full leave
@@ -16,13 +16,13 @@ import { colorOf, createLeaveType, deleteLeaveType, listLeaveTypes, updateLeaveT
  */
 const BLANK = {
   name: '', code: '', description: '', color: '', isPaid: true, isActive: true,
-  annualDays: 12, accrual: 'YEARLY', prorateForJoiners: true, carryForwardMax: '',
+  annualDays: 12, accrual: 'YEARLY', creditOn: 'START', creditDay: '', prorateForJoiners: true, carryForwardMax: '',
   gender: '', employeeTypeIds: [], availableAfterDays: '',
   allowHalfDay: true, minNoticeDays: '', maxDaysPerRequest: '', backdatedDays: '', sandwich: false,
   negativeDays: 0, encashable: false, maxEncashDays: '',
 };
 const TEMPLATES = [
-  { name: 'Casual Leave', code: 'CL', annualDays: 12, accrual: 'MONTHLY', minNoticeDays: 1, maxDaysPerRequest: 3, color: '#2563eb' },
+  { name: 'Casual Leave', code: 'CL', annualDays: 12, accrual: 'MONTHLY', creditOn: 'START', minNoticeDays: 1, maxDaysPerRequest: 3, color: '#2563eb' },
   { name: 'Sick Leave', code: 'SL', annualDays: 6, backdatedDays: 7, color: '#16a34a' },
   { name: 'Earned Leave', code: 'EL', annualDays: 15, accrual: 'MONTHLY', carryForwardMax: 30, encashable: true, maxEncashDays: 15, minNoticeDays: 7, availableAfterDays: 180, color: '#d97706' },
   { name: 'Maternity Leave', code: 'ML', annualDays: 182, gender: 'FEMALE', allowHalfDay: false, prorateForJoiners: false, color: '#db2777' },
@@ -36,7 +36,7 @@ const plural = (n, w) => `${n} ${w}${Number(n) === 1 ? '' : 's'}`;
 function rulesOf(t, typeNames = new Map()) {
   const r = [];
   if (t.isPaid) {
-    r.push(t.accrual === 'MONTHLY' ? `${t.annualDays} a year, monthly` : `${t.annualDays} a year`);
+    r.push(`${t.annualDays} a year: ${creditText(t)}`);
     r.push(t.carryForwardMax != null ? `carry up to ${t.carryForwardMax}` : 'lapses at year end');
   } else r.push('unpaid: loss of pay');
   if (t.gender) r.push(t.gender === 'FEMALE' ? 'women' : 'men');
@@ -58,6 +58,8 @@ export default function LeavePolicy() {
   const [editing, setEditing] = useState(null);
   const [kind, setKind] = useState('');
   const [empTypes, setEmpTypes] = useState([]);
+  const [period, setPeriod] = useState(null);
+  const [editingPeriod, setEditingPeriod] = useState(false);
 
   const load = useCallback(() => {
     listLeaveTypes().then((v) => { setAll(v); setError(''); }).catch((e) => setError(String(e?.message || 'Could not load the leave policy.')));
@@ -65,6 +67,7 @@ export default function LeavePolicy() {
   useEffect(() => {
     load();
     listStructure('employee-types').then(setEmpTypes).catch(() => setEmpTypes([]));
+    getLeaveSettings().then(setPeriod).catch(() => setPeriod(null));
   }, [load]);
 
   const typeNames = useMemo(() => new Map(empTypes.map((t) => [t.id, t.name])), [empTypes]);
@@ -75,7 +78,7 @@ export default function LeavePolicy() {
   }, [all]);
   const inTab = useMemo(() => (all || []).filter((t) => !kind || (kind === 'PAID') === Boolean(t.isPaid)), [all, kind]);
   const search = useListSearch(inTab, ['name', 'code', 'description']);
-  const open = (t) => setEditing({ ...BLANK, ...t, code: t.code || '', description: t.description || '', color: t.color || '', gender: t.gender || '', employeeTypeIds: t.employeeTypeIds || [] });
+  const open = (t) => setEditing({ ...BLANK, ...t, code: t.code || '', description: t.description || '', color: t.color || '', gender: t.gender || '', employeeTypeIds: t.employeeTypeIds || [], creditOn: t.creditOn || 'START', creditDay: t.creditDay ?? '' });
   const missing = TEMPLATES.filter((x) => !(all || []).some((t) => t.name.toLowerCase() === x.name.toLowerCase()));
 
   return (
@@ -106,6 +109,14 @@ export default function LeavePolicy() {
           ))}
         </div>
       ) : null}
+      {period ? (
+        <div className="px-4 pt-3 flex flex-wrap items-center gap-2 text-sm">
+          <span>Leave period: <strong>{period.current.label}</strong></span>
+          <span className="ui-caption">starts {period.startDay} {MONTH_NAMES[period.startMonth - 1]} every year; unused days carry or lapse then.</span>
+          <button type="button" className="ui-btn ui-btn-ghost" onClick={() => setEditingPeriod(true)}>Change</button>
+        </div>
+      ) : null}
+      {editingPeriod ? <PeriodForm initial={period} onClose={() => setEditingPeriod(false)} onSaved={(p) => { setEditingPeriod(false); setPeriod((x) => ({ ...x, ...p })); getLeaveSettings().then(setPeriod).catch(() => {}); }} /> : null}
       {error ? <p role="alert" className="p-4 text-sm">{error} <button type="button" className="ui-btn ml-2" onClick={load}>Retry</button></p> : null}
       {!all ? (
         error ? null : <SkeletonCard lines={4} />
@@ -197,6 +208,8 @@ function PolicyForm({ initial, empTypes, onClose, onSaved }) {
       isActive: Boolean(form.isActive),
       annualDays: paid ? Number(form.annualDays) || 0 : 0,
       accrual: form.accrual || 'YEARLY',
+      creditOn: form.creditOn || 'START',
+      creditDay: form.creditOn === 'DAY' ? num(form.creditDay) : null,
       prorateForJoiners: Boolean(form.prorateForJoiners),
       carryForwardMax: paid ? num(form.carryForwardMax) : null,
       gender: form.gender || null,
@@ -263,13 +276,22 @@ function PolicyForm({ initial, empTypes, onClose, onSaved }) {
           <Section title="What it gives" note="Change one person’s days in Leave Balances.">
             <NumberField label="Days a year" value={form.annualDays} onChange={set('annualDays')} step={0.5} />
             <label className="block">
-              <span className="ui-label">Earned</span>
+              <span className="ui-label">Credited</span>
               <select className="ui-select w-full" value={form.accrual || 'YEARLY'} onChange={(e) => set('accrual')(e.target.value)}>
-                <option value="YEARLY">All on 1 January</option>
-                <option value="MONTHLY">A twelfth each month</option>
+                {Object.entries(ACCRUAL_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
               </select>
             </label>
-            <Check label="Joiners get the months left in their first year" hint="Joining by the 15th counts that month. Monthly leave always starts from joining." checked={form.prorateForJoiners || form.accrual === 'MONTHLY'} disabled={form.accrual === 'MONTHLY'} onChange={set('prorateForJoiners')} />
+            <label className="block">
+              <span className="ui-label">On</span>
+              <select className="ui-select w-full" value={form.creditOn || 'START'} onChange={(e) => set('creditOn')(e.target.value)}>
+                <option value="START">The first day of each part</option>
+                <option value="END">The last day of each part</option>
+                <option value="DAY">A day of the month I choose</option>
+              </select>
+            </label>
+            {form.creditOn === 'DAY' ? <NumberField label="Day of the month (1–28)" value={form.creditDay} onChange={set('creditDay')} placeholder="e.g. 10" /> : <div />}
+            <p className="ui-caption sm:col-span-2">Automatically: {creditText({ ...form, creditDay: Number(form.creditDay) || null })}, counted from the start of the leave period. Nobody has to run anything.</p>
+            <Check label="Joiners get only the part of the year they work" hint="A month counts when joined by its 15th. Monthly leave always starts from joining." checked={form.prorateForJoiners || form.accrual === 'MONTHLY'} disabled={form.accrual === 'MONTHLY'} onChange={set('prorateForJoiners')} />
           </Section>
         ) : null}
 
@@ -315,6 +337,62 @@ function PolicyForm({ initial, empTypes, onClose, onSaved }) {
         ) : null}
 
         <Check label="Active: people can ask for it" checked={form.isActive} onChange={set('isActive')} />
+      </form>
+    </Drawer>
+  );
+}
+
+function PeriodForm({ initial, onClose, onSaved }) {
+  const [form, setForm] = useState({ startMonth: initial?.startMonth || 1, startDay: initial?.startDay || 1 });
+  const [saving, setSaving] = useState(false);
+  const save = async (e) => {
+    e.preventDefault();
+    const changed = form.startMonth !== initial?.startMonth || form.startDay !== initial?.startDay;
+    if (changed) {
+      const ok = await confirmDialog({
+        title: 'Change the leave period?',
+        message: 'Balances, carry-forward and the register are worked out again for the new period. Balances set or changed by hand stay with the period they were given for.',
+        confirmLabel: 'Change it',
+        tone: 'default',
+      });
+      if (!ok) return;
+    }
+    setSaving(true);
+    try {
+      const out = await saveLeaveSettings(form);
+      notify.success(`Leave period: ${out.current.label}.`);
+      onSaved(out);
+    } catch (err) {
+      notify.error(String(err?.message || 'Not saved.'));
+    } finally {
+      setSaving(false);
+    }
+  };
+  return (
+    <Drawer
+      open
+      onClose={onClose}
+      widthClass="w-[min(30rem,96vw)]"
+      title="Leave period"
+      actions={
+        <>
+          <button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button>
+          <button type="submit" form="leave-period" className="ui-btn ui-btn-primary" disabled={saving}>{saving ? 'Saving…' : 'Save'}</button>
+        </>
+      }
+    >
+      <form id="leave-period" onSubmit={save} className="grid gap-4 sm:grid-cols-2">
+        <p className="ui-caption sm:col-span-2">The year leave is counted in. Credits start from it, and at its end unused days carry forward or lapse. Most Indian companies use 1 January or 1 April.</p>
+        <label className="block">
+          <span className="ui-label">Starts on day</span>
+          <input type="number" min={1} max={28} className="ui-input w-full" value={form.startDay} onChange={(e) => setForm({ ...form, startDay: Number(e.target.value) || 1 })} />
+        </label>
+        <label className="block">
+          <span className="ui-label">Of</span>
+          <select className="ui-select w-full" value={form.startMonth} onChange={(e) => setForm({ ...form, startMonth: Number(e.target.value) })}>
+            {MONTH_NAMES.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
+          </select>
+        </label>
       </form>
     </Drawer>
   );

@@ -33,6 +33,7 @@ import {
   RibbonStarColor,
   SettingsColor,
   ShieldColor,
+  TableColor,
   ClockColor,
   ArrowSquareDownColor,
   LaptopColor,
@@ -79,6 +80,7 @@ const LeaveBalances = screen('LeaveBalances');
 const LeaveTypes = screen('LeaveTypes');
 const MyLeave = screen('MyLeave');
 const LeaveCalendar = screen('LeaveCalendar');
+const LeaveRegister = screen('LeaveRegister');
 const TeamAttendance = screen('TeamAttendance');
 const MyDays = screen('MyDays');
 const DataImport = screen('DataImport');
@@ -111,6 +113,7 @@ const I = {
   myLeave: colorIcon(BeachColor, 'Beach'),
   holiday: colorIcon(CalendarColor, 'Calendar'),
   calendar: colorIcon(CalendarDataBarColor, 'CalendarDataBar'),
+  register: colorIcon(TableColor, 'Table'),
   attendance: colorIcon(PersonAvailableColor, 'PersonAvailable'),
   myDays: colorIcon(ClockColor, 'Clock'),
   job: colorIcon(BriefcaseColor, 'Briefcase'),
@@ -188,7 +191,7 @@ export const peopleApp = {
     ] },
     /* Leave and holidays are HR's; Attendance reads the same records (founder, 22 Oct 2026). */
     { key: 'leave', label: 'Leave & Attendance', short: 'Time', groups: [
-      { label: 'Leave', items: ['leaveRequests', 'leaveCalendar', 'leaveBalances'] },
+      { label: 'Leave', items: ['leaveRequests', 'leaveCalendar', 'leaveBalances', 'leaveRegister'] },
       { label: 'Attendance', items: ['attendance'] },
       { label: 'Me', items: ['myLeave', 'myDays'] },
     ] },
@@ -207,8 +210,9 @@ export const peopleApp = {
     { key: 'documents', label: 'Documents', icon: I.folder, permission: 'PEOPLE::Employees::VIEW' },
     { key: 'checklists', label: 'Onboarding & Exit', icon: I.checklist, permission: 'PEOPLE::Employees::VIEW' },
     { key: 'selfService', label: 'Employee Portal Access', icon: I.key, permission: 'ATTENDANCE::Employee Portal::VIEW', parent: 'settings' },
-    { key: 'leaveRequests', label: 'Leave Requests', icon: I.leave, permission: 'ATTENDANCE::Leave Requests::VIEW' },
+    { key: 'leaveRequests', label: 'Leave Applications', icon: I.leave, permission: 'ATTENDANCE::Leave Requests::VIEW' },
     { key: 'leaveBalances', label: 'Leave Balances', icon: I.balance, permission: 'ATTENDANCE::Leave Requests::VIEW' },
+    { key: 'leaveRegister', label: 'Leave Register', icon: I.register, permission: 'ATTENDANCE::Leave Requests::VIEW' },
     { key: 'leaveCalendar', label: 'Leave Calendar', icon: I.calendar, permission: 'ATTENDANCE::Leave Requests::VIEW' },
     { key: 'attendance', label: 'Attendance', icon: I.attendance, permission: 'ATTENDANCE::Attendance Records::VIEW' },
     { key: 'myDays', label: 'My Attendance', icon: I.myDays, permission: 'ATTENDANCE::My Attendance::VIEW' },
@@ -265,6 +269,7 @@ export const peopleApp = {
     leaveTypes: LeaveTypes,
     holidays: Holidays,
     leaveCalendar: LeaveCalendar,
+    leaveRegister: LeaveRegister,
     attendance: TeamAttendance,
     myDays: MyDays,
     recruitment: register('recruitment'),

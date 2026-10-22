@@ -11,7 +11,7 @@ import { z } from 'zod';
 import { isWeeklyOff } from '../services/attendance/compute.js';
 import { loadHolidays, loadSchedule, resolveShift } from '../services/attendance/schedule.js';
 import { closedMonths } from './attendance.js';
-import { approveLeave, balancesFor, createLeave, rejectLeave, withTypes } from './leave.js';
+import { approveLeave, balancesFor, createLeave, leaveYearOf, rejectLeave, withTypes } from './leave.js';
 import { emit as emitWebhook, employeeEvent } from '../services/attendance/webhooks.js';
 import { idempotent } from '../services/attendance/idempotency.js';
 import { driverOf } from '../services/attendance/drivers.js';
@@ -404,7 +404,8 @@ publicApiRouter.get('/leave/types', scope('leave:read'), async (req, res) => {
 
 publicApiRouter.get('/leave/balances', scope('leave:read'), async (req, res) => {
   const { accountId, orgId } = req.apiClient!;
-  const year = /^\d{4}$/.test(String(req.query.year || '')) ? Number(req.query.year) : Number(today().slice(0, 4));
+  /* A leave period, named by the year it starts in: the current one by default. */
+  const year = /^\d{4}$/.test(String(req.query.year || '')) ? Number(req.query.year) : await leaveYearOf(req.apiClient!.orgId);
   const code = String(req.query.employee_code || '').trim();
   const people = await peoplePrisma.employee.findMany({ where: { accountId, orgId, status: { not: 'LEFT' }, ...(code ? { code } : {}) }, select: { id: true, code: true, name: true }, orderBy: { name: 'asc' } });
   if (code && !people.length) return fail(res, 404, `No employee with code ${code}.`);

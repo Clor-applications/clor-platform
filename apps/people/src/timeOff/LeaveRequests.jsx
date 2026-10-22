@@ -3,6 +3,7 @@ import { CalendarCheck, Check, Clock3, Plus, X } from 'lucide-react';
 
 import { useListSearch } from '@ui/components/ListToolbar';
 import DocumentListShell from '@ui/components/list/DocumentListShell';
+import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';
 import { Pagination, usePaged, useResetPage } from '@ui/components/list/ListPageParts';
 import { EmptyState, SkeletonCard } from '@ui/components/ui/Primitives';
 import Drawer from '@ui/components/ui/Drawer';
@@ -10,11 +11,11 @@ import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { listEmployees } from '@ui/personnel/api';
 import {
   STATUS_LABEL, STATUS_PILL, approveLeave, cancelLeave, colorOf, createLeaveRequest, dates,
-  getLeaveLedger, listLeaveRequests, listLeaveTypes, rejectLeave,
+  getLeaveLedger, getLeaveSettings, listLeaveRequests, listLeaveTypes, periodChoices, periodYearOf, rejectLeave,
 } from './api';
 
 /**
- * People → Leave & Attendance → Leave Requests. HR decides here: each
+ * People → Leave & Attendance → Leave Applications. HR decides here: each
  * request shows what it does to the person's balance and who else is away
  * on those days, so a decision needs no second screen. HR can also enter
  * leave for someone, which is not held to notice or how late.
@@ -34,10 +35,16 @@ export default function LeaveRequests() {
   const [adding, setAdding] = useState(false);
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(25);
+  const [settings, setSettings] = useState(null);
+  const [year, setYear] = useState(null);
+  useEffect(() => {
+    getLeaveSettings().then((s) => { setSettings(s); setYear(s.current.year); }).catch(() => setYear(0));
+  }, []);
 
   const load = useCallback(() => {
-    listLeaveRequests().then((r) => { setRows(r); setError(''); }).catch((e) => setError(String(e?.message || 'Could not load leave requests.')));
-  }, []);
+    if (year === null) return;
+    listLeaveRequests(year ? { year } : {}).then((r) => { setRows(r); setError(''); }).catch((e) => setError(String(e?.message || 'Could not load leave applications.')));
+  }, [year]);
   useEffect(() => { load(); }, [load]);
 
   const counts = useMemo(() => Object.fromEntries(TABS.map((t) => [t, (rows || []).filter((r) => !t || r.status === t).length])), [rows]);
@@ -51,11 +58,23 @@ export default function LeaveRequests() {
   return (
     <DocumentListShell
       entity="leave"
-      title="Leave Requests"
-      description="Decide what is waiting. Each request shows the balance it leaves and who else is away then."
+      title="Leave Applications"
+      description="Decide what is waiting. Each application shows the balance it leaves and who else is away then."
       compact
       tight
-      search={{ value: search.query, onChange: search.setQuery, placeholder: 'Search person, type or reason…', label: 'Search leave requests' }}
+      search={{ value: search.query, onChange: search.setQuery, placeholder: 'Search person, type or reason…', label: 'Search leave applications' }}
+      headerExtras={settings ? (
+        <select className="ui-select" value={year || ''} onChange={(e) => setYear(Number(e.target.value))} aria-label="Leave period">
+          {periodChoices(settings).map((c) => <option key={c.year} value={c.year}>{c.label}</option>)}
+        </select>
+      ) : null}
+      moreItems={[exportMenuItem('Export applications')]}
+      onMoreSelect={(k) => {
+        const format = exportFormatFromKey(k);
+        if (!format) return;
+        const columns = [['employeeName', 'Employee'], ['employeeCode', 'Code'], ['department', 'Department'], ['leaveTypeName', 'Leave type'], ['fromDate', 'From'], ['toDate', 'To'], ['days', 'Days'], ['reason', 'Reason'], ['statusLabel', 'Status'], ['reviewNote', 'Note']].map(([key, label]) => ({ key, label }));
+        runListExport({ format, title: 'Leave applications', fileName: `leave-applications-${year || 'all'}`, label: 'Applications', rows: search.filtered.map((r) => ({ ...r, statusLabel: STATUS_LABEL[r.status] || r.status })), columns });
+      }}
       primary={<button type="button" className="ui-btn ui-btn-primary" onClick={() => setAdding(true)}><Plus size={16} aria-hidden="true" /> Enter leave</button>}
       cards={[
         { label: 'Waiting', value: counts.PENDING, count: true, tone: 'outstanding', Icon: Clock3, onSelect: () => setStatus('PENDING') },
@@ -71,7 +90,7 @@ export default function LeaveRequests() {
       {!rows ? (
         error ? null : <SkeletonCard lines={6} />
       ) : !search.filtered.length ? (
-        <EmptyState icon={CalendarCheck} title={status === 'PENDING' ? 'Nothing waiting' : 'No leave requests here'} description={status === 'PENDING' ? 'Requests from the employee app and from managers land here.' : 'Change the tab or the search.'} />
+        <EmptyState icon={CalendarCheck} title={status === 'PENDING' ? 'Nothing waiting' : 'No leave applications here'} description={status === 'PENDING' ? 'Requests from the employee app and from managers land here.' : 'Change the tab or the search.'} />
       ) : (
         <>
           <div className="ui-table-scroll">
@@ -103,8 +122,8 @@ export default function LeaveRequests() {
           <Pagination total={search.filtered.length} page={safePage} perPage={perPage} pageCount={pageCount} onPage={setPage} onPerPage={setPerPage} />
         </>
       )}
-      {open ? <RequestDrawer request={open} all={rows || []} onClose={() => setOpen(null)} onDone={() => { setOpen(null); load(); }} /> : null}
-      {adding ? <EnterLeave onClose={() => setAdding(false)} onDone={() => { setAdding(false); load(); }} /> : null}
+      {open ? <RequestDrawer request={open} settings={settings} all={rows || []} onClose={() => setOpen(null)} onDone={() => { setOpen(null); load(); }} /> : null}
+      {adding ? <EnterLeave settings={settings} onClose={() => setAdding(false)} onDone={() => { setAdding(false); load(); }} /> : null}
     </DocumentListShell>
   );
 }
@@ -124,16 +143,16 @@ function BalanceLine({ employeeId, leaveTypeId, year, days, isPaid }) {
   if (!bal || bal.available == null) return null;
   return (
     <p className="text-sm">
-      Balance {year}: <strong>{bal.available}</strong> available of {bal.allocated}
+      Balance: <strong>{bal.available}</strong> available of {bal.allocated}
       {bal.pending ? `, ${bal.pending} waiting` : ''}{bal.used ? `, ${bal.used} taken` : ''}.
     </p>
   );
 }
 
-function RequestDrawer({ request: r, all, onClose, onDone }) {
+function RequestDrawer({ request: r, settings, all, onClose, onDone }) {
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
-  const year = Number(r.fromDate.slice(0, 4));
+  const year = periodYearOf(settings, r.fromDate);
   const alsoAway = all.filter((x) => x.id !== r.id && x.employeeId !== r.employeeId && ['APPROVED', 'PENDING'].includes(x.status) && overlaps(x, r));
   const sameDept = alsoAway.filter((x) => r.department && x.department === r.department);
 
@@ -203,7 +222,7 @@ function RequestDrawer({ request: r, all, onClose, onDone }) {
   );
 }
 
-function EnterLeave({ onClose, onDone }) {
+function EnterLeave({ settings, onClose, onDone }) {
   const [people, setPeople] = useState([]);
   const [types, setTypes] = useState([]);
   const [form, setForm] = useState({ employeeId: '', leaveTypeId: '', fromDate: '', toDate: '', halfDay: '', reason: '' });
@@ -273,7 +292,7 @@ function EnterLeave({ onClose, onDone }) {
         ) : null}
         <label className="block sm:col-span-2"><span className="ui-label">Reason *</span><input className="ui-input w-full" required minLength={3} maxLength={500} value={form.reason} onChange={set('reason')} placeholder="e.g. Told HR by phone" /></label>
         {form.employeeId && type ? (
-          <div className="sm:col-span-2"><BalanceLine employeeId={form.employeeId} leaveTypeId={type.id} year={Number((form.fromDate || new Date().toISOString()).slice(0, 4))} days={0} isPaid={type.isPaid} /></div>
+          <div className="sm:col-span-2"><BalanceLine employeeId={form.employeeId} leaveTypeId={type.id} year={periodYearOf(settings, form.fromDate || new Date().toISOString().slice(0, 10))} days={0} isPaid={type.isPaid} /></div>
         ) : null}
         <p className="ui-caption sm:col-span-2">Weekly offs and holidays inside the dates are not counted, unless the type has the sandwich rule. It waits for approval like any request.</p>
       </form>

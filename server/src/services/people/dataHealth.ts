@@ -1,7 +1,7 @@
 import { peoplePrisma } from '../../utils/peoplePrisma.js';
 import { payrollPrisma } from '../../utils/payrollPrisma.js';
 import { isFeatureEnabled } from '../features.js';
-import { balancesFor } from '../../routes/leave.js';
+import { balancesFor, leaveYearOf } from '../../routes/leave.js';
 
 /**
  * Data health: the implementation auditor from the HR research ("finds
@@ -39,7 +39,7 @@ const digits = (v: string | null | undefined) => String(v || '').replace(/\D/g, 
 const SAMPLE = 25;
 
 export async function dataHealth(accountId: string, orgId: string, opts: { payroll: boolean; year?: number } = { payroll: true }) {
-  const year = opts.year ?? Number(new Date().toISOString().slice(0, 4));
+  const year = opts.year ?? (await leaveYearOf(orgId));
   const [employees, payrollOn, readers, unmatched] = await Promise.all([
     peoplePrisma.employee.findMany({
       where: { accountId, orgId, status: { not: 'LEFT' } },

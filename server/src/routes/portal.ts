@@ -21,7 +21,8 @@ import { normaliseCode, passwordProblem } from '../services/attendance/portal.js
 import { chainFor } from '../services/attendance/approvalChain.js';
 import { askOvertime, attentionFor, chainsFor, confirmMonth, decideOvertime, monthReview, overtimeFor, timelineOf, upcomingShifts } from '../services/attendance/selfService.js';
 import { REASON_CODES, createRequest, daysOfMonth, instants, reviewCorrection, sendError, today, withNames } from './attendance.js';
-import { approveLeave, balancesFor, cancelOwnLeave, createLeave, rejectLeave, withTypes } from './leave.js';
+import { approveLeave, balancesFor, cancelOwnLeave, createLeave, leavePeriodOf, leaveYearOf, rejectLeave, withTypes } from './leave.js';
+import { periodEnd, periodStart } from '../services/attendance/leaveAccrual.js';
 import { recomputeDeviceDay, shiftDayFor } from './iclock.js';
 import { runInTenant } from '../utils/tenantScope.js';
 
@@ -242,7 +243,7 @@ portalRouter.get('/home', async (req, res) => {
   const monthStart = `${month}-01`;
   const weekStart = plusDays(t, -6);
   const from = monthStart < weekStart ? monthStart : weekStart;
-  const year = Number(t.slice(0, 4));
+  const year = await leaveYearOf(e.orgId, t);
   const [org, area, branch, schedule, holidays, records, record, status, notice, leave, myLeave, myCorrections, team] = await Promise.all([
     platformPrisma.org.findUnique({ where: { id: e.orgId }, select: { name: true, code: true } }),
     e.areaId ? peoplePrisma.area.findFirst({ where: { id: e.areaId, orgId: e.orgId }, select: { name: true } }) : null,
@@ -549,7 +550,7 @@ portalRouter.get('/attendance/explain', async (req, res) => {
 portalRouter.get('/leave/explain', async (req, res) => {
   const { accountId, orgId, employeeId } = req.portal!;
   try {
-    const year = Number(req.query.year) || new Date().getUTCFullYear();
+    const year = Number(req.query.year) || (await leaveYearOf(orgId));
     res.json(await leaveExplain(accountId, orgId, employeeId, String(req.query.leaveTypeId || ''), year));
   } catch (err: any) {
     res.status(err?.status || 500).json({ error: err?.message || 'Could not explain this balance.' });
@@ -595,11 +596,11 @@ portalRouter.get('/schedule', async (req, res) => {
 portalRouter.get('/leave', async (req, res) => {
   const { accountId, orgId, employeeId } = req.portal!;
   const y = Number(req.query.year);
-  const year = Number.isInteger(y) && y >= 2000 && y <= 2100 ? y : Number(today().slice(0, 4));
-  const { types, balances } = await balancesFor(accountId, orgId, [employeeId], year);
+  const year = Number.isInteger(y) && y >= 2000 && y <= 2100 ? y : await leaveYearOf(orgId);
+  const { types, balances, period } = await balancesFor(accountId, orgId, [employeeId], year);
   const mine = balances.get(employeeId)!;
   const requests = await peoplePrisma.leaveRequest.findMany({
-    where: { accountId, orgId, employeeId, fromDate: { gte: `${year}-01-01`, lte: `${year}-12-31` } },
+    where: { accountId, orgId, employeeId, fromDate: { gte: periodStart(period, year), lte: periodEnd(period, year) } },
     orderBy: [{ fromDate: 'desc' }, { createdAt: 'desc' }],
   });
   res.json({

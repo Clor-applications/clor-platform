@@ -523,6 +523,11 @@ model LeaveType {
   /// Unused days may be paid out, up to this many a year.
   encashable         Boolean  @default(false)
   maxEncashDays      Float?
+  /// When each credit lands (accrual is YEARLY, HALF_YEARLY, QUARTERLY or MONTHLY):
+  /// START of each part of the leave period, its END, or DAY — the first
+  /// creditDay (1–28) on or after the part begins.
+  creditOn           String   @default("START")
+  creditDay          Int?
 
   createdByUserId String
   createdAt       DateTime @default(now())
@@ -1145,6 +1150,11 @@ model AttendanceSettings {
   /// Who decides leave and correction requests: HR (default), MANAGER (the person's "Reports to"), or MANAGER_THEN_HR (both, in that order).
   leaveApproval              String  @default("HR")
   correctionApproval         String  @default("HR")
+  /// The company's leave period (People → Settings → Leave Policy): the day and
+  /// month it starts, e.g. 1 April for April–March. A period is named by the
+  /// year it starts in. Default 1 January, the calendar year.
+  leavePeriodStartMonth      Int     @default(1)
+  leavePeriodStartDay        Int     @default(1)
 
   /// DPDP (services/attendance/biometrics.ts): CLOR keeps and copies fingerprints and
   /// faces between readers only when the company switches this on, recording who

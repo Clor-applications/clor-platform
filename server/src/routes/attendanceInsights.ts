@@ -19,7 +19,8 @@ import { overrideFindings, rangedFindings, temporaryFindings } from '../services
 import { CHAINS, hrMayDecide } from '../services/attendance/approvalChain.js';
 import { confirmationsFor, decideOvertime, overtimeChain } from '../services/attendance/selfService.js';
 import { balancesFor } from './leave.js';
-import { earned as earnedBy } from '../services/attendance/leaveAccrual.js';
+import { periodEnd, periodLabel, periodStart } from '../services/attendance/leaveAccrual.js';
+import { leavePeriodOf } from './leave.js';
 import {
   ISO_DATE,
   employeeIn,
@@ -660,33 +661,28 @@ attendanceInsightsRouter.get(`${base}/mapping-audit`, can(PermissionAction.VIEW,
 // ---------------------------------------------------------------------------
 
 export async function leaveExplain(accountId: string, orgId: string, employeeId: string, leaveTypeId: string, year: number) {
+  const period = await leavePeriodOf(orgId);
   const [type, person, requests, allocation] = await Promise.all([
     peoplePrisma.leaveType.findFirst({ where: { id: leaveTypeId, accountId, orgId } }),
     peoplePrisma.employee.findFirst({ where: { id: employeeId, orgId }, select: { id: true, name: true, dateOfJoining: true } }),
-    peoplePrisma.leaveRequest.findMany({ where: { orgId, employeeId, leaveTypeId, fromDate: { gte: `${year}-01-01`, lte: `${year}-12-31` } }, orderBy: { fromDate: 'asc' } }),
+    peoplePrisma.leaveRequest.findMany({ where: { orgId, employeeId, leaveTypeId, fromDate: { gte: periodStart(period, year), lte: periodEnd(period, year) } }, orderBy: { fromDate: 'asc' } }),
     peoplePrisma.leaveAllocation.findFirst({ where: { orgId, employeeId, leaveTypeId, year } }),
   ]);
   if (!type || !person) throw fail(404, 'No such leave type or person.');
   const { balances } = await balancesFor(accountId, orgId, [employeeId], year);
   const bal = balances.get(employeeId)?.get(leaveTypeId) as any;
   const t = today();
-  const asOf = Number(t.slice(0, 4)) > year ? `${year}-12-31` : t;
-  const months: Array<{ month: string; earned: number; total: number }> = [];
+  const asOf = t > periodEnd(period, year) ? periodEnd(period, year) : t;
+  /* Each credit as the policy lands it (services/attendance/leaveAccrual.ts), up to today. */
+  const months: Array<{ month: string; earned: number; total: number; date?: string }> = [];
   if (type.isPaid && !allocation) {
-    let prev = 0;
-    for (let m = 1; m <= 12; m += 1) {
-      const mm = `${year}-${String(m).padStart(2, '0')}`;
-      if (`${mm}-01` > asOf) break;
-      const total = earnedBy(type as any, year, person.dateOfJoining || null, `${mm}-28`);
-      if (total !== prev || m === 1) months.push({ month: mm, earned: Math.round((total - prev) * 100) / 100, total });
-      prev = total;
-    }
+    for (const c of bal?.credits || []) if (c.date <= asOf) months.push({ month: c.date.slice(0, 7), earned: c.days, total: c.total, date: c.date });
   }
   const lines = [] as Array<{ kind: string; label: string; days: number; date?: string; status?: string }>;
-  if (allocation) lines.push({ kind: 'allocation', label: `Set by HR for ${year}`, days: allocation.days });
+  if (allocation) lines.push({ kind: 'allocation', label: `Set by HR for ${periodLabel(period, year)}`, days: allocation.days });
   else {
-    if (bal?.carriedIn) lines.push({ kind: 'carried', label: `Carried in from ${year - 1}`, days: bal.carriedIn });
-    if (bal?.earned != null) lines.push({ kind: 'earned', label: type.accrual === 'MONTHLY' ? `Earned so far (${type.annualDays} a year, monthly)` : `This year's entitlement (${type.annualDays} days)`, days: bal.earned });
+    if (bal?.carriedIn) lines.push({ kind: 'carried', label: `Carried in from ${periodLabel(period, year - 1)}`, days: bal.carriedIn });
+    if (bal?.earned != null) lines.push({ kind: 'earned', label: type.accrual === 'YEARLY' ? `This period's entitlement (${type.annualDays} days)` : `Earned so far (${type.annualDays} a year, ${String(type.accrual).toLowerCase().replace('_', '-')})`, days: bal.earned });
   }
   /* HR's ledger lines: added, taken away, paid out (People → Time Off → Balances). */
   if (type.isPaid) {

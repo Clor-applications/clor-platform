@@ -23,6 +23,7 @@ export { default as LeaveRequests } from './timeOff/LeaveRequests';
 export { default as LeaveBalances } from './timeOff/LeaveBalances';
 export { default as LeaveTypes } from './timeOff/LeavePolicy';
 export { default as LeaveCalendar } from './timeOff/LeaveCalendar';
+export { default as LeaveRegister } from './timeOff/LeaveRegister';
 export { default as TeamAttendance } from './timeOff/TeamAttendance';
 export { default as MyDays } from './timeOff/MyDays';
 export { default as MyLeave } from '../../attendance/src/screens/MyLeave';

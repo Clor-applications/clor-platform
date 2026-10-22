@@ -1,7 +1,7 @@
 import { payrollPrisma } from '../../utils/payrollPrisma.js';
 import { peoplePrisma } from '../../utils/peoplePrisma.js';
 import { round2 } from '../../utils/money.js';
-import { balancesFor } from '../../routes/leave.js';
+import { balancesFor, leaveYearOf } from '../../routes/leave.js';
 
 /**
  * Full and final settlement: what is still owed to, or by, somebody who has
@@ -111,7 +111,7 @@ export async function proposeSettlement(accountId: string, orgId: string, employ
     lines.push({ code: 'GRATUITY', label: 'Gratuity', kind: 'EARNING', amount: 0, explanation: 'No date of joining on file, so service cannot be worked out.' });
   }
 
-  const year = Number(leaving.slice(0, 4));
+  const year = await leaveYearOf(orgId, leaving);
   const { types, balances } = await balancesFor(accountId, orgId, [employeeId], year);
   const mine = balances.get(employeeId);
   const daily = round2(wage / 26);

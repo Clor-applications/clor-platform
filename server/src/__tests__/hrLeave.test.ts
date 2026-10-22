@@ -139,7 +139,7 @@ describe('the ledger', () => {
     const r = (await att(c, 'post', '/leave/requests', { employeeId: p.id, leaveTypeId: el.id, fromDate: '2026-09-01', toDate: '2026-09-01', reason: 'Errand' }).expect(201)).body.request;
     const ledger = (await att(c, 'get', `/leave/ledger?employeeId=${p.id}&year=2026`).expect(200)).body;
     const lines = ledger.types.find((t: any) => t.type.id === el.id).entries.map((e: any) => [e.kind, e.days]);
-    expect(lines).toEqual(expect.arrayContaining([['EARNED', 12], ['ADJUST', 5], ['ADJUST', -1], ['ENCASH', -3], ['PENDING', -1]]));
+    expect(lines).toEqual(expect.arrayContaining([['CREDIT', 12], ['ADJUST', 5], ['ADJUST', -1], ['ENCASH', -3], ['PENDING', -1]]));
     expect(lines.find((l: any) => l[0] === 'PENDING')).toBeTruthy();
     expect(r.days).toBe(1);
 

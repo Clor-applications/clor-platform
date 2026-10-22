@@ -34,7 +34,7 @@ const GROUPS = [
     title: 'Leave & Holidays',
     note: 'Leave rules and the company calendar; Attendance uses the same ones.',
     items: [
-      ['leaveTypes', 'Each kind of leave: days, who it is for, notice, carry forward, pay-out'],
+      ['leaveTypes', 'The leave period, and each kind of leave: credits and their dates, who it is for, notice, carry forward, pay-out'],
       ['holidays', 'Company and location holidays'],
     ],
   },

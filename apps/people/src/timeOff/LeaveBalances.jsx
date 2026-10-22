@@ -7,7 +7,7 @@ import { Pagination, usePaged, useResetPage } from '@ui/components/list/ListPage
 import { EmptyState, SkeletonCard } from '@ui/components/ui/Primitives';
 import Drawer from '@ui/components/ui/Drawer';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
-import { addLeaveAdjustment, colorOf, deleteLeaveAdjustment, getLeaveBalances, getLeaveLedger, thisYear } from './api';
+import { addLeaveAdjustment, colorOf, deleteLeaveAdjustment, getLeaveBalances, getLeaveLedger, getLeaveSettings, periodChoices, thisYear } from './api';
 
 /**
  * People → Leave & Attendance → Leave Balances. Everyone's days for the
@@ -15,10 +15,14 @@ import { addLeaveAdjustment, colorOf, deleteLeaveAdjustment, getLeaveBalances, g
  * added or taken away by HR, paid out, taken, waiting — and change it with a
  * reason that stays on the record.
  */
-const KIND = { CARRIED: 'Carried in', EARNED: 'Earned', ALLOCATED: 'Set for this person', ADJUST: 'Changed by HR', ENCASH: 'Paid out', TAKEN: 'Approved', PENDING: 'Waiting' };
+const KIND = { CARRIED: 'Carried in', EARNED: 'Earned', CREDIT: 'Credited', UPCOMING: 'To be credited', ALLOCATED: 'Set for this person', ADJUST: 'Changed by HR', ENCASH: 'Paid out', TAKEN: 'Approved', PENDING: 'Waiting' };
 
 export default function LeaveBalances() {
-  const [year, setYear] = useState(thisYear());
+  const [year, setYear] = useState(null);
+  const [settings, setSettings] = useState(null);
+  useEffect(() => {
+    getLeaveSettings().then((s) => { setSettings(s); setYear(s.current.year); }).catch(() => setYear(thisYear()));
+  }, []);
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
   const [open, setOpen] = useState(null);
@@ -26,6 +30,7 @@ export default function LeaveBalances() {
   const [perPage, setPerPage] = useState(25);
 
   const load = useCallback(() => {
+    if (!year) return;
     getLeaveBalances(year).then((r) => { setData(r); setError(''); }).catch((e) => setError(String(e?.message || 'Could not load balances.')));
   }, [year]);
   useEffect(() => { load(); }, [load]);
@@ -34,7 +39,7 @@ export default function LeaveBalances() {
   const search = useListSearch(data?.rows || [], ['name', 'code', 'department']);
   useResetPage(setPage, [search.query, perPage, year]);
   const { pageRows, safePage, pageCount } = usePaged(search.filtered, perPage, page);
-  const years = [thisYear() + 1, thisYear(), thisYear() - 1, thisYear() - 2];
+  const choices = settings ? periodChoices(settings) : [thisYear() + 1, thisYear(), thisYear() - 1].map((y) => ({ year: y, label: String(y) }));
 
   return (
     <DocumentListShell
@@ -45,8 +50,8 @@ export default function LeaveBalances() {
       tight
       search={{ value: search.query, onChange: search.setQuery, placeholder: 'Search people…', label: 'Search balances' }}
       headerExtras={
-        <select className="ui-select" value={year} onChange={(e) => setYear(Number(e.target.value))} aria-label="Year">
-          {years.map((y) => <option key={y} value={y}>{y}</option>)}
+        <select className="ui-select" value={year || ''} onChange={(e) => setYear(Number(e.target.value))} aria-label="Leave period">
+          {choices.map((c) => <option key={c.year} value={c.year}>{c.label}</option>)}
         </select>
       }
     >
@@ -92,12 +97,12 @@ export default function LeaveBalances() {
           <Pagination total={search.filtered.length} page={safePage} perPage={perPage} pageCount={pageCount} onPage={setPage} onPerPage={setPerPage} />
         </>
       )}
-      {open ? <Ledger person={open} year={year} onClose={() => setOpen(null)} onChanged={load} /> : null}
+      {open ? <Ledger person={open} year={year} label={choices.find((c) => c.year === year)?.label || year} onClose={() => setOpen(null)} onChanged={load} /> : null}
     </DocumentListShell>
   );
 }
 
-function Ledger({ person, year, onClose, onChanged }) {
+function Ledger({ person, year, label, onClose, onChanged }) {
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
   const [form, setForm] = useState({ leaveTypeId: '', how: 'ADD', days: '', reason: '' });
@@ -147,7 +152,7 @@ function Ledger({ person, year, onClose, onChanged }) {
   };
 
   return (
-    <Drawer open onClose={onClose} widthClass="w-[min(40rem,96vw)]" title={`${person.name}: leave ${year}`}>
+    <Drawer open onClose={onClose} widthClass="w-[min(40rem,96vw)]" title={`${person.name}: leave, ${label}`}>
       {error ? <p role="alert" className="text-sm">{error}</p> : null}
       {!data ? (error ? null : <SkeletonCard lines={6} />) : (
         <div className="space-y-5">
@@ -161,7 +166,7 @@ function Ledger({ person, year, onClose, onChanged }) {
                 <table className="ui-table w-full text-sm">
                   <tbody>
                     {entries.map((e, i) => (
-                      <tr key={`${e.kind}-${e.id || i}`}>
+                      <tr key={`${e.kind}-${e.id || i}`} className={e.kind === 'UPCOMING' ? 'ui-muted' : ''}>
                         <td className="ui-col-meta whitespace-nowrap w-28">{e.date}</td>
                         <td>{KIND[e.kind] || e.kind}<span className="ui-caption block">{e.note}</span></td>
                         <td className="ui-num w-20">{e.days > 0 ? '+' : ''}{e.days}</td>

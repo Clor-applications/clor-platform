@@ -40,6 +40,32 @@ export const getLeaveLedger = (employeeId, year) => get(`/leave/ledger${query({ 
 export const addLeaveAdjustment = (body) => send('/leave/adjustments', 'POST', body);
 export const deleteLeaveAdjustment = (adjustmentId) => send(`/leave/adjustments/${id(adjustmentId)}`, 'DELETE');
 
+/** The company's leave period (e.g. April–March), with this, the last and the next period's bounds and names. */
+export const getLeaveSettings = () => get('/leave/settings');
+export const saveLeaveSettings = (body) => send('/leave/settings', 'PUT', body);
+/** The leave register of a period: opening, credited, changed, taken, paid out, waiting, lapsed, left. */
+export const getLeaveRegister = (params) => get(`/leave/register${query(params)}`);
+/** The periods to choose from, newest first, named as the company's leave year names them. */
+/** The leave period a date falls in, by the year it starts in (the calendar year without settings). */
+export const periodYearOf = (s, date) => {
+  const y = Number(String(date).slice(0, 4));
+  if (!s) return y;
+  const start = `${y}-${String(s.startMonth).padStart(2, '0')}-${String(s.startDay).padStart(2, '0')}`;
+  return date >= start ? y : y - 1;
+};
+export const periodChoices = (s) => (s ? [s.next, s.current, s.previous].filter(Boolean) : []);
+export const ACCRUAL_LABEL = { YEARLY: 'Yearly', HALF_YEARLY: 'Half-yearly', QUARTERLY: 'Quarterly', MONTHLY: 'Monthly' };
+export const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+const ordinal = (n) => `${n}${[11, 12, 13].includes(n % 100) ? 'th' : ['th', 'st', 'nd', 'rd'][n % 10] || 'th'}`;
+/** "1 day on the 10th of each month", "3 days at the end of each quarter". */
+export function creditText(t) {
+  const part = { YEARLY: 'period', HALF_YEARLY: 'half-year', QUARTERLY: 'quarter', MONTHLY: 'month' }[t.accrual] || 'period';
+  const n = Math.round(((Number(t.annualDays) || 0) * ({ YEARLY: 12, HALF_YEARLY: 6, QUARTERLY: 3, MONTHLY: 1 }[t.accrual] || 12)) / 12 * 100) / 100;
+  const days = `${n} day${n === 1 ? '' : 's'}`;
+  if (t.creditOn === 'END') return `${days} at the end of each ${part}`;
+  if (t.creditOn === 'DAY' && t.creditDay) return part === 'month' ? `${days} on the ${ordinal(Number(t.creditDay))} of each month` : `${days} each ${part}, on the first ${ordinal(Number(t.creditDay))}`;
+  return `${days} at the start of each ${part}`;
+}
 export const listHolidays = (year) => get(`/holidays${query({ year })}`).then((r) => r?.holidays || []);
 export const listRecords = (params) => get(`/records${query(params)}`).then((r) => r?.records || []);
 export const getMyDays = () => get('/me');
