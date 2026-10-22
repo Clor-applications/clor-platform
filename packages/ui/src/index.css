@@ -6533,72 +6533,72 @@ th.ui-th {
  * titles, 15px section titles. Radius 8px on surfaces, 6px on controls.
  */
 :is([data-app='people']) {
-  --app-bg: 248 250 252;        /* #F8FAFC */
+  --app-bg: 244 244 245;
   --surface: 255 255 255;
-  --surface-sunken: 241 245 249; /* #F1F5F9 */
-  --border: 226 232 240;         /* #E2E8F0 */
-  --border-strong: 203 213 225;  /* #CBD5E1 */
-  --border-field: 203 213 225;
-  --fg: 15 23 42;                /* #0F172A — also the rail's active pill */
-  --fg-muted: 100 116 139;       /* #64748B, 4.8:1 on white */
-  --fg-subtle: 100 116 139;
-  --nav-fg: 15 23 42;
-  --nav-fg-muted: 71 85 105;     /* #475569 */
-  --brand: 234 88 12;
-  --brand-deep: 154 52 18;
-  --brand-hover: 154 52 18;
-  --brand-pressed: 124 45 18;
-  --btn-primary-bg: 194 65 12;
-  --btn-primary-hover: 154 52 18;
-  --brand-soft: 255 241 232;
-  --brand-subtle: 255 248 243;
-  --brand-border: 254 215 190;
-  --brand-ink: 154 52 18;
-  --on-brand: 255 255 255;
-  --accent-soft: 255 241 232;
-  --ring: 234 88 12;
-  --link: 154 52 18;
-  --link-hover: 124 45 18;
-  --col-party: 15 23 42;
-  --rail-hover: 255 248 243;
-  --rail-active: 255 241 232;
-  --heading-bg: 248 250 252;
-  --heading-hover: 241 245 249;
-  --page-heading-bg: 248 250 252;
+  --surface-sunken: 244 244 245;
+  --border: 212 212 216;
+  --border-strong: 161 161 170;
+  --border-field: 161 161 170;
+  --fg: 24 24 27;
+  --fg-muted: 82 82 91;
+  --fg-subtle: 107 107 115;
+  --nav-fg: 24 24 27;
+  --nav-fg-muted: 82 82 91;
+  --brand: 255 107 0; /* Blaze orange; graphite carries the interface. */
+  --brand-deep: 194 65 12;
+  --brand-hover: 232 95 0;
+  --brand-pressed: 194 65 12;
+  --btn-primary-bg: 255 107 0; /* blaze with graphite text: AA contrast */
+  --btn-primary-hover: 255 138 51;
+  --brand-soft: 255 245 236;
+  --brand-subtle: 255 249 245;
+  --brand-border: 255 216 186;
+  --brand-ink: 194 65 12;
+  --on-brand: 24 24 27;
+  --accent-soft: 255 245 236;
+  --ring: 194 65 12;
+  --link: 194 65 12;
+  --link-hover: 154 52 18;
+  --col-party: 24 24 27;
+  --rail-hover: 244 244 245;
+  --rail-active: 255 245 236;
+  --heading-bg: 244 244 245;
+  --heading-hover: 228 228 231;
+  --page-heading-bg: 244 244 245;
 }
 :root[data-theme='dark'] :is([data-app='people']),
 :root[data-theme='dark']:is([data-app='people']) {
-  --app-bg: 11 15 25;
-  --surface: 17 24 39;
-  --surface-sunken: 24 32 48;
-  --border: 36 46 64;
-  --border-strong: 51 65 85;
-  --border-field: 51 65 85;
-  --fg: 241 245 249;
-  --fg-muted: 148 163 184;
-  --fg-subtle: 148 163 184;
-  --nav-fg: 241 245 249;
-  --nav-fg-muted: 148 163 184;
-  --brand: 251 146 60;
+  --app-bg: 9 9 11;
+  --surface: 18 18 21;
+  --surface-sunken: 24 24 27;
+  --border: 39 39 42;
+  --border-strong: 82 82 91;
+  --border-field: 82 82 91;
+  --fg: 250 250 250;
+  --fg-muted: 161 161 170;
+  --fg-subtle: 161 161 170;
+  --nav-fg: 244 244 245;
+  --nav-fg-muted: 161 161 170;
+  --brand: 255 138 51;
   --brand-deep: 253 186 116;
-  --btn-primary-bg: 251 146 60;
+  --btn-primary-bg: 255 138 51;
   --btn-primary-hover: 253 186 116;
   --brand-pressed: 234 88 12;
-  --on-brand: 24 20 16;
-  --brand-soft: 67 32 12;
-  --brand-subtle: 40 22 12;
+  --on-brand: 24 24 27;
+  --brand-soft: 43 26 14;
+  --brand-subtle: 34 23 16;
   --brand-border: 124 45 18;
   --brand-ink: 253 186 116;
-  --accent-soft: 67 32 12;
-  --ring: 251 146 60;
+  --accent-soft: 43 26 14;
+  --ring: 255 138 51;
   --link: 253 186 116;
   --link-hover: 254 215 170;
-  --col-party: 241 245 249;
-  --rail-hover: 40 22 12;
-  --rail-active: 67 32 12;
-  --heading-bg: 24 32 48;
-  --heading-hover: 30 41 59;
-  --page-heading-bg: 11 15 25;
+  --col-party: 244 244 245;
+  --rail-hover: 24 24 27;
+  --rail-active: 43 26 14;
+  --heading-bg: 39 39 42;
+  --heading-hover: 63 63 70;
+  --page-heading-bg: 24 24 27;
 }
 
 :root:is([data-app='people']) main {
