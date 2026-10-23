@@ -38,15 +38,25 @@ const querySchema = z.object({
   limit: z.coerce.number().int().min(1).max(200).optional(),
   cursor: z.string().max(60).optional(),
   /**
-   * One app's entries: `attendance` is everything recorded under ATTENDANCE_
-   * and PEOPLE_ (auditMutations.ts) plus the employee and company actions
-   * written by name (anonymising, full export, closure). Unset: everything.
+   * One app's entries, for Company admin's one audit trail (ADR-010) and the
+   * apps that open it on their own share. `attendance` is everything recorded
+   * under ATTENDANCE_ and PEOPLE_ (auditMutations.ts) plus the employee and
+   * company actions written by name; `payroll` is PAYROLL_; `company` is the
+   * company's own administration (users, roles, features, the company);
+   * `accounting` is whatever none of those claim — invoices and the rest of
+   * the books. Unset: everything.
    */
-  app: z.enum(['attendance']).optional(),
+  app: z.enum(['attendance', 'payroll', 'company', 'accounting']).optional(),
 });
 
-const APP_ENTITIES = {
-  attendance: [{ entity: { startsWith: 'ATTENDANCE_' } }, { entity: { startsWith: 'PEOPLE_' } }, { entity: { in: ['Employee', 'Company', 'PeopleRecord'] } }],
+const ATTENDANCE = [{ entity: { startsWith: 'ATTENDANCE_' } }, { entity: { startsWith: 'PEOPLE_' } }, { entity: { in: ['Employee', 'PeopleRecord', 'LeaveSettings', 'LeaveAdjustment'] } }];
+const PAYROLL = [{ entity: { startsWith: 'PAYROLL_' } }];
+const COMPANY = [{ entity: { in: ['Company', 'User', 'Role', 'UserPermission', 'Features', 'DataProtection', 'Branch', 'Subscription'] } }];
+const APP_WHERE: Record<string, Record<string, unknown>> = {
+  attendance: { OR: ATTENDANCE },
+  payroll: { OR: PAYROLL },
+  company: { OR: COMPANY },
+  accounting: { NOT: { OR: [...ATTENDANCE, ...PAYROLL, ...COMPANY] } },
 };
 
 auditRouter.get('/orgs/:orgId/audit', AUDIT_VIEW, async (req, res) => {
@@ -78,7 +88,7 @@ auditRouter.get('/orgs/:orgId/audit', AUDIT_VIEW, async (req, res) => {
     ...(q.userId ? { createdByUserId: q.userId } : {}),
     ...(Object.keys(createdAt).length ? { createdAt } : {}),
     ...(q.q ? { message: { contains: q.q, mode: 'insensitive' as const } } : {}),
-    ...(q.app ? { OR: APP_ENTITIES[q.app] } : {}),
+    ...(q.app ? APP_WHERE[q.app] : {}),
   };
 
   /*
@@ -134,7 +144,7 @@ auditRouter.get('/orgs/:orgId/audit/facets', AUDIT_VIEW, async (req, res) => {
    * rather than by fetching rows and reducing them here.
    */
   const app = querySchema.shape.app.safeParse(req.query.app).data;
-  const where = { accountId, orgId, ...(app ? { OR: APP_ENTITIES[app] } : {}) };
+  const where = { accountId, orgId, ...(app ? APP_WHERE[app] : {}) };
   const [entities, actions] = await Promise.all([
     platformPrisma.auditLog.groupBy({ by: ['entity'], where }),
     platformPrisma.auditLog.groupBy({ by: ['action'], where }),

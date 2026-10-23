@@ -33,6 +33,7 @@ Updated: 2026-10-23
 | EV-027 | A-08/A-09/A-10 (full server suite 161 files / 1521 tests; web 50 files / 333 tests) | `evidence/A-08/`, `A-09/`, `A-10/` before-fix and after-fix files; browser `A-10/1-…jpg`, `2-…jpg`, `3-browser.json` | A-08 before: revoked session 200 after 5.5 s → 401. A-09 before: forged membership 200 → 403. A-10 before: HS512 token 200, stranger org echoed, password-only 2FA disable 200 → all refused |
 | EV-028 | Company admin workspace (ADR-010, W-01..W-04) | `packages/shell/registry.test.js`, `appHosts.test.js`; web suite `evidence/W-01..04/web-suite-after.txt` (192 files / 1528 tests: 57 failing, all present on the untouched main checkout — `web-baseline-failures-main-checkout.txt`; 0 new); lint 0 errors; `vite build` ok; browser screenshots 1–5 | Workspace reachable from every app, holds the company administration, old Accounting links redirect, Accounting Settings trimmed |
 | EV-029 | W-04b: app-level roles in one editor | browser `evidence/W-01..04/6-payroll-roles-access-filtered.jpg` (URL `?open=permissions&for=payroll&app=admin`, tabs All/Company/Accounting/People/Attendance/Payroll*, only the Payroll section); web suite: no failure outside the main-checkout baseline; build ok |
+| EV-030 | W-05: one audit trail with per-app shares | `audit.test.ts`; `evidence/W-05/before-fix.txt` (old server rejects the new filter), `after-fix.txt`; browser `1-…jpg`, `2-…jpg`; web tests in touched areas: no failure outside the main-checkout baseline; build ok |
 
 ## Evidence quality note
 

@@ -3,6 +3,20 @@ import { History, RefreshCw } from 'lucide-react';
 
 import { PageHeader, EmptyState } from '@ui/components/ui/Primitives';
 import { listAudit, listAuditFacets } from '@platform/admin/audit';
+import { hasApp } from '@platform/context';
+
+/*
+ * One trail for the company (ADR-010), with each app's share a tab away: an
+ * app's own link opens it on that app (?for=attendance). The server sorts the
+ * entries (routes/audit.ts APP_WHERE); only the apps this company uses show.
+ */
+const AUDIT_APPS = [
+  { id: 'company', label: 'Company' },
+  { id: 'accounting', label: 'Accounting' },
+  { id: 'attendance', label: 'People & Attendance' },
+  { id: 'payroll', label: 'Payroll' },
+];
+const offered = () => AUDIT_APPS.filter((a) => a.id === 'company' || hasApp(a.id) || (a.id === 'attendance' && hasApp('people')));
 
 /**
  * Who changed what, and when.
@@ -21,6 +35,26 @@ const ENTITY_LABEL = {
   ROLE: 'Role',
   PERMISSION: 'Permission',
   FEATURE: 'Feature setting',
+  Features: 'Feature setting',
+  /* People's registers (jobs, cases, assets…) are logged as one entity; the message names which. */
+  PeopleRecord: 'HR registers',
+};
+
+/*
+ * Say what a record is in words. People, Attendance and Payroll log by
+ * resource (ATTENDANCE_SHIFT_ASSIGNMENT); this reads it as "Shift assignment",
+ * the way Attendance's own log screen did before the trails became one
+ * (ADR-010). The log names a resource by dropping a URL's plural "s", which
+ * also clips "access".
+ */
+const entityLabel = (entity) => {
+  if (ENTITY_LABEL[entity]) return ENTITY_LABEL[entity];
+  const words = String(entity || '')
+    .replace(/^(ATTENDANCE|PEOPLE|PAYROLL)_/, '')
+    .replace(/_/g, ' ')
+    .toLowerCase()
+    .replace(/\bacces\b/g, 'access');
+  return words ? words[0].toUpperCase() + words.slice(1) : '';
 };
 
 const ACTION_TONE = {
@@ -82,7 +116,16 @@ const Changes = ({ metadata }) => {
 export default function AuditTrail() {
   const [entries, setEntries] = useState([]);
   const [facets, setFacets] = useState({ entities: [], actions: [] });
-  const [filters, setFilters] = useState({ entity: '', action: '', from: '', to: '', q: '' });
+  const [filters, setFilters] = useState(() => {
+    let app = '';
+    try {
+      const asked = new URLSearchParams(window.location.search).get('for');
+      app = AUDIT_APPS.some((a) => a.id === asked) ? asked : asked === 'people' ? 'attendance' : '';
+    } catch {
+      /* no address */
+    }
+    return { app, entity: '', action: '', from: '', to: '', q: '' };
+  });
   const [cursor, setCursor] = useState(null);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState('');
@@ -142,6 +185,21 @@ export default function AuditTrail() {
         </button>
       </div>
 
+      <div className="flex flex-wrap gap-1" role="tablist" aria-label="Whose changes">
+        {[{ id: '', label: 'Everything' }, ...offered()].map((a) => (
+          <button
+            key={a.id || 'all'}
+            type="button"
+            role="tab"
+            aria-selected={filters.app === a.id}
+            onClick={() => setFilters((p) => ({ ...p, app: a.id }))}
+            className={`ui-btn ${filters.app === a.id ? 'ui-btn-secondary' : 'ui-btn-ghost'}`}
+          >
+            {a.label}
+          </button>
+        ))}
+      </div>
+
       <div className="ui-card flex flex-wrap items-end gap-3 p-4">
         <div>
           <label className="ui-label" htmlFor="audit-entity">
@@ -151,7 +209,7 @@ export default function AuditTrail() {
             <option value="">All</option>
             {facets.entities.map((e) => (
               <option key={e} value={e}>
-                {ENTITY_LABEL[e] || e}
+                {entityLabel(e)}
               </option>
             ))}
           </select>
@@ -223,7 +281,7 @@ export default function AuditTrail() {
                       <ActionPill action={e.action} />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <div className="text-sm">{e.message || `${ENTITY_LABEL[e.entity] || e.entity} ${e.action}`}</div>
+                      <div className="text-sm">{e.message || `${entityLabel(e.entity)} ${e.action}`}</div>
                       <Changes metadata={e.metadata} />
                     </div>
                     <div className="w-44 shrink-0 text-right">

@@ -70,7 +70,7 @@ export const adminApp = {
     { key: 'permissions', label: 'Permissions', icon: KeyRound, permission: 'SETTINGS::Roles::VIEW' },
     { key: 'security', label: 'Login & security', icon: Fingerprint, permission: 'SETTINGS::Users::VIEW' },
     { key: 'sso', label: 'Single sign-on', icon: ShieldCheck, permission: 'SETTINGS::Users::VIEW' },
-    { key: 'audit', label: 'Audit trail', icon: History, permission: 'SETTINGS::Users::VIEW' },
+    { key: 'audit', label: 'Audit trail', icon: History, permission: 'SETTINGS::Audit trail::VIEW' },
     { key: 'account', label: 'Account & plan', icon: Building2, permission: 'SETTINGS::Company Profile::VIEW' },
     { key: 'billing', label: 'Billing', icon: CreditCard, permission: 'SETTINGS::Company Profile::VIEW' },
     { key: 'export', label: 'Data export', icon: HardDriveDownload, permission: 'SETTINGS::Company Profile::VIEW' },

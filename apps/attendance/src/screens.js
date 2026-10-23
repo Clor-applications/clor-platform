@@ -28,7 +28,8 @@ export { default as ReaderSync } from './screens/ReaderSync';
 export { default as UnmatchedPunches } from './screens/UnmatchedPunches';
 export { default as Enrolments } from './screens/Enrolments';
 export { default as Transactions, Punches } from './screens/Transactions';
-export { default as AuditLogs } from './screens/AuditLogs';
+/* One audit trail for the company, in Company admin (ADR-010); this opens it on People and Attendance's share. */
+export const AuditLogs = () => React.createElement(OpenInCompanyAdmin, { title: 'Audit Logs', screen: 'audit', forApp: 'attendance' });
 export { default as PayrollReadiness } from './screens/PayrollReadiness';
 export { default as Checklists } from '@ui/personnel/Checklists';
 export { default as ComplianceCalendar } from '@ui/personnel/ComplianceCalendar';

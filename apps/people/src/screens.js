@@ -30,7 +30,8 @@ export { default as TeamAttendance } from './timeOff/TeamAttendance';
 export { default as MyDays } from './timeOff/MyDays';
 export { default as MyLeave } from '../../attendance/src/screens/MyLeave';
 export { default as DataImport } from '../../attendance/src/screens/DataImport';
-export { default as AuditLogs } from '../../attendance/src/screens/AuditLogs';
+/* One audit trail for the company, in Company admin (ADR-010); this opens it on People and Attendance's share. */
+export const AuditLogs = () => React.createElement(OpenInCompanyAdmin, { title: 'Audit Logs', screen: 'audit', forApp: 'attendance' });
 /* Settings (People → Settings): the hub, company master data, and the shared screens it opens. */
 export { default as PeopleSettings } from './screens/PeopleSettings';
 export { default as PeopleModules } from './screens/PeopleModules';
