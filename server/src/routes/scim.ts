@@ -45,14 +45,15 @@ declare module 'express-serve-static-core' {
 scimRouter.use(async (req: Request, res: Response, next: NextFunction) => {
   const m = /^Bearer\s+(clors_[A-Za-z0-9_-]{20,})$/i.exec(String(req.headers.authorization || ''));
   if (!m) return fail(res, 401, 'A bearer token from CLOR’s directory-sync settings is required.');
-  const t = await platformPrisma.scimToken.findUnique({ where: { tokenHash: hashToken(m[1]) } });
+  /* A-35: the token is how the company is found, so it is looked up across companies. */
+  const t = await outsideTenant('scim: which company this token provisions', () => platformPrisma.scimToken.findUnique({ where: { tokenHash: hashToken(m[1]) } }));
   if (!t) return fail(res, 401, 'That token is not known (revoked, or made for another server).');
   /* A-11: a company being closed takes no more directory changes. */
   if (await closing(t.orgId)) return fail(res, 403, 'This company is being closed; directory sync is switched off.');
   req.scim = { id: t.id, accountId: t.accountId, orgId: t.orgId, defaultRoleId: t.defaultRoleId };
-  platformPrisma.scimToken.update({ where: { id: t.id }, data: { lastUsedAt: new Date() } }).catch(() => {});
-  /* A-30: the rest of this request runs as the company the token named. */
+  /* A-30: the rest of this request runs as the company the token named — the last-used stamp included (A-35). */
   enterTenant(t.orgId);
+  platformPrisma.scimToken.update({ where: { id: t.id }, data: { lastUsedAt: new Date() } }).catch(() => {});
   next();
 });
 

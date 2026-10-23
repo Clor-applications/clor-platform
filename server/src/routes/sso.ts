@@ -13,6 +13,7 @@ import { setRefreshCookie } from '../utils/refreshCookie.js';
 import { providerSpeaksFor } from '../services/ssoDomains.js';
 import { ssoLimiter } from '../middleware/rateLimit.js';
 import { isDevOrTest } from '../utils/devMode.js';
+import { acrossCompanies } from '../utils/tenantScope.js';
 
 /**
  * Single sign-on, OpenID Connect.
@@ -35,6 +36,8 @@ import { isDevOrTest } from '../utils/devMode.js';
  * certificate. Both end in finishSignIn: one rule for who gets in.
  */
 export const ssoRouter = Router();
+/* Single sign-on finds the provider and the person before any company is chosen (A-35). */
+ssoRouter.use(acrossCompanies('sso: provider and person, before a company is chosen'));
 
 const STATE_COOKIE = 'clor_sso';
 const STATE_TTL_S = 10 * 60;

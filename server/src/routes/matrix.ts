@@ -8,7 +8,7 @@ import { hashToken } from './publicApi.js';
 import { markOnReader } from '../services/attendance/readerSync.js';
 import { ingestPunches } from '../services/attendance/punches.js';
 import { commandEffect } from '../services/attendance/adms.js';
-import { enterTenant } from '../utils/tenantScope.js';
+import { enterTenant, outsideTenant } from '../utils/tenantScope.js';
 
 /**
  * /matrix/<token> — Matrix COSEC door controllers (Door V3, PVR, Vega, FMX,
@@ -139,7 +139,8 @@ async function deviceOf(req: Request, res: Response): Promise<Device | null> {
     reply(res, { status: 0 }, 404);
     return null;
   }
-  const device = await peoplePrisma.attendanceDevice.findUnique({ where: { pushTokenHash: hashToken(token) } });
+  /* A-35: the token is how the company is found, so it is looked up across companies. */
+  const device = await outsideTenant('matrix: which controller this token is', () => peoplePrisma.attendanceDevice.findUnique({ where: { pushTokenHash: hashToken(token) } }));
   if (!device || device.vendor !== 'MATRIX_COSEC') {
     reply(res, { status: 0 }, 404);
     return null;

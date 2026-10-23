@@ -2,7 +2,7 @@ import type { Request, Response, NextFunction } from 'express';
 import { prisma } from '../utils/prisma.js';
 import { platformPrisma } from '../utils/platformPrisma.js';
 import { cachedAccess } from '../utils/accessCache.js';
-import { runInTenant } from '../utils/tenantScope.js';
+import { outsideTenant, runInTenant } from '../utils/tenantScope.js';
 import { TWO_FACTOR_SETUP_PATHS, adminTwoFactorMissing } from '../services/twoFactorPolicy.js';
 import { userIsAdmin } from '../services/roleGuards.js';
 
@@ -62,7 +62,8 @@ export async function requireTenantContext(req: Request, res: Response, next: Ne
 
   const result = await cachedAccess(
     `tenant|${userId}|${orgId}|${branchId}|${warehouseId}`,
-    () => resolveTenant(userId, orgId, branchId, warehouseId),
+    /* Is this person a member of this company at all: asked before the company is in scope (A-35). */
+    () => outsideTenant('tenant context: membership of the company asked for', () => resolveTenant(userId, orgId, branchId, warehouseId)),
     (r) => 'tenant' in r // cache grants only; a denial is re-checked every time
   );
   if (!('tenant' in result)) return res.status(result.status).json({ error: result.error });
@@ -73,7 +74,7 @@ export async function requireTenantContext(req: Request, res: Response, next: Ne
    * (SX-09): until this person sets up an authenticator, only their own
    * two-factor set-up is open to them here.
    */
-  const mustSetUp = await cachedAccess(`2fa|${userId}|${orgId}`, () => adminTwoFactorMissing(userId, orgId));
+  const mustSetUp = await cachedAccess(`2fa|${userId}|${orgId}`, () => runInTenant(orgId, () => adminTwoFactorMissing(userId, orgId)));
   if (mustSetUp && !TWO_FACTOR_SETUP_PATHS.test(req.path)) {
     return res.status(403).json({ error: 'This company asks owners and admins to sign in with an authenticator app. Set one up under My profile → Security first.', code: 'TWO_FACTOR_SETUP_REQUIRED' });
   }

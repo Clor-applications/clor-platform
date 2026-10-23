@@ -8,7 +8,7 @@ import { requireAuth } from '../middleware/auth.js';
 import { requireTenantContext } from '../middleware/tenantContext.js';
 import { requirePermission } from '../middleware/rbac.js';
 import { PermissionAction } from '../constants/enums.js';
-import { enterTenant } from '../utils/tenantScope.js';
+import { enterTenant, outsideTenant } from '../utils/tenantScope.js';
 
 /**
  * A read-only link to one invoice, for the person it is addressed to.
@@ -99,7 +99,8 @@ sharePublicRouter.get('/public/invoice/:token', async (req, res) => {
   // Length-checked before the query so a short guess costs nothing.
   if (token.length < 20 || token.length > 200) return res.status(404).json({ error: 'Not found' });
 
-  const link = await prisma.documentShareLink.findUnique({ where: { token } });
+  /* A-35: the token is how the company is found, so it is looked up across companies. */
+  const link = await outsideTenant('share link: which company this link belongs to', () => prisma.documentShareLink.findUnique({ where: { token } }));
   if (!link || link.revokedAt || (link.expiresAt && link.expiresAt < new Date())) {
     // The same answer for a wrong token, a revoked one and an expired one:
     // telling them apart tells somebody guessing which guesses are close.

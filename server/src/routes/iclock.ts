@@ -5,7 +5,7 @@ import { COMMANDS, FACE, FETCH_TEMPLATE_COMMANDS, HANDSHAKE_OPTIONS, commandEffe
 import { readerLimiter } from '../middleware/rateLimit.js';
 import { MAX_NETWORKS, networkOf, sameBlock } from '../services/attendance/network.js';
 import { biometricPolicy } from '../services/attendance/biometrics.js';
-import { enterTenant } from '../utils/tenantScope.js';
+import { enterTenant, outsideTenant } from '../utils/tenantScope.js';
 import { DECIDED, ingestPunches, pinMatcher } from '../services/attendance/punches.js';
 import { markOnReader, storeTemplate, storeUser } from '../services/attendance/readerSync.js';
 
@@ -35,7 +35,8 @@ const serialOf = (req: Request) => {
 
 
 async function deviceFor(serial: string) {
-  const device = await peoplePrisma.attendanceDevice.findUnique({ where: { serialNumber: serial } });
+  /* A-35: a reader is known only by its serial, which is how its company is found. */
+  const device = await outsideTenant('adms: which company this reader serial belongs to', () => peoplePrisma.attendanceDevice.findUnique({ where: { serialNumber: serial } }));
   /* Only push readers talk here; a vendor-cloud connection's "serial" is not a reader's. */
   if (!device || !device.isActive || device.vendor !== 'ADMS') return null;
   /* A company that switched Attendance off, stopped paying for it, or is closing is not collecting punches (A-11). */

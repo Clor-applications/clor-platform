@@ -2,6 +2,7 @@ import { platformPrisma } from '../utils/platformPrisma.js';
 import { isFeatureEnabled } from './features.js';
 import { isAppEntitled } from './subscriptions.js';
 import { APP_CATALOG } from '../constants/appCatalog.js';
+import { runInTenant } from '../utils/tenantScope.js';
 
 /**
  * May a non-human caller still work for this company, in this app? (A-11)
@@ -22,12 +23,18 @@ import { APP_CATALOG } from '../constants/appCatalog.js';
 export type Refusal = { status: number; error: string; code: string };
 
 export async function closing(orgId: string): Promise<boolean> {
-  const row = await platformPrisma.orgClosure.findUnique({ where: { orgId }, select: { status: true } });
+  /* As the company asked about, whatever scope the caller is in: under fail-closed policies (A-35) a caller with no company yet would otherwise see no closure and wave a closing company through. */
+  const row = await runInTenant(orgId, () => platformPrisma.orgClosure.findUnique({ where: { orgId }, select: { status: true } }));
   return row?.status === 'SCHEDULED';
 }
 
 /** Null when `app` may be used; otherwise the refusal to send. */
 export async function appLive(accountId: string, orgId: string, app: string): Promise<Refusal | null> {
+  /* Asked as that company, whatever scope the caller is in (A-35): a token route asks before it has entered its company. */
+  return runInTenant(orgId, () => appLiveIn(accountId, orgId, app));
+}
+
+async function appLiveIn(accountId: string, orgId: string, app: string): Promise<Refusal | null> {
   if (await closing(orgId)) return { status: 403, error: 'This company is being closed; its connections are switched off.', code: 'COMPANY_CLOSING' };
   /* Only an app with an on/off switch of its own (Payroll, Attendance, People) can be switched off; Accounting is its subscription. */
   const featureKey = APP_CATALOG.find((x) => x.code === app)?.featureKey;

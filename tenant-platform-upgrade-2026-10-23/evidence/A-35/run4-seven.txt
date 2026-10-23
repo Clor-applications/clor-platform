@@ -1,0 +1,245 @@
+ DEPRECATED  `test.poolOptions` was removed in Vitest 4. All previous `poolOptions` are now top-level options. Please, refer to the migration guide: https://vitest.dev/guide/migration#pool-rework
+
+ RUN  v4.1.10 /Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_25120", schema "accounting" at "localhost:5432"
+
+The PostgreSQL database "clor_test_25120" schema "accounting" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 1.57s
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/payroll/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_25120", schema "payroll" at "localhost:5432"
+
+The PostgreSQL database "clor_test_25120" schema "payroll" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 1.09s
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/people/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_25120", schema "people" at "localhost:5432"
+
+The PostgreSQL database "clor_test_25120" schema "people" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 1.51s
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/platform/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_25120", schema "platform" at "localhost:5432"
+
+The PostgreSQL database "clor_test_25120" schema "platform" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 1.12s
+
+[setup] 180 policy statements applied to clor_test_25120
+[setup] 7 policy statements applied to clor_test_25120
+[setup] 10 policy statements applied to clor_test_25120
+[setup] 35 policy statements applied to clor_test_25120
+[setup] 4 policy statements applied to clor_test_25120
+[setup] 1 policy statements applied to clor_test_25120
+[setup] 96 policy statements applied to clor_test_25120
+[setup] 4 policy statements applied to clor_test_25120
+[setup] 4 policy statements applied to clor_test_25120
+[setup] 4 policy statements applied to clor_test_25120
+[setup] 1 policy statements applied to clor_test_25120
+[setup] 4 policy statements applied to clor_test_25120
+[setup] 32 policy statements applied to clor_test_25120
+[setup] 24 policy statements applied to clor_test_25120
+[setup] 12 policy statements applied to clor_test_25120
+[setup] 16 policy statements applied to clor_test_25120
+[setup] 4 policy statements applied to clor_test_25120
+[setup] 4 policy statements applied to clor_test_25120
+[setup] 8 policy statements applied to clor_test_25120
+[setup] 8 policy statements applied to clor_test_25120
+[setup] 20 policy statements applied to clor_test_25120
+[setup] 8 policy statements applied to clor_test_25120
+[setup] 4 policy statements applied to clor_test_25120
+[setup] 8 policy statements applied to clor_test_25120
+[setup] 8 policy statements applied to clor_test_25120
+[setup] 12 policy statements applied to clor_test_25120
+[setup] 4 policy statements applied to clor_test_25120
+[setup] 8 policy statements applied to clor_test_25120
+[setup] 28 policy statements applied to clor_test_25120
+[setup] 4 policy statements applied to clor_test_25120
+[setup] 4 policy statements applied to clor_test_25120
+[setup] 4 policy statements applied to clor_test_25120
+[setup] 8 policy statements applied to clor_test_25120
+[setup] 4 policy statements applied to clor_test_25120
+[setup] 4 policy statements applied to clor_test_25120
+[setup] 4 policy statements applied to clor_test_25120
+[setup] 4 policy statements applied to clor_test_25120
+[setup] 8 policy statements applied to clor_test_25120
+[setup] 4 policy statements applied to clor_test_25120
+[setup] 12 policy statements applied to clor_test_25120
+[setup] 4 policy statements applied to clor_test_25120
+[setup] 1 policy statements applied to clor_test_25120
+[setup] 76 policy statements applied to clor_test_25120
+[setup] 4 policy statements applied to clor_test_25120
+[setup] 4 policy statements applied to clor_test_25120
+[setup] 4 policy statements applied to clor_test_25120
+[setup] 4 policy statements applied to clor_test_25120
+[setup] 1 policy statements applied to clor_test_25120
+POST /api/auth/signup 200 568 - 158.157 ms
+POST /api/auth/setup-company 200 172 - 619.026 ms
+POST /api/orgs/cmvlh9z4l000epn9bl4ehvt9k/security/two-factor/setup 200 200 - 159.881 ms
+POST /api/orgs/cmvlh9z4l000epn9bl4ehvt9k/security/two-factor/enable 200 130 - 148.661 ms
+POST /api/auth/login 200 284 - 3.312 ms
+POST /api/auth/login/two-factor 400 94 - 5.485 ms
+POST /api/auth/login/two-factor 200 760 - 9.136 ms
+POST /api/auth/login 200 284 - 2.542 ms
+POST /api/auth/login/two-factor 400 94 - 15.716 ms
+POST /api/auth/login/two-factor 200 760 - 4.278 ms
+POST /api/auth/login 200 284 - 2.217 ms
+POST /api/auth/login/two-factor 400 94 - 3.346 ms
+POST /api/auth/login/two-factor 401 93 - 19.561 ms
+POST /api/auth/signup 200 568 - 22.202 ms
+POST /api/auth/setup-company 200 172 - 278.918 ms
+POST /api/auth/login 200 760 - 26.079 ms
+POST /api/auth/signup 200 568 - 6.375 ms
+POST /api/auth/setup-company 200 172 - 146.045 ms
+GET /api/orgs/cmvlha00q018qpn9bnwfap9bs/security/policy 200 387 - 132.393 ms
+PUT /api/orgs/cmvlha00q018qpn9bnwfap9bs/security/policy 400 152 - 129.006 ms
+POST /api/auth/signup 200 568 - 6.618 ms
+POST /api/auth/setup-company 200 172 - 131.855 ms
+POST /api/orgs/cmvlha0cd01qipn9b86gtqbjf/security/two-factor/setup 200 200 - 120.176 ms
+POST /api/orgs/cmvlha0cd01qipn9b86gtqbjf/security/two-factor/enable 200 130 - 120.465 ms
+GET /api/orgs/cmvlha0cd01qipn9b86gtqbjf/security/policy 200 387 - 149.224 ms
+PUT /api/orgs/cmvlha0cd01qipn9b86gtqbjf/security/policy 200 619 - 119.343 ms
+POST /api/orgs/cmvlha0cd01qipn9b86gtqbjf/security/two-factor/disable 200 17 - 130.881 ms
+GET /api/orgs/cmvlha0cd01qipn9b86gtqbjf/warehouses 403 168 - 23.173 ms
+GET /api/orgs/cmvlha0cd01qipn9b86gtqbjf/security/two-factor 200 97 - 149.921 ms
+POST /api/auth/login 200 759 - 5.801 ms
+GET /api/auth/me 200 705 - 3.364 ms
+POST /api/orgs/cmvlha0cd01qipn9b86gtqbjf/security/two-factor/setup 200 200 - 151.251 ms
+POST /api/orgs/cmvlha0cd01qipn9b86gtqbjf/security/two-factor/enable 200 130 - 156.524 ms
+GET /api/orgs/cmvlha0cd01qipn9b86gtqbjf/warehouses 200 517 - 7.033 ms
+POST /api/auth/signup 200 569 - 44.979 ms
+POST /api/auth/setup-company 200 202 - 354.871 ms
+PUT /api/orgs/cmvlha241000eyzm371ri4ud1/features 200 1173 - 205.277 ms
+GET /api/orgs/cmvlha241000eyzm371ri4ud1/attendance/integrations/hr/adapters 200 6252 - 169.398 ms
+POST /api/orgs/cmvlha241000eyzm371ri4ud1/attendance/integrations/hr 201 451 - 202.472 ms
+POST /api/orgs/cmvlha241000eyzm371ri4ud1/attendance/integrations/hr/cmvlha2sz0000wrqzundru8qx/test 200 70 - 101.872 ms
+POST /api/orgs/cmvlha241000eyzm371ri4ud1/attendance/integrations/hr 201 457 - 71.237 ms
+POST /api/orgs/cmvlha241000eyzm371ri4ud1/attendance/integrations/hr/cmvlha2y60001wrqzvudpv5l2/test 200 55 - 69.676 ms
+PUT /api/orgs/cmvlha241000eyzm371ri4ud1/attendance/integrations/hr/cmvlha2y60001wrqzvudpv5l2 400 77 - 70.846 ms
+PUT /api/orgs/cmvlha241000eyzm371ri4ud1/attendance/integrations/hr/cmvlha2y60001wrqzvudpv5l2 400 89 - 88.948 ms
+POST /api/orgs/cmvlha241000eyzm371ri4ud1/people/employees 201 1665 - 168.308 ms
+POST /api/orgs/cmvlha241000eyzm371ri4ud1/people/employees 201 1668 - 138.944 ms
+POST /api/auth/signup 200 569 - 39.404 ms
+POST /api/auth/setup-company 200 202 - 231.161 ms
+PUT /api/orgs/cmvlha3i000imyzm3x63luusk/features 200 1173 - 161.614 ms
+PUT /api/orgs/cmvlha3i000imyzm3x63luusk/features 200 1173 - 132.571 ms
+GET /api/orgs/cmvlha3i000imyzm3x63luusk/payroll/runs/nope/tally 404 32 - 144.204 ms
+POST /api/auth/signup 200 570 - 80.843 ms
+POST /api/auth/setup-company 200 198 - 394.790 ms
+POST /api/orgs/cmvlha4st000ebuap851w0ihk/people/employees 201 1670 - 159.182 ms
+GET /api/orgs/cmvlha4st000ebuap851w0ihk/attendance/portal-access 200 457 - 131.471 ms
+POST /api/orgs/cmvlha4st000ebuap851w0ihk/attendance/portal-access/codes 200 291 - 127.227 ms
+POST /api/portal/activate 200 478 - 126.456 ms
+POST /api/orgs/cmvlha4st000ebuap851w0ihk/attendance/integrations/keys 201 559 - 250.369 ms
+POST /api/portal/login 200 478 - 59.837 ms
+GET /api/portal/me 200 491 - 105.672 ms
+GET /api/portal/me 402 99 - 29.181 ms
+POST /api/portal/login 401 65 - 71.629 ms
+POST /api/auth/signup 200 570 - 29.566 ms
+POST /api/auth/setup-company 200 198 - 213.360 ms
+POST /api/orgs/cmvlha5xq00icbuapbf40la2m/invoices 201 703 - 204.627 ms
+POST /api/orgs/cmvlha5xq00icbuapbf40la2m/invoices/9af486c5-1aba-4723-ba46-b396783217d8/share 201 94 - 118.363 ms
+GET /api/public/invoice/[token] 200 425 - 3.217 ms
+GET /api/public/invoice/[token] 404 44 - 13.090 ms
+POST /api/auth/signup 200 570 - 7.169 ms
+POST /api/auth/setup-company 200 198 - 153.668 ms
+POST /api/orgs/cmvlha6da0106buapcrq1p0z1/attendance/integrations/keys 201 559 - 72.752 ms
+POST /api/auth/signup 200 568 - 54.450 ms
+POST /api/auth/setup-company 200 178 - 341.444 ms
+PUT /api/orgs/cmvlha7dj000eg7668ctljazc/features 200 1173 - 184.067 ms
+POST /api/orgs/cmvlha7dj000eg7668ctljazc/people/employees 201 1664 - 196.122 ms
+POST /api/orgs/cmvlha7dj000eg7668ctljazc/attendance/leave/types 201 675 - 217.293 ms
+POST /api/orgs/cmvlha7dj000eg7668ctljazc/attendance/leave/allocations/import 200 168 - 113.179 ms
+POST /api/orgs/cmvlha7dj000eg7668ctljazc/attendance/leave/allocations/import 200 169 - 86.004 ms
+POST /api/orgs/cmvlha7dj000eg7668ctljazc/attendance/leave/requests/import 200 53 - 208.513 ms
+POST /api/orgs/cmvlha7dj000eg7668ctljazc/attendance/leave/requests/import 200 142 - 127.761 ms
+POST /api/orgs/cmvlha7dj000eg7668ctljazc/people/contractors/import 200 117 - 61.927 ms
+POST /api/orgs/cmvlha7dj000eg7668ctljazc/people/contractors/import 200 65 - 82.898 ms
+POST /api/auth/signup 200 570 - 87.651 ms
+POST /api/auth/setup-company 200 176 - 384.571 ms
+PUT /api/orgs/cmvlha9es000erydcenwdahy8/features 200 1173 - 189.460 ms
+POST /api/orgs/cmvlha9es000erydcenwdahy8/payroll/components 201 844 - 109.683 ms
+POST /api/orgs/cmvlha9es000erydcenwdahy8/payroll/structures 201 535 - 73.620 ms
+POST /api/orgs/cmvlha9es000erydcenwdahy8/payroll/employees 201 690 - 105.031 ms
+POST /api/orgs/cmvlha9es000erydcenwdahy8/payroll/assignments 201 2285 - 102.126 ms
+PUT /api/orgs/cmvlha9es000erydcenwdahy8/attendance/records 200 724 - 126.587 ms
+GET /api/orgs/cmvlha9es000erydcenwdahy8/attendance/months/2026-09/payroll-readiness 200 1165 - 352.276 ms
+POST /api/auth/signup 200 569 - 83.255 ms
+POST /api/auth/setup-company 200 202 - 391.604 ms
+PUT /api/orgs/cmvlhab9a000eeo312jgvulst/features 200 1173 - 181.482 ms
+POST /api/orgs/cmvlhab9a000eeo312jgvulst/attendance/months/2026-10/close 400 54 - 56.182 ms
+POST /api/auth/signup 200 569 - 6.751 ms
+POST /api/auth/setup-company 200 202 - 150.288 ms
+PUT /api/orgs/cmvlhabpd00iaeo31rxdmku9w/features 200 1173 - 141.305 ms
+POST /api/orgs/cmvlhabpd00iaeo31rxdmku9w/people/employees 201 1671 - 165.345 ms
+PUT /api/orgs/cmvlhabpd00iaeo31rxdmku9w/attendance/records 200 758 - 109.005 ms
+POST /api/orgs/cmvlhabpd00iaeo31rxdmku9w/attendance/devices 201 1405 - 93.373 ms
+POST /api/orgs/cmvlhabpd00iaeo31rxdmku9w/attendance/months/2026-09/close 409 1647 - 121.900 ms
+POST /api/orgs/cmvlhabpd00iaeo31rxdmku9w/attendance/months/2026-09/close 200 126 - 147.471 ms
+GET /api/orgs/cmvlhabpd00iaeo31rxdmku9w/attendance/months/2026-09/snapshots/1 200 2047 - 81.732 ms
+GET /api/orgs/cmvlhabpd00iaeo31rxdmku9w/attendance/summary?month=2026-09 200 451 - 71.964 ms
+PUT /api/orgs/cmvlhabpd00iaeo31rxdmku9w/attendance/records 409 114 - 64.404 ms
+DELETE /api/orgs/cmvlhabpd00iaeo31rxdmku9w/attendance/records/cmvlhac4z000ctbcy69y1f1bi 409 114 - 70.058 ms
+POST /api/orgs/cmvlhabpd00iaeo31rxdmku9w/attendance/recompute 200 34 - 66.206 ms
+POST /api/orgs/cmvlhabpd00iaeo31rxdmku9w/attendance/months/2026-09/reopen 200 33 - 50.014 ms
+PUT /api/orgs/cmvlhabpd00iaeo31rxdmku9w/attendance/records 200 758 - 83.369 ms
+POST /api/auth/signup 200 579 - 53.601 ms
+POST /api/auth/setup-company 200 206 - 318.387 ms
+PUT /api/orgs/cmvlhadtx000eatvipq8u0w5i/features 200 1173 - 174.677 ms
+POST /api/orgs/cmvlhadtx000eatvipq8u0w5i/payroll/components 201 860 - 89.100 ms
+POST /api/orgs/cmvlhadtx000eatvipq8u0w5i/payroll/components 201 842 - 100.058 ms
+POST /api/orgs/cmvlhadtx000eatvipq8u0w5i/payroll/components 201 844 - 99.003 ms
+POST /api/orgs/cmvlhadtx000eatvipq8u0w5i/payroll/components 201 852 - 105.831 ms
+POST /api/orgs/cmvlhadtx000eatvipq8u0w5i/payroll/structures 201 957 - 73.085 ms
+POST /api/orgs/cmvlhadtx000eatvipq8u0w5i/payroll/structures 400 60 - 39.778 ms
+POST /api/orgs/cmvlhadtx000eatvipq8u0w5i/payroll/structures 400 68 - 55.670 ms
+POST /api/orgs/cmvlhadtx000eatvipq8u0w5i/payroll/structures 400 59 - 39.714 ms
+POST /api/orgs/cmvlhadtx000eatvipq8u0w5i/payroll/structures 400 215 - 56.534 ms
+POST /api/orgs/cmvlhadtx000eatvipq8u0w5i/payroll/structures 400 53 - 39.025 ms
+POST /api/orgs/cmvlhadtx000eatvipq8u0w5i/payroll/structures 400 69 - 52.362 ms
+POST /api/orgs/cmvlhadtx000eatvipq8u0w5i/payroll/structures 201 956 - 37.204 ms
+POST /api/orgs/cmvlhadtx000eatvipq8u0w5i/payroll/structures 409 73 - 38.769 ms
+POST /api/orgs/cmvlhadtx000eatvipq8u0w5i/payroll/structures/preview 200 1648 - 35.857 ms
+POST /api/orgs/cmvlhadtx000eatvipq8u0w5i/payroll/structures/preview 200 1648 - 36.430 ms
+POST /api/orgs/cmvlhadtx000eatvipq8u0w5i/payroll/structures/preview 200 1648 - 35.851 ms
+POST /api/orgs/cmvlhadtx000eatvipq8u0w5i/payroll/structures/preview 200 2096 - 36.441 ms
+POST /api/orgs/cmvlhadtx000eatvipq8u0w5i/payroll/structures/preview 200 1639 - 38.616 ms
+POST /api/orgs/cmvlhadtx000eatvipq8u0w5i/payroll/structures/preview 200 1630 - 32.664 ms
+POST /api/orgs/cmvlhadtx000eatvipq8u0w5i/payroll/structures/preview 200 1640 - 37.978 ms
+POST /api/orgs/cmvlhadtx000eatvipq8u0w5i/payroll/structures/preview 200 1648 - 36.577 ms
+POST /api/orgs/cmvlhadtx000eatvipq8u0w5i/payroll/structures 201 956 - 37.776 ms
+POST /api/orgs/cmvlhadtx000eatvipq8u0w5i/payroll/structures/preview 200 1648 - 35.793 ms
+POST /api/orgs/cmvlhadtx000eatvipq8u0w5i/payroll/structures 201 959 - 37.339 ms
+GET /api/orgs/cmvlhadtx000eatvipq8u0w5i/payroll/structures/cmvlhaexu000g130vl6rq662l 200 959 - 49.449 ms
+PUT /api/orgs/cmvlhadtx000eatvipq8u0w5i/payroll/structures/cmvlhaexu000g130vl6rq662l 200 967 - 41.020 ms
+GET /api/orgs/cmvlhadtx000eatvipq8u0w5i/payroll/structures/cmvlhaexu000g130vl6rq662l 200 967 - 36.422 ms
+PUT /api/orgs/cmvlhadtx000eatvipq8u0w5i/payroll/structures/cmvlhaexu000g130vl6rq662l 409 163 - 59.225 ms
+GET /api/orgs/cmvlhadtx000eatvipq8u0w5i/payroll/structures/cmvlhaexu000g130vl6rq662l 200 967 - 34.285 ms
+PUT /api/orgs/cmvlhadtx000eatvipq8u0w5i/payroll/structures/cmvlhaexu000g130vl6rq662l 409 163 - 38.419 ms
+DELETE /api/orgs/cmvlhadtx000eatvipq8u0w5i/payroll/structures/cmvlhaexu000g130vl6rq662l 409 150 - 52.759 ms
+POST /api/orgs/cmvlhadtx000eatvipq8u0w5i/payroll/structures 201 955 - 50.091 ms
+PUT /api/orgs/cmvlhadtx000eatvipq8u0w5i/payroll/structures/cmvlhaf87000p130vvpqjl066 200 546 - 45.764 ms
+DELETE /api/orgs/cmvlhadtx000eatvipq8u0w5i/payroll/structures/cmvlhaf87000p130vvpqjl066 200 11 - 36.275 ms
+POST /api/auth/signup 200 579 - 11.725 ms
+POST /api/auth/setup-company 200 206 - 163.129 ms
+PUT /api/orgs/cmvlhafb200jfatvis0kyxewy/features 200 1173 - 122.785 ms
+GET /api/orgs/cmvlhafb200jfatvis0kyxewy/payroll/structures 200 17 - 35.223 ms
+POST /api/auth/signup 200 579 - 6.540 ms
+POST /api/auth/setup-company 200 200 - 136.962 ms
+PUT /api/orgs/cmvlhafk9011aatviewo75jry/features 200 1179 - 125.822 ms
+GET /api/orgs/cmvlhafk9011aatviewo75jry/payroll/structures 403 87 - 37.027 ms
+
+ Test Files  7 passed (7)
+      Tests  41 passed (41)
+   Start at  02:54:10
+   Duration  42.62s (transform 3.29s, setup 88ms, import 10.85s, tests 16.58s, environment 0ms)
+

@@ -11,7 +11,7 @@ import { istLocal } from '../services/attendance/punchMapping.js';
 import { hashToken } from './publicApi.js';
 import { ingestPunches } from '../services/attendance/punches.js';
 import { isFeatureEnabled } from '../services/features.js';
-import { runInTenant } from '../utils/tenantScope.js';
+import { runInTenant, outsideTenant } from '../utils/tenantScope.js';
 
 /**
  * /agent/v1 — what the on-site connector (server/agent) talks to. A small
@@ -75,7 +75,8 @@ agentRouter.get('/download.sig', (_req, res) => {
 agentRouter.use(async (req: Request, res: Response, next: NextFunction) => {
   const m = /^Bearer\s+(clora_[A-Za-z0-9_-]{20,})$/i.exec(String(req.headers.authorization || ''));
   if (!m) return fail(res, 401, 'Send the connector token as "Authorization: Bearer <token>".');
-  const a = await peoplePrisma.siteAgent.findUnique({ where: { tokenHash: hashToken(m[1]) } });
+  /* A-35: the token is how the company is found, so it is looked up across companies. */
+  const a = await outsideTenant('site agent: which company this agent belongs to', () => peoplePrisma.siteAgent.findUnique({ where: { tokenHash: hashToken(m[1]) } }));
   if (!a) return fail(res, 401, 'This connector token is not valid (revoked, or made for another server).');
   if (!a.isActive) return fail(res, 403, 'This connector is switched off in CLOR.');
   /* A-11: on, paid for, not closing. */

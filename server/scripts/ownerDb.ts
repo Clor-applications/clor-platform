@@ -18,6 +18,7 @@
  * exists to see across tenants, and nothing serving a request ever uses it.
  */
 import { PrismaClient } from '@prisma/client';
+import { tenantScoped } from '../src/utils/tenantScope.js';
 
 /** Which schema the application URL points at — the app's own, by definition. */
 export const appSchema = (fallback = 'accounting') => {
@@ -50,7 +51,13 @@ export const ownerUrl = () => {
 };
 
 /** A client that sees every tenant. Never used to serve a request. */
+/*
+ * Through the tenant wrapper, so a script outside any request runs with the
+ * maintenance bypass (A-35). Without it, a script connected as anything but a
+ * superuser would see no company's rows under the fail-closed policies — and
+ * the permission backfill run at every deploy would quietly do nothing.
+ */
 export const ownerClient = () => {
   const url = ownerUrl();
-  return new PrismaClient(url ? { datasources: { db: { url } } } : undefined);
+  return tenantScoped(new PrismaClient(url ? { datasources: { db: { url } } } : undefined));
 };
