@@ -2,6 +2,7 @@ import { prisma } from '../utils/prisma.js';
 import { platformPrisma } from '../utils/platformPrisma.js';
 import { notifyPermissionOnce } from './notifications.js';
 import { exclusive, leaseFor } from './jobLease.js';
+import { appLive } from './principalAllowed.js';
 
 /**
  * What Accounting's own bell used to work out in the browser — invoices past
@@ -39,6 +40,8 @@ export async function runBooksDigest(now = new Date()) {
   let sent = 0;
   for (const o of orgs) {
     try {
+      /* Only for companies that have Accounting (A-48): a lapsed or closing company gets no reminders about its books. */
+      if (await appLive(o.accountId, o.id, 'accounting')) continue;
       const d = await booksDigestFor(o.id, now);
       if (d.overdue.count) {
         sent += await notifyPermissionOnce(o.accountId, o.id, 'SALES::Invoices::VIEW', {

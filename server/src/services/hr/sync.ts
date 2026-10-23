@@ -2,6 +2,7 @@ import { peoplePrisma } from '../../utils/peoplePrisma.js';
 import { decryptSecret, encryptSecret } from '../mailer.js';
 import { adapterOf, type Punch } from './adapters.js';
 import { exclusive, leaseFor } from '../jobLease.js';
+import { appLive } from '../principalAllowed.js';
 
 /**
  * The outbox and the sync runs behind HR connections.
@@ -83,6 +84,12 @@ export async function flushOutbox(now = new Date(), limitPerConnection = 200) {
       await peoplePrisma.hrOutbox.updateMany({ where: { id: { in: rows.map((r) => r.id) } }, data: { status: 'FAILED', lastError: 'Connection is off or cannot push punches' } });
       continue;
     }
+    /* Punches leave CLOR only while the company has Attendance (A-48); until then they wait, untouched. */
+    const refused = await appLive(c.accountId, c.orgId, 'attendance');
+    if (refused) {
+      await peoplePrisma.hrOutbox.updateMany({ where: { id: { in: rows.map((r) => r.id) }, status: 'PENDING' }, data: { nextAttemptAt: new Date(now.getTime() + 60 * 60_000), lastError: `Waiting: ${refused.error}` } });
+      continue;
+    }
     const punches = rows.map((r) => ({ ...(JSON.parse(r.payload) as Punch), key: r.key }));
     let result;
     try {
@@ -140,8 +147,14 @@ export async function pullEmployees(c: { id: string; accountId: string; orgId: s
 /** Hourly: every enabled connection that pulls employees. */
 export async function pullAllDue() {
   const conns = await peoplePrisma.hrConnection.findMany({ where: { enabled: true, pullEmployees: true } });
-  for (const c of conns) await pullEmployees(c);
-  return conns.length;
+  let pulled = 0;
+  for (const c of conns) {
+    /* Employees are read in only while the company has People (A-48). */
+    if (await appLive(c.accountId, c.orgId, 'people')) continue;
+    await pullEmployees(c);
+    pulled += 1;
+  }
+  return pulled;
 }
 
 /** Every minute flush the outbox; every hour pull people. Off under test. */

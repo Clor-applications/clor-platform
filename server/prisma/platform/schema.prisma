@@ -901,6 +901,25 @@ model JobLease {
   heartbeatAt  DateTime?
 }
 
+/// One run of a background job, by whichever instance took its lease (A-48).
+/// A worker whose last run is old, or whose runs keep failing, is a scheduler
+/// that has stopped: this is where that shows. Kept 30 days.
+model JobRun {
+  id         String    @id @default(cuid())
+  worker     String
+  holder     String
+  token      Int       @default(0)
+  startedAt  DateTime  @default(now())
+  finishedAt DateTime?
+  /// RUNNING | OK | FAILED | STOPPED (lease lost or the instance stopping)
+  outcome    String    @default("RUNNING")
+  /// What the run did, as JSON (rows deleted, invoices raised, …).
+  counts     String?
+  error      String?
+
+  @@index([worker, startedAt])
+}
+
 /// Rate-limit counts shared by every API instance (sign-in, sign-up, password
 /// reset, one-time codes, portal and single sign-on). One row per bucket key.
 model RateLimitHit {

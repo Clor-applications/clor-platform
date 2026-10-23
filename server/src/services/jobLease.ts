@@ -193,19 +193,73 @@ export async function exclusive<T>(name: string, ttlMs: number, fn: () => Promis
         }, beatFor(ttlMs));
     beat?.unref?.();
 
+    const runId = await startRun(name, token);
     let ok = false;
+    let out: T | undefined;
+    let failure: unknown = null;
     try {
-      const out = await scope.run(lease, fn);
+      out = await scope.run(lease, fn);
       ok = !controller.signal.aborted;
       return out;
+    } catch (e) {
+      failure = e;
+      throw e;
     } finally {
       if (beat) clearInterval(beat);
       if (!leaseless) await release(name, token, ok ? periodEnd : null);
+      await finishRun(runId, failure ? (failure instanceof LeaseLost ? 'STOPPED' : 'FAILED') : ok ? 'OK' : 'STOPPED', out, failure ?? controller.signal.reason ?? null);
     }
   } finally {
     running.delete(name);
   }
 }
+
+/* ---- Run history (A-48) ---- */
+
+/** What a run did, for the record: a number, or the numeric parts of an object, or how many items. */
+const summarize = (out: unknown): string | null => {
+  if (out == null) return null;
+  if (typeof out === 'number') return JSON.stringify({ count: out });
+  if (Array.isArray(out)) return JSON.stringify({ items: out.length });
+  if (typeof out === 'object') {
+    const nums = Object.fromEntries(Object.entries(out as Record<string, unknown>).filter(([, v]) => typeof v === 'number'));
+    return Object.keys(nums).length ? JSON.stringify(nums).slice(0, 2000) : null;
+  }
+  return null;
+};
+
+/* Recording a run never stops the job: a history row that cannot be written is logged and the work goes on. */
+async function startRun(worker: string, token: number) {
+  try {
+    return (await platformPrisma.jobRun.create({ data: { worker, holder: ME, token }, select: { id: true } })).id;
+  } catch (e) {
+    log(`${worker}: run not recorded`, e);
+    return null;
+  }
+}
+
+async function finishRun(id: string | null, outcome: string, out: unknown, error: unknown) {
+  if (!id) return;
+  try {
+    await platformPrisma.jobRun.update({
+      where: { id },
+      data: { outcome, finishedAt: new Date(), counts: summarize(out), error: error ? String(error instanceof Error ? error.message : error).slice(0, 1000) : null },
+    });
+  } catch (e) {
+    log(`run ${id}: outcome not recorded`, e);
+  }
+}
+
+/** The latest run of each worker: an old one, or a string of failures, is a scheduler that has stopped. */
+export async function lastJobRuns() {
+  const rows = await platformPrisma.jobRun.findMany({ orderBy: { startedAt: 'desc' }, take: 500 });
+  const latest = new Map<string, (typeof rows)[number]>();
+  for (const r of rows) if (!latest.has(r.worker)) latest.set(r.worker, r);
+  return [...latest.values()];
+}
+
+/** Run history is for spotting a stopped scheduler, not an archive: a month is plenty. */
+export const pruneJobRuns = async (days = 30) => (await platformPrisma.jobRun.deleteMany({ where: { startedAt: { lt: new Date(Date.now() - days * 86_400_000) } } })).count;
 
 /**
  * SIGTERM: start nothing new, tell every run to stop, and free their leases so
