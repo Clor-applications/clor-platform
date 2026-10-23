@@ -51,7 +51,7 @@ import { scimRouter } from './routes/scim.js';
 import { agentRouter } from './routes/agent.js';
 import { notificationsRouter } from './routes/notifications.js';
 import { payPageRouter, payRequestsRouter } from './routes/payRequests.js';
-import { agentLimiter, apiLimiter, hikvisionLimiter, scimLimiter } from './middleware/rateLimit.js';
+import { agentLimiter, apiLimiter, billingWebhookLimiter, hikvisionLimiter, scimLimiter } from './middleware/rateLimit.js';
 import { personnelRouter } from './routes/personnel.js';
 import { schedulingRouter } from './routes/scheduling.js';
 import { portalRouter } from './routes/portal.js';
@@ -89,7 +89,7 @@ import { gstinRouter } from './routes/gstin.js';
 import { stockDocumentsRouter } from './routes/stockDocuments.js';
 import { stockLedgerRouter } from './routes/stockLedger.js';
 import { notFound, errorHandler } from './middleware/errors.js';
-import { billingRouter, billingOperatorRouter } from './routes/billing.js';
+import { billingRouter, billingOperatorRouter, billingWebhook } from './routes/billing.js';
 import { edgeGuard } from './middleware/edgeGuard.js';
 import { auditMutations } from './middleware/auditMutations.js';
 import { clearAccessCacheOnWrite } from './utils/accessCache.js';
@@ -230,6 +230,8 @@ export function buildApp() {
   app.use('/api/portal/punch', express.json({ limit: '3mb' }));
   /* A document on an employee file (≤ 5 MB, base64). */
   app.use('/api/orgs/:orgId/people/employees/:id/documents', express.json({ limit: '7mb' }));
+  /* The payment gateway's webhook: public, its exact path, the raw body a signature is made over — ahead of the JSON parser and of every router that demands a session (A-16). */
+  app.post('/api/billing/webhook', ...billingWebhookLimiter, express.raw({ type: () => true, limit: '1mb' }), billingWebhook);
   app.use(express.json({ limit: '1mb' }));
   /* Invoices, receipts, payments and payroll writes are never made twice by a double click or a retry. */
   app.use(webIdempotency);

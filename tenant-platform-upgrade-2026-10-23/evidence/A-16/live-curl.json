@@ -1,0 +1,1 @@
+{"finding":"A-16","where":"local dev API, no Authorization header","request":"POST /api/billing/webhook","response":"{\"ignored\":true} HTTP 202","before_fix":"401 Missing token (before-fix.txt)"}

@@ -39,6 +39,7 @@ Updated: 2026-10-23
 | EV-033 | A-13: separation of duties, per company setting; never about oneself (full server suite 164 files / 1533 tests) | `makerChecker.test.ts`; `evidence/A-13/before-fix.txt` (5 fail), `after-fix.txt` (9 pass incl. integrationsV2); browser `1-policy-…jpg`, `2-preparer-refused.jpg`, `4-approved-by-second-admin.png`; live `3-live-two-approvers.json` (403 preparer, 200 second admin). Local dev DB: new platform migration applied |
 | EV-034 | A-14: every app's subscription is enforced in the shared permission check | `recycleBin.test.ts`; `evidence/A-14/before-fix.txt` (expected 200 to be 402), `after-fix.txt` (6/6); full server suite 164 files / 1534 tests |
 | EV-035 | A-15: one refusal order across apps | `guardOrder.test.ts`; `evidence/A-15/before-fix.txt` (3 fail), `after-fix.txt` (9 pass); 13 refusal-code suites, 139 tests |
+| EV-036 | A-16: the payment webhook is reachable and sees the raw body | `billingWebhook.test.ts`; `evidence/A-16/before-fix.txt` (401; raw body undefined), `after-fix.txt` (5 pass incl. billingOperator), `live-curl.json` |
 
 ## Evidence quality note
 

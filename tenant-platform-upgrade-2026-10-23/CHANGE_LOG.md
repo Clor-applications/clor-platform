@@ -45,9 +45,10 @@ Changed:
 - A-14 fixed: subscription ceiling in `authorize()` for every app's modules; `requireApp.ts` removed. Application behavior changed: yes. Schema: no.
 - Batches 6 (background jobs) and 7 (route manifest) run in parallel sessions on their own branches (evidence IDs EV-100..149 and EV-150..199).
 - A-15 fixed: app guards answer 402 (not bought) before 403 (switched off). Application behavior changed: yes (status code for unowned apps). Schema: no.
+- A-16 fixed: billing webhook mounted publicly ahead of the routers that require a session, with the raw body and a rate limit. Application behavior changed: yes. Schema: no.
 
 Running totals for 2026-10-23:  
-Application behavior changed: yes (GAP-002, GAP-003, A-03, A-01, A-02, A-04, A-05, A-07, A-06, A-08, A-09, A-10, A-11, A-12, A-13, A-14, A-15).  
+Application behavior changed: yes (GAP-002, GAP-003, A-03, A-01, A-02, A-04, A-05, A-07, A-06, A-08, A-09, A-10, A-11, A-12, A-13, A-14, A-15, A-16).  
 Database schema changed: yes (platform `Account.legacyUnrestrictedAt`; platform `AuthPolicy.makerChecker`; applied locally only).  
 Deployment or Cloudflare configuration changed: no.  
 Customer data accessed: no (local test accounts only).

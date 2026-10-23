@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, type Request, type Response } from 'express';
 import { z } from 'zod';
 import { requireAuth } from '../middleware/auth.js';
 import { requireTenantContext } from '../middleware/tenantContext.js';
@@ -14,19 +14,23 @@ export const billingRouter = Router();
 export const billingOperatorRouter = Router();
 
 /**
- * The webhook is mounted PUBLIC and BEFORE auth. It is a no-op under the manual
- * gateway (no provider, no webhooks); a real gateway adapter will verify the
- * signature here. NOTE: signature verification needs the raw body — when a real
- * gateway is wired, add an express.raw() body parser on this exact path ahead of
- * the global express.json().
+ * The payment gateway's webhook (A-16).
+ *
+ * The comment here said "mounted PUBLIC and BEFORE auth", but it was mounted
+ * on billingRouter after routers that put requireAuth on everything under
+ * /api, so a gateway's call got 401 and never arrived. It is now its own
+ * handler, mounted in app.ts on its exact path ahead of every router and of
+ * the global JSON parser, with the raw body — what a signature is computed
+ * over. Under the manual gateway it still does nothing (202 ignored); a real
+ * gateway adapter verifies the signature in verifyWebhook.
  */
-billingRouter.post('/billing/webhook', async (req, res) => {
-  const gw = getGateway();
-  const ev = gw.verifyWebhook(JSON.stringify(req.body ?? {}), req.headers as Record<string, unknown>);
+export async function billingWebhook(req: Request, res: Response) {
+  const raw = Buffer.isBuffer(req.body) ? req.body : Buffer.from(typeof req.body === 'string' ? req.body : JSON.stringify(req.body ?? {}));
+  const ev = getGateway().verifyWebhook(raw, req.headers as Record<string, unknown>);
   if (!ev) return res.status(202).json({ ignored: true });
   const r = await applyGatewayEvent(ev);
   res.json(r);
-});
+}
 
 const setSchema = z.object({
   apps: z
