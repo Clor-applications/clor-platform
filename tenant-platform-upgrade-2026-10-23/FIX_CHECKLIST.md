@@ -42,7 +42,7 @@ Status values: `TODO` · `IN PROGRESS` · `DONE` · `LIVE` (needs production acc
 | W-04b | Permissions grouped by app (Company, Accounting, People, Attendance, Payroll — only the apps the company uses); each app has "Roles & Access" opening Company admin's Permissions on that app (`?for=<app>`); filtering hides rows, saving always writes the whole role | settings/navigation tests updated; web suite 0 new failures vs baseline | `6-payroll-roles-access-filtered.jpg`: Payroll → Roles & Access → Permissions with Payroll selected, 48 Payroll permissions only | DONE (EV-029) |
 | W-05 | One audit trail: server filter `app=` now sorts every entry to company / accounting / attendance (People & Attendance) / payroll; Company admin's Audit trail has those tabs (`?for=`), readable entity names, and the correct `SETTINGS::Audit trail::VIEW` gate; Attendance's and People's "Audit Logs" open it on their share (their separate screen removed). API keys: moved to Batch 5 — they are Attendance-scoped today and belong on the credential registry's one Credentials page | `audit.test.ts` › "gives each app its own share of the one trail" (fail before: `app=accounting` refused, 400) | `evidence/W-05/`: Attendance → Audit Logs → Company admin trail on People & Attendance; Company tab lists user changes | DONE (EV-030) |
 
-## Batch 2 — Authorization, entitlements, maker-checker
+## Batch 2 — Authorization, entitlements, maker-checker (DONE — full suite EV-043)
 
 | ID | Fix | Test | Browser | Status |
 |---|---|---|---|---|
