@@ -43,6 +43,8 @@ let mallory: Ctx; // admin of another company that invites Alice
 beforeAll(async () => {
   alice = await owner('Alice Co');
   mallory = await owner('Mallory Co');
+  /* Alice confirmed her address; only a confirmed login from another account can be invited (A-02). */
+  await platformPrisma.user.updateMany({ where: { email: alice.email }, data: { emailVerifiedAt: new Date() } });
   const invited = await request(app)
     .post('/api/users')
     .set(auth(mallory))

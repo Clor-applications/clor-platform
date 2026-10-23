@@ -605,13 +605,25 @@ usersRouter.post('/users', requirePermission('SETTINGS', PermissionAction.CREATE
    */
   const existing = await platformPrisma.user.findFirst({
     where: { email },
-    select: { id: true, email: true, fullName: true, accountId: true, isActive: true },
+    select: { id: true, email: true, fullName: true, accountId: true, isActive: true, emailVerifiedAt: true },
   });
 
   let invited: { id: string; email: string; fullName: string | null; accountId: string } | null = null;
   if (existing) {
     if (!existing.isActive) {
       return res.status(409).json({ error: 'That email address belongs to a deactivated user.' });
+    }
+    /*
+     * A-02: signing up never proves the address. Somebody could register
+     * cfo@yourclient.com first and inherit the access an administrator later
+     * gives that address. A login from another account is attached only once
+     * its owner has confirmed the email; ours (made by this account) are ours.
+     */
+    if (existing.accountId !== accountId && !existing.emailVerifiedAt) {
+      return res.status(409).json({
+        error: 'That address already has a CLOR login that has not been confirmed. Ask the person to confirm their email from the link CLOR sent them, then add them again.',
+        code: 'unverified_identity',
+      });
     }
     const already = await platformPrisma.userOrgMembership.findFirst({
       where: { orgId: req.tenant!.orgId, userId: existing.id },

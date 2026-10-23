@@ -57,6 +57,8 @@ let globex: Owner;
 
 beforeAll(async () => {
   [acme, globex] = await Promise.all([makeOwner('acme'), makeOwner('globex')]);
+  /* Acme's owner has confirmed their address: only a confirmed login from another account can be invited (A-02). */
+  await platformPrisma.user.updateMany({ where: { email: acme.email }, data: { emailVerifiedAt: new Date() } });
 }, 120_000);
 
 const login = async (email: string) => {
@@ -236,6 +238,7 @@ describe('a person already registered elsewhere', () => {
    */
   it('does not disclose the name behind an address from another account', async () => {
     const outsider = await makeOwner('outsider');
+    await platformPrisma.user.updateMany({ where: { email: outsider.email }, data: { emailVerifiedAt: new Date() } });
     const res = await request(app)
       .post('/api/users')
       .set(auth(acme))
@@ -280,5 +283,29 @@ describe('an email is one person', () => {
         data: { accountId: globex.accountId, email: acme.email, fullName: 'Clone', passwordHash: 'x' },
       })
     ).rejects.toThrow();
+  });
+
+  /*
+   * A-02: signing up never proves an address. Somebody who registers
+   * cfo@client.com before the client invites that address must not inherit
+   * the access meant for the real CFO.
+   */
+  it('is not attached while its owner has not confirmed the address', async () => {
+    const squatter = await makeOwner('squatter');
+    const res = await request(app)
+      .post('/api/users')
+      .set(auth(acme))
+      .send({
+        email: squatter.email,
+        fullName: 'The real CFO',
+        password: 'Irrelevant!23',
+        orgIds: [acme.orgId],
+        branchIdsByOrg: { [acme.orgId]: [acme.branchId] },
+      });
+    expect(res.status).toBe(409);
+    expect(res.body.code).toBe('unverified_identity');
+    const u = await platformPrisma.user.findFirstOrThrow({ where: { email: squatter.email }, select: { id: true } });
+    expect(await platformPrisma.userOrgMembership.count({ where: { orgId: acme.orgId, userId: u.id } })).toBe(0);
+    expect(await platformPrisma.userRoleAssignment.count({ where: { orgId: acme.orgId, userId: u.id } })).toBe(0);
   });
 });

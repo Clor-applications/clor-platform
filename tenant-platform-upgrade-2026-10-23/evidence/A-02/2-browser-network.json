@@ -1,0 +1,10 @@
+{
+  "finding": "A-02",
+  "where": "Browser pane, http://localhost:5173, Settings > Users > Create User, signed in as an Administrator of company X",
+  "setup": "A different person self-signed-up (new account, email never confirmed) with the address the admin is about to add",
+  "request": "POST /api/users {email: <that address>, orgIds: [X]}",
+  "response": {"status": 409, "body": {"error":"That address already has a CLOR login that has not been confirmed. Ask the person to confirm their email from the link CLOR sent them, then add them again.","code":"unverified_identity"}},
+  "after": "Users list unchanged (only A03 Owner and Mallory); no membership or role created for the squatter",
+  "before_fix": "Same request returned 201 and attached the squatter (before-fix.txt: expected 201 to be 409)",
+  "ux_note": "In a narrow window the Create User drawer covers the error banner; visible at 1440px. Follow-up: show errors inside the drawer."
+}

@@ -1,6 +1,7 @@
 import { describe, it, expect, afterAll } from 'vitest';
 import request from 'supertest';
 import { buildApp } from '../app.js';
+import { platformPrisma } from '../utils/platformPrisma.js';
 import { codePrefix } from '../services/displayCodes.js';
 
 const app = buildApp().listen(0);
@@ -112,6 +113,8 @@ describe('company, account and user codes', () => {
     const caCode = caBody.user.code;
     const caEmail = caBody.user.email;
     const client = await owner(`${word()} Exports`);
+    /* The CA has confirmed their address; an unconfirmed login from another account is not attached (A-02). */
+    await platformPrisma.user.updateMany({ where: { email: caEmail }, data: { emailVerifiedAt: new Date() } });
     await request(app)
       .post(`/api/users`)
       .set(headers(client))
