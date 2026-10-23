@@ -1267,6 +1267,11 @@ model EmployeeDocument {
   expiresOn         String?
   /// When HR was told it is about to expire (once per document).
   expiryNotifiedAt  DateTime?
+  /// Who can see it (docs/people/02-PRD.md DOC-01): EMPLOYEE_VISIBLE (the person and
+  /// anyone with Documents VIEW) | HR_ONLY (Documents VIEW) | RESTRICTED (Documents EDIT)
+  /// | CONFIDENTIAL (Confidential Documents VIEW). `visibleToEmployee` is kept in step
+  /// (true only for EMPLOYEE_VISIBLE) because the employee app still reads it.
+  classification    String    @default("EMPLOYEE_VISIBLE")
   visibleToEmployee Boolean   @default(true)
   uploadedByUserId  String
   createdAt         DateTime  @default(now())

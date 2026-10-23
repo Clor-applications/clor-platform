@@ -36,6 +36,8 @@ export const PEOPLE_RESOURCE = {
   employees: 'Employees',
   structure: 'Org Structure',
   notes: 'Employee Notes',
+  documents: 'Documents',
+  confidentialDocuments: 'Confidential Documents',
 } as const;
 
 /**

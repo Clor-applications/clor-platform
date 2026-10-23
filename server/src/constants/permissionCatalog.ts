@@ -218,6 +218,18 @@ export const PERMISSION_CATALOG: ModuleDef[] = [
         description: 'HR notes on a person\'s file',
         actions: MASTER,
       },
+      {
+        key: 'Documents',
+        label: 'Documents',
+        description: 'Files on a person\'s record. VIEW opens what the person can see and HR-only files; EDIT also opens restricted ones',
+        actions: MASTER,
+      },
+      {
+        key: 'Confidential Documents',
+        label: 'Confidential documents',
+        description: 'Files marked confidential (medical, disciplinary, legal). Only this grant opens them',
+        actions: MASTER,
+      },
     ],
   },
   {
@@ -637,6 +649,7 @@ export const ROLE_PRESETS: Record<string, RolePreset> = {
       ['PEOPLE', 'Employees', USER_EXPORT],
       ['PEOPLE', 'Org Structure', [A.VIEW]],
       ['PEOPLE', 'Employee Notes', USER],
+      ['PEOPLE', 'Documents', USER],
     ],
   },
   HR_MANAGER: {
@@ -648,6 +661,8 @@ export const ROLE_PRESETS: Record<string, RolePreset> = {
       ['PEOPLE', 'Employees', ['*']],
       ['PEOPLE', 'Org Structure', ['*']],
       ['PEOPLE', 'Employee Notes', ['*']],
+      ['PEOPLE', 'Documents', ['*']],
+      ['PEOPLE', 'Confidential Documents', ['*']],
       ...['Announcements', 'Events', 'Recruitment', 'Performance', 'Learning', 'HR Cases', 'Assets', 'Benefits'].map((key) => ['PEOPLE', key, ['*']] as [string, string, string[]]),
     ],
   },

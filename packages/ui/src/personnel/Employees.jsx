@@ -6,6 +6,7 @@ import DocumentListShell from '@ui/components/list/DocumentListShell';
 import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';
 import Drawer from '@ui/components/ui/Drawer';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
+import { DOC_WHO_CAN_SEE, docWhoLabel } from './documentClassification';
 import { downloadCsvTemplate, parseCsv, readFileText } from '@ui/utils/csv';
 import { formatDateIn } from '@ui/utils/dates';
 import { hasApp } from '@platform/context';
@@ -1127,7 +1128,7 @@ const kb = (n) => (n >= 1048576 ? `${(n / 1048576).toFixed(1)} MB` : `${Math.max
  */
 export function EmployeeDocuments({ employeeId }) {
   const [docs, setDocs] = useState(null);
-  const [form, setForm] = useState({ kind: 'ID_PROOF', title: '', expiresOn: '', visibleToEmployee: true });
+  const [form, setForm] = useState({ kind: 'ID_PROOF', title: '', expiresOn: '', classification: 'EMPLOYEE_VISIBLE' });
   const [file, setFile] = useState(null);
   const [busy, setBusy] = useState(false);
   const input = useRef(null);
@@ -1143,7 +1144,7 @@ export function EmployeeDocuments({ employeeId }) {
       const dataUrl = await new Promise((resolve, reject) => { const r = new FileReader(); r.onload = () => resolve(r.result); r.onerror = () => reject(new Error('Could not read the file.')); r.readAsDataURL(file); });
       await uploadDocument(employeeId, { ...form, title: form.title.trim() || file.name.replace(/\.[^.]+$/, ''), expiresOn: form.expiresOn || null, data: dataUrl, mime: file.type });
       setFile(null);
-      setForm({ kind: 'ID_PROOF', title: '', expiresOn: '', visibleToEmployee: true });
+      setForm({ kind: 'ID_PROOF', title: '', expiresOn: '', classification: 'EMPLOYEE_VISIBLE' });
       if (input.current) input.current.value = '';
       notify.success('Added to the file.');
       load();
@@ -1183,7 +1184,11 @@ export function EmployeeDocuments({ employeeId }) {
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <input ref={input} type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx,.xlsx,.txt" className="text-sm" onChange={(e) => setFile(e.target.files?.[0] || null)} aria-label="File" />
-          <label className="flex items-center gap-1.5 text-sm"><input type="checkbox" checked={form.visibleToEmployee} onChange={(e) => setForm({ ...form, visibleToEmployee: e.target.checked })} /> Visible to the person</label>
+          <label className="flex items-center gap-1.5 text-sm">Who can see
+            <select className="ui-select" style={{ width: 'auto' }} value={form.classification} onChange={(e) => setForm({ ...form, classification: e.target.value })} aria-label="Who can see">
+              {DOC_WHO_CAN_SEE.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+            </select>
+          </label>
           <button type="submit" className="ui-btn ui-btn-primary ui-btn-sm ml-auto" disabled={!file || busy}>{busy ? 'Uploading…' : 'Add to file'}</button>
         </div>
       </form>
@@ -1193,7 +1198,7 @@ export function EmployeeDocuments({ employeeId }) {
             <li key={d.id} className="ui-card p-3 text-sm flex flex-wrap items-center gap-2">
               <span className="min-w-0 flex-1">
                 <span className="font-medium">{d.title}</span>
-                <span className="ui-caption block">{DOC_KINDS.find(([k]) => k === d.kind)?.[1] || d.kind} · {kb(d.size)} · {new Date(d.createdAt).toLocaleDateString('en-IN', { dateStyle: 'medium' })}{d.expiresOn ? ` · valid until ${d.expiresOn}` : ''}{!d.visibleToEmployee ? ' · HR only' : ''}</span>
+                <span className="ui-caption block">{DOC_KINDS.find(([k]) => k === d.kind)?.[1] || d.kind} · {kb(d.size)} · {new Date(d.createdAt).toLocaleDateString('en-IN', { dateStyle: 'medium' })}{d.expiresOn ? ` · valid until ${d.expiresOn}` : ''}{d.classification !== 'EMPLOYEE_VISIBLE' ? ` · ${docWhoLabel(d)}` : ''}</span>
                 {d.expiresOn && d.expiresOn < today ? <span className="ui-pill ui-pill-neg mt-1">Expired</span> : null}
               </span>
               <button type="button" className="ui-link" onClick={() => open(d)}>Download</button>

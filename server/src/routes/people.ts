@@ -1,10 +1,10 @@
-import { Router } from 'express';
+import { Router, type Request } from 'express';
 import { z } from 'zod';
 
 import { requireAuth } from '../middleware/auth.js';
 import { requireTenantContext } from '../middleware/tenantContext.js';
 import { authorize, requirePermission } from '../middleware/rbac.js';
-import { PermissionAction } from '../constants/enums.js';
+import { PermissionAction, type PermissionAction as PermissionActionType } from '../constants/enums.js';
 import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { AnonymiseError, anonymiseEmployee } from '../services/anonymiseEmployee.js';
 import { recordAudit } from '../services/auditTrail.js';
@@ -37,7 +37,7 @@ import { PAYROLL_HISTORY, lockPayrollEmployee } from '../services/payroll/employ
 export const peopleRouter = Router();
 peopleRouter.use(requireAuth, requireTenantContext);
 
-const { employees: EMPLOYEES, structure: STRUCTURE, notes: NOTES } = PEOPLE_RESOURCE;
+const { employees: EMPLOYEES, structure: STRUCTURE, notes: NOTES, documents: DOCUMENTS, confidentialDocuments: CONFIDENTIAL } = PEOPLE_RESOURCE;
 const can = (action: string, resource: string) => requirePermission(PEOPLE_MODULE, action as any, resource);
 
 const EMPLOYEE_STATUSES = ['ACTIVE', 'ON_NOTICE', 'LEFT', 'SUSPENDED'] as const;
@@ -976,28 +976,64 @@ function decodeDocument(input: unknown, mimeHint?: unknown): { mime: string; dat
   if (!verifiedMime(data, mime, (t) => DOC_MIMES.test(t))) return { error: 'That file is not what its name says. Upload the PDF, picture or document itself.' };
   return { mime, data };
 }
-const docRow = (d: any) => ({ id: d.id, employeeId: d.employeeId, kind: d.kind, title: d.title, mime: d.mime, size: d.size, expiresOn: d.expiresOn, visibleToEmployee: d.visibleToEmployee, uploadedByUserId: d.uploadedByUserId, createdAt: d.createdAt });
+const docRow = (d: any) => ({ id: d.id, employeeId: d.employeeId, kind: d.kind, title: d.title, mime: d.mime, size: d.size, expiresOn: d.expiresOn, classification: d.classification, visibleToEmployee: d.visibleToEmployee, uploadedByUserId: d.uploadedByUserId, createdAt: d.createdAt });
+const DOC_SELECT = { id: true, employeeId: true, kind: true, title: true, mime: true, size: true, expiresOn: true, classification: true, visibleToEmployee: true, uploadedByUserId: true, createdAt: true } as const;
 
-peopleRouter.get('/orgs/:orgId/people/documents', can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
+/**
+ * Who can see a document (docs/people/02-PRD.md DOC-01; review R-01).
+ *
+ * Until 24 Oct 2026 any role with Employees VIEW opened every file on every
+ * person, and the Attendance Manager preset carried that grant. Now each
+ * document names its classification, and the grant that opens it is:
+ *
+ *   EMPLOYEE_VISIBLE, HR_ONLY   Documents VIEW
+ *   RESTRICTED                  Documents EDIT
+ *   CONFIDENTIAL                Confidential Documents VIEW (its own grant)
+ *
+ * The employee app keeps reading `visibleToEmployee`, which is true only for
+ * EMPLOYEE_VISIBLE. Lists are filtered to what the caller may open, so a
+ * person never learns a confidential file exists from its title.
+ */
+const DOC_CLASSIFICATIONS = ['EMPLOYEE_VISIBLE', 'HR_ONLY', 'RESTRICTED', 'CONFIDENTIAL'] as const;
+type DocClass = (typeof DOC_CLASSIFICATIONS)[number];
+async function readableClassifications(req: Request): Promise<DocClass[]> {
+  const out: DocClass[] = [];
+  if (!(await authorize(req, PEOPLE_MODULE, PermissionAction.VIEW, DOCUMENTS))) out.push('EMPLOYEE_VISIBLE', 'HR_ONLY');
+  if (!(await authorize(req, PEOPLE_MODULE, PermissionAction.EDIT, DOCUMENTS))) out.push('RESTRICTED');
+  if (!(await authorize(req, PEOPLE_MODULE, PermissionAction.VIEW, CONFIDENTIAL))) out.push('CONFIDENTIAL');
+  return out;
+}
+/** The grant a write (upload, delete) on a document of this classification needs. */
+const writeGrantFor = (classification: string, action: PermissionActionType): [string, PermissionActionType, string] =>
+  classification === 'CONFIDENTIAL' ? [PEOPLE_MODULE, action, CONFIDENTIAL] : [PEOPLE_MODULE, action, DOCUMENTS];
+
+peopleRouter.get('/orgs/:orgId/people/documents', can(PermissionAction.VIEW, DOCUMENTS), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
+  const classification = { in: await readableClassifications(req) };
   const rows = await peoplePrisma.employeeDocument.findMany({
-    where: { accountId, orgId }, orderBy: { createdAt: 'desc' },
-    select: { id: true, employeeId: true, kind: true, title: true, mime: true, size: true, expiresOn: true, visibleToEmployee: true, uploadedByUserId: true, createdAt: true, employee: { select: { name: true, code: true } } },
+    where: { accountId, orgId, classification }, orderBy: { createdAt: 'desc' },
+    select: { ...DOC_SELECT, employee: { select: { name: true, code: true } } },
   });
   res.json({ documents: rows.map((r) => ({ ...docRow(r), employeeName: r.employee.name, employeeCode: r.employee.code })) });
 });
 
-peopleRouter.get('/orgs/:orgId/people/employees/:id/documents', can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
+peopleRouter.get('/orgs/:orgId/people/employees/:id/documents', can(PermissionAction.VIEW, DOCUMENTS), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
-  const rows = await peoplePrisma.employeeDocument.findMany({ where: { accountId, orgId, employeeId: String(req.params.id) }, orderBy: { createdAt: 'desc' }, select: { id: true, employeeId: true, kind: true, title: true, mime: true, size: true, expiresOn: true, visibleToEmployee: true, uploadedByUserId: true, createdAt: true } });
+  const classification = { in: await readableClassifications(req) };
+  const rows = await peoplePrisma.employeeDocument.findMany({ where: { accountId, orgId, employeeId: String(req.params.id), classification }, orderBy: { createdAt: 'desc' }, select: DOC_SELECT });
   res.json({ documents: rows.map(docRow) });
 });
 
-peopleRouter.post('/orgs/:orgId/people/employees/:id/documents', can(PermissionAction.EDIT, EMPLOYEES), async (req, res) => {
+peopleRouter.post('/orgs/:orgId/people/employees/:id/documents', can(PermissionAction.CREATE, DOCUMENTS), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
+  /* The old flag still arrives from older clients: false meant "HR only". */
+  const classification = String(req.body?.classification || (req.body?.visibleToEmployee === false ? 'HR_ONLY' : 'EMPLOYEE_VISIBLE')).toUpperCase();
+  if (!DOC_CLASSIFICATIONS.includes(classification as DocClass)) return res.status(400).json({ error: 'Say who can see it: the person and HR, HR only, restricted, or confidential.' });
+  const refused = await authorize(req, ...writeGrantFor(classification, PermissionAction.CREATE));
+  if (refused) return res.status(refused.status).json(refused.body);
   const employee = await peoplePrisma.employee.findFirst({ where: { id: String(req.params.id), accountId, orgId }, select: { id: true } });
   if (!employee) return res.status(404).json({ error: 'No such employee.' });
   const kind = String(req.body?.kind || 'OTHER').toUpperCase();
@@ -1009,26 +1045,29 @@ peopleRouter.post('/orgs/:orgId/people/employees/:id/documents', can(PermissionA
   const file = decodeDocument(req.body?.data, req.body?.mime);
   if ('error' in file) return res.status(400).json({ error: file.error });
   const d = await peoplePrisma.employeeDocument.create({
-    data: { accountId, orgId, employeeId: employee.id, kind, title, mime: file.mime, size: file.data.length, data: file.data, expiresOn, visibleToEmployee: req.body?.visibleToEmployee !== false, uploadedByUserId: req.auth!.userId },
+    data: { accountId, orgId, employeeId: employee.id, kind, title, mime: file.mime, size: file.data.length, data: file.data, expiresOn, classification, visibleToEmployee: classification === 'EMPLOYEE_VISIBLE', uploadedByUserId: req.auth!.userId },
   });
   res.status(201).json({ document: docRow(d) });
 });
 
 /** The file itself, as a data URL — small enough to carry inline, and the same shape the portal uses. */
-peopleRouter.get('/orgs/:orgId/people/documents/:docId', can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
+peopleRouter.get('/orgs/:orgId/people/documents/:docId', can(PermissionAction.VIEW, DOCUMENTS), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   const d = await peoplePrisma.employeeDocument.findFirst({ where: { id: String(req.params.docId), accountId, orgId } });
-  if (!d) return res.status(404).json({ error: 'No such document.' });
+  /* A file the caller may not open reads as absent, so its title does not leak through a 403. */
+  if (!d || !(await readableClassifications(req)).includes(d.classification as DocClass)) return res.status(404).json({ error: 'No such document.' });
   res.json({ document: { ...docRow(d), dataUrl: `data:${d.mime};base64,${Buffer.from(d.data).toString('base64')}` } });
 });
 
-peopleRouter.delete('/orgs/:orgId/people/documents/:docId', can(PermissionAction.EDIT, EMPLOYEES), async (req, res) => {
+peopleRouter.delete('/orgs/:orgId/people/documents/:docId', can(PermissionAction.DELETE, DOCUMENTS), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
-  const d = await peoplePrisma.employeeDocument.findFirst({ where: { id: String(req.params.docId), accountId, orgId }, select: { id: true } });
-  if (!d) return res.status(404).json({ error: 'No such document.' });
-  await deleteToBin(req, 'employeeDocument', d);
+  const d = await peoplePrisma.employeeDocument.findFirst({ where: { id: String(req.params.docId), accountId, orgId }, select: { id: true, classification: true } });
+  if (!d || !(await readableClassifications(req)).includes(d.classification as DocClass)) return res.status(404).json({ error: 'No such document.' });
+  const refused = await authorize(req, ...writeGrantFor(d.classification, PermissionAction.DELETE));
+  if (refused) return res.status(refused.status).json(refused.body);
+  await deleteToBin(req, 'employeeDocument', { id: d.id });
   res.json({ ok: true });
 });
 
