@@ -1,4 +1,6 @@
 import { prisma } from '../utils/prisma.js';
+import { isFeatureEnabled } from './features.js';
+import { appLive } from './principalAllowed.js';
 
 /**
  * Raising the invoices a schedule is due.
@@ -59,79 +61,54 @@ const num = (v: unknown) => {
   return Number.isFinite(n) ? n : 0;
 };
 
-export type RunSummary = { raised: number; schedules: number; skipped: number };
+export type RunSummary = { raised: number; schedules: number; skipped: number; repaired: number; failed: number; gated: number };
 
 /**
- * @param today  the date to bill up to. Passed in rather than read from the
- *               clock so a test can state what day it is.
+ * May this company's schedules raise invoices today? (A-44)
+ *
+ * The job ran for every active schedule, whether or not the company still had
+ * recurring invoices switched on — or Accounting at all. A lapsed account kept
+ * collecting drafts. Now both: the feature, and Accounting live (entitled, and
+ * the company not on its way to being closed).
  */
-export async function runDueSchedules(
-  { accountId, orgId, today }: { accountId?: string; orgId?: string; today?: string } = {}
-): Promise<RunSummary> {
-  const upTo = String(today || new Date().toISOString().slice(0, 10)).slice(0, 10);
+async function mayRaise(accountId: string, orgId: string) {
+  if (!(await isFeatureEnabled(accountId, orgId, 'recurringInvoices'))) return false;
+  return !(await appLive(accountId, orgId, 'accounting'));
+}
 
-  const schedules = await prisma.recurringSchedule.findMany({
-    where: {
-      isActive: true,
-      nextRunDate: { lte: upTo },
-      ...(accountId ? { accountId } : {}),
-      ...(orgId ? { orgId } : {}),
-    },
-  });
+type Schedule = Awaited<ReturnType<typeof prisma.recurringSchedule.findMany>>[number];
 
-  let raised = 0;
-  let skipped = 0;
-  let touchedSchedules = 0;
+/**
+ * One period, all or nothing (A-44).
+ *
+ * The claim, the invoice, the link between them and the schedule's progress
+ * used to be four separate writes. A crash after the claim left a claim with
+ * no invoice, every later run collided with it and moved on, and that period
+ * was never billed. They are one transaction now, so a crash leaves nothing
+ * and the next run raises the period. A claim left without an invoice by the
+ * old code is repaired here: its invoice is raised (or, if the draft exists,
+ * linked) instead of the period being skipped.
+ *
+ * The transaction begins by locking the schedule's row, so two runs of one
+ * schedule queue behind each other rather than both reading "not yet raised".
+ */
+async function raisePeriod(schedule: Schedule, template: any, periodDate: string): Promise<'raised' | 'repaired' | 'skipped' | 'done'> {
+  return prisma.$transaction(async (tx) => {
+    await tx.recurringSchedule.updateMany({ where: { id: schedule.id }, data: { lastRunAt: new Date() } });
+    const live = await tx.recurringSchedule.findUnique({ where: { id: schedule.id }, select: { isActive: true, generatedCount: true, maxOccurrences: true } });
+    if (!live?.isActive) return 'done';
 
-  for (const schedule of schedules) {
-    let run = schedule.nextRunDate;
-    let count = schedule.generatedCount;
-    let guard = 0;
-    let touched = false;
+    const claim = await tx.recurringScheduleRun.findUnique({ where: { scheduleId_periodDate: { scheduleId: schedule.id, periodDate } } });
+    if (claim?.invoiceId) return 'skipped';
+    if (!claim && live.maxOccurrences !== null && live.generatedCount >= live.maxOccurrences) return 'done';
 
-    let template: any = {};
-    try {
-      template = JSON.parse(schedule.templateJson || '{}');
-    } catch {
-      // A schedule whose template will not parse cannot raise anything, and
-      // must not stop the schedules after it.
-      continue;
-    }
-
-    while (
-      run &&
-      run <= upTo &&
-      guard < CATCH_UP_LIMIT &&
-      (!schedule.endDate || run <= schedule.endDate) &&
-      (schedule.maxOccurrences === null || count < schedule.maxOccurrences)
-    ) {
-      guard += 1;
-      const periodDate = run;
-
-      /*
-       * Claim the period first, raise the invoice second.
-       *
-       * The claim is the unique row. If another instance already has this
-       * period the create throws P2002 and this one moves on — so the worst a
-       * race can do is nothing, rather than billing twice.
-       */
-      let claimId: string | null = null;
-      try {
-        const claim = await prisma.recurringScheduleRun.create({
-          data: { accountId: schedule.accountId, orgId: schedule.orgId, scheduleId: schedule.id, periodDate },
-        });
-        claimId = claim.id;
-      } catch (e: any) {
-        if (String(e?.code) === 'P2002') {
-          skipped += 1;
-          run = advanceRunDate(run, schedule.frequency, schedule.interval);
-          continue;
-        }
-        throw e;
-      }
-
-      const items = Array.isArray(template.items) ? template.items : [];
-      const invoice = await prisma.invoice.create({
+    const number = `DRAFT/${schedule.id.slice(-6)}/${periodDate}`;
+    /* A draft the old code raised but never linked: link it rather than raise a second. */
+    const already = claim ? await tx.invoice.findFirst({ where: { orgId: schedule.orgId, number }, select: { id: true } }) : null;
+    const items = Array.isArray(template.items) ? template.items : [];
+    const invoice =
+      already ||
+      (await tx.invoice.create({
         data: {
           accountId: schedule.accountId,
           orgId: schedule.orgId,
@@ -152,7 +129,7 @@ export async function runDueSchedules(
            * guarantee — even with the run claim removed, the database itself
            * would refuse to raise one period twice.
            */
-          number: `DRAFT/${schedule.id.slice(-6)}/${periodDate}`,
+          number,
           date: periodDate,
           dueDate: dueDateFrom(periodDate, schedule.dueDays),
           customerId: schedule.partyId,
@@ -169,27 +146,95 @@ export async function runDueSchedules(
           createdByUserId: schedule.createdByUserId,
         },
         select: { id: true },
-      });
+      }));
 
-      await prisma.recurringScheduleRun.update({
-        where: { id: claimId },
-        data: { invoiceId: invoice.id },
-      });
-
-      raised += 1;
-      count += 1;
-      touched = true;
-      run = advanceRunDate(run, schedule.frequency, schedule.interval);
-    }
-
-    if (touched) {
-      touchedSchedules += 1;
-      await prisma.recurringSchedule.update({
-        where: { id: schedule.id },
-        data: { nextRunDate: run, generatedCount: count, lastRunAt: new Date() },
+    if (claim) {
+      await tx.recurringScheduleRun.update({ where: { id: claim.id }, data: { invoiceId: invoice.id } });
+    } else {
+      await tx.recurringScheduleRun.create({
+        data: { accountId: schedule.accountId, orgId: schedule.orgId, scheduleId: schedule.id, periodDate, invoiceId: invoice.id },
       });
     }
+    /* A repaired period whose draft already existed was counted when it was raised. */
+    if (!already) await tx.recurringSchedule.update({ where: { id: schedule.id }, data: { generatedCount: { increment: 1 } } });
+    const next = advanceRunDate(periodDate, schedule.frequency, schedule.interval);
+    await tx.recurringSchedule.updateMany({ where: { id: schedule.id, nextRunDate: { lt: next } }, data: { nextRunDate: next } });
+    return claim ? 'repaired' : 'raised';
+  });
+}
+
+/**
+ * @param today  the date to bill up to. Passed in rather than read from the
+ *               clock so a test can state what day it is.
+ */
+export async function runDueSchedules(
+  { accountId, orgId, today }: { accountId?: string; orgId?: string; today?: string } = {}
+): Promise<RunSummary> {
+  const upTo = String(today || new Date().toISOString().slice(0, 10)).slice(0, 10);
+
+  const schedules = await prisma.recurringSchedule.findMany({
+    where: {
+      isActive: true,
+      nextRunDate: { lte: upTo },
+      ...(accountId ? { accountId } : {}),
+      ...(orgId ? { orgId } : {}),
+    },
+  });
+
+  const summary: RunSummary = { raised: 0, schedules: 0, skipped: 0, repaired: 0, failed: 0, gated: 0 };
+  const allowed = new Map<string, Promise<boolean>>();
+
+  for (const schedule of schedules) {
+    const orgKey = `${schedule.accountId}:${schedule.orgId}`;
+    if (!allowed.has(orgKey)) allowed.set(orgKey, mayRaise(schedule.accountId, schedule.orgId));
+    if (!(await allowed.get(orgKey))) {
+      summary.gated += 1;
+      continue;
+    }
+
+    let template: any = {};
+    try {
+      template = JSON.parse(schedule.templateJson || '{}');
+    } catch {
+      // A schedule whose template will not parse cannot raise anything, and
+      // must not stop the schedules after it.
+      continue;
+    }
+
+    let run = schedule.nextRunDate;
+    let guard = 0;
+    let touched = false;
+    try {
+      while (run && run <= upTo && guard < CATCH_UP_LIMIT && (!schedule.endDate || run <= schedule.endDate)) {
+        guard += 1;
+        let outcome: Awaited<ReturnType<typeof raisePeriod>>;
+        try {
+          outcome = await raisePeriod(schedule, template, run);
+        } catch (e: any) {
+          /* Another run raised this period at the same moment and won the claim. */
+          if (String(e?.code) !== 'P2002') throw e;
+          outcome = 'skipped';
+        }
+        if (outcome === 'done') break;
+        if (outcome === 'skipped') summary.skipped += 1;
+        else {
+          touched = true;
+          summary[outcome] += 1;
+        }
+        run = advanceRunDate(run, schedule.frequency, schedule.interval);
+      }
+      /* Periods somebody else raised still move the schedule on. */
+      if (run !== schedule.nextRunDate) {
+        await prisma.recurringSchedule.updateMany({ where: { id: schedule.id, nextRunDate: { lt: run } }, data: { nextRunDate: run } });
+      }
+    } catch (e) {
+      /* Nothing of the failed period was written; the next run raises it. Other schedules carry on. */
+      summary.failed += 1;
+      // eslint-disable-next-line no-console
+      console.error(`[recurring] schedule ${schedule.id} (${schedule.orgId}) failed at ${run}; it will be raised on the next run:`, e instanceof Error ? e.message : e);
+    }
+    if (touched) summary.schedules += 1;
   }
 
-  return { raised, schedules: touchedSchedules, skipped };
+  return summary;
 }
