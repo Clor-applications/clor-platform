@@ -70,7 +70,7 @@ Status values: `TODO` · `IN PROGRESS` · `DONE` · `LIVE` (needs production acc
 | A-27 | Accounting's "Switch company" asks the shell (`requestSwitchCompany`, `clor:switch-company`) instead of writing its own `activeOrgId` and reloading; it also no longer clears the current company's branch | — (event wiring) | Accounting menu → A01: address and shell picker follow | DONE (EV-046) |
 | A-28 | `lastSelection` keyed by the platform company; dashboard branch filter under `clor.<org>.dashboardBranchIds` (`companyStorageKey`); People manifest added (CLOR mark until People has an icon); CSP hash updated; storage notice in the legal page lists the new keys | `workplace.test.js` | host-only (manifest) | DONE (EV-046) |
 
-## Batch 4 — Data boundary
+## Batch 4 — Data boundary (DONE — full suites EV-057; A-36 LIVE)
 
 | ID | Fix | Test | Browser | Status |
 |---|---|---|---|---|

@@ -1,0 +1,8 @@
+POST /api/orgs/cmvli8drk000exg7d8l06gn5a/payroll/runs/cmvli8ldj000lihfgj86y4d8z/calculate 200 478 - 176.267 ms
+DELETE /api/orgs/cmvli8drk000exg7d8l06gn5a/attendance/leave/adjustments/cmvli8kmu007710tg5c5kjxw8 409 118 - 67.399 ms
+
+ Test Files  1 passed (1)
+      Tests  12 passed (12)
+   Start at  03:20:55
+   Duration  31.54s (transform 3.50s, setup 24ms, import 6.71s, tests 10.67s, environment 0ms)
+
