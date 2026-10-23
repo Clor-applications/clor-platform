@@ -42,6 +42,7 @@ import { isDevOrTest } from '../utils/devMode.js';
 import { requireAuth as requireLiveAuth } from '../middleware/auth.js';
 import { APP_CATALOG } from '../constants/appCatalog.js';
 import { appAccess } from '../services/subscriptions.js';
+import { userIsAdmin } from '../services/roleGuards.js';
 
 /* Compared against when no such user exists, so a miss costs a real bcrypt check (SX-14). */
 const LOGIN_DUMMY_HASH = bcrypt.hashSync('not-a-password-0', Number(process.env.BCRYPT_ROUNDS || 12));
@@ -726,6 +727,31 @@ authRouter.post('/setup-company', requireLiveAuth, async (req: Request, res: Res
   const overLimit = await companyLimitReason(auth.accountId);
   if (overLimit) {
     return res.status(403).json({ error: overLimit, code: 'COMPANY_LIMIT' });
+  }
+
+  /*
+   * A-04: whoever creates a company becomes its Administrator, so creating one
+   * is an account-level act. It used to need only a login whose home is this
+   * account — a clerk an administrator had added could make a company, own it,
+   * and from there manage memberships across the account. Allowed now for the
+   * account's very first company (signup) and for an administrator of any of
+   * its companies; everyone else asks one.
+   */
+  const accountOrgs = await platformPrisma.org.findMany({ where: { accountId: auth.accountId }, select: { id: true } });
+  if (accountOrgs.length) {
+    let administers = false;
+    for (const o of accountOrgs) {
+      if (await userIsAdmin(auth.accountId, o.id, auth.userId)) {
+        administers = true;
+        break;
+      }
+    }
+    if (!administers) {
+      return res.status(403).json({
+        error: 'Only an administrator of one of this account’s companies can add a company. Ask your administrator.',
+        code: 'NOT_ACCOUNT_ADMIN',
+      });
+    }
   }
 
   /*

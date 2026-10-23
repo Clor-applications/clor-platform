@@ -182,6 +182,41 @@ describe('an administrator of a sibling company', () => {
   });
 });
 
+/*
+ * A-04: whoever creates a company becomes its Administrator. A clerk the
+ * owner added could create one and, as its admin, manage memberships across
+ * the account. Only the account's first company, or an administrator, now.
+ */
+describe('adding a company', () => {
+  it('is refused to a member who administers nothing in the account', async () => {
+    const boss = await owner('Clerk Co');
+    const email = `clerk.${Date.now()}.${rnd()}@example.com`;
+    await request(app)
+      .post('/api/users')
+      .set(auth(boss))
+      .send({ email, fullName: 'Clerk', password: PW, orgIds: [boss.orgId], branchIdsByOrg: { [boss.orgId]: [boss.branchId] } })
+      .expect(201);
+    const clerk = await login(email).expect(200);
+    const res = await request(app)
+      .post('/api/auth/setup-company')
+      .set('Authorization', `Bearer ${clerk.body.token}`)
+      .send({ companyName: `Clerk Own ${rnd()}`, state: 'Karnataka' });
+    expect(res.status).toBe(403);
+    expect(res.body.code).toBe('NOT_ACCOUNT_ADMIN');
+    const accountId = (await platformPrisma.org.findUniqueOrThrow({ where: { id: boss.orgId }, select: { accountId: true } })).accountId;
+    expect(await platformPrisma.org.count({ where: { accountId } })).toBe(1);
+  });
+
+  it("is still the owner's to do", async () => {
+    const boss = await owner('Second Co');
+    await request(app)
+      .post('/api/auth/setup-company')
+      .set('Authorization', `Bearer ${boss.token}`)
+      .send({ companyName: `Second ${Date.now()}-${rnd()}`, state: 'Karnataka' })
+      .expect(200);
+  });
+});
+
 describe('an access token', () => {
   it('stops working once its session is signed out', async () => {
     const c = await owner('Signout Co');

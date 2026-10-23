@@ -1,0 +1,110 @@
+ DEPRECATED  `test.poolOptions` was removed in Vitest 4. All previous `poolOptions` are now top-level options. Please, refer to the migration guide: https://vitest.dev/guide/migration#pool-rework
+
+ RUN  v4.1.10 /Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_60336", schema "accounting" at "localhost:5432"
+
+The PostgreSQL database "clor_test_60336" schema "accounting" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 1.50s
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/payroll/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_60336", schema "payroll" at "localhost:5432"
+
+The PostgreSQL database "clor_test_60336" schema "payroll" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 682ms
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/people/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_60336", schema "people" at "localhost:5432"
+
+The PostgreSQL database "clor_test_60336" schema "people" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 1.28s
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/platform/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_60336", schema "platform" at "localhost:5432"
+
+The PostgreSQL database "clor_test_60336" schema "platform" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 917ms
+
+[setup] 180 policy statements applied to clor_test_60336
+[setup] 7 policy statements applied to clor_test_60336
+[setup] 10 policy statements applied to clor_test_60336
+[setup] 35 policy statements applied to clor_test_60336
+[setup] 4 policy statements applied to clor_test_60336
+[setup] 96 policy statements applied to clor_test_60336
+[setup] 4 policy statements applied to clor_test_60336
+[setup] 4 policy statements applied to clor_test_60336
+[setup] 4 policy statements applied to clor_test_60336
+[setup] 4 policy statements applied to clor_test_60336
+[setup] 32 policy statements applied to clor_test_60336
+[setup] 24 policy statements applied to clor_test_60336
+[setup] 12 policy statements applied to clor_test_60336
+[setup] 16 policy statements applied to clor_test_60336
+[setup] 4 policy statements applied to clor_test_60336
+[setup] 4 policy statements applied to clor_test_60336
+[setup] 8 policy statements applied to clor_test_60336
+[setup] 8 policy statements applied to clor_test_60336
+[setup] 20 policy statements applied to clor_test_60336
+[setup] 8 policy statements applied to clor_test_60336
+[setup] 4 policy statements applied to clor_test_60336
+[setup] 8 policy statements applied to clor_test_60336
+[setup] 8 policy statements applied to clor_test_60336
+[setup] 12 policy statements applied to clor_test_60336
+[setup] 4 policy statements applied to clor_test_60336
+[setup] 8 policy statements applied to clor_test_60336
+[setup] 28 policy statements applied to clor_test_60336
+[setup] 4 policy statements applied to clor_test_60336
+[setup] 4 policy statements applied to clor_test_60336
+[setup] 4 policy statements applied to clor_test_60336
+[setup] 8 policy statements applied to clor_test_60336
+[setup] 4 policy statements applied to clor_test_60336
+[setup] 4 policy statements applied to clor_test_60336
+[setup] 4 policy statements applied to clor_test_60336
+[setup] 4 policy statements applied to clor_test_60336
+[setup] 8 policy statements applied to clor_test_60336
+[setup] 4 policy statements applied to clor_test_60336
+[setup] 12 policy statements applied to clor_test_60336
+[setup] 4 policy statements applied to clor_test_60336
+[setup] 76 policy statements applied to clor_test_60336
+[setup] 4 policy statements applied to clor_test_60336
+[setup] 4 policy statements applied to clor_test_60336
+[setup] 4 policy statements applied to clor_test_60336
+[setup] 4 policy statements applied to clor_test_60336
+ ❯ src/__tests__/identityAndSessions.test.ts (18 tests | 1 failed | 16 skipped) 1200ms
+     × is refused to a member who administers nothing in the account 265ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/__tests__/identityAndSessions.test.ts > adding a company > is refused to a member who administers nothing in the account
+AssertionError: expected 200 to be 403 // Object.is equality
+
+- Expected
++ Received
+
+- 403
++ 200
+
+ ❯ src/__tests__/identityAndSessions.test.ts:204:24
+    202|       .set('Authorization', `Bearer ${clerk.body.token}`)
+    203|       .send({ companyName: `Clerk Own ${rnd()}`, state: 'Karnataka' });
+    204|     expect(res.status).toBe(403);
+       |                        ^
+    205|     expect(res.body.code).toBe('NOT_ACCOUNT_ADMIN');
+    206|     const accountId = (await platformPrisma.org.findUniqueOrThrow({ wh…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 1 passed | 16 skipped (18)
+   Start at  15:34:10
+   Duration  17.83s (transform 1.93s, setup 27ms, import 4.05s, tests 1.20s, environment 0ms)
+

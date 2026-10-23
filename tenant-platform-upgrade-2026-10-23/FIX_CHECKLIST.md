@@ -23,11 +23,21 @@ Status values: `TODO` · `IN PROGRESS` · `DONE` · `LIVE` (needs production acc
 | A-03 | Six `/api/auth` routes use the live `requireAuth` middleware; dead `signToken` removed | `identityAndSessions.test.ts` › "is refused by the account routes too once its session is signed out" / "… once the person is deactivated" (fail before, pass after) | `evidence/A-03/`: signed in, second device revoke-all, kept token → 401 `session_ended` on all six; app signs out | DONE (EV-019) |
 | A-01 | `identityBlockedIn` (roleGuards): changing another person's email, password or active flag needs Users EDIT in **every** company they work in, and admin wherever they are admin. SCIM may change email/active only for single-company non-admins; SCIM email change clears verification. SSO unchanged: with the email no longer movable, its match is safe, and refusing unverified users would lock out real SSO users | `identityAndSessions.test.ts` › "an administrator of a sibling company" (3 tests: fail before — owner's password reset by X admin signed him out; pass after) | `evidence/A-01/`: Mallory (admin of X only) edits owner's email in Settings > Users → 403 `identity_elsewhere` shown in the banner; owner still signs in | DONE (EV-021). Note: the banner sits above the scrolled form; minor UX follow-up |
 | A-02 | `POST /users` refuses to attach a login from **another account** whose email is unconfirmed (409 `unverified_identity`); this account's own users unaffected | `globalIdentity.test.ts` › "is not attached while its owner has not confirmed the address" (fail before: 201; pass after). Existing invite tests now confirm the invitee first (globalIdentity, identityAndSessions, displayCodes) | `evidence/A-02/`: admin adds an address a squatter self-registered → banner shows refusal, users list unchanged | DONE (EV-022). UX follow-up: errors render behind the Create User drawer on narrow windows |
-| A-04 | `setup-company` limited to account owner / admin | member gets 403 | "Add company" hidden or refused for member | TODO |
+| A-04 | `setup-company` allowed only for the account's first company or an administrator of one of its companies (403 `NOT_ACCOUNT_ADMIN`) | `identityAndSessions.test.ts` › "adding a company" (fail before: clerk got 200; pass after) | `evidence/A-04/`: clerk (Sales User) has no Add company in UI; direct call with the clerk's session → 403, no company created | DONE (EV-023) |
 | A-05 | `PUT /users/:id/companies` checks the caller in each target org; removal also clears branch and warehouse grants | cross-org removal refused | user companies editor | TODO |
 | A-07 | Rate-limit key = user id after auth (hashed token before auth) | two users do not share a bucket | n/a (server-only) | TODO |
 | A-06 | Atomic refresh rotation plus limiter; atomic token consumption | concurrent refresh: only one succeeds | n/a (server-only) | TODO |
 | A-08..A-10 | Cache invalidation, membership/org check, small items | per item | n/a | TODO |
+
+## Batch 1.5 — Company admin workspace (ADR-010, owner request 2026-10-23)
+
+| ID | Fix | Test | Browser | Status |
+|---|---|---|---|---|
+| W-01 | `app.clor.in` shows the Admin workspace + app launcher instead of auto-forwarding into an app | shell test: front door renders workspace | sign in on front door → workspace, launcher opens apps | TODO |
+| W-02 | Admin manifest (rail, permission filtering, ⌘K) exempt from subscription filter; reachable from every app's switcher | registry test | company with only Payroll can manage users | TODO |
+| W-03 | Move Users, Roles, Permissions (grouped by app), Login & Security, SSO, SCIM, Audit Trail (one feed), Billing/Account, Branches, Company profile, Backup/export, Close company | per-screen smoke | each screen works in the workspace | TODO |
+| W-04 | Apps keep app settings only; "Roles & access" link opens the workspace filtered to that app | — | Payroll → Roles & access → workspace on Payroll permissions | TODO |
+| W-05 | Merge Accounting and Attendance audit feeds; lift API keys out of Attendance Integrations | API tests | audit trail shows both | TODO |
 
 ## Batch 2 — Authorization, entitlements, maker-checker
 
