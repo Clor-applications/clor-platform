@@ -1,0 +1,103 @@
+ DEPRECATED  `test.poolOptions` was removed in Vitest 4. All previous `poolOptions` are now top-level options. Please, refer to the migration guide: https://vitest.dev/guide/migration#pool-rework
+
+ RUN  v4.1.10 /Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_92350", schema "accounting" at "localhost:5432"
+
+The PostgreSQL database "clor_test_92350" schema "accounting" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 1.32s
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/payroll/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_92350", schema "payroll" at "localhost:5432"
+
+The PostgreSQL database "clor_test_92350" schema "payroll" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 978ms
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/people/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_92350", schema "people" at "localhost:5432"
+
+The PostgreSQL database "clor_test_92350" schema "people" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 1.49s
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/platform/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_92350", schema "platform" at "localhost:5432"
+
+The PostgreSQL database "clor_test_92350" schema "platform" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 1.10s
+
+[setup] 180 policy statements applied to clor_test_92350
+[setup] 7 policy statements applied to clor_test_92350
+[setup] 10 policy statements applied to clor_test_92350
+[setup] 35 policy statements applied to clor_test_92350
+[setup] 4 policy statements applied to clor_test_92350
+[setup] 96 policy statements applied to clor_test_92350
+[setup] 4 policy statements applied to clor_test_92350
+[setup] 4 policy statements applied to clor_test_92350
+[setup] 4 policy statements applied to clor_test_92350
+[setup] 4 policy statements applied to clor_test_92350
+[setup] 32 policy statements applied to clor_test_92350
+[setup] 24 policy statements applied to clor_test_92350
+[setup] 12 policy statements applied to clor_test_92350
+[setup] 16 policy statements applied to clor_test_92350
+[setup] 4 policy statements applied to clor_test_92350
+[setup] 4 policy statements applied to clor_test_92350
+[setup] 8 policy statements applied to clor_test_92350
+[setup] 8 policy statements applied to clor_test_92350
+[setup] 20 policy statements applied to clor_test_92350
+[setup] 8 policy statements applied to clor_test_92350
+[setup] 4 policy statements applied to clor_test_92350
+[setup] 8 policy statements applied to clor_test_92350
+[setup] 8 policy statements applied to clor_test_92350
+[setup] 12 policy statements applied to clor_test_92350
+[setup] 4 policy statements applied to clor_test_92350
+[setup] 8 policy statements applied to clor_test_92350
+[setup] 28 policy statements applied to clor_test_92350
+[setup] 4 policy statements applied to clor_test_92350
+[setup] 4 policy statements applied to clor_test_92350
+[setup] 4 policy statements applied to clor_test_92350
+[setup] 8 policy statements applied to clor_test_92350
+[setup] 4 policy statements applied to clor_test_92350
+[setup] 4 policy statements applied to clor_test_92350
+[setup] 4 policy statements applied to clor_test_92350
+[setup] 4 policy statements applied to clor_test_92350
+[setup] 8 policy statements applied to clor_test_92350
+[setup] 4 policy statements applied to clor_test_92350
+[setup] 12 policy statements applied to clor_test_92350
+[setup] 4 policy statements applied to clor_test_92350
+[setup] 76 policy statements applied to clor_test_92350
+[setup] 4 policy statements applied to clor_test_92350
+[setup] 4 policy statements applied to clor_test_92350
+[setup] 4 policy statements applied to clor_test_92350
+[setup] 4 policy statements applied to clor_test_92350
+ ❯ src/__tests__/apiRateLimit.test.ts (2 tests | 1 failed) 5743ms
+     × gives every signed-in session its own bucket, though all JWTs share a header 54ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/__tests__/apiRateLimit.test.ts > the API ceiling > gives every signed-in session its own bucket, though all JWTs share a header
+AssertionError: expected 429 not to be 429 // Object.is equality
+ ❯ src/__tests__/apiRateLimit.test.ts:47:71
+     45|     for (let i = 0; i < 6; i++) await call(`${header}.payload-of-alice…
+     46|     expect((await call(`${header}.payload-of-alice.sig-a`)).status).to…
+     47|     expect((await call(`${header}.payload-of-bob.sig-b`)).status).not.…
+       |                                                                       ^
+     48|   });
+     49| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 1 passed (2)
+   Start at  16:07:17
+   Duration  18.02s (transform 2.90s, setup 31ms, import 144ms, tests 5.74s, environment 0ms)
+
