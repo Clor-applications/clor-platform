@@ -1,0 +1,1867 @@
+{
+ "numTotalTestSuites": 63,
+ "numPassedTestSuites": 57,
+ "numFailedTestSuites": 6,
+ "numPendingTestSuites": 0,
+ "numTotalTests": 137,
+ "numPassedTests": 131,
+ "numFailedTests": 6,
+ "numPendingTests": 0,
+ "numTodoTests": 0,
+ "snapshot": {
+  "added": 0,
+  "failure": false,
+  "filesAdded": 0,
+  "filesRemoved": 0,
+  "filesRemovedList": [],
+  "filesUnmatched": 0,
+  "filesUpdated": 0,
+  "matched": 0,
+  "total": 0,
+  "unchecked": 0,
+  "uncheckedKeysByFile": [],
+  "unmatched": 0,
+  "updated": 0,
+  "didUpdate": false
+ },
+ "startTime": 1792790435014,
+ "success": false,
+ "testResults": [
+  {
+   "assertionResults": [
+    {
+     "ancestorTitles": [
+      "anonymising a former employee"
+     ],
+     "fullName": "anonymising a former employee erases personal data, keeps what the law needs, and answers the erasure request",
+     "status": "passed",
+     "title": "erases personal data, keeps what the law needs, and answers the erasure request",
+     "duration": 1157.147541,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "anonymising a former employee"
+     ],
+     "fullName": "anonymising a former employee is refused for another company\u2019s employee",
+     "status": "passed",
+     "title": "is refused for another company\u2019s employee",
+     "duration": 898.6799170000002,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    }
+   ],
+   "startTime": 1792790521149,
+   "endTime": 1792790523204.68,
+   "status": "passed",
+   "message": "",
+   "name": "src/__tests__/anonymiseEmployee.test.ts"
+  },
+  {
+   "assertionResults": [
+    {
+     "ancestorTitles": [
+      "joining and leaving checklists"
+     ],
+     "fullName": "joining and leaving checklists starts the defaults on joining, dated from the joining day, and ticks by person",
+     "status": "passed",
+     "title": "starts the defaults on joining, dated from the joining day, and ticks by person",
+     "duration": 365.4379999999999,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "joining and leaving checklists"
+     ],
+     "fullName": "joining and leaving checklists uses the company template for leaving, and CLOR ticks reader access itself",
+     "status": "passed",
+     "title": "uses the company template for leaving, and CLOR ticks reader access itself",
+     "duration": 448.92566699999975,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    }
+   ],
+   "startTime": 1792790526569,
+   "endTime": 1792790527383.9258,
+   "status": "passed",
+   "message": "",
+   "name": "src/__tests__/checklists.test.ts"
+  },
+  {
+   "assertionResults": [
+    {
+     "ancestorTitles": [
+      "exporting a company"
+     ],
+     "fullName": "exporting a company returns the company\u2019s own records",
+     "status": "failed",
+     "title": "returns the company\u2019s own records",
+     "duration": 546.2622920000001,
+     "failureMessages": [
+      "Error: expected 200 \"OK\", got 500 \"Internal Server Error\""
+     ],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "exporting a company"
+     ],
+     "fullName": "exporting a company carries people, attendance and payroll too, with nothing that looks like a secret",
+     "status": "failed",
+     "title": "carries people, attendance and payroll too, with nothing that looks like a secret",
+     "duration": 233.18183400000044,
+     "failureMessages": [
+      "Error: expected 200 \"OK\", got 500 \"Internal Server Error\""
+     ],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "exporting a company"
+     ],
+     "fullName": "exporting a company says what it contains, so the file explains itself later",
+     "status": "failed",
+     "title": "says what it contains, so the file explains itself later",
+     "duration": 204.38425000000007,
+     "failureMessages": [
+      "Error: expected 200 \"OK\", got 500 \"Internal Server Error\""
+     ],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "exporting a company"
+     ],
+     "fullName": "exporting a company writes money as numbers a spreadsheet can read",
+     "status": "failed",
+     "title": "writes money as numbers a spreadsheet can read",
+     "duration": 221.6384579999999,
+     "failureMessages": [
+      "Error: expected 200 \"OK\", got 500 \"Internal Server Error\""
+     ],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "exporting a company"
+     ],
+     "fullName": "exporting a company contains no other company's data",
+     "status": "passed",
+     "title": "contains no other company's data",
+     "duration": 827.1204589999998,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "exporting a company"
+     ],
+     "fullName": "exporting a company contains no sibling company's data either",
+     "status": "passed",
+     "title": "contains no sibling company's data either",
+     "duration": 489.8976249999996,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "exporting a company"
+     ],
+     "fullName": "exporting a company carries no passwords, sessions or secrets",
+     "status": "passed",
+     "title": "carries no passwords, sessions or secrets",
+     "duration": 178.57741699999997,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "exporting a company"
+     ],
+     "fullName": "exporting a company carries the till counts, which are the cash controls",
+     "status": "passed",
+     "title": "carries the till counts, which are the cash controls",
+     "duration": 282.2541250000004,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "exporting a company"
+     ],
+     "fullName": "exporting a company refuses an org the caller is not in",
+     "status": "passed",
+     "title": "refuses an org the caller is not in",
+     "duration": 252.33608299999923,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "the two scopes"
+     ],
+     "fullName": "the two scopes gives data only when data is asked for",
+     "status": "passed",
+     "title": "gives data only when data is asked for",
+     "duration": 170.02066700000069,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "the two scopes"
+     ],
+     "fullName": "the two scopes gives configuration only when configuration is asked for",
+     "status": "passed",
+     "title": "gives configuration only when configuration is asked for",
+     "duration": 153.4267090000003,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "the two scopes"
+     ],
+     "fullName": "the two scopes strips secrets out of the configuration",
+     "status": "passed",
+     "title": "strips secrets out of the configuration",
+     "duration": 141.59445899999992,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "the two scopes"
+     ],
+     "fullName": "the two scopes keeps the ledger out of the configuration and the roles out of the data",
+     "status": "passed",
+     "title": "keeps the ledger out of the configuration and the roles out of the data",
+     "duration": 398.6235830000005,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "the two scopes"
+     ],
+     "fullName": "the two scopes refuses a scope it does not know",
+     "status": "passed",
+     "title": "refuses a scope it does not know",
+     "duration": 155.25741599999947,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "the two scopes"
+     ],
+     "fullName": "the two scopes says which scope the file is, so it explains itself later",
+     "status": "passed",
+     "title": "says which scope the file is, so it explains itself later",
+     "duration": 104.62191600000006,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "personal data in the export"
+     ],
+     "fullName": "personal data in the export leaves out People and Payroll for someone who cannot view them, and says so",
+     "status": "passed",
+     "title": "leaves out People and Payroll for someone who cannot view them, and says so",
+     "duration": 350.84108299999934,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "personal data in the export"
+     ],
+     "fullName": "personal data in the export gives an administrator payroll data, and records that it left",
+     "status": "passed",
+     "title": "gives an administrator payroll data, and records that it left",
+     "duration": 157.6976249999998,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "personal data in the export"
+     ],
+     "fullName": "personal data in the export withholds payroll when the company asks for a second factor and none was given",
+     "status": "passed",
+     "title": "withholds payroll when the company asks for a second factor and none was given",
+     "duration": 558.9950829999998,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    }
+   ],
+   "startTime": 1792790461940,
+   "endTime": 1792790467367.995,
+   "status": "failed",
+   "message": "",
+   "name": "src/__tests__/dataExport.test.ts"
+  },
+  {
+   "assertionResults": [
+    {
+     "ancestorTitles": [
+      "data health"
+     ],
+     "fullName": "data health names what blocks payroll, who, and where to fix it",
+     "status": "passed",
+     "title": "names what blocks payroll, who, and where to fix it",
+     "duration": 1109.9555,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    }
+   ],
+   "startTime": 1792790532894,
+   "endTime": 1792790534003.9556,
+   "status": "passed",
+   "message": "",
+   "name": "src/__tests__/dataHealth.test.ts"
+  },
+  {
+   "assertionResults": [
+    {
+     "ancestorTitles": [
+      "HR tools"
+     ],
+     "fullName": "HR tools lists the adapters with their fields and what they can do",
+     "status": "passed",
+     "title": "lists the adapters with their fields and what they can do",
+     "duration": 86.2644170000001,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "HR tools"
+     ],
+     "fullName": "HR tools greytHR: punches go out as signed swipes, once each, with retries on a bad day",
+     "status": "passed",
+     "title": "greytHR: punches go out as signed swipes, once each, with retries on a bad day",
+     "duration": 576.2572909999999,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "HR tools"
+     ],
+     "fullName": "HR tools Keka: reads people and adds the ones CLOR lacks, when told to",
+     "status": "passed",
+     "title": "Keka: reads people and adds the ones CLOR lacks, when told to",
+     "duration": 911.3352910000001,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "HR tools"
+     ],
+     "fullName": "HR tools greytHR: with an API user, reads employees through its REST API",
+     "status": "passed",
+     "title": "greytHR: with an API user, reads employees through its REST API",
+     "duration": 2.8112089999999625,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "HR tools"
+     ],
+     "fullName": "HR tools Keka: attendance logs carry the field names Keka documents",
+     "status": "passed",
+     "title": "Keka: attendance logs carry the field names Keka documents",
+     "duration": 1.055749999999989,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    }
+   ],
+   "startTime": 1792790476718,
+   "endTime": 1792790478296.0557,
+   "status": "passed",
+   "message": "",
+   "name": "src/__tests__/hrConnections.test.ts"
+  },
+  {
+   "assertionResults": [
+    {
+     "ancestorTitles": [
+      "who may use leave"
+     ],
+     "fullName": "who may use leave HR alone runs leave, holidays, check-in and the employee app; neither app on is refused",
+     "status": "passed",
+     "title": "HR alone runs leave, holidays, check-in and the employee app; neither app on is refused",
+     "duration": 2070.718333,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "the policy on a type"
+     ],
+     "fullName": "the policy on a type keeps its policy when Attendance\u2019s form, which does not show it, saves the type",
+     "status": "passed",
+     "title": "keeps its policy when Attendance\u2019s form, which does not show it, saves the type",
+     "duration": 247.79695800000036,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "the policy on a type"
+     ],
+     "fullName": "the policy on a type applies who it is for, half days and the longest request",
+     "status": "passed",
+     "title": "applies who it is for, half days and the longest request",
+     "duration": 1193.3024589999995,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "the policy on a type"
+     ],
+     "fullName": "the policy on a type the sandwich rule counts the Sunday between, and advance leave goes below zero",
+     "status": "passed",
+     "title": "the sandwich rule counts the Sunday between, and advance leave goes below zero",
+     "duration": 777.9594999999999,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "the ledger"
+     ],
+     "fullName": "the ledger adds, takes away and pays out days with a reason, and explains the balance",
+     "status": "passed",
+     "title": "adds, takes away and pays out days with a reason, and explains the balance",
+     "duration": 1752.2695410000006,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "the ledger"
+     ],
+     "fullName": "the ledger the calendar asks for one month",
+     "status": "passed",
+     "title": "the calendar asks for one month",
+     "duration": 667.6675000000005,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "policyProblem"
+     ],
+     "fullName": "policyProblem holds people asking for themselves to notice and how far back, not HR",
+     "status": "passed",
+     "title": "holds people asking for themselves to notice and how far back, not HR",
+     "duration": 0.27329199999985576,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    }
+   ],
+   "startTime": 1792790468252,
+   "endTime": 1792790475283.2732,
+   "status": "passed",
+   "message": "",
+   "name": "src/__tests__/hrLeave.test.ts"
+  },
+  {
+   "assertionResults": [
+    {
+     "ancestorTitles": [
+      "leave workflow invariants"
+     ],
+     "fullName": "leave workflow invariants never credits entitlement before joining",
+     "status": "passed",
+     "title": "never credits entitlement before joining",
+     "duration": 0.6680419999993319,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "leave workflow invariants"
+     ],
+     "fullName": "leave workflow invariants requires a linked leave decision for manual and imported register marks",
+     "status": "passed",
+     "title": "requires a linked leave decision for manual and imported register marks",
+     "duration": 596.0900000000001,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "leave workflow invariants"
+     ],
+     "fullName": "leave workflow invariants preserves half-day leave across corrections and counts unpaid half days",
+     "status": "passed",
+     "title": "preserves half-day leave across corrections and counts unpaid half days",
+     "duration": 842.7249159999992,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "leave workflow invariants"
+     ],
+     "fullName": "leave workflow invariants rolls back day postings, final status and notifications when the transaction fails",
+     "status": "passed",
+     "title": "rolls back day postings, final status and notifications when the transaction fails",
+     "duration": 402.04116599999907,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "leave workflow invariants"
+     ],
+     "fullName": "leave workflow invariants allows only one concurrent final decision",
+     "status": "passed",
+     "title": "allows only one concurrent final decision",
+     "duration": 403.6451250000009,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "leave workflow invariants"
+     ],
+     "fullName": "leave workflow invariants refuses full-day cancellation in a closed month without changing any rows",
+     "status": "passed",
+     "title": "refuses full-day cancellation in a closed month without changing any rows",
+     "duration": 619.1637919999994,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "leave workflow invariants"
+     ],
+     "fullName": "leave workflow invariants keeps approved leave linked and treated the same for a punch from any source",
+     "status": "passed",
+     "title": "keeps approved leave linked and treated the same for a punch from any source",
+     "duration": 2371.987083,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "leave workflow invariants"
+     ],
+     "fullName": "leave workflow invariants separates API application permission from decisions and enforces manager first",
+     "status": "passed",
+     "title": "separates API application permission from decisions and enforces manager first",
+     "duration": 686.3176249999997,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "leave workflow invariants"
+     ],
+     "fullName": "leave workflow invariants does not let a bulk change mark a day on leave, in preview or apply",
+     "status": "passed",
+     "title": "does not let a bulk change mark a day on leave, in preview or apply",
+     "duration": 510.0534169999992,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "leave workflow invariants"
+     ],
+     "fullName": "leave workflow invariants refuses half-day cancellation in a closed month without changing any rows",
+     "status": "passed",
+     "title": "refuses half-day cancellation in a closed month without changing any rows",
+     "duration": 515.8052079999998,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "leave workflow invariants"
+     ],
+     "fullName": "leave workflow invariants does not restate entitlement or periods once balances have activity",
+     "status": "passed",
+     "title": "does not restate entitlement or periods once balances have activity",
+     "duration": 459.0392090000005,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "leave workflow invariants"
+     ],
+     "fullName": "leave workflow invariants serializes encashment caps and links one debit to one approved payroll earning",
+     "status": "failed",
+     "title": "serializes encashment caps and links one debit to one approved payroll earning",
+     "duration": 1003.4205419999998,
+     "failureMessages": [
+      "Error: expected 201 \"Created\", got 500 \"Internal Server Error\""
+     ],
+     "meta": {},
+     "tags": []
+    }
+   ],
+   "startTime": 1792790451867,
+   "endTime": 1792790460279.4207,
+   "status": "failed",
+   "message": "",
+   "name": "src/__tests__/hrWorkflowFixes.test.ts"
+  },
+  {
+   "assertionResults": [
+    {
+     "ancestorTitles": [
+      "the switch"
+     ],
+     "fullName": "the switch is refused while neither People nor Attendance is on, and opens with either",
+     "status": "passed",
+     "title": "is refused while neither People nor Attendance is on, and opens with either",
+     "duration": 1208.7585,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "types and balances"
+     ],
+     "fullName": "types and balances gives everyone the type\u2019s days, unless an allocation says otherwise",
+     "status": "passed",
+     "title": "gives everyone the type\u2019s days, unless an allocation says otherwise",
+     "duration": 763.1276249999996,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "types and balances"
+     ],
+     "fullName": "types and balances will not delete a type that has been used",
+     "status": "passed",
+     "title": "will not delete a type that has been used",
+     "duration": 458.81958299999997,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "requests"
+     ],
+     "fullName": "requests counts working days only, and refuses more than the balance or an overlap",
+     "status": "passed",
+     "title": "counts working days only, and refuses more than the balance or an overlap",
+     "duration": 653.5200000000004,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "requests"
+     ],
+     "fullName": "requests approving marks the days on leave; cancelling clears them",
+     "status": "passed",
+     "title": "approving marks the days on leave; cancelling clears them",
+     "duration": 750.3849999999993,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "requests"
+     ],
+     "fullName": "requests will not approve leave over a day someone clocked in",
+     "status": "passed",
+     "title": "will not approve leave over a day someone clocked in",
+     "duration": 900.6962090000006,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "the month for payroll"
+     ],
+     "fullName": "the month for payroll counts approved unpaid leave as loss of pay, paid leave as paid",
+     "status": "passed",
+     "title": "counts approved unpaid leave as loss of pay, paid leave as paid",
+     "duration": 1027.3261250000005,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "my leave"
+     ],
+     "fullName": "my leave lets someone see balances, apply, and cancel what has not started",
+     "status": "passed",
+     "title": "lets someone see balances, apply, and cancel what has not started",
+     "duration": 1240.7345830000004,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "two requests at the same moment"
+     ],
+     "fullName": "two requests at the same moment saves a double tap once",
+     "status": "failed",
+     "title": "saves a double tap once",
+     "duration": 296.4809580000001,
+     "failureMessages": [
+      "AssertionError: expected [ 201, 500 ] to deeply equal [ 201, 409 ]"
+     ],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "two requests at the same moment"
+     ],
+     "fullName": "two requests at the same moment does not overdraw a balance across two different requests",
+     "status": "passed",
+     "title": "does not overdraw a balance across two different requests",
+     "duration": 340.1400420000009,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    }
+   ],
+   "startTime": 1792790479231,
+   "endTime": 1792790487847.1401,
+   "status": "failed",
+   "message": "",
+   "name": "src/__tests__/leave.test.ts"
+  },
+  {
+   "assertionResults": [
+    {
+     "ancestorTitles": [
+      "earned days"
+     ],
+     "fullName": "earned days counts the joining month only when joined by the 15th",
+     "status": "passed",
+     "title": "counts the joining month only when joined by the 15th",
+     "duration": 0.7245000000000346,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "earned days"
+     ],
+     "fullName": "earned days credits a twelfth a month, from the joining month, to the half day",
+     "status": "passed",
+     "title": "credits a twelfth a month, from the joining month, to the half day",
+     "duration": 1.7960000000000491,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "earned days"
+     ],
+     "fullName": "earned days gives yearly days at once, prorated for joiners only when the type says so",
+     "status": "passed",
+     "title": "gives yearly days at once, prorated for joiners only when the type says so",
+     "duration": 0.18399999999996908,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "earned days"
+     ],
+     "fullName": "earned days never earns anything before the person has joined",
+     "status": "passed",
+     "title": "never earns anything before the person has joined",
+     "duration": 0.0967920000000504,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "carry-forward"
+     ],
+     "fullName": "carry-forward carries what was left, up to the limit, and rolls it year to year",
+     "status": "passed",
+     "title": "carries what was left, up to the limit, and rolls it year to year",
+     "duration": 0.45833300000003874,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "carry-forward"
+     ],
+     "fullName": "carry-forward lets unused days lapse when the type carries nothing, and takes HR\u2019s allocation as the year\u2019s total",
+     "status": "passed",
+     "title": "lets unused days lapse when the type carries nothing, and takes HR\u2019s allocation as the year\u2019s total",
+     "duration": 0.09145799999998871,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "carry-forward"
+     ],
+     "fullName": "carry-forward carries nothing from before the type existed, or before the person joined",
+     "status": "passed",
+     "title": "carries nothing from before the type existed, or before the person joined",
+     "duration": 0.07387500000004366,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "balances on the API"
+     ],
+     "fullName": "balances on the API shows last year\u2019s carry-in and refuses leave beyond what is earned by its first day",
+     "status": "passed",
+     "title": "shows last year\u2019s carry-in and refuses leave beyond what is earned by its first day",
+     "duration": 1499.426292,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    }
+   ],
+   "startTime": 1792790514866,
+   "endTime": 1792790516369.4263,
+   "status": "passed",
+   "message": "",
+   "name": "src/__tests__/leaveAccrual.test.ts"
+  },
+  {
+   "assertionResults": [
+    {
+     "ancestorTitles": [
+      "leave periods"
+     ],
+     "fullName": "leave periods names and bounds an April\u2013March period by the year it starts in",
+     "status": "passed",
+     "title": "names and bounds an April\u2013March period by the year it starts in",
+     "duration": 1.8852499999999281,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "credits on the policy\u2019s dates"
+     ],
+     "fullName": "credits on the policy\u2019s dates credits monthly on the 10th, from the start of the period",
+     "status": "passed",
+     "title": "credits monthly on the 10th, from the start of the period",
+     "duration": 1.1510419999999613,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "credits on the policy\u2019s dates"
+     ],
+     "fullName": "credits on the policy\u2019s dates credits a quarter\u2019s days on its last day, and half a year at a time",
+     "status": "passed",
+     "title": "credits a quarter\u2019s days on its last day, and half a year at a time",
+     "duration": 0.2591659999999365,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "credits on the policy\u2019s dates"
+     ],
+     "fullName": "credits on the policy\u2019s dates prorates a joiner\u2019s part when the type says so, and credits nothing after leaving",
+     "status": "passed",
+     "title": "prorates a joiner\u2019s part when the type says so, and credits nothing after leaving",
+     "duration": 0.295833000000016,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "credits on the policy\u2019s dates"
+     ],
+     "fullName": "credits on the policy\u2019s dates carries what was left from one April\u2013March period into the next",
+     "status": "passed",
+     "title": "carries what was left from one April\u2013March period into the next",
+     "duration": 0.18520799999998871,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "an April\u2013March company"
+     ],
+     "fullName": "an April\u2013March company credits on its dates, keeps leave inside a period, and keeps the register",
+     "status": "passed",
+     "title": "credits on its dates, keeps leave inside a period, and keeps the register",
+     "duration": 1934.8482090000002,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    }
+   ],
+   "startTime": 1792790510687,
+   "endTime": 1792790512625.8481,
+   "status": "passed",
+   "message": "",
+   "name": "src/__tests__/leavePeriod.test.ts"
+  },
+  {
+   "assertionResults": [
+    {
+     "ancestorTitles": [
+      "deleting an employee"
+     ],
+     "fullName": "deleting an employee is refused while they have any payroll history, not only payslips",
+     "status": "passed",
+     "title": "is refused while they have any payroll history, not only payslips",
+     "duration": 669.394208,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "deleting an employee"
+     ],
+     "fullName": "deleting an employee takes their payroll setup with them, leaving nothing behind",
+     "status": "passed",
+     "title": "takes their payroll setup with them, leaving nothing behind",
+     "duration": 406.2344579999999,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "deleting an employee"
+     ],
+     "fullName": "deleting an employee never leaves a salary made for them in the same moment pointing at nobody",
+     "status": "passed",
+     "title": "never leaves a salary made for them in the same moment pointing at nobody",
+     "duration": 1364.328459,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "removing someone in People"
+     ],
+     "fullName": "removing someone in People is refused while they have payroll history, even with no payroll profile",
+     "status": "passed",
+     "title": "is refused while they have payroll history, even with no payroll profile",
+     "duration": 609.3170410000002,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    }
+   ],
+   "startTime": 1792790517193,
+   "endTime": 1792790520243.3171,
+   "status": "passed",
+   "message": "",
+   "name": "src/__tests__/payrollEmployeeDelete.test.ts"
+  },
+  {
+   "assertionResults": [
+    {
+     "ancestorTitles": [
+      "days from leave, without Attendance"
+     ],
+     "fullName": "days from leave, without Attendance counts approved unpaid leave as loss of pay, not paid leave, and lists pay-outs",
+     "status": "passed",
+     "title": "counts approved unpaid leave as loss of pay, not paid leave, and lists pay-outs",
+     "duration": 2254.755958,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "days from leave, without Attendance"
+     ],
+     "fullName": "days from leave, without Attendance matches the attendance summary on a linked half day: the leave half and the unworked half are separate",
+     "status": "passed",
+     "title": "matches the attendance summary on a linked half day: the leave half and the unworked half are separate",
+     "duration": 2070.804125,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "days from leave, without Attendance"
+     ],
+     "fullName": "days from leave, without Attendance sends a company with Attendance to Attendance, which already counts leave",
+     "status": "passed",
+     "title": "sends a company with Attendance to Attendance, which already counts leave",
+     "duration": 719.4395829999994,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    }
+   ],
+   "startTime": 1792790504764,
+   "endTime": 1792790509808.4397,
+   "status": "passed",
+   "message": "",
+   "name": "src/__tests__/payrollFromLeave.test.ts"
+  },
+  {
+   "assertionResults": [
+    {
+     "ancestorTitles": [
+      "the switch"
+     ],
+     "fullName": "the switch is refused while People is off",
+     "status": "passed",
+     "title": "is refused while People is off",
+     "duration": 655.1717080000001,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "employee files"
+     ],
+     "fullName": "employee files creates a person with their department and position, and keeps the display strings in step",
+     "status": "passed",
+     "title": "creates a person with their department and position, and keeps the display strings in step",
+     "duration": 379.24137500000006,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "employee files"
+     ],
+     "fullName": "employee files refuses a department from another organisation",
+     "status": "passed",
+     "title": "refuses a department from another organisation",
+     "duration": 393.7314160000001,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "employee files"
+     ],
+     "fullName": "employee files finds people by name, code and department, and filters by tag",
+     "status": "passed",
+     "title": "finds people by name, code and department, and filters by tag",
+     "duration": 368.5733330000003,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "employee files"
+     ],
+     "fullName": "employee files refuses a reporting loop",
+     "status": "passed",
+     "title": "refuses a reporting loop",
+     "duration": 317.0693749999996,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "employee files"
+     ],
+     "fullName": "employee files refuses someone leaving before they joined",
+     "status": "passed",
+     "title": "refuses someone leaving before they joined",
+     "duration": 43.9522079999997,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "removing people and lists"
+     ],
+     "fullName": "removing people and lists moves a removed person\u2019s reports up to their own manager",
+     "status": "passed",
+     "title": "moves a removed person\u2019s reports up to their own manager",
+     "duration": 444.1296670000006,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "removing people and lists"
+     ],
+     "fullName": "removing people and lists will not delete someone payroll knows; they are marked as having left instead",
+     "status": "passed",
+     "title": "will not delete someone payroll knows; they are marked as having left instead",
+     "duration": 128.84958300000017,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "removing people and lists"
+     ],
+     "fullName": "removing people and lists will not delete a department somebody is in",
+     "status": "passed",
+     "title": "will not delete a department somebody is in",
+     "duration": 205.07095799999934,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "import, notes and the overview"
+     ],
+     "fullName": "import, notes and the overview imports rows, creating departments it has not seen, and reports each bad row",
+     "status": "passed",
+     "title": "imports rows, creating departments it has not seen, and reports each bad row",
+     "duration": 156.05733300000065,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "import, notes and the overview"
+     ],
+     "fullName": "import, notes and the overview keeps notes on a person\u2019s file, newest first",
+     "status": "passed",
+     "title": "keeps notes on a person\u2019s file, newest first",
+     "duration": 233.56954200000018,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    }
+   ],
+   "startTime": 1792790500593,
+   "endTime": 1792790503919.5696,
+   "status": "passed",
+   "message": "",
+   "name": "src/__tests__/people.test.ts"
+  },
+  {
+   "assertionResults": [
+    {
+     "ancestorTitles": [
+      "hire a candidate"
+     ],
+     "fullName": "hire a candidate makes an offered candidate an employee, once",
+     "status": "passed",
+     "title": "makes an offered candidate an employee, once",
+     "duration": 1436.4426670000003,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    }
+   ],
+   "startTime": 1792790530630,
+   "endTime": 1792790532066.4426,
+   "status": "passed",
+   "message": "",
+   "name": "src/__tests__/peopleHire.test.ts"
+  },
+  {
+   "assertionResults": [
+    {
+     "ancestorTitles": [
+      "People home"
+     ],
+     "fullName": "People home lists what needs doing, urgent first, and nothing when all is done",
+     "status": "passed",
+     "title": "lists what needs doing, urgent first, and nothing when all is done",
+     "duration": 1519.6941659999998,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    }
+   ],
+   "startTime": 1792790528318,
+   "endTime": 1792790529837.694,
+   "status": "passed",
+   "message": "",
+   "name": "src/__tests__/peopleHome.test.ts"
+  },
+  {
+   "assertionResults": [
+    {
+     "ancestorTitles": [
+      "saved People registers"
+     ],
+     "fullName": "saved People registers announcements: creates, reads, updates, detects conflicts, isolates tenants, audits, and deletes",
+     "status": "passed",
+     "title": "announcements: creates, reads, updates, detects conflicts, isolates tenants, audits, and deletes",
+     "duration": 629.6076250000001,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "saved People registers"
+     ],
+     "fullName": "saved People registers events: creates, reads, updates, detects conflicts, isolates tenants, audits, and deletes",
+     "status": "passed",
+     "title": "events: creates, reads, updates, detects conflicts, isolates tenants, audits, and deletes",
+     "duration": 559.5945419999998,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "saved People registers"
+     ],
+     "fullName": "saved People registers recruitment: creates, reads, updates, detects conflicts, isolates tenants, audits, and deletes",
+     "status": "passed",
+     "title": "recruitment: creates, reads, updates, detects conflicts, isolates tenants, audits, and deletes",
+     "duration": 562.5948750000002,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "saved People registers"
+     ],
+     "fullName": "saved People registers candidates: creates, reads, updates, detects conflicts, isolates tenants, audits, and deletes",
+     "status": "passed",
+     "title": "candidates: creates, reads, updates, detects conflicts, isolates tenants, audits, and deletes",
+     "duration": 504.37516700000015,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "saved People registers"
+     ],
+     "fullName": "saved People registers performance: creates, reads, updates, detects conflicts, isolates tenants, audits, and deletes",
+     "status": "passed",
+     "title": "performance: creates, reads, updates, detects conflicts, isolates tenants, audits, and deletes",
+     "duration": 546.3818330000004,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "saved People registers"
+     ],
+     "fullName": "saved People registers learning: creates, reads, updates, detects conflicts, isolates tenants, audits, and deletes",
+     "status": "passed",
+     "title": "learning: creates, reads, updates, detects conflicts, isolates tenants, audits, and deletes",
+     "duration": 534.8041249999997,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "saved People registers"
+     ],
+     "fullName": "saved People registers helpdesk: creates, reads, updates, detects conflicts, isolates tenants, audits, and deletes",
+     "status": "passed",
+     "title": "helpdesk: creates, reads, updates, detects conflicts, isolates tenants, audits, and deletes",
+     "duration": 535.9694159999999,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "saved People registers"
+     ],
+     "fullName": "saved People registers assets: creates, reads, updates, detects conflicts, isolates tenants, audits, and deletes",
+     "status": "passed",
+     "title": "assets: creates, reads, updates, detects conflicts, isolates tenants, audits, and deletes",
+     "duration": 559.2913749999998,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "saved People registers"
+     ],
+     "fullName": "saved People registers benefits: creates, reads, updates, detects conflicts, isolates tenants, audits, and deletes",
+     "status": "passed",
+     "title": "benefits: creates, reads, updates, detects conflicts, isolates tenants, audits, and deletes",
+     "duration": 587.7616250000001,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "saved People registers"
+     ],
+     "fullName": "saved People registers lists document metadata without file bytes and without crossing companies",
+     "status": "passed",
+     "title": "lists document metadata without file bytes and without crossing companies",
+     "duration": 140.7787500000004,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "saved People registers"
+     ],
+     "fullName": "saved People registers publishes announcements and scheduled events to the employee portal, keeping drafts and other companies private",
+     "status": "passed",
+     "title": "publishes announcements and scheduled events to the employee portal, keeping drafts and other companies private",
+     "duration": 658.6777499999998,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "saved People registers"
+     ],
+     "fullName": "saved People registers rejects unknown modules, fields, invalid dates, and foreign employees",
+     "status": "passed",
+     "title": "rejects unknown modules, fields, invalid dates, and foreign employees",
+     "duration": 363.0471669999997,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "saved People registers"
+     ],
+     "fullName": "saved People registers keeps HR cases private from directory viewers and makes announcement viewers read-only",
+     "status": "passed",
+     "title": "keeps HR cases private from directory viewers and makes announcement viewers read-only",
+     "duration": 282.57579200000055,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "saved People registers"
+     ],
+     "fullName": "saved People registers rejects deleting jobs with candidates and cross-company job references",
+     "status": "passed",
+     "title": "rejects deleting jobs with candidates and cross-company job references",
+     "duration": 238.6452079999999,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "domain rules"
+     ],
+     "fullName": "domain rules requires a measurable goal with an employee and 100% to complete",
+     "status": "passed",
+     "title": "requires a measurable goal with an employee and 100% to complete",
+     "duration": 0.465291000000434,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "domain rules"
+     ],
+     "fullName": "domain rules requires an employee for an assigned asset and a resolution for closed cases",
+     "status": "passed",
+     "title": "requires an employee for an assigned asset and a resolution for closed cases",
+     "duration": 0.14583399999901303,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "domain rules"
+     ],
+     "fullName": "domain rules rejects event and benefit date ranges in reverse order",
+     "status": "passed",
+     "title": "rejects event and benefit date ranges in reverse order",
+     "duration": 0.13412500000049477,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    }
+   ],
+   "startTime": 1792790489894,
+   "endTime": 1792790496601.134,
+   "status": "passed",
+   "message": "",
+   "name": "src/__tests__/peopleWorkspace.test.ts"
+  },
+  {
+   "assertionResults": [
+    {
+     "ancestorTitles": [
+      "ask HR from the app"
+     ],
+     "fullName": "ask HR from the app creates a case HR can see, and shows each employee only theirs",
+     "status": "passed",
+     "title": "creates a case HR can see, and shows each employee only theirs",
+     "duration": 1733.2064169999999,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    }
+   ],
+   "startTime": 1792790534899,
+   "endTime": 1792790536632.2063,
+   "status": "passed",
+   "message": "",
+   "name": "src/__tests__/portalHrCases.test.ts"
+  },
+  {
+   "assertionResults": [
+    {
+     "ancestorTitles": [
+      "a route that learns its company from a token (A-30)"
+     ],
+     "fullName": "a route that learns its company from a token (A-30) runs the rest of the request as that company",
+     "status": "passed",
+     "title": "runs the rest of the request as that company",
+     "duration": 796.5974159999998,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "a route that learns its company from a token (A-30)"
+     ],
+     "fullName": "a route that learns its company from a token (A-30) enters the company for the rest of that request only",
+     "status": "passed",
+     "title": "enters the company for the rest of that request only",
+     "duration": 6.196333000000095,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "inside an interactive transaction (A-37)"
+     ],
+     "fullName": "inside an interactive transaction (A-37) still tells the database the company, on every client",
+     "status": "passed",
+     "title": "still tells the database the company, on every client",
+     "duration": 41.25299999999993,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "inside an interactive transaction (A-37)"
+     ],
+     "fullName": "inside an interactive transaction (A-37) still runs a batch, its queries inside the batch after the setting",
+     "status": "passed",
+     "title": "still runs a batch, its queries inside the batch after the setting",
+     "duration": 9.683667000000014,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    }
+   ],
+   "startTime": 1792790524188,
+   "endTime": 1792790525041.6836,
+   "status": "passed",
+   "message": "",
+   "name": "src/__tests__/tenantBackstop.test.ts"
+  },
+  {
+   "assertionResults": [
+    {
+     "ancestorTitles": [
+      "a tenant cannot reach another tenant by asking for its org"
+     ],
+     "fullName": "a tenant cannot reach another tenant by asking for its org refuses a session pointed at an org it is not a member of",
+     "status": "passed",
+     "title": "refuses a session pointed at an org it is not a member of",
+     "duration": 5.285750000000007,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "a tenant cannot reach another tenant by asking for its org"
+     ],
+     "fullName": "a tenant cannot reach another tenant by asking for its org refuses even when the caller keeps its own branch header",
+     "status": "passed",
+     "title": "refuses even when the caller keeps its own branch header",
+     "duration": 9.508415999999897,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "a membership row that names the wrong account"
+     ],
+     "fullName": "a membership row that names the wrong account does not open a company that account does not own",
+     "status": "passed",
+     "title": "does not open a company that account does not own",
+     "duration": 10.545333999999912,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "a tenant cannot reach another tenant's records through its own org"
+     ],
+     "fullName": "a tenant cannot reach another tenant's records through its own org refuses when it reads another tenant's invoice",
+     "status": "passed",
+     "title": "refuses when it reads another tenant's invoice",
+     "duration": 148.66712499999994,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "a tenant cannot reach another tenant's records through its own org"
+     ],
+     "fullName": "a tenant cannot reach another tenant's records through its own org refuses when it edits another tenant's invoice",
+     "status": "passed",
+     "title": "refuses when it edits another tenant's invoice",
+     "duration": 125.85679200000004,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "a tenant cannot reach another tenant's records through its own org"
+     ],
+     "fullName": "a tenant cannot reach another tenant's records through its own org refuses when it changes the status of another tenant's invoice",
+     "status": "passed",
+     "title": "refuses when it changes the status of another tenant's invoice",
+     "duration": 122.23700000000008,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "a tenant cannot reach another tenant's records through its own org"
+     ],
+     "fullName": "a tenant cannot reach another tenant's records through its own org refuses when it deletes another tenant's invoice",
+     "status": "passed",
+     "title": "refuses when it deletes another tenant's invoice",
+     "duration": 129.39804100000015,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "a tenant cannot reach another tenant's records through its own org"
+     ],
+     "fullName": "a tenant cannot reach another tenant's records through its own org refuses when it edits another tenant's warehouse",
+     "status": "passed",
+     "title": "refuses when it edits another tenant's warehouse",
+     "duration": 17.616833999999926,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "a tenant cannot reach another tenant's records through its own org"
+     ],
+     "fullName": "a tenant cannot reach another tenant's records through its own org refuses when it deletes another tenant's warehouse",
+     "status": "passed",
+     "title": "refuses when it deletes another tenant's warehouse",
+     "duration": 10.495666999999685,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "a tenant cannot reach another tenant's records through its own org"
+     ],
+     "fullName": "a tenant cannot reach another tenant's records through its own org refuses when it edits another tenant's branch",
+     "status": "passed",
+     "title": "refuses when it edits another tenant's branch",
+     "duration": 17.973417000000154,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "a tenant cannot reach another tenant's records through its own org"
+     ],
+     "fullName": "a tenant cannot reach another tenant's records through its own org refuses when it deletes another tenant's branch",
+     "status": "passed",
+     "title": "refuses when it deletes another tenant's branch",
+     "duration": 8.472708000000239,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "a tenant cannot reach another tenant's records through its own org"
+     ],
+     "fullName": "a tenant cannot reach another tenant's records through its own org refuses when it edits another tenant's role",
+     "status": "passed",
+     "title": "refuses when it edits another tenant's role",
+     "duration": 25.906000000000404,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "a tenant cannot reach another tenant's records through its own org"
+     ],
+     "fullName": "a tenant cannot reach another tenant's records through its own org leaves the other tenant's records exactly as they were",
+     "status": "passed",
+     "title": "leaves the other tenant's records exactly as they were",
+     "duration": 2.0760409999998046,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "listings never carry another tenant"
+     ],
+     "fullName": "listings never carry another tenant lists only its own invoices",
+     "status": "passed",
+     "title": "lists only its own invoices",
+     "duration": 116.02658299999985,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    }
+   ],
+   "startTime": 1792790498227,
+   "endTime": 1792790498978.0266,
+   "status": "passed",
+   "message": "",
+   "name": "src/__tests__/tenantIsolation.test.ts"
+  },
+  {
+   "assertionResults": [
+    {
+     "ancestorTitles": [
+      "the request scope tells the database its company"
+     ],
+     "fullName": "the request scope tells the database its company narrows a query with no orgId filter to the company in scope",
+     "status": "passed",
+     "title": "narrows a query with no orgId filter to the company in scope",
+     "duration": 3.6704580000000533,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "the request scope tells the database its company"
+     ],
+     "fullName": "the request scope tells the database its company holds when the callback returns the query without awaiting it",
+     "status": "passed",
+     "title": "holds when the callback returns the query without awaiting it",
+     "duration": 2.164249999999811,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "the request scope tells the database its company"
+     ],
+     "fullName": "the request scope tells the database its company cannot reach another company by id",
+     "status": "passed",
+     "title": "cannot reach another company by id",
+     "duration": 2.649790999999823,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "the request scope tells the database its company"
+     ],
+     "fullName": "the request scope tells the database its company holds inside an interactive transaction",
+     "status": "passed",
+     "title": "holds inside an interactive transaction",
+     "duration": 1.8683749999997872,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "the request scope tells the database its company"
+     ],
+     "fullName": "the request scope tells the database its company holds in a batch transaction and returns the batch results only",
+     "status": "passed",
+     "title": "holds in a batch transaction and returns the batch results only",
+     "duration": 1.7422090000000026,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "the request scope tells the database its company"
+     ],
+     "fullName": "the request scope tells the database its company holds for raw SQL",
+     "status": "passed",
+     "title": "holds for raw SQL",
+     "duration": 1.0431670000000395,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "the request scope tells the database its company"
+     ],
+     "fullName": "the request scope tells the database its company does not leak the setting to a query outside the scope",
+     "status": "passed",
+     "title": "does not leak the setting to a query outside the scope",
+     "duration": 0.9365419999999176,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "the request scope tells the database its company"
+     ],
+     "fullName": "the request scope tells the database its company caps a request query in time, and only inside the request",
+     "status": "passed",
+     "title": "caps a request query in time, and only inside the request",
+     "duration": 1.9886659999999665,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "the request scope tells the database its company"
+     ],
+     "fullName": "the request scope tells the database its company crosses companies only through outsideTenant",
+     "status": "passed",
+     "title": "crosses companies only through outsideTenant",
+     "duration": 1.0767499999999472,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "the request scope tells the database its company"
+     ],
+     "fullName": "the request scope tells the database its company scopes a real request: another company id in the header is refused, own data only",
+     "status": "passed",
+     "title": "scopes a real request: another company id in the header is refused, own data only",
+     "duration": 18.679624999999987,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    }
+   ],
+   "startTime": 1792790513974,
+   "endTime": 1792790514010.6797,
+   "status": "passed",
+   "message": "",
+   "name": "src/__tests__/tenantScope.test.ts"
+  }
+ ]
+}
