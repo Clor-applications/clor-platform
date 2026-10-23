@@ -100,6 +100,86 @@ describe("another company's admin", () => {
   });
 });
 
+/*
+ * A-01: the owner runs two companies of one account, X and Y. Mallory is an
+ * administrator of X only. Her rights in X used to be enough to move the
+ * owner's email, reset his password or switch him off — and with them, take
+ * over Y. A directory (SCIM) token minted in X could do the same.
+ */
+describe('an administrator of a sibling company', () => {
+  let ownerCtx: Ctx;
+  let ownerId: string;
+  let yOrgId: string;
+  let mal: Ctx;
+
+  beforeAll(async () => {
+    ownerCtx = await owner('Group X');
+    ownerId = (await platformPrisma.user.findFirstOrThrow({ where: { email: ownerCtx.email }, select: { id: true } })).id;
+    const y = await request(app)
+      .post('/api/auth/setup-company')
+      .set('Authorization', `Bearer ${ownerCtx.token}`)
+      .send({ companyName: `Group Y ${Date.now()}-${rnd()}`, state: 'Karnataka' })
+      .expect(200);
+    yOrgId = y.body.company.orgId;
+    const malEmail = `mal.${Date.now()}.${rnd()}@example.com`;
+    const made = await request(app)
+      .post('/api/users')
+      .set(auth(ownerCtx))
+      .send({ email: malEmail, fullName: 'Mallory', password: PW, orgIds: [ownerCtx.orgId], branchIdsByOrg: { [ownerCtx.orgId]: [ownerCtx.branchId] } })
+      .expect(201);
+    const adminRole = await platformPrisma.role.findFirstOrThrow({ where: { orgId: ownerCtx.orgId, roleType: 'ADMIN' }, select: { id: true, accountId: true } });
+    await platformPrisma.userRoleAssignment.create({ data: { accountId: adminRole.accountId, orgId: ownerCtx.orgId, userId: made.body.user.id, roleId: adminRole.id, createdByUserId: ownerId } });
+    const s = await login(malEmail).expect(200);
+    mal = { token: s.body.token, orgId: ownerCtx.orgId, branchId: ownerCtx.branchId, email: malEmail };
+  }, 60_000);
+
+  it("cannot move the owner's email, reset his password or switch him off", async () => {
+    const steal = `mal.owns.${rnd()}@example.com`;
+    for (const res of [
+      await request(app).patch(`/api/orgs/${mal.orgId}/users/${ownerId}`).set(auth(mal)).send({ email: steal }),
+      await request(app).post(`/api/orgs/${mal.orgId}/users/${ownerId}/password`).set(auth(mal)).send({ password: 'Taken0ver!234' }),
+      await request(app).patch(`/api/orgs/${mal.orgId}/users/${ownerId}`).set(auth(mal)).send({ isActive: false }),
+    ]) {
+      expect(res.status).toBe(403);
+      expect(['identity_elsewhere', 'admin_only', 'last_admin']).toContain(res.body.code);
+    }
+    const row = await platformPrisma.user.findUniqueOrThrow({ where: { id: ownerId }, select: { email: true, isActive: true } });
+    expect(row.email).toBe(ownerCtx.email);
+    expect(row.isActive).toBe(true);
+    await login(ownerCtx.email).expect(200);
+    expect(await platformPrisma.userOrgMembership.count({ where: { userId: ownerId, orgId: yOrgId } })).toBe(1);
+  });
+
+  it("cannot do it through a directory token minted in her company", async () => {
+    const minted = await request(app).post(`/api/orgs/${mal.orgId}/security/scim`).set(auth(mal)).send({}).expect(201);
+    const scim = { Authorization: `Bearer ${minted.body.token}`, 'content-type': 'application/scim+json' };
+    const res = await request(app)
+      .put(`/scim/v2/Users/${ownerId}`)
+      .set(scim)
+      .send({ schemas: ['urn:ietf:params:scim:schemas:core:2.0:User'], userName: `mal.scim.${rnd()}@example.com` });
+    expect(res.status).toBe(403);
+    const off = await request(app)
+      .patch(`/scim/v2/Users/${ownerId}`)
+      .set(scim)
+      .send({ schemas: ['urn:ietf:params:scim:api:messages:2.0:PatchOp'], Operations: [{ op: 'replace', path: 'active', value: false }] });
+    expect(off.status).toBe(403);
+    const row = await platformPrisma.user.findUniqueOrThrow({ where: { id: ownerId }, select: { email: true, isActive: true } });
+    expect(row.email).toBe(ownerCtx.email);
+    expect(row.isActive).toBe(true);
+  });
+
+  it('still lets the owner manage staff who work only where he administers', async () => {
+    const email = `staff.${Date.now()}.${rnd()}@example.com`;
+    const made = await request(app)
+      .post('/api/users')
+      .set(auth(ownerCtx))
+      .send({ email, fullName: 'Staff', password: PW, orgIds: [ownerCtx.orgId], branchIdsByOrg: { [ownerCtx.orgId]: [ownerCtx.branchId] } })
+      .expect(201);
+    await request(app).patch(`/api/orgs/${ownerCtx.orgId}/users/${made.body.user.id}`).set(auth(ownerCtx)).send({ email: `moved.${rnd()}@example.com` }).expect(200);
+    await request(app).post(`/api/orgs/${ownerCtx.orgId}/users/${made.body.user.id}/password`).set(auth(ownerCtx)).send({ password: 'Fresh!23456' }).expect(200);
+  });
+});
+
 describe('an access token', () => {
   it('stops working once its session is signed out', async () => {
     const c = await owner('Signout Co');

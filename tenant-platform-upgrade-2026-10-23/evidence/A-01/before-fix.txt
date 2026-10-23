@@ -1,0 +1,152 @@
+ DEPRECATED  `test.poolOptions` was removed in Vitest 4. All previous `poolOptions` are now top-level options. Please, refer to the migration guide: https://vitest.dev/guide/migration#pool-rework
+
+ RUN  v4.1.10 /Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_25835", schema "accounting" at "localhost:5432"
+
+The PostgreSQL database "clor_test_25835" schema "accounting" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 1.54s
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/payroll/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_25835", schema "payroll" at "localhost:5432"
+
+The PostgreSQL database "clor_test_25835" schema "payroll" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 583ms
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/people/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_25835", schema "people" at "localhost:5432"
+
+The PostgreSQL database "clor_test_25835" schema "people" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 1.19s
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/platform/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_25835", schema "platform" at "localhost:5432"
+
+The PostgreSQL database "clor_test_25835" schema "platform" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 956ms
+
+[setup] 180 policy statements applied to clor_test_25835
+[setup] 7 policy statements applied to clor_test_25835
+[setup] 10 policy statements applied to clor_test_25835
+[setup] 35 policy statements applied to clor_test_25835
+[setup] 4 policy statements applied to clor_test_25835
+[setup] 96 policy statements applied to clor_test_25835
+[setup] 4 policy statements applied to clor_test_25835
+[setup] 4 policy statements applied to clor_test_25835
+[setup] 4 policy statements applied to clor_test_25835
+[setup] 4 policy statements applied to clor_test_25835
+[setup] 32 policy statements applied to clor_test_25835
+[setup] 24 policy statements applied to clor_test_25835
+[setup] 12 policy statements applied to clor_test_25835
+[setup] 16 policy statements applied to clor_test_25835
+[setup] 4 policy statements applied to clor_test_25835
+[setup] 4 policy statements applied to clor_test_25835
+[setup] 8 policy statements applied to clor_test_25835
+[setup] 8 policy statements applied to clor_test_25835
+[setup] 20 policy statements applied to clor_test_25835
+[setup] 8 policy statements applied to clor_test_25835
+[setup] 4 policy statements applied to clor_test_25835
+[setup] 8 policy statements applied to clor_test_25835
+[setup] 8 policy statements applied to clor_test_25835
+[setup] 12 policy statements applied to clor_test_25835
+[setup] 4 policy statements applied to clor_test_25835
+[setup] 8 policy statements applied to clor_test_25835
+[setup] 28 policy statements applied to clor_test_25835
+[setup] 4 policy statements applied to clor_test_25835
+[setup] 4 policy statements applied to clor_test_25835
+[setup] 4 policy statements applied to clor_test_25835
+[setup] 8 policy statements applied to clor_test_25835
+[setup] 4 policy statements applied to clor_test_25835
+[setup] 4 policy statements applied to clor_test_25835
+[setup] 4 policy statements applied to clor_test_25835
+[setup] 4 policy statements applied to clor_test_25835
+[setup] 8 policy statements applied to clor_test_25835
+[setup] 4 policy statements applied to clor_test_25835
+[setup] 12 policy statements applied to clor_test_25835
+[setup] 4 policy statements applied to clor_test_25835
+[setup] 76 policy statements applied to clor_test_25835
+[setup] 4 policy statements applied to clor_test_25835
+[setup] 4 policy statements applied to clor_test_25835
+[setup] 4 policy statements applied to clor_test_25835
+[setup] 4 policy statements applied to clor_test_25835
+ ❯ src/__tests__/identityAndSessions.test.ts (16 tests | 3 failed | 13 skipped) 1065ms
+     × cannot move the owner's email, reset his password or switch him off 75ms
+     × cannot do it through a directory token minted in her company 134ms
+     × still lets the owner manage staff who work only where he administers 3ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/__tests__/identityAndSessions.test.ts > an administrator of a sibling company > cannot move the owner's email, reset his password or switch him off
+AssertionError: expected 200 to be 403 // Object.is equality
+
+- Expected
++ Received
+
+- 403
++ 200
+
+ ❯ src/__tests__/identityAndSessions.test.ts:143:26
+    141|       await request(app).patch(`/api/orgs/${mal.orgId}/users/${ownerId…
+    142|     ]) {
+    143|       expect(res.status).toBe(403);
+       |                          ^
+    144|       expect(['identity_elsewhere', 'admin_only', 'last_admin']).toCon…
+    145|     }
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  src/__tests__/identityAndSessions.test.ts > an administrator of a sibling company > cannot do it through a directory token minted in her company
+AssertionError: expected 200 to be 403 // Object.is equality
+
+- Expected
++ Received
+
+- 403
++ 200
+
+ ❯ src/__tests__/identityAndSessions.test.ts:160:24
+    158|       .set(scim)
+    159|       .send({ schemas: ['urn:ietf:params:scim:schemas:core:2.0:User'],…
+    160|     expect(res.status).toBe(403);
+       |                        ^
+    161|     const off = await request(app)
+    162|       .patch(`/scim/v2/Users/${ownerId}`)
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  src/__tests__/identityAndSessions.test.ts > an administrator of a sibling company > still lets the owner manage staff who work only where he administers
+Error: expected 201 "Created", got 401 "Unauthorized"
+ ❯ src/__tests__/identityAndSessions.test.ts:177:8
+    175|       .set(auth(ownerCtx))
+    176|       .send({ email, fullName: 'Staff', password: PW, orgIds: [ownerCt…
+    177|       .expect(201);
+       |        ^
+    178|     await request(app).patch(`/api/orgs/${ownerCtx.orgId}/users/${made…
+    179|     await request(app).post(`/api/orgs/${ownerCtx.orgId}/users/${made.…
+ ❯ Test._assertStatus ../../../../server/node_modules/supertest/lib/test.js:309:14
+ ❯ ../../../../server/node_modules/supertest/lib/test.js:365:13
+ ❯ Test._assertFunction ../../../../server/node_modules/supertest/lib/test.js:342:13
+ ❯ Test.assert ../../../../server/node_modules/supertest/lib/test.js:195:23
+ ❯ localAssert ../../../../server/node_modules/supertest/lib/test.js:138:14
+ ❯ ../../../../server/node_modules/supertest/lib/test.js:156:7
+ ❯ fn ../../../../server/node_modules/superagent/src/node/index.js:904:2
+ ❯ callback ../../../../server/node_modules/superagent/src/node/index.js:1183:17
+ ❯ fn ../../../../server/node_modules/superagent/src/node/parsers/json.js:19:6
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  3 failed | 13 skipped (16)
+   Start at  14:57:55
+   Duration  18.51s (transform 2.57s, setup 24ms, import 5.09s, tests 1.06s, environment 0ms)
+

@@ -29,9 +29,10 @@ Changed:
 
 - Read-only architecture audit (`ARCHITECTURE_AUDIT_2026-10-23.md`, 49 findings), research review (`RESEARCH_REVIEW.md`) and per-finding checklist (`FIX_CHECKLIST.md`).
 - A-03 fixed: `/api/auth` `sessions`, `sessions/revoke-all`, `me` (GET/PATCH), `setup-company` and `resend-verification` now use the live-session middleware; a revoked session or deactivated user gets 401. Removed the unused local `signToken`/`requireAuth`. Application behavior changed: yes (those six routes). Schema: no.
+- A-01 fixed: identity changes (email, password, active) to another person need Users EDIT in every company they work in and admin wherever they are admin; SCIM may change email/active only for single-company non-admins and now clears email verification on change. Application behavior changed: yes. Schema: no.
 
 Running totals for 2026-10-23:  
-Application behavior changed: yes (GAP-002, GAP-003, A-03).  
+Application behavior changed: yes (GAP-002, GAP-003, A-03, A-01).  
 Database schema changed: yes (platform `Account.legacyUnrestrictedAt`, applied locally only).  
 Deployment or Cloudflare configuration changed: no.  
 Customer data accessed: no (local test accounts only).

@@ -6,6 +6,8 @@ import { platformPrisma } from '../utils/platformPrisma.js';
 import { recordAuthEvent, clientIp } from '../services/auth.js';
 import { hashToken } from './publicApi.js';
 import { notifyPermission } from '../services/notifications.js';
+import { userIsAdmin } from '../services/roleGuards.js';
+import { outsideTenant } from '../utils/tenantScope.js';
 
 /**
  * /scim/v2 — SCIM 2.0 provisioning (RFC 7643 / 7644), the way Microsoft
@@ -210,10 +212,28 @@ async function applyChanges(t: Tenant, u: U, changes: { email?: string; fullName
   /* Another account's person: this provider may drop their membership, never change who they are. */
   const touches = (changes.email && changes.email !== u.email) || (changes.fullName && changes.fullName !== u.fullName) || (changes.active !== undefined && changes.active !== u.isActive);
   if (touches && u.accountId !== t.accountId) throw Object.assign(new Error('This person belongs to another account; only their membership here can be removed.'), { status: 403 });
+  /*
+   * A-01: a directory token speaks for one company, but an email or being
+   * switched off reaches every company the person signs in to. So it may
+   * change those only for people who work in this company alone and do not
+   * administer it — never for an owner who would lose their other companies
+   * to whoever holds the token.
+   */
+  const identity = (changes.email && changes.email !== u.email) || (changes.active !== undefined && changes.active !== u.isActive);
+  if (identity) {
+    const elsewhere = await outsideTenant('SCIM: does this person work in other companies?', () =>
+      platformPrisma.userOrgMembership.count({ where: { userId: u.id, NOT: { orgId: t.orgId } } }),
+    );
+    if (elsewhere || (await userIsAdmin(t.accountId, t.orgId, u.id))) {
+      throw Object.assign(new Error('This person administers this company or works in others; their sign-in is changed in CLOR, not by directory sync.'), { status: 403, scimType: 'mutability' });
+    }
+  }
   if (changes.email && changes.email !== u.email) {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(changes.email)) throw Object.assign(new Error('userName must be an e-mail address.'), { status: 400, scimType: 'invalidValue' });
     if (await platformPrisma.user.findFirst({ where: { email: changes.email, NOT: { id: u.id } }, select: { id: true } })) throw Object.assign(new Error(`${changes.email} is already another user’s address.`), { status: 409, scimType: 'uniqueness' });
     data.email = changes.email;
+    /* An address nobody has proven yet: the directory says so, the person has not. */
+    data.emailVerifiedAt = null;
   }
   if (changes.fullName && changes.fullName !== u.fullName) data.fullName = changes.fullName;
   if (changes.active !== undefined && changes.active !== u.isActive) {

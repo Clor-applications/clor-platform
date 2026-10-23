@@ -1,6 +1,8 @@
 import { platformPrisma } from '../utils/platformPrisma.js';
 import { permKey } from '../constants/permissionCatalog.js';
 import { RoleType } from '../constants/enums.js';
+import { outsideTenant } from '../utils/tenantScope.js';
+import { resolveAccess } from './access.js';
 
 /**
  * The two rules that keep role administration from turning against the
@@ -126,6 +128,33 @@ export async function adminUserIds(db: Db, accountId: string, orgId: string): Pr
 /** True when the user administers the organisation, directly or through a profile. */
 export async function userIsAdmin(accountId: string, orgId: string, userId: string) {
   return (await adminUserIds(platformPrisma, accountId, orgId)).has(userId);
+}
+
+/**
+ * May `callerId` change `targetId`'s sign-in identity — email, password, or
+ * whether they can sign in at all?
+ *
+ * All three are global: one User signs in to every company they belong to.
+ * Being an administrator (or holding Users EDIT) in the company at hand used
+ * to be enough, so the admin of company X could move the email of somebody
+ * who owns company Y in the same account, then sign in as them there (A-01).
+ *
+ * The rule now: you may change somebody's identity only if you could manage
+ * them in every company they work in — Users EDIT in each, and administrator
+ * in each where they are an administrator. Returns the first company that
+ * blocks it, or null when every one allows it. Reads across companies, so it
+ * runs outside the request's tenant setting.
+ */
+export async function identityBlockedIn(callerId: string, targetId: string): Promise<{ orgId: string; reason: 'not_manager' | 'admin_target' } | null> {
+  return outsideTenant('identity change: the target must be manageable in every company they belong to', async () => {
+    const memberships = await platformPrisma.userOrgMembership.findMany({ where: { userId: targetId }, select: { accountId: true, orgId: true } });
+    for (const m of memberships) {
+      const caller = await resolveAccess(m.accountId, m.orgId, callerId);
+      if (!caller.isAdmin && !caller.permissions.has(permKey('SETTINGS', 'Users', 'EDIT'))) return { orgId: m.orgId, reason: 'not_manager' as const };
+      if (!caller.isAdmin && (await adminUserIds(platformPrisma, m.accountId, m.orgId)).has(targetId)) return { orgId: m.orgId, reason: 'admin_target' as const };
+    }
+    return null;
+  });
 }
 
 /**

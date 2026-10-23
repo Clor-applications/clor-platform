@@ -23,6 +23,7 @@ import {
   rolePermissionKeys,
   unheldGrants,
   userIsAdmin,
+  identityBlockedIn,
   wouldRemoveLastAdmin,
   LastAdminError,
   assertAnAdminRemains,
@@ -155,7 +156,23 @@ async function identityChangeRefusal(req: any, accountId: string, orgId: string,
     };
   }
   if (!req.isAdmin && (await userIsAdmin(accountId, orgId, userId))) return { status: 403, body: ADMIN_ONLY_ERROR };
-  return null;
+  return elsewhereRefusal(req.auth!.userId, userId);
+}
+
+/** A-01: refused when the person works in a company the caller could not manage them in. */
+async function elsewhereRefusal(callerId: string, userId: string) {
+  const blocked = await identityBlockedIn(callerId, userId);
+  if (!blocked) return null;
+  return {
+    status: 403,
+    body: {
+      error:
+        blocked.reason === 'admin_target'
+          ? 'This person administers another company. Only an administrator of every company they work in can change their sign-in.'
+          : 'This person also works in a company you cannot manage users in, so their sign-in is not yours to change.',
+      code: 'identity_elsewhere',
+    },
+  };
 }
 
 usersRouter.patch('/orgs/:orgId/users/:userId', requirePermission('SETTINGS', PermissionAction.EDIT, 'Users'), async (req, res) => {
@@ -195,6 +212,11 @@ usersRouter.patch('/orgs/:orgId/users/:userId', requirePermission('SETTINGS', Pe
         error: 'This person signs in with their own account. To stop them using this company, remove their access to it; their name and sign-in are theirs.',
         code: 'foreign_identity',
       });
+    }
+    /* Switching somebody off is global too: it ends their sign-in in every company they work in. */
+    if ('isActive' in body) {
+      const refusal = await elsewhereRefusal(req.auth!.userId, userId);
+      if (refusal) return res.status(refusal.status).json(refusal.body);
     }
   }
 

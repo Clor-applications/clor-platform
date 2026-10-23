@@ -1,0 +1,8 @@
+{
+  "finding": "A-01",
+  "where": "Browser pane, http://localhost:5173, Settings > Users, signed in as 'Mallory (X admin)' — Administrator of company X only; the owner also runs company Y",
+  "action": "Edit owner > Email = mallory.controls@example.com > Save Changes",
+  "request": "PATCH /api/orgs/<X>/users/<owner>",
+  "response": { "status": 403, "body": {"error":"This person also works in a company you cannot manage users in, so their sign-in is not yours to change.","code":"identity_elsewhere"} },
+  "after": { "owner_email_in_list": "unchanged", "owner_login_with_own_password_http_status": 200 }
+}
