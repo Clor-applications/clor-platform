@@ -1,0 +1,239 @@
+ DEPRECATED  `test.poolOptions` was removed in Vitest 4. All previous `poolOptions` are now top-level options. Please, refer to the migration guide: https://vitest.dev/guide/migration#pool-rework
+
+ RUN  v4.1.10 /Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_43525", schema "accounting" at "localhost:5432"
+
+The PostgreSQL database "clor_test_43525" schema "accounting" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 1.67s
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/payroll/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_43525", schema "payroll" at "localhost:5432"
+
+The PostgreSQL database "clor_test_43525" schema "payroll" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 1.04s
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/people/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_43525", schema "people" at "localhost:5432"
+
+The PostgreSQL database "clor_test_43525" schema "people" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 976ms
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/platform/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_43525", schema "platform" at "localhost:5432"
+
+The PostgreSQL database "clor_test_43525" schema "platform" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 545ms
+
+[setup] 180 policy statements applied to clor_test_43525
+[setup] 7 policy statements applied to clor_test_43525
+[setup] 10 policy statements applied to clor_test_43525
+[setup] 35 policy statements applied to clor_test_43525
+[setup] 4 policy statements applied to clor_test_43525
+[setup] 96 policy statements applied to clor_test_43525
+[setup] 4 policy statements applied to clor_test_43525
+[setup] 4 policy statements applied to clor_test_43525
+[setup] 4 policy statements applied to clor_test_43525
+[setup] 4 policy statements applied to clor_test_43525
+[setup] 32 policy statements applied to clor_test_43525
+[setup] 24 policy statements applied to clor_test_43525
+[setup] 12 policy statements applied to clor_test_43525
+[setup] 16 policy statements applied to clor_test_43525
+[setup] 4 policy statements applied to clor_test_43525
+[setup] 4 policy statements applied to clor_test_43525
+[setup] 8 policy statements applied to clor_test_43525
+[setup] 8 policy statements applied to clor_test_43525
+[setup] 20 policy statements applied to clor_test_43525
+[setup] 8 policy statements applied to clor_test_43525
+[setup] 4 policy statements applied to clor_test_43525
+[setup] 8 policy statements applied to clor_test_43525
+[setup] 8 policy statements applied to clor_test_43525
+[setup] 12 policy statements applied to clor_test_43525
+[setup] 4 policy statements applied to clor_test_43525
+[setup] 8 policy statements applied to clor_test_43525
+[setup] 28 policy statements applied to clor_test_43525
+[setup] 4 policy statements applied to clor_test_43525
+[setup] 4 policy statements applied to clor_test_43525
+[setup] 4 policy statements applied to clor_test_43525
+[setup] 8 policy statements applied to clor_test_43525
+[setup] 4 policy statements applied to clor_test_43525
+[setup] 4 policy statements applied to clor_test_43525
+[setup] 4 policy statements applied to clor_test_43525
+[setup] 4 policy statements applied to clor_test_43525
+[setup] 8 policy statements applied to clor_test_43525
+[setup] 4 policy statements applied to clor_test_43525
+[setup] 12 policy statements applied to clor_test_43525
+[setup] 4 policy statements applied to clor_test_43525
+[setup] 76 policy statements applied to clor_test_43525
+[setup] 4 policy statements applied to clor_test_43525
+[setup] 4 policy statements applied to clor_test_43525
+[setup] 4 policy statements applied to clor_test_43525
+[setup] 4 policy statements applied to clor_test_43525
+POST /api/auth/signup 200 576 - 114.973 ms
+POST /api/auth/setup-company 200 198 - 279.260 ms
+POST /api/orgs/cmvl2bm90000evv8r8oa8lr9z/branches 201 555 - 20.867 ms
+POST /api/orgs/cmvl2bm90000evv8r8oa8lr9z/roles 201 358 - 22.649 ms
+PUT /api/orgs/cmvl2bm90000evv8r8oa8lr9z/roles/cmvl2bmhi00qgvv8rqz8d3fdo/permissions 200 23 - 164.471 ms
+POST /api/orgs/cmvl2bm90000evv8r8oa8lr9z/roles 201 358 - 15.589 ms
+PUT /api/orgs/cmvl2bm90000evv8r8oa8lr9z/roles/cmvl2bmml00qwvv8rfvm7kazl/permissions 200 23 - 169.680 ms
+POST /api/users 201 149 - 102.361 ms
+POST /api/orgs/cmvl2bm90000evv8r8oa8lr9z/users/cmvl2bmsq00r3vv8rfuj2p5r6/roles 201 11 - 63.778 ms
+POST /api/auth/login 200 773 - 8.724 ms
+POST /api/users 201 149 - 43.279 ms
+POST /api/auth/login 200 773 - 5.789 ms
+PUT /api/orgs/cmvl2bm90000evv8r8oa8lr9z/users/cmvl2bmsq00r3vv8rfuj2p5r6/role 200 11 - 29.993 ms
+PUT /api/orgs/cmvl2bm90000evv8r8oa8lr9z/users/cmvl2bmx800rjvv8rutr8obpa/role 200 11 - 27.538 ms
+PUT /api/orgs/cmvl2bm90000evv8r8oa8lr9z/roles/cmvl2bmml00qwvv8rfvm7kazl/permissions 200 23 - 140.313 ms
+POST /api/orgs/cmvl2bm90000evv8r8oa8lr9z/users/cmvl2bmx800rjvv8rutr8obpa/roles 201 11 - 16.716 ms
+POST /api/orgs/cmvl2bm90000evv8r8oa8lr9z/users/cmvl2bmx800rjvv8rutr8obpa/roles 201 11 - 17.885 ms
+POST /api/orgs/cmvl2bm90000evv8r8oa8lr9z/users/cmvl2bmsq00r3vv8rfuj2p5r6/roles 201 11 - 19.418 ms
+POST /api/orgs/cmvl2bm90000evv8r8oa8lr9z/roles 201 358 - 15.873 ms
+PUT /api/orgs/cmvl2bm90000evv8r8oa8lr9z/roles/cmvl2bn5i00shvv8rs2gj2xh0/permissions 200 23 - 113.916 ms
+POST /api/orgs/cmvl2bm90000evv8r8oa8lr9z/roles 201 358 - 13.278 ms
+PUT /api/orgs/cmvl2bm90000evv8r8oa8lr9z/roles/cmvl2bn9300sxvv8r9jn6o484/permissions 200 23 - 124.115 ms
+POST /api/users 201 149 - 24.761 ms
+POST /api/orgs/cmvl2bm90000evv8r8oa8lr9z/users/cmvl2bnd400t4vv8rqmd3jnvf/roles 201 11 - 18.763 ms
+POST /api/auth/login 200 773 - 3.751 ms
+POST /api/users 201 149 - 23.717 ms
+POST /api/auth/login 200 773 - 3.757 ms
+PUT /api/orgs/cmvl2bm90000evv8r8oa8lr9z/users/cmvl2bneh00tkvv8rigo524hs/role 200 11 - 16.357 ms
+PUT /api/orgs/cmvl2bm90000evv8r8oa8lr9z/users/cmvl2bnd400t4vv8rqmd3jnvf/role 200 11 - 16.230 ms
+ ❯ src/__tests__/grantScope.test.ts (7 tests | 6 failed) 1695ms
+     × cannot give themselves their branch role company-wide 33ms
+     × cannot hand anybody else a company-wide role 29ms
+     × cannot add to a role that people hold across the company 142ms
+     × cannot give a role in a branch they do not manage 19ms
+     × cannot change their own roles, even within their branch 21ms
+     × still assigns company-wide roles they hold, but not to themselves 385ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 6 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/__tests__/grantScope.test.ts > somebody who manages users in one branch > cannot give themselves their branch role company-wide
+AssertionError: expected 200 to be 403 // Object.is equality
+
+- Expected
++ Received
+
+- 403
++ 200
+
+ ❯ src/__tests__/grantScope.test.ts:72:24
+     70|   it('cannot give themselves their branch role company-wide', async ()…
+     71|     const res = await request(app).put(`/api/orgs/${owner.orgId}/users…
+     72|     expect(res.status).toBe(403);
+       |                        ^
+     73|     expect(res.body.code).toBe('not_company_wide');
+     74|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/6]⎯
+
+ FAIL  src/__tests__/grantScope.test.ts > somebody who manages users in one branch > cannot hand anybody else a company-wide role
+AssertionError: expected 200 to be 403 // Object.is equality
+
+- Expected
++ Received
+
+- 403
++ 200
+
+ ❯ src/__tests__/grantScope.test.ts:78:24
+     76|   it('cannot hand anybody else a company-wide role', async () => {
+     77|     const res = await request(app).put(`/api/orgs/${owner.orgId}/users…
+     78|     expect(res.status).toBe(403);
+       |                        ^
+     79|     expect(res.body.code).toBe('not_company_wide');
+     80|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/6]⎯
+
+ FAIL  src/__tests__/grantScope.test.ts > somebody who manages users in one branch > cannot add to a role that people hold across the company
+AssertionError: expected 200 to be 403 // Object.is equality
+
+- Expected
++ Received
+
+- 403
++ 200
+
+ ❯ src/__tests__/grantScope.test.ts:84:24
+     82|   it('cannot add to a role that people hold across the company', async…
+     83|     const res = await request(app).put(`/api/orgs/${owner.orgId}/roles…
+     84|     expect(res.status).toBe(403);
+       |                        ^
+     85|     expect(res.body.code).toBe('not_company_wide');
+     86|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/6]⎯
+
+ FAIL  src/__tests__/grantScope.test.ts > somebody who manages users in one branch > cannot give a role in a branch they do not manage
+AssertionError: expected 201 to be 403 // Object.is equality
+
+- Expected
++ Received
+
+- 403
++ 201
+
+ ❯ src/__tests__/grantScope.test.ts:94:24
+     92|   it('cannot give a role in a branch they do not manage', async () => {
+     93|     const res = await request(app).post(`/api/orgs/${owner.orgId}/user…
+     94|     expect(res.status).toBe(403);
+       |                        ^
+     95|     expect(res.body.code).toBe('not_in_branch');
+     96|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/6]⎯
+
+ FAIL  src/__tests__/grantScope.test.ts > somebody who manages users in one branch > cannot change their own roles, even within their branch
+AssertionError: expected 201 to be 403 // Object.is equality
+
+- Expected
++ Received
+
+- 403
++ 201
+
+ ❯ src/__tests__/grantScope.test.ts:100:24
+     98|   it('cannot change their own roles, even within their branch', async …
+     99|     const res = await request(app).post(`/api/orgs/${owner.orgId}/user…
+    100|     expect(res.status).toBe(403);
+       |                        ^
+    101|     expect(res.body.code).toBe('own_access');
+    102|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/6]⎯
+
+ FAIL  src/__tests__/grantScope.test.ts > somebody who manages users across the company > still assigns company-wide roles they hold, but not to themselves
+AssertionError: expected 200 to be 403 // Object.is equality
+
+- Expected
++ Received
+
+- 403
++ 200
+
+ ❯ src/__tests__/grantScope.test.ts:113:25
+    111|     await request(app).put(`/api/orgs/${owner.orgId}/users/${other.use…
+    112|     const self = await request(app).put(`/api/orgs/${owner.orgId}/user…
+    113|     expect(self.status).toBe(403);
+       |                         ^
+    114|     expect(self.body.code).toBe('own_access');
+    115|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/6]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  6 failed | 1 passed (7)
+   Start at  19:55:37
+   Duration  17.88s (transform 2.52s, setup 23ms, import 4.98s, tests 1.69s, environment 0ms)
+

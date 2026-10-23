@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, type Request as ExpressRequest } from 'express';
 import { assignUserCode } from '../services/displayCodes.js';
 import { z } from 'zod';
 import bcrypt from 'bcrypt';
@@ -18,6 +18,8 @@ import { permKey } from '../constants/permissionCatalog.js';
 import { NO_FIT, SuggestionError, roleSuggestionEnabled, suggestRole } from '../services/roleSuggestion.js';
 import {
   ADMIN_ONLY_ERROR,
+  OWN_ACCESS_ERROR,
+  grantAuthority,
   LAST_ADMIN_ERROR,
   cannotGrantError,
   rolePermissionKeys,
@@ -62,19 +64,25 @@ const isMember = async (accountId: string, orgId: string, userId: string) =>
  * user's org-wide roles are being cleared.
  */
 async function assignmentRefusal(
-  req: { isAdmin?: boolean; permissions?: Set<string> },
+  req: ExpressRequest,
   accountId: string,
   orgId: string,
   userId: string,
   role: { id: string; roleType: string } | null,
   scopeBranchId: string | null
 ): Promise<{ status: number; body: Record<string, unknown> } | null> {
-  if (role?.roleType === RoleType.ADMIN && !req.isAdmin) return { status: 403, body: ADMIN_ONLY_ERROR };
+  // Bounded by what the caller holds where this assignment applies (A-19).
+  const { authority, refusal } = await grantAuthority(req, scopeBranchId, permKey('SETTINGS', 'Users', 'EDIT'));
+  if (refusal) return refusal;
+
+  if (role?.roleType === RoleType.ADMIN && !authority.isAdmin) return { status: 403, body: ADMIN_ONLY_ERROR };
 
   if (role) {
-    const missing = unheldGrants(req, await rolePermissionKeys(role.id));
+    const missing = unheldGrants(authority, await rolePermissionKeys(role.id));
     if (missing.length) return { status: 403, body: cannotGrantError(missing) };
   }
+
+  if (userId === req.auth!.userId && !authority.isAdmin) return { status: 403, body: OWN_ACCESS_ERROR };
 
   // Org-wide assignments replace the user's org-wide role; a branch-scoped one
   // adds to it and cannot demote anybody.
@@ -84,7 +92,7 @@ async function assignmentRefusal(
   // inside the assignment's own transaction: the person may stay one through
   // a role profile, which a prediction made here would have to reimplement.
   const targetIsAdmin = await userIsAdmin(accountId, orgId, userId);
-  if (targetIsAdmin && !req.isAdmin) return { status: 403, body: ADMIN_ONLY_ERROR };
+  if (targetIsAdmin && !authority.isAdmin) return { status: 403, body: ADMIN_ONLY_ERROR };
   return null;
 }
 
@@ -457,9 +465,11 @@ usersRouter.post('/orgs/:orgId/users/role-suggestion', requirePermission('SETTIN
     list.push(permKey(g.permission.module, g.permission.subModule, g.permission.action));
     keysByRole.set(g.roleId, list);
   }
-  const assignable = roles.filter(
-    (r) => (r.roleType !== RoleType.ADMIN || req.isAdmin) && unheldGrants(req, keysByRole.get(r.id) || []).length === 0
-  );
+  // Suggested roles are company-wide, so only what the caller could assign company-wide (A-19).
+  const { authority } = await grantAuthority(req, null, permKey('SETTINGS', 'Users', 'EDIT'));
+  const assignable = authority
+    ? roles.filter((r) => (r.roleType !== RoleType.ADMIN || authority.isAdmin) && unheldGrants(authority, keysByRole.get(r.id) || []).length === 0)
+    : [];
 
   try {
     const s = await suggestRole(body, assignable);

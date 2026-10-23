@@ -48,9 +48,11 @@ Changed:
 - A-16 fixed: billing webhook mounted publicly ahead of the routers that require a session, with the raw body and a rate limit. Application behavior changed: yes. Schema: no.
 - A-17 fixed: operator subscription changes need authenticator + step-up, are recorded as AuthEvents with before/after, and are written in one transaction. Application behavior changed: yes (operators must enrol an authenticator). Schema: no.
 - A-18 fixed: company export carries People and Payroll only for someone holding their VIEW permissions (and a step-up when the company asks for one for payroll), names anything withheld, audits each personal-data export, and counts as the full export only when nothing was withheld. The Data export menu item is gated on the permission the server checks. Application behavior changed: yes. Schema: no.
+- A-19 fixed: role grants, role and profile edits are bounded by what the caller holds where the grant applies (company-wide unless the assignment is for one branch); non-administrators cannot change their own roles or profiles. Application behavior changed: yes. Schema: no.
+- A-20 fixed: non-administrators cannot change their own record restrictions or the own-documents-only flag of a role they hold, and cannot restrict an administrator. Application behavior changed: yes. Schema: no.
 
 Running totals for 2026-10-23:  
-Application behavior changed: yes (GAP-002, GAP-003, A-03, A-01, A-02, A-04, A-05, A-07, A-06, A-08, A-09, A-10, A-11, A-12, A-13, A-14, A-15, A-16, A-17, A-18).  
+Application behavior changed: yes (GAP-002, GAP-003, A-03, A-01, A-02, A-04, A-05, A-07, A-06, A-08, A-09, A-10, A-11, A-12, A-13, A-14, A-15, A-16, A-17, A-18, A-19, A-20).  
 Database schema changed: yes (platform `Account.legacyUnrestrictedAt`; platform `AuthPolicy.makerChecker`; applied locally only).  
 Deployment or Cloudflare configuration changed: no.  
 Customer data accessed: no (local test accounts only).

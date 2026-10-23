@@ -9,8 +9,11 @@ import { PermissionAction, RoleType } from '../constants/enums.js';
 import { isKnownPermission, permKey, roleGroup } from '../constants/permissionCatalog.js';
 import { ROLE_DELETED_PREFIX, ensureDefaultRoles } from '../services/defaultRoles.js';
 import { ensurePermissionCatalog } from './permissions.js';
+import { resolveRoleIds } from '../services/access.js';
 import {
   ADMIN_ONLY_ERROR,
+  grantAuthority,
+  OWN_ACCESS_ERROR,
   ANTI_LOCKOUT_KEYS,
   LAST_ADMIN_ERROR,
   cannotGrantError,
@@ -160,12 +163,16 @@ rolesRouter.post('/orgs/:orgId/roles', requirePermission('SETTINGS', PermissionA
 
   const body = roleSchema.parse(req.body);
 
-  if (body.roleType === RoleType.ADMIN && !req.isAdmin) return res.status(403).json(ADMIN_ONLY_ERROR);
+  // A role reaches whoever holds it, wherever they work: bounded by what the caller holds company-wide (A-19).
+  const { authority, refusal } = await grantAuthority(req, null, permKey('SETTINGS', 'Roles', 'CREATE'));
+  if (refusal) return res.status(refusal.status).json(refusal.body);
+
+  if (body.roleType === RoleType.ADMIN && !authority.isAdmin) return res.status(403).json(ADMIN_ONLY_ERROR);
 
   const { keys, unknown } = wantedKeys(body.permissions);
   if (unknown.length) return res.status(400).json({ error: `Unknown permission: ${unknown[0]}`, permissions: unknown });
 
-  const missing = unheldGrants(req, keys);
+  const missing = unheldGrants(authority, keys);
   if (missing.length) return res.status(403).json(cannotGrantError(missing));
 
   if (body.branchId && !(await branchBelongsToOrg(accountId, orgId, body.branchId))) {
@@ -215,9 +222,21 @@ rolesRouter.patch('/orgs/:orgId/roles/:roleId', requirePermission('SETTINGS', Pe
 
   // An Administrator role, and anything becoming one, is administered only by
   // an administrator.
+  const { authority, refusal } = await grantAuthority(req, null, permKey('SETTINGS', 'Roles', 'EDIT'));
+  if (refusal) return res.status(refusal.status).json(refusal.body);
   const becomesAdmin = body.roleType === RoleType.ADMIN;
-  if ((role.roleType === RoleType.ADMIN || becomesAdmin) && !req.isAdmin) {
+  if ((role.roleType === RoleType.ADMIN || becomesAdmin) && !authority.isAdmin) {
     return res.status(403).json(ADMIN_ONLY_ERROR);
+  }
+
+  // Lifting "own documents only" from a role you hold is widening your own access (A-20).
+  if (
+    !authority.isAdmin &&
+    typeof body.ownDocumentsOnly === 'boolean' &&
+    body.ownDocumentsOnly !== role.ownDocumentsOnly &&
+    (await resolveRoleIds(accountId, orgId, req.auth!.userId)).includes(role.id)
+  ) {
+    return res.status(403).json(OWN_ACCESS_ERROR);
   }
 
   const nextType = body.roleType ?? role.roleType;
@@ -248,7 +267,7 @@ rolesRouter.patch('/orgs/:orgId/roles/:roleId', requirePermission('SETTINGS', Pe
     // Only permissions newly added need to be held by the grantor; a role may
     // always be trimmed.
     const added = [...keys].filter((k) => !held.has(k));
-    const missing = unheldGrants(req, added);
+    const missing = unheldGrants(authority, added);
     if (missing.length) return res.status(403).json(cannotGrantError(missing));
   }
 
@@ -337,7 +356,9 @@ rolesRouter.delete('/orgs/:orgId/roles/:roleId', requirePermission('SETTINGS', P
   const role = await platformPrisma.role.findFirst({ where: { id: roleId, accountId, orgId }, select: { id: true, name: true, roleType: true } });
   if (!role) return res.status(404).json({ error: 'Role not found' });
 
-  if (role.roleType === RoleType.ADMIN && !req.isAdmin) return res.status(403).json(ADMIN_ONLY_ERROR);
+  const { authority, refusal } = await grantAuthority(req, null, permKey('SETTINGS', 'Roles', 'DELETE'));
+  if (refusal) return res.status(refusal.status).json(refusal.body);
+  if (role.roleType === RoleType.ADMIN && !authority.isAdmin) return res.status(403).json(ADMIN_ONLY_ERROR);
 
   const assigned = await platformPrisma.userRoleAssignment.count({ where: { roleId: role.id } });
   if (assigned > 0) {

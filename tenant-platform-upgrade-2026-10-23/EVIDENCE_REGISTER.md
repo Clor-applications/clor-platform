@@ -42,6 +42,8 @@ Updated: 2026-10-23
 | EV-036 | A-16: the payment webhook is reachable and sees the raw body | `billingWebhook.test.ts`; `evidence/A-16/before-fix.txt` (401; raw body undefined), `after-fix.txt` (5 pass incl. billingOperator), `live-curl.json` |
 | EV-037 | A-17: CLOR operator changes need a second factor and leave a record | `billingOperator.test.ts`; `evidence/A-17/before-fix.txt` (expected 403, got 200), `after-fix.txt` (4 suites, 19 tests) |
 | EV-038 | A-18: export gives personal data only to someone who may see it, and says what it left out | `dataExport.test.ts`; `evidence/A-18/before-fix.txt` (3 fail), `after-fix.txt` (18 pass); `evidence/A-18/browser-check.md`, `browser-export-only-user.jpg` |
+| EV-039 | A-19: grants bounded by authority where they apply; nobody changes their own access | `grantScope.test.ts`; `evidence/A-19/before-fix.txt` (6 fail), `after-fix.txt` (20 role/permission suites, 212 tests); `browser-check.md`, `browser-branch-manager-refused.jpg` |
+| EV-040 | A-20: record restrictions and own-documents-only cannot be lifted by the person they bind; admins restricted only by admins | `recordRestrictions.test.ts`; `evidence/A-20/before-fix.txt` (3 fail), `after-fix.txt` (21 suites, 216 tests, A-19 and A-20 together); `browser-check.md`, two screenshots |
 
 ## Evidence quality note
 
