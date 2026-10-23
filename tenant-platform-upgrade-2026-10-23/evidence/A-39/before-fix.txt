@@ -1,0 +1,167 @@
+ DEPRECATED  `test.poolOptions` was removed in Vitest 4. All previous `poolOptions` are now top-level options. Please, refer to the migration guide: https://vitest.dev/guide/migration#pool-rework
+
+ RUN  v4.1.10 /Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_61821", schema "accounting" at "localhost:5432"
+
+The PostgreSQL database "clor_test_61821" schema "accounting" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 1.11s
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/payroll/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_61821", schema "payroll" at "localhost:5432"
+
+The PostgreSQL database "clor_test_61821" schema "payroll" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 604ms
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/people/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_61821", schema "people" at "localhost:5432"
+
+The PostgreSQL database "clor_test_61821" schema "people" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 951ms
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/platform/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_61821", schema "platform" at "localhost:5432"
+
+The PostgreSQL database "clor_test_61821" schema "platform" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 1.27s
+
+[setup] 180 policy statements applied to clor_test_61821
+[setup] 7 policy statements applied to clor_test_61821
+[setup] 10 policy statements applied to clor_test_61821
+[setup] 35 policy statements applied to clor_test_61821
+[setup] 4 policy statements applied to clor_test_61821
+[setup] 96 policy statements applied to clor_test_61821
+[setup] 4 policy statements applied to clor_test_61821
+[setup] 4 policy statements applied to clor_test_61821
+[setup] 4 policy statements applied to clor_test_61821
+[setup] 4 policy statements applied to clor_test_61821
+[setup] 32 policy statements applied to clor_test_61821
+[setup] 24 policy statements applied to clor_test_61821
+[setup] 12 policy statements applied to clor_test_61821
+[setup] 16 policy statements applied to clor_test_61821
+[setup] 4 policy statements applied to clor_test_61821
+[setup] 4 policy statements applied to clor_test_61821
+[setup] 8 policy statements applied to clor_test_61821
+[setup] 8 policy statements applied to clor_test_61821
+[setup] 20 policy statements applied to clor_test_61821
+[setup] 8 policy statements applied to clor_test_61821
+[setup] 4 policy statements applied to clor_test_61821
+[setup] 8 policy statements applied to clor_test_61821
+[setup] 8 policy statements applied to clor_test_61821
+[setup] 12 policy statements applied to clor_test_61821
+[setup] 4 policy statements applied to clor_test_61821
+[setup] 8 policy statements applied to clor_test_61821
+[setup] 28 policy statements applied to clor_test_61821
+[setup] 4 policy statements applied to clor_test_61821
+[setup] 4 policy statements applied to clor_test_61821
+[setup] 4 policy statements applied to clor_test_61821
+[setup] 8 policy statements applied to clor_test_61821
+[setup] 4 policy statements applied to clor_test_61821
+[setup] 4 policy statements applied to clor_test_61821
+[setup] 4 policy statements applied to clor_test_61821
+[setup] 4 policy statements applied to clor_test_61821
+[setup] 8 policy statements applied to clor_test_61821
+[setup] 4 policy statements applied to clor_test_61821
+[setup] 12 policy statements applied to clor_test_61821
+[setup] 4 policy statements applied to clor_test_61821
+[setup] 76 policy statements applied to clor_test_61821
+[setup] 4 policy statements applied to clor_test_61821
+[setup] 4 policy statements applied to clor_test_61821
+[setup] 4 policy statements applied to clor_test_61821
+[setup] 4 policy statements applied to clor_test_61821
+POST /api/auth/signup 200 572 - 145.264 ms
+POST /api/auth/setup-company 200 200 - 531.832 ms
+PUT /api/orgs/cmvlff8dk000ejmas14ft80cc/features 200 1173 - 349.112 ms
+POST /api/orgs/cmvlff8dk000ejmas14ft80cc/payroll/employees 201 330 - 170.243 ms
+DELETE /api/orgs/cmvlff8dk000ejmas14ft80cc/payroll/employees/cmvlff9420000lh5tbd33s3yu 200 11 - 265.145 ms
+POST /api/auth/signup 200 572 - 61.258 ms
+POST /api/auth/setup-company 200 200 - 222.734 ms
+PUT /api/orgs/cmvlff9gk00qujmasz6taqspa/features 200 1173 - 133.864 ms
+POST /api/orgs/cmvlff9gk00qujmasz6taqspa/payroll/employees 201 330 - 40.587 ms
+DELETE /api/orgs/cmvlff9gk00qujmasz6taqspa/payroll/employees/cmvlff9rf0001lh5tgxkh1w4l 200 11 - 63.307 ms
+POST /api/auth/signup 200 572 - 5.143 ms
+POST /api/auth/setup-company 200 200 - 84.517 ms
+PUT /api/orgs/cmvlff9u7018tjmas6dga2za5/features 200 1173 - 114.518 ms
+POST /api/orgs/cmvlff9u7018tjmas6dga2za5/payroll/components 201 844 - 35.010 ms
+POST /api/orgs/cmvlff9u7018tjmas6dga2za5/payroll/structures 201 539 - 48.940 ms
+POST /api/orgs/cmvlff9u7018tjmas6dga2za5/payroll/employees 201 330 - 40.089 ms
+DELETE /api/orgs/cmvlff9u7018tjmas6dga2za5/payroll/employees/cmvlffa350002lh5tn5sejnwj 200 11 - 59.868 ms
+POST /api/orgs/cmvlff9u7018tjmas6dga2za5/payroll/assignments 400 29 - 163.164 ms
+POST /api/orgs/cmvlff9u7018tjmas6dga2za5/payroll/employees 201 330 - 39.862 ms
+DELETE /api/orgs/cmvlff9u7018tjmas6dga2za5/payroll/employees/cmvlffa8w0003lh5t4nijue91 200 11 - 44.967 ms
+POST /api/orgs/cmvlff9u7018tjmas6dga2za5/payroll/assignments 400 29 - 117.246 ms
+POST /api/orgs/cmvlff9u7018tjmas6dga2za5/payroll/employees 201 330 - 36.922 ms
+DELETE /api/orgs/cmvlff9u7018tjmas6dga2za5/payroll/employees/cmvlffad90004lh5tzx9v2vt4 200 11 - 44.929 ms
+POST /api/orgs/cmvlff9u7018tjmas6dga2za5/payroll/assignments 400 29 - 78.811 ms
+POST /api/orgs/cmvlff9u7018tjmas6dga2za5/payroll/employees 201 330 - 38.349 ms
+DELETE /api/orgs/cmvlff9u7018tjmas6dga2za5/payroll/employees/cmvlffagl0005lh5tdcki8ati 200 11 - 44.943 ms
+POST /api/orgs/cmvlff9u7018tjmas6dga2za5/payroll/assignments 400 29 - 85.703 ms
+POST /api/orgs/cmvlff9u7018tjmas6dga2za5/payroll/employees 201 330 - 38.219 ms
+DELETE /api/orgs/cmvlff9u7018tjmas6dga2za5/payroll/employees/cmvlffak30006lh5teby6wdj4 200 11 - 59.148 ms
+POST /api/orgs/cmvlff9u7018tjmas6dga2za5/payroll/assignments 400 29 - 86.881 ms
+POST /api/orgs/cmvlff9u7018tjmas6dga2za5/payroll/employees 201 330 - 59.102 ms
+DELETE /api/orgs/cmvlff9u7018tjmas6dga2za5/payroll/employees/cmvlffao60007lh5tv1oanbmm 200 11 - 68.719 ms
+POST /api/orgs/cmvlff9u7018tjmas6dga2za5/payroll/assignments 400 29 - 119.523 ms
+ ❯ src/__tests__/payrollEmployeeDelete.test.ts (3 tests | 2 failed) 3310ms
+     × is refused while they have any payroll history, not only payslips 1540ms
+     × takes their payroll setup with them, leaving nothing behind 553ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/__tests__/payrollEmployeeDelete.test.ts > deleting an employee > is refused while they have any payroll history, not only payslips
+AssertionError: expected 200 to be 409 // Object.is equality
+
+- Expected
++ Received
+
+- 409
++ 200
+
+ ❯ src/__tests__/payrollEmployeeDelete.test.ts:52:24
+     50|     );
+     51|     const res = await del(c, id);
+     52|     expect(res.status).toBe(409);
+       |                        ^
+     53|     expect(res.body.code).toBe('EMPLOYEE_IN_USE');
+     54|     expect(res.body.error).toMatch(/loans/);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  src/__tests__/payrollEmployeeDelete.test.ts > deleting an employee > takes their payroll setup with them, leaving nothing behind
+AssertionError: expected { Object (loans, statutory, ...) } to deeply equal { loans: +0, statutory: +0, …(1) }
+
+- Expected
++ Received
+
+  {
+    "loans": 0,
+    "profile": 0,
+-   "statutory": 0,
++   "statutory": 1,
+  }
+
+ ❯ src/__tests__/payrollEmployeeDelete.test.ts:65:37
+     63|     );
+     64|     await del(c, id).expect(200);
+     65|     expect(await rows(c.orgId, id)).toEqual({ loans: 0, statutory: 0, …
+       |                                     ^
+     66|   });
+     67|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 1 passed (3)
+   Start at  02:02:19
+   Duration  20.92s (transform 2.93s, setup 29ms, import 5.83s, tests 3.31s, environment 0ms)
+

@@ -7,6 +7,7 @@ import { requirePermission } from '../middleware/rbac.js';
 import { PermissionAction } from '../constants/enums.js';
 import { payrollPrisma } from '../utils/payrollPrisma.js';
 import { peoplePrisma } from '../utils/peoplePrisma.js';
+import { forLiveEmployee } from '../services/payroll/employeeLock.js';
 import { PAYROLL_MODULE, PAYROLL_RESOURCE, payrollRouteOk } from '../services/payroll/guards.js';
 
 /**
@@ -194,7 +195,8 @@ payrollAssignmentsRouter.post(
      * transaction. Two open assignments would be two salaries for one day and
      * the run would take whichever it read first.
      */
-    const row = await payrollPrisma.$transaction(async (tx) => {
+    /* Under the same lock a delete of this person takes (A-39): if they were deleted meanwhile, nothing is made for nobody. */
+    const row = await forLiveEmployee(orgId, body.employeeId, async (tx) => {
       const previous = await tx.salaryAssignment.findFirst({
         where: { orgId, employeeId: body.employeeId, status: 'ACTIVE', effectiveFrom: { lt: body.effectiveFrom } },
         orderBy: { effectiveFrom: 'desc' },

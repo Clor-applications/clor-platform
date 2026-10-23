@@ -10,6 +10,7 @@ import { payrollPrisma } from '../utils/payrollPrisma.js';
 import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { PAYROLL_MODULE, PAYROLL_RESOURCE, payrollRouteOk } from '../services/payroll/guards.js';
 import { SalaryRevisionError, applyRevision, previewImpact } from '../services/payroll/revision.js';
+import { forLiveEmployee } from '../services/payroll/employeeLock.js';
 
 /**
  * Salary revisions, and what they actually cost.
@@ -254,7 +255,7 @@ payrollRevisionsRouter.post(
     });
     const currentCtc = Number(current?.annualCtc ?? 0);
 
-    const row = await payrollPrisma.salaryRevision.create({
+    const row = await forLiveEmployee(orgId, parsed.data.employeeId, (tx) => tx.salaryRevision.create({
       data: {
         accountId,
         orgId,
@@ -273,7 +274,7 @@ payrollRevisionsRouter.post(
         status: 'DRAFT',
         createdByUserId: req.auth!.userId,
       },
-    });
+    }));
 
     res.status(201).json({ revision: shape(row) });
   }

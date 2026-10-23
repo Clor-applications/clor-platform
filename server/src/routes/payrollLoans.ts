@@ -9,6 +9,7 @@ import { payrollPrisma } from '../utils/payrollPrisma.js';
 import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { PAYROLL_MODULE, PAYROLL_RESOURCE, payrollRouteOk } from '../services/payroll/guards.js';
 import { PayrollLoanError, approveLoan, buildSchedule, summarise } from '../services/payroll/loan.js';
+import { forLiveEmployee } from '../services/payroll/employeeLock.js';
 
 /**
  * Loans and salary advances.
@@ -233,7 +234,7 @@ payrollLoansRouter.post(
     const count = await payrollPrisma.payrollLoan.count({ where: { orgId } });
     const number = `LN-${parsed.data.startDate.slice(0, 4)}-${String(count + 1).padStart(4, '0')}`;
 
-    const row = await payrollPrisma.payrollLoan.create({
+    const row = await forLiveEmployee(orgId, parsed.data.employeeId, (tx) => tx.payrollLoan.create({
       data: {
         accountId,
         orgId,
@@ -254,7 +255,7 @@ payrollLoansRouter.post(
         notes: parsed.data.notes?.trim() || null,
         createdByUserId: req.auth!.userId,
       },
-    });
+    }));
 
     res.status(201).json({ loan: shape(row) });
   }

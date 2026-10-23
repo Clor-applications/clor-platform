@@ -3,6 +3,7 @@ import { payrollPrisma } from '../../utils/payrollPrisma.js';
 import { peoplePrisma } from '../../utils/peoplePrisma.js';
 import { platformPrisma } from '../../utils/platformPrisma.js';
 import { sendTemplate } from '../mailer.js';
+import { forLiveEmployee } from './employeeLock.js';
 
 /**
  * Changes to where somebody is paid (BankDetailChange).
@@ -71,7 +72,7 @@ export async function routeBankUpdate(opts: {
 
   /* Nothing to divert yet: the first account on file is onboarding, recorded and applied. */
   if (!before.bankAccountNumber && !before.bankIfsc) {
-    await payrollPrisma.bankDetailChange.create({ data: { ...row, status: 'APPROVED', decidedByUserId: opts.userId, decidedAt: new Date(), note: 'First bank details on file.' } });
+    await forLiveEmployee(opts.orgId, opts.employeeId, (tx) => tx.bankDetailChange.create({ data: { ...row, status: 'APPROVED', decidedByUserId: opts.userId, decidedAt: new Date(), note: 'First bank details on file.' } }));
     return { apply: after as BankDetails, pending: null };
   }
 
@@ -80,7 +81,7 @@ export async function routeBankUpdate(opts: {
     where: { orgId: opts.orgId, employeeId: opts.employeeId, status: 'PENDING' },
     data: { status: 'CANCELLED', decidedByUserId: opts.userId, decidedAt: new Date(), note: 'Replaced by a newer change.' },
   });
-  const pending = await payrollPrisma.bankDetailChange.create({ data: row });
+  const pending = await forLiveEmployee(opts.orgId, opts.employeeId, (tx) => tx.bankDetailChange.create({ data: row }));
   await tellEmployee(opts.accountId, opts.orgId, opts.employeeId, after.bankAccountNumber).catch(() => undefined);
   /* Whoever may approve pay runs sees it waiting, in whichever app they have open. */
   const who = await peoplePrisma.employee.findFirst({ where: { orgId: opts.orgId, id: opts.employeeId }, select: { name: true } });

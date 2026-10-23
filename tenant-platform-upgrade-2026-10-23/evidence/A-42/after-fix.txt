@@ -1,0 +1,102 @@
+ DEPRECATED  `test.poolOptions` was removed in Vitest 4. All previous `poolOptions` are now top-level options. Please, refer to the migration guide: https://vitest.dev/guide/migration#pool-rework
+
+ RUN  v4.1.10 /Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_52265", schema "accounting" at "localhost:5432"
+
+The PostgreSQL database "clor_test_52265" schema "accounting" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 1.12s
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/payroll/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_52265", schema "payroll" at "localhost:5432"
+
+The PostgreSQL database "clor_test_52265" schema "payroll" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 935ms
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/people/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_52265", schema "people" at "localhost:5432"
+
+The PostgreSQL database "clor_test_52265" schema "people" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 946ms
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/platform/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_52265", schema "platform" at "localhost:5432"
+
+The PostgreSQL database "clor_test_52265" schema "platform" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 984ms
+
+[setup] 180 policy statements applied to clor_test_52265
+[setup] 7 policy statements applied to clor_test_52265
+[setup] 10 policy statements applied to clor_test_52265
+[setup] 35 policy statements applied to clor_test_52265
+[setup] 4 policy statements applied to clor_test_52265
+[setup] 96 policy statements applied to clor_test_52265
+[setup] 4 policy statements applied to clor_test_52265
+[setup] 4 policy statements applied to clor_test_52265
+[setup] 4 policy statements applied to clor_test_52265
+[setup] 4 policy statements applied to clor_test_52265
+[setup] 32 policy statements applied to clor_test_52265
+[setup] 24 policy statements applied to clor_test_52265
+[setup] 12 policy statements applied to clor_test_52265
+[setup] 16 policy statements applied to clor_test_52265
+[setup] 4 policy statements applied to clor_test_52265
+[setup] 4 policy statements applied to clor_test_52265
+[setup] 8 policy statements applied to clor_test_52265
+[setup] 8 policy statements applied to clor_test_52265
+[setup] 20 policy statements applied to clor_test_52265
+[setup] 8 policy statements applied to clor_test_52265
+[setup] 4 policy statements applied to clor_test_52265
+[setup] 8 policy statements applied to clor_test_52265
+[setup] 8 policy statements applied to clor_test_52265
+[setup] 12 policy statements applied to clor_test_52265
+[setup] 4 policy statements applied to clor_test_52265
+[setup] 8 policy statements applied to clor_test_52265
+[setup] 28 policy statements applied to clor_test_52265
+[setup] 4 policy statements applied to clor_test_52265
+[setup] 4 policy statements applied to clor_test_52265
+[setup] 4 policy statements applied to clor_test_52265
+[setup] 8 policy statements applied to clor_test_52265
+[setup] 4 policy statements applied to clor_test_52265
+[setup] 4 policy statements applied to clor_test_52265
+[setup] 4 policy statements applied to clor_test_52265
+[setup] 4 policy statements applied to clor_test_52265
+[setup] 8 policy statements applied to clor_test_52265
+[setup] 4 policy statements applied to clor_test_52265
+[setup] 12 policy statements applied to clor_test_52265
+[setup] 4 policy statements applied to clor_test_52265
+[setup] 76 policy statements applied to clor_test_52265
+[setup] 4 policy statements applied to clor_test_52265
+[setup] 4 policy statements applied to clor_test_52265
+[setup] 4 policy statements applied to clor_test_52265
+[setup] 4 policy statements applied to clor_test_52265
+POST /api/auth/signup 200 570 - 145.096 ms
+POST /api/auth/setup-company 200 198 - 409.862 ms
+PUT /api/orgs/cmvlf4z2i000eb7ujvv2xv8hs/features 200 1173 - 304.448 ms
+POST /api/orgs/cmvlf4z2i000eb7ujvv2xv8hs/people/employees 201 1668 - 364.642 ms
+POST /api/orgs/cmvlf4z2i000eb7ujvv2xv8hs/people/employees/cmvlf4zrk000013n0e30vy3cg/documents 400 92 - 227.344 ms
+POST /api/auth/signup 200 570 - 82.423 ms
+POST /api/auth/setup-company 200 198 - 325.208 ms
+PUT /api/orgs/cmvlf505000qsb7ujzu639385/features 200 1173 - 143.408 ms
+POST /api/orgs/cmvlf505000qsb7ujzu639385/people/employees 201 1668 - 86.807 ms
+POST /api/orgs/cmvlf505000qsb7ujzu639385/people/employees/cmvlf50j7000b13n0rkhce891/documents 400 92 - 92.120 ms
+POST /api/auth/signup 200 570 - 5.396 ms
+POST /api/auth/setup-company 200 198 - 68.447 ms
+PUT /api/orgs/cmvlf50n7018pb7uj7zabo2vy/features 200 1173 - 108.511 ms
+POST /api/orgs/cmvlf50n7018pb7uj7zabo2vy/people/employees 201 1668 - 67.749 ms
+POST /api/orgs/cmvlf50n7018pb7uj7zabo2vy/people/employees/cmvlf50t4000m13n0fth18rl1/documents 201 279 - 62.785 ms
+POST /api/orgs/cmvlf50n7018pb7uj7zabo2vy/people/employees/cmvlf50t4000m13n0fth18rl1/documents 201 285 - 44.866 ms
+
+ Test Files  1 passed (1)
+      Tests  4 passed (4)
+   Start at  01:54:18
+   Duration  22.11s (transform 3.53s, setup 30ms, import 6.90s, tests 2.60s, environment 0ms)
+

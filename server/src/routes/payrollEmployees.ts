@@ -11,6 +11,7 @@ import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { PAYROLL_MODULE, PAYROLL_RESOURCE, payrollRouteOk } from '../services/payroll/guards.js';
 import { levelFor, resolveAccess } from '../services/access.js';
 import { pushEmployeeToReaders, readerFieldsChanged, revokeFromReaders } from '../services/attendance/readerSync.js';
+import { PAYROLL_HISTORY, PAYROLL_SETUP, lockPayrollEmployee } from '../services/payroll/employeeLock.js';
 import { emit as emitWebhook, employeeEvent } from '../services/attendance/webhooks.js';
 import { BANK_FIELDS, BankChangeError, approveBankChange, maskNumber, rejectBankChange, routeBankUpdate } from '../services/payroll/bankChanges.js';
 import { requirePayrollStepUp } from '../services/stepUp.js';
@@ -454,27 +455,35 @@ payrollEmployeesRouter.delete(
     const existing = await peoplePrisma.employee.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
     if (!existing) return res.status(404).json({ error: 'No such employee.' });
 
-    /* Somebody who has been paid is a permanent record. Marking them as left
-       is what ending employment means; deleting them would take the payslips
-       with them. */
-    const [slips, assignments] = await Promise.all([
-      payrollPrisma.salarySlip.count({ where: { orgId, employeeId: existing.id } }),
-      payrollPrisma.salaryAssignment.count({ where: { orgId, employeeId: existing.id } }),
-    ]);
-    if (slips > 0 || assignments > 0) {
+    /*
+     * Somebody with payroll history is a permanent record. Marking them as
+     * left is what ending employment means; deleting them would take that
+     * history with them — or, as it did (A-39), leave eleven payroll tables
+     * pointing at nobody, since only payslips and assignments were checked.
+     *
+     * The check, removing their payroll setup and deleting them happen under
+     * one lock on this person (services/payroll/employeeLock.ts), which every
+     * writer of their payroll records also takes: nothing can be added for
+     * them between the check and the delete.
+     */
+    const refused = await payrollPrisma.$transaction(async (tx: any) => {
+      await lockPayrollEmployee(tx, existing.id);
+      for (const [model, what] of PAYROLL_HISTORY) {
+        if (await tx[model].count({ where: { orgId, employeeId: existing.id } })) return what;
+      }
+      for (const model of PAYROLL_SETUP) await tx[model].deleteMany({ where: { orgId, employeeId: existing.id } });
+      /* Off the readers first, or the next read of a reader brings them back as a new employee. */
+      await revokeFromReaders(orgId, existing, req.auth!.userId);
+      /* Still holding the lock: a writer waiting on it finds them gone. If this fails, their setup comes back. */
+      await peoplePrisma.employee.delete({ where: { id: existing.id } });
+      return null;
+    }, { timeout: 30_000 });
+    if (refused) {
       return res.status(409).json({
-        error:
-          slips > 0
-            ? 'This employee has payslips, so the record cannot be deleted. Set them to Left instead.'
-            : 'This employee has a salary assignment. Remove it first, or set them to Left.',
+        error: `This employee has ${refused}, so the record cannot be deleted. Set them to Left instead.`,
         code: 'EMPLOYEE_IN_USE',
       });
     }
-
-    /* Off the readers first, or the next read of a reader brings them back as a new employee. */
-    await revokeFromReaders(orgId, existing, req.auth!.userId);
-    await payrollPrisma.employeePayrollProfile.deleteMany({ where: { orgId, employeeId: existing.id } });
-    await peoplePrisma.employee.delete({ where: { id: existing.id } });
     res.json({ ok: true });
   }
 );

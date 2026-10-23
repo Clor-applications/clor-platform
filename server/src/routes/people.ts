@@ -20,6 +20,8 @@ import { PAYROLL_MODULE, PAYROLL_RESOURCE } from '../services/payroll/guards.js'
 import { KINDS, READER_ACCESS_ITEM, checklistOf, cleanItems, itemsFor, openTasks, startChecklist, type Kind as ChecklistKind } from '../services/people/checklists.js';
 import { addCustom, calendar, evidenceOf, updateTask } from '../services/people/compliance.js';
 import { homeTodos } from '../services/people/home.js';
+import { verifiedMime } from '../services/fileType.js';
+import { PAYROLL_HISTORY, lockPayrollEmployee } from '../services/payroll/employeeLock.js';
 
 /**
  * People: the staff directory.
@@ -611,28 +613,37 @@ peopleRouter.delete('/orgs/:orgId/people/employees/:id', can(PermissionAction.DE
   const { accountId, orgId } = req.tenant!;
   const existing = await peoplePrisma.employee.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
   if (!existing) return res.status(404).json({ error: 'No such employee.' });
-  const [profile, slips] = await Promise.all([
-    payrollPrisma.employeePayrollProfile.findFirst({ where: { orgId, employeeId: existing.id }, select: { id: true } }),
-    payrollPrisma.salarySlip.count({ where: { orgId, employeeId: existing.id } }),
-  ]);
-  if (profile || slips) {
+  /*
+   * In payroll at all — a profile, or any payroll history (A-39: only
+   * payslips were checked, so someone with a loan or an adjustment was
+   * binned and their records pointed at nobody) — is a reason to mark them
+   * as left. Checked and binned under the lock payroll writers take
+   * (services/payroll/employeeLock.ts), so nothing is added in between.
+   */
+  const inPayroll = await payrollPrisma.$transaction(async (tx: any) => {
+    await lockPayrollEmployee(tx, existing.id);
+    if (await tx.employeePayrollProfile.count({ where: { orgId, employeeId: existing.id } })) return true;
+    for (const [model] of PAYROLL_HISTORY) if (await tx[model].count({ where: { orgId, employeeId: existing.id } })) return true;
+    await revokeFromReaders(orgId, existing, req.auth!.userId);
+    /* Their reports move up to their manager; the bin remembers who they were, to put them back on restore. */
+    const reports = await peoplePrisma.employee.findMany({ where: { orgId, reportingManagerId: existing.id }, select: { id: true } });
+    await deleteToBin(req, 'employee', existing, {
+      links: { reportingManagerId: reports.map((r) => r.id) },
+      alongside: [
+        peoplePrisma.employee.updateMany({
+          where: { orgId, reportingManagerId: existing.id },
+          data: { reportingManagerId: existing.reportingManagerId },
+        }),
+      ],
+    });
+    return false;
+  }, { timeout: 30_000 });
+  if (inPayroll) {
     return res.status(409).json({
       error: 'This person is in payroll. Mark them as having left instead of deleting their file.',
       code: 'EMPLOYEE_IN_PAYROLL',
     });
   }
-  await revokeFromReaders(orgId, existing, req.auth!.userId);
-  /* Their reports move up to their manager; the bin remembers who they were, to put them back on restore. */
-  const reports = await peoplePrisma.employee.findMany({ where: { orgId, reportingManagerId: existing.id }, select: { id: true } });
-  await deleteToBin(req, 'employee', existing, {
-    links: { reportingManagerId: reports.map((r) => r.id) },
-    alongside: [
-      peoplePrisma.employee.updateMany({
-        where: { orgId, reportingManagerId: existing.id },
-        data: { reportingManagerId: existing.reportingManagerId },
-      }),
-    ],
-  });
   res.json({ ok: true });
 });
 
@@ -961,6 +972,8 @@ function decodeDocument(input: unknown, mimeHint?: unknown): { mime: string; dat
   }
   if (!data.length) return { error: 'The file is empty.' };
   if (data.length > DOC_MAX_BYTES) return { error: 'Files up to 5 MB.' };
+  /* A-42: the file's own bytes have to agree with what it says it is. */
+  if (!verifiedMime(data, mime, (t) => DOC_MIMES.test(t))) return { error: 'That file is not what its name says. Upload the PDF, picture or document itself.' };
   return { mime, data };
 }
 const docRow = (d: any) => ({ id: d.id, employeeId: d.employeeId, kind: d.kind, title: d.title, mime: d.mime, size: d.size, expiresOn: d.expiresOn, visibleToEmployee: d.visibleToEmployee, uploadedByUserId: d.uploadedByUserId, createdAt: d.createdAt });

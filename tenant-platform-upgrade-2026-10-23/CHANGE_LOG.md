@@ -61,9 +61,12 @@ Changed:
 - A-29 fixed: an API key's punches are recorded under a reader of its own company and never under one another company claimed; reserved serial prefixes cannot be claimed by hand. Application behavior changed: yes. Schema: no.
 - A-30, A-37 fixed: routes that learn their company from a token run as that company once it is known; queries made during an interactive transaction keep the company setting. Application behavior changed: no visible change; the database backstop now applies on these paths. Schema: no.
 - A-38 fixed: the database copy script turns FORCE row-level security back on however it ends. Application behavior changed: no (operator script). Schema: no.
+- Attendance services layer merged (`588f3f7`): ingestion, days, reader sync, vendor pulls, leave balances, punch photos, corrections and the permission catalogue seed moved from route files into services; no service imports a route; behaviour unchanged (EV-054).
+- A-39 fixed: a person with any payroll history cannot be deleted (Payroll or People); their payroll setup goes with them; deletes and payroll writes for one person are serialised. Application behavior changed: yes. Schema: no.
+- A-42 fixed: uploaded documents and compliance evidence are typed by their own bytes; a file whose bytes disagree with its stated type is refused. Application behavior changed: yes. Schema: no.
 
 Running totals for 2026-10-23:  
-Application behavior changed: yes (GAP-002, GAP-003, A-03, A-01, A-02, A-04, A-05, A-07, A-06, A-08, A-09, A-10, A-11, A-12, A-13, A-14, A-15, A-16, A-17, A-18, A-19, A-20, A-21, A-22, A-24, A-23, A-25, A-26, A-27, A-28, A-29, A-30, A-37, A-38).  
+Application behavior changed: yes (GAP-002, GAP-003, A-03, A-01, A-02, A-04, A-05, A-07, A-06, A-08, A-09, A-10, A-11, A-12, A-13, A-14, A-15, A-16, A-17, A-18, A-19, A-20, A-21, A-22, A-24, A-23, A-25, A-26, A-27, A-28, A-29, A-30, A-37, A-38, A-39, A-42).  
 Database schema changed: yes (platform `Account.legacyUnrestrictedAt`; platform `AuthPolicy.makerChecker`; applied locally only).  
 Deployment or Cloudflare configuration changed: no.  
 Customer data accessed: no (local test accounts only).

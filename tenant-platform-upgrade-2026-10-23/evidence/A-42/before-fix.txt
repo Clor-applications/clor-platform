@@ -1,0 +1,146 @@
+ DEPRECATED  `test.poolOptions` was removed in Vitest 4. All previous `poolOptions` are now top-level options. Please, refer to the migration guide: https://vitest.dev/guide/migration#pool-rework
+
+ RUN  v4.1.10 /Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_53149", schema "accounting" at "localhost:5432"
+
+The PostgreSQL database "clor_test_53149" schema "accounting" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 1.26s
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/payroll/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_53149", schema "payroll" at "localhost:5432"
+
+The PostgreSQL database "clor_test_53149" schema "payroll" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 761ms
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/people/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_53149", schema "people" at "localhost:5432"
+
+The PostgreSQL database "clor_test_53149" schema "people" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 838ms
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/platform/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_53149", schema "platform" at "localhost:5432"
+
+The PostgreSQL database "clor_test_53149" schema "platform" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 990ms
+
+[setup] 180 policy statements applied to clor_test_53149
+[setup] 7 policy statements applied to clor_test_53149
+[setup] 10 policy statements applied to clor_test_53149
+[setup] 35 policy statements applied to clor_test_53149
+[setup] 4 policy statements applied to clor_test_53149
+[setup] 96 policy statements applied to clor_test_53149
+[setup] 4 policy statements applied to clor_test_53149
+[setup] 4 policy statements applied to clor_test_53149
+[setup] 4 policy statements applied to clor_test_53149
+[setup] 4 policy statements applied to clor_test_53149
+[setup] 32 policy statements applied to clor_test_53149
+[setup] 24 policy statements applied to clor_test_53149
+[setup] 12 policy statements applied to clor_test_53149
+[setup] 16 policy statements applied to clor_test_53149
+[setup] 4 policy statements applied to clor_test_53149
+[setup] 4 policy statements applied to clor_test_53149
+[setup] 8 policy statements applied to clor_test_53149
+[setup] 8 policy statements applied to clor_test_53149
+[setup] 20 policy statements applied to clor_test_53149
+[setup] 8 policy statements applied to clor_test_53149
+[setup] 4 policy statements applied to clor_test_53149
+[setup] 8 policy statements applied to clor_test_53149
+[setup] 8 policy statements applied to clor_test_53149
+[setup] 12 policy statements applied to clor_test_53149
+[setup] 4 policy statements applied to clor_test_53149
+[setup] 8 policy statements applied to clor_test_53149
+[setup] 28 policy statements applied to clor_test_53149
+[setup] 4 policy statements applied to clor_test_53149
+[setup] 4 policy statements applied to clor_test_53149
+[setup] 4 policy statements applied to clor_test_53149
+[setup] 8 policy statements applied to clor_test_53149
+[setup] 4 policy statements applied to clor_test_53149
+[setup] 4 policy statements applied to clor_test_53149
+[setup] 4 policy statements applied to clor_test_53149
+[setup] 4 policy statements applied to clor_test_53149
+[setup] 8 policy statements applied to clor_test_53149
+[setup] 4 policy statements applied to clor_test_53149
+[setup] 12 policy statements applied to clor_test_53149
+[setup] 4 policy statements applied to clor_test_53149
+[setup] 76 policy statements applied to clor_test_53149
+[setup] 4 policy statements applied to clor_test_53149
+[setup] 4 policy statements applied to clor_test_53149
+[setup] 4 policy statements applied to clor_test_53149
+[setup] 4 policy statements applied to clor_test_53149
+POST /api/auth/signup 200 570 - 137.856 ms
+POST /api/auth/setup-company 200 198 - 617.052 ms
+PUT /api/orgs/cmvlf5pxt000exzlayuo5dgqv/features 200 1173 - 294.916 ms
+POST /api/orgs/cmvlf5pxt000exzlayuo5dgqv/people/employees 201 1668 - 218.564 ms
+POST /api/orgs/cmvlf5pxt000exzlayuo5dgqv/people/employees/cmvlf5qoq000014h5jpyp4xj3/documents 201 279 - 219.034 ms
+POST /api/auth/signup 200 570 - 50.832 ms
+POST /api/auth/setup-company 200 198 - 392.743 ms
+PUT /api/orgs/cmvlf5r1700quxzla9npk9v1c/features 200 1173 - 339.714 ms
+POST /api/orgs/cmvlf5r1700quxzla9npk9v1c/people/employees 201 1668 - 100.809 ms
+POST /api/orgs/cmvlf5r1700quxzla9npk9v1c/people/employees/cmvlf5rmk000d14h5mnux5qm4/documents 201 284 - 97.551 ms
+POST /api/auth/signup 200 570 - 8.793 ms
+POST /api/auth/setup-company 200 198 - 101.578 ms
+PUT /api/orgs/cmvlf5rqy018txzlaz09l7jag/features 200 1173 - 124.099 ms
+POST /api/orgs/cmvlf5rqy018txzlaz09l7jag/people/employees 201 1668 - 61.693 ms
+POST /api/orgs/cmvlf5rqy018txzlaz09l7jag/people/employees/cmvlf5ryb000q14h5d9w3dqfj/documents 201 279 - 57.189 ms
+POST /api/orgs/cmvlf5rqy018txzlaz09l7jag/people/employees/cmvlf5ryb000q14h5d9w3dqfj/documents 201 285 - 68.652 ms
+ ❯ src/__tests__/uploadSniff.test.ts (4 tests | 2 failed) 2953ms
+     × refuses a page of HTML sent as a PNG 1527ms
+     × refuses a PDF that is not one 995ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/__tests__/uploadSniff.test.ts > an employee document upload > refuses a page of HTML sent as a PNG
+AssertionError: expected 201 to be 400 // Object.is equality
+
+- Expected
++ Received
+
+- 400
++ 201
+
+ ❯ src/__tests__/uploadSniff.test.ts:45:24
+     43|     const up = await setup();
+     44|     const res = await up(asData('image/png', Buffer.from('<html><scrip…
+     45|     expect(res.status).toBe(400);
+       |                        ^
+     46|   });
+     47|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  src/__tests__/uploadSniff.test.ts > an employee document upload > refuses a PDF that is not one
+AssertionError: expected 201 to be 400 // Object.is equality
+
+- Expected
++ Received
+
+- 400
++ 201
+
+ ❯ src/__tests__/uploadSniff.test.ts:50:103
+     48|   it('refuses a PDF that is not one', async () => {
+     49|     const up = await setup();
+     50|     expect((await up(asData('application/pdf', Buffer.from([0x4d, 0x5a…
+       |                                                                                                       ^
+     51|   });
+     52|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 2 passed (4)
+   Start at  01:54:54
+   Duration  21.71s (transform 3.23s, setup 30ms, import 6.22s, tests 2.95s, environment 0ms)
+

@@ -9,6 +9,7 @@ import { PermissionAction } from '../constants/enums.js';
 import { payrollPrisma } from '../utils/payrollPrisma.js';
 import { peoplePrisma, peopleWrite } from '../utils/peoplePrisma.js';
 import { PAYROLL_MODULE, PAYROLL_RESOURCE, payrollRouteOk } from '../services/payroll/guards.js';
+import { forLiveEmployee } from '../services/payroll/employeeLock.js';
 
 /**
  * One-off earnings and deductions: a bonus, an arrear, a fine, a recovery.
@@ -194,7 +195,7 @@ payrollAdjustmentsRouter.post(
         }
         if (prior) return payrollPrisma.payrollAdjustment.update({ where: { id: prior.id }, data: { componentId: parsed.data.componentId, periodId: parsed.data.periodId, amount: parsed.data.amount, status: 'DRAFT', approvedAt: null, approvedByUserId: null, consumedByRunId: null } });
       }
-      return payrollPrisma.payrollAdjustment.create({
+      return forLiveEmployee(orgId, parsed.data.employeeId, (tx) => tx.payrollAdjustment.create({
         data: {
           ...(source ? { id: `leave-encash:${source.id}` } : {}),
           accountId,
@@ -210,7 +211,7 @@ payrollAdjustmentsRouter.post(
           status: 'DRAFT',
           createdByUserId: req.auth!.userId,
         },
-      });
+      }));
     };
     const row = parsed.data.leaveEncashmentId ? await peopleWrite(orgId, create) : await create();
 
