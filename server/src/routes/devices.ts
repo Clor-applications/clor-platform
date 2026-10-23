@@ -8,11 +8,13 @@ import { PermissionAction } from '../constants/enums.js';
 import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { ATTENDANCE_MODULE, ATTENDANCE_RESOURCE, attendanceRouteOk } from '../services/attendance/guards.js';
 import { COMMANDS, FACE, FETCH_TEMPLATE_COMMANDS, ONLINE_WINDOW_MS, SEQ, USERPIC, VERIFY_MODES, commandEffect, messageCommand, normaliseFirmware, pinKey, userCommandFor } from '../services/attendance/adms.js';
-import { ISO_DATE, sendError, today } from './attendance.js';
+import { ISO_DATE, sendError, today } from '../services/attendance/days.js';
 import { siteIdClash } from '../services/attendance/readerIds.js';
 import { biometricPolicy } from '../services/attendance/biometrics.js';
 import { CATALOGUE, SUPPORT_LABEL, TESTS, supportOf } from '../services/attendance/certification.js';
-import { moveIdAtSite, attachPunchesTo, copyAllTemplatesTo, pinMatcher, recomputeDeviceDay, servesArea, shiftDayFor, syncVendorConnection } from './iclock.js';
+import { syncVendorConnection } from '../services/attendance/vendorSync.js';
+import { moveIdAtSite, attachPunchesTo, copyAllTemplatesTo, servesArea } from '../services/attendance/readerSync.js';
+import { pinMatcher, recomputeDeviceDay, shiftDayFor } from '../services/attendance/punches.js';
 import { decryptSecret, encryptSecret } from '../services/mailer.js';
 import { checkUrl } from '../services/outbound.js';
 import { etoFetchPunches } from '../services/attendance/etimeoffice.js';
@@ -24,7 +26,7 @@ import { parseCsv } from '../services/attendance/csv.js';
 import { hashToken } from './publicApi.js';
 import { MATRIX_COMMANDS, MATRIX_COMMAND_LABELS } from './matrix.js';
 import { setTimeCommand } from '../services/attendance/adms.js';
-import { ingestPunches } from './iclock.js';
+import { ingestPunches } from '../services/attendance/punches.js';
 
 /**
  * Biometric readers, as the company manages them: claim a reader by its serial

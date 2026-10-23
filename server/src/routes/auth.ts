@@ -10,7 +10,7 @@ import { companyLimitReason } from '../services/entitlements.js';
 import { suggestSlug } from '../services/slug.js';
 import { PermissionAction, RoleType } from '../constants/enums.js';
 import { ensureLedgerSetup } from '../services/ledger.js';
-import { ensurePermissionCatalog } from './permissions.js';
+import { ensurePermissionCatalog } from '../services/permissionCatalogSeed.js';
 import { clearRefreshCookie, refreshTokenFrom, setRefreshCookie } from '../utils/refreshCookie.js';
 import { codeLimiter, loginLimiter, refreshLimiter, resetLimiter, signupLimiter } from '../middleware/rateLimit.js';
 import {

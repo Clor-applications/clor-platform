@@ -6,8 +6,8 @@ import { authorize } from '../middleware/rbac.js';
 import { PermissionAction } from '../constants/enums.js';
 import { recordAudit } from '../services/auditTrail.js';
 import { BIN_KINDS, binDays, restoreFromBin } from '../services/recycleBin.js';
-import { pushEmployeeToReaders } from './iclock.js';
-import { assertMonthOpen } from './attendance.js';
+import { pushEmployeeToReaders } from '../services/attendance/readerSync.js';
+import { assertMonthOpen } from '../services/attendance/days.js';
 import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { platformPrisma } from '../utils/platformPrisma.js';
 

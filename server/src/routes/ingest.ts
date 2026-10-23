@@ -6,7 +6,7 @@ import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { ingestLimiter } from '../middleware/rateLimit.js';
 import { mappingSchema, recordsOf, toAttlog } from '../services/attendance/punchMapping.js';
 import { hashToken } from './publicApi.js';
-import { ingestPunches } from './iclock.js';
+import { ingestPunches } from '../services/attendance/punches.js';
 import { decryptSecret } from '../services/mailer.js';
 import { enterTenant } from '../utils/tenantScope.js';
 

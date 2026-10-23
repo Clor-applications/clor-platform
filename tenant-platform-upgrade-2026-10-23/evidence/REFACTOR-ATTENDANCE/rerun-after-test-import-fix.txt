@@ -1,0 +1,193 @@
+ DEPRECATED  `test.poolOptions` was removed in Vitest 4. All previous `poolOptions` are now top-level options. Please, refer to the migration guide: https://vitest.dev/guide/migration#pool-rework
+
+ RUN  v4.1.10 /private/tmp/claude-502/-Users-suresh-Desktop-clor-platform--claude-worktrees-subscription-provisioning-gap-003-b84bad/3a64ab76-6b39-486b-9ac5-cb760bf0c4a5/scratchpad/refactor/server
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_48647", schema "accounting" at "localhost:5432"
+
+The PostgreSQL database "clor_test_48647" schema "accounting" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 1.12s
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/payroll/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_48647", schema "payroll" at "localhost:5432"
+
+The PostgreSQL database "clor_test_48647" schema "payroll" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 970ms
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/people/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_48647", schema "people" at "localhost:5432"
+
+The PostgreSQL database "clor_test_48647" schema "people" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 1.56s
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/platform/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_48647", schema "platform" at "localhost:5432"
+
+The PostgreSQL database "clor_test_48647" schema "platform" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 1.16s
+
+[setup] 180 policy statements applied to clor_test_48647
+[setup] 7 policy statements applied to clor_test_48647
+[setup] 10 policy statements applied to clor_test_48647
+[setup] 35 policy statements applied to clor_test_48647
+[setup] 4 policy statements applied to clor_test_48647
+[setup] 96 policy statements applied to clor_test_48647
+[setup] 4 policy statements applied to clor_test_48647
+[setup] 4 policy statements applied to clor_test_48647
+[setup] 4 policy statements applied to clor_test_48647
+[setup] 4 policy statements applied to clor_test_48647
+[setup] 32 policy statements applied to clor_test_48647
+[setup] 24 policy statements applied to clor_test_48647
+[setup] 12 policy statements applied to clor_test_48647
+[setup] 16 policy statements applied to clor_test_48647
+[setup] 4 policy statements applied to clor_test_48647
+[setup] 4 policy statements applied to clor_test_48647
+[setup] 8 policy statements applied to clor_test_48647
+[setup] 8 policy statements applied to clor_test_48647
+[setup] 20 policy statements applied to clor_test_48647
+[setup] 8 policy statements applied to clor_test_48647
+[setup] 4 policy statements applied to clor_test_48647
+[setup] 8 policy statements applied to clor_test_48647
+[setup] 8 policy statements applied to clor_test_48647
+[setup] 12 policy statements applied to clor_test_48647
+[setup] 4 policy statements applied to clor_test_48647
+[setup] 8 policy statements applied to clor_test_48647
+[setup] 28 policy statements applied to clor_test_48647
+[setup] 4 policy statements applied to clor_test_48647
+[setup] 4 policy statements applied to clor_test_48647
+[setup] 4 policy statements applied to clor_test_48647
+[setup] 8 policy statements applied to clor_test_48647
+[setup] 4 policy statements applied to clor_test_48647
+[setup] 4 policy statements applied to clor_test_48647
+[setup] 4 policy statements applied to clor_test_48647
+[setup] 4 policy statements applied to clor_test_48647
+[setup] 8 policy statements applied to clor_test_48647
+[setup] 4 policy statements applied to clor_test_48647
+[setup] 12 policy statements applied to clor_test_48647
+[setup] 4 policy statements applied to clor_test_48647
+[setup] 76 policy statements applied to clor_test_48647
+[setup] 4 policy statements applied to clor_test_48647
+[setup] 4 policy statements applied to clor_test_48647
+[setup] 4 policy statements applied to clor_test_48647
+[setup] 4 policy statements applied to clor_test_48647
+POST /api/auth/signup 200 578 - 145.206 ms
+POST /api/auth/setup-company 200 206 - 597.015 ms
+PUT /api/orgs/cmvlf21z9000e1p3gfgwwa424/features 200 1173 - 357.734 ms
+POST /api/orgs/cmvlf21z9000e1p3gfgwwa424/people/employees 201 1670 - 567.398 ms
+GET /api/orgs/cmvlf21z9000e1p3gfgwwa424/attendance/portal-access 200 461 - 313.278 ms
+POST /api/orgs/cmvlf21z9000e1p3gfgwwa424/attendance/portal-access/codes 200 295 - 222.770 ms
+POST /api/portal/activate 401 83 - 73.257 ms
+POST /api/portal/activate 401 83 - 74.705 ms
+POST /api/portal/activate 400 38 - 1.117 ms
+POST /api/portal/activate 200 482 - 109.958 ms
+POST /api/portal/activate 401 83 - 72.436 ms
+GET /api/orgs/cmvlf21z9000e1p3gfgwwa424/attendance/portal-access 200 481 - 118.645 ms
+POST /api/portal/login 401 65 - 56.979 ms
+POST /api/portal/login 401 65 - 68.632 ms
+POST /api/portal/login 200 482 - 56.830 ms
+GET /api/orgs/cmvlf21z9000e1p3gfgwwa424/attendance/overview 401 33 - 2.194 ms
+GET /api/portal/me 401 56 - 15.820 ms
+GET /api/portal/me 401 49 - 0.638 ms
+GET /api/portal/me 200 495 - 83.176 ms
+GET /api/portal/me 200 495 - 28.529 ms
+GET /api/portal/approvals 200 140 - 17.048 ms
+POST /api/orgs/cmvlf21z9000e1p3gfgwwa424/people/employees 201 1700 - 143.865 ms
+GET /api/portal/me 200 494 - 52.374 ms
+POST /api/orgs/cmvlf21z9000e1p3gfgwwa424/attendance/requests 201 623 - 176.426 ms
+GET /api/portal/approvals 200 363 - 23.142 ms
+POST /api/portal/approvals/correction/cmvlf24gp000mgnzq6eb8ks8f 400 47 - 27.150 ms
+POST /api/portal/approvals/correction/nope 404 28 - 12.526 ms
+POST /api/portal/approvals/correction/cmvlf24gp000mgnzq6eb8ks8f 200 693 - 49.526 ms
+POST /api/portal/approvals/correction/cmvlf24gp000mgnzq6eb8ks8f 409 46 - 22.642 ms
+GET /api/portal/approvals 200 139 - 18.060 ms
+POST /api/orgs/cmvlf21z9000e1p3gfgwwa424/people/employees/cmvlf22zb0000gnzq3xipq86s/documents 201 292 - 129.369 ms
+POST /api/orgs/cmvlf21z9000e1p3gfgwwa424/people/employees/cmvlf22zb0000gnzq3xipq86s/documents 201 285 - 71.049 ms
+POST /api/orgs/cmvlf21z9000e1p3gfgwwa424/people/employees/cmvlf22zb0000gnzq3xipq86s/documents 400 65 - 45.733 ms
+POST /api/orgs/cmvlf21z9000e1p3gfgwwa424/people/employees/cmvlf22zb0000gnzq3xipq86s/documents 400 34 - 101.185 ms
+GET /api/orgs/cmvlf21z9000e1p3gfgwwa424/people/employees/cmvlf22zb0000gnzq3xipq86s/documents 200 568 - 42.226 ms
+GET /api/portal/documents 200 182 - 2.886 ms
+GET /api/portal/documents/cmvlf24ov000rgnzq4h68v2ks 200 166 - 2.507 ms
+GET /api/portal/documents/cmvlf24r3000tgnzqdd6ttj79 404 29 - 3.819 ms
+DELETE /api/orgs/cmvlf21z9000e1p3gfgwwa424/people/documents/cmvlf24r3000tgnzqdd6ttj79 200 11 - 55.087 ms
+GET /api/orgs/cmvlf21z9000e1p3gfgwwa424/people/employees/cmvlf22zb0000gnzq3xipq86s/documents 200 295 - 44.763 ms
+POST /api/portal/data-requests 400 89 - 18.661 ms
+POST /api/portal/data-requests 400 40 - 4.068 ms
+POST /api/portal/data-requests 201 428 - 35.805 ms
+GET /api/orgs/cmvlf21z9000e1p3gfgwwa424/people/data-requests?status=PENDING 200 491 - 51.784 ms
+POST /api/orgs/cmvlf21z9000e1p3gfgwwa424/people/data-requests/cmvlf250o000vgnzq9mgqq1qq/resolve 400 56 - 62.549 ms
+POST /api/orgs/cmvlf21z9000e1p3gfgwwa424/people/data-requests/cmvlf250o000vgnzq9mgqq1qq/resolve 200 497 - 48.611 ms
+POST /api/orgs/cmvlf21z9000e1p3gfgwwa424/people/data-requests/cmvlf250o000vgnzq9mgqq1qq/resolve 409 46 - 55.414 ms
+GET /api/portal/data-requests 200 297 - 3.331 ms
+POST /api/portal/punch 403 91 - 37.243 ms
+PUT /api/orgs/cmvlf21z9000e1p3gfgwwa424/attendance/portal-access 200 13 - 62.798 ms
+POST /api/portal/punch 409 87 - 8.692 ms
+POST /api/orgs/cmvlf21z9000e1p3gfgwwa424/attendance/geofences 201 401 - 64.089 ms
+POST /api/orgs/cmvlf21z9000e1p3gfgwwa424/attendance/geofences 400 46 - 72.483 ms
+POST /api/orgs/cmvlf21z9000e1p3gfgwwa424/attendance/geofences 400 75 - 57.209 ms
+POST /api/portal/punch 403 95 - 19.830 ms
+POST /api/portal/punch 400 134 - 4.363 ms
+POST /api/portal/punch 400 112 - 18.871 ms
+POST /api/portal/punch 400 63 - 4.553 ms
+POST /api/portal/punch 201 123 - 107.623 ms
+POST /api/portal/punch 409 65 - 41.025 ms
+POST /api/portal/punch 201 125 - 95.101 ms
+GET /api/portal/me 200 1523 - 47.484 ms
+GET /api/orgs/cmvlf21z9000e1p3gfgwwa424/attendance/transactions 200 1020 - 119.399 ms
+GET /api/orgs/cmvlf21z9000e1p3gfgwwa424/attendance/punch-photos/cmvlf25id0014gnzqa5l06sml 200 344 - 59.093 ms
+POST /api/orgs/cmvlf21z9000e1p3gfgwwa424/attendance/geofences 201 392 - 62.346 ms
+PUT /api/orgs/cmvlf21z9000e1p3gfgwwa424/attendance/portal-access 200 13 - 56.615 ms
+POST /api/portal/punch 403 86 - 7.020 ms
+PUT /api/orgs/cmvlf21z9000e1p3gfgwwa424/attendance/portal-access 200 13 - 65.696 ms
+DELETE /api/orgs/cmvlf21z9000e1p3gfgwwa424/attendance/geofences/cmvlf25cg000ygnzqrrjktgl5 409 119 - 97.449 ms
+POST /api/orgs/cmvlf21z9000e1p3gfgwwa424/attendance/leave/types 201 675 - 60.520 ms
+POST /api/portal/leave 201 748 - 33.585 ms
+GET /api/portal/leave 200 527 - 14.361 ms
+GET /api/orgs/cmvlf21z9000e1p3gfgwwa424/attendance/leave/requests?status=PENDING 200 751 - 59.245 ms
+POST /api/portal/leave/cmvlf265x001jgnzqt8xn77oi/cancel 200 802 - 5.374 ms
+POST /api/portal/corrections 201 630 - 11.313 ms
+GET /api/portal/attendance?month=2026-10 200 412 - 6.143 ms
+GET /api/portal/schedule 200 3775 - 9.210 ms
+POST /api/portal/password 400 47 - 55.403 ms
+POST /api/portal/password 200 385 - 113.192 ms
+GET /api/portal/me 401 56 - 16.842 ms
+GET /api/portal/me 200 1631 - 32.661 ms
+PUT /api/orgs/cmvlf21z9000e1p3gfgwwa424/attendance/portal-access 200 13 - 71.276 ms
+GET /api/portal/me 401 56 - 2.560 ms
+POST /api/portal/login 401 65 - 70.672 ms
+PUT /api/orgs/cmvlf21z9000e1p3gfgwwa424/attendance/portal-access 200 13 - 69.318 ms
+POST /api/portal/login 200 482 - 55.006 ms
+POST /api/orgs/cmvlf21z9000e1p3gfgwwa424/attendance/portal-access/cmvlf22zb0000gnzq3xipq86s/reset 200 11 - 55.912 ms
+GET /api/portal/me 401 56 - 2.466 ms
+POST /api/portal/login 401 65 - 74.527 ms
+POST /api/orgs/cmvlf21z9000e1p3gfgwwa424/people/employees 201 1667 - 78.885 ms
+POST /api/orgs/cmvlf21z9000e1p3gfgwwa424/attendance/portal-access/codes 400 89 - 56.178 ms
+POST /api/auth/signup 200 568 - 207.697 ms
+POST /api/auth/setup-company 200 200 - 433.269 ms
+PUT /api/orgs/cmvlf27qd000eejtyiaky2tb1/features 200 1173 - 305.270 ms
+POST /api/auth/signup 200 568 - 7.563 ms
+POST /api/auth/setup-company 200 200 - 106.739 ms
+PUT /api/orgs/cmvlf28ax00iaejtyzkaovhvy/features 200 1173 - 139.288 ms
+POST /api/orgs/cmvlf27qd000eejtyiaky2tb1/people/employees 201 1675 - 152.870 ms
+POST /api/orgs/cmvlf28ax00iaejtyzkaovhvy/people/employees 201 1675 - 179.459 ms
+POST /api/orgs/cmvlf27qd000eejtyiaky2tb1/people/employees 201 1675 - 165.524 ms
+PUT /api/orgs/cmvlf27qd000eejtyiaky2tb1/attendance/rules 200 187 - 108.236 ms
+POST /api/auth/signup 200 568 - 24.710 ms
+POST /api/auth/setup-company 200 200 - 127.411 ms
+PUT /api/orgs/cmvlf291q010eejtyoyy5yzef/features 200 1173 - 114.299 ms
+POST /api/auth/signup 200 568 - 6.730 ms
+POST /api/auth/setup-company 200 200 - 93.011 ms
+PUT /api/orgs/cmvlf298n01iaejtytg77ot2f/features 200 1173 - 113.848 ms
+
+ Test Files  2 passed (2)
+      Tests  24 passed (24)
+   Start at  01:52:02
+   Duration  29.57s (transform 3.42s, setup 44ms, import 6.98s, tests 9.16s, environment 0ms)
+

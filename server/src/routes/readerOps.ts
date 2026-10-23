@@ -9,7 +9,8 @@ import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { ATTENDANCE_MODULE, ATTENDANCE_RESOURCE, attendanceRouteOk } from '../services/attendance/guards.js';
 import { FACE, FINGER, ONLINE_WINDOW_MS, commandEffect, normaliseFirmware, pinKey, removalCommandsFor, SEQ } from '../services/attendance/adms.js';
 import { alertSettings, assessCollection, assessReader, collectionFacts, readerFacts, readerStatus } from '../services/attendance/readerHealth.js';
-import { pinMatcher, readerSupports, sendPersonTo, servesArea } from './iclock.js';
+import { readerSupports, sendPersonTo, servesArea } from '../services/attendance/readerSync.js';
+import { pinMatcher } from '../services/attendance/punches.js';
 import { biometricPolicy, sendableWhere } from '../services/attendance/biometrics.js';
 import { vendorsWith } from '../services/attendance/drivers.js';
 

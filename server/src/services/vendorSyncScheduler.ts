@@ -1,5 +1,5 @@
-import { syncAllVendorConnections } from '../routes/iclock.js';
-import { purgePunchPhotos } from '../routes/portalAdmin.js';
+import { syncAllVendorConnections } from './attendance/vendorSync.js';
+import { purgePunchPhotos } from './attendance/punchPhotos.js';
 import { runReaderChecks } from './attendance/readerHealth.js';
 import { exclusive, leaseFor } from './jobLease.js';
 

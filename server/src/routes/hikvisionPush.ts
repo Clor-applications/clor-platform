@@ -7,7 +7,7 @@ import { readTime, istLocal } from '../services/attendance/punchMapping.js';
 import { VERIFY_WORDS } from '../services/attendance/pull/index.js';
 import { hikvisionCounts } from '../services/attendance/pull/hikvision.js';
 import { hashToken } from './publicApi.js';
-import { ingestPunches } from './iclock.js';
+import { ingestPunches } from '../services/attendance/punches.js';
 import { enterTenant } from '../utils/tenantScope.js';
 
 /**
