@@ -191,7 +191,7 @@ export async function purgeRecycleBin(now = new Date()) {
 export function startRecycleBinPurge() {
   if (String(process.env.RECYCLE_BIN_PURGE || '').toLowerCase() === 'off') return () => {};
   const run = () =>
-    exclusive('recycleBin.purge', leaseFor(24 * 60 * 60 * 1000), () => purgeRecycleBin()).then(
+    exclusive('recycleBin.purge', leaseFor(24 * 60 * 60 * 1000), () => purgeRecycleBin(), { idempotent: true }).then(
       (n) => {
         // eslint-disable-next-line no-console
         if (n) console.log(`[recycle bin] removed ${n} expired item(s)`);

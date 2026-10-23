@@ -12,6 +12,7 @@ import { startBooksDigest } from './services/booksDigest.js';
 import { build as buildReport } from './routes/attendanceReports.js';
 import { startPhotoPurge, startReaderChecks, startVendorSync, startWebhookRetries } from './services/vendorSyncScheduler.js';
 import { reportProcessErrors } from './utils/log.js';
+import { stopJobs } from './services/jobLease.js';
 
 /* Crashes and unhandled rejections are reported, not lost. */
 reportProcessErrors();
@@ -28,12 +29,17 @@ const server = app.listen(port, () => {
  * Cloud Run sends SIGTERM and allows about ten seconds before it kills an
  * instance (a deploy, a scale-down). Stop taking new connections and let the
  * requests already running finish, rather than cutting them off half-way
- * through a save. Background jobs hold leases that simply expire.
+ * through a save. Background jobs start nothing new, are told to stop before
+ * their next step that cannot be undone, and give their leases back so
+ * another instance takes over at its next tick (services/jobLease.ts).
  */
 process.once('SIGTERM', () => {
   // eslint-disable-next-line no-console
   console.log('SIGTERM: finishing requests in flight, then exiting');
-  server.close(() => process.exit(0));
+  const released = stopJobs()
+    .then((jobs) => jobs.length && console.log(`SIGTERM: stopped ${jobs.join(', ')}; leases released`)) // eslint-disable-line no-console
+    .catch((e) => console.error('SIGTERM: releasing job leases failed:', e instanceof Error ? e.message : e)); // eslint-disable-line no-console
+  server.close(() => released.finally(() => process.exit(0)));
   setTimeout(() => process.exit(0), 8_000).unref();
 });
 

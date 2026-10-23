@@ -105,7 +105,7 @@ export function startDocumentReminders({ intervalMs = 24 * 3_600_000, startupDel
   if (process.env.NODE_ENV === 'test' || process.env.VITEST) return () => {};
   const tick = () => {
     exclusive('people.document-reminders', leaseFor(intervalMs), () => runDocumentReminders()).catch((e) => console.error('[document-reminders] failed:', e instanceof Error ? e.message : e));
-    exclusive('people.contractor-licences', leaseFor(intervalMs), () => runContractorLicenceReminders()).catch((e) => console.error('[contractor-licence] failed:', e instanceof Error ? e.message : e));
+    exclusive('people.contractor-licences', leaseFor(intervalMs), () => runContractorLicenceReminders(), { idempotent: true }).catch((e) => console.error('[contractor-licence] failed:', e instanceof Error ? e.message : e));
   };
   const t = setTimeout(() => {
     tick();

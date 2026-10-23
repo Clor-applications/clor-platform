@@ -1,0 +1,230 @@
+# A-43 BEFORE fix: source files swapped back to HEAD (aac6451): src/services/jobLease.ts
+# 2026-10-23T14:10:16Z  npx vitest run src/__tests__/jobLeaseSafety.test.ts src/__tests__/jobLease.test.ts
+ DEPRECATED  `test.poolOptions` was removed in Vitest 4. All previous `poolOptions` are now top-level options. Please, refer to the migration guide: https://vitest.dev/guide/migration#pool-rework
+
+ RUN  v4.1.10 /Users/suresh/Desktop/clor-platform/.claude/worktrees/batch6-workers-fb00cd/server
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_15052", schema "accounting" at "localhost:5432"
+
+The PostgreSQL database "clor_test_15052" schema "accounting" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 898ms
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/payroll/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_15052", schema "payroll" at "localhost:5432"
+
+The PostgreSQL database "clor_test_15052" schema "payroll" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 467ms
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/people/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_15052", schema "people" at "localhost:5432"
+
+The PostgreSQL database "clor_test_15052" schema "people" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 718ms
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/platform/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_15052", schema "platform" at "localhost:5432"
+
+The PostgreSQL database "clor_test_15052" schema "platform" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 398ms
+
+GET /health 200 11 - 1.177 ms
+GET /ready 200 85 - 36.911 ms
+GET /health 200 11 - 0.113 ms
+GET /health 200 11 - 0.074 ms
+GET /health 200 11 - 0.076 ms
+stdout | src/__tests__/jobLeaseSafety.test.ts > A-43: a job lease > frees the lease when a run fails, so another instance can try at once
+prisma:error 
+Invalid `platformPrisma.jobLease.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/batch6-workers-fb00cd/server/src/services/jobLease.ts:31:35
+
+  28 if (taken.count) return true;
+  29 try {
+  30   /* No row yet: the primary key lets exactly one instance create it. */
+→ 31   await platformPrisma.jobLease.create(
+Unique constraint failed on the fields: (`name`)
+
+ ❯ src/__tests__/jobLeaseSafety.test.ts (9 tests | 8 failed) 3311ms
+     × fails closed: a lease that cannot be read is not a lease held 3ms
+     × runs an idempotent job when the lease table does not exist yet (P2021), and no other job 1ms
+     × never runs the same job twice at once in one instance 452ms
+     × keeps a run longer than its lease to one instance: the heartbeat renews it 2607ms
+     × fences: a run cut off by a takeover is told before its next irreversible step 4ms
+     × bumps the fencing token on every take 2ms
+     × frees the lease when a run fails, so another instance can try at once 5ms
+     × on SIGTERM: stops the run before its next step, starts nothing new and gives the lease back 214ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 8 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/__tests__/jobLeaseSafety.test.ts > A-43: a job lease > fails closed: a lease that cannot be read is not a lease held
+AssertionError: expected 1 to be null
+
+- Expected:
+null
+
++ Received:
+1
+
+ ❯ src/__tests__/jobLeaseSafety.test.ts:58:65
+     56|     let ran = 0;
+     57|     try {
+     58|       expect(await a.exclusive(job, 60_000, async () => ++ran)).toBeNu…
+       |                                                                 ^
+     59|       expect(ran).toBe(0);
+     60|     } finally {
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/8]⎯
+
+ FAIL  src/__tests__/jobLeaseSafety.test.ts > A-43: a job lease > runs an idempotent job when the lease table does not exist yet (P2021), and no other job
+AssertionError: expected 2 to be null
+
+- Expected:
+null
+
++ Received:
+2
+
+ ❯ src/__tests__/jobLeaseSafety.test.ts:73:68
+     71|       let ran = 0;
+     72|       expect(await a.exclusive(name(), 60_000, async () => ++ran, { id…
+     73|       expect(await a.exclusive(name(), 60_000, async () => ++ran)).toB…
+       |                                                                    ^
+     74|       expect(ran).toBe(1);
+     75|     } finally {
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/8]⎯
+
+ FAIL  src/__tests__/jobLeaseSafety.test.ts > A-43: a job lease > never runs the same job twice at once in one instance
+AssertionError: expected 2 to be 1 // Object.is equality
+
+- Expected
++ Received
+
+- 1
++ 2
+
+ ❯ src/__tests__/jobLeaseSafety.test.ts:85:19
+     83|     const p = probe();
+     84|     const out = await Promise.all([a.exclusive(job, 60_000, p.job(400)…
+     85|     expect(p.max).toBe(1);
+       |                   ^
+     86|     expect(out.filter((x) => x === null)).toHaveLength(1);
+     87|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/8]⎯
+
+ FAIL  src/__tests__/jobLeaseSafety.test.ts > A-43: a job lease > keeps a run longer than its lease to one instance: the heartbeat renews it
+AssertionError: expected 2 to be null
+
+- Expected:
+null
+
++ Received:
+2
+
+ ❯ src/__tests__/jobLeaseSafety.test.ts:98:20
+     96|     const second = await b.exclusive(job, ttl, p.job(100));
+     97|     await first;
+     98|     expect(second).toBeNull();
+       |                    ^
+     99|     expect(p.max).toBe(1);
+    100|     expect(p.runs).toBe(1);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/8]⎯
+
+ FAIL  src/__tests__/jobLeaseSafety.test.ts > A-43: a job lease > fences: a run cut off by a takeover is told before its next irreversible step
+TypeError: a.currentLease is not a function
+ ❯ src/__tests__/jobLeaseSafety.test.ts:108:23
+    106|     let tokenSeen = 0;
+    107|     await a.exclusive(job, 60_000, async () => {
+    108|       const lease = a.currentLease()!;
+       |                       ^
+    109|       tokenSeen = lease.token;
+    110|       await lease.assertHeld();
+ ❯ Object.exclusive src/services/jobLease.ts:50:10
+ ❯ src/__tests__/jobLeaseSafety.test.ts:107:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/8]⎯
+
+ FAIL  src/__tests__/jobLeaseSafety.test.ts > A-43: a job lease > bumps the fencing token on every take
+TypeError: a.currentLease is not a function
+ ❯ src/__tests__/jobLeaseSafety.test.ts:128:77
+    126|     const job = name();
+    127|     const tokens: number[] = [];
+    128|     const take = () => a.exclusive(job, 60_000, async () => { tokens.p…
+       |                                                                             ^
+    129|     await take();
+    130|     await take();
+ ❯ Object.exclusive src/services/jobLease.ts:50:10
+ ❯ src/__tests__/jobLeaseSafety.test.ts:129:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/8]⎯
+
+ FAIL  src/__tests__/jobLeaseSafety.test.ts > A-43: a job lease > frees the lease when a run fails, so another instance can try at once
+AssertionError: expected null to be 1 // Object.is equality
+
+- Expected:
+1
+
++ Received:
+null
+
+ ❯ src/__tests__/jobLeaseSafety.test.ts:147:63
+    145|     await expect(a.exclusive(job, 60_000, async () => { throw new Erro…
+    146|     let ran = 0;
+    147|     expect(await b.exclusive(job, 60_000, async () => ++ran)).toBe(1);
+       |                                                               ^
+    148|   });
+    149|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/8]⎯
+
+ FAIL  src/__tests__/jobLeaseSafety.test.ts > A-43: a job lease > on SIGTERM: stops the run before its next step, starts nothing new and gives the lease back
+TypeError: c.stopJobs is not a function
+ ❯ src/__tests__/jobLeaseSafety.test.ts:164:15
+    162|       });
+    163|       await sleep(200);
+    164|       await c.stopJobs();
+       |               ^
+    165|       await expect(run).rejects.toBeInstanceOf(c.LeaseLost);
+    166|       expect(steps.length).toBeLessThan(4);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/8]⎯
+
+⎯⎯⎯⎯⎯⎯ Unhandled Errors ⎯⎯⎯⎯⎯⎯
+
+Vitest caught 1 unhandled error during the test run.
+This might cause false positive tests. Resolve unhandled errors to make sure your tests are not affected.
+
+⎯⎯⎯⎯ Unhandled Rejection ⎯⎯⎯⎯⎯
+TypeError: c.currentLease is not a function
+ ❯ src/__tests__/jobLeaseSafety.test.ts:156:25
+    154|       const steps: string[] = [];
+    155|       const run = c.exclusive(job, 60_000, async () => {
+    156|         const lease = c.currentLease()!;
+       |                         ^
+    157|         for (const step of ['people', 'payroll', 'accounting', 'platfo…
+    158|           await lease.assertHeld();
+ ❯ Object.exclusive src/services/jobLease.ts:50:10
+
+This error originated in "src/__tests__/jobLeaseSafety.test.ts" test file. It doesn't mean the error was thrown inside the file itself, but while it was running.
+The latest test that might've caused the error is "on SIGTERM: stops the run before its next step, starts nothing new and gives the lease back". It might mean one of the following:
+- The error was thrown, while Vitest was running this test.
+- If the error occurred after the test had been completed, this was the last documented test before it was thrown.
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
+
+
+ Test Files  1 failed | 1 passed (2)
+      Tests  8 failed | 5 passed (13)
+     Errors  1 error
+   Start at  19:40:17
+   Duration  18.11s (transform 2.06s, setup 31ms, import 168ms, tests 7.44s, environment 0ms)
+

@@ -150,7 +150,7 @@ export function startHrSync({ flushMs = 60_000, pullMs = 3_600_000, startupDelay
   const safe = (fn: () => Promise<unknown>, what: string) => () => fn().catch((e) => console.error(`[hr] ${what} failed:`, e instanceof Error ? e.message : e)); // eslint-disable-line no-console
   const t1 = setTimeout(() => {
     const flush = safe(() => exclusive('hr.flush', leaseFor(flushMs), () => flushOutbox()), 'flush');
-    const pull = safe(() => exclusive('hr.pull', leaseFor(pullMs), pullAllDue), 'pull');
+    const pull = safe(() => exclusive('hr.pull', leaseFor(pullMs), () => pullAllDue()), 'pull');
     flush();
     const a = setInterval(flush, flushMs);
     const b = setInterval(pull, pullMs);

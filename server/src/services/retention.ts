@@ -108,7 +108,7 @@ export function startRetentionPurge() {
   if (String(process.env.RETENTION_PURGE || '').toLowerCase() === 'off') return () => {};
   const run = async () => {
     try {
-      const r: Record<string, number> = (await exclusive('retention.purge', leaseFor(24 * 60 * 60 * 1000), purgeExpiredRecords)) || {};
+      const r: Record<string, number> = (await exclusive('retention.purge', leaseFor(24 * 60 * 60 * 1000), () => purgeExpiredRecords(), { idempotent: true })) || {};
       const total = Object.values(r).reduce((a, b) => a + b, 0);
       // eslint-disable-next-line no-console
       if (total) console.log('[retention] removed', r);

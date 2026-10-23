@@ -890,9 +890,15 @@ model PaymentEvent {
 /// than one instance and every instance starts the same timers; the one that
 /// takes a job's lease runs that tick and the others skip until it expires.
 model JobLease {
-  name   String   @id
-  holder String
-  until  DateTime
+  name         String    @id
+  holder       String
+  until        DateTime
+  /// Fencing token: +1 on every take. A run whose token is no longer the row's has lost the lease and must stop.
+  token        Int       @default(0)
+  /// Set while a run is in progress, cleared when it ends. Null = the period is claimed but nothing is running.
+  runningSince DateTime?
+  /// Renewed by the running instance; a run whose heartbeat has gone stale was cut off and may be taken over.
+  heartbeatAt  DateTime?
 }
 
 /// Rate-limit counts shared by every API instance (sign-in, sign-up, password
