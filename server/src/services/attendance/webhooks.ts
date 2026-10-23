@@ -3,6 +3,7 @@ import { createHmac } from 'node:crypto';
 import { peoplePrisma } from '../../utils/peoplePrisma.js';
 import { decryptSecret } from '../mailer.js';
 import { guardedPost } from '../outbound.js';
+import { appLive, type Refusal } from '../principalAllowed.js';
 
 /**
  * Events CLOR sends to a company's webhooks, as they happen.
@@ -67,6 +68,25 @@ export const EVENT_HELP: Record<WebhookEvent, string> = {
 export const RETRY_MINUTES = [1, 5, 30, 120, 720];
 export const MAX_ATTEMPTS = RETRY_MINUTES.length + 1;
 
+/*
+ * A-45: who sends a delivery, and when it is next due.
+ *
+ * A delivery used to be written with no next-attempt time, and only the
+ * first attempt's result set one. An instance that stopped between writing the
+ * row and recording that attempt left it PENDING with nothing due, ever: the
+ * retry job looked only for rows whose time had come. And the retry job sent
+ * whatever it found, so two instances (or a retry racing the first send) could
+ * send one delivery twice.
+ *
+ * Now every row has a time. Before an attempt, the sender claims the row by
+ * moving that time CLAIM_MS ahead with a conditional update; only the update
+ * that lands sends. A sender that dies mid-attempt leaves a row that comes due
+ * again when the claim runs out, and is retried.
+ */
+export const CLAIM_MS = 2 * 60_000;
+/** While the company's Attendance is paused or closing, retries wait this long and try again. */
+const PAUSED_MS = 60 * 60_000;
+
 const inFlight = new Set<Promise<unknown>>();
 const track = <T>(p: Promise<T>) => {
   inFlight.add(p);
@@ -127,22 +147,53 @@ async function attempt(delivery: { id: string; webhookId: string; event: string;
 export async function deliver(hook: Hook & { accountId?: string }, event: string, orgId: string, data: unknown) {
   const body = JSON.stringify({ event, orgId, sentAt: new Date().toISOString(), data });
   const accountId = hook.accountId || (await peoplePrisma.webhook.findUnique({ where: { id: hook.id }, select: { accountId: true } }))?.accountId || '';
-  const row = await peoplePrisma.webhookDelivery.create({ data: { accountId, orgId, webhookId: hook.id, event, body: body.slice(0, 20_000) } });
+  /* Created already claimed by this sender; if it never records the attempt, the retry job takes it when the claim runs out. */
+  const row = await peoplePrisma.webhookDelivery.create({ data: { accountId, orgId, webhookId: hook.id, event, body: body.slice(0, 20_000), nextAttemptAt: new Date(Date.now() + CLAIM_MS) } });
   return attempt(row, hook);
+}
+
+/** Take one due delivery for this sender: true only for the one conditional update that lands. */
+async function claim(d: { id: string; attempts: number; nextAttemptAt: Date | null }, now: Date) {
+  const r = await peoplePrisma.webhookDelivery.updateMany({
+    where: { id: d.id, status: 'PENDING', attempts: d.attempts, nextAttemptAt: d.nextAttemptAt },
+    data: { nextAttemptAt: new Date(now.getTime() + CLAIM_MS) },
+  });
+  return r.count === 1;
 }
 
 /** Try every delivery whose time has come. Run every minute by the scheduler. */
 export async function retryDueDeliveries(now = new Date(), limit = 50) {
-  const due = await peoplePrisma.webhookDelivery.findMany({ where: { status: 'PENDING', nextAttemptAt: { lte: now } }, orderBy: { nextAttemptAt: 'asc' }, take: limit });
+  const due = await peoplePrisma.webhookDelivery.findMany({
+    where: {
+      status: 'PENDING',
+      /* Rows written before every delivery had a time: due once they are older than a claim. */
+      OR: [{ nextAttemptAt: { lte: now } }, { nextAttemptAt: null, createdAt: { lt: new Date(now.getTime() - CLAIM_MS) } }],
+    },
+    orderBy: { nextAttemptAt: 'asc' },
+    take: limit,
+  });
   if (!due.length) return 0;
   const hooks = new Map((await peoplePrisma.webhook.findMany({ where: { id: { in: [...new Set(due.map((d) => d.webhookId))] } } })).map((h) => [h.id, h]));
+  /* A retry is the company's integration working without anybody signed in: only while Attendance is live for it. */
+  const live = new Map<string, Promise<Refusal | null>>();
   let tried = 0;
   for (const d of due) {
     const hook = hooks.get(d.webhookId);
     if (!hook || !hook.isActive) {
-      await peoplePrisma.webhookDelivery.update({ where: { id: d.id }, data: { status: 'FAILED', lastError: 'Webhook switched off or removed', nextAttemptAt: null } });
+      await peoplePrisma.webhookDelivery.updateMany({ where: { id: d.id, status: 'PENDING' }, data: { status: 'FAILED', lastError: 'Webhook switched off or removed', nextAttemptAt: null } });
       continue;
     }
+    const key = `${d.accountId}:${d.orgId}`;
+    if (!live.has(key)) live.set(key, appLive(d.accountId, d.orgId, 'attendance'));
+    const refused = await live.get(key);
+    if (refused) {
+      await peoplePrisma.webhookDelivery.updateMany({
+        where: { id: d.id, status: 'PENDING', attempts: d.attempts },
+        data: { nextAttemptAt: new Date(now.getTime() + PAUSED_MS), lastError: `Waiting: ${refused.error}` },
+      });
+      continue;
+    }
+    if (!(await claim(d, now))) continue;
     await attempt(d, hook, now);
     tried += 1;
   }

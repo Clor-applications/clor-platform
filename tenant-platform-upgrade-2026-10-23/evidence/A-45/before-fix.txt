@@ -1,0 +1,202 @@
+# A-45 BEFORE fix: source files swapped back to HEAD (88ea0c1): src/services/attendance/webhooks.ts
+# 2026-10-23T14:20:39Z  npx vitest run src/__tests__/webhookRetry.test.ts src/__tests__/integrationsV2.test.ts src/__tests__/integrations.test.ts src/__tests__/lifecycleEvents.test.ts
+ DEPRECATED  `test.poolOptions` was removed in Vitest 4. All previous `poolOptions` are now top-level options. Please, refer to the migration guide: https://vitest.dev/guide/migration#pool-rework
+
+ RUN  v4.1.10 /Users/suresh/Desktop/clor-platform/.claude/worktrees/batch6-workers-fb00cd/server
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_34423", schema "accounting" at "localhost:5432"
+
+The PostgreSQL database "clor_test_34423" schema "accounting" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 1.02s
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/payroll/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_34423", schema "payroll" at "localhost:5432"
+
+The PostgreSQL database "clor_test_34423" schema "payroll" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 772ms
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/people/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_34423", schema "people" at "localhost:5432"
+
+The PostgreSQL database "clor_test_34423" schema "people" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 1.35s
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/platform/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_34423", schema "platform" at "localhost:5432"
+
+The PostgreSQL database "clor_test_34423" schema "platform" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 891ms
+
+POST /api/auth/signup 200 569 - 64.067 ms
+POST /api/auth/setup-company 200 202 - 257.686 ms
+PUT /api/orgs/cmvl258ho000e13g0hymy61ah/features 200 1173 - 202.124 ms
+POST /api/orgs/cmvl258ho000e13g0hymy61ah/attendance/integrations/webhooks 201 601 - 214.786 ms
+POST /api/orgs/cmvl258ho000e13g0hymy61ah/people/employees 201 1668 - 183.546 ms
+GET /api/orgs/cmvl258ho000e13g0hymy61ah/attendance/integrations/webhooks/cmvl258zy00001109lqhp5gsg/deliveries 200 645 - 165.091 ms
+GET /api/orgs/cmvl258ho000e13g0hymy61ah/attendance/integrations/webhooks/cmvl258zy00001109lqhp5gsg/deliveries 200 630 - 125.854 ms
+POST /api/orgs/cmvl258ho000e13g0hymy61ah/attendance/integrations/webhooks/cmvl258zy00001109lqhp5gsg/deliveries/cmvl2595p000c1109rq2qb5y0/resend 200 24 - 66.116 ms
+PUT /api/orgs/cmvl258ho000e13g0hymy61ah/people/employees/cmvl2592z00011109heq44gep 200 1674 - 94.633 ms
+POST /api/orgs/cmvl258ho000e13g0hymy61ah/people/employees 201 1664 - 70.741 ms
+POST /api/orgs/cmvl258ho000e13g0hymy61ah/attendance/leave/types 201 675 - 62.748 ms
+POST /api/orgs/cmvl258ho000e13g0hymy61ah/attendance/leave/requests 201 732 - 163.434 ms
+POST /api/orgs/cmvl258ho000e13g0hymy61ah/attendance/leave/requests/cmvl259s000101109axrv6g2q/approve 200 778 - 142.224 ms
+POST /api/orgs/cmvl258ho000e13g0hymy61ah/attendance/months/2026-09/close 200 126 - 143.712 ms
+POST /api/auth/signup 200 569 - 33.096 ms
+POST /api/auth/setup-company 200 202 - 112.461 ms
+PUT /api/orgs/cmvl25a1r00r913g0883egkib/features 200 1173 - 115.143 ms
+POST /api/orgs/cmvl25a1r00r913g0883egkib/attendance/integrations/keys 201 576 - 74.413 ms
+POST /api/auth/signup 200 569 - 5.323 ms
+POST /api/auth/setup-company 200 202 - 81.114 ms
+PUT /api/orgs/cmvl25aeg019713g0239b6vhb/features 200 1173 - 115.802 ms
+POST /api/orgs/cmvl25aeg019713g0239b6vhb/attendance/integrations/keys 201 617 - 61.666 ms
+POST /api/orgs/cmvl25aeg019713g0239b6vhb/attendance/integrations/keys 201 559 - 59.968 ms
+POST /api/orgs/cmvl25aeg019713g0239b6vhb/people/employees 201 1665 - 70.452 ms
+POST /api/orgs/cmvl25aeg019713g0239b6vhb/attendance/leave/types 201 675 - 70.207 ms
+POST /api/orgs/cmvl25aeg019713g0239b6vhb/attendance/integrations/keys 201 557 - 66.357 ms
+POST /api/orgs/cmvl25aeg019713g0239b6vhb/attendance/months/2026-08/close 200 126 - 96.224 ms
+POST /api/orgs/cmvl25aeg019713g0239b6vhb/attendance/devices 201 1298 - 62.674 ms
+GET /api/orgs/cmvl25aeg019713g0239b6vhb/people/employees 200 1678 - 63.435 ms
+PUT /api/orgs/cmvl25aeg019713g0239b6vhb/attendance/records 200 752 - 97.141 ms
+POST /api/auth/signup 200 572 - 90.075 ms
+POST /api/auth/setup-company 200 200 - 227.346 ms
+PUT /api/orgs/cmvl25bzv000eogpy1278cv8m/features 200 1173 - 229.317 ms
+POST /api/orgs/cmvl25bzv000eogpy1278cv8m/attendance/integrations/keys 201 558 - 178.562 ms
+GET /api/orgs/cmvl25bzv000eogpy1278cv8m/attendance/integrations/keys 200 561 - 128.560 ms
+POST /api/orgs/cmvl25bzv000eogpy1278cv8m/attendance/integrations/keys 201 559 - 67.115 ms
+POST /api/orgs/cmvl25bzv000eogpy1278cv8m/attendance/integrations/keys/cmvl25cn80001a39mpljeiw69/rotate 200 568 - 61.724 ms
+POST /api/orgs/cmvl25bzv000eogpy1278cv8m/attendance/integrations/keys/cmvl25cn80001a39mpljeiw69/revoke 200 473 - 63.068 ms
+POST /api/orgs/cmvl25bzv000eogpy1278cv8m/attendance/integrations/keys 201 569 - 61.168 ms
+POST /api/auth/signup 200 572 - 5.255 ms
+POST /api/auth/setup-company 200 200 - 84.976 ms
+PUT /api/orgs/cmvl25ct000ikogpy4qbsmqzy/features 200 1173 - 112.695 ms
+POST /api/orgs/cmvl25ct000ikogpy4qbsmqzy/people/employees 201 1675 - 87.265 ms
+POST /api/orgs/cmvl25bzv000eogpy1278cv8m/attendance/integrations/keys 201 558 - 104.172 ms
+POST /api/orgs/cmvl25bzv000eogpy1278cv8m/people/employees 201 1670 - 88.835 ms
+POST /api/orgs/cmvl25bzv000eogpy1278cv8m/attendance/integrations/keys 201 575 - 80.054 ms
+GET /api/orgs/cmvl25bzv000eogpy1278cv8m/attendance/transactions?from=2026-09-21&to=2026-09-21 200 964 - 76.075 ms
+POST /api/auth/signup 200 572 - 9.510 ms
+POST /api/auth/setup-company 200 200 - 81.132 ms
+PUT /api/orgs/cmvl25dfb010oogpy3vpfy6bk/features 200 1173 - 123.250 ms
+POST /api/orgs/cmvl25dfb010oogpy3vpfy6bk/people/employees 201 1667 - 68.957 ms
+POST /api/orgs/cmvl25dfb010oogpy3vpfy6bk/attendance/integrations/webhooks 201 530 - 64.492 ms
+GET /api/orgs/cmvl25dfb010oogpy3vpfy6bk/attendance/integrations/webhooks 200 1600 - 61.969 ms
+POST /api/orgs/cmvl25dfb010oogpy3vpfy6bk/attendance/integrations/keys 201 557 - 57.002 ms
+POST /api/orgs/cmvl25dfb010oogpy3vpfy6bk/attendance/integrations/webhooks/cmvl25dop001ca39mdy0g4ij9/test 200 24 - 62.846 ms
+GET /api/orgs/cmvl25dfb010oogpy3vpfy6bk/attendance/integrations/webhooks 200 1621 - 59.759 ms
+POST /api/orgs/cmvl25dfb010oogpy3vpfy6bk/attendance/integrations/webhooks 400 41 - 64.709 ms
+POST /api/auth/signup 200 569 - 56.796 ms
+POST /api/auth/setup-company 200 174 - 232.765 ms
+PUT /api/orgs/cmvl25ep9000ept5gch9antm7/features 200 1173 - 197.890 ms
+POST /api/orgs/cmvl25ep9000ept5gch9antm7/attendance/integrations/webhooks 201 591 - 153.086 ms
+POST /api/orgs/cmvl25ep9000ept5gch9antm7/people/structure/departments 201 314 - 80.045 ms
+POST /api/orgs/cmvl25ep9000ept5gch9antm7/people/employees 201 1664 - 105.195 ms
+POST /api/orgs/cmvl25ep9000ept5gch9antm7/people/employees/transfer 200 11 - 121.901 ms
+POST /api/orgs/cmvl25ep9000ept5gch9antm7/people/employees/cmvl25f9000025qwkc7intiav/resign 200 1576 - 122.651 ms
+POST /api/orgs/cmvl25ep9000ept5gch9antm7/people/employees/cmvl25f9000025qwkc7intiav/rehire 200 1564 - 107.828 ms
+POST /api/orgs/cmvl25ep9000ept5gch9antm7/payroll/components 201 844 - 81.121 ms
+POST /api/orgs/cmvl25ep9000ept5gch9antm7/payroll/structures 201 535 - 73.609 ms
+POST /api/orgs/cmvl25ep9000ept5gch9antm7/payroll/employees 201 657 - 51.980 ms
+POST /api/orgs/cmvl25ep9000ept5gch9antm7/payroll/assignments 201 2285 - 150.291 ms
+POST /api/orgs/cmvl25ep9000ept5gch9antm7/payroll/periods 201 342 - 63.204 ms
+POST /api/orgs/cmvl25ep9000ept5gch9antm7/payroll/runs 201 973 - 88.348 ms
+POST /api/orgs/cmvl25ep9000ept5gch9antm7/payroll/runs/cmvl25fy900088v9fiwkp831o/validate 200 486 - 186.268 ms
+POST /api/orgs/cmvl25ep9000ept5gch9antm7/payroll/runs/cmvl25fy900088v9fiwkp831o/calculate 200 457 - 133.877 ms
+POST /api/orgs/cmvl25ep9000ept5gch9antm7/payroll/runs/cmvl25fy900088v9fiwkp831o/submit-review 200 596 - 77.672 ms
+POST /api/orgs/cmvl25ep9000ept5gch9antm7/payroll/runs/cmvl25fy900088v9fiwkp831o/approve 200 620 - 86.400 ms
+POST /api/orgs/cmvl25ep9000ept5gch9antm7/payroll/runs/cmvl25fy900088v9fiwkp831o/lock 200 640 - 78.674 ms
+POST /api/auth/signup 200 568 - 79.155 ms
+POST /api/auth/setup-company 200 200 - 291.248 ms
+PUT /api/orgs/cmvl25h47000e11gdypufmb2p/features 200 1173 - 350.705 ms
+POST /api/orgs/cmvl25h47000e11gdypufmb2p/attendance/integrations/webhooks 201 535 - 191.676 ms
+ ❯ src/__tests__/webhookRetry.test.ts (4 tests | 4 failed) 1533ms
+     × whose first attempt was never recorded (the instance stopped) is retried, not lost 12ms
+     × left with no next-attempt time by older code is picked up once it is older than a claim 4ms
+     × is sent once when two instances retry at the same moment 561ms
+     × is not retried while the company no longer has Attendance, and waits instead of failing 12ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/__tests__/webhookRetry.test.ts > A-45: a webhook delivery > whose first attempt was never recorded (the instance stopped) is retried, not lost
+AssertionError: expected null not to be null
+ ❯ src/__tests__/webhookRetry.test.ts:93:35
+     91|     const row = await peoplePrisma.webhookDelivery.findFirstOrThrow({ …
+     92|     expect(row.status).toBe('PENDING');
+     93|     expect(row.nextAttemptAt).not.toBeNull();
+       |                                   ^
+     94|
+     95|     const before = rx.got.length;
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯
+
+ FAIL  src/__tests__/webhookRetry.test.ts > A-45: a webhook delivery > left with no next-attempt time by older code is picked up once it is older than a claim
+AssertionError: expected +0 to be 1 // Object.is equality
+
+- Expected
++ Received
+
+- 1
++ 0
+
+ ❯ src/__tests__/webhookRetry.test.ts:106:50
+    104|     });
+    105|     await peoplePrisma.webhookDelivery.update({ where: { id: old.id },…
+    106|     expect(await retryDueDeliveries(new Date())).toBe(1);
+       |                                                  ^
+    107|     expect((await peoplePrisma.webhookDelivery.findUniqueOrThrow({ whe…
+    108|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/4]⎯
+
+ FAIL  src/__tests__/webhookRetry.test.ts > A-45: a webhook delivery > is sent once when two instances retry at the same moment
+AssertionError: expected 2 to be 1 // Object.is equality
+
+- Expected
++ Received
+
+- 1
++ 2
+
+ ❯ src/__tests__/webhookRetry.test.ts:123:21
+    121|       await new Promise((r) => setTimeout(r, 150));
+    122|       const [a, b] = await Promise.all([first, retryDueDeliveries(t)]);
+    123|       expect(a + b).toBe(1);
+       |                     ^
+    124|     } finally {
+    125|       rx.slow(0);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/4]⎯
+
+ FAIL  src/__tests__/webhookRetry.test.ts > A-45: a webhook delivery > is not retried while the company no longer has Attendance, and waits instead of failing
+AssertionError: expected 1 to be +0 // Object.is equality
+
+- Expected
++ Received
+
+- 0
++ 1
+
+ ❯ src/__tests__/webhookRetry.test.ts:136:48
+    134|     await platformPrisma.subscription.updateMany({ where: { accountId:…
+    135|     const before = rx.got.length;
+    136|     expect(await retryDueDeliveries(later(3))).toBe(0);
+       |                                                ^
+    137|     expect(rx.got.length).toBe(before);
+    138|     const after = await peoplePrisma.webhookDelivery.findUniqueOrThrow…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/4]⎯
+
+
+ Test Files  1 failed | 3 passed (4)
+      Tests  4 failed | 12 passed (16)
+   Start at  19:50:40
+   Duration  27.93s (transform 1.73s, setup 81ms, import 5.49s, tests 10.25s, environment 0ms)
+
