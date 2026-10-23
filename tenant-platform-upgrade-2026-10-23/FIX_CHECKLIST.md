@@ -59,7 +59,7 @@ Status values: `TODO` · `IN PROGRESS` · `DONE` · `LIVE` (needs production acc
 | A-21 | Closing a company, and cancelling a closure, is for an administrator of the whole company (`mayClose` = company-wide ADMIN role), not whoever created it; asking to close needs an enrolled authenticator and a fresh step-up code whatever the company policy (`stepUpRefusal`, shared with the A-17 operator guard). `GET /closure` returns `canClose` (`isOwner` kept as an alias); close screen wording updated | `companyClosure.test.ts` (4 new cases fail before: demoted creator closed with 201, no code needed, a non-creator admin refused) | Company admin → Close company: non-admin sees refusal; owner without authenticator refused with "needs an authenticator app" | DONE (EV-041) |
 | A-22 | `GET /billing/subscription`: app standing for every member, the plan only with `SETTINGS::Company Profile::VIEW`, gateway ids for nobody. `number-series/next/:docType`: known document types only (400 otherwise, no series created), and only for whoever may CREATE that document or view Document Numbering. `payment-modes`: whoever takes or pays money (Receipts/Invoices/Payments/Bills/Expenses CREATE) or views Cash & Bank. New `authorizeAny` / `requireAnyPermission` in rbac. Share links were already covered by A-11 | `unguardedReads.test.ts` (5 of 5 fail before) | in-browser requests as export-only user vs owner (table in `browser-check.md`) | DONE (EV-042) |
 
-## Batch 3 — Company in the URL (GAP-014, the Zoho fix) (DONE pending full suite)
+## Batch 3 — Company in the URL (GAP-014, the Zoho fix) (DONE — full suites EV-047)
 
 | ID | Fix | Test | Browser | Status |
 |---|---|---|---|---|

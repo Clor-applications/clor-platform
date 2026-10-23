@@ -56,6 +56,7 @@ Changed:
 - A-24 fixed: a warehouse named in a document must belong to the company and be usable by the person; company-wide administrators (not the creator) reach every branch and warehouse without a grant. Application behavior changed: yes. Schema: no.
 - A-26, A-25 fixed: the company is in the address (`/o/<CODE>/`), each tab keeps its own, an unknown code shows no-access, and links to other app hosts and the front-door forward carry it. Application behavior changed: yes (addresses now start with /o/<code>). Schema: no.
 - A-23, A-27, A-28 fixed: branch and warehouse are chosen per company and per tab; Accounting's company menu switches through the shell; remaining remembered choices are per company; People install manifest. Application behavior changed: yes (a tab no longer picks up another tab's branch or warehouse). Schema: no.
+- Batch 3 closed (EV-047). Follow-ups: `companyClosure.test.ts` purges every company past notice, so it collides with any suite sharing the database — scope it to its own companies (Batch 6 did the same for its purge test); `homeBoard.test.jsx` builds dates in UTC.
 
 Running totals for 2026-10-23:  
 Application behavior changed: yes (GAP-002, GAP-003, A-03, A-01, A-02, A-04, A-05, A-07, A-06, A-08, A-09, A-10, A-11, A-12, A-13, A-14, A-15, A-16, A-17, A-18, A-19, A-20, A-21, A-22, A-24, A-23, A-25, A-26, A-27, A-28).  

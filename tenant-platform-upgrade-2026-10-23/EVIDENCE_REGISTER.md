@@ -50,6 +50,7 @@ Updated: 2026-10-23
 | EV-044 | A-24: body warehouse must be in the company and usable; admin, not creator, reaches all | `warehouseBoundary.test.ts`; `evidence/A-24/before-fix.txt` (4 fail), `after-fix.txt` (51 stock/document suites, 541 tests); `browser-check.md` |
 | EV-045 | A-26, A-25: the company in the address; per-tab choice; no silent switch; carried across hosts | `orgUrl.test.js`, `session.test.jsx`; `evidence/A-26/before-fix.txt` (4 fail), `after-fix.txt` (shell: 6 files, 37 tests); `browser-check.md` with before/after, two screenshots |
 | EV-046 | A-23, A-27, A-28: branch and warehouse per company per tab; one company switcher; per-company keys | `workplace.test.js`; `evidence/A-23/before-fix.txt`, `after-fix.txt` (8 files, 47 tests); `browser-check.md` with before/after; `web-suite-after.txt` compared with the baseline |
+| EV-047 | Batch 3 (A-23..A-28) full suites at `609275b` | `evidence/BATCH-3/full-server-suite.txt`: 170 files, 1564 passed, 4 failed + 1 file not loaded (`companyClosure`, `features`) — run while Batch 6's suite used the same database (its purge and mine both purge every company past notice); `rerun-closure-features.txt`: both files alone, 12/12 pass. `full-web-suite.txt`: 58 failed / 1489 passed; against the main-checkout baseline the only new failure is `homeBoard.test.jsx` (UTC-built dates, fails after midnight IST at HEAD too) |
 
 ## Evidence quality note
 
