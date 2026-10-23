@@ -60,9 +60,10 @@ Changed:
 - Batch 7 (A-49 route manifest and CI gate) merged at da48eab; gate passes on this branch.
 - A-29 fixed: an API key's punches are recorded under a reader of its own company and never under one another company claimed; reserved serial prefixes cannot be claimed by hand. Application behavior changed: yes. Schema: no.
 - A-30, A-37 fixed: routes that learn their company from a token run as that company once it is known; queries made during an interactive transaction keep the company setting. Application behavior changed: no visible change; the database backstop now applies on these paths. Schema: no.
+- A-38 fixed: the database copy script turns FORCE row-level security back on however it ends. Application behavior changed: no (operator script). Schema: no.
 
 Running totals for 2026-10-23:  
-Application behavior changed: yes (GAP-002, GAP-003, A-03, A-01, A-02, A-04, A-05, A-07, A-06, A-08, A-09, A-10, A-11, A-12, A-13, A-14, A-15, A-16, A-17, A-18, A-19, A-20, A-21, A-22, A-24, A-23, A-25, A-26, A-27, A-28, A-29, A-30, A-37).  
+Application behavior changed: yes (GAP-002, GAP-003, A-03, A-01, A-02, A-04, A-05, A-07, A-06, A-08, A-09, A-10, A-11, A-12, A-13, A-14, A-15, A-16, A-17, A-18, A-19, A-20, A-21, A-22, A-24, A-23, A-25, A-26, A-27, A-28, A-29, A-30, A-37, A-38).  
 Database schema changed: yes (platform `Account.legacyUnrestrictedAt`; platform `AuthPolicy.makerChecker`; applied locally only).  
 Deployment or Cloudflare configuration changed: no.  
 Customer data accessed: no (local test accounts only).

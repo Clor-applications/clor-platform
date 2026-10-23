@@ -79,7 +79,10 @@ Status values: `TODO` · `IN PROGRESS` · `DONE` · `LIVE` (needs production acc
 | A-37 | Interactive transactions no longer mark the scope "in a transaction": `tx` is unwrapped and never reaches the wrapper, and anything else the callback runs goes out on its own connection, so it is scoped as usual. The in-transaction mark is kept only for a batch, per client (`inTx` set) | `tenantBackstop.test.ts` (fails before: inside a payroll transaction the people, platform and accounting clients — and payroll outside `tx` — had no company) | — | DONE (EV-049) |
 | A-35 | Fail-closed RLS policies plus explicit maintenance bypass for global jobs (**needs A-30 and the worker changes first**) | unset org returns 0 rows | full regression suite plus browser smoke of all apps | TODO |
 | A-36 | Separate migrate and runtime roles; boot refuses if the runtime role is owner or bypass | boot check test | — | LIVE (deploy change) |
-| A-38..A-42 | copy_db trap, employee-delete orphans, purge checkpoints, retention per org, MIME sniff | per item | — | TODO |
+| A-38 | `copy_db.sh`: FORCE row-level security goes back on from an exit trap (`restore_force`), so a failed copy no longer leaves every table without it; a failure before the foreign keys are re-added says where their statements are | `copyDbTrap.test.ts` (runs the real script against a recording stand-in `psql`; fails before: FORCE never restored after a failed copy) | n/a (operator script) | DONE (EV-051) |
+| A-40 | Purge checkpoints, recorded failures and SIGTERM stop: done in Batch 6 (A-47). Left: account-level rows when a company is the account's last | — | — | PARTLY (A-47) |
+| A-41 | Retention per company: done in Batch 6 (A-48) | — | — | DONE (A-48, EV-105) |
+| A-39, A-42 | Employee-delete orphans; upload MIME sniff | per item | — | TODO |
 
 ## Batch 5 — Machine credentials registry (GAP-004)
 

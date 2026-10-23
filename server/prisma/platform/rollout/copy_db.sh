@@ -5,7 +5,8 @@
 # (works across Postgres versions; no pg_dump). Destination must be empty.
 #  - drops destination foreign keys, copies, re-adds them (re-validates links)
 #  - temporarily turns off FORCE row-level security on destination tables so the
-#    owner can load every tenant's rows, then turns it back on
+#    owner can load every tenant's rows, then turns it back on — on any exit,
+#    including a failed copy (A-38: with set -e a failure used to leave FORCE off)
 #  - resets sequences to max(id)
 #  - prints row counts per table and mismatches. Never prints URLs.
 set -e
@@ -17,6 +18,22 @@ for t in $tables; do n=$(q "$DST" "select count(*) from \"$t\""); [ "$n" = 0 ] |
 q "$DST" "select format('ALTER TABLE %s ADD CONSTRAINT %I %s;', conrelid::regclass, conname, pg_get_constraintdef(oid)) from pg_constraint where contype='f' and connamespace='public'::regnamespace" > "$SP/fk_$L.sql"
 q "$DST" "select format('ALTER TABLE %s DROP CONSTRAINT %I;', conrelid::regclass, conname) from pg_constraint where contype='f' and connamespace='public'::regnamespace" | psql "$DST" -v ON_ERROR_STOP=1 -q
 forced=("${(@f)$(q "$DST" "select c.relname from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relforcerowsecurity")}")
+fk_done=0; restored=0
+# FORCE goes back on however the script ends. A table left without it is a
+# database whose tenant backstop is off with nothing to say so.
+restore_force(){
+  (( restored )) && return 0
+  restored=1
+  for t in $forced; do
+    [ -n "$t" ] || continue
+    q "$DST" "ALTER TABLE \"$t\" FORCE ROW LEVEL SECURITY" >/dev/null 2>&1 || echo "[$L] WARNING: could not turn FORCE row-level security back on for $t — do it by hand"
+  done
+}
+on_exit(){
+  restore_force
+  (( fk_done )) || echo "[$L] FAILED before foreign keys were re-added; the statements are in $SP/fk_$L.sql"
+}
+trap on_exit EXIT
 for t in $forced; do [ -n "$t" ] && q "$DST" "ALTER TABLE \"$t\" NO FORCE ROW LEVEL SECURITY" >/dev/null; done
 copied=0; skipped=""
 for t in $tables; do
@@ -30,7 +47,8 @@ for t in $tables; do
   copied=$((copied+1))
 done
 psql "$DST" -v ON_ERROR_STOP=1 -q -f "$SP/fk_$L.sql"
-for t in $forced; do [ -n "$t" ] && q "$DST" "ALTER TABLE \"$t\" FORCE ROW LEVEL SECURITY" >/dev/null; done
+fk_done=1
+restore_force
 q "$DST" "select format('SELECT setval(%L, COALESCE((SELECT MAX(%I) FROM %I.%I),0)+1, false);', s.relname, a.attname, n.nspname, t.relname) from pg_class s join pg_depend d on d.objid=s.oid join pg_class t on t.oid=d.refobjid join pg_attribute a on a.attrelid=t.oid and a.attnum=d.refobjsubid join pg_namespace n on n.oid=t.relnamespace where s.relkind='S' and n.nspname='public'" | psql "$DST" -q >/dev/null 2>&1 || true
 bad=0; total=0
 for t in $tables; do [[ "$srctables" != *" $t "* ]] && continue; a=$(q "$SRC" "select count(*) from \"$t\""); b=$(q "$DST" "select count(*) from \"$t\""); total=$((total+b)); [ "$a" = "$b" ] || { bad=$((bad+1)); echo "[$L] MISMATCH $t src=$a dst=$b"; }; done
