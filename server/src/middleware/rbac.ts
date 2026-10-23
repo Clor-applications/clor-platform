@@ -1,6 +1,7 @@
 import type { Request, Response, NextFunction } from 'express';
 import { type PermissionAction as PermissionActionType } from '../constants/enums.js';
 import { resolveAccess } from '../services/access.js';
+import { isAppEntitled } from '../services/subscriptions.js';
 
 // DB-stored RBAC:
 // - UserRoleAssignment can be org-wide (branchId null) or branch-scoped
@@ -22,6 +23,8 @@ function permString(module: string, subModule: string | null, action: Permission
 }
 
 export type Refusal = { status: number; body: Record<string, unknown> };
+
+const ACCOUNTING_MODULES = new Set(['SALES', 'PURCHASE', 'INVENTORY', 'ACCOUNTING', 'CASHBANK', 'EXPENSES', 'MASTERS']);
 
 /**
  * Decides one permission for this request, and records the caller's effective
@@ -61,6 +64,21 @@ export async function authorize(
 
   if (!accountId || !userId) return { status: 401, body: { error: 'Missing auth context' } };
   if (!orgId || !branchId) return { status: 400, body: { error: 'Missing tenant context' } };
+
+  /*
+   * A role says what a user may do inside an app; it must never grant the app
+   * itself. Accounting historically relied only on RBAC while People,
+   * Attendance and Payroll had explicit subscription guards. That allowed an
+   * account whose subscription removed Accounting to keep calling its APIs
+   * directly. Put the commercial ceiling in the common authorization path so
+   * shell visibility and direct API access reach the same answer.
+   */
+  if (ACCOUNTING_MODULES.has(m) && !(await isAppEntitled(accountId, 'accounting'))) {
+    return {
+      status: 402,
+      body: { error: "The accounting app is not on this account's subscription.", app: 'accounting', code: 'APP_NOT_SUBSCRIBED' },
+    };
+  }
 
   // Effective access resolves direct role assignments AND role profiles.
   const access = await resolveAccess(accountId, orgId, userId, branchId);

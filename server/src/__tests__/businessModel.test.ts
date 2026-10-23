@@ -1,6 +1,8 @@
 import { describe, it, expect, afterAll } from 'vitest';
 import { platformPrisma } from '../utils/platformPrisma.js';
 import { setSubscription, subscribedAppCodes, isAppEntitled, inGoodStanding, appAccess, appOwnershipReason } from '../services/subscriptions.js';
+import { SELLABLE_APP_CODES } from '../constants/appCatalog.js';
+import { entitlementFor } from '../services/entitlements.js';
 
 /**
  * The generic business-model layer: subscriptions grant app-level access and
@@ -28,6 +30,7 @@ describe('business model — subscriptions (gateway-agnostic)', () => {
     expect(apps).toContain('payroll');
     expect(await isAppEntitled(acct, 'payroll')).toBe(true);
     expect(await isAppEntitled(acct, 'accounting')).toBe(false);
+    expect((await entitlementFor(acct)).features.has('inventory')).toBe(false);
   });
 
   it('non-sellable apps (projects, not yet for sale) are rejected; native attendance is sellable', async () => {
@@ -38,13 +41,31 @@ describe('business model — subscriptions (gateway-agnostic)', () => {
     expect(apps).not.toContain('projects');
   });
 
-  it('no subscription row = unrestricted: every sellable app, nothing taken away', async () => {
+  it('an unrecognised account with no subscription fails closed', async () => {
     const fresh = 'test_acct_bizmodel_norow';
     const a = await appAccess(fresh);
-    expect(a.restricted).toBe(false);
-    expect(a.entitledApps).toEqual(expect.arrayContaining(['accounting', 'payroll', 'attendance', 'people']));
-    expect(a.entitledApps).not.toContain('projects');
-    expect(await appOwnershipReason(fresh, 'payroll')).toBeNull();
+    expect(a.restricted).toBe(true);
+    expect(a.entitledApps).toEqual([]);
+    expect(await appOwnershipReason(fresh, 'payroll')).toMatch(/not on this account/);
+  });
+
+  it('an explicitly grandfathered account keeps the whole catalogue without a subscription', async () => {
+    /* The roll-out migration marked exactly the accounts the old fail-open rule
+       covered; their access must survive the fail-closed rule for everyone else. */
+    const legacy = await platformPrisma.account.create({
+      data: { name: `legacy ${Date.now()}`, legacyUnrestrictedAt: new Date() },
+      select: { id: true },
+    });
+    try {
+      const a = await appAccess(legacy.id);
+      expect(a.restricted).toBe(false);
+      expect(a.inGoodStanding).toBe(true);
+      expect(a.entitledApps).toEqual(expect.arrayContaining([...SELLABLE_APP_CODES]));
+      expect(a.entitledApps).not.toContain('projects');
+    } finally {
+      /* The row was created without a subscription and nothing attaches one inside the check. */
+      await platformPrisma.account.delete({ where: { id: legacy.id } });
+    }
   });
 
   it('switching on an app the subscription does not own is refused', async () => {

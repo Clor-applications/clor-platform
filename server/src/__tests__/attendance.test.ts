@@ -56,7 +56,9 @@ beforeAll(async () => {
 
 describe('the switch', () => {
   it('is refused while Attendance is off', async () => {
-    const off = await makeOwner({ people: true });
+    /* A fresh account owns every sellable app (explicit bootstrap subscription), so
+       "off" is now the customer turning the app off, not a catalog default. */
+    const off = await makeOwner({ people: true, attendance: false });
     expect((await api(off).get('/overview').expect(403)).body.code).toBe('ATTENDANCE_DISABLED');
   });
 });

@@ -41,7 +41,9 @@ async function makeOwner({ payroll = true } = {}): Promise<Ctx> {
     .send({ companyName: `Setup Co ${Date.now()}-${rnd()}`, state: 'Karnataka' })
     .expect(200);
   const ctx = { token: signup.body.token, orgId: setup.body.company.orgId, branchId: setup.body.branch.id };
-  if (payroll) await request(app).put(`/api/orgs/${ctx.orgId}/features`).set(at(ctx)).send({ features: { payroll: true } }).expect(200);
+  /* A fresh account owns every sellable app (explicit bootstrap subscription), so
+     "off" is now the customer turning the app off, not a catalog default. */
+  await request(app).put(`/api/orgs/${ctx.orgId}/features`).set(at(ctx)).send({ features: { payroll: !!payroll } }).expect(200);
   return ctx;
 }
 

@@ -40,6 +40,8 @@ import { expandPreset, permKey } from '../constants/permissionCatalog.js';
 import { validateGstinOrThrow, deriveStateCodeFromInput } from '../utils/gstin.js';
 import { isDevOrTest } from '../utils/devMode.js';
 import { requireAuth as requireLiveAuth } from '../middleware/auth.js';
+import { APP_CATALOG } from '../constants/appCatalog.js';
+import { appAccess } from '../services/subscriptions.js';
 
 /* Compared against when no such user exists, so a miss costs a real bcrypt check (SX-14). */
 const LOGIN_DUMMY_HASH = bcrypt.hashSync('not-a-password-0', Number(process.env.BCRYPT_ROUNDS || 12));
@@ -646,22 +648,43 @@ authRouter.post('/signup', signupLimiter, async (req: Request, res: Response) =>
   const rounds = Number(process.env.BCRYPT_ROUNDS || 12);
   const passwordHash = await bcrypt.hash(body.password, rounds);
 
-  const account = await platformPrisma.account.create({
-    data: { name: body.name.trim() || email },
-    select: { id: true, name: true },
-  });
-
-  const user = await platformPrisma.user.create({
-    data: {
-      accountId: account.id,
-      email,
-      username: null,
-      fullName: body.name.trim(),
-      passwordHash,
-      isActive: true,
-      ...(body.noticeVersion ? { noticeVersion: body.noticeVersion, noticeAcceptedAt: new Date() } : {}),
-    },
-    select: { id: true, accountId: true, email: true, fullName: true },
+  /*
+   * Provision identity and commercial access atomically. New accounts never
+   * rely on the legacy fail-open rule: every available app they receive is an
+   * explicit subscription item. Pricing is still manual/open-ended today, so
+   * this preserves the pre-upgrade signup experience without ambiguous access.
+   */
+  const { account, user } = await platformPrisma.$transaction(async (tx) => {
+    const createdAccount = await tx.account.create({
+      data: { name: body.name.trim() || email },
+      select: { id: true, name: true },
+    });
+    await tx.subscription.create({
+      data: {
+        accountId: createdAccount.id,
+        status: 'active',
+        items: {
+          create: APP_CATALOG.filter((app) => app.available).map((app) => ({
+            appCode: app.code,
+            tier: app.defaultTier ?? null,
+            priceModel: 'free',
+          })),
+        },
+      },
+    });
+    const createdUser = await tx.user.create({
+      data: {
+        accountId: createdAccount.id,
+        email,
+        username: null,
+        fullName: body.name.trim(),
+        passwordHash,
+        isActive: true,
+        ...(body.noticeVersion ? { noticeVersion: body.noticeVersion, noticeAcceptedAt: new Date() } : {}),
+      },
+      select: { id: true, accountId: true, email: true, fullName: true },
+    });
+    return { account: createdAccount, user: createdUser };
   });
 
   const { session, refreshToken } = await createSession({
@@ -827,6 +850,31 @@ authRouter.post('/setup-company', async (req: Request, res: Response) => {
   await platformPrisma.userBranchMembership.create({
     data: { accountId: auth.accountId, orgId: org.id, branchId: branch.id, userId: auth.userId },
   });
+
+  /*
+   * A new company starts with the apps its account owns, switched on for it.
+   *
+   * App switches follow subscription CHANGES (syncAppSwitches), so an org
+   * created under a standing subscription never sees one — without this the
+   * owned apps would sit at the catalog default (off) and the customer would
+   * find an empty shelf behind a pay-up tile. Only owned-but-lapsed apps keep
+   * it too (ownedApps, not entitledApps): a lapsed app stays visible, its
+   * routes refuse work, and the switch is still where the customer left it.
+   * Other companies of the account are untouched; failures cannot sink the
+   * company the account just paid for.
+   */
+  try {
+    const owned = (await appAccess(auth.accountId)).ownedApps;
+    for (const app of APP_CATALOG.filter((a) => a.available && a.featureKey && owned.includes(a.code))) {
+      await platformPrisma.featureSetting.upsert({
+        where: { orgId_key: { orgId: org.id, key: app.featureKey! } },
+        update: {},
+        create: { accountId: auth.accountId, orgId: org.id, key: app.featureKey!, enabled: true, updatedByUserId: 'subscription' },
+      });
+    }
+  } catch {
+    /* The org exists even if its switches could not be written. */
+  }
 
   /*
    * Every org gets a warehouse, for the same reason it gets a branch.

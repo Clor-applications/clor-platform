@@ -118,7 +118,10 @@ describe('the boundary between payroll and the books', () => {
 
 describe('a module that is switched off', () => {
   it('answers nothing until the organisation turns payroll on', async () => {
+    /* A fresh account owns every sellable app (explicit bootstrap subscription), so
+       "off" is now the customer turning the app off, not a catalog default. */
     const fresh = await makeOwner();
+    await request(app).put(`/api/orgs/${fresh.orgId}/features`).set(at(fresh)).send({ features: { payroll: false } }).expect(200);
     const refused = await list(fresh).expect(403);
     expect(refused.body.code).toBe('PAYROLL_DISABLED');
     await create(fresh, EARNING).expect(403);

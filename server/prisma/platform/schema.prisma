@@ -44,6 +44,10 @@ model Account {
   name      String
   /// Client ID shown to people: the code of the account's first company (KAVE-C100). Never changed (LD-09).
   code      String?  @unique
+  /// Set only by the rollout migration for accounts that predate explicit
+  /// subscriptions. A missing subscription is open only when this marker is
+  /// present; newly created/unrecognised accounts fail closed.
+  legacyUnrestrictedAt DateTime?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

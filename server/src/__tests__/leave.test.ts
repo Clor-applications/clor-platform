@@ -51,7 +51,9 @@ const leaveType = async (c: Ctx, body: Record<string, unknown>) => (await api(c)
 describe('the switch', () => {
   /* Leave is HR's as much as Attendance's (founder, 22 Oct 2026): either switch opens it (hrLeave.test.ts). */
   it('is refused while neither People nor Attendance is on, and opens with either', async () => {
-    const off = await makeOwner({});
+    /* A fresh account owns every sellable app (explicit bootstrap subscription), so
+       "off" is now the customer turning the apps off, not a catalog default. */
+    const off = await makeOwner({ people: false, attendance: false });
     expect((await api(off).get('/leave/types').expect(403)).body.code).toBe('TIME_OFF_DISABLED');
     await api(await makeOwner({ people: true })).get('/leave/types').expect(200);
     await api(await makeOwner({ attendance: true })).get('/leave/types').expect(200);

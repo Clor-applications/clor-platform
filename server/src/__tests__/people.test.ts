@@ -50,7 +50,11 @@ beforeAll(async () => {
 
 describe('the switch', () => {
   it('is refused while People is off', async () => {
-    const off = await makeOwner({});
+    /* A fresh account owns every sellable app (explicit bootstrap subscription), so
+       "off" is now the customer turning the apps off, not a catalog default;
+       People opens when either People or Attendance is on (guards.ts). */
+    const off = await makeOwner({ people: false, attendance: false });
+    await request(app).put(`/api/orgs/${off.orgId}/features`).set(at(off)).send({ features: { people: false } }).expect(200);
     const res = await api(off).get('/employees').expect(403);
     expect(res.body.code).toBe('PEOPLE_DISABLED');
   });

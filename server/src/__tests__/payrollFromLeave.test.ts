@@ -43,7 +43,9 @@ const inputOf = (runId: string, employeeId: string) => payrollPrisma.payrollInpu
 
 describe('days from leave, without Attendance', () => {
   it('counts approved unpaid leave as loss of pay, not paid leave, and lists pay-outs', async () => {
-    const c = await makeOwner({ payroll: true, people: true });
+    /* A fresh account owns every sellable app (explicit bootstrap subscription), so
+       "off" is now the customer turning the app off, not a catalog default. */
+    const c = await makeOwner({ payroll: true, people: true, attendance: false });
     const { employeeId, runId } = await setUp(c);
     const lop = (await att(c, '/leave/types', { name: 'Loss of pay', isPaid: false }).expect(201)).body.type;
     const casual = (await att(c, '/leave/types', { name: 'Casual', annualDays: 12, encashable: true }).expect(201)).body.type;
@@ -73,7 +75,7 @@ describe('days from leave, without Attendance', () => {
   }, 60_000);
 
   it('matches the attendance summary on a linked half day: the leave half and the unworked half are separate', async () => {
-    const c = await makeOwner({ payroll: true, people: true });
+    const c = await makeOwner({ payroll: true, people: true, attendance: false });
     const { employeeId, runId } = await setUp(c);
     /* An unpaid half day with nothing worked: both halves are lost (0.5 leave + 0.5 unworked) */
     const lop = (await att(c, '/leave/types', { name: 'Loss of pay', isPaid: false }).expect(201)).body.type;

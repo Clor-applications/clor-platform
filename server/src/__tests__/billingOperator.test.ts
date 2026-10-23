@@ -67,7 +67,7 @@ describe('setting a subscription by hand', () => {
 
     const seen = await subscription(c);
     expect(seen.subscribedApps).toEqual(expect.arrayContaining(['people', 'attendance', 'payroll']));
-    /* The operator's own account is untouched. */
-    expect((await subscription(op)).subscription).toBeNull();
+    /* The operator's own explicit bootstrap subscription is untouched. */
+    expect((await subscription(op)).subscribedApps).toEqual(expect.arrayContaining(['accounting', 'people', 'attendance', 'payroll']));
   }, 60_000);
 });
