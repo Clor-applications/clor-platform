@@ -8,7 +8,7 @@ import { mappingSchema, recordsOf, toAttlog } from '../services/attendance/punch
 import { hashToken } from './publicApi.js';
 import { ingestPunches } from '../services/attendance/punches.js';
 import { decryptSecret } from '../services/mailer.js';
-import { enterTenant } from '../utils/tenantScope.js';
+import { enterTenant, outsideTenant } from '../utils/tenantScope.js';
 
 /** How far a signed push's timestamp may be from now (seconds): older is a replay, refused. */
 export const SIGNATURE_WINDOW_S = 300;
@@ -46,7 +46,8 @@ export const ingestRouter = Router();
 ingestRouter.post('/:token', ...ingestLimiter, async (req, res) => {
   const token = String(req.params.token || '');
   if (!/^clorp_[A-Za-z0-9_-]{20,}$/.test(token)) return res.status(404).json({ error: 'No such URL.' });
-  const device = await peoplePrisma.attendanceDevice.findUnique({ where: { pushTokenHash: hashToken(token) } });
+  /* A-35: the token is how the company is found, so it is looked up across companies. */
+  const device = await outsideTenant('push: which reader this token is', () => peoplePrisma.attendanceDevice.findUnique({ where: { pushTokenHash: hashToken(token) } }));
   if (!device || device.vendor !== 'HTTP_PUSH') return res.status(404).json({ error: 'No such URL.' });
   if (!device.isActive) return res.status(403).json({ error: 'This reader is switched off in CLOR.' });
   /* A-11: punches are taken only while Attendance is on, paid for, and the company is not closing. */

@@ -27,7 +27,7 @@ import { approveLeave, cancelOwnLeave, createLeave, rejectLeave, withTypes } fro
 import { balancesFor, leavePeriodOf, leaveYearOf } from '../services/attendance/leaveBalances.js';
 import { periodEnd, periodStart } from '../services/attendance/leaveAccrual.js';
 import { recomputeDeviceDay, shiftDayFor } from '../services/attendance/punches.js';
-import { runInTenant } from '../utils/tenantScope.js';
+import { enterTenant, outsideTenant, runInTenant } from '../utils/tenantScope.js';
 
 /**
  * The employee portal (ClorTime's /portal): staff without a CLOR user sign in
@@ -102,13 +102,14 @@ async function findEmployee(company: unknown, employeeCode: unknown) {
   const companyCode = String(company || '').trim().toUpperCase();
   const code = String(employeeCode || '').trim();
   if (!companyCode || !code || companyCode.length > 40 || code.length > 40) return null;
-  const org = await platformPrisma.org.findUnique({ where: { code: companyCode }, select: { id: true, accountId: true, name: true } });
+  /* The company code is how the company is found (A-35); the employee is then looked for inside it. */
+  const org = await outsideTenant('portal: which company this code names', () => platformPrisma.org.findUnique({ where: { code: companyCode }, select: { id: true, accountId: true, name: true } }));
   if (!org) return null;
-  const rows = await peoplePrisma.employee.findMany({
+  const rows = await runInTenant(org.id, () => peoplePrisma.employee.findMany({
     where: { orgId: org.id, accountId: org.accountId, code: { equals: code, mode: 'insensitive' }, status: { not: 'LEFT' } },
     select: PORTAL_FIELDS,
     take: 2,
-  });
+  }));
   if (rows.length !== 1) return null;
   /* A-11: switched on and paid for, and the company not closing — the same answer staff routes give. */
   if (await anyAppLive(org.accountId, org.id, ['people', 'attendance'])) return null;
@@ -125,6 +126,8 @@ const DUMMY_HASH = bcrypt.hashSync('not-a-password-0', ROUNDS);
  */
 portalRouter.post('/forgot', ...portalLimiter, async (req, res) => {
   const found = await findEmployee(req.body?.company, req.body?.employeeCode);
+  /* The rest of this request runs as the employee's company (A-35). */
+  if (found) enterTenant(found.org.id);
   if (found?.employee?.portalEnabled) {
     const e = found.employee;
     await notifyPermission(e.accountId, e.orgId, 'ATTENDANCE::Employee Portal::EDIT', {
@@ -139,6 +142,8 @@ portalRouter.post('/forgot', ...portalLimiter, async (req, res) => {
 
 portalRouter.post('/login', ...portalLimiter, async (req, res) => {
   const found = await findEmployee(req.body?.company, req.body?.employeeCode);
+  /* The rest of this request runs as the employee's company (A-35). */
+  if (found) enterTenant(found.org.id);
   const e = found?.employee;
   const ok = await bcrypt.compare(String(req.body?.password || ''), e?.portalPasswordHash || DUMMY_HASH);
   if (!found || !e || !ok || !e.portalEnabled || !e.portalPasswordHash) return res.status(401).json({ error: WRONG });
@@ -150,6 +155,8 @@ portalRouter.post('/activate', ...portalLimiter, async (req, res) => {
   const problem = passwordProblem(req.body?.password);
   if (problem) return res.status(400).json({ error: problem });
   const found = await findEmployee(req.body?.company, req.body?.employeeCode);
+  /* The rest of this request runs as the employee's company (A-35). */
+  if (found) enterTenant(found.org.id);
   const e = found?.employee;
   const ok = await bcrypt.compare(normaliseCode(req.body?.activationCode), e?.portalSetupHash || DUMMY_HASH);
   if (!found || !e || !ok || !e.portalEnabled || !e.portalSetupHash || !e.portalSetupExpires || e.portalSetupExpires < new Date()) {
@@ -174,7 +181,8 @@ async function authenticate(req: Request, res: Response, next: NextFunction) {
     return res.status(401).json({ error: 'Please sign in again.', code: 'PORTAL_SIGNIN' });
   }
   if (claims?.typ !== 'portal') return res.status(401).json({ error: 'Please sign in again.', code: 'PORTAL_SIGNIN' });
-  const e = await peoplePrisma.employee.findFirst({ where: { id: String(claims.employeeId), orgId: String(claims.orgId), accountId: String(claims.accountId) }, select: PORTAL_FIELDS });
+  /* The signed token names the company; the employee is looked for inside it (A-35). */
+  const e = await runInTenant(String(claims.orgId || ''), () => peoplePrisma.employee.findFirst({ where: { id: String(claims.employeeId), orgId: String(claims.orgId), accountId: String(claims.accountId) }, select: PORTAL_FIELDS }));
   /* Switched off, left, or a new password since this token: it is over. */
   if (!e || !e.portalEnabled || e.status === 'LEFT' || !e.portalPasswordHash || (e.portalPasswordSetAt?.getTime() || 0) !== claims.pv) {
     return res.status(401).json({ error: 'Please sign in again.', code: 'PORTAL_SIGNIN' });

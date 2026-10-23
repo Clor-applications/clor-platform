@@ -43,11 +43,14 @@ import { requireAuth as requireLiveAuth } from '../middleware/auth.js';
 import { APP_CATALOG } from '../constants/appCatalog.js';
 import { appAccess } from '../services/subscriptions.js';
 import { userIsAdmin } from '../services/roleGuards.js';
+import { acrossCompanies } from '../utils/tenantScope.js';
 
 /* Compared against when no such user exists, so a miss costs a real bcrypt check (SX-14). */
 const LOGIN_DUMMY_HASH = bcrypt.hashSync('not-a-password-0', Number(process.env.BCRYPT_ROUNDS || 12));
 
 export const authRouter = Router();
+/* Signing up, signing in and choosing a company happen before — and across — any one company (A-35). */
+authRouter.use(acrossCompanies('auth: a person and their companies, before one is chosen'));
 
 const LOCKOUT_NOTICE = Number(process.env.LOCKOUT_MINUTES || 15);
 

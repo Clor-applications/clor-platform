@@ -8,7 +8,7 @@ import { VERIFY_WORDS } from '../services/attendance/pull/index.js';
 import { hikvisionCounts } from '../services/attendance/pull/hikvision.js';
 import { hashToken } from './publicApi.js';
 import { ingestPunches } from '../services/attendance/punches.js';
-import { enterTenant } from '../utils/tenantScope.js';
+import { enterTenant, outsideTenant } from '../utils/tenantScope.js';
 
 /**
  * /hikvision/<token> — Hikvision face / card terminals pushing events (the
@@ -103,7 +103,8 @@ export function punchOf(ev: any, zone: string, countMinors?: number[] | null): {
 hikvisionPushRouter.post('/:token', ...ingestLimiter, async (req, res) => {
   const token = String(req.params.token || '');
   if (!/^clorp_[A-Za-z0-9_-]{20,}$/.test(token)) return res.status(404).json({ error: 'No such URL.' });
-  const device = await peoplePrisma.attendanceDevice.findUnique({ where: { pushTokenHash: hashToken(token) } });
+  /* A-35: the token is how the company is found, so it is looked up across companies. */
+  const device = await outsideTenant('hikvision push: which terminal this token is', () => peoplePrisma.attendanceDevice.findUnique({ where: { pushTokenHash: hashToken(token) } }));
   if (!device || device.vendor !== 'HIKVISION_PUSH') return res.status(404).json({ error: 'No such URL.' });
   if (!device.isActive) return res.status(403).json({ error: 'This reader is switched off in CLOR.' });
   /* A-11: punches are taken only while Attendance is on, paid for, and the company is not closing. */

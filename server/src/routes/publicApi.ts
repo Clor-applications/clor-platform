@@ -20,7 +20,7 @@ import { idempotent } from '../services/attendance/idempotency.js';
 import { driverOf } from '../services/attendance/drivers.js';
 import { ONLINE_WINDOW_MS } from '../services/attendance/adms.js';
 import { OPENAPI, docsHtml } from '../services/attendance/openapi.js';
-import { runInTenant } from '../utils/tenantScope.js';
+import { runInTenant, outsideTenant } from '../utils/tenantScope.js';
 
 /**
  * CLOR's API for outside systems — an HRMS or payroll pulling attendance, or
@@ -65,7 +65,8 @@ const fail = (res: Response, status: number, error: string) => res.status(status
 async function authenticate(req: Request, res: Response, next: NextFunction) {
   const token = tokenOf(req);
   if (!token) return fail(res, 401, 'Send your API key as "Authorization: Bearer <key>".');
-  const row = await peoplePrisma.apiClient.findUnique({ where: { tokenHash: hashToken(token) } });
+  /* A-35: the token is how the company is found, so it is looked up across companies. */
+  const row = await outsideTenant('public api: which company this key belongs to', () => peoplePrisma.apiClient.findUnique({ where: { tokenHash: hashToken(token) } }));
   if (!row || !row.isActive || row.revokedAt) return fail(res, 401, 'This API key is not valid.');
   const ip = String(req.ip || '').replace(/^::ffff:/, '');
   const allowed = (row.allowedIps || '').split(',').map((s) => s.trim()).filter(Boolean);
@@ -74,7 +75,8 @@ async function authenticate(req: Request, res: Response, next: NextFunction) {
   const refused = await appLive(row.accountId, row.orgId, 'attendance');
   if (refused) return fail(res, refused.status, refused.error);
   req.apiClient = { id: row.id, accountId: row.accountId, orgId: row.orgId, scopes: row.scopes.split(','), deviceId: row.deviceId, tokenPrefix: row.tokenPrefix };
-  peoplePrisma.apiClient.update({ where: { id: row.id }, data: { lastUsedAt: new Date(), lastUsedIp: ip || null } }).catch(() => undefined);
+  /* As the key's company (A-35): a stamp made with no company would match no row and fail silently. */
+  runInTenant(row.orgId, () => peoplePrisma.apiClient.update({ where: { id: row.id }, data: { lastUsedAt: new Date(), lastUsedIp: ip || null } })).catch(() => undefined);
   runInTenant(row.orgId, () => next());
 }
 const scope = (s: (typeof SCOPES)[number]) => (req: Request, res: Response, next: NextFunction) =>

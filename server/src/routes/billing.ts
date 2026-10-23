@@ -12,10 +12,13 @@ import { getSubscription, appAccess, setSubscription, applyGatewayEvent } from '
 import { getGateway } from '../billing/gateway.js';
 import { requireOperatorStepUp } from '../services/stepUp.js';
 import { clientIp, recordAuthEvent } from '../services/auth.js';
+import { acrossCompanies } from '../utils/tenantScope.js';
 
 export const billingRouter = Router();
 /** CLOR operators acting on an account from outside it. See app.ts for where it is mounted. */
 export const billingOperatorRouter = Router();
+/* A CLOR operator acts on a customer's account, not inside one of its companies (A-35). */
+billingOperatorRouter.use(acrossCompanies('billing operator: a customer account, across its companies'));
 
 /**
  * The payment gateway's webhook (A-16).

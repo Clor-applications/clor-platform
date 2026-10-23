@@ -13,7 +13,7 @@ import { PermissionAction } from '../constants/enums.js';
 import { ingestLimiter } from '../middleware/rateLimit.js';
 import { hashToken } from './publicApi.js';
 import { notifyPermission } from '../services/notifications.js';
-import { enterTenant } from '../utils/tenantScope.js';
+import { enterTenant, outsideTenant, runInTenant } from '../utils/tenantScope.js';
 
 /**
  * UPI Direct: the company's customers pay straight into the company's own
@@ -180,11 +180,12 @@ payRequestsRouter.post(`${base}/:id/cancel`, can(PermissionAction.EDIT), async (
 
 async function requestOf(token: string) {
   if (!/^clorpay_[A-Za-z0-9_-]{20,}$/.test(token)) return null;
-  const r = await prisma.paymentRequest.findUnique({ where: { tokenHash: hashToken(token) } });
+  /* A-35: the token is how the company is found, so it is looked up across companies. */
+  const r = await outsideTenant('pay link: which company this link belongs to', () => prisma.paymentRequest.findUnique({ where: { tokenHash: hashToken(token) } }));
   if (!r) return null;
   /* A-11: payment links are Accounting's; none is served for a company without it, or closing. */
   if (await appLive(r.accountId, r.orgId, 'accounting')) return null;
-  if (r.status === 'PENDING' && r.expiresAt && r.expiresAt < new Date()) return prisma.paymentRequest.update({ where: { id: r.id }, data: { status: 'EXPIRED' } });
+  if (r.status === 'PENDING' && r.expiresAt && r.expiresAt < new Date()) return runInTenant(r.orgId, () => prisma.paymentRequest.update({ where: { id: r.id }, data: { status: 'EXPIRED' } }));
   return r;
 }
 

@@ -23,13 +23,26 @@ import { AsyncLocalStorage } from 'node:async_hooks';
  *  - `$transaction([…])` gets the setting as its first statement.
  *  - Raw queries (`$queryRaw`, `$executeRaw` and the unsafe forms) likewise.
  *
- * With no company in scope (sign-in, a background job, a platform admin) the
- * client behaves exactly as it did. `outsideTenant(reason, fn)` is the one way
- * for a request to read across companies on purpose (an account's company list,
- * a group's consolidated report); every use names why.
+ * Fail-closed (A-35). The policies used to let everything through when no
+ * company was set, so a query that never said which company it was for saw
+ * every company's rows. They now allow a row only when its company matches
+ * `clor.org_id`, or when `clor.bypass` is 'on' — and nothing otherwise.
+ *
+ *  - A request starts in a strict scope (`beginRequestScope`, mounted first in
+ *    app.ts): until it names its company, its queries see no company's rows.
+ *  - `outsideTenant(reason, fn)` is the one way for code in a request to read
+ *    across companies on purpose (signing in, finding the company a token
+ *    belongs to, an account's company list); it turns the bypass on, and every
+ *    use names why.
+ *  - Code outside any request — background jobs, scripts, the test harness —
+ *    is maintenance and runs with the bypass on, as it effectively did before.
+ *  - TENANT_STRICT=off is the operator's valve: requests that have not named a
+ *    company fall back to the bypass, as before this change, without touching
+ *    the database. For an emergency, not a setting to live with.
  */
 
 export const TENANT_SETTING = 'clor.org_id';
+export const BYPASS_SETTING = 'clor.bypass';
 
 /*
  * A request's queries are also capped in time. Without a cap, a query still
@@ -51,7 +64,14 @@ export const requestStatementTimeout = (): string => {
  * query through the people or platform client — or the payroll client
  * itself outside `tx` — skipped the setting and ran with no company.
  */
-type Scope = { orgId: string; inTx?: ReadonlySet<object> };
+type Scope = {
+  orgId: string;
+  inTx?: ReadonlySet<object>;
+  /** outsideTenant: read across companies on purpose. */
+  bypass?: boolean;
+  /** Inside an HTTP request (statement timeout; strict until a company is named). */
+  request?: boolean;
+};
 const store = new AsyncLocalStorage<Scope>();
 
 /*
@@ -60,8 +80,9 @@ const store = new AsyncLocalStorage<Scope>();
  * run it after the scope has ended, in whatever scope the caller is in. So a
  * returned promise is awaited here, inside the scope.
  */
+/* A scope inherits from the one around it — a company named inside a request is still that request. */
 const within = <T>(scope: Scope, fn: () => T): T =>
-  store.run(scope, () => {
+  store.run({ ...store.getStore(), ...scope }, () => {
     const r = fn() as unknown as { then?: unknown };
     return (r && typeof r.then === 'function' ? (async () => await (r as unknown as Promise<unknown>))() : r) as T;
   });
@@ -69,7 +90,23 @@ const within = <T>(scope: Scope, fn: () => T): T =>
 /** Run `fn` with the database told this company. */
 export function runInTenant<T>(orgId: string, fn: () => T): T {
   const id = String(orgId || '').trim();
-  return id ? within({ orgId: id }, fn) : fn();
+  return id ? within({ orgId: id, bypass: false }, fn) : fn();
+}
+
+/**
+ * A router that works above any one company — signing in, single sign-on,
+ * a CLOR operator acting on an account — reads across companies, said once at
+ * the router with the reason (A-35).
+ */
+export const acrossCompanies = (reason: string) => (_req: unknown, _res: unknown, next: () => void) => outsideTenant(reason, next);
+
+/**
+ * Express middleware, mounted before every router: the request runs in a
+ * strict scope, so a query made before its company is known sees nothing
+ * rather than everything (A-35).
+ */
+export function beginRequestScope(_req: unknown, _res: unknown, next: () => void) {
+  store.run({ orgId: '', request: true }, next);
 }
 
 /**
@@ -85,16 +122,28 @@ export function runInTenant<T>(orgId: string, fn: () => T): T {
  */
 export function enterTenant(orgId: string) {
   const id = String(orgId || '').trim();
-  if (id) store.enterWith({ orgId: id });
+  if (id) store.enterWith({ ...store.getStore(), orgId: id, bypass: false });
 }
 
 /** The company in scope, or '' when none. */
 export const currentOrg = (): string => store.getStore()?.orgId || '';
 
-/** The company this client's next query must set: none inside its own transaction, where it is already set. */
-const orgFor = (client: object): string => {
+const strict = () => String(process.env.TENANT_STRICT ?? 'on').toLowerCase() !== 'off';
+
+/**
+ * What this client's next query must tell the database, or null inside its
+ * own batch (the batch's first statement already did).
+ */
+type Setting = { org: string; bypass: 'on' | 'off'; timeout: boolean };
+const settingFor = (client: object): Setting | null => {
   const s = store.getStore();
-  return s && !s.inTx?.has(client) ? s.orgId : '';
+  if (s?.inTx?.has(client)) return null;
+  /* Outside any request: a job, a script, the test harness — maintenance. */
+  if (!s) return { org: '', bypass: 'on', timeout: false };
+  if (s.orgId) return { org: s.orgId, bypass: 'off', timeout: true };
+  if (s.bypass) return { org: '', bypass: 'on', timeout: Boolean(s.request) };
+  /* A request that has not named its company: nothing, unless the valve is open. */
+  return { org: '', bypass: strict() ? 'off' : 'on', timeout: Boolean(s.request) };
 };
 
 /**
@@ -104,7 +153,7 @@ const orgFor = (client: object): string => {
  */
 export function outsideTenant<T>(reason: string, fn: () => T): T {
   if (!String(reason || '').trim()) throw new Error('Crossing the tenant boundary needs a reason, for whoever reads this next.');
-  return within({ orgId: '' }, fn);
+  return within({ orgId: '', bypass: true }, fn);
 }
 
 /* While this client's batch is assembled its queries go straight through into it, and only its. */
@@ -121,16 +170,19 @@ const RAW = new Set(['$queryRaw', '$executeRaw', '$queryRawUnsafe', '$executeRaw
  */
 export function tenantScoped<C extends object>(base: C): C {
   const client = base as any;
-  const setting = (orgId: string) =>
-    client.$executeRaw`SELECT set_config(${TENANT_SETTING}, ${orgId}, true), set_config('statement_timeout', ${requestStatementTimeout()}, true)`;
+  /* Transaction-local (the `true`): the next borrower of this pooled connection inherits nothing. */
+  const setting = (on: any, st: Setting) =>
+    st.timeout
+      ? on.$executeRaw`SELECT set_config(${TENANT_SETTING}, ${st.org}, true), set_config(${BYPASS_SETTING}, ${st.bypass}, true), set_config('statement_timeout', ${requestStatementTimeout()}, true)`
+      : on.$executeRaw`SELECT set_config(${TENANT_SETTING}, ${st.org}, true), set_config(${BYPASS_SETTING}, ${st.bypass}, true)`;
 
   const extended = client.$extends({
     query: {
       $allModels: {
         async $allOperations({ args, query }: { args: unknown; query: (a: unknown) => Promise<unknown> }) {
-          const org = orgFor(client);
-          if (!org) return query(args);
-          const [, result] = await client.$transaction([setting(org), query(args)]);
+          const st = settingFor(client);
+          if (!st) return query(args);
+          const [, result] = await client.$transaction([setting(client, st), query(args)]);
           return result;
         },
       },
@@ -141,7 +193,7 @@ export function tenantScoped<C extends object>(base: C): C {
     get(target, prop, receiver) {
       if (prop === '$transaction') {
         return (arg: any, options?: unknown) => {
-          const org = orgFor(client);
+          const st = settingFor(client);
           if (typeof arg === 'function') {
             /*
              * Interactive: one connection for the whole callback, the setting
@@ -152,20 +204,20 @@ export function tenantScoped<C extends object>(base: C): C {
              * "in a transaction" and sent with no company at all).
              */
             return client.$transaction(async (tx: any) => {
-              if (org) await tx.$executeRaw`SELECT set_config(${TENANT_SETTING}, ${org}, true), set_config('statement_timeout', ${requestStatementTimeout()}, true)`;
+              if (st) await setting(tx, st);
               return arg(tx);
             }, options);
           }
-          if (!org) return client.$transaction(arg, options);
+          if (!st) return client.$transaction(arg, options);
           /* Batch: the setting is the first statement of the same transaction. */
-          return asInTx(client, () => client.$transaction([setting(org), ...arg], options)).then((rows: unknown[]) => rows.slice(1));
+          return asInTx(client, () => client.$transaction([setting(client, st), ...arg], options)).then((rows: unknown[]) => rows.slice(1));
         };
       }
       if (typeof prop === 'string' && RAW.has(prop)) {
         return (...args: unknown[]) => {
-          const org = orgFor(client);
-          if (!org) return client[prop](...args);
-          return client.$transaction([setting(org), client[prop](...args)]).then((rows: unknown[]) => rows[1]);
+          const st = settingFor(client);
+          if (!st) return client[prop](...args);
+          return client.$transaction([setting(client, st), client[prop](...args)]).then((rows: unknown[]) => rows[1]);
         };
       }
       return Reflect.get(target, prop, receiver);

@@ -96,9 +96,12 @@ import { clearAccessCacheOnWrite } from './utils/accessCache.js';
 import { safeUrl } from './utils/safeUrl.js';
 import { accessLog, requestId } from './utils/log.js';
 import { webIdempotency } from './middleware/idempotency.js';
+import { beginRequestScope } from './utils/tenantScope.js';
 
 export function buildApp() {
   const app = express();
+  /* First: every request runs in a strict tenant scope until it names its company (A-35, utils/tenantScope.ts). */
+  app.use(beginRequestScope);
   /* Every request has an id from the start, so every log line and error about it can be found together. */
   app.use(requestId);
 
