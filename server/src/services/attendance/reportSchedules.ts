@@ -3,6 +3,7 @@ import { platformPrisma } from '../../utils/platformPrisma.js';
 import { sendTemplate } from '../mailer.js';
 import { istDate } from './compute.js';
 import { exclusive, leaseFor } from '../jobLease.js';
+import { appLive } from '../principalAllowed.js';
 
 /**
  * Reports that go out by e-mail on their own.
@@ -82,24 +83,58 @@ const summaryOf = (r: { rows: any[]; totals?: any }) => {
   return `${r.rows.length} row${r.rows.length === 1 ? '' : 's'}${t ? ` — ${t}` : ''}.`;
 };
 
-/** Build and send one schedule now. Records the outcome on the schedule; never throws. */
-export async function runSchedule(s: Schedule, build: (reportId: string, accountId: string, orgId: string, q: any) => Promise<any>, now = new Date()) {
+/** Give up on one recipient of one slot after this many failed sends; the others still go. */
+export const MAX_SENDS_PER_RECIPIENT = 3;
+
+/**
+ * Build and send one schedule now. Records the outcome on the schedule; never throws.
+ *
+ * A-46: a failed send used to be recorded as sent. The mailer reports a failure
+ * by marking the outbox row FAILED rather than by throwing, and this read
+ * nothing back, so the schedule was stamped "sent" and the report never went.
+ * Now each recipient's outbox row is checked. When `slot` is given (the
+ * scheduler's own runs), sends are keyed by (schedule, slot, recipient): a
+ * recipient already sent this slot is not sent again, so a retry after a
+ * partial failure reaches only those who did not get it, and the schedule is
+ * marked sent only once every recipient has it (or has failed
+ * MAX_SENDS_PER_RECIPIENT times — then the error stays on the schedule).
+ */
+export async function runSchedule(s: Schedule, build: (reportId: string, accountId: string, orgId: string, q: any) => Promise<any>, now = new Date(), opts: { slot?: string | null } = {}) {
   try {
     const params = { ...(JSON.parse(s.paramsJson || '{}') as Record<string, string>), ...periodFor(s, now) };
     const report = await build(s.reportId, s.accountId, s.orgId, params);
     const org = await platformPrisma.org.findUnique({ where: { id: s.orgId }, select: { name: true } });
     const html = renderReportHtml(report, org?.name || '');
-    const to = s.recipients.split(/[,\s;]+/).map((x) => x.trim()).filter((x) => /.+@.+\..+/.test(x));
+    const to = [...new Set(s.recipients.split(/[,\s;]+/).map((x) => x.trim()).filter((x) => /.+@.+\..+/.test(x)))];
     if (!to.length) throw new Error('No valid recipient address');
     const csv = reportCsv(report);
     /* A CSV over ~5 MB is left off; the table in the mail still carries the first 2,000 rows. */
     const attachments = csv.length < 5_000_000 ? [{ filename: `${fileSafe(report.title)}-${fileSafe(params.from || params.month || params.date || '')}.csv`, contentType: 'text/csv', content: csv }] : [];
+    const relatedId = opts.slot ? `${s.id}:${opts.slot}` : s.id;
+    const sent: string[] = [];
+    const failed: Array<{ to: string; error: string; final: boolean }> = [];
     for (const addr of to) {
-      await sendTemplate({ templateKey: 'reports.scheduled', to: addr, accountId: s.accountId, orgId: s.orgId, data: { reportTitle: report.title, period: report.period, companyName: org?.name || '', summary: summaryOf(report) }, html, attachments, relatedType: 'ReportSchedule', relatedId: s.id, transactional: true });
+      if (opts.slot) {
+        const before = await platformPrisma.emailOutbox.findMany({ where: { relatedType: 'ReportSchedule', relatedId, toEmail: addr }, select: { status: true } });
+        if (before.some((r) => r.status === 'SENT')) {
+          sent.push(addr);
+          continue;
+        }
+        if (before.length >= MAX_SENDS_PER_RECIPIENT) {
+          failed.push({ to: addr, error: `gave up after ${before.length} attempts`, final: true });
+          continue;
+        }
+      }
+      const row: any = await sendTemplate({ templateKey: 'reports.scheduled', to: addr, accountId: s.accountId, orgId: s.orgId, data: { reportTitle: report.title, period: report.period, companyName: org?.name || '', summary: summaryOf(report) }, html, attachments, relatedType: 'ReportSchedule', relatedId, transactional: true });
+      if (row?.status === 'SENT') sent.push(addr);
+      else failed.push({ to: addr, error: String(row?.lastError || row?.status || 'not sent'), final: false });
     }
-    await peoplePrisma.reportSchedule.update({ where: { id: s.id }, data: { lastSentAt: now, lastError: null } });
-    await peoplePrisma.reportRun.create({ data: { accountId: s.accountId, orgId: s.orgId, scheduleId: s.id, at: now, ok: true, rows: report.rows.length, recipients: to.join(', ') } }).catch(() => {});
-    return { ok: true, sent: to.length, rows: report.rows.length };
+    const pending = failed.filter((f) => !f.final);
+    const error = failed.length ? `Not delivered to ${failed.map((f) => `${f.to} (${f.error})`).join(', ')}`.slice(0, 500) : null;
+    /* Sent only when nobody is still waiting for it; until then the next tick tries the ones who did not get it. */
+    await peoplePrisma.reportSchedule.update({ where: { id: s.id }, data: pending.length ? { lastError: error } : { lastSentAt: now, lastError: error } });
+    await peoplePrisma.reportRun.create({ data: { accountId: s.accountId, orgId: s.orgId, scheduleId: s.id, at: now, ok: !failed.length, rows: report.rows.length, recipients: sent.join(', '), error } }).catch(() => {});
+    return failed.length ? { ok: false, sent: sent.length, rows: report.rows.length, error: error! } : { ok: true, sent: sent.length, rows: report.rows.length };
   } catch (e: any) {
     const error = String(e?.message || e).slice(0, 500);
     await peoplePrisma.reportSchedule.update({ where: { id: s.id }, data: { lastError: error } }).catch(() => {});
@@ -108,10 +143,19 @@ export async function runSchedule(s: Schedule, build: (reportId: string, account
   }
 }
 
+/** The scheduler's run: every due schedule of a company whose Attendance is live, once per slot. */
 export async function runDueSchedules(build: (reportId: string, accountId: string, orgId: string, q: any) => Promise<any>, now = new Date()) {
   const rows = await peoplePrisma.reportSchedule.findMany({ where: { enabled: true } });
+  const live = new Map<string, Promise<unknown>>();
   let n = 0;
-  for (const s of rows) if (dueNow(s, now)) { await runSchedule(s, build, now); n += 1; }
+  for (const s of rows) {
+    if (!dueNow(s, now)) continue;
+    const key = `${s.accountId}:${s.orgId}`;
+    if (!live.has(key)) live.set(key, appLive(s.accountId, s.orgId, 'attendance'));
+    if (await live.get(key)) continue;
+    await runSchedule(s, build, now, { slot: slotOf(s, now) });
+    n += 1;
+  }
   return n;
 }
 

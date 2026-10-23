@@ -1,0 +1,168 @@
+# A-46 BEFORE fix: source files swapped back to HEAD (19a4468): src/services/attendance/reportSchedules.ts
+# 2026-10-23T14:23:24Z  npx vitest run src/__tests__/reportScheduleDelivery.test.ts src/__tests__/attendanceReports.test.ts
+ DEPRECATED  `test.poolOptions` was removed in Vitest 4. All previous `poolOptions` are now top-level options. Please, refer to the migration guide: https://vitest.dev/guide/migration#pool-rework
+
+ RUN  v4.1.10 /Users/suresh/Desktop/clor-platform/.claude/worktrees/batch6-workers-fb00cd/server
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_38717", schema "accounting" at "localhost:5432"
+
+The PostgreSQL database "clor_test_38717" schema "accounting" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 1.14s
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/payroll/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_38717", schema "payroll" at "localhost:5432"
+
+The PostgreSQL database "clor_test_38717" schema "payroll" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 492ms
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/people/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_38717", schema "people" at "localhost:5432"
+
+The PostgreSQL database "clor_test_38717" schema "people" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 496ms
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/platform/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_38717", schema "platform" at "localhost:5432"
+
+The PostgreSQL database "clor_test_38717" schema "platform" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 449ms
+
+POST /api/auth/signup 200 575 - 57.215 ms
+POST /api/auth/setup-company 200 206 - 216.673 ms
+PUT /api/orgs/cmvl28otg000e9ga9kvmaq9ic/features 200 1173 - 179.298 ms
+POST /api/orgs/cmvl28otg000e9ga9kvmaq9ic/people/employees 201 1664 - 103.582 ms
+POST /api/orgs/cmvl28otg000e9ga9kvmaq9ic/people/employees 201 1664 - 137.976 ms
+POST /api/orgs/cmvl28otg000e9ga9kvmaq9ic/attendance/holidays 201 298 - 90.715 ms
+PUT /api/orgs/cmvl28otg000e9ga9kvmaq9ic/attendance/records 200 753 - 112.614 ms
+PUT /api/orgs/cmvl28otg000e9ga9kvmaq9ic/attendance/records 200 753 - 84.973 ms
+PUT /api/orgs/cmvl28otg000e9ga9kvmaq9ic/attendance/records 200 698 - 76.287 ms
+POST /api/orgs/cmvl28otg000e9ga9kvmaq9ic/attendance/leave/types 201 675 - 98.478 ms
+POST /api/orgs/cmvl28otg000e9ga9kvmaq9ic/attendance/leave/requests 201 724 - 137.828 ms
+POST /api/orgs/cmvl28otg000e9ga9kvmaq9ic/attendance/leave/requests/cmvl28ps0000yszvw5055o2tr/approve 200 770 - 111.586 ms
+GET /api/orgs/cmvl28otg000e9ga9kvmaq9ic/attendance/reports 200 3713 - 80.507 ms
+GET /api/orgs/cmvl28otg000e9ga9kvmaq9ic/attendance/reports/nope 404 27 - 75.698 ms
+GET /api/orgs/cmvl28otg000e9ga9kvmaq9ic/attendance/reports/absent?from=2026-01-01&to=2026-12-31 400 44 - 78.311 ms
+GET /api/orgs/cmvl28otg000e9ga9kvmaq9ic/attendance/reports/daily?date=2026-09-01 200 1203 - 96.897 ms
+GET /api/orgs/cmvl28otg000e9ga9kvmaq9ic/attendance/reports/daily?date=2026-09-07 200 1344 - 132.726 ms
+GET /api/orgs/cmvl28otg000e9ga9kvmaq9ic/attendance/reports/muster?month=2026-09 200 3202 - 91.180 ms
+GET /api/orgs/cmvl28otg000e9ga9kvmaq9ic/attendance/summary?month=2026-09 200 704 - 73.097 ms
+GET /api/orgs/cmvl28otg000e9ga9kvmaq9ic/attendance/reports/late-early?from=2026-09-01&to=2026-09-02 200 1090 - 92.543 ms
+GET /api/orgs/cmvl28otg000e9ga9kvmaq9ic/attendance/reports/absent?from=2026-09-02&to=2026-09-02 200 692 - 80.894 ms
+GET /api/orgs/cmvl28otg000e9ga9kvmaq9ic/attendance/reports/overtime?from=2026-09-01&to=2026-09-30 200 758 - 69.783 ms
+GET /api/orgs/cmvl28otg000e9ga9kvmaq9ic/attendance/reports/leave?from=2026-09-01&to=2026-09-30 200 811 - 68.013 ms
+GET /api/orgs/cmvl28otg000e9ga9kvmaq9ic/attendance/reports/late-early?from=2026-09-01&to=2026-09-02 200 1090 - 68.622 ms
+GET /api/orgs/cmvl28otg000e9ga9kvmaq9ic/attendance/reports/absent?from=2026-09-02&to=2026-09-02 200 692 - 65.296 ms
+GET /api/orgs/cmvl28otg000e9ga9kvmaq9ic/attendance/reports/daily?date=2026-09-01 200 1203 - 63.462 ms
+GET /api/orgs/cmvl28otg000e9ga9kvmaq9ic/attendance/reports/insights?months=3 200 1193 - 92.826 ms
+GET /api/orgs/cmvl28otg000e9ga9kvmaq9ic/attendance/calendar?month=2026-09 200 4404 - 83.966 ms
+GET /api/orgs/cmvl28otg000e9ga9kvmaq9ic/attendance/calendar?month=2027-01 200 4508 - 68.372 ms
+GET /api/orgs/cmvl28otg000e9ga9kvmaq9ic/attendance/reports 200 3713 - 76.446 ms
+GET /api/orgs/cmvl28otg000e9ga9kvmaq9ic/attendance/reports 200 3713 - 63.312 ms
+GET /api/orgs/cmvl28otg000e9ga9kvmaq9ic/attendance/reports/timecard?month=2026-09&employeeId=cmvl28p5x0000szvwv6hluq5t 200 5163 - 70.530 ms
+GET /api/orgs/cmvl28otg000e9ga9kvmaq9ic/attendance/reports/timecard?month=2026-09 200 9815 - 69.134 ms
+GET /api/orgs/cmvl28otg000e9ga9kvmaq9ic/attendance/reports/work-duration?month=2026-09 200 961 - 71.466 ms
+GET /api/orgs/cmvl28otg000e9ga9kvmaq9ic/attendance/reports/missed?from=2026-09-01&to=2026-09-30 200 597 - 69.053 ms
+PUT /api/orgs/cmvl28otg000e9ga9kvmaq9ic/attendance/records 200 724 - 68.437 ms
+GET /api/orgs/cmvl28otg000e9ga9kvmaq9ic/attendance/reports/missed?from=2026-09-01&to=2026-09-30 200 727 - 76.975 ms
+PUT /api/orgs/cmvl28otg000e9ga9kvmaq9ic/people/employees/cmvl28p5x0000szvwv6hluq5t 200 1680 - 48.231 ms
+GET /api/orgs/cmvl28otg000e9ga9kvmaq9ic/attendance/reports/people-dates?month=2026-09 200 558 - 59.549 ms
+POST /api/orgs/cmvl28otg000e9ga9kvmaq9ic/people/employees/cmvl28p5x0000szvwv6hluq5t/documents 201 292 - 46.195 ms
+GET /api/orgs/cmvl28otg000e9ga9kvmaq9ic/attendance/reports/documents 200 551 - 58.031 ms
+GET /api/orgs/cmvl28otg000e9ga9kvmaq9ic/attendance/reports/first-last?from=2026-09-01&to=2026-09-30 200 577 - 68.112 ms
+GET /api/orgs/cmvl28otg000e9ga9kvmaq9ic/attendance/reports/reader-punches?from=2026-09-01&to=2026-09-30 200 556 - 77.574 ms
+GET /api/orgs/cmvl28otg000e9ga9kvmaq9ic/attendance/reports/mobile?from=2026-09-01&to=2026-09-30 200 599 - 78.208 ms
+POST /api/orgs/cmvl28otg000e9ga9kvmaq9ic/attendance/reports/schedules 201 481 - 90.701 ms
+POST /api/orgs/cmvl28otg000e9ga9kvmaq9ic/attendance/reports/schedules 400 27 - 88.373 ms
+POST /api/orgs/cmvl28otg000e9ga9kvmaq9ic/attendance/reports/schedules 400 45 - 64.596 ms
+POST /api/orgs/cmvl28otg000e9ga9kvmaq9ic/attendance/reports/schedules/cmvl28rsw0019szvwbajr9u43/send 200 29 - 102.486 ms
+GET /api/orgs/cmvl28otg000e9ga9kvmaq9ic/attendance/reports/schedules 200 506 - 59.231 ms
+DELETE /api/orgs/cmvl28otg000e9ga9kvmaq9ic/attendance/reports/schedules/cmvl28rsw0019szvwbajr9u43 200 11 - 59.244 ms
+GET /api/orgs/cmvl28otg000e9ga9kvmaq9ic/attendance/reports/absent?from=2026-09-07&to=2026-09-08 200 939 - 64.800 ms
+GET /api/orgs/cmvl28otg000e9ga9kvmaq9ic/attendance/reports/department?month=2026-09 200 914 - 61.442 ms
+GET /api/orgs/cmvl28otg000e9ga9kvmaq9ic/attendance/reports/readers 200 606 - 65.278 ms
+GET /api/orgs/cmvl28otg000e9ga9kvmaq9ic/attendance/reports/biometrics 200 830 - 60.846 ms
+POST /api/auth/signup 200 568 - 75.040 ms
+POST /api/auth/setup-company 200 200 - 231.106 ms
+PUT /api/orgs/cmvl28t37000exsvzwfscsd6f/features 200 1173 - 185.846 ms
+POST /api/auth/signup 200 568 - 25.990 ms
+POST /api/auth/setup-company 200 200 - 279.581 ms
+PUT /api/orgs/cmvl28tgm00ifxsvzu0y50taw/features 200 1173 - 189.445 ms
+ ❯ src/__tests__/reportScheduleDelivery.test.ts (3 tests | 3 failed) 1086ms
+     × that fails is not recorded as sent, and goes out on the next tick 40ms
+     × is sent once per slot to each recipient: a retry reaches only those who did not get it 11ms
+     × is not sent for a company whose Attendance subscription has lapsed 524ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/__tests__/reportScheduleDelivery.test.ts > A-46: a scheduled report e-mail > that fails is not recorded as sent, and goes out on the next tick
+AssertionError: expected 2026-10-20T06:00:00.000Z to be null
+
+- Expected:
+null
+
++ Received:
+2026-10-20T06:00:00.000Z
+
+ ❯ src/__tests__/reportScheduleDelivery.test.ts:70:31
+     68|     const failed = await peoplePrisma.reportSchedule.findUniqueOrThrow…
+     69|     expect((await mails(c.orgId, 'ops@example.com')).map((m) => m.stat…
+     70|     expect(failed.lastSentAt).toBeNull();
+       |                               ^
+     71|     expect(failed.lastError).toBeTruthy();
+     72|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  src/__tests__/reportScheduleDelivery.test.ts > A-46: a scheduled report e-mail > is sent once per slot to each recipient: a retry reaches only those who did not get it
+AssertionError: expected [ { …(18) }, { …(18) } ] to have a length of 1 but got 2
+
+- Expected
++ Received
+
+- 1
++ 2
+
+ ❯ src/__tests__/reportScheduleDelivery.test.ts:87:51
+     85|     });
+     86|     await runDueSchedules(build, NOW);
+     87|     expect(await mails(c.orgId, 'a@example.com')).toHaveLength(1);
+       |                                                   ^
+     88|     expect((await mails(c.orgId, 'b@example.com')).map((m) => m.status…
+     89|     await peoplePrisma.reportSchedule.delete({ where: { id: s.id } });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  src/__tests__/reportScheduleDelivery.test.ts > A-46: a scheduled report e-mail > is not sent for a company whose Attendance subscription has lapsed
+AssertionError: expected [ { …(18) } ] to have a length of +0 but got 1
+
+- Expected
++ Received
+
+- 0
++ 1
+
+ ❯ src/__tests__/reportScheduleDelivery.test.ts:97:60
+     95|     await platformPrisma.subscription.updateMany({ where: { accountId:…
+     96|     await runDueSchedules(build, NOW);
+     97|     expect(await mails(other.orgId, 'lapsed@example.com')).toHaveLengt…
+       |                                                            ^
+     98|     expect((await peoplePrisma.reportSchedule.findUniqueOrThrow({ wher…
+     99|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+
+
+ Test Files  1 failed | 1 passed (2)
+      Tests  3 failed | 12 passed (15)
+   Start at  19:53:24
+   Duration  18.57s (transform 1.80s, setup 30ms, import 4.32s, tests 5.70s, environment 0ms)
+

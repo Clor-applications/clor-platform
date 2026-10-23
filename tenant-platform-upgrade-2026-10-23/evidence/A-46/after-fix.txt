@@ -1,0 +1,104 @@
+# A-46 AFTER fix: working tree
+# 2026-10-23T14:23:44Z  npx vitest run src/__tests__/reportScheduleDelivery.test.ts src/__tests__/attendanceReports.test.ts
+ DEPRECATED  `test.poolOptions` was removed in Vitest 4. All previous `poolOptions` are now top-level options. Please, refer to the migration guide: https://vitest.dev/guide/migration#pool-rework
+
+ RUN  v4.1.10 /Users/suresh/Desktop/clor-platform/.claude/worktrees/batch6-workers-fb00cd/server
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_39813", schema "accounting" at "localhost:5432"
+
+The PostgreSQL database "clor_test_39813" schema "accounting" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 839ms
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/payroll/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_39813", schema "payroll" at "localhost:5432"
+
+The PostgreSQL database "clor_test_39813" schema "payroll" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 733ms
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/people/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_39813", schema "people" at "localhost:5432"
+
+The PostgreSQL database "clor_test_39813" schema "people" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 1.19s
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/platform/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_39813", schema "platform" at "localhost:5432"
+
+The PostgreSQL database "clor_test_39813" schema "platform" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 408ms
+
+POST /api/auth/signup 200 568 - 62.591 ms
+POST /api/auth/setup-company 200 200 - 290.249 ms
+PUT /api/orgs/cmvl29611000esr2enoo0ar2q/features 200 1173 - 281.337 ms
+POST /api/auth/signup 200 568 - 10.452 ms
+POST /api/auth/setup-company 200 200 - 194.403 ms
+PUT /api/orgs/cmvl296k600qwsr2ezv8qbmki/features 200 1173 - 259.750 ms
+POST /api/auth/signup 200 575 - 108.165 ms
+POST /api/auth/setup-company 200 206 - 327.056 ms
+PUT /api/orgs/cmvl297r4000e9cjwz3qge99a/features 200 1173 - 337.176 ms
+POST /api/orgs/cmvl297r4000e9cjwz3qge99a/people/employees 201 1664 - 227.651 ms
+POST /api/orgs/cmvl297r4000e9cjwz3qge99a/people/employees 201 1664 - 221.671 ms
+POST /api/orgs/cmvl297r4000e9cjwz3qge99a/attendance/holidays 201 298 - 224.890 ms
+PUT /api/orgs/cmvl297r4000e9cjwz3qge99a/attendance/records 200 753 - 181.641 ms
+PUT /api/orgs/cmvl297r4000e9cjwz3qge99a/attendance/records 200 753 - 97.559 ms
+PUT /api/orgs/cmvl297r4000e9cjwz3qge99a/attendance/records 200 698 - 87.296 ms
+POST /api/orgs/cmvl297r4000e9cjwz3qge99a/attendance/leave/types 201 675 - 105.615 ms
+POST /api/orgs/cmvl297r4000e9cjwz3qge99a/attendance/leave/requests 201 724 - 157.786 ms
+POST /api/orgs/cmvl297r4000e9cjwz3qge99a/attendance/leave/requests/cmvl2999g000ymc519ijynws9/approve 200 770 - 199.221 ms
+GET /api/orgs/cmvl297r4000e9cjwz3qge99a/attendance/reports 200 3713 - 122.786 ms
+GET /api/orgs/cmvl297r4000e9cjwz3qge99a/attendance/reports/nope 404 27 - 81.638 ms
+GET /api/orgs/cmvl297r4000e9cjwz3qge99a/attendance/reports/absent?from=2026-01-01&to=2026-12-31 400 44 - 67.628 ms
+GET /api/orgs/cmvl297r4000e9cjwz3qge99a/attendance/reports/daily?date=2026-09-01 200 1203 - 102.846 ms
+GET /api/orgs/cmvl297r4000e9cjwz3qge99a/attendance/reports/daily?date=2026-09-07 200 1344 - 85.228 ms
+GET /api/orgs/cmvl297r4000e9cjwz3qge99a/attendance/reports/muster?month=2026-09 200 3202 - 125.553 ms
+GET /api/orgs/cmvl297r4000e9cjwz3qge99a/attendance/summary?month=2026-09 200 704 - 126.048 ms
+GET /api/orgs/cmvl297r4000e9cjwz3qge99a/attendance/reports/late-early?from=2026-09-01&to=2026-09-02 200 1090 - 145.085 ms
+GET /api/orgs/cmvl297r4000e9cjwz3qge99a/attendance/reports/absent?from=2026-09-02&to=2026-09-02 200 692 - 131.433 ms
+GET /api/orgs/cmvl297r4000e9cjwz3qge99a/attendance/reports/overtime?from=2026-09-01&to=2026-09-30 200 758 - 111.554 ms
+GET /api/orgs/cmvl297r4000e9cjwz3qge99a/attendance/reports/leave?from=2026-09-01&to=2026-09-30 200 811 - 85.209 ms
+GET /api/orgs/cmvl297r4000e9cjwz3qge99a/attendance/reports/late-early?from=2026-09-01&to=2026-09-02 200 1090 - 147.188 ms
+GET /api/orgs/cmvl297r4000e9cjwz3qge99a/attendance/reports/absent?from=2026-09-02&to=2026-09-02 200 692 - 113.607 ms
+GET /api/orgs/cmvl297r4000e9cjwz3qge99a/attendance/reports/daily?date=2026-09-01 200 1203 - 99.060 ms
+GET /api/orgs/cmvl297r4000e9cjwz3qge99a/attendance/reports/insights?months=3 200 1193 - 103.026 ms
+GET /api/orgs/cmvl297r4000e9cjwz3qge99a/attendance/calendar?month=2026-09 200 4404 - 85.911 ms
+GET /api/orgs/cmvl297r4000e9cjwz3qge99a/attendance/calendar?month=2027-01 200 4508 - 81.840 ms
+GET /api/orgs/cmvl297r4000e9cjwz3qge99a/attendance/reports 200 3713 - 94.481 ms
+GET /api/orgs/cmvl297r4000e9cjwz3qge99a/attendance/reports 200 3713 - 101.214 ms
+GET /api/orgs/cmvl297r4000e9cjwz3qge99a/attendance/reports/timecard?month=2026-09&employeeId=cmvl298br0000mc519f9mr2sh 200 5163 - 83.596 ms
+GET /api/orgs/cmvl297r4000e9cjwz3qge99a/attendance/reports/timecard?month=2026-09 200 9815 - 65.530 ms
+GET /api/orgs/cmvl297r4000e9cjwz3qge99a/attendance/reports/work-duration?month=2026-09 200 961 - 71.524 ms
+GET /api/orgs/cmvl297r4000e9cjwz3qge99a/attendance/reports/missed?from=2026-09-01&to=2026-09-30 200 597 - 76.871 ms
+PUT /api/orgs/cmvl297r4000e9cjwz3qge99a/attendance/records 200 724 - 58.306 ms
+GET /api/orgs/cmvl297r4000e9cjwz3qge99a/attendance/reports/missed?from=2026-09-01&to=2026-09-30 200 727 - 72.060 ms
+PUT /api/orgs/cmvl297r4000e9cjwz3qge99a/people/employees/cmvl298br0000mc519f9mr2sh 200 1680 - 51.731 ms
+GET /api/orgs/cmvl297r4000e9cjwz3qge99a/attendance/reports/people-dates?month=2026-09 200 558 - 65.849 ms
+POST /api/orgs/cmvl297r4000e9cjwz3qge99a/people/employees/cmvl298br0000mc519f9mr2sh/documents 201 292 - 53.185 ms
+GET /api/orgs/cmvl297r4000e9cjwz3qge99a/attendance/reports/documents 200 551 - 64.632 ms
+GET /api/orgs/cmvl297r4000e9cjwz3qge99a/attendance/reports/first-last?from=2026-09-01&to=2026-09-30 200 577 - 91.550 ms
+GET /api/orgs/cmvl297r4000e9cjwz3qge99a/attendance/reports/reader-punches?from=2026-09-01&to=2026-09-30 200 556 - 90.789 ms
+GET /api/orgs/cmvl297r4000e9cjwz3qge99a/attendance/reports/mobile?from=2026-09-01&to=2026-09-30 200 599 - 90.181 ms
+POST /api/orgs/cmvl297r4000e9cjwz3qge99a/attendance/reports/schedules 201 481 - 72.107 ms
+POST /api/orgs/cmvl297r4000e9cjwz3qge99a/attendance/reports/schedules 400 27 - 70.595 ms
+POST /api/orgs/cmvl297r4000e9cjwz3qge99a/attendance/reports/schedules 400 45 - 67.700 ms
+POST /api/orgs/cmvl297r4000e9cjwz3qge99a/attendance/reports/schedules/cmvl29bs00019mc5108u8pypi/send 200 29 - 108.128 ms
+GET /api/orgs/cmvl297r4000e9cjwz3qge99a/attendance/reports/schedules 200 506 - 62.654 ms
+DELETE /api/orgs/cmvl297r4000e9cjwz3qge99a/attendance/reports/schedules/cmvl29bs00019mc5108u8pypi 200 11 - 87.937 ms
+GET /api/orgs/cmvl297r4000e9cjwz3qge99a/attendance/reports/absent?from=2026-09-07&to=2026-09-08 200 939 - 80.343 ms
+GET /api/orgs/cmvl297r4000e9cjwz3qge99a/attendance/reports/department?month=2026-09 200 914 - 73.095 ms
+GET /api/orgs/cmvl297r4000e9cjwz3qge99a/attendance/reports/readers 200 606 - 72.581 ms
+GET /api/orgs/cmvl297r4000e9cjwz3qge99a/attendance/reports/biometrics 200 830 - 78.044 ms
+
+ Test Files  2 passed (2)
+      Tests  15 passed (15)
+   Start at  19:53:45
+   Duration  22.17s (transform 2.13s, setup 36ms, import 5.01s, tests 7.35s, environment 0ms)
+
