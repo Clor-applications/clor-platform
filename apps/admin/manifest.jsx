@@ -73,7 +73,7 @@ export const adminApp = {
     { key: 'audit', label: 'Audit trail', icon: History, permission: 'SETTINGS::Audit trail::VIEW' },
     { key: 'account', label: 'Account & plan', icon: Building2, permission: 'SETTINGS::Company Profile::VIEW' },
     { key: 'billing', label: 'Billing', icon: CreditCard, permission: 'SETTINGS::Company Profile::VIEW' },
-    { key: 'export', label: 'Data export', icon: HardDriveDownload, permission: 'SETTINGS::Company Profile::VIEW' },
+    { key: 'export', label: 'Data export', icon: HardDriveDownload, permission: 'SETTINGS::Company data::EXPORT' },
     { key: 'close', label: 'Close company', icon: XCircle, permission: 'SETTINGS::Company Profile::VIEW' },
   ],
 
