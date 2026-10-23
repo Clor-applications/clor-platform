@@ -26,6 +26,7 @@ import { natureForSection } from '../tds/ruleMaster';
 import { tdsGroupSide } from '@ui/utils/tdsLedgers';
 import { documentOutstanding } from '@ui/utils/onAccount';
 import { DocDate } from '@ui/components/docs';
+import { selectedBranchId } from '@platform/context';
 
 const safeArray = (v) => (Array.isArray(v) ? v : []);
 
@@ -421,7 +422,7 @@ const RecordReceiptForm = ({ db, setDb, currentCompany, onClose, initialData = n
    * one when none arrives, so there is still exactly one series in play, and
    * a number the server does return still wins.
    */
-  const receiptBranchId = String(localStorage.getItem('activeBranchId') || localStorage.getItem('branchId') || '').trim();
+  const receiptBranchId = String(selectedBranchId() || '').trim();
   const receiptDocSettings = getDocSettings(db, currentCompany, { branchId: receiptBranchId || null });
   const receiptNumbering = receiptDocSettings?.numbering?.receipt;
   const isReceiptAuto = String(receiptNumbering?.mode || '').toLowerCase() === 'auto';

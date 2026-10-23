@@ -16,11 +16,12 @@
          manifest, icon and colour so "Add to Home Screen" installs that app. */
       (function () {
         var app = (location.hostname.split('.')[0] || '').toLowerCase();
-        if (['attendance', 'payroll', 'accounting'].indexOf(app) < 0) return;
+        if (['attendance', 'payroll', 'accounting', 'people'].indexOf(app) < 0) return;
         var m = document.querySelector('link[rel="manifest"]');
         if (m) m.href = '/manifest-' + app + '.webmanifest';
         var a = document.querySelector('link[rel="apple-touch-icon"]');
-        if (a) a.href = '/icons/' + app + '-192.png';
+        /* People has no icon of its own yet: the CLOR mark until it does. */
+        if (a) a.href = app === 'people' ? '/clor-icon-192.png' : '/icons/' + app + '-192.png';
         var t = document.querySelector('meta[name="theme-color"]');
         if (t) t.content = '#14152B';
         document.title = 'CLOR ' + app.charAt(0).toUpperCase() + app.slice(1);

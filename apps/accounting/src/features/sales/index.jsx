@@ -82,7 +82,7 @@ import { DocFormActions, AmountInWordsBand, DocFormFootnote } from '@ui/componen
 import { blockIfClosed } from '@ui/utils/bookClose';
 import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';
 import { usePostingLock } from './usePostingLock';
-import { orgId as platformOrgId } from '@platform/context';
+import { orgId as platformOrgId, selectedBranchId } from '@platform/context';
 import { invoiceChangeBlockReason } from './invoiceChangeGuard';
 
 
@@ -2938,7 +2938,7 @@ export const InvoiceForm = ({ db, setDb, currentCompany, initialData = null, onC
   const multiCurrencyEnabled = isEnabled('multiCurrency');
   const { options: enabledCurrencyOptions, baseCurrency: invoiceBaseCurrency } = useEnabledCurrencies(currentCompany);
 
-  const activeBranchId = String(localStorage.getItem('activeBranchId') || localStorage.getItem('branchId') || '').trim();
+  const activeBranchId = String(selectedBranchId() || '').trim();
   const resolveBranchIdFromWarehouseId = (warehouseId) => {
     const wid = String(warehouseId || '').trim();
     if (!wid) return activeBranchId || '';
@@ -5414,7 +5414,7 @@ export const InvoiceForm = ({ db, setDb, currentCompany, initialData = null, onC
 export const EstimateForm = ({ db, setDb, currentCompany, initialData = null, onClose, screenTitle = '', screenSubtitle = '', onBack = null }) => {
   const formRef = useRef(null);
   const isEdit = Boolean(initialData && (initialData.id !== undefined && initialData.id !== null));
-  const activeBranchId = String(localStorage.getItem('activeBranchId') || localStorage.getItem('branchId') || '').trim();
+  const activeBranchId = String(selectedBranchId() || '').trim();
   const estimateDocSettings = getDocSettings(db, currentCompany, { branchId: activeBranchId || null });
   const estimateNumbering = estimateDocSettings?.numbering?.estimate;
   const isEstimateAuto = String(estimateNumbering?.mode || '').toLowerCase() === 'auto';
@@ -5995,7 +5995,7 @@ export const CreditNoteForm = ({ db, setDb, currentCompany, initialOriginalInvoi
 
   const { state: companyState } = getCompanyGstProfile(currentCompany);
 
-  const activeBranchId = String(localStorage.getItem('activeBranchId') || localStorage.getItem('branchId') || '').trim();
+  const activeBranchId = String(selectedBranchId() || '').trim();
   const resolveBranchIdFromWarehouseId = (warehouseId) => {
     const wid = String(warehouseId || '').trim();
     if (!wid) return activeBranchId || '';

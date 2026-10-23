@@ -26,6 +26,7 @@ import { rbacErrorMessage } from '@ui/permissions/rbacErrors';
 import RoleSelect from './RoleSelect';
 import UserAccessPanel from './UserAccessPanel';
 import { PermissionButton } from '@ui/permissions/ActionGuard';
+import { selectedBranchId } from '@platform/context';
 
 const normalizeId = (v) => String(v ?? '').trim();
 
@@ -78,7 +79,7 @@ export function SettingsUsers({ orgId }) {
   const [assignBranchesSaving, setAssignBranchesSaving] = useState(false);
   const [assignBranchIds, setAssignBranchIds] = useState([]);
 
-  const activeBranchId = String(localStorage.getItem('activeBranchId') || localStorage.getItem('branchId') || '').trim();
+  const activeBranchId = String(selectedBranchId() || '').trim();
 
   const assignableRoles = roles.filter((r) => !r.branchId);
 

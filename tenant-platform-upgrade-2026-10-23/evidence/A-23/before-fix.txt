@@ -1,0 +1,102 @@
+
+ RUN  v2.1.9 /Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad
+
+ ❯ packages/platform/workplace.test.js (6 tests | 6 failed) 5ms
+   × the branch and warehouse a tab works in > belong to the company they were chosen in 3ms
+     → selectBranch is not a function
+   × the branch and warehouse a tab works in > are not moved by another tab choosing differently 0ms
+     → selectBranch is not a function
+   × the branch and warehouse a tab works in > start a new tab from this company's last choice in this browser 0ms
+     → selectWarehouse is not a function
+   × the branch and warehouse a tab works in > are what requests carry, not a key another company wrote 0ms
+     → selectBranch is not a function
+   × choices remembered per company (A-28) > keeps the last-used branch on a form apart between companies with the same local record 1ms
+     → expected 'x-branch-2' to be '' // Object.is equality
+   × choices remembered per company (A-28) > names per-company keys after the company 0ms
+     → companyStorageKey is not a function
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 6 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  packages/platform/workplace.test.js > the branch and warehouse a tab works in > belong to the company they were chosen in
+TypeError: selectBranch is not a function
+ ❯ packages/platform/workplace.test.js:36:5
+     34|   it('belong to the company they were chosen in', () => {
+     35|     inCompany('org-x');
+     36|     selectBranch('x-branch-2');
+       |     ^
+     37|     selectWarehouse('x-store');
+     38|     inCompany('org-y');
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/6]⎯
+
+ FAIL  packages/platform/workplace.test.js > the branch and warehouse a tab works in > are not moved by another tab choosing differently
+TypeError: selectBranch is not a function
+ ❯ packages/platform/workplace.test.js:47:5
+     45|   it('are not moved by another tab choosing differently', () => {
+     46|     inCompany('org-x');
+     47|     selectBranch('x-branch-2');
+       |     ^
+     48|     const mine = sessionStorage.getItem('clor.sel.org-x.branch');
+     49|     newTab();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/6]⎯
+
+ FAIL  packages/platform/workplace.test.js > the branch and warehouse a tab works in > start a new tab from this company's last choice in this browser
+TypeError: selectWarehouse is not a function
+ ❯ packages/platform/workplace.test.js:58:5
+     56|   it("start a new tab from this company's last choice in this browser"…
+     57|     inCompany('org-x');
+     58|     selectWarehouse('x-store');
+       |     ^
+     59|     newTab();
+     60|     expect(selectedWarehouseId()).toBe('x-store');
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/6]⎯
+
+ FAIL  packages/platform/workplace.test.js > the branch and warehouse a tab works in > are what requests carry, not a key another company wrote
+TypeError: selectBranch is not a function
+ ❯ packages/platform/workplace.test.js:66:5
+     64|     localStorage.setItem('activeWarehouseId', 'y-store'); // the old s…
+     65|     inCompany('org-x');
+     66|     selectBranch('x-branch-2');
+       |     ^
+     67|     const fetch = vi.fn(async () => new Response('{}', { status: 200, …
+     68|     vi.stubGlobal('fetch', fetch);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/6]⎯
+
+ FAIL  packages/platform/workplace.test.js > choices remembered per company (A-28) > keeps the last-used branch on a form apart between companies with the same local record
+AssertionError: expected 'x-branch-2' to be '' // Object.is equality
+
+- Expected
++ Received
+
++ x-branch-2
+
+ ❯ packages/platform/workplace.test.js:83:53
+     81|     setLastSelection('branch', 'company-1', 'x-branch-2');
+     82|     inCompany('org-y');
+     83|     expect(getLastSelection('branch', 'company-1')).toBe('');
+       |                                                     ^
+     84|   });
+     85| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/6]⎯
+
+ FAIL  packages/platform/workplace.test.js > choices remembered per company (A-28) > names per-company keys after the company
+TypeError: companyStorageKey is not a function
+ ❯ packages/platform/workplace.test.js:88:12
+     86|   it('names per-company keys after the company', () => {
+     87|     inCompany('org-x');
+     88|     expect(companyStorageKey('dashboardBranchIds')).toBe('clor.org-x.d…
+       |            ^
+     89|   });
+     90| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/6]⎯
+
+ Test Files  1 failed (1)
+      Tests  6 failed (6)
+   Start at  00:34:25
+   Duration  1.13s (transform 31ms, setup 92ms, collect 26ms, tests 5ms, environment 859ms, prepare 57ms)
+

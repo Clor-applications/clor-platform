@@ -1,6 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
-import { setPlatformContext } from '@platform/context';
+import { SWITCH_COMPANY_EVENT, setPlatformContext } from '@platform/context';
 import {
   APP_FEATURE,
   appsFromFeatures,
@@ -182,6 +182,16 @@ export function SessionProvider({ children }) {
     if (current) window.history.pushState(null, '', url);
     else window.history.replaceState(null, '', url);
   }, [tenantCode]);
+
+  /* An app's own company menu asks; the shell switches (A-27). Only a company this person has. */
+  useEffect(() => {
+    const onAsk = (e) => {
+      const id = String(e?.detail?.orgId || '');
+      if (tenants.some((t) => t.id === id)) setTenantId(id);
+    };
+    window.addEventListener(SWITCH_COMPANY_EVENT, onAsk);
+    return () => window.removeEventListener(SWITCH_COMPANY_EVENT, onAsk);
+  }, [tenants, setTenantId]);
 
   /* Back and Forward between companies: the address decides, as on a reload. */
   useEffect(() => {

@@ -13,7 +13,10 @@
  * default but can never post a figure.
  */
 
+import { orgId } from '@platform/context';
+
 const KEY = 'lastSelection:v1';
+const keyFor = (what, scope) => `${what}:${orgId() || '-'}:${scope}`;
 
 const readAll = () => {
   try {
@@ -28,12 +31,12 @@ const readAll = () => {
 
 /** @param what e.g. 'branch' · @param scope the company it belongs to */
 export const getLastSelection = (what, scope = '') => {
-  const v = readAll()[`${what}:${scope}`];
+  const v = readAll()[keyFor(what, scope)];
   return v === undefined || v === null ? '' : String(v);
 };
 
 export const setLastSelection = (what, scope, value) => {
-  const key = `${what}:${scope}`;
+  const key = keyFor(what, scope);
   const next = String(value ?? '').trim();
   try {
     const all = readAll();
