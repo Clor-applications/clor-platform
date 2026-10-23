@@ -36,11 +36,19 @@ async function refreshSession() {
        * `credentials: 'include'` is what makes the browser send it. There is
        * nothing here for a script on the page to read or to steal.
        */
-      const res = await fetch(`${API_BASE}/auth/refresh`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-      });
+      const ask = () =>
+        fetch(`${API_BASE}/auth/refresh`, {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+        });
+      let res = await ask();
+      /*
+       * Another tab refreshed with the same cookie a moment earlier and won.
+       * Its response has already given this browser the new cookie, so one
+       * more try succeeds; giving up here would sign this tab out for nothing.
+       */
+      if (res.status === 409) res = await ask();
       if (!res.ok) return null;
       const data = await res.json();
       if (!data?.token) return null;

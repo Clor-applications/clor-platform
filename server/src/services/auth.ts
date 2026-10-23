@@ -77,12 +77,17 @@ export async function createSession(opts: {
 
 export class AuthError extends Error {
   status: number;
-  constructor(message: string, status = 401) {
+  code?: string;
+  constructor(message: string, status = 401, code?: string) {
     super(message);
     this.name = 'AuthError';
     this.status = status;
+    if (code) this.code = code;
   }
 }
+
+/** How long after a rotation a second presentation of the old token is a race between tabs, not theft. */
+const ROTATION_GRACE_MS = 10_000;
 
 /**
  * Exchanges a refresh token for a new pair, rotating the session.
@@ -98,6 +103,9 @@ export async function rotateSession(refreshToken: string, ctx: { ip?: string; us
   if (!session) throw new AuthError('Invalid session');
 
   if (session.revokedAt) {
+    if (session.revokedReason === 'ROTATED' && Date.now() - session.revokedAt.getTime() < ROTATION_GRACE_MS) {
+      throw new AuthError('This session was just refreshed in another tab.', 409, 'refresh_raced');
+    }
     await platformPrisma.session.updateMany({
       where: { userId: session.userId, revokedAt: null },
       data: { revokedAt: new Date(), revokedReason: 'REUSE_DETECTED' },
@@ -123,22 +131,36 @@ export async function rotateSession(refreshToken: string, ctx: { ip?: string; us
   });
   if (!user) throw new AuthError('Account is no longer active');
 
+  /*
+   * A-06: claim the old session before issuing the next one. Reading
+   * "not revoked" and then revoking were two steps, so two refreshes with the
+   * same token both passed and forked the session past reuse detection.
+   * Exactly one claim can succeed now.
+   */
+  const claimed = await platformPrisma.session.updateMany({
+    where: { id: session.id, revokedAt: null },
+    data: { revokedAt: new Date(), revokedReason: 'ROTATED', lastSeenAt: new Date() },
+  });
+  if (claimed.count !== 1) {
+    const now = await platformPrisma.session.findUnique({ where: { id: session.id }, select: { revokedAt: true, revokedReason: true } });
+    /* Two tabs refreshing together share one cookie: the loser is told to try again with the new one, not treated as a thief. */
+    if (now?.revokedReason === 'ROTATED' && now.revokedAt && Date.now() - now.revokedAt.getTime() < ROTATION_GRACE_MS) {
+      throw new AuthError('This session was just refreshed in another tab.', 409, 'refresh_raced');
+    }
+    await platformPrisma.session.updateMany({
+      where: { userId: session.userId, revokedAt: null },
+      data: { revokedAt: new Date(), revokedReason: 'REUSE_DETECTED' },
+    });
+    throw new AuthError('Session is no longer valid. Please sign in again.');
+  }
+
   const next = await createSession({
     accountId: session.accountId,
     userId: session.userId,
     ip: ctx.ip,
     userAgent: ctx.userAgent,
   });
-
-  await platformPrisma.session.update({
-    where: { id: session.id },
-    data: {
-      revokedAt: new Date(),
-      revokedReason: 'ROTATED',
-      replacedBySessionId: next.session.id,
-      lastSeenAt: new Date(),
-    },
-  });
+  await platformPrisma.session.update({ where: { id: session.id }, data: { replacedBySessionId: next.session.id } });
 
   return {
     accessToken: signAccessToken({ userId: user.id, accountId: user.accountId, sid: next.session.id }),
@@ -256,7 +278,9 @@ export async function consumePasswordResetToken(token: string) {
   if (row.usedAt) throw new AuthError('That reset link has already been used', 400);
   if (row.expiresAt.getTime() < Date.now()) throw new AuthError('That reset link has expired', 400);
 
-  await platformPrisma.passwordResetToken.update({ where: { id: row.id }, data: { usedAt: new Date() } });
+  /* Used once: two requests with the same link cannot both pass (A-06). */
+  const used = await platformPrisma.passwordResetToken.updateMany({ where: { id: row.id, usedAt: null }, data: { usedAt: new Date() } });
+  if (used.count !== 1) throw new AuthError('That reset link has already been used', 400);
   return row;
 }
 
@@ -291,7 +315,8 @@ export async function consumeEmailVerificationToken(token: string) {
   if (row.usedAt) throw new AuthError('That link has already been used', 400);
   if (row.expiresAt.getTime() < Date.now()) throw new AuthError('That verification link has expired', 400);
 
-  await platformPrisma.emailVerificationToken.update({ where: { id: row.id }, data: { usedAt: new Date() } });
+  const used = await platformPrisma.emailVerificationToken.updateMany({ where: { id: row.id, usedAt: null }, data: { usedAt: new Date() } });
+  if (used.count !== 1) throw new AuthError('That link has already been used', 400);
   await platformPrisma.user.update({ where: { id: row.userId }, data: { emailVerifiedAt: new Date() } });
   return row;
 }

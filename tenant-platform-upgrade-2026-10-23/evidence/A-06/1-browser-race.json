@@ -1,0 +1,9 @@
+{
+  "finding": "A-06",
+  "where": "Browser pane, http://localhost:5173, signed in (local test admin)",
+  "action": "Two POST /api/auth/refresh at the same moment with the browser's one refresh cookie (what two tabs do), then the client's single retry",
+  "at": "2026-10-23T10:42:32.241Z",
+  "result": {"simultaneous": [409, 200], "loserCode": "refresh_raced", "retryStatus": 200, "stillSignedIn": 200},
+  "after_reload": "App reloads and stays signed in (screenshot 2)",
+  "before_fix": "before-fix.txt (3 runs): [200, 401] — the second request was taken for token theft and every session of the user was revoked"
+}

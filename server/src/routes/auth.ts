@@ -12,7 +12,7 @@ import { PermissionAction, RoleType } from '../constants/enums.js';
 import { ensureLedgerSetup } from '../services/ledger.js';
 import { ensurePermissionCatalog } from './permissions.js';
 import { clearRefreshCookie, refreshTokenFrom, setRefreshCookie } from '../utils/refreshCookie.js';
-import { codeLimiter, loginLimiter, resetLimiter, signupLimiter } from '../middleware/rateLimit.js';
+import { codeLimiter, loginLimiter, refreshLimiter, resetLimiter, signupLimiter } from '../middleware/rateLimit.js';
 import {
   AuthError,
   clearFailedLogins,
@@ -340,7 +340,7 @@ authRouter.post('/login/two-factor', ...codeLimiter, async (req: Request, res: R
 });
 
 /** Exchange a refresh token for a new pair. The old one is retired. */
-authRouter.post('/refresh', async (req: Request, res: Response) => {
+authRouter.post('/refresh', refreshLimiter, async (req: Request, res: Response) => {
   const presented = refreshTokenFrom(req);
   if (presented.length < 10) return res.status(400).json({ error: 'Missing refresh token' });
 
@@ -364,6 +364,8 @@ authRouter.post('/refresh', async (req: Request, res: Response) => {
      * should go with it — otherwise a stale or replayed token sits there being
      * re-sent on every attempt.
      */
+    /* Lost a race with another tab: the winner's response has just set the new cookie, so this one must not clear it. */
+    if (e instanceof AuthError && e.code === 'refresh_raced') return res.status(409).json({ error: e.message, code: e.code });
     clearRefreshCookie(res);
     if (e instanceof AuthError) return res.status(e.status).json({ error: e.message });
     throw e;
