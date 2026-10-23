@@ -9,6 +9,7 @@ import { Prisma as PeoplePrisma } from '../generated/people/index.js';
 import { Prisma as PayrollPrisma } from '../generated/payroll/index.js';
 import { outsideTenant, runInTenant } from '../utils/tenantScope.js';
 import { exclusive, leaseFor } from './jobLease.js';
+import { userIsAdmin } from './roleGuards.js';
 
 /**
  * Closing a company (LX-07 part 2). Policy, in words a client can read:
@@ -45,10 +46,13 @@ export class ClosureError extends Error {
   }
 }
 
-const isOwner = async (orgId: string, userId: string) => {
-  const org = await platformPrisma.org.findUnique({ where: { id: orgId }, select: { createdByUserId: true } });
-  return org?.createdByUserId === userId;
-};
+/**
+ * Who may close a company, or stop its closure: an administrator of the whole
+ * company (A-21). It used to be whoever created it — a creator later demoted
+ * or moved on could still close it, and a company whose creator had left
+ * could never be closed by the people now running it.
+ */
+export const mayClose = (accountId: string, orgId: string, userId: string) => userIsAdmin(accountId, orgId, userId);
 
 export async function closureStatus(orgId: string) {
   return platformPrisma.orgClosure.findUnique({ where: { orgId } });
@@ -68,7 +72,7 @@ export async function scheduleClosure(args: { accountId: string; orgId: string; 
   const now = args.now || new Date();
   const org = await platformPrisma.org.findFirst({ where: { id: orgId, accountId }, select: { name: true } });
   if (!org) throw new ClosureError('No such company.', 404, 'NOT_FOUND');
-  if (!(await isOwner(orgId, userId))) throw new ClosureError('Only the person who created this company can close it.', 403, 'OWNER_ONLY');
+  if (!(await mayClose(accountId, orgId, userId))) throw new ClosureError('Only an administrator of this company can close it.', 403, 'ADMIN_ONLY');
   if (String(args.confirmName || '').trim().toLowerCase() !== org.name.trim().toLowerCase()) {
     throw new ClosureError(`Type ${org.name} exactly to confirm.`, 400, 'CONFIRM_NAME');
   }
@@ -93,9 +97,9 @@ export async function scheduleClosure(args: { accountId: string; orgId: string; 
   return platformPrisma.orgClosure.upsert({ where: { orgId }, create: { orgId, ...data }, update: data });
 }
 
-export async function cancelClosure(args: { orgId: string; userId: string; now?: Date }) {
+export async function cancelClosure(args: { accountId: string; orgId: string; userId: string; now?: Date }) {
   const now = args.now || new Date();
-  if (!(await isOwner(args.orgId, args.userId))) throw new ClosureError('Only the person who created this company can cancel its closure.', 403, 'OWNER_ONLY');
+  if (!(await mayClose(args.accountId, args.orgId, args.userId))) throw new ClosureError('Only an administrator of this company can cancel its closure.', 403, 'ADMIN_ONLY');
   const c = await platformPrisma.orgClosure.findUnique({ where: { orgId: args.orgId } });
   if (!c || c.status !== 'SCHEDULED') throw new ClosureError('No closure is scheduled.', 409, 'NOT_SCHEDULED');
   if (c.deleteAfter.getTime() <= now.getTime()) throw new ClosureError('The notice period has ended; the company is being deleted.', 409, 'TOO_LATE');

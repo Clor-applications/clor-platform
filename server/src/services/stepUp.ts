@@ -46,12 +46,21 @@ export const hasValidStepUp = (req: Request) => validFor(req);
  * in any company they belong to), whatever any company's own policy says.
  */
 export async function requireOperatorStepUp(req: Request, res: Response, next: NextFunction) {
+  const refused = await stepUpRefusal(req, 'CLOR operators must sign in with an authenticator app. Set one up first.');
+  return refused ? res.status(refused.status).json(refused.body) : next();
+}
+
+/**
+ * Why an action that always needs a fresh authenticator code must wait, or
+ * null when the code is there. Unlike payroll, not a company's choice: used
+ * for acts nobody can undo (closing a company, A-21) or with reach beyond one
+ * company (operators, A-17).
+ */
+export async function stepUpRefusal(req: Request, noAuthenticator: string) {
   const user = await platformPrisma.user.findUnique({ where: { id: req.auth!.userId }, select: { totpEnabledAt: true } });
-  if (!user?.totpEnabledAt) {
-    return res.status(403).json({ error: 'CLOR operators must sign in with an authenticator app. Set one up first.', code: 'TWO_FACTOR_SETUP_REQUIRED' });
-  }
-  if (!validFor(req)) return res.status(403).json({ error: 'Enter the code from your authenticator app to continue.', code: 'STEP_UP_REQUIRED' });
-  return next();
+  if (!user?.totpEnabledAt) return { status: 403, body: { error: noAuthenticator, code: 'TWO_FACTOR_SETUP_REQUIRED' } };
+  if (!validFor(req)) return { status: 403, body: { error: 'Enter the code from your authenticator app to continue.', code: 'STEP_UP_REQUIRED' } };
+  return null;
 }
 
 /** Route guard; passes straight through where the organisation has not switched it on. */
