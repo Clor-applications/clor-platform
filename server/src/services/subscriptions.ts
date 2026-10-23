@@ -136,37 +136,41 @@ export async function setSubscription(accountId: string, input: SetSubscriptionI
   const status = input.status || (trialEndsAt ? 'trialing' : 'active');
   const before = new Set((await getSubscription(accountId))?.items.map((i) => i.appCode) || []);
 
-  const sub = await platformPrisma.subscription.upsert({
-    where: { accountId },
-    create: {
-      accountId,
-      status,
-      billingInterval: input.billingInterval ?? null,
-      trialEndsAt,
-      currentPeriodEnd: input.currentPeriodEnd ?? null,
-    },
-    update: {
-      status,
-      billingInterval: input.billingInterval ?? undefined,
-      trialEndsAt: trialEndsAt ?? undefined,
-      currentPeriodEnd: input.currentPeriodEnd ?? undefined,
-    },
-  });
-
-  // Replace items wholesale — simplest correct semantics for a manual set.
-  await platformPrisma.subscriptionItem.deleteMany({ where: { subscriptionId: sub.id } });
-  for (const a of apps) {
-    await platformPrisma.subscriptionItem.create({
-      data: {
-        subscriptionId: sub.id,
-        appCode: a.appCode,
-        tier: a.tier ?? null,
-        seats: a.seats ?? null,
-        priceModel: a.priceModel ?? null,
-        unitAmount: a.unitAmount ?? null,
+  /* A-17: the subscription and its items change together or not at all — a failure between deleting the old items and writing the new ones used to leave the account owning nothing. */
+  const sub = await platformPrisma.$transaction(async (tx) => {
+    const row = await tx.subscription.upsert({
+      where: { accountId },
+      create: {
+        accountId,
+        status,
+        billingInterval: input.billingInterval ?? null,
+        trialEndsAt,
+        currentPeriodEnd: input.currentPeriodEnd ?? null,
+      },
+      update: {
+        status,
+        billingInterval: input.billingInterval ?? undefined,
+        trialEndsAt: trialEndsAt ?? undefined,
+        currentPeriodEnd: input.currentPeriodEnd ?? undefined,
       },
     });
-  }
+
+    // Replace items wholesale — simplest correct semantics for a manual set.
+    await tx.subscriptionItem.deleteMany({ where: { subscriptionId: row.id } });
+    for (const a of apps) {
+      await tx.subscriptionItem.create({
+        data: {
+          subscriptionId: row.id,
+          appCode: a.appCode,
+          tier: a.tier ?? null,
+          seats: a.seats ?? null,
+          priceModel: a.priceModel ?? null,
+          unitAmount: a.unitAmount ?? null,
+        },
+      });
+    }
+    return row;
+  });
 
   await syncAccountEntitlement(accountId);
   await syncAppSwitches(accountId, before, new Set(apps.map((a) => a.appCode)));

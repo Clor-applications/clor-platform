@@ -28,6 +28,7 @@ import { createDocApi, deleteDocApi, hasApiSession, updateDocApi } from '@ui/api
 import { DocumentNumber, SalesDate, DueDate, MoneyValue, SalesBalance } from '@ui/components/docs';
 import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';
 import { PermissionButton } from '@ui/permissions/ActionGuard';
+import { selectedBranchId, selectedWarehouseId } from '@platform/context';
 
 /**
  * Sales orders — the confirmed order between quote and invoice.
@@ -162,7 +163,7 @@ export default function SalesOrders({ db, setDb, currentCompany, onConvertToInvo
   const removeLine = (idx) =>
     setForm((p) => (p.items.length > 1 ? { ...p, items: p.items.filter((_, i) => i !== idx) } : p));
 
-  const branchIdForNumbering = String(localStorage.getItem('activeBranchId') || localStorage.getItem('branchId') || '').trim();
+  const branchIdForNumbering = String(selectedBranchId() || '').trim();
   const orderDocSettings = getDocSettings(db, currentCompany, { branchId: branchIdForNumbering || null });
   const orderNumbering = orderDocSettings?.numbering?.salesOrder;
   const nextOrderNumber =
@@ -176,7 +177,7 @@ export default function SalesOrders({ db, setDb, currentCompany, onConvertToInvo
         .map((x) => String(x.number || '').trim()),
     }) || '';
   // Where this was entered from, so the header's scope can find it later.
-  const warehouseIdForEntry = String(localStorage.getItem('activeWarehouseId') || '').trim();
+  const warehouseIdForEntry = String(selectedWarehouseId() || '').trim();
   const selectedCustomer = form.customerId ? customers.find((c) => c.id === parseInt(form.customerId)) : null;
   const { state: companyState } = getCompanyGstProfile(currentCompany);
   const { state: customerState } = getPartyGstProfile(selectedCustomer);

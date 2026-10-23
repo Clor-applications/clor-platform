@@ -24,6 +24,8 @@ import HelpMenu from './HelpMenu';
 import TwoFactorGate from './TwoFactorGate';
 import CommandPalette from '@ui/components/ui/CommandPalette';
 import CompanySetup from './CompanySetup';
+import NoCompanyAccess from './NoCompanyAccess';
+import { appAddress, frontDoorForward } from './orgUrl';
 import Home from './Home';
 import ScreenBoundary from './ScreenBoundary';
 import SignIn from './SignIn';
@@ -87,7 +89,7 @@ export default function Shell() {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [tabletPanel]);
-  const { user, tenant, tenants, restoring, setTenantId, signOut, addApp, twoFactorSetupRequired } = useSession();
+  const { user, tenant, tenants, deniedCode, restoring, setTenantId, signOut, addApp, twoFactorSetupRequired } = useSession();
 
   /* The shared hook, not a second copy: the public page has a toggle too, and
      a private key here would mean the choice did not follow you inside. */
@@ -202,7 +204,9 @@ export default function Shell() {
        app this is. The session follows through the API's refresh cookie. */
     const host = hostForApp(id);
     if (host && host !== window.location.hostname) {
-      window.location.assign(`${window.location.protocol}//${host}/${search}`);
+      /* With the company in the path (A-25): browser storage is per address,
+         so without it the other host opened whichever company it saw last. */
+      window.location.assign(appAddress({ protocol: window.location.protocol, host, code: tenant?.code || '', search }));
       return;
     }
     /* Always: the last app's ?open= and #/screen are not this app's screen. A
@@ -349,14 +353,16 @@ export default function Shell() {
   }, [ownsAddress]);
 
   /* Signed in at the front door (app.clor.in): go on to the app's own address,
-     keeping any #/screen so a link into an app still lands on that screen. */
+     keeping the company, any ?open= and #/screen so a link into an app still
+     lands on that company's screen (A-25: it kept only the #/screen). */
   const frontDoorHost = user && tenant && !emailLink && isFrontDoor() && activeAppId ? hostForApp(activeAppId) : null;
   /* Company admin lives here: its host is this one, and forwarding to it would loop. */
   const frontDoorTarget = frontDoorHost && frontDoorHost !== window.location.hostname ? frontDoorHost : null;
   useEffect(() => {
     if (!frontDoorTarget) return;
-    window.location.replace(`${window.location.protocol}//${frontDoorTarget}/${window.location.hash}`);
-  }, [frontDoorTarget]);
+    const { protocol, pathname, search, hash } = window.location;
+    window.location.replace(frontDoorForward({ protocol, host: frontDoorTarget, pathname, search, hash, code: tenant?.code || '' }));
+  }, [frontDoorTarget, tenant?.code]);
 
   /*
    * A token in this browser is checked before anything is drawn.
@@ -426,6 +432,8 @@ export default function Shell() {
    * front door. It is a real state — a new account before its first company,
    * and an account whose last company was removed — so it gets a real screen.
    */
+  /* The address names a company this person cannot open (A-26): say so; open nothing else. */
+  if (deniedCode) return <NoCompanyAccess />;
   if (!tenant) return <CompanySetup />;
 
   const app = appById(activeAppId);

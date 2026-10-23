@@ -307,7 +307,7 @@ import { useTheme } from '@ui/components/ui/useTheme';
 import { useDensity } from '@ui/components/ui/useDensity';
 import { useFieldErrors } from '@ui/components/ui/useFieldErrors';
 import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';
-import { onPlatformContextChange, orgId as platformOrgId } from '@platform/context';
+import { onPlatformContextChange, orgId as platformOrgId, requestSwitchCompany, selectBranch, selectWarehouse, selectedBranchId, selectedWarehouseId, companyStorageKey } from '@platform/context';
 import { logout as platformLogout } from '@platform/auth';
 import { registerLedgerForm } from './components/pickers/ledgerFormRegistry';
 import { useDismissable } from '@ui/components/ui/useDismissable';
@@ -529,7 +529,7 @@ export const ExpensesList = ({ db, setDb, openModal, currentCompany }) => {
 
       const { state: companyState } = getCompanyGstProfile(currentCompany);
       let nextId = (db.expenses || []).reduce((m, x) => Math.max(m, Number(x?.id) || 0), 0);
-      const activeBranchId = normalizeId(localStorage.getItem('activeBranchId') || localStorage.getItem('branchId') || '');
+      const activeBranchId = normalizeId(selectedBranchId() || '');
       let seq = 0;
       const created = [];
 
@@ -601,7 +601,7 @@ export const ExpensesList = ({ db, setDb, openModal, currentCompany }) => {
           paidAmount: 0,
           status: 'Unpaid',
           branchId: activeBranchId || '',
-          warehouseId: String(localStorage.getItem('activeWarehouseId') || '').trim(),
+          warehouseId: String(selectedWarehouseId() || '').trim(),
           importedAt: new Date().toISOString(),
           createdAt: new Date().toISOString(),
         });
@@ -1005,7 +1005,7 @@ const NEW_LEDGER_OPTION = '__new_ledger__';
 
 export const ExpenseForm = ({ db, setDb, currentCompany, openModal, onClose, initialData = null, screenTitle = '', onBack = null }) => {
   const expenseErrors = useFieldErrors('expense');
-  const activeBranchId = normalizeId(localStorage.getItem('activeBranchId') || localStorage.getItem('branchId') || '');
+  const activeBranchId = normalizeId(selectedBranchId() || '');
   const expenseDocSettings = getDocSettings(db, currentCompany, { branchId: activeBranchId || null });
   const expenseNumbering = expenseDocSettings?.numbering?.expense;
   const isExpenseAuto = String(expenseNumbering?.mode || '').toLowerCase() === 'auto';
@@ -1315,7 +1315,7 @@ export const ExpenseForm = ({ db, setDb, currentCompany, openModal, onClose, ini
       status: wantsDraft ? 'Draft' : (initialData?.status && initialData.status !== 'Draft' ? initialData.status : 'Unpaid'),
       // Where this was entered from, so the header's scope can find it later.
       branchId: activeBranchId || '',
-      warehouseId: String(localStorage.getItem('activeWarehouseId') || '').trim(),
+      warehouseId: String(selectedWarehouseId() || '').trim(),
       createdAt: initialData?.createdAt || new Date().toISOString(),
     };
 
@@ -4324,7 +4324,7 @@ export const JournalEntryForm = ({ db, setDb, currentCompany, openModal, onClose
       .map((a) => ({ value: String(a.id), label: String(a.name || '').trim() }));
   }, [accounts, initialData]);
 
-  const activeBranchId = normalizeId(localStorage.getItem('activeBranchId') || localStorage.getItem('branchId') || '');
+  const activeBranchId = normalizeId(selectedBranchId() || '');
   const jvDocSettings = getDocSettings(db, currentCompany, { branchId: activeBranchId || null });
   const jvNumbering = jvDocSettings?.numbering?.journalEntry;
   const isJvAuto = String(jvNumbering?.mode || '').toLowerCase() === 'auto';
@@ -8670,7 +8670,7 @@ export const SettingsView = ({ db, setDb, currentCompany, initialTab = 'company'
     const [roles, setRoles] = useState([]);
     const [branches, setBranches] = useState([]);
     const [warehouses, setWarehouses] = useState([]);
-    const [activeWarehouseId, setActiveWarehouseId] = useState(() => String(localStorage.getItem('activeWarehouseId') || ''));
+    const [activeWarehouseId, setActiveWarehouseId] = useState(() => String(selectedWarehouseId() || ''));
     const [permCatalog, setPermCatalog] = useState([]);
 
     const [selectedUserId, setSelectedUserId] = useState(null);
@@ -9222,11 +9222,11 @@ export const SettingsView = ({ db, setDb, currentCompany, initialTab = 'company'
     const setActiveWarehouse = (warehouseId) => {
       const id = warehouseId ? String(warehouseId) : '';
       if (!id) {
-        localStorage.removeItem('activeWarehouseId');
+        selectWarehouse('');
         setActiveWarehouseId('');
         return;
       }
-      localStorage.setItem('activeWarehouseId', id);
+      selectWarehouse(id);
       setActiveWarehouseId(id);
     };
 
@@ -11378,32 +11378,30 @@ const AppShell = () => {
 
   useEffect(() => {
     if (!isAuthenticated) return;
-    const existing = String(localStorage.getItem('activeBranchId') || '').trim();
+    const existing = String(selectedBranchId() || '').trim();
     if (existing) return;
     const fallback = currentCompany?.profile?.backendBranchId;
     if (fallback) {
-      localStorage.setItem('activeBranchId', String(fallback));
-      localStorage.setItem('branchId', String(fallback));
+      selectBranch(String(fallback));
       return;
     }
 
     // Some login flows don't provide backendBranchId but the backend still requires x-branch-id.
     // As a fallback, reuse the first selected dashboard branch (if any) so we can load branches/warehouses.
     try {
-      const raw = String(localStorage.getItem('dashboardBranchIds') || '').trim();
+      const raw = String(localStorage.getItem(companyStorageKey('dashboardBranchIds')) || '').trim();
       if (!raw) return;
       const parsed = JSON.parse(raw);
       const first = Array.isArray(parsed) ? normalizeId(parsed[0]) : '';
       if (!first) return;
-      localStorage.setItem('activeBranchId', String(first));
-      localStorage.setItem('branchId', String(first));
+      selectBranch(String(first));
     } catch {
       // ignore
     }
   }, [isAuthenticated, currentCompany?.profile?.backendBranchId]);
 
-  const [activeWarehouseId, setActiveWarehouseId] = useState(() => String(localStorage.getItem('activeWarehouseId') || ''));
-  const [activeBranchId, setActiveBranchId] = useState(() => String(localStorage.getItem('activeBranchId') || localStorage.getItem('branchId') || ''));
+  const [activeWarehouseId, setActiveWarehouseId] = useState(() => String(selectedWarehouseId() || ''));
+  const [activeBranchId, setActiveBranchId] = useState(() => String(selectedBranchId() || ''));
   const financialYearCollections = useMemo(() => [
     'invoices', 'creditNotes', 'bills', 'debitNotes', 'expenses', 'receipts', 'payments',
     'journalEntries', 'bankTransactions', 'estimates', 'purchaseOrders', 'salesOrders',
@@ -11542,25 +11540,17 @@ const AppShell = () => {
   }, [availableOrgs, activeOrgId, currentCompany?.name]);
 
   /**
-   * Switching company changes the tenant for every subsequent request. The
-   * branch belongs to the old org, so it is cleared and re-resolved, and the
-   * page is reloaded so no cached list survives the switch.
+   * Switching company is the shell's act (A-27). This menu wrote its own
+   * `activeOrgId` and reloaded — a second store the shell had stopped reading,
+   * so once the shell's picker had been used it did nothing at all. It asks
+   * the shell now, which changes the address and remounts this app for the
+   * other company; each company keeps its own branch and warehouse.
    */
   const switchOrg = useCallback((nextOrgId) => {
     const target = String(nextOrgId || '').trim();
-    if (!target || target === String(platformOrgId() || '')) {
-      setOrgMenuOpen(false);
-      return;
-    }
-    try {
-      localStorage.setItem('activeOrgId', target);
-      localStorage.removeItem('activeBranchId');
-      localStorage.removeItem('branchId');
-      localStorage.removeItem('activeWarehouseId');
-    } catch {
-      // ignore
-    }
-    window.location.reload();
+    setOrgMenuOpen(false);
+    if (!target || target === String(platformOrgId() || '')) return;
+    requestSwitchCompany(target);
   }, []);
   const allowedBranchIds = useMemo(() => {
     const ids = authCtx?.data?.allowedBranchIds;
@@ -11603,7 +11593,7 @@ const AppShell = () => {
     // active branch on every page load, because allowedBranchIds is still empty.
     if (authCtx.loading || !authCtx.data) return;
 
-    const existing = String(localStorage.getItem('activeBranchId') || '').trim();
+    const existing = String(selectedBranchId() || '').trim();
     if (existing && allowedBranchIdSet.has(existing)) {
       if (String(activeBranchId || '') !== existing) setActiveBranchId(existing);
       return;
@@ -11611,13 +11601,11 @@ const AppShell = () => {
 
     const firstAllowed = allowedBranchIds.length ? String(allowedBranchIds[0]) : '';
     if (!firstAllowed) {
-      localStorage.removeItem('activeBranchId');
-      localStorage.removeItem('branchId');
+      selectBranch('');
       setActiveBranchId('');
       return;
     }
-    localStorage.setItem('activeBranchId', firstAllowed);
-    localStorage.setItem('branchId', firstAllowed);
+    selectBranch(firstAllowed);
     setActiveBranchId(firstAllowed);
     if (typeof reloadWarehouses === 'function') reloadWarehouses();
   }, [isAuthenticated, authCtx.loading, authCtx.data, allowedBranchIds, allowedBranchIdSet, activeBranchId, reloadWarehouses]);
@@ -12508,7 +12496,7 @@ const AppShell = () => {
         const list = Array.isArray(data?.warehouses) ? data.warehouses : [];
         setWarehouses(list);
         if (activeWarehouseId && !list.some((w) => String(w.id) === String(activeWarehouseId))) {
-          localStorage.removeItem('activeWarehouseId');
+          selectWarehouse('');
           setActiveWarehouseId('');
         }
       } catch (e) {
@@ -12566,15 +12554,14 @@ const AppShell = () => {
     if (branchesLoading) return;
     if (!Array.isArray(branches) || branches.length === 0) return;
 
-    const existing = String(localStorage.getItem('activeBranchId') || '').trim();
+    const existing = String(selectedBranchId() || '').trim();
     if (existing) return;
 
     const first = branches[0];
     const fallback = first?.id != null ? String(first.id) : '';
     if (!fallback) return;
 
-    localStorage.setItem('activeBranchId', fallback);
-    localStorage.setItem('branchId', fallback);
+    selectBranch(fallback);
     if (typeof reloadWarehouses === 'function') reloadWarehouses();
   }, [isAuthenticated, branchesLoading, branches, reloadWarehouses]);
 
@@ -12587,7 +12574,7 @@ const AppShell = () => {
     const first = (Array.isArray(warehousesForUser) ? warehousesForUser : [])[0];
     if (!first?.id) return;
     const id = String(first.id);
-    localStorage.setItem('activeWarehouseId', id);
+    selectWarehouse(id);
     setActiveWarehouseId(id);
   }, [activeWarehouseId, isAuthenticated, warehousesFeatureEnabled, warehousesForUser, warehousesLoading]);
 
@@ -12602,9 +12589,9 @@ const AppShell = () => {
         return;
       }
       if (nextId) {
-        localStorage.setItem('activeWarehouseId', nextId);
+        selectWarehouse(nextId);
       } else {
-        localStorage.removeItem('activeWarehouseId');
+        selectWarehouse('');
       }
       setActiveWarehouseId(nextId);
     },
@@ -12634,9 +12621,8 @@ const AppShell = () => {
       if (!nextId) return;
       if (!branchesForUser.some((b) => String(b.id) === nextId)) return;
 
-      localStorage.setItem('activeBranchId', nextId);
-      localStorage.setItem('branchId', nextId);
-      localStorage.removeItem('activeWarehouseId');
+      selectBranch(nextId);
+      selectWarehouse('');
       setActiveBranchId(nextId);
       setActiveWarehouseId('');
       if (typeof reloadWarehouses === 'function') reloadWarehouses();
@@ -12686,7 +12672,7 @@ const AppShell = () => {
 
         if (!head) {
           const orgId = resolveServerOrgId(currentCompany);
-          const branchId = String(localStorage.getItem('activeBranchId') || localStorage.getItem('branchId') || currentCompany?.profile?.backendBranchId || '').trim();
+          const branchId = String(selectedBranchId() || currentCompany?.profile?.backendBranchId || '').trim();
 
           if (orgId && branchId) {
             const payload = {
@@ -12757,7 +12743,7 @@ const AppShell = () => {
         });
 
         if (!String(activeWarehouseId || '').trim()) {
-          localStorage.setItem('activeWarehouseId', headId);
+          selectWarehouse(headId);
           setActiveWarehouseId(headId);
         }
       } catch {
@@ -14017,7 +14003,7 @@ const AppShell = () => {
         );
       case 'settingsWarehouses': {
         const orgId = resolveServerOrgId(currentCompany);
-        const branchId = localStorage.getItem('activeBranchId');
+        const branchId = selectedBranchId();
         return <SettingsWarehouses orgId={orgId} branchId={branchId} company={currentCompany} onWarehousesChanged={reloadWarehouses} />;
       }
       case 'accountingRoles':
@@ -15122,7 +15108,7 @@ const App = () => {
 
 const readActiveBranchKey = () => {
   try {
-    return String(localStorage.getItem('activeBranchId') || localStorage.getItem('branchId') || '').trim();
+    return String(selectedBranchId() || '').trim();
   } catch {
     return '';
   }

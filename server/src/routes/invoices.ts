@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { prisma } from '../utils/prisma.js';
 import { platformPrisma } from '../utils/platformPrisma.js';
 import { requireAuth } from '../middleware/auth.js';
-import { requireTenantContext } from '../middleware/tenantContext.js';
+import { requireTenantContext, warehouseRefusal } from '../middleware/tenantContext.js';
 import { requirePermission } from '../middleware/rbac.js';
 import { PermissionAction } from '../constants/enums.js';
 import { ensureLedgerSetup, invoicePostingLines, postEntry, reverseEntry } from '../services/ledger.js';
@@ -348,6 +348,8 @@ invoicesRouter.post('/orgs/:orgId/invoices', requirePermission(INVOICE_MODULE, P
   const branchId = String(parsed.branchId || req.tenant!.branchId || '').trim();
   if (!branchId) return res.status(400).json({ error: 'Missing branchId' });
   if (await refuseUnknownLineItems(res, accountId, orgId, parsed.items)) return;
+  const warehouseRefused = await warehouseRefusal(req, parsed.warehouseId);
+  if (warehouseRefused) return res.status(warehouseRefused.status).json(warehouseRefused.body);
 
   // Document restrictions: a user limited to certain customers may not raise an
   // invoice for anyone else.
@@ -581,6 +583,10 @@ invoicesRouter.patch('/orgs/:orgId/invoices/:invoiceId', requirePermission(INVOI
   const sent = new Set(Object.keys((req.body ?? {}) as Record<string, unknown>));
   const parsedPatch = invoiceUpsertSchema.partial().parse(req.body);
   if (parsedPatch.items !== undefined && (await refuseUnknownLineItems(res, accountId, orgId, parsedPatch.items))) return;
+  if (parsedPatch.warehouseId !== undefined && (parsedPatch.warehouseId || null) !== (existing.warehouseId || null)) {
+    const warehouseRefused = await warehouseRefusal(req, parsedPatch.warehouseId);
+    if (warehouseRefused) return res.status(warehouseRefused.status).json(warehouseRefused.body);
+  }
   const editAccess = await resolveAccess(accountId, orgId, req.auth!.userId, req.tenant!.branchId);
   const { value: body, stripped } = filterFieldsByLevel(
     parsedPatch,

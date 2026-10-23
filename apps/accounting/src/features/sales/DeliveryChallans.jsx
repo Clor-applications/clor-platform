@@ -25,6 +25,7 @@ import { getVisibleCustomFields } from '@ui/utils/invoicePrefs';
 import { DocumentNumber, SalesDate, DueDate, MoneyValue, SalesBalance } from '@ui/components/docs';
 import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';
 import { PermissionButton } from '@ui/permissions/ActionGuard';
+import { selectedBranchId, selectedWarehouseId } from '@platform/context';
 
 /**
  * Delivery challans — goods leaving without (yet) an invoice: job work,
@@ -152,7 +153,7 @@ export default function DeliveryChallans({ db, setDb, currentCompany, onConvert 
   const itemsMaster = (db.items || []).filter((i) => i.companyId === companyId);
 
   /* The series this challan is numbered from, and the number it will take. */
-  const challanBranchId = String(localStorage.getItem('activeBranchId') || localStorage.getItem('branchId') || '').trim();
+  const challanBranchId = String(selectedBranchId() || '').trim();
   const challanNumbering = getDocSettings(db, currentCompany, { branchId: challanBranchId || null })?.numbering?.deliveryChallan;
   const nextChallanNumber =
     nextFreeVoucherNumber({
@@ -203,7 +204,7 @@ export default function DeliveryChallans({ db, setDb, currentCompany, onConvert 
         nextFreeVoucherNumber({db,
           company: currentCompany,
           voucherKey: 'deliveryChallan',
-          branchId: String(localStorage.getItem('activeBranchId') || localStorage.getItem('branchId') || '').trim() || null, takenNumbers: (db.deliveryChallans || []).filter((x) => x.companyId === currentCompany.id).map((x) => String(x.number || '').trim()) }) || `DC-${nextId}`,
+          branchId: String(selectedBranchId() || '').trim() || null, takenNumbers: (db.deliveryChallans || []).filter((x) => x.companyId === currentCompany.id).map((x) => String(x.number || '').trim()) }) || `DC-${nextId}`,
       date: form.date,
       customerId: form.customerId,
       customerName: getCustomerDisplayName(customer),
@@ -215,8 +216,8 @@ export default function DeliveryChallans({ db, setDb, currentCompany, onConvert 
       value: lines.reduce((s, l) => s + l.quantity * l.rate, 0),
       status: 'Open',
       // Where this was entered from, so the header's scope can find it later.
-      branchId: String(localStorage.getItem('activeBranchId') || localStorage.getItem('branchId') || '').trim(),
-      warehouseId: String(localStorage.getItem('activeWarehouseId') || '').trim(),
+      branchId: String(selectedBranchId() || '').trim(),
+      warehouseId: String(selectedWarehouseId() || '').trim(),
       createdAt: new Date().toISOString(),
     };
     /*

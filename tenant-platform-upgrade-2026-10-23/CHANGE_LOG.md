@@ -42,9 +42,23 @@ Changed:
 - A-11 fixed: one `appLive` check on every non-human entry point (portal, API keys, connectors, readers, SCIM, share and payment links). Application behavior changed: yes. Schema: no. Local dev DB brought up to the committed People migrations.
 - A-12 fixed: atomic approval claim (409 for the loser), 402 without Accounting, failed posting reopens the request. Application behavior changed: yes. Schema: no.
 - A-13 fixed: maker-checker with a company setting (AUTO/STRICT/ALLOW) on pay runs, salary revisions, adjustments, tax verify, bank changes and leave; never approving one's own pay; status-guarded transitions. Application behavior changed: yes. **Schema: yes** — platform `AuthPolicy.makerChecker` (migration `20261023180000_maker_checker_policy`, default `AUTO`; applied locally).
+- A-14 fixed: subscription ceiling in `authorize()` for every app's modules; `requireApp.ts` removed. Application behavior changed: yes. Schema: no.
+- Batches 6 (background jobs) and 7 (route manifest) run in parallel sessions on their own branches (evidence IDs EV-100..149 and EV-150..199).
+- A-15 fixed: app guards answer 402 (not bought) before 403 (switched off). Application behavior changed: yes (status code for unowned apps). Schema: no.
+- A-16 fixed: billing webhook mounted publicly ahead of the routers that require a session, with the raw body and a rate limit. Application behavior changed: yes. Schema: no.
+- A-17 fixed: operator subscription changes need authenticator + step-up, are recorded as AuthEvents with before/after, and are written in one transaction. Application behavior changed: yes (operators must enrol an authenticator). Schema: no.
+- A-18 fixed: company export carries People and Payroll only for someone holding their VIEW permissions (and a step-up when the company asks for one for payroll), names anything withheld, audits each personal-data export, and counts as the full export only when nothing was withheld. The Data export menu item is gated on the permission the server checks. Application behavior changed: yes. Schema: no.
+- A-19 fixed: role grants, role and profile edits are bounded by what the caller holds where the grant applies (company-wide unless the assignment is for one branch); non-administrators cannot change their own roles or profiles. Application behavior changed: yes. Schema: no.
+- A-20 fixed: non-administrators cannot change their own record restrictions or the own-documents-only flag of a role they hold, and cannot restrict an administrator. Application behavior changed: yes. Schema: no.
+- A-21 fixed: closing a company (and cancelling it) needs a company-wide administrator rather than the creator, and asking to close needs a fresh authenticator code. Application behavior changed: yes (an administrator without an authenticator must set one up before closing). Schema: no.
+- A-22 fixed: the subscription plan (with gateway ids removed) is shown only to whoever may view the company profile; the next-number preview needs the right to raise that document type and refuses unknown types; payment modes need a money-handling permission. Application behavior changed: yes. Schema: no.
+- Batch 2 closed: full server suite 169 files / 1568 tests passed at 345865a (EV-043).
+- A-24 fixed: a warehouse named in a document must belong to the company and be usable by the person; company-wide administrators (not the creator) reach every branch and warehouse without a grant. Application behavior changed: yes. Schema: no.
+- A-26, A-25 fixed: the company is in the address (`/o/<CODE>/`), each tab keeps its own, an unknown code shows no-access, and links to other app hosts and the front-door forward carry it. Application behavior changed: yes (addresses now start with /o/<code>). Schema: no.
+- A-23, A-27, A-28 fixed: branch and warehouse are chosen per company and per tab; Accounting's company menu switches through the shell; remaining remembered choices are per company; People install manifest. Application behavior changed: yes (a tab no longer picks up another tab's branch or warehouse). Schema: no.
 
 Running totals for 2026-10-23:  
-Application behavior changed: yes (GAP-002, GAP-003, A-03, A-01, A-02, A-04, A-05, A-07, A-06, A-08, A-09, A-10, A-11, A-12, A-13).  
+Application behavior changed: yes (GAP-002, GAP-003, A-03, A-01, A-02, A-04, A-05, A-07, A-06, A-08, A-09, A-10, A-11, A-12, A-13, A-14, A-15, A-16, A-17, A-18, A-19, A-20, A-21, A-22, A-24, A-23, A-25, A-26, A-27, A-28).  
 Database schema changed: yes (platform `Account.legacyUnrestrictedAt`; platform `AuthPolicy.makerChecker`; applied locally only).  
 Deployment or Cloudflare configuration changed: no.  
 Customer data accessed: no (local test accounts only).

@@ -9,6 +9,7 @@ import { resolveAccess, resolveUserPermissions } from '../services/access.js';
 import { PermissionAction } from '../constants/enums.js';
 import {
   ADMIN_ONLY_ERROR,
+  grantAuthority,
   ANTI_LOCKOUT_KEYS,
   cannotGrantError,
   rolePermissionKeys,
@@ -134,8 +135,11 @@ permissionsRouter.put(
     });
     if (!role) return res.status(404).json({ error: 'Role not found' });
 
+    // A role reaches whoever holds it, wherever they work: bounded by what the caller holds company-wide (A-19).
+    const { authority, refusal } = await grantAuthority(req, null, permKey('SETTINGS', 'Roles', 'EDIT'));
+    if (refusal) return res.status(refusal.status).json(refusal.body);
     const isAdminRole = role.roleType === RoleType.ADMIN;
-    if (isAdminRole && !req.isAdmin) return res.status(403).json(ADMIN_ONLY_ERROR);
+    if (isAdminRole && !authority.isAdmin) return res.status(403).json(ADMIN_ONLY_ERROR);
 
     const body = putPermissionsSchema.parse(req.body);
 
@@ -196,7 +200,7 @@ permissionsRouter.put(
       .filter((id) => !currentByPermId.get(id)?.allowed)
       .map((id) => keyById.get(id)!)
       .filter(Boolean);
-    const missing = unheldGrants(req, added);
+    const missing = unheldGrants(authority, added);
     if (missing.length) return res.status(403).json(cannotGrantError(missing));
 
     await platformPrisma.$transaction(async (tx) => {

@@ -70,13 +70,14 @@ import { blockIfClosed } from '@ui/utils/bookClose';
 import { DocumentNumber, DocDate, MoneyValue } from '@ui/components/docs';
 import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';
 import { useFeatures } from '@ui/permissions/useFeatures';
+import { selectedBranchId } from '@platform/context';
 
 export const BillForm = ({ db, setDb, currentCompany, initialData, onClose, warehouses = [], defaultWarehouseId = '', branches = [], onOpenBillSettings = null, screenTitle = '', onBack = null }) => {
   const fieldErrors = useFieldErrors('bill');
   const { isEnabled: featureIsEnabled } = useFeatures();
   const branchesEnabled = featureIsEnabled('branches');
   const warehousesEnabled = featureIsEnabled('warehouses');
-  const activeBranchId = String(localStorage.getItem('activeBranchId') || localStorage.getItem('branchId') || '').trim();
+  const activeBranchId = String(selectedBranchId() || '').trim();
   const companyWarehouses = (Array.isArray(warehouses) ? warehouses : []).filter((row) => !row?.companyId || Number(row.companyId) === Number(currentCompany?.id));
   const companyBranches = (Array.isArray(branches) ? branches : []).filter((row) => !row?.companyId || Number(row.companyId) === Number(currentCompany?.id));
   const effectiveDefaultWarehouseId = String(
@@ -1844,7 +1845,7 @@ export const PurchaseOrderForm = ({
   const vendors = db.vendors.filter((v) => v.companyId === currentCompany.id);
   const itemsMaster = db.items.filter((i) => i.companyId === currentCompany.id);
 
-  const activeBranchId = String(localStorage.getItem('activeBranchId') || localStorage.getItem('branchId') || '').trim();
+  const activeBranchId = String(selectedBranchId() || '').trim();
   const resolveBranchIdFromWarehouseId = (warehouseId) => {
     const wid = String(warehouseId || '').trim();
     if (!wid) return activeBranchId || '';
@@ -3287,7 +3288,7 @@ export const DebitNoteForm = ({
 
   const { state: companyState } = getCompanyGstProfile(currentCompany);
 
-  const activeBranchId = String(localStorage.getItem('activeBranchId') || localStorage.getItem('branchId') || '').trim();
+  const activeBranchId = String(selectedBranchId() || '').trim();
   const resolveBranchIdFromWarehouseId = (warehouseId) => {
     const wid = String(warehouseId || '').trim();
     if (!wid) return activeBranchId || '';

@@ -67,6 +67,18 @@ const BackupCard = ({ icon: Icon, title, blurb, action, scope, busy, last, onDow
               <Row key={key} label={label} value={Number(last.counts[key] || 0).toLocaleString('en-IN')} />
             ))}
           </div>
+          {last.withheld?.length ? (
+            <div className="mt-3">
+              <div className="ui-label mb-1">Left out of this copy</div>
+              <ul className="space-y-1 text-sm ui-muted">
+                {last.withheld.map((w) => (
+                  <li key={w.domain}>
+                    <span className="capitalize">{w.domain}</span>: {w.reason}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
         </div>
       ) : null}
     </div>
@@ -84,6 +96,8 @@ export default function DataBackup({ currentCompany }) {
       const payload = await exportCompanyData(scope);
       const counts = payload?.export?.counts || {};
       const rows = Object.values(counts).reduce((n, c) => n + Number(c || 0), 0);
+      // People and payroll records only travel to someone who may see them in the app.
+      const withheld = Array.isArray(payload?.export?.withheld) ? payload.export.withheld : [];
 
       const stamp = new Date().toISOString().slice(0, 10);
       const name = String(currentCompany?.name || 'company').replace(/[\\/:*?"<>|]+/g, '-');
@@ -99,8 +113,12 @@ export default function DataBackup({ currentCompany }) {
       a.remove();
       URL.revokeObjectURL(url);
 
-      setLast((prev) => ({ ...(prev || {}), [scope]: { at: new Date(), rows, counts, size: blob.size } }));
-      notify.success(`${rows.toLocaleString('en-IN')} records downloaded.`);
+      setLast((prev) => ({ ...(prev || {}), [scope]: { at: new Date(), rows, counts, size: blob.size, withheld } }));
+      notify.success(
+        withheld.length
+          ? `${rows.toLocaleString('en-IN')} records downloaded. ${withheld.map((w) => w.domain).join(' and ')} left out.`
+          : `${rows.toLocaleString('en-IN')} records downloaded.`,
+      );
     } catch (e) {
       notify.error(`Could not take the backup: ${String(e?.message || e)}`);
     } finally {

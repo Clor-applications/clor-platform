@@ -263,3 +263,51 @@ describe('the two scopes', () => {
     expect(res.body.export.scope).toBe('configuration');
   });
 });
+
+/*
+ * A-18: the export asked only for Settings → Company data → EXPORT, then
+ * dumped every People and Payroll table — bank accounts, PAN, UAN, salaries,
+ * tax declarations — to anyone holding that one permission, past the payroll
+ * VIEW permissions and the company's payroll second-factor setting. What you
+ * can see in the app is what you can export; the rest is named as withheld.
+ */
+describe('personal data in the export', () => {
+  /** A member whose only permission is exporting company data. */
+  async function exporterOnly(c: Ctx): Promise<Ctx & { userId: string }> {
+    const role = await request(app).post(`/api/orgs/${c.orgId}/roles`).set(auth(c)).send({ name: `Exporter ${rnd()}`, roleType: 'CUSTOM', permissions: [] }).expect(201);
+    await request(app).put(`/api/orgs/${c.orgId}/roles/${role.body.role.id}/permissions`).set(auth(c)).send({ permissions: ['SETTINGS::Company data::EXPORT'] }).expect(200);
+    const email = `exp.only.${Date.now()}.${rnd()}@example.com`;
+    const made = await request(app).post('/api/users').set(auth(c)).send({ email, fullName: 'Exporter', password: 'Passw0rd!23', orgIds: [c.orgId], branchIdsByOrg: { [c.orgId]: [c.branchId] } }).expect(201);
+    await request(app).put(`/api/orgs/${c.orgId}/users/${made.body.user.id}/role`).set(auth(c)).send({ roleId: role.body.role.id }).expect(200);
+    const login = await request(app).post('/api/auth/login').send({ emailOrUsername: email, password: 'Passw0rd!23' }).expect(200);
+    return { token: login.body.token, orgId: c.orgId, branchId: c.branchId, userId: made.body.user.id };
+  }
+
+  it('leaves out People and Payroll for someone who cannot view them, and says so', async () => {
+    const exporter = await exporterOnly(mine);
+    const res = await request(app).get(`/api/orgs/${mine.orgId}/export?scope=all`).set(auth(exporter)).expect(200);
+    const keys = Object.keys(res.body.data);
+    expect(keys.some((k) => k.startsWith('payroll.'))).toBe(false);
+    expect(keys.some((k) => k.startsWith('people.'))).toBe(false);
+    expect(res.body.data.invoices.length).toBeGreaterThan(0);
+    expect(res.body.export.withheld.map((w: any) => w.domain).sort()).toEqual(['payroll', 'people']);
+    /* Not the full copy that closing a company relies on. */
+    expect(await platformPrisma.auditLog.count({ where: { orgId: mine.orgId, action: 'EXPORT_ALL', createdByUserId: exporter.userId } })).toBe(0);
+  });
+
+  it('gives an administrator payroll data, and records that it left', async () => {
+    const res = await request(app).get(`/api/orgs/${mine.orgId}/export?scope=data`).set(auth(mine)).expect(200);
+    expect(Object.keys(res.body.data).some((k) => k.startsWith('payroll.'))).toBe(true);
+    expect(res.body.export.withheld).toEqual([]);
+    expect(await platformPrisma.auditLog.count({ where: { orgId: mine.orgId, action: 'EXPORT_PAYROLL' } })).toBeGreaterThan(0);
+  });
+
+  it('withholds payroll when the company asks for a second factor and none was given', async () => {
+    const c = await makeOwner('stepup');
+    const current = (await request(app).get(`/api/orgs/${c.orgId}/security/policy`).set(auth(c)).expect(200)).body.policy;
+    await request(app).put(`/api/orgs/${c.orgId}/security/policy`).set(auth(c)).send({ ...current, requirePayrollStepUp: true }).expect(200);
+    const res = await request(app).get(`/api/orgs/${c.orgId}/export?scope=data`).set(auth(c)).expect(200);
+    expect(Object.keys(res.body.data).some((k) => k.startsWith('payroll.'))).toBe(false);
+    expect(res.body.export.withheld).toEqual([expect.objectContaining({ domain: 'payroll' })]);
+  });
+});

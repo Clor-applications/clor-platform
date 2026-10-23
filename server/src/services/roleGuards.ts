@@ -2,7 +2,7 @@ import { platformPrisma } from '../utils/platformPrisma.js';
 import { permKey } from '../constants/permissionCatalog.js';
 import { RoleType } from '../constants/enums.js';
 import { outsideTenant } from '../utils/tenantScope.js';
-import { resolveAccess } from './access.js';
+import { COMPANY_WIDE, resolveAccess } from './access.js';
 
 /**
  * The two rules that keep role administration from turning against the
@@ -40,6 +40,53 @@ export const LAST_ADMIN_ERROR = {
 export const ADMIN_ONLY_ERROR = {
   error: 'Only an administrator may administer an Administrator role',
   code: 'admin_only',
+};
+
+/**
+ * What the caller may hand out, and where (A-19).
+ *
+ * `req.permissions` is resolved for the branch the request is working in, so
+ * it includes roles the caller holds for that branch alone. Bounding a grant
+ * by it let somebody who manages users in one branch hand out company-wide
+ * roles — to themselves too — and so carry their one-branch access across the
+ * company. A grant is bounded by what the caller holds where the grant
+ * applies: a company-wide assignment, and any change to a role or profile
+ * (which reaches every holder wherever they work), by what the caller holds
+ * company-wide; an assignment for one branch by what they hold in that branch.
+ *
+ * `gate` is the permission the route itself asks for; it too must be held
+ * where the grant applies.
+ */
+export type Authority = { isAdmin: boolean; permissions: Set<string> };
+type Refusal = { status: number; body: Record<string, unknown> };
+
+export async function grantAuthority(
+  req: { tenant?: { accountId: string; orgId: string }; auth?: { userId: string } },
+  branchId: string | null,
+  gate: string
+): Promise<{ authority: Authority; refusal: null } | { authority: null; refusal: Refusal }> {
+  const { accountId, orgId } = req.tenant!;
+  const access = await resolveAccess(accountId, orgId, req.auth!.userId, branchId ?? COMPANY_WIDE);
+  const authority = { isAdmin: access.isAdmin, permissions: access.permissions };
+  if (authority.isAdmin || authority.permissions.has(gate)) return { authority, refusal: null };
+  return {
+    authority: null,
+    refusal: {
+      status: 403,
+      body: branchId
+        ? { error: 'You do not manage this in that branch.', code: 'not_in_branch' }
+        : {
+            error: 'You manage this for one branch only. Company-wide roles are changed by somebody who manages them across the company.',
+            code: 'not_company_wide',
+          },
+    },
+  };
+}
+
+/** Nobody but an administrator changes their own access: somebody else has to. */
+export const OWN_ACCESS_ERROR = {
+  error: 'You cannot change your own access. Ask another administrator.',
+  code: 'own_access',
 };
 
 /** Every permission key a role currently grants. */

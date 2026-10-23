@@ -11,7 +11,8 @@ const day = (iso) => (iso ? new Date(iso).toLocaleDateString('en-IN', { day: 'nu
 
 /**
  * Close this company (LX-07 part 2). Shared, so any app can offer it; the
- * server lets only the company's owner ask or cancel.
+ * server lets only an administrator of the whole company ask or cancel, and asking needs a
+ * fresh authenticator code (the shared request layer prompts for it).
  *
  * The steps are the policy (docs/compliance/DATA_DELETION_AND_CLOSURE.md):
  * download a full export, ask with the company's name typed, a notice period
@@ -89,14 +90,14 @@ export default function CloseCompany({ companyName = '' }) {
 
   return (
     <div className="space-y-3">
-      <PageHeader entity="settings" title="Close company" description="Delete this company and everything in it, after a notice period. Only the person who created the company can do this." />
+      <PageHeader entity="settings" title="Close company" description="Delete this company and everything in it, after a notice period. Only an administrator of the company can do this, with a code from their authenticator app." />
       <div className="pb-8 space-y-4 max-w-3xl">
         {error ? <p className="ui-card p-4 text-sm" role="alert">{error}</p> : null}
         {!state ? (
           error ? null : <SkeletonCard lines={6} />
-        ) : !state.isOwner ? (
+        ) : !(state.canClose ?? state.isOwner) ? (
           <section className="ui-card p-4 space-y-2">
-            <p className="text-sm">Only the person who created this company can close it{scheduled ? ' or cancel its closure' : ''}.</p>
+            <p className="text-sm">Only an administrator of this company can close it{scheduled ? ' or cancel its closure' : ''}.</p>
             {scheduled ? <p className="text-sm">A closure is scheduled: every record of this company is deleted on <strong>{day(closure.deleteAfter)}</strong>.</p> : null}
           </section>
         ) : scheduled ? (

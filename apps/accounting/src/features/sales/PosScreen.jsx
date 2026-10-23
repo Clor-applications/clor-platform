@@ -8,6 +8,7 @@ import { createPosDayClose } from '@ui/api/posDayClose';
 import { hasApiSession } from '@ui/api/purchaseDocs';
 import { bumpCompanyNextNumber, getDocSettings } from '@ui/utils/docSettings';
 import DocNumberingPopover from '@ui/components/DocNumberingPopover';
+import { selectedBranchId, selectedWarehouseId } from '@platform/context';
 
 /**
  * Point of sale — the fast lane for counter sales. Search or tap items, take
@@ -42,7 +43,7 @@ function PosBillingScreen({ db, setDb, currentCompany }) {
      opens the same series panel every numbered form carries. */
   const numberingBtnRef = useRef(null);
   const [numberingOpen, setNumberingOpen] = useState(false);
-  const posBranchId = String(localStorage.getItem('activeBranchId') || localStorage.getItem('branchId') || '').trim() || null;
+  const posBranchId = String(selectedBranchId() || '').trim() || null;
   const posNumbering = getDocSettings(db, currentCompany, { branchId: posBranchId })?.numbering?.pos;
 
   const companyId = currentCompany.id;
@@ -273,7 +274,7 @@ function PosBillingScreen({ db, setDb, currentCompany }) {
     setBusy(true);
     try {
       const buyer = customerName.trim() || 'Walk-in Customer';
-      const activeBranchId = String(localStorage.getItem('activeBranchId') || localStorage.getItem('branchId') || '').trim();
+      const activeBranchId = String(selectedBranchId() || '').trim();
       const today = new Date().toISOString().slice(0, 10);
 
       if (!checkoutIdRef.current) checkoutIdRef.current = newCheckoutId();
@@ -287,7 +288,7 @@ function PosBillingScreen({ db, setDb, currentCompany }) {
           date: today,
           customerName: buyer,
           customerMobile: customerMobile.trim() || undefined,
-          warehouseId: String(localStorage.getItem('activeWarehouseId') || '').trim() || undefined,
+          warehouseId: String(selectedWarehouseId() || '').trim() || undefined,
           taxType: 'CGST_SGST',
           subtotal: computed.subtotal,
           cgstTotal: computed.cgstTotal,
@@ -355,7 +356,7 @@ function PosBillingScreen({ db, setDb, currentCompany }) {
         // The counter this was rung up at, from the header — a POS sale takes
         // stock off a real shelf, so it has to say which one.
         branchId: activeBranchId || '',
-        warehouseId: String(localStorage.getItem('activeWarehouseId') || '').trim(),
+        warehouseId: String(selectedWarehouseId() || '').trim(),
         createdAt: new Date().toISOString(),
       };
       const receipt = {

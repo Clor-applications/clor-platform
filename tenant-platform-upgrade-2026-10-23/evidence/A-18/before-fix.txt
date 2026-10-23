@@ -1,0 +1,165 @@
+ DEPRECATED  `test.poolOptions` was removed in Vitest 4. All previous `poolOptions` are now top-level options. Please, refer to the migration guide: https://vitest.dev/guide/migration#pool-rework
+
+ RUN  v4.1.10 /Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_27882", schema "accounting" at "localhost:5432"
+
+The PostgreSQL database "clor_test_27882" schema "accounting" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 401ms
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/payroll/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_27882", schema "payroll" at "localhost:5432"
+
+The PostgreSQL database "clor_test_27882" schema "payroll" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 638ms
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/people/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_27882", schema "people" at "localhost:5432"
+
+The PostgreSQL database "clor_test_27882" schema "people" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 376ms
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/platform/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_27882", schema "platform" at "localhost:5432"
+
+The PostgreSQL database "clor_test_27882" schema "platform" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 390ms
+
+[setup] 180 policy statements applied to clor_test_27882
+[setup] 7 policy statements applied to clor_test_27882
+[setup] 10 policy statements applied to clor_test_27882
+[setup] 35 policy statements applied to clor_test_27882
+[setup] 4 policy statements applied to clor_test_27882
+[setup] 96 policy statements applied to clor_test_27882
+[setup] 4 policy statements applied to clor_test_27882
+[setup] 4 policy statements applied to clor_test_27882
+[setup] 4 policy statements applied to clor_test_27882
+[setup] 4 policy statements applied to clor_test_27882
+[setup] 32 policy statements applied to clor_test_27882
+[setup] 24 policy statements applied to clor_test_27882
+[setup] 12 policy statements applied to clor_test_27882
+[setup] 16 policy statements applied to clor_test_27882
+[setup] 4 policy statements applied to clor_test_27882
+[setup] 4 policy statements applied to clor_test_27882
+[setup] 8 policy statements applied to clor_test_27882
+[setup] 8 policy statements applied to clor_test_27882
+[setup] 20 policy statements applied to clor_test_27882
+[setup] 8 policy statements applied to clor_test_27882
+[setup] 4 policy statements applied to clor_test_27882
+[setup] 8 policy statements applied to clor_test_27882
+[setup] 8 policy statements applied to clor_test_27882
+[setup] 12 policy statements applied to clor_test_27882
+[setup] 4 policy statements applied to clor_test_27882
+[setup] 8 policy statements applied to clor_test_27882
+[setup] 28 policy statements applied to clor_test_27882
+[setup] 4 policy statements applied to clor_test_27882
+[setup] 4 policy statements applied to clor_test_27882
+[setup] 4 policy statements applied to clor_test_27882
+[setup] 8 policy statements applied to clor_test_27882
+[setup] 4 policy statements applied to clor_test_27882
+[setup] 4 policy statements applied to clor_test_27882
+[setup] 4 policy statements applied to clor_test_27882
+[setup] 4 policy statements applied to clor_test_27882
+[setup] 8 policy statements applied to clor_test_27882
+[setup] 4 policy statements applied to clor_test_27882
+[setup] 12 policy statements applied to clor_test_27882
+[setup] 4 policy statements applied to clor_test_27882
+[setup] 76 policy statements applied to clor_test_27882
+[setup] 4 policy statements applied to clor_test_27882
+[setup] 4 policy statements applied to clor_test_27882
+[setup] 4 policy statements applied to clor_test_27882
+[setup] 4 policy statements applied to clor_test_27882
+POST /api/auth/signup 200 578 - 46.781 ms
+POST /api/auth/setup-company 200 204 - 204.219 ms
+POST /api/orgs/cmvl211ux000e3dyoczmfs5t6/invoices 201 721 - 200.949 ms
+POST /api/orgs/cmvl211ux000e3dyoczmfs5t6/roles 201 365 - 45.002 ms
+PUT /api/orgs/cmvl211ux000e3dyoczmfs5t6/roles/cmvl2127800qd3dyo7qtuush3/permissions 200 23 - 121.475 ms
+POST /api/users 201 157 - 34.308 ms
+PUT /api/orgs/cmvl211ux000e3dyoczmfs5t6/users/cmvl212bb00qk3dyofu5y18qt/role 200 11 - 128.387 ms
+POST /api/auth/login 200 784 - 6.452 ms
+GET /api/orgs/cmvl211ux000e3dyoczmfs5t6/export?scope=all 200 124830 - 349.540 ms
+GET /api/orgs/cmvl211ux000e3dyoczmfs5t6/export?scope=data 200 11159 - 220.974 ms
+POST /api/auth/signup 200 582 - 51.649 ms
+POST /api/auth/setup-company 200 208 - 138.717 ms
+GET /api/orgs/cmvl212xj00rd3dyosfffrkxi/security/policy 200 387 - 113.784 ms
+PUT /api/orgs/cmvl212xj00rd3dyosfffrkxi/security/policy 200 619 - 116.311 ms
+GET /api/orgs/cmvl212xj00rd3dyosfffrkxi/export?scope=data 200 7959 - 180.655 ms
+ ❯ src/__tests__/dataExport.test.ts (18 tests | 3 failed | 15 skipped) 2005ms
+     × leaves out People and Payroll for someone who cannot view them, and says so 699ms
+     × gives an administrator payroll data, and records that it left 223ms
+     × withholds payroll when the company asks for a second factor and none was given 607ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/__tests__/dataExport.test.ts > personal data in the export > leaves out People and Payroll for someone who cannot view them, and says so
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ src/__tests__/dataExport.test.ts:290:56
+    288|     const res = await request(app).get(`/api/orgs/${mine.orgId}/export…
+    289|     const keys = Object.keys(res.body.data);
+    290|     expect(keys.some((k) => k.startsWith('payroll.'))).toBe(false);
+       |                                                        ^
+    291|     expect(keys.some((k) => k.startsWith('people.'))).toBe(false);
+    292|     expect(res.body.data.invoices.length).toBeGreaterThan(0);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  src/__tests__/dataExport.test.ts > personal data in the export > gives an administrator payroll data, and records that it left
+AssertionError: expected undefined to deeply equal []
+
+- Expected:
+[]
+
++ Received:
+undefined
+
+ ❯ src/__tests__/dataExport.test.ts:301:38
+    299|     const res = await request(app).get(`/api/orgs/${mine.orgId}/export…
+    300|     expect(Object.keys(res.body.data).some((k) => k.startsWith('payrol…
+    301|     expect(res.body.export.withheld).toEqual([]);
+       |                                      ^
+    302|     expect(await platformPrisma.auditLog.count({ where: { orgId: mine.…
+    303|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  src/__tests__/dataExport.test.ts > personal data in the export > withholds payroll when the company asks for a second factor and none was given
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ src/__tests__/dataExport.test.ts:310:78
+    308|     await request(app).put(`/api/orgs/${c.orgId}/security/policy`).set…
+    309|     const res = await request(app).get(`/api/orgs/${c.orgId}/export?sc…
+    310|     expect(Object.keys(res.body.data).some((k) => k.startsWith('payrol…
+       |                                                                              ^
+    311|     expect(res.body.export.withheld).toEqual([expect.objectContaining(…
+    312|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  3 failed | 15 skipped (18)
+   Start at  19:47:28
+   Duration  13.51s (transform 1.90s, setup 18ms, import 3.89s, tests 2.01s, environment 0ms)
+

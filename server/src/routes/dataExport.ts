@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { hasValidStepUp } from '../services/stepUp.js';
 
 import { prisma } from '../utils/prisma.js';
 import { platformPrisma } from '../utils/platformPrisma.js';
@@ -215,9 +216,32 @@ dataExportRouter.get('/orgs/:orgId/export', EXPORT, async (req, res) => {
     });
   }
 
+  /*
+   * A-18: what you may see in an app is what you may take out of it. Settings
+   * export alone used to hand over every People and Payroll row — bank
+   * account numbers, PAN, UAN, salaries, tax declarations and ID documents —
+   * to anyone allowed to export the company's configuration. Each domain now
+   * needs the permissions that open it, payroll the company's step-up where
+   * it asks for one, and every domain of personal data taken is audited.
+   */
+  const withheld: Array<{ domain: string; reason: string }> = [];
   if (asked === 'data' || asked === 'all') {
-    Object.assign(data, await exportDomain(peoplePrisma, PeoplePrisma.dmmf as any, 'people', scope));
-    Object.assign(data, await exportDomain(payrollPrisma, PayrollPrisma.dmmf as any, 'payroll', scope));
+    const holds = (k: string) => Boolean(req.isAdmin) || Boolean(req.permissions?.has(k));
+    if (holds('PEOPLE::Employees::VIEW')) {
+      Object.assign(data, await exportDomain(peoplePrisma, PeoplePrisma.dmmf as any, 'people', scope));
+      await recordAudit(req, { entity: 'Company', entityId: orgId, action: 'EXPORT_PEOPLE', message: 'Exported People and Attendance records (personal data)' });
+    } else {
+      withheld.push({ domain: 'people', reason: 'You cannot view employees in People.' });
+    }
+    const policy = await platformPrisma.authPolicy.findUnique({ where: { orgId }, select: { requirePayrollStepUp: true } });
+    if (!holds('PAYROLL::Employee Payroll Profile::VIEW') || !holds('PAYROLL::Payroll Runs::VIEW')) {
+      withheld.push({ domain: 'payroll', reason: 'You cannot view payroll profiles and pay runs.' });
+    } else if (policy?.requirePayrollStepUp && !hasValidStepUp(req)) {
+      withheld.push({ domain: 'payroll', reason: 'Your company asks for an authenticator code before payroll data leaves CLOR.' });
+    } else {
+      Object.assign(data, await exportDomain(payrollPrisma, PayrollPrisma.dmmf as any, 'payroll', scope));
+      await recordAudit(req, { entity: 'Company', entityId: orgId, action: 'EXPORT_PAYROLL', message: 'Exported Payroll records (bank, PAN, UAN, salary and tax data)' });
+    }
   }
 
   const counts: Record<string, number> = {};
@@ -232,8 +256,11 @@ dataExportRouter.get('/orgs/:orgId/export', EXPORT, async (req, res) => {
     outConfig[name] = plain(rows);
   }
 
-  /* A full export is what closing the company requires first (services/companyClosure.ts). */
-  if (wantData && wantConfiguration) {
+  /*
+   * A full export is what closing the company requires first
+   * (services/companyClosure.ts) — and only a copy with nothing withheld is one.
+   */
+  if (wantData && wantConfiguration && !withheld.length) {
     await recordAudit(req, { entity: 'Company', entityId: orgId, action: 'EXPORT_ALL', message: `Full company export (${Object.values(counts).reduce((a, b) => a + b, 0)} rows)` });
   }
 
@@ -249,6 +276,8 @@ dataExportRouter.get('/orgs/:orgId/export', EXPORT, async (req, res) => {
       company: { id: org.id, name: org.name, handle: org.slug || null },
       takenAt: new Date().toISOString(),
       counts,
+      /* What this person was not allowed to take, and why — so a partial file says it is partial. */
+      withheld,
       note:
         'Belongs to this company alone. It contains no other company’s records, ' +
         'no users or sessions, and no passwords or API credentials.',
