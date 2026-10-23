@@ -16,6 +16,8 @@ Updated: 24 Oct 2026. Format from `tenant-platform-upgrade-2026-10-23/EVIDENCE_R
 | PEV-010 | People's palette is Blaze with colour icons | `apps/people/manifest.jsx:182-183` (`palette: 'blaze'`, `iconSet: 'color'`); `packages/ui/src/index.css:7170` | Confirmed by reading |
 | PEV-011 | One Employee table shared by People, Attendance and Payroll references | `server/prisma/people/schema.prisma:36-164`; Payroll holds `employeeId` as plain string (`server/prisma/payroll/schema.prisma:69-107`) | Confirmed by reading |
 | PEV-012 | Compliance facts and dates | `docs/people/sources/india-compliance-research-2026-10-24.md` (60 source links) | Each matrix row in 05 cites its row there; uncertain items marked U |
+| PEV-013 | A-35 fail-closed RLS merged before any server code | `git merge --no-edit 98d0bf3` → `8971c19`; `git merge-tree` showed 0 conflicts | Branch now carries `20261024100000_rls_fail_closed` for all four schemas and the strict `tenantScope.ts`; People suites after the merge: see PEV-014 |
+| PEV-014 | People and tenant suites pass on the merged branch | `npx vitest run src/__tests__/{people,peopleWorkspace,checklists,tenantScope,tenantIsolation}.test.ts --no-file-parallelism` | 5 files, 54 tests, 54 pass. Report: `evidence/PEV-014/post-merge-tests.json` |
 
 ## Evidence quality note
 

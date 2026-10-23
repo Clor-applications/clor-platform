@@ -81,7 +81,7 @@ CREATE POLICY tenant_isolation ON "X"
          OR "orgId" = NULLIF(current_setting('clor.org_id', true), ''));
 ```
 
-Never the old `IS NULL OR = ''` form. Add every new migration to `applyPolicies` in `server/src/__tests__/globalSetup.ts:258-302`. One test per table in `peopleRls.test.ts`: no company set → 0 rows; company A → no company B rows.
+Never the old `IS NULL OR = ''` form. A-35 (merged into this branch at `98d0bf3`) rewrote every existing policy to this shape (`server/prisma/people/migrations/20261024100000_rls_fail_closed/migration.sql`) and made every request start in a strict scope (`server/src/utils/tenantScope.ts`). Add every new People policy migration to `applyPolicies` in `server/src/__tests__/globalSetup.ts` **before** the people schema's `20261024100000_rls_fail_closed` line (`:303`), so the fail-closed rewrite also covers it. Tests run as the non-superuser `clor_app`: a missed scope shows as empty results or `violates row-level security policy`. One test per table in `peopleRls.test.ts`: no company set → 0 rows; company A → no company B rows.
 
 ### 3.2 New and changed models (Prisma, `S`)
 
@@ -735,7 +735,7 @@ Owner decided (24 Oct 2026) that shared modules and other apps are fixed separat
 | `people-retention` | yes | daily | fills DeletionReview | dataType + entityId |
 | `people-anonymise-sweep` | yes | weekly | verifies no PII remains for ANONYMISED people | report only |
 
-All jobs run under `outsideTenant('job: <name>')` to list companies, then `runInTenant(orgId)` per company.
+All jobs list companies under `outsideTenant('job: <name>', fn)` (which sets `clor.bypass = 'on'`, `tenantScope.ts:154`), then do each company's work inside `runInTenant(orgId, fn)` (`:91`) so writes carry that company's scope. Token routes (invite, auditor) look their token up under `outsideTenant` and then call `enterTenant(orgId)` (`:123`).
 
 ---
 
