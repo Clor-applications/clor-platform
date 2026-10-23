@@ -46,7 +46,9 @@ import { runInTenant, outsideTenant } from '../utils/tenantScope.js';
 export const publicApiRouter = Router();
 
 export const SCOPES = ['attendance:read', 'employees:read', 'employees:write', 'punches:write', 'leave:read', 'leave:write', 'leave:approve', 'readers:read'] as const;
-export const hashToken = (t: string) => createHash('sha256').update(t).digest('hex');
+/* The one hash every token kind uses; it lives with the credential registry now (Batch 5). */
+import { hashToken } from '../services/credentials.js';
+export { hashToken };
 
 type Client = { id: string; accountId: string; orgId: string; scopes: string[]; deviceId: string | null; tokenPrefix: string };
 declare module 'express-serve-static-core' {

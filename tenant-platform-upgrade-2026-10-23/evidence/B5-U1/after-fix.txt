@@ -1,0 +1,12 @@
+Datasource "db": PostgreSQL database "clor_test_28126", schema "platform" at "localhost:5432"
+
+The PostgreSQL database "clor_test_28126" schema "platform" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 1.16s
+
+
+ Test Files  3 passed (3)
+      Tests  33 passed (33)
+   Start at  04:36:46
+   Duration  40.77s (transform 3.25s, setup 46ms, import 7.80s, tests 19.43s, environment 0ms)
+

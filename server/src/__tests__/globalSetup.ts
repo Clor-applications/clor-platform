@@ -308,6 +308,8 @@ export default async function setup() {
   await applyPolicies(asOwner(platform), 'prisma/platform/migrations/20261021130100_org_closure_rls');
   /* A-35: fail closed — last, after every policy above exists. */
   await applyPolicies(asOwner(platform), 'prisma/platform/migrations/20261024100000_rls_fail_closed');
+  /* Batch 5: written fail-closed, so after the rewrite is fine. */
+  await applyPolicies(asOwner(platform), 'prisma/platform/migrations/20261024120100_credentials_rls');
 
   await grantToAppRole(database, schemas);
 
