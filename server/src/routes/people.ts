@@ -15,7 +15,9 @@ import { pushEmployeeToReaders, readerFieldsChanged, revokeFromReaders } from '.
 import { emit as emitWebhook, employeeEvent } from '../services/attendance/webhooks.js';
 import { deleteToBin } from '../services/recycleBin.js';
 import { episodesOf } from '../services/people/episodes.js';
-import { recordChanges, recordJoined, timelineOf } from '../services/people/employmentHistory.js';
+import { timelineOf } from '../services/people/employmentHistory.js';
+import { createEmployee, updateEmployee, correlationOf } from '../services/people/employees.js';
+import type { Actor, ChangeSource } from '../services/people/changeLog.js';
 import { dataHealth } from '../services/people/dataHealth.js';
 import { PAYROLL_MODULE, PAYROLL_RESOURCE } from '../services/payroll/guards.js';
 import { KINDS, READER_ACCESS_ITEM, checklistOf, cleanItems, itemsFor, openTasks, startChecklist, type Kind as ChecklistKind } from '../services/people/checklists.js';
@@ -40,6 +42,10 @@ peopleRouter.use(requireAuth, requireTenantContext);
 
 const { employees: EMPLOYEES, structure: STRUCTURE, notes: NOTES, documents: DOCUMENTS, confidentialDocuments: CONFIDENTIAL } = PEOPLE_RESOURCE;
 const can = (action: string, resource: string) => requirePermission(PEOPLE_MODULE, action as any, resource);
+/** Who is making this change and why, for the change log and the outbox (services/people/changeLog.ts). */
+const actorOf = (req: Request, source: ChangeSource, reason: string | null = null): Actor => ({
+  accountId: req.tenant!.accountId, orgId: req.tenant!.orgId, userId: req.auth?.userId || null, source, correlationId: correlationOf(req as any), reason,
+});
 
 const EMPLOYEE_STATUSES = ['ACTIVE', 'ON_NOTICE', 'LEFT', 'SUSPENDED'] as const;
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -391,20 +397,17 @@ peopleRouter.post('/orgs/:orgId/people/employees', can(PermissionAction.CREATE, 
   try {
     const structure = await resolveStructure(orgId, b);
     await checkManager(orgId, null, blank(b.reportingManagerId));
-    const row = await peoplePrisma.employee.create({
-      data: {
-        accountId,
-        orgId,
-        name,
-        code: blank(b.code),
-        ...employeeData(b),
-        ...structure,
-        status: b.status || 'ACTIVE',
-        createdByUserId: req.auth!.userId,
-      } as any,
-    });
+    const row = await createEmployee(actorOf(req, 'FORM'), {
+      accountId,
+      orgId,
+      name,
+      code: blank(b.code),
+      ...employeeData(b),
+      ...structure,
+      status: b.status || 'ACTIVE',
+      createdByUserId: req.auth!.userId,
+    } as any);
     if (b.tagIds?.length) await setTags(accountId, orgId, row.id, b.tagIds);
-    await recordJoined({ accountId, orgId, userId: req.auth!.userId }, row, 'FORM');
     await startChecklist({ accountId, orgId, userId: req.auth!.userId }, row, 'JOINING', row.dateOfJoining);
     /* On every reader straight away, as ClorTime does: enrolment can start the same minute. */
     await pushEmployeeToReaders(orgId, row, req.auth!.userId);
@@ -431,22 +434,19 @@ peopleRouter.put('/orgs/:orgId/people/employees/:id', can(PermissionAction.EDIT,
     const structure = await resolveStructure(orgId, b);
     if (b.reportingManagerId !== undefined) await checkManager(orgId, existing.id, blank(b.reportingManagerId));
     const nameChanged = b.name !== undefined || b.firstName !== undefined || b.lastName !== undefined;
-    const row = await peoplePrisma.employee.update({
-      where: { id: existing.id },
-      data: {
+    /* The form may say from when a change counts (effectiveFrom) and why (changeNote); both go on the change log and history. */
+    const { row } = await updateEmployee(
+      actorOf(req, 'FORM', typeof req.body?.changeNote === 'string' ? req.body.changeNote : null),
+      existing,
+      {
         ...(nameChanged ? { name: composeName({ ...existing, ...b } as any, existing.name) } : {}),
         ...(b.code !== undefined ? { code: blank(b.code) } : {}),
         ...employeeData(b),
         ...structure,
       } as any,
-    });
+      { effectiveDate: typeof req.body?.effectiveFrom === 'string' ? req.body.effectiveFrom : null },
+    );
     if (b.tagIds) await setTags(accountId, orgId, row.id, b.tagIds);
-    /* Employment history: the form may say from when a change counts (effectiveFrom) and why (changeNote). */
-    await recordChanges({ accountId, orgId, userId: req.auth!.userId }, existing, row, {
-      source: 'FORM',
-      effectiveDate: typeof req.body?.effectiveFrom === 'string' ? req.body.effectiveFrom : null,
-      note: typeof req.body?.changeNote === 'string' ? req.body.changeNote : null,
-    });
     /* Leaving or coming back starts that checklist; CLOR takes them off the readers itself, so it ticks that item. */
     if (row.status === 'LEFT' && existing.status !== 'LEFT') await startChecklist({ accountId, orgId, userId: req.auth!.userId }, row, 'LEAVING', row.dateOfLeaving, { done: [READER_ACCESS_ITEM] });
     else if (row.status !== 'LEFT' && existing.status === 'LEFT') await startChecklist({ accountId, orgId, userId: req.auth!.userId }, row, 'JOINING', row.dateOfJoining);
@@ -726,8 +726,7 @@ peopleRouter.post('/orgs/:orgId/people/employees/import', can(PermissionAction.C
       }
       const department = await ensure('department', r.department);
       const jobPosition = await ensure('jobPosition', r.jobPosition);
-      const created = await peoplePrisma.employee.create({
-        data: {
+      const created = await createEmployee(actorOf(req, 'IMPORT'), {
           accountId,
           orgId,
           name: r.name,
@@ -749,9 +748,7 @@ peopleRouter.post('/orgs/:orgId/people/employees/import', can(PermissionAction.C
           gender: blank(r.gender),
           status: 'ACTIVE',
           createdByUserId: userId,
-        },
-      });
-      await recordJoined({ accountId, orgId, userId }, created, 'IMPORT');
+        } as any);
       results.push({ row: i + 1, ok: true, id: created.id });
     } catch (e: any) {
       results.push({ row: i + 1, ok: false, error: String(e?.code) === 'P2002' ? 'Already exists.' : String(e?.message || e) });

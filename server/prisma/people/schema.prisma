@@ -1769,6 +1769,59 @@ model EmploymentEpisode {
   @@index([orgId, employeeId])
 }
 
+/// Every write to a person, with before and after (services/people/changeLog.ts;
+/// docs/people/02-PRD.md FND-04). Written in the same transaction as the change,
+/// so neither exists without the other. Append-only: a trigger refuses UPDATE
+/// and DELETE except under the bypass the retention job sets. Sensitive fields
+/// are logged as changed, without their values.
+model ChangeLog {
+  id            String   @id @default(cuid())
+  accountId     String
+  orgId         String
+  /// "Employee" | "Document" | "Policy" | …
+  entity        String
+  entityId      String
+  employeeId    String?
+  field         String
+  before        String?
+  after         String?
+  redacted      Boolean  @default(false)
+  reason        String?
+  /// FORM | IMPORT | APPROVAL | API | SYSTEM | SELF_SERVICE | SCHEDULED | HIRE
+  source        String
+  actorUserId   String?
+  correlationId String
+  requestId     String?
+  decisionId    String?
+  at            DateTime @default(now())
+
+  @@index([orgId, entity, entityId, at])
+  @@index([orgId, employeeId, at])
+  @@index([correlationId])
+}
+
+/// Events other apps and webhooks consume (services/people/outbox.ts; FND-05).
+/// Written in the change's transaction, delivered by a worker, named with a
+/// version: people.employee.created.v1. A consumer that sees an eventId twice
+/// acts once.
+model OutboxEvent {
+  id            String    @id @default(cuid())
+  accountId     String
+  orgId         String
+  name          String
+  employeeId    String?
+  correlationId String
+  payload       Json
+  occurredAt    DateTime  @default(now())
+  deliveredAt   DateTime?
+  attempts      Int       @default(0)
+  nextAttemptAt DateTime?
+  lastError     String?
+
+  @@index([orgId, deliveredAt, nextAttemptAt])
+  @@index([orgId, employeeId, occurredAt])
+}
+
 /// Joining / leaving checklist a company uses (services/people/checklists.ts).
 /// `items`: [{ title, owner, dueDays }], dueDays counted from the joining date
 /// or the last working day (negative = before it). No row = CLOR's defaults.

@@ -6,6 +6,7 @@ import { startClosurePurge } from './services/companyClosure.js';
 import { startRecycleBinPurge } from './services/recycleBin.js';
 import { startHrSync } from './services/hr/sync.js';
 import { startReportSchedules } from './services/attendance/reportSchedules.js';
+import { startPeopleOutbox } from './services/people/outbox.js';
 import { startDocumentReminders } from './services/people/documentReminders.js';
 import { startNotificationPruning } from './services/notifications.js';
 import { startBooksDigest } from './services/booksDigest.js';
@@ -65,6 +66,8 @@ startRecycleBinPurge();
 /* HR tools: the outbox every minute, their people hourly — see services/hr/sync.ts. */
 startHrSync();
 startDocumentReminders();
+/* People's outbox: events written with a change are delivered every few seconds — see services/people/outbox.ts. */
+startPeopleOutbox();
 startNotificationPruning();
 startBooksDigest();
 /* Reports that go out by e-mail on their own — every 15 minutes the due ones are sent. */

@@ -9,7 +9,7 @@ import { MODULE_OF_KIND, WORKSPACE, parseRecord, type WorkspaceKind } from '../s
 import { isFeatureEnabled } from '../services/features.js';
 import { PEOPLE_MODULE, PEOPLE_RESOURCE } from '../services/people/guards.js';
 import { PermissionAction } from '../constants/enums.js';
-import { recordJoined } from '../services/people/employmentHistory.js';
+import { createEmployee, correlationOf } from '../services/people/employees.js';
 import { startChecklist } from '../services/people/checklists.js';
 import { emit as emitWebhook, employeeEvent } from '../services/attendance/webhooks.js';
 import { pushEmployeeToReaders } from '../services/attendance/readerSync.js';
@@ -88,18 +88,18 @@ peopleWorkspaceRouter.post(`${path}/:id/hire`, async (req, res) => {
     const job = d.jobId ? await peoplePrisma.peopleRecord.findFirst({ where: { id: String(d.jobId), orgId, kind: 'recruitment' } }) : null;
     const deptName = String((job?.details as any)?.department || '').trim();
     const dept = deptName ? await peoplePrisma.department.findFirst({ where: { orgId, name: { equals: deptName, mode: 'insensitive' } } }) : null;
-    const employee = await peoplePrisma.employee.create({
-      data: {
+    const employee = await createEmployee(
+      { accountId, orgId, userId: req.auth!.userId, source: 'HIRE', correlationId: correlationOf(req as any), reason: `Hired from candidate ${candidate.title}` },
+      {
         accountId, orgId, name: candidate.title, code,
         email: d.email || null, phone: d.phone || null,
         dateOfJoining: joining, status: 'ACTIVE',
         departmentId: dept?.id ?? null, department: dept?.name ?? null,
         createdByUserId: req.auth!.userId,
       } as any,
-    });
-    await peoplePrisma.peopleRecord.update({ where: { id: candidate.id }, data: { status: 'HIRED', employeeId: employee.id, version: { increment: 1 }, updatedBy: req.auth!.userId } });
+      { afterWrite: async (tx, row) => { await tx.peopleRecord.update({ where: { id: candidate.id }, data: { status: 'HIRED', employeeId: row.id, version: { increment: 1 }, updatedBy: req.auth!.userId } }); } },
+    );
     const who = { accountId, orgId, userId: req.auth!.userId };
-    await recordJoined(who, employee, 'FORM');
     await startChecklist(who, employee, 'JOINING', joining);
     afterPeopleCommit(() => { void pushEmployeeToReaders(orgId, employee, req.auth!.userId).catch(() => undefined); });
     afterPeopleCommit(() => emitWebhook(orgId, 'employee.created', employeeEvent(employee)));
