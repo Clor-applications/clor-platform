@@ -8,7 +8,7 @@ import { requirePermission } from '../middleware/rbac.js';
 import { PermissionAction, RoleType } from '../constants/enums.js';
 import { isKnownPermission, permKey, roleGroup } from '../constants/permissionCatalog.js';
 import { ROLE_DELETED_PREFIX, ensureDefaultRoles } from '../services/defaultRoles.js';
-import { ensurePermissionCatalog } from './permissions.js';
+import { ensurePermissionCatalog } from '../services/permissionCatalogSeed.js';
 import { resolveRoleIds } from '../services/access.js';
 import {
   ADMIN_ONLY_ERROR,

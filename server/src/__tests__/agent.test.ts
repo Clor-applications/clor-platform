@@ -11,7 +11,7 @@ import request from 'supertest';
 const { buildApp } = await import('../app.js');
 const { peoplePrisma } = await import('../utils/peoplePrisma.js');
 const { platformPrisma } = await import('../utils/platformPrisma.js');
-const { syncAllVendorConnections } = await import('../routes/iclock.js');
+const { syncAllVendorConnections } = await import('../services/attendance/vendorSync.js');
 const { planLdapSync, adActive, pullWindow, readTallyReply, hikvisionTimeZone, clockOffsetSeconds, clockSetDue, localStamp } = await import('../../agent/src/plan.js');
 const { assessConnector, runReaderChecks } = await import('../services/attendance/readerHealth.js');
 

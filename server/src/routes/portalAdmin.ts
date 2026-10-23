@@ -13,7 +13,7 @@ import { hrOrAttendanceRouteOk } from '../services/people/guards.js';
 import { assignOrgCode } from '../services/displayCodes.js';
 import { sendTemplate } from '../services/mailer.js';
 import { CODE_TTL_MS, formatCode, newActivationCode, validPosition } from '../services/attendance/portal.js';
-import { sendError } from './attendance.js';
+import { sendError } from '../services/attendance/days.js';
 import { geocodeLimiter } from '../middleware/rateLimit.js';
 import { placeAt, searchPlaces } from '../services/geocode.js';
 
@@ -300,23 +300,3 @@ portalAdminRouter.get(
   }
 );
 
-/**
- * Selfies are personal data: delete each company's after its retention period
- * (Attendance rules, 90 days unless changed). The punch stays; only the photo goes.
- */
-export async function purgePunchPhotos(now = new Date()) {
-  const settings = await peoplePrisma.attendanceSettings.findMany({ select: { orgId: true, photoRetentionDays: true } });
-  const keep = new Map(settings.map((s) => [s.orgId, s.photoRetentionDays]));
-  const orgs = await peoplePrisma.punchPhoto.groupBy({ by: ['orgId'] });
-  let removed = 0;
-  for (const { orgId } of orgs) {
-    const days = keep.get(orgId) ?? 90;
-    const before = new Date(now.getTime() - days * 86_400_000);
-    const old = await peoplePrisma.punchPhoto.findMany({ where: { orgId, createdAt: { lt: before } }, select: { id: true } });
-    if (!old.length) continue;
-    const ids = old.map((o) => o.id);
-    await peoplePrisma.devicePunch.updateMany({ where: { orgId, photoId: { in: ids } }, data: { photoId: null } });
-    removed += (await peoplePrisma.punchPhoto.deleteMany({ where: { orgId, id: { in: ids } } })).count;
-  }
-  return removed;
-}

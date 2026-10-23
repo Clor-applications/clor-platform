@@ -8,7 +8,7 @@ import { PermissionAction } from '../constants/enums.js';
 import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { PEOPLE_MODULE, PEOPLE_RESOURCE, peopleRouteOk } from '../services/people/guards.js';
 import { istDate } from '../services/attendance/compute.js';
-import { pushEmployeeToReaders, revokeFromReaders } from './iclock.js';
+import { pushEmployeeToReaders, revokeFromReaders } from '../services/attendance/readerSync.js';
 import { deleteToBin } from '../services/recycleBin.js';
 import { recordChanges } from '../services/people/employmentHistory.js';
 import { READER_ACCESS_ITEM, startChecklist } from '../services/people/checklists.js';

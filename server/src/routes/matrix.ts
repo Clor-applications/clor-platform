@@ -5,7 +5,8 @@ import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { ingestLimiter } from '../middleware/rateLimit.js';
 import { fromZone, istLocal } from '../services/attendance/punchMapping.js';
 import { hashToken } from './publicApi.js';
-import { ingestPunches, markOnReader } from './iclock.js';
+import { markOnReader } from '../services/attendance/readerSync.js';
+import { ingestPunches } from '../services/attendance/punches.js';
 import { commandEffect } from '../services/attendance/adms.js';
 import { enterTenant } from '../utils/tenantScope.js';
 

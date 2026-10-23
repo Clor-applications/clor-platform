@@ -9,7 +9,7 @@ import { platformPrisma } from '../utils/platformPrisma.js';
 import { decryptSecret, encryptSecret } from '../services/mailer.js';
 import { istLocal } from '../services/attendance/punchMapping.js';
 import { hashToken } from './publicApi.js';
-import { ingestPunches } from './iclock.js';
+import { ingestPunches } from '../services/attendance/punches.js';
 import { isFeatureEnabled } from '../services/features.js';
 import { runInTenant } from '../utils/tenantScope.js';
 

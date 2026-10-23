@@ -1,0 +1,224 @@
+import { createHash, randomUUID } from 'node:crypto';
+import { enqueuePunches } from '../../services/hr/sync.js';
+import { peoplePrisma } from '../../utils/peoplePrisma.js';
+import { instantOf, pairDay, parseAttlogLine, punchKind, shiftDayOf } from './adms.js';
+import { emit as emitWebhook } from './webhooks.js';
+import { closedMonths, shiftFor, writeDay } from './days.js';
+import { readerIdMatcher } from './readerIds.js';
+import { driverOf, parserOf } from './drivers.js';
+
+/**
+ * Punches in: one path for every reader channel — parse, match the person, drop repeats, keep the evidence, store, then work the affected days out again.
+ *
+ * Moved out of routes/iclock.ts, the ZKTeco ADMS route, so that every reader
+ * channel, the portal, scheduling and payroll call a service instead of a
+ * route file. Behaviour is unchanged.
+ */
+
+/** Days someone decided by hand are not rewritten by a reader: a correction, a request, an approved leave. */
+export const DECIDED = new Set(['MANUAL', 'REQUEST', 'LEAVE']);
+
+/**
+ * Who a reader's user ID is (services/attendance/readerIds.ts): a site ID at a
+ * site's readers, else the company Reader ID, else an employee code only one
+ * person has. Call the result with the reader's area.
+ */
+export const pinMatcher = (orgId: string) => readerIdMatcher(orgId);
+
+const isNight = (rule: { startTime: string; endTime: string }) => rule.endTime <= rule.startTime;
+/** An instant as the IST wall clock a reader would print: "YYYY-MM-DD HH:mm:ss". */
+const istLocal = (at: Date) => new Date(at.getTime() + 330 * 60_000).toISOString().slice(0, 19).replace('T', ' ');
+
+const dayBefore = (date: string) => {
+  const d = new Date(`${date}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() - 1);
+  return d.toISOString().slice(0, 10);
+};
+
+const minutesOfDay = (hhmm: string) => Number(hhmm.slice(0, 2)) * 60 + Number(hhmm.slice(3, 5));
+
+/**
+ * The shift day a punch belongs to. A morning punch is the end of last night's
+ * shift only if the shift that started the evening before was a night shift —
+ * the shift on the punch's own date says nothing about that — and only until
+ * the morning's own shift could have begun: halfway from the night's end to the
+ * day shift's start, and never more than four hours after the night ends.
+ * (Moving from nights back to days put the night's 06:00 exit on the day shift,
+ * or the day shift's 09:00 arrival on the night.)
+ */
+export async function shiftDayFor(orgId: string, employeeId: string, localTime: string) {
+  const date = localTime.slice(0, 10);
+  if (Number(localTime.slice(11, 13)) >= 12) return date;
+  const before = dayBefore(date);
+  const { rule: last } = await shiftFor(orgId, employeeId, before);
+  if (!isNight(last)) return date;
+  const end = minutesOfDay(last.endTime);
+  let cutoff = end + 240;
+  const { rule: own } = await shiftFor(orgId, employeeId, date);
+  const start = minutesOfDay(own.startTime);
+  if (!isNight(own) && start > end) cutoff = Math.min(cutoff, Math.max(end + 60, Math.floor((end + start) / 2)));
+  return minutesOfDay(localTime.slice(11, 16)) < cutoff ? before : date;
+}
+
+/**
+ * Work a day out again from its reader punches (and any app clock-ins on the
+ * same shift day), then write it through the same path as every other day.
+ */
+export async function recomputeDeviceDay(accountId: string, orgId: string, employee: { id: string; branchId: string | null; areaId?: string | null }, date: string) {
+  /* A closed month keeps its days: the punch is stored, the day does not move (and the reader is not told to resend). */
+  if ((await closedMonths(orgId, [date.slice(0, 7)])).size) return null;
+  const existing = await peoplePrisma.attendanceRecord.findUnique({ where: { employeeId_date: { employeeId: employee.id, date } } });
+  if (existing && DECIDED.has(existing.source)) return null;
+
+  /* Field punches still waiting for approval, or refused, do not count. */
+  const punches = await peoplePrisma.devicePunch.findMany({
+    where: { orgId, employeeId: employee.id, shiftDate: date, OR: [{ reviewStatus: null }, { reviewStatus: 'APPROVED' }] },
+    select: { at: true, kind: true },
+  });
+  /* App clock-ins on the same shift day count too: someone may use both. */
+  const from = new Date(`${date}T00:00:00+05:30`);
+  const to = new Date(from.getTime() + 36 * 3_600_000);
+  const clocks = await peoplePrisma.attendanceActivity.findMany({
+    where: { orgId, employeeId: employee.id, source: 'CLOCK', at: { gte: from, lt: to } },
+    select: { at: true, kind: true },
+  });
+  const { rule } = await shiftFor(orgId, employee.id, date);
+  const sameDay = clocks.filter((c) => shiftDayOf(istLocal(c.at), isNight(rule)) === date);
+  const points = [
+    ...punches.map((p) => ({ at: p.at, kind: (p.kind as 'IN' | 'OUT' | null) ?? null })),
+    ...sameDay.map((c) => ({ at: c.at, kind: c.kind === 'OUT' ? ('OUT' as const) : ('IN' as const) })),
+  ];
+  const day = pairDay(points);
+  if (!day) return null;
+  /* An approved half-day leave on this day: the punches are the other half. */
+  const half = await peoplePrisma.leaveRequest.findFirst({ where: { orgId, employeeId: employee.id, status: 'APPROVED', fromDate: date, toDate: date, halfDay: { not: null } }, select: { id: true, halfDay: true } });
+  return writeDay({ accountId, orgId, userId: 'reader', employee, date, checkIn: day.checkIn, checkOut: day.checkOut, source: 'DEVICE', ...(half ? { leaveRequestId: half.id, halfDayLeave: half.halfDay as 'FIRST' | 'SECOND' } : {}) });
+}
+
+/** What a channel knows about each line besides the line: the vendor's own record and event id, and records it set aside. */
+export type IngestMeta = { sources?: string[]; ids?: Array<string | null>; aside?: Array<{ original: string; reason: string; id?: string | null }> };
+
+/** Store a batch of punch lines from one reader; returns how many were new. */
+export async function ingestPunches(device: { id: string; accountId: string; orgId: string; serialNumber: string; direction: string; vendor?: string; areaId?: string | null }, body: string, meta: IngestMeta = {}) {
+  const match = await pinMatcher(device.orgId);
+  const lines = body
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter(Boolean);
+  const all = lines.map((raw, i) => ({ raw, i, p: parseAttlogLine(raw) }));
+  const parsed = all.filter((x): x is { raw: string; i: number; p: NonNullable<ReturnType<typeof parseAttlogLine>> } => Boolean(x.p));
+  /* One row per batch, whatever the channel: what came, what was new, what was a repeat, what could not be read. */
+  const trace = { traceId: randomUUID(), received: lines.length, rejected: lines.length - parsed.length, errors: all.filter((x) => !x.p).slice(0, 5).map((x) => x.raw.slice(0, 120)) };
+  const record = (accepted: number, duplicates: number, extraRejected = 0) =>
+    peoplePrisma.ingestRun
+      .create({
+        data: {
+          accountId: device.accountId, orgId: device.orgId, deviceId: device.id, channel: device.vendor || 'ADMS', traceId: trace.traceId,
+          received: trace.received, accepted, duplicates, rejected: trace.rejected + extraRejected,
+          errorsJson: trace.errors.length ? JSON.stringify(trace.errors) : null,
+        },
+      })
+      .catch((e) => console.error('[ingest-run]', e instanceof Error ? e.message : e));
+
+  /*
+   * The original of every line that becomes a punch, cannot be read, or is set
+   * aside — never the repeats (counted on the run). Evidence for a dispute and
+   * for certifying a reader model; deleted after 13 months (services/retention).
+   */
+  const parser = parserOf(device.vendor);
+  const channel = device.vendor || 'ADMS';
+  const evidence: any[] = [];
+  const keep = (outcome: string, original: string, extra: { reason?: string; id?: string | null; pin?: string; localTime?: string }) =>
+    evidence.push({
+      accountId: device.accountId, orgId: device.orgId, deviceId: device.id, traceId: trace.traceId, channel, outcome, parser,
+      original: original.slice(0, 8_000), payloadHash: createHash('sha256').update(original).digest('hex'),
+      reason: extra.reason ?? null, sourceEventId: extra.id ?? null, pin: extra.pin ?? null, localTime: extra.localTime ?? null,
+    });
+  for (const x of all) if (!x.p) keep('REJECTED', meta.sources?.[x.i] ?? x.raw, { reason: 'Could not be read', id: meta.ids?.[x.i] });
+  for (const a of meta.aside || []) keep('IGNORED', a.original, { reason: a.reason, id: a.id });
+  const saveEvidence = () => (evidence.length ? peoplePrisma.readerEvent.createMany({ data: evidence }).catch((e) => console.error('[reader-event]', e instanceof Error ? e.message : e)) : null);
+
+  const rows: any[] = [];
+  for (const { raw, i, p } of parsed) {
+    const at = instantOf(p.localTime);
+    if (!at) {
+      keep('REJECTED', meta.sources?.[i] ?? raw, { reason: 'Not a real date and time', id: meta.ids?.[i], pin: p.pin, localTime: p.localTime });
+      continue;
+    }
+    const emp = match(p.pin, device.areaId);
+    rows.push({
+      accountId: device.accountId,
+      orgId: device.orgId,
+      deviceId: device.id,
+      serialNumber: device.serialNumber,
+      pin: p.pin,
+      at,
+      localTime: p.localTime,
+      state: p.state,
+      /* Sources that say in/out outright send state 0 / 1 (ClorTime vendor_ingest); from a reader, 0 alone says nothing (services/attendance/drivers.ts). */
+      kind: driverOf(device.vendor).explicitDirection ? (p.state === '0' ? 'IN' : p.state === '1' ? 'OUT' : punchKind(p.state, device.direction)) : punchKind(p.state, device.direction),
+      verifyMode: p.verifyMode,
+      workCode: p.workCode,
+      employeeId: emp?.id ?? null,
+      shiftDate: null as string | null,
+      raw: raw.slice(0, 300),
+      _emp: emp,
+      _src: { original: meta.sources?.[i] ?? raw, id: meta.ids?.[i] ?? null },
+    });
+  }
+  if (!rows.length) {
+    await saveEvidence();
+    if (lines.length) await record(0, 0, parsed.length);
+    return 0;
+  }
+
+  /* Readers resend (Stamp=0 asks for everything; outages replay). Only new punches change a day. */
+  const fresh: typeof rows = [];
+  for (let i = 0; i < rows.length; i += 500) {
+    const chunk = rows.slice(i, i + 500);
+    /* A repeat is the same ID on the same reader at the same second — or the same person at the same second on any reader. */
+    const people = [...new Set(chunk.map((r) => r.employeeId).filter(Boolean))] as string[];
+    const [seen, seenPeople] = await Promise.all([
+      peoplePrisma.devicePunch.findMany({ where: { orgId: device.orgId, deviceId: device.id, OR: chunk.map((r) => ({ pin: r.pin, at: r.at })) }, select: { pin: true, at: true } }),
+      people.length
+        ? peoplePrisma.devicePunch.findMany({ where: { orgId: device.orgId, employeeId: { in: people }, at: { in: [...new Set(chunk.map((r) => r.at.getTime()))].map((t) => new Date(t)) } }, select: { employeeId: true, at: true } })
+        : [],
+    ]);
+    const have = new Set([...seen.map((s) => `p|${s.pin}|${s.at.getTime()}`), ...seenPeople.map((s) => `e|${s.employeeId}|${s.at.getTime()}`)]);
+    for (const r of chunk) {
+      const keys = [`p|${r.pin}|${r.at.getTime()}`, ...(r.employeeId ? [`e|${r.employeeId}|${r.at.getTime()}`] : [])];
+      if (keys.some((k) => have.has(k))) continue;
+      for (const k of keys) have.add(k);
+      fresh.push(r);
+    }
+  }
+  for (const r of fresh) keep('NEW', r._src.original, { id: r._src.id, pin: r.pin, localTime: r.localTime });
+  await saveEvidence();
+  if (!fresh.length) {
+    await record(0, rows.length, parsed.length - rows.length);
+    return 0;
+  }
+  await record(fresh.length, rows.length - fresh.length, parsed.length - rows.length);
+  /* Shift days only for new punches: a reader resending its whole log costs one lookup per person-hour, not one per line. */
+  const dayOf = new Map<string, string>();
+  for (const r of fresh) {
+    if (!r._emp) continue;
+    const k = `${r._emp.id}|${r.localTime.slice(0, 13)}`;
+    if (!dayOf.has(k)) dayOf.set(k, await shiftDayFor(device.orgId, r._emp.id, r.localTime));
+    r.shiftDate = dayOf.get(k)!;
+  }
+  await peoplePrisma.devicePunch.createMany({ data: fresh.map(({ _emp, _src, ...r }) => r), skipDuplicates: true });
+  emitWebhook(device.orgId, 'punch', {
+    reader: device.serialNumber,
+    punches: fresh.map((r) => ({ readerId: r.pin, employeeId: r.employeeId, time: r.localTime, direction: r.kind, verifyMode: r.verifyMode })),
+  });
+  /* And to any HR tool the company connected (services/hr/sync.ts); never waits. */
+  void enqueuePunches(device.orgId, fresh.map((r) => ({ employeeId: r.employeeId, code: r._emp?.code || r._emp?.devicePin || null, readerId: r.pin, time: r.localTime, direction: r.kind, verifyMode: r.verifyMode })));
+
+  const days = new Map<string, { emp: any; date: string }>();
+  for (const r of fresh) if (r._emp && r.shiftDate) days.set(`${r._emp.id}|${r.shiftDate}`, { emp: r._emp, date: r.shiftDate });
+  for (const { emp, date } of days.values()) {
+    await recomputeDeviceDay(device.accountId, device.orgId, { id: emp.id, branchId: emp.branchId, areaId: emp.areaId }, date);
+  }
+  return fresh.length;
+}

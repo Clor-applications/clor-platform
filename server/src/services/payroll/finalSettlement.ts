@@ -1,7 +1,7 @@
 import { payrollPrisma } from '../../utils/payrollPrisma.js';
 import { peoplePrisma } from '../../utils/peoplePrisma.js';
 import { round2 } from '../../utils/money.js';
-import { balancesFor, leaveYearOf } from '../../routes/leave.js';
+import { balancesFor, leaveYearOf } from '../attendance/leaveBalances.js';
 
 /**
  * Full and final settlement: what is still owed to, or by, somebody who has

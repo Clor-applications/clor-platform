@@ -1,7 +1,7 @@
 import { peoplePrisma } from '../../utils/peoplePrisma.js';
 import { payrollPrisma } from '../../utils/payrollPrisma.js';
 import { isFeatureEnabled } from '../features.js';
-import { balancesFor, leaveYearOf } from '../../routes/leave.js';
+import { balancesFor, leaveYearOf } from '../attendance/leaveBalances.js';
 
 /**
  * Data health: the implementation auditor from the HR research ("finds

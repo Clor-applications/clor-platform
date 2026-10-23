@@ -11,7 +11,7 @@ import request from 'supertest';
 const { buildApp } = await import('../app.js');
 const { peoplePrisma } = await import('../utils/peoplePrisma.js');
 const portal = await import('../services/attendance/portal.js');
-const { purgePunchPhotos } = await import('../routes/portalAdmin.js');
+const { purgePunchPhotos } = await import('../services/attendance/punchPhotos.js');
 
 const app = buildApp().listen(0);
 afterAll(async () => {

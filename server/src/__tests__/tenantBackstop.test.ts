@@ -11,8 +11,8 @@ import request from 'supertest';
  */
 
 const seen: string[] = [];
-vi.mock('../routes/iclock.js', async (importOriginal) => {
-  const real = await importOriginal<typeof import('../routes/iclock.js')>();
+vi.mock('../services/attendance/punches.js', async (importOriginal) => {
+  const real = await importOriginal<typeof import('../services/attendance/punches.js')>();
   const { currentOrg } = await import('../utils/tenantScope.js');
   return {
     ...real,

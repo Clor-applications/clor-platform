@@ -20,10 +20,13 @@ import { phoneStatus, recordPhonePunch } from '../services/attendance/phonePunch
 import { normaliseCode, passwordProblem } from '../services/attendance/portal.js';
 import { chainFor } from '../services/attendance/approvalChain.js';
 import { askOvertime, attentionFor, chainsFor, confirmMonth, decideOvertime, monthReview, overtimeFor, timelineOf, upcomingShifts } from '../services/attendance/selfService.js';
-import { REASON_CODES, createRequest, daysOfMonth, instants, reviewCorrection, sendError, today, withNames } from './attendance.js';
-import { approveLeave, balancesFor, cancelOwnLeave, createLeave, leavePeriodOf, leaveYearOf, rejectLeave, withTypes } from './leave.js';
+import { createRequest } from './attendance.js';
+import { REASON_CODES, reviewCorrection } from '../services/attendance/corrections.js';
+import { daysOfMonth, instants, sendError, today, withNames } from '../services/attendance/days.js';
+import { approveLeave, cancelOwnLeave, createLeave, rejectLeave, withTypes } from './leave.js';
+import { balancesFor, leavePeriodOf, leaveYearOf } from '../services/attendance/leaveBalances.js';
 import { periodEnd, periodStart } from '../services/attendance/leaveAccrual.js';
-import { recomputeDeviceDay, shiftDayFor } from './iclock.js';
+import { recomputeDeviceDay, shiftDayFor } from '../services/attendance/punches.js';
 import { runInTenant } from '../utils/tenantScope.js';
 
 /**

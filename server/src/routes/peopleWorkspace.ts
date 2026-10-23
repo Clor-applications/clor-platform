@@ -12,7 +12,7 @@ import { PermissionAction } from '../constants/enums.js';
 import { recordJoined } from '../services/people/employmentHistory.js';
 import { startChecklist } from '../services/people/checklists.js';
 import { emit as emitWebhook, employeeEvent } from '../services/attendance/webhooks.js';
-import { pushEmployeeToReaders } from './iclock.js';
+import { pushEmployeeToReaders } from '../services/attendance/readerSync.js';
 
 export const peopleWorkspaceRouter = Router();
 peopleWorkspaceRouter.use(requireAuth, requireTenantContext);
