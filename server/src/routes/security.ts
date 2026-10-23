@@ -62,6 +62,8 @@ const policySchema = z.object({
   allowedEmailDomains: z.string().max(500).optional().nullable(),
   requirePayrollStepUp: z.boolean().optional(),
   requireAdminTwoFactor: z.boolean().optional(),
+  /* A-13: who may approve their own work. */
+  makerChecker: z.enum(['AUTO', 'STRICT', 'ALLOW']).optional(),
 });
 
 securityRouter.get('/orgs/:orgId/security/policy', VIEW, async (req, res) => {

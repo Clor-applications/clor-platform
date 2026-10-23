@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { ownWorkRefusal } from '../services/makerChecker.js';
 import { hrMayDecide } from '../services/attendance/approvalChain.js';
 import { z } from 'zod';
 
@@ -638,10 +639,13 @@ export async function approveLeave(accountId: string, orgId: string, r: any, use
         });
       }
     }
-    const updated = await peoplePrisma.leaveRequest.update({
-      where: { id: r.id },
+    /* Only while still pending: a second approval at the same moment rolls this whole transaction back (A-13). */
+    const claimed = await peoplePrisma.leaveRequest.updateMany({
+      where: { id: r.id, status: 'PENDING' },
       data: { status: 'APPROVED', days: count, reviewedByUserId: userId, reviewedAt: new Date(), reviewNote: note },
     });
+    if (claimed.count !== 1) throw fail(409, 'This request is no longer pending.');
+    const updated = await peoplePrisma.leaveRequest.findUniqueOrThrow({ where: { id: r.id } });
     return announce(orgId, updated);
   });
 }
@@ -676,6 +680,10 @@ leaveRouter.post(`${base}/requests/:id/approve`, can(PermissionAction.APPROVE, R
   if (r.status !== 'PENDING') return res.status(409).json({ error: `This request was already ${r.status.toLowerCase()}.` });
   const turn = await hrMayDecide(orgId, 'leave', r);
   if (!turn.ok) return res.status(409).json({ error: turn.error, code: 'MANAGER_FIRST' });
+  /* A-13: your own leave is approved by somebody else, as the company's maker-checker setting decides (a one-person company still can). */
+  const own = await peoplePrisma.employee.findFirst({ where: { id: r.employeeId, orgId }, select: { userId: true } });
+  const refused = await ownWorkRefusal(req, { makers: [own?.userId], module: ATTENDANCE_MODULE, resource: R.leave, entity: 'ATTENDANCE_LEAVE_REQUEST', entityId: r.id, what: 'leave request' });
+  if (refused) return res.status(refused.status).json(refused.body);
   try {
     res.json({ request: await approveLeave(accountId, orgId, r, req.auth!.userId, noteOf(req)) });
   } catch (e) {

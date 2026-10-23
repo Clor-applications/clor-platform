@@ -687,6 +687,11 @@ model AuthPolicy {
   /// Owners and admins must have an authenticator: until they set one up they
   /// can only reach their own two-factor set-up (SX-09).
   requireAdminTwoFactor Boolean @default(false)
+  /// Who may approve their own work — a pay run, salary revision or adjustment
+  /// they prepared (A-13): AUTO = only when nobody else could approve it;
+  /// STRICT = never; ALLOW = always, every such approval audited. Approving
+  /// something about oneself (own salary, bank account, tax) is never allowed.
+  makerChecker String @default("AUTO")
 
   updatedByUserId String
   createdAt       DateTime @default(now())

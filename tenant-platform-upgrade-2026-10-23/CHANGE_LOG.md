@@ -41,10 +41,11 @@ Changed:
 - W-04b/W-05: permissions grouped by app with per-app "Roles & Access"; one audit trail with per-app shares (server `app=` filter extended), Attendance/People audit screens open it. API keys deferred to Batch 5 (credential registry). Application behavior changed: yes (front end; audit filter API gained values). Schema: no.
 - A-11 fixed: one `appLive` check on every non-human entry point (portal, API keys, connectors, readers, SCIM, share and payment links). Application behavior changed: yes. Schema: no. Local dev DB brought up to the committed People migrations.
 - A-12 fixed: atomic approval claim (409 for the loser), 402 without Accounting, failed posting reopens the request. Application behavior changed: yes. Schema: no.
+- A-13 fixed: maker-checker with a company setting (AUTO/STRICT/ALLOW) on pay runs, salary revisions, adjustments, tax verify, bank changes and leave; never approving one's own pay; status-guarded transitions. Application behavior changed: yes. **Schema: yes** — platform `AuthPolicy.makerChecker` (migration `20261023180000_maker_checker_policy`, default `AUTO`; applied locally).
 
 Running totals for 2026-10-23:  
-Application behavior changed: yes (GAP-002, GAP-003, A-03, A-01, A-02, A-04, A-05, A-07, A-06, A-08, A-09, A-10, A-11, A-12).  
-Database schema changed: yes (platform `Account.legacyUnrestrictedAt`, applied locally only).  
+Application behavior changed: yes (GAP-002, GAP-003, A-03, A-01, A-02, A-04, A-05, A-07, A-06, A-08, A-09, A-10, A-11, A-12, A-13).  
+Database schema changed: yes (platform `Account.legacyUnrestrictedAt`; platform `AuthPolicy.makerChecker`; applied locally only).  
 Deployment or Cloudflare configuration changed: no.  
 Customer data accessed: no (local test accounts only).
 

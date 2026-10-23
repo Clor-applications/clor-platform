@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { ownRecordRefusal, ownWorkRefusal } from '../services/makerChecker.js';
 import { z } from 'zod';
 
 import { requireAuth } from '../middleware/auth.js';
@@ -350,6 +351,14 @@ const transition = (
         });
       }
 
+      /* A-13: nobody approves a raise to their own pay; the preparer approves only as the company's setting allows. */
+      if (to === 'APPROVED') {
+        const refused =
+          (await ownRecordRefusal(req, existing.employeeId, 'salary revision')) ||
+          (await ownWorkRefusal(req, { makers: [existing.createdByUserId, existing.reviewedByUserId], module: PAYROLL_MODULE, resource: RESOURCE, entity: 'PAYROLL_SALARY_REVISION', entityId: existing.id, what: 'salary revision' }));
+        if (refused) return res.status(refused.status).json(refused.body);
+      }
+
       const data: Record<string, unknown> = { status: to, ...stamp(req.auth!.userId) };
 
       if (to === 'APPROVED') {
@@ -365,7 +374,10 @@ const transition = (
         if (impact) data.impactJson = JSON.stringify(impact);
       }
 
-      const row = await payrollPrisma.salaryRevision.update({ where: { id: existing.id }, data });
+      /* Only from the state that was checked: two people acting at once cannot both move it (A-13). */
+      const moved = await payrollPrisma.salaryRevision.updateMany({ where: { id: existing.id, status: { in: from } }, data });
+      if (moved.count !== 1) return res.status(409).json({ error: 'Somebody else has just changed this revision. Reload it.', code: 'REVISION_WRONG_STATE' });
+      const row = await payrollPrisma.salaryRevision.findUniqueOrThrow({ where: { id: existing.id } });
       res.json({ revision: shape(row) });
     }
   );
@@ -387,6 +399,12 @@ payrollRevisionsRouter.post(
   async (req, res) => {
     if (!(await payrollRouteOk(req, res))) return;
     const { accountId, orgId } = req.tenant!;
+    /* A-13: applying is what changes pay; never to the person applying it. */
+    const target = await payrollPrisma.salaryRevision.findFirst({ where: { accountId, orgId, id: String(req.params.id) }, select: { employeeId: true } });
+    if (target) {
+      const refused = await ownRecordRefusal(req, target.employeeId, 'salary revision');
+      if (refused) return res.status(refused.status).json(refused.body);
+    }
     try {
       const { revision, assignment } = await applyRevision({
         accountId,

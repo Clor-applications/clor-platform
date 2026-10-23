@@ -1,0 +1,190 @@
+ DEPRECATED  `test.poolOptions` was removed in Vitest 4. All previous `poolOptions` are now top-level options. Please, refer to the migration guide: https://vitest.dev/guide/migration#pool-rework
+
+ RUN  v4.1.10 /Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_71986", schema "accounting" at "localhost:5432"
+
+The PostgreSQL database "clor_test_71986" schema "accounting" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 1.53s
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/payroll/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_71986", schema "payroll" at "localhost:5432"
+
+The PostgreSQL database "clor_test_71986" schema "payroll" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 977ms
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/people/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_71986", schema "people" at "localhost:5432"
+
+The PostgreSQL database "clor_test_71986" schema "people" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 1.12s
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/platform/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_71986", schema "platform" at "localhost:5432"
+
+The PostgreSQL database "clor_test_71986" schema "platform" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 997ms
+
+[setup] 180 policy statements applied to clor_test_71986
+[setup] 7 policy statements applied to clor_test_71986
+[setup] 10 policy statements applied to clor_test_71986
+[setup] 35 policy statements applied to clor_test_71986
+[setup] 4 policy statements applied to clor_test_71986
+[setup] 96 policy statements applied to clor_test_71986
+[setup] 4 policy statements applied to clor_test_71986
+[setup] 4 policy statements applied to clor_test_71986
+[setup] 4 policy statements applied to clor_test_71986
+[setup] 4 policy statements applied to clor_test_71986
+[setup] 32 policy statements applied to clor_test_71986
+[setup] 24 policy statements applied to clor_test_71986
+[setup] 12 policy statements applied to clor_test_71986
+[setup] 16 policy statements applied to clor_test_71986
+[setup] 4 policy statements applied to clor_test_71986
+[setup] 4 policy statements applied to clor_test_71986
+[setup] 8 policy statements applied to clor_test_71986
+[setup] 8 policy statements applied to clor_test_71986
+[setup] 20 policy statements applied to clor_test_71986
+[setup] 8 policy statements applied to clor_test_71986
+[setup] 4 policy statements applied to clor_test_71986
+[setup] 8 policy statements applied to clor_test_71986
+[setup] 8 policy statements applied to clor_test_71986
+[setup] 12 policy statements applied to clor_test_71986
+[setup] 4 policy statements applied to clor_test_71986
+[setup] 8 policy statements applied to clor_test_71986
+[setup] 28 policy statements applied to clor_test_71986
+[setup] 4 policy statements applied to clor_test_71986
+[setup] 4 policy statements applied to clor_test_71986
+[setup] 4 policy statements applied to clor_test_71986
+[setup] 8 policy statements applied to clor_test_71986
+[setup] 4 policy statements applied to clor_test_71986
+[setup] 4 policy statements applied to clor_test_71986
+[setup] 4 policy statements applied to clor_test_71986
+[setup] 4 policy statements applied to clor_test_71986
+[setup] 8 policy statements applied to clor_test_71986
+[setup] 4 policy statements applied to clor_test_71986
+[setup] 12 policy statements applied to clor_test_71986
+[setup] 4 policy statements applied to clor_test_71986
+[setup] 76 policy statements applied to clor_test_71986
+[setup] 4 policy statements applied to clor_test_71986
+[setup] 4 policy statements applied to clor_test_71986
+[setup] 4 policy statements applied to clor_test_71986
+[setup] 4 policy statements applied to clor_test_71986
+ ❯ src/__tests__/makerChecker.test.ts (5 tests | 5 failed) 4821ms
+     × is allowed, and audited, for a company with one administrator (AUTO) 1480ms
+     × is left to the other person once there is a second approver (AUTO) 772ms
+     × is never allowed under "always a second person" (STRICT), even alone 825ms
+     × is allowed, and audited, under "the same person may" (ALLOW), even with a second approver 875ms
+     × is refused in every mode — even ALLOW — when the money is your own 856ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 5 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/__tests__/makerChecker.test.ts > approving your own work > is allowed, and audited, for a company with one administrator (AUTO)
+AssertionError: expected +0 to be 1 // Object.is equality
+
+- Expected
++ Received
+
+- 1
++ 0
+
+ ❯ src/__tests__/makerChecker.test.ts:82:40
+     80|     const id = await raise(c);
+     81|     await api.post(c, `/adjustments/${id}/approve`).expect(200);
+     82|     expect(await selfApprovals(c, id)).toBe(1);
+       |                                        ^
+     83|   });
+     84|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/5]⎯
+
+ FAIL  src/__tests__/makerChecker.test.ts > approving your own work > is left to the other person once there is a second approver (AUTO)
+AssertionError: expected 200 to be 403 // Object.is equality
+
+- Expected
++ Received
+
+- 403
++ 200
+
+ ❯ src/__tests__/makerChecker.test.ts:91:25
+     89|     const id = await raise(c);
+     90|     const mine = await api.post(c, `/adjustments/${id}/approve`);
+     91|     expect(mine.status).toBe(403);
+       |                         ^
+     92|     expect(mine.body.code).toBe('MAKER_CHECKER');
+     93|     await api.post(other, `/adjustments/${id}/approve`).expect(200);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/5]⎯
+
+ FAIL  src/__tests__/makerChecker.test.ts > approving your own work > is never allowed under "always a second person" (STRICT), even alone
+AssertionError: expected 200 to be 403 // Object.is equality
+
+- Expected
++ Received
+
+- 403
++ 200
+
+ ❯ src/__tests__/makerChecker.test.ts:102:25
+    100|     const id = await raise(c);
+    101|     const mine = await api.post(c, `/adjustments/${id}/approve`);
+    102|     expect(mine.status).toBe(403);
+       |                         ^
+    103|     expect(mine.body.code).toBe('MAKER_CHECKER');
+    104|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/5]⎯
+
+ FAIL  src/__tests__/makerChecker.test.ts > approving your own work > is allowed, and audited, under "the same person may" (ALLOW), even with a second approver
+AssertionError: expected +0 to be 1 // Object.is equality
+
+- Expected
++ Received
+
+- 1
++ 0
+
+ ❯ src/__tests__/makerChecker.test.ts:113:40
+    111|     const id = await raise(c);
+    112|     await api.post(c, `/adjustments/${id}/approve`).expect(200);
+    113|     expect(await selfApprovals(c, id)).toBe(1);
+       |                                        ^
+    114|   });
+    115| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/5]⎯
+
+ FAIL  src/__tests__/makerChecker.test.ts > approving something about yourself > is refused in every mode — even ALLOW — when the money is your own
+AssertionError: expected 200 to be 403 // Object.is equality
+
+- Expected
++ Received
+
+- 403
++ 200
+
+ ❯ src/__tests__/makerChecker.test.ts:127:24
+    125|     const id = await raise(other);
+    126|     const res = await api.post(c, `/adjustments/${id}/approve`);
+    127|     expect(res.status).toBe(403);
+       |                        ^
+    128|     expect(res.body.code).toBe('OWN_RECORD');
+    129|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/5]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  5 failed (5)
+   Start at  19:02:18
+   Duration  23.56s (transform 3.20s, setup 24ms, import 6.17s, tests 4.82s, environment 0ms)
+

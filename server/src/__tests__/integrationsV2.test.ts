@@ -203,9 +203,12 @@ describe('the API, second round', () => {
     const made = (await v1(key).post('/leave/requests', { employee_code: 'L1', leave_type: 'EL', from: '2026-11-10', to: '2026-11-11', reason: 'Family function' }).expect(201)).body.request;
     expect(made).toMatchObject({ status: 'PENDING', days: 2, leaveTypeName: 'Earned' });
     expect((await v1(key).get('/leave/requests?status=PENDING&employee_code=L1').expect(200)).body.requests).toHaveLength(1);
-    const ok = (await v1(key).post(`/leave/requests/${made.id}/approve`, { note: 'Fine' }).expect(200)).body.request;
+    /* A-13: the key that raised a request does not also approve it; another system's key (or a person) does. */
+    await v1(key).post(`/leave/requests/${made.id}/approve`, { note: 'Fine' }).expect(403);
+    const approver = await newKey(o, ['leave:approve']);
+    const ok = (await v1(approver).post(`/leave/requests/${made.id}/approve`, { note: 'Fine' }).expect(200)).body.request;
     expect(ok).toMatchObject({ status: 'APPROVED', reviewNote: 'Fine' });
-    await v1(key).post(`/leave/requests/${made.id}/approve`, {}).expect(409);
+    await v1(approver).post(`/leave/requests/${made.id}/approve`, {}).expect(409);
     expect((await v1(key).get('/leave/balances?year=2026&employee_code=L1').expect(200)).body.rows[0].balances[0].available).toBe(13);
 
     /* Shifts: a working day and a Sunday. */

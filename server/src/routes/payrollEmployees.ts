@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { ownRecordRefusal, ownWorkRefusal } from '../services/makerChecker.js';
 import { z } from 'zod';
 
 import { requireAuth } from '../middleware/auth.js';
@@ -413,6 +414,18 @@ payrollEmployeesRouter.get('/orgs/:orgId/payroll/bank-changes', requirePermissio
 
 payrollEmployeesRouter.post('/orgs/:orgId/payroll/bank-changes/:id/approve', APPROVE_BANK, requirePayrollStepUp, async (req, res) => {
   if (!(await payrollRouteOk(req, res))) return;
+  /*
+   * A-13: never where your own pay goes; and the person who entered a change
+   * approves it only as the company's maker-checker setting allows (and, as
+   * before, not within 24 hours — approveBankChange).
+   */
+  const pending = await payrollPrisma.bankDetailChange.findFirst({ where: { orgId: req.tenant!.orgId, id: String(req.params.id) }, select: { id: true, employeeId: true, requestedByUserId: true } });
+  if (pending) {
+    const refused =
+      (await ownRecordRefusal(req, pending.employeeId, 'bank account')) ||
+      (await ownWorkRefusal(req, { makers: [pending.requestedByUserId], module: PAYROLL_MODULE, resource: PAYROLL_RESOURCE.runs, entity: 'PAYROLL_BANK_CHANGE', entityId: pending.id, what: 'bank change' }));
+    if (refused) return res.status(refused.status).json(refused.body);
+  }
   try {
     const change = await approveBankChange(req.tenant!.orgId, String(req.params.id), req.auth!.userId);
     res.json({ change: { id: change.id, status: change.status } });

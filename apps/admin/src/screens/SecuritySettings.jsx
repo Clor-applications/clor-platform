@@ -411,6 +411,26 @@ export const SecuritySettings = () => {
             ))}
           </div>
 
+          {/* A-13: separation of duties. Approving something about yourself is never allowed, whatever this says. */}
+          <div className="space-y-1">
+            <label className="ui-label" htmlFor="policy-maker-checker">Who may approve their own work</label>
+            <select
+              id="policy-maker-checker"
+              className="ui-select"
+              value={policy.makerChecker || 'AUTO'}
+              onChange={(e) => setPolicyField({ makerChecker: e.target.value })}
+            >
+              <option value="AUTO">Somebody else, whenever somebody else can (recommended)</option>
+              <option value="STRICT">Always a second person</option>
+              <option value="ALLOW">The same person may prepare and approve</option>
+            </select>
+            <p className="ui-caption">
+              Pay runs, salary revisions, adjustments, tax declarations, bank changes and leave. With the first choice a company with one
+              administrator can still run payroll; every approval of one's own work is written to the audit trail. Nobody ever approves their
+              own salary, bank account or tax declaration.
+            </p>
+          </div>
+
           <div className="flex items-center gap-2">
             <button
               type="button"

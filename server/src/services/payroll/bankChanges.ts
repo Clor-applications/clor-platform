@@ -125,8 +125,11 @@ export async function approveBankChange(orgId: string, id: string, userId: strin
     bankIfsc: change.newIfsc,
     bankName: change.newBankName,
   };
+  /* Claimed while still pending, then applied: two approvers at once cannot both move the money (A-13). */
+  const claimed = await payrollPrisma.bankDetailChange.updateMany({ where: { id: change.id, status: 'PENDING' }, data: { status: 'APPROVED', decidedByUserId: userId, decidedAt: now } });
+  if (claimed.count !== 1) throw new BankChangeError(409, 'This change has already been decided.', 'NOT_PENDING');
   await payrollPrisma.employeePayrollProfile.updateMany({ where: { orgId, employeeId: change.employeeId }, data });
-  return payrollPrisma.bankDetailChange.update({ where: { id: change.id }, data: { status: 'APPROVED', decidedByUserId: userId, decidedAt: now } });
+  return payrollPrisma.bankDetailChange.findUniqueOrThrow({ where: { id: change.id } });
 }
 
 export async function rejectBankChange(orgId: string, id: string, userId: string, note?: string | null) {

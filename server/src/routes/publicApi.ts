@@ -457,6 +457,8 @@ const decideLeave = (approve: boolean) => async (req: Request, res: Response) =>
   const r = await peoplePrisma.leaveRequest.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
   if (!r) return fail(res, 404, 'No such leave request.');
   if (r.status !== 'PENDING') return fail(res, 409, `This request was already ${r.status.toLowerCase()}.`);
+  /* A-13: a key that raised a request does not also approve it; a person, or another system's key, does. */
+  if (approve && r.requestedByUserId === `api:${clientId}`) return fail(res, 403, 'This key raised this request; somebody else has to approve it.');
   const note = String(req.body?.note || '').trim().slice(0, 500) || null;
   try {
     const request = approve ? await approveLeave(accountId, orgId, r, `api:${clientId}`, note) : await rejectLeave(orgId, r, `api:${clientId}`, note);

@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { ownRecordRefusal, ownWorkRefusal } from '../services/makerChecker.js';
 
 import { requireAuth } from '../middleware/auth.js';
 import { requireTenantContext } from '../middleware/tenantContext.js';
@@ -100,7 +101,19 @@ payrollTaxDeclarationsRouter.post('/orgs/:orgId/payroll/tax-declarations/:employ
   const row = await payrollPrisma.taxDeclaration.findUnique({ where });
   if (!row) return res.status(404).json({ error: 'Nothing has been declared for this year.' });
   if (row.status === 'VERIFIED') return res.status(409).json({ error: 'Already verified.', code: 'VERIFIED' });
-  const updated = await payrollPrisma.taxDeclaration.update({ where, data: { status: 'VERIFIED', verifiedAt: new Date(), verifiedByUserId: req.auth!.userId, updatedByUserId: req.auth!.userId } });
+  /*
+   * A-13: verifying sets the tax deducted from someone's pay. Never your own;
+   * and whoever last entered the figures verifies them only as the company's
+   * maker-checker setting allows (this resource has no APPROVE action, so only
+   * an administrator counts as "somebody else who could").
+   */
+  const refused =
+    (await ownRecordRefusal(req, e.id, 'tax declaration')) ||
+    (await ownWorkRefusal(req, { makers: [row.updatedByUserId], module: PAYROLL_MODULE, resource: RESOURCE, entity: 'PAYROLL_TAX_DECLARATION', entityId: row.id, what: 'tax declaration' }));
+  if (refused) return res.status(refused.status).json(refused.body);
+  const moved = await payrollPrisma.taxDeclaration.updateMany({ where: { id: row.id, status: { not: 'VERIFIED' } }, data: { status: 'VERIFIED', verifiedAt: new Date(), verifiedByUserId: req.auth!.userId, updatedByUserId: req.auth!.userId } });
+  if (moved.count !== 1) return res.status(409).json({ error: 'Already verified.', code: 'VERIFIED' });
+  const updated = await payrollPrisma.taxDeclaration.findUniqueOrThrow({ where: { id: row.id } });
   await recordAudit(req, {
     entity: 'PAYROLL_TAX_DECLARATION',
     entityId: row.id,
