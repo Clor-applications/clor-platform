@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { anyAppLive, appLive, closing } from '../services/principalAllowed.js';
 import { createHmac, timingSafeEqual } from 'node:crypto';
 
 import { peoplePrisma } from '../utils/peoplePrisma.js';
@@ -47,6 +48,9 @@ ingestRouter.post('/:token', ...ingestLimiter, async (req, res) => {
   const device = await peoplePrisma.attendanceDevice.findUnique({ where: { pushTokenHash: hashToken(token) } });
   if (!device || device.vendor !== 'HTTP_PUSH') return res.status(404).json({ error: 'No such URL.' });
   if (!device.isActive) return res.status(403).json({ error: 'This reader is switched off in CLOR.' });
+  /* A-11: punches are taken only while Attendance is on, paid for, and the company is not closing. */
+  const refused = await appLive(device.accountId, device.orgId, 'attendance');
+  if (refused) return res.status(refused.status).json({ error: refused.error, code: refused.code });
 
   if (device.apiSecret) {
     let secret = '';

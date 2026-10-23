@@ -1,4 +1,5 @@
 import { Router, type NextFunction, type Request, type Response } from 'express';
+import { anyAppLive, appLive, closing } from '../services/principalAllowed.js';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 
@@ -12,7 +13,6 @@ import { payrollPrisma } from '../utils/payrollPrisma.js';
 import { DeclarationError, financialYearOf, saveDeclaration, shapeDeclaration } from '../services/payroll/taxDeclaration.js';
 import { isDevOrTest } from '../utils/devMode.js';
 import { isFeatureEnabled } from '../services/features.js';
-import { hrOrAttendanceOn } from '../services/people/guards.js';
 import { portalLimiter } from '../middleware/rateLimit.js';
 import { isWeeklyOff, istDate, istTime } from '../services/attendance/compute.js';
 import { loadHolidays, loadSchedule, resolveShift } from '../services/attendance/schedule.js';
@@ -107,7 +107,8 @@ async function findEmployee(company: unknown, employeeCode: unknown) {
     take: 2,
   });
   if (rows.length !== 1) return null;
-  if (!(await hrOrAttendanceOn(org.accountId, org.id))) return null;
+  /* A-11: switched on and paid for, and the company not closing — the same answer staff routes give. */
+  if (await anyAppLive(org.accountId, org.id, ['people', 'attendance'])) return null;
   return { org, employee: rows[0] };
 }
 
@@ -175,7 +176,16 @@ async function authenticate(req: Request, res: Response, next: NextFunction) {
   if (!e || !e.portalEnabled || e.status === 'LEFT' || !e.portalPasswordHash || (e.portalPasswordSetAt?.getTime() || 0) !== claims.pv) {
     return res.status(401).json({ error: 'Please sign in again.', code: 'PORTAL_SIGNIN' });
   }
-  if (!(await hrOrAttendanceOn(e.accountId, e.orgId))) return res.status(403).json({ error: 'The employee app is not switched on for your company.' });
+  const refused = await anyAppLive(e.accountId, e.orgId, ['people', 'attendance']);
+  if (refused) {
+    /* Said to an employee, not to the person who pays: what happened and who can fix it. */
+    const words = {
+      APP_DISABLED: 'The employee app is not switched on for your company.',
+      APP_NOT_SUBSCRIBED: 'The employee app is paused for your company. Please ask HR.',
+      COMPANY_CLOSING: 'Your company is closing its CLOR account. Please ask HR.',
+    } as Record<string, string>;
+    return res.status(refused.status).json({ error: words[refused.code] || refused.error, code: refused.code });
+  }
   req.portal = { employeeId: e.id, accountId: e.accountId, orgId: e.orgId, employee: e };
   runInTenant(e.orgId, () => next());
 }

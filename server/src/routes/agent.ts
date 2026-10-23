@@ -1,4 +1,5 @@
 import { Router, type Request, type Response, type NextFunction } from 'express';
+import { anyAppLive, appLive, closing } from '../services/principalAllowed.js';
 import { randomBytes } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -77,7 +78,9 @@ agentRouter.use(async (req: Request, res: Response, next: NextFunction) => {
   const a = await peoplePrisma.siteAgent.findUnique({ where: { tokenHash: hashToken(m[1]) } });
   if (!a) return fail(res, 401, 'This connector token is not valid (revoked, or made for another server).');
   if (!a.isActive) return fail(res, 403, 'This connector is switched off in CLOR.');
-  if (!(await isFeatureEnabled(a.accountId, a.orgId, 'attendance'))) return fail(res, 403, 'Attendance is not switched on for this organisation.');
+  /* A-11: on, paid for, not closing. */
+  const refused = await appLive(a.accountId, a.orgId, 'attendance');
+  if (refused) return fail(res, refused.status, refused.error);
   req.agent = a;
   runInTenant(a.orgId, () => next());
 });

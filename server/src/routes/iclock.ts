@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
+import { anyAppLive, appLive, closing } from '../services/principalAllowed.js';
 import { Router, type Request, type Response } from 'express';
 import { enqueuePunches } from '../services/hr/sync.js';
 
@@ -72,8 +73,8 @@ async function deviceFor(serial: string) {
   const device = await peoplePrisma.attendanceDevice.findUnique({ where: { serialNumber: serial } });
   /* Only push readers talk here; a vendor-cloud connection's "serial" is not a reader's. */
   if (!device || !device.isActive || device.vendor !== 'ADMS') return null;
-  /* A company that switched Attendance off is not collecting punches. */
-  if (!(await isFeatureEnabled(device.accountId, device.orgId, 'attendance'))) return null;
+  /* A company that switched Attendance off, stopped paying for it, or is closing is not collecting punches (A-11). */
+  if (await appLive(device.accountId, device.orgId, 'attendance')) return null;
   return device;
 }
 
@@ -1080,7 +1081,7 @@ export async function syncAllVendorConnections(opts: { fetchImpl?: typeof fetch 
   const devices = await peoplePrisma.attendanceDevice.findMany({ where: { vendor: { in: vendorsWith('pull') }, isActive: true, agentId: null } });
   let added = 0;
   for (const d of devices) {
-    if (!(await isFeatureEnabled(d.accountId, d.orgId, 'attendance'))) continue;
+    if (await appLive(d.accountId, d.orgId, 'attendance')) continue;
     try {
       added += (await syncVendorConnection(d, opts)).added;
     } catch (e: any) {

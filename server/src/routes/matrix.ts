@@ -1,4 +1,5 @@
 import { Router, type Request, type Response } from 'express';
+import { anyAppLive, appLive, closing } from '../services/principalAllowed.js';
 
 import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { ingestLimiter } from '../middleware/rateLimit.js';
@@ -143,6 +144,12 @@ async function deviceOf(req: Request, res: Response): Promise<Device | null> {
   }
   if (!device.isActive) {
     reply(res, { status: 0 }, 403);
+    return null;
+  }
+  /* A-11: punches are taken only while Attendance is on, paid for, and the company is not closing. */
+  const refused = await appLive(device.accountId, device.orgId, 'attendance');
+  if (refused) {
+    reply(res, { status: 0 }, refused.status);
     return null;
   }
   return device;

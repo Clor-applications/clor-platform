@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { anyAppLive, appLive, closing } from '../services/principalAllowed.js';
 import { randomBytes } from 'node:crypto';
 
 import { prisma } from '../utils/prisma.js';
@@ -103,6 +104,9 @@ sharePublicRouter.get('/public/invoice/:token', async (req, res) => {
     // telling them apart tells somebody guessing which guesses are close.
     return res.status(404).json({ error: 'This link is no longer available' });
   }
+
+  /* A-11: a shared invoice is Accounting's; it stops being served when Accounting is off, unpaid, or the company is closing. */
+  if (await appLive(link.accountId, link.orgId, 'accounting')) return res.status(404).json({ error: 'This link is no longer available' });
 
   const invoice = await prisma.invoice.findFirst({ where: { id: link.docId, orgId: link.orgId } });
   if (!invoice) return res.status(404).json({ error: 'This link is no longer available' });

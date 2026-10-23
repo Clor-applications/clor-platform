@@ -1,4 +1,5 @@
 import { Router, type Request, type Response } from 'express';
+import { anyAppLive, appLive, closing } from '../services/principalAllowed.js';
 import { randomBytes } from 'node:crypto';
 import { z } from 'zod';
 import QRCode from 'qrcode';
@@ -180,6 +181,8 @@ async function requestOf(token: string) {
   if (!/^clorpay_[A-Za-z0-9_-]{20,}$/.test(token)) return null;
   const r = await prisma.paymentRequest.findUnique({ where: { tokenHash: hashToken(token) } });
   if (!r) return null;
+  /* A-11: payment links are Accounting's; none is served for a company without it, or closing. */
+  if (await appLive(r.accountId, r.orgId, 'accounting')) return null;
   if (r.status === 'PENDING' && r.expiresAt && r.expiresAt < new Date()) return prisma.paymentRequest.update({ where: { id: r.id }, data: { status: 'EXPIRED' } });
   return r;
 }

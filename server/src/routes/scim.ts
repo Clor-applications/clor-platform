@@ -1,4 +1,5 @@
 import { Router, type Request, type Response, type NextFunction } from 'express';
+import { anyAppLive, appLive, closing } from '../services/principalAllowed.js';
 import bcrypt from 'bcrypt';
 import { randomBytes } from 'node:crypto';
 
@@ -46,6 +47,8 @@ scimRouter.use(async (req: Request, res: Response, next: NextFunction) => {
   if (!m) return fail(res, 401, 'A bearer token from CLOR’s directory-sync settings is required.');
   const t = await platformPrisma.scimToken.findUnique({ where: { tokenHash: hashToken(m[1]) } });
   if (!t) return fail(res, 401, 'That token is not known (revoked, or made for another server).');
+  /* A-11: a company being closed takes no more directory changes. */
+  if (await closing(t.orgId)) return fail(res, 403, 'This company is being closed; directory sync is switched off.');
   req.scim = { id: t.id, accountId: t.accountId, orgId: t.orgId, defaultRoleId: t.defaultRoleId };
   platformPrisma.scimToken.update({ where: { id: t.id }, data: { lastUsedAt: new Date() } }).catch(() => {});
   next();

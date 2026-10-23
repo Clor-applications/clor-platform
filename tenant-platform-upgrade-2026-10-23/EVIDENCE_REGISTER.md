@@ -34,6 +34,7 @@ Updated: 2026-10-23
 | EV-028 | Company admin workspace (ADR-010, W-01..W-04) | `packages/shell/registry.test.js`, `appHosts.test.js`; web suite `evidence/W-01..04/web-suite-after.txt` (192 files / 1528 tests: 57 failing, all present on the untouched main checkout — `web-baseline-failures-main-checkout.txt`; 0 new); lint 0 errors; `vite build` ok; browser screenshots 1–5 | Workspace reachable from every app, holds the company administration, old Accounting links redirect, Accounting Settings trimmed |
 | EV-029 | W-04b: app-level roles in one editor | browser `evidence/W-01..04/6-payroll-roles-access-filtered.jpg` (URL `?open=permissions&for=payroll&app=admin`, tabs All/Company/Accounting/People/Attendance/Payroll*, only the Payroll section); web suite: no failure outside the main-checkout baseline; build ok |
 | EV-030 | W-05: one audit trail with per-app shares | `audit.test.ts`; `evidence/W-05/before-fix.txt` (old server rejects the new filter), `after-fix.txt`; browser `1-…jpg`, `2-…jpg`; web tests in touched areas: no failure outside the main-checkout baseline; build ok |
+| EV-031 | A-11: no non-human path outlives the subscription or a scheduled closure | `principalAllowed.test.ts`; `evidence/A-11/before-fix.txt` (3 fail: 200 where 402/403 expected), `after-fix.txt`; full server suite 162 files / 1526 tests; browser `1-…`, `2-…`, `3-portal-refusal-in-plain-words.jpg`. Local dev DB: five People migrations already on main were applied (`prisma migrate deploy`, local only) so the dev server could create employees |
 
 ## Evidence quality note
 

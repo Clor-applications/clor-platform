@@ -46,7 +46,7 @@ Status values: `TODO` · `IN PROGRESS` · `DONE` · `LIVE` (needs production acc
 
 | ID | Fix | Test | Browser | Status |
 |---|---|---|---|---|
-| A-11 | One `principalAllowed` check (entitlement plus closure) on portal, public API, devices, SCIM, share, pay | lapsed attendance subscription: portal and API return 402 | employee portal shows the "subscription ended" state | TODO |
+| A-11 | `appLive` / `anyAppLive` (services/principalAllowed.ts): switched on (where the app has a switch) **and** entitled **and** company not scheduled for closure — on the employee portal (sign-in and every request), API keys, connectors, ADMS/HTTP-push/Hikvision/Matrix readers, SCIM (closure), invoice share and payment links (Accounting). Portal says it in an employee's words | `principalAllowed.test.ts` (4 tests; fail before: API and portal 200 after lapse, API 200 while closing) | `evidence/A-11/`: employee signed in while paid → after lapse the portal refuses: "The employee app is paused for your company. Please ask HR." | DONE (EV-031) |
 | A-12 | Approval decide: permission, 402, conditional update, one transaction | double approve posts once | approve an invoice in the approvals screen | TODO |
 | A-13 | `assertNotMaker` on revisions, runs, adjustments, tax verify, leave (staff and API), bank changes; status-guarded updates | creator approving their own item gets 403 | payroll run approve by its preparer is refused | TODO |
 | A-14/15 | Module-to-app ceiling in `authorize`; one refusal order and set of codes | recycle bin People restore with People unowned gets 402 | n/a | TODO |

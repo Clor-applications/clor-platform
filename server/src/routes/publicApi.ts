@@ -1,4 +1,5 @@
 import { Router, type NextFunction, type Request, type Response } from 'express';
+import { anyAppLive, appLive, closing } from '../services/principalAllowed.js';
 import rateLimit from 'express-rate-limit';
 import { createHash } from 'node:crypto';
 
@@ -67,7 +68,9 @@ async function authenticate(req: Request, res: Response, next: NextFunction) {
   const ip = String(req.ip || '').replace(/^::ffff:/, '');
   const allowed = (row.allowedIps || '').split(',').map((s) => s.trim()).filter(Boolean);
   if (allowed.length && !allowed.includes(ip)) return fail(res, 403, `This key may not be used from ${ip}.`);
-  if (!(await isFeatureEnabled(row.accountId, row.orgId, 'attendance'))) return fail(res, 403, 'Attendance is not switched on for this organisation.');
+  /* A-11: on, paid for, not closing. */
+  const refused = await appLive(row.accountId, row.orgId, 'attendance');
+  if (refused) return fail(res, refused.status, refused.error);
   req.apiClient = { id: row.id, accountId: row.accountId, orgId: row.orgId, scopes: row.scopes.split(','), deviceId: row.deviceId, tokenPrefix: row.tokenPrefix };
   peoplePrisma.apiClient.update({ where: { id: row.id }, data: { lastUsedAt: new Date(), lastUsedIp: ip || null } }).catch(() => undefined);
   runInTenant(row.orgId, () => next());
