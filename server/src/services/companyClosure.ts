@@ -10,6 +10,7 @@ import { Prisma as PayrollPrisma } from '../generated/payroll/index.js';
 import { outsideTenant, runInTenant } from '../utils/tenantScope.js';
 import { currentLease, exclusive, leaseFor, LeaseLost, shuttingDown } from './jobLease.js';
 import { userIsAdmin } from './roleGuards.js';
+import { getGateway } from '../billing/gateway.js';
 
 /**
  * Closing a company (LX-07 part 2). Policy, in words a client can read:
@@ -70,7 +71,7 @@ export async function lastFullExport(orgId: string) {
 export async function scheduleClosure(args: { accountId: string; orgId: string; userId: string; confirmName: string; reason?: string | null; now?: Date }) {
   const { accountId, orgId, userId } = args;
   const now = args.now || new Date();
-  const org = await platformPrisma.org.findFirst({ where: { id: orgId, accountId }, select: { name: true } });
+  const org = await platformPrisma.org.findFirst({ where: { id: orgId, accountId }, select: { name: true, code: true } });
   if (!org) throw new ClosureError('No such company.', 404, 'NOT_FOUND');
   if (!(await mayClose(accountId, orgId, userId))) throw new ClosureError('Only an administrator of this company can close it.', 403, 'ADMIN_ONLY');
   if (String(args.confirmName || '').trim().toLowerCase() !== org.name.trim().toLowerCase()) {
@@ -86,6 +87,8 @@ export async function scheduleClosure(args: { accountId: string; orgId: string; 
   const data = {
     accountId,
     orgName: org.name,
+    /* Kept after deletion: the code is never issued again (displayCodes.ts). */
+    orgCode: org.code ?? null,
     status: 'SCHEDULED',
     reason: args.reason ? String(args.reason).slice(0, 1000) : null,
     requestedByUserId: userId,
@@ -211,9 +214,50 @@ async function mayContinue() {
 }
 
 /** The job: every closure whose notice period has ended. Resumes a purge that was cut off. */
+/**
+ * An account whose last company has just been deleted (A-40).
+ *
+ * The purge removed the company and left the account as it was: an active
+ * subscription — still billable — and an entitlement for an account with
+ * nothing in it. Sign-in identities stay, as the closure policy says (a
+ * person may belong to other companies), and CLOR's own billing records stay
+ * (they are CLOR's tax records). The subscription is cancelled at once, the
+ * gateway told to stop charging, and the entitlement closed. A gateway that
+ * cannot be reached is recorded and alerted, not swallowed: somebody must stop
+ * that charge by hand.
+ */
+export async function closeEmptyAccount(accountId: string, now = new Date()) {
+  return outsideTenant('closure purge: the account above the company', async () => {
+    if (await platformPrisma.org.count({ where: { accountId } })) return { closed: false as const };
+    const sub = await platformPrisma.subscription.findUnique({ where: { accountId } });
+    let gatewayError: string | null = null;
+    if (sub && sub.status !== 'cancelled') {
+      if (sub.gatewaySubscriptionId) {
+        try {
+          await getGateway().cancelSubscription(sub.gatewaySubscriptionId, false);
+        } catch (e) {
+          gatewayError = String(e instanceof Error ? e.message : e).slice(0, 300);
+          // eslint-disable-next-line no-console
+          console.error(`[closure] ALERT the gateway did not cancel the subscription of account ${accountId}; stop it by hand:`, gatewayError);
+        }
+      }
+      await platformPrisma.subscription.update({ where: { accountId }, data: { status: 'cancelled', cancelAtPeriodEnd: false, currentPeriodEnd: now } });
+    }
+    await platformPrisma.accountEntitlement.updateMany({ where: { accountId }, data: { status: 'CLOSED', validUntil: now } });
+    await platformPrisma.authEvent.create({
+      data: {
+        accountId,
+        eventType: 'ACCOUNT_EMPTIED',
+        detail: JSON.stringify({ reason: 'Its last company was deleted after closure.', subscription: sub ? 'cancelled' : 'none', gatewayError }).slice(0, 1000),
+      },
+    });
+    return { closed: true as const, gatewayError };
+  });
+}
+
 export async function purgeClosedCompanies(now = new Date()) {
   const due = await outsideTenant('closure purge: find companies whose notice ended', () =>
-    platformPrisma.orgClosure.findMany({ where: { status: 'SCHEDULED', deleteAfter: { lte: now } }, select: { orgId: true, orgName: true, purgeProgress: true } })
+    platformPrisma.orgClosure.findMany({ where: { status: 'SCHEDULED', deleteAfter: { lte: now } }, select: { orgId: true, orgName: true, accountId: true, purgeProgress: true } })
   );
   const done: Array<{ orgId: string; rows: number }> = [];
   const record = (orgId: string, data: Record<string, unknown>) =>
@@ -234,6 +278,10 @@ export async function purgeClosedCompanies(now = new Date()) {
         checkpoint: (p) => record(c.orgId, { purgeProgress: JSON.stringify(p), purgeError: null }).then(() => undefined),
       });
       await record(c.orgId, { status: 'DELETED', deletedAt: new Date(), deletedCounts: JSON.stringify(counts), purgeError: null });
+      /* The account's last company: stop its billing (A-40). Not a reason to undo the purge if it fails. */
+      await closeEmptyAccount(c.accountId).catch((e) =>
+        console.error(`[closure] ALERT could not close the empty account ${c.accountId}:`, e instanceof Error ? e.message : e) // eslint-disable-line no-console
+      );
       done.push({ orgId: c.orgId, rows: Object.values(counts).reduce((a, b) => a + b, 0) });
       // eslint-disable-next-line no-console
       console.log(`[closure] deleted company ${c.orgId} (${c.orgName}):`, counts);

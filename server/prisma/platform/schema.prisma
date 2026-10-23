@@ -962,6 +962,8 @@ model OrgClosure {
   accountId         String
   orgId             String    @unique
   orgName           String
+  /// The company's display code (KAVE-C100), kept after deletion so it is never issued again.
+  orgCode           String?
   /// SCHEDULED | CANCELLED | DELETED
   status            String
   reason            String?
