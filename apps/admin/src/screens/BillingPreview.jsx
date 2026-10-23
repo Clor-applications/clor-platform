@@ -4,7 +4,7 @@ import { CreditCard, FileText } from 'lucide-react';
 import { PageHeader } from '@ui/components/ui/Primitives';
 import NotConnected from '@ui/components/ui/NotConnected';
 import { formatMoney } from '@ui/utils/money';
-import { getAccountOverview } from '../../api/admin';
+import { getAccountOverview } from '@platform/admin/admin';
 import { getEntitlement } from '@ui/api/features';
 
 /**

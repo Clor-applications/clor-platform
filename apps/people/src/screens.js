@@ -1,3 +1,5 @@
+import React from 'react';
+import OpenInCompanyAdmin from '@ui/company/OpenInCompanyAdmin';
 /**
  * Every screen People shows, in one place, so the manifest can load
  * them as one file the first time the app opens (WX-03). The manifest names
@@ -40,4 +42,5 @@ export { default as DataExport } from '../../attendance/src/screens/DataExport';
 export { default as RecycleBin } from '../../attendance/src/screens/RecycleBin';
 export { default as DataProtection } from '../../attendance/src/screens/DataProtection';
 export { default as DataRequests } from '../../attendance/src/screens/DataRequests';
-export { default as SsoSettings } from '../../accounting/src/features/account/SsoSettings';
+/* Sign-in, SSO, users and roles are the company's: they live in Company admin (ADR-010), and this entry opens it. */
+export const SsoSettings = () => React.createElement(OpenInCompanyAdmin, { title: 'Users & Security', screen: 'sso' });

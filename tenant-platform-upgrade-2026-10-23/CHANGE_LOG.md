@@ -37,6 +37,7 @@ Changed:
 - A-07 fixed: rate-limit buckets keyed by a hash of the whole credential instead of its first characters. Application behavior changed: yes (no shared 429s across tenants). Schema: no.
 - A-06 fixed: atomic refresh rotation with a 10-second tab-race grace (409 `refresh_raced`, client retries once), `/refresh` rate limit, atomic reset/verify token use. Application behavior changed: yes (front-end `packages/platform/http.js` retry). Schema: no.
 - A-08/A-09/A-10 fixed: 5 s session-liveness cache; membership account checked against the company; HS256 pinned, SSO token audiences, `/auth/me` echo only for member companies, 2FA turn-off needs a code (UI field added). Application behavior changed: yes. Schema: no. Batch 1 complete except the deferred signup enumeration item.
+- Batch 1.5 (W-01..W-04): Company admin workspace (`apps/admin`). The front door opens it; every app's switcher reaches it; users, roles, permissions, sign-in, SSO, audit, branches, account, billing, data export and close-company moved out of Accounting (API clients to `@platform/admin`); Accounting/People/Attendance link to it and old keys redirect. Front-end only; no API change. Pre-existing web test failures recorded: 57 on the untouched main checkout, unchanged by this work.
 
 Running totals for 2026-10-23:  
 Application behavior changed: yes (GAP-002, GAP-003, A-03, A-01, A-02, A-04, A-05, A-07, A-06, A-08, A-09, A-10).  

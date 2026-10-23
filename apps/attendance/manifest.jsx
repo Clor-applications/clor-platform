@@ -337,7 +337,7 @@ export const attendanceApp = {
     { key: 'holidays', label: 'Holidays', icon: CalendarDays, permission: 'ATTENDANCE::Holidays::VIEW' },
     { key: 'integrations', label: 'Integrations', icon: Plug, permission: 'ATTENDANCE::Attendance Integrations::VIEW' },
     /* The same SSO set-up as Accounting's Settings → Single Sign-On: one per company, for every CLOR app. */
-    { key: 'sso', label: 'Single Sign-On', icon: KeyRound, permission: 'SETTINGS::Users::VIEW' },
+    { key: 'sso', label: 'Users & Security', icon: KeyRound, permission: 'SETTINGS::Users::VIEW' },
     { key: 'dataImport', label: 'Import Data', icon: Upload, permission: 'ATTENDANCE::Attendance Records::VIEW' },
     { key: 'dataExport', label: 'Export Data', icon: Download, permission: 'ATTENDANCE::Attendance Records::VIEW' },
     /* LX-07: shared screen; the server lets only the company's owner ask or cancel. */

@@ -4,6 +4,7 @@ import { accountingApp } from '../../apps/accounting/manifest.jsx';
 import { payrollApp } from '../../apps/payroll/manifest.jsx';
 import { attendanceApp } from '../../apps/attendance/manifest.jsx';
 import { peopleApp } from '../../apps/people/manifest.jsx';
+import { adminApp } from '../../apps/admin/manifest.jsx';
 
 /**
  * The applications Clor is made of.
@@ -31,6 +32,7 @@ const planned = (id, name, icon, blurb) => ({
 });
 
 export const APPS = [
+  adminApp,
   accountingApp,
   payrollApp,
   attendanceApp,
@@ -40,13 +42,17 @@ export const APPS = [
 
 export const appById = (id) => APPS.find((a) => a.id === id) || null;
 
-/** The apps this tenant has bought. */
+/**
+ * The apps this tenant has bought — and the platform's own workspace
+ * (Company admin, ADR-010), which nobody buys and every company has. What a
+ * person sees inside it is still decided item by item, by permission.
+ */
 export const subscribedApps = (subscriptions) =>
-  APPS.filter((a) => a.available && subscriptions.includes(a.id));
+  APPS.filter((a) => a.available && (a.platform || subscriptions.includes(a.id)));
 
-/** The apps it has not. */
+/** The products it has not (the platform workspace is never for sale). */
 export const availableApps = (subscriptions) =>
-  APPS.filter((a) => !subscriptions.includes(a.id));
+  APPS.filter((a) => !a.platform && !subscriptions.includes(a.id));
 
 /**
  * Where somebody lands.
@@ -56,7 +62,8 @@ export const availableApps = (subscriptions) =>
  * is where the day starts for the companies that have both.
  */
 export const landingApp = (subscriptions) => {
-  const mine = subscribedApps(subscriptions);
+  /* A product, never the admin workspace: on an app's own address that app opens, and only the front door opens the workspace. */
+  const mine = subscribedApps(subscriptions).filter((a) => !a.platform);
   if (mine.length === 1) return mine[0];
   return mine.find((a) => a.id === 'accounting') || mine[0] || null;
 };

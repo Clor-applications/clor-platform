@@ -11,9 +11,9 @@ import {
   getProviders,
   revokeMySessions,
   savePolicy,
-} from '../../api/security';
+} from '@platform/admin/security';
 import { EmptyState, Spinner, StatusPill, SkeletonCard } from '@ui/components/ui/Primitives';
-import SettingsScreenHeader from './SettingsScreenHeader';
+import SettingsScreenHeader from '@ui/chrome/SettingsScreenHeader';
 import AuthenticatorCard from '@ui/profile/AuthenticatorCard';
 
 const TABS = [

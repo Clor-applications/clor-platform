@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 
-import { getUserAccess } from '../../api/admin';
+import { getUserAccess } from '@platform/admin/admin';
 import { getPermissionCatalog } from '@ui/api/permissions';
 
 /*

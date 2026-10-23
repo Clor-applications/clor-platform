@@ -67,3 +67,19 @@ export function onPlatformContextChange(fn) {
   listeners.add(fn);
   return () => listeners.delete(fn);
 }
+
+/**
+ * Ask the platform to open another app — Company admin from Accounting's
+ * settings, for one. An app cannot switch apps itself (it does not own the
+ * shell), so it asks; the shell decides how (in place, or on that app's own
+ * address).
+ */
+export const OPEN_APP_EVENT = 'clor:open-app';
+export function requestOpenApp(appId, screen = '') {
+  try {
+    window.dispatchEvent(new CustomEvent(OPEN_APP_EVENT, { detail: { appId, screen } }));
+  } catch {
+    /* No window (a test): nothing to open. */
+  }
+}
+

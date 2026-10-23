@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 
-import { getRoleSuggestionStatus, suggestRoleFor } from '../../api/admin';
+import { getRoleSuggestionStatus, suggestRoleFor } from '@platform/admin/admin';
 
 /*
  * "Not sure which role?" — describe the job, get a suggestion.

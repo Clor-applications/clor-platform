@@ -90,7 +90,8 @@ describe('the navigation floor', () => {
     /* `settingsFeatures` left this list when capability management left
        Settings. The floor it guarded still holds: Features is a top-level
        module of its own now, and the test below checks it is reachable. */
-    for (const key of ['settingsModules', 'settingsCompany', 'settingsUsers', 'settingsRoles']) {
+    /* Users and roles moved to Company admin (ADR-010); the entry that opens it is the floor here now. */
+    for (const key of ['settingsModules', 'settingsCompany', 'companyAdmin']) {
       const item = SETTINGS_ITEMS.find((i) => i.key === key);
       expect(`${key}:${Boolean(item)}`).toBe(`${key}:true`);
       expect(`${key}:${item.feature ?? 'none'}`).toBe(`${key}:none`);

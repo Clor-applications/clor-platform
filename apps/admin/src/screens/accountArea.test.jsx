@@ -4,7 +4,7 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 const overview = vi.fn();
 const entitlement = vi.fn();
 
-vi.mock('../../api/admin', () => ({ getAccountOverview: (...a) => overview(...a) }));
+vi.mock('@platform/admin/admin', () => ({ getAccountOverview: (...a) => overview(...a) }));
 vi.mock('@ui/api/features', () => ({ getEntitlement: (...a) => entitlement(...a) }));
 
 import AccountOverview from './AccountOverview';

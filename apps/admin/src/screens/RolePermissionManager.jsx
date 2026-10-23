@@ -1,11 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Check, RotateCcw, Save, ShieldCheck } from 'lucide-react';
 
-import { listRoles, updateRole } from '../../api/admin';
+import { listRoles, updateRole } from '@platform/admin/admin';
 import { expandPreset, getPermissionCatalog, getRolePermissions, setRolePermissions } from '@ui/api/permissions';
 import { EmptyState, Spinner, SkeletonCard } from '@ui/components/ui/Primitives';
 import { usePermissions } from '@ui/permissions/usePermissions';
-import SettingsScreenHeader from '../settings/SettingsScreenHeader';
+import SettingsScreenHeader from '@ui/chrome/SettingsScreenHeader';
 import { orgId as platformOrgId } from '@platform/context';
 import PermissionMatrix from './PermissionMatrix';
 import { catalogKeys } from './permissionKeys';

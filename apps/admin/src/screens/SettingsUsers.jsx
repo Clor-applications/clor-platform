@@ -17,7 +17,7 @@ import { listUsers,
   assignUserBranches,
   getUserBranches,
   getUserCompanies,
-  setUserCompanies } from '../../api/admin';
+  setUserCompanies } from '@platform/admin/admin';
 import Modal from '@ui/components/ui/Modal';
 import Drawer from '@ui/components/ui/Drawer';
 import Popover from '@ui/components/ui/Popover';

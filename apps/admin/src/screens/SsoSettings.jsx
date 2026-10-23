@@ -4,8 +4,8 @@ import { KeyRound, ShieldCheck, Trash2, Users } from 'lucide-react';
 import { PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { orgId as platformOrgId } from '@platform/context';
-import { createProvider, createScimToken, deleteProvider, getProviders, getScim, revokeScimToken, updateProvider, verifyProviderDomains } from '../../api/security';
-import { listRoles } from '../../api/admin';
+import { createProvider, createScimToken, deleteProvider, getProviders, getScim, revokeScimToken, updateProvider, verifyProviderDomains } from '@platform/admin/security';
+import { listRoles } from '@platform/admin/admin';
 
 /**
  * Single sign-on, per company.

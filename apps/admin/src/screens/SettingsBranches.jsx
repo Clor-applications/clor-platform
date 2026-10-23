@@ -2,7 +2,7 @@ import React, { useMemo, useEffect, useRef, useState } from 'react';
 import { TableSkeleton } from '@ui/components/ui/Primitives';
 import { exportRows } from '@ui/components/ListToolbar';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
-import { listBranches, createBranch, updateBranch, deleteBranch } from '../../api/admin';
+import { listBranches, createBranch, updateBranch, deleteBranch } from '@platform/admin/admin';
 import PopupSelect from '@ui/components/pickers/PopupSelect';
 import { GST_STATE_BY_CODE, getGstStateFromGstin } from '@ui/utils/gst';
 import Popover from '@ui/components/ui/Popover';

@@ -4,7 +4,7 @@ import { Download, HardDriveDownload, Settings2, Share2 } from 'lucide-react';
 import { PageHeader } from '@ui/components/ui/Primitives';
 import NotConnected from '@ui/components/ui/NotConnected';
 import { notify } from '@ui/components/ui/notify';
-import { exportCompanyData } from '../../api/dataExport';
+import { exportCompanyData } from '@platform/admin/dataExport';
 
 /**
  * Taking a copy of this company's books, and of how it is set up.

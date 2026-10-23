@@ -27,8 +27,9 @@ describe('SettingsHub', () => {
     const onOpenSetting = vi.fn();
     renderHub({ onOpenSetting });
     fireEvent.change(screen.getByRole('searchbox', { name: 'Search all settings' }), { target: { value: 'password' } });
-    fireEvent.click(screen.getAllByRole('button', { name: /Login & Security/ }).at(-1));
-    expect(onOpenSetting).toHaveBeenCalledWith('settingsSecurity');
+    /* Sign-in moved to Company admin (ADR-010): the search leads to the entry that opens it. */
+    fireEvent.click(screen.getAllByRole('button', { name: /Users, roles & security/ }).at(-1));
+    expect(onOpenSetting).toHaveBeenCalledWith('companyAdmin');
   });
 
   it('leaves the dedicated settings workspace through its own header', () => {

@@ -13,10 +13,11 @@ import { SkeletonCard } from '@ui/components/ui/Primitives';
 import { IconSetContext } from '@ui/components/ui/iconSet';
 
 import { APPS, appById, availableApps, landingApp, subscribedApps } from './registry';
-import { appFromHost, hostForApp, isFrontDoor } from './appHosts';
+import { ADMIN_APP_ID, appFromHost, hostForApp, isFrontDoor } from './appHosts';
 import { PHONE_QUERY, TABLET_QUERY, mobileTabsFor } from './mobileTabs';
 import { moduleForScreen, railAction, readScreenSearch, resolveModules, screenSearch, withoutEmptyHubs } from './splitNav';
 import { useSession } from './session';
+import { OPEN_APP_EVENT } from '@platform/context';
 import ClorMark from './ClorMark';
 import NotificationBell from './NotificationBell';
 import HelpMenu from './HelpMenu';
@@ -132,7 +133,12 @@ export default function Shell() {
   const [chosenAppId, setChosenAppId] = useState(() => {
     const fromHost = appFromHost();
     if (fromHost) return fromHost;
-    try { return new URLSearchParams(window.location.search).get('app') || null; } catch { return null; }
+    try {
+      const asked = new URLSearchParams(window.location.search).get('app');
+      if (asked) return asked;
+    } catch { /* no query */ }
+    /* The front door is the company's own workspace, not a doorway into the last app (ADR-010). */
+    return isFrontDoor() ? ADMIN_APP_ID : null;
   });
   const activeAppId = mine.some((a) => a.id === chosenAppId)
     ? chosenAppId
@@ -183,6 +189,41 @@ export default function Shell() {
      way out of the app switcher was to click the app switcher again. */
   const switcherRef = useDismissable(switcherOpen, () => setSwitcherOpen(false));
   const [showMoreApps, setShowMoreApps] = useState(false);
+
+  /* `open` names a screen inside the app (Accounting's settings): carried in the address so it survives the hop to the app's own host. */
+  const openApp = (id, open = '') => {
+    const next = appById(id);
+    const search = open ? `?open=${encodeURIComponent(open)}` : '';
+    /* An app with its own address opens there, so the address bar says which
+       app this is. The session follows through the API's refresh cookie. */
+    const host = hostForApp(id);
+    if (host && host !== window.location.hostname) {
+      window.location.assign(`${window.location.protocol}//${host}/${search}`);
+      return;
+    }
+    /* Always: the last app's ?open= and #/screen are not this app's screen. A
+       hash left behind (Accounting's #/settingsUsers) would send whoever comes
+       back to Accounting straight to where they had just been redirected from. */
+    window.history.replaceState(null, '', `${window.location.pathname}${search}`);
+    setChosenAppId(id);
+    /* A shell app's screen named outright (a notification's link); Accounting reads the address itself. */
+    setScreenKey(open && next?.screens?.[open] ? open : next?.home || null);
+    setPlatformScreen(null);
+    setSwitcherOpen(false);
+    setShowMoreApps(false);
+  };
+
+
+  /* An app asking to open another (requestOpenApp in @platform/context): it does not own the shell, so it asks. */
+  const openAppRef = useRef(openApp);
+  useEffect(() => {
+    openAppRef.current = openApp;
+  });
+  useEffect(() => {
+    const onOpen = (e) => openAppRef.current(e.detail?.appId, e.detail?.screen || '');
+    window.addEventListener(OPEN_APP_EVENT, onOpen);
+    return () => window.removeEventListener(OPEN_APP_EVENT, onOpen);
+  }, []);
   /* The API refused an app this account has not bought (402): say so once, with the way to add it. */
   const [unbought, setUnbought] = useState(null);
   useEffect(() => {
@@ -305,8 +346,9 @@ export default function Shell() {
 
   /* Signed in at the front door (app.clor.in): go on to the app's own address,
      keeping any #/screen so a link into an app still lands on that screen. */
-  const frontDoorTarget =
-    user && tenant && !emailLink && isFrontDoor() && activeAppId ? hostForApp(activeAppId) : null;
+  const frontDoorHost = user && tenant && !emailLink && isFrontDoor() && activeAppId ? hostForApp(activeAppId) : null;
+  /* Company admin lives here: its host is this one, and forwarding to it would loop. */
+  const frontDoorTarget = frontDoorHost && frontDoorHost !== window.location.hostname ? frontDoorHost : null;
   useEffect(() => {
     if (!frontDoorTarget) return;
     window.location.replace(`${window.location.protocol}//${frontDoorTarget}/${window.location.hash}`);
@@ -403,27 +445,6 @@ export default function Shell() {
     (browseModule && modules.find((m) => m.key === browseModule)) ||
     /* In the phone sheet a single-screen module has nothing to list, so the sheet opens on the first module that has. */
     (phone && currentModule?.single ? modules.find((m) => !m.single) || currentModule : currentModule);
-
-  /* `open` names a screen inside the app (Accounting's settings): carried in the address so it survives the hop to the app's own host. */
-  const openApp = (id, open = '') => {
-    const next = appById(id);
-    const search = open ? `?open=${encodeURIComponent(open)}` : '';
-    /* An app with its own address opens there, so the address bar says which
-       app this is. The session follows through the API's refresh cookie. */
-    const host = hostForApp(id);
-    if (host && host !== window.location.hostname) {
-      window.location.assign(`${window.location.protocol}//${host}/${search}`);
-      return;
-    }
-    /* Always: the last app's ?open= is not this app's screen. */
-    window.history.replaceState(null, '', `${window.location.pathname}${search}${window.location.hash}`);
-    setChosenAppId(id);
-    /* A shell app's screen named outright (a notification's link); Accounting reads the address itself. */
-    setScreenKey(open && next?.screens?.[open] ? open : next?.home || null);
-    setPlatformScreen(null);
-    setSwitcherOpen(false);
-    setShowMoreApps(false);
-  };
 
   const goTo = (key) => {
     setScreenKey(key);
@@ -640,7 +661,7 @@ export default function Shell() {
                     zIndex: 'var(--z-platform-menu)',
                   }}
                 >
-                  {mine.map((a) => (
+                  {mine.filter((a) => !a.platform).map((a) => (
                     <button
                       key={a.id}
                       type="button"
@@ -668,18 +689,16 @@ export default function Shell() {
                     <LayoutGrid size={16} aria-hidden="true" />
                     <span className="text-sm">More apps</span>
                   </button>
-                  {/* Users, roles, sign-in, e-mail and the audit trail are the company's, not one app's: reachable from every app, kept in one place. */}
-                  {mine.some((a) => a.id === 'accounting') ? (
-                    <button
-                      type="button"
-                      role="menuitem"
-                      className="w-full flex items-center gap-2 rounded-lg px-2 py-2 text-left ui-hover-sunken"
-                      onClick={() => openApp('accounting', 'settings')}
-                    >
-                      <Settings size={16} aria-hidden="true" />
-                      <span className="text-sm">Company settings</span>
-                    </button>
-                  ) : null}
+                  {/* Users, roles, sign-in, billing and the audit trail are the company's, not one app's: one workspace, reachable from every app (ADR-010). */}
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="w-full flex items-center gap-2 rounded-lg px-2 py-2 text-left ui-hover-sunken"
+                    onClick={() => openApp(ADMIN_APP_ID)}
+                  >
+                    <Settings size={16} aria-hidden="true" />
+                    <span className="text-sm">Company admin</span>
+                  </button>
                 </div>
               ) : null}
             </div>
@@ -876,6 +895,10 @@ export default function Shell() {
                         params={screenParams || undefined}
                         /* The screens this person may open, for a hub page (People's Settings) to list. */
                         navItems={nav}
+                        /* The company being looked at, its apps, and a way into one (Company admin's home). */
+                        tenant={tenant}
+                        apps={mine}
+                        openApp={openApp}
                         openScreen={(key, params) => {
                           if (!app?.screens?.[key]) return;
                           setScreenKey(key);
@@ -976,7 +999,7 @@ function MoreApps({ tenant, onAdd, onOpen }) {
       <PlanCard billing={tenant.billing} />
 
       <div className="grid gap-3 sm:grid-cols-2">
-        {APPS.map((a) => (
+        {APPS.filter((a) => !a.platform).map((a) => (
           <article key={a.id} className="ui-card p-4">
             <div className="flex items-start justify-between gap-3">
               <span

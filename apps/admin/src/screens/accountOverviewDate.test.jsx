@@ -1,7 +1,7 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
-vi.mock('../../api/admin', () => ({
+vi.mock('@platform/admin/admin', () => ({
   getAccountOverview: vi.fn(async () => ({
     org: { name: 'UI QA Organisation' },
     plan: {},

@@ -5,7 +5,7 @@ const exportCompanyData = vi.fn();
 const notifyError = vi.fn();
 const notifySuccess = vi.fn();
 
-vi.mock('../../api/dataExport', () => ({ exportCompanyData: (...a) => exportCompanyData(...a) }));
+vi.mock('@platform/admin/dataExport', () => ({ exportCompanyData: (...a) => exportCompanyData(...a) }));
 vi.mock('@ui/components/ui/notify', () => ({
   notify: { error: (...a) => notifyError(...a), success: (...a) => notifySuccess(...a) },
   confirmDialog: vi.fn(),

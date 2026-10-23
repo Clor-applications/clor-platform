@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { Plus, Search } from 'lucide-react';
 import { StatusPill, TableSkeleton } from '@ui/components/ui/Primitives';
 import { confirmDialog } from '@ui/components/ui/notify';
-import { listRoles, createRole, updateRole, deleteRole } from '../../api/admin';
+import { listRoles, createRole, updateRole, deleteRole } from '@platform/admin/admin';
 import Popover from '@ui/components/ui/Popover';
 import { MoreButton } from '@ui/components/list/ListPageParts';
 import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';

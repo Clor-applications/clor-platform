@@ -180,11 +180,8 @@ import {
 } from './features/purchase';
 const CashBankModule = lazy(() => import('./features/cashBank/CashBankModule'));
 import { AccountGroupForm } from './features/accounts/AccountGroupTypeForms';
-import { SettingsBranches } from './features/admin/SettingsBranches';
 import EInvoiceSettings from './features/admin/EInvoiceSettings';
 import { SettingsWarehouses } from './features/admin/SettingsWarehouses';
-import { SettingsUsers } from './features/admin/SettingsUsers';
-import { SettingsRoles } from './features/admin/SettingsRoles';
 import { createWarehouse, listWarehouses } from './api/admin';
 import { listBranches } from './api/admin';
 import { getMyAuthContext } from './api/auth';
@@ -198,8 +195,8 @@ import { PermissionProvider } from '@ui/permissions/PermissionContext';
 import { WriteGuard } from '@ui/permissions/WriteGuard';
 import { usePermissions } from '@ui/permissions/usePermissions';
 import { PermissionButton } from '@ui/permissions/ActionGuard';
-import RolePermissionManager from './features/admin/RolePermissionManager';
 import SettingsHub from './features/settings/SettingsHub';
+import MovedToCompanyAdmin from '@ui/company/OpenInCompanyAdmin';
 import SettingsWorkspace from './features/settings/SettingsWorkspace';
 import MasterDataWorkspace, { MASTER_DATA_KEYS } from './features/masters/MasterDataWorkspace';
 import { TcsRatesMaster } from './features/masters/TaxRateMaster';
@@ -240,7 +237,6 @@ import LedgerField from './components/pickers/LedgerField';
 import ItemForm from './features/masters/ItemForm';
 import FormSection from '@ui/components/ui/FormSection';
 import EmailSettings from './features/settings/EmailSettings';
-import SecuritySettings from './features/settings/SecuritySettings';
 import ProfileSettings from './features/settings/ProfileSettings';
 import CompanyProfileDetails from './features/settings/CompanyProfileDetails';
 import CompanyProfileForm from './features/settings/CompanyProfileForm';
@@ -265,7 +261,6 @@ const SalesBySalesman = lazy(() => import('./features/reports/SalesBySalesman'))
 const FixedAssets = lazy(() => import('./features/accounting/FixedAssets'));
 const YearEndClose = lazy(() => import('./features/accounting/YearEndClose'));
 const CostCenters = lazy(() => import('./features/accounting/CostCenters'));
-const AuditTrail = lazy(() => import('./features/audit/AuditTrail'));
 const SharedInvoice = lazy(() => import('./features/sales/SharedInvoice'));
 const BankReconciliation = lazy(() => import('./features/cashBank/BankReconciliation'));
 const BankCashAccounts = lazy(() => import('./features/cashBank/BankCashAccounts'));
@@ -274,10 +269,6 @@ const TdsModule = lazy(() => import('./features/tds/TdsModule'));
 const TdsChallanForm = lazy(() => import('./features/tds/ChallanForm'));
 const TdsSettings = lazy(() => import('./features/tds/TdsSettings'));
 const ContraForm = lazy(() => import('./features/cashBank/ContraForm'));
-const AccountOverview = lazy(() => import('./features/account/AccountOverview'));
-const BillingPreview = lazy(() => import('./features/account/BillingPreview'));
-const DataBackup = lazy(() => import('./features/account/DataBackup'));
-const SsoSettings = lazy(() => import('./features/account/SsoSettings'));
 const RecurringInvoices = lazy(() => import('./features/sales/RecurringInvoices'));
 const ImportCenter = lazy(() => import('./features/data/ImportCenter'));
 import DashboardOverview from './features/dashboard/DashboardOverview';
@@ -321,6 +312,25 @@ import { logout as platformLogout } from '@platform/auth';
 import { registerLedgerForm } from './components/pickers/ledgerFormRegistry';
 import { useDismissable } from '@ui/components/ui/useDismissable';
 import ReportsWorkspace from './features/reports/ReportsWorkspace';
+/**
+ * Settings keys that used to open Accounting's own copies of the company's
+ * administration — users, roles, sign-in, branches, the account. They live in
+ * Company admin now (ADR-010); a bookmark, a notification or a habit that
+ * still opens one is taken to the same page there. [title, Company admin screen]
+ */
+const COMPANY_ADMIN_REDIRECTS = {
+  settingsBranches: ['Branches', 'branches'],
+  settingsUsers: ['Users', 'users'],
+  settingsRoles: ['Roles', 'roles'],
+  settingsPermissions: ['Permissions', 'permissions'],
+  settingsSecurity: ['Login & security', 'security'],
+  settingsAudit: ['Audit trail', 'audit'],
+  settingsAccount: ['Account & plan', 'account'],
+  settingsBilling: ['Billing', 'billing'],
+  settingsDataBackup: ['Data export', 'export'],
+  settingsSso: ['Single sign-on', 'sso'],
+};
+
 const normalizeId = (v) => String(v ?? '').trim();
 
 /**
@@ -11438,7 +11448,6 @@ const AppShell = () => {
   const [branches, setBranches] = useState([]);
   const [branchesLoading, setBranchesLoading] = useState(false);
   const [branchesError, setBranchesError] = useState('');
-  const [branchesReloadKey, setBranchesReloadKey] = useState(0);
   // What the Companies screen should do on arrival: 'create' opens its form,
   // so "Add company" is one click rather than two screens.
   const [companiesIntent, setCompaniesIntent] = useState(null);
@@ -12157,6 +12166,8 @@ const AppShell = () => {
   const isKnownScreen = useCallback(
     (key) => {
       const want = String(key || '');
+      /* An old link to the company's administration is kept: it opens the same page in Company admin (ADR-010). */
+      if (COMPANY_ADMIN_REDIRECTS[want]) return true;
       const featureList = HUB_SCREEN_FEATURES[want] || [];
       if (HUB_SCREENS.has(want)) return featureList.every((feature) => isEnabled(feature));
       // Master Data owns its own navigation rail. Its child routes are not all
@@ -12547,7 +12558,7 @@ const AppShell = () => {
     return () => {
       cancelled = true;
     };
-  }, [isAuthenticated, currentCompany?.id, currentCompany?.profile?.backendCompanyId, activeOrgId, dbStorageKey, branchesReloadKey]);
+  }, [isAuthenticated, currentCompany?.id, currentCompany?.profile?.backendCompanyId, activeOrgId, dbStorageKey]);
 
   // Ensure we always have an active branch id (some flows don't populate backendBranchId)
   useEffect(() => {
@@ -12854,6 +12865,9 @@ const AppShell = () => {
   /* The VIEW permission behind the open screen: the write guard turns it into "may you change anything here". */
   const activePerm = useMemo(() => permForActive(navModel, active) || settingFor(active)?.perm || null, [navModel, active]);
   const page = useMemo(() => {
+    /* Company administration moved to its own workspace (ADR-010): an old key leads there, to the same page. */
+    const moved = COMPANY_ADMIN_REDIRECTS[active];
+    if (moved) return <MovedToCompanyAdmin title={moved[0]} screen={moved[1]} />;
     switch (active) {
       case 'settings':
         return (
@@ -14001,25 +14015,13 @@ const AppShell = () => {
             onOpenCustomers={() => setActive('customers')}
           />
         );
-      case 'settingsBranches': {
-        const orgId = resolveServerOrgId(currentCompany);
-        return <SettingsBranches orgId={orgId} company={currentCompany} onBranchesChanged={() => setBranchesReloadKey((k) => k + 1)} />;
-      }
       case 'settingsWarehouses': {
         const orgId = resolveServerOrgId(currentCompany);
         const branchId = localStorage.getItem('activeBranchId');
         return <SettingsWarehouses orgId={orgId} branchId={branchId} company={currentCompany} onWarehousesChanged={reloadWarehouses} />;
       }
-      case 'settingsUsers': {
-        const orgId = resolveServerOrgId(currentCompany);
-        return <SettingsUsers orgId={orgId} />;
-      }
-      case 'settingsRoles': {
-        const orgId = resolveServerOrgId(currentCompany);
-        return <SettingsRoles orgId={orgId} />;
-      }
-      case 'settingsPermissions':
-        return <RolePermissionManager />;
+      case 'companyAdmin':
+        return <MovedToCompanyAdmin title="Users, roles & security" screen="home" />;
       case 'settingsTerms':
         return <TermsSettings db={db} setDb={setDb} currentCompany={currentCompany} />;
       case 'settingsInvoiceFields':
@@ -14078,8 +14080,6 @@ const AppShell = () => {
         return <FeaturesPage onNavigate={setActive} currentCompany={currentCompany} />;
       case 'settingsEmail':
         return <EmailSettings />;
-      case 'settingsSecurity':
-        return <SecuritySettings />;
       case 'settingsGovernance':
         return <GovernanceSettings />;
       case 'settingsProfile':
@@ -14265,8 +14265,6 @@ const AppShell = () => {
         );
       case 'approvals':
         return <ApprovalsInbox currentCompany={currentCompany} />;
-      case 'settingsAudit':
-        return <AuditTrail />;
       case 'settingsPosAccounts':
         return (
           <PosPaymentAccounts
@@ -14277,26 +14275,6 @@ const AppShell = () => {
             branchLabel={branches.find((b) => String(b.id) === String(activeBranchId))?.branchName || ''}
           />
         );
-      case 'settingsAccount':
-        return (
-          <AccountOverview
-            currentCompany={currentCompany}
-            /* Clicking a company here switches to it, the same way the
-               company switcher does. */
-            onOpenCompany={(c) => {
-              const match = (db.companies || []).find(
-                (x) => String(x.serverOrgId || x.orgId || '') === String(c.orgId)
-              );
-              if (match) setDb((prev) => ({ ...prev, activeCompanyId: match.id }));
-            }}
-          />
-        );
-      case 'settingsBilling':
-        return <BillingPreview currentCompany={currentCompany} />;
-      case 'settingsDataBackup':
-        return <DataBackup currentCompany={currentCompany} />;
-      case 'settingsSso':
-        return <SsoSettings />;
       case 'bankCashAccounts': {
         /*
          * Add Account opens the ledger form itself, scoped to the bank and

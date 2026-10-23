@@ -5,7 +5,7 @@ import { PageHeader, EmptyState } from '@ui/components/ui/Primitives';
 import { formatMoney } from '@ui/utils/money';
 import { formatDateIn, localDateIso } from '@ui/utils/dates';
 import NotConnected from '@ui/components/ui/NotConnected';
-import { getAccountOverview } from '../../api/admin';
+import { getAccountOverview } from '@platform/admin/admin';
 
 /**
  * The account, above any one company.

@@ -58,7 +58,7 @@ describe('Attendance navigation structure', () => {
       ['Organization', ['Attendance Setup', 'Work Sites', 'Work Site Check']],
       ['Work Policy', ['Attendance Policy', 'Weekly Off Policy', 'Overtime Policy', 'Leave Policy', 'Holidays']],
       ['Integrations', ['Integrations']],
-      ['Access & Security', ['Single Sign-On']],
+      ['Access & Security', ['Users & Security']],
       ['Data Management', ['Data Health', 'Import Data', 'Export Data', 'Close Company']],
       ['Compliance', ['Compliance Calendar']],
       ['Privacy', ['Data Protection', 'Data Requests']],

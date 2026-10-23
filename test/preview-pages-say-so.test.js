@@ -31,6 +31,8 @@ const SRC_DIRS = [
   join(ROOT, 'apps/accounting/src'),
   join(ROOT, 'packages/ui/src'),
   join(ROOT, 'apps/payroll/src'),
+  /* Company admin (ADR-010): the account, billing and sign-in screens moved here from Accounting. */
+  join(ROOT, 'apps/admin/src'),
 ];
 const SRC = SRC_DIRS[0];
 const src = (rel) => SRC_DIRS.map((d) => join(d, rel)).find((p) => existsSync(p)) || join(SRC_DIRS[0], rel);
@@ -58,7 +60,7 @@ const jsxFiles = (dir) =>
  * rule is enforced here rather than remembered.
  */
 /* Single sign-on is wired now (OIDC and SAML, server/src/routes/sso.ts), so its screen is no longer a preview. */
-const PREVIEW_PAGES = ['features/account/BillingPreview.jsx'];
+const PREVIEW_PAGES = ['screens/BillingPreview.jsx'];
 
 describe('a page that is not wired says so', () => {
   it.each(PREVIEW_PAGES)('%s declares itself a preview', (rel) => {
@@ -88,7 +90,7 @@ describe('a page that is not wired says so', () => {
    * (active, switched off) rather than look live when it is not.
    */
   it('the single sign-on screen states each provider’s real status', () => {
-    const text = readFileSync(src('features/account/SsoSettings.jsx'), 'utf8');
+    const text = readFileSync(src('screens/SsoSettings.jsx'), 'utf8');
     expect(text).toMatch(/STATUS\[p\.status\]/);
     expect(text).toMatch(/domainVerification/);
   });

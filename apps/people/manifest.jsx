@@ -247,7 +247,7 @@ export const peopleApp = {
     { key: 'areas', label: 'Locations & Sites', icon: I.location, permission: 'PEOPLE::Org Structure::VIEW', parent: 'settings' },
     { key: 'grades', label: 'Grades', icon: I.grade, permission: 'PEOPLE::Org Structure::VIEW', parent: 'settings' },
     { key: 'costCentres', label: 'Cost Centres', icon: I.costCentre, permission: 'PEOPLE::Org Structure::VIEW', parent: 'settings' },
-    { key: 'sso', label: 'Single Sign-On', icon: I.sso, permission: 'SETTINGS::Users::VIEW', parent: 'settings' },
+    { key: 'sso', label: 'Users & Security', icon: I.sso, permission: 'SETTINGS::Users::VIEW', parent: 'settings' },
     { key: 'integrations', label: 'Integrations', icon: I.integrations, permission: 'ATTENDANCE::Attendance Integrations::VIEW', parent: 'settings' },
     { key: 'dataExport', label: 'Export Data', icon: I.export, permission: 'ATTENDANCE::Attendance Records::VIEW', parent: 'settings' },
     { key: 'recycleBin', label: 'Recycle Bin', icon: I.bin, permission: 'ATTENDANCE::Attendance Records::VIEW', parent: 'settings' },

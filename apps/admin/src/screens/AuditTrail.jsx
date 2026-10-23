@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { History, RefreshCw } from 'lucide-react';
 
 import { PageHeader, EmptyState } from '@ui/components/ui/Primitives';
-import { listAudit, listAuditFacets } from '../../api/audit';
+import { listAudit, listAuditFacets } from '@platform/admin/audit';
 
 /**
  * Who changed what, and when.
