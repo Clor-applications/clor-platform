@@ -1,0 +1,3465 @@
+ DEPRECATED  `test.poolOptions` was removed in Vitest 4. All previous `poolOptions` are now top-level options. Please, refer to the migration guide: https://vitest.dev/guide/migration#pool-rework
+
+ RUN  v4.1.10 /Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_15647", schema "accounting" at "localhost:5432"
+
+The PostgreSQL database "clor_test_15647" schema "accounting" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 1.55s
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/payroll/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_15647", schema "payroll" at "localhost:5432"
+
+The PostgreSQL database "clor_test_15647" schema "payroll" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 539ms
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/people/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_15647", schema "people" at "localhost:5432"
+
+The PostgreSQL database "clor_test_15647" schema "people" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 894ms
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/platform/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_15647", schema "platform" at "localhost:5432"
+
+The PostgreSQL database "clor_test_15647" schema "platform" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 793ms
+
+[setup] 180 policy statements applied to clor_test_15647
+[setup] 7 policy statements applied to clor_test_15647
+[setup] 10 policy statements applied to clor_test_15647
+[setup] 35 policy statements applied to clor_test_15647
+[setup] 4 policy statements applied to clor_test_15647
+[setup] 96 policy statements applied to clor_test_15647
+[setup] 4 policy statements applied to clor_test_15647
+[setup] 4 policy statements applied to clor_test_15647
+[setup] 4 policy statements applied to clor_test_15647
+[setup] 4 policy statements applied to clor_test_15647
+[setup] 32 policy statements applied to clor_test_15647
+[setup] 24 policy statements applied to clor_test_15647
+[setup] 12 policy statements applied to clor_test_15647
+[setup] 16 policy statements applied to clor_test_15647
+[setup] 4 policy statements applied to clor_test_15647
+[setup] 4 policy statements applied to clor_test_15647
+[setup] 8 policy statements applied to clor_test_15647
+[setup] 8 policy statements applied to clor_test_15647
+[setup] 20 policy statements applied to clor_test_15647
+[setup] 8 policy statements applied to clor_test_15647
+[setup] 4 policy statements applied to clor_test_15647
+[setup] 8 policy statements applied to clor_test_15647
+[setup] 8 policy statements applied to clor_test_15647
+[setup] 12 policy statements applied to clor_test_15647
+[setup] 4 policy statements applied to clor_test_15647
+[setup] 8 policy statements applied to clor_test_15647
+[setup] 28 policy statements applied to clor_test_15647
+[setup] 4 policy statements applied to clor_test_15647
+[setup] 4 policy statements applied to clor_test_15647
+[setup] 4 policy statements applied to clor_test_15647
+[setup] 8 policy statements applied to clor_test_15647
+[setup] 4 policy statements applied to clor_test_15647
+[setup] 4 policy statements applied to clor_test_15647
+[setup] 4 policy statements applied to clor_test_15647
+[setup] 4 policy statements applied to clor_test_15647
+[setup] 8 policy statements applied to clor_test_15647
+[setup] 4 policy statements applied to clor_test_15647
+[setup] 12 policy statements applied to clor_test_15647
+[setup] 4 policy statements applied to clor_test_15647
+[setup] 76 policy statements applied to clor_test_15647
+[setup] 4 policy statements applied to clor_test_15647
+[setup] 4 policy statements applied to clor_test_15647
+[setup] 4 policy statements applied to clor_test_15647
+[setup] 4 policy statements applied to clor_test_15647
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+stdout | src/__tests__/tenantIsolation.test.ts
+prisma:error 
+Invalid `platformPrisma.permission.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/permissions.ts:48:39
+
+  45 const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
+  46 for (const m of missing) {
+  47   try {
+→ 48     await platformPrisma.permission.create(
+Unique constraint failed on the fields: (`module`,`subModule`,`action`)
+
+ ❯ src/__tests__/tenantIsolation.test.ts (14 tests | 1 failed | 13 skipped) 1051ms
+     × does not open a company that account does not own 108ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/__tests__/tenantIsolation.test.ts > a membership row that names the wrong account > does not open a company that account does not own
+AssertionError: expected 200 to be 403 // Object.is equality
+
+- Expected
++ Received
+
+- 403
++ 200
+
+ ❯ src/__tests__/tenantIsolation.test.ts:142:26
+    140|     try {
+    141|       const res = await request(app).get(`/api/orgs/${alice.orgId}/inv…
+    142|       expect(res.status).toBe(403);
+       |                          ^
+    143|     } finally {
+    144|       await platformPrisma.userRoleAssignment.deleteMany({ where: { or…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 13 skipped (14)
+   Start at  16:28:14
+   Duration  16.88s (transform 1.96s, setup 30ms, import 4.26s, tests 1.05s, environment 0ms)
+

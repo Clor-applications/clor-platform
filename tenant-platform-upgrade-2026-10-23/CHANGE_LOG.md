@@ -36,9 +36,10 @@ Changed:
 - A-05 fixed: changing a person's company access needs the caller's Users EDIT in every company touched (admin where the person is admin); removal also deletes branch and warehouse grants. Application behavior changed: yes. Schema: no.
 - A-07 fixed: rate-limit buckets keyed by a hash of the whole credential instead of its first characters. Application behavior changed: yes (no shared 429s across tenants). Schema: no.
 - A-06 fixed: atomic refresh rotation with a 10-second tab-race grace (409 `refresh_raced`, client retries once), `/refresh` rate limit, atomic reset/verify token use. Application behavior changed: yes (front-end `packages/platform/http.js` retry). Schema: no.
+- A-08/A-09/A-10 fixed: 5 s session-liveness cache; membership account checked against the company; HS256 pinned, SSO token audiences, `/auth/me` echo only for member companies, 2FA turn-off needs a code (UI field added). Application behavior changed: yes. Schema: no. Batch 1 complete except the deferred signup enumeration item.
 
 Running totals for 2026-10-23:  
-Application behavior changed: yes (GAP-002, GAP-003, A-03, A-01, A-02, A-04, A-05, A-07, A-06).  
+Application behavior changed: yes (GAP-002, GAP-003, A-03, A-01, A-02, A-04, A-05, A-07, A-06, A-08, A-09, A-10).  
 Database schema changed: yes (platform `Account.legacyUnrestrictedAt`, applied locally only).  
 Deployment or Cloudflare configuration changed: no.  
 Customer data accessed: no (local test accounts only).

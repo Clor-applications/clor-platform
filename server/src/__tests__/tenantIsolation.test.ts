@@ -125,6 +125,29 @@ describe('a tenant cannot reach another tenant by asking for its org', () => {
   });
 });
 
+/*
+ * A-09: the tenant context took the account from the membership row and
+ * never checked that account owns the company. A row naming the wrong account
+ * (none is written today; the unique key would allow one) must not open it.
+ */
+describe('a membership row that names the wrong account', () => {
+  it('does not open a company that account does not own', async () => {
+    const jwt = JSON.parse(Buffer.from(mallory.token.split('.')[1], 'base64url').toString());
+    await platformPrisma.userOrgMembership.create({ data: { accountId: jwt.accountId, orgId: alice.orgId, userId: jwt.userId } });
+    await platformPrisma.userBranchMembership.create({ data: { accountId: jwt.accountId, orgId: alice.orgId, branchId: alice.branchId, userId: jwt.userId } });
+    const adminRole = await platformPrisma.role.findFirstOrThrow({ where: { orgId: alice.orgId, roleType: 'ADMIN' }, select: { id: true } });
+    await platformPrisma.userRoleAssignment.create({ data: { accountId: jwt.accountId, orgId: alice.orgId, userId: jwt.userId, roleId: adminRole.id, createdByUserId: jwt.userId } });
+    try {
+      const res = await request(app).get(`/api/orgs/${alice.orgId}/invoices`).set(headers(mallory, alice.orgId, alice.branchId));
+      expect(res.status).toBe(403);
+    } finally {
+      await platformPrisma.userRoleAssignment.deleteMany({ where: { orgId: alice.orgId, userId: jwt.userId } });
+      await platformPrisma.userBranchMembership.deleteMany({ where: { orgId: alice.orgId, userId: jwt.userId } });
+      await platformPrisma.userOrgMembership.deleteMany({ where: { orgId: alice.orgId, userId: jwt.userId } });
+    }
+  });
+});
+
 describe("a tenant cannot reach another tenant's records through its own org", () => {
   /*
    * The subtler attack, and the one a forgotten `where` actually exposes: a

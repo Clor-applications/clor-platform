@@ -463,11 +463,42 @@ securityRouter.post('/orgs/:orgId/security/two-factor/enable', ...codeLimiter, a
   res.json({ enabled: true, recoveryCodes: codes });
 });
 
+/**
+ * Spends one authenticator code or one recovery code; null when neither is
+ * good. A code works once, however many requests race with it.
+ */
+async function useSecondFactor(u: { id: string; totpSecretEnc: string | null; totpLastStep: number | null; totpRecoveryJson: string | null }, raw: string): Promise<'CODE' | 'RECOVERY' | null> {
+  const code = raw.trim();
+  if (!u.totpSecretEnc) return null;
+  const step = verifyCode(decryptSecret(u.totpSecretEnc), code, u.totpLastStep);
+  if (step != null) {
+    const won = await platformPrisma.user.updateMany({ where: { id: u.id, OR: [{ totpLastStep: null }, { totpLastStep: { lt: step } }] }, data: { totpLastStep: step } });
+    return won.count ? 'CODE' : null;
+  }
+  if (/^[A-Z2-7]{4}-?[A-Z2-7]{4}$/i.test(code)) {
+    const hashes = JSON.parse(u.totpRecoveryJson || '[]') as string[];
+    const h = hashRecovery(code);
+    if (hashes.includes(h)) {
+      await platformPrisma.user.update({ where: { id: u.id }, data: { totpRecoveryJson: JSON.stringify(hashes.filter((x) => x !== h)) } });
+      return 'RECOVERY';
+    }
+  }
+  return null;
+}
+
 securityRouter.post('/orgs/:orgId/security/two-factor/disable', ...codeLimiter, async (req, res) => {
   if (!orgOk(req, res)) return;
   const u = await me2fa(req);
   if (!u?.totpEnabledAt) return res.status(400).json({ error: 'No authenticator is set up.' });
   if (!(await bcrypt.compare(String(req.body?.password || ''), u.passwordHash))) return res.status(400).json({ error: 'Your password is not correct.', code: 'BAD_PASSWORD' });
+  /*
+   * A-10: the password alone was enough, so whoever learned it could take the
+   * second factor off and leave the account with one. Turning it off now needs
+   * the factor itself: a current code, or a recovery code if the phone is lost.
+   */
+  if (!(await useSecondFactor(u, String(req.body?.code || '')))) {
+    return res.status(400).json({ error: 'Enter a current code from your authenticator app, or one of your recovery codes.', code: 'BAD_CODE' });
+  }
   await platformPrisma.user.update({ where: { id: u.id }, data: { totpSecretEnc: null, totpEnabledAt: null, totpLastStep: null, totpRecoveryJson: null } });
   await recordAuthEvent({ accountId: req.tenant!.accountId, userId: u.id, eventType: 'TWO_FACTOR_DISABLED', ip: clientIp(req) });
   res.json({ enabled: false });
@@ -478,21 +509,7 @@ securityRouter.post('/orgs/:orgId/security/step-up', ...codeLimiter, async (req,
   if (!orgOk(req, res)) return;
   const u = await me2fa(req);
   if (!u?.totpEnabledAt || !u.totpSecretEnc) return res.status(400).json({ error: 'Set up an authenticator app first.', code: 'TWO_FACTOR_SETUP_REQUIRED' });
-  const code = String(req.body?.code || '').trim();
-  let used: 'CODE' | 'RECOVERY' | null = null;
-  const step = verifyCode(decryptSecret(u.totpSecretEnc), code, u.totpLastStep);
-  if (step != null) {
-    /* Only if no other request used this step in the meantime: a code works once. */
-    const won = await platformPrisma.user.updateMany({ where: { id: u.id, OR: [{ totpLastStep: null }, { totpLastStep: { lt: step } }] }, data: { totpLastStep: step } });
-    if (won.count) used = 'CODE';
-  } else if (/^[A-Z2-7]{4}-?[A-Z2-7]{4}$/i.test(code)) {
-    const hashes = JSON.parse(u.totpRecoveryJson || '[]') as string[];
-    const h = hashRecovery(code);
-    if (hashes.includes(h)) {
-      await platformPrisma.user.update({ where: { id: u.id }, data: { totpRecoveryJson: JSON.stringify(hashes.filter((x) => x !== h)) } });
-      used = 'RECOVERY';
-    }
-  }
+  const used = await useSecondFactor(u, String(req.body?.code || ''));
   if (!used) {
     await recordAuthEvent({ accountId: req.tenant!.accountId, userId: u.id, eventType: 'STEP_UP_FAILED', ip: clientIp(req) });
     return res.status(400).json({ error: 'That code is not right, or has been used. Wait for the next one.', code: 'BAD_CODE' });

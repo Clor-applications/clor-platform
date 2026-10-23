@@ -101,12 +101,12 @@ describe('owners and admins must use two-factor sign-in', () => {
 
   it('leaves an admin without an authenticator only their own set-up', async () => {
     const c = await makeOwner();
-    await enable2fa(c);
+    const { recovery } = await enable2fa(c);
     const policy = (await request(app).get(`/api/orgs/${c.orgId}/security/policy`).set(at(c)).expect(200)).body.policy;
     await request(app).put(`/api/orgs/${c.orgId}/security/policy`).set(at(c)).send({ ...policy, requireAdminTwoFactor: true }).expect(200);
 
-    /* The owner turns their authenticator off: now an admin without one, under the rule. */
-    await sec(c, '/two-factor/disable', { password: PASSWORD }).expect(200);
+    /* The owner turns their authenticator off (password and a recovery code, A-10): now an admin without one, under the rule. */
+    await sec(c, '/two-factor/disable', { password: PASSWORD, code: recovery[0] }).expect(200);
 
     const blocked = await request(app).get(`/api/orgs/${c.orgId}/warehouses`).set(at(c));
     expect(blocked.status).toBe(403);

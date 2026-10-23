@@ -97,6 +97,14 @@ async function resolveTenant(userId: string, orgId: string, branchId: string, wa
   // The owning account, established by the membership that just authorised it.
   const accountId = orgMember.accountId;
 
+  /*
+   * A-09: and checked against the company itself. A membership row naming the
+   * wrong account (nothing writes one today; the unique key would allow it)
+   * would otherwise carry its account into every check that follows.
+   */
+  const owner = await platformPrisma.org.findUnique({ where: { id: orgId }, select: { accountId: true } });
+  if (!owner || owner.accountId !== accountId) return { status: 403, error: 'No access to org' };
+
   let branchMember = await platformPrisma.userBranchMembership.findFirst({
     where: { accountId, orgId, branchId, userId },
     select: { id: true },

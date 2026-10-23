@@ -123,7 +123,9 @@ describe('step-up for payroll', () => {
     const run = await runInReview(other);
     expect((await run.approve({ 'x-step-up': token }).expect(403)).body.code).toBe('STEP_UP_REQUIRED');
 
-    await sec(c, '/two-factor/disable', { password: 'wrong' }).expect(400);
-    await sec(c, '/two-factor/disable', { password: 'Passw0rd!23' }).expect(200);
+    await sec(c, '/two-factor/disable', { password: 'wrong', code: recoveryCodes[1] }).expect(400);
+    /* A-10: the password alone no longer takes the second factor off. */
+    expect((await sec(c, '/two-factor/disable', { password: 'Passw0rd!23' }).expect(400)).body.code).toBe('BAD_CODE');
+    await sec(c, '/two-factor/disable', { password: 'Passw0rd!23', code: recoveryCodes[1] }).expect(200);
   });
 });

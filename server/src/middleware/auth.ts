@@ -38,6 +38,9 @@ declare module 'express-serve-static-core' {
  * one per request — users and sessions live in the platform database, whose
  * pool is small.
  */
+/** The longest a session's "still signed in" answer is reused on one instance (A-08). */
+export const SESSION_LIVENESS_TTL_MS = 5_000;
+
 export async function requireAuth(req: Request, res: Response, next: NextFunction) {
   const header = String(req.headers.authorization || '').trim();
   const token = header.startsWith('Bearer ') ? header.slice('Bearer '.length).trim() : '';
@@ -52,6 +55,8 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
     const payload = jwt.verify(token, secret, {
       issuer: process.env.JWT_ISSUER || 'accounting',
       audience: process.env.JWT_AUDIENCE || 'accounting-web',
+      /* Only the algorithm CLOR signs with (A-10). */
+      algorithms: ['HS256'],
     }) as any;
 
     userId = String(payload?.userId || '').trim();
@@ -76,7 +81,13 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
         }
       }
       return 'ok' as const;
-    });
+      /*
+       * A-08: this cache lives in each API instance and only the instance that
+       * handled a sign-out clears it, so a revoked session or a switched-off
+       * person kept working for up to 30 s on the others. Liveness is held for
+       * at most 5 s; the heavier permission answers keep the longer cache.
+       */
+    }, undefined, SESSION_LIVENESS_TTL_MS);
     if (state === 'inactive') return res.status(401).json({ error: 'This account is no longer active', code: 'inactive' });
     if (state === 'ended') {
       return res.status(401).json({ error: 'This session has ended. Please sign in again.', code: 'session_ended' });

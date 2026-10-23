@@ -29,7 +29,7 @@ function validFor(req: Request) {
   const raw = String(req.headers['x-step-up'] || '').trim();
   if (!raw) return false;
   try {
-    const p = jwt.verify(raw, getJwtSecret(), { issuer: issuer(), audience: AUDIENCE }) as any;
+    const p = jwt.verify(raw, getJwtSecret(), { issuer: issuer(), audience: AUDIENCE, algorithms: ['HS256'] }) as any;
     return p?.typ === 'stepup' && p.userId === req.auth?.userId && (!p.sid || !req.auth?.sessionId || p.sid === req.auth.sessionId);
   } catch {
     return false;

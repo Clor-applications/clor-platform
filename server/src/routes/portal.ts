@@ -165,7 +165,7 @@ async function authenticate(req: Request, res: Response, next: NextFunction) {
   if (!token) return res.status(401).json({ error: 'Sign in first.', code: 'PORTAL_SIGNIN' });
   let claims: any;
   try {
-    claims = jwt.verify(token, secret(), { issuer: ISSUER(), audience: AUDIENCE });
+    claims = jwt.verify(token, secret(), { issuer: ISSUER(), audience: AUDIENCE, algorithms: ['HS256'] });
   } catch {
     return res.status(401).json({ error: 'Please sign in again.', code: 'PORTAL_SIGNIN' });
   }

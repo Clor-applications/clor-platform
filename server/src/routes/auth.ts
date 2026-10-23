@@ -291,7 +291,7 @@ authRouter.post('/login/two-factor', ...codeLimiter, async (req: Request, res: R
   const userAgent = req.headers['user-agent'] as string | undefined;
   let claims: any;
   try {
-    claims = jwt.verify(String(req.body?.challenge || ''), getJwtSecret(), { audience: LOGIN_2FA_AUDIENCE });
+    claims = jwt.verify(String(req.body?.challenge || ''), getJwtSecret(), { audience: LOGIN_2FA_AUDIENCE, algorithms: ['HS256'] });
   } catch {
     return res.status(401).json({ error: 'That sign-in took too long. Enter your password again.', code: 'CHALLENGE_EXPIRED' });
   }
@@ -576,7 +576,8 @@ authRouter.get('/me', requireLiveAuth, async (req: Request, res: Response) => {
         profile: orgProfile(m.org.profileJson),
       },
     })),
-    activeOrgId: activeOrgId || null,
+    /* Only a company this person is in: the header is an echo, not a fact (A-10). */
+    activeOrgId: activeMembership ? activeOrgId : null,
     isOrgAdmin,
     allowedBranchIds,
     twoFactorSetupRequired,

@@ -10,12 +10,13 @@ const opts = { skipWarehouseHeader: true };
 const getTwoFactor = () => apiFetch(`${base()}/two-factor`, opts);
 const startTwoFactor = () => apiFetch(`${base()}/two-factor/setup`, { method: 'POST', ...opts });
 const enableTwoFactor = (code) => apiFetch(`${base()}/two-factor/enable`, { method: 'POST', body: { code }, ...opts });
-const disableTwoFactor = (password) => apiFetch(`${base()}/two-factor/disable`, { method: 'POST', body: { password }, ...opts });
+const disableTwoFactor = (password, code) => apiFetch(`${base()}/two-factor/disable`, { method: 'POST', body: { password, code }, ...opts });
 
 /**
  * The signed-in person's authenticator app: set up by scanning a QR code and
  * typing a code from it, shown recovery codes once, turned off with their
- * password. Where the company asks (Policy), payroll approvals need a code.
+ * password and a current code (or a recovery code) — a password alone could
+ * otherwise strip the second factor. Where the company asks (Policy), payroll approvals need a code.
  */
 export default function AuthenticatorCard() {
   const [state, setState] = useState(null);
@@ -24,6 +25,7 @@ export default function AuthenticatorCard() {
   const [code, setCode] = useState('');
   const [codes, setCodes] = useState(null);
   const [password, setPassword] = useState('');
+  const [offCode, setOffCode] = useState('');
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState(null);
 
@@ -62,8 +64,9 @@ export default function AuthenticatorCard() {
   const turnOff = (e) => {
     e.preventDefault();
     act(async () => {
-      await disableTwoFactor(password);
+      await disableTwoFactor(password, offCode.trim());
       setPassword('');
+      setOffCode('');
       setCodes(null);
       setNote({ ok: true, text: 'Authenticator turned off.' });
       load();
@@ -96,8 +99,9 @@ export default function AuthenticatorCard() {
       {state.enabled ? (
         <form onSubmit={turnOff} className="flex flex-wrap items-end gap-2">
           <span className="ui-caption w-full">Set up {new Date(state.enabledAt).toLocaleDateString()} · {state.recoveryCodesLeft} recovery codes left.</span>
-          <input type="password" className="ui-input" placeholder="Your password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
-          <button type="submit" className="ui-btn ui-btn-secondary" disabled={busy || !password}>Turn off</button>
+          <input type="password" className="ui-input" placeholder="Your password" aria-label="Your password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+          <input className="ui-input ui-num w-44 text-center tracking-widest" inputMode="text" autoComplete="one-time-code" maxLength={9} placeholder="Code or recovery code" aria-label="Code from the app, or a recovery code" value={offCode} onChange={(e) => setOffCode(e.target.value)} required />
+          <button type="submit" className="ui-btn ui-btn-secondary" disabled={busy || !password || !offCode.trim()}>Turn off</button>
         </form>
       ) : setup ? (
         <form onSubmit={confirm} className="flex flex-wrap items-start gap-4">

@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import request from 'supertest';
+import jwt from 'jsonwebtoken';
 import { buildApp } from '../app.js';
 import { platformPrisma } from '../utils/platformPrisma.js';
 import { safeUrl } from '../utils/safeUrl.js';
@@ -217,6 +218,29 @@ describe('adding a company', () => {
   });
 });
 
+/* A-10: smaller identity checks. */
+describe('token and echo hygiene', () => {
+  it('refuses an access token signed with another algorithm, even with the right secret', async () => {
+    const c = await owner('Alg Co');
+    const claims = jwt.decode(c.token) as any;
+    const forged = jwt.sign({ userId: claims.userId, accountId: claims.accountId, sid: claims.sid }, process.env.JWT_SECRET || 'dev-secret', {
+      algorithm: 'HS512',
+      issuer: process.env.JWT_ISSUER || 'accounting',
+      audience: process.env.JWT_AUDIENCE || 'accounting-web',
+    });
+    await request(app).get('/api/auth/me').set('Authorization', `Bearer ${forged}`).expect(401);
+  });
+
+  it('does not echo a company the person is not in as their active one', async () => {
+    const a = await owner('Echo A');
+    const b = await owner('Echo B');
+    const me = await request(app).get('/api/auth/me').set({ Authorization: `Bearer ${a.token}`, 'x-org-id': b.orgId }).expect(200);
+    expect(me.body.activeOrgId).toBeNull();
+    const own = await request(app).get('/api/auth/me').set({ Authorization: `Bearer ${a.token}`, 'x-org-id': a.orgId }).expect(200);
+    expect(own.body.activeOrgId).toBe(a.orgId);
+  });
+});
+
 describe('an access token', () => {
   it('stops working once its session is signed out', async () => {
     const c = await owner('Signout Co');
@@ -228,6 +252,31 @@ describe('an access token', () => {
     const after = await request(app).get(`/api/orgs/${c.orgId}/warehouses`).set(as).expect(401);
     expect(after.body.code).toBe('session_ended');
   });
+
+  /*
+   * A-08: the "still signed in?" answer was cached 30 s per instance and only
+   * the instance that handled the sign-out cleared it. A revoke written
+   * elsewhere (another instance) must bite within seconds, not half a minute.
+   */
+  it('stops working within seconds when another instance ends its session', async () => {
+    const saved = process.env.ACCESS_CACHE_TTL_MS;
+    process.env.ACCESS_CACHE_TTL_MS = '30000';
+    try {
+      const c = await owner('Other Instance Co');
+      const s = await login(c.email).expect(200);
+      const as = { ...auth(c), Authorization: `Bearer ${s.body.token}` };
+      await request(app).get(`/api/orgs/${c.orgId}/warehouses`).set(as).expect(200);
+      const u = await platformPrisma.user.findFirstOrThrow({ where: { email: c.email }, select: { id: true } });
+      // Written straight to the database, as another API instance's sign-out would be: this instance's cache is not told.
+      await platformPrisma.session.updateMany({ where: { revokedAt: null, userId: u.id }, data: { revokedAt: new Date() } });
+      await new Promise((r) => setTimeout(r, 5_500));
+      const after = await request(app).get(`/api/orgs/${c.orgId}/warehouses`).set(as);
+      expect(after.status).toBe(401);
+    } finally {
+      if (saved === undefined) delete process.env.ACCESS_CACHE_TTL_MS;
+      else process.env.ACCESS_CACHE_TTL_MS = saved;
+    }
+  }, 30_000);
 
   it('stops working once the person is deactivated', async () => {
     const c = await owner('Inactive Co');
