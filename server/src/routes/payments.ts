@@ -4,7 +4,7 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '../utils/prisma.js';
 import { requireAuth } from '../middleware/auth.js';
 import { requireTenantContext } from '../middleware/tenantContext.js';
-import { authorize } from '../middleware/rbac.js';
+import { authorize, requireAnyPermission } from '../middleware/rbac.js';
 import { ownDocsWhere } from '../services/access.js';
 import { PermissionAction } from '../constants/enums.js';
 import { ensureLedgerSetup, postEntry, reverseEntry } from '../services/ledger.js';
@@ -90,7 +90,22 @@ const normalize = (row: any) => ({
 const permsFor = (direction: string) => (direction === 'RECEIPT' ? RECEIPT : PAYMENT);
 
 /** The cash and bank ledgers a payment may be made through. */
-paymentsRouter.get('/orgs/:orgId/payment-modes', async (req, res) => {
+/*
+ * The company's cash and bank accounts, offered wherever money is taken or
+ * paid. It used to answer anybody signed in (A-22); now whoever takes or pays
+ * money, or keeps the cash book.
+ */
+paymentsRouter.get(
+  '/orgs/:orgId/payment-modes',
+  requireAnyPermission(
+    ['SALES', PermissionAction.CREATE, 'Receipts'],
+    ['SALES', PermissionAction.CREATE, 'Invoices'],
+    ['PURCHASE', PermissionAction.CREATE, 'Payments'],
+    ['PURCHASE', PermissionAction.CREATE, 'Bills'],
+    ['EXPENSES', PermissionAction.CREATE, 'Expenses'],
+    ['CASHBANK', PermissionAction.VIEW, 'Cash & Bank'],
+  ),
+  async (req, res) => {
   if (!orgOk(req, res)) return;
   const { accountId, orgId, branchId } = req.tenant!;
   await ensureLedgerSetup(accountId, orgId, req.auth!.userId);

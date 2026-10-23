@@ -51,9 +51,10 @@ Changed:
 - A-19 fixed: role grants, role and profile edits are bounded by what the caller holds where the grant applies (company-wide unless the assignment is for one branch); non-administrators cannot change their own roles or profiles. Application behavior changed: yes. Schema: no.
 - A-20 fixed: non-administrators cannot change their own record restrictions or the own-documents-only flag of a role they hold, and cannot restrict an administrator. Application behavior changed: yes. Schema: no.
 - A-21 fixed: closing a company (and cancelling it) needs a company-wide administrator rather than the creator, and asking to close needs a fresh authenticator code. Application behavior changed: yes (an administrator without an authenticator must set one up before closing). Schema: no.
+- A-22 fixed: the subscription plan (with gateway ids removed) is shown only to whoever may view the company profile; the next-number preview needs the right to raise that document type and refuses unknown types; payment modes need a money-handling permission. Application behavior changed: yes. Schema: no.
 
 Running totals for 2026-10-23:  
-Application behavior changed: yes (GAP-002, GAP-003, A-03, A-01, A-02, A-04, A-05, A-07, A-06, A-08, A-09, A-10, A-11, A-12, A-13, A-14, A-15, A-16, A-17, A-18, A-19, A-20, A-21).  
+Application behavior changed: yes (GAP-002, GAP-003, A-03, A-01, A-02, A-04, A-05, A-07, A-06, A-08, A-09, A-10, A-11, A-12, A-13, A-14, A-15, A-16, A-17, A-18, A-19, A-20, A-21, A-22).  
 Database schema changed: yes (platform `Account.legacyUnrestrictedAt`; platform `AuthPolicy.makerChecker`; applied locally only).  
 Deployment or Cloudflare configuration changed: no.  
 Customer data accessed: no (local test accounts only).

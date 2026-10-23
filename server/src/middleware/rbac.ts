@@ -147,6 +147,35 @@ export async function authorize(
   return null;
 }
 
+/**
+ * Allowed when any one of these permissions is held — for a route several
+ * screens share, like the payment modes a receipt, a bill payment and an
+ * expense all offer (A-22). Refused with the first refusal that is not a plain
+ * "permission denied" (an app not bought, no roles), else with the whole list.
+ */
+export async function authorizeAny(req: Request, options: Array<[string, PermissionActionType, string?]>): Promise<Refusal | null> {
+  let other: Refusal | null = null;
+  for (const [m, a, sm] of options) {
+    const refusal = await authorize(req, m, a, sm);
+    if (!refusal) return null;
+    if (refusal.status !== 403 || !refusal.body.permission) other ??= refusal;
+  }
+  return (
+    other || {
+      status: 403,
+      body: { error: 'Permission denied', anyOf: options.map(([module, action, subModule]) => ({ module, subModule: subModule || null, action })) },
+    }
+  );
+}
+
+export function requireAnyPermission(...options: Array<[string, PermissionActionType, string?]>) {
+  return async (req: Request, res: Response, next: NextFunction) => {
+    const refusal = await authorizeAny(req, options);
+    if (refusal) return res.status(refusal.status).json(refusal.body);
+    next();
+  };
+}
+
 export function requirePermission(module: string, action: PermissionActionType, subModule?: string) {
   return async (req: Request, res: Response, next: NextFunction) => {
     const refusal = await authorize(req, module, action, subModule);

@@ -45,6 +45,7 @@ Updated: 2026-10-23
 | EV-039 | A-19: grants bounded by authority where they apply; nobody changes their own access | `grantScope.test.ts`; `evidence/A-19/before-fix.txt` (6 fail), `after-fix.txt` (20 role/permission suites, 212 tests); `browser-check.md`, `browser-branch-manager-refused.jpg` |
 | EV-040 | A-20: record restrictions and own-documents-only cannot be lifted by the person they bind; admins restricted only by admins | `recordRestrictions.test.ts`; `evidence/A-20/before-fix.txt` (3 fail), `after-fix.txt` (21 suites, 216 tests, A-19 and A-20 together); `browser-check.md`, two screenshots |
 | EV-041 | A-21: closure by company-wide administrator with a fresh authenticator code | `companyClosure.test.ts`; `evidence/A-21/before-fix.txt` (4 fail), `after-fix.txt` (closure, operator, principal, export suites: 32 tests); `browser-check.md`, two screenshots |
+| EV-042 | A-22: subscription plan, next number and payment modes need a permission | `unguardedReads.test.ts`; `evidence/A-22/before-fix.txt` (5 fail), `after-fix.txt` (6 suites, 61 tests); `browser-check.md` |
 
 ## Evidence quality note
 

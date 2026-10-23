@@ -3,6 +3,8 @@ import { z } from 'zod';
 import { requireAuth } from '../middleware/auth.js';
 import { requireTenantContext } from '../middleware/tenantContext.js';
 import { requireOperator } from '../middleware/operator.js';
+import { authorize } from '../middleware/rbac.js';
+import { PermissionAction } from '../constants/enums.js';
 import { platformPrisma } from '../utils/platformPrisma.js';
 import { APP_CATALOG } from '../constants/appCatalog.js';
 import { PLAN_CATALOG } from '../constants/planCatalog.js';
@@ -98,7 +100,15 @@ billingRouter.get('/billing/catalog', (_req, res) => {
 billingRouter.get('/billing/subscription', async (req, res) => {
   const accountId = req.tenant!.accountId;
   const [sub, access] = await Promise.all([getSubscription(accountId), appAccess(accountId)]);
-  res.json({ subscription: sub, ...access, subscribedApps: access.entitledApps });
+  /*
+   * Everybody's shell needs which apps the account has and its standing. The
+   * plan itself — line items, amounts, the payment gateway's customer and
+   * subscription ids — is for whoever looks after the account (A-22), and the
+   * gateway ids are for nobody's browser.
+   */
+  const mayViewPlan = !(await authorize(req, 'SETTINGS', PermissionAction.VIEW, 'Company Profile'));
+  const plan = mayViewPlan && sub ? (({ gatewayCustomerId: _c, gatewaySubscriptionId: _s, ...rest }) => rest)(sub) : null;
+  res.json({ subscription: plan, ...access, subscribedApps: access.entitledApps });
 });
 
 /**

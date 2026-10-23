@@ -1,0 +1,272 @@
+ DEPRECATED  `test.poolOptions` was removed in Vitest 4. All previous `poolOptions` are now top-level options. Please, refer to the migration guide: https://vitest.dev/guide/migration#pool-rework
+
+ RUN  v4.1.10 /Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_99262", schema "accounting" at "localhost:5432"
+
+The PostgreSQL database "clor_test_99262" schema "accounting" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 546ms
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/payroll/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_99262", schema "payroll" at "localhost:5432"
+
+The PostgreSQL database "clor_test_99262" schema "payroll" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 304ms
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/people/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_99262", schema "people" at "localhost:5432"
+
+The PostgreSQL database "clor_test_99262" schema "people" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 453ms
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/platform/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_99262", schema "platform" at "localhost:5432"
+
+The PostgreSQL database "clor_test_99262" schema "platform" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 453ms
+
+[setup] 180 policy statements applied to clor_test_99262
+[setup] 7 policy statements applied to clor_test_99262
+[setup] 10 policy statements applied to clor_test_99262
+[setup] 35 policy statements applied to clor_test_99262
+[setup] 4 policy statements applied to clor_test_99262
+[setup] 96 policy statements applied to clor_test_99262
+[setup] 4 policy statements applied to clor_test_99262
+[setup] 4 policy statements applied to clor_test_99262
+[setup] 4 policy statements applied to clor_test_99262
+[setup] 4 policy statements applied to clor_test_99262
+[setup] 32 policy statements applied to clor_test_99262
+[setup] 24 policy statements applied to clor_test_99262
+[setup] 12 policy statements applied to clor_test_99262
+[setup] 16 policy statements applied to clor_test_99262
+[setup] 4 policy statements applied to clor_test_99262
+[setup] 4 policy statements applied to clor_test_99262
+[setup] 8 policy statements applied to clor_test_99262
+[setup] 8 policy statements applied to clor_test_99262
+[setup] 20 policy statements applied to clor_test_99262
+[setup] 8 policy statements applied to clor_test_99262
+[setup] 4 policy statements applied to clor_test_99262
+[setup] 8 policy statements applied to clor_test_99262
+[setup] 8 policy statements applied to clor_test_99262
+[setup] 12 policy statements applied to clor_test_99262
+[setup] 4 policy statements applied to clor_test_99262
+[setup] 8 policy statements applied to clor_test_99262
+[setup] 28 policy statements applied to clor_test_99262
+[setup] 4 policy statements applied to clor_test_99262
+[setup] 4 policy statements applied to clor_test_99262
+[setup] 4 policy statements applied to clor_test_99262
+[setup] 8 policy statements applied to clor_test_99262
+[setup] 4 policy statements applied to clor_test_99262
+[setup] 4 policy statements applied to clor_test_99262
+[setup] 4 policy statements applied to clor_test_99262
+[setup] 4 policy statements applied to clor_test_99262
+[setup] 8 policy statements applied to clor_test_99262
+[setup] 4 policy statements applied to clor_test_99262
+[setup] 12 policy statements applied to clor_test_99262
+[setup] 4 policy statements applied to clor_test_99262
+[setup] 76 policy statements applied to clor_test_99262
+[setup] 4 policy statements applied to clor_test_99262
+[setup] 4 policy statements applied to clor_test_99262
+[setup] 4 policy statements applied to clor_test_99262
+[setup] 4 policy statements applied to clor_test_99262
+POST /api/auth/signup 200 576 - 110.543 ms
+POST /api/auth/setup-company 200 198 - 255.681 ms
+POST /api/orgs/cmvlaeip9000el9p6mmsclapf/roles 201 358 - 45.806 ms
+PUT /api/orgs/cmvlaeip9000el9p6mmsclapf/roles/cmvlaeix600qbl9p6obn64oxg/permissions 200 23 - 150.015 ms
+POST /api/users 201 149 - 181.102 ms
+PUT /api/orgs/cmvlaeip9000el9p6mmsclapf/users/cmvlaej3m00qil9p69vr39cum/role 200 11 - 31.568 ms
+POST /api/auth/login 200 773 - 7.018 ms
+POST /api/orgs/cmvlaeip9000el9p6mmsclapf/roles 201 358 - 22.567 ms
+PUT /api/orgs/cmvlaeip9000el9p6mmsclapf/roles/cmvlaej8700qxl9p69riq2yt3/permissions 200 23 - 149.752 ms
+POST /api/users 201 149 - 26.432 ms
+PUT /api/orgs/cmvlaeip9000el9p6mmsclapf/users/cmvlaejd400r6l9p6372fb5t4/role 200 11 - 23.948 ms
+POST /api/auth/login 200 773 - 4.000 ms
+GET /api/billing/subscription 200 1662 - 98.820 ms
+GET /api/billing/subscription 200 1662 - 96.913 ms
+GET /api/orgs/cmvlaeip9000el9p6mmsclapf/number-series/next/INVOICE 200 86 - 146.380 ms
+GET /api/orgs/cmvlaeip9000el9p6mmsclapf/number-series/next/NOT_A_DOCUMENT 200 86 - 131.744 ms
+GET /api/orgs/cmvlaeip9000el9p6mmsclapf/payment-modes 200 12 - 181.087 ms
+ ❯ src/__tests__/unguardedReads.test.ts (5 tests | 5 failed) 1706ms
+     × tells every member which apps the account has, but not the plan 102ms
+     × shows the plan to whoever looks after the account, without the gateway ids 99ms
+     × is refused to somebody who cannot raise that document 148ms
+     × makes no numbering series for a document type that does not exist 134ms
+     × are for whoever takes or pays money, not every member 182ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 5 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/__tests__/unguardedReads.test.ts > the subscription > tells every member which apps the account has, but not the plan
+AssertionError: expected { …(15) } to be null
+
+- Expected:
+null
+
++ Received:
+{
+  "accountId": "cmvlaeimf0001l9p6zlzicvx7",
+  "billingInterval": null,
+  "cancelAtPeriodEnd": false,
+  "createdAt": "2026-10-23T18:12:05.708Z",
+  "currency": "INR",
+  "currentPeriodEnd": null,
+  "currentPeriodStart": null,
+  "gatewayCustomerId": null,
+  "gatewayName": null,
+  "gatewaySubscriptionId": null,
+  "id": "cmvlaeimj0002l9p66dypw003",
+  "items": [
+    {
+      "appCode": "accounting",
+      "createdAt": "2026-10-23T18:12:05.708Z",
+      "id": "cmvlaeimj0003l9p6siouopfn",
+      "priceModel": "free",
+      "seats": null,
+      "subscriptionId": "cmvlaeimj0002l9p66dypw003",
+      "tier": "FULL",
+      "unitAmount": null,
+      "updatedAt": "2026-10-23T18:12:05.708Z",
+    },
+    {
+      "appCode": "payroll",
+      "createdAt": "2026-10-23T18:12:05.708Z",
+      "id": "cmvlaeimj0004l9p6k0b4vonp",
+      "priceModel": "free",
+      "seats": null,
+      "subscriptionId": "cmvlaeimj0002l9p66dypw003",
+      "tier": null,
+      "unitAmount": null,
+      "updatedAt": "2026-10-23T18:12:05.708Z",
+    },
+    {
+      "appCode": "attendance",
+      "createdAt": "2026-10-23T18:12:05.708Z",
+      "id": "cmvlaeimj0005l9p6kxi89z90",
+      "priceModel": "free",
+      "seats": null,
+      "subscriptionId": "cmvlaeimj0002l9p66dypw003",
+      "tier": null,
+      "unitAmount": null,
+      "updatedAt": "2026-10-23T18:12:05.708Z",
+    },
+    {
+      "appCode": "people",
+      "createdAt": "2026-10-23T18:12:05.708Z",
+      "id": "cmvlaeimj0006l9p6kcx5zndy",
+      "priceModel": "free",
+      "seats": null,
+      "subscriptionId": "cmvlaeimj0002l9p66dypw003",
+      "tier": null,
+      "unitAmount": null,
+      "updatedAt": "2026-10-23T18:12:05.708Z",
+    },
+  ],
+  "status": "active",
+  "trialEndsAt": null,
+  "updatedAt": "2026-10-23T18:12:05.708Z",
+}
+
+ ❯ src/__tests__/unguardedReads.test.ts:51:35
+     49|     const res = await request(app).get('/api/billing/subscription').se…
+     50|     expect(Array.isArray(res.body.ownedApps)).toBe(true);
+     51|     expect(res.body.subscription).toBeNull();
+       |                                   ^
+     52|   });
+     53|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/5]⎯
+
+ FAIL  src/__tests__/unguardedReads.test.ts > the subscription > shows the plan to whoever looks after the account, without the gateway ids
+AssertionError: expected { …(15) } to not have property "gatewayCustomerId"
+
+- Expected:
+undefined
+
++ Received:
+null
+
+ ❯ src/__tests__/unguardedReads.test.ts:57:39
+     55|     const res = await request(app).get('/api/billing/subscription').se…
+     56|     expect(res.body.subscription).toBeTruthy();
+     57|     expect(res.body.subscription).not.toHaveProperty('gatewayCustomerI…
+       |                                       ^
+     58|     expect(res.body.subscription).not.toHaveProperty('gatewaySubscript…
+     59|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/5]⎯
+
+ FAIL  src/__tests__/unguardedReads.test.ts > the next document number > is refused to somebody who cannot raise that document
+Error: expected 403 "Forbidden", got 200 "OK"
+ ❯ src/__tests__/unguardedReads.test.ts:64:102
+     62| describe('the next document number', () => {
+     63|   it('is refused to somebody who cannot raise that document', async ()…
+     64|     await request(app).get(`/api/orgs/${owner.orgId}/number-series/nex…
+       |                                                                                                      ^
+     65|     await request(app).get(`/api/orgs/${owner.orgId}/number-series/nex…
+     66|     await request(app).get(`/api/orgs/${owner.orgId}/number-series/nex…
+ ❯ Test._assertStatus ../../../../server/node_modules/supertest/lib/test.js:309:14
+ ❯ ../../../../server/node_modules/supertest/lib/test.js:365:13
+ ❯ Test._assertFunction ../../../../server/node_modules/supertest/lib/test.js:342:13
+ ❯ Test.assert ../../../../server/node_modules/supertest/lib/test.js:195:23
+ ❯ localAssert ../../../../server/node_modules/supertest/lib/test.js:138:14
+ ❯ ../../../../server/node_modules/supertest/lib/test.js:156:7
+ ❯ fn ../../../../server/node_modules/superagent/src/node/index.js:892:11
+ ❯ callback ../../../../server/node_modules/superagent/src/node/index.js:1183:17
+ ❯ fn ../../../../server/node_modules/superagent/src/node/parsers/json.js:19:6
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/5]⎯
+
+ FAIL  src/__tests__/unguardedReads.test.ts > the next document number > makes no numbering series for a document type that does not exist
+AssertionError: expected 200 to be 400 // Object.is equality
+
+- Expected
++ Received
+
+- 400
++ 200
+
+ ❯ src/__tests__/unguardedReads.test.ts:72:24
+     70|   it('makes no numbering series for a document type that does not exis…
+     71|     const res = await request(app).get(`/api/orgs/${owner.orgId}/numbe…
+     72|     expect(res.status).toBe(400);
+       |                        ^
+     73|     const rows = await runInTenant(owner.orgId, () => prisma.numberSer…
+     74|     expect(rows).toBe(0);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/5]⎯
+
+ FAIL  src/__tests__/unguardedReads.test.ts > the payment modes > are for whoever takes or pays money, not every member
+Error: expected 403 "Forbidden", got 200 "OK"
+ ❯ src/__tests__/unguardedReads.test.ts:80:89
+     78| describe('the payment modes', () => {
+     79|   it('are for whoever takes or pays money, not every member', async ()…
+     80|     await request(app).get(`/api/orgs/${owner.orgId}/payment-modes`).s…
+       |                                                                                         ^
+     81|     await request(app).get(`/api/orgs/${owner.orgId}/payment-modes`).s…
+     82|   });
+ ❯ Test._assertStatus ../../../../server/node_modules/supertest/lib/test.js:309:14
+ ❯ ../../../../server/node_modules/supertest/lib/test.js:365:13
+ ❯ Test._assertFunction ../../../../server/node_modules/supertest/lib/test.js:342:13
+ ❯ Test.assert ../../../../server/node_modules/supertest/lib/test.js:195:23
+ ❯ localAssert ../../../../server/node_modules/supertest/lib/test.js:138:14
+ ❯ ../../../../server/node_modules/supertest/lib/test.js:156:7
+ ❯ fn ../../../../server/node_modules/superagent/src/node/index.js:892:11
+ ❯ callback ../../../../server/node_modules/superagent/src/node/index.js:1183:17
+ ❯ fn ../../../../server/node_modules/superagent/src/node/parsers/json.js:19:6
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/5]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  5 failed (5)
+   Start at  23:41:51
+   Duration  15.82s (transform 2.45s, setup 30ms, import 4.68s, tests 1.71s, environment 0ms)
+
