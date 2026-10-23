@@ -12,7 +12,7 @@ Status values: `TODO` · `IN PROGRESS` · `DONE` · `LIVE` (needs production acc
 
 | ID | Fix | Test | Browser | Evidence | Status |
 |---|---|---|---|---|---|
-| GAP-002 | Accounting plan intersected with ownership; RBAC returns 402 for unowned Accounting | `businessModel.test.ts`, `modules.test.ts` | n/a (server-only; API 402) | EV-015/016 | DONE (committed in this branch) |
+| GAP-002 | Accounting plan intersected with ownership; RBAC returns 402 for unowned Accounting | `businessModel.test.ts`, `modules.test.ts` | n/a (server-only; API 402) | EV-015/016 | DONE (`5d24103`) |
 | GAP-003 | Explicit subscription at signup; fail-closed `appAccess`; grandfather marker | `modules.test.ts` signup subscription; `businessModel.test.ts` fail-closed | pending: sign up in the browser and see 4 apps | EV-017/018 | DONE (server); browser pending |
 | GAP-013 | RLS negative test asserts a policy error | `rowLevelSecurity.test.ts` | n/a (database-only) | EV-0xx | DONE |
 
@@ -20,7 +20,7 @@ Status values: `TODO` · `IN PROGRESS` · `DONE` · `LIVE` (needs production acc
 
 | ID | Fix | Test | Browser | Status |
 |---|---|---|---|---|
-| A-03 | Replace the local `requireAuth` in `auth.ts` with the live middleware | revoked session gets 401 on `/me`, `/sessions`, `PATCH /me`, `setup-company` | sign out on another device, then reload; redirected to login | TODO |
+| A-03 | Six `/api/auth` routes use the live `requireAuth` middleware; dead `signToken` removed | `identityAndSessions.test.ts` › "is refused by the account routes too once its session is signed out" / "… once the person is deactivated" (fail before, pass after) | `evidence/A-03/`: signed in, second device revoke-all, kept token → 401 `session_ended` on all six; app signs out | DONE (EV-019) |
 | A-01 | Identity changes (email, password, isActive) need admin in **every** org of the target, or account owner. SCIM is limited to single-org users who are not admins. Email change clears verification. SSO ignores unverified email. | X-admin cannot change Y-owner's email; SCIM cannot touch an admin | Users screen: edit owner's email from another company and see refusal | TODO |
 | A-02 | `POST /users` refuses to attach an existing unverified user | pre-registered unverified address gets no membership | add-user form shows the message | TODO |
 | A-04 | `setup-company` limited to account owner / admin | member gets 403 | "Add company" hidden or refused for member | TODO |

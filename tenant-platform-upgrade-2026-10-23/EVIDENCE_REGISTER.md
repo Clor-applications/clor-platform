@@ -22,6 +22,8 @@ Updated: 2026-10-23
 | EV-016 | Focused platform tests | `evidence/test-results.txt` | Typecheck passed; 8 test files and 79 tests passed |
 | EV-017 | Signup provisions an explicit subscription, never legacy access | `server/src/__tests__/modules.test.ts` (signup test), `server/src/routes/auth.ts` `/signup` transaction | Active subscription with exactly the 4 sellable app items (no `projects`); `Account.legacyUnrestrictedAt` is null for new accounts |
 | EV-018 | Grandfather rule is explicit, not ambient | Migration `20261023100000_explicit_subscription_default`; `server/src/services/subscriptions.ts` `appAccess`; `server/src/__tests__/businessModel.test.ts` | Accounts without a subscription fail closed unless marked; a marked grandfathered account keeps all sellable apps; 162 files / 1509 tests pass after the 11 provisioning-model updates |
+| EV-019 | A-03: the six `/api/auth` account routes refuse a revoked session and a deactivated user | `server/src/__tests__/identityAndSessions.test.ts` ("is refused by the account routes …"); `evidence/A-03/before-fix.txt`, `after-fix.txt`; browser: `evidence/A-03/1-…jpg`, `3-…jpg`, `5-browser-revoked-token-calls.json` | Before fix: `expected 200 to be 401` (2 tests fail). After fix: 13/13 pass. Browser: kept token after second-device revoke-all gets `401 session_ended` on all six routes; the app signs itself out |
+| EV-020 | Full server suite after GAP-002/003/013 port | `npx vitest run` (server) | 160 files / 1505 tests pass; the only 2 failures were the A-03 tests run while the pre-fix code was swapped in for EV-019 |
 
 ## Evidence quality note
 

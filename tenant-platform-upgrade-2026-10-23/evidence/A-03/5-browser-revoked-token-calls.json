@@ -1,0 +1,19 @@
+{
+  "finding": "A-03",
+  "where": "Browser pane, http://localhost:5173 (worktree build), local test account",
+  "steps": [
+    "Signed in through the UI; kept the issued access token; GET /api/auth/me with it -> 200",
+    "Second device: POST /api/auth/login then POST /api/auth/sessions/revoke-all -> {ok:true, revoked:1} (14:52:25 IST)",
+    "Waited 30s (access cache TTL), then called the six routes from the browser with the kept token"
+  ],
+  "at": "2026-10-23T09:22:59.352Z",
+  "results": [
+    "GET /api/auth/me -> 401 session_ended",
+    "GET /api/auth/sessions -> 401 session_ended",
+    "POST /api/auth/sessions/revoke-all -> 401 session_ended",
+    "PATCH /api/auth/me -> 401 session_ended",
+    "POST /api/auth/setup-company -> 401 session_ended",
+    "POST /api/auth/resend-verification -> 401 session_ended"
+  ],
+  "before_fix": "Same calls returned 200 (see before-fix.txt: 'expected 200 to be 401')"
+}

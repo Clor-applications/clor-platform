@@ -25,8 +25,14 @@ Changed:
   - Added evidence tests: signup must carry an active subscription with exactly the four sellable app items and `legacyUnrestrictedAt` null; a grandfathered account without a subscription keeps all sellable apps; an unmarked account without a subscription fails closed.
   - Database schema changed: platform `Account` column + that migration applied locally. Application behavior changed: new signups get an explicit subscription row (previously none).
 
-Application behavior changed: no.  
-Database schema changed: no.  
+## 2026-10-23 — Architecture audit and Batch 1
+
+- Read-only architecture audit (`ARCHITECTURE_AUDIT_2026-10-23.md`, 49 findings), research review (`RESEARCH_REVIEW.md`) and per-finding checklist (`FIX_CHECKLIST.md`).
+- A-03 fixed: `/api/auth` `sessions`, `sessions/revoke-all`, `me` (GET/PATCH), `setup-company` and `resend-verification` now use the live-session middleware; a revoked session or deactivated user gets 401. Removed the unused local `signToken`/`requireAuth`. Application behavior changed: yes (those six routes). Schema: no.
+
+Running totals for 2026-10-23:  
+Application behavior changed: yes (GAP-002, GAP-003, A-03).  
+Database schema changed: yes (platform `Account.legacyUnrestrictedAt`, applied locally only).  
 Deployment or Cloudflare configuration changed: no.  
-Customer data accessed: no.
+Customer data accessed: no (local test accounts only).
 

@@ -1,0 +1,130 @@
+ DEPRECATED  `test.poolOptions` was removed in Vitest 4. All previous `poolOptions` are now top-level options. Please, refer to the migration guide: https://vitest.dev/guide/migration#pool-rework
+
+ RUN  v4.1.10 /Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_66505", schema "accounting" at "localhost:5432"
+
+The PostgreSQL database "clor_test_66505" schema "accounting" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 545ms
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/payroll/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_66505", schema "payroll" at "localhost:5432"
+
+The PostgreSQL database "clor_test_66505" schema "payroll" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 375ms
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/people/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_66505", schema "people" at "localhost:5432"
+
+The PostgreSQL database "clor_test_66505" schema "people" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 353ms
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/platform/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_66505", schema "platform" at "localhost:5432"
+
+The PostgreSQL database "clor_test_66505" schema "platform" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 386ms
+
+[setup] 180 policy statements applied to clor_test_66505
+[setup] 7 policy statements applied to clor_test_66505
+[setup] 10 policy statements applied to clor_test_66505
+[setup] 35 policy statements applied to clor_test_66505
+[setup] 4 policy statements applied to clor_test_66505
+[setup] 96 policy statements applied to clor_test_66505
+[setup] 4 policy statements applied to clor_test_66505
+[setup] 4 policy statements applied to clor_test_66505
+[setup] 4 policy statements applied to clor_test_66505
+[setup] 4 policy statements applied to clor_test_66505
+[setup] 32 policy statements applied to clor_test_66505
+[setup] 24 policy statements applied to clor_test_66505
+[setup] 12 policy statements applied to clor_test_66505
+[setup] 16 policy statements applied to clor_test_66505
+[setup] 4 policy statements applied to clor_test_66505
+[setup] 4 policy statements applied to clor_test_66505
+[setup] 8 policy statements applied to clor_test_66505
+[setup] 8 policy statements applied to clor_test_66505
+[setup] 20 policy statements applied to clor_test_66505
+[setup] 8 policy statements applied to clor_test_66505
+[setup] 4 policy statements applied to clor_test_66505
+[setup] 8 policy statements applied to clor_test_66505
+[setup] 8 policy statements applied to clor_test_66505
+[setup] 12 policy statements applied to clor_test_66505
+[setup] 4 policy statements applied to clor_test_66505
+[setup] 8 policy statements applied to clor_test_66505
+[setup] 28 policy statements applied to clor_test_66505
+[setup] 4 policy statements applied to clor_test_66505
+[setup] 4 policy statements applied to clor_test_66505
+[setup] 4 policy statements applied to clor_test_66505
+[setup] 8 policy statements applied to clor_test_66505
+[setup] 4 policy statements applied to clor_test_66505
+[setup] 4 policy statements applied to clor_test_66505
+[setup] 4 policy statements applied to clor_test_66505
+[setup] 4 policy statements applied to clor_test_66505
+[setup] 8 policy statements applied to clor_test_66505
+[setup] 4 policy statements applied to clor_test_66505
+[setup] 12 policy statements applied to clor_test_66505
+[setup] 4 policy statements applied to clor_test_66505
+[setup] 76 policy statements applied to clor_test_66505
+[setup] 4 policy statements applied to clor_test_66505
+[setup] 4 policy statements applied to clor_test_66505
+[setup] 4 policy statements applied to clor_test_66505
+[setup] 4 policy statements applied to clor_test_66505
+ ❯ src/__tests__/identityAndSessions.test.ts (13 tests | 2 failed | 11 skipped) 1029ms
+     × is refused by the account routes too once its session is signed out 285ms
+     × is refused by the account routes once the person is deactivated 194ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/__tests__/identityAndSessions.test.ts > an access token > is refused by the account routes too once its session is signed out
+AssertionError: expected 200 to be 401 // Object.is equality
+
+- Expected
++ Received
+
+- 401
++ 200
+
+ ❯ src/__tests__/identityAndSessions.test.ts:141:26
+    139|     ];
+    140|     for (const res of await Promise.all(calls)) {
+    141|       expect(res.status).toBe(401);
+       |                          ^
+    142|       expect(res.body.code).toBe('session_ended');
+    143|     }
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  src/__tests__/identityAndSessions.test.ts > an access token > is refused by the account routes once the person is deactivated
+AssertionError: expected 200 to be 401 // Object.is equality
+
+- Expected
++ Received
+
+- 401
++ 200
+
+ ❯ src/__tests__/identityAndSessions.test.ts:154:26
+    152|       request(app).post('/api/auth/setup-company').set(as).send({ comp…
+    153|     ])) {
+    154|       expect(res.status).toBe(401);
+       |                          ^
+    155|       expect(res.body.code).toBe('inactive');
+    156|     }
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 11 skipped (13)
+   Start at  13:43:43
+   Duration  11.95s (transform 1.88s, setup 18ms, import 3.74s, tests 1.03s, environment 0ms)
+

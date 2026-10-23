@@ -118,6 +118,43 @@ describe('an access token', () => {
     const res = await request(app).get(`/api/orgs/${c.orgId}/warehouses`).set(auth(c)).expect(401);
     expect(res.body.code).toBe('inactive');
   });
+
+  /* A-03: these sign-in routes once checked only the signature, so a
+     signed-out or deactivated token could still rename the person (a login
+     credential) or create a company until it expired. */
+  it("is refused by the account routes too once its session is signed out", async () => {
+    const c = await owner('Signout Me Co');
+    const s = await login(c.email).expect(200);
+    const as = { Authorization: `Bearer ${s.body.token}` };
+    await request(app).get('/api/auth/me').set(as).expect(200);
+    const u = await platformPrisma.user.findFirstOrThrow({ where: { email: c.email }, select: { id: true } });
+    await platformPrisma.session.updateMany({ where: { revokedAt: null, userId: u.id }, data: { revokedAt: new Date() } });
+    const calls = [
+      request(app).get('/api/auth/me').set(as),
+      request(app).get('/api/auth/sessions').set(as),
+      request(app).post('/api/auth/sessions/revoke-all').set(as),
+      request(app).patch('/api/auth/me').set(as).send({ username: `taken${rnd()}` }),
+      request(app).post('/api/auth/setup-company').set(as).send({ companyName: `Ghost ${rnd()}`, state: 'Karnataka' }),
+      request(app).post('/api/auth/resend-verification').set(as),
+    ];
+    for (const res of await Promise.all(calls)) {
+      expect(res.status).toBe(401);
+      expect(res.body.code).toBe('session_ended');
+    }
+  });
+
+  it('is refused by the account routes once the person is deactivated', async () => {
+    const c = await owner('Inactive Me Co');
+    await platformPrisma.user.updateMany({ where: { email: c.email }, data: { isActive: false } });
+    const as = { Authorization: `Bearer ${c.token}` };
+    for (const res of await Promise.all([
+      request(app).patch('/api/auth/me').set(as).send({ username: `taken${rnd()}` }),
+      request(app).post('/api/auth/setup-company').set(as).send({ companyName: `Ghost ${rnd()}`, state: 'Karnataka' }),
+    ])) {
+      expect(res.status).toBe(401);
+      expect(res.body.code).toBe('inactive');
+    }
+  });
 });
 
 describe('records about people', () => {

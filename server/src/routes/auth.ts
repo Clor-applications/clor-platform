@@ -54,37 +54,6 @@ function getJwtSecret() {
   return process.env.JWT_SECRET || (isDevOrTest() ? 'dev-secret' : '');
 }
 
-function signToken(payload: { userId: string; accountId: string }) {
-  const secret = getJwtSecret();
-  if (!secret) throw new Error('Server misconfigured: JWT_SECRET missing');
-  return jwt.sign(payload, secret, {
-    // jsonwebtoken types require a strict ms-string type; env is a plain string.
-    expiresIn: (process.env.JWT_EXPIRES_IN || '8h') as any,
-    issuer: process.env.JWT_ISSUER || 'accounting',
-    audience: process.env.JWT_AUDIENCE || 'accounting-web',
-  });
-}
-
-function requireAuth(req: any) {
-  const hdr = String(req.headers?.authorization || '').trim();
-  const token = hdr.startsWith('Bearer ') ? hdr.slice('Bearer '.length).trim() : '';
-  if (!token) throw new Error('Unauthorized');
-
-  const secret = getJwtSecret();
-  if (!secret) throw new Error('Server misconfigured: JWT_SECRET missing');
-
-  const decoded: any = jwt.verify(token, secret, {
-    issuer: process.env.JWT_ISSUER || 'accounting',
-    audience: process.env.JWT_AUDIENCE || 'accounting-web',
-  });
-  if (!decoded?.userId || !decoded?.accountId) throw new Error('Unauthorized');
-  return {
-    userId: String(decoded.userId),
-    accountId: String(decoded.accountId),
-    sessionId: decoded.sid ? String(decoded.sid) : undefined,
-  };
-}
-
 async function bootstrapOwnerRole(accountId: string, orgId: string, userId: string) {
   // Seed every catalog permission once, then grant the whole Administrator
   // preset to the org creator's Owner role.
@@ -422,36 +391,21 @@ authRouter.post('/logout', async (req: Request, res: Response) => {
 });
 
 /** Devices currently signed in, and a way to end them. */
-authRouter.get('/sessions', async (req: Request, res: Response) => {
-  let auth;
-  try {
-    auth = requireAuth(req);
-  } catch (e: any) {
-    return res.status(401).json({ error: String(e?.message || 'Unauthorized') });
-  }
+authRouter.get('/sessions', requireLiveAuth, async (req: Request, res: Response) => {
+  const auth = req.auth!;
   const sessions = await listSessions(auth.accountId, auth.userId);
   return res.json({ sessions });
 });
 
-authRouter.post('/sessions/revoke-all', async (req: Request, res: Response) => {
-  let auth;
-  try {
-    auth = requireAuth(req);
-  } catch (e: any) {
-    return res.status(401).json({ error: String(e?.message || 'Unauthorized') });
-  }
+authRouter.post('/sessions/revoke-all', requireLiveAuth, async (req: Request, res: Response) => {
+  const auth = req.auth!;
   const result = await revokeAllSessions(auth.userId, 'USER_REVOKED_ALL', auth.sessionId);
   await recordAuthEvent({ accountId: auth.accountId, userId: auth.userId, eventType: 'SESSION_REVOKED', detail: 'User revoked all sessions' });
   return res.json({ ok: true, revoked: result.count });
 });
 
-authRouter.get('/me', async (req: Request, res: Response) => {
-  let auth;
-  try {
-    auth = requireAuth(req);
-  } catch (e: any) {
-    return res.status(401).json({ error: String(e?.message || 'Unauthorized') });
-  }
+authRouter.get('/me', requireLiveAuth, async (req: Request, res: Response) => {
+  const auth = req.auth!;
 
   const activeOrgId = String(req.headers['x-org-id'] || '').trim();
 
@@ -725,13 +679,8 @@ authRouter.post('/signup', signupLimiter, async (req: Request, res: Response) =>
   });
 });
 
-authRouter.post('/setup-company', async (req: Request, res: Response) => {
-  let auth;
-  try {
-    auth = requireAuth(req);
-  } catch (e: any) {
-    return res.status(401).json({ error: String(e?.message || 'Unauthorized') });
-  }
+authRouter.post('/setup-company', requireLiveAuth, async (req: Request, res: Response) => {
+  const auth = req.auth!;
 
   const body = z
     .object({
@@ -1028,13 +977,8 @@ authRouter.post('/verify-email', async (req: Request, res: Response) => {
 });
 
 /** Sends a fresh link. Rate limited, and silent about whether it applied. */
-authRouter.post('/resend-verification', resetLimiter, async (req: Request, res: Response) => {
-  let auth;
-  try {
-    auth = requireAuth(req);
-  } catch (e: any) {
-    return res.status(401).json({ error: String(e?.message || 'Unauthorized') });
-  }
+authRouter.post('/resend-verification', resetLimiter, requireLiveAuth, async (req: Request, res: Response) => {
+  const auth = req.auth!;
 
   const user = await platformPrisma.user.findFirst({
     where: { id: auth.userId, accountId: auth.accountId },
@@ -1124,13 +1068,8 @@ authRouter.get('/me/export', requireLiveAuth, async (req: Request, res: Response
   });
 });
 
-authRouter.patch('/me', async (req: Request, res: Response) => {
-  let auth;
-  try {
-    auth = requireAuth(req);
-  } catch (e: any) {
-    return res.status(401).json({ error: String(e?.message || 'Unauthorized') });
-  }
+authRouter.patch('/me', requireLiveAuth, async (req: Request, res: Response) => {
+  const auth = req.auth!;
 
   /**
    * Everything here is optional, so a caller that only sends one field does not
