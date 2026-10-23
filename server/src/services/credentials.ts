@@ -136,6 +136,9 @@ export type Owner = {
   parentUsable?: boolean;
 };
 
+/** An owner as an adapter loads it: the verdict inputs plus the row itself, so a route need not read it twice. */
+export type LoadedOwner<R = unknown> = Owner & { row: R };
+
 export type Block =
   | 'SUSPENDED'
   | 'REVOKED'
@@ -190,16 +193,16 @@ export type LegacyHit = {
   expiresAt?: Date | null;
 };
 
-export type VerifyOptions = {
+export type VerifyOptions<R = unknown> = {
   /** Find the issuing row by hash, across companies (called inside outsideTenant). */
   legacy: (hash: string) => Promise<LegacyHit | null>;
   /** Read the issuing row by id, inside its company. Null when it is gone. */
-  owner: (ownerId: string, c: CredentialRow) => Promise<Owner | null>;
+  owner: (ownerId: string, c: CredentialRow) => Promise<(Owner & { row?: R }) | null>;
   now?: Date;
 };
 
-export type Verified =
-  | { ok: true; credential: CredentialRow; orgId: string; accountId: string }
+export type Verified<R = unknown> =
+  | { ok: true; credential: CredentialRow; orgId: string; accountId: string; row: R }
   | { ok: false; block: Block | 'UNKNOWN'; refusal?: Refusal; credential?: CredentialRow };
 
 /**
@@ -209,7 +212,7 @@ export type Verified =
  * prefix is shared by two kinds. The lookup is across companies (the token is
  * how the company is found); everything after it runs as that company.
  */
-export async function verifyCredential(kind: CredentialKind, token: string, opts: VerifyOptions): Promise<Verified> {
+export async function verifyCredential<R = unknown>(kind: CredentialKind, token: string, opts: VerifyOptions<R>): Promise<Verified<R>> {
   if (!token) return { ok: false, block: 'UNKNOWN' };
   const tokenHash = hashToken(token);
   let c = await outsideTenant(`credential: whose ${kind} token this is`, () =>
@@ -223,7 +226,7 @@ export async function verifyCredential(kind: CredentialKind, token: string, opts
   const owner = await runInTenant(c.orgId, () => opts.owner(c!.ownerId, c!));
   const eff = await effectiveStatus(c, owner, opts.now);
   if (!eff.usable) return { ok: false, block: eff.block, refusal: eff.refusal, credential: c };
-  return { ok: true, credential: c, orgId: c.orgId, accountId: c.accountId };
+  return { ok: true, credential: c, orgId: c.orgId, accountId: c.accountId, row: owner!.row as R };
 }
 
 /** Write-through: a token the registry has not seen gets its row now (KTD4, KTD11). Two first uses at once make one row. */

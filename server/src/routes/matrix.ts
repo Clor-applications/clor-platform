@@ -1,14 +1,15 @@
 import { Router, type Request, type Response } from 'express';
-import { anyAppLive, appLive, closing } from '../services/principalAllowed.js';
+import { verifyCredential, touchLastUsed } from '../services/credentials.js';
+import { devicePushKind, refusalOf } from '../services/credentialKinds.js';
+import { anyAppLive, closing } from '../services/principalAllowed.js';
 
 import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { ingestLimiter } from '../middleware/rateLimit.js';
 import { fromZone, istLocal } from '../services/attendance/punchMapping.js';
-import { hashToken } from './publicApi.js';
 import { markOnReader } from '../services/attendance/readerSync.js';
 import { ingestPunches } from '../services/attendance/punches.js';
 import { commandEffect } from '../services/attendance/adms.js';
-import { enterTenant, outsideTenant } from '../utils/tenantScope.js';
+import { enterTenant } from '../utils/tenantScope.js';
 
 /**
  * /matrix/<token> — Matrix COSEC door controllers (Door V3, PVR, Vega, FMX,
@@ -139,23 +140,15 @@ async function deviceOf(req: Request, res: Response): Promise<Device | null> {
     reply(res, { status: 0 }, 404);
     return null;
   }
-  /* A-35: the token is how the company is found, so it is looked up across companies. */
-  const device = await outsideTenant('matrix: which controller this token is', () => peoplePrisma.attendanceDevice.findUnique({ where: { pushTokenHash: hashToken(token) } }));
-  if (!device || device.vendor !== 'MATRIX_COSEC') {
-    reply(res, { status: 0 }, 404);
+  /* Batch 5: the registry and the controller's own row must both allow it (A-35 lookup across companies). */
+  const v = await verifyCredential('DEVICE_PUSH', token, devicePushKind('MATRIX_COSEC'));
+  if (!v.ok) {
+    const r = refusalOf(v, { invalid: 'No such URL.', off: 'Switched off.', status: { invalid: 404 } });
+    reply(res, { status: 0 }, r.status);
     return null;
   }
-  if (!device.isActive) {
-    reply(res, { status: 0 }, 403);
-    return null;
-  }
-  /* A-11: punches are taken only while Attendance is on, paid for, and the company is not closing. */
-  const refused = await appLive(device.accountId, device.orgId, 'attendance');
-  if (refused) {
-    reply(res, { status: 0 }, refused.status);
-    return null;
-  }
-  return device;
+  touchLastUsed(v.credential, String(req.ip || '') || null);
+  return v.row;
 }
 
 /** Every request says who it is from; the first one names the model. */

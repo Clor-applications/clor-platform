@@ -1,0 +1,59 @@
+     × is registered when made, and works 499ms
+     × stops while suspended and works again when resumed 327ms
+     × stops for good once revoked 168ms
+     × stops once expired 163ms
+     × stops when its own table says so, although the registry still says active 119ms
+     × a token issued before the registry still works, and is registered on first use 85ms
+     × is registered when made, and works 136ms
+     × stops while suspended and works again when resumed 100ms
+     × stops for good once revoked 136ms
+     × stops once expired 86ms
+     × stops when its own table says so, although the registry still says active 212ms
+     × a token issued before the registry still works, and is registered on first use 99ms
+     × is registered when made, and works 137ms
+     × stops while suspended and works again when resumed 106ms
+     × stops for good once revoked 87ms
+     × stops once expired 107ms
+     × stops when its own table says so, although the registry still says active 118ms
+     × a token issued before the registry still works, and is registered on first use 111ms
+     × is registered when made, and works 140ms
+     × stops while suspended and works again when resumed 102ms
+     × stops for good once revoked 127ms
+     × stops once expired 204ms
+     × stops when its own table says so, although the registry still says active 132ms
+     × a token issued before the registry still works, and is registered on first use 119ms
+     × a revoked key is not brought back by rotating it 354ms
+     × revoking writes the registry and the key row, and records who did it 286ms
+     × a new key has a one-year expiry, and the public API says so 123ms
+     × switching an agent back on leaves a separately suspended agent token refused 160ms
+⎯⎯⎯⎯⎯⎯ Failed Tests 28 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  src/__tests__/credentialMatrix.test.ts > API key > is registered when made, and works
+ FAIL  src/__tests__/credentialMatrix.test.ts > API key > stops while suspended and works again when resumed
+ FAIL  src/__tests__/credentialMatrix.test.ts > site agent > stops while suspended and works again when resumed
+ FAIL  src/__tests__/credentialMatrix.test.ts > HTTP push reader > stops while suspended and works again when resumed
+ FAIL  src/__tests__/credentialMatrix.test.ts > Hikvision terminal > stops while suspended and works again when resumed
+ FAIL  src/__tests__/credentialMatrix.test.ts > API key > stops for good once revoked
+ FAIL  src/__tests__/credentialMatrix.test.ts > site agent > stops for good once revoked
+ FAIL  src/__tests__/credentialMatrix.test.ts > HTTP push reader > stops for good once revoked
+ FAIL  src/__tests__/credentialMatrix.test.ts > Hikvision terminal > stops for good once revoked
+ FAIL  src/__tests__/credentialMatrix.test.ts > API key > stops once expired
+ FAIL  src/__tests__/credentialMatrix.test.ts > site agent > stops once expired
+ FAIL  src/__tests__/credentialMatrix.test.ts > HTTP push reader > stops once expired
+ FAIL  src/__tests__/credentialMatrix.test.ts > Hikvision terminal > stops once expired
+ FAIL  src/__tests__/credentialMatrix.test.ts > API key > stops when its own table says so, although the registry still says active
+ FAIL  src/__tests__/credentialMatrix.test.ts > site agent > stops when its own table says so, although the registry still says active
+ FAIL  src/__tests__/credentialMatrix.test.ts > HTTP push reader > stops when its own table says so, although the registry still says active
+ FAIL  src/__tests__/credentialMatrix.test.ts > Hikvision terminal > stops when its own table says so, although the registry still says active
+ FAIL  src/__tests__/credentialMatrix.test.ts > API key > a token issued before the registry still works, and is registered on first use
+ FAIL  src/__tests__/credentialMatrix.test.ts > site agent > a token issued before the registry still works, and is registered on first use
+ FAIL  src/__tests__/credentialMatrix.test.ts > HTTP push reader > a token issued before the registry still works, and is registered on first use
+ FAIL  src/__tests__/credentialMatrix.test.ts > Hikvision terminal > a token issued before the registry still works, and is registered on first use
+ FAIL  src/__tests__/credentialMatrix.test.ts > site agent > is registered when made, and works
+ FAIL  src/__tests__/credentialMatrix.test.ts > HTTP push reader > is registered when made, and works
+ FAIL  src/__tests__/credentialMatrix.test.ts > Hikvision terminal > is registered when made, and works
+ FAIL  src/__tests__/credentialMatrix.test.ts > API key rotation > a revoked key is not brought back by rotating it
+ FAIL  src/__tests__/credentialMatrix.test.ts > API key rotation > revoking writes the registry and the key row, and records who did it
+ FAIL  src/__tests__/credentialMatrix.test.ts > API key rotation > a new key has a one-year expiry, and the public API says so
+ FAIL  src/__tests__/credentialMatrix.test.ts > agent and reader rotation > switching an agent back on leaves a separately suspended agent token refused
+ Test Files  1 failed (1)
+      Tests  28 failed | 10 passed (38)

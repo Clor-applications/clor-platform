@@ -24,6 +24,8 @@ import { can as can_, driverOf, publicDrivers, vendorsWith } from '../services/a
 import { mappingSchema, recordsOf, toAttlog, validZone } from '../services/attendance/punchMapping.js';
 import { parseCsv } from '../services/attendance/csv.js';
 import { hashToken } from './publicApi.js';
+import { CredentialError, actorFrom, issueCredential, rotateCredential } from '../services/credentials.js';
+import { liveCredentialFor } from '../services/credentialKinds.js';
 import { MATRIX_COMMANDS, MATRIX_COMMAND_LABELS } from './matrix.js';
 import { setTimeCommand } from '../services/attendance/adms.js';
 import { ingestPunches } from '../services/attendance/punches.js';
@@ -213,6 +215,11 @@ devicesRouter.post(base, can(PermissionAction.CREATE), async (req, res) => {
         createdByUserId: req.auth!.userId,
       },
     });
+    /* Batch 5: registered beside the reader; a missed write is repaired on first push. */
+    if (token)
+      await issueCredential({ kind: 'DEVICE_PUSH', accountId, orgId, ownerId: device.id, token, tokenPrefix: token.slice(0, 12), label: device.name, createdByUserId: req.auth!.userId }, actorFrom(req)).catch((e) =>
+        console.error('[credentials] reader registered on first push instead:', (e as Error).message)
+      );
     /* The push URL token is shown once; only its hash is kept. */
     return res.status(201).json({ device: shape(device), seenBefore: null, pushToken: token });
   }
@@ -1031,6 +1038,14 @@ devicesRouter.post(`${base}/:id/rotate-token`, can(PermissionAction.EDIT), async
   if (!d) return res.status(404).json({ error: 'No such reader.' });
   if (d.vendor !== 'HTTP_PUSH' && d.vendor !== 'MATRIX_COSEC' && d.vendor !== 'HIKVISION_PUSH') return res.status(400).json({ error: 'Only a source that pushes to a URL has one.' });
   const token = newPushToken();
+  /* Batch 5: the registry first — if the rotation cannot be recorded, the old URL keeps working and this fails (KTD4). */
+  try {
+    const live = await liveCredentialFor('DEVICE_PUSH', d.id, { hash: d.pushTokenHash, prefix: d.pushTokenPrefix, accountId, orgId, createdByUserId: d.createdByUserId, label: d.name }, actorFrom(req));
+    if (live) await rotateCredential(live.id, orgId, { token, tokenPrefix: token.slice(0, 12) }, actorFrom(req), req.body?.reason ? String(req.body.reason).slice(0, 200) : null);
+  } catch (e) {
+    if (e instanceof CredentialError) return res.status(e.status).json({ error: e.message, code: e.code });
+    throw e;
+  }
   await peoplePrisma.attendanceDevice.update({ where: { id: d.id }, data: { pushTokenHash: hashToken(token), pushTokenPrefix: token.slice(0, 12) } });
   res.json({ pushToken: token });
 });

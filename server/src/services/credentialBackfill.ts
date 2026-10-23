@@ -1,0 +1,85 @@
+import { peoplePrisma } from '../utils/peoplePrisma.js';
+import { exclusive, leaseFor } from './jobLease.js';
+import { registerLegacy, type CredentialKind, type LegacyHit } from './credentials.js';
+
+/**
+ * Registers every credential issued before the registry existed (Batch 5,
+ * KTD11). Tokens are also registered on first use, but a token used once a
+ * month would otherwise stay off the Credentials page until then.
+ *
+ * Runs outside any request (maintenance scope), one instance at a time, and is
+ * safe to run again: a token already registered is left as it is. Each source
+ * is walked in id order a page at a time.
+ */
+
+const PAGE = 200;
+
+type Source = { kind: CredentialKind; page: (after: string | null) => Promise<Array<{ id: string; hash: string; hit: LegacyHit }>> };
+
+const after = (id: string | null) => (id ? { id: { gt: id } } : {});
+
+/** The sources this batch knows; later units add theirs (SCIM tokens, links). */
+export const SOURCES: Source[] = [
+  {
+    kind: 'API_KEY',
+    page: async (id) =>
+      (await peoplePrisma.apiClient.findMany({ where: { ...after(id), isActive: true, revokedAt: null }, orderBy: { id: 'asc' }, take: PAGE })).map((r) => ({
+        id: r.id,
+        hash: r.tokenHash,
+        hit: { ownerId: r.id, accountId: r.accountId, orgId: r.orgId, tokenPrefix: r.tokenPrefix, createdByUserId: r.createdByUserId, label: r.name },
+      })),
+  },
+  {
+    kind: 'AGENT',
+    page: async (id) =>
+      (await peoplePrisma.siteAgent.findMany({ where: after(id), orderBy: { id: 'asc' }, take: PAGE })).map((a) => ({
+        id: a.id,
+        hash: a.tokenHash,
+        hit: { ownerId: a.id, accountId: a.accountId, orgId: a.orgId, tokenPrefix: a.tokenPrefix, createdByUserId: a.createdByUserId, label: a.name },
+      })),
+  },
+  {
+    kind: 'DEVICE_PUSH',
+    page: async (id) =>
+      (await peoplePrisma.attendanceDevice.findMany({ where: { ...after(id), pushTokenHash: { not: null } }, orderBy: { id: 'asc' }, take: PAGE })).map((d) => ({
+        id: d.id,
+        hash: d.pushTokenHash!,
+        hit: { ownerId: d.id, accountId: d.accountId, orgId: d.orgId, tokenPrefix: d.pushTokenPrefix || d.pushTokenHash!.slice(0, 12), createdByUserId: d.createdByUserId, label: d.name },
+      })),
+  },
+];
+
+export function addBackfillSource(s: Source) {
+  if (!SOURCES.some((x) => x.kind === s.kind)) SOURCES.push(s);
+}
+
+/** Register everything; returns how many rows each kind added or confirmed. */
+export async function backfillCredentials(sources: Source[] = SOURCES) {
+  const counts: Record<string, number> = {};
+  for (const s of sources) {
+    let cursor: string | null = null;
+    for (;;) {
+      const rows = await s.page(cursor);
+      if (!rows.length) break;
+      for (const r of rows) {
+        await registerLegacy(s.kind, r.hash, r.hit, { type: 'SYSTEM' }, 'registered at deploy');
+        counts[s.kind] = (counts[s.kind] || 0) + 1;
+      }
+      cursor = rows[rows.length - 1].id;
+    }
+  }
+  return counts;
+}
+
+/** Once, shortly after boot, on one instance. */
+export function startCredentialBackfill({ delayMs = 60_000 } = {}) {
+  if (process.env.NODE_ENV === 'test' || process.env.VITEST) return () => {};
+  const t = setTimeout(() => {
+    exclusive('credentials.backfill', leaseFor(6 * 3_600_000), async () => {
+      const counts = await backfillCredentials();
+      console.log('[credentials] backfill:', JSON.stringify(counts)); // eslint-disable-line no-console
+    }, { idempotent: true }).catch((e) => console.error('[credentials] backfill failed:', e instanceof Error ? e.message : e));
+  }, delayMs);
+  t.unref?.();
+  return () => clearTimeout(t);
+}
