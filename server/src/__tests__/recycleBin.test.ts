@@ -9,6 +9,8 @@ import request from 'supertest';
 const { buildApp } = await import('../app.js');
 const { peoplePrisma } = await import('../utils/peoplePrisma.js');
 const { purgeRecycleBin } = await import('../services/recycleBin.js');
+const { platformPrisma } = await import('../utils/platformPrisma.js');
+const jwt = (await import('jsonwebtoken')).default;
 
 const app = buildApp().listen(0);
 afterAll(async () => {
@@ -95,5 +97,26 @@ describe('recycle bin', () => {
     await api(c).del(`/attendance/holidays/${h.id}`).expect(200);
     expect(await purgeRecycleBin(new Date(Date.now() + 31 * 86_400_000))).toBeGreaterThan(0);
     expect(await peoplePrisma.deletedItem.count({ where: { orgId: c.orgId } })).toBe(0);
+  });
+});
+
+/*
+ * A-14: the subscription ceiling in the shared permission check covered only
+ * Accounting's modules. The recycle bin authorises with that check alone, so
+ * an account that no longer had People or Attendance could still restore
+ * (and permanently delete) their records from it.
+ */
+describe('the recycle bin after People and Attendance leave the subscription', () => {
+  it('refuses to restore their records', async () => {
+    const o = await makeOwner();
+    const h = (await api(o).post('/attendance/holidays', { date: '2026-12-25', name: 'Christmas' }).expect(201)).body.holiday;
+    await api(o).del(`/attendance/holidays/${h.id}`).expect(200);
+    const item = (await api(o).get('/recycle-bin').expect(200)).body.items.find((i: any) => i.kind === 'holiday');
+    const accountId = (jwt.decode(o.token) as any).accountId;
+    await platformPrisma.subscriptionItem.deleteMany({ where: { subscription: { accountId }, appCode: { in: ['people', 'attendance'] } } });
+    const res = await api(o).post(`/recycle-bin/${item.id}/restore`);
+    expect(res.status).toBe(402);
+    expect(res.body.code).toBe('APP_NOT_SUBSCRIBED');
+    expect(await peoplePrisma.holiday.count({ where: { id: h.id } })).toBe(0);
   });
 });

@@ -1,0 +1,110 @@
+ DEPRECATED  `test.poolOptions` was removed in Vitest 4. All previous `poolOptions` are now top-level options. Please, refer to the migration guide: https://vitest.dev/guide/migration#pool-rework
+
+ RUN  v4.1.10 /Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_90555", schema "accounting" at "localhost:5432"
+
+The PostgreSQL database "clor_test_90555" schema "accounting" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 1.37s
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/payroll/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_90555", schema "payroll" at "localhost:5432"
+
+The PostgreSQL database "clor_test_90555" schema "payroll" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 1.12s
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/people/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_90555", schema "people" at "localhost:5432"
+
+The PostgreSQL database "clor_test_90555" schema "people" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 1.24s
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/platform/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_90555", schema "platform" at "localhost:5432"
+
+The PostgreSQL database "clor_test_90555" schema "platform" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 527ms
+
+[setup] 180 policy statements applied to clor_test_90555
+[setup] 7 policy statements applied to clor_test_90555
+[setup] 10 policy statements applied to clor_test_90555
+[setup] 35 policy statements applied to clor_test_90555
+[setup] 4 policy statements applied to clor_test_90555
+[setup] 96 policy statements applied to clor_test_90555
+[setup] 4 policy statements applied to clor_test_90555
+[setup] 4 policy statements applied to clor_test_90555
+[setup] 4 policy statements applied to clor_test_90555
+[setup] 4 policy statements applied to clor_test_90555
+[setup] 32 policy statements applied to clor_test_90555
+[setup] 24 policy statements applied to clor_test_90555
+[setup] 12 policy statements applied to clor_test_90555
+[setup] 16 policy statements applied to clor_test_90555
+[setup] 4 policy statements applied to clor_test_90555
+[setup] 4 policy statements applied to clor_test_90555
+[setup] 8 policy statements applied to clor_test_90555
+[setup] 8 policy statements applied to clor_test_90555
+[setup] 20 policy statements applied to clor_test_90555
+[setup] 8 policy statements applied to clor_test_90555
+[setup] 4 policy statements applied to clor_test_90555
+[setup] 8 policy statements applied to clor_test_90555
+[setup] 8 policy statements applied to clor_test_90555
+[setup] 12 policy statements applied to clor_test_90555
+[setup] 4 policy statements applied to clor_test_90555
+[setup] 8 policy statements applied to clor_test_90555
+[setup] 28 policy statements applied to clor_test_90555
+[setup] 4 policy statements applied to clor_test_90555
+[setup] 4 policy statements applied to clor_test_90555
+[setup] 4 policy statements applied to clor_test_90555
+[setup] 8 policy statements applied to clor_test_90555
+[setup] 4 policy statements applied to clor_test_90555
+[setup] 4 policy statements applied to clor_test_90555
+[setup] 4 policy statements applied to clor_test_90555
+[setup] 4 policy statements applied to clor_test_90555
+[setup] 8 policy statements applied to clor_test_90555
+[setup] 4 policy statements applied to clor_test_90555
+[setup] 12 policy statements applied to clor_test_90555
+[setup] 4 policy statements applied to clor_test_90555
+[setup] 76 policy statements applied to clor_test_90555
+[setup] 4 policy statements applied to clor_test_90555
+[setup] 4 policy statements applied to clor_test_90555
+[setup] 4 policy statements applied to clor_test_90555
+[setup] 4 policy statements applied to clor_test_90555
+ ❯ src/__tests__/recycleBin.test.ts (6 tests | 1 failed | 5 skipped) 1648ms
+     × refuses to restore their records 761ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/__tests__/recycleBin.test.ts > the recycle bin after People and Attendance leave the subscription > refuses to restore their records
+AssertionError: expected 200 to be 402 // Object.is equality
+
+- Expected
++ Received
+
+- 402
++ 200
+
+ ❯ src/__tests__/recycleBin.test.ts:118:24
+    116|     await platformPrisma.subscriptionItem.deleteMany({ where: { subscr…
+    117|     const res = await api(o).post(`/recycle-bin/${item.id}/restore`);
+    118|     expect(res.status).toBe(402);
+       |                        ^
+    119|     expect(res.body.code).toBe('APP_NOT_SUBSCRIBED');
+    120|     expect(await peoplePrisma.holiday.count({ where: { id: h.id } })).…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 5 skipped (6)
+   Start at  19:20:42
+   Duration  17.89s (transform 1.67s, setup 23ms, import 4.17s, tests 1.65s, environment 0ms)
+

@@ -37,6 +37,7 @@ Updated: 2026-10-23
 | EV-031 | A-11: no non-human path outlives the subscription or a scheduled closure | `principalAllowed.test.ts`; `evidence/A-11/before-fix.txt` (3 fail: 200 where 402/403 expected), `after-fix.txt`; full server suite 162 files / 1526 tests; browser `1-…`, `2-…`, `3-portal-refusal-in-plain-words.jpg`. Local dev DB: five People migrations already on main were applied (`prisma migrate deploy`, local only) so the dev server could create employees |
 | EV-032 | A-12: an invoice is approved and posted once (full server suite 163 files / 1528 tests) | `approvalRace.test.ts`; `evidence/A-12/race-probe-before.txt` (DOUBLES 9 of 10) vs `race-probe-after.txt` (0); live `2-live-double-approve.json` (200, 409) and `2-live-journal-rows.json` (one POSTED entry); browser `1-…`, `1b-…`, `3-approved-once.jpg` |
 | EV-033 | A-13: separation of duties, per company setting; never about oneself (full server suite 164 files / 1533 tests) | `makerChecker.test.ts`; `evidence/A-13/before-fix.txt` (5 fail), `after-fix.txt` (9 pass incl. integrationsV2); browser `1-policy-…jpg`, `2-preparer-refused.jpg`, `4-approved-by-second-admin.png`; live `3-live-two-approvers.json` (403 preparer, 200 second admin). Local dev DB: new platform migration applied |
+| EV-034 | A-14: every app's subscription is enforced in the shared permission check | `recycleBin.test.ts`; `evidence/A-14/before-fix.txt` (expected 200 to be 402), `after-fix.txt` (6/6); full server suite 164 files / 1534 tests |
 
 ## Evidence quality note
 
