@@ -1,0 +1,23 @@
+     × can be paused and resumed 949ms
+     × is kept when revoked: refused, hash gone from its row, history recorded 2251ms
+     × lasts a year by default, or as long as the admin says, or for ever 163ms
+     × stops once expired 166ms
+     × switched off: refused; switched back on: works 631ms
+     × switching the agent back on does not undo a pause made on the token itself 170ms
+     × agent deleted: the token is revoked and kept 248ms
+     × directory sync removed: the token stops; added again, a new one is handed over 282ms
+     × lists with the reason it stopped 491ms
+     × still works and is registered on first use, with its agent named 116ms
+⎯⎯⎯⎯⎯⎯ Failed Tests 10 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  src/__tests__/scimLifecycle.test.ts > a stand-alone SCIM token > can be paused and resumed
+ FAIL  src/__tests__/scimLifecycle.test.ts > a stand-alone SCIM token > is kept when revoked: refused, hash gone from its row, history recorded
+ FAIL  src/__tests__/scimLifecycle.test.ts > a stand-alone SCIM token > lasts a year by default, or as long as the admin says, or for ever
+ FAIL  src/__tests__/scimLifecycle.test.ts > a stand-alone SCIM token > stops once expired
+ FAIL  src/__tests__/scimLifecycle.test.ts > an agent’s SCIM token follows its agent > switched off: refused; switched back on: works
+ FAIL  src/__tests__/scimLifecycle.test.ts > an agent’s SCIM token follows its agent > switching the agent back on does not undo a pause made on the token itself
+ FAIL  src/__tests__/scimLifecycle.test.ts > an agent’s SCIM token follows its agent > agent deleted: the token is revoked and kept
+ FAIL  src/__tests__/scimLifecycle.test.ts > an agent’s SCIM token follows its agent > directory sync removed: the token stops; added again, a new one is handed over
+ FAIL  src/__tests__/scimLifecycle.test.ts > an agent’s SCIM token follows its agent > lists with the reason it stopped
+ FAIL  src/__tests__/scimLifecycle.test.ts > a token from before the registry > still works and is registered on first use, with its agent named
+ Test Files  1 failed (1)
+      Tests  10 failed | 3 passed (13)

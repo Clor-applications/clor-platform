@@ -1,4 +1,5 @@
 import { peoplePrisma } from '../utils/peoplePrisma.js';
+import { platformPrisma } from '../utils/platformPrisma.js';
 import { exclusive, leaseFor } from './jobLease.js';
 import { registerLegacy, type CredentialKind, type LegacyHit } from './credentials.js';
 
@@ -18,8 +19,30 @@ type Source = { kind: CredentialKind; page: (after: string | null) => Promise<Ar
 
 const after = (id: string | null) => (id ? { id: { gt: id } } : {});
 
-/** The sources this batch knows; later units add theirs (SCIM tokens, links). */
+/** The sources this batch knows; later units add theirs (links). */
 export const SOURCES: Source[] = [
+  {
+    kind: 'SCIM',
+    page: async (id) => {
+      const rows = await platformPrisma.scimToken.findMany({ where: { ...after(id), revokedAt: null }, orderBy: { id: 'asc' }, take: PAGE });
+      /* An agent's token names its agent, so the agent's state governs it from the start (KTD11). */
+      const agents = await peoplePrisma.siteAgent.findMany({ where: { scimTokenId: { in: rows.map((r) => r.id) } }, select: { id: true, scimTokenId: true, name: true } });
+      const agentOf = new Map(agents.map((a) => [a.scimTokenId!, a]));
+      return rows.map((t) => ({
+        id: t.id,
+        hash: t.tokenHash,
+        hit: {
+          ownerId: t.id,
+          accountId: t.accountId,
+          orgId: t.orgId,
+          tokenPrefix: t.tokenPrefix,
+          createdByUserId: t.createdByUserId,
+          parentOwnerId: agentOf.get(t.id)?.id ?? null,
+          label: agentOf.get(t.id) ? `Directory sync for ${agentOf.get(t.id)!.name}` : 'Directory sync',
+        },
+      }));
+    },
+  },
   {
     kind: 'API_KEY',
     page: async (id) =>

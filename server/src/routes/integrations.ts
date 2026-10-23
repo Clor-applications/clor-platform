@@ -19,6 +19,7 @@ import { platformPrisma } from '../utils/platformPrisma.js';
 import { createApiKey, revokeApiKey, rotateApiKey } from '../services/apiKeys.js';
 import { CredentialError, actorFrom, issueCredential, liveCredentialOf, revokeCredential, rotateCredential } from '../services/credentials.js';
 import { liveCredentialFor } from '../services/credentialKinds.js';
+import { revokeScimToken, rotateScimToken } from '../services/scimTokens.js';
 
 /**
  * Integrations, as the company manages them: API keys for outside systems
@@ -309,7 +310,10 @@ integrationsRouter.put(`${base}/agents/:id`, can(PermissionAction.EDIT), async (
   if (!next.tally) delete next.tally;
   if (!next.ldap) delete next.ldap;
   await peoplePrisma.siteAgent.update({ where: { id: a.id }, data: { name, ...(isActive !== undefined ? { isActive } : {}), configJson: JSON.stringify(next), secretsEnc: Object.keys(secrets).length ? encryptSecret(JSON.stringify(secrets)) : null } });
-  if (ldap) await ensureScimForAgent(a, ldap.defaultRoleId ?? null);
+  if (ldap) await ensureScimForAgent({ ...a, name }, ldap.defaultRoleId ?? null);
+  /* A-31: directory sync removed — its token stops with it, instead of staying live with nothing using it. */
+  if (ldap === null && a.scimTokenId) await revokeScimToken(orgId, a.scimTokenId, actorFrom(req), 'directory sync removed from the connector').catch((e) => credentialFailed(res, e));
+  if (res.headersSent) return;
   res.json({ agent: await agentRow(await peoplePrisma.siteAgent.findUniqueOrThrow({ where: { id: a.id } })) });
 });
 
@@ -326,15 +330,15 @@ integrationsRouter.post(`${base}/agents/:id/rotate`, can(PermissionAction.EDIT),
   } catch (e) {
     return credentialFailed(res, e);
   }
-  /* The SCIM token goes again with the new one, so a reinstalled agent has everything. */
-  let pending: Record<string, string> = {};
+  await peoplePrisma.siteAgent.update({ where: { id: a.id }, data: { tokenHash: hashToken(token), tokenPrefix: token.slice(0, 12), pendingEnc: null } });
+  /* The SCIM token goes again with the new one, so a reinstalled agent has everything (CLOR keeps only its hash). A failure here fails the request — it used to be swallowed. */
   if (a.scimTokenId) {
-    const { newScimToken } = await import('./scim.js');
-    const st = newScimToken();
-    await platformPrisma.scimToken.update({ where: { id: a.scimTokenId }, data: { tokenHash: hashToken(st), tokenPrefix: st.slice(0, 12) } }).catch(() => {});
-    pending = { scimToken: st };
+    try {
+      await rotateScimToken(a.orgId, a.scimTokenId, actorFrom(req), 'connector token rotated');
+    } catch (e) {
+      return credentialFailed(res, e);
+    }
   }
-  await peoplePrisma.siteAgent.update({ where: { id: a.id }, data: { tokenHash: hashToken(token), tokenPrefix: token.slice(0, 12), pendingEnc: Object.keys(pending).length ? encryptSecret(JSON.stringify(pending)) : null } });
   res.json({ token, baseUrl: agentBase(), downloadUrl: `${agentBase()}/download` });
 });
 
@@ -347,7 +351,8 @@ integrationsRouter.delete(`${base}/agents/:id`, can(PermissionAction.DELETE), as
   /* Batch 5: its credential is revoked on record before the row goes. */
   const live = await liveCredentialOf('AGENT', a.id, a.orgId);
   if (live) await revokeCredential(live.id, a.orgId, actorFrom(req), 'connector deleted');
-  if (a.scimTokenId) await platformPrisma.scimToken.deleteMany({ where: { id: a.scimTokenId } });
+  /* A-31: its directory-sync token is revoked and kept on record, not deleted. */
+  if (a.scimTokenId) await revokeScimToken(a.orgId, a.scimTokenId, actorFrom(req), 'connector deleted');
   await peoplePrisma.siteAgent.delete({ where: { id: a.id } });
   res.json({ ok: true });
 });

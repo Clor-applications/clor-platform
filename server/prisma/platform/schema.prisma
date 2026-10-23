@@ -757,6 +757,8 @@ model ScimToken {
   defaultRoleId   String?
   lastUsedAt      DateTime?
   lastError       String?
+  /// Revoked tokens are kept (their hash scrambled, so nothing finds them by it); the record and its history stay (A-31).
+  revokedAt       DateTime?
   createdByUserId String
   createdAt       DateTime  @default(now())
 

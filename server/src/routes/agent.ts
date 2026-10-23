@@ -9,7 +9,8 @@ import { platformPrisma } from '../utils/platformPrisma.js';
 import { decryptSecret, encryptSecret } from '../services/mailer.js';
 import { istLocal } from '../services/attendance/punchMapping.js';
 import { hashToken } from './publicApi.js';
-import { verifyCredential, touchLastUsed } from '../services/credentials.js';
+import { verifyCredential, touchLastUsed, SYSTEM } from '../services/credentials.js';
+import { issueAgentScimToken } from '../services/scimTokens.js';
 import { agentKind, refusalOf } from '../services/credentialKinds.js';
 import { ingestPunches } from '../services/attendance/punches.js';
 import { isFeatureEnabled } from '../services/features.js';
@@ -206,21 +207,14 @@ agentRouter.post('/report', async (req, res) => {
 /* ---- Making agents: for routes/integrations.ts ---- */
 
 /** A SCIM token for the agent's LDAP sync, made once and handed over on its next poll. */
-export async function ensureScimForAgent(a: { id: string; accountId: string; orgId: string; scimTokenId: string | null; pendingEnc: string | null; createdByUserId: string }, defaultRoleId: string | null) {
-  if (a.scimTokenId && (await platformPrisma.scimToken.findUnique({ where: { id: a.scimTokenId } }))) {
-    if (defaultRoleId !== undefined) await platformPrisma.scimToken.update({ where: { id: a.scimTokenId }, data: { defaultRoleId } });
-    return a.scimTokenId;
+export async function ensureScimForAgent(a: { id: string; accountId: string; orgId: string; scimTokenId: string | null; pendingEnc: string | null; createdByUserId: string; name?: string }, defaultRoleId: string | null) {
+  /* A-31: a revoked token is as good as none — a new one is made and handed over. */
+  const current = a.scimTokenId ? await platformPrisma.scimToken.findUnique({ where: { id: a.scimTokenId } }) : null;
+  if (current && !current.revokedAt) {
+    if (defaultRoleId !== undefined) await platformPrisma.scimToken.update({ where: { id: current.id }, data: { defaultRoleId } });
+    return current.id;
   }
-  const { newScimToken } = await import('./scim.js');
-  const token = newScimToken();
-  const row = await platformPrisma.scimToken.create({ data: { accountId: a.accountId, orgId: a.orgId, tokenHash: hashToken(token), tokenPrefix: token.slice(0, 12), defaultRoleId, createdByUserId: a.createdByUserId } });
-  let pending: Record<string, string> = {};
-  try {
-    pending = a.pendingEnc ? JSON.parse(decryptSecret(a.pendingEnc)) : {};
-  } catch {
-    pending = {};
-  }
-  await peoplePrisma.siteAgent.update({ where: { id: a.id }, data: { scimTokenId: row.id, pendingEnc: encryptSecret(JSON.stringify({ ...pending, scimToken: token })) } });
+  const row = await issueAgentScimToken(a, defaultRoleId, SYSTEM);
   return row.id;
 }
 
