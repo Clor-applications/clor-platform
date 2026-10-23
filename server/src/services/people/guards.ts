@@ -22,12 +22,12 @@ export const peopleEnabled = async (req: Request, res: Response): Promise<boolea
 
 export const peopleRouteOk = async (req: Request, res: Response): Promise<boolean> => {
   if (!orgMatches(req, res)) return false;
-  if (!(await peopleEnabled(req, res))) return false;
-  /* Bought, and the subscription in good standing: the shell hides an unowned app, the API refuses it too. */
+  /* A-15: one order for every app — not bought (402) before switched off (403), so an unowned app says so instead of reading as a setting. */
   if (!(await isAppEntitled(req.tenant!.accountId, 'people'))) {
     res.status(402).json({ error: 'People is not on this account’s subscription.', app: 'people', code: 'APP_NOT_SUBSCRIBED' });
     return false;
   }
+  if (!(await peopleEnabled(req, res))) return false;
   return true;
 };
 

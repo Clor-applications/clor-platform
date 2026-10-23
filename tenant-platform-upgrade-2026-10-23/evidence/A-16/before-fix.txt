@@ -1,0 +1,130 @@
+ DEPRECATED  `test.poolOptions` was removed in Vitest 4. All previous `poolOptions` are now top-level options. Please, refer to the migration guide: https://vitest.dev/guide/migration#pool-rework
+
+ RUN  v4.1.10 /Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_14075", schema "accounting" at "localhost:5432"
+
+The PostgreSQL database "clor_test_14075" schema "accounting" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 1.46s
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/payroll/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_14075", schema "payroll" at "localhost:5432"
+
+The PostgreSQL database "clor_test_14075" schema "payroll" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 825ms
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/people/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_14075", schema "people" at "localhost:5432"
+
+The PostgreSQL database "clor_test_14075" schema "people" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 1.49s
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/platform/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_14075", schema "platform" at "localhost:5432"
+
+The PostgreSQL database "clor_test_14075" schema "platform" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 701ms
+
+[setup] 180 policy statements applied to clor_test_14075
+[setup] 7 policy statements applied to clor_test_14075
+[setup] 10 policy statements applied to clor_test_14075
+[setup] 35 policy statements applied to clor_test_14075
+[setup] 4 policy statements applied to clor_test_14075
+[setup] 96 policy statements applied to clor_test_14075
+[setup] 4 policy statements applied to clor_test_14075
+[setup] 4 policy statements applied to clor_test_14075
+[setup] 4 policy statements applied to clor_test_14075
+[setup] 4 policy statements applied to clor_test_14075
+[setup] 32 policy statements applied to clor_test_14075
+[setup] 24 policy statements applied to clor_test_14075
+[setup] 12 policy statements applied to clor_test_14075
+[setup] 16 policy statements applied to clor_test_14075
+[setup] 4 policy statements applied to clor_test_14075
+[setup] 4 policy statements applied to clor_test_14075
+[setup] 8 policy statements applied to clor_test_14075
+[setup] 8 policy statements applied to clor_test_14075
+[setup] 20 policy statements applied to clor_test_14075
+[setup] 8 policy statements applied to clor_test_14075
+[setup] 4 policy statements applied to clor_test_14075
+[setup] 8 policy statements applied to clor_test_14075
+[setup] 8 policy statements applied to clor_test_14075
+[setup] 12 policy statements applied to clor_test_14075
+[setup] 4 policy statements applied to clor_test_14075
+[setup] 8 policy statements applied to clor_test_14075
+[setup] 28 policy statements applied to clor_test_14075
+[setup] 4 policy statements applied to clor_test_14075
+[setup] 4 policy statements applied to clor_test_14075
+[setup] 4 policy statements applied to clor_test_14075
+[setup] 8 policy statements applied to clor_test_14075
+[setup] 4 policy statements applied to clor_test_14075
+[setup] 4 policy statements applied to clor_test_14075
+[setup] 4 policy statements applied to clor_test_14075
+[setup] 4 policy statements applied to clor_test_14075
+[setup] 8 policy statements applied to clor_test_14075
+[setup] 4 policy statements applied to clor_test_14075
+[setup] 12 policy statements applied to clor_test_14075
+[setup] 4 policy statements applied to clor_test_14075
+[setup] 76 policy statements applied to clor_test_14075
+[setup] 4 policy statements applied to clor_test_14075
+[setup] 4 policy statements applied to clor_test_14075
+[setup] 4 policy statements applied to clor_test_14075
+[setup] 4 policy statements applied to clor_test_14075
+ ❯ src/__tests__/billingWebhook.test.ts (2 tests | 2 failed) 43ms
+     × is reached without a session 39ms
+     × verifies the signature over the exact bytes the gateway sent 4ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/__tests__/billingWebhook.test.ts > the billing webhook > is reached without a session
+AssertionError: expected 401 to be 202 // Object.is equality
+
+- Expected
++ Received
+
+- 202
++ 401
+
+ ❯ src/__tests__/billingWebhook.test.ts:39:24
+     37|   it('is reached without a session', async () => {
+     38|     const res = await request(app).post('/api/billing/webhook').send({…
+     39|     expect(res.status).toBe(202);
+       |                        ^
+     40|     expect(res.body).toEqual({ ignored: true });
+     41|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  src/__tests__/billingWebhook.test.ts > the billing webhook > verifies the signature over the exact bytes the gateway sent
+AssertionError: expected undefined to be '{"type":"subscription.updated",  "id"…' // Object.is equality
+
+- Expected:
+"{\"type\":\"subscription.updated\",  \"id\":\"evt_1792764610936\"}"
+
++ Received:
+undefined
+
+ ❯ src/__tests__/billingWebhook.test.ts:50:22
+     48|     const sig = createHmac('sha256', SECRET).update(body).digest('hex'…
+     49|     const res = await request(app).post('/api/billing/webhook').set('c…
+     50|     expect(seen.raw).toBe(body);
+       |                      ^
+     51|     expect(res.status).toBe(200);
+     52|     expect(res.body).toEqual({ applied: true });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed (2)
+   Start at  19:39:55
+   Duration  15.95s (transform 2.05s, setup 28ms, import 4.05s, tests 43ms, environment 0ms)
+

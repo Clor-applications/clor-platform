@@ -70,6 +70,8 @@ export const resetLimiter = build(60 * 60 * 1000, 5, 'password reset requests');
 export const ingestLimiter = [bucket(60 * 1000, 600, 'pushes', (req) => `ingest:${req.params?.token ? digest(String(req.params.token)) : ipOf(req)}`), bucket(60 * 1000, 3000, 'pushes', (req) => `ingest-ip:${ipOf(req)}`)];
 /** Refreshing a session: a browser refreshes every few minutes per tab; this is for scripts replaying a cookie (A-06). */
 export const refreshLimiter = [guard(60 * 1000, 60, 'session refreshes', (req) => `refresh:${ipOf(req)}`)];
+/** The payment gateway's webhook: unauthenticated by nature, so a ceiling per address (A-16). */
+export const billingWebhookLimiter = [bucket(60 * 1000, 300, 'webhook calls', (req) => `billing-hook:${ipOf(req)}`)];
 /** Authenticator codes: ten tries in fifteen minutes per signed-in user, so six digits cannot be walked. */
 export const codeLimiter = [guard(15 * 60 * 1000, 10, 'code attempts', (req) => `code:${req.auth?.userId || ipOf(req)}`)];
 
