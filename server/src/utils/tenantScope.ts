@@ -43,7 +43,15 @@ export const requestStatementTimeout = (): string => {
   return String(Number.isFinite(ms) && ms >= 0 ? Math.floor(ms) : 30_000);
 };
 
-type Scope = { orgId: string; inTx?: boolean };
+/*
+ * `inTx`: the clients whose batch transaction is being assembled. The
+ * queries in the batch go straight through — the setting is the batch's
+ * first statement. It was one flag for every client, and set for
+ * interactive transactions too (A-37), so inside a payroll transaction a
+ * query through the people or platform client — or the payroll client
+ * itself outside `tx` — skipped the setting and ran with no company.
+ */
+type Scope = { orgId: string; inTx?: ReadonlySet<object> };
 const store = new AsyncLocalStorage<Scope>();
 
 /*
@@ -64,10 +72,29 @@ export function runInTenant<T>(orgId: string, fn: () => T): T {
   return id ? within({ orgId: id }, fn) : fn();
 }
 
+/**
+ * Put the rest of this request in a company's scope (A-30).
+ *
+ * For routes that learn their company from a token rather than a signed-in
+ * person — directory sync, readers, push sources, share and pay links. The
+ * token is looked up first, with no company (it is how the company is
+ * found); once it names one, everything the request does after this call
+ * runs as that company, so row-level security is a backstop there too.
+ * `runInTenant` needs the rest of the handler as a callback; these handlers
+ * find their company halfway through, so this enters it in place.
+ */
+export function enterTenant(orgId: string) {
+  const id = String(orgId || '').trim();
+  if (id) store.enterWith({ orgId: id });
+}
+
 /** The company in scope, or '' when none. */
-export const currentOrg = (): string => {
+export const currentOrg = (): string => store.getStore()?.orgId || '';
+
+/** The company this client's next query must set: none inside its own transaction, where it is already set. */
+const orgFor = (client: object): string => {
   const s = store.getStore();
-  return s && !s.inTx ? s.orgId : '';
+  return s && !s.inTx?.has(client) ? s.orgId : '';
 };
 
 /**
@@ -80,8 +107,11 @@ export function outsideTenant<T>(reason: string, fn: () => T): T {
   return within({ orgId: '' }, fn);
 }
 
-/* Inside our own transaction wrapper the setting is already made; queries go straight through. */
-const asInTx = <T>(fn: () => T): T => store.run({ orgId: store.getStore()?.orgId || '', inTx: true }, fn);
+/* While this client's batch is assembled its queries go straight through into it, and only its. */
+const asInTx = <T>(client: object, fn: () => T): T => {
+  const s = store.getStore();
+  return store.run({ orgId: s?.orgId || '', inTx: new Set([...(s?.inTx || []), client]) }, fn);
+};
 
 const RAW = new Set(['$queryRaw', '$executeRaw', '$queryRawUnsafe', '$executeRawUnsafe']);
 
@@ -98,7 +128,7 @@ export function tenantScoped<C extends object>(base: C): C {
     query: {
       $allModels: {
         async $allOperations({ args, query }: { args: unknown; query: (a: unknown) => Promise<unknown> }) {
-          const org = currentOrg();
+          const org = orgFor(client);
           if (!org) return query(args);
           const [, result] = await client.$transaction([setting(org), query(args)]);
           return result;
@@ -111,22 +141,29 @@ export function tenantScoped<C extends object>(base: C): C {
     get(target, prop, receiver) {
       if (prop === '$transaction') {
         return (arg: any, options?: unknown) => {
-          const org = currentOrg();
+          const org = orgFor(client);
           if (typeof arg === 'function') {
-            /* Interactive: one connection for the whole callback, the setting made first. */
+            /*
+             * Interactive: one connection for the whole callback, the setting
+             * made first. `tx` is the unwrapped client, so its queries come
+             * nowhere near this wrapper. Anything else the callback runs —
+             * through this client or the other three — goes out on its own
+             * connection and is scoped as usual (A-37: it used to be marked
+             * "in a transaction" and sent with no company at all).
+             */
             return client.$transaction(async (tx: any) => {
               if (org) await tx.$executeRaw`SELECT set_config(${TENANT_SETTING}, ${org}, true), set_config('statement_timeout', ${requestStatementTimeout()}, true)`;
-              return asInTx(() => arg(tx));
+              return arg(tx);
             }, options);
           }
           if (!org) return client.$transaction(arg, options);
           /* Batch: the setting is the first statement of the same transaction. */
-          return asInTx(() => client.$transaction([setting(org), ...arg], options)).then((rows: unknown[]) => rows.slice(1));
+          return asInTx(client, () => client.$transaction([setting(org), ...arg], options)).then((rows: unknown[]) => rows.slice(1));
         };
       }
       if (typeof prop === 'string' && RAW.has(prop)) {
         return (...args: unknown[]) => {
-          const org = currentOrg();
+          const org = orgFor(client);
           if (!org) return client[prop](...args);
           return client.$transaction([setting(org), client[prop](...args)]).then((rows: unknown[]) => rows[1]);
         };

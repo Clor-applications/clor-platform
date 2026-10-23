@@ -7,6 +7,7 @@ import { fromZone, istLocal } from '../services/attendance/punchMapping.js';
 import { hashToken } from './publicApi.js';
 import { ingestPunches, markOnReader } from './iclock.js';
 import { commandEffect } from '../services/attendance/adms.js';
+import { enterTenant } from '../utils/tenantScope.js';
 
 /**
  * /matrix/<token> — Matrix COSEC door controllers (Door V3, PVR, Vega, FMX,
@@ -178,6 +179,8 @@ const handle = (path: string, fn: (req: Request, res: Response, device: Device) 
     try {
       const device = await deviceOf(req, res);
       if (!device) return;
+      /* A-30: the rest of this request runs as the company the token named. */
+      enterTenant(device.orgId);
       await fn(req, res, device);
     } catch (e) {
       console.error(`[matrix] ${path}:`, e instanceof Error ? e.message : e);

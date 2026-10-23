@@ -8,6 +8,7 @@ import { requireAuth } from '../middleware/auth.js';
 import { requireTenantContext } from '../middleware/tenantContext.js';
 import { requirePermission } from '../middleware/rbac.js';
 import { PermissionAction } from '../constants/enums.js';
+import { enterTenant } from '../utils/tenantScope.js';
 
 /**
  * A read-only link to one invoice, for the person it is addressed to.
@@ -107,6 +108,8 @@ sharePublicRouter.get('/public/invoice/:token', async (req, res) => {
 
   /* A-11: a shared invoice is Accounting's; it stops being served when Accounting is off, unpaid, or the company is closing. */
   if (await appLive(link.accountId, link.orgId, 'accounting')) return res.status(404).json({ error: 'This link is no longer available' });
+  /* A-30: the rest of this request runs as the company the token named. */
+  enterTenant(link.orgId);
 
   const invoice = await prisma.invoice.findFirst({ where: { id: link.docId, orgId: link.orgId } });
   if (!invoice) return res.status(404).json({ error: 'This link is no longer available' });

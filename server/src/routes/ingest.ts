@@ -8,6 +8,7 @@ import { mappingSchema, recordsOf, toAttlog } from '../services/attendance/punch
 import { hashToken } from './publicApi.js';
 import { ingestPunches } from './iclock.js';
 import { decryptSecret } from '../services/mailer.js';
+import { enterTenant } from '../utils/tenantScope.js';
 
 /** How far a signed push's timestamp may be from now (seconds): older is a replay, refused. */
 export const SIGNATURE_WINDOW_S = 300;
@@ -51,6 +52,8 @@ ingestRouter.post('/:token', ...ingestLimiter, async (req, res) => {
   /* A-11: punches are taken only while Attendance is on, paid for, and the company is not closing. */
   const refused = await appLive(device.accountId, device.orgId, 'attendance');
   if (refused) return res.status(refused.status).json({ error: refused.error, code: refused.code });
+  /* A-30: the rest of this request runs as the company the token named. */
+  enterTenant(device.orgId);
 
   if (device.apiSecret) {
     let secret = '';

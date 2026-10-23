@@ -8,7 +8,7 @@ import { recordAuthEvent, clientIp } from '../services/auth.js';
 import { hashToken } from './publicApi.js';
 import { notifyPermission } from '../services/notifications.js';
 import { userIsAdmin } from '../services/roleGuards.js';
-import { outsideTenant } from '../utils/tenantScope.js';
+import { outsideTenant, enterTenant } from '../utils/tenantScope.js';
 
 /**
  * /scim/v2 — SCIM 2.0 provisioning (RFC 7643 / 7644), the way Microsoft
@@ -51,6 +51,8 @@ scimRouter.use(async (req: Request, res: Response, next: NextFunction) => {
   if (await closing(t.orgId)) return fail(res, 403, 'This company is being closed; directory sync is switched off.');
   req.scim = { id: t.id, accountId: t.accountId, orgId: t.orgId, defaultRoleId: t.defaultRoleId };
   platformPrisma.scimToken.update({ where: { id: t.id }, data: { lastUsedAt: new Date() } }).catch(() => {});
+  /* A-30: the rest of this request runs as the company the token named. */
+  enterTenant(t.orgId);
   next();
 });
 

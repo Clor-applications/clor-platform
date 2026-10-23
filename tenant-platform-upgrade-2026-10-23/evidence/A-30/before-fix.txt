@@ -1,0 +1,160 @@
+ DEPRECATED  `test.poolOptions` was removed in Vitest 4. All previous `poolOptions` are now top-level options. Please, refer to the migration guide: https://vitest.dev/guide/migration#pool-rework
+
+ RUN  v4.1.10 /Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_93853", schema "accounting" at "localhost:5432"
+
+The PostgreSQL database "clor_test_93853" schema "accounting" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 1.35s
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/payroll/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_93853", schema "payroll" at "localhost:5432"
+
+The PostgreSQL database "clor_test_93853" schema "payroll" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 889ms
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/people/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_93853", schema "people" at "localhost:5432"
+
+The PostgreSQL database "clor_test_93853" schema "people" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 1.43s
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/platform/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_93853", schema "platform" at "localhost:5432"
+
+The PostgreSQL database "clor_test_93853" schema "platform" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 991ms
+
+[setup] 180 policy statements applied to clor_test_93853
+[setup] 7 policy statements applied to clor_test_93853
+[setup] 10 policy statements applied to clor_test_93853
+[setup] 35 policy statements applied to clor_test_93853
+[setup] 4 policy statements applied to clor_test_93853
+[setup] 96 policy statements applied to clor_test_93853
+[setup] 4 policy statements applied to clor_test_93853
+[setup] 4 policy statements applied to clor_test_93853
+[setup] 4 policy statements applied to clor_test_93853
+[setup] 4 policy statements applied to clor_test_93853
+[setup] 32 policy statements applied to clor_test_93853
+[setup] 24 policy statements applied to clor_test_93853
+[setup] 12 policy statements applied to clor_test_93853
+[setup] 16 policy statements applied to clor_test_93853
+[setup] 4 policy statements applied to clor_test_93853
+[setup] 4 policy statements applied to clor_test_93853
+[setup] 8 policy statements applied to clor_test_93853
+[setup] 8 policy statements applied to clor_test_93853
+[setup] 20 policy statements applied to clor_test_93853
+[setup] 8 policy statements applied to clor_test_93853
+[setup] 4 policy statements applied to clor_test_93853
+[setup] 8 policy statements applied to clor_test_93853
+[setup] 8 policy statements applied to clor_test_93853
+[setup] 12 policy statements applied to clor_test_93853
+[setup] 4 policy statements applied to clor_test_93853
+[setup] 8 policy statements applied to clor_test_93853
+[setup] 28 policy statements applied to clor_test_93853
+[setup] 4 policy statements applied to clor_test_93853
+[setup] 4 policy statements applied to clor_test_93853
+[setup] 4 policy statements applied to clor_test_93853
+[setup] 8 policy statements applied to clor_test_93853
+[setup] 4 policy statements applied to clor_test_93853
+[setup] 4 policy statements applied to clor_test_93853
+[setup] 4 policy statements applied to clor_test_93853
+[setup] 4 policy statements applied to clor_test_93853
+[setup] 8 policy statements applied to clor_test_93853
+[setup] 4 policy statements applied to clor_test_93853
+[setup] 12 policy statements applied to clor_test_93853
+[setup] 4 policy statements applied to clor_test_93853
+[setup] 76 policy statements applied to clor_test_93853
+[setup] 4 policy statements applied to clor_test_93853
+[setup] 4 policy statements applied to clor_test_93853
+[setup] 4 policy statements applied to clor_test_93853
+[setup] 4 policy statements applied to clor_test_93853
+POST /api/auth/signup 200 570 - 103.269 ms
+POST /api/auth/setup-company 200 198 - 406.759 ms
+PUT /api/orgs/cmvldbyr3000ejyu0wunuv8th/features 200 1173 - 284.232 ms
+POST /api/orgs/cmvldbyr3000ejyu0wunuv8th/attendance/devices 201 1418 - 165.139 ms
+PUT /api/orgs/cmvldbyr3000ejyu0wunuv8th/attendance/devices/cmvldbzdu00006u35tseq91jx 200 1629 - 93.629 ms
+ ❯ src/__tests__/tenantBackstop.test.ts (4 tests | 3 failed) 1246ms
+     × runs the rest of the request as that company 1196ms
+     × enters the company for the rest of that request only 0ms
+     × still tells the database the company, on every client 35ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/__tests__/tenantBackstop.test.ts > a route that learns its company from a token (A-30) > runs the rest of the request as that company
+AssertionError: expected [ '' ] to deeply equal [ 'cmvldbyr3000ejyu0wunuv8th' ]
+
+- Expected
++ Received
+
+  [
+-   "cmvldbyr3000ejyu0wunuv8th",
++   "",
+  ]
+
+ ❯ src/__tests__/tenantBackstop.test.ts:52:18
+     50|     seen.length = 0;
+     51|     await request(app).post(`/ingest/${made.pushToken}`).set('Content-…
+     52|     expect(seen).toEqual([c.orgId]);
+       |                  ^
+     53|   });
+     54|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  src/__tests__/tenantBackstop.test.ts > a route that learns its company from a token (A-30) > enters the company for the rest of that request only
+TypeError: enterTenant is not a function
+ ❯ src/__tests__/tenantBackstop.test.ts:59:7
+     57|     const mine = (async () => {
+     58|       await Promise.resolve();
+     59|       enterTenant('org-token');
+       |       ^
+     60|       await new Promise((r) => setTimeout(r, 5));
+     61|       return currentOrg();
+ ❯ src/__tests__/tenantBackstop.test.ts:67:12
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  src/__tests__/tenantBackstop.test.ts > inside an interactive transaction (A-37) > still tells the database the company, on every client
+AssertionError: expected { tx: 'org-a37', …(4) } to deeply equal { tx: 'org-a37', …(4) }
+
+- Expected
++ Received
+
+  {
+-   "accounting": "org-a37",
+-   "people": "org-a37",
+-   "platform": "org-a37",
+-   "sameClientOutsideTx": "org-a37",
++   "accounting": "",
++   "people": "",
++   "platform": "",
++   "sameClientOutsideTx": "",
+    "tx": "org-a37",
+  }
+
+ ❯ src/__tests__/tenantBackstop.test.ts:84:17
+     82|       }))
+     83|     );
+     84|     expect(got).toEqual({ tx: 'org-a37', sameClientOutsideTx: 'org-a37…
+       |                 ^
+     85|   });
+     86|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  3 failed | 1 passed (4)
+   Start at  01:03:47
+   Duration  18.65s (transform 2.80s, setup 26ms, import 5.36s, tests 1.25s, environment 0ms)
+

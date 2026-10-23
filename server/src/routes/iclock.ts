@@ -41,6 +41,7 @@ import { closedMonths, shiftFor, writeDay } from './attendance.js';
 import { readerIdMatcher } from '../services/attendance/readerIds.js';
 import { biometricPolicy, openTemplate, sealTemplate, sendableWhere } from '../services/attendance/biometrics.js';
 import { driverOf, parserOf, vendorsWith } from '../services/attendance/drivers.js';
+import { enterTenant } from '../utils/tenantScope.js';
 
 /**
  * /iclock — where biometric readers push punches (ZKTeco / eSSL "ADMS").
@@ -756,6 +757,7 @@ iclockRouter.get(['/cdata', '/cdata.aspx'], async (req, res) => {
   if (!serial) return text(res, 'ADMS Server Ready');
   try {
     const device = await deviceFor(serial);
+    if (device) enterTenant(device.orgId); /* A-30 */
     /* Options are no secret; a reader on a network not approved yet is not marked as seen. */
     if (device && !(await admitted(device, req))) return text(res, HANDSHAKE_OPTIONS);
     if (device) {
@@ -802,6 +804,7 @@ iclockRouter.post(['/cdata', '/cdata.aspx'], async (req, res) => {
   const body = typeof req.body === 'string' ? req.body : '';
   try {
     const device = await deviceFor(serial);
+    if (device) enterTenant(device.orgId); /* A-30 */
     if (!device) {
       await remember(serial, readerIp(req), null, networkOf(req));
       return text(res, 'OK');
@@ -906,6 +909,7 @@ iclockRouter.get(['/getrequest', '/getrequest.aspx'], async (req, res) => {
   if (!serial) return text(res, 'OK');
   try {
     const device = await deviceFor(serial);
+    if (device) enterTenant(device.orgId); /* A-30 */
     const info = parseInfo(req.query.INFO ? String(req.query.INFO) : undefined);
     const ip = info.ip || readerIp(req);
     if (!device) {
@@ -990,6 +994,7 @@ iclockRouter.post(['/devicecmd', '/devicecmd.aspx'], async (req, res) => {
   try {
     const results = parseCommandResults(typeof req.body === 'string' ? req.body : '');
     const device = results.length ? await deviceFor(serial) : null;
+    if (device) enterTenant(device.orgId); /* A-30 */
     /* Only the reader itself, from an approved network, can say a command was carried out. */
     if (!device || !(await admitted(device, req))) return text(res, 'OK');
     for (const r of results) {

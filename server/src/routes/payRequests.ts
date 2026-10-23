@@ -13,6 +13,7 @@ import { PermissionAction } from '../constants/enums.js';
 import { ingestLimiter } from '../middleware/rateLimit.js';
 import { hashToken } from './publicApi.js';
 import { notifyPermission } from '../services/notifications.js';
+import { enterTenant } from '../utils/tenantScope.js';
 
 /**
  * UPI Direct: the company's customers pay straight into the company's own
@@ -201,6 +202,7 @@ input{width:100%;box-sizing:border-box;padding:10px;border:1px solid #d6d3d1;bor
 
 payPageRouter.get('/:token', ...ingestLimiter, async (req, res) => {
   const r = await requestOf(String(req.params.token));
+  if (r) enterTenant(r.orgId); /* A-30: the rest of this request runs as the link's company. */
   res.setHeader('Cache-Control', 'no-store');
   res.setHeader('X-Robots-Tag', 'noindex');
   if (!r) return res.status(404).type('html').send(page('Link not found', '<h1>This payment link is not valid</h1><p class="muted">Ask the business for a new one.</p>'));
@@ -232,6 +234,7 @@ ${claimed}<button class="btn btn2" type="submit">I have paid</button></form>`,
 payPageRouter.post('/:token/claim', ...ingestLimiter, async (req, res) => {
   const token = String(req.params.token);
   const r = await requestOf(token);
+  if (r) enterTenant(r.orgId); /* A-30: the rest of this request runs as the link's company. */
   const back = (err: string) => res.redirect(303, `/pay/${encodeURIComponent(token)}?err=${encodeURIComponent(err)}`);
   if (!r) return res.status(404).type('html').send(page('Link not found', '<h1>This payment link is not valid</h1>'));
   if (r.status !== 'PENDING') return res.redirect(303, `/pay/${encodeURIComponent(token)}`);
