@@ -40,7 +40,10 @@ const at = (c: Ctx) => ({ Authorization: `Bearer ${c.token}`, 'x-org-id': c.orgI
 /** A company with people and books, closed, its notice ended. */
 async function closedCompany(): Promise<Ctx> {
   const email = `a47.${Date.now()}.${rnd()}@example.com`;
-  const name = `A47 Co ${rnd()}`;
+  /* A prefix of its own per company: a purged company's code number is issued again while its account keeps the
+     code (a separate, pre-existing bug in displayCodes.ts), so two companies sharing letters here could collide. */
+  const letters = Array.from({ length: 6 }, () => String.fromCharCode(65 + Math.floor(Math.random() * 26))).join('');
+  const name = `${letters} Purge Co`;
   const signup = await request(app).post('/api/auth/signup').send({ email, password: 'Passw0rd!23', name: 'Owner' }).expect(200);
   const setup = await request(app).post('/api/auth/setup-company').set('Authorization', `Bearer ${signup.body.token}`).send({ companyName: name, state: 'Karnataka' }).expect(200);
   const c = { token: signup.body.token, orgId: setup.body.company.orgId, branchId: setup.body.branch.id, name };
