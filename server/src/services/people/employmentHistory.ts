@@ -1,6 +1,7 @@
 import { peoplePrisma } from '../../utils/peoplePrisma.js';
 import { platformPrisma } from '../../utils/platformPrisma.js';
 import { emit as emitWebhook, employeeEvent } from '../attendance/webhooks.js';
+import { ensureFirstEpisode } from './episodes.js';
 
 /**
  * Employment history (HR research, Phase 1: "every change must retain
@@ -144,6 +145,9 @@ export async function recordChanges(who: Who, before: Row, after: Row, opts: { s
 /** Someone new: joined, and where they start. */
 export async function recordJoined(who: Who, employee: Row, source: HistorySource) {
   try {
+    /* Their first stint, and the date that never moves (episodes.ts). Every path that creates a person comes through here. */
+    await ensureFirstEpisode(who, { id: String(employee.id), dateOfJoining: employee.dateOfJoining ? String(employee.dateOfJoining) : null, createdAt: employee.createdAt instanceof Date ? employee.createdAt : null });
+    if (!employee.firstJoiningDate) await peoplePrisma.employee.updateMany({ where: { id: employee.id, orgId: who.orgId, firstJoiningDate: null }, data: { firstJoiningDate: employee.dateOfJoining ? String(employee.dateOfJoining).slice(0, 10) : todayIst() } });
     const date = employee.dateOfJoining && ISO_DAY.test(String(employee.dateOfJoining).slice(0, 10)) ? String(employee.dateOfJoining).slice(0, 10) : todayIst();
     const where = (await Promise.all(['departmentId', 'jobPositionId', 'areaId'].map((f) => labelOf(who.orgId, f, employee[f])))).filter(Boolean).join(' · ');
     await write(who, employee, { kind: 'JOINED', effectiveDate: date, source, note: where || null });

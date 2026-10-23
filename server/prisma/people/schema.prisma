@@ -48,8 +48,15 @@ model Employee {
   designation String?
   department  String?
 
+  /// When the current stint began. Attendance and leave proration read this, so a
+  /// rejoin moves it; the first stint's start stays in `firstJoiningDate` and
+  /// every stint is an EmploymentEpisode (docs/people/02-PRD.md FND-06).
   dateOfJoining String?
   dateOfLeaving String?
+  /// The first day they ever joined this company; never moved by a rejoin.
+  firstJoiningDate  String?
+  /// Which stint they are on (EmploymentEpisode.seq): 1 until a rejoin.
+  currentEpisodeSeq Int     @default(1)
   /// ACTIVE | ON_NOTICE | LEFT | SUSPENDED
   status        String  @default("ACTIVE")
 
@@ -148,6 +155,7 @@ model Employee {
   tags      EmployeeTagLink[]
   notesLog  EmployeeNote[]
   documents EmployeeDocument[]
+  episodes  EmploymentEpisode[]
 
   createdByUserId String
   createdAt       DateTime @default(now())
@@ -1735,6 +1743,30 @@ model EmploymentEvent {
   createdAt        DateTime @default(now())
 
   @@index([orgId, employeeId, effectiveDate])
+}
+
+/// One stint of employment (services/people/episodes.ts): from joining to
+/// leaving. A rejoin opens the next stint and keeps the earlier ones, so
+/// service history survives; the employee id never changes.
+model EmploymentEpisode {
+  id         String   @id @default(cuid())
+  accountId  String
+  orgId      String
+  employeeId String
+  /// 1 for the first stint, then 2, 3…
+  seq        Int
+  startDate  String
+  endDate    String?
+  /// RESIGNED | TERMINATED | RETIRED | ABSCONDED | CONTRACT_ENDED | DECEASED
+  endType    String?
+  endReason  String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([employeeId, seq])
+  @@index([orgId, employeeId])
 }
 
 /// Joining / leaving checklist a company uses (services/people/checklists.ts).

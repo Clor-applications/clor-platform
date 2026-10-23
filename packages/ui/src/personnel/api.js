@@ -94,6 +94,8 @@ export const getComplianceEvidence = (id) => apiFetch(`${base()}/compliance/${en
 /* Data health: the implementation auditor (server: services/people/dataHealth.ts). */
 export const getDataHealth = () => apiFetch(`${base()}/data-health`, opts);
 export const getEmploymentHistory = (id) => apiFetch(`${base()}/employees/${encodeURIComponent(id)}/history`, opts).then((r) => r?.events || []);
+/* Stints: joined, left, rejoined (FND-06). First to last. */
+export const getEmploymentEpisodes = (id) => apiFetch(`${base()}/employees/${encodeURIComponent(id)}/history`, opts).then((r) => r?.episodes || []);
 
 export const LEAVING_TYPES = {
   RESIGNED: 'Resigned',

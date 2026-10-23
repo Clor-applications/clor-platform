@@ -31,6 +31,7 @@ import {
   getChecklist,
   getEmployeeStatutory,
   getEmploymentHistory,
+  getEmploymentEpisodes,
   startChecklist,
   updateChecklistTask,
   rehireEmployee,
@@ -447,11 +448,14 @@ function EmployeeFile({ id, onClose, onEdit, onDeleted }) {
     }
   };
 
+  const [rejoinDate, setRejoinDate] = useState('');
   const rehire = async () => {
-    const ok = await confirmDialog({ title: `Rehire ${person.name}?`, message: 'They become active again and are put back on every reader. Fingerprints and faces were deleted when they left, so they enrol again.', confirmLabel: 'Rehire', tone: 'primary' });
+    if (!rejoinDate) return notify.error('Give the rejoin date first.');
+    if (person.dateOfLeaving && rejoinDate <= person.dateOfLeaving) return notify.error(`The rejoin date must be after their last day, ${person.dateOfLeaving}.`);
+    const ok = await confirmDialog({ title: `Rehire ${person.name} from ${formatDateIn(rejoinDate)}?`, message: `A new stint starts on that date; their first joining date (${person.firstJoiningDate ? formatDateIn(person.firstJoiningDate) : 'on file'}) stays. They become active again and are put back on every reader; fingerprints and faces were deleted when they left, so they enrol again.`, confirmLabel: 'Rehire', tone: 'primary' });
     if (!ok) return;
     try {
-      const r = await rehireEmployee(person.id);
+      const r = await rehireEmployee(person.id, { rejoinDate });
       notify.success(r.readers ? `${person.name} is back, and on ${r.readers} reader${r.readers === 1 ? '' : 's'}.` : `${person.name} is back.`);
       setPerson((x) => ({ ...x, ...r.employee }));
       onDeleted();
@@ -488,7 +492,12 @@ function EmployeeFile({ id, onClose, onEdit, onDeleted }) {
               <Trash2 size={16} aria-hidden="true" /> Delete
             </button>
             {person.status === 'LEFT' ? (
-              <button type="button" className="ui-btn ui-btn-secondary" onClick={rehire}>Rehire</button>
+              <>
+                <label className="flex items-center gap-1.5 text-sm">Rejoin on
+                  <input type="date" className="ui-input" style={{ width: 'auto' }} value={rejoinDate} min={person.dateOfLeaving || undefined} onChange={(e) => setRejoinDate(e.target.value)} aria-label="Rejoin date" />
+                </label>
+                <button type="button" className="ui-btn ui-btn-secondary" onClick={rehire}>Rehire</button>
+              </>
             ) : (
               <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setResigning(true)}>Record leaving</button>
             )}
@@ -588,7 +597,8 @@ function EmployeeFile({ id, onClose, onEdit, onDeleted }) {
                   <Field label="Father’s / husband’s name" value={person.guardianName} />
                 </>
               ) : null}
-              <Field label="Joined" value={person.dateOfJoining} />
+              <Field label={person.currentEpisodeSeq > 1 ? `Joined (stint ${person.currentEpisodeSeq})` : 'Joined'} value={person.dateOfJoining} />
+              {person.currentEpisodeSeq > 1 && person.firstJoiningDate ? <Field label="First joined" value={person.firstJoiningDate} /> : null}
               <Field label="Probation ends" value={person.probationEndDate} />
               <Field label="Contract ends" value={person.contractEndDate} />
               <Field label="Left" value={person.dateOfLeaving ? `${person.dateOfLeaving}${person.leavingType ? ` · ${LEAVING_TYPES[person.leavingType] || person.leavingType}` : ''}${person.leavingReason ? ` — ${person.leavingReason}` : ''}` : null} />
@@ -666,9 +676,11 @@ const HISTORY_TONE = { JOINED: 'pos', LEFT: 'neg', REHIRED: 'pos', TRANSFERRED: 
  */
 function EmploymentHistory({ employeeId }) {
   const [events, setEvents] = useState(null);
+  const [episodes, setEpisodes] = useState([]);
   useEffect(() => {
     let live = true;
     getEmploymentHistory(employeeId).then((e) => live && setEvents(e)).catch(() => live && setEvents([]));
+    getEmploymentEpisodes(employeeId).then((e) => live && setEpisodes(e)).catch(() => live && setEpisodes([]));
     return () => {
       live = false;
     };
@@ -676,6 +688,18 @@ function EmploymentHistory({ employeeId }) {
   if (!events) return <SkeletonCard lines={4} />;
   if (!events.length) return <p className="ui-muted text-sm">No history yet. Changes to department, location, designation, manager, type and leaving are recorded here from now on.</p>;
   return (
+    <>
+    {episodes.length > 1 ? (
+      <ol className="space-y-1 mb-3" aria-label="Stints">
+        {episodes.map((st) => (
+          <li key={st.seq} className="text-sm flex flex-wrap items-center gap-2">
+            <span className={`ui-pill ${st.current ? 'ui-pill-pos' : 'ui-pill-neutral'}`}>Stint {st.seq}</span>
+            <span className="tabular-nums">{formatDateIn(st.startDate)} – {st.endDate ? formatDateIn(st.endDate) : 'now'}</span>
+            {st.endType ? <span className="ui-caption">{st.endType.replaceAll('_', ' ').toLowerCase()}{st.endReason ? ` · ${st.endReason}` : ''}</span> : null}
+          </li>
+        ))}
+      </ol>
+    ) : null}
     <ol className="space-y-3" aria-label="Employment history">
       {events.map((e) => (
         <li key={e.id} className="ui-card p-3 space-y-1">
@@ -696,6 +720,7 @@ function EmploymentHistory({ employeeId }) {
         </li>
       ))}
     </ol>
+    </>
   );
 }
 

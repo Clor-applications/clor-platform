@@ -300,6 +300,7 @@ export default async function setup() {
   await applyPolicies(asOwner(people), 'prisma/people/migrations/20261022140100_company_masters_rls');
   await applyPolicies(asOwner(people), 'prisma/people/migrations/20261022150100_leave_policy_rls');
   /* A-35: fail closed — last, after every policy above exists. */
+  await applyPolicies(asOwner(people), 'prisma/people/migrations/20261024130100_employment_episodes_rls');
   await applyPolicies(asOwner(people), 'prisma/people/migrations/20261024100000_rls_fail_closed');
   await applyPolicies(asOwner(platform), 'prisma/platform/migrations/20260924120000_row_level_security');
   await applyPolicies(asOwner(platform), 'prisma/platform/migrations/20261018040100_scim_tokens_rls');

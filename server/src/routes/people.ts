@@ -14,6 +14,7 @@ import { PEOPLE_MODULE, PEOPLE_RESOURCE, peopleRouteOk } from '../services/peopl
 import { pushEmployeeToReaders, readerFieldsChanged, revokeFromReaders } from '../services/attendance/readerSync.js';
 import { emit as emitWebhook, employeeEvent } from '../services/attendance/webhooks.js';
 import { deleteToBin } from '../services/recycleBin.js';
+import { episodesOf } from '../services/people/episodes.js';
 import { recordChanges, recordJoined, timelineOf } from '../services/people/employmentHistory.js';
 import { dataHealth } from '../services/people/dataHealth.js';
 import { PAYROLL_MODULE, PAYROLL_RESOURCE } from '../services/payroll/guards.js';
@@ -600,7 +601,7 @@ peopleRouter.get('/orgs/:orgId/people/employees/:id/history', can(PermissionActi
   const { accountId, orgId } = req.tenant!;
   const employee = await peoplePrisma.employee.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
   if (!employee) return res.status(404).json({ error: 'No such employee.' });
-  res.json({ events: await timelineOf(orgId, employee) });
+  res.json({ events: await timelineOf(orgId, employee), episodes: await episodesOf(orgId, employee) });
 });
 
 /**
