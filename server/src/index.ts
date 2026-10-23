@@ -58,7 +58,7 @@ startWebhookRetries();
 
 /* Sign-in records past their use are removed daily — see services/retention.ts. */
 startRetentionPurge();
-/* Companies whose closure notice has ended are deleted daily — see services/companyClosure.ts. */
+/* Companies whose closure notice has ended are deleted (checked hourly, resumable) — see services/companyClosure.ts. */
 startClosurePurge();
 /* Recycle-bin items past their days are deleted for good — see services/recycleBin.ts. */
 startRecycleBinPurge();

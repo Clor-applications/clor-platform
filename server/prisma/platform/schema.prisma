@@ -954,6 +954,12 @@ model OrgClosure {
   deletedAt         DateTime?
   /// Rows deleted per table, as JSON, once DELETED.
   deletedCounts     String?
+  /// The purge's checkpoint, as JSON { done: [store, …], counts }: a purge that was cut off resumes after the last store it finished.
+  purgeProgress     String?
+  /// How many purge runs have started for this company, and why the last one stopped, if it did.
+  purgeAttempts     Int       @default(0)
+  purgeError        String?
+  lastPurgeAt       DateTime?
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
