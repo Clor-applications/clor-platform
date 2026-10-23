@@ -41,7 +41,10 @@ const GROUPS = [
   {
     title: 'Access & Security',
     note: 'How people sign in.',
-    items: [['sso', 'Sign in with Google or Microsoft for your domain']],
+    items: [
+      ['sso', 'Users, sign-in and single sign-on, in Company admin'],
+      ['rolesAccess', 'What each role may do in People, in Company admin'],
+    ],
   },
   {
     title: 'Integrations',

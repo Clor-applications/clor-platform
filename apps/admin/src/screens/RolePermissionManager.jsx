@@ -6,14 +6,29 @@ import { expandPreset, getPermissionCatalog, getRolePermissions, setRolePermissi
 import { EmptyState, Spinner, SkeletonCard } from '@ui/components/ui/Primitives';
 import { usePermissions } from '@ui/permissions/usePermissions';
 import SettingsScreenHeader from '@ui/chrome/SettingsScreenHeader';
-import { orgId as platformOrgId } from '@platform/context';
+import { hasApp, orgId as platformOrgId } from '@platform/context';
 import PermissionMatrix from './PermissionMatrix';
-import { catalogKeys } from './permissionKeys';
+import { PERMISSION_APPS, appOfModule, catalogKeys } from './permissionKeys';
 
 export const RolePermissionManager = () => {
   const { reload: reloadMyPermissions } = usePermissions();
 
   const [catalog, setCatalog] = useState({ modules: [], presets: [] });
+  /*
+   * Which app's permissions are shown (ADR-010). One editor serves every app;
+   * an app's "Roles & access" link opens it on that app (?for=payroll), and
+   * only the apps this company uses are offered. Filtering hides rows, never
+   * grants: what is saved is always the whole role.
+   */
+  const offeredApps = PERMISSION_APPS.filter((a) => a.id === 'company' || hasApp(a.id));
+  const [forApp, setForApp] = useState(() => {
+    try {
+      const asked = new URLSearchParams(window.location.search).get('for');
+      return PERMISSION_APPS.some((a) => a.id === asked) ? asked : 'all';
+    } catch {
+      return 'all';
+    }
+  });
   const [roles, setRoles] = useState([]);
   const [roleId, setRoleId] = useState('');
   const [granted, setGranted] = useState(() => new Set());
@@ -276,9 +291,28 @@ export const RolePermissionManager = () => {
         </div>
       </div>
 
+      <div className="flex flex-wrap gap-1" role="tablist" aria-label="Permissions for">
+        {[{ id: 'all', label: 'All apps' }, ...offeredApps].map((a) => (
+          <button
+            key={a.id}
+            type="button"
+            role="tab"
+            aria-selected={forApp === a.id}
+            onClick={() => setForApp(a.id)}
+            className={`ui-btn ${forApp === a.id ? 'ui-btn-secondary' : 'ui-btn-ghost'}`}
+          >
+            {a.label}
+          </button>
+        ))}
+      </div>
+
       <PermissionMatrix
-        key={roleId}
-        modules={catalog.modules}
+        key={`${roleId}:${forApp}`}
+        modules={catalog.modules.filter((m) => {
+          const app = appOfModule(m.key);
+          if (app !== 'company' && !offeredApps.some((a) => a.id === app)) return false;
+          return forApp === 'all' || app === forApp;
+        })}
         granted={granted}
         onToggle={toggle}
         onSetMany={setMany}

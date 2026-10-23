@@ -189,7 +189,7 @@ describe('search finds what people type', () => {
 
   it('puts the setting actually called that first', () => {
     expect(searchSettings('gst', all)[0].key).toBe('settingsTax');
-    expect(searchSettings('roles', all)[0].key).toBe('companyAdmin');
+    expect(searchSettings('roles', all)[0].key).toBe('accountingRoles');
   });
 
   it('finds the backup by the words somebody would reach for', () => {

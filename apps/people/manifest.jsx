@@ -98,6 +98,7 @@ const RecycleBin = screen('RecycleBin');
 const DataProtection = screen('DataProtection');
 const DataRequests = screen('DataRequests');
 const SsoSettings = screen('SsoSettings');
+const RolesAccess = screen('RolesAccess');
 
 /* Full-colour icons, the same family as Attendance (packages/ui/src/components/ui/iconSet.jsx). */
 const I = {
@@ -248,6 +249,7 @@ export const peopleApp = {
     { key: 'grades', label: 'Grades', icon: I.grade, permission: 'PEOPLE::Org Structure::VIEW', parent: 'settings' },
     { key: 'costCentres', label: 'Cost Centres', icon: I.costCentre, permission: 'PEOPLE::Org Structure::VIEW', parent: 'settings' },
     { key: 'sso', label: 'Users & Security', icon: I.sso, permission: 'SETTINGS::Users::VIEW', parent: 'settings' },
+    { key: 'rolesAccess', label: 'Roles & Access', icon: I.sso, permission: 'SETTINGS::Roles::VIEW', parent: 'settings' },
     { key: 'integrations', label: 'Integrations', icon: I.integrations, permission: 'ATTENDANCE::Attendance Integrations::VIEW', parent: 'settings' },
     { key: 'dataExport', label: 'Export Data', icon: I.export, permission: 'ATTENDANCE::Attendance Records::VIEW', parent: 'settings' },
     { key: 'recycleBin', label: 'Recycle Bin', icon: I.bin, permission: 'ATTENDANCE::Attendance Records::VIEW', parent: 'settings' },
@@ -301,6 +303,7 @@ export const peopleApp = {
     grades: Grades,
     costCentres: CostCentres,
     sso: SsoSettings,
+    rolesAccess: RolesAccess,
     integrations: Integrations,
     dataExport: DataExport,
     recycleBin: RecycleBin,

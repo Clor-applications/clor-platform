@@ -191,9 +191,13 @@ export default function Shell() {
   const [showMoreApps, setShowMoreApps] = useState(false);
 
   /* `open` names a screen inside the app (Accounting's settings): carried in the address so it survives the hop to the app's own host. */
-  const openApp = (id, open = '') => {
+  /* `params` travel with it in the address too (Company admin's permissions opened for one app: ?for=payroll). */
+  const openApp = (id, open = '', params = {}) => {
     const next = appById(id);
-    const search = open ? `?open=${encodeURIComponent(open)}` : '';
+    const query = new URLSearchParams();
+    if (open) query.set('open', open);
+    for (const [k, v] of Object.entries(params || {})) if (v != null && v !== '') query.set(k, String(v));
+    const search = query.toString() ? `?${query}` : '';
     /* An app with its own address opens there, so the address bar says which
        app this is. The session follows through the API's refresh cookie. */
     const host = hostForApp(id);
@@ -220,7 +224,7 @@ export default function Shell() {
     openAppRef.current = openApp;
   });
   useEffect(() => {
-    const onOpen = (e) => openAppRef.current(e.detail?.appId, e.detail?.screen || '');
+    const onOpen = (e) => openAppRef.current(e.detail?.appId, e.detail?.screen || '', e.detail?.params || {});
     window.addEventListener(OPEN_APP_EVENT, onOpen);
     return () => window.removeEventListener(OPEN_APP_EVENT, onOpen);
   }, []);

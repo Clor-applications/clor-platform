@@ -44,3 +44,6 @@ export { default as DataProtection } from '../../attendance/src/screens/DataProt
 export { default as DataRequests } from '../../attendance/src/screens/DataRequests';
 /* Sign-in, SSO, users and roles are the company's: they live in Company admin (ADR-010), and this entry opens it. */
 export const SsoSettings = () => React.createElement(OpenInCompanyAdmin, { title: 'Users & Security', screen: 'sso' });
+/* This app's roles and permissions, in Company admin's one role editor, opened on People's share (ADR-010). */
+export const RolesAccess = () => React.createElement(OpenInCompanyAdmin, { title: 'Roles & Access', screen: 'permissions', forApp: 'people' });
+

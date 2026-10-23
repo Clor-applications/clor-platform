@@ -14020,6 +14020,8 @@ const AppShell = () => {
         const branchId = localStorage.getItem('activeBranchId');
         return <SettingsWarehouses orgId={orgId} branchId={branchId} company={currentCompany} onWarehousesChanged={reloadWarehouses} />;
       }
+      case 'accountingRoles':
+        return <MovedToCompanyAdmin title="Roles & Access" screen="permissions" forApp="accounting" />;
       case 'companyAdmin':
         return <MovedToCompanyAdmin title="Users, roles & security" screen="home" />;
       case 'settingsTerms':

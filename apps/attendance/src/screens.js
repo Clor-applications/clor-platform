@@ -64,3 +64,6 @@ export { default as OvertimePolicy } from './screens/OvertimePolicy';
 export { default as AttendanceSetup } from './screens/AttendanceSetup';
 export { default as ReportInsights } from './screens/ReportInsights';
 export { default as CloseCompany } from '@ui/company/CloseCompany';
+/* This app's roles and permissions, in Company admin's one role editor, opened on Attendance's share (ADR-010). */
+export const RolesAccess = () => React.createElement(OpenInCompanyAdmin, { title: 'Roles & Access', screen: 'permissions', forApp: 'attendance' });
+

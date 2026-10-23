@@ -1,4 +1,4 @@
-import { ArrowUpRight, BadgePercent, Banknote, BarChart3, CalendarClock, FileText, Handshake, Landmark, Layers, ListChecks, Percent, Receipt, RefreshCw, SlidersHorizontal, Table2, Users, Wallet } from 'lucide-react';
+import { ArrowUpRight, BadgePercent, Banknote, BarChart3, CalendarClock, FileText, Handshake, Landmark, Layers, ListChecks, Percent, Receipt, RefreshCw, Shield, SlidersHorizontal, Table2, Users, Wallet } from 'lucide-react';
 
 import { lazyScreens } from '@ui/utils/lazyScreens';
 
@@ -23,6 +23,7 @@ const PayrollSetup = screen('PayrollSetup');
 const BankChanges = screen('BankChanges');
 const FinalSettlements = screen('FinalSettlements');
 const TaxDeclarations = screen('TaxDeclarations');
+const RolesAccess = screen('RolesAccess');
 
 /**
  * Everything the shell knows about Payroll.
@@ -65,6 +66,7 @@ export const payrollApp = {
       { label: 'Setup', items: ['setup', 'periods', 'payGroups'] },
       { label: 'Salary design', items: ['components', 'structures'] },
       { label: 'Statutory', items: ['compliance', 'ledgers'] },
+      { label: 'Access', items: ['rolesAccess'] },
     ] },
   ],
   /* `permission`: what the screen's data needs (server routes); the shell hides what this user cannot open and shows read-only what they cannot change. */
@@ -94,6 +96,8 @@ export const payrollApp = {
     { key: 'structures', label: 'Salary Structures', icon: Layers, permission: 'PAYROLL::Salary Structures::VIEW' },
     { key: 'compliance', label: 'Compliance', icon: BadgePercent, permission: 'PAYROLL::Payroll Settings::VIEW' },
     { key: 'ledgers', label: 'Ledger mapping', icon: Landmark, permission: 'PAYROLL::Payroll Posting::VIEW' },
+    /* Payroll's roles live in Company admin's one role editor; this opens it on Payroll (ADR-010). */
+    { key: 'rolesAccess', label: 'Roles & Access', icon: Shield, permission: 'SETTINGS::Roles::VIEW' },
   ],
 
   screens: {
@@ -116,5 +120,6 @@ export const payrollApp = {
     periods: PayrollPeriods,
     payGroups: PayGroups,
     setup: PayrollSetup,
+    rolesAccess: RolesAccess,
   },
 };

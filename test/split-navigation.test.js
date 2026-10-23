@@ -58,7 +58,7 @@ describe('Attendance navigation structure', () => {
       ['Organization', ['Attendance Setup', 'Work Sites', 'Work Site Check']],
       ['Work Policy', ['Attendance Policy', 'Weekly Off Policy', 'Overtime Policy', 'Leave Policy', 'Holidays']],
       ['Integrations', ['Integrations']],
-      ['Access & Security', ['Users & Security']],
+      ['Access & Security', ['Users & Security', 'Roles & Access']],
       ['Data Management', ['Data Health', 'Import Data', 'Export Data', 'Close Company']],
       ['Compliance', ['Compliance Calendar']],
       ['Privacy', ['Data Protection', 'Data Requests']],
@@ -97,7 +97,7 @@ describe('Attendance navigation structure', () => {
     });
   }
   it('a person without a screen does not see it, and a module left empty disappears', () => {
-    const settings = new Set(['setup', 'sites', 'siteCheck', 'holidays', 'rules', 'weeklyOffPolicy', 'overtimePolicy', 'leaveTypes', 'integrations', 'sso', 'dataImport', 'dataExport', 'closeCompany', 'dataProtection', 'dataRequests', 'auditLogs', 'recycleBin', 'dataHealth', 'complianceCalendar']);
+    const settings = new Set(['setup', 'sites', 'siteCheck', 'holidays', 'rules', 'weeklyOffPolicy', 'overtimePolicy', 'leaveTypes', 'integrations', 'sso', 'rolesAccess', 'dataImport', 'dataExport', 'closeCompany', 'dataProtection', 'dataRequests', 'auditLogs', 'recycleBin', 'dataHealth', 'complianceCalendar']);
     const nav = attendanceApp.nav.filter((i) => !settings.has(i.key));
     const labels = resolveModules(attendanceApp, nav).map((m) => m.label);
     expect(labels).not.toContain('Settings');

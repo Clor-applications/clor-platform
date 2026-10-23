@@ -10,15 +10,16 @@ import { requestOpenApp } from '@platform/context';
  * Accounting's alone. A bookmark, a notification or a habit that still opens
  * the old place is taken there, to the same page, rather than to nothing.
  */
-export default function OpenInCompanyAdmin({ title, screen }) {
+export default function OpenInCompanyAdmin({ title, screen, forApp = '' }) {
+  /* `forApp`: open on one app's share of it (an app's "Roles & Access" shows that app's permissions). */
   useEffect(() => {
-    requestOpenApp('admin', screen);
-  }, [screen]);
+    requestOpenApp('admin', screen, forApp ? { for: forApp } : {});
+  }, [screen, forApp]);
 
   return (
     <div className="space-y-6">
       <PageHeader title={title} description="This is in Company admin now, with everything else your apps share." />
-      <button type="button" className="ui-btn ui-btn-primary" onClick={() => requestOpenApp('admin', screen)}>
+      <button type="button" className="ui-btn ui-btn-primary" onClick={() => requestOpenApp('admin', screen, forApp ? { for: forApp } : {})}>
         Open in Company admin <ArrowRight size={16} aria-hidden="true" />
       </button>
     </div>

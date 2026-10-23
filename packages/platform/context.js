@@ -75,9 +75,9 @@ export function onPlatformContextChange(fn) {
  * address).
  */
 export const OPEN_APP_EVENT = 'clor:open-app';
-export function requestOpenApp(appId, screen = '') {
+export function requestOpenApp(appId, screen = '', params = {}) {
   try {
-    window.dispatchEvent(new CustomEvent(OPEN_APP_EVENT, { detail: { appId, screen } }));
+    window.dispatchEvent(new CustomEvent(OPEN_APP_EVENT, { detail: { appId, screen, params } }));
   } catch {
     /* No window (a test): nothing to open. */
   }
