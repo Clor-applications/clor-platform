@@ -40,9 +40,10 @@ Changed:
 - Batch 1.5 (W-01..W-04): Company admin workspace (`apps/admin`). The front door opens it; every app's switcher reaches it; users, roles, permissions, sign-in, SSO, audit, branches, account, billing, data export and close-company moved out of Accounting (API clients to `@platform/admin`); Accounting/People/Attendance link to it and old keys redirect. Front-end only; no API change. Pre-existing web test failures recorded: 57 on the untouched main checkout, unchanged by this work.
 - W-04b/W-05: permissions grouped by app with per-app "Roles & Access"; one audit trail with per-app shares (server `app=` filter extended), Attendance/People audit screens open it. API keys deferred to Batch 5 (credential registry). Application behavior changed: yes (front end; audit filter API gained values). Schema: no.
 - A-11 fixed: one `appLive` check on every non-human entry point (portal, API keys, connectors, readers, SCIM, share and payment links). Application behavior changed: yes. Schema: no. Local dev DB brought up to the committed People migrations.
+- A-12 fixed: atomic approval claim (409 for the loser), 402 without Accounting, failed posting reopens the request. Application behavior changed: yes. Schema: no.
 
 Running totals for 2026-10-23:  
-Application behavior changed: yes (GAP-002, GAP-003, A-03, A-01, A-02, A-04, A-05, A-07, A-06, A-08, A-09, A-10, A-11).  
+Application behavior changed: yes (GAP-002, GAP-003, A-03, A-01, A-02, A-04, A-05, A-07, A-06, A-08, A-09, A-10, A-11, A-12).  
 Database schema changed: yes (platform `Account.legacyUnrestrictedAt`, applied locally only).  
 Deployment or Cloudflare configuration changed: no.  
 Customer data accessed: no (local test accounts only).

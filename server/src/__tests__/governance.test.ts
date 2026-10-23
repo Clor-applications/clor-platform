@@ -313,6 +313,39 @@ describe('approval thresholds', () => {
     expect(tb.body.totals.balanced).toBe(true);
   });
 
+  /*
+   * A-12: two approvers deciding at the same moment both passed the "still
+   * pending" check and both posted the invoice to the journal. Now one
+   * decision wins, the other is told it was already decided, and the
+   * invoice is in the books once.
+   */
+  it('posts an invoice once when two approvers approve it at the same moment', async () => {
+    const org = await makeOwner();
+    const approverRole = await makeRole('Approver2', ['SALES::Invoices::VIEW', 'SALES::Invoices::CREATE'], undefined, org);
+    const raiserRole = await makeRole('Raiser2', ['SALES::Invoices::VIEW', 'SALES::Invoices::CREATE'], undefined, org);
+    await request(app)
+      .post(`/api/orgs/${org.orgId}/approval-rules`)
+      .set(auth(org))
+      .send({ docType: 'INVOICE', name: 'Over 50k', minAmount: 50000, approverRoleId: approverRole, blocksPosting: true })
+      .expect(201);
+    const raiser = await makeUser(org);
+    await request(app).post(`/api/orgs/${org.orgId}/users/${raiser.id}/roles`).set(auth(org)).send({ roleId: raiserRole, branchId: null }).expect(201);
+    const a = await makeUser(org);
+    const b = await makeUser(org);
+    for (const u of [a, b]) await request(app).post(`/api/orgs/${org.orgId}/users/${u.id}/roles`).set(auth(org)).send({ roleId: approverRole, branchId: null }).expect(201);
+
+    const big = await request(app).post(`/api/orgs/${org.orgId}/invoices`).set(auth(ctxFor(raiser.token, org))).send(invoiceBody({ subtotal: 80000, total: 80000 })).expect(201);
+    const pending = await request(app).get(`/api/orgs/${org.orgId}/approvals`).set(auth(org)).expect(200);
+    const reqId = pending.body.requests.find((r: any) => r.docId === big.body.invoice.id).id;
+
+    const results = await Promise.all(
+      [a, b].map((u) => request(app).post(`/api/orgs/${org.orgId}/approvals/${reqId}/decide`).set(auth(ctxFor(u.token, org))).send({ approve: true }))
+    );
+    expect(results.map((r) => r.status).sort()).toEqual([200, 409]);
+    const posted = await prisma.journalEntry.findMany({ where: { orgId: org.orgId, sourceDocType: 'INVOICE', sourceDocId: big.body.invoice.id, status: 'POSTED' } });
+    expect(posted).toHaveLength(1);
+  });
+
   it('does not hold a document raised by someone who already holds the approver role', async () => {
     const org = await makeOwner();
     const role = await makeRole('SelfApprover', ['SALES::Invoices::VIEW', 'SALES::Invoices::CREATE'], undefined, org);

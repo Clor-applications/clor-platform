@@ -138,15 +138,29 @@ export async function decide(opts: {
     throw new ApprovalError('You cannot approve a document you raised');
   }
 
-  return prisma.approvalRequest.update({
-    where: { id: request.id },
+  /*
+   * A-12: claimed only while still pending. Reading "pending" and then
+   * writing were two steps, so two approvers at the same moment both passed
+   * and both posted the invoice to the journal. Exactly one claim succeeds.
+   */
+  const claimed = await prisma.approvalRequest.updateMany({
+    where: { id: request.id, status: 'PENDING' },
     data: {
       status: opts.approve ? 'APPROVED' : 'REJECTED',
       decidedByUserId: opts.userId,
       decidedAt: new Date(),
       comment: opts.comment || null,
     },
-    include: { rule: true },
+  });
+  if (claimed.count !== 1) throw new ApprovalError('This request has already been decided', 409);
+  return prisma.approvalRequest.findUniqueOrThrow({ where: { id: request.id }, include: { rule: true } });
+}
+
+/** Undo a claim whose consequence (the journal posting) could not be made, so the request can be decided again. */
+export async function reopen(requestId: string) {
+  await prisma.approvalRequest.updateMany({
+    where: { id: requestId, status: 'APPROVED' },
+    data: { status: 'PENDING', decidedByUserId: null, decidedAt: null, comment: null },
   });
 }
 

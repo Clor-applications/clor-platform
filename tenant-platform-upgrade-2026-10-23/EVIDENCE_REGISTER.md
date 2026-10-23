@@ -35,6 +35,7 @@ Updated: 2026-10-23
 | EV-029 | W-04b: app-level roles in one editor | browser `evidence/W-01..04/6-payroll-roles-access-filtered.jpg` (URL `?open=permissions&for=payroll&app=admin`, tabs All/Company/Accounting/People/Attendance/Payroll*, only the Payroll section); web suite: no failure outside the main-checkout baseline; build ok |
 | EV-030 | W-05: one audit trail with per-app shares | `audit.test.ts`; `evidence/W-05/before-fix.txt` (old server rejects the new filter), `after-fix.txt`; browser `1-…jpg`, `2-…jpg`; web tests in touched areas: no failure outside the main-checkout baseline; build ok |
 | EV-031 | A-11: no non-human path outlives the subscription or a scheduled closure | `principalAllowed.test.ts`; `evidence/A-11/before-fix.txt` (3 fail: 200 where 402/403 expected), `after-fix.txt`; full server suite 162 files / 1526 tests; browser `1-…`, `2-…`, `3-portal-refusal-in-plain-words.jpg`. Local dev DB: five People migrations already on main were applied (`prisma migrate deploy`, local only) so the dev server could create employees |
+| EV-032 | A-12: an invoice is approved and posted once (full server suite 163 files / 1528 tests) | `approvalRace.test.ts`; `evidence/A-12/race-probe-before.txt` (DOUBLES 9 of 10) vs `race-probe-after.txt` (0); live `2-live-double-approve.json` (200, 409) and `2-live-journal-rows.json` (one POSTED entry); browser `1-…`, `1b-…`, `3-approved-once.jpg` |
 
 ## Evidence quality note
 

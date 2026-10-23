@@ -19,7 +19,8 @@ import {
   userIsAdmin,
 } from '../services/roleGuards.js';
 import { PermissionAction } from '../constants/enums.js';
-import { ApprovalError, decide, notifyDecision } from '../services/approvals.js';
+import { ApprovalError, decide, notifyDecision, reopen } from '../services/approvals.js';
+import { isAppEntitled } from '../services/subscriptions.js';
 import { ensureLedgerSetup, invoicePostingLines, postEntry } from '../services/ledger.js';
 
 /**
@@ -380,6 +381,14 @@ const decideSchema = z.object({ approve: z.boolean(), comment: z.string().max(30
 governanceRouter.post('/orgs/:orgId/approvals/:requestId/decide', async (req, res) => {
   if (!orgOk(req, res)) return;
   const body = decideSchema.parse(req.body);
+  /*
+   * A-12: approving releases a document into the books. The approver's role
+   * is checked in decide(); the account must also still have Accounting —
+   * this route sat outside the shared RBAC path that refuses unowned apps.
+   */
+  if (!(await isAppEntitled(req.tenant!.accountId, 'accounting'))) {
+    return res.status(402).json({ error: "The accounting app is not on this account's subscription.", app: 'accounting', code: 'APP_NOT_SUBSCRIBED' });
+  }
 
   try {
     const decided = await decide({
@@ -395,32 +404,38 @@ governanceRouter.post('/orgs/:orgId/approvals/:requestId/decide', async (req, re
     // invoice existed as a row but had no journal entry.
     let posted = false;
     if (body.approve && decided.docType === 'INVOICE') {
-      const rows = await prisma.invoice.findMany({ where: { id: decided.docId } });
+      const rows = await prisma.invoice.findMany({ where: { id: decided.docId, orgId: req.tenant!.orgId } });
       const inv = rows[0];
       if (inv) {
-        await ensureLedgerSetup(req.tenant!.accountId, req.tenant!.orgId, req.auth!.userId);
-        await postEntry({
-          accountId: req.tenant!.accountId,
-          orgId: req.tenant!.orgId,
-          branchId: inv.branchId,
-          userId: req.auth!.userId,
-          date: String(inv.date),
-          journalCode: 'SAL',
-          narration: `Invoice ${inv.number} (approved)`,
-          sourceDocType: 'INVOICE',
-          sourceDocId: inv.id,
-          lines: invoicePostingLines({
-            customerId: inv.customerId,
-            customerName: inv.customerName,
-            subtotal: Number(inv.subtotal),
-            cgstTotal: Number(inv.cgstTotal),
-            sgstTotal: Number(inv.sgstTotal),
-            igstTotal: Number(inv.igstTotal),
-            total: Number(inv.total),
-          }),
-        });
-        await prisma.invoice.update({ where: { id: inv.id }, data: { status: 'Unpaid' } });
-        posted = true;
+        try {
+          await ensureLedgerSetup(req.tenant!.accountId, req.tenant!.orgId, req.auth!.userId);
+          await postEntry({
+            accountId: req.tenant!.accountId,
+            orgId: req.tenant!.orgId,
+            branchId: inv.branchId,
+            userId: req.auth!.userId,
+            date: String(inv.date),
+            journalCode: 'SAL',
+            narration: `Invoice ${inv.number} (approved)`,
+            sourceDocType: 'INVOICE',
+            sourceDocId: inv.id,
+            lines: invoicePostingLines({
+              customerId: inv.customerId,
+              customerName: inv.customerName,
+              subtotal: Number(inv.subtotal),
+              cgstTotal: Number(inv.cgstTotal),
+              sgstTotal: Number(inv.sgstTotal),
+              igstTotal: Number(inv.igstTotal),
+              total: Number(inv.total),
+            }),
+          });
+          await prisma.invoice.update({ where: { id: inv.id }, data: { status: 'Unpaid' } });
+          posted = true;
+        } catch (err) {
+          /* Not posted, so not approved: the request goes back to pending rather than claiming a decision the books do not show. */
+          await reopen(decided.id);
+          throw err;
+        }
       }
     }
 
