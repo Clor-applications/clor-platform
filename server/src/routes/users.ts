@@ -329,6 +329,25 @@ usersRouter.put('/users/:userId/companies', requirePermission('SETTINGS', Permis
   const toAdd = [...wanted].filter((id) => !have.has(id));
   const toRemove = [...have].filter((id) => !wanted.has(id));
 
+  /*
+   * A-05: Users EDIT in the company at hand used to be enough to add or take
+   * away access to every company of the account — so a person who manages
+   * users in one company could strip another company's administrators, or
+   * give themselves a way in. Each company touched now needs the caller's own
+   * right to manage users there, and an administrator there when the person
+   * being changed administers it.
+   */
+  const callerId = req.auth!.userId;
+  for (const orgId of [...toAdd, ...toRemove]) {
+    const caller = await resolveAccess(accountId, orgId, callerId);
+    if (!caller.isAdmin && !caller.permissions.has(permKey('SETTINGS', 'Users', 'EDIT'))) {
+      return res.status(403).json({ error: 'You cannot manage users in one of these companies.', code: 'not_your_company', orgId });
+    }
+    if (!caller.isAdmin && toRemove.includes(orgId) && (await userIsAdmin(accountId, orgId, userId))) {
+      return res.status(403).json({ ...ADMIN_ONLY_ERROR, orgId });
+    }
+  }
+
   // Taking a company away from its only administrator locks that company.
   for (const orgId of toRemove) {
     if (await wouldRemoveLastAdmin(accountId, orgId, userId)) {
@@ -348,6 +367,9 @@ usersRouter.put('/users/:userId/companies', requirePermission('SETTINGS', Permis
       ? [
           platformPrisma.userRoleAssignment.deleteMany({ where: { accountId, userId, orgId: { in: toRemove } } }),
           platformPrisma.userRoleProfile.deleteMany({ where: { accountId, userId, orgId: { in: toRemove } } }),
+          /* Branch and warehouse grants go too, or re-adding the company silently restores them (as DELETE /orgs/:orgId/users/:userId does). */
+          platformPrisma.userWarehouseAccess.deleteMany({ where: { accountId, userId, orgId: { in: toRemove } } }),
+          platformPrisma.userBranchMembership.deleteMany({ where: { accountId, userId, orgId: { in: toRemove } } }),
           platformPrisma.userOrgMembership.deleteMany({ where: { accountId, userId, orgId: { in: toRemove } } }),
         ]
       : []),

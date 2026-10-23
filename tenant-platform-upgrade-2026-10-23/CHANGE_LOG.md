@@ -33,9 +33,10 @@ Changed:
 - A-02 fixed: adding a user attaches an existing login from another account only once its email is confirmed. Application behavior changed: yes (a CA or other outsider must confirm their email before being added). Schema: no.
 - A-04 fixed: `setup-company` needs the account's first company or an administrator of one of its companies. Application behavior changed: yes. Schema: no.
 - ADR-010 accepted: company administration moves to a platform workspace on `app.clor.in` (Batch 1.5, after Batch 1).
+- A-05 fixed: changing a person's company access needs the caller's Users EDIT in every company touched (admin where the person is admin); removal also deletes branch and warehouse grants. Application behavior changed: yes. Schema: no.
 
 Running totals for 2026-10-23:  
-Application behavior changed: yes (GAP-002, GAP-003, A-03, A-01, A-02, A-04).  
+Application behavior changed: yes (GAP-002, GAP-003, A-03, A-01, A-02, A-04, A-05).  
 Database schema changed: yes (platform `Account.legacyUnrestrictedAt`, applied locally only).  
 Deployment or Cloudflare configuration changed: no.  
 Customer data accessed: no (local test accounts only).

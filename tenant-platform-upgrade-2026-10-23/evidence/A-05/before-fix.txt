@@ -1,0 +1,130 @@
+ DEPRECATED  `test.poolOptions` was removed in Vitest 4. All previous `poolOptions` are now top-level options. Please, refer to the migration guide: https://vitest.dev/guide/migration#pool-rework
+
+ RUN  v4.1.10 /Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_78076", schema "accounting" at "localhost:5432"
+
+The PostgreSQL database "clor_test_78076" schema "accounting" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 1.15s
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/payroll/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_78076", schema "payroll" at "localhost:5432"
+
+The PostgreSQL database "clor_test_78076" schema "payroll" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 967ms
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/people/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_78076", schema "people" at "localhost:5432"
+
+The PostgreSQL database "clor_test_78076" schema "people" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 1.51s
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/platform/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_78076", schema "platform" at "localhost:5432"
+
+The PostgreSQL database "clor_test_78076" schema "platform" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 1.08s
+
+[setup] 180 policy statements applied to clor_test_78076
+[setup] 7 policy statements applied to clor_test_78076
+[setup] 10 policy statements applied to clor_test_78076
+[setup] 35 policy statements applied to clor_test_78076
+[setup] 4 policy statements applied to clor_test_78076
+[setup] 96 policy statements applied to clor_test_78076
+[setup] 4 policy statements applied to clor_test_78076
+[setup] 4 policy statements applied to clor_test_78076
+[setup] 4 policy statements applied to clor_test_78076
+[setup] 4 policy statements applied to clor_test_78076
+[setup] 32 policy statements applied to clor_test_78076
+[setup] 24 policy statements applied to clor_test_78076
+[setup] 12 policy statements applied to clor_test_78076
+[setup] 16 policy statements applied to clor_test_78076
+[setup] 4 policy statements applied to clor_test_78076
+[setup] 4 policy statements applied to clor_test_78076
+[setup] 8 policy statements applied to clor_test_78076
+[setup] 8 policy statements applied to clor_test_78076
+[setup] 20 policy statements applied to clor_test_78076
+[setup] 8 policy statements applied to clor_test_78076
+[setup] 4 policy statements applied to clor_test_78076
+[setup] 8 policy statements applied to clor_test_78076
+[setup] 8 policy statements applied to clor_test_78076
+[setup] 12 policy statements applied to clor_test_78076
+[setup] 4 policy statements applied to clor_test_78076
+[setup] 8 policy statements applied to clor_test_78076
+[setup] 28 policy statements applied to clor_test_78076
+[setup] 4 policy statements applied to clor_test_78076
+[setup] 4 policy statements applied to clor_test_78076
+[setup] 4 policy statements applied to clor_test_78076
+[setup] 8 policy statements applied to clor_test_78076
+[setup] 4 policy statements applied to clor_test_78076
+[setup] 4 policy statements applied to clor_test_78076
+[setup] 4 policy statements applied to clor_test_78076
+[setup] 4 policy statements applied to clor_test_78076
+[setup] 8 policy statements applied to clor_test_78076
+[setup] 4 policy statements applied to clor_test_78076
+[setup] 12 policy statements applied to clor_test_78076
+[setup] 4 policy statements applied to clor_test_78076
+[setup] 76 policy statements applied to clor_test_78076
+[setup] 4 policy statements applied to clor_test_78076
+[setup] 4 policy statements applied to clor_test_78076
+[setup] 4 policy statements applied to clor_test_78076
+[setup] 4 policy statements applied to clor_test_78076
+ ❯ src/__tests__/userCompanies.test.ts (8 tests | 2 failed | 6 skipped) 1336ms
+     × needs the caller's own right in every company it touches 271ms
+     × takes branch and warehouse grants away with the company 60ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/__tests__/userCompanies.test.ts > a person's company access > needs the caller's own right in every company it touches
+AssertionError: expected 200 to be 403 // Object.is equality
+
+- Expected
++ Received
+
+- 403
++ 200
+
+ ❯ src/__tests__/userCompanies.test.ts:196:25
+    194|     // Mallory cannot let herself into Client B …
+    195|     const self = await request(app).put(`/api/users/${malId}/companies…
+    196|     expect(self.status).toBe(403);
+       |                         ^
+    197|     expect(self.body.orgId).toBe(secondOrgId);
+    198|     // … nor take Client B away from her colleague.
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  src/__tests__/userCompanies.test.ts > a person's company access > takes branch and warehouse grants away with the company
+AssertionError: expected 1 to be +0 // Object.is equality
+
+- Expected
++ Received
+
+- 0
++ 1
+
+ ❯ src/__tests__/userCompanies.test.ts:212:109
+    210|     await platformPrisma.userBranchMembership.create({ data: { account…
+    211|     await request(app).put(`/api/users/${who}/companies`).set(auth(own…
+    212|     expect(await platformPrisma.userBranchMembership.count({ where: { …
+       |                                                                                                             ^
+    213|   });
+    214| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 6 skipped (8)
+   Start at  15:52:26
+   Duration  18.93s (transform 2.85s, setup 33ms, import 5.61s, tests 1.34s, environment 0ms)
+
