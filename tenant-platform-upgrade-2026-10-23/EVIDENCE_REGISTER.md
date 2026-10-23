@@ -48,6 +48,7 @@ Updated: 2026-10-23
 | EV-042 | A-22: subscription plan, next number and payment modes need a permission | `unguardedReads.test.ts`; `evidence/A-22/before-fix.txt` (5 fail), `after-fix.txt` (6 suites, 61 tests); `browser-check.md` |
 | EV-043 | Batch 2 (A-11..A-22) full server suite at `345865a` | `evidence/BATCH-2/full-server-suite.txt`: 169 files, 1568 tests, all passed (1008 s, 6 workers) |
 | EV-044 | A-24: body warehouse must be in the company and usable; admin, not creator, reaches all | `warehouseBoundary.test.ts`; `evidence/A-24/before-fix.txt` (4 fail), `after-fix.txt` (51 stock/document suites, 541 tests); `browser-check.md` |
+| EV-045 | A-26, A-25: the company in the address; per-tab choice; no silent switch; carried across hosts | `orgUrl.test.js`, `session.test.jsx`; `evidence/A-26/before-fix.txt` (4 fail), `after-fix.txt` (shell: 6 files, 37 tests); `browser-check.md` with before/after, two screenshots |
 
 ## Evidence quality note
 
