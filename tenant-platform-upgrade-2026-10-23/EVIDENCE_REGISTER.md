@@ -38,6 +38,7 @@ Updated: 2026-10-23
 | EV-032 | A-12: an invoice is approved and posted once (full server suite 163 files / 1528 tests) | `approvalRace.test.ts`; `evidence/A-12/race-probe-before.txt` (DOUBLES 9 of 10) vs `race-probe-after.txt` (0); live `2-live-double-approve.json` (200, 409) and `2-live-journal-rows.json` (one POSTED entry); browser `1-…`, `1b-…`, `3-approved-once.jpg` |
 | EV-033 | A-13: separation of duties, per company setting; never about oneself (full server suite 164 files / 1533 tests) | `makerChecker.test.ts`; `evidence/A-13/before-fix.txt` (5 fail), `after-fix.txt` (9 pass incl. integrationsV2); browser `1-policy-…jpg`, `2-preparer-refused.jpg`, `4-approved-by-second-admin.png`; live `3-live-two-approvers.json` (403 preparer, 200 second admin). Local dev DB: new platform migration applied |
 | EV-034 | A-14: every app's subscription is enforced in the shared permission check | `recycleBin.test.ts`; `evidence/A-14/before-fix.txt` (expected 200 to be 402), `after-fix.txt` (6/6); full server suite 164 files / 1534 tests |
+| EV-035 | A-15: one refusal order across apps | `guardOrder.test.ts`; `evidence/A-15/before-fix.txt` (3 fail), `after-fix.txt` (9 pass); 13 refusal-code suites, 139 tests |
 
 ## Evidence quality note
 
