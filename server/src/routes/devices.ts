@@ -38,6 +38,12 @@ const R = ATTENDANCE_RESOURCE;
 const can = (action: string) => requirePermission(ATTENDANCE_MODULE, action as any, R.devices);
 const base = '/orgs/:orgId/attendance/devices';
 const SERIAL = /^[A-Za-z0-9_-]{4,40}$/;
+/*
+ * Serials CLOR makes up for readers that have none of their own — an API
+ * key's (API-), push and pull sources, Matrix, eTimeOffice, file imports.
+ * Claiming one by hand could stand in for another company's source (A-29).
+ */
+const RESERVED_SERIAL = /^(API|PUSH|MATRIX|HIK|HIKV|DAHU|BIOS|HTTP|ANVI|FILE|ETO)-/i;
 
 const deviceSchema = z.object({
   serialNumber: z.string().trim().regex(SERIAL, 'The serial number is letters and digits, as printed on the reader.'),
@@ -263,6 +269,9 @@ devicesRouter.post(base, can(PermissionAction.CREATE), async (req, res) => {
   const parsed = deviceSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Invalid reader.' });
   const b = parsed.data;
+  if (RESERVED_SERIAL.test(b.serialNumber)) {
+    return res.status(400).json({ error: 'That is not a reader serial number. Enter the serial printed on the reader.' });
+  }
   const taken = await peoplePrisma.attendanceDevice.findUnique({ where: { serialNumber: b.serialNumber } });
   if (taken) {
     return res.status(409).json({

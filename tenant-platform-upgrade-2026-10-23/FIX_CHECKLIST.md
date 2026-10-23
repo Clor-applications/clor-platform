@@ -74,7 +74,7 @@ Status values: `TODO` · `IN PROGRESS` · `DONE` · `LIVE` (needs production acc
 
 | ID | Fix | Test | Browser | Status |
 |---|---|---|---|---|
-| A-29 | Synthetic API reader keyed `(orgId, apiClientId)`; ingest asserts the device org equals the client org | squatted serial gets no cross-org write | n/a | TODO |
+| A-29 | An API key's punch reader must belong to the key's company (`ownsIt`); found by `apiClient.deviceId`, else created as `API-<key id>` — never adopted from whoever holds a serial; ingest refused if the reader is not the company's. Claiming `API-`, `PUSH-`, `MATRIX-`, `HIK-`, `FILE-`, `ETO-` and pull-source serials by hand refused | `punchRouting.test.ts` (2 of 2 fail before: squat accepted 201; the key's punches 409) | Attendance → Add reader with `API-…` serial refused | DONE (EV-048) |
 | A-30 | Token routes run inside `runInTenant` | per route | n/a | TODO |
 | A-37 | Per-client in-transaction flag | cross-client write inside a transaction carries the org | n/a | TODO |
 | A-35 | Fail-closed RLS policies plus explicit maintenance bypass for global jobs (**needs A-30 and the worker changes first**) | unset org returns 0 rows | full regression suite plus browser smoke of all apps | TODO |

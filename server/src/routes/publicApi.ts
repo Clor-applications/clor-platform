@@ -323,19 +323,34 @@ publicApiRouter.post('/attendance/punches', scope('punches:write'), async (req, 
     const verify = typeof p?.verify_mode === 'number' ? p.verify_mode : VERIFY[String(p?.verify_mode || '').toLowerCase()] ?? 0;
     lines.push(`${code}\t${ts}\t${dir}\t${verify}`);
   });
-  /* Punches from this key are recorded under its own "reader", so Transactions shows where they came from. */
+  /*
+   * Punches from this key are recorded under its own "reader", so
+   * Transactions shows where they came from.
+   *
+   * A-29: that reader was found by a global serial, API-<the key's first
+   * characters>, and adopted as it was (`update: {}`) — a reader of that
+   * serial claimed by another company took this key's punches, and ingest
+   * wrote them under that company. The reader must belong to the key's own
+   * company; it is named after the key's id (shown nowhere) and created,
+   * never adopted, and claiming any API-… serial by hand is refused.
+   */
+  const ownsIt = (d: { orgId: string; accountId: string } | null) => Boolean(d && d.orgId === client.orgId && d.accountId === client.accountId);
   let device = client.deviceId ? await peoplePrisma.attendanceDevice.findUnique({ where: { id: client.deviceId } }) : null;
+  if (!ownsIt(device)) device = null;
   if (!device) {
     const key = await peoplePrisma.apiClient.findUnique({ where: { id: client.id } });
-    device = await peoplePrisma.attendanceDevice.upsert({
-      where: { serialNumber: `API-${client.tokenPrefix.replace(/[^A-Za-z0-9]/g, '')}` },
-      create: { accountId: client.accountId, orgId: client.orgId, serialNumber: `API-${client.tokenPrefix.replace(/[^A-Za-z0-9]/g, '')}`, name: `API: ${key?.name || 'key'}`, vendor: 'API', createdByUserId: key?.createdByUserId || 'api' },
-      update: {},
-    });
-    await peoplePrisma.apiClient.update({ where: { id: client.id }, data: { deviceId: device.id } });
+    const serialNumber = `API-${client.id}`;
+    const existing = await peoplePrisma.attendanceDevice.findUnique({ where: { serialNumber } });
+    device = ownsIt(existing)
+      ? existing
+      : await peoplePrisma.attendanceDevice.create({
+          data: { accountId: client.accountId, orgId: client.orgId, serialNumber, name: `API: ${key?.name || 'key'}`, vendor: 'API', createdByUserId: key?.createdByUserId || 'api' },
+        });
+    await peoplePrisma.apiClient.update({ where: { id: client.id }, data: { deviceId: device!.id } });
   }
-  const added = lines.length ? await ingestPunches(device, lines.join('\n')) : 0;
-  await peoplePrisma.attendanceDevice.update({ where: { id: device.id }, data: { lastSeenAt: new Date() } });
+  if (!ownsIt(device)) return fail(res, 500, 'This key has no reader of its own. Nothing was recorded.');
+  const added = lines.length ? await ingestPunches(device!, lines.join('\n')) : 0;
+  await peoplePrisma.attendanceDevice.update({ where: { id: device!.id }, data: { lastSeenAt: new Date() } });
   res.json({ received: punches.length, accepted: lines.length, added, duplicates: lines.length - added, rejected: errors.length, errors });
 });
 
