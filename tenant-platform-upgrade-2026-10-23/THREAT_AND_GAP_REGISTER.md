@@ -1,0 +1,22 @@
+# Threat and Gap Register
+
+Priority is based on tenant impact and likelihood, not on implementation convenience.
+
+| ID | Priority | Finding | Current evidence | Required fix | Verification |
+|---|---|---|---|---|---|
+| GAP-001 | P0 | Deployed RLS enforcement is unproven | Policies and scope wrapper exist only as source evidence | Inventory applied policies and runtime DB roles; enforce/repair missing policies | Real-role cross-tenant SQL and API tests |
+| GAP-002 | DONE | Subscription and Accounting entitlement authorities could diverge | Accounting removal previously left legacy plan features and RBAC-protected APIs usable | Effective features now intersect the Accounting plan with app ownership; common RBAC rejects direct Accounting API calls when unowned | Typecheck passed; 19 business-model/module/permission tests passed; direct invoice API returns `402 APP_NOT_SUBSCRIBED` |
+| GAP-003 | DONE | New accounts can inherit all apps when subscription is absent | `appAccess` defaults unrestricted | Explicit grandfather state (`Account.legacyUnrestrictedAt`, migration `20261023100000_explicit_subscription_default` marks exactly the no-subscription accounts); `appAccess` fail-closed for unmarked accounts; `/signup` provisions account+user+bootstrap subscription atomically; new orgs start with their owned apps' switches on; direct Accounting routes reject unowned calls | Typecheck passed; 162 files / 1509 vitest tests pass; `modules.test.ts` asserts signup subscription has exactly the 4 sellable apps and `legacyUnrestrictedAt` null; `businessModel.test.ts` proves grandfathered access survives and unmarked accounts fail closed |
+| GAP-004 | P0 | Non-human principals use fragmented credential models | Device, agent, SCIM, API key and public token routes are separate | Principal/grant registry with tenant, scope, expiry, rotation and audit | Credential disable/rotate/cross-tenant matrix |
+| GAP-005 | P1 | Canonical workforce identity is not a platform contract | `employeeId` exists mainly in People integrations | Define Worker and Employment IDs/events; map existing Employee safely | Cross-app lifecycle contract tests |
+| GAP-006 | P1 | Delegated CA/auditor access has no engagement lifecycle | Cross-account organization membership is generic | Add engagement, consent, scope, expiry, revocation and audit | Expiry/revocation/least-privilege tests |
+| GAP-007 | P1 | In-process schedulers may execute on every API replica | Workers start in `index.ts`; leases are service-specific | Worker registry and consistent distributed lease/idempotency contract | Two-instance concurrency and replay tests |
+| GAP-008 | P1 | Route manifest has 89 manually unresolved routes | Generated inventory cannot infer conditional guards | Complete human review; add entitlement/audit/maker-checker columns | Manifest coverage gate in CI |
+| GAP-009 | P1 | Physical database separation is unverified | Four clients and URL names exist | Record deployed topology and independent credentials/backup policy | Sanitized infrastructure evidence and restore drill |
+| GAP-010 | P1 | Cross-store referential integrity is application-owned | Scalar IDs have no cross-DB FK | Contract validation, outbox/inbox, reconciliation and repair tooling | Orphan injection and repair tests |
+| GAP-011 | P2 | Account terminology can be misunderstood | `User.accountId` is home account; effective account comes from membership | Adopt explicit `homeAccountId` semantics in API/docs, then consider compatible schema migration | Cross-account invite and token tests |
+| GAP-012 | P2 | Object/file tenant boundary lacks collected evidence | Architecture expects private R2/files | Inventory buckets, key format, signed URLs, upload checks and deletion lifecycle | Cross-tenant object access tests |
+| GAP-013 | RESOLVED | One RLS negative test could pass before reaching PostgreSQL policy enforcement | Initial test run logged missing required `Warehouse.code` | Valid row shape added; assertion now requires an RLS-policy error | 9 RLS tests pass; PostgreSQL returned SQLSTATE `42501` |
+
+No source item above is being claimed as an exploitable production vulnerability until live configuration and runtime behavior are verified.
+
