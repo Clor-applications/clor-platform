@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { Prisma } from '@prisma/client';
 import { prisma } from '../utils/prisma.js';
 import { requireAuth } from '../middleware/auth.js';
-import { requireTenantContext } from '../middleware/tenantContext.js';
+import { requireTenantContext, warehouseRefusal } from '../middleware/tenantContext.js';
 import { requirePermission } from '../middleware/rbac.js';
 import { ownDocsWhere } from '../services/access.js';
 import { PermissionAction } from '../constants/enums.js';
@@ -273,6 +273,8 @@ function register(kind: DocKind) {
       const { accountId, orgId, branchId } = req.tenant!;
       const userId = req.auth!.userId;
       const body = docSchema.parse(req.body);
+      const warehouseRefused = await warehouseRefusal(req, body.warehouseId);
+      if (warehouseRefused) return res.status(warehouseRefused.status).json(warehouseRefused.body);
       if (await refuseUnknownLineItems(res, req.tenant!.accountId, req.tenant!.orgId, body.items)) return;
 
       await ensureLedgerSetup(accountId, orgId, userId);
@@ -411,6 +413,10 @@ function register(kind: DocKind) {
 
       const body = docSchema.parse(req.body);
       if (await refuseUnknownLineItems(res, accountId, orgId, body.items)) return;
+      if (body.warehouseId !== undefined && (body.warehouseId || null) !== (existing.warehouseId || null)) {
+        const warehouseRefused = await warehouseRefusal(req, body.warehouseId);
+        if (warehouseRefused) return res.status(warehouseRefused.status).json(warehouseRefused.body);
+      }
       const settledAmount = num(existing.settledAmount);
       if (num(body.total) + 0.0001 < settledAmount) {
         return res.status(409).json({

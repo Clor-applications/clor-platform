@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { Prisma } from '@prisma/client';
 import { prisma } from '../utils/prisma.js';
 import { requireAuth } from '../middleware/auth.js';
-import { requireTenantContext } from '../middleware/tenantContext.js';
+import { requireTenantContext, warehouseRefusal } from '../middleware/tenantContext.js';
 import { requirePermission } from '../middleware/rbac.js';
 import { ownDocsWhere } from '../services/access.js';
 import { PermissionAction } from '../constants/enums.js';
@@ -181,6 +181,8 @@ function register(kind: QuoteKind) {
       const { accountId, orgId, branchId } = req.tenant!;
       const userId = req.auth!.userId;
       const body = bodySchema.parse(req.body);
+      const warehouseRefused = await warehouseRefusal(req, body.warehouseId);
+      if (warehouseRefused) return res.status(warehouseRefused.status).json(warehouseRefused.body);
       if (await refuseUnknownLineItems(res, req.tenant!.accountId, req.tenant!.orgId, body.items)) return;
 
       await ensureDefaultSeries({ accountId, orgId, branchId, docType: kind, userId });

@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 
 import { requireAuth } from '../middleware/auth.js';
-import { requireTenantContext } from '../middleware/tenantContext.js';
+import { requireTenantContext, warehouseRefusal } from '../middleware/tenantContext.js';
 import { requirePermission } from '../middleware/rbac.js';
 import { PermissionAction } from '../constants/enums.js';
 import { OverAllocationError } from '../services/settlement.js';
@@ -67,6 +67,8 @@ posCheckoutRouter.post(
       return res.status(403).json({ error: 'orgId mismatch' });
     }
     const body = checkoutSchema.parse(req.body);
+    const warehouseRefused = await warehouseRefusal(req, body.warehouseId);
+    if (warehouseRefused) return res.status(warehouseRefused.status).json(warehouseRefused.body);
     const { accountId, orgId, branchId } = req.tenant!;
 
     try {
