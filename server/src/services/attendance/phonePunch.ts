@@ -78,7 +78,7 @@ export async function phoneStatus(e: PunchingEmployee) {
       ...(e.mobilePunch && isMinor(e.dateOfBirth) ? { why: 'Phone punching reads your location, which is not done for anyone under 18. Punch at a reader.' } : {}),
       next: nextDirection(punches),
       /* For the notice on the punch card: how long a selfie is kept. */
-      photoRetentionDays: punchPhotoRetentionDays(),
+      photoRetentionDays: await punchPhotoRetentionDays(e.orgId),
       sites: sites.map((s) => ({ id: s.id, name: s.name, latitude: s.latitude, longitude: s.longitude, radiusMeters: s.radiusMeters })),
     },
   };

@@ -1,6 +1,6 @@
 import { platformPrisma } from '../utils/platformPrisma.js';
 import { peoplePrisma } from '../utils/peoplePrisma.js';
-import { exclusive, leaseFor } from './jobLease.js';
+import { exclusive, leaseFor, pruneJobRuns } from './jobLease.js';
 import { BIOMETRIC_GRACE_UNTIL, isMinor } from './attendance/biometrics.js';
 
 /**
@@ -20,10 +20,11 @@ import { BIOMETRIC_GRACE_UNTIL, isMinor } from './attendance/biometrics.js';
  *  - sign-in events (AuthEvent): only when AUTH_EVENT_RETENTION_DAYS is set.
  *    They are the security log, so how long to keep them is the operator's
  *    decision, not a default here;
- *  - punch selfies (PunchPhoto): after PUNCH_PHOTO_RETENTION_DAYS (default
- *    30). The photo exists so a reviewer can see who punched; a month covers
- *    the payroll cycle it belongs to. The punch itself stays, with its
- *    position and site — only the image goes.
+ *  - punch selfies (PunchPhoto) are NOT handled here: each company sets how
+ *    long it keeps them (Attendance rules, photoRetentionDays), and the photo
+ *    purge (routes/portalAdmin.ts purgePunchPhotos) is their one owner. A
+ *    global 30-day purge here used to override every company's own setting
+ *    (A-48).
  * Business records and the audit log are never touched.
  */
 const days = (name: string, fallback: number | null) => {
@@ -34,8 +35,9 @@ const days = (name: string, fallback: number | null) => {
 };
 const ago = (d: number) => new Date(Date.now() - d * 86_400_000);
 
-/** How long a punch selfie is kept, for the notice employees read before sending one. */
-export const punchPhotoRetentionDays = () => days('PUNCH_PHOTO_RETENTION_DAYS', 30)!;
+/** How long this company keeps a punch selfie, for the notice employees read before sending one: its own setting (default 90). */
+export const punchPhotoRetentionDays = async (orgId: string) =>
+  (await peoplePrisma.attendanceSettings.findUnique({ where: { orgId }, select: { photoRetentionDays: true } }))?.photoRetentionDays ?? 90;
 
 /** Where a phone punch was made: 13 months, then only the site stays (DPDP: no longer than needed). */
 export const punchLocationRetentionDays = () => Math.max(366, days('PUNCH_LOCATION_RETENTION_DAYS', 395)!);
@@ -62,15 +64,6 @@ export async function purgeExpiredRecords() {
 
   const events = eventDays ? await platformPrisma.authEvent.deleteMany({ where: { createdAt: { lt: ago(eventDays) } } }) : { count: 0 };
 
-  const photoCutoff = ago(punchPhotoRetentionDays());
-  const stale = await peoplePrisma.punchPhoto.findMany({ where: { createdAt: { lt: photoCutoff } }, select: { id: true } });
-  let photos = 0;
-  if (stale.length) {
-    const ids = stale.map((x) => x.id);
-    await peoplePrisma.devicePunch.updateMany({ where: { photoId: { in: ids } }, data: { photoId: null } });
-    photos = (await peoplePrisma.punchPhoto.deleteMany({ where: { id: { in: ids } } })).count;
-  }
-
   /* Originals of reader lines (ReaderEvent): kept at least a year — the minimum the DPDP Rules set for processing logs — then deleted. */
   const readerEvents = await peoplePrisma.readerEvent.deleteMany({ where: { receivedAt: { lt: ago(readerEventRetentionDays()) } } });
 
@@ -80,11 +73,31 @@ export async function purgeExpiredRecords() {
     data: { latitude: null, longitude: null, accuracyM: null },
   });
 
-  /* Copies of fingerprints and faces a company does not keep (copying off), once the notice period is over; and anyone excluded. */
+  /*
+   * Copies of fingerprints and faces a company has decided not to keep
+   * (copying switched off on its settings), once the notice period is over;
+   * and anyone excluded.
+   *
+   * Company by company, and only where the decision is on record. This used
+   * to be one delete of every template whose company was not in the "keeping"
+   * list — so a company with no settings row, or a settings read that came
+   * back empty (an outage, a row-security setting), wiped every tenant's
+   * templates at once (A-48). A company with templates and no settings row is
+   * logged for somebody to look at, not deleted by a blanket sweep.
+   */
   let templates = 0;
   if (new Date().toISOString().slice(0, 10) > BIOMETRIC_GRACE_UNTIL) {
-    const keeping = (await peoplePrisma.attendanceSettings.findMany({ where: { biometricCopy: true }, select: { orgId: true } })).map((x) => x.orgId);
-    templates += (await peoplePrisma.biometricTemplate.deleteMany({ where: { orgId: { notIn: keeping } } })).count;
+    const holding = (await peoplePrisma.biometricTemplate.groupBy({ by: ['orgId'] })).map((x) => x.orgId);
+    if (holding.length) {
+      const settings = await peoplePrisma.attendanceSettings.findMany({ where: { orgId: { in: holding } }, select: { orgId: true, biometricCopy: true } });
+      const decided = new Map(settings.map((x) => [x.orgId, x.biometricCopy]));
+      const unknown = holding.filter((o) => !decided.has(o));
+      if (unknown.length) console.error(`[retention] biometric copies kept for ${unknown.length} compan${unknown.length === 1 ? 'y' : 'ies'} with no attendance settings on record:`, unknown.join(', ')); // eslint-disable-line no-console
+      for (const orgId of holding) {
+        if (decided.get(orgId) !== false) continue;
+        templates += (await peoplePrisma.biometricTemplate.deleteMany({ where: { orgId } })).count;
+      }
+    }
   }
   const excluded = (await peoplePrisma.employee.findMany({ where: { OR: [{ biometricOptOutAt: { not: null } }, { dateOfBirth: { not: null } }] }, select: { id: true, biometricOptOutAt: true, dateOfBirth: true } }))
     .filter((x) => x.biometricOptOutAt || isMinor(x.dateOfBirth))
@@ -99,7 +112,7 @@ export async function purgeExpiredRecords() {
     emailVerificationTokens: verifications.count,
     sessions: sessions.count,
     authEvents: events.count,
-    punchPhotos: photos,
+    jobRuns: await pruneJobRuns(),
   };
 }
 
@@ -108,7 +121,7 @@ export function startRetentionPurge() {
   if (String(process.env.RETENTION_PURGE || '').toLowerCase() === 'off') return () => {};
   const run = async () => {
     try {
-      const r: Record<string, number> = (await exclusive('retention.purge', leaseFor(24 * 60 * 60 * 1000), purgeExpiredRecords)) || {};
+      const r: Record<string, number> = (await exclusive('retention.purge', leaseFor(24 * 60 * 60 * 1000), () => purgeExpiredRecords(), { idempotent: true })) || {};
       const total = Object.values(r).reduce((a, b) => a + b, 0);
       // eslint-disable-next-line no-console
       if (total) console.log('[retention] removed', r);

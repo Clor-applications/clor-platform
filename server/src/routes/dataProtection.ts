@@ -70,7 +70,7 @@ dataProtectionRouter.get(base, can(PermissionAction.VIEW), async (req, res) => {
       noticeReadCurrent: current,
       employees: people.length,
     },
-    retention: { selfieDays: punchPhotoRetentionDays(), locationDays: punchLocationRetentionDays(), readerEventDays: readerEventRetentionDays() },
+    retention: { selfieDays: s.photoRetentionDays ?? (await punchPhotoRetentionDays(orgId)), locationDays: punchLocationRetentionDays(), readerEventDays: readerEventRetentionDays() },
     notice,
   });
 });

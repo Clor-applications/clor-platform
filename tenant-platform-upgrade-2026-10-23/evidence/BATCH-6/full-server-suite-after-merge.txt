@@ -1,0 +1,42 @@
+ DEPRECATED  `test.poolOptions` was removed in Vitest 4. All previous `poolOptions` are now top-level options. Please, refer to the migration guide: https://vitest.dev/guide/migration#pool-rework
+
+ RUN  v4.1.10 /Users/suresh/Desktop/clor-platform/.claude/worktrees/batch6-workers-fb00cd/server
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_62848", schema "accounting" at "localhost:5432"
+
+The PostgreSQL database "clor_test_62848" schema "accounting" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 579ms
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/payroll/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_62848", schema "payroll" at "localhost:5432"
+
+The PostgreSQL database "clor_test_62848" schema "payroll" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 488ms
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/people/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_62848", schema "people" at "localhost:5432"
+
+The PostgreSQL database "clor_test_62848" schema "people" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 417ms
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/platform/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_62848", schema "platform" at "localhost:5432"
+
+The PostgreSQL database "clor_test_62848" schema "platform" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 589ms
+
+
+ Test Files  176 passed (176)
+      Tests  1604 passed (1604)
+   Start at  00:38:26
+   Duration  896.30s (transform 5.63s, setup 1.93s, import 133.81s, tests 729.99s, environment 7ms)
+

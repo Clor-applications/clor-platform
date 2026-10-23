@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 
 import { peoplePrisma } from '../../utils/peoplePrisma.js';
 import { platformPrisma } from '../../utils/platformPrisma.js';
-import { punchPhotoRetentionDays, readerEventRetentionDays, punchLocationRetentionDays } from '../retention.js';
+import { readerEventRetentionDays, punchLocationRetentionDays } from '../retention.js';
 
 /**
  * The employee privacy notice for attendance, as the DPDP Act s.5 and the
@@ -72,7 +72,7 @@ export async function privacyNoticeFor(orgId: string): Promise<PrivacyNotice> {
       title: 'How long it is kept',
       items: [
         'Punches and attendance days: while you work here, and afterwards for as long as labour, wage and tax laws require of the company.',
-        `Selfies from phone punches: ${punchPhotoRetentionDays()} days. The location of a phone punch: ${months(punchLocationRetentionDays())}; the punch itself stays.`,
+        `Selfies from phone punches: ${settings?.photoRetentionDays ?? 90} days. The location of a phone punch: ${months(punchLocationRetentionDays())}; the punch itself stays.`,
         `The original of what each reader sent: ${months(readerEventRetentionDays())}, as evidence if a punch is ever disputed.`,
         copies ? 'CLOR’s copies of your fingerprints and face: deleted when you leave, or when you withdraw.' : 'There are no CLOR copies of fingerprints or faces to keep.',
       ],

@@ -1,0 +1,125 @@
+# A-45 AFTER fix: working tree
+# 2026-10-23T14:21:08Z  npx vitest run src/__tests__/webhookRetry.test.ts src/__tests__/integrationsV2.test.ts src/__tests__/integrations.test.ts src/__tests__/lifecycleEvents.test.ts
+ DEPRECATED  `test.poolOptions` was removed in Vitest 4. All previous `poolOptions` are now top-level options. Please, refer to the migration guide: https://vitest.dev/guide/migration#pool-rework
+
+ RUN  v4.1.10 /Users/suresh/Desktop/clor-platform/.claude/worktrees/batch6-workers-fb00cd/server
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_35684", schema "accounting" at "localhost:5432"
+
+The PostgreSQL database "clor_test_35684" schema "accounting" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 707ms
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/payroll/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_35684", schema "payroll" at "localhost:5432"
+
+The PostgreSQL database "clor_test_35684" schema "payroll" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 1.06s
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/people/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_35684", schema "people" at "localhost:5432"
+
+The PostgreSQL database "clor_test_35684" schema "people" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 1.46s
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/platform/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_35684", schema "platform" at "localhost:5432"
+
+The PostgreSQL database "clor_test_35684" schema "platform" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 997ms
+
+POST /api/auth/signup 200 568 - 115.737 ms
+POST /api/auth/setup-company 200 200 - 342.555 ms
+PUT /api/orgs/cmvl25uzm000e13g3h4f2vnod/features 200 1173 - 223.486 ms
+POST /api/orgs/cmvl25uzm000e13g3h4f2vnod/attendance/integrations/webhooks 201 535 - 98.807 ms
+POST /api/auth/signup 200 569 - 80.429 ms
+POST /api/auth/setup-company 200 202 - 398.926 ms
+PUT /api/orgs/cmvl25wmz000eyhvon24eqwpp/features 200 1173 - 311.993 ms
+POST /api/orgs/cmvl25wmz000eyhvon24eqwpp/attendance/integrations/webhooks 201 601 - 236.884 ms
+POST /api/orgs/cmvl25wmz000eyhvon24eqwpp/people/employees 201 1668 - 210.010 ms
+GET /api/orgs/cmvl25wmz000eyhvon24eqwpp/attendance/integrations/webhooks/cmvl25xcb00009mkkrm5lh5qu/deliveries 200 645 - 175.678 ms
+GET /api/orgs/cmvl25wmz000eyhvon24eqwpp/attendance/integrations/webhooks/cmvl25xcb00009mkkrm5lh5qu/deliveries 200 630 - 156.677 ms
+POST /api/orgs/cmvl25wmz000eyhvon24eqwpp/attendance/integrations/webhooks/cmvl25xcb00009mkkrm5lh5qu/deliveries/cmvl25xiq000c9mkknqekkhei/resend 200 24 - 93.366 ms
+PUT /api/orgs/cmvl25wmz000eyhvon24eqwpp/people/employees/cmvl25xf400019mkkkqv4vw66 200 1674 - 100.287 ms
+POST /api/orgs/cmvl25wmz000eyhvon24eqwpp/people/employees 201 1664 - 91.884 ms
+POST /api/orgs/cmvl25wmz000eyhvon24eqwpp/attendance/leave/types 201 675 - 71.282 ms
+POST /api/orgs/cmvl25wmz000eyhvon24eqwpp/attendance/leave/requests 201 732 - 130.797 ms
+POST /api/orgs/cmvl25wmz000eyhvon24eqwpp/attendance/leave/requests/cmvl25y7800109mkkgno8op02/approve 200 778 - 116.968 ms
+POST /api/orgs/cmvl25wmz000eyhvon24eqwpp/attendance/months/2026-09/close 200 126 - 207.226 ms
+POST /api/auth/signup 200 569 - 5.422 ms
+POST /api/auth/setup-company 200 202 - 80.964 ms
+PUT /api/orgs/cmvl25yh900isyhvo9txbxnkn/features 200 1173 - 113.069 ms
+POST /api/orgs/cmvl25yh900isyhvo9txbxnkn/attendance/integrations/keys 201 576 - 71.443 ms
+POST /api/auth/signup 200 569 - 4.440 ms
+POST /api/auth/setup-company 200 202 - 72.160 ms
+PUT /api/orgs/cmvl25yt6010qyhvodruvecms/features 200 1173 - 116.529 ms
+POST /api/orgs/cmvl25yt6010qyhvodruvecms/attendance/integrations/keys 201 617 - 58.848 ms
+POST /api/orgs/cmvl25yt6010qyhvodruvecms/attendance/integrations/keys 201 559 - 57.161 ms
+POST /api/orgs/cmvl25yt6010qyhvodruvecms/people/employees 201 1665 - 67.032 ms
+POST /api/orgs/cmvl25yt6010qyhvodruvecms/attendance/leave/types 201 675 - 64.693 ms
+POST /api/orgs/cmvl25yt6010qyhvodruvecms/attendance/integrations/keys 201 557 - 58.937 ms
+POST /api/orgs/cmvl25yt6010qyhvodruvecms/attendance/months/2026-08/close 200 126 - 117.629 ms
+POST /api/orgs/cmvl25yt6010qyhvodruvecms/attendance/devices 201 1298 - 70.978 ms
+GET /api/orgs/cmvl25yt6010qyhvodruvecms/people/employees 200 1678 - 54.902 ms
+PUT /api/orgs/cmvl25yt6010qyhvodruvecms/attendance/records 200 752 - 80.653 ms
+POST /api/auth/signup 200 572 - 56.952 ms
+POST /api/auth/setup-company 200 200 - 312.084 ms
+PUT /api/orgs/cmvl260ce000eszq1tl5syyg2/features 200 1173 - 267.528 ms
+POST /api/orgs/cmvl260ce000eszq1tl5syyg2/attendance/integrations/keys 201 558 - 109.823 ms
+GET /api/orgs/cmvl260ce000eszq1tl5syyg2/attendance/integrations/keys 200 561 - 67.678 ms
+POST /api/orgs/cmvl260ce000eszq1tl5syyg2/attendance/integrations/keys 201 559 - 111.751 ms
+POST /api/orgs/cmvl260ce000eszq1tl5syyg2/attendance/integrations/keys/cmvl2611b00013cwagocjlgbm/rotate 200 568 - 63.847 ms
+POST /api/orgs/cmvl260ce000eszq1tl5syyg2/attendance/integrations/keys/cmvl2611b00013cwagocjlgbm/revoke 200 473 - 64.386 ms
+POST /api/orgs/cmvl260ce000eszq1tl5syyg2/attendance/integrations/keys 201 569 - 61.309 ms
+POST /api/auth/signup 200 572 - 5.343 ms
+POST /api/auth/setup-company 200 200 - 79.631 ms
+PUT /api/orgs/cmvl2617900ikszq1ndbm28no/features 200 1173 - 118.234 ms
+POST /api/orgs/cmvl2617900ikszq1ndbm28no/people/employees 201 1675 - 88.496 ms
+POST /api/orgs/cmvl260ce000eszq1tl5syyg2/attendance/integrations/keys 201 558 - 132.857 ms
+POST /api/orgs/cmvl260ce000eszq1tl5syyg2/people/employees 201 1670 - 122.010 ms
+POST /api/orgs/cmvl260ce000eszq1tl5syyg2/attendance/integrations/keys 201 575 - 72.879 ms
+GET /api/orgs/cmvl260ce000eszq1tl5syyg2/attendance/transactions?from=2026-09-21&to=2026-09-21 200 964 - 119.516 ms
+POST /api/auth/signup 200 572 - 6.803 ms
+POST /api/auth/setup-company 200 200 - 91.224 ms
+PUT /api/orgs/cmvl2621k010oszq1558y76yw/features 200 1173 - 126.646 ms
+POST /api/orgs/cmvl2621k010oszq1558y76yw/people/employees 201 1667 - 70.991 ms
+POST /api/orgs/cmvl2621k010oszq1558y76yw/attendance/integrations/webhooks 201 530 - 64.896 ms
+GET /api/orgs/cmvl2621k010oszq1558y76yw/attendance/integrations/webhooks 200 1600 - 62.094 ms
+POST /api/orgs/cmvl2621k010oszq1558y76yw/attendance/integrations/keys 201 557 - 61.282 ms
+POST /api/orgs/cmvl2621k010oszq1558y76yw/attendance/integrations/webhooks/cmvl262bd001c3cwaxyno9bx2/test 200 24 - 82.220 ms
+GET /api/orgs/cmvl2621k010oszq1558y76yw/attendance/integrations/webhooks 200 1621 - 69.591 ms
+POST /api/orgs/cmvl2621k010oszq1558y76yw/attendance/integrations/webhooks 400 41 - 65.638 ms
+POST /api/auth/signup 200 569 - 61.481 ms
+POST /api/auth/setup-company 200 174 - 390.073 ms
+PUT /api/orgs/cmvl263fi000e103rfmrgqvl2/features 200 1173 - 300.076 ms
+POST /api/orgs/cmvl263fi000e103rfmrgqvl2/attendance/integrations/webhooks 201 591 - 212.298 ms
+POST /api/orgs/cmvl263fi000e103rfmrgqvl2/people/structure/departments 201 314 - 70.524 ms
+POST /api/orgs/cmvl263fi000e103rfmrgqvl2/people/employees 201 1664 - 97.929 ms
+POST /api/orgs/cmvl263fi000e103rfmrgqvl2/people/employees/transfer 200 11 - 114.681 ms
+POST /api/orgs/cmvl263fi000e103rfmrgqvl2/people/employees/cmvl264730002b8mkrybq12mj/resign 200 1576 - 145.330 ms
+POST /api/orgs/cmvl263fi000e103rfmrgqvl2/people/employees/cmvl264730002b8mkrybq12mj/rehire 200 1564 - 88.443 ms
+POST /api/orgs/cmvl263fi000e103rfmrgqvl2/payroll/components 201 844 - 51.036 ms
+POST /api/orgs/cmvl263fi000e103rfmrgqvl2/payroll/structures 201 535 - 47.948 ms
+POST /api/orgs/cmvl263fi000e103rfmrgqvl2/payroll/employees 201 657 - 57.573 ms
+POST /api/orgs/cmvl263fi000e103rfmrgqvl2/payroll/assignments 201 2285 - 78.626 ms
+POST /api/orgs/cmvl263fi000e103rfmrgqvl2/payroll/periods 201 342 - 40.792 ms
+POST /api/orgs/cmvl263fi000e103rfmrgqvl2/payroll/runs 201 973 - 77.005 ms
+POST /api/orgs/cmvl263fi000e103rfmrgqvl2/payroll/runs/cmvl264se00082krn9yks1895/validate 200 486 - 226.567 ms
+POST /api/orgs/cmvl263fi000e103rfmrgqvl2/payroll/runs/cmvl264se00082krn9yks1895/calculate 200 457 - 187.914 ms
+POST /api/orgs/cmvl263fi000e103rfmrgqvl2/payroll/runs/cmvl264se00082krn9yks1895/submit-review 200 596 - 85.809 ms
+POST /api/orgs/cmvl263fi000e103rfmrgqvl2/payroll/runs/cmvl264se00082krn9yks1895/approve 200 620 - 62.672 ms
+POST /api/orgs/cmvl263fi000e103rfmrgqvl2/payroll/runs/cmvl264se00082krn9yks1895/lock 200 640 - 61.409 ms
+
+ Test Files  4 passed (4)
+      Tests  16 passed (16)
+   Start at  19:51:09
+   Duration  28.66s (transform 2.38s, setup 55ms, import 6.71s, tests 10.98s, environment 0ms)
+

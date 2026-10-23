@@ -8,7 +8,7 @@ import { Prisma as PlatformPrisma } from '../generated/platform/index.js';
 import { Prisma as PeoplePrisma } from '../generated/people/index.js';
 import { Prisma as PayrollPrisma } from '../generated/payroll/index.js';
 import { outsideTenant, runInTenant } from '../utils/tenantScope.js';
-import { exclusive, leaseFor } from './jobLease.js';
+import { currentLease, exclusive, leaseFor, LeaseLost, shuttingDown } from './jobLease.js';
 import { userIsAdmin } from './roleGuards.js';
 
 /**
@@ -121,6 +121,7 @@ const KEEP = new Set(['OrgClosure']);
 async function purgeDatabase(client: any, dmmf: Dmmf, prefix: string, orgId: string) {
   const models = dmmf.datamodel.models.filter((m) => !KEEP.has(m.name) && m.fields.some((f) => f.name === 'orgId'));
   const counts: Record<string, number> = {};
+  const lastError: Record<string, string> = {};
   let pending = models.map((m) => m.name);
   for (let round = 0; round < 20 && pending.length; round += 1) {
     const next: string[] = [];
@@ -134,62 +135,139 @@ async function purgeDatabase(client: any, dmmf: Dmmf, prefix: string, orgId: str
           counts[`${prefix}.${name}`] = (counts[`${prefix}.${name}`] || 0) + r.count;
           progressed = true;
         }
-      } catch {
-        next.push(name); // still referenced by a row not yet deleted
+      } catch (e) {
+        next.push(name); // still referenced by a row not yet deleted — or a real failure, kept for the report
+        lastError[name] = String(e instanceof Error ? e.message : e).split('\n').filter(Boolean).slice(-1)[0]?.slice(0, 200) || 'unknown error';
       }
     }
     pending = next;
     if (pending.length && !progressed) break;
   }
-  if (pending.length) throw new Error(`${prefix}: could not delete ${pending.join(', ')} (still referenced)`);
+  if (pending.length) throw new Error(`${prefix}: could not delete ${pending.map((n) => `${n} (${lastError[n]})`).join(', ')}`);
   return counts;
 }
 
-/** Delete one company everywhere. Inside its own tenant scope, so row security confines every delete to it. */
-export async function deleteCompanyData(orgId: string) {
+/** The stores a company is deleted from, in this order; each is a checkpoint. */
+export const PURGE_STEPS = ['people', 'payroll', 'accounting', 'platform', 'org'] as const;
+type Step = (typeof PURGE_STEPS)[number];
+type Progress = { done: Step[]; counts: Record<string, number> };
+
+const STORES: Record<Exclude<Step, 'org'>, [any, Dmmf]> = {
+  people: [peoplePrisma, PeoplePrisma.dmmf as any],
+  payroll: [payrollPrisma, PayrollPrisma.dmmf as any],
+  accounting: [prisma, AccountingPrisma.dmmf as any],
+  platform: [platformPrisma, PlatformPrisma.dmmf as any],
+};
+
+/**
+ * Delete one company everywhere. Inside its own tenant scope, so row security confines every delete to it.
+ *
+ * A-47: one store at a time, with a checkpoint after each. The purge used to
+ * run all four databases in one go; cut off half-way (a deploy's SIGTERM gives
+ * eight seconds) it started again from the top the next day with no record of
+ * how far it had got, and a failure was a log line nobody saw. Now:
+ *  - `beforeStep` is asked before each store and may refuse (the instance is
+ *    stopping, or the job's lease was lost): no store is begun that will not
+ *    be finished by this run;
+ *  - after each store its counts and name are written to the closure record;
+ *  - a later run skips the stores already done and carries their counts on.
+ */
+export async function deleteCompanyData(
+  orgId: string,
+  opts: { progress?: Progress; beforeStep?: (step: Step) => Promise<void>; checkpoint?: (p: Progress) => Promise<void> } = {}
+) {
   return runInTenant(orgId, async () => {
-    const counts: Record<string, number> = {};
-    Object.assign(counts, await purgeDatabase(peoplePrisma, PeoplePrisma.dmmf as any, 'people', orgId));
-    Object.assign(counts, await purgeDatabase(payrollPrisma, PayrollPrisma.dmmf as any, 'payroll', orgId));
-    Object.assign(counts, await purgeDatabase(prisma, AccountingPrisma.dmmf as any, 'accounting', orgId));
-    Object.assign(counts, await purgeDatabase(platformPrisma, PlatformPrisma.dmmf as any, 'platform', orgId));
-    const org = await platformPrisma.org.deleteMany({ where: { id: orgId } });
-    counts['platform.Org'] = org.count;
-    return counts;
+    const progress: Progress = { done: [...(opts.progress?.done || [])], counts: { ...(opts.progress?.counts || {}) } };
+    for (const step of PURGE_STEPS) {
+      if (progress.done.includes(step)) continue;
+      await opts.beforeStep?.(step);
+      if (step === 'org') {
+        const org = await platformPrisma.org.deleteMany({ where: { id: orgId } });
+        progress.counts['platform.Org'] = (progress.counts['platform.Org'] || 0) + org.count;
+      } else {
+        const [client, dmmf] = STORES[step];
+        for (const [k, n] of Object.entries(await purgeDatabase(client, dmmf, step, orgId))) progress.counts[k] = (progress.counts[k] || 0) + n;
+      }
+      progress.done.push(step);
+      await opts.checkpoint?.(progress);
+    }
+    return progress.counts;
   });
 }
 
-/** The daily job: every closure whose notice period has ended. */
+const readProgress = (raw: string | null): Progress => {
+  try {
+    const p = JSON.parse(raw || '{}');
+    return { done: Array.isArray(p.done) ? p.done.filter((x: string) => (PURGE_STEPS as readonly string[]).includes(x)) : [], counts: p.counts && typeof p.counts === 'object' ? p.counts : {} };
+  } catch {
+    return { done: [], counts: {} };
+  }
+};
+
+/** Refuse to begin a destructive step once the instance is stopping or the job's lease is gone. */
+async function mayContinue() {
+  if (shuttingDown()) throw new LeaseLost('closure.purge', 'the instance is stopping');
+  await currentLease()?.assertHeld();
+}
+
+/** The job: every closure whose notice period has ended. Resumes a purge that was cut off. */
 export async function purgeClosedCompanies(now = new Date()) {
   const due = await outsideTenant('closure purge: find companies whose notice ended', () =>
-    platformPrisma.orgClosure.findMany({ where: { status: 'SCHEDULED', deleteAfter: { lte: now } }, select: { orgId: true, orgName: true } })
+    platformPrisma.orgClosure.findMany({ where: { status: 'SCHEDULED', deleteAfter: { lte: now } }, select: { orgId: true, orgName: true, purgeProgress: true } })
   );
   const done: Array<{ orgId: string; rows: number }> = [];
+  const record = (orgId: string, data: Record<string, unknown>) =>
+    outsideTenant('closure purge: record progress', () => platformPrisma.orgClosure.update({ where: { orgId }, data }));
   for (const c of due) {
     try {
-      const counts = await deleteCompanyData(c.orgId);
-      await outsideTenant('closure purge: record the deletion', () =>
-        platformPrisma.orgClosure.update({ where: { orgId: c.orgId }, data: { status: 'DELETED', deletedAt: new Date(), deletedCounts: JSON.stringify(counts) } })
-      );
+      await mayContinue();
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.error(`[closure] not starting ${c.orgId}:`, e instanceof Error ? e.message : e);
+      break;
+    }
+    await record(c.orgId, { purgeAttempts: { increment: 1 }, lastPurgeAt: new Date() });
+    try {
+      const counts = await deleteCompanyData(c.orgId, {
+        progress: readProgress(c.purgeProgress),
+        beforeStep: () => mayContinue(),
+        checkpoint: (p) => record(c.orgId, { purgeProgress: JSON.stringify(p), purgeError: null }).then(() => undefined),
+      });
+      await record(c.orgId, { status: 'DELETED', deletedAt: new Date(), deletedCounts: JSON.stringify(counts), purgeError: null });
       done.push({ orgId: c.orgId, rows: Object.values(counts).reduce((a, b) => a + b, 0) });
       // eslint-disable-next-line no-console
       console.log(`[closure] deleted company ${c.orgId} (${c.orgName}):`, counts);
     } catch (e) {
+      const stopped = e instanceof LeaseLost;
+      const why = String(e instanceof Error ? e.message : e).slice(0, 1000);
+      await record(c.orgId, { purgeError: stopped ? `Stopped before the next store (${why}); resumes on the next run.` : why }).catch((err) =>
+        console.error(`[closure] ALERT could not record the failure for ${c.orgId}:`, err instanceof Error ? err.message : err) // eslint-disable-line no-console
+      );
+      if (stopped) {
+        // eslint-disable-next-line no-console
+        console.error(`[closure] purge of ${c.orgId} stopped part-way; resumes on the next run:`, why);
+        break;
+      }
+      /* A half-deleted company is an incident: say so loudly, every run, until it is resolved. */
       // eslint-disable-next-line no-console
-      console.error(`[closure] deleting ${c.orgId} failed; will retry tomorrow:`, e instanceof Error ? e.message : e);
+      console.error(`[closure] ALERT deleting ${c.orgId} (${c.orgName}) failed; resumes from its checkpoint on the next run:`, why);
     }
   }
   return done;
 }
 
-export function startClosurePurge() {
+/**
+ * Hourly, so a purge cut off by a deploy resumes within the hour rather than
+ * the next day; the work itself is only the closures whose notice has ended.
+ */
+export function startClosurePurge({ intervalMs = 60 * 60 * 1000 } = {}) {
   if (String(process.env.COMPANY_CLOSURE_PURGE || '').toLowerCase() === 'off') return () => {};
-  const run = () => exclusive('closure.purge', leaseFor(24 * 60 * 60 * 1000), () => purgeClosedCompanies()).catch((e) => {
+  const run = () => exclusive('closure.purge', leaseFor(intervalMs), () => purgeClosedCompanies()).catch((e) => {
     // eslint-disable-next-line no-console
-    console.error('[closure] purge failed:', e instanceof Error ? e.message : e);
+    console.error('[closure] ALERT purge failed:', e instanceof Error ? e.message : e);
   });
   const first = setTimeout(run, 90_000);
-  const timer = setInterval(run, 24 * 60 * 60 * 1000);
+  const timer = setInterval(run, intervalMs);
   first.unref?.();
   timer.unref?.();
   return () => {

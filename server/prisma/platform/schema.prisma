@@ -890,9 +890,34 @@ model PaymentEvent {
 /// than one instance and every instance starts the same timers; the one that
 /// takes a job's lease runs that tick and the others skip until it expires.
 model JobLease {
-  name   String   @id
-  holder String
-  until  DateTime
+  name         String    @id
+  holder       String
+  until        DateTime
+  /// Fencing token: +1 on every take. A run whose token is no longer the row's has lost the lease and must stop.
+  token        Int       @default(0)
+  /// Set while a run is in progress, cleared when it ends. Null = the period is claimed but nothing is running.
+  runningSince DateTime?
+  /// Renewed by the running instance; a run whose heartbeat has gone stale was cut off and may be taken over.
+  heartbeatAt  DateTime?
+}
+
+/// One run of a background job, by whichever instance took its lease (A-48).
+/// A worker whose last run is old, or whose runs keep failing, is a scheduler
+/// that has stopped: this is where that shows. Kept 30 days.
+model JobRun {
+  id         String    @id @default(cuid())
+  worker     String
+  holder     String
+  token      Int       @default(0)
+  startedAt  DateTime  @default(now())
+  finishedAt DateTime?
+  /// RUNNING | OK | FAILED | STOPPED (lease lost or the instance stopping)
+  outcome    String    @default("RUNNING")
+  /// What the run did, as JSON (rows deleted, invoices raised, …).
+  counts     String?
+  error      String?
+
+  @@index([worker, startedAt])
 }
 
 /// Rate-limit counts shared by every API instance (sign-in, sign-up, password
@@ -948,6 +973,12 @@ model OrgClosure {
   deletedAt         DateTime?
   /// Rows deleted per table, as JSON, once DELETED.
   deletedCounts     String?
+  /// The purge's checkpoint, as JSON { done: [store, …], counts }: a purge that was cut off resumes after the last store it finished.
+  purgeProgress     String?
+  /// How many purge runs have started for this company, and why the last one stopped, if it did.
+  purgeAttempts     Int       @default(0)
+  purgeError        String?
+  lastPurgeAt       DateTime?
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 

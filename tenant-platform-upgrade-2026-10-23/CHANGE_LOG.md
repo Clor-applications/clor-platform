@@ -75,3 +75,24 @@ Customer data accessed: no (local test accounts only).
 - Findings: no unknown unguarded write. New A-50 (access-control changes write no audit row, 21 routes) and A-51 (112 other staff writes reach no audit trail), in `evidence/A-49/unguarded-routes.md`.
 - Application behavior changed: no. Database schema changed: no. Deployment configuration changed: CI only (one new verify step). Customer data accessed: no. Server route files: not edited.
 - After merging the Batch 2 branch (`345865a`, A-14..A-22): the script also reads routes declared on the app in app.ts (A-16 moved the billing webhook there, ahead of the JSON parser; `/health` and `/ready` are now listed and allow-listed as probes). It counts `requireAnyPermission`/`authorizeAny` (A-22) as permission checks, and `mayClose` (role check) plus `stepUpRefusal` for closure (A-21). A-21's two known-gap entries left the allow-list, because the gate failed on them as stale once closure was guarded. 734 routes, 0 violations. Application behavior changed: no.
+
+## 2026-10-23 — Batch 6: background workers (GAP-007)
+
+Branch `claude/batch6-workers-fb00cd`, one commit per finding. Evidence in `evidence/A-43` … `evidence/A-48` (before-fix with only the changed source files swapped back to HEAD, after-fix on the working tree); register EV-100 … EV-106.
+
+- A-43 (`ca93087`): the job lease fails closed (only a missing table, P2021, lets an idempotent job run leaseless); a job never overlaps itself in one instance; fencing token + `assertHeld()`; heartbeat renews long runs; failure and SIGTERM free the lease (`stopJobs()` in `index.ts`), success keeps the period claim. Application behavior changed: yes (a lease error now skips the tick instead of running unguarded). **Schema: yes** — platform `JobLease.token`, `runningSince`, `heartbeatAt` (migration `20261023200000_job_lease_fencing`).
+- A-44 (`88ea0c1`): a recurring-invoice period is one transaction; orphan claims are repaired; `maxOccurrences` holds under racing runs; gated on `recurringInvoices` and Accounting (`appLive`). Application behavior changed: yes (no drafts for companies with the feature off or Accounting lapsed/closing). Schema: no. `vitest.config.ts`: the worker's `PG_ADMIN_URL` is now the owner URL as intended (it was the app role by ordering accident).
+- A-45 (`19a4468`): webhook deliveries always have a next-attempt time, are claimed before every send, and retry only while Attendance is live. Application behavior changed: yes. Schema: no.
+- A-46 (`32d9ee2`): a failed scheduled-report e-mail is no longer recorded as sent; sends are idempotent per (schedule, slot, recipient); gated on Attendance. Application behavior changed: yes. Schema: no.
+- A-47 (`7207fad`): the company purge checkpoints each store, resumes, refuses new steps after SIGTERM or lease loss, records and alerts failures; runs hourly. Application behavior changed: yes. **Schema: yes** — platform `OrgClosure.purgeProgress`, `purgeAttempts`, `purgeError`, `lastPurgeAt` (migration `20261023200100_closure_purge_checkpoint`).
+- A-48 (`8007718`): punch selfies follow each company's `photoRetentionDays` only (the global 30-day purge is gone; notice, punch card and Data protection show the company's period — the notice version changes, so employees re-read it); biometric copies deleted only where a company has switched copying off on record; subscription gates on HR sync, books digest, document and licence reminders; `JobRun` history. Application behavior changed: yes. **Schema: yes** — platform `JobRun` (migration `20261023200200_job_runs`).
+
+Full server suite: 170 files / 1564 tests pass (EV-106). Follow-up found, not fixed here: after a closure purge, the company code number is issued again while the old account still holds that code, so `setup-company` can fail with a unique-constraint 409 (`services/displayCodes.ts:63`).
+
+Migrations are committed, not applied anywhere (tests push the schema to their own database). Production applies them through `scripts/cloudrun-start.sh` (`prisma:deploy`) before the API starts.
+
+Running totals for Batch 6:  
+Application behavior changed: yes (A-43 … A-48).  
+Database schema changed: yes (three platform migrations above; not applied to any shared database).  
+Deployment or Cloudflare configuration changed: no.  
+Customer data accessed: no (test databases only).

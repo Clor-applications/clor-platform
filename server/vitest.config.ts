@@ -53,8 +53,13 @@ const TEST_PAYROLL_DATABASE_URL = process.env.TEST_PAYROLL_DATABASE_URL || urlFo
 const TEST_PEOPLE_DATABASE_URL = process.env.TEST_PEOPLE_DATABASE_URL || urlFor('people');
 const TEST_PLATFORM_DATABASE_URL = process.env.TEST_PLATFORM_DATABASE_URL || urlFor('platform');
 
+/* Read before DATABASE_URL is pointed at the test database below: afterwards
+   pgBase() would name the application role, not the owner. A test that must
+   act as the owner (a trigger that simulates a crash) reads it too. */
+const PG_ADMIN_URL = pgBase();
+
 // globalSetup runs in this same process and reads them from here.
-process.env.PG_ADMIN_URL = pgBase();
+process.env.PG_ADMIN_URL = PG_ADMIN_URL;
 process.env.DATABASE_URL = TEST_DATABASE_URL;
 process.env.PAYROLL_DATABASE_URL = TEST_PAYROLL_DATABASE_URL;
 process.env.PEOPLE_DATABASE_URL = TEST_PEOPLE_DATABASE_URL;
@@ -68,7 +73,7 @@ export default defineConfig({
     // Creates this run's three databases and pushes the schemas into them.
     globalSetup: ['src/__tests__/globalSetup.ts'],
     env: {
-      PG_ADMIN_URL: pgBase(),
+      PG_ADMIN_URL,
       DATABASE_URL: TEST_DATABASE_URL,
       PAYROLL_DATABASE_URL: TEST_PAYROLL_DATABASE_URL,
       PEOPLE_DATABASE_URL: TEST_PEOPLE_DATABASE_URL,

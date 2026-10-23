@@ -38,7 +38,7 @@ export function startRecurringScheduler({
     if (running) return;
     running = true;
     try {
-      const summary = (await exclusive('recurring.invoices', leaseFor(intervalMs), runDueSchedules)) || { raised: 0, schedules: 0 };
+      const summary = (await exclusive('recurring.invoices', leaseFor(intervalMs), () => runDueSchedules(), { idempotent: true })) || { raised: 0, schedules: 0 };
       if (summary.raised > 0) {
         // eslint-disable-next-line no-console
         console.log(

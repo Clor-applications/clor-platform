@@ -2,7 +2,7 @@ import { peoplePrisma } from '../../utils/peoplePrisma.js';
 import { platformPrisma } from '../../utils/platformPrisma.js';
 import { sendTemplate } from '../mailer.js';
 import { notifyPermissionOnce, notifyUsers, recipientsWithPermission } from '../notifications.js';
-import { isFeatureEnabled } from '../features.js';
+import { anyAppLive, appLive } from '../principalAllowed.js';
 import { exclusive, leaseFor } from '../jobLease.js';
 
 /**
@@ -51,7 +51,8 @@ export async function runDocumentReminders(now = new Date()) {
   for (const [orgId, rows] of byOrg) {
     const accountId = rows[0].accountId;
     try {
-      if (!(await isFeatureEnabled(accountId, orgId, 'people'))) continue;
+      /* Switched on is not enough: People must be on the subscription and the company not closing (A-48). */
+      if (await appLive(accountId, orgId, 'people')) continue;
       const [recipients, org] = await Promise.all([recipientsWithPermission(accountId, orgId, MANAGES_PEOPLE), platformPrisma.org.findUnique({ where: { id: orgId }, select: { name: true } })]);
       const people = await peoplePrisma.employee.findMany({ where: { orgId, id: { in: [...new Set(rows.map((r) => r.employeeId))] } }, select: { id: true, name: true } });
       const nameOf = new Map(people.map((p) => [p.id, p.name]));
@@ -83,8 +84,13 @@ export async function runContractorLicenceReminders(now = new Date()) {
   const today = istDate(now);
   const rows = await peoplePrisma.contractor.findMany({ where: { isActive: true, licenceValidTo: { not: null, lte: until } }, take: 500 });
   let sent = 0;
+  const live = new Map<string, Promise<unknown>>();
   for (const c of rows) {
     try {
+      /* Contractors are used by People and Attendance; reminded while either is live (A-48). */
+      const key = `${c.accountId}:${c.orgId}`;
+      if (!live.has(key)) live.set(key, anyAppLive(c.accountId, c.orgId, ['people', 'attendance']));
+      if (await live.get(key)) continue;
       const expired = (c.licenceValidTo as string) < today;
       sent += await notifyPermissionOnce(c.accountId, c.orgId, 'PEOPLE::Org Structure::VIEW', {
         kind: 'people.contractor_licence',
@@ -105,7 +111,7 @@ export function startDocumentReminders({ intervalMs = 24 * 3_600_000, startupDel
   if (process.env.NODE_ENV === 'test' || process.env.VITEST) return () => {};
   const tick = () => {
     exclusive('people.document-reminders', leaseFor(intervalMs), () => runDocumentReminders()).catch((e) => console.error('[document-reminders] failed:', e instanceof Error ? e.message : e));
-    exclusive('people.contractor-licences', leaseFor(intervalMs), () => runContractorLicenceReminders()).catch((e) => console.error('[contractor-licence] failed:', e instanceof Error ? e.message : e));
+    exclusive('people.contractor-licences', leaseFor(intervalMs), () => runContractorLicenceReminders(), { idempotent: true }).catch((e) => console.error('[contractor-licence] failed:', e instanceof Error ? e.message : e));
   };
   const t = setTimeout(() => {
     tick();
