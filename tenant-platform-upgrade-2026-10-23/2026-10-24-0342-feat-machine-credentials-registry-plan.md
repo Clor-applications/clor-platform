@@ -75,14 +75,14 @@ A-35 already made row-level security fail closed. That is the database backstop,
 
 **A-31: SCIM and agents**
 
-- R10. SCIM tokens can be suspended, resumed, extended, rotated and revoked. A revoke keeps the row as REVOKED. The five-token cap counts only tokens that are not revoked. Switching an agent off, deleting it or removing its directory sync stops that agent's SCIM token too. Switching the agent back on restores the token, unless an admin suspended it separately. Deleting an agent stores its SCIM token as REVOKED. Rotating an agent leaves its SCIM token as it is. The SCIM token itself can be rotated from Credentials, and the new one is handed to the agent once.
+- R10. SCIM tokens can be suspended, resumed, extended, rotated and revoked. A revoke keeps the row as REVOKED. The five-token cap counts only tokens that are not revoked. Switching an agent off, deleting it or removing its directory sync stops that agent's SCIM token too. Switching the agent back on restores the token, unless an admin suspended it separately. Deleting an agent stores its SCIM token as REVOKED. Rotating an agent also rotates its SCIM token, as today, because CLOR keeps only the hash and a reinstalled agent needs the new one; it is handed to the agent once. The SCIM token can also be rotated on its own from Credentials.
 
 **A-32: links**
 
 - R11. An invoice share link is stored as a hash plus an encrypted copy, so every reminder still sends the same address.
   - **Expiry:** existing links get the later of due date + 90 days and deploy + 90 days. New links get due date + 90 days (invoice date when there is no due date). A reminder extends the link to now + 90 days, capped at two years from the invoice date.
   - **Who can mint:** minting a new link needs `SALES::Invoices::EDIT`. View access can still fetch a live link. A reminder sent without a link says so on screen. Minting and extending are audited.
-  - **Invoice lifecycle:** cancelling the invoice suspends the link (stored on the link row too, so an old instance honours it), so its page says the seller cancelled the invoice. Reinstating the invoice resumes the link, and extends it if it expired meanwhile (KTD5). Deleting the invoice revokes it.
+  - **Invoice lifecycle:** cancelling the invoice suspends the link, so its page says the seller cancelled the invoice. Reinstating the invoice resumes the link, and extends it if it expired meanwhile (KTD5). Deleting the invoice revokes it.
 - R12. Cancelling an invoice cancels its pending pay requests and revokes their pay links. A paid or claimed pay link still shows its paid or claimed page; it is never turned into a 404.
 - R13. Share and pay pages are served with `Referrer-Policy: no-referrer`, noindex and no-store. Opening a link (a GET) never changes state or extends its expiry.
 
@@ -165,10 +165,12 @@ A-35 already made row-level security fail closed. That is the database backstop,
   - API key, agent and device push: attendance;
   - pay and share links: accounting.
 
+  Pay links are the exception for display: a PAID or CLAIMED request still renders its status page from the legacy row after expiry or revoke, and only `/claim` on a PENDING request is refused (R12).
+
   This one rule covers old instances revoking or rotating in place during a rolling deploy, a failed registry write on rotate, and an owner deleted outright. It does not cover a rollback: old code never reads registry-only state (see Risks).
 - KTD4. **Write order across the two databases.**
   - **Revoke, suspend and rotate** write the registry first, and the request fails if that write fails. Rotate revokes the old row and creates the successor before re-hashing legacy.
-  - **Mirroring:** revoke and suspend then mirror into legacy where a column has the same meaning: `ApiClient.isActive`, the new `ScimToken.revokedAt/suspendedAt`, `DocumentShareLink.revokedAt` and the new `DocumentShareLink.suspendedAt`, `PaymentRequest.status`. `SiteAgent.isActive` and `AttendanceDevice.isActive` are never written by credential actions: they stay the admin's on/off switches, which KTD3 reads as "owner enabled".
+  - **Mirroring:** only revoke is mirrored, and only into columns old code already reads: `ApiClient.isActive=false` + `revokedAt`, `DocumentShareLink.revokedAt`, `PaymentRequest.status=CANCELLED`, and for SCIM a scrambled `ScimToken.tokenHash` (old code looks tokens up by hash) plus a new `revokedAt`. Suspend and resume live only in the registry; new legacy columns would not be read by old code anyway. `SiteAgent.isActive` and `AttendanceDevice.isActive` are never written by credential actions: they stay the admin's on/off switches, which KTD3 reads as "owner enabled".
   - **Create** writes legacy first, then the registry. If the registry write fails, verify registers the row when the token is first used (write-through), using an upsert on the `(kind, tokenHash)` unique key.
   - **Owner not found:** verify refuses but never stamps. The daily job (U6) re-reads the owner inside the company's scope and stamps REVOKED `owner_missing` only when it is still absent.
 - KTD5. **Transition table.**
@@ -183,10 +185,10 @@ A-35 already made row-level security fail closed. That is the database backstop,
     - Resuming an expired credential returns 409 with "rotate or extend".
     - Resuming while the parent is off or the company is closing is allowed. The stored status changes but the effective status stays blocked, and the UI says why.
   - **Share links:** reinstating an invoice resumes its link, and when the link has expired extends it to now + 90 days within the two-year cap (an `extended` event).
-- KTD6. **The agent cascade is computed for switch-off, written for delete.** The parent check resolves through the owner: the agent exists, is switched on, and has a live agent credential. Switching the agent off or on writes nothing to the SCIM token. Deleting the agent stores its SCIM token as REVOKED (`parent_deleted`). Removing directory sync revokes the agent's SCIM token and clears `scimTokenId`. `ensureScimForAgent` treats a revoked token as missing.
+- KTD6. **The agent cascade is computed for switch-off, written for delete.** The parent check resolves through the owner: the agent exists, is switched on, and has a live agent credential. Switching the agent off or on writes nothing to the SCIM token. Rotating the agent rotates its SCIM token in the same step and puts the new one in `pendingEnc` (the existing hand-over). Deleting the agent stores its SCIM token as REVOKED (`parent_deleted`). Removing directory sync revokes the agent's SCIM token and clears `scimTokenId`. `ensureScimForAgent` treats a revoked token as missing.
 - KTD7. **`lastUsedAt` is a guarded update.** It is written only when older than 5 minutes, behind an in-process gate keyed by credential id, fire-and-forget after the response, inside the company's scope. Legacy `lastSeenAt`/`lastUsedAt` writes stay, because readiness and offline alerts read them.
 - KTD8. **`CredentialEvent` is append-only in code.** The service exposes no update or delete. It is not enforced by grants or triggers, because the closure purge deletes rows as the app role and would stop. It carries `credentialKind` + `credentialId` with no foreign key, so portal session events fit too. The actor is a nullable user plus `actorType`/`actorLabel`, because `AuditLog.createdByUserId` is required and machine events have no user.
-- KTD9. **Share links are stored as hash + `encryptSecret` ciphertext (expand now, contract later).** U4 writes the hash and ciphertext for every link and keeps writing the plaintext column too, because old instances look links up by plaintext and return it to reminders. Lookup is by hash first. U9 stops writing and drops the plaintext one release later. If the copy fails to decrypt, a new link is minted (and an ALERT logged); an empty URL is never returned.
+- KTD9. **Share links are stored as hash + `encryptSecret` ciphertext (expand now, contract later).** U4 writes the hash and ciphertext for every link and keeps writing the plaintext column too, because old instances look links up by plaintext and return it to reminders. Lookup is by hash first. U9 stops writing and drops the plaintext one release later. Decryption tries `MAIL_SECRET_KEY` first, then `JWT_SECRET`, and re-encrypts under the current key on success, so setting `MAIL_SECRET_KEY` later breaks no link. Only when both fail is a new link minted (and an ALERT logged); an empty URL is never returned.
 - KTD10. **Portal sessions live in the people database** as `PortalSession`, next to `Employee`, and are purged by `orgId`. Its shape copies the staff `Session` (`server/prisma/platform/schema.prisma` model `Session`, helpers in `server/src/services/auth.ts`).
   - **Token:** the portal keeps issuing a JWT with the same secret, audience and claims, plus a `sid` naming its session row. Old instances still accept it, so a deploy overlap or rollback signs nobody out. New instances require a live session row for any token that carries `sid`.
   - **Legacy tokens** (no `sid`) are measured against `Employee.portalSessionsRevokedAt`, the existing `pv` check and the code-fixed cutoff (R17).
@@ -195,7 +197,7 @@ A-35 already made row-level security fail closed. That is the database backstop,
 - KTD11. **The backfill runs at boot under `exclusive('credentials.backfill')`** (`server/src/services/jobLease.ts`). It is idempotent through the unique key, resumable by cursor, and writes one `migrated` event per row. It links agent SCIM tokens to their agent before the cascade relies on them. The code is correct before the backfill finishes, because of write-through.
 - KTD12. **Permissions.**
   - `SETTINGS::Credentials` maps view to list, create to create, edit to suspend, resume, extend, rotate, revoke and review. Delete is not used by these routes.
-  - A permission-seed migration grants view, create and edit to every role that holds Attendance Integrations create or edit today, so nobody loses API key management, including revoke, at deploy.
+  - A permission-seed migration first inserts the `SETTINGS::Credentials` `Permission` rows (on conflict do nothing), because the catalog is otherwise created lazily at sign-in, after `prisma:deploy`. It then grants view, create and edit to every role that holds Attendance Integrations create or edit today, so nobody loses API key management, including revoke, at deploy.
   - SCIM rows are listed only to holders of `SETTINGS::Users::VIEW`, and every SCIM action also needs `SETTINGS::Users::EDIT`, the permission that guards SCIM today. A credentials permission alone never controls user provisioning.
   - Old `integrations.ts` key routes stay for older bundles and go through the same service.
 
@@ -273,12 +275,12 @@ flowchart TB
 
 | Risk | Mitigation |
 |---|---|
-| Encryption key falls back to `JWT_SECRET`; rotating it breaks reminder links | KTD9 re-mints on decrypt failure; owner sets `MAIL_SECRET_KEY` in production (LIVE item, recorded in FIX_CHECKLIST) |
+| Encryption key falls back to `JWT_SECRET`; rotating it breaks reminder links | KTD9 reads with both keys, so the owner can set `MAIL_SECRET_KEY` in production safely (LIVE item); a new link is minted only if both fail |
 | Entra quarantines a SCIM app after repeated 401s; resuming in CLOR does not lift it | Suspend confirmation text says so; expiry warnings (R8) |
 | Android background calls keep idle sessions alive; a lost phone stays signed in up to 180 days | Accepted; HR "sign out everywhere" and device list cover it; noted in HR copy |
 | Registry write volume from chatty readers | KTD7 gate |
 | Permission move strands key managers | KTD12 seed grant, tested |
-| Rollback to pre-Batch-5 code honours suspended SCIM tokens and cancelled invoices' share links again until roll-forward (old code never reads the new columns) | Accepted for the rollback window; revoke (not suspend) for a leaked credential, since revoke mirrors into columns old code reads |
+| Rollback to pre-Batch-5 code, or an old instance during the deploy overlap, honours suspended credentials and cancelled invoices' share links (suspend is registry-only) | Accepted for the rollback window; revoke (not suspend) for a leaked credential, since revoke mirrors into columns old code reads |
 | Concurrent full suites on the shared test database (people-build session) cause flaky failures | Re-run failing files alone, as in Batches 3–4 |
 
 ### Sources & Research
@@ -365,7 +367,7 @@ flowchart TB
 - **Requirements:** R5, R6, R7, R10.
 - **Dependencies:** U2.
 - **Files:**
-  - Schema and migration: `server/prisma/platform/schema.prisma` (`ScimToken.revokedAt`, `suspendedAt`), `server/prisma/platform/migrations/20261024120200_scim_token_status/migration.sql`
+  - Schema and migration: `server/prisma/platform/schema.prisma` (`ScimToken.revokedAt`), `server/prisma/platform/migrations/20261024120200_scim_token_status/migration.sql`
   - Routes: `server/src/routes/scim.ts`, `server/src/routes/security.ts`, `server/src/routes/agent.ts`, `server/src/routes/integrations.ts`
   - Tests: `server/src/__tests__/scimLifecycle.test.ts` (new), `server/src/__tests__/scim.test.ts`
 - **Approach:**
@@ -382,7 +384,8 @@ flowchart TB
   - Covers AE2: agent off → SCIM 401; agent on → 200; agent on with the token separately suspended → still 401.
   - Agent deleted → SCIM 401, and the row stays REVOKED.
   - `ldap: null` → SCIM 401. Adding LDAP again hands a new token to the agent.
-  - Rotating the agent's SCIM token from Credentials hands the new one to the agent once through `pendingEnc`; the old one gets 401.
+  - Rotating the agent hands its new SCIM token over once through `pendingEnc`; the old agent token and the old SCIM token both get 401.
+  - A revoked SCIM token is not found by hash in the legacy table (scrambled), so old code would refuse it too.
 - **Verification:** `scimLifecycle.test.ts` fails before on suspend, soft revoke, cascade and handover, and passes after; `scim.test.ts` and `security.test.ts` pass.
 
 ### U4. Share links and pay links (A-32)
@@ -391,7 +394,7 @@ flowchart TB
 - **Requirements:** R11, R12, R13 (and R1–R2 for the link kinds).
 - **Dependencies:** U2.
 - **Files:**
-  - Schema and migration: `server/prisma/schema.prisma` (`DocumentShareLink.tokenHash` unique, `tokenEnc`, `suspendedAt`), `server/prisma/migrations/20261024120300_share_link_hash/migration.sql`
+  - Schema and migration: `server/prisma/schema.prisma` (`DocumentShareLink.tokenHash` unique, `tokenEnc`), `server/prisma/migrations/20261024120300_share_link_hash/migration.sql`
   - Server: `server/src/routes/share.ts`, `server/src/routes/payRequests.ts`, `server/src/routes/invoices.ts`
   - Web: `apps/accounting/src/features/sales/PaymentReminders.jsx`, `apps/accounting/src/features/sales/SharedInvoice.jsx`, `public/_headers`, `docker/nginx.conf`, `deploy/Caddyfile`, `deploy/Caddyfile.production`
   - Tests: `server/src/__tests__/share.test.ts`, `server/src/__tests__/payRequests.test.ts`, `server/src/__tests__/shareLinkHashed.test.ts` (new)
@@ -405,11 +408,12 @@ flowchart TB
   - A VIEW-only user fetches a live link (200) but cannot mint when there is none (403). The reminder UI shows the "sent without a link" notice (web test).
   - Covers AE5: a backfilled link on a 200-day-overdue invoice opens.
   - A new link with a due date has expiry = due + 90d. A reminder fetch extends it to now + 90d, never past invoice date + 2y. A public GET does not extend it.
-  - Covers AE4: cancel → public GET returns the cancelled page (not a generic 404), and `suspendedAt` is set; reinstate → the same token opens.
+  - Covers AE4: cancel → public GET returns the cancelled page (not a generic 404); reinstate → the same token opens.
   - Reinstating an invoice whose link expired while cancelled extends the link and records an `extended` event.
   - Invoice delete → 404.
   - Ciphertext unreadable (key changed) → the reminder fetch mints a new link and logs ALERT.
-  - Cancelling an invoice → its PENDING pay request is CANCELLED, and `/claim` is refused. A PAID request still renders "Paid".
+  - Cancelling an invoice → its PENDING pay request is CANCELLED, and `/claim` is refused. A PAID request still renders "Paid", including after its `expiresAt`.
+  - A link encrypted under `JWT_SECRET` still returns the same URL after `MAIL_SECRET_KEY` is set, and is re-encrypted.
 - **Verification:** `shareLinkHashed.test.ts` fails before (no hash, VIEW mints, no expiry, cancel leaves the pay link payable) and passes after; browser check that a reminder link opens, and that a cancelled invoice's link shows the cancelled page.
 
 ### U5. Portal sessions (A-33)
@@ -419,14 +423,14 @@ flowchart TB
 - **Dependencies:** U1 (events).
 - **Files:**
   - Schema and migrations: `server/prisma/people/schema.prisma` (`PortalSession`, `Employee.portalSessionsRevokedAt`), `server/prisma/people/migrations/20261024120400_portal_sessions/migration.sql`, `server/prisma/people/migrations/20261024120500_portal_sessions_rls/migration.sql`, `server/src/__tests__/globalSetup.ts`
-  - Server: `server/src/services/portalSessions.ts` (new), `server/src/routes/portal.ts`, `server/src/routes/portalAdmin.ts`, `server/src/routes/people.ts`, `server/src/routes/personnel.ts`, `server/src/routes/publicApi.ts`
+  - Server: `server/src/services/portalSessions.ts` (new), `server/src/routes/portal.ts`, `server/src/routes/portalAdmin.ts`, `server/src/routes/people.ts`, `server/src/routes/personnel.ts`, `server/src/routes/publicApi.ts`, `server/src/routes/payrollEmployees.ts`
   - Web: `apps/attendance/src/portal/portalApi.js`, `apps/attendance/src/screens/PortalAccess.jsx`
   - Tests: `server/src/__tests__/portalSessions.test.ts` (new), `server/src/__tests__/portal.test.ts`, `tenant-platform-upgrade-2026-10-23/route-allowlist.json`
 - **Approach:**
   1. **Sign-in.** `/login`, `/activate` and `/password` create a session and return a JWT carrying its `sid` as `token` (KTD10).
   2. **Every request.** `authenticate` follows the portal flow in the High-Level Technical Design.
   3. **New endpoints.** Sign-out, list sessions, end one, and end the others (allow-listed). HR "sign out everywhere" goes in `portalAdmin.ts`, with a per-person "Sign out everywhere" button beside "Forget password" on `PortalAccess.jsx`. Its confirmation says the person can sign in again with their password (unlike Forget password) and notes that a lost phone otherwise stays signed in up to 180 days.
-  4. **Status writers.** `people.ts`, `personnel.ts`, `publicApi.ts`, `portalAdmin.ts` and payroll settlement call `endPortalSessions` on a move to SUSPENDED or LEFT.
+  4. **Status writers.** `people.ts`, `personnel.ts`, `publicApi.ts` and `payrollEmployees.ts` call `endPortalSessions` on a move to SUSPENDED or LEFT.
   5. **Sign-in refusals.** `findEmployee` refuses SUSPENDED with the R16 text.
   6. **Web client.** The web portal calls the sign-out endpoint.
 - **Test scenarios:**
@@ -434,7 +438,7 @@ flowchart TB
   - A `sid` token whose session row is revoked gets `401 PORTAL_SIGNIN`, even though its signature and `pv` are valid.
   - Covers AE6: with one session token and one pre-deploy JWT (no `sid`), HR sets SUSPENDED → both get `401 PORTAL_SIGNIN`.
   - ON_NOTICE keeps access.
-  - A status change through `publicApi` PATCH `/employees/:code` ends sessions.
+  - A status change through `publicApi` PATCH `/employees/:code`, and one through the payroll employee update, each end sessions.
   - HR "sign out everywhere" ends a legacy JWT (iat before the epoch).
   - Legacy JWT after `PORTAL_LEGACY_JWT_UNTIL` → 401. With the variable unset and the clock past the code-fixed cutoff → 401.
   - `/password` on one device: a pre-deploy JWT on another device gets 401.
@@ -509,6 +513,7 @@ flowchart TB
 - **Test scenarios:**
   - A user with only `SETTINGS::Credentials::VIEW` lists credentials but gets 403 on create.
   - A role that had Attendance Integrations EDIT before the migration can create and revoke a key after it.
+  - The grant migration run on a database whose permission catalog has not been seeded still grants the role.
   - That same role does not see SCIM rows and gets 403 when it tries to rotate or suspend a SCIM token.
   - The list never includes token, hash or share URL fields.
   - Link kinds appear only as counts, and only to users who also hold `SALES::Invoices::VIEW`.
