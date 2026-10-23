@@ -24,7 +24,7 @@ Requirement ids are from [02-PRD.md](02-PRD.md); defects `R-*` from [01-PLATFORM
 
 | ID | Req | Fix | Test | Browser | Status |
 |---|---|---|---|---|---|
-| PC-UI-01 | OD-06 | Remove People CSS override block `packages/ui/src/index.css:6535-6785`; People renders on Accounting's scale, radii, shadows | `test/design-rules.test.js` (no `[data-app='people']` type or radius overrides) | `evidence/PC-UI-01/`: Directory and a profile beside Accounting's invoice list, same title size and control radius | TODO |
+| PC-UI-01 | OD-06, D-01 | People CSS override block removed (`index.css` 6415-6764, 59 selectors); shared `[data-palette='rose']` added; manifest `palette: 'rose'`; dark-theme graphite rules no longer carve People out; `DESIGN.md` per-app accent rule | `test/palette.test.js` › "People has no app-scoped styling" (fails before: 59 matches; passes after), › "Attendance wears Blaze, People wears Rose" | `evidence/PC-UI-01/`: Accounting invoices vs People Home and Employees, light and dark; `measurements.md` shows equal title (24/700), body (13px) and control radius (4px), rose `--brand` in both themes | DONE (PEV-015) |
 | PC-FND-01 | FND-01 | New tables with fail-closed RLS; migrations added to `globalSetup.ts applyPolicies` | `peopleRls.test.ts` › one test per table | n/a (database) | TODO |
 | PC-FND-02 | FND-02 | `ScheduledChange` + `people-scheduled-changes` job; `PUT /employees/:id` with future `effectiveOn` schedules instead of applying (fixes R-04) | `peopleEffectiveDating.test.ts` › "applies on the date, once" | `evidence/PC-FND-02/`: profile shows "Changes on 1 Dec" | TODO |
 | PC-FND-03 | FND-03 | `asOf` on directory, profile, org chart, headcount | `peopleEffectiveDating.test.ts` › "reads as of a past date" | `evidence/PC-FND-03/` | TODO |

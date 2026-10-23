@@ -178,8 +178,10 @@ export const peopleApp = {
   available: true,
   database: 'people.db',
   home: 'overview',
-  /* The shared Blaze palette and colour icons, as Attendance (packages/ui/src/index.css). */
-  palette: 'blaze',
+  /* People's own accent, Burnished Rose, on Accounting's graphite chrome and layout (owner, 24 Oct 2026;
+     docs/people/08-DECISIONS-AND-RISKS.md D-01). The shared palette lives in packages/ui/src/index.css;
+     the colour icons stay. */
+  palette: 'rose',
   iconSet: 'color',
 
   /* The sidebar holds the day's work; everything set up once lives on one Settings page (PeopleSettings), its pages marked `parent: 'settings'`. */

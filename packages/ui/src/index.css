@@ -5818,39 +5818,40 @@ th.ui-th {
  * light-only: in dark they drew a #18181B button on a near-black page and
  * #18181B tab labels on dark tints, so the primary action and every
  * unselected tab disappeared. Inverted here from tokens (off-white control,
- * dark ink). People and Payroll answer this in their own coral dark rules.
+ * dark ink). An app that wears a shared palette answers these later with its
+ * own tokens (see the Blaze and Rose blocks below).
  */
-:root[data-theme='dark']:not([data-app='people']) :is(.ui-btn-primary, .ui-btn-brand) {
+:root[data-theme='dark'] :is(.ui-btn-primary, .ui-btn-brand) {
   background-color: rgb(var(--fg)) !important;
   border-color: rgb(var(--fg)) !important;
   color: rgb(var(--app-bg)) !important;
 }
-:root[data-theme='dark']:not([data-app='people']) :is(.ui-btn-primary, .ui-btn-brand):hover:not(:disabled) {
+:root[data-theme='dark'] :is(.ui-btn-primary, .ui-btn-brand):hover:not(:disabled) {
   background-color: rgb(var(--fg) / 0.86) !important;
   border-color: rgb(var(--fg) / 0.86) !important;
   color: rgb(var(--app-bg)) !important;
 }
-:root[data-theme='dark']:not([data-app='people']) :is(.ui-btn-primary, .ui-btn-brand):active:not(:disabled) {
+:root[data-theme='dark'] :is(.ui-btn-primary, .ui-btn-brand):active:not(:disabled) {
   background-color: rgb(var(--fg) / 0.74) !important;
   border-color: rgb(var(--fg) / 0.74) !important;
 }
-:root[data-theme='dark']:not([data-app='people']) :is(.ui-segment[aria-selected='true'], [role='tab'][aria-selected='true'].ui-segment) {
+:root[data-theme='dark'] :is(.ui-segment[aria-selected='true'], [role='tab'][aria-selected='true'].ui-segment) {
   background-color: rgb(var(--fg)) !important;
   border-color: rgb(var(--fg)) !important;
   color: rgb(var(--app-bg)) !important;
 }
-:root[data-theme='dark']:not([data-app='people']) .ui-segment[aria-selected='true'] .ui-segment-count {
+:root[data-theme='dark'] .ui-segment[aria-selected='true'] .ui-segment-count {
   background-color: rgb(0 0 0 / 0.16) !important;
   color: rgb(var(--app-bg)) !important;
 }
-:root[data-theme='dark']:not([data-app='people']) :is(.ui-segment:not([aria-selected='true']), [role='tab']:not([aria-selected='true'])),
-:root[data-theme='dark']:not([data-app='people']) .ui-segment:not([aria-selected='true']) .ui-segment-count {
+:root[data-theme='dark'] :is(.ui-segment:not([aria-selected='true']), [role='tab']:not([aria-selected='true'])),
+:root[data-theme='dark'] .ui-segment:not([aria-selected='true']) .ui-segment-count {
   color: rgb(var(--fg)) !important;
 }
-:root[data-theme='dark']:not([data-app='people']) :is(.ui-tab.is-active, [role='tab'][aria-selected='true']:not(.ui-segment)) {
+:root[data-theme='dark'] :is(.ui-tab.is-active, [role='tab'][aria-selected='true']:not(.ui-segment)) {
   color: rgb(var(--fg));
 }
-:root[data-theme='dark']:not([data-app='people']) .ui-tab.is-active::after {
+:root[data-theme='dark'] .ui-tab.is-active::after {
   background-color: rgb(var(--fg));
 }
 .report-status {
@@ -6411,356 +6412,6 @@ th.ui-th {
 .legal-links ul { display: flex; flex-wrap: wrap; gap: 0.25rem 1rem; font-size: 0.8125rem; }
 .legal-links a { color: rgb(var(--fg-muted)); text-decoration: underline; text-underline-offset: 2px; }
 .legal-links a:hover { color: rgb(var(--fg)); }
-
-/*
- * HR apps palette — People. (Attendance on 2026-10-20 and Payroll on 2026-10-21
- * moved to Accounting's graphite chrome so their pages read as the same product.)
- *
- * Coral, after Horilla HRMS (its default "Coral Red" theme: #E54F38 on a
- * #F6F6F6 ground, Inter). Accounting keeps the graphite chrome above. Shades
- * are picked for contrast, not copied blindly: white on #E54F38 is only
- * 3.8:1, so filled buttons use #CE4732 (4.6:1) and text/links #AC3B2A
- * (5.7:1 on the ground); #E54F38 stays for focus rings and accents. Dark mode
- * uses a lighter coral with dark text on it (5.8:1).
- *
- * --btn-primary-* are set here too: at :root they are references to
- * --brand-hover/--brand-pressed, resolved there, so overriding only the
- * brand tokens would leave the buttons graphite.
- */
-[data-app='people'] {
-  --app-bg: 246 246 246;
-  --brand: 229 79 56;
-  --brand-deep: 172 59 42;
-  --brand-hover: 206 71 50;
-  --brand-pressed: 172 59 42;
-  --btn-primary-bg: 206 71 50;
-  --btn-primary-hover: 172 59 42;
-  --brand-soft: 251 229 225;
-  --brand-subtle: 254 246 245;
-  --brand-border: 247 200 193;
-  --brand-ink: 172 59 42;
-  --on-brand: 255 255 255;
-  --accent-soft: 251 229 225;
-  --ring: 229 79 56;
-  --link: 172 59 42;
-  --link-hover: 103 36 25;
-  --rail-hover: 254 246 245;
-  --rail-active: 252 237 235;
-  --heading-bg: 254 246 245;
-  --heading-hover: 252 237 235;
-  --page-heading-bg: 254 246 245;
-}
-:root[data-theme='dark'] [data-app='people'],
-:root[data-theme='dark'][data-app='people'] {
-  --app-bg: 9 9 11;
-  --brand: 239 106 85;
-  --brand-deep: 242 132 111;
-  --brand-hover: 239 106 85;
-  --brand-pressed: 229 79 56;
-  --btn-primary-bg: 239 106 85;
-  --btn-primary-hover: 242 132 111;
-  --brand-soft: 80 28 20;
-  --brand-subtle: 40 18 14;
-  --brand-border: 103 36 25;
-  --brand-ink: 242 132 111;
-  --on-brand: 24 24 27;
-  --accent-soft: 80 28 20;
-  --ring: 239 106 85;
-  --link: 242 132 111;
-  --link-hover: 247 200 193;
-  --rail-hover: 40 18 14;
-  --rail-active: 80 28 20;
-  --heading-bg: 40 18 14;
-  --heading-hover: 80 28 20;
-  --page-heading-bg: 24 24 27;
-}
-
-
-/*
- * The graphite overrides above (primary buttons, selected segments and tabs)
- * are !important, so the HR palette has to answer them the same way, scoped
- * to the three apps. Unselected tab text uses the theme's muted ink rather
- * than #18181b, which is also what keeps it readable in dark mode.
- */
-:where([data-app='people']) .ui-btn-primary,
-:where([data-app='people']) .ui-btn-brand {
-  background-color: rgb(var(--btn-primary-bg)) !important;
-  border-color: rgb(var(--btn-primary-bg)) !important;
-  color: rgb(var(--on-brand)) !important;
-}
-:where([data-app='people']) .ui-btn-primary:hover:not(:disabled),
-:where([data-app='people']) .ui-btn-brand:hover:not(:disabled) {
-  background-color: rgb(var(--btn-primary-hover)) !important;
-  border-color: rgb(var(--btn-primary-hover)) !important;
-}
-:where([data-app='people']) .ui-btn-primary:active:not(:disabled),
-:where([data-app='people']) .ui-btn-brand:active:not(:disabled) {
-  background-color: rgb(var(--brand-pressed)) !important;
-  border-color: rgb(var(--brand-pressed)) !important;
-}
-:where([data-app='people']) .ui-segment[aria-selected='true'],
-:where([data-app='people']) [role='tab'][aria-selected='true'].ui-segment {
-  background-color: rgb(var(--btn-primary-bg)) !important;
-  border-color: rgb(var(--btn-primary-bg)) !important;
-  color: rgb(var(--on-brand)) !important;
-}
-:where([data-app='people']) .ui-segment:not([aria-selected='true']),
-:where([data-app='people']) [role='tab']:not([aria-selected='true']) {
-  color: rgb(var(--fg-muted)) !important;
-}
-:where([data-app='people']) .ui-tab.is-active,
-:where([data-app='people']) [role='tab'][aria-selected='true']:not(.ui-segment) {
-  color: rgb(var(--brand-ink));
-}
-:where([data-app='people']) .ui-tab.is-active::after {
-  background-color: rgb(var(--brand));
-}
-
-/*
- * HR apps, second pass (People).
- *
- * The coral palette above was borrowed from another product and fought the
- * Clor mark: coral buttons, teal names, pink table heads and a pink band
- * behind every title, at 13px body and 11px all-caps headers. This layer
- * puts the HR apps on Clor's own ink and orange, one neutral ground, and a
- * type scale that reads at a glance. Accounting is untouched.
- *
- *   ground  #F5F6F4    surface #FFFFFF    hairline #E4E7E4   field #CDD2CE
- *   ink     #1A1D21    muted   #5E6670    subtle   #7A828A
- *   action  #C2410C (white text 5.2:1)    accent #EA580C (focus, selection)
- *
- * Type: 14px body, 13px tables, 12px sentence-case column heads, 22px page
- * titles, 15px section titles. Radius 8px on surfaces, 6px on controls.
- */
-:is([data-app='people']) {
-  --app-bg: 244 244 245;
-  --surface: 255 255 255;
-  --surface-sunken: 244 244 245;
-  --border: 212 212 216;
-  --border-strong: 161 161 170;
-  --border-field: 161 161 170;
-  --fg: 24 24 27;
-  --fg-muted: 82 82 91;
-  --fg-subtle: 107 107 115;
-  --nav-fg: 24 24 27;
-  --nav-fg-muted: 82 82 91;
-  --brand: 255 107 0; /* Blaze orange; graphite carries the interface. */
-  --brand-deep: 194 65 12;
-  --brand-hover: 232 95 0;
-  --brand-pressed: 194 65 12;
-  --btn-primary-bg: 255 107 0; /* blaze with graphite text: AA contrast */
-  --btn-primary-hover: 255 138 51;
-  --brand-soft: 255 245 236;
-  --brand-subtle: 255 249 245;
-  --brand-border: 255 216 186;
-  --brand-ink: 194 65 12;
-  --on-brand: 24 24 27;
-  --accent-soft: 255 245 236;
-  --ring: 194 65 12;
-  --link: 194 65 12;
-  --link-hover: 154 52 18;
-  --col-party: 24 24 27;
-  --rail-hover: 244 244 245;
-  --rail-active: 255 245 236;
-  --heading-bg: 244 244 245;
-  --heading-hover: 228 228 231;
-  --page-heading-bg: 244 244 245;
-}
-:root[data-theme='dark'] :is([data-app='people']),
-:root[data-theme='dark']:is([data-app='people']) {
-  --app-bg: 9 9 11;
-  --surface: 18 18 21;
-  --surface-sunken: 24 24 27;
-  --border: 39 39 42;
-  --border-strong: 82 82 91;
-  --border-field: 82 82 91;
-  --fg: 250 250 250;
-  --fg-muted: 161 161 170;
-  --fg-subtle: 161 161 170;
-  --nav-fg: 244 244 245;
-  --nav-fg-muted: 161 161 170;
-  --brand: 255 138 51;
-  --brand-deep: 253 186 116;
-  --btn-primary-bg: 255 138 51;
-  --btn-primary-hover: 253 186 116;
-  --brand-pressed: 234 88 12;
-  --on-brand: 24 24 27;
-  --brand-soft: 43 26 14;
-  --brand-subtle: 34 23 16;
-  --brand-border: 124 45 18;
-  --brand-ink: 253 186 116;
-  --accent-soft: 43 26 14;
-  --ring: 255 138 51;
-  --link: 253 186 116;
-  --link-hover: 254 215 170;
-  --col-party: 244 244 245;
-  --rail-hover: 24 24 27;
-  --rail-active: 43 26 14;
-  --heading-bg: 39 39 42;
-  --heading-hover: 63 63 70;
-  --page-heading-bg: 24 24 27;
-}
-
-:root:is([data-app='people']) main {
-  font-size: 0.875rem;
-  line-height: 1.45;
-}
-
-/* Page title: on the ground, not in a tinted band. */
-:root:is([data-app='people']) main .ui-page-heading {
-  background: transparent !important;
-  border: 0 !important;
-  border-radius: 0;
-  padding: 0.25rem 0 0.75rem !important;
-  margin-bottom: 0.25rem !important;
-  align-items: center;
-}
-:root:is([data-app='people']) main .ui-t-page {
-  font-size: 1.375rem !important;
-  line-height: 1.75rem !important;
-  font-weight: 650 !important;
-  letter-spacing: -0.015em;
-}
-:root:is([data-app='people']) main .ui-page-heading p {
-  font-size: 0.8125rem;
-  color: rgb(var(--fg-muted));
-  margin-top: 0.125rem;
-  max-width: 80ch;
-}
-:root:is([data-app='people']) main .ui-page-heading .ui-entity-mark { display: none; }
-
-/* Surfaces */
-:root:is([data-app='people']) main :is(.ui-card, .ui-stat) {
-  border-color: rgb(var(--border));
-  border-radius: 8px;
-  box-shadow: 0 1px 2px rgb(16 24 40 / 0.04);
-}
-:root:is([data-app='people']) main .ui-card-head {
-  background: transparent !important;
-}
-:root:is([data-app='people']) main .ui-t-sec {
-  font-size: 0.9375rem !important;
-  line-height: 1.375rem !important;
-  font-weight: 600 !important;
-  letter-spacing: -0.005em;
-}
-:root:is([data-app='people']) main :is(.ui-caption, .ui-muted) {
-  color: rgb(var(--fg-muted));
-}
-:root:is([data-app='people']) main .ui-card-label {
-  font-size: 0.75rem;
-  font-weight: 500;
-  letter-spacing: 0;
-  text-transform: none;
-  color: rgb(var(--fg-muted));
-}
-
-/* Forms: labels are read, not squinted at. */
-:root:is([data-app='people']) main .ui-label {
-  font-size: 0.8125rem;
-  font-weight: 500;
-  letter-spacing: 0;
-  text-transform: none;
-  color: rgb(var(--fg));
-  margin-bottom: 0.3125rem;
-}
-:root:is([data-app='people']) main :is(.ui-input, .ui-select, textarea.ui-input) {
-  font-size: 0.875rem;
-  min-height: 2.25rem;
-  border-radius: 6px;
-  border-color: rgb(var(--border-field));
-  background-color: rgb(var(--surface));
-}
-:root:is([data-app='people']) main :is(.ui-input, .ui-select):hover:not(:disabled) {
-  border-color: rgb(var(--fg-subtle));
-}
-:root:is([data-app='people']) main :is(.ui-input, .ui-select):focus-visible,
-:root:is([data-app='people']) main :is(.ui-input, .ui-select):focus {
-  border-color: rgb(var(--brand));
-  box-shadow: 0 0 0 3px rgb(var(--brand) / 0.18);
-  outline: none;
-}
-:root:is([data-app='people']) main :is(input[type='checkbox'], input[type='radio']) {
-  accent-color: rgb(var(--btn-primary-bg));
-}
-
-/* Buttons: one height, one radius; disabled is grey, never pale coral. */
-:root:is([data-app='people']) main .ui-btn {
-  border-radius: 6px;
-  min-height: 2.25rem;
-  font-weight: 600;
-}
-:root:is([data-app='people']) main .ui-btn-sm {
-  min-height: 1.875rem;
-}
-:root:is([data-app='people']) main .ui-btn-secondary {
-  border-color: rgb(var(--border-field));
-  background-color: rgb(var(--surface));
-}
-:root:is([data-app='people']) main .ui-btn-secondary:hover:not(:disabled) {
-  border-color: rgb(var(--fg-subtle));
-  background-color: rgb(var(--surface-sunken));
-}
-:root:is([data-app='people']) main .ui-btn:disabled,
-:root:is([data-app='people']) main .ui-btn-primary:disabled {
-  background-color: rgb(var(--surface-sunken)) !important;
-  border-color: rgb(var(--border)) !important;
-  color: rgb(var(--fg-subtle)) !important;
-  opacity: 1;
-}
-
-/* Tables: quiet sentence-case heads, ink names, hover row. */
-:root:is([data-app='people']) main :is(.ui-table thead th, .ui-th) {
-  background-color: rgb(var(--heading-bg));
-  color: rgb(var(--fg-muted));
-  font-size: 0.75rem;
-  font-weight: 600;
-  letter-spacing: 0;
-  text-transform: none;
-  padding-top: 0.5rem;
-  padding-bottom: 0.5rem;
-}
-:root:is([data-app='people']) main .ui-table tbody td {
-  padding-top: 0.5rem;
-  padding-bottom: 0.5rem;
-}
-:root:is([data-app='people']) main .ui-table tbody tr:hover > td {
-  background-color: rgb(var(--surface-sunken));
-}
-:root:is([data-app='people']) main .ui-col-entity.ui-col-entity {
-  font-size: 0.8125rem;
-  font-weight: 600;
-  color: rgb(var(--fg));
-}
-:root:is([data-app='people']) main :is(a.ui-col-entity, .ui-col-entity a, .ui-col-entity button, td button.ui-link, td a.ui-link) {
-  color: rgb(var(--fg));
-  font-weight: 600;
-  text-decoration: none;
-}
-:root:is([data-app='people']) main :is(a.ui-col-entity, .ui-col-entity a, .ui-col-entity button, td button.ui-link, td a.ui-link):hover {
-  color: rgb(var(--brand-ink));
-  text-decoration: underline;
-  text-underline-offset: 2px;
-}
-
-/* Pills: square-ish tags, the same height as a line of table text. */
-:root:is([data-app='people']) main .ui-pill {
-  border-radius: 5px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  padding: 0.0625rem 0.4375rem;
-}
-
-/* Tables in the HR apps: rows, not a spreadsheet grid; actions sized to the row. */
-:root:is([data-app='people']) main :is(.ui-table thead th + th, .ui-table tbody td + td) {
-  border-left: 0;
-}
-:root:is([data-app='people']) main .ui-table tbody td .ui-btn {
-  min-height: 1.75rem;
-  height: 1.75rem;
-  padding: 0 0.625rem;
-  font-size: 0.75rem;
-}
 
 /* Today: the queues as one-click actions, and a seven-day bar strip. */
 .ui-today-action {
@@ -7365,4 +7016,109 @@ th.ui-th {
 }
 :root[data-theme='dark'][data-palette='blaze'] .ui-tab.is-active::after {
   background-color: rgb(var(--brand));
+}
+
+/*
+ * The Rose palette: People's accent, on Accounting's layout.
+ *
+ * Owner, 24 Oct 2026 (docs/people/08-DECISIONS-AND-RISKS.md, D-01): People
+ * keeps the same ground, rail, type scale, radii and shadows as Accounting and
+ * wears one colour of its own. This block therefore sets colour tokens only,
+ * and answers the !important graphite control rules the way Blaze does. It
+ * never restates geometry or type; test/palette.test.js holds it to that.
+ *
+ *   rose          #A45761  primary fill (white on it 5.1:1), focus ring, active bars
+ *   rose, deep    #8A4652  where rose is text (6.8:1 on white)
+ *   rose, pressed #6E3842
+ *   tints         #F7EDF0 soft, #FCF7F8 subtle, #D89FA8 border
+ *   dark theme    #D89FA8 as the fill and as text (9.0:1 on #09090B), dark ink on it
+ *
+ * Tokens it sets (others keep the platform values): --brand*, --btn-primary-*,
+ * --on-brand, --accent-soft, --ring, --hero-hi.
+ */
+:root[data-palette='rose'],
+[data-palette='rose'] {
+  --brand: 164 87 97;
+  --brand-deep: 138 70 82;
+  --brand-hover: 138 70 82;
+  --brand-pressed: 110 56 66;
+  --btn-primary-bg: 164 87 97;
+  --btn-primary-hover: 138 70 82;
+  --brand-soft: 247 237 240;
+  --brand-subtle: 252 247 248;
+  --brand-border: 216 159 168;
+  --brand-ink: 138 70 82;
+  --on-brand: 255 255 255;
+  --accent-soft: 247 237 240;
+  --ring: 164 87 97;
+  --hero-hi: 164 87 97;
+}
+:root[data-theme='dark'][data-palette='rose'],
+:root[data-theme='dark'] [data-palette='rose'] {
+  --brand: 216 159 168;
+  --brand-deep: 227 180 187;
+  --brand-hover: 227 180 187;
+  --brand-pressed: 200 140 150;
+  --btn-primary-bg: 216 159 168;
+  --btn-primary-hover: 227 180 187;
+  --brand-soft: 61 30 36;
+  --brand-subtle: 31 19 22;
+  --brand-border: 122 60 72;
+  --brand-ink: 227 180 187;
+  --on-brand: 9 9 11;
+  --accent-soft: 61 30 36;
+  --ring: 216 159 168;
+  --hero-hi: 216 159 168;
+}
+
+/* The current screen in the module panel and the phone tab bar take the accent, as under Blaze. */
+:root[data-palette='rose'] .ui-split-item[aria-current='page'] {
+  box-shadow: inset 3px 0 0 rgb(var(--brand));
+}
+:root[data-palette='rose'] .ui-split-item[aria-current='page'] > svg {
+  color: rgb(var(--brand-ink));
+}
+:root[data-palette='rose'] .ui-tabbar-item[aria-current='page'] {
+  box-shadow: inset 0 2px 0 rgb(var(--brand));
+}
+:root[data-palette='rose'] .ui-tabbar-item[aria-current='page'] > svg {
+  color: rgb(var(--brand-ink));
+}
+
+/*
+ * Primary actions, selected segments and the active tab. The graphite rules
+ * further up are !important literals, so these answer them the same way and
+ * come later; in both themes the tokens above carry the colour.
+ */
+:root[data-palette='rose'] :is(.ui-btn-primary, .ui-btn-brand) {
+  background-color: rgb(var(--btn-primary-bg)) !important;
+  border-color: rgb(var(--btn-primary-bg)) !important;
+  color: rgb(var(--on-brand)) !important;
+}
+:root[data-palette='rose'] :is(.ui-btn-primary, .ui-btn-brand):hover:not(:disabled) {
+  background-color: rgb(var(--btn-primary-hover)) !important;
+  border-color: rgb(var(--btn-primary-hover)) !important;
+  color: rgb(var(--on-brand)) !important;
+}
+:root[data-palette='rose'] :is(.ui-btn-primary, .ui-btn-brand):active:not(:disabled) {
+  background-color: rgb(var(--brand-pressed)) !important;
+  border-color: rgb(var(--brand-pressed)) !important;
+}
+:root[data-palette='rose'] :is(.ui-segment[aria-selected='true'], [role='tab'][aria-selected='true'].ui-segment) {
+  background-color: rgb(var(--btn-primary-bg)) !important;
+  border-color: rgb(var(--btn-primary-bg)) !important;
+  color: rgb(var(--on-brand)) !important;
+}
+:root[data-palette='rose'] .ui-segment[aria-selected='true'] .ui-segment-count {
+  color: rgb(var(--on-brand)) !important;
+}
+:root[data-palette='rose'] :is(.ui-tab.is-active, [role='tab'][aria-selected='true']:not(.ui-segment)) {
+  color: rgb(var(--fg));
+}
+:root[data-palette='rose'] .ui-tab.is-active::after {
+  background-color: rgb(var(--brand));
+}
+:root[data-theme='dark'][data-palette='rose'] .ui-segment[aria-selected='true'] .ui-segment-count {
+  background-color: rgb(0 0 0 / 0.16) !important;
+  color: rgb(var(--on-brand)) !important;
 }

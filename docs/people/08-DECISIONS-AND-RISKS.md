@@ -18,15 +18,14 @@ Version 1.0 · 24 Oct 2026.
 | OD-07 | 24 Oct 2026 | Payroll's five capabilities (PayTrace, Readiness, Replay, Statutory Guard, Pay Reconciliation) come from a separate payroll research pack after People. | owner, this session |
 | OD-08 | 24 Oct 2026 | Rules first, AI assisting; no automated employment decisions; no attrition prediction; no hidden scoring. | owner's brief |
 | OD-09 | 24 Oct 2026 | Same Express, Prisma, PostgreSQL, shell, sign-in. No microservices, Kubernetes or second AI platform. | owner's brief |
+| OD-10 | 24 Oct 2026 | People accent is Burnished Rose with Fluent colour icons; chrome graphite; layout and type from Accounting (see D-01). Batch 1 starts; D-02..D-10 run on their recommendations until the owner says otherwise. | owner, this session |
 
 ---
 
 ## 2. Open decisions
 
-### D-01 People's colour and icons
-**Question:** the brief proposes Burnished Rose (`#A45761`) for People (and Chartreuse for Attendance, Aubergine for Payroll). `DESIGN.md` says product chrome is graphite with one accent. The code today gives People the Blaze palette (orange) and Fluent colour icons; Accounting uses graphite and Lucide mono icons.
-**Options:** (A) Graphite like Accounting, People icon only in rose. (B) Rose as People's `--brand` accent (buttons, active nav), chrome stays graphite, mono icons. (C) Keep Blaze + colour icons as today.
-**Recommendation:** B. It gives People a face without breaking "one accent means one thing" inside the app, and 5.1:1 on white passes AA. Update `DESIGN.md` with a "per-app accent" rule when chosen. Until decided: C (no change).
+### D-01 People's colour and icons — DECIDED 24 Oct 2026
+**Owner's decision:** Burnished Rose (`#A45761`) as People's accent (`--brand`: primary buttons, active navigation, focus, selection), **with the Fluent colour icons kept**. Chrome stays graphite; layout, type scale, radii and shadows are Accounting's (OD-06). Implemented as a shared `[data-palette='rose']` block beside Blaze, with People's manifest set to `palette: 'rose'`; the People override block is removed. `DESIGN.md` gets a per-app accent rule in its decisions log. Dark theme uses the soft rose (`#D89FA8`) where rose is type, so contrast holds.
 
 ### D-02 Do employee self-edits need HR approval by default?
 **Options:** (A) Contact details save directly, everything else needs approval. (B) Everything needs approval. (C) Nothing needs approval, HR is notified.
