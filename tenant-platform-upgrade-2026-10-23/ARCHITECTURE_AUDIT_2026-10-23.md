@@ -110,6 +110,8 @@ There are 13 in-process jobs, started from `index.ts:45-65`. The only lock is `j
 | ID | Sev | Finding | Evidence |
 |---|---|---|---|
 | A-49 | P2 | **The inventory script mis-mounts routes:** publicApi is really `/v1` and SSO is `/api/auth/sso`. It misses `requirePermission` aliases, `authorize()` and `*RouteOk`. "HUMAN_TENANT" does not mean permission-checked. | `scripts/inventory-routes.mjs` |
+| A-50 | P2 | **Access-control changes write no audit row** (found by the A-49 manifest): roles, role profiles, a user's roles, permissions, branches, warehouses and companies, approval rules, SSO provider edits, SCIM tokens — 21 routes. | `evidence/A-49/unguarded-routes.md`; e.g. `users.ts:312,384,871`; `roles.ts:155,205`; `security.ts:179,192` |
+| A-51 | P3 | **112 further staff writes reach no audit trail** (Accounting documents, masters, ledger, bank, settings). Some keep their own history; none reaches the shared trail. | `evidence/route-inventory.csv` `audit` column |
 
 The 89 routes the script marked for manual review are now resolved:
 

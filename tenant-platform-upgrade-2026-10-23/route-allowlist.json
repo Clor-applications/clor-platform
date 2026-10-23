@@ -1,0 +1,690 @@
+{
+  "_about": "Route allow-list for the manifest gate (A-49). Every public, employee-token and machine-token route, and every write with no permission or entitlement check, is named here with a one-line reason. An entry with \"finding\" is a known gap tracked in FIX_CHECKLIST.md: the gate passes it but reports it, and fails once the route is guarded so the entry is removed. Checked by tenant-platform-upgrade-2026-10-23/scripts/inventory-routes.mjs --check (CI) and server/src/__tests__/routeManifest.test.ts.",
+  "routes": [
+    {
+      "method": "GET",
+      "path": "/agent/v1/config",
+      "reason": "On-site connector token (router .use), bound to one org; appLive(attendance) (A-11). Registry and rotation: Batch 5."
+    },
+    {
+      "method": "GET",
+      "path": "/agent/v1/download",
+      "reason": "Signed connector installer (and its signature) for the customer to verify; no data."
+    },
+    {
+      "method": "GET",
+      "path": "/agent/v1/download.sig",
+      "reason": "Signed connector installer (and its signature) for the customer to verify; no data."
+    },
+    {
+      "method": "POST",
+      "path": "/agent/v1/jobs/:id/result",
+      "reason": "On-site connector token (router .use), bound to one org; appLive(attendance) (A-11). Registry and rotation: Batch 5."
+    },
+    {
+      "method": "POST",
+      "path": "/agent/v1/readers/:id/clock",
+      "reason": "On-site connector token (router .use), bound to one org; appLive(attendance) (A-11). Registry and rotation: Batch 5."
+    },
+    {
+      "method": "POST",
+      "path": "/agent/v1/readers/:id/punches",
+      "reason": "On-site connector token (router .use), bound to one org; appLive(attendance) (A-11). Registry and rotation: Batch 5."
+    },
+    {
+      "method": "POST",
+      "path": "/agent/v1/report",
+      "reason": "On-site connector token (router .use), bound to one org; appLive(attendance) (A-11). Registry and rotation: Batch 5."
+    },
+    {
+      "method": "POST",
+      "path": "/api/auth/forgot-password",
+      "reason": "Mails a reset link; resetLimiter; same answer whether or not the address exists."
+    },
+    {
+      "method": "POST",
+      "path": "/api/auth/login",
+      "reason": "Sign-in itself: loginLimiter, lockout, no enumeration or timing oracle."
+    },
+    {
+      "method": "POST",
+      "path": "/api/auth/login/two-factor",
+      "reason": "Second sign-in step: needs the first step's short-lived challenge; codeLimiter; TOTP steps single-use."
+    },
+    {
+      "method": "POST",
+      "path": "/api/auth/logout",
+      "reason": "Revokes only the session named by the caller's own refresh cookie."
+    },
+    {
+      "method": "GET",
+      "path": "/api/auth/me",
+      "reason": "Self-service: the caller's own profile and companies (live session, A-03)."
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/auth/me",
+      "reason": "Self-service: the caller's own name, avatar and preferences; live session (A-03); email/password/active are not here (A-01)."
+    },
+    {
+      "method": "GET",
+      "path": "/api/auth/me/export",
+      "reason": "Self-service: a copy of the caller's own personal data (DPDP)."
+    },
+    {
+      "method": "POST",
+      "path": "/api/auth/refresh",
+      "reason": "Rotates the caller's own HttpOnly refresh cookie atomically (A-06); refreshLimiter."
+    },
+    {
+      "method": "POST",
+      "path": "/api/auth/resend-verification",
+      "reason": "Self-service: resends the caller's own verification e-mail; resetLimiter (live session, A-03)."
+    },
+    {
+      "method": "POST",
+      "path": "/api/auth/reset-password",
+      "reason": "Needs the single-use reset token from the e-mail, consumed atomically (A-06); resetLimiter."
+    },
+    {
+      "method": "GET",
+      "path": "/api/auth/sessions",
+      "reason": "Self-service: the caller's own sessions (live session, A-03)."
+    },
+    {
+      "method": "POST",
+      "path": "/api/auth/sessions/revoke-all",
+      "reason": "Self-service: signs the caller out of their own other sessions (live session, A-03)."
+    },
+    {
+      "method": "POST",
+      "path": "/api/auth/setup-company",
+      "reason": "A-04: allowed only for the account's first company or an administrator of one of its companies (checked in the handler, 403 NOT_ACCOUNT_ADMIN)."
+    },
+    {
+      "method": "POST",
+      "path": "/api/auth/signup",
+      "reason": "Creates a new account owned by the caller, with an explicit subscription (GAP-003); signupLimiter. 409 enumeration deferred (A-10)."
+    },
+    {
+      "method": "GET",
+      "path": "/api/auth/sso/:providerId/start",
+      "reason": "Starts OIDC/SAML sign-in with PKCE, state and nonce; ssoLimiter."
+    },
+    {
+      "method": "GET",
+      "path": "/api/auth/sso/callback",
+      "reason": "OIDC callback: state (own JWT audience, A-10), nonce and PKCE checked; verified-domain gate."
+    },
+    {
+      "method": "GET",
+      "path": "/api/auth/sso/lookup",
+      "reason": "Says whether an e-mail domain signs in with SSO; no account data; ssoLimiter."
+    },
+    {
+      "method": "POST",
+      "path": "/api/auth/sso/saml/:providerId/acs",
+      "reason": "SAML assertion consumer: signature and replay protection, verified-domain gate; ssoLimiter."
+    },
+    {
+      "method": "GET",
+      "path": "/api/auth/sso/saml/:providerId/metadata",
+      "reason": "SAML service-provider metadata; public by protocol, no secrets."
+    },
+    {
+      "method": "POST",
+      "path": "/api/auth/verify-email",
+      "reason": "Needs the single-use verification token from the e-mail, consumed atomically (A-06)."
+    },
+    {
+      "method": "GET",
+      "path": "/api/billing/catalog",
+      "reason": "Price list; no account data. Session + tenant context."
+    },
+    {
+      "method": "GET",
+      "path": "/api/billing/subscription",
+      "reason": "App standing for every member of the account; the plan only with SETTINGS::Company Profile::VIEW (A-22)."
+    },
+    {
+      "method": "POST",
+      "path": "/api/billing/subscription",
+      "reason": "Refuses every caller (403 OPERATOR_ONLY); kept so the old path does not fall through to another router."
+    },
+    {
+      "method": "POST",
+      "path": "/api/billing/webhook",
+      "reason": "Payment-gateway webhook on the app itself, ahead of the JSON parser: express.raw keeps the exact bytes the gateway adapter verifies (A-16); billingWebhookLimiter."
+    },
+    {
+      "method": "POST",
+      "path": "/api/orgs/:orgId/notifications/inbox/mutes",
+      "reason": "Self-service: mutes kinds for the caller only (where userId = caller)."
+    },
+    {
+      "method": "POST",
+      "path": "/api/orgs/:orgId/notifications/inbox/read",
+      "reason": "Self-service: marks the caller's own notifications read (where userId = caller)."
+    },
+    {
+      "method": "POST",
+      "path": "/api/orgs/:orgId/security/change-password",
+      "reason": "Self-service: the caller's own password; needs the current one."
+    },
+    {
+      "method": "POST",
+      "path": "/api/orgs/:orgId/security/my-sessions/revoke-all",
+      "reason": "Self-service: signs the caller out of their own other sessions."
+    },
+    {
+      "method": "POST",
+      "path": "/api/orgs/:orgId/security/step-up",
+      "reason": "Self-service: proves the caller's own second factor for 15 minutes of payroll actions; codeLimiter."
+    },
+    {
+      "method": "POST",
+      "path": "/api/orgs/:orgId/security/two-factor/disable",
+      "reason": "Self-service: needs the caller's password and a current or recovery code (A-10)."
+    },
+    {
+      "method": "POST",
+      "path": "/api/orgs/:orgId/security/two-factor/enable",
+      "reason": "Self-service: confirms the caller's own authenticator with a code."
+    },
+    {
+      "method": "POST",
+      "path": "/api/orgs/:orgId/security/two-factor/setup",
+      "reason": "Self-service: starts enrolling the caller's own authenticator."
+    },
+    {
+      "method": "POST",
+      "path": "/api/portal/activate",
+      "reason": "Employee sets a password with HR's one-time activation code; portalLimiter; anyAppLive (A-11)."
+    },
+    {
+      "method": "GET",
+      "path": "/api/portal/approvals",
+      "reason": "Manager view: requests of the signed-in employee's own reportees only."
+    },
+    {
+      "method": "POST",
+      "path": "/api/portal/approvals/:type/:id",
+      "reason": "Manager decision on a reportee's request only (reportees()); approval chain applies."
+    },
+    {
+      "method": "GET",
+      "path": "/api/portal/approvals/punch/:id/photo",
+      "reason": "Selfie of a reportee's punch, for the manager deciding it."
+    },
+    {
+      "method": "GET",
+      "path": "/api/portal/attendance",
+      "reason": "Employee self-service: reads their own attendance; portal token (authenticate) + anyAppLive (A-11); org and employee from the token."
+    },
+    {
+      "method": "GET",
+      "path": "/api/portal/attendance/explain",
+      "reason": "Employee self-service: reads their own attendance; portal token (authenticate) + anyAppLive (A-11); org and employee from the token."
+    },
+    {
+      "method": "GET",
+      "path": "/api/portal/attention",
+      "reason": "Employee self-service: reads their own attention; portal token (authenticate) + anyAppLive (A-11); org and employee from the token."
+    },
+    {
+      "method": "GET",
+      "path": "/api/portal/company-updates",
+      "reason": "Employee self-service: reads their own company updates; portal token (authenticate) + anyAppLive (A-11); org and employee from the token."
+    },
+    {
+      "method": "POST",
+      "path": "/api/portal/consent/withdraw",
+      "reason": "Employee self-service: changes their own consent; portal token (authenticate) + anyAppLive (A-11); org and employee from the token."
+    },
+    {
+      "method": "POST",
+      "path": "/api/portal/corrections",
+      "reason": "Employee self-service: changes their own corrections; portal token (authenticate) + anyAppLive (A-11); org and employee from the token."
+    },
+    {
+      "method": "PUT",
+      "path": "/api/portal/corrections/:id",
+      "reason": "Employee self-service: changes their own corrections; portal token (authenticate) + anyAppLive (A-11); org and employee from the token."
+    },
+    {
+      "method": "POST",
+      "path": "/api/portal/corrections/:id/cancel",
+      "reason": "Employee self-service: changes their own corrections; portal token (authenticate) + anyAppLive (A-11); org and employee from the token."
+    },
+    {
+      "method": "GET",
+      "path": "/api/portal/data-requests",
+      "reason": "Employee self-service: reads their own data requests; portal token (authenticate) + anyAppLive (A-11); org and employee from the token."
+    },
+    {
+      "method": "POST",
+      "path": "/api/portal/data-requests",
+      "reason": "Employee self-service: changes their own data requests; portal token (authenticate) + anyAppLive (A-11); org and employee from the token."
+    },
+    {
+      "method": "GET",
+      "path": "/api/portal/documents",
+      "reason": "Employee self-service: reads their own documents; portal token (authenticate) + anyAppLive (A-11); org and employee from the token."
+    },
+    {
+      "method": "GET",
+      "path": "/api/portal/documents/:id",
+      "reason": "Employee self-service: reads their own documents; portal token (authenticate) + anyAppLive (A-11); org and employee from the token."
+    },
+    {
+      "method": "POST",
+      "path": "/api/portal/forgot",
+      "reason": "Employee asks HR for a new portal password; portalLimiter; anyAppLive refuses a lapsed or closing company (A-11)."
+    },
+    {
+      "method": "GET",
+      "path": "/api/portal/home",
+      "reason": "Employee self-service: reads their own home; portal token (authenticate) + anyAppLive (A-11); org and employee from the token."
+    },
+    {
+      "method": "GET",
+      "path": "/api/portal/hr-cases",
+      "reason": "Employee self-service: reads their own hr cases; portal token (authenticate) + anyAppLive (A-11); org and employee from the token."
+    },
+    {
+      "method": "POST",
+      "path": "/api/portal/hr-cases",
+      "reason": "Employee self-service: changes their own hr cases; portal token (authenticate) + anyAppLive (A-11); org and employee from the token."
+    },
+    {
+      "method": "GET",
+      "path": "/api/portal/leave",
+      "reason": "Employee self-service: reads their own leave; portal token (authenticate) + anyAppLive (A-11); org and employee from the token."
+    },
+    {
+      "method": "POST",
+      "path": "/api/portal/leave",
+      "reason": "Employee self-service: changes their own leave; portal token (authenticate) + anyAppLive (A-11); org and employee from the token."
+    },
+    {
+      "method": "POST",
+      "path": "/api/portal/leave/:id/cancel",
+      "reason": "Employee self-service: changes their own leave; portal token (authenticate) + anyAppLive (A-11); org and employee from the token."
+    },
+    {
+      "method": "GET",
+      "path": "/api/portal/leave/explain",
+      "reason": "Employee self-service: reads their own leave; portal token (authenticate) + anyAppLive (A-11); org and employee from the token."
+    },
+    {
+      "method": "POST",
+      "path": "/api/portal/login",
+      "reason": "Employee portal sign-in (company + employee code + password); portalLimiter; anyAppLive (A-11)."
+    },
+    {
+      "method": "GET",
+      "path": "/api/portal/me",
+      "reason": "Employee self-service: reads their own me; portal token (authenticate) + anyAppLive (A-11); org and employee from the token."
+    },
+    {
+      "method": "GET",
+      "path": "/api/portal/month-review",
+      "reason": "Employee self-service: reads their own month review; portal token (authenticate) + anyAppLive (A-11); org and employee from the token."
+    },
+    {
+      "method": "POST",
+      "path": "/api/portal/month-review/:month/confirm",
+      "reason": "Employee self-service: changes their own month review; portal token (authenticate) + anyAppLive (A-11); org and employee from the token."
+    },
+    {
+      "method": "POST",
+      "path": "/api/portal/month-review/:month/dispute",
+      "reason": "Employee self-service: changes their own month review; portal token (authenticate) + anyAppLive (A-11); org and employee from the token."
+    },
+    {
+      "method": "GET",
+      "path": "/api/portal/my-data",
+      "reason": "Employee self-service: reads their own my data; portal token (authenticate) + anyAppLive (A-11); org and employee from the token."
+    },
+    {
+      "method": "GET",
+      "path": "/api/portal/overtime",
+      "reason": "Employee self-service: reads their own overtime; portal token (authenticate) + anyAppLive (A-11); org and employee from the token."
+    },
+    {
+      "method": "POST",
+      "path": "/api/portal/overtime",
+      "reason": "Employee self-service: changes their own overtime; portal token (authenticate) + anyAppLive (A-11); org and employee from the token."
+    },
+    {
+      "method": "POST",
+      "path": "/api/portal/overtime/:id/cancel",
+      "reason": "Employee self-service: changes their own overtime; portal token (authenticate) + anyAppLive (A-11); org and employee from the token."
+    },
+    {
+      "method": "POST",
+      "path": "/api/portal/password",
+      "reason": "The employee changes their own portal password; needs the current one."
+    },
+    {
+      "method": "GET",
+      "path": "/api/portal/payslips",
+      "reason": "Employee self-service: reads their own payslips; portal token (authenticate) + anyAppLive (A-11); org and employee from the token."
+    },
+    {
+      "method": "GET",
+      "path": "/api/portal/payslips/:id",
+      "reason": "Employee self-service: reads their own payslips; portal token (authenticate) + anyAppLive (A-11); org and employee from the token."
+    },
+    {
+      "method": "POST",
+      "path": "/api/portal/phone-punch/ask",
+      "reason": "Employee self-service: changes their own phone punch; portal token (authenticate) + anyAppLive (A-11); org and employee from the token."
+    },
+    {
+      "method": "GET",
+      "path": "/api/portal/privacy-notice",
+      "reason": "Employee self-service: reads their own privacy notice; portal token (authenticate) + anyAppLive (A-11); org and employee from the token."
+    },
+    {
+      "method": "POST",
+      "path": "/api/portal/privacy-notice/read",
+      "reason": "Employee self-service: changes their own privacy notice; portal token (authenticate) + anyAppLive (A-11); org and employee from the token."
+    },
+    {
+      "method": "POST",
+      "path": "/api/portal/punch",
+      "reason": "Employee self-service: changes their own punch; portal token (authenticate) + anyAppLive (A-11); org and employee from the token."
+    },
+    {
+      "method": "GET",
+      "path": "/api/portal/requests",
+      "reason": "Employee self-service: reads their own requests; portal token (authenticate) + anyAppLive (A-11); org and employee from the token."
+    },
+    {
+      "method": "GET",
+      "path": "/api/portal/schedule",
+      "reason": "Employee self-service: reads their own schedule; portal token (authenticate) + anyAppLive (A-11); org and employee from the token."
+    },
+    {
+      "method": "GET",
+      "path": "/api/portal/tax",
+      "reason": "Employee self-service: reads their own tax; portal token (authenticate) + anyAppLive (A-11); org and employee from the token."
+    },
+    {
+      "method": "PUT",
+      "path": "/api/portal/tax",
+      "reason": "Employee self-service: changes their own tax; portal token (authenticate) + anyAppLive (A-11); org and employee from the token."
+    },
+    {
+      "method": "GET",
+      "path": "/api/portal/updates",
+      "reason": "Employee self-service: reads their own updates; portal token (authenticate) + anyAppLive (A-11); org and employee from the token."
+    },
+    {
+      "method": "GET",
+      "path": "/api/public/invoice/:token",
+      "reason": "Invoice share link: the token is the credential; appLive(accounting) (A-11). Plaintext, no expiry: A-32 (Batch 5)."
+    },
+    {
+      "method": "GET",
+      "path": "/health",
+      "reason": "Liveness probe: answers {ok: true}; no data, no database."
+    },
+    {
+      "method": "POST",
+      "path": "/hikvision/:token",
+      "reason": "Hikvision device token in the path; shape filter and hikvisionLimiter before any body; appLive(attendance) (A-11)."
+    },
+    {
+      "method": "ALL",
+      "path": "/iclock/*",
+      "reason": "Catch-all that answers \"OK\" to unknown reader requests; reads and writes nothing."
+    },
+    {
+      "method": "GET",
+      "path": "/iclock/cdata",
+      "reason": "ZKTeco ADMS reader: serial must be claimed by a company and its network admitted; appLive(attendance) (A-11)."
+    },
+    {
+      "method": "POST",
+      "path": "/iclock/cdata",
+      "reason": "ZKTeco ADMS reader: serial must be claimed by a company and its network admitted; appLive(attendance) (A-11)."
+    },
+    {
+      "method": "GET",
+      "path": "/iclock/cdata.aspx",
+      "reason": "ZKTeco ADMS reader: serial must be claimed by a company and its network admitted; appLive(attendance) (A-11)."
+    },
+    {
+      "method": "POST",
+      "path": "/iclock/cdata.aspx",
+      "reason": "ZKTeco ADMS reader: serial must be claimed by a company and its network admitted; appLive(attendance) (A-11)."
+    },
+    {
+      "method": "POST",
+      "path": "/iclock/devicecmd",
+      "reason": "ZKTeco ADMS reader: serial must be claimed by a company and its network admitted; appLive(attendance) (A-11)."
+    },
+    {
+      "method": "POST",
+      "path": "/iclock/devicecmd.aspx",
+      "reason": "ZKTeco ADMS reader: serial must be claimed by a company and its network admitted; appLive(attendance) (A-11)."
+    },
+    {
+      "method": "GET",
+      "path": "/iclock/getrequest",
+      "reason": "ZKTeco ADMS reader: serial must be claimed by a company and its network admitted; appLive(attendance) (A-11)."
+    },
+    {
+      "method": "GET",
+      "path": "/iclock/getrequest.aspx",
+      "reason": "ZKTeco ADMS reader: serial must be claimed by a company and its network admitted; appLive(attendance) (A-11)."
+    },
+    {
+      "method": "POST",
+      "path": "/ingest/:token",
+      "reason": "HTTP-push token in the path (hashed lookup), optional signature; ingestLimiter; appLive(attendance) (A-11)."
+    },
+    {
+      "method": "ALL",
+      "path": "/matrix/:token/getcmd",
+      "reason": "Matrix COSEC device token in the path (deviceOf); ingestLimiter; appLive(attendance) (A-11)."
+    },
+    {
+      "method": "ALL",
+      "path": "/matrix/:token/getconfig",
+      "reason": "Matrix COSEC device token in the path (deviceOf); ingestLimiter; appLive(attendance) (A-11)."
+    },
+    {
+      "method": "ALL",
+      "path": "/matrix/:token/login",
+      "reason": "Matrix COSEC device token in the path (deviceOf); ingestLimiter; appLive(attendance) (A-11)."
+    },
+    {
+      "method": "ALL",
+      "path": "/matrix/:token/poll",
+      "reason": "Matrix COSEC device token in the path (deviceOf); ingestLimiter; appLive(attendance) (A-11)."
+    },
+    {
+      "method": "ALL",
+      "path": "/matrix/:token/setevent",
+      "reason": "Matrix COSEC device token in the path (deviceOf); ingestLimiter; appLive(attendance) (A-11)."
+    },
+    {
+      "method": "ALL",
+      "path": "/matrix/:token/updatecmd",
+      "reason": "Matrix COSEC device token in the path (deviceOf); ingestLimiter; appLive(attendance) (A-11)."
+    },
+    {
+      "method": "ALL",
+      "path": "/matrix/:token/updateconfig",
+      "reason": "Matrix COSEC device token in the path (deviceOf); ingestLimiter; appLive(attendance) (A-11)."
+    },
+    {
+      "method": "GET",
+      "path": "/pay/:token",
+      "reason": "UPI pay page: the token is the credential; appLive(accounting) (A-11); shows one payment request."
+    },
+    {
+      "method": "POST",
+      "path": "/pay/:token/claim",
+      "reason": "Payer records a UTR against one PENDING request named by the token; staff confirm it (A-11 gate); ingestLimiter."
+    },
+    {
+      "method": "GET",
+      "path": "/ready",
+      "reason": "Readiness probe: says whether each of the four database clients answers; no rows, no tenant data."
+    },
+    {
+      "method": "ALL",
+      "path": "/scim/v2/Groups",
+      "reason": "Answers 501: groups are not provisioned; changes nothing."
+    },
+    {
+      "method": "ALL",
+      "path": "/scim/v2/Groups/:id",
+      "reason": "Answers 501: groups are not provisioned; changes nothing."
+    },
+    {
+      "method": "GET",
+      "path": "/scim/v2/ResourceTypes",
+      "reason": "SCIM bearer token (hashed) for one org; closure check (A-11); identity changes limited to single-company non-admins (A-01)."
+    },
+    {
+      "method": "GET",
+      "path": "/scim/v2/Schemas",
+      "reason": "SCIM bearer token (hashed) for one org; closure check (A-11); identity changes limited to single-company non-admins (A-01)."
+    },
+    {
+      "method": "GET",
+      "path": "/scim/v2/ServiceProviderConfig",
+      "reason": "SCIM bearer token (hashed) for one org; closure check (A-11); identity changes limited to single-company non-admins (A-01)."
+    },
+    {
+      "method": "GET",
+      "path": "/scim/v2/Users",
+      "reason": "SCIM bearer token (hashed) for one org; closure check (A-11); identity changes limited to single-company non-admins (A-01)."
+    },
+    {
+      "method": "POST",
+      "path": "/scim/v2/Users",
+      "reason": "SCIM bearer token (hashed) for one org; closure check (A-11); identity changes limited to single-company non-admins (A-01)."
+    },
+    {
+      "method": "DELETE",
+      "path": "/scim/v2/Users/:id",
+      "reason": "SCIM bearer token (hashed) for one org; closure check (A-11); identity changes limited to single-company non-admins (A-01)."
+    },
+    {
+      "method": "GET",
+      "path": "/scim/v2/Users/:id",
+      "reason": "SCIM bearer token (hashed) for one org; closure check (A-11); identity changes limited to single-company non-admins (A-01)."
+    },
+    {
+      "method": "PATCH",
+      "path": "/scim/v2/Users/:id",
+      "reason": "SCIM bearer token (hashed) for one org; closure check (A-11); identity changes limited to single-company non-admins (A-01)."
+    },
+    {
+      "method": "PUT",
+      "path": "/scim/v2/Users/:id",
+      "reason": "SCIM bearer token (hashed) for one org; closure check (A-11); identity changes limited to single-company non-admins (A-01)."
+    },
+    {
+      "method": "GET",
+      "path": "/v1/attendance/days",
+      "reason": "API key with scope attendance:read; org from the key; appLive(attendance) (A-11)."
+    },
+    {
+      "method": "GET",
+      "path": "/v1/attendance/months",
+      "reason": "API key with scope attendance:read; org from the key; appLive(attendance) (A-11)."
+    },
+    {
+      "method": "GET",
+      "path": "/v1/attendance/punches",
+      "reason": "API key with scope attendance:read; org from the key; appLive(attendance) (A-11)."
+    },
+    {
+      "method": "POST",
+      "path": "/v1/attendance/punches",
+      "reason": "API key with scope punches:write; org from the key; appLive(attendance) (A-11)."
+    },
+    {
+      "method": "GET",
+      "path": "/v1/attendance/shifts",
+      "reason": "API key with scope attendance:read; org from the key; appLive(attendance) (A-11)."
+    },
+    {
+      "method": "GET",
+      "path": "/v1/attendance/summary",
+      "reason": "API key with scope attendance:read; org from the key; appLive(attendance) (A-11)."
+    },
+    {
+      "method": "GET",
+      "path": "/v1/docs",
+      "reason": "Human-readable API description; no data."
+    },
+    {
+      "method": "GET",
+      "path": "/v1/employees",
+      "reason": "API key with scope employees:read; org from the key; appLive(attendance) (A-11)."
+    },
+    {
+      "method": "POST",
+      "path": "/v1/employees",
+      "reason": "API key with scope employees:write; org from the key; appLive(attendance) (A-11)."
+    },
+    {
+      "method": "PATCH",
+      "path": "/v1/employees/:code",
+      "reason": "API key with scope employees:write; org from the key; appLive(attendance) (A-11)."
+    },
+    {
+      "method": "GET",
+      "path": "/v1/leave/balances",
+      "reason": "API key with scope leave:read; org from the key; appLive(attendance) (A-11)."
+    },
+    {
+      "method": "GET",
+      "path": "/v1/leave/requests",
+      "reason": "API key with scope leave:read; org from the key; appLive(attendance) (A-11)."
+    },
+    {
+      "method": "POST",
+      "path": "/v1/leave/requests",
+      "reason": "API key with scope leave:write; org from the key; appLive(attendance) (A-11)."
+    },
+    {
+      "method": "POST",
+      "path": "/v1/leave/requests/:id/approve",
+      "reason": "API key with scope leave:approve; org from the key; appLive(attendance) (A-11)."
+    },
+    {
+      "method": "POST",
+      "path": "/v1/leave/requests/:id/reject",
+      "reason": "API key with scope leave:approve; org from the key; appLive(attendance) (A-11)."
+    },
+    {
+      "method": "GET",
+      "path": "/v1/leave/types",
+      "reason": "API key with scope leave:read; org from the key; appLive(attendance) (A-11)."
+    },
+    {
+      "method": "GET",
+      "path": "/v1/openapi.json",
+      "reason": "OpenAPI document; no data."
+    },
+    {
+      "method": "GET",
+      "path": "/v1/ping",
+      "reason": "Key check: returns only the key's own org, prefix and scopes; appLive (A-11)."
+    },
+    {
+      "method": "GET",
+      "path": "/v1/readers",
+      "reason": "API key with scope readers:read; org from the key; appLive(attendance) (A-11)."
+    }
+  ]
+}
