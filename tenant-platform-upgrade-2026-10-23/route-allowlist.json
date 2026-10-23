@@ -144,7 +144,7 @@
     {
       "method": "GET",
       "path": "/api/billing/subscription",
-      "reason": "The caller's own account subscription; no permission check yet (A-22)."
+      "reason": "App standing for every member of the account; the plan only with SETTINGS::Company Profile::VIEW (A-22)."
     },
     {
       "method": "POST",
@@ -154,19 +154,7 @@
     {
       "method": "POST",
       "path": "/api/billing/webhook",
-      "reason": "Payment-gateway webhook: the gateway adapter verifies the event; raw-body signature check on its own router is A-16."
-    },
-    {
-      "method": "DELETE",
-      "path": "/api/orgs/:orgId/closure",
-      "reason": "Owner-only (isOwner in services/companyClosure.ts): no role permission and no step-up.",
-      "finding": "A-21"
-    },
-    {
-      "method": "POST",
-      "path": "/api/orgs/:orgId/closure",
-      "reason": "Owner-only (isOwner in services/companyClosure.ts): no role permission and no step-up.",
-      "finding": "A-21"
+      "reason": "Payment-gateway webhook on the app itself, ahead of the JSON parser: express.raw keeps the exact bytes the gateway adapter verifies (A-16); billingWebhookLimiter."
     },
     {
       "method": "POST",
@@ -439,6 +427,11 @@
       "reason": "Invoice share link: the token is the credential; appLive(accounting) (A-11). Plaintext, no expiry: A-32 (Batch 5)."
     },
     {
+      "method": "GET",
+      "path": "/health",
+      "reason": "Liveness probe: answers {ok: true}; no data, no database."
+    },
+    {
       "method": "POST",
       "path": "/hikvision/:token",
       "reason": "Hikvision device token in the path; shape filter and hikvisionLimiter before any body; appLive(attendance) (A-11)."
@@ -537,6 +530,11 @@
       "method": "POST",
       "path": "/pay/:token/claim",
       "reason": "Payer records a UTR against one PENDING request named by the token; staff confirm it (A-11 gate); ingestLimiter."
+    },
+    {
+      "method": "GET",
+      "path": "/ready",
+      "reason": "Readiness probe: says whether each of the four database clients answers; no rows, no tenant data."
     },
     {
       "method": "ALL",

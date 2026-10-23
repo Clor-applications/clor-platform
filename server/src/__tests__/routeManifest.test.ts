@@ -64,6 +64,8 @@ describe('route manifest (A-49)', () => {
     /* Registered before the router's own authenticate(): public, by position. */
     expect(find('GET', '/v1/openapi.json').principal).toBe('public');
     expect(find('POST', '/api/billing/accounts/:accountId/subscription').principal).toBe('platform-operator');
+    /* Mounted on the app itself, ahead of the JSON parser (A-16). */
+    expect(find('POST', '/api/billing/webhook').location).toMatch(/server\/src\/app\.ts:\d+$/);
   });
 
   it('sees permission checks however a route spells them', () => {
@@ -81,6 +83,12 @@ describe('route manifest (A-49)', () => {
     expect(find('POST', '/api/orgs/:orgId/bills').permission).toBe('PURCHASE::Bills::CREATE');
     /* Accounting modules carry the subscription ceiling inside authorize(). */
     expect(find('POST', '/api/orgs/:orgId/bills').entitlement).toContain('rbac ceiling');
+    /* Any one of several permissions (A-22). */
+    expect(find('GET', '/api/orgs/:orgId/payment-modes').permission).toContain('SALES::Receipts::CREATE');
+    /* A role check inside the handler and, for DELETE, inside the service it calls (A-21). */
+    expect(find('POST', '/api/orgs/:orgId/closure').permission).toBe('role:company ADMIN (mayClose)');
+    expect(find('POST', '/api/orgs/:orgId/closure').reviewed).toContain('step-up');
+    expect(find('DELETE', '/api/orgs/:orgId/closure').permission).toBe('role:company ADMIN (mayClose)');
   });
 
   it('fails a write that nothing guards and the allow-list does not name', async () => {

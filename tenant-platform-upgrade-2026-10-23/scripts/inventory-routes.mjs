@@ -80,6 +80,13 @@ const KNOWN = {
   'middleware/operator.ts#isOperator': { kind: 'operator' },
   'middleware/rbac.ts#requirePermission': { kind: 'permission' },
   'middleware/rbac.ts#authorize': { kind: 'permission', argOffset: 1 },
+  /* Any one of several permissions: requireAnyPermission([m, a, s], ...), authorizeAny(req, [[m, a, s], ...]). */
+  'middleware/rbac.ts#requireAnyPermission': { kind: 'permissionAny' },
+  'middleware/rbac.ts#authorizeAny': { kind: 'permissionAny', argOffset: 1 },
+  /* A role check rather than a permission: closing a company is for its administrators (A-21). */
+  'services/companyClosure.ts#mayClose': { kind: 'permission', label: () => 'role:company ADMIN (mayClose)' },
+  'services/stepUp.ts#stepUpRefusal': { kind: 'stepUp' },
+  'services/stepUp.ts#requirePayrollStepUp': { kind: 'stepUp' },
   'middleware/requireApp.ts#requireApp': { kind: 'entitlement', label: (a) => `requireApp(${a[0]})` },
   'services/principalAllowed.ts#appLive': { kind: 'entitlement', label: (a) => `appLive(${a[2]})` },
   'services/principalAllowed.ts#anyAppLive': { kind: 'entitlement', label: () => 'anyAppLive' },
@@ -125,11 +132,12 @@ function listTs(dir) {
   return out;
 }
 
-const empty = () => ({ auth: false, tenant: false, operator: false, permissions: new Set(), entitlements: new Set(), makerChecker: false, audit: new Set(), auditMutations: false });
+const empty = () => ({ auth: false, tenant: false, operator: false, stepUp: false, permissions: new Set(), entitlements: new Set(), makerChecker: false, audit: new Set(), auditMutations: false });
 function merge(into, from) {
   into.auth ||= from.auth;
   into.tenant ||= from.tenant;
   into.operator ||= from.operator;
+  into.stepUp ||= from.stepUp;
   into.makerChecker ||= from.makerChecker;
   into.auditMutations ||= from.auditMutations;
   for (const k of ['permissions', 'entitlements', 'audit']) for (const v of from[k]) into[k].add(v);
@@ -459,6 +467,24 @@ export function buildManifest({ serverDir = DEFAULT_SERVER, allowlist = DEFAULT_
         }
         break;
       }
+      case 'permissionAny': {
+        const tuples = known.argOffset ? (args[known.argOffset] && ts.isArrayLiteralExpression(unwrap(args[known.argOffset])) ? unwrap(args[known.argOffset]).elements : []) : [...args];
+        if (!tuples.length) facts.permissions.add('?::?::?');
+        for (const t of tuples) {
+          const x = unwrap(t);
+          if (!ts.isArrayLiteralExpression(x)) {
+            facts.permissions.add('?::?::?');
+            continue;
+          }
+          const [mod, action, sub] = [0, 1, 2].map((i) => (x.elements[i] ? strsOf(x.elements[i], env).join('|') : ''));
+          facts.permissions.add(`${mod}::${sub}::${action}`);
+          if (ACCOUNTING_MODULES.has(mod)) facts.entitlements.add('rbac ceiling (accounting)');
+        }
+        break;
+      }
+      case 'stepUp':
+        facts.stepUp = true;
+        break;
       case 'entitlement':
         facts.entitlements.add(known.label(a));
         break;
@@ -485,6 +511,7 @@ export function buildManifest({ serverDir = DEFAULT_SERVER, allowlist = DEFAULT_
   };
   const mounts = new Map(); // router declaration -> { mount, seq, at }; other app.use arguments go to appLayers
   const appLayers = [];
+  const appRoutes = [];
   let seq = 0;
   const visitApp = (n) => {
     if (ts.isCallExpression(n) && ts.isPropertyAccessExpression(n.expression) && n.expression.name.text === 'use' && n.expression.expression.getText() === 'app') {
@@ -496,6 +523,12 @@ export function buildManifest({ serverDir = DEFAULT_SERVER, allowlist = DEFAULT_
         if (isRouterDecl(d)) mounts.set(d, { mount: mount ?? '/', seq: seq++, at: where(n) });
         else appLayers.push({ expr: inner, mount, seq: seq++ });
       }
+    }
+    /* A route on the app itself (the billing webhook, before the JSON parser; /health). */
+    if (ts.isCallExpression(n) && ts.isPropertyAccessExpression(n.expression) && METHODS.has(n.expression.name.text) && n.expression.expression.getText() === 'app' && n.arguments.length > 1) {
+      const [first, ...handlers] = n.arguments;
+      const p = evalStr(first, new Map());
+      if (p) appRoutes.push({ method: n.expression.name.text.toUpperCase(), path: p, handlers, seq: seq++, at: where(n) });
     }
     ts.forEachChild(n, visitApp);
   };
@@ -594,48 +627,55 @@ export function buildManifest({ serverDir = DEFAULT_SERVER, allowlist = DEFAULT_
         for (const p of route.paths) {
           const full = m.mount === '/' ? p : `${m.mount.replace(/\/$/, '')}${p === '/' ? '' : p.startsWith('/') ? p : `/${p}`}` || '/';
           const uses = r.uses.filter((u) => u.order < route.order && (!u.prefix || p.startsWith(u.prefix)));
-          const mw = empty();
-          for (const layer of appLayers.filter((l) => l.seq < m.seq && (!l.mount || full.startsWith(l.mount)))) merge(mw, factsOf(layer.expr, new Map(), new Set(), 0));
-          for (const u of uses) for (const a of u.args) merge(mw, factsOf(a, u.env, new Set(), 0));
-          const chain = [...route.handlers];
-          const handler = chain.pop();
-          for (const a of chain) merge(mw, factsOf(a, route.env, new Set(), 0));
-          const inHandler = handler ? factsOf(handler, route.env, new Set(), 0) : empty();
-          const all = merge(merge(empty(), mw), inHandler);
-
-          let principal;
-          let auth;
-          let tenant = all.tenant ? 'requireTenantContext' : 'none';
-          if (all.operator && all.auth) [principal, auth] = ['platform-operator', 'session (requireAuth) + requireOperator'];
-          else if (all.auth) [principal, auth] = [all.tenant ? 'human-tenant' : 'human-global', 'session (requireAuth)'];
-          else if (tokenMount && (!tokenMount.gatedByUse || uses.some(isAuthenticatingUse))) {
-            [principal, auth] = [tokenMount.principal, tokenMount.auth];
-            tenant = 'from the credential';
-          } else [principal, auth] = ['public', /:token\b/.test(full) ? 'link token in path' : 'none'];
-
-          const audit = [...all.audit];
-          if (all.auditMutations && MUTATING.has(route.method) && AUDIT_MUTATIONS_PATH.test(full) && !AUDIT_MUTATIONS_SKIP.some((re) => re.test(full))) audit.push('auditMutations');
-          const permissions = [...all.permissions];
-          const notes = [];
-          if (route.registeredAt) notes.push(`registered by the helper at line ${route.registeredAt}`);
-          if (permissions.length && ![...mw.permissions].length) notes.push('permission checked in the handler');
-          if (permissions.some((x) => x.includes('?'))) notes.push('part of the permission is chosen at run time');
-          routes.push({
-            method: route.method,
-            path: full,
-            location: route.at,
-            principal,
-            auth,
-            tenant,
-            permission: permissions.length ? permissions.sort().join(' | ') : 'none',
-            entitlement: all.entitlements.size ? [...all.entitlements].sort().join(' | ') : 'none',
-            makerChecker: all.makerChecker ? 'yes' : 'no',
-            audit: audit.length ? audit.join(' | ') : 'none',
-            reviewed: notes.join('; '),
-          });
+          emit({ ...route, full, layerSeq: m.seq, uses, tokenMount, gated: uses.some(isAuthenticatingUse) });
         }
       }
     }
+  }
+  currentFile = appSf;
+  for (const route of appRoutes) emit({ ...route, full: route.path, env: new Map(), layerSeq: route.seq, uses: [], tokenMount: null, gated: false });
+
+  function emit({ method, full, at, registeredAt, handlers, env, layerSeq, uses, tokenMount, gated }) {
+    const mw = empty();
+    for (const layer of appLayers.filter((l) => l.seq < layerSeq && (!l.mount || full.startsWith(l.mount)))) merge(mw, factsOf(layer.expr, new Map(), new Set(), 0));
+    for (const u of uses) for (const a of u.args) merge(mw, factsOf(a, u.env, new Set(), 0));
+    const chain = [...handlers];
+    const handler = chain.pop();
+    for (const a of chain) merge(mw, factsOf(a, env, new Set(), 0));
+    const inHandler = handler ? factsOf(handler, env, new Set(), 0) : empty();
+    const all = merge(merge(empty(), mw), inHandler);
+
+    let principal;
+    let auth;
+    let tenant = all.tenant ? 'requireTenantContext' : 'none';
+    if (all.operator && all.auth) [principal, auth] = ['platform-operator', 'session (requireAuth) + requireOperator'];
+    else if (all.auth) [principal, auth] = [all.tenant ? 'human-tenant' : 'human-global', 'session (requireAuth)'];
+    else if (tokenMount && (!tokenMount.gatedByUse || gated)) {
+      [principal, auth] = [tokenMount.principal, tokenMount.auth];
+      tenant = 'from the credential';
+    } else [principal, auth] = ['public', /:token\b/.test(full) ? 'link token in path' : 'none'];
+
+    const audit = [...all.audit];
+    if (all.auditMutations && MUTATING.has(method) && AUDIT_MUTATIONS_PATH.test(full) && !AUDIT_MUTATIONS_SKIP.some((re) => re.test(full))) audit.push('auditMutations');
+    const permissions = [...all.permissions];
+    const notes = [];
+    if (registeredAt) notes.push(`registered by the helper at line ${registeredAt}`);
+    if (permissions.length && ![...mw.permissions].length) notes.push('permission checked in the handler');
+    if (permissions.some((x) => x.includes('?'))) notes.push('part of the permission is chosen at run time');
+    if (all.stepUp) notes.push('step-up (fresh second factor)');
+    routes.push({
+      method,
+      path: full,
+      location: at,
+      principal,
+      auth,
+      tenant,
+      permission: permissions.length ? permissions.sort().join(' | ') : 'none',
+      entitlement: all.entitlements.size ? [...all.entitlements].sort().join(' | ') : 'none',
+      makerChecker: all.makerChecker ? 'yes' : 'no',
+      audit: audit.length ? audit.join(' | ') : 'none',
+      reviewed: notes.join('; '),
+    });
   }
   routes.sort((a, b) => a.path.localeCompare(b.path) || a.method.localeCompare(b.method) || a.location.localeCompare(b.location));
 
