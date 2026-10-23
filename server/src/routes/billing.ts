@@ -8,6 +8,8 @@ import { APP_CATALOG } from '../constants/appCatalog.js';
 import { PLAN_CATALOG } from '../constants/planCatalog.js';
 import { getSubscription, appAccess, setSubscription, applyGatewayEvent } from '../services/subscriptions.js';
 import { getGateway } from '../billing/gateway.js';
+import { requireOperatorStepUp } from '../services/stepUp.js';
+import { clientIp, recordAuthEvent } from '../services/auth.js';
 
 export const billingRouter = Router();
 /** CLOR operators acting on an account from outside it. See app.ts for where it is mounted. */
@@ -59,13 +61,28 @@ const setSchema = z.object({
  * demands tenant headers (app.ts). The gateway path (webhook ->
  * applyGatewayEvent) is the only other writer.
  */
-billingOperatorRouter.post('/billing/accounts/:accountId/subscription', requireAuth, requireOperator, async (req, res) => {
+billingOperatorRouter.post('/billing/accounts/:accountId/subscription', requireAuth, requireOperator, requireOperatorStepUp, async (req, res) => {
   const accountId = String(req.params.accountId || '');
   const account = await platformPrisma.account.findUnique({ where: { id: accountId }, select: { id: true } });
   if (!account) return res.status(404).json({ error: 'No such account' });
   const parsed = setSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: 'Invalid subscription', details: parsed.error.flatten() });
+  const before = await getSubscription(accountId);
   const sub = await setSubscription(accountId, parsed.data);
+  /*
+   * A-17: what CLOR changed on a customer's account, by whom, from what to
+   * what — recorded against the customer's account, where their own security
+   * activity is listed, and against nothing they can edit.
+   */
+  const shape = (s: any) => (s ? { status: s.status, apps: (s.items || []).map((i: any) => i.appCode).sort() } : null);
+  await recordAuthEvent({
+    accountId,
+    userId: req.auth!.userId,
+    eventType: 'OPERATOR_SUBSCRIPTION_SET',
+    ip: clientIp(req),
+    userAgent: req.headers['user-agent'] as string | undefined,
+    detail: JSON.stringify({ before: shape(before), after: shape(sub) }).slice(0, 1000),
+  });
   res.json({ subscription: sub });
 });
 

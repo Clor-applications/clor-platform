@@ -10,6 +10,8 @@ import jwt from 'jsonwebtoken';
  * (CLOR_OPERATOR_USER_IDS) and the gateway write it.
  */
 const { buildApp } = await import('../app.js');
+const { codeAt, stepNow } = await import('../services/totp.js');
+const { platformPrisma } = await import('../utils/platformPrisma.js');
 
 const app = buildApp().listen(0);
 afterAll(async () => {
@@ -31,6 +33,13 @@ async function company(): Promise<Ctx> {
   return { token: signup.body.token, orgId: setup.body.company.orgId, branchId: setup.body.branch.id, userId: claims.userId, accountId: claims.accountId };
 }
 const subscription = async (c: Ctx) => (await request(app).get('/api/billing/subscription').set(at(c)).expect(200)).body;
+/** Enrol an authenticator for this person and return a fresh step-up token (A-17). */
+async function stepUp(c: Ctx) {
+  const sec = (p: string, b: unknown = {}) => request(app).post(`/api/orgs/${c.orgId}/security${p}`).set(at(c)).send(b as any);
+  const { secret } = (await sec('/two-factor/setup').expect(200)).body;
+  await sec('/two-factor/enable', { code: codeAt(secret, stepNow() - 1) }).expect(200);
+  return (await sec('/step-up', { code: codeAt(secret, stepNow()) }).expect(200)).body.token as string;
+}
 const everything = { apps: [{ appCode: 'people', tier: 'FULL' }, { appCode: 'attendance' }, { appCode: 'payroll' }] };
 
 describe('setting a subscription by hand', () => {
@@ -57,13 +66,24 @@ describe('setting a subscription by hand', () => {
     const op = await company();
     const c = await company();
     process.env.CLOR_OPERATOR_USER_IDS = ` someone-else , ${op.userId} `;
-    const auth = { Authorization: `Bearer ${op.token}` };
+    /* A-17: an operator without an authenticator, then without a fresh code, is refused before anything is read. */
+    const noTotp = await request(app).post(`/api/billing/accounts/${c.accountId}/subscription`).set({ Authorization: `Bearer ${op.token}` }).send(everything).expect(403);
+    expect(noTotp.body.code).toBe('TWO_FACTOR_SETUP_REQUIRED');
+    const token = await stepUp(op);
+    const noCode = await request(app).post(`/api/billing/accounts/${c.accountId}/subscription`).set({ Authorization: `Bearer ${op.token}` }).send(everything).expect(403);
+    expect(noCode.body.code).toBe('STEP_UP_REQUIRED');
+    const auth = { Authorization: `Bearer ${op.token}`, 'x-step-up': token };
 
     await request(app).post('/api/billing/accounts/no-such-account/subscription').set(auth).send(everything).expect(404);
     await request(app).post(`/api/billing/accounts/${c.accountId}/subscription`).set(auth).send({ apps: [] }).expect(400);
 
     const res = await request(app).post(`/api/billing/accounts/${c.accountId}/subscription`).set(auth).send(everything).expect(200);
     expect(res.body.subscription.accountId).toBe(c.accountId);
+
+    /* A-17: recorded against the customer's account, with before and after. */
+    const event = await platformPrisma.authEvent.findFirst({ where: { accountId: c.accountId, eventType: 'OPERATOR_SUBSCRIPTION_SET', userId: op.userId }, orderBy: { createdAt: 'desc' } });
+    expect(event).not.toBeNull();
+    expect(JSON.parse(String(event!.detail)).after.apps).toEqual(['attendance', 'payroll', 'people']);
 
     const seen = await subscription(c);
     expect(seen.subscribedApps).toEqual(expect.arrayContaining(['people', 'attendance', 'payroll']));

@@ -40,6 +40,7 @@ Updated: 2026-10-23
 | EV-034 | A-14: every app's subscription is enforced in the shared permission check | `recycleBin.test.ts`; `evidence/A-14/before-fix.txt` (expected 200 to be 402), `after-fix.txt` (6/6); full server suite 164 files / 1534 tests |
 | EV-035 | A-15: one refusal order across apps | `guardOrder.test.ts`; `evidence/A-15/before-fix.txt` (3 fail), `after-fix.txt` (9 pass); 13 refusal-code suites, 139 tests |
 | EV-036 | A-16: the payment webhook is reachable and sees the raw body | `billingWebhook.test.ts`; `evidence/A-16/before-fix.txt` (401; raw body undefined), `after-fix.txt` (5 pass incl. billingOperator), `live-curl.json` |
+| EV-037 | A-17: CLOR operator changes need a second factor and leave a record | `billingOperator.test.ts`; `evidence/A-17/before-fix.txt` (expected 403, got 200), `after-fix.txt` (4 suites, 19 tests) |
 
 ## Evidence quality note
 
