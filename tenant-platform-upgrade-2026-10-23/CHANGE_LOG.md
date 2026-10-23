@@ -49,3 +49,10 @@ Database schema changed: yes (platform `Account.legacyUnrestrictedAt`; platform 
 Deployment or Cloudflare configuration changed: no.  
 Customer data accessed: no (local test accounts only).
 
+## 2026-10-23 — Batch 7: route manifest (GAP-008, A-49)
+
+- `scripts/inventory-routes.mjs` rewritten. The regex version mounted publicApi under `/api/portal/punch` and SSO under `/api`, and could not see permission checks spelled as aliases (`VIEW`, `EDIT`, `ROLES_EDIT`), `can()` helpers, `authorize()` in a handler, `requireOperator`, the `*RouteOk` guards or `appLive`, so "HUMAN_TENANT" said nothing about permissions. The new one uses the TypeScript compiler to resolve every identifier, takes mounts from `app.use(...)` in app.ts in order, applies a router's `.use(...)` only to routes after it, and expands registration helpers (`transition(...)`, `register(kind)`, `[...].forEach(register)`, Matrix `handle(...)`). It writes method, path, file:line, principal, auth, tenant, permission, entitlement, makerChecker, audit and reviewed. 732 routes (helpers expanded; was 662).
+- `route-allowlist.json`: the 89 manual-review routes and every other public, employee-token and machine-token route (137 entries), one reason each; known gaps carry their finding (A-21 closure).
+- CI gate: `.github/workflows/ci.yml` step "Route manifest gate" runs the script with `--check`; it fails on a write with no permission and no entitlement check that is not allow-listed, on a public/token route without a reason, and on stale allow-list entries. `server/src/__tests__/routeManifest.test.ts` covers mounts, guard detection and the gate on a fixture.
+- Findings: no unknown unguarded write. New A-50 (access-control changes write no audit row, 21 routes) and A-51 (112 other staff writes reach no audit trail), in `evidence/A-49/unguarded-routes.md`.
+- Application behavior changed: no. Database schema changed: no. Deployment configuration changed: CI only (one new verify step). Customer data accessed: no. Server route files: not edited.

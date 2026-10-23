@@ -1,0 +1,338 @@
+# A-49 before the fix: routeManifest.test.ts against the old inventory-routes.mjs (commit aac6451)
+# $ npx vitest run src/__tests__/routeManifest.test.ts
+ DEPRECATED  `test.poolOptions` was removed in Vitest 4. All previous `poolOptions` are now top-level options. Please, refer to the migration guide: https://vitest.dev/guide/migration#pool-rework
+
+ RUN  v4.1.10 /Users/suresh/Desktop/clor-platform/.claude/worktrees/batch7-manifest-37f308/server
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_11285", schema "accounting" at "localhost:5432"
+
+The PostgreSQL database "clor_test_11285" schema "accounting" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 662ms
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/payroll/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_11285", schema "payroll" at "localhost:5432"
+
+The PostgreSQL database "clor_test_11285" schema "payroll" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 387ms
+
+┌─────────────────────────────────────────────────────────┐
+│  Update available 5.22.0 -> 8.0.0-rc.27                 │
+│                                                         │
+│  This is a major update - please follow the guide at    │
+│  https://pris.ly/d/major-version-upgrade                │
+│                                                         │
+│  Run the following to update                            │
+│    npm i --save-dev prisma@latest                       │
+│    npm i @prisma/client@latest                          │
+└─────────────────────────────────────────────────────────┘
+Environment variables loaded from .env
+Prisma schema loaded from prisma/people/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_11285", schema "people" at "localhost:5432"
+
+The PostgreSQL database "clor_test_11285" schema "people" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 376ms
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/platform/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_11285", schema "platform" at "localhost:5432"
+
+The PostgreSQL database "clor_test_11285" schema "platform" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 394ms
+
+[setup] 180 policy statements applied to clor_test_11285
+[setup] 7 policy statements applied to clor_test_11285
+[setup] 10 policy statements applied to clor_test_11285
+[setup] 35 policy statements applied to clor_test_11285
+[setup] 4 policy statements applied to clor_test_11285
+[setup] 96 policy statements applied to clor_test_11285
+[setup] 4 policy statements applied to clor_test_11285
+[setup] 4 policy statements applied to clor_test_11285
+[setup] 4 policy statements applied to clor_test_11285
+[setup] 4 policy statements applied to clor_test_11285
+[setup] 32 policy statements applied to clor_test_11285
+[setup] 24 policy statements applied to clor_test_11285
+[setup] 12 policy statements applied to clor_test_11285
+[setup] 16 policy statements applied to clor_test_11285
+[setup] 4 policy statements applied to clor_test_11285
+[setup] 4 policy statements applied to clor_test_11285
+[setup] 8 policy statements applied to clor_test_11285
+[setup] 8 policy statements applied to clor_test_11285
+[setup] 20 policy statements applied to clor_test_11285
+[setup] 8 policy statements applied to clor_test_11285
+[setup] 4 policy statements applied to clor_test_11285
+[setup] 8 policy statements applied to clor_test_11285
+[setup] 8 policy statements applied to clor_test_11285
+[setup] 12 policy statements applied to clor_test_11285
+[setup] 4 policy statements applied to clor_test_11285
+[setup] 8 policy statements applied to clor_test_11285
+[setup] 28 policy statements applied to clor_test_11285
+[setup] 4 policy statements applied to clor_test_11285
+[setup] 4 policy statements applied to clor_test_11285
+[setup] 4 policy statements applied to clor_test_11285
+[setup] 8 policy statements applied to clor_test_11285
+[setup] 4 policy statements applied to clor_test_11285
+[setup] 4 policy statements applied to clor_test_11285
+[setup] 4 policy statements applied to clor_test_11285
+[setup] 4 policy statements applied to clor_test_11285
+[setup] 8 policy statements applied to clor_test_11285
+[setup] 4 policy statements applied to clor_test_11285
+[setup] 12 policy statements applied to clor_test_11285
+[setup] 4 policy statements applied to clor_test_11285
+[setup] 76 policy statements applied to clor_test_11285
+[setup] 4 policy statements applied to clor_test_11285
+[setup] 4 policy statements applied to clor_test_11285
+[setup] 4 policy statements applied to clor_test_11285
+[setup] 4 policy statements applied to clor_test_11285
+stdout | src/__tests__/routeManifest.test.ts
+{
+  "output": "tenant-platform-upgrade-2026-10-23/evidence/route-inventory.csv",
+  "routes": 662,
+  "classifications": {
+    "HUMAN_TENANT": 551,
+    "NON_HUMAN_OR_TOKEN": 18,
+    "REVIEW": 89,
+    "HUMAN_GLOBAL": 2,
+    "PUBLIC_TOKEN": 2
+  }
+}
+
+ ❯ src/__tests__/routeManifest.test.ts (4 tests | 4 skipped) 108ms
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/__tests__/routeManifest.test.ts [ src/__tests__/routeManifest.test.ts ]
+TypeError: (intermediate value).buildManifest is not a function
+ ❯ src/__tests__/routeManifest.test.ts:54:29
+     52|
+     53| beforeAll(async () => {
+     54|   manifest = (await load()).buildManifest({ serverDir });
+       |                             ^
+     55| }, 120_000);
+     56|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  4 skipped (4)
+   Start at  19:38:08
+   Duration  8.87s (transform 31ms, setup 24ms, import 31ms, tests 108ms, environment 0ms)
+
+
+# What the old script produced (regenerated on this commit, same 662 rows):
+# publicApi.ts routes, mounted at /v1 in app.ts:237, listed under:
+"GET","/api/portal/punch/openapi.json","REVIEW"
+"GET","/api/portal/punch/docs","REVIEW"
+"GET","/api/portal/punch/ping","REVIEW"
+"GET","/api/portal/punch/employees","REVIEW"
+"POST","/api/portal/punch/employees","REVIEW"
+# sso.ts routes, mounted at /api/auth/sso in app.ts:311, listed under:
+"GET","/api/lookup","REVIEW"
+"GET","/api/saml/:providerId/metadata","REVIEW"
+"GET","/api/:providerId/start","REVIEW"
+"GET","/api/callback","REVIEW"
+"POST","/api/saml/:providerId/acs","REVIEW"
+# HUMAN_TENANT mutating routes whose guards column names no permission (aliases, can(), authorize(), *RouteOk invisible):
+     172
+
+================================================================
+# The new gate on the pre-change classification: nothing reviewed (empty allow-list).
+# $ node tenant-platform-upgrade-2026-10-23/scripts/inventory-routes.mjs --check --allowlist <empty>
+{
+  "output": "(check only)",
+  "routes": 732,
+  "principals": {
+    "machine-token": 51,
+    "public": 24,
+    "human-tenant": 606,
+    "human-global": 8,
+    "platform-operator": 1,
+    "employee-token": 42
+  },
+  "mutating": 445,
+  "mutatingWithPermission": 373,
+  "mutatingWithEntitlementOnly": 46,
+  "knownGaps": [],
+  "unmountedRouters": [],
+  "violations": 132
+}
+VIOLATION GET /agent/v1/config (server/src/routes/agent.ts:89): machine-token route is not on the allow-list (give it a one-line reason)
+VIOLATION GET /agent/v1/download (server/src/routes/agent.ts:61): public route is not on the allow-list (give it a one-line reason)
+VIOLATION GET /agent/v1/download.sig (server/src/routes/agent.ts:69): public route is not on the allow-list (give it a one-line reason)
+VIOLATION POST /agent/v1/jobs/:id/result (server/src/routes/agent.ts:185): machine-token route is not on the allow-list (give it a one-line reason)
+VIOLATION POST /agent/v1/readers/:id/clock (server/src/routes/agent.ts:165): machine-token route is not on the allow-list (give it a one-line reason)
+VIOLATION POST /agent/v1/readers/:id/punches (server/src/routes/agent.ts:138): machine-token route is not on the allow-list (give it a one-line reason)
+VIOLATION POST /agent/v1/report (server/src/routes/agent.ts:195): machine-token route is not on the allow-list (give it a one-line reason)
+VIOLATION POST /api/auth/forgot-password (server/src/routes/auth.ts:904): public route is not on the allow-list (give it a one-line reason)
+VIOLATION POST /api/auth/login (server/src/routes/auth.ts:109): public route is not on the allow-list (give it a one-line reason)
+VIOLATION POST /api/auth/login/two-factor (server/src/routes/auth.ts:289): public route is not on the allow-list (give it a one-line reason)
+VIOLATION POST /api/auth/logout (server/src/routes/auth.ts:376): public route is not on the allow-list (give it a one-line reason)
+VIOLATION PATCH /api/auth/me (server/src/routes/auth.ts:1100): mutating route with no permission and no entitlement guard
+VIOLATION POST /api/auth/refresh (server/src/routes/auth.ts:343): public route is not on the allow-list (give it a one-line reason)
+VIOLATION POST /api/auth/resend-verification (server/src/routes/auth.ts:1009): mutating route with no permission and no entitlement guard
+VIOLATION POST /api/auth/reset-password (server/src/routes/auth.ts:948): public route is not on the allow-list (give it a one-line reason)
+VIOLATION POST /api/auth/sessions/revoke-all (server/src/routes/auth.ts:403): mutating route with no permission and no entitlement guard
+VIOLATION POST /api/auth/setup-company (server/src/routes/auth.ts:686): mutating route with no permission and no entitlement guard
+VIOLATION POST /api/auth/signup (server/src/routes/auth.ts:587): public route is not on the allow-list (give it a one-line reason)
+VIOLATION GET /api/auth/sso/:providerId/start (server/src/routes/sso.ts:143): public route is not on the allow-list (give it a one-line reason)
+VIOLATION GET /api/auth/sso/callback (server/src/routes/sso.ts:177): public route is not on the allow-list (give it a one-line reason)
+VIOLATION GET /api/auth/sso/lookup (server/src/routes/sso.ts:67): public route is not on the allow-list (give it a one-line reason)
+VIOLATION POST /api/auth/sso/saml/:providerId/acs (server/src/routes/sso.ts:262): public route is not on the allow-list (give it a one-line reason)
+VIOLATION GET /api/auth/sso/saml/:providerId/metadata (server/src/routes/sso.ts:129): public route is not on the allow-list (give it a one-line reason)
+VIOLATION POST /api/auth/verify-email (server/src/routes/auth.ts:990): public route is not on the allow-list (give it a one-line reason)
+VIOLATION POST /api/billing/subscription (server/src/routes/billing.ts:88): mutating route with no permission and no entitlement guard
+VIOLATION POST /api/billing/webhook (server/src/routes/billing.ts:23): public route is not on the allow-list (give it a one-line reason)
+VIOLATION DELETE /api/orgs/:orgId/closure (server/src/routes/companyClosure.ts:48): mutating route with no permission and no entitlement guard
+VIOLATION POST /api/orgs/:orgId/closure (server/src/routes/companyClosure.ts:36): mutating route with no permission and no entitlement guard
+VIOLATION POST /api/orgs/:orgId/notifications/inbox/mutes (server/src/routes/notifications.ts:66): mutating route with no permission and no entitlement guard
+VIOLATION POST /api/orgs/:orgId/notifications/inbox/read (server/src/routes/notifications.ts:46): mutating route with no permission and no entitlement guard
+VIOLATION POST /api/orgs/:orgId/security/change-password (server/src/routes/security.ts:386): mutating route with no permission and no entitlement guard
+VIOLATION POST /api/orgs/:orgId/security/my-sessions/revoke-all (server/src/routes/security.ts:368): mutating route with no permission and no entitlement guard
+VIOLATION POST /api/orgs/:orgId/security/step-up (server/src/routes/security.ts:510): mutating route with no permission and no entitlement guard
+VIOLATION POST /api/orgs/:orgId/security/two-factor/disable (server/src/routes/security.ts:491): mutating route with no permission and no entitlement guard
+VIOLATION POST /api/orgs/:orgId/security/two-factor/enable (server/src/routes/security.ts:455): mutating route with no permission and no entitlement guard
+VIOLATION POST /api/orgs/:orgId/security/two-factor/setup (server/src/routes/security.ts:445): mutating route with no permission and no entitlement guard
+VIOLATION POST /api/portal/activate (server/src/routes/portal.ts:146): public route is not on the allow-list (give it a one-line reason)
+VIOLATION GET /api/portal/approvals (server/src/routes/portal.ts:647): employee-token route is not on the allow-list (give it a one-line reason)
+VIOLATION POST /api/portal/approvals/:type/:id (server/src/routes/portal.ts:686): employee-token route is not on the allow-list (give it a one-line reason)
+VIOLATION GET /api/portal/approvals/punch/:id/photo (server/src/routes/portal.ts:424): employee-token route is not on the allow-list (give it a one-line reason)
+VIOLATION GET /api/portal/attendance (server/src/routes/portal.ts:533): employee-token route is not on the allow-list (give it a one-line reason)
+VIOLATION GET /api/portal/attendance/explain (server/src/routes/portal.ts:552): employee-token route is not on the allow-list (give it a one-line reason)
+VIOLATION GET /api/portal/attention (server/src/routes/portal.ts:770): employee-token route is not on the allow-list (give it a one-line reason)
+VIOLATION GET /api/portal/company-updates (server/src/routes/portal.ts:382): employee-token route is not on the allow-list (give it a one-line reason)
+VIOLATION POST /api/portal/consent/withdraw (server/src/routes/portal.ts:958): employee-token route is not on the allow-list (give it a one-line reason)
+VIOLATION POST /api/portal/corrections (server/src/routes/portal.ts:571): employee-token route is not on the allow-list (give it a one-line reason)
+VIOLATION PUT /api/portal/corrections/:id (server/src/routes/portal.ts:480): employee-token route is not on the allow-list (give it a one-line reason)
+VIOLATION POST /api/portal/corrections/:id/cancel (server/src/routes/portal.ts:499): employee-token route is not on the allow-list (give it a one-line reason)
+VIOLATION GET /api/portal/data-requests (server/src/routes/portal.ts:979): employee-token route is not on the allow-list (give it a one-line reason)
+VIOLATION POST /api/portal/data-requests (server/src/routes/portal.ts:986): employee-token route is not on the allow-list (give it a one-line reason)
+VIOLATION GET /api/portal/documents (server/src/routes/portal.ts:868): employee-token route is not on the allow-list (give it a one-line reason)
+VIOLATION GET /api/portal/documents/:id (server/src/routes/portal.ts:874): employee-token route is not on the allow-list (give it a one-line reason)
+VIOLATION POST /api/portal/forgot (server/src/routes/portal.ts:123): public route is not on the allow-list (give it a one-line reason)
+VIOLATION GET /api/portal/home (server/src/routes/portal.ts:249): employee-token route is not on the allow-list (give it a one-line reason)
+VIOLATION GET /api/portal/hr-cases (server/src/routes/portal.ts:351): employee-token route is not on the allow-list (give it a one-line reason)
+VIOLATION POST /api/portal/hr-cases (server/src/routes/portal.ts:358): employee-token route is not on the allow-list (give it a one-line reason)
+VIOLATION GET /api/portal/leave (server/src/routes/portal.ts:606): employee-token route is not on the allow-list (give it a one-line reason)
+VIOLATION POST /api/portal/leave (server/src/routes/portal.ts:624): employee-token route is not on the allow-list (give it a one-line reason)
+VIOLATION POST /api/portal/leave/:id/cancel (server/src/routes/portal.ts:632): employee-token route is not on the allow-list (give it a one-line reason)
+VIOLATION GET /api/portal/leave/explain (server/src/routes/portal.ts:560): employee-token route is not on the allow-list (give it a one-line reason)
+VIOLATION POST /api/portal/login (server/src/routes/portal.ts:137): public route is not on the allow-list (give it a one-line reason)
+VIOLATION GET /api/portal/me (server/src/routes/portal.ts:204): employee-token route is not on the allow-list (give it a one-line reason)
+VIOLATION GET /api/portal/month-review (server/src/routes/portal.ts:776): employee-token route is not on the allow-list (give it a one-line reason)
+VIOLATION POST /api/portal/month-review/:month/confirm (server/src/routes/portal.ts:789): employee-token route is not on the allow-list (give it a one-line reason)
+VIOLATION POST /api/portal/month-review/:month/dispute (server/src/routes/portal.ts:800): employee-token route is not on the allow-list (give it a one-line reason)
+VIOLATION GET /api/portal/my-data (server/src/routes/portal.ts:911): employee-token route is not on the allow-list (give it a one-line reason)
+VIOLATION GET /api/portal/overtime (server/src/routes/portal.ts:813): employee-token route is not on the allow-list (give it a one-line reason)
+VIOLATION POST /api/portal/overtime (server/src/routes/portal.ts:818): employee-token route is not on the allow-list (give it a one-line reason)
+VIOLATION POST /api/portal/overtime/:id/cancel (server/src/routes/portal.ts:843): employee-token route is not on the allow-list (give it a one-line reason)
+VIOLATION POST /api/portal/password (server/src/routes/portal.ts:1000): employee-token route is not on the allow-list (give it a one-line reason)
+VIOLATION GET /api/portal/payslips (server/src/routes/portal.ts:1068): employee-token route is not on the allow-list (give it a one-line reason)
+VIOLATION GET /api/portal/payslips/:id (server/src/routes/portal.ts:1089): employee-token route is not on the allow-list (give it a one-line reason)
+VIOLATION POST /api/portal/phone-punch/ask (server/src/routes/portal.ts:509): employee-token route is not on the allow-list (give it a one-line reason)
+VIOLATION GET /api/portal/privacy-notice (server/src/routes/portal.ts:890): employee-token route is not on the allow-list (give it a one-line reason)
+VIOLATION POST /api/portal/privacy-notice/read (server/src/routes/portal.ts:897): employee-token route is not on the allow-list (give it a one-line reason)
+VIOLATION POST /api/portal/punch (server/src/routes/portal.ts:527): employee-token route is not on the allow-list (give it a one-line reason)
+VIOLATION GET /api/portal/requests (server/src/routes/portal.ts:440): employee-token route is not on the allow-list (give it a one-line reason)
+VIOLATION GET /api/portal/schedule (server/src/routes/portal.ts:580): employee-token route is not on the allow-list (give it a one-line reason)
+VIOLATION GET /api/portal/tax (server/src/routes/portal.ts:1023): employee-token route is not on the allow-list (give it a one-line reason)
+VIOLATION PUT /api/portal/tax (server/src/routes/portal.ts:1031): employee-token route is not on the allow-list (give it a one-line reason)
+VIOLATION GET /api/portal/updates (server/src/routes/portal.ts:401): employee-token route is not on the allow-list (give it a one-line reason)
+VIOLATION GET /api/public/invoice/:token (server/src/routes/share.ts:96): public route is not on the allow-list (give it a one-line reason)
+VIOLATION POST /hikvision/:token (server/src/routes/hikvisionPush.ts:102): machine-token route is not on the allow-list (give it a one-line reason)
+VIOLATION ALL /iclock/* (server/src/routes/iclock.ts:1045): machine-token route is not on the allow-list (give it a one-line reason)
+VIOLATION GET /iclock/cdata (server/src/routes/iclock.ts:754): machine-token route is not on the allow-list (give it a one-line reason)
+VIOLATION POST /iclock/cdata (server/src/routes/iclock.ts:798): machine-token route is not on the allow-list (give it a one-line reason)
+VIOLATION GET /iclock/cdata.aspx (server/src/routes/iclock.ts:754): machine-token route is not on the allow-list (give it a one-line reason)
+VIOLATION POST /iclock/cdata.aspx (server/src/routes/iclock.ts:798): machine-token route is not on the allow-list (give it a one-line reason)
+VIOLATION POST /iclock/devicecmd (server/src/routes/iclock.ts:987): machine-token route is not on the allow-list (give it a one-line reason)
+VIOLATION POST /iclock/devicecmd.aspx (server/src/routes/iclock.ts:987): machine-token route is not on the allow-list (give it a one-line reason)
+VIOLATION GET /iclock/getrequest (server/src/routes/iclock.ts:904): machine-token route is not on the allow-list (give it a one-line reason)
+VIOLATION GET /iclock/getrequest.aspx (server/src/routes/iclock.ts:904): machine-token route is not on the allow-list (give it a one-line reason)
+VIOLATION POST /ingest/:token (server/src/routes/ingest.ts:45): machine-token route is not on the allow-list (give it a one-line reason)
+VIOLATION ALL /matrix/:token/getcmd (server/src/routes/matrix.ts:202): machine-token route is not on the allow-list (give it a one-line reason)
+VIOLATION ALL /matrix/:token/getconfig (server/src/routes/matrix.ts:238): machine-token route is not on the allow-list (give it a one-line reason)
+VIOLATION ALL /matrix/:token/login (server/src/routes/matrix.ts:189): machine-token route is not on the allow-list (give it a one-line reason)
+VIOLATION ALL /matrix/:token/poll (server/src/routes/matrix.ts:195): machine-token route is not on the allow-list (give it a one-line reason)
+VIOLATION ALL /matrix/:token/setevent (server/src/routes/matrix.ts:275): machine-token route is not on the allow-list (give it a one-line reason)
+VIOLATION ALL /matrix/:token/updatecmd (server/src/routes/matrix.ts:211): machine-token route is not on the allow-list (give it a one-line reason)
+VIOLATION ALL /matrix/:token/updateconfig (server/src/routes/matrix.ts:253): machine-token route is not on the allow-list (give it a one-line reason)
+VIOLATION GET /pay/:token (server/src/routes/payRequests.ts:202): public route is not on the allow-list (give it a one-line reason)
+VIOLATION POST /pay/:token/claim (server/src/routes/payRequests.ts:232): public route is not on the allow-list (give it a one-line reason)
+VIOLATION ALL /scim/v2/Groups (server/src/routes/scim.ts:340): machine-token route is not on the allow-list (give it a one-line reason)
+VIOLATION ALL /scim/v2/Groups/:id (server/src/routes/scim.ts:340): machine-token route is not on the allow-list (give it a one-line reason)
+VIOLATION GET /scim/v2/ResourceTypes (server/src/routes/scim.ts:122): machine-token route is not on the allow-list (give it a one-line reason)
+VIOLATION GET /scim/v2/Schemas (server/src/routes/scim.ts:130): machine-token route is not on the allow-list (give it a one-line reason)
+VIOLATION GET /scim/v2/ServiceProviderConfig (server/src/routes/scim.ts:107): machine-token route is not on the allow-list (give it a one-line reason)
+VIOLATION GET /scim/v2/Users (server/src/routes/scim.ts:154): machine-token route is not on the allow-list (give it a one-line reason)
+VIOLATION POST /scim/v2/Users (server/src/routes/scim.ts:179): machine-token route is not on the allow-list (give it a one-line reason)
+VIOLATION DELETE /scim/v2/Users/:id (server/src/routes/scim.ts:322): machine-token route is not on the allow-list (give it a one-line reason)
+VIOLATION GET /scim/v2/Users/:id (server/src/routes/scim.ts:173): machine-token route is not on the allow-list (give it a one-line reason)
+VIOLATION PATCH /scim/v2/Users/:id (server/src/routes/scim.ts:276): machine-token route is not on the allow-list (give it a one-line reason)
+VIOLATION PUT /scim/v2/Users/:id (server/src/routes/scim.ts:264): machine-token route is not on the allow-list (give it a one-line reason)
+VIOLATION GET /v1/attendance/days (server/src/routes/publicApi.ts:230): machine-token route is not on the allow-list (give it a one-line reason)
+VIOLATION GET /v1/attendance/months (server/src/routes/publicApi.ts:343): machine-token route is not on the allow-list (give it a one-line reason)
+VIOLATION GET /v1/attendance/punches (server/src/routes/publicApi.ts:275): machine-token route is not on the allow-list (give it a one-line reason)
+VIOLATION POST /v1/attendance/punches (server/src/routes/publicApi.ts:306): machine-token route is not on the allow-list (give it a one-line reason)
+VIOLATION GET /v1/attendance/shifts (server/src/routes/publicApi.ts:351): machine-token route is not on the allow-list (give it a one-line reason)
+VIOLATION GET /v1/attendance/summary (server/src/routes/publicApi.ts:291): machine-token route is not on the allow-list (give it a one-line reason)
+VIOLATION GET /v1/docs (server/src/routes/publicApi.ts:83): public route is not on the allow-list (give it a one-line reason)
+VIOLATION GET /v1/employees (server/src/routes/publicApi.ts:137): machine-token route is not on the allow-list (give it a one-line reason)
+VIOLATION POST /v1/employees (server/src/routes/publicApi.ts:202): machine-token route is not on the allow-list (give it a one-line reason)
+VIOLATION PATCH /v1/employees/:code (server/src/routes/publicApi.ts:215): machine-token route is not on the allow-list (give it a one-line reason)
+VIOLATION GET /v1/leave/balances (server/src/routes/publicApi.ts:408): machine-token route is not on the allow-list (give it a one-line reason)
+VIOLATION GET /v1/leave/requests (server/src/routes/publicApi.ts:427): machine-token route is not on the allow-list (give it a one-line reason)
+VIOLATION POST /v1/leave/requests (server/src/routes/publicApi.ts:443): machine-token route is not on the allow-list (give it a one-line reason)
+VIOLATION POST /v1/leave/requests/:id/approve (server/src/routes/publicApi.ts:470): machine-token route is not on the allow-list (give it a one-line reason)
+VIOLATION POST /v1/leave/requests/:id/reject (server/src/routes/publicApi.ts:471): machine-token route is not on the allow-list (give it a one-line reason)
+VIOLATION GET /v1/leave/types (server/src/routes/publicApi.ts:402): machine-token route is not on the allow-list (give it a one-line reason)
+VIOLATION GET /v1/openapi.json (server/src/routes/publicApi.ts:82): public route is not on the allow-list (give it a one-line reason)
+VIOLATION GET /v1/ping (server/src/routes/publicApi.ts:109): machine-token route is not on the allow-list (give it a one-line reason)
+VIOLATION GET /v1/readers (server/src/routes/publicApi.ts:376): machine-token route is not on the allow-list (give it a one-line reason)
+
+Route manifest gate failed: 132 violation(s). Guard the route, or add it to tenant-platform-upgrade-2026-10-23/route-allowlist.json with a reason.
+exit code: 1
+
+================================================================
+# The gate with a temporary fixture route (a copy of server/src with one unguarded POST added to routes/notifications.ts; the real file is untouched).
+# $ node tenant-platform-upgrade-2026-10-23/scripts/inventory-routes.mjs --check --server <copy>
+{
+  "output": "(check only)",
+  "routes": 733,
+  "principals": {
+    "machine-token": 51,
+    "public": 24,
+    "human-tenant": 607,
+    "human-global": 8,
+    "platform-operator": 1,
+    "employee-token": 42
+  },
+  "mutating": 446,
+  "mutatingWithPermission": 373,
+  "mutatingWithEntitlementOnly": 46,
+  "knownGaps": [
+    "DELETE /api/orgs/:orgId/closure (fixture-server/src/routes/companyClosure.ts:48)",
+    "POST /api/orgs/:orgId/closure (fixture-server/src/routes/companyClosure.ts:36)"
+  ],
+  "unmountedRouters": [],
+  "violations": 1
+}
+VIOLATION POST /api/orgs/:orgId/notifications/inbox/fixture-unguarded (fixture-server/src/routes/notifications.ts:79): mutating route with no permission and no entitlement guard
+
+Route manifest gate failed: 1 violation(s). Guard the route, or add it to tenant-platform-upgrade-2026-10-23/route-allowlist.json with a reason.
+exit code: 1
+
+================================================================
+# Same gate pointed at the main checkout (main @ 1b8eaec, before A-12; generated Prisma clients present, as in CI): it catches the route A-12 had to fix.
+# $ node tenant-platform-upgrade-2026-10-23/scripts/inventory-routes.mjs --check --server <main checkout>/server   (last lines)
+}
+VIOLATION POST /api/orgs/:orgId/approvals/:requestId/decide (server/src/routes/governance.ts:380): mutating route with no permission and no entitlement guard
+
+Route manifest gate failed: 1 violation(s). Guard the route, or add it to tenant-platform-upgrade-2026-10-23/route-allowlist.json with a reason.
+exit code: 1

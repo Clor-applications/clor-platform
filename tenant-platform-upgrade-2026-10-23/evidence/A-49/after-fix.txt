@@ -1,0 +1,41 @@
+# A-49 after the fix (branch claude/batch7-manifest-37f308)
+
+# $ node tenant-platform-upgrade-2026-10-23/scripts/inventory-routes.mjs --check   (CI step 'Route manifest gate')
+{
+  "output": "(check only)",
+  "routes": 732,
+  "principals": {
+    "machine-token": 51,
+    "public": 24,
+    "human-tenant": 606,
+    "human-global": 8,
+    "platform-operator": 1,
+    "employee-token": 42
+  },
+  "mutating": 445,
+  "mutatingWithPermission": 373,
+  "mutatingWithEntitlementOnly": 46,
+  "knownGaps": [
+    "DELETE /api/orgs/:orgId/closure (server/src/routes/companyClosure.ts:48)",
+    "POST /api/orgs/:orgId/closure (server/src/routes/companyClosure.ts:36)"
+  ],
+  "unmountedRouters": [],
+  "violations": 0
+}
+exit code: 0
+
+# $ cd server && npx vitest run src/__tests__/routeManifest.test.ts --reporter=verbose
+ ✓ src/__tests__/routeManifest.test.ts > route manifest (A-49) > mounts each router where app.ts mounts it 1ms
+ ✓ src/__tests__/routeManifest.test.ts > route manifest (A-49) > sees permission checks however a route spells them 1ms
+ ✓ src/__tests__/routeManifest.test.ts > route manifest (A-49) > fails a write that nothing guards and the allow-list does not name 492ms
+ ✓ src/__tests__/routeManifest.test.ts > route manifest (A-49) > passes on this branch: every write is guarded or allow-listed, and every public or token route has a reason 1ms
+ Test Files  1 passed (1)
+      Tests  4 passed (4)
+
+# $ npm run typecheck
+> tsc -p tsconfig.json --noEmit
+
+exit code: 0
+
+# $ npx eslint tenant-platform-upgrade-2026-10-23/scripts/inventory-routes.mjs
+exit code: 0
