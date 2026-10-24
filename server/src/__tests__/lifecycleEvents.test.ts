@@ -37,6 +37,13 @@ const rnd = () => Math.random().toString(36).slice(2, 8);
 type Ctx = { token: string; orgId: string; branchId: string };
 const at = (c: Ctx) => ({ Authorization: `Bearer ${c.token}`, 'x-org-id': c.orgId, 'x-branch-id': c.branchId });
 
+
+/* Leaving takes effect once the last day has passed: dates relative to today keep these tests true on any day (two days back clears the IST/UTC boundary). */
+const day = (n: number) => new Date(Date.now() + n * 86_400_000).toISOString().slice(0, 10);
+const LAST_DAY = day(-2);
+const REJOIN = day(1);
+const plusDays = (iso: string, n: number) => new Date(Date.parse(`${iso}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
+
 describe('lifecycle events', () => {
   it('sends transferred, left, rehired and payroll.locked', async () => {
     const email = `life.${Date.now()}.${rnd()}@example.com`;
@@ -51,9 +58,9 @@ describe('lifecycle events', () => {
 
     const ops = (await people('post', '/structure/departments', { name: 'Operations' }).expect(201)).body.item;
     const e = (await people('post', '/employees', { name: 'Ravi', code: 'L1', dateOfJoining: '2025-01-01' }).expect(201)).body.employee;
-    await people('post', '/employees/transfer', { employeeIds: [e.id], field: 'departmentId', targetId: ops.id, effectiveDate: '2026-11-01' }).expect(200);
-    await people('post', `/employees/${e.id}/resign`, { lastDay: '2026-12-31', leavingType: 'RESIGNED' }).expect(200);
-    await people('post', `/employees/${e.id}/rehire`, { rejoinDate: '2027-02-01' }).expect(200);
+    await people('post', '/employees/transfer', { employeeIds: [e.id], field: 'departmentId', targetId: ops.id, effectiveDate: '2026-06-01' }).expect(200);
+    await people('post', `/employees/${e.id}/resign`, { lastDay: LAST_DAY, leavingType: 'RESIGNED' }).expect(200);
+    await people('post', `/employees/${e.id}/rehire`, { rejoinDate: REJOIN }).expect(200);
 
     /* A pay run locked. */
     const post = (p: string, b?: unknown) => request(app).post(`/api/orgs/${c.orgId}/payroll${p}`).set(at(c)).send(b as any);
@@ -69,7 +76,7 @@ describe('lifecycle events', () => {
     const events = got.map((g) => g.event);
     expect(events).toEqual(expect.arrayContaining(['employee.transferred', 'employee.left', 'employee.rehired', 'payroll.locked']));
     const moved = got.find((g) => g.event === 'employee.transferred')!.data;
-    expect(moved).toMatchObject({ field: 'departmentId', to: { id: ops.id, name: 'Operations' }, effectiveDate: '2026-11-01', source: 'TRANSFER', employee: { id: e.id, code: 'L1' } });
+    expect(moved).toMatchObject({ field: 'departmentId', to: { id: ops.id, name: 'Operations' }, effectiveDate: '2026-06-01', source: 'TRANSFER', employee: { id: e.id, code: 'L1' } });
     expect(got.filter((g) => g.event === 'employee.left')).toHaveLength(1);
     expect(got.find((g) => g.event === 'payroll.locked')!.data).toMatchObject({ runId: run, status: 'LOCKED' });
   }, 90_000);
