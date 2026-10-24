@@ -44,7 +44,7 @@ export default function LetterTemplates() {
 
   return (
     <div className="space-y-5">
-      <PageHeader title="Letters" subtitle="Offer, appointment, confirmation, increment, relieving and experience letters, and the service certificate. Fields in double braces are filled from the record; {{extra.name}} is typed in when the letter is issued." />
+      <PageHeader title="Letters" description="Offer, appointment, confirmation, increment, relieving and experience letters, and the service certificate. Fields in double braces are filled from the record; {{extra.name}} is typed in when the letter is issued." />
       <div className="flex flex-wrap gap-1.5" role="tablist" aria-label="Letter kinds">
         {data.kinds.map((k) => (
           <button key={k.kind} type="button" role="tab" aria-selected={kind === k.kind} className={`ui-pill ${kind === k.kind ? 'ui-pill-info' : ''}`} onClick={() => setKind(k.kind)}>{k.label}</button>

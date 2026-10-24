@@ -48,7 +48,7 @@ export default function HelpDeskSettings() {
   if (!cats || !templates) return <SkeletonCard lines={6} />;
   return (
     <div className="space-y-6">
-      <PageHeader title="Help desk" subtitle="Each category sends a request to a queue with a reply-by and a resolve-by; overdue goes to the queue lead. Templates answer the common questions and cite the policy in force." />
+      <PageHeader title="Help desk" description="Each category sends a request to a queue with a reply-by and a resolve-by; overdue goes to the queue lead. Templates answer the common questions and cite the policy in force." />
       <section className="space-y-2" aria-label="Categories and times">
         <h3 className="ui-t-sec">Categories and times</h3>
         <table className="w-full text-sm">

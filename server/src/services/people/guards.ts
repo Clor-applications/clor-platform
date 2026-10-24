@@ -43,6 +43,7 @@ export const PEOPLE_RESOURCE = {
   requests: 'Requests',
   lifecycle: 'Lifecycle',
   policies: 'Policies',
+  privateCases: 'Private Cases',
 } as const;
 
 /**

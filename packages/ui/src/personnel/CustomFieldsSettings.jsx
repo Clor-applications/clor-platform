@@ -56,7 +56,7 @@ export default function CustomFieldsSettings() {
   if (!data) return <SkeletonCard lines={5} />;
   return (
     <div className="space-y-5">
-      <PageHeader title="Custom fields" subtitle="Your own details on every person. Each field says who may see it and who may edit it; a field someone may not see is simply not there for them."
+      <PageHeader title="Custom fields" description="Your own details on every person. Each field says who may see it and who may edit it; a field someone may not see is simply not there for them."
         actions={<button type="button" className="ui-btn ui-btn-primary" onClick={() => setDraft(blank())}>New field</button>} />
       {!data.fields.length ? <p className="ui-muted text-sm">None yet. Blood group, uniform size, a background-check flag: anything the form does not already ask.</p> : (
         <table className="w-full text-sm">

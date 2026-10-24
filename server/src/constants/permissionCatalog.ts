@@ -257,6 +257,12 @@ export const PERMISSION_CATALOG: ModuleDef[] = [
         actions: [A.VIEW, A.CREATE, A.EDIT, A.APPROVE],
       },
       {
+        key: 'Private Cases',
+        label: 'Private cases',
+        description: 'Take in a POSH complaint or a grievance and set up the committee. Opening a case needs more: being named on it. Company admins do not see cases unless named',
+        actions: [A.VIEW, A.CREATE, A.EDIT],
+      },
+      {
         key: 'Policies',
         label: 'Policies',
         description: 'The policy library: versions with effective dates, who each applies to, acceptance and reminders. Publishing follows the approval rule',

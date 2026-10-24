@@ -23,7 +23,7 @@ export default function SelfServiceSettings() {
   };
   return (
     <div className="space-y-4">
-      <PageHeader title="Changes employees make themselves" subtitle="From the employee app, a person can change their own personal details. This says which changes save at once and which wait for HR. Every change is logged either way." />
+      <PageHeader title="Changes employees make themselves" description="From the employee app, a person can change their own personal details. This says which changes save at once and which wait for HR. Every change is logged either way." />
       <fieldset className="space-y-2" aria-label="Self-service changes">
         {settings.modes.map((m) => (
           <label key={m.key} className="flex items-start gap-3 text-sm">

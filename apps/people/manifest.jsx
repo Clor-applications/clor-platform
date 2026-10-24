@@ -63,6 +63,7 @@ const Approvals = screen('Approvals');
 const Policies = screen('Policies');
 const ApprovalRules = screen('ApprovalRules');
 const HelpDesk = screen('HelpDesk');
+const PrivateCases = screen('PrivateCases');
 const HelpDeskSettings = screen('HelpDeskSettings');
 const OrgChart = screen('OrgChart');
 const Tags = screen('Tags');
@@ -202,7 +203,7 @@ export const peopleApp = {
     { key: 'overview', label: 'Home', items: ['overview', 'approvals'] },
     { key: 'employees', label: 'Employees', groups: [
       { label: 'Directory', items: ['employees', 'orgChart', 'documents'] },
-      { label: 'Help', items: ['helpdesk', 'policies'] },
+      { label: 'Help', items: ['helpdesk', 'policies', 'privateCases'] },
       { label: 'Joining & Leaving', items: ['checklists', 'assets'] },
       { label: 'Pay & Benefits', items: ['compensation', 'benefits'] },
     ] },
@@ -249,6 +250,7 @@ export const peopleApp = {
     { key: 'announcements', label: 'Announcements', icon: I.news, permission: 'PEOPLE::Announcements::VIEW', feature: 'peopleEngage' },
     { key: 'events', label: 'Events', icon: I.event, permission: 'PEOPLE::Events::VIEW', feature: 'peopleEngage' },
     { key: 'helpdesk', label: 'Help desk', icon: I.hrCase, permission: 'PEOPLE::HR Cases::VIEW' },
+    { key: 'privateCases', label: 'Private cases', icon: I.privacy, permission: 'PEOPLE::Employees::VIEW' },
     { key: 'helpDeskSettings', label: 'Help desk settings', icon: I.hrCase, permission: 'PEOPLE::HR Cases::EDIT', parent: 'settings' },
     { key: 'assets', label: 'Assets', icon: I.asset, permission: 'PEOPLE::Assets::VIEW', feature: 'peopleBenefits' },
     { key: 'benefits', label: 'Benefits', icon: I.benefit, permission: 'PEOPLE::Benefits::VIEW', feature: 'peopleBenefits' },
@@ -315,6 +317,7 @@ export const peopleApp = {
     announcements: register('announcements'),
     events: register('events'),
     helpdesk: HelpDesk,
+    privateCases: PrivateCases,
     helpDeskSettings: HelpDeskSettings,
     assets: register('assets'),
     benefits: register('benefits'),

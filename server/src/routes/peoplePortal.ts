@@ -7,6 +7,8 @@ import { DeskError, categoriesOf, employeeReply, listRequests, raiseRequest, reo
 import { SelfServiceError, myDetails, requestChange } from '../services/people/selfService.js';
 import { correlationOf } from '../services/people/employees.js';
 import { ResignError, resignFromApp } from '../services/people/lifecycle/leaving.js';
+import { CaseError, intake } from '../services/people/privateCases.js';
+import { CaseKeyMissing } from '../services/people/caseBox.js';
 
 /**
  * People's own employee-facing routes, behind the employee app's sign-in
@@ -148,4 +150,18 @@ peoplePortalRouter.get('/me/leaving', async (req, res) => {
   const e = await peoplePrisma.employee.findFirst({ where: { id: employeeId, orgId }, select: { status: true, dateOfLeaving: true, leavingType: true } });
   const waiting = await peoplePrisma.approvalRequest.findFirst({ where: { orgId, subjectEmployeeId: employeeId, requestType: 'LEAVING', status: 'WAITING' }, select: { id: true, title: true, createdAt: true } });
   res.json({ status: e?.status || null, lastDay: e?.dateOfLeaving || null, leavingType: e?.leavingType || null, waiting });
+});
+
+/* A private complaint from the app (PRIV-02): it goes to the committee chosen; the person gets the reference only, and nothing about it is listed back here. */
+peoplePortalRouter.post('/private-cases', async (req, res) => {
+  const { accountId, orgId, employeeId } = me(req);
+  try {
+    const c = await intake({ accountId, orgId, userId: req.portal!.employee.userId || null, employeeId }, { ...(req.body || {}), complainantEmployeeId: employeeId, onBehalf: false });
+    res.status(201).json({ reference: c.reference, receivedOn: c.receivedOn, inquiryDue: c.inquiryDue });
+  } catch (e) {
+    if (e instanceof CaseError) return res.status(e.status).json({ error: e.message });
+    if (e instanceof CaseKeyMissing) return res.status(503).json({ error: e.message });
+    console.error('[people-portal case]', e instanceof Error ? e.message : e);
+    res.status(500).json({ error: 'Something went wrong.' });
+  }
 });

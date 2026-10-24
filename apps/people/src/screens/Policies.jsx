@@ -45,7 +45,7 @@ export default function Policies() {
     <div className="space-y-4">
       <PageHeader
         title="Policies"
-        subtitle="Each policy has an owner, versions with effective dates, and says who it applies to. Employees see only what applies to them."
+        description="Each policy has an owner, versions with effective dates, and says who it applies to. Employees see only what applies to them."
         actions={allowed('PEOPLE::Policies::CREATE') ? <button type="button" className="ui-btn ui-btn-primary" onClick={() => setCreating(true)}><Plus size={16} aria-hidden="true" /> New policy</button> : null}
       />
       {conflicts.length ? (

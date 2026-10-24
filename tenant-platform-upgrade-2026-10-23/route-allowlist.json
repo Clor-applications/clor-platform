@@ -463,6 +463,11 @@
     },
     {
       "method": "POST",
+      "path": "/api/portal/people/private-cases",
+      "reason": "Employee self-service (People): portal token + anyAppLive; a POSH complaint or grievance on their own employee id; goes to the named committee only; the answer carries the reference, nothing else (PRIV-02)."
+    },
+    {
+      "method": "POST",
       "path": "/api/portal/phone-punch/ask",
       "reason": "Employee self-service: changes their own phone punch; portal token (authenticate) + anyAppLive (A-11); org and employee from the token."
     },

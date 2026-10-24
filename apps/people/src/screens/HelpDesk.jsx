@@ -39,7 +39,7 @@ export default function HelpDesk() {
 
   return (
     <div className="space-y-4">
-      <PageHeader title="Help desk" subtitle="What people asked, by queue. Reply by and resolve by come from the category; overdue goes to the queue lead."
+      <PageHeader title="Help desk" description="What people asked, by queue. Reply by and resolve by come from the category; overdue goes to the queue lead."
         actions={canEdit ? <button type="button" className="ui-btn ui-btn-primary" onClick={() => setRaising(true)}><Plus size={16} aria-hidden="true" /> New request</button> : null} />
       <div className="flex flex-wrap items-center gap-2">
         <div role="tablist" aria-label="Status" className="flex gap-1">

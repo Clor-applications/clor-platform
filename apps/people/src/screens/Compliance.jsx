@@ -54,7 +54,7 @@ export default function Compliance() {
   };
   return (
     <div className="space-y-4">
-      <PageHeader title="Compliance" subtitle="What the company owes, from its establishments and headcount: each item with its legal source, the proof it needs and who owns it. Rules are confirmed with your adviser, never guessed." />
+      <PageHeader title="Compliance" description="What the company owes, from its establishments and headcount: each item with its legal source, the proof it needs and who owns it. Rules are confirmed with your adviser, never guessed." />
       <div role="tablist" aria-label="View" className="flex gap-1">
         <button type="button" role="tab" aria-selected={view === 'obligations'} className={`ui-pill ${view === 'obligations' ? 'ui-pill-info' : ''}`} onClick={() => setView('obligations')}>What is owed</button>
         <button type="button" role="tab" aria-selected={view === 'rules'} className={`ui-pill ${view === 'rules' ? 'ui-pill-info' : ''}`} onClick={() => setView('rules')}>Rules</button>

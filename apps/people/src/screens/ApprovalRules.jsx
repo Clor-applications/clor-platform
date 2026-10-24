@@ -61,7 +61,7 @@ export default function ApprovalRules() {
   };
   return (
     <div className="space-y-4">
-      <PageHeader title="Approval rules" subtitle="Who decides what, in which order, by when. Saving a rule writes a new version; a request shows the version that decided it." />
+      <PageHeader title="Approval rules" description="Who decides what, in which order, by when. Saving a rule writes a new version; a request shows the version that decided it." />
       <table className="w-full text-sm">
         <thead><tr className="ui-caption text-left"><th className="py-1.5 font-medium">Kind of request</th><th className="py-1.5 font-medium">Rule</th><th className="py-1.5 font-medium">Steps</th><th className="py-1.5 font-medium">Version</th><th className="py-1.5 font-medium" /></tr></thead>
         <tbody className="divide-y">

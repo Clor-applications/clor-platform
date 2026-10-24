@@ -68,7 +68,7 @@ export default function Approvals() {
     <DocumentListShell
       entity="people"
       title="Approvals"
-      subtitle="What is waiting for you, by when it is due; and what you asked for."
+      description="What is waiting for you, by when it is due; and what you asked for."
       search={{ value: search.query, onChange: search.setQuery, placeholder: 'Search requests…', label: 'Search requests' }}
       tabs={TABS}
       statusValue={tab}

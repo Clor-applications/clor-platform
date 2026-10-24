@@ -1705,6 +1705,112 @@ model HealthSnooze {
   @@index([orgId, checkId, until])
 }
 
+/// A private case (docs/people/02-PRD.md PRIV-01..06; services/people/privateCases.ts): a POSH
+/// complaint or a grievance. Only its named members open it — not company admins unless named.
+/// The summary and evidence are encrypted with PEOPLE_CASE_KEY (D-09); every open is logged.
+/// Never in search, exports, reports or AI (PRIV-04).
+model PrivateCase {
+  id                    String   @id @default(cuid())
+  accountId             String
+  orgId                 String
+  /// POSH | GRIEVANCE | OTHER
+  kind                  String
+  /// PC-<year>-<n>: what members and the report call it; carries no name
+  reference             String
+  complainantEmployeeId String?
+  raisedByUserId        String?
+  onBehalf              Boolean  @default(false)
+  respondentEmployeeIds Json
+  summaryEnc            String
+  incidentOn            String
+  receivedOn            String
+  filingDeadline        String
+  extendedTo            String?
+  extensionReason       String?
+  inquiryDue            String
+  inquiryClosedOn       String?
+  reportDue             String?
+  reportOn              String?
+  actionDue             String?
+  actionOn              String?
+  /// RECEIVED | INQUIRY | REPORT_DUE | ACTION_DUE | CLOSED
+  status                String   @default("RECEIVED")
+  outcome               String?
+  /// [{ userId, why }]: committee members left out by the conflict check
+  excluded              Json
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  members  PrivateCaseMember[]
+  evidence PrivateCaseEvidence[]
+
+  @@unique([orgId, reference])
+  @@index([orgId, status])
+}
+
+model PrivateCaseMember {
+  id        String   @id @default(cuid())
+  accountId String
+  orgId     String
+  caseId    String
+  userId    String
+  /// PRESIDING | MEMBER | EXTERNAL | OFFICER
+  role      String
+  createdAt DateTime @default(now())
+
+  case PrivateCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  @@unique([caseId, userId])
+  @@index([orgId, userId])
+}
+
+model PrivateCaseEvidence {
+  id            String   @id @default(cuid())
+  accountId     String
+  orgId         String
+  caseId        String
+  titleEnc      String
+  mime          String
+  size          Int
+  dataEnc       String
+  addedByUserId String?
+  createdAt     DateTime @default(now())
+
+  case PrivateCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, caseId])
+}
+
+/// Every open of a case or its evidence (PRIV-03), shown to the presiding officer.
+model PrivateCaseAccess {
+  id         String   @id @default(cuid())
+  accountId  String
+  orgId      String
+  caseId     String
+  userId     String
+  /// OPEN | EVIDENCE
+  what       String
+  evidenceId String?
+  at         DateTime @default(now())
+
+  @@index([orgId, caseId, at])
+}
+
+/// The committee that hears private cases (PRIV-06): POSH_IC or GRIEVANCE.
+model CommitteeSetup {
+  id              String   @id @default(cuid())
+  accountId       String
+  orgId           String
+  kind            String
+  /// [{ userId, role: PRESIDING|MEMBER|EXTERNAL|OFFICER, gender: FEMALE|MALE|OTHER, external: boolean, termStart, termEnd, name? }]
+  members         Json
+  updatedByUserId String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([orgId, kind])
+}
+
 /// Letters the company issues (docs/people/02-PRD.md DOC-04; services/people/letters.ts):
 /// offer, appointment, confirmation, increment, relieving, experience, service
 /// certificate. Each save is a new version; the newest active one is used, and
