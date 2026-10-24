@@ -48,8 +48,8 @@ Audited on branch `claude/subscription-provisioning-gap-003-b84bad` (PR #23).
 | W-2.1 | Account switcher; company switcher grouped by account; context banner (account · company · app · delegated) | UI | TESTED | W-1.1 | Medium |
 | W-2.2 | Workspace sidebar groups per spec (Main / Administration / Support), 404, access-denied with reason, global loading/error/empty states | UI | NOT_STARTED | — | Low |
 | W-2.3 | Spec palette inside the Workspace only (D-3) | UI | NOT_STARTED | — | Low |
-| W-3.1 | Invitations: hashed single-use token, expiry, resend, revoke, idempotent accept, audit, seat policy documented | DB, server, UI | NOT_STARTED | W-1.1 | High |
-| W-3.2 | Invite wizard with access preview; no granting above own authority | UI, server | NOT_STARTED | W-3.1 | High |
+| W-3.1 | Invitations: hashed single-use token, expiry, resend, revoke, idempotent accept, audit, seat policy documented | DB, server, UI | TESTED | W-1.1 | High |
+| W-3.2 | Invite wizard with access preview; no granting above own authority | UI, server | TESTED | W-3.1 | High |
 | W-4.1 | Members directory with filters; member detail with effective access (accounts, companies, apps, roles, scopes, who granted, when) | UI, server | NOT_STARTED | W-1.1 | Medium |
 | W-4.2 | Per-person app assignment (separate from subscription) | DB, server, UI | NOT_STARTED | W-1.1 | High |
 | W-4.3 | Suspend / remove from company / revoke app / remove from account as separate actions | Server, UI | NOT_STARTED | W-4.1 | Medium |
@@ -71,7 +71,16 @@ Audited on branch `claude/subscription-provisioning-gap-003-b84bad` (PR #23).
 - `packages/shell/companyGroups.test.js` — picker grouping by account.
 - Migration `20261025090000_account_membership` applied to the local dev database: every account has an owner.
 
+## Evidence for W-3 (commits d6964b2, fc6b8a7, and the invite-link fix)
+
+- `server/src/__tests__/accountInvitations.test.ts` — 7 tests, stable over 3 runs: invite → preview → accept with own password; two simultaneous accepts make one person; revoked, expired and resent (old link dead) links; never OWNER; only owners/admins invite; foreign company refused; role grants need company admin (ABOVE_AUTHORITY); another account's login sent to Outside access; wrong signed-in person refused; audit SENT → RESENT → ACCEPTED.
+- `Invitations.test.jsx` (3), `InviteAccept.test.jsx` (4).
+- Browser, local API: owner sent an invitation; the link stopped the owner (not the invited address); signed out, the invitee chose a password and landed in the company.
+- Seat policy: pending invitations reserve no seat; the plan's user limit is enforced at acceptance (documented in `services/accountInvitations.ts`).
+
 ## Known issues outside this list
+
+- A person with no app role (e.g. just joined by invitation) lands in an app and meets 403s labelled "Needs an administrator". They should land on the Workspace with the "No app access assigned" empty state (spec §6): part of W-4.2.
 
 - Signup still switches every available app on (auth.ts signup creates a subscription with all apps). Spec rule 2.2.5 says creating an account must not activate products: W-6.
 
