@@ -765,6 +765,35 @@ model ScimToken {
   @@index([accountId, orgId])
 }
 
+/// GAP-006: how a person from another account reaches a company — the
+/// company's consent, with a scope and an end. Without a live one, an outside
+/// person's membership opens nothing (middleware/tenantContext.ts). Expired is
+/// worked out from expiresAt, never stored.
+model OutsideAccess {
+  id            String    @id @default(cuid())
+  accountId     String
+  orgId         String
+  userId        String
+  homeAccountId String
+  /// ACTIVE | SUSPENDED | REVOKED
+  status        String    @default("ACTIVE")
+  /// Comma separated app keys this person may use here; null = whatever the company has.
+  apps          String?
+  expiresAt     DateTime?
+  /// Who in the company granted it; null = carried over from before engagements existed.
+  approvedByUserId String?
+  approvedAt       DateTime  @default(now())
+  endedByUserId    String?
+  endedAt          DateTime?
+  reason           String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@unique([orgId, userId])
+  @@index([userId])
+  @@index([accountId, orgId])
+}
+
 /// Every credential CLOR has issued to a machine or a link (GAP-004, Batch 5):
 /// SCIM tokens, API keys, site agents, reader push tokens, pay links and
 /// invoice share links. The tables that issued them keep their own hash and

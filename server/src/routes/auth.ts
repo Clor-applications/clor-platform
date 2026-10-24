@@ -44,6 +44,7 @@ import { APP_CATALOG } from '../constants/appCatalog.js';
 import { appAccess } from '../services/subscriptions.js';
 import { userIsAdmin } from '../services/roleGuards.js';
 import { acrossCompanies } from '../utils/tenantScope.js';
+import { closedForOutsider } from '../services/outsideAccess.js';
 
 /* Compared against when no such user exists, so a miss costs a real bcrypt check (SX-14). */
 const LOGIN_DUMMY_HASH = bcrypt.hashSync('not-a-password-0', Number(process.env.BCRYPT_ROUNDS || 12));
@@ -235,7 +236,9 @@ async function completeLogin(req: Request, res: Response, user: LoginUser, ident
     orderBy: { createdAt: 'asc' },
   });
 
-  const companies = memberships.map((m) => ({
+  /* GAP-006: a company from another account whose engagement is not live is not offered. */
+  const closedHere = await closedForOutsider(user.id, user.accountId, memberships);
+  const companies = memberships.filter((m) => !closedHere.has(m.orgId)).map((m) => ({
     orgId: m.orgId,
     id: m.org?.id ?? m.orgId,
     name: m.org?.name ?? '',
@@ -436,7 +439,7 @@ authRouter.get('/me', requireLiveAuth, async (req: Request, res: Response) => {
   const ownAccount = await platformPrisma.account.findUnique({ where: { id: user.accountId }, select: { code: true } });
 
   /* Same rule as login: every company this person can open. */
-  const orgMemberships = await platformPrisma.userOrgMembership.findMany({
+  const everyMembership = await platformPrisma.userOrgMembership.findMany({
     where: { userId: auth.userId },
     select: {
       orgId: true,
@@ -455,6 +458,9 @@ authRouter.get('/me', requireLiveAuth, async (req: Request, res: Response) => {
     },
     orderBy: { createdAt: 'asc' },
   });
+  /* GAP-006: and only those whose engagement, for a company of another account, is live. */
+  const closedForMe = await closedForOutsider(auth.userId, user.accountId, everyMembership);
+  const orgMemberships = everyMembership.filter((m) => !closedForMe.has(m.orgId));
 
   let isOrgAdmin = false;
   let allowedBranchIds: string[] = [];

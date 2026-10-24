@@ -311,6 +311,7 @@ export default async function setup() {
   await applyPolicies(asOwner(platform), 'prisma/platform/migrations/20261024100000_rls_fail_closed');
   /* Batch 5: written fail-closed, so after the rewrite is fine. */
   await applyPolicies(asOwner(platform), 'prisma/platform/migrations/20261024120100_credentials_rls');
+  await applyPolicies(asOwner(platform), 'prisma/platform/migrations/20261024140100_outside_access_rls');
 
   await grantToAppRole(database, schemas);
 

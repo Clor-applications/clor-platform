@@ -51,7 +51,7 @@ const querySchema = z.object({
 
 const ATTENDANCE = [{ entity: { startsWith: 'ATTENDANCE_' } }, { entity: { startsWith: 'PEOPLE_' } }, { entity: { in: ['Employee', 'PeopleRecord', 'LeaveSettings', 'LeaveAdjustment'] } }];
 const PAYROLL = [{ entity: { startsWith: 'PAYROLL_' } }];
-const COMPANY = [{ entity: { in: ['Company', 'User', 'Role', 'UserPermission', 'Features', 'DataProtection', 'Branch', 'Subscription', 'Credential', 'ApprovalRule', 'SSO', 'Security'] } }];
+const COMPANY = [{ entity: { in: ['Company', 'User', 'Role', 'UserPermission', 'Features', 'DataProtection', 'Branch', 'Subscription', 'Credential', 'ApprovalRule', 'SSO', 'Security', 'OutsideAccess'] } }];
 const APP_WHERE: Record<string, Record<string, unknown>> = {
   attendance: { OR: ATTENDANCE },
   payroll: { OR: PAYROLL },

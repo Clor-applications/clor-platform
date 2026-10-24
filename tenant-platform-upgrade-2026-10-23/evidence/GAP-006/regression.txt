@@ -1,0 +1,1231 @@
+ DEPRECATED  `test.poolOptions` was removed in Vitest 4. All previous `poolOptions` are now top-level options. Please, refer to the migration guide: https://vitest.dev/guide/migration#pool-rework
+
+ RUN  v4.1.10 /Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_58896", schema "accounting" at "localhost:5432"
+
+The PostgreSQL database "clor_test_58896" schema "accounting" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 767ms
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/payroll/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_58896", schema "payroll" at "localhost:5432"
+
+The PostgreSQL database "clor_test_58896" schema "payroll" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 284ms
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/people/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_58896", schema "people" at "localhost:5432"
+
+The PostgreSQL database "clor_test_58896" schema "people" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 620ms
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/platform/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_58896", schema "platform" at "localhost:5432"
+
+The PostgreSQL database "clor_test_58896" schema "platform" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 290ms
+
+[setup] 180 policy statements applied to clor_test_58896
+[setup] 7 policy statements applied to clor_test_58896
+[setup] 10 policy statements applied to clor_test_58896
+[setup] 35 policy statements applied to clor_test_58896
+[setup] 4 policy statements applied to clor_test_58896
+[setup] 1 policy statements applied to clor_test_58896
+[setup] 96 policy statements applied to clor_test_58896
+[setup] 4 policy statements applied to clor_test_58896
+[setup] 4 policy statements applied to clor_test_58896
+[setup] 4 policy statements applied to clor_test_58896
+[setup] 1 policy statements applied to clor_test_58896
+[setup] 4 policy statements applied to clor_test_58896
+[setup] 32 policy statements applied to clor_test_58896
+[setup] 24 policy statements applied to clor_test_58896
+[setup] 12 policy statements applied to clor_test_58896
+[setup] 16 policy statements applied to clor_test_58896
+[setup] 4 policy statements applied to clor_test_58896
+[setup] 4 policy statements applied to clor_test_58896
+[setup] 8 policy statements applied to clor_test_58896
+[setup] 8 policy statements applied to clor_test_58896
+[setup] 20 policy statements applied to clor_test_58896
+[setup] 8 policy statements applied to clor_test_58896
+[setup] 4 policy statements applied to clor_test_58896
+[setup] 8 policy statements applied to clor_test_58896
+[setup] 8 policy statements applied to clor_test_58896
+[setup] 12 policy statements applied to clor_test_58896
+[setup] 4 policy statements applied to clor_test_58896
+[setup] 8 policy statements applied to clor_test_58896
+[setup] 28 policy statements applied to clor_test_58896
+[setup] 4 policy statements applied to clor_test_58896
+[setup] 4 policy statements applied to clor_test_58896
+[setup] 4 policy statements applied to clor_test_58896
+[setup] 8 policy statements applied to clor_test_58896
+[setup] 4 policy statements applied to clor_test_58896
+[setup] 4 policy statements applied to clor_test_58896
+[setup] 4 policy statements applied to clor_test_58896
+[setup] 4 policy statements applied to clor_test_58896
+[setup] 8 policy statements applied to clor_test_58896
+[setup] 4 policy statements applied to clor_test_58896
+[setup] 12 policy statements applied to clor_test_58896
+[setup] 4 policy statements applied to clor_test_58896
+[setup] 1 policy statements applied to clor_test_58896
+[setup] 4 policy statements applied to clor_test_58896
+[setup] 76 policy statements applied to clor_test_58896
+[setup] 4 policy statements applied to clor_test_58896
+[setup] 4 policy statements applied to clor_test_58896
+[setup] 4 policy statements applied to clor_test_58896
+[setup] 4 policy statements applied to clor_test_58896
+[setup] 1 policy statements applied to clor_test_58896
+[setup] 8 policy statements applied to clor_test_58896
+[setup] 4 policy statements applied to clor_test_58896
+POST /api/auth/signup 200 570 - 76.957 ms
+POST /api/auth/setup-company 200 180 - 494.399 ms
+PUT /api/orgs/cmvmb78a0000emz23d3iwjpn9/features 200 1173 - 209.507 ms
+POST /api/orgs/cmvmb78a0000emz23d3iwjpn9/people/employees 201 1699 - 252.330 ms
+POST /api/orgs/cmvmb78a0000emz23d3iwjpn9/security/two-factor/setup 200 202 - 190.721 ms
+POST /api/orgs/cmvmb78a0000emz23d3iwjpn9/security/two-factor/enable 200 130 - 164.962 ms
+POST /api/orgs/cmvmb78a0000emz23d3iwjpn9/security/step-up 200 339 - 150.680 ms
+POST /api/orgs/cmvmb78a0000emz23d3iwjpn9/closure 409 149 - 159.633 ms
+GET /api/orgs/cmvmb78a0000emz23d3iwjpn9/export?scope=all 500 691 - 199.628 ms
+POST /api/auth/signup 200 570 - 19.970 ms
+stdout | src/__tests__/companyClosure.test.ts > closing a company > needs a fresh full export, the name typed, and the owner
+prisma:error 
+Invalid `prisma.$executeRaw()` invocation:
+
+
+Too many database connections opened: FATAL: remaining connection slots are reserved for non-replication superuser connections
+Prisma Accelerate has built-in connection pooling to prevent such errors: https://pris.ly/client/error-accelerate
+prisma:error 
+Invalid `prisma.invoice.findMany()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/dataExport.ts:160:22
+
+  157 prisma.partyAddress.findMany({ where: scope }),
+  158 prisma.partyContact.findMany({ where: scope }),
+  159 prisma.itemMaster.findMany({ where: scope }),
+→ 160 prisma.invoice.findMany(
+Too many database connections opened: FATAL: remaining connection slots are reserved for non-replication superuser connections
+Prisma Accelerate has built-in connection pooling to prevent such errors: https://pris.ly/client/error-accelerate
+
+stderr | src/__tests__/companyClosure.test.ts > closing a company > needs a fresh full export, the name typed, and the owner
+API error: PrismaClientKnownRequestError: 
+Invalid `prisma.invoice.findMany()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/dataExport.ts:160:22
+
+  157 prisma.partyAddress.findMany({ where: scope }),
+  158 prisma.partyContact.findMany({ where: scope }),
+  159 prisma.itemMaster.findMany({ where: scope }),
+→ 160 prisma.invoice.findMany(
+Too many database connections opened: FATAL: remaining connection slots are reserved for non-replication superuser connections
+Prisma Accelerate has built-in connection pooling to prevent such errors: https://pris.ly/client/error-accelerate
+    at $n.handleRequestError (/Users/suresh/Desktop/clor-platform/server/node_modules/@prisma/client/runtime/library.js:121:7315)
+    at $n.handleAndLogRequestError (/Users/suresh/Desktop/clor-platform/server/node_modules/@prisma/client/runtime/library.js:121:6623)
+    at $n.request (/Users/suresh/Desktop/clor-platform/server/node_modules/@prisma/client/runtime/library.js:121:6307)
+
+POST /api/auth/setup-company 200 180 - 226.685 ms
+PUT /api/orgs/cmvmb79or00r4mz23ks2i22ty/features 200 1173 - 179.808 ms
+POST /api/orgs/cmvmb79or00r4mz23ks2i22ty/people/employees 201 1699 - 81.344 ms
+POST /api/orgs/cmvmb79or00r4mz23ks2i22ty/security/two-factor/setup 200 202 - 167.866 ms
+POST /api/orgs/cmvmb79or00r4mz23ks2i22ty/security/two-factor/enable 200 130 - 161.007 ms
+POST /api/orgs/cmvmb79or00r4mz23ks2i22ty/security/step-up 200 339 - 185.146 ms
+GET /api/orgs/cmvmb79or00r4mz23ks2i22ty/export?scope=all 500 705 - 142.867 ms
+POST /api/auth/signup 200 570 - 21.431 ms
+POST /api/auth/setup-company 200 180 - 155.146 ms
+PUT /api/orgs/cmvmb7alb019amz23easqrz9h/features 200 1173 - 151.221 ms
+POST /api/orgs/cmvmb7alb019amz23easqrz9h/people/employees 201 1699 - 75.531 ms
+POST /api/orgs/cmvmb7alb019amz23easqrz9h/security/two-factor/setup 200 202 - 146.703 ms
+POST /api/orgs/cmvmb7alb019amz23easqrz9h/security/two-factor/enable 200 130 - 145.674 ms
+POST /api/orgs/cmvmb7alb019amz23easqrz9h/security/step-up 200 339 - 152.017 ms
+GET /api/orgs/cmvmb7alb019amz23easqrz9h/export?scope=all 500 691 - 163.397 ms
+stdout | src/__tests__/companyClosure.test.ts > closing a company > A-21: is refused to the creator once they are no longer an administrator
+prisma:error 
+Invalid `prisma.$executeRaw()` invocation:
+
+
+Too many database connections opened: FATAL: remaining connection slots are reserved for non-replication superuser connections
+Prisma Accelerate has built-in connection pooling to prevent such errors: https://pris.ly/client/error-accelerate
+prisma:error 
+Invalid `prisma.fixedAsset.findMany()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/dataExport.ts:175:25
+
+  172 prisma.journalEntry.findMany({ where: scope }),
+  173 prisma.journalLine.findMany({ where: { entry: scope } }),
+  174 prisma.salesman.findMany({ where: scope }),
+→ 175 prisma.fixedAsset.findMany(
+Too many database connections opened: FATAL: remaining connection slots are reserved for non-replication superuser connections
+Prisma Accelerate has built-in connection pooling to prevent such errors: https://pris.ly/client/error-accelerate
+
+stderr | src/__tests__/companyClosure.test.ts > closing a company > A-21: is refused to the creator once they are no longer an administrator
+API error: PrismaClientKnownRequestError: 
+Invalid `prisma.fixedAsset.findMany()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/dataExport.ts:175:25
+
+  172 prisma.journalEntry.findMany({ where: scope }),
+  173 prisma.journalLine.findMany({ where: { entry: scope } }),
+  174 prisma.salesman.findMany({ where: scope }),
+→ 175 prisma.fixedAsset.findMany(
+Too many database connections opened: FATAL: remaining connection slots are reserved for non-replication superuser connections
+Prisma Accelerate has built-in connection pooling to prevent such errors: https://pris.ly/client/error-accelerate
+    at $n.handleRequestError (/Users/suresh/Desktop/clor-platform/server/node_modules/@prisma/client/runtime/library.js:121:7315)
+    at $n.handleAndLogRequestError (/Users/suresh/Desktop/clor-platform/server/node_modules/@prisma/client/runtime/library.js:121:6623)
+    at $n.request (/Users/suresh/Desktop/clor-platform/server/node_modules/@prisma/client/runtime/library.js:121:6307)
+
+POST /api/auth/signup 200 570 - 7.400 ms
+POST /api/auth/setup-company 200 180 - 170.349 ms
+PUT /api/orgs/cmvmb7bdb01rgmz230ptsv54l/features 200 1173 - 142.687 ms
+POST /api/orgs/cmvmb7bdb01rgmz230ptsv54l/people/employees 201 1699 - 73.715 ms
+POST /api/orgs/cmvmb7bdb01rgmz230ptsv54l/security/two-factor/setup 200 202 - 166.669 ms
+POST /api/orgs/cmvmb7bdb01rgmz230ptsv54l/security/two-factor/enable 200 130 - 164.987 ms
+POST /api/orgs/cmvmb7bdb01rgmz230ptsv54l/security/step-up 200 339 - 150.620 ms
+GET /api/orgs/cmvmb7bdb01rgmz230ptsv54l/export?scope=all 200 126826 - 802.783 ms
+POST /api/orgs/cmvmb7bdb01rgmz230ptsv54l/closure 403 93 - 129.713 ms
+POST /api/users 201 157 - 56.613 ms
+GET /api/orgs/cmvmb7bdb01rgmz230ptsv54l/roles 200 492977 - 254.648 ms
+PUT /api/orgs/cmvmb7bdb01rgmz230ptsv54l/users/cmvmb7csg029fmz233oafxyf5/role 200 11 - 31.335 ms
+POST /api/auth/login 200 772 - 6.933 ms
+GET /api/orgs/cmvmb7bdb01rgmz230ptsv54l/export?scope=all 200 515932 - 362.477 ms
+POST /api/orgs/cmvmb7bdb01rgmz230ptsv54l/closure 403 160 - 162.164 ms
+stdout | src/__tests__/companyClosure.test.ts > closing a company > A-21: is open to the administrator running the company, though they did not create it
+prisma:error 
+Invalid `prisma.$executeRaw()` invocation:
+
+
+Too many database connections opened: FATAL: remaining connection slots are reserved for non-replication superuser connections
+Prisma Accelerate has built-in connection pooling to prevent such errors: https://pris.ly/client/error-accelerate
+prisma:error 
+Invalid `prisma.expense.findMany()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/dataExport.ts:168:22
+
+  165 prisma.deliveryChallan.findMany({ where: scope }),
+  166 prisma.creditNote.findMany({ where: scope }),
+  167 prisma.debitNote.findMany({ where: scope }),
+→ 168 prisma.expense.findMany(
+Too many database connections opened: FATAL: remaining connection slots are reserved for non-replication superuser connections
+Prisma Accelerate has built-in connection pooling to prevent such errors: https://pris.ly/client/error-accelerate
+
+stderr | src/__tests__/companyClosure.test.ts > closing a company > A-21: is open to the administrator running the company, though they did not create it
+API error: PrismaClientKnownRequestError: 
+Invalid `prisma.expense.findMany()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/dataExport.ts:168:22
+
+  165 prisma.deliveryChallan.findMany({ where: scope }),
+  166 prisma.creditNote.findMany({ where: scope }),
+  167 prisma.debitNote.findMany({ where: scope }),
+→ 168 prisma.expense.findMany(
+Too many database connections opened: FATAL: remaining connection slots are reserved for non-replication superuser connections
+Prisma Accelerate has built-in connection pooling to prevent such errors: https://pris.ly/client/error-accelerate
+    at $n.handleRequestError (/Users/suresh/Desktop/clor-platform/server/node_modules/@prisma/client/runtime/library.js:121:7315)
+    at $n.handleAndLogRequestError (/Users/suresh/Desktop/clor-platform/server/node_modules/@prisma/client/runtime/library.js:121:6623)
+    at $n.request (/Users/suresh/Desktop/clor-platform/server/node_modules/@prisma/client/runtime/library.js:121:6307)
+
+POST /api/auth/signup 200 570 - 8.893 ms
+POST /api/auth/setup-company 200 180 - 218.778 ms
+PUT /api/orgs/cmvmb7dgg043ymz23bpgoeed3/features 200 1173 - 174.431 ms
+POST /api/orgs/cmvmb7dgg043ymz23bpgoeed3/people/employees 201 1699 - 69.443 ms
+POST /api/orgs/cmvmb7dgg043ymz23bpgoeed3/security/two-factor/setup 200 202 - 168.743 ms
+POST /api/orgs/cmvmb7dgg043ymz23bpgoeed3/security/two-factor/enable 200 130 - 157.165 ms
+POST /api/orgs/cmvmb7dgg043ymz23bpgoeed3/security/step-up 200 339 - 159.097 ms
+GET /api/orgs/cmvmb7dgg043ymz23bpgoeed3/export?scope=all 200 126826 - 363.598 ms
+POST /api/users 201 157 - 41.876 ms
+GET /api/orgs/cmvmb7dgg043ymz23bpgoeed3/roles 200 492977 - 234.214 ms
+PUT /api/orgs/cmvmb7dgg043ymz23bpgoeed3/users/cmvmb7ehp04lxmz231hsk75xc/role 200 11 - 35.485 ms
+POST /api/auth/login 200 772 - 7.264 ms
+POST /api/orgs/cmvmb7dgg043ymz23bpgoeed3/closure 403 83 - 126.645 ms
+GET /api/orgs/cmvmb7dgg043ymz23bpgoeed3/closure 200 141 - 146.780 ms
+POST /api/auth/signup 200 570 - 6.781 ms
+POST /api/auth/setup-company 200 180 - 194.343 ms
+PUT /api/orgs/cmvmb7ey006gamz234p9qsdng/features 200 1173 - 168.477 ms
+POST /api/orgs/cmvmb7ey006gamz234p9qsdng/people/employees 201 1699 - 74.572 ms
+POST /api/orgs/cmvmb7ey006gamz234p9qsdng/security/two-factor/setup 200 202 - 153.634 ms
+POST /api/orgs/cmvmb7ey006gamz234p9qsdng/security/two-factor/enable 200 130 - 139.036 ms
+POST /api/orgs/cmvmb7ey006gamz234p9qsdng/security/step-up 200 339 - 136.567 ms
+GET /api/orgs/cmvmb7ey006gamz234p9qsdng/export?scope=all 200 126826 - 451.878 ms
+POST /api/orgs/cmvmb7ey006gamz234p9qsdng/closure 201 598 - 164.480 ms
+POST /api/orgs/cmvmb7ey006gamz234p9qsdng/closure 409 83 - 147.490 ms
+DELETE /api/orgs/cmvmb7ey006gamz234p9qsdng/closure 200 643 - 129.102 ms
+POST /api/orgs/cmvmb7ey006gamz234p9qsdng/closure 201 575 - 150.307 ms
+POST /api/auth/signup 200 570 - 10.772 ms
+POST /api/auth/setup-company 200 180 - 165.072 ms
+PUT /api/orgs/cmvmb7gti06yumz23zpotf0f6/features 200 1173 - 164.470 ms
+POST /api/orgs/cmvmb7gti06yumz23zpotf0f6/people/employees 201 1699 - 68.569 ms
+POST /api/orgs/cmvmb7gti06yumz23zpotf0f6/security/two-factor/setup 200 202 - 156.727 ms
+POST /api/orgs/cmvmb7gti06yumz23zpotf0f6/security/two-factor/enable 200 130 - 151.536 ms
+POST /api/orgs/cmvmb7gti06yumz23zpotf0f6/security/step-up 200 339 - 144.359 ms
+POST /api/auth/signup 200 570 - 7.942 ms
+POST /api/auth/setup-company 200 180 - 156.376 ms
+PUT /api/orgs/cmvmb7hhi07h0mz23kgu9h1iw/features 200 1173 - 143.353 ms
+POST /api/orgs/cmvmb7hhi07h0mz23kgu9h1iw/people/employees 201 1699 - 61.416 ms
+POST /api/orgs/cmvmb7hhi07h0mz23kgu9h1iw/security/two-factor/setup 200 202 - 143.334 ms
+POST /api/orgs/cmvmb7hhi07h0mz23kgu9h1iw/security/two-factor/enable 200 130 - 142.431 ms
+POST /api/orgs/cmvmb7hhi07h0mz23kgu9h1iw/security/step-up 200 339 - 144.232 ms
+GET /api/orgs/cmvmb7gti06yumz23zpotf0f6/export?scope=all 200 126826 - 314.218 ms
+POST /api/orgs/cmvmb7gti06yumz23zpotf0f6/closure 201 575 - 131.821 ms
+ ❯ src/__tests__/companyClosure.test.ts (7 tests | 3 failed) 14895ms
+     × needs a fresh full export, the name typed, and the owner 1935ms
+     × A-21: is refused to the creator once they are no longer an administrator 1177ms
+     × A-21: is open to the administrator running the company, though they did not create it 1021ms
+POST /api/auth/signup 200 572 - 55.703 ms
+POST /api/auth/setup-company 200 186 - 371.067 ms
+POST /api/orgs/cmvmb7kon000elnlek66yrw3u/roles 201 362 - 82.463 ms
+PUT /api/orgs/cmvmb7kon000elnlek66yrw3u/roles/cmvmb7l0i00i0lnlebp051zf5/permissions 200 23 - 216.979 ms
+POST /api/orgs/cmvmb7kon000elnlek66yrw3u/roles 201 366 - 23.220 ms
+PUT /api/orgs/cmvmb7kon000elnlek66yrw3u/roles/cmvmb7l7900iclnle0hxh26kk/permissions 200 23 - 155.717 ms
+POST /api/orgs/cmvmb7kon000elnlek66yrw3u/role-profiles 201 698 - 218.506 ms
+POST /api/users 201 148 - 56.046 ms
+POST /api/auth/login 200 766 - 10.563 ms
+POST /api/orgs/cmvmb7kon000elnlek66yrw3u/users/cmvmb7liy00iqlnleabh8m1wz/role-profiles 200 24 - 196.727 ms
+GET /api/orgs/cmvmb7kon000elnlek66yrw3u/permissions/me 200 473 - 145.954 ms
+GET /api/orgs/cmvmb7kon000elnlek66yrw3u/invoices 200 15 - 137.811 ms
+POST /api/orgs/cmvmb7kon000elnlek66yrw3u/roles 201 361 - 26.839 ms
+PUT /api/orgs/cmvmb7kon000elnlek66yrw3u/roles/cmvmb7lxz00j7lnlex8zbg3ys/permissions 200 23 - 159.242 ms
+POST /api/orgs/cmvmb7kon000elnlek66yrw3u/role-profiles 201 492 - 136.035 ms
+POST /api/users 201 148 - 29.003 ms
+POST /api/auth/login 200 766 - 5.066 ms
+POST /api/orgs/cmvmb7kon000elnlek66yrw3u/users/cmvmb7m6u00jklnlektb9dkg3/role-profiles 200 24 - 134.324 ms
+GET /api/orgs/cmvmb7kon000elnlek66yrw3u/invoices 200 15 - 128.605 ms
+POST /api/orgs/cmvmb7kon000elnlek66yrw3u/users/cmvmb7m6u00jklnlektb9dkg3/role-profiles 200 24 - 135.949 ms
+GET /api/orgs/cmvmb7kon000elnlek66yrw3u/invoices 403 29 - 149.301 ms
+POST /api/auth/signup 200 572 - 6.315 ms
+POST /api/auth/setup-company 200 186 - 150.935 ms
+POST /api/orgs/cmvmb7mmz00kglnlevtvxqsyz/roles 201 364 - 21.040 ms
+POST /api/orgs/cmvmb7kon000elnlek66yrw3u/role-profiles 400 64 - 153.551 ms
+POST /api/orgs/cmvmb7kon000elnlek66yrw3u/roles 201 362 - 21.942 ms
+PUT /api/orgs/cmvmb7kon000elnlek66yrw3u/roles/cmvmb7mwm0127lnle6ahtg7d1/permissions 200 23 - 158.063 ms
+POST /api/orgs/cmvmb7kon000elnlek66yrw3u/roles 201 367 - 23.720 ms
+PUT /api/orgs/cmvmb7kon000elnlek66yrw3u/roles/cmvmb7n1p012jlnle3tqtnj10/permissions 200 23 - 159.481 ms
+POST /api/users 201 148 - 35.505 ms
+POST /api/auth/login 200 766 - 6.313 ms
+POST /api/orgs/cmvmb7kon000elnlek66yrw3u/users/cmvmb7n6x012ulnleg3igfqee/roles 201 11 - 30.771 ms
+POST /api/users 201 148 - 35.860 ms
+POST /api/auth/login 200 766 - 4.564 ms
+POST /api/orgs/cmvmb7kon000elnlek66yrw3u/users/cmvmb7n92013alnlexfiplnsf/roles 201 11 - 24.875 ms
+POST /api/orgs/cmvmb7kon000elnlek66yrw3u/invoices 201 645 - 181.738 ms
+POST /api/orgs/cmvmb7kon000elnlek66yrw3u/invoices 201 636 - 164.103 ms
+POST /api/orgs/cmvmb7kon000elnlek66yrw3u/roles 201 365 - 24.746 ms
+PUT /api/orgs/cmvmb7kon000elnlek66yrw3u/roles/cmvmb7nkl013vlnlemynhfqlw/permissions 200 23 - 145.468 ms
+POST /api/users 201 148 - 29.565 ms
+POST /api/auth/login 200 766 - 5.242 ms
+POST /api/orgs/cmvmb7kon000elnlek66yrw3u/users/cmvmb7npc0144lnle1ic5ocx7/roles 201 11 - 27.167 ms
+GET /api/orgs/cmvmb7kon000elnlek66yrw3u/permissions/me 200 300 - 138.469 ms
+POST /api/auth/signup 200 572 - 12.149 ms
+POST /api/auth/setup-company 200 186 - 161.757 ms
+POST /api/orgs/cmvmb7nuu014xlnlenxhluj44/roles 201 365 - 21.503 ms
+PUT /api/orgs/cmvmb7nuu014xlnlenxhluj44/roles/cmvmb7nzv01mjlnleycje0i9s/permissions 200 23 - 144.453 ms
+POST /api/orgs/cmvmb7nuu014xlnlenxhluj44/roles 201 363 - 22.393 ms
+PUT /api/orgs/cmvmb7nuu014xlnlenxhluj44/roles/cmvmb7o4k01mvlnlen38d6uz1/permissions 200 23 - 146.028 ms
+POST /api/orgs/cmvmb7nuu014xlnlenxhluj44/approval-rules 201 429 - 141.115 ms
+POST /api/users 201 148 - 33.307 ms
+POST /api/auth/login 200 766 - 6.164 ms
+POST /api/orgs/cmvmb7nuu014xlnlenxhluj44/users/cmvmb7oda01n8lnlev37pi7y5/roles 201 11 - 28.030 ms
+POST /api/users 201 148 - 29.780 ms
+POST /api/auth/login 200 766 - 5.269 ms
+POST /api/orgs/cmvmb7nuu014xlnlenxhluj44/users/cmvmb7of801nolnle5bkk7ich/roles 201 11 - 27.040 ms
+POST /api/orgs/cmvmb7nuu014xlnlenxhluj44/invoices 201 633 - 185.345 ms
+POST /api/orgs/cmvmb7nuu014xlnlenxhluj44/invoices 201 693 - 417.121 ms
+GET /api/orgs/cmvmb7nuu014xlnlenxhluj44/approvals 200 588 - 382.395 ms
+POST /api/orgs/cmvmb7nuu014xlnlenxhluj44/approvals/cmvmb7orn0035wvwhthmd6xv5/decide 403 70 - 312.946 ms
+POST /api/orgs/cmvmb7nuu014xlnlenxhluj44/approvals/cmvmb7orn0035wvwhthmd6xv5/decide 200 986 - 243.459 ms
+GET /api/orgs/cmvmb7nuu014xlnlenxhluj44/ledger/trial-balance 200 460 - 180.026 ms
+POST /api/auth/signup 200 572 - 22.914 ms
+POST /api/auth/setup-company 200 186 - 167.552 ms
+POST /api/orgs/cmvmb7pti01oqlnle8f0osqz2/roles 201 366 - 24.165 ms
+PUT /api/orgs/cmvmb7pti01oqlnle8f0osqz2/roles/cmvmb7pyj026clnlec2ov5q01/permissions 200 23 - 155.758 ms
+POST /api/orgs/cmvmb7pti01oqlnle8f0osqz2/roles 201 364 - 28.195 ms
+PUT /api/orgs/cmvmb7pti01oqlnle8f0osqz2/roles/cmvmb7q3p026olnlef4rtitbu/permissions 200 23 - 190.003 ms
+POST /api/orgs/cmvmb7pti01oqlnle8f0osqz2/approval-rules 201 429 - 196.589 ms
+POST /api/users 201 148 - 42.065 ms
+POST /api/auth/login 200 766 - 7.667 ms
+POST /api/orgs/cmvmb7pti01oqlnle8f0osqz2/users/cmvmb7qfc0271lnlexoe7nqfm/roles 201 11 - 43.028 ms
+POST /api/users 201 148 - 38.711 ms
+POST /api/auth/login 200 766 - 7.027 ms
+POST /api/users 201 148 - 30.574 ms
+POST /api/auth/login 200 766 - 5.338 ms
+POST /api/orgs/cmvmb7pti01oqlnle8f0osqz2/users/cmvmb7qi0027hlnletc09d4y9/roles 201 11 - 34.611 ms
+POST /api/orgs/cmvmb7pti01oqlnle8f0osqz2/users/cmvmb7qj8027slnleuwiaoui2/roles 201 11 - 35.021 ms
+POST /api/orgs/cmvmb7pti01oqlnle8f0osqz2/invoices 201 693 - 156.234 ms
+GET /api/orgs/cmvmb7pti01oqlnle8f0osqz2/approvals 200 588 - 130.170 ms
+POST /api/orgs/cmvmb7pti01oqlnle8f0osqz2/approvals/cmvmb7qpb0048wvwhny55zdy4/decide 409 49 - 168.972 ms
+POST /api/orgs/cmvmb7pti01oqlnle8f0osqz2/approvals/cmvmb7qpb0048wvwhny55zdy4/decide 200 981 - 187.026 ms
+POST /api/auth/signup 200 572 - 7.294 ms
+POST /api/auth/setup-company 200 186 - 169.947 ms
+POST /api/orgs/cmvmb7qzf028zlnle1hgmb0dw/roles 201 369 - 19.764 ms
+PUT /api/orgs/cmvmb7qzf028zlnle1hgmb0dw/roles/cmvmb7r4m02qllnlen3vcwsec/permissions 200 23 - 132.146 ms
+POST /api/orgs/cmvmb7qzf028zlnle1hgmb0dw/approval-rules 201 422 - 133.441 ms
+POST /api/users 201 148 - 29.471 ms
+POST /api/auth/login 200 766 - 5.939 ms
+POST /api/orgs/cmvmb7qzf028zlnle1hgmb0dw/users/cmvmb7rco02qylnle45a4jpxz/roles 201 11 - 26.550 ms
+POST /api/orgs/cmvmb7qzf028zlnle1hgmb0dw/invoices 201 635 - 183.497 ms
+POST /api/auth/signup 200 572 - 6.574 ms
+POST /api/auth/setup-company 200 186 - 144.587 ms
+POST /api/orgs/cmvmb7rjb02rtlnleoygathdr/roles 201 365 - 20.334 ms
+PUT /api/orgs/cmvmb7rjb02rtlnleoygathdr/roles/cmvmb7rnt039flnletwlz8nth/permissions 200 23 - 135.596 ms
+POST /api/orgs/cmvmb7rjb02rtlnleoygathdr/roles 201 364 - 19.526 ms
+PUT /api/orgs/cmvmb7rjb02rtlnleoygathdr/roles/cmvmb7rs7039rlnle8w67cwh7/permissions 200 23 - 130.836 ms
+POST /api/orgs/cmvmb7rjb02rtlnleoygathdr/approval-rules 201 426 - 154.017 ms
+POST /api/users 201 148 - 26.897 ms
+POST /api/auth/login 200 766 - 6.169 ms
+POST /api/orgs/cmvmb7rjb02rtlnleoygathdr/users/cmvmb7s0s03a4lnleeuv5snf0/roles 201 11 - 25.168 ms
+POST /api/users 201 148 - 27.286 ms
+POST /api/auth/login 200 766 - 9.277 ms
+POST /api/orgs/cmvmb7rjb02rtlnleoygathdr/users/cmvmb7s2h03aklnlef5mq2plh/roles 201 11 - 27.529 ms
+POST /api/orgs/cmvmb7rjb02rtlnleoygathdr/invoices 201 689 - 136.086 ms
+GET /api/orgs/cmvmb7rjb02rtlnleoygathdr/approvals 200 585 - 139.334 ms
+POST /api/orgs/cmvmb7rjb02rtlnleoygathdr/approvals/cmvmb7s7b006ewvwhywh00a4r/decide 200 988 - 138.307 ms
+POST /api/orgs/cmvmb7kon000elnlek66yrw3u/customers 201 1392 - 157.165 ms
+POST /api/orgs/cmvmb7kon000elnlek66yrw3u/customers 201 1392 - 293.550 ms
+POST /api/orgs/cmvmb7kon000elnlek66yrw3u/roles 201 367 - 19.961 ms
+PUT /api/orgs/cmvmb7kon000elnlek66yrw3u/roles/cmvmb7ssi03bclnlek2epm7m1/permissions 200 23 - 134.006 ms
+POST /api/users 201 148 - 33.040 ms
+POST /api/auth/login 200 766 - 7.235 ms
+POST /api/orgs/cmvmb7kon000elnlek66yrw3u/users/cmvmb7swy03bnlnle1z6lpcbf/roles 201 11 - 31.578 ms
+POST /api/orgs/cmvmb7kon000elnlek66yrw3u/invoices 201 658 - 163.317 ms
+POST /api/orgs/cmvmb7kon000elnlek66yrw3u/users/cmvmb7swy03bnlnle1z6lpcbf/permissions 201 325 - 133.660 ms
+POST /api/orgs/cmvmb7kon000elnlek66yrw3u/invoices 201 658 - 137.474 ms
+POST /api/orgs/cmvmb7kon000elnlek66yrw3u/invoices 403 70 - 119.257 ms
+POST /api/orgs/cmvmb7kon000elnlek66yrw3u/roles 201 368 - 26.709 ms
+PUT /api/orgs/cmvmb7kon000elnlek66yrw3u/roles/cmvmb7tek03cblnlem0gpwuqy/permissions 200 23 - 133.655 ms
+POST /api/users 201 148 - 31.410 ms
+POST /api/auth/login 200 766 - 5.308 ms
+POST /api/orgs/cmvmb7kon000elnlek66yrw3u/users/cmvmb7tj403cklnleijn4w1ui/roles 201 11 - 27.039 ms
+POST /api/orgs/cmvmb7kon000elnlek66yrw3u/masters 201 189 - 73.005 ms
+POST /api/orgs/cmvmb7kon000elnlek66yrw3u/users/cmvmb7tj403cklnleijn4w1ui/permissions 201 326 - 133.429 ms
+GET /api/orgs/cmvmb7kon000elnlek66yrw3u/permissions/me 200 322 - 134.302 ms
+DELETE /api/orgs/cmvmb7kon000elnlek66yrw3u/users/cmvmb7tj403cklnleijn4w1ui/permissions/cmvmb7tq103d1lnle7apoinu7 200 11 - 129.683 ms
+GET /api/orgs/cmvmb7kon000elnlek66yrw3u/permissions/me 200 278 - 120.829 ms
+POST /api/users 201 148 - 28.960 ms
+POST /api/auth/login 200 766 - 5.149 ms
+POST /api/orgs/cmvmb7kon000elnlek66yrw3u/vendors 201 1390 - 138.325 ms
+POST /api/orgs/cmvmb7kon000elnlek66yrw3u/users/cmvmb7u1f03d7lnlebf91n5av/permissions 201 321 - 133.118 ms
+POST /api/orgs/cmvmb7kon000elnlek66yrw3u/users/cmvmb7u1f03d7lnlebf91n5av/permissions 409 43 - 167.506 ms
+POST /api/auth/signup 200 571 - 70.703 ms
+POST /api/auth/setup-company 200 204 - 274.746 ms
+POST /api/auth/signup 200 573 - 36.791 ms
+POST /api/auth/setup-company 200 208 - 219.649 ms
+POST /api/users 201 146 - 84.705 ms
+POST /api/orgs/cmvmb7vml00ico8xoicmh38o0/users/cmvmb7vbr0008o8xogg7bj7wn/password 403 126 - 23.434 ms
+POST /api/auth/login 200 931 - 26.573 ms
+POST /api/auth/login 401 31 - 29.003 ms
+PATCH /api/orgs/cmvmb7vml00ico8xoicmh38o0/users/cmvmb7vbr0008o8xogg7bj7wn 403 126 - 22.504 ms
+PATCH /api/orgs/cmvmb7vml00ico8xoicmh38o0/users/cmvmb7vbr0008o8xogg7bj7wn 403 177 - 47.374 ms
+PATCH /api/orgs/cmvmb7vml00ico8xoicmh38o0/users/cmvmb7vbr0008o8xogg7bj7wn 403 177 - 20.603 ms
+POST /api/auth/login 200 931 - 5.795 ms
+POST /api/users 201 153 - 37.494 ms
+POST /api/auth/login 200 782 - 5.348 ms
+POST /api/orgs/cmvmb7vml00ico8xoicmh38o0/users/cmvmb7w0r010ao8xoejkdnqse/password 200 11 - 36.297 ms
+GET /api/orgs/cmvmb7vml00ico8xoicmh38o0/warehouses 401 80 - 21.999 ms
+POST /api/auth/login 200 782 - 5.122 ms
+POST /api/auth/signup 200 570 - 8.519 ms
+POST /api/auth/setup-company 200 202 - 160.629 ms
+POST /api/auth/setup-company 200 202 - 169.371 ms
+POST /api/users 201 151 - 45.483 ms
+POST /api/auth/login 200 777 - 5.608 ms
+PATCH /api/orgs/cmvmb7w3d0112o8xo1a34lcki/users/cmvmb7w35010wo8xoumvykscr 403 144 - 24.982 ms
+POST /api/orgs/cmvmb7w3d0112o8xo1a34lcki/users/cmvmb7w35010wo8xoumvykscr/password 403 144 - 38.741 ms
+PATCH /api/orgs/cmvmb7w3d0112o8xo1a34lcki/users/cmvmb7w35010wo8xoumvykscr 403 144 - 25.514 ms
+POST /api/auth/login 200 926 - 10.285 ms
+POST /api/orgs/cmvmb7w3d0112o8xo1a34lcki/security/scim 201 369 - 201.237 ms
+POST /api/users 201 151 - 94.881 ms
+PATCH /api/orgs/cmvmb7w3d0112o8xo1a34lcki/users/cmvmb7wpb020so8xonxppzm6s 200 113 - 33.051 ms
+POST /api/orgs/cmvmb7w3d0112o8xo1a34lcki/users/cmvmb7wpb020so8xonxppzm6s/password 200 11 - 37.869 ms
+POST /api/auth/signup 200 571 - 8.438 ms
+POST /api/auth/setup-company 200 204 - 275.904 ms
+POST /api/users 201 151 - 42.616 ms
+POST /api/auth/login 200 778 - 7.601 ms
+POST /api/auth/setup-company 403 140 - 16.664 ms
+POST /api/auth/signup 200 572 - 7.080 ms
+POST /api/auth/setup-company 200 206 - 178.785 ms
+POST /api/auth/setup-company 200 200 - 175.626 ms
+POST /api/auth/signup 200 569 - 7.607 ms
+POST /api/auth/setup-company 200 200 - 172.057 ms
+GET /api/auth/me 401 33 - 0.745 ms
+POST /api/auth/signup 200 569 - 14.376 ms
+POST /api/auth/setup-company 200 200 - 141.159 ms
+POST /api/auth/signup 200 569 - 6.607 ms
+POST /api/auth/setup-company 200 200 - 141.782 ms
+GET /api/auth/me 200 783 - 4.596 ms
+GET /api/auth/me 200 855 - 3.683 ms
+POST /api/auth/signup 200 573 - 6.233 ms
+POST /api/auth/setup-company 200 208 - 152.375 ms
+POST /api/auth/login 200 783 - 5.820 ms
+GET /api/orgs/cmvmb7xr90514o8xoybk2p3l0/warehouses 200 517 - 12.568 ms
+GET /api/orgs/cmvmb7xr90514o8xoybk2p3l0/warehouses 401 80 - 22.277 ms
+POST /api/auth/signup 200 580 - 5.842 ms
+POST /api/auth/setup-company 200 215 - 142.553 ms
+POST /api/auth/login 200 797 - 5.270 ms
+GET /api/orgs/cmvmb7xwx05j4o8xoigwfea46/warehouses 200 517 - 3.415 ms
+GET /api/orgs/cmvmb7xwx05j4o8xoigwfea46/warehouses 401 80 - 2.655 ms
+POST /api/auth/signup 200 574 - 6.361 ms
+POST /api/auth/setup-company 200 210 - 150.743 ms
+GET /api/orgs/cmvmb82ab0614o8xom71pcg3g/warehouses 401 62 - 11.674 ms
+POST /api/auth/signup 200 576 - 5.963 ms
+POST /api/auth/setup-company 200 212 - 134.496 ms
+POST /api/auth/login 200 789 - 5.556 ms
+GET /api/auth/me 200 824 - 2.939 ms
+GET /api/auth/me 401 80 - 3.502 ms
+GET /api/auth/sessions 401 80 - 9.495 ms
+POST /api/auth/sessions/revoke-all 401 80 - 11.151 ms
+PATCH /api/auth/me 401 80 - 17.173 ms
+POST /api/auth/setup-company 401 80 - 18.091 ms
+POST /api/auth/resend-verification 401 80 - 14.164 ms
+POST /api/auth/signup 200 577 - 9.874 ms
+POST /api/auth/setup-company 200 213 - 149.480 ms
+PATCH /api/auth/me 401 62 - 1.616 ms
+POST /api/auth/setup-company 401 62 - 21.701 ms
+POST /api/auth/signup 200 572 - 5.959 ms
+POST /api/auth/setup-company 200 206 - 143.231 ms
+GET /api/auth/me/export 200 1005 - 8.001 ms
+POST /api/auth/signup 200 567 - 6.663 ms
+POST /api/auth/signup 200 575 - 6.097 ms
+POST /api/auth/setup-company 200 211 - 144.117 ms
+POST /api/auth/signup 200 578 - 66.261 ms
+POST /api/auth/setup-company 200 204 - 478.575 ms
+POST /api/orgs/cmvmb83um000e13cpah7f04et/invoices 201 721 - 319.604 ms
+GET /api/orgs/cmvmb83um000e13cpah7f04et/export 200 125214 - 771.084 ms
+GET /api/orgs/cmvmb83um000e13cpah7f04et/export?scope=data 200 11224 - 382.584 ms
+GET /api/orgs/cmvmb83um000e13cpah7f04et/export 200 125214 - 286.444 ms
+GET /api/orgs/cmvmb83um000e13cpah7f04et/export 200 125214 - 324.752 ms
+POST /api/auth/signup 200 582 - 17.924 ms
+POST /api/auth/setup-company 200 208 - 174.691 ms
+POST /api/orgs/cmvmb85t300j013cpyrp8gs0q/invoices 201 731 - 188.606 ms
+GET /api/orgs/cmvmb83um000e13cpah7f04et/export 200 125214 - 316.842 ms
+POST /api/auth/setup-company 200 202 - 249.611 ms
+POST /api/orgs/cmvmb86c6010t13cp12p06plz/invoices 201 726 - 176.061 ms
+GET /api/orgs/cmvmb83um000e13cpah7f04et/export 200 125214 - 276.249 ms
+GET /api/orgs/cmvmb83um000e13cpah7f04et/export 200 125214 - 180.631 ms
+POST /api/orgs/cmvmb83um000e13cpah7f04et/pos-day-closes 201 218 - 128.727 ms
+GET /api/orgs/cmvmb83um000e13cpah7f04et/export?scope=data 200 11628 - 177.848 ms
+POST /api/auth/signup 200 586 - 6.928 ms
+POST /api/auth/setup-company 200 211 - 172.760 ms
+GET /api/orgs/cmvmb879g01jb13cpqlb57xw2/export 403 26 - 119.793 ms
+GET /api/orgs/cmvmb83um000e13cpah7f04et/export?scope=data 200 11628 - 183.225 ms
+GET /api/orgs/cmvmb83um000e13cpah7f04et/export?scope=configuration 200 114398 - 149.726 ms
+GET /api/orgs/cmvmb83um000e13cpah7f04et/export?scope=configuration 200 114808 - 132.824 ms
+GET /api/orgs/cmvmb83um000e13cpah7f04et/export?scope=configuration 200 114808 - 138.562 ms
+GET /api/orgs/cmvmb83um000e13cpah7f04et/export?scope=data 200 11628 - 317.838 ms
+GET /api/orgs/cmvmb83um000e13cpah7f04et/export?scope=everything 400 58 - 170.990 ms
+GET /api/orgs/cmvmb83um000e13cpah7f04et/export?scope=configuration 200 114808 - 147.266 ms
+POST /api/orgs/cmvmb83um000e13cpah7f04et/roles 201 365 - 21.223 ms
+PUT /api/orgs/cmvmb83um000e13cpah7f04et/roles/cmvmb88gx021613cpgti5k7jz/permissions 200 23 - 144.683 ms
+POST /api/users 201 157 - 35.387 ms
+PUT /api/orgs/cmvmb83um000e13cpah7f04et/users/cmvmb88ln021f13cp8zus3sqx/role 200 11 - 26.449 ms
+POST /api/auth/login 200 784 - 10.108 ms
+GET /api/orgs/cmvmb83um000e13cpah7f04et/export?scope=all 200 122005 - 147.665 ms
+GET /api/orgs/cmvmb83um000e13cpah7f04et/export?scope=data 200 11628 - 187.761 ms
+POST /api/auth/signup 200 582 - 6.983 ms
+POST /api/auth/setup-company 200 208 - 165.106 ms
+GET /api/orgs/cmvmb88ww022c13cp4jf8rz63/security/policy 200 387 - 136.254 ms
+PUT /api/orgs/cmvmb88ww022c13cp4jf8rz63/security/policy 200 619 - 161.557 ms
+GET /api/orgs/cmvmb88ww022c13cp4jf8rz63/export?scope=data 200 6407 - 166.219 ms
+POST /api/auth/signup 200 570 - 49.448 ms
+POST /api/auth/setup-company 200 198 - 260.513 ms
+POST /api/users 201 134 - 78.016 ms
+POST /api/orgs/cmvmb8a7p000eprcmtnk9rhpq/roles 201 685 - 25.952 ms
+PATCH /api/orgs/cmvmb8a7p000eprcmtnk9rhpq/roles/cmvmb8ah800i9prcm8h1kwrzw 200 685 - 61.620 ms
+POST /api/orgs/cmvmb8a7p000eprcmtnk9rhpq/role-profiles 201 484 - 242.823 ms
+GET /api/orgs/cmvmb8a7p000eprcmtnk9rhpq/role-profiles 200 174 - 150.192 ms
+PUT /api/orgs/cmvmb8a7p000eprcmtnk9rhpq/role-profiles/cmvmb8ay400ihprcm42m4g0me 200 11 - 143.986 ms
+POST /api/orgs/cmvmb8a7p000eprcmtnk9rhpq/users/cmvmb8afr00hzprcm02jxs0cu/role-profiles 200 24 - 146.414 ms
+DELETE /api/orgs/cmvmb8a7p000eprcmtnk9rhpq/role-profiles/cmvmb8ay400ihprcm42m4g0me 200 11 - 141.302 ms
+POST /api/orgs/cmvmb8a7p000eprcmtnk9rhpq/approval-rules 201 434 - 145.728 ms
+GET /api/orgs/cmvmb8a7p000eprcmtnk9rhpq/approval-rules 200 469 - 159.434 ms
+DELETE /api/orgs/cmvmb8a7p000eprcmtnk9rhpq/approval-rules/cmvmb8c05000tknoyfx1yt1ey 200 11 - 159.325 ms
+POST /api/orgs/cmvmb8a7p000eprcmtnk9rhpq/users/cmvmb8afr00hzprcm02jxs0cu/roles 201 11 - 36.716 ms
+PUT /api/orgs/cmvmb8a7p000eprcmtnk9rhpq/users/cmvmb8afr00hzprcm02jxs0cu/role 200 11 - 34.352 ms
+POST /api/orgs/cmvmb8a7p000eprcmtnk9rhpq/users/cmvmb8afr00hzprcm02jxs0cu/branches 200 11 - 28.864 ms
+POST /api/orgs/cmvmb8a7p000eprcmtnk9rhpq/customers 201 1392 - 162.464 ms
+POST /api/orgs/cmvmb8a7p000eprcmtnk9rhpq/users/cmvmb8afr00hzprcm02jxs0cu/permissions 201 325 - 139.967 ms
+GET /api/orgs/cmvmb8a7p000eprcmtnk9rhpq/users/cmvmb8afr00hzprcm02jxs0cu/permissions 200 391 - 134.940 ms
+DELETE /api/orgs/cmvmb8a7p000eprcmtnk9rhpq/users/cmvmb8afr00hzprcm02jxs0cu/permissions/cmvmb8db900jkprcmtnl7ak70 200 11 - 143.069 ms
+PUT /api/users/cmvmb8afr00hzprcm02jxs0cu/companies 200 33 - 24.346 ms
+POST /api/orgs/cmvmb8a7p000eprcmtnk9rhpq/security/scim 201 369 - 239.937 ms
+DELETE /api/orgs/cmvmb8a7p000eprcmtnk9rhpq/security/scim/cmvmb8e0r00jrprcmvhlrern6 200 11 - 189.769 ms
+GET /api/orgs/cmvmb8a7p000eprcmtnk9rhpq/audit?app=company&limit=200 200 6734 - 75.394 ms
+POST /api/orgs/cmvmb8a7p000eprcmtnk9rhpq/ledger/accounts 201 124 - 167.875 ms
+POST /api/orgs/cmvmb8a7p000eprcmtnk9rhpq/invoices 201 704 - 206.048 ms
+POST /api/orgs/cmvmb8a7p000eprcmtnk9rhpq/notifications/inbox/read 200 23 - 174.532 ms
+PATCH /api/orgs/cmvmb8a7p000eprcmtnk9rhpq/users/cmvmb8afr00hzprcm02jxs0cu 200 118 - 47.064 ms
+POST /api/orgs/cmvmb8a7p000eprcmtnk9rhpq/roles 400 38 - 22.059 ms
+POST /api/auth/signup 200 570 - 36.523 ms
+POST /api/auth/setup-company 200 198 - 220.221 ms
+POST /api/orgs/cmvmb8l8r000e12dekghkzyxo/credentials/api-keys 201 182 - 232.047 ms
+POST /api/orgs/cmvmb8l8r000e12dekghkzyxo/security/scim 201 369 - 232.679 ms
+POST /api/orgs/cmvmb8l8r000e12dekghkzyxo/attendance/integrations/agents 201 701 - 110.969 ms
+GET /api/orgs/cmvmb8l8r000e12dekghkzyxo/credentials 200 1329 - 181.783 ms
+POST /api/auth/signup 200 570 - 16.015 ms
+POST /api/auth/setup-company 200 198 - 153.557 ms
+POST /api/orgs/cmvmb8m0a00ip12deir2ojahc/attendance/integrations/agents 201 695 - 87.564 ms
+PUT /api/orgs/cmvmb8m0a00ip12deir2ojahc/attendance/integrations/agents/cmvmb8m6m000210sg625kgg8d 200 552 - 76.096 ms
+GET /api/orgs/cmvmb8m0a00ip12deir2ojahc/credentials 200 600 - 152.453 ms
+GET /api/orgs/cmvmb8l8r000e12dekghkzyxo/credentials 200 1329 - 174.768 ms
+POST /api/orgs/cmvmb8l8r000e12dekghkzyxo/roles 201 687 - 41.583 ms
+POST /api/users 201 134 - 40.019 ms
+POST /api/orgs/cmvmb8l8r000e12dekghkzyxo/users/cmvmb8mk3010n12der3et6m76/roles 201 11 - 35.000 ms
+POST /api/auth/login 200 758 - 10.805 ms
+GET /api/orgs/cmvmb8l8r000e12dekghkzyxo/credentials 200 945 - 189.810 ms
+POST /api/orgs/cmvmb8l8r000e12dekghkzyxo/roles 201 687 - 23.534 ms
+POST /api/users 201 134 - 44.777 ms
+POST /api/orgs/cmvmb8l8r000e12dekghkzyxo/users/cmvmb8msp011a12deo80us0ga/roles 201 11 - 28.508 ms
+POST /api/auth/login 200 758 - 5.511 ms
+GET /api/orgs/cmvmb8l8r000e12dekghkzyxo/credentials 200 945 - 154.425 ms
+POST /api/orgs/cmvmb8l8r000e12dekghkzyxo/credentials/api-keys 403 108 - 180.308 ms
+POST /api/orgs/cmvmb8l8r000e12dekghkzyxo/roles 201 1349 - 28.252 ms
+POST /api/users 201 134 - 38.822 ms
+POST /api/orgs/cmvmb8l8r000e12dekghkzyxo/users/cmvmb8n52012112de3i9nit90/roles 201 11 - 33.484 ms
+POST /api/auth/login 200 758 - 9.014 ms
+GET /api/orgs/cmvmb8l8r000e12dekghkzyxo/credentials 200 945 - 153.841 ms
+GET /api/orgs/cmvmb8l8r000e12dekghkzyxo/credentials 200 1329 - 151.875 ms
+POST /api/orgs/cmvmb8l8r000e12dekghkzyxo/credentials/cmvmb8lr300i312degnkiic3p/suspend 403 124 - 251.218 ms
+POST /api/orgs/cmvmb8l8r000e12dekghkzyxo/credentials/cmvmb8lr300i312degnkiic3p/rotate 403 124 - 157.363 ms
+POST /api/auth/signup 200 570 - 17.558 ms
+POST /api/auth/setup-company 200 198 - 174.123 ms
+POST /api/orgs/cmvmb8nrd012u12deg6k11oyp/roles 201 1045 - 20.365 ms
+POST /api/users 201 134 - 25.725 ms
+POST /api/orgs/cmvmb8nrd012u12deg6k11oyp/users/cmvmb8nx901ko12deyevh678o/roles 201 11 - 25.604 ms
+POST /api/auth/login 200 758 - 5.305 ms
+POST /api/orgs/cmvmb8nrd012u12deg6k11oyp/credentials/api-keys 201 182 - 147.141 ms
+POST /api/orgs/cmvmb8nrd012u12deg6k11oyp/credentials/cmvmb8o3701l412dedu3usas4/revoke 200 11 - 152.315 ms
+POST /api/orgs/cmvmb8l8r000e12dekghkzyxo/credentials/api-keys 201 182 - 178.612 ms
+POST /api/orgs/cmvmb8l8r000e12dekghkzyxo/credentials/cmvmb8ocg01lb12demrv9oen5/suspend 200 11 - 142.483 ms
+POST /api/orgs/cmvmb8l8r000e12dekghkzyxo/credentials/cmvmb8ocg01lb12demrv9oen5/resume 200 11 - 135.406 ms
+POST /api/orgs/cmvmb8l8r000e12dekghkzyxo/credentials/cmvmb8ocg01lb12demrv9oen5/extend 200 50 - 147.254 ms
+POST /api/orgs/cmvmb8l8r000e12dekghkzyxo/credentials/cmvmb8ocg01lb12demrv9oen5/extend 400 81 - 144.764 ms
+POST /api/orgs/cmvmb8l8r000e12dekghkzyxo/credentials/cmvmb8ocg01lb12demrv9oen5/rotate 200 191 - 140.319 ms
+POST /api/orgs/cmvmb8l8r000e12dekghkzyxo/credentials/cmvmb8owc01lo12de7s2lmg3n/revoke 200 11 - 141.372 ms
+GET /api/orgs/cmvmb8l8r000e12dekghkzyxo/audit?app=company 200 6007 - 29.393 ms
+GET /api/orgs/cmvmb8l8r000e12dekghkzyxo/credentials 200 1329 - 235.426 ms
+POST /api/orgs/cmvmb8l8r000e12dekghkzyxo/credentials/cmvmb8lty00i712de17ovr0x4/rotate 409 126 - 206.682 ms
+POST /api/auth/signup 200 570 - 30.471 ms
+POST /api/auth/setup-company 200 198 - 164.577 ms
+PUT /api/orgs/cmvmb8pes01ma12detkk5p3mh/features 200 1174 - 150.661 ms
+GET /api/orgs/cmvmb8pes01ma12detkk5p3mh/credentials 200 318 - 151.245 ms
+POST /api/orgs/cmvmb8pes01ma12detkk5p3mh/credentials/api-keys 409 93 - 139.746 ms
+POST /api/auth/signup 200 570 - 69.389 ms
+POST /api/auth/setup-company 200 198 - 310.644 ms
+PUT /api/orgs/cmvmb8qnp000e459grwl27i6k/features 200 1173 - 208.676 ms
+POST /api/users 201 134 - 132.611 ms
+POST /api/orgs/cmvmb8qnp000e459grwl27i6k/masters 201 189 - 31.822 ms
+POST /api/orgs/cmvmb8qnp000e459grwl27i6k/people/employees 201 1704 - 99.350 ms
+DELETE /api/orgs/cmvmb8qnp000e459grwl27i6k/masters/cmvmb8r5t000tf6j9h1vjcif5 409 102 - 74.605 ms
+POST /api/orgs/cmvmb8qnp000e459grwl27i6k/masters 201 189 - 25.598 ms
+POST /api/orgs/cmvmb8qnp000e459grwl27i6k/users/cmvmb8r3h00i4459gr0xaa3gq/permissions 201 328 - 158.059 ms
+DELETE /api/orgs/cmvmb8qnp000e459grwl27i6k/masters/cmvmb8rbx000uf6j9zuttptdo 200 49 - 31.733 ms
+POST /api/orgs/cmvmb8qnp000e459grwl27i6k/customers 201 1392 - 201.534 ms
+POST /api/orgs/cmvmb8qnp000e459grwl27i6k/users/cmvmb8r3h00i4459gr0xaa3gq/permissions 201 325 - 141.729 ms
+DELETE /api/orgs/cmvmb8qnp000e459grwl27i6k/customers/cmvmb8rn1000vf6j9t4wrbg9w 200 31 - 145.955 ms
+POST /api/orgs/cmvmb8qnp000e459grwl27i6k/warehouses 201 516 - 17.738 ms
+POST /api/orgs/cmvmb8qnp000e459grwl27i6k/users/cmvmb8r3h00i4459gr0xaa3gq/warehouses 200 11 - 39.901 ms
+DELETE /api/orgs/cmvmb8qnp000e459grwl27i6k/warehouses/cmvmb8rvr000wf6j9k489xgwx 200 11 - 44.704 ms
+DELETE /api/orgs/cmvmb8qnp000e459grwl27i6k/attendance/devices/cmvmb8ryd000bk3l86dld3nct 200 11 - 121.816 ms
+GET /api/orgs/cmvmb8qnp000e459grwl27i6k/ledger/accounts 200 2911 - 130.625 ms
+POST /api/orgs/cmvmb8qnp000e459grwl27i6k/ledger/entries 201 1570 - 147.980 ms
+POST /api/orgs/cmvmb8qnp000e459grwl27i6k/ledger/entries/cmvmb8s9t0010f6j9l14azyo8/reverse 409 122 - 126.122 ms
+GET /api/orgs/cmvmb8qnp000e459grwl27i6k/ledger/accounts 200 2911 - 119.727 ms
+POST /api/orgs/cmvmb8qnp000e459grwl27i6k/ledger/entries 201 1632 - 127.351 ms
+POST /api/orgs/cmvmb8qnp000e459grwl27i6k/ledger/entries/cmvmb8skf0016f6j91qydjvsr/reverse 201 1666 - 129.438 ms
+POST /api/orgs/cmvmb8qnp000e459grwl27i6k/users/cmvmb8r3h00i4459gr0xaa3gq/permissions 400 45 - 136.892 ms
+POST /api/orgs/cmvmb8qnp000e459grwl27i6k/users/cmvmb8r3h00i4459gr0xaa3gq/permissions 400 43 - 127.110 ms
+POST /api/orgs/cmvmb8qnp000e459grwl27i6k/users/cmvmb8r3h00i4459gr0xaa3gq/permissions 400 48 - 158.619 ms
+POST /api/auth/signup 200 570 - 15.919 ms
+POST /api/auth/setup-company 200 198 - 219.055 ms
+PUT /api/orgs/cmvmb8t0k00jr459g41eu4z8h/features 200 1173 - 171.975 ms
+POST /api/orgs/cmvmb8t0k00jr459g41eu4z8h/customers 201 1394 - 139.104 ms
+POST /api/orgs/cmvmb8qnp000e459grwl27i6k/users/cmvmb8r3h00i4459gr0xaa3gq/permissions 400 45 - 133.357 ms
+POST /api/orgs/cmvmb8qnp000e459grwl27i6k/payroll/employees 400 69 - 58.319 ms
+POST /api/orgs/cmvmb8qnp000e459grwl27i6k/masters 201 189 - 22.975 ms
+POST /api/orgs/cmvmb8qnp000e459grwl27i6k/payroll/employees 201 688 - 68.009 ms
+POST /api/orgs/cmvmb8qnp000e459grwl27i6k/payroll/components 400 35 - 56.712 ms
+GET /api/orgs/cmvmb8qnp000e459grwl27i6k/ledger/accounts 200 2911 - 126.631 ms
+POST /api/orgs/cmvmb8qnp000e459grwl27i6k/payroll/components 201 871 - 36.291 ms
+POST /api/auth/signup 200 574 - 54.877 ms
+POST /api/auth/setup-company 200 188 - 355.452 ms
+GET /api/orgs/cmvmb8ujn000ehlujsiyj2jc5/permissions/catalog 200 15571 - 156.452 ms
+GET /api/orgs/cmvmb8ujn000ehlujsiyj2jc5/permissions/me 200 20885 - 152.138 ms
+POST /api/orgs/cmvmb8ujn000ehlujsiyj2jc5/roles 201 370 - 21.090 ms
+PUT /api/orgs/cmvmb8ujn000ehlujsiyj2jc5/roles/cmvmb8v1t00i0hlujx0wph45w/permissions 200 23 - 231.859 ms
+GET /api/orgs/cmvmb8ujn000ehlujsiyj2jc5/roles/cmvmb8v1t00i0hlujx0wph45w/permissions 200 221 - 186.097 ms
+POST /api/orgs/cmvmb8ujn000ehlujsiyj2jc5/roles 201 370 - 22.781 ms
+PUT /api/orgs/cmvmb8ujn000ehlujsiyj2jc5/roles/cmvmb8ve600iehlujco2www13/permissions 200 23 - 135.925 ms
+PUT /api/orgs/cmvmb8ujn000ehlujsiyj2jc5/roles/cmvmb8ve600iehlujco2www13/permissions 200 23 - 153.949 ms
+GET /api/orgs/cmvmb8ujn000ehlujsiyj2jc5/roles/cmvmb8ve600iehlujco2www13/permissions 200 164 - 129.539 ms
+POST /api/orgs/cmvmb8ujn000ehlujsiyj2jc5/roles 201 369 - 20.494 ms
+PUT /api/orgs/cmvmb8ujn000ehlujsiyj2jc5/roles/cmvmb8vqm00ithluj88sfz2sj/permissions 400 59 - 145.511 ms
+POST /api/orgs/cmvmb8ujn000ehlujsiyj2jc5/roles 201 370 - 21.177 ms
+POST /api/orgs/cmvmb8ujn000ehlujsiyj2jc5/roles/cmvmb8vvc00iyhluje7g169kz/permissions/preset 200 922 - 133.024 ms
+POST /api/orgs/cmvmb8ujn000ehlujsiyj2jc5/roles 201 360 - 19.672 ms
+PUT /api/orgs/cmvmb8ujn000ehlujsiyj2jc5/roles/cmvmb8vzo00j5hlujes4xfw49/permissions 200 23 - 128.269 ms
+POST /api/users 201 153 - 33.984 ms
+POST /api/orgs/cmvmb8ujn000ehlujsiyj2jc5/users/cmvmb8w3v00jghlujj77vmkgs/roles 201 11 - 35.778 ms
+POST /api/auth/login 200 772 - 7.141 ms
+GET /api/orgs/cmvmb8ujn000ehlujsiyj2jc5/invoices 200 15 - 172.312 ms
+POST /api/orgs/cmvmb8ujn000ehlujsiyj2jc5/invoices 201 634 - 248.433 ms
+DELETE /api/orgs/cmvmb8ujn000ehlujsiyj2jc5/invoices/bb07aa23-de14-4cfb-b92c-84e704a77155 403 102 - 148.192 ms
+GET /api/orgs/cmvmb8ujn000ehlujsiyj2jc5/users 403 100 - 29.228 ms
+POST /api/orgs/cmvmb8ujn000ehlujsiyj2jc5/roles 201 361 - 23.148 ms
+PUT /api/orgs/cmvmb8ujn000ehlujsiyj2jc5/roles/cmvmb8wmw00jzhlujikj39f3w/permissions 200 23 - 149.812 ms
+POST /api/users 201 153 - 37.732 ms
+POST /api/orgs/cmvmb8ujn000ehlujsiyj2jc5/users/cmvmb8wrt00k8hlujlna5t4pc/roles 201 11 - 31.167 ms
+POST /api/auth/login 200 772 - 7.673 ms
+POST /api/orgs/cmvmb8ujn000ehlujsiyj2jc5/invoices 403 102 - 154.266 ms
+PUT /api/orgs/cmvmb8ujn000ehlujsiyj2jc5/roles/cmvmb8wmw00jzhlujikj39f3w/permissions 200 23 - 154.958 ms
+POST /api/orgs/cmvmb8ujn000ehlujsiyj2jc5/invoices 201 633 - 169.692 ms
+POST /api/orgs/cmvmb8ujn000ehlujsiyj2jc5/roles 201 360 - 24.856 ms
+PUT /api/orgs/cmvmb8ujn000ehlujsiyj2jc5/roles/cmvmb8x7f00kwhluj3qhtmzr0/permissions 200 23 - 180.340 ms
+POST /api/users 201 153 - 30.497 ms
+POST /api/orgs/cmvmb8ujn000ehlujsiyj2jc5/users/cmvmb8xd600l5hlujxxngr39h/roles 201 11 - 28.720 ms
+POST /api/auth/login 200 772 - 5.816 ms
+GET /api/orgs/cmvmb8ujn000ehlujsiyj2jc5/permissions/me 200 280 - 157.327 ms
+POST /api/orgs/cmvmb8ujn000ehlujsiyj2jc5/roles 201 362 - 34.750 ms
+PUT /api/orgs/cmvmb8ujn000ehlujsiyj2jc5/roles/cmvmb8xjr00lmhlujc309ay2g/permissions 200 23 - 163.587 ms
+POST /api/users 201 153 - 30.663 ms
+POST /api/orgs/cmvmb8ujn000ehlujsiyj2jc5/users/cmvmb8xp100lvhlujd2all8re/roles 201 11 - 25.717 ms
+POST /api/auth/login 200 772 - 5.351 ms
+PUT /api/orgs/cmvmb8ujn000ehlujsiyj2jc5/roles/cmvmb8xjr00lmhlujc309ay2g/permissions 403 100 - 146.236 ms
+POST /api/auth/signup 200 574 - 57.290 ms
+POST /api/auth/setup-company 200 188 - 309.916 ms
+POST /api/auth/signup 200 575 - 29.792 ms
+POST /api/auth/signup 200 568 - 6.473 ms
+POST /api/auth/verify-email 200 59 - 2.337 ms
+POST /api/auth/verify-email 400 43 - 3.868 ms
+POST /api/auth/verify-email 400 48 - 21.172 ms
+POST /api/auth/signup 200 572 - 13.446 ms
+POST /api/auth/resend-verification 200 74 - 6.662 ms
+POST /api/auth/verify-email 400 43 - 1.767 ms
+POST /api/auth/verify-email 200 61 - 3.085 ms
+PUT /api/orgs/cmvmb8yl2000ehpijg9jtaq40/email/settings 200 235 - 154.014 ms
+PUT /api/orgs/cmvmb8yl2000ehpijg9jtaq40/email/settings 200 209 - 164.471 ms
+PUT /api/orgs/cmvmb8yl2000ehpijg9jtaq40/email/settings 400 57 - 154.772 ms
+GET /api/orgs/cmvmb8yl2000ehpijg9jtaq40/notifications 200 4672 - 174.744 ms
+PUT /api/orgs/cmvmb8yl2000ehpijg9jtaq40/notifications 200 23 - 163.166 ms
+GET /api/orgs/cmvmb8yl2000ehpijg9jtaq40/notifications 200 4673 - 154.327 ms
+PUT /api/orgs/cmvmb8yl2000ehpijg9jtaq40/notifications 400 45 - 144.049 ms
+POST /api/auth/signup 200 574 - 7.132 ms
+POST /api/auth/setup-company 200 188 - 150.672 ms
+PUT /api/orgs/cmvmb8zr100jrhpijqd2cqq4v/notifications 200 23 - 161.752 ms
+POST /api/orgs/cmvmb8zr100jrhpijqd2cqq4v/roles 201 365 - 26.480 ms
+PUT /api/orgs/cmvmb8zr100jrhpijqd2cqq4v/roles/cmvmb900d011ghpijvico9ef8/permissions 200 23 - 178.901 ms
+POST /api/users 201 153 - 40.938 ms
+POST /api/orgs/cmvmb8zr100jrhpijqd2cqq4v/users/cmvmb9068011rhpijeulxvsxp/roles 201 11 - 33.523 ms
+POST /api/orgs/cmvmb8zr100jrhpijqd2cqq4v/roles 201 363 - 23.543 ms
+PUT /api/orgs/cmvmb8zr100jrhpijqd2cqq4v/roles/cmvmb90870126hpij48oqz3xt/permissions 200 23 - 138.882 ms
+POST /api/users 201 151 - 27.172 ms
+POST /api/orgs/cmvmb8zr100jrhpijqd2cqq4v/users/cmvmb90cq012hhpijesxownxv/roles 201 11 - 24.983 ms
+POST /api/orgs/cmvmb8zr100jrhpijqd2cqq4v/approval-rules 201 423 - 131.084 ms
+POST /api/auth/login 200 770 - 6.291 ms
+POST /api/orgs/cmvmb8zr100jrhpijqd2cqq4v/invoices 201 681 - 214.211 ms
+POST /api/auth/signup 200 574 - 14.724 ms
+POST /api/auth/setup-company 200 188 - 173.820 ms
+POST /api/users 201 155 - 55.786 ms
+POST /api/users 201 157 - 97.273 ms
+POST /api/orgs/cmvmb8yl2000ehpijg9jtaq40/email/outbox/retry 200 23 - 201.306 ms
+POST /api/auth/forgot-password 200 134 - 11.091 ms
+GET /api/orgs/cmvmb8yl2000ehpijg9jtaq40/email/outbox 200 328 - 155.634 ms
+POST /api/auth/signup 200 570 - 72.362 ms
+POST /api/auth/setup-company 200 204 - 250.092 ms
+PUT /api/orgs/cmvmb91z5000ew2mrhv2w7szw/features 200 1173 - 202.543 ms
+POST /api/orgs/cmvmb91z5000ew2mrhv2w7szw/people/employees 201 1695 - 220.784 ms
+PUT /api/orgs/cmvmb91z5000ew2mrhv2w7szw/attendance/records 200 751 - 175.464 ms
+POST /api/auth/signup 200 570 - 29.498 ms
+POST /api/auth/setup-company 200 204 - 367.337 ms
+PUT /api/orgs/cmvmb92rq00ilw2mry8c6o0jr/features 200 1173 - 165.237 ms
+POST /api/orgs/cmvmb92rq00ilw2mry8c6o0jr/payroll/employees 201 693 - 144.691 ms
+POST /api/auth/signup 200 570 - 29.806 ms
+POST /api/auth/setup-company 200 204 - 170.812 ms
+PUT /api/orgs/cmvmb93fl010qw2mrkysfqfjh/features 200 1173 - 143.948 ms
+PUT /api/orgs/cmvmb93fl010qw2mrkysfqfjh/attendance/records 404 29 - 91.182 ms
+POST /api/orgs/cmvmb93fl010qw2mrkysfqfjh/attendance/months/2026-09/close 500 744 - 90.711 ms
+stdout | src/__tests__/auditMutations.test.ts > the audit log > leaves out refused requests and does not log an action twice
+prisma:error 
+Invalid `prisma.$executeRaw()` invocation:
+
+
+Too many database connections opened: FATAL: sorry, too many clients already
+Prisma Accelerate has built-in connection pooling to prevent such errors: https://pris.ly/client/error-accelerate
+prisma:error 
+Invalid `peoplePrisma.shiftRotation.findMany()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/services/attendance/schedule.ts:117:32
+
+  114 peoplePrisma.attendanceSettings.findUnique({ where: { orgId } }),
+  115 peoplePrisma.temporarySchedule.findMany({ where: { orgId, ...byEmp } }),
+  116 peoplePrisma.shiftAssignment.findMany({ where: { orgId, ...byEmp } }),
+→ 117 peoplePrisma.shiftRotation.findMany(
+Too many database connections opened: FATAL: sorry, too many clients already
+Prisma Accelerate has built-in connection pooling to prevent such errors: https://pris.ly/client/error-accelerate
+
+stderr | src/__tests__/auditMutations.test.ts > the audit log > leaves out refused requests and does not log an action twice
+API error: PrismaClientKnownRequestError: 
+Invalid `peoplePrisma.shiftRotation.findMany()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/services/attendance/schedule.ts:117:32
+
+  114 peoplePrisma.attendanceSettings.findUnique({ where: { orgId } }),
+  115 peoplePrisma.temporarySchedule.findMany({ where: { orgId, ...byEmp } }),
+  116 peoplePrisma.shiftAssignment.findMany({ where: { orgId, ...byEmp } }),
+→ 117 peoplePrisma.shiftRotation.findMany(
+Too many database connections opened: FATAL: sorry, too many clients already
+Prisma Accelerate has built-in connection pooling to prevent such errors: https://pris.ly/client/error-accelerate
+    at $n.handleRequestError (/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/generated/people/runtime/library.js:121:7315)
+    at $n.handleAndLogRequestError (/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/generated/people/runtime/library.js:121:6623)
+    at $n.request (/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/generated/people/runtime/library.js:121:6307)
+
+stdout | src/__tests__/auditMutations.test.ts > the audit log > leaves out refused requests and does not log an action twice
+prisma:error 
+Invalid `prisma.$executeRaw()` invocation:
+
+
+Too many database connections opened: FATAL: sorry, too many clients already
+Prisma Accelerate has built-in connection pooling to prevent such errors: https://pris.ly/client/error-accelerate
+prisma:error 
+Invalid `peoplePrisma.rotationAssignment.findMany()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/services/attendance/schedule.ts:118:37
+
+  115 peoplePrisma.temporarySchedule.findMany({ where: { orgId, ...byEmp } }),
+  116 peoplePrisma.shiftAssignment.findMany({ where: { orgId, ...byEmp } }),
+  117 peoplePrisma.shiftRotation.findMany({ where: { orgId } }),
+→ 118 peoplePrisma.rotationAssignment.findMany(
+Too many database connections opened: FATAL: sorry, too many clients already
+Prisma Accelerate has built-in connection pooling to prevent such errors: https://pris.ly/client/error-accelerate
+
+stdout | src/__tests__/auditMutations.test.ts > the audit log > leaves out refused requests and does not log an action twice
+prisma:error 
+Invalid `prisma.$executeRaw()` invocation:
+
+
+Too many database connections opened: FATAL: remaining connection slots are reserved for non-replication superuser connections
+Prisma Accelerate has built-in connection pooling to prevent such errors: https://pris.ly/client/error-accelerate
+prisma:error 
+Invalid `peoplePrisma.employee.findMany()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/services/attendance/schedule.ts:119:27
+
+  116 peoplePrisma.shiftAssignment.findMany({ where: { orgId, ...byEmp } }),
+  117 peoplePrisma.shiftRotation.findMany({ where: { orgId } }),
+  118 peoplePrisma.rotationAssignment.findMany({ where: { orgId, ...byEmp } }),
+→ 119 peoplePrisma.employee.findMany(
+Too many database connections opened: FATAL: remaining connection slots are reserved for non-replication superuser connections
+Prisma Accelerate has built-in connection pooling to prevent such errors: https://pris.ly/client/error-accelerate
+
+stdout | src/__tests__/auditMutations.test.ts > the audit log > leaves out refused requests and does not log an action twice
+prisma:error 
+Invalid `prisma.$executeRaw()` invocation:
+
+
+Too many database connections opened: FATAL: sorry, too many clients already
+Prisma Accelerate has built-in connection pooling to prevent such errors: https://pris.ly/client/error-accelerate
+prisma:error 
+Invalid `peoplePrisma.departmentSchedule.findMany()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/services/attendance/schedule.ts:120:37
+
+  117 peoplePrisma.shiftRotation.findMany({ where: { orgId } }),
+  118 peoplePrisma.rotationAssignment.findMany({ where: { orgId, ...byEmp } }),
+  119 peoplePrisma.employee.findMany({ where: { orgId, ...(employeeIds ? { id: { in: employeeIds } } : {}) }, select: { id: true, departmentId: true } }),
+→ 120 peoplePrisma.departmentSchedule.findMany(
+Too many database connections opened: FATAL: sorry, too many clients already
+Prisma Accelerate has built-in connection pooling to prevent such errors: https://pris.ly/client/error-accelerate
+
+stdout | src/__tests__/auditMutations.test.ts > the audit log > leaves out refused requests and does not log an action twice
+prisma:error 
+Invalid `prisma.$executeRaw()` invocation:
+
+
+Too many database connections opened: FATAL: sorry, too many clients already
+Prisma Accelerate has built-in connection pooling to prevent such errors: https://pris.ly/client/error-accelerate
+prisma:error 
+Invalid `peoplePrisma.employee.findMany()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/services/attendance/days.ts:271:27
+
+  268 export async function periodContext(accountId: string, orgId: string, from: string, to: string) {
+  269   const days = daysBetween(from, to);
+  270   const [people, records, holidayData, schedule] = await Promise.all([
+→ 271     peoplePrisma.employee.findMany(
+Too many database connections opened: FATAL: sorry, too many clients already
+Prisma Accelerate has built-in connection pooling to prevent such errors: https://pris.ly/client/error-accelerate
+
+stdout | src/__tests__/auditMutations.test.ts > the audit log > leaves out refused requests and does not log an action twice
+prisma:error 
+Invalid `prisma.$executeRaw()` invocation:
+
+
+Too many database connections opened: FATAL: sorry, too many clients already
+Prisma Accelerate has built-in connection pooling to prevent such errors: https://pris.ly/client/error-accelerate
+prisma:error 
+Invalid `peoplePrisma.attendanceRecord.findMany()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/services/attendance/days.ts:287:35
+
+  284   select: { id: true, name: true, code: true, department: true, departmentId: true, areaId: true, branchId: true, contractorId: true, guardianName: true, dateOfJoining: true, dateOfLeaving: true, status: true },
+  285   orderBy: { name: 'asc' },
+  286 }),
+→ 287 peoplePrisma.attendanceRecord.findMany(
+Too many database connections opened: FATAL: sorry, too many clients already
+Prisma Accelerate has built-in connection pooling to prevent such errors: https://pris.ly/client/error-accelerate
+
+stdout | src/__tests__/auditMutations.test.ts > the audit log > leaves out refused requests and does not log an action twice
+prisma:error 
+Invalid `prisma.$executeRaw()` invocation:
+
+
+Too many database connections opened: FATAL: sorry, too many clients already
+Prisma Accelerate has built-in connection pooling to prevent such errors: https://pris.ly/client/error-accelerate
+prisma:error 
+Invalid `peoplePrisma.attendanceRequest.findMany()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/services/attendance/readiness.ts:55:36
+
+  52 const fromAt = istInstant(from, '00:00');
+  53 const toAt = istInstant(to, '00:00', 1);
+  54 const [corrections, leave, unmatched, alerts, temporaries] = await Promise.all([
+→ 55   peoplePrisma.attendanceRequest.findMany(
+Too many database connections opened: FATAL: sorry, too many clients already
+Prisma Accelerate has built-in connection pooling to prevent such errors: https://pris.ly/client/error-accelerate
+
+stdout | src/__tests__/auditMutations.test.ts > the audit log > leaves out refused requests and does not log an action twice
+prisma:error 
+Invalid `prisma.$executeRaw()` invocation:
+
+
+Too many database connections opened: FATAL: remaining connection slots are reserved for non-replication superuser connections
+Prisma Accelerate has built-in connection pooling to prevent such errors: https://pris.ly/client/error-accelerate
+prisma:error 
+Invalid `peoplePrisma.leaveRequest.findMany()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/services/attendance/readiness.ts:56:31
+
+  53 const toAt = istInstant(to, '00:00', 1);
+  54 const [corrections, leave, unmatched, alerts, temporaries] = await Promise.all([
+  55   peoplePrisma.attendanceRequest.findMany({ where: { orgId, status: 'PENDING', date: { gte: from, lte: to } }, orderBy: { date: 'asc' } }),
+→ 56   peoplePrisma.leaveRequest.findMany(
+Too many database connections opened: FATAL: remaining connection slots are reserved for non-replication superuser connections
+Prisma Accelerate has built-in connection pooling to prevent such errors: https://pris.ly/client/error-accelerate
+
+stdout | src/__tests__/auditMutations.test.ts > the audit log > leaves out refused requests and does not log an action twice
+prisma:error 
+Invalid `prisma.$executeRaw()` invocation:
+
+
+Too many database connections opened: FATAL: remaining connection slots are reserved for non-replication superuser connections
+Prisma Accelerate has built-in connection pooling to prevent such errors: https://pris.ly/client/error-accelerate
+prisma:error 
+Invalid `peoplePrisma.devicePunch.groupBy()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/services/attendance/readiness.ts:57:30
+
+  54 const [corrections, leave, unmatched, alerts, temporaries] = await Promise.all([
+  55   peoplePrisma.attendanceRequest.findMany({ where: { orgId, status: 'PENDING', date: { gte: from, lte: to } }, orderBy: { date: 'asc' } }),
+  56   peoplePrisma.leaveRequest.findMany({ where: { orgId, status: 'PENDING', fromDate: { lte: to }, toDate: { gte: from } }, orderBy: { fromDate: 'asc' } }),
+→ 57   peoplePrisma.devicePunch.groupBy(
+Too many database connections opened: FATAL: remaining connection slots are reserved for non-replication superuser connections
+Prisma Accelerate has built-in connection pooling to prevent such errors: https://pris.ly/client/error-accelerate
+
+stdout | src/__tests__/auditMutations.test.ts > the audit log > leaves out refused requests and does not log an action twice
+prisma:error 
+Invalid `prisma.$executeRaw()` invocation:
+
+
+Too many database connections opened: FATAL: sorry, too many clients already
+Prisma Accelerate has built-in connection pooling to prevent such errors: https://pris.ly/client/error-accelerate
+prisma:error 
+Invalid `peoplePrisma.readerAlert.findMany()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/services/attendance/readiness.ts:58:30
+
+  55 peoplePrisma.attendanceRequest.findMany({ where: { orgId, status: 'PENDING', date: { gte: from, lte: to } }, orderBy: { date: 'asc' } }),
+  56 peoplePrisma.leaveRequest.findMany({ where: { orgId, status: 'PENDING', fromDate: { lte: to }, toDate: { gte: from } }, orderBy: { fromDate: 'asc' } }),
+  57 peoplePrisma.devicePunch.groupBy({ by: ['pin'], where: { orgId, employeeId: null, at: { gte: fromAt, lt: toAt } }, _count: { _all: true }, _min: { at: true }, _max: { at: true } }),
+→ 58 peoplePrisma.readerAlert.findMany(
+Too many database connections opened: FATAL: sorry, too many clients already
+Prisma Accelerate has built-in connection pooling to prevent such errors: https://pris.ly/client/error-accelerate
+
+stdout | src/__tests__/auditMutations.test.ts > the audit log > leaves out refused requests and does not log an action twice
+prisma:error 
+Invalid `prisma.$executeRaw()` invocation:
+
+
+Too many database connections opened: FATAL: sorry, too many clients already
+Prisma Accelerate has built-in connection pooling to prevent such errors: https://pris.ly/client/error-accelerate
+prisma:error 
+Invalid `peoplePrisma.temporarySchedule.findMany()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/services/attendance/readiness.ts:59:36
+
+  56 peoplePrisma.leaveRequest.findMany({ where: { orgId, status: 'PENDING', fromDate: { lte: to }, toDate: { gte: from } }, orderBy: { fromDate: 'asc' } }),
+  57 peoplePrisma.devicePunch.groupBy({ by: ['pin'], where: { orgId, employeeId: null, at: { gte: fromAt, lt: toAt } }, _count: { _all: true }, _min: { at: true }, _max: { at: true } }),
+  58 peoplePrisma.readerAlert.findMany({ where: { orgId, resolvedAt: null }, orderBy: { openedAt: 'desc' } }),
+→ 59 peoplePrisma.temporarySchedule.findMany(
+Too many database connections opened: FATAL: sorry, too many clients already
+Prisma Accelerate has built-in connection pooling to prevent such errors: https://pris.ly/client/error-accelerate
+
+stdout | src/__tests__/auditMutations.test.ts > the audit log > leaves out refused requests and does not log an action twice
+prisma:error 
+Invalid `prisma.$executeRaw()` invocation:
+
+
+Too many database connections opened: FATAL: sorry, too many clients already
+Prisma Accelerate has built-in connection pooling to prevent such errors: https://pris.ly/client/error-accelerate
+prisma:error 
+Invalid `peoplePrisma.attendanceMonthLock.findUnique()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/services/attendance/readiness.ts:81:38
+
+  78 const [{ people }, queues, lock, snapshots] = await Promise.all([
+  79   scanDays(accountId, orgId, from, to),
+  80   scanQueues(orgId, from, to),
+→ 81   peoplePrisma.attendanceMonthLock.findUnique(
+Too many database connections opened: FATAL: sorry, too many clients already
+Prisma Accelerate has built-in connection pooling to prevent such errors: https://pris.ly/client/error-accelerate
+
+stdout | src/__tests__/auditMutations.test.ts > the audit log > leaves out refused requests and does not log an action twice
+prisma:error 
+Invalid `prisma.$executeRaw()` invocation:
+
+
+Too many database connections opened: FATAL: sorry, too many clients already
+Prisma Accelerate has built-in connection pooling to prevent such errors: https://pris.ly/client/error-accelerate
+prisma:error 
+Invalid `peoplePrisma.attendanceMonthSnapshot.findMany()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/services/attendance/readiness.ts:82:42
+
+  79 scanDays(accountId, orgId, from, to),
+  80 scanQueues(orgId, from, to),
+  81 peoplePrisma.attendanceMonthLock.findUnique({ where: { orgId_month: { orgId, month } } }),
+→ 82 peoplePrisma.attendanceMonthSnapshot.findMany(
+Too many database connections opened: FATAL: sorry, too many clients already
+Prisma Accelerate has built-in connection pooling to prevent such errors: https://pris.ly/client/error-accelerate
+
+ ❯ src/__tests__/auditMutations.test.ts (3 tests | 1 failed) 2535ms
+     × leaves out refused requests and does not log an action twice 543ms
+POST /api/auth/signup 200 576 - 45.325 ms
+POST /api/auth/setup-company 200 198 - 290.742 ms
+POST /api/orgs/cmvmb94jm000e10lsz80apqoh/branches 201 555 - 40.759 ms
+POST /api/orgs/cmvmb94jm000e10lsz80apqoh/roles 201 358 - 64.021 ms
+PUT /api/orgs/cmvmb94jm000e10lsz80apqoh/roles/cmvmb94ty00i710ls406y9w1w/permissions 200 23 - 150.370 ms
+POST /api/users 201 149 - 49.402 ms
+POST /api/orgs/cmvmb94jm000e10lsz80apqoh/users/cmvmb94z300io10ls5vzmoh5q/roles 201 11 - 36.230 ms
+POST /api/auth/login 200 773 - 6.152 ms
+POST /api/users 201 149 - 48.764 ms
+POST /api/auth/login 200 773 - 7.917 ms
+POST /api/orgs/cmvmb94jm000e10lsz80apqoh/customers 201 1394 - 170.070 ms
+POST /api/orgs/cmvmb94jm000e10lsz80apqoh/users/cmvmb94z300io10ls5vzmoh5q/permissions 201 323 - 136.547 ms
+DELETE /api/orgs/cmvmb94jm000e10lsz80apqoh/users/cmvmb94z300io10ls5vzmoh5q/permissions/cmvmb95b400jk10lsla2ugrw8 403 93 - 149.228 ms
+POST /api/orgs/cmvmb94jm000e10lsz80apqoh/customers 201 1394 - 136.339 ms
+POST /api/orgs/cmvmb94jm000e10lsz80apqoh/users/cmvmb94z300io10ls5vzmoh5q/permissions 403 93 - 132.951 ms
+POST /api/orgs/cmvmb94jm000e10lsz80apqoh/users/cmvmb94i5000810lsjtouaego/permissions 403 94 - 160.538 ms
+POST /api/orgs/cmvmb94jm000e10lsz80apqoh/users/cmvmb951j00j610lsko3apvec/permissions 201 323 - 129.769 ms
+DELETE /api/orgs/cmvmb94jm000e10lsz80apqoh/users/cmvmb951j00j610lsko3apvec/permissions/cmvmb95v100jp10lsyn4ub3fx 200 11 - 126.532 ms
+POST /api/orgs/cmvmb94jm000e10lsz80apqoh/roles 201 358 - 20.524 ms
+PUT /api/orgs/cmvmb94jm000e10lsz80apqoh/roles/cmvmb95z600jw10lsnffmx67x/permissions 200 23 - 157.832 ms
+PATCH /api/orgs/cmvmb94jm000e10lsz80apqoh/roles/cmvmb95z600jw10lsnffmx67x 200 1978 - 19.780 ms
+POST /api/users 201 149 - 27.774 ms
+POST /api/orgs/cmvmb94jm000e10lsz80apqoh/users/cmvmb964t00kg10lsi0va4lqo/roles 201 11 - 25.525 ms
+POST /api/auth/login 200 773 - 5.047 ms
+PATCH /api/orgs/cmvmb94jm000e10lsz80apqoh/roles/cmvmb95z600jw10lsnffmx67x 403 93 - 16.170 ms
+POST /api/orgs/cmvmb94jm000e10lsz80apqoh/roles 201 358 - 18.174 ms
+PUT /api/orgs/cmvmb94jm000e10lsz80apqoh/roles/cmvmb966v00kz10lsuh6w4z2w/permissions 200 23 - 135.539 ms
+PATCH /api/orgs/cmvmb94jm000e10lsz80apqoh/roles/cmvmb966v00kz10lsuh6w4z2w 200 682 - 17.262 ms
+POST /api/auth/signup 200 582 - 50.930 ms
+POST /api/auth/signup 200 578 - 57.158 ms
+POST /api/auth/setup-company 200 204 - 280.875 ms
+POST /api/auth/setup-company 200 208 - 283.204 ms
+POST /api/users 201 151 - 98.202 ms
+POST /api/orgs/cmvmb9777000t13i2cc7o8jb4/users/cmvmb975q000i13i2hxsrkspt/roles 201 11 - 35.541 ms
+POST /api/auth/login 200 938 - 11.272 ms
+POST /api/orgs/cmvmb9777000t13i2cc7o8jb4/users/cmvmb975q000i13i2hxsrkspt/roles 201 11 - 32.988 ms
+POST /api/auth/login 200 938 - 8.454 ms
+GET /api/auth/me 200 1212 - 6.928 ms
+POST /api/orgs/cmvmb9777000t13i2cc7o8jb4/users/cmvmb975q000i13i2hxsrkspt/roles 201 11 - 32.643 ms
+POST /api/auth/login 200 938 - 6.487 ms
+GET /api/auth/me 200 1212 - 6.660 ms
+GET /api/auth/me 200 1212 - 5.417 ms
+POST /api/orgs/cmvmb9777000t13i2cc7o8jb4/users/cmvmb975q000i13i2hxsrkspt/roles 201 11 - 36.132 ms
+POST /api/auth/login 200 938 - 9.186 ms
+GET /api/auth/me 200 1212 - 8.001 ms
+POST /api/auth/signup 200 586 - 33.666 ms
+POST /api/auth/setup-company 200 211 - 177.309 ms
+POST /api/auth/login 200 798 - 10.311 ms
+POST /api/orgs/cmvmb9777000t13i2cc7o8jb4/users/cmvmb975q000i13i2hxsrkspt/roles 201 11 - 44.949 ms
+POST /api/auth/login 200 938 - 8.884 ms
+GET /api/orgs/cmvmb9777000r13i2evaykg62/invoices 200 15 - 143.734 ms
+GET /api/orgs/cmvmb9777000t13i2cc7o8jb4/invoices 200 15 - 145.236 ms
+POST /api/orgs/cmvmb9777000t13i2cc7o8jb4/users/cmvmb975q000i13i2hxsrkspt/roles 201 11 - 28.045 ms
+POST /api/auth/login 200 938 - 6.190 ms
+POST /api/orgs/cmvmb9777000t13i2cc7o8jb4/invoices 201 706 - 244.051 ms
+POST /api/users 409 59 - 38.932 ms
+POST /api/auth/signup 200 586 - 6.110 ms
+POST /api/auth/setup-company 200 211 - 139.714 ms
+POST /api/users 201 155 - 37.448 ms
+POST /api/users 409 59 - 22.763 ms
+POST /api/auth/login 200 938 - 8.117 ms
+POST /api/auth/signup 200 586 - 6.346 ms
+POST /api/auth/setup-company 200 211 - 151.933 ms
+POST /api/users 409 196 - 42.360 ms
+POST /api/auth/signup 200 570 - 46.726 ms
+POST /api/auth/setup-company 200 198 - 275.108 ms
+POST /api/orgs/cmvmb99fu000e12ivufmxds30/attendance/integrations/keys 201 559 - 134.561 ms
+POST /api/orgs/cmvmb99fu000e12ivufmxds30/attendance/integrations/keys 201 559 - 141.506 ms
+POST /api/orgs/cmvmb99fu000e12ivufmxds30/attendance/integrations/keys 201 559 - 83.239 ms
+POST /api/orgs/cmvmb99fu000e12ivufmxds30/attendance/integrations/keys/cmvmb99yt0002nbw85eka9g6m/revoke 200 444 - 95.653 ms
+POST /api/orgs/cmvmb99fu000e12ivufmxds30/attendance/integrations/keys 201 559 - 83.303 ms
+POST /api/auth/signup 200 570 - 24.856 ms
+POST /api/auth/setup-company 200 198 - 212.761 ms
+POST /api/orgs/cmvmb9a5000j212ivd3i7pejt/roles 201 1394 - 26.043 ms
+POST /api/users 201 137 - 34.517 ms
+POST /api/orgs/cmvmb9a5000j212ivd3i7pejt/users/cmvmb9acc010y12iv0ltdfrtv/roles 201 11 - 28.810 ms
+POST /api/auth/login 200 761 - 6.257 ms
+POST /api/orgs/cmvmb9a5000j212ivd3i7pejt/attendance/integrations/keys 201 559 - 78.301 ms
+POST /api/orgs/cmvmb9a5000j212ivd3i7pejt/attendance/integrations/keys 201 559 - 76.038 ms
+DELETE /api/orgs/cmvmb9a5000j212ivd3i7pejt/users/cmvmb9acc010y12iv0ltdfrtv 200 11 - 42.469 ms
+POST /api/auth/signup 200 570 - 6.742 ms
+POST /api/auth/setup-company 200 198 - 248.471 ms
+POST /api/orgs/cmvmb9ak1012412ivuz4s9vxi/attendance/integrations/keys 201 559 - 76.957 ms
+POST /api/orgs/cmvmb9ak1012412ivuz4s9vxi/attendance/integrations/keys 201 559 - 88.522 ms
+POST /api/auth/signup 200 577 - 70.838 ms
+POST /api/auth/setup-company 200 202 - 312.005 ms
+POST /api/auth/setup-company 200 204 - 232.116 ms
+POST /api/orgs/cmvmb9bns000eetlou75uzzve/invoices 201 724 - 244.243 ms
+GET /api/account/overview 200 925 - 178.863 ms
+POST /api/orgs/cmvmb9bwi00hzetlor12wyecg/invoices 201 713 - 236.915 ms
+GET /api/account/overview 200 931 - 146.033 ms
+GET /api/account/overview 200 931 - 109.050 ms
+GET /api/account/overview 200 931 - 142.638 ms
+POST /api/auth/signup 200 585 - 29.109 ms
+POST /api/auth/setup-company 200 210 - 243.724 ms
+POST /api/orgs/cmvmb9cwg0101etlojsu8mr3s/invoices 201 721 - 174.565 ms
+GET /api/account/overview 200 931 - 113.956 ms
+POST /api/auth/signup 200 580 - 65.720 ms
+POST /api/auth/signup 200 584 - 63.409 ms
+POST /api/auth/setup-company 200 206 - 338.478 ms
+POST /api/auth/setup-company 200 210 - 338.321 ms
+POST /api/orgs/cmvmb9e04000rtmowrmcqluv7/invoices 201 710 - 276.096 ms
+POST /api/orgs/cmvmb9e04000ttmow1gy09a6k/invoices 201 712 - 277.574 ms
+POST /api/orgs/cmvmb9e04000ttmow1gy09a6k/parties 404 21 - 201.544 ms
+POST /api/orgs/cmvmb9e04000rtmowrmcqluv7/parties 404 21 - 227.840 ms
+GET /api/orgs/cmvmb9e04000rtmowrmcqluv7/invoices 403 28 - 3.219 ms
+GET /api/orgs/cmvmb9e04000rtmowrmcqluv7/invoices 403 28 - 17.797 ms
+GET /api/orgs/cmvmb9e04000rtmowrmcqluv7/invoices 403 28 - 3.286 ms
+GET /api/orgs/cmvmb9e04000ttmow1gy09a6k/invoices/878df3a5-a92b-411a-9c7c-a63470e4dc72 404 21 - 235.589 ms
+PATCH /api/orgs/cmvmb9e04000ttmow1gy09a6k/invoices/878df3a5-a92b-411a-9c7c-a63470e4dc72 404 29 - 156.338 ms
+PATCH /api/orgs/cmvmb9e04000ttmow1gy09a6k/invoices/878df3a5-a92b-411a-9c7c-a63470e4dc72/status 404 29 - 145.329 ms
+DELETE /api/orgs/cmvmb9e04000ttmow1gy09a6k/invoices/878df3a5-a92b-411a-9c7c-a63470e4dc72 404 29 - 137.945 ms
+PATCH /api/orgs/cmvmb9e04000ttmow1gy09a6k/warehouses/cmvmb9e1h0001uj3zdaezf7pw 404 31 - 24.805 ms
+DELETE /api/orgs/cmvmb9e04000ttmow1gy09a6k/warehouses/cmvmb9e1h0001uj3zdaezf7pw 404 31 - 9.733 ms
+PATCH /api/orgs/cmvmb9e04000ttmow1gy09a6k/branches/cmvmb9e0m000vtmowa2hy1uez 404 28 - 12.434 ms
+DELETE /api/orgs/cmvmb9e04000ttmow1gy09a6k/branches/cmvmb9e0m000vtmowa2hy1uez 404 28 - 15.505 ms
+PATCH /api/orgs/cmvmb9e04000ttmow1gy09a6k/roles/cmvmb9e1t001jtmow4lxts99s 404 26 - 37.893 ms
+GET /api/orgs/cmvmb9e04000ttmow1gy09a6k/invoices 200 695 - 161.642 ms
+POST /api/auth/signup 200 573 - 49.743 ms
+POST /api/auth/setup-company 200 204 - 331.337 ms
+GET /api/orgs/cmvmb9g5q000eckb9lqbwpham/roles 200 492977 - 313.968 ms
+GET /api/orgs/cmvmb9g5q000eckb9lqbwpham/roles 200 492977 - 32.630 ms
+GET /api/orgs/cmvmb9g5q000eckb9lqbwpham/roles 200 492977 - 29.947 ms
+GET /api/orgs/cmvmb9g5q000eckb9lqbwpham/roles 200 492977 - 30.433 ms
+GET /api/orgs/cmvmb9g5q000eckb9lqbwpham/roles/cmvmb9glx0277ckb9j2jy4sjv/permissions 200 2524 - 143.849 ms
+PUT /api/orgs/cmvmb9g5q000eckb9lqbwpham/roles/cmvmb9glx0277ckb9j2jy4sjv/permissions 200 24 - 146.530 ms
+GET /api/orgs/cmvmb9g5q000eckb9lqbwpham/roles 200 490677 - 29.607 ms
+GET /api/orgs/cmvmb9g5q000eckb9lqbwpham/roles/cmvmb9glx0277ckb9j2jy4sjv/permissions 200 2324 - 128.593 ms
+GET /api/orgs/cmvmb9g5q000eckb9lqbwpham/roles 200 490677 - 29.856 ms
+POST /api/users 201 158 - 67.913 ms
+POST /api/orgs/cmvmb9g5q000eckb9lqbwpham/users/cmvmb9h4402bmckb90u13nq26/roles 201 11 - 81.858 ms
+POST /api/auth/login 200 785 - 7.397 ms
+POST /api/orgs/cmvmb9g5q000eckb9lqbwpham/invoices 201 709 - 241.549 ms
+GET /api/orgs/cmvmb9g5q000eckb9lqbwpham/roles 403 100 - 15.487 ms
+POST /api/orgs/cmvmb9g5q000eckb9lqbwpham/roles 201 1016 - 22.216 ms
+POST /api/auth/signup 200 572 - 70.270 ms
+POST /api/auth/setup-company 200 172 - 371.756 ms
+POST /api/auth/signup 200 572 - 27.576 ms
+POST /api/auth/setup-company 200 172 - 232.129 ms
+GET /api/orgs/cmvmb9ibg000ess2tgpwa8c9t/warehouses 200 517 - 22.308 ms
+POST /api/auth/signup 200 572 - 67.835 ms
+POST /api/auth/setup-company 200 172 - 295.311 ms
+POST /api/auth/signup 200 572 - 30.110 ms
+POST /api/auth/setup-company 200 172 - 278.995 ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/__tests__/auditMutations.test.ts > the audit log > leaves out refused requests and does not log an action twice
+Error: expected 200 "OK", got 500 "Internal Server Error"
+ ❯ src/__tests__/auditMutations.test.ts:71:96
+     69|     const c = await makeOwner();
+     70|     await request(app).put(`/api/orgs/${c.orgId}/attendance/records`).…
+     71|     await request(app).post(`/api/orgs/${c.orgId}/attendance/months/20…
+       |                                                                                                ^
+     72|     const all = await entries(c.orgId);
+     73|     expect(all.filter((e) => e.entity === 'ATTENDANCE_RECORD')).toHave…
+ ❯ Test._assertStatus ../../../../server/node_modules/supertest/lib/test.js:309:14
+ ❯ ../../../../server/node_modules/supertest/lib/test.js:365:13
+ ❯ Test._assertFunction ../../../../server/node_modules/supertest/lib/test.js:342:13
+ ❯ Test.assert ../../../../server/node_modules/supertest/lib/test.js:195:23
+ ❯ localAssert ../../../../server/node_modules/supertest/lib/test.js:138:14
+ ❯ ../../../../server/node_modules/supertest/lib/test.js:156:7
+ ❯ fn ../../../../server/node_modules/superagent/src/node/index.js:904:2
+ ❯ callback ../../../../server/node_modules/superagent/src/node/index.js:1183:17
+ ❯ fn ../../../../server/node_modules/superagent/src/node/parsers/json.js:19:6
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯
+
+ FAIL  src/__tests__/companyClosure.test.ts > closing a company > needs a fresh full export, the name typed, and the owner
+Error: expected 200 "OK", got 500 "Internal Server Error"
+ ❯ src/__tests__/companyClosure.test.ts:94:80
+     92|     expect(noExport.body.code).toBe('EXPORT_FIRST');
+     93|
+     94|     await request(app).get(`/api/orgs/${c.orgId}/export?scope=all`).se…
+       |                                                                                ^
+     95|     expect((await closure(c).get().expect(200)).body.lastFullExportAt)…
+     96|
+ ❯ Test._assertStatus ../../../../server/node_modules/supertest/lib/test.js:309:14
+ ❯ ../../../../server/node_modules/supertest/lib/test.js:365:13
+ ❯ Test._assertFunction ../../../../server/node_modules/supertest/lib/test.js:342:13
+ ❯ Test.assert ../../../../server/node_modules/supertest/lib/test.js:195:23
+ ❯ localAssert ../../../../server/node_modules/supertest/lib/test.js:138:14
+ ❯ ../../../../server/node_modules/supertest/lib/test.js:156:7
+ ❯ fn ../../../../server/node_modules/superagent/src/node/index.js:904:2
+ ❯ callback ../../../../server/node_modules/superagent/src/node/index.js:1183:17
+ ❯ fn ../../../../server/node_modules/superagent/src/node/parsers/json.js:19:6
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/4]⎯
+
+ FAIL  src/__tests__/companyClosure.test.ts > closing a company > A-21: is refused to the creator once they are no longer an administrator
+Error: expected 200 "OK", got 500 "Internal Server Error"
+ ❯ exported src/__tests__/companyClosure.test.ts:106:80
+    104|   /* A-21: decided by being an administrator of the whole company, not…
+    105|   const exported = async (c: Ctx) => {
+    106|     await request(app).get(`/api/orgs/${c.orgId}/export?scope=all`).se…
+       |                                                                                ^
+    107|     return c;
+    108|   };
+ ❯ src/__tests__/companyClosure.test.ts:116:21
+ ❯ Test._assertStatus ../../../../server/node_modules/supertest/lib/test.js:309:14
+ ❯ ../../../../server/node_modules/supertest/lib/test.js:365:13
+ ❯ Test._assertFunction ../../../../server/node_modules/supertest/lib/test.js:342:13
+ ❯ Test.assert ../../../../server/node_modules/supertest/lib/test.js:195:23
+ ❯ localAssert ../../../../server/node_modules/supertest/lib/test.js:138:14
+ ❯ ../../../../server/node_modules/supertest/lib/test.js:156:7
+ ❯ fn ../../../../server/node_modules/superagent/src/node/index.js:904:2
+ ❯ callback ../../../../server/node_modules/superagent/src/node/index.js:1183:17
+ ❯ fn ../../../../server/node_modules/superagent/src/node/parsers/json.js:19:6
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/4]⎯
+
+ FAIL  src/__tests__/companyClosure.test.ts > closing a company > A-21: is open to the administrator running the company, though they did not create it
+Error: expected 200 "OK", got 500 "Internal Server Error"
+ ❯ exported src/__tests__/companyClosure.test.ts:106:80
+    104|   /* A-21: decided by being an administrator of the whole company, not…
+    105|   const exported = async (c: Ctx) => {
+    106|     await request(app).get(`/api/orgs/${c.orgId}/export?scope=all`).se…
+       |                                                                                ^
+    107|     return c;
+    108|   };
+ ❯ src/__tests__/companyClosure.test.ts:124:21
+ ❯ Test._assertStatus ../../../../server/node_modules/supertest/lib/test.js:309:14
+ ❯ ../../../../server/node_modules/supertest/lib/test.js:365:13
+ ❯ Test._assertFunction ../../../../server/node_modules/supertest/lib/test.js:342:13
+ ❯ Test.assert ../../../../server/node_modules/supertest/lib/test.js:195:23
+ ❯ localAssert ../../../../server/node_modules/supertest/lib/test.js:138:14
+ ❯ ../../../../server/node_modules/supertest/lib/test.js:156:7
+ ❯ fn ../../../../server/node_modules/superagent/src/node/index.js:904:2
+ ❯ callback ../../../../server/node_modules/superagent/src/node/index.js:1183:17
+ ❯ fn ../../../../server/node_modules/superagent/src/node/parsers/json.js:19:6
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/4]⎯
+
+
+ Test Files  2 failed | 17 passed (19)
+      Tests  4 failed | 184 passed (188)
+   Start at  16:51:58
+   Duration  122.08s (transform 2.69s, setup 222ms, import 18.24s, tests 92.75s, environment 1ms)
+

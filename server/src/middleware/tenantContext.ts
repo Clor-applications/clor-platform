@@ -5,6 +5,7 @@ import { cachedAccess } from '../utils/accessCache.js';
 import { outsideTenant, runInTenant } from '../utils/tenantScope.js';
 import { TWO_FACTOR_SETUP_PATHS, adminTwoFactorMissing } from '../services/twoFactorPolicy.js';
 import { userIsAdmin } from '../services/roleGuards.js';
+import { outsideAccessFor } from '../services/outsideAccess.js';
 
 export type TenantContext = {
   accountId: string;
@@ -16,6 +17,8 @@ export type TenantContext = {
   /** What the client asked for, permitted or not. */
   requestedWarehouseId?: string;
   allowedWarehouseIds?: string[];
+  /** GAP-006: for a person from another account, the apps the company let them use here (null = all it has). */
+  outsideApps?: string[] | null;
 };
 
 declare module 'express-serve-static-core' {
@@ -66,7 +69,7 @@ export async function requireTenantContext(req: Request, res: Response, next: Ne
     () => outsideTenant('tenant context: membership of the company asked for', () => resolveTenant(userId, orgId, branchId, warehouseId)),
     (r) => 'tenant' in r // cache grants only; a denial is re-checked every time
   );
-  if (!('tenant' in result)) return res.status(result.status).json({ error: result.error });
+  if (!('tenant' in result)) return res.status(result.status).json({ error: result.error, ...(result.code ? { code: result.code } : {}) });
   req.tenant = { ...result.tenant }; // the cached object is shared between requests
 
   /*
@@ -83,7 +86,7 @@ export async function requireTenantContext(req: Request, res: Response, next: Ne
   runInTenant(req.tenant.orgId, () => next());
 }
 
-type TenantResult = { tenant: TenantContext } | { status: number; error: string };
+type TenantResult = { tenant: TenantContext } | { status: number; error: string; code?: string };
 
 /**
  * The membership checks behind requireTenantContext, as a pure lookup so the
@@ -106,6 +109,15 @@ async function resolveTenant(userId: string, orgId: string, branchId: string, wa
    */
   const owner = await platformPrisma.org.findUnique({ where: { id: orgId }, select: { accountId: true } });
   if (!owner || owner.accountId !== accountId) return { status: 403, error: 'No access to org' };
+
+  /*
+   * GAP-006: somebody from another account (an accountant, an auditor) is let
+   * in by the company's own engagement — live, not paused, not past its end —
+   * or not at all. Their membership alone opens nothing.
+   */
+  const outside = await outsideAccessFor(userId, orgId, accountId);
+  if (!outside.own && 'refused' in outside && outside.refused) return { status: 403, error: outside.refused.error, code: outside.refused.code };
+  const outsideApps = !outside.own && 'apps' in outside ? outside.apps ?? null : undefined;
 
   let branchMember = await platformPrisma.userBranchMembership.findFirst({
     where: { accountId, orgId, branchId, userId },
@@ -193,6 +205,7 @@ async function resolveTenant(userId: string, orgId: string, branchId: string, wa
     warehouseId: resolvedWarehouseId,
     requestedWarehouseId: warehouseId || undefined,
     allowedWarehouseIds: allowedWarehouseIds.length ? allowedWarehouseIds : undefined,
+    ...(outsideApps !== undefined ? { outsideApps } : {}),
   };
   return { tenant };
 

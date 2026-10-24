@@ -21,6 +21,7 @@ import { partiesRouter } from './routes/parties.js';
 import { emailRouter } from './routes/email.js';
 import { securityRouter } from './routes/security.js';
 import { credentialsRouter } from './routes/credentials.js';
+import { outsideAccessRouter } from './routes/outsideAccess.js';
 import { itemsRouter } from './routes/items.js';
 import { purchaseDocsRouter } from './routes/purchaseDocs.js';
 import { quoteDocsRouter } from './routes/quoteDocs.js';
@@ -420,6 +421,7 @@ export function buildApp() {
   app.use('/api', securityRouter);
   /* Batch 5: Company admin → Credentials. */
   app.use('/api', credentialsRouter);
+  app.use('/api', outsideAccessRouter);
   app.use('/api', notificationsRouter);
   app.use('/api', payRequestsRouter);
   app.use('/api', itemsRouter);

@@ -1,0 +1,10 @@
+
+ RUN  v2.1.9 /Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad
+
+ ✓ apps/admin/src/screens/OutsideAccess.test.jsx (5 tests) 172ms
+
+ Test Files  1 passed (1)
+      Tests  5 passed (5)
+   Start at  16:56:13
+   Duration  1.81s (transform 115ms, setup 124ms, collect 506ms, tests 172ms, environment 668ms, prepare 221ms)
+

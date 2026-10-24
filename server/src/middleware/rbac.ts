@@ -101,6 +101,11 @@ export async function authorize(
         body: { error: `The ${apps[0]} app is not on this account's subscription.`, app: apps[0], code: 'APP_NOT_SUBSCRIBED' },
       };
     }
+    /* GAP-006: and, for a person from another account, an app the company let them use. */
+    const ceiling = req.tenant?.outsideApps;
+    if (ceiling && !apps.some((a) => ceiling.includes(a))) {
+      return { status: 403, body: { error: `This company has not given you access to ${apps[0]}.`, app: apps[0], code: 'APP_NOT_IN_ENGAGEMENT' } };
+    }
   }
 
   // Effective access resolves direct role assignments AND role profiles.
