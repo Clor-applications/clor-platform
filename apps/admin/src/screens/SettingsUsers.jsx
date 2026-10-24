@@ -504,7 +504,6 @@ export function SettingsUsers({ orgId }) {
         <PageHead
           crumbs={['Access', 'Users']}
           title="Users"
-          description="The logins of this company, the role each holds here, and whether they may sign in."
           actions={
             <>
               <MoreButton items={[exportMenuItem('Export users')]} onSelect={exportUsers} />

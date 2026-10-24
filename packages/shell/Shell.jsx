@@ -716,6 +716,7 @@ export default function Shell() {
     </>
   );
   const tabs = phone && app ? mobileTabsFor(app, nav) : [];
+  const inWorkspace = app?.id === ADMIN_APP_ID;
 
   return (
     /* The open app's icon set (`iconSet` in its manifest): shared marks such as
@@ -757,8 +758,10 @@ export default function Shell() {
           </button>
 
           {/* The app switcher. Named for the app you are in, because that is the
-              question it answers before it is the control it offers. */}
-          {app ? (
+              question it answers before it is the control it offers. The
+              Workspace leaves it out, with the company picker: its Overview
+              opens the apps and its Companies page switches company. */}
+          {app && !inWorkspace ? (
             <div className="relative" ref={switcherRef}>
               <button
                 type="button"
@@ -831,7 +834,7 @@ export default function Shell() {
           <div className="flex-1" />
 
           {/* On a phone the bar holds menu, mark, app, profile and sign-out; one company needs no picker and the theme follows the phone. */}
-          {!phone || tenants.length > 1 ? (
+          {!inWorkspace && (!phone || tenants.length > 1) ? (
             <select
               className="ui-select ui-select-sm min-w-0"
               style={{ width: 'auto', minWidth: phone ? '4rem' : '12rem', maxWidth: phone ? '30vw' : undefined }}

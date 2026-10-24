@@ -74,7 +74,6 @@ export function AccessHome({ navItems = [], openScreen }) {
         <PageHead
           crumbs={['Access', 'Overview']}
           title="Access"
-          description="Who is in this account, what they can reach, and what changed."
           actions={may.has('invitations') ? <button type="button" className="ws-btn ws-btn--primary" onClick={() => openScreen('invitations')}><ICON.invite size={18} /> Invite people</button> : null}
         />
         {dir === null ? <p role="alert" className="text-sm">Only the account’s owners and administrators can see who has access.</p> : null}
@@ -157,7 +156,7 @@ export function SecurityHome({ navItems = [], openScreen }) {
   return (
     <div className="ws">
       <div className="ws-inner">
-        <PageHead crumbs={['Security', 'Overview']} title="Security" description="How people sign in to this company, who holds power without an authenticator, and what was refused." />
+        <PageHead crumbs={['Security', 'Overview']} title="Security" />
         <div className="ws-stats">
           {p ? (
             <Stat icon={ICON.secure} label="Authenticator for admins" value={p.requireAdminTwoFactor ? 'Required' : 'Optional'} note={p.requirePayrollStepUp ? 'Payroll actions ask for a code' : 'Payroll actions do not ask for a code'} onOpen={may.has('security') ? () => openScreen('security') : null} />
@@ -236,11 +235,11 @@ export function DataHome({ tenant, navItems = [], openScreen }) {
   return (
     <div className="ws">
       <div className="ws-inner">
-        <PageHead crumbs={['Data', 'Overview']} title="Data" description={`What ${tenant?.name || 'this company'} keeps in Clor: take a copy whenever you like.`} />
+        <PageHead crumbs={['Data', 'Overview']} title="Data" />
         <div className="ws-layout">
           <div className="ws-main">
             <Panel title="Export">
-              <p className="ws-card-blurb">A copy of this company’s books and documents — invoices, journals, customers and vendors — as a file you keep.</p>
+              <p className="ws-card-blurb">Books and documents as a file you keep.</p>
               {may.has('export') ? (
                 <div>
                   <button type="button" className="ws-btn ws-btn--primary" onClick={() => openScreen('export')}>
@@ -255,8 +254,7 @@ export function DataHome({ tenant, navItems = [], openScreen }) {
               <section className="ws-danger" aria-labelledby="ws-danger-title">
                 <h2 id="ws-danger-title">Danger zone: close {tenant?.name || 'this company'}</h2>
                 <p className="text-sm">
-                  Closing starts a notice period, after which every record of this company is deleted for good: books, people, payroll and attendance. Other companies in the account are not touched.
-                  Export first. Only the company’s administrators can do it, and it asks for an authenticator code.
+                  Every record of this company is deleted for good after a notice period. Other companies are not affected.
                 </p>
                 <div>
                   <button type="button" className="ws-btn ws-btn--danger" onClick={() => openScreen('close')}>
@@ -268,7 +266,7 @@ export function DataHome({ tenant, navItems = [], openScreen }) {
           </div>
           <aside className="ws-side">
             <Panel title="How long data is kept">
-              <p className="ws-card-blurb">Records stay while the company is open. After a closure’s notice period they are deleted, and backups that hold them expire within 7 days.</p>
+              <p className="ws-card-blurb">Kept while the company is open. Deleted after a closure; backups expire 7 days later.</p>
             </Panel>
           </aside>
         </div>

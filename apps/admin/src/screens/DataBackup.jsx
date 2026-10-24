@@ -138,7 +138,6 @@ export default function DataBackup({ currentCompany }) {
         <PageHead
           crumbs={['Data', 'Data export']}
           title="Data export"
-          description={`A copy of ${name}’s books and documents, and of how it is set up, in a file you keep. Not a backup of the service: one company’s own data, for the people whose data it is.`}
         />
 
         <div className="ws-layout">
@@ -146,7 +145,7 @@ export default function DataBackup({ currentCompany }) {
             <ExportPanel
               icon={ICON.accounting}
               title="Books and documents"
-              blurb={`What ${name} has done: customers and vendors, items, invoices, bills, receipts, payments, and every journal entry behind them. This is the copy you would hand an accountant.`}
+              blurb={"Customers, vendors, items, invoices, bills, payments and journal entries."}
               action="Download data"
               primary
               scope="data"
@@ -163,7 +162,7 @@ export default function DataBackup({ currentCompany }) {
             <ExportPanel
               icon={ICON.settings}
               title="Configuration"
-              blurb="How this company is set up: branches and warehouses, the chart of accounts, numbering series, roles and their permissions, tax rates, approval rules and the reference lists. Small, rarely changed, and what you want when somebody has altered the numbering or when a new client company should be arranged like an existing one."
+              blurb="Branches, warehouses, chart of accounts, numbering series, roles, tax rates and approval rules."
               action="Download configuration"
               scope="configuration"
               busy={busy}
@@ -174,24 +173,19 @@ export default function DataBackup({ currentCompany }) {
                 ['Roles', 'roles'],
                 ['Numbering series', 'numberSeries'],
               ]}
-              footnote="Passwords and API secrets are stripped out. A configuration file is meant to be read and copied, which is nowhere for a credential to be."
+              footnote="Passwords and API secrets are left out."
             />
           </div>
 
           <aside className="ws-side">
             <Panel title="Sent automatically">
               <NotConnected what="scheduled backup to a shared location">
-                A nightly copy to SharePoint, Google Drive, a network share or object storage needs an account to send it to
-                and permission to write there. Neither exists yet, so nothing is scheduled and nothing is being sent.
-                Download is the whole of it today.
+                Download is the only way to take a copy for now.
               </NotConnected>
             </Panel>
             <Panel title="Restoring">
               <p className="ws-card-blurb">
-                Reading a copy back in is not offered yet, and that is deliberate rather than forgotten. Restoring into a
-                company that already has data has to decide what happens to every record that exists in both — and a
-                restore that silently duplicates a year of invoices is worse than none. Until then the file is a record you
-                can read, audit and hand to an accountant, not a one-click undo.
+                Not available yet. An export is a file to keep and read, not an undo.
               </p>
             </Panel>
           </aside>

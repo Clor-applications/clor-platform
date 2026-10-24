@@ -59,7 +59,6 @@ export default function AccountActivity() {
         <header className="ws-head">
           <div>
             <h1 className="ws-title">Account activity</h1>
-            <p className="ws-lede">Changes to the account itself — account roles, invitations, suspensions — and every account-level change that was refused.</p>
           </div>
         </header>
 

@@ -178,7 +178,6 @@ export const RolePermissionManager = () => {
         <PageHead
           crumbs={['Access', 'Permissions']}
           title="Permissions"
-          description="Tick what each role may do. People get these through the roles they hold."
           meta={dirty ? 'Unsaved changes' : savedAt ? 'Saved' : null}
           actions={
             roles.length ? (
@@ -239,8 +238,7 @@ export const RolePermissionManager = () => {
               />
 
               <p className="ws-card-blurb">
-                Permissions decide what a person may do. Which records they see is separate: that comes from the branches
-                and warehouses given to them under Access → Users.
+                Which records a person sees comes from their branches and warehouses, set under Users.
               </p>
             </div>
 

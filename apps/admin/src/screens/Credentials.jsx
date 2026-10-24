@@ -112,7 +112,7 @@ function Change({ action, credential, onDone, onClose }) {
   const [busy, setBusy] = useState(false);
   const words = {
     suspend: credential.kind === 'SCIM'
-      ? 'It stops at once and can be resumed. An identity provider that keeps being refused may quarantine the app; resuming here does not lift that — restart provisioning there.'
+      ? 'It stops at once and can be resumed. If the provider has quarantined the app, restart provisioning there too.'
       : 'It stops at once and can be resumed.',
     rotate: credential.kind === 'SCIM' ? 'A new token is made and the current one stops at once. Paste the new one into your identity provider.' : 'A new key is made and the current one stops at once. Whatever uses it needs the new one.',
     revoke: 'It stops for good. Make a new one if it is needed again.',
@@ -233,7 +233,6 @@ export default function Credentials() {
         <PageHead
           crumbs={['Security', 'Credentials']}
           title="Credentials"
-          description="Every key and token this company has given to another system, what each can do now, and who made it."
           actions={
             <button type="button" className="ws-btn ws-btn--primary" disabled={!data?.mayCreateApiKey} title={data?.createBlockedReason || ''} onClick={() => setCreating(true)}>
               <Plus size={16} aria-hidden="true" /> New API key
@@ -318,7 +317,7 @@ export default function Credentials() {
           </div>
         ) : (
           <div className="ws-setup">
-            <p className="ws-card-blurb">{data.credentials.length ? 'Nothing matches these filters.' : 'No credentials yet. API keys you make, and connectors, readers and directory sync set up elsewhere, appear here.'}</p>
+            <p className="ws-card-blurb">{data.credentials.length ? 'Nothing matches these filters.' : 'No keys or tokens yet.'}</p>
           </div>
         )}
 

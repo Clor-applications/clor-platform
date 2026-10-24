@@ -54,7 +54,7 @@ describe('the list', () => {
   it('says how somebody gets here when nobody has', async () => {
     api.listOutsideAccess.mockResolvedValue({ apps: APPS, outsideAccess: [] });
     render(<OutsideAccess />);
-    await waitFor(() => expect(screen.getByText(/Add your accountant or auditor under Users/)).toBeTruthy());
+    await waitFor(() => expect(screen.getByText(/Add an accountant or auditor under Users/)).toBeTruthy());
   });
 });
 

@@ -108,7 +108,6 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
         <PageHead
           crumbs={[accountName || overview?.account?.name || 'Account', tenant?.name || 'Company']}
           title={name ? `${greeting()}, ${name}` : 'Workspace'}
-          description="Your apps, the people who use them, and what needs your attention."
           meta={
             <>
               {role ? <span className="ws-pill ws-pill--role">{ROLE_LABEL[role] || role}</span> : null} <span>{today()}</span>

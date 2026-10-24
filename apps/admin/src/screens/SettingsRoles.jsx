@@ -261,7 +261,6 @@ export function SettingsRoles({ orgId }) {
         <PageHead
           crumbs={['Access', 'Roles']}
           title="Roles"
-          description="What a person may do in this company. Each role is a set of permissions; people get roles under Users."
           actions={
             <>
               <MoreButton items={[exportMenuItem('Export roles')]} onSelect={exportRoles} />

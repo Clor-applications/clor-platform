@@ -42,12 +42,10 @@ export default function BillingPreview() {
         <PageHead
           crumbs={['Plan', 'Billing']}
           title="Billing"
-          description="What the account is on and how much of it is used. Payments arrive here when billing goes live."
         />
 
         <NotConnected what="billing">
-          The plan and the usage below are read from the server and are real. Payments, cards and receipts need a payment
-          provider, which has not been chosen yet — pricing is still to be set.
+          Plan and usage below are live.
         </NotConnected>
 
         <div className="ws-stats">
@@ -65,7 +63,7 @@ export default function BillingPreview() {
           <div className="ws-main">
             <Panel title="Billing history">
               <p className="ws-card-blurb">
-                No invoices. Billing has not started for this account, so there is nothing to list and nothing to download.
+                No invoices yet.
               </p>
             </Panel>
           </div>

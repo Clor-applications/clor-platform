@@ -96,7 +96,6 @@ export default function Members() {
         <header className="ws-head">
           <div>
             <h1 className="ws-title">Members</h1>
-            <p className="ws-lede">Everyone in the account: their account role, the companies they are in, and the apps their roles open.</p>
           </div>
         </header>
 

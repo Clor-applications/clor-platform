@@ -132,7 +132,6 @@ export default function OutsideAccess() {
         <PageHead
           crumbs={['Access', 'Outside access']}
           title="Outside access"
-          description="People from other accounts this company has let in — its accountant, an auditor — what each may use, and until when. They are added under Users."
         />
 
         {data ? (
@@ -208,7 +207,7 @@ export default function OutsideAccess() {
         ) : (
           <div className="ws-setup">
             <span className="ws-tile" aria-hidden="true"><ICON.team size={20} /></span>
-            <p className="ws-card-blurb">Nobody from another account has access. Add your accountant or auditor under Users with their e-mail; they appear here.</p>
+            <p className="ws-card-blurb">Nobody from outside this account has access. Add an accountant or auditor under Users.</p>
           </div>
         )}
       </div>

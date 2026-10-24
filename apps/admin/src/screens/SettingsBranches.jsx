@@ -146,7 +146,6 @@ export function SettingsBranches({ orgId, company, onBranchesChanged }) {
         <PageHead
           crumbs={['Company', 'Branches']}
           title="Branches"
-          description="Where the company does business. Each branch is a GST location with its own address."
           actions={
             <>
               <button type="button" className="ws-btn ws-btn--quiet" onClick={exportAll} disabled={!rows.length}>

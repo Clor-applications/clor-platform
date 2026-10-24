@@ -97,7 +97,6 @@ export default function Invitations({ tenant, companies = [], accountName = '' }
         <header className="ws-head">
           <div>
             <h1 className="ws-title">Invitations</h1>
-            <p className="ws-lede">Invite people by email. They choose their own password; the link works once and expires in 7 days.</p>
           </div>
         </header>
 

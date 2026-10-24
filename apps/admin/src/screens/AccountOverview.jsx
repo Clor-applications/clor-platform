@@ -139,7 +139,6 @@ export default function AccountOverview({ currentCompany, onOpenCompany = null }
         <PageHead
           crumbs={['Plan', 'Subscription']}
           title={data?.account?.name || 'Account'}
-          description="The account above every company: its plan, how much of it is used, and who is in it."
           actions={
             data ? (
               <AccountName
@@ -222,9 +221,7 @@ export default function AccountOverview({ currentCompany, onOpenCompany = null }
                 {companies.length ? (
                   <Panel title="Company addresses">
                     <NotConnected what="company subdomains">
-                      Each company already has the handle below, and it is unique across the account. Pointing a subdomain at it
-                      needs DNS and a certificate, which is a deployment step rather than a product one — so these do not
-                      resolve yet.
+                      The addresses below are reserved but do not open yet.
                     </NotConnected>
                     <ul className="ws-list">
                       {companies.map((c) => (

@@ -71,7 +71,6 @@ export default function CompanyProfile() {
         <PageHead
           crumbs={['Company', 'Company profile']}
           title={form?.name || 'Company profile'}
-          description="Who the company is, as letters, payslips and statutory returns name it."
           actions={
             form ? (
               <button type="submit" form="company-profile" className="ws-btn ws-btn--primary" disabled={saving || !dirty}>

@@ -213,7 +213,6 @@ export default function AuditTrail() {
         <PageHead
           crumbs={['Security', 'Audit trail']}
           title="Audit trail"
-          description="Who changed what, and when, across this company. Read-only: nothing here can edit or remove an entry."
           actions={
             <>
               <button type="button" onClick={() => load()} className="ws-btn ws-btn--quiet" disabled={loading}>
@@ -287,7 +286,7 @@ export default function AuditTrail() {
 
         {!entries.length && !loading ? (
           <div className="ws-setup">
-            <p className="ws-card-blurb">Nothing recorded for these filters. Edits, status changes and deletions appear here as they happen.</p>
+            <p className="ws-card-blurb">Nothing matches these filters.</p>
           </div>
         ) : !entries.length ? (
           <p className="ws-card-blurb">Loading the trail…</p>

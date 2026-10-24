@@ -124,7 +124,6 @@ export const SecuritySettings = ({ openScreen }) => {
         <PageHead
           crumbs={['Security', 'Sign-in and sessions']}
           title="Sign-in and sessions"
-          description="How people sign in to this company, how long they stay signed in, and what happens when a password is guessed."
           meta={dirty ? 'Unsaved changes' : notice || null}
           actions={
             policy ? (

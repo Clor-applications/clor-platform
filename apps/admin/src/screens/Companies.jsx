@@ -73,7 +73,6 @@ export default function Companies({ tenant, addCompany, switchCompany }) {
         <PageHead
           crumbs={['Company', 'Companies']}
           title="Companies"
-          description="The legal entities in this account. Each keeps its own books, people and payroll."
           actions={
             addCompany ? (
               <button type="button" className="ws-btn ws-btn--primary" onClick={() => setAdding(true)} disabled={atLimit} title={atLimit ? 'Your plan’s company allowance is used up.' : undefined}>

@@ -87,13 +87,13 @@ describe('taking a copy of the company data', () => {
   it('does not pretend a scheduled copy is running', () => {
     render(<DataBackup currentCompany={COMPANY} />);
     expect(screen.getByText(/not connected yet/i)).toBeInTheDocument();
-    expect(screen.getByText(/nothing is scheduled and nothing is being sent/i)).toBeInTheDocument();
+    expect(screen.getByText(/only way to take a copy/i)).toBeInTheDocument();
   });
 
   /* Restore is genuinely not built, and says why rather than being absent. */
   it('is honest that a restore is not offered', () => {
     render(<DataBackup currentCompany={COMPANY} />);
-    expect(screen.getByText(/not offered yet/i)).toBeInTheDocument();
+    expect(screen.getByText(/Not available yet/i)).toBeInTheDocument();
   });
 });
 
@@ -134,6 +134,6 @@ describe('the two kinds of backup', () => {
      credentials are not in it. */
   it('says the configuration carries no secrets', () => {
     render(<DataBackup currentCompany={COMPANY} />);
-    expect(screen.getByText(/Passwords and API secrets are stripped out/i)).toBeInTheDocument();
+    expect(screen.getByText(/Passwords and API secrets are left out/i)).toBeInTheDocument();
   });
 });

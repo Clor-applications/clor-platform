@@ -103,7 +103,6 @@ export default function CloseCompanyPage({ companyName = '' }) {
         <PageHead
           crumbs={['Data', 'Close company']}
           title={`Close ${name || 'this company'}`}
-          description="Delete this company and everything in it, after a notice period. Only an administrator of the company can do this, with a code from their authenticator app."
         />
 
         {error ? <p role="alert" className="text-sm" style={{ color: 'rgb(var(--neg))' }}>{error}</p> : null}
@@ -124,9 +123,9 @@ export default function CloseCompanyPage({ companyName = '' }) {
               Closure scheduled for {day(closure.deleteAfter)}
             </h2>
             <p className="text-sm">
-              Asked on {day(closure.requestedAt)}. On <strong>{day(closure.deleteAfter)}</strong>, every record of this company is deleted: accounts, invoices, payroll, attendance, employees, users’ access and settings. It cannot be recovered after that.
+              Requested {day(closure.requestedAt)}. On <strong>{day(closure.deleteAfter)}</strong> every record of this company is deleted and cannot be recovered.
             </p>
-            <p className="text-sm">Until then the company works as normal. Keep your export: the law may require you to keep payroll, tax and attendance records for years.</p>
+            <p className="text-sm">The company works as normal until then.</p>
             <div>
               <button type="button" className="ws-btn ws-btn--quiet" onClick={cancel} disabled={busy === 'cancel'}>
                 <Undo2 size={16} aria-hidden="true" /> {busy === 'cancel' ? 'Cancelling…' : 'Cancel the closure'}
@@ -180,9 +179,9 @@ export default function CloseCompanyPage({ companyName = '' }) {
               <Panel title="What happens">
                 <ol className="ws-list">
                   {[
-                    ['Export', 'You download a full export of the company: every record, as one file.', exportFresh],
-                    ['Notice period', `You ask to close. The company keeps working for ${state.noticeDays} days, and you can cancel at any time in them.`, false],
-                    ['Deletion', `After ${state.noticeDays} days CLOR deletes every record of the company, in every app. Nothing is kept and nothing can be recovered.`, false],
+                    ['Export', 'Download a full export.', exportFresh],
+                    ['Notice period', `${state.noticeDays} days to change your mind. The company keeps working.`, false],
+                    ['Deletion', 'Every record, in every app, is deleted for good.', false],
                   ].map(([title, text, done], i) => (
                     <li key={title}>
                       <div className="ws-item" style={{ alignItems: 'flex-start' }}>
@@ -197,7 +196,7 @@ export default function CloseCompanyPage({ companyName = '' }) {
                     </li>
                   ))}
                 </ol>
-                <p className="ws-card-blurb">Labour, tax and PF law may require your business to keep payroll, tax and attendance records for several years. After the closure, that copy is your export.</p>
+                <p className="ws-card-blurb">Keep the export: tax and labour law may require records for years.</p>
               </Panel>
             </aside>
           </div>

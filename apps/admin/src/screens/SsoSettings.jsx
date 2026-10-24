@@ -144,7 +144,6 @@ export default function SsoSettings() {
         <PageHead
           crumbs={['Security', 'Single sign-on']}
           title="Single sign-on"
-          description="Let people at your domain sign in through your identity provider. Roles and company access stay here."
           actions={
             data ? (
               <button type="button" className="ws-btn ws-btn--primary" onClick={() => setForm({ ...EMPTY })}>
@@ -275,13 +274,13 @@ export default function SsoSettings() {
               <Panel title="At your provider">
                 <Address label="Redirect address to register" value={data.redirectUri} />
                 <p className="ws-card-blurb">
-                  Google Workspace, Microsoft Entra, Okta and Keycloak all take this as the “authorised redirect URI” of a web application. Scopes needed: openid, email, profile.
+                  Register this as the redirect URI. Scopes: openid, email, profile.
                 </p>
                 <a className="ws-link" href="/docs/sso" target="_blank" rel="noreferrer">Set-up guide</a>
               </Panel>
               <Panel title="How it is trusted">
                 <p className="ws-card-blurb">
-                  The provider vouches for the e-mail; this company vouches for the person. A sign-in is accepted only for a verified e-mail at a domain named on a provider, and only for an existing user — or a new one when “add automatically” is on. Passwords keep working alongside; switch the provider off to fall back at any time.
+                  Only verified e-mails at your provider’s domains get in, and only for existing users unless “add automatically” is on. Passwords keep working.
                 </p>
               </Panel>
             </aside>
