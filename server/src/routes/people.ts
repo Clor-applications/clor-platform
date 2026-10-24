@@ -26,6 +26,7 @@ import { inScope, scopeWhere, teamScope } from '../services/people/scope.js';
 import { activeRule, shape as shapeRequest, submitRequest } from '../services/people/approvals/engine.js';
 import { PROBATION_OUTCOMES, ProbationError, decideProbation, reviewsOf, saveReview } from '../services/people/lifecycle/probation.js';
 import { changeImpact } from '../services/people/lifecycle/changes.js';
+import { journeyOf, whyOf } from '../services/people/journey.js';
 import { PERMIT_KINDS, daysUntil } from '../services/people/documentReminders.js';
 import { decodeDocument } from '../services/people/documentFiles.js';
 import { NO_ORIGINALS_STATES } from '../services/people/letters.js';
@@ -798,6 +799,26 @@ peopleRouter.get('/orgs/:orgId/people/employees/:id/history', can(PermissionActi
   const employee = await peoplePrisma.employee.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
   if (!employee || !inScope(await teamScope(req), employee.id)) return res.status(404).json({ error: 'No such employee.' });
   res.json({ events: await timelineOf(orgId, employee), episodes: await episodesOf(orgId, employee) });
+});
+
+/** The journey (CORE-06): every change in order, under its stint, each with a key for its Why. */
+peopleRouter.get('/orgs/:orgId/people/employees/:id/journey', can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const employee = await peoplePrisma.employee.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
+  if (!employee || !inScope(await teamScope(req), employee.id)) return res.status(404).json({ error: 'No such employee.' });
+  res.json(await journeyOf(orgId, employee as any));
+});
+
+/** Why (TRACE-01, 02): what changed, when, who asked, who approved, the rule version, the evidence, what it set off — or plain words for what is not known. */
+peopleRouter.get('/orgs/:orgId/people/employees/:id/why/:key', can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const employee = await peoplePrisma.employee.findFirst({ where: { id: String(req.params.id), accountId, orgId }, select: { id: true } });
+  if (!employee || !inScope(await teamScope(req), employee.id)) return res.status(404).json({ error: 'No such employee.' });
+  const why = await whyOf(orgId, employee.id, String(req.params.key));
+  if (!why) return res.status(404).json({ error: 'No such change.' });
+  res.json({ why });
 });
 
 /** What else a change would affect (LIFE-04), before it is sent: pass the fields as they would be saved. */

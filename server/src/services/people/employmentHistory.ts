@@ -38,7 +38,7 @@ const todayIst = () => new Date(Date.now() + 330 * 60_000).toISOString().slice(0
 export const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
 
 /** The name behind an id, as it is today (stored on the event so later renames do not rewrite history). */
-async function labelOf(orgId: string, field: string, id: string | null | undefined): Promise<string | null> {
+export async function labelOf(orgId: string, field: string, id: string | null | undefined): Promise<string | null> {
   if (!id) return null;
   const by = { where: { id, orgId }, select: { name: true } } as const;
   switch (field) {

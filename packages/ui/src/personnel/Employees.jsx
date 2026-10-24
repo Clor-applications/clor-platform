@@ -38,6 +38,8 @@ import {
   checkInvite,
   createInvite,
   getChangeImpact,
+  getJourney,
+  getWhy,
   listEmployeeInvites,
   getChecklist,
   getEmployeeStatutory,
@@ -615,6 +617,7 @@ function EmployeeFile({ id, onClose, onEdit, onDeleted }) {
               ['about', 'About'],
               ['work', 'Work'],
               ['history', 'History'],
+              ['journey', 'Journey'],
               ['checklist', 'Checklist'],
               /* A tab shows only to someone who may read what is on it (CORE-05). */
               ...(allowed('PEOPLE::Employee Notes::VIEW') ? [['notes', 'Notes']] : []),
@@ -761,6 +764,7 @@ function EmployeeFile({ id, onClose, onEdit, onDeleted }) {
           ) : null}
           {tab === 'documents' ? <EmployeeDocuments employeeId={id} /> : null}
           {tab === 'history' ? <EmploymentHistory employeeId={id} /> : null}
+          {tab === 'journey' ? <Journey employeeId={id} /> : null}
           {tab === 'checklist' ? <EmployeeChecklist person={person} /> : null}
         </div>
       )}
@@ -831,6 +835,106 @@ function EmploymentHistory({ employeeId }) {
       ))}
     </ol>
     </>
+  );
+}
+
+const JOURNEY_TONE = { APPROVED: 'pos', SCHEDULED: 'info', SELF: 'info', CHANGE: 'neutral', HISTORY: 'neutral' };
+const JOURNEY_KIND = { APPROVED: 'Approved', SCHEDULED: 'Scheduled', SELF: 'Self-service', CHANGE: 'Change', HISTORY: 'History' };
+const whenAt = (d) => new Date(d).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' });
+
+/**
+ * The journey (CORE-06): every change in order, grouped by stint, each with
+ * a Why? that opens what changed, when, who asked, who approved, which rule
+ * version, the evidence, and what it set off — or says what is not known.
+ */
+function Journey({ employeeId }) {
+  const [data, setData] = useState(null);
+  const [why, setWhy] = useState(null);
+  useEffect(() => {
+    let live = true;
+    getJourney(employeeId).then((d) => live && setData(d)).catch(() => live && setData({ episodes: [], entries: [] }));
+    return () => { live = false; };
+  }, [employeeId]);
+  if (!data) return <SkeletonCard lines={4} />;
+  if (!data.entries.length) return <p className="ui-muted text-sm">Nothing yet. Every change from now on is listed here with its reasons.</p>;
+  const stints = [...new Set(data.entries.map((e) => e.stint))].sort((a, b) => b - a);
+  const open = async (e) => {
+    try {
+      setWhy({ loading: true, entry: e });
+      setWhy({ entry: e, why: await getWhy(employeeId, e.key) });
+    } catch (err) {
+      setWhy(null);
+      notify.error(String(err?.message || 'Could not load.'));
+    }
+  };
+  return (
+    <div className="space-y-5">
+      {stints.map((seq) => {
+        const st = data.episodes.find((x) => x.seq === seq);
+        return (
+          <section key={seq} aria-label={`Stint ${seq}`} className="space-y-2">
+            {data.episodes.length > 1 || st ? <h3 className="text-sm font-semibold">Stint {seq}{st ? <span className="ui-caption font-normal"> · {formatDateIn(st.startDate)} – {st.endDate ? formatDateIn(st.endDate) : 'now'}</span> : null}</h3> : null}
+            <ol className="divide-y">
+              {data.entries.filter((e) => e.stint === seq).map((e) => (
+                <li key={e.key} className="py-2.5 flex flex-wrap items-start gap-2">
+                  <span className={`ui-pill ui-pill-${JOURNEY_TONE[e.kind] || 'neutral'}`}>{JOURNEY_KIND[e.kind] || e.kind}</span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium">{e.summary}</p>
+                    <p className="ui-caption">{whenAt(e.at)} · {e.how}{e.by ? ` · ${e.by}` : ''}{e.reason ? ` · ${e.reason}` : ''}</p>
+                    {e.changes.length ? (
+                      <ul className="ui-caption mt-0.5">
+                        {e.changes.slice(0, 4).map((c) => <li key={c.key}>{c.field}: {c.redacted ? 'changed (not shown)' : `${c.before || '—'} → ${c.after || '—'}`}</li>)}
+                        {e.changes.length > 4 ? <li>and {e.changes.length - 4} more</li> : null}
+                      </ul>
+                    ) : null}
+                  </div>
+                  <button type="button" className="ui-link text-sm" onClick={() => open(e)}>Why?</button>
+                </li>
+              ))}
+            </ol>
+          </section>
+        );
+      })}
+      {why ? (
+        <Drawer open onClose={() => setWhy(null)} title={why.entry.summary} description={`${whenAt(why.entry.at)} · ${why.entry.how}`}>
+          {!why.why ? <SkeletonCard lines={5} /> : <WhyPanel why={why.why} />}
+        </Drawer>
+      ) : null}
+    </div>
+  );
+}
+
+/** The seven things a reader asks, each either answered or said to be unknown (TRACE-01, 02). */
+const Row = ({ label, children }) => (
+  <div><dt className="ui-t-label">{label}</dt><dd className="mt-0.5 text-sm">{children}</dd></div>
+);
+function WhyPanel({ why }) {
+  return (
+    <dl className="space-y-4">
+      <Row label="What changed">
+        <ul>{why.what.map((c, i) => <li key={i}>{c.field}: {c.redacted ? <span className="ui-muted">changed (not shown)</span> : <><span className="ui-muted">{c.before || '—'}</span> → <strong>{c.after || '—'}</strong></>}</li>)}</ul>
+      </Row>
+      <Row label="When">{why.recordedAt ? `${formatDateIn(why.when)} (recorded ${whenAt(why.recordedAt)})` : whenAt(why.when)}</Row>
+      <Row label="Who asked">{why.askedBy || <span className="ui-muted">Not known</span>}</Row>
+      <Row label="Who approved">{why.approvedBy?.length ? why.approvedBy.join('; ') : <span className="ui-muted">Not known</span>}</Row>
+      <Row label="Rule">{why.rule ? `${why.rule.name}, version ${why.rule.version}` : <span className="ui-muted">No rule recorded</span>}{why.request ? <span className="ui-caption block">Request: {why.request.title} · {why.request.status.toLowerCase()}</span> : null}</Row>
+      {why.reason ? <Row label="Reason given">{why.reason}</Row> : null}
+      <Row label="Evidence">{why.evidence?.length ? <ul>{why.evidence.map((e) => <li key={e.id}>{e.title}</li>)}</ul> : <span className="ui-muted">None attached</span>}</Row>
+      <Row label="What it set off">
+        {why.downstream.events.length || why.downstream.tasks.length ? (
+          <ul>
+            {why.downstream.events.map((e) => <li key={e.id} className="font-mono text-xs">{e.name}{e.delivered ? ' · delivered' : ' · queued'}</li>)}
+            {why.downstream.tasks.map((t) => <li key={t.id}>Task: {t.title}{t.dueDate ? ` (due ${t.dueDate})` : ''}{t.doneAt ? ' · done' : ''}</li>)}
+          </ul>
+        ) : <span className="ui-muted">Nothing recorded</span>}
+      </Row>
+      {why.impact ? <Row label="Impact">{why.impact}</Row> : null}
+      {why.unknown?.length ? (
+        <Row label="Not known">
+          <ul className="ui-muted">{why.unknown.map((u) => <li key={u}>{u}</li>)}</ul>
+        </Row>
+      ) : null}
+    </dl>
   );
 }
 

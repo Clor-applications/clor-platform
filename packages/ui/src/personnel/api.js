@@ -117,6 +117,9 @@ export const getChangeImpact = (id, fields) => {
   const q = new URLSearchParams(Object.entries(fields).map(([k, v]) => [k, v || '']));
   return apiFetch(`${base()}/employees/${encodeURIComponent(id)}/change-impact?${q}`, opts).then((r) => r?.impact || []);
 };
+/* The journey and Why (CORE-06, TRACE-01): every change in order, each with its reasons. */
+export const getJourney = (id) => apiFetch(`${base()}/employees/${encodeURIComponent(id)}/journey`, opts);
+export const getWhy = (id, key) => apiFetch(`${base()}/employees/${encodeURIComponent(id)}/why/${encodeURIComponent(key)}`, opts).then((r) => r?.why);
 /* Before day one (LIFE-01): invite the joiner; see what they sent; check it onto the record. */
 export const createInvite = (id, body) => send(`/employees/${encodeURIComponent(id)}/invites`, 'POST', body);
 export const listEmployeeInvites = (id) => apiFetch(`${base()}/employees/${encodeURIComponent(id)}/invites`, opts).then((r) => r?.invites || []);
