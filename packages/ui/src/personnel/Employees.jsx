@@ -437,7 +437,7 @@ function EmployeeFile({ id, onClose, onEdit, onDeleted }) {
     if (!id) return undefined;
     let cancelled = false;
     getEmployee(id)
-      .then((r) => !cancelled && setPerson({ ...r.employee, scheduledChanges: r.scheduledChanges || [] }))
+      .then((r) => !cancelled && setPerson({ ...r.employee, scheduledChanges: r.scheduledChanges || [], permits: r.permits || [] }))
       .catch((e) => notify.error(String(e?.message || 'Could not open that file.')));
     return () => {
       cancelled = true;
@@ -570,6 +570,12 @@ function EmployeeFile({ id, onClose, onEdit, onDeleted }) {
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-1.5">
                 <span className={`ui-pill ${statusOf(person.status).pill}`}>{statusOf(person.status).label}</span>
+                {/* A lapsed or soon-to-lapse permit is said on the record (LIFE-08); other apps are not stopped by it. */}
+                {(person.permits || []).filter((p) => p.daysLeft <= 30).map((p) => (
+                  <span key={p.id} className={`ui-pill ${p.expired ? 'ui-pill-neg' : 'ui-pill-warn'}`} title={p.restrictsWork ? `Until renewed, may not: ${p.restrictsWork}` : undefined}>
+                    {p.expired ? `${p.title} expired ${p.expiresOn}` : `${p.title} expires in ${p.daysLeft} day${p.daysLeft === 1 ? '' : 's'}`}
+                  </span>
+                ))}
                 {(person.tags || []).map((t) => (
                   <span key={t.id} className="ui-pill" style={{ backgroundColor: `${t.color}22`, color: t.color }}>{t.name}</span>
                 ))}
@@ -871,6 +877,7 @@ function EmployeeChecklist({ person }) {
       {person.status === 'LEFT' || data.leaving.total ? section('LEAVING', 'Leaving', data.leaving) : null}
       {data.changes?.total ? section('CHANGE', 'Changes to review', data.changes) : null}
       {data.probation?.total ? section('PROBATION', 'Probation', data.probation) : null}
+      {data.renewals?.total ? section('RENEWAL', 'Renewals', data.renewals) : null}
     </div>
   );
 }
@@ -1315,8 +1322,12 @@ const DOC_KINDS = [
   ['EDUCATION', 'Education'],
   ['CONTRACT', 'Contract / offer'],
   ['PAYSLIP', 'Payslip'],
+  ['WORK_PERMIT', 'Work permit / licence'],
+  ['CERTIFICATE', 'Certificate'],
   ['OTHER', 'Other'],
 ];
+/* A permit or certificate also says what the person may not do while it is lapsed (LIFE-08). */
+const PERMIT_KINDS = ['WORK_PERMIT', 'CERTIFICATE'];
 const kb = (n) => (n >= 1048576 ? `${(n / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`);
 
 /**
@@ -1342,7 +1353,7 @@ export function EmployeeDocuments({ employeeId }) {
       const dataUrl = await new Promise((resolve, reject) => { const r = new FileReader(); r.onload = () => resolve(r.result); r.onerror = () => reject(new Error('Could not read the file.')); r.readAsDataURL(file); });
       await uploadDocument(employeeId, { ...form, title: form.title.trim() || file.name.replace(/\.[^.]+$/, ''), expiresOn: form.expiresOn || null, data: dataUrl, mime: file.type });
       setFile(null);
-      setForm({ kind: 'ID_PROOF', title: '', expiresOn: '', classification: 'EMPLOYEE_VISIBLE' });
+      setForm({ kind: 'ID_PROOF', title: '', expiresOn: '', classification: 'EMPLOYEE_VISIBLE', restrictsWork: '' });
       if (input.current) input.current.value = '';
       notify.success('Added to the file.');
       load();
@@ -1378,8 +1389,11 @@ export function EmployeeDocuments({ employeeId }) {
             {DOC_KINDS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
           </select>
           <input className="ui-input flex-1 min-w-[10rem]" placeholder="Title (blank: the file name)" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} aria-label="Title" />
-          <input type="date" className="ui-input" style={{ width: 'auto' }} value={form.expiresOn} onChange={(e) => setForm({ ...form, expiresOn: e.target.value })} aria-label="Valid until" title="Valid until (optional)" />
+          <input type="date" className="ui-input" style={{ width: 'auto' }} value={form.expiresOn} onChange={(e) => setForm({ ...form, expiresOn: e.target.value })} aria-label="Valid until" title={PERMIT_KINDS.includes(form.kind) ? 'Valid until' : 'Valid until (optional)'} required={PERMIT_KINDS.includes(form.kind)} />
         </div>
+        {PERMIT_KINDS.includes(form.kind) ? (
+          <input className="ui-input w-full" placeholder="Work they may not do once it lapses, e.g. drive company vehicles; work at height" value={form.restrictsWork || ''} onChange={(e) => setForm({ ...form, restrictsWork: e.target.value })} maxLength={500} aria-label="Work they may not do once it lapses" />
+        ) : null}
         <div className="flex flex-wrap items-center gap-3">
           <input ref={input} type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx,.xlsx,.txt" className="text-sm" onChange={(e) => setFile(e.target.files?.[0] || null)} aria-label="File" />
           <label className="flex items-center gap-1.5 text-sm">Who can see
@@ -1396,7 +1410,7 @@ export function EmployeeDocuments({ employeeId }) {
             <li key={d.id} className="ui-card p-3 text-sm flex flex-wrap items-center gap-2">
               <span className="min-w-0 flex-1">
                 <span className="font-medium">{d.title}</span>
-                <span className="ui-caption block">{DOC_KINDS.find(([k]) => k === d.kind)?.[1] || d.kind} · {kb(d.size)} · {new Date(d.createdAt).toLocaleDateString('en-IN', { dateStyle: 'medium' })}{d.expiresOn ? ` · valid until ${d.expiresOn}` : ''}{d.classification !== 'EMPLOYEE_VISIBLE' ? ` · ${docWhoLabel(d)}` : ''}</span>
+                <span className="ui-caption block">{DOC_KINDS.find(([k]) => k === d.kind)?.[1] || d.kind} · {kb(d.size)} · {new Date(d.createdAt).toLocaleDateString('en-IN', { dateStyle: 'medium' })}{d.expiresOn ? (d.expiresOn < today ? ` · expired ${d.expiresOn}` : ` · valid until ${d.expiresOn}`) : ''}{d.restrictsWork ? ` · until renewed: ${d.restrictsWork}` : ''}{d.classification !== 'EMPLOYEE_VISIBLE' ? ` · ${docWhoLabel(d)}` : ''}</span>
                 {d.expiresOn && d.expiresOn < today ? <span className="ui-pill ui-pill-neg mt-1">Expired</span> : null}
               </span>
               <button type="button" className="ui-link" onClick={() => open(d)}>Download</button>

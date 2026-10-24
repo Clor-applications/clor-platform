@@ -184,7 +184,7 @@ Readers have been told; payroll may need a full and final settlement, and their 
   {
     key: 'people.document_expiring',
     label: 'Document expiring',
-    description: 'Sent to the people who manage employees when an employee document (visa, licence, contract) expires within 30 days.',
+    description: 'Sent to the people who manage employees when an employee document (permit, licence, contract) is 60, 30 or 7 days from expiry, and on the day.',
     subject: '{{title}} for {{name}} expires on {{expiresOn}}',
     body: `{{name}}’s {{kind}} “{{title}}” expires on {{expiresOn}} ({{days}} days).
 Open People → the employee → Documents to renew it.`,

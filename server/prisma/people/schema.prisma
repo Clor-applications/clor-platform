@@ -1272,7 +1272,7 @@ model EmployeeDocument {
   accountId         String
   orgId             String
   employeeId        String
-  /// ID_PROOF | ADDRESS_PROOF | EDUCATION | CONTRACT | PAYSLIP | OTHER
+  /// ID_PROOF | ADDRESS_PROOF | EDUCATION | CONTRACT | PAYSLIP | WORK_PERMIT | CERTIFICATE | OTHER
   kind              String
   title             String
   mime              String
@@ -1280,8 +1280,12 @@ model EmployeeDocument {
   data              Bytes
   /// When it stops being valid (a visa, a licence), YYYY-MM-DD.
   expiresOn         String?
-  /// When HR was told it is about to expire (once per document).
+  /// When HR was first told it is about to expire.
   expiryNotifiedAt  DateTime?
+  /// The last reminder sent: 60, 30, 7 or 0 days before expiry (DOC-03), each once.
+  expiryStage       Int?
+  /// For a work permit or certificate: what the person may not do while it is lapsed (LIFE-08). Shown, not enforced.
+  restrictsWork     String?
   /// Who can see it (docs/people/02-PRD.md DOC-01): EMPLOYEE_VISIBLE (the person and
   /// anyone with Documents VIEW) | HR_ONLY (Documents VIEW) | RESTRICTED (Documents EDIT)
   /// | CONFIDENTIAL (Confidential Documents VIEW). `visibleToEmployee` is kept in step
@@ -1294,6 +1298,7 @@ model EmployeeDocument {
   employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 
   @@index([orgId, employeeId])
+  @@index([orgId, expiresOn])
 }
 
 /// A DPDP data-subject request raised from the portal: see my data, correct

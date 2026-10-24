@@ -26,6 +26,7 @@ import { inScope, scopeWhere, teamScope } from '../services/people/scope.js';
 import { activeRule, shape as shapeRequest, submitRequest } from '../services/people/approvals/engine.js';
 import { PROBATION_OUTCOMES, ProbationError, decideProbation, reviewsOf, saveReview } from '../services/people/lifecycle/probation.js';
 import { changeImpact } from '../services/people/lifecycle/changes.js';
+import { PERMIT_KINDS, daysUntil } from '../services/people/documentReminders.js';
 import { dataHealth } from '../services/people/dataHealth.js';
 import { PAYROLL_MODULE, PAYROLL_RESOURCE } from '../services/payroll/guards.js';
 import { KINDS, READER_ACCESS_ITEM, checklistOf, cleanItems, itemsFor, myTasks, openTasks, readTaskDoneToken, startChecklist, type Kind as ChecklistKind } from '../services/people/checklists.js';
@@ -444,6 +445,13 @@ peopleRouter.get('/orgs/:orgId/people/employees', can(PermissionAction.VIEW, EMP
   res.json({ employees: await withMeta(orgId, viewed), total: asOfDate ? viewed.length : total, asOf: asOfDate || undefined });
 });
 
+/** Work permits and certificates on file, with how long they have left (LIFE-08): shown on the profile, not enforced. */
+async function permitsOf(orgId: string, employeeId: string) {
+  const now = new Date();
+  const docs = await peoplePrisma.employeeDocument.findMany({ where: { orgId, employeeId, kind: { in: [...PERMIT_KINDS] }, expiresOn: { not: null } }, select: { id: true, kind: true, title: true, expiresOn: true, restrictsWork: true }, orderBy: { expiresOn: 'asc' } });
+  return docs.map((d) => ({ ...d, daysLeft: daysUntil(d.expiresOn!, now), expired: daysUntil(d.expiresOn!, now) < 0 }));
+}
+
 peopleRouter.get('/orgs/:orgId/people/employees/:id', can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
@@ -462,7 +470,7 @@ peopleRouter.get('/orgs/:orgId/people/employees/:id', can(PermissionAction.VIEW,
   if (!viewed) return res.status(404).json({ error: `Not here on ${asOfDate}.` });
   const scheduledChanges = await pendingChangesOf(orgId, row.id);
   const [shaped] = await withMeta(orgId, [viewed]);
-  res.json({ scheduledChanges, employee: { ...shaped, directReports: reports } });
+  res.json({ scheduledChanges, permits: await permitsOf(orgId, row.id), employee: { ...shaped, directReports: reports } });
 });
 
 async function setTags(accountId: string, orgId: string, employeeId: string, tagIds: string[]) {
@@ -1189,7 +1197,7 @@ peopleRouter.delete('/orgs/:orgId/people/notes/:noteId', can(PermissionAction.DE
 // Documents on the employee file (ClorTime's Employee Document)
 // ---------------------------------------------------------------------------
 
-const DOC_KINDS = new Set(['ID_PROOF', 'ADDRESS_PROOF', 'EDUCATION', 'CONTRACT', 'PAYSLIP', 'OTHER']);
+const DOC_KINDS = new Set(['ID_PROOF', 'ADDRESS_PROOF', 'EDUCATION', 'CONTRACT', 'PAYSLIP', 'WORK_PERMIT', 'CERTIFICATE', 'OTHER']);
 const DOC_MAX_BYTES = 5 * 1024 * 1024;
 const DOC_MIMES = /^(application\/pdf|image\/(jpeg|png|webp)|application\/vnd\.openxmlformats-officedocument\.(wordprocessingml\.document|spreadsheetml\.sheet)|application\/msword|text\/plain)$/;
 
@@ -1212,8 +1220,8 @@ function decodeDocument(input: unknown, mimeHint?: unknown): { mime: string; dat
   if (!verifiedMime(data, mime, (t) => DOC_MIMES.test(t))) return { error: 'That file is not what its name says. Upload the PDF, picture or document itself.' };
   return { mime, data };
 }
-const docRow = (d: any) => ({ id: d.id, employeeId: d.employeeId, kind: d.kind, title: d.title, mime: d.mime, size: d.size, expiresOn: d.expiresOn, classification: d.classification, visibleToEmployee: d.visibleToEmployee, uploadedByUserId: d.uploadedByUserId, createdAt: d.createdAt });
-const DOC_SELECT = { id: true, employeeId: true, kind: true, title: true, mime: true, size: true, expiresOn: true, classification: true, visibleToEmployee: true, uploadedByUserId: true, createdAt: true } as const;
+const docRow = (d: any) => ({ id: d.id, employeeId: d.employeeId, kind: d.kind, title: d.title, mime: d.mime, size: d.size, expiresOn: d.expiresOn, restrictsWork: d.restrictsWork ?? null, classification: d.classification, visibleToEmployee: d.visibleToEmployee, uploadedByUserId: d.uploadedByUserId, createdAt: d.createdAt });
+const DOC_SELECT = { id: true, employeeId: true, kind: true, title: true, mime: true, size: true, expiresOn: true, restrictsWork: true, classification: true, visibleToEmployee: true, uploadedByUserId: true, createdAt: true } as const;
 
 /**
  * Who can see a document (docs/people/02-PRD.md DOC-01; review R-01).
@@ -1280,10 +1288,13 @@ peopleRouter.post('/orgs/:orgId/people/employees/:id/documents', can(PermissionA
   if (!title) return res.status(400).json({ error: 'Name the document.' });
   const expiresOn = String(req.body?.expiresOn || '').trim() || null;
   if (expiresOn && !/^\d{4}-\d{2}-\d{2}$/.test(expiresOn)) return res.status(400).json({ error: 'Dates are YYYY-MM-DD.' });
+  /* A permit or certificate says what the person may not do while it is lapsed (LIFE-08). */
+  const restrictsWork = PERMIT_KINDS.has(kind) ? String(req.body?.restrictsWork || '').trim().slice(0, 500) || null : null;
+  if (PERMIT_KINDS.has(kind) && !expiresOn) return res.status(400).json({ error: 'A permit or certificate needs its expiry date.' });
   const file = decodeDocument(req.body?.data, req.body?.mime);
   if ('error' in file) return res.status(400).json({ error: file.error });
   const d = await peoplePrisma.employeeDocument.create({
-    data: { accountId, orgId, employeeId: employee.id, kind, title, mime: file.mime, size: file.data.length, data: file.data, expiresOn, classification, visibleToEmployee: classification === 'EMPLOYEE_VISIBLE', uploadedByUserId: req.auth!.userId },
+    data: { accountId, orgId, employeeId: employee.id, kind, title, mime: file.mime, size: file.data.length, data: file.data, expiresOn, restrictsWork, classification, visibleToEmployee: classification === 'EMPLOYEE_VISIBLE', uploadedByUserId: req.auth!.userId },
   });
   res.status(201).json({ document: docRow(d) });
 });

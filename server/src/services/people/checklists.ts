@@ -14,14 +14,14 @@ import { notifyUsers, usersHoldingRoles, usersWithPermission } from '../notifica
  * CLOR, so HR sees it happened.
  */
 
-export type Kind = 'JOINING' | 'LEAVING' | 'CHANGE' | 'PROBATION';
+export type Kind = 'JOINING' | 'LEAVING' | 'CHANGE' | 'PROBATION' | 'RENEWAL';
 export type Owner = 'HR' | 'MANAGER' | 'PAYROLL' | 'IT' | 'EMPLOYEE';
 export type Item = { title: string; owner: Owner; dueDays: number; note?: string };
 type Who = { accountId: string; orgId: string; userId: string | null };
 
 export const OWNERS: Owner[] = ['HR', 'MANAGER', 'PAYROLL', 'IT', 'EMPLOYEE'];
 export const KINDS: Kind[] = ['JOINING', 'LEAVING'];
-export const KIND_LABEL: Record<Kind, string> = { JOINING: 'Joining', LEAVING: 'Leaving', CHANGE: 'Change', PROBATION: 'Probation' };
+export const KIND_LABEL: Record<Kind, string> = { JOINING: 'Joining', LEAVING: 'Leaving', CHANGE: 'Change', PROBATION: 'Probation', RENEWAL: 'Renewal' };
 
 /** Marks the item CLOR completes itself when someone leaves. */
 export const READER_ACCESS_ITEM = 'Readers and app access removed';
@@ -215,7 +215,7 @@ export async function checklistOf(orgId: string, employeeId: string) {
     const list = tasks.filter((t) => t.kind === kind).map(shape);
     return { tasks: list, done: list.filter((t) => t.done).length, total: list.length };
   };
-  return { joining: of('JOINING'), leaving: of('LEAVING'), changes: of('CHANGE'), probation: of('PROBATION') };
+  return { joining: of('JOINING'), leaving: of('LEAVING'), changes: of('CHANGE'), probation: of('PROBATION'), renewals: of('RENEWAL') };
 }
 
 /** Open tasks across the company, overdue first: the HR to-do list. */

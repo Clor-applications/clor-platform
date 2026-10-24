@@ -56,6 +56,19 @@ export async function dataHealth(accountId: string, orgId: string, opts: { payro
     if (list.length) checks.push({ ...c, count: list.length, people: list.slice(0, SAMPLE) });
   };
 
+  /* Documents past their date (DOC-03, LIFE-08): a lapsed permit first, then anything else that has run out. */
+  {
+    const today = new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
+    const byId = new Map(employees.map((e) => [e.id, e]));
+    const expired = await peoplePrisma.employeeDocument.findMany({ where: { orgId, employeeId: { in: employees.map((e) => e.id) }, expiresOn: { not: null, lt: today } }, select: { employeeId: true, kind: true, title: true, expiresOn: true, restrictsWork: true }, orderBy: { expiresOn: 'asc' } });
+    const permits = expired.filter((d) => d.kind === 'WORK_PERMIT' || d.kind === 'CERTIFICATE');
+    const others = expired.filter((d) => !(d.kind === 'WORK_PERMIT' || d.kind === 'CERTIFICATE'));
+    add({ id: 'permit-expired', area: 'People', severity: 'FIX_SOON', title: 'Work permit or certificate has expired', why: 'They may be doing work the permit allowed; the record says so, other apps do not stop it.', fix: 'Renew it and add the new copy on Documents, or move them off that work.', screen: 'employees' },
+      permits.map((d) => who(byId.get(d.employeeId)!, `${d.title} expired ${d.expiresOn}${d.restrictsWork ? ` · may not: ${d.restrictsWork}` : ''}`)));
+    add({ id: 'document-expired', area: 'People', severity: 'TIDY_UP', title: 'Document past its date', why: 'An expired ID, contract or proof on file is not valid for an audit or a renewal.', fix: 'Add the renewed copy on Documents.', screen: 'employees' },
+      others.map((d) => who(byId.get(d.employeeId)!, `${d.title} expired ${d.expiresOn}`)));
+  }
+
   /* People: the same person twice. */
   const groups = (key: (e: (typeof employees)[number]) => string, min = 2) => {
     const m = new Map<string, typeof employees>();
