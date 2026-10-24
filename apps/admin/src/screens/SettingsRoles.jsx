@@ -21,6 +21,29 @@ function permKey(p) {
   return `${module}::${subModule}::${action}`;
 }
 
+/*
+ * W-5.1: the role catalogue grouped by what a role opens — company
+ * administration first, then each app, then roles that reach several apps —
+ * from the role's own permissions (the same module-to-app mapping the server
+ * enforces, middleware/rbac.ts). Account roles (owner, administrator, billing
+ * admin, member) are the account's, shown above the company's roles.
+ */
+const ACCOUNTING_MODULES = new Set(['SALES', 'PURCHASE', 'INVENTORY', 'ACCOUNTING', 'CASHBANK', 'EXPENSES', 'MASTERS']);
+const APP_OF_MODULE = (m) => (ACCOUNTING_MODULES.has(m) ? 'Accounting' : m === 'PAYROLL' ? 'Payroll' : m === 'PEOPLE' || m === 'ATTENDANCE' ? 'People and Attendance' : null);
+const GROUP_ORDER = ['Company administration', 'Accounting', 'Payroll', 'People and Attendance', 'Across apps', 'Settings and reports only'];
+export function roleGroup(role) {
+  if (String(role?.roleType || '') === 'ADMIN') return 'Company administration';
+  const apps = new Set((role?._normalizedPermissions || []).filter((p) => p.allowed !== false).map((p) => APP_OF_MODULE(String(p.module || ''))).filter(Boolean));
+  if (apps.size === 1) return [...apps][0];
+  return apps.size > 1 ? 'Across apps' : 'Settings and reports only';
+}
+export const ACCOUNT_ROLES = [
+  ['Owner', 'Runs the account: its owners, companies, members and plan. Opens no business data by itself.'],
+  ['Administrator', 'Adds companies, invites people and changes account roles — not the owners.'],
+  ['Billing admin', 'Sees the account, its plan and billing.'],
+  ['Member', 'Belongs to the account; what they may do in a company comes from the roles below.'],
+];
+
 function normalizeRolePermissions(raw) {
   if (!Array.isArray(raw)) return [];
   return raw
@@ -371,6 +394,19 @@ export function SettingsRoles({ orgId }) {
         </form>
       </Drawer>
 
+      <details className="ui-surface border rounded-xl p-4 mb-4">
+        <summary className="font-medium cursor-pointer">Account roles: the level above these</summary>
+        <dl className="grid gap-2 mt-3 text-sm" style={{ gridTemplateColumns: 'max-content 1fr', columnGap: 16 }}>
+          {ACCOUNT_ROLES.map(([name, what]) => (
+            <React.Fragment key={name}>
+              <dt className="font-medium">{name}</dt>
+              <dd className="ui-muted">{what}</dd>
+            </React.Fragment>
+          ))}
+        </dl>
+        <p className="ui-caption mt-2">Given under Members. The roles below decide what a person may do in this company.</p>
+      </details>
+
       <div className="ui-surface border rounded-xl overflow-hidden roles-list-card">
         {loading ? (
           <TableSkeleton rows={6} cols={4} />
@@ -390,7 +426,14 @@ export function SettingsRoles({ orgId }) {
               </tr>
             </thead>
             <tbody className="divide-y">
-              {filteredRoles.map((r) => (
+              {GROUP_ORDER.flatMap((group) => {
+                const inGroup = filteredRoles.filter((r) => roleGroup(r) === group);
+                if (!inGroup.length) return [];
+                return [
+                  <tr key={`g:${group}`} className="ui-sunken">
+                    <th scope="colgroup" colSpan={5} className="ui-th text-left">{group}</th>
+                  </tr>,
+                  ...inGroup.map((r) => (
                 <tr key={r.id} className="ui-hover-sunken">
                   <td className="font-medium ui-fg">
                     <button type="button" className="text-left hover:underline" onClick={() => openView(r.id)}>
@@ -459,7 +502,9 @@ export function SettingsRoles({ orgId }) {
                     </div>
                   </td>
                 </tr>
-              ))}
+                  )),
+                ];
+              })}
             </tbody>
           </table>
         )}
