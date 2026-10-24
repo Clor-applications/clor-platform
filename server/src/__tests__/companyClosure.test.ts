@@ -45,8 +45,10 @@ async function makeCompany(): Promise<Ctx> {
 async function stepUp(c: Ctx) {
   const sec = (p: string, b: unknown = {}) => request(app).post(`/api/orgs/${c.orgId}/security${p}`).set(at(c)).send(b as any);
   const { secret } = (await sec('/two-factor/setup').expect(200)).body;
-  await sec('/two-factor/enable', { code: codeAt(secret, stepNow() - 1) }).expect(200);
-  return (await sec('/step-up', { code: codeAt(secret, stepNow()) }).expect(200)).body.token as string;
+  /* One time step for both codes: reading the clock twice failed when a 30-second boundary fell between the calls. */
+  const s0 = stepNow();
+  await sec('/two-factor/enable', { code: codeAt(secret, s0) }).expect(200);
+  return (await sec('/step-up', { code: codeAt(secret, s0 + 1) }).expect(200)).body.token as string;
 }
 
 /** A role by name (the defaults are made on first listing). */
