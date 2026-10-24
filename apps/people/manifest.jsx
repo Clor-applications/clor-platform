@@ -61,6 +61,8 @@ const PeopleOverview = screen('PeopleOverview');
 const Employees = screen('Employees');
 const Approvals = screen('Approvals');
 const Policies = screen('Policies');
+const HelpDesk = screen('HelpDesk');
+const HelpDeskSettings = screen('HelpDeskSettings');
 const OrgChart = screen('OrgChart');
 const Tags = screen('Tags');
 const Departments = screen('Departments');
@@ -193,7 +195,8 @@ export const peopleApp = {
   modules: [
     { key: 'overview', label: 'Home', items: ['overview', 'approvals'] },
     { key: 'employees', label: 'Employees', groups: [
-      { label: 'Directory', items: ['employees', 'orgChart', 'documents', 'policies'] },
+      { label: 'Directory', items: ['employees', 'orgChart', 'documents'] },
+      { label: 'Help', items: ['helpdesk', 'policies'] },
       { label: 'Joining & Leaving', items: ['checklists', 'assets'] },
       { label: 'Pay & Benefits', items: ['compensation', 'benefits'] },
     ] },
@@ -205,7 +208,7 @@ export const peopleApp = {
     ] },
     { key: 'hiring', label: 'Hiring', items: ['recruitment', 'candidates'] },
     { key: 'growth', label: 'Performance', items: ['performance', 'learning'] },
-    { key: 'workplace', label: 'Engage', items: ['announcements', 'events', 'helpdesk'] },
+    { key: 'workplace', label: 'Engage', items: ['announcements', 'events'] },
     { key: 'reports', label: 'Insights', items: ['reports', 'dataHealth', 'complianceCalendar'] },
     { key: 'settings', label: 'Settings', items: ['settings'] },
   ],
@@ -236,7 +239,8 @@ export const peopleApp = {
     { key: 'learning', label: 'Training', icon: I.training, permission: 'PEOPLE::Learning::VIEW', feature: 'peoplePerformance' },
     { key: 'announcements', label: 'Announcements', icon: I.news, permission: 'PEOPLE::Announcements::VIEW', feature: 'peopleEngage' },
     { key: 'events', label: 'Events', icon: I.event, permission: 'PEOPLE::Events::VIEW', feature: 'peopleEngage' },
-    { key: 'helpdesk', label: 'HR Cases', icon: I.hrCase, permission: 'PEOPLE::HR Cases::VIEW', feature: 'peopleEngage' },
+    { key: 'helpdesk', label: 'Help desk', icon: I.hrCase, permission: 'PEOPLE::HR Cases::VIEW' },
+    { key: 'helpDeskSettings', label: 'Help desk settings', icon: I.hrCase, permission: 'PEOPLE::HR Cases::EDIT', parent: 'settings' },
     { key: 'assets', label: 'Assets', icon: I.asset, permission: 'PEOPLE::Assets::VIEW', feature: 'peopleBenefits' },
     { key: 'benefits', label: 'Benefits', icon: I.benefit, permission: 'PEOPLE::Benefits::VIEW', feature: 'peopleBenefits' },
     { key: 'compensation', label: 'Salary Revisions', icon: I.salary, permission: 'PAYROLL::Salary Revisions::VIEW', feature: 'peopleBenefits' },
@@ -295,7 +299,8 @@ export const peopleApp = {
     learning: register('learning'),
     announcements: register('announcements'),
     events: register('events'),
-    helpdesk: register('helpdesk'),
+    helpdesk: HelpDesk,
+    helpDeskSettings: HelpDeskSettings,
     assets: register('assets'),
     benefits: register('benefits'),
     compensation: SalaryRevisions,

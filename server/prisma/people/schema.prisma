@@ -177,6 +177,7 @@ model Employee {
   @@index([accountId, orgId, establishmentId])
   @@index([accountId, orgId, reportingManagerId])
   joinInvites JoinInvite[]
+  deskRequests DeskRequest[]
 }
 
 // ============================================================================
@@ -1381,6 +1382,104 @@ model Acknowledgement {
   @@unique([targetType, targetId, employeeId])
   @@index([orgId, employeeId, acceptedAt])
   @@index([orgId, targetType, targetId])
+}
+
+/// Help desk (docs/people/02-PRD.md DESK-01..06; services/people/desk.ts). A
+/// request from an employee with a thread; internal notes the employee never
+/// sees; a category sets the queue and the reply-by and resolve-by times.
+model DeskCategory {
+  id          String   @id @default(cuid())
+  accountId   String
+  orgId       String
+  key         String
+  label       String
+  queue       String
+  leadUserId  String?
+  replyHours  Int      @default(24)
+  resolveDays Int      @default(3)
+  isActive    Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([orgId, key])
+}
+
+model DeskRequest {
+  id                 String    @id @default(cuid())
+  accountId          String
+  orgId              String
+  employeeId         String
+  category           String
+  subject            String
+  description        String
+  /// LOW | NORMAL | HIGH | URGENT
+  urgency            String    @default("NORMAL")
+  /// APP | EMAIL | PHONE
+  replyChannel       String?
+  assigneeUserId     String?
+  queue              String
+  replyBy            DateTime
+  resolveBy          DateTime
+  firstReplyAt       DateTime?
+  replyEscalatedAt   DateTime?
+  resolveEscalatedAt DateTime?
+  /// OPEN | WAITING_EMPLOYEE | RESOLVED | REOPENED | MOVED
+  status             String    @default("OPEN")
+  resolution         String?
+  resolvedAt         DateTime?
+  resolvedByUserId   String?
+  reopenedAt         DateTime?
+  /// Moved to Private cases (DESK-05): the details here are wiped; only the date and the case stay.
+  movedToCaseAt      DateTime?
+  movedToCaseId      String?
+  raisedByUserId     String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  employee Employee      @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  messages DeskMessage[]
+
+  @@index([orgId, status, resolveBy])
+  @@index([orgId, employeeId])
+  @@index([orgId, queue, status])
+}
+
+model DeskMessage {
+  id               String   @id @default(cuid())
+  accountId        String
+  orgId            String
+  requestId        String
+  authorUserId     String?
+  authorEmployeeId String?
+  body             String
+  /// Never returned to the employee (DESK-02).
+  internal         Boolean  @default(false)
+  attachmentDocId  String?
+  templateId       String?
+  /// The policy version an answer cites (DESK-06).
+  policyVersionId  String?
+  createdAt        DateTime @default(now())
+
+  request DeskRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, requestId, createdAt])
+}
+
+model DeskTemplate {
+  id              String   @id @default(cuid())
+  accountId       String
+  orgId           String
+  title           String
+  body            String
+  category        String?
+  policyId        String?
+  isActive        Boolean  @default(true)
+  createdByUserId String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([orgId, isActive])
 }
 
 /// Letters the company issues (docs/people/02-PRD.md DOC-04; services/people/letters.ts):

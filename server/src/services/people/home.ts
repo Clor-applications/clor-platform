@@ -75,10 +75,11 @@ export async function homeTodos(req: Request): Promise<Todo[]> {
     if (waiting) out.push({ key: 'leave', title: 'Leave waiting for a decision', detail: `${plural(waiting, 'request')} to approve or reject`, count: waiting, tone: 'soon', screen: 'leaveRequests' });
   }
   if (cases) {
-    const open = await peoplePrisma.peopleRecord.findMany({ where: { accountId, orgId, kind: 'helpdesk', status: { in: ['OPEN', 'IN_PROGRESS'] } }, select: { dueDate: true, details: true } });
+    const open = await peoplePrisma.deskRequest.findMany({ where: { accountId, orgId, status: { in: ['OPEN', 'REOPENED', 'WAITING_EMPLOYEE'] } }, select: { urgency: true, resolveBy: true, replyBy: true, firstReplyAt: true } });
     if (open.length) {
-      const urgent = open.filter((c) => (c.details as any)?.priority === 'URGENT' || (c.dueDate && c.dueDate < today)).length;
-      out.push({ key: 'helpdesk', title: 'HR cases open', detail: urgent ? `${urgent} urgent or late, ${open.length} open in all` : `${plural(open.length, 'case')} open`, count: open.length, tone: urgent ? 'urgent' : 'info', screen: 'helpdesk' });
+      const now = new Date();
+      const urgent = open.filter((c) => c.urgency === 'URGENT' || c.resolveBy < now || (!c.firstReplyAt && c.replyBy < now)).length;
+      out.push({ key: 'helpdesk', title: 'Help desk requests open', detail: urgent ? `${urgent} urgent or late, ${open.length} open in all` : `${plural(open.length, 'request')} open`, count: open.length, tone: urgent ? 'urgent' : 'info', screen: 'helpdesk' });
     }
   }
   if (hiring) {

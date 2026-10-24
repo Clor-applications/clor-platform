@@ -3,6 +3,7 @@ import { authenticate } from './portal.js';
 import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { policiesFor, versionForPerson } from '../services/people/policies.js';
 import { AckError, accept, pendingFor } from '../services/people/acknowledgements.js';
+import { DeskError, categoriesOf, employeeReply, listRequests, raiseRequest, reopenRequest, requestDetail } from '../services/people/desk.js';
 
 /**
  * People's own employee-facing routes, behind the employee app's sign-in
@@ -49,5 +50,54 @@ peoplePortalRouter.post('/acknowledgements/:id/accept', async (req, res) => {
     if (e instanceof AckError) return res.status(e.status).json({ error: e.message });
     console.error('[people-portal]', e instanceof Error ? e.message : e);
     res.status(500).json({ error: 'Something went wrong.' });
+  }
+});
+
+/* Ask HR (DESK-01..04): my requests, a new one, the thread without internal notes, a reply, a reopen within seven days. */
+const deskError = (res: any, e: unknown) => {
+  if (e instanceof DeskError) return res.status(e.status).json({ error: e.message });
+  console.error('[people-portal desk]', e instanceof Error ? e.message : e);
+  res.status(500).json({ error: 'Something went wrong.' });
+};
+
+peoplePortalRouter.get('/desk', async (req, res) => {
+  const { accountId, orgId, employeeId } = me(req);
+  const [requests, categories] = await Promise.all([listRequests(orgId, { employeeId }), categoriesOf(accountId, orgId)]);
+  res.json({ requests: requests.map((r) => ({ ...r, description: r.status === 'MOVED' ? '' : r.description })), categories: categories.filter((c) => c.isActive).map((c) => ({ key: c.key, label: c.label, replyHours: c.replyHours, resolveDays: c.resolveDays })) });
+});
+
+peoplePortalRouter.post('/desk', async (req, res) => {
+  const { accountId, orgId, employeeId } = me(req);
+  try {
+    res.status(201).json({ request: await raiseRequest({ accountId, orgId, userId: null, employeeId }, employeeId, req.body || {}) });
+  } catch (e) {
+    deskError(res, e);
+  }
+});
+
+peoplePortalRouter.get('/desk/:id', async (req, res) => {
+  const { orgId, employeeId } = me(req);
+  try {
+    res.json({ request: await requestDetail(orgId, String(req.params.id), { forEmployeeId: employeeId }) });
+  } catch (e) {
+    deskError(res, e);
+  }
+});
+
+peoplePortalRouter.post('/desk/:id/messages', async (req, res) => {
+  const { accountId, orgId, employeeId } = me(req);
+  try {
+    res.status(201).json({ message: await employeeReply({ accountId, orgId, userId: null }, employeeId, String(req.params.id), req.body || {}) });
+  } catch (e) {
+    deskError(res, e);
+  }
+});
+
+peoplePortalRouter.post('/desk/:id/reopen', async (req, res) => {
+  const { accountId, orgId, employeeId } = me(req);
+  try {
+    res.json({ request: await reopenRequest({ accountId, orgId, userId: null }, String(req.params.id), { employeeId }) });
+  } catch (e) {
+    deskError(res, e);
   }
 });

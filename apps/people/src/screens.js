@@ -9,6 +9,8 @@ export { default as PeopleOverview } from './screens/PeopleOverview';
 export { Employees } from './screens/EmployeesList';
 export { default as Approvals } from './screens/Approvals';
 export { default as Policies } from './screens/Policies';
+export { default as HelpDesk } from './screens/HelpDesk';
+export { default as HelpDeskSettings } from './screens/HelpDeskSettings';
 export { default as OrgChart } from './screens/OrgChart';
 export { default as Tags } from './screens/Tags';
 export { DataHealth } from './screens/DataHealth';

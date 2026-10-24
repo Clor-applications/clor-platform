@@ -9,6 +9,7 @@ import { startReportSchedules } from './services/attendance/reportSchedules.js';
 import { startPeopleOutbox } from './services/people/outbox.js';
 import { startScheduledChanges } from './services/people/effectiveDating.js';
 import { startApprovalDues } from './services/people/approvals/engine.js';
+import { startDeskDues } from './services/people/desk.js';
 import { registerPeopleEffects } from './services/people/approvals/effects.js';
 import { startDocumentReminders } from './services/people/documentReminders.js';
 import { startNotificationPruning } from './services/notifications.js';
@@ -76,6 +77,7 @@ startScheduledChanges();
 /* Approvals: what an approved request does, and overdue steps reminded or handed on — see services/people/approvals. */
 registerPeopleEffects();
 startApprovalDues();
+startDeskDues();
 startNotificationPruning();
 startBooksDigest();
 /* Reports that go out by e-mail on their own — every 15 minutes the due ones are sent. */

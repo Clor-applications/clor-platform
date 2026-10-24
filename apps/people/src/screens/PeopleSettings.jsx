@@ -30,6 +30,7 @@ const GROUPS = [
       ['tags', 'Labels to group people any way you like'],
       ['checklists', 'Joining and leaving checklists'],
       ['letterTemplates', 'Offer, appointment, relieving and other letters the company issues'],
+      ['helpDeskSettings', 'Help desk categories, reply and resolve times, and answer templates'],
       ['selfService', 'Who can sign in to the employee app'],
     ],
   },
