@@ -4,6 +4,7 @@ import { ArrowDownUp, Plus, Search } from 'lucide-react';
 import { GST_STATE_BY_CODE, getGstStateFromGstin } from '@ui/utils/gst';
 import { getAccountOverview } from '@platform/admin/admin';
 import { ICON, PageHead, Stat, WsDrawer } from './wsKit';
+import CompanyDetail from './CompanyDetail';
 import './workspace.css';
 
 /**
@@ -33,11 +34,12 @@ export function companyRows(companies, { q = '', sort = 'name', dir = 1, page = 
   return { total: rows.length, rows: rows.slice(page * PAGE, page * PAGE + PAGE), pages: Math.max(1, Math.ceil(rows.length / PAGE)) };
 }
 
-export default function Companies({ tenant, addCompany, switchCompany }) {
+export default function Companies({ tenant, addCompany, switchCompany, companies: tenants = [], catalog = [], openScreen }) {
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
   const [view, setView] = useState({ q: '', sort: 'name', dir: 1, page: 0 });
   const [adding, setAdding] = useState(false);
+  const [openId, setOpenId] = useState('');
 
   const load = useCallback(() => {
     getAccountOverview()
@@ -130,7 +132,7 @@ export default function Companies({ tenant, addCompany, switchCompany }) {
                       <td>
                         <span className="inline-flex items-center gap-2">
                           <span className="ws-tile ws-tile--sm" aria-hidden="true"><ICON.company size={14} /></span>
-                          <strong style={{ fontWeight: 600 }}>{c.name}</strong>
+                          <button type="button" className="ws-name-link" onClick={() => setOpenId(c.orgId)}>{c.name}</button>
                         </span>
                       </td>
                       <td>{current ? <span className="ws-pill ws-pill--role">You are here</span> : c.gstin ? <span className="ws-pill ws-pill--ok">Active</span> : <span className="ws-pill">Setup incomplete</span>}</td>
@@ -162,6 +164,17 @@ export default function Companies({ tenant, addCompany, switchCompany }) {
           </nav>
         ) : null}
       </div>
+
+      <CompanyDetail
+        key={openId || 'none'}
+        company={companies.find((c) => c.orgId === openId) || null}
+        current={openId === tenant?.id}
+        catalog={catalog}
+        subscriptions={tenants.find((t) => t.id === openId)?.subscriptions || (openId === tenant?.id ? tenant?.subscriptions : null) || null}
+        onClose={() => setOpenId('')}
+        onSwitch={switchCompany ? () => { switchCompany(openId); setOpenId(''); } : null}
+        onEdit={openScreen ? () => { setOpenId(''); openScreen('company'); } : null}
+      />
 
       <WsDrawer open={adding} onClose={() => setAdding(false)} title="Add a company">
         <AddCompanyForm

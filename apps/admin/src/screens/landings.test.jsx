@@ -67,3 +67,20 @@ describe('module landing pages', () => {
     expect(screen.queryByText('Anand Traders')).toBeNull();
   });
 });
+
+describe('a company at a glance', () => {
+  it('opens from its name with its figures, people and apps', async () => {
+    const { peopleOf } = await import('./CompanyDetail');
+    expect(peopleOf({ members: [
+      { userId: 'a', name: 'Zed', companies: [{ orgId: 'c2', isAdmin: false, apps: ['payroll'] }] },
+      { userId: 'b', name: 'Asha', companies: [{ orgId: 'c2', isAdmin: true, apps: [] }] },
+      { userId: 'c', name: 'Out', companies: [{ orgId: 'c1', isAdmin: true, apps: [] }] },
+    ] }, 'c2').map((p) => p.name)).toEqual(['Asha', 'Zed']);
+
+    render(<Companies tenant={{ id: 'c1' }} addCompany={vi.fn()} switchCompany={vi.fn()} catalog={[{ id: 'payroll', name: 'Payroll' }]} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Anand Exports' }));
+    const panel = await screen.findByRole('dialog');
+    expect(panel).toHaveTextContent('Maharashtra');
+    expect(panel).toHaveTextContent('Switch to this company');
+  });
+});

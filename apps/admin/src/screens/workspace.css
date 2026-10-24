@@ -1031,10 +1031,13 @@ button.ws-item:hover {
 }
 /* Drawer: the body scrolls, the actions stay at its foot. */
 .ws.ws-drawer {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 18px;
+  min-height: 100%;
 }
 .ws-drawer-foot {
+  margin-top: auto !important;
   position: sticky;
   bottom: -20px;
   margin: 8px -20px -20px;
@@ -1288,16 +1291,24 @@ button.ws-item:hover {
  * office on the right that fades into the card.
  */
 :root {
-  --ws-art-leaf: 206 216 207;
-  --ws-art-leaf-2: 196 208 198;
-  --ws-art-trunk: 176 188 178;
+  --ws-art-leaf: 198 212 200;
+  --ws-art-leaf-2: 183 199 186;
+  --ws-art-leaf-light: 216 227 217;
+  --ws-art-trunk: 165 176 167;
+  --ws-art-wall-top: 252 252 250;
   --ws-art-wall: 236 237 233;
   --ws-art-side: 222 224 219;
+  --ws-art-side-deep: 208 211 205;
   --ws-art-roof: 228 229 225;
   --ws-art-line: 214 216 210;
-  --ws-art-glass: 240 241 237;
-  --ws-art-wash-roof: 250 214 196;
-  --ws-art-wash-line: 244 190 165;
+  --ws-art-frame: 205 208 202;
+  --ws-art-pane-light: 247 248 246;
+  --ws-art-pane: 226 231 236;
+  --ws-art-door: 200 205 210;
+  --ws-art-glass-top: 204 219 243;
+  --ws-art-glass: 158 186 232;
+  --ws-art-glass-frame: 236 242 252;
+  --ws-art-shadow: 190 193 186;
 }
 .ws-hero {
   position: relative;
@@ -1317,7 +1328,13 @@ button.ws-item:hover {
   z-index: 1;
   display: grid;
   gap: 10px;
-  max-width: 58ch;
+  /* The drawing has the right half; the words keep the left. */
+  max-width: min(58ch, 52%);
+}
+@media (max-width: 900px) {
+  .ws-hero-text {
+    max-width: 58ch;
+  }
 }
 .ws-hero-crumb {
   display: flex;
@@ -1350,14 +1367,16 @@ button.ws-item:hover {
   position: absolute;
   right: 24px;
   bottom: 0;
-  width: min(46%, 460px);
-  height: auto;
+  /* Under the date, never behind it: a fixed height leaves the card's top 40px clear. */
+  height: 150px;
+  width: auto;
+  max-width: 48%;
+  opacity: 0.9;
   pointer-events: none;
 }
 @media (max-width: 900px) {
   .ws-hero-art {
-    width: min(55%, 360px);
-    opacity: 0.55;
+    display: none;
   }
 }
 @media (max-width: 600px) {
@@ -1379,4 +1398,110 @@ button.ws-item:hover {
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+
+/* ------------------------------------------------------------ tabs, facts, name links */
+.ws-tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid rgb(var(--ws-line));
+  overflow-x: auto;
+}
+.ws-tab {
+  position: relative;
+  padding: 10px 12px;
+  margin-bottom: -1px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: none;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: rgb(var(--ws-muted));
+  white-space: nowrap;
+  cursor: pointer;
+  border-radius: 8px 8px 0 0;
+}
+.ws-tab:hover {
+  color: rgb(var(--ws-ink));
+}
+.ws-tab[aria-selected='true'] {
+  color: rgb(var(--ws-ink));
+  border-bottom-color: rgb(var(--ws-accent));
+}
+.ws-tab:focus-visible {
+  outline: 2px solid rgb(var(--ws-accent));
+  outline-offset: -2px;
+}
+/* Label-over-value facts, three to a row on a drawer, two on a phone. */
+.ws-facts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0;
+  border: 1px solid rgb(var(--ws-line));
+  border-radius: 12px;
+  overflow: hidden;
+}
+.ws-facts > div {
+  padding: 12px 14px;
+  border-right: 1px solid rgb(var(--ws-line));
+  border-bottom: 1px solid rgb(var(--ws-line));
+  min-width: 0;
+}
+.ws-facts > div:nth-child(3n) {
+  border-right: 0;
+}
+.ws-facts > div:nth-last-child(-n + 3) {
+  border-bottom: 0;
+}
+.ws-facts dt {
+  font-size: 0.75rem;
+  color: rgb(var(--ws-muted));
+}
+.ws-facts dd {
+  margin-top: 4px;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: rgb(var(--ws-ink));
+  overflow-wrap: anywhere;
+}
+.ws-facts dd.num {
+  font-variant-numeric: tabular-nums;
+  text-align: left;
+}
+@media (max-width: 600px) {
+  .ws-facts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .ws-facts > div:nth-child(3n) {
+    border-right: 1px solid rgb(var(--ws-line));
+  }
+  .ws-facts > div:nth-child(2n) {
+    border-right: 0;
+  }
+}
+.ws .ws-subhead {
+  font-size: 0.9375rem !important;
+  line-height: 1.4 !important;
+  font-weight: 600 !important;
+}
+/* A record's name that opens it: reads as the name, underlines on hover. */
+.ws-name-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-weight: 600;
+  color: rgb(var(--ws-ink));
+  text-align: left;
+  cursor: pointer;
+  border-radius: 4px;
+}
+.ws-name-link:hover {
+  color: rgb(var(--ws-accent-hover));
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.ws-name-link:focus-visible {
+  outline: 2px solid rgb(var(--ws-accent));
+  outline-offset: 2px;
 }
