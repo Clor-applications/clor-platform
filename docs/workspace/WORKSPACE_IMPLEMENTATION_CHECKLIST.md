@@ -50,9 +50,9 @@ Audited on branch `claude/subscription-provisioning-gap-003-b84bad` (PR #23).
 | W-2.3 | Spec palette inside the Workspace only (D-3) | UI | NOT_STARTED | — | Low |
 | W-3.1 | Invitations: hashed single-use token, expiry, resend, revoke, idempotent accept, audit, seat policy documented | DB, server, UI | TESTED | W-1.1 | High |
 | W-3.2 | Invite wizard with access preview; no granting above own authority | UI, server | TESTED | W-3.1 | High |
-| W-4.1 | Members directory with filters; member detail with effective access (accounts, companies, apps, roles, scopes, who granted, when) | UI, server | NOT_STARTED | W-1.1 | Medium |
-| W-4.2 | Per-person app assignment (separate from subscription) | DB, server, UI | NOT_STARTED | W-1.1 | High |
-| W-4.3 | Suspend / remove from company / revoke app / remove from account as separate actions | Server, UI | NOT_STARTED | W-4.1 | Medium |
+| W-4.1 | Members directory with filters; member detail with effective access (accounts, companies, apps, roles, scopes, who granted, when) | UI, server | TESTED | W-1.1 | Medium |
+| W-4.2 | Per-person app assignment (separate from subscription) | DB, server, UI | IN_PROGRESS | W-1.1 | High |
+| W-4.3 | Suspend / remove from company / revoke app / remove from account as separate actions | Server, UI | TESTED | W-4.1 | Medium |
 | W-5.1 | Role catalogue grouped Workspace / Company / per app, from the existing permission catalogue | UI | NOT_STARTED | — | Low |
 | W-5.2 | Step-up for role elevation, SSO change, payroll-sensitive grants | Server | NOT_STARTED | — | Medium |
 | W-6.1 | Plan limits as data, not code (`planCatalog.ts`); atomic quota checks (today check-then-write) | DB, server | NOT_STARTED | — | High |
@@ -78,9 +78,15 @@ Audited on branch `claude/subscription-provisioning-gap-003-b84bad` (PR #23).
 - Browser, local API: owner sent an invitation; the link stopped the owner (not the invited address); signed out, the invitee chose a password and landed in the company.
 - Seat policy: pending invitations reserve no seat; the plan's user limit is enforced at acceptance (documented in `services/accountInvitations.ts`).
 
+## Evidence for W-4 (commits 1ef8271 and the Members screen)
+
+- `server/src/__tests__/accountMembers.test.ts` — 7 tests: directory with roles and apps; access detail with granter and sensitive permissions; suspend blocks a real ledger request with ACCOUNT_MEMBER_SUSPENDED, reinstate restores it; owners only by owners, not on oneself, members refused; remove-from-company keeps the login and account membership and deletes the company's roles; another account sees and changes nothing; /account/me apps.
+- `Members.test.jsx` (3), `AdminHome.test.jsx` (5).
+- Browser, local API: directory and drawer on real data.
+
 ## Known issues outside this list
 
-- A person with no app role (e.g. just joined by invitation) lands in an app and meets 403s labelled "Needs an administrator". They should land on the Workspace with the "No app access assigned" empty state (spec §6): part of W-4.2.
+- W-4.2 is IN_PROGRESS: the Workspace now shows each person's own app access (from their roles) apart from the company's subscription, with "Access not assigned" and "No app access yet". A separate per-person assignment table (assignment independent of roles) is not built: today a role is what opens an app. Decide whether that extra layer is wanted before building it.
 
 - Signup still switches every available app on (auth.ts signup creates a subscription with all apps). Spec rule 2.2.5 says creating an account must not activate products: W-6.
 
