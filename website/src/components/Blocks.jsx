@@ -4,10 +4,12 @@ import { Link } from '../router.jsx';
 import { PRODUCTS, SITE } from '../site.js';
 import { Mark, Status } from './Brand.jsx';
 
-export function SectionHead({ title, intro, as: H = 'h2', className = '' }) {
+/** A section's title. `center` sets it over the section with the short accent rule, for full-width sections. */
+export function SectionHead({ title, intro, as: H = 'h2', className = '', center = false }) {
   return (
-    <div className={`sec-head ${className}`}>
+    <div className={`sec-head${center ? ' sec-head--center' : ''} ${className}`}>
       <H className="h-1">{title}</H>
+      {center ? <span className="rule" aria-hidden="true" /> : null}
       {intro ? <p className="lede">{intro}</p> : null}
     </div>
   );
@@ -33,14 +35,12 @@ export function Faq({ items, title = 'Questions people ask' }) {
   );
 }
 
-export function Closing({ title = 'Start with one product. Add the rest when you need them.', text = 'Create your workspace, choose the apps you need and invite your team.' }) {
+export function Closing({ title = 'Start with one product. Add the rest when you need them.', text = 'Create your workspace, choose the apps you need and invite your team.', children }) {
   return (
     <section className="section closing">
       <div className="wrap closing-inner">
-        <div className="stack">
-          <h2 className="h-1">{title}</h2>
-          <p className="lede">{text}</p>
-        </div>
+        <h2 className="h-1">{title}</h2>
+        <p className="lede">{text}</p>
         <div className="actions">
           <a className="btn btn--primary" href={SITE.signUpUrl}>
             Get started
@@ -49,6 +49,7 @@ export function Closing({ title = 'Start with one product. Add the rest when you
             Talk to us
           </Link>
         </div>
+        {children ? <p className="small closing-note">{children}</p> : null}
       </div>
     </section>
   );

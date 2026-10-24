@@ -28,8 +28,8 @@
   --t-lg: 1.1875rem;
   --t-xl: 1.4375rem;
   --t-2xl: clamp(1.75rem, 1.3rem + 1.5vw, 2.4rem);
-  --t-3xl: clamp(2.25rem, 1.45rem + 2.8vw, 3.6rem);
-  --t-hero: clamp(2.85rem, 1.5rem + 5vw, 5.6rem);
+  --t-3xl: clamp(2rem, 1.4rem + 2vw, 3rem);
+  --t-hero: clamp(2.5rem, 1.5rem + 3.4vw, 4.35rem);
 
   --r-control: 8px;
   --r-panel: 14px;
@@ -151,30 +151,34 @@ h4 {
 }
 
 /* -------------------------------------------------------------- typography */
+/* Display weights stay at 600: confident without shouting, so the product screens carry the weight. */
 .h-hero {
   font-size: var(--t-hero);
-  font-weight: 750;
-  line-height: 1.01;
-  letter-spacing: -0.042em;
-  max-width: 13ch;
+  font-weight: 600;
+  line-height: 1.06;
+  letter-spacing: -0.032em;
+  max-width: 15ch;
+  text-wrap: balance;
 }
 .h-1 {
   font-size: var(--t-3xl);
-  font-weight: 750;
-  line-height: 1.06;
-  letter-spacing: -0.034em;
-  max-width: 20ch;
+  font-weight: 600;
+  line-height: 1.1;
+  letter-spacing: -0.028em;
+  max-width: 22ch;
+  text-wrap: balance;
 }
 .h-2 {
   font-size: var(--t-2xl);
-  font-weight: 700;
-  line-height: 1.12;
-  letter-spacing: -0.026em;
+  font-weight: 600;
+  line-height: 1.15;
+  letter-spacing: -0.022em;
   max-width: 26ch;
+  text-wrap: balance;
 }
 .h-3 {
   font-size: var(--t-lg);
-  font-weight: 700;
+  font-weight: 650;
   line-height: 1.3;
   letter-spacing: -0.014em;
 }
@@ -557,12 +561,19 @@ h4 {
   margin: 0;
   padding: 0;
   display: grid;
-  gap: var(--s-2);
 }
+/* Each link is a full-height row to tap, not just its 18px of text. */
 .footer a {
+  display: inline-block;
+  padding-block: 6px;
   color: var(--ink-2);
   text-decoration: none;
   font-size: var(--t-sm);
+}
+@media (pointer: coarse) {
+  .footer a {
+    padding-block: 11px;
+  }
 }
 .footer a:hover {
   color: var(--ink);
@@ -987,46 +998,115 @@ h4 {
 }
 .hero-grid {
   display: grid;
-  grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 33rem);
   gap: var(--gap-col);
-  align-items: end;
+  align-items: center;
+}
+.hero-copy {
+  display: grid;
+  gap: var(--s-5);
 }
 .hero-side {
   display: grid;
   gap: var(--s-5);
-  padding-bottom: var(--s-2);
+  justify-items: start;
 }
 .hero-side .lede {
-  max-width: 44ch;
+  max-width: 46ch;
 }
-@media (max-width: 900px) {
+@media (max-width: 960px) {
   .hero-grid {
     grid-template-columns: 1fr;
   }
 }
-.hero-apps {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--s-2) var(--s-4);
-  list-style: none;
-  margin: var(--s-2) 0 0;
-  padding: 0;
+
+/* The app catalogue beside the headline: every product, its job, and whether it is ready. */
+.apps-panel {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-panel);
+  box-shadow: var(--shadow-panel);
+  padding: var(--s-5) var(--s-5) var(--s-4);
+  opacity: 0;
+  transform: translateY(14px);
+  animation: rise 0.8s var(--ease) 0.4s forwards;
 }
-.hero-apps a {
+.apps-panel-title {
+  font-size: var(--t-sm);
+  font-weight: 600;
+  color: var(--ink-2);
+  padding-inline: var(--s-3);
+  margin-bottom: var(--s-2);
+}
+.apps-grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--s-1);
+}
+.app-tile {
+  display: flex;
+  gap: var(--s-3);
+  align-items: flex-start;
+  height: 100%;
+  padding: var(--s-3);
+  border-radius: var(--r-control);
+  color: inherit;
+  text-decoration: none;
+  transition: background-color 0.18s var(--ease);
+}
+.app-tile:hover {
+  background: var(--surface-2);
+}
+.app-tile .mark {
+  transition: transform 0.25s var(--ease);
+}
+.app-tile:hover .mark {
+  transform: translateY(-2px);
+}
+.app-tile-text {
+  display: grid;
+  gap: 2px;
+  justify-items: start;
+}
+.app-tile-name {
+  font: 600 var(--t-md) / 1.3 var(--font-display);
+  letter-spacing: -0.01em;
+}
+.app-tile-line {
+  font-size: var(--t-xs);
+  line-height: 1.45;
+  color: var(--ink-2);
+}
+.app-tile .status {
+  margin-top: 2px;
+}
+.apps-panel-all {
   display: inline-flex;
   align-items: center;
-  gap: var(--s-2);
+  gap: var(--s-1);
+  min-height: 40px;
+  margin: var(--s-2) var(--s-3) 0;
   font-size: var(--t-sm);
-  font-weight: 550;
-  color: var(--ink-2);
-  text-decoration: none;
-  padding: var(--s-1) 0;
-}
-.hero-apps a:hover {
+  font-weight: 600;
   color: var(--ink);
+  text-decoration: none;
 }
-.hero-stage {
-  margin-top: clamp(var(--s-7), 6vw, var(--s-8));
+.apps-panel-all svg {
+  transition: transform 0.2s var(--ease);
+}
+.apps-panel-all:hover svg {
+  transform: translateX(3px);
+}
+@media (max-width: 520px) {
+  .apps-grid {
+    grid-template-columns: 1fr;
+  }
+  .apps-panel {
+    padding: var(--s-3) var(--s-2) var(--s-2);
+  }
 }
 /* The headline: each word rises out of its own line box, once. */
 .hero-title .wm {
@@ -1064,6 +1144,21 @@ h4 {
   display: grid;
   gap: var(--s-4);
   margin-bottom: var(--gap-head);
+}
+/* The short accent rule under a title: the one place the orange marks structure. */
+.rule {
+  display: block;
+  width: 40px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--accent);
+}
+.sec-head--center {
+  justify-items: center;
+  text-align: center;
+}
+.sec-head--center .lede {
+  max-width: 60ch;
 }
 .split {
   display: grid;
@@ -1537,17 +1632,95 @@ h4 {
 }
 .closing-inner {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: var(--s-6);
-  align-items: end;
+  justify-items: center;
+  text-align: center;
+  gap: var(--s-4);
 }
 .closing .h-1 {
-  max-width: 20ch;
+  max-width: 22ch;
 }
-@media (max-width: 760px) {
-  .closing-inner {
+.closing .actions {
+  justify-content: center;
+  margin-top: var(--s-2);
+}
+.closing-note {
+  margin-top: var(--s-2);
+}
+.closing-note a {
+  color: var(--ink);
+  text-underline-offset: 3px;
+}
+
+/* ------------------------------------------------------- values + figures */
+.values {
+  list-style: none;
+  margin: 0 auto;
+  padding: 0;
+  max-width: 60rem;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--s-7) var(--s-8);
+}
+.values li {
+  display: flex;
+  gap: var(--s-4);
+  align-items: flex-start;
+}
+.values-icon {
+  flex: none;
+  color: var(--accent);
+  margin-top: 2px;
+}
+.values .body {
+  margin-top: var(--s-2);
+}
+.center-link {
+  display: flex;
+  justify-content: center;
+  margin-top: var(--s-7);
+}
+@media (max-width: 720px) {
+  .values {
     grid-template-columns: 1fr;
-    align-items: start;
+    gap: var(--s-6);
+  }
+}
+.figures-band {
+  background: var(--surface);
+}
+.figures {
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+}
+.figures > div {
+  display: flex;
+  flex-direction: column-reverse;
+  align-items: center;
+  gap: var(--s-2);
+  padding: var(--s-2) var(--s-4);
+  text-align: center;
+}
+.figures > div + div {
+  border-left: 1px solid var(--line);
+}
+.figures dd {
+  margin: 0;
+  font: 600 var(--t-3xl) / 1 var(--font-display);
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+}
+.figures dt {
+  font-size: var(--t-sm);
+  color: var(--ink-2);
+}
+@media (max-width: 720px) {
+  .figures {
+    grid-template-columns: 1fr 1fr;
+    row-gap: var(--s-6);
+  }
+  .figures > div:nth-child(3) {
+    border-left: 0;
   }
 }
 

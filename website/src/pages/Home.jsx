@@ -1,10 +1,11 @@
 import React from 'react';
 import { Link } from '../router.jsx';
-import { SITE, AVAILABLE, productBySlug } from '../site.js';
+import { ChevronRight, Building2, History, KeyRound, MapPin } from 'lucide-react';
+import { SITE, AVAILABLE, PRODUCTS, productBySlug } from '../site.js';
 import Connection from '../components/Connection.jsx';
-import { Closing, Faq, ProductIndex, Reveal, SectionHead, Steps, Tabs } from '../components/Blocks.jsx';
+import { Closing, Faq, Reveal, SectionHead, Steps, Tabs } from '../components/Blocks.jsx';
 import { BooksWindow, PayrollWindow, PeopleWindow, AttendanceWindow } from '../components/Windows.jsx';
-import { Mark } from '../components/Brand.jsx';
+import { Mark, Status } from '../components/Brand.jsx';
 
 const SHOWCASE = [
   { slug: 'books', W: BooksWindow, title: 'Invoices that post themselves', text: 'Every invoice, bill and receipt writes its own journal. GST returns come from the documents you already raised.' },
@@ -60,62 +61,94 @@ const FAQ = [
   ['Can I leave with my data?', 'Yes. You can export your company’s data at any time, and closing a company comes with a notice period.'],
 ];
 
+const VALUES = [
+  { Icon: Building2, title: 'Each company apart', text: 'The database itself refuses to show one company’s records to another.' },
+  { Icon: KeyRound, title: 'Sign-in you control', text: 'Authenticator apps, single sign-on and a code again before the most sensitive actions.' },
+  { Icon: History, title: 'Everything recorded', text: 'Who changed what, and when, in an audit trail you can read in plain words.' },
+  { Icon: MapPin, title: 'Hosted in India', text: `${SITE.hosting}.` },
+];
+
+/* Only counts that are true today; they come from the product list, not from marketing. */
+const FIGURES = [
+  [String(AVAILABLE.length), 'apps ready today'],
+  [String(PRODUCTS.length - AVAILABLE.length), 'more on the way'],
+  ['1', 'sign-in for every app'],
+  ['Mumbai', 'where your data is kept'],
+];
+
+/** The catalogue beside the headline: every app, what it does, and whether it is ready. */
+function AppsPanel() {
+  return (
+    <aside className="apps-panel" aria-labelledby="apps-panel-title">
+      <p id="apps-panel-title" className="apps-panel-title">
+        Clor apps
+      </p>
+      <ul className="apps-grid">
+        {PRODUCTS.map((p) => (
+          <li key={p.slug}>
+            <Link href={`/products/${p.slug}`} className="app-tile">
+              <Mark product={p} size={36} />
+              <span className="app-tile-text">
+                <span className="app-tile-name">{p.name}</span>
+                <span className="app-tile-line">{p.line}</span>
+                {p.status === 'soon' ? <Status product={p} /> : null}
+              </span>
+            </Link>
+          </li>
+        ))}
+      </ul>
+      <Link href="/products" className="apps-panel-all">
+        See all products <ChevronRight size={16} strokeWidth={1.75} aria-hidden="true" />
+      </Link>
+    </aside>
+  );
+}
+
 export default function Home() {
   return (
     <>
       <section className="hero">
         <div className="wrap hero-grid">
-          {/* Words arrive once, in turn, from the first paint (CSS only, so nothing flickers; reduced motion shows them at once). */}
-          <h1 className="h-hero hero-title">
-            {'Your books, people and payroll, on the same records.'.split(' ').map((w, n) => (
-              <React.Fragment key={n}>
-                <span className="wm">
-                  <span className="w" style={{ '--n': n }}>
-                    {w}
-                  </span>
-                </span>{' '}
-              </React.Fragment>
-            ))}
-          </h1>
-          <div className="hero-side">
-            <p className="lede">
-              Clor is a family of business apps for Indian companies: accounting, HR, payroll and attendance. Use one, or use them together. They share one workspace, one sign-in and one set of people.
-            </p>
-            <div className="actions">
-              <a className="btn btn--primary" href={SITE.signUpUrl}>
-                Get started
-              </a>
-              <Link className="btn btn--quiet" href="/products">
-                See the products
-              </Link>
-            </div>
-            <ul className="hero-apps" aria-label="Products available today">
-              {AVAILABLE.map((p) => (
-                <li key={p.slug}>
-                  <Link href={`/products/${p.slug}`}>
-                    <Mark product={p} size={26} />
-                    {p.name}
-                  </Link>
-                </li>
+          <div className="hero-copy">
+            {/* Words arrive once, in turn, from the first paint (CSS only, so nothing flickers; reduced motion shows them at once). */}
+            <h1 className="h-hero hero-title">
+              {'Your books, people and payroll, on the same records.'.split(' ').map((w, n) => (
+                <React.Fragment key={n}>
+                  <span className="wm">
+                    <span className="w" style={{ '--n': n }}>
+                      {w}
+                    </span>
+                  </span>{' '}
+                </React.Fragment>
               ))}
-            </ul>
+            </h1>
+            <div className="hero-side">
+              <span className="rule" aria-hidden="true" />
+              <p className="lede">Business apps for Indian companies: accounting, HR, payroll and attendance. Use one, or use them together on one workspace and one sign-in.</p>
+              <div className="actions">
+                <a className="btn btn--primary" href={SITE.signUpUrl}>
+                  Get started
+                </a>
+                <Link className="btn btn--quiet" href="/contact">
+                  Talk to us
+                </Link>
+              </div>
+            </div>
           </div>
-        </div>
-        <div className="wrap hero-stage">
-          <Connection />
-        </div>
-      </section>
-
-      <section className="section">
-        <div className="wrap split">
-          <SectionHead title="Six products. Choose the ones you need." intro="Four are ready today; two are on the way. Each has its own job, and each works with the others when you have them." />
-          <ProductIndex />
+          <AppsPanel />
         </div>
       </section>
 
       <section className="section section--tint">
         <div className="wrap">
-          <SectionHead title="What each one does" />
+          <SectionHead center title="One workspace. Every app on the same records." intro="People gives Attendance its people, the closed month goes to Payroll, and the pay run posts to Books. Nothing is typed twice." />
+          <Connection />
+        </div>
+      </section>
+
+      <section className="section">
+        <div className="wrap">
+          <SectionHead center title="What each one does" />
           <div className="showcase">
             {SHOWCASE.map(({ slug, W, title, text }, n) => {
               const p = productBySlug(slug);
@@ -141,9 +174,9 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="section">
+      <section className="section section--tint">
         <div className="wrap">
-          <SectionHead title="Built for the people who run the business" />
+          <SectionHead center title="Built for the people who run the business" />
           <Tabs
             label="Who Clor is for"
             tabs={TEAMS.map((t) => ({
@@ -185,14 +218,14 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="section section--tint">
+      <section className="section">
         <div className="wrap split">
           <SectionHead title="How you start" intro="Four steps, each done in the app yourself." />
           <Steps steps={STEPS} />
         </div>
       </section>
 
-      <section className="section">
+      <section className="section section--tint">
         <div className="wrap access">
           <SectionHead title="One place to decide who can do what" intro="Companies, branches, people and their roles live in the workspace, not in each app. Give someone access once; take it away once." />
           <div className="access-map" aria-label="How access is organised">
@@ -223,41 +256,39 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="section section--tint">
-        <div className="wrap split">
-          <SectionHead title="Kept safe, kept apart" />
-          <ul className="facts">
-            <li>
-              <h3 className="h-3">Each company apart</h3>
-              <p className="body">The database itself refuses to show one company’s records to another.</p>
-            </li>
-            <li>
-              <h3 className="h-3">Sign-in you control</h3>
-              <p className="body">Authenticator apps, single sign-on and a code again before the most sensitive actions.</p>
-            </li>
-            <li>
-              <h3 className="h-3">Everything recorded</h3>
-              <p className="body">Who changed what, and when, in an audit trail you can read in plain words.</p>
-            </li>
-            <li>
-              <h3 className="h-3">Hosted in India</h3>
-              <p className="body">{SITE.hosting}.</p>
-            </li>
+      <section className="section">
+        <div className="wrap">
+          <SectionHead center title="Kept safe, kept apart" />
+          <ul className="values">
+            {VALUES.map(({ Icon, title, text }) => (
+              <li key={title}>
+                <Icon className="values-icon" size={28} strokeWidth={1.5} aria-hidden="true" />
+                <div>
+                  <h3 className="h-3">{title}</h3>
+                  <p className="body">{text}</p>
+                </div>
+              </li>
+            ))}
           </ul>
-          <Link className="btn btn--text" href="/security">
-            How Clor keeps your data safe
-          </Link>
+          <p className="center-link">
+            <Link className="btn btn--quiet" href="/security">
+              How Clor keeps your data safe
+            </Link>
+          </p>
         </div>
       </section>
 
-      <section className="section">
-        <div className="wrap band">
-          <SectionHead title="Pay for the products you use" intro="Each product has its own subscription, so a company that only needs payroll pays only for payroll. Prices are being finalised." />
-          <div className="actions">
-            <Link className="btn btn--quiet" href="/pricing">
-              How pricing works
-            </Link>
-          </div>
+      <section className="section figures-band">
+        <div className="wrap">
+          <SectionHead center title="Built in India, for Indian businesses." />
+          <dl className="figures">
+            {FIGURES.map(([n, label]) => (
+              <div key={label}>
+                <dt>{label}</dt>
+                <dd>{n}</dd>
+              </div>
+            ))}
+          </dl>
         </div>
       </section>
 
@@ -267,7 +298,9 @@ export default function Home() {
         </div>
       </section>
 
-      <Closing />
+      <Closing title="Start with one app. Add the rest when you need them." text="Create your workspace, choose the apps you need and invite your team.">
+        Each app has its own subscription; prices are being finalised. <Link href="/pricing">How pricing works</Link>
+      </Closing>
     </>
   );
 }
