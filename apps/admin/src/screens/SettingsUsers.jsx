@@ -453,11 +453,17 @@ export function SettingsUsers({ orgId }) {
     </div>
   );
 
+  const formOpen = Boolean(editingUserId || showForm || companiesModalUser || (branchesEnabled && assignBranchesModalOpen));
+  const errorNote = error ? (
+    <div role="alert" className="text-sm text-[rgb(var(--neg))] bg-[rgb(var(--neg-soft))] border border-[rgb(var(--neg)/0.35)] rounded-lg p-3">{error}</div>
+  ) : null;
+
   return (
     <div className="users-settings-page space-y-2">
       {headerHost ? createPortal(usersHeader, headerHost) : usersHeader}
 
-      {error && <div className="text-sm text-[rgb(var(--neg))] bg-[rgb(var(--neg-soft))] border border-[rgb(var(--neg)/0.35)] rounded-lg p-3">{error}</div>}
+      {/* An error belongs where the person is looking: inside the form or dialog they just saved, otherwise here. */}
+      {error && !formOpen ? errorNote : null}
 
       {selectedUser ? (
         <div className="ui-surface border rounded-xl p-5 space-y-4">
@@ -525,6 +531,7 @@ export function SettingsUsers({ orgId }) {
         )}
       >
         <form id="create-user-form" onSubmit={onSubmit} className="grid gap-4 sm:grid-cols-2">
+          {errorNote ? <div className="sm:col-span-2">{errorNote}</div> : null}
           <div className="sm:col-span-2">
             <label className="ui-label" htmlFor="settingsusers-full-name">Name *</label>
             <input id="settingsusers-full-name" className="ui-input w-full" value={form.fullName} onChange={onChange('fullName')} required autoFocus />
@@ -558,6 +565,7 @@ export function SettingsUsers({ orgId }) {
           maxWidthClass="max-w-2xl"
         >
           <form onSubmit={saveCompanies} className="space-y-4">
+            {errorNote}
             <p className="text-sm ui-muted">
               Every company in this account. Unticking one takes the access away, and the role that came with it.
             </p>
@@ -615,6 +623,7 @@ export function SettingsUsers({ orgId }) {
           maxWidthClass="max-w-3xl"
         >
           <form onSubmit={saveAssignBranches} className="space-y-4">
+            {errorNote}
             {assignBranchesLoading ? <div className="text-sm ui-muted">Loading…</div> : null}
 
             <div className="border rounded-lg overflow-hidden">
@@ -684,6 +693,7 @@ export function SettingsUsers({ orgId }) {
       {editingUserId ? (
         <form onSubmit={saveEdit} className="ui-surface border rounded-xl p-5 space-y-4">
           <div className="ui-t-sec">Edit User</div>
+          {errorNote}
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="ui-label" htmlFor="settingsusers-full-name-2">Full Name *</label>
@@ -743,7 +753,7 @@ export function SettingsUsers({ orgId }) {
         </form>
       ) : null}
 
-      <div className="ui-surface border rounded-xl overflow-hidden users-list-card">
+      <div className="ui-surface border rounded-xl overflow-x-auto users-list-card">
         {loading ? (
           <TableSkeleton rows={6} cols={5} />
         ) : users.length === 0 ? (
@@ -771,7 +781,7 @@ export function SettingsUsers({ orgId }) {
                     </button>
                   </td>
                   <td className="ui-col-meta ui-fg font-mono text-xs whitespace-nowrap">{u.code || '—'}</td>
-                  <td className="ui-col-entity ui-fg">{u.email}</td>
+                  <td className="ui-col-entity ui-fg truncate" title={u.email}>{u.email}</td>
                   <td className="ui-col-meta ui-fg">{getRoleName(u.roleId)}</td>
                   <td className="ui-col-meta">
                     <span className={`px-2 py-1 rounded-lg text-xs font-medium ${u.isActive !== false ? 'bg-[rgb(var(--pos-soft))] text-[rgb(var(--pos))]' : 'bg-[rgb(var(--neg-soft))] text-[rgb(var(--neg))]'}`}>

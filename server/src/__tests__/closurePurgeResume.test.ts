@@ -87,14 +87,14 @@ describe('A-47: the closure purge', () => {
     const c = await closedCompany();
     await jobLease.stopJobs();
     try {
-      await quietly(() => purgeClosedCompanies(afterNotice()));
+      await quietly(() => purgeClosedCompanies(afterNotice(), { only: [c.orgId] }));
     } finally {
       jobLease._resetForTests();
     }
     expect(await people(c.orgId)).toBe(1);
     expect((await closureOf(c.orgId)).status).toBe('SCHEDULED');
     /* Finished on the next run. */
-    await purgeClosedCompanies(afterNotice());
+    await purgeClosedCompanies(afterNotice(), { only: [c.orgId] });
     expect((await closureOf(c.orgId)).status).toBe('DELETED');
   });
 
@@ -108,7 +108,7 @@ describe('A-47: the closure purge', () => {
       return real(args);
     });
     try {
-      await quietly(() => purgeClosedCompanies(afterNotice()));
+      await quietly(() => purgeClosedCompanies(afterNotice(), { only: [c.orgId] }));
     } finally {
       spy.mockRestore();
       jobLease._resetForTests();
@@ -120,7 +120,7 @@ describe('A-47: the closure purge', () => {
     expect(JSON.parse(cut.purgeProgress || '{}').done).toEqual(['people']);
     expect(cut.purgeError).toMatch(/resumes/);
 
-    await purgeClosedCompanies(afterNotice());
+    await purgeClosedCompanies(afterNotice(), { only: [c.orgId] });
     const after = await closureOf(c.orgId);
     expect(after.status).toBe('DELETED');
     expect(await books.count()).toBe(0);
@@ -137,7 +137,7 @@ describe('A-47: the closure purge', () => {
     const alerts: string[] = [];
     const spy = vi.spyOn(console, 'error').mockImplementation((...a: unknown[]) => void alerts.push(a.map(String).join(' ')));
     try {
-      await purgeClosedCompanies(afterNotice());
+      await purgeClosedCompanies(afterNotice(), { only: [c.orgId] });
     } finally {
       spy.mockRestore();
       await owner.$executeRawUnsafe(`DROP TRIGGER IF EXISTS a47_refuse ON accounting."${books.model}"`);
@@ -149,7 +149,7 @@ describe('A-47: the closure purge', () => {
     expect(JSON.parse(failed.purgeProgress || '{}').done).toEqual(['people', 'payroll']);
     expect(alerts.some((l) => l.includes('ALERT') && l.includes(c.orgId))).toBe(true);
 
-    await purgeClosedCompanies(afterNotice());
+    await purgeClosedCompanies(afterNotice(), { only: [c.orgId] });
     const after = await closureOf(c.orgId);
     expect(after.status).toBe('DELETED');
     expect(after.purgeError).toBeNull();

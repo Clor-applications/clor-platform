@@ -255,9 +255,14 @@ export async function closeEmptyAccount(accountId: string, now = new Date()) {
   });
 }
 
-export async function purgeClosedCompanies(now = new Date()) {
+/**
+ * `only` limits the run to these companies — for a test sharing its database
+ * with others, whose own scheduled closures are not its business. The job
+ * passes nothing and purges every company whose notice has ended.
+ */
+export async function purgeClosedCompanies(now = new Date(), opts: { only?: string[] } = {}) {
   const due = await outsideTenant('closure purge: find companies whose notice ended', () =>
-    platformPrisma.orgClosure.findMany({ where: { status: 'SCHEDULED', deleteAfter: { lte: now } }, select: { orgId: true, orgName: true, accountId: true, purgeProgress: true } })
+    platformPrisma.orgClosure.findMany({ where: { status: 'SCHEDULED', deleteAfter: { lte: now }, ...(opts.only ? { orgId: { in: opts.only } } : {}) }, select: { orgId: true, orgName: true, accountId: true, purgeProgress: true } })
   );
   const done: Array<{ orgId: string; rows: number }> = [];
   const record = (orgId: string, data: Record<string, unknown>) =>

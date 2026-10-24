@@ -179,10 +179,11 @@ describe('closing a company', () => {
     await closure(closing).post({ confirmName: closing.name }).expect(201);
 
     /* A day before the notice ends: nothing happens. */
-    expect(await purgeClosedCompanies(new Date(Date.now() + (noticeDays() - 1) * 86_400_000))).toEqual([]);
+    expect(await purgeClosedCompanies(new Date(Date.now() + (noticeDays() - 1) * 86_400_000), { only: [closing.orgId, staying.orgId] })).toEqual([]);
     expect(await rowsOf(closing.orgId)).toBeGreaterThan(0);
 
-    const done = await purgeClosedCompanies(new Date(Date.now() + (noticeDays() + 1) * 86_400_000));
+    /* Only this test's companies: other suites sharing the database have closures of their own. */
+    const done = await purgeClosedCompanies(new Date(Date.now() + (noticeDays() + 1) * 86_400_000), { only: [closing.orgId, staying.orgId] });
     expect(done.map((d) => d.orgId)).toContain(closing.orgId);
     expect(await rowsOf(closing.orgId)).toBe(0);
     expect(await rowsOf(staying.orgId)).toBe(stayingBefore);
