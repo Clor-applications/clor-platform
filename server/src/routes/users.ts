@@ -34,6 +34,7 @@ import {
 } from '../services/roleGuards.js';
 import { outsideTenant, runInTenant } from '../utils/tenantScope.js';
 import { OutsideAccessError, checkOutsideTerms, grantOutsideAccess, refusalOf } from '../services/outsideAccess.js';
+import { ensureAccountMembership } from '../services/accountMembership.js';
 
 export const usersRouter = Router();
 usersRouter.use(requireAuth, requireTenantContext);
@@ -739,6 +740,8 @@ usersRouter.post('/users', requirePermission('SETTINGS', PermissionAction.CREATE
       },
       select: { id: true, email: true, fullName: true, accountId: true },
     }));
+  /* A new login belongs to this account (W-1.1); an invited person from elsewhere keeps their own account. */
+  if (!invited) await ensureAccountMembership(accountId, user.id, 'MEMBER', createdByUserId);
   // A new person is numbered in the company that added them; someone who
   // already has an ID (e.g. a CA invited from another account) keeps it.
   await assignUserCode(user.id, req.tenant!.orgId);

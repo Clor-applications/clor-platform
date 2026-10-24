@@ -4,8 +4,16 @@ import { prisma } from '../utils/prisma.js';
 import { platformPrisma } from '../utils/platformPrisma.js';
 import { requireAuth } from '../middleware/auth.js';
 import { requireTenantContext } from '../middleware/tenantContext.js';
-import { requirePermission } from '../middleware/rbac.js';
-import { PermissionAction } from '../constants/enums.js';
+import {
+  ACCOUNT_ADMINS,
+  ACCOUNT_BILLING,
+  AccountMembershipError,
+  accountRoleOf,
+  isAccountRole,
+  listAccountMembers,
+  requireAccountRole,
+  setAccountRole,
+} from '../services/accountMembership.js';
 import { entitlementFor } from '../services/entitlements.js';
 import { outsideTenant } from '../utils/tenantScope.js';
 
@@ -24,7 +32,12 @@ import { outsideTenant } from '../utils/tenantScope.js';
 export const accountRouter = Router();
 accountRouter.use(requireAuth, requireTenantContext);
 
-const ACCOUNT_VIEW = requirePermission('SETTINGS', PermissionAction.VIEW, 'Company Profile');
+/*
+ * W-1.4: the account overview is the account's, so its owners, administrators
+ * and billing administrators see it — not whoever can view one company's
+ * profile, which is what gated it before.
+ */
+const ACCOUNT_VIEW = requireAccountRole(...ACCOUNT_BILLING);
 
 const num = (v: unknown) => {
   const n = Number(v ?? 0);
@@ -134,3 +147,26 @@ accountRouter.get('/account/overview', ACCOUNT_VIEW, (req, res) =>
   }));
 
 export default accountRouter;
+
+/** The caller's own account role, for the Workspace to decide what to show (the server still decides what to allow). */
+accountRouter.get('/account/me', async (req, res) => {
+  const role = await accountRoleOf(req.tenant!.accountId, req.auth!.userId);
+  res.json({ accountId: req.tenant!.accountId, role });
+});
+
+/** Everyone who belongs to the account, with their account role. Owners and administrators only. */
+accountRouter.get('/account/members', requireAccountRole(...ACCOUNT_ADMINS), async (req, res) => {
+  res.json({ members: await listAccountMembers(req.tenant!.accountId) });
+});
+
+/** Change one person's account role (W-1.2): owner rules, last-owner guard, step-up and audit in setAccountRole. */
+accountRouter.put('/account/members/:userId/role', async (req, res) => {
+  const role = req.body?.role;
+  if (!isAccountRole(role)) return res.status(400).json({ error: 'Role must be OWNER, ADMIN, BILLING_ADMIN or MEMBER.', code: 'BAD_ROLE' });
+  try {
+    res.json(await setAccountRole(req, String(req.params.userId), role));
+  } catch (e) {
+    if (e instanceof AccountMembershipError) return res.status(e.status).json({ error: e.message, code: e.code });
+    throw e;
+  }
+});

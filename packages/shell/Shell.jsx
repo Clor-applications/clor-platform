@@ -76,6 +76,29 @@ export const publicPageFromPath = (pathname = typeof window === 'undefined' ? '/
   return 'signin';
 };
 
+const ACCOUNT_ROLE_LABEL = { OWNER: 'owner', ADMIN: 'administrator', BILLING_ADMIN: 'billing admin', MEMBER: 'member' };
+
+/**
+ * W-2.1: the company picker is also the account switcher. With one account it
+ * is a plain list; with more, each account's companies sit under its name,
+ * with the person's role there or "outside access" when it is somebody else's
+ * account they were let into. Choosing a company in another account switches
+ * account: the screen is keyed by company, so nothing from the old one stays.
+ */
+export const companyGroups = (tenants = [], accounts = []) => {
+  const ids = [...new Set(tenants.map((t) => t.accountId || ''))];
+  if (ids.length < 2) return [{ id: 'all', label: '', items: tenants }];
+  const byId = new Map(accounts.map((a) => [a.id, a]));
+  const order = (id) => (byId.get(id)?.home ? 0 : 1);
+  return ids
+    .sort((a, b) => order(a) - order(b) || String(byId.get(a)?.name || '').localeCompare(String(byId.get(b)?.name || '')))
+    .map((id) => {
+      const a = byId.get(id);
+      const how = a?.home ? (a.role ? ACCOUNT_ROLE_LABEL[a.role] || '' : '') : 'outside access';
+      return { id, label: `${a?.name || 'Another account'}${how ? ` (${how})` : ''}`, items: tenants.filter((t) => (t.accountId || '') === id) };
+    });
+};
+
 export default function Shell() {
   /* A phone: no rail, a menu sheet and a tab bar instead (mobileTabs.js). */
   const [phone, setPhone] = useState(() => typeof window !== 'undefined' && window.matchMedia(PHONE_QUERY).matches);
@@ -101,7 +124,7 @@ export default function Shell() {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [tabletPanel]);
-  const { user, tenant, tenants, deniedCode, restoring, setTenantId, signOut, addApp, twoFactorSetupRequired } = useSession();
+  const { user, tenant, tenants, accounts, deniedCode, restoring, setTenantId, signOut, addApp, twoFactorSetupRequired } = useSession();
 
   /* The shared hook, not a second copy: the public page has a toggle too, and
      a private key here would mean the choice did not follow you inside. */
@@ -742,9 +765,19 @@ export default function Shell() {
               onChange={(e) => setTenantId(e.target.value)}
               aria-label="Company"
             >
-              {tenants.map((t) => (
-                <option key={t.id} value={t.id}>{t.name}</option>
-              ))}
+              {companyGroups(tenants, accounts).map((g) =>
+                g.label ? (
+                  <optgroup key={g.id} label={g.label}>
+                    {g.items.map((t) => (
+                      <option key={t.id} value={t.id}>{t.name}</option>
+                    ))}
+                  </optgroup>
+                ) : (
+                  g.items.map((t) => (
+                    <option key={t.id} value={t.id}>{t.name}</option>
+                  ))
+                )
+              )}
             </select>
           ) : null}
 
@@ -874,6 +907,12 @@ export default function Shell() {
 
           {/* `flush`: the app's pages sit edge to edge on the white content column, as Accounting's do. */}
           <main id="main-content" tabIndex={-1} className={`flex-1 min-w-0 outline-none ${app?.flush ? `ui-content ${phone ? 'pb-24' : ''}` : phone ? 'p-4 pb-24' : 'p-6'}`}>
+            {/* W-2.1: working in somebody else's account (outside access) is said on every screen, not only in the picker. */}
+            {user && tenant?.accountId && user.accountId && tenant.accountId !== user.accountId ? (
+              <p className="ui-delegated" role="status">
+                You are in {accounts.find((x) => x.id === tenant.accountId)?.name || 'another account'}&rsquo;s company through outside access. Its administrators decide what you can open here.
+              </p>
+            ) : null}
             {showMoreApps ? (
               <MoreApps tenant={tenant} onAdd={addApp} onOpen={openApp} />
             ) : platformScreen === 'profile' ? (

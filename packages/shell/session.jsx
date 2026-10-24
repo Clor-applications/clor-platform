@@ -78,6 +78,8 @@ const toTenant = (membership) => ({
 export function SessionProvider({ children }) {
   const [user, setUser] = useState(null);
   const [tenants, setTenants] = useState([]);
+  /* W-2.1: the accounts this person reaches (home first), with their account role in each. */
+  const [accounts, setAccounts] = useState([]);
   const [tenantId, setTenantIdState] = useState('');
   /* A company code from the address that is not one of this person's (A-26): "no access", never another company. */
   const [deniedCode, setDeniedCode] = useState('');
@@ -143,6 +145,7 @@ export function SessionProvider({ children }) {
   const adopt = useCallback((payload, preferRequested = false) => {
     const list = (payload?.orgs || []).map(toTenant).filter((t) => t.id);
     setTenants(list);
+    setAccounts(Array.isArray(payload?.accounts) ? payload.accounts : []);
     setUser(payload?.user || null);
     setTwoFactorSetupRequired(Boolean(payload?.twoFactorSetupRequired));
     const userId = payload?.user?.id;
@@ -267,6 +270,7 @@ export function SessionProvider({ children }) {
       writeToken('');
       setUser(null);
       setTenants([]);
+      setAccounts([]);
       setTenantIdState('');
     };
     window.addEventListener('auth:session-expired', onEnded);
@@ -366,6 +370,7 @@ export function SessionProvider({ children }) {
     writeToken('');
     setUser(null);
     setTenants([]);
+    setAccounts([]);
     setTenantIdState('');
     setDeniedCode('');
     /* Signing out leaves no company in the address for whoever signs in next. */
@@ -391,8 +396,8 @@ export function SessionProvider({ children }) {
   );
 
   const value = useMemo(
-    () => ({ user, tenant, tenants, deniedCode, restoring, signIn, signInWithCode, twoFactorSetupRequired, recheckTwoFactor, signUp, createCompany, signOut, setTenantId, addApp }),
-    [user, tenant, tenants, deniedCode, restoring, signIn, signInWithCode, twoFactorSetupRequired, recheckTwoFactor, signUp, createCompany, signOut, setTenantId, addApp]
+    () => ({ user, tenant, tenants, accounts, deniedCode, restoring, signIn, signInWithCode, twoFactorSetupRequired, recheckTwoFactor, signUp, createCompany, signOut, setTenantId, addApp }),
+    [user, tenant, tenants, accounts, deniedCode, restoring, signIn, signInWithCode, twoFactorSetupRequired, recheckTwoFactor, signUp, createCompany, signOut, setTenantId, addApp]
   );
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;

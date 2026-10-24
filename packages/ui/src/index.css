@@ -7128,3 +7128,13 @@ th.ui-th {
   background-color: rgb(0 0 0 / 0.16) !important;
   color: rgb(var(--on-brand)) !important;
 }
+
+/* W-2.1: the strip that says this company belongs to another account (outside access). */
+.ui-delegated {
+  margin: 0;
+  padding: 8px 16px;
+  font-size: 0.8125rem;
+  background-color: rgb(var(--warn-soft));
+  color: rgb(var(--warn-ink));
+  border-bottom: 1px solid rgb(var(--border));
+}

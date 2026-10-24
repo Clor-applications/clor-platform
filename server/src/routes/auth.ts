@@ -42,8 +42,8 @@ import { isDevOrTest } from '../utils/devMode.js';
 import { requireAuth as requireLiveAuth } from '../middleware/auth.js';
 import { APP_CATALOG } from '../constants/appCatalog.js';
 import { appAccess } from '../services/subscriptions.js';
-import { userIsAdmin } from '../services/roleGuards.js';
-import { acrossCompanies } from '../utils/tenantScope.js';
+import { ACCOUNT_ADMINS, accountRoleOf } from '../services/accountMembership.js';
+import { acrossCompanies, outsideTenant } from '../utils/tenantScope.js';
 import { closedForOutsider } from '../services/outsideAccess.js';
 
 /* Compared against when no such user exists, so a miss costs a real bcrypt check (SX-14). */
@@ -571,6 +571,21 @@ authRouter.get('/me', requireLiveAuth, async (req: Request, res: Response) => {
     }
   }
 
+  /*
+   * W-2.1: every account this person can reach, for the account switcher —
+   * their own (home) account and any reached through outside access — with
+   * their account role in each (null where they have none, e.g. an outside
+   * accountant). Shown, not trusted: each request is checked again.
+   */
+  const accountIds = [...new Set([user.accountId, ...orgMemberships.map((m) => m.accountId)])];
+  const accountRows = await outsideTenant('auth/me: the accounts this person reaches', () =>
+    platformPrisma.account.findMany({ where: { id: { in: accountIds } }, select: { id: true, name: true, code: true } })
+  );
+  const accounts = await Promise.all(
+    accountRows.map(async (a) => ({ id: a.id, name: a.name, code: a.code || null, home: a.id === user.accountId, role: await accountRoleOf(a.id, user.id) }))
+  );
+  accounts.sort((x, y) => Number(y.home) - Number(x.home) || String(x.name).localeCompare(String(y.name)));
+
   return res.json({
     /*
      * GAP-011 (ADR-003): `user.accountId` is the person's HOME account — where
@@ -595,7 +610,10 @@ authRouter.get('/me', requireLiveAuth, async (req: Request, res: Response) => {
     })),
     /* Only a company this person is in: the header is an echo, not a fact (A-10). */
     activeOrgId: activeMembership ? activeOrgId : null,
+    /* W-1: the person's role in the account being worked in (OWNER / ADMIN / BILLING_ADMIN / MEMBER), or null. Shown, not trusted: every route checks it again. */
+    accountRole: activeMembership ? await accountRoleOf(activeMembership.accountId, user.id) : await accountRoleOf(user.accountId, user.id),
     isOrgAdmin,
+    accounts,
     allowedBranchIds,
     twoFactorSetupRequired,
   });
@@ -659,6 +677,8 @@ authRouter.post('/signup', signupLimiter, async (req: Request, res: Response) =>
       },
       select: { id: true, accountId: true, email: true, fullName: true },
     });
+    /* Whoever makes the account owns it (W-1.1), in the same transaction: no account is ever left without an owner. */
+    await tx.accountMembership.create({ data: { accountId: createdAccount.id, userId: createdUser.id, role: 'OWNER' } });
     return { account: createdAccount, user: createdUser };
   });
 
@@ -750,25 +770,18 @@ authRouter.post('/setup-company', requireLiveAuth, async (req: Request, res: Res
   }
 
   /*
-   * A-04: whoever creates a company becomes its Administrator, so creating one
-   * is an account-level act. It used to need only a login whose home is this
-   * account — a clerk an administrator had added could make a company, own it,
-   * and from there manage memberships across the account. Allowed now for the
-   * account's very first company (signup) and for an administrator of any of
-   * its companies; everyone else asks one.
+   * A-04 / W-1.4: whoever creates a company becomes its Administrator, so
+   * creating one is an account-level act. Allowed for the account's very first
+   * company (signup) and, after that, for an owner or administrator of the
+   * account (AccountMembership). It used to be "an administrator of any of its
+   * companies" — the migration made exactly those people account admins.
    */
   const accountOrgs = await platformPrisma.org.findMany({ where: { accountId: auth.accountId }, select: { id: true } });
   if (accountOrgs.length) {
-    let administers = false;
-    for (const o of accountOrgs) {
-      if (await userIsAdmin(auth.accountId, o.id, auth.userId)) {
-        administers = true;
-        break;
-      }
-    }
-    if (!administers) {
+    const role = await accountRoleOf(auth.accountId, auth.userId);
+    if (!role || !ACCOUNT_ADMINS.includes(role)) {
       return res.status(403).json({
-        error: 'Only an administrator of one of this account’s companies can add a company. Ask your administrator.',
+        error: 'Only an owner or administrator of this account can add a company. Ask your administrator.',
         code: 'NOT_ACCOUNT_ADMIN',
       });
     }

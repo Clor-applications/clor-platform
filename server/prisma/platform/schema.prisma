@@ -765,6 +765,57 @@ model ScimToken {
   @@index([accountId, orgId])
 }
 
+/// A person's place in an account: the Workspace's account-level authority
+/// (docs/workspace/WORKSPACE_IMPLEMENTATION_CHECKLIST.md, D-2).
+///
+///   OWNER          runs the account: owners, companies, members, plan
+///   ADMIN          administers the account, except its owners
+///   BILLING_ADMIN  the plan and billing only
+///   MEMBER         belongs to the account; what they may do in a company
+///                  comes from that company's roles
+///
+/// Account authority is about the workspace, not the data: no role here opens
+/// a ledger, a payslip or an employee file. That still takes a role in the
+/// company (spec rule 2.2.7). A person has one membership per account; only a
+/// person whose home account this is has one (an outside accountant reaches a
+/// company through OutsideAccess instead).
+model AccountMembership {
+  id            String    @id @default(cuid())
+  accountId     String
+  userId        String
+  /// OWNER | ADMIN | BILLING_ADMIN | MEMBER
+  role          String    @default("MEMBER")
+  /// ACTIVE | SUSPENDED
+  status        String    @default("ACTIVE")
+  addedByUserId String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@unique([accountId, userId])
+  @@index([userId])
+  @@index([accountId, role])
+}
+
+/// What was done to the account itself — its owners and members' account
+/// roles — where AuditLog (which needs a company and a branch) has no place.
+/// Plain words in `message`; no secrets or personal data beyond who and what.
+model AccountAuditEvent {
+  id          String   @id @default(cuid())
+  accountId   String
+  actorUserId String?
+  action      String
+  targetType  String
+  targetId    String?
+  /// OK | DENIED
+  result      String   @default("OK")
+  message     String?
+  metadata    String?
+  requestId   String?
+  createdAt   DateTime @default(now())
+
+  @@index([accountId, createdAt])
+}
+
 /// GAP-006: how a person from another account reaches a company — the
 /// company's consent, with a scope and an end. Without a live one, an outside
 /// person's membership opens nothing (middleware/tenantContext.ts). Expired is
