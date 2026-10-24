@@ -3,6 +3,7 @@ import { Link } from '../router.jsx';
 import { PRODUCTS, SITE, productBySlug } from '../site.js';
 import { Mark, Status } from '../components/Brand.jsx';
 import { Closing, Faq, SectionHead } from '../components/Blocks.jsx';
+import Illustration from '../components/Illustration.jsx';
 import { DOCUMENTS } from '../../../packages/shell/legal/documents.jsx';
 
 function PageHead({ title, intro, children }) {
@@ -102,15 +103,18 @@ export function Firms() {
       </section>
       <section className="section section--tint">
         <div className="wrap split">
-          <SectionHead title="Coming next for firms" intro="A workspace for the firm itself is in development. Planned, not yet available:" />
-          <ul className="ticks ticks--lg">
-            <li>Your firm’s own account, with your staff and their roles.</li>
-            <li>Client engagements the client approves, with which apps you may use and until when.</li>
-            <li>Assigning staff to clients, and one view of who can reach which client.</li>
-          </ul>
+          <div className="stack">
+            <SectionHead title="Coming next for firms" intro="A workspace for the firm itself is in development. Planned, not yet available:" />
+            <ul className="ticks ticks--lg">
+              <li>Your firm’s own account, with your staff and their roles.</li>
+              <li>Client engagements the client approves, with which apps you may use and until when.</li>
+              <li>Assigning staff to clients, and one view of who can reach which client.</li>
+            </ul>
+          </div>
+          <Illustration className="firms-art" src="/illustrations/ca-firm.webp" width={1200} height={848} alt="Planned: a CA firm’s own account, with its client companies under it and the firm’s people on each." />
         </div>
       </section>
-      <Closing title="Working with clients on Clor already?" text="Ask your client to invite you from Company admin, Users. Or talk to us about the firm workspace." />
+      <Closing title="Working with clients on Clor already?" text="Ask your client to invite you from their Workspace: Access, Invitations. Or talk to us about the firm workspace." />
     </>
   );
 }

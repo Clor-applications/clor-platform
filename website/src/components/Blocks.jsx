@@ -106,6 +106,38 @@ export function Reveal({ children, className = '' }) {
   );
 }
 
+/**
+ * A group whose items come in one after another when it scrolls into view
+ * (each item sets --i for its place). Already on screen, or with reduced
+ * motion asked for, it simply shows.
+ */
+export function RevealGroup({ as: Tag = 'div', className = '', children }) {
+  const ref = useRef(null);
+  const [state, setState] = useState('');
+  useEffect(() => {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const el = ref.current;
+    if (el.getBoundingClientRect().top < window.innerHeight * 0.85) return;
+    setState('is-armed');
+    const io = new IntersectionObserver(
+      (es) => {
+        if (es.some((e) => e.isIntersecting)) {
+          setState('is-armed is-shown');
+          io.disconnect();
+        }
+      },
+      { threshold: 0.15 }
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+  return (
+    <Tag ref={ref} className={`stagger ${state} ${className}`.trim()}>
+      {children}
+    </Tag>
+  );
+}
+
 /** Tabs that are real buttons with the ARIA tab pattern and arrow keys. */
 export function Tabs({ tabs, label }) {
   const [i, setI] = useState(0);

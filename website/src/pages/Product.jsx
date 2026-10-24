@@ -4,6 +4,7 @@ import { CONNECTIONS, PRODUCTS, SITE, productBySlug } from '../site.js';
 import { PRODUCT_CONTENT } from '../content.js';
 import { Mark, Status } from '../components/Brand.jsx';
 import { Closing, Faq, SectionHead, Steps } from '../components/Blocks.jsx';
+import Illustration from '../components/Illustration.jsx';
 import { WINDOWS } from '../components/Windows.jsx';
 
 function SoonPage({ p, c }) {
@@ -154,9 +155,12 @@ export function Products() {
   return (
     <>
       <section className="hero hero--product">
-        <div className="wrap stack" style={{ '--stack': '1.25rem' }}>
-          <h1 className="h-1">The Clor products</h1>
-          <p className="lede">Each one does a job on its own. Together they share one workspace, one sign-in, one list of people and one set of books.</p>
+        <div className="wrap products-hero">
+          <div className="stack" style={{ '--stack': '1.25rem' }}>
+            <h1 className="h-1">The Clor products</h1>
+            <p className="lede">Each one does a job on its own. Together they share one workspace, one sign-in, one list of people and one set of books.</p>
+          </div>
+          <Illustration className="products-hero-art" src="/illustrations/products-hero.webp" width={1240} height={668} priority alt="A Clor dashboard on a laptop and the Clor app on a phone." />
         </div>
       </section>
       <section className="section section--flush">
