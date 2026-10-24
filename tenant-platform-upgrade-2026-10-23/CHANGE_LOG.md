@@ -67,10 +67,19 @@ Changed:
 - A-35 fixed: row-level security fails closed. A query that has not named its company sees no company's rows; crossing companies is explicit (outsideTenant, acrossCompanies) and background work runs with a maintenance bypass. Application behavior changed: no visible change where every path is scoped; a missed path now returns nothing instead of everything. Database schema changed: yes — policy rewrite migration `20261024100000_rls_fail_closed` in all four schemas (applied to the local dev database only). Deployment: effective only once the runtime role is not the table owner or a superuser (A-36); `TENANT_STRICT=off` restores the old request behaviour without a rollback.
 - A-40 fixed (with A-47): deleting an account's last company cancels its subscription at the gateway and closes its plan; company codes are never issued twice. Application behavior changed: yes. Database schema changed: yes — platform `OrgClosure.orgCode` (local dev only).
 - Batch 4 closed (EV-057). A-36 (separate runtime database role) stays LIVE: it is a deployment change made with the owner.
+- Batch 5 (GAP-004, A-31..A-34) — machine credentials registry, plan `2026-10-24-0342-feat-machine-credentials-registry-plan.md`:
+  - U1–U2: platform `Credential`/`CredentialEvent`; API keys, agents and reader URLs checked through it with their own tables still having a say; a revoked key can no longer be revived by rotating it. Application behavior changed: yes. Schema: platform `Credential`, `CredentialEvent` (+RLS).
+  - U3 (A-31): SCIM tokens can be paused, expire, are kept when revoked and follow their agent. Application behavior changed: yes. Schema: platform `ScimToken.revokedAt`.
+  - U4 (A-32): share links hashed with an encrypted copy, expiring, made only with invoice edit, following their invoice; pay links close with a cancelled invoice; `/?share=` links open the invoice again (they had been showing the home page since the shell). Application behavior changed: yes. Schema: accounting `DocumentShareLink.tokenHash/tokenEnc` (plaintext still written for one release).
+  - U5 (A-33): employee-app sign-ins are per-device sessions; suspension, sign-out, password change and HR end them. Application behavior changed: yes. Schema: people `PortalSession` (+RLS), `Employee.portalSessionsRevokedAt`.
+  - U6: expiry warnings, review flags when a credential's maker leaves, orphans retired. Application behavior changed: yes (new bell notices). Schema: no.
+  - U7: Company admin → Credentials; API keys move there (Attendance links to it); `SETTINGS::Credentials` granted to whoever managed integration keys. Application behavior changed: yes. Schema: platform permission rows + grants (migration `20261024120600`).
+  - All migrations applied to the local dev database only.
+- Batch 5 closed (EV-065). Next release: U9 (drop share-link plaintext) and the separate portal signing secret.
 
 Running totals for 2026-10-23:  
-Application behavior changed: yes (GAP-002, GAP-003, A-03, A-01, A-02, A-04, A-05, A-07, A-06, A-08, A-09, A-10, A-11, A-12, A-13, A-14, A-15, A-16, A-17, A-18, A-19, A-20, A-21, A-22, A-24, A-23, A-25, A-26, A-27, A-28, A-29, A-30, A-37, A-38, A-35, A-39, A-40, A-42).  
-Database schema changed: yes (platform `Account.legacyUnrestrictedAt`; platform `AuthPolicy.makerChecker`; `rls_fail_closed` policy rewrite in all four schemas; platform `OrgClosure.orgCode`; applied locally only).  
+Application behavior changed: yes (GAP-002, GAP-003, A-03, A-01, A-02, A-04, A-05, A-07, A-06, A-08, A-09, A-10, A-11, A-12, A-13, A-14, A-15, A-16, A-17, A-18, A-19, A-20, A-21, A-22, A-24, A-23, A-25, A-26, A-27, A-28, A-29, A-30, A-37, A-38, A-35, A-39, A-40, A-42, A-31, A-32, A-33, A-34 (parts), GAP-004).  
+Database schema changed: yes (platform `Account.legacyUnrestrictedAt`; platform `AuthPolicy.makerChecker`; `rls_fail_closed` policy rewrite in all four schemas; platform `OrgClosure.orgCode`; Batch 5 credential registry, `ScimToken.revokedAt`, share-link hash columns, `PortalSession`, credentials permission grant; applied locally only).  
 Deployment or Cloudflare configuration changed: no.  
 Customer data accessed: no (local test accounts only).
 

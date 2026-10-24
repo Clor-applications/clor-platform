@@ -4,7 +4,7 @@
     {
       "method": "GET",
       "path": "/agent/v1/config",
-      "reason": "On-site connector token (router .use), bound to one org; appLive(attendance) (A-11). Registry and rotation: Batch 5."
+      "reason": "On-site connector token (router .use), checked through the credential registry and its agent row (status, expiry, company, app); Batch 5."
     },
     {
       "method": "GET",
@@ -19,22 +19,22 @@
     {
       "method": "POST",
       "path": "/agent/v1/jobs/:id/result",
-      "reason": "On-site connector token (router .use), bound to one org; appLive(attendance) (A-11). Registry and rotation: Batch 5."
+      "reason": "On-site connector token (router .use), checked through the credential registry and its agent row (status, expiry, company, app); Batch 5."
     },
     {
       "method": "POST",
       "path": "/agent/v1/readers/:id/clock",
-      "reason": "On-site connector token (router .use), bound to one org; appLive(attendance) (A-11). Registry and rotation: Batch 5."
+      "reason": "On-site connector token (router .use), checked through the credential registry and its agent row (status, expiry, company, app); Batch 5."
     },
     {
       "method": "POST",
       "path": "/agent/v1/readers/:id/punches",
-      "reason": "On-site connector token (router .use), bound to one org; appLive(attendance) (A-11). Registry and rotation: Batch 5."
+      "reason": "On-site connector token (router .use), checked through the credential registry and its agent row (status, expiry, company, app); Batch 5."
     },
     {
       "method": "POST",
       "path": "/agent/v1/report",
-      "reason": "On-site connector token (router .use), bound to one org; appLive(attendance) (A-11). Registry and rotation: Batch 5."
+      "reason": "On-site connector token (router .use), checked through the credential registry and its agent row (status, expiry, company, app); Batch 5."
     },
     {
       "method": "POST",
@@ -444,7 +444,7 @@
     {
       "method": "GET",
       "path": "/api/public/invoice/:token",
-      "reason": "Invoice share link: the token is the credential; appLive(accounting) (A-11). Plaintext, no expiry: A-32 (Batch 5)."
+      "reason": "Invoice share link: found by hash through the credential registry (status, expiry, invoice cancelled, appLive accounting); A-32 (Batch 5)."
     },
     {
       "method": "GET",
