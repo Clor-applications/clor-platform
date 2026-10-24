@@ -48,6 +48,7 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
   const [me, setMe] = useState(null);
   const [overview, setOverview] = useState(null);
   const [members, setMembers] = useState(null);
+  const [heroReady, setHeroReady] = useState(false);
   const [pending, setPending] = useState(null);
   const [privilegedNo2fa, setPrivilegedNo2fa] = useState(null);
   const [activity, setActivity] = useState(null);
@@ -123,7 +124,18 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
           </div>
           {/* Clor's office, from a licensed illustration with the sign re-lettered. Decorative. */}
           <div className="ws-hero-media">
-            <img src={heroImage} alt="" width="1400" height="559" decoding="async" />
+            <img
+              src={heroImage}
+              alt=""
+              width="1400"
+              height="559"
+              decoding="async"
+              data-loaded={heroReady || undefined}
+              ref={(el) => {
+                if (el?.complete && !heroReady) setHeroReady(true);
+              }}
+              onLoad={() => setHeroReady(true)}
+            />
             <time className="ws-hero-date" dateTime={new Date().toISOString().slice(0, 10)}>{today()}</time>
           </div>
         </section>

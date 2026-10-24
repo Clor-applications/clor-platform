@@ -208,9 +208,6 @@
 .ws-link svg {
   transition: transform 0.18s var(--ws-ease);
 }
-.ws-link:hover svg {
-  transform: translateX(3px);
-}
 
 /* ------------------------------------------------------------------ setup */
 .ws-setup {
@@ -293,7 +290,6 @@
 .ws-card.is-open:hover {
   border-color: rgb(var(--ws-muted) / 0.45);
   box-shadow: 0 18px 36px -24px rgb(var(--ws-ink) / 0.35);
-  transform: translateY(-2px);
 }
 .ws-card.is-soon {
   background: transparent;
@@ -445,10 +441,13 @@
   font-size: 0.875rem;
   color: rgb(var(--ws-ink));
   cursor: pointer;
-  transition: background-color 0.15s var(--ws-ease);
+  transition: background-color 0.15s var(--ws-ease), transform 120ms var(--ws-ease);
 }
 .ws-row:hover {
   background: rgb(var(--ws-stone));
+}
+.ws-row:active {
+  transform: scale(0.985);
 }
 .ws-row:focus-visible {
   outline: 2px solid rgb(var(--ws-accent));
@@ -465,14 +464,31 @@
 }
 .ws-row:hover .ws-chev {
   opacity: 1;
-  transform: translateX(2px);
+}
+/* Movement on hover only where hovering is real; a tap on a phone fires :hover and leaves things shifted. */
+@media (hover: hover) and (pointer: fine) {
+  .ws-link:hover svg {
+    transform: translateX(3px);
+  }
+  .ws-card.is-open:hover {
+    transform: translateY(-2px);
+  }
+  .ws-row:hover .ws-chev {
+    transform: translateX(2px);
+  }
 }
 
+/* Reduced motion: nothing moves, but colour and opacity feedback stays. */
 @media (prefers-reduced-motion: reduce) {
   .ws *,
   .ws *::before,
   .ws *::after {
-    transition: none !important;
+    transition-property: color, background-color, border-color, box-shadow, opacity !important;
+    transition-duration: 120ms !important;
+  }
+  .ws *:hover,
+  .ws *:active {
+    transform: none !important;
   }
 }
 
@@ -553,11 +569,14 @@
 }
 button.ws-stat {
   cursor: pointer;
-  transition: border-color 0.18s var(--ws-ease), box-shadow 0.18s var(--ws-ease);
+  transition: border-color 0.18s var(--ws-ease), box-shadow 0.18s var(--ws-ease), transform 120ms var(--ws-ease);
 }
 button.ws-stat:hover {
   border-color: rgb(var(--ws-muted) / 0.45);
   box-shadow: 0 10px 24px -18px rgb(var(--ws-ink) / 0.35);
+}
+button.ws-stat:active {
+  transform: scale(0.985);
 }
 .ws-stat .ws-tile {
   grid-row: span 3;
@@ -1272,6 +1291,14 @@ button.ws-item:hover {
   background: rgb(var(--ws-accent-soft));
   color: rgb(var(--ws-ink));
   font-size: 0.875rem;
+  transition: opacity 200ms var(--ws-ease), transform 200ms var(--ws-ease);
+}
+/* A confirmation eases in instead of shoving the page down in one frame. */
+@starting-style {
+  .ws-notice {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
 }
 /* An empty list: one icon, one line, centred in a quiet frame. */
 .ws-empty {
@@ -1344,6 +1371,12 @@ button.ws-item:hover {
   /* The building and its sign sit left of centre in the picture. */
   object-position: 38% 58%;
   display: block;
+  opacity: 0;
+  transition: opacity 240ms var(--ws-ease);
+}
+/* The picture fades in when it has loaded rather than popping in after the text. */
+.ws-hero-media img[data-loaded] {
+  opacity: 1;
 }
 /* A short fade from the card into the picture, so the edge reads as one surface. */
 .ws-hero-media::before {
