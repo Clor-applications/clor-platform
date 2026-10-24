@@ -77,6 +77,7 @@ const LetterTemplates = screen('LetterTemplates');
 const CustomFieldsSettings = screen('CustomFieldsSettings');
 const SelfServiceSettings = screen('SelfServiceSettings');
 const ComplianceCalendar = screen('ComplianceCalendar');
+const Compliance = screen('Compliance');
 const WorkspaceList = screen('WorkspaceList');
 const PeopleReports = screen('PeopleReports');
 const PeopleDocuments = screen('PeopleDocuments');
@@ -214,7 +215,7 @@ export const peopleApp = {
     { key: 'hiring', label: 'Hiring', items: ['recruitment', 'candidates'] },
     { key: 'growth', label: 'Performance', items: ['performance', 'learning'] },
     { key: 'workplace', label: 'Engage', items: ['announcements', 'events'] },
-    { key: 'reports', label: 'Insights', items: ['reports', 'dataHealth', 'complianceCalendar'] },
+    { key: 'reports', label: 'Insights', items: ['reports', 'dataHealth', 'compliance', 'complianceCalendar'] },
     { key: 'settings', label: 'Settings', items: ['settings'] },
   ],
 
@@ -254,6 +255,7 @@ export const peopleApp = {
     { key: 'compensation', label: 'Salary Revisions', icon: I.salary, permission: 'PAYROLL::Salary Revisions::VIEW', feature: 'peopleBenefits' },
     { key: 'reports', label: 'Workforce Report', icon: I.report, permission: 'PEOPLE::Employees::VIEW' },
     { key: 'dataHealth', label: 'Data Health', icon: I.health, permission: 'PEOPLE::Employees::VIEW' },
+    { key: 'compliance', label: 'Compliance', icon: I.compliance, permission: 'PEOPLE::Employees::VIEW' },
     { key: 'complianceCalendar', label: 'Compliance Calendar', icon: I.compliance, permission: 'PEOPLE::Employees::VIEW' },
     { key: 'departments', label: 'Departments', icon: I.department, permission: 'PEOPLE::Org Structure::VIEW', parent: 'settings' },
     { key: 'teams', label: 'Teams', icon: I.people, permission: 'PEOPLE::Org Structure::VIEW', parent: 'settings' },
@@ -319,6 +321,7 @@ export const peopleApp = {
     compensation: SalaryRevisions,
     reports: PeopleReports,
     dataHealth: DataHealth,
+    compliance: Compliance,
     complianceCalendar: ComplianceCalendar,
     departments: Departments,
     teams: Teams,

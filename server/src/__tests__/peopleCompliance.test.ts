@@ -84,6 +84,8 @@ describe('compliance', () => {
     for (let i = 0; i < 10; i += 1) await people(hr).post('/employees', { name: `Person ${i}`, code: `C-${i}`, dateOfJoining: '2026-01-05', establishmentId: pune.id, gender: i % 2 ? 'FEMALE' : 'MALE', guardianName: `Parent ${i}` }).expect(201);
     const withTen = (await people(hr).get('/compliance/obligations').expect(200)).body.obligations;
     expect(withTen.find((o: any) => o.ruleId === 'IN-POSH-IC')).toMatchObject({ status: 'DUE', establishmentId: null });
+    /* A yearly date keeps its day: the POSH report is due 31 January, not the 28th. */
+    expect(withTen.filter((o: any) => o.ruleId === 'IN-POSH-REPORT').every((o: any) => o.dueOn.endsWith('-01-31'))).toBe(true);
     /* Owner, proof and done: the history stays on the row. */
     const doc = (await people(hr).post(`/employees/${(await people(hr).get('/employees?limit=1').expect(200)).body.employees[0].id}/documents`, { title: 'S&E registration certificate', kind: 'OTHER', classification: 'HR_ONLY', data: `data:text/plain;base64,${Buffer.from('cert').toString('base64')}`, mime: 'text/plain' }).expect(201)).body.document;
     await people(hr).patch(`/compliance/obligations/${reg.id}`, { proofDocIds: ['nope'] }).expect(400);

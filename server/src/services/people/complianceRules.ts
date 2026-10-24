@@ -42,7 +42,8 @@ const STATE_CODES: Record<string, string> = { karnataka: 'KA', maharashtra: 'MH'
 export const stateCode = (state: string | null | undefined) => (state ? STATE_CODES[state.trim().toLowerCase()] || state.trim().toUpperCase().replace(/[^A-Z]/g, '').slice(0, 3) : null);
 const todayIst = () => new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
 const addDays = (date: string, days: number) => new Date(Date.parse(`${date}T00:00:00Z`) + days * 86_400_000).toISOString().slice(0, 10);
-const ymd = (y: number, m: number, d: number) => `${y}-${String(m).padStart(2, '0')}-${String(Math.min(d, 28)).padStart(2, '0')}`;
+/** A date with the day held inside the month: 31 January stays 31, 31 February becomes the 28th or 29th. */
+const ymd = (y: number, m: number, d: number) => { const last = new Date(Date.UTC(y, m, 0)).getUTCDate(); return `${y}-${String(m).padStart(2, '0')}-${String(Math.min(d, last)).padStart(2, '0')}`; };
 
 export class ComplianceError extends Error {
   constructor(message: string, public status = 400) {

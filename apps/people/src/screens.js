@@ -20,6 +20,7 @@ export { default as LetterTemplates } from '@ui/personnel/LetterTemplates';
 export { default as CustomFieldsSettings } from '@ui/personnel/CustomFieldsSettings';
 export { default as SelfServiceSettings } from '@ui/personnel/SelfServiceSettings';
 export { default as ComplianceCalendar } from '@ui/personnel/ComplianceCalendar';
+export { default as Compliance } from './screens/Compliance';
 export { Departments, EmployeeTypes, JobRoles, WorkTypes } from '@ui/personnel/StructureList';
 export { JobPositions } from './screens/Designations';
 export { default as WorkspaceList } from './screens/WorkspaceList';
