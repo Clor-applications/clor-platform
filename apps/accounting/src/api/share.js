@@ -13,6 +13,23 @@ const opts = { skipWarehouseHeader: true };
 export const createInvoiceShareLink = (invoiceId) =>
   apiFetch(`${base()}/invoices/${encodeURIComponent(invoiceId)}/share`, { method: 'POST', ...opts });
 
+/**
+ * The address a reminder carries, or why it carries none. A link that cannot
+ * be made is left out of the message — a URL that will not open is worse than
+ * none — and the reason is returned so the screen can say so (A-32: only
+ * someone who can edit invoices makes a new link).
+ */
+export async function reminderLink(backendId) {
+  if (!backendId) return { url: '', note: '' };
+  try {
+    const res = await createInvoiceShareLink(backendId);
+    return { url: res?.token ? `${window.location.origin}/?share=${encodeURIComponent(res.token)}` : '', note: '' };
+  } catch (e) {
+    if (e?.code === 'SHARE_LINK_NEEDS_EDIT') return { url: '', note: 'Sent without a link to the invoice: it has none yet, and only someone who can edit invoices can make one.' };
+    return { url: '', note: 'Sent without a link to the invoice: the link could not be made just now.' };
+  }
+}
+
 export const revokeInvoiceShareLink = (invoiceId) =>
   apiFetch(`${base()}/invoices/${encodeURIComponent(invoiceId)}/share`, { method: 'DELETE', ...opts });
 

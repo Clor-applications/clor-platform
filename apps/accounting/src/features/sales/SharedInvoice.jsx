@@ -26,9 +26,31 @@ const Shell = ({ children }) => (
   </div>
 );
 
+/**
+ * A-32: the page is reached by a secret address. It must not be sent on as a
+ * referrer to anything it links to, nor indexed by a crawler that finds it.
+ * The server says so for its own response; the page says so for itself.
+ */
+function usePrivatePage() {
+  useEffect(() => {
+    const made = [
+      ['referrer', 'no-referrer'],
+      ['robots', 'noindex, nofollow, noarchive'],
+    ].map(([name, content]) => {
+      const m = document.createElement('meta');
+      m.name = name;
+      m.content = content;
+      document.head.appendChild(m);
+      return m;
+    });
+    return () => made.forEach((m) => m.remove());
+  }, []);
+}
+
 export default function SharedInvoice({ token }) {
   const [data, setData] = useState(null);
-  const [failed, setFailed] = useState('');
+  const [failed, setFailed] = useState(null);
+  usePrivatePage();
 
   useEffect(() => {
     let cancelled = false;
@@ -37,12 +59,23 @@ export default function SharedInvoice({ token }) {
         if (!cancelled) setData(res);
       })
       .catch((e) => {
-        if (!cancelled) setFailed(String(e?.message || e));
+        if (!cancelled) setFailed({ code: e?.code || '', message: String(e?.message || e) });
       });
     return () => {
       cancelled = true;
     };
   }, [token]);
+
+  if (failed?.code === 'INVOICE_CANCELLED') {
+    return (
+      <Shell>
+        <div className="rounded-xl bg-white p-8 text-center text-gray-900 shadow-sm">
+          <h1 className="text-lg font-semibold">{failed.message}</h1>
+          <p className="mt-2 text-sm text-gray-600">Nothing is owed on it. If you think this is a mistake, please ask the seller.</p>
+        </div>
+      </Shell>
+    );
+  }
 
   if (failed) {
     return (

@@ -1,5 +1,7 @@
 import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { platformPrisma } from '../utils/platformPrisma.js';
+import { prisma } from '../utils/prisma.js';
+import { hashAllLegacyLinks } from './shareLinks.js';
 import { exclusive, leaseFor } from './jobLease.js';
 import { registerLegacy, type CredentialKind, type LegacyHit } from './credentials.js';
 
@@ -19,8 +21,26 @@ type Source = { kind: CredentialKind; page: (after: string | null) => Promise<Ar
 
 const after = (id: string | null) => (id ? { id: { gt: id } } : {});
 
-/** The sources this batch knows; later units add theirs (links). */
+/** Every kind CLOR issues. */
 export const SOURCES: Source[] = [
+  {
+    kind: 'SHARE_LINK',
+    page: async (id) =>
+      (await prisma.documentShareLink.findMany({ where: { ...after(id), tokenHash: { not: null }, revokedAt: null }, orderBy: { id: 'asc' }, take: PAGE })).map((l) => ({
+        id: l.id,
+        hash: l.tokenHash!,
+        hit: { ownerId: l.id, accountId: l.accountId, orgId: l.orgId, tokenPrefix: l.tokenHash!.slice(0, 8), createdByUserId: l.createdByUserId, label: `${l.docType} ${l.docId}`, expiresAt: l.expiresAt },
+      })),
+  },
+  {
+    kind: 'PAY_LINK',
+    page: async (id) =>
+      (await prisma.paymentRequest.findMany({ where: { ...after(id), status: { not: 'CANCELLED' } }, orderBy: { id: 'asc' }, take: PAGE })).map((r) => ({
+        id: r.id,
+        hash: r.tokenHash,
+        hit: { ownerId: r.id, accountId: r.accountId, orgId: r.orgId, tokenPrefix: r.tokenPrefix, createdByUserId: r.createdByUserId, label: r.docNumber ? `Invoice ${r.docNumber}` : 'Payment', expiresAt: r.expiresAt },
+      })),
+  },
   {
     kind: 'SCIM',
     page: async (id) => {
@@ -79,6 +99,8 @@ export function addBackfillSource(s: Source) {
 /** Register everything; returns how many rows each kind added or confirmed. */
 export async function backfillCredentials(sources: Source[] = SOURCES) {
   const counts: Record<string, number> = {};
+  /* Links stored before A-32 get their hash first, so the pass below finds them. */
+  if (sources.some((x) => x.kind === 'SHARE_LINK')) counts.SHARE_LINK_HASHED = await hashAllLegacyLinks();
   for (const s of sources) {
     let cursor: string | null = null;
     for (;;) {

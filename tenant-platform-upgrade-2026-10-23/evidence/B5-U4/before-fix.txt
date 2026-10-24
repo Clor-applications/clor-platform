@@ -1,0 +1,33 @@
+     × found by its hash, with an encrypted copy; the same address on every reminder 2258ms
+     × a link stored before hashing still opens, and is hashed and given a live expiry 462ms
+     × an encrypted copy made with the older key still gives the same address, and is stored again 1207ms
+     × a copy no key can read gives a new link rather than an empty one 757ms
+     × someone who can only view invoices gets the live link, but cannot make a new one 1108ms
+     × making one is in the audit trail 526ms
+     × an expired link no longer opens; a reminder then makes a new one 596ms
+     × opening a link does not extend it; a reminder does 480ms
+     × is served private: not cached, not indexed, no referrer 1125ms
+     × cancelled: the link says so; reinstated: the same link opens again (AE4) 1542ms
+     × reinstated after its link ran out: the link is extended and opens 794ms
+     × a deleted draft’s link is revoked 799ms
+     × cancelling the invoice closes its open payment link: the page says closed and a claim is refused 1125ms
+     × a paid request still shows as paid after its date 528ms
+     × a new payment link replaces the old one, which stops at once 647ms
+⎯⎯⎯⎯⎯⎯ Failed Tests 15 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  src/__tests__/shareLinkHashed.test.ts > how a link is kept > found by its hash, with an encrypted copy; the same address on every reminder
+ FAIL  src/__tests__/shareLinkHashed.test.ts > how a link is kept > a link stored before hashing still opens, and is hashed and given a live expiry
+ FAIL  src/__tests__/shareLinkHashed.test.ts > how a link is kept > an encrypted copy made with the older key still gives the same address, and is stored again
+ FAIL  src/__tests__/shareLinkHashed.test.ts > how a link is kept > a copy no key can read gives a new link rather than an empty one
+ FAIL  src/__tests__/shareLinkHashed.test.ts > who may make one > someone who can only view invoices gets the live link, but cannot make a new one
+ FAIL  src/__tests__/shareLinkHashed.test.ts > who may make one > making one is in the audit trail
+ FAIL  src/__tests__/shareLinkHashed.test.ts > how long one lasts > an expired link no longer opens; a reminder then makes a new one
+ FAIL  src/__tests__/shareLinkHashed.test.ts > how long one lasts > opening a link does not extend it; a reminder does
+ FAIL  src/__tests__/shareLinkHashed.test.ts > how long one lasts > is served private: not cached, not indexed, no referrer
+ FAIL  src/__tests__/shareLinkHashed.test.ts > following its invoice > cancelled: the link says so; reinstated: the same link opens again (AE4)
+ FAIL  src/__tests__/shareLinkHashed.test.ts > following its invoice > reinstated after its link ran out: the link is extended and opens
+ FAIL  src/__tests__/shareLinkHashed.test.ts > following its invoice > a deleted draft’s link is revoked
+ FAIL  src/__tests__/shareLinkHashed.test.ts > payment links > cancelling the invoice closes its open payment link: the page says closed and a claim is refused
+ FAIL  src/__tests__/shareLinkHashed.test.ts > payment links > a paid request still shows as paid after its date
+ FAIL  src/__tests__/shareLinkHashed.test.ts > payment links > a new payment link replaces the old one, which stops at once
+ Test Files  1 failed (1)
+      Tests  15 failed | 2 passed (17)

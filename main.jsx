@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { Suspense, lazy } from 'react';
 import { createRoot } from 'react-dom/client';
 
 import ErrorBoundary from './packages/ui/src/components/ui/ErrorBoundary';
@@ -21,6 +21,23 @@ try {
 }
 
 /*
+ * A customer following an invoice link (`/?share=<token>`, A-32).
+ *
+ * They have no account here and never will, so the page is the invoice and
+ * nothing else — no session, no sign-in, no app. It used to be decided inside
+ * the Accounting app, which only loads for someone signed in, so a customer
+ * saw the public home page and a signed-in colleague saw their own books.
+ */
+const shareToken = (() => {
+  try {
+    return String(new URLSearchParams(window.location.search).get('share') || '').trim();
+  } catch {
+    return '';
+  }
+})();
+const SharedInvoice = lazy(() => import('./apps/accounting/src/features/sales/SharedInvoice'));
+
+/*
  * One boundary above everything.
  *
  * Each app already renders inside its own ScreenBoundary, so a screen that
@@ -31,9 +48,15 @@ try {
 createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <ErrorBoundary>
-      <SessionProvider>
-        <Shell />
-      </SessionProvider>
+      {shareToken ? (
+        <Suspense fallback={null}>
+          <SharedInvoice token={shareToken} />
+        </Suspense>
+      ) : (
+        <SessionProvider>
+          <Shell />
+        </SessionProvider>
+      )}
     </ErrorBoundary>
   </React.StrictMode>
 );

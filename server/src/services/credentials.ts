@@ -203,7 +203,7 @@ export type VerifyOptions<R = unknown> = {
 
 export type Verified<R = unknown> =
   | { ok: true; credential: CredentialRow; orgId: string; accountId: string; row: R }
-  | { ok: false; block: Block | 'UNKNOWN'; refusal?: Refusal; credential?: CredentialRow };
+  | { ok: false; block: Block | 'UNKNOWN'; refusal?: Refusal; credential?: CredentialRow; row?: R };
 
 /**
  * Is this token, presented to a route that expects `kind`, honoured now?
@@ -225,7 +225,7 @@ export async function verifyCredential<R = unknown>(kind: CredentialKind, token:
   }
   const owner = await runInTenant(c.orgId, () => opts.owner(c!.ownerId, c!));
   const eff = await effectiveStatus(c, owner, opts.now);
-  if (!eff.usable) return { ok: false, block: eff.block, refusal: eff.refusal, credential: c };
+  if (!eff.usable) return { ok: false, block: eff.block, refusal: eff.refusal, credential: c, row: owner?.row as R | undefined };
   return { ok: true, credential: c, orgId: c.orgId, accountId: c.accountId, row: owner!.row as R };
 }
 

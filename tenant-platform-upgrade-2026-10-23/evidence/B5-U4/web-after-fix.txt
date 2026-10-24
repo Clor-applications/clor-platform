@@ -1,0 +1,16 @@
+
+ RUN  v2.1.9 /Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad
+
+ ✓ apps/accounting/src/features/sales/shareLinkReminder.test.jsx > the link a reminder carries > is the invoice’s address when there is one
+ ✓ apps/accounting/src/features/sales/shareLinkReminder.test.jsx > the link a reminder carries > is left out, with a reason, when the person may not make one
+ ✓ apps/accounting/src/features/sales/shareLinkReminder.test.jsx > the link a reminder carries > is left out, with a reason, when it could not be made
+ ✓ apps/accounting/src/features/sales/shareLinkReminder.test.jsx > the link a reminder carries > is not asked for an invoice that is not on the server yet
+ ✓ apps/accounting/src/features/sales/shareLinkReminder.test.jsx > the page a customer opens > says the seller cancelled the invoice
+ ✓ apps/accounting/src/features/sales/shareLinkReminder.test.jsx > the page a customer opens > a withdrawn link is still the plain "no longer available"
+ ✓ apps/accounting/src/features/sales/shareLinkReminder.test.jsx > the page a customer opens > asks not to be indexed or passed on as a referrer
+
+ Test Files  1 passed (1)
+      Tests  7 passed (7)
+   Start at  05:32:40
+   Duration  1.26s (transform 46ms, setup 161ms, collect 74ms, tests 27ms, environment 868ms, prepare 45ms)
+

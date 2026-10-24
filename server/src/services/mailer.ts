@@ -63,6 +63,31 @@ export function decryptSecret(payload: string) {
   }
 }
 
+/**
+ * Decrypt with the current key, or with the key it may have been made with
+ * before `MAIL_SECRET_KEY` was set (`JWT_SECRET`). `stale` says the caller
+ * should store it again under the current key. Used for share links (A-32),
+ * where an unreadable copy would mean a new address for a customer who
+ * already has the old one.
+ */
+export function decryptSecretAnyKey(payload: string): { plain: string; stale: boolean } {
+  const current = decryptSecret(payload);
+  if (current) return { plain: current, stale: false };
+  const older = [process.env.JWT_SECRET, isDevOrTest() ? 'dev-secret' : ''].filter((k): k is string => !!k && k !== (process.env.MAIL_SECRET_KEY || process.env.JWT_SECRET));
+  const [ivB64, tagB64, dataB64] = String(payload || '').split('.');
+  if (!ivB64 || !tagB64 || !dataB64) return { plain: '', stale: false };
+  for (const k of older) {
+    try {
+      const decipher = createDecipheriv('aes-256-gcm', createHash('sha256').update(k).digest(), Buffer.from(ivB64, 'base64'));
+      decipher.setAuthTag(Buffer.from(tagB64, 'base64'));
+      return { plain: Buffer.concat([decipher.update(Buffer.from(dataB64, 'base64')), decipher.final()]).toString('utf8'), stale: true };
+    } catch {
+      /* not this key */
+    }
+  }
+  return { plain: '', stale: false };
+}
+
 // ---------------------------------------------------------------------------
 // Transport
 // ---------------------------------------------------------------------------

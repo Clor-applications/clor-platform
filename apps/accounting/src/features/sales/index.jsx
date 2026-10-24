@@ -49,7 +49,7 @@ import { getInvoicePrintSettings } from '@ui/utils/invoicePrintSettings';
 import { printElement } from '@ui/utils/printElement';
 import { getInvoicePrefs, isInvoicePrefOn, getVisibleCustomFields } from '@ui/utils/invoicePrefs';
 import { getCustomerDisplayName, partyEmail, partyMobile } from '@ui/utils/contacts';
-import { createInvoiceShareLink } from '../../api/share';
+import { reminderLink } from '../../api/share';
 import { balanceOf, buildReminderMessage, mailtoLink, reminderStage, waLink } from '@ui/utils/reminders';
 import { getNextNumericId } from '@ui/utils/ids';
 import { amountInWordsInr, formatMoney } from '@ui/utils/money';
@@ -607,16 +607,8 @@ export const InvoicesList = ({
 
   const reminderMessageFor = async (invoice) => {
     const customer = (db.customers || []).find((row) => String(row.id) === String(invoice.customerId)) || null;
-    let shareUrl = '';
-    const backendId = String(invoice.backendInvoiceId || '').trim();
-    if (backendId) {
-      try {
-        const result = await createInvoiceShareLink(backendId);
-        if (result?.token) shareUrl = `${window.location.origin}/?share=${encodeURIComponent(result.token)}`;
-      } catch {
-        shareUrl = '';
-      }
-    }
+    const { url: shareUrl, note } = await reminderLink(String(invoice.backendInvoiceId || '').trim());
+    if (note) notify.info(note);
     return {
       customer,
       message: buildReminderMessage({ invoice, customer, company: currentCompany, shareUrl }),
