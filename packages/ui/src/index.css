@@ -7197,21 +7197,3 @@ th.ui-th {
   font-size: 0.75rem;
   color: rgb(var(--fg-subtle));
 }
-
-/* App shortcuts at the foot of a split rail (manifest `railApps`): pushed to the bottom, under a rule. */
-.ui-split-rail-apps {
-  margin-top: auto;
-  padding-top: 0.75rem;
-  border-top: 1px solid rgb(var(--border));
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-.ui-split-rail-apps-label {
-  padding: 0 0.25rem 0.25rem;
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  text-align: center;
-  color: rgb(var(--nav-fg-muted));
-}
