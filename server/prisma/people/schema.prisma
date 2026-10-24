@@ -57,6 +57,8 @@ model Employee {
   firstJoiningDate  String?
   /// Which stint they are on (EmploymentEpisode.seq): 1 until a rejoin.
   currentEpisodeSeq Int     @default(1)
+  /// The day probation was confirmed (LIFE-03); null while on probation or where there was none.
+  confirmedOn       String?
   /// Where they work in law: the establishment (shop, factory, office, site) whose state's rules apply (FND-07).
   establishmentId   String?
   /// ACTIVE | ON_NOTICE | LEFT | SUSPENDED
@@ -2043,6 +2045,32 @@ model StandIn {
   @@index([orgId, userId, fromDate, toDate])
 }
 
+/// A probation review (docs/people/02-PRD.md LIFE-03): the period, what was
+/// agreed and seen, the recommendation, and the outcome once decided.
+model ProbationReview {
+  id             String    @id @default(cuid())
+  accountId      String
+  orgId          String
+  employeeId     String
+  periodEnd      String
+  goals          String?
+  observations   String?
+  /// CONFIRM | EXTEND | END
+  recommendation String?
+  newEndDate     String?
+  note           String?
+  requestId      String?
+  /// CONFIRM | EXTEND | END, once decided
+  outcome        String?
+  decidedByUserId String?
+  decidedAt      DateTime?
+  reviewedByUserId String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([orgId, employeeId, createdAt])
+}
+
 /// Joining / leaving checklist a company uses (services/people/checklists.ts).
 /// `items`: [{ title, owner, dueDays }], dueDays counted from the joining date
 /// or the last working day (negative = before it). No row = CLOR's defaults.
@@ -2066,11 +2094,13 @@ model ChecklistTask {
   accountId    String
   orgId        String
   employeeId   String
-  /// JOINING or LEAVING
+  /// JOINING | LEAVING | CHANGE | PROBATION
   kind         String
   title        String
-  /// HR, MANAGER, PAYROLL, IT, EMPLOYEE
+  /// The role: HR, MANAGER, PAYROLL, IT, EMPLOYEE
   owner        String
+  /// The named person (docs/people/02-PRD.md LIFE-02), resolved when the plan starts; can be reassigned.
+  ownerUserId  String?
   dueDate      String?
   sortOrder    Int       @default(0)
   doneAt       DateTime?
@@ -2080,6 +2110,7 @@ model ChecklistTask {
 
   @@index([orgId, employeeId])
   @@index([orgId, doneAt, dueDate])
+  @@index([orgId, ownerUserId, doneAt])
 }
 
 /// One statutory or company deadline for one period (services/people/compliance.ts):

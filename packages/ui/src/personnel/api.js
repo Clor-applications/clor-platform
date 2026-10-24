@@ -90,6 +90,8 @@ export const getChecklist = (id) => apiFetch(`${base()}/employees/${encodeURICom
 export const startChecklist = (id, kind) => send(`/employees/${encodeURIComponent(id)}/checklist/${kind}`, 'POST', {});
 export const updateChecklistTask = (taskId, body) => send(`/checklist-tasks/${encodeURIComponent(taskId)}`, 'PATCH', body);
 export const listOpenChecklistTasks = () => apiFetch(`${base()}/checklist-tasks`, opts).then((r) => r?.tasks || []);
+/* The tasks on my name (LIFE-07), open first. */
+export const listMyTasks = () => apiFetch(`${base()}/tasks/mine`, opts).then((r) => r?.tasks || []);
 export const getChecklistTemplates = () => apiFetch(`${base()}/checklist-templates`, opts);
 export const saveChecklistTemplate = (kind, items) => send(`/checklist-templates/${kind}`, 'PUT', { items });
 export const resetChecklistTemplate = (kind) => send(`/checklist-templates/${kind}`, 'DELETE');
@@ -100,6 +102,15 @@ export const addComplianceTask = (body) => send('/compliance', 'POST', body);
 export const getComplianceEvidence = (id) => apiFetch(`${base()}/compliance/${encodeURIComponent(id)}/evidence`, opts).then((r) => r?.evidence);
 /* Data health: the implementation auditor (server: services/people/dataHealth.ts). */
 export const getDataHealth = () => apiFetch(`${base()}/data-health`, opts);
+/* What else a change affects (LIFE-04): asked before the form is sent, with the fields as they would be saved. */
+export const getChangeImpact = (id, fields) => {
+  const q = new URLSearchParams(Object.entries(fields).map(([k, v]) => [k, v || '']));
+  return apiFetch(`${base()}/employees/${encodeURIComponent(id)}/change-impact?${q}`, opts).then((r) => r?.impact || []);
+};
+/* Probation (LIFE-03): the review on file, and the decision — confirm, extend or end. */
+export const getProbation = (id) => apiFetch(`${base()}/employees/${encodeURIComponent(id)}/probation`, opts).then((r) => r?.reviews || []);
+export const saveProbationReview = (id, body) => send(`/employees/${encodeURIComponent(id)}/probation/review`, 'POST', body);
+export const decideProbation = (id, body) => send(`/employees/${encodeURIComponent(id)}/probation/decide`, 'POST', body);
 export const getEmploymentHistory = (id) => apiFetch(`${base()}/employees/${encodeURIComponent(id)}/history`, opts).then((r) => r?.events || []);
 /* Stints: joined, left, rejoined (FND-06). First to last. */
 export const getEmploymentEpisodes = (id) => apiFetch(`${base()}/employees/${encodeURIComponent(id)}/history`, opts).then((r) => r?.episodes || []);

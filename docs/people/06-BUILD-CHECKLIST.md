@@ -56,12 +56,12 @@ Requirement ids are from [02-PRD.md](02-PRD.md); defects `R-*` from [01-PLATFORM
 | PC-CORE-07 | CORE-07 | Import preview, mapping, update mode, undo | `peopleImport.test.ts` › "undo removes 197" | `evidence/PC-CORE-07/` | TODO |
 | PC-CORE-08 | CORE-08 | Custom fields with view/edit permission | `peopleCustomFields.test.ts` › "HR-only key absent for manager" | `evidence/PC-CORE-08/` | TODO |
 | PC-LIFE-01 | LIFE-01 | Invites; token route; HR check | `peopleInvites.test.ts` › "once, 14 days, own data only" | `evidence/PC-LIFE-01/` | TODO |
-| PC-LIFE-02 | LIFE-02 | Plans with named owners and due dates; Home To do | `peoplePlans.test.ts` › "IT task overdue on Home" | `evidence/PC-LIFE-02/` | TODO |
-| PC-LIFE-03 | LIFE-03 | Probation review and decision | `peopleProbation.test.ts` | `evidence/PC-LIFE-03/` | TODO |
-| PC-LIFE-04 | LIFE-04, COMP-04 | Changes with comparison, impact list, approval, scheduling | `peopleChanges.test.ts` › "KA→MH creates review tasks" | `evidence/PC-LIFE-04/` | TODO |
+| PC-LIFE-02 | LIFE-02 | Plans with named owners and due dates; Home To do | `peoplePlans.test.ts` › "each task lands on the named person" | `evidence/PEV-025/` | DONE (PEV-025) |
+| PC-LIFE-03 | LIFE-03 | Probation review and decision | `peopleProbation.test.ts` (3) | `evidence/PEV-025/` | DONE (PEV-025) |
+| PC-LIFE-04 | LIFE-04, COMP-04 | Changes with comparison, impact list, approval, scheduling | `peopleChanges.test.ts` › "a move from Karnataka to Maharashtra" | `evidence/PEV-026/` | DONE (PEV-026) |
 | PC-LIFE-05 | LIFE-05 | `lifecycle/leaving.ts` is the one way someone leaves (form and approved LEAVING request): status, stint closed, history, leaving checklist, readers revoked, `people.employee.separated.v1` with `settlementRequested` in the same transaction. Resignation request from the employee app, hand-back list, letters: TODO | `personnel.test.ts` resign path; `peopleApprovals.test.ts` effects | | PARTLY (PEV-024) |
 | PC-LIFE-06 | LIFE-06 | Rejoin flow on new episode | `peopleEpisodes.test.ts` | `evidence/PC-LIFE-06/` | TODO |
-| PC-LIFE-07 | LIFE-07 | Task done from Home and email link, logged | `peoplePlans.test.ts` › "done from link logged" | `evidence/PC-LIFE-07/` | TODO |
+| PC-LIFE-07 | LIFE-07 | Task done from Home and email link, logged | `peoplePlans.test.ts` › "the e-mail link ticks the task once" | `evidence/PEV-025/` | DONE (PEV-025) |
 | PC-LIFE-08 | LIFE-08 | Expiring permit alerts and profile note | `peopleDocuments.test.ts` › "permit expired shown" | `evidence/PC-LIFE-08/` | TODO |
 | PC-DOC-02 | DOC-02 | Versions | `peopleDocuments.test.ts` › "v1 kept" | `evidence/PC-DOC-02/` | TODO |
 | PC-DOC-03 | DOC-03 | 60/30/7/0 reminders, once each | `notifications.test.ts` › "one per threshold" | n/a | TODO |

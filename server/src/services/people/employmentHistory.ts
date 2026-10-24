@@ -161,7 +161,7 @@ export async function recordJoined(who: Who, employee: Row, source: HistorySourc
   }
 }
 
-const KIND_TITLE: Record<string, string> = { JOINED: 'Joined', LEFT: 'Left', REHIRED: 'Rehired', TRANSFERRED: 'Moved', CHANGED: 'Changed' };
+const KIND_TITLE: Record<string, string> = { JOINED: 'Joined', LEFT: 'Left', REHIRED: 'Rehired', TRANSFERRED: 'Moved', CHANGED: 'Changed', CONFIRMED: 'Confirmed after probation' };
 
 /** The timeline, newest first. Someone added before history existed still shows when they joined. */
 export async function timelineOf(orgId: string, employee: Row) {

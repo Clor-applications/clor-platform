@@ -6,6 +6,7 @@ import { requireTenantContext } from '../middleware/tenantContext.js';
 import { authorize, requirePermission } from '../middleware/rbac.js';
 import { PermissionAction, type PermissionAction as PermissionActionType } from '../constants/enums.js';
 import { peoplePrisma } from '../utils/peoplePrisma.js';
+import { platformPrisma } from '../utils/platformPrisma.js';
 import { AnonymiseError, anonymiseEmployee } from '../services/anonymiseEmployee.js';
 import { recordAudit } from '../services/auditTrail.js';
 import { peopleEvent } from '../services/people/documentReminders.js';
@@ -23,9 +24,11 @@ import { PAYROLL_STATUTORY_FIELDS, maskedStatutory, revealStatutory } from '../s
 import { stepUpRefusal } from '../services/stepUp.js';
 import { inScope, scopeWhere, teamScope } from '../services/people/scope.js';
 import { activeRule, shape as shapeRequest, submitRequest } from '../services/people/approvals/engine.js';
+import { PROBATION_OUTCOMES, ProbationError, decideProbation, reviewsOf, saveReview } from '../services/people/lifecycle/probation.js';
+import { changeImpact } from '../services/people/lifecycle/changes.js';
 import { dataHealth } from '../services/people/dataHealth.js';
 import { PAYROLL_MODULE, PAYROLL_RESOURCE } from '../services/payroll/guards.js';
-import { KINDS, READER_ACCESS_ITEM, checklistOf, cleanItems, itemsFor, openTasks, startChecklist, type Kind as ChecklistKind } from '../services/people/checklists.js';
+import { KINDS, READER_ACCESS_ITEM, checklistOf, cleanItems, itemsFor, myTasks, openTasks, readTaskDoneToken, startChecklist, type Kind as ChecklistKind } from '../services/people/checklists.js';
 import { addCustom, calendar, evidenceOf, updateTask } from '../services/people/compliance.js';
 import { homeTodos } from '../services/people/home.js';
 import { verifiedMime } from '../services/fileType.js';
@@ -47,7 +50,7 @@ import { payrollPrisma } from '../utils/payrollPrisma.js';
 export const peopleRouter = Router();
 peopleRouter.use(requireAuth, requireTenantContext);
 
-const { employees: EMPLOYEES, structure: STRUCTURE, notes: NOTES, documents: DOCUMENTS, confidentialDocuments: CONFIDENTIAL, statutory: STATUTORY } = PEOPLE_RESOURCE;
+const { employees: EMPLOYEES, structure: STRUCTURE, notes: NOTES, documents: DOCUMENTS, confidentialDocuments: CONFIDENTIAL, statutory: STATUTORY, lifecycle: LIFECYCLE } = PEOPLE_RESOURCE;
 const can = (action: string, resource: string) => requirePermission(PEOPLE_MODULE, action as any, resource);
 /** Who is making this change and why, for the change log and the outbox (services/people/changeLog.ts). */
 const actorOf = (req: Request, source: ChangeSource, reason: string | null = null): Actor => ({
@@ -637,20 +640,38 @@ peopleRouter.post('/orgs/:orgId/people/employees/:id/checklist/:kind', can(Permi
   res.status(201).json(await checklistOf(orgId, employee.id));
 });
 
-peopleRouter.patch('/orgs/:orgId/people/checklist-tasks/:id', can(PermissionAction.EDIT, EMPLOYEES), async (req, res) => {
+/** The tasks on my name (LIFE-07): anyone with a task sees and ticks their own, whatever else they may do. */
+peopleRouter.get('/orgs/:orgId/people/tasks/mine', async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  res.json({ tasks: await myTasks(req.tenant!.orgId, req.auth!.userId) });
+});
+
+/** Tick, untick, note or reassign a task. The named owner may tick their own without the Employees grant. */
+peopleRouter.patch('/orgs/:orgId/people/checklist-tasks/:id', async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
-  const parsed = z.object({ done: z.boolean().optional(), note: z.string().trim().max(500).optional().nullable() }).safeParse(req.body || {});
+  const parsed = z.object({ done: z.boolean().optional(), note: z.string().trim().max(500).optional().nullable(), ownerUserId: z.string().trim().max(60).optional().nullable() }).safeParse(req.body || {});
   if (!parsed.success) return res.status(400).json({ error: 'Check the details.' });
   const task = await peoplePrisma.checklistTask.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
   if (!task) return res.status(404).json({ error: 'No such task.' });
-  const { done, note } = parsed.data;
-  await peoplePrisma.checklistTask.update({
-    where: { id: task.id },
-    data: {
+  const own = task.ownerUserId === req.auth!.userId;
+  const hr = !(await authorize(req, PEOPLE_MODULE, PermissionAction.EDIT, EMPLOYEES));
+  if (!own && !hr) return res.status(403).json({ error: 'This task is on somebody else\'s name.' });
+  const { done, note, ownerUserId } = parsed.data;
+  if (ownerUserId !== undefined && !hr) return res.status(403).json({ error: 'Only HR gives a task to someone else.' });
+  if (ownerUserId && !(await platformPrisma.userOrgMembership.findFirst({ where: { orgId, userId: ownerUserId }, select: { id: true } }))) return res.status(400).json({ error: 'That person is not in this company.' });
+  const actor = actorOf(req, 'FORM');
+  await peoplePrisma.$transaction(async (tx) => {
+    const data = {
       ...(done === true ? { doneAt: task.doneAt || new Date(), doneByUserId: task.doneAt ? task.doneByUserId : req.auth!.userId } : done === false ? { doneAt: null, doneByUserId: null } : {}),
       ...(note !== undefined ? { note: note || null } : {}),
-    },
+      ...(ownerUserId !== undefined ? { ownerUserId: ownerUserId || null } : {}),
+    };
+    await tx.checklistTask.update({ where: { id: task.id }, data });
+    const changes = [];
+    if (done !== undefined && Boolean(task.doneAt) !== done) changes.push({ field: 'done', before: task.doneAt ? 'yes' : 'no', after: done ? 'yes' : 'no', redacted: false });
+    if (ownerUserId !== undefined && ownerUserId !== task.ownerUserId) changes.push({ field: 'ownerUserId', before: task.ownerUserId, after: ownerUserId || null, redacted: false });
+    await writeChangeLog(tx, actor, { kind: 'ChecklistTask', id: task.id, employeeId: task.employeeId }, changes);
   });
   res.json(await checklistOf(orgId, task.employeeId));
 });
@@ -739,6 +760,56 @@ peopleRouter.get('/orgs/:orgId/people/employees/:id/history', can(PermissionActi
   const employee = await peoplePrisma.employee.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
   if (!employee || !inScope(await teamScope(req), employee.id)) return res.status(404).json({ error: 'No such employee.' });
   res.json({ events: await timelineOf(orgId, employee), episodes: await episodesOf(orgId, employee) });
+});
+
+/** What else a change would affect (LIFE-04), before it is sent: pass the fields as they would be saved. */
+peopleRouter.get('/orgs/:orgId/people/employees/:id/change-impact', can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const employee = await peoplePrisma.employee.findFirst({ where: { id: String(req.params.id), accountId, orgId }, select: { id: true, establishmentId: true, departmentId: true, reportingManagerId: true } });
+  if (!employee || !inScope(await teamScope(req), employee.id)) return res.status(404).json({ error: 'No such employee.' });
+  const fields: Record<string, string | null> = {};
+  for (const k of ['establishmentId', 'departmentId', 'reportingManagerId']) if (req.query[k] !== undefined) fields[k] = String(req.query[k] || '') || null;
+  res.json({ impact: await changeImpact(orgId, employee, fields) });
+});
+
+/**
+ * Probation (LIFE-03): the review, and the decision — confirm, extend or end.
+ * With a PROBATION approval rule the decision becomes a request.
+ */
+peopleRouter.get('/orgs/:orgId/people/employees/:id/probation', can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  const { orgId } = req.tenant!;
+  if (!inScope(await teamScope(req), String(req.params.id))) return res.status(404).json({ error: 'No such employee.' });
+  res.json({ reviews: await reviewsOf(orgId, String(req.params.id)) });
+});
+
+peopleRouter.post('/orgs/:orgId/people/employees/:id/probation/review', can(PermissionAction.EDIT, LIFECYCLE), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  const parsed = z.object({ goals: text(2000), observations: text(4000), recommendation: z.enum(PROBATION_OUTCOMES).optional().nullable().or(z.literal('')), newEndDate: date, note: text(1000) }).safeParse(req.body || {});
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Check the review.' });
+  try {
+    const b = parsed.data;
+    const review = await saveReview(actorOf(req, 'FORM'), String(req.params.id), { goals: blank(b.goals), observations: blank(b.observations), recommendation: (blank(b.recommendation) as any) || null, newEndDate: blank(b.newEndDate), note: blank(b.note) });
+    res.status(201).json({ review });
+  } catch (e) {
+    if (e instanceof ProbationError) return res.status(e.status).json({ error: e.message });
+    throw e;
+  }
+});
+
+peopleRouter.post('/orgs/:orgId/people/employees/:id/probation/decide', can(PermissionAction.APPROVE, LIFECYCLE), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  const parsed = z.object({ outcome: z.enum(PROBATION_OUTCOMES), newEndDate: date, note: text(1000), lastDay: date }).safeParse(req.body || {});
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Confirm, extend or end.' });
+  try {
+    const b = parsed.data;
+    const r = await decideProbation(actorOf(req, 'FORM', blank(b.note)), String(req.params.id), b.outcome, { newEndDate: blank(b.newEndDate), note: blank(b.note), lastDay: blank(b.lastDay) });
+    res.json({ ...r, request: (r as any).request ? await shapeRequest((r as any).request) : null });
+  } catch (e) {
+    if (e instanceof ProbationError) return res.status(e.status).json({ error: e.message });
+    throw e;
+  }
 });
 
 /** Withdraw a change dated for a future day (FND-02). */

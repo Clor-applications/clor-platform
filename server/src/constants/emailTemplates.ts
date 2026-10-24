@@ -213,6 +213,22 @@ You get one message when a problem starts and one when it clears. Reader health 
     transactional: true,
   },
   {
+    key: 'people.task_assigned',
+    label: 'A joining or leaving task for you',
+    description: 'Sent to the person a joining, leaving or change task is assigned to, with a link that marks it done.',
+    subject: '{{title}} — {{employeeName}}, due {{dueDate}}',
+    body: `{{title}}
+For: {{employeeName}}{{employeeCode}}
+Due: {{dueDate}}
+Part of: {{kind}}
+
+When it is done, open this link and it is ticked in People (it works once and only for you):
+{{doneLink}}
+
+Or open People at {{appUrl}}.`,
+    fields: ['title', 'employeeName', 'employeeCode', 'dueDate', 'kind', 'doneLink'],
+  },
+  {
     key: 'people.data_breach',
     label: 'Personal data breach notice',
     description: 'Sent to each person a recorded personal-data breach affects (DPDP Rules, rule 7). Cannot be switched off.',

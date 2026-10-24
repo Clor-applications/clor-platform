@@ -30,13 +30,13 @@ export type Actor = {
 /** Columns of Employee that are somebody's own data or their job: a change to any is logged. */
 export const LOGGED_EMPLOYEE_FIELDS = [
   'code', 'name', 'firstName', 'lastName', 'email', 'phone', 'designation', 'department',
-  'dateOfJoining', 'dateOfLeaving', 'firstJoiningDate', 'currentEpisodeSeq', 'status', 'userId', 'notes', 'branchId',
+  'dateOfJoining', 'dateOfLeaving', 'firstJoiningDate', 'currentEpisodeSeq', 'confirmedOn', 'status', 'userId', 'notes', 'branchId',
   'gender', 'dateOfBirth', 'maritalStatus', 'personalEmail', 'photoUrl', 'addressLine', 'city', 'state', 'country', 'pincode',
   'emergencyContactName', 'emergencyContactPhone', 'emergencyContactRelation',
   'departmentId', 'businessUnitId', 'gradeId', 'costCenterId', 'jobPositionId', 'jobRoleId', 'employeeTypeId', 'workTypeId',
   'reportingManagerId', 'dottedManagerId', 'workEmail', 'workPhone', 'workLocation', 'devicePin', 'areaId', 'contractorId', 'cardNumber',
   'devicePassword', 'devicePrivilege', 'attendanceRequired', 'guardianName', 'leavingType', 'leavingReason', 'portalEnabled',
-  'mobilePunch', 'geofenceId', 'probationEndDate', 'contractEndDate', 'phonePunchMode', 'selfieRequired',
+  'mobilePunch', 'geofenceId', 'probationEndDate', 'contractEndDate', 'phonePunchMode', 'selfieRequired', 'establishmentId',
 ] as const;
 
 /** Logged as changed, without the value. */

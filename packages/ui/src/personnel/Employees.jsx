@@ -29,11 +29,13 @@ import {
   listStructure,
   listTags,
   listContractors,
+  getChangeImpact,
   getChecklist,
   getEmployeeStatutory,
   revealStatutory,
   saveIdentity,
   getEmploymentHistory,
+  decideProbation,
   getEmploymentEpisodes,
   cancelScheduledChange,
   startChecklist,
@@ -464,6 +466,23 @@ function EmployeeFile({ id, onClose, onEdit, onDeleted }) {
   };
 
   const [rejoinDate, setRejoinDate] = useState('');
+  const [extendTo, setExtendTo] = useState('');
+  /* Probation (LIFE-03): confirm, or extend to a later date; with a rule it becomes a request. */
+  const probation = async (outcome) => {
+    const ok = await confirmDialog({ title: outcome === 'CONFIRM' ? `Confirm ${person.name} after probation?` : `Extend ${person.name}'s probation to ${formatDateIn(extendTo)}?`, message: outcome === 'CONFIRM' ? 'The confirmation date goes on their record and history, and they are told.' : 'The new end date goes on their record and history, and they are told.', confirmLabel: outcome === 'CONFIRM' ? 'Confirm' : 'Extend', tone: 'primary' });
+    if (!ok) return;
+    try {
+      const r = await decideProbation(person.id, outcome === 'CONFIRM' ? { outcome } : { outcome, newEndDate: extendTo });
+      if (r.request) notify.success(`Sent for approval: ${r.request.title}.`);
+      else {
+        notify.success(outcome === 'CONFIRM' ? `${person.name} confirmed.` : `Probation now ends ${formatDateIn(extendTo)}.`);
+        setPerson((x) => ({ ...x, ...(r.applied || {}) }));
+      }
+      setExtendTo('');
+    } catch (e) {
+      notify.error(String(e?.message || 'Not saved.'));
+    }
+  };
   const withdrawChange = async (c) => {
     if (!(await confirmDialog({ title: `Withdraw the change on ${formatDateIn(c.effectiveOn)}?`, message: `${SCHEDULED_LABELS[c.field] || c.field} stays ${c.fromLabel || 'as it is'}.`, confirmLabel: 'Withdraw' }))) return;
     try {
@@ -642,7 +661,16 @@ function EmployeeFile({ id, onClose, onEdit, onDeleted }) {
                   </dd>
                 </div>
               ) : null}
-              <Field label="Probation ends" value={person.probationEndDate} />
+              <Field label={person.confirmedOn ? 'Confirmed on' : 'Probation ends'} value={person.confirmedOn || person.probationEndDate} />
+              {person.probationEndDate && !person.confirmedOn && person.status !== 'LEFT' && allowed('PEOPLE::Lifecycle::APPROVE') ? (
+                <div className="sm:col-span-2 flex flex-wrap items-center gap-2">
+                  <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => probation('CONFIRM')}>Confirm after probation</button>
+                  <label className="flex items-center gap-1.5 text-sm">Extend to
+                    <input type="date" className="ui-input" style={{ width: 'auto' }} value={extendTo} min={person.probationEndDate} onChange={(e) => setExtendTo(e.target.value)} aria-label="New probation end date" />
+                  </label>
+                  <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={!extendTo} onClick={() => probation('EXTEND')}>Extend</button>
+                </div>
+              ) : null}
               <Field label="Contract ends" value={person.contractEndDate} />
               <Field label="Left" value={person.dateOfLeaving ? `${person.dateOfLeaving}${person.leavingType ? ` · ${LEAVING_TYPES[person.leavingType] || person.leavingType}` : ''}${person.leavingReason ? ` — ${person.leavingReason}` : ''}` : null} />
               <div className="sm:col-span-2">
@@ -710,6 +738,8 @@ function EmployeeFile({ id, onClose, onEdit, onDeleted }) {
 /* The fields whose change is recorded in employment history (server: TRACKED in services/people/employmentHistory.ts). */
 /* The job fields a change may be dated for, as the record names them (server: SCHEDULABLE_FIELDS). */
 const SCHEDULED_LABELS = { departmentId: 'Department', businessUnitId: 'Business unit', areaId: 'Location', branchId: 'Branch', establishmentId: 'Establishment', jobPositionId: 'Designation', jobRoleId: 'Job role', reportingManagerId: 'Reports to', dottedManagerId: 'Also reports to', employeeTypeId: 'Employee type', workTypeId: 'Work type', contractorId: 'Contractor', gradeId: 'Grade', costCenterId: 'Cost centre', status: 'Status' };
+/* How each line of the impact list lands: a review task on the record, an app told through an event, or a note. */
+const IMPACT_TARGET = { TASK: 'review task for HR', TOLD: 'told automatically', INFO: 'for information' };
 const HISTORY_FIELDS = ['businessUnitId', 'gradeId', 'costCenterId', 'departmentId', 'areaId', 'establishmentId', 'jobPositionId', 'jobRoleId', 'reportingManagerId', 'dottedManagerId', 'employeeTypeId', 'workTypeId', 'contractorId'];
 const HISTORY_SOURCE = { FORM: 'Employee form', TRANSFER: 'Transfer', RESIGNATION: 'Resignation', REHIRE: 'Rehire', IMPORT: 'Import' };
 const HISTORY_TONE = { JOINED: 'pos', LEFT: 'neg', REHIRED: 'pos', TRANSFERRED: 'warn', CHANGED: 'neutral' };
@@ -817,7 +847,7 @@ function EmployeeChecklist({ person }) {
                 <div className="min-w-0 flex-1">
                   <p className={`text-sm ${t.done ? 'line-through ui-muted' : ''}`}>{t.title}</p>
                   <p className="ui-caption">
-                    {CHECKLIST_OWNER[t.owner] || t.owner}
+                    {t.ownerName ? `${t.ownerName} (${CHECKLIST_OWNER[t.owner] || t.owner})` : CHECKLIST_OWNER[t.owner] || t.owner}
                     {t.dueDate ? <span className={t.overdue ? 'text-[rgb(var(--neg))] font-medium' : ''}> · due {t.dueDate}{t.overdue ? ' (late)' : ''}</span> : null}
                     {t.done && t.doneBy ? ` · done by ${t.doneBy}` : ''}
                   </p>
@@ -839,6 +869,8 @@ function EmployeeChecklist({ person }) {
     <div className="space-y-5">
       {section('JOINING', 'Joining', data.joining)}
       {person.status === 'LEFT' || data.leaving.total ? section('LEAVING', 'Leaving', data.leaving) : null}
+      {data.changes?.total ? section('CHANGE', 'Changes to review', data.changes) : null}
+      {data.probation?.total ? section('PROBATION', 'Probation', data.probation) : null}
     </div>
   );
 }
@@ -1025,6 +1057,16 @@ function EmployeeForm({ initial, lists, people, onClose, onSaved }) {
   /* A change to where or how someone works goes into their employment history: from when, and why. */
   const today = new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
   const moved = Boolean(form.id) && HISTORY_FIELDS.some((k) => (form[k] || '') !== (initial[k] || ''));
+  /* What else the change affects (LIFE-04): the state's rules, and which apps are told. Asked as the fields change, before anything is saved. */
+  const [impact, setImpact] = useState([]);
+  const impactKey = ['establishmentId', 'departmentId', 'reportingManagerId'].filter((k) => (form[k] || '') !== (initial[k] || '')).map((k) => `${k}=${form[k] || ''}`).join('&');
+  useEffect(() => {
+    if (!form.id || !impactKey) { setImpact([]); return undefined; }
+    let live = true;
+    const fields = Object.fromEntries(impactKey.split('&').map((pair) => pair.split('=')));
+    getChangeImpact(form.id, fields).then((list) => live && setImpact(list)).catch(() => live && setImpact([]));
+    return () => { live = false; };
+  }, [form.id, impactKey]);
 
   const save = async (e) => {
     e.preventDefault();
@@ -1101,6 +1143,20 @@ function EmployeeForm({ initial, lists, people, onClose, onSaved }) {
                 <input className="ui-input w-full" value={form.changeNote || ''} onChange={set('changeNote')} maxLength={500} placeholder="Promotion, reorganisation…" />
               </label>
             </div>
+            {impact.length ? (
+              <div className="space-y-1" aria-label="What else this affects">
+                <p className="ui-label">What else this affects</p>
+                <ul className="space-y-1">
+                  {impact.map((i) => (
+                    <li key={i.key} className="text-sm">
+                      <span className="font-medium">{i.title}</span>
+                      <span className="ui-caption"> · {IMPACT_TARGET[i.target] || i.target}</span>
+                      <p className="ui-caption">{i.detail}</p>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
           </section>
         ) : null}
         <section className="flex items-center gap-3">

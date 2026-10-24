@@ -2,6 +2,8 @@ import { peoplePrisma } from '../../../utils/peoplePrisma.js';
 import { updateEmployee } from '../employees.js';
 import { scheduleChanges } from '../effectiveDating.js';
 import { leaveEmployee } from '../lifecycle/leaving.js';
+import { applyOutcome } from '../lifecycle/probation.js';
+import { registerChangeReviewTasks } from '../lifecycle/changes.js';
 import { onApproved, type Payload } from './engine.js';
 
 /**
@@ -13,7 +15,9 @@ import { onApproved, type Payload } from './engine.js';
 
 const todayIst = () => new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
 
+let reviewTasksOn = false;
 export function registerPeopleEffects() {
+  if (!reviewTasksOn) { registerChangeReviewTasks(); reviewTasksOn = true; }
   /* A job or profile change: dated in the future, it waits; otherwise it is applied now. */
   const applyChange = async ({ request, actor }: Parameters<Parameters<typeof onApproved>[1]>[0]) => {
     const p = (request.payload || {}) as Payload & { effectiveOn?: string | null; reason?: string | null; data?: Record<string, unknown> };
@@ -34,6 +38,13 @@ export function registerPeopleEffects() {
   };
   onApproved('JOB_CHANGE', applyChange);
   onApproved('PROFILE_CHANGE', applyChange);
+
+  /* Probation: the outcome the request carried, applied as HR would by hand. */
+  onApproved('PROBATION', async ({ request, actor }) => {
+    const p = (request.payload || {}) as { outcome?: 'CONFIRM' | 'EXTEND' | 'END'; newEndDate?: string | null; note?: string | null; lastDay?: string | null };
+    if (!request.subjectEmployeeId || !p.outcome) return;
+    return applyOutcome(actor, request.subjectEmployeeId, p.outcome, { newEndDate: p.newEndDate ?? null, note: p.note ?? null, lastDay: p.lastDay ?? null, requestId: request.id });
+  });
 
   /* Leaving: recorded as HR would record it by hand. */
   onApproved('LEAVING', async ({ request, actor }) => {

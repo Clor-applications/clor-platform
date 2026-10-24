@@ -35,6 +35,7 @@ export const employeeSummary = (e: Row) => ({
   branchId: e.branchId,
   employeeTypeId: e.employeeTypeId,
   contractorId: e.contractorId,
+  establishmentId: e.establishmentId,
 });
 
 export async function createEmployee(actor: Actor, data: Prisma.EmployeeUncheckedCreateInput, opts: { afterWrite?: (tx: Prisma.TransactionClient, row: Row) => Promise<void> } = {}): Promise<Row> {
@@ -65,7 +66,13 @@ export async function updateEmployee(
       await writeEvent(tx, actor, 'people.employment.changed.v1', { field: c.field, before: c.before, after: c.after, effectiveOn: opts.effectiveDate || new Date().toISOString().slice(0, 10), employee: employeeSummary(updated) }, updated.id);
     }
     if (job.some((c) => c.field === 'areaId' || c.field === 'branchId' || c.field === 'establishmentId')) {
-      await writeEvent(tx, actor, 'people.employee.transferred.v1', { fields: job.map((c) => c.field), effectiveOn: opts.effectiveDate || new Date().toISOString().slice(0, 10), employee: employeeSummary(updated) }, updated.id);
+      const est = job.find((c) => c.field === 'establishmentId');
+      const states = est ? await tx.establishment.findMany({ where: { orgId: actor.orgId, id: { in: [est.before, est.after].filter(Boolean) as string[] } }, select: { id: true, state: true } }) : [];
+      const stateOf = (id: string | null) => states.find((x) => x.id === id)?.state ?? null;
+      await writeEvent(tx, actor, 'people.employee.transferred.v1', {
+        fields: job.map((c) => c.field), effectiveOn: opts.effectiveDate || new Date().toISOString().slice(0, 10), employee: employeeSummary(updated),
+        fromEstablishmentId: est?.before ?? null, toEstablishmentId: est?.after ?? null, fromState: stateOf(est?.before ?? null), toState: stateOf(est?.after ?? null),
+      }, updated.id);
     }
     if (changes.length && changes.length !== job.length) {
       await writeEvent(tx, actor, 'people.employee.updated.v1', { fields: changes.filter((c) => !JOB_FIELDS.has(c.field)).map((c) => c.field), employee: employeeSummary(updated) }, updated.id);

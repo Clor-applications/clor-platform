@@ -35,6 +35,7 @@ import { payrollSettlementsRouter } from './routes/payrollSettlements.js';
 import { payrollTaxDeclarationsRouter } from './routes/payrollTaxDeclarations.js';
 import { peopleRouter } from './routes/people.js';
 import { peopleApprovalsRouter } from './routes/peopleApprovals.js';
+import { peopleTaskLinksRouter } from './routes/peopleTaskLinks.js';
 import { registerPeopleEffects } from './services/people/approvals/effects.js';
 import { peopleWorkspaceRouter } from './routes/peopleWorkspace.js';
 import { attendanceRouter } from './routes/attendance.js';
@@ -326,6 +327,8 @@ export function buildApp() {
   /* Payroll and Attendance changes go in the audit log (middleware/auditMutations.ts). */
   app.use(auditMutations);
   app.use('/api', sharePublicRouter);
+  /* The done link in a task e-mail: signed, no session; before the routers that demand one. */
+  app.use('/api', peopleTaskLinksRouter);
 
   /* The employee portal: its own sign-in (company + employee code), no CLOR
      user and no tenant headers — so, like the two above, before the routers
