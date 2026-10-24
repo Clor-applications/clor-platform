@@ -4,6 +4,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
+import { appSource } from '../../testing/appSource.js';
 import {
   SETTINGS_CATEGORIES,
   SETTINGS_ITEMS,
@@ -18,7 +19,7 @@ import {
 
 /* src/features/settings/ → src/ */
 const SRC = dirname(dirname(dirname(fileURLToPath(import.meta.url))));
-const APP = readFileSync(join(SRC, 'App.jsx'), 'utf8');
+const APP = appSource(join(SRC, 'App.jsx'));
 
 const all = { can: () => true, isEnabled: () => true };
 

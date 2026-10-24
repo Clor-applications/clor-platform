@@ -71,9 +71,10 @@ const PRINT_SURFACES = [
   // The invoice as a customer sees it, having followed a shared link. It is
   // the printed copy rendered in their browser, and they have no theme here.
   'features/sales/SharedInvoice.jsx',
-  // Every literal in App.jsx lives inside TemplatePreview, which previews the
-  // printed sheet rather than dressing the app.
-  'App.jsx',
+  // The preview of a company's printed sheet (once inside App.jsx, which was
+  // exempt whole for it; the split put it in its own file, so App.jsx is held
+  // to the rule again).
+  'features/settings/TemplatePreview.jsx',
   // The accent a company chooses for its own printed template. A brand colour
   // picked by the customer is theirs, not the product's palette, and it must
   // print as chosen rather than follow whatever theme the operator is in.

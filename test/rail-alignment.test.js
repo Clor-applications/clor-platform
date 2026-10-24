@@ -8,6 +8,7 @@ import { readFileSync, existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import { appSource } from '../apps/accounting/src/testing/appSource.js';
 
 /*
  * The source, which is now in two places.
@@ -36,7 +37,7 @@ const SRC = SRC_DIRS[0];
 const src = (rel) => SRC_DIRS.map((d) => join(d, rel)).find((p) => existsSync(p)) || join(SRC_DIRS[0], rel);
 
 const CSS = readFileSync(join(ROOT, 'packages/ui/src/index.css'), 'utf8');
-const APP = readFileSync(src('App.jsx'), 'utf8');
+const APP = appSource(src('App.jsx'));
 
 /**
  * Every glyph in the rail sits on one line.

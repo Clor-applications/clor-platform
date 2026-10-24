@@ -24,3 +24,10 @@ What stays in App.jsx: the app shell (navigation, view switch, data loading) —
 - `features/purchase/index.jsx` 4,657 → re-exports only: `Bills.jsx` (2,195), `PurchaseOrders.jsx` (1,077), `DebitNotes.jsx`, `purchaseShared.jsx` (1,043).
 - Two tests read source by path: `oneEngine.test.js` now reads the bill and invoice form files that use `resolveTds`; `expectedVsActual.test.js` now scans every sales file (it would otherwise have passed on an empty index).
 - Accounting web tests: the same 47 baseline failures by name, 911 pass (`accounting-web-after-sales-purchase.txt`); `vite build` passes.
+
+## Full web suite and source-reading tests
+
+The full web suite found three tests reading moved code by its old path (`branch-reaches-every-document-form`, `masters-open-as-screens`, `design-rules`). Fixed, and more:
+- `apps/accounting/src/testing/appSource.js` returns App.jsx plus every file split out of it; the ten tests that read App.jsx now use it, so a "never written here" check still sees the code that moved (it would otherwise pass on an emptier file).
+- `design-rules` had exempted all of App.jsx because its only palette literals were the printed-template preview. The preview now has its own file and its own exemption, and App.jsx is held to the rule again — which exposed a real one: the GST export menu used `hover:bg-slate-100`, a light-mode colour in dark mode. It now uses the `ui-hover-sunken` token.
+- Full web suite: 57 failed / 1502 passed, none new against the baseline (`BATCH-10/full-web-suite.txt`) — the same as Batch 8.
