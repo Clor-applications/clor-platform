@@ -22,6 +22,8 @@ export { default as CustomFieldsSettings } from '@ui/personnel/CustomFieldsSetti
 export { default as SelfServiceSettings } from '@ui/personnel/SelfServiceSettings';
 export { default as ComplianceCalendar } from '@ui/personnel/ComplianceCalendar';
 export { default as Compliance } from './screens/Compliance';
+export { default as Privacy } from './screens/Privacy';
+export { default as AuditEvidence } from './screens/AuditEvidence';
 export { Departments, EmployeeTypes, JobRoles, WorkTypes } from '@ui/personnel/StructureList';
 export { JobPositions } from './screens/Designations';
 export { default as WorkspaceList } from './screens/WorkspaceList';

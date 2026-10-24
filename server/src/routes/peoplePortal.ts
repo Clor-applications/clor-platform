@@ -37,7 +37,10 @@ peoplePortalRouter.get('/policies/:versionId', async (req, res) => {
     const d = await peoplePrisma.employeeDocument.findFirst({ where: { id: v.documentId, orgId } });
     if (d) document = { id: d.id, title: d.title, mime: d.mime, dataUrl: `data:${d.mime};base64,${Buffer.from(d.data).toString('base64')}` };
   }
-  res.json({ policy: { id: v.id, policyId: v.policyId, title: v.title, category: v.category, version: v.version, effectiveFrom: v.effectiveFrom, effectiveTo: v.effectiveTo, body: v.body, needsAcceptance: v.needsAcceptance, document } });
+  /* PRV-01: the same text in a language the company offers, when asked for and written; English otherwise. */
+  const lang = String(req.query.lang || '').toLowerCase();
+  const translated = lang && v.translations[lang] ? v.translations[lang] : null;
+  res.json({ policy: { id: v.id, policyId: v.policyId, title: v.title, category: v.category, purpose: v.purpose, version: v.version, effectiveFrom: v.effectiveFrom, effectiveTo: v.effectiveTo, body: translated || v.body, language: translated ? lang : 'en', languages: ['en', ...Object.keys(v.translations)], needsAcceptance: v.needsAcceptance, document } });
 });
 
 /** What I still have to accept (DOC-05, POL-04). */

@@ -5,7 +5,7 @@ import Drawer from '@ui/components/ui/Drawer';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { usePermissions } from '@ui/permissions/usePermissions';
 import {
-  addPolicyVersion, createPolicy, getPolicy, listPolicies, policyAcknowledgements, policyConflicts, policyScope,
+  addPolicyVersion, createPolicy, getNoticeLanguages, getPolicy, listPolicies, saveNoticeLanguages, policyAcknowledgements, policyConflicts, policyScope,
   remindPolicyVersion, retirePolicyVersion, structureList, submitPolicyVersion, updatePolicy, updatePolicyVersion,
 } from '../api/policies';
 
@@ -34,6 +34,7 @@ export default function Policies() {
   const [open, setOpen] = useState(null);
   const [creating, setCreating] = useState(false);
   const [conflicts, setConflicts] = useState([]);
+  const [languagesOpen, setLanguagesOpen] = useState(false);
 
   const load = useCallback(() => {
     listPolicies(q, category).then(setData).catch((e) => notify.error(String(e?.message || 'Could not load.')));
@@ -59,6 +60,7 @@ export default function Policies() {
           <option value="">All kinds</option>
           {(data?.categories || []).map((c) => <option key={c.key} value={c.key}>{c.label}</option>)}
         </select>
+        {allowed('PEOPLE::Policies::EDIT') ? <button type="button" className="ui-btn ui-btn-secondary ml-auto" onClick={() => setLanguagesOpen(true)}>Notice languages{data?.languages?.length ? ` (${data.languages.length})` : ''}</button> : null}
       </div>
       {!data ? <SkeletonCard lines={5} /> : !data.policies.length ? (
         <EmptyState title="No policies yet" description="Start with the ones people ask about: leave, working hours, conduct." />
@@ -71,7 +73,7 @@ export default function Policies() {
             {data.policies.map((p) => (
               <tr key={p.id} className="cursor-pointer" onClick={() => setOpen(p.id)}>
                 <td className="py-2 pr-2 font-medium">{p.title}</td>
-                <td className="py-2 pr-2">{p.categoryLabel}</td>
+                <td className="py-2 pr-2">{p.categoryLabel}{p.purposeLabel ? <span className="ui-caption block">{p.purposeLabel}</span> : null}</td>
                 <td className="py-2 pr-2">{p.ownerName}</td>
                 <td className="py-2 pr-2">{p.current ? `v${p.current.version} from ${p.current.effectiveFrom}` : <span className="ui-muted">—</span>}</td>
                 <td className="py-2">{p.latest ? <span className={`ui-pill ${STATUS[p.latest.status]?.[1] || ''}`}>v{p.latest.version} · {STATUS[p.latest.status]?.[0] || p.latest.status}</span> : <span className="ui-muted">No version</span>}</td>
@@ -80,14 +82,15 @@ export default function Policies() {
           </tbody>
         </table>
       )}
-      {creating ? <PolicyForm categories={data?.categories || []} onClose={() => setCreating(false)} onSaved={(p) => { setCreating(false); load(); setOpen(p.id); }} /> : null}
-      {open ? <PolicyDetail id={open} categories={data?.categories || []} allowed={allowed} onClose={() => setOpen(null)} onChanged={load} /> : null}
+      {creating ? <PolicyForm categories={data?.categories || []} purposes={data?.purposes || []} onClose={() => setCreating(false)} onSaved={(p) => { setCreating(false); load(); setOpen(p.id); }} /> : null}
+      {languagesOpen ? <NoticeLanguages onClose={() => setLanguagesOpen(false)} onSaved={() => { setLanguagesOpen(false); load(); }} /> : null}
+      {open ? <PolicyDetail id={open} categories={data?.categories || []} purposes={data?.purposes || []} languages={data?.languages || []} allowed={allowed} onClose={() => setOpen(null)} onChanged={load} /> : null}
     </div>
   );
 }
 
-function PolicyForm({ policy, categories, onClose, onSaved }) {
-  const [form, setForm] = useState({ title: policy?.title || '', category: policy?.category || 'OTHER', description: policy?.description || '' });
+function PolicyForm({ policy, categories, purposes = [], onClose, onSaved }) {
+  const [form, setForm] = useState({ title: policy?.title || '', category: policy?.category || 'OTHER', purpose: policy?.purpose || '', description: policy?.description || '' });
   const [saving, setSaving] = useState(false);
   const save = async (e) => {
     e.preventDefault();
@@ -112,13 +115,22 @@ function PolicyForm({ policy, categories, onClose, onSaved }) {
             {categories.map((c) => <option key={c.key} value={c.key}>{c.label}</option>)}
           </select>
         </label>
+        {form.category === 'PRIVACY' ? (
+          <label className="block"><span className="ui-label">Purpose *</span>
+            <select className="ui-select w-full" required value={form.purpose} onChange={(e) => setForm({ ...form, purpose: e.target.value })}>
+              <option value="">Choose what this notice covers</option>
+              {purposes.map((x) => <option key={x.key} value={x.key}>{x.label}</option>)}
+            </select>
+            <span className="ui-caption">One notice per purpose. Every new version asks everyone it reaches to read it again.</span>
+          </label>
+        ) : null}
         <label className="block"><span className="ui-label">What it covers (optional)</span><textarea className="ui-input w-full" rows={3} maxLength={2000} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></label>
       </form>
     </Drawer>
   );
 }
 
-function PolicyDetail({ id, categories, allowed, onClose, onChanged }) {
+function PolicyDetail({ id, categories, purposes = [], languages = [], allowed, onClose, onChanged }) {
   const [policy, setPolicy] = useState(null);
   const [editing, setEditing] = useState(false);
   const [newVersion, setNewVersion] = useState(null);
@@ -179,8 +191,8 @@ function PolicyDetail({ id, categories, allowed, onClose, onChanged }) {
           ))}
         </ul>
       )}
-      {editing ? <PolicyForm policy={policy} categories={categories} onClose={() => setEditing(false)} onSaved={() => { setEditing(false); reload(); onChanged(); }} /> : null}
-      {newVersion ? <VersionForm policyId={id} version={newVersion.id ? newVersion : null} onClose={() => setNewVersion(null)} onSaved={() => { setNewVersion(null); reload(); onChanged(); }} /> : null}
+      {editing ? <PolicyForm policy={policy} categories={categories} purposes={purposes} onClose={() => setEditing(false)} onSaved={() => { setEditing(false); reload(); onChanged(); }} /> : null}
+      {newVersion ? <VersionForm policyId={id} privacy={policy.category === 'PRIVACY'} languages={languages} version={newVersion.id ? newVersion : null} onClose={() => setNewVersion(null)} onSaved={() => { setNewVersion(null); reload(); onChanged(); }} /> : null}
     </Drawer>
   );
 }
@@ -196,8 +208,8 @@ const scopeWords = (a) => {
   return parts.length ? parts.join(' · ') : 'everyone';
 };
 
-function VersionForm({ policyId, version, onClose, onSaved }) {
-  const [form, setForm] = useState({ body: version?.body || '', effectiveFrom: version?.effectiveFrom || new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10), effectiveTo: version?.effectiveTo || '', needsAcceptance: version?.needsAcceptance || false, appliesTo: { ...(version?.appliesTo || {}) } });
+function VersionForm({ policyId, privacy = false, languages = [], version, onClose, onSaved }) {
+  const [form, setForm] = useState({ translations: { ...(version?.translations || {}) }, body: version?.body || '', effectiveFrom: version?.effectiveFrom || new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10), effectiveTo: version?.effectiveTo || '', needsAcceptance: version?.needsAcceptance || false, appliesTo: { ...(version?.appliesTo || {}) } });
   const [lists, setLists] = useState({});
   const [scope, setScope] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -217,7 +229,7 @@ function VersionForm({ policyId, version, onClose, onSaved }) {
     e.preventDefault();
     setSaving(true);
     try {
-      const body = { ...form, effectiveTo: form.effectiveTo || null, appliesTo: { ...form.appliesTo, states: (form.appliesTo.states || []).filter(Boolean) } };
+      const body = { ...form, translations: privacy ? form.translations : undefined, effectiveTo: form.effectiveTo || null, appliesTo: { ...form.appliesTo, states: (form.appliesTo.states || []).filter(Boolean) } };
       const r = version ? await updatePolicyVersion(policyId, version.version, body) : await addPolicyVersion(policyId, body);
       notify.success(`Version ${r.version.version} saved as a draft. Publish it when it is ready.`);
       onSaved();
@@ -236,7 +248,14 @@ function VersionForm({ policyId, version, onClose, onSaved }) {
           <label className="block"><span className="ui-label">Applies from *</span><input type="date" className="ui-input w-full" required value={form.effectiveFrom} onChange={(e) => setForm({ ...form, effectiveFrom: e.target.value })} /></label>
           <label className="block"><span className="ui-label">Until (optional)</span><input type="date" className="ui-input w-full" value={form.effectiveTo} onChange={(e) => setForm({ ...form, effectiveTo: e.target.value })} /></label>
         </div>
-        <label className="flex items-center gap-2 text-sm"><input type="checkbox" className="ui-checkbox" checked={form.needsAcceptance} onChange={(e) => setForm({ ...form, needsAcceptance: e.target.checked })} />Everyone it applies to must read and accept it</label>
+        {privacy ? (
+          <>
+            {languages.map((l) => (
+              <label key={l.key} className="block"><span className="ui-label">In {l.label} (optional)</span><textarea className="ui-input w-full" rows={6} lang={l.key} value={form.translations[l.key] || ''} onChange={(e) => setForm({ ...form, translations: { ...form.translations, [l.key]: e.target.value } })} /></label>
+            ))}
+            <p className="ui-caption">{languages.length ? 'People read it in the language they choose; English shows where a translation is left empty.' : 'English only. Add languages under Notice languages.'} Everyone it reaches is asked to read and accept every version.</p>
+          </>
+        ) : <label className="flex items-center gap-2 text-sm"><input type="checkbox" className="ui-checkbox" checked={form.needsAcceptance} onChange={(e) => setForm({ ...form, needsAcceptance: e.target.checked })} />Everyone it applies to must read and accept it</label>}
         <fieldset className="space-y-2">
           <legend className="ui-label">Who it applies to</legend>
           <label className="block"><span className="ui-caption">States (comma-separated, e.g. Karnataka, Maharashtra)</span><input className="ui-input w-full" value={(form.appliesTo.states || []).join(', ')} onChange={(e) => setForm({ ...form, appliesTo: { ...form.appliesTo, states: e.target.value.split(',').map((s) => s.trim()) } })} /></label>
@@ -254,6 +273,37 @@ function VersionForm({ policyId, version, onClose, onSaved }) {
           <p className="ui-caption">{scope ? `Reaches ${scope.count} ${scope.count === 1 ? 'person' : 'people'}${scope.sample.length ? `: ${scope.sample.map((p) => p.name).join(', ')}${scope.count > scope.sample.length ? '…' : ''}` : ''}` : 'Working out who it reaches…'}</p>
         </fieldset>
       </form>
+    </Drawer>
+  );
+}
+
+/** The languages privacy notices are offered in besides English (PRV-01). */
+function NoticeLanguages({ onClose, onSaved }) {
+  const [data, setData] = useState(null);
+  const [picked, setPicked] = useState([]);
+  useEffect(() => {
+    getNoticeLanguages().then((r) => { setData(r); setPicked(r.enabled || []); }).catch((e) => notify.error(String(e?.message || 'Could not load.')));
+  }, []);
+  const save = async () => {
+    try {
+      await saveNoticeLanguages(picked);
+      notify.success(picked.length ? `Notices offered in English and ${picked.length} more.` : 'Notices in English only.');
+      onSaved();
+    } catch (err) {
+      notify.error(String(err?.message || 'Not saved.'));
+    }
+  };
+  return (
+    <Drawer open onClose={onClose} title="Notice languages" description="Privacy notices are always in English. Pick the languages your people read; each notice version then takes a translation in each."
+      actions={<><button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button><button type="button" className="ui-btn ui-btn-primary" onClick={save} disabled={!data}>Save</button></>}>
+      {!data ? <SkeletonCard lines={4} /> : (
+        <div className="flex flex-wrap gap-1.5">
+          {data.offered.map((l) => {
+            const on = picked.includes(l.key);
+            return <button key={l.key} type="button" aria-pressed={on} className={`ui-pill ${on ? 'ui-pill-info' : ''}`} onClick={() => setPicked(on ? picked.filter((x) => x !== l.key) : [...picked, l.key])}>{l.label}</button>;
+          })}
+        </div>
+      )}
     </Drawer>
   );
 }

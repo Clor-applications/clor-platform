@@ -8,6 +8,7 @@ import { PermissionAction, type PermissionAction as PermissionActionType } from 
 import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { platformPrisma } from '../utils/platformPrisma.js';
 import { AnonymiseError, anonymiseEmployee } from '../services/anonymiseEmployee.js';
+import { retentionExceptions } from '../services/people/privacy.js';
 import { recordAudit } from '../services/auditTrail.js';
 import { peopleEvent } from '../services/people/documentReminders.js';
 import { PEOPLE_MODULE, PEOPLE_RESOURCE, peopleRouteOk } from '../services/people/guards.js';
@@ -1630,6 +1631,10 @@ peopleRouter.get('/orgs/:orgId/people/documents/:docId', can(PermissionAction.VI
   const d = await peoplePrisma.employeeDocument.findFirst({ where: { id: String(req.params.docId), accountId, orgId } });
   /* A file the caller may not open reads as absent, so its title does not leak through a 403. */
   if (!d || !(await readableClassifications(req)).includes(d.classification as DocClass) || !inScope(await teamScope(req), d.employeeId)) return res.status(404).json({ error: 'No such document.' });
+  /* PRV-07: every open of a confidential or restricted file is on the access log. */
+  if (d.classification === 'CONFIDENTIAL' || d.classification === 'RESTRICTED') {
+    await peoplePrisma.accessLog.create({ data: { accountId, orgId, what: d.classification === 'CONFIDENTIAL' ? 'DOC_CONFIDENTIAL' : 'DOC_RESTRICTED', entityId: d.id, employeeId: d.employeeId, userId: req.auth!.userId } });
+  }
   res.json({ document: { ...docRow(d), dataUrl: `data:${d.mime};base64,${Buffer.from(d.data).toString('base64')}` } });
 });
 
@@ -1654,7 +1659,12 @@ peopleRouter.get('/orgs/:orgId/people/data-requests', can(PermissionAction.VIEW,
   const status = String(req.query.status || '').toUpperCase();
   const rows = await peoplePrisma.dataRequest.findMany({ where: { accountId, orgId, ...(['PENDING', 'RESOLVED', 'REJECTED'].includes(status) ? { status } : {}) }, orderBy: [{ status: 'desc' }, { createdAt: 'desc' }], take: 500 });
   const names = new Map((await peoplePrisma.employee.findMany({ where: { orgId, id: { in: [...new Set(rows.map((r) => r.employeeId))] } }, select: { id: true, name: true, code: true } })).map((e) => [e.id, e]));
-  res.json({ requests: rows.map((r) => ({ ...r, employeeName: names.get(r.employeeId)?.name || null, employeeCode: names.get(r.employeeId)?.code || null })), pending: rows.filter((r) => r.status === 'PENDING').length });
+  /* PRV-02: an erasure shows what the law keeps, and until when, before anyone answers it. */
+  const erasures = rows.filter((r) => r.type === 'ERASURE');
+  const leftOn = new Map((erasures.length ? await peoplePrisma.employee.findMany({ where: { orgId, id: { in: erasures.map((r) => r.employeeId) } }, select: { id: true, dateOfLeaving: true } }) : []).map((e) => [e.id, e.dateOfLeaving]));
+  const kept = new Map<string, Awaited<ReturnType<typeof retentionExceptions>>>();
+  for (const r of erasures) kept.set(r.id, await retentionExceptions(orgId, leftOn.get(r.employeeId) ?? null));
+  res.json({ requests: rows.map((r) => ({ ...r, employeeName: names.get(r.employeeId)?.name || null, employeeCode: names.get(r.employeeId)?.code || null, retentionExceptions: kept.get(r.id) || null })), pending: rows.filter((r) => r.status === 'PENDING').length });
 });
 
 peopleRouter.post('/orgs/:orgId/people/data-requests/:id/resolve', can(PermissionAction.EDIT, EMPLOYEES), async (req, res) => {
@@ -1705,7 +1715,7 @@ peopleRouter.post('/orgs/:orgId/people/employees/:id/anonymise', can(PermissionA
       where: { id: request.id },
       data: {
         status: 'RESOLVED',
-        resolution: `Your personal data was erased on ${result.anonymisedAt.slice(0, 10)}. The law makes us keep your name, employee code, dates of employment, attendance and pay records for a fixed period; they are deleted when it ends.`,
+        resolution: `Your personal data was erased on ${result.anonymisedAt.slice(0, 10)}. The law makes us keep some records for a fixed period, deleted when it ends: ${(await retentionExceptions(orgId, (await peoplePrisma.employee.findFirst({ where: { id: employeeId, orgId }, select: { dateOfLeaving: true } }))?.dateOfLeaving ?? null)).map((k) => `${k.label.toLowerCase()} until ${k.until || `${k.keepYears} years after leaving`} (${k.basis})`).join('; ')}.`,
         reviewedByUserId: req.auth!.userId,
         reviewedAt: new Date(),
       },

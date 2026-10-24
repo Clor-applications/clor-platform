@@ -19,3 +19,5 @@ export const remindPolicyVersion = (id, v) => send(`/policies/${encodeURICompone
 export const policyScope = (appliesTo) => send('/policies/scope', 'POST', { appliesTo });
 export const policyConflicts = (asOf) => apiFetch(`${base()}/policies/conflicts${asOf ? `?asOf=${asOf}` : ''}`, opts).then((r) => r?.conflicts || []);
 export const structureList = (kind) => apiFetch(`${base()}/structure/${kind}`, opts).then((r) => r?.items || []);
+export const getNoticeLanguages = () => apiFetch(`${base()}/policies/notice-languages`, opts);
+export const saveNoticeLanguages = (languages) => send('/policies/notice-languages', 'PUT', { languages });

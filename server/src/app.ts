@@ -44,6 +44,7 @@ import { peoplePoliciesRouter } from './routes/peoplePolicies.js';
 import { peopleDeskRouter } from './routes/peopleDesk.js';
 import { peopleComplianceRouter } from './routes/peopleCompliance.js';
 import { peoplePrivateCasesRouter } from './routes/peoplePrivateCases.js';
+import { peoplePrivacyRouter } from './routes/peoplePrivacy.js';
 import { peoplePortalRouter } from './routes/peoplePortal.js';
 import { registerPeopleEffects } from './services/people/approvals/effects.js';
 import { peopleWorkspaceRouter } from './routes/peopleWorkspace.js';
@@ -399,6 +400,7 @@ export function buildApp() {
   app.use('/api', peopleDeskRouter);
   app.use('/api', peopleComplianceRouter);
   app.use('/api', peoplePrivateCasesRouter);
+  app.use('/api', peoplePrivacyRouter);
   app.use('/api', peopleWorkspaceRouter);
   app.use('/api', personnelRouter);
   app.use('/api', attendanceRouter);

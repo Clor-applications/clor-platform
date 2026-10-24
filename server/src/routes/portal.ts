@@ -917,8 +917,8 @@ portalRouter.get('/documents/:id', async (req, res) => {
 
 const DATA_REQUEST_TYPES = new Set(['ACCESS', 'CORRECTION', 'ERASURE', 'NOMINATE', 'GRIEVANCE']);
 const DATA_REQUEST_VERB: Record<string, string> = { ACCESS: 'see their personal data', CORRECTION: 'correct their personal data', ERASURE: 'erase their personal data', NOMINATE: 'name a nominee for their data rights', GRIEVANCE: 'raise a data-protection grievance', WITHDRAW: 'withdraw consent' };
-/** Answered within 30 days: well inside the 90 the DPDP Rules allow for grievances. */
-const answerBy = () => new Date(Date.now() + 30 * 86_400_000);
+/** Requests are answered within 30 days; a grievance within the 90 the DPDP Rules allow (PRV-02). */
+const answerBy = (type?: string) => new Date(Date.now() + (type === 'GRIEVANCE' ? 90 : 30) * 86_400_000);
 
 // ---------------------------------------------------------------------------
 // Privacy notice and my data (DPDP)
@@ -1028,7 +1028,7 @@ portalRouter.post('/data-requests', async (req, res) => {
   if (!details) return res.status(400).json({ error: 'Say what you are asking for.' });
   const open = await peoplePrisma.dataRequest.count({ where: { orgId: e.orgId, employeeId: e.id, status: 'PENDING' } });
   if (open >= 3) return res.status(409).json({ error: 'You already have three requests waiting. HR will answer those first.' });
-  const r = await peoplePrisma.dataRequest.create({ data: { accountId: e.accountId, orgId: e.orgId, employeeId: e.id, type, details, dueAt: answerBy() } });
+  const r = await peoplePrisma.dataRequest.create({ data: { accountId: e.accountId, orgId: e.orgId, employeeId: e.id, type, details, dueAt: answerBy(type) } });
   await notifyPermission(e.accountId, e.orgId, 'PEOPLE::Employees::EDIT', { kind: 'people.data_request', title: `${e.name} asked to ${DATA_REQUEST_VERB[type]}`, body: details || null, link: { app: 'attendance', screen: 'dataRequests' } });
   res.status(201).json({ request: r });
 });

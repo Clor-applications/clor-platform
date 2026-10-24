@@ -1330,8 +1330,10 @@ model Policy {
   accountId       String
   orgId           String
   title           String
-  /// LEAVE | HOURS | CONDUCT | TRAVEL | BENEFITS | IT | POSH | OTHER
+  /// LEAVE | HOURS | CONDUCT | TRAVEL | BENEFITS | IT | POSH | PRIVACY | OTHER
   category        String
+  /// Privacy notices only (PRV-01): EMPLOYMENT | ATTENDANCE | PAYROLL | RECRUITMENT | MONITORING | BENEFITS | OTHER
+  purpose         String?
   description     String?
   ownerUserId     String
   isActive        Boolean  @default(true)
@@ -1359,6 +1361,8 @@ model PolicyVersion {
   /// { establishmentIds?, states?, departmentIds?, employeeTypeIds?, gradeIds?, workTypeIds? } — every list given must match.
   appliesTo         Json
   needsAcceptance   Boolean   @default(false)
+  /// { "hi": "...", "ta": "..." }: the same text in the languages the company enables (PRV-01). English is `body`.
+  translations      Json?
   /// DRAFT | WAITING | PUBLISHED | RETIRED
   status            String    @default("DRAFT")
   publishedAt       DateTime?
@@ -1571,6 +1575,8 @@ model PeopleSetting {
   orgId              String   @unique
   /// CONTACT_DIRECT (contact details save at once, the rest needs HR approval) | ALL (everything needs approval) | NONE (saves at once, HR told)
   selfServiceChanges String   @default("CONTACT_DIRECT")
+  /// Languages privacy notices are offered in besides English (PRV-01), e.g. ["hi","ta"].
+  noticeLanguages    Json?
   updatedByUserId    String?
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
@@ -1809,6 +1815,61 @@ model CommitteeSetup {
   updatedAt       DateTime @updatedAt
 
   @@unique([orgId, kind])
+}
+
+/// How long each kind of personal data is kept (PRV-03), with a legal hold that stops any deletion.
+model RetentionRule {
+  id              String   @id @default(cuid())
+  accountId       String
+  orgId           String
+  /// PEOPLE_RECORD | DOCUMENTS | PAYROLL | ATTENDANCE | SELFIES | ACCESS_LOG
+  dataType        String
+  keepYears       Int
+  legalHold       Boolean  @default(false)
+  holdReason      String?
+  basis           String
+  updatedByUserId String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([orgId, dataType])
+}
+
+/// Data past its retention, waiting for a person to decide (PRV-03): nothing is deleted without one.
+model DeletionReview {
+  id              String    @id @default(cuid())
+  accountId       String
+  orgId           String
+  dataType        String
+  entityId        String
+  label           String
+  dueSince        String
+  /// PENDING | APPROVED | KEPT
+  status          String    @default("PENDING")
+  note            String?
+  decidedByUserId String?
+  decidedAt       DateTime?
+  createdAt       DateTime  @default(now())
+
+  @@unique([orgId, dataType, entityId])
+  @@index([orgId, status])
+}
+
+/// An external auditor's access (PRV-06): named documents only, from a time until a time, every view logged.
+model AuditorGrant {
+  id              String    @id @default(cuid())
+  accountId       String
+  orgId           String
+  userId          String
+  purpose         String
+  documentIds     Json
+  fromAt          DateTime
+  untilAt         DateTime
+  grantedByUserId String?
+  revokedAt       DateTime?
+  createdAt       DateTime  @default(now())
+
+  @@index([orgId, userId, untilAt])
 }
 
 /// Letters the company issues (docs/people/02-PRD.md DOC-04; services/people/letters.ts):

@@ -263,6 +263,12 @@ export const PERMISSION_CATALOG: ModuleDef[] = [
         actions: [A.VIEW, A.CREATE, A.EDIT],
       },
       {
+        key: 'Privacy',
+        label: 'Privacy',
+        description: 'Who viewed what (statutory details, confidential documents, private-case opens as counts), the retention schedule and legal hold, the deletion review, and time-limited auditor access to named evidence',
+        actions: [A.VIEW, A.EDIT, A.DELETE],
+      },
+      {
         key: 'Policies',
         label: 'Policies',
         description: 'The policy library: versions with effective dates, who each applies to, acceptance and reminders. Publishing follows the approval rule',
@@ -776,10 +782,10 @@ export const ROLE_PRESETS: Record<string, RolePreset> = {
   EXTERNAL_AUDITOR: {
     label: 'External Auditor',
     group: 'Read-only',
-    description: 'Read the audit trail and the documents shared for an audit; nothing personal, nothing editable',
+    description: 'Read the audit trail, and only the documents named in a time-limited audit grant (PRV-06); nothing personal, nothing editable',
     roleType: 'CUSTOM',
     grants: [
-      ['PEOPLE', 'Documents', [A.VIEW]],
+      /* No Documents grant: that opened every employee-visible and HR-only file. Documents come through an AuditorGrant only. */
       ['SETTINGS', 'Audit trail', [A.VIEW, A.EXPORT]],
     ],
   },

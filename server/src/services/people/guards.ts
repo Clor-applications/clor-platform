@@ -44,6 +44,7 @@ export const PEOPLE_RESOURCE = {
   lifecycle: 'Lifecycle',
   policies: 'Policies',
   privateCases: 'Private Cases',
+  privacy: 'Privacy',
 } as const;
 
 /**
