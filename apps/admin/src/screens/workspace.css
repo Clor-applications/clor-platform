@@ -889,3 +889,22 @@ button.ws-item:hover {
   background: rgb(var(--ws-danger-soft));
   color: rgb(var(--ws-danger));
 }
+
+/* Phones: two figures to a row, the icon tile dropped, so a stat strip is a glance and not a scroll. */
+@media (max-width: 600px) {
+  .ws-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+  .ws-stat {
+    grid-template-columns: 1fr auto;
+    padding: 12px;
+  }
+  .ws-stat > .ws-tile {
+    display: none;
+  }
+  .ws-stat .ws-stat-value,
+  .ws-stat .ws-stat-note {
+    grid-column: 1 / -1 !important;
+  }
+}
