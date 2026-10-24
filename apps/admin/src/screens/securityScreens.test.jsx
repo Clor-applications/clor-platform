@@ -15,7 +15,7 @@ vi.mock('@platform/context', () => ({ hasApp: () => true }));
 vi.mock('@ui/components/ListToolbar', () => ({ exportRows: (a) => api.exportRows(a) }));
 
 import SecuritySettings from './SecuritySettings';
-import AuditTrail from './AuditTrail';
+import AuditTrail, { messageWords } from './AuditTrail';
 
 const POLICY = { maxFailedLogins: 5, lockoutMinutes: 15, sessionDays: 30, accessTokenMinutes: 15, passwordMinLength: 10, requireAdminTwoFactor: false, makerChecker: 'AUTO' };
 
@@ -61,12 +61,21 @@ describe('sign-in and sessions', () => {
 describe('audit trail', () => {
   it('lists entries with their diff, pages on, and exports what is shown', async () => {
     render(<AuditTrail />);
-    const row = (await screen.findByText('Invoice INV-7 edited')).closest('tr');
+    const row = (await screen.findByText('Invoice INV-7 edited')).closest('li');
     expect(within(row).getByText('12000')).toBeInTheDocument();
     expect(within(row).getByText('Update')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /Load older entries/ }));
     await waitFor(() => expect(api.listAudit).toHaveBeenLastCalledWith(expect.objectContaining({ cursor: 'c2' })));
     fireEvent.click(screen.getByRole('button', { name: /Export shown/ }));
     expect(api.exportRows.mock.calls[0][0].rows[0]).toMatchObject({ action: 'UPDATE', by: 'Asha' });
+  });
+});
+
+describe('audit messages in words', () => {
+  it('reads a recorded request as the change it made, and passes written messages through', () => {
+    expect(messageWords('POST payroll/loans', 'PAYROLL_LOAN', 'CREATE')).toBe('Added loan');
+    expect(messageWords('DELETE /people/employees/cmvlfk92n0000g9itcr6ork1k', 'EMPLOYEE', 'DELETE')).toBe('Removed employee');
+    expect(messageWords('PATCH people/leave-policies/12', '', 'UPDATE')).toBe('Changed leave policy');
+    expect(messageWords('Invoice INV-7 edited', 'INVOICE', 'UPDATE')).toBe('Invoice INV-7 edited');
   });
 });

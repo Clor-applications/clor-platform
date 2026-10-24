@@ -87,42 +87,96 @@ const when = (iso) => {
  * "Edited" is not an audit entry; `total 12,000 → 1,200` is. Anything that is
  * not a diff — a create, a delete — prints as the values it recorded.
  */
-/** A recorded value as words: lists joined, records as `field: value`, cut short. */
+/* A record id (cuid/uuid) says nothing to a reader; a file's contents even less. */
+const isId = (v) => typeof v === 'string' && (/^c[a-z0-9]{20,}$/.test(v) || /^[0-9a-f-]{32,36}$/i.test(v));
+const isFile = (v) => typeof v === 'string' && v.startsWith('data:');
+
+/** A recorded value as words: lists joined, records as `field: value`, ids and files named rather than printed. */
 const valueText = (v, depth = 0) => {
   if (v === null || v === undefined || v === '') return '—';
+  if (isFile(v)) return 'a file';
+  if (isId(v)) return 'a record';
   if (Array.isArray(v)) return v.map((x) => valueText(x, depth + 1)).join(', ') || '—';
   if (typeof v === 'object') {
     if (depth > 1) return '…';
-    return Object.entries(v).map(([k, x]) => `${k}: ${valueText(x, depth + 1)}`).join(' · ') || '—';
+    return Object.entries(v).map(([k, x]) => `${fieldWords(k)}: ${valueText(x, depth + 1)}`).join(' · ') || '—';
   }
   return String(v);
 };
-const short = (t) => (t.length > 180 ? `${t.slice(0, 180)}…` : t);
+const short = (t) => (t.length > 140 ? `${t.slice(0, 140)}…` : t);
 
+/** `employeeId` → "Employee", `dateOfJoining` → "Date of joining". */
+const fieldWords = (k) => {
+  const w = String(k).replace(/Id$/, '').replace(/([a-z])([A-Z])/g, '$1 $2').replace(/_/g, ' ').toLowerCase();
+  return w ? w[0].toUpperCase() + w.slice(1) : '';
+};
+
+/*
+ * The general recorder names a request ("POST payroll/loans"); say it as the
+ * change it made. Messages written by the routes themselves pass through.
+ */
+const VERB = { POST: 'Added', PUT: 'Changed', PATCH: 'Changed', DELETE: 'Removed' };
+export const messageWords = (message, entity, action) => {
+  const m = String(message || '').match(/^(POST|PUT|PATCH|DELETE)\s+\/?([\w/-]+)/);
+  if (m) {
+    const last = m[2].split('/').filter((x) => x && !isId(x) && !/^\d+$/.test(x)).pop() || entity || 'record';
+    const noun = last.replace(/-/g, ' ').replace(/ies$/, 'y').replace(/s$/, '');
+    return `${VERB[m[1]]} ${noun.replace(/^payroll /, '')}`.replace(/^(\w+) (\w)/, (_, v, c) => `${v} ${c.toLowerCase()}`);
+  }
+  return message || `${entityLabel(entity)} ${actionWords(action).toLowerCase()}`;
+};
+
+/**
+ * What changed. A diff reads `Total 12,000 → 1,200`; anything else — what a
+ * create or delete recorded — sits behind "Details", in words.
+ */
 const Changes = ({ metadata }) => {
   if (!metadata || typeof metadata !== 'object') return null;
   const changes = metadata.changes && typeof metadata.changes === 'object' ? metadata.changes : null;
-  /* The general recorder's own bookkeeping (the path it matched, ids already in the row) says nothing a reader needs. */
-  const entries = Object.entries(changes || metadata).filter(([k, v]) => k !== 'path' && !(k === 'ids' && (!Array.isArray(v) || !v.length)));
+  /* The recorder's own bookkeeping (the path it matched, the ids already on the row) says nothing a reader needs. */
+  const entries = Object.entries(changes || metadata).filter(([k]) => k !== 'path' && k !== 'ids');
   if (!entries.length) return null;
+  const diffs = entries.filter(([, v]) => v && typeof v === 'object' && 'from' in v);
+  const rest = entries.filter(([, v]) => !(v && typeof v === 'object' && 'from' in v));
   return (
-    <div className="mt-1 space-y-0.5">
-      {entries.map(([field, v]) => (
-        <div key={field} className="ws-head-meta" style={{ whiteSpace: 'normal' }}>
-          <span>{field}</span>{' '}
-          {v && typeof v === 'object' && 'from' in v ? (
-            <>
-              <span className="ui-mono" style={{ color: 'rgb(var(--ws-ink))' }}>{String(v.from ?? '—')}</span>
-              <span> → </span>
-              <span className="ui-mono" style={{ color: 'rgb(var(--ws-ink))' }}>{String(v.to ?? '—')}</span>
-            </>
-          ) : (
-            <span className="ui-mono" style={{ color: 'rgb(var(--ws-ink))' }}>{short(valueText(v))}</span>
-          )}
-        </div>
-      ))}
+    <div className="ws-audit-detail">
+      {diffs.length ? (
+        <ul className="ws-audit-diffs">
+          {diffs.map(([field, v]) => (
+            <li key={field}>
+              <span className="ws-audit-field">{fieldWords(field)}</span>
+              <span className="ws-audit-from">{short(valueText(v.from))}</span>
+              <span aria-label="changed to">→</span>
+              <span className="ws-audit-to">{short(valueText(v.to))}</span>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      {rest.length ? (
+        <details className="ws-audit-more">
+          <summary>Details</summary>
+          <dl>
+            {rest.flatMap(([field, v]) =>
+              v && typeof v === 'object' && !Array.isArray(v)
+                ? Object.entries(v).map(([k, x]) => [`${field}.${k}`, fieldWords(k), x])
+                : [[field, fieldWords(field), v]]
+            ).map(([key, label, x]) => (
+              <div key={key}>
+                <dt>{label}</dt>
+                <dd>{short(valueText(x))}</dd>
+              </div>
+            ))}
+          </dl>
+        </details>
+      ) : null}
     </div>
   );
+};
+
+const initials = (name) => String(name || '?').trim().split(/\s+/).slice(0, 2).map((w) => w[0]).join('').toUpperCase();
+const timeOf = (iso) => {
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? '' : d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
 };
 
 export default function AuditTrail() {
@@ -201,7 +255,7 @@ export default function AuditTrail() {
         when: when(e.at),
         action: e.action,
         record: entityLabel(e.entity),
-        message: e.message || `${entityLabel(e.entity)} ${e.action}`,
+        message: messageWords(e.message, e.entity, e.action),
         by: e.by?.name || 'Unknown user',
         email: e.by?.email || '',
       })),
@@ -292,39 +346,33 @@ export default function AuditTrail() {
           <p className="ws-card-blurb">Loading the trail…</p>
         ) : (
           <>
-            <div className="ws-table-wrap">
-              <table className="ws-table">
-                <caption className="sr-only">Audit trail entries, newest first</caption>
-                <thead>
-                  <tr>
-                    <th scope="col">When</th>
-                    <th scope="col">Action</th>
-                    <th scope="col">What happened</th>
-                    <th scope="col">By</th>
-                  </tr>
-                </thead>
-                {grouped.map(([day, rows]) => (
-                  <tbody key={day}>
-                    <tr>
-                      <th scope="rowgroup" colSpan={4} style={{ textAlign: 'left' }}>{day}</th>
-                    </tr>
+            <div className="ws-audit" aria-label="Audit trail entries, newest first">
+              {grouped.map(([day, rows]) => (
+                <section key={day} className="ws-audit-day" aria-label={day}>
+                  <h2 className="ws-audit-dayhead">
+                    {day} <span>{rows.length} {rows.length === 1 ? 'change' : 'changes'}</span>
+                  </h2>
+                  <ol className="ws-audit-list">
                     {rows.map((e) => (
-                      <tr key={e.id}>
-                        <td style={{ verticalAlign: 'top' }}>{when(e.at)}</td>
-                        <td style={{ verticalAlign: 'top' }}><ActionPill action={e.action} /></td>
-                        <td style={{ whiteSpace: 'normal', overflowWrap: 'anywhere', minWidth: 280, maxWidth: 640, verticalAlign: 'top' }}>
-                          <div>{e.message || `${entityLabel(e.entity)} ${e.action}`}</div>
+                      <li key={e.id} className="ws-audit-entry" data-action={e.action}>
+                        <time className="ws-audit-time" dateTime={e.at} title={when(e.at)}>{timeOf(e.at)}</time>
+                        <span className="ws-audit-avatar" aria-hidden="true">{initials(e.by?.name)}</span>
+                        <div className="ws-audit-body">
+                          <p className="ws-audit-line">
+                            <strong title={e.by?.email || undefined}>{e.by?.name || 'Unknown user'}</strong>{' '}
+                            <span>{messageWords(e.message, e.entity, e.action)}</span>
+                          </p>
+                          <p className="ws-audit-meta">
+                            <ActionPill action={e.action} />
+                            {e.entity ? <span>{entityLabel(e.entity)}</span> : null}
+                          </p>
                           <Changes metadata={e.metadata} />
-                        </td>
-                        <td style={{ verticalAlign: 'top' }}>
-                          <div>{e.by?.name || 'Unknown user'}</div>
-                          <div className="ws-head-meta">{e.by?.email || ''}</div>
-                        </td>
-                      </tr>
+                        </div>
+                      </li>
                     ))}
-                  </tbody>
-                ))}
-              </table>
+                  </ol>
+                </section>
+              ))}
             </div>
 
             <nav className="flex items-center gap-3" aria-label="Pages">

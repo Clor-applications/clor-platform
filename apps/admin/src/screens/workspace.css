@@ -1060,3 +1060,201 @@ button.ws-item:hover {
 .ws form .grid {
   align-items: start;
 }
+
+/* ------------------------------------------------------------ audit trail
+ * A day-by-day timeline: time, who, what they did in words, and what changed.
+ */
+.ws-audit {
+  display: grid;
+  gap: 24px;
+}
+.ws-audit-day {
+  background: rgb(var(--ws-surface));
+  border: 1px solid rgb(var(--ws-line));
+  border-radius: 12px;
+  overflow: hidden;
+}
+.ws .ws-audit-dayhead {
+  margin: 0;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 18px;
+  background: rgb(var(--ws-stone));
+  border-bottom: 1px solid rgb(var(--ws-line));
+  /* index.css sizes every h2 with !important; a day label is a small heading. */
+  font-size: 0.875rem !important;
+  line-height: 1.4 !important;
+  font-weight: 600 !important;
+}
+.ws-audit-dayhead span {
+  font-weight: 500;
+  font-size: 0.8125rem;
+  color: rgb(var(--ws-muted));
+}
+.ws-audit-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ws-audit-entry {
+  display: grid;
+  grid-template-columns: 72px 32px minmax(0, 1fr);
+  gap: 0 14px;
+  padding: 14px 18px;
+  position: relative;
+}
+.ws-audit-entry + .ws-audit-entry {
+  border-top: 1px solid rgb(var(--ws-line));
+}
+/* The rail joining one change to the next, through the avatars. */
+.ws-audit-entry::before {
+  content: '';
+  position: absolute;
+  left: calc(18px + 72px + 14px + 15px);
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: rgb(var(--ws-line));
+}
+.ws-audit-entry:first-child::before {
+  top: 30px;
+}
+.ws-audit-entry:last-child::before {
+  bottom: calc(100% - 30px);
+}
+.ws-audit-time {
+  padding-top: 6px;
+  font-size: 0.8125rem;
+  font-variant-numeric: tabular-nums;
+  color: rgb(var(--ws-muted));
+  white-space: nowrap;
+}
+.ws-audit-avatar {
+  position: relative;
+  z-index: 1;
+  display: inline-grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  background: rgb(var(--ws-accent-soft));
+  color: rgb(var(--ws-accent-hover));
+  font-size: 0.6875rem;
+  font-weight: 700;
+  box-shadow: 0 0 0 4px rgb(var(--ws-surface));
+}
+.ws-audit-entry[data-action='DELETE'] .ws-audit-avatar {
+  background: rgb(var(--ws-danger-soft));
+  color: rgb(var(--ws-danger));
+}
+.ws-audit-body {
+  min-width: 0;
+  display: grid;
+  gap: 6px;
+}
+.ws-audit-line {
+  font-size: 0.9375rem;
+  line-height: 1.45;
+  color: rgb(var(--ws-ink));
+  overflow-wrap: anywhere;
+}
+.ws-audit-line strong {
+  font-weight: 600;
+}
+.ws-audit-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+  font-size: 0.75rem;
+  color: rgb(var(--ws-muted));
+}
+.ws-audit-detail {
+  display: grid;
+  gap: 8px;
+}
+.ws-audit-diffs {
+  display: grid;
+  gap: 6px;
+  margin: 2px 0 0;
+  padding: 10px 12px;
+  list-style: none;
+  border-radius: 8px;
+  background: rgb(var(--ws-bg));
+  border: 1px solid rgb(var(--ws-line));
+}
+.ws-audit-diffs li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 8px;
+  font-size: 0.8125rem;
+  overflow-wrap: anywhere;
+}
+.ws-audit-field {
+  min-width: 120px;
+  color: rgb(var(--ws-muted));
+}
+.ws-audit-from {
+  color: rgb(var(--ws-muted));
+  text-decoration: line-through;
+  text-decoration-color: rgb(var(--ws-danger) / 0.5);
+  font-variant-numeric: tabular-nums;
+}
+.ws-audit-to {
+  color: rgb(var(--ws-ink));
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.ws-audit-more summary {
+  width: fit-content;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: rgb(var(--ws-muted));
+  cursor: pointer;
+  border-radius: 8px;
+}
+.ws-audit-more summary:hover {
+  color: rgb(var(--ws-ink));
+}
+.ws-audit-more dl {
+  display: grid;
+  grid-template-columns: minmax(100px, max-content) minmax(0, 1fr);
+  gap: 4px 14px;
+  margin-top: 8px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgb(var(--ws-bg));
+  font-size: 0.8125rem;
+}
+.ws-audit-more dl > div {
+  display: contents;
+}
+.ws-audit-more dt {
+  color: rgb(var(--ws-muted));
+}
+.ws-audit-more dd {
+  overflow-wrap: anywhere;
+}
+@media (max-width: 600px) {
+  .ws-audit-entry {
+    grid-template-columns: 32px minmax(0, 1fr);
+    padding: 12px 14px;
+  }
+  .ws-audit-time {
+    grid-column: 2;
+    grid-row: 2;
+    padding-top: 0;
+  }
+  .ws-audit-entry::before {
+    left: calc(14px + 15px);
+  }
+  .ws-audit-avatar {
+    grid-row: 1 / span 3;
+  }
+  .ws .ws-audit-dayhead {
+    padding: 10px 14px;
+  }
+}
