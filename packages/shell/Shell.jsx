@@ -17,7 +17,7 @@ import { ADMIN_APP_ID, appFromHost, hostForApp, isFrontDoor } from './appHosts';
 import { PHONE_QUERY, TABLET_QUERY, mobileTabsFor } from './mobileTabs';
 import { moduleForScreen, railAction, readScreenSearch, resolveModules, screenSearch, withoutEmptyHubs } from './splitNav';
 import { useSession } from './session';
-import { OPEN_APP_EVENT } from '@platform/context';
+import { OPEN_APP_EVENT, OPEN_SCREEN_EVENT } from '@platform/context';
 import ClorMark from './ClorMark';
 import { ClorLogo } from '@ui/components/brand';
 import NotificationBell from './NotificationBell';
@@ -304,6 +304,29 @@ export default function Shell() {
     window.addEventListener(OPEN_APP_EVENT, onOpen);
     return () => window.removeEventListener(OPEN_APP_EVENT, onOpen);
   }, []);
+  const goTo = (key) => {
+    setScreenKey(key);
+    setScreenParams(null);
+    setPlatformScreen(null);
+    setShowMoreApps(false);
+    setNavOpen(false);
+    setBrowseModule(null);
+    setTabletPanel(false);
+    /* A new screen starts at its top, not at the last one's scroll position. */
+    window.scrollTo(0, 0);
+  };
+  /* A screen asking for another of its own app's screens (requestOpenScreen): the same as a rail click. */
+  const goToRef = useRef(null);
+  useEffect(() => {
+    goToRef.current = goTo;
+  });
+  useEffect(() => {
+    const onScreen = (e) => {
+      if (e.detail?.screen) goToRef.current?.(e.detail.screen);
+    };
+    window.addEventListener(OPEN_SCREEN_EVENT, onScreen);
+    return () => window.removeEventListener(OPEN_SCREEN_EVENT, onScreen);
+  }, []);
   /* The API refused an app this account has not bought (402): say so once, with the way to add it. */
   const [unbought, setUnbought] = useState(null);
   useEffect(() => {
@@ -566,17 +589,6 @@ export default function Shell() {
     /* In the phone sheet a single-screen module has nothing to list, so the sheet opens on the first module that has. */
     (phone && currentModule?.single ? modules.find((m) => !m.single) || currentModule : currentModule);
 
-  const goTo = (key) => {
-    setScreenKey(key);
-    setScreenParams(null);
-    setPlatformScreen(null);
-    setShowMoreApps(false);
-    setNavOpen(false);
-    setBrowseModule(null);
-    setTabletPanel(false);
-    /* A new screen starts at its top, not at the last one's scroll position. */
-    window.scrollTo(0, 0);
-  };
   const isCurrent = (key) => screen === key && !platformScreen && !showMoreApps;
 
   /* The rail of modules. On a desktop a tap opens the module's first screen; in the phone sheet it only

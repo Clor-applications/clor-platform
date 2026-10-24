@@ -1,5 +1,6 @@
 import React from 'react';
-import { ChevronRight } from 'lucide-react';
+import { ArrowLeft, ChevronRight } from 'lucide-react';
+import { requestOpenScreen } from '@platform/context';
 import {
   AlertColor,
   AppsColor,
@@ -87,20 +88,52 @@ export function WsDrawer({ actions = null, widthClass = 'w-[min(40rem,94vw)]', c
 /** A product's icon, by app id. */
 export const productIcon = (id) => ICON[id === 'people' ? 'people_app' : id] || ICON.apps;
 
+/* Where a breadcrumb's section name leads: each module's own first page. */
+const SECTION_HOME = { Overview: 'home', Company: 'companies', Access: 'accessHome', Security: 'securityHome', Plan: 'account', Data: 'dataHome' };
+const openWorkspace = (screen) => requestOpenScreen(screen);
+
+/**
+ * Back to wherever the person came from. The Workspace records each page in
+ * the browser history, so history.back() returns exactly there; arriving
+ * from a link (no history in this tab) falls back to the section's own page.
+ */
+export function goBack(fallback = 'home') {
+  if (window.history.length > 1) window.history.back();
+  else openWorkspace(fallback);
+}
+
 /** Page head: where you are, what this page is, its one primary action. */
 export function PageHead({ crumbs = [], title, description, meta, actions }) {
+  const section = crumbs[0];
+  /* A section's own Overview page is a top: it has nowhere to go back to. */
+  const isTop = crumbs.length < 2 || crumbs[crumbs.length - 1] === 'Overview';
   return (
     <header className="ws-head">
       <div style={{ minWidth: 0 }}>
         {crumbs.length ? (
-          <nav className="ws-crumbs" aria-label="Breadcrumb">
-            {crumbs.map((c, i) => (
-              <React.Fragment key={`${c}-${i}`}>
-                {i ? <ChevronRight size={14} aria-hidden="true" /> : null}
-                <span aria-current={i === crumbs.length - 1 ? 'page' : undefined}>{c}</span>
-              </React.Fragment>
-            ))}
-          </nav>
+          <div className="ws-crumbs-row">
+            {isTop ? null : (
+              <button type="button" className="ws-back" onClick={() => goBack(SECTION_HOME[section] || 'home')} aria-label="Back" title="Back">
+                <ArrowLeft size={16} aria-hidden="true" />
+              </button>
+            )}
+            <nav className="ws-crumbs" aria-label="Breadcrumb">
+              {crumbs.map((c, i) => {
+                const last = i === crumbs.length - 1;
+                const to = SECTION_HOME[c];
+                return (
+                  <React.Fragment key={`${c}-${i}`}>
+                    {i ? <ChevronRight size={14} aria-hidden="true" /> : null}
+                    {!last && to ? (
+                      <button type="button" className="ws-crumb-link" onClick={() => openWorkspace(to)}>{c}</button>
+                    ) : (
+                      <span aria-current={last ? 'page' : undefined}>{c}</span>
+                    )}
+                  </React.Fragment>
+                );
+              })}
+            </nav>
+          </div>
         ) : null}
         <h1 className="ws-title">{title}</h1>
         {description ? <p className="ws-lede">{description}</p> : null}

@@ -137,6 +137,20 @@ export function onPlatformContextChange(fn) {
  * shell), so it asks; the shell decides how (in place, or on that app's own
  * address).
  */
+/**
+ * Ask the shell to open a screen of the app already open (a breadcrumb, a
+ * Back fallback). It goes the way a rail click goes, so the address and the
+ * browser's back button behave the same.
+ */
+export const OPEN_SCREEN_EVENT = 'clor:open-screen';
+export function requestOpenScreen(screen) {
+  try {
+    window.dispatchEvent(new CustomEvent(OPEN_SCREEN_EVENT, { detail: { screen } }));
+  } catch {
+    /* No window (a test): nothing to open. */
+  }
+}
+
 export const OPEN_APP_EVENT = 'clor:open-app';
 export function requestOpenApp(appId, screen = '', params = {}) {
   try {
