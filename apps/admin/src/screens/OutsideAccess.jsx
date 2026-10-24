@@ -1,7 +1,4 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { UserCheck } from 'lucide-react';
-
-import { PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
 import Modal from '@ui/components/ui/Modal';
 import { notify } from '@ui/components/ui/notify';
 import {
@@ -12,6 +9,8 @@ import {
   resumeOutsideAccess,
 } from '@platform/admin/outsideAccess';
 import { APP_LABEL, STATUS, actionsFor, appsText } from './outsideAccessModel';
+import { ICON, PageHead, Stat } from './wsKit';
+import './workspace.css';
 
 /**
  * Workspace → Outside access (GAP-006).
@@ -64,7 +63,7 @@ function Change({ action, row, apps, onDone, onClose }) {
   }[action];
   return (
     <Modal title={`${ACTION_LABEL[action]} access for ${name}`} onClose={onClose} maxWidthClass="max-w-md">
-      <form onSubmit={submit} className="space-y-3">
+      <form onSubmit={submit} className="ws space-y-3" style={{ minHeight: 0, padding: 0, background: 'none' }}>
         <p className="text-sm">{words}</p>
         {action === 'change' ? (
           <>
@@ -86,13 +85,17 @@ function Change({ action, row, apps, onDone, onClose }) {
           <label className="block"><span className="ui-label">Why</span><input className="ui-input w-full" maxLength={150} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Optional — kept in the history" /></label>
         )}
         <div className="flex gap-2">
-          <button type="submit" className={`ui-btn ${action === 'end' ? 'ui-btn-danger' : 'ui-btn-primary'}`} disabled={busy || (action === 'change' && !chosen.length)}>{busy ? 'Working…' : ACTION_LABEL[action]}</button>
-          <button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button>
+          <button type="submit" className={`ws-btn ${action === 'end' ? 'ws-btn--danger' : 'ws-btn--primary'}`} disabled={busy || (action === 'change' && !chosen.length)}>{busy ? 'Working…' : ACTION_LABEL[action]}</button>
+          <button type="button" className="ws-btn ws-btn--quiet" onClick={onClose}>Cancel</button>
         </div>
       </form>
     </Modal>
   );
 }
+
+/** The pill for a state, in the Workspace's words and tones. */
+const PILL = { 'ui-pill-pos': 'ws-pill ws-pill--ok', 'ui-pill-warn': 'ws-pill ws-pill--role', 'ui-pill-neutral': 'ws-pill ws-pill--off' };
+const SOON = 30 * DAY;
 
 export default function OutsideAccess() {
   const [data, setData] = useState(null);
@@ -102,7 +105,8 @@ export default function OutsideAccess() {
   const load = useCallback(() => {
     listOutsideAccess()
       .then((r) => {
-        setData(r);
+        /* "Ending soon" is measured from when the list was read, not on every render. */
+        setData({ ...r, readAt: Date.now() });
         setFailed('');
       })
       .catch((e) => setFailed(String(e?.message || 'Could not load outside access.')));
@@ -119,67 +123,95 @@ export default function OutsideAccess() {
     return setChange({ action, row });
   };
   const rows = data?.outsideAccess || [];
+  const count = (state) => rows.filter((r) => r.effective === state).length;
+  const endingSoon = rows.filter((r) => r.effective === 'ACTIVE' && r.expiresAt && Date.parse(r.expiresAt) - data.readAt < SOON).length;
 
   return (
-    <div className="space-y-3">
-      <PageHeader entity="settings" title="Outside access" description="People from other accounts this company has let in — its accountant, an auditor — what each may use, and until when." />
+    <div className="ws">
+      <div className="ws-inner">
+        <PageHead
+          crumbs={['Access', 'Outside access']}
+          title="Outside access"
+          description="People from other accounts this company has let in — its accountant, an auditor — what each may use, and until when. They are added under Users."
+        />
 
-      {failed ? (
-        <div className="flex flex-wrap items-center gap-2 text-sm" role="alert"><span>{failed}</span> <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={load}>Try again</button></div>
-      ) : !data ? (
-        <SkeletonCard lines={3} />
-      ) : rows.length ? (
-        <div className="ui-table-scroll">
-          <table className="ui-table ui-table-sticky w-full">
-            <thead>
-              <tr>
-                <th scope="col" className="ui-col-grow">Person</th>
-                <th scope="col">May use</th>
-                <th scope="col" className="ui-col-h-center">Status</th>
-                <th scope="col" className="ui-col-date">Until</th>
-                <th scope="col">Granted by</th>
-                <th scope="col"><span className="sr-only">Actions</span></th>
-              </tr>
-            </thead>
-            <tbody className="ui-rows">
-              {rows.map((r) => {
-                const [word, tone] = STATUS[r.effective] || ['—', 'ui-pill-neutral'];
-                const name = r.person.name || r.person.email;
-                return (
-                  <tr key={r.id}>
-                    <td className="ui-col-entity">
-                      <div>{name}</div>
-                      <div className="ui-caption">{[r.person.email !== name ? r.person.email : null, r.from?.name ? `from ${r.from.name}` : null].filter(Boolean).join(' · ')}</div>
-                    </td>
-                    <td>{appsText(r.apps)}</td>
-                    <td className="ui-col-h-center">
-                      <span className={`ui-pill ${tone}`}>{word}</span>
-                      {r.endedAt && r.status !== 'ACTIVE' ? <div className="ui-caption">{`${r.endedBy || 'Someone'}, ${dateOf(r.endedAt)}${r.reason ? ` — ${r.reason}` : ''}`}</div> : null}
-                    </td>
-                    <td className="ui-col-date whitespace-nowrap">{r.expiresAt ? dateOf(r.expiresAt) : 'No end'}</td>
-                    <td>
-                      <div>{r.grantedBy || 'Carried over'}</div>
-                      <div className="ui-caption">{dateOf(r.grantedAt)}</div>
-                    </td>
-                    <td className="ui-col-meta whitespace-nowrap text-end">
-                      <div className="inline-flex justify-end gap-1">
-                        {actionsFor(r).map((a) => (
-                          <button key={a} type="button" className="ui-btn ui-btn-ghost ui-btn-sm" aria-label={`${ACTION_LABEL[a]} access for ${name}`} onClick={() => act(r, a)}>{ACTION_LABEL[a]}</button>
-                        ))}
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      ) : (
-        <div className="px-4 py-10 text-center">
-          <UserCheck size={20} aria-hidden="true" className="ui-muted mx-auto" />
-          <p className="mt-2 text-sm">Nobody from another account has access. Add your accountant or auditor under Users with their e-mail; they appear here.</p>
-        </div>
-      )}
+        {data ? (
+          <div className="ws-stats">
+            <Stat icon={ICON.team} label="With access" value={count('ACTIVE')} note="From other accounts, active now" />
+            <Stat icon={ICON.history} tone={endingSoon ? 'warn' : null} label="Ending within 30 days" value={endingSoon} note={endingSoon ? 'Change the date to extend' : 'Nothing ends soon'} />
+            <Stat icon={ICON.security} label="On pause" value={count('SUSPENDED')} note="Stopped, and can be resumed" />
+          </div>
+        ) : null}
+
+        {failed ? (
+          <div className="flex flex-wrap items-center gap-2 text-sm" role="alert">
+            <span>{failed}</span>
+            <button type="button" className="ws-btn ws-btn--quiet ws-btn--small" onClick={load}>Try again</button>
+          </div>
+        ) : !data ? (
+          <p className="ws-card-blurb">Loading outside access…</p>
+        ) : rows.length ? (
+          <div className="ws-table-wrap">
+            <table className="ws-table">
+              <caption className="sr-only">People from other accounts with access to this company</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Person</th>
+                  <th scope="col">May use</th>
+                  <th scope="col">Status</th>
+                  <th scope="col">Until</th>
+                  <th scope="col">Granted by</th>
+                  <th scope="col"><span className="sr-only">Actions</span></th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r) => {
+                  const [word, tone] = STATUS[r.effective] || ['—', 'ui-pill-neutral'];
+                  const name = r.person.name || r.person.email;
+                  const sub = [r.person.email !== name ? r.person.email : null, r.from?.name ? `from ${r.from.name}` : null].filter(Boolean).join(' · ');
+                  return (
+                    <tr key={r.id}>
+                      <td>
+                        <span className="inline-flex items-center gap-2">
+                          <span className="ws-tile ws-tile--sm" aria-hidden="true"><ICON.person size={14} /></span>
+                          <span className="ws-item-text">
+                            <span className="ws-item-title">{name}</span>
+                            {sub ? <span className="ws-item-sub">{sub}</span> : null}
+                          </span>
+                        </span>
+                      </td>
+                      <td>{appsText(r.apps)}</td>
+                      <td>
+                        <span className={PILL[tone] || 'ws-pill'}>{word}</span>
+                        {r.endedAt && r.status !== 'ACTIVE' ? <div className="ws-item-sub" style={{ whiteSpace: 'normal' }}>{`${r.endedBy || 'Someone'}, ${dateOf(r.endedAt)}${r.reason ? ` — ${r.reason}` : ''}`}</div> : null}
+                      </td>
+                      <td>{r.expiresAt ? dateOf(r.expiresAt) : 'No end'}</td>
+                      <td>
+                        <div>{r.grantedBy || 'Carried over'}</div>
+                        <div className="ws-item-sub">{dateOf(r.grantedAt)}</div>
+                      </td>
+                      <td className="num">
+                        <div className="inline-flex justify-end gap-1">
+                          {actionsFor(r).map((a) => (
+                            <button key={a} type="button" className={`ws-btn ws-btn--quiet ws-btn--small`} style={a === 'end' ? { color: 'rgb(var(--ws-danger))' } : undefined} aria-label={`${ACTION_LABEL[a]} access for ${name}`} onClick={() => act(r, a)}>
+                              {ACTION_LABEL[a]}
+                            </button>
+                          ))}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="ws-setup">
+            <span className="ws-tile" aria-hidden="true"><ICON.team size={20} /></span>
+            <p className="ws-card-blurb">Nobody from another account has access. Add your accountant or auditor under Users with their e-mail; they appear here.</p>
+          </div>
+        )}
+      </div>
 
       {change ? (
         <Change

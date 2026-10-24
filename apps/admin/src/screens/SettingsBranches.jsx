@@ -1,63 +1,46 @@
-import React, { useMemo, useEffect, useRef, useState } from 'react';
-import { TableSkeleton } from '@ui/components/ui/Primitives';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ArrowDownUp, Download, MoreVertical, Pencil, Plus, Power, Search, Trash2 } from 'lucide-react';
+
+import Drawer from '@ui/components/ui/Drawer';
+import Popover from '@ui/components/ui/Popover';
 import { exportRows } from '@ui/components/ListToolbar';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
-import { listBranches, createBranch, updateBranch, deleteBranch } from '@platform/admin/admin';
-import PopupSelect from '@ui/components/pickers/PopupSelect';
 import { GST_STATE_BY_CODE, getGstStateFromGstin } from '@ui/utils/gst';
-import Popover from '@ui/components/ui/Popover';
-import { Download, MoreVertical, Pencil, Plus, Power, Search, Trash2 } from 'lucide-react';
 import { PermissionButton } from '@ui/permissions/ActionGuard';
+import { listBranches, createBranch, updateBranch, deleteBranch } from '@platform/admin/admin';
+import { ICON, PageHead, Stat } from './wsKit';
+import './workspace.css';
+
+/**
+ * Workspace → Company → Branches (redesign W-R5).
+ *
+ * A company's places of business and GST locations: a directory with search
+ * and sorting, the record in a drawer, and adding or editing one there. The
+ * head office (code HO) is kept in step with the company's own address and
+ * GSTIN when its fields are empty. A branch is deleted only while it has no
+ * transactions — the server refuses otherwise and says so.
+ */
+const STATES = [...new Set(Object.values(GST_STATE_BY_CODE).map((s) => String(s || '').trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+const EMPTY_NEW = { branchCode: '', branchName: '', addressLine1: '', addressLine2: '', city: '', state: '', country: 'India', gstRegistrationType: 'UNREGISTERED', gstin: '' };
+
+/** Search and sort the directory rows. */
+export function branchRows(branches, { q = '', sort = 'branchCode', dir = 1 }) {
+  const needle = q.trim().toLowerCase();
+  return branches
+    .filter((b) => !needle || ['branchCode', 'branchName', 'city', 'state', 'addressLine1', 'gstin', 'phone', 'email'].some((k) => String(b?.[k] || '').toLowerCase().includes(needle)))
+    .sort((a, b) => String(a[sort] || '').localeCompare(String(b[sort] || '')) * dir);
+}
+
+const place = (b) => [b.city, b.state].filter(Boolean).join(', ');
 
 export function SettingsBranches({ orgId, company, onBranchesChanged }) {
-  const [branches, setBranches] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [branches, setBranches] = useState(null);
   const [error, setError] = useState('');
-  const [search, setSearch] = useState('');
-  const [showForm, setShowForm] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [openMenuForBranchId, setOpenMenuForBranchId] = useState(null);
-  /** The trigger the open menu hangs from; only one row's menu is open. */
+  const [view, setView] = useState({ q: '', sort: 'branchCode', dir: 1 });
+  /** The drawer: { mode: 'create' } or { mode: 'view' | 'edit', id }. */
+  const [drawer, setDrawer] = useState(null);
+  const [menuFor, setMenuFor] = useState(null);
   const menuAnchorRef = useRef(null);
-  const [viewBranchId, setViewBranchId] = useState(null);
-  const [editingBranchId, setEditingBranchId] = useState(null);
-  const [editSaving, setEditSaving] = useState(false);
-  const [form, setForm] = useState({
-    branchCode: '',
-    branchName: '',
-    addressLine1: '',
-    city: '',
-    state: '',
-    country: 'India',
-    gstRegistrationType: 'UNREGISTERED',
-    gstin: '',
-  });
-
-  const [editForm, setEditForm] = useState({
-    branchCode: '',
-    branchName: '',
-    addressLine1: '',
-    addressLine2: '',
-    city: '',
-    state: '',
-    country: 'India',
-    gstRegistrationType: 'UNREGISTERED',
-    gstin: '',
-    contactPerson: '',
-    phone: '',
-    email: '',
-  });
-
-  const stateOptions = useMemo(() => {
-    return Object.keys(GST_STATE_BY_CODE || {})
-      .sort()
-      .map((code) => ({
-        code,
-        value: String(GST_STATE_BY_CODE[code] || '').trim(),
-        label: String(GST_STATE_BY_CODE[code] || '').trim(),
-      }))
-      .filter((o) => o.value);
-  }, []);
 
   const companyDefaults = useMemo(() => {
     const profile = company?.profile?.companySettings || {};
@@ -69,603 +52,415 @@ export function SettingsBranches({ orgId, company, onBranchesChanged }) {
       state: company?.state || profile.regStateName || '',
       country: company?.country || profile.regCountry || 'India',
       gstin: company?.gstin || profile.gstin || '',
-      gstRegistrationType: (company?.gstin || profile.gstin) ? 'REGULAR' : 'UNREGISTERED',
+      gstRegistrationType: company?.gstin || profile.gstin ? 'REGULAR' : 'UNREGISTERED',
       phone: profile.phone || '',
       email: profile.officialEmail || '',
     };
   }, [company]);
-  const companyGstEnabled = Boolean(company?.profile?.taxCompliances?.gstEnabled ?? company?.gstEnabled ?? company?.gstin);
+  const gstEnabled = Boolean(company?.profile?.taxCompliances?.gstEnabled ?? company?.gstEnabled ?? company?.gstin);
 
-  useEffect(() => {
-    if (!companyGstEnabled) return;
-    setForm((current) => current.gstRegistrationType === 'UNREGISTERED' ? { ...current, gstRegistrationType: 'REGULAR' } : current);
-    setEditForm((current) => current.gstRegistrationType === 'UNREGISTERED' ? { ...current, gstRegistrationType: 'REGULAR' } : current);
-  }, [companyGstEnabled]);
-
-  const loadBranches = async () => {
+  const load = useCallback(async () => {
     if (!orgId) return;
-    setLoading(true);
     setError('');
     try {
       const res = await listBranches(orgId);
       let rows = Array.isArray(res.branches) ? res.branches : [];
-      const headOffice = rows.find((branch) => String(branch.branchCode || '').trim().toUpperCase() === 'HO');
+      const headOffice = rows.find((b) => String(b.branchCode || '').trim().toUpperCase() === 'HO');
       if (headOffice) {
         const fill = Object.fromEntries(Object.entries(companyDefaults).filter(([key, value]) => value && !String(headOffice[key] || '').trim()));
         if (Object.keys(fill).length) {
           const synced = await updateBranch(orgId, headOffice.id, fill);
-          if (synced?.branch) rows = rows.map((branch) => String(branch.id) === String(headOffice.id) ? synced.branch : branch);
+          if (synced?.branch) rows = rows.map((b) => (String(b.id) === String(headOffice.id) ? synced.branch : b));
         }
       }
       setBranches(rows);
     } catch (err) {
+      setBranches((prev) => prev || []);
       setError(err.message || 'Failed to load branches');
-    } finally {
-      setLoading(false);
     }
-  };
-
-  useEffect(() => {
-    loadBranches();
   }, [orgId, companyDefaults]);
+  useEffect(() => {
+    load();
+  }, [load]);
 
-  const onChange = (k) => (e) => {
-    const next = e.target.value;
-    if (k === 'gstin') {
-      const maybeState = getGstStateFromGstin(String(next || '').trim());
-      setForm((p) => ({ ...p, gstin: next, state: maybeState ? maybeState : p.state }));
-      setError('');
-      return;
-    }
-    setForm((p) => ({ ...p, [k]: next }));
-    setError('');
-  };
+  const all = useMemo(() => branches || [], [branches]);
+  const rows = useMemo(() => branchRows(all, view), [all, view]);
+  const active = all.filter((b) => b.isActive !== false).length;
+  const noGstin = all.filter((b) => !b.gstin).length;
+  const selected = drawer?.id ? all.find((b) => String(b.id) === String(drawer.id)) || null : null;
 
-  const onSubmit = async (e) => {
-    e.preventDefault();
-    if (!String(form.state || '').trim()) {
-      setError('State is required — pick the branch state.');
-      notify.error('State is required — pick the branch state.');
-      return;
-    }
-    if (companyGstEnabled && !String(form.gstin || '').trim()) {
-      setError('GSTIN is mandatory while GST is enabled.');
-      notify.error('GSTIN is mandatory while GST is enabled.');
-      return;
-    }
-    setSaving(true);
-    setError('');
+  const replace = (updated) => setBranches((prev) => (prev || []).map((b) => (String(b.id) === String(updated.id) ? updated : b)));
+
+  const toggleStatus = async (branch) => {
+    setMenuFor(null);
     try {
-      const payload = {
-        ...form,
-        gstRegistrationType: companyGstEnabled && form.gstRegistrationType === 'UNREGISTERED' ? 'REGULAR' : form.gstRegistrationType,
-        gstin: form.gstin || null,
-      };
-      const res = await createBranch(orgId, payload);
-      setBranches((prev) => [...prev, res.branch]);
-      /*
-       * Saving opens what was saved. A create used to drop you back on the
-       * list with a toast, so the only way to check what had actually been
-       * stored was to find the row again and open it — and with several
-       * branches that is a search through a list you have just added to.
-       */
-      if (res?.branch?.id) setViewBranchId(String(res.branch.id));
-      setForm({ branchCode: '', branchName: '', addressLine1: '', city: '', state: '', country: 'India', gstRegistrationType: companyGstEnabled ? 'REGULAR' : 'UNREGISTERED', gstin: '' });
-      setShowForm(false);
-      notify.success(`Branch "${res.branch?.branchName || payload.branchName}" created.`);
+      const res = await updateBranch(orgId, branch.id, { isActive: branch.isActive === false });
+      if (res?.branch) replace(res.branch);
+      notify.success(`Branch marked ${res?.branch?.isActive === false ? 'inactive' : 'active'}.`);
       onBranchesChanged?.();
     } catch (err) {
-      setError(err.message || 'Failed to create branch');
-      notify.error(err.message || 'Failed to create branch');
-    } finally {
-      setSaving(false);
+      notify.error(err.message || 'Failed to update branch status');
     }
   };
 
-  const removeBranch = async (id) => {
-    if (!await confirmDialog({ title: 'Delete branch?', message: 'The branch can be deleted only when it has no associated transactions.', confirmLabel: 'Delete branch' })) return;
+  const remove = async (branch) => {
+    setMenuFor(null);
+    if (!(await confirmDialog({ title: 'Delete branch?', message: 'The branch can be deleted only when it has no associated transactions.', confirmLabel: 'Delete branch' }))) return;
     try {
-      await deleteBranch(orgId, id);
-      setBranches((prev) => prev.filter((b) => b.id !== id));
-      if (String(viewBranchId) === String(id)) closeView();
+      await deleteBranch(orgId, branch.id);
+      setBranches((prev) => (prev || []).filter((b) => b.id !== branch.id));
+      if (String(drawer?.id) === String(branch.id)) setDrawer(null);
       notify.success('Branch deleted.');
       onBranchesChanged?.();
     } catch (err) {
-      const message = err.message || 'Failed to delete branch';
-      setError(message);
-      notify.error(message);
+      notify.error(err.message || 'Failed to delete branch');
     }
   };
 
-  const toggleBranchStatus = async (branch) => {
-    setOpenMenuForBranchId(null);
-    setError('');
-    try {
-      const res = await updateBranch(orgId, branch.id, { isActive: branch.isActive === false });
-      const updated = res?.branch;
-      if (updated) setBranches((prev) => prev.map((item) => String(item.id) === String(updated.id) ? updated : item));
-      notify.success(`Branch marked ${updated?.isActive === false ? 'inactive' : 'active'}.`);
-      onBranchesChanged?.();
-    } catch (err) {
-      const message = err.message || 'Failed to update branch status';
-      setError(message);
-      notify.error(message);
-    }
-  };
-
-  const openView = (id) => {
-    setViewBranchId(String(id));
-    setEditingBranchId(null);
-    setOpenMenuForBranchId(null);
-  };
-
-  const closeView = () => {
-    setViewBranchId(null);
-    setEditingBranchId(null);
-  };
-
-  const beginEdit = (b) => {
-    setViewBranchId(String(b.id));
-    setEditingBranchId(String(b.id));
-    setEditForm({
-      branchCode: String(b.branchCode || ''),
-      branchName: String(b.branchName || ''),
-      addressLine1: String(b.addressLine1 || ''),
-      addressLine2: String(b.addressLine2 || ''),
-      city: String(b.city || ''),
-      state: String(b.state || ''),
-      country: String(b.country || 'India'),
-      gstRegistrationType: companyGstEnabled && String(b.gstRegistrationType || '') === 'UNREGISTERED' ? 'REGULAR' : String(b.gstRegistrationType || 'UNREGISTERED'),
-      gstin: String(b.gstin || ''),
-      contactPerson: String(b.contactPerson || ''),
-      phone: String(b.phone || ''),
-      email: String(b.email || ''),
+  const exportAll = () =>
+    exportRows({
+      fileName: 'Branches',
+      label: 'branch(es)',
+      columns: [
+        { key: 'branchCode', label: 'Code' },
+        { key: 'branchName', label: 'Branch' },
+        { key: 'city', label: 'City' },
+        { key: 'state', label: 'State' },
+        { key: 'gstin', label: 'GSTIN' },
+      ],
+      rows,
     });
-    setOpenMenuForBranchId(null);
-    setError('');
-  };
 
-  const saveEdit = async (e) => {
-    e.preventDefault();
-    if (!editingBranchId) return;
-    setEditSaving(true);
-    setError('');
-    try {
-      const payload = {
-        branchCode: String(editForm.branchCode || '').trim(),
-        branchName: String(editForm.branchName || '').trim(),
-        addressLine1: String(editForm.addressLine1 || '').trim(),
-        addressLine2: String(editForm.addressLine2 || '').trim() || null,
-        city: String(editForm.city || '').trim() || null,
-        state: String(editForm.state || '').trim(),
-        country: String(editForm.country || '').trim() || 'India',
-        gstRegistrationType: String(editForm.gstRegistrationType || 'UNREGISTERED').trim(),
-        gstin: String(editForm.gstin || '').trim() || null,
-        contactPerson: String(editForm.contactPerson || '').trim() || null,
-        phone: String(editForm.phone || '').trim() || null,
-        email: String(editForm.email || '').trim() || null,
-      };
-
-      if (!payload.branchCode) throw new Error('Branch code is required');
-      if (!payload.branchName) throw new Error('Branch name is required');
-      if (!payload.addressLine1) throw new Error('Address is required');
-      if (!payload.state) throw new Error('State is required');
-      if ((companyGstEnabled || payload.gstRegistrationType !== 'UNREGISTERED') && !payload.gstin) {
-        throw new Error('GSTIN is mandatory while GST is enabled');
-      }
-
-      const res = await updateBranch(orgId, editingBranchId, payload);
-      const updated = res?.branch;
-      if (updated) {
-        setBranches((prev) => prev.map((x) => (String(x.id) === String(updated.id) ? updated : x)));
-      } else {
-        await loadBranches();
-      }
-      // Back to the view of the record just saved, not out of it entirely.
-      setEditingBranchId(null);
-      setViewBranchId(String(editingBranchId));
-      notify.success(`Branch "${payload.branchName}" saved.`);
-    } catch (err) {
-      setError(err.message || 'Failed to update branch');
-    } finally {
-      setEditSaving(false);
-    }
-  };
-
-  const query = String(search || '').trim().toLowerCase();
-  const filteredBranches = query
-    ? branches.filter((b) => {
-        const code = String(b?.branchCode || '').toLowerCase();
-        const name = String(b?.branchName || '').toLowerCase();
-        const city = String(b?.city || '').toLowerCase();
-        const state = String(b?.state || '').toLowerCase();
-        const addr = String(b?.addressLine1 || '').toLowerCase();
-        const gstin = String(b?.gstin || '').toLowerCase();
-        const phone = String(b?.phone || '').toLowerCase();
-        const email = String(b?.email || '').toLowerCase();
-        return [code, name, city, state, addr, gstin, phone, email].some((s) => s.includes(query));
-      })
-    : branches;
-
-  const selectedBranch = viewBranchId ? branches.find((b) => String(b.id) === String(viewBranchId)) || null : null;
+  const sortBy = (key) => setView((v) => ({ ...v, sort: key, dir: v.sort === key ? -v.dir : 1 }));
+  const th = (key, label) => (
+    <th aria-sort={view.sort === key ? (view.dir > 0 ? 'ascending' : 'descending') : 'none'}>
+      <button type="button" onClick={() => sortBy(key)}>
+        {label} <ArrowDownUp size={12} aria-hidden="true" />
+      </button>
+    </th>
+  );
 
   return (
-    <div className="settings-branches space-y-3">
-      <div className="branch-list-toolbar flex flex-wrap items-center justify-between gap-3 rounded-lg bg-[rgb(var(--heading-bg))] px-3 py-2">
-        <div>
-          <div className="ui-t-sec">Branches</div>
-          <div className="ui-caption">{filteredBranches.length} {filteredBranches.length === 1 ? 'branch' : 'branches'}</div>
-        </div>
-        <div className="flex min-w-0 flex-1 flex-wrap items-center justify-end gap-2">
-          <div className="relative w-full max-w-xs">
-            <Search size={14} className="pointer-events-none absolute start-2.5 top-1/2 -translate-y-1/2 ui-muted" aria-hidden="true" />
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search branches"
-              className="ui-input w-full bg-[rgb(var(--surface))] ps-8"
-            />
-          </div>
-          <button
-            type="button"
-            onClick={() =>
-              exportRows({
-                fileName: 'Branches',
-                label: 'branch(es)',
-                columns: [
-              { key: 'branchCode', label: 'Code' },
-              { key: 'branchName', label: 'Branch' },
-              { key: 'city', label: 'City' },
-              { key: 'state', label: 'State' },
-              { key: 'gstin', label: 'GSTIN' },
-                ],
-                rows: filteredBranches,
-              })
-            }
-            className="ui-btn ui-btn-secondary ui-btn-sm"
-          >
-            <Download size={14} aria-hidden="true" /> Export
-          </button>
-          <PermissionButton
-            permission="MASTERS::Company/Branch setup::CREATE"
-            type="button"
-            onClick={() => { setShowForm((value) => !value); closeView(); }}
-            className="ui-btn ui-btn-primary ui-btn-sm"
-          >
-            <Plus size={14} aria-hidden="true" /> Create Branch
-          </PermissionButton>
-        </div>
-      </div>
-
-      {error && <div className="text-sm text-[rgb(var(--neg))] bg-[rgb(var(--neg-soft))] border border-[rgb(var(--neg)/0.35)] rounded-lg p-3">{error}</div>}
-
-      {selectedBranch || showForm ? <button type="button" className="settings-drawer-backdrop" aria-label="Close branch drawer" onClick={() => { setShowForm(false); closeView(); }} /> : null}
-
-      {selectedBranch ? (
-        <div className="settings-side-drawer branch-detail-card space-y-3">
-          <div className="settings-drawer-heading flex items-center justify-between">
-            <div>
-              <div className="ui-t-sec">{editingBranchId ? 'Edit Branch' : 'Branch Details'}</div>
-              <div className="ui-caption">{selectedBranch.branchName || selectedBranch.branchCode || ''}</div>
-            </div>
-            <div className="flex gap-2">
-              {editingBranchId ? null : (
-                <button
-                  type="button"
-                  onClick={() => beginEdit(selectedBranch)}
-                  className="ui-btn ui-btn-secondary ui-btn-sm"
-                >
-                  <Pencil size={14} aria-hidden="true" /> Edit
-                </button>
-              )}
-              <button type="button" onClick={closeView} className="ui-btn ui-btn-ghost ui-btn-sm">
-                Close
+    <div className="ws">
+      <div className="ws-inner">
+        <PageHead
+          crumbs={['Company', 'Branches']}
+          title="Branches"
+          description="Where the company does business. Each branch is a GST location with its own address."
+          actions={
+            <>
+              <button type="button" className="ws-btn ws-btn--quiet" onClick={exportAll} disabled={!rows.length}>
+                <Download size={16} aria-hidden="true" /> Export
               </button>
-            </div>
+              <PermissionButton permission="MASTERS::Company/Branch setup::CREATE" className="ws-btn ws-btn--primary" onClick={() => setDrawer({ mode: 'create' })}>
+                <Plus size={16} aria-hidden="true" /> Add branch
+              </PermissionButton>
+            </>
+          }
+        />
+
+        {branches ? (
+          <div className="ws-stats">
+            <Stat icon={ICON.companies} label="Branches" value={all.length} note={all.length === 1 ? 'One place of business' : 'Places of business'} />
+            <Stat icon={ICON.secure} label="Active" value={active} note={all.length - active ? `${all.length - active} marked inactive` : 'None marked inactive'} />
+            <Stat icon={ICON.warning} tone={noGstin ? 'warn' : null} label="Without GSTIN" value={noGstin} note={noGstin ? (gstEnabled ? 'GST is on: add each one' : 'Unregistered locations') : 'Every branch has its GSTIN'} />
           </div>
+        ) : null}
 
-          {editingBranchId ? (
-            <form onSubmit={saveEdit} className="branch-editor-form space-y-3">
-              <div className="branch-editor-section grid grid-cols-12 gap-3">
-                <div className="col-span-12 sm:col-span-4">
-                  <label className="ui-label" htmlFor="settingsbranches-branch-code">Branch Code *</label>
-                  <input id="settingsbranches-branch-code" className="ui-input w-full max-w-40 cursor-not-allowed bg-[rgb(var(--surface-sunken))]" value={editForm.branchCode} readOnly aria-readonly="true" title="Branch code cannot be changed after creation" />
-                </div>
-                <div className="col-span-12 sm:col-span-8">
-                  <label className="ui-label" htmlFor="settingsbranches-branch-name">Branch Name *</label>
-                  <input id="settingsbranches-branch-name" className="ui-input w-full" value={editForm.branchName} onChange={(e) => setEditForm((p) => ({ ...p, branchName: e.target.value }))} required />
-                </div>
-              </div>
+        {error ? <p role="alert" className="text-sm" style={{ color: 'rgb(var(--neg))' }}>{error}</p> : null}
 
-              <div className="branch-editor-section space-y-3">
-              <div className="branch-editor-section-title">Address</div>
-              <div>
-                <label className="ui-label" htmlFor="settingsbranches-address">Address *</label>
-                <input id="settingsbranches-address" className="ui-input w-full" value={editForm.addressLine1} onChange={(e) => setEditForm((p) => ({ ...p, addressLine1: e.target.value }))} required />
-              </div>
-
-              <div>
-                <label className="ui-label" htmlFor="settingsbranches-address-line-2">Address Line 2</label>
-                <input id="settingsbranches-address-line-2" className="ui-input w-full" value={editForm.addressLine2} onChange={(e) => setEditForm((p) => ({ ...p, addressLine2: e.target.value }))} />
-              </div>
-
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <label className="ui-label" htmlFor="settingsbranches-city">City</label>
-                  <input id="settingsbranches-city" className="ui-input w-full" value={editForm.city} onChange={(e) => setEditForm((p) => ({ ...p, city: e.target.value }))} />
-                </div>
-                <div>
-                  <PopupSelect
-                    label="State *"
-                    value={editForm.state}
-                    onChange={(v) => {
-                      setEditForm((p) => ({ ...p, state: v }));
-                      setError('');
-                    }}
-                    options={stateOptions}
-                    placeholder="Select state"
-      title="Select State"
-                    maxWidthClass="max-w-2xl"
-                  />
-                </div>
-                <div>
-                  <label className="ui-label" htmlFor="settingsbranches-country">Country</label>
-                  <input id="settingsbranches-country" className="ui-input w-full" value={editForm.country} onChange={(e) => setEditForm((p) => ({ ...p, country: e.target.value }))} />
-                </div>
-              </div>
-              </div>
-
-              <div className="branch-editor-section grid grid-cols-2 gap-3">
-                <div className="branch-editor-section-title col-span-2">GST Details</div>
-                <div>
-                  <label className="ui-label" htmlFor="settingsbranches-gst-registration">GST Registration</label>
-                  <select id="settingsbranches-gst-registration" className="ui-select w-full ui-surface" value={editForm.gstRegistrationType} onChange={(e) => setEditForm((p) => ({ ...p, gstRegistrationType: e.target.value }))}>
-                    <option value="REGULAR">Regular</option>
-                    <option value="COMPOSITION">Composition</option>
-                    {!companyGstEnabled ? <option value="UNREGISTERED">Unregistered</option> : null}
-                  </select>
-                </div>
-                <div>
-                  <label className="ui-label" htmlFor="settingsbranches-gstin">GSTIN</label>
-                  <input id="settingsbranches-gstin"
-                    className="ui-input w-full"
-                    value={editForm.gstin}
-                    onChange={(e) => {
-                      const next = e.target.value;
-                      const maybeState = getGstStateFromGstin(String(next || '').trim());
-                      setEditForm((p) => ({ ...p, gstin: next, state: maybeState ? maybeState : p.state }));
-                      setError('');
-                    }}
-                    placeholder="15-char GSTIN"
-                  />
-                </div>
-              </div>
-
-              <div className="branch-editor-section grid grid-cols-3 gap-3">
-                <div className="branch-editor-section-title col-span-3">Contact</div>
-                <div>
-                  <label className="ui-label" htmlFor="settingsbranches-contact-person">Contact Person</label>
-                  <input id="settingsbranches-contact-person" className="ui-input w-full" value={editForm.contactPerson} onChange={(e) => setEditForm((p) => ({ ...p, contactPerson: e.target.value }))} />
-                </div>
-                <div>
-                  <label className="ui-label" htmlFor="settingsbranches-phone">Phone</label>
-                  <input id="settingsbranches-phone" className="ui-input w-full" value={editForm.phone} onChange={(e) => setEditForm((p) => ({ ...p, phone: e.target.value }))} />
-                </div>
-                <div>
-                  <label className="ui-label" htmlFor="settingsbranches-email">Email</label>
-                  <input id="settingsbranches-email" type="email" className="ui-input w-full" value={editForm.email} onChange={(e) => setEditForm((p) => ({ ...p, email: e.target.value }))} />
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-2">
-                <button type="button" onClick={() => setEditingBranchId(null)} className="px-4 py-2 rounded-lg border ui-surface ui-hover-sunken">
-                  Cancel
-                </button>
-                <button type="submit" disabled={editSaving} className="px-4 py-2 rounded-lg ui-btn ui-btn-primary disabled:opacity-50">
-                  {editSaving ? 'Saving…' : 'Save Changes'}
-                </button>
-              </div>
-            </form>
-          ) : (
-            <div className="grid grid-cols-12 gap-4 text-sm">
-              <div className="col-span-12 sm:col-span-4">
-                <div className="ui-detail-label">Branch Code</div>
-                <div className="ui-detail-value ui-detail-mono">{selectedBranch.branchCode || '—'}</div>
-              </div>
-              <div className="col-span-12 sm:col-span-8">
-                <div className="ui-detail-label">Branch Name</div>
-                <div className="ui-detail-value">{selectedBranch.branchName || '—'}</div>
-              </div>
-
-              <div className="col-span-12 sm:col-span-6">
-                <div className="ui-detail-label">Address</div>
-                <div className="ui-detail-value">{[selectedBranch.addressLine1, selectedBranch.addressLine2].filter(Boolean).join(', ') || '—'}</div>
-              </div>
-              <div className="col-span-12 sm:col-span-6">
-                <div className="ui-detail-label">Location</div>
-                <div className="ui-detail-value">{[selectedBranch.city, selectedBranch.state, selectedBranch.country].filter(Boolean).join(', ') || '—'}</div>
-              </div>
-
-              <div className="col-span-12 sm:col-span-4">
-                <div className="ui-detail-label">GST Registration</div>
-                <div className="ui-detail-value">{selectedBranch.gstRegistrationType || 'UNREGISTERED'}</div>
-              </div>
-              <div className="col-span-12 sm:col-span-4">
-                <div className="ui-detail-label">GSTIN</div>
-                <div className="ui-detail-value ui-detail-mono">{selectedBranch.gstin || '—'}</div>
-              </div>
-              <div className="col-span-12 sm:col-span-4">
-                <div className="ui-detail-label">Status</div>
-                <div className="ui-detail-value">{selectedBranch.isActive !== false ? 'Active' : 'Inactive'}</div>
-              </div>
-
-              <div className="col-span-12 sm:col-span-4">
-                <div className="ui-detail-label">Contact Person</div>
-                <div className="ui-detail-value">{selectedBranch.contactPerson || '—'}</div>
-              </div>
-              <div className="col-span-12 sm:col-span-4">
-                <div className="ui-detail-label">Phone</div>
-                <div className="ui-detail-value">{selectedBranch.phone || '—'}</div>
-              </div>
-              <div className="col-span-12 sm:col-span-4">
-                <div className="ui-detail-label">Email</div>
-                <div className="ui-detail-value">{selectedBranch.email || '—'}</div>
-              </div>
-            </div>
-          )}
+        <div className="flex flex-wrap gap-2 items-center" role="search">
+          <label className="relative flex-1 min-w-[14rem]" style={{ maxWidth: 420 }}>
+            <span className="sr-only">Search branches</span>
+            <Search size={16} aria-hidden="true" className="absolute left-3 top-1/2 -translate-y-1/2 ui-muted" />
+            <input className="ui-input" style={{ paddingLeft: '2.25rem' }} value={view.q} onChange={(e) => setView((v) => ({ ...v, q: e.target.value }))} placeholder="Search by code, name, city or GSTIN" />
+          </label>
+          <span className="ws-head-meta">{rows.length} {rows.length === 1 ? 'branch' : 'branches'}</span>
         </div>
-      ) : null}
 
-      {showForm && (
-        <form onSubmit={onSubmit} className="settings-side-drawer branch-create-form branch-editor-form space-y-3">
-          <div className="settings-drawer-heading flex items-center justify-between"><div><div className="ui-t-sec">New Branch</div><div className="ui-caption">Create a business branch and GST location</div></div><button type="button" onClick={() => setShowForm(false)} className="ui-btn ui-btn-ghost ui-btn-sm">Close</button></div>
-          <div className="branch-editor-section grid grid-cols-12 gap-3">
-            <div className="col-span-12 sm:col-span-4">
-              <label className="ui-label" htmlFor="settingsbranches-branch-code-2">Branch Code *</label>
-              <input id="settingsbranches-branch-code-2" className="ui-input w-full max-w-40" value={form.branchCode} onChange={onChange('branchCode')} required />
-            </div>
-            <div className="col-span-12 sm:col-span-8">
-              <label className="ui-label" htmlFor="settingsbranches-branch-name-2">Branch Name *</label>
-              <input id="settingsbranches-branch-name-2" className="ui-input w-full" value={form.branchName} onChange={onChange('branchName')} required />
-            </div>
+        {branches === null ? (
+          <p className="ws-card-blurb">Loading branches…</p>
+        ) : rows.length === 0 ? (
+          <div className="ws-setup">
+            <p className="ws-card-blurb">{all.length ? 'No branch matches this search.' : 'No branches yet. Add the first one.'}</p>
           </div>
-          <div className="branch-editor-section grid grid-cols-2 gap-3">
-           <div className="branch-editor-section-title col-span-2">Address</div>
-           <div>
-            <label className="ui-label" htmlFor="settingsbranches-address-2">Address *</label>
-            <input id="settingsbranches-address-2" className="ui-input w-full" value={form.addressLine1} onChange={onChange('addressLine1')} required />
-           </div>
-           <div>
-            <label className="ui-label" htmlFor="settingsbranches-address-line-2-2">Address Line 2</label>
-            <input id="settingsbranches-address-line-2-2" className="ui-input w-full" value={form.addressLine2 || ''} onChange={onChange('addressLine2')} />
-           </div>
-          </div>
-          <div className="branch-editor-section grid grid-cols-3 gap-3">
-            <div className="branch-editor-section-title col-span-3">Location</div>
-            <div>
-              <label className="ui-label" htmlFor="settingsbranches-city-2">City</label>
-              <input id="settingsbranches-city-2" className="ui-input w-full" value={form.city} onChange={onChange('city')} />
-            </div>
-            <div>
-              <PopupSelect
-                label="State *"
-                value={form.state}
-                onChange={(v) => {
-                  setForm((p) => ({ ...p, state: v }));
-                  setError('');
-                }}
-                options={stateOptions}
-                placeholder="Select state"
-      title="Select State"
-                maxWidthClass="max-w-2xl"
-              />
-            </div>
-            <div>
-              <label className="ui-label" htmlFor="settingsbranches-country-2">Country</label>
-              <input id="settingsbranches-country-2" className="ui-input w-full" value={form.country} onChange={onChange('country')} />
-            </div>
-          </div>
-          <div className="branch-editor-section grid grid-cols-2 gap-3">
-            <div className="branch-editor-section-title col-span-2">GST Details</div>
-            <div>
-              <label className="ui-label" htmlFor="settingsbranches-gst-registration-2">GST Registration</label>
-              <select id="settingsbranches-gst-registration-2" className="ui-select w-full ui-surface" value={form.gstRegistrationType} onChange={onChange('gstRegistrationType')}>
-                <option value="REGULAR">Regular</option>
-                <option value="COMPOSITION">Composition</option>
-                {!companyGstEnabled ? <option value="UNREGISTERED">Unregistered</option> : null}
-              </select>
-            </div>
-            <div>
-              <label className="ui-label" htmlFor="settingsbranches-gstin-2">GSTIN</label>
-              <input id="settingsbranches-gstin-2" className="ui-input w-full" value={form.gstin} onChange={onChange('gstin')} placeholder="15-char GSTIN" />
-            </div>
-          </div>
-          <div className="flex justify-end gap-2">
-            <button type="button" onClick={() => setShowForm(false)} className="px-4 py-2 rounded-lg border ui-surface ui-hover-sunken">Cancel</button>
-            <button type="submit" disabled={saving} className="px-4 py-2 rounded-lg ui-btn ui-btn-primary disabled:opacity-50">
-              {saving ? 'Creating…' : 'Create Branch'}
-            </button>
-          </div>
-        </form>
-      )}
-
-      <div className="branch-table-wrap ui-surface border rounded-lg overflow-hidden">
-        {loading ? (
-          <TableSkeleton rows={6} cols={4} />
-        ) : branches.length === 0 ? (
-          <div className="px-6 py-10 text-center ui-muted">No branches yet. Click "Create Branch" to add one.</div>
-        ) : filteredBranches.length === 0 ? (
-          <div className="px-6 py-10 text-center ui-muted">No branches found.</div>
         ) : (
-          <table className="branch-table ui-table w-full table-fixed ui-settled">
-            <colgroup><col style={{ width: '15%' }} /><col style={{ width: '25%' }} /><col style={{ width: '18%' }} /><col style={{ width: '24%' }} /><col style={{ width: '12%' }} /><col style={{ width: '6%' }} /></colgroup>
-            <thead className="ui-sunken border-b">
-              <tr>
-                <th className="ui-th">Branch Code</th>
-                <th className="ui-th">Branch Name</th>
-                <th className="ui-th">Location</th>
-                <th className="ui-th">GSTN</th>
-                <th className="ui-th ui-col-h-center">Status</th>
-                <th className="ui-th ui-num">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {filteredBranches.map((b) => (
-                <tr key={b.id} className="ui-hover-sunken">
-                  <td className="px-4 py-3 ui-fg ui-mono">
-                    <button type="button" className="text-left hover:underline" onClick={() => openView(b.id)}>
-                      {b.branchCode || ''}
-                    </button>
-                  </td>
-                  <td className="px-4 py-3 ui-fg font-medium"><button type="button" className="text-left hover:underline" onClick={() => openView(b.id)}>{b.branchName || ''}</button></td>
-                  <td className="ui-col-meta px-4 py-3 ui-fg">{b.city || ''}</td>
-                  <td className="ui-col-id px-4 py-3 ui-fg font-mono">{b.gstin || ''}</td>
-                  <td className="ui-col-meta px-4 py-3">
-                    <span className={`px-2 py-1 rounded-lg text-xs font-medium ${b.isActive !== false ? 'bg-[rgb(var(--pos-soft))] text-[rgb(var(--pos))]' : 'bg-[rgb(var(--neg-soft))] text-[rgb(var(--neg))]'}`}>
-                      {b.isActive !== false ? 'Active' : 'Inactive'}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    <div className="relative inline-block text-left" data-branch-actions>
+          <div className="ws-table-wrap">
+            <table className="ws-table">
+              <caption className="sr-only">Branches of this company</caption>
+              <thead>
+                <tr>
+                  {th('branchCode', 'Code')}
+                  {th('branchName', 'Branch')}
+                  {th('city', 'Location')}
+                  <th>GSTIN</th>
+                  <th>Status</th>
+                  <th><span className="sr-only">Actions</span></th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((b) => (
+                  <tr key={b.id}>
+                    <td className="ui-mono" style={{ fontSize: '0.8125rem' }}>{b.branchCode || '—'}</td>
+                    <td>
+                      <button type="button" className="ws-link" style={{ fontWeight: 600 }} onClick={() => setDrawer({ mode: 'view', id: String(b.id) })}>
+                        {b.branchName || b.branchCode}
+                      </button>
+                    </td>
+                    <td>{place(b) || '—'}</td>
+                    <td className="ui-mono" style={{ fontSize: '0.8125rem' }}>{b.gstin || '—'}</td>
+                    <td>{b.isActive !== false ? <span className="ws-pill ws-pill--ok">Active</span> : <span className="ws-pill ws-pill--off">Inactive</span>}</td>
+                    <td className="num">
                       <button
                         type="button"
-                        ref={openMenuForBranchId === b.id ? menuAnchorRef : null}
+                        className="ws-btn ws-btn--quiet ws-btn--small"
+                        ref={menuFor === b.id ? menuAnchorRef : null}
+                        aria-label={`Actions for ${b.branchName || b.branchCode}`}
+                        aria-expanded={menuFor === b.id}
                         onClick={(e) => {
                           e.stopPropagation();
-                          setOpenMenuForBranchId((prev) => (prev === b.id ? null : b.id));
+                          setMenuFor((prev) => (prev === b.id ? null : b.id));
                         }}
-                        className="ui-icon-btn"
-                        aria-label={`Actions for ${b.branchName || b.branchCode}`}
                       >
-                        <MoreVertical size={15} aria-hidden="true" />
+                        <MoreVertical size={16} aria-hidden="true" />
                       </button>
-
-                      {openMenuForBranchId === b.id ? (
-                        <Popover
-                          anchorRef={menuAnchorRef}
-                          onClose={() => setOpenMenuForBranchId(null)}
-                          minWidth={176}
-                          maxWidth={240}
-                        >
-                          <button type="button" onClick={() => beginEdit(b)} className="report-menu-item flex items-center gap-2">
-                            <Pencil size={14} /> Edit
+                      {menuFor === b.id ? (
+                        <Popover anchorRef={menuAnchorRef} onClose={() => setMenuFor(null)} minWidth={176} maxWidth={240}>
+                          <button type="button" className="report-menu-item flex items-center gap-2" onClick={() => { setMenuFor(null); setDrawer({ mode: 'edit', id: String(b.id) }); }}>
+                            <Pencil size={14} aria-hidden="true" /> Edit
                           </button>
-                          <button type="button" onClick={() => toggleBranchStatus(b)} className="report-menu-item flex items-center gap-2">
-                            <Power size={14} /> Mark {b.isActive !== false ? 'inactive' : 'active'}
+                          <button type="button" className="report-menu-item flex items-center gap-2" onClick={() => toggleStatus(b)}>
+                            <Power size={14} aria-hidden="true" /> Mark {b.isActive !== false ? 'inactive' : 'active'}
                           </button>
-                          <PermissionButton permission="MASTERS::Company/Branch setup::DELETE" type="button" onClick={() => removeBranch(b.id)} className="report-menu-item flex items-center gap-2 text-[rgb(var(--neg))] hover:bg-[rgb(var(--neg-soft))]">
-                            <Trash2 size={14} /> Delete
+                          <PermissionButton permission="MASTERS::Company/Branch setup::DELETE" className="report-menu-item flex items-center gap-2" style={{ color: 'rgb(var(--neg))' }} onClick={() => remove(b)}>
+                            <Trash2 size={14} aria-hidden="true" /> Delete
                           </PermissionButton>
                         </Popover>
                       ) : null}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
+
+      <Drawer
+        open={Boolean(drawer)}
+        onClose={() => setDrawer(null)}
+        title={drawer?.mode === 'create' ? 'Add a branch' : drawer?.mode === 'edit' ? 'Edit branch' : selected?.branchName || 'Branch'}
+        description={drawer?.mode === 'create' ? 'A place of business and GST location of this company.' : selected?.branchCode || ''}
+        actions={
+          drawer?.mode === 'view' && selected ? (
+            <button type="button" className="ws-btn ws-btn--quiet ws-btn--small" onClick={() => setDrawer({ mode: 'edit', id: String(selected.id) })}>
+              <Pencil size={14} aria-hidden="true" /> Edit
+            </button>
+          ) : null
+        }
+      >
+        {drawer?.mode === 'create' ? (
+          <BranchForm
+            key="create"
+            initial={{ ...EMPTY_NEW, gstRegistrationType: gstEnabled ? 'REGULAR' : 'UNREGISTERED' }}
+            gstEnabled={gstEnabled}
+            onCancel={() => setDrawer(null)}
+            submitLabel="Add branch"
+            onSubmit={async (f) => {
+              if (!String(f.state || '').trim()) throw new Error('State is required — pick the branch state.');
+              if (gstEnabled && !String(f.gstin || '').trim()) throw new Error('GSTIN is mandatory while GST is enabled.');
+              const payload = { ...f, gstRegistrationType: gstEnabled && f.gstRegistrationType === 'UNREGISTERED' ? 'REGULAR' : f.gstRegistrationType, gstin: f.gstin || null };
+              const res = await createBranch(orgId, payload);
+              setBranches((prev) => [...(prev || []), res.branch]);
+              /* Saving opens what was saved, so what was stored can be checked at once. */
+              setDrawer(res?.branch?.id ? { mode: 'view', id: String(res.branch.id) } : null);
+              notify.success(`Branch "${res.branch?.branchName || payload.branchName}" created.`);
+              onBranchesChanged?.();
+            }}
+          />
+        ) : drawer?.mode === 'edit' && selected ? (
+          <BranchForm
+            key={`edit-${selected.id}`}
+            editing
+            initial={{
+              branchCode: String(selected.branchCode || ''),
+              branchName: String(selected.branchName || ''),
+              addressLine1: String(selected.addressLine1 || ''),
+              addressLine2: String(selected.addressLine2 || ''),
+              city: String(selected.city || ''),
+              state: String(selected.state || ''),
+              country: String(selected.country || 'India'),
+              gstRegistrationType: gstEnabled && String(selected.gstRegistrationType || '') === 'UNREGISTERED' ? 'REGULAR' : String(selected.gstRegistrationType || 'UNREGISTERED'),
+              gstin: String(selected.gstin || ''),
+              contactPerson: String(selected.contactPerson || ''),
+              phone: String(selected.phone || ''),
+              email: String(selected.email || ''),
+            }}
+            gstEnabled={gstEnabled}
+            submitLabel="Save changes"
+            onCancel={() => setDrawer({ mode: 'view', id: String(selected.id) })}
+            onSubmit={async (f) => {
+              const t = (v) => String(v || '').trim();
+              const payload = {
+                branchCode: t(f.branchCode),
+                branchName: t(f.branchName),
+                addressLine1: t(f.addressLine1),
+                addressLine2: t(f.addressLine2) || null,
+                city: t(f.city) || null,
+                state: t(f.state),
+                country: t(f.country) || 'India',
+                gstRegistrationType: t(f.gstRegistrationType) || 'UNREGISTERED',
+                gstin: t(f.gstin) || null,
+                contactPerson: t(f.contactPerson) || null,
+                phone: t(f.phone) || null,
+                email: t(f.email) || null,
+              };
+              if (!payload.branchCode) throw new Error('Branch code is required');
+              if (!payload.branchName) throw new Error('Branch name is required');
+              if (!payload.addressLine1) throw new Error('Address is required');
+              if (!payload.state) throw new Error('State is required');
+              if ((gstEnabled || payload.gstRegistrationType !== 'UNREGISTERED') && !payload.gstin) throw new Error('GSTIN is mandatory while GST is enabled');
+              const res = await updateBranch(orgId, selected.id, payload);
+              if (res?.branch) replace(res.branch);
+              else await load();
+              /* Back to the record just saved, not out of it. */
+              setDrawer({ mode: 'view', id: String(selected.id) });
+              notify.success(`Branch "${payload.branchName}" saved.`);
+            }}
+          />
+        ) : selected ? (
+          <BranchDetail branch={selected} />
+        ) : null}
+      </Drawer>
     </div>
   );
 }
+
+/** The record, read. */
+function BranchDetail({ branch: b }) {
+  const rows = [
+    ['Code', b.branchCode, true],
+    ['Name', b.branchName],
+    ['Status', b.isActive !== false ? 'Active' : 'Inactive'],
+    ['Address', [b.addressLine1, b.addressLine2].filter(Boolean).join(', ')],
+    ['Location', [b.city, b.state, b.country].filter(Boolean).join(', ')],
+    ['GST registration', b.gstRegistrationType || 'UNREGISTERED'],
+    ['GSTIN', b.gstin, true],
+    ['Contact person', b.contactPerson],
+    ['Phone', b.phone],
+    ['Email', b.email],
+  ];
+  return (
+    <dl className="grid gap-4 sm:grid-cols-2">
+      {rows.map(([label, value, mono]) => (
+        <div key={label}>
+          <dt className="ws-stat-note">{label}</dt>
+          <dd className={`text-sm ${mono ? 'ui-mono' : ''}`}>{value || '—'}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+/** Adding or editing a branch. `onSubmit` throws with a sentence to show. */
+function BranchForm({ initial, editing = false, gstEnabled, submitLabel, onSubmit, onCancel }) {
+  const [f, setF] = useState(initial);
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+  const set = (k) => (e) => {
+    const next = e.target.value;
+    setError('');
+    if (k === 'gstin') {
+      const fromGstin = getGstStateFromGstin(String(next || '').trim());
+      return setF((p) => ({ ...p, gstin: next, state: fromGstin || p.state }));
+    }
+    return setF((p) => ({ ...p, [k]: next }));
+  };
+  const field = (k, label, o = {}) => (
+    <label className={`grid gap-1 ${o.wide ? 'sm:col-span-2' : ''}`}>
+      <span className="text-sm font-medium">{label}{o.required ? <span aria-hidden="true"> *</span> : null}</span>
+      <input
+        className={`ui-input w-full ${o.mono ? 'ui-mono' : ''}`}
+        value={f[k] || ''}
+        onChange={set(k)}
+        required={Boolean(o.required)}
+        readOnly={o.readOnly}
+        aria-readonly={o.readOnly || undefined}
+        title={o.title}
+        type={o.type || 'text'}
+        placeholder={o.placeholder}
+        spellCheck={o.mono ? false : undefined}
+      />
+    </label>
+  );
+
+  return (
+    <form
+      className="grid gap-6"
+      onSubmit={async (e) => {
+        e.preventDefault();
+        setBusy(true);
+        setError('');
+        try {
+          await onSubmit(f);
+        } catch (err) {
+          const message = String(err?.message || 'Not saved.');
+          setError(message);
+          notify.error(message);
+        } finally {
+          setBusy(false);
+        }
+      }}
+    >
+      {error ? <p role="alert" className="text-sm" style={{ color: 'rgb(var(--neg))' }}>{error}</p> : null}
+      <fieldset className="grid gap-4 sm:grid-cols-2">
+        <legend className="ws-panel-title mb-3">Branch</legend>
+        {field('branchCode', 'Branch code', { required: true, mono: true, readOnly: editing, title: editing ? 'Branch code cannot be changed after creation' : undefined })}
+        {field('branchName', 'Branch name', { required: true })}
+      </fieldset>
+      <fieldset className="grid gap-4 sm:grid-cols-2">
+        <legend className="ws-panel-title mb-3">Address</legend>
+        {field('addressLine1', 'Address', { required: true, wide: true })}
+        {field('addressLine2', 'Address line 2', { wide: true })}
+        {field('city', 'City')}
+        <label className="grid gap-1">
+          <span className="text-sm font-medium">State <span aria-hidden="true">*</span></span>
+          <select className="ui-select" value={f.state} onChange={set('state')} required>
+            <option value="">Choose…</option>
+            {f.state && !STATES.includes(f.state) ? <option value={f.state}>{f.state}</option> : null}
+            {STATES.map((s) => (
+              <option key={s} value={s}>{s}</option>
+            ))}
+          </select>
+        </label>
+        {field('country', 'Country')}
+      </fieldset>
+      <fieldset className="grid gap-4 sm:grid-cols-2">
+        <legend className="ws-panel-title mb-3">GST</legend>
+        <label className="grid gap-1">
+          <span className="text-sm font-medium">GST registration</span>
+          <select className="ui-select" value={f.gstRegistrationType} onChange={set('gstRegistrationType')}>
+            <option value="REGULAR">Regular</option>
+            <option value="COMPOSITION">Composition</option>
+            {!gstEnabled ? <option value="UNREGISTERED">Unregistered</option> : null}
+          </select>
+        </label>
+        {field('gstin', 'GSTIN', { mono: true, placeholder: '15 characters, e.g. 29ABCDE1234F1Z5' })}
+      </fieldset>
+      {editing ? (
+        <fieldset className="grid gap-4 sm:grid-cols-2">
+          <legend className="ws-panel-title mb-3">Contact</legend>
+          {field('contactPerson', 'Contact person', { wide: true })}
+          {field('phone', 'Phone')}
+          {field('email', 'Email', { type: 'email' })}
+        </fieldset>
+      ) : null}
+      <div className="flex gap-2">
+        <button type="submit" className="ws-btn ws-btn--primary" disabled={busy}>{busy ? 'Saving…' : submitLabel}</button>
+        <button type="button" className="ws-btn ws-btn--quiet" onClick={onCancel}>Cancel</button>
+      </div>
+    </form>
+  );
+}
+
+export default SettingsBranches;
