@@ -1,0 +1,38 @@
+/**
+ * The app a visitor came for. clor.in's product pages send "Start with
+ * Payroll" to /signup?app=payroll; the choice is kept for this tab so it
+ * survives sign-up, a verification round trip and company setup, which then
+ * switches that app on and opens into it.
+ */
+const KEY = 'clor.appIntent';
+const KNOWN = new Set(['accounting', 'payroll', 'people', 'attendance']);
+
+/** Read ?app= from the address (once, on load) and remember it for this tab. */
+export function captureAppIntent(search = typeof window !== 'undefined' ? window.location.search : '') {
+  try {
+    const asked = new URLSearchParams(search).get('app');
+    if (asked && KNOWN.has(asked)) sessionStorage.setItem(KEY, asked);
+    return asked && KNOWN.has(asked) ? asked : null;
+  } catch {
+    return null;
+  }
+}
+
+/** The app this tab came for, if any. */
+export function appIntent() {
+  try {
+    const v = sessionStorage.getItem(KEY);
+    return v && KNOWN.has(v) ? v : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Forget it once the company is made: from then on the person chooses for themselves. */
+export function clearAppIntent() {
+  try {
+    sessionStorage.removeItem(KEY);
+  } catch {
+    /* nothing kept */
+  }
+}

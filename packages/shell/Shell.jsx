@@ -28,6 +28,7 @@ import CommandPalette from '@ui/components/ui/CommandPalette';
 import { AlertColor, PersonColor } from '@fluentui/react-icons';
 import { colorIcon } from '@ui/components/ui/iconSet';
 import CompanySetup from './CompanySetup';
+import { appIntent, captureAppIntent } from './appIntent';
 import NoCompanyAccess from './NoCompanyAccess';
 import InviteAccept from './InviteAccept';
 import { appAddress, frontDoorForward } from './orgUrl';
@@ -70,6 +71,9 @@ function AppLoading() {
 
 /** The marketing site, which is the product's front page; the app itself opens on sign-in. */
 const MARKETING_URL = import.meta.env.VITE_MARKETING_URL || 'https://clor.in';
+/* Before any page rewrites the address: remember the app a visitor came for. */
+captureAppIntent();
+
 const PUBLIC_PATHS = { signin: '/signin', signup: '/signup', forgot: '/forgot-password' };
 
 /** Which door a signed-out visitor sees, from the address: clor.in's Get started links to /signup. */
@@ -204,6 +208,9 @@ export default function Shell() {
       const asked = new URLSearchParams(window.location.search).get('app');
       if (asked) return asked;
     } catch { /* no query */ }
+    /* The app a new visitor came for (clor.in › Start with …), kept across sign-up. */
+    const intended = appIntent();
+    if (intended) return intended;
     /* The front door is the company's own workspace, not a doorway into the last app (ADR-010). */
     return isFrontDoor() ? ADMIN_APP_ID : null;
   });
