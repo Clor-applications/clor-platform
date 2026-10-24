@@ -8,6 +8,7 @@ import OpenInCompanyAdmin from '@ui/company/OpenInCompanyAdmin';
 export { default as PeopleOverview } from './screens/PeopleOverview';
 export { Employees } from './screens/EmployeesList';
 export { default as Approvals } from './screens/Approvals';
+export { default as Policies } from './screens/Policies';
 export { default as OrgChart } from './screens/OrgChart';
 export { default as Tags } from './screens/Tags';
 export { DataHealth } from './screens/DataHealth';

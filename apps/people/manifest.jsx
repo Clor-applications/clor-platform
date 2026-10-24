@@ -60,6 +60,7 @@ const screen = lazyScreens(() => import('./src/screens.js'));
 const PeopleOverview = screen('PeopleOverview');
 const Employees = screen('Employees');
 const Approvals = screen('Approvals');
+const Policies = screen('Policies');
 const OrgChart = screen('OrgChart');
 const Tags = screen('Tags');
 const Departments = screen('Departments');
@@ -192,7 +193,7 @@ export const peopleApp = {
   modules: [
     { key: 'overview', label: 'Home', items: ['overview', 'approvals'] },
     { key: 'employees', label: 'Employees', groups: [
-      { label: 'Directory', items: ['employees', 'orgChart', 'documents'] },
+      { label: 'Directory', items: ['employees', 'orgChart', 'documents', 'policies'] },
       { label: 'Joining & Leaving', items: ['checklists', 'assets'] },
       { label: 'Pay & Benefits', items: ['compensation', 'benefits'] },
     ] },
@@ -216,6 +217,7 @@ export const peopleApp = {
     { key: 'employees', label: 'Employees', icon: I.people, permission: 'PEOPLE::Employees::VIEW' },
     { key: 'orgChart', label: 'Org Chart', icon: I.org, permission: 'PEOPLE::Org Structure::VIEW' },
     { key: 'documents', label: 'Documents', icon: I.folder, permission: 'PEOPLE::Employees::VIEW' },
+    { key: 'policies', label: 'Policies', icon: I.policy, permission: 'PEOPLE::Policies::VIEW' },
     { key: 'checklists', label: 'Onboarding & Exit', icon: I.checklist, permission: 'PEOPLE::Employees::VIEW' },
     { key: 'selfService', label: 'Employee Portal Access', icon: I.key, permission: 'ATTENDANCE::Employee Portal::VIEW', parent: 'settings' },
     { key: 'letterTemplates', label: 'Letters', icon: I.policy, permission: 'PEOPLE::Documents::VIEW', parent: 'settings' },
@@ -271,6 +273,7 @@ export const peopleApp = {
   screens: {
     overview: PeopleOverview,
     approvals: Approvals,
+    policies: Policies,
     employees: Employees,
     orgChart: OrgChart,
     documents: PeopleDocuments,

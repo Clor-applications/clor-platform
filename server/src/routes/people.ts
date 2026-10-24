@@ -29,6 +29,7 @@ import { changeImpact } from '../services/people/lifecycle/changes.js';
 import { PERMIT_KINDS, daysUntil } from '../services/people/documentReminders.js';
 import { decodeDocument } from '../services/people/documentFiles.js';
 import { NO_ORIGINALS_STATES } from '../services/people/letters.js';
+import { ask as askToRead, remind as ackRemind, report as ackReport } from '../services/people/acknowledgements.js';
 import { dataHealth } from '../services/people/dataHealth.js';
 import { PAYROLL_MODULE, PAYROLL_RESOURCE } from '../services/payroll/guards.js';
 import { KINDS, READER_ACCESS_ITEM, checklistOf, cleanItems, itemsFor, myTasks, openTasks, readTaskDoneToken, startChecklist, type Kind as ChecklistKind } from '../services/people/checklists.js';
@@ -1279,6 +1280,33 @@ peopleRouter.post('/orgs/:orgId/people/documents/:docId/replace', can(Permission
     return created;
   });
   res.status(201).json({ document: docRow(d) });
+});
+
+/** Ask the person to read and accept a file on their record (DOC-05). Only a file they can see can be asked of them. */
+peopleRouter.post('/orgs/:orgId/people/documents/:docId/ask-to-read', can(PermissionAction.EDIT, DOCUMENTS), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const d = await peoplePrisma.employeeDocument.findFirst({ where: { id: String(req.params.docId), accountId, orgId }, select: { id: true, title: true, employeeId: true, classification: true } });
+  if (!d || !(await readableClassifications(req)).includes(d.classification as DocClass) || !inScope(await teamScope(req), d.employeeId)) return res.status(404).json({ error: 'No such document.' });
+  if (d.classification !== 'EMPLOYEE_VISIBLE') return res.status(400).json({ error: 'The person cannot see this file, so they cannot be asked to accept it. Set "Who can see" to the person and HR first.' });
+  const asked = await askToRead({ accountId, orgId, userId: req.auth!.userId }, 'DOCUMENT', d.id, [d.employeeId], { title: `Please read and accept: ${d.title}`, body: 'Open Me → Documents in the employee app.' });
+  res.json({ newlyAsked: asked, ...(await ackReport(orgId, 'DOCUMENT', d.id)) });
+});
+
+peopleRouter.get('/orgs/:orgId/people/documents/:docId/acknowledgements', can(PermissionAction.VIEW, DOCUMENTS), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const d = await peoplePrisma.employeeDocument.findFirst({ where: { id: String(req.params.docId), accountId, orgId }, select: { id: true, employeeId: true, classification: true } });
+  if (!d || !(await readableClassifications(req)).includes(d.classification as DocClass) || !inScope(await teamScope(req), d.employeeId)) return res.status(404).json({ error: 'No such document.' });
+  res.json(await ackReport(orgId, 'DOCUMENT', d.id));
+});
+
+peopleRouter.post('/orgs/:orgId/people/documents/:docId/remind', can(PermissionAction.EDIT, DOCUMENTS), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const d = await peoplePrisma.employeeDocument.findFirst({ where: { id: String(req.params.docId), accountId, orgId }, select: { id: true, title: true, employeeId: true, classification: true } });
+  if (!d || !(await readableClassifications(req)).includes(d.classification as DocClass) || !inScope(await teamScope(req), d.employeeId)) return res.status(404).json({ error: 'No such document.' });
+  res.json({ reminded: await ackRemind({ accountId, orgId, userId: req.auth!.userId }, 'DOCUMENT', d.id, { title: `Please read and accept: ${d.title}`, body: 'Open Me → Documents in the employee app.' }) });
 });
 
 /** Every version of a file, newest first (DOC-02). */

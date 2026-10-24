@@ -42,6 +42,7 @@ export const PEOPLE_RESOURCE = {
   approvals: 'Approvals',
   requests: 'Requests',
   lifecycle: 'Lifecycle',
+  policies: 'Policies',
 } as const;
 
 /**

@@ -69,6 +69,16 @@ export async function dataHealth(accountId: string, orgId: string, opts: { payro
       others.map((d) => who(byId.get(d.employeeId)!, `${d.title} expired ${d.expiresOn}`)));
   }
 
+  /* Policies (POL-06): two published policies of one kind that apply to the same people on the same day. */
+  try {
+    const { conflicts } = await import('./policies.js');
+    const found = await conflicts(orgId);
+    add({ id: 'policy-conflict', area: 'People', severity: 'FIX_SOON', title: 'Two policies of the same kind apply to the same people', why: 'Nobody can tell which one holds; a dispute or an inspection will ask.', fix: 'Narrow who each policy applies to, or retire one of them.', screen: 'policies' },
+      found.map((c) => ({ id: c.a.policyId, name: `${c.a.title} v${c.a.version} and ${c.b.title} v${c.b.version}`, code: c.category, detail: `${c.people} ${c.people === 1 ? 'person' : 'people'}, e.g. ${c.sample.join(', ')}` })));
+  } catch (e) {
+    console.error('[data-health] policies:', e instanceof Error ? e.message : e);
+  }
+
   /* People: the same person twice. */
   const groups = (key: (e: (typeof employees)[number]) => string, min = 2) => {
     const m = new Map<string, typeof employees>();

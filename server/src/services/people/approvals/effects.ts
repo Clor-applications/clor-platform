@@ -4,6 +4,7 @@ import { scheduleChanges } from '../effectiveDating.js';
 import { leaveEmployee } from '../lifecycle/leaving.js';
 import { applyOutcome } from '../lifecycle/probation.js';
 import { registerChangeReviewTasks } from '../lifecycle/changes.js';
+import { publishVersion } from '../policies.js';
 import { onApproved, type Payload } from './engine.js';
 
 /**
@@ -44,6 +45,14 @@ export function registerPeopleEffects() {
     const p = (request.payload || {}) as { outcome?: 'CONFIRM' | 'EXTEND' | 'END'; newEndDate?: string | null; note?: string | null; lastDay?: string | null };
     if (!request.subjectEmployeeId || !p.outcome) return;
     return applyOutcome(actor, request.subjectEmployeeId, p.outcome, { newEndDate: p.newEndDate ?? null, note: p.note ?? null, lastDay: p.lastDay ?? null, requestId: request.id });
+  });
+
+  /* A policy version approved for publishing goes live as its owner would publish it by hand (POL-05). */
+  onApproved('POLICY_PUBLISH', async ({ request, actor }) => {
+    const p = (request.payload || {}) as { versionId?: string };
+    if (!p.versionId) return;
+    const v = await publishVersion(actor, p.versionId, { requestId: request.id });
+    return { published: v.version, effectiveFrom: v.effectiveFrom };
   });
 
   /* Leaving: recorded as HR would record it by hand. */

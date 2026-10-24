@@ -1310,6 +1310,79 @@ model EmployeeDocument {
   @@index([orgId, supersededById])
 }
 
+/// Policies (docs/people/02-PRD.md POL-01..06; services/people/policies.ts): a
+/// library entry with an owner; each version has effective dates and says who it
+/// applies to. Publishing keeps earlier versions readable; nothing is overwritten.
+model Policy {
+  id              String   @id @default(cuid())
+  accountId       String
+  orgId           String
+  title           String
+  /// LEAVE | HOURS | CONDUCT | TRAVEL | BENEFITS | IT | POSH | OTHER
+  category        String
+  description     String?
+  ownerUserId     String
+  isActive        Boolean  @default(true)
+  createdByUserId String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  versions PolicyVersion[]
+
+  @@index([orgId, category])
+}
+
+model PolicyVersion {
+  id                String    @id @default(cuid())
+  accountId         String
+  orgId             String
+  policyId          String
+  version           Int
+  /// The text, or a document on file (an uploaded PDF).
+  body              String?
+  documentId        String?
+  /// YYYY-MM-DD; effectiveTo is set when a later version takes over or the policy is retired.
+  effectiveFrom     String
+  effectiveTo       String?
+  /// { establishmentIds?, states?, departmentIds?, employeeTypeIds?, gradeIds?, workTypeIds? } — every list given must match.
+  appliesTo         Json
+  needsAcceptance   Boolean   @default(false)
+  /// DRAFT | WAITING | PUBLISHED | RETIRED
+  status            String    @default("DRAFT")
+  publishedAt       DateTime?
+  publishedByUserId String?
+  requestId         String?
+  createdByUserId   String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  policy Policy @relation(fields: [policyId], references: [id], onDelete: Cascade)
+
+  @@unique([policyId, version])
+  @@index([orgId, status, effectiveFrom])
+}
+
+/// Someone was asked to read and accept a policy version or a document (DOC-05,
+/// POL-04; services/people/acknowledgements.ts). One row per person per target.
+model Acknowledgement {
+  id            String    @id @default(cuid())
+  accountId     String
+  orgId         String
+  /// DOCUMENT | POLICY_VERSION
+  targetType    String
+  targetId      String
+  employeeId    String
+  askedAt       DateTime  @default(now())
+  askedByUserId String?
+  acceptedAt    DateTime?
+  remindedAt    DateTime?
+  remindCount   Int       @default(0)
+
+  @@unique([targetType, targetId, employeeId])
+  @@index([orgId, employeeId, acceptedAt])
+  @@index([orgId, targetType, targetId])
+}
+
 /// Letters the company issues (docs/people/02-PRD.md DOC-04; services/people/letters.ts):
 /// offer, appointment, confirmation, increment, relieving, experience, service
 /// certificate. Each save is a new version; the newest active one is used, and

@@ -39,6 +39,8 @@ import { peopleTaskLinksRouter } from './routes/peopleTaskLinks.js';
 import { peopleJoinRouter } from './routes/peopleJoin.js';
 import { peopleInvitesRouter } from './routes/peopleInvites.js';
 import { peopleLettersRouter } from './routes/peopleLetters.js';
+import { peoplePoliciesRouter } from './routes/peoplePolicies.js';
+import { peoplePortalRouter } from './routes/peoplePortal.js';
 import { registerPeopleEffects } from './services/people/approvals/effects.js';
 import { peopleWorkspaceRouter } from './routes/peopleWorkspace.js';
 import { attendanceRouter } from './routes/attendance.js';
@@ -337,6 +339,8 @@ export function buildApp() {
   /* The employee portal: its own sign-in (company + employee code), no CLOR
      user and no tenant headers — so, like the two above, before the routers
      that require both. */
+  /* People's own employee-facing routes first: the portal router answers every other /api/portal path itself. */
+  app.use('/api/portal/people', peoplePortalRouter);
   app.use('/api/portal', portalRouter);
 
   /* CLOR operators setting a customer's subscription: a CLOR user with no
@@ -378,6 +382,7 @@ export function buildApp() {
   app.use('/api', peopleApprovalsRouter);
   app.use('/api', peopleInvitesRouter);
   app.use('/api', peopleLettersRouter);
+  app.use('/api', peoplePoliciesRouter);
   app.use('/api', peopleWorkspaceRouter);
   app.use('/api', personnelRouter);
   app.use('/api', attendanceRouter);

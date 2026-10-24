@@ -249,6 +249,12 @@ export const PERMISSION_CATALOG: ModuleDef[] = [
         actions: [A.VIEW, A.CREATE, A.EDIT, A.APPROVE],
       },
       {
+        key: 'Policies',
+        label: 'Policies',
+        description: 'The policy library: versions with effective dates, who each applies to, acceptance and reminders. Publishing follows the approval rule',
+        actions: [A.VIEW, A.CREATE, A.EDIT, A.APPROVE],
+      },
+      {
         key: 'Statutory Details',
         label: 'Statutory details',
         description: 'Identifiers and statutory category: PAN, UAN, ESIC and bank from Payroll, Aadhaar (last four), passport, work permit. Shown masked; revealing one needs an authenticator code and is logged',
@@ -677,6 +683,7 @@ export const ROLE_PRESETS: Record<string, RolePreset> = {
       ['PEOPLE', 'Statutory Details', [A.VIEW]],
       ['PEOPLE', 'Requests', [A.VIEW, A.CREATE, A.APPROVE]],
       ['PEOPLE', 'Lifecycle', [A.VIEW, A.CREATE, A.EDIT]],
+      ['PEOPLE', 'Policies', [A.VIEW, A.CREATE, A.EDIT]],
       /* Leave is HR's (founder, 22 Oct 2026): People's leave screens are gated on these (review R-12). */
       ['ATTENDANCE', 'Leave Requests', [A.VIEW, A.CREATE, A.EDIT]],
       ['ATTENDANCE', 'Leave Types', [A.VIEW]],
@@ -720,6 +727,7 @@ export const ROLE_PRESETS: Record<string, RolePreset> = {
       ['PEOPLE', 'Org Structure', [A.VIEW]],
       ['PEOPLE', 'Requests', [A.VIEW, A.CREATE, A.APPROVE]],
       ['PEOPLE', 'Lifecycle', [A.VIEW, A.EDIT]],
+      ['PEOPLE', 'Policies', [A.VIEW]],
       ['ATTENDANCE', 'Leave Requests', [A.VIEW, A.APPROVE]],
       ['ATTENDANCE', 'My Attendance', [A.VIEW]],
     ],
@@ -746,6 +754,7 @@ export const ROLE_PRESETS: Record<string, RolePreset> = {
     grants: [
       ['PEOPLE', 'Employees', [A.VIEW]],
       ['PEOPLE', 'Lifecycle', [A.VIEW, A.EDIT]],
+      ['PEOPLE', 'Policies', [A.VIEW]],
       ['PEOPLE', 'Requests', [A.VIEW, A.APPROVE]],
       ['PEOPLE', 'Assets', ['*']],
     ],
