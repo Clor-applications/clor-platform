@@ -1903,6 +1903,49 @@ model ScheduledChange {
   @@index([orgId, employeeId, status])
 }
 
+/// The identifiers People keeps about a person (docs/people/02-PRD.md CORE-04):
+/// never the full Aadhaar (UIDAI circular 14/2025: last four digits only),
+/// and never PAN, UAN, ESIC or bank details, which are Payroll's and are read
+/// from there masked. Shown masked; a reveal needs the Statutory Details
+/// grant and a fresh authenticator code, and is written to AccessLog.
+model EmployeeIdentity {
+  id                String   @id @default(cuid())
+  accountId         String
+  orgId             String
+  employeeId        String   @unique
+  aadhaarLast4      String?
+  passportNumber    String?
+  passportExpiry    String?
+  workPermitNumber  String?
+  workPermitExpiry  String?
+  /// WORKER | SUPERVISOR | MANAGER | APPRENTICE | CONTRACT (what the labour codes call them)
+  statutoryCategory String?
+  categoryFrom      String?
+  updatedByUserId   String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([orgId, employeeId])
+}
+
+/// Who looked at what (PRV-07): every reveal of a statutory value, every open
+/// of a confidential document or a private case. Append-only.
+model AccessLog {
+  id         String   @id @default(cuid())
+  accountId  String
+  orgId      String
+  /// STATUTORY | DOC_CONFIDENTIAL | CASE
+  what       String
+  entityId   String
+  employeeId String?
+  field      String?
+  userId     String
+  at         DateTime @default(now())
+
+  @@index([orgId, employeeId, at])
+  @@index([orgId, userId, at])
+}
+
 /// Joining / leaving checklist a company uses (services/people/checklists.ts).
 /// `items`: [{ title, owner, dueDays }], dueDays counted from the joining date
 /// or the last working day (negative = before it). No row = CLOR's defaults.

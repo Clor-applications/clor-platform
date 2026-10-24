@@ -38,6 +38,7 @@ export const PEOPLE_RESOURCE = {
   notes: 'Employee Notes',
   documents: 'Documents',
   confidentialDocuments: 'Confidential Documents',
+  statutory: 'Statutory Details',
 } as const;
 
 /**

@@ -9,7 +9,6 @@ import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { AnonymiseError, anonymiseEmployee } from '../services/anonymiseEmployee.js';
 import { recordAudit } from '../services/auditTrail.js';
 import { peopleEvent } from '../services/people/documentReminders.js';
-import { payrollPrisma } from '../utils/payrollPrisma.js';
 import { PEOPLE_MODULE, PEOPLE_RESOURCE, peopleRouteOk } from '../services/people/guards.js';
 import { pushEmployeeToReaders, readerFieldsChanged, revokeFromReaders } from '../services/attendance/readerSync.js';
 import { emit as emitWebhook, employeeEvent } from '../services/attendance/webhooks.js';
@@ -18,7 +17,10 @@ import { episodesOf } from '../services/people/episodes.js';
 import { timelineOf } from '../services/people/employmentHistory.js';
 import { createEmployee, updateEmployee, correlationOf } from '../services/people/employees.js';
 import { SCHEDULABLE_FIELDS, asOf, cancelScheduledChange, pendingChangesOf, scheduleChanges } from '../services/people/effectiveDating.js';
-import type { Actor, ChangeSource } from '../services/people/changeLog.js';
+import { writeChangeLog, type Actor, type Change, type ChangeSource } from '../services/people/changeLog.js';
+import { checkIdentifier, maskTail } from '../services/people/identifiers.js';
+import { PAYROLL_STATUTORY_FIELDS, maskedStatutory, revealStatutory } from '../services/payroll/statutoryRead.js';
+import { stepUpRefusal } from '../services/stepUp.js';
 import { dataHealth } from '../services/people/dataHealth.js';
 import { PAYROLL_MODULE, PAYROLL_RESOURCE } from '../services/payroll/guards.js';
 import { KINDS, READER_ACCESS_ITEM, checklistOf, cleanItems, itemsFor, openTasks, startChecklist, type Kind as ChecklistKind } from '../services/people/checklists.js';
@@ -26,6 +28,8 @@ import { addCustom, calendar, evidenceOf, updateTask } from '../services/people/
 import { homeTodos } from '../services/people/home.js';
 import { verifiedMime } from '../services/fileType.js';
 import { PAYROLL_HISTORY, lockPayrollEmployee } from '../services/payroll/employeeLock.js';
+/* Only for Payroll's own delete guard (employeeLock.ts), which takes a payroll transaction; People reads nothing else from it. */
+import { payrollPrisma } from '../utils/payrollPrisma.js';
 
 /**
  * People: the staff directory.
@@ -41,7 +45,7 @@ import { PAYROLL_HISTORY, lockPayrollEmployee } from '../services/payroll/employ
 export const peopleRouter = Router();
 peopleRouter.use(requireAuth, requireTenantContext);
 
-const { employees: EMPLOYEES, structure: STRUCTURE, notes: NOTES, documents: DOCUMENTS, confidentialDocuments: CONFIDENTIAL } = PEOPLE_RESOURCE;
+const { employees: EMPLOYEES, structure: STRUCTURE, notes: NOTES, documents: DOCUMENTS, confidentialDocuments: CONFIDENTIAL, statutory: STATUTORY } = PEOPLE_RESOURCE;
 const can = (action: string, resource: string) => requirePermission(PEOPLE_MODULE, action as any, resource);
 /** Who is making this change and why, for the change log and the outbox (services/people/changeLog.ts). */
 const actorOf = (req: Request, source: ChangeSource, reason: string | null = null): Actor => ({
@@ -242,32 +246,92 @@ const sendError = (res: any, e: any) => {
  * payroll profile where Payroll keeps them, always masked here, and only for
  * someone allowed to see payroll profiles. Nothing is edited from People.
  */
-const maskTail = (v: string | null | undefined, keep = 4) => {
-  const s = String(v || '').replace(/\s+/g, '');
-  return s ? `${'•'.repeat(Math.max(0, s.length - keep))}${s.slice(-keep)}` : '';
-};
-peopleRouter.get('/orgs/:orgId/people/employees/:id/statutory', can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
+/**
+ * Statutory details (docs/people/02-PRD.md CORE-04). PAN, UAN, ESIC and bank
+ * are Payroll's, read through its interface (services/payroll/statutoryRead.ts)
+ * and shown masked; People keeps the last four of Aadhaar, passport, work
+ * permit and the statutory category. Needs the Statutory Details grant, not
+ * just Employees VIEW. A full value is revealed one field at a time with a
+ * fresh authenticator code, and every reveal is logged.
+ */
+const identitySchema = z.object({
+  aadhaarLast4: text(4),
+  passportNumber: text(20),
+  passportExpiry: date,
+  workPermitNumber: text(30),
+  workPermitExpiry: date,
+  statutoryCategory: z.enum(['WORKER', 'SUPERVISOR', 'MANAGER', 'APPRENTICE', 'CONTRACT']).optional().nullable().or(z.literal('')),
+  categoryFrom: date,
+});
+const identityRow = (i: any) => ({
+  aadhaarLast4: i?.aadhaarLast4 ? `********${i.aadhaarLast4}` : '',
+  passportNumber: maskTail(i?.passportNumber),
+  passportExpiry: i?.passportExpiry || null,
+  workPermitNumber: maskTail(i?.workPermitNumber),
+  workPermitExpiry: i?.workPermitExpiry || null,
+  statutoryCategory: i?.statutoryCategory || null,
+  categoryFrom: i?.categoryFrom || null,
+});
+
+peopleRouter.get('/orgs/:orgId/people/employees/:id/statutory', async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   const employee = await peoplePrisma.employee.findFirst({ where: { id: String(req.params.id), accountId, orgId }, select: { id: true } });
   if (!employee) return res.status(404).json({ error: 'No such employee.' });
-  if (await authorize(req, PAYROLL_MODULE, PermissionAction.VIEW as any, PAYROLL_RESOURCE.profile)) return res.json({ visible: false });
-  const p = await payrollPrisma.employeePayrollProfile.findFirst({ where: { orgId, employeeId: employee.id } });
-  if (!p) return res.json({ visible: true, inPayroll: false });
-  res.json({
-    visible: true,
-    inPayroll: p.payrollStatus === 'IN_PAYROLL',
-    pan: maskTail(p.pan),
-    uan: maskTail(p.uan),
-    esic: maskTail(p.esiNumber),
-    bank: p.bankName || '',
-    account: maskTail(p.bankAccountNumber),
-    ifsc: p.bankIfsc || '',
-    pf: p.pfApplicable,
-    esi: p.esiApplicable,
-    pt: p.ptApplicable ? p.professionalTaxState || 'on' : '',
-    taxRegime: p.taxRegime,
+  /* Without the grant the section says so, rather than refusing the whole record. */
+  if (await authorize(req, PEOPLE_MODULE, PermissionAction.VIEW, STATUTORY)) return res.json({ visible: false });
+  const [payroll, identity] = await Promise.all([maskedStatutory(orgId, employee.id), peoplePrisma.employeeIdentity.findUnique({ where: { employeeId: employee.id } })]);
+  const canEdit = !(await authorize(req, PEOPLE_MODULE, PermissionAction.EDIT, STATUTORY));
+  res.json({ visible: true, canEdit, ...payroll, identity: identityRow(identity) });
+});
+
+peopleRouter.put('/orgs/:orgId/people/employees/:id/identity', can(PermissionAction.EDIT, STATUTORY), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const employee = await peoplePrisma.employee.findFirst({ where: { id: String(req.params.id), accountId, orgId }, select: { id: true } });
+  if (!employee) return res.status(404).json({ error: 'No such employee.' });
+  const parsed = identitySchema.safeParse(req.body || {});
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Check the details.' });
+  const b = parsed.data;
+  for (const k of ['aadhaarLast4', 'passportNumber', 'workPermitNumber'] as const) {
+    const problem = checkIdentifier(k, b[k] ?? null);
+    if (problem) return res.status(400).json({ error: problem });
+  }
+  if (b.aadhaarLast4 && String(b.aadhaarLast4).length > 4) return res.status(400).json({ error: 'Only the last four digits of Aadhaar are kept.' });
+  const data: Record<string, string | null> = {};
+  for (const [k, v] of Object.entries(b)) if (v !== undefined) data[k] = blank(v);
+  const existing = await peoplePrisma.employeeIdentity.findUnique({ where: { employeeId: employee.id } });
+  const actor = actorOf(req, 'FORM');
+  const row = await peoplePrisma.$transaction(async (tx) => {
+    const saved = existing
+      ? await tx.employeeIdentity.update({ where: { employeeId: employee.id }, data: { ...data, updatedByUserId: req.auth!.userId } })
+      : await tx.employeeIdentity.create({ data: { accountId, orgId, employeeId: employee.id, ...data, updatedByUserId: req.auth!.userId } });
+    /* Logged as changed, never with the value (changeLog.ts). */
+    const changes: Change[] = Object.keys(data).filter((k) => ((existing as any)?.[k] ?? null) !== data[k]).map((k) => ({ field: k, before: null, after: null, redacted: !['statutoryCategory', 'categoryFrom', 'passportExpiry', 'workPermitExpiry'].includes(k) }));
+    for (const c of changes) if (!c.redacted) { c.before = (existing as any)?.[c.field] ?? null; c.after = data[c.field]; }
+    await writeChangeLog(tx, actor, { kind: 'EmployeeIdentity', id: saved.id, employeeId: employee.id }, changes);
+    return saved;
   });
+  res.json({ identity: identityRow(row) });
+});
+
+/** One value in clear, for a person with the grant and a fresh authenticator code; written to the access log. */
+peopleRouter.post('/orgs/:orgId/people/employees/:id/statutory/reveal', can(PermissionAction.VIEW, STATUTORY), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const employee = await peoplePrisma.employee.findFirst({ where: { id: String(req.params.id), accountId, orgId }, select: { id: true } });
+  if (!employee) return res.status(404).json({ error: 'No such employee.' });
+  const field = String(req.body?.field || '');
+  const payrollField = (PAYROLL_STATUTORY_FIELDS as readonly string[]).includes(field);
+  const peopleField = ['passportNumber', 'workPermitNumber'].includes(field);
+  if (!payrollField && !peopleField) return res.status(400).json({ error: 'Say which value to show: pan, uan, esic, account, passportNumber or workPermitNumber.' });
+  const refused = await stepUpRefusal(req, 'Showing a full identifier needs an authenticator app. Set one up in your profile first (your name or picture, top right).');
+  if (refused) return res.status(refused.status).json(refused.body);
+  const value = payrollField
+    ? await revealStatutory(orgId, employee.id, field as any)
+    : ((await peoplePrisma.employeeIdentity.findUnique({ where: { employeeId: employee.id }, select: { [field]: true } as any })) as any)?.[field] ?? null;
+  await peoplePrisma.accessLog.create({ data: { accountId, orgId, what: 'STATUTORY', entityId: employee.id, employeeId: employee.id, field, userId: req.auth!.userId } });
+  res.json({ field, value });
 });
 
 /** People → Home: what needs someone today (services/people/home.ts). */

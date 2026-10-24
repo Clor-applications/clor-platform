@@ -30,6 +30,8 @@ import {
   listContractors,
   getChecklist,
   getEmployeeStatutory,
+  revealStatutory,
+  saveIdentity,
   getEmploymentHistory,
   getEmploymentEpisodes,
   cancelScheduledChange,
@@ -842,6 +844,10 @@ function EmployeeChecklist({ person }) {
  */
 function StatutoryDetails({ employeeId }) {
   const [d, setD] = useState(null);
+  const [shown, setShown] = useState({});
+  const [editing, setEditing] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const load = useCallback(() => getEmployeeStatutory(employeeId).then(setD).catch(() => setD({ visible: false })), [employeeId]);
   useEffect(() => {
     let live = true;
     getEmployeeStatutory(employeeId).then((x) => live && setD(x)).catch(() => live && setD({ visible: false }));
@@ -850,17 +856,83 @@ function StatutoryDetails({ employeeId }) {
     };
   }, [employeeId]);
   if (!d?.visible) return null;
+  /* A full value shows for a minute and is logged on the server; the client asks for the authenticator code when the server wants one. */
+  const show = async (field) => {
+    try {
+      const value = await revealStatutory(employeeId, field);
+      setShown((x) => ({ ...x, [field]: value || '—' }));
+      setTimeout(() => setShown((x) => { const next = { ...x }; delete next[field]; return next; }), 60_000);
+    } catch (e) {
+      notify.error(String(e?.message || 'Not shown.'));
+    }
+  };
+  const Masked = ({ label, field, value }) => (
+    <div>
+      <dt className="ui-t-label">{label}</dt>
+      <dd className="mt-1 text-sm flex items-center gap-2">
+        <span className="tabular-nums">{shown[field] ?? (value || 'Not set')}</span>
+        {value && !shown[field] ? <button type="button" className="ui-link" onClick={() => show(field)}>Show</button> : null}
+      </dd>
+    </div>
+  );
+  const saveIdentityForm = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      await saveIdentity(employeeId, editing);
+      notify.success('Saved.');
+      setEditing(null);
+      load();
+    } catch (err) {
+      notify.error(String(err?.message || 'Not saved.'));
+    } finally {
+      setSaving(false);
+    }
+  };
+  const id = d.identity || {};
   return (
-    <section className="mt-5 space-y-2" aria-label="Statutory and bank">
-      <h3 className="text-sm font-semibold">Statutory &amp; bank <span className="ui-caption font-normal">from Payroll, last digits only</span></h3>
-      {d.inPayroll === false && !d.pan && !d.uan ? (
+    <section className="mt-5 space-y-3" aria-label="Statutory details">
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="text-sm font-semibold">Statutory details <span className="ui-caption font-normal">masked; a full value needs your authenticator code and is logged</span></h3>
+        {d.canEdit && !editing ? <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => setEditing({ aadhaarLast4: '', passportNumber: '', passportExpiry: id.passportExpiry || '', workPermitNumber: '', workPermitExpiry: id.workPermitExpiry || '', statutoryCategory: id.statutoryCategory || '', categoryFrom: id.categoryFrom || '' })}>Edit identifiers</button> : null}
+      </div>
+      {editing ? (
+        <form onSubmit={saveIdentityForm} className="ui-card p-3 grid gap-3 sm:grid-cols-2">
+          <label className="block"><span className="ui-label">Aadhaar, last 4 digits</span><input className="ui-input w-full" value={editing.aadhaarLast4} maxLength={4} inputMode="numeric" placeholder={id.aadhaarLast4 ? 'unchanged' : '9012'} onChange={(e) => setEditing({ ...editing, aadhaarLast4: e.target.value })} /></label>
+          <label className="block"><span className="ui-label">Statutory category</span>
+            <select className="ui-select w-full" value={editing.statutoryCategory} onChange={(e) => setEditing({ ...editing, statutoryCategory: e.target.value })}>
+              <option value="">— Not set —</option>
+              {[['WORKER', 'Worker'], ['SUPERVISOR', 'Supervisor'], ['MANAGER', 'Manager'], ['APPRENTICE', 'Apprentice'], ['CONTRACT', 'Contract']].map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+            </select>
+          </label>
+          <label className="block"><span className="ui-label">Passport number</span><input className="ui-input w-full" value={editing.passportNumber} placeholder={id.passportNumber ? 'unchanged' : 'A1234567'} onChange={(e) => setEditing({ ...editing, passportNumber: e.target.value.toUpperCase() })} /></label>
+          <label className="block"><span className="ui-label">Passport expiry</span><input type="date" className="ui-input w-full" value={editing.passportExpiry} onChange={(e) => setEditing({ ...editing, passportExpiry: e.target.value })} /></label>
+          <label className="block"><span className="ui-label">Work permit number</span><input className="ui-input w-full" value={editing.workPermitNumber} placeholder={id.workPermitNumber ? 'unchanged' : ''} onChange={(e) => setEditing({ ...editing, workPermitNumber: e.target.value.toUpperCase() })} /></label>
+          <label className="block"><span className="ui-label">Work permit expiry</span><input type="date" className="ui-input w-full" value={editing.workPermitExpiry} onChange={(e) => setEditing({ ...editing, workPermitExpiry: e.target.value })} /></label>
+          <label className="block"><span className="ui-label">Category from</span><input type="date" className="ui-input w-full" value={editing.categoryFrom} onChange={(e) => setEditing({ ...editing, categoryFrom: e.target.value })} /></label>
+          <div className="sm:col-span-2 flex justify-end gap-2">
+            <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => setEditing(null)}>Cancel</button>
+            <button type="submit" className="ui-btn ui-btn-primary ui-btn-sm" disabled={saving}>{saving ? 'Saving…' : 'Save'}</button>
+          </div>
+        </form>
+      ) : null}
+      <dl className="grid gap-4 sm:grid-cols-2">
+        <Field label="Aadhaar" value={id.aadhaarLast4} />
+        <Masked label="Passport" field="passportNumber" value={id.passportNumber} />
+        <Field label="Passport expiry" value={id.passportExpiry} />
+        <Masked label="Work permit" field="workPermitNumber" value={id.workPermitNumber} />
+        <Field label="Work permit expiry" value={id.workPermitExpiry} />
+        <Field label="Statutory category" value={id.statutoryCategory ? `${id.statutoryCategory.charAt(0)}${id.statutoryCategory.slice(1).toLowerCase()}${id.categoryFrom ? ` from ${id.categoryFrom}` : ''}` : null} />
+      </dl>
+      <h4 className="text-sm font-semibold mt-2">From Payroll</h4>
+      {d.inPayroll === false ? (
         <p className="ui-muted text-sm">Not set up in Payroll yet.</p>
       ) : (
         <dl className="grid gap-4 sm:grid-cols-2">
-          <Field label="PAN" value={d.pan} />
-          <Field label="UAN" value={d.uan} />
-          <Field label="ESIC number" value={d.esic} />
-          <Field label="Bank" value={[d.bank, d.account].filter(Boolean).join(' ')} />
+          <Masked label="PAN" field="pan" value={d.pan} />
+          <Masked label="UAN" field="uan" value={d.uan} />
+          <Masked label="ESIC number" field="esic" value={d.esic} />
+          <Masked label="Bank account" field="account" value={[d.bank, d.account].filter(Boolean).join(' ')} />
           <Field label="IFSC" value={d.ifsc} />
           <Field label="Covered by" value={[d.pf && 'PF', d.esi && 'ESI', d.pt && `PT (${d.pt})`].filter(Boolean).join(' · ')} />
         </dl>

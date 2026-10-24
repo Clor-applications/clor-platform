@@ -230,6 +230,12 @@ export const PERMISSION_CATALOG: ModuleDef[] = [
         description: 'Files marked confidential (medical, disciplinary, legal). Only this grant opens them',
         actions: MASTER,
       },
+      {
+        key: 'Statutory Details',
+        label: 'Statutory details',
+        description: 'Identifiers and statutory category: PAN, UAN, ESIC and bank from Payroll, Aadhaar (last four), passport, work permit. Shown masked; revealing one needs an authenticator code and is logged',
+        actions: [A.VIEW, A.EDIT],
+      },
     ],
   },
   {
@@ -650,6 +656,12 @@ export const ROLE_PRESETS: Record<string, RolePreset> = {
       ['PEOPLE', 'Org Structure', [A.VIEW]],
       ['PEOPLE', 'Employee Notes', USER],
       ['PEOPLE', 'Documents', USER],
+      ['PEOPLE', 'Statutory Details', [A.VIEW]],
+      /* Leave is HR's (founder, 22 Oct 2026): People's leave screens are gated on these (review R-12). */
+      ['ATTENDANCE', 'Leave Requests', [A.VIEW, A.CREATE, A.EDIT]],
+      ['ATTENDANCE', 'Leave Types', [A.VIEW]],
+      ['ATTENDANCE', 'Holidays', [A.VIEW]],
+      ['ATTENDANCE', 'My Attendance', [A.VIEW]],
     ],
   },
   HR_MANAGER: {
@@ -663,7 +675,48 @@ export const ROLE_PRESETS: Record<string, RolePreset> = {
       ['PEOPLE', 'Employee Notes', ['*']],
       ['PEOPLE', 'Documents', ['*']],
       ['PEOPLE', 'Confidential Documents', ['*']],
+      ['PEOPLE', 'Statutory Details', ['*']],
       ...['Announcements', 'Events', 'Recruitment', 'Performance', 'Learning', 'HR Cases', 'Assets', 'Benefits'].map((key) => ['PEOPLE', key, ['*']] as [string, string, string[]]),
+      /* Leave, holidays and the employee app are HR's too (review R-12). */
+      ['ATTENDANCE', 'Leave Requests', ['*']],
+      ['ATTENDANCE', 'Leave Types', ['*']],
+      ['ATTENDANCE', 'Holidays', ['*']],
+      ['ATTENDANCE', 'My Attendance', [A.VIEW]],
+      ['ATTENDANCE', 'Employee Portal', ['*']],
+    ],
+  },
+  COMPLIANCE_OFFICER: {
+    label: 'Compliance Officer',
+    group: 'People',
+    description: 'Obligations, proof, policy reads and statutory details: read the people records, change the compliance work',
+    roleType: 'CUSTOM',
+    grants: [
+      ['PEOPLE', 'Employees', [A.VIEW, A.EXPORT]],
+      ['PEOPLE', 'Org Structure', [A.VIEW]],
+      ['PEOPLE', 'Documents', [A.VIEW]],
+      ['PEOPLE', 'Statutory Details', [A.VIEW]],
+      ['ATTENDANCE', 'Employee Portal', [A.VIEW]],
+      ['SETTINGS', 'Audit trail', [A.VIEW, A.EXPORT]],
+    ],
+  },
+  IT_ADMIN: {
+    label: 'IT Administrator',
+    group: 'People',
+    description: 'Joiner, mover and leaver tasks for IT, and the assets register; no personal or statutory details',
+    roleType: 'CUSTOM',
+    grants: [
+      ['PEOPLE', 'Employees', [A.VIEW]],
+      ['PEOPLE', 'Assets', ['*']],
+    ],
+  },
+  EXTERNAL_AUDITOR: {
+    label: 'External Auditor',
+    group: 'Read-only',
+    description: 'Read the audit trail and the documents shared for an audit; nothing personal, nothing editable',
+    roleType: 'CUSTOM',
+    grants: [
+      ['PEOPLE', 'Documents', [A.VIEW]],
+      ['SETTINGS', 'Audit trail', [A.VIEW, A.EXPORT]],
     ],
   },
 

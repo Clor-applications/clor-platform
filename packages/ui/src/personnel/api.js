@@ -80,6 +80,10 @@ export const transferEmployees = (body) => send('/employees/transfer', 'POST', b
 /* Employment history: joined, moved, changed, left, rehired, with payroll impact (server: services/people/employmentHistory.ts). */
 /* Statutory and bank details from Payroll, masked (server: people /employees/:id/statutory). */
 export const getEmployeeStatutory = (id) => apiFetch(`${base()}/employees/${encodeURIComponent(id)}/statutory`, opts);
+/* One identifier in clear (CORE-04): the platform client answers the authenticator prompt when the server asks for one. */
+export const revealStatutory = (id, field) => send(`/employees/${encodeURIComponent(id)}/statutory/reveal`, 'POST', { field }).then((r) => r?.value ?? null);
+/* The identifiers People keeps: last four of Aadhaar, passport, work permit, statutory category. */
+export const saveIdentity = (id, body) => send(`/employees/${encodeURIComponent(id)}/identity`, 'PUT', body).then((r) => r?.identity);
 /* Joining and leaving checklists (server: services/people/checklists.ts). */
 export const CHECKLIST_OWNER = { HR: 'HR', MANAGER: 'Manager', PAYROLL: 'Payroll', IT: 'IT / admin', EMPLOYEE: 'Employee' };
 export const getChecklist = (id) => apiFetch(`${base()}/employees/${encodeURIComponent(id)}/checklist`, opts);
