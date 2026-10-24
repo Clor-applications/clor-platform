@@ -250,6 +250,8 @@ const AUDITED_FIELDS = [
  */
 async function auditInvoiceCreated(req: Request, row: any) {
   try {
+    /* Written by name here; the general recorder (auditMutations) leaves it. */
+    if (req.res) req.res.locals.audited = true;
     await platformPrisma.auditLog.create({
       data: {
         accountId: req.tenant!.accountId,
@@ -299,6 +301,8 @@ async function auditInvoiceChange(
       }
       if (!Object.keys(changes).length) return;
     }
+    /* Written by name here; the general recorder (auditMutations) leaves it. */
+    if (req.res) req.res.locals.audited = true;
     await platformPrisma.auditLog.create({
       data: {
         accountId: req.tenant!.accountId,

@@ -194,7 +194,7 @@ portalAdminRouter.post(`${base}/portal-access/:employeeId/sign-out-everywhere`, 
   const e = await peoplePrisma.employee.findFirst({ where: { accountId, orgId, id: String(req.params.employeeId) }, select: { id: true, accountId: true, orgId: true, name: true } });
   if (!e) return res.status(404).json({ error: 'No such employee.' });
   const ended = await endPortalSessions(e, 'signed out everywhere by HR', actorFrom(req));
-  await recordAudit(req, { entity: 'Employee', entityId: e.id, action: 'PORTAL_SIGN_OUT_EVERYWHERE', message: `Signed ${e.name} out of the employee app on every device`, metadata: { ended } });
+  await recordAudit(req, { entity: 'Employee', entityId: e.id, action: 'SIGN_OUT', message: `Signed ${e.name} out of the employee app on every device`, metadata: { ended } });
   res.json({ ok: true, ended });
 });
 

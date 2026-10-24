@@ -1,0 +1,2052 @@
+
+ RUN  v2.1.9 /Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad
+
+ ✓ apps/admin/src/screens/accountOverviewDate.test.jsx (2 tests) 56ms
+stderr | apps/admin/src/screens/dataBackup.test.jsx > taking a copy of the company data > reports what it took, so the person can see it worked
+Not implemented: navigation to another Document
+
+stderr | apps/admin/src/screens/dataBackup.test.jsx > the two kinds of backup > asks the server for the scope that was pressed
+Not implemented: navigation to another Document
+
+ ✓ apps/admin/src/screens/dataBackup.test.jsx (9 tests) 224ms
+ ✓ apps/admin/src/screens/Credentials.test.jsx (5 tests) 203ms
+ ❯ apps/admin/src/screens/accountArea.test.jsx (11 tests | 3 failed) 1194ms
+   × the account overview > shows each company address and says it does not resolve yet 1015ms
+     → Unable to find an element with the text: cla.neevone.com. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"space-y-6"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"ui-page-heading flex flex-wrap items-start justify-between gap-3 mb-2"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex min-w-0 items-center gap-2.5"[39m
+        [36m>[39m
+          [36m<span[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"ui-entity-mark grid h-8 w-8 shrink-0 place-items-center rounded-lg"[39m
+            [33mstyle[39m=[32m"background-color: rgb(var(--brand) / 0.12); color: rgb(var(--brand-ink));"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33maria-hidden[39m=[32m"true"[39m
+              [33mclass[39m=[32m"lucide lucide-building2 lucide-building-2"[39m
+              [33mfill[39m=[32m"none"[39m
+              [33mheight[39m=[32m"18"[39m
+              [33mstroke[39m=[32m"currentColor"[39m
+              [33mstroke-linecap[39m=[32m"round"[39m
+              [33mstroke-linejoin[39m=[32m"round"[39m
+              [33mstroke-width[39m=[32m"2.1"[39m
+              [33mviewBox[39m=[32m"0 0 24 24"[39m
+              [33mwidth[39m=[32m"18"[39m
+              [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+            [36m>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M10 12h4"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M10 8h4"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M14 21v-3a2 2 0 0 0-4 0v3"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M6 10H4a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-2"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M6 21V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16"[39m
+              [36m/>[39m
+            [36m</svg>[39m
+          [36m</span>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"min-w-0"[39m
+          [36m>[39m
+            [36m<h1[39m
+              [33mclass[39m=[32m"ui-t-page"[39m
+            [36m>[39m
+              [0mNeev Group[0m
+            [36m</h1>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"grid gap-3 sm:grid-cols-2 lg:grid-cols-4"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"ui-card p-4"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"ui-label"[39m
+          [36m>[39m
+            [0mCompanies[0m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"mt-1 text-2xl ui-money"[39m
+          [36m>[39m
+            [0m2[0m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"ui-card p-4"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"ui-label"[39m
+          [36m>[39m
+            [0mPeople[0m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"mt-1 text-2xl ui-money"[39m
+          [36m>[39m
+            [0m2[0m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"ui-card p-4"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"ui-label"[39m
+          [36m>[39m
+            [0mBilled across all companies[0m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"mt-1 text-2xl ui-money"[39m
+          [36m>[39m
+            [0m₹1,00,000.00[0m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"ui-caption ui-muted mt-0.5"[39m
+          [36m>[39m
+            [0m4 invoice(s)[0m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"ui-card p-4"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"ui-label"[39m
+          [36m>[39m
+            [0mOutstanding[0m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"mt-1 text-2xl ui-money"[39m
+          [36m>[39m
+            [0m₹25,000.00[0m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"ui-caption ui-muted mt-0.5"[39m
+          [36m>[39m
+            [0mStill owed by customers[0m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"ui-card p-4"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex flex-wrap items-start justify-between gap-4"[39m
+        [36m>[39m
+          [36m<div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"ui-label"[39m
+            [36m>[39m
+              [0mPlan[0m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"mt-1 text-lg"[39m
+            [36m>[39m
+              [0mPractice[0m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"ui-caption ui-muted"[39m
+            [36m>[39m
+              [0mActive[0m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"min-w-[12rem]"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"ui-label mb-1"[39m
+            [36m>[39m
+              [0mCompanies[0m
+            [36m</div>[39m
+            [36m<div>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"ui-caption ui-muted mb-1"[39m
+              [36m>[39m
+                [0m2[0m
+                [0m of [0m
+                [0m50[0m
+              [36m</div>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"h-1.5 w-full overflow-hidden rounded-full"[39m
+                [33mstyle[39m=[32m"background: rgb(var(--sunken));"[39m
+              [36m>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"h-full rounded-full"[39m
+                  [33mstyle[39m=[32m"width: 4%; background: rgb(var(--pos));"[39m
+                [36m/>[39m
+              [36m</div>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"min-w-[12rem]"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"ui-label mb-1"[39m
+            [36m>[39m
+              [0mUsers[0m
+            [36m</div>[39m
+            [36m<div>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"ui-caption ui-muted mb-1"[39m
+              [36m>[39m
+                [0m2[0m
+                [0m of [0m
+                [0m25[0m
+              [36m</div>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"h-1.5 w-full overflow-hidden rounded-full"[39m
+                [33mstyle[39m=[32m"background: rgb(var(--sunken));"[39m
+              [36m>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"h-full rounded-full"[39m
+                  [33mstyle[39m=[32m"width: 8%; background: rgb(var(--pos));"[39m
+                [36m/>[39m
+              [36m</div>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+      [36m<div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"ui-label mb-2"[39m
+        [36m>[39m
+          [0mCompanies[0m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"ui-card overflow-x-auto"[39m
+        [36m>[39m
+          [36m<table[39m
+            [33mclass[39m=[32m"ui-table w-full"[39m
+          [36m>[39m
+            [36m<thead>[39m
+              [36m<tr>[39m
+                [36m<th[39m
+                  [33mclass[39m=[32m"ui-th text-left"[39m
+                [36m>[39m
+                  [0mCompany[0m
+                [36m</th>[39m
+                [36m<th[39m
+                  [33mclass[39m=[32m"ui-th text-left"[39m
+                [36m>[39m
+                  [0mState[0m
+                [36m</th>[39m
+                [36m<th[39m
+                  [33mclass[39m=[32m"ui-th text-left"[39m
+                [36m>[39m
+                  [0mGSTIN[0m
+                [36m</th>[39m
+                [36m<th[39m
+                  [33mclass[39m=[32m"ui-th ui-num text-right"[39m
+                [36m>[39m
+                  [0mPeople[0m
+                [36m</th>[39m
+                [36m<th[39m
+                  [33mclass[39m=[32m"ui-th ui-num text-right"[39m
+                [36m>[39m
+                  [0mInvoices[0m
+                [36m</th>[39m
+                [36m<th[39m
+                  [33mclass[39m=[32m"ui-th ui-num text-right"[39m
+                [36m>[39m
+                  [0mBilled[0m
+                [36m</th>[39m
+                [36m<th[39m
+                  [33mclass[39m=[32m"ui-th ui-num text-right"[39m
+                [36m>[39m
+                  [0mOutstanding[0m
+                [36m</th>[39m
+              [36m</tr>[39m
+            [36m</thead>[39m
+            [36m<tbody>[39m
+              [36m<tr[39m
+                [33mclass[39m=[32m"border-t"[39m
+              [36m>[39m
+                [36m<td[39m
+                  [33mclass[39m=[32m"ui-col-entity px-4 py-2.5"[39m
+                [36m>[39m
+                  [0mClient A[0m
+                [36m</td>[39m
+                [36m<td[39m
+                  [33mclass[39m=[32m"ui-col-meta px-4 py-2.5"[39m
+                [36m>[39m
+                  [0mKarnataka[0m
+                [36m</td>[39m
+                [36m<td[39m
+                  [33mclass[39m=[32m"ui-col-meta px-4 py-2.5 ui-mono"[39m
+                [36m>[39m
+                  [0m29AAAAA0000A1Z5[0m
+                [36m</td>[39m
+                [36m<td[39m
+                  [33mclass[39m=[32m"ui-col-amount px-4 py-2.5 text-right"[39m
+                [36m>[39m
+                  [0m2[0m
+                [36m</td>[39m
+                [36m<td[39m
+                  [33mclass[39m=[32m"ui-col-amount px-4 py-2.5 text-right"[39m
+                [36m>[39m
+                  [0m4[0m
+                [36m</td>[39m
+                [36m<td[39m
+                  [33mclass[39m=[32m"ui-col-amount px-4 py-2.5 text-right"[39m
+                [36m>[39m
+                  [0m₹1,00,000.00[0m
+                [36m</td>[39m
+                [36m<td[39m
+                  [33mclass[39m=[32m"ui-col-amount px-4 py-2.5 text-right"[39m
+                [36m>[39m
+                  [0m₹25,000.00[0m
+                [36m</td>[39m
+              [36m</tr>[39m
+              [36m<tr[39m
+                [33mclass[39m=[32m"border-t"[39m
+              [36m>[39m
+                [36m<td[39m
+                  [33mclass[39m=[32m"ui-col-entity px-4 py-2.5"[39m
+                [36m>[39m
+                  [0mClient B[0m
+                [36m</td>[39m
+                [36m<td[39m
+                  [33mclass[39m=[32m"ui-col-meta px-4 py-2.5"[39m
+                [36m>[39m
+                  [0mKerala[0m
+                [36m</td>[39m
+                [36m<td[39m
+                  [33mclass[39m=[32m"ui-col-meta px-4 py-2.5 ui-mono"[39m
+                [36m>[39m
+                  [0m—[0m
+                [36m</td>[39m
+                [36m<td[39m
+                  [33mclass[39m=[32m"ui-col-amount px-4 py-2.5 text-right"[39m
+                [36m>[39m
+                  [0m1[0m
+                [36m</td>[39m
+                [36m<td[39m
+                  [33mclass[39m=[32m"ui-col-amount px-4 py-2.5 text-right"[39m
+                [36m>[39m
+                  [0m0[0m
+                [36m</td>[39m
+                [36m<td[39m
+                  [33mclass[39m=[32m"ui-col-amount px-4 py-2.5 text-right"[39m
+                [36m>[39m
+                  [0m₹0.00[0m
+                [36m</td>[39m
+                [36m<td[39m
+                  [33mclass[39m=[32m"ui-col-amount px-4 py-2.5 text-right"[39m
+                [36m>[39m
+                  [0m₹0.00[0m
+                [36m</td>[39m
+              [36m</tr>[39m
+            [36m</tbody>[39m
+          [36m</table>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+      [36m<div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"ui-label mb-2"[39m
+        [36m>[39m
+          [0mCompany addresses[0m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"space-y-3"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex items-start gap-3 rounded-xl p-4"[39m
+            [33mrole[39m=[32m"status"[39m
+            [33mstyle[39m=[32m"background: rgb(var(--warn-soft)); color: rgb(var(--warn-ink));"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33maria-hidden[39m=[32m"true"[39m
+              [33mclass[39m=[32m"lucide lucide-plug-zap mt-0.5 shrink-0"[39m
+              [33mfill[39m=[32m"none"[39m
+              [33mheight[39m=[32m"18"[39m
+              [33mstroke[39m=[32m"currentColor"[39m
+              [33mstroke-linecap[39m=[32m"round"[39m
+              [33mstroke-linejoin[39m=[32m"round"[39m
+              [33mstroke-width[39m=[32m"2"[39m
+              [33mviewBox[39m=[32m"0 0 24 24"[39m
+              [33mwidth[39m=[32m"18"[39m
+              [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+            [36m>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M6.3 20.3a2.4 2.4 0 0 0 3.4 0L12 18l-6-6-2.3 2.3a2.4 2.4 0 0 0 0 3.4Z"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"m2 22 3-3"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M7.5 13.5 10 11"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M10.5 16.5 13 14"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"m18 3-4 4h6l-4 4"[39m
+              [36m/>[39m
+            [36m</svg>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"text-sm"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"font-semibold"[39m
+              [36m>[39m
+                [0mPreview — [0m
+                [0mcompany subdomains[0m
+                [0m is not connected yet.[0m
+              [36m</div>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"mt-0.5"[39m
+              [36m>[39m
+                [0mEach company already has the handle below, and it is unique across the account. Pointing a subdomain at it needs DNS and a certificate, which is a deployment step rather than a product one — so these do not resolve yet.[0m
+              [36m</div>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"ui-card divide-y"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"flex items-center gap-3 px-4 py-2.5"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"min-w-0 flex-1 text-sm"[39m
+              [36m>[39m
+                [0mClient A[0m
+              [36m</div>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"ui-mono ui-caption ui-muted"[39m
+              [36m>[39m
+                [0mcla.clor.in[0m
+              [36m</div>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"flex items-center gap-3 px-4 py-2.5"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"min-w-0 flex-1 text-sm"[39m
+              [36m>[39m
+                [0mClient B[0m
+              [36m</div>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"ui-mono ui-caption ui-muted"[39m
+              [36m>[39m
+                [0mclb.clor.in[0m
+              [36m</div>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+      [36m<div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"ui-label mb-2"[39m
+        [36m>[39m
+          [0mPeople[0m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"ui-card divide-y"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex items-center gap-3 px-4 py-2.5"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"min-w-0 flex-1"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"text-sm"[39m
+              [36m>[39m
+                [0mSuresh[0m
+              [36m</div>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"ui-caption ui-muted truncate"[39m
+              [36m>[39m
+                [0msuresh@example.com[0m
+              [36m</div>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"ui-caption ui-muted"[39m
+            [36m>[39m
+              [0mLast signed in 09/09/2026[0m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex items-center gap-3 px-4 py-2.5"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"min-w-0 flex-1"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"text-sm"[39m
+              [36m>[39m
+                [0mAn Intern[0m
+              [36m</div>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"ui-caption ui-muted truncate"[39m
+              [36m>[39m
+                [0mintern@example.com[0m
+              [36m</div>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"ui-caption ui-muted"[39m
+            [36m>[39m
+              [0mNever signed in[0m
+            [36m</div>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+
+Ignored nodes: comments, script, style
+[36m<html>[39m
+  [36m<head />[39m
+  [36m<body>[39m
+    [36m<div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"space-y-6"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"ui-page-heading flex flex-wrap items-start justify-between gap-3 mb-2"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex min-w-0 items-center gap-2.5"[39m
+          [36m>[39m
+            [36m<span[39m
+              [33maria-hidden[39m=[32m"true"[39m
+              [33mclass[39m=[32m"ui-entity-mark grid h-8 w-8 shrink-0 place-items-center rounded-lg"[39m
+              [33mstyle[39m=[32m"background-color: rgb(var(--brand) / 0.12); color: rgb(var(--brand-ink));"[39m
+            [36m>[39m
+              [36m<svg[39m
+                [33maria-hidden[39m=[32m"true"[39m
+                [33mclass[39m=[32m"lucide lucide-building2 lucide-building-2"[39m
+                [33mfill[39m=[32m"none"[39m
+                [33mheight[39m=[32m"18"[39m
+                [33mstroke[39m=[32m"currentColor"[39m
+                [33mstroke-linecap[39m=[32m"round"[39m
+                [33mstroke-linejoin[39m=[32m"round"[39m
+                [33mstroke-width[39m=[32m"2.1"[39m
+                [33mviewBox[39m=[32m"0 0 24 24"[39m
+                [33mwidth[39m=[32m"18"[39m
+                [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+              [36m>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M10 12h4"[39m
+                [36m/>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M10 8h4"[39m
+                [36m/>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M14 21v-3a2 2 0 0 0-4 0v3"[39m
+                [36m/>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M6 10H4a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-2"[39m
+                [36m/>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M6 21V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16"[39m
+                [36m/>[39m
+              [36m</svg>[39m
+            [36m</span>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"min-w-0"[39m
+            [36m>[39m
+              [36m<h1[39m
+                [33mclass[39m=[32m"ui-t-page"[39m
+              [36m>[39m
+                [0mNeev Group[0m
+              [36m</h1>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"grid gap-3 sm:grid-cols-2 lg:grid-cols-4"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"ui-card p-4"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"ui-label"[39m
+            [36m>[39m
+              [0mCompanies[0m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"mt-1 text-2xl ui-money"[39m
+            [36m>[39m
+              [0m2[0m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"ui-card p-4"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"ui-label"[39m
+            [36m>[39m
+              [0mPeople[0m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"mt-1 text-2xl ui-money"[39m
+            [36m>[39m
+              [0m2[0m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"ui-card p-4"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"ui-label"[39m
+            [36m>[39m
+              [0mBilled across all companies[0m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"mt-1 text-2xl ui-money"[39m
+            [36m>[39m
+              [0m₹1,00,000.00[0m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"ui-caption ui-muted mt-0.5"[39m
+            [36m>[39m
+              [0m4 invoice(s)[0m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"ui-card p-4"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"ui-label"[39m
+            [36m>[39m
+              [0mOutstanding[0m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"mt-1 text-2xl ui-money"[39m
+            [36m>[39m
+              [0m₹25,000.00[0m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"ui-caption ui-muted mt-0.5"[39m
+            [36m>[39m
+              [0mStill owed by customers[0m
+            [36m</div>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"ui-card p-4"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex flex-wrap items-start justify-between gap-4"[39m
+          [36m>[39m
+            [36m<div>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"ui-label"[39m
+              [36m>[39m
+                [0mPlan[0m
+              [36m</div>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"mt-1 text-lg"[39m
+              [36m>[39m
+                [0mPractice[0m
+              [36m</div>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"ui-caption ui-muted"[39m
+              [36m>[39m
+                [0mActive[0m
+              [36m</div>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"min-w-[12rem]"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"ui-label mb-1"[39m
+              [36m>[39m
+                [0mCompanies[0m
+              [36m</div>[39m
+              [36m<div>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"ui-caption ui-muted mb-1"[39m
+                [36m>[39m
+                  [0m2[0m
+                  [0m of [0m
+                  [0m50[0m
+                [36m</div>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"h-1.5 w-full overflow-hidden rounded-full"[39m
+                  [33mstyle[39m=[32m"background: rgb(var(--sunken));"[39m
+                [36m>[39m
+                  [36m<div[39m
+                    [33mclass[39m=[32m"h-full rounded-full"[39m
+                    [33mstyle[39m=[32m"width: 4%; background: rgb(var(--pos));"[39m
+                  [36m/>[39m
+                [36m</div>[39m
+              [36m</div>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"min-w-[12rem]"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"ui-label mb-1"[39m
+              [36m>[39m
+                [0mUsers[0m
+              [36m</div>[39m
+              [36m<div>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"ui-caption ui-muted mb-1"[39m
+                [36m>[39m
+                  [0m2[0m
+                  [0m of [0m
+                  [0m25[0m
+                [36m</div>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"h-1.5 w-full overflow-hidden rounded-full"[39m
+                  [33mstyle[39m=[32m"background: rgb(var(--sunken));"[39m
+                [36m>[39m
+                  [36m<div[39m
+                    [33mclass[39m=[32m"h-full rounded-full"[39m
+                    [33mstyle[39m=[32m"width: 8%; background: rgb(var(--pos));"[39m
+                  [36m/>[39m
+                [36m</div>[39m
+              [36m</div>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"ui-label mb-2"[39m
+          [36m>[39m
+            [0mCompanies[0m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"ui-card overflow-x-auto"[39m
+          [36m>[39m
+            [36m<table[39m
+              [33mclass[39m=[32m"ui-table w-full"[39m
+            [36m>[39m
+              [36m<thead>[39m
+                [36m<tr>[39m
+                  [36m<th[39m
+                    [33mclass[39m=[32m"ui-th text-left"[39m
+                  [36m>[39m
+                    [0mCompany[0m
+                  [36m</th>[39m
+                  [36m<th[39m
+                    [33mclass[39m=[32m"ui-th text-left"[39m
+                  [36m>[39m
+                    [0mState[0m
+                  [36m</th>[39m
+                  [36m<th[39m
+                    [33mclass[39m=[32m"ui-th text-left"[39m
+                  [36m>[39m
+                    [0mGSTIN[0m
+                  [36m</th>[39m
+                  [36m<th[39m
+                    [33mclass[39m=[32m"ui-th ui-num text-right"[39m
+                  [36m>[39m
+                    [0mPeople[0m
+                  [36m</th>[39m
+                  [36m<th[39m
+                    [33mclass[39m=[32m"ui-th ui-num text-right"[39m
+                  [36m>[39m
+                    [0mInvoices[0m
+                  [36m</th>[39m
+                  [36m<th[39m
+                    [33mclass[39m=[32m"ui-th ui-num text-right"[39m
+                  [36m>[39m
+                    [0mBilled[0m
+                  [36m</th>[39m
+                  [36m<th[39m
+                    [33mclass[39m=[32m"ui-th ui-num text-right"[39m
+                  [36m>[39m
+                    [0mOutstanding[0m
+                  [36m</th>[39m
+                [36m</tr>[39m
+              [36m</thead>[39m
+              [36m<tbody>[39m
+                [36m<tr[39m
+                  [33mclass[39m=[32m"border-t"[39m
+                [36m>[39m
+                  [36m<td[39m
+                    [33mclass[39m=[32m"ui-col-entity px-4 py-2.5"[39m
+                  [36m>[39m
+                    [0mClient A[0m
+                  [36m</td>[39m
+                  [36m<td[39m
+                    [33mclass[39m=[32m"ui-col-meta px-4 py-2.5"[39m
+                  [36m>[39m
+                    [0mKarnataka[0m
+                  [36m</td>[39m
+                  [36m<td[39m
+                    [33mclass[39m=[32m"ui-col-meta px-4 py-2.5 ui-mono"[39m
+                  [36m>[39m
+                    [0m29AAAAA0000A1Z5[0m
+                  [36m</td>[39m
+                  [36m<td[39m
+                    [33mclass[39m=[32m"ui-col-amount px-4 py-2.5 text-right"[39m
+                  [36m>[39m
+                    [0m2[0m
+                  [36m</td>[39m
+                  [36m<td[39m
+                    [33mclass[39m=[32m"ui-col-amount px-4 py-2.5 text-right"[39m
+                  [36m>[39m
+                    [0m4[0m
+                  [36m</td>[39m
+                  [36m<td[39m
+                    [33mclass[39m=[32m"ui-col-amount px-4 py-2.5 text-right"[39m
+                  [36m>[39m
+                    [0m₹1,00,000.00[0m
+                  [36m</td>[39m
+                  [36m<td[39m
+                    [33mclass[39m=[32m"ui-col-amount px-4 py-2.5 text-right"[39m
+                  [36m>[39m
+                    [0m₹25,000.00[0m
+                  [36m</td>[39m
+                [36m</tr>[39m
+                [36m<tr[39m
+                  [33mclass[39m=[32m"border-t"[39m
+                [36m>[39m
+                  [36m<td[39m
+                    [33mclass[39m=[32m"ui-col-entity px-4 py-2.5"[39m
+                  [36m>[39m
+                    [0mClient B[0m
+                  [36m</td>[39m
+                  [36m<td[39m
+                    [33mclass[39m=[32m"ui-col-meta px-4 py-2.5"[39m
+                  [36m>[39m
+                    [0mKerala[0m
+                  [36m</td>[39m
+                  [36m<td[39m
+                    [33mclass[39m=[32m"ui-col-meta px-4 py-2.5 ui-mono"[39m
+                  [36m>[39m
+                    [0m—[0m
+                  [36m</td>[39m
+                  [36m<td[39m
+                    [33mclass[39m=[32m"ui-col-amount px-4 py-2.5 text-right"[39m
+                  [36m>[39m
+                    [0m1[0m
+                  [36m</td>[39m
+                  [36m<td[39m
+                    [33mclass[39m=[32m"ui-col-amount px-4 py-2.5 text-right"[39m
+                  [36m>[39m
+                    [0m0[0m
+                  [36m</td>[39m
+                  [36m<td[39m
+                    [33mclass[39m=[32m"ui-col-amount px-4 py-2.5 text-right"[39m
+                  [36m>[39m
+                    [0m₹0.00[0m
+                  [36m</td>[39m
+                  [36m<td[39m
+                    [33mclass[39m=[32m"ui-col-amount px-4 py-2.5 text-right"[39m
+                  [36m>[39m
+                    [0m₹0.00[0m
+                  [36m</td>[39m
+                [36m</tr>[39m
+              [36m</tbody>[39m
+            [36m</table>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"ui-label mb-2"[39m
+          [36m>[39m
+            [0mCompany addresses[0m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"space-y-3"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"flex items-start gap-3 rounded-xl p-4"[39m
+              [33mrole[39m=[32m"status"[39m
+              [33mstyle[39m=[32m"background: rgb(var(--warn-soft)); color: rgb(var(--warn-ink));"[39m
+            [36m>[39m
+              [36m<svg[39m
+                [33maria-hidden[39m=[32m"true"[39m
+                [33mclass[39m=[32m"lucide lucide-plug-zap mt-0.5 shrink-0"[39m
+                [33mfill[39m=[32m"none"[39m
+                [33mheight[39m=[32m"18"[39m
+                [33mstroke[39m=[32m"currentColor"[39m
+                [33mstroke-linecap[39m=[32m"round"[39m
+                [33mstroke-linejoin[39m=[32m"round"[39m
+                [33mstroke-width[39m=[32m"2"[39m
+                [33mviewBox[39m=[32m"0 0 24 24"[39m
+                [33mwidth[39m=[32m"18"[39m
+                [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+              [36m>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M6.3 20.3a2.4 2.4 0 0 0 3.4 0L12 18l-6-6-2.3 2.3a2.4 2.4 0 0 0 0 3.4Z"[39m
+                [36m/>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"m2 22 3-3"[39m
+                [36m/>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M7.5 13.5 10 11"[39m
+                [36m/>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M10.5 16.5 13 14"[39m
+                [36m/>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"m18 3-4 4h6l-4 4"[39m
+                [36m/>[39m
+              [36m</svg>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"text-sm"[39m
+              [36m>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"font-semibold"[39m
+                [36m>[39m
+                  [0mPreview — [0m
+                  [0mcompany subdomains[0m
+                  [0m is not connected yet.[0m
+                [36m</div>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"mt-0.5"[39m
+                [36m>[39m
+                  [0mEach company already has the handle below, and it is unique across the account. Pointing a subdomain at it needs DNS and a certificate, which is a deployment step rather than a product one — so these do not resolve yet.[0m
+                [36m</div>[39m
+              [36m</div>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"ui-card divide-y"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"flex items-center gap-3 px-4 py-2.5"[39m
+              [36m>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"min-w-0 flex-1 text-sm"[39m
+                [36m>[39m
+                  [0mClient A[0m
+                [36m</div>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"ui-mono ui-caption ui-muted"[39m
+                [36m>[39m
+                  [0mcla.clor.in[0m
+                [36m</div>[39m
+              [36m</div>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"flex items-center gap-3 px-4 py-2.5"[39m
+              [36m>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"min-w-0 flex-1 text-sm"[39m
+                [36m>[39m
+                  [0mClient B[0m
+                [36m</div>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"ui-mono ui-caption ui-muted"[39m
+                [36m>[39m
+                  [0mclb.clor.in[0m
+                [36m</div>[39m
+              [36m</div>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"ui-label mb-2"[39m
+          [36m>[39m
+            [0mPeople[0m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"ui-card divide-y"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"flex items-center gap-3 px-4 py-2.5"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"min-w-0 flex-1"[39m
+              [36m>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"text-sm"[39m
+                [36m>[39m
+                  [0mSuresh[0m
+                [36m</div>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"ui-caption ui-muted truncate"[39m
+                [36m>[39m
+                  [0msuresh@example.com[0m
+                [36m</div>[39m
+              [36m</div>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"ui-caption ui-muted"[39m
+              [36m>[39m
+                [0mLast signed in 09/09/2026[0m
+              [36m</div>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"flex items-center gap-3 px-4 py-2.5"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"min-w-0 flex-1"[39m
+              [36m>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"text-sm"[39m
+                [36m>[39m
+                  [0mAn Intern[0m
+                [36m</div>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"ui-caption ui-muted truncate"[39m
+                [36m>[39m
+                  [0mintern@example.com[0m
+                [36m</div>[39m
+              [36m</div>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"ui-caption ui-muted"[39m
+              [36m>[39m
+                [0mNever signed in[0m
+              [36m</div>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+  [36m</body>[39m
+[36m</html>[39m
+   × single sign-on > offers no sign-in control at all 5ms
+     → Missing active org. Please select an organization.
+   × single sign-on > says what setting it up will ask for 1ms
+     → Missing active org. Please select an organization.
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  apps/admin/src/screens/accountArea.test.jsx > the account overview > shows each company address and says it does not resolve yet
+TestingLibraryElementError: Unable to find an element with the text: cla.neevone.com. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"space-y-6"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"ui-page-heading flex flex-wrap items-start justify-between gap-3 mb-2"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex min-w-0 items-center gap-2.5"[39m
+        [36m>[39m
+          [36m<span[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"ui-entity-mark grid h-8 w-8 shrink-0 place-items-center rounded-lg"[39m
+            [33mstyle[39m=[32m"background-color: rgb(var(--brand) / 0.12); color: rgb(var(--brand-ink));"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33maria-hidden[39m=[32m"true"[39m
+              [33mclass[39m=[32m"lucide lucide-building2 lucide-building-2"[39m
+              [33mfill[39m=[32m"none"[39m
+              [33mheight[39m=[32m"18"[39m
+              [33mstroke[39m=[32m"currentColor"[39m
+              [33mstroke-linecap[39m=[32m"round"[39m
+              [33mstroke-linejoin[39m=[32m"round"[39m
+              [33mstroke-width[39m=[32m"2.1"[39m
+              [33mviewBox[39m=[32m"0 0 24 24"[39m
+              [33mwidth[39m=[32m"18"[39m
+              [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+            [36m>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M10 12h4"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M10 8h4"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M14 21v-3a2 2 0 0 0-4 0v3"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M6 10H4a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-2"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M6 21V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16"[39m
+              [36m/>[39m
+            [36m</svg>[39m
+          [36m</span>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"min-w-0"[39m
+          [36m>[39m
+            [36m<h1[39m
+              [33mclass[39m=[32m"ui-t-page"[39m
+            [36m>[39m
+              [0mNeev Group[0m
+            [36m</h1>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"grid gap-3 sm:grid-cols-2 lg:grid-cols-4"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"ui-card p-4"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"ui-label"[39m
+          [36m>[39m
+            [0mCompanies[0m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"mt-1 text-2xl ui-money"[39m
+          [36m>[39m
+            [0m2[0m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"ui-card p-4"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"ui-label"[39m
+          [36m>[39m
+            [0mPeople[0m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"mt-1 text-2xl ui-money"[39m
+          [36m>[39m
+            [0m2[0m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"ui-card p-4"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"ui-label"[39m
+          [36m>[39m
+            [0mBilled across all companies[0m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"mt-1 text-2xl ui-money"[39m
+          [36m>[39m
+            [0m₹1,00,000.00[0m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"ui-caption ui-muted mt-0.5"[39m
+          [36m>[39m
+            [0m4 invoice(s)[0m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"ui-card p-4"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"ui-label"[39m
+          [36m>[39m
+            [0mOutstanding[0m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"mt-1 text-2xl ui-money"[39m
+          [36m>[39m
+            [0m₹25,000.00[0m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"ui-caption ui-muted mt-0.5"[39m
+          [36m>[39m
+            [0mStill owed by customers[0m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"ui-card p-4"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex flex-wrap items-start justify-between gap-4"[39m
+        [36m>[39m
+          [36m<div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"ui-label"[39m
+            [36m>[39m
+              [0mPlan[0m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"mt-1 text-lg"[39m
+            [36m>[39m
+              [0mPractice[0m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"ui-caption ui-muted"[39m
+            [36m>[39m
+              [0mActive[0m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"min-w-[12rem]"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"ui-label mb-1"[39m
+            [36m>[39m
+              [0mCompanies[0m
+            [36m</div>[39m
+            [36m<div>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"ui-caption ui-muted mb-1"[39m
+              [36m>[39m
+                [0m2[0m
+                [0m of [0m
+                [0m50[0m
+              [36m</div>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"h-1.5 w-full overflow-hidden rounded-full"[39m
+                [33mstyle[39m=[32m"background: rgb(var(--sunken));"[39m
+              [36m>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"h-full rounded-full"[39m
+                  [33mstyle[39m=[32m"width: 4%; background: rgb(var(--pos));"[39m
+                [36m/>[39m
+              [36m</div>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"min-w-[12rem]"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"ui-label mb-1"[39m
+            [36m>[39m
+              [0mUsers[0m
+            [36m</div>[39m
+            [36m<div>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"ui-caption ui-muted mb-1"[39m
+              [36m>[39m
+                [0m2[0m
+                [0m of [0m
+                [0m25[0m
+              [36m</div>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"h-1.5 w-full overflow-hidden rounded-full"[39m
+                [33mstyle[39m=[32m"background: rgb(var(--sunken));"[39m
+              [36m>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"h-full rounded-full"[39m
+                  [33mstyle[39m=[32m"width: 8%; background: rgb(var(--pos));"[39m
+                [36m/>[39m
+              [36m</div>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+      [36m<div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"ui-label mb-2"[39m
+        [36m>[39m
+          [0mCompanies[0m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"ui-card overflow-x-auto"[39m
+        [36m>[39m
+          [36m<table[39m
+            [33mclass[39m=[32m"ui-table w-full"[39m
+          [36m>[39m
+            [36m<thead>[39m
+              [36m<tr>[39m
+                [36m<th[39m
+                  [33mclass[39m=[32m"ui-th text-left"[39m
+                [36m>[39m
+                  [0mCompany[0m
+                [36m</th>[39m
+                [36m<th[39m
+                  [33mclass[39m=[32m"ui-th text-left"[39m
+                [36m>[39m
+                  [0mState[0m
+                [36m</th>[39m
+                [36m<th[39m
+                  [33mclass[39m=[32m"ui-th text-left"[39m
+                [36m>[39m
+                  [0mGSTIN[0m
+                [36m</th>[39m
+                [36m<th[39m
+                  [33mclass[39m=[32m"ui-th ui-num text-right"[39m
+                [36m>[39m
+                  [0mPeople[0m
+                [36m</th>[39m
+                [36m<th[39m
+                  [33mclass[39m=[32m"ui-th ui-num text-right"[39m
+                [36m>[39m
+                  [0mInvoices[0m
+                [36m</th>[39m
+                [36m<th[39m
+                  [33mclass[39m=[32m"ui-th ui-num text-right"[39m
+                [36m>[39m
+                  [0mBilled[0m
+                [36m</th>[39m
+                [36m<th[39m
+                  [33mclass[39m=[32m"ui-th ui-num text-right"[39m
+                [36m>[39m
+                  [0mOutstanding[0m
+                [36m</th>[39m
+              [36m</tr>[39m
+            [36m</thead>[39m
+            [36m<tbody>[39m
+              [36m<tr[39m
+                [33mclass[39m=[32m"border-t"[39m
+              [36m>[39m
+                [36m<td[39m
+                  [33mclass[39m=[32m"ui-col-entity px-4 py-2.5"[39m
+                [36m>[39m
+                  [0mClient A[0m
+                [36m</td>[39m
+                [36m<td[39m
+                  [33mclass[39m=[32m"ui-col-meta px-4 py-2.5"[39m
+                [36m>[39m
+                  [0mKarnataka[0m
+                [36m</td>[39m
+                [36m<td[39m
+                  [33mclass[39m=[32m"ui-col-meta px-4 py-2.5 ui-mono"[39m
+                [36m>[39m
+                  [0m29AAAAA0000A1Z5[0m
+                [36m</td>[39m
+                [36m<td[39m
+                  [33mclass[39m=[32m"ui-col-amount px-4 py-2.5 text-right"[39m
+                [36m>[39m
+                  [0m2[0m
+                [36m</td>[39m
+                [36m<td[39m
+                  [33mclass[39m=[32m"ui-col-amount px-4 py-2.5 text-right"[39m
+                [36m>[39m
+                  [0m4[0m
+                [36m</td>[39m
+                [36m<td[39m
+                  [33mclass[39m=[32m"ui-col-amount px-4 py-2.5 text-right"[39m
+                [36m>[39m
+                  [0m₹1,00,000.00[0m
+                [36m</td>[39m
+                [36m<td[39m
+                  [33mclass[39m=[32m"ui-col-amount px-4 py-2.5 text-right"[39m
+                [36m>[39m
+                  [0m₹25,000.00[0m
+                [36m</td>[39m
+              [36m</tr>[39m
+              [36m<tr[39m
+                [33mclass[39m=[32m"border-t"[39m
+              [36m>[39m
+                [36m<td[39m
+                  [33mclass[39m=[32m"ui-col-entity px-4 py-2.5"[39m
+                [36m>[39m
+                  [0mClient B[0m
+                [36m</td>[39m
+                [36m<td[39m
+                  [33mclass[39m=[32m"ui-col-meta px-4 py-2.5"[39m
+                [36m>[39m
+                  [0mKerala[0m
+                [36m</td>[39m
+                [36m<td[39m
+                  [33mclass[39m=[32m"ui-col-meta px-4 py-2.5 ui-mono"[39m
+                [36m>[39m
+                  [0m—[0m
+                [36m</td>[39m
+                [36m<td[39m
+                  [33mclass[39m=[32m"ui-col-amount px-4 py-2.5 text-right"[39m
+                [36m>[39m
+                  [0m1[0m
+                [36m</td>[39m
+                [36m<td[39m
+                  [33mclass[39m=[32m"ui-col-amount px-4 py-2.5 text-right"[39m
+                [36m>[39m
+                  [0m0[0m
+                [36m</td>[39m
+                [36m<td[39m
+                  [33mclass[39m=[32m"ui-col-amount px-4 py-2.5 text-right"[39m
+                [36m>[39m
+                  [0m₹0.00[0m
+                [36m</td>[39m
+                [36m<td[39m
+                  [33mclass[39m=[32m"ui-col-amount px-4 py-2.5 text-right"[39m
+                [36m>[39m
+                  [0m₹0.00[0m
+                [36m</td>[39m
+              [36m</tr>[39m
+            [36m</tbody>[39m
+          [36m</table>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+      [36m<div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"ui-label mb-2"[39m
+        [36m>[39m
+          [0mCompany addresses[0m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"space-y-3"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex items-start gap-3 rounded-xl p-4"[39m
+            [33mrole[39m=[32m"status"[39m
+            [33mstyle[39m=[32m"background: rgb(var(--warn-soft)); color: rgb(var(--warn-ink));"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33maria-hidden[39m=[32m"true"[39m
+              [33mclass[39m=[32m"lucide lucide-plug-zap mt-0.5 shrink-0"[39m
+              [33mfill[39m=[32m"none"[39m
+              [33mheight[39m=[32m"18"[39m
+              [33mstroke[39m=[32m"currentColor"[39m
+              [33mstroke-linecap[39m=[32m"round"[39m
+              [33mstroke-linejoin[39m=[32m"round"[39m
+              [33mstroke-width[39m=[32m"2"[39m
+              [33mviewBox[39m=[32m"0 0 24 24"[39m
+              [33mwidth[39m=[32m"18"[39m
+              [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+            [36m>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M6.3 20.3a2.4 2.4 0 0 0 3.4 0L12 18l-6-6-2.3 2.3a2.4 2.4 0 0 0 0 3.4Z"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"m2 22 3-3"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M7.5 13.5 10 11"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M10.5 16.5 13 14"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"m18 3-4 4h6l-4 4"[39m
+              [36m/>[39m
+            [36m</svg>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"text-sm"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"font-semibold"[39m
+              [36m>[39m
+                [0mPreview — [0m
+                [0mcompany subdomains[0m
+                [0m is not connected yet.[0m
+              [36m</div>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"mt-0.5"[39m
+              [36m>[39m
+                [0mEach company already has the handle below, and it is unique across the account. Pointing a subdomain at it needs DNS and a certificate, which is a deployment step rather than a product one — so these do not resolve yet.[0m
+              [36m</div>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"ui-card divide-y"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"flex items-center gap-3 px-4 py-2.5"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"min-w-0 flex-1 text-sm"[39m
+              [36m>[39m
+                [0mClient A[0m
+              [36m</div>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"ui-mono ui-caption ui-muted"[39m
+              [36m>[39m
+                [0mcla.clor.in[0m
+              [36m</div>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"flex items-center gap-3 px-4 py-2.5"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"min-w-0 flex-1 text-sm"[39m
+              [36m>[39m
+                [0mClient B[0m
+              [36m</div>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"ui-mono ui-caption ui-muted"[39m
+              [36m>[39m
+                [0mclb.clor.in[0m
+              [36m</div>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+      [36m<div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"ui-label mb-2"[39m
+        [36m>[39m
+          [0mPeople[0m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"ui-card divide-y"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex items-center gap-3 px-4 py-2.5"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"min-w-0 flex-1"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"text-sm"[39m
+              [36m>[39m
+                [0mSuresh[0m
+              [36m</div>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"ui-caption ui-muted truncate"[39m
+              [36m>[39m
+                [0msuresh@example.com[0m
+              [36m</div>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"ui-caption ui-muted"[39m
+            [36m>[39m
+              [0mLast signed in 09/09/2026[0m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex items-center gap-3 px-4 py-2.5"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"min-w-0 flex-1"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"text-sm"[39m
+              [36m>[39m
+                [0mAn Intern[0m
+              [36m</div>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"ui-caption ui-muted truncate"[39m
+              [36m>[39m
+                [0mintern@example.com[0m
+              [36m</div>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"ui-caption ui-muted"[39m
+            [36m>[39m
+              [0mNever signed in[0m
+            [36m</div>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+
+Ignored nodes: comments, script, style
+[36m<html>[39m
+  [36m<head />[39m
+  [36m<body>[39m
+    [36m<div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"space-y-6"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"ui-page-heading flex flex-wrap items-start justify-between gap-3 mb-2"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex min-w-0 items-center gap-2.5"[39m
+          [36m>[39m
+            [36m<span[39m
+              [33maria-hidden[39m=[32m"true"[39m
+              [33mclass[39m=[32m"ui-entity-mark grid h-8 w-8 shrink-0 place-items-center rounded-lg"[39m
+              [33mstyle[39m=[32m"background-color: rgb(var(--brand) / 0.12); color: rgb(var(--brand-ink));"[39m
+            [36m>[39m
+              [36m<svg[39m
+                [33maria-hidden[39m=[32m"true"[39m
+                [33mclass[39m=[32m"lucide lucide-building2 lucide-building-2"[39m
+                [33mfill[39m=[32m"none"[39m
+                [33mheight[39m=[32m"18"[39m
+                [33mstroke[39m=[32m"currentColor"[39m
+                [33mstroke-linecap[39m=[32m"round"[39m
+                [33mstroke-linejoin[39m=[32m"round"[39m
+                [33mstroke-width[39m=[32m"2.1"[39m
+                [33mviewBox[39m=[32m"0 0 24 24"[39m
+                [33mwidth[39m=[32m"18"[39m
+                [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+              [36m>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M10 12h4"[39m
+                [36m/>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M10 8h4"[39m
+                [36m/>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M14 21v-3a2 2 0 0 0-4 0v3"[39m
+                [36m/>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M6 10H4a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-2"[39m
+                [36m/>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M6 21V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16"[39m
+                [36m/>[39m
+              [36m</svg>[39m
+            [36m</span>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"min-w-0"[39m
+            [36m>[39m
+              [36m<h1[39m
+                [33mclass[39m=[32m"ui-t-page"[39m
+              [36m>[39m
+                [0mNeev Group[0m
+              [36m</h1>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"grid gap-3 sm:grid-cols-2 lg:grid-cols-4"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"ui-card p-4"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"ui-label"[39m
+            [36m>[39m
+              [0mCompanies[0m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"mt-1 text-2xl ui-money"[39m
+            [36m>[39m
+              [0m2[0m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"ui-card p-4"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"ui-label"[39m
+            [36m>[39m
+              [0mPeople[0m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"mt-1 text-2xl ui-money"[39m
+            [36m>[39m
+              [0m2[0m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"ui-card p-4"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"ui-label"[39m
+            [36m>[39m
+              [0mBilled across all companies[0m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"mt-1 text-2xl ui-money"[39m
+            [36m>[39m
+              [0m₹1,00,000.00[0m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"ui-caption ui-muted mt-0.5"[39m
+            [36m>[39m
+              [0m4 invoice(s)[0m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"ui-card p-4"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"ui-label"[39m
+            [36m>[39m
+              [0mOutstanding[0m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"mt-1 text-2xl ui-money"[39m
+            [36m>[39m
+              [0m₹25,000.00[0m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"ui-caption ui-muted mt-0.5"[39m
+            [36m>[39m
+              [0mStill owed by customers[0m
+            [36m</div>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"ui-card p-4"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex flex-wrap items-start justify-between gap-4"[39m
+          [36m>[39m
+            [36m<div>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"ui-label"[39m
+              [36m>[39m
+                [0mPlan[0m
+              [36m</div>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"mt-1 text-lg"[39m
+              [36m>[39m
+                [0mPractice[0m
+              [36m</div>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"ui-caption ui-muted"[39m
+              [36m>[39m
+                [0mActive[0m
+              [36m</div>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"min-w-[12rem]"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"ui-label mb-1"[39m
+              [36m>[39m
+                [0mCompanies[0m
+              [36m</div>[39m
+              [36m<div>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"ui-caption ui-muted mb-1"[39m
+                [36m>[39m
+                  [0m2[0m
+                  [0m of [0m
+                  [0m50[0m
+                [36m</div>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"h-1.5 w-full overflow-hidden rounded-full"[39m
+                  [33mstyle[39m=[32m"background: rgb(var(--sunken));"[39m
+                [36m>[39m
+                  [36m<div[39m
+                    [33mclass[39m=[32m"h-full rounded-full"[39m
+                    [33mstyle[39m=[32m"width: 4%; background: rgb(var(--pos));"[39m
+                  [36m/>[39m
+                [36m</div>[39m
+              [36m</div>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"min-w-[12rem]"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"ui-label mb-1"[39m
+              [36m>[39m
+                [0mUsers[0m
+              [36m</div>[39m
+              [36m<div>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"ui-caption ui-muted mb-1"[39m
+                [36m>[39m
+                  [0m2[0m
+                  [0m of [0m
+                  [0m25[0m
+                [36m</div>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"h-1.5 w-full overflow-hidden rounded-full"[39m
+                  [33mstyle[39m=[32m"background: rgb(var(--sunken));"[39m
+                [36m>[39m
+                  [36m<div[39m
+                    [33mclass[39m=[32m"h-full rounded-full"[39m
+                    [33mstyle[39m=[32m"width: 8%; background: rgb(var(--pos));"[39m
+                  [36m/>[39m
+                [36m</div>[39m
+              [36m</div>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"ui-label mb-2"[39m
+          [36m>[39m
+            [0mCompanies[0m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"ui-card overflow-x-auto"[39m
+          [36m>[39m
+            [36m<table[39m
+              [33mclass[39m=[32m"ui-table w-full"[39m
+            [36m>[39m
+              [36m<thead>[39m
+                [36m<tr>[39m
+                  [36m<th[39m
+                    [33mclass[39m=[32m"ui-th text-left"[39m
+                  [36m>[39m
+                    [0mCompany[0m
+                  [36m</th>[39m
+                  [36m<th[39m
+                    [33mclass[39m=[32m"ui-th text-left"[39m
+                  [36m>[39m
+                    [0mState[0m
+                  [36m</th>[39m
+                  [36m<th[39m
+                    [33mclass[39m=[32m"ui-th text-left"[39m
+                  [36m>[39m
+                    [0mGSTIN[0m
+                  [36m</th>[39m
+                  [36m<th[39m
+                    [33mclass[39m=[32m"ui-th ui-num text-right"[39m
+                  [36m>[39m
+                    [0mPeople[0m
+                  [36m</th>[39m
+                  [36m<th[39m
+                    [33mclass[39m=[32m"ui-th ui-num text-right"[39m
+                  [36m>[39m
+                    [0mInvoices[0m
+                  [36m</th>[39m
+                  [36m<th[39m
+                    [33mclass[39m=[32m"ui-th ui-num text-right"[39m
+                  [36m>[39m
+                    [0mBilled[0m
+                  [36m</th>[39m
+                  [36m<th[39m
+                    [33mclass[39m=[32m"ui-th ui-num text-right"[39m
+                  [36m>[39m
+                    [0mOutstanding[0m
+                  [36m</th>[39m
+                [36m</tr>[39m
+              [36m</thead>[39m
+              [36m<tbody>[39m
+                [36m<tr[39m
+                  [33mclass[39m=[32m"border-t"[39m
+                [36m>[39m
+                  [36m<td[39m
+                    [33mclass[39m=[32m"ui-col-entity px-4 py-2.5"[39m
+                  [36m>[39m
+                    [0mClient A[0m
+                  [36m</td>[39m
+                  [36m<td[39m
+                    [33mclass[39m=[32m"ui-col-meta px-4 py-2.5"[39m
+                  [36m>[39m
+                    [0mKarnataka[0m
+                  [36m</td>[39m
+                  [36m<td[39m
+                    [33mclass[39m=[32m"ui-col-meta px-4 py-2.5 ui-mono"[39m
+                  [36m>[39m
+                    [0m29AAAAA0000A1Z5[0m
+                  [36m</td>[39m
+                  [36m<td[39m
+                    [33mclass[39m=[32m"ui-col-amount px-4 py-2.5 text-right"[39m
+                  [36m>[39m
+                    [0m2[0m
+                  [36m</td>[39m
+                  [36m<td[39m
+                    [33mclass[39m=[32m"ui-col-amount px-4 py-2.5 text-right"[39m
+                  [36m>[39m
+                    [0m4[0m
+                  [36m</td>[39m
+                  [36m<td[39m
+                    [33mclass[39m=[32m"ui-col-amount px-4 py-2.5 text-right"[39m
+                  [36m>[39m
+                    [0m₹1,00,000.00[0m
+                  [36m</td>[39m
+                  [36m<td[39m
+                    [33mclass[39m=[32m"ui-col-amount px-4 py-2.5 text-right"[39m
+                  [36m>[39m
+                    [0m₹25,000.00[0m
+                  [36m</td>[39m
+                [36m</tr>[39m
+                [36m<tr[39m
+                  [33mclass[39m=[32m"border-t"[39m
+                [36m>[39m
+                  [36m<td[39m
+                    [33mclass[39m=[32m"ui-col-entity px-4 py-2.5"[39m
+                  [36m>[39m
+                    [0mClient B[0m
+                  [36m</td>[39m
+                  [36m<td[39m
+                    [33mclass[39m=[32m"ui-col-meta px-4 py-2.5"[39m
+                  [36m>[39m
+                    [0mKerala[0m
+                  [36m</td>[39m
+                  [36m<td[39m
+                    [33mclass[39m=[32m"ui-col-meta px-4 py-2.5 ui-mono"[39m
+                  [36m>[39m
+                    [0m—[0m
+                  [36m</td>[39m
+                  [36m<td[39m
+                    [33mclass[39m=[32m"ui-col-amount px-4 py-2.5 text-right"[39m
+                  [36m>[39m
+                    [0m1[0m
+                  [36m</td>[39m
+                  [36m<td[39m
+                    [33mclass[39m=[32m"ui-col-amount px-4 py-2.5 text-right"[39m
+                  [36m>[39m
+                    [0m0[0m
+                  [36m</td>[39m
+                  [36m<td[39m
+                    [33mclass[39m=[32m"ui-col-amount px-4 py-2.5 text-right"[39m
+                  [36m>[39m
+                    [0m₹0.00[0m
+                  [36m</td>[39m
+                  [36m<td[39m
+                    [33mclass[39m=[32m"ui-col-amount px-4 py-2.5 text-right"[39m
+                  [36m>[39m
+                    [0m₹0.00[0m
+                  [36m</td>[39m
+                [36m</tr>[39m
+              [36m</tbody>[39m
+            [36m</table>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"ui-label mb-2"[39m
+          [36m>[39m
+            [0mCompany addresses[0m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"space-y-3"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"flex items-start gap-3 rounded-xl p-4"[39m
+              [33mrole[39m=[32m"status"[39m
+              [33mstyle[39m=[32m"background: rgb(var(--warn-soft)); color: rgb(var(--warn-ink));"[39m
+            [36m>[39m
+              [36m<svg[39m
+                [33maria-hidden[39m=[32m"true"[39m
+                [33mclass[39m=[32m"lucide lucide-plug-zap mt-0.5 shrink-0"[39m
+                [33mfill[39m=[32m"none"[39m
+                [33mheight[39m=[32m"18"[39m
+                [33mstroke[39m=[32m"currentColor"[39m
+                [33mstroke-linecap[39m=[32m"round"[39m
+                [33mstroke-linejoin[39m=[32m"round"[39m
+                [33mstroke-width[39m=[32m"2"[39m
+                [33mviewBox[39m=[32m"0 0 24 24"[39m
+                [33mwidth[39m=[32m"18"[39m
+                [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+              [36m>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M6.3 20.3a2.4 2.4 0 0 0 3.4 0L12 18l-6-6-2.3 2.3a2.4 2.4 0 0 0 0 3.4Z"[39m
+                [36m/>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"m2 22 3-3"[39m
+                [36m/>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M7.5 13.5 10 11"[39m
+                [36m/>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M10.5 16.5 13 14"[39m
+                [36m/>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"m18 3-4 4h6l-4 4"[39m
+                [36m/>[39m
+              [36m</svg>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"text-sm"[39m
+              [36m>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"font-semibold"[39m
+                [36m>[39m
+                  [0mPreview — [0m
+                  [0mcompany subdomains[0m
+                  [0m is not connected yet.[0m
+                [36m</div>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"mt-0.5"[39m
+                [36m>[39m
+                  [0mEach company already has the handle below, and it is unique across the account. Pointing a subdomain at it needs DNS and a certificate, which is a deployment step rather than a product one — so these do not resolve yet.[0m
+                [36m</div>[39m
+              [36m</div>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"ui-card divide-y"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"flex items-center gap-3 px-4 py-2.5"[39m
+              [36m>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"min-w-0 flex-1 text-sm"[39m
+                [36m>[39m
+                  [0mClient A[0m
+                [36m</div>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"ui-mono ui-caption ui-muted"[39m
+                [36m>[39m
+                  [0mcla.clor.in[0m
+                [36m</div>[39m
+              [36m</div>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"flex items-center gap-3 px-4 py-2.5"[39m
+              [36m>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"min-w-0 flex-1 text-sm"[39m
+                [36m>[39m
+                  [0mClient B[0m
+                [36m</div>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"ui-mono ui-caption ui-muted"[39m
+                [36m>[39m
+                  [0mclb.clor.in[0m
+                [36m</div>[39m
+              [36m</div>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"ui-label mb-2"[39m
+          [36m>[39m
+            [0mPeople[0m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"ui-card divide-y"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"flex items-center gap-3 px-4 py-2.5"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"min-w-0 flex-1"[39m
+              [36m>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"text-sm"[39m
+                [36m>[39m
+                  [0mSuresh[0m
+                [36m</div>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"ui-caption ui-muted truncate"[39m
+                [36m>[39m
+                  [0msuresh@example.com[0m
+                [36m</div>[39m
+              [36m</div>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"ui-caption ui-muted"[39m
+              [36m>[39m
+                [0mLast signed in 09/09/2026[0m
+              [36m</div>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"flex items-center gap-3 px-4 py-2.5"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"min-w-0 flex-1"[39m
+              [36m>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"text-sm"[39m
+                [36m>[39m
+                  [0mAn Intern[0m
+                [36m</div>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"ui-caption ui-muted truncate"[39m
+                [36m>[39m
+                  [0mintern@example.com[0m
+                [36m</div>[39m
+              [36m</div>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"ui-caption ui-muted"[39m
+              [36m>[39m
+                [0mNever signed in[0m
+              [36m</div>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+  [36m</body>[39m
+[36m</html>[39m
+ ❯ Proxy.waitForWrapper node_modules/@testing-library/dom/dist/wait-for.js:163:27
+ ❯ apps/admin/src/screens/accountArea.test.jsx:85:11
+     83|   it('shows each company address and says it does not resolve yet', as…
+     84|     render(<AccountOverview currentCompany={COMPANY} />);
+     85|     await waitFor(() => expect(screen.getByText('cla.neevone.com')).to…
+       |           ^
+     86|     expect(screen.getByText(/Preview — company subdomains is not conne…
+     87|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  apps/admin/src/screens/accountArea.test.jsx > single sign-on > offers no sign-in control at all
+ FAIL  apps/admin/src/screens/accountArea.test.jsx > single sign-on > says what setting it up will ask for
+Error: Missing active org. Please select an organization.
+ ❯ orgId packages/platform/admin/security.js:6:18
+      4| const orgId = () => {
+      5|   const id = String(platformOrgId() || '').trim();
+      6|   if (!id) throw new Error('Missing active org. Please select an organ…
+       |                  ^
+      7|   return id;
+      8| };
+ ❯ base packages/platform/admin/security.js:10:48
+ ❯ Module.getProviders packages/platform/admin/security.js:16:47
+ ❯ apps/admin/src/screens/SsoSettings.jsx:39:34
+ ❯ apps/admin/src/screens/SsoSettings.jsx:42:5
+ ❯ Object.react_stack_bottom_frame node_modules/react-dom/cjs/react-dom-client.development.js:25989:20
+ ❯ runWithFiberInDEV node_modules/react-dom/cjs/react-dom-client.development.js:874:13
+ ❯ commitHookEffectListMount node_modules/react-dom/cjs/react-dom-client.development.js:13249:29
+ ❯ commitHookPassiveMountEffects node_modules/react-dom/cjs/react-dom-client.development.js:13336:11
+ ❯ commitPassiveMountOnFiber node_modules/react-dom/cjs/react-dom-client.development.js:15484:13
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ Test Files  1 failed | 3 passed (4)
+      Tests  3 failed | 24 passed (27)
+   Start at  06:26:27
+   Duration  2.87s (transform 264ms, setup 599ms, collect 2.12s, tests 1.68s, environment 3.25s, prepare 199ms)
+

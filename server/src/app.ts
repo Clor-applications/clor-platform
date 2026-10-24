@@ -320,7 +320,7 @@ export function buildApp() {
   /* No auth and no tenant headers: the customer has no account here. Mounted
      with authRouter for the same reason gstinRouter is — a router at '/api'
      runs its middleware for every '/api' request that reaches it. */
-  /* Payroll and Attendance changes go in the audit log (middleware/auditMutations.ts). */
+  /* Every staff change goes in the audit log (middleware/auditMutations.ts; A-50, A-51). */
   app.use(auditMutations);
   app.use('/api', sharePublicRouter);
 
