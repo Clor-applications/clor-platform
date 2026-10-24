@@ -7232,19 +7232,9 @@ th.ui-th {
   color: rgb(var(--fg-subtle));
   pointer-events: none;
 }
-.ui-help-search input {
+.ui-help-search input.ui-input {
   width: 100%;
-  height: 40px;
-  padding: 0 12px 0 36px;
-  border: 1px solid rgb(var(--border));
-  border-radius: 8px;
-  background: rgb(var(--surface));
-  font-size: 0.875rem;
-}
-.ui-help-search input:focus {
-  outline: none;
-  border-color: rgb(var(--ring));
-  box-shadow: 0 0 0 3px rgb(var(--ring) / 0.18);
+  padding-left: 36px;
 }
 .ui-help-body {
   display: grid;

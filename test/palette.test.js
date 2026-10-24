@@ -44,8 +44,9 @@ describe('shared palettes', () => {
     expect(css.slice(start)).not.toMatch(/\[data-app='attendance'\]/);
   });
 
-  it('Attendance and People draw in the colour icon set; the others do not', () => {
-    expect(APPS.filter((a) => a.iconSet === 'color').map((a) => a.id).sort()).toEqual(['attendance', 'people']);
+  /* The Workspace joined them in its redesign (W-R2: Fluent colour icons, as Attendance draws). */
+  it('Attendance, People and the Workspace draw in the colour icon set; the others do not', () => {
+    expect(APPS.filter((a) => a.iconSet === 'color').map((a) => a.id).sort()).toEqual(['admin', 'attendance', 'people']);
   });
 
   it('colour icons keep their own colours: nothing tints them with the palette', () => {

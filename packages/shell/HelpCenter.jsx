@@ -27,7 +27,7 @@ export default function HelpCenter({ initialTopic = 'welcome', onOpen }) {
         <label className="ui-help-search">
           <span className="sr-only">Search help</span>
           <Search size={16} aria-hidden="true" />
-          <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search help" />
+          <input type="search" className="ui-input" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search help" />
         </label>
       </header>
 
