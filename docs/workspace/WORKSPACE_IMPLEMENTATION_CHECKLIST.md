@@ -34,17 +34,18 @@ Audited on branch `claude/subscription-provisioning-gap-003-b84bad` (PR #23).
 | W-0.9 | Per-request chain: auth → company context → permission → app entitlement; RLS fails closed | Server | TESTED | `server/src/middleware/{auth,tenantContext,rbac}.ts`; `rlsFailClosed`, `tenantIsolation` tests |
 | W-0.10 | Outside access (a person from another account, per company, time-bound) | Server + UI | TESTED | `outsideAccess.test.ts`, `OutsideAccess.test.jsx` |
 | W-0.11 | Credentials registry (API keys, SCIM, devices) with pause / revoke | Server + UI | TESTED | `credentialsRoute.test.ts`, `Credentials.test.jsx` |
+| W-0.13 | Workspace home redesigned on the spec palette (setup checklist, app cards, grouped administration) | UI | TESTED | commit 8826378; `AdminHome.test.jsx` (4); browser check |
 | W-0.12 | Company closure with notice period and purge | Server + UI | TESTED | `companyClosure` tests |
 
 ## Next, in order
 
 | Req | Feature | Layer | Status | Depends on | Risk |
 |---|---|---|---|---|---|
-| W-1.1 | `AccountMembership` (Owner / Admin / Billing Admin / Member, status) + migration backfilling today's accounts | DB, server | NOT_STARTED | D-2, PR #23 merged | High |
-| W-1.2 | Last-owner protection; owner add/transfer with step-up and audit | Server | NOT_STARTED | W-1.1 | High |
-| W-1.3 | Account-level audit events (AuditLog requires an orgId today) | DB, server | NOT_STARTED | W-1.1 | Medium |
-| W-1.4 | Account powers from AccountMembership, not "admin of some company" (`auth.ts:764`) | Server | NOT_STARTED | W-1.1 | High |
-| W-2.1 | Account switcher; company switcher grouped by account; context banner (account · company · app · delegated) | UI | NOT_STARTED | W-1.1 | Medium |
+| W-1.1 | `AccountMembership` (Owner / Admin / Billing Admin / Member, status) + migration backfilling today's accounts | DB, server | TESTED | D-2, PR #23 merged | High |
+| W-1.2 | Last-owner protection; owner add/transfer with step-up and audit | Server | TESTED | W-1.1 | High |
+| W-1.3 | Account-level audit events (AuditLog requires an orgId today) | DB, server | TESTED | W-1.1 | Medium |
+| W-1.4 | Account powers from AccountMembership, not "admin of some company" (`auth.ts:764`) | Server | TESTED | W-1.1 | High |
+| W-2.1 | Account switcher; company switcher grouped by account; context banner (account · company · app · delegated) | UI | TESTED | W-1.1 | Medium |
 | W-2.2 | Workspace sidebar groups per spec (Main / Administration / Support), 404, access-denied with reason, global loading/error/empty states | UI | NOT_STARTED | — | Low |
 | W-2.3 | Spec palette inside the Workspace only (D-3) | UI | NOT_STARTED | — | Low |
 | W-3.1 | Invitations: hashed single-use token, expiry, resend, revoke, idempotent accept, audit, seat policy documented | DB, server, UI | NOT_STARTED | W-1.1 | High |
@@ -64,7 +65,15 @@ Audited on branch `claude/subscription-provisioning-gap-003-b84bad` (PR #23).
 | W-8.2 | Clor Operator: separate boundary and console (today an env allowlist on customer auth) | All | NOT_STARTED | W-1.3 | High |
 | W-9.1 | Two-account isolation tests through the production DB role and pooling (A-36) | Tests | NOT_STARTED | A-36 | High |
 
+## Evidence for W-1 / W-2.1 (commit c0ccb12)
+
+- `server/src/__tests__/accountMembership.test.ts` — 8 tests: owner on signup, member on add; company creation and account overview gated by account role; member/admin limits; owner changes need step-up; last owner kept; DENIED events audited; an account admin gets no ledger access; two-account isolation (unknown member, forged x-org-id); `/auth/me` accounts.
+- `packages/shell/companyGroups.test.js` — picker grouping by account.
+- Migration `20261025090000_account_membership` applied to the local dev database: every account has an owner.
+
 ## Known issues outside this list
+
+- Signup still switches every available app on (auth.ts signup creates a subscription with all apps). Spec rule 2.2.5 says creating an account must not activate products: W-6.
 
 - zod 3 high advisory (GHSA-mrhx-c7xc-m3w5): fixed only in zod 4; server upgrade (69 files) pending.
 - 8 tests fail on the branch before any Workspace change (`settingsRegistry.test.js` 5, `accountArea.test.jsx` 3).
