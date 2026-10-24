@@ -20,6 +20,7 @@ import {
   deleteNote,
   getEmployee,
   importEmployees,
+  undoImport,
   listEmployees,
   listNotes,
   listDocuments,
@@ -204,27 +205,19 @@ export default function Employees({ description = '' } = {}) {
     }
   };
 
+  /* Import (CORE-07): the file is read here; mapping, preview and undo happen in the import drawer. */
+  const [importing, setImporting] = useState(null);
   const onImport = async (file) => {
     if (!file) return;
     try {
       const table = parseCsv(await readFileText(file));
       const [head, ...body] = table;
       const keys = (head || []).map((h) => String(h || '').trim());
-      const records = body
-        .filter((r) => r.some((c) => String(c || '').trim()))
-        .map((r) => Object.fromEntries(keys.map((k, i) => [k, String(r[i] ?? '').trim() || null])));
-      if (!records.length) return notify.error('That file has no rows under its header.');
-      const res = await importEmployees(records);
-      if (res.failed) {
-        const first = res.results.find((r) => !r.ok);
-        notify.error(`${res.imported} imported, ${res.failed} not — row ${first.row}: ${first.error}`);
-      } else {
-        notify.success(`${res.imported} people imported.`);
-      }
-      loadLists().catch(() => {});
-      load();
+      const rows = body.filter((r) => r.some((c) => String(c || '').trim()));
+      if (!rows.length) return notify.error('That file has no rows under its header.');
+      setImporting({ name: file.name, headers: keys, rows });
     } catch (e) {
-      notify.error(String(e?.message || 'Import failed.'));
+      notify.error(String(e?.message || 'Could not read the file.'));
     } finally {
       if (fileRef.current) fileRef.current.value = '';
     }
@@ -410,6 +403,8 @@ export default function Employees({ description = '' } = {}) {
           load();
         }}
       />
+
+      {importing ? <ImportDrawer file={importing} onClose={() => setImporting(null)} onDone={() => { setImporting(null); loadLists().catch(() => {}); load(); }} /> : null}
 
       {editing ? (
         <EmployeeForm
@@ -1170,6 +1165,117 @@ function CustomFields({ employeeId }) {
         ))}
       </dl>
     </section>
+  );
+}
+
+/**
+ * Import drawer (CORE-07): map the file's columns to fields, preview every
+ * row (errors and matches named), choose add-only or update-by-code, then
+ * commit — and undo the whole batch within a day.
+ */
+const IMPORT_FIELDS = [...IMPORT_COLUMNS, { key: 'businessUnit', label: 'businessUnit' }, { key: 'grade', label: 'grade' }, { key: 'costCentre', label: 'costCentre' }];
+const guessField = (header) => {
+  const h = String(header || '').toLowerCase().replace(/[^a-z]/g, '');
+  const aliases = { employeeid: 'code', empcode: 'code', id: 'code', fullname: 'name', employeename: 'name', mobile: 'phone', phonenumber: 'phone', emailid: 'email', personalemail: 'email', designation: 'jobPosition', position: 'jobPosition', dept: 'department', doj: 'dateOfJoining', joiningdate: 'dateOfJoining', dateofjoining: 'dateOfJoining', dob: 'dateOfBirth', dateofbirth: 'dateOfBirth', type: 'employeeType', costcenter: 'costCentre' };
+  if (aliases[h]) return aliases[h];
+  const hit = IMPORT_FIELDS.find((f) => f.key.toLowerCase() === h);
+  return hit ? hit.key : '';
+};
+function ImportDrawer({ file, onClose, onDone }) {
+  const [mapping, setMapping] = useState(() => file.headers.map(guessField));
+  const [mode, setMode] = useState('create');
+  const [preview, setPreview] = useState(null);
+  const [result, setResult] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const records = () => file.rows.map((r) => Object.fromEntries(mapping.map((k, i) => (k ? [k, String(r[i] ?? '').trim() || null] : null)).filter(Boolean)));
+  const run = async (dryRun) => {
+    setBusy(true);
+    try {
+      const res = await importEmployees(records(), dryRun, mode);
+      if (dryRun) setPreview(res);
+      else {
+        setResult(res);
+        notify.success(res.failed ? `${res.imported} ${mode === 'update' ? 'taken' : 'imported'}, ${res.failed} rows not.` : `${res.imported} people ${mode === 'update' ? 'taken' : 'imported'}.`);
+      }
+    } catch (e) {
+      notify.error(String(e?.message || 'Import failed.'));
+    } finally {
+      setBusy(false);
+    }
+  };
+  const undo = async () => {
+    if (!(await confirmDialog({ title: 'Undo this import?', message: 'The people it added are removed with their events; the people it changed go back to what they were.', confirmLabel: 'Undo' }))) return;
+    setBusy(true);
+    try {
+      const r = await undoImport(result.batchId);
+      notify.success(`Undone: ${r.removed} removed, ${r.restored} put back${r.kept ? `, ${r.kept} kept (already in payroll)` : ''}.`);
+      onDone();
+    } catch (e) {
+      notify.error(String(e?.message || 'Not undone.'));
+    } finally {
+      setBusy(false);
+    }
+  };
+  const mapped = mapping.filter(Boolean).length;
+  return (
+    <Drawer open onClose={result ? onDone : onClose} title={`Import ${file.name}`} description={`${file.rows.length} rows. Match each column to a field, preview, then import. An import can be undone within 24 hours.`} widthClass="w-[min(44rem,96vw)]"
+      actions={result ? (
+        <>
+          {result.batchId ? <button type="button" className="ui-btn ui-btn-secondary" disabled={busy} onClick={undo}>Undo this import</button> : null}
+          <button type="button" className="ui-btn ui-btn-primary" onClick={onDone}>Done</button>
+        </>
+      ) : (
+        <>
+          <button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button>
+          <button type="button" className="ui-btn ui-btn-secondary" disabled={busy || !mapped} onClick={() => run(true)}>Preview</button>
+          <button type="button" className="ui-btn ui-btn-primary" disabled={busy || !preview || !preview.imported} onClick={() => run(false)}>{busy ? 'Working…' : `Import ${preview ? preview.imported : ''}`}</button>
+        </>
+      )}>
+      <div className="space-y-4">
+        {!result ? (
+          <>
+            <section className="space-y-2" aria-label="Columns">
+              <h3 className="ui-t-sec">Columns</h3>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {file.headers.map((h, i) => (
+                  <label key={`${h}-${i}`} className="flex items-center gap-2 text-sm">
+                    <span className="min-w-0 flex-1 truncate font-mono text-xs" title={h}>{h || `column ${i + 1}`}</span>
+                    <select className="ui-select" style={{ width: '11rem' }} value={mapping[i]} onChange={(e) => { const m = [...mapping]; m[i] = e.target.value; setMapping(m); setPreview(null); }} aria-label={`Field for ${h}`}>
+                      <option value="">— skip —</option>
+                      {IMPORT_FIELDS.map((f) => <option key={f.key} value={f.key}>{f.label}</option>)}
+                    </select>
+                  </label>
+                ))}
+              </div>
+            </section>
+            <label className="flex items-center gap-2 text-sm">
+              <span className="ui-label">If an employee ID is already here</span>
+              <select className="ui-select" style={{ width: 'auto' }} value={mode} onChange={(e) => { setMode(e.target.value); setPreview(null); }} aria-label="Mode">
+                <option value="create">Stop that row (add new people only)</option>
+                <option value="update">Update that person with the columns given</option>
+              </select>
+            </label>
+            {preview ? (
+              <section className="space-y-1" aria-label="Preview">
+                <h3 className="ui-t-sec">Preview</h3>
+                <p className="text-sm">{preview.imported} rows ready{preview.results.some((r) => r.action === 'UPDATE') ? ` (${preview.results.filter((r) => r.action === 'UPDATE').length} update someone already here)` : ''}; {preview.failed} with a problem; {preview.results.filter((r) => r.warning).length} look like someone already here.</p>
+                <ul className="divide-y text-sm max-h-72 overflow-y-auto">
+                  {preview.results.filter((r) => !r.ok || r.warning).map((r) => (
+                    <li key={r.row} className="py-1.5 flex gap-2"><span className="tabular-nums ui-muted w-16 shrink-0">Row {r.row}</span><span className={r.ok ? '' : 'text-[rgb(var(--neg))]'}>{r.ok ? r.warning : r.error}</span></li>
+                  ))}
+                </ul>
+              </section>
+            ) : null}
+          </>
+        ) : (
+          <section className="space-y-2" aria-label="Result">
+            <p className="text-sm font-medium">{result.imported} {mode === 'update' ? 'taken' : 'imported'}, {result.failed} not.</p>
+            {result.failed ? <ul className="divide-y text-sm max-h-72 overflow-y-auto">{result.results.filter((r) => !r.ok).map((r) => <li key={r.row} className="py-1.5"><span className="tabular-nums ui-muted">Row {r.row}</span> · {r.error}</li>)}</ul> : null}
+            {result.batchId ? <p className="ui-caption">This import can be undone until {new Date(result.undoUntil).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}.</p> : null}
+          </section>
+        )}
+      </div>
+    </Drawer>
   );
 }
 

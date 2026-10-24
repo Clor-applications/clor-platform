@@ -1007,7 +1007,11 @@ peopleRouter.post('/orgs/:orgId/people/employees/import', can(PermissionAction.C
   const userId = req.auth!.userId;
   /* dryRun: every row checked, nothing created (departments included), so the screen can preview first. */
   const dryRun = req.body?.dryRun === true;
+  /* update: a row whose code is already here changes that person (only the columns given); otherwise it is an error, as before. */
+  const mode = String(req.body?.mode || 'create').toLowerCase() === 'update' ? 'UPDATE' : 'CREATE';
   const codesInFile = new Set<string>();
+  const createdIds: string[] = [];
+  const updatedRows: Array<{ id: string; before: Record<string, unknown> }> = [];
 
   /* Names to ids, creating what does not exist yet — the way a spreadsheet
      of staff usually arrives before anyone has set up departments. */
@@ -1026,7 +1030,7 @@ peopleRouter.post('/orgs/:orgId/people/employees/import', can(PermissionAction.C
     return row as { id: string; name: string };
   };
 
-  const results: Array<{ row: number; ok: boolean; id?: string; error?: string }> = [];
+  const results: Array<{ row: number; ok: boolean; id?: string; error?: string; action?: 'CREATE' | 'UPDATE'; warning?: string }> = [];
   for (let i = 0; i < rows.length; i += 1) {
     const parsed = importRow.safeParse(rows[i]);
     if (!parsed.success) {
@@ -1036,8 +1040,9 @@ peopleRouter.post('/orgs/:orgId/people/employees/import', can(PermissionAction.C
     const r = parsed.data;
     try {
       const code = blank(r.code);
-      if (code && (await peoplePrisma.employee.findFirst({ where: { orgId, code }, select: { id: true } }))) {
-        results.push({ row: i + 1, ok: false, error: `Code ${code} is already used.` });
+      const existingByCode = code ? await peoplePrisma.employee.findFirst({ where: { orgId, code } }) : null;
+      if (existingByCode && mode === 'CREATE') {
+        results.push({ row: i + 1, ok: false, error: `Code ${code} is already used. Choose "update existing" to change them.` });
         continue;
       }
       if (code && codesInFile.has(code.toLowerCase())) {
@@ -1045,10 +1050,29 @@ peopleRouter.post('/orgs/:orgId/people/employees/import', can(PermissionAction.C
         continue;
       }
       if (code) codesInFile.add(code.toLowerCase());
+      /* The same person twice (CORE-02): a match on email or phone is a warning the preview shows; the row still goes in. */
+      const dupes = (await findDuplicates(orgId, existingByCode?.id ?? null, { email: r.email, workEmail: r.workEmail, phone: r.phone })).filter((d) => d.field !== 'employee ID');
+      const warning = dupes.length ? `Same ${dupes[0].field} as ${dupes[0].name}${dupes[0].code ? ` (${dupes[0].code})` : ''}.` : undefined;
       if (dryRun) {
         await ensure('department', r.department);
         await ensure('jobPosition', r.jobPosition);
-        results.push({ row: i + 1, ok: true });
+        results.push({ row: i + 1, ok: true, action: existingByCode ? 'UPDATE' : 'CREATE', warning });
+        continue;
+      }
+      if (existingByCode) {
+        /* Update: only the columns the file carries; names of lists resolve as on create. */
+        const data: Record<string, unknown> = {};
+        const set = (k: string, v: unknown) => { if (v !== undefined && v !== null && v !== '') data[k] = v; };
+        set('name', r.name); set('email', blank(r.email)); set('workEmail', blank(r.workEmail)); set('phone', blank(r.phone)); set('dateOfJoining', blank(r.dateOfJoining)); set('dateOfBirth', blank(r.dateOfBirth)); set('gender', blank(r.gender));
+        const dep = await ensure('department', r.department); if (dep) { data.department = dep.name; data.departmentId = dep.id; }
+        const pos = await ensure('jobPosition', r.jobPosition); if (pos) { data.designation = pos.name; data.jobPositionId = pos.id; }
+        for (const [kind, col, field] of [['employeeType', r.employeeType, 'employeeTypeId'], ['workType', r.workType, 'workTypeId'], ['businessUnit', r.businessUnit, 'businessUnitId'], ['grade', r.grade, 'gradeId'], ['costCenter', r.costCentre, 'costCenterId']] as const) {
+          const row = await ensure(kind, col); if (row) data[field] = row.id;
+        }
+        const before = Object.fromEntries(Object.keys(data).map((k) => [k, (existingByCode as any)[k] ?? null]));
+        await updateEmployee(actorOf(req, 'IMPORT', 'Import (update existing)'), existingByCode, data as any, {});
+        updatedRows.push({ id: existingByCode.id, before });
+        results.push({ row: i + 1, ok: true, id: existingByCode.id, action: 'UPDATE', warning });
         continue;
       }
       const department = await ensure('department', r.department);
@@ -1076,12 +1100,64 @@ peopleRouter.post('/orgs/:orgId/people/employees/import', can(PermissionAction.C
           status: 'ACTIVE',
           createdByUserId: userId,
         } as any);
-      results.push({ row: i + 1, ok: true, id: created.id });
+      createdIds.push(created.id);
+      results.push({ row: i + 1, ok: true, id: created.id, action: 'CREATE', warning });
     } catch (e: any) {
       results.push({ row: i + 1, ok: false, error: String(e?.code) === 'P2002' ? 'Already exists.' : String(e?.message || e) });
     }
   }
-  res.json({ dryRun, imported: results.filter((r) => r.ok).length, failed: results.filter((r) => !r.ok).length, results });
+  const imported = results.filter((r) => r.ok).length;
+  const failed = results.filter((r) => !r.ok).length;
+  /* The batch is remembered so the whole import can be undone within a day (CORE-07). */
+  const batch = !dryRun && (createdIds.length || updatedRows.length)
+    ? await peoplePrisma.importBatch.create({ data: { accountId, orgId, mode, rows: rows.length, failed, createdIds, updated: updatedRows as any, createdByUserId: userId } })
+    : null;
+  res.json({ dryRun, mode, imported, failed, results, batchId: batch?.id ?? null, undoUntil: batch ? new Date(batch.createdAt.getTime() + IMPORT_UNDO_HOURS * 3_600_000) : null });
+});
+
+const IMPORT_UNDO_HOURS = 24;
+
+peopleRouter.get('/orgs/:orgId/people/employees/import/batches', can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  const rows = await peoplePrisma.importBatch.findMany({ where: { orgId: req.tenant!.orgId }, orderBy: { createdAt: 'desc' }, take: 20 });
+  const now = Date.now();
+  res.json({ batches: rows.map((b) => ({ id: b.id, mode: b.mode, rows: b.rows, failed: b.failed, created: (b.createdIds as string[]).length, updated: (b.updated as unknown[]).length, createdAt: b.createdAt, undoneAt: b.undoneAt, canUndo: !b.undoneAt && now - b.createdAt.getTime() < IMPORT_UNDO_HOURS * 3_600_000 })) });
+});
+
+/** Undo an import within a day (CORE-07): the people it made go, with their events; the people it changed go back to what they were. */
+peopleRouter.post('/orgs/:orgId/people/employees/import/:batchId/undo', can(PermissionAction.DELETE, EMPLOYEES), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const batch = await peoplePrisma.importBatch.findFirst({ where: { id: String(req.params.batchId), orgId } });
+  if (!batch) return res.status(404).json({ error: 'No such import.' });
+  if (batch.undoneAt) return res.status(409).json({ error: 'This import was already undone.' });
+  if (Date.now() - batch.createdAt.getTime() > IMPORT_UNDO_HOURS * 3_600_000) return res.status(409).json({ error: 'An import can be undone within 24 hours; this one is older. Correct the people by hand.' });
+  const actor = actorOf(req, 'IMPORT', 'Import undone');
+  const createdIds = batch.createdIds as string[];
+  let removed = 0;
+  let restored = 0;
+  let kept = 0;
+  for (const id of createdIds) {
+    const e = await peoplePrisma.employee.findFirst({ where: { id, orgId }, select: { id: true, name: true, code: true } });
+    if (!e) continue;
+    /* Someone the import made but payroll has since paid stays; the answer says so. */
+    const inPayroll = await payrollPrisma.employeePayrollProfile.count({ where: { orgId, employeeId: id } }).catch(() => 0);
+    if (inPayroll) { kept += 1; continue; }
+    await peoplePrisma.$transaction(async (tx) => {
+      await tx.outboxEvent.deleteMany({ where: { orgId, employeeId: id, deliveredAt: null } });
+      await tx.employee.delete({ where: { id } });
+      await writeChangeLog(tx, actor, { kind: 'Employee', id, employeeId: id }, [{ field: 'record', before: 'created', after: 'removed: import undone', redacted: false }]);
+    });
+    removed += 1;
+  }
+  for (const u of batch.updated as Array<{ id: string; before: Record<string, unknown> }>) {
+    const existing = await peoplePrisma.employee.findFirst({ where: { id: u.id, orgId } });
+    if (!existing) continue;
+    await updateEmployee(actor, existing, u.before as any, {});
+    restored += 1;
+  }
+  await peoplePrisma.importBatch.update({ where: { id: batch.id }, data: { undoneAt: new Date(), undoneByUserId: req.auth!.userId } });
+  res.json({ removed, restored, kept });
 });
 
 peopleRouter.get('/orgs/:orgId/people/org-chart', can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {

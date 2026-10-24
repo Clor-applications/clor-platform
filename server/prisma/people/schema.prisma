@@ -1537,6 +1537,28 @@ model CustomFieldValue {
   @@index([orgId, entityId])
 }
 
+/// One import, remembered (docs/people/02-PRD.md CORE-07): who it made and what it
+/// changed (with the values before), so the whole batch can be undone within a day.
+model ImportBatch {
+  id              String    @id @default(cuid())
+  accountId       String
+  orgId           String
+  /// CREATE | UPDATE
+  mode            String    @default("CREATE")
+  rows            Int       @default(0)
+  failed          Int       @default(0)
+  /// employee ids this import created
+  createdIds      Json
+  /// [{ id, before: { field: value } }] for people this import changed
+  updated         Json
+  createdByUserId String?
+  createdAt       DateTime  @default(now())
+  undoneAt        DateTime?
+  undoneByUserId  String?
+
+  @@index([orgId, createdAt])
+}
+
 /// Letters the company issues (docs/people/02-PRD.md DOC-04; services/people/letters.ts):
 /// offer, appointment, confirmation, increment, relieving, experience, service
 /// certificate. Each save is a new version; the newest active one is used, and
