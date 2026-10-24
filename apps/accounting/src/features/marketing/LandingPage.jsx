@@ -14,7 +14,7 @@ import {
 
 /* The platform's app list lives with the shell (packages/shell/registry.js),
    which an app may not import; whoever renders this page passes it in. The
-   live landing page is the shell's own packages/shell/Home.jsx. */
+   live front page is clor.in (website/); the app opens on sign-in. */
 
 import { useTheme } from '@ui/components/ui/useTheme';
 import { useTilt } from '@ui/components/ui/useTilt';
