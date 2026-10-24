@@ -1689,6 +1689,22 @@ model Obligation {
   @@index([orgId, status, dueOn])
 }
 
+/// A Health check item put aside until a date, with the reason (HLTH-03). It comes back on its date; the history stays.
+model HealthSnooze {
+  id        String    @id @default(cuid())
+  accountId String
+  orgId     String
+  checkId   String
+  reason    String
+  /// YYYY-MM-DD the item comes back
+  until     String
+  byUserId  String?
+  createdAt DateTime  @default(now())
+  endedAt   DateTime?
+
+  @@index([orgId, checkId, until])
+}
+
 /// Letters the company issues (docs/people/02-PRD.md DOC-04; services/people/letters.ts):
 /// offer, appointment, confirmation, increment, relieving, experience, service
 /// certificate. Each save is a new version; the newest active one is used, and

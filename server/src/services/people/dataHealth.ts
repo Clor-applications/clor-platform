@@ -79,6 +79,47 @@ export async function dataHealth(accountId: string, orgId: string, opts: { payro
     console.error('[data-health] policies:', e instanceof Error ? e.message : e);
   }
 
+  /* People without a manager (HLTH-01): requests and leave have nobody to go to. The top of the tree — someone others report to — is not counted. */
+  {
+    const managers = new Set((await peoplePrisma.employee.findMany({ where: { orgId, status: { not: 'LEFT' }, reportingManagerId: { not: null } }, select: { reportingManagerId: true } })).map((e) => e.reportingManagerId));
+    const noManager = await peoplePrisma.employee.findMany({ where: { orgId, status: { not: 'LEFT' }, reportingManagerId: null }, select: { id: true, name: true, code: true } });
+    if (employees.length > 1) add({ id: 'no-manager', area: 'People', severity: 'TIDY_UP', title: 'No manager', why: 'Their leave, corrections and requests have nobody to go to, so they wait for HR.', fix: 'Set "Reports to" on their record.', screen: 'employees' }, noManager.filter((e) => !managers.has(e.id)).map((e) => who(e)));
+  }
+
+  /* Plan tasks past their date (HLTH-01): joining, leaving, renewals and changes. */
+  {
+    const today = new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
+    const late = await peoplePrisma.checklistTask.findMany({ where: { orgId, doneAt: null, dueDate: { not: null, lt: today } }, select: { employeeId: true, title: true, dueDate: true }, orderBy: { dueDate: 'asc' } });
+    const byId = new Map(employees.map((e) => [e.id, e]));
+    /* One line per person, not per task: how many are late and the oldest one. */
+    const perPerson = new Map<string, { n: number; oldest: typeof late[number] }>();
+    for (const t of late) {
+      if (!byId.has(t.employeeId)) continue;
+      const cur = perPerson.get(t.employeeId);
+      if (cur) cur.n += 1; else perPerson.set(t.employeeId, { n: 1, oldest: t });
+    }
+    add({ id: 'overdue-tasks', area: 'People', severity: 'FIX_SOON', title: 'Plan tasks past their date', why: 'A joining or leaving step not done on time: a missed PF form, a laptop not recovered, a settlement late.', fix: 'Open the person’s Checklist tab and tick or reassign each task. A joining plan for someone who joined long ago can be ticked off in one go there.', screen: 'checklists' },
+      [...perPerson.entries()].map(([id, v]) => who(byId.get(id)!, v.n === 1 ? `${v.oldest.title} — due ${v.oldest.dueDate}` : `${v.n} late; the oldest, ${v.oldest.title}, was due ${v.oldest.dueDate}`)));
+  }
+
+  /* Policies not accepted a week after asking (HLTH-01). */
+  {
+    const weekAgo = new Date(Date.now() - 7 * 86_400_000);
+    const pending = await peoplePrisma.acknowledgement.findMany({ where: { orgId, acceptedAt: null, askedAt: { lt: weekAgo } }, select: { employeeId: true, targetType: true } });
+    const byId = new Map(employees.map((e) => [e.id, e]));
+    const seen = new Set<string>();
+    add({ id: 'unaccepted', area: 'People', severity: 'TIDY_UP', title: 'Not accepted a week after asking', why: 'A policy or document they were asked to read and accept is still open; in a dispute, nobody can show they saw it.', fix: 'Send a reminder from the policy or the document.', screen: 'policies' },
+      pending.filter((a) => byId.has(a.employeeId) && !seen.has(a.employeeId) && seen.add(a.employeeId)).map((a) => who(byId.get(a.employeeId)!, a.targetType === 'POLICY_VERSION' ? 'a policy' : 'a document')));
+  }
+
+  /* Changes waiting to apply (HLTH-01): dated ahead, they apply on the day. Listed so nobody is surprised. */
+  {
+    const waiting = await peoplePrisma.scheduledChange.findMany({ where: { orgId, status: 'PENDING' }, select: { employeeId: true, field: true, toLabel: true, toValue: true, effectiveOn: true }, orderBy: { effectiveOn: 'asc' } });
+    const byId = new Map(employees.map((e) => [e.id, e]));
+    add({ id: 'scheduled', area: 'People', severity: 'TIDY_UP', title: 'Changes waiting to apply', why: 'A transfer or a promotion dated ahead changes the record on its day; payroll and attendance follow it then.', fix: 'Check each is still right; withdraw one on the person’s record if not.', screen: 'employees' },
+      waiting.filter((c) => byId.has(c.employeeId)).map((c) => who(byId.get(c.employeeId)!, `${c.field.replace(/Id$/, '')} → ${c.toLabel || c.toValue || 'none'} on ${c.effectiveOn}`)));
+  }
+
   /* People: the same person twice. */
   const groups = (key: (e: (typeof employees)[number]) => string, min = 2) => {
     const m = new Map<string, typeof employees>();
@@ -173,10 +214,18 @@ export async function dataHealth(accountId: string, orgId: string, opts: { payro
 
   const order: Record<Severity, number> = { BLOCKS_PAYROLL: 0, FIX_SOON: 1, TIDY_UP: 2 };
   checks.sort((a, b) => order[a.severity] - order[b.severity] || b.count - a.count);
+  /* Snoozed items step aside until their date (HLTH-03); they are still counted as snoozed, never hidden silently. */
+  const todayIst = new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
+  const snoozes = await peoplePrisma.healthSnooze.findMany({ where: { orgId, endedAt: null, until: { gt: todayIst } }, orderBy: { createdAt: 'desc' } });
+  const snoozeOf = new Map<string, (typeof snoozes)[number]>();
+  for (const z of snoozes) if (!snoozeOf.has(z.checkId)) snoozeOf.set(z.checkId, z);
+  const live = checks.filter((c) => !snoozeOf.has(c.id));
+  const snoozed = checks.filter((c) => snoozeOf.has(c.id)).map((c) => ({ ...c, snooze: { reason: snoozeOf.get(c.id)!.reason, until: snoozeOf.get(c.id)!.until, byUserId: snoozeOf.get(c.id)!.byUserId } }));
   return {
     people: employees.length,
-    blocking: checks.filter((c) => c.severity === 'BLOCKS_PAYROLL').reduce((n, c) => n + c.count, 0),
-    checks,
+    blocking: live.filter((c) => c.severity === 'BLOCKS_PAYROLL').reduce((n, c) => n + c.count, 0),
+    checks: live,
+    snoozed,
     ranAt: new Date().toISOString(),
   };
 }

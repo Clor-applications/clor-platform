@@ -4,7 +4,8 @@ import { ShieldCheck } from 'lucide-react';
 import { EmptyState, PageHeader, SkeletonCard, StatTile } from '@ui/components/ui/Primitives';
 import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';
 import { MoreButton } from '@ui/components/list/ListPageParts';
-import { getDataHealth } from './api';
+import { getDataHealth, getHeadcount, snoozeHealthCheck, unsnoozeHealthCheck } from './api';
+import { notify } from '@ui/components/ui/notify';
 
 /**
  * Data health (HR research, Phase 1: the implementation auditor). What is
@@ -21,6 +22,9 @@ const SEVERITY = {
 /* Which app owns each fix screen; a screen of the app on show opens in place. */
 const APP_OF = { Payroll: 'payroll', People: 'people' };
 const APP_NAME = { payroll: 'Payroll', people: 'People', attendance: 'Attendance' };
+
+/** A snooze suggests two weeks; the person can change it. */
+const twoWeeksOn = () => new Date(Date.now() + 330 * 60_000 + 14 * 86_400_000).toISOString().slice(0, 10);
 
 const EXPORT_COLUMNS = [
   { key: 'severity', label: 'Severity', value: (r) => SEVERITY[r.severity]?.label || r.severity },
@@ -49,6 +53,28 @@ export default function DataHealth({ openScreen, app = 'attendance', localScreen
       return <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => openScreen(c.screen)}>Fix</button>;
     }
     return <a className="ui-btn ui-btn-secondary ui-btn-sm" href={`?app=${owner}&open=${encodeURIComponent(c.screen)}`}>Fix in {APP_NAME[owner] || owner}</a>;
+  };
+  /* Snooze (HLTH-03): a reason and the date it comes back; logged. */
+  const snooze = async (c) => {
+    const reason = window.prompt(`Why can "${c.title}" wait?`);
+    if (!reason || !reason.trim()) return;
+    const until = window.prompt('Until which day? (YYYY-MM-DD, within six months)', twoWeeksOn());
+    if (!until) return;
+    try {
+      await snoozeHealthCheck(c.id, { reason: reason.trim(), until: until.trim() });
+      notify.success(`Snoozed until ${until.trim()}.`);
+      load();
+    } catch (e) {
+      notify.error(String(e?.message || 'Not snoozed.'));
+    }
+  };
+  const wake = async (c) => {
+    try {
+      await unsnoozeHealthCheck(c.id);
+      load();
+    } catch (e) {
+      notify.error(String(e?.message || 'Not changed.'));
+    }
   };
   const rows = (data?.checks || []).flatMap((c) => c.people.map((p) => ({ severity: c.severity, title: c.title, name: p.name, code: p.code || '', detail: p.detail || '', fix: c.fix })));
 
@@ -98,7 +124,10 @@ export default function DataHealth({ openScreen, app = 'attendance', localScreen
                         {c.title} <span className="tabular-nums">· {c.count}</span>
                       </h2>
                     </div>
-                    {fixLink(c)}
+                    <span className="flex items-center gap-2">
+                      <button type="button" className="ui-link text-sm" onClick={() => snooze(c)}>Snooze</button>
+                      {fixLink(c)}
+                    </span>
                   </div>
                   <p className="text-sm">{c.why}</p>
                   <p className="ui-caption">To fix: {c.fix}</p>
@@ -115,9 +144,60 @@ export default function DataHealth({ openScreen, app = 'attendance', localScreen
                 </section>
               ))
             )}
+            {data.snoozed?.length ? (
+              <section aria-label="Snoozed" className="space-y-2">
+                <h2 className="ui-t-sec">Snoozed</h2>
+                <ul className="divide-y text-sm">
+                  {data.snoozed.map((c) => (
+                    <li key={c.id} className="py-2 flex flex-wrap items-center gap-2">
+                      <span className="font-medium">{c.title}</span>
+                      <span className="ui-caption tabular-nums">· {c.count} · back {c.snooze.until} · {c.snooze.reason}</span>
+                      <button type="button" className="ui-link ml-auto" onClick={() => wake(c)}>Bring back now</button>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ) : null}
+            {app === 'people' ? <Headcount /> : null}
           </>
         )}
       </div>
     </div>
+  );
+}
+
+/** Headcount and movements (HLTH-04): as of a day, by establishment; joiners, leavers and transfers month by month. */
+function Headcount() {
+  const [today] = useState(() => new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10));
+  const [asOf, setAsOf] = useState(today);
+  const [data, setData] = useState(null);
+  useEffect(() => {
+    let live = true;
+    getHeadcount({ asOf, to: today }).then((d) => live && setData(d)).catch(() => live && setData(null));
+    return () => { live = false; };
+  }, [asOf, today]);
+  if (!data) return null;
+  return (
+    <section aria-label="Headcount" className="space-y-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="ui-t-sec">Headcount and movements</h2>
+        <label className="flex items-center gap-2 text-sm">As of <input type="date" className="ui-input" style={{ width: 'auto' }} value={asOf} max={today} onChange={(e) => setAsOf(e.target.value || today)} aria-label="As of" /></label>
+      </div>
+      <p className="text-sm"><span className="tabular-nums font-medium">{data.headcount}</span> {data.headcount === 1 ? 'person' : 'people'} on {data.asOf}{Object.keys(data.byEstablishment).length ? ': ' : ''}{Object.entries(data.byEstablishment).map(([k, v]) => `${k} ${v}`).join(', ')}</p>
+      <table className="w-full text-sm">
+        <thead><tr className="ui-caption text-left"><th className="py-1.5 font-medium">Month</th><th className="py-1.5 font-medium text-right">Joined</th><th className="py-1.5 font-medium text-right">Left</th><th className="py-1.5 font-medium text-right">Transferred</th><th className="py-1.5 font-medium text-right">At month end</th></tr></thead>
+        <tbody className="divide-y">
+          {[...data.months].reverse().map((m) => (
+            <tr key={m.month}>
+              <td className="py-1.5">{m.month}</td>
+              <td className="py-1.5 text-right tabular-nums">{m.joiners}</td>
+              <td className="py-1.5 text-right tabular-nums">{m.leavers}</td>
+              <td className="py-1.5 text-right tabular-nums">{m.transfers}</td>
+              <td className="py-1.5 text-right tabular-nums">{m.headcountAtEnd}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </section>
   );
 }

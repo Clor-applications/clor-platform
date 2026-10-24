@@ -27,6 +27,7 @@ import { activeRule, shape as shapeRequest, submitRequest } from '../services/pe
 import { PROBATION_OUTCOMES, ProbationError, decideProbation, reviewsOf, saveReview } from '../services/people/lifecycle/probation.js';
 import { changeImpact } from '../services/people/lifecycle/changes.js';
 import { journeyOf, whyOf } from '../services/people/journey.js';
+import { HeadcountError, headcount as headcountOf, snooze as snoozeCheck, snoozeHistory, unsnooze as unsnoozeCheck } from '../services/people/headcount.js';
 import { SelfServiceError, saveSettings, settingsOf } from '../services/people/selfService.js';
 import { CustomFieldError, FIELD_TYPES, defsOf, saveDef as saveCustomFieldDef, setValues as setCustomValues, valuesFor as customValuesFor } from '../services/people/customFields.js';
 import { PERMIT_KINDS, daysUntil } from '../services/people/documentReminders.js';
@@ -675,6 +676,38 @@ peopleRouter.get('/orgs/:orgId/people/data-health', can(PermissionAction.VIEW, E
   const { accountId, orgId } = req.tenant!;
   const payroll = !(await authorize(req, PAYROLL_MODULE, PermissionAction.VIEW as any, PAYROLL_RESOURCE.profile));
   res.json(await dataHealth(accountId, orgId, { payroll }));
+});
+
+/** Snooze a Health check item with a reason and a date (HLTH-03); it returns on its date. */
+peopleRouter.post('/orgs/:orgId/people/data-health/:checkId/snooze', can(PermissionAction.EDIT, EMPLOYEES), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  try {
+    res.status(201).json({ snooze: await snoozeCheck(actorOf(req, 'FORM'), String(req.params.checkId), req.body || {}) });
+  } catch (e) {
+    if (e instanceof HeadcountError) return res.status(e.status).json({ error: e.message });
+    return sendError(res, e);
+  }
+});
+
+peopleRouter.delete('/orgs/:orgId/people/data-health/:checkId/snooze', can(PermissionAction.EDIT, EMPLOYEES), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  res.json(await unsnoozeCheck(actorOf(req, 'FORM'), String(req.params.checkId)));
+});
+
+peopleRouter.get('/orgs/:orgId/people/data-health/snoozes', can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  res.json({ snoozes: await snoozeHistory(req.tenant!.orgId, String(req.query.checkId || '') || undefined) });
+});
+
+/** Headcount and movements (HLTH-04): joiners, leavers, transfers by month and establishment; headcount as of any day. */
+peopleRouter.get('/orgs/:orgId/people/headcount', can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  try {
+    res.json(await headcountOf(req.tenant!.orgId, { asOf: String(req.query.asOf || ''), from: String(req.query.from || ''), to: String(req.query.to || '') }));
+  } catch (e) {
+    if (e instanceof HeadcountError) return res.status(e.status).json({ error: e.message });
+    return sendError(res, e);
+  }
 });
 
 // ---------------------------------------------------------------------------
