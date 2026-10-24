@@ -92,6 +92,9 @@ export default defineConfig({
       // SSO suites name domains they cannot publish DNS for; the one suite
       // about domain proof switches this back on for itself.
       SSO_DOMAIN_VERIFY: 'off',
+      // R2 plan: every suite that stores a document, selfie or evidence goes
+      // through object storage (in memory), as production does with R2.
+      FILE_STORE: 'memory',
     },
     include: ['src/**/*.test.ts'],
     /*

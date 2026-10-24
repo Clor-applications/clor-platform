@@ -18,7 +18,7 @@ In timestamp order per schema; all are additive except the policy rewrite.
 - platform: `20261023100000_explicit_subscription_default`, `20261023180000_maker_checker_policy`, `20261023200000_job_lease_fencing`, `20261023200100_closure_purge_checkpoint`, `20261023200200_job_runs`, `20261024100000_rls_fail_closed`, `20261024110000_org_closure_code`, `20261024120000_credentials`, `20261024120100_credentials_rls`, `20261024120200_scim_token_status`, `20261024120600_credentials_permission_grant`, `20261024140000_outside_access` (backfills every cross-account membership as an active engagement), `20261024140100_outside_access_rls`
 - accounting: `20261024100000_rls_fail_closed`, `20261024120300_share_link_hash`
 - payroll: `20261024100000_rls_fail_closed`
-- people: `20261024100000_rls_fail_closed`, `20261024120400_portal_sessions`, `20261024120500_portal_sessions_rls`, `20261024130000_webhook_secret_rotation`
+- people: `20261024100000_rls_fail_closed`, `20261024120400_portal_sessions`, `20261024120500_portal_sessions_rls`, `20261024130000_webhook_secret_rotation`, `20261025070000_file_storage_keys` (plus the People build's own)
 
 `rls_fail_closed` refuses to run if any `tenant_isolation` policy has an unexpected shape — that is a stop, not something to force.
 
@@ -40,6 +40,14 @@ Escape valve if something is refused that should not be: `TENANT_STRICT=off` res
 - The daily credential check (expiry warnings, orphans) starts five minutes after boot.
 - The cross-store check (GAP-010) starts fifteen minutes after boot and runs nightly: watch `[integrity]` lines. Before the first run, `npm run integrity:cross-store` (report only) shows what it will repair; Payroll lines are for a person to look at.
 - Smoke: sign in; Company admin → Credentials lists keys; an API key call works; an invoice reminder link opens for a signed-out browser; the employee app signs in and lists its device.
+
+## 4a. Files to R2 (after every instance runs this release)
+
+1. Recreate `clor-files-prod` with the APAC location hint if it is still in ENAM (it is empty).
+2. Make an R2 API token: Object Read & Write, `clor-files-prod` only. Set on Cloud Run: `FILE_STORE=r2`, `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` (as a secret), `R2_BUCKET=clor-files-prod`. Deploy.
+3. New files now go to R2. Move the old ones: `npm run files:to-r2` (owner role, resumable).
+4. Next morning: `[integrity]` lines show any row whose object is missing (should be none).
+5. Back out: `npm run files:to-r2 -- --back`, then unset `FILE_STORE`. Never unset `FILE_STORE` first: rows that point at R2 would read as empty files.
 
 ## 5. Next release (do not skip)
 

@@ -29,7 +29,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "seed:ui-qa": "tsx src/scripts/seedUiQa.ts",
     "report:settlement": "tsx src/scripts/settlementReport.ts",
-    "integrity:cross-store": "tsx src/scripts/crossStoreIntegrity.ts"
+    "integrity:cross-store": "tsx src/scripts/crossStoreIntegrity.ts",
+    "files:to-r2": "tsx src/scripts/filesToStore.ts"
   },
   "dependencies": {
     "@node-saml/node-saml": "^5.1.0",

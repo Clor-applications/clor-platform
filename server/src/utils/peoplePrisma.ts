@@ -1,6 +1,7 @@
 import { PrismaClient } from '../generated/people/index.js';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { tenantScoped } from './tenantScope.js';
+import { withFileOffload } from './fileOffload.js';
 
 /**
  * The people database: who works here.
@@ -25,11 +26,19 @@ export type PeopleDb = Parameters<Parameters<typeof peoplePrisma.$transaction>[0
 
 // Nested People services share the caller's transaction, including balance reads.
 const writes = new AsyncLocalStorage<{ db: any; orgId: string; effects: Array<() => void> }>();
+/*
+ * R2 plan: document, selfie and evidence bytes live in object storage when a
+ * store is configured (utils/fileOffload.ts) — for plain calls, for the `tx`
+ * a $transaction callback is given, and for the transaction peopleWrite shares.
+ */
 export const peoplePrisma: typeof client = new Proxy(client, {
   get(target, key) {
     const active = writes.getStore();
-    if (active && key === '$transaction') return (fn: any) => typeof fn === 'function' ? fn(active.db) : Promise.all(fn);
-    const db = active?.db || target;
+    if (active && key === '$transaction') return (fn: any) => typeof fn === 'function' ? fn(withFileOffload(active.db)) : Promise.all(fn);
+    if (!active && key === '$transaction') {
+      return (arg: any, options?: any) => (typeof arg === 'function' ? target.$transaction((tx: any) => arg(withFileOffload(tx)), options) : target.$transaction(arg, options));
+    }
+    const db = withFileOffload(active?.db || target);
     const value = Reflect.get(db, key);
     return typeof value === 'function' ? value.bind(db) : value;
   },
