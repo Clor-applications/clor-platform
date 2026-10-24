@@ -20,6 +20,7 @@ import {
   deleteNote,
   getEmployee,
   importEmployees,
+  undoImport,
   listEmployees,
   listNotes,
   listDocuments,
@@ -38,6 +39,8 @@ import {
   checkInvite,
   createInvite,
   getChangeImpact,
+  getCustomValues,
+  saveCustomValues,
   getJourney,
   getWhy,
   listEmployeeInvites,
@@ -141,14 +144,14 @@ export default function Employees({ description = '' } = {}) {
   /* Status is a tab, counted on the client; the rest are asked of the server. */
   const [status, setStatus] = useState('ACTIVE');
   const [filters, setFilters] = useState({ q: '', departmentId: '', jobPositionId: '', employeeTypeId: '', tagId: '' });
-  const [lists, setLists] = useState({ departments: [], positions: [], roles: [], types: [], workTypes: [], tags: [], areas: [], contractors: [], units: [], grades: [], centres: [], establishments: [] });
+  const [lists, setLists] = useState({ departments: [], positions: [], roles: [], types: [], workTypes: [], tags: [], areas: [], contractors: [], units: [], grades: [], centres: [], establishments: [], teams: [], seats: [] });
   const [openId, setOpenId] = useState(null);
   const [editing, setEditing] = useState(null);
   const fileRef = useRef(null);
 
   const loadLists = useCallback(async () => {
     const withAttendance = hasApp('attendance');
-    const [departments, positions, roles, types, workTypes, tags, areas, contractors, units, grades, centres, establishments] = await Promise.all([
+    const [departments, positions, roles, types, workTypes, tags, areas, contractors, units, grades, centres, establishments, teams, seats] = await Promise.all([
       listStructure('departments'),
       listStructure('job-positions'),
       listStructure('job-roles'),
@@ -161,8 +164,10 @@ export default function Employees({ description = '' } = {}) {
       listStructure('grades').catch(() => []),
       listStructure('cost-centres').catch(() => []),
       listStructure('establishments').catch(() => []),
+      listStructure('teams').catch(() => []),
+      listStructure('seats').catch(() => []),
     ]);
-    setLists({ departments, positions, roles, types, workTypes, tags, areas, contractors, units, grades, centres, establishments });
+    setLists({ departments, positions, roles, types, workTypes, tags, areas, contractors, units, grades, centres, establishments, teams, seats });
   }, []);
 
   const load = useCallback(async () => {
@@ -202,27 +207,19 @@ export default function Employees({ description = '' } = {}) {
     }
   };
 
+  /* Import (CORE-07): the file is read here; mapping, preview and undo happen in the import drawer. */
+  const [importing, setImporting] = useState(null);
   const onImport = async (file) => {
     if (!file) return;
     try {
       const table = parseCsv(await readFileText(file));
       const [head, ...body] = table;
       const keys = (head || []).map((h) => String(h || '').trim());
-      const records = body
-        .filter((r) => r.some((c) => String(c || '').trim()))
-        .map((r) => Object.fromEntries(keys.map((k, i) => [k, String(r[i] ?? '').trim() || null])));
-      if (!records.length) return notify.error('That file has no rows under its header.');
-      const res = await importEmployees(records);
-      if (res.failed) {
-        const first = res.results.find((r) => !r.ok);
-        notify.error(`${res.imported} imported, ${res.failed} not — row ${first.row}: ${first.error}`);
-      } else {
-        notify.success(`${res.imported} people imported.`);
-      }
-      loadLists().catch(() => {});
-      load();
+      const rows = body.filter((r) => r.some((c) => String(c || '').trim()));
+      if (!rows.length) return notify.error('That file has no rows under its header.');
+      setImporting({ name: file.name, headers: keys, rows });
     } catch (e) {
-      notify.error(String(e?.message || 'Import failed.'));
+      notify.error(String(e?.message || 'Could not read the file.'));
     } finally {
       if (fileRef.current) fileRef.current.value = '';
     }
@@ -408,6 +405,8 @@ export default function Employees({ description = '' } = {}) {
           load();
         }}
       />
+
+      {importing ? <ImportDrawer file={importing} onClose={() => setImporting(null)} onDone={() => { setImporting(null); loadLists().catch(() => {}); load(); }} /> : null}
 
       {editing ? (
         <EmployeeForm
@@ -642,7 +641,7 @@ function EmployeeFile({ id, onClose, onEdit, onDeleted }) {
               <Field label="Personal email" value={person.email || person.personalEmail} />
               <Field label="Phone" value={person.phone} />
               <Field label="Date of birth" value={person.dateOfBirth} />
-              <Field label="Gender" value={person.gender ? person.gender[0] + person.gender.slice(1).toLowerCase() : ''} />
+              <Field label="Gender" value={GENDER_WORDS[person.gender] || (person.gender ? person.gender[0] + person.gender.slice(1).toLowerCase() : '')} />
               <Field label="Marital status" value={person.maritalStatus ? person.maritalStatus[0] + person.maritalStatus.slice(1).toLowerCase() : ''} />
               <Field label="Address" value={address} />
               <Field
@@ -651,6 +650,7 @@ function EmployeeFile({ id, onClose, onEdit, onDeleted }) {
               />
             </dl>
           ) : null}
+          {tab === 'about' ? <CustomFields employeeId={person.id} /> : null}
           {tab === 'about' && allowed('PEOPLE::Lifecycle::VIEW') ? (
             <JoiningDetails key={inviteSeq} person={person} onChecked={(p) => setPerson((x) => ({ ...x, ...p }))} />
           ) : null}
@@ -664,6 +664,8 @@ function EmployeeFile({ id, onClose, onEdit, onDeleted }) {
               <Field label="Designation" value={person.designation} />
               <Field label="Grade" value={person.gradeName} />
               <Field label="Establishment" value={person.establishment ? `${person.establishment}${person.workState ? ` (${person.workState})` : ''}` : null} />
+              <Field label="Team" value={person.teamName} />
+              <Field label="Seat" value={person.seatName} />
               <Field label="Location" value={person.areaName} />
               <Field label="Cost centre" value={person.costCenterName} />
               <Field label="Reports to" value={person.reportingManagerName} />
@@ -776,10 +778,10 @@ function EmployeeFile({ id, onClose, onEdit, onDeleted }) {
 
 /* The fields whose change is recorded in employment history (server: TRACKED in services/people/employmentHistory.ts). */
 /* The job fields a change may be dated for, as the record names them (server: SCHEDULABLE_FIELDS). */
-const SCHEDULED_LABELS = { departmentId: 'Department', businessUnitId: 'Business unit', areaId: 'Location', branchId: 'Branch', establishmentId: 'Establishment', jobPositionId: 'Designation', jobRoleId: 'Job role', reportingManagerId: 'Reports to', dottedManagerId: 'Also reports to', employeeTypeId: 'Employee type', workTypeId: 'Work type', contractorId: 'Contractor', gradeId: 'Grade', costCenterId: 'Cost centre', status: 'Status' };
+const SCHEDULED_LABELS = { departmentId: 'Department', businessUnitId: 'Business unit', areaId: 'Location', branchId: 'Branch', establishmentId: 'Establishment', teamId: 'Team', seatId: 'Seat', jobPositionId: 'Designation', jobRoleId: 'Job role', reportingManagerId: 'Reports to', dottedManagerId: 'Also reports to', employeeTypeId: 'Employee type', workTypeId: 'Work type', contractorId: 'Contractor', gradeId: 'Grade', costCenterId: 'Cost centre', status: 'Status' };
 /* How each line of the impact list lands: a review task on the record, an app told through an event, or a note. */
 const IMPACT_TARGET = { TASK: 'review task for HR', TOLD: 'told automatically', INFO: 'for information' };
-const HISTORY_FIELDS = ['businessUnitId', 'gradeId', 'costCenterId', 'departmentId', 'areaId', 'establishmentId', 'jobPositionId', 'jobRoleId', 'reportingManagerId', 'dottedManagerId', 'employeeTypeId', 'workTypeId', 'contractorId'];
+const HISTORY_FIELDS = ['businessUnitId', 'gradeId', 'costCenterId', 'departmentId', 'areaId', 'establishmentId', 'teamId', 'seatId', 'jobPositionId', 'jobRoleId', 'reportingManagerId', 'dottedManagerId', 'employeeTypeId', 'workTypeId', 'contractorId'];
 const HISTORY_SOURCE = { FORM: 'Employee form', TRANSFER: 'Transfer', RESIGNATION: 'Resignation', REHIRE: 'Rehire', IMPORT: 'Import' };
 const HISTORY_TONE = { JOINED: 'pos', LEFT: 'neg', REHIRED: 'pos', TRANSFERRED: 'warn', CHANGED: 'neutral' };
 
@@ -838,6 +840,7 @@ function EmploymentHistory({ employeeId }) {
   );
 }
 
+const GENDER_WORDS = { MALE: 'Male', FEMALE: 'Female', NON_BINARY: 'Non-binary', OTHER: 'Other', PREFER_NOT_TO_SAY: 'Prefer not to say' };
 const JOURNEY_TONE = { APPROVED: 'pos', SCHEDULED: 'info', SELF: 'info', CHANGE: 'neutral', HISTORY: 'neutral' };
 const JOURNEY_KIND = { APPROVED: 'Approved', SCHEDULED: 'Scheduled', SELF: 'Self-service', CHANGE: 'Change', HISTORY: 'History' };
 const whenAt = (d) => new Date(d).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' });
@@ -1118,6 +1121,169 @@ function StatutoryDetails({ employeeId }) {
   );
 }
 
+/** The company's own fields on this person (CORE-08): only the ones this user may see; edited in place where they may. */
+function CustomFields({ employeeId }) {
+  const [fields, setFields] = useState(null);
+  const [edits, setEdits] = useState({});
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    let live = true;
+    getCustomValues(employeeId).then((f) => live && setFields(f)).catch(() => live && setFields([]));
+    return () => { live = false; };
+  }, [employeeId]);
+  if (!fields?.length) return null;
+  const dirty = Object.keys(edits).length > 0;
+  const save = async () => {
+    setBusy(true);
+    try {
+      const r = await saveCustomValues(employeeId, edits);
+      setFields(r.fields);
+      setEdits({});
+      notify.success(r.changed.length ? 'Saved.' : 'Nothing changed.');
+    } catch (err) {
+      notify.error(String(err?.message || 'Not saved.'));
+    } finally {
+      setBusy(false);
+    }
+  };
+  const control = (f) => {
+    const v = edits[f.key] !== undefined ? edits[f.key] : f.value;
+    const set = (val) => setEdits({ ...edits, [f.key]: val });
+    if (!f.canEdit) return <span>{f.type === 'BOOLEAN' ? (f.value === true ? 'Yes' : f.value === false ? 'No' : '—') : f.value ?? <span className="ui-muted">Not set</span>}</span>;
+    if (f.type === 'CHOICE') return <select className="ui-select w-full" value={v ?? ''} onChange={(e) => set(e.target.value)} aria-label={f.label}><option value="">—</option>{f.options.map((o) => <option key={o} value={o}>{o}</option>)}</select>;
+    if (f.type === 'BOOLEAN') return <select className="ui-select w-full" value={v === true ? 'yes' : v === false ? 'no' : ''} onChange={(e) => set(e.target.value === '' ? null : e.target.value === 'yes')} aria-label={f.label}><option value="">—</option><option value="yes">Yes</option><option value="no">No</option></select>;
+    if (f.type === 'FILE') return <input className="ui-input w-full" value={v ?? ''} placeholder="Document id from the Documents tab" onChange={(e) => set(e.target.value)} aria-label={f.label} />;
+    return <input className="ui-input w-full" type={f.type === 'NUMBER' ? 'number' : f.type === 'DATE' ? 'date' : 'text'} value={v ?? ''} onChange={(e) => set(e.target.value)} aria-label={f.label} />;
+  };
+  return (
+    <section className="space-y-2" aria-label="More details">
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="text-sm font-semibold">More details</h3>
+        {dirty ? <button type="button" className="ui-btn ui-btn-primary ui-btn-sm" disabled={busy} onClick={save}>{busy ? 'Saving…' : 'Save'}</button> : null}
+      </div>
+      <dl className="grid gap-3 sm:grid-cols-2">
+        {fields.map((f) => (
+          <div key={f.key}>
+            <dt className="ui-t-label">{f.label}{f.required ? ' *' : ''}</dt>
+            <dd className="mt-0.5 text-sm">{control(f)}{f.help ? <span className="ui-caption block">{f.help}</span> : null}</dd>
+          </div>
+        ))}
+      </dl>
+    </section>
+  );
+}
+
+/**
+ * Import drawer (CORE-07): map the file's columns to fields, preview every
+ * row (errors and matches named), choose add-only or update-by-code, then
+ * commit — and undo the whole batch within a day.
+ */
+const IMPORT_FIELDS = [...IMPORT_COLUMNS, { key: 'businessUnit', label: 'businessUnit' }, { key: 'grade', label: 'grade' }, { key: 'costCentre', label: 'costCentre' }];
+const guessField = (header) => {
+  const h = String(header || '').toLowerCase().replace(/[^a-z]/g, '');
+  const aliases = { employeeid: 'code', empcode: 'code', id: 'code', fullname: 'name', employeename: 'name', mobile: 'phone', phonenumber: 'phone', emailid: 'email', personalemail: 'email', designation: 'jobPosition', position: 'jobPosition', dept: 'department', doj: 'dateOfJoining', joiningdate: 'dateOfJoining', dateofjoining: 'dateOfJoining', dob: 'dateOfBirth', dateofbirth: 'dateOfBirth', type: 'employeeType', costcenter: 'costCentre' };
+  if (aliases[h]) return aliases[h];
+  const hit = IMPORT_FIELDS.find((f) => f.key.toLowerCase() === h);
+  return hit ? hit.key : '';
+};
+function ImportDrawer({ file, onClose, onDone }) {
+  const [mapping, setMapping] = useState(() => file.headers.map(guessField));
+  const [mode, setMode] = useState('create');
+  const [preview, setPreview] = useState(null);
+  const [result, setResult] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const records = () => file.rows.map((r) => Object.fromEntries(mapping.map((k, i) => (k ? [k, String(r[i] ?? '').trim() || null] : null)).filter(Boolean)));
+  const run = async (dryRun) => {
+    setBusy(true);
+    try {
+      const res = await importEmployees(records(), dryRun, mode);
+      if (dryRun) setPreview(res);
+      else {
+        setResult(res);
+        notify.success(res.failed ? `${res.imported} ${mode === 'update' ? 'taken' : 'imported'}, ${res.failed} rows not.` : `${res.imported} people ${mode === 'update' ? 'taken' : 'imported'}.`);
+      }
+    } catch (e) {
+      notify.error(String(e?.message || 'Import failed.'));
+    } finally {
+      setBusy(false);
+    }
+  };
+  const undo = async () => {
+    if (!(await confirmDialog({ title: 'Undo this import?', message: 'The people it added are removed with their events; the people it changed go back to what they were.', confirmLabel: 'Undo' }))) return;
+    setBusy(true);
+    try {
+      const r = await undoImport(result.batchId);
+      notify.success(`Undone: ${r.removed} removed, ${r.restored} put back${r.kept ? `, ${r.kept} kept (already in payroll)` : ''}.`);
+      onDone();
+    } catch (e) {
+      notify.error(String(e?.message || 'Not undone.'));
+    } finally {
+      setBusy(false);
+    }
+  };
+  const mapped = mapping.filter(Boolean).length;
+  return (
+    <Drawer open onClose={result ? onDone : onClose} title={`Import ${file.name}`} description={`${file.rows.length} rows. Match each column to a field, preview, then import. An import can be undone within 24 hours.`} widthClass="w-[min(44rem,96vw)]"
+      actions={result ? (
+        <>
+          {result.batchId ? <button type="button" className="ui-btn ui-btn-secondary" disabled={busy} onClick={undo}>Undo this import</button> : null}
+          <button type="button" className="ui-btn ui-btn-primary" onClick={onDone}>Done</button>
+        </>
+      ) : (
+        <>
+          <button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button>
+          <button type="button" className="ui-btn ui-btn-secondary" disabled={busy || !mapped} onClick={() => run(true)}>Preview</button>
+          <button type="button" className="ui-btn ui-btn-primary" disabled={busy || !preview || !preview.imported} onClick={() => run(false)}>{busy ? 'Working…' : `Import ${preview ? preview.imported : ''}`}</button>
+        </>
+      )}>
+      <div className="space-y-4">
+        {!result ? (
+          <>
+            <section className="space-y-2" aria-label="Columns">
+              <h3 className="ui-t-sec">Columns</h3>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {file.headers.map((h, i) => (
+                  <label key={`${h}-${i}`} className="flex items-center gap-2 text-sm">
+                    <span className="min-w-0 flex-1 truncate font-mono text-xs" title={h}>{h || `column ${i + 1}`}</span>
+                    <select className="ui-select" style={{ width: '11rem' }} value={mapping[i]} onChange={(e) => { const m = [...mapping]; m[i] = e.target.value; setMapping(m); setPreview(null); }} aria-label={`Field for ${h}`}>
+                      <option value="">— skip —</option>
+                      {IMPORT_FIELDS.map((f) => <option key={f.key} value={f.key}>{f.label}</option>)}
+                    </select>
+                  </label>
+                ))}
+              </div>
+            </section>
+            <label className="flex items-center gap-2 text-sm">
+              <span className="ui-label">If an employee ID is already here</span>
+              <select className="ui-select" style={{ width: 'auto' }} value={mode} onChange={(e) => { setMode(e.target.value); setPreview(null); }} aria-label="Mode">
+                <option value="create">Stop that row (add new people only)</option>
+                <option value="update">Update that person with the columns given</option>
+              </select>
+            </label>
+            {preview ? (
+              <section className="space-y-1" aria-label="Preview">
+                <h3 className="ui-t-sec">Preview</h3>
+                <p className="text-sm">{preview.imported} rows ready{preview.results.some((r) => r.action === 'UPDATE') ? ` (${preview.results.filter((r) => r.action === 'UPDATE').length} update someone already here)` : ''}; {preview.failed} with a problem; {preview.results.filter((r) => r.warning).length} look like someone already here.</p>
+                <ul className="divide-y text-sm max-h-72 overflow-y-auto">
+                  {preview.results.filter((r) => !r.ok || r.warning).map((r) => (
+                    <li key={r.row} className="py-1.5 flex gap-2"><span className="tabular-nums ui-muted w-16 shrink-0">Row {r.row}</span><span className={r.ok ? '' : 'text-[rgb(var(--neg))]'}>{r.ok ? r.warning : r.error}</span></li>
+                  ))}
+                </ul>
+              </section>
+            ) : null}
+          </>
+        ) : (
+          <section className="space-y-2" aria-label="Result">
+            <p className="text-sm font-medium">{result.imported} {mode === 'update' ? 'taken' : 'imported'}, {result.failed} not.</p>
+            {result.failed ? <ul className="divide-y text-sm max-h-72 overflow-y-auto">{result.results.filter((r) => !r.ok).map((r) => <li key={r.row} className="py-1.5"><span className="tabular-nums ui-muted">Row {r.row}</span> · {r.error}</li>)}</ul> : null}
+            {result.batchId ? <p className="ui-caption">This import can be undone until {new Date(result.undoUntil).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}.</p> : null}
+          </section>
+        )}
+      </div>
+    </Drawer>
+  );
+}
+
 /* What a joiner may fill in before day one (LIFE-01), as the server names it. */
 const JOINER_FIELDS = [
   ['personalEmail', 'Personal email'], ['phone', 'Phone'], ['dateOfBirth', 'Date of birth'], ['gender', 'Gender'], ['maritalStatus', 'Marital status'],
@@ -1353,7 +1519,7 @@ function EmployeeForm({ initial, lists, people, onClose, onSaved }) {
       'maritalStatus', 'personalEmail', 'photoUrl', 'addressLine', 'city', 'state', 'country', 'pincode', 'emergencyContactName',
       'emergencyContactPhone', 'emergencyContactRelation', 'departmentId', 'jobPositionId', 'jobRoleId', 'employeeTypeId', 'workTypeId',
       'reportingManagerId', 'dottedManagerId', 'workEmail', 'workPhone', 'workLocation', 'devicePin', 'probationEndDate', 'contractEndDate', 'tagIds',
-      'areaId', 'establishmentId', 'contractorId', 'businessUnitId', 'gradeId', 'costCenterId', 'cardNumber', 'devicePrivilege', 'attendanceRequired', 'guardianName',
+      'areaId', 'establishmentId', 'teamId', 'seatId', 'contractorId', 'businessUnitId', 'gradeId', 'costCenterId', 'cardNumber', 'devicePrivilege', 'attendanceRequired', 'guardianName',
     ];
     const body = Object.fromEntries(keys.filter((k) => form[k] !== undefined).map((k) => [k, form[k] === '' ? null : form[k]]));
     /* The reader PIN is write-only: sent only when typed. */
@@ -1499,6 +1665,8 @@ function EmployeeForm({ initial, lists, people, onClose, onSaved }) {
           {select('jobPositionId', 'Designation', positions)}
           {lists.grades.length ? select('gradeId', 'Grade', lists.grades) : null}
           {lists.establishments.length ? select('establishmentId', 'Establishment (work state)', lists.establishments.map((x) => ({ ...x, name: x.state ? `${x.name} (${x.state})` : x.name }))) : null}
+          {lists.teams?.length ? select('teamId', 'Team', lists.teams) : null}
+          {lists.seats?.length ? select('seatId', 'Seat', lists.seats.filter((x) => !form.teamId || !x.teamId || x.teamId === form.teamId)) : null}
           {lists.areas.length ? select('areaId', 'Location', lists.areas) : null}
           {lists.centres.length ? select('costCenterId', 'Cost centre', lists.centres) : null}
           {select('reportingManagerId', 'Reports to', people.filter((p) => p.id !== form.id && p.status !== 'LEFT'))}
@@ -1556,7 +1724,7 @@ function EmployeeForm({ initial, lists, people, onClose, onSaved }) {
           <h3 className="ui-t-sec sm:col-span-2">Personal Details</h3>
           {input('email', 'Personal email', { type: 'email' })}
           {input('dateOfBirth', 'Date of birth', { type: 'date' })}
-          {select('gender', 'Gender', [{ id: 'MALE', label: 'Male' }, { id: 'FEMALE', label: 'Female' }, { id: 'OTHER', label: 'Other' }])}
+          {select('gender', 'Gender', [{ id: 'MALE', label: 'Male' }, { id: 'FEMALE', label: 'Female' }, { id: 'NON_BINARY', label: 'Non-binary' }, { id: 'OTHER', label: 'Other' }, { id: 'PREFER_NOT_TO_SAY', label: 'Prefer not to say' }])}
           {select('maritalStatus', 'Marital status', [
             { id: 'SINGLE', label: 'Single' },
             { id: 'MARRIED', label: 'Married' },

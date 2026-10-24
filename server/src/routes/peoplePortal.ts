@@ -4,6 +4,9 @@ import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { policiesFor, versionForPerson } from '../services/people/policies.js';
 import { AckError, accept, pendingFor } from '../services/people/acknowledgements.js';
 import { DeskError, categoriesOf, employeeReply, listRequests, raiseRequest, reopenRequest, requestDetail } from '../services/people/desk.js';
+import { SelfServiceError, myDetails, requestChange } from '../services/people/selfService.js';
+import { correlationOf } from '../services/people/employees.js';
+import { ResignError, resignFromApp } from '../services/people/lifecycle/leaving.js';
 
 /**
  * People's own employee-facing routes, behind the employee app's sign-in
@@ -100,4 +103,49 @@ peoplePortalRouter.post('/desk/:id/reopen', async (req, res) => {
   } catch (e) {
     deskError(res, e);
   }
+});
+
+/* My details (CORE-03): what I may see and change about myself; contact details save at once, the rest waits for HR, by the company setting (D-02). */
+peoplePortalRouter.get('/me/details', async (req, res) => {
+  const { orgId, employeeId } = me(req);
+  try {
+    res.json(await myDetails(orgId, employeeId));
+  } catch (e) {
+    if (e instanceof SelfServiceError) return res.status(e.status).json({ error: e.message });
+    console.error('[people-portal me]', e instanceof Error ? e.message : e);
+    res.status(500).json({ error: 'Something went wrong.' });
+  }
+});
+
+peoplePortalRouter.post('/me/change-request', async (req, res) => {
+  const { accountId, orgId, employeeId } = me(req);
+  try {
+    const r = await requestChange({ accountId, orgId, employeeId, userId: req.portal!.employee.userId || null, correlationId: correlationOf(req as any) }, req.body && typeof req.body === 'object' ? req.body : {});
+    res.status(r.request ? 202 : 200).json(r);
+  } catch (e) {
+    if (e instanceof SelfServiceError) return res.status(e.status).json({ error: e.message });
+    if ((e as any)?.status) return res.status((e as any).status).json({ error: (e as Error).message });
+    console.error('[people-portal me]', e instanceof Error ? e.message : e);
+    res.status(500).json({ error: 'Something went wrong.' });
+  }
+});
+
+/* Resigning from the app (LIFE-05): a LEAVING request the manager and HR decide; the last day goes on the record when it is approved. */
+peoplePortalRouter.post('/me/resign', async (req, res) => {
+  const { accountId, orgId, employeeId } = me(req);
+  try {
+    res.status(202).json(await resignFromApp({ accountId, orgId, employeeId, userId: req.portal!.employee.userId || null, correlationId: correlationOf(req as any) }, req.body || {}));
+  } catch (e) {
+    if (e instanceof ResignError) return res.status(e.status).json({ error: e.message });
+    if ((e as any)?.status) return res.status((e as any).status).json({ error: (e as Error).message });
+    console.error('[people-portal resign]', e instanceof Error ? e.message : e);
+    res.status(500).json({ error: 'Something went wrong.' });
+  }
+});
+
+peoplePortalRouter.get('/me/leaving', async (req, res) => {
+  const { orgId, employeeId } = me(req);
+  const e = await peoplePrisma.employee.findFirst({ where: { id: employeeId, orgId }, select: { status: true, dateOfLeaving: true, leavingType: true } });
+  const waiting = await peoplePrisma.approvalRequest.findFirst({ where: { orgId, subjectEmployeeId: employeeId, requestType: 'LEAVING', status: 'WAITING' }, select: { id: true, title: true, createdAt: true } });
+  res.json({ status: e?.status || null, lastDay: e?.dateOfLeaving || null, leavingType: e?.leavingType || null, waiting });
 });

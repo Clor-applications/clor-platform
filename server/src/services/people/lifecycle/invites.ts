@@ -36,7 +36,7 @@ export const JOINER_FIELD_LABEL: Record<JoinerField, string> = {
   emergencyContactName: 'Emergency contact', emergencyContactPhone: 'Emergency contact phone', emergencyContactRelation: 'Relation', guardianName: 'Father’s / guardian’s name',
 };
 const JOINER_DOC_KINDS = new Set(['ID_PROOF', 'ADDRESS_PROOF', 'EDUCATION', 'CERTIFICATE', 'OTHER']);
-const GENDERS = new Set(['MALE', 'FEMALE', 'OTHER']);
+const GENDERS = new Set(['MALE', 'FEMALE', 'NON_BINARY', 'OTHER', 'PREFER_NOT_TO_SAY']);
 const MARITAL = new Set(['SINGLE', 'MARRIED', 'DIVORCED', 'WIDOWED']);
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 const APP_URL = () => process.env.APP_URL || 'http://localhost:5173';
@@ -130,7 +130,7 @@ export async function submitInvite(invite: { id: string; accountId: string; orgI
     let v: string | null = String(raw[k] ?? '').trim().slice(0, 200) || null;
     if (k === 'personalEmail' && v && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) throw new InviteError('That is not an email address.');
     if (k === 'dateOfBirth' && v && !ISO_DATE.test(v)) throw new InviteError('Dates are YYYY-MM-DD.');
-    if (k === 'gender' && v) { v = v.toUpperCase(); if (!GENDERS.has(v)) throw new InviteError('Gender is male, female or other.'); }
+    if (k === 'gender' && v) { v = v.toUpperCase(); if (!GENDERS.has(v)) throw new InviteError('Gender is male, female, non-binary, other, or prefer not to say.'); }
     if (k === 'maritalStatus' && v) { v = v.toUpperCase(); if (!MARITAL.has(v)) throw new InviteError('Marital status is single, married, divorced or widowed.'); }
     if (k === 'pincode' && v && !/^\d{6}$/.test(v)) throw new InviteError('A PIN code is six digits.');
     fields[k] = v;

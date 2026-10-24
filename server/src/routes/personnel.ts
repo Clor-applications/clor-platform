@@ -12,6 +12,9 @@ import { pushEmployeeToReaders, revokeFromReaders } from '../services/attendance
 import { deleteToBin } from '../services/recycleBin.js';
 import { openNextEpisode } from '../services/people/episodes.js';
 import { leaveEmployee } from '../services/people/lifecycle/leaving.js';
+import { correlationOf, employeeSummary } from '../services/people/employees.js';
+import { diffEmployee, writeChangeLog } from '../services/people/changeLog.js';
+import { writeEvent } from '../services/people/outbox.js';
 import { recordChanges } from '../services/people/employmentHistory.js';
 import { READER_ACCESS_ITEM, startChecklist } from '../services/people/checklists.js';
 
@@ -218,7 +221,7 @@ personnelRouter.post(`${base}/employees/:id/rehire`, can(PermissionAction.EDIT, 
   if (existing.dateOfLeaving && parsed.data.rejoinDate <= existing.dateOfLeaving) return res.status(400).json({ error: `The rejoin date must be after their last day, ${existing.dateOfLeaving}.` });
   const employee = await peoplePrisma.$transaction(async (tx) => {
     const next = await openNextEpisode({ accountId, orgId }, existing, parsed.data.rejoinDate, tx);
-    return tx.employee.update({
+    const row = await tx.employee.update({
       where: { id: existing.id },
       data: {
         status: 'ACTIVE',
@@ -230,6 +233,11 @@ personnelRouter.post(`${base}/employees/:id/rehire`, can(PermissionAction.EDIT, 
         currentEpisodeSeq: next.seq,
       },
     });
+    /* The one write path's log and event, in the same transaction (FND-04, FND-05). */
+    const actor = { accountId, orgId, userId: req.auth!.userId, source: 'HIRE' as const, correlationId: correlationOf(req as any), reason: `Rejoined: stint ${next.seq}` };
+    await writeChangeLog(tx, actor, { kind: 'Employee', id: row.id, employeeId: row.id }, diffEmployee(existing as unknown as Record<string, unknown>, row as unknown as Record<string, unknown>));
+    await writeEvent(tx, actor, 'people.employee.rejoined.v1', { rejoinDate: parsed.data.rejoinDate, stint: next.seq, employee: employeeSummary(row) }, row.id);
+    return row;
   });
   await recordChanges({ accountId, orgId, userId: req.auth!.userId }, existing, employee, { source: 'REHIRE', effectiveDate: parsed.data.rejoinDate, note: `Stint ${employee.currentEpisodeSeq}` });
   await startChecklist({ accountId, orgId, userId: req.auth!.userId }, employee, 'JOINING', employee.dateOfJoining);

@@ -40,7 +40,9 @@ export const createEmployee = (body) => send('/employees', 'POST', body);
 export const updateEmployee = (id, body) => send(`/employees/${encodeURIComponent(id)}`, 'PUT', body);
 export const deleteEmployee = (id) => send(`/employees/${encodeURIComponent(id)}`, 'DELETE');
 /* dryRun: every row checked, nothing created — the preview before an import. */
-export const importEmployees = (rows, dryRun = false) => send('/employees/import', 'POST', { rows, dryRun });
+export const importEmployees = (rows, dryRun = false, mode = 'create') => send('/employees/import', 'POST', { rows, dryRun, mode });
+export const importBatches = () => apiFetch(`${base()}/employees/import/batches`, opts).then((r) => r?.batches || []);
+export const undoImport = (batchId) => send(`/employees/import/${encodeURIComponent(batchId)}/undo`, 'POST', {});
 export const importContractors = (rows, dryRun = false) => send('/contractors/import', 'POST', { rows, dryRun });
 export const getOrgChart = () => apiFetch(`${base()}/org-chart`, opts);
 
@@ -117,6 +119,14 @@ export const getChangeImpact = (id, fields) => {
   const q = new URLSearchParams(Object.entries(fields).map(([k, v]) => [k, v || '']));
   return apiFetch(`${base()}/employees/${encodeURIComponent(id)}/change-impact?${q}`, opts).then((r) => r?.impact || []);
 };
+/* Company-wide People settings (CORE-03, D-02). */
+export const getPeopleSettings = () => apiFetch(`${base()}/settings`, opts).then((r) => r?.settings);
+export const savePeopleSettings = (body) => send('/settings', 'PUT', body).then((r) => r?.settings);
+/* Custom fields (CORE-08): the company's own fields on a person, by grant. */
+export const getCustomFieldDefs = (all) => apiFetch(`${base()}/custom-fields${all ? '?all=1' : ''}`, opts);
+export const saveCustomFieldDef = (body) => (body.id ? send(`/custom-fields/${encodeURIComponent(body.id)}`, 'PUT', body) : send('/custom-fields', 'POST', body));
+export const getCustomValues = (id) => apiFetch(`${base()}/employees/${encodeURIComponent(id)}/custom-fields`, opts).then((r) => r?.fields || []);
+export const saveCustomValues = (id, values) => send(`/employees/${encodeURIComponent(id)}/custom-fields`, 'PUT', { values });
 /* The journey and Why (CORE-06, TRACE-01): every change in order, each with its reasons. */
 export const getJourney = (id) => apiFetch(`${base()}/employees/${encodeURIComponent(id)}/journey`, opts);
 export const getWhy = (id, key) => apiFetch(`${base()}/employees/${encodeURIComponent(id)}/why/${encodeURIComponent(key)}`, opts).then((r) => r?.why);

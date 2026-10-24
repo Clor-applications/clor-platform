@@ -61,6 +61,7 @@ const PeopleOverview = screen('PeopleOverview');
 const Employees = screen('Employees');
 const Approvals = screen('Approvals');
 const Policies = screen('Policies');
+const ApprovalRules = screen('ApprovalRules');
 const HelpDesk = screen('HelpDesk');
 const HelpDeskSettings = screen('HelpDeskSettings');
 const OrgChart = screen('OrgChart');
@@ -73,6 +74,8 @@ const WorkTypes = screen('WorkTypes');
 const DataHealth = screen('DataHealth');
 const Checklists = screen('Checklists');
 const LetterTemplates = screen('LetterTemplates');
+const CustomFieldsSettings = screen('CustomFieldsSettings');
+const SelfServiceSettings = screen('SelfServiceSettings');
 const ComplianceCalendar = screen('ComplianceCalendar');
 const WorkspaceList = screen('WorkspaceList');
 const PeopleReports = screen('PeopleReports');
@@ -96,6 +99,8 @@ const CompanyDetails = screen('CompanyDetails');
 const BusinessUnits = screen('BusinessUnits');
 const LegalEntities = screen('LegalEntities');
 const Establishments = screen('Establishments');
+const Teams = screen('Teams');
+const Seats = screen('Seats');
 const Grades = screen('Grades');
 const CostCentres = screen('CostCentres');
 const Locations = screen('Locations');
@@ -224,6 +229,9 @@ export const peopleApp = {
     { key: 'checklists', label: 'Onboarding & Exit', icon: I.checklist, permission: 'PEOPLE::Employees::VIEW' },
     { key: 'selfService', label: 'Employee Portal Access', icon: I.key, permission: 'ATTENDANCE::Employee Portal::VIEW', parent: 'settings' },
     { key: 'letterTemplates', label: 'Letters', icon: I.policy, permission: 'PEOPLE::Documents::VIEW', parent: 'settings' },
+    { key: 'customFields', label: 'Custom fields', icon: I.tag, permission: 'PEOPLE::Org Structure::EDIT', parent: 'settings' },
+    { key: 'selfServiceChanges', label: 'Changes employees make themselves', icon: I.key, permission: 'PEOPLE::Org Structure::EDIT', parent: 'settings' },
+    { key: 'approvalRules', label: 'Approval rules', icon: I.checklist, permission: 'PEOPLE::Approvals::VIEW', parent: 'settings' },
     { key: 'leaveRequests', label: 'Leave Applications', icon: I.leave, permission: 'ATTENDANCE::Leave Requests::VIEW' },
     { key: 'leaveBalances', label: 'Leave Balances', icon: I.balance, permission: 'ATTENDANCE::Leave Requests::VIEW' },
     { key: 'leaveRegister', label: 'Leave Register', icon: I.register, permission: 'ATTENDANCE::Leave Requests::VIEW' },
@@ -248,6 +256,8 @@ export const peopleApp = {
     { key: 'dataHealth', label: 'Data Health', icon: I.health, permission: 'PEOPLE::Employees::VIEW' },
     { key: 'complianceCalendar', label: 'Compliance Calendar', icon: I.compliance, permission: 'PEOPLE::Employees::VIEW' },
     { key: 'departments', label: 'Departments', icon: I.department, permission: 'PEOPLE::Org Structure::VIEW', parent: 'settings' },
+    { key: 'teams', label: 'Teams', icon: I.people, permission: 'PEOPLE::Org Structure::VIEW', parent: 'settings' },
+    { key: 'seats', label: 'Seats', icon: I.org, permission: 'PEOPLE::Org Structure::VIEW', parent: 'settings' },
     { key: 'jobPositions', label: 'Designations', icon: I.designation, permission: 'PEOPLE::Org Structure::VIEW', parent: 'settings' },
     { key: 'jobRoles', label: 'Job Roles', icon: I.role, permission: 'PEOPLE::Org Structure::VIEW', parent: 'settings' },
     { key: 'employeeTypes', label: 'Employee Types', icon: I.type, permission: 'PEOPLE::Org Structure::VIEW', parent: 'settings' },
@@ -283,6 +293,9 @@ export const peopleApp = {
     documents: PeopleDocuments,
     checklists: Checklists,
     letterTemplates: LetterTemplates,
+    customFields: CustomFieldsSettings,
+    selfServiceChanges: SelfServiceSettings,
+    approvalRules: ApprovalRules,
     selfService: PortalAccess,
     leaveRequests: LeaveRequests,
     leaveBalances: LeaveBalances,
@@ -308,6 +321,8 @@ export const peopleApp = {
     dataHealth: DataHealth,
     complianceCalendar: ComplianceCalendar,
     departments: Departments,
+    teams: Teams,
+    seats: Seats,
     jobPositions: JobPositions,
     jobRoles: JobRoles,
     employeeTypes: EmployeeTypes,

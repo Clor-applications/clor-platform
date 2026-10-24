@@ -36,7 +36,7 @@ export const LOGGED_EMPLOYEE_FIELDS = [
   'departmentId', 'businessUnitId', 'gradeId', 'costCenterId', 'jobPositionId', 'jobRoleId', 'employeeTypeId', 'workTypeId',
   'reportingManagerId', 'dottedManagerId', 'workEmail', 'workPhone', 'workLocation', 'devicePin', 'areaId', 'contractorId', 'cardNumber',
   'devicePassword', 'devicePrivilege', 'attendanceRequired', 'guardianName', 'leavingType', 'leavingReason', 'portalEnabled',
-  'mobilePunch', 'geofenceId', 'probationEndDate', 'contractEndDate', 'phonePunchMode', 'selfieRequired', 'establishmentId',
+  'mobilePunch', 'geofenceId', 'probationEndDate', 'contractEndDate', 'phonePunchMode', 'selfieRequired', 'establishmentId', 'teamId', 'seatId',
 ] as const;
 
 /** Logged as changed, without the value. */

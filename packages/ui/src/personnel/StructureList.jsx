@@ -88,6 +88,22 @@ const KINDS = {
     ],
     columns: [{ key: 'state', label: 'State' }, { key: 'kind', label: 'Type', value: (r) => (r.kind || '').charAt(0) + (r.kind || '').slice(1).toLowerCase() }],
   },
+  teams: {
+    title: 'Teams',
+    singular: 'team',
+    description: 'A team under a department. Its lead is set on the people themselves (Reports to); seats on the team are listed under Seats.',
+    parent: { key: 'departmentId', kind: 'departments', label: 'Department' },
+    fields: [],
+    columns: [],
+  },
+  seats: {
+    title: 'Seats',
+    singular: 'seat',
+    description: 'Approved seats on a team: a title, a designation and a budget reference. A seat is filled by the person placed in it on their record, or open — and open seats show on the org chart.',
+    parent: { key: 'teamId', kind: 'teams', label: 'Team' },
+    fields: [{ key: 'budgetRef', label: 'Budget reference', placeholder: 'e.g. FY27-OPS-04' }],
+    columns: [{ key: 'budgetRef', label: 'Budget' }],
+  },
 };
 
 const TABS = [
@@ -359,3 +375,5 @@ export const Grades = (props) => <StructureList kind="grades" {...props} />;
 export const CostCentres = (props) => <StructureList kind="cost-centres" {...props} />;
 export const LegalEntities = (props) => <StructureList kind="legal-entities" {...props} />;
 export const Establishments = (props) => <StructureList kind="establishments" {...props} />;
+export const Teams = (props) => <StructureList kind="teams" {...props} />;
+export const Seats = (props) => <StructureList kind="seats" {...props} />;

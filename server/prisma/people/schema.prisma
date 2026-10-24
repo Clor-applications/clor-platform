@@ -180,7 +180,12 @@ model Employee {
   @@index([accountId, orgId, establishmentId])
   @@index([accountId, orgId, reportingManagerId])
   joinInvites JoinInvite[]
+  /// Team and seat (ORG-01, ORG-04); a seat holds one person at a time.
+  teamId String?
+  seatId String?
   deskRequests DeskRequest[]
+
+  @@unique([orgId, seatId])
 }
 
 // ============================================================================
@@ -1486,6 +1491,130 @@ model DeskTemplate {
   updatedAt       DateTime @updatedAt
 
   @@index([orgId, isActive])
+}
+
+/// Custom fields on a person (docs/people/02-PRD.md CORE-08; services/people/customFields.ts):
+/// typed, with who may see and who may edit; every change to a definition is a
+/// new version, and a value records the version it was saved under.
+model CustomFieldDef {
+  id              String   @id @default(cuid())
+  accountId       String
+  orgId           String
+  entity          String   @default("Employee")
+  /// snake_case, never changed once made
+  key             String
+  label           String
+  /// TEXT | NUMBER | DATE | CHOICE | BOOLEAN | FILE
+  type            String
+  /// For CHOICE: ["Option", …]
+  options         Json?
+  required        Boolean  @default(false)
+  /// A permission key, e.g. PEOPLE::Employees::VIEW or PEOPLE::Statutory Details::VIEW
+  viewPermission  String
+  editPermission  String
+  help            String?
+  version         Int      @default(1)
+  active          Boolean  @default(true)
+  sortOrder       Int      @default(0)
+  createdByUserId String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  values CustomFieldValue[]
+
+  @@unique([orgId, entity, key])
+}
+
+model CustomFieldValue {
+  id              String   @id @default(cuid())
+  accountId       String
+  orgId           String
+  defId           String
+  entityId        String
+  value           Json?
+  defVersion      Int      @default(1)
+  updatedByUserId String?
+  updatedAt       DateTime @updatedAt
+
+  def CustomFieldDef @relation(fields: [defId], references: [id], onDelete: Cascade)
+
+  @@unique([defId, entityId])
+  @@index([orgId, entityId])
+}
+
+/// One import, remembered (docs/people/02-PRD.md CORE-07): who it made and what it
+/// changed (with the values before), so the whole batch can be undone within a day.
+model ImportBatch {
+  id              String    @id @default(cuid())
+  accountId       String
+  orgId           String
+  /// CREATE | UPDATE
+  mode            String    @default("CREATE")
+  rows            Int       @default(0)
+  failed          Int       @default(0)
+  /// employee ids this import created
+  createdIds      Json
+  /// [{ id, before: { field: value } }] for people this import changed
+  updated         Json
+  createdByUserId String?
+  createdAt       DateTime  @default(now())
+  undoneAt        DateTime?
+  undoneByUserId  String?
+
+  @@index([orgId, createdAt])
+}
+
+/// Company-wide People settings (docs/people/02-PRD.md CORE-03; decision D-02): one row per company.
+model PeopleSetting {
+  id                 String   @id @default(cuid())
+  accountId          String
+  orgId              String   @unique
+  /// CONTACT_DIRECT (contact details save at once, the rest needs HR approval) | ALL (everything needs approval) | NONE (saves at once, HR told)
+  selfServiceChanges String   @default("CONTACT_DIRECT")
+  updatedByUserId    String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+}
+
+/// A team under a department, with a lead (docs/people/02-PRD.md ORG-01).
+model Team {
+  id              String   @id @default(cuid())
+  accountId       String
+  orgId           String
+  name            String
+  departmentId    String?
+  leadEmployeeId  String?
+  description     String?
+  isActive        Boolean  @default(true)
+  createdByUserId String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  seats Seat[]
+
+  @@unique([orgId, name])
+  @@index([accountId, orgId])
+}
+
+/// An approved seat on a team (ORG-04): a designation and a budget reference; filled by the person whose `seatId` points here, or open.
+model Seat {
+  id              String   @id @default(cuid())
+  accountId       String
+  orgId           String
+  name            String
+  teamId          String?
+  jobPositionId   String?
+  budgetRef       String?
+  description     String?
+  isActive        Boolean  @default(true)
+  createdByUserId String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  team Team? @relation(fields: [teamId], references: [id], onDelete: SetNull)
+
+  @@unique([orgId, name])
+  @@index([orgId, teamId])
 }
 
 /// Letters the company issues (docs/people/02-PRD.md DOC-04; services/people/letters.ts):

@@ -5,6 +5,7 @@ import { notifyPermissionOnce, notifyUsers, recipientsWithPermission } from '../
 import { anyAppLive, appLive } from '../principalAllowed.js';
 import { exclusive, leaseFor } from '../jobLease.js';
 import { startChecklist } from './checklists.js';
+import { writeEvent } from './outbox.js';
 
 /**
  * People's own events, told to whoever manages employees (PEOPLE::Employees
@@ -100,7 +101,10 @@ export async function runDocumentReminders(now = new Date()) {
             ] });
           }
         }
-        await peoplePrisma.employeeDocument.update({ where: { id: d.id }, data: { expiryStage: stage, expiryNotifiedAt: now } });
+        await peoplePrisma.$transaction(async (tx) => {
+          await tx.employeeDocument.update({ where: { id: d.id }, data: { expiryStage: stage, expiryNotifiedAt: now } });
+          await writeEvent(tx, { accountId, orgId, correlationId: `expiry_${d.id}_${stage}` }, 'people.document.expiring.v1', { documentId: d.id, kind: d.kind, title: d.title, expiresOn: d.expiresOn, daysLeft, stage, employee: { id: person.id, code: person.code, name: person.name } }, d.employeeId);
+        });
         sent += 1;
       }
     } catch (e) {

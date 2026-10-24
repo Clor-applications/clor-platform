@@ -23,6 +23,8 @@ export const TRACKED: Record<string, { label: string; kind: 'TRANSFERRED' | 'CHA
   areaId: { label: 'Location', kind: 'TRANSFERRED' },
   branchId: { label: 'Branch', kind: 'TRANSFERRED' },
   establishmentId: { label: 'Office / site', kind: 'TRANSFERRED' },
+  teamId: { label: 'Team', kind: 'TRANSFERRED' },
+  seatId: { label: 'Seat', kind: 'CHANGED' },
   jobPositionId: { label: 'Designation', kind: 'CHANGED' },
   jobRoleId: { label: 'Job role', kind: 'CHANGED' },
   reportingManagerId: { label: 'Reporting manager', kind: 'CHANGED' },
@@ -44,6 +46,8 @@ export async function labelOf(orgId: string, field: string, id: string | null | 
   switch (field) {
     case 'departmentId': return (await peoplePrisma.department.findFirst(by))?.name ?? null;
     case 'areaId': return (await peoplePrisma.area.findFirst(by))?.name ?? null;
+    case 'teamId': { const r = await peoplePrisma.team.findFirst({ where: { id, orgId }, select: { name: true } }); return r?.name ?? null; }
+    case 'seatId': { const r = await peoplePrisma.seat.findFirst({ where: { id, orgId }, select: { name: true } }); return r?.name ?? null; }
     case 'establishmentId': { const r = await peoplePrisma.establishment.findFirst({ where: { id, orgId }, select: { name: true, state: true } }); return r ? (r.state ? `${r.name} (${r.state})` : r.name) : null; }
     case 'jobPositionId': return (await peoplePrisma.jobPosition.findFirst(by))?.name ?? null;
     case 'jobRoleId': return (await peoplePrisma.jobRole.findFirst(by))?.name ?? null;

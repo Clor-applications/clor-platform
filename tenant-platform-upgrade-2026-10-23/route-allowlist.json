@@ -432,6 +432,26 @@
       "reason": "Employee self-service (People): portal token (peoplePortal.ts uses portal authenticate) + anyAppLive; org and employee from the token; reopens their own resolved request within seven days (DESK-04)."
     },
     {
+      "method": "POST",
+      "path": "/api/portal/people/me/change-request",
+      "reason": "Employee self-service (People): portal token (peoplePortal.ts uses portal authenticate) + anyAppLive; org and employee from the token; changes their own details: contact details save at once as SELF_SERVICE, the rest becomes a PROFILE_CHANGE request HR decides (D-02)."
+    },
+    {
+      "method": "GET",
+      "path": "/api/portal/people/me/details",
+      "reason": "Employee self-service (People): portal token (peoplePortal.ts uses portal authenticate) + anyAppLive; org and employee from the token; reads only their own personal details and their own waiting change requests (CORE-03)."
+    },
+    {
+      "method": "GET",
+      "path": "/api/portal/people/me/leaving",
+      "reason": "Employee self-service (People): portal token (peoplePortal.ts uses portal authenticate) + anyAppLive; org and employee from the token; reads only their own notice state and waiting resignation."
+    },
+    {
+      "method": "POST",
+      "path": "/api/portal/people/me/resign",
+      "reason": "Employee self-service (People): portal token (peoplePortal.ts uses portal authenticate) + anyAppLive; org and employee from the token; resigns on their own employee id only; becomes a LEAVING request the manager and HR decide (LIFE-05)."
+    },
+    {
       "method": "GET",
       "path": "/api/portal/people/policies",
       "reason": "Employee self-service (People): portal token (peoplePortal.ts uses portal authenticate) + anyAppLive; org and employee from the token; only published versions that apply to them, never a draft (POL-01, POL-03)."
