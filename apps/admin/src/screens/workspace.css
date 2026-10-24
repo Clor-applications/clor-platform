@@ -1261,3 +1261,24 @@ button.ws-item:hover {
     padding: 10px 14px;
   }
 }
+
+/* A one-line confirmation or preview: quiet, tinted, never a card. */
+.ws-notice {
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: rgb(var(--ws-accent-soft));
+  color: rgb(var(--ws-ink));
+  font-size: 0.875rem;
+}
+/* An empty list: one icon, one line, centred in a quiet frame. */
+.ws-empty {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  padding: 40px 16px;
+  border: 1px dashed rgb(var(--ws-line));
+  border-radius: 12px;
+  color: rgb(var(--ws-muted));
+  font-size: 0.875rem;
+  text-align: center;
+}

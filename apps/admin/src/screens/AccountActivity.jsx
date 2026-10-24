@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { ShieldAlert } from 'lucide-react';
 
 import { accountAudit } from '@platform/admin/account';
+import { PageHead } from './wsKit';
 import './workspace.css';
 
 /**
@@ -56,11 +57,7 @@ export default function AccountActivity() {
   return (
     <div className="ws">
       <div className="ws-inner">
-        <header className="ws-head">
-          <div>
-            <h1 className="ws-title">Account activity</h1>
-          </div>
-        </header>
+        <PageHead crumbs={['Security', 'Account activity']} title="Account activity" />
 
         <div className="flex flex-wrap gap-2 items-end" role="search">
           <select className="ui-select" aria-label="What happened" value={filters.action} onChange={set('action')} style={{ width: 'auto' }}>

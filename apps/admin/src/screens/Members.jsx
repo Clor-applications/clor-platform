@@ -3,7 +3,7 @@ import { ChevronRight, Search, ShieldAlert, UserX } from 'lucide-react';
 
 import { confirmDialog } from '@ui/components/ui/notify';
 import { memberAccess, memberDirectory, reinstateMember, removeMemberFromCompany, setAccountRole, signOutMember, suspendMember } from '@platform/admin/account';
-import { WsDrawer } from './wsKit';
+import { ICON, PageHead, Stat, WsDrawer } from './wsKit';
 import './workspace.css';
 
 /**
@@ -93,25 +93,20 @@ export default function Members() {
   return (
     <div className="ws">
       <div className="ws-inner">
-        <header className="ws-head">
-          <div>
-            <h1 className="ws-title">Members</h1>
-          </div>
-        </header>
+        <PageHead crumbs={['Access', 'Members']} title="Members" />
 
         {data?.members?.length ? (
           (() => {
             const privileged = data.members.filter(isPrivileged);
             const exposed = privileged.filter((m) => !m.authenticator && m.status === 'ACTIVE');
+            const suspended = data.members.filter((m) => m.status === 'SUSPENDED').length;
+            const toggle = (risk) => setFilters((f) => ({ ...f, risk: f.risk === risk ? '' : risk }));
             return (
-              <div className="ws-planned" aria-label="Privileged access">
-                <span className="ws-planned-label">Privileged access</span>
-                <button type="button" className="ws-link" onClick={() => setFilters((f) => ({ ...f, risk: f.risk === 'privileged' ? '' : 'privileged' }))} aria-pressed={filters.risk === 'privileged'}>
-                  {privileged.length} {privileged.length === 1 ? 'person' : 'people'} can administer
-                </button>
-                <button type="button" className="ws-link" onClick={() => setFilters((f) => ({ ...f, risk: f.risk === 'no2fa' ? '' : 'no2fa' }))} aria-pressed={filters.risk === 'no2fa'}>
-                  {exposed.length ? `${exposed.length} of them sign in without an authenticator` : 'all of them use an authenticator'}
-                </button>
+              <div className="ws-stats">
+                <Stat icon={ICON.people} label="Members" value={data.members.length} />
+                <Stat icon={ICON.secure} label="Can administer" value={privileged.length} note={filters.risk === 'privileged' ? 'Showing only these' : undefined} onOpen={() => toggle('privileged')} />
+                <Stat icon={ICON.warning} tone={exposed.length ? 'warn' : null} label="Admins without authenticator" value={exposed.length} note={filters.risk === 'no2fa' ? 'Showing only these' : undefined} onOpen={exposed.length ? () => toggle('no2fa') : undefined} />
+                <Stat icon={ICON.person} label="Suspended" value={suspended} />
               </div>
             );
           })()

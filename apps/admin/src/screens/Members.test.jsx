@@ -60,8 +60,8 @@ describe('Workspace → Members', () => {
 
   it('shows who holds privileged access and who of them has no authenticator', async () => {
     render(<Members />);
-    expect(await screen.findByText('1 person can administer')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: '1 of them sign in without an authenticator' }));
+    expect(await screen.findByRole('button', { name: /Can administer\s*1/ })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Admins without authenticator\s*1/ }));
     expect(filterMembers(DIR.members, { risk: 'no2fa' }).map((m) => m.userId)).toEqual(['u1']);
     expect(screen.queryByRole('button', { name: /Kavya/ })).toBeNull();
   });

@@ -29,6 +29,7 @@ describe('Workspace → Invitations', () => {
   it('sends the email, role and chosen companies, and lists what was sent', async () => {
     render(<Invitations tenant={tenant} companies={companies} accountName="Anand Group" />);
     expect(await screen.findByText(/No invitations yet/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Invite people/ }));
     fireEvent.change(screen.getByLabelText('Email address'), { target: { value: 'priya@x.in' } });
     fireEvent.change(screen.getByLabelText('Account role'), { target: { value: 'ADMIN' } });
     fireEvent.click(screen.getByLabelText('Anand Exports'));

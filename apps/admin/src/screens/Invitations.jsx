@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Mail, RotateCw, Send, XCircle } from 'lucide-react';
+import { Plus, RotateCw, Send, XCircle } from 'lucide-react';
 
 import { createInvitation, listInvitations, resendInvitation, revokeInvitation } from '@platform/admin/account';
+import { ICON, PageHead, Stat, WsDrawer } from './wsKit';
 import './workspace.css';
 
 /**
@@ -46,6 +47,7 @@ export default function Invitations({ tenant, companies = [] }) {
   const [picked, setPicked] = useState(() => new Set(tenant?.id ? [tenant.id] : []));
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState('');
+  const [inviting, setInviting] = useState(false);
 
   const load = useCallback(() => {
     listInvitations()
@@ -70,6 +72,7 @@ export default function Invitations({ tenant, companies = [] }) {
       const r = await createInvitation({ email: email.trim(), accountRole: role, grants: [...picked].map((orgId) => ({ orgId })) });
       setNotice(r?.seatWarning ? `Invitation sent to ${email.trim()}. Note: ${r.seatWarning}` : `Invitation sent to ${email.trim()}.`);
       setEmail('');
+      setInviting(false);
       load();
     } catch (err) {
       setError(String(err?.message || 'Could not send the invitation.'));
@@ -90,106 +93,133 @@ export default function Invitations({ tenant, companies = [] }) {
     }
   };
 
+  const count = (st) => (rows || []).filter((r) => r.status === st).length;
+
   return (
     <div className="ws">
       <div className="ws-inner">
-        <header className="ws-head">
-          <div>
-            <h1 className="ws-title">Invitations</h1>
-          </div>
-        </header>
+        <PageHead
+          crumbs={['Access', 'Invitations']}
+          title="Invitations"
+          actions={
+            <button type="button" className="ws-btn ws-btn--primary" onClick={() => { setInviting(true); setNotice(''); setError(''); }}>
+              <Plus size={16} aria-hidden="true" /> Invite people
+            </button>
+          }
+        />
 
-        <form className="ws-setup" onSubmit={send} aria-labelledby="ws-invite-title">
-          <h2 id="ws-invite-title" className="ws-h2">Invite someone</h2>
-          <div className="grid gap-4 md:grid-cols-2">
-            <label className="grid gap-1">
-              <span className="text-sm font-medium">Email address</span>
-              <input className="ui-input" type="email" autoComplete="off" spellCheck={false} value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@company.in" required />
-            </label>
-            <div className="grid gap-1">
-              <label htmlFor="ws-invite-role" className="text-sm font-medium">Account role</label>
-              <select id="ws-invite-role" className="ui-select" value={role} onChange={(e) => setRole(e.target.value)} aria-describedby="ws-invite-role-help">
-                {ROLES.map(([k, l]) => (
-                  <option key={k} value={k}>{l}</option>
-                ))}
-              </select>
-              <span id="ws-invite-role-help" className="ws-card-blurb">{ROLES.find(([k]) => k === role)?.[2]}</span>
-            </div>
+        {rows?.length ? (
+          <div className="ws-stats">
+            <Stat icon={ICON.mail} label="Waiting" value={count('PENDING')} note="Link not used yet" />
+            <Stat icon={ICON.people} label="Joined" value={count('ACCEPTED')} />
+            <Stat icon={ICON.warning} tone={count('EXPIRED') ? 'warn' : null} label="Expired" value={count('EXPIRED')} note={count('EXPIRED') ? 'Resend to try again' : undefined} />
           </div>
-          <fieldset className="grid gap-2">
-            <legend className="text-sm font-medium mb-1">Companies</legend>
-            <div className="flex flex-wrap gap-2">
-              {accountCompanies.map((c) => (
-                <label key={c.id} className="ws-pill" style={{ cursor: 'pointer', padding: '6px 12px' }}>
-                  <input
-                    type="checkbox"
-                    checked={picked.has(c.id)}
-                    onChange={() => setPicked((s) => {
-                      const n = new Set(s);
-                      if (n.has(c.id)) n.delete(c.id);
-                      else n.add(c.id);
-                      return n;
-                    })}
-                  />
-                  {c.name}
-                </label>
-              ))}
-            </div>
-          </fieldset>
-          <p className="ws-card-blurb" aria-live="polite">
-            {accessPreview({ role, companyNames })}
-          </p>
-          <div className="flex flex-wrap items-center gap-3">
-            <button type="submit" className="ws-btn ws-btn--primary" disabled={!valid || busy}>
+        ) : null}
+
+        {notice ? <p role="status" className="ws-notice">{notice}</p> : null}
+        {error && !inviting ? <p role="alert" className="text-sm" style={{ color: 'rgb(var(--ws-danger))' }}>{error}</p> : null}
+
+        {rows === null ? (
+          <p className="ws-card-blurb">Loading…</p>
+        ) : rows.length === 0 ? (
+          <div className="ws-empty">
+            <span className="ws-tile" aria-hidden="true"><ICON.mail size={20} /></span>
+            <p>No invitations yet.</p>
+          </div>
+        ) : (
+          <div className="ws-table-wrap">
+            <table className="ws-table">
+              <caption className="sr-only">Invitations sent</caption>
+              <thead>
+                <tr>
+                  <th>Email</th>
+                  <th>Account role</th>
+                  <th>Status</th>
+                  <th>When</th>
+                  <th><span className="sr-only">Actions</span></th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r) => {
+                  const [label, pill] = STATUS[r.status] || [r.status, 'ws-pill'];
+                  const open = r.status === 'PENDING' || r.status === 'EXPIRED';
+                  return (
+                    <tr key={r.id}>
+                      <td><strong style={{ fontWeight: 600 }}>{r.email}</strong></td>
+                      <td>{ROLE_LABEL[r.accountRole] || r.accountRole}</td>
+                      <td><span className={pill}>{label}</span></td>
+                      <td>{r.status === 'ACCEPTED' ? `Joined ${day(r.acceptedAt)}` : r.status === 'PENDING' ? `Expires ${day(r.expiresAt)}` : `Sent ${day(r.lastSentAt)}`}</td>
+                      <td className="num">
+                        {open ? (
+                          <span className="inline-flex gap-2">
+                            <button type="button" className="ws-btn ws-btn--quiet ws-btn--small" onClick={() => act(resendInvitation, r.id, `Sent again to ${r.email}.`)}>
+                              <RotateCw size={14} aria-hidden="true" /> Resend
+                            </button>
+                            <button type="button" className="ws-btn ws-btn--quiet ws-btn--small" onClick={() => act(revokeInvitation, r.id, `Withdrew the invitation to ${r.email}.`)}>
+                              <XCircle size={14} aria-hidden="true" /> Withdraw
+                            </button>
+                          </span>
+                        ) : null}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      <WsDrawer
+        open={inviting}
+        onClose={() => setInviting(false)}
+        title="Invite people"
+        description="They choose their own password. The link expires in 7 days."
+        actions={
+          <>
+            <button type="button" className="ws-btn ws-btn--quiet" onClick={() => setInviting(false)}>Cancel</button>
+            <button type="submit" form="ws-invite" className="ws-btn ws-btn--primary" disabled={!valid || busy}>
               <Send size={16} aria-hidden="true" /> {busy ? 'Sending…' : 'Send invitation'}
             </button>
-            {notice ? <span role="status" className="text-sm">{notice}</span> : null}
+          </>
+        }
+      >
+        <form id="ws-invite" className="grid gap-5" onSubmit={send}>
+          {error ? <p role="alert" className="text-sm" style={{ color: 'rgb(var(--ws-danger))' }}>{error}</p> : null}
+          <label className="grid">
+            <span>Email address</span>
+            <input className="ui-input" type="email" autoComplete="off" spellCheck={false} value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@company.in" required />
+          </label>
+          <div className="grid">
+            <label htmlFor="ws-invite-role" className="text-sm">Account role</label>
+            <select id="ws-invite-role" className="ui-select" value={role} onChange={(e) => setRole(e.target.value)} aria-describedby="ws-invite-role-help">
+              {ROLES.map(([k, l]) => (
+                <option key={k} value={k}>{l}</option>
+              ))}
+            </select>
+            <span id="ws-invite-role-help" className="ui-caption">{ROLES.find(([k]) => k === role)?.[2]}</span>
           </div>
-          {error ? <p role="alert" className="text-sm" style={{ color: 'rgb(var(--neg))' }}>{error}</p> : null}
+          <fieldset className="grid gap-2">
+            <legend className="text-sm font-medium" style={{ marginBottom: 6 }}>Companies</legend>
+            {accountCompanies.map((c) => (
+              <label key={c.id}>
+                <input
+                  type="checkbox"
+                  checked={picked.has(c.id)}
+                  onChange={() => setPicked((s) => {
+                    const n = new Set(s);
+                    if (n.has(c.id)) n.delete(c.id);
+                    else n.add(c.id);
+                    return n;
+                  })}
+                />
+                {c.name}
+              </label>
+            ))}
+          </fieldset>
+          <p className="ws-notice" aria-live="polite">{accessPreview({ role, companyNames })}</p>
         </form>
-
-        <section className="ws-section" aria-labelledby="ws-inv-list">
-          <div className="ws-section-head">
-            <h2 id="ws-inv-list" className="ws-h2">Sent</h2>
-          </div>
-          {rows === null ? (
-            <p className="ws-card-blurb">Loading…</p>
-          ) : rows.length === 0 ? (
-            <div className="ws-setup" style={{ justifyItems: 'start' }}>
-              <Mail size={20} aria-hidden="true" />
-              <p className="ws-card-blurb">No invitations yet. Invite the first person above.</p>
-            </div>
-          ) : (
-            <ul className="ws-admin" role="list" style={{ gridTemplateColumns: '1fr' }}>
-              {rows.map((r) => {
-                const [label, pill] = STATUS[r.status] || [r.status, 'ws-pill'];
-                const open = r.status === 'PENDING' || r.status === 'EXPIRED';
-                return (
-                  <li key={r.id} className="ws-group" style={{ padding: '14px 16px' }}>
-                    <div className="flex flex-wrap items-center gap-3">
-                      <span className="font-medium">{r.email}</span>
-                      <span className={pill}>{label}</span>
-                      <span className="ws-card-blurb" style={{ marginTop: 0 }}>
-                        {ROLE_LABEL[r.accountRole] || r.accountRole} · {r.status === 'ACCEPTED' ? `joined ${day(r.acceptedAt)}` : r.status === 'PENDING' ? `expires ${day(r.expiresAt)}` : `sent ${day(r.lastSentAt)}`}
-                      </span>
-                      {open ? (
-                        <span className="ml-auto flex gap-2">
-                          <button type="button" className="ws-btn ws-btn--quiet ws-btn--small" onClick={() => act(resendInvitation, r.id, `Sent again to ${r.email}; the old link no longer works.`)}>
-                            <RotateCw size={14} aria-hidden="true" /> Resend
-                          </button>
-                          <button type="button" className="ws-btn ws-btn--quiet ws-btn--small" onClick={() => act(revokeInvitation, r.id, `Withdrew the invitation to ${r.email}.`)}>
-                            <XCircle size={14} aria-hidden="true" /> Withdraw
-                          </button>
-                        </span>
-                      ) : null}
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </section>
-      </div>
+      </WsDrawer>
     </div>
   );
 }
