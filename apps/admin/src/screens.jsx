@@ -37,9 +37,9 @@ const companyOf = (tenant) => ({ name: tenant?.name || '', profile: tenant?.prof
 
 export { default as CompanyProfile } from './screens/CompanyProfile';
 export const CloseCompany = ({ tenant }) => <WsFrame crumbs={['Data', 'Close company']}><CloseCompanyScreen companyName={tenant?.name || ''} /></WsFrame>;
-export const BillingPreview = ({ tenant }) => <WsFrame crumbs={['Plan', 'Billing']}><BillingPreviewScreen currentCompany={companyOf(tenant)} /></WsFrame>;
-export const DataBackup = ({ tenant }) => <WsFrame crumbs={['Data', 'Data export']}><DataBackupScreen currentCompany={companyOf(tenant)} /></WsFrame>;
-export const AccountOverview = ({ tenant }) => <WsFrame crumbs={['Plan', 'Subscription']}><AccountOverviewScreen currentCompany={companyOf(tenant)} /></WsFrame>;
+export const BillingPreview = ({ tenant }) => <BillingPreviewScreen currentCompany={companyOf(tenant)} />;
+export const DataBackup = ({ tenant }) => <DataBackupScreen currentCompany={companyOf(tenant)} />;
+export const AccountOverview = ({ tenant }) => <AccountOverviewScreen currentCompany={companyOf(tenant)} />;
 export const SettingsUsers = () => <WsFrame crumbs={['Access', 'Users']}><SettingsUsersScreen orgId={platformOrgId()} /></WsFrame>;
 export const SettingsRoles = () => <WsFrame crumbs={['Access', 'Roles']}><SettingsRolesScreen orgId={platformOrgId()} /></WsFrame>;
 export const SettingsBranches = ({ tenant }) => <WsFrame crumbs={['Company', 'Branches']}><SettingsBranchesScreen orgId={platformOrgId()} company={companyOf(tenant)} /></WsFrame>;

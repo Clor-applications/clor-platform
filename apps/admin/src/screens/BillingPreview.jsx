@@ -1,39 +1,31 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { CreditCard, FileText } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
 
-import { PageHeader } from '@ui/components/ui/Primitives';
 import NotConnected from '@ui/components/ui/NotConnected';
-import { formatMoney } from '@ui/utils/money';
 import { getAccountOverview } from '@platform/admin/admin';
 import { getEntitlement } from '@ui/api/features';
+import { ICON, PageHead, Panel, Stat } from './wsKit';
+import './workspace.css';
 
 /**
- * Billing, built ahead of the service behind it.
+ * Workspace → Plan → Billing (redesign W-R8), built ahead of the service
+ * behind it.
  *
- * The plan an account is on is real — it is stored, it decides what the product
- * offers, and it is read here from the server. What does not exist yet is
- * everything a billing provider owns: the money taken, the card on file, the
- * receipts. Those are shown as sample rows so the shape of the screen can be
- * settled now, and they are labelled as sample rows so nobody demonstrates them
- * as this account's.
- *
- * Pricing itself is deliberately not decided here. The amounts below are
- * placeholders for a layout, not a proposal.
+ * The plan an account is on is real — stored, deciding what the product
+ * offers, and read here from the server — and so is the usage. What does not
+ * exist yet is everything a payment provider owns: money taken, a card on
+ * file, receipts. Those are not drawn at all, not even as samples: a screen
+ * with invoice rows gets demonstrated as this account's. Pricing is not
+ * decided here either.
  */
+const used = (n, limit) => `${n ?? '—'}${limit ? ` / ${limit}` : ''}`;
 
-const SAMPLE_INVOICES = [
-  { id: 'sample-3', number: 'NB-0003', date: '2026-09-01', period: 'Sep 2026', amount: 2499, status: 'Paid' },
-  { id: 'sample-2', number: 'NB-0002', date: '2026-08-01', period: 'Aug 2026', amount: 2499, status: 'Paid' },
-  { id: 'sample-1', number: 'NB-0001', date: '2026-07-01', period: 'Jul 2026', amount: 2499, status: 'Paid' },
-];
-
-export default function BillingPreview({ currentCompany }) {
+export default function BillingPreview() {
   const [plan, setPlan] = useState(null);
   const [usage, setUsage] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
-    // The plan and the usage are real; only the money is invented.
+    // The plan and the usage are real; there is no money to show.
     Promise.all([getEntitlement().catch(() => null), getAccountOverview().catch(() => null)]).then(([ent, acct]) => {
       if (cancelled) return;
       setPlan(ent?.plan || acct?.plan || null);
@@ -44,89 +36,45 @@ export default function BillingPreview({ currentCompany }) {
     };
   }, []);
 
-  const money = (v) => formatMoney(Number(v || 0), currentCompany);
-  const nextTotal = useMemo(() => SAMPLE_INVOICES[0]?.amount ?? 0, []);
-
   return (
-    <div className="space-y-6">
-      <PageHeader entity="company" title="Billing" />
+    <div className="ws">
+      <div className="ws-inner">
+        <PageHead
+          crumbs={['Plan', 'Billing']}
+          title="Billing"
+          description="What the account is on and how much of it is used. Payments arrive here when billing goes live."
+        />
 
-      <NotConnected what="billing" sample>
-        The plan and the usage below are read from the server and are real. Payments, cards and receipts need a payment
-        provider, which has not been chosen yet — pricing is still to be set.
-      </NotConnected>
+        <NotConnected what="billing">
+          The plan and the usage below are read from the server and are real. Payments, cards and receipts need a payment
+          provider, which has not been chosen yet — pricing is still to be set.
+        </NotConnected>
 
-      <div className="grid gap-3 md:grid-cols-3">
-        <div className="ui-card p-4">
-          <div className="ui-label">Current plan</div>
-          <div className="mt-1 text-2xl">{plan?.name || '—'}</div>
-          <div className="ui-caption ui-muted">{plan?.inGoodStanding === false ? plan?.status : 'Active'}</div>
+        <div className="ws-stats">
+          <Stat
+            icon={ICON.plan}
+            label="Current plan"
+            value={plan?.name || '—'}
+            note={plan ? (plan.inGoodStanding === false ? `Status: ${plan.status}` : 'Active') : 'Reading the plan…'}
+          />
+          <Stat icon={ICON.companies} label="Companies" value={used(usage?.companies, plan?.limits?.maxCompanies)} note={plan?.limits?.maxCompanies ? 'Used of the plan’s allowance' : 'No limit on this plan'} />
+          <Stat icon={ICON.people} label="Users" value={used(usage?.users, plan?.limits?.maxUsers)} note={plan?.limits?.maxUsers ? 'Used of the plan’s allowance' : 'No limit on this plan'} />
         </div>
-        <div className="ui-card p-4">
-          <div className="ui-label">Companies</div>
-          <div className="mt-1 text-2xl ui-money">
-            {usage?.companies ?? '—'}
-            {plan?.limits?.maxCompanies ? <span className="ui-muted text-base"> / {plan.limits.maxCompanies}</span> : null}
+
+        <div className="ws-layout">
+          <div className="ws-main">
+            <Panel title="Billing history">
+              <p className="ws-card-blurb">
+                No invoices. Billing has not started for this account, so there is nothing to list and nothing to download.
+              </p>
+            </Panel>
           </div>
-        </div>
-        <div className="ui-card p-4">
-          <div className="ui-label">Users</div>
-          <div className="mt-1 text-2xl ui-money">
-            {usage?.users ?? '—'}
-            {plan?.limits?.maxUsers ? <span className="ui-muted text-base"> / {plan.limits.maxUsers}</span> : null}
-          </div>
-        </div>
-      </div>
-
-      <div className="ui-card p-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-start gap-3">
-            <CreditCard size={18} aria-hidden="true" className="ui-muted mt-0.5" />
-            <div>
-              <div className="ui-label">Payment method</div>
-              <div className="text-sm ui-muted">None on file. Nothing has been charged to this account.</div>
-            </div>
-          </div>
-          <button type="button" className="ui-btn ui-btn-secondary" disabled>
-            Add a card
-          </button>
-        </div>
-      </div>
-
-      <div>
-        <div className="ui-label mb-2">Billing history — sample</div>
-        <div className="ui-card overflow-x-auto">
-          <table className="ui-table w-full">
-            <thead>
-              <tr>
-                <th className="ui-th text-left">Invoice</th>
-                <th className="ui-th text-left">Date</th>
-                <th className="ui-th text-left">Period</th>
-                <th className="ui-th ui-num text-right">Amount</th>
-                <th className="ui-th text-left">Status</th>
-                <th className="ui-th"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {SAMPLE_INVOICES.map((inv) => (
-                <tr key={inv.id} className="border-t">
-                  <td className="ui-col-id px-4 py-2.5 ui-mono">{inv.number}</td>
-                  <td className="ui-col-date px-4 py-2.5">{inv.date}</td>
-                  <td className="ui-col-meta px-4 py-2.5">{inv.period}</td>
-                  <td className="ui-col-amount px-4 py-2.5 text-right">{money(inv.amount)}</td>
-                  <td className="ui-col-meta px-4 py-2.5">{inv.status}</td>
-                  <td className="px-4 py-2.5 text-right">
-                    <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm text-xs" disabled>
-                      <FileText size={14} aria-hidden="true" /> Receipt
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <div className="ui-caption ui-muted mt-2">
-          Next charge would be {money(nextTotal)}. No charge will be taken: there is no payment provider connected.
+          <aside className="ws-side">
+            <Panel title="Payment method">
+              <p className="ws-card-blurb">None on file. Nothing has been charged to this account.</p>
+              <p className="ws-card-blurb">No charge will be taken: there is no payment provider connected.</p>
+            </Panel>
+          </aside>
         </div>
       </div>
     </div>

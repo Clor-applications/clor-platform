@@ -108,10 +108,12 @@ describe('billing', () => {
    * A screen that looks live and is not gets demonstrated to a customer, who
    * then believes the product does this today.
    */
-  it('says it is not connected, and that the money is sample data', async () => {
+  it('says it is not connected, and shows no invented money', async () => {
     render(<BillingPreview currentCompany={COMPANY} />);
     await waitFor(() => expect(screen.getByText(/Preview — billing is not connected yet/)).toBeInTheDocument());
-    expect(screen.getByText(/sample data, not this account/)).toBeInTheDocument();
+    expect(screen.queryByText(/sample/i)).toBeNull();
+    expect(screen.queryByRole('table')).toBeNull();
+    expect(screen.getByText(/No invoices/)).toBeInTheDocument();
   });
 
   /* The plan is real even though the money is not. */
@@ -123,7 +125,8 @@ describe('billing', () => {
 
   it('offers nothing that would take money', async () => {
     render(<BillingPreview currentCompany={COMPANY} />);
-    await waitFor(() => expect(screen.getByRole('button', { name: /Add a card/ })).toBeDisabled());
+    await waitFor(() => expect(screen.getByText('Practice')).toBeInTheDocument());
+    expect(screen.queryByRole('button', { name: /card|pay|receipt/i })).toBeNull();
   });
 });
 
