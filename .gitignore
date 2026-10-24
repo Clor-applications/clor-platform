@@ -10,6 +10,7 @@ server/dist
 # Secrets — never commit
 .env
 .env.*
+!website/.env.production
 !.env.example
 !.env.docker.example
 server/.env
