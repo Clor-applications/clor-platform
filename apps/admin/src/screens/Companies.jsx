@@ -1,10 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ArrowDownUp, Plus, Search } from 'lucide-react';
 
-import Drawer from '@ui/components/ui/Drawer';
 import { GST_STATE_BY_CODE, getGstStateFromGstin } from '@ui/utils/gst';
 import { getAccountOverview } from '@platform/admin/admin';
-import { ICON, PageHead, Stat } from './wsKit';
+import { ICON, PageHead, Stat, WsDrawer } from './wsKit';
 import './workspace.css';
 
 /**
@@ -164,18 +163,15 @@ export default function Companies({ tenant, addCompany, switchCompany }) {
         ) : null}
       </div>
 
-      <Drawer open={adding} onClose={() => setAdding(false)} title="Add a company" description="A new legal entity in this account, with its own books, people and payroll.">
-        {/* The drawer renders outside the page; this carries the Workspace colours into it. */}
-        <div className="ws ws-drawer">
-          <AddCompanyForm
-            onCancel={() => setAdding(false)}
-            onAdd={async (body) => {
-              await addCompany(body);
-              setAdding(false);
-            }}
-          />
-        </div>
-      </Drawer>
+      <WsDrawer open={adding} onClose={() => setAdding(false)} title="Add a company">
+        <AddCompanyForm
+          onCancel={() => setAdding(false)}
+          onAdd={async (body) => {
+            await addCompany(body);
+            setAdding(false);
+          }}
+        />
+      </WsDrawer>
     </div>
   );
 }

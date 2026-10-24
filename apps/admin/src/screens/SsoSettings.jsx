@@ -1,13 +1,12 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Copy, Plus, Trash2 } from 'lucide-react';
 
-import Drawer from '@ui/components/ui/Drawer';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { orgId as platformOrgId, requestOpenApp } from '@platform/context';
 import { STATUS as CREDENTIAL_STATUS } from './credentialsModel';
 import { createProvider, createScimToken, deleteProvider, getProviders, getScim, revokeScimToken, updateProvider, verifyProviderDomains } from '@platform/admin/security';
 import { listRoles } from '@platform/admin/admin';
-import { ICON, PageHead, Panel } from './wsKit';
+import { ICON, PageHead, Panel, WsDrawer } from './wsKit';
 import './workspace.css';
 
 /**
@@ -288,7 +287,7 @@ export default function SsoSettings() {
         )}
       </div>
 
-      <Drawer
+      <WsDrawer
         open={Boolean(form)}
         onClose={() => setForm(null)}
         title={form?.id ? `Edit ${form.name || 'provider'}` : 'Add a provider'}
@@ -356,7 +355,7 @@ export default function SsoSettings() {
             </form>
           </div>
         ) : null}
-      </Drawer>
+      </WsDrawer>
     </div>
   );
 }

@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Plus } from 'lucide-react';
 
-import Drawer from '@ui/components/ui/Drawer';
 import ShownOnce from '@ui/components/ui/ShownOnce';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { requestOpenApp } from '@platform/context';
@@ -16,7 +15,7 @@ import {
   suspendCredential,
 } from '@platform/admin/credentials';
 import { KIND, STATUS, actionsFor } from './credentialsModel';
-import { ICON, PageHead, Stat } from './wsKit';
+import { ICON, PageHead, Stat, WsDrawer } from './wsKit';
 import './workspace.css';
 
 /**
@@ -72,7 +71,7 @@ function NewKey({ scopes, onDone, onClose }) {
     }
   };
   return (
-    <Drawer open onClose={onClose} title="New API key" description="A key another system uses to read or send this company’s data. It is shown once.">
+    <WsDrawer open onClose={onClose} title="New API key" description="Shown once, when made.">
       <div className="ws" style={DRAWER_WS}>
         <form onSubmit={submit} className="grid gap-4">
           <label className="grid gap-1"><span className="text-sm font-medium">Name *</span><input className="ui-input w-full" required maxLength={80} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="What uses it, e.g. greytHR sync" /></label>
@@ -100,7 +99,7 @@ function NewKey({ scopes, onDone, onClose }) {
           </div>
         </form>
       </div>
-    </Drawer>
+    </WsDrawer>
   );
 }
 
@@ -139,7 +138,7 @@ function Change({ action, credential, onDone, onClose }) {
     }
   };
   return (
-    <Drawer open onClose={onClose} title={`${ACTION_LABEL[action]} ${KIND[credential.kind].toLowerCase()} ${credential.tokenPrefix}…`} description={credential.label || credential.owner?.name || ''}>
+    <WsDrawer open onClose={onClose} title={`${ACTION_LABEL[action]} ${KIND[credential.kind].toLowerCase()} ${credential.tokenPrefix}…`} description={credential.label || credential.owner?.name || ''}>
       <div className="ws" style={DRAWER_WS}>
         <form onSubmit={submit} className="grid gap-4">
           <p className="text-sm">{words}</p>
@@ -167,7 +166,7 @@ function Change({ action, credential, onDone, onClose }) {
           </div>
         </form>
       </div>
-    </Drawer>
+    </WsDrawer>
   );
 }
 

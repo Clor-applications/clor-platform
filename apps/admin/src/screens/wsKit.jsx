@@ -28,6 +28,7 @@ import {
   WarningColor,
 } from '@fluentui/react-icons';
 
+import Drawer from '@ui/components/ui/Drawer';
 import { colorIcon } from '@ui/components/ui/iconSet';
 import './workspace.css';
 
@@ -67,6 +68,21 @@ export const ICON = {
   projects: colorIcon(BriefcaseColor, 'Briefcase'),
   timesheet: colorIcon(CalendarClockColor, 'CalendarClock'),
 };
+
+/**
+ * The Workspace side panel: one width, the Workspace colours and field styles,
+ * and the panel's actions in a footer that stays in view under a long form.
+ */
+export function WsDrawer({ actions = null, widthClass = 'w-[min(40rem,94vw)]', children, ...rest }) {
+  return (
+    <Drawer widthClass={widthClass} {...rest}>
+      <div className="ws ws-drawer">
+        {children}
+        {actions ? <div className="ws-drawer-foot">{actions}</div> : null}
+      </div>
+    </Drawer>
+  );
+}
 
 /** A product's icon, by app id. */
 export const productIcon = (id) => ICON[id === 'people' ? 'people_app' : id] || ICON.apps;

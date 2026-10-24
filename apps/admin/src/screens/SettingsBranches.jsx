@@ -1,14 +1,13 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowDownUp, Download, MoreVertical, Pencil, Plus, Power, Search, Trash2 } from 'lucide-react';
 
-import Drawer from '@ui/components/ui/Drawer';
 import Popover from '@ui/components/ui/Popover';
 import { exportRows } from '@ui/components/ListToolbar';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { GST_STATE_BY_CODE, getGstStateFromGstin } from '@ui/utils/gst';
 import { PermissionButton } from '@ui/permissions/ActionGuard';
 import { listBranches, createBranch, updateBranch, deleteBranch } from '@platform/admin/admin';
-import { ICON, PageHead, Stat } from './wsKit';
+import { ICON, PageHead, Stat, WsDrawer } from './wsKit';
 import './workspace.css';
 
 /**
@@ -245,11 +244,11 @@ export function SettingsBranches({ orgId, company, onBranchesChanged }) {
         )}
       </div>
 
-      <Drawer
+      <WsDrawer
         open={Boolean(drawer)}
         onClose={() => setDrawer(null)}
         title={drawer?.mode === 'create' ? 'Add a branch' : drawer?.mode === 'edit' ? 'Edit branch' : selected?.branchName || 'Branch'}
-        description={drawer?.mode === 'create' ? 'A place of business and GST location of this company.' : selected?.branchCode || ''}
+        description={drawer?.mode === 'create' ? '' : selected?.branchCode || ''}
         actions={
           drawer?.mode === 'view' && selected ? (
             <button type="button" className="ws-btn ws-btn--quiet ws-btn--small" onClick={() => setDrawer({ mode: 'edit', id: String(selected.id) })}>
@@ -330,7 +329,7 @@ export function SettingsBranches({ orgId, company, onBranchesChanged }) {
         ) : selected ? (
           <BranchDetail branch={selected} />
         ) : null}
-      </Drawer>
+      </WsDrawer>
     </div>
   );
 }

@@ -1,9 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ChevronRight, Search, ShieldAlert, UserX } from 'lucide-react';
 
-import Drawer from '@ui/components/ui/Drawer';
 import { confirmDialog } from '@ui/components/ui/notify';
 import { memberAccess, memberDirectory, reinstateMember, removeMemberFromCompany, setAccountRole, signOutMember, suspendMember } from '@platform/admin/account';
+import { WsDrawer } from './wsKit';
 import './workspace.css';
 
 /**
@@ -178,7 +178,7 @@ export default function Members() {
         )}
       </div>
 
-      <Drawer open={Boolean(openId)} onClose={() => { setOpenId(''); setDetail(null); }} title={detail?.name || detail?.email || 'Member'} description={detail?.email || ''}>
+      <WsDrawer open={Boolean(openId)} onClose={() => { setOpenId(''); setDetail(null); }} title={detail?.name || detail?.email || 'Member'} description={detail?.email || ''}>
         {!detail ? (
           <p className="ui-caption">Loading…</p>
         ) : detail.error ? (
@@ -275,7 +275,7 @@ export default function Members() {
             </div>
           </div>
         )}
-      </Drawer>
+      </WsDrawer>
     </div>
   );
 }

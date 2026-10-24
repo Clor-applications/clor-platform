@@ -19,7 +19,6 @@ import {
   getUserCompanies,
   setUserCompanies,
 } from '@platform/admin/admin';
-import Drawer from '@ui/components/ui/Drawer';
 import Popover from '@ui/components/ui/Popover';
 import { useFeatures } from '@ui/permissions/useFeatures';
 import { rbacErrorMessage } from '@ui/permissions/rbacErrors';
@@ -27,7 +26,7 @@ import { PermissionButton } from '@ui/permissions/ActionGuard';
 import { selectedBranchId } from '@platform/context';
 import RoleSelect from './RoleSelect';
 import UserAccessPanel from './UserAccessPanel';
-import { ICON, PageHead, Stat } from './wsKit';
+import { ICON, PageHead, Stat, WsDrawer } from './wsKit';
 import './workspace.css';
 
 /**
@@ -346,7 +345,7 @@ export function SettingsUsers({ orgId }) {
   if (panel?.kind === 'create') {
     drawer = {
       title: 'Add user',
-      description: 'A login for this company. They sign in with the email and the temporary password.',
+      description: 'They sign in with this email and the temporary password.',
       actions: footer('ws-user-create', 'Add user'),
       body: (
         <form id="ws-user-create" onSubmit={submitCreate} className="grid gap-4 sm:grid-cols-2">
@@ -406,7 +405,7 @@ export function SettingsUsers({ orgId }) {
   } else if (panel?.kind === 'edit' && u) {
     drawer = {
       title: `Edit ${nameOf(u)}`,
-      description: 'Name, sign-in email, role here and whether they may sign in.',
+      description: '',
       actions: footer('ws-user-edit', 'Save changes'),
       body: (
         <form id="ws-user-edit" onSubmit={submitEdit} className="grid gap-4 sm:grid-cols-2">
@@ -436,7 +435,7 @@ export function SettingsUsers({ orgId }) {
   } else if (panel?.kind === 'companies' && u) {
     drawer = {
       title: `Companies: ${nameOf(u)}`,
-      description: 'Every company in this account. Unticking one takes the access away, and the role that came with it.',
+      description: 'Unticking a company removes their access and role there.',
       actions: footer('ws-user-companies', 'Save access'),
       body: (
         <form id="ws-user-companies" onSubmit={submitCompanies} className="grid gap-3">
@@ -458,7 +457,7 @@ export function SettingsUsers({ orgId }) {
     const all = allBranchIds.length > 0 && allBranchIds.every((id) => picked.has(id));
     drawer = {
       title: `Branches: ${nameOf(u)}`,
-      description: 'The branches whose records they work with.',
+      description: '',
       actions: footer('ws-user-branches', 'Save branches'),
       body: (
         <form id="ws-user-branches" onSubmit={submitBranches} className="grid gap-3">
@@ -483,7 +482,7 @@ export function SettingsUsers({ orgId }) {
   } else if (panel?.kind === 'password' && u) {
     drawer = {
       title: `New password for ${nameOf(u)}`,
-      description: 'Tell them the new password yourself; it is not sent anywhere.',
+      description: 'Not sent anywhere. Tell them yourself.',
       actions: footer('ws-user-password', 'Set password'),
       body: (
         <form id="ws-user-password" onSubmit={submitPassword} className="grid gap-3">
@@ -607,9 +606,9 @@ export function SettingsUsers({ orgId }) {
         )}
       </div>
 
-      <Drawer open={Boolean(panel)} onClose={close} title={drawer.title} description={drawer.description} actions={drawer.actions} widthClass="w-[min(38rem,92vw)]">
+      <WsDrawer open={Boolean(panel)} onClose={close} title={drawer.title} description={drawer.description} actions={drawer.actions} widthClass="w-[min(38rem,92vw)]">
         {drawer.body}
-      </Drawer>
+      </WsDrawer>
     </div>
   );
 }

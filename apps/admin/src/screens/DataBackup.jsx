@@ -130,8 +130,6 @@ export default function DataBackup({ currentCompany }) {
     }
   };
 
-  const name = currentCompany?.name || 'this company';
-
   return (
     <div className="ws">
       <div className="ws-inner">

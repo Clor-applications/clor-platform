@@ -5,13 +5,12 @@ import { listRoles, createRole, updateRole, deleteRole } from '@platform/admin/a
 import Popover from '@ui/components/ui/Popover';
 import { MoreButton } from '@ui/components/list/ListPageParts';
 import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';
-import Drawer from '@ui/components/ui/Drawer';
 import { getPermissionCatalog } from '@ui/api/permissions';
 import { rbacErrorMessage } from '@ui/permissions/rbacErrors';
 import PermissionMatrix from './PermissionMatrix';
 import { catalogKeys, permissionLabel } from './permissionKeys';
 import { PermissionButton } from '@ui/permissions/ActionGuard';
-import { ICON, PageHead, Panel, Stat } from './wsKit';
+import { ICON, PageHead, Panel, Stat, WsDrawer } from './wsKit';
 import './workspace.css';
 
 function permKey(p) {
@@ -382,7 +381,7 @@ export function SettingsRoles({ orgId }) {
         </div>
       </div>
 
-      <Drawer
+      <WsDrawer
         open={Boolean(selectedRole)}
         onClose={closeView}
         title={selectedRole?.name || 'Role'}
@@ -404,9 +403,9 @@ export function SettingsRoles({ orgId }) {
             </fieldset>
           </div>
         ) : null}
-      </Drawer>
+      </WsDrawer>
 
-      <Drawer
+      <WsDrawer
         open={showForm}
         onClose={() => setShowForm(false)}
         title={editRole ? `Edit ${editRole.name}` : 'Create role'}
@@ -488,7 +487,7 @@ export function SettingsRoles({ orgId }) {
             )}
           </div>
         </form>
-      </Drawer>
+      </WsDrawer>
     </div>
   );
 }

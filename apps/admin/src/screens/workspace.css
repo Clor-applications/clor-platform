@@ -5,6 +5,26 @@
  * here, like index.css; nothing below uses a literal outside this block.
  * Radii follow DESIGN.md: 8px clickable, 12px content, 999px pills.
  */
+:root {
+  /* Workspace tokens, global so drawers and menus (rendered outside .ws) wear them too. Only Workspace classes read them. */
+  --ws-bg: 250 250 247;
+  --ws-surface: 255 255 255;
+  --ws-stone: 244 243 239;
+  --ws-ink: 37 38 38;
+  --ws-muted: 112 115 111;
+  --ws-line: 229 230 225;
+  --ws-accent: 244 81 30;
+  --ws-accent-hover: 217 67 19;
+  --ws-accent-soft: 255 240 232;
+  --ws-ok: 22 133 107;
+  --ws-ok-soft: 231 243 236;
+  --ws-ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --ws-warn: 183 121 31;
+  --ws-warn-soft: 253 244 228;
+  --ws-danger: 196 60 69;
+  --ws-danger-soft: 252 236 237;
+}
+
 .ws {
   --ws-bg: 250 250 247;
   --ws-surface: 255 255 255;
@@ -907,4 +927,136 @@ button.ws-item:hover {
   .ws-stat .ws-stat-note {
     grid-column: 1 / -1 !important;
   }
+}
+
+/* ------------------------------------------------------------------ forms
+ * One field style for every Workspace form, on a page or in a drawer:
+ * label above, 40px control, help or error below, Blaze focus ring.
+ */
+:root {
+  --ws-field: 206 208 201;
+}
+.ws :is(.ui-input, .ui-select, select, textarea,
+  input:is([type='text'], [type='email'], [type='tel'], [type='number'], [type='password'], [type='date'], [type='search'], [type='url'], :not([type]))) {
+  width: 100%;
+  min-height: 40px;
+  height: 40px;
+  padding: 0 12px;
+  border: 1px solid rgb(var(--ws-field));
+  border-radius: 8px;
+  background-color: rgb(var(--ws-surface));
+  color: rgb(var(--ws-ink));
+  font-size: 0.875rem;
+  line-height: 1.4;
+  box-shadow: none;
+  transition: border-color 0.15s var(--ws-ease), box-shadow 0.15s var(--ws-ease);
+}
+.ws textarea,
+.ws textarea.ui-input {
+  height: auto;
+  min-height: 88px;
+  padding: 10px 12px;
+  resize: vertical;
+}
+.ws :is(select, .ui-select) {
+  padding-right: 32px;
+}
+.ws :is(.ui-input, .ui-select, select, textarea, input)::placeholder {
+  color: rgb(var(--ws-muted) / 0.75);
+}
+.ws :is(.ui-input, .ui-select, select, textarea, input:not([type='checkbox']):not([type='radio'])):hover:not(:disabled) {
+  border-color: rgb(var(--ws-muted) / 0.6);
+}
+.ws :is(.ui-input, .ui-select, select, textarea, input:not([type='checkbox']):not([type='radio'])):focus {
+  outline: none;
+  border-color: rgb(var(--ws-accent));
+  box-shadow: 0 0 0 3px rgb(var(--ws-accent) / 0.16);
+}
+.ws :is(.ui-input, .ui-select, select, textarea, input):disabled {
+  background-color: rgb(var(--ws-stone));
+  color: rgb(var(--ws-muted));
+  cursor: not-allowed;
+}
+.ws [aria-invalid='true'] {
+  border-color: rgb(var(--ws-danger)) !important;
+}
+.ws [aria-invalid='true']:focus {
+  box-shadow: 0 0 0 3px rgb(var(--ws-danger) / 0.15) !important;
+}
+/* Labels: the text above a control, in every markup the screens use. */
+.ws .ui-label,
+.ws label:is(.grid, .block) > span:first-child:not(.sr-only),
+.ws label.text-sm {
+  display: block;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: rgb(var(--ws-ink));
+  text-transform: none;
+  letter-spacing: 0;
+  margin-bottom: 6px;
+}
+.ws label:is(.grid, .block) {
+  gap: 0;
+}
+/* Help and error lines under a control. */
+.ws :is(input, select, textarea) + :is(.ui-caption, .ws-help, span.text-xs, p.text-xs) {
+  display: block;
+  margin-top: 6px;
+  font-size: 0.75rem;
+  line-height: 1.45;
+  color: rgb(var(--ws-muted));
+}
+/* A tick and its words on one line, with room to hit. */
+.ws label:has(> input:is([type='checkbox'], [type='radio'])) {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-height: 28px;
+  font-size: 0.875rem;
+  color: rgb(var(--ws-ink));
+  cursor: pointer;
+}
+.ws input:is([type='checkbox'], [type='radio']) {
+  width: 16px;
+  height: 16px;
+  margin-top: 2px;
+  flex: none;
+}
+/* Fields sit on a 2-column grid from tablet up; the grids in the screens keep their own columns. */
+.ws form {
+  row-gap: 18px;
+}
+/* Drawer: the body scrolls, the actions stay at its foot. */
+.ws.ws-drawer {
+  display: grid;
+  gap: 18px;
+}
+.ws-drawer-foot {
+  position: sticky;
+  bottom: -20px;
+  margin: 8px -20px -20px;
+  padding: 14px 20px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  background: rgb(var(--ws-surface));
+  border-top: 1px solid rgb(var(--ws-line));
+}
+/* A form's own button row at its end lines up the same way. */
+.ws.ws-drawer form > div:last-child:has(> button[type='submit']) {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  padding-top: 14px;
+  border-top: 1px solid rgb(var(--ws-line));
+}
+/* Cancel first, the main action last (rightmost), in every action row. */
+:is(.ws-drawer-foot, .ws.ws-drawer form > div:last-child) > .ws-btn--primary {
+  order: 2;
+}
+/* Side-by-side fields line up at their labels, not at their bottoms. */
+.ws form .grid {
+  align-items: start;
 }
