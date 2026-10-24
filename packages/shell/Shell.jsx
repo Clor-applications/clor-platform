@@ -1,5 +1,5 @@
 import React, { Suspense, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, ChevronDown, LayoutGrid, LogOut, Menu, Plus, Settings, UserRound, X } from 'lucide-react';
+import { ArrowLeft, CalendarDays, ChevronDown, LayoutGrid, LogOut, Menu, Plus, Settings, UserRound, X } from 'lucide-react';
 
 import { useTheme } from '@ui/components/ui/useTheme';
 import { useDismissable } from '@ui/components/ui/useDismissable';
@@ -860,6 +860,13 @@ export default function Shell() {
             </select>
           ) : null}
 
+          {/* The Workspace's date, once, in the bar: the browser's own locale and timezone. */}
+          {inWorkspace && !phone ? (
+            <time className="inline-flex items-center gap-1.5 text-sm ui-muted whitespace-nowrap" dateTime={new Date().toISOString().slice(0, 10)}>
+              <CalendarDays size={15} aria-hidden="true" />
+              {new Date().toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}
+            </time>
+          ) : null}
           {/* One inbox for every app: an approval, a quiet reader, a bank change, a person the directory added. */}
           <NotificationBell
             tenantKey={tenantKey}

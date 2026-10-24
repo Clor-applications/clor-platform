@@ -61,6 +61,11 @@ describe('the Workspace overview', () => {
     const openScreen = vi.fn();
     render(<AdminHome user={{ firstName: 'Kavya' }} tenant={tenant} catalog={CATALOG} navItems={NAV} openScreen={openScreen} openApp={() => {}} accountName="Neev Group" />);
     expect(await screen.findByText('Growth', { selector: '.ws-stat-value' })).toBeInTheDocument();
+    /* The banner: the person's name (not the account's), the account-level role in words, the account's name. */
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Welcome back, Kavya');
+    expect(screen.getByText('Account Owner')).toBeInTheDocument();
+    expect(screen.getByText('Neev Group')).toBeInTheDocument();
+    expect(screen.getByText('Your workspace, applications and team, all in one place.')).toBeInTheDocument();
     expect(screen.getByText('of 3 on your plan')).toBeInTheDocument();
     expect(await screen.findByText('1 invitation pending')).toBeInTheDocument();
     const attention = within(screen.getByRole('region', { name: 'Needs your attention' }));
@@ -78,6 +83,9 @@ describe('the Workspace overview', () => {
     api.getAccountMe.mockResolvedValue({ role: 'MEMBER', apps: [] });
     render(<AdminHome tenant={tenant} catalog={CATALOG} navItems={[{ key: 'home' }]} openApp={() => {}} />);
     expect(await screen.findByText('No app access yet')).toBeInTheDocument();
+    expect(screen.getByText('Member', { selector: '.ws-pill' })).toBeInTheDocument();
+    expect(screen.getByText('Your applications and work, all in one place.')).toBeInTheDocument();
+    expect(screen.queryByText('Account Owner')).toBeNull();
     expect(screen.queryByText('Members', { selector: '.ws-stat-label' })).toBeNull();
     expect(screen.queryByRole('region', { name: 'Quick actions' })).toBeNull();
     expect(screen.getByRole('region', { name: 'Help and resources' })).toBeInTheDocument();

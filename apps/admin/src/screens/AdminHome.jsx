@@ -7,6 +7,7 @@ import { operator } from '@platform/operator';
 import { ACTION_WORDS } from './AccountActivity';
 import { ICON, Meter, Panel, Stat, ago, productIcon } from './wsKit';
 import heroImage from '../assets/clor-office.webp';
+import heroImageSmall from '../assets/clor-office-800.webp';
 import './workspace.css';
 
 /**
@@ -25,7 +26,14 @@ import './workspace.css';
 
 /** Each product's own colour (clor.in); it stays on that product's tile. */
 const ACCENT = { accounting: '#2F6FDB', people: '#7A4FD6', payroll: '#1E9E6A', attendance: '#D07A1F', projects: '#2E8DA3', timesheet: '#B5487A' };
-const ROLE_LABEL = { OWNER: 'Owner', ADMIN: 'Administrator', BILLING_ADMIN: 'Billing admin', MEMBER: 'Member' };
+/* The account-level role, said as such: an account owner is not a company admin or an app role. */
+const ROLE_LABEL = { OWNER: 'Account Owner', ADMIN: 'Account Admin', BILLING_ADMIN: 'Billing Admin', MEMBER: 'Member' };
+/* One line under the greeting, by account role. Presentation only: what each can do is the server's. */
+const ROLE_LEDE = {
+  OWNER: 'Your workspace, applications and team, all in one place.',
+  ADMIN: 'Manage your workspace and keep your team moving.',
+};
+const DEFAULT_LEDE = 'Your applications and work, all in one place.';
 
 /** What an app is to this company and this person right now (spec §18): never one universal "switched on". */
 export function appState(app, tenant, myApps = null) {
@@ -41,7 +49,6 @@ export function appState(app, tenant, myApps = null) {
 }
 
 const firstName = (user) => String(user?.firstName || user?.fullName || '').trim().split(/\s+/)[0] || '';
-const today = () => new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'short', year: 'numeric' });
 
 
 export default function AdminHome({ user, tenant, catalog = [], navItems = [], openScreen, openApp, openMoreApps, accountName = '' }) {
@@ -110,22 +117,21 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
         <section className="ws-hero" aria-labelledby="ws-hero-title">
           <div className="ws-hero-text">
             <p className="ws-hero-crumb">
-              <ICON.company size={18} />
-              <span>{tenant?.name || accountName || overview?.account?.name || 'Your company'}</span>
-              {role ? (
-                <>
-                  <ChevronRight size={14} aria-hidden="true" />
-                  <span className="ws-pill ws-pill--ok">{ROLE_LABEL[role] || role}</span>
-                </>
-              ) : null}
+              <ICON.companies size={18} />
+              <span className="ws-hero-account" title={accountName || overview?.account?.name || tenant?.name || ''}>
+                {accountName || overview?.account?.name || tenant?.name || 'Your account'}
+              </span>
+              {role ? <span className="ws-pill ws-pill--ok">{ROLE_LABEL[role] || role}</span> : null}
             </p>
             <h1 id="ws-hero-title" className="ws-hero-title">{name ? `Welcome back, ${name}` : 'Welcome back'}</h1>
-            <p className="ws-hero-lede">Here’s what’s happening in your workspace today.</p>
+            <p className="ws-hero-lede">{ROLE_LEDE[role] || DEFAULT_LEDE}</p>
           </div>
-          {/* Clor's office, from a licensed illustration with the sign re-lettered. Decorative. */}
+          {/* Clor's office: a licensed illustration, re-lettered and recoloured to the Workspace palette. Decorative. */}
           <div className="ws-hero-media">
             <img
               src={heroImage}
+              srcSet={`${heroImageSmall} 800w, ${heroImage} 1400w`}
+              sizes="(max-width: 767px) 1px, 42vw"
               alt=""
               width="1400"
               height="559"
@@ -136,7 +142,6 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
               }}
               onLoad={() => setHeroReady(true)}
             />
-            <time className="ws-hero-date" dateTime={new Date().toISOString().slice(0, 10)}>{today()}</time>
           </div>
         </section>
 

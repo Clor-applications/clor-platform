@@ -1317,59 +1317,82 @@ button.ws-item:hover {
  * Who and where you are, a greeting, the date, and a quiet drawing of an
  * office on the right that fades into the card.
  */
+:root {
+  /* Welcome banner (spec: banner refinement). */
+  --ws-hero-line: 232 234 230;
+  --ws-hero-ink: 34 38 36;
+  --ws-hero-muted: 112 117 112;
+}
 .ws-hero {
   position: relative;
   overflow: hidden;
   display: grid;
-  align-items: center;
-  min-height: 196px;
-  padding: 28px 32px;
-  /* The words keep the left 60%; the picture has the rest. */
-  padding-right: calc(40% + 32px);
-  border: 1px solid rgb(var(--ws-line));
-  border-radius: 12px;
+  align-content: center;
+  min-height: 264px;
+  padding: 36px 44px;
+  /* The words keep the left ~58%; the picture has the rest. */
+  padding-right: calc(42% + 24px);
+  /* 20px on this banner by request; DESIGN.md's content radius is 12px elsewhere. */
+  border-radius: 20px;
+  border: 1px solid rgb(var(--ws-hero-line));
   background: rgb(var(--ws-surface));
 }
 .ws-hero-text {
   position: relative;
   z-index: 1;
   display: grid;
-  gap: 10px;
-  max-width: 58ch;
+  gap: 12px;
+  min-width: 0;
 }
 .ws-hero-crumb {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
+  min-width: 0;
   font-size: 0.9375rem;
-  color: rgb(var(--ws-muted));
+  font-weight: 500;
+  color: rgb(var(--ws-hero-muted));
+}
+.ws-hero-crumb > svg {
+  flex: none;
+}
+.ws-hero-account {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ws-hero-crumb .ws-pill {
+  flex: none;
 }
 .ws .ws-hero-title {
-  margin: 4px 0 0;
-  font-size: clamp(1.75rem, 1.2rem + 1.8vw, 2.5rem) !important;
-  line-height: 1.08 !important;
-  font-weight: 700 !important;
-  letter-spacing: -0.03em;
-  color: rgb(var(--ws-ink));
+  margin: 2px 0 0;
+  font-size: clamp(1.75rem, 1.05rem + 1.6vw, 2.5rem) !important;
+  line-height: 1.15 !important;
+  font-weight: 680 !important;
+  letter-spacing: -0.035em;
+  color: rgb(var(--ws-hero-ink));
+  overflow-wrap: anywhere;
 }
 .ws-hero-lede {
-  font-size: 1rem;
-  color: rgb(var(--ws-muted));
+  max-width: 46ch;
+  font-size: 1.03125rem;
+  line-height: 1.5;
+  color: rgb(var(--ws-hero-muted));
 }
 .ws-hero-media {
   position: absolute;
   top: 0;
   right: 0;
   bottom: 0;
-  width: 40%;
+  width: 42%;
 }
 .ws-hero-media img {
   width: 100%;
   height: 100%;
   object-fit: cover;
   /* The building and its sign sit left of centre in the picture. */
-  object-position: 38% 58%;
+  object-position: 18% 60%;
   display: block;
   opacity: 0;
   transition: opacity 240ms var(--ws-ease);
@@ -1378,44 +1401,45 @@ button.ws-item:hover {
 .ws-hero-media img[data-loaded] {
   opacity: 1;
 }
-/* A short fade from the card into the picture, so the edge reads as one surface. */
+/* White into the picture over its first half, so no hard vertical edge shows. */
 .ws-hero-media::before {
   content: '';
   position: absolute;
-  inset: 0 auto 0 0;
-  width: 56px;
-  background: linear-gradient(90deg, rgb(var(--ws-surface)) 0%, rgb(var(--ws-surface) / 0) 100%);
+  inset: 0;
   z-index: 1;
+  pointer-events: none;
+  background: linear-gradient(
+    90deg,
+    rgb(var(--ws-surface)) 0%,
+    rgb(var(--ws-surface) / 0.96) 10%,
+    rgb(var(--ws-surface) / 0.55) 26%,
+    rgb(var(--ws-surface) / 0) 46%
+  );
 }
-/* The date sits on the picture in a pill, readable on the bright sky. */
-.ws-hero-date {
-  position: absolute;
-  top: 14px;
-  right: 14px;
-  z-index: 1;
-  padding: 5px 10px;
-  border-radius: 999px;
-  background: rgb(var(--ws-surface) / 0.92);
-  box-shadow: 0 1px 2px rgb(var(--ws-ink) / 0.12);
-  font-size: 0.8125rem;
-  font-weight: 500;
-  color: rgb(var(--ws-ink));
-  white-space: nowrap;
-}
-@media (max-width: 900px) {
+@media (max-width: 1100px) {
   .ws-hero {
-    padding: 20px;
-    gap: 16px;
+    min-height: 228px;
+    padding: 28px 28px;
+    padding-right: calc(40% + 16px);
   }
   .ws-hero-media {
-    position: relative;
-    width: 100%;
-    height: 150px;
-    border-radius: 8px;
-    overflow: hidden;
-    order: -1;
+    width: 40%;
   }
-  .ws-hero-media::before {
+}
+@media (max-width: 767px) {
+  .ws-hero {
+    min-height: 0;
+    padding: 22px 20px;
+    border-radius: 16px;
+  }
+  .ws .ws-hero-title {
+    font-size: clamp(1.625rem, 1.2rem + 2vw, 1.875rem) !important;
+  }
+  .ws-hero-lede {
+    font-size: 0.9375rem;
+  }
+  /* Decorative: on a phone the greeting matters, the picture does not. */
+  .ws-hero-media {
     display: none;
   }
 }
