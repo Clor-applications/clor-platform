@@ -616,7 +616,7 @@ const createUserSchema = z.object({
   password: z.string().min(8).max(200),
   // allow initial memberships
   orgIds: z.array(z.string()).default([]),
-  branchIdsByOrg: z.record(z.array(z.string())).default({}),
+  branchIdsByOrg: z.record(z.string(), z.array(z.string())).default({}),
   /** GAP-006: for a person from another account, what the company lets them use and until when. */
   outsideAccess: z.object({ apps: z.array(z.string()).nullable().optional(), expiresAt: z.string().nullable().optional() }).optional(),
 });

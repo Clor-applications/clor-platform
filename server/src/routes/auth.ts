@@ -742,7 +742,7 @@ authRouter.post('/setup-company', requireLiveAuth, async (req: Request, res: Res
        * only a name and a state still works, and unvalidated beyond its shape
        * because nothing branches on it — it is read back onto one screen.
        */
-      profile: z.record(z.any()).optional(),
+      profile: z.record(z.string(), z.any()).optional(),
     })
     .parse(req.body);
 

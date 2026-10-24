@@ -47,7 +47,7 @@ const closeSchema = z.object({
   countedCash: z.number().optional(),
   overShort: z.number().optional(),
   /** Note or coin value to how many were counted. */
-  denomCounts: z.record(z.number()).optional(),
+  denomCounts: z.record(z.string(), z.number()).optional(),
 });
 
 const out = (r: any) => {

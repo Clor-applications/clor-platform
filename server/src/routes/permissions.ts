@@ -95,7 +95,7 @@ const putPermissionsSchema = z.object({
   // Wire keys: "MODULE::Resource::ACTION"
   permissions: z.array(z.string().min(3)),
   // Optional field level per key; absent means level 0.
-  levels: z.record(z.number().int().min(0).max(9)).optional(),
+  levels: z.record(z.string(), z.number().int().min(0).max(9)).optional(),
 });
 
 /**

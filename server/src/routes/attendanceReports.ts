@@ -810,7 +810,7 @@ attendanceReportsRouter.get('/orgs/:orgId/attendance/calendar', can(), async (re
 
 const scheduleSchema = z.object({
   reportId: z.string().min(1),
-  params: z.record(z.string()).optional(),
+  params: z.record(z.string(), z.string()).optional(),
   cadence: z.enum(['DAILY', 'WEEKLY', 'MONTHLY']),
   dayOfWeek: z.coerce.number().int().min(1).max(7).optional().nullable(),
   dayOfMonth: z.coerce.number().int().min(1).max(28).optional().nullable(),
