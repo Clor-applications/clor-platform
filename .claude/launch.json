@@ -30,16 +30,16 @@
         "--prefix",
         "server"
       ],
-      "port": 4003
+      "port": 4013
     },
     {
       "name": "people-web",
       "runtimeExecutable": "sh",
       "runtimeArgs": [
         "-c",
-        "VITE_API_PROXY_TARGET=http://127.0.0.1:4003 npx vite --host 127.0.0.1 --port 5175"
+        "VITE_API_PROXY_TARGET=http://127.0.0.1:4013 npx vite --host 127.0.0.1 --port 5185"
       ],
-      "port": 5175
+      "port": 5185
     }
   ]
 }

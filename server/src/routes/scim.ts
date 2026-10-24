@@ -1,14 +1,16 @@
 import { Router, type Request, type Response, type NextFunction } from 'express';
-import { anyAppLive, appLive, closing } from '../services/principalAllowed.js';
+import { anyAppLive, appLive } from '../services/principalAllowed.js';
 import bcrypt from 'bcrypt';
 import { randomBytes } from 'node:crypto';
 
 import { platformPrisma } from '../utils/platformPrisma.js';
 import { recordAuthEvent, clientIp } from '../services/auth.js';
-import { hashToken } from './publicApi.js';
 import { notifyPermission } from '../services/notifications.js';
 import { userIsAdmin } from '../services/roleGuards.js';
 import { outsideTenant, enterTenant } from '../utils/tenantScope.js';
+import { verifyCredential, touchLastUsed } from '../services/credentials.js';
+import { scimKind } from '../services/scimTokens.js';
+import { flagCreatorRemoved } from '../services/credentialReview.js';
 
 /**
  * /scim/v2 — SCIM 2.0 provisioning (RFC 7643 / 7644), the way Microsoft
@@ -29,7 +31,7 @@ const SCHEMA_LIST = 'urn:ietf:params:scim:api:messages:2.0:ListResponse';
 const SCHEMA_ERROR = 'urn:ietf:params:scim:api:messages:2.0:Error';
 const SCHEMA_PATCH = 'urn:ietf:params:scim:api:messages:2.0:PatchOp';
 
-export const newScimToken = () => `clors_${randomBytes(24).toString('base64url')}`;
+export { newScimToken } from '../services/scimTokens.js';
 
 const scim = (res: Response, status: number, body: unknown) => res.status(status).type('application/scim+json').send(JSON.stringify(body));
 const fail = (res: Response, status: number, detail: string, scimType?: string) => scim(res, status, { schemas: [SCHEMA_ERROR], status: String(status), detail, ...(scimType ? { scimType } : {}) });
@@ -45,14 +47,21 @@ declare module 'express-serve-static-core' {
 scimRouter.use(async (req: Request, res: Response, next: NextFunction) => {
   const m = /^Bearer\s+(clors_[A-Za-z0-9_-]{20,})$/i.exec(String(req.headers.authorization || ''));
   if (!m) return fail(res, 401, 'A bearer token from CLOR’s directory-sync settings is required.');
-  /* A-35: the token is how the company is found, so it is looked up across companies. */
-  const t = await outsideTenant('scim: which company this token provisions', () => platformPrisma.scimToken.findUnique({ where: { tokenHash: hashToken(m[1]) } }));
-  if (!t) return fail(res, 401, 'That token is not known (revoked, or made for another server).');
-  /* A-11: a company being closed takes no more directory changes. */
-  if (await closing(t.orgId)) return fail(res, 403, 'This company is being closed; directory sync is switched off.');
+  /* Batch 5 (A-31): the registry, the token's row and — for an agent's token — the agent must all allow it. */
+  const v = await verifyCredential('SCIM', m[1], scimKind);
+  if (!v.ok) {
+    if (v.block === 'COMPANY_CLOSING') return fail(res, 403, 'This company is being closed; directory sync is switched off.');
+    if (v.block === 'SUSPENDED') return fail(res, 403, 'This directory-sync token is paused in CLOR.');
+    if (v.block === 'EXPIRED') return fail(res, 401, 'This directory-sync token has expired. Make a new one in CLOR and paste it into your identity provider.');
+    if (v.block === 'PARENT_OFF') return fail(res, 403, 'The connector this token belongs to is switched off in CLOR.');
+    return fail(res, 401, 'That token is not known (revoked, or made for another server).');
+  }
+  const t = v.row;
   req.scim = { id: t.id, accountId: t.accountId, orgId: t.orgId, defaultRoleId: t.defaultRoleId };
   /* A-30: the rest of this request runs as the company the token named — the last-used stamp included (A-35). */
   enterTenant(t.orgId);
+  if (v.credential.expiresAt) res.setHeader('X-Clor-Credential-Expires', v.credential.expiresAt.toISOString());
+  touchLastUsed(v.credential, String(req.ip || '') || null);
   platformPrisma.scimToken.update({ where: { id: t.id }, data: { lastUsedAt: new Date() } }).catch(() => {});
   next();
 });
@@ -250,6 +259,8 @@ async function applyChanges(t: Tenant, u: U, changes: { email?: string; fullName
   }
   if (!Object.keys(data).length) return u;
   const next = await platformPrisma.user.update({ where: { id: u.id }, data, select: SELECT });
+  /* Batch 5: switched off by the directory — what they made is flagged for review, by this token. */
+  if (data.isActive === false) await flagCreatorRemoved({ accountId: t.accountId, userId: u.id, orgIds: 'ALL' }, 'The person who made it was switched off by directory sync', { type: 'SCIM', id: t.id });
   await recordAuthEvent({ accountId: t.accountId, userId: u.id, email: next.email, eventType: data.isActive === false ? 'USER_DEACTIVATED' : data.isActive === true ? 'USER_REACTIVATED' : 'USER_UPDATED', detail: `SCIM directory sync: ${Object.keys(data).filter((k) => k !== 'lockedUntil').join(', ')}` });
   return next;
 }
@@ -335,6 +346,7 @@ scimRouter.delete(
       const elsewhere = await platformPrisma.userOrgMembership.count({ where: { userId: u.id } });
       if (!elsewhere) await platformPrisma.user.update({ where: { id: u.id }, data: { isActive: false } });
     }
+    await flagCreatorRemoved({ accountId: t.accountId, userId: u.id, orgIds: [t.orgId] }, 'The person who made it was removed by directory sync', { type: 'SCIM', id: t.id });
     await recordAuthEvent({ accountId: t.accountId, userId: u.id, email: u.email, eventType: 'USER_DEPROVISIONED', ip: clientIp(req), userAgent: String(req.headers['user-agent'] || '').slice(0, 200), detail: 'SCIM directory sync' });
     res.status(204).end();
   }),

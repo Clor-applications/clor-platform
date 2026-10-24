@@ -1,3 +1,5 @@
+import { employeeStatusChanged } from '../services/portalSessions.js';
+import { actorFrom } from '../services/credentials.js';
 import { Router } from 'express';
 import { ownRecordRefusal, ownWorkRefusal } from '../services/makerChecker.js';
 import { z } from 'zod';
@@ -15,6 +17,7 @@ import { PAYROLL_HISTORY, PAYROLL_SETUP, lockPayrollEmployee } from '../services
 import { emit as emitWebhook, employeeEvent } from '../services/attendance/webhooks.js';
 import { BANK_FIELDS, BankChangeError, approveBankChange, maskNumber, rejectBankChange, routeBankUpdate } from '../services/payroll/bankChanges.js';
 import { requirePayrollStepUp } from '../services/stepUp.js';
+import { costCentreRefusal } from '../services/payroll/accounting/references.js';
 
 /**
  * The people payroll pays, and the payroll-specific things known about them.
@@ -249,6 +252,9 @@ payrollEmployeesRouter.post(
       return res.status(400).json({ error: 'Somebody cannot leave before they joined.' });
     }
 
+    const ccRefused = await costCentreRefusal(accountId, orgId, blank(body.payroll?.costCenterId));
+    if (ccRefused) return res.status(400).json({ error: ccRefused });
+
     const code = blank(body.code);
     if (code) {
       const clash = await peoplePrisma.employee.findFirst({ where: { orgId, code }, select: { id: true } });
@@ -332,6 +338,8 @@ payrollEmployeesRouter.put(
         notes: blank(body.notes),
       },
     });
+    /* A-33: suspended or gone, their employee-app sign-ins end. */
+    await employeeStatusChanged(row, existing.status, row.status, actorFrom(req));
     /* The same reader rules as the People app: leaving ends door access; a new name or code goes to the readers. */
     if (row.status === 'LEFT' && existing.status !== 'LEFT') await revokeFromReaders(orgId, existing, req.auth!.userId);
     else if (row.status !== 'LEFT' && readerFieldsChanged(existing, row)) await pushEmployeeToReaders(orgId, row, req.auth!.userId, existing);
@@ -342,6 +350,8 @@ payrollEmployeesRouter.put(
     if (body.payroll) {
       const reveal = await mayRevealSensitive(req);
       const incoming = payrollData(body.payroll);
+      const ccRefused = await costCentreRefusal(accountId, orgId, incoming.costCenterId, payroll?.costCenterId);
+      if (ccRefused) return res.status(400).json({ error: ccRefused });
 
       /*
        * A caller who cannot see these fields cannot overwrite them either.

@@ -3,6 +3,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
+import { appSource } from '../apps/accounting/src/testing/appSource.js';
 
 /**
  * One answer to "where do I turn a capability on?"
@@ -17,7 +18,7 @@ import { readFileSync } from 'node:fs';
  * product has two answers again.
  */
 
-const APP = readFileSync('apps/accounting/src/App.jsx', 'utf8');
+const APP = appSource('apps/accounting/src/App.jsx');
 const REGISTRY = readFileSync('apps/accounting/src/features/settings/settingsRegistry.js', 'utf8');
 
 const RETIRED = [

@@ -1,4 +1,5 @@
 import { platformPrisma } from '../utils/platformPrisma.js';
+import { outsideTenant } from '../utils/tenantScope.js';
 
 /**
  * Display codes (LD-09): what people see, quote to support and type.
@@ -38,6 +39,28 @@ export function codePrefix(name: string | null | undefined): string {
 const isUniqueClash = (e: any) => String(e?.code) === 'P2002';
 
 /**
+ * The highest number ever issued for these letters — not only among companies
+ * that still exist. A deleted company's code lives on in its users' IDs
+ * (KAVE-C100-U01, kept because sign-ins stay), the account's code, its closure
+ * record and every link anyone saved (/o/KAVE-C100/). Counting live companies
+ * only issued it again: the new company's first user ID then clashed with the
+ * old one (a 409 on setting up a company), and old links named a different
+ * company (A-40 follow-up).
+ */
+async function highestNumberEver(prefix: string): Promise<number> {
+  const pattern = `^${prefix}-C([0-9]+)`;
+  /* Codes are global: every company's, whatever company the caller is working in. */
+  const rows = await outsideTenant('display codes: highest number issued for these letters', () => platformPrisma.$queryRaw<Array<{ n: number | null }>>`
+    SELECT max(n)::int AS n FROM (
+      SELECT "codeNumber" AS n FROM "Org" WHERE "code" LIKE ${`${prefix}-C%`}
+      UNION ALL SELECT (substring("code" FROM ${pattern}))::int FROM "Account" WHERE "code" LIKE ${`${prefix}-C%`}
+      UNION ALL SELECT (substring("code" FROM ${pattern}))::int FROM "User" WHERE "code" LIKE ${`${prefix}-C%`}
+      UNION ALL SELECT (substring("orgCode" FROM ${pattern}))::int FROM "OrgClosure" WHERE "orgCode" LIKE ${`${prefix}-C%`}
+    ) issued`);
+  return Number(rows[0]?.n || 0);
+}
+
+/**
  * Gives a company its code (next number for its letters, from 100) and, if the
  * account has none yet, makes it the account's code. Safe to call twice.
  * A unique-index clash means another company took that number first: try the next.
@@ -48,8 +71,7 @@ export async function assignOrgCode(accountId: string, orgId: string, companyNam
   if (!code) {
     const prefix = codePrefix(companyName);
     for (let attempt = 0; attempt < 10 && !code; attempt++) {
-      const top = await platformPrisma.org.aggregate({ where: { code: { startsWith: `${prefix}-C` } }, _max: { codeNumber: true } });
-      const n = Math.max(FIRST_COMPANY_NUMBER, (top._max.codeNumber || 0) + 1);
+      const n = Math.max(FIRST_COMPANY_NUMBER, (await highestNumberEver(prefix)) + 1);
       try {
         const r = await platformPrisma.org.updateMany({ where: { id: orgId, code: null }, data: { code: `${prefix}-C${n}`, codeNumber: n } });
         if (r.count) code = `${prefix}-C${n}`;

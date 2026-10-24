@@ -1,0 +1,149 @@
+ DEPRECATED  `test.poolOptions` was removed in Vitest 4. All previous `poolOptions` are now top-level options. Please, refer to the migration guide: https://vitest.dev/guide/migration#pool-rework
+
+ RUN  v4.1.10 /Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_70178", schema "accounting" at "localhost:5432"
+
+The PostgreSQL database "clor_test_70178" schema "accounting" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 1.42s
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/payroll/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_70178", schema "payroll" at "localhost:5432"
+
+The PostgreSQL database "clor_test_70178" schema "payroll" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 949ms
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/people/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_70178", schema "people" at "localhost:5432"
+
+The PostgreSQL database "clor_test_70178" schema "people" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 1.26s
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/platform/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_70178", schema "platform" at "localhost:5432"
+
+The PostgreSQL database "clor_test_70178" schema "platform" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 963ms
+
+[setup] 180 policy statements applied to clor_test_70178
+[setup] 7 policy statements applied to clor_test_70178
+[setup] 10 policy statements applied to clor_test_70178
+[setup] 35 policy statements applied to clor_test_70178
+[setup] 4 policy statements applied to clor_test_70178
+[setup] 1 policy statements applied to clor_test_70178
+[setup] 96 policy statements applied to clor_test_70178
+[setup] 4 policy statements applied to clor_test_70178
+[setup] 4 policy statements applied to clor_test_70178
+[setup] 4 policy statements applied to clor_test_70178
+[setup] 1 policy statements applied to clor_test_70178
+[setup] 4 policy statements applied to clor_test_70178
+[setup] 32 policy statements applied to clor_test_70178
+[setup] 24 policy statements applied to clor_test_70178
+[setup] 12 policy statements applied to clor_test_70178
+[setup] 16 policy statements applied to clor_test_70178
+[setup] 4 policy statements applied to clor_test_70178
+[setup] 4 policy statements applied to clor_test_70178
+[setup] 8 policy statements applied to clor_test_70178
+[setup] 8 policy statements applied to clor_test_70178
+[setup] 20 policy statements applied to clor_test_70178
+[setup] 8 policy statements applied to clor_test_70178
+[setup] 4 policy statements applied to clor_test_70178
+[setup] 8 policy statements applied to clor_test_70178
+[setup] 8 policy statements applied to clor_test_70178
+[setup] 12 policy statements applied to clor_test_70178
+[setup] 4 policy statements applied to clor_test_70178
+[setup] 8 policy statements applied to clor_test_70178
+[setup] 28 policy statements applied to clor_test_70178
+[setup] 4 policy statements applied to clor_test_70178
+[setup] 4 policy statements applied to clor_test_70178
+[setup] 4 policy statements applied to clor_test_70178
+[setup] 8 policy statements applied to clor_test_70178
+[setup] 4 policy statements applied to clor_test_70178
+[setup] 4 policy statements applied to clor_test_70178
+[setup] 4 policy statements applied to clor_test_70178
+[setup] 4 policy statements applied to clor_test_70178
+[setup] 8 policy statements applied to clor_test_70178
+[setup] 4 policy statements applied to clor_test_70178
+[setup] 12 policy statements applied to clor_test_70178
+[setup] 4 policy statements applied to clor_test_70178
+[setup] 1 policy statements applied to clor_test_70178
+[setup] 4 policy statements applied to clor_test_70178
+[setup] 76 policy statements applied to clor_test_70178
+[setup] 4 policy statements applied to clor_test_70178
+[setup] 4 policy statements applied to clor_test_70178
+[setup] 4 policy statements applied to clor_test_70178
+[setup] 4 policy statements applied to clor_test_70178
+[setup] 1 policy statements applied to clor_test_70178
+[setup] 8 policy statements applied to clor_test_70178
+POST /api/auth/signup 200 570 - 149.060 ms
+POST /api/auth/setup-company 200 198 - 714.377 ms
+POST /api/orgs/cmvm21fhh000er7awb2t8wq2x/attendance/integrations/webhooks 201 522 - 114.959 ms
+POST /api/orgs/cmvm21fhh000er7awb2t8wq2x/attendance/integrations/webhooks/cmvm21g220000sbwuijxxomy3/test 200 24 - 96.967 ms
+POST /api/orgs/cmvm21fhh000er7awb2t8wq2x/attendance/integrations/webhooks 201 525 - 180.133 ms
+POST /api/orgs/cmvm21fhh000er7awb2t8wq2x/attendance/integrations/webhooks/cmvm21ga30002sbwusyijjg14/rotate-secret 404 21 - 210.070 ms
+POST /api/orgs/cmvm21fhh000er7awb2t8wq2x/attendance/integrations/webhooks 201 522 - 75.836 ms
+POST /api/auth/signup 200 570 - 26.685 ms
+POST /api/auth/setup-company 200 198 - 190.736 ms
+POST /api/orgs/cmvm21gj400r4r7awbc3ujpcs/attendance/integrations/webhooks/cmvm21gi50003sbwurzy6ua54/rotate-secret 404 21 - 150.740 ms
+ ❯ src/__tests__/credentialLeftovers.test.ts (10 tests | 2 failed) 1961ms
+     × signs the time with the body, and keeps the old header for receivers that check it 219ms
+     × a new secret is shown once; both are signed with for a day, then only the new 394ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/__tests__/credentialLeftovers.test.ts > webhook signatures cover the time, and the secret can be changed > signs the time with the body, and keeps the old header for receivers that check it
+AssertionError: expected undefined to be '1792825545' // Object.is equality
+
+- Expected:
+"1792825545"
+
++ Received:
+undefined
+
+ ❯ v1s src/__tests__/credentialLeftovers.test.ts:85:15
+     83|     const parts = header.split(',').map((p) => p.split('='));
+     84|     const t = parts.find(([k]) => k === 't')?.[1];
+     85|     expect(t).toBe(g.headers['x-clor-timestamp']);
+       |               ^
+     86|     return { t: t!, v1: parts.filter(([k]) => k === 'v1').map(([, v]) …
+     87|   };
+ ❯ src/__tests__/credentialLeftovers.test.ts:95:23
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  src/__tests__/credentialLeftovers.test.ts > webhook signatures cover the time, and the secret can be changed > a new secret is shown once; both are signed with for a day, then only the new
+Error: expected 200 "OK", got 404 "Not Found"
+ ❯ src/__tests__/credentialLeftovers.test.ts:103:78
+    101|   it('a new secret is shown once; both are signed with for a day, then…
+    102|     const made = (await hooks(c).post('', { name: 'Payroll', url, even…
+    103|     const rotated = await hooks(c).post(`/${made.webhook.id}/rotate-se…
+       |                                                                              ^
+    104|     expect(rotated.body.secret).toMatch(/^whsec_/);
+    105|     expect(rotated.body.secret).not.toBe(made.secret);
+ ❯ Test._assertStatus ../../../../server/node_modules/supertest/lib/test.js:309:14
+ ❯ ../../../../server/node_modules/supertest/lib/test.js:365:13
+ ❯ Test._assertFunction ../../../../server/node_modules/supertest/lib/test.js:342:13
+ ❯ Test.assert ../../../../server/node_modules/supertest/lib/test.js:195:23
+ ❯ localAssert ../../../../server/node_modules/supertest/lib/test.js:138:14
+ ❯ ../../../../server/node_modules/supertest/lib/test.js:156:7
+ ❯ fn ../../../../server/node_modules/superagent/src/node/index.js:904:2
+ ❯ callback ../../../../server/node_modules/superagent/src/node/index.js:1183:17
+ ❯ fn ../../../../server/node_modules/superagent/src/node/parsers/json.js:19:6
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 8 passed (10)
+   Start at  12:35:24
+   Duration  22.01s (transform 3.29s, setup 29ms, import 6.12s, tests 1.96s, environment 0ms)
+

@@ -3,6 +3,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
+import { appSource } from '../apps/accounting/src/testing/appSource.js';
 
 /**
  * Sidebar Features = destination. Contextual Features = temporary tool.
@@ -16,7 +17,7 @@ import { readFileSync } from 'node:fs';
  * the route.
  */
 
-const APP = readFileSync('apps/accounting/src/App.jsx', 'utf8');
+const APP = appSource('apps/accounting/src/App.jsx');
 const PANEL = readFileSync('apps/accounting/src/features/features/FeaturesPanel.jsx', 'utf8');
 const CSS = readFileSync('packages/ui/src/index.css', 'utf8');
 

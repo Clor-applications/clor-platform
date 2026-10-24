@@ -392,6 +392,10 @@ rolesRouter.delete('/orgs/:orgId/roles/:roleId', requirePermission('SETTINGS', P
     throw err;
   }
 
+  /* Written by name here; the general recorder (auditMutations) leaves it. */
+
+  if (req.res) req.res.locals.audited = true;
+
   await platformPrisma.auditLog.create({
     data: {
       accountId,

@@ -1,0 +1,15 @@
+     49| /* The one hash every token kind uses; it lives with the credential re…
+     50| import { hashToken } from '../services/credentials.js';
+       | ^
+     51| export { hashToken };
+     52|
+ ❯ src/routes/scim.ts:8:1
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  no tests
+   Start at  04:36:31
+   Duration  13.04s (transform 1.04s, setup 26ms, import 0ms, tests 0ms, environment 0ms)
+

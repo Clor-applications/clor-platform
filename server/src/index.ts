@@ -18,6 +18,9 @@ import { build as buildReport } from './routes/attendanceReports.js';
 import { startPhotoPurge, startReaderChecks, startVendorSync, startWebhookRetries } from './services/vendorSyncScheduler.js';
 import { reportProcessErrors } from './utils/log.js';
 import { stopJobs } from './services/jobLease.js';
+import { startCredentialBackfill } from './services/credentialBackfill.js';
+import { startCredentialChecks } from './services/credentialReview.js';
+import { startIntegrityChecks } from './services/integrity/checks.js';
 
 /* Crashes and unhandled rejections are reported, not lost. */
 reportProcessErrors();
@@ -82,3 +85,9 @@ startNotificationPruning();
 startBooksDigest();
 /* Reports that go out by e-mail on their own — every 15 minutes the due ones are sent. */
 startReportSchedules(buildReport);
+/* Batch 5: credentials issued before the registry are registered once, on one instance. */
+startCredentialBackfill();
+/* Daily: expiry warnings, expired events, credentials whose own row is gone. */
+startCredentialChecks();
+/* GAP-010: links between the databases, checked nightly; safe ones repaired, the rest logged. */
+startIntegrityChecks();

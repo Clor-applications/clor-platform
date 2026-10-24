@@ -212,6 +212,8 @@ export const deleteWebhook = (id) => send(`/integrations/webhooks/${encodeURICom
 export const listWebhookDeliveries = (id, status) => get(`/integrations/webhooks/${encodeURIComponent(id)}/deliveries${query({ status })}`);
 export const resendWebhookDelivery = (id, deliveryId) => send(`/integrations/webhooks/${encodeURIComponent(id)}/deliveries/${encodeURIComponent(deliveryId)}/resend`, 'POST', {});
 export const testWebhook = (id) => send(`/integrations/webhooks/${encodeURIComponent(id)}/test`, 'POST', {});
+/** A new signing secret, shown once; the old one is still signed with for a day. */
+export const rotateWebhookSecret = (id) => send(`/integrations/webhooks/${encodeURIComponent(id)}/rotate-secret`, 'POST', {});
 /** Where outside systems call: the API host's /v1. */
 export const publicApiBase = () => {
   try {
@@ -248,6 +250,8 @@ export const getPortalAccess = () => get('/portal-access');
 export const issuePortalCodes = (employeeIds, email = false) => send('/portal-access/codes', 'POST', { employeeIds, email });
 export const setPortalAccess = (body) => send('/portal-access', 'PUT', body);
 export const resetPortalPassword = (employeeId) => send(`/portal-access/${encodeURIComponent(employeeId)}/reset`, 'POST', {});
+/** A-33: sign someone out of the employee app on every device; their password still works. */
+export const signOutPortalEverywhere = (employeeId) => send(`/portal-access/${encodeURIComponent(employeeId)}/sign-out-everywhere`, 'POST', {});
 export const listGeofences = () => get('/geofences').then((r) => r?.geofences || []);
 export const createGeofence = (body) => send('/geofences', 'POST', body);
 export const updateGeofence = (id, body) => send(`/geofences/${encodeURIComponent(id)}`, 'PUT', body);

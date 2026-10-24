@@ -20,6 +20,7 @@ import { featuresRouter } from './routes/features.js';
 import { partiesRouter } from './routes/parties.js';
 import { emailRouter } from './routes/email.js';
 import { securityRouter } from './routes/security.js';
+import { credentialsRouter } from './routes/credentials.js';
 import { itemsRouter } from './routes/items.js';
 import { purchaseDocsRouter } from './routes/purchaseDocs.js';
 import { quoteDocsRouter } from './routes/quoteDocs.js';
@@ -163,6 +164,15 @@ export function buildApp() {
   );
 
   app.use(helmet());
+  /*
+   * Nothing this server answers is for a browser or proxy to keep: company
+   * data, employee files and tokens alike (GAP-012). A route that wants
+   * otherwise sets its own header, which replaces this one.
+   */
+  app.use((_req, res, next) => {
+    res.setHeader('Cache-Control', 'private, no-store');
+    next();
+  });
   // Refuse requests that bypassed the api.clor.in Worker (no-op unless EDGE_SECRET is set).
   app.use(edgeGuard);
   // Role, membership and permission lookups are cached briefly; any write drops the cache.
@@ -330,7 +340,7 @@ export function buildApp() {
   /* No auth and no tenant headers: the customer has no account here. Mounted
      with authRouter for the same reason gstinRouter is — a router at '/api'
      runs its middleware for every '/api' request that reaches it. */
-  /* Payroll and Attendance changes go in the audit log (middleware/auditMutations.ts). */
+  /* Every staff change goes in the audit log (middleware/auditMutations.ts; A-50, A-51). */
   app.use(auditMutations);
   app.use('/api', sharePublicRouter);
   /* The done link in a task e-mail: signed, no session; before the routers that demand one. */
@@ -429,6 +439,8 @@ export function buildApp() {
   app.use('/api', partiesRouter);
   app.use('/api', emailRouter);
   app.use('/api', securityRouter);
+  /* Batch 5: Company admin → Credentials. */
+  app.use('/api', credentialsRouter);
   app.use('/api', notificationsRouter);
   app.use('/api', payRequestsRouter);
   app.use('/api', itemsRouter);

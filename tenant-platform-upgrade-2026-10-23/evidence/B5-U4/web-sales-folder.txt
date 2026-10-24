@@ -1,0 +1,8 @@
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 5 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  apps/accounting/src/features/sales/listLayoutParity.test.jsx > 'Quotations', laid out like Sales Invoices > puts a compact status dropdown with counts before search
+ FAIL  apps/accounting/src/features/sales/listLayoutParity.test.jsx > 'Sales Orders', laid out like Sales Invoices > puts a compact status dropdown with counts before search
+ FAIL  apps/accounting/src/features/sales/listLayoutParity.test.jsx > 'Delivery Challans', laid out like Sales Invoices > puts a compact status dropdown with counts before search
+ FAIL  apps/accounting/src/features/sales/listLayoutParity.test.jsx > 'Sales Returns', laid out like Sales Invoices > puts a compact status dropdown with counts before search
+ FAIL  apps/accounting/src/features/sales/listLayoutParity.test.jsx > 'Recurring Invoices', laid out like Sales Invoices > puts a compact status dropdown with counts before search
+ Test Files  1 failed | 8 passed (9)
+      Tests  5 failed | 116 passed (121)

@@ -8,6 +8,7 @@ import { readFileSync, existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import { appSource } from '../apps/accounting/src/testing/appSource.js';
 
 /**
  * Every screen the product can put in the address bar can be opened from it.
@@ -49,7 +50,7 @@ const SRC_DIRS = [
 const SRC = SRC_DIRS[0];
 const src = (rel) => SRC_DIRS.map((d) => join(d, rel)).find((p) => existsSync(p)) || join(SRC_DIRS[0], rel);
 
-const app = readFileSync(src('App.jsx'), 'utf8');
+const app = appSource(src('App.jsx'));
 const registry = readFileSync(src('features/settings/settingsRegistry.js'), 'utf8');
 
 /* Screens that genuinely cannot stand up from a cold link, with the reason. */

@@ -1687,9 +1687,14 @@ model DocumentShareLink {
   docType String
   docId   String
 
-  /// The secret. Long, random, and the only thing standing between a URL and
-  /// somebody else's invoice, so it is unique and indexed rather than scanned.
+  /// The secret, as it was stored before A-32. Still written for one release so
+  /// an instance running older code can follow a new link; dropped next release (U9).
   token String @unique
+  /// SHA-256 of the token: how a link is found (A-32).
+  tokenHash String? @unique
+  /// The token encrypted (services/mailer.ts encryptSecret), so every reminder
+  /// sends the same address; read only when staff fetch the link, never to follow one.
+  tokenEnc  String?
 
   revokedAt DateTime?
   expiresAt DateTime?

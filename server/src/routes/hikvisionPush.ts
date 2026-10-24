@@ -1,14 +1,15 @@
 import { Router } from 'express';
-import { anyAppLive, appLive, closing } from '../services/principalAllowed.js';
+import { verifyCredential, touchLastUsed } from '../services/credentials.js';
+import { devicePushKind, refusalOf } from '../services/credentialKinds.js';
+import { anyAppLive, closing } from '../services/principalAllowed.js';
 
 import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { ingestLimiter } from '../middleware/rateLimit.js';
 import { readTime, istLocal } from '../services/attendance/punchMapping.js';
 import { VERIFY_WORDS } from '../services/attendance/pull/index.js';
 import { hikvisionCounts } from '../services/attendance/pull/hikvision.js';
-import { hashToken } from './publicApi.js';
 import { ingestPunches } from '../services/attendance/punches.js';
-import { enterTenant, outsideTenant } from '../utils/tenantScope.js';
+import { enterTenant } from '../utils/tenantScope.js';
 
 /**
  * /hikvision/<token> — Hikvision face / card terminals pushing events (the
@@ -103,13 +104,14 @@ export function punchOf(ev: any, zone: string, countMinors?: number[] | null): {
 hikvisionPushRouter.post('/:token', ...ingestLimiter, async (req, res) => {
   const token = String(req.params.token || '');
   if (!/^clorp_[A-Za-z0-9_-]{20,}$/.test(token)) return res.status(404).json({ error: 'No such URL.' });
-  /* A-35: the token is how the company is found, so it is looked up across companies. */
-  const device = await outsideTenant('hikvision push: which terminal this token is', () => peoplePrisma.attendanceDevice.findUnique({ where: { pushTokenHash: hashToken(token) } }));
-  if (!device || device.vendor !== 'HIKVISION_PUSH') return res.status(404).json({ error: 'No such URL.' });
-  if (!device.isActive) return res.status(403).json({ error: 'This reader is switched off in CLOR.' });
-  /* A-11: punches are taken only while Attendance is on, paid for, and the company is not closing. */
-  const refused = await appLive(device.accountId, device.orgId, 'attendance');
-  if (refused) return res.status(refused.status).json({ error: refused.error, code: refused.code });
+  /* Batch 5: the registry and the reader's own row must both allow it (A-35 lookup across companies). */
+  const v = await verifyCredential('DEVICE_PUSH', token, devicePushKind('HIKVISION_PUSH'));
+  if (!v.ok) {
+    const r = refusalOf(v, { invalid: 'No such URL.', off: 'This reader is switched off in CLOR.', status: { invalid: 404 } });
+    return res.status(r.status).json({ error: r.error, ...(r.code ? { code: r.code } : {}) });
+  }
+  const device = v.row;
+  touchLastUsed(v.credential, String(req.ip || '') || null);
   /* A-30: the rest of this request runs as the company the token named. */
   enterTenant(device.orgId);
   try {

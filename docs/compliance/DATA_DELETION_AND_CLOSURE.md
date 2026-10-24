@@ -63,21 +63,27 @@ the reader until the person is removed from each reader. The screen says so.
 
 ## 2. When a company closes its CLOR account
 
-**Who can do it:** only the company's owner (the person who created the
-company). Other administrators see the status but cannot start or cancel it.
-**Where:** Attendance → Settings → Data Management → Close Company.
+**Who can do it:** an administrator of the whole company, with a fresh code
+from their authenticator app to ask for the closure (any such administrator may
+cancel it). Being the person who created the company is not what decides it.
+**Where:** Company admin → Data → Close company.
 
 **Steps**
 1. **Full export first.** The owner downloads a full export of the company
    (every record, one file). A closure can only be requested within 24 hours
    of a full export.
 2. **Request.** The owner types the company's name to confirm, and may give a reason.
-3. **Notice period: 30 days.** The company keeps working normally. The owner
-   can cancel at any time during the 30 days; nothing is then deleted.
+3. **Notice period: 30 days.** The company keeps working normally for its
+   people. Every key and token it gave to other systems — API keys,
+   connectors, readers, directory sync, invoice and payment links — stops
+   working at once, and so does the employee app. The owner can cancel at any
+   time during the 30 days; nothing is then deleted, and those credentials
+   and sign-ins work again without anyone re-issuing them.
 4. **Deletion.** After 30 days, CLOR deletes every record of the company, in
    every app and database: accounting, invoices, payroll, attendance,
-   employees, users' access to the company, roles, settings, notifications
-   and the company's audit log. **Nothing is kept and nothing can be
+   employees, users' access to the company, roles, settings, notifications,
+   the company's credentials and their history, employee-app sign-ins, and
+   the company's audit log. **Nothing is kept and nothing can be
    recovered.**
 
 **What CLOR keeps after deletion:** only a closure record: company name, who
@@ -87,6 +93,13 @@ deleted. It contains no employee or business data.
 **What is not deleted:** people's own CLOR sign-in (email and password), since
 a person may also belong to other companies. Their access to the closed
 company is removed.
+
+**When it was the account's last company:** the account's subscription is
+cancelled at once and the payment provider is told to stop charging; the
+account's plan is closed. CLOR keeps its own billing records (its invoices and
+payments to the customer) as its tax law requires. The company's code (for
+example KAVE-C100) is never given to another company, so old links never open
+somebody else's books.
 
 **Backups:** CLOR's database backups (point-in-time recovery) roll over after
 7 days, so the company's data leaves the backups within 7 days of deletion.

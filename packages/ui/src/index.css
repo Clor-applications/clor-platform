@@ -5426,11 +5426,17 @@ th.ui-th {
   height: 2rem;
   padding-block: .18rem;
 }
+/* Name, User ID, Email, Role, Status, Actions. The e-mail is the long one; on a
+   phone the table keeps its shape and scrolls rather than writing one column
+   over the next. */
+.users-settings-table { min-width: 40rem; }
 .users-settings-table th:nth-child(1) { width: 20%; }
-.users-settings-table th:nth-child(2) { width: 34%; }
-.users-settings-table th:nth-child(3) { width: 20%; }
-.users-settings-table th:nth-child(4) { width: 16%; }
+.users-settings-table th:nth-child(2) { width: 18%; }
+.users-settings-table th:nth-child(3) { width: 30%; }
+.users-settings-table th:nth-child(4) { width: 14%; }
 .users-settings-table th:nth-child(5) { width: 10%; }
+.users-settings-table th:nth-child(6) { width: 8%; }
+.users-settings-table td { overflow: hidden; text-overflow: ellipsis; }
 
 .settings-content:has(.roles-settings-page) {
   min-height: 0;

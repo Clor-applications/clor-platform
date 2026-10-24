@@ -566,7 +566,15 @@ authRouter.get('/me', requireLiveAuth, async (req: Request, res: Response) => {
   }
 
   return res.json({
-    user: { ...user, accountCode: ownAccount?.code || null },
+    /*
+     * GAP-011 (ADR-003): `user.accountId` is the person's HOME account — where
+     * they signed up, what their token carries. It is kept for older clients
+     * and named plainly as `homeAccountId`. The account whose data is being
+     * worked in is `activeAccountId`: the one that owns the active company,
+     * which for an invited accountant is somebody else's.
+     */
+    user: { ...user, homeAccountId: user.accountId, accountCode: ownAccount?.code || null },
+    activeAccountId: activeMembership ? activeMembership.accountId : null,
     orgs: orgMemberships.map((m) => ({
       orgId: m.orgId,
       accountId: m.accountId,

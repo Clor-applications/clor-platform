@@ -1,3 +1,5 @@
+import { actorFrom } from '../services/credentials.js';
+import { invoiceStatusChanged, revokeInvoiceLink } from '../services/shareLinks.js';
 import { Router, type Request } from 'express';
 import { randomUUID } from 'crypto';
 import { z } from 'zod';
@@ -248,6 +250,8 @@ const AUDITED_FIELDS = [
  */
 async function auditInvoiceCreated(req: Request, row: any) {
   try {
+    /* Written by name here; the general recorder (auditMutations) leaves it. */
+    if (req.res) req.res.locals.audited = true;
     await platformPrisma.auditLog.create({
       data: {
         accountId: req.tenant!.accountId,
@@ -297,6 +301,8 @@ async function auditInvoiceChange(
       }
       if (!Object.keys(changes).length) return;
     }
+    /* Written by name here; the general recorder (auditMutations) leaves it. */
+    if (req.res) req.res.locals.audited = true;
     await platformPrisma.auditLog.create({
       data: {
         accountId: req.tenant!.accountId,
@@ -771,6 +777,8 @@ invoicesRouter.patch('/orgs/:orgId/invoices/:invoiceId/status', requirePermissio
   if (!row) return res.status(500).json({ error: 'Failed to update invoice status' });
 
   await auditInvoiceChange(req, 'STATUS', existing, row);
+  /* A-32 / Batch 5: cancelled, its customer link is paused and an open payment link closed; reinstated, the same link works again. */
+  await invoiceStatusChanged({ accountId, orgId }, existing.id, String(existing.status || ''), String(row.status || ''), actorFrom(req));
 
   await reassertSettlement(accountId, orgId, existing.id);
   const settled = await prisma.invoice.findUnique({ where: { id: existing.id } });
@@ -840,6 +848,8 @@ invoicesRouter.delete('/orgs/:orgId/invoices/:invoiceId', requirePermission(INVO
     });
   }
 
+  /* A-32: a deleted draft's link, if one was made, is revoked rather than left pointing at nothing. */
+  await revokeInvoiceLink({ orgId }, existing.id, actorFrom(req), 'draft deleted');
   await prisma.invoice.delete({ where: { id: existing.id } });
   await auditInvoiceChange(req, 'DELETE', existing, null);
   res.json({ ok: true, reversedEntries: posted.length });

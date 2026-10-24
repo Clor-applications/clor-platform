@@ -77,7 +77,30 @@ export const signIn = ({ company, employeeCode, password }) =>
   call('/login', { method: 'POST', body: { company, employeeCode, password } }).then(signedIn(company, employeeCode));
 export const activate = ({ company, employeeCode, activationCode, password }) =>
   call('/activate', { method: 'POST', body: { company, employeeCode, activationCode, password } }).then(signedIn(company, employeeCode));
-export const signOut = () => setPortalToken('');
+/**
+ * Sign this device out: the server ends its session (A-33), then the token is
+ * forgotten here. Forgotten here whatever the server says — a phone that is
+ * offline still signs out.
+ */
+export const signOut = async () => {
+  try {
+    if (portalToken()) await call('/signout', { method: 'POST' });
+  } catch {
+    /* offline, or already signed out: forgetting the token is enough here */
+  } finally {
+    setPortalToken('');
+  }
+};
+
+/** The devices this person is signed in on (A-33). */
+export const getSessions = () => call('/sessions');
+export const endSession = (id) => call(`/sessions/${encodeURIComponent(id)}`, { method: 'DELETE' });
+export const endOtherSessions = async () => {
+  const r = await call('/sessions/end-others', { method: 'POST' });
+  /* A device on an older sign-in gets a session of its own back. */
+  if (r?.token) setPortalToken(r.token);
+  return r;
+};
 
 export const getMe = () => call('/me');
 export const punch = (body) => call('/punch', { method: 'POST', body });

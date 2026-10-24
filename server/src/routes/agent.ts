@@ -1,5 +1,5 @@
 import { Router, type Request, type Response, type NextFunction } from 'express';
-import { anyAppLive, appLive, closing } from '../services/principalAllowed.js';
+import { anyAppLive, closing } from '../services/principalAllowed.js';
 import { randomBytes } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -9,9 +9,12 @@ import { platformPrisma } from '../utils/platformPrisma.js';
 import { decryptSecret, encryptSecret } from '../services/mailer.js';
 import { istLocal } from '../services/attendance/punchMapping.js';
 import { hashToken } from './publicApi.js';
+import { verifyCredential, touchLastUsed, SYSTEM } from '../services/credentials.js';
+import { issueAgentScimToken } from '../services/scimTokens.js';
+import { agentKind, refusalOf } from '../services/credentialKinds.js';
 import { ingestPunches } from '../services/attendance/punches.js';
 import { isFeatureEnabled } from '../services/features.js';
-import { runInTenant, outsideTenant } from '../utils/tenantScope.js';
+import { runInTenant } from '../utils/tenantScope.js';
 
 /**
  * /agent/v1 — what the on-site connector (server/agent) talks to. A small
@@ -75,13 +78,15 @@ agentRouter.get('/download.sig', (_req, res) => {
 agentRouter.use(async (req: Request, res: Response, next: NextFunction) => {
   const m = /^Bearer\s+(clora_[A-Za-z0-9_-]{20,})$/i.exec(String(req.headers.authorization || ''));
   if (!m) return fail(res, 401, 'Send the connector token as "Authorization: Bearer <token>".');
-  /* A-35: the token is how the company is found, so it is looked up across companies. */
-  const a = await outsideTenant('site agent: which company this agent belongs to', () => peoplePrisma.siteAgent.findUnique({ where: { tokenHash: hashToken(m[1]) } }));
-  if (!a) return fail(res, 401, 'This connector token is not valid (revoked, or made for another server).');
-  if (!a.isActive) return fail(res, 403, 'This connector is switched off in CLOR.');
-  /* A-11: on, paid for, not closing. */
-  const refused = await appLive(a.accountId, a.orgId, 'attendance');
-  if (refused) return fail(res, refused.status, refused.error);
+  /* Batch 5: the registry and the agent's own row must both allow it (A-35 lookup across companies, then as its company). */
+  const v = await verifyCredential('AGENT', m[1], agentKind);
+  if (!v.ok) {
+    const r = refusalOf(v, { invalid: 'This connector token is not valid (revoked, or made for another server).', off: 'This connector is switched off in CLOR.' });
+    return res.status(r.status).json({ error: r.error, ...(r.code ? { code: r.code } : {}) });
+  }
+  const a = v.row;
+  touchLastUsed(v.credential, String(req.ip || '') || null);
+  if (v.credential.expiresAt) res.setHeader('X-Clor-Credential-Expires', v.credential.expiresAt.toISOString());
   req.agent = a;
   runInTenant(a.orgId, () => next());
 });
@@ -202,21 +207,14 @@ agentRouter.post('/report', async (req, res) => {
 /* ---- Making agents: for routes/integrations.ts ---- */
 
 /** A SCIM token for the agent's LDAP sync, made once and handed over on its next poll. */
-export async function ensureScimForAgent(a: { id: string; accountId: string; orgId: string; scimTokenId: string | null; pendingEnc: string | null; createdByUserId: string }, defaultRoleId: string | null) {
-  if (a.scimTokenId && (await platformPrisma.scimToken.findUnique({ where: { id: a.scimTokenId } }))) {
-    if (defaultRoleId !== undefined) await platformPrisma.scimToken.update({ where: { id: a.scimTokenId }, data: { defaultRoleId } });
-    return a.scimTokenId;
+export async function ensureScimForAgent(a: { id: string; accountId: string; orgId: string; scimTokenId: string | null; pendingEnc: string | null; createdByUserId: string; name?: string }, defaultRoleId: string | null) {
+  /* A-31: a revoked token is as good as none — a new one is made and handed over. */
+  const current = a.scimTokenId ? await platformPrisma.scimToken.findUnique({ where: { id: a.scimTokenId } }) : null;
+  if (current && !current.revokedAt) {
+    if (defaultRoleId !== undefined) await platformPrisma.scimToken.update({ where: { id: current.id }, data: { defaultRoleId } });
+    return current.id;
   }
-  const { newScimToken } = await import('./scim.js');
-  const token = newScimToken();
-  const row = await platformPrisma.scimToken.create({ data: { accountId: a.accountId, orgId: a.orgId, tokenHash: hashToken(token), tokenPrefix: token.slice(0, 12), defaultRoleId, createdByUserId: a.createdByUserId } });
-  let pending: Record<string, string> = {};
-  try {
-    pending = a.pendingEnc ? JSON.parse(decryptSecret(a.pendingEnc)) : {};
-  } catch {
-    pending = {};
-  }
-  await peoplePrisma.siteAgent.update({ where: { id: a.id }, data: { scimTokenId: row.id, pendingEnc: encryptSecret(JSON.stringify({ ...pending, scimToken: token })) } });
+  const row = await issueAgentScimToken(a, defaultRoleId, SYSTEM);
   return row.id;
 }
 

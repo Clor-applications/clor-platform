@@ -68,10 +68,11 @@ const ActionPill = ({ action }) => {
   const tone = ACTION_TONE[action] || 'warn';
   return (
     <span
-      className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium"
+      className="inline-block max-w-full truncate rounded-full px-2 py-0.5 text-xs font-medium align-middle"
       style={{ background: `rgb(var(--${tone}-soft))`, color: `rgb(var(--${tone}-ink))` }}
+      title={action}
     >
-      {action}
+      {String(action || '').replace(/_/g, ' ')}
     </span>
   );
 };
@@ -88,10 +89,23 @@ const when = (iso) => {
  * "Edited" is not an audit entry; `total 12,000 → 1,200` is. Anything that is
  * not a diff — a create, a delete — prints as the values it recorded.
  */
+/** A recorded value as words: lists joined, records as `field: value`, cut short. */
+const valueText = (v, depth = 0) => {
+  if (v === null || v === undefined || v === '') return '—';
+  if (Array.isArray(v)) return v.map((x) => valueText(x, depth + 1)).join(', ') || '—';
+  if (typeof v === 'object') {
+    if (depth > 1) return '…';
+    return Object.entries(v).map(([k, x]) => `${k}: ${valueText(x, depth + 1)}`).join(' · ') || '—';
+  }
+  return String(v);
+};
+const short = (t) => (t.length > 180 ? `${t.slice(0, 180)}…` : t);
+
 const Changes = ({ metadata }) => {
   if (!metadata || typeof metadata !== 'object') return null;
   const changes = metadata.changes && typeof metadata.changes === 'object' ? metadata.changes : null;
-  const entries = Object.entries(changes || metadata);
+  /* The general recorder's own bookkeeping (the path it matched, ids already in the row) says nothing a reader needs. */
+  const entries = Object.entries(changes || metadata).filter(([k, v]) => k !== 'path' && !(k === 'ids' && (!Array.isArray(v) || !v.length)));
   if (!entries.length) return null;
   return (
     <div className="mt-1 space-y-0.5">
@@ -105,7 +119,7 @@ const Changes = ({ metadata }) => {
               <span className="ui-mono">{String(v.to ?? '—')}</span>
             </>
           ) : (
-            <span className="ui-mono">{String(v ?? '—')}</span>
+            <span className="ui-mono">{short(valueText(v))}</span>
           )}
         </div>
       ))}

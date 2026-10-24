@@ -7,6 +7,7 @@ import { requireAuth } from '../middleware/auth.js';
 import { requireTenantContext } from '../middleware/tenantContext.js';
 import { requirePermission } from '../middleware/rbac.js';
 import { PermissionAction } from '../constants/enums.js';
+import { forgetEntityAccess, payrollUsesCostCentre } from '../services/integrity/crossStore.js';
 
 /**
  * The masters that were only ever in the browser.
@@ -339,17 +340,24 @@ orgMastersRouter.patch('/orgs/:orgId/masters/:id', MASTERS_EDIT, async (req, res
 /**
  * Genuinely deleted, unlike a salesman.
  *
- * Nothing points at one of these by id: a document records the unit it was
- * entered in and the rate it was priced at, not a foreign key to the list the
- * value came from. Removing a unit therefore leaves no document dangling, and
- * keeping dead rows in a picker is worse than the alternative.
+ * Accounting's documents record the unit they were entered in and the rate
+ * they were priced at, not a key to the list the value came from, so removing
+ * a unit leaves no document dangling. Cost centres are the exception
+ * (GAP-010): Payroll names them by id on profiles, assignments, payslips and
+ * postings, so one Payroll uses is switched off rather than deleted, and the
+ * per-person access that named a deleted one goes with it.
  */
 orgMastersRouter.delete('/orgs/:orgId/masters/:id', MASTERS_EDIT, async (req, res) => {
   if (!orgOk(req, res)) return;
   const { accountId, orgId } = req.tenant!;
   const existing = await prisma.orgMaster.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
   if (!existing) return res.status(404).json({ error: 'Master not found' });
+  if (existing.kind === 'COST_CENTER') {
+    const used = await payrollUsesCostCentre({ accountId, orgId }, existing.id);
+    if (used) return res.status(409).json({ code: 'USED_BY_PAYROLL', error: `Payroll uses this cost centre on ${used} record${used === 1 ? '' : 's'}. Switch it off instead.` });
+  }
   await prisma.orgMaster.delete({ where: { id: existing.id } });
+  if (existing.kind === 'COST_CENTER') await forgetEntityAccess({ accountId, orgId }, ['COST_CENTRE'], existing.id);
   res.json({ deleted: true, id: existing.id });
 });
 

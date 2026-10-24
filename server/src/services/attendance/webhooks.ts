@@ -14,7 +14,9 @@ import { appLive, type Refusal } from '../principalAllowed.js';
  *   X-Clor-Delivery: <id>            the same on every retry of one event
  *   X-Clor-Attempt: 1, 2, …
  *   X-Clor-Timestamp: <unix seconds> when this attempt was sent
- *   X-Clor-Signature: sha256=<hex HMAC-SHA256 of the raw body with the webhook secret>
+ *   X-Clor-Signature-256: t=<the same seconds>,v1=<hex HMAC-SHA256 of "<t>.<raw body>">
+ *                         — a second v1 while a changed secret's old one is still kept (a day)
+ *   X-Clor-Signature: sha256=<hex HMAC-SHA256 of the raw body>   (older receivers; no time)
  *   { "event": "…", "orgId": "…", "sentAt": "…", "data": … }
  *
  * Every event is a WebhookDelivery row first, then sent. A failure (no 2xx,
@@ -101,11 +103,25 @@ export async function flushWebhooks() {
 
 export const signBody = (secret: string, body: string) => `sha256=${createHmac('sha256', secret).update(body).digest('hex')}`;
 
-type Hook = { id: string; url: string; secret: string };
+/*
+ * A-34: the body-only signature proves who sent a delivery but not when, so a
+ * captured one could be replayed at any time. This one covers the time too: a
+ * receiver checks t is recent and any v1 matches. While a changed secret's old
+ * one is still kept, both are signed with, so the receiver can switch over.
+ */
+export const signTimed = (secrets: string[], t: number, body: string) =>
+  [`t=${t}`, ...secrets.map((s) => `v1=${createHmac('sha256', s).update(`${t}.${body}`).digest('hex')}`)].join(',');
+
+/** How long the old secret is still signed with after it is changed. */
+export const PREVIOUS_SECRET_MS = 24 * 3600_000;
+
+type Hook = { id: string; url: string; secret: string; previousSecret?: string | null; previousSecretUntil?: Date | null };
 
 /** One attempt at one delivery; schedules the next or settles it. */
 async function attempt(delivery: { id: string; webhookId: string; event: string; body: string; attempts: number }, hook: Hook, now = new Date()) {
   const secret = decryptSecret(hook.secret);
+  const previous = hook.previousSecret && hook.previousSecretUntil && hook.previousSecretUntil > now ? decryptSecret(hook.previousSecret) : '';
+  const t = Math.floor(now.getTime() / 1000);
   const n = delivery.attempts + 1;
   let status = 0;
   let error: string | null = null;
@@ -116,7 +132,8 @@ async function attempt(delivery: { id: string; webhookId: string; event: string;
       'X-Clor-Event': delivery.event,
       'X-Clor-Delivery': delivery.id,
       'X-Clor-Attempt': String(n),
-      'X-Clor-Timestamp': String(Math.floor(now.getTime() / 1000)),
+      'X-Clor-Timestamp': String(t),
+      'X-Clor-Signature-256': signTimed(previous ? [secret, previous] : [secret], t, delivery.body),
       'X-Clor-Signature': signBody(secret, delivery.body),
     });
     status = r.status;

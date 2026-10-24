@@ -1,3 +1,6 @@
+import { recordAudit } from '../services/auditTrail.js';
+import { endPortalSessions } from '../services/portalSessions.js';
+import { actorFrom } from '../services/credentials.js';
 import { Router } from 'express';
 import bcrypt from 'bcrypt';
 import { z } from 'zod';
@@ -159,6 +162,10 @@ portalAdminRouter.put(`${base}/portal-access`, can(PermissionAction.EDIT), async
   /* Switching the portal off ends their sessions and any unused code; the password is kept for when it is switched back on. */
   const data: any = { ...change, ...(change.portalEnabled === false ? { portalSetupHash: null, portalSetupExpires: null } : {}) };
   const r = await peoplePrisma.employee.updateMany({ where: { accountId, orgId, id: { in: employeeIds } }, data });
+  /* A-33: switched off, their devices are ended on record too. */
+  if (change.portalEnabled === false) {
+    for (const id of employeeIds) await endPortalSessions({ id, accountId, orgId }, 'employee app switched off', actorFrom(req));
+  }
   res.json({ updated: r.count });
 });
 
@@ -171,7 +178,24 @@ portalAdminRouter.post(`${base}/portal-access/:employeeId/reset`, can(Permission
     data: { portalPasswordHash: null, portalPasswordSetAt: null, portalSetupHash: null, portalSetupExpires: null },
   });
   if (!r.count) return res.status(404).json({ error: 'No such employee.' });
+  /* A-33: their devices are ended on record too, not only by the password check. */
+  await endPortalSessions({ id: String(req.params.employeeId), accountId, orgId }, 'portal password reset by HR', actorFrom(req));
   res.json({ ok: true });
+});
+
+/**
+ * Sign someone out of the employee app on every device (A-33): a lost phone,
+ * a shared one. Unlike resetting the password, they can sign straight back in
+ * with the password they have.
+ */
+portalAdminRouter.post(`${base}/portal-access/:employeeId/sign-out-everywhere`, can(PermissionAction.EDIT), async (req, res) => {
+  if (!(await hrOrAttendanceRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const e = await peoplePrisma.employee.findFirst({ where: { accountId, orgId, id: String(req.params.employeeId) }, select: { id: true, accountId: true, orgId: true, name: true } });
+  if (!e) return res.status(404).json({ error: 'No such employee.' });
+  const ended = await endPortalSessions(e, 'signed out everywhere by HR', actorFrom(req));
+  await recordAudit(req, { entity: 'Employee', entityId: e.id, action: 'SIGN_OUT', message: `Signed ${e.name} out of the employee app on every device`, metadata: { ended } });
+  res.json({ ok: true, ended });
 });
 
 // ---------------------------------------------------------------------------

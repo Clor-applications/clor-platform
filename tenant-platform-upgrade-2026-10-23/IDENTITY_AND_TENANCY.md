@@ -25,6 +25,7 @@
 ## Required platform decisions
 
 - Keep `User.accountId` explicitly named and documented as `homeAccountId` semantically, even if a physical rename is deferred for compatibility.
+  Done (GAP-011, Batch 11): `/auth/me` returns `user.homeAccountId` and `activeAccountId` (the account owning the active company); server code reads the token's account only for the person's own sessions and for creating a company in their own account.
 - Make `orgId` the canonical data-tenant key and `accountId` the commercial/customer owner key.
 - Introduce a canonical Worker plus Employment contract before Projects/Timesheet and deeper Payroll integration. `Employee` can migrate into or map to that contract, but duplicate workforce masters are forbidden.
 - Define CA/delegated access as an explicit engagement/grant with lifecycle, scope, expiry and audit, instead of treating it as a normal membership forever.

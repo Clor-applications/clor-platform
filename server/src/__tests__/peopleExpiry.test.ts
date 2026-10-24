@@ -63,10 +63,15 @@ describe('expiry watch', () => {
     const e = (await people(hr).post('/employees', { name: 'Rekha Nair', code: 'EX-1', dateOfJoining: '2026-01-05' }).expect(201)).body.employee;
     const now = new Date();
     const doc = (await people(hr).post(`/employees/${e.id}/documents`, { title: 'Fixed-term contract', kind: 'CONTRACT', expiresOn: plus(45, now), ...file('contract') }).expect(201)).body.document;
+    /* The job runs for every company in the database, so count this document's own bell entries, not the job's total. */
+    const mine = () => platformPrisma.notification.count({ where: { orgId: hr.orgId, kind: 'people.document_expiring', title: { contains: 'Fixed-term contract' } } });
     const stages: number[] = [];
+    let seen = await mine();
     for (let day = 0; day <= 50; day += 1) {
-      const sent = await runDocumentReminders(new Date(now.getTime() + day * 86_400_000));
-      if (sent) stages.push(day);
+      await runDocumentReminders(new Date(now.getTime() + day * 86_400_000));
+      const n = await mine();
+      if (n > seen) stages.push(day);
+      seen = n;
     }
     expect(stages).toEqual([0, 15, 38, 45]);
     const row = await runInTenant(hr.orgId, () => peoplePrisma.employeeDocument.findUniqueOrThrow({ where: { id: doc.id } }));

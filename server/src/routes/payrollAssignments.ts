@@ -9,6 +9,7 @@ import { payrollPrisma } from '../utils/payrollPrisma.js';
 import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { forLiveEmployee } from '../services/payroll/employeeLock.js';
 import { PAYROLL_MODULE, PAYROLL_RESOURCE, payrollRouteOk } from '../services/payroll/guards.js';
+import { costCentreRefusal } from '../services/payroll/accounting/references.js';
 
 /**
  * What one person is paid, from a date.
@@ -154,6 +155,8 @@ payrollAssignmentsRouter.post(
     ]);
     if (!employee) return res.status(400).json({ error: 'No such employee.' });
     if (!structure) return res.status(400).json({ error: 'No such salary structure.' });
+    const ccRefused = await costCentreRefusal(accountId, orgId, blank(body.costCenterId));
+    if (ccRefused) return res.status(400).json({ error: ccRefused });
 
     if (structure.status === 'ARCHIVED') {
       return res.status(400).json({ error: `${structure.name} is archived, so nobody new can be put on it.` });
@@ -262,6 +265,8 @@ payrollAssignmentsRouter.put(
     if (body.employeeId !== existing.employeeId) {
       return res.status(400).json({ error: 'A salary cannot be moved to another person. Record one for them instead.' });
     }
+    const ccRefused = await costCentreRefusal(req.tenant!.accountId, orgId, blank(body.costCenterId), existing.costCenterId);
+    if (ccRefused) return res.status(400).json({ error: ccRefused });
 
     const structure = await payrollPrisma.salaryStructure.findFirst({ where: { orgId, id: body.structureId } });
     if (!structure) return res.status(400).json({ error: 'No such salary structure.' });

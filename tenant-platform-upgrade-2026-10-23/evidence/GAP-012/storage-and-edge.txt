@@ -1,0 +1,18 @@
+GAP-012 — where files live and what sits in front of them (2026-10-24)
+
+Storage: no object store. Every file is a bytea column behind forced RLS:
+  people.PunchPhoto.data, people.EmployeeDocument.data, people.ComplianceTask.evidenceData,
+  platform.EmailOutbox.attachmentsJson. Asserted in fileBoundary.test.ts ("forced row-level security").
+Read paths (all five scoped by orgId, behind RLS):
+  routes/people.ts      GET /orgs/:orgId/people/documents/:docId            (staff, EMPLOYEES VIEW)
+  routes/people.ts      GET /orgs/:orgId/people/compliance/:id/evidence     (staff, EMPLOYEES VIEW)
+  routes/portalAdmin.ts GET /orgs/:orgId/attendance/punch-photos/:id        (staff, devices VIEW)
+  routes/portal.ts      GET /portal/documents/:id                           (the employee, visibleToEmployee only)
+  routes/portal.ts      GET /portal/approvals/punch/:id/photo               (the employee's reporting manager only)
+
+Cloudflare (read-only inspection through the connected account):
+  R2: not enabled on the account (API answers 403 "Please enable R2") — no bucket can hold a tenant file.
+  Workers: one, clor-api-proxy — forwards to the API, sets X-Forwarded-* and the x-clor-edge secret;
+           no cache API use, no logging, no storage bindings.
+  So a file can only leave through the five routes above, and with Cache-Control: private, no-store
+  neither the browser nor the edge keeps a copy.

@@ -7,7 +7,7 @@ import { useListSearch } from '@ui/components/ListToolbar';
 import { formatMoney } from '@ui/utils/money';
 import { notify } from '@ui/components/ui/notify';
 import { DocumentNumber, SalesDate, DueDate, MoneyValue, SalesBalance } from '@ui/components/docs';
-import { createInvoiceShareLink } from '../../api/share';
+import { reminderLink } from '../../api/share';
 import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';
 import {
   collectiblesList,
@@ -84,16 +84,8 @@ export default function PaymentReminders({ db, setDb, currentCompany }) {
    */
   const messageFor = async (invoice) => {
     const customer = customersById.get(String(invoice.customerId)) || null;
-    let shareUrl = '';
-    const backendId = String(invoice.backendInvoiceId || '').trim();
-    if (backendId) {
-      try {
-        const res = await createInvoiceShareLink(backendId);
-        if (res?.token) shareUrl = `${window.location.origin}/?share=${encodeURIComponent(res.token)}`;
-      } catch {
-        shareUrl = '';
-      }
-    }
+    const { url: shareUrl, note } = await reminderLink(String(invoice.backendInvoiceId || '').trim());
+    if (note) notify.info(note);
     return { customer, message: buildReminderMessage({ invoice, customer, company: currentCompany, shareUrl }) };
   };
 

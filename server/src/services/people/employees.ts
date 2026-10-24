@@ -4,6 +4,8 @@ import { type Actor, diffEmployee, writeChangeLog } from './changeLog.js';
 import { writeEvent } from './outbox.js';
 import { ensureFirstEpisode } from './episodes.js';
 import { recordChanges, recordJoined, TRACKED } from './employmentHistory.js';
+import { employeeStatusChanged } from '../portalSessions.js';
+import type { Actor as CredentialActor } from '../credentials.js';
 
 /**
  * The one way a person is created or changed (docs/people/02-PRD.md FND-08).
@@ -85,8 +87,13 @@ export async function updateEmployee(
     effectiveDate: opts.effectiveDate ?? null,
     note: actor.reason ?? null,
   });
+  /* A-33: suspended or gone, their employee-app sign-ins end — on every path through here, not only the form. */
+  await employeeStatusChanged(result.row, existing.status, result.row.status, credentialActor(actor));
   return result;
 }
+
+/** The actor as the credentials registry names one: a signed-in user, or the system (a job, an approval effect). */
+export const credentialActor = (actor: Pick<Actor, 'userId' | 'source'>): CredentialActor => (actor.userId ? { type: 'USER', id: actor.userId } : { type: 'SYSTEM', label: actor.source.toLowerCase() });
 
 /** The correlation id for a request: the request id the log middleware gave it, or a fresh one. */
 export const correlationOf = (req: { id?: unknown } & Record<string, unknown>): string => String((req as any).id || `corr_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`);

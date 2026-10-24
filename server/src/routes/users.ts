@@ -1,3 +1,5 @@
+import { flagCreatorRemoved } from '../services/credentialReview.js';
+import { actorFrom } from '../services/credentials.js';
 import { Router, type Request as ExpressRequest } from 'express';
 import { assignUserCode } from '../services/displayCodes.js';
 import { z } from 'zod';
@@ -249,6 +251,12 @@ usersRouter.patch('/orgs/:orgId/users/:userId', requirePermission('SETTINGS', Pe
     },
     select: { id: true, email: true, fullName: true, isActive: true },
   });
+  /* Batch 5: what they made keeps working; it is flagged for someone to check, in every company. */
+  if (body.isActive === false) await flagCreatorRemoved({ accountId, userId, orgIds: 'ALL' }, 'The person who made it was switched off', actorFrom(req));
+
+  /* Written by name here; the general recorder (auditMutations) leaves it. */
+
+  if (req.res) req.res.locals.audited = true;
 
   await platformPrisma.auditLog.create({
     data: {
@@ -386,6 +394,8 @@ usersRouter.put('/users/:userId/companies', requirePermission('SETTINGS', Permis
     ),
   ]);
 
+  /* Batch 5: in the companies they lost, what they made is flagged for review. */
+  if (toRemove.length) await flagCreatorRemoved({ accountId, userId, orgIds: toRemove }, 'The person who made it no longer works in this company', actorFrom(req));
   res.json({ ok: true, added: toAdd.length, removed: toRemove.length });
   }));
 
@@ -574,6 +584,10 @@ usersRouter.post('/orgs/:orgId/users/:userId/password', requirePermission('SETTI
   // Whoever held the old password is signed out everywhere.
   await revokeAllSessions(userId, 'ADMIN_PASSWORD_RESET');
 
+  /* Written by name here; the general recorder (auditMutations) leaves it. */
+
+  if (req.res) req.res.locals.audited = true;
+
   await platformPrisma.auditLog.create({
     data: {
       accountId,
@@ -751,6 +765,10 @@ usersRouter.post('/users', requirePermission('SETTINGS', PermissionAction.CREATE
     }
   }
 
+  /* Written by name here; the general recorder (auditMutations) leaves it. */
+
+  if (req.res) req.res.locals.audited = true;
+
   await platformPrisma.auditLog.create({
     data: {
       accountId,
@@ -809,6 +827,10 @@ usersRouter.delete('/orgs/:orgId/users/:userId', requirePermission('SETTINGS', P
   await platformPrisma.userBranchMembership.deleteMany({ where: { accountId, orgId, userId } });
   await platformPrisma.userOrgMembership.deleteMany({ where: { accountId, orgId, userId } });
 
+  /* Written by name here; the general recorder (auditMutations) leaves it. */
+
+  if (req.res) req.res.locals.audited = true;
+
   await platformPrisma.auditLog.create({
     data: {
       accountId,
@@ -821,6 +843,8 @@ usersRouter.delete('/orgs/:orgId/users/:userId', requirePermission('SETTINGS', P
       createdByUserId,
     },
   });
+  /* Batch 5: what they made keeps working; it is flagged for someone to check. */
+  await flagCreatorRemoved({ accountId, userId, orgIds: [orgId] }, 'The person who made it was removed from this company', actorFrom(req));
 
   res.json({ ok: true });
 });

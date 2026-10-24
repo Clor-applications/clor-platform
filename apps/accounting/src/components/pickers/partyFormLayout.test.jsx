@@ -14,6 +14,7 @@ vi.mock('@ui/api/masters', async (importOriginal) => ({
 
 import { CustomerForm } from './CustomerPicker';
 import { VendorForm } from './VendorPicker';
+import { appSource } from '../../testing/appSource.js';
 
 /*
  * The shape of the party master, as drawn.
@@ -98,7 +99,7 @@ describe('the master is a screen, not a dialog', () => {
    * may hand a party master to the modal with a title above it.
    */
   it('is not opened anywhere with a dialog title over it', () => {
-    const app = readFileSync(join(SRC, 'App.jsx'), 'utf8');
+    const app = appSource(join(SRC, 'App.jsx'));
     expect(app).not.toMatch(/title: 'New Customer'/);
     expect(app).not.toMatch(/title: 'New Vendor'/);
   });

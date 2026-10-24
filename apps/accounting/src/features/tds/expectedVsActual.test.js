@@ -18,7 +18,7 @@ const SRC = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
 describe('expected TDS never becomes actual before the receipt', () => {
   it('no sales screen writes a TDS event', () => {
-    for (const file of ['features/sales/index.jsx', 'features/sales/SalesOrders.jsx', 'features/sales/RecurringInvoices.jsx']) {
+    for (const file of ['features/sales/InvoiceForm.jsx', 'features/sales/InvoicesList.jsx', 'features/sales/Estimates.jsx', 'features/sales/CreditNotes.jsx', 'features/sales/salesShared.jsx', 'features/sales/SalesOrders.jsx', 'features/sales/RecurringInvoices.jsx']) {
       const text = readFileSync(join(SRC, file), 'utf8');
       expect(text.includes('tdsEventFrom'), `${file} must not recognize TDS`).toBe(false);
     }

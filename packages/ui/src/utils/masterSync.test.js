@@ -107,6 +107,12 @@ describe('removal', () => {
     await removeMaster({ id: 2, name: 'Scrap' });
     expect(deleted).not.toHaveBeenCalled();
   });
+
+  it('says to keep a row the server keeps (a cost centre Payroll uses, GAP-010)', async () => {
+    deleted.mockRejectedValueOnce(Object.assign(new Error('Payroll uses this cost centre on 1 record. Switch it off instead.'), { status: 409, code: 'USED_BY_PAYROLL' }));
+    expect(await removeMaster({ id: 2, backendMasterId: 'srv-9', name: 'Plant' })).toEqual({ removed: false, kept: true });
+    expect(await removeMaster({ id: 3, backendMasterId: 'srv-10', name: 'Office' })).toEqual({ removed: true });
+  });
 });
 
 describe('GST rates are a reference list like the rest', () => {

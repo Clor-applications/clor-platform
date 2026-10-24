@@ -17,7 +17,11 @@ import DashboardOverview from './DashboardOverview';
  */
 
 const co = { id: 1, name: 'Mani beriyanis', state: 'Karnataka' };
-const iso = (d) => new Date(Date.now() + d * 86_400_000).toISOString().slice(0, 10);
+/* A date d days from today, as the board reads it: in local time. toISOString() gives UTC, which is yesterday for India before 05:30. */
+const iso = (d) => {
+  const x = new Date(Date.now() + d * 86_400_000);
+  return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`;
+};
 
 const running = {
   companies: [co],

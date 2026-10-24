@@ -12,10 +12,14 @@ import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { ATTENDANCE_MODULE, ATTENDANCE_RESOURCE, attendanceRouteOk } from '../services/attendance/guards.js';
 import { encryptSecret } from '../services/mailer.js';
 import { checkUrl } from '../services/outbound.js';
-import { EVENT_HELP, WEBHOOK_EVENTS, deliver, forgetWebhooks, resendDelivery } from '../services/attendance/webhooks.js';
+import { EVENT_HELP, PREVIOUS_SECRET_MS, WEBHOOK_EVENTS, deliver, forgetWebhooks, resendDelivery } from '../services/attendance/webhooks.js';
 import { SCOPES, hashToken } from './publicApi.js';
 import { agentConfig, agentSecrets, ensureScimForAgent, newAgentToken } from './agent.js';
 import { platformPrisma } from '../utils/platformPrisma.js';
+import { createApiKey, revokeApiKey, rotateApiKey } from '../services/apiKeys.js';
+import { CredentialError, actorFrom, issueCredential, liveCredentialOf, revokeCredential, rotateCredential } from '../services/credentials.js';
+import { liveCredentialFor } from '../services/credentialKinds.js';
+import { revokeScimToken, rotateScimToken } from '../services/scimTokens.js';
 
 /**
  * Integrations, as the company manages them: API keys for outside systems
@@ -27,7 +31,6 @@ integrationsRouter.use(requireAuth, requireTenantContext);
 
 const can = (action: string) => requirePermission(ATTENDANCE_MODULE, action as any, ATTENDANCE_RESOURCE.integrations);
 const base = '/orgs/:orgId/attendance/integrations';
-const newToken = () => `clor_${randomBytes(32).toString('hex')}`;
 const ipList = z
   .string()
   .trim()
@@ -52,47 +55,44 @@ integrationsRouter.post(`${base}/keys`, can(PermissionAction.CREATE), async (req
     .object({ name: z.string().trim().min(1, 'Name the key after what uses it.').max(80), scopes: z.array(z.enum(SCOPES)).min(1, 'Choose what the key may do.'), allowedIps: ipList })
     .safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Check the details.' });
-  const token = newToken();
-  const key = await peoplePrisma.apiClient.create({
-    data: {
-      accountId,
-      orgId,
-      name: parsed.data.name,
-      tokenHash: hashToken(token),
-      tokenPrefix: token.slice(0, 12),
-      scopes: [...new Set(parsed.data.scopes)].join(','),
-      allowedIps: parsed.data.allowedIps ? parsed.data.allowedIps.split(',').map((s) => s.trim()).filter(Boolean).join(',') : null,
-      createdByUserId: req.auth!.userId,
-    },
-  });
+  const { key, token } = await createApiKey({ accountId, orgId }, { name: parsed.data.name, scopes: parsed.data.scopes, allowedIps: parsed.data.allowedIps }, { ...actorFrom(req), id: req.auth!.userId });
   res.status(201).json({ key: keyRow(key), token, note: 'Shown once — copy it now. Only a hash is kept.' });
 });
+
+/** A credential refusal (Batch 5) as a response; anything else is a real error. */
+const credentialFailed = (res: any, e: unknown) => {
+  if (e instanceof CredentialError) return res.status(e.status).json({ error: e.message, code: e.code });
+  throw e;
+};
 
 integrationsRouter.post(`${base}/keys/:id/rotate`, can(PermissionAction.EDIT), async (req, res) => {
   if (!(await attendanceRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
-  const existing = await peoplePrisma.apiClient.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
-  if (!existing) return res.status(404).json({ error: 'No such key.' });
-  const token = newToken();
-  /* The old key stops working at once; the punches it sent stay under its reader row. */
-  const key = await peoplePrisma.apiClient.update({ where: { id: existing.id }, data: { tokenHash: hashToken(token), tokenPrefix: token.slice(0, 12), isActive: true, revokedAt: null } });
-  res.json({ key: keyRow(key), token, note: 'Rotated — the previous key no longer works. Shown once.' });
+  try {
+    /* The old key stops working at once; the punches it sent stay under its reader row. A revoked key stays revoked. */
+    const { key, token } = await rotateApiKey({ accountId, orgId }, String(req.params.id), actorFrom(req), req.body?.reason ? String(req.body.reason).slice(0, 200) : null);
+    res.json({ key: keyRow(key), token, note: 'Rotated — the previous key no longer works. Shown once.' });
+  } catch (e) {
+    credentialFailed(res, e);
+  }
 });
 
 integrationsRouter.post(`${base}/keys/:id/revoke`, can(PermissionAction.EDIT), async (req, res) => {
   if (!(await attendanceRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
-  const existing = await peoplePrisma.apiClient.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
-  if (!existing) return res.status(404).json({ error: 'No such key.' });
-  const key = await peoplePrisma.apiClient.update({ where: { id: existing.id }, data: { isActive: false, revokedAt: new Date() } });
-  res.json({ key: keyRow(key) });
+  try {
+    const { key } = await revokeApiKey({ accountId, orgId }, String(req.params.id), actorFrom(req), req.body?.reason ? String(req.body.reason).slice(0, 200) : null);
+    res.json({ key: keyRow(key) });
+  } catch (e) {
+    credentialFailed(res, e);
+  }
 });
 
 // ---------------------------------------------------------------------------
 // Webhooks
 // ---------------------------------------------------------------------------
 
-const hookRow = ({ secret: _s, ...h }: any) => ({ ...h, events: h.events.split(',') });
+const hookRow = ({ secret: _s, previousSecret: _p, ...h }: any) => ({ ...h, events: h.events.split(',') });
 const hookSchema = z.object({
   name: z.string().trim().min(1, 'Name the webhook.').max(80),
   url: z.string().trim().max(500),
@@ -119,7 +119,7 @@ integrationsRouter.post(`${base}/webhooks`, can(PermissionAction.CREATE), async 
     data: { accountId, orgId, name: parsed.data.name, url: parsed.data.url, events: parsed.data.events.join(','), isActive: parsed.data.isActive ?? true, secret: encryptSecret(secret), createdByUserId: req.auth!.userId },
   });
   forgetWebhooks(orgId);
-  res.status(201).json({ webhook: hookRow(hook), secret, note: 'Shown once — use it to check the X-Clor-Signature header.' });
+  res.status(201).json({ webhook: hookRow(hook), secret, note: 'Shown once — use it to check the X-Clor-Signature-256 header.' });
 });
 
 integrationsRouter.put(`${base}/webhooks/:id`, can(PermissionAction.EDIT), async (req, res) => {
@@ -147,6 +147,22 @@ integrationsRouter.delete(`${base}/webhooks/:id`, can(PermissionAction.DELETE), 
   await peoplePrisma.webhook.delete({ where: { id: existing.id } });
   forgetWebhooks(orgId);
   res.json({ ok: true });
+});
+
+/**
+ * A new signing secret, shown once (A-34). The old one is still signed with
+ * for a day, so the receiving system can be switched over without missing a
+ * delivery; a second change within that day drops the oldest.
+ */
+integrationsRouter.post(`${base}/webhooks/:id/rotate-secret`, can(PermissionAction.EDIT), async (req, res) => {
+  if (!(await attendanceRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const existing = await peoplePrisma.webhook.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
+  if (!existing) return res.status(404).json({ error: 'No such webhook.' });
+  const secret = `whsec_${randomBytes(24).toString('hex')}`;
+  const previousSecretUntil = new Date(Date.now() + PREVIOUS_SECRET_MS);
+  const hook = await peoplePrisma.webhook.update({ where: { id: existing.id }, data: { secret: encryptSecret(secret), previousSecret: existing.secret, previousSecretUntil } });
+  res.json({ webhook: hookRow(hook), secret, previousSecretUntil, note: 'Shown once. The old secret is still signed with until then.' });
 });
 
 /** Send a test event now and answer with what the endpoint said. */
@@ -280,6 +296,10 @@ integrationsRouter.post(`${base}/agents`, can(PermissionAction.CREATE), async (r
       createdByUserId: req.auth!.userId,
     },
   });
+  /* Batch 5: registered beside its row; a missed write is repaired on first use. */
+  await issueCredential({ kind: 'AGENT', accountId, orgId, ownerId: a.id, token, tokenPrefix: a.tokenPrefix, label: a.name, createdByUserId: req.auth!.userId }, actorFrom(req)).catch((e) =>
+    console.error('[credentials] agent registered on first use instead:', (e as Error).message)
+  );
   if (ldap) await ensureScimForAgent(a, ldap.defaultRoleId ?? null);
   res.status(201).json({ token, agent: await agentRow(await peoplePrisma.siteAgent.findUniqueOrThrow({ where: { id: a.id } })), baseUrl: agentBase(), downloadUrl: `${agentBase()}/download` });
 });
@@ -306,7 +326,10 @@ integrationsRouter.put(`${base}/agents/:id`, can(PermissionAction.EDIT), async (
   if (!next.tally) delete next.tally;
   if (!next.ldap) delete next.ldap;
   await peoplePrisma.siteAgent.update({ where: { id: a.id }, data: { name, ...(isActive !== undefined ? { isActive } : {}), configJson: JSON.stringify(next), secretsEnc: Object.keys(secrets).length ? encryptSecret(JSON.stringify(secrets)) : null } });
-  if (ldap) await ensureScimForAgent(a, ldap.defaultRoleId ?? null);
+  if (ldap) await ensureScimForAgent({ ...a, name }, ldap.defaultRoleId ?? null);
+  /* A-31: directory sync removed — its token stops with it, instead of staying live with nothing using it. */
+  if (ldap === null && a.scimTokenId) await revokeScimToken(orgId, a.scimTokenId, actorFrom(req), 'directory sync removed from the connector').catch((e) => credentialFailed(res, e));
+  if (res.headersSent) return;
   res.json({ agent: await agentRow(await peoplePrisma.siteAgent.findUniqueOrThrow({ where: { id: a.id } })) });
 });
 
@@ -316,15 +339,22 @@ integrationsRouter.post(`${base}/agents/:id/rotate`, can(PermissionAction.EDIT),
   const a = await peoplePrisma.siteAgent.findFirst({ where: { id: String(req.params.id), orgId: req.tenant!.orgId } });
   if (!a) return res.status(404).json({ error: 'No such connector.' });
   const token = newAgentToken();
-  /* The SCIM token goes again with the new one, so a reinstalled agent has everything. */
-  let pending: Record<string, string> = {};
-  if (a.scimTokenId) {
-    const { newScimToken } = await import('./scim.js');
-    const st = newScimToken();
-    await platformPrisma.scimToken.update({ where: { id: a.scimTokenId }, data: { tokenHash: hashToken(st), tokenPrefix: st.slice(0, 12) } }).catch(() => {});
-    pending = { scimToken: st };
+  /* Batch 5: the registry first — if the rotation cannot be recorded, the old token keeps working and this fails (KTD4). */
+  try {
+    const live = await liveCredentialFor('AGENT', a.id, { hash: a.tokenHash, prefix: a.tokenPrefix, accountId: a.accountId, orgId: a.orgId, createdByUserId: a.createdByUserId, label: a.name }, actorFrom(req));
+    if (live) await rotateCredential(live.id, a.orgId, { token, tokenPrefix: token.slice(0, 12) }, actorFrom(req), req.body?.reason ? String(req.body.reason).slice(0, 200) : null);
+  } catch (e) {
+    return credentialFailed(res, e);
   }
-  await peoplePrisma.siteAgent.update({ where: { id: a.id }, data: { tokenHash: hashToken(token), tokenPrefix: token.slice(0, 12), pendingEnc: Object.keys(pending).length ? encryptSecret(JSON.stringify(pending)) : null } });
+  await peoplePrisma.siteAgent.update({ where: { id: a.id }, data: { tokenHash: hashToken(token), tokenPrefix: token.slice(0, 12), pendingEnc: null } });
+  /* The SCIM token goes again with the new one, so a reinstalled agent has everything (CLOR keeps only its hash). A failure here fails the request — it used to be swallowed. */
+  if (a.scimTokenId) {
+    try {
+      await rotateScimToken(a.orgId, a.scimTokenId, actorFrom(req), 'connector token rotated');
+    } catch (e) {
+      return credentialFailed(res, e);
+    }
+  }
   res.json({ token, baseUrl: agentBase(), downloadUrl: `${agentBase()}/download` });
 });
 
@@ -334,7 +364,11 @@ integrationsRouter.delete(`${base}/agents/:id`, can(PermissionAction.DELETE), as
   if (!a) return res.status(404).json({ error: 'No such connector.' });
   await peoplePrisma.attendanceDevice.updateMany({ where: { agentId: a.id }, data: { agentId: null } });
   await peoplePrisma.agentJob.deleteMany({ where: { agentId: a.id } });
-  if (a.scimTokenId) await platformPrisma.scimToken.deleteMany({ where: { id: a.scimTokenId } });
+  /* Batch 5: its credential is revoked on record before the row goes. */
+  const live = await liveCredentialOf('AGENT', a.id, a.orgId);
+  if (live) await revokeCredential(live.id, a.orgId, actorFrom(req), 'connector deleted');
+  /* A-31: its directory-sync token is revoked and kept on record, not deleted. */
+  if (a.scimTokenId) await revokeScimToken(a.orgId, a.scimTokenId, actorFrom(req), 'connector deleted');
   await peoplePrisma.siteAgent.delete({ where: { id: a.id } });
   res.json({ ok: true });
 });

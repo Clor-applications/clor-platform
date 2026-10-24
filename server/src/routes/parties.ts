@@ -8,6 +8,7 @@ import { requirePermission } from '../middleware/rbac.js';
 import { PermissionAction } from '../constants/enums.js';
 import { validateGstinOrThrow } from '../utils/gstin.js';
 import { allowsEntity, resolveUserPermissions } from '../services/access.js';
+import { forgetEntityAccess } from '../services/integrity/crossStore.js';
 
 /**
  * Customers and vendors.
@@ -507,6 +508,8 @@ function register(kind: PartyKind, basePath: string) {
     }
 
     await prisma.party.delete({ where: { id: existing.id } });
+    /* GAP-010: per-person access that named it would point at nothing. */
+    await forgetEntityAccess({ accountId, orgId }, ['CUSTOMER', 'VENDOR'], existing.id);
     res.json({ ok: true, deactivated: false });
   });
 }

@@ -208,6 +208,10 @@ permissionsRouter.put(
       if (toRemove.length) await tx.rolePermission.deleteMany({ where: { id: { in: toRemove } } });
     });
 
+    /* Written by name here; the general recorder (auditMutations) leaves it. */
+
+    if (req.res) req.res.locals.audited = true;
+
     await platformPrisma.auditLog.create({
       data: {
         accountId,

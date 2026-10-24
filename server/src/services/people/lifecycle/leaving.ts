@@ -4,6 +4,7 @@ import { closeEpisode } from '../episodes.js';
 import { recordChanges } from '../employmentHistory.js';
 import { READER_ACCESS_ITEM, startChecklist } from '../checklists.js';
 import { writeEvent } from '../outbox.js';
+import { employeeStatusChanged } from '../../portalSessions.js';
 
 /**
  * Someone leaves (docs/people/02-PRD.md LIFE-05): the last day, how and why.
@@ -26,6 +27,8 @@ export async function leaveEmployee(who: Who, existing: { id: string; status: st
     await writeEvent(tx, { accountId, orgId, correlationId: `leave_${row.id}_${input.lastDay}` }, 'people.employee.separated.v1', { lastWorkingDay: input.lastDay, type: input.leavingType, settlementRequested: true, employee: { id: row.id, code: row.code, name: row.name } }, row.id);
     return row;
   });
+  /* A-33: gone, their employee-app sign-ins end. */
+  await employeeStatusChanged(employee, existing.status, 'LEFT', who.userId ? { type: 'USER', id: who.userId } : { type: 'SYSTEM', label: 'leaving' });
   await recordChanges({ accountId, orgId, userId: who.userId }, existing, employee, { source: 'RESIGNATION', effectiveDate: input.lastDay, note: input.reason || input.leavingType.replace(/_/g, ' ').toLowerCase() });
   const removed = await revokeFromReaders(orgId, existing, who.userId);
   await startChecklist({ accountId, orgId, userId: who.userId }, employee, 'LEAVING', input.lastDay, { done: [READER_ACCESS_ITEM] });

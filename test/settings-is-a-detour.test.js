@@ -10,6 +10,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 import { isSettingsRoute } from '../apps/accounting/src/features/settings/settingsRegistry';
+import { appSource } from '../apps/accounting/src/testing/appSource.js';
 
 /* src/test/ → src/ */
 /*
@@ -38,7 +39,7 @@ const SRC_DIRS = [
 const SRC = SRC_DIRS[0];
 const src = (rel) => SRC_DIRS.map((d) => join(d, rel)).find((p) => existsSync(p)) || join(SRC_DIRS[0], rel);
 
-const APP = readFileSync(src('App.jsx'), 'utf8');
+const APP = appSource(src('App.jsx'));
 
 /**
  * Leaving a document to check a setting, and coming back to it.

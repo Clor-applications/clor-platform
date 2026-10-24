@@ -1,0 +1,4 @@
+Asia/Kolkata:       Tests  11 passed (11)
+UTC:       Tests  11 passed (11)
+America/Los_Angeles:       Tests  11 passed (11)
+Pacific/Kiritimati:       Tests  11 passed (11)

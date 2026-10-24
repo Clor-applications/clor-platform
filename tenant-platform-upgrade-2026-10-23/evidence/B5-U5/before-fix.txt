@@ -1,0 +1,19 @@
+     × each sign-in names its own session, and the devices list them 816ms
+     × signing out ends this device only 665ms
+     × a device can be signed out from another, and all others at once 610ms
+     × ends after 30 days unused, and after 180 days however much it is used 428ms
+     × the eleventh device ends the one unused longest 1084ms
+     × suspended: every device is signed out — older tokens too — and sign-in says why (AE6) 566ms
+     × HR signs someone out everywhere; they can sign straight back in 696ms
+     × keep working until the cut-off, which an unset setting cannot remove 424ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 8 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  src/__tests__/portalSessions.test.ts > a sign-in is a session on one device > each sign-in names its own session, and the devices list them
+ FAIL  src/__tests__/portalSessions.test.ts > a sign-in is a session on one device > signing out ends this device only
+ FAIL  src/__tests__/portalSessions.test.ts > a sign-in is a session on one device > a device can be signed out from another, and all others at once
+ FAIL  src/__tests__/portalSessions.test.ts > a sign-in is a session on one device > ends after 30 days unused, and after 180 days however much it is used
+ FAIL  src/__tests__/portalSessions.test.ts > a sign-in is a session on one device > the eleventh device ends the one unused longest
+ FAIL  src/__tests__/portalSessions.test.ts > HR and the person’s status > suspended: every device is signed out — older tokens too — and sign-in says why (AE6)
+ FAIL  src/__tests__/portalSessions.test.ts > HR and the person’s status > HR signs someone out everywhere; they can sign straight back in
+ FAIL  src/__tests__/portalSessions.test.ts > tokens from before sessions > keep working until the cut-off, which an unset setting cannot remove
+ Test Files  1 failed (1)
+      Tests  8 failed | 4 passed (12)

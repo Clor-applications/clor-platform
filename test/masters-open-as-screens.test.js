@@ -30,7 +30,8 @@ const SRC_DIRS = [
 const SRC = SRC_DIRS[0];
 const src = (rel) => SRC_DIRS.map((d) => join(d, rel)).find((p) => existsSync(p)) || join(SRC_DIRS[0], rel);
 
-const APP = readFileSync(src('App.jsx'), 'utf8');
+/* The shell, and the master lists the split moved out of it (Batch 10). */
+const APP = readFileSync(src('App.jsx'), 'utf8') + readFileSync(src('features/masters/AccountingMasters.jsx'), 'utf8');
 
 /**
  * A master is a longer job than an invoice, not a shorter one.

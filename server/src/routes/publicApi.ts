@@ -1,7 +1,6 @@
 import { Router, type NextFunction, type Request, type Response } from 'express';
-import { anyAppLive, appLive, closing } from '../services/principalAllowed.js';
+import { anyAppLive, closing } from '../services/principalAllowed.js';
 import rateLimit from 'express-rate-limit';
-import { createHash } from 'node:crypto';
 
 import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { isFeatureEnabled } from '../services/features.js';
@@ -20,7 +19,7 @@ import { idempotent } from '../services/attendance/idempotency.js';
 import { driverOf } from '../services/attendance/drivers.js';
 import { ONLINE_WINDOW_MS } from '../services/attendance/adms.js';
 import { OPENAPI, docsHtml } from '../services/attendance/openapi.js';
-import { runInTenant, outsideTenant } from '../utils/tenantScope.js';
+import { runInTenant } from '../utils/tenantScope.js';
 
 /**
  * CLOR's API for outside systems — an HRMS or payroll pulling attendance, or
@@ -46,7 +45,11 @@ import { runInTenant, outsideTenant } from '../utils/tenantScope.js';
 export const publicApiRouter = Router();
 
 export const SCOPES = ['attendance:read', 'employees:read', 'employees:write', 'punches:write', 'leave:read', 'leave:write', 'leave:approve', 'readers:read'] as const;
-export const hashToken = (t: string) => createHash('sha256').update(t).digest('hex');
+/* The one hash every token kind uses; it lives with the credential registry now (Batch 5). */
+import { hashToken, verifyCredential, touchLastUsed } from '../services/credentials.js';
+import { apiKeyKind, refusalOf } from '../services/credentialKinds.js';
+import { employeeStatusChanged } from '../services/portalSessions.js';
+export { hashToken };
 
 type Client = { id: string; accountId: string; orgId: string; scopes: string[]; deviceId: string | null; tokenPrefix: string };
 declare module 'express-serve-static-core' {
@@ -65,16 +68,19 @@ const fail = (res: Response, status: number, error: string) => res.status(status
 async function authenticate(req: Request, res: Response, next: NextFunction) {
   const token = tokenOf(req);
   if (!token) return fail(res, 401, 'Send your API key as "Authorization: Bearer <key>".');
-  /* A-35: the token is how the company is found, so it is looked up across companies. */
-  const row = await outsideTenant('public api: which company this key belongs to', () => peoplePrisma.apiClient.findUnique({ where: { tokenHash: hashToken(token) } }));
-  if (!row || !row.isActive || row.revokedAt) return fail(res, 401, 'This API key is not valid.');
+  /* Batch 5: the registry and the key's own row must both allow it; the lookup is across companies (A-35), the rest runs as the key's company. */
+  const v = await verifyCredential('API_KEY', token, apiKeyKind);
+  if (!v.ok) {
+    const r = refusalOf(v, { invalid: 'This API key is not valid.', off: 'This API key is not valid.', status: { off: 401 } });
+    return res.status(r.status).json({ error: r.error, ...(r.code ? { code: r.code } : {}) });
+  }
+  const row = v.row;
   const ip = String(req.ip || '').replace(/^::ffff:/, '');
   const allowed = (row.allowedIps || '').split(',').map((s) => s.trim()).filter(Boolean);
   if (allowed.length && !allowed.includes(ip)) return fail(res, 403, `This key may not be used from ${ip}.`);
-  /* A-11: on, paid for, not closing. */
-  const refused = await appLive(row.accountId, row.orgId, 'attendance');
-  if (refused) return fail(res, refused.status, refused.error);
   req.apiClient = { id: row.id, accountId: row.accountId, orgId: row.orgId, scopes: row.scopes.split(','), deviceId: row.deviceId, tokenPrefix: row.tokenPrefix };
+  if (v.credential.expiresAt) res.setHeader('X-Clor-Credential-Expires', v.credential.expiresAt.toISOString());
+  touchLastUsed(v.credential, ip || null);
   /* As the key's company (A-35): a stamp made with no company would match no row and fail silently. */
   runInTenant(row.orgId, () => peoplePrisma.apiClient.update({ where: { id: row.id }, data: { lastUsedAt: new Date(), lastUsedIp: ip || null } })).catch(() => undefined);
   runInTenant(row.orgId, () => next());
@@ -195,6 +201,8 @@ async function writeEmployee(req: Request, existing: any | null, b: z.infer<type
     return { row, created: true };
   }
   const row = await peoplePrisma.employee.update({ where: { id: existing.id }, data: data as any });
+  /* A-33: suspended or gone, their employee-app sign-ins end — whoever changed it. */
+  await employeeStatusChanged(row, existing.status, row.status, { type: 'SYSTEM', label: 'API key' });
   if (row.status === 'LEFT' && existing.status !== 'LEFT') await revokeFromReaders(orgId, existing, by);
   else if (row.status !== 'LEFT' && readerFieldsChanged(existing, row)) await pushEmployeeToReaders(orgId, row, by, existing);
   emitWebhook(orgId, row.status === 'LEFT' && existing.status !== 'LEFT' ? 'employee.left' : 'employee.updated', employeeEvent(row));
