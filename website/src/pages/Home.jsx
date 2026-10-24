@@ -1,25 +1,9 @@
 import React from 'react';
 import { Link } from '../router.jsx';
-import {
-  ArrowRight,
-  BarChart3,
-  Building2,
-  Check,
-  ChevronRight,
-  FileText,
-  Layers,
-  Lock,
-  PlayCircle,
-  Rocket,
-  ShieldCheck,
-  TrendingUp,
-  User,
-  UserPlus,
-  Users,
-  Zap,
-} from 'lucide-react';
+import { ArrowRight, BarChart3, Check, ChevronRight, PlayCircle, TrendingUp, Users, Zap } from 'lucide-react';
 import { SITE, AVAILABLE, PRODUCTS, productBySlug } from '../site.js';
 import Illustration from '../components/Illustration.jsx';
+import { Head, HowItWorks, TrustBand } from '../components/Sections.jsx';
 import { Closing, Faq, Reveal, RevealGroup, Tabs } from '../components/Blocks.jsx';
 import { Status } from '../components/Brand.jsx';
 
@@ -49,14 +33,6 @@ const CONNECTED = [
   { slug: 'books', items: ['Invoices', 'Bills', 'GST', 'Reports'] },
 ];
 
-const STEPS = [
-  { Icon: User, tone: 'orange', title: 'Create your workspace', text: 'Sign up and create your account.' },
-  { Icon: Building2, tone: 'orange', title: 'Set up your company', text: 'Add your company details and structure.' },
-  { Icon: Layers, tone: 'green', title: 'Choose your applications', text: 'Select the apps you need.' },
-  { Icon: UserPlus, tone: 'blue', title: 'Invite your team', text: 'Add members and assign access.' },
-  { Icon: Rocket, tone: 'orange', title: 'Start working', text: 'Go live and manage your business.' },
-];
-
 const TEAMS = [
   {
     key: 'business',
@@ -84,13 +60,6 @@ const TEAMS = [
   },
 ];
 
-const TRUST = [
-  { Icon: ShieldCheck, tone: 'green', title: 'Tenant isolation', text: 'Your data stays separate and secure.' },
-  { Icon: Users, tone: 'orange', title: 'Scoped access', text: 'Role-based permissions across all applications.' },
-  { Icon: FileText, tone: 'pink', title: 'Audit and control', text: 'Track activity and manage access.' },
-  { Icon: Lock, tone: 'blue', title: 'Secure infrastructure', text: 'Built on modern, reliable cloud platform.' },
-];
-
 const FAQ = [
   ['Do I have to buy every product?', 'No. Each Clor product can be used on its own. Choose the ones you need and add others later; they share one workspace and one sign-in.'],
   ['Is Clor built for Indian businesses?', 'Yes. GST, e-invoices and e-way bills, TDS, PF, ESI, professional tax and Form 16 are part of the products, not add-ons.'],
@@ -106,19 +75,6 @@ const FIGURES = [
   ['1', 'sign-in for every app'],
   ['Mumbai', 'where your data is kept'],
 ];
-
-/** A section's small orange label, its title and its line under the title. */
-function Head({ eyebrow, title, intro, center = false, id }) {
-  return (
-    <div className={`head${center ? ' head--center' : ''}`}>
-      {eyebrow ? <p className="eyebrow">{eyebrow}</p> : null}
-      <h2 className="h-1" id={id}>
-        {title}
-      </h2>
-      {intro ? <p className="lede">{intro}</p> : null}
-    </div>
-  );
-}
 
 export default function Home() {
   return (
@@ -242,31 +198,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ---------------------------------------------------- how it works */}
-      <section className="section" id="how-it-works" aria-labelledby="how-title">
-        <div className="wrap">
-          <div className="panel-band">
-            <Head id="how-title" eyebrow="How it works" title="Get started in minutes." />
-            <RevealGroup as="ol" className="flow">
-              {STEPS.map(({ Icon, tone, title, text }, i) => (
-                <li key={title} className="flow-step" style={{ '--i': i }}>
-                  <span className={`flow-icon tone-${tone}`} aria-hidden="true">
-                    <Icon size={30} strokeWidth={1.75} />
-                  </span>
-                  <span className={`flow-n tone-${tone}`} aria-hidden="true">
-                    {i + 1}
-                  </span>
-                  <h3 className="h-3">{title}</h3>
-                  <p className="body">{text}</p>
-                </li>
-              ))}
-            </RevealGroup>
-            <Reveal className="flow-art">
-              <Illustration src="/illustrations/start-form.webp" width={1300} height={260} alt="Adding your company in Clor: company name, country, industry and GST number, step one of four." />
-            </Reveal>
-          </div>
-        </div>
-      </section>
+      <HowItWorks />
 
       {/* ------------------------------------------------ built for your team */}
       <section className="section section--tint" aria-labelledby="team-title">
@@ -304,36 +236,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ------------------------------------------------- trust and security */}
-      <section className="section" aria-labelledby="trust-title">
-        <div className="wrap">
-          <div className="trust">
-            <div className="trust-copy">
-              <Head id="trust-title" eyebrow="Trust and security" title="Your data. Always protected." intro="Built with security, privacy and compliance at the core." />
-              <RevealGroup as="ul" className="trust-cards">
-                {TRUST.map(({ Icon, tone, title, text }, i) => (
-                  <li key={title} className="trust-card" style={{ '--i': i }}>
-                    <span className={`trust-icon tone-${tone}`} aria-hidden="true">
-                      <Icon size={26} strokeWidth={1.75} />
-                    </span>
-                    <h3 className="h-3">{title}</h3>
-                    <p className="body">{text}</p>
-                  </li>
-                ))}
-              </RevealGroup>
-              <Link className="btn btn--text" href="/security">
-                How Clor keeps your data safe <ArrowRight size={16} strokeWidth={2} aria-hidden="true" />
-              </Link>
-            </div>
-            <div className="trust-shield" aria-hidden="true">
-              <span className="trust-shield-glow" />
-              <span className="trust-shield-body">
-                <Lock size={56} strokeWidth={1.5} />
-              </span>
-            </div>
-          </div>
-        </div>
-      </section>
+      <TrustBand />
 
       {/* ------------------------------------------------------ every device */}
       <section className="section section--tint" aria-labelledby="devices-title">

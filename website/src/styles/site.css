@@ -2789,3 +2789,216 @@ h4 {
   -webkit-mask-image: radial-gradient(ellipse 72% 70% at 55% 50%, #000 62%, transparent 100%);
   mask-image: radial-gradient(ellipse 72% 70% at 55% 50%, #000 62%, transparent 100%);
 }
+
+/* ================================================================ product pages
+ * Each app on its own tint (the artwork's), its icon tile over its screen,
+ * the same type, motion and sections as the home page.
+ */
+.p-hero {
+  position: relative;
+  padding-top: clamp(var(--s-7), 6vw, var(--s-9));
+  padding-bottom: clamp(var(--s-7), 6vw, var(--s-9));
+  overflow: hidden;
+  background:
+    radial-gradient(55% 70% at 85% 30%, var(--p-glow, rgb(244 90 40 / 0.14)), transparent 70%),
+    var(--bg);
+  border-bottom: 1px solid var(--line);
+}
+.p-hero--books { --p-glow: rgb(244 140 60 / 0.2); --p-tint: var(--card-books); }
+.p-hero--people { --p-glow: rgb(139 92 246 / 0.18); --p-tint: var(--card-people); }
+.p-hero--payroll { --p-glow: rgb(34 197 94 / 0.16); --p-tint: var(--card-payroll); }
+.p-hero--attendance { --p-glow: rgb(249 115 22 / 0.18); --p-tint: var(--card-attendance); }
+.p-hero--projects { --p-glow: rgb(59 130 246 / 0.16); --p-tint: var(--card-projects); }
+.p-hero--timesheet { --p-glow: rgb(219 39 119 / 0.14); --p-tint: linear-gradient(180deg, #fde7f1, #fff7fb); }
+.p-hero-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+  gap: var(--gap-col);
+  align-items: center;
+}
+.p-hero-copy {
+  display: grid;
+  gap: var(--s-5);
+  justify-items: start;
+}
+.p-hero .eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+}
+.p-title {
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1.04;
+  max-width: 16ch;
+}
+.p-covers {
+  list-style: none;
+  margin: var(--s-2) 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2);
+}
+.p-covers li {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  font-size: var(--t-sm);
+  font-weight: 500;
+}
+.p-covers svg {
+  color: var(--accent);
+}
+/* The artwork: the app's tinted card with its icon tile above its screen. */
+.p-hero-art {
+  opacity: 0;
+  transform: translateY(18px) scale(0.985);
+  animation: hero-in 1s var(--ease) 0.35s forwards;
+}
+.p-art {
+  position: relative;
+  max-width: 420px;
+  margin-inline: auto;
+  padding: 0 var(--s-5) var(--s-5);
+  border-radius: 28px;
+  background: var(--p-tint);
+  border: 1px solid rgb(32 35 35 / 0.06);
+  box-shadow: 0 40px 80px -48px rgb(32 35 35 / 0.45);
+}
+.p-art-icon {
+  display: block;
+  width: calc(100% + 2 * var(--s-5));
+  max-width: none;
+  height: auto;
+  margin: 0 calc(-1 * var(--s-5)) var(--s-2);
+}
+.p-art-ui {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.p-art--plain {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 4 / 5;
+  color: #b5487a;
+}
+/* Cards: problems, plans. */
+.p-cards {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+  gap: var(--s-4);
+}
+.p-card {
+  display: grid;
+  align-content: start;
+  gap: var(--s-2);
+  padding: var(--s-5);
+  border-radius: 18px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+}
+.p-card .h-3 {
+  font-weight: 750;
+}
+.p-card .body {
+  margin: 0;
+  color: var(--ink-2);
+}
+.p-cards--plain .p-card {
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  column-gap: var(--s-3);
+}
+.p-card-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: var(--accent);
+}
+/* What's in it: a two-column list of features, each under a hairline. */
+.p-features {
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 var(--gap-col);
+  max-width: 1040px;
+  margin-inline: auto;
+}
+.p-feature {
+  padding: var(--s-5) 0;
+  border-top: 1px solid var(--line);
+}
+.p-feature dt {
+  font-weight: 750;
+}
+.p-feature dd {
+  margin: var(--s-2) 0 0;
+  color: var(--ink-2);
+}
+.p-links {
+  list-style: none;
+  margin: var(--s-6) auto 0;
+  padding: 0;
+  max-width: 1040px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+  gap: var(--s-4);
+}
+.p-link {
+  display: grid;
+  align-content: start;
+  gap: var(--s-3);
+  padding: var(--s-5);
+  border-radius: 18px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+}
+.p-link .body {
+  margin: 0;
+  color: var(--ink-2);
+}
+.p-link .btn--text {
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.p-roles {
+  display: flex;
+  gap: var(--s-4);
+  align-items: flex-start;
+}
+.p-roles svg {
+  flex: none;
+  margin-top: 6px;
+  color: var(--accent);
+}
+@media (prefers-reduced-motion: reduce) {
+  .p-hero-art {
+    opacity: 1;
+    transform: none;
+    animation: none;
+  }
+}
+@media (max-width: 960px) {
+  .p-hero-grid {
+    grid-template-columns: 1fr;
+  }
+  .p-art {
+    max-width: 360px;
+  }
+}
+@media (max-width: 640px) {
+  .p-features {
+    grid-template-columns: 1fr;
+  }
+}
