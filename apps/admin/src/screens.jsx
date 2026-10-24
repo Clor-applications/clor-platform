@@ -8,7 +8,6 @@ import { SettingsUsers as SettingsUsersScreen } from './screens/SettingsUsers';
 import { SettingsRoles as SettingsRolesScreen } from './screens/SettingsRoles';
 import { SettingsBranches as SettingsBranchesScreen } from './screens/SettingsBranches';
 import { orgId as platformOrgId } from '@platform/context';
-import RolePermissionManagerScreen from './screens/RolePermissionManager';
 import SecuritySettingsScreen from './screens/SecuritySettings';
 import SsoSettingsScreen from './screens/SsoSettings';
 import CredentialsScreen from './screens/Credentials';
@@ -27,6 +26,7 @@ import { WsFrame } from './screens/wsKit';
  */
 export { default as AdminHome } from './screens/AdminHome';
 export { default as OutsideAccess } from './screens/OutsideAccess';
+export { default as RolePermissionManager } from './screens/RolePermissionManager';
 export { default as Invitations } from './screens/Invitations';
 export { default as Members } from './screens/Members';
 export { default as AccountActivity } from './screens/AccountActivity';
@@ -40,10 +40,9 @@ export const CloseCompany = ({ tenant }) => <CloseCompanyPage companyName={tenan
 export const BillingPreview = ({ tenant }) => <BillingPreviewScreen currentCompany={companyOf(tenant)} />;
 export const DataBackup = ({ tenant }) => <DataBackupScreen currentCompany={companyOf(tenant)} />;
 export const AccountOverview = ({ tenant }) => <AccountOverviewScreen currentCompany={companyOf(tenant)} />;
-export const SettingsUsers = () => <WsFrame crumbs={['Access', 'Users']}><SettingsUsersScreen orgId={platformOrgId()} /></WsFrame>;
-export const SettingsRoles = () => <WsFrame crumbs={['Access', 'Roles']}><SettingsRolesScreen orgId={platformOrgId()} /></WsFrame>;
+export const SettingsUsers = () => <SettingsUsersScreen orgId={platformOrgId()} />;
+export const SettingsRoles = () => <SettingsRolesScreen orgId={platformOrgId()} />;
 export const SettingsBranches = ({ tenant }) => <SettingsBranchesScreen orgId={platformOrgId()} company={companyOf(tenant)} />;
-export const RolePermissionManager = (props) => <WsFrame crumbs={['Access', 'Permissions']}><RolePermissionManagerScreen {...props} /></WsFrame>;
 export const SecuritySettings = (props) => <WsFrame crumbs={['Security', 'Sign-in and sessions']}><SecuritySettingsScreen {...props} /></WsFrame>;
 export const SsoSettings = (props) => <WsFrame crumbs={['Security', 'Single sign-on']}><SsoSettingsScreen {...props} /></WsFrame>;
 export const Credentials = (props) => <WsFrame crumbs={['Security', 'Credentials']}><CredentialsScreen {...props} /></WsFrame>;
