@@ -1,22 +1,23 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Help · CLOR help</title><link rel="stylesheet" href="/docs/docs.css"><link rel="icon" href="/icon.svg"></head>
-<body><div class="wrap"><header><img src="/clor-logo.png" alt=""><a href="/docs/">CLOR help</a></header><nav><a href="/docs/index">Help</a> <a href="/docs/readers">Readers</a> <a href="/docs/connector">On-site connector</a> <a href="/docs/hr-tools">HR tools</a> <a href="/docs/tally">Tally</a> <a href="/docs/sso">Single sign-on</a> <a href="/docs/scim">Directory sync (SCIM 2.0)</a></nav>
+<body><div class="wrap"><header><img src="/clor-logo.png" alt=""><a href="/docs/index.html">CLOR help</a></header><nav><a href="/docs/index.html">Help</a> <a href="/docs/readers.html">Readers</a> <a href="/docs/connector.html">On-site connector</a> <a href="/docs/hr-tools.html">HR tools</a> <a href="/docs/tally.html">Tally</a> <a href="/docs/sso.html">Single sign-on</a> <a href="/docs/scim.html">Directory sync (SCIM 2.0)</a></nav>
 <h1>Help</h1><p class="lead">Setting CLOR up alongside what you already run: readers, HR tools, Tally, your identity provider.</p>
 <h2>Guides</h2>
 <ul>
-<li><a href="/docs/readers">Readers</a> — ZKTeco/eSSL (ADMS), Matrix COSEC, Hikvision, Dahua, Suprema, Anviz, e-Time Office, any software that can send or serve punches, CSV import.</li>
-<li><a href="/docs/connector">On-site connector</a> — readers on the office network, Tally on your LAN, Active Directory.</li>
-<li><a href="/docs/hr-tools">HR tools</a> — greytHR, Keka, Zoho People: punches out, people in.</li>
-<li><a href="/docs/tally">Tally</a> — payroll entries as import XML, or posted straight into Tally.</li>
-<li><a href="/docs/sso">Single sign-on</a> — Google Workspace, Microsoft Entra, Okta, ADFS (OpenID Connect and SAML 2.0).</li>
-<li><a href="/docs/scim">Directory sync (SCIM)</a> — your identity provider adds and removes people in CLOR.</li>
+<li><a href="/docs/readers.html">Readers</a> — ZKTeco/eSSL (ADMS), Matrix COSEC, Hikvision, Dahua, Suprema, Anviz, e-Time Office, any software that can send or serve punches, CSV import.</li>
+<li><a href="/docs/connector.html">On-site connector</a> — readers on the office network, Tally on your LAN, Active Directory.</li>
+<li><a href="/docs/hr-tools.html">HR tools</a> — greytHR, Keka, Zoho People: punches out, people in.</li>
+<li><a href="/docs/tally.html">Tally</a> — payroll entries as import XML, or posted straight into Tally.</li>
+<li><a href="/docs/sso.html">Single sign-on</a> — Google Workspace, Microsoft Entra, Okta, ADFS (OpenID Connect and SAML 2.0).</li>
+<li><a href="/docs/scim.html">Directory sync (SCIM)</a> — your identity provider adds and removes people in CLOR.</li>
 </ul>
 <h2>Where things are in CLOR</h2>
 <table><tr><th>What</th><th>Where</th></tr>
 <tr><td>Readers, their health, logs</td><td>Attendance → Readers</td></tr>
-<tr><td>API keys, webhooks, HR tools, on-site connectors</td><td>Attendance → System → Integrations</td></tr>
-<tr><td>Single sign-on, directory sync</td><td>Accounting → Settings → Single sign-on</td></tr>
-<tr><td>E-mail (SMTP) for alerts and reports</td><td>Accounting → Settings → E-mail</td></tr>
+<tr><td>Webhooks, HR tools, on-site connectors</td><td>Attendance → Settings → Integrations</td></tr>
+<tr><td>API keys and tokens</td><td>Workspace → Security → Credentials</td></tr>
+<tr><td>Single sign-on, directory sync</td><td>Workspace → Security → Single sign-on</td></tr>
 <tr><td>Tally export</td><td>Payroll → Pay runs → open a run → Books</td></tr></table>
+<p>Everything else — companies, people, roles, security, plan, data — is in the Help centre inside CLOR: open Help at the foot of the Workspace rail, or the help icon in any app.</p>
 
 <footer>CLOR · <a href="https://app.clor.in">app.clor.in</a> · Questions: support@clor.in</footer></div></body></html>

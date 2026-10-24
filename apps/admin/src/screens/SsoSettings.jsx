@@ -216,7 +216,7 @@ export default function SsoSettings() {
                 </ul>
               </Panel>
 
-              <Panel title="Directory sync (SCIM 2.0)" action={<a className="ws-link" href="/docs/scim" target="_blank" rel="noreferrer">Guide</a>}>
+              <Panel title="Directory sync (SCIM 2.0)" action={<a className="ws-link" href="/docs/scim.html" target="_blank" rel="noreferrer">Guide</a>}>
                 <p className="ws-card-blurb" style={{ marginTop: -6 }}>
                   Let Microsoft Entra, Okta, JumpCloud or Google add, update and remove people here automatically. Roles stay in CLOR; groups are not synced.
                 </p>
@@ -275,7 +275,7 @@ export default function SsoSettings() {
                 <p className="ws-card-blurb">
                   Register this as the redirect URI. Scopes: openid, email, profile.
                 </p>
-                <a className="ws-link" href="/docs/sso" target="_blank" rel="noreferrer">Set-up guide</a>
+                <a className="ws-link" href="/docs/sso.html" target="_blank" rel="noreferrer">Set-up guide</a>
               </Panel>
               <Panel title="How it is trusted">
                 <p className="ws-card-blurb">

@@ -151,6 +151,16 @@ export function requestOpenScreen(screen) {
   }
 }
 
+/** Ask the shell to open the Help centre, optionally on a topic (packages/shell/helpContent.js). */
+export const OPEN_HELP_EVENT = 'clor:open-help';
+export function requestOpenHelp(topic = '') {
+  try {
+    window.dispatchEvent(new CustomEvent(OPEN_HELP_EVENT, { detail: { topic } }));
+  } catch {
+    /* No window (a test): nothing to open. */
+  }
+}
+
 export const OPEN_APP_EVENT = 'clor:open-app';
 export function requestOpenApp(appId, screen = '', params = {}) {
   try {

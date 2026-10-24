@@ -7207,3 +7207,205 @@ th.ui-th {
   flex-direction: column;
   gap: 0.25rem;
 }
+
+/* ------------------------------------------------------------------ Help centre (packages/shell/HelpCenter.jsx) */
+.ui-help {
+  display: grid;
+  gap: 20px;
+}
+.ui-help-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.ui-help-search {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: min(360px, 100%);
+}
+.ui-help-search svg {
+  position: absolute;
+  left: 12px;
+  color: rgb(var(--fg-subtle));
+  pointer-events: none;
+}
+.ui-help-search input {
+  width: 100%;
+  height: 40px;
+  padding: 0 12px 0 36px;
+  border: 1px solid rgb(var(--border));
+  border-radius: 8px;
+  background: rgb(var(--surface));
+  font-size: 0.875rem;
+}
+.ui-help-search input:focus {
+  outline: none;
+  border-color: rgb(var(--ring));
+  box-shadow: 0 0 0 3px rgb(var(--ring) / 0.18);
+}
+.ui-help-body {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
+}
+.ui-help-nav {
+  position: sticky;
+  top: 72px;
+  display: grid;
+  gap: 16px;
+}
+.ui-help-group {
+  display: grid;
+  gap: 2px;
+}
+.ui-help-group-label {
+  padding: 0 10px 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: rgb(var(--fg-subtle));
+}
+.ui-help-topic {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  min-height: 34px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  font-size: 0.875rem;
+  text-align: left;
+  color: rgb(var(--fg));
+  cursor: pointer;
+}
+.ui-help-topic svg {
+  color: rgb(var(--fg-subtle));
+  flex: none;
+}
+.ui-help-topic:hover {
+  background: rgb(var(--surface-sunken));
+}
+.ui-help-topic[aria-current='page'] {
+  background: rgb(var(--accent-soft));
+  font-weight: 600;
+}
+.ui-help-topic:focus-visible {
+  outline: 2px solid rgb(var(--ring));
+  outline-offset: -2px;
+}
+.ui-help-article {
+  display: grid;
+  gap: 18px;
+  max-width: 760px;
+  padding: 28px 32px;
+  border: 1px solid rgb(var(--border));
+  border-radius: 12px;
+  background: rgb(var(--surface) / 0.7);
+}
+.ui-help .ui-help-title {
+  font-size: 1.5rem !important;
+  line-height: 1.25 !important;
+  font-weight: 650 !important;
+  letter-spacing: -0.02em;
+}
+.ui-help-summary {
+  margin-top: -8px;
+  font-size: 1rem;
+  line-height: 1.55;
+  color: rgb(var(--fg-muted));
+}
+.ui-help-section {
+  display: grid;
+  gap: 8px;
+}
+.ui-help-section h3 {
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+.ui-help-section ul,
+.ui-help-section ol {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding-left: 1.25rem;
+  font-size: 0.9375rem;
+  line-height: 1.55;
+}
+.ui-help-section ul {
+  list-style: disc;
+}
+.ui-help-section ol {
+  list-style: decimal;
+}
+.ui-help-section li::marker {
+  color: rgb(var(--fg-subtle));
+}
+.ui-help-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.ui-help-actions:empty {
+  display: none;
+}
+.ui-help-contact {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  margin-top: 4px;
+  padding-top: 16px;
+  border-top: 1px solid rgb(var(--border));
+}
+.ui-help-contact-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+.ui-help-contact-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  font-size: 0.875rem;
+}
+.ui-help-contact-links a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: rgb(var(--fg));
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+@media (max-width: 860px) {
+  .ui-help-body {
+    grid-template-columns: 1fr;
+  }
+  .ui-help-nav {
+    position: static;
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+  }
+  .ui-help-group {
+    display: flex;
+    gap: 6px;
+  }
+  .ui-help-group-label {
+    display: none;
+  }
+  .ui-help-topic {
+    width: auto;
+    white-space: nowrap;
+    border: 1px solid rgb(var(--border));
+  }
+  .ui-help-article {
+    padding: 20px;
+  }
+}

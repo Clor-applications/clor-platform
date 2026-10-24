@@ -1,5 +1,5 @@
 import React, { Suspense, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, CalendarDays, ChevronDown, LayoutGrid, LogOut, Menu, Plus, Search, Settings, UserRound, X } from 'lucide-react';
+import { ArrowLeft, CalendarDays, ChevronDown, CircleHelp, LayoutGrid, LogOut, Menu, Plus, Search, Settings, UserRound, X } from 'lucide-react';
 
 import { useTheme } from '@ui/components/ui/useTheme';
 import { useDismissable } from '@ui/components/ui/useDismissable';
@@ -17,7 +17,8 @@ import { ADMIN_APP_ID, appFromHost, hostForApp, isFrontDoor } from './appHosts';
 import { PHONE_QUERY, TABLET_QUERY, mobileTabsFor } from './mobileTabs';
 import { moduleForScreen, railAction, readScreenSearch, resolveModules, screenSearch, withoutEmptyHubs } from './splitNav';
 import { useSession } from './session';
-import { OPEN_APP_EVENT, OPEN_SCREEN_EVENT } from '@platform/context';
+import { OPEN_APP_EVENT, OPEN_HELP_EVENT, OPEN_SCREEN_EVENT } from '@platform/context';
+import HelpCenter from './HelpCenter';
 import ClorMark from './ClorMark';
 import { ClorLogo } from '@ui/components/brand';
 import NotificationBell from './NotificationBell';
@@ -315,6 +316,19 @@ export default function Shell() {
     /* A new screen starts at its top, not at the last one's scroll position. */
     window.scrollTo(0, 0);
   };
+  /* Help (requestOpenHelp): the Help centre as a platform page, on the topic asked for. */
+  const [helpTopic, setHelpTopic] = useState('welcome');
+  useEffect(() => {
+    const onHelp = (e) => {
+      setHelpTopic(e.detail?.topic || 'welcome');
+      setPlatformScreen('help');
+      setShowMoreApps(false);
+      setNavOpen(false);
+      window.scrollTo(0, 0);
+    };
+    window.addEventListener(OPEN_HELP_EVENT, onHelp);
+    return () => window.removeEventListener(OPEN_HELP_EVENT, onHelp);
+  }, []);
   /* A screen asking for another of its own app's screens (requestOpenScreen): the same as a rail click. */
   const goToRef = useRef(null);
   useEffect(() => {
@@ -1051,6 +1065,19 @@ export default function Shell() {
             ) : null}
             {showMoreApps ? (
               <MoreApps tenant={tenant} onAdd={addApp} onOpen={openApp} />
+            ) : platformScreen === 'help' ? (
+              <ScreenBoundary appName="Help centre" resetKey={`help:${helpTopic}`}>
+                <div className={app?.id === ADMIN_APP_ID ? 'ws ws-legacy' : undefined}>
+                  <div className={app?.id === ADMIN_APP_ID ? 'ws-inner' : undefined} style={app?.id === ADMIN_APP_ID ? { gap: 12 } : undefined}>
+                    <div className={app?.id === ADMIN_APP_ID ? '' : app?.flush ? 'pt-3' : 'mb-3'}>
+                      <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" onClick={() => setPlatformScreen(null)}>
+                        <ArrowLeft size={16} aria-hidden="true" /> Back{app ? ` to ${app.name}` : ''}
+                      </button>
+                    </div>
+                    <HelpCenter key={helpTopic} initialTopic={helpTopic} onOpen={(appId, screenKey2) => { setPlatformScreen(null); openApp(appId, screenKey2 || ''); }} />
+                  </div>
+                </div>
+              </ScreenBoundary>
             ) : platformScreen === 'profile' ? (
               <ScreenBoundary appName="My profile" resetKey={`profile:${tenant.id}`}>
                 {/* The profile opens from the header, not the sidebar, so it needs
@@ -1174,6 +1201,7 @@ export default function Shell() {
               ...[...new Map(nav.filter((i) => !i.section && app?.screens?.[i.key]).map((i) => [i.key, i])).values()].map((i) => ({ key: `screen:${i.key}`, label: i.label, group: app.name, icon: i.icon, screen: i.key })),
               ...mine.filter((a) => a.id !== activeAppId).map((a) => ({ key: `app:${a.id}`, label: `Open ${a.name}`, group: 'Apps', icon: a.icon, appId: a.id })),
               { key: 'profile', label: 'My profile', group: 'You', icon: UserRound },
+              { key: 'help', label: 'Help centre', group: 'You', icon: CircleHelp },
             ]}
             onSelect={(item) => {
               setPaletteOpen(false);
@@ -1181,6 +1209,11 @@ export default function Shell() {
               else if (item.appId) openApp(item.appId);
               else if (item.key === 'profile') {
                 setPlatformScreen('profile');
+                setShowMoreApps(false);
+              }
+              else if (item.key === 'help') {
+                setHelpTopic('welcome');
+                setPlatformScreen('help');
                 setShowMoreApps(false);
               }
             }}

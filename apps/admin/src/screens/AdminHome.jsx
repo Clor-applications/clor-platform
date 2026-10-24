@@ -6,6 +6,7 @@ import { getAccountOverview } from '@platform/admin/admin';
 import { operator } from '@platform/operator';
 import { ACTION_WORDS } from './AccountActivity';
 import { ICON, Meter, Panel, Stat, ago, productIcon } from './wsKit';
+import { requestOpenHelp } from '@platform/context';
 import heroImage from '../assets/clor-office.webp';
 import heroImageSmall from '../assets/clor-office-800.webp';
 import './workspace.css';
@@ -349,24 +350,35 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
             <Panel title="Help and resources">
               <ul className="ws-list">
                 {[
-                  ['/docs/index.html', ICON.library, 'Help center', 'Guides for every app'],
-                  ['/docs/readers.html', ICON.guide, 'Attendance readers', 'Connecting biometric readers'],
-                  operator.contactEmail ? [`mailto:${operator.contactEmail}`, ICON.chat, 'Contact support', operator.contactEmail] : null,
-                ]
-                  .filter(Boolean)
-                  .map(([href, Icon, title, sub]) => (
-                    <li key={title}>
-                      <a className="ws-item" href={href} {...(href.startsWith('mailto:') ? {} : { target: '_blank', rel: 'noopener' })}>
-                        <span className="ws-tile" aria-hidden="true">
-                          <Icon size={18} />
-                        </span>
-                        <span className="ws-item-text">
-                          <span className="ws-item-title">{title}</span>
-                          <span className="ws-item-sub">{sub}</span>
-                        </span>
-                      </a>
-                    </li>
-                  ))}
+                  ['welcome', ICON.library, 'Help centre', 'Guides for the Workspace and every app'],
+                  ['setup', ICON.guide, 'Set up your workspace', 'The four steps to a ready company'],
+                  ['readers', ICON.guide, 'Integrations', 'Readers, Tally, HR tools, single sign-on'],
+                ].map(([topic, Icon, title, sub]) => (
+                  <li key={title}>
+                    <button type="button" className="ws-item ws-item--button" onClick={() => requestOpenHelp(topic)}>
+                      <span className="ws-tile" aria-hidden="true">
+                        <Icon size={18} />
+                      </span>
+                      <span className="ws-item-text">
+                        <span className="ws-item-title">{title}</span>
+                        <span className="ws-item-sub">{sub}</span>
+                      </span>
+                    </button>
+                  </li>
+                ))}
+                {operator.contactEmail ? (
+                  <li>
+                    <a className="ws-item" href={`mailto:${operator.contactEmail}`}>
+                      <span className="ws-tile" aria-hidden="true">
+                        <ICON.chat size={18} />
+                      </span>
+                      <span className="ws-item-text">
+                        <span className="ws-item-title">Contact support</span>
+                        <span className="ws-item-sub">{operator.contactEmail}</span>
+                      </span>
+                    </a>
+                  </li>
+                ) : null}
               </ul>
             </Panel>
           </aside>

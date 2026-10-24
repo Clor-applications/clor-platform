@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>On-site connector · CLOR help</title><link rel="stylesheet" href="/docs/docs.css"><link rel="icon" href="/icon.svg"></head>
-<body><div class="wrap"><header><img src="/clor-logo.png" alt=""><a href="/docs/">CLOR help</a></header><nav><a href="/docs/index">Help</a> <a href="/docs/readers">Readers</a> <a href="/docs/connector">On-site connector</a> <a href="/docs/hr-tools">HR tools</a> <a href="/docs/tally">Tally</a> <a href="/docs/sso">Single sign-on</a> <a href="/docs/scim">Directory sync (SCIM 2.0)</a></nav>
+<body><div class="wrap"><header><img src="/clor-logo.png" alt=""><a href="/docs/index.html">CLOR help</a></header><nav><a href="/docs/index.html">Help</a> <a href="/docs/readers.html">Readers</a> <a href="/docs/connector.html">On-site connector</a> <a href="/docs/hr-tools.html">HR tools</a> <a href="/docs/tally.html">Tally</a> <a href="/docs/sso.html">Single sign-on</a> <a href="/docs/scim.html">Directory sync (SCIM 2.0)</a></nav>
 <h1>On-site connector</h1><p class="lead">A small program on a computer in your office, for what CLOR cannot reach from the internet.</p>
 <h2>What it does</h2>
 <ul><li>Pulls punches from readers on the office network (Hikvision, Dahua, Suprema BioStar, any JSON API) and sends them to CLOR.</li>
@@ -17,7 +17,7 @@
 <h2>Readers behind it</h2>
 <p>Add the reader under Attendance → Readers as Hikvision (ISAPI), Dahua, BioStar 2 or “Any software with a JSON API”, open it and choose the connector under “Reached through”. The address can then be the reader's own on your network, e.g. <code>http://192.168.1.64</code>.</p>
 <h2>Tally</h2>
-<p>On the connector set the Tally computer's host or IP, port (9000 by default) and the company name. In Tally: F1 → Settings → Connectivity → enable the HTTP server on that port, with the company open. Then Payroll → Pay runs → open a run → Books → “Send to Tally via …”. The result shows under the connector's Jobs. See <a href="/docs/tally">Tally</a>.</p>
+<p>On the connector set the Tally computer's host or IP, port (9000 by default) and the company name. In Tally: F1 → Settings → Connectivity → enable the HTTP server on that port, with the company open. Then Payroll → Pay runs → open a run → Books → “Send to Tally via …”. The result shows under the connector's Jobs. See <a href="/docs/tally.html">Tally</a>.</p>
 <h2>Active Directory / LDAP</h2>
 <p>Give the connector the directory address (<code>ldaps://dc1.corp.local</code>), a bind user and password, the search base and optionally a filter. Every hour it reads the users with an e-mail and adds the ones CLOR lacks (with no role until one is assigned), follows the directory's enabled/disabled flag, and — if you tick it — switches off people it added when they leave the directory. It never touches people added by hand. The bind password stays on CLOR encrypted and is given only to this connector.</p>
 <h2>If it stops</h2>

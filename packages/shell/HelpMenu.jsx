@@ -1,5 +1,6 @@
 import React, { useRef, useState } from 'react';
-import { BookOpen, CircleHelp, Cpu, Keyboard, Mail, MessageCircle } from 'lucide-react';
+import { BookOpen, CircleHelp, Cpu, Keyboard, ListChecks, Mail, MessageCircle } from 'lucide-react';
+import { requestOpenHelp } from '@platform/context';
 
 import Popover from '@ui/components/ui/Popover';
 import { operator } from '@platform/operator';
@@ -40,12 +41,15 @@ export default function HelpMenu({ variant = 'bar', icon: Icon = null }) {
       {open ? (
         <Popover anchorRef={ref} onClose={() => setOpen(false)} minWidth={248}>
           <div className="py-1" role="menu" aria-label="Help and contact">
-            <a role="menuitem" className={row} href="/docs/index.html" target="_blank" rel="noopener">
-              <BookOpen size={16} aria-hidden="true" /> Guides
-            </a>
-            <a role="menuitem" className={row} href="/docs/readers.html" target="_blank" rel="noopener">
-              <Cpu size={16} aria-hidden="true" /> Connecting a reader
-            </a>
+            <button type="button" role="menuitem" className={row} onClick={() => { setOpen(false); requestOpenHelp('welcome'); }}>
+              <BookOpen size={16} aria-hidden="true" /> Help centre
+            </button>
+            <button type="button" role="menuitem" className={row} onClick={() => { setOpen(false); requestOpenHelp('setup'); }}>
+              <ListChecks size={16} aria-hidden="true" /> Set up your workspace
+            </button>
+            <button type="button" role="menuitem" className={row} onClick={() => { setOpen(false); requestOpenHelp('readers'); }}>
+              <Cpu size={16} aria-hidden="true" /> Integration guides
+            </button>
             <div role="menuitem" aria-disabled="true" className={`${row} ui-muted`} style={{ cursor: 'default' }}>
               <Keyboard size={16} aria-hidden="true" /> Search anywhere
               <kbd className="ml-auto text-xs">{/Mac|iPhone|iPad/.test(navigator.platform || '') ? '⌘K' : 'Ctrl K'}</kbd>

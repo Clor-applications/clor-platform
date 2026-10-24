@@ -1655,3 +1655,9 @@ button.ws-item:hover {
   text-decoration: underline;
   text-underline-offset: 3px;
 }
+
+/* Fields with a leading icon keep room for it (the field rule above sets 12px on every input). */
+.ws .ui-help-search input,
+.ws input[style*='padding-left'] {
+  padding-left: 36px !important;
+}
