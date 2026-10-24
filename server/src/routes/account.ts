@@ -14,6 +14,7 @@ import {
   requireAccountRole,
   setAccountRole,
 } from '../services/accountMembership.js';
+import { memberAccess, memberDirectory, removeFromCompany, setMemberStatus } from '../services/accountMembers.js';
 import { InvitationError, createInvitation, listInvitations, resendInvitation, revokeInvitation } from '../services/accountInvitations.js';
 import { entitlementFor } from '../services/entitlements.js';
 import { outsideTenant } from '../utils/tenantScope.js';
@@ -207,5 +208,50 @@ accountRouter.post('/account/invitations/:id/revoke', requireAccountRole(...ACCO
     res.json(await revokeInvitation(req, String(req.params.id)));
   } catch (e) {
     invitationError(res, e);
+  }
+});
+
+/*
+ * W-4: the account's people. Owners and administrators only; the service
+ * checks again and keeps owners for owners, nobody acting on themself.
+ */
+const memberError = (res: import('express').Response, e: unknown) => {
+  if (e instanceof AccountMembershipError) return res.status(e.status).json({ error: e.message, code: e.code });
+  throw e;
+};
+
+accountRouter.get('/account/members/directory', requireAccountRole(...ACCOUNT_ADMINS), async (req, res) => {
+  res.json(await memberDirectory(req.tenant!.accountId));
+});
+
+accountRouter.get('/account/members/:userId/access', requireAccountRole(...ACCOUNT_ADMINS), async (req, res) => {
+  try {
+    res.json(await memberAccess(req.tenant!.accountId, String(req.params.userId)));
+  } catch (e) {
+    memberError(res, e);
+  }
+});
+
+accountRouter.post('/account/members/:userId/suspend', requireAccountRole(...ACCOUNT_ADMINS), async (req, res) => {
+  try {
+    res.json(await setMemberStatus(req, String(req.params.userId), 'SUSPENDED'));
+  } catch (e) {
+    memberError(res, e);
+  }
+});
+
+accountRouter.post('/account/members/:userId/reinstate', requireAccountRole(...ACCOUNT_ADMINS), async (req, res) => {
+  try {
+    res.json(await setMemberStatus(req, String(req.params.userId), 'ACTIVE'));
+  } catch (e) {
+    memberError(res, e);
+  }
+});
+
+accountRouter.delete('/account/members/:userId/companies/:orgId', requireAccountRole(...ACCOUNT_ADMINS), async (req, res) => {
+  try {
+    res.json(await removeFromCompany(req, String(req.params.userId), String(req.params.orgId)));
+  } catch (e) {
+    memberError(res, e);
   }
 });
