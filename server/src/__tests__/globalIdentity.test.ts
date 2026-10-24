@@ -143,6 +143,22 @@ describe('a person already registered elsewhere', () => {
   });
 
   /*
+   * GAP-011: two accounts are in play and the answer names both. The person's
+   * home account (where they signed up; what their token carries) is not the
+   * account whose data they are working in.
+   */
+  it('names the home account and the account being worked in, apart', async () => {
+    await grantRole(globex, acme.email);
+    const token = await login(acme.email);
+    const there = await request(app).get('/api/auth/me').set({ Authorization: `Bearer ${token}`, 'x-org-id': globex.orgId }).expect(200);
+    expect(there.body.user.homeAccountId).toBe(acme.accountId);
+    expect(there.body.user.accountId).toBe(acme.accountId);
+    expect(there.body.activeAccountId).toBe(globex.accountId);
+    const home = await request(app).get('/api/auth/me').set({ Authorization: `Bearer ${token}`, 'x-org-id': acme.orgId }).expect(200);
+    expect(home.body.activeAccountId).toBe(acme.accountId);
+  });
+
+  /*
    * Roles and branches belong to the account that owns the COMPANY, not the one
    * that owns the person. Read from the token they came back empty, which reads
    * as a user with no permissions rather than a lookup against the wrong
