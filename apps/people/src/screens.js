@@ -44,7 +44,7 @@ export const AuditLogs = () => React.createElement(OpenInCompanyAdmin, { title: 
 export { default as PeopleSettings } from './screens/PeopleSettings';
 export { default as PeopleModules } from './screens/PeopleModules';
 export { default as CompanyDetails } from '@ui/company/CompanyDetails';
-export { BusinessUnits, Grades, CostCentres, LegalEntities, Establishments } from '@ui/personnel/StructureList';
+export { BusinessUnits, Grades, CostCentres, LegalEntities, Establishments, Teams, Seats } from '@ui/personnel/StructureList';
 export { Areas as Locations } from '../../attendance/src/screens/OrgLists';
 export { default as Integrations } from '../../attendance/src/screens/Integrations';
 export { default as DataExport } from '../../attendance/src/screens/DataExport';

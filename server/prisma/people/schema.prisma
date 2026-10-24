@@ -180,7 +180,12 @@ model Employee {
   @@index([accountId, orgId, establishmentId])
   @@index([accountId, orgId, reportingManagerId])
   joinInvites JoinInvite[]
+  /// Team and seat (ORG-01, ORG-04); a seat holds one person at a time.
+  teamId String?
+  seatId String?
   deskRequests DeskRequest[]
+
+  @@unique([orgId, seatId])
 }
 
 // ============================================================================
@@ -1569,6 +1574,47 @@ model PeopleSetting {
   updatedByUserId    String?
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
+}
+
+/// A team under a department, with a lead (docs/people/02-PRD.md ORG-01).
+model Team {
+  id              String   @id @default(cuid())
+  accountId       String
+  orgId           String
+  name            String
+  departmentId    String?
+  leadEmployeeId  String?
+  description     String?
+  isActive        Boolean  @default(true)
+  createdByUserId String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  seats Seat[]
+
+  @@unique([orgId, name])
+  @@index([accountId, orgId])
+}
+
+/// An approved seat on a team (ORG-04): a designation and a budget reference; filled by the person whose `seatId` points here, or open.
+model Seat {
+  id              String   @id @default(cuid())
+  accountId       String
+  orgId           String
+  name            String
+  teamId          String?
+  jobPositionId   String?
+  budgetRef       String?
+  description     String?
+  isActive        Boolean  @default(true)
+  createdByUserId String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  team Team? @relation(fields: [teamId], references: [id], onDelete: SetNull)
+
+  @@unique([orgId, name])
+  @@index([orgId, teamId])
 }
 
 /// Letters the company issues (docs/people/02-PRD.md DOC-04; services/people/letters.ts):

@@ -15,6 +15,8 @@ const GROUPS = [
       ['businessUnits', 'Divisions or domains the company runs as one business'],
       ['areas', 'Offices, plants and sites people work at'],
       ['departments', 'How the company is divided; a department can sit under another'],
+      ['teams', 'Teams under departments'],
+      ['seats', 'Approved seats on each team, filled or open'],
       ['jobPositions', 'The titles people hold'],
       ['grades', 'Levels or pay bands'],
       ['costCentres', 'Where salary cost is booked in the accounts'],

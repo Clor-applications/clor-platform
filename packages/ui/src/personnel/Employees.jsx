@@ -144,14 +144,14 @@ export default function Employees({ description = '' } = {}) {
   /* Status is a tab, counted on the client; the rest are asked of the server. */
   const [status, setStatus] = useState('ACTIVE');
   const [filters, setFilters] = useState({ q: '', departmentId: '', jobPositionId: '', employeeTypeId: '', tagId: '' });
-  const [lists, setLists] = useState({ departments: [], positions: [], roles: [], types: [], workTypes: [], tags: [], areas: [], contractors: [], units: [], grades: [], centres: [], establishments: [] });
+  const [lists, setLists] = useState({ departments: [], positions: [], roles: [], types: [], workTypes: [], tags: [], areas: [], contractors: [], units: [], grades: [], centres: [], establishments: [], teams: [], seats: [] });
   const [openId, setOpenId] = useState(null);
   const [editing, setEditing] = useState(null);
   const fileRef = useRef(null);
 
   const loadLists = useCallback(async () => {
     const withAttendance = hasApp('attendance');
-    const [departments, positions, roles, types, workTypes, tags, areas, contractors, units, grades, centres, establishments] = await Promise.all([
+    const [departments, positions, roles, types, workTypes, tags, areas, contractors, units, grades, centres, establishments, teams, seats] = await Promise.all([
       listStructure('departments'),
       listStructure('job-positions'),
       listStructure('job-roles'),
@@ -164,8 +164,10 @@ export default function Employees({ description = '' } = {}) {
       listStructure('grades').catch(() => []),
       listStructure('cost-centres').catch(() => []),
       listStructure('establishments').catch(() => []),
+      listStructure('teams').catch(() => []),
+      listStructure('seats').catch(() => []),
     ]);
-    setLists({ departments, positions, roles, types, workTypes, tags, areas, contractors, units, grades, centres, establishments });
+    setLists({ departments, positions, roles, types, workTypes, tags, areas, contractors, units, grades, centres, establishments, teams, seats });
   }, []);
 
   const load = useCallback(async () => {
@@ -662,6 +664,8 @@ function EmployeeFile({ id, onClose, onEdit, onDeleted }) {
               <Field label="Designation" value={person.designation} />
               <Field label="Grade" value={person.gradeName} />
               <Field label="Establishment" value={person.establishment ? `${person.establishment}${person.workState ? ` (${person.workState})` : ''}` : null} />
+              <Field label="Team" value={person.teamName} />
+              <Field label="Seat" value={person.seatName} />
               <Field label="Location" value={person.areaName} />
               <Field label="Cost centre" value={person.costCenterName} />
               <Field label="Reports to" value={person.reportingManagerName} />
@@ -774,10 +778,10 @@ function EmployeeFile({ id, onClose, onEdit, onDeleted }) {
 
 /* The fields whose change is recorded in employment history (server: TRACKED in services/people/employmentHistory.ts). */
 /* The job fields a change may be dated for, as the record names them (server: SCHEDULABLE_FIELDS). */
-const SCHEDULED_LABELS = { departmentId: 'Department', businessUnitId: 'Business unit', areaId: 'Location', branchId: 'Branch', establishmentId: 'Establishment', jobPositionId: 'Designation', jobRoleId: 'Job role', reportingManagerId: 'Reports to', dottedManagerId: 'Also reports to', employeeTypeId: 'Employee type', workTypeId: 'Work type', contractorId: 'Contractor', gradeId: 'Grade', costCenterId: 'Cost centre', status: 'Status' };
+const SCHEDULED_LABELS = { departmentId: 'Department', businessUnitId: 'Business unit', areaId: 'Location', branchId: 'Branch', establishmentId: 'Establishment', teamId: 'Team', seatId: 'Seat', jobPositionId: 'Designation', jobRoleId: 'Job role', reportingManagerId: 'Reports to', dottedManagerId: 'Also reports to', employeeTypeId: 'Employee type', workTypeId: 'Work type', contractorId: 'Contractor', gradeId: 'Grade', costCenterId: 'Cost centre', status: 'Status' };
 /* How each line of the impact list lands: a review task on the record, an app told through an event, or a note. */
 const IMPACT_TARGET = { TASK: 'review task for HR', TOLD: 'told automatically', INFO: 'for information' };
-const HISTORY_FIELDS = ['businessUnitId', 'gradeId', 'costCenterId', 'departmentId', 'areaId', 'establishmentId', 'jobPositionId', 'jobRoleId', 'reportingManagerId', 'dottedManagerId', 'employeeTypeId', 'workTypeId', 'contractorId'];
+const HISTORY_FIELDS = ['businessUnitId', 'gradeId', 'costCenterId', 'departmentId', 'areaId', 'establishmentId', 'teamId', 'seatId', 'jobPositionId', 'jobRoleId', 'reportingManagerId', 'dottedManagerId', 'employeeTypeId', 'workTypeId', 'contractorId'];
 const HISTORY_SOURCE = { FORM: 'Employee form', TRANSFER: 'Transfer', RESIGNATION: 'Resignation', REHIRE: 'Rehire', IMPORT: 'Import' };
 const HISTORY_TONE = { JOINED: 'pos', LEFT: 'neg', REHIRED: 'pos', TRANSFERRED: 'warn', CHANGED: 'neutral' };
 
@@ -1515,7 +1519,7 @@ function EmployeeForm({ initial, lists, people, onClose, onSaved }) {
       'maritalStatus', 'personalEmail', 'photoUrl', 'addressLine', 'city', 'state', 'country', 'pincode', 'emergencyContactName',
       'emergencyContactPhone', 'emergencyContactRelation', 'departmentId', 'jobPositionId', 'jobRoleId', 'employeeTypeId', 'workTypeId',
       'reportingManagerId', 'dottedManagerId', 'workEmail', 'workPhone', 'workLocation', 'devicePin', 'probationEndDate', 'contractEndDate', 'tagIds',
-      'areaId', 'establishmentId', 'contractorId', 'businessUnitId', 'gradeId', 'costCenterId', 'cardNumber', 'devicePrivilege', 'attendanceRequired', 'guardianName',
+      'areaId', 'establishmentId', 'teamId', 'seatId', 'contractorId', 'businessUnitId', 'gradeId', 'costCenterId', 'cardNumber', 'devicePrivilege', 'attendanceRequired', 'guardianName',
     ];
     const body = Object.fromEntries(keys.filter((k) => form[k] !== undefined).map((k) => [k, form[k] === '' ? null : form[k]]));
     /* The reader PIN is write-only: sent only when typed. */
@@ -1661,6 +1665,8 @@ function EmployeeForm({ initial, lists, people, onClose, onSaved }) {
           {select('jobPositionId', 'Designation', positions)}
           {lists.grades.length ? select('gradeId', 'Grade', lists.grades) : null}
           {lists.establishments.length ? select('establishmentId', 'Establishment (work state)', lists.establishments.map((x) => ({ ...x, name: x.state ? `${x.name} (${x.state})` : x.name }))) : null}
+          {lists.teams?.length ? select('teamId', 'Team', lists.teams) : null}
+          {lists.seats?.length ? select('seatId', 'Seat', lists.seats.filter((x) => !form.teamId || !x.teamId || x.teamId === form.teamId)) : null}
           {lists.areas.length ? select('areaId', 'Location', lists.areas) : null}
           {lists.centres.length ? select('costCenterId', 'Cost centre', lists.centres) : null}
           {select('reportingManagerId', 'Reports to', people.filter((p) => p.id !== form.id && p.status !== 'LEFT'))}

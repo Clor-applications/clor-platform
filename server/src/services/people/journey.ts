@@ -38,7 +38,7 @@ function stintAt(episodes: Array<{ seq: number; startDate: string; endDate: stri
 }
 
 /** An id field reads as its name, as it was at the time of asking; an id nobody can name any more stays an id. */
-const NAMED_ID = /^(departmentId|jobPositionId|jobRoleId|businessUnitId|gradeId|costCenterId|areaId|branchId|establishmentId|employeeTypeId|workTypeId|contractorId|reportingManagerId|dottedManagerId)$/;
+const NAMED_ID = /^(teamId|seatId|departmentId|jobPositionId|jobRoleId|businessUnitId|gradeId|costCenterId|areaId|branchId|establishmentId|employeeTypeId|workTypeId|contractorId|reportingManagerId|dottedManagerId)$/;
 async function named(orgId: string, field: string, value: string | null) {
   if (!value || !NAMED_ID.test(field)) return value;
   try {

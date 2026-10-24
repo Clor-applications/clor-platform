@@ -99,6 +99,8 @@ const CompanyDetails = screen('CompanyDetails');
 const BusinessUnits = screen('BusinessUnits');
 const LegalEntities = screen('LegalEntities');
 const Establishments = screen('Establishments');
+const Teams = screen('Teams');
+const Seats = screen('Seats');
 const Grades = screen('Grades');
 const CostCentres = screen('CostCentres');
 const Locations = screen('Locations');
@@ -254,6 +256,8 @@ export const peopleApp = {
     { key: 'dataHealth', label: 'Data Health', icon: I.health, permission: 'PEOPLE::Employees::VIEW' },
     { key: 'complianceCalendar', label: 'Compliance Calendar', icon: I.compliance, permission: 'PEOPLE::Employees::VIEW' },
     { key: 'departments', label: 'Departments', icon: I.department, permission: 'PEOPLE::Org Structure::VIEW', parent: 'settings' },
+    { key: 'teams', label: 'Teams', icon: I.people, permission: 'PEOPLE::Org Structure::VIEW', parent: 'settings' },
+    { key: 'seats', label: 'Seats', icon: I.org, permission: 'PEOPLE::Org Structure::VIEW', parent: 'settings' },
     { key: 'jobPositions', label: 'Designations', icon: I.designation, permission: 'PEOPLE::Org Structure::VIEW', parent: 'settings' },
     { key: 'jobRoles', label: 'Job Roles', icon: I.role, permission: 'PEOPLE::Org Structure::VIEW', parent: 'settings' },
     { key: 'employeeTypes', label: 'Employee Types', icon: I.type, permission: 'PEOPLE::Org Structure::VIEW', parent: 'settings' },
@@ -317,6 +321,8 @@ export const peopleApp = {
     dataHealth: DataHealth,
     complianceCalendar: ComplianceCalendar,
     departments: Departments,
+    teams: Teams,
+    seats: Seats,
     jobPositions: JobPositions,
     jobRoles: JobRoles,
     employeeTypes: EmployeeTypes,

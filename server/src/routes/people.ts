@@ -119,6 +119,8 @@ const employeeSchema = z.object({
   devicePin: text(40),
   areaId: text(60),
   establishmentId: text(60),
+  teamId: text(60),
+  seatId: text(60),
   contractorId: text(60),
   cardNumber: text(40),
   devicePassword: text(20),
@@ -162,6 +164,8 @@ async function resolveStructure(orgId: string, b: EmployeeBody) {
   await check('workTypeId', (id) => peoplePrisma.workType.findFirst({ where: { id, orgId }, select: { name: true } }));
   await check('areaId', (id) => peoplePrisma.area.findFirst({ where: { id, orgId }, select: { name: true } }));
   await check('establishmentId', (id) => peoplePrisma.establishment.findFirst({ where: { id, orgId }, select: { name: true } }));
+  await check('teamId', (id) => peoplePrisma.team.findFirst({ where: { id, orgId }, select: { name: true } }));
+  await check('seatId', (id) => peoplePrisma.seat.findFirst({ where: { id, orgId }, select: { name: true } }));
   await check('contractorId', (id) => peoplePrisma.contractor.findFirst({ where: { id, orgId }, select: { name: true } }));
   await check('businessUnitId', (id) => peoplePrisma.businessUnit.findFirst({ where: { id, orgId }, select: { name: true } }));
   await check('gradeId', (id) => peoplePrisma.grade.findFirst({ where: { id, orgId }, select: { name: true } }));
@@ -214,15 +218,19 @@ const withMeta = async (orgId: string, rows: any[]) => {
     ? await peoplePrisma.employee.findMany({ where: { orgId, id: { in: managerIds } }, select: { id: true, name: true } })
     : [];
   const managerName = new Map(managers.map((m) => [m.id, m.name]));
-  const [areas, contractors, units, grades, centres, establishments] = await Promise.all([
+  const [areas, contractors, units, grades, centres, establishments, teams, seats] = await Promise.all([
     peoplePrisma.area.findMany({ where: { orgId }, select: { id: true, name: true } }),
     peoplePrisma.contractor.findMany({ where: { orgId }, select: { id: true, name: true } }),
     peoplePrisma.businessUnit.findMany({ where: { orgId }, select: { id: true, name: true } }),
     peoplePrisma.grade.findMany({ where: { orgId }, select: { id: true, name: true } }),
     peoplePrisma.costCenter.findMany({ where: { orgId }, select: { id: true, name: true } }),
     peoplePrisma.establishment.findMany({ where: { orgId }, select: { id: true, name: true, state: true } }),
+    peoplePrisma.team.findMany({ where: { orgId }, select: { id: true, name: true } }),
+    peoplePrisma.seat.findMany({ where: { orgId }, select: { id: true, name: true } }),
   ]);
   const establishmentOf = new Map(establishments.map((x) => [x.id, x]));
+  const teamName = new Map(teams.map((t) => [t.id, t.name]));
+  const seatName = new Map(seats.map((t) => [t.id, t.name]));
   const areaName = new Map(areas.map((a) => [a.id, a.name]));
   const contractorName = new Map(contractors.map((c) => [c.id, c.name]));
   const unitName = new Map(units.map((u) => [u.id, u.name]));
@@ -240,6 +248,8 @@ const withMeta = async (orgId: string, rows: any[]) => {
     /* Where they work in law, and the state whose rules apply (FND-07): the establishment's, never the home address. */
     establishment: r.establishmentId ? establishmentOf.get(r.establishmentId)?.name || null : null,
     workState: r.establishmentId ? establishmentOf.get(r.establishmentId)?.state || null : null,
+    teamName: r.teamId ? teamName.get(r.teamId) || null : null,
+    seatName: r.seatId ? seatName.get(r.seatId) || null : null,
     reportingManagerName: r.reportingManagerId ? managerName.get(r.reportingManagerId) || null : null,
     dottedManagerName: r.dottedManagerId ? managerName.get(r.dottedManagerId) || null : null,
     tags: (r.tags || []).map((l: any) => ({ id: l.tag.id, name: l.tag.name, color: l.tag.color })),
@@ -512,6 +522,13 @@ async function findDuplicates(orgId: string, exceptId: string | null, b: { email
   return out.slice(0, 5);
 }
 
+/** A seat holds one person (ORG-04): taken by someone else, it is refused in words. */
+async function seatFree(orgId: string, seatId: string | null | undefined, exceptId: string | null) {
+  if (!seatId) return null;
+  const holder = await peoplePrisma.employee.findFirst({ where: { orgId, seatId, ...(exceptId ? { id: { not: exceptId } } : {}) }, select: { name: true, code: true } });
+  return holder ? `${holder.name}${holder.code ? ` (${holder.code})` : ''} already holds that seat.` : null;
+}
+
 peopleRouter.post('/orgs/:orgId/people/employees', can(PermissionAction.CREATE, EMPLOYEES), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
@@ -529,6 +546,8 @@ peopleRouter.post('/orgs/:orgId/people/employees', can(PermissionAction.CREATE, 
   if (duplicates.length && !duplicateReason) return res.status(409).json({ error: `${duplicates[0].name} already has this ${duplicates[0].field}. Open their record, or say why this is a different person.`, code: 'DUPLICATE', duplicates });
   try {
     const structure = await resolveStructure(orgId, b);
+    const taken = await seatFree(orgId, blank(b.seatId), null);
+    if (taken) return res.status(409).json({ error: taken });
     await checkManager(orgId, null, blank(b.reportingManagerId));
     await checkManager(orgId, null, blank(b.dottedManagerId));
     const row = await createEmployee(actorOf(req, 'FORM', duplicates.length ? `Saved despite a match on ${duplicates.map((d) => `${d.field} (${d.name})`).join(', ')}: ${duplicateReason}` : null), {
@@ -566,6 +585,8 @@ peopleRouter.put('/orgs/:orgId/people/employees/:id', can(PermissionAction.EDIT,
   if (joined && left && left < joined) return res.status(400).json({ error: 'Somebody cannot leave before they joined.' });
   try {
     const structure = await resolveStructure(orgId, b);
+    const taken = await seatFree(orgId, blank(b.seatId), existing.id);
+    if (taken) return res.status(409).json({ error: taken });
     if (b.reportingManagerId !== undefined) await checkManager(orgId, existing.id, blank(b.reportingManagerId));
     if (b.dottedManagerId !== undefined) await checkManager(orgId, existing.id, blank(b.dottedManagerId));
     const nameChanged = b.name !== undefined || b.firstName !== undefined || b.lastName !== undefined;
@@ -1191,7 +1212,11 @@ peopleRouter.get('/orgs/:orgId/people/org-chart', can(PermissionAction.VIEW, EMP
     select: { id: true, name: true, code: true, designation: true, department: true, photoUrl: true, reportingManagerId: true, dottedManagerId: true },
     orderBy: { name: 'asc' },
   });
-  res.json({ nodes });
+  /* Open seats show on the chart (ORG-04): seats on an active team that nobody holds. */
+  const seats = await peoplePrisma.seat.findMany({ where: { orgId, isActive: true }, select: { id: true, name: true, teamId: true, jobPositionId: true, budgetRef: true, team: { select: { name: true, leadEmployeeId: true, departmentId: true } } } });
+  const held = new Set((await peoplePrisma.employee.findMany({ where: { orgId, seatId: { not: null } }, select: { seatId: true } })).map((e) => e.seatId));
+  const openSeats = seats.filter((s) => !held.has(s.id)).map((s) => ({ id: s.id, name: s.name, teamId: s.teamId, teamName: s.team?.name || null, leadEmployeeId: s.team?.leadEmployeeId || null, budgetRef: s.budgetRef }));
+  res.json({ nodes, openSeats });
 });
 
 // ---------------------------------------------------------------------------
@@ -1211,6 +1236,9 @@ const STRUCTURE_KINDS = {
   /* The company in law and its places of work (FND-07). A person's work state is their establishment's. */
   'legal-entities': { model: 'legalEntity', usedBy: null, extra: ['description', 'pan', 'cin', 'address'] },
   establishments: { model: 'establishment', usedBy: 'establishmentId', extra: ['description', 'legalEntityId', 'kind', 'state', 'address', 'registrations', 'holdsOriginals'] },
+  /* Teams under departments, with a lead; approved seats on a team, filled or open (ORG-01, ORG-04). */
+  teams: { model: 'team', usedBy: 'teamId', extra: ['departmentId', 'leadEmployeeId', 'description'] },
+  seats: { model: 'seat', usedBy: 'seatId', extra: ['teamId', 'jobPositionId', 'budgetRef', 'description'] },
 } as const;
 type Kind = keyof typeof STRUCTURE_KINDS;
 
@@ -1225,6 +1253,9 @@ const structureSchema = z.object({
   state: text(80),
   address: text(500),
   holdsOriginals: z.boolean().optional(),
+  teamId: text(60),
+  leadEmployeeId: text(60),
+  budgetRef: text(80),
   /* A real PAN, or the masked form a screen sends back unchanged. */
   pan: z.string().trim().regex(/^([A-Z]{5}\d{4}[A-Z]|\*{6}[0-9A-Z]{4})$/, 'PAN looks like ABCDE1234F.').optional().nullable().or(z.literal('')),
   cin: text(40),
