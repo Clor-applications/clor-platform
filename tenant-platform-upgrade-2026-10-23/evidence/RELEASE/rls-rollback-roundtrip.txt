@@ -1,0 +1,12 @@
+ tablename |                                                                                    qual                                                                                     
+-----------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Org       | ((current_setting('clor.org_id'::text, true) IS NULL) OR (current_setting('clor.org_id'::text, true) = ''::text) OR (id = current_setting('clor.org_id'::text, true)))
+ Thing     | ((current_setting('clor.org_id'::text, true) IS NULL) OR (current_setting('clor.org_id'::text, true) = ''::text) OR ("orgId" = current_setting('clor.org_id'::text, true)))
+(2 rows)
+
+ tablename |                                                                  qual                                                                   
+-----------+-----------------------------------------------------------------------------------------------------------------------------------------
+ Org       | ((current_setting('clor.bypass'::text, true) = 'on'::text) OR (id = NULLIF(current_setting('clor.org_id'::text, true), ''::text)))
+ Thing     | ((current_setting('clor.bypass'::text, true) = 'on'::text) OR ("orgId" = NULLIF(current_setting('clor.org_id'::text, true), ''::text)))
+(2 rows)
+
