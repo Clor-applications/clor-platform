@@ -1,4 +1,4 @@
-import { Building, Building2, CreditCard, Fingerprint, HardDriveDownload, History, Key, KeyRound, LayoutGrid, Mail, Contact, Shield, ShieldCheck, UserCheck, Users, XCircle } from 'lucide-react';
+import { Building, Building2, CreditCard, Fingerprint, HardDriveDownload, History, Key, KeyRound, LayoutGrid, Mail, Contact, ScrollText, Shield, ShieldCheck, UserCheck, Users, XCircle } from 'lucide-react';
 
 import { lazyScreens } from '@ui/utils/lazyScreens';
 
@@ -16,6 +16,7 @@ const Credentials = screen('Credentials');
 const OutsideAccess = screen('OutsideAccess');
 const Invitations = screen('Invitations');
 const Members = screen('Members');
+const AccountActivity = screen('AccountActivity');
 const AuditTrail = screen('AuditTrail');
 const AccountOverview = screen('AccountOverview');
 const BillingPreview = screen('BillingPreview');
@@ -60,7 +61,7 @@ export const adminApp = {
       { label: 'Who', items: ['members', 'users', 'invitations', 'outsideAccess'] },
       { label: 'What they may do', items: ['roles', 'permissions'] },
     ] },
-    { key: 'security', label: 'Security', items: ['security', 'sso', 'credentials', 'audit'] },
+    { key: 'security', label: 'Security', items: ['security', 'sso', 'credentials', 'audit', 'accountActivity'] },
     { key: 'plan', label: 'Plan & billing', items: ['account', 'billing'] },
     { key: 'data', label: 'Data', items: ['export', 'close'] },
   ],
@@ -81,6 +82,8 @@ export const adminApp = {
     { key: 'sso', label: 'Single sign-on', icon: ShieldCheck, permission: 'SETTINGS::Users::VIEW' },
     { key: 'credentials', label: 'Credentials', icon: Key, permission: 'SETTINGS::Credentials::VIEW' },
     { key: 'audit', label: 'Audit trail', icon: History, permission: 'SETTINGS::Audit trail::VIEW' },
+    /* W-7.2: the account's own audit; the server shows it to the account's owners and administrators. */
+    { key: 'accountActivity', label: 'Account activity', icon: ScrollText, permission: 'SETTINGS::Audit trail::VIEW' },
     { key: 'account', label: 'Account & plan', icon: Building2, permission: 'SETTINGS::Company Profile::VIEW' },
     { key: 'billing', label: 'Billing', icon: CreditCard, permission: 'SETTINGS::Company Profile::VIEW' },
     { key: 'export', label: 'Data export', icon: HardDriveDownload, permission: 'SETTINGS::Company data::EXPORT' },
@@ -100,6 +103,7 @@ export const adminApp = {
     outsideAccess: OutsideAccess,
     invitations: Invitations,
     members: Members,
+    accountActivity: AccountActivity,
     audit: AuditTrail,
     account: AccountOverview,
     billing: BillingPreview,

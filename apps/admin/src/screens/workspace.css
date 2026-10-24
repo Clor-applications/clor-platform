@@ -451,3 +451,10 @@
     transition: none !important;
   }
 }
+
+/* A row's second line stays quiet even inside a button (buttons set their own weight and colour). */
+.ws-row .ws-card-blurb,
+.ws-group .ws-card-blurb {
+  font-weight: 400;
+  color: rgb(var(--ws-muted));
+}

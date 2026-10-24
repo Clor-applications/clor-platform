@@ -119,4 +119,18 @@ describe('the account’s people', () => {
     expect((await request(app).get('/api/account/me').set(at(pay)).expect(200)).body.apps).toContain('payroll');
     expect((await request(app).get('/api/account/me').set(at(o)).expect(200)).body).toMatchObject({ role: 'OWNER', companyAdmin: true });
   });
+
+  it('lists the account’s audit, newest first, filtered, and only to its administrators', async () => {
+    const o = await owner('audit');
+    const p = await person(o, 'aud-person');
+    await request(app).post(`/api/account/members/${p.userId}/suspend`).set(at(o)).expect(200);
+    await request(app).post(`/api/account/members/${o.userId}/suspend`).set(at(p)).expect(403);
+    const all = (await request(app).get('/api/account/audit').set(at(o)).expect(200)).body.events;
+    expect(all[0].action).toBe('MEMBER_SUSPENDED');
+    expect(all[0]).toMatchObject({ result: 'OK', actor: { id: o.userId }, targetName: 'aud-person' });
+    const denied = (await request(app).get('/api/account/audit?result=DENIED').set(at(o)).expect(200)).body.events;
+    expect(denied.every((e: any) => e.result === 'DENIED')).toBe(true);
+    const other = await owner('audit-other');
+    expect((await request(app).get('/api/account/audit').set(at(other)).expect(200)).body.events.map((e: any) => e.targetId)).not.toContain(p.userId);
+  });
 });

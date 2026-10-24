@@ -31,3 +31,9 @@ export const suspendMember = (userId) => apiFetch(`/account/members/${encodeURIC
 export const reinstateMember = (userId) => apiFetch(`/account/members/${encodeURIComponent(userId)}/reinstate`, { method: 'POST', body: {}, ...opts });
 export const removeMemberFromCompany = (userId, orgId) =>
   apiFetch(`/account/members/${encodeURIComponent(userId)}/companies/${encodeURIComponent(orgId)}`, { method: 'DELETE', ...opts });
+
+/* W-7.2: the account's own audit. */
+export const accountAudit = (filters = {}) => {
+  const q = new URLSearchParams(Object.entries(filters).filter(([, v]) => v));
+  return apiFetch(`/account/audit${q.toString() ? `?${q}` : ''}`, opts);
+};

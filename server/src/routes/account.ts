@@ -263,3 +263,58 @@ accountRouter.delete('/account/members/:userId/companies/:orgId', requireAccount
     memberError(res, e);
   }
 });
+
+/*
+ * W-7.2: the account's own audit — account roles, invitations, suspensions,
+ * removals, and refused account-level writes. Owners and administrators;
+ * scoped to the account of the company in scope, newest first, filterable.
+ */
+accountRouter.get('/account/audit', requireAccountRole(...ACCOUNT_ADMINS), async (req, res) => {
+  const { accountId } = req.tenant!;
+  const q = req.query as Record<string, string | undefined>;
+  const take = Math.min(Math.max(Number(q.limit) || 50, 1), 200);
+  const where: Record<string, unknown> = { accountId };
+  if (q.action) where.action = String(q.action);
+  if (q.result === 'OK' || q.result === 'DENIED') where.result = q.result;
+  if (q.actor) where.actorUserId = String(q.actor);
+  const range: Record<string, Date> = {};
+  if (q.from && !Number.isNaN(Date.parse(q.from))) range.gte = new Date(q.from);
+  if (q.to && !Number.isNaN(Date.parse(q.to))) range.lte = new Date(q.to);
+  if (Object.keys(range).length) where.createdAt = range;
+  const page = await outsideTenant('account audit: list', async () => {
+    const rows = await platformPrisma.accountAuditEvent.findMany({
+      where,
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      take: take + 1,
+      ...(q.cursor ? { cursor: { id: String(q.cursor) }, skip: 1 } : {}),
+    });
+    const people = await platformPrisma.user.findMany({
+      where: { id: { in: [...new Set(rows.flatMap((r) => [r.actorUserId, r.targetType === 'AccountMembership' ? r.targetId : null]).filter(Boolean) as string[])] } },
+      select: { id: true, fullName: true, email: true },
+    });
+    const who = new Map(people.map((p) => [p.id, p.fullName || p.email]));
+    return {
+      events: rows.slice(0, take).map((r) => ({
+        id: r.id,
+        at: r.createdAt,
+        action: r.action,
+        result: r.result,
+        actor: r.actorUserId ? { id: r.actorUserId, name: who.get(r.actorUserId) || null } : null,
+        targetType: r.targetType,
+        targetId: r.targetId,
+        targetName: r.targetType === 'AccountMembership' && r.targetId ? who.get(r.targetId) || null : null,
+        message: r.message,
+        metadata: (() => {
+          try {
+            return r.metadata ? JSON.parse(r.metadata) : null;
+          } catch {
+            return null;
+          }
+        })(),
+        requestId: r.requestId,
+      })),
+      next: rows.length > take ? rows[take - 1].id : null,
+    };
+  });
+  res.json(page);
+});
