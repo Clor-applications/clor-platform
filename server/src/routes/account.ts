@@ -11,6 +11,7 @@ import {
   accountRoleOf,
   isAccountRole,
   listAccountMembers,
+  recordAccountEvent,
   requireAccountRole,
   setAccountRole,
 } from '../services/accountMembership.js';
@@ -326,4 +327,18 @@ accountRouter.post('/account/members/:userId/sign-out', requireAccountRole(...AC
   } catch (e) {
     memberError(res, e);
   }
+});
+
+/* W-7.3: the account's own name (it starts as the name of whoever signed up). Owners and administrators; audited. */
+accountRouter.patch('/account', requireAccountRole(...ACCOUNT_ADMINS), async (req, res) => {
+  const name = String(req.body?.name ?? '').trim();
+  if (name.length < 2 || name.length > 120) return res.status(400).json({ error: 'Give the account a name of 2 to 120 characters.', code: 'BAD_NAME' });
+  const { accountId } = req.tenant!;
+  const before = await outsideTenant('account settings: rename', async () => {
+    const was = await platformPrisma.account.findUnique({ where: { id: accountId }, select: { name: true } });
+    await platformPrisma.account.update({ where: { id: accountId }, data: { name } });
+    return was?.name || null;
+  });
+  await recordAccountEvent({ accountId, actorUserId: req.auth!.userId, action: 'ACCOUNT_RENAMED', targetType: 'Account', targetId: accountId, message: `Renamed from "${before || ''}" to "${name}"`, metadata: { from: before, to: name } });
+  res.json({ account: { id: accountId, name } });
 });

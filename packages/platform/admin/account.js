@@ -38,3 +38,6 @@ export const accountAudit = (filters = {}) => {
   return apiFetch(`/account/audit${q.toString() ? `?${q}` : ''}`, opts);
 };
 export const signOutMember = (userId) => apiFetch(`/account/members/${encodeURIComponent(userId)}/sign-out`, { method: 'POST', body: {}, ...opts });
+
+/* W-7.3: the account's own name. */
+export const renameAccount = (name) => apiFetch('/account', { method: 'PATCH', body: { name }, ...opts });

@@ -20,6 +20,8 @@ export const ACTION_WORDS = {
   MEMBER_SUSPENDED: 'Suspended in the account',
   MEMBER_REINSTATED: 'Reinstated in the account',
   MEMBER_REMOVED_FROM_COMPANY: 'Removed from a company',
+  MEMBER_SIGNED_OUT: 'Signed out everywhere',
+  ACCOUNT_RENAMED: 'Account renamed',
   ACCESS_DENIED: 'Refused: needs an account role',
 };
 const when = (d) => new Date(d).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });

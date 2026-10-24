@@ -146,4 +146,15 @@ describe('account roles', () => {
     const me = (await request(app).get('/api/auth/me').set(at(o)).expect(200)).body;
     expect(me.accounts).toEqual([expect.objectContaining({ id: o.accountId, home: true, role: 'OWNER' })]);
   });
+
+  it('lets an owner rename the account, audited, and not a member', async () => {
+    const o = await owner('rename');
+    const m = await addPerson(o, 'm');
+    expect((await request(app).patch('/api/account').set(at(m)).send({ name: 'Mine now' }).expect(403)).body.code).toBe('ACCOUNT_ROLE_REQUIRED');
+    await request(app).patch('/api/account').set(at(o)).send({ name: 'Anand Group' }).expect(200);
+    const me = (await request(app).get('/api/auth/me').set(at(o)).expect(200)).body;
+    expect(me.accounts[0].name).toBe('Anand Group');
+    expect((await events(o.accountId)).some((e) => e.action === 'ACCOUNT_RENAMED')).toBe(true);
+    await request(app).patch('/api/account').set(at(o)).send({ name: 'x' }).expect(400);
+  });
 });

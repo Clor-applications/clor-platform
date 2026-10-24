@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Building2, Users } from 'lucide-react';
 
 import { PageHeader, EmptyState } from '@ui/components/ui/Primitives';
+import { renameAccount } from '@platform/admin/account';
 import { formatMoney } from '@ui/utils/money';
 import { formatDateIn, localDateIso } from '@ui/utils/dates';
 import NotConnected from '@ui/components/ui/NotConnected';
@@ -55,6 +56,49 @@ const LimitBar = ({ used, limit }) => {
     </div>
   );
 };
+
+/**
+ * W-7.3: rename the account (it starts as the name of whoever signed up).
+ * The server lets owners and administrators do it, and records it in the
+ * account's activity; anyone else is told so.
+ */
+function AccountName({ name, onRenamed }) {
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(name);
+  const [error, setError] = useState('');
+  if (!editing) {
+    return (
+      <p className="text-sm">
+        <button type="button" className="ui-link" onClick={() => { setValue(name); setError(''); setEditing(true); }}>
+          Rename the account
+        </button>
+      </p>
+    );
+  }
+  return (
+    <form
+      className="flex flex-wrap items-end gap-2"
+      onSubmit={async (e) => {
+        e.preventDefault();
+        try {
+          const r = await renameAccount(value.trim());
+          onRenamed(r?.account?.name || value.trim());
+          setEditing(false);
+        } catch (err) {
+          setError(String(err?.message || 'Could not rename the account.'));
+        }
+      }}
+    >
+      <label className="grid gap-1 text-sm">
+        <span className="font-medium">Account name</span>
+        <input className="ui-input" value={value} onChange={(e) => setValue(e.target.value)} minLength={2} maxLength={120} required autoFocus />
+      </label>
+      <button type="submit" className="ui-btn ui-btn-primary ui-btn-sm">Save</button>
+      <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => setEditing(false)}>Cancel</button>
+      {error ? <p role="alert" className="w-full text-sm" style={{ color: 'rgb(var(--neg))' }}>{error}</p> : null}
+    </form>
+  );
+}
 
 export default function AccountOverview({ currentCompany, onOpenCompany = null }) {
   const [data, setData] = useState(null);
@@ -119,6 +163,11 @@ export default function AccountOverview({ currentCompany, onOpenCompany = null }
         entity="company"
         title={data?.account?.name || 'Account'}
             />
+
+      <AccountName
+        name={data?.account?.name || ''}
+        onRenamed={(name) => setData((d) => (d ? { ...d, account: { ...d.account, name } } : d))}
+      />
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Stat label="Companies" value={String(companies.length)} />
