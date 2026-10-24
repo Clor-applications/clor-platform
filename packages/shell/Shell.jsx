@@ -100,6 +100,28 @@ export const companyGroups = (tenants = [], accounts = []) => {
     });
 };
 
+/** "SETTINGS::Users::VIEW" as a person reads it: "view Users (Settings)". */
+export const permissionWords = (key = '') => {
+  const [module = '', sub = '', action = ''] = String(key).split('::');
+  const cap = (w) => w.charAt(0) + w.slice(1).toLowerCase();
+  return `${action.toLowerCase() || 'use'} ${sub || cap(module)}${sub && module ? ` (${cap(module)})` : ''}`;
+};
+
+/** W-2.2: an explained empty state in place of a screen — not found, or not allowed — with one way on. */
+function ScreenState({ title, text, action }) {
+  return (
+    <section className="ui-card p-6 max-w-xl" role="status" aria-labelledby="screen-state-title">
+      <h1 id="screen-state-title" className="ui-display text-xl">{title}</h1>
+      <p className="ui-muted mt-2">{text}</p>
+      {action ? (
+        <button type="button" className="ui-btn ui-btn-secondary mt-4" onClick={action.run}>
+          {action.label}
+        </button>
+      ) : null}
+    </section>
+  );
+}
+
 export default function Shell() {
   /* A phone: no rail, a menu sheet and a tab bar instead (mobileTabs.js). */
   const [phone, setPhone] = useState(() => typeof window !== 'undefined' && window.matchMedia(PHONE_QUERY).matches);
@@ -188,6 +210,14 @@ export default function Shell() {
       return open || null;
     } catch {
       return null;
+    }
+  });
+  /* W-2.2: the screen the address asked for when the page opened — a key no app has is a "not found", not a silent home. */
+  const [openedWith] = useState(() => {
+    try {
+      return String(new URLSearchParams(window.location.search).get('open') || '').trim();
+    } catch {
+      return '';
     }
   });
   const [browseModule, setBrowseModule] = useState(null);
@@ -509,8 +539,17 @@ export default function Shell() {
      honouring it shows "Nothing selected" instead of the new app's home. */
   const screen = (screenKey && app?.screens?.[screenKey] ? screenKey : app?.home) || null;
   const Screen = app?.screens?.[screen] || null;
+  /*
+   * W-2.2: say why a screen is not shown instead of a blank or a wall of
+   * refused requests. Denied: the screen's permission is not this person's
+   * (the server refuses it too; this is the explanation). Not found: the
+   * address the page opened with names a screen this app does not have.
+   */
+  const screenItem = (app?.nav || []).find((n) => n.key === screen);
+  const screenDenied = Boolean(screenItem?.permission && granted && !granted.has(screenItem.permission));
   /* An app may draw its own navigation instead of handing the shell a list. */
   const Root = app?.Root || null;
+  const screenMissing = Boolean(!Root && app && openedWith && screenKey === openedWith && !app.screens?.[openedWith]);
   /* Or ask for the split sidebar: modules on a rail, the open module's screens beside it (splitNav.js). */
   const modules = resolveModules(app, nav);
   const split = modules.length > 0;
@@ -954,6 +993,18 @@ export default function Shell() {
                 </div>
                 <ProfileScreen key={tenant.id} />
               </ScreenBoundary>
+            ) : screenMissing ? (
+              <ScreenState
+                title="This page isn’t here"
+                text={`${app?.name || 'This app'} has no page at this address. It may have moved, or the link may be mistyped.`}
+                action={app?.home ? { label: `Go to ${app.name}`, run: () => goTo(app.home) } : null}
+              />
+            ) : screenDenied ? (
+              <ScreenState
+                title={`You can’t open ${screenItem?.label || 'this page'}`}
+                text={`It needs the “${permissionWords(screenItem.permission)}” permission in ${tenant.name}, and none of your roles here gives it. An administrator of the company can give you a role that does.`}
+                action={app?.home && app.home !== screen ? { label: `Go to ${app.name}`, run: () => goTo(app.home) } : null}
+              />
             ) : Screen ? (
               <ScreenBoundary appName={app?.name} resetKey={`${app?.id}:${screen}:${tenant.id}`}>
                 {/* Same rule as an app that draws itself: a company change is a

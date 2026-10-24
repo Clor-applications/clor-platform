@@ -75,6 +75,22 @@ const toTenant = (membership) => ({
   billing: null,
 });
 
+/*
+ * The branch and warehouse chosen in each company are kept per company
+ * (`clor.sel.<org>.<what>`, platform/context.js), not per person. Signing in
+ * or out forgets them, so the next person on this browser does not send the
+ * last person's branch and meet "No access to branch".
+ */
+const forgetSelections = () => {
+  for (const store of [localStorage, sessionStorage]) {
+    try {
+      for (const key of Object.keys(store)) if (key.startsWith('clor.sel.')) store.removeItem(key);
+    } catch {
+      /* storage unavailable: nothing was kept */
+    }
+  }
+};
+
 export function SessionProvider({ children }) {
   const [user, setUser] = useState(null);
   const [tenants, setTenants] = useState([]);
@@ -268,6 +284,7 @@ export function SessionProvider({ children }) {
   useEffect(() => {
     const onEnded = () => {
       writeToken('');
+    forgetSelections();
       setUser(null);
       setTenants([]);
       setAccounts([]);
@@ -279,6 +296,7 @@ export function SessionProvider({ children }) {
 
   const finishSignIn = useCallback(
     async (res) => {
+      forgetSelections();
       writeToken(res.token);
       const data = await apiMe();
       const next = adopt({ ...data, activeOrgId: res.activeOrgId });

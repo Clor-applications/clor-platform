@@ -31,3 +31,12 @@ describe('the company picker as an account switcher', async () => {
     expect(g[0].items.map((t) => t.id)).toEqual(['c1', 'c3']);
   });
 });
+
+/* W-2.2: an access-denied page names the permission in words a person reads. */
+describe('permission words', async () => {
+  const { permissionWords } = await import('./Shell.jsx');
+  it('reads MODULE::Sub::ACTION as an action on a thing', () => {
+    expect(permissionWords('SETTINGS::Users::VIEW')).toBe('view Users (Settings)');
+    expect(permissionWords('PAYROLL::Pay runs::APPROVE')).toBe('approve Pay runs (Payroll)');
+  });
+});
