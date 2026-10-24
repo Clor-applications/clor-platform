@@ -5,7 +5,7 @@ import { accountAudit, getAccountMe, listAccountMembers, listInvitations, member
 import { getAccountOverview } from '@platform/admin/admin';
 import { operator } from '@platform/operator';
 import { ACTION_WORDS } from './AccountActivity';
-import { ICON, Meter, PageHead, Panel, Stat, ago, productIcon } from './wsKit';
+import { ICON, Meter, Panel, Stat, ago, productIcon } from './wsKit';
 import './workspace.css';
 
 /**
@@ -40,8 +40,68 @@ export function appState(app, tenant, myApps = null) {
 }
 
 const firstName = (user) => String(user?.firstName || user?.fullName || '').trim().split(/\s+/)[0] || '';
-const greeting = (d = new Date()) => (d.getHours() < 12 ? 'Good morning' : d.getHours() < 17 ? 'Good afternoon' : 'Good evening');
 const today = () => new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'short', year: 'numeric' });
+
+/**
+ * The hero's quiet illustration: an office block, its annex and a few trees,
+ * drawn in the Workspace's stones with one Blaze-washed façade. Decorative,
+ * so hidden from assistive technology; it fades into the card on the left.
+ */
+function HeroBuilding() {
+  return (
+    <svg className="ws-hero-art" viewBox="0 0 460 190" aria-hidden="true" focusable="false">
+      <defs>
+        <linearGradient id="wsHeroFade" x1="0" x2="1" y1="0" y2="0">
+          <stop offset="0" stopColor="#fff" stopOpacity="0" />
+          <stop offset="0.28" stopColor="#fff" stopOpacity="1" />
+        </linearGradient>
+        <mask id="wsHeroMask">
+          <rect width="460" height="190" fill="url(#wsHeroFade)" />
+        </mask>
+      </defs>
+      <g mask="url(#wsHeroMask)">
+        {/* ground */}
+        <rect x="0" y="176" width="460" height="2" rx="1" fill="rgb(var(--ws-line))" />
+        {/* back trees */}
+        <g fill="rgb(var(--ws-art-leaf))">
+          <circle cx="48" cy="150" r="18" /><circle cx="66" cy="140" r="22" /><circle cx="86" cy="152" r="16" />
+          <rect x="64" y="150" width="3" height="26" fill="rgb(var(--ws-art-trunk))" />
+        </g>
+        {/* main block: front and side */}
+        <rect x="130" y="54" width="122" height="122" fill="rgb(var(--ws-art-wall))" />
+        <rect x="252" y="66" width="52" height="110" fill="rgb(var(--ws-art-side))" />
+        <rect x="124" y="46" width="134" height="10" rx="2" fill="rgb(var(--ws-art-roof))" />
+        <rect x="150" y="34" width="60" height="14" rx="2" fill="rgb(var(--ws-art-roof))" />
+        {/* front windows */}
+        <g fill="rgb(var(--ws-bg))" stroke="rgb(var(--ws-art-line))" strokeWidth="1">
+          {[0, 1, 2].map((r) => [0, 1, 2].map((c) => <rect key={`${r}${c}`} x={146 + c * 34} y={70 + r * 30} width="22" height="20" rx="1.5" />))}
+        </g>
+        {/* door */}
+        <rect x="178" y="152" width="26" height="24" rx="1.5" fill="rgb(var(--ws-art-line))" />
+        {/* side windows */}
+        <g fill="rgb(var(--ws-art-glass))">
+          <rect x="262" y="80" width="12" height="16" rx="1" /><rect x="282" y="80" width="12" height="16" rx="1" />
+          <rect x="262" y="108" width="12" height="16" rx="1" /><rect x="282" y="108" width="12" height="16" rx="1" />
+        </g>
+        {/* annex in Blaze wash */}
+        <rect x="304" y="106" width="64" height="70" fill="rgb(var(--ws-accent-soft))" />
+        <rect x="300" y="100" width="72" height="8" rx="2" fill="rgb(var(--ws-art-wash-roof))" />
+        <g fill="rgb(var(--ws-surface))" stroke="rgb(var(--ws-art-wash-line))" strokeWidth="1">
+          <rect x="314" y="118" width="18" height="22" rx="1.5" /><rect x="340" y="118" width="18" height="22" rx="1.5" />
+          <rect x="314" y="148" width="44" height="28" rx="1.5" />
+        </g>
+        {/* front trees */}
+        <g fill="rgb(var(--ws-art-leaf-2))">
+          <circle cx="392" cy="160" r="13" /><circle cx="404" cy="152" r="15" /><circle cx="418" cy="162" r="11" />
+          <circle cx="440" cy="164" r="10" />
+        </g>
+        <g fill="rgb(var(--ws-art-trunk))">
+          <rect x="403" y="160" width="2.5" height="16" /><rect x="439" y="168" width="2" height="8" />
+        </g>
+      </g>
+    </svg>
+  );
+}
 
 export default function AdminHome({ user, tenant, catalog = [], navItems = [], openScreen, openApp, openMoreApps, accountName = '' }) {
   const [me, setMe] = useState(null);
@@ -105,15 +165,24 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
   return (
     <div className="ws">
       <div className="ws-inner">
-        <PageHead
-          crumbs={[accountName || overview?.account?.name || 'Account', tenant?.name || 'Company']}
-          title={name ? `${greeting()}, ${name}` : 'Workspace'}
-          meta={
-            <>
-              {role ? <span className="ws-pill ws-pill--role">{ROLE_LABEL[role] || role}</span> : null} <span>{today()}</span>
-            </>
-          }
-        />
+        <section className="ws-hero" aria-labelledby="ws-hero-title">
+          <div className="ws-hero-text">
+            <p className="ws-hero-crumb">
+              <ICON.company size={18} />
+              <span>{tenant?.name || accountName || overview?.account?.name || 'Your company'}</span>
+              {role ? (
+                <>
+                  <ChevronRight size={14} aria-hidden="true" />
+                  <span className="ws-pill ws-pill--ok">{ROLE_LABEL[role] || role}</span>
+                </>
+              ) : null}
+            </p>
+            <h1 id="ws-hero-title" className="ws-hero-title">{name ? `Welcome back, ${name}` : 'Welcome back'}</h1>
+            <p className="ws-hero-lede">Here’s what’s happening in your workspace today.</p>
+          </div>
+          <time className="ws-hero-date" dateTime={new Date().toISOString().slice(0, 10)}>{today()}</time>
+          <HeroBuilding />
+        </section>
 
         {overview || members ? (
           <div className="ws-stats">
@@ -154,7 +223,7 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
                             <span className={s.pill}>{s.label}</span>
                           </div>
                         </div>
-                        <p className="ws-card-blurb" style={{ marginTop: 0 }}>{a.blurb}</p>
+                        <p className="ws-card-blurb ws-clamp-2" style={{ marginTop: 0 }} title={a.blurb}>{a.blurb}</p>
                         <div className="mt-auto">
                           {s.key === 'open' ? (
                             <button type="button" className="ws-btn ws-btn--quiet ws-btn--small ws-card-link" onClick={() => openApp?.(a.id)}>
