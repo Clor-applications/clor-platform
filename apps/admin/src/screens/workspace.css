@@ -570,11 +570,16 @@ button.ws-stat:hover {
 }
 .ws-panel-head {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 8px 12px;
+}
+.ws-panel-head > :not(h2) {
+  white-space: nowrap;
 }
 .ws-panel-title {
+  white-space: nowrap;
   font-size: 1.0625rem;
   font-weight: 600;
   letter-spacing: -0.01em;
@@ -746,7 +751,7 @@ button.ws-item:hover {
 
 /* ------------------------------------------------------------ older screens
  * Screens written before the redesign (branches, users, roles, sign-in,
- * credentials, audit, billing, export…) are framed by WsFrame and restyled
+ * credentials, audit, billing, export…) were framed and restyled here; all are now rebuilt, and My profile (shared with every app) is what still wears this
  * here, so every Workspace page shares one head, one surface, one table and
  * one primary button. Their markup and behaviour are unchanged.
  */
@@ -868,4 +873,19 @@ button.ws-item:hover {
 .ws input[type='checkbox'],
 .ws input[type='radio'] {
   accent-color: rgb(var(--ws-accent));
+}
+
+/* Drawer content: the drawer renders outside the page, so it wears .ws for the colours but none of the page frame. */
+.ws.ws-drawer {
+  padding: 0;
+  background: none;
+  min-height: 0;
+}
+.ws-pill--warn {
+  background: rgb(var(--ws-warn-soft));
+  color: rgb(var(--ws-warn));
+}
+.ws-pill--danger {
+  background: rgb(var(--ws-danger-soft));
+  color: rgb(var(--ws-danger));
 }

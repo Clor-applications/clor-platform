@@ -166,13 +166,16 @@ export default function Companies({ tenant, addCompany, switchCompany }) {
       </div>
 
       <Drawer open={adding} onClose={() => setAdding(false)} title="Add a company" description="A new legal entity in this account, with its own books, people and payroll.">
-        <AddCompanyForm
-          onCancel={() => setAdding(false)}
-          onAdd={async (body) => {
-            await addCompany(body);
-            setAdding(false);
-          }}
-        />
+        {/* The drawer renders outside the page; this carries the Workspace colours into it. */}
+        <div className="ws ws-drawer">
+          <AddCompanyForm
+            onCancel={() => setAdding(false)}
+            onAdd={async (body) => {
+              await addCompany(body);
+              setAdding(false);
+            }}
+          />
+        </div>
       </Drawer>
     </div>
   );

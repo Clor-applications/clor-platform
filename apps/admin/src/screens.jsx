@@ -8,11 +8,6 @@ import { SettingsUsers as SettingsUsersScreen } from './screens/SettingsUsers';
 import { SettingsRoles as SettingsRolesScreen } from './screens/SettingsRoles';
 import { SettingsBranches as SettingsBranchesScreen } from './screens/SettingsBranches';
 import { orgId as platformOrgId } from '@platform/context';
-import SecuritySettingsScreen from './screens/SecuritySettings';
-import SsoSettingsScreen from './screens/SsoSettings';
-import CredentialsScreen from './screens/Credentials';
-import AuditTrailScreen from './screens/AuditTrail';
-import { WsFrame } from './screens/wsKit';
 
 /**
  * Every screen the Workspace shows, in one place, so the
@@ -27,6 +22,10 @@ import { WsFrame } from './screens/wsKit';
 export { default as AdminHome } from './screens/AdminHome';
 export { default as OutsideAccess } from './screens/OutsideAccess';
 export { default as RolePermissionManager } from './screens/RolePermissionManager';
+export { default as SecuritySettings } from './screens/SecuritySettings';
+export { default as SsoSettings } from './screens/SsoSettings';
+export { default as Credentials } from './screens/Credentials';
+export { default as AuditTrail } from './screens/AuditTrail';
 export { default as Invitations } from './screens/Invitations';
 export { default as Members } from './screens/Members';
 export { default as AccountActivity } from './screens/AccountActivity';
@@ -43,7 +42,3 @@ export const AccountOverview = ({ tenant }) => <AccountOverviewScreen currentCom
 export const SettingsUsers = () => <SettingsUsersScreen orgId={platformOrgId()} />;
 export const SettingsRoles = () => <SettingsRolesScreen orgId={platformOrgId()} />;
 export const SettingsBranches = ({ tenant }) => <SettingsBranchesScreen orgId={platformOrgId()} company={companyOf(tenant)} />;
-export const SecuritySettings = (props) => <WsFrame crumbs={['Security', 'Sign-in and sessions']}><SecuritySettingsScreen {...props} /></WsFrame>;
-export const SsoSettings = (props) => <WsFrame crumbs={['Security', 'Single sign-on']}><SsoSettingsScreen {...props} /></WsFrame>;
-export const Credentials = (props) => <WsFrame crumbs={['Security', 'Credentials']}><CredentialsScreen {...props} /></WsFrame>;
-export const AuditTrail = (props) => <WsFrame crumbs={['Security', 'Audit trail']}><AuditTrailScreen {...props} /></WsFrame>;

@@ -68,27 +68,6 @@ export const ICON = {
   timesheet: colorIcon(CalendarClockColor, 'CalendarClock'),
 };
 
-/** Frames a screen written before the redesign: Workspace ground, width and restyled primitives (workspace.css, "older screens"). */
-export function WsFrame({ crumbs = [], children }) {
-  return (
-    <div className="ws ws-legacy">
-      <div className="ws-inner" style={{ gap: 12 }}>
-        {crumbs.length ? (
-          <nav className="ws-crumbs" aria-label="Breadcrumb">
-            {crumbs.map((c, i) => (
-              <React.Fragment key={`${c}-${i}`}>
-                {i ? <ChevronRight size={14} aria-hidden="true" /> : null}
-                <span aria-current={i === crumbs.length - 1 ? 'page' : undefined}>{c}</span>
-              </React.Fragment>
-            ))}
-          </nav>
-        ) : null}
-        <div>{children}</div>
-      </div>
-    </div>
-  );
-}
-
 /** A product's icon, by app id. */
 export const productIcon = (id) => ICON[id === 'people' ? 'people_app' : id] || ICON.apps;
 
@@ -173,6 +152,16 @@ export function Meter({ label, used, limit }) {
       )}
     </div>
   );
+}
+
+/** A session's device in words — "Chrome on Mac" — from its user agent; "Script or API client" for curl and the like. */
+export function device(ua = '') {
+  const u = String(ua);
+  if (!u) return 'Unknown device';
+  if (/curl|wget|python|node|axios|okhttp|postman/i.test(u)) return 'Script or API client';
+  const browser = /Edg\//.test(u) ? 'Edge' : /OPR\//.test(u) ? 'Opera' : /Firefox\//.test(u) ? 'Firefox' : /Chrome\//.test(u) ? 'Chrome' : /Safari\//.test(u) ? 'Safari' : 'Browser';
+  const os = /iPhone|iPad/.test(u) ? 'iPhone' : /Android/.test(u) ? 'Android' : /Mac OS X|Macintosh/.test(u) ? 'Mac' : /Windows/.test(u) ? 'Windows' : /Linux/.test(u) ? 'Linux' : '';
+  return os ? `${browser} on ${os}` : browser;
 }
 
 /** "3 hours ago" from a date, in words. */

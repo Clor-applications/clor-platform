@@ -5,7 +5,7 @@ import { accountAudit, listInvitations, memberDirectory } from '@platform/admin/
 import { getMySessions, getPolicy, getProviders } from '@platform/admin/security';
 import { listCredentials } from '@platform/admin/credentials';
 import { ACTION_WORDS } from './AccountActivity';
-import { ICON, PageHead, Panel, Stat, ago } from './wsKit';
+import { ICON, PageHead, Panel, Stat, ago, device } from './wsKit';
 import './workspace.css';
 
 /**
@@ -212,7 +212,7 @@ export function SecurityHome({ navItems = [], openScreen }) {
                       <div className="ws-item">
                         <span className="ws-tile" aria-hidden="true"><ICON.secure size={18} /></span>
                         <span className="ws-item-text">
-                          <span className="ws-item-title">{/Mobile|Android|iPhone/i.test(x.userAgent || '') ? 'Phone' : 'Computer'}{x.ip ? ` · ${x.ip}` : ''}</span>
+                          <span className="ws-item-title">{device(x.userAgent)}{x.ip ? ` · ${x.ip}` : ''}</span>
                           <span className="ws-item-sub">Last used {ago(x.lastSeenAt || x.createdAt)}</span>
                         </span>
                       </div>

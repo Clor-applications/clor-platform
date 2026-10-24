@@ -1,9 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { History, RefreshCw } from 'lucide-react';
+import { Download, RefreshCw, Search } from 'lucide-react';
 
-import { PageHeader, EmptyState } from '@ui/components/ui/Primitives';
+import { exportRows } from '@ui/components/ListToolbar';
 import { listAudit, listAuditFacets } from '@platform/admin/audit';
 import { hasApp } from '@platform/context';
+import { PageHead } from './wsKit';
+import './workspace.css';
 
 /*
  * One trail for the company (ADR-010), with each app's share a tab away: an
@@ -57,22 +59,18 @@ const entityLabel = (entity) => {
   return words ? words[0].toUpperCase() + words.slice(1) : '';
 };
 
-const ACTION_TONE = {
-  CREATE: 'pos',
-  UPDATE: 'warn',
-  STATUS: 'warn',
-  DELETE: 'neg',
+/* An action's pill: made is good news, removed is the one to notice, every other change is plain. Always in words. */
+const ACTION_STYLE = {
+  CREATE: { className: 'ws-pill ws-pill--ok' },
+  DELETE: { className: 'ws-pill', style: { color: 'rgb(var(--ws-danger))', background: 'rgb(var(--ws-danger-soft))' } },
 };
+const actionWords = (a) => String(a || '').replace(/_/g, ' ').toLowerCase().replace(/^./, (c) => c.toUpperCase());
 
 const ActionPill = ({ action }) => {
-  const tone = ACTION_TONE[action] || 'warn';
+  const look = ACTION_STYLE[action] || { className: 'ws-pill' };
   return (
-    <span
-      className="inline-block max-w-full truncate rounded-full px-2 py-0.5 text-xs font-medium align-middle"
-      style={{ background: `rgb(var(--${tone}-soft))`, color: `rgb(var(--${tone}-ink))` }}
-      title={action}
-    >
-      {String(action || '').replace(/_/g, ' ')}
+    <span className={look.className} style={look.style} title={action}>
+      {actionWords(action)}
     </span>
   );
 };
@@ -110,16 +108,16 @@ const Changes = ({ metadata }) => {
   return (
     <div className="mt-1 space-y-0.5">
       {entries.map(([field, v]) => (
-        <div key={field} className="ui-caption">
-          <span className="ui-muted">{field}</span>{' '}
+        <div key={field} className="ws-head-meta" style={{ whiteSpace: 'normal' }}>
+          <span>{field}</span>{' '}
           {v && typeof v === 'object' && 'from' in v ? (
             <>
-              <span className="ui-mono">{String(v.from ?? '—')}</span>
-              <span className="ui-muted"> → </span>
-              <span className="ui-mono">{String(v.to ?? '—')}</span>
+              <span className="ui-mono" style={{ color: 'rgb(var(--ws-ink))' }}>{String(v.from ?? '—')}</span>
+              <span> → </span>
+              <span className="ui-mono" style={{ color: 'rgb(var(--ws-ink))' }}>{String(v.to ?? '—')}</span>
             </>
           ) : (
-            <span className="ui-mono">{short(valueText(v))}</span>
+            <span className="ui-mono" style={{ color: 'rgb(var(--ws-ink))' }}>{short(valueText(v))}</span>
           )}
         </div>
       ))}
@@ -187,141 +185,162 @@ export default function AuditTrail() {
     return [...byDay.entries()];
   }, [entries]);
 
+  const download = () =>
+    exportRows({
+      fileName: 'Audit trail',
+      label: 'entries',
+      columns: [
+        { key: 'when', label: 'When' },
+        { key: 'action', label: 'Action' },
+        { key: 'record', label: 'Record' },
+        { key: 'message', label: 'What happened' },
+        { key: 'by', label: 'By' },
+        { key: 'email', label: 'Email' },
+      ],
+      rows: entries.map((e) => ({
+        when: when(e.at),
+        action: e.action,
+        record: entityLabel(e.entity),
+        message: e.message || `${entityLabel(e.entity)} ${e.action}`,
+        by: e.by?.name || 'Unknown user',
+        email: e.by?.email || '',
+      })),
+    });
+
   return (
-    <div className="space-y-6">
-      <div className="flex items-start justify-between gap-3">
-        <PageHeader
-          entity="report"
-          title="Audit Trail"
-        />
-        <button type="button" onClick={() => load()} className="ui-btn ui-btn-secondary" disabled={loading}>
-          <RefreshCw size={16} aria-hidden="true" /> {loading ? 'Loading…' : 'Refresh'}
-        </button>
-      </div>
-
-      <div className="flex flex-wrap gap-1" role="tablist" aria-label="Whose changes">
-        {[{ id: '', label: 'Everything' }, ...offered()].map((a) => (
-          <button
-            key={a.id || 'all'}
-            type="button"
-            role="tab"
-            aria-selected={filters.app === a.id}
-            onClick={() => setFilters((p) => ({ ...p, app: a.id }))}
-            className={`ui-btn ${filters.app === a.id ? 'ui-btn-secondary' : 'ui-btn-ghost'}`}
-          >
-            {a.label}
-          </button>
-        ))}
-      </div>
-
-      <div className="ui-card flex flex-wrap items-end gap-3 p-4">
-        <div>
-          <label className="ui-label" htmlFor="audit-entity">
-            Record
-          </label>
-          <select id="audit-entity" value={filters.entity} onChange={set('entity')} className="ui-select">
-            <option value="">All</option>
-            {facets.entities.map((e) => (
-              <option key={e} value={e}>
-                {entityLabel(e)}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="ui-label" htmlFor="audit-action">
-            Action
-          </label>
-          <select id="audit-action" value={filters.action} onChange={set('action')} className="ui-select">
-            <option value="">All</option>
-            {facets.actions.map((a) => (
-              <option key={a} value={a}>
-                {a}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="ui-label" htmlFor="audit-from">
-            From
-          </label>
-          <input id="audit-from" type="date" value={filters.from} onChange={set('from')} className="ui-input" />
-        </div>
-        <div>
-          <label className="ui-label" htmlFor="audit-to">
-            To
-          </label>
-          <input id="audit-to" type="date" value={filters.to} onChange={set('to')} className="ui-input" />
-        </div>
-        <div className="min-w-[14rem] flex-1">
-          <label className="ui-label" htmlFor="audit-q">
-            Contains
-          </label>
-          <input
-            id="audit-q"
-            type="text"
-            value={filters.q}
-            onChange={set('q')}
-            className="ui-input w-full"
-            placeholder="Invoice number, name…"
-          />
-        </div>
-      </div>
-
-      {failed ? (
-        <div className="ui-card p-4 text-sm" style={{ color: 'rgb(var(--neg-ink))' }}>
-          The trail could not be read: {failed}
-        </div>
-      ) : null}
-
-      {!entries.length && !loading ? (
-        <div className="ui-card">
-          <EmptyState
-            icon={History}
-      title="Nothing recorded yet"
-            description="Edits, status changes and deletions appear here as they happen."
-          />
-        </div>
-      ) : (
-        <div className="space-y-6">
-          {grouped.map(([day, rows]) => (
-            <div key={day}>
-              <div className="ui-label mb-2">{day}</div>
-              <div className="ui-card divide-y">
-                {rows.map((e) => (
-                  <div key={e.id} className="flex items-start gap-3 px-4 py-3">
-                    <div className="w-28 shrink-0 ui-caption ui-muted">{when(e.at)}</div>
-                    <div className="w-24 shrink-0">
-                      <ActionPill action={e.action} />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="text-sm">{e.message || `${entityLabel(e.entity)} ${e.action}`}</div>
-                      <Changes metadata={e.metadata} />
-                    </div>
-                    <div className="w-44 shrink-0 text-right">
-                      <div className="text-sm">{e.by?.name || 'Unknown user'}</div>
-                      <div className="ui-caption ui-muted truncate">{e.by?.email || ''}</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
-
-          {cursor ? (
-            <div className="flex justify-center">
-              <button
-                type="button"
-                onClick={() => load({ cursor })}
-                className="ui-btn ui-btn-secondary"
-                disabled={loading}
-              >
-                {loading ? 'Loading…' : 'Load older entries'}
+    <div className="ws">
+      <div className="ws-inner">
+        <PageHead
+          crumbs={['Security', 'Audit trail']}
+          title="Audit trail"
+          description="Who changed what, and when, across this company. Read-only: nothing here can edit or remove an entry."
+          actions={
+            <>
+              <button type="button" onClick={() => load()} className="ws-btn ws-btn--quiet" disabled={loading}>
+                <RefreshCw size={16} aria-hidden="true" /> {loading ? 'Loading…' : 'Refresh'}
               </button>
-            </div>
-          ) : null}
+              <button type="button" onClick={download} className="ws-btn ws-btn--primary" disabled={!entries.length}>
+                <Download size={16} aria-hidden="true" /> Export shown
+              </button>
+            </>
+          }
+        />
+
+        <div className="flex flex-wrap gap-1" role="tablist" aria-label="Whose changes">
+          {[{ id: '', label: 'Everything' }, ...offered()].map((a) => {
+            const on = filters.app === a.id;
+            return (
+              <button
+                key={a.id || 'all'}
+                type="button"
+                role="tab"
+                aria-selected={on}
+                onClick={() => setFilters((p) => ({ ...p, app: a.id }))}
+                className="ws-btn ws-btn--quiet ws-btn--small"
+                style={on ? { background: 'rgb(var(--ws-accent-soft))', borderColor: 'rgb(var(--ws-accent) / 0.35)', color: 'rgb(var(--ws-accent-hover))' } : undefined}
+              >
+                {a.label}
+              </button>
+            );
+          })}
         </div>
-      )}
+
+        <div className="flex flex-wrap items-end gap-3" role="search">
+          <label className="relative grid gap-1 flex-1 min-w-[14rem]">
+            <span className="text-sm font-medium">Contains</span>
+            <span className="relative">
+              <Search size={16} aria-hidden="true" className="absolute left-3 top-1/2 -translate-y-1/2 ui-muted" />
+              <input id="audit-q" type="text" value={filters.q} onChange={set('q')} className="ui-input w-full" style={{ paddingLeft: '2.25rem' }} placeholder="Invoice number, name…" />
+            </span>
+          </label>
+          <label className="grid gap-1">
+            <span className="text-sm font-medium">Record</span>
+            <select id="audit-entity" value={filters.entity} onChange={set('entity')} className="ui-select">
+              <option value="">All</option>
+              {facets.entities.map((e) => (
+                <option key={e} value={e}>{entityLabel(e)}</option>
+              ))}
+            </select>
+          </label>
+          <label className="grid gap-1">
+            <span className="text-sm font-medium">Action</span>
+            <select id="audit-action" value={filters.action} onChange={set('action')} className="ui-select">
+              <option value="">All</option>
+              {facets.actions.map((a) => (
+                <option key={a} value={a}>{actionWords(a)}</option>
+              ))}
+            </select>
+          </label>
+          <label className="grid gap-1">
+            <span className="text-sm font-medium">From</span>
+            <input id="audit-from" type="date" value={filters.from} onChange={set('from')} className="ui-input" />
+          </label>
+          <label className="grid gap-1">
+            <span className="text-sm font-medium">To</span>
+            <input id="audit-to" type="date" value={filters.to} onChange={set('to')} className="ui-input" />
+          </label>
+        </div>
+
+        {failed ? (
+          <p className="text-sm" role="alert" style={{ color: 'rgb(var(--neg))' }}>The trail could not be read: {failed}</p>
+        ) : null}
+
+        {!entries.length && !loading ? (
+          <div className="ws-setup">
+            <p className="ws-card-blurb">Nothing recorded for these filters. Edits, status changes and deletions appear here as they happen.</p>
+          </div>
+        ) : !entries.length ? (
+          <p className="ws-card-blurb">Loading the trail…</p>
+        ) : (
+          <>
+            <div className="ws-table-wrap">
+              <table className="ws-table">
+                <caption className="sr-only">Audit trail entries, newest first</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">When</th>
+                    <th scope="col">Action</th>
+                    <th scope="col">What happened</th>
+                    <th scope="col">By</th>
+                  </tr>
+                </thead>
+                {grouped.map(([day, rows]) => (
+                  <tbody key={day}>
+                    <tr>
+                      <th scope="rowgroup" colSpan={4} style={{ textAlign: 'left' }}>{day}</th>
+                    </tr>
+                    {rows.map((e) => (
+                      <tr key={e.id}>
+                        <td style={{ verticalAlign: 'top' }}>{when(e.at)}</td>
+                        <td style={{ verticalAlign: 'top' }}><ActionPill action={e.action} /></td>
+                        <td style={{ whiteSpace: 'normal', overflowWrap: 'anywhere', minWidth: 280, maxWidth: 640, verticalAlign: 'top' }}>
+                          <div>{e.message || `${entityLabel(e.entity)} ${e.action}`}</div>
+                          <Changes metadata={e.metadata} />
+                        </td>
+                        <td style={{ verticalAlign: 'top' }}>
+                          <div>{e.by?.name || 'Unknown user'}</div>
+                          <div className="ws-head-meta">{e.by?.email || ''}</div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                ))}
+              </table>
+            </div>
+
+            <nav className="flex items-center gap-3" aria-label="Pages">
+              <span className="ws-head-meta">{entries.length} {entries.length === 1 ? 'entry' : 'entries'} shown</span>
+              {cursor ? (
+                <button type="button" onClick={() => load({ cursor })} className="ws-btn ws-btn--quiet ws-btn--small" disabled={loading}>
+                  {loading ? 'Loading…' : 'Load older entries'}
+                </button>
+              ) : (
+                <span className="ws-head-meta">· the start of the trail</span>
+              )}
+            </nav>
+          </>
+        )}
+      </div>
     </div>
   );
 }
