@@ -827,6 +827,20 @@ model AccountInvitation {
   @@index([accountId, email])
 }
 
+/// W-6.1: one row while an account is changing something its plan counts
+/// (companies, users). "Count, then create" in two requests at once let both
+/// pass a limit; the unique key makes the second wait for the first. A row
+/// older than 30 seconds is a crashed holder's and is taken over.
+model AccountQuotaLock {
+  accountId String
+  /// COMPANIES | USERS
+  metric    String
+  lockedAt  DateTime @default(now())
+  holder    String
+
+  @@id([accountId, metric])
+}
+
 /// What was done to the account itself — its owners and members' account
 /// roles — where AuditLog (which needs a company and a branch) has no place.
 /// Plain words in `message`; no secrets or personal data beyond who and what.

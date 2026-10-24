@@ -35,6 +35,7 @@ import {
 import { outsideTenant, runInTenant } from '../utils/tenantScope.js';
 import { OutsideAccessError, checkOutsideTerms, grantOutsideAccess, refusalOf } from '../services/outsideAccess.js';
 import { ensureAccountMembership } from '../services/accountMembership.js';
+import { QuotaBusyError, lockQuota } from '../services/quotaLock.js';
 
 export const usersRouter = Router();
 usersRouter.use(requireAuth, requireTenantContext);
@@ -634,6 +635,15 @@ usersRouter.post('/users', requirePermission('SETTINGS', PermissionAction.CREATE
    * An account with no entitlement row is on the default plan, which is
    * unlimited, so this refuses nobody until a plan is deliberately assigned.
    */
+  /* W-6.1: the seat check and the new login happen under the account's quota lock; released when the response ends, whatever path it takes. */
+  let releaseQuota: () => Promise<void>;
+  try {
+    releaseQuota = await lockQuota(accountId, 'USERS');
+  } catch (e) {
+    if (e instanceof QuotaBusyError) return res.status(e.status).json({ error: e.message, code: e.code });
+    throw e;
+  }
+  res.once('close', () => void releaseQuota().catch(() => {}));
   const seatsFull = await userLimitReason(accountId);
   if (seatsFull) return res.status(403).json({ error: seatsFull, code: 'USER_LIMIT' });
 
@@ -740,6 +750,8 @@ usersRouter.post('/users', requirePermission('SETTINGS', PermissionAction.CREATE
       },
       select: { id: true, email: true, fullName: true, accountId: true },
     }));
+  /* The login now exists and counts: the next request may check. */
+  await releaseQuota();
   /* A new login belongs to this account (W-1.1); an invited person from elsewhere keeps their own account. */
   if (!invited) await ensureAccountMembership(accountId, user.id, 'MEMBER', createdByUserId);
   // A new person is numbered in the company that added them; someone who

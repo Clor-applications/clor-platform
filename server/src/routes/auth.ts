@@ -43,6 +43,7 @@ import { requireAuth as requireLiveAuth } from '../middleware/auth.js';
 import { APP_CATALOG } from '../constants/appCatalog.js';
 import { appAccess } from '../services/subscriptions.js';
 import { ACCOUNT_ADMINS, accountRoleOf } from '../services/accountMembership.js';
+import { QuotaBusyError, lockQuota } from '../services/quotaLock.js';
 import { acrossCompanies, outsideTenant } from '../utils/tenantScope.js';
 import { closedForOutsider } from '../services/outsideAccess.js';
 
@@ -759,17 +760,6 @@ authRouter.post('/setup-company', requireLiveAuth, async (req: Request, res: Res
 
   // Create org + head-office branch, assign memberships
   /*
-   * The plan's company allowance, checked before anything is created.
-   *
-   * An account with no entitlement row is on the default plan, which is
-   * unlimited — so this refuses nobody until a plan is deliberately assigned.
-   */
-  const overLimit = await companyLimitReason(auth.accountId);
-  if (overLimit) {
-    return res.status(403).json({ error: overLimit, code: 'COMPANY_LIMIT' });
-  }
-
-  /*
    * A-04 / W-1.4: whoever creates a company becomes its Administrator, so
    * creating one is an account-level act. Allowed for the account's very first
    * company (signup) and, after that, for an owner or administrator of the
@@ -815,17 +805,37 @@ authRouter.post('/setup-company', requireLiveAuth, async (req: Request, res: Res
     gstin: gstin || null,
   });
 
-  const org = await platformPrisma.org.create({
-    data: {
-      accountId: auth.accountId,
-      name: body.companyName.trim(),
-      legalName: body.companyName.trim(),
-      slug,
-      profileJson,
-      createdByUserId: auth.userId,
-    },
-    select: { id: true, name: true, slug: true },
-  });
+  /*
+   * The plan's company allowance, checked and used under the account's quota
+   * lock (W-6.1): two requests at once can no longer both see room. An
+   * account with no entitlement row is on the default plan, which is
+   * unlimited — so this refuses nobody until a plan is deliberately assigned.
+   */
+  let releaseQuota: () => Promise<void>;
+  try {
+    releaseQuota = await lockQuota(auth.accountId, 'COMPANIES');
+  } catch (e) {
+    if (e instanceof QuotaBusyError) return res.status(e.status).json({ error: e.message, code: e.code });
+    throw e;
+  }
+  let org: { id: string; name: string; slug: string | null };
+  try {
+    const overLimit = await companyLimitReason(auth.accountId);
+    if (overLimit) return res.status(403).json({ error: overLimit, code: 'COMPANY_LIMIT' });
+    org = await platformPrisma.org.create({
+      data: {
+        accountId: auth.accountId,
+        name: body.companyName.trim(),
+        legalName: body.companyName.trim(),
+        slug,
+        profileJson,
+        createdByUserId: auth.userId,
+      },
+      select: { id: true, name: true, slug: true },
+    });
+  } finally {
+    await releaseQuota();
+  }
   await assignOrgCode(auth.accountId, org.id, body.companyName.trim());
   await assignUserCode(auth.userId, org.id);
 

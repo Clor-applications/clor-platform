@@ -7,6 +7,7 @@ import { userIsAdmin } from './roleGuards.js';
 import { userLimitReason } from './entitlements.js';
 import { sendTemplate } from './mailer.js';
 import { ACCOUNT_ADMINS, accountRoleOf, recordAccountEvent, type AccountRole } from './accountMembership.js';
+import { lockQuota } from './quotaLock.js';
 
 /**
  * Workspace W-3: inviting a person into the account.
@@ -271,6 +272,12 @@ export async function acceptInvitation(input: { token?: unknown; signedInUserId?
       const fullName = String(input.fullName || '').trim();
       if (fullName.length < 2) throw new InvitationError(400, 'Tell us your name.', 'BAD_NAME');
       if (password.length < 8) throw new InvitationError(400, 'Choose a password of at least eight characters.', 'BAD_PASSWORD');
+    }
+
+    /* W-6.1: a new login is counted against the plan under the account's quota lock. */
+    const releaseQuota = user ? null : await lockQuota(row.accountId, 'USERS');
+    try {
+    if (!user) {
       const full = await userLimitReason(row.accountId);
       if (full) throw new InvitationError(403, full, 'USER_LIMIT');
     }
@@ -293,7 +300,10 @@ export async function acceptInvitation(input: { token?: unknown; signedInUserId?
         select: { id: true, accountId: true, isActive: true },
       });
     }
-    const userId = user.id;
+    } finally {
+      if (releaseQuota) await releaseQuota();
+    }
+    const userId = user!.id;
 
     await platformPrisma.accountMembership.upsert({
       where: { accountId_userId: { accountId: row.accountId, userId } },

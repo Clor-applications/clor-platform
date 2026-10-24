@@ -4,6 +4,7 @@ import type { Response } from 'express';
 import { requireAuth } from '../middleware/auth.js';
 import { signupLimiter } from '../middleware/rateLimit.js';
 import { InvitationError, acceptInvitation, previewInvitation } from '../services/accountInvitations.js';
+import { QuotaBusyError } from '../services/quotaLock.js';
 
 /**
  * Workspace W-3: the invited person's side of an invitation. Reached from the
@@ -13,7 +14,7 @@ import { InvitationError, acceptInvitation, previewInvitation } from '../service
 export const invitationsRouter = Router();
 
 const fail = (res: Response, e: unknown) => {
-  if (e instanceof InvitationError) return res.status(e.status).json({ error: e.message, code: e.code });
+  if (e instanceof InvitationError || e instanceof QuotaBusyError) return res.status(e.status).json({ error: e.message, code: e.code });
   throw e;
 };
 
