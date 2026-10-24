@@ -93,7 +93,7 @@ export default function Members() {
   return (
     <div className="ws">
       <div className="ws-inner">
-        <PageHead crumbs={['Access', 'Members']} title="Members" />
+        <PageHead crumbs={['Access', 'Members']} scope="account" title="Members" />
 
         {data?.members?.length ? (
           (() => {

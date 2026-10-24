@@ -40,7 +40,7 @@ export default function BillingPreview() {
     <div className="ws">
       <div className="ws-inner">
         <PageHead
-          crumbs={['Plan', 'Billing']}
+          crumbs={['Plan', 'Billing']} scope="account"
           title="Billing"
         />
 

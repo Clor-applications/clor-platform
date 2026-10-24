@@ -99,7 +99,7 @@ export default function Invitations({ tenant, companies = [] }) {
     <div className="ws">
       <div className="ws-inner">
         <PageHead
-          crumbs={['Access', 'Invitations']}
+          crumbs={['Access', 'Invitations']} scope="account"
           title="Invitations"
           actions={
             <button type="button" className="ws-btn ws-btn--primary" onClick={() => { setInviting(true); setNotice(''); setError(''); }}>

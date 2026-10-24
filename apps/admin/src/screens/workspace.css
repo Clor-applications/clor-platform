@@ -7,12 +7,12 @@
  */
 :root {
   /* Workspace tokens, global so drawers and menus (rendered outside .ws) wear them too. Only Workspace classes read them. */
-  --ws-bg: 250 250 247;
+  --ws-bg: 248 248 249;
   --ws-surface: 255 255 255;
-  --ws-stone: 244 243 239;
-  --ws-ink: 37 38 38;
-  --ws-muted: 112 115 111;
-  --ws-line: 229 230 225;
+  --ws-stone: 244 244 245;
+  --ws-ink: 39 39 42;
+  --ws-muted: 113 113 122;
+  --ws-line: 228 228 231;
   --ws-accent: 244 81 30;
   --ws-accent-hover: 217 67 19;
   --ws-accent-soft: 255 240 232;
@@ -26,12 +26,12 @@
 }
 
 .ws {
-  --ws-bg: 250 250 247;
+  --ws-bg: 248 248 249;
   --ws-surface: 255 255 255;
-  --ws-stone: 244 243 239;
-  --ws-ink: 37 38 38;
-  --ws-muted: 112 115 111;
-  --ws-line: 229 230 225;
+  --ws-stone: 244 244 245;
+  --ws-ink: 39 39 42;
+  --ws-muted: 113 113 122;
+  --ws-line: 228 228 231;
   --ws-accent: 244 90 40;
   --ws-accent-hover: 221 77 30;
   --ws-accent-soft: 253 236 229;
@@ -800,8 +800,8 @@ button.ws-item:hover {
  */
 .ws-legacy {
   /* The blue heading band of the older screens becomes the page ground. */
-  --heading-bg: 250 250 247;
-  --page-heading-bg: 250 250 247;
+  --heading-bg: 248 248 249;
+  --page-heading-bg: 248 248 249;
 }
 /* A list screen whose first row is its own toolbar: the toolbar's name reads as the page title. */
 .ws-legacy [class*='toolbar']:first-child {
@@ -957,7 +957,7 @@ button.ws-item:hover {
  * label above, 40px control, help or error below, Blaze focus ring.
  */
 :root {
-  --ws-field: 206 208 201;
+  --ws-field: 212 212 216;
 }
 .ws :is(.ui-input, .ui-select, select, textarea,
   input:is([type='text'], [type='email'], [type='tel'], [type='number'], [type='password'], [type='date'], [type='search'], [type='url'], :not([type]))) {
@@ -1322,16 +1322,18 @@ button.ws-item:hover {
  * office on the right that fades into the card.
  */
 :root {
-  /* Cards are a soft veil of white over the page ground, not opaque slabs:
-     they lift a little and let the warm ground show through. */
-  --ws-card-bg: rgb(255 255 255 / 0.62);
-  --ws-card-line: rgb(229 230 225 / 0.75);
+  /* Cards are a soft veil of white over the page ground, not opaque slabs.
+     The ground is the shell's own cool neutral (zinc), so the rail, the bar
+     and the page read as one surface — a warm cream beside the cool rail read
+     as faintly dingy. */
+  --ws-card-bg: rgb(255 255 255 / 0.72);
+  --ws-card-line: rgb(228 228 231 / 0.85);
 }
 :root {
   /* Welcome banner (spec: banner refinement). */
-  --ws-hero-line: 232 234 230;
-  --ws-hero-ink: 34 38 36;
-  --ws-hero-muted: 112 117 112;
+  --ws-hero-line: 228 228 231;
+  --ws-hero-ink: 39 39 42;
+  --ws-hero-muted: 113 113 122;
 }
 .ws-hero {
   position: relative;
@@ -1660,4 +1662,19 @@ button.ws-item:hover {
 .ws .ui-help-search input,
 .ws input[style*='padding-left'] {
   padding-left: 36px !important;
+}
+
+/* A page that covers the whole account, not the company in the bar. */
+.ws-scope {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 12px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  vertical-align: middle;
+  background: rgb(var(--ws-stone));
+  color: rgb(var(--ws-muted));
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0;
 }

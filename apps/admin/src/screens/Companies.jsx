@@ -72,7 +72,7 @@ export default function Companies({ tenant, addCompany, switchCompany, companies
     <div className="ws">
       <div className="ws-inner">
         <PageHead
-          crumbs={['Company', 'Companies']}
+          crumbs={['Company', 'Companies']} scope="account"
           title="Companies"
           actions={
             addCompany ? (

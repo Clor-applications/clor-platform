@@ -799,8 +799,7 @@ export default function Shell() {
 
           {/* The app switcher. Named for the app you are in, because that is the
               question it answers before it is the control it offers. The
-              Workspace leaves it out, with the company picker: its Overview
-              opens the apps and its Companies page switches company. */}
+              Workspace leaves it out: its Overview opens the apps. */}
           {app && !inWorkspace ? (
             <div className="relative" ref={switcherRef}>
               <button
@@ -889,7 +888,8 @@ export default function Shell() {
           <div className="flex-1" />
 
           {/* On a phone the bar holds menu, mark, app, profile and sign-out; one company needs no picker and the theme follows the phone. */}
-          {!inWorkspace && (!phone || tenants.length > 1) ? (
+          {/* The company in use. The Workspace shows it too: half its pages change only this company. */}
+          {!phone || tenants.length > 1 ? (
             <select
               className="ui-select ui-select-sm min-w-0"
               style={{ width: 'auto', minWidth: phone ? '4rem' : '12rem', maxWidth: phone ? '30vw' : undefined }}

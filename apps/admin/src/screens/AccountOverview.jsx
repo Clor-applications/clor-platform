@@ -137,7 +137,7 @@ export default function AccountOverview({ currentCompany, onOpenCompany = null }
     <div className="ws">
       <div className="ws-inner">
         <PageHead
-          crumbs={['Plan', 'Subscription']}
+          crumbs={['Plan', 'Subscription']} scope="account"
           title={data?.account?.name || 'Account'}
           actions={
             data ? (

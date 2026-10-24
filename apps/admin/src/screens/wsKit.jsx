@@ -103,7 +103,12 @@ export function goBack(fallback = 'home') {
 }
 
 /** Page head: where you are, what this page is, its one primary action. */
-export function PageHead({ crumbs = [], title, description, meta, actions }) {
+/**
+ * `scope="account"` marks a page that covers every company in the account
+ * (Companies, Members, Plan…); every other Workspace page acts on the company
+ * chosen in the bar, which the bar names.
+ */
+export function PageHead({ crumbs = [], title, description, meta, actions, scope }) {
   const section = crumbs[0];
   /* A section's own Overview page is a top: it has nowhere to go back to. */
   const isTop = crumbs.length < 2 || crumbs[crumbs.length - 1] === 'Overview';
@@ -135,7 +140,10 @@ export function PageHead({ crumbs = [], title, description, meta, actions }) {
             </nav>
           </div>
         ) : null}
-        <h1 className="ws-title">{title}</h1>
+        <h1 className="ws-title">
+          {title}
+          {scope === 'account' ? <span className="ws-scope">All companies</span> : null}
+        </h1>
         {description ? <p className="ws-lede">{description}</p> : null}
       </div>
       {meta || actions ? (

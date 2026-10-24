@@ -57,7 +57,7 @@ export default function AccountActivity() {
   return (
     <div className="ws">
       <div className="ws-inner">
-        <PageHead crumbs={['Security', 'Account activity']} title="Account activity" />
+        <PageHead crumbs={['Security', 'Account activity']} scope="account" title="Account activity" />
 
         <div className="flex flex-wrap gap-2 items-end" role="search">
           <select className="ui-select" aria-label="What happened" value={filters.action} onChange={set('action')} style={{ width: 'auto' }}>

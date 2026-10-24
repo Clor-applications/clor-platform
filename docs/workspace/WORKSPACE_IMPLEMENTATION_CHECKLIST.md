@@ -51,13 +51,13 @@ Audited on branch `claude/subscription-provisioning-gap-003-b84bad` (PR #23).
 | W-3.1 | Invitations: hashed single-use token, expiry, resend, revoke, idempotent accept, audit, seat policy documented | DB, server, UI | TESTED | W-1.1 | High |
 | W-3.2 | Invite wizard with access preview; no granting above own authority | UI, server | TESTED | W-3.1 | High |
 | W-4.1 | Members directory with filters; member detail with effective access (accounts, companies, apps, roles, scopes, who granted, when) | UI, server | TESTED | W-1.1 | Medium |
-| W-4.2 | Per-person app assignment (separate from subscription) | DB, server, UI | IN_PROGRESS | W-1.1 | High |
+| W-4.2 | Per-person app assignment (separate from subscription) | DB, server, UI | ACCEPTED (decided 25 Oct 2026: no separate assignment — what a person opens comes from their company roles; `appsOfPermissions`, Users › role, Setup guide step "Give everyone access") | W-1.1 | High |
 | W-4.3 | Suspend / remove from company / revoke app / remove from account as separate actions | Server, UI | TESTED | W-4.1 | Medium |
 | W-5.1 | Role catalogue grouped Workspace / Company / per app, from the existing permission catalogue | UI | TESTED | — | Low |
 | W-5.2 | Step-up for role elevation, SSO change, payroll-sensitive grants | Server | TESTED | — | Medium |
 | W-6.1 | Plan limits as data, not code (`planCatalog.ts`); atomic quota checks (today check-then-write) | DB, server | TESTED | — | High |
 | W-6.2 | Products & subscriptions page; subscription detail; usage page by product | UI | IN_PROGRESS | W-6.1 | Medium |
-| W-6.3 | Payment provider integration (webhook signature, idempotency) | Server | BLOCKED | gateway not chosen | High |
+| W-6.3 | Payment provider integration (webhook signature, idempotency) | Server | DEFERRED (decided 25 Oct 2026: no paid provider until every app is ready; `ManualGateway` in `server/src/billing/gateway.ts` runs free and hand-granted plans with no fees; Cashfree or Razorpay is one adapter later) | gateway not chosen | High |
 | W-7.1 | Security centre: privileged members, own and admin session revoke, sign-in events | UI, server | TESTED | W-1.1 | Medium |
 | W-7.2 | Audit page with filters and detail drawer, account-scoped | UI | TESTED | W-1.3 | Low |
 | W-7.3 | Profile, account settings, notification preferences | UI, server | TESTED | W-1.1 | Low |
@@ -106,3 +106,8 @@ Audited on branch `claude/subscription-provisioning-gap-003-b84bad` (PR #23).
 - zod 3 high advisory (GHSA-mrhx-c7xc-m3w5): fixed only in zod 4; server upgrade (69 files) pending.
 - 8 tests fail on the branch before any Workspace change (`settingsRegistry.test.js` 5, `accountArea.test.jsx` 3).
 - Production still needs A-36 (non-BYPASSRLS runtime role) before PR #23's server is deployed.
+
+## 25 Oct 2026 — release audit fixes
+
+- Company in use is named in the Workspace bar again (company selector), because half the Workspace's pages act on that company alone; pages that cover the whole account carry an "All companies" tag (Companies, Members, Invitations, Account activity, Subscription, Billing).
+- Workspace ground moved to the shell's cool neutral (zinc) so bar, rail and page are one surface.
