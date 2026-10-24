@@ -28,7 +28,7 @@ export { default as ReaderSync } from './screens/ReaderSync';
 export { default as UnmatchedPunches } from './screens/UnmatchedPunches';
 export { default as Enrolments } from './screens/Enrolments';
 export { default as Transactions, Punches } from './screens/Transactions';
-/* One audit trail for the company, in Company admin (ADR-010); this opens it on People and Attendance's share. */
+/* One audit trail for the company, in Workspace (ADR-010); this opens it on People and Attendance's share. */
 export const AuditLogs = () => React.createElement(OpenInCompanyAdmin, { title: 'Audit Logs', screen: 'audit', forApp: 'attendance' });
 export { default as PayrollReadiness } from './screens/PayrollReadiness';
 export { default as Checklists } from '@ui/personnel/Checklists';
@@ -52,7 +52,7 @@ export { default as DataImport } from './screens/DataImport';
 export { default as DataExport } from './screens/DataExport';
 export { default as DataRequests } from './screens/DataRequests';
 export { default as DataProtection } from './screens/DataProtection';
-/* Sign-in, SSO, users and roles are the company's: they live in Company admin (ADR-010), and this entry opens it. */
+/* Sign-in, SSO, users and roles are the company's: they live in Workspace (ADR-010), and this entry opens it. */
 export const SsoSettings = () => React.createElement(OpenInCompanyAdmin, { title: 'Users & Security', screen: 'sso' });
 export { default as Exceptions } from './screens/Exceptions';
 export { default as MonthClose } from './screens/MonthClose';
@@ -65,6 +65,6 @@ export { default as OvertimePolicy } from './screens/OvertimePolicy';
 export { default as AttendanceSetup } from './screens/AttendanceSetup';
 export { default as ReportInsights } from './screens/ReportInsights';
 export { default as CloseCompany } from '@ui/company/CloseCompany';
-/* This app's roles and permissions, in Company admin's one role editor, opened on Attendance's share (ADR-010). */
+/* This app's roles and permissions, in Workspace's one role editor, opened on Attendance's share (ADR-010). */
 export const RolesAccess = () => React.createElement(OpenInCompanyAdmin, { title: 'Roles & Access', screen: 'permissions', forApp: 'attendance' });
 

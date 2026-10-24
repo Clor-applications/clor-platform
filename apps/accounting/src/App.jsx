@@ -236,8 +236,8 @@ export { ExpensesList, ExpenseForm, JournalEntryForm, ChartAccountForm };
 /**
  * Settings keys that used to open Accounting's own copies of the company's
  * administration — users, roles, sign-in, branches, the account. They live in
- * Company admin now (ADR-010); a bookmark, a notification or a habit that
- * still opens one is taken to the same page there. [title, Company admin screen]
+ * Workspace now (ADR-010); a bookmark, a notification or a habit that
+ * still opens one is taken to the same page there. [title, Workspace screen]
  */
 const COMPANY_ADMIN_REDIRECTS = {
   settingsBranches: ['Branches', 'branches'],
@@ -1504,7 +1504,7 @@ const AppShell = () => {
   const isKnownScreen = useCallback(
     (key) => {
       const want = String(key || '');
-      /* An old link to the company's administration is kept: it opens the same page in Company admin (ADR-010). */
+      /* An old link to the company's administration is kept: it opens the same page in Workspace (ADR-010). */
       if (COMPANY_ADMIN_REDIRECTS[want]) return true;
       const featureList = HUB_SCREEN_FEATURES[want] || [];
       if (HUB_SCREENS.has(want)) return featureList.every((feature) => isEnabled(feature));
@@ -2201,7 +2201,7 @@ const AppShell = () => {
   /* The VIEW permission behind the open screen: the write guard turns it into "may you change anything here". */
   const activePerm = useMemo(() => permForActive(navModel, active) || settingFor(active)?.perm || null, [navModel, active]);
   const page = useMemo(() => {
-    /* Company administration moved to its own workspace (ADR-010): an old key leads there, to the same page. */
+    /* Workspaceistration moved to its own workspace (ADR-010): an old key leads there, to the same page. */
     const moved = COMPANY_ADMIN_REDIRECTS[active];
     if (moved) return <MovedToCompanyAdmin title={moved[0]} screen={moved[1]} />;
     switch (active) {

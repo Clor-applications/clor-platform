@@ -14,7 +14,7 @@ import {
 import { APP_LABEL, STATUS, actionsFor, appsText } from './outsideAccessModel';
 
 /**
- * Company admin → Outside access (GAP-006).
+ * Workspace → Outside access (GAP-006).
  *
  * People from other accounts this company has let in — its accountant, an
  * auditor — with what each may use here, until when, and who granted it.

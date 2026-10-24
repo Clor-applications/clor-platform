@@ -115,11 +115,11 @@ export default function Integrations() {
 
       <Connectors onShown={setShown} />
 
-      {/* Batch 5: API keys are managed with every other credential, in Company admin. */}
+      {/* Batch 5: API keys are managed with every other credential, in Workspace. */}
       <section className="ui-card flex flex-wrap items-center justify-between gap-3 p-4" aria-labelledby="keys-h">
         <div className="min-w-0">
           <h2 id="keys-h" className="ui-t-sec flex items-center gap-2"><KeyRound size={16} aria-hidden="true" /> API keys</h2>
-          <p className="ui-caption mt-1">API keys are now made, paused and revoked under Company admin → Credentials, with every other key and token this company has given out.</p>
+          <p className="ui-caption mt-1">API keys are now made, paused and revoked under Workspace → Credentials, with every other key and token this company has given out.</p>
         </div>
         <button type="button" className="ui-btn ui-btn-secondary" onClick={() => requestOpenApp('admin', 'credentials')}>Open Credentials</button>
       </section>

@@ -12,7 +12,7 @@ import {
 } from '../services/outsideAccess.js';
 
 /**
- * GAP-006: Company admin → Outside access. The people from other accounts this
+ * GAP-006: Workspace → Outside access. The people from other accounts this
  * company has let in — accountants, auditors — what each may use, until when,
  * who granted it; and pausing, changing or ending it. Managed by whoever may
  * manage the company's users; never by the outside person themselves.

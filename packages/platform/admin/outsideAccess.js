@@ -1,7 +1,7 @@
 import { apiFetch } from '@platform/http';
 import { orgId as platformOrgId } from '@platform/context';
 
-/** Company admin → Outside access (GAP-006). */
+/** Workspace → Outside access (GAP-006). */
 const orgId = () => {
   const id = String(platformOrgId() || '').trim();
   if (!id) throw new Error('Missing active org. Please select an organization.');

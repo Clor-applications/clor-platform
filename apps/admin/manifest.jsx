@@ -21,7 +21,7 @@ const DataBackup = screen('DataBackup');
 const CloseCompany = screen('CloseCompany');
 
 /**
- * Company admin: the company's own workspace, not any one app's (ADR-010).
+ * Workspace: the company's own administration, not any one app's (ADR-010).
  *
  * Who works here and what they may do, how they sign in, what the company is
  * and what it pays for are the same answer in Accounting, Payroll, People and
@@ -41,7 +41,7 @@ const CloseCompany = screen('CloseCompany');
  */
 export const adminApp = {
   id: 'admin',
-  name: 'Company admin',
+  name: 'Workspace',
   icon: ShieldCheck,
   blurb: 'People, roles, sign-in, billing and the audit trail — for every app.',
   available: true,

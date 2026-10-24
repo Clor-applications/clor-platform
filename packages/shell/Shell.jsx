@@ -193,7 +193,7 @@ export default function Shell() {
   const [showMoreApps, setShowMoreApps] = useState(false);
 
   /* `open` names a screen inside the app (Accounting's settings): carried in the address so it survives the hop to the app's own host. */
-  /* `params` travel with it in the address too (Company admin's permissions opened for one app: ?for=payroll). */
+  /* `params` travel with it in the address too (Workspace's permissions opened for one app: ?for=payroll). */
   const openApp = (id, open = '', params = {}) => {
     const next = appById(id);
     const query = new URLSearchParams();
@@ -356,7 +356,7 @@ export default function Shell() {
      keeping the company, any ?open= and #/screen so a link into an app still
      lands on that company's screen (A-25: it kept only the #/screen). */
   const frontDoorHost = user && tenant && !emailLink && isFrontDoor() && activeAppId ? hostForApp(activeAppId) : null;
-  /* Company admin lives here: its host is this one, and forwarding to it would loop. */
+  /* Workspace lives here: its host is this one, and forwarding to it would loop. */
   const frontDoorTarget = frontDoorHost && frontDoorHost !== window.location.hostname ? frontDoorHost : null;
   useEffect(() => {
     if (!frontDoorTarget) return;
@@ -709,7 +709,7 @@ export default function Shell() {
                     onClick={() => openApp(ADMIN_APP_ID)}
                   >
                     <Settings size={16} aria-hidden="true" />
-                    <span className="text-sm">Company admin</span>
+                    <span className="text-sm">Workspace</span>
                   </button>
                 </div>
               ) : null}
@@ -907,10 +907,13 @@ export default function Shell() {
                         params={screenParams || undefined}
                         /* The screens this person may open, for a hub page (People's Settings) to list. */
                         navItems={nav}
-                        /* The company being looked at, its apps, and a way into one (Company admin's home). */
+                        /* The company being looked at, its apps, and a way into one (Workspace's home). */
                         tenant={tenant}
+                        user={user}
                         apps={mine}
+                        catalog={APPS}
                         openApp={openApp}
+                        openMoreApps={() => setShowMoreApps(true)}
                         openScreen={(key, params) => {
                           if (!app?.screens?.[key]) return;
                           setScreenKey(key);

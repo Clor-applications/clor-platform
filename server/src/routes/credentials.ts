@@ -27,7 +27,7 @@ import { createApiKey, revokeApiKey, rotateApiKey } from '../services/apiKeys.js
 import { SCOPES } from './publicApi.js';
 
 /**
- * Company admin → Credentials (Batch 5, R18): every key and token other
+ * Workspace → Credentials (Batch 5, R18): every key and token other
  * systems hold for this company, in one list, with what each can do now and
  * why not. API keys are made here (they used to live under Attendance →
  * Integrations). Connectors and readers are still set up on their Attendance

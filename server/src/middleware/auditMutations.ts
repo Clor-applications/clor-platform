@@ -22,7 +22,7 @@ import { platformPrisma } from '../utils/platformPrisma.js';
 const MODULES: Record<string, string> = { payroll: 'PAYROLL', attendance: 'ATTENDANCE', people: 'PEOPLE' };
 
 /**
- * The company's own administration, under the names Company admin's audit
+ * The company's own administration, under the names Workspace's audit
  * trail files as "Company" (routes/audit.ts). First match wins.
  */
 const COMPANY_ENTITIES: Array<[RegExp, string]> = [

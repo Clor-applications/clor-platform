@@ -132,7 +132,7 @@ export function onPlatformContextChange(fn) {
 }
 
 /**
- * Ask the platform to open another app — Company admin from Accounting's
+ * Ask the platform to open another app — Workspace from Accounting's
  * settings, for one. An app cannot switch apps itself (it does not own the
  * shell), so it asks; the shell decides how (in place, or on that app's own
  * address).

@@ -19,7 +19,7 @@ import {
 import { KIND, STATUS, actionsFor } from './credentialsModel';
 
 /**
- * Company admin → Credentials (Batch 5).
+ * Workspace → Credentials (Batch 5).
  *
  * Every key and token this company has given to another system — API keys,
  * on-site connectors, reader push addresses, directory sync — in one list,

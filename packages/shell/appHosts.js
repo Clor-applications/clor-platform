@@ -52,7 +52,7 @@ export const isFrontDoor = (hostname = globalThis.location?.hostname) => {
  */
 export const hostForApp = (id, hostname = globalThis.location?.hostname) => {
   if (PINNED_APP) return null;
-  /* Company admin is the front door's own workspace (ADR-010): from any app's address it opens on app.<domain>. */
+  /* Workspace is the front door's own workspace (ADR-010): from any app's address it opens on app.<domain>. */
   const target = id === ADMIN_APP_ID ? FRONT_DOOR : id;
   if (target !== FRONT_DOOR && !APP_HOST_IDS.includes(target)) return null;
   const [first, ...rest] = labels(hostname);

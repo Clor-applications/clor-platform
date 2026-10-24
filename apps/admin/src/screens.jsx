@@ -11,7 +11,7 @@ import { SettingsBranches as SettingsBranchesScreen } from './screens/SettingsBr
 import { orgId as platformOrgId } from '@platform/context';
 
 /**
- * Every screen the Company admin workspace shows, in one place, so the
+ * Every screen the Workspace shows, in one place, so the
  * manifest loads them as one file (WX-03). The manifest names them; nothing
  * else should import from here.
  *

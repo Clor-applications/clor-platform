@@ -440,7 +440,7 @@ export function buildApp() {
   app.use('/api', partiesRouter);
   app.use('/api', emailRouter);
   app.use('/api', securityRouter);
-  /* Batch 5: Company admin → Credentials. */
+  /* Batch 5: Workspace → Credentials. */
   app.use('/api', credentialsRouter);
   app.use('/api', outsideAccessRouter);
   app.use('/api', notificationsRouter);

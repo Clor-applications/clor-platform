@@ -2,7 +2,7 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 
 /*
- * GAP-006: Company admin → Outside access lists the people from other
+ * GAP-006: Workspace → Outside access lists the people from other
  * accounts the company let in, in words (never colour alone), with only the
  * actions their state allows; an ended grant offers none.
  */

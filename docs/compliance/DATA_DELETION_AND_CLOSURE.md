@@ -66,7 +66,7 @@ the reader until the person is removed from each reader. The screen says so.
 **Who can do it:** an administrator of the whole company, with a fresh code
 from their authenticator app to ask for the closure (any such administrator may
 cancel it). Being the person who created the company is not what decides it.
-**Where:** Company admin → Data → Close company.
+**Where:** Workspace → Data → Close company.
 
 **Steps**
 1. **Full export first.** The owner downloads a full export of the company

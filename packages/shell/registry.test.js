@@ -3,10 +3,10 @@ import { describe, expect, it } from 'vitest';
 import { APPS, availableApps, landingApp, subscribedApps } from './registry';
 
 /*
- * Company admin (ADR-010) is the platform's own workspace: every company has
+ * Workspace (ADR-010) is the platform's own workspace: every company has
  * it, nobody buys it, and it is never where an app's own address lands.
  */
-describe('the Company admin workspace', () => {
+describe('the Workspace', () => {
   it('is there for a company whatever it has bought', () => {
     expect(subscribedApps(['payroll']).map((a) => a.id)).toEqual(expect.arrayContaining(['admin', 'payroll']));
     expect(subscribedApps([]).map((a) => a.id)).toEqual(['admin']);

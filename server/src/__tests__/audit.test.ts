@@ -240,7 +240,7 @@ describe('the audit trail', () => {
    * or delete is evidence of nothing.
    */
   /*
-   * Company admin shows one trail for the company (ADR-010); an app opens it
+   * Workspace shows one trail for the company (ADR-010); an app opens it
    * on its own share. The filter must sort entries to the app they belong to.
    */
   it("gives each app its own share of the one trail", async () => {

@@ -58,7 +58,7 @@ The aim: someone who has never used HR software finds what they need in two clic
 | Evidence | Proof | Compliance, Why? | |
 | Workforce health / Data quality | Health check | Checks | |
 | Decision explorer / Audit trail (per decision) | Why? | Everywhere a value changed | Brand: Trace |
-| Audit log (company-wide) | Audit history | Settings | Opens Company admin's audit share (ADR-010) |
+| Audit log (company-wide) | Audit history | Settings | Opens Workspace's audit share (ADR-010) |
 | Custom fields / Form builder | Custom fields; Forms | Settings | |
 | Document classification | Who can see | Document upload | Choices: Employee can see · HR only · Restricted · Confidential |
 | Masking / Reveal | Hidden / Show | Statutory tab | "Show" asks for confirmation (step-up) |
@@ -121,7 +121,7 @@ One page of cards, grouped (existing `SettingsHub` pattern):
 | People data | Custom fields · Forms (phase 3) · Employee types · Work types · Tags · Import |
 | Rules | Approval rules · Automations (phase 3) · Letter templates · Probation and notice · Help desk categories and times |
 | Compliance and privacy | Compliance rules · Privacy notices · Retention · Private case committee · External auditor access · Data requests · Recycle bin |
-| Access | Roles and access (opens Company admin, ADR-010) · Users and security · Audit history |
+| Access | Roles and access (opens Workspace, ADR-010) · Users and security · Audit history |
 | Apps and AI | Modules · Integrations · AI controls |
 
 ---
@@ -152,7 +152,7 @@ Archetypes from `DESIGN.md`: **List** = `PageShell` + `DataTable`; **Profile** =
 | Privacy Center | Privacy | Settings › Compliance and privacy | Settings + lists | (per card) | P0 | Partial |
 | Workforce Health | Health check | Checks | List | (none; fix per row) | P0 | Data Health exists |
 | Decision Explorer | Why? panel | Everywhere | Side panel | Raise a correction | P0 | None |
-| Audit & Evidence | Audit history; Shared evidence | Settings; auditor screen | List | Share evidence | P0 | Company admin audit exists |
+| Audit & Evidence | Audit history; Shared evidence | Settings; auditor screen | List | Share evidence | P0 | Workspace audit exists |
 | Goals & Reviews | Goals and reviews | Growth | List | New goal | P1 | Register |
 | Skills Directory | Skills | Growth › Skills and training | List | Add skill | P1 | None |
 | Learning Hub | Training | Growth › Skills and training | List | Assign training | P1 | Register |

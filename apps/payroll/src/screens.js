@@ -25,5 +25,5 @@ export { default as BankChanges } from './screens/BankChanges';
 export { default as FinalSettlements } from './screens/FinalSettlements';
 export { default as TaxDeclarations } from './screens/TaxDeclarations';
 
-/* This app's roles and permissions, in Company admin's one role editor, opened on Payroll's share (ADR-010). */
+/* This app's roles and permissions, in Workspace's one role editor, opened on Payroll's share (ADR-010). */
 export const RolesAccess = () => React.createElement(OpenInCompanyAdmin, { title: 'Roles & Access', screen: 'permissions', forApp: 'payroll' });

@@ -105,7 +105,7 @@ describe('the switches that need somewhere to go next', () => {
     /* A link to a screen the router does not know is a dead end, and nothing
        else would catch it. */
     const app = appSource('apps/accounting/src/App.jsx');
-    /* A screen the switch renders, or one that now opens in Company admin (COMPANY_ADMIN_REDIRECTS, ADR-010). */
+    /* A screen the switch renders, or one that now opens in Workspace (COMPANY_ADMIN_REDIRECTS, ADR-010). */
     const redirects = app.slice(app.indexOf('const COMPANY_ADMIN_REDIRECTS = {'), app.indexOf('};', app.indexOf('const COMPANY_ADMIN_REDIRECTS = {')));
     for (const key of ['branches', 'warehouses', 'multiCurrency']) {
       const target = settingsLinkFor(key).key;

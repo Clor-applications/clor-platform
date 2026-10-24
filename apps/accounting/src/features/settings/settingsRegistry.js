@@ -120,8 +120,8 @@ export const SETTINGS_ITEMS = [
    * admin, one workspace for every app (ADR-010). One entry here leads there,
    * and the old keys still route (App.jsx) so links and bookmarks land.
    */
-  { key: 'accountingRoles', title: 'Roles & Access', category: 'usersRoles', icon: Users, perm: 'SETTINGS::Roles::VIEW', description: 'What each role may do in Accounting — opens Company admin on Accounting\u2019s permissions.', keywords: ['roles', 'permissions', 'rights', 'access', 'rbac'] },
-  { key: 'companyAdmin', title: 'Users, roles & security', category: 'usersRoles', icon: Users, perm: 'SETTINGS::Users::VIEW', description: 'In Company admin: people, roles, permissions, sign-in, branches, audit and billing — shared by every app.', keywords: ['users', 'roles', 'permissions', 'password', '2fa', 'sso', 'audit', 'branches', 'billing', 'plan', 'company admin'] },
+  { key: 'accountingRoles', title: 'Roles & Access', category: 'usersRoles', icon: Users, perm: 'SETTINGS::Roles::VIEW', description: 'What each role may do in Accounting — opens Workspace on Accounting\u2019s permissions.', keywords: ['roles', 'permissions', 'rights', 'access', 'rbac'] },
+  { key: 'companyAdmin', title: 'Users, roles & security', category: 'usersRoles', icon: Users, perm: 'SETTINGS::Users::VIEW', description: 'In Workspace: people, roles, permissions, sign-in, branches, audit and billing — shared by every app.', keywords: ['users', 'roles', 'permissions', 'password', '2fa', 'sso', 'audit', 'branches', 'billing', 'plan', 'company admin', 'workspace'] },
 
   // Security
   { key: 'settingsGovernance', title: 'Approval Workflows', category: 'security', icon: Shield, perm: 'SETTINGS::Roles::VIEW', description: 'What needs a second pair of eyes before it is posted.', keywords: ['approval', 'limit', 'maker checker', 'workflow'] },
