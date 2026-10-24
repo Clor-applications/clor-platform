@@ -1,8 +1,17 @@
-import { fireEvent, render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { BookOpen, Briefcase, Users, Wallet } from 'lucide-react';
 
+const getAccountMe = vi.fn();
+const listAccountMembers = vi.fn();
+vi.mock('@platform/admin/account', () => ({ getAccountMe: (...a) => getAccountMe(...a), listAccountMembers: (...a) => listAccountMembers(...a) }));
+
 import AdminHome, { appState } from './AdminHome';
+
+beforeEach(() => {
+  getAccountMe.mockReset().mockResolvedValue({ role: 'MEMBER' });
+  listAccountMembers.mockReset().mockResolvedValue({ members: [] });
+});
 
 const CATALOG = [
   { id: 'admin', name: 'Workspace', icon: Users, blurb: '', available: true, platform: true },
@@ -32,8 +41,10 @@ describe('the Workspace home', () => {
   it('offers Open only for a switched-on app, and never lists the Workspace itself', () => {
     const openApp = vi.fn();
     render(<AdminHome user={{ firstName: 'Kavya' }} tenant={tenant} catalog={CATALOG} openApp={openApp} openMoreApps={() => {}} />);
-    expect(screen.getByRole('heading', { name: 'Welcome, Kavya' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: /, Kavya$/ })).toBeInTheDocument();
     expect(screen.getAllByRole('button', { name: /^Open / })).toHaveLength(1);
+    /* A member sees no setup checklist: that is the account's administrators' job. */
+    expect(screen.queryByText('Finish setting up')).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: /Open Accounting/ }));
     expect(openApp).toHaveBeenCalledWith('accounting');
     expect(screen.getByText('Not on your plan')).toBeInTheDocument();
@@ -55,5 +66,15 @@ describe('the Workspace home', () => {
     expect(screen.queryByRole('navigation', { name: 'Plan & billing' })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Audit trail' }));
     expect(openScreen).toHaveBeenCalledWith('audit');
+  });
+
+  it('shows owners the setup still to do, from the account’s real members', async () => {
+    getAccountMe.mockResolvedValue({ role: 'OWNER' });
+    listAccountMembers.mockResolvedValue({ members: [{ userId: 'u1' }] });
+    render(<AdminHome tenant={tenant} catalog={CATALOG} navItems={[{ key: 'users', label: 'Users' }]} openScreen={() => {}} openMoreApps={() => {}} />);
+    expect(await screen.findByText('Finish setting up')).toBeInTheDocument();
+    expect(screen.getByText('Owner')).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText('Only you so far')).toBeInTheDocument());
+    expect(screen.getByText('2 of 3 done')).toBeInTheDocument();
   });
 });
