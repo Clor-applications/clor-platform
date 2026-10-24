@@ -654,12 +654,15 @@ export default function Shell() {
           ))}
         </div>
       ))}
-      <div style={{ borderTop: '1px solid rgb(var(--border))' }} className="mt-4 pt-3">
-        <button type="button" className="ui-split-item" onClick={() => { setShowMoreApps(true); setNavOpen(false); }}>
-          <LayoutGrid size={15} aria-hidden="true" />
-          More apps
-        </button>
-      </div>
+      {/* The Workspace lists the apps on its Overview and the switcher has More apps; its own panel is administration only. */}
+      {app?.id === ADMIN_APP_ID ? null : (
+        <div style={{ borderTop: '1px solid rgb(var(--border))' }} className="mt-4 pt-3">
+          <button type="button" className="ui-split-item" onClick={() => { setShowMoreApps(true); setNavOpen(false); }}>
+            <LayoutGrid size={15} aria-hidden="true" />
+            More apps
+          </button>
+        </div>
+      )}
     </nav>
   ) : null;
 

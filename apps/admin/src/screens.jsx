@@ -1,6 +1,5 @@
 import React from 'react';
 
-import CompanyDetails from '@ui/company/CompanyDetails';
 import CloseCompanyScreen from '@ui/company/CloseCompany';
 import BillingPreviewScreen from './screens/BillingPreview';
 import DataBackupScreen from './screens/DataBackup';
@@ -9,6 +8,13 @@ import { SettingsUsers as SettingsUsersScreen } from './screens/SettingsUsers';
 import { SettingsRoles as SettingsRolesScreen } from './screens/SettingsRoles';
 import { SettingsBranches as SettingsBranchesScreen } from './screens/SettingsBranches';
 import { orgId as platformOrgId } from '@platform/context';
+import RolePermissionManagerScreen from './screens/RolePermissionManager';
+import SecuritySettingsScreen from './screens/SecuritySettings';
+import SsoSettingsScreen from './screens/SsoSettings';
+import CredentialsScreen from './screens/Credentials';
+import OutsideAccessScreen from './screens/OutsideAccess';
+import AuditTrailScreen from './screens/AuditTrail';
+import { WsFrame } from './screens/wsKit';
 
 /**
  * Every screen the Workspace shows, in one place, so the
@@ -21,12 +27,6 @@ import { orgId as platformOrgId } from '@platform/context';
  * company id — so the screens themselves did not have to change to move.
  */
 export { default as AdminHome } from './screens/AdminHome';
-export { default as RolePermissionManager } from './screens/RolePermissionManager';
-export { default as SecuritySettings } from './screens/SecuritySettings';
-export { default as SsoSettings } from './screens/SsoSettings';
-export { default as Credentials } from './screens/Credentials';
-export { default as OutsideAccess } from './screens/OutsideAccess';
-export { default as AuditTrail } from './screens/AuditTrail';
 export { default as Invitations } from './screens/Invitations';
 export { default as Members } from './screens/Members';
 export { default as AccountActivity } from './screens/AccountActivity';
@@ -35,11 +35,17 @@ export { AccessHome, SecurityHome, DataHome } from './screens/Landings';
 
 const companyOf = (tenant) => ({ name: tenant?.name || '', profile: tenant?.profile || {} });
 
-export const CompanyProfile = () => <CompanyDetails />;
-export const CloseCompany = ({ tenant }) => <CloseCompanyScreen companyName={tenant?.name || ''} />;
-export const BillingPreview = ({ tenant }) => <BillingPreviewScreen currentCompany={companyOf(tenant)} />;
-export const DataBackup = ({ tenant }) => <DataBackupScreen currentCompany={companyOf(tenant)} />;
-export const AccountOverview = ({ tenant }) => <AccountOverviewScreen currentCompany={companyOf(tenant)} />;
-export const SettingsUsers = () => <SettingsUsersScreen orgId={platformOrgId()} />;
-export const SettingsRoles = () => <SettingsRolesScreen orgId={platformOrgId()} />;
-export const SettingsBranches = ({ tenant }) => <SettingsBranchesScreen orgId={platformOrgId()} company={companyOf(tenant)} />;
+export { default as CompanyProfile } from './screens/CompanyProfile';
+export const CloseCompany = ({ tenant }) => <WsFrame crumbs={['Data', 'Close company']}><CloseCompanyScreen companyName={tenant?.name || ''} /></WsFrame>;
+export const BillingPreview = ({ tenant }) => <WsFrame crumbs={['Plan', 'Billing']}><BillingPreviewScreen currentCompany={companyOf(tenant)} /></WsFrame>;
+export const DataBackup = ({ tenant }) => <WsFrame crumbs={['Data', 'Data export']}><DataBackupScreen currentCompany={companyOf(tenant)} /></WsFrame>;
+export const AccountOverview = ({ tenant }) => <WsFrame crumbs={['Plan', 'Subscription']}><AccountOverviewScreen currentCompany={companyOf(tenant)} /></WsFrame>;
+export const SettingsUsers = () => <WsFrame crumbs={['Access', 'Users']}><SettingsUsersScreen orgId={platformOrgId()} /></WsFrame>;
+export const SettingsRoles = () => <WsFrame crumbs={['Access', 'Roles']}><SettingsRolesScreen orgId={platformOrgId()} /></WsFrame>;
+export const SettingsBranches = ({ tenant }) => <WsFrame crumbs={['Company', 'Branches']}><SettingsBranchesScreen orgId={platformOrgId()} company={companyOf(tenant)} /></WsFrame>;
+export const RolePermissionManager = (props) => <WsFrame crumbs={['Access', 'Permissions']}><RolePermissionManagerScreen {...props} /></WsFrame>;
+export const SecuritySettings = (props) => <WsFrame crumbs={['Security', 'Sign-in and sessions']}><SecuritySettingsScreen {...props} /></WsFrame>;
+export const SsoSettings = (props) => <WsFrame crumbs={['Security', 'Single sign-on']}><SsoSettingsScreen {...props} /></WsFrame>;
+export const Credentials = (props) => <WsFrame crumbs={['Security', 'Credentials']}><CredentialsScreen {...props} /></WsFrame>;
+export const OutsideAccess = (props) => <WsFrame crumbs={['Access', 'Outside access']}><OutsideAccessScreen {...props} /></WsFrame>;
+export const AuditTrail = (props) => <WsFrame crumbs={['Security', 'Audit trail']}><AuditTrailScreen {...props} /></WsFrame>;

@@ -743,3 +743,123 @@ button.ws-item:hover {
   gap: 4px;
   white-space: nowrap;
 }
+
+/* ------------------------------------------------------------ older screens
+ * Screens written before the redesign (branches, users, roles, sign-in,
+ * credentials, audit, billing, export…) are framed by WsFrame and restyled
+ * here, so every Workspace page shares one head, one surface, one table and
+ * one primary button. Their markup and behaviour are unchanged.
+ */
+.ws-legacy {
+  /* The blue heading band of the older screens becomes the page ground. */
+  --heading-bg: 250 250 247;
+  --page-heading-bg: 250 250 247;
+}
+/* A list screen whose first row is its own toolbar: the toolbar's name reads as the page title. */
+.ws-legacy [class*='toolbar']:first-child {
+  padding: 0;
+  background: none;
+}
+.ws-legacy [class*='toolbar']:first-child .ui-t-sec {
+  font-size: clamp(1.6rem, 1.25rem + 1.1vw, 2.1rem);
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  line-height: 1.1;
+}
+.ws-legacy .ui-page-heading {
+  background: none !important;
+  border: 0;
+  padding: 0;
+  min-height: 0;
+  margin-bottom: 4px;
+  align-items: flex-end;
+}
+.ws-legacy .ui-page-heading .ui-entity-mark {
+  display: none;
+}
+.ws-legacy .ui-page-heading h1 {
+  font-size: clamp(1.6rem, 1.25rem + 1.1vw, 2.1rem);
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  line-height: 1.1;
+  color: rgb(var(--ws-ink));
+}
+.ws-legacy .ui-page-heading h1 + p {
+  margin-top: 6px;
+  max-width: 72ch;
+  color: rgb(var(--ws-muted));
+  line-height: 1.55;
+}
+.ws-legacy .ui-card,
+.ws-legacy .ui-surface {
+  background: rgb(var(--ws-surface));
+  border: 1px solid rgb(var(--ws-line));
+  border-radius: 12px;
+  box-shadow: none;
+}
+.ws-legacy .ui-t-sec {
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: rgb(var(--ws-ink));
+}
+.ws-legacy .ui-label {
+  color: rgb(var(--ws-muted));
+  font-size: 0.8125rem;
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: 0;
+}
+.ws-legacy .ui-btn {
+  border-radius: 8px;
+  min-height: 38px;
+  font-weight: 600;
+}
+/* index.css paints every primary button graphite with !important; the Workspace's one primary action is Blaze Orange. */
+.ws-legacy .ui-btn-primary {
+  background-color: rgb(var(--ws-accent)) !important;
+  border-color: rgb(var(--ws-accent)) !important;
+  color: rgb(var(--ws-surface)) !important;
+}
+.ws-legacy .ui-btn-primary:hover:not(:disabled) {
+  background-color: rgb(var(--ws-accent-hover)) !important;
+  border-color: rgb(var(--ws-accent-hover)) !important;
+}
+.ws-legacy .ui-btn-secondary,
+.ws-legacy .ui-btn-ghost {
+  background: rgb(var(--ws-surface));
+  border: 1px solid rgb(var(--ws-line));
+  color: rgb(var(--ws-ink));
+}
+.ws-legacy .ui-input,
+.ws-legacy .ui-select {
+  border-radius: 8px;
+  border-color: rgb(var(--ws-line));
+  background: rgb(var(--ws-surface));
+}
+.ws-legacy .ui-input:focus,
+.ws-legacy .ui-select:focus {
+  border-color: rgb(var(--ws-accent));
+  box-shadow: 0 0 0 3px rgb(var(--ws-accent) / 0.15);
+  outline: none;
+}
+.ws-legacy table {
+  background: rgb(var(--ws-surface));
+}
+.ws-legacy thead th,
+.ws-legacy .ui-th {
+  background: rgb(var(--ws-stone));
+  color: rgb(var(--ws-muted));
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.ws-legacy tbody tr:hover td {
+  background: rgb(var(--ws-bg));
+}
+.ws-legacy [class*='table-wrap'],
+.ws-legacy .overflow-x-auto:has(> table) {
+  border: 1px solid rgb(var(--ws-line));
+  border-radius: 12px;
+  overflow: auto;
+}

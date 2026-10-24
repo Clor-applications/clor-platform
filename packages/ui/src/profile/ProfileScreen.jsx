@@ -113,9 +113,7 @@ function Avatar({ url, initials, size = 72 }) {
 function Field({ label, value, mono = false, hint = null }) {
   return (
     <div>
-      <dt className="ui-t-label" style={{ color: 'rgb(var(--fg-subtle))' }}>
-        {label}
-      </dt>
+      <dt className="ui-caption">{label}</dt>
       <dd className={`ui-t-body mt-0.5 ${mono ? 'ui-mono' : ''}`} style={{ color: 'rgb(var(--fg))' }}>
         {value || <span style={{ color: 'rgb(var(--fg-subtle))' }}>Not set</span>}
       </dd>
@@ -274,12 +272,20 @@ export const ProfileScreen = ({ Header = PageHeader }) => {
 
   if (loading) return <SkeletonCard lines={5} />;
 
+  const fullName = [user.firstName, user.lastName].filter(Boolean).join(' ') || user.fullName || '';
+  const orgNames = (me?.orgs || []).map((o) => o.org?.name).filter(Boolean);
+  const lastIn = user.lastLoginAt
+    ? new Date(user.lastLoginAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })
+    : '';
+  const setF = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
+
   return (
-    <div className="space-y-6">
+    <div className="ui-profile space-y-6">
       <Header
         entity="customer"
         title="My profile"
-              actions={
+        description="Your details, how you sign in, and what you can open."
+        actions={
           <>
             {notice ? (
               <span className="ui-pill ui-pill-pos" role="status">
@@ -305,19 +311,16 @@ export const ProfileScreen = ({ Header = PageHeader }) => {
       />
 
       {error ? (
-        <div
-          className="ui-card p-3 ui-t-body"
-          role="alert"
-          style={{ borderColor: 'rgb(var(--neg))', color: 'rgb(var(--neg))' }}
-        >
+        <div className="ui-card p-3 ui-t-body" role="alert" style={{ borderColor: 'rgb(var(--neg))', color: 'rgb(var(--neg))' }}>
           {error}
         </div>
       ) : null}
 
-      <section className="ui-card p-5">
-        <div className="flex flex-wrap items-start gap-5">
+      {/* Who you are, at a glance: the picture, the name, the sign-in address and where you stand. */}
+      <section className="ui-card p-5 sm:p-6" aria-label="You">
+        <div className="flex flex-wrap items-center gap-5">
           <div className="flex flex-col items-center gap-2">
-            <Avatar url={editing ? form.avatarUrl : user.avatarUrl} initials={initials} size={72} />
+            <Avatar url={editing ? form.avatarUrl : user.avatarUrl} initials={initials} size={88} />
             {editing ? (
               <div className="flex items-center gap-1">
                 <input
@@ -330,11 +333,7 @@ export const ProfileScreen = ({ Header = PageHeader }) => {
                     e.target.value = '';
                   }}
                 />
-                <button
-                  type="button"
-                  className="ui-btn ui-btn-secondary ui-btn-sm"
-                  onClick={() => fileRef.current?.click()}
-                >
+                <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => fileRef.current?.click()}>
                   <Upload size={14} aria-hidden="true" /> Photo
                 </button>
                 {form.avatarUrl ? (
@@ -343,7 +342,7 @@ export const ProfileScreen = ({ Header = PageHeader }) => {
                     className="ui-btn ui-btn-secondary ui-btn-sm"
                     onClick={() => setForm((f) => ({ ...f, avatarUrl: '' }))}
                     aria-label="Remove photo"
-      title="Remove photo"
+                    title="Remove photo"
                   >
                     <Trash2 size={14} aria-hidden="true" />
                   </button>
@@ -351,54 +350,60 @@ export const ProfileScreen = ({ Header = PageHeader }) => {
               </div>
             ) : null}
           </div>
-
           <div className="min-w-0 flex-1">
+            <h2 className="ui-t-page" style={{ fontSize: '1.5rem' }}>{fullName || user.email || 'Your profile'}</h2>
+            <p className="ui-t-body mt-1 flex flex-wrap items-center gap-2" style={{ color: 'rgb(var(--fg-muted))' }}>
+              <Mail size={14} aria-hidden="true" />
+              <span className="min-w-0 break-all">{user.email || '—'}</span>
+              {verified ? (
+                <span className="ui-pill ui-pill-pos"><BadgeCheck size={11} aria-hidden="true" /> Confirmed</span>
+              ) : (
+                <span className="ui-pill ui-pill-warn"><ShieldAlert size={11} aria-hidden="true" /> Not confirmed</span>
+              )}
+            </p>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <span className="ui-pill">{me?.isOrgAdmin ? 'Administrator' : 'Member'}</span>
+              {user.code ? <span className="ui-pill ui-mono">{user.code}</span> : null}
+              {lastIn ? <span className="ui-caption">Last signed in {lastIn}</span> : null}
+            </div>
+          </div>
+          {!verified && user.email ? (
+            <button
+              type="button"
+              className="ui-btn ui-btn-secondary"
+              disabled={busy === 'verify'}
+              onClick={() => run('verify', resendVerification, 'Verification link sent')}
+            >
+              {busy === 'verify' ? <Spinner /> : <Mail size={16} aria-hidden="true" />} Send the confirmation link
+            </button>
+          ) : null}
+        </div>
+      </section>
+
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px] items-start">
+        <div className="space-y-6 min-w-0">
+          <section className="ui-card p-5" aria-labelledby="me-details">
+            <h2 id="me-details" className="ui-t-sec">Personal details</h2>
+            <p className="ui-t-body mt-0.5 mb-4" style={{ color: 'rgb(var(--fg-subtle))' }}>
+              {editing ? 'Your name, username and mobile number. The sign-in email is changed by an administrator.' : 'How you appear to colleagues and how they reach you.'}
+            </p>
             {editing ? (
-              <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid gap-4 sm:grid-cols-2">
                 <div>
-                  <label className="ui-label" htmlFor="me-first">
-                    First name
-                  </label>
-                  <input
-                    id="me-first"
-                    className="ui-input"
-                    value={form.firstName}
-                    maxLength={60}
-                    onChange={(e) => setForm((f) => ({ ...f, firstName: e.target.value }))}
-                  />
+                  <label className="ui-label" htmlFor="me-first">First name</label>
+                  <input id="me-first" className="ui-input" value={form.firstName} maxLength={60} onChange={setF('firstName')} />
                 </div>
                 <div>
-                  <label className="ui-label" htmlFor="me-last">
-                    Last name
-                  </label>
-                  <input
-                    id="me-last"
-                    className="ui-input"
-                    value={form.lastName}
-                    maxLength={60}
-                    onChange={(e) => setForm((f) => ({ ...f, lastName: e.target.value }))}
-                  />
+                  <label className="ui-label" htmlFor="me-last">Last name</label>
+                  <input id="me-last" className="ui-input" value={form.lastName} maxLength={60} onChange={setF('lastName')} />
                 </div>
                 <div>
-                  <label className="ui-label" htmlFor="me-username">
-                    Username
-                  </label>
-                  <input
-                    id="me-username"
-                    className="ui-input"
-                    value={form.username}
-                    maxLength={40}
-                    placeholder="Optional"
-                    onChange={(e) => setForm((f) => ({ ...f, username: e.target.value }))}
-                  />
-                  <div className="ui-t-body mt-1" style={{ color: 'rgb(var(--fg-subtle))' }}>
-                    Letters, numbers, dot, dash and underscore. You can sign in with this instead of the email.
-                  </div>
+                  <label className="ui-label" htmlFor="me-username">Username</label>
+                  <input id="me-username" className="ui-input" value={form.username} maxLength={40} placeholder="Optional" onChange={setF('username')} />
+                  <div className="ui-caption mt-1">Letters, numbers, dot, dash and underscore. You can sign in with this instead of the email.</div>
                 </div>
                 <div>
-                  <label className="ui-label" htmlFor="me-phone">
-                    Mobile number
-                  </label>
+                  <label className="ui-label" htmlFor="me-phone">Mobile number</label>
                   <input
                     id="me-phone"
                     className="ui-input"
@@ -408,96 +413,60 @@ export const ProfileScreen = ({ Header = PageHeader }) => {
                     value={form.phone}
                     maxLength={20}
                     placeholder="+91 98765 43210"
-                    onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
+                    onChange={setF('phone')}
                   />
                 </div>
               </div>
             ) : (
               <dl className="grid gap-4 sm:grid-cols-2">
-                <Field label="Name" value={[user.firstName, user.lastName].filter(Boolean).join(' ') || user.fullName} />
+                <Field label="First name" value={nameParts(user).first} />
+                <Field label="Last name" value={nameParts(user).last} />
                 <Field label="Username" value={user.username} />
                 <Field label="Mobile number" value={user.phone} mono />
-                <div>
-                  <dt className="ui-t-label" style={{ color: 'rgb(var(--fg-subtle))' }}>
-                    Email
-                  </dt>
-                  <dd className="ui-t-body mt-0.5 flex flex-wrap items-center gap-2" style={{ color: 'rgb(var(--fg))' }}>
-                    {user.email || '—'}
-                    {verified ? (
-                      <span className="ui-pill ui-pill-pos">
-                        <BadgeCheck size={11} aria-hidden="true" /> Confirmed
-                      </span>
-                    ) : (
-                      <span className="ui-pill ui-pill-warn">
-                        <ShieldAlert size={11} aria-hidden="true" /> Not confirmed
-                      </span>
-                    )}
-                  </dd>
-                  {!verified ? (
-                    <button
-                      type="button"
-                      className="ui-btn ui-btn-secondary ui-btn-sm mt-1.5"
-                      disabled={busy === 'verify'}
-                      onClick={() => run('verify', resendVerification, 'Verification link sent')}
-                    >
-                      {busy === 'verify' ? <Spinner /> : <Mail size={14} aria-hidden="true" />} Send the link
-                    </button>
-                  ) : (
-                    <div className="ui-t-body mt-0.5" style={{ color: 'rgb(var(--fg-subtle))' }}>
-                      Changing the sign-in address is done by an administrator.
-                    </div>
-                  )}
-                </div>
               </dl>
             )}
-          </div>
+          </section>
+
+          <PasswordCard email={user.email} />
+          <AuthenticatorCard />
+          <PrivacySection />
         </div>
-      </section>
 
-      {/*
-        Granted, not chosen. These sit on the profile because "what am I allowed
-        to touch" is a question people ask of their own account, but every one
-        of them is set by an administrator — so they read as a record, never as
-        a form, in edit mode as much as out of it.
-      */}
-      <section className="ui-card p-5">
-        <h2 className="ui-t-sec">Access</h2>
-        <p className="ui-t-body mt-0.5 mb-4" style={{ color: 'rgb(var(--fg-subtle))' }}>
-          Granted by an administrator. Ask them if something here is wrong.
-        </p>
-        <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <Field label="User role" value={me?.isOrgAdmin ? 'Administrator' : 'Member'} />
-          <Field
-            label="Organisation"
-            value={(me?.orgs || []).map((o) => o.org?.name).filter(Boolean).join(', ')}
-          />
-          <Field
-            label="Branch"
-            value={branchNames}
-            hint={branchNames ? null : 'No branch restriction — you can see all of them.'}
-          />
-          <Field
-            label="Warehouse"
-            value={warehouseNames}
-            hint={warehouseNames ? null : 'No warehouse restriction.'}
-          />
-          <Field label="User ID" value={user.code || '—'} mono />
-          <Field label="Client ID" value={user.accountCode || user.accountId} mono />
-          <Field
-            label="Last signed in"
-            value={
-              user.lastLoginAt
-                ? new Date(user.lastLoginAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })
-                : ''
-            }
-          />
-        </dl>
-      </section>
-
-      <PasswordCard email={user.email} />
-      <AuthenticatorCard />
-
-      <PrivacySection />
+        {/*
+          Granted, not chosen. "What am I allowed to touch" is a question people
+          ask of their own account, but every line here is set by an
+          administrator — so it reads as a record, in edit mode as much as out.
+        */}
+        <aside className="ui-card p-5 space-y-4" aria-labelledby="me-access">
+          <div>
+            <h2 id="me-access" className="ui-t-sec">Access</h2>
+            <p className="ui-t-body mt-0.5" style={{ color: 'rgb(var(--fg-subtle))' }}>
+              Granted by an administrator. Ask them if something here is wrong.
+            </p>
+          </div>
+          <dl className="grid gap-4">
+            <Field label="Role" value={me?.isOrgAdmin ? 'Administrator' : 'Member'} />
+            <div>
+              <dt className="ui-caption">Companies</dt>
+              <dd className="ui-t-body mt-1">
+                {orgNames.length ? (
+                  <ul className="space-y-1">
+                    {orgNames.map((n) => (
+                      <li key={n} className="flex items-center gap-2"><Building2 size={14} aria-hidden="true" style={{ color: 'rgb(var(--fg-subtle))' }} /> {n}</li>
+                    ))}
+                  </ul>
+                ) : (
+                  <span style={{ color: 'rgb(var(--fg-subtle))' }}>Not set</span>
+                )}
+              </dd>
+            </div>
+            <Field label="Branches" value={branchNames} hint={branchNames ? null : 'No branch restriction — you can see all of them.'} />
+            <Field label="Warehouses" value={warehouseNames} hint={warehouseNames ? null : 'No warehouse restriction.'} />
+            <Field label="User ID" value={user.code || '—'} mono />
+            <Field label="Client ID" value={user.accountCode || user.accountId} mono />
+          </dl>
+        </aside>
+      </div>
     </div>
   );
 };

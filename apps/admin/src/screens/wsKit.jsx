@@ -29,6 +29,7 @@ import {
 } from '@fluentui/react-icons';
 
 import { colorIcon } from '@ui/components/ui/iconSet';
+import './workspace.css';
 
 /**
  * The Workspace's page kit (redesign W-R2): one page head, stat, panel and
@@ -66,6 +67,27 @@ export const ICON = {
   projects: colorIcon(BriefcaseColor, 'Briefcase'),
   timesheet: colorIcon(CalendarClockColor, 'CalendarClock'),
 };
+
+/** Frames a screen written before the redesign: Workspace ground, width and restyled primitives (workspace.css, "older screens"). */
+export function WsFrame({ crumbs = [], children }) {
+  return (
+    <div className="ws ws-legacy">
+      <div className="ws-inner" style={{ gap: 12 }}>
+        {crumbs.length ? (
+          <nav className="ws-crumbs" aria-label="Breadcrumb">
+            {crumbs.map((c, i) => (
+              <React.Fragment key={`${c}-${i}`}>
+                {i ? <ChevronRight size={14} aria-hidden="true" /> : null}
+                <span aria-current={i === crumbs.length - 1 ? 'page' : undefined}>{c}</span>
+              </React.Fragment>
+            ))}
+          </nav>
+        ) : null}
+        <div>{children}</div>
+      </div>
+    </div>
+  );
+}
 
 /** A product's icon, by app id. */
 export const productIcon = (id) => ICON[id === 'people' ? 'people_app' : id] || ICON.apps;
