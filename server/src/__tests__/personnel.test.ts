@@ -58,7 +58,9 @@ describe('Attendance on its own', () => {
     const area = (await people(c).post('/structure/areas', { name: 'Plant 1' }).expect(201)).body.item;
     const e = (await people(c).post('/employees', { name: 'Solo Worker', code: '1001', departmentId: dept.id, areaId: area.id }).expect(201)).body.employee;
     expect(e).toMatchObject({ department: 'Production', areaName: 'Plant 1' });
-    const off = await makeOwner({});
+    /* A fresh account owns every sellable app (explicit bootstrap subscription), so
+       "off" is now the customer turning the apps off, not a catalog default. */
+    const off = await makeOwner({ people: false, attendance: false });
     await people(off).get('/employees').expect(403);
   });
 });

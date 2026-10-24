@@ -201,18 +201,22 @@ describe('breach register', () => {
     await dp(c).put({ privacyContactEmail: 'dpo@example.com' }).expect(200);
     const a = await person(c, { name: 'Has Email', code: '901', personalEmail: 'one@example.com' });
     const b = await person(c, { name: 'No Email', code: '902' });
+    /* The employee form saves the personal address in `email` (review R-09): that person is told too. */
+    const d = await person(c, { name: 'Plain Email', code: '903', email: 'three@example.com' });
     const made = (await api(c).post('/data-protection/breaches', {
       title: 'Laptop with an attendance export lost', description: 'An HR laptop holding an attendance export was lost on a train.',
-      discoveredAt: new Date(Date.now() - 80 * 3_600_000).toISOString(), categories: ['identity', 'attendance'], employeeIds: [a.id, b.id],
+      discoveredAt: new Date(Date.now() - 80 * 3_600_000).toISOString(), categories: ['identity', 'attendance'], employeeIds: [a.id, b.id, d.id],
       consequences: 'Your name and punch times may be seen by someone else.', mitigation: 'The laptop is encrypted and has been locked remotely.', stepsForPeople: 'Nothing is needed; tell HR if you are contacted about it.',
     }).expect(201)).body.breach;
-    expect(made).toMatchObject({ affected: 2, boardReportLate: true });
+    expect(made).toMatchObject({ affected: 3, boardReportLate: true });
     await api(c).put(`/data-protection/breaches/${made.id}`, { status: 'CLOSED' }).expect(409);
     const sent = (await api(c).post(`/data-protection/breaches/${made.id}/notify`).expect(200)).body;
-    expect(sent.sent).toBe(1);
+    expect(sent.sent).toBe(2);
     expect(sent.noEmail.map((x: any) => x.name)).toEqual(['No Email']);
-    const mail = await platformPrisma.emailOutbox.findFirst({ where: { orgId: c.orgId, templateKey: 'people.data_breach' } });
-    expect(mail!.toEmail).toBe('one@example.com');
+    const mails = await platformPrisma.emailOutbox.findMany({ where: { orgId: c.orgId, templateKey: 'people.data_breach' } });
+    expect(mails.map((m) => m.toEmail).sort()).toEqual(['one@example.com', 'three@example.com']);
+    const mail = mails.find((m) => m.toEmail === 'one@example.com');
+    void d;
     expect(mail!.bodyText).toMatch(/dpo@example.com/);
     await api(c).put(`/data-protection/breaches/${made.id}`, { boardIntimatedAt: new Date().toISOString(), boardReportAt: new Date().toISOString(), boardReference: 'DPB/2026/1' }).expect(200);
     const listed = (await api(c).get('/data-protection/breaches').expect(200)).body.breaches[0];

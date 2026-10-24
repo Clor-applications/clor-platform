@@ -4,10 +4,11 @@
  * Reads source and computes; never renders. A jsdom for it is about
  * twenty-five seconds of wall clock that nothing touches.
  */
-import { readFileSync } from 'node:fs';
+
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import { appSource } from '../../testing/appSource.js';
 
 /**
  * The module IS three screens: where the money is, what happened to it, and
@@ -16,7 +17,7 @@ import { describe, expect, it } from 'vitest';
  * group, or one going missing behind a feature flag, fails the build.
  */
 
-const APP = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '../../App.jsx'), 'utf8');
+const APP = appSource(join(dirname(fileURLToPath(import.meta.url)), '../../App.jsx'));
 
 describe('the Cash & Bank sidebar', () => {
   it('has exactly: Bank & Cash Accounts, Transactions, Reconciliation', () => {

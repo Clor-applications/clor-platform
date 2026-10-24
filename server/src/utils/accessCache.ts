@@ -42,8 +42,8 @@ export function accessCacheTtlMs() {
  * Returns the cached value for `key`, or runs `load` and caches what it returns.
  * `keep` decides whether a result is worth caching (e.g. only grants, never denials).
  */
-export async function cachedAccess<T>(key: string, load: () => Promise<T>, keep: (value: T) => boolean = () => true): Promise<T> {
-  const ttl = accessCacheTtlMs();
+export async function cachedAccess<T>(key: string, load: () => Promise<T>, keep: (value: T) => boolean = () => true, maxTtlMs = Infinity): Promise<T> {
+  const ttl = Math.min(accessCacheTtlMs(), maxTtlMs);
   if (ttl <= 0) return load();
 
   const hit = store.get(key);

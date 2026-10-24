@@ -7,7 +7,9 @@ import { requirePermission } from '../middleware/rbac.js';
 import { PermissionAction } from '../constants/enums.js';
 import { payrollPrisma } from '../utils/payrollPrisma.js';
 import { peoplePrisma } from '../utils/peoplePrisma.js';
+import { forLiveEmployee } from '../services/payroll/employeeLock.js';
 import { PAYROLL_MODULE, PAYROLL_RESOURCE, payrollRouteOk } from '../services/payroll/guards.js';
+import { costCentreRefusal } from '../services/payroll/accounting/references.js';
 
 /**
  * What one person is paid, from a date.
@@ -153,6 +155,8 @@ payrollAssignmentsRouter.post(
     ]);
     if (!employee) return res.status(400).json({ error: 'No such employee.' });
     if (!structure) return res.status(400).json({ error: 'No such salary structure.' });
+    const ccRefused = await costCentreRefusal(accountId, orgId, blank(body.costCenterId));
+    if (ccRefused) return res.status(400).json({ error: ccRefused });
 
     if (structure.status === 'ARCHIVED') {
       return res.status(400).json({ error: `${structure.name} is archived, so nobody new can be put on it.` });
@@ -194,7 +198,8 @@ payrollAssignmentsRouter.post(
      * transaction. Two open assignments would be two salaries for one day and
      * the run would take whichever it read first.
      */
-    const row = await payrollPrisma.$transaction(async (tx) => {
+    /* Under the same lock a delete of this person takes (A-39): if they were deleted meanwhile, nothing is made for nobody. */
+    const row = await forLiveEmployee(orgId, body.employeeId, async (tx) => {
       const previous = await tx.salaryAssignment.findFirst({
         where: { orgId, employeeId: body.employeeId, status: 'ACTIVE', effectiveFrom: { lt: body.effectiveFrom } },
         orderBy: { effectiveFrom: 'desc' },
@@ -260,6 +265,8 @@ payrollAssignmentsRouter.put(
     if (body.employeeId !== existing.employeeId) {
       return res.status(400).json({ error: 'A salary cannot be moved to another person. Record one for them instead.' });
     }
+    const ccRefused = await costCentreRefusal(req.tenant!.accountId, orgId, blank(body.costCenterId), existing.costCenterId);
+    if (ccRefused) return res.status(400).json({ error: ccRefused });
 
     const structure = await payrollPrisma.salaryStructure.findFirst({ where: { orgId, id: body.structureId } });
     if (!structure) return res.status(400).json({ error: 'No such salary structure.' });

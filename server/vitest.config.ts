@@ -27,6 +27,8 @@ const pgBase = () => {
      from the developer's own DATABASE_URL so the suite needs no second piece
      of configuration to find the server. */
   const from =
+    /* CI names its superuser here (ci.yml); DATABASE_URL there is the application role, which may not create triggers. */
+    process.env.PGADMIN_URL ||
     process.env.TEST_PG_URL ||
     process.env.DATABASE_URL ||
     `postgresql://${encodeURIComponent(userInfo().username)}@localhost:5432/postgres`;
@@ -53,8 +55,13 @@ const TEST_PAYROLL_DATABASE_URL = process.env.TEST_PAYROLL_DATABASE_URL || urlFo
 const TEST_PEOPLE_DATABASE_URL = process.env.TEST_PEOPLE_DATABASE_URL || urlFor('people');
 const TEST_PLATFORM_DATABASE_URL = process.env.TEST_PLATFORM_DATABASE_URL || urlFor('platform');
 
+/* Read before DATABASE_URL is pointed at the test database below: afterwards
+   pgBase() would name the application role, not the owner. A test that must
+   act as the owner (a trigger that simulates a crash) reads it too. */
+const PG_ADMIN_URL = pgBase();
+
 // globalSetup runs in this same process and reads them from here.
-process.env.PG_ADMIN_URL = pgBase();
+process.env.PG_ADMIN_URL = PG_ADMIN_URL;
 process.env.DATABASE_URL = TEST_DATABASE_URL;
 process.env.PAYROLL_DATABASE_URL = TEST_PAYROLL_DATABASE_URL;
 process.env.PEOPLE_DATABASE_URL = TEST_PEOPLE_DATABASE_URL;
@@ -68,7 +75,7 @@ export default defineConfig({
     // Creates this run's three databases and pushes the schemas into them.
     globalSetup: ['src/__tests__/globalSetup.ts'],
     env: {
-      PG_ADMIN_URL: pgBase(),
+      PG_ADMIN_URL,
       DATABASE_URL: TEST_DATABASE_URL,
       PAYROLL_DATABASE_URL: TEST_PAYROLL_DATABASE_URL,
       PEOPLE_DATABASE_URL: TEST_PEOPLE_DATABASE_URL,
@@ -87,6 +94,9 @@ export default defineConfig({
       // SSO suites name domains they cannot publish DNS for; the one suite
       // about domain proof switches this back on for itself.
       SSO_DOMAIN_VERIFY: 'off',
+      // R2 plan: every suite that stores a document, selfie or evidence goes
+      // through object storage (in memory), as production does with R2.
+      FILE_STORE: 'memory',
     },
     include: ['src/**/*.test.ts'],
     /*

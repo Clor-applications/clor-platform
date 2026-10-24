@@ -36,25 +36,24 @@ export type EffectiveAccess = {
   levels: Map<string, number>;
 };
 
+/**
+ * Which assignments count: those for one branch plus the company-wide ones,
+ * only the company-wide ones (COMPANY_WIDE), or — no branch given — all.
+ */
+export const COMPANY_WIDE = 'company-wide' as const;
+type BranchScope = string | typeof COMPANY_WIDE | undefined;
+const branchWhere = (branchId: BranchScope) =>
+  branchId === COMPANY_WIDE ? { branchId: null } : branchId ? { OR: [{ branchId: null }, { branchId }] } : {};
+
 /** Role ids from direct assignments plus every role inside assigned profiles. */
-export async function resolveRoleIds(accountId: string, orgId: string, userId: string, branchId?: string) {
+export async function resolveRoleIds(accountId: string, orgId: string, userId: string, branchId?: BranchScope) {
   const direct = await platformPrisma.userRoleAssignment.findMany({
-    where: {
-      accountId,
-      orgId,
-      userId,
-      ...(branchId ? { OR: [{ branchId: null }, { branchId }] } : {}),
-    },
+    where: { accountId, orgId, userId, ...branchWhere(branchId) },
     select: { roleId: true },
   });
 
   const profileAssignments = await platformPrisma.userRoleProfile.findMany({
-    where: {
-      accountId,
-      orgId,
-      userId,
-      ...(branchId ? { OR: [{ branchId: null }, { branchId }] } : {}),
-    },
+    where: { accountId, orgId, userId, ...branchWhere(branchId) },
     select: { profileId: true },
   });
 
@@ -77,7 +76,7 @@ export function resolveAccess(
   accountId: string,
   orgId: string,
   userId: string,
-  branchId?: string
+  branchId?: BranchScope
 ): Promise<EffectiveAccess> {
   return cachedAccess(`access|${accountId}|${orgId}|${userId}|${branchId || ''}`, () =>
     resolveAccessUncached(accountId, orgId, userId, branchId)
@@ -88,7 +87,7 @@ async function resolveAccessUncached(
   accountId: string,
   orgId: string,
   userId: string,
-  branchId?: string
+  branchId?: BranchScope
 ): Promise<EffectiveAccess> {
   const roleIds = await resolveRoleIds(accountId, orgId, userId, branchId);
 

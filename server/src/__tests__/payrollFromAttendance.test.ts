@@ -178,7 +178,9 @@ describe('days from Attendance', () => {
   }, 60_000);
 
   it('is refused when Attendance is off', async () => {
-    const c = await makeOwner({ payroll: true, people: true });
+    /* A fresh account owns every sellable app (explicit bootstrap subscription), so
+       "off" is now the customer turning the app off, not a catalog default. */
+    const c = await makeOwner({ payroll: true, people: true, attendance: false });
     const { runId } = await setUp(c);
     expect((await pay.post(c, `/runs/${runId}/inputs/from-attendance`).expect(409)).body.code).toBe('ATTENDANCE_DISABLED');
   });

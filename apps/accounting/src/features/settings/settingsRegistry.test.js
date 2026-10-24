@@ -4,6 +4,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
+import { appSource } from '../../testing/appSource.js';
 import {
   SETTINGS_CATEGORIES,
   SETTINGS_ITEMS,
@@ -18,7 +19,7 @@ import {
 
 /* src/features/settings/ → src/ */
 const SRC = dirname(dirname(dirname(fileURLToPath(import.meta.url))));
-const APP = readFileSync(join(SRC, 'App.jsx'), 'utf8');
+const APP = appSource(join(SRC, 'App.jsx'));
 
 const all = { can: () => true, isEnabled: () => true };
 
@@ -112,10 +113,11 @@ describe('what a person may open', () => {
     expect(keys).toContain('settingsCompany');
   });
 
-  it('keeps branch and warehouse administration under Organisation', () => {
+  it('keeps warehouses under Organisation, and branches with the company in Workspace', () => {
     const isEnabled = (f) => f !== 'branches';
     const keys = visibleSettings({ can: () => true, isEnabled }).map((i) => i.key);
-    expect(keys).toContain('settingsBranches');
+    /* Branches are the company's, shared by every app (ADR-010); warehouses are Accounting's stock. */
+    expect(keys).not.toContain('settingsBranches');
     expect(keys).toContain('settingsWarehouses');
   });
 
@@ -146,28 +148,23 @@ describe('local navigation', () => {
     expect(settingsBackTarget('bills')).toBe('bills');
   });
 
-  it('keeps security controls together under the Security heading', () => {
+  it("keeps Accounting's own control under Security, and the company's in Workspace", () => {
+    /* Permissions, sign-in, the audit trail and SSO moved to Workspace (ADR-010); posting approvals are Accounting's. */
     const groups = groupedForCategory('security', all);
     expect(groups).toHaveLength(1);
     expect(groups[0].name).toBe('');
-    expect(groups[0].items.map((item) => item.key)).toEqual([
-      'settingsPermissions',
-      'settingsGovernance',
-      'settingsSecurity',
-      'settingsAudit',
-      'settingsSso',
-    ]);
+    expect(groups[0].items.map((item) => item.key)).toEqual(['settingsGovernance']);
   });
 
   it('keeps a group together wherever its members are declared', () => {
-    /* Finance declares Account Overview, then POS Payment Accounts, then
-       Billing. The first and third share a group; grouping by adjacency
-       rendered "Your account" twice, with a duplicate React key each visit. */
-    const groups = groupedForCategory('finance', all);
-    expect(groups.map((g) => g.name)).toEqual(['Your account', 'Point of sale']);
-    expect(groups[0].items.map((i) => i.key)).toEqual(['settingsAccount', 'settingsBilling']);
-    expect(groups[1].items.map((i) => i.key)).toEqual(['settingsPosAccounts']);
-    expect(new Set(groups.map((g) => g.name)).size).toBe(groups.length);
+    /* Grouping by adjacency once rendered "Your account" twice in Finance,
+       with a duplicate React key each visit. Finance's account and billing
+       entries moved to Workspace (ADR-010), so the rule is checked on
+       every category: no group heading appears twice in one. */
+    for (const c of SETTINGS_CATEGORIES) {
+      const names = groupedForCategory(c.id, all).map((g) => g.name);
+      expect(new Set(names).size).toBe(names.length);
+    }
   });
 
   /* One heading over the whole list says nothing the page title has not said. */
@@ -182,7 +179,8 @@ describe('local navigation', () => {
 
 describe('search finds what people type', () => {
   it('matches a word the title does not contain', () => {
-    expect(searchSettings('password', all).map((i) => i.key)).toContain('settingsSecurity');
+    /* Sign-in lives in Workspace now; Settings finds the way there. */
+    expect(searchSettings('password', all).map((i) => i.key)).toContain('companyAdmin');
     /* "tds" used to reach the Payments pane by keyword; that pane was a
        capability surface and has gone to Features. The TDS settings page is
        what someone typing this is actually after. */
@@ -192,7 +190,7 @@ describe('search finds what people type', () => {
 
   it('puts the setting actually called that first', () => {
     expect(searchSettings('gst', all)[0].key).toBe('settingsTax');
-    expect(searchSettings('roles', all)[0].key).toBe('settingsRoles');
+    expect(searchSettings('roles', all)[0].key).toBe('accountingRoles');
   });
 
   it('finds the backup by the words somebody would reach for', () => {
@@ -220,8 +218,8 @@ describe('search finds what people type', () => {
 
 describe('breadcrumbs', () => {
   it('reads Settings / category / setting, with the last one not a link', () => {
-    const crumbs = breadcrumbFor('settingsRoles');
-    expect(crumbs.map((c) => c.label)).toEqual(['Settings', 'User & Roles', 'Roles']);
+    const crumbs = breadcrumbFor('companyAdmin');
+    expect(crumbs.map((c) => c.label)).toEqual(['Settings', 'User & Roles', 'Users, roles & security']);
     expect(crumbs[0].target).toBe('settings');
     expect(crumbs[1].target).toBe('category:usersRoles');
     expect(crumbs.at(-1).target).toBeNull();

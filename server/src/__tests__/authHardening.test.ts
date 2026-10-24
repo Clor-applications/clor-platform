@@ -114,7 +114,9 @@ describe('sessions', () => {
       .send({ refreshToken: u.refreshToken })
       .expect(200);
 
-    // Replaying the original, already-rotated token is the theft signal.
+    // Replaying the original, already-rotated token — later than a tab race could explain — is the theft signal.
+    const owner = await platformPrisma.user.findFirstOrThrow({ where: { email: u.email }, select: { id: true } });
+    await platformPrisma.session.updateMany({ where: { userId: owner.id, revokedReason: 'ROTATED' }, data: { revokedAt: new Date(Date.now() - 60_000) } });
     const replay = await request(app)
       .post('/api/auth/refresh')
       .send({ refreshToken: u.refreshToken })
@@ -123,6 +125,29 @@ describe('sessions', () => {
 
     // And the legitimate holder is signed out too, deliberately.
     await request(app).post('/api/auth/refresh').send({ refreshToken: refreshCookieValue(rotated) }).expect(401);
+  });
+
+  /*
+   * A-06: "not revoked" was read and then written in two steps, so two
+   * refreshes with one token both passed and forked the session. Now exactly
+   * one wins; the other — two tabs sharing a cookie — is asked to retry, and
+   * nobody is signed out.
+   */
+  it('lets only one of two simultaneous refreshes through, and signs nobody out', async () => {
+    const u = await makeUser();
+    const [a, b] = await Promise.all([
+      request(app).post('/api/auth/refresh').send({ refreshToken: u.refreshToken }),
+      request(app).post('/api/auth/refresh').send({ refreshToken: u.refreshToken }),
+    ]);
+    expect([a.status, b.status].sort()).toEqual([200, 409]);
+    const winner = a.status === 200 ? a : b;
+    const loser = a.status === 200 ? b : a;
+    expect(loser.body.code).toBe('refresh_raced');
+    expect((loser.headers['set-cookie'] as unknown as string[] | undefined) || []).toEqual([]);
+    const user = await platformPrisma.user.findFirstOrThrow({ where: { email: u.email }, select: { id: true } });
+    expect(await platformPrisma.session.count({ where: { userId: user.id, revokedReason: 'ROTATED', replacedBySessionId: { not: null } } })).toBe(1);
+    expect(await platformPrisma.session.count({ where: { userId: user.id, revokedReason: 'REUSE_DETECTED' } })).toBe(0);
+    await request(app).post('/api/auth/refresh').send({ refreshToken: refreshCookieValue(winner) }).expect(200);
   });
 
   /*

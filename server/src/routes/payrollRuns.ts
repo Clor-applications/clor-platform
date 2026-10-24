@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { ownWorkRefusal } from '../services/makerChecker.js';
 import { z } from 'zod';
 
 import { requireAuth } from '../middleware/auth.js';
@@ -11,7 +12,7 @@ import { PAYROLL_MODULE, PAYROLL_RESOURCE, payrollRouteOk } from '../services/pa
 import { calculateRun, daysBetween, eligibleEmployees, validateRun } from '../services/payroll/run.js';
 import { isFeatureEnabled } from '../services/features.js';
 import { recordAudit } from '../services/auditTrail.js';
-import { closedMonths, daysBetween as datesBetween, periodRows } from './attendance.js';
+import { closedMonths, daysBetween as datesBetween, periodRows } from '../services/attendance/days.js';
 import { requirePayrollStepUp } from '../services/stepUp.js';
 import { emit as emitWebhook } from '../services/attendance/webhooks.js';
 
@@ -639,10 +640,19 @@ const transition = (
         });
       }
 
-      const updated = await payrollPrisma.payrollRun.update({
-        where: { id: run.id },
+      /* A-13: whoever prepared the run approves it only as the company's maker-checker setting allows. */
+      if (to === 'APPROVED') {
+        const refused = await ownWorkRefusal(req, { makers: [run.createdByUserId, run.submittedByUserId], module: PAYROLL_MODULE, resource: RESOURCE, entity: 'PAYROLL_RUN', entityId: run.id, what: 'payroll' });
+        if (refused) return res.status(refused.status).json(refused.body);
+      }
+
+      /* Only from the state that was checked: two people acting at once cannot both move it. */
+      const moved = await payrollPrisma.payrollRun.updateMany({
+        where: { id: run.id, status: { in: from } },
         data: { status: to, ...stamp(req.auth!.userId, req.body || {}) },
       });
+      if (moved.count !== 1) return res.status(409).json({ error: 'Somebody else has just changed this payroll. Reload it.', code: 'RUN_WRONG_STATUS' });
+      const updated = await payrollPrisma.payrollRun.findUniqueOrThrow({ where: { id: run.id } });
       res.json({ run: shape(updated) });
       /* Payslips are final: attendance for the period is settled, accounting can post (HR research: PayrollPeriodLocked). */
       if (to === 'LOCKED') emitWebhook(updated.orgId, 'payroll.locked', { runId: updated.id, number: updated.number, periodId: updated.periodId, status: updated.status, lockedAt: (updated as any).lockedAt ?? null });

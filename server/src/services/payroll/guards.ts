@@ -42,12 +42,12 @@ export const payrollEnabled = async (req: Request, res: Response): Promise<boole
 /** Both, in the order a route wants them. Returns false when it has replied. */
 export const payrollRouteOk = async (req: Request, res: Response): Promise<boolean> => {
   if (!orgMatches(req, res)) return false;
-  if (!(await payrollEnabled(req, res))) return false;
-  /* Bought, and the subscription in good standing: the shell hides an unowned app, the API refuses it too. */
+  /* A-15: one order for every app — not bought (402) before switched off (403), so an unowned app says so instead of reading as a setting. */
   if (!(await isAppEntitled(req.tenant!.accountId, 'payroll'))) {
     res.status(402).json({ error: 'Payroll is not on this account’s subscription.', app: 'payroll', code: 'APP_NOT_SUBSCRIBED' });
     return false;
   }
+  if (!(await payrollEnabled(req, res))) return false;
   return true;
 };
 

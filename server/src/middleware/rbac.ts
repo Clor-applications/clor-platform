@@ -1,6 +1,7 @@
 import type { Request, Response, NextFunction } from 'express';
 import { type PermissionAction as PermissionActionType } from '../constants/enums.js';
 import { resolveAccess } from '../services/access.js';
+import { isAppEntitled } from '../services/subscriptions.js';
 
 // DB-stored RBAC:
 // - UserRoleAssignment can be org-wide (branchId null) or branch-scoped
@@ -22,6 +23,21 @@ function permString(module: string, subModule: string | null, action: Permission
 }
 
 export type Refusal = { status: number; body: Record<string, unknown> };
+
+const ACCOUNTING_MODULES = new Set(['SALES', 'PURCHASE', 'INVENTORY', 'ACCOUNTING', 'CASHBANK', 'EXPENSES', 'MASTERS']);
+
+/**
+ * The app(s) a permission module belongs to — any one of them paid for opens
+ * it (A-14). People and Attendance share the employee master and leave, so
+ * either opens PEOPLE and ATTENDANCE here; each app's own route guard is
+ * stricter where it needs to be. SETTINGS and REPORTS are the company's.
+ */
+const MODULE_APPS: Record<string, string[]> = {
+  PAYROLL: ['payroll'],
+  PEOPLE: ['people', 'attendance'],
+  ATTENDANCE: ['attendance', 'people'],
+};
+const appsForModule = (m: string): string[] | null => (ACCOUNTING_MODULES.has(m) ? ['accounting'] : MODULE_APPS[m] || null);
 
 /**
  * Decides one permission for this request, and records the caller's effective
@@ -61,6 +77,36 @@ export async function authorize(
 
   if (!accountId || !userId) return { status: 401, body: { error: 'Missing auth context' } };
   if (!orgId || !branchId) return { status: 400, body: { error: 'Missing tenant context' } };
+
+  /*
+   * A role says what a user may do inside an app; it must never grant the app
+   * itself. Accounting historically relied only on RBAC while People,
+   * Attendance and Payroll had explicit subscription guards. That allowed an
+   * account whose subscription removed Accounting to keep calling its APIs
+   * directly. Put the commercial ceiling in the common authorization path so
+   * shell visibility and direct API access reach the same answer.
+   */
+  const apps = appsForModule(m);
+  if (apps) {
+    let owned = false;
+    for (const app of apps) {
+      if (await isAppEntitled(accountId, app)) {
+        owned = true;
+        break;
+      }
+    }
+    if (!owned) {
+      return {
+        status: 402,
+        body: { error: `The ${apps[0]} app is not on this account's subscription.`, app: apps[0], code: 'APP_NOT_SUBSCRIBED' },
+      };
+    }
+    /* GAP-006: and, for a person from another account, an app the company let them use. */
+    const ceiling = req.tenant?.outsideApps;
+    if (ceiling && !apps.some((a) => ceiling.includes(a))) {
+      return { status: 403, body: { error: `This company has not given you access to ${apps[0]}.`, app: apps[0], code: 'APP_NOT_IN_ENGAGEMENT' } };
+    }
+  }
 
   // Effective access resolves direct role assignments AND role profiles.
   const access = await resolveAccess(accountId, orgId, userId, branchId);
@@ -104,6 +150,35 @@ export async function authorize(
   }
 
   return null;
+}
+
+/**
+ * Allowed when any one of these permissions is held — for a route several
+ * screens share, like the payment modes a receipt, a bill payment and an
+ * expense all offer (A-22). Refused with the first refusal that is not a plain
+ * "permission denied" (an app not bought, no roles), else with the whole list.
+ */
+export async function authorizeAny(req: Request, options: Array<[string, PermissionActionType, string?]>): Promise<Refusal | null> {
+  let other: Refusal | null = null;
+  for (const [m, a, sm] of options) {
+    const refusal = await authorize(req, m, a, sm);
+    if (!refusal) return null;
+    if (refusal.status !== 403 || !refusal.body.permission) other ??= refusal;
+  }
+  return (
+    other || {
+      status: 403,
+      body: { error: 'Permission denied', anyOf: options.map(([module, action, subModule]) => ({ module, subModule: subModule || null, action })) },
+    }
+  );
+}
+
+export function requireAnyPermission(...options: Array<[string, PermissionActionType, string?]>) {
+  return async (req: Request, res: Response, next: NextFunction) => {
+    const refusal = await authorizeAny(req, options);
+    if (refusal) return res.status(refusal.status).json(refusal.body);
+    next();
+  };
 }
 
 export function requirePermission(module: string, action: PermissionActionType, subModule?: string) {

@@ -1,0 +1,137 @@
+ DEPRECATED  `test.poolOptions` was removed in Vitest 4. All previous `poolOptions` are now top-level options. Please, refer to the migration guide: https://vitest.dev/guide/migration#pool-rework
+
+ RUN  v4.1.10 /Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_13426", schema "accounting" at "localhost:5432"
+
+The PostgreSQL database "clor_test_13426" schema "accounting" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 1.33s
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/payroll/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_13426", schema "payroll" at "localhost:5432"
+
+The PostgreSQL database "clor_test_13426" schema "payroll" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 674ms
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/people/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_13426", schema "people" at "localhost:5432"
+
+The PostgreSQL database "clor_test_13426" schema "people" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 1.41s
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/platform/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_13426", schema "platform" at "localhost:5432"
+
+The PostgreSQL database "clor_test_13426" schema "platform" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 1.20s
+
+[setup] 180 policy statements applied to clor_test_13426
+[setup] 7 policy statements applied to clor_test_13426
+[setup] 10 policy statements applied to clor_test_13426
+[setup] 35 policy statements applied to clor_test_13426
+[setup] 4 policy statements applied to clor_test_13426
+[setup] 1 policy statements applied to clor_test_13426
+[setup] 96 policy statements applied to clor_test_13426
+[setup] 4 policy statements applied to clor_test_13426
+[setup] 4 policy statements applied to clor_test_13426
+[setup] 4 policy statements applied to clor_test_13426
+[setup] 1 policy statements applied to clor_test_13426
+[setup] 4 policy statements applied to clor_test_13426
+[setup] 32 policy statements applied to clor_test_13426
+[setup] 24 policy statements applied to clor_test_13426
+[setup] 12 policy statements applied to clor_test_13426
+[setup] 16 policy statements applied to clor_test_13426
+[setup] 4 policy statements applied to clor_test_13426
+[setup] 4 policy statements applied to clor_test_13426
+[setup] 8 policy statements applied to clor_test_13426
+[setup] 8 policy statements applied to clor_test_13426
+[setup] 20 policy statements applied to clor_test_13426
+[setup] 8 policy statements applied to clor_test_13426
+[setup] 4 policy statements applied to clor_test_13426
+[setup] 8 policy statements applied to clor_test_13426
+[setup] 8 policy statements applied to clor_test_13426
+[setup] 12 policy statements applied to clor_test_13426
+[setup] 4 policy statements applied to clor_test_13426
+[setup] 8 policy statements applied to clor_test_13426
+[setup] 28 policy statements applied to clor_test_13426
+[setup] 4 policy statements applied to clor_test_13426
+[setup] 4 policy statements applied to clor_test_13426
+[setup] 4 policy statements applied to clor_test_13426
+[setup] 8 policy statements applied to clor_test_13426
+[setup] 4 policy statements applied to clor_test_13426
+[setup] 4 policy statements applied to clor_test_13426
+[setup] 4 policy statements applied to clor_test_13426
+[setup] 4 policy statements applied to clor_test_13426
+[setup] 8 policy statements applied to clor_test_13426
+[setup] 4 policy statements applied to clor_test_13426
+[setup] 12 policy statements applied to clor_test_13426
+[setup] 4 policy statements applied to clor_test_13426
+[setup] 1 policy statements applied to clor_test_13426
+[setup] 4 policy statements applied to clor_test_13426
+[setup] 76 policy statements applied to clor_test_13426
+[setup] 4 policy statements applied to clor_test_13426
+[setup] 4 policy statements applied to clor_test_13426
+[setup] 4 policy statements applied to clor_test_13426
+[setup] 4 policy statements applied to clor_test_13426
+[setup] 1 policy statements applied to clor_test_13426
+[setup] 8 policy statements applied to clor_test_13426
+POST /api/auth/signup 200 570 - 168.794 ms
+POST /api/auth/setup-company 200 198 - 696.135 ms
+PUT /api/orgs/cmvm360fd000e6ih9u7pq0ovy/features 200 1173 - 183.142 ms
+POST /api/users 201 134 - 176.157 ms
+POST /api/orgs/cmvm360fd000e6ih9u7pq0ovy/payroll/employees 201 678 - 169.233 ms
+POST /api/orgs/cmvm360fd000e6ih9u7pq0ovy/payroll/components 201 860 - 77.942 ms
+ ❯ src/__tests__/crossStoreGuards.test.ts (12 tests | 2 failed | 10 skipped) 1517ms
+     × a payroll employee on a cost centre that does not exist is refused; on a real one, kept 176ms
+     × a salary component posting to a ledger that does not exist is refused 81ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/__tests__/crossStoreGuards.test.ts > Payroll names only Accounting records that exist > a payroll employee on a cost centre that does not exist is refused; on a real one, kept
+AssertionError: expected 201 to be 400 // Object.is equality
+
+- Expected
++ Received
+
+- 400
++ 201
+
+ ❯ src/__tests__/crossStoreGuards.test.ts:153:24
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  src/__tests__/crossStoreGuards.test.ts > Payroll names only Accounting records that exist > a salary component posting to a ledger that does not exist is refused
+AssertionError: expected 201 to be 400 // Object.is equality
+
+- Expected
++ Received
+
+- 400
++ 201
+
+ ❯ src/__tests__/crossStoreGuards.test.ts:159:106
+    157|
+    158|   it('a salary component posting to a ledger that does not exist is re…
+    159|     expect((await component(`X${rnd().toUpperCase()}`, { expenseLedger…
+       |                                                                                                          ^
+    160|     const ledgers = (await o(c).get('/ledger/accounts').expect(200)).b…
+    161|     const expense = ledgers.find((a: any) => a.accountType === 'EXPENS…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 10 skipped (12)
+   Start at  13:06:57
+   Duration  21.25s (transform 3.15s, setup 24ms, import 6.12s, tests 1.52s, environment 0ms)
+

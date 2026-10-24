@@ -22,7 +22,7 @@ const knownHosts = ['localhost', '127.0.0.1', '.trycloudflare.com', ...lanHosts]
 // `server/.env`. A stale 4001 default made every sign-in fail before the
 // request reached the running API on 4002.
 let localApiPort = '4001'
-try { localApiPort = readFileSync(new URL('./server/.env', import.meta.url), 'utf8').match(/^PORT\s*=\s*[\"']?(\d+)/m)?.[1] || localApiPort } catch { /* The API's own default applies before local setup. */ }
+try { localApiPort = readFileSync(new URL('./server/.env', import.meta.url), 'utf8').match(/^PORT\s*=\s*["']?(\d+)/m)?.[1] || localApiPort } catch { /* The API's own default applies before local setup. */ }
 const apiTarget = process.env.VITE_API_PROXY_TARGET || `http://127.0.0.1:${process.env.PORT || localApiPort}`
 
 // https://vite.dev/config/

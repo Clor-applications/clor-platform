@@ -22,6 +22,8 @@ export type Policy = {
   allowedEmailDomains: string | null;
   requirePayrollStepUp: boolean;
   requireAdminTwoFactor: boolean;
+  /** A-13: who may approve their own work — 'AUTO' | 'STRICT' | 'ALLOW'. */
+  makerChecker: string;
 };
 
 export const DEFAULT_POLICY: Policy = {
@@ -37,6 +39,7 @@ export const DEFAULT_POLICY: Policy = {
   allowedEmailDomains: null,
   requirePayrollStepUp: false,
   requireAdminTwoFactor: false,
+  makerChecker: 'AUTO',
 };
 
 export async function getAuthPolicy(accountId: string, orgId: string): Promise<Policy> {
@@ -55,6 +58,7 @@ export async function getAuthPolicy(accountId: string, orgId: string): Promise<P
     allowedEmailDomains: row.allowedEmailDomains,
     requirePayrollStepUp: row.requirePayrollStepUp,
     requireAdminTwoFactor: row.requireAdminTwoFactor,
+    makerChecker: ['AUTO', 'STRICT', 'ALLOW'].includes(row.makerChecker) ? row.makerChecker : 'AUTO',
   };
 }
 
@@ -89,8 +93,10 @@ export async function policyForUser(accountId: string, userId: string): Promise<
       allowedEmailDomains: strictest.allowedEmailDomains || r.allowedEmailDomains,
       requirePayrollStepUp: strictest.requirePayrollStepUp || r.requirePayrollStepUp,
       requireAdminTwoFactor: strictest.requireAdminTwoFactor || r.requireAdminTwoFactor,
+      /* Strictest across companies: STRICT over AUTO over ALLOW. */
+      makerChecker: [strictest.makerChecker, r.makerChecker].includes('STRICT') ? 'STRICT' : [strictest.makerChecker, r.makerChecker].includes('AUTO') ? 'AUTO' : 'ALLOW',
     }),
-    { ...DEFAULT_POLICY, maxFailedLogins: 999, sessionDays: 999, accessTokenMinutes: 999, lockoutMinutes: 0 }
+    { ...DEFAULT_POLICY, maxFailedLogins: 999, sessionDays: 999, accessTokenMinutes: 999, lockoutMinutes: 0, makerChecker: 'ALLOW' }
   );
 }
 

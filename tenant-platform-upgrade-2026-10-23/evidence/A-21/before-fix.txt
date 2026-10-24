@@ -1,0 +1,223 @@
+ DEPRECATED  `test.poolOptions` was removed in Vitest 4. All previous `poolOptions` are now top-level options. Please, refer to the migration guide: https://vitest.dev/guide/migration#pool-rework
+
+ RUN  v4.1.10 /Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_91974", schema "accounting" at "localhost:5432"
+
+The PostgreSQL database "clor_test_91974" schema "accounting" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 1.38s
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/payroll/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_91974", schema "payroll" at "localhost:5432"
+
+The PostgreSQL database "clor_test_91974" schema "payroll" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 693ms
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/people/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_91974", schema "people" at "localhost:5432"
+
+The PostgreSQL database "clor_test_91974" schema "people" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 1.27s
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/platform/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_91974", schema "platform" at "localhost:5432"
+
+The PostgreSQL database "clor_test_91974" schema "platform" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 785ms
+
+[setup] 180 policy statements applied to clor_test_91974
+[setup] 7 policy statements applied to clor_test_91974
+[setup] 10 policy statements applied to clor_test_91974
+[setup] 35 policy statements applied to clor_test_91974
+[setup] 4 policy statements applied to clor_test_91974
+[setup] 96 policy statements applied to clor_test_91974
+[setup] 4 policy statements applied to clor_test_91974
+[setup] 4 policy statements applied to clor_test_91974
+[setup] 4 policy statements applied to clor_test_91974
+[setup] 4 policy statements applied to clor_test_91974
+[setup] 32 policy statements applied to clor_test_91974
+[setup] 24 policy statements applied to clor_test_91974
+[setup] 12 policy statements applied to clor_test_91974
+[setup] 16 policy statements applied to clor_test_91974
+[setup] 4 policy statements applied to clor_test_91974
+[setup] 4 policy statements applied to clor_test_91974
+[setup] 8 policy statements applied to clor_test_91974
+[setup] 8 policy statements applied to clor_test_91974
+[setup] 20 policy statements applied to clor_test_91974
+[setup] 8 policy statements applied to clor_test_91974
+[setup] 4 policy statements applied to clor_test_91974
+[setup] 8 policy statements applied to clor_test_91974
+[setup] 8 policy statements applied to clor_test_91974
+[setup] 12 policy statements applied to clor_test_91974
+[setup] 4 policy statements applied to clor_test_91974
+[setup] 8 policy statements applied to clor_test_91974
+[setup] 28 policy statements applied to clor_test_91974
+[setup] 4 policy statements applied to clor_test_91974
+[setup] 4 policy statements applied to clor_test_91974
+[setup] 4 policy statements applied to clor_test_91974
+[setup] 8 policy statements applied to clor_test_91974
+[setup] 4 policy statements applied to clor_test_91974
+[setup] 4 policy statements applied to clor_test_91974
+[setup] 4 policy statements applied to clor_test_91974
+[setup] 4 policy statements applied to clor_test_91974
+[setup] 8 policy statements applied to clor_test_91974
+[setup] 4 policy statements applied to clor_test_91974
+[setup] 12 policy statements applied to clor_test_91974
+[setup] 4 policy statements applied to clor_test_91974
+[setup] 76 policy statements applied to clor_test_91974
+[setup] 4 policy statements applied to clor_test_91974
+[setup] 4 policy statements applied to clor_test_91974
+[setup] 4 policy statements applied to clor_test_91974
+[setup] 4 policy statements applied to clor_test_91974
+POST /api/auth/signup 200 570 - 97.681 ms
+POST /api/auth/setup-company 200 180 - 386.588 ms
+PUT /api/orgs/cmvla7cwg000eyciggwnrwycc/features 200 1173 - 328.431 ms
+POST /api/orgs/cmvla7cwg000eyciggwnrwycc/people/employees 201 1668 - 266.879 ms
+POST /api/orgs/cmvla7cwg000eyciggwnrwycc/security/two-factor/setup 200 202 - 270.112 ms
+POST /api/orgs/cmvla7cwg000eyciggwnrwycc/security/two-factor/enable 200 130 - 146.489 ms
+POST /api/orgs/cmvla7cwg000eyciggwnrwycc/security/step-up 200 339 - 158.127 ms
+GET /api/orgs/cmvla7cwg000eyciggwnrwycc/export?scope=all 200 125752 - 438.138 ms
+POST /api/users 201 157 - 107.783 ms
+GET /api/orgs/cmvla7cwg000eyciggwnrwycc/roles 200 490663 - 362.059 ms
+PUT /api/orgs/cmvla7cwg000eyciggwnrwycc/users/cmvla7eiq00qoycigf4uw26o1/role 200 11 - 34.348 ms
+POST /api/auth/login 200 772 - 7.736 ms
+GET /api/orgs/cmvla7cwg000eyciggwnrwycc/roles 200 490663 - 32.429 ms
+PUT /api/orgs/cmvla7cwg000eyciggwnrwycc/users/cmvla7cul0008ycig3n78z2w2/role 200 11 - 37.676 ms
+POST /api/orgs/cmvla7cwg000eyciggwnrwycc/closure 201 477 - 265.748 ms
+POST /api/auth/signup 200 570 - 18.707 ms
+POST /api/auth/setup-company 200 180 - 130.318 ms
+PUT /api/orgs/cmvla7f5302kxycigugb7ll1q/features 200 1173 - 139.640 ms
+POST /api/orgs/cmvla7f5302kxycigugb7ll1q/people/employees 201 1668 - 72.449 ms
+POST /api/orgs/cmvla7f5302kxycigugb7ll1q/security/two-factor/setup 200 202 - 143.817 ms
+POST /api/orgs/cmvla7f5302kxycigugb7ll1q/security/two-factor/enable 200 130 - 220.744 ms
+POST /api/orgs/cmvla7f5302kxycigugb7ll1q/security/step-up 200 339 - 153.228 ms
+GET /api/orgs/cmvla7f5302kxycigugb7ll1q/export?scope=all 200 125752 - 312.433 ms
+POST /api/users 201 157 - 48.719 ms
+GET /api/orgs/cmvla7f5302kxycigugb7ll1q/roles 200 490663 - 272.799 ms
+PUT /api/orgs/cmvla7f5302kxycigugb7ll1q/users/cmvla7g2p032qycig3esv31rh/role 200 11 - 35.253 ms
+POST /api/auth/login 200 772 - 4.629 ms
+GET /api/orgs/cmvla7f5302kxycigugb7ll1q/roles 200 490663 - 27.505 ms
+PUT /api/orgs/cmvla7f5302kxycigugb7ll1q/users/cmvla7f4k02krycigkigalkjx/role 200 11 - 26.797 ms
+POST /api/orgs/cmvla7f5302kxycigugb7ll1q/security/two-factor/setup 200 204 - 125.452 ms
+POST /api/orgs/cmvla7f5302kxycigugb7ll1q/security/two-factor/enable 200 130 - 171.774 ms
+POST /api/orgs/cmvla7f5302kxycigugb7ll1q/security/step-up 200 339 - 464.628 ms
+GET /api/orgs/cmvla7f5302kxycigugb7ll1q/export?scope=all 200 513536 - 378.224 ms
+GET /api/orgs/cmvla7f5302kxycigugb7ll1q/closure 200 124 - 143.547 ms
+POST /api/auth/signup 200 570 - 10.498 ms
+POST /api/auth/setup-company 200 180 - 127.484 ms
+PUT /api/orgs/cmvla7he004x4ycigncxwgxso/features 200 1173 - 137.404 ms
+POST /api/orgs/cmvla7he004x4ycigncxwgxso/people/employees 201 1668 - 62.089 ms
+POST /api/orgs/cmvla7he004x4ycigncxwgxso/security/two-factor/setup 200 202 - 120.798 ms
+POST /api/orgs/cmvla7he004x4ycigncxwgxso/security/two-factor/enable 200 130 - 129.267 ms
+POST /api/orgs/cmvla7he004x4ycigncxwgxso/security/step-up 200 339 - 152.629 ms
+GET /api/orgs/cmvla7he004x4ycigncxwgxso/export?scope=all 200 125752 - 250.341 ms
+POST /api/orgs/cmvla7he004x4ycigncxwgxso/closure 201 477 - 103.946 ms
+POST /api/auth/signup 200 570 - 5.387 ms
+POST /api/auth/setup-company 200 180 - 93.072 ms
+PUT /api/orgs/cmvla7i8i05fdycighrr7wbgw/features 200 1173 - 114.244 ms
+POST /api/orgs/cmvla7i8i05fdycighrr7wbgw/people/employees 201 1668 - 57.435 ms
+POST /api/orgs/cmvla7i8i05fdycighrr7wbgw/security/two-factor/setup 200 202 - 120.251 ms
+POST /api/orgs/cmvla7i8i05fdycighrr7wbgw/security/two-factor/enable 200 130 - 124.492 ms
+POST /api/orgs/cmvla7i8i05fdycighrr7wbgw/security/step-up 200 339 - 114.640 ms
+GET /api/orgs/cmvla7i8i05fdycighrr7wbgw/export?scope=all 200 125752 - 263.600 ms
+POST /api/users 201 157 - 35.261 ms
+GET /api/orgs/cmvla7i8i05fdycighrr7wbgw/roles 200 490663 - 214.998 ms
+PUT /api/orgs/cmvla7i8i05fdycighrr7wbgw/users/cmvla7ixy05x6ycig4a76rc9r/role 200 11 - 32.372 ms
+POST /api/auth/login 200 772 - 5.735 ms
+POST /api/orgs/cmvla7i8i05fdycighrr7wbgw/closure 403 86 - 136.420 ms
+ ❯ src/__tests__/companyClosure.test.ts (7 tests | 4 failed | 3 skipped) 8369ms
+     × A-21: is refused to the creator once they are no longer an administrator 3007ms
+     × A-21: is open to the administrator running the company, though they did not create it 2919ms
+     × A-21: needs a fresh authenticator code, whatever the company policy 1106ms
+     × A-21: is refused to a member who is not an administrator 1335ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/__tests__/companyClosure.test.ts > closing a company > A-21: is refused to the creator once they are no longer an administrator
+AssertionError: expected 201 to be 403 // Object.is equality
+
+- Expected
++ Received
+
+- 403
++ 201
+
+ ❯ src/__tests__/companyClosure.test.ts:119:24
+    117|     await stepsDown(c);
+    118|     const res = await closure(c).post({ confirmName: c.name });
+    119|     expect(res.status).toBe(403);
+       |                        ^
+    120|     expect(res.body.code).toBe('ADMIN_ONLY');
+    121|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯
+
+ FAIL  src/__tests__/companyClosure.test.ts > closing a company > A-21: is open to the administrator running the company, though they did not create it
+AssertionError: expected undefined to be true // Object.is equality
+
+- Expected:
+true
+
++ Received:
+undefined
+
+ ❯ src/__tests__/companyClosure.test.ts:127:71
+    125|     const other = await stepsDown(c);
+    126|     const withCode = await exported({ ...other, stepUp: await stepUp(o…
+    127|     expect((await closure(withCode).get().expect(200)).body.canClose).…
+       |                                                                       ^
+    128|     await closure(withCode).post({ confirmName: c.name }).expect(201);
+    129|     /* And the former creator cannot stop it. */
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/4]⎯
+
+ FAIL  src/__tests__/companyClosure.test.ts > closing a company > A-21: needs a fresh authenticator code, whatever the company policy
+AssertionError: expected 201 to be 403 // Object.is equality
+
+- Expected
++ Received
+
+- 403
++ 201
+
+ ❯ src/__tests__/companyClosure.test.ts:137:27
+    135|     const c = await exported(await makeCompany());
+    136|     const noCode = await closure({ ...c, stepUp: undefined }).post({ c…
+    137|     expect(noCode.status).toBe(403);
+       |                           ^
+    138|     expect(noCode.body.code).toBe('STEP_UP_REQUIRED');
+    139|     const other = await exported(await colleague(c, true));
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/4]⎯
+
+ FAIL  src/__tests__/companyClosure.test.ts > closing a company > A-21: is refused to a member who is not an administrator
+AssertionError: expected 'OWNER_ONLY' to be 'ADMIN_ONLY' // Object.is equality
+
+Expected: "ADMIN_ONLY"
+Received: "OWNER_ONLY"
+
+ ❯ src/__tests__/companyClosure.test.ts:150:27
+    148|     const res = await closure(clerk).post({ confirmName: c.name });
+    149|     expect(res.status).toBe(403);
+    150|     expect(res.body.code).toBe('ADMIN_ONLY');
+       |                           ^
+    151|     expect((await closure(clerk).get().expect(200)).body.canClose).toB…
+    152|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/4]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  4 failed | 3 skipped (7)
+   Start at  23:36:16
+   Duration  23.90s (transform 1.75s, setup 105ms, import 3.80s, tests 8.37s, environment 0ms)
+

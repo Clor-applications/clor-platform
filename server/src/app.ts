@@ -20,6 +20,8 @@ import { featuresRouter } from './routes/features.js';
 import { partiesRouter } from './routes/parties.js';
 import { emailRouter } from './routes/email.js';
 import { securityRouter } from './routes/security.js';
+import { credentialsRouter } from './routes/credentials.js';
+import { outsideAccessRouter } from './routes/outsideAccess.js';
 import { itemsRouter } from './routes/items.js';
 import { purchaseDocsRouter } from './routes/purchaseDocs.js';
 import { quoteDocsRouter } from './routes/quoteDocs.js';
@@ -34,6 +36,15 @@ import { payrollEmployeesRouter } from './routes/payrollEmployees.js';
 import { payrollSettlementsRouter } from './routes/payrollSettlements.js';
 import { payrollTaxDeclarationsRouter } from './routes/payrollTaxDeclarations.js';
 import { peopleRouter } from './routes/people.js';
+import { peopleApprovalsRouter } from './routes/peopleApprovals.js';
+import { peopleTaskLinksRouter } from './routes/peopleTaskLinks.js';
+import { peopleJoinRouter } from './routes/peopleJoin.js';
+import { peopleInvitesRouter } from './routes/peopleInvites.js';
+import { peopleLettersRouter } from './routes/peopleLetters.js';
+import { peoplePoliciesRouter } from './routes/peoplePolicies.js';
+import { peopleDeskRouter } from './routes/peopleDesk.js';
+import { peoplePortalRouter } from './routes/peoplePortal.js';
+import { registerPeopleEffects } from './services/people/approvals/effects.js';
 import { peopleWorkspaceRouter } from './routes/peopleWorkspace.js';
 import { attendanceRouter } from './routes/attendance.js';
 import { attendanceInsightsRouter } from './routes/attendanceInsights.js';
@@ -51,7 +62,7 @@ import { scimRouter } from './routes/scim.js';
 import { agentRouter } from './routes/agent.js';
 import { notificationsRouter } from './routes/notifications.js';
 import { payPageRouter, payRequestsRouter } from './routes/payRequests.js';
-import { agentLimiter, apiLimiter, hikvisionLimiter, scimLimiter } from './middleware/rateLimit.js';
+import { agentLimiter, apiLimiter, billingWebhookLimiter, hikvisionLimiter, scimLimiter } from './middleware/rateLimit.js';
 import { personnelRouter } from './routes/personnel.js';
 import { schedulingRouter } from './routes/scheduling.js';
 import { portalRouter } from './routes/portal.js';
@@ -89,16 +100,21 @@ import { gstinRouter } from './routes/gstin.js';
 import { stockDocumentsRouter } from './routes/stockDocuments.js';
 import { stockLedgerRouter } from './routes/stockLedger.js';
 import { notFound, errorHandler } from './middleware/errors.js';
-import { billingRouter, billingOperatorRouter } from './routes/billing.js';
+import { billingRouter, billingOperatorRouter, billingWebhook } from './routes/billing.js';
 import { edgeGuard } from './middleware/edgeGuard.js';
 import { auditMutations } from './middleware/auditMutations.js';
 import { clearAccessCacheOnWrite } from './utils/accessCache.js';
 import { safeUrl } from './utils/safeUrl.js';
 import { accessLog, requestId } from './utils/log.js';
 import { webIdempotency } from './middleware/idempotency.js';
+import { beginRequestScope } from './utils/tenantScope.js';
 
 export function buildApp() {
+  /* What an approved People request does (services/people/approvals/effects.ts); idempotent. */
+  registerPeopleEffects();
   const app = express();
+  /* First: every request runs in a strict tenant scope until it names its company (A-35, utils/tenantScope.ts). */
+  app.use(beginRequestScope);
   /* Every request has an id from the start, so every log line and error about it can be found together. */
   app.use(requestId);
 
@@ -149,6 +165,15 @@ export function buildApp() {
   );
 
   app.use(helmet());
+  /*
+   * Nothing this server answers is for a browser or proxy to keep: company
+   * data, employee files and tokens alike (GAP-012). A route that wants
+   * otherwise sets its own header, which replaces this one.
+   */
+  app.use((_req, res, next) => {
+    res.setHeader('Cache-Control', 'private, no-store');
+    next();
+  });
   // Refuse requests that bypassed the api.clor.in Worker (no-op unless EDGE_SECRET is set).
   app.use(edgeGuard);
   // Role, membership and permission lookups are cached briefly; any write drops the cache.
@@ -230,6 +255,8 @@ export function buildApp() {
   app.use('/api/portal/punch', express.json({ limit: '3mb' }));
   /* A document on an employee file (≤ 5 MB, base64). */
   app.use('/api/orgs/:orgId/people/employees/:id/documents', express.json({ limit: '7mb' }));
+  /* The payment gateway's webhook: public, its exact path, the raw body a signature is made over — ahead of the JSON parser and of every router that demands a session (A-16). */
+  app.post('/api/billing/webhook', ...billingWebhookLimiter, express.raw({ type: () => true, limit: '1mb' }), billingWebhook);
   app.use(express.json({ limit: '1mb' }));
   /* Invoices, receipts, payments and payroll writes are never made twice by a double click or a retry. */
   app.use(webIdempotency);
@@ -314,13 +341,18 @@ export function buildApp() {
   /* No auth and no tenant headers: the customer has no account here. Mounted
      with authRouter for the same reason gstinRouter is — a router at '/api'
      runs its middleware for every '/api' request that reaches it. */
-  /* Payroll and Attendance changes go in the audit log (middleware/auditMutations.ts). */
+  /* Every staff change goes in the audit log (middleware/auditMutations.ts; A-50, A-51). */
   app.use(auditMutations);
   app.use('/api', sharePublicRouter);
+  /* The done link in a task e-mail: signed, no session; before the routers that demand one. */
+  app.use('/api', peopleTaskLinksRouter);
+  app.use('/api', peopleJoinRouter);
 
   /* The employee portal: its own sign-in (company + employee code), no CLOR
      user and no tenant headers — so, like the two above, before the routers
      that require both. */
+  /* People's own employee-facing routes first: the portal router answers every other /api/portal path itself. */
+  app.use('/api/portal/people', peoplePortalRouter);
   app.use('/api/portal', portalRouter);
 
   /* CLOR operators setting a customer's subscription: a CLOR user with no
@@ -359,6 +391,11 @@ export function buildApp() {
   app.use('/api', payrollSettlementsRouter);
   app.use('/api', payrollTaxDeclarationsRouter);
   app.use('/api', peopleRouter);
+  app.use('/api', peopleApprovalsRouter);
+  app.use('/api', peopleInvitesRouter);
+  app.use('/api', peopleLettersRouter);
+  app.use('/api', peoplePoliciesRouter);
+  app.use('/api', peopleDeskRouter);
   app.use('/api', peopleWorkspaceRouter);
   app.use('/api', personnelRouter);
   app.use('/api', attendanceRouter);
@@ -403,6 +440,9 @@ export function buildApp() {
   app.use('/api', partiesRouter);
   app.use('/api', emailRouter);
   app.use('/api', securityRouter);
+  /* Batch 5: Workspace → Credentials. */
+  app.use('/api', credentialsRouter);
+  app.use('/api', outsideAccessRouter);
   app.use('/api', notificationsRouter);
   app.use('/api', payRequestsRouter);
   app.use('/api', itemsRouter);

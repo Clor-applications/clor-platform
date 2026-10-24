@@ -1,25 +1,46 @@
-import { Router } from 'express';
+import { Router, type Request } from 'express';
 import { z } from 'zod';
 
 import { requireAuth } from '../middleware/auth.js';
 import { requireTenantContext } from '../middleware/tenantContext.js';
 import { authorize, requirePermission } from '../middleware/rbac.js';
-import { PermissionAction } from '../constants/enums.js';
+import { PermissionAction, type PermissionAction as PermissionActionType } from '../constants/enums.js';
 import { peoplePrisma } from '../utils/peoplePrisma.js';
+import { platformPrisma } from '../utils/platformPrisma.js';
 import { AnonymiseError, anonymiseEmployee } from '../services/anonymiseEmployee.js';
 import { recordAudit } from '../services/auditTrail.js';
 import { peopleEvent } from '../services/people/documentReminders.js';
-import { payrollPrisma } from '../utils/payrollPrisma.js';
 import { PEOPLE_MODULE, PEOPLE_RESOURCE, peopleRouteOk } from '../services/people/guards.js';
-import { pushEmployeeToReaders, readerFieldsChanged, revokeFromReaders } from './iclock.js';
+import { pushEmployeeToReaders, readerFieldsChanged, revokeFromReaders } from '../services/attendance/readerSync.js';
 import { emit as emitWebhook, employeeEvent } from '../services/attendance/webhooks.js';
 import { deleteToBin } from '../services/recycleBin.js';
-import { recordChanges, recordJoined, timelineOf } from '../services/people/employmentHistory.js';
+import { episodesOf } from '../services/people/episodes.js';
+import { timelineOf } from '../services/people/employmentHistory.js';
+import { createEmployee, updateEmployee, correlationOf } from '../services/people/employees.js';
+import { SCHEDULABLE_FIELDS, asOf, cancelScheduledChange, pendingChangesOf, scheduleChanges } from '../services/people/effectiveDating.js';
+import { writeChangeLog, type Actor, type Change, type ChangeSource } from '../services/people/changeLog.js';
+import { checkIdentifier, maskTail } from '../services/people/identifiers.js';
+import { PAYROLL_STATUTORY_FIELDS, maskedStatutory, revealStatutory } from '../services/payroll/statutoryRead.js';
+import { stepUpRefusal } from '../services/stepUp.js';
+import { inScope, scopeWhere, teamScope } from '../services/people/scope.js';
+import { activeRule, shape as shapeRequest, submitRequest } from '../services/people/approvals/engine.js';
+import { PROBATION_OUTCOMES, ProbationError, decideProbation, reviewsOf, saveReview } from '../services/people/lifecycle/probation.js';
+import { changeImpact } from '../services/people/lifecycle/changes.js';
+import { journeyOf, whyOf } from '../services/people/journey.js';
+import { SelfServiceError, saveSettings, settingsOf } from '../services/people/selfService.js';
+import { CustomFieldError, FIELD_TYPES, defsOf, saveDef as saveCustomFieldDef, setValues as setCustomValues, valuesFor as customValuesFor } from '../services/people/customFields.js';
+import { PERMIT_KINDS, daysUntil } from '../services/people/documentReminders.js';
+import { decodeDocument } from '../services/people/documentFiles.js';
+import { NO_ORIGINALS_STATES } from '../services/people/letters.js';
+import { ask as askToRead, remind as ackRemind, report as ackReport } from '../services/people/acknowledgements.js';
 import { dataHealth } from '../services/people/dataHealth.js';
 import { PAYROLL_MODULE, PAYROLL_RESOURCE } from '../services/payroll/guards.js';
-import { KINDS, READER_ACCESS_ITEM, checklistOf, cleanItems, itemsFor, openTasks, startChecklist, type Kind as ChecklistKind } from '../services/people/checklists.js';
+import { KINDS, READER_ACCESS_ITEM, checklistOf, cleanItems, itemsFor, myTasks, openTasks, readTaskDoneToken, startChecklist, type Kind as ChecklistKind } from '../services/people/checklists.js';
 import { addCustom, calendar, evidenceOf, updateTask } from '../services/people/compliance.js';
 import { homeTodos } from '../services/people/home.js';
+import { PAYROLL_HISTORY, lockPayrollEmployee } from '../services/payroll/employeeLock.js';
+/* Only for Payroll's own delete guard (employeeLock.ts), which takes a payroll transaction; People reads nothing else from it. */
+import { payrollPrisma } from '../utils/payrollPrisma.js';
 
 /**
  * People: the staff directory.
@@ -35,10 +56,17 @@ import { homeTodos } from '../services/people/home.js';
 export const peopleRouter = Router();
 peopleRouter.use(requireAuth, requireTenantContext);
 
-const { employees: EMPLOYEES, structure: STRUCTURE, notes: NOTES } = PEOPLE_RESOURCE;
+const { employees: EMPLOYEES, structure: STRUCTURE, notes: NOTES, documents: DOCUMENTS, confidentialDocuments: CONFIDENTIAL, statutory: STATUTORY, lifecycle: LIFECYCLE } = PEOPLE_RESOURCE;
 const can = (action: string, resource: string) => requirePermission(PEOPLE_MODULE, action as any, resource);
+/** Who is making this change and why, for the change log and the outbox (services/people/changeLog.ts). */
+const actorOf = (req: Request, source: ChangeSource, reason: string | null = null): Actor => ({
+  accountId: req.tenant!.accountId, orgId: req.tenant!.orgId, userId: req.auth?.userId || null, source, correlationId: correlationOf(req as any), reason,
+});
 
 const EMPLOYEE_STATUSES = ['ACTIVE', 'ON_NOTICE', 'LEFT', 'SUSPENDED'] as const;
+/* Inclusive options, and the right not to say (CORE-03). */
+export const GENDER_OPTIONS = ['MALE', 'FEMALE', 'NON_BINARY', 'OTHER', 'PREFER_NOT_TO_SAY'] as const;
+const todayIst = () => new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 const date = z.string().trim().regex(ISO_DATE, 'Dates are YYYY-MM-DD.').optional().nullable().or(z.literal(''));
 const text = (max: number) => z.string().trim().max(max).optional().nullable();
@@ -61,7 +89,7 @@ const employeeSchema = z.object({
   dateOfLeaving: date,
   notes: text(500),
 
-  gender: z.enum(['MALE', 'FEMALE', 'OTHER']).optional().nullable().or(z.literal('')),
+  gender: z.enum(GENDER_OPTIONS).optional().nullable().or(z.literal('')),
   dateOfBirth: date,
   maritalStatus: z.enum(['SINGLE', 'MARRIED', 'DIVORCED', 'WIDOWED']).optional().nullable().or(z.literal('')),
   personalEmail: z.string().trim().email('That is not an email address.').max(160).optional().nullable().or(z.literal('')),
@@ -84,11 +112,15 @@ const employeeSchema = z.object({
   employeeTypeId: text(60),
   workTypeId: text(60),
   reportingManagerId: text(60),
+  dottedManagerId: text(60),
   workEmail: z.string().trim().email('That is not an email address.').max(160).optional().nullable().or(z.literal('')),
   workPhone: text(40),
   workLocation: text(120),
   devicePin: text(40),
   areaId: text(60),
+  establishmentId: text(60),
+  teamId: text(60),
+  seatId: text(60),
   contractorId: text(60),
   cardNumber: text(40),
   devicePassword: text(20),
@@ -131,6 +163,9 @@ async function resolveStructure(orgId: string, b: EmployeeBody) {
   await check('employeeTypeId', (id) => peoplePrisma.employeeType.findFirst({ where: { id, orgId }, select: { name: true } }));
   await check('workTypeId', (id) => peoplePrisma.workType.findFirst({ where: { id, orgId }, select: { name: true } }));
   await check('areaId', (id) => peoplePrisma.area.findFirst({ where: { id, orgId }, select: { name: true } }));
+  await check('establishmentId', (id) => peoplePrisma.establishment.findFirst({ where: { id, orgId }, select: { name: true } }));
+  await check('teamId', (id) => peoplePrisma.team.findFirst({ where: { id, orgId }, select: { name: true } }));
+  await check('seatId', (id) => peoplePrisma.seat.findFirst({ where: { id, orgId }, select: { name: true } }));
   await check('contractorId', (id) => peoplePrisma.contractor.findFirst({ where: { id, orgId }, select: { name: true } }));
   await check('businessUnitId', (id) => peoplePrisma.businessUnit.findFirst({ where: { id, orgId }, select: { name: true } }));
   await check('gradeId', (id) => peoplePrisma.grade.findFirst({ where: { id, orgId }, select: { name: true } }));
@@ -166,7 +201,7 @@ const employeeData = (b: EmployeeBody) => {
   const keys = [
     'firstName', 'lastName', 'phone', 'branchId', 'dateOfJoining', 'dateOfLeaving', 'notes', 'gender', 'dateOfBirth',
     'maritalStatus', 'photoUrl', 'addressLine', 'city', 'state', 'country', 'pincode', 'emergencyContactName',
-    'emergencyContactPhone', 'emergencyContactRelation', 'reportingManagerId', 'workPhone', 'workLocation',
+    'emergencyContactPhone', 'emergencyContactRelation', 'reportingManagerId', 'dottedManagerId', 'workPhone', 'workLocation',
     'probationEndDate', 'contractEndDate', 'email', 'personalEmail', 'workEmail', 'devicePin',
     'cardNumber', 'devicePassword', 'guardianName',
   ] as const;
@@ -178,18 +213,24 @@ const employeeData = (b: EmployeeBody) => {
 };
 
 const withMeta = async (orgId: string, rows: any[]) => {
-  const managerIds = [...new Set(rows.map((r) => r.reportingManagerId).filter(Boolean))] as string[];
+  const managerIds = [...new Set(rows.flatMap((r) => [r.reportingManagerId, r.dottedManagerId]).filter(Boolean))] as string[];
   const managers = managerIds.length
     ? await peoplePrisma.employee.findMany({ where: { orgId, id: { in: managerIds } }, select: { id: true, name: true } })
     : [];
   const managerName = new Map(managers.map((m) => [m.id, m.name]));
-  const [areas, contractors, units, grades, centres] = await Promise.all([
+  const [areas, contractors, units, grades, centres, establishments, teams, seats] = await Promise.all([
     peoplePrisma.area.findMany({ where: { orgId }, select: { id: true, name: true } }),
     peoplePrisma.contractor.findMany({ where: { orgId }, select: { id: true, name: true } }),
     peoplePrisma.businessUnit.findMany({ where: { orgId }, select: { id: true, name: true } }),
     peoplePrisma.grade.findMany({ where: { orgId }, select: { id: true, name: true } }),
     peoplePrisma.costCenter.findMany({ where: { orgId }, select: { id: true, name: true } }),
+    peoplePrisma.establishment.findMany({ where: { orgId }, select: { id: true, name: true, state: true } }),
+    peoplePrisma.team.findMany({ where: { orgId }, select: { id: true, name: true } }),
+    peoplePrisma.seat.findMany({ where: { orgId }, select: { id: true, name: true } }),
   ]);
+  const establishmentOf = new Map(establishments.map((x) => [x.id, x]));
+  const teamName = new Map(teams.map((t) => [t.id, t.name]));
+  const seatName = new Map(seats.map((t) => [t.id, t.name]));
   const areaName = new Map(areas.map((a) => [a.id, a.name]));
   const contractorName = new Map(contractors.map((c) => [c.id, c.name]));
   const unitName = new Map(units.map((u) => [u.id, u.name]));
@@ -204,7 +245,13 @@ const withMeta = async (orgId: string, rows: any[]) => {
     businessUnitName: r.businessUnitId ? unitName.get(r.businessUnitId) || null : null,
     gradeName: r.gradeId ? gradeName.get(r.gradeId) || null : null,
     costCenterName: r.costCenterId ? centreName.get(r.costCenterId) || null : null,
+    /* Where they work in law, and the state whose rules apply (FND-07): the establishment's, never the home address. */
+    establishment: r.establishmentId ? establishmentOf.get(r.establishmentId)?.name || null : null,
+    workState: r.establishmentId ? establishmentOf.get(r.establishmentId)?.state || null : null,
+    teamName: r.teamId ? teamName.get(r.teamId) || null : null,
+    seatName: r.seatId ? seatName.get(r.seatId) || null : null,
     reportingManagerName: r.reportingManagerId ? managerName.get(r.reportingManagerId) || null : null,
+    dottedManagerName: r.dottedManagerId ? managerName.get(r.dottedManagerId) || null : null,
     tags: (r.tags || []).map((l: any) => ({ id: l.tag.id, name: l.tag.name, color: l.tag.color })),
   }));
 };
@@ -224,32 +271,92 @@ const sendError = (res: any, e: any) => {
  * payroll profile where Payroll keeps them, always masked here, and only for
  * someone allowed to see payroll profiles. Nothing is edited from People.
  */
-const maskTail = (v: string | null | undefined, keep = 4) => {
-  const s = String(v || '').replace(/\s+/g, '');
-  return s ? `${'•'.repeat(Math.max(0, s.length - keep))}${s.slice(-keep)}` : '';
-};
-peopleRouter.get('/orgs/:orgId/people/employees/:id/statutory', can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
+/**
+ * Statutory details (docs/people/02-PRD.md CORE-04). PAN, UAN, ESIC and bank
+ * are Payroll's, read through its interface (services/payroll/statutoryRead.ts)
+ * and shown masked; People keeps the last four of Aadhaar, passport, work
+ * permit and the statutory category. Needs the Statutory Details grant, not
+ * just Employees VIEW. A full value is revealed one field at a time with a
+ * fresh authenticator code, and every reveal is logged.
+ */
+const identitySchema = z.object({
+  aadhaarLast4: text(4),
+  passportNumber: text(20),
+  passportExpiry: date,
+  workPermitNumber: text(30),
+  workPermitExpiry: date,
+  statutoryCategory: z.enum(['WORKER', 'SUPERVISOR', 'MANAGER', 'APPRENTICE', 'CONTRACT']).optional().nullable().or(z.literal('')),
+  categoryFrom: date,
+});
+const identityRow = (i: any) => ({
+  aadhaarLast4: i?.aadhaarLast4 ? `********${i.aadhaarLast4}` : '',
+  passportNumber: maskTail(i?.passportNumber),
+  passportExpiry: i?.passportExpiry || null,
+  workPermitNumber: maskTail(i?.workPermitNumber),
+  workPermitExpiry: i?.workPermitExpiry || null,
+  statutoryCategory: i?.statutoryCategory || null,
+  categoryFrom: i?.categoryFrom || null,
+});
+
+peopleRouter.get('/orgs/:orgId/people/employees/:id/statutory', async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const employee = await peoplePrisma.employee.findFirst({ where: { id: String(req.params.id), accountId, orgId }, select: { id: true } });
+  if (!employee || !inScope(await teamScope(req), employee.id)) return res.status(404).json({ error: 'No such employee.' });
+  /* Without the grant the section says so, rather than refusing the whole record. */
+  if (await authorize(req, PEOPLE_MODULE, PermissionAction.VIEW, STATUTORY)) return res.json({ visible: false });
+  const [payroll, identity] = await Promise.all([maskedStatutory(orgId, employee.id), peoplePrisma.employeeIdentity.findUnique({ where: { employeeId: employee.id } })]);
+  const canEdit = !(await authorize(req, PEOPLE_MODULE, PermissionAction.EDIT, STATUTORY));
+  res.json({ visible: true, canEdit, ...payroll, identity: identityRow(identity) });
+});
+
+peopleRouter.put('/orgs/:orgId/people/employees/:id/identity', can(PermissionAction.EDIT, STATUTORY), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   const employee = await peoplePrisma.employee.findFirst({ where: { id: String(req.params.id), accountId, orgId }, select: { id: true } });
   if (!employee) return res.status(404).json({ error: 'No such employee.' });
-  if (await authorize(req, PAYROLL_MODULE, PermissionAction.VIEW as any, PAYROLL_RESOURCE.profile)) return res.json({ visible: false });
-  const p = await payrollPrisma.employeePayrollProfile.findFirst({ where: { orgId, employeeId: employee.id } });
-  if (!p) return res.json({ visible: true, inPayroll: false });
-  res.json({
-    visible: true,
-    inPayroll: p.payrollStatus === 'IN_PAYROLL',
-    pan: maskTail(p.pan),
-    uan: maskTail(p.uan),
-    esic: maskTail(p.esiNumber),
-    bank: p.bankName || '',
-    account: maskTail(p.bankAccountNumber),
-    ifsc: p.bankIfsc || '',
-    pf: p.pfApplicable,
-    esi: p.esiApplicable,
-    pt: p.ptApplicable ? p.professionalTaxState || 'on' : '',
-    taxRegime: p.taxRegime,
+  const parsed = identitySchema.safeParse(req.body || {});
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Check the details.' });
+  const b = parsed.data;
+  for (const k of ['aadhaarLast4', 'passportNumber', 'workPermitNumber'] as const) {
+    const problem = checkIdentifier(k, b[k] ?? null);
+    if (problem) return res.status(400).json({ error: problem });
+  }
+  if (b.aadhaarLast4 && String(b.aadhaarLast4).length > 4) return res.status(400).json({ error: 'Only the last four digits of Aadhaar are kept.' });
+  const data: Record<string, string | null> = {};
+  for (const [k, v] of Object.entries(b)) if (v !== undefined) data[k] = blank(v);
+  const existing = await peoplePrisma.employeeIdentity.findUnique({ where: { employeeId: employee.id } });
+  const actor = actorOf(req, 'FORM');
+  const row = await peoplePrisma.$transaction(async (tx) => {
+    const saved = existing
+      ? await tx.employeeIdentity.update({ where: { employeeId: employee.id }, data: { ...data, updatedByUserId: req.auth!.userId } })
+      : await tx.employeeIdentity.create({ data: { accountId, orgId, employeeId: employee.id, ...data, updatedByUserId: req.auth!.userId } });
+    /* Logged as changed, never with the value (changeLog.ts). */
+    const changes: Change[] = Object.keys(data).filter((k) => ((existing as any)?.[k] ?? null) !== data[k]).map((k) => ({ field: k, before: null, after: null, redacted: !['statutoryCategory', 'categoryFrom', 'passportExpiry', 'workPermitExpiry'].includes(k) }));
+    for (const c of changes) if (!c.redacted) { c.before = (existing as any)?.[c.field] ?? null; c.after = data[c.field]; }
+    await writeChangeLog(tx, actor, { kind: 'EmployeeIdentity', id: saved.id, employeeId: employee.id }, changes);
+    return saved;
   });
+  res.json({ identity: identityRow(row) });
+});
+
+/** One value in clear, for a person with the grant and a fresh authenticator code; written to the access log. */
+peopleRouter.post('/orgs/:orgId/people/employees/:id/statutory/reveal', can(PermissionAction.VIEW, STATUTORY), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const employee = await peoplePrisma.employee.findFirst({ where: { id: String(req.params.id), accountId, orgId }, select: { id: true } });
+  if (!employee) return res.status(404).json({ error: 'No such employee.' });
+  const field = String(req.body?.field || '');
+  const payrollField = (PAYROLL_STATUTORY_FIELDS as readonly string[]).includes(field);
+  const peopleField = ['passportNumber', 'workPermitNumber'].includes(field);
+  if (!payrollField && !peopleField) return res.status(400).json({ error: 'Say which value to show: pan, uan, esic, account, passportNumber or workPermitNumber.' });
+  const refused = await stepUpRefusal(req, 'Showing a full identifier needs an authenticator app. Set one up in your profile first (your name or picture, top right).');
+  if (refused) return res.status(refused.status).json(refused.body);
+  const value = payrollField
+    ? await revealStatutory(orgId, employee.id, field as any)
+    : ((await peoplePrisma.employeeIdentity.findUnique({ where: { employeeId: employee.id }, select: { [field]: true } as any })) as any)?.[field] ?? null;
+  await peoplePrisma.accessLog.create({ data: { accountId, orgId, what: 'STATUTORY', entityId: employee.id, employeeId: employee.id, field, userId: req.auth!.userId } });
+  res.json({ field, value });
 });
 
 /** People → Home: what needs someone today (services/people/home.ts). */
@@ -307,9 +414,12 @@ peopleRouter.get('/orgs/:orgId/people/employees', can(PermissionAction.VIEW, EMP
   const q = String(req.query.q || '').trim();
   const pick = (k: string) => String(req.query[k] || '').trim() || undefined;
   const tagId = pick('tagId');
+  /* A role limited to its own records sees its own team only (services/people/scope.ts). */
+  const scope = await teamScope(req);
   const where: any = {
     accountId,
     orgId,
+    ...scopeWhere(scope),
     ...(pick('status') ? { status: pick('status') } : {}),
     ...(pick('departmentId') ? { departmentId: pick('departmentId') } : {}),
     ...(pick('jobPositionId') ? { jobPositionId: pick('jobPositionId') } : {}),
@@ -336,6 +446,7 @@ peopleRouter.get('/orgs/:orgId/people/employees', can(PermissionAction.VIEW, EMP
   };
   const take = Math.min(500, Math.max(1, Number(req.query.limit || 200)));
   const skip = Math.max(0, Number(req.query.offset || 0));
+  const asOfDate = String(req.query.asOf || '').trim();
   const [rows, total] = await Promise.all([
     peoplePrisma.employee.findMany({
       where,
@@ -346,8 +457,17 @@ peopleRouter.get('/orgs/:orgId/people/employees', can(PermissionAction.VIEW, EMP
     }),
     peoplePrisma.employee.count({ where }),
   ]);
-  res.json({ employees: await withMeta(orgId, rows), total });
+  /* As of a date (FND-03): the job fields rolled back through history; people not yet there are left out. */
+  const viewed = asOfDate ? await asOf(orgId, rows as any[], asOfDate) : rows;
+  res.json({ employees: await withMeta(orgId, viewed), total: asOfDate ? viewed.length : total, asOf: asOfDate || undefined });
 });
+
+/** Work permits and certificates on file, with how long they have left (LIFE-08): shown on the profile, not enforced. */
+async function permitsOf(orgId: string, employeeId: string) {
+  const now = new Date();
+  const docs = await peoplePrisma.employeeDocument.findMany({ where: { orgId, employeeId, kind: { in: [...PERMIT_KINDS] }, expiresOn: { not: null } }, select: { id: true, kind: true, title: true, expiresOn: true, restrictsWork: true }, orderBy: { expiresOn: 'asc' } });
+  return docs.map((d) => ({ ...d, daysLeft: daysUntil(d.expiresOn!, now), expired: daysUntil(d.expiresOn!, now) < 0 }));
+}
 
 peopleRouter.get('/orgs/:orgId/people/employees/:id', can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
@@ -356,14 +476,18 @@ peopleRouter.get('/orgs/:orgId/people/employees/:id', can(PermissionAction.VIEW,
     where: { id: String(req.params.id), accountId, orgId },
     include: { tags: { include: { tag: true } } },
   });
-  if (!row) return res.status(404).json({ error: 'No such employee.' });
+  if (!row || !inScope(await teamScope(req), row.id)) return res.status(404).json({ error: 'No such employee.' });
   const reports = await peoplePrisma.employee.findMany({
     where: { orgId, reportingManagerId: row.id, status: { not: 'LEFT' } },
     select: { id: true, name: true, designation: true, photoUrl: true },
     orderBy: { name: 'asc' },
   });
-  const [shaped] = await withMeta(orgId, [row]);
-  res.json({ employee: { ...shaped, directReports: reports } });
+  const asOfDate = String(req.query.asOf || '').trim();
+  const viewed = asOfDate ? (await asOf(orgId, [row as any], asOfDate))[0] : row;
+  if (!viewed) return res.status(404).json({ error: `Not here on ${asOfDate}.` });
+  const scheduledChanges = await pendingChangesOf(orgId, row.id);
+  const [shaped] = await withMeta(orgId, [viewed]);
+  res.json({ scheduledChanges, permits: await permitsOf(orgId, row.id), employee: { ...shaped, directReports: reports } });
 });
 
 async function setTags(accountId: string, orgId: string, employeeId: string, tagIds: string[]) {
@@ -372,6 +496,37 @@ async function setTags(accountId: string, orgId: string, employeeId: string, tag
     peoplePrisma.employeeTagLink.deleteMany({ where: { employeeId } }),
     ...valid.map((t) => peoplePrisma.employeeTagLink.create({ data: { accountId, orgId, employeeId, tagId: t.id } })),
   ]);
+}
+
+/** People already here who share an email, phone or employee ID with what is being saved (CORE-02). */
+async function findDuplicates(orgId: string, exceptId: string | null, b: { email?: string | null; personalEmail?: string | null; workEmail?: string | null; phone?: string | null; code?: string | null }) {
+  const emails = [...new Set([b.email, b.personalEmail, b.workEmail].map((v) => String(v || '').trim().toLowerCase()).filter(Boolean))];
+  const phone = String(b.phone || '').replace(/\D/g, '').slice(-10);
+  const code = String(b.code || '').trim();
+  if (!emails.length && !phone && !code) return [];
+  const rows = await peoplePrisma.employee.findMany({
+    where: { orgId, status: { not: 'LEFT' }, ...(exceptId ? { id: { not: exceptId } } : {}), OR: [
+      ...(emails.length ? [{ email: { in: emails, mode: 'insensitive' as const } }, { personalEmail: { in: emails, mode: 'insensitive' as const } }, { workEmail: { in: emails, mode: 'insensitive' as const } }] : []),
+      /* Phones are stored as typed ("+91 98765 11111"); the last four digits narrow the query and the digits decide. */
+      ...(phone ? [{ phone: { contains: phone.slice(-4) } }] : []),
+      ...(code ? [{ code }] : []),
+    ] },
+    select: { id: true, name: true, code: true, email: true, personalEmail: true, workEmail: true, phone: true }, take: 20,
+  });
+  const digits = (v: string | null) => String(v || '').replace(/\D/g, '');
+  const out: Array<{ id: string; name: string; code: string | null; field: string }> = [];
+  for (const r of rows) {
+    const field = code && r.code === code ? 'employee ID' : phone && digits(r.phone).endsWith(phone) ? 'phone' : emails.some((e) => [r.email, r.personalEmail, r.workEmail].map((x) => String(x || '').toLowerCase()).includes(e)) ? 'email' : null;
+    if (field) out.push({ id: r.id, name: r.name, code: r.code, field });
+  }
+  return out.slice(0, 5);
+}
+
+/** A seat holds one person (ORG-04): taken by someone else, it is refused in words. */
+async function seatFree(orgId: string, seatId: string | null | undefined, exceptId: string | null) {
+  if (!seatId) return null;
+  const holder = await peoplePrisma.employee.findFirst({ where: { orgId, seatId, ...(exceptId ? { id: { not: exceptId } } : {}) }, select: { name: true, code: true } });
+  return holder ? `${holder.name}${holder.code ? ` (${holder.code})` : ''} already holds that seat.` : null;
 }
 
 peopleRouter.post('/orgs/:orgId/people/employees', can(PermissionAction.CREATE, EMPLOYEES), async (req, res) => {
@@ -385,23 +540,27 @@ peopleRouter.post('/orgs/:orgId/people/employees', can(PermissionAction.CREATE, 
   if (b.dateOfLeaving && b.dateOfJoining && b.dateOfLeaving < b.dateOfJoining) {
     return res.status(400).json({ error: 'Somebody cannot leave before they joined.' });
   }
+  /* The same person twice (CORE-02): a matching email, phone or employee ID on someone already here is shown, and saving anyway needs a reason. */
+  const duplicates = await findDuplicates(orgId, null, b);
+  const duplicateReason = typeof req.body?.duplicateReason === 'string' ? req.body.duplicateReason.trim().slice(0, 500) : '';
+  if (duplicates.length && !duplicateReason) return res.status(409).json({ error: `${duplicates[0].name} already has this ${duplicates[0].field}. Open their record, or say why this is a different person.`, code: 'DUPLICATE', duplicates });
   try {
     const structure = await resolveStructure(orgId, b);
+    const taken = await seatFree(orgId, blank(b.seatId), null);
+    if (taken) return res.status(409).json({ error: taken });
     await checkManager(orgId, null, blank(b.reportingManagerId));
-    const row = await peoplePrisma.employee.create({
-      data: {
-        accountId,
-        orgId,
-        name,
-        code: blank(b.code),
-        ...employeeData(b),
-        ...structure,
-        status: b.status || 'ACTIVE',
-        createdByUserId: req.auth!.userId,
-      } as any,
-    });
+    await checkManager(orgId, null, blank(b.dottedManagerId));
+    const row = await createEmployee(actorOf(req, 'FORM', duplicates.length ? `Saved despite a match on ${duplicates.map((d) => `${d.field} (${d.name})`).join(', ')}: ${duplicateReason}` : null), {
+      accountId,
+      orgId,
+      name,
+      code: blank(b.code),
+      ...employeeData(b),
+      ...structure,
+      status: b.status || 'ACTIVE',
+      createdByUserId: req.auth!.userId,
+    } as any);
     if (b.tagIds?.length) await setTags(accountId, orgId, row.id, b.tagIds);
-    await recordJoined({ accountId, orgId, userId: req.auth!.userId }, row, 'FORM');
     await startChecklist({ accountId, orgId, userId: req.auth!.userId }, row, 'JOINING', row.dateOfJoining);
     /* On every reader straight away, as ClorTime does: enrolment can start the same minute. */
     await pushEmployeeToReaders(orgId, row, req.auth!.userId);
@@ -426,31 +585,79 @@ peopleRouter.put('/orgs/:orgId/people/employees/:id', can(PermissionAction.EDIT,
   if (joined && left && left < joined) return res.status(400).json({ error: 'Somebody cannot leave before they joined.' });
   try {
     const structure = await resolveStructure(orgId, b);
+    const taken = await seatFree(orgId, blank(b.seatId), existing.id);
+    if (taken) return res.status(409).json({ error: taken });
     if (b.reportingManagerId !== undefined) await checkManager(orgId, existing.id, blank(b.reportingManagerId));
+    if (b.dottedManagerId !== undefined) await checkManager(orgId, existing.id, blank(b.dottedManagerId));
     const nameChanged = b.name !== undefined || b.firstName !== undefined || b.lastName !== undefined;
-    const row = await peoplePrisma.employee.update({
-      where: { id: existing.id },
-      data: {
+    /*
+     * A job change dated in the future waits (FND-02): the job fields go to
+     * ScheduledChange and are applied on that day; everything else in the
+     * same form (a phone, an address) is saved now.
+     */
+    const effectiveFrom = typeof req.body?.effectiveFrom === 'string' && ISO_DATE.test(req.body.effectiveFrom) ? req.body.effectiveFrom : null;
+    /*
+     * Where the company has an approval rule for job changes (APR-01), a
+     * change to a job field becomes a request instead of a write; the rest of
+     * the form still saves. The record says "waiting for approval".
+     */
+    const jobRule = await activeRule(orgId, 'JOB_CHANGE');
+    let request: Awaited<ReturnType<typeof submitRequest>>['request'] | null = null;
+    if (jobRule) {
+      const fields: Record<string, { before: unknown; after: unknown }> = {};
+      for (const field of SCHEDULABLE_FIELDS) {
+        if ((b as any)[field] === undefined || field === 'status') continue;
+        const after = (structure as any)[field] !== undefined ? (structure as any)[field] : blank((b as any)[field]);
+        if (((existing as any)[field] ?? null) === after) continue;
+        fields[field] = { before: (existing as any)[field] ?? null, after };
+        delete (structure as any)[field];
+        delete (b as any)[field];
+      }
+      if (fields.departmentId) delete (structure as any).department;
+      if (fields.jobPositionId) delete (structure as any).designation;
+      if (Object.keys(fields).length) {
+        const labels = Object.keys(fields).map((f) => f.replace(/Id$/, '')).join(', ');
+        const r = await submitRequest(actorOf(req, 'FORM', typeof req.body?.changeNote === 'string' ? req.body.changeNote : null), {
+          requestType: 'JOB_CHANGE', subjectEmployeeId: existing.id, title: `${existing.name}: ${labels} change`,
+          payload: { employeeId: existing.id, fields, effectiveOn: effectiveFrom, reason: typeof req.body?.changeNote === 'string' ? req.body.changeNote : null },
+          idempotencyKey: typeof req.headers['idempotency-key'] === 'string' ? req.headers['idempotency-key'] : null,
+        });
+        request = r.request;
+      }
+    }
+    let scheduled: Awaited<ReturnType<typeof scheduleChanges>> = [];
+    if (effectiveFrom && effectiveFrom > todayIst()) {
+      const future: Record<string, string | null> = {};
+      for (const field of SCHEDULABLE_FIELDS) {
+        if ((b as any)[field] === undefined || field === 'status') continue;
+        future[field] = (structure as any)[field] !== undefined ? (structure as any)[field] : blank((b as any)[field]);
+        delete (structure as any)[field];
+        delete (b as any)[field];
+      }
+      if (future.departmentId !== undefined) delete (structure as any).department;
+      if (future.jobPositionId !== undefined) delete (structure as any).designation;
+      scheduled = await scheduleChanges(actorOf(req, 'FORM', typeof req.body?.changeNote === 'string' ? req.body.changeNote : null), existing as any, future, effectiveFrom);
+    }
+    /* The form may say from when a change counts (effectiveFrom) and why (changeNote); both go on the change log and history. */
+    const { row } = await updateEmployee(
+      actorOf(req, 'FORM', typeof req.body?.changeNote === 'string' ? req.body.changeNote : null),
+      existing,
+      {
         ...(nameChanged ? { name: composeName({ ...existing, ...b } as any, existing.name) } : {}),
         ...(b.code !== undefined ? { code: blank(b.code) } : {}),
         ...employeeData(b),
         ...structure,
       } as any,
-    });
+      { effectiveDate: typeof req.body?.effectiveFrom === 'string' ? req.body.effectiveFrom : null },
+    );
     if (b.tagIds) await setTags(accountId, orgId, row.id, b.tagIds);
-    /* Employment history: the form may say from when a change counts (effectiveFrom) and why (changeNote). */
-    await recordChanges({ accountId, orgId, userId: req.auth!.userId }, existing, row, {
-      source: 'FORM',
-      effectiveDate: typeof req.body?.effectiveFrom === 'string' ? req.body.effectiveFrom : null,
-      note: typeof req.body?.changeNote === 'string' ? req.body.changeNote : null,
-    });
     /* Leaving or coming back starts that checklist; CLOR takes them off the readers itself, so it ticks that item. */
     if (row.status === 'LEFT' && existing.status !== 'LEFT') await startChecklist({ accountId, orgId, userId: req.auth!.userId }, row, 'LEAVING', row.dateOfLeaving, { done: [READER_ACCESS_ITEM] });
     else if (row.status !== 'LEFT' && existing.status === 'LEFT') await startChecklist({ accountId, orgId, userId: req.auth!.userId }, row, 'JOINING', row.dateOfJoining);
     /* Leaving ends door access: off every biometric reader, fingerprints and faces deleted. */
     if (row.status === 'LEFT' && existing.status !== 'LEFT') await revokeFromReaders(orgId, existing, req.auth!.userId);
     else if (row.status !== 'LEFT' && readerFieldsChanged(existing, row)) await pushEmployeeToReaders(orgId, row, req.auth!.userId, existing);
-    res.json({ employee: (await withMeta(orgId, [row]))[0] });
+    res.json({ employee: (await withMeta(orgId, [row]))[0], scheduled, request: request ? await shapeRequest(request) : null });
     emitWebhook(orgId, row.status === 'LEFT' && existing.status !== 'LEFT' ? 'employee.left' : 'employee.updated', employeeEvent(row));
     if (row.status === 'LEFT' && existing.status !== 'LEFT') void peopleEvent(accountId, orgId, 'people.left', row, req.auth!.userId);
   } catch (e) {
@@ -497,20 +704,38 @@ peopleRouter.post('/orgs/:orgId/people/employees/:id/checklist/:kind', can(Permi
   res.status(201).json(await checklistOf(orgId, employee.id));
 });
 
-peopleRouter.patch('/orgs/:orgId/people/checklist-tasks/:id', can(PermissionAction.EDIT, EMPLOYEES), async (req, res) => {
+/** The tasks on my name (LIFE-07): anyone with a task sees and ticks their own, whatever else they may do. */
+peopleRouter.get('/orgs/:orgId/people/tasks/mine', async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  res.json({ tasks: await myTasks(req.tenant!.orgId, req.auth!.userId) });
+});
+
+/** Tick, untick, note or reassign a task. The named owner may tick their own without the Employees grant. */
+peopleRouter.patch('/orgs/:orgId/people/checklist-tasks/:id', async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
-  const parsed = z.object({ done: z.boolean().optional(), note: z.string().trim().max(500).optional().nullable() }).safeParse(req.body || {});
+  const parsed = z.object({ done: z.boolean().optional(), note: z.string().trim().max(500).optional().nullable(), ownerUserId: z.string().trim().max(60).optional().nullable() }).safeParse(req.body || {});
   if (!parsed.success) return res.status(400).json({ error: 'Check the details.' });
   const task = await peoplePrisma.checklistTask.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
   if (!task) return res.status(404).json({ error: 'No such task.' });
-  const { done, note } = parsed.data;
-  await peoplePrisma.checklistTask.update({
-    where: { id: task.id },
-    data: {
+  const own = task.ownerUserId === req.auth!.userId;
+  const hr = !(await authorize(req, PEOPLE_MODULE, PermissionAction.EDIT, EMPLOYEES));
+  if (!own && !hr) return res.status(403).json({ error: 'This task is on somebody else\'s name.' });
+  const { done, note, ownerUserId } = parsed.data;
+  if (ownerUserId !== undefined && !hr) return res.status(403).json({ error: 'Only HR gives a task to someone else.' });
+  if (ownerUserId && !(await platformPrisma.userOrgMembership.findFirst({ where: { orgId, userId: ownerUserId }, select: { id: true } }))) return res.status(400).json({ error: 'That person is not in this company.' });
+  const actor = actorOf(req, 'FORM');
+  await peoplePrisma.$transaction(async (tx) => {
+    const data = {
       ...(done === true ? { doneAt: task.doneAt || new Date(), doneByUserId: task.doneAt ? task.doneByUserId : req.auth!.userId } : done === false ? { doneAt: null, doneByUserId: null } : {}),
       ...(note !== undefined ? { note: note || null } : {}),
-    },
+      ...(ownerUserId !== undefined ? { ownerUserId: ownerUserId || null } : {}),
+    };
+    await tx.checklistTask.update({ where: { id: task.id }, data });
+    const changes = [];
+    if (done !== undefined && Boolean(task.doneAt) !== done) changes.push({ field: 'done', before: task.doneAt ? 'yes' : 'no', after: done ? 'yes' : 'no', redacted: false });
+    if (ownerUserId !== undefined && ownerUserId !== task.ownerUserId) changes.push({ field: 'ownerUserId', before: task.ownerUserId, after: ownerUserId || null, redacted: false });
+    await writeChangeLog(tx, actor, { kind: 'ChecklistTask', id: task.id, employeeId: task.employeeId }, changes);
   });
   res.json(await checklistOf(orgId, task.employeeId));
 });
@@ -597,8 +822,157 @@ peopleRouter.get('/orgs/:orgId/people/employees/:id/history', can(PermissionActi
   if (!(await peopleRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   const employee = await peoplePrisma.employee.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
-  if (!employee) return res.status(404).json({ error: 'No such employee.' });
-  res.json({ events: await timelineOf(orgId, employee) });
+  if (!employee || !inScope(await teamScope(req), employee.id)) return res.status(404).json({ error: 'No such employee.' });
+  res.json({ events: await timelineOf(orgId, employee), episodes: await episodesOf(orgId, employee) });
+});
+
+/** Company-wide People settings (CORE-03, D-02): what employees may change about themselves without waiting. */
+peopleRouter.get('/orgs/:orgId/people/settings', can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const { accountId: _a, ...rest } = await settingsOf(accountId, orgId);
+  res.json({ settings: rest });
+});
+
+peopleRouter.put('/orgs/:orgId/people/settings', can(PermissionAction.EDIT, STRUCTURE), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  try {
+    const { accountId: _a, ...rest } = await saveSettings({ accountId, orgId, userId: req.auth!.userId }, req.body || {});
+    res.json({ settings: rest });
+  } catch (e) {
+    if (e instanceof SelfServiceError) return res.status(e.status).json({ error: e.message });
+    return sendError(res, e);
+  }
+});
+
+/** Custom fields (CORE-08): the definitions (Org Structure, since they shape every record) and a person's values by grant. */
+peopleRouter.get('/orgs/:orgId/people/custom-fields', can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  res.json({ fields: await defsOf(req.tenant!.orgId, req.query.all === '1'), types: FIELD_TYPES });
+});
+
+peopleRouter.post('/orgs/:orgId/people/custom-fields', can(PermissionAction.EDIT, STRUCTURE), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  try {
+    res.status(201).json({ field: await saveCustomFieldDef({ accountId, orgId, userId: req.auth!.userId }, req.body || {}) });
+  } catch (e) {
+    if (e instanceof CustomFieldError) return res.status(e.status).json({ error: e.message });
+    return sendError(res, e);
+  }
+});
+
+peopleRouter.put('/orgs/:orgId/people/custom-fields/:id', can(PermissionAction.EDIT, STRUCTURE), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  try {
+    res.json({ field: await saveCustomFieldDef({ accountId, orgId, userId: req.auth!.userId }, { ...(req.body || {}), id: String(req.params.id) }) });
+  } catch (e) {
+    if (e instanceof CustomFieldError) return res.status(e.status).json({ error: e.message });
+    return sendError(res, e);
+  }
+});
+
+peopleRouter.get('/orgs/:orgId/people/employees/:id/custom-fields', can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const employee = await peoplePrisma.employee.findFirst({ where: { id: String(req.params.id), accountId, orgId }, select: { id: true } });
+  if (!employee || !inScope(await teamScope(req), employee.id)) return res.status(404).json({ error: 'No such employee.' });
+  res.json({ fields: await customValuesFor(req, orgId, employee.id) });
+});
+
+peopleRouter.put('/orgs/:orgId/people/employees/:id/custom-fields', can(PermissionAction.EDIT, EMPLOYEES), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const employee = await peoplePrisma.employee.findFirst({ where: { id: String(req.params.id), accountId, orgId }, select: { id: true } });
+  if (!employee || !inScope(await teamScope(req), employee.id)) return res.status(404).json({ error: 'No such employee.' });
+  try {
+    const r = await setCustomValues(req, actorOf(req, 'FORM'), employee.id, req.body?.values && typeof req.body.values === 'object' ? req.body.values : {});
+    res.json({ ...r, fields: await customValuesFor(req, orgId, employee.id) });
+  } catch (e) {
+    if (e instanceof CustomFieldError) return res.status(e.status).json({ error: e.message });
+    return sendError(res, e);
+  }
+});
+
+/** The journey (CORE-06): every change in order, under its stint, each with a key for its Why. */
+peopleRouter.get('/orgs/:orgId/people/employees/:id/journey', can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const employee = await peoplePrisma.employee.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
+  if (!employee || !inScope(await teamScope(req), employee.id)) return res.status(404).json({ error: 'No such employee.' });
+  res.json(await journeyOf(orgId, employee as any));
+});
+
+/** Why (TRACE-01, 02): what changed, when, who asked, who approved, the rule version, the evidence, what it set off — or plain words for what is not known. */
+peopleRouter.get('/orgs/:orgId/people/employees/:id/why/:key', can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const employee = await peoplePrisma.employee.findFirst({ where: { id: String(req.params.id), accountId, orgId }, select: { id: true } });
+  if (!employee || !inScope(await teamScope(req), employee.id)) return res.status(404).json({ error: 'No such employee.' });
+  const why = await whyOf(orgId, employee.id, String(req.params.key));
+  if (!why) return res.status(404).json({ error: 'No such change.' });
+  res.json({ why });
+});
+
+/** What else a change would affect (LIFE-04), before it is sent: pass the fields as they would be saved. */
+peopleRouter.get('/orgs/:orgId/people/employees/:id/change-impact', can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const employee = await peoplePrisma.employee.findFirst({ where: { id: String(req.params.id), accountId, orgId }, select: { id: true, establishmentId: true, departmentId: true, reportingManagerId: true } });
+  if (!employee || !inScope(await teamScope(req), employee.id)) return res.status(404).json({ error: 'No such employee.' });
+  const fields: Record<string, string | null> = {};
+  for (const k of ['establishmentId', 'departmentId', 'reportingManagerId']) if (req.query[k] !== undefined) fields[k] = String(req.query[k] || '') || null;
+  res.json({ impact: await changeImpact(orgId, employee, fields) });
+});
+
+/**
+ * Probation (LIFE-03): the review, and the decision — confirm, extend or end.
+ * With a PROBATION approval rule the decision becomes a request.
+ */
+peopleRouter.get('/orgs/:orgId/people/employees/:id/probation', can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  const { orgId } = req.tenant!;
+  if (!inScope(await teamScope(req), String(req.params.id))) return res.status(404).json({ error: 'No such employee.' });
+  res.json({ reviews: await reviewsOf(orgId, String(req.params.id)) });
+});
+
+peopleRouter.post('/orgs/:orgId/people/employees/:id/probation/review', can(PermissionAction.EDIT, LIFECYCLE), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  const parsed = z.object({ goals: text(2000), observations: text(4000), recommendation: z.enum(PROBATION_OUTCOMES).optional().nullable().or(z.literal('')), newEndDate: date, note: text(1000) }).safeParse(req.body || {});
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Check the review.' });
+  try {
+    const b = parsed.data;
+    const review = await saveReview(actorOf(req, 'FORM'), String(req.params.id), { goals: blank(b.goals), observations: blank(b.observations), recommendation: (blank(b.recommendation) as any) || null, newEndDate: blank(b.newEndDate), note: blank(b.note) });
+    res.status(201).json({ review });
+  } catch (e) {
+    if (e instanceof ProbationError) return res.status(e.status).json({ error: e.message });
+    throw e;
+  }
+});
+
+peopleRouter.post('/orgs/:orgId/people/employees/:id/probation/decide', can(PermissionAction.APPROVE, LIFECYCLE), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  const parsed = z.object({ outcome: z.enum(PROBATION_OUTCOMES), newEndDate: date, note: text(1000), lastDay: date }).safeParse(req.body || {});
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Confirm, extend or end.' });
+  try {
+    const b = parsed.data;
+    const r = await decideProbation(actorOf(req, 'FORM', blank(b.note)), String(req.params.id), b.outcome, { newEndDate: blank(b.newEndDate), note: blank(b.note), lastDay: blank(b.lastDay) });
+    res.json({ ...r, request: (r as any).request ? await shapeRequest((r as any).request) : null });
+  } catch (e) {
+    if (e instanceof ProbationError) return res.status(e.status).json({ error: e.message });
+    throw e;
+  }
+});
+
+/** Withdraw a change dated for a future day (FND-02). */
+peopleRouter.delete('/orgs/:orgId/people/employees/:id/scheduled/:changeId', can(PermissionAction.EDIT, EMPLOYEES), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  const { orgId } = req.tenant!;
+  const ok = await cancelScheduledChange(orgId, String(req.params.changeId));
+  if (!ok) return res.status(404).json({ error: 'No pending change by that id.' });
+  res.json({ ok: true });
 });
 
 /**
@@ -611,28 +985,37 @@ peopleRouter.delete('/orgs/:orgId/people/employees/:id', can(PermissionAction.DE
   const { accountId, orgId } = req.tenant!;
   const existing = await peoplePrisma.employee.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
   if (!existing) return res.status(404).json({ error: 'No such employee.' });
-  const [profile, slips] = await Promise.all([
-    payrollPrisma.employeePayrollProfile.findFirst({ where: { orgId, employeeId: existing.id }, select: { id: true } }),
-    payrollPrisma.salarySlip.count({ where: { orgId, employeeId: existing.id } }),
-  ]);
-  if (profile || slips) {
+  /*
+   * In payroll at all — a profile, or any payroll history (A-39: only
+   * payslips were checked, so someone with a loan or an adjustment was
+   * binned and their records pointed at nobody) — is a reason to mark them
+   * as left. Checked and binned under the lock payroll writers take
+   * (services/payroll/employeeLock.ts), so nothing is added in between.
+   */
+  const inPayroll = await payrollPrisma.$transaction(async (tx: any) => {
+    await lockPayrollEmployee(tx, existing.id);
+    if (await tx.employeePayrollProfile.count({ where: { orgId, employeeId: existing.id } })) return true;
+    for (const [model] of PAYROLL_HISTORY) if (await tx[model].count({ where: { orgId, employeeId: existing.id } })) return true;
+    await revokeFromReaders(orgId, existing, req.auth!.userId);
+    /* Their reports move up to their manager; the bin remembers who they were, to put them back on restore. */
+    const reports = await peoplePrisma.employee.findMany({ where: { orgId, reportingManagerId: existing.id }, select: { id: true } });
+    await deleteToBin(req, 'employee', existing, {
+      links: { reportingManagerId: reports.map((r) => r.id) },
+      alongside: [
+        peoplePrisma.employee.updateMany({
+          where: { orgId, reportingManagerId: existing.id },
+          data: { reportingManagerId: existing.reportingManagerId },
+        }),
+      ],
+    });
+    return false;
+  }, { timeout: 30_000 });
+  if (inPayroll) {
     return res.status(409).json({
       error: 'This person is in payroll. Mark them as having left instead of deleting their file.',
       code: 'EMPLOYEE_IN_PAYROLL',
     });
   }
-  await revokeFromReaders(orgId, existing, req.auth!.userId);
-  /* Their reports move up to their manager; the bin remembers who they were, to put them back on restore. */
-  const reports = await peoplePrisma.employee.findMany({ where: { orgId, reportingManagerId: existing.id }, select: { id: true } });
-  await deleteToBin(req, 'employee', existing, {
-    links: { reportingManagerId: reports.map((r) => r.id) },
-    alongside: [
-      peoplePrisma.employee.updateMany({
-        where: { orgId, reportingManagerId: existing.id },
-        data: { reportingManagerId: existing.reportingManagerId },
-      }),
-    ],
-  });
   res.json({ ok: true });
 });
 
@@ -655,7 +1038,7 @@ const importRow = z.object({
   costCentre: text(120),
   dateOfJoining: date,
   dateOfBirth: date,
-  gender: z.enum(['MALE', 'FEMALE', 'OTHER']).optional().nullable().or(z.literal('')),
+  gender: z.enum(GENDER_OPTIONS).optional().nullable().or(z.literal('')),
   workEmail: z.string().trim().email().max(160).optional().nullable().or(z.literal('')),
 });
 
@@ -668,7 +1051,11 @@ peopleRouter.post('/orgs/:orgId/people/employees/import', can(PermissionAction.C
   const userId = req.auth!.userId;
   /* dryRun: every row checked, nothing created (departments included), so the screen can preview first. */
   const dryRun = req.body?.dryRun === true;
+  /* update: a row whose code is already here changes that person (only the columns given); otherwise it is an error, as before. */
+  const mode = String(req.body?.mode || 'create').toLowerCase() === 'update' ? 'UPDATE' : 'CREATE';
   const codesInFile = new Set<string>();
+  const createdIds: string[] = [];
+  const updatedRows: Array<{ id: string; before: Record<string, unknown> }> = [];
 
   /* Names to ids, creating what does not exist yet — the way a spreadsheet
      of staff usually arrives before anyone has set up departments. */
@@ -687,7 +1074,7 @@ peopleRouter.post('/orgs/:orgId/people/employees/import', can(PermissionAction.C
     return row as { id: string; name: string };
   };
 
-  const results: Array<{ row: number; ok: boolean; id?: string; error?: string }> = [];
+  const results: Array<{ row: number; ok: boolean; id?: string; error?: string; action?: 'CREATE' | 'UPDATE'; warning?: string }> = [];
   for (let i = 0; i < rows.length; i += 1) {
     const parsed = importRow.safeParse(rows[i]);
     if (!parsed.success) {
@@ -697,8 +1084,9 @@ peopleRouter.post('/orgs/:orgId/people/employees/import', can(PermissionAction.C
     const r = parsed.data;
     try {
       const code = blank(r.code);
-      if (code && (await peoplePrisma.employee.findFirst({ where: { orgId, code }, select: { id: true } }))) {
-        results.push({ row: i + 1, ok: false, error: `Code ${code} is already used.` });
+      const existingByCode = code ? await peoplePrisma.employee.findFirst({ where: { orgId, code } }) : null;
+      if (existingByCode && mode === 'CREATE') {
+        results.push({ row: i + 1, ok: false, error: `Code ${code} is already used. Choose "update existing" to change them.` });
         continue;
       }
       if (code && codesInFile.has(code.toLowerCase())) {
@@ -706,16 +1094,34 @@ peopleRouter.post('/orgs/:orgId/people/employees/import', can(PermissionAction.C
         continue;
       }
       if (code) codesInFile.add(code.toLowerCase());
+      /* The same person twice (CORE-02): a match on email or phone is a warning the preview shows; the row still goes in. */
+      const dupes = (await findDuplicates(orgId, existingByCode?.id ?? null, { email: r.email, workEmail: r.workEmail, phone: r.phone })).filter((d) => d.field !== 'employee ID');
+      const warning = dupes.length ? `Same ${dupes[0].field} as ${dupes[0].name}${dupes[0].code ? ` (${dupes[0].code})` : ''}.` : undefined;
       if (dryRun) {
         await ensure('department', r.department);
         await ensure('jobPosition', r.jobPosition);
-        results.push({ row: i + 1, ok: true });
+        results.push({ row: i + 1, ok: true, action: existingByCode ? 'UPDATE' : 'CREATE', warning });
+        continue;
+      }
+      if (existingByCode) {
+        /* Update: only the columns the file carries; names of lists resolve as on create. */
+        const data: Record<string, unknown> = {};
+        const set = (k: string, v: unknown) => { if (v !== undefined && v !== null && v !== '') data[k] = v; };
+        set('name', r.name); set('email', blank(r.email)); set('workEmail', blank(r.workEmail)); set('phone', blank(r.phone)); set('dateOfJoining', blank(r.dateOfJoining)); set('dateOfBirth', blank(r.dateOfBirth)); set('gender', blank(r.gender));
+        const dep = await ensure('department', r.department); if (dep) { data.department = dep.name; data.departmentId = dep.id; }
+        const pos = await ensure('jobPosition', r.jobPosition); if (pos) { data.designation = pos.name; data.jobPositionId = pos.id; }
+        for (const [kind, col, field] of [['employeeType', r.employeeType, 'employeeTypeId'], ['workType', r.workType, 'workTypeId'], ['businessUnit', r.businessUnit, 'businessUnitId'], ['grade', r.grade, 'gradeId'], ['costCenter', r.costCentre, 'costCenterId']] as const) {
+          const row = await ensure(kind, col); if (row) data[field] = row.id;
+        }
+        const before = Object.fromEntries(Object.keys(data).map((k) => [k, (existingByCode as any)[k] ?? null]));
+        await updateEmployee(actorOf(req, 'IMPORT', 'Import (update existing)'), existingByCode, data as any, {});
+        updatedRows.push({ id: existingByCode.id, before });
+        results.push({ row: i + 1, ok: true, id: existingByCode.id, action: 'UPDATE', warning });
         continue;
       }
       const department = await ensure('department', r.department);
       const jobPosition = await ensure('jobPosition', r.jobPosition);
-      const created = await peoplePrisma.employee.create({
-        data: {
+      const created = await createEmployee(actorOf(req, 'IMPORT'), {
           accountId,
           orgId,
           name: r.name,
@@ -737,26 +1143,80 @@ peopleRouter.post('/orgs/:orgId/people/employees/import', can(PermissionAction.C
           gender: blank(r.gender),
           status: 'ACTIVE',
           createdByUserId: userId,
-        },
-      });
-      await recordJoined({ accountId, orgId, userId }, created, 'IMPORT');
-      results.push({ row: i + 1, ok: true, id: created.id });
+        } as any);
+      createdIds.push(created.id);
+      results.push({ row: i + 1, ok: true, id: created.id, action: 'CREATE', warning });
     } catch (e: any) {
       results.push({ row: i + 1, ok: false, error: String(e?.code) === 'P2002' ? 'Already exists.' : String(e?.message || e) });
     }
   }
-  res.json({ dryRun, imported: results.filter((r) => r.ok).length, failed: results.filter((r) => !r.ok).length, results });
+  const imported = results.filter((r) => r.ok).length;
+  const failed = results.filter((r) => !r.ok).length;
+  /* The batch is remembered so the whole import can be undone within a day (CORE-07). */
+  const batch = !dryRun && (createdIds.length || updatedRows.length)
+    ? await peoplePrisma.importBatch.create({ data: { accountId, orgId, mode, rows: rows.length, failed, createdIds, updated: updatedRows as any, createdByUserId: userId } })
+    : null;
+  res.json({ dryRun, mode, imported, failed, results, batchId: batch?.id ?? null, undoUntil: batch ? new Date(batch.createdAt.getTime() + IMPORT_UNDO_HOURS * 3_600_000) : null });
+});
+
+const IMPORT_UNDO_HOURS = 24;
+
+peopleRouter.get('/orgs/:orgId/people/employees/import/batches', can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  const rows = await peoplePrisma.importBatch.findMany({ where: { orgId: req.tenant!.orgId }, orderBy: { createdAt: 'desc' }, take: 20 });
+  const now = Date.now();
+  res.json({ batches: rows.map((b) => ({ id: b.id, mode: b.mode, rows: b.rows, failed: b.failed, created: (b.createdIds as string[]).length, updated: (b.updated as unknown[]).length, createdAt: b.createdAt, undoneAt: b.undoneAt, canUndo: !b.undoneAt && now - b.createdAt.getTime() < IMPORT_UNDO_HOURS * 3_600_000 })) });
+});
+
+/** Undo an import within a day (CORE-07): the people it made go, with their events; the people it changed go back to what they were. */
+peopleRouter.post('/orgs/:orgId/people/employees/import/:batchId/undo', can(PermissionAction.DELETE, EMPLOYEES), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const batch = await peoplePrisma.importBatch.findFirst({ where: { id: String(req.params.batchId), orgId } });
+  if (!batch) return res.status(404).json({ error: 'No such import.' });
+  if (batch.undoneAt) return res.status(409).json({ error: 'This import was already undone.' });
+  if (Date.now() - batch.createdAt.getTime() > IMPORT_UNDO_HOURS * 3_600_000) return res.status(409).json({ error: 'An import can be undone within 24 hours; this one is older. Correct the people by hand.' });
+  const actor = actorOf(req, 'IMPORT', 'Import undone');
+  const createdIds = batch.createdIds as string[];
+  let removed = 0;
+  let restored = 0;
+  let kept = 0;
+  for (const id of createdIds) {
+    const e = await peoplePrisma.employee.findFirst({ where: { id, orgId }, select: { id: true, name: true, code: true } });
+    if (!e) continue;
+    /* Someone the import made but payroll has since paid stays; the answer says so. */
+    const inPayroll = await payrollPrisma.employeePayrollProfile.count({ where: { orgId, employeeId: id } }).catch(() => 0);
+    if (inPayroll) { kept += 1; continue; }
+    await peoplePrisma.$transaction(async (tx) => {
+      await tx.outboxEvent.deleteMany({ where: { orgId, employeeId: id, deliveredAt: null } });
+      await tx.employee.delete({ where: { id } });
+      await writeChangeLog(tx, actor, { kind: 'Employee', id, employeeId: id }, [{ field: 'record', before: 'created', after: 'removed: import undone', redacted: false }]);
+    });
+    removed += 1;
+  }
+  for (const u of batch.updated as Array<{ id: string; before: Record<string, unknown> }>) {
+    const existing = await peoplePrisma.employee.findFirst({ where: { id: u.id, orgId } });
+    if (!existing) continue;
+    await updateEmployee(actor, existing, u.before as any, {});
+    restored += 1;
+  }
+  await peoplePrisma.importBatch.update({ where: { id: batch.id }, data: { undoneAt: new Date(), undoneByUserId: req.auth!.userId } });
+  res.json({ removed, restored, kept });
 });
 
 peopleRouter.get('/orgs/:orgId/people/org-chart', can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   const nodes = await peoplePrisma.employee.findMany({
-    where: { accountId, orgId, status: { not: 'LEFT' } },
-    select: { id: true, name: true, code: true, designation: true, department: true, photoUrl: true, reportingManagerId: true },
+    where: { accountId, orgId, status: { not: 'LEFT' }, ...scopeWhere(await teamScope(req)) },
+    select: { id: true, name: true, code: true, designation: true, department: true, photoUrl: true, reportingManagerId: true, dottedManagerId: true },
     orderBy: { name: 'asc' },
   });
-  res.json({ nodes });
+  /* Open seats show on the chart (ORG-04): seats on an active team that nobody holds. */
+  const seats = await peoplePrisma.seat.findMany({ where: { orgId, isActive: true }, select: { id: true, name: true, teamId: true, jobPositionId: true, budgetRef: true, team: { select: { name: true, leadEmployeeId: true, departmentId: true } } } });
+  const held = new Set((await peoplePrisma.employee.findMany({ where: { orgId, seatId: { not: null } }, select: { seatId: true } })).map((e) => e.seatId));
+  const openSeats = seats.filter((s) => !held.has(s.id)).map((s) => ({ id: s.id, name: s.name, teamId: s.teamId, teamName: s.team?.name || null, leadEmployeeId: s.team?.leadEmployeeId || null, budgetRef: s.budgetRef }));
+  res.json({ nodes, openSeats });
 });
 
 // ---------------------------------------------------------------------------
@@ -773,6 +1233,12 @@ const STRUCTURE_KINDS = {
   'business-units': { model: 'businessUnit', usedBy: 'businessUnitId', extra: ['description'] },
   grades: { model: 'grade', usedBy: 'gradeId', extra: ['description'] },
   'cost-centres': { model: 'costCenter', usedBy: 'costCenterId', extra: ['description'] },
+  /* The company in law and its places of work (FND-07). A person's work state is their establishment's. */
+  'legal-entities': { model: 'legalEntity', usedBy: null, extra: ['description', 'pan', 'cin', 'address'] },
+  establishments: { model: 'establishment', usedBy: 'establishmentId', extra: ['description', 'legalEntityId', 'kind', 'state', 'address', 'registrations', 'holdsOriginals'] },
+  /* Teams under departments, with a lead; approved seats on a team, filled or open (ORG-01, ORG-04). */
+  teams: { model: 'team', usedBy: 'teamId', extra: ['departmentId', 'leadEmployeeId', 'description'] },
+  seats: { model: 'seat', usedBy: 'seatId', extra: ['teamId', 'jobPositionId', 'budgetRef', 'description'] },
 } as const;
 type Kind = keyof typeof STRUCTURE_KINDS;
 
@@ -782,9 +1248,23 @@ const structureSchema = z.object({
   parentId: text(60),
   departmentId: text(60),
   jobPositionId: text(60),
+  legalEntityId: text(60),
+  kind: z.enum(['SHOP', 'FACTORY', 'OFFICE', 'SITE', 'WAREHOUSE']).optional().nullable().or(z.literal('')),
+  state: text(80),
+  address: text(500),
+  holdsOriginals: z.boolean().optional(),
+  teamId: text(60),
+  leadEmployeeId: text(60),
+  budgetRef: text(80),
+  /* A real PAN, or the masked form a screen sends back unchanged. */
+  pan: z.string().trim().regex(/^([A-Z]{5}\d{4}[A-Z]|\*{6}[0-9A-Z]{4})$/, 'PAN looks like ABCDE1234F.').optional().nullable().or(z.literal('')),
+  cin: text(40),
+  registrations: z.array(z.object({ type: z.string().trim().max(40), number: z.string().trim().max(80), validTill: z.string().trim().regex(ISO_DATE).optional().nullable().or(z.literal('')) })).max(20).optional().nullable(),
   isActive: z.boolean().optional(),
 });
 
+/** A PAN is shown as its last four characters (CORE-04): the full number is for Payroll and the vault. */
+const maskPan = (pan: string | null | undefined) => (pan ? `******${pan.slice(-4)}` : pan ?? null);
 const kindOf = (req: any): Kind | null => (String(req.params.kind) in STRUCTURE_KINDS ? (String(req.params.kind) as Kind) : null);
 
 peopleRouter.get('/orgs/:orgId/people/structure/:kind', can(PermissionAction.VIEW, STRUCTURE), async (req, res) => {
@@ -794,13 +1274,11 @@ peopleRouter.get('/orgs/:orgId/people/structure/:kind', can(PermissionAction.VIE
   const { accountId, orgId } = req.tenant!;
   const cfg = STRUCTURE_KINDS[kind];
   const rows = await (peoplePrisma as any)[cfg.model].findMany({ where: { accountId, orgId }, orderBy: { name: 'asc' } });
-  const counts = await peoplePrisma.employee.groupBy({
-    by: [cfg.usedBy] as any,
-    where: { accountId, orgId, status: { not: 'LEFT' } },
-    _count: { _all: true },
-  });
-  const used = new Map((counts as any[]).map((c) => [c[cfg.usedBy], c._count._all]));
-  res.json({ items: rows.map((r: any) => ({ ...r, employeeCount: used.get(r.id) || 0 })) });
+  /* A legal entity is used by its establishments, not by people directly. */
+  const used = cfg.usedBy
+    ? new Map(((await (peoplePrisma.employee.groupBy as any)({ by: [cfg.usedBy], where: { accountId, orgId, status: { not: 'LEFT' } }, _count: { _all: true } })) as any[]).map((c) => [c[cfg.usedBy as string], c._count._all]))
+    : new Map(((await (peoplePrisma.establishment.groupBy as any)({ by: ['legalEntityId'], where: { orgId }, _count: { _all: true } })) as any[]).map((c) => [c.legalEntityId, c._count._all]));
+  res.json({ items: rows.map((r: any) => ({ ...r, ...(kind === 'legal-entities' ? { pan: maskPan(r.pan) } : {}), employeeCount: used.get(r.id) || 0 })) });
 });
 
 peopleRouter.post('/orgs/:orgId/people/structure/:kind', can(PermissionAction.CREATE, STRUCTURE), async (req, res) => {
@@ -812,10 +1290,14 @@ peopleRouter.post('/orgs/:orgId/people/structure/:kind', can(PermissionAction.CR
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Invalid.' });
   const cfg = STRUCTURE_KINDS[kind];
   const data: any = { accountId, orgId, name: parsed.data.name, createdByUserId: req.auth!.userId };
-  for (const k of cfg.extra) if ((parsed.data as any)[k] !== undefined) data[k] = blank((parsed.data as any)[k]);
+  for (const k of cfg.extra) if ((parsed.data as any)[k] !== undefined) data[k] = k === 'registrations' || k === 'holdsOriginals' ? (parsed.data as any)[k] : blank((parsed.data as any)[k]);
+  if (kind === 'establishments' && !data.state) return res.status(400).json({ error: 'Say which state the establishment is in: its rules follow from that.' });
+  /* An unset type takes the default; an unset entity is simply absent. */
+  if (kind === 'establishments') { if (!data.kind) delete data.kind; if (!data.legalEntityId) delete data.legalEntityId; }
+  if (kind === 'establishments' && data.holdsOriginals === true && NO_ORIGINALS_STATES.has(String(data.state || '').trim().toLowerCase())) return res.status(400).json({ error: `${data.state} does not allow an employer to hold employees' original documents (Shops & Establishments amendment, 2026).` });
   try {
     const row = await (peoplePrisma as any)[cfg.model].create({ data });
-    res.status(201).json({ item: row });
+    res.status(201).json({ item: kind === 'legal-entities' ? { ...row, pan: maskPan(row.pan) } : row });
   } catch (e) {
     return sendError(res, e);
   }
@@ -837,9 +1319,18 @@ peopleRouter.put('/orgs/:orgId/people/structure/:kind/:id', can(PermissionAction
   }
   const data: any = { name: parsed.data.name };
   if (parsed.data.isActive !== undefined) data.isActive = parsed.data.isActive;
-  for (const k of cfg.extra) if ((parsed.data as any)[k] !== undefined) data[k] = blank((parsed.data as any)[k]);
+  for (const k of cfg.extra) if ((parsed.data as any)[k] !== undefined) data[k] = k === 'registrations' || k === 'holdsOriginals' ? (parsed.data as any)[k] : blank((parsed.data as any)[k]);
+  /* A masked PAN sent back unchanged is not a change. */
+  if (kind === 'legal-entities' && typeof data.pan === 'string' && data.pan.includes('*')) delete data.pan;
+  if (kind === 'establishments' && data.state === null) return res.status(400).json({ error: 'An establishment keeps its state.' });
+  if (kind === 'establishments' && data.kind === null) delete data.kind;
+  if (kind === 'establishments' && data.holdsOriginals === true) {
+    const state = data.state !== undefined ? data.state : (await peoplePrisma.establishment.findFirst({ where: { id: String(req.params.id), orgId }, select: { state: true } }))?.state;
+    if (NO_ORIGINALS_STATES.has(String(state || '').trim().toLowerCase())) return res.status(400).json({ error: `${state} does not allow an employer to hold employees' original documents (Shops & Establishments amendment, 2026).` });
+  }
   try {
     const row = await model.update({ where: { id: existing.id }, data });
+    if (kind === 'legal-entities') row.pan = maskPan(row.pan);
     /* Renaming a department or position renames what the files display. */
     if (kind === 'departments' && row.name !== existing.name) {
       await peoplePrisma.employee.updateMany({ where: { orgId, departmentId: row.id }, data: { department: row.name } });
@@ -862,9 +1353,11 @@ peopleRouter.delete('/orgs/:orgId/people/structure/:kind/:id', can(PermissionAct
   const model: any = (peoplePrisma as any)[cfg.model];
   const existing = await model.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
   if (!existing) return res.status(404).json({ error: 'Not found.' });
-  const inUse = await peoplePrisma.employee.count({ where: { orgId, [cfg.usedBy]: existing.id } as any });
+  const inUse = cfg.usedBy
+    ? await peoplePrisma.employee.count({ where: { orgId, [cfg.usedBy]: existing.id } as any })
+    : await peoplePrisma.establishment.count({ where: { orgId, legalEntityId: existing.id } });
   if (inUse) {
-    return res.status(409).json({ error: `${inUse} ${inUse === 1 ? 'person uses' : 'people use'} this. Move them first, or mark it inactive.` });
+    return res.status(409).json({ error: cfg.usedBy ? `${inUse} ${inUse === 1 ? 'person uses' : 'people use'} this. Move them first, or mark it inactive.` : `${inUse} establishment${inUse === 1 ? ' belongs' : 's belong'} to it. Move them first, or mark it inactive.` });
   }
   await deleteToBin(req, cfg.model, existing);
   res.json({ ok: true });
@@ -942,49 +1435,142 @@ peopleRouter.delete('/orgs/:orgId/people/notes/:noteId', can(PermissionAction.DE
 // Documents on the employee file (ClorTime's Employee Document)
 // ---------------------------------------------------------------------------
 
-const DOC_KINDS = new Set(['ID_PROOF', 'ADDRESS_PROOF', 'EDUCATION', 'CONTRACT', 'PAYSLIP', 'OTHER']);
-const DOC_MAX_BYTES = 5 * 1024 * 1024;
-const DOC_MIMES = /^(application\/pdf|image\/(jpeg|png|webp)|application\/vnd\.openxmlformats-officedocument\.(wordprocessingml\.document|spreadsheetml\.sheet)|application\/msword|text\/plain)$/;
+const DOC_KINDS = new Set(['ID_PROOF', 'ADDRESS_PROOF', 'EDUCATION', 'CONTRACT', 'PAYSLIP', 'WORK_PERMIT', 'CERTIFICATE', 'LETTER', 'OTHER']);
+const docRow = (d: any) => ({ id: d.id, employeeId: d.employeeId, kind: d.kind, title: d.title, mime: d.mime, size: d.size, expiresOn: d.expiresOn, restrictsWork: d.restrictsWork ?? null, version: d.version ?? 1, supersedesId: d.supersedesId ?? null, supersededById: d.supersededById ?? null, templateId: d.templateId ?? null, templateVersion: d.templateVersion ?? null, classification: d.classification, visibleToEmployee: d.visibleToEmployee, uploadedByUserId: d.uploadedByUserId, createdAt: d.createdAt });
+const DOC_SELECT = { id: true, employeeId: true, kind: true, title: true, mime: true, size: true, expiresOn: true, restrictsWork: true, version: true, supersedesId: true, supersededById: true, templateId: true, templateVersion: true, classification: true, visibleToEmployee: true, uploadedByUserId: true, createdAt: true } as const;
 
-/** data:<mime>;base64,… or bare base64 — the file itself, decoded and checked. */
-function decodeDocument(input: unknown, mimeHint?: unknown): { mime: string; data: Buffer } | { error: string } {
-  const str = String(input || '');
-  if (!str) return { error: 'The file did not come through.' };
-  const m = /^data:([\w.+/-]+);base64,(.+)$/s.exec(str);
-  const mime = (m ? m[1] : String(mimeHint || '')).toLowerCase();
-  if (!DOC_MIMES.test(mime)) return { error: 'PDF, JPEG, PNG, WebP, Word, Excel or plain text only.' };
-  let data: Buffer;
-  try {
-    data = Buffer.from(m ? m[2] : str, 'base64');
-  } catch {
-    return { error: 'The file could not be read.' };
-  }
-  if (!data.length) return { error: 'The file is empty.' };
-  if (data.length > DOC_MAX_BYTES) return { error: 'Files up to 5 MB.' };
-  return { mime, data };
+/**
+ * Who can see a document (docs/people/02-PRD.md DOC-01; review R-01).
+ *
+ * Until 24 Oct 2026 any role with Employees VIEW opened every file on every
+ * person, and the Attendance Manager preset carried that grant. Now each
+ * document names its classification, and the grant that opens it is:
+ *
+ *   EMPLOYEE_VISIBLE, HR_ONLY   Documents VIEW
+ *   RESTRICTED                  Documents EDIT
+ *   CONFIDENTIAL                Confidential Documents VIEW (its own grant)
+ *
+ * The employee app keeps reading `visibleToEmployee`, which is true only for
+ * EMPLOYEE_VISIBLE. Lists are filtered to what the caller may open, so a
+ * person never learns a confidential file exists from its title.
+ */
+const DOC_CLASSIFICATIONS = ['EMPLOYEE_VISIBLE', 'HR_ONLY', 'RESTRICTED', 'CONFIDENTIAL'] as const;
+type DocClass = (typeof DOC_CLASSIFICATIONS)[number];
+async function readableClassifications(req: Request): Promise<DocClass[]> {
+  const out: DocClass[] = [];
+  if (!(await authorize(req, PEOPLE_MODULE, PermissionAction.VIEW, DOCUMENTS))) out.push('EMPLOYEE_VISIBLE', 'HR_ONLY');
+  if (!(await authorize(req, PEOPLE_MODULE, PermissionAction.EDIT, DOCUMENTS))) out.push('RESTRICTED');
+  if (!(await authorize(req, PEOPLE_MODULE, PermissionAction.VIEW, CONFIDENTIAL))) out.push('CONFIDENTIAL');
+  return out;
 }
-const docRow = (d: any) => ({ id: d.id, employeeId: d.employeeId, kind: d.kind, title: d.title, mime: d.mime, size: d.size, expiresOn: d.expiresOn, visibleToEmployee: d.visibleToEmployee, uploadedByUserId: d.uploadedByUserId, createdAt: d.createdAt });
+/** The grant a write (upload, delete) on a document of this classification needs. */
+const writeGrantFor = (classification: string, action: PermissionActionType): [string, PermissionActionType, string] =>
+  classification === 'CONFIDENTIAL' ? [PEOPLE_MODULE, action, CONFIDENTIAL] : [PEOPLE_MODULE, action, DOCUMENTS];
 
-peopleRouter.get('/orgs/:orgId/people/documents', can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
+peopleRouter.get('/orgs/:orgId/people/documents', can(PermissionAction.VIEW, DOCUMENTS), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
+  const classification = { in: await readableClassifications(req) };
+  const scope = await teamScope(req);
   const rows = await peoplePrisma.employeeDocument.findMany({
-    where: { accountId, orgId }, orderBy: { createdAt: 'desc' },
-    select: { id: true, employeeId: true, kind: true, title: true, mime: true, size: true, expiresOn: true, visibleToEmployee: true, uploadedByUserId: true, createdAt: true, employee: { select: { name: true, code: true } } },
+    where: { accountId, orgId, classification, supersededById: null, ...(scope.all ? {} : { employeeId: { in: scope.ids } }) }, orderBy: { createdAt: 'desc' },
+    select: { ...DOC_SELECT, employee: { select: { name: true, code: true } } },
   });
   res.json({ documents: rows.map((r) => ({ ...docRow(r), employeeName: r.employee.name, employeeCode: r.employee.code })) });
 });
 
-peopleRouter.get('/orgs/:orgId/people/employees/:id/documents', can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
+peopleRouter.get('/orgs/:orgId/people/employees/:id/documents', can(PermissionAction.VIEW, DOCUMENTS), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
-  const rows = await peoplePrisma.employeeDocument.findMany({ where: { accountId, orgId, employeeId: String(req.params.id) }, orderBy: { createdAt: 'desc' }, select: { id: true, employeeId: true, kind: true, title: true, mime: true, size: true, expiresOn: true, visibleToEmployee: true, uploadedByUserId: true, createdAt: true } });
+  const classification = { in: await readableClassifications(req) };
+  if (!inScope(await teamScope(req), String(req.params.id))) return res.status(404).json({ error: 'No such employee.' });
+  const rows = await peoplePrisma.employeeDocument.findMany({ where: { accountId, orgId, employeeId: String(req.params.id), classification, supersededById: null }, orderBy: { createdAt: 'desc' }, select: DOC_SELECT });
   res.json({ documents: rows.map(docRow) });
 });
 
-peopleRouter.post('/orgs/:orgId/people/employees/:id/documents', can(PermissionAction.EDIT, EMPLOYEES), async (req, res) => {
+/** Replace a file (DOC-02): the new one takes the old one's place; the old one stays, pointed both ways, under "Earlier versions". */
+peopleRouter.post('/orgs/:orgId/people/documents/:docId/replace', can(PermissionAction.CREATE, DOCUMENTS), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
+  const old = await peoplePrisma.employeeDocument.findFirst({ where: { id: String(req.params.docId), accountId, orgId }, select: { ...DOC_SELECT } });
+  if (!old || !(await readableClassifications(req)).includes(old.classification as DocClass) || !inScope(await teamScope(req), old.employeeId)) return res.status(404).json({ error: 'No such document.' });
+  if (old.supersededById) return res.status(409).json({ error: 'A newer version already exists; replace that one.' });
+  const refused = await authorize(req, ...writeGrantFor(old.classification, PermissionAction.CREATE));
+  if (refused) return res.status(refused.status).json(refused.body);
+  const file = decodeDocument(req.body?.data, req.body?.mime);
+  if ('error' in file) return res.status(400).json({ error: file.error });
+  const title = String(req.body?.title || old.title).trim().slice(0, 120) || old.title;
+  const expiresOn = req.body?.expiresOn !== undefined ? String(req.body.expiresOn || '').trim() || null : old.expiresOn;
+  if (expiresOn && !/^\d{4}-\d{2}-\d{2}$/.test(expiresOn)) return res.status(400).json({ error: 'Dates are YYYY-MM-DD.' });
+  const d = await peoplePrisma.$transaction(async (tx) => {
+    const created = await tx.employeeDocument.create({
+      data: { accountId, orgId, employeeId: old.employeeId, kind: old.kind, title, mime: file.mime, size: file.data.length, data: file.data, expiresOn, restrictsWork: old.restrictsWork, classification: old.classification, visibleToEmployee: old.visibleToEmployee, uploadedByUserId: req.auth!.userId, version: (old.version ?? 1) + 1, supersedesId: old.id },
+    });
+    await tx.employeeDocument.update({ where: { id: old.id }, data: { supersededById: created.id } });
+    return created;
+  });
+  res.status(201).json({ document: docRow(d) });
+});
+
+/** Ask the person to read and accept a file on their record (DOC-05). Only a file they can see can be asked of them. */
+peopleRouter.post('/orgs/:orgId/people/documents/:docId/ask-to-read', can(PermissionAction.EDIT, DOCUMENTS), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const d = await peoplePrisma.employeeDocument.findFirst({ where: { id: String(req.params.docId), accountId, orgId }, select: { id: true, title: true, employeeId: true, classification: true } });
+  if (!d || !(await readableClassifications(req)).includes(d.classification as DocClass) || !inScope(await teamScope(req), d.employeeId)) return res.status(404).json({ error: 'No such document.' });
+  if (d.classification !== 'EMPLOYEE_VISIBLE') return res.status(400).json({ error: 'The person cannot see this file, so they cannot be asked to accept it. Set "Who can see" to the person and HR first.' });
+  const asked = await askToRead({ accountId, orgId, userId: req.auth!.userId }, 'DOCUMENT', d.id, [d.employeeId], { title: `Please read and accept: ${d.title}`, body: 'Open Me → Documents in the employee app.' });
+  res.json({ newlyAsked: asked, ...(await ackReport(orgId, 'DOCUMENT', d.id)) });
+});
+
+peopleRouter.get('/orgs/:orgId/people/documents/:docId/acknowledgements', can(PermissionAction.VIEW, DOCUMENTS), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const d = await peoplePrisma.employeeDocument.findFirst({ where: { id: String(req.params.docId), accountId, orgId }, select: { id: true, employeeId: true, classification: true } });
+  if (!d || !(await readableClassifications(req)).includes(d.classification as DocClass) || !inScope(await teamScope(req), d.employeeId)) return res.status(404).json({ error: 'No such document.' });
+  res.json(await ackReport(orgId, 'DOCUMENT', d.id));
+});
+
+peopleRouter.post('/orgs/:orgId/people/documents/:docId/remind', can(PermissionAction.EDIT, DOCUMENTS), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const d = await peoplePrisma.employeeDocument.findFirst({ where: { id: String(req.params.docId), accountId, orgId }, select: { id: true, title: true, employeeId: true, classification: true } });
+  if (!d || !(await readableClassifications(req)).includes(d.classification as DocClass) || !inScope(await teamScope(req), d.employeeId)) return res.status(404).json({ error: 'No such document.' });
+  res.json({ reminded: await ackRemind({ accountId, orgId, userId: req.auth!.userId }, 'DOCUMENT', d.id, { title: `Please read and accept: ${d.title}`, body: 'Open Me → Documents in the employee app.' }) });
+});
+
+/** Every version of a file, newest first (DOC-02). */
+peopleRouter.get('/orgs/:orgId/people/documents/:docId/versions', can(PermissionAction.VIEW, DOCUMENTS), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const d = await peoplePrisma.employeeDocument.findFirst({ where: { id: String(req.params.docId), accountId, orgId }, select: DOC_SELECT });
+  if (!d || !(await readableClassifications(req)).includes(d.classification as DocClass) || !inScope(await teamScope(req), d.employeeId)) return res.status(404).json({ error: 'No such document.' });
+  const chain: Array<typeof d> = [d];
+  let cur = d;
+  for (let i = 0; i < 50 && cur.supersedesId; i += 1) {
+    const prev = await peoplePrisma.employeeDocument.findFirst({ where: { id: cur.supersedesId, orgId }, select: DOC_SELECT });
+    if (!prev) break;
+    chain.push(prev);
+    cur = prev;
+  }
+  cur = d;
+  for (let i = 0; i < 50 && cur.supersededById; i += 1) {
+    const next = await peoplePrisma.employeeDocument.findFirst({ where: { id: cur.supersededById, orgId }, select: DOC_SELECT });
+    if (!next) break;
+    chain.unshift(next);
+    cur = next;
+  }
+  res.json({ versions: chain.map(docRow) });
+});
+
+peopleRouter.post('/orgs/:orgId/people/employees/:id/documents', can(PermissionAction.CREATE, DOCUMENTS), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  /* The old flag still arrives from older clients: false meant "HR only". */
+  const classification = String(req.body?.classification || (req.body?.visibleToEmployee === false ? 'HR_ONLY' : 'EMPLOYEE_VISIBLE')).toUpperCase();
+  if (!DOC_CLASSIFICATIONS.includes(classification as DocClass)) return res.status(400).json({ error: 'Say who can see it: the person and HR, HR only, restricted, or confidential.' });
+  const refused = await authorize(req, ...writeGrantFor(classification, PermissionAction.CREATE));
+  if (refused) return res.status(refused.status).json(refused.body);
   const employee = await peoplePrisma.employee.findFirst({ where: { id: String(req.params.id), accountId, orgId }, select: { id: true } });
   if (!employee) return res.status(404).json({ error: 'No such employee.' });
   const kind = String(req.body?.kind || 'OTHER').toUpperCase();
@@ -993,29 +1579,35 @@ peopleRouter.post('/orgs/:orgId/people/employees/:id/documents', can(PermissionA
   if (!title) return res.status(400).json({ error: 'Name the document.' });
   const expiresOn = String(req.body?.expiresOn || '').trim() || null;
   if (expiresOn && !/^\d{4}-\d{2}-\d{2}$/.test(expiresOn)) return res.status(400).json({ error: 'Dates are YYYY-MM-DD.' });
+  /* A permit or certificate says what the person may not do while it is lapsed (LIFE-08). */
+  const restrictsWork = PERMIT_KINDS.has(kind) ? String(req.body?.restrictsWork || '').trim().slice(0, 500) || null : null;
+  if (PERMIT_KINDS.has(kind) && !expiresOn) return res.status(400).json({ error: 'A permit or certificate needs its expiry date.' });
   const file = decodeDocument(req.body?.data, req.body?.mime);
   if ('error' in file) return res.status(400).json({ error: file.error });
   const d = await peoplePrisma.employeeDocument.create({
-    data: { accountId, orgId, employeeId: employee.id, kind, title, mime: file.mime, size: file.data.length, data: file.data, expiresOn, visibleToEmployee: req.body?.visibleToEmployee !== false, uploadedByUserId: req.auth!.userId },
+    data: { accountId, orgId, employeeId: employee.id, kind, title, mime: file.mime, size: file.data.length, data: file.data, expiresOn, restrictsWork, classification, visibleToEmployee: classification === 'EMPLOYEE_VISIBLE', uploadedByUserId: req.auth!.userId },
   });
   res.status(201).json({ document: docRow(d) });
 });
 
 /** The file itself, as a data URL — small enough to carry inline, and the same shape the portal uses. */
-peopleRouter.get('/orgs/:orgId/people/documents/:docId', can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
+peopleRouter.get('/orgs/:orgId/people/documents/:docId', can(PermissionAction.VIEW, DOCUMENTS), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   const d = await peoplePrisma.employeeDocument.findFirst({ where: { id: String(req.params.docId), accountId, orgId } });
-  if (!d) return res.status(404).json({ error: 'No such document.' });
+  /* A file the caller may not open reads as absent, so its title does not leak through a 403. */
+  if (!d || !(await readableClassifications(req)).includes(d.classification as DocClass) || !inScope(await teamScope(req), d.employeeId)) return res.status(404).json({ error: 'No such document.' });
   res.json({ document: { ...docRow(d), dataUrl: `data:${d.mime};base64,${Buffer.from(d.data).toString('base64')}` } });
 });
 
-peopleRouter.delete('/orgs/:orgId/people/documents/:docId', can(PermissionAction.EDIT, EMPLOYEES), async (req, res) => {
+peopleRouter.delete('/orgs/:orgId/people/documents/:docId', can(PermissionAction.DELETE, DOCUMENTS), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
-  const d = await peoplePrisma.employeeDocument.findFirst({ where: { id: String(req.params.docId), accountId, orgId }, select: { id: true } });
-  if (!d) return res.status(404).json({ error: 'No such document.' });
-  await deleteToBin(req, 'employeeDocument', d);
+  const d = await peoplePrisma.employeeDocument.findFirst({ where: { id: String(req.params.docId), accountId, orgId }, select: { id: true, classification: true } });
+  if (!d || !(await readableClassifications(req)).includes(d.classification as DocClass)) return res.status(404).json({ error: 'No such document.' });
+  const refused = await authorize(req, ...writeGrantFor(d.classification, PermissionAction.DELETE));
+  if (refused) return res.status(refused.status).json(refused.body);
+  await deleteToBin(req, 'employeeDocument', { id: d.id });
   res.json({ ok: true });
 });
 

@@ -33,6 +33,7 @@ import {
   prettyDate,
 } from '../overview/OverviewParts';
 import { PermissionButton } from '@ui/permissions/ActionGuard';
+import { companyStorageKey } from '@platform/context';
 
 const LazySeriesBars = lazy(() =>
   import('@ui/components/charts/CircularCharts').then((m) => ({ default: m.SeriesBars }))
@@ -149,7 +150,7 @@ const SalesOverview = ({
 
   const [selectedBranchIds, setSelectedBranchIds] = useState(() => {
     try {
-      const raw = String(localStorage.getItem('dashboardBranchIds') || '').trim();
+      const raw = String(localStorage.getItem(companyStorageKey('dashboardBranchIds')) || '').trim();
       if (!raw) return [];
       const parsed = JSON.parse(raw);
       return Array.isArray(parsed) ? parsed.map((x) => normalizeId(x)).filter(Boolean) : [];
@@ -792,7 +793,7 @@ const SalesOverview = ({
                     .filter(Boolean);
                   setSelectedBranchIds(next);
                   try {
-                    localStorage.setItem('dashboardBranchIds', JSON.stringify(next));
+                    localStorage.setItem(companyStorageKey('dashboardBranchIds'), JSON.stringify(next));
                   } catch {
                     // A browser that refuses storage still filters this session.
                   }

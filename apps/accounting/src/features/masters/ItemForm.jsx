@@ -14,6 +14,7 @@ import { bumpItemCodeSeries, nextItemCode } from '@ui/utils/itemCode';
 import { saveItemToServer, updateItemOnServer } from '@ui/utils/itemSync';
 import { saveMaster } from '@ui/utils/masterSync';
 import { formatMoney, round2 } from '@ui/utils/money';
+import { selectedBranchId, selectedWarehouseId } from '@platform/context';
 
 /* Item cards place two field rows side by side. Their label gutter is kept
    compact so each control remains inside its own half of the drawer. */
@@ -115,8 +116,8 @@ const ItemForm = ({
       openingDate: '',
       // Opening stock has to land somewhere. The branch and warehouse the user
       // is already scoped to are the right guess; both stay editable.
-      openingBranchId: String(localStorage.getItem('activeBranchId') || '').trim(),
-      openingWarehouseId: String(localStorage.getItem('activeWarehouseId') || '').trim(),
+      openingBranchId: String(selectedBranchId() || '').trim(),
+      openingWarehouseId: String(selectedWarehouseId() || '').trim(),
     };
   });
 

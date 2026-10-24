@@ -1,5 +1,5 @@
 import { API_BASE, apiFetch } from '@platform/http';
-import { orgId as platformOrgId } from '@platform/context';
+import { orgId as platformOrgId, selectedBranchId } from '@platform/context';
 
 /** Staged document import — requirements 15 and 16. */
 
@@ -39,7 +39,7 @@ export async function downloadTemplate(docType) {
     headers: {
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
       'x-org-id': orgId(),
-      'x-branch-id': String(localStorage.getItem('activeBranchId') || ''),
+      'x-branch-id': String(selectedBranchId() || ''),
     },
   });
   if (!res.ok) {

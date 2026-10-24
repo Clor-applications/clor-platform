@@ -1,4 +1,6 @@
+import { checkPortalSession, endPortalSession, endPortalSessions, legacyCutoff, listPortalSessions, startPortalSession } from '../services/portalSessions.js';
 import { Router, type NextFunction, type Request, type Response } from 'express';
+import { anyAppLive, appLive, closing } from '../services/principalAllowed.js';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 
@@ -12,7 +14,6 @@ import { payrollPrisma } from '../utils/payrollPrisma.js';
 import { DeclarationError, financialYearOf, saveDeclaration, shapeDeclaration } from '../services/payroll/taxDeclaration.js';
 import { isDevOrTest } from '../utils/devMode.js';
 import { isFeatureEnabled } from '../services/features.js';
-import { hrOrAttendanceOn } from '../services/people/guards.js';
 import { portalLimiter } from '../middleware/rateLimit.js';
 import { isWeeklyOff, istDate, istTime } from '../services/attendance/compute.js';
 import { loadHolidays, loadSchedule, resolveShift } from '../services/attendance/schedule.js';
@@ -20,11 +21,14 @@ import { phoneStatus, recordPhonePunch } from '../services/attendance/phonePunch
 import { normaliseCode, passwordProblem } from '../services/attendance/portal.js';
 import { chainFor } from '../services/attendance/approvalChain.js';
 import { askOvertime, attentionFor, chainsFor, confirmMonth, decideOvertime, monthReview, overtimeFor, timelineOf, upcomingShifts } from '../services/attendance/selfService.js';
-import { REASON_CODES, createRequest, daysOfMonth, instants, reviewCorrection, sendError, today, withNames } from './attendance.js';
-import { approveLeave, balancesFor, cancelOwnLeave, createLeave, leavePeriodOf, leaveYearOf, rejectLeave, withTypes } from './leave.js';
+import { createRequest } from './attendance.js';
+import { REASON_CODES, reviewCorrection } from '../services/attendance/corrections.js';
+import { daysOfMonth, instants, sendError, today, withNames } from '../services/attendance/days.js';
+import { approveLeave, cancelOwnLeave, createLeave, rejectLeave, withTypes } from './leave.js';
+import { balancesFor, leavePeriodOf, leaveYearOf } from '../services/attendance/leaveBalances.js';
 import { periodEnd, periodStart } from '../services/attendance/leaveAccrual.js';
-import { recomputeDeviceDay, shiftDayFor } from './iclock.js';
-import { runInTenant } from '../utils/tenantScope.js';
+import { recomputeDeviceDay, shiftDayFor } from '../services/attendance/punches.js';
+import { enterTenant, outsideTenant, runInTenant } from '../utils/tenantScope.js';
 
 /**
  * The employee portal (ClorTime's /portal): staff without a CLOR user sign in
@@ -48,12 +52,14 @@ const secret = () => process.env.JWT_SECRET || (isDevOrTest() ? 'dev-secret' : '
 /** One answer for every failed sign-in, so it does not tell which part was wrong. */
 const WRONG = 'Company code, employee code or password is not right.';
 const WRONG_CODE = 'That activation code is not right or has run out. Ask HR for a new one.';
+const PAUSED = 'Your app access is paused; please ask HR.';
+const deviceOf = (req: Request) => ({ ua: String(req.get('user-agent') || ''), ip: req.ip ? String(req.ip) : null });
 const ROUNDS = 10;
 
 type PortalUser = { employeeId: string; accountId: string; orgId: string };
 declare module 'express-serve-static-core' {
   interface Request {
-    portal?: PortalUser & { employee: any };
+    portal?: PortalUser & { employee: any; sid?: string | null };
   }
 }
 
@@ -75,6 +81,7 @@ const PORTAL_FIELDS = {
   portalPasswordSetAt: true,
   portalSetupHash: true,
   portalSetupExpires: true,
+  portalSessionsRevokedAt: true,
   mobilePunch: true,
   geofenceId: true,
   dateOfBirth: true,
@@ -87,8 +94,9 @@ const PORTAL_FIELDS = {
   reportingManagerId: true,
 } as const;
 
-const sign = (e: { id: string; accountId: string; orgId: string; portalPasswordSetAt: Date | null }) =>
-  jwt.sign({ typ: 'portal', employeeId: e.id, accountId: e.accountId, orgId: e.orgId, pv: e.portalPasswordSetAt?.getTime() || 0 }, secret(), {
+/* The token keeps the shape the apps already store; `sid` names its session row (A-33). */
+const sign = (e: { id: string; accountId: string; orgId: string; portalPasswordSetAt: Date | null }, sid: string) =>
+  jwt.sign({ typ: 'portal', employeeId: e.id, accountId: e.accountId, orgId: e.orgId, pv: e.portalPasswordSetAt?.getTime() || 0, sid }, secret(), {
     expiresIn: (process.env.PORTAL_TOKEN_TTL || '30d') as any,
     issuer: ISSUER(),
     audience: AUDIENCE,
@@ -99,15 +107,17 @@ async function findEmployee(company: unknown, employeeCode: unknown) {
   const companyCode = String(company || '').trim().toUpperCase();
   const code = String(employeeCode || '').trim();
   if (!companyCode || !code || companyCode.length > 40 || code.length > 40) return null;
-  const org = await platformPrisma.org.findUnique({ where: { code: companyCode }, select: { id: true, accountId: true, name: true } });
+  /* The company code is how the company is found (A-35); the employee is then looked for inside it. */
+  const org = await outsideTenant('portal: which company this code names', () => platformPrisma.org.findUnique({ where: { code: companyCode }, select: { id: true, accountId: true, name: true } }));
   if (!org) return null;
-  const rows = await peoplePrisma.employee.findMany({
+  const rows = await runInTenant(org.id, () => peoplePrisma.employee.findMany({
     where: { orgId: org.id, accountId: org.accountId, code: { equals: code, mode: 'insensitive' }, status: { not: 'LEFT' } },
     select: PORTAL_FIELDS,
     take: 2,
-  });
+  }));
   if (rows.length !== 1) return null;
-  if (!(await hrOrAttendanceOn(org.accountId, org.id))) return null;
+  /* A-11: switched on and paid for, and the company not closing — the same answer staff routes give. */
+  if (await anyAppLive(org.accountId, org.id, ['people', 'attendance'])) return null;
   return { org, employee: rows[0] };
 }
 
@@ -121,6 +131,8 @@ const DUMMY_HASH = bcrypt.hashSync('not-a-password-0', ROUNDS);
  */
 portalRouter.post('/forgot', ...portalLimiter, async (req, res) => {
   const found = await findEmployee(req.body?.company, req.body?.employeeCode);
+  /* The rest of this request runs as the employee's company (A-35). */
+  if (found) enterTenant(found.org.id);
   if (found?.employee?.portalEnabled) {
     const e = found.employee;
     await notifyPermission(e.accountId, e.orgId, 'ATTENDANCE::Employee Portal::EDIT', {
@@ -135,10 +147,15 @@ portalRouter.post('/forgot', ...portalLimiter, async (req, res) => {
 
 portalRouter.post('/login', ...portalLimiter, async (req, res) => {
   const found = await findEmployee(req.body?.company, req.body?.employeeCode);
+  /* The rest of this request runs as the employee's company (A-35). */
+  if (found) enterTenant(found.org.id);
   const e = found?.employee;
   const ok = await bcrypt.compare(String(req.body?.password || ''), e?.portalPasswordHash || DUMMY_HASH);
   if (!found || !e || !ok || !e.portalEnabled || !e.portalPasswordHash) return res.status(401).json({ error: WRONG });
-  res.json({ token: sign(e), employee: { name: e.name, code: e.code }, company: { name: found.org.name } });
+  /* A-33: said only once the password is right, so it tells a stranger nothing. */
+  if (e.status === 'SUSPENDED') return res.status(403).json({ error: PAUSED, code: 'PORTAL_PAUSED' });
+  const session = await startPortalSession(e, deviceOf(req));
+  res.json({ token: sign(e, session.id), employee: { name: e.name, code: e.code }, company: { name: found.org.name } });
 });
 
 /** First sign-in: the activation code from HR, and the person's own password. */
@@ -146,6 +163,8 @@ portalRouter.post('/activate', ...portalLimiter, async (req, res) => {
   const problem = passwordProblem(req.body?.password);
   if (problem) return res.status(400).json({ error: problem });
   const found = await findEmployee(req.body?.company, req.body?.employeeCode);
+  /* The rest of this request runs as the employee's company (A-35). */
+  if (found) enterTenant(found.org.id);
   const e = found?.employee;
   const ok = await bcrypt.compare(normaliseCode(req.body?.activationCode), e?.portalSetupHash || DUMMY_HASH);
   if (!found || !e || !ok || !e.portalEnabled || !e.portalSetupHash || !e.portalSetupExpires || e.portalSetupExpires < new Date()) {
@@ -156,27 +175,55 @@ portalRouter.post('/activate', ...portalLimiter, async (req, res) => {
     data: { portalPasswordHash: await bcrypt.hash(String(req.body.password), ROUNDS), portalPasswordSetAt: new Date(), portalSetupHash: null, portalSetupExpires: null },
     select: PORTAL_FIELDS,
   });
-  res.json({ token: sign(updated), employee: { name: updated.name, code: updated.code }, company: { name: found.org.name } });
+  if (updated.status === 'SUSPENDED') return res.status(403).json({ error: PAUSED, code: 'PORTAL_PAUSED' });
+  /* A new password ends every earlier sign-in (A-33); this device starts its own. */
+  await endPortalSessions(updated, 'password set with an activation code', { type: 'EMPLOYEE', id: updated.id });
+  const session = await startPortalSession(updated, deviceOf(req));
+  res.json({ token: sign(updated, session.id), employee: { name: updated.name, code: updated.code }, company: { name: found.org.name } });
 });
 
-async function authenticate(req: Request, res: Response, next: NextFunction) {
+/** Exported so People's own employee-facing routes (routes/peoplePortal.ts) sit behind the same sign-in. */
+export async function authenticate(req: Request, res: Response, next: NextFunction) {
   const h = String(req.get('authorization') || '');
   const token = /^bearer /i.test(h) ? h.slice(7).trim() : '';
   if (!token) return res.status(401).json({ error: 'Sign in first.', code: 'PORTAL_SIGNIN' });
   let claims: any;
   try {
-    claims = jwt.verify(token, secret(), { issuer: ISSUER(), audience: AUDIENCE });
+    claims = jwt.verify(token, secret(), { issuer: ISSUER(), audience: AUDIENCE, algorithms: ['HS256'] });
   } catch {
     return res.status(401).json({ error: 'Please sign in again.', code: 'PORTAL_SIGNIN' });
   }
   if (claims?.typ !== 'portal') return res.status(401).json({ error: 'Please sign in again.', code: 'PORTAL_SIGNIN' });
-  const e = await peoplePrisma.employee.findFirst({ where: { id: String(claims.employeeId), orgId: String(claims.orgId), accountId: String(claims.accountId) }, select: PORTAL_FIELDS });
+  /* The signed token names the company; the employee is looked for inside it (A-35). */
+  const e = await runInTenant(String(claims.orgId || ''), () => peoplePrisma.employee.findFirst({ where: { id: String(claims.employeeId), orgId: String(claims.orgId), accountId: String(claims.accountId) }, select: PORTAL_FIELDS }));
   /* Switched off, left, or a new password since this token: it is over. */
   if (!e || !e.portalEnabled || e.status === 'LEFT' || !e.portalPasswordHash || (e.portalPasswordSetAt?.getTime() || 0) !== claims.pv) {
     return res.status(401).json({ error: 'Please sign in again.', code: 'PORTAL_SIGNIN' });
   }
-  if (!(await hrOrAttendanceOn(e.accountId, e.orgId))) return res.status(403).json({ error: 'The employee app is not switched on for your company.' });
-  req.portal = { employeeId: e.id, accountId: e.accountId, orgId: e.orgId, employee: e };
+  /* A-33: suspended — signed out, with the reason, so the app clears its token. */
+  if (e.status === 'SUSPENDED') return res.status(401).json({ error: PAUSED, code: 'PORTAL_SIGNIN' });
+  if (claims.sid) {
+    /* A-33: this device's session must still be on — not signed out, not ended by HR, not idle for 30 days, not older than 180. */
+    const s = await checkPortalSession(e.orgId, e.id, String(claims.sid));
+    if (!s.ok) return res.status(401).json({ error: 'Please sign in again.', code: 'PORTAL_SIGNIN' });
+  } else {
+    /* A token from before sessions: refused after the cut-off, or when it predates "sign out everywhere". */
+    const issued = Number(claims.iat || 0) * 1000;
+    if (Date.now() >= legacyCutoff() || (e.portalSessionsRevokedAt && issued < e.portalSessionsRevokedAt.getTime())) {
+      return res.status(401).json({ error: 'Please sign in again.', code: 'PORTAL_SIGNIN' });
+    }
+  }
+  const refused = await anyAppLive(e.accountId, e.orgId, ['people', 'attendance']);
+  if (refused) {
+    /* Said to an employee, not to the person who pays: what happened and who can fix it. */
+    const words = {
+      APP_DISABLED: 'The employee app is not switched on for your company.',
+      APP_NOT_SUBSCRIBED: 'The employee app is paused for your company. Please ask HR.',
+      COMPANY_CLOSING: 'Your company is closing its CLOR account. Please ask HR.',
+    } as Record<string, string>;
+    return res.status(refused.status).json({ error: words[refused.code] || refused.error, code: refused.code });
+  }
+  req.portal = { employeeId: e.id, accountId: e.accountId, orgId: e.orgId, employee: e, sid: claims.sid ? String(claims.sid) : null };
   runInTenant(e.orgId, () => next());
 }
 
@@ -419,7 +466,7 @@ portalRouter.get('/approvals/punch/:id/photo', async (req, res) => {
   if (owner?.reportingManagerId !== e.id) return res.status(403).json({ error: 'This punch is not yours to see.' });
   const photo = await peoplePrisma.punchPhoto.findFirst({ where: { id: p.photoId, orgId: e.orgId } });
   if (!photo) return res.status(404).json({ error: 'The selfie has been deleted (kept for a limited time).' });
-  res.json({ photo: `data:${photo.mime};base64,${Buffer.from(photo.data).toString('base64')}` });
+  res.set('Cache-Control', 'private, no-store').json({ photo: `data:${photo.mime};base64,${Buffer.from(photo.data).toString('base64')}` });
 });
 
 // ---------------------------------------------------------------------------
@@ -865,7 +912,7 @@ portalRouter.get('/documents/:id', async (req, res) => {
   const e = req.portal!.employee;
   const d = await peoplePrisma.employeeDocument.findFirst({ where: { id: String(req.params.id), orgId: e.orgId, employeeId: e.id, visibleToEmployee: true } });
   if (!d) return res.status(404).json({ error: 'No such document.' });
-  res.json({ document: { id: d.id, title: d.title, mime: d.mime, size: d.size, dataUrl: `data:${d.mime};base64,${Buffer.from(d.data).toString('base64')}` } });
+  res.set('Cache-Control', 'private, no-store').json({ document: { id: d.id, title: d.title, mime: d.mime, size: d.size, dataUrl: `data:${d.mime};base64,${Buffer.from(d.data).toString('base64')}` } });
 });
 
 const DATA_REQUEST_TYPES = new Set(['ACCESS', 'CORRECTION', 'ERASURE', 'NOMINATE', 'GRIEVANCE']);
@@ -997,7 +1044,48 @@ portalRouter.post('/password', async (req, res) => {
     data: { portalPasswordHash: await bcrypt.hash(String(req.body.next), ROUNDS), portalPasswordSetAt: new Date() },
     select: PORTAL_FIELDS,
   });
-  res.json({ token: sign(updated) });
+  /* A-33: every other device is signed out — older tokens included — and this one goes on. */
+  const me = { type: 'EMPLOYEE' as const, id: e.id };
+  const current = req.portal!.sid || (await startPortalSession(updated, deviceOf(req))).id;
+  await endPortalSessions(updated, 'password changed', me, { except: current });
+  res.json({ token: sign(updated, current) });
+});
+
+/* ------------------------------------------------- signed-in devices (A-33) */
+
+/** Sign this device out. The apps also forget the token; this makes it stop working too. */
+portalRouter.post('/signout', async (req, res) => {
+  const p = req.portal!;
+  if (p.sid) await endPortalSession({ id: p.employeeId, orgId: p.orgId }, p.sid, 'signed out', { type: 'EMPLOYEE', id: p.employeeId });
+  res.json({ ok: true });
+});
+
+/** The devices this person is signed in on, this one marked. */
+portalRouter.get('/sessions', async (req, res) => {
+  const p = req.portal!;
+  const rows = await listPortalSessions({ id: p.employeeId, orgId: p.orgId });
+  res.json({
+    sessions: rows.map((s) => ({ id: s.id, deviceLabel: s.deviceLabel, createdAt: s.createdAt, lastSeenAt: s.lastSeenAt, current: s.id === p.sid })),
+    /* A sign-in from before devices were listed cannot be shown, only ended with "sign out all other devices". */
+    olderSignIns: Date.now() < legacyCutoff(),
+  });
+});
+
+portalRouter.delete('/sessions/:id', async (req, res) => {
+  const p = req.portal!;
+  if (String(req.params.id) === p.sid) return res.status(400).json({ error: 'Use Sign out for this device.' });
+  const done = await endPortalSession({ id: p.employeeId, orgId: p.orgId }, String(req.params.id), 'signed out from another device', { type: 'EMPLOYEE', id: p.employeeId });
+  if (!done) return res.status(404).json({ error: 'That device is not signed in.' });
+  res.json({ ok: true });
+});
+
+/** Everywhere but here — older sign-ins included. */
+portalRouter.post('/sessions/end-others', async (req, res) => {
+  const p = req.portal!;
+  const current = p.sid || (await startPortalSession(p.employee, deviceOf(req))).id;
+  const ended = await endPortalSessions(p.employee, 'signed out from another device', { type: 'EMPLOYEE', id: p.employeeId }, { except: current });
+  /* A device on an older token gets a session token back so it stays signed in. */
+  res.json({ ok: true, ended, ...(p.sid ? {} : { token: sign(p.employee, current) }) });
 });
 
 /**

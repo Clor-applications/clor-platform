@@ -1,0 +1,9 @@
+{
+  "finding": "A-05",
+  "where": "Browser pane, Settings > Users > Mallory (X admin) > Companies; Mallory administers A03 Test Traders only; the owner also runs A01 Sister Pvt Ltd",
+  "action": "Tick 'A01 Sister Pvt Ltd' for herself > Save access",
+  "request": "PUT /api/users/<mallory>/companies {orgIds:[X, Y]}",
+  "response": {"status": 403, "body": {"error":"You cannot manage users in one of these companies.","code":"not_your_company","orgId":"<Y>"}},
+  "after": {"mallory_companies_via_auth_me": ["A03 Test Traders"]},
+  "before_fix": "before-fix.txt: the same self-grant returned 200; branch grants survived removal (expected 1 to be 0)"
+}

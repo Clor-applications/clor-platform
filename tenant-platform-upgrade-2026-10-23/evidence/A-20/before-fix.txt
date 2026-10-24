@@ -1,0 +1,172 @@
+ DEPRECATED  `test.poolOptions` was removed in Vitest 4. All previous `poolOptions` are now top-level options. Please, refer to the migration guide: https://vitest.dev/guide/migration#pool-rework
+
+ RUN  v4.1.10 /Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_55593", schema "accounting" at "localhost:5432"
+
+The PostgreSQL database "clor_test_55593" schema "accounting" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 1.53s
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/payroll/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_55593", schema "payroll" at "localhost:5432"
+
+The PostgreSQL database "clor_test_55593" schema "payroll" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 1.15s
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/people/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_55593", schema "people" at "localhost:5432"
+
+The PostgreSQL database "clor_test_55593" schema "people" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 1.77s
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/platform/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_55593", schema "platform" at "localhost:5432"
+
+The PostgreSQL database "clor_test_55593" schema "platform" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 1.42s
+
+[setup] 180 policy statements applied to clor_test_55593
+[setup] 7 policy statements applied to clor_test_55593
+[setup] 10 policy statements applied to clor_test_55593
+[setup] 35 policy statements applied to clor_test_55593
+[setup] 4 policy statements applied to clor_test_55593
+[setup] 96 policy statements applied to clor_test_55593
+[setup] 4 policy statements applied to clor_test_55593
+[setup] 4 policy statements applied to clor_test_55593
+[setup] 4 policy statements applied to clor_test_55593
+[setup] 4 policy statements applied to clor_test_55593
+[setup] 32 policy statements applied to clor_test_55593
+[setup] 24 policy statements applied to clor_test_55593
+[setup] 12 policy statements applied to clor_test_55593
+[setup] 16 policy statements applied to clor_test_55593
+[setup] 4 policy statements applied to clor_test_55593
+[setup] 4 policy statements applied to clor_test_55593
+[setup] 8 policy statements applied to clor_test_55593
+[setup] 8 policy statements applied to clor_test_55593
+[setup] 20 policy statements applied to clor_test_55593
+[setup] 8 policy statements applied to clor_test_55593
+[setup] 4 policy statements applied to clor_test_55593
+[setup] 8 policy statements applied to clor_test_55593
+[setup] 8 policy statements applied to clor_test_55593
+[setup] 12 policy statements applied to clor_test_55593
+[setup] 4 policy statements applied to clor_test_55593
+[setup] 8 policy statements applied to clor_test_55593
+[setup] 28 policy statements applied to clor_test_55593
+[setup] 4 policy statements applied to clor_test_55593
+[setup] 4 policy statements applied to clor_test_55593
+[setup] 4 policy statements applied to clor_test_55593
+[setup] 8 policy statements applied to clor_test_55593
+[setup] 4 policy statements applied to clor_test_55593
+[setup] 4 policy statements applied to clor_test_55593
+[setup] 4 policy statements applied to clor_test_55593
+[setup] 4 policy statements applied to clor_test_55593
+[setup] 8 policy statements applied to clor_test_55593
+[setup] 4 policy statements applied to clor_test_55593
+[setup] 12 policy statements applied to clor_test_55593
+[setup] 4 policy statements applied to clor_test_55593
+[setup] 76 policy statements applied to clor_test_55593
+[setup] 4 policy statements applied to clor_test_55593
+[setup] 4 policy statements applied to clor_test_55593
+[setup] 4 policy statements applied to clor_test_55593
+[setup] 4 policy statements applied to clor_test_55593
+POST /api/auth/signup 200 576 - 84.570 ms
+POST /api/auth/setup-company 200 198 - 517.082 ms
+POST /api/orgs/cmvl8t6v3000e4ly3dp3aj69c/branches 201 555 - 44.247 ms
+POST /api/orgs/cmvl8t6v3000e4ly3dp3aj69c/roles 201 358 - 41.752 ms
+PUT /api/orgs/cmvl8t6v3000e4ly3dp3aj69c/roles/cmvl8t7bc00qg4ly3s0tccw6h/permissions 200 23 - 209.242 ms
+POST /api/users 201 149 - 253.839 ms
+POST /api/orgs/cmvl8t6v3000e4ly3dp3aj69c/users/cmvl8t7jw00qv4ly3d51pt64t/roles 201 11 - 80.009 ms
+POST /api/auth/login 200 773 - 15.498 ms
+POST /api/users 201 149 - 59.077 ms
+POST /api/auth/login 200 773 - 4.690 ms
+POST /api/orgs/cmvl8t6v3000e4ly3dp3aj69c/users/cmvl8t7jw00qv4ly3d51pt64t/permissions 201 304 - 173.824 ms
+DELETE /api/orgs/cmvl8t6v3000e4ly3dp3aj69c/users/cmvl8t7jw00qv4ly3d51pt64t/permissions/cmvl8t7xl00rn4ly388xtztpn 200 11 - 113.230 ms
+POST /api/orgs/cmvl8t6v3000e4ly3dp3aj69c/users/cmvl8t6sx00084ly3g0n0n4x2/permissions 201 304 - 110.999 ms
+POST /api/orgs/cmvl8t6v3000e4ly3dp3aj69c/users/cmvl8t7si00rb4ly3p61zts5u/permissions 201 304 - 106.753 ms
+DELETE /api/orgs/cmvl8t6v3000e4ly3dp3aj69c/users/cmvl8t7si00rb4ly3p61zts5u/permissions/cmvl8t87a00rp4ly3747relu2 200 11 - 110.691 ms
+POST /api/orgs/cmvl8t6v3000e4ly3dp3aj69c/roles 201 358 - 15.687 ms
+PUT /api/orgs/cmvl8t6v3000e4ly3dp3aj69c/roles/cmvl8t8au00rs4ly3efdl1rxf/permissions 200 23 - 132.113 ms
+PATCH /api/orgs/cmvl8t6v3000e4ly3dp3aj69c/roles/cmvl8t8au00rs4ly3efdl1rxf 200 1978 - 14.198 ms
+POST /api/users 201 149 - 24.074 ms
+POST /api/orgs/cmvl8t6v3000e4ly3dp3aj69c/users/cmvl8t8fh00s84ly3t6i7m8ru/roles 201 11 - 19.516 ms
+POST /api/auth/login 200 773 - 3.435 ms
+PATCH /api/orgs/cmvl8t6v3000e4ly3dp3aj69c/roles/cmvl8t8au00rs4ly3efdl1rxf 200 1979 - 12.769 ms
+ ❯ src/__tests__/recordRestrictions.test.ts (4 tests | 3 failed) 2206ms
+     × cannot be lifted, or widened, by the person they restrict 291ms
+     × cannot be put on an administrator by somebody who is not one 112ms
+     × cannot be lifted by somebody who holds that role 228ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/__tests__/recordRestrictions.test.ts > record restrictions > cannot be lifted, or widened, by the person they restrict
+AssertionError: expected 200 to be 403 // Object.is equality
+
+- Expected
++ Received
+
+- 403
++ 200
+
+ ❯ src/__tests__/recordRestrictions.test.ts:70:25
+     68|     const mine = await restrict(owner, manager.userId, 'cust-a').expec…
+     69|     const lift = await request(app).delete(`/api/orgs/${owner.orgId}/u…
+     70|     expect(lift.status).toBe(403);
+       |                         ^
+     71|     expect(lift.body.code).toBe('own_access');
+     72|     const widen = await restrict(manager, manager.userId, 'cust-b');
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  src/__tests__/recordRestrictions.test.ts > record restrictions > cannot be put on an administrator by somebody who is not one
+AssertionError: expected 201 to be 403 // Object.is equality
+
+- Expected
++ Received
+
+- 403
++ 201
+
+ ❯ src/__tests__/recordRestrictions.test.ts:79:24
+     77|   it('cannot be put on an administrator by somebody who is not one', a…
+     78|     const res = await restrict(manager, owner.userId, 'cust-a');
+     79|     expect(res.status).toBe(403);
+       |                        ^
+     80|     expect(res.body.code).toBe('admin_only');
+     81|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  src/__tests__/recordRestrictions.test.ts > "own documents only" on a role > cannot be lifted by somebody who holds that role
+AssertionError: expected 200 to be 403 // Object.is equality
+
+- Expected
++ Received
+
+- 403
++ 200
+
+ ❯ src/__tests__/recordRestrictions.test.ts:95:24
+     93|     const manager = await member(role, null);
+     94|     const res = await request(app).patch(`/api/orgs/${owner.orgId}/rol…
+     95|     expect(res.status).toBe(403);
+       |                        ^
+     96|     expect(res.body.code).toBe('own_access');
+     97|     /* A role they do not hold is theirs to edit as before. */
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  3 failed | 1 passed (4)
+   Start at  22:57:11
+   Duration  21.75s (transform 3.37s, setup 21ms, import 6.47s, tests 2.21s, environment 0ms)
+

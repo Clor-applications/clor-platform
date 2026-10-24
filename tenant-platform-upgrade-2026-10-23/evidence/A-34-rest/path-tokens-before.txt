@@ -1,0 +1,181 @@
+ DEPRECATED  `test.poolOptions` was removed in Vitest 4. All previous `poolOptions` are now top-level options. Please, refer to the migration guide: https://vitest.dev/guide/migration#pool-rework
+
+ RUN  v4.1.10 /Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_67740", schema "accounting" at "localhost:5432"
+
+The PostgreSQL database "clor_test_67740" schema "accounting" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 895ms
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/payroll/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_67740", schema "payroll" at "localhost:5432"
+
+The PostgreSQL database "clor_test_67740" schema "payroll" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 559ms
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/people/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_67740", schema "people" at "localhost:5432"
+
+The PostgreSQL database "clor_test_67740" schema "people" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 537ms
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/platform/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_67740", schema "platform" at "localhost:5432"
+
+The PostgreSQL database "clor_test_67740" schema "platform" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 548ms
+
+[setup] 180 policy statements applied to clor_test_67740
+[setup] 7 policy statements applied to clor_test_67740
+[setup] 10 policy statements applied to clor_test_67740
+[setup] 35 policy statements applied to clor_test_67740
+[setup] 4 policy statements applied to clor_test_67740
+[setup] 1 policy statements applied to clor_test_67740
+[setup] 96 policy statements applied to clor_test_67740
+[setup] 4 policy statements applied to clor_test_67740
+[setup] 4 policy statements applied to clor_test_67740
+[setup] 4 policy statements applied to clor_test_67740
+[setup] 1 policy statements applied to clor_test_67740
+[setup] 4 policy statements applied to clor_test_67740
+[setup] 32 policy statements applied to clor_test_67740
+[setup] 24 policy statements applied to clor_test_67740
+[setup] 12 policy statements applied to clor_test_67740
+[setup] 16 policy statements applied to clor_test_67740
+[setup] 4 policy statements applied to clor_test_67740
+[setup] 4 policy statements applied to clor_test_67740
+[setup] 8 policy statements applied to clor_test_67740
+[setup] 8 policy statements applied to clor_test_67740
+[setup] 20 policy statements applied to clor_test_67740
+[setup] 8 policy statements applied to clor_test_67740
+[setup] 4 policy statements applied to clor_test_67740
+[setup] 8 policy statements applied to clor_test_67740
+[setup] 8 policy statements applied to clor_test_67740
+[setup] 12 policy statements applied to clor_test_67740
+[setup] 4 policy statements applied to clor_test_67740
+[setup] 8 policy statements applied to clor_test_67740
+[setup] 28 policy statements applied to clor_test_67740
+[setup] 4 policy statements applied to clor_test_67740
+[setup] 4 policy statements applied to clor_test_67740
+[setup] 4 policy statements applied to clor_test_67740
+[setup] 8 policy statements applied to clor_test_67740
+[setup] 4 policy statements applied to clor_test_67740
+[setup] 4 policy statements applied to clor_test_67740
+[setup] 4 policy statements applied to clor_test_67740
+[setup] 4 policy statements applied to clor_test_67740
+[setup] 8 policy statements applied to clor_test_67740
+[setup] 4 policy statements applied to clor_test_67740
+[setup] 12 policy statements applied to clor_test_67740
+[setup] 4 policy statements applied to clor_test_67740
+[setup] 1 policy statements applied to clor_test_67740
+[setup] 4 policy statements applied to clor_test_67740
+[setup] 76 policy statements applied to clor_test_67740
+[setup] 4 policy statements applied to clor_test_67740
+[setup] 4 policy statements applied to clor_test_67740
+[setup] 4 policy statements applied to clor_test_67740
+[setup] 4 policy statements applied to clor_test_67740
+[setup] 1 policy statements applied to clor_test_67740
+[setup] 8 policy statements applied to clor_test_67740
+ ❯ src/__tests__/credentialLeftovers.test.ts (7 tests | 5 failed) 7ms
+     × payment page 4ms
+     × payment claim 1ms
+     × generic ingest 0ms
+     × Matrix reader 0ms
+     × Hikvision push 0ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 5 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/__tests__/credentialLeftovers.test.ts > a token in a URL path never reaches a log > payment page
+AssertionError: expected '/pay/clorp_AbCdEfGhIjKlMnOpQrStUv_12' to be '/pay/[token]' // Object.is equality
+
+Expected: "/pay/[token]"
+Received: "/pay/clorp_AbCdEfGhIjKlMnOpQrStUv_12"
+
+ ❯ src/__tests__/credentialLeftovers.test.ts:20:26
+     18|     ['invoice share link', `/api/public/invoice/${token}`, '/api/publi…
+     19|   ])('%s', (_name, url, logged) => {
+     20|     expect(safeUrl(url)).toBe(logged);
+       |                          ^
+     21|     expect(safeUrl(`${url}?x=1`)).toBe(`${logged}?x=1`);
+     22|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/5]⎯
+
+ FAIL  src/__tests__/credentialLeftovers.test.ts > a token in a URL path never reaches a log > payment claim
+AssertionError: expected '/pay/clorp_AbCdEfGhIjKlMnOpQrStUv_12/…' to be '/pay/[token]/claim' // Object.is equality
+
+Expected: "/pay/[token]/claim"
+Received: "/pay/clorp_AbCdEfGhIjKlMnOpQrStUv_12/claim"
+
+ ❯ src/__tests__/credentialLeftovers.test.ts:20:26
+     18|     ['invoice share link', `/api/public/invoice/${token}`, '/api/publi…
+     19|   ])('%s', (_name, url, logged) => {
+     20|     expect(safeUrl(url)).toBe(logged);
+       |                          ^
+     21|     expect(safeUrl(`${url}?x=1`)).toBe(`${logged}?x=1`);
+     22|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/5]⎯
+
+ FAIL  src/__tests__/credentialLeftovers.test.ts > a token in a URL path never reaches a log > generic ingest
+AssertionError: expected '/ingest/clorp_AbCdEfGhIjKlMnOpQrStUv_…' to be '/ingest/[token]' // Object.is equality
+
+Expected: "/ingest/[token]"
+Received: "/ingest/clorp_AbCdEfGhIjKlMnOpQrStUv_12"
+
+ ❯ src/__tests__/credentialLeftovers.test.ts:20:26
+     18|     ['invoice share link', `/api/public/invoice/${token}`, '/api/publi…
+     19|   ])('%s', (_name, url, logged) => {
+     20|     expect(safeUrl(url)).toBe(logged);
+       |                          ^
+     21|     expect(safeUrl(`${url}?x=1`)).toBe(`${logged}?x=1`);
+     22|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/5]⎯
+
+ FAIL  src/__tests__/credentialLeftovers.test.ts > a token in a URL path never reaches a log > Matrix reader
+AssertionError: expected '/matrix/clorp_AbCdEfGhIjKlMnOpQrStUv_…' to be '/matrix/[token]/cosec/api.svc/v2/event' // Object.is equality
+
+Expected: "/matrix/[token]/cosec/api.svc/v2/event"
+Received: "/matrix/clorp_AbCdEfGhIjKlMnOpQrStUv_12/cosec/api.svc/v2/event"
+
+ ❯ src/__tests__/credentialLeftovers.test.ts:20:26
+     18|     ['invoice share link', `/api/public/invoice/${token}`, '/api/publi…
+     19|   ])('%s', (_name, url, logged) => {
+     20|     expect(safeUrl(url)).toBe(logged);
+       |                          ^
+     21|     expect(safeUrl(`${url}?x=1`)).toBe(`${logged}?x=1`);
+     22|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/5]⎯
+
+ FAIL  src/__tests__/credentialLeftovers.test.ts > a token in a URL path never reaches a log > Hikvision push
+AssertionError: expected '/hikvision/clorp_AbCdEfGhIjKlMnOpQrSt…' to be '/hikvision/[token]' // Object.is equality
+
+Expected: "/hikvision/[token]"
+Received: "/hikvision/clorp_AbCdEfGhIjKlMnOpQrStUv_12"
+
+ ❯ src/__tests__/credentialLeftovers.test.ts:20:26
+     18|     ['invoice share link', `/api/public/invoice/${token}`, '/api/publi…
+     19|   ])('%s', (_name, url, logged) => {
+     20|     expect(safeUrl(url)).toBe(logged);
+       |                          ^
+     21|     expect(safeUrl(`${url}?x=1`)).toBe(`${logged}?x=1`);
+     22|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/5]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  5 failed | 2 passed (7)
+   Start at  12:34:16
+   Duration  10.98s (transform 27ms, setup 25ms, import 47ms, tests 7ms, environment 0ms)
+

@@ -1,0 +1,10 @@
+{
+  "finding": "A-04",
+  "where": "Browser pane, http://localhost:5173, signed in as a clerk (Sales User role, company X only, administers nothing)",
+  "ui": "No 'Add company' entry is offered to this user (needs Company Profile permission) — screenshot 1",
+  "attack": "Direct API call with the clerk's own session: POST /api/auth/setup-company {companyName:'Clerk Shadow Co'}",
+  "at": "2026-10-23T10:05:23.333Z",
+  "response": {"status": 403, "body": {"error":"Only an administrator of one of this account’s companies can add a company. Ask your administrator.","code":"NOT_ACCOUNT_ADMIN"}},
+  "after": "Companies visible to the clerk: only 'A03 Test Traders' (no shadow company created)",
+  "before_fix": "before-fix.txt: the same call returned 200 and made the clerk Administrator of a new company"
+}

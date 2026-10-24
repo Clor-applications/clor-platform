@@ -57,8 +57,71 @@ const stored = (key) => {
 };
 
 export const orgId = () => context.orgId || stored('activeOrgId');
-export const branchId = () => context.branchId || stored('activeBranchId') || stored('branchId');
-export const warehouseId = () => context.warehouseId || stored('activeWarehouseId');
+
+/*
+ * Branch and warehouse: chosen per company, per tab (A-23).
+ *
+ * They lived in two browser-wide keys, `activeBranchId` and
+ * `activeWarehouseId`, while the company was per tab. A second tab switching
+ * company rewrote them, and this tab went on sending the other company's
+ * warehouse in the header and in the body (POS, challans, orders, items,
+ * imports) and numbering documents from the other company's branch series.
+ *
+ * Now each choice is kept under the company it belongs to, for this tab
+ * (sessionStorage), with the same company's last choice in this browser
+ * (localStorage) as the starting point for a new tab. Another tab — on this
+ * company or another — cannot move this one. The server still checks every
+ * branch and warehouse it is sent (A-24); this is about sending the right one.
+ */
+const selectionKey = (org, what) => `clor.sel.${org}.${what}`;
+const readSelection = (what) => {
+  const org = context.orgId;
+  if (!org) return '';
+  try {
+    return String(sessionStorage.getItem(selectionKey(org, what)) || localStorage.getItem(selectionKey(org, what)) || '').trim();
+  } catch {
+    return '';
+  }
+};
+const writeSelection = (what, id) => {
+  const org = context.orgId;
+  if (!org) return;
+  const value = String(id || '').trim();
+  try {
+    if (value) {
+      sessionStorage.setItem(selectionKey(org, what), value);
+      localStorage.setItem(selectionKey(org, what), value);
+    } else {
+      sessionStorage.removeItem(selectionKey(org, what));
+      localStorage.removeItem(selectionKey(org, what));
+    }
+  } catch {
+    /* storage unavailable: the choice lasts as long as the screen's own state */
+  }
+  listeners.forEach((fn) => {
+    try {
+      fn(context);
+    } catch {
+      /* One bad listener must not stop the others. */
+    }
+  });
+};
+
+/** The branch this tab chose in this company, or '' when it has not chosen one. */
+export const selectedBranchId = () => readSelection('branch');
+/** The warehouse this tab chose in this company, or ''. */
+export const selectedWarehouseId = () => readSelection('warehouse');
+/** Choose this tab's branch in the current company ('' clears it). */
+export const selectBranch = (id) => writeSelection('branch', id);
+/** Choose this tab's warehouse in the current company ('' clears it). */
+export const selectWarehouse = (id) => writeSelection('warehouse', id);
+
+/** A browser-storage key for something remembered per company (A-28): `clor.<orgId>.<name>`. */
+export const companyStorageKey = (name) => `clor.${context.orgId || stored('activeOrgId') || '-'}.${name}`;
+
+/** The branch requests are sent for: this tab's choice, else the company's default for this person. */
+export const branchId = () => selectedBranchId() || context.branchId;
+export const warehouseId = () => context.warehouseId || selectedWarehouseId();
 export const currentUser = () => context.user;
 export const hasApp = (id) => (context.apps || []).includes(id);
 
@@ -66,4 +129,33 @@ export const hasApp = (id) => (context.apps || []).includes(id);
 export function onPlatformContextChange(fn) {
   listeners.add(fn);
   return () => listeners.delete(fn);
+}
+
+/**
+ * Ask the platform to open another app — Workspace from Accounting's
+ * settings, for one. An app cannot switch apps itself (it does not own the
+ * shell), so it asks; the shell decides how (in place, or on that app's own
+ * address).
+ */
+export const OPEN_APP_EVENT = 'clor:open-app';
+export function requestOpenApp(appId, screen = '', params = {}) {
+  try {
+    window.dispatchEvent(new CustomEvent(OPEN_APP_EVENT, { detail: { appId, screen, params } }));
+  } catch {
+    /* No window (a test): nothing to open. */
+  }
+}
+
+/**
+ * Ask the platform to switch company (A-27). Only the shell switches: it
+ * owns the address, this tab's choice and which app is mounted. An app that
+ * offers its own company menu asks here instead of keeping a second store.
+ */
+export const SWITCH_COMPANY_EVENT = 'clor:switch-company';
+export function requestSwitchCompany(orgId) {
+  try {
+    window.dispatchEvent(new CustomEvent(SWITCH_COMPANY_EVENT, { detail: { orgId } }));
+  } catch {
+    /* No window (a test): nothing to switch. */
+  }
 }

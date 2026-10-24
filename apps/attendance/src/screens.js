@@ -1,3 +1,5 @@
+import React from 'react';
+import OpenInCompanyAdmin from '@ui/company/OpenInCompanyAdmin';
 /**
  * Every screen Attendance shows, in one place, so the manifest can load
  * them as one file the first time the app opens (WX-03). The manifest names
@@ -26,7 +28,8 @@ export { default as ReaderSync } from './screens/ReaderSync';
 export { default as UnmatchedPunches } from './screens/UnmatchedPunches';
 export { default as Enrolments } from './screens/Enrolments';
 export { default as Transactions, Punches } from './screens/Transactions';
-export { default as AuditLogs } from './screens/AuditLogs';
+/* One audit trail for the company, in Workspace (ADR-010); this opens it on People and Attendance's share. */
+export const AuditLogs = () => React.createElement(OpenInCompanyAdmin, { title: 'Audit Logs', screen: 'audit', forApp: 'attendance' });
 export { default as PayrollReadiness } from './screens/PayrollReadiness';
 export { default as Checklists } from '@ui/personnel/Checklists';
 export { default as ComplianceCalendar } from '@ui/personnel/ComplianceCalendar';
@@ -49,7 +52,8 @@ export { default as DataImport } from './screens/DataImport';
 export { default as DataExport } from './screens/DataExport';
 export { default as DataRequests } from './screens/DataRequests';
 export { default as DataProtection } from './screens/DataProtection';
-export { default as SsoSettings } from '../../accounting/src/features/account/SsoSettings';
+/* Sign-in, SSO, users and roles are the company's: they live in Workspace (ADR-010), and this entry opens it. */
+export const SsoSettings = () => React.createElement(OpenInCompanyAdmin, { title: 'Users & Security', screen: 'sso' });
 export { default as Exceptions } from './screens/Exceptions';
 export { default as MonthClose } from './screens/MonthClose';
 export { default as OvertimeRequests } from './screens/OvertimeRequests';
@@ -61,3 +65,6 @@ export { default as OvertimePolicy } from './screens/OvertimePolicy';
 export { default as AttendanceSetup } from './screens/AttendanceSetup';
 export { default as ReportInsights } from './screens/ReportInsights';
 export { default as CloseCompany } from '@ui/company/CloseCompany';
+/* This app's roles and permissions, in Workspace's one role editor, opened on Attendance's share (ADR-010). */
+export const RolesAccess = () => React.createElement(OpenInCompanyAdmin, { title: 'Roles & Access', screen: 'permissions', forApp: 'attendance' });
+

@@ -13,6 +13,7 @@ import { setRefreshCookie } from '../utils/refreshCookie.js';
 import { providerSpeaksFor } from '../services/ssoDomains.js';
 import { ssoLimiter } from '../middleware/rateLimit.js';
 import { isDevOrTest } from '../utils/devMode.js';
+import { acrossCompanies } from '../utils/tenantScope.js';
 
 /**
  * Single sign-on, OpenID Connect.
@@ -35,9 +36,18 @@ import { isDevOrTest } from '../utils/devMode.js';
  * certificate. Both end in finishSignIn: one rule for who gets in.
  */
 export const ssoRouter = Router();
+/* Single sign-on finds the provider and the person before any company is chosen (A-35). */
+ssoRouter.use(acrossCompanies('sso: provider and person, before a company is chosen'));
 
 const STATE_COOKIE = 'clor_sso';
 const STATE_TTL_S = 10 * 60;
+/*
+ * A-10: one secret signs every token CLOR issues; the audience is what keeps
+ * an SSO state ticket, a SAML relay and an access token from standing in for
+ * one another.
+ */
+const OIDC_STATE_AUDIENCE = 'clor-sso-state';
+const SAML_RELAY_AUDIENCE = 'clor-sso-relay';
 /* Like every other signer: no JWT_SECRET outside dev/test means SSO refuses, not a guessable key. */
 const secret = () => process.env.JWT_SECRET || (isDevOrTest() ? 'dev-secret' : '');
 const appUrl = () => (process.env.APP_URL || 'http://localhost:5173').replace(/\/$/, '');
@@ -139,7 +149,7 @@ ssoRouter.get('/:providerId/start', ...ssoLimiter, async (req, res) => {
   try {
     if (p.kind === 'SAML') {
       /* The return path rides in RelayState, signed, since the provider posts back without our cookie in some browsers. */
-      const relay = jwt.sign({ typ: 'saml', pid: p.id, r: safeReturn(req.query.return) }, secret(), { expiresIn: STATE_TTL_S });
+      const relay = jwt.sign({ typ: 'saml', pid: p.id, r: safeReturn(req.query.return) }, secret(), { expiresIn: STATE_TTL_S, audience: SAML_RELAY_AUDIENCE });
       const url = await samlFor(p).getAuthorizeUrlAsync(relay, undefined, {});
       return res.redirect(url);
     }
@@ -157,7 +167,7 @@ ssoRouter.get('/:providerId/start', ...ssoLimiter, async (req, res) => {
       nonce,
       ...(req.query.hint ? { login_hint: String(req.query.hint) } : {}),
     });
-    const ticket = jwt.sign({ typ: 'sso', pid: p.id, v: codeVerifier, s: state, n: nonce, r: safeReturn(req.query.return) }, secret(), { expiresIn: STATE_TTL_S });
+    const ticket = jwt.sign({ typ: 'sso', pid: p.id, v: codeVerifier, s: state, n: nonce, r: safeReturn(req.query.return) }, secret(), { expiresIn: STATE_TTL_S, audience: OIDC_STATE_AUDIENCE });
     res.cookie(STATE_COOKIE, ticket, { httpOnly: true, secure: isProduction(), sameSite: 'lax', path: '/api/auth/sso', maxAge: STATE_TTL_S * 1000 });
     res.redirect(url.href);
   } catch (e: any) {
@@ -171,7 +181,7 @@ ssoRouter.get('/callback', async (req: Request, res: Response) => {
   const fail = (msg: string) => res.redirect(`${appUrl()}/?sso_error=${encodeURIComponent(msg)}`);
   let ticket: any;
   try {
-    ticket = jwt.verify(String((req as any).cookies?.[STATE_COOKIE] || ''), secret());
+    ticket = jwt.verify(String((req as any).cookies?.[STATE_COOKIE] || ''), secret(), { audience: OIDC_STATE_AUDIENCE, algorithms: ['HS256'] });
   } catch {
     return fail('The sign-in took too long or started elsewhere. Try again.');
   }
@@ -258,7 +268,7 @@ ssoRouter.post('/saml/:providerId/acs', ...ssoLimiter, express.urlencoded({ exte
   if (!p) return fail('That sign-in method is no longer available.');
   let back = '/';
   try {
-    const relay: any = jwt.verify(String(req.body?.RelayState || ''), secret());
+    const relay: any = jwt.verify(String(req.body?.RelayState || ''), secret(), { audience: SAML_RELAY_AUDIENCE, algorithms: ['HS256'] });
     if (relay?.pid === p.id) back = safeReturn(relay.r);
   } catch {
     /* No usable RelayState (IdP-initiated sign-in): land on the home page. */

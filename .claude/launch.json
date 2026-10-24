@@ -4,14 +4,42 @@
     {
       "name": "clor",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev"],
+      "runtimeArgs": [
+        "run",
+        "dev"
+      ],
       "port": 5173
     },
     {
       "name": "neev-one-api",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev", "--prefix", "server"],
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "--prefix",
+        "server"
+      ],
       "port": 4001
+    },
+    {
+      "name": "people-api",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "--prefix",
+        "server"
+      ],
+      "port": 4013
+    },
+    {
+      "name": "people-web",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": [
+        "-c",
+        "VITE_API_PROXY_TARGET=http://127.0.0.1:4013 npx vite --host 127.0.0.1 --port 5185"
+      ],
+      "port": 5185
     }
   ]
 }

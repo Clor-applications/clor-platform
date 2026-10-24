@@ -22,6 +22,7 @@ import { round2 } from '@ui/utils/money';
 import { blockIfClosed } from '@ui/utils/bookClose';
 import { deleteStockDocOnServer } from './useStockSync';
 import { syncFieldsOf } from './stockSync';
+import { selectedBranchId, selectedWarehouseId } from '@platform/context';
 
 const safeArray = (v) => (Array.isArray(v) ? v : []);
 
@@ -147,7 +148,7 @@ export const StockTransferEditor = ({
 
   const [form, setForm] = useState(() => {
     const today = new Date().toISOString().slice(0, 10);
-    const activeBranchId = normalizeId(localStorage.getItem('activeBranchId') || localStorage.getItem('branchId') || '');
+    const activeBranchId = normalizeId(selectedBranchId() || '');
     const base = {
       id: makeId(),
       companyId: currentCompany?.id,
@@ -155,7 +156,7 @@ export const StockTransferEditor = ({
       date: today,
       status: 'Draft',
       sourceBranchId: activeBranchId,
-      sourceWarehouseId: normalizeId(localStorage.getItem('activeWarehouseId') || ''),
+      sourceWarehouseId: normalizeId(selectedWarehouseId() || ''),
       targetBranchId: mode === 'warehouse' ? activeBranchId : '',
       targetWarehouseId: '',
       reason: '',
@@ -1391,12 +1392,12 @@ export const StockTransfersList = ({
   // dispatches it, the receiver approves it. With no location picked (the "All
   // warehouses" view) both sides are open, so a supervisor is not locked out.
   const activeWarehouseId = normalizeId(
-    activeWarehouseIdProp !== undefined ? activeWarehouseIdProp : localStorage.getItem('activeWarehouseId') || ''
+    activeWarehouseIdProp !== undefined ? activeWarehouseIdProp : selectedWarehouseId() || ''
   );
   const activeBranchId = normalizeId(
     activeBranchIdProp !== undefined
       ? activeBranchIdProp
-      : localStorage.getItem('activeBranchId') || localStorage.getItem('branchId') || ''
+      : selectedBranchId() || ''
   );
 
   const isAtSource = (t) =>

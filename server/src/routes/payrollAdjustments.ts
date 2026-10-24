@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { ownRecordRefusal, ownWorkRefusal } from '../services/makerChecker.js';
 import { z } from 'zod';
 
 import { requireAuth } from '../middleware/auth.js';
@@ -8,6 +9,7 @@ import { PermissionAction } from '../constants/enums.js';
 import { payrollPrisma } from '../utils/payrollPrisma.js';
 import { peoplePrisma, peopleWrite } from '../utils/peoplePrisma.js';
 import { PAYROLL_MODULE, PAYROLL_RESOURCE, payrollRouteOk } from '../services/payroll/guards.js';
+import { forLiveEmployee } from '../services/payroll/employeeLock.js';
 
 /**
  * One-off earnings and deductions: a bonus, an arrear, a fine, a recovery.
@@ -193,7 +195,7 @@ payrollAdjustmentsRouter.post(
         }
         if (prior) return payrollPrisma.payrollAdjustment.update({ where: { id: prior.id }, data: { componentId: parsed.data.componentId, periodId: parsed.data.periodId, amount: parsed.data.amount, status: 'DRAFT', approvedAt: null, approvedByUserId: null, consumedByRunId: null } });
       }
-      return payrollPrisma.payrollAdjustment.create({
+      return forLiveEmployee(orgId, parsed.data.employeeId, (tx) => tx.payrollAdjustment.create({
         data: {
           ...(source ? { id: `leave-encash:${source.id}` } : {}),
           accountId,
@@ -209,7 +211,7 @@ payrollAdjustmentsRouter.post(
           status: 'DRAFT',
           createdByUserId: req.auth!.userId,
         },
-      });
+      }));
     };
     const row = parsed.data.leaveEncashmentId ? await peopleWrite(orgId, create) : await create();
 
@@ -287,10 +289,19 @@ payrollAdjustmentsRouter.post(
       return res.status(409).json({ error: 'This adjustment was cancelled.', code: 'ADJUSTMENT_CANCELLED' });
     }
 
-    const row = await payrollPrisma.payrollAdjustment.update({
-      where: { id: existing.id },
+    /* A-13: never a bonus to yourself; the person who typed it approves only as the company's setting allows. */
+    const refused =
+      (await ownRecordRefusal(req, existing.employeeId, 'payroll adjustment')) ||
+      (await ownWorkRefusal(req, { makers: [existing.createdByUserId], module: PAYROLL_MODULE, resource: RESOURCE, entity: 'PAYROLL_ADJUSTMENT', entityId: existing.id, what: 'adjustment' }));
+    if (refused) return res.status(refused.status).json(refused.body);
+
+    /* Only while it is still waiting: a consumed or cancelled one cannot be re-approved by a second request in between. */
+    const moved = await payrollPrisma.payrollAdjustment.updateMany({
+      where: { id: existing.id, status: { notIn: ['CONSUMED', 'CANCELLED'] } },
       data: { status: 'APPROVED', approvedByUserId: req.auth!.userId, approvedAt: new Date() },
     });
+    if (moved.count !== 1) return res.status(409).json({ error: 'Somebody else has just changed this adjustment. Reload it.', code: 'ADJUSTMENT_CHANGED' });
+    const row = await payrollPrisma.payrollAdjustment.findUniqueOrThrow({ where: { id: existing.id } });
     res.json({ adjustment: shape(row) });
   }
 );

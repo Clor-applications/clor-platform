@@ -77,8 +77,16 @@ export async function entitlementFor(accountId: string): Promise<Entitlement> {
    * paid up: a lapsed app stays visible (the data is the customer's) and its
    * routes refuse work (isAppEntitled). No subscription row owns everything.
    */
-  const fromPlan = new Set([...base, ...extras]);
   const [access, sub] = await Promise.all([appAccess(accountId), getSubscription(accountId)]);
+  /*
+   * Accounting's plan is meaningful only while the account owns Accounting.
+   * Before this intersection, removing the Accounting subscription item left
+   * AccountEntitlement (often FULL) granting every accounting feature. The
+   * subscription is the app-level authority; the plan is the ceiling inside
+   * that app.
+   */
+  const ownsAccounting = access.ownedApps.includes('accounting');
+  const fromPlan = new Set(ownsAccounting ? [...base, ...extras] : []);
   const tierOf = (code: string) => sub?.items.find((i) => i.appCode === code)?.tier ?? null;
   const features = new Set<string>();
   for (const k of ALL_KEYS) {
@@ -89,7 +97,7 @@ export async function entitlementFor(accountId: string): Promise<Entitlement> {
       features.add(k);
     }
   }
-  for (const k of extras) features.add(k);
+  if (ownsAccounting) for (const k of extras) features.add(k);
   return {
     planKey: plan.key,
     planName: plan.name,

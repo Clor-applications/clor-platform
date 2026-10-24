@@ -1,0 +1,4 @@
+      Tests  1 failed | 1563 passed (1564)
+ FAIL  src/__tests__/closurePurgeResume.test.ts > A-47: the closure purge > stopped part-way (SIGTERM) starts no further store, keeps a checkpoint and resumes from it
+ Test Files  1 failed | 169 passed (170)
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯

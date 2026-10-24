@@ -1,0 +1,49 @@
+CLOR tenant platform TP-00 focused baseline
+Date: 2026-10-23
+Baseline commit: 1b8eaecbe6ed495547da718b12a39af1738140aa
+
+Command:
+  cd server && npm run typecheck
+
+Result:
+  PASS (exit 0)
+
+Command:
+  cd server && npx vitest run \
+    src/__tests__/tenantIsolation.test.ts \
+    src/__tests__/rowLevelSecurity.test.ts \
+    src/__tests__/tenantScope.test.ts \
+    src/__tests__/globalIdentity.test.ts \
+    src/__tests__/identityAndSessions.test.ts \
+    src/__tests__/permissions.test.ts \
+    src/__tests__/entitlements.test.ts \
+    src/__tests__/billingOperator.test.ts \
+    --reporter=dot
+
+Result:
+  PASS (exit 0)
+  Test files: 8 passed
+  Tests: 79 passed
+  Duration: 38.95 seconds
+
+Environment evidence from test setup:
+  - Disposable PostgreSQL database was reset.
+  - Accounting, Payroll, People and Platform schemas were synchronized.
+  - RLS policy statements were applied by test setup.
+
+Follow-up hardening:
+  - Added the required Warehouse.code to the cross-tenant INSERT case.
+  - Asserted that the rejection text identifies the row-level security policy.
+  - Re-ran rowLevelSecurity.test.ts: 1 file and 9 tests passed.
+  - PostgreSQL rejected the valid-shaped row with SQLSTATE 42501: new row violates row-level security policy for table Warehouse.
+
+Entitlement convergence fix:
+  - `npm run typecheck`: PASS.
+  - businessModel, modules and permissions suites: 3 files, 19 tests passed.
+  - Removing Accounting removes its effective plan features.
+  - Direct `GET /api/orgs/:orgId/invoices` returns 402 with `APP_NOT_SUBSCRIBED` when the subscription contains People but not Accounting.
+
+Non-failing diagnostic output observed:
+  - Vitest warns that test.poolOptions is deprecated in Vitest 4.
+  - Expected unique-constraint errors are logged by negative tests.
+

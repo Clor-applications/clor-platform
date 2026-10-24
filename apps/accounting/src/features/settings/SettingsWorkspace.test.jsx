@@ -15,8 +15,8 @@ describe('SettingsWorkspace', () => {
     expect(screen.getByRole('heading', { name: 'Tax & Compliance' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'GST' })).toHaveAttribute('aria-current', 'page');
     expect(screen.getByText('GST settings form')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Users' }));
-    expect(onNavigate).toHaveBeenCalledWith('settingsUsers');
+    fireEvent.click(screen.getByRole('button', { name: 'Users, roles & security' }));
+    expect(onNavigate).toHaveBeenCalledWith('companyAdmin');
   });
 
   it('provides an exit from the dedicated settings workspace', () => {

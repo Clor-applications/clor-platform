@@ -1,6 +1,7 @@
 import { afterAll, describe, expect, it } from 'vitest';
 import request from 'supertest';
 import jwt from 'jsonwebtoken';
+import { platformPrisma } from '../utils/platformPrisma.js';
 import { setSubscription } from '../services/subscriptions.js';
 
 /**
@@ -50,6 +51,25 @@ describe('People modules', () => {
 });
 
 describe('apps follow the subscription', () => {
+  it('signs every new account up to an explicit subscription, never the legacy rule', async () => {
+    const c = await company();
+    const accountId = (jwt.decode(c.token) as { accountId: string }).accountId;
+    const sub = await platformPrisma.subscription.findFirst({ where: { accountId }, include: { items: true } });
+    expect(sub).not.toBeNull();
+    expect(sub!.status).toBe('active');
+    expect(sub!.items.map((i) => i.appCode)).toEqual(expect.arrayContaining(['accounting', 'payroll', 'attendance', 'people']));
+    expect(sub!.items.find((i) => i.appCode === 'projects')).toBeUndefined();
+    const acct = await platformPrisma.account.findUnique({ where: { id: accountId }, select: { legacyUnrestrictedAt: true } });
+    expect(acct?.legacyUnrestrictedAt).toBeNull();
+  }, 60_000);
+
+  it('blocks direct Accounting APIs when Accounting is removed', async () => {
+    const c = await company();
+    await subscribe(c, [{ appCode: 'people', tier: 'FULL' }]);
+    const denied = await request(app).get(`/api/orgs/${c.orgId}/invoices`).set(at(c)).expect(402);
+    expect(denied.body).toMatchObject({ code: 'APP_NOT_SUBSCRIBED', app: 'accounting' });
+  }, 60_000);
+
   it('switches bought apps on, keeps unbought ones shut, and the People tier limits its modules', async () => {
     const c = await company();
     /* Accounting on its smallest plan does not stop People being bought on its own. */

@@ -18,6 +18,9 @@
  */
 export const APP_HOST_IDS = ['accounting', 'payroll', 'attendance', 'people'];
 
+/** The workspace that lives on the front door (apps/admin). */
+export const ADMIN_APP_ID = 'admin';
+
 /** The front door's first label. */
 const FRONT_DOOR = 'app';
 
@@ -49,9 +52,11 @@ export const isFrontDoor = (hostname = globalThis.location?.hostname) => {
  */
 export const hostForApp = (id, hostname = globalThis.location?.hostname) => {
   if (PINNED_APP) return null;
-  if (!APP_HOST_IDS.includes(id)) return null;
+  /* Workspace is the front door's own workspace (ADR-010): from any app's address it opens on app.<domain>. */
+  const target = id === ADMIN_APP_ID ? FRONT_DOOR : id;
+  if (target !== FRONT_DOOR && !APP_HOST_IDS.includes(target)) return null;
   const [first, ...rest] = labels(hostname);
   if (rest.length < 2) return null;
   if (first !== FRONT_DOOR && !APP_HOST_IDS.includes(first)) return null;
-  return [id, ...rest].join('.');
+  return [target, ...rest].join('.');
 };

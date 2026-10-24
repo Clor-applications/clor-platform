@@ -4,7 +4,7 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '../utils/prisma.js';
 import { requireAuth } from '../middleware/auth.js';
 import { requireTenantContext } from '../middleware/tenantContext.js';
-import { requirePermission } from '../middleware/rbac.js';
+import { authorizeAny, requirePermission } from '../middleware/rbac.js';
 import { PermissionAction } from '../constants/enums.js';
 import { ensureDefaultSeries, peekNumber } from '../services/numbering.js';
 
@@ -299,8 +299,37 @@ itemsRouter.patch('/orgs/:orgId/number-series/:seriesId', SETTINGS_EDIT, async (
 });
 
 /** What the next number will be, for a blank form. */
+/**
+ * Whose next number it is (A-22): whoever may raise that document, or whoever
+ * looks after numbering. It used to answer anybody signed in — for any
+ * docType at all, creating a numbering series for whatever string was sent.
+ */
+const SERIES_RAISED_BY: Record<string, Array<[string, string]>> = {
+  INVOICE: [['SALES', 'Invoices']],
+  POS: [['SALES', 'Invoices']],
+  RECEIPT: [['SALES', 'Receipts']],
+  ESTIMATE: [['SALES', 'Estimates']],
+  SALES_ORDER: [['SALES', 'Sales Orders']],
+  CREDIT_NOTE: [['SALES', 'Credit Notes']],
+  DELIVERY_CHALLAN: [['SALES', 'Delivery Challans']],
+  BILL: [['PURCHASE', 'Bills']],
+  PAYMENT: [['PURCHASE', 'Payments']],
+  PURCHASE_ORDER: [['PURCHASE', 'Purchase Orders']],
+  DEBIT_NOTE: [['PURCHASE', 'Debit Notes']],
+  EXPENSE: [['EXPENSES', 'Expenses']],
+  JOURNAL: [['ACCOUNTING', 'Journal Entries']],
+  TRANSFER: [['INVENTORY', 'Stock Transfer'], ['INVENTORY', 'Inter-branch transfer']],
+};
+
 itemsRouter.get('/orgs/:orgId/number-series/next/:docType', async (req, res) => {
   if (!orgOk(req, res)) return;
+  const raisedBy = SERIES_RAISED_BY[String(req.params.docType)];
+  if (!raisedBy) return res.status(400).json({ error: `Unknown document type: ${String(req.params.docType).slice(0, 40)}` });
+  const refused = await authorizeAny(req, [
+    ...raisedBy.map(([m, r]) => [m, PermissionAction.CREATE, r] as [string, typeof PermissionAction.CREATE, string]),
+    ['SETTINGS', PermissionAction.VIEW, 'Document Numbering'],
+  ]);
+  if (refused) return res.status(refused.status).json(refused.body);
   const { accountId, orgId, branchId } = req.tenant!;
   await ensureDefaultSeries({ accountId, orgId, branchId, docType: String(req.params.docType), userId: req.auth!.userId });
   const preview = await peekNumber({

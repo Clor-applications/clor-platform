@@ -1,10 +1,15 @@
 import { Router, type Request, type Response } from 'express';
+import { anyAppLive, appLive, closing } from '../services/principalAllowed.js';
 import { randomBytes } from 'node:crypto';
 import { z } from 'zod';
 import QRCode from 'qrcode';
 
 import { prisma } from '../utils/prisma.js';
 import { platformPrisma } from '../utils/platformPrisma.js';
+import { actorFrom, verifyCredential } from '../services/credentials.js';
+import { closePayRequest, payKind, registerPayLink } from '../services/shareLinks.js';
+
+type PayRow = NonNullable<Awaited<ReturnType<typeof prisma.paymentRequest.findUnique>>>;
 import { requireAuth } from '../middleware/auth.js';
 import { requireTenantContext } from '../middleware/tenantContext.js';
 import { requirePermission } from '../middleware/rbac.js';
@@ -12,6 +17,7 @@ import { PermissionAction } from '../constants/enums.js';
 import { ingestLimiter } from '../middleware/rateLimit.js';
 import { hashToken } from './publicApi.js';
 import { notifyPermission } from '../services/notifications.js';
+import { enterTenant, outsideTenant, runInTenant } from '../utils/tenantScope.js';
 
 /**
  * UPI Direct: the company's customers pay straight into the company's own
@@ -107,7 +113,9 @@ payRequestsRouter.post(base, can(PermissionAction.CREATE), async (req, res) => {
   if (amountPaise <= 0) return res.status(400).json({ error: 'Nothing is owed on this invoice.' });
   if (amountPaise > due + 1) return res.status(400).json({ error: `That is more than the ${rupees(due)} still owed.` });
   /* One open link per invoice: a new one replaces the old so a customer never pays twice from two links. */
-  await prisma.paymentRequest.updateMany({ where: { orgId, docId: invoice.id, status: 'PENDING' }, data: { status: 'CANCELLED' } });
+  for (const old of await prisma.paymentRequest.findMany({ where: { orgId, docId: invoice.id, status: 'PENDING' }, select: { id: true } })) {
+    await closePayRequest(orgId, old.id, actorFrom(req), 'replaced by a new payment link');
+  }
   const token = newPayToken();
   const row = await prisma.paymentRequest.create({
     data: {
@@ -127,6 +135,8 @@ payRequestsRouter.post(base, can(PermissionAction.CREATE), async (req, res) => {
       createdByUserId: req.auth!.userId,
     },
   });
+  /* Batch 5: registered beside the request, with the request's own expiry. */
+  await registerPayLink(row, token, actorFrom(req));
   res.status(201).json({ request: shape(row), url: payUrl(token), upi: upiIntent(row) });
 });
 
@@ -170,18 +180,33 @@ payRequestsRouter.post(`${base}/:id/cancel`, can(PermissionAction.EDIT), async (
   const r = await prisma.paymentRequest.findFirst({ where: { id: String(req.params.id), orgId } });
   if (!r) return res.status(404).json({ error: 'No such payment request.' });
   if (r.status === 'PAID') return res.status(409).json({ error: 'It is paid; reverse the receipt instead.' });
+  /* Registry first, then the request (KTD4). */
+  if (r.status === 'PENDING') await closePayRequest(orgId, r.id, actorFrom(req), 'cancelled by staff');
   const done = await prisma.paymentRequest.update({ where: { id: r.id }, data: { status: 'CANCELLED' } });
   res.json({ request: shape(done) });
 });
 
 /* ------------------------------------------------------------------ public */
 
-async function requestOf(token: string) {
+/**
+ * The request a pay link names, and whether it may still be paid. A paid or
+ * claimed request is shown as such whatever the link's state (R12); a pending
+ * one can be claimed only while its link is usable — not cancelled, not past
+ * its date, not paused (Batch 5).
+ */
+async function requestOf(token: string): Promise<(PayRow & { usable: boolean }) | null> {
   if (!/^clorpay_[A-Za-z0-9_-]{20,}$/.test(token)) return null;
-  const r = await prisma.paymentRequest.findUnique({ where: { tokenHash: hashToken(token) } });
+  /* A-35: the token is how the company is found, so it is looked up across companies. */
+  const v = await verifyCredential('PAY_LINK', token, payKind);
+  const r = v.ok ? v.row : v.row;
   if (!r) return null;
-  if (r.status === 'PENDING' && r.expiresAt && r.expiresAt < new Date()) return prisma.paymentRequest.update({ where: { id: r.id }, data: { status: 'EXPIRED' } });
-  return r;
+  /* A-11: payment links are Accounting's; none is served for a company without it, or closing. */
+  if (!v.ok && (v.block === 'COMPANY_CLOSING' || v.block === 'APP_OFF')) return null;
+  if (r.status === 'PENDING' && r.expiresAt && r.expiresAt < new Date()) {
+    const done = await runInTenant(r.orgId, () => prisma.paymentRequest.update({ where: { id: r.id }, data: { status: 'EXPIRED' } }));
+    return { ...done, usable: false };
+  }
+  return { ...r, usable: v.ok && r.status === 'PENDING' };
 }
 
 const esc = (s: unknown) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
@@ -198,14 +223,16 @@ input{width:100%;box-sizing:border-box;padding:10px;border:1px solid #d6d3d1;bor
 
 payPageRouter.get('/:token', ...ingestLimiter, async (req, res) => {
   const r = await requestOf(String(req.params.token));
+  if (r) enterTenant(r.orgId); /* A-30: the rest of this request runs as the link's company. */
   res.setHeader('Cache-Control', 'no-store');
   res.setHeader('X-Robots-Tag', 'noindex');
+  res.setHeader('Referrer-Policy', 'no-referrer');
   if (!r) return res.status(404).type('html').send(page('Link not found', '<h1>This payment link is not valid</h1><p class="muted">Ask the business for a new one.</p>'));
   const org = await platformPrisma.org.findUnique({ where: { id: r.orgId }, select: { name: true } });
   const head = `<div class="muted">${esc(org?.name || r.payeeName)}</div><h1>${r.docNumber ? `Invoice ${esc(r.docNumber)}` : 'Payment'}</h1>${r.partyName ? `<div class="muted">For ${esc(r.partyName)}</div>` : ''}<div class="amt">₹${esc(Number(rupees(r.amountPaise)).toLocaleString('en-IN', { minimumFractionDigits: 2 }))}</div>`;
   if (r.status === 'PAID') return res.type('html').send(page('Paid', `${head}<p class="ok">Paid — thank you.</p>`));
   if (r.status === 'CLAIMED') return res.type('html').send(page('Payment received', `${head}<p class="ok">Thank you. We have your UTR <code>${esc(r.payerUtr)}</code>; the business will confirm it shortly.</p>`));
-  if (r.status !== 'PENDING') return res.type('html').send(page('Link closed', `${head}<p class="muted">This link is ${r.status === 'EXPIRED' ? 'past its date' : 'no longer in use'}. Ask the business for a new one.</p>`));
+  if (r.status !== 'PENDING' || !r.usable) return res.type('html').send(page('Link closed', `${head}<p class="muted">This link is ${r.status === 'EXPIRED' ? 'past its date' : 'no longer in use'}. Ask the business for a new one.</p>`));
   const intent = upiIntent(r);
   const qr = await QRCode.toDataURL(intent, { margin: 1, width: 440 });
   const claimed = req.query.err ? `<p style="color:#b91c1c">${esc(String(req.query.err)).slice(0, 200)}</p>` : '';
@@ -229,9 +256,10 @@ ${claimed}<button class="btn btn2" type="submit">I have paid</button></form>`,
 payPageRouter.post('/:token/claim', ...ingestLimiter, async (req, res) => {
   const token = String(req.params.token);
   const r = await requestOf(token);
+  if (r) enterTenant(r.orgId); /* A-30: the rest of this request runs as the link's company. */
   const back = (err: string) => res.redirect(303, `/pay/${encodeURIComponent(token)}?err=${encodeURIComponent(err)}`);
   if (!r) return res.status(404).type('html').send(page('Link not found', '<h1>This payment link is not valid</h1>'));
-  if (r.status !== 'PENDING') return res.redirect(303, `/pay/${encodeURIComponent(token)}`);
+  if (r.status !== 'PENDING' || !r.usable) return res.redirect(303, `/pay/${encodeURIComponent(token)}`);
   const utr = String(req.body?.utr || '').replace(/\s+/g, '').trim();
   if (!UTR.test(utr)) return back('That does not look like a UTR: 12 digits, as your UPI app shows under the payment.');
   if (await prisma.paymentRequest.findFirst({ where: { orgId: r.orgId, payerUtr: utr, NOT: { id: r.id } }, select: { id: true } })) return back('That UTR was already given for another payment.');

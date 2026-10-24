@@ -31,36 +31,98 @@ const APP_URL = process.env.APP_URL || 'http://localhost:5173';
 // ---------------------------------------------------------------------------
 
 /**
- * SMTP passwords are stored encrypted, not hashed: they must be replayed to the
- * mail server. The key is derived from MAIL_SECRET_KEY, falling back to
- * JWT_SECRET so a single-secret deployment still works.
+ * SMTP passwords, SSO and connector secrets, webhook secrets and share-link
+ * copies are stored encrypted, not hashed: they must be replayed. The key is
+ * derived from MAIL_SECRET_KEY, falling back to JWT_SECRET so a single-secret
+ * deployment still works.
+ *
+ * A-34: a stored secret now says which key made it and is bound to this box.
+ *   v2.<key id>.<iv>.<tag>.<data>   key id = a fingerprint of the key, never the key
+ *   <iv>.<tag>.<data>               the shape before; still read
+ * To change the key, set the new MAIL_SECRET_KEY and put the old one in
+ * MAIL_SECRET_KEY_PREVIOUS (comma separated for several): old secrets still
+ * open, and are written again under the new key as they are saved.
+ *
+ * This release still writes the old shape, because instances of the previous
+ * release read only that during a rolling deploy (and after a rollback).
+ * SECRET_FORMAT=v2 writes the new one; it becomes the default next release.
  */
+const currentSecret = () => process.env.MAIL_SECRET_KEY || process.env.JWT_SECRET || (isDevOrTest() ? 'dev-secret' : '');
+const deriveKey = (secret: string) => createHash('sha256').update(String(secret)).digest();
+/** Which key made a secret, without saying anything about the key. */
+export const keyIdOf = (secret: string) => createHash('sha256').update(`clor-key-id:${secret}`).digest('hex').slice(0, 16);
+/** What every v2 secret is bound to: a ciphertext made for anything else, with the same key, does not open here. */
+const AAD = Buffer.from('clor-secret-box:v2');
+
+/** Every key a stored secret may have been made with, the current first. */
+function candidateSecrets() {
+  const all = [currentSecret(), ...String(process.env.MAIL_SECRET_KEY_PREVIOUS || '').split(','), process.env.JWT_SECRET || '', isDevOrTest() ? 'dev-secret' : '']
+    .map((k) => k.trim())
+    .filter(Boolean);
+  return [...new Set(all)];
+}
+
 function encryptionKey() {
-  const secret = process.env.MAIL_SECRET_KEY || process.env.JWT_SECRET || (isDevOrTest() ? 'dev-secret' : '');
+  const secret = currentSecret();
   if (!secret) throw new Error('MAIL_SECRET_KEY (or JWT_SECRET) must be set to store credentials.');
-  return createHash('sha256').update(String(secret)).digest();
+  return deriveKey(secret);
 }
 
 export function encryptSecret(plain: string) {
   const iv = randomBytes(12);
   const cipher = createCipheriv('aes-256-gcm', encryptionKey(), iv);
+  const v2 = process.env.SECRET_FORMAT === 'v2';
+  if (v2) cipher.setAAD(AAD);
   const enc = Buffer.concat([cipher.update(String(plain), 'utf8'), cipher.final()]);
   const tag = cipher.getAuthTag();
-  return `${iv.toString('base64')}.${tag.toString('base64')}.${enc.toString('base64')}`;
+  const body = `${iv.toString('base64')}.${tag.toString('base64')}.${enc.toString('base64')}`;
+  return v2 ? `v2.${keyIdOf(currentSecret())}.${body}` : body;
+}
+
+function open(secret: string, iv: string, tag: string, data: string, aad: boolean) {
+  try {
+    const decipher = createDecipheriv('aes-256-gcm', deriveKey(secret), Buffer.from(iv, 'base64'));
+    if (aad) decipher.setAAD(AAD);
+    decipher.setAuthTag(Buffer.from(tag, 'base64'));
+    return Buffer.concat([decipher.update(Buffer.from(data, 'base64')), decipher.final()]).toString('utf8');
+  } catch {
+    return null;
+  }
+}
+
+/** The plain secret and whether it was made with a key other than the current one. */
+function openAny(payload: string): { plain: string; stale: boolean } {
+  const parts = String(payload || '').split('.');
+  const current = currentSecret();
+  if (parts[0] === 'v2' && parts.length === 5) {
+    const [, kid, iv, tag, data] = parts;
+    const secret = candidateSecrets().find((k) => keyIdOf(k) === kid);
+    const plain = secret ? open(secret, iv, tag, data, true) : null;
+    return plain == null ? { plain: '', stale: false } : { plain, stale: secret !== current };
+  }
+  const [iv, tag, data] = parts;
+  if (parts.length !== 3 || !iv || !tag || !data) return { plain: '', stale: false };
+  for (const k of candidateSecrets()) {
+    const plain = open(k, iv, tag, data, false);
+    if (plain != null) return { plain, stale: k !== current };
+  }
+  return { plain: '', stale: false };
 }
 
 export function decryptSecret(payload: string) {
-  const [ivB64, tagB64, dataB64] = String(payload || '').split('.');
-  if (!ivB64 || !tagB64 || !dataB64) return '';
-  try {
-    const decipher = createDecipheriv('aes-256-gcm', encryptionKey(), Buffer.from(ivB64, 'base64'));
-    decipher.setAuthTag(Buffer.from(tagB64, 'base64'));
-    return Buffer.concat([decipher.update(Buffer.from(dataB64, 'base64')), decipher.final()]).toString('utf8');
-  } catch {
-    // A rotated key makes old ciphertext unreadable; treat it as unset rather
-    // than crashing a send.
-    return '';
-  }
+  // A key that is gone makes old ciphertext unreadable; treat it as unset rather than crashing a send.
+  return openAny(payload).plain;
+}
+
+/**
+ * Decrypt with the current key or any key it may have been made with before
+ * (MAIL_SECRET_KEY_PREVIOUS, or JWT_SECRET from before MAIL_SECRET_KEY was
+ * set). `stale` says the caller should store it again under the current key.
+ * Used for share links (A-32), where an unreadable copy would mean a new
+ * address for a customer who already has the old one.
+ */
+export function decryptSecretAnyKey(payload: string): { plain: string; stale: boolean } {
+  return openAny(payload);
 }
 
 // ---------------------------------------------------------------------------

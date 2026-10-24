@@ -48,7 +48,7 @@ export const BIN_KINDS: Record<string, Kind> = {
     label: (r) => `${r.name}${r.code ? ` (${r.code})` : ''}`,
   },
   employeeNote: { model: 'employeeNote', noun: 'Employee note', module: PEOPLE_MODULE, resource: P.notes, label: (r) => forPerson(String(r.body || 'Note').slice(0, 60), r) },
-  employeeDocument: { model: 'employeeDocument', noun: 'Employee document', module: PEOPLE_MODULE, resource: P.employees, label: (r) => forPerson(r.title || 'Document', r) },
+  employeeDocument: { model: 'employeeDocument', noun: 'Employee document', module: PEOPLE_MODULE, resource: P.documents, label: (r) => forPerson(r.title || 'Document', r) },
   department: { model: 'department', noun: 'Department', module: PEOPLE_MODULE, resource: P.structure, label: (r) => r.name },
   jobPosition: { model: 'jobPosition', noun: 'Designation', module: PEOPLE_MODULE, resource: P.structure, label: (r) => r.name },
   jobRole: { model: 'jobRole', noun: 'Job role', module: PEOPLE_MODULE, resource: P.structure, label: (r) => r.name },
@@ -58,6 +58,10 @@ export const BIN_KINDS: Record<string, Kind> = {
   businessUnit: { model: 'businessUnit', noun: 'Business unit', module: PEOPLE_MODULE, resource: P.structure, label: (r) => r.name },
   grade: { model: 'grade', noun: 'Grade', module: PEOPLE_MODULE, resource: P.structure, label: (r) => r.name },
   costCenter: { model: 'costCenter', noun: 'Cost centre', module: PEOPLE_MODULE, resource: P.structure, label: (r) => r.name },
+  legalEntity: { model: 'legalEntity', noun: 'Legal entity', module: PEOPLE_MODULE, resource: P.structure, label: (r) => r.name },
+  establishment: { model: 'establishment', noun: 'Establishment', module: PEOPLE_MODULE, resource: P.structure, label: (r) => r.name },
+  team: { model: 'team', noun: 'Team', module: PEOPLE_MODULE, resource: P.structure, label: (r) => r.name },
+  seat: { model: 'seat', noun: 'Seat', module: PEOPLE_MODULE, resource: P.structure, label: (r) => r.name },
   contractor: { model: 'contractor', noun: 'Contractor', module: PEOPLE_MODULE, resource: P.structure, label: (r) => r.name },
   holiday: { model: 'holiday', noun: 'Holiday', module: ATTENDANCE_MODULE, resource: A.holidays, label: (r) => `${r.name} · ${r.date}` },
   leaveType: { model: 'leaveType', noun: 'Leave type', module: ATTENDANCE_MODULE, resource: A.leaveTypes, label: (r) => r.name },
@@ -191,7 +195,7 @@ export async function purgeRecycleBin(now = new Date()) {
 export function startRecycleBinPurge() {
   if (String(process.env.RECYCLE_BIN_PURGE || '').toLowerCase() === 'off') return () => {};
   const run = () =>
-    exclusive('recycleBin.purge', leaseFor(24 * 60 * 60 * 1000), () => purgeRecycleBin()).then(
+    exclusive('recycleBin.purge', leaseFor(24 * 60 * 60 * 1000), () => purgeRecycleBin(), { idempotent: true }).then(
       (n) => {
         // eslint-disable-next-line no-console
         if (n) console.log(`[recycle bin] removed ${n} expired item(s)`);

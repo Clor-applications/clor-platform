@@ -1,0 +1,114 @@
+ DEPRECATED  `test.poolOptions` was removed in Vitest 4. All previous `poolOptions` are now top-level options. Please, refer to the migration guide: https://vitest.dev/guide/migration#pool-rework
+
+ RUN  v4.1.10 /Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_8737", schema "accounting" at "localhost:5432"
+
+The PostgreSQL database "clor_test_8737" schema "accounting" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 1.40s
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/payroll/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_8737", schema "payroll" at "localhost:5432"
+
+The PostgreSQL database "clor_test_8737" schema "payroll" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 1.09s
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/people/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_8737", schema "people" at "localhost:5432"
+
+The PostgreSQL database "clor_test_8737" schema "people" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 564ms
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/platform/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_8737", schema "platform" at "localhost:5432"
+
+The PostgreSQL database "clor_test_8737" schema "platform" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 727ms
+
+[setup] 180 policy statements applied to clor_test_8737
+[setup] 7 policy statements applied to clor_test_8737
+[setup] 10 policy statements applied to clor_test_8737
+[setup] 35 policy statements applied to clor_test_8737
+[setup] 4 policy statements applied to clor_test_8737
+[setup] 96 policy statements applied to clor_test_8737
+[setup] 4 policy statements applied to clor_test_8737
+[setup] 4 policy statements applied to clor_test_8737
+[setup] 4 policy statements applied to clor_test_8737
+[setup] 4 policy statements applied to clor_test_8737
+[setup] 32 policy statements applied to clor_test_8737
+[setup] 24 policy statements applied to clor_test_8737
+[setup] 12 policy statements applied to clor_test_8737
+[setup] 16 policy statements applied to clor_test_8737
+[setup] 4 policy statements applied to clor_test_8737
+[setup] 4 policy statements applied to clor_test_8737
+[setup] 8 policy statements applied to clor_test_8737
+[setup] 8 policy statements applied to clor_test_8737
+[setup] 20 policy statements applied to clor_test_8737
+[setup] 8 policy statements applied to clor_test_8737
+[setup] 4 policy statements applied to clor_test_8737
+[setup] 8 policy statements applied to clor_test_8737
+[setup] 8 policy statements applied to clor_test_8737
+[setup] 12 policy statements applied to clor_test_8737
+[setup] 4 policy statements applied to clor_test_8737
+[setup] 8 policy statements applied to clor_test_8737
+[setup] 28 policy statements applied to clor_test_8737
+[setup] 4 policy statements applied to clor_test_8737
+[setup] 4 policy statements applied to clor_test_8737
+[setup] 4 policy statements applied to clor_test_8737
+[setup] 8 policy statements applied to clor_test_8737
+[setup] 4 policy statements applied to clor_test_8737
+[setup] 4 policy statements applied to clor_test_8737
+[setup] 4 policy statements applied to clor_test_8737
+[setup] 4 policy statements applied to clor_test_8737
+[setup] 8 policy statements applied to clor_test_8737
+[setup] 4 policy statements applied to clor_test_8737
+[setup] 12 policy statements applied to clor_test_8737
+[setup] 4 policy statements applied to clor_test_8737
+[setup] 76 policy statements applied to clor_test_8737
+[setup] 4 policy statements applied to clor_test_8737
+[setup] 4 policy statements applied to clor_test_8737
+[setup] 4 policy statements applied to clor_test_8737
+[setup] 4 policy statements applied to clor_test_8737
+ ❯ src/__tests__/guardOrder.test.ts (9 tests | 3 failed) 7ms
+     × says "not on the subscription" for an app the account has not bought, even though it is also switched off 4ms
+     × says "not on the subscription" for an app the account has not bought, even though it is also switched off 0ms
+     × says "not on the subscription" for an app the account has not bought, even though it is also switched off 0ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/__tests__/guardOrder.test.ts > attendance > says "not on the subscription" for an app the account has not bought, even though it is also switched off
+ FAIL  src/__tests__/guardOrder.test.ts > payroll > says "not on the subscription" for an app the account has not bought, even though it is also switched off
+ FAIL  src/__tests__/guardOrder.test.ts > people > says "not on the subscription" for an app the account has not bought, even though it is also switched off
+AssertionError: expected 403 to be 402 // Object.is equality
+
+- Expected
++ Received
+
+- 402
++ 403
+
+ ❯ src/__tests__/guardOrder.test.ts:38:22
+     36|     const r = await call(guard as any);
+     37|     expect(r.ok).toBe(false);
+     38|     expect(r.status).toBe(402);
+       |                      ^
+     39|     expect(r.body.code).toBe('APP_NOT_SUBSCRIBED');
+     40|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  3 failed | 6 passed (9)
+   Start at  19:36:34
+   Duration  10.73s (transform 46ms, setup 30ms, import 71ms, tests 7ms, environment 0ms)
+

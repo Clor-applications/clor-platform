@@ -1,0 +1,49 @@
+# A-43 AFTER fix: working tree
+# 2026-10-23T14:10:36Z  npx vitest run src/__tests__/jobLeaseSafety.test.ts src/__tests__/jobLease.test.ts
+ DEPRECATED  `test.poolOptions` was removed in Vitest 4. All previous `poolOptions` are now top-level options. Please, refer to the migration guide: https://vitest.dev/guide/migration#pool-rework
+
+ RUN  v4.1.10 /Users/suresh/Desktop/clor-platform/.claude/worktrees/batch6-workers-fb00cd/server
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_15906", schema "accounting" at "localhost:5432"
+
+The PostgreSQL database "clor_test_15906" schema "accounting" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 1.30s
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/payroll/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_15906", schema "payroll" at "localhost:5432"
+
+The PostgreSQL database "clor_test_15906" schema "payroll" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 697ms
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/people/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_15906", schema "people" at "localhost:5432"
+
+The PostgreSQL database "clor_test_15906" schema "people" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 1.81s
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/platform/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_15906", schema "platform" at "localhost:5432"
+
+The PostgreSQL database "clor_test_15906" schema "platform" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 1.40s
+
+GET /health 200 11 - 1.219 ms
+GET /ready 200 85 - 29.067 ms
+GET /health 200 11 - 0.100 ms
+GET /health 200 11 - 0.085 ms
+GET /health 200 11 - 0.063 ms
+
+ Test Files  2 passed (2)
+      Tests  13 passed (13)
+   Start at  19:40:36
+   Duration  21.96s (transform 2.81s, setup 39ms, import 194ms, tests 8.96s, environment 0ms)
+

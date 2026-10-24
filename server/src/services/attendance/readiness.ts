@@ -1,7 +1,7 @@
 import { peoplePrisma } from '../../utils/peoplePrisma.js';
 import { isWeeklyOff, istInstant } from './compute.js';
 import { clashingTemporaries } from './conflicts.js';
-import { daysBetween, daysOfMonth, monthRows, periodContext } from '../../routes/attendance.js';
+import { daysBetween, daysOfMonth, monthRows, periodContext } from './days.js';
 
 /**
  * What is still unsettled in a stretch of days, person by person.

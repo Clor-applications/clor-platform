@@ -239,6 +239,28 @@ describe('the audit trail', () => {
    * Read-only is the feature, not an omission. A trail its own product can edit
    * or delete is evidence of nothing.
    */
+  /*
+   * Workspace shows one trail for the company (ADR-010); an app opens it
+   * on its own share. The filter must sort entries to the app they belong to.
+   */
+  it("gives each app its own share of the one trail", async () => {
+    const c = await makeOwner();
+    await raiseInvoice(c);
+    await request(app).put(`/api/orgs/${c.orgId}/features`).set(auth(c)).send({ features: { payroll: false } }).expect(200);
+    const entitiesFor = async (which: string) =>
+      new Set(((await request(app).get(`/api/orgs/${c.orgId}/audit?app=${which}`).set(auth(c)).expect(200)).body.entries as any[]).map((e) => e.entity));
+    const accounting = await entitiesFor('accounting');
+    const company = await entitiesFor('company');
+    const payroll = await entitiesFor('payroll');
+    expect(accounting.has('INVOICE')).toBe(true);
+    expect(accounting.has('Features')).toBe(false);
+    expect(company.has('Features')).toBe(true);
+    expect(company.has('INVOICE')).toBe(false);
+    expect(payroll.has('INVOICE')).toBe(false);
+    expect(payroll.has('Features')).toBe(false);
+    await request(app).get(`/api/orgs/${c.orgId}/audit?app=nonsense`).set(auth(c)).expect(400);
+  });
+
   it('exposes no way to write, change or remove an entry', async () => {
     const res = await request(app).get(`/api/orgs/${owner.orgId}/audit`).set(auth(owner)).expect(200);
     const id = res.body.entries[0].id;

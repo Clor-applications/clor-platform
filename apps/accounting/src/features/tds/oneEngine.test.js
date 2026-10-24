@@ -20,7 +20,7 @@ const read = (f) => readFileSync(join(SRC, f), 'utf8');
 
 describe('every deducting screen asks the one engine', () => {
   it('purchase, payment and sales import resolveTds', () => {
-    for (const f of ['features/purchase/index.jsx', 'features/payments/RecordDisbursementForm.jsx', 'features/sales/index.jsx']) {
+    for (const f of ['features/purchase/Bills.jsx', 'features/payments/RecordDisbursementForm.jsx', 'features/sales/InvoiceForm.jsx']) {
       expect(read(f)).toMatch(/\bresolveTds\b/);
     }
   });

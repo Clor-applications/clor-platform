@@ -2,6 +2,7 @@ import { peoplePrisma } from '../../utils/peoplePrisma.js';
 import { payrollPrisma } from '../../utils/payrollPrisma.js';
 import { platformPrisma } from '../../utils/platformPrisma.js';
 import { isFeatureEnabled } from '../features.js';
+import { verifiedMime } from '../fileType.js';
 
 /**
  * Compliance calendar (HR research, Phase 2: "compliance calendar,
@@ -196,6 +197,8 @@ export async function updateTask(who: Who, id: string, body: any) {
     if (!EVIDENCE_TYPES.includes(mime)) throw Object.assign(new Error('Evidence is a PDF, PNG or JPEG.'), { status: 400 });
     const bytes = Buffer.from(String(dataUrl || '').replace(/^data:[^,]+,/, ''), 'base64');
     if (!bytes.length || bytes.length > MAX_EVIDENCE) throw Object.assign(new Error('Evidence is up to 5 MB.'), { status: 400 });
+    /* A-42: the file's own bytes have to agree with what it says it is. */
+    if (!verifiedMime(bytes, mime, (t) => EVIDENCE_TYPES.includes(t))) throw Object.assign(new Error('That file is not what its name says. Upload the PDF or picture itself.'), { status: 400 });
     Object.assign(data, { evidenceName: String(name || 'evidence').slice(0, 200), evidenceMime: mime, evidenceData: bytes });
   }
   await peoplePrisma.complianceTask.update({ where: { id: task.id }, data: data as any });

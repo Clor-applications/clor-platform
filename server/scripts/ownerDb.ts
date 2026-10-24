@@ -18,6 +18,8 @@
  * exists to see across tenants, and nothing serving a request ever uses it.
  */
 import { PrismaClient } from '@prisma/client';
+import { PrismaClient as PlatformClient } from '../src/generated/platform/index.js';
+import { tenantScoped } from '../src/utils/tenantScope.js';
 
 /** Which schema the application URL points at — the app's own, by definition. */
 export const appSchema = (fallback = 'accounting') => {
@@ -50,7 +52,37 @@ export const ownerUrl = () => {
 };
 
 /** A client that sees every tenant. Never used to serve a request. */
+/*
+ * Through the tenant wrapper, so a script outside any request runs with the
+ * maintenance bypass (A-35). Without it, a script connected as anything but a
+ * superuser would see no company's rows under the fail-closed policies — and
+ * the permission backfill run at every deploy would quietly do nothing.
+ */
 export const ownerClient = () => {
   const url = ownerUrl();
-  return new PrismaClient(url ? { datasources: { db: { url } } } : undefined);
+  return tenantScoped(new PrismaClient(url ? { datasources: { db: { url } } } : undefined));
+};
+
+/**
+ * The same, for the platform database (companies, users, roles, grants).
+ *
+ * Those tables moved out of the accounting database; scripts that still asked
+ * `ownerClient()` for `org` or `role` found no such model and stopped — the
+ * Owner-permission backfill among them, so new permissions never reached the
+ * Owner roles of existing companies.
+ */
+export const platformOwnerUrl = () => {
+  const admin = String(process.env.PGADMIN_URL || '').trim();
+  const runtime = String(process.env.PLATFORM_DATABASE_URL || '').trim();
+  if (!admin || !runtime) return undefined;
+  const url = new URL(admin);
+  const r = new URL(runtime);
+  url.pathname = r.pathname;
+  url.search = r.search;
+  return url.toString();
+};
+
+export const platformOwnerClient = () => {
+  const url = platformOwnerUrl();
+  return tenantScoped(new PlatformClient(url ? { datasources: { db: { url } } } : undefined));
 };

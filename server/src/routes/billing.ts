@@ -1,32 +1,43 @@
-import { Router } from 'express';
+import { Router, type Request, type Response } from 'express';
 import { z } from 'zod';
 import { requireAuth } from '../middleware/auth.js';
 import { requireTenantContext } from '../middleware/tenantContext.js';
 import { requireOperator } from '../middleware/operator.js';
+import { authorize } from '../middleware/rbac.js';
+import { PermissionAction } from '../constants/enums.js';
 import { platformPrisma } from '../utils/platformPrisma.js';
 import { APP_CATALOG } from '../constants/appCatalog.js';
 import { PLAN_CATALOG } from '../constants/planCatalog.js';
 import { getSubscription, appAccess, setSubscription, applyGatewayEvent } from '../services/subscriptions.js';
 import { getGateway } from '../billing/gateway.js';
+import { requireOperatorStepUp } from '../services/stepUp.js';
+import { clientIp, recordAuthEvent } from '../services/auth.js';
+import { acrossCompanies } from '../utils/tenantScope.js';
 
 export const billingRouter = Router();
 /** CLOR operators acting on an account from outside it. See app.ts for where it is mounted. */
 export const billingOperatorRouter = Router();
+/* A CLOR operator acts on a customer's account, not inside one of its companies (A-35). */
+billingOperatorRouter.use(acrossCompanies('billing operator: a customer account, across its companies'));
 
 /**
- * The webhook is mounted PUBLIC and BEFORE auth. It is a no-op under the manual
- * gateway (no provider, no webhooks); a real gateway adapter will verify the
- * signature here. NOTE: signature verification needs the raw body — when a real
- * gateway is wired, add an express.raw() body parser on this exact path ahead of
- * the global express.json().
+ * The payment gateway's webhook (A-16).
+ *
+ * The comment here said "mounted PUBLIC and BEFORE auth", but it was mounted
+ * on billingRouter after routers that put requireAuth on everything under
+ * /api, so a gateway's call got 401 and never arrived. It is now its own
+ * handler, mounted in app.ts on its exact path ahead of every router and of
+ * the global JSON parser, with the raw body — what a signature is computed
+ * over. Under the manual gateway it still does nothing (202 ignored); a real
+ * gateway adapter verifies the signature in verifyWebhook.
  */
-billingRouter.post('/billing/webhook', async (req, res) => {
-  const gw = getGateway();
-  const ev = gw.verifyWebhook(JSON.stringify(req.body ?? {}), req.headers as Record<string, unknown>);
+export async function billingWebhook(req: Request, res: Response) {
+  const raw = Buffer.isBuffer(req.body) ? req.body : Buffer.from(typeof req.body === 'string' ? req.body : JSON.stringify(req.body ?? {}));
+  const ev = getGateway().verifyWebhook(raw, req.headers as Record<string, unknown>);
   if (!ev) return res.status(202).json({ ignored: true });
   const r = await applyGatewayEvent(ev);
   res.json(r);
-});
+}
 
 const setSchema = z.object({
   apps: z
@@ -55,13 +66,28 @@ const setSchema = z.object({
  * demands tenant headers (app.ts). The gateway path (webhook ->
  * applyGatewayEvent) is the only other writer.
  */
-billingOperatorRouter.post('/billing/accounts/:accountId/subscription', requireAuth, requireOperator, async (req, res) => {
+billingOperatorRouter.post('/billing/accounts/:accountId/subscription', requireAuth, requireOperator, requireOperatorStepUp, async (req, res) => {
   const accountId = String(req.params.accountId || '');
   const account = await platformPrisma.account.findUnique({ where: { id: accountId }, select: { id: true } });
   if (!account) return res.status(404).json({ error: 'No such account' });
   const parsed = setSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: 'Invalid subscription', details: parsed.error.flatten() });
+  const before = await getSubscription(accountId);
   const sub = await setSubscription(accountId, parsed.data);
+  /*
+   * A-17: what CLOR changed on a customer's account, by whom, from what to
+   * what — recorded against the customer's account, where their own security
+   * activity is listed, and against nothing they can edit.
+   */
+  const shape = (s: any) => (s ? { status: s.status, apps: (s.items || []).map((i: any) => i.appCode).sort() } : null);
+  await recordAuthEvent({
+    accountId,
+    userId: req.auth!.userId,
+    eventType: 'OPERATOR_SUBSCRIPTION_SET',
+    ip: clientIp(req),
+    userAgent: req.headers['user-agent'] as string | undefined,
+    detail: JSON.stringify({ before: shape(before), after: shape(sub) }).slice(0, 1000),
+  });
   res.json({ subscription: sub });
 });
 
@@ -77,7 +103,15 @@ billingRouter.get('/billing/catalog', (_req, res) => {
 billingRouter.get('/billing/subscription', async (req, res) => {
   const accountId = req.tenant!.accountId;
   const [sub, access] = await Promise.all([getSubscription(accountId), appAccess(accountId)]);
-  res.json({ subscription: sub, ...access, subscribedApps: access.entitledApps });
+  /*
+   * Everybody's shell needs which apps the account has and its standing. The
+   * plan itself — line items, amounts, the payment gateway's customer and
+   * subscription ids — is for whoever looks after the account (A-22), and the
+   * gateway ids are for nobody's browser.
+   */
+  const mayViewPlan = !(await authorize(req, 'SETTINGS', PermissionAction.VIEW, 'Company Profile'));
+  const plan = mayViewPlan && sub ? (({ gatewayCustomerId: _c, gatewaySubscriptionId: _s, ...rest }) => rest)(sub) : null;
+  res.json({ subscription: plan, ...access, subscribedApps: access.entitledApps });
 });
 
 /**

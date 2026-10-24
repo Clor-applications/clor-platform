@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 
 import { FEATURE_GROUPS, groupForFeature, settingsLinkFor, groupMeta } from './featureRegistry';
+import { appSource } from '../../testing/appSource.js';
 
 /**
  * The Features screen groups the way the business thinks.
@@ -103,9 +104,12 @@ describe('the switches that need somewhere to go next', () => {
   it('names a screen that actually exists', () => {
     /* A link to a screen the router does not know is a dead end, and nothing
        else would catch it. */
-    const app = readFileSync('apps/accounting/src/App.jsx', 'utf8');
+    const app = appSource('apps/accounting/src/App.jsx');
+    /* A screen the switch renders, or one that now opens in Workspace (COMPANY_ADMIN_REDIRECTS, ADR-010). */
+    const redirects = app.slice(app.indexOf('const COMPANY_ADMIN_REDIRECTS = {'), app.indexOf('};', app.indexOf('const COMPANY_ADMIN_REDIRECTS = {')));
     for (const key of ['branches', 'warehouses', 'multiCurrency']) {
-      expect(app).toContain(`case '${settingsLinkFor(key).key}':`);
+      const target = settingsLinkFor(key).key;
+      expect(app.includes(`case '${target}':`) || redirects.includes(`  ${target}: [`)).toBe(true);
     }
   });
 

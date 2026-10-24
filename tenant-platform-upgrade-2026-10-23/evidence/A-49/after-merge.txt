@@ -1,0 +1,64 @@
+# A-49 after merging refs/heads/claude/subscription-provisioning-gap-003-b84bad (345865a, A-14..A-22) into claude/batch7-manifest-37f308
+
+## Before the script change: the merged tree with the c8fbf46 script
+# $ node tenant-platform-upgrade-2026-10-23/scripts/inventory-routes.mjs --check
+{
+  "output": "(check only)",
+  "routes": 731,
+  "principals": {
+    "machine-token": 51,
+    "public": 23,
+    "human-tenant": 606,
+    "human-global": 8,
+    "platform-operator": 1,
+    "employee-token": 42
+  },
+  "mutating": 444,
+  "mutatingWithPermission": 373,
+  "mutatingWithEntitlementOnly": 46,
+  "knownGaps": [
+    "DELETE /api/orgs/:orgId/closure (server/src/routes/companyClosure.ts:63)",
+    "POST /api/orgs/:orgId/closure (server/src/routes/companyClosure.ts:44)"
+  ],
+  "unmountedRouters": [],
+  "violations": 1
+}
+VIOLATION POST /api/billing/webhook: stale allow-list entry: no such route
+
+Route manifest gate failed: 1 violation(s). Guard the route, or add it to tenant-platform-upgrade-2026-10-23/route-allowlist.json with a reason.
+exit code: 1
+
+## After: app.ts routes read; requireAnyPermission/authorizeAny, mayClose, stepUpRefusal recognised; stale A-21 entries removed; /health, /ready allow-listed
+# $ node tenant-platform-upgrade-2026-10-23/scripts/inventory-routes.mjs --check
+{
+  "output": "(check only)",
+  "routes": 734,
+  "principals": {
+    "machine-token": 51,
+    "public": 26,
+    "human-tenant": 606,
+    "human-global": 8,
+    "platform-operator": 1,
+    "employee-token": 42
+  },
+  "mutating": 445,
+  "mutatingWithPermission": 375,
+  "mutatingWithEntitlementOnly": 46,
+  "knownGaps": [],
+  "unmountedRouters": [],
+  "violations": 0
+}
+exit code: 0
+
+# $ cd server && npx vitest run src/__tests__/routeManifest.test.ts --reporter=verbose
+ ✓ src/__tests__/routeManifest.test.ts > route manifest (A-49) > mounts each router where app.ts mounts it 1ms
+ ✓ src/__tests__/routeManifest.test.ts > route manifest (A-49) > sees permission checks however a route spells them 1ms
+ ✓ src/__tests__/routeManifest.test.ts > route manifest (A-49) > fails a write that nothing guards and the allow-list does not name 633ms
+ ✓ src/__tests__/routeManifest.test.ts > route manifest (A-49) > passes on this branch: every write is guarded or allow-listed, and every public or token route has a reason 2ms
+ Test Files  1 passed (1)
+      Tests  4 passed (4)
+
+# $ npm run typecheck
+exit code: 0
+# $ npx eslint tenant-platform-upgrade-2026-10-23/scripts/inventory-routes.mjs
+exit code: 0

@@ -31,4 +31,14 @@ describe('app addresses', () => {
     expect(hostForApp('payroll', '127.0.0.1')).toBeNull();
     expect(hostForApp('payroll', '64de3a9f.clor-app.pages.dev')).toBeNull();
   });
+
+  /* ADR-010: Workspace is the front door's own workspace. */
+  it('opens Workspace on the front door, from any app address', () => {
+    expect(hostForApp('admin', 'accounting.clor.in')).toBe('app.clor.in');
+    expect(hostForApp('admin', 'payroll.clor.in')).toBe('app.clor.in');
+    /* Already there: the shell compares with its own host and does not forward to itself. */
+    expect(hostForApp('admin', 'app.clor.in')).toBe('app.clor.in');
+    expect(hostForApp('admin', 'localhost')).toBeNull();
+  });
 });
+

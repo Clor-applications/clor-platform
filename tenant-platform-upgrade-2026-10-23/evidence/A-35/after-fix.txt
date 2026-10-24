@@ -1,0 +1,47 @@
+ DEPRECATED  `test.poolOptions` was removed in Vitest 4. All previous `poolOptions` are now top-level options. Please, refer to the migration guide: https://vitest.dev/guide/migration#pool-rework
+
+ RUN  v4.1.10 /Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_27064", schema "accounting" at "localhost:5432"
+
+The PostgreSQL database "clor_test_27064" schema "accounting" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 1.16s
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/payroll/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_27064", schema "payroll" at "localhost:5432"
+
+The PostgreSQL database "clor_test_27064" schema "payroll" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 589ms
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/people/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_27064", schema "people" at "localhost:5432"
+
+The PostgreSQL database "clor_test_27064" schema "people" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 1.24s
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/platform/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_27064", schema "platform" at "localhost:5432"
+
+The PostgreSQL database "clor_test_27064" schema "platform" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 1.01s
+
+PATCH /api/orgs/cmvlhbn3f000tqovylxfp7x8f/invoices/d190af0d-9c0f-43fe-b168-1cfaf40c94c5 404 29 - 159.370 ms
+PATCH /api/orgs/cmvlhbn3f000tqovylxfp7x8f/invoices/d190af0d-9c0f-43fe-b168-1cfaf40c94c5/status 404 29 - 108.641 ms
+PATCH /api/orgs/cmvlhbn3f000tqovylxfp7x8f/warehouses/cmvlhbn4s0000g17bhc780jx1 404 31 - 11.505 ms
+PATCH /api/orgs/cmvlhbn3f000tqovylxfp7x8f/branches/cmvlhbn3j000vqovyhqtm9h2y 404 28 - 8.664 ms
+PATCH /api/orgs/cmvlhbn3f000tqovylxfp7x8f/roles/cmvlhbn5t001hqovyiroewkd4 404 26 - 18.269 ms
+
+ Test Files  4 passed (4)
+      Tests  34 passed (34)
+   Start at  02:55:26
+   Duration  27.74s (transform 3.23s, setup 64ms, import 8.64s, tests 5.14s, environment 0ms)
+

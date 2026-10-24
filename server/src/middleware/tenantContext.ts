@@ -2,8 +2,10 @@ import type { Request, Response, NextFunction } from 'express';
 import { prisma } from '../utils/prisma.js';
 import { platformPrisma } from '../utils/platformPrisma.js';
 import { cachedAccess } from '../utils/accessCache.js';
-import { runInTenant } from '../utils/tenantScope.js';
+import { outsideTenant, runInTenant } from '../utils/tenantScope.js';
 import { TWO_FACTOR_SETUP_PATHS, adminTwoFactorMissing } from '../services/twoFactorPolicy.js';
+import { userIsAdmin } from '../services/roleGuards.js';
+import { outsideAccessFor } from '../services/outsideAccess.js';
 
 export type TenantContext = {
   accountId: string;
@@ -15,6 +17,8 @@ export type TenantContext = {
   /** What the client asked for, permitted or not. */
   requestedWarehouseId?: string;
   allowedWarehouseIds?: string[];
+  /** GAP-006: for a person from another account, the apps the company let them use here (null = all it has). */
+  outsideApps?: string[] | null;
 };
 
 declare module 'express-serve-static-core' {
@@ -61,10 +65,11 @@ export async function requireTenantContext(req: Request, res: Response, next: Ne
 
   const result = await cachedAccess(
     `tenant|${userId}|${orgId}|${branchId}|${warehouseId}`,
-    () => resolveTenant(userId, orgId, branchId, warehouseId),
+    /* Is this person a member of this company at all: asked before the company is in scope (A-35). */
+    () => outsideTenant('tenant context: membership of the company asked for', () => resolveTenant(userId, orgId, branchId, warehouseId)),
     (r) => 'tenant' in r // cache grants only; a denial is re-checked every time
   );
-  if (!('tenant' in result)) return res.status(result.status).json({ error: result.error });
+  if (!('tenant' in result)) return res.status(result.status).json({ error: result.error, ...(result.code ? { code: result.code } : {}) });
   req.tenant = { ...result.tenant }; // the cached object is shared between requests
 
   /*
@@ -72,7 +77,7 @@ export async function requireTenantContext(req: Request, res: Response, next: Ne
    * (SX-09): until this person sets up an authenticator, only their own
    * two-factor set-up is open to them here.
    */
-  const mustSetUp = await cachedAccess(`2fa|${userId}|${orgId}`, () => adminTwoFactorMissing(userId, orgId));
+  const mustSetUp = await cachedAccess(`2fa|${userId}|${orgId}`, () => runInTenant(orgId, () => adminTwoFactorMissing(userId, orgId)));
   if (mustSetUp && !TWO_FACTOR_SETUP_PATHS.test(req.path)) {
     return res.status(403).json({ error: 'This company asks owners and admins to sign in with an authenticator app. Set one up under My profile → Security first.', code: 'TWO_FACTOR_SETUP_REQUIRED' });
   }
@@ -81,7 +86,7 @@ export async function requireTenantContext(req: Request, res: Response, next: Ne
   runInTenant(req.tenant.orgId, () => next());
 }
 
-type TenantResult = { tenant: TenantContext } | { status: number; error: string };
+type TenantResult = { tenant: TenantContext } | { status: number; error: string; code?: string };
 
 /**
  * The membership checks behind requireTenantContext, as a pure lookup so the
@@ -97,27 +102,44 @@ async function resolveTenant(userId: string, orgId: string, branchId: string, wa
   // The owning account, established by the membership that just authorised it.
   const accountId = orgMember.accountId;
 
+  /*
+   * A-09: and checked against the company itself. A membership row naming the
+   * wrong account (nothing writes one today; the unique key would allow it)
+   * would otherwise carry its account into every check that follows.
+   */
+  const owner = await platformPrisma.org.findUnique({ where: { id: orgId }, select: { accountId: true } });
+  if (!owner || owner.accountId !== accountId) return { status: 403, error: 'No access to org' };
+
+  /*
+   * GAP-006: somebody from another account (an accountant, an auditor) is let
+   * in by the company's own engagement — live, not paused, not past its end —
+   * or not at all. Their membership alone opens nothing.
+   */
+  const outside = await outsideAccessFor(userId, orgId, accountId);
+  if (!outside.own && 'refused' in outside && outside.refused) return { status: 403, error: outside.refused.error, code: outside.refused.code };
+  const outsideApps = !outside.own && 'apps' in outside ? outside.apps ?? null : undefined;
+
   let branchMember = await platformPrisma.userBranchMembership.findFirst({
     where: { accountId, orgId, branchId, userId },
     select: { id: true },
   });
 
   /*
-   * The org creator reaches every branch in their own organisation — the
+   * An administrator of the whole company reaches every branch in it — the
    * same safety net the warehouses carry below, for the same reason:
    * membership is only ever granted by an administrator assigning it to
-   * somebody else, so the creator of a brand-new branch had none and every
-   * route 403ed with no way to grant it to themselves. Narrow on purpose:
-   * the creator of THIS org, a branch that really is in it, nobody else.
-   * The membership row is written so the grant is visible and permanent
-   * rather than re-derived on every request.
+   * somebody else, so the administrator of a brand-new branch had none and
+   * every route 403ed with no way to grant it to themselves. Narrow on
+   * purpose: a company-wide administrator of THIS org, a branch that really
+   * is in it. The membership row is written so the grant is visible and
+   * permanent rather than re-derived on every request.
+   *
+   * A-24: this used to be the person who created the company, whatever their
+   * role now — a creator an administrator had demoted still reached every
+   * branch and warehouse, and a second administrator reached none.
    */
   if (!branchMember) {
-    const org = await platformPrisma.org.findFirst({
-      where: { accountId, id: orgId },
-      select: { createdByUserId: true },
-    });
-    if (org?.createdByUserId === userId) {
+    if (await reachesEverything(accountId, orgId, userId)) {
       const inOrg = await platformPrisma.branch.findFirst({
         where: { id: branchId, accountId, orgId },
         select: { id: true },
@@ -155,20 +177,14 @@ async function resolveTenant(userId: string, orgId: string, branchId: string, wa
     });
     allowedWarehouseIds = allWh.map((x: { warehouseId: string }) => x.warehouseId);
 
-    // The org creator reaches every warehouse in their own organisation.
+    // A company-wide administrator reaches every warehouse in the company.
     //
     // Warehouse access is only ever granted by an administrator assigning it to
-    // somebody else, so the creator of a brand-new company had none: they could
-    // create a warehouse and then be told 'No access to warehouse' by every
-    // stock route, with no way to grant it to themselves. This mirrors the
-    // permission safety net in rbac.ts, and is deliberately narrow — it applies
-    // to the creator of this org and to nobody else.
+    // somebody else, so the administrator of a brand-new company had none: they
+    // could create a warehouse and then be told 'No access to warehouse' by
+    // every stock route, with no way to grant it to themselves.
     if (!allowedWarehouseIds.includes(warehouseId)) {
-      const org = await platformPrisma.org.findFirst({
-        where: { accountId, id: orgId },
-        select: { createdByUserId: true },
-      });
-      if (org?.createdByUserId === userId) {
+      if (await reachesEverything(accountId, orgId, userId)) {
         const inOrg = await prisma.warehouse.findFirst({
           where: { id: warehouseId, accountId, orgId },
           select: { id: true },
@@ -189,22 +205,21 @@ async function resolveTenant(userId: string, orgId: string, branchId: string, wa
     warehouseId: resolvedWarehouseId,
     requestedWarehouseId: warehouseId || undefined,
     allowedWarehouseIds: allowedWarehouseIds.length ? allowedWarehouseIds : undefined,
+    ...(outsideApps !== undefined ? { outsideApps } : {}),
   };
   return { tenant };
 
 }
 
-const isOrgCreator = async (accountId: string, orgId: string, userId: string) => {
-  const org = await platformPrisma.org.findFirst({ where: { accountId, id: orgId }, select: { createdByUserId: true } });
-  return org?.createdByUserId === userId;
-};
+/** Who reaches every branch and warehouse without a grant: a company-wide administrator (A-24). */
+const reachesEverything = (accountId: string, orgId: string, userId: string) => userIsAdmin(accountId, orgId, userId);
 
 /**
  * Whether this person may act in this branch / warehouse, for routes that
  * name one in the body rather than the header.
  *
- * The same rule the header path above applies — an explicit grant, or the
- * org's creator reaching anything that is really in their org — in one place.
+ * The same rule the header path above applies — an explicit grant, or a
+ * company-wide administrator reaching anything that is really in the company.
  * Stock adjustments and inter-branch transfers read the grant tables
  * directly, so the creator of a company was told "No access to warehouse"
  * there and nowhere else.
@@ -212,15 +227,35 @@ const isOrgCreator = async (accountId: string, orgId: string, userId: string) =>
 export async function userMayUseBranch(accountId: string, orgId: string, userId: string, branchId: string) {
   const m = await platformPrisma.userBranchMembership.findFirst({ where: { accountId, orgId, branchId, userId }, select: { id: true } });
   if (m) return true;
-  if (!(await isOrgCreator(accountId, orgId, userId))) return false;
+  if (!(await reachesEverything(accountId, orgId, userId))) return false;
   return Boolean(await platformPrisma.branch.findFirst({ where: { id: branchId, accountId, orgId }, select: { id: true } }));
 }
 
 export async function userMayUseWarehouse(accountId: string, orgId: string, userId: string, warehouseId: string) {
   const m = await platformPrisma.userWarehouseAccess.findFirst({ where: { accountId, orgId, warehouseId, userId }, select: { id: true } });
   if (m) return true;
-  if (!(await isOrgCreator(accountId, orgId, userId))) return false;
+  if (!(await reachesEverything(accountId, orgId, userId))) return false;
   return Boolean(await prisma.warehouse.findFirst({ where: { id: warehouseId, accountId, orgId }, select: { id: true } }));
+}
+
+/**
+ * Why a warehouse named in a document's body must be refused, or null (A-24).
+ *
+ * Invoices, bills, debit notes, orders and POS sales stored whatever
+ * `warehouseId` the body carried — another company's, or one this person was
+ * never given — and the stock check then read and moved stock there. Empty
+ * means "no particular warehouse" and is allowed.
+ */
+export async function warehouseRefusal(req: Request, warehouseId: unknown) {
+  const id = String(warehouseId ?? '').trim();
+  if (!id) return null;
+  const { accountId, orgId } = req.tenant!;
+  const inOrg = await prisma.warehouse.findFirst({ where: { id, accountId, orgId }, select: { id: true } });
+  if (!inOrg) return { status: 400, body: { error: 'That warehouse is not in this company.', code: 'WAREHOUSE_NOT_IN_COMPANY' } };
+  if (!(await userMayUseWarehouse(accountId, orgId, req.auth!.userId, id))) {
+    return { status: 403, body: { error: 'No access to warehouse', code: 'NO_WAREHOUSE_ACCESS' } };
+  }
+  return null;
 }
 
 /**

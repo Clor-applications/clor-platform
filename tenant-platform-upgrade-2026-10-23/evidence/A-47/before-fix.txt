@@ -1,0 +1,201 @@
+# A-47 BEFORE fix: source files swapped back to HEAD (32d9ee2): src/services/companyClosure.ts
+# 2026-10-23T14:26:32Z  npx vitest run src/__tests__/closurePurgeResume.test.ts src/__tests__/companyClosure.test.ts
+ DEPRECATED  `test.poolOptions` was removed in Vitest 4. All previous `poolOptions` are now top-level options. Please, refer to the migration guide: https://vitest.dev/guide/migration#pool-rework
+
+ RUN  v4.1.10 /Users/suresh/Desktop/clor-platform/.claude/worktrees/batch6-workers-fb00cd/server
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_46006", schema "accounting" at "localhost:5432"
+
+The PostgreSQL database "clor_test_46006" schema "accounting" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 510ms
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/payroll/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_46006", schema "payroll" at "localhost:5432"
+
+The PostgreSQL database "clor_test_46006" schema "payroll" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 339ms
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/people/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_46006", schema "people" at "localhost:5432"
+
+The PostgreSQL database "clor_test_46006" schema "people" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 336ms
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/platform/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_46006", schema "platform" at "localhost:5432"
+
+The PostgreSQL database "clor_test_46006" schema "platform" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 460ms
+
+POST /api/auth/signup 200 570 - 89.675 ms
+POST /api/auth/setup-company 200 180 - 231.669 ms
+PUT /api/orgs/cmvl2cqf6000e6b0kgtwbl1kw/features 200 1173 - 203.843 ms
+POST /api/orgs/cmvl2cqf6000e6b0kgtwbl1kw/people/employees 201 1668 - 196.512 ms
+POST /api/orgs/cmvl2cqf6000e6b0kgtwbl1kw/closure 409 149 - 258.239 ms
+GET /api/orgs/cmvl2cqf6000e6b0kgtwbl1kw/export?scope=all 200 125738 - 749.973 ms
+GET /api/orgs/cmvl2cqf6000e6b0kgtwbl1kw/closure 200 123 - 142.856 ms
+POST /api/orgs/cmvl2cqf6000e6b0kgtwbl1kw/closure 400 76 - 111.715 ms
+POST /api/auth/signup 200 570 - 40.095 ms
+POST /api/auth/setup-company 200 180 - 126.584 ms
+PUT /api/orgs/cmvl2crxs00qv6b0kb7fg8xdc/features 200 1173 - 151.013 ms
+POST /api/orgs/cmvl2crxs00qv6b0kb7fg8xdc/people/employees 201 1668 - 72.945 ms
+GET /api/orgs/cmvl2crxs00qv6b0kb7fg8xdc/export?scope=all 200 125738 - 338.763 ms
+POST /api/orgs/cmvl2crxs00qv6b0kb7fg8xdc/closure 201 576 - 109.113 ms
+POST /api/orgs/cmvl2crxs00qv6b0kb7fg8xdc/closure 409 83 - 133.463 ms
+DELETE /api/orgs/cmvl2crxs00qv6b0kb7fg8xdc/closure 200 621 - 124.560 ms
+POST /api/orgs/cmvl2crxs00qv6b0kb7fg8xdc/closure 201 553 - 105.744 ms
+POST /api/auth/signup 200 570 - 24.555 ms
+POST /api/auth/setup-company 200 180 - 101.249 ms
+PUT /api/orgs/cmvl2ct8q01936b0kiu7m00uj/features 200 1173 - 150.629 ms
+POST /api/orgs/cmvl2ct8q01936b0kiu7m00uj/people/employees 201 1668 - 79.758 ms
+POST /api/auth/signup 200 570 - 5.901 ms
+POST /api/auth/setup-company 200 180 - 84.875 ms
+PUT /api/orgs/cmvl2cti101r16b0k25qk3z6r/features 200 1173 - 129.553 ms
+POST /api/orgs/cmvl2cti101r16b0k25qk3z6r/people/employees 201 1668 - 57.245 ms
+GET /api/orgs/cmvl2ct8q01936b0kiu7m00uj/export?scope=all 200 125738 - 224.054 ms
+POST /api/orgs/cmvl2ct8q01936b0kiu7m00uj/closure 201 553 - 109.474 ms
+POST /api/auth/signup 200 568 - 42.909 ms
+POST /api/auth/setup-company 200 172 - 157.557 ms
+PUT /api/orgs/cmvl2cvjm000et1c41pfl3p9s/features 200 1173 - 199.187 ms
+POST /api/orgs/cmvl2cvjm000et1c41pfl3p9s/people/employees 201 1668 - 171.757 ms
+GET /api/orgs/cmvl2cvjm000et1c41pfl3p9s/export?scope=all 200 125722 - 474.440 ms
+POST /api/orgs/cmvl2cvjm000et1c41pfl3p9s/closure 201 549 - 133.848 ms
+POST /api/auth/signup 200 568 - 12.427 ms
+POST /api/auth/setup-company 200 172 - 102.257 ms
+PUT /api/orgs/cmvl2cwnq00iht1c4nzr685ml/features 200 1173 - 144.469 ms
+POST /api/orgs/cmvl2cwnq00iht1c4nzr685ml/people/employees 201 1668 - 66.722 ms
+GET /api/orgs/cmvl2cwnq00iht1c4nzr685ml/export?scope=all 200 125722 - 321.956 ms
+POST /api/orgs/cmvl2cwnq00iht1c4nzr685ml/closure 201 549 - 114.564 ms
+stdout | src/__tests__/closurePurgeResume.test.ts > A-47: the closure purge > does not begin once the instance has been told to stop
+[closure] deleted company cmvl2cvjm000et1c41pfl3p9s (A47 Co bztjug): {
+  'people.Employee': 1,
+  'people.EmploymentEvent': 1,
+  'people.ChecklistTask': 9,
+  'accounting.Warehouse': 1,
+  'accounting.Journal': 7,
+  'accounting.LedgerAccount': 21,
+  'platform.Branch': 1,
+  'platform.UserOrgMembership': 1,
+  'platform.UserWarehouseAccess': 1,
+  'platform.Role': 1,
+  'platform.AuditLog': 4,
+  'platform.FeatureSetting': 3,
+  'platform.Org': 1
+}
+
+POST /api/auth/signup 200 568 - 15.402 ms
+POST /api/auth/setup-company 200 172 - 95.898 ms
+PUT /api/orgs/cmvl2cxhh010kt1c4n2ogliod/features 200 1173 - 134.401 ms
+POST /api/orgs/cmvl2cxhh010kt1c4n2ogliod/people/employees 201 1668 - 62.797 ms
+GET /api/orgs/cmvl2cxhh010kt1c4n2ogliod/export?scope=all 200 125722 - 314.651 ms
+POST /api/orgs/cmvl2cxhh010kt1c4n2ogliod/closure 201 549 - 123.303 ms
+stdout | src/__tests__/closurePurgeResume.test.ts > A-47: the closure purge > stopped part-way (SIGTERM) starts no further store, keeps a checkpoint and resumes from it
+[closure] deleted company cmvl2cwnq00iht1c4nzr685ml (A47 Co 4ptkmd): {
+  'people.Employee': 1,
+  'people.EmploymentEvent': 1,
+  'people.ChecklistTask': 9,
+  'accounting.Warehouse': 1,
+  'accounting.Journal': 7,
+  'accounting.LedgerAccount': 21,
+  'platform.Branch': 1,
+  'platform.UserOrgMembership': 1,
+  'platform.UserWarehouseAccess': 1,
+  'platform.Role': 1,
+  'platform.AuditLog': 4,
+  'platform.FeatureSetting': 3,
+  'platform.Org': 1
+}
+
+stdout | src/__tests__/closurePurgeResume.test.ts > A-47: the closure purge > records a failure on the closure and alerts, then resumes after the stores it finished
+prisma:error Error in batch request 1: Error occurred during query execution:
+ConnectorError(ConnectorError { user_facing_error: None, kind: QueryError(PostgresError { code: "P0001", message: "a47: delete refused", severity: "ERROR", detail: None, column: None, hint: None }), transient: false })
+prisma:error 
+Invalid `delegate.deleteMany()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/batch6-workers-fb00cd/server/src/services/companyClosure.ts:128:34
+
+  125 const delegate = client[delegateKey(name)];
+  126 if (!delegate?.deleteMany) continue;
+  127 try {
+→ 128   const r = await delegate.deleteMany(
+Error in batch request 1: Error occurred during query execution:
+ConnectorError(ConnectorError { user_facing_error: None, kind: QueryError(PostgresError { code: "P0001", message: "a47: delete refused", severity: "ERROR", detail: None, column: None, hint: None }), transient: false })
+
+stdout | src/__tests__/closurePurgeResume.test.ts > A-47: the closure purge > records a failure on the closure and alerts, then resumes after the stores it finished
+prisma:error Error in batch request 1: Error occurred during query execution:
+ConnectorError(ConnectorError { user_facing_error: None, kind: QueryError(PostgresError { code: "P0001", message: "a47: delete refused", severity: "ERROR", detail: None, column: None, hint: None }), transient: false })
+prisma:error 
+Invalid `delegate.deleteMany()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/batch6-workers-fb00cd/server/src/services/companyClosure.ts:128:34
+
+  125 const delegate = client[delegateKey(name)];
+  126 if (!delegate?.deleteMany) continue;
+  127 try {
+→ 128   const r = await delegate.deleteMany(
+Error in batch request 1: Error occurred during query execution:
+ConnectorError(ConnectorError { user_facing_error: None, kind: QueryError(PostgresError { code: "P0001", message: "a47: delete refused", severity: "ERROR", detail: None, column: None, hint: None }), transient: false })
+
+ ❯ src/__tests__/closurePurgeResume.test.ts (3 tests | 3 failed) 3593ms
+     × does not begin once the instance has been told to stop 1497ms
+     × stopped part-way (SIGTERM) starts no further store, keeps a checkpoint and resumes from it 1069ms
+     × records a failure on the closure and alerts, then resumes after the stores it finished 1020ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/__tests__/closurePurgeResume.test.ts > A-47: the closure purge > does not begin once the instance has been told to stop
+AssertionError: expected +0 to be 1 // Object.is equality
+
+- Expected
++ Received
+
+- 1
++ 0
+
+ ❯ src/__tests__/closurePurgeResume.test.ts:85:35
+     83|       jobLease._resetForTests();
+     84|     }
+     85|     expect(await people(c.orgId)).toBe(1);
+       |                                   ^
+     86|     expect((await closureOf(c.orgId)).status).toBe('SCHEDULED');
+     87|     /* Finished on the next run. */
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  src/__tests__/closurePurgeResume.test.ts > A-47: the closure purge > stopped part-way (SIGTERM) starts no further store, keeps a checkpoint and resumes from it
+AssertionError: expected 0 to be greater than 0
+ ❯ src/__tests__/closurePurgeResume.test.ts:108:33
+    106|     }
+    107|     expect(await people(c.orgId)).toBe(0);
+    108|     expect(await books.count()).toBeGreaterThan(0);
+       |                                 ^
+    109|     const cut = await closureOf(c.orgId);
+    110|     expect(cut.status).toBe('SCHEDULED');
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  src/__tests__/closurePurgeResume.test.ts > A-47: the closure purge > records a failure on the closure and alerts, then resumes after the stores it finished
+TypeError: .toMatch() expects to receive a string, but got object
+ ❯ src/__tests__/closurePurgeResume.test.ts:138:31
+    136|     const failed = await closureOf(c.orgId);
+    137|     expect(failed.status).toBe('SCHEDULED');
+    138|     expect(failed.purgeError).toMatch(new RegExp(books.model));
+       |                               ^
+    139|     expect(failed.purgeAttempts).toBe(1);
+    140|     expect(JSON.parse(failed.purgeProgress || '{}').done).toEqual(['pe…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+
+
+ Test Files  1 failed | 1 passed (2)
+      Tests  3 failed | 3 passed (6)
+   Start at  19:56:33
+   Duration  22.54s (transform 2.15s, setup 33ms, import 4.87s, tests 9.45s, environment 0ms)
+

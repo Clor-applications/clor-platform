@@ -1,0 +1,11 @@
+{
+  "finding": "A-10 (2FA turn-off)",
+  "where": "Browser pane, Settings > Login & Security > My account, local test admin",
+  "steps": [
+    "Set up authenticator (QR key read from the page, code generated locally) -> On, 8 recovery codes shown",
+    "Turn-off form now has 'Your password' + 'Code or recovery code'; Turn off disabled with password only",
+    "Direct call with password only: POST /security/two-factor/disable -> 400 {code:'BAD_CODE'}",
+    "Password + a recovery code via the form -> 'Authenticator turned off.'"
+  ],
+  "before_fix": "before-fix.txt: password-only disable returned 200; HS512-signed token accepted (200); /auth/me echoed another company's id"
+}

@@ -1,7 +1,7 @@
 import { prisma } from '../utils/prisma.js';
 import { platformPrisma } from '../utils/platformPrisma.js';
 import { ROLE_PRESETS, expandPreset, permKey } from '../constants/permissionCatalog.js';
-import { ensurePermissionCatalog } from '../routes/permissions.js';
+import { ensurePermissionCatalog } from './permissionCatalogSeed.js';
 
 /**
  * Seeds the standard roles for an organisation — requirement: the user-create

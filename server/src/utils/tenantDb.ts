@@ -1,6 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 
 import { prisma } from './prisma.js';
+import { outsideTenant, runInTenant } from './tenantScope.js';
 
 /**
  * Row-level security: the database's own opinion about which company a query
@@ -49,16 +50,13 @@ export async function withTenant<T>(orgId: string, fn: (db: TenantClient) => Pro
   const id = String(orgId || '').trim();
   if (!id) throw new Error('withTenant needs a company. An empty one would see nothing, which is not what any caller means.');
 
-  return prisma.$transaction(async (tx) => {
-    /*
-     * set_config with `true` is SET LOCAL. Passed as a parameter rather than
-     * interpolated: an org id arrives from a request header, and the one place
-     * a tenant boundary is established is the last place to build SQL from a
-     * string.
-     */
-    await tx.$executeRaw`SELECT set_config(${TENANT_SETTING}, ${id}, true)`;
-    return fn(tx as unknown as TenantClient);
-  });
+  /*
+   * The scope does the setting (utils/tenantScope.ts): the company, with the
+   * bypass off, SET LOCAL to this transaction. Setting clor.org_id by hand
+   * here left the bypass as the surrounding scope had it — on, outside a
+   * request — and under fail-closed policies (A-35) that showed every company.
+   */
+  return runInTenant(id, () => prisma.$transaction(async (tx) => fn(tx as unknown as TenantClient)));
 }
 
 /**
@@ -71,10 +69,7 @@ export async function withTenant<T>(orgId: string, fn: (db: TenantClient) => Pro
  */
 export async function withoutTenantBoundary<T>(reason: string, fn: (db: TenantClient) => Promise<T>): Promise<T> {
   if (!reason.trim()) throw new Error('Crossing the tenant boundary needs a reason, for whoever reads this next.');
-  return prisma.$transaction(async (tx) => {
-    await tx.$executeRaw`SELECT set_config(${TENANT_SETTING}, '', true)`;
-    return fn(tx as unknown as TenantClient);
-  });
+  return outsideTenant(reason, () => prisma.$transaction(async (tx) => fn(tx as unknown as TenantClient)));
 }
 
 /** Which company the current connection believes it is working for. */

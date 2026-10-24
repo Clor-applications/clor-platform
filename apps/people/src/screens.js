@@ -1,3 +1,5 @@
+import React from 'react';
+import OpenInCompanyAdmin from '@ui/company/OpenInCompanyAdmin';
 /**
  * Every screen People shows, in one place, so the manifest can load
  * them as one file the first time the app opens (WX-03). The manifest names
@@ -5,10 +7,18 @@
  */
 export { default as PeopleOverview } from './screens/PeopleOverview';
 export { Employees } from './screens/EmployeesList';
+export { default as Approvals } from './screens/Approvals';
+export { default as Policies } from './screens/Policies';
+export { default as ApprovalRules } from './screens/ApprovalRules';
+export { default as HelpDesk } from './screens/HelpDesk';
+export { default as HelpDeskSettings } from './screens/HelpDeskSettings';
 export { default as OrgChart } from './screens/OrgChart';
 export { default as Tags } from './screens/Tags';
 export { DataHealth } from './screens/DataHealth';
 export { default as Checklists } from '@ui/personnel/Checklists';
+export { default as LetterTemplates } from '@ui/personnel/LetterTemplates';
+export { default as CustomFieldsSettings } from '@ui/personnel/CustomFieldsSettings';
+export { default as SelfServiceSettings } from '@ui/personnel/SelfServiceSettings';
 export { default as ComplianceCalendar } from '@ui/personnel/ComplianceCalendar';
 export { Departments, EmployeeTypes, JobRoles, WorkTypes } from '@ui/personnel/StructureList';
 export { JobPositions } from './screens/Designations';
@@ -28,16 +38,21 @@ export { default as TeamAttendance } from './timeOff/TeamAttendance';
 export { default as MyDays } from './timeOff/MyDays';
 export { default as MyLeave } from '../../attendance/src/screens/MyLeave';
 export { default as DataImport } from '../../attendance/src/screens/DataImport';
-export { default as AuditLogs } from '../../attendance/src/screens/AuditLogs';
+/* One audit trail for the company, in Workspace (ADR-010); this opens it on People and Attendance's share. */
+export const AuditLogs = () => React.createElement(OpenInCompanyAdmin, { title: 'Audit Logs', screen: 'audit', forApp: 'attendance' });
 /* Settings (People → Settings): the hub, company master data, and the shared screens it opens. */
 export { default as PeopleSettings } from './screens/PeopleSettings';
 export { default as PeopleModules } from './screens/PeopleModules';
 export { default as CompanyDetails } from '@ui/company/CompanyDetails';
-export { BusinessUnits, Grades, CostCentres } from '@ui/personnel/StructureList';
+export { BusinessUnits, Grades, CostCentres, LegalEntities, Establishments, Teams, Seats } from '@ui/personnel/StructureList';
 export { Areas as Locations } from '../../attendance/src/screens/OrgLists';
 export { default as Integrations } from '../../attendance/src/screens/Integrations';
 export { default as DataExport } from '../../attendance/src/screens/DataExport';
 export { default as RecycleBin } from '../../attendance/src/screens/RecycleBin';
 export { default as DataProtection } from '../../attendance/src/screens/DataProtection';
 export { default as DataRequests } from '../../attendance/src/screens/DataRequests';
-export { default as SsoSettings } from '../../accounting/src/features/account/SsoSettings';
+/* Sign-in, SSO, users and roles are the company's: they live in Workspace (ADR-010), and this entry opens it. */
+export const SsoSettings = () => React.createElement(OpenInCompanyAdmin, { title: 'Users & Security', screen: 'sso' });
+/* This app's roles and permissions, in Workspace's one role editor, opened on People's share (ADR-010). */
+export const RolesAccess = () => React.createElement(OpenInCompanyAdmin, { title: 'Roles & Access', screen: 'permissions', forApp: 'people' });
+

@@ -1,0 +1,108 @@
+ DEPRECATED  `test.poolOptions` was removed in Vitest 4. All previous `poolOptions` are now top-level options. Please, refer to the migration guide: https://vitest.dev/guide/migration#pool-rework
+
+ RUN  v4.1.10 /Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_7336", schema "accounting" at "localhost:5432"
+
+The PostgreSQL database "clor_test_7336" schema "accounting" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 1.71s
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/payroll/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_7336", schema "payroll" at "localhost:5432"
+
+The PostgreSQL database "clor_test_7336" schema "payroll" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 372ms
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/people/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_7336", schema "people" at "localhost:5432"
+
+The PostgreSQL database "clor_test_7336" schema "people" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 776ms
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/platform/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_7336", schema "platform" at "localhost:5432"
+
+The PostgreSQL database "clor_test_7336" schema "platform" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 325ms
+
+[setup] 180 policy statements applied to clor_test_7336
+[setup] 7 policy statements applied to clor_test_7336
+[setup] 10 policy statements applied to clor_test_7336
+[setup] 35 policy statements applied to clor_test_7336
+[setup] 4 policy statements applied to clor_test_7336
+[setup] 1 policy statements applied to clor_test_7336
+[setup] 96 policy statements applied to clor_test_7336
+[setup] 4 policy statements applied to clor_test_7336
+[setup] 4 policy statements applied to clor_test_7336
+[setup] 4 policy statements applied to clor_test_7336
+[setup] 1 policy statements applied to clor_test_7336
+[setup] 4 policy statements applied to clor_test_7336
+[setup] 32 policy statements applied to clor_test_7336
+[setup] 24 policy statements applied to clor_test_7336
+[setup] 12 policy statements applied to clor_test_7336
+[setup] 16 policy statements applied to clor_test_7336
+[setup] 4 policy statements applied to clor_test_7336
+[setup] 4 policy statements applied to clor_test_7336
+[setup] 8 policy statements applied to clor_test_7336
+[setup] 8 policy statements applied to clor_test_7336
+[setup] 20 policy statements applied to clor_test_7336
+[setup] 8 policy statements applied to clor_test_7336
+[setup] 4 policy statements applied to clor_test_7336
+[setup] 8 policy statements applied to clor_test_7336
+[setup] 8 policy statements applied to clor_test_7336
+[setup] 12 policy statements applied to clor_test_7336
+[setup] 4 policy statements applied to clor_test_7336
+[setup] 8 policy statements applied to clor_test_7336
+[setup] 28 policy statements applied to clor_test_7336
+[setup] 4 policy statements applied to clor_test_7336
+[setup] 4 policy statements applied to clor_test_7336
+[setup] 4 policy statements applied to clor_test_7336
+[setup] 8 policy statements applied to clor_test_7336
+[setup] 4 policy statements applied to clor_test_7336
+[setup] 4 policy statements applied to clor_test_7336
+[setup] 4 policy statements applied to clor_test_7336
+[setup] 4 policy statements applied to clor_test_7336
+[setup] 8 policy statements applied to clor_test_7336
+[setup] 4 policy statements applied to clor_test_7336
+[setup] 12 policy statements applied to clor_test_7336
+[setup] 4 policy statements applied to clor_test_7336
+[setup] 1 policy statements applied to clor_test_7336
+[setup] 4 policy statements applied to clor_test_7336
+[setup] 76 policy statements applied to clor_test_7336
+[setup] 4 policy statements applied to clor_test_7336
+[setup] 4 policy statements applied to clor_test_7336
+[setup] 4 policy statements applied to clor_test_7336
+[setup] 4 policy statements applied to clor_test_7336
+[setup] 1 policy statements applied to clor_test_7336
+[setup] 8 policy statements applied to clor_test_7336
+ ❯ src/__tests__/crossStoreCheck.test.ts (0 test)
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/__tests__/crossStoreCheck.test.ts [ src/__tests__/crossStoreCheck.test.ts ]
+Error: Cannot find module '/src/services/integrity/checks.js' imported from /Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/__tests__/crossStoreCheck.test.ts
+ ❯ src/__tests__/crossStoreCheck.test.ts:18:26
+     16| const { outsideTenant } = await import('../utils/tenantScope.js');
+     17| const { issueCredential, SYSTEM } = await import('../services/credenti…
+     18| const { checkCompany } = await import('../services/integrity/checks.js…
+       |                          ^
+     19|
+     20| const app = buildApp().listen(0);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  no tests
+   Start at  13:02:40
+   Duration  15.70s (transform 2.38s, setup 19ms, import 0ms, tests 0ms, environment 0ms)
+

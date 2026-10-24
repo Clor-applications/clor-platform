@@ -1,0 +1,17 @@
+GAP-012 browser check — 2026-10-24, local dev (web :5173 proxying API :4002 as clor_app)
+Signed in as the local test owner of BUTR-C100 (Accounting home renders normally after the change).
+fetch() from the page, response headers:
+
+Signed in (Bearer + x-org-id + x-branch-id):
+  /api/orgs/:org/features                          → 200 cache-control: private, no-store
+  /api/orgs/:org/people/documents                  → 200 cache-control: private, no-store
+  /api/orgs/:org/people/documents/not-a-doc        → 404 cache-control: private, no-store
+  /api/orgs/:org/attendance/punch-photos/not-a-photo → 404 cache-control: private, no-store
+Not signed in:
+  /api/orgs/:org/features                          → 401 cache-control: private, no-store
+  /api/portal/documents/x                          → 401 cache-control: private, no-store
+  /api/health                                      → 401 cache-control: private, no-store
+
+Before the fix (server test, before-fix.txt): four of the five file routes sent no Cache-Control at all:
+  /api/orgs/:org/people/documents/:id, /api/orgs/:org/people/compliance/:id/evidence,
+  /api/portal/documents/:id, /api/portal/approvals/punch/:id/photo

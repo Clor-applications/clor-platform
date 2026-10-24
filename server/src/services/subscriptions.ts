@@ -31,7 +31,7 @@ export async function getSubscription(accountId: string) {
 }
 
 export type AppAccess = {
-  /** False when the account has no subscription row: nothing is restricted. */
+  /** False only for an explicitly grandfathered legacy account. */
   restricted: boolean;
   inGoodStanding: boolean;
   status: string | null;
@@ -46,11 +46,10 @@ export type AppAccess = {
 /**
  * What the account may have, at the level of whole apps.
  *
- * No subscription row means NO restriction — every sellable app — for the same
- * reason the entitlement layer defaults to FULL: every account that exists
- * today has no row, and introducing subscriptions must not take anything away
- * from anyone the day it ships. A restriction is something you assign (a
- * signup, a sale), never something a deploy does to you.
+ * Existing accounts without a subscription were explicitly marked by the
+ * rollout migration, preserving their previous access. Any unmarked account
+ * without a subscription fails closed. New signups receive an explicit
+ * bootstrap subscription, so missing provisioning cannot silently grant apps.
  *
  * Lapsing does not hide owned apps: the shell keeps showing them (the data is
  * the customer's) and warns; enforcement uses entitledApps.
@@ -58,6 +57,18 @@ export type AppAccess = {
 export async function appAccess(accountId: string): Promise<AppAccess> {
   const sub = await getSubscription(accountId);
   if (!sub) {
+    const legacy = await platformPrisma.account.findUnique({ where: { id: accountId }, select: { legacyUnrestrictedAt: true } });
+    if (!legacy?.legacyUnrestrictedAt) {
+      return {
+        restricted: true,
+        inGoodStanding: false,
+        status: null,
+        ownedApps: [],
+        entitledApps: [],
+        trialEndsAt: null,
+        currentPeriodEnd: null,
+      };
+    }
     return {
       restricted: false,
       inGoodStanding: true,
@@ -125,37 +136,41 @@ export async function setSubscription(accountId: string, input: SetSubscriptionI
   const status = input.status || (trialEndsAt ? 'trialing' : 'active');
   const before = new Set((await getSubscription(accountId))?.items.map((i) => i.appCode) || []);
 
-  const sub = await platformPrisma.subscription.upsert({
-    where: { accountId },
-    create: {
-      accountId,
-      status,
-      billingInterval: input.billingInterval ?? null,
-      trialEndsAt,
-      currentPeriodEnd: input.currentPeriodEnd ?? null,
-    },
-    update: {
-      status,
-      billingInterval: input.billingInterval ?? undefined,
-      trialEndsAt: trialEndsAt ?? undefined,
-      currentPeriodEnd: input.currentPeriodEnd ?? undefined,
-    },
-  });
-
-  // Replace items wholesale — simplest correct semantics for a manual set.
-  await platformPrisma.subscriptionItem.deleteMany({ where: { subscriptionId: sub.id } });
-  for (const a of apps) {
-    await platformPrisma.subscriptionItem.create({
-      data: {
-        subscriptionId: sub.id,
-        appCode: a.appCode,
-        tier: a.tier ?? null,
-        seats: a.seats ?? null,
-        priceModel: a.priceModel ?? null,
-        unitAmount: a.unitAmount ?? null,
+  /* A-17: the subscription and its items change together or not at all — a failure between deleting the old items and writing the new ones used to leave the account owning nothing. */
+  const sub = await platformPrisma.$transaction(async (tx) => {
+    const row = await tx.subscription.upsert({
+      where: { accountId },
+      create: {
+        accountId,
+        status,
+        billingInterval: input.billingInterval ?? null,
+        trialEndsAt,
+        currentPeriodEnd: input.currentPeriodEnd ?? null,
+      },
+      update: {
+        status,
+        billingInterval: input.billingInterval ?? undefined,
+        trialEndsAt: trialEndsAt ?? undefined,
+        currentPeriodEnd: input.currentPeriodEnd ?? undefined,
       },
     });
-  }
+
+    // Replace items wholesale — simplest correct semantics for a manual set.
+    await tx.subscriptionItem.deleteMany({ where: { subscriptionId: row.id } });
+    for (const a of apps) {
+      await tx.subscriptionItem.create({
+        data: {
+          subscriptionId: row.id,
+          appCode: a.appCode,
+          tier: a.tier ?? null,
+          seats: a.seats ?? null,
+          priceModel: a.priceModel ?? null,
+          unitAmount: a.unitAmount ?? null,
+        },
+      });
+    }
+    return row;
+  });
 
   await syncAccountEntitlement(accountId);
   await syncAppSwitches(accountId, before, new Set(apps.map((a) => a.appCode)));

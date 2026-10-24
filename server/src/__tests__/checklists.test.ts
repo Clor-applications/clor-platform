@@ -28,6 +28,13 @@ beforeAll(async () => {
   await request(app).put(`/api/orgs/${c.orgId}/features`).set(at(c)).send({ features: { people: true, attendance: true } }).expect(200);
 }, 60_000);
 
+
+/* Leaving takes effect once the last day has passed: dates relative to today keep these tests true on any day (two days back clears the IST/UTC boundary). */
+const day = (n: number) => new Date(Date.now() + n * 86_400_000).toISOString().slice(0, 10);
+const LAST_DAY = day(-2);
+const REJOIN = day(1);
+const plusDays = (iso: string, n: number) => new Date(Date.parse(`${iso}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
+
 describe('joining and leaving checklists', () => {
   it('starts the defaults on joining, dated from the joining day, and ticks by person', async () => {
     const e = (await api('post', '/employees', { name: 'Asha', code: 'C1', dateOfJoining: '2026-11-02' }).expect(201)).body.employee;
@@ -57,13 +64,13 @@ describe('joining and leaving checklists', () => {
     const e = (await api('post', '/employees', { name: 'Ravi', code: 'C2', dateOfJoining: '2025-01-01' }).expect(201)).body.employee;
     /* A laptop on the asset register comes onto the leaving checklist. */
     await api('post', '/workspace/assets', { title: 'Laptop', status: 'ASSIGNED', employeeId: e.id, details: { assetTag: 'LT-07' } }).expect(201);
-    await api('post', `/employees/${e.id}/resign`, { lastDay: '2026-12-31', leavingType: 'RESIGNED' }).expect(200);
+    await api('post', `/employees/${e.id}/resign`, { lastDay: LAST_DAY, leavingType: 'RESIGNED' }).expect(200);
 
     const { leaving } = (await api('get', `/employees/${e.id}/checklist`).expect(200)).body;
     expect(leaving.tasks.map((t: any) => t.title)).toEqual(['Recover company property', 'Readers and app access removed', 'Full and final settlement paid', 'Return Laptop (LT-07)']);
-    expect(leaving.tasks[3]).toMatchObject({ owner: 'IT', dueDate: '2026-12-31' });
+    expect(leaving.tasks[3]).toMatchObject({ owner: 'IT', dueDate: LAST_DAY });
     expect(leaving.tasks[1]).toMatchObject({ done: true, doneBy: 'CLOR' });
-    expect(leaving.tasks[2]).toMatchObject({ owner: 'PAYROLL', dueDate: '2027-01-02' });
+    expect(leaving.tasks[2]).toMatchObject({ owner: 'PAYROLL', dueDate: plusDays(LAST_DAY, 2) });
 
     /* Open items across the company, and going back to the defaults. */
     const open = (await api('get', '/checklist-tasks').expect(200)).body.tasks;

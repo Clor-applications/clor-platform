@@ -10,9 +10,13 @@ const GROUPS = [
     items: [
       ['modules', 'Switch HR modules on or off, and see which apps the subscription carries'],
       ['companyDetails', 'Legal name, PAN, TAN, address and statutory registrations'],
+      ['legalEntities', 'The registered company its establishments belong to'],
+      ['establishments', 'Each place of work in law, in one state: the state decides which rules apply'],
       ['businessUnits', 'Divisions or domains the company runs as one business'],
       ['areas', 'Offices, plants and sites people work at'],
       ['departments', 'How the company is divided; a department can sit under another'],
+      ['teams', 'Teams under departments'],
+      ['seats', 'Approved seats on each team, filled or open'],
       ['jobPositions', 'The titles people hold'],
       ['grades', 'Levels or pay bands'],
       ['costCentres', 'Where salary cost is booked in the accounts'],
@@ -26,8 +30,13 @@ const GROUPS = [
       ['employeeTypes', 'Permanent, probation, contract, intern'],
       ['workTypes', 'Office, remote, hybrid, field'],
       ['tags', 'Labels to group people any way you like'],
+      ['customFields', 'Your own fields on every person: who sees them, who edits them'],
       ['checklists', 'Joining and leaving checklists'],
+      ['letterTemplates', 'Offer, appointment, relieving and other letters the company issues'],
+      ['helpDeskSettings', 'Help desk categories, reply and resolve times, and answer templates'],
+      ['approvalRules', 'Who decides job changes, resignations, probation, policies: steps, due days, overdue'],
       ['selfService', 'Who can sign in to the employee app'],
+      ['selfServiceChanges', 'Which of their own details employees may change without waiting for HR'],
     ],
   },
   {
@@ -41,7 +50,10 @@ const GROUPS = [
   {
     title: 'Access & Security',
     note: 'How people sign in.',
-    items: [['sso', 'Sign in with Google or Microsoft for your domain']],
+    items: [
+      ['sso', 'Users, sign-in and single sign-on, in Workspace'],
+      ['rolesAccess', 'What each role may do in People, in Workspace'],
+    ],
   },
   {
     title: 'Integrations',

@@ -97,7 +97,7 @@ export async function pruneNotifications(now = new Date()) {
 
 export function startNotificationPruning({ intervalMs = 24 * 3_600_000, startupDelayMs = 240_000 } = {}) {
   if (process.env.NODE_ENV === 'test' || process.env.VITEST) return () => {};
-  const tick = () => exclusive('notifications.prune', leaseFor(intervalMs), pruneNotifications).catch((e) => console.error('[notifications] prune failed:', e instanceof Error ? e.message : e));
+  const tick = () => exclusive('notifications.prune', leaseFor(intervalMs), () => pruneNotifications(), { idempotent: true }).catch((e) => console.error('[notifications] prune failed:', e instanceof Error ? e.message : e));
   const t = setTimeout(() => {
     tick();
     const i = setInterval(tick, intervalMs);

@@ -2,6 +2,7 @@ import { prisma } from '../utils/prisma.js';
 import { platformPrisma } from '../utils/platformPrisma.js';
 import { notifyPermissionOnce } from './notifications.js';
 import { exclusive, leaseFor } from './jobLease.js';
+import { appLive } from './principalAllowed.js';
 
 /**
  * What Accounting's own bell used to work out in the browser — invoices past
@@ -39,6 +40,8 @@ export async function runBooksDigest(now = new Date()) {
   let sent = 0;
   for (const o of orgs) {
     try {
+      /* Only for companies that have Accounting (A-48): a lapsed or closing company gets no reminders about its books. */
+      if (await appLive(o.accountId, o.id, 'accounting')) continue;
       const d = await booksDigestFor(o.id, now);
       if (d.overdue.count) {
         sent += await notifyPermissionOnce(o.accountId, o.id, 'SALES::Invoices::VIEW', {
@@ -68,7 +71,7 @@ export async function runBooksDigest(now = new Date()) {
 /** Each morning (and a few minutes after start). */
 export function startBooksDigest({ intervalMs = 24 * 3_600_000, startupDelayMs = 300_000 } = {}) {
   if (process.env.NODE_ENV === 'test' || process.env.VITEST) return () => {};
-  const tick = () => exclusive('books.digest', leaseFor(intervalMs), () => runBooksDigest()).catch((e) => console.error('[books-digest] failed:', e instanceof Error ? e.message : e));
+  const tick = () => exclusive('books.digest', leaseFor(intervalMs), () => runBooksDigest(), { idempotent: true }).catch((e) => console.error('[books-digest] failed:', e instanceof Error ? e.message : e));
   const t = setTimeout(() => {
     tick();
     const i = setInterval(tick, intervalMs);

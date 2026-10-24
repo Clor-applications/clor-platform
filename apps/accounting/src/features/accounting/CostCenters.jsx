@@ -3,7 +3,7 @@ import { Plus, Trash2, PieChart } from 'lucide-react';
 import { PageHeader, EmptyState } from '@ui/components/ui/Primitives';
 import { ListToolbar, exportRows, useListSearch } from '@ui/components/ListToolbar';
 import { notify, confirmDialog } from '@ui/components/ui/notify';
-import { removeMaster, saveMaster } from '@ui/utils/masterSync';
+import { patchMaster, removeMaster, saveMaster } from '@ui/utils/masterSync';
 import { formatMoney } from '@ui/utils/money';
 
 /**
@@ -59,8 +59,15 @@ export default function CostCenters({ db, setDb, currentCompany }) {
   const remove = async (c) => {
     const ok = await confirmDialog({ title: 'Remove cost center', message: `Remove "${c.name}"? Documents keep their tag but report as Unallocated.`, confirmLabel: 'Remove' });
     if (!ok) return;
-    await removeMaster(c);
+    if ((await removeMaster(c))?.kept) return;
     setDb((prev) => ({ ...prev, costCenters: (prev.costCenters || []).filter((x) => x.id !== c.id) }));
+  };
+
+  /* GAP-010: one Payroll uses cannot be removed; switched off, it is offered nowhere new but keeps its history. */
+  const setActive = async (c, active) => {
+    await patchMaster(c, { isActive: active });
+    setDb((prev) => ({ ...prev, costCenters: (prev.costCenters || []).map((x) => (x.id === c.id ? { ...x, active } : x)) }));
+    notify.success(active ? `"${c.name}" is offered again.` : `"${c.name}" is switched off: no longer offered on new documents or in Payroll.`);
   };
 
   const money = (v) => formatMoney(Number(v || 0), currentCompany);
@@ -139,15 +146,23 @@ export default function CostCenters({ db, setDb, currentCompany }) {
             <tbody>
               {ccSearchRows.map((r, i) => (
                 <tr key={i} className="border-t">
-                  <td className="ui-col-entity px-4 py-2.5">{r.center.name}</td>
+                  <td className="ui-col-entity px-4 py-2.5">
+                    {r.center.name}
+                    {r.center.active === false ? <span className="ui-caption ml-2">Off</span> : null}
+                  </td>
                   <td className="ui-col-amount px-4 py-2.5 text-right">{money(r.income)}</td>
                   <td className="ui-col-amount px-4 py-2.5 text-right">{money(r.expense)}</td>
                   <td className={`px-4 py-2.5 text-right font-semibold ${r.net >= 0 ? 'ui-amount-pos' : 'ui-amount-neg'}`}>{money(r.net)}</td>
                   <td className="px-4 py-2.5 text-right">
                     {r.center.id != null ? (
-                      <button type="button" onClick={() => remove(r.center)} className="ui-icon-btn !h-8 !w-8" aria-label={`Remove ${r.center.name}`}>
-                        <Trash2 size={14} />
-                      </button>
+                      <span className="inline-flex items-center gap-1">
+                        <button type="button" onClick={() => setActive(r.center, r.center.active === false)} className="ui-btn ui-btn-ghost ui-btn-sm">
+                          {r.center.active === false ? 'Switch on' : 'Switch off'}
+                        </button>
+                        <button type="button" onClick={() => remove(r.center)} className="ui-icon-btn !h-8 !w-8" aria-label={`Remove ${r.center.name}`}>
+                          <Trash2 size={14} />
+                        </button>
+                      </span>
                     ) : null}
                   </td>
                 </tr>

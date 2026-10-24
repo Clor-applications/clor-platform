@@ -27,6 +27,8 @@ let owner: Ctx;
 /** Two real items: a line names an item by its server id or is refused. */
 let I1 = '';
 let I2 = '';
+/** Two real warehouses of this company: a document names one it has, or is refused (A-24). */
+const WH = { A: '', B: '' };
 
 const auth = (c: Ctx) => ({
   Authorization: `Bearer ${c.token}`,
@@ -113,6 +115,9 @@ const ledgerBalanced = async () => {
 
 beforeAll(async () => {
   owner = await makeOwner();
+  for (const k of ['A', 'B'] as const) {
+    WH[k] = (await request(app).post(`/api/orgs/${owner.orgId}/warehouses`).set(auth(owner)).send({ branchId: owner.branchId, name: `Store ${k}`, code: `S${k}${rnd()}` }).expect(201)).body.warehouse.id;
+  }
   await bankId();
   const item = async (name: string) =>
     (await request(app).post(`/api/orgs/${owner.orgId}/items`).set(auth(owner)).send({ name, unit: 'Pcs', gstRate: 18, openingQty: 1000 }).expect(201)).body.item.id as string;
@@ -234,7 +239,7 @@ describe('tax treatment and attribution are immutable once posted', () => {
     ['place of supply', { placeOfSupplyState: 'Maharashtra' }],
     ['tax type', { taxType: 'IGST' }],
     ['reverse charge', { reverseCharge: true }],
-    ['warehouse', { warehouseId: 'wh-B' }],
+    ['warehouse', { get warehouseId() { return WH.B; } }],
     /* The GSTIN is the counterparty's CTIN in GSTR-1 and decides B2B vs B2C
        there and in the INV-01 payload. */
     ['customer GSTIN', { customerGstin: '29ABCDE1234F2Z6' }],
@@ -246,7 +251,7 @@ describe('tax treatment and attribution are immutable once posted', () => {
         placeOfSupplyState: 'Karnataka',
         taxType: 'CGST_SGST',
         reverseCharge: false,
-        warehouseId: 'wh-A',
+        warehouseId: WH.A,
         customerGstin: '29ABCDE1234F1Z5',
       });
       const before = await journal(invoice.id);
@@ -276,14 +281,14 @@ describe('tax treatment and attribution are immutable once posted', () => {
       placeOfSupplyState: 'Karnataka',
       taxType: 'CGST_SGST',
       reverseCharge: false,
-      warehouseId: 'wh-A',
+      warehouseId: WH.A,
       customerGstin: '29ABCDE1234F1Z5',
     });
     const res = await patch(invoice.id, {
       placeOfSupplyState: 'Karnataka',
       taxType: 'CGST_SGST',
       reverseCharge: false,
-      warehouseId: 'wh-A',
+      warehouseId: WH.A,
       customerGstin: '29ABCDE1234F1Z5',
       refNo: 'PO-RESENT-TAX',
     });
@@ -292,7 +297,7 @@ describe('tax treatment and attribution are immutable once posted', () => {
   });
 
   it('leaves all of them editable while nothing is posted', async () => {
-    const invoice = await makeInvoice({ placeOfSupplyState: 'Karnataka', taxType: 'CGST_SGST', warehouseId: 'wh-A' });
+    const invoice = await makeInvoice({ placeOfSupplyState: 'Karnataka', taxType: 'CGST_SGST', warehouseId: WH.A });
     await prisma.journalEntry.updateMany({
       where: { orgId: owner.orgId, sourceDocType: 'INVOICE', sourceDocId: invoice.id, status: 'POSTED' },
       data: { status: 'DRAFT' },
@@ -301,7 +306,7 @@ describe('tax treatment and attribution are immutable once posted', () => {
       placeOfSupplyState: 'Maharashtra',
       taxType: 'IGST',
       reverseCharge: true,
-      warehouseId: 'wh-B',
+      warehouseId: WH.B,
       customerGstin: '27ABCDE1234F1Z5',
     });
     expect(res.status).toBe(200);
@@ -309,7 +314,7 @@ describe('tax treatment and attribution are immutable once posted', () => {
     expect(after.placeOfSupplyState).toBe('Maharashtra');
     expect(after.taxType).toBe('IGST');
     expect(after.reverseCharge).toBe(true);
-    expect(after.warehouseId).toBe('wh-B');
+    expect(after.warehouseId).toBe(WH.B);
     expect(after.customerGstin).toBe('27ABCDE1234F1Z5');
   });
 });

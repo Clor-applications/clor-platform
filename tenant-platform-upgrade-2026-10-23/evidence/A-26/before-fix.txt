@@ -1,0 +1,258 @@
+
+ RUN  v2.1.9 /Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad
+
+ ❯ packages/shell/session.test.jsx (6 tests | 4 failed) 4117ms
+   × the company in the address (A-26) > opens the company the address names, over the one this browser used last 1016ms
+     → expected 'first' to be 'second' // Object.is equality
+
+Ignored nodes: comments, script, style
+<html>
+  <head />
+  <body>
+    <div>
+      <output
+        data-testid="company"
+      >
+        first
+      </output>
+      <output
+        data-testid="denied"
+      />
+      <button>
+        Switch company
+      </button>
+    </div>
+  </body>
+</html>
+   × the company in the address (A-26) > writes the company into a bare address, and switching is a new history entry 1004ms
+     → expected '/' to be '/o/FRST-C100/' // Object.is equality
+
+Ignored nodes: comments, script, style
+<html>
+  <head />
+  <body>
+    <div>
+      <output
+        data-testid="company"
+      >
+        first
+      </output>
+      <output
+        data-testid="denied"
+      />
+      <button>
+        Switch company
+      </button>
+    </div>
+  </body>
+</html>
+   × the company in the address (A-26) > opens no company for a code that is not one of yours 1003ms
+     → expected '' to be 'ZZZZ-C999' // Object.is equality
+
+Ignored nodes: comments, script, style
+<html>
+  <head />
+  <body>
+    <div>
+      <output
+        data-testid="company"
+      >
+        first
+      </output>
+      <output
+        data-testid="denied"
+      />
+      <button>
+        Switch company
+      </button>
+    </div>
+  </body>
+</html>
+   × the company in the address (A-26) > keeps this tab's company when another tab switched since 1002ms
+     → expected 'second' to be 'first' // Object.is equality
+
+Ignored nodes: comments, script, style
+<html>
+  <head />
+  <body>
+    <div>
+      <output
+        data-testid="company"
+      >
+        second
+      </output>
+      <output
+        data-testid="denied"
+      />
+      <button>
+        Switch company
+      </button>
+    </div>
+  </body>
+</html>
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  packages/shell/session.test.jsx > the company in the address (A-26) > opens the company the address names, over the one this browser used last
+AssertionError: expected 'first' to be 'second' // Object.is equality
+
+Ignored nodes: comments, script, style
+<html>
+  <head />
+  <body>
+    <div>
+      <output
+        data-testid="company"
+      >
+        first
+      </output>
+      <output
+        data-testid="denied"
+      />
+      <button>
+        Switch company
+      </button>
+    </div>
+  </body>
+</html>
+
+Expected: "second"
+Received: "first"
+
+ ❯ packages/shell/session.test.jsx:41:75
+     39|     window.history.replaceState(null, '', '/o/scnd-c100/');
+     40|     render(<SessionProvider><Probe /></SessionProvider>);
+     41|     await waitFor(() => expect(screen.getByTestId('company').textConte…
+       |                                                                           ^
+     42|   });
+     43| 
+ ❯ runWithExpensiveErrorDiagnosticsDisabled node_modules/@testing-library/dom/dist/config.js:47:12
+ ❯ checkCallback node_modules/@testing-library/dom/dist/wait-for.js:124:77
+ ❯ Timeout.checkRealTimersCallback node_modules/@testing-library/dom/dist/wait-for.js:118:16
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯
+
+ FAIL  packages/shell/session.test.jsx > the company in the address (A-26) > writes the company into a bare address, and switching is a new history entry
+AssertionError: expected '/' to be '/o/FRST-C100/' // Object.is equality
+
+Ignored nodes: comments, script, style
+<html>
+  <head />
+  <body>
+    <div>
+      <output
+        data-testid="company"
+      >
+        first
+      </output>
+      <output
+        data-testid="denied"
+      />
+      <button>
+        Switch company
+      </button>
+    </div>
+  </body>
+</html>
+
+Expected: "/o/FRST-C100/"
+Received: "/"
+
+ ❯ packages/shell/session.test.jsx:46:58
+     44|   it('writes the company into a bare address, and switching is a new h…
+     45|     render(<SessionProvider><Probe /></SessionProvider>);
+     46|     await waitFor(() => expect(window.location.pathname).toBe('/o/FRST…
+       |                                                          ^
+     47|     const before = window.history.length;
+     48|     fireEvent.click(screen.getByRole('button', { name: 'Switch company…
+ ❯ runWithExpensiveErrorDiagnosticsDisabled node_modules/@testing-library/dom/dist/config.js:47:12
+ ❯ checkCallback node_modules/@testing-library/dom/dist/wait-for.js:124:77
+ ❯ Timeout.checkRealTimersCallback node_modules/@testing-library/dom/dist/wait-for.js:118:16
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/4]⎯
+
+ FAIL  packages/shell/session.test.jsx > the company in the address (A-26) > opens no company for a code that is not one of yours
+AssertionError: expected '' to be 'ZZZZ-C999' // Object.is equality
+
+Ignored nodes: comments, script, style
+<html>
+  <head />
+  <body>
+    <div>
+      <output
+        data-testid="company"
+      >
+        first
+      </output>
+      <output
+        data-testid="denied"
+      />
+      <button>
+        Switch company
+      </button>
+    </div>
+  </body>
+</html>
+
+- Expected
++ Received
+
+- ZZZZ-C999
+
+ ❯ packages/shell/session.test.jsx:56:74
+     54|     window.history.replaceState(null, '', '/o/ZZZZ-C999/');
+     55|     render(<SessionProvider><Probe /></SessionProvider>);
+     56|     await waitFor(() => expect(screen.getByTestId('denied').textConten…
+       |                                                                          ^
+     57|     expect(screen.getByTestId('company').textContent).toBe('');
+     58|   });
+ ❯ runWithExpensiveErrorDiagnosticsDisabled node_modules/@testing-library/dom/dist/config.js:47:12
+ ❯ checkCallback node_modules/@testing-library/dom/dist/wait-for.js:124:77
+ ❯ Timeout.checkRealTimersCallback node_modules/@testing-library/dom/dist/wait-for.js:118:16
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/4]⎯
+
+ FAIL  packages/shell/session.test.jsx > the company in the address (A-26) > keeps this tab's company when another tab switched since
+AssertionError: expected 'second' to be 'first' // Object.is equality
+
+Ignored nodes: comments, script, style
+<html>
+  <head />
+  <body>
+    <div>
+      <output
+        data-testid="company"
+      >
+        second
+      </output>
+      <output
+        data-testid="denied"
+      />
+      <button>
+        Switch company
+      </button>
+    </div>
+  </body>
+</html>
+
+Expected: "first"
+Received: "second"
+
+ ❯ packages/shell/session.test.jsx:64:75
+     62|     localStorage.setItem('clor.tenant.qa-user', 'second');
+     63|     render(<SessionProvider><Probe /></SessionProvider>);
+     64|     await waitFor(() => expect(screen.getByTestId('company').textConte…
+       |                                                                           ^
+     65|   });
+     66| });
+ ❯ runWithExpensiveErrorDiagnosticsDisabled node_modules/@testing-library/dom/dist/config.js:47:12
+ ❯ checkCallback node_modules/@testing-library/dom/dist/wait-for.js:124:77
+ ❯ Timeout.checkRealTimersCallback node_modules/@testing-library/dom/dist/wait-for.js:118:16
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/4]⎯
+
+ Test Files  1 failed (1)
+      Tests  4 failed | 2 passed (6)
+   Start at  00:27:25
+   Duration  5.49s (transform 46ms, setup 280ms, collect 77ms, tests 4.12s, environment 833ms, prepare 51ms)
+

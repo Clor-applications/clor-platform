@@ -1,0 +1,124 @@
+ DEPRECATED  `test.poolOptions` was removed in Vitest 4. All previous `poolOptions` are now top-level options. Please, refer to the migration guide: https://vitest.dev/guide/migration#pool-rework
+
+ RUN  v4.1.10 /Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_32082", schema "accounting" at "localhost:5432"
+
+The PostgreSQL database "clor_test_32082" schema "accounting" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 659ms
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/payroll/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_32082", schema "payroll" at "localhost:5432"
+
+The PostgreSQL database "clor_test_32082" schema "payroll" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 410ms
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/people/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_32082", schema "people" at "localhost:5432"
+
+The PostgreSQL database "clor_test_32082" schema "people" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 467ms
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/platform/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_32082", schema "platform" at "localhost:5432"
+
+The PostgreSQL database "clor_test_32082" schema "platform" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 375ms
+
+[setup] 180 policy statements applied to clor_test_32082
+[setup] 7 policy statements applied to clor_test_32082
+[setup] 10 policy statements applied to clor_test_32082
+[setup] 35 policy statements applied to clor_test_32082
+[setup] 4 policy statements applied to clor_test_32082
+[setup] 96 policy statements applied to clor_test_32082
+[setup] 4 policy statements applied to clor_test_32082
+[setup] 4 policy statements applied to clor_test_32082
+[setup] 4 policy statements applied to clor_test_32082
+[setup] 4 policy statements applied to clor_test_32082
+[setup] 32 policy statements applied to clor_test_32082
+[setup] 24 policy statements applied to clor_test_32082
+[setup] 12 policy statements applied to clor_test_32082
+[setup] 16 policy statements applied to clor_test_32082
+[setup] 4 policy statements applied to clor_test_32082
+[setup] 4 policy statements applied to clor_test_32082
+[setup] 8 policy statements applied to clor_test_32082
+[setup] 8 policy statements applied to clor_test_32082
+[setup] 20 policy statements applied to clor_test_32082
+[setup] 8 policy statements applied to clor_test_32082
+[setup] 4 policy statements applied to clor_test_32082
+[setup] 8 policy statements applied to clor_test_32082
+[setup] 8 policy statements applied to clor_test_32082
+[setup] 12 policy statements applied to clor_test_32082
+[setup] 4 policy statements applied to clor_test_32082
+[setup] 8 policy statements applied to clor_test_32082
+[setup] 28 policy statements applied to clor_test_32082
+[setup] 4 policy statements applied to clor_test_32082
+[setup] 4 policy statements applied to clor_test_32082
+[setup] 4 policy statements applied to clor_test_32082
+[setup] 8 policy statements applied to clor_test_32082
+[setup] 4 policy statements applied to clor_test_32082
+[setup] 4 policy statements applied to clor_test_32082
+[setup] 4 policy statements applied to clor_test_32082
+[setup] 4 policy statements applied to clor_test_32082
+[setup] 8 policy statements applied to clor_test_32082
+[setup] 4 policy statements applied to clor_test_32082
+[setup] 12 policy statements applied to clor_test_32082
+[setup] 4 policy statements applied to clor_test_32082
+[setup] 76 policy statements applied to clor_test_32082
+[setup] 4 policy statements applied to clor_test_32082
+[setup] 4 policy statements applied to clor_test_32082
+[setup] 4 policy statements applied to clor_test_32082
+[setup] 4 policy statements applied to clor_test_32082
+ ❯ src/__tests__/copyDbTrap.test.ts (2 tests | 1 failed) 1019ms
+     × turns FORCE row-level security back on when a copy fails 487ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/__tests__/copyDbTrap.test.ts > copy_db.sh > turns FORCE row-level security back on when a copy fails
+AssertionError: expected 'postgres://dst -v ON_ERROR_STOP=1 -tA…' to contain 'ALTER TABLE "Employee" FORCE ROW LEVE…'
+
+- Expected
++ Received
+
+- ALTER TABLE "Employee" FORCE ROW LEVEL SECURITY
++ postgres://dst -v ON_ERROR_STOP=1 -tAc select tablename from pg_tables where schemaname='public' and tablename<>'_prisma_migrations' order by 1
++ postgres://src -v ON_ERROR_STOP=1 -tAc select string_agg(tablename,' ') from pg_tables where schemaname='public'
++ postgres://dst -v ON_ERROR_STOP=1 -tAc select count(*) from "Employee"
++ postgres://dst -v ON_ERROR_STOP=1 -tAc select count(*) from "Invoice"
++ postgres://dst -v ON_ERROR_STOP=1 -tAc select format('ALTER TABLE %s ADD CONSTRAINT %I %s;', conrelid::regclass, conname, pg_get_constraintdef(oid)) from pg_constraint where contype='f' and connamespace='public'::regnamespace
++ postgres://dst -v ON_ERROR_STOP=1 -q
++ postgres://dst -v ON_ERROR_STOP=1 -tAc select format('ALTER TABLE %s DROP CONSTRAINT %I;', conrelid::regclass, conname) from pg_constraint where contype='f' and connamespace='public'::regnamespace
++ postgres://dst -v ON_ERROR_STOP=1 -tAc select c.relname from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relforcerowsecurity
++ postgres://dst -v ON_ERROR_STOP=1 -tAc ALTER TABLE "Employee" NO FORCE ROW LEVEL SECURITY
++ postgres://dst -v ON_ERROR_STOP=1 -tAc ALTER TABLE "Invoice" NO FORCE ROW LEVEL SECURITY
++ postgres://src -v ON_ERROR_STOP=1 -tAc select string_agg(column_name,' ') from information_schema.columns where table_schema='public' and table_name='Employee'
++ postgres://dst -v ON_ERROR_STOP=1 -tAc select column_name from information_schema.columns where table_schema='public' and table_name='Employee' order by ordinal_position
++ postgres://src -v ON_ERROR_STOP=1 -qc \copy (select "id","orgId" from "Employee") to stdout
++ postgres://dst -v ON_ERROR_STOP=1 -qc \copy "Employee"("id","orgId") from stdin
++
+
+ ❯ src/__tests__/copyDbTrap.test.ts:57:24
+     55|     expect(status).not.toBe(0);
+     56|     expect(statements).toContain('ALTER TABLE "Employee" NO FORCE ROW …
+     57|     expect(statements).toContain('ALTER TABLE "Employee" FORCE ROW LEV…
+       |                        ^
+     58|     expect(statements).toContain('ALTER TABLE "Invoice" FORCE ROW LEVE…
+     59|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 1 passed (2)
+   Start at  01:36:49
+   Duration  9.99s (transform 13ms, setup 19ms, import 20ms, tests 1.02s, environment 0ms)
+

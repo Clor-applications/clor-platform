@@ -1,0 +1,150 @@
+ DEPRECATED  `test.poolOptions` was removed in Vitest 4. All previous `poolOptions` are now top-level options. Please, refer to the migration guide: https://vitest.dev/guide/migration#pool-rework
+
+ RUN  v4.1.10 /Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_82522", schema "accounting" at "localhost:5432"
+
+The PostgreSQL database "clor_test_82522" schema "accounting" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 915ms
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/payroll/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_82522", schema "payroll" at "localhost:5432"
+
+The PostgreSQL database "clor_test_82522" schema "payroll" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 927ms
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/people/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_82522", schema "people" at "localhost:5432"
+
+The PostgreSQL database "clor_test_82522" schema "people" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 1.27s
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/platform/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_82522", schema "platform" at "localhost:5432"
+
+The PostgreSQL database "clor_test_82522" schema "platform" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 950ms
+
+[setup] 180 policy statements applied to clor_test_82522
+[setup] 7 policy statements applied to clor_test_82522
+[setup] 10 policy statements applied to clor_test_82522
+[setup] 35 policy statements applied to clor_test_82522
+[setup] 4 policy statements applied to clor_test_82522
+[setup] 96 policy statements applied to clor_test_82522
+[setup] 4 policy statements applied to clor_test_82522
+[setup] 4 policy statements applied to clor_test_82522
+[setup] 4 policy statements applied to clor_test_82522
+[setup] 4 policy statements applied to clor_test_82522
+[setup] 32 policy statements applied to clor_test_82522
+[setup] 24 policy statements applied to clor_test_82522
+[setup] 12 policy statements applied to clor_test_82522
+[setup] 16 policy statements applied to clor_test_82522
+[setup] 4 policy statements applied to clor_test_82522
+[setup] 4 policy statements applied to clor_test_82522
+[setup] 8 policy statements applied to clor_test_82522
+[setup] 8 policy statements applied to clor_test_82522
+[setup] 20 policy statements applied to clor_test_82522
+[setup] 8 policy statements applied to clor_test_82522
+[setup] 4 policy statements applied to clor_test_82522
+[setup] 8 policy statements applied to clor_test_82522
+[setup] 8 policy statements applied to clor_test_82522
+[setup] 12 policy statements applied to clor_test_82522
+[setup] 4 policy statements applied to clor_test_82522
+[setup] 8 policy statements applied to clor_test_82522
+[setup] 28 policy statements applied to clor_test_82522
+[setup] 4 policy statements applied to clor_test_82522
+[setup] 4 policy statements applied to clor_test_82522
+[setup] 4 policy statements applied to clor_test_82522
+[setup] 8 policy statements applied to clor_test_82522
+[setup] 4 policy statements applied to clor_test_82522
+[setup] 4 policy statements applied to clor_test_82522
+[setup] 4 policy statements applied to clor_test_82522
+[setup] 4 policy statements applied to clor_test_82522
+[setup] 8 policy statements applied to clor_test_82522
+[setup] 4 policy statements applied to clor_test_82522
+[setup] 12 policy statements applied to clor_test_82522
+[setup] 4 policy statements applied to clor_test_82522
+[setup] 76 policy statements applied to clor_test_82522
+[setup] 4 policy statements applied to clor_test_82522
+[setup] 4 policy statements applied to clor_test_82522
+[setup] 4 policy statements applied to clor_test_82522
+[setup] 4 policy statements applied to clor_test_82522
+ ❯ src/__tests__/principalAllowed.test.ts (3 tests | 3 failed) 2010ms
+     × closes the public API 23ms
+     × closes the employee portal, to a signed-in employee and to a new sign-in 33ms
+     × ends machine access at once 291ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/__tests__/principalAllowed.test.ts > a lapsed subscription > closes the public API
+AssertionError: expected 200 to be 402 // Object.is equality
+
+- Expected
++ Received
+
+- 402
++ 200
+
+ ❯ src/__tests__/principalAllowed.test.ts:69:24
+     67|   it('closes the public API', async () => {
+     68|     const res = await request(app).get('/v1/ping').set('Authorization'…
+     69|     expect(res.status).toBe(402);
+       |                        ^
+     70|   });
+     71|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  src/__tests__/principalAllowed.test.ts > a lapsed subscription > closes the employee portal, to a signed-in employee and to a new sign-in
+AssertionError: expected 200 to be 402 // Object.is equality
+
+- Expected
++ Received
+
+- 402
++ 200
+
+ ❯ src/__tests__/principalAllowed.test.ts:74:24
+     72|   it('closes the employee portal, to a signed-in employee and to a new…
+     73|     const res = await request(app).get('/api/portal/me').set('Authoriz…
+     74|     expect(res.status).toBe(402);
+       |                        ^
+     75|     expect(res.body.code).toBe('APP_NOT_SUBSCRIBED');
+     76|     await request(app).post('/api/portal/login').send({ company, emplo…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  src/__tests__/principalAllowed.test.ts > a company scheduled for closure > ends machine access at once
+AssertionError: expected 200 to be 403 // Object.is equality
+
+- Expected
++ Received
+
+- 403
++ 200
+
+ ❯ src/__tests__/principalAllowed.test.ts:89:24
+     87|     });
+     88|     const res = await request(app).get('/v1/ping').set('Authorization'…
+     89|     expect(res.status).toBe(403);
+       |                        ^
+     90|   });
+     91| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  3 failed (3)
+   Start at  17:35:59
+   Duration  18.95s (transform 2.87s, setup 23ms, import 5.42s, tests 2.01s, environment 0ms)
+

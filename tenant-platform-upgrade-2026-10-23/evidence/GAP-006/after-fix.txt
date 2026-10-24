@@ -1,0 +1,219 @@
+ DEPRECATED  `test.poolOptions` was removed in Vitest 4. All previous `poolOptions` are now top-level options. Please, refer to the migration guide: https://vitest.dev/guide/migration#pool-rework
+
+ RUN  v4.1.10 /Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_71021", schema "accounting" at "localhost:5432"
+
+The PostgreSQL database "clor_test_71021" schema "accounting" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 491ms
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/payroll/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_71021", schema "payroll" at "localhost:5432"
+
+The PostgreSQL database "clor_test_71021" schema "payroll" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 406ms
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/people/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_71021", schema "people" at "localhost:5432"
+
+The PostgreSQL database "clor_test_71021" schema "people" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 485ms
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/platform/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_71021", schema "platform" at "localhost:5432"
+
+The PostgreSQL database "clor_test_71021" schema "platform" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 386ms
+
+[setup] 180 policy statements applied to clor_test_71021
+[setup] 7 policy statements applied to clor_test_71021
+[setup] 10 policy statements applied to clor_test_71021
+[setup] 35 policy statements applied to clor_test_71021
+[setup] 4 policy statements applied to clor_test_71021
+[setup] 1 policy statements applied to clor_test_71021
+[setup] 96 policy statements applied to clor_test_71021
+[setup] 4 policy statements applied to clor_test_71021
+[setup] 4 policy statements applied to clor_test_71021
+[setup] 4 policy statements applied to clor_test_71021
+[setup] 1 policy statements applied to clor_test_71021
+[setup] 4 policy statements applied to clor_test_71021
+[setup] 32 policy statements applied to clor_test_71021
+[setup] 24 policy statements applied to clor_test_71021
+[setup] 12 policy statements applied to clor_test_71021
+[setup] 16 policy statements applied to clor_test_71021
+[setup] 4 policy statements applied to clor_test_71021
+[setup] 4 policy statements applied to clor_test_71021
+[setup] 8 policy statements applied to clor_test_71021
+[setup] 8 policy statements applied to clor_test_71021
+[setup] 20 policy statements applied to clor_test_71021
+[setup] 8 policy statements applied to clor_test_71021
+[setup] 4 policy statements applied to clor_test_71021
+[setup] 8 policy statements applied to clor_test_71021
+[setup] 8 policy statements applied to clor_test_71021
+[setup] 12 policy statements applied to clor_test_71021
+[setup] 4 policy statements applied to clor_test_71021
+[setup] 8 policy statements applied to clor_test_71021
+[setup] 28 policy statements applied to clor_test_71021
+[setup] 4 policy statements applied to clor_test_71021
+[setup] 4 policy statements applied to clor_test_71021
+[setup] 4 policy statements applied to clor_test_71021
+[setup] 8 policy statements applied to clor_test_71021
+[setup] 4 policy statements applied to clor_test_71021
+[setup] 4 policy statements applied to clor_test_71021
+[setup] 4 policy statements applied to clor_test_71021
+[setup] 4 policy statements applied to clor_test_71021
+[setup] 8 policy statements applied to clor_test_71021
+[setup] 4 policy statements applied to clor_test_71021
+[setup] 12 policy statements applied to clor_test_71021
+[setup] 4 policy statements applied to clor_test_71021
+[setup] 1 policy statements applied to clor_test_71021
+[setup] 4 policy statements applied to clor_test_71021
+[setup] 76 policy statements applied to clor_test_71021
+[setup] 4 policy statements applied to clor_test_71021
+[setup] 4 policy statements applied to clor_test_71021
+[setup] 4 policy statements applied to clor_test_71021
+[setup] 4 policy statements applied to clor_test_71021
+[setup] 1 policy statements applied to clor_test_71021
+[setup] 8 policy statements applied to clor_test_71021
+[setup] 4 policy statements applied to clor_test_71021
+POST /api/auth/signup 200 581 - 151.171 ms
+POST /api/auth/signup 200 577 - 147.263 ms
+POST /api/auth/setup-company 200 206 - 976.436 ms
+POST /api/auth/setup-company 200 202 - 976.025 ms
+PUT /api/orgs/cmvmbk54q000t19znglhq88rp/features 200 1173 - 204.344 ms
+PUT /api/orgs/cmvmbk53y000r19znilbip7ue/features 200 1173 - 205.910 ms
+POST /api/users 201 150 - 143.644 ms
+POST /api/orgs/cmvmbk53y000r19znilbip7ue/users/cmvmbk50n000i19znyzb14kuj/roles 201 11 - 31.561 ms
+GET /api/orgs/cmvmbk53y000r19znilbip7ue/outside-access 200 500 - 153.232 ms
+POST /api/auth/login 200 935 - 7.977 ms
+GET /api/orgs/cmvmbk54q000t19znglhq88rp/ledger/accounts 200 2911 - 122.820 ms
+POST /api/auth/signup 200 577 - 6.724 ms
+POST /api/auth/signup 200 581 - 38.429 ms
+POST /api/auth/setup-company 200 202 - 151.343 ms
+POST /api/auth/setup-company 200 206 - 158.138 ms
+PUT /api/orgs/cmvmbk6d101i119zntdon1n8r/features 200 1173 - 148.747 ms
+PUT /api/orgs/cmvmbk6dx01lo19znxpnao2wr/features 200 1173 - 144.659 ms
+POST /api/users 201 150 - 28.436 ms
+POST /api/orgs/cmvmbk6dx01lo19znxpnao2wr/users/cmvmbk6cu01ht19znamz4cd7a/roles 201 11 - 31.530 ms
+POST /api/auth/login 200 935 - 15.559 ms
+GET /api/orgs/cmvmbk6dx01lo19znxpnao2wr/ledger/accounts 200 2911 - 138.216 ms
+GET /api/orgs/cmvmbk6dx01lo19znxpnao2wr/payroll/components 403 108 - 44.885 ms
+GET /api/orgs/cmvmbk6dx01lo19znxpnao2wr/payroll/components 200 17 - 47.706 ms
+POST /api/auth/signup 200 581 - 6.426 ms
+POST /api/auth/signup 200 577 - 6.250 ms
+POST /api/auth/setup-company 200 206 - 177.074 ms
+POST /api/auth/setup-company 200 202 - 176.972 ms
+PUT /api/orgs/cmvmbk6vc02io19znuz8yvy4j/features 200 1173 - 157.569 ms
+PUT /api/orgs/cmvmbk6vu02jx19zn94aj92tg/features 200 1173 - 165.688 ms
+POST /api/users 400 31 - 19.569 ms
+POST /api/users 400 47 - 42.602 ms
+POST /api/auth/signup 200 581 - 12.593 ms
+POST /api/auth/signup 200 577 - 14.384 ms
+POST /api/auth/setup-company 200 202 - 154.074 ms
+POST /api/auth/setup-company 200 206 - 158.611 ms
+PUT /api/orgs/cmvmbk77803iw19zngadtdovd/features 200 1173 - 170.562 ms
+PUT /api/orgs/cmvmbk77603iu19zn8z28u3u8/features 200 1173 - 183.051 ms
+POST /api/users 201 150 - 31.854 ms
+POST /api/orgs/cmvmbk77603iu19zn8z28u3u8/users/cmvmbk76u03il19znjorqu985/roles 201 11 - 35.786 ms
+POST /api/auth/login 200 935 - 11.291 ms
+GET /api/auth/me 200 1139 - 3.841 ms
+POST /api/orgs/cmvmbk77603iu19zn8z28u3u8/outside-access/cmvmbk7ha04id19zny0iay5xy/suspend 200 11 - 143.569 ms
+GET /api/orgs/cmvmbk77603iu19zn8z28u3u8/ledger/accounts 403 82 - 37.494 ms
+GET /api/auth/me 200 837 - 3.721 ms
+GET /api/auth/me 200 837 - 3.229 ms
+POST /api/orgs/cmvmbk77603iu19zn8z28u3u8/outside-access/cmvmbk7ha04id19zny0iay5xy/resume 200 11 - 157.273 ms
+GET /api/orgs/cmvmbk77603iu19zn8z28u3u8/ledger/accounts 200 2911 - 195.301 ms
+POST /api/auth/signup 200 577 - 6.777 ms
+POST /api/auth/signup 200 581 - 13.505 ms
+POST /api/auth/setup-company 200 202 - 168.637 ms
+POST /api/auth/setup-company 200 206 - 163.227 ms
+PUT /api/orgs/cmvmbk7yr04jl19zn027cpwtv/features 200 1173 - 207.135 ms
+PUT /api/orgs/cmvmbk7ym04jh19znb84lzjrb/features 200 1173 - 207.859 ms
+POST /api/users 201 150 - 75.344 ms
+POST /api/orgs/cmvmbk7yr04jl19zn027cpwtv/users/cmvmbk7ye04j719znog4ohk5d/roles 201 11 - 35.195 ms
+POST /api/auth/login 200 935 - 5.687 ms
+GET /api/orgs/cmvmbk7yr04jl19zn027cpwtv/ledger/accounts 200 2911 - 137.513 ms
+GET /api/orgs/cmvmbk7yr04jl19zn027cpwtv/ledger/accounts 403 92 - 22.750 ms
+GET /api/orgs/cmvmbk7yr04jl19zn027cpwtv/outside-access 200 513 - 139.620 ms
+POST /api/auth/signup 200 577 - 12.459 ms
+POST /api/auth/signup 200 581 - 12.999 ms
+POST /api/auth/setup-company 200 202 - 178.545 ms
+POST /api/auth/setup-company 200 206 - 185.770 ms
+PUT /api/orgs/cmvmbk8lb05k419znz7jkvh2u/features 200 1173 - 163.095 ms
+PUT /api/orgs/cmvmbk8lb05k619zni3i514bo/features 200 1173 - 162.844 ms
+POST /api/users 201 150 - 25.256 ms
+POST /api/orgs/cmvmbk8lb05k619zni3i514bo/users/cmvmbk8kx05ju19znispdzs1u/roles 201 11 - 25.426 ms
+POST /api/auth/login 200 935 - 5.787 ms
+POST /api/orgs/cmvmbk8lb05k619zni3i514bo/outside-access/cmvmbk8vk06jn19zndn4kigbf/revoke 200 11 - 137.070 ms
+GET /api/orgs/cmvmbk8lb05k619zni3i514bo/ledger/accounts 403 77 - 3.764 ms
+POST /api/orgs/cmvmbk8lb05k619zni3i514bo/outside-access/cmvmbk8vk06jn19zndn4kigbf/resume 409 75 - 160.229 ms
+POST /api/users 200 111 - 21.031 ms
+GET /api/orgs/cmvmbk8lb05k619zni3i514bo/ledger/accounts 200 2911 - 145.052 ms
+POST /api/auth/signup 200 577 - 9.370 ms
+POST /api/auth/signup 200 581 - 38.964 ms
+POST /api/auth/setup-company 200 202 - 158.878 ms
+POST /api/auth/setup-company 200 206 - 157.437 ms
+PUT /api/orgs/cmvmbk9a606ku19znl4sybdxn/features 200 1173 - 160.587 ms
+PUT /api/orgs/cmvmbk9az06nl19znbpeuads0/features 200 1173 - 155.670 ms
+POST /api/users 201 150 - 26.738 ms
+POST /api/orgs/cmvmbk9az06nl19znbpeuads0/users/cmvmbk99x06kk19zngj2c9q04/roles 201 11 - 26.453 ms
+POST /api/auth/login 200 935 - 5.482 ms
+GET /api/orgs/cmvmbk9az06nl19znbpeuads0/ledger/accounts 403 140 - 3.548 ms
+POST /api/auth/signup 200 577 - 5.968 ms
+POST /api/auth/signup 200 581 - 6.776 ms
+POST /api/auth/setup-company 200 202 - 159.580 ms
+POST /api/auth/setup-company 200 206 - 159.427 ms
+PUT /api/orgs/cmvmbk9lu07lh19zn6lar8eyz/features 200 1173 - 173.742 ms
+PUT /api/orgs/cmvmbk9lu07lf19znnh7h56xm/features 200 1173 - 175.837 ms
+POST /api/users 201 150 - 30.276 ms
+POST /api/orgs/cmvmbk9lu07lh19zn6lar8eyz/users/cmvmbk9lm07l319znrcxetfga/roles 201 11 - 25.933 ms
+PATCH /api/orgs/cmvmbk9lu07lh19zn6lar8eyz/outside-access/cmvmbk9vx08ky19zntmt4rly5 200 11 - 143.784 ms
+POST /api/orgs/cmvmbk9lu07lh19zn6lar8eyz/outside-access/cmvmbk9vx08ky19zntmt4rly5/suspend 200 11 - 142.755 ms
+GET /api/orgs/cmvmbk9lu07lh19zn6lar8eyz/audit?app=company&limit=50 200 2002 - 49.832 ms
+POST /api/auth/signup 200 577 - 12.183 ms
+POST /api/auth/signup 200 581 - 12.697 ms
+POST /api/auth/setup-company 200 206 - 156.549 ms
+POST /api/auth/setup-company 200 202 - 157.801 ms
+PUT /api/orgs/cmvmbkacd08m419zna29x2f0i/features 200 1173 - 146.335 ms
+PUT /api/orgs/cmvmbkacc08m219znogj9lb4z/features 200 1173 - 146.321 ms
+POST /api/users 201 150 - 25.929 ms
+POST /api/orgs/cmvmbkacd08m419zna29x2f0i/users/cmvmbkac208lq19znp4st8mhs/roles 201 11 - 25.125 ms
+POST /api/auth/login 200 935 - 6.146 ms
+PATCH /api/orgs/cmvmbkacd08m419zna29x2f0i/outside-access/cmvmbkalb09ll19zn534xnq2d 403 91 - 165.237 ms
+POST /api/orgs/cmvmbkacd08m419zna29x2f0i/outside-access/cmvmbkalb09ll19zn534xnq2d/resume 403 91 - 206.518 ms
+POST /api/auth/signup 200 579 - 5.806 ms
+POST /api/auth/signup 200 577 - 17.880 ms
+POST /api/auth/signup 200 581 - 18.464 ms
+POST /api/auth/setup-company 200 204 - 193.664 ms
+POST /api/auth/setup-company 200 202 - 199.124 ms
+POST /api/auth/setup-company 200 206 - 215.059 ms
+PUT /api/orgs/cmvmbkax309mo19znh82d4rer/features 200 1173 - 199.827 ms
+PUT /api/orgs/cmvmbkaxg09nd19zn6k5luoao/features 200 1173 - 183.588 ms
+PUT /api/orgs/cmvmbkaxr09ou19znrqa47iv4/features 200 1173 - 176.707 ms
+POST /api/users 201 150 - 31.743 ms
+POST /api/orgs/cmvmbkaxr09ou19znrqa47iv4/users/cmvmbkax709ms19zndtidziwc/roles 201 11 - 26.178 ms
+GET /api/orgs/cmvmbkax309mo19znh82d4rer/outside-access 200 74 - 157.733 ms
+POST /api/orgs/cmvmbkax309mo19znh82d4rer/outside-access/cmvmbkb930b4919znih50cz4o/revoke 404 35 - 152.970 ms
+POST /api/auth/signup 200 581 - 6.170 ms
+POST /api/auth/signup 200 577 - 18.594 ms
+POST /api/auth/setup-company 200 206 - 159.948 ms
+POST /api/auth/setup-company 200 202 - 158.257 ms
+PUT /api/orgs/cmvmbkbj40b5719znok1rtcrg/features 200 1173 - 163.778 ms
+PUT /api/orgs/cmvmbkbji0b5o19zn424f9n5v/features 200 1173 - 161.321 ms
+POST /api/users 201 150 - 24.916 ms
+POST /api/orgs/cmvmbkbj40b5719znok1rtcrg/users/cmvmbkbj00b5319znt86aoox8/roles 201 11 - 27.565 ms
+
+ Test Files  1 passed (1)
+      Tests  12 passed (12)
+   Start at  17:01:59
+   Duration  23.30s (transform 2.61s, setup 25ms, import 5.19s, tests 8.95s, environment 0ms)
+

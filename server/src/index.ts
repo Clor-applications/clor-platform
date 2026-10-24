@@ -6,12 +6,23 @@ import { startClosurePurge } from './services/companyClosure.js';
 import { startRecycleBinPurge } from './services/recycleBin.js';
 import { startHrSync } from './services/hr/sync.js';
 import { startReportSchedules } from './services/attendance/reportSchedules.js';
+import { startPeopleOutbox } from './services/people/outbox.js';
+import { startScheduledChanges } from './services/people/effectiveDating.js';
+import { startApprovalDues } from './services/people/approvals/engine.js';
+import { startDeskDues } from './services/people/desk.js';
+import { startSeparations } from './services/people/lifecycle/leaving.js';
+import { registerPeopleEffects } from './services/people/approvals/effects.js';
 import { startDocumentReminders } from './services/people/documentReminders.js';
 import { startNotificationPruning } from './services/notifications.js';
 import { startBooksDigest } from './services/booksDigest.js';
 import { build as buildReport } from './routes/attendanceReports.js';
 import { startPhotoPurge, startReaderChecks, startVendorSync, startWebhookRetries } from './services/vendorSyncScheduler.js';
 import { reportProcessErrors } from './utils/log.js';
+import { stopJobs } from './services/jobLease.js';
+import { startCredentialBackfill } from './services/credentialBackfill.js';
+import { startOwnerPermissionSync } from './services/ownerPermissions.js';
+import { startCredentialChecks } from './services/credentialReview.js';
+import { startIntegrityChecks } from './services/integrity/checks.js';
 
 /* Crashes and unhandled rejections are reported, not lost. */
 reportProcessErrors();
@@ -28,12 +39,17 @@ const server = app.listen(port, () => {
  * Cloud Run sends SIGTERM and allows about ten seconds before it kills an
  * instance (a deploy, a scale-down). Stop taking new connections and let the
  * requests already running finish, rather than cutting them off half-way
- * through a save. Background jobs hold leases that simply expire.
+ * through a save. Background jobs start nothing new, are told to stop before
+ * their next step that cannot be undone, and give their leases back so
+ * another instance takes over at its next tick (services/jobLease.ts).
  */
 process.once('SIGTERM', () => {
   // eslint-disable-next-line no-console
   console.log('SIGTERM: finishing requests in flight, then exiting');
-  server.close(() => process.exit(0));
+  const released = stopJobs()
+    .then((jobs) => jobs.length && console.log(`SIGTERM: stopped ${jobs.join(', ')}; leases released`)) // eslint-disable-line no-console
+    .catch((e) => console.error('SIGTERM: releasing job leases failed:', e instanceof Error ? e.message : e)); // eslint-disable-line no-console
+  server.close(() => released.finally(() => process.exit(0)));
   setTimeout(() => process.exit(0), 8_000).unref();
 });
 
@@ -52,14 +68,31 @@ startWebhookRetries();
 
 /* Sign-in records past their use are removed daily — see services/retention.ts. */
 startRetentionPurge();
-/* Companies whose closure notice has ended are deleted daily — see services/companyClosure.ts. */
+/* Companies whose closure notice has ended are deleted (checked hourly, resumable) — see services/companyClosure.ts. */
 startClosurePurge();
 /* Recycle-bin items past their days are deleted for good — see services/recycleBin.ts. */
 startRecycleBinPurge();
 /* HR tools: the outbox every minute, their people hourly — see services/hr/sync.ts. */
 startHrSync();
 startDocumentReminders();
+/* People's outbox: events written with a change are delivered every few seconds — see services/people/outbox.ts. */
+startPeopleOutbox();
+/* Changes dated for a future day are applied on that day — see services/people/effectiveDating.ts. */
+startScheduledChanges();
+/* Approvals: what an approved request does, and overdue steps reminded or handed on — see services/people/approvals. */
+registerPeopleEffects();
+startApprovalDues();
+startDeskDues();
+startSeparations();
 startNotificationPruning();
 startBooksDigest();
 /* Reports that go out by e-mail on their own — every 15 minutes the due ones are sent. */
 startReportSchedules(buildReport);
+/* Batch 5: credentials issued before the registry are registered once, on one instance. */
+startCredentialBackfill();
+/* New permissions reach every company's Owner role, once per deploy. */
+startOwnerPermissionSync();
+/* Daily: expiry warnings, expired events, credentials whose own row is gone. */
+startCredentialChecks();
+/* GAP-010: links between the databases, checked nightly; safe ones repaired, the rest logged. */
+startIntegrityChecks();

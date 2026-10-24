@@ -34,10 +34,14 @@ const person = async (c: Ctx, body: Record<string, unknown>) =>
 
 describe('who may use leave', () => {
   it('HR alone runs leave, holidays, check-in and the employee app; neither app on is refused', async () => {
-    const none = await company({});
+    /* A fresh account owns every sellable app (explicit bootstrap subscription), so
+       "off" is now the customer turning the apps off, not a catalog default. */
+    const none = await company({ people: false, attendance: false });
     expect((await att(none, 'get', '/leave/types').expect(403)).body.code).toBe('TIME_OFF_DISABLED');
 
-    const hr = await company({ people: true });
+    /* A fresh account owns every sellable app (explicit bootstrap subscription), so
+       Attendance must be switched off here, not left to a catalog default. */
+    const hr = await company({ people: true, attendance: false });
     const casual = (await att(hr, 'post', '/leave/types', { name: 'Casual', annualDays: 12 }).expect(201)).body.type;
     await att(hr, 'post', '/holidays', { date: '2026-11-02', name: 'Kannada Rajyotsava' }).expect(201);
     const p = await person(hr, { name: 'Asha', code: 'H1' });

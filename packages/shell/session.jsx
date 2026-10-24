@@ -1,6 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
-import { setPlatformContext } from '@platform/context';
+import { SWITCH_COMPANY_EVENT, setPlatformContext } from '@platform/context';
 import {
   APP_FEATURE,
   appsFromFeatures,
@@ -17,6 +17,7 @@ import {
 } from '@platform/auth';
 
 import { appFromHost } from './appHosts';
+import { chooseTenant, lastUsedKey, orgCodeFromPath, tabChoiceKey, withOrgPath } from './orgUrl';
 
 /**
  * Who is signed in, which company they are looking at, and which apps that
@@ -59,6 +60,8 @@ const writeToken = (token) => {
 const toTenant = (membership) => ({
   id: String(membership.orgId || membership.org?.id || ''),
   name: String(membership.org?.name || membership.name || 'Company'),
+  /* The company's own code (KAVE-C100): what the address carries (A-26). */
+  code: membership.org?.code || membership.code || null,
   accountId: membership.accountId || null,
   /* Every tenant-scoped route wants a branch as well as a company, and the
      route that lists branches wants one too — so the platform answers it. */
@@ -76,11 +79,17 @@ export function SessionProvider({ children }) {
   const [user, setUser] = useState(null);
   const [tenants, setTenants] = useState([]);
   const [tenantId, setTenantIdState] = useState('');
+  /* A company code from the address that is not one of this person's (A-26): "no access", never another company. */
+  const [deniedCode, setDeniedCode] = useState('');
   const setTenantId = useCallback((id) => {
     setTenantIdState(id);
-    // A browser preference, scoped to the signed-in user and checked against
-    // current memberships again on restore. It never grants company access.
-    try { if (user?.id && id) localStorage.setItem(`clor.tenant.${user.id}`, id); } catch { /* storage unavailable */ }
+    setDeniedCode('');
+    // Remembered twice: for this tab (sessionStorage, so another tab switching
+    // company does not move this one) and as this browser's last-used company
+    // (a new tab with no address). Scoped to the signed-in user and checked
+    // against current memberships again on restore. Neither grants access.
+    try { if (user?.id && id) sessionStorage.setItem(tabChoiceKey(user.id), id); } catch { /* storage unavailable */ }
+    try { if (user?.id && id) localStorage.setItem(lastUsedKey(user.id), id); } catch { /* storage unavailable */ }
   }, [user?.id]);
   /* A company here requires an authenticator of this owner or admin, who has none yet (SX-09). */
   const [twoFactorSetupRequired, setTwoFactorSetupRequired] = useState(false);
@@ -89,9 +98,10 @@ export function SessionProvider({ children }) {
      in, on every reload. */
   const [restoring, setRestoring] = useState(() => Boolean(readToken()) || Boolean(appFromHost()));
 
+  /* No silent fallback to the first company while the address names one this person cannot open (A-26). */
   const tenant = useMemo(
-    () => tenants.find((t) => t.id === tenantId) || tenants[0] || null,
-    [tenants, tenantId]
+    () => (deniedCode ? null : tenants.find((t) => t.id === tenantId) || tenants[0] || null),
+    [tenants, tenantId, deniedCode]
   );
 
   /*
@@ -135,13 +145,70 @@ export function SessionProvider({ children }) {
     setTenants(list);
     setUser(payload?.user || null);
     setTwoFactorSetupRequired(Boolean(payload?.twoFactorSetupRequired));
-    let remembered = '';
-    try { remembered = String(localStorage.getItem(`clor.tenant.${payload?.user?.id}`) || ''); } catch { /* storage unavailable */ }
-    const wanted = !preferRequested && list.some((t) => t.id === remembered) ? remembered : String(payload?.activeOrgId || '').trim();
-    const chosen = list.find((t) => t.id === wanted) || list[0] || null;
+    const userId = payload?.user?.id;
+    const read = (store, key) => {
+      try { return String(store.getItem(key) || ''); } catch { return ''; }
+    };
+    /* The address, this tab, this browser, the server — in that order (A-26). */
+    const { tenant: chosen, denied } = chooseTenant({
+      tenants: list,
+      urlCode: typeof window === 'undefined' ? '' : orgCodeFromPath(window.location.pathname),
+      tabChoice: userId ? read(sessionStorage, tabChoiceKey(userId)) : '',
+      lastUsed: userId ? read(localStorage, lastUsedKey(userId)) : '',
+      suggested: String(payload?.activeOrgId || '').trim(),
+      preferSuggested: preferRequested,
+    });
     setTenantIdState(chosen?.id || '');
+    setDeniedCode(denied);
+    if (chosen && userId) {
+      try { sessionStorage.setItem(tabChoiceKey(userId), chosen.id); } catch { /* storage unavailable */ }
+    }
     return chosen;
   }, []);
+
+  /*
+   * The address follows the company (A-26). Opening one with no code in the
+   * address writes it in place; switching company is a new history entry, so
+   * Back returns to the company before. A code the person cannot open is left
+   * where it is, under the "no access" screen, so they can see what they
+   * followed.
+   */
+  const tenantCode = user && tenant && !deniedCode ? tenant.code || '' : '';
+  useEffect(() => {
+    if (!tenantCode || typeof window === 'undefined') return;
+    const current = orgCodeFromPath(window.location.pathname);
+    if (current === tenantCode.toUpperCase()) return;
+    const url = `${withOrgPath(window.location.pathname, tenantCode)}${window.location.search}${window.location.hash}`;
+    if (current) window.history.pushState(null, '', url);
+    else window.history.replaceState(null, '', url);
+  }, [tenantCode]);
+
+  /* An app's own company menu asks; the shell switches (A-27). Only a company this person has. */
+  useEffect(() => {
+    const onAsk = (e) => {
+      const id = String(e?.detail?.orgId || '');
+      if (tenants.some((t) => t.id === id)) setTenantId(id);
+    };
+    window.addEventListener(SWITCH_COMPANY_EVENT, onAsk);
+    return () => window.removeEventListener(SWITCH_COMPANY_EVENT, onAsk);
+  }, [tenants, setTenantId]);
+
+  /* Back and Forward between companies: the address decides, as on a reload. */
+  useEffect(() => {
+    if (!user) return undefined;
+    const onPop = () => {
+      const code = orgCodeFromPath(window.location.pathname);
+      if (!code) return;
+      const hit = tenants.find((t) => String(t.code || '').toUpperCase() === code);
+      if (hit) {
+        setTenantIdState(hit.id);
+        setDeniedCode('');
+        try { sessionStorage.setItem(tabChoiceKey(user.id), hit.id); } catch { /* storage unavailable */ }
+      } else setDeniedCode(code);
+    };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, [user, tenants]);
 
   /* A token in the browser is a claim, not a session: the server decides.
      On an app's own address (accounting.clor.in) there may be no token yet
@@ -300,6 +367,9 @@ export function SessionProvider({ children }) {
     setUser(null);
     setTenants([]);
     setTenantIdState('');
+    setDeniedCode('');
+    /* Signing out leaves no company in the address for whoever signs in next. */
+    try { window.history.replaceState(null, '', `${withOrgPath(window.location.pathname, '')}${window.location.search}${window.location.hash}`); } catch { /* no window */ }
   }, []);
 
   /**
@@ -321,8 +391,8 @@ export function SessionProvider({ children }) {
   );
 
   const value = useMemo(
-    () => ({ user, tenant, tenants, restoring, signIn, signInWithCode, twoFactorSetupRequired, recheckTwoFactor, signUp, createCompany, signOut, setTenantId, addApp }),
-    [user, tenant, tenants, restoring, signIn, signInWithCode, twoFactorSetupRequired, recheckTwoFactor, signUp, createCompany, signOut, setTenantId, addApp]
+    () => ({ user, tenant, tenants, deniedCode, restoring, signIn, signInWithCode, twoFactorSetupRequired, recheckTwoFactor, signUp, createCompany, signOut, setTenantId, addApp }),
+    [user, tenant, tenants, deniedCode, restoring, signIn, signInWithCode, twoFactorSetupRequired, recheckTwoFactor, signUp, createCompany, signOut, setTenantId, addApp]
   );
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;

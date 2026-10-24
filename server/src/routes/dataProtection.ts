@@ -70,7 +70,7 @@ dataProtectionRouter.get(base, can(PermissionAction.VIEW), async (req, res) => {
       noticeReadCurrent: current,
       employees: people.length,
     },
-    retention: { selfieDays: punchPhotoRetentionDays(), locationDays: punchLocationRetentionDays(), readerEventDays: readerEventRetentionDays() },
+    retention: { selfieDays: s.photoRetentionDays ?? (await punchPhotoRetentionDays(orgId)), locationDays: punchLocationRetentionDays(), readerEventDays: readerEventRetentionDays() },
     notice,
   });
 });
@@ -199,7 +199,7 @@ dataProtectionRouter.post(`${base}/breaches/:id/notify`, can(PermissionAction.ED
   if (!row) return res.status(404).json({ error: 'No such breach.' });
   const ids: string[] = JSON.parse(row.employeeIdsJson || '[]');
   const [people, org, s] = await Promise.all([
-    peoplePrisma.employee.findMany({ where: { orgId, id: { in: ids } }, select: { id: true, name: true, workEmail: true, personalEmail: true } }),
+    peoplePrisma.employee.findMany({ where: { orgId, id: { in: ids } }, select: { id: true, name: true, email: true, workEmail: true, personalEmail: true } }),
     platformPrisma.org.findUnique({ where: { id: orgId }, select: { name: true } }),
     peoplePrisma.attendanceSettings.findUnique({ where: { orgId } }),
   ]);
@@ -209,7 +209,8 @@ dataProtectionRouter.post(`${base}/breaches/:id/notify`, can(PermissionAction.ED
   let sent = 0;
   const noEmail: Array<{ id: string; name: string }> = [];
   for (const p of people) {
-    const to = p.personalEmail || p.workEmail;
+    /* Every address on file counts (review R-09): the employee form saves the personal address in `email`. */
+    const to = p.personalEmail || p.email || p.workEmail;
     if (!to) {
       noEmail.push({ id: p.id, name: p.name });
       continue;

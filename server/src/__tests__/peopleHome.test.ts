@@ -32,7 +32,7 @@ describe('People home', () => {
     const a = (await people('post', '/employees', { name: 'Asha', code: 'H1', dateOfJoining: plus(-60), probationEndDate: plus(10) }).expect(201)).body.employee;
     const r = (await people('post', '/employees', { name: 'Ravi', code: 'H2', dateOfJoining: plus(-400) }).expect(201)).body.employee;
     await people('post', `/employees/${a.id}/documents`, { kind: 'ID_PROOF', title: 'Passport', expiresOn: plus(20), file: `data:application/pdf;base64,${Buffer.from('%PDF-1.4').toString('base64')}` });
-    await people('post', '/workspace/helpdesk', { title: 'Salary not credited', status: 'OPEN', employeeId: a.id, details: { category: 'PAYROLL', priority: 'URGENT', description: 'October salary missing' } }).expect(201);
+    await people('post', '/desk', { employeeId: a.id, category: 'PAYROLL', subject: 'Salary not credited', description: 'October salary missing', urgency: 'URGENT' }).expect(201);
     const job = (await people('post', '/workspace/recruitment', { title: 'Accountant', status: 'OPEN', details: { openings: 1 } }).expect(201)).body.record;
     await people('post', '/workspace/candidates', { title: 'Meera K', status: 'APPLIED', details: { jobId: job.id, email: 'meera@example.com' } }).expect(201);
     await people('post', '/workspace/assets', { title: 'Laptop', status: 'ASSIGNED', employeeId: r.id, details: { assetTag: 'LT-01' } }).expect(201);

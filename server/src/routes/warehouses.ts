@@ -7,6 +7,7 @@ import { requireAuth } from '../middleware/auth.js';
 import { requireTenantContext } from '../middleware/tenantContext.js';
 import { requirePermission } from '../middleware/rbac.js';
 import { PermissionAction } from '../constants/enums.js';
+import { forgetWarehouseAccess } from '../services/integrity/crossStore.js';
 
 export const warehousesRouter = Router();
 warehousesRouter.use(requireAuth, requireTenantContext);
@@ -168,5 +169,7 @@ warehousesRouter.delete('/orgs/:orgId/warehouses/:warehouseId', requirePermissio
     }
     throw error;
   }
+  /* GAP-010: the access people had to it lives in the platform database. */
+  await forgetWarehouseAccess({ accountId, orgId }, warehouseId);
   res.json({ ok: true });
 });

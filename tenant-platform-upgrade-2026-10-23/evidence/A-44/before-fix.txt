@@ -1,0 +1,228 @@
+# A-44 BEFORE fix: source files swapped back to HEAD (ca93087): src/services/recurring.ts
+# 2026-10-23T14:14:20Z  npx vitest run src/__tests__/recurringAtomic.test.ts src/__tests__/recurring.test.ts
+ DEPRECATED  `test.poolOptions` was removed in Vitest 4. All previous `poolOptions` are now top-level options. Please, refer to the migration guide: https://vitest.dev/guide/migration#pool-rework
+
+ RUN  v4.1.10 /Users/suresh/Desktop/clor-platform/.claude/worktrees/batch6-workers-fb00cd/server
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_22118", schema "accounting" at "localhost:5432"
+
+The PostgreSQL database "clor_test_22118" schema "accounting" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 1.59s
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/payroll/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_22118", schema "payroll" at "localhost:5432"
+
+The PostgreSQL database "clor_test_22118" schema "payroll" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 945ms
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/people/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_22118", schema "people" at "localhost:5432"
+
+The PostgreSQL database "clor_test_22118" schema "people" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 1.38s
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/platform/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_22118", schema "platform" at "localhost:5432"
+
+The PostgreSQL database "clor_test_22118" schema "platform" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 667ms
+
+POST /api/auth/signup 200 578 - 120.859 ms
+POST /api/auth/setup-company 200 204 - 355.919 ms
+POST /api/orgs/cmvl1x6fp000e4oyka4ck00wk/recurring 201 740 - 128.483 ms
+GET /api/orgs/cmvl1x6fp000e4oyka4ck00wk/recurring 200 743 - 101.725 ms
+POST /api/orgs/cmvl1x6fp000e4oyka4ck00wk/recurring 201 740 - 95.313 ms
+PATCH /api/orgs/cmvl1x6fp000e4oyka4ck00wk/recurring/cmvl1x6y7000ui9sdn5qlh6r8 200 741 - 95.501 ms
+DELETE /api/orgs/cmvl1x6fp000e4oyka4ck00wk/recurring/cmvl1x6y7000ui9sdn5qlh6r8 200 49 - 94.814 ms
+POST /api/auth/signup 200 584 - 5.634 ms
+POST /api/auth/setup-company 200 210 - 74.525 ms
+POST /api/orgs/cmvl1x73v00qn4oyk696bbo1r/recurring 201 740 - 93.721 ms
+POST /api/auth/signup 200 578 - 5.121 ms
+POST /api/auth/setup-company 200 204 - 70.217 ms
+POST /api/orgs/cmvl1x79j018f4oykbrqu15ka/recurring 201 740 - 92.400 ms
+POST /api/auth/signup 200 578 - 4.738 ms
+POST /api/auth/setup-company 200 204 - 82.483 ms
+POST /api/orgs/cmvl1x7ed01q74oykkomgv33t/recurring 201 740 - 117.514 ms
+POST /api/auth/signup 200 580 - 5.906 ms
+POST /api/auth/setup-company 200 206 - 100.675 ms
+POST /api/orgs/cmvl1x7ly027z4oyk7zr83m54/recurring 201 740 - 98.680 ms
+POST /api/auth/signup 200 584 - 4.798 ms
+POST /api/auth/setup-company 200 210 - 73.138 ms
+POST /api/orgs/cmvl1x7sc02pr4oykbe42jqju/recurring 201 748 - 98.695 ms
+POST /api/auth/signup 200 580 - 4.700 ms
+POST /api/auth/setup-company 200 206 - 74.060 ms
+POST /api/orgs/cmvl1x7xf037j4oyks3dxqc98/recurring 201 737 - 104.471 ms
+POST /api/auth/signup 200 582 - 5.001 ms
+POST /api/auth/setup-company 200 208 - 76.349 ms
+POST /api/orgs/cmvl1x82q03pb4oyk2bsx1rlt/recurring 201 740 - 106.927 ms
+PATCH /api/orgs/cmvl1x82q03pb4oyk2bsx1rlt/recurring/cmvl1x87s007ri9sdbqmzw5pa 200 741 - 107.121 ms
+POST /api/auth/signup 200 580 - 5.766 ms
+POST /api/auth/setup-company 200 206 - 78.849 ms
+POST /api/orgs/cmvl1x8b304734oyk3zmhxlkl/recurring 201 740 - 106.430 ms
+POST /api/auth/signup 200 578 - 5.341 ms
+POST /api/auth/setup-company 200 204 - 73.955 ms
+POST /api/orgs/cmvl1x8gv04ov4oykdsj9ipdf/recurring 201 740 - 97.383 ms
+GET /api/orgs/cmvl1x8gv04ov4oykdsj9ipdf/recurring/cmvl1x8ll00afi9sdi6jm4p7b/runs 200 524 - 94.662 ms
+POST /api/auth/signup 200 582 - 5.364 ms
+POST /api/auth/setup-company 200 208 - 80.924 ms
+POST /api/orgs/cmvl1x8ol056n4oykvzq39r1g/recurring 201 740 - 115.607 ms
+POST /api/orgs/cmvl1x8ol056n4oykvzq39r1g/recurring/run 200 39 - 110.053 ms
+POST /api/orgs/cmvl1x8ol056n4oykvzq39r1g/recurring/run 200 38 - 97.402 ms
+POST /api/auth/signup 200 578 - 4.537 ms
+POST /api/auth/setup-company 200 204 - 70.950 ms
+POST /api/auth/signup 200 586 - 5.945 ms
+POST /api/auth/setup-company 200 211 - 75.247 ms
+POST /api/orgs/cmvl1x90205of4oykcatinqo9/recurring 201 740 - 105.797 ms
+GET /api/orgs/cmvl1x92906674oykdakiogzh/recurring 200 16 - 123.123 ms
+POST /api/auth/signup 200 580 - 138.344 ms
+POST /api/auth/setup-company 200 206 - 497.693 ms
+POST /api/orgs/cmvl1xa5b000e32rcoo26181w/recurring 201 734 - 251.709 ms
+POST /api/auth/signup 200 582 - 8.327 ms
+POST /api/auth/setup-company 200 208 - 103.742 ms
+POST /api/orgs/cmvl1xapl00i632rc261x79su/recurring 201 732 - 111.449 ms
+stdout | src/__tests__/recurringAtomic.test.ts > A-44: a recurring period > is raised on the next run after a crash between the claim and the invoice
+prisma:error 
+Invalid `prisma.invoice.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/batch6-workers-fb00cd/server/src/services/recurring.ts:134:44
+
+  131 }
+  132 
+  133 const items = Array.isArray(template.items) ? template.items : [];
+→ 134 const invoice = await prisma.invoice.create(
+Error occurred during query execution:
+ConnectorError(ConnectorError { user_facing_error: None, kind: QueryError(PostgresError { code: "P0001", message: "simulated crash after the claim", severity: "ERROR", detail: None, column: None, hint: None }), transient: false })
+
+stdout | src/__tests__/recurringAtomic.test.ts > A-44: a recurring period > is raised on the next run after a crash between the claim and the invoice
+prisma:error 
+Invalid `prisma.recurringScheduleRun.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/batch6-workers-fb00cd/server/src/services/recurring.ts:120:57
+
+  117  */
+  118 let claimId: string | null = null;
+  119 try {
+→ 120   const claim = await prisma.recurringScheduleRun.create(
+Unique constraint failed on the (not available)
+
+POST /api/auth/signup 200 578 - 9.749 ms
+POST /api/auth/setup-company 200 204 - 136.214 ms
+POST /api/orgs/cmvl1xaz900zy32rcwef1ymo8/recurring 201 729 - 103.973 ms
+stdout | src/__tests__/recurringAtomic.test.ts > A-44: a recurring period > left half-raised by an earlier crash (a claim with no invoice) is repaired, not skipped
+prisma:error 
+Invalid `prisma.recurringScheduleRun.create()` invocation in
+/Users/suresh/Desktop/clor-platform/.claude/worktrees/batch6-workers-fb00cd/server/src/services/recurring.ts:120:57
+
+  117  */
+  118 let claimId: string | null = null;
+  119 try {
+→ 120   const claim = await prisma.recurringScheduleRun.create(
+Unique constraint failed on the (not available)
+
+POST /api/auth/signup 200 576 - 5.967 ms
+POST /api/auth/setup-company 200 202 - 113.215 ms
+POST /api/orgs/cmvl1xb7301hq32rcaka0tsl8/recurring 201 732 - 98.456 ms
+POST /api/auth/signup 200 582 - 5.065 ms
+POST /api/auth/setup-company 200 208 - 78.483 ms
+POST /api/orgs/cmvl1xbdo01zj32rcty5f619h/recurring 201 732 - 102.748 ms
+ ❯ src/__tests__/recurringAtomic.test.ts (5 tests | 4 failed) 2058ms
+     × is raised on the next run after a crash between the claim and the invoice 945ms
+     × left half-raised by an earlier crash (a claim with no invoice) is repaired, not skipped 346ms
+     × for a company that has switched recurring invoices off 238ms
+     × for an account whose Accounting subscription has lapsed 194ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/__tests__/recurringAtomic.test.ts > A-44: a recurring period > is raised on the next run after a crash between the claim and the invoice
+AssertionError: expected [] to deeply equal [ '2026-01-01' ]
+
+- Expected
++ Received
+
+- [
+-   "2026-01-01",
+- ]
++ []
+
+ ❯ src/__tests__/recurringAtomic.test.ts:100:35
+     98|     await prisma.recurringSchedule.update({ where: { id: s.id }, data:…
+     99|     await runDueSchedules({ orgId: c.orgId, today: '2026-01-15' });
+    100|     expect(await drafts(c.orgId)).toEqual(['2026-01-01']);
+       |                                   ^
+    101|     expect((await claims(s.id)).map((r) => Boolean(r.invoiceId))).toEq…
+    102|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯
+
+ FAIL  src/__tests__/recurringAtomic.test.ts > A-44: a recurring period > left half-raised by an earlier crash (a claim with no invoice) is repaired, not skipped
+AssertionError: expected [ '2026-02-01' ] to deeply equal [ '2026-01-01', '2026-02-01' ]
+
+- Expected
++ Received
+
+  [
+-   "2026-01-01",
+    "2026-02-01",
+  ]
+
+ ❯ src/__tests__/recurringAtomic.test.ts:110:35
+    108|
+    109|     await runDueSchedules({ orgId: c.orgId, today: '2026-02-15' });
+    110|     expect(await drafts(c.orgId)).toEqual(['2026-01-01', '2026-02-01']…
+       |                                   ^
+    111|     expect((await claims(s.id)).every((r) => r.invoiceId)).toBe(true);
+    112|     expect((await prisma.recurringSchedule.findUniqueOrThrow({ where: …
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/4]⎯
+
+ FAIL  src/__tests__/recurringAtomic.test.ts > A-44: the job raises nothing > for a company that has switched recurring invoices off
+AssertionError: expected 2 to be +0 // Object.is equality
+
+- Expected
++ Received
+
+- 0
++ 2
+
+ ❯ src/__tests__/recurringAtomic.test.ts:133:22
+    131|     });
+    132|     const r = await runDueSchedules({ today: '2026-02-15', orgId: c.or…
+    133|     expect(r.raised).toBe(0);
+       |                      ^
+    134|     expect(await drafts(c.orgId)).toEqual([]);
+    135|     /* Nothing is lost: the schedule still stands at its first period,…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/4]⎯
+
+ FAIL  src/__tests__/recurringAtomic.test.ts > A-44: the job raises nothing > for an account whose Accounting subscription has lapsed
+AssertionError: expected 2 to be +0 // Object.is equality
+
+- Expected
++ Received
+
+- 0
++ 2
+
+ ❯ src/__tests__/recurringAtomic.test.ts:144:22
+    142|     await platformPrisma.subscription.updateMany({ where: { accountId:…
+    143|     const r = await runDueSchedules({ today: '2026-02-15', orgId: c.or…
+    144|     expect(r.raised).toBe(0);
+       |                      ^
+    145|     expect(await drafts(c.orgId)).toEqual([]);
+    146|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/4]⎯
+
+
+ Test Files  1 failed | 1 passed (2)
+      Tests  4 failed | 20 passed (24)
+   Start at  19:44:21
+   Duration  24.66s (transform 2.86s, setup 38ms, import 6.31s, tests 5.94s, environment 0ms)
+

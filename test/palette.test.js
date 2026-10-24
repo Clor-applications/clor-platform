@@ -6,16 +6,30 @@ import { APPS } from '../packages/shell/registry';
 /**
  * The Blaze palette is shared, not Attendance's own styling: an app opts in
  * with `palette: 'blaze'` in its manifest and the shell sets data-palette.
- * Only Attendance has opted in; the others keep the platform's colours until
- * they choose to.
+ * Attendance wears Blaze; People wears Rose (owner, 24 Oct 2026, docs/people/08 D-01)
+ * on Accounting's layout; Accounting and Payroll keep the platform's colours.
  */
 const css = readFileSync('packages/ui/src/index.css', 'utf8');
 
 describe('shared palettes', () => {
-  /* Attendance, then People (founder, 22 Oct 2026); Accounting and Payroll keep their look until they opt in. */
-  it('Attendance and People wear Blaze; Accounting and Payroll do not', () => {
-    const wearing = APPS.filter((a) => a.palette === 'blaze').map((a) => a.id).sort();
-    expect(wearing).toEqual(['attendance', 'people']);
+  it('Attendance wears Blaze, People wears Rose; Accounting and Payroll keep the platform colours', () => {
+    const byPalette = {};
+    for (const a of APPS.filter((x) => x.palette)) (byPalette[a.palette] ||= []).push(a.id);
+    expect(byPalette).toEqual({ blaze: ['attendance'], rose: ['people'] });
+  });
+
+  /* Owner, 24 Oct 2026: People keeps Accounting's layout, type scale and radii. A palette
+     may set colour tokens and answer the !important graphite controls; it may not
+     restate type or geometry, and nothing may be scoped to the People app itself. */
+  it('People has no app-scoped styling: its look is the rose palette on the shared layout', () => {
+    expect(css).not.toMatch(/\[data-app='people'\]/);
+    const start = css.indexOf('The Rose palette');
+    expect(start).toBeGreaterThan(-1);
+    const rose = css.slice(start);
+    const roseRules = rose.match(/\[data-palette='rose'\][^{]*\{[^}]*\}/g) || [];
+    for (const rule of roseRules) {
+      expect(rule).not.toMatch(/font-size|line-height|border-radius|font-weight/);
+    }
   });
 
   it('every palette an app names exists in the shared stylesheet', () => {

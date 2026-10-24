@@ -1,0 +1,538 @@
+{
+ "numTotalTestSuites": 13,
+ "numPassedTestSuites": 13,
+ "numFailedTestSuites": 0,
+ "numPendingTestSuites": 0,
+ "numTotalTests": 40,
+ "numPassedTests": 40,
+ "numFailedTests": 0,
+ "numPendingTests": 0,
+ "numTodoTests": 0,
+ "snapshot": {
+  "added": 0,
+  "failure": false,
+  "filesAdded": 0,
+  "filesRemoved": 0,
+  "filesRemovedList": [],
+  "filesUnmatched": 0,
+  "filesUpdated": 0,
+  "matched": 0,
+  "total": 0,
+  "unchecked": 0,
+  "uncheckedKeysByFile": [],
+  "unmatched": 0,
+  "updated": 0,
+  "didUpdate": false
+ },
+ "startTime": 1792790568717,
+ "success": true,
+ "testResults": [
+  {
+   "assertionResults": [
+    {
+     "ancestorTitles": [
+      "exporting a company"
+     ],
+     "fullName": "exporting a company returns the company\u2019s own records",
+     "status": "passed",
+     "title": "returns the company\u2019s own records",
+     "duration": 1039.3652089999998,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "exporting a company"
+     ],
+     "fullName": "exporting a company carries people, attendance and payroll too, with nothing that looks like a secret",
+     "status": "passed",
+     "title": "carries people, attendance and payroll too, with nothing that looks like a secret",
+     "duration": 250.1049170000001,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "exporting a company"
+     ],
+     "fullName": "exporting a company says what it contains, so the file explains itself later",
+     "status": "passed",
+     "title": "says what it contains, so the file explains itself later",
+     "duration": 467.2018750000002,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "exporting a company"
+     ],
+     "fullName": "exporting a company writes money as numbers a spreadsheet can read",
+     "status": "passed",
+     "title": "writes money as numbers a spreadsheet can read",
+     "duration": 499.10329200000024,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "exporting a company"
+     ],
+     "fullName": "exporting a company contains no other company's data",
+     "status": "passed",
+     "title": "contains no other company's data",
+     "duration": 1250.215209,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "exporting a company"
+     ],
+     "fullName": "exporting a company contains no sibling company's data either",
+     "status": "passed",
+     "title": "contains no sibling company's data either",
+     "duration": 502.70695800000067,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "exporting a company"
+     ],
+     "fullName": "exporting a company carries no passwords, sessions or secrets",
+     "status": "passed",
+     "title": "carries no passwords, sessions or secrets",
+     "duration": 240.8442500000001,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "exporting a company"
+     ],
+     "fullName": "exporting a company carries the till counts, which are the cash controls",
+     "status": "passed",
+     "title": "carries the till counts, which are the cash controls",
+     "duration": 278.0105000000003,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "exporting a company"
+     ],
+     "fullName": "exporting a company refuses an org the caller is not in",
+     "status": "passed",
+     "title": "refuses an org the caller is not in",
+     "duration": 274.34049999999934,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "the two scopes"
+     ],
+     "fullName": "the two scopes gives data only when data is asked for",
+     "status": "passed",
+     "title": "gives data only when data is asked for",
+     "duration": 167.60741700000017,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "the two scopes"
+     ],
+     "fullName": "the two scopes gives configuration only when configuration is asked for",
+     "status": "passed",
+     "title": "gives configuration only when configuration is asked for",
+     "duration": 135.03791699999965,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "the two scopes"
+     ],
+     "fullName": "the two scopes strips secrets out of the configuration",
+     "status": "passed",
+     "title": "strips secrets out of the configuration",
+     "duration": 117.68137500000012,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "the two scopes"
+     ],
+     "fullName": "the two scopes keeps the ledger out of the configuration and the roles out of the data",
+     "status": "passed",
+     "title": "keeps the ledger out of the configuration and the roles out of the data",
+     "duration": 274.01379200000065,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "the two scopes"
+     ],
+     "fullName": "the two scopes refuses a scope it does not know",
+     "status": "passed",
+     "title": "refuses a scope it does not know",
+     "duration": 117.20233300000018,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "the two scopes"
+     ],
+     "fullName": "the two scopes says which scope the file is, so it explains itself later",
+     "status": "passed",
+     "title": "says which scope the file is, so it explains itself later",
+     "duration": 124.53900000000067,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "personal data in the export"
+     ],
+     "fullName": "personal data in the export leaves out People and Payroll for someone who cannot view them, and says so",
+     "status": "passed",
+     "title": "leaves out People and Payroll for someone who cannot view them, and says so",
+     "duration": 367.71954200000073,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "personal data in the export"
+     ],
+     "fullName": "personal data in the export gives an administrator payroll data, and records that it left",
+     "status": "passed",
+     "title": "gives an administrator payroll data, and records that it left",
+     "duration": 257.076,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "personal data in the export"
+     ],
+     "fullName": "personal data in the export withholds payroll when the company asks for a second factor and none was given",
+     "status": "passed",
+     "title": "withholds payroll when the company asks for a second factor and none was given",
+     "duration": 578.0693749999991,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    }
+   ],
+   "startTime": 1792790603217,
+   "endTime": 1792790610159.0693,
+   "status": "passed",
+   "message": "",
+   "name": "src/__tests__/dataExport.test.ts"
+  },
+  {
+   "assertionResults": [
+    {
+     "ancestorTitles": [
+      "leave workflow invariants"
+     ],
+     "fullName": "leave workflow invariants never credits entitlement before joining",
+     "status": "passed",
+     "title": "never credits entitlement before joining",
+     "duration": 0.6760420000000522,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "leave workflow invariants"
+     ],
+     "fullName": "leave workflow invariants requires a linked leave decision for manual and imported register marks",
+     "status": "passed",
+     "title": "requires a linked leave decision for manual and imported register marks",
+     "duration": 481.8446670000003,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "leave workflow invariants"
+     ],
+     "fullName": "leave workflow invariants preserves half-day leave across corrections and counts unpaid half days",
+     "status": "passed",
+     "title": "preserves half-day leave across corrections and counts unpaid half days",
+     "duration": 817.080833,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "leave workflow invariants"
+     ],
+     "fullName": "leave workflow invariants rolls back day postings, final status and notifications when the transaction fails",
+     "status": "passed",
+     "title": "rolls back day postings, final status and notifications when the transaction fails",
+     "duration": 330.7438750000001,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "leave workflow invariants"
+     ],
+     "fullName": "leave workflow invariants allows only one concurrent final decision",
+     "status": "passed",
+     "title": "allows only one concurrent final decision",
+     "duration": 410.1708749999998,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "leave workflow invariants"
+     ],
+     "fullName": "leave workflow invariants refuses full-day cancellation in a closed month without changing any rows",
+     "status": "passed",
+     "title": "refuses full-day cancellation in a closed month without changing any rows",
+     "duration": 614.2662920000002,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "leave workflow invariants"
+     ],
+     "fullName": "leave workflow invariants keeps approved leave linked and treated the same for a punch from any source",
+     "status": "passed",
+     "title": "keeps approved leave linked and treated the same for a punch from any source",
+     "duration": 2344.5177080000003,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "leave workflow invariants"
+     ],
+     "fullName": "leave workflow invariants separates API application permission from decisions and enforces manager first",
+     "status": "passed",
+     "title": "separates API application permission from decisions and enforces manager first",
+     "duration": 715.6650000000009,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "leave workflow invariants"
+     ],
+     "fullName": "leave workflow invariants does not let a bulk change mark a day on leave, in preview or apply",
+     "status": "passed",
+     "title": "does not let a bulk change mark a day on leave, in preview or apply",
+     "duration": 508.1794169999994,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "leave workflow invariants"
+     ],
+     "fullName": "leave workflow invariants refuses half-day cancellation in a closed month without changing any rows",
+     "status": "passed",
+     "title": "refuses half-day cancellation in a closed month without changing any rows",
+     "duration": 523.4883329999993,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "leave workflow invariants"
+     ],
+     "fullName": "leave workflow invariants does not restate entitlement or periods once balances have activity",
+     "status": "passed",
+     "title": "does not restate entitlement or periods once balances have activity",
+     "duration": 365.4677909999991,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "leave workflow invariants"
+     ],
+     "fullName": "leave workflow invariants serializes encashment caps and links one debit to one approved payroll earning",
+     "status": "passed",
+     "title": "serializes encashment caps and links one debit to one approved payroll earning",
+     "duration": 2238.112665999999,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    }
+   ],
+   "startTime": 1792790582379,
+   "endTime": 1792790591730.1125,
+   "status": "passed",
+   "message": "",
+   "name": "src/__tests__/hrWorkflowFixes.test.ts"
+  },
+  {
+   "assertionResults": [
+    {
+     "ancestorTitles": [
+      "the switch"
+     ],
+     "fullName": "the switch is refused while neither People nor Attendance is on, and opens with either",
+     "status": "passed",
+     "title": "is refused while neither People nor Attendance is on, and opens with either",
+     "duration": 1229.9195840000002,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "types and balances"
+     ],
+     "fullName": "types and balances gives everyone the type\u2019s days, unless an allocation says otherwise",
+     "status": "passed",
+     "title": "gives everyone the type\u2019s days, unless an allocation says otherwise",
+     "duration": 867.29675,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "types and balances"
+     ],
+     "fullName": "types and balances will not delete a type that has been used",
+     "status": "passed",
+     "title": "will not delete a type that has been used",
+     "duration": 603.8997499999996,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "requests"
+     ],
+     "fullName": "requests counts working days only, and refuses more than the balance or an overlap",
+     "status": "passed",
+     "title": "counts working days only, and refuses more than the balance or an overlap",
+     "duration": 1057.0607500000006,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "requests"
+     ],
+     "fullName": "requests approving marks the days on leave; cancelling clears them",
+     "status": "passed",
+     "title": "approving marks the days on leave; cancelling clears them",
+     "duration": 898.3561250000002,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "requests"
+     ],
+     "fullName": "requests will not approve leave over a day someone clocked in",
+     "status": "passed",
+     "title": "will not approve leave over a day someone clocked in",
+     "duration": 455.66700000000037,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "the month for payroll"
+     ],
+     "fullName": "the month for payroll counts approved unpaid leave as loss of pay, paid leave as paid",
+     "status": "passed",
+     "title": "counts approved unpaid leave as loss of pay, paid leave as paid",
+     "duration": 898.324834,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "my leave"
+     ],
+     "fullName": "my leave lets someone see balances, apply, and cancel what has not started",
+     "status": "passed",
+     "title": "lets someone see balances, apply, and cancel what has not started",
+     "duration": 907.8775000000005,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "two requests at the same moment"
+     ],
+     "fullName": "two requests at the same moment saves a double tap once",
+     "status": "passed",
+     "title": "saves a double tap once",
+     "duration": 339.3663749999996,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "two requests at the same moment"
+     ],
+     "fullName": "two requests at the same moment does not overdraw a balance across two different requests",
+     "status": "passed",
+     "title": "does not overdraw a balance across two different requests",
+     "duration": 347.2034999999996,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    }
+   ],
+   "startTime": 1792790592683,
+   "endTime": 1792790601563.2036,
+   "status": "passed",
+   "message": "",
+   "name": "src/__tests__/leave.test.ts"
+  }
+ ]
+}

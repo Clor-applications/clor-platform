@@ -1,6 +1,7 @@
 import { peoplePrisma } from '../../utils/peoplePrisma.js';
 import { platformPrisma } from '../../utils/platformPrisma.js';
 import { emit as emitWebhook, employeeEvent } from '../attendance/webhooks.js';
+import { ensureFirstEpisode } from './episodes.js';
 
 /**
  * Employment history (HR research, Phase 1: "every change must retain
@@ -21,10 +22,13 @@ export const TRACKED: Record<string, { label: string; kind: 'TRANSFERRED' | 'CHA
   businessUnitId: { label: 'Business unit', kind: 'TRANSFERRED' },
   areaId: { label: 'Location', kind: 'TRANSFERRED' },
   branchId: { label: 'Branch', kind: 'TRANSFERRED' },
-  state: { label: 'Work state', kind: 'TRANSFERRED' },
+  establishmentId: { label: 'Office / site', kind: 'TRANSFERRED' },
+  teamId: { label: 'Team', kind: 'TRANSFERRED' },
+  seatId: { label: 'Seat', kind: 'CHANGED' },
   jobPositionId: { label: 'Designation', kind: 'CHANGED' },
   jobRoleId: { label: 'Job role', kind: 'CHANGED' },
   reportingManagerId: { label: 'Reporting manager', kind: 'CHANGED' },
+  dottedManagerId: { label: 'Dotted-line manager', kind: 'CHANGED' },
   employeeTypeId: { label: 'Employee type', kind: 'CHANGED' },
   workTypeId: { label: 'Work type', kind: 'CHANGED' },
   contractorId: { label: 'Contractor', kind: 'CHANGED' },
@@ -36,18 +40,22 @@ const todayIst = () => new Date(Date.now() + 330 * 60_000).toISOString().slice(0
 export const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
 
 /** The name behind an id, as it is today (stored on the event so later renames do not rewrite history). */
-async function labelOf(orgId: string, field: string, id: string | null | undefined): Promise<string | null> {
+export async function labelOf(orgId: string, field: string, id: string | null | undefined): Promise<string | null> {
   if (!id) return null;
   const by = { where: { id, orgId }, select: { name: true } } as const;
   switch (field) {
     case 'departmentId': return (await peoplePrisma.department.findFirst(by))?.name ?? null;
     case 'areaId': return (await peoplePrisma.area.findFirst(by))?.name ?? null;
+    case 'teamId': { const r = await peoplePrisma.team.findFirst({ where: { id, orgId }, select: { name: true } }); return r?.name ?? null; }
+    case 'seatId': { const r = await peoplePrisma.seat.findFirst({ where: { id, orgId }, select: { name: true } }); return r?.name ?? null; }
+    case 'establishmentId': { const r = await peoplePrisma.establishment.findFirst({ where: { id, orgId }, select: { name: true, state: true } }); return r ? (r.state ? `${r.name} (${r.state})` : r.name) : null; }
     case 'jobPositionId': return (await peoplePrisma.jobPosition.findFirst(by))?.name ?? null;
     case 'jobRoleId': return (await peoplePrisma.jobRole.findFirst(by))?.name ?? null;
     case 'employeeTypeId': return (await peoplePrisma.employeeType.findFirst(by))?.name ?? null;
     case 'workTypeId': return (await peoplePrisma.workType.findFirst(by))?.name ?? null;
     case 'contractorId': return (await peoplePrisma.contractor.findFirst(by))?.name ?? null;
     case 'reportingManagerId': return (await peoplePrisma.employee.findFirst(by))?.name ?? null;
+    case 'dottedManagerId': return (await peoplePrisma.employee.findFirst(by))?.name ?? null;
     case 'businessUnitId': return (await peoplePrisma.businessUnit.findFirst(by))?.name ?? null;
     case 'gradeId': return (await peoplePrisma.grade.findFirst(by))?.name ?? null;
     case 'costCenterId': return (await peoplePrisma.costCenter.findFirst(by))?.name ?? null;
@@ -74,10 +82,11 @@ export function impactOf(kind: string, field: string | null, to: string | null, 
   }
   switch (field) {
     case 'departmentId': return to ? `Salary cost is booked to ${to} from ${date}.` : 'Salary cost no longer has a department.';
-    case 'state': return to ? `Professional Tax and Labour Welfare Fund follow ${to} from the next pay run.` : null;
+    case 'establishmentId': return to ? `Works at ${to} from ${date}: that state's holidays, Shops & Establishments rules, Professional Tax and Labour Welfare Fund apply. Review the policies that differ.` : 'No establishment: state-specific rules cannot be worked out.';
     case 'branchId': return to ? `Payroll and statutory registers count this person under ${to}.` : null;
     case 'areaId': return to ? `Attendance uses ${to}'s work sites and holidays.` : null;
     case 'reportingManagerId': return to ? `Leave and attendance corrections go to ${to} for approval.` : 'Leave and corrections go to HR: no reporting manager.';
+    case 'dottedManagerId': return to ? `${to} sees this person as a report; approvals stay with the reporting manager.` : null;
     case 'jobPositionId': return to ? `Payslips from the next run show ${to}.` : null;
     case 'employeeTypeId':
     case 'workTypeId': return to ? `Check the salary structure and PF/ESI eligibility for ${to}.` : null;
@@ -144,6 +153,9 @@ export async function recordChanges(who: Who, before: Row, after: Row, opts: { s
 /** Someone new: joined, and where they start. */
 export async function recordJoined(who: Who, employee: Row, source: HistorySource) {
   try {
+    /* Their first stint, and the date that never moves (episodes.ts). Every path that creates a person comes through here. */
+    await ensureFirstEpisode(who, { id: String(employee.id), dateOfJoining: employee.dateOfJoining ? String(employee.dateOfJoining) : null, createdAt: employee.createdAt instanceof Date ? employee.createdAt : null });
+    if (!employee.firstJoiningDate) await peoplePrisma.employee.updateMany({ where: { id: employee.id, orgId: who.orgId, firstJoiningDate: null }, data: { firstJoiningDate: employee.dateOfJoining ? String(employee.dateOfJoining).slice(0, 10) : todayIst() } });
     const date = employee.dateOfJoining && ISO_DAY.test(String(employee.dateOfJoining).slice(0, 10)) ? String(employee.dateOfJoining).slice(0, 10) : todayIst();
     const where = (await Promise.all(['departmentId', 'jobPositionId', 'areaId'].map((f) => labelOf(who.orgId, f, employee[f])))).filter(Boolean).join(' · ');
     await write(who, employee, { kind: 'JOINED', effectiveDate: date, source, note: where || null });
@@ -153,7 +165,7 @@ export async function recordJoined(who: Who, employee: Row, source: HistorySourc
   }
 }
 
-const KIND_TITLE: Record<string, string> = { JOINED: 'Joined', LEFT: 'Left', REHIRED: 'Rehired', TRANSFERRED: 'Moved', CHANGED: 'Changed' };
+const KIND_TITLE: Record<string, string> = { JOINED: 'Joined', LEFT: 'Left', REHIRED: 'Rehired', TRANSFERRED: 'Moved', CHANGED: 'Changed', CONFIRMED: 'Confirmed after probation' };
 
 /** The timeline, newest first. Someone added before history existed still shows when they joined. */
 export async function timelineOf(orgId: string, employee: Row) {

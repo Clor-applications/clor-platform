@@ -8,6 +8,7 @@ import { formatMoney, round2 } from '@ui/utils/money';
 import { postJournalToLedger } from '@ui/utils/journalSync';
 import { bumpCompanyNextNumber, getDocSettings, nextFreeVoucherNumber } from '@ui/utils/docSettings';
 import { cashBankIndex } from './transactions';
+import { selectedBranchId } from '@platform/context';
 
 /**
  * A contra: money moved between two of the company's own accounts.
@@ -25,7 +26,7 @@ const ContraForm = ({ db, setDb, currentCompany, onClose, initialData = null, on
   const companyId = currentCompany?.id;
   const { accounts } = useMemo(() => cashBankIndex(db, companyId), [db, companyId]);
 
-  const branchId = String(localStorage.getItem('activeBranchId') || localStorage.getItem('branchId') || '').trim();
+  const branchId = String(selectedBranchId() || '').trim();
   const numbering = getDocSettings(db, currentCompany, { branchId: branchId || null })?.numbering?.journalEntry;
   const isAuto = String(numbering?.mode || '').toLowerCase() === 'auto';
   const lockNumber = isAuto && !numbering?.allowManualOverride;

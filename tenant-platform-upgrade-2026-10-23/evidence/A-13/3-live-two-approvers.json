@@ -1,0 +1,1 @@
+{"finding":"A-13","where":"local dev, company with two administrators, policy AUTO","owner_prepared_then_approved":{"status":403,"body":{"error":"You prepared this adjustment; somebody else has to approve it.","code":"MAKER_CHECKER"}},"second_admin_approved":{"status":200}}

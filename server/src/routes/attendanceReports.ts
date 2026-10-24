@@ -10,7 +10,7 @@ import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { ATTENDANCE_MODULE, ATTENDANCE_RESOURCE, attendanceRouteOk } from '../services/attendance/guards.js';
 import { isWeeklyOff, istDate, istTime } from '../services/attendance/compute.js';
 import { FACE, ONLINE_WINDOW_MS } from '../services/attendance/adms.js';
-import { ISO_DATE, daysOfMonth, monthRows, periodContext, today } from './attendance.js';
+import { ISO_DATE, daysOfMonth, monthRows, periodContext, today } from '../services/attendance/days.js';
 
 /**
  * Attendance reports — ClorTime's catalogue (routes/reports.js) and its

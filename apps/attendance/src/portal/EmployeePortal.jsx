@@ -1,3 +1,4 @@
+import { confirmDialog } from '@ui/components/ui/notify';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { CalendarDays, CalendarOff, Camera, CheckSquare, Clock3, Fingerprint, HelpCircle, ListChecks, LogIn, LogOut, MapPin, UserRound, X } from 'lucide-react';
 
@@ -15,6 +16,9 @@ import {
   explainLeave as portalExplainLeave,
   cancelLeave,
   changePassword,
+  endOtherSessions,
+  endSession,
+  getSessions,
   decideApproval,
   askData,
   getApprovals,
@@ -648,6 +652,7 @@ function Account({ me, guard, onSignOut }) {
       <MyTax guard={guard} />
       <MyDocuments guard={guard} />
       <MyData guard={guard} />
+      <Devices guard={guard} />
       <form onSubmit={save} className="ui-card space-y-3 p-5" aria-labelledby="pw-h">
         <h2 id="pw-h" className="ui-t-sec">Change password</h2>
         <label className="block"><span className="ui-label">Current password</span><PasswordInput className="ui-input w-full" required autoComplete="current-password" value={form.current} onChange={(e) => setForm({ ...form, current: e.target.value })} /></label>
@@ -660,6 +665,65 @@ function Account({ me, guard, onSignOut }) {
         <LogOut size={16} aria-hidden="true" /> Sign out
       </button>
     </>
+  );
+}
+
+/**
+ * Where you are signed in (A-33): every phone and browser, this one marked.
+ * Sign any other one out, or all of them; this one signs out with the button
+ * below.
+ */
+function Devices({ guard }) {
+  const [d, setD] = useState(null);
+  const [failed, setFailed] = useState('');
+  const load = useCallback(() => {
+    guard(getSessions())
+      .then((r) => {
+        setD(r);
+        setFailed('');
+      })
+      .catch((e) => !(e instanceof SignedOut) && setFailed(String(e?.message || 'Could not load your devices.')));
+  }, [guard]);
+  useEffect(() => {
+    load();
+  }, [load]);
+  const endOne = async (s) => {
+    if (!(await confirmDialog({ title: `Sign out ${s.deviceLabel}?`, message: 'That device will need your password to get back in.', confirmLabel: 'Sign out' }))) return;
+    await guard(endSession(s.id)).catch((e) => !(e instanceof SignedOut) && setFailed(String(e?.message || 'Not done.')));
+    load();
+  };
+  const endOthers = async () => {
+    if (!(await confirmDialog({ title: 'Sign out all other devices?', message: 'Every phone and browser except this one will need your password to get back in.', confirmLabel: 'Sign them out' }))) return;
+    await guard(endOtherSessions()).catch((e) => !(e instanceof SignedOut) && setFailed(String(e?.message || 'Not done.')));
+    load();
+  };
+  const when = (v) => new Date(v).toLocaleDateString('en-IN', { dateStyle: 'medium' });
+  const others = (d?.sessions || []).filter((s) => !s.current);
+  return (
+    <section className="ui-card space-y-3 p-5" aria-labelledby="dev-h">
+      <h2 id="dev-h" className="ui-t-sec">Signed-in devices</h2>
+      {failed ? <p className="text-sm" role="alert">{failed}</p> : null}
+      {!d && !failed ? <p className="ui-caption">Loading…</p> : null}
+      {d ? (
+        <ul className="divide-y" style={{ borderColor: 'rgb(var(--border))' }}>
+          {d.sessions.map((s) => (
+            <li key={s.id} className="flex items-center justify-between gap-2 py-2 text-sm">
+              <span className="min-w-0">
+                <span className="font-medium">{s.deviceLabel}</span>
+                {s.current ? <span className="ui-pill ui-pill-pos ml-2">This device</span> : null}
+                <span className="ui-caption block">Signed in {when(s.createdAt)} · last used {when(s.lastSeenAt)}</span>
+              </span>
+              {s.current ? null : <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" onClick={() => endOne(s)}>Sign out</button>}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      {d && !others.length && !d.olderSignIns ? <p className="ui-caption">This is the only device signed in.</p> : null}
+      {d && (others.length || d.olderSignIns) ? (
+        <button type="button" className="ui-btn ui-btn-secondary w-full" onClick={endOthers}>Sign out all other devices</button>
+      ) : null}
+      {d?.olderSignIns ? <p className="ui-caption">A device you signed in on before this list existed is not shown; “Sign out all other devices” signs it out too.</p> : null}
+    </section>
   );
 }
 

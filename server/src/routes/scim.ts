@@ -1,11 +1,16 @@
 import { Router, type Request, type Response, type NextFunction } from 'express';
+import { anyAppLive, appLive } from '../services/principalAllowed.js';
 import bcrypt from 'bcrypt';
 import { randomBytes } from 'node:crypto';
 
 import { platformPrisma } from '../utils/platformPrisma.js';
 import { recordAuthEvent, clientIp } from '../services/auth.js';
-import { hashToken } from './publicApi.js';
 import { notifyPermission } from '../services/notifications.js';
+import { userIsAdmin } from '../services/roleGuards.js';
+import { outsideTenant, enterTenant } from '../utils/tenantScope.js';
+import { verifyCredential, touchLastUsed } from '../services/credentials.js';
+import { scimKind } from '../services/scimTokens.js';
+import { flagCreatorRemoved } from '../services/credentialReview.js';
 
 /**
  * /scim/v2 — SCIM 2.0 provisioning (RFC 7643 / 7644), the way Microsoft
@@ -26,7 +31,7 @@ const SCHEMA_LIST = 'urn:ietf:params:scim:api:messages:2.0:ListResponse';
 const SCHEMA_ERROR = 'urn:ietf:params:scim:api:messages:2.0:Error';
 const SCHEMA_PATCH = 'urn:ietf:params:scim:api:messages:2.0:PatchOp';
 
-export const newScimToken = () => `clors_${randomBytes(24).toString('base64url')}`;
+export { newScimToken } from '../services/scimTokens.js';
 
 const scim = (res: Response, status: number, body: unknown) => res.status(status).type('application/scim+json').send(JSON.stringify(body));
 const fail = (res: Response, status: number, detail: string, scimType?: string) => scim(res, status, { schemas: [SCHEMA_ERROR], status: String(status), detail, ...(scimType ? { scimType } : {}) });
@@ -42,9 +47,21 @@ declare module 'express-serve-static-core' {
 scimRouter.use(async (req: Request, res: Response, next: NextFunction) => {
   const m = /^Bearer\s+(clors_[A-Za-z0-9_-]{20,})$/i.exec(String(req.headers.authorization || ''));
   if (!m) return fail(res, 401, 'A bearer token from CLOR’s directory-sync settings is required.');
-  const t = await platformPrisma.scimToken.findUnique({ where: { tokenHash: hashToken(m[1]) } });
-  if (!t) return fail(res, 401, 'That token is not known (revoked, or made for another server).');
+  /* Batch 5 (A-31): the registry, the token's row and — for an agent's token — the agent must all allow it. */
+  const v = await verifyCredential('SCIM', m[1], scimKind);
+  if (!v.ok) {
+    if (v.block === 'COMPANY_CLOSING') return fail(res, 403, 'This company is being closed; directory sync is switched off.');
+    if (v.block === 'SUSPENDED') return fail(res, 403, 'This directory-sync token is paused in CLOR.');
+    if (v.block === 'EXPIRED') return fail(res, 401, 'This directory-sync token has expired. Make a new one in CLOR and paste it into your identity provider.');
+    if (v.block === 'PARENT_OFF') return fail(res, 403, 'The connector this token belongs to is switched off in CLOR.');
+    return fail(res, 401, 'That token is not known (revoked, or made for another server).');
+  }
+  const t = v.row;
   req.scim = { id: t.id, accountId: t.accountId, orgId: t.orgId, defaultRoleId: t.defaultRoleId };
+  /* A-30: the rest of this request runs as the company the token named — the last-used stamp included (A-35). */
+  enterTenant(t.orgId);
+  if (v.credential.expiresAt) res.setHeader('X-Clor-Credential-Expires', v.credential.expiresAt.toISOString());
+  touchLastUsed(v.credential, String(req.ip || '') || null);
   platformPrisma.scimToken.update({ where: { id: t.id }, data: { lastUsedAt: new Date() } }).catch(() => {});
   next();
 });
@@ -210,10 +227,28 @@ async function applyChanges(t: Tenant, u: U, changes: { email?: string; fullName
   /* Another account's person: this provider may drop their membership, never change who they are. */
   const touches = (changes.email && changes.email !== u.email) || (changes.fullName && changes.fullName !== u.fullName) || (changes.active !== undefined && changes.active !== u.isActive);
   if (touches && u.accountId !== t.accountId) throw Object.assign(new Error('This person belongs to another account; only their membership here can be removed.'), { status: 403 });
+  /*
+   * A-01: a directory token speaks for one company, but an email or being
+   * switched off reaches every company the person signs in to. So it may
+   * change those only for people who work in this company alone and do not
+   * administer it — never for an owner who would lose their other companies
+   * to whoever holds the token.
+   */
+  const identity = (changes.email && changes.email !== u.email) || (changes.active !== undefined && changes.active !== u.isActive);
+  if (identity) {
+    const elsewhere = await outsideTenant('SCIM: does this person work in other companies?', () =>
+      platformPrisma.userOrgMembership.count({ where: { userId: u.id, NOT: { orgId: t.orgId } } }),
+    );
+    if (elsewhere || (await userIsAdmin(t.accountId, t.orgId, u.id))) {
+      throw Object.assign(new Error('This person administers this company or works in others; their sign-in is changed in CLOR, not by directory sync.'), { status: 403, scimType: 'mutability' });
+    }
+  }
   if (changes.email && changes.email !== u.email) {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(changes.email)) throw Object.assign(new Error('userName must be an e-mail address.'), { status: 400, scimType: 'invalidValue' });
     if (await platformPrisma.user.findFirst({ where: { email: changes.email, NOT: { id: u.id } }, select: { id: true } })) throw Object.assign(new Error(`${changes.email} is already another user’s address.`), { status: 409, scimType: 'uniqueness' });
     data.email = changes.email;
+    /* An address nobody has proven yet: the directory says so, the person has not. */
+    data.emailVerifiedAt = null;
   }
   if (changes.fullName && changes.fullName !== u.fullName) data.fullName = changes.fullName;
   if (changes.active !== undefined && changes.active !== u.isActive) {
@@ -224,6 +259,8 @@ async function applyChanges(t: Tenant, u: U, changes: { email?: string; fullName
   }
   if (!Object.keys(data).length) return u;
   const next = await platformPrisma.user.update({ where: { id: u.id }, data, select: SELECT });
+  /* Batch 5: switched off by the directory — what they made is flagged for review, by this token. */
+  if (data.isActive === false) await flagCreatorRemoved({ accountId: t.accountId, userId: u.id, orgIds: 'ALL' }, 'The person who made it was switched off by directory sync', { type: 'SCIM', id: t.id });
   await recordAuthEvent({ accountId: t.accountId, userId: u.id, email: next.email, eventType: data.isActive === false ? 'USER_DEACTIVATED' : data.isActive === true ? 'USER_REACTIVATED' : 'USER_UPDATED', detail: `SCIM directory sync: ${Object.keys(data).filter((k) => k !== 'lockedUntil').join(', ')}` });
   return next;
 }
@@ -309,6 +346,7 @@ scimRouter.delete(
       const elsewhere = await platformPrisma.userOrgMembership.count({ where: { userId: u.id } });
       if (!elsewhere) await platformPrisma.user.update({ where: { id: u.id }, data: { isActive: false } });
     }
+    await flagCreatorRemoved({ accountId: t.accountId, userId: u.id, orgIds: [t.orgId] }, 'The person who made it was removed by directory sync', { type: 'SCIM', id: t.id });
     await recordAuthEvent({ accountId: t.accountId, userId: u.id, email: u.email, eventType: 'USER_DEPROVISIONED', ip: clientIp(req), userAgent: String(req.headers['user-agent'] || '').slice(0, 200), detail: 'SCIM directory sync' });
     res.status(204).end();
   }),

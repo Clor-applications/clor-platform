@@ -1,10 +1,12 @@
+import { actorFrom } from '../services/credentials.js';
+import { invoiceStatusChanged, revokeInvoiceLink } from '../services/shareLinks.js';
 import { Router, type Request } from 'express';
 import { randomUUID } from 'crypto';
 import { z } from 'zod';
 import { prisma } from '../utils/prisma.js';
 import { platformPrisma } from '../utils/platformPrisma.js';
 import { requireAuth } from '../middleware/auth.js';
-import { requireTenantContext } from '../middleware/tenantContext.js';
+import { requireTenantContext, warehouseRefusal } from '../middleware/tenantContext.js';
 import { requirePermission } from '../middleware/rbac.js';
 import { PermissionAction } from '../constants/enums.js';
 import { ensureLedgerSetup, invoicePostingLines, postEntry, reverseEntry } from '../services/ledger.js';
@@ -248,6 +250,8 @@ const AUDITED_FIELDS = [
  */
 async function auditInvoiceCreated(req: Request, row: any) {
   try {
+    /* Written by name here; the general recorder (auditMutations) leaves it. */
+    if (req.res) req.res.locals.audited = true;
     await platformPrisma.auditLog.create({
       data: {
         accountId: req.tenant!.accountId,
@@ -297,6 +301,8 @@ async function auditInvoiceChange(
       }
       if (!Object.keys(changes).length) return;
     }
+    /* Written by name here; the general recorder (auditMutations) leaves it. */
+    if (req.res) req.res.locals.audited = true;
     await platformPrisma.auditLog.create({
       data: {
         accountId: req.tenant!.accountId,
@@ -348,6 +354,8 @@ invoicesRouter.post('/orgs/:orgId/invoices', requirePermission(INVOICE_MODULE, P
   const branchId = String(parsed.branchId || req.tenant!.branchId || '').trim();
   if (!branchId) return res.status(400).json({ error: 'Missing branchId' });
   if (await refuseUnknownLineItems(res, accountId, orgId, parsed.items)) return;
+  const warehouseRefused = await warehouseRefusal(req, parsed.warehouseId);
+  if (warehouseRefused) return res.status(warehouseRefused.status).json(warehouseRefused.body);
 
   // Document restrictions: a user limited to certain customers may not raise an
   // invoice for anyone else.
@@ -581,6 +589,10 @@ invoicesRouter.patch('/orgs/:orgId/invoices/:invoiceId', requirePermission(INVOI
   const sent = new Set(Object.keys((req.body ?? {}) as Record<string, unknown>));
   const parsedPatch = invoiceUpsertSchema.partial().parse(req.body);
   if (parsedPatch.items !== undefined && (await refuseUnknownLineItems(res, accountId, orgId, parsedPatch.items))) return;
+  if (parsedPatch.warehouseId !== undefined && (parsedPatch.warehouseId || null) !== (existing.warehouseId || null)) {
+    const warehouseRefused = await warehouseRefusal(req, parsedPatch.warehouseId);
+    if (warehouseRefused) return res.status(warehouseRefused.status).json(warehouseRefused.body);
+  }
   const editAccess = await resolveAccess(accountId, orgId, req.auth!.userId, req.tenant!.branchId);
   const { value: body, stripped } = filterFieldsByLevel(
     parsedPatch,
@@ -765,6 +777,8 @@ invoicesRouter.patch('/orgs/:orgId/invoices/:invoiceId/status', requirePermissio
   if (!row) return res.status(500).json({ error: 'Failed to update invoice status' });
 
   await auditInvoiceChange(req, 'STATUS', existing, row);
+  /* A-32 / Batch 5: cancelled, its customer link is paused and an open payment link closed; reinstated, the same link works again. */
+  await invoiceStatusChanged({ accountId, orgId }, existing.id, String(existing.status || ''), String(row.status || ''), actorFrom(req));
 
   await reassertSettlement(accountId, orgId, existing.id);
   const settled = await prisma.invoice.findUnique({ where: { id: existing.id } });
@@ -834,6 +848,8 @@ invoicesRouter.delete('/orgs/:orgId/invoices/:invoiceId', requirePermission(INVO
     });
   }
 
+  /* A-32: a deleted draft's link, if one was made, is revoked rather than left pointing at nothing. */
+  await revokeInvoiceLink({ orgId }, existing.id, actorFrom(req), 'draft deleted');
   await prisma.invoice.delete({ where: { id: existing.id } });
   await auditInvoiceChange(req, 'DELETE', existing, null);
   res.json({ ok: true, reversedEntries: posted.length });

@@ -174,4 +174,41 @@ describe("a person's company access", () => {
       .send({ orgIds: [owner.orgId] })
       .expect(404);
   });
+
+  /*
+   * A-05: Users EDIT in one company used to reach every company of the
+   * account. Mallory administers the main company only; Client B is not hers.
+   */
+  it("needs the caller's own right in every company it touches", async () => {
+    const malId = await inviteStaff(owner);
+    const mal = await platformPrisma.user.findUniqueOrThrow({ where: { id: malId }, select: { email: true, accountId: true } });
+    const adminRole = await platformPrisma.role.findFirstOrThrow({ where: { orgId: owner.orgId, roleType: 'ADMIN' }, select: { id: true } });
+    await platformPrisma.userRoleAssignment.create({ data: { accountId: mal.accountId, orgId: owner.orgId, userId: malId, roleId: adminRole.id, createdByUserId: malId } });
+    const login = await request(app).post('/api/auth/login').send({ emailOrUsername: mal.email, password: 'Passw0rd!23' }).expect(200);
+    const malCtx: Ctx = { token: login.body.token, orgId: owner.orgId, branchId: owner.branchId, userId: malId };
+
+    // A colleague who works in both companies.
+    const colleague = await inviteStaff(owner);
+    await request(app).put(`/api/users/${colleague}/companies`).set(auth(owner)).send({ orgIds: [owner.orgId, secondOrgId] }).expect(200);
+
+    // Mallory cannot let herself into Client B …
+    const self = await request(app).put(`/api/users/${malId}/companies`).set(auth(malCtx)).send({ orgIds: [owner.orgId, secondOrgId] });
+    expect(self.status).toBe(403);
+    expect(self.body.orgId).toBe(secondOrgId);
+    // … nor take Client B away from her colleague.
+    const strip = await request(app).put(`/api/users/${colleague}/companies`).set(auth(malCtx)).send({ orgIds: [owner.orgId] });
+    expect(strip.status).toBe(403);
+
+    const rows = await platformPrisma.userOrgMembership.findMany({ where: { userId: { in: [malId, colleague] }, orgId: secondOrgId }, select: { userId: true } });
+    expect(rows.map((r) => r.userId)).toEqual([colleague]);
+  });
+
+  it('takes branch and warehouse grants away with the company', async () => {
+    const who = await inviteStaff(owner);
+    await request(app).put(`/api/users/${who}/companies`).set(auth(owner)).send({ orgIds: [owner.orgId, secondOrgId] }).expect(200);
+    const b = await platformPrisma.branch.findFirstOrThrow({ where: { orgId: secondOrgId }, select: { id: true, accountId: true } });
+    await platformPrisma.userBranchMembership.create({ data: { accountId: b.accountId, orgId: secondOrgId, branchId: b.id, userId: who } });
+    await request(app).put(`/api/users/${who}/companies`).set(auth(owner)).send({ orgIds: [owner.orgId] }).expect(200);
+    expect(await platformPrisma.userBranchMembership.count({ where: { userId: who, orgId: secondOrgId } })).toBe(0);
+  });
 });

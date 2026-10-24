@@ -1,0 +1,86 @@
+ DEPRECATED  `test.poolOptions` was removed in Vitest 4. All previous `poolOptions` are now top-level options. Please, refer to the migration guide: https://vitest.dev/guide/migration#pool-rework
+
+ RUN  v4.1.10 /Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_60971", schema "accounting" at "localhost:5432"
+
+The PostgreSQL database "clor_test_60971" schema "accounting" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 1.63s
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/payroll/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_60971", schema "payroll" at "localhost:5432"
+
+The PostgreSQL database "clor_test_60971" schema "payroll" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 1.09s
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/people/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_60971", schema "people" at "localhost:5432"
+
+The PostgreSQL database "clor_test_60971" schema "people" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 1.33s
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/platform/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_60971", schema "platform" at "localhost:5432"
+
+The PostgreSQL database "clor_test_60971" schema "platform" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 991ms
+
+[setup] 180 policy statements applied to clor_test_60971
+[setup] 7 policy statements applied to clor_test_60971
+[setup] 10 policy statements applied to clor_test_60971
+[setup] 35 policy statements applied to clor_test_60971
+[setup] 4 policy statements applied to clor_test_60971
+[setup] 96 policy statements applied to clor_test_60971
+[setup] 4 policy statements applied to clor_test_60971
+[setup] 4 policy statements applied to clor_test_60971
+[setup] 4 policy statements applied to clor_test_60971
+[setup] 4 policy statements applied to clor_test_60971
+[setup] 32 policy statements applied to clor_test_60971
+[setup] 24 policy statements applied to clor_test_60971
+[setup] 12 policy statements applied to clor_test_60971
+[setup] 16 policy statements applied to clor_test_60971
+[setup] 4 policy statements applied to clor_test_60971
+[setup] 4 policy statements applied to clor_test_60971
+[setup] 8 policy statements applied to clor_test_60971
+[setup] 8 policy statements applied to clor_test_60971
+[setup] 20 policy statements applied to clor_test_60971
+[setup] 8 policy statements applied to clor_test_60971
+[setup] 4 policy statements applied to clor_test_60971
+[setup] 8 policy statements applied to clor_test_60971
+[setup] 8 policy statements applied to clor_test_60971
+[setup] 12 policy statements applied to clor_test_60971
+[setup] 4 policy statements applied to clor_test_60971
+[setup] 8 policy statements applied to clor_test_60971
+[setup] 28 policy statements applied to clor_test_60971
+[setup] 4 policy statements applied to clor_test_60971
+[setup] 4 policy statements applied to clor_test_60971
+[setup] 4 policy statements applied to clor_test_60971
+[setup] 8 policy statements applied to clor_test_60971
+[setup] 4 policy statements applied to clor_test_60971
+[setup] 4 policy statements applied to clor_test_60971
+[setup] 4 policy statements applied to clor_test_60971
+[setup] 4 policy statements applied to clor_test_60971
+[setup] 8 policy statements applied to clor_test_60971
+[setup] 4 policy statements applied to clor_test_60971
+[setup] 12 policy statements applied to clor_test_60971
+[setup] 4 policy statements applied to clor_test_60971
+[setup] 76 policy statements applied to clor_test_60971
+[setup] 4 policy statements applied to clor_test_60971
+[setup] 4 policy statements applied to clor_test_60971
+[setup] 4 policy statements applied to clor_test_60971
+[setup] 4 policy statements applied to clor_test_60971
+
+ Test Files  1 passed (1)
+      Tests  18 passed (18)
+   Start at  15:34:29
+   Duration  20.43s (transform 2.69s, setup 22ms, import 5.18s, tests 2.98s, environment 0ms)
+

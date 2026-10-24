@@ -74,3 +74,6 @@ mobile/*/android/local.properties
 *.jks
 
 server/dist-agent/
+
+# Graphify knowledge graph (generated; local only)
+graphify-out/

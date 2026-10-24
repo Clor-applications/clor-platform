@@ -1,0 +1,89 @@
+# A-47 AFTER fix: working tree
+# 2026-10-23T14:26:56Z  npx vitest run src/__tests__/closurePurgeResume.test.ts src/__tests__/companyClosure.test.ts
+ DEPRECATED  `test.poolOptions` was removed in Vitest 4. All previous `poolOptions` are now top-level options. Please, refer to the migration guide: https://vitest.dev/guide/migration#pool-rework
+
+ RUN  v4.1.10 /Users/suresh/Desktop/clor-platform/.claude/worktrees/batch6-workers-fb00cd/server
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_46830", schema "accounting" at "localhost:5432"
+
+The PostgreSQL database "clor_test_46830" schema "accounting" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 656ms
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/payroll/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_46830", schema "payroll" at "localhost:5432"
+
+The PostgreSQL database "clor_test_46830" schema "payroll" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 452ms
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/people/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_46830", schema "people" at "localhost:5432"
+
+The PostgreSQL database "clor_test_46830" schema "people" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 412ms
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/platform/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_46830", schema "platform" at "localhost:5432"
+
+The PostgreSQL database "clor_test_46830" schema "platform" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 432ms
+
+POST /api/auth/signup 200 568 - 87.557 ms
+POST /api/auth/setup-company 200 172 - 255.852 ms
+PUT /api/orgs/cmvl2d983000ew6do84c72h6l/features 200 1173 - 321.089 ms
+POST /api/orgs/cmvl2d983000ew6do84c72h6l/people/employees 201 1668 - 192.494 ms
+GET /api/orgs/cmvl2d983000ew6do84c72h6l/export?scope=all 200 125722 - 782.657 ms
+POST /api/orgs/cmvl2d983000ew6do84c72h6l/closure 201 549 - 145.626 ms
+POST /api/auth/signup 200 568 - 27.908 ms
+POST /api/auth/setup-company 200 172 - 124.669 ms
+PUT /api/orgs/cmvl2daxc00qyw6dohzta8gmp/features 200 1173 - 152.595 ms
+POST /api/orgs/cmvl2daxc00qyw6dohzta8gmp/people/employees 201 1668 - 66.913 ms
+GET /api/orgs/cmvl2daxc00qyw6dohzta8gmp/export?scope=all 200 125722 - 439.748 ms
+POST /api/orgs/cmvl2daxc00qyw6dohzta8gmp/closure 201 549 - 150.647 ms
+POST /api/auth/signup 200 568 - 15.860 ms
+POST /api/auth/setup-company 200 172 - 138.424 ms
+PUT /api/orgs/cmvl2dbtn0191w6dolb6gz2uq/features 200 1173 - 191.781 ms
+POST /api/orgs/cmvl2dbtn0191w6dolb6gz2uq/people/employees 201 1668 - 65.498 ms
+GET /api/orgs/cmvl2dbtn0191w6dolb6gz2uq/export?scope=all 200 125722 - 245.027 ms
+POST /api/orgs/cmvl2dbtn0191w6dolb6gz2uq/closure 201 549 - 116.888 ms
+POST /api/auth/signup 200 570 - 48.685 ms
+POST /api/auth/setup-company 200 180 - 176.360 ms
+PUT /api/orgs/cmvl2ddfn000eqbyfftbxpshn/features 200 1173 - 196.365 ms
+POST /api/orgs/cmvl2ddfn000eqbyfftbxpshn/people/employees 201 1668 - 161.687 ms
+POST /api/orgs/cmvl2ddfn000eqbyfftbxpshn/closure 409 149 - 133.860 ms
+GET /api/orgs/cmvl2ddfn000eqbyfftbxpshn/export?scope=all 200 125738 - 443.464 ms
+GET /api/orgs/cmvl2ddfn000eqbyfftbxpshn/closure 200 123 - 134.287 ms
+POST /api/orgs/cmvl2ddfn000eqbyfftbxpshn/closure 400 76 - 106.478 ms
+POST /api/auth/signup 200 570 - 12.485 ms
+POST /api/auth/setup-company 200 180 - 108.930 ms
+PUT /api/orgs/cmvl2dei100ieqbyfrsrxgert/features 200 1173 - 156.497 ms
+POST /api/orgs/cmvl2dei100ieqbyfrsrxgert/people/employees 201 1668 - 57.957 ms
+GET /api/orgs/cmvl2dei100ieqbyfrsrxgert/export?scope=all 200 125738 - 280.844 ms
+POST /api/orgs/cmvl2dei100ieqbyfrsrxgert/closure 201 576 - 118.652 ms
+POST /api/orgs/cmvl2dei100ieqbyfrsrxgert/closure 409 83 - 110.408 ms
+DELETE /api/orgs/cmvl2dei100ieqbyfrsrxgert/closure 200 621 - 107.186 ms
+POST /api/orgs/cmvl2dei100ieqbyfrsrxgert/closure 201 553 - 108.395 ms
+POST /api/auth/signup 200 570 - 5.366 ms
+POST /api/auth/setup-company 200 180 - 99.390 ms
+PUT /api/orgs/cmvl2dfi6010mqbyfneb8jat4/features 200 1173 - 155.801 ms
+POST /api/orgs/cmvl2dfi6010mqbyfneb8jat4/people/employees 201 1668 - 62.575 ms
+POST /api/auth/signup 200 570 - 16.144 ms
+POST /api/auth/setup-company 200 180 - 93.528 ms
+PUT /api/orgs/cmvl2dfrl01ikqbyfrdl3inks/features 200 1173 - 123.382 ms
+POST /api/orgs/cmvl2dfrl01ikqbyfrdl3inks/people/employees 201 1668 - 70.109 ms
+GET /api/orgs/cmvl2dfi6010mqbyfneb8jat4/export?scope=all 200 125738 - 215.701 ms
+POST /api/orgs/cmvl2dfi6010mqbyfneb8jat4/closure 201 553 - 110.690 ms
+
+ Test Files  2 passed (2)
+      Tests  6 passed (6)
+   Start at  19:56:57
+   Duration  23.52s (transform 2.16s, setup 33ms, import 5.10s, tests 10.03s, environment 0ms)
+

@@ -1,0 +1,244 @@
+ DEPRECATED  `test.poolOptions` was removed in Vitest 4. All previous `poolOptions` are now top-level options. Please, refer to the migration guide: https://vitest.dev/guide/migration#pool-rework
+
+ RUN  v4.1.10 /Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_19870", schema "accounting" at "localhost:5432"
+
+The PostgreSQL database "clor_test_19870" schema "accounting" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 1.32s
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/payroll/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_19870", schema "payroll" at "localhost:5432"
+
+The PostgreSQL database "clor_test_19870" schema "payroll" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 810ms
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/people/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_19870", schema "people" at "localhost:5432"
+
+The PostgreSQL database "clor_test_19870" schema "people" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 1.23s
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/platform/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_19870", schema "platform" at "localhost:5432"
+
+The PostgreSQL database "clor_test_19870" schema "platform" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 1.13s
+
+[setup] 180 policy statements applied to clor_test_19870
+[setup] 7 policy statements applied to clor_test_19870
+[setup] 10 policy statements applied to clor_test_19870
+[setup] 35 policy statements applied to clor_test_19870
+[setup] 4 policy statements applied to clor_test_19870
+[setup] 96 policy statements applied to clor_test_19870
+[setup] 4 policy statements applied to clor_test_19870
+[setup] 4 policy statements applied to clor_test_19870
+[setup] 4 policy statements applied to clor_test_19870
+[setup] 4 policy statements applied to clor_test_19870
+[setup] 32 policy statements applied to clor_test_19870
+[setup] 24 policy statements applied to clor_test_19870
+[setup] 12 policy statements applied to clor_test_19870
+[setup] 16 policy statements applied to clor_test_19870
+[setup] 4 policy statements applied to clor_test_19870
+[setup] 4 policy statements applied to clor_test_19870
+[setup] 8 policy statements applied to clor_test_19870
+[setup] 8 policy statements applied to clor_test_19870
+[setup] 20 policy statements applied to clor_test_19870
+[setup] 8 policy statements applied to clor_test_19870
+[setup] 4 policy statements applied to clor_test_19870
+[setup] 8 policy statements applied to clor_test_19870
+[setup] 8 policy statements applied to clor_test_19870
+[setup] 12 policy statements applied to clor_test_19870
+[setup] 4 policy statements applied to clor_test_19870
+[setup] 8 policy statements applied to clor_test_19870
+[setup] 28 policy statements applied to clor_test_19870
+[setup] 4 policy statements applied to clor_test_19870
+[setup] 4 policy statements applied to clor_test_19870
+[setup] 4 policy statements applied to clor_test_19870
+[setup] 8 policy statements applied to clor_test_19870
+[setup] 4 policy statements applied to clor_test_19870
+[setup] 4 policy statements applied to clor_test_19870
+[setup] 4 policy statements applied to clor_test_19870
+[setup] 4 policy statements applied to clor_test_19870
+[setup] 8 policy statements applied to clor_test_19870
+[setup] 4 policy statements applied to clor_test_19870
+[setup] 12 policy statements applied to clor_test_19870
+[setup] 4 policy statements applied to clor_test_19870
+[setup] 76 policy statements applied to clor_test_19870
+[setup] 4 policy statements applied to clor_test_19870
+[setup] 4 policy statements applied to clor_test_19870
+[setup] 4 policy statements applied to clor_test_19870
+[setup] 4 policy statements applied to clor_test_19870
+ ❯ src/__tests__/identityAndSessions.test.ts (21 tests | 2 failed | 19 skipped) 5068ms
+     × refuses an access token signed with another algorithm, even with the right secret 162ms
+     × does not echo a company the person is not in as their active one 2609ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/__tests__/identityAndSessions.test.ts > token and echo hygiene > refuses an access token signed with another algorithm, even with the right secret
+Error: expected 401 "Unauthorized", got 200 "OK"
+ ❯ src/__tests__/identityAndSessions.test.ts:231:85
+    229|       audience: process.env.JWT_AUDIENCE || 'accounting-web',
+    230|     });
+    231|     await request(app).get('/api/auth/me').set('Authorization', `Beare…
+       |                                                                                     ^
+    232|   });
+    233|
+ ❯ Test._assertStatus ../../../../server/node_modules/supertest/lib/test.js:309:14
+ ❯ ../../../../server/node_modules/supertest/lib/test.js:365:13
+ ❯ Test._assertFunction ../../../../server/node_modules/supertest/lib/test.js:342:13
+ ❯ Test.assert ../../../../server/node_modules/supertest/lib/test.js:195:23
+ ❯ localAssert ../../../../server/node_modules/supertest/lib/test.js:138:14
+ ❯ ../../../../server/node_modules/supertest/lib/test.js:156:7
+ ❯ fn ../../../../server/node_modules/superagent/src/node/index.js:892:11
+ ❯ callback ../../../../server/node_modules/superagent/src/node/index.js:1183:17
+ ❯ fn ../../../../server/node_modules/superagent/src/node/parsers/json.js:19:6
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  src/__tests__/identityAndSessions.test.ts > token and echo hygiene > does not echo a company the person is not in as their active one
+AssertionError: expected 'cmvkv1g750286sbecac1zabpf' to be null
+
+- Expected:
+null
+
++ Received:
+"cmvkv1g750286sbecac1zabpf"
+
+ ❯ src/__tests__/identityAndSessions.test.ts:238:33
+    236|     const b = await owner('Echo B');
+    237|     const me = await request(app).get('/api/auth/me').set({ Authorizat…
+    238|     expect(me.body.activeOrgId).toBeNull();
+       |                                 ^
+    239|     const own = await request(app).get('/api/auth/me').set({ Authoriza…
+    240|     expect(own.body.activeOrgId).toBe(a.orgId);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 19 skipped (21)
+   Start at  16:31:42
+   Duration  21.87s (transform 2.23s, setup 25ms, import 4.50s, tests 5.07s, environment 0ms)
+
+ DEPRECATED  `test.poolOptions` was removed in Vitest 4. All previous `poolOptions` are now top-level options. Please, refer to the migration guide: https://vitest.dev/guide/migration#pool-rework
+
+ RUN  v4.1.10 /Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_20629", schema "accounting" at "localhost:5432"
+
+The PostgreSQL database "clor_test_20629" schema "accounting" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 1.16s
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/payroll/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_20629", schema "payroll" at "localhost:5432"
+
+The PostgreSQL database "clor_test_20629" schema "payroll" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 766ms
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/people/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_20629", schema "people" at "localhost:5432"
+
+The PostgreSQL database "clor_test_20629" schema "people" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 1.22s
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/platform/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_20629", schema "platform" at "localhost:5432"
+
+The PostgreSQL database "clor_test_20629" schema "platform" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 998ms
+
+[setup] 180 policy statements applied to clor_test_20629
+[setup] 7 policy statements applied to clor_test_20629
+[setup] 10 policy statements applied to clor_test_20629
+[setup] 35 policy statements applied to clor_test_20629
+[setup] 4 policy statements applied to clor_test_20629
+[setup] 96 policy statements applied to clor_test_20629
+[setup] 4 policy statements applied to clor_test_20629
+[setup] 4 policy statements applied to clor_test_20629
+[setup] 4 policy statements applied to clor_test_20629
+[setup] 4 policy statements applied to clor_test_20629
+[setup] 32 policy statements applied to clor_test_20629
+[setup] 24 policy statements applied to clor_test_20629
+[setup] 12 policy statements applied to clor_test_20629
+[setup] 16 policy statements applied to clor_test_20629
+[setup] 4 policy statements applied to clor_test_20629
+[setup] 4 policy statements applied to clor_test_20629
+[setup] 8 policy statements applied to clor_test_20629
+[setup] 8 policy statements applied to clor_test_20629
+[setup] 20 policy statements applied to clor_test_20629
+[setup] 8 policy statements applied to clor_test_20629
+[setup] 4 policy statements applied to clor_test_20629
+[setup] 8 policy statements applied to clor_test_20629
+[setup] 8 policy statements applied to clor_test_20629
+[setup] 12 policy statements applied to clor_test_20629
+[setup] 4 policy statements applied to clor_test_20629
+[setup] 8 policy statements applied to clor_test_20629
+[setup] 28 policy statements applied to clor_test_20629
+[setup] 4 policy statements applied to clor_test_20629
+[setup] 4 policy statements applied to clor_test_20629
+[setup] 4 policy statements applied to clor_test_20629
+[setup] 8 policy statements applied to clor_test_20629
+[setup] 4 policy statements applied to clor_test_20629
+[setup] 4 policy statements applied to clor_test_20629
+[setup] 4 policy statements applied to clor_test_20629
+[setup] 4 policy statements applied to clor_test_20629
+[setup] 8 policy statements applied to clor_test_20629
+[setup] 4 policy statements applied to clor_test_20629
+[setup] 12 policy statements applied to clor_test_20629
+[setup] 4 policy statements applied to clor_test_20629
+[setup] 76 policy statements applied to clor_test_20629
+[setup] 4 policy statements applied to clor_test_20629
+[setup] 4 policy statements applied to clor_test_20629
+[setup] 4 policy statements applied to clor_test_20629
+[setup] 4 policy statements applied to clor_test_20629
+ ❯ src/__tests__/payrollStepUp.test.ts (5 tests | 1 failed | 4 skipped) 4268ms
+     × takes a recovery code once, and is somebody else’s token for nobody else 4255ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/__tests__/payrollStepUp.test.ts > step-up for payroll > takes a recovery code once, and is somebody else’s token for nobody else
+Error: expected 400 "Bad Request", got 200 "OK"
+ ❯ src/__tests__/payrollStepUp.test.ts:128:78
+    126|     await sec(c, '/two-factor/disable', { password: 'wrong', code: rec…
+    127|     /* A-10: the password alone no longer takes the second factor off.…
+    128|     expect((await sec(c, '/two-factor/disable', { password: 'Passw0rd!…
+       |                                                                              ^
+    129|     await sec(c, '/two-factor/disable', { password: 'Passw0rd!23', cod…
+    130|   });
+ ❯ Test._assertStatus ../../../../server/node_modules/supertest/lib/test.js:309:14
+ ❯ ../../../../server/node_modules/supertest/lib/test.js:365:13
+ ❯ Test._assertFunction ../../../../server/node_modules/supertest/lib/test.js:342:13
+ ❯ Test.assert ../../../../server/node_modules/supertest/lib/test.js:195:23
+ ❯ localAssert ../../../../server/node_modules/supertest/lib/test.js:138:14
+ ❯ ../../../../server/node_modules/supertest/lib/test.js:156:7
+ ❯ fn ../../../../server/node_modules/superagent/src/node/index.js:892:11
+ ❯ callback ../../../../server/node_modules/superagent/src/node/index.js:1183:17
+ ❯ fn ../../../../server/node_modules/superagent/src/node/parsers/json.js:19:6
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 4 skipped (5)
+   Start at  16:32:14
+   Duration  20.61s (transform 2.06s, setup 20ms, import 4.11s, tests 4.27s, environment 0ms)
+

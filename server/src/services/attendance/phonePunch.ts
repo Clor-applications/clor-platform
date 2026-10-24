@@ -4,7 +4,7 @@ import { istDate, istTime } from './compute.js';
 import { emit as emitWebhook } from './webhooks.js';
 import { punchPhotoRetentionDays } from '../retention.js';
 import { MAX_ACCURACY_M, MIN_GAP_MS, decodePhoto, describeDistance, matchFence, nextDirection, validPosition } from './portal.js';
-import { recomputeDeviceDay, shiftDayFor } from '../../routes/iclock.js';
+import { recomputeDeviceDay, shiftDayFor } from './punches.js';
 import { enqueuePunches } from '../hr/sync.js';
 import { placeAt } from '../geocode.js';
 
@@ -78,7 +78,7 @@ export async function phoneStatus(e: PunchingEmployee) {
       ...(e.mobilePunch && isMinor(e.dateOfBirth) ? { why: 'Phone punching reads your location, which is not done for anyone under 18. Punch at a reader.' } : {}),
       next: nextDirection(punches),
       /* For the notice on the punch card: how long a selfie is kept. */
-      photoRetentionDays: punchPhotoRetentionDays(),
+      photoRetentionDays: await punchPhotoRetentionDays(e.orgId),
       sites: sites.map((s) => ({ id: s.id, name: s.name, latitude: s.latitude, longitude: s.longitude, radiusMeters: s.radiusMeters })),
     },
   };
@@ -87,6 +87,7 @@ export async function phoneStatus(e: PunchingEmployee) {
 export type PunchOutcome = { status: number; body: Record<string, unknown> };
 
 /** The punch itself. Returns the HTTP status and body; the route only sends them. */
+
 /**
  * A phone punch, and — when the server refuses it — a record of the attempt,
  * so HR can see that someone tried from outside the site or with a rough

@@ -109,12 +109,13 @@ describe('row-level security', () => {
             accountId: other.accountId,
             orgId: b.orgId,
             branchId: b.branchId,
+            code: `SMUG-${rnd()}`,
             name: 'Smuggled',
             createdByUserId: 'rls-test',
-          } as any,
+          },
         })
       )
-    ).rejects.toThrow();
+    ).rejects.toThrow(/row-level security policy/i);
   });
 
   it('carries the company only for the length of the transaction', async () => {

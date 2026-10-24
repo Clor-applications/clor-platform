@@ -3,6 +3,8 @@ import { z } from 'zod';
 import bcrypt from 'bcrypt';
 import { prisma } from '../utils/prisma.js';
 import { platformPrisma } from '../utils/platformPrisma.js';
+import { createScimToken, revokeScimToken, scimTokensFor } from '../services/scimTokens.js';
+import { CredentialError, actorFrom } from '../services/credentials.js';
 import { requireAuth } from '../middleware/auth.js';
 import { requireTenantContext } from '../middleware/tenantContext.js';
 import { requirePermission } from '../middleware/rbac.js';
@@ -10,8 +12,6 @@ import { PermissionAction } from '../constants/enums.js';
 import { decryptSecret, encryptSecret } from '../services/mailer.js';
 import { callbackUrl, samlAcsUrl, samlEntityId } from './sso.js';
 import { VERIFY_PREFIX, checkDomains, domainProblem, domainsOf, keptVerified, newDomainToken, verificationSkipped } from '../services/ssoDomains.js';
-import { newScimToken } from './scim.js';
-import { hashToken } from './publicApi.js';
 import { codeLimiter } from '../middleware/rateLimit.js';
 import { hashRecovery, newSecret, otpauthUri, recoveryCodes, verifyCode } from '../services/totp.js';
 import { STEP_UP_MINUTES, issueStepUp } from '../services/stepUp.js';
@@ -62,6 +62,8 @@ const policySchema = z.object({
   allowedEmailDomains: z.string().max(500).optional().nullable(),
   requirePayrollStepUp: z.boolean().optional(),
   requireAdminTwoFactor: z.boolean().optional(),
+  /* A-13: who may approve their own work. */
+  makerChecker: z.enum(['AUTO', 'STRICT', 'ALLOW']).optional(),
 });
 
 securityRouter.get('/orgs/:orgId/security/policy', VIEW, async (req, res) => {
@@ -164,14 +166,21 @@ const publicProvider = (p: any) => ({
 /* ------------------------------------------------------------ SCIM tokens */
 
 const scimBase = () => `${process.env.API_PUBLIC_URL || process.env.PUBLIC_API_URL || 'https://api.clor.in'}/scim/v2`;
-const publicScim = (t: { id: string; tokenPrefix: string; defaultRoleId: string | null; lastUsedAt: Date | null; lastError: string | null; createdAt: Date }) => ({ id: t.id, tokenPrefix: t.tokenPrefix, defaultRoleId: t.defaultRoleId, lastUsedAt: t.lastUsedAt, lastError: t.lastError, createdAt: t.createdAt });
 
-/** Directory sync: the SCIM address and the tokens made for it. */
+/** Directory sync: the SCIM address and the tokens made for it, with the status each has now (Batch 5). */
 securityRouter.get('/orgs/:orgId/security/scim', VIEW, async (req, res) => {
   if (!orgOk(req, res)) return;
-  const rows = await platformPrisma.scimToken.findMany({ where: { accountId: req.tenant!.accountId, orgId: req.tenant!.orgId }, orderBy: { createdAt: 'asc' } });
-  res.json({ baseUrl: scimBase(), tokens: rows.map(publicScim) });
+  res.json({ baseUrl: scimBase(), tokens: await scimTokensFor(req.tenant!) });
 });
+
+/** Expiry from the request: absent means the default (a year), null means none, a date at most a year away (R6, R7). */
+const expiryOf = (v: unknown): Date | null | undefined | 'bad' => {
+  if (v === undefined) return undefined;
+  if (v === null || v === '') return null;
+  const d = new Date(String(v));
+  if (Number.isNaN(d.getTime()) || d <= new Date() || d.getTime() > Date.now() + 366 * 864e5) return 'bad';
+  return d;
+};
 
 /** A new token, shown once. */
 securityRouter.post('/orgs/:orgId/security/scim', EDIT, async (req, res) => {
@@ -181,18 +190,25 @@ securityRouter.post('/orgs/:orgId/security/scim', EDIT, async (req, res) => {
   const role = defaultRoleId ? await platformPrisma.role.findFirst({ where: { id: defaultRoleId, orgId }, select: { roleType: true } }) : null;
   if (defaultRoleId && !role) return res.status(400).json({ error: 'That role is not in this organisation.' });
   if (role?.roleType === 'ADMIN') return res.status(400).json({ error: 'People from the directory cannot be given an administrator role automatically; assign it by hand.' });
-  if ((await platformPrisma.scimToken.count({ where: { orgId } })) >= 5) return res.status(400).json({ error: 'Five tokens is the most; revoke one first.' });
-  const token = newScimToken();
-  const row = await platformPrisma.scimToken.create({ data: { accountId, orgId, tokenHash: hashToken(token), tokenPrefix: token.slice(0, 12), defaultRoleId, createdByUserId: req.auth!.userId } });
-  res.status(201).json({ token, scim: publicScim(row), baseUrl: scimBase() });
+  const expiresAt = expiryOf(req.body?.expiresAt);
+  if (expiresAt === 'bad') return res.status(400).json({ error: 'An expiry must be a date in the future, at most a year away.' });
+  /* A-31: revoked tokens are kept for the record, so only live ones count towards the five. */
+  if ((await platformPrisma.scimToken.count({ where: { orgId, revokedAt: null } })) >= 5) return res.status(400).json({ error: 'Five tokens is the most; revoke one first.' });
+  const { row, token } = await createScimToken({ accountId, orgId }, { defaultRoleId, expiresAt }, { ...actorFrom(req), id: req.auth!.userId });
+  const scim = (await scimTokensFor({ accountId, orgId })).find((t) => t.id === row.id);
+  res.status(201).json({ token, scim, baseUrl: scimBase() });
 });
 
+/** Revoke (A-31): the token stops for good; its record and history stay. */
 securityRouter.delete('/orgs/:orgId/security/scim/:id', EDIT, async (req, res) => {
   if (!orgOk(req, res)) return;
-  const row = await platformPrisma.scimToken.findFirst({ where: { id: String(req.params.id), orgId: req.tenant!.orgId } });
-  if (!row) return res.status(404).json({ error: 'No such token.' });
-  await platformPrisma.scimToken.delete({ where: { id: row.id } });
-  res.json({ ok: true });
+  try {
+    await revokeScimToken(req.tenant!.orgId, String(req.params.id), actorFrom(req), req.body?.reason ? String(req.body.reason).slice(0, 200) : 'revoked in SSO settings');
+    res.json({ ok: true });
+  } catch (e) {
+    if (e instanceof CredentialError) return res.status(e.status).json({ error: e.message, code: e.code });
+    throw e;
+  }
 });
 
 securityRouter.get('/orgs/:orgId/security/providers', VIEW, async (req, res) => {
@@ -463,11 +479,42 @@ securityRouter.post('/orgs/:orgId/security/two-factor/enable', ...codeLimiter, a
   res.json({ enabled: true, recoveryCodes: codes });
 });
 
+/**
+ * Spends one authenticator code or one recovery code; null when neither is
+ * good. A code works once, however many requests race with it.
+ */
+async function useSecondFactor(u: { id: string; totpSecretEnc: string | null; totpLastStep: number | null; totpRecoveryJson: string | null }, raw: string): Promise<'CODE' | 'RECOVERY' | null> {
+  const code = raw.trim();
+  if (!u.totpSecretEnc) return null;
+  const step = verifyCode(decryptSecret(u.totpSecretEnc), code, u.totpLastStep);
+  if (step != null) {
+    const won = await platformPrisma.user.updateMany({ where: { id: u.id, OR: [{ totpLastStep: null }, { totpLastStep: { lt: step } }] }, data: { totpLastStep: step } });
+    return won.count ? 'CODE' : null;
+  }
+  if (/^[A-Z2-7]{4}-?[A-Z2-7]{4}$/i.test(code)) {
+    const hashes = JSON.parse(u.totpRecoveryJson || '[]') as string[];
+    const h = hashRecovery(code);
+    if (hashes.includes(h)) {
+      await platformPrisma.user.update({ where: { id: u.id }, data: { totpRecoveryJson: JSON.stringify(hashes.filter((x) => x !== h)) } });
+      return 'RECOVERY';
+    }
+  }
+  return null;
+}
+
 securityRouter.post('/orgs/:orgId/security/two-factor/disable', ...codeLimiter, async (req, res) => {
   if (!orgOk(req, res)) return;
   const u = await me2fa(req);
   if (!u?.totpEnabledAt) return res.status(400).json({ error: 'No authenticator is set up.' });
   if (!(await bcrypt.compare(String(req.body?.password || ''), u.passwordHash))) return res.status(400).json({ error: 'Your password is not correct.', code: 'BAD_PASSWORD' });
+  /*
+   * A-10: the password alone was enough, so whoever learned it could take the
+   * second factor off and leave the account with one. Turning it off now needs
+   * the factor itself: a current code, or a recovery code if the phone is lost.
+   */
+  if (!(await useSecondFactor(u, String(req.body?.code || '')))) {
+    return res.status(400).json({ error: 'Enter a current code from your authenticator app, or one of your recovery codes.', code: 'BAD_CODE' });
+  }
   await platformPrisma.user.update({ where: { id: u.id }, data: { totpSecretEnc: null, totpEnabledAt: null, totpLastStep: null, totpRecoveryJson: null } });
   await recordAuthEvent({ accountId: req.tenant!.accountId, userId: u.id, eventType: 'TWO_FACTOR_DISABLED', ip: clientIp(req) });
   res.json({ enabled: false });
@@ -478,21 +525,7 @@ securityRouter.post('/orgs/:orgId/security/step-up', ...codeLimiter, async (req,
   if (!orgOk(req, res)) return;
   const u = await me2fa(req);
   if (!u?.totpEnabledAt || !u.totpSecretEnc) return res.status(400).json({ error: 'Set up an authenticator app first.', code: 'TWO_FACTOR_SETUP_REQUIRED' });
-  const code = String(req.body?.code || '').trim();
-  let used: 'CODE' | 'RECOVERY' | null = null;
-  const step = verifyCode(decryptSecret(u.totpSecretEnc), code, u.totpLastStep);
-  if (step != null) {
-    /* Only if no other request used this step in the meantime: a code works once. */
-    const won = await platformPrisma.user.updateMany({ where: { id: u.id, OR: [{ totpLastStep: null }, { totpLastStep: { lt: step } }] }, data: { totpLastStep: step } });
-    if (won.count) used = 'CODE';
-  } else if (/^[A-Z2-7]{4}-?[A-Z2-7]{4}$/i.test(code)) {
-    const hashes = JSON.parse(u.totpRecoveryJson || '[]') as string[];
-    const h = hashRecovery(code);
-    if (hashes.includes(h)) {
-      await platformPrisma.user.update({ where: { id: u.id }, data: { totpRecoveryJson: JSON.stringify(hashes.filter((x) => x !== h)) } });
-      used = 'RECOVERY';
-    }
-  }
+  const used = await useSecondFactor(u, String(req.body?.code || ''));
   if (!used) {
     await recordAuthEvent({ accountId: req.tenant!.accountId, userId: u.id, eventType: 'STEP_UP_FAILED', ip: clientIp(req) });
     return res.status(400).json({ error: 'That code is not right, or has been used. Wait for the next one.', code: 'BAD_CODE' });

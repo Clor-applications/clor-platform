@@ -1,4 +1,6 @@
-import { Router } from 'express';
+import { flagCreatorRemoved } from '../services/credentialReview.js';
+import { actorFrom } from '../services/credentials.js';
+import { Router, type Request as ExpressRequest } from 'express';
 import { assignUserCode } from '../services/displayCodes.js';
 import { z } from 'zod';
 import bcrypt from 'bcrypt';
@@ -18,16 +20,20 @@ import { permKey } from '../constants/permissionCatalog.js';
 import { NO_FIT, SuggestionError, roleSuggestionEnabled, suggestRole } from '../services/roleSuggestion.js';
 import {
   ADMIN_ONLY_ERROR,
+  OWN_ACCESS_ERROR,
+  grantAuthority,
   LAST_ADMIN_ERROR,
   cannotGrantError,
   rolePermissionKeys,
   unheldGrants,
   userIsAdmin,
+  identityBlockedIn,
   wouldRemoveLastAdmin,
   LastAdminError,
   assertAnAdminRemains,
 } from '../services/roleGuards.js';
-import { outsideTenant } from '../utils/tenantScope.js';
+import { outsideTenant, runInTenant } from '../utils/tenantScope.js';
+import { OutsideAccessError, checkOutsideTerms, grantOutsideAccess, refusalOf } from '../services/outsideAccess.js';
 
 export const usersRouter = Router();
 usersRouter.use(requireAuth, requireTenantContext);
@@ -61,19 +67,25 @@ const isMember = async (accountId: string, orgId: string, userId: string) =>
  * user's org-wide roles are being cleared.
  */
 async function assignmentRefusal(
-  req: { isAdmin?: boolean; permissions?: Set<string> },
+  req: ExpressRequest,
   accountId: string,
   orgId: string,
   userId: string,
   role: { id: string; roleType: string } | null,
   scopeBranchId: string | null
 ): Promise<{ status: number; body: Record<string, unknown> } | null> {
-  if (role?.roleType === RoleType.ADMIN && !req.isAdmin) return { status: 403, body: ADMIN_ONLY_ERROR };
+  // Bounded by what the caller holds where this assignment applies (A-19).
+  const { authority, refusal } = await grantAuthority(req, scopeBranchId, permKey('SETTINGS', 'Users', 'EDIT'));
+  if (refusal) return refusal;
+
+  if (role?.roleType === RoleType.ADMIN && !authority.isAdmin) return { status: 403, body: ADMIN_ONLY_ERROR };
 
   if (role) {
-    const missing = unheldGrants(req, await rolePermissionKeys(role.id));
+    const missing = unheldGrants(authority, await rolePermissionKeys(role.id));
     if (missing.length) return { status: 403, body: cannotGrantError(missing) };
   }
+
+  if (userId === req.auth!.userId && !authority.isAdmin) return { status: 403, body: OWN_ACCESS_ERROR };
 
   // Org-wide assignments replace the user's org-wide role; a branch-scoped one
   // adds to it and cannot demote anybody.
@@ -83,7 +95,7 @@ async function assignmentRefusal(
   // inside the assignment's own transaction: the person may stay one through
   // a role profile, which a prediction made here would have to reimplement.
   const targetIsAdmin = await userIsAdmin(accountId, orgId, userId);
-  if (targetIsAdmin && !req.isAdmin) return { status: 403, body: ADMIN_ONLY_ERROR };
+  if (targetIsAdmin && !authority.isAdmin) return { status: 403, body: ADMIN_ONLY_ERROR };
   return null;
 }
 
@@ -155,7 +167,23 @@ async function identityChangeRefusal(req: any, accountId: string, orgId: string,
     };
   }
   if (!req.isAdmin && (await userIsAdmin(accountId, orgId, userId))) return { status: 403, body: ADMIN_ONLY_ERROR };
-  return null;
+  return elsewhereRefusal(req.auth!.userId, userId);
+}
+
+/** A-01: refused when the person works in a company the caller could not manage them in. */
+async function elsewhereRefusal(callerId: string, userId: string) {
+  const blocked = await identityBlockedIn(callerId, userId);
+  if (!blocked) return null;
+  return {
+    status: 403,
+    body: {
+      error:
+        blocked.reason === 'admin_target'
+          ? 'This person administers another company. Only an administrator of every company they work in can change their sign-in.'
+          : 'This person also works in a company you cannot manage users in, so their sign-in is not yours to change.',
+      code: 'identity_elsewhere',
+    },
+  };
 }
 
 usersRouter.patch('/orgs/:orgId/users/:userId', requirePermission('SETTINGS', PermissionAction.EDIT, 'Users'), async (req, res) => {
@@ -196,6 +224,11 @@ usersRouter.patch('/orgs/:orgId/users/:userId', requirePermission('SETTINGS', Pe
         code: 'foreign_identity',
       });
     }
+    /* Switching somebody off is global too: it ends their sign-in in every company they work in. */
+    if ('isActive' in body) {
+      const refusal = await elsewhereRefusal(req.auth!.userId, userId);
+      if (refusal) return res.status(refusal.status).json(refusal.body);
+    }
   }
 
   // Same global-uniqueness rule as user creation: login resolves by email
@@ -219,6 +252,12 @@ usersRouter.patch('/orgs/:orgId/users/:userId', requirePermission('SETTINGS', Pe
     },
     select: { id: true, email: true, fullName: true, isActive: true },
   });
+  /* Batch 5: what they made keeps working; it is flagged for someone to check, in every company. */
+  if (body.isActive === false) await flagCreatorRemoved({ accountId, userId, orgIds: 'ALL' }, 'The person who made it was switched off', actorFrom(req));
+
+  /* Written by name here; the general recorder (auditMutations) leaves it. */
+
+  if (req.res) req.res.locals.audited = true;
 
   await platformPrisma.auditLog.create({
     data: {
@@ -307,6 +346,25 @@ usersRouter.put('/users/:userId/companies', requirePermission('SETTINGS', Permis
   const toAdd = [...wanted].filter((id) => !have.has(id));
   const toRemove = [...have].filter((id) => !wanted.has(id));
 
+  /*
+   * A-05: Users EDIT in the company at hand used to be enough to add or take
+   * away access to every company of the account — so a person who manages
+   * users in one company could strip another company's administrators, or
+   * give themselves a way in. Each company touched now needs the caller's own
+   * right to manage users there, and an administrator there when the person
+   * being changed administers it.
+   */
+  const callerId = req.auth!.userId;
+  for (const orgId of [...toAdd, ...toRemove]) {
+    const caller = await resolveAccess(accountId, orgId, callerId);
+    if (!caller.isAdmin && !caller.permissions.has(permKey('SETTINGS', 'Users', 'EDIT'))) {
+      return res.status(403).json({ error: 'You cannot manage users in one of these companies.', code: 'not_your_company', orgId });
+    }
+    if (!caller.isAdmin && toRemove.includes(orgId) && (await userIsAdmin(accountId, orgId, userId))) {
+      return res.status(403).json({ ...ADMIN_ONLY_ERROR, orgId });
+    }
+  }
+
   // Taking a company away from its only administrator locks that company.
   for (const orgId of toRemove) {
     if (await wouldRemoveLastAdmin(accountId, orgId, userId)) {
@@ -326,6 +384,9 @@ usersRouter.put('/users/:userId/companies', requirePermission('SETTINGS', Permis
       ? [
           platformPrisma.userRoleAssignment.deleteMany({ where: { accountId, userId, orgId: { in: toRemove } } }),
           platformPrisma.userRoleProfile.deleteMany({ where: { accountId, userId, orgId: { in: toRemove } } }),
+          /* Branch and warehouse grants go too, or re-adding the company silently restores them (as DELETE /orgs/:orgId/users/:userId does). */
+          platformPrisma.userWarehouseAccess.deleteMany({ where: { accountId, userId, orgId: { in: toRemove } } }),
+          platformPrisma.userBranchMembership.deleteMany({ where: { accountId, userId, orgId: { in: toRemove } } }),
           platformPrisma.userOrgMembership.deleteMany({ where: { accountId, userId, orgId: { in: toRemove } } }),
         ]
       : []),
@@ -334,6 +395,8 @@ usersRouter.put('/users/:userId/companies', requirePermission('SETTINGS', Permis
     ),
   ]);
 
+  /* Batch 5: in the companies they lost, what they made is flagged for review. */
+  if (toRemove.length) await flagCreatorRemoved({ accountId, userId, orgIds: toRemove }, 'The person who made it no longer works in this company', actorFrom(req));
   res.json({ ok: true, added: toAdd.length, removed: toRemove.length });
   }));
 
@@ -413,9 +476,11 @@ usersRouter.post('/orgs/:orgId/users/role-suggestion', requirePermission('SETTIN
     list.push(permKey(g.permission.module, g.permission.subModule, g.permission.action));
     keysByRole.set(g.roleId, list);
   }
-  const assignable = roles.filter(
-    (r) => (r.roleType !== RoleType.ADMIN || req.isAdmin) && unheldGrants(req, keysByRole.get(r.id) || []).length === 0
-  );
+  // Suggested roles are company-wide, so only what the caller could assign company-wide (A-19).
+  const { authority } = await grantAuthority(req, null, permKey('SETTINGS', 'Users', 'EDIT'));
+  const assignable = authority
+    ? roles.filter((r) => (r.roleType !== RoleType.ADMIN || authority.isAdmin) && unheldGrants(authority, keysByRole.get(r.id) || []).length === 0)
+    : [];
 
   try {
     const s = await suggestRole(body, assignable);
@@ -520,6 +585,10 @@ usersRouter.post('/orgs/:orgId/users/:userId/password', requirePermission('SETTI
   // Whoever held the old password is signed out everywhere.
   await revokeAllSessions(userId, 'ADMIN_PASSWORD_RESET');
 
+  /* Written by name here; the general recorder (auditMutations) leaves it. */
+
+  if (req.res) req.res.locals.audited = true;
+
   await platformPrisma.auditLog.create({
     data: {
       accountId,
@@ -545,6 +614,8 @@ const createUserSchema = z.object({
   // allow initial memberships
   orgIds: z.array(z.string()).default([]),
   branchIdsByOrg: z.record(z.array(z.string())).default({}),
+  /** GAP-006: for a person from another account, what the company lets them use and until when. */
+  outsideAccess: z.object({ apps: z.array(z.string()).nullable().optional(), expiresAt: z.string().nullable().optional() }).optional(),
 });
 
 usersRouter.post('/users', requirePermission('SETTINGS', PermissionAction.CREATE, 'Users'), async (req, res) => {
@@ -583,7 +654,7 @@ usersRouter.post('/users', requirePermission('SETTINGS', PermissionAction.CREATE
    */
   const existing = await platformPrisma.user.findFirst({
     where: { email },
-    select: { id: true, email: true, fullName: true, accountId: true, isActive: true },
+    select: { id: true, email: true, fullName: true, accountId: true, isActive: true, emailVerifiedAt: true },
   });
 
   let invited: { id: string; email: string; fullName: string | null; accountId: string } | null = null;
@@ -591,11 +662,41 @@ usersRouter.post('/users', requirePermission('SETTINGS', PermissionAction.CREATE
     if (!existing.isActive) {
       return res.status(409).json({ error: 'That email address belongs to a deactivated user.' });
     }
+    /*
+     * A-02: signing up never proves the address. Somebody could register
+     * cfo@yourclient.com first and inherit the access an administrator later
+     * gives that address. A login from another account is attached only once
+     * its owner has confirmed the email; ours (made by this account) are ours.
+     */
+    if (existing.accountId !== accountId && !existing.emailVerifiedAt) {
+      return res.status(409).json({
+        error: 'That address already has a CLOR login that has not been confirmed. Ask the person to confirm their email from the link CLOR sent them, then add them again.',
+        code: 'unverified_identity',
+      });
+    }
     const already = await platformPrisma.userOrgMembership.findFirst({
       where: { orgId: req.tenant!.orgId, userId: existing.id },
       select: { id: true },
     });
     if (already) {
+      /*
+       * GAP-006: an outside person whose access here was ended or paused is
+       * added again by a fresh grant — the administrator's act, recorded.
+       */
+      if (existing.accountId !== accountId) {
+        const row = await platformPrisma.outsideAccess.findUnique({ where: { orgId_userId: { orgId: req.tenant!.orgId, userId: existing.id } } });
+        if (refusalOf(row)) {
+          try {
+            await grantOutsideAccess({ accountId, orgId: req.tenant!.orgId, userId: existing.id, homeAccountId: existing.accountId, byUserId: createdByUserId, apps: body.outsideAccess?.apps, expiresAt: body.outsideAccess?.expiresAt });
+          } catch (e) {
+            if (e instanceof OutsideAccessError) return res.status(e.status).json({ error: e.message });
+            throw e;
+          }
+          if (req.res) req.res.locals.audited = true;
+          await platformPrisma.auditLog.create({ data: { accountId, orgId: req.tenant!.orgId, branchId: req.tenant!.branchId, entity: 'User', entityId: existing.id, action: 'OUTSIDE_ACCESS_GRANTED', message: `Let ${existing.email} in again from another account`, createdByUserId } });
+          return res.status(200).json({ user: { id: existing.id, email: existing.email }, regranted: true });
+        }
+      }
       return res.status(409).json({ error: 'That person already has access to this company.' });
     }
     invited = {
@@ -645,6 +746,17 @@ usersRouter.post('/users', requirePermission('SETTINGS', PermissionAction.CREATE
   // memberships
   const orgIds = body.orgIds.length ? Array.from(new Set(body.orgIds)) : [req.tenant!.orgId];
 
+  /* GAP-006: the terms for an outside person are checked before anything is written. */
+  const outside = invited && invited.accountId !== accountId;
+  if (outside) {
+    try {
+      checkOutsideTerms(body.outsideAccess?.apps, body.outsideAccess?.expiresAt);
+    } catch (e) {
+      if (e instanceof OutsideAccessError) return res.status(e.status).json({ error: e.message });
+      throw e;
+    }
+  }
+
   // C-8: body-supplied org/branch ids must belong to the caller's account —
   // otherwise this is an unvalidated cross-account foreign key.
   const ownedOrgs = await platformPrisma.org.findMany({ where: { accountId, id: { in: orgIds } }, select: { id: true } });
@@ -683,7 +795,18 @@ usersRouter.post('/users', requirePermission('SETTINGS', PermissionAction.CREATE
         create: { accountId, orgId, branchId, userId: user.id },
       });
     }
+
+    /* GAP-006: this administrator letting in a person from another account is the company's consent, recorded. */
+    if (outside) {
+      await runInTenant(orgId, () =>
+        grantOutsideAccess({ accountId, orgId, userId: user.id, homeAccountId: invited!.accountId, byUserId: createdByUserId, apps: body.outsideAccess?.apps, expiresAt: body.outsideAccess?.expiresAt })
+      );
+    }
   }
+
+  /* Written by name here; the general recorder (auditMutations) leaves it. */
+
+  if (req.res) req.res.locals.audited = true;
 
   await platformPrisma.auditLog.create({
     data: {
@@ -743,6 +866,10 @@ usersRouter.delete('/orgs/:orgId/users/:userId', requirePermission('SETTINGS', P
   await platformPrisma.userBranchMembership.deleteMany({ where: { accountId, orgId, userId } });
   await platformPrisma.userOrgMembership.deleteMany({ where: { accountId, orgId, userId } });
 
+  /* Written by name here; the general recorder (auditMutations) leaves it. */
+
+  if (req.res) req.res.locals.audited = true;
+
   await platformPrisma.auditLog.create({
     data: {
       accountId,
@@ -755,6 +882,8 @@ usersRouter.delete('/orgs/:orgId/users/:userId', requirePermission('SETTINGS', P
       createdByUserId,
     },
   });
+  /* Batch 5: what they made keeps working; it is flagged for someone to check. */
+  await flagCreatorRemoved({ accountId, userId, orgIds: [orgId] }, 'The person who made it was removed from this company', actorFrom(req));
 
   res.json({ ok: true });
 });

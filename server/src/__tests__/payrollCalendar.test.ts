@@ -258,6 +258,10 @@ describe('the boundary still holds', () => {
       .expect(200);
     const off = { token: signup.body.token, orgId: setup.body.company.orgId, branchId: setup.body.branch.id };
 
+    /* A fresh account owns every sellable app (explicit bootstrap subscription), so
+       "off" is now the customer turning the app off, not a catalog default. */
+    await request(app).put(`/api/orgs/${off.orgId}/features`).set(at(off)).send({ features: { payroll: false } }).expect(200);
+
     const a = await groups.list(off).expect(403);
     expect(a.body.code).toBe('PAYROLL_DISABLED');
     await periods.list(off).expect(403);

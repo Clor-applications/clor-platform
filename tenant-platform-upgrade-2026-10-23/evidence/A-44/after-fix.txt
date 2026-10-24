@@ -1,0 +1,106 @@
+# A-44 AFTER fix: working tree
+# 2026-10-23T14:14:46Z  npx vitest run src/__tests__/recurringAtomic.test.ts src/__tests__/recurring.test.ts
+ DEPRECATED  `test.poolOptions` was removed in Vitest 4. All previous `poolOptions` are now top-level options. Please, refer to the migration guide: https://vitest.dev/guide/migration#pool-rework
+
+ RUN  v4.1.10 /Users/suresh/Desktop/clor-platform/.claude/worktrees/batch6-workers-fb00cd/server
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_22948", schema "accounting" at "localhost:5432"
+
+The PostgreSQL database "clor_test_22948" schema "accounting" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 1.19s
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/payroll/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_22948", schema "payroll" at "localhost:5432"
+
+The PostgreSQL database "clor_test_22948" schema "payroll" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 725ms
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/people/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_22948", schema "people" at "localhost:5432"
+
+The PostgreSQL database "clor_test_22948" schema "people" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 732ms
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/platform/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_22948", schema "platform" at "localhost:5432"
+
+The PostgreSQL database "clor_test_22948" schema "platform" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 1.24s
+
+POST /api/auth/signup 200 580 - 142.952 ms
+POST /api/auth/setup-company 200 206 - 421.236 ms
+POST /api/orgs/cmvl1xpfk000esczz50ex6ktd/recurring 201 734 - 137.776 ms
+POST /api/auth/signup 200 582 - 7.789 ms
+POST /api/auth/setup-company 200 208 - 96.576 ms
+POST /api/orgs/cmvl1xpw900qnsczz69xpip7x/recurring 201 732 - 113.165 ms
+POST /api/auth/signup 200 578 - 4.980 ms
+POST /api/auth/setup-company 200 204 - 101.764 ms
+POST /api/orgs/cmvl1xq2k018fsczz9df1rq1b/recurring 201 729 - 111.237 ms
+POST /api/auth/signup 200 576 - 32.268 ms
+POST /api/auth/setup-company 200 202 - 207.633 ms
+POST /api/orgs/cmvl1xqbd01q7sczzh9wqqojg/recurring 201 732 - 150.567 ms
+POST /api/auth/signup 200 582 - 5.135 ms
+POST /api/auth/setup-company 200 208 - 86.360 ms
+POST /api/orgs/cmvl1xqla0280sczzzouxzurt/recurring 201 732 - 103.975 ms
+POST /api/auth/signup 200 578 - 59.143 ms
+POST /api/auth/setup-company 200 204 - 388.621 ms
+POST /api/orgs/cmvl1xro8000e8bgfgr9645p5/recurring 201 740 - 223.628 ms
+GET /api/orgs/cmvl1xro8000e8bgfgr9645p5/recurring 200 743 - 167.689 ms
+POST /api/orgs/cmvl1xro8000e8bgfgr9645p5/recurring 201 740 - 112.217 ms
+PATCH /api/orgs/cmvl1xro8000e8bgfgr9645p5/recurring/cmvl1xsca000uwv80kk9p97s4 200 741 - 102.776 ms
+DELETE /api/orgs/cmvl1xro8000e8bgfgr9645p5/recurring/cmvl1xsca000uwv80kk9p97s4 200 49 - 106.681 ms
+POST /api/auth/signup 200 584 - 5.661 ms
+POST /api/auth/setup-company 200 210 - 85.559 ms
+POST /api/orgs/cmvl1xsih00i68bgfggiryn82/recurring 201 740 - 99.530 ms
+POST /api/auth/signup 200 578 - 5.165 ms
+POST /api/auth/setup-company 200 204 - 83.400 ms
+POST /api/orgs/cmvl1xsom00zy8bgfy09utyw3/recurring 201 740 - 101.335 ms
+POST /api/auth/signup 200 578 - 5.714 ms
+POST /api/auth/setup-company 200 204 - 82.992 ms
+POST /api/orgs/cmvl1xsu801hq8bgfduxg7cmx/recurring 201 740 - 100.374 ms
+POST /api/auth/signup 200 580 - 6.377 ms
+POST /api/auth/setup-company 200 206 - 115.604 ms
+POST /api/orgs/cmvl1xt0401zi8bgf3mymqlym/recurring 201 740 - 101.471 ms
+POST /api/auth/signup 200 584 - 5.202 ms
+POST /api/auth/setup-company 200 210 - 82.045 ms
+POST /api/orgs/cmvl1xt6x02ha8bgfxt7th9lg/recurring 201 748 - 100.143 ms
+POST /api/auth/signup 200 580 - 9.206 ms
+POST /api/auth/setup-company 200 206 - 87.291 ms
+POST /api/orgs/cmvl1xtcn02z28bgfl0vxt84s/recurring 201 737 - 115.895 ms
+POST /api/auth/signup 200 582 - 4.946 ms
+POST /api/auth/setup-company 200 208 - 82.631 ms
+POST /api/orgs/cmvl1xtip03gu8bgfed4ppcz4/recurring 201 740 - 98.794 ms
+PATCH /api/orgs/cmvl1xtip03gu8bgfed4ppcz4/recurring/cmvl1xtnp0085wv808u3zakka 200 741 - 96.823 ms
+POST /api/auth/signup 200 580 - 5.395 ms
+POST /api/auth/setup-company 200 206 - 82.643 ms
+POST /api/orgs/cmvl1xtqp03ym8bgfzww9768n/recurring 201 740 - 100.512 ms
+POST /api/auth/signup 200 578 - 5.206 ms
+POST /api/auth/setup-company 200 204 - 81.150 ms
+POST /api/orgs/cmvl1xtwp04ge8bgfqprrfn41/recurring 201 740 - 97.201 ms
+GET /api/orgs/cmvl1xtwp04ge8bgfqprrfn41/recurring/cmvl1xu1n00b5wv80ktp05ula/runs 200 524 - 99.658 ms
+POST /api/auth/signup 200 582 - 5.947 ms
+POST /api/auth/setup-company 200 208 - 82.967 ms
+POST /api/orgs/cmvl1xu4v04y68bgffy0qnjjd/recurring 201 740 - 99.590 ms
+POST /api/orgs/cmvl1xu4v04y68bgffy0qnjjd/recurring/run 200 73 - 141.416 ms
+POST /api/orgs/cmvl1xu4v04y68bgffy0qnjjd/recurring/run 200 72 - 156.240 ms
+POST /api/auth/signup 200 578 - 28.708 ms
+POST /api/auth/setup-company 200 204 - 100.148 ms
+POST /api/auth/signup 200 586 - 4.632 ms
+POST /api/auth/setup-company 200 211 - 83.210 ms
+POST /api/orgs/cmvl1xuja05fy8bgf6qsb2c8s/recurring 201 740 - 116.112 ms
+GET /api/orgs/cmvl1xum505xq8bgf7ztvjzfr/recurring 200 16 - 104.191 ms
+
+ Test Files  2 passed (2)
+      Tests  24 passed (24)
+   Start at  19:44:47
+   Duration  23.85s (transform 2.74s, setup 29ms, import 6.24s, tests 6.18s, environment 0ms)
+

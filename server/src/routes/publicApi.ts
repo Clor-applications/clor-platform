@@ -1,17 +1,19 @@
 import { Router, type NextFunction, type Request, type Response } from 'express';
+import { anyAppLive, closing } from '../services/principalAllowed.js';
 import rateLimit from 'express-rate-limit';
-import { createHash } from 'node:crypto';
 
 import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { isFeatureEnabled } from '../services/features.js';
 import { istTime } from '../services/attendance/compute.js';
-import { ISO_DATE, daysOfMonth, monthRows, today } from './attendance.js';
-import { ingestPunches, pushEmployeeToReaders, readerFieldsChanged, revokeFromReaders } from './iclock.js';
+import { ISO_DATE, daysOfMonth, monthRows, today } from '../services/attendance/days.js';
+import { pushEmployeeToReaders, readerFieldsChanged, revokeFromReaders } from '../services/attendance/readerSync.js';
+import { ingestPunches } from '../services/attendance/punches.js';
 import { z } from 'zod';
 import { isWeeklyOff } from '../services/attendance/compute.js';
 import { loadHolidays, loadSchedule, resolveShift } from '../services/attendance/schedule.js';
-import { closedMonths } from './attendance.js';
-import { approveLeave, balancesFor, createLeave, leaveYearOf, rejectLeave, withTypes } from './leave.js';
+import { closedMonths } from '../services/attendance/days.js';
+import { approveLeave, createLeave, rejectLeave, withTypes } from './leave.js';
+import { balancesFor, leaveYearOf } from '../services/attendance/leaveBalances.js';
 import { emit as emitWebhook, employeeEvent } from '../services/attendance/webhooks.js';
 import { idempotent } from '../services/attendance/idempotency.js';
 import { driverOf } from '../services/attendance/drivers.js';
@@ -43,7 +45,11 @@ import { runInTenant } from '../utils/tenantScope.js';
 export const publicApiRouter = Router();
 
 export const SCOPES = ['attendance:read', 'employees:read', 'employees:write', 'punches:write', 'leave:read', 'leave:write', 'leave:approve', 'readers:read'] as const;
-export const hashToken = (t: string) => createHash('sha256').update(t).digest('hex');
+/* The one hash every token kind uses; it lives with the credential registry now (Batch 5). */
+import { hashToken, verifyCredential, touchLastUsed } from '../services/credentials.js';
+import { apiKeyKind, refusalOf } from '../services/credentialKinds.js';
+import { employeeStatusChanged } from '../services/portalSessions.js';
+export { hashToken };
 
 type Client = { id: string; accountId: string; orgId: string; scopes: string[]; deviceId: string | null; tokenPrefix: string };
 declare module 'express-serve-static-core' {
@@ -62,14 +68,21 @@ const fail = (res: Response, status: number, error: string) => res.status(status
 async function authenticate(req: Request, res: Response, next: NextFunction) {
   const token = tokenOf(req);
   if (!token) return fail(res, 401, 'Send your API key as "Authorization: Bearer <key>".');
-  const row = await peoplePrisma.apiClient.findUnique({ where: { tokenHash: hashToken(token) } });
-  if (!row || !row.isActive || row.revokedAt) return fail(res, 401, 'This API key is not valid.');
+  /* Batch 5: the registry and the key's own row must both allow it; the lookup is across companies (A-35), the rest runs as the key's company. */
+  const v = await verifyCredential('API_KEY', token, apiKeyKind);
+  if (!v.ok) {
+    const r = refusalOf(v, { invalid: 'This API key is not valid.', off: 'This API key is not valid.', status: { off: 401 } });
+    return res.status(r.status).json({ error: r.error, ...(r.code ? { code: r.code } : {}) });
+  }
+  const row = v.row;
   const ip = String(req.ip || '').replace(/^::ffff:/, '');
   const allowed = (row.allowedIps || '').split(',').map((s) => s.trim()).filter(Boolean);
   if (allowed.length && !allowed.includes(ip)) return fail(res, 403, `This key may not be used from ${ip}.`);
-  if (!(await isFeatureEnabled(row.accountId, row.orgId, 'attendance'))) return fail(res, 403, 'Attendance is not switched on for this organisation.');
   req.apiClient = { id: row.id, accountId: row.accountId, orgId: row.orgId, scopes: row.scopes.split(','), deviceId: row.deviceId, tokenPrefix: row.tokenPrefix };
-  peoplePrisma.apiClient.update({ where: { id: row.id }, data: { lastUsedAt: new Date(), lastUsedIp: ip || null } }).catch(() => undefined);
+  if (v.credential.expiresAt) res.setHeader('X-Clor-Credential-Expires', v.credential.expiresAt.toISOString());
+  touchLastUsed(v.credential, ip || null);
+  /* As the key's company (A-35): a stamp made with no company would match no row and fail silently. */
+  runInTenant(row.orgId, () => peoplePrisma.apiClient.update({ where: { id: row.id }, data: { lastUsedAt: new Date(), lastUsedIp: ip || null } })).catch(() => undefined);
   runInTenant(row.orgId, () => next());
 }
 const scope = (s: (typeof SCOPES)[number]) => (req: Request, res: Response, next: NextFunction) =>
@@ -188,6 +201,8 @@ async function writeEmployee(req: Request, existing: any | null, b: z.infer<type
     return { row, created: true };
   }
   const row = await peoplePrisma.employee.update({ where: { id: existing.id }, data: data as any });
+  /* A-33: suspended or gone, their employee-app sign-ins end — whoever changed it. */
+  await employeeStatusChanged(row, existing.status, row.status, { type: 'SYSTEM', label: 'API key' });
   if (row.status === 'LEFT' && existing.status !== 'LEFT') await revokeFromReaders(orgId, existing, by);
   else if (row.status !== 'LEFT' && readerFieldsChanged(existing, row)) await pushEmployeeToReaders(orgId, row, by, existing);
   emitWebhook(orgId, row.status === 'LEFT' && existing.status !== 'LEFT' ? 'employee.left' : 'employee.updated', employeeEvent(row));
@@ -320,19 +335,34 @@ publicApiRouter.post('/attendance/punches', scope('punches:write'), async (req, 
     const verify = typeof p?.verify_mode === 'number' ? p.verify_mode : VERIFY[String(p?.verify_mode || '').toLowerCase()] ?? 0;
     lines.push(`${code}\t${ts}\t${dir}\t${verify}`);
   });
-  /* Punches from this key are recorded under its own "reader", so Transactions shows where they came from. */
+  /*
+   * Punches from this key are recorded under its own "reader", so
+   * Transactions shows where they came from.
+   *
+   * A-29: that reader was found by a global serial, API-<the key's first
+   * characters>, and adopted as it was (`update: {}`) — a reader of that
+   * serial claimed by another company took this key's punches, and ingest
+   * wrote them under that company. The reader must belong to the key's own
+   * company; it is named after the key's id (shown nowhere) and created,
+   * never adopted, and claiming any API-… serial by hand is refused.
+   */
+  const ownsIt = (d: { orgId: string; accountId: string } | null) => Boolean(d && d.orgId === client.orgId && d.accountId === client.accountId);
   let device = client.deviceId ? await peoplePrisma.attendanceDevice.findUnique({ where: { id: client.deviceId } }) : null;
+  if (!ownsIt(device)) device = null;
   if (!device) {
     const key = await peoplePrisma.apiClient.findUnique({ where: { id: client.id } });
-    device = await peoplePrisma.attendanceDevice.upsert({
-      where: { serialNumber: `API-${client.tokenPrefix.replace(/[^A-Za-z0-9]/g, '')}` },
-      create: { accountId: client.accountId, orgId: client.orgId, serialNumber: `API-${client.tokenPrefix.replace(/[^A-Za-z0-9]/g, '')}`, name: `API: ${key?.name || 'key'}`, vendor: 'API', createdByUserId: key?.createdByUserId || 'api' },
-      update: {},
-    });
-    await peoplePrisma.apiClient.update({ where: { id: client.id }, data: { deviceId: device.id } });
+    const serialNumber = `API-${client.id}`;
+    const existing = await peoplePrisma.attendanceDevice.findUnique({ where: { serialNumber } });
+    device = ownsIt(existing)
+      ? existing
+      : await peoplePrisma.attendanceDevice.create({
+          data: { accountId: client.accountId, orgId: client.orgId, serialNumber, name: `API: ${key?.name || 'key'}`, vendor: 'API', createdByUserId: key?.createdByUserId || 'api' },
+        });
+    await peoplePrisma.apiClient.update({ where: { id: client.id }, data: { deviceId: device!.id } });
   }
-  const added = lines.length ? await ingestPunches(device, lines.join('\n')) : 0;
-  await peoplePrisma.attendanceDevice.update({ where: { id: device.id }, data: { lastSeenAt: new Date() } });
+  if (!ownsIt(device)) return fail(res, 500, 'This key has no reader of its own. Nothing was recorded.');
+  const added = lines.length ? await ingestPunches(device!, lines.join('\n')) : 0;
+  await peoplePrisma.attendanceDevice.update({ where: { id: device!.id }, data: { lastSeenAt: new Date() } });
   res.json({ received: punches.length, accepted: lines.length, added, duplicates: lines.length - added, rejected: errors.length, errors });
 });
 
@@ -454,6 +484,8 @@ const decideLeave = (approve: boolean) => async (req: Request, res: Response) =>
   const r = await peoplePrisma.leaveRequest.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
   if (!r) return fail(res, 404, 'No such leave request.');
   if (r.status !== 'PENDING') return fail(res, 409, `This request was already ${r.status.toLowerCase()}.`);
+  /* A-13: a key that raised a request does not also approve it; a person, or another system's key, does. */
+  if (approve && r.requestedByUserId === `api:${clientId}`) return fail(res, 403, 'This key raised this request; somebody else has to approve it.');
   const note = String(req.body?.note || '').trim().slice(0, 500) || null;
   try {
     const request = approve ? await approveLeave(accountId, orgId, r, `api:${clientId}`, note) : await rejectLeave(orgId, r, `api:${clientId}`, note);

@@ -5,9 +5,10 @@
  * twenty-five seconds of wall clock and is never touched.
  */
 import { describe, expect, it } from 'vitest';
-import { readFileSync, existsSync } from 'node:fs';
+import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
+import { appSource } from '../apps/accounting/src/testing/appSource.js';
 
 /*
  * The source, which is now in two places.
@@ -35,7 +36,7 @@ const SRC_DIRS = [
 const SRC = SRC_DIRS[0];
 const src = (rel) => SRC_DIRS.map((d) => join(d, rel)).find((p) => existsSync(p)) || join(SRC_DIRS[0], rel);
 
-const APP = readFileSync(src('App.jsx'), 'utf8');
+const APP = appSource(src('App.jsx'));
 
 /**
  * What is left when every module is switched off.
@@ -79,7 +80,7 @@ describe('the navigation floor', () => {
   it('never hides Features behind a feature', async () => {
     /* The screen that switches capabilities on cannot itself be switched off,
        or a company that turned everything off has no way back. */
-    const app = readFileSync('apps/accounting/src/App.jsx', 'utf8');
+    const app = appSource('apps/accounting/src/App.jsx');
     const entry = app.slice(app.indexOf("key: 'features'"), app.indexOf("key: 'features'") + 320);
     expect(entry).not.toMatch(/feature:/);
     expect(entry).toMatch(/perm: 'SETTINGS::Company Profile::VIEW'/);
@@ -90,7 +91,8 @@ describe('the navigation floor', () => {
     /* `settingsFeatures` left this list when capability management left
        Settings. The floor it guarded still holds: Features is a top-level
        module of its own now, and the test below checks it is reachable. */
-    for (const key of ['settingsModules', 'settingsCompany', 'settingsUsers', 'settingsRoles']) {
+    /* Users and roles moved to Company admin (ADR-010); the entry that opens it is the floor here now. */
+    for (const key of ['settingsModules', 'settingsCompany', 'companyAdmin']) {
       const item = SETTINGS_ITEMS.find((i) => i.key === key);
       expect(`${key}:${Boolean(item)}`).toBe(`${key}:true`);
       expect(`${key}:${item.feature ?? 'none'}`).toBe(`${key}:none`);

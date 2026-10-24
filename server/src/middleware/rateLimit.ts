@@ -1,4 +1,5 @@
 import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
+import { createHash } from 'node:crypto';
 
 /**
  * Rate limits.
@@ -34,6 +35,8 @@ const isDisabled = () => process.env.DISABLE_RATE_LIMIT === 'true';
  * fresh bucket — with one header.
  */
 const ipOf = (req: any) => ipKeyGenerator(String(req.ip || 'unknown'));
+/** A bucket key for a credential: one per token, and nothing in it that could be used (A-07). */
+const digest = (s: string) => createHash('sha256').update(s).digest('hex').slice(0, 32);
 const identityOf = (req: any) =>
   String((req.body && (req.body.emailOrUsername || req.body.email)) || '')
     .trim()
@@ -64,16 +67,31 @@ export const loginLimiter = build(15 * 60 * 1000, 10, 'sign-in attempts');
 export const signupLimiter = build(60 * 60 * 1000, 5, 'sign-up attempts');
 export const resetLimiter = build(60 * 60 * 1000, 5, 'password reset requests');
 /** Punches pushed to a reader's own URL (/ingest/:token): per token, generous — middleware batches. */
-export const ingestLimiter = [bucket(60 * 1000, 600, 'pushes', (req) => `ingest:${String(req.params?.token || '').slice(0, 16) || ipOf(req)}`), bucket(60 * 1000, 3000, 'pushes', (req) => `ingest-ip:${ipOf(req)}`)];
+export const ingestLimiter = [bucket(60 * 1000, 600, 'pushes', (req) => `ingest:${req.params?.token ? digest(String(req.params.token)) : ipOf(req)}`), bucket(60 * 1000, 3000, 'pushes', (req) => `ingest-ip:${ipOf(req)}`)];
+/** Refreshing a session: a browser refreshes every few minutes per tab; this is for scripts replaying a cookie (A-06). */
+export const refreshLimiter = [guard(60 * 1000, 60, 'session refreshes', (req) => `refresh:${ipOf(req)}`)];
+/** The payment gateway's webhook: unauthenticated by nature, so a ceiling per address (A-16). */
+export const billingWebhookLimiter = [bucket(60 * 1000, 300, 'webhook calls', (req) => `billing-hook:${ipOf(req)}`)];
 /** Authenticator codes: ten tries in fifteen minutes per signed-in user, so six digits cannot be walked. */
 export const codeLimiter = [guard(15 * 60 * 1000, 10, 'code attempts', (req) => `code:${req.auth?.userId || ipOf(req)}`)];
 
 /** Machine clients with a bearer token (SCIM providers, on-site connectors): per token, and per address for the ones guessing. */
-const bearerOf = (req: any) => String(req.headers?.authorization || '').replace(/^Bearer\s+/i, '').slice(0, 24);
+/*
+ * A-07: the key used to be the bearer's first 24 characters. Every access
+ * token is a JWT and they all begin with the same header, so every signed-in
+ * person in every company shared one bucket — one busy office could 429 the
+ * whole API — while machine tokens left 18 secret characters in the key. The
+ * key is now a hash of the whole token: one bucket per credential, and
+ * nothing in it that could be used.
+ */
+const bearerOf = (req: any) => {
+  const token = String(req.headers?.authorization || '').replace(/^Bearer\s+/i, '').trim();
+  return token ? digest(token) : '';
+};
 export const scimLimiter = [bucket(60 * 1000, 600, 'SCIM requests', (req) => `scim:${bearerOf(req) || ipOf(req)}`), bucket(60 * 1000, 1200, 'SCIM requests', (req) => `scim-ip:${ipOf(req)}`)];
 export const agentLimiter = [bucket(60 * 1000, 600, 'connector requests', (req) => `agent:${bearerOf(req) || ipOf(req)}`), bucket(60 * 1000, 1200, 'connector requests', (req) => `agent-ip:${ipOf(req)}`)];
 /** Hikvision pushes, before the body is read: per URL token (from the path) and per address. */
-export const hikvisionLimiter = [bucket(60 * 1000, 600, 'pushes', (req) => `hik:${String(req.path || '').slice(1, 17) || ipOf(req)}`), bucket(60 * 1000, 3000, 'pushes', (req) => `hik-ip:${ipOf(req)}`)];
+export const hikvisionLimiter = [bucket(60 * 1000, 600, 'pushes', (req) => `hik:${String(req.path || '').length > 1 ? digest(String(req.path).slice(1).split('/')[0]) : ipOf(req)}`), bucket(60 * 1000, 3000, 'pushes', (req) => `hik-ip:${ipOf(req)}`)];
 /**
  * Every /api call: a ceiling that no real person reaches, so one stolen token
  * or runaway script cannot hammer the API. Per session token (the bearer is

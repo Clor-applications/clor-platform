@@ -1,0 +1,116 @@
+ DEPRECATED  `test.poolOptions` was removed in Vitest 4. All previous `poolOptions` are now top-level options. Please, refer to the migration guide: https://vitest.dev/guide/migration#pool-rework
+
+ RUN  v4.1.10 /Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_65817", schema "accounting" at "localhost:5432"
+
+The PostgreSQL database "clor_test_65817" schema "accounting" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 1.07s
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/payroll/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_65817", schema "payroll" at "localhost:5432"
+
+The PostgreSQL database "clor_test_65817" schema "payroll" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 752ms
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/people/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_65817", schema "people" at "localhost:5432"
+
+The PostgreSQL database "clor_test_65817" schema "people" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 1.25s
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/platform/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_65817", schema "platform" at "localhost:5432"
+
+The PostgreSQL database "clor_test_65817" schema "platform" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 603ms
+
+[setup] 180 policy statements applied to clor_test_65817
+[setup] 7 policy statements applied to clor_test_65817
+[setup] 10 policy statements applied to clor_test_65817
+[setup] 35 policy statements applied to clor_test_65817
+[setup] 4 policy statements applied to clor_test_65817
+[setup] 96 policy statements applied to clor_test_65817
+[setup] 4 policy statements applied to clor_test_65817
+[setup] 4 policy statements applied to clor_test_65817
+[setup] 4 policy statements applied to clor_test_65817
+[setup] 4 policy statements applied to clor_test_65817
+[setup] 32 policy statements applied to clor_test_65817
+[setup] 24 policy statements applied to clor_test_65817
+[setup] 12 policy statements applied to clor_test_65817
+[setup] 16 policy statements applied to clor_test_65817
+[setup] 4 policy statements applied to clor_test_65817
+[setup] 4 policy statements applied to clor_test_65817
+[setup] 8 policy statements applied to clor_test_65817
+[setup] 8 policy statements applied to clor_test_65817
+[setup] 20 policy statements applied to clor_test_65817
+[setup] 8 policy statements applied to clor_test_65817
+[setup] 4 policy statements applied to clor_test_65817
+[setup] 8 policy statements applied to clor_test_65817
+[setup] 8 policy statements applied to clor_test_65817
+[setup] 12 policy statements applied to clor_test_65817
+[setup] 4 policy statements applied to clor_test_65817
+[setup] 8 policy statements applied to clor_test_65817
+[setup] 28 policy statements applied to clor_test_65817
+[setup] 4 policy statements applied to clor_test_65817
+[setup] 4 policy statements applied to clor_test_65817
+[setup] 4 policy statements applied to clor_test_65817
+[setup] 8 policy statements applied to clor_test_65817
+[setup] 4 policy statements applied to clor_test_65817
+[setup] 4 policy statements applied to clor_test_65817
+[setup] 4 policy statements applied to clor_test_65817
+[setup] 4 policy statements applied to clor_test_65817
+[setup] 8 policy statements applied to clor_test_65817
+[setup] 4 policy statements applied to clor_test_65817
+[setup] 12 policy statements applied to clor_test_65817
+[setup] 4 policy statements applied to clor_test_65817
+[setup] 76 policy statements applied to clor_test_65817
+[setup] 4 policy statements applied to clor_test_65817
+[setup] 4 policy statements applied to clor_test_65817
+[setup] 4 policy statements applied to clor_test_65817
+[setup] 4 policy statements applied to clor_test_65817
+POST /api/auth/signup 200 572 - 134.857 ms
+POST /api/auth/setup-company 200 200 - 627.567 ms
+PUT /api/orgs/cmvlfjev7000ecfr3n121907x/features 200 1173 - 319.218 ms
+PUT /api/orgs/cmvlfjev7000ecfr3n121907x/features 200 1173 - 331.077 ms
+POST /api/orgs/cmvlfjev7000ecfr3n121907x/people/employees 201 1664 - 252.652 ms
+DELETE /api/orgs/cmvlfjev7000ecfr3n121907x/people/employees/cmvlfjfw70000dcs11yygjdjc 200 11 - 312.784 ms
+ ❯ src/__tests__/payrollEmployeeDelete.test.ts (4 tests | 1 failed | 3 skipped) 2073ms
+     × is refused while they have payroll history, even with no payroll profile 2071ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/__tests__/payrollEmployeeDelete.test.ts > removing someone in People > is refused while they have payroll history, even with no payroll profile
+AssertionError: expected 200 to be 409 // Object.is equality
+
+- Expected
++ Received
+
+- 409
++ 200
+
+ ❯ src/__tests__/payrollEmployeeDelete.test.ts:107:24
+    105|     );
+    106|     const res = await request(app).delete(`/api/orgs/${c.orgId}/people…
+    107|     expect(res.status).toBe(409);
+       |                        ^
+    108|     expect(res.body.code).toBe('EMPLOYEE_IN_PAYROLL');
+    109|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 3 skipped (4)
+   Start at  02:05:33
+   Duration  20.54s (transform 3.34s, setup 27ms, import 6.52s, tests 2.07s, environment 0ms)
+

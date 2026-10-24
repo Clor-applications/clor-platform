@@ -338,7 +338,7 @@ function TermsOfService() {
 const STORAGE = [
   ['Cookie', 'neev_rt', 'Keeps you signed in. Readable only by the server (HttpOnly), sent only to the sign-in service, deleted when you sign out.', '30 days'],
   ['Browser storage', 'token', 'Your short-lived sign-in token, sent with each request.', 'Until you sign out'],
-  ['Browser storage', 'activeOrgId, activeBranchId, branchId, activeWarehouseId, lastSelection:v1, dashboardBranchIds', 'Which company, branch and warehouse you were working in.', 'Until you clear it'],
+  ['Browser storage', 'clor.tenant.*, clor.tab.tenant.* (this tab), clor.sel.<company>.branch / .warehouse, clor.<company>.dashboardBranchIds, lastSelection:v1', 'Which company, branch and warehouse you were working in, per company and per tab.', 'Until you clear it (the per-tab entries end with the tab)'],
   ['Browser storage', 'uiTheme, uiDensity, navCollapsed, notifSeenKey, ledger_expanded_*, neev:tip:*', 'Display preferences, which menus are open and which tips you have dismissed.', 'Until you clear it'],
   ['Browser storage', 'app-table-widths:*, *:hiddenCols, report-layout:*, report-saved-layouts:*, report-column-widths:*', 'Column widths, hidden columns and report layouts you chose.', 'Until you clear it'],
   ['Browser storage', 'pickerRecents:v1', 'The customers, items and accounts you picked recently, so they appear first. Holds their internal ids, not their names.', 'Until you clear it'],

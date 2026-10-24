@@ -3,6 +3,7 @@ import { payrollPrisma } from '../../utils/payrollPrisma.js';
 import { peoplePrisma } from '../../utils/peoplePrisma.js';
 import { platformPrisma } from '../../utils/platformPrisma.js';
 import { sendTemplate } from '../mailer.js';
+import { forLiveEmployee } from './employeeLock.js';
 
 /**
  * Changes to where somebody is paid (BankDetailChange).
@@ -71,7 +72,7 @@ export async function routeBankUpdate(opts: {
 
   /* Nothing to divert yet: the first account on file is onboarding, recorded and applied. */
   if (!before.bankAccountNumber && !before.bankIfsc) {
-    await payrollPrisma.bankDetailChange.create({ data: { ...row, status: 'APPROVED', decidedByUserId: opts.userId, decidedAt: new Date(), note: 'First bank details on file.' } });
+    await forLiveEmployee(opts.orgId, opts.employeeId, (tx) => tx.bankDetailChange.create({ data: { ...row, status: 'APPROVED', decidedByUserId: opts.userId, decidedAt: new Date(), note: 'First bank details on file.' } }));
     return { apply: after as BankDetails, pending: null };
   }
 
@@ -80,7 +81,7 @@ export async function routeBankUpdate(opts: {
     where: { orgId: opts.orgId, employeeId: opts.employeeId, status: 'PENDING' },
     data: { status: 'CANCELLED', decidedByUserId: opts.userId, decidedAt: new Date(), note: 'Replaced by a newer change.' },
   });
-  const pending = await payrollPrisma.bankDetailChange.create({ data: row });
+  const pending = await forLiveEmployee(opts.orgId, opts.employeeId, (tx) => tx.bankDetailChange.create({ data: row }));
   await tellEmployee(opts.accountId, opts.orgId, opts.employeeId, after.bankAccountNumber).catch(() => undefined);
   /* Whoever may approve pay runs sees it waiting, in whichever app they have open. */
   const who = await peoplePrisma.employee.findFirst({ where: { orgId: opts.orgId, id: opts.employeeId }, select: { name: true } });
@@ -125,8 +126,11 @@ export async function approveBankChange(orgId: string, id: string, userId: strin
     bankIfsc: change.newIfsc,
     bankName: change.newBankName,
   };
+  /* Claimed while still pending, then applied: two approvers at once cannot both move the money (A-13). */
+  const claimed = await payrollPrisma.bankDetailChange.updateMany({ where: { id: change.id, status: 'PENDING' }, data: { status: 'APPROVED', decidedByUserId: userId, decidedAt: now } });
+  if (claimed.count !== 1) throw new BankChangeError(409, 'This change has already been decided.', 'NOT_PENDING');
   await payrollPrisma.employeePayrollProfile.updateMany({ where: { orgId, employeeId: change.employeeId }, data });
-  return payrollPrisma.bankDetailChange.update({ where: { id: change.id }, data: { status: 'APPROVED', decidedByUserId: userId, decidedAt: now } });
+  return payrollPrisma.bankDetailChange.findUniqueOrThrow({ where: { id: change.id } });
 }
 
 export async function rejectBankChange(orgId: string, id: string, userId: string, note?: string | null) {

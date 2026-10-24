@@ -1,0 +1,334 @@
+ DEPRECATED  `test.poolOptions` was removed in Vitest 4. All previous `poolOptions` are now top-level options. Please, refer to the migration guide: https://vitest.dev/guide/migration#pool-rework
+
+ RUN  v4.1.10 /Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_99905", schema "accounting" at "localhost:5432"
+
+The PostgreSQL database "clor_test_99905" schema "accounting" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 648ms
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/payroll/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_99905", schema "payroll" at "localhost:5432"
+
+The PostgreSQL database "clor_test_99905" schema "payroll" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 442ms
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/people/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_99905", schema "people" at "localhost:5432"
+
+The PostgreSQL database "clor_test_99905" schema "people" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 496ms
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/platform/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_99905", schema "platform" at "localhost:5432"
+
+The PostgreSQL database "clor_test_99905" schema "platform" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 577ms
+
+[setup] 180 policy statements applied to clor_test_99905
+[setup] 7 policy statements applied to clor_test_99905
+[setup] 10 policy statements applied to clor_test_99905
+[setup] 35 policy statements applied to clor_test_99905
+[setup] 4 policy statements applied to clor_test_99905
+[setup] 96 policy statements applied to clor_test_99905
+[setup] 4 policy statements applied to clor_test_99905
+[setup] 4 policy statements applied to clor_test_99905
+[setup] 4 policy statements applied to clor_test_99905
+[setup] 4 policy statements applied to clor_test_99905
+[setup] 32 policy statements applied to clor_test_99905
+[setup] 24 policy statements applied to clor_test_99905
+[setup] 12 policy statements applied to clor_test_99905
+[setup] 16 policy statements applied to clor_test_99905
+[setup] 4 policy statements applied to clor_test_99905
+[setup] 4 policy statements applied to clor_test_99905
+[setup] 8 policy statements applied to clor_test_99905
+[setup] 8 policy statements applied to clor_test_99905
+[setup] 20 policy statements applied to clor_test_99905
+[setup] 8 policy statements applied to clor_test_99905
+[setup] 4 policy statements applied to clor_test_99905
+[setup] 8 policy statements applied to clor_test_99905
+[setup] 8 policy statements applied to clor_test_99905
+[setup] 12 policy statements applied to clor_test_99905
+[setup] 4 policy statements applied to clor_test_99905
+[setup] 8 policy statements applied to clor_test_99905
+[setup] 28 policy statements applied to clor_test_99905
+[setup] 4 policy statements applied to clor_test_99905
+[setup] 4 policy statements applied to clor_test_99905
+[setup] 4 policy statements applied to clor_test_99905
+[setup] 8 policy statements applied to clor_test_99905
+[setup] 4 policy statements applied to clor_test_99905
+[setup] 4 policy statements applied to clor_test_99905
+[setup] 4 policy statements applied to clor_test_99905
+[setup] 4 policy statements applied to clor_test_99905
+[setup] 8 policy statements applied to clor_test_99905
+[setup] 4 policy statements applied to clor_test_99905
+[setup] 12 policy statements applied to clor_test_99905
+[setup] 4 policy statements applied to clor_test_99905
+[setup] 76 policy statements applied to clor_test_99905
+[setup] 4 policy statements applied to clor_test_99905
+[setup] 4 policy statements applied to clor_test_99905
+[setup] 4 policy statements applied to clor_test_99905
+[setup] 4 policy statements applied to clor_test_99905
+POST /api/auth/signup 200 576 - 73.730 ms
+POST /api/auth/setup-company 200 198 - 232.745 ms
+POST /api/orgs/cmvlaevbx000ewvkpaoe9qo3f/roles 201 358 - 46.332 ms
+PUT /api/orgs/cmvlaevbx000ewvkpaoe9qo3f/roles/cmvlaevjd00qbwvkpbonntczh/permissions 200 23 - 159.118 ms
+POST /api/users 201 149 - 146.059 ms
+PUT /api/orgs/cmvlaevbx000ewvkpaoe9qo3f/users/cmvlaevpn00qiwvkpwo41agm6/role 200 11 - 102.550 ms
+POST /api/auth/login 200 773 - 8.799 ms
+POST /api/orgs/cmvlaevbx000ewvkpaoe9qo3f/roles 201 358 - 20.415 ms
+PUT /api/orgs/cmvlaevbx000ewvkpaoe9qo3f/roles/cmvlaevvr00qxwvkp0dil5fqb/permissions 200 23 - 145.881 ms
+POST /api/users 201 149 - 39.317 ms
+PUT /api/orgs/cmvlaevbx000ewvkpaoe9qo3f/users/cmvlaew0r00r6wvkp7g09vzol/role 200 11 - 29.101 ms
+POST /api/auth/login 200 773 - 4.404 ms
+GET /api/billing/subscription 200 307 - 98.587 ms
+GET /api/billing/subscription 200 1608 - 93.480 ms
+GET /api/orgs/cmvlaevbx000ewvkpaoe9qo3f/number-series/next/INVOICE 403 170 - 146.634 ms
+GET /api/orgs/cmvlaevbx000ewvkpaoe9qo3f/number-series/next/INVOICE 403 170 - 133.684 ms
+GET /api/orgs/cmvlaevbx000ewvkpaoe9qo3f/number-series/next/RECEIPT 200 86 - 150.642 ms
+GET /api/orgs/cmvlaevbx000ewvkpaoe9qo3f/number-series/next/INVOICE 200 86 - 134.771 ms
+GET /api/orgs/cmvlaevbx000ewvkpaoe9qo3f/number-series/next/NOT_A_DOCUMENT 400 49 - 164.546 ms
+GET /api/orgs/cmvlaevbx000ewvkpaoe9qo3f/payment-modes 403 409 - 150.228 ms
+GET /api/orgs/cmvlaevbx000ewvkpaoe9qo3f/payment-modes 200 12 - 147.224 ms
+POST /api/auth/signup 200 572 - 46.856 ms
+POST /api/auth/setup-company 200 200 - 222.408 ms
+POST /api/auth/signup 200 572 - 8.588 ms
+POST /api/auth/setup-company 200 200 - 115.341 ms
+GET /api/orgs/cmvlaexy700i6rchohx32sjyo/payment-modes 200 12 - 192.598 ms
+POST /api/orgs/cmvlaexs5000erchovu7ma8ju/ledger/accounts 201 129 - 136.906 ms
+POST /api/orgs/cmvlaexs5000erchovu7ma8ju/ledger/accounts 201 123 - 151.844 ms
+GET /api/orgs/cmvlaexs5000erchovu7ma8ju/payment-modes 200 197 - 151.171 ms
+POST /api/auth/signup 200 572 - 5.394 ms
+POST /api/auth/setup-company 200 200 - 83.789 ms
+POST /api/orgs/cmvlaeyjd00zyrchoayefwran/ledger/accounts 201 129 - 131.525 ms
+POST /api/orgs/cmvlaeyjd00zyrchoayefwran/ledger/accounts 201 123 - 125.341 ms
+GET /api/orgs/cmvlaeyjd00zyrchoayefwran/payment-modes 200 197 - 153.190 ms
+POST /api/orgs/cmvlaeyjd00zyrchoayefwran/payments 201 730 - 261.566 ms
+GET /api/orgs/cmvlaeyjd00zyrchoayefwran/ledger/trial-balance 200 454 - 198.977 ms
+POST /api/auth/signup 200 572 - 45.396 ms
+POST /api/auth/setup-company 200 200 - 509.436 ms
+POST /api/orgs/cmvlaezby01hqrchos2rjup2f/ledger/accounts 201 129 - 150.241 ms
+POST /api/orgs/cmvlaezby01hqrchos2rjup2f/ledger/accounts 201 123 - 371.095 ms
+GET /api/orgs/cmvlaezby01hqrchos2rjup2f/payment-modes 200 197 - 246.537 ms
+POST /api/orgs/cmvlaezby01hqrchos2rjup2f/payments 201 723 - 228.219 ms
+GET /api/orgs/cmvlaezby01hqrchos2rjup2f/ledger/trial-balance 200 842 - 183.346 ms
+POST /api/auth/signup 200 572 - 5.937 ms
+POST /api/auth/setup-company 200 200 - 92.792 ms
+POST /api/orgs/cmvlaf0mw01zircho8fppihwp/ledger/accounts 201 129 - 147.917 ms
+POST /api/orgs/cmvlaf0mw01zircho8fppihwp/ledger/accounts 201 123 - 150.140 ms
+GET /api/orgs/cmvlaf0mw01zircho8fppihwp/payment-modes 200 197 - 160.874 ms
+POST /api/orgs/cmvlaf0mw01zircho8fppihwp/payments 400 53 - 172.997 ms
+POST /api/auth/signup 200 572 - 6.150 ms
+POST /api/auth/setup-company 200 200 - 84.431 ms
+POST /api/orgs/cmvlaf17d02harcho5cnzjcyx/ledger/accounts 201 129 - 123.988 ms
+POST /api/orgs/cmvlaf17d02harcho5cnzjcyx/ledger/accounts 201 123 - 173.232 ms
+GET /api/orgs/cmvlaf17d02harcho5cnzjcyx/payment-modes 200 197 - 442.855 ms
+POST /api/orgs/cmvlaf17d02harcho5cnzjcyx/payments 201 725 - 176.700 ms
+GET /api/orgs/cmvlaf17d02harcho5cnzjcyx/ledger/trial-balance 200 449 - 121.358 ms
+POST /api/auth/signup 200 572 - 5.844 ms
+POST /api/auth/setup-company 200 200 - 84.879 ms
+GET /api/orgs/cmvlaf22x02z2rcho3wp3fqx3/ledger/accounts 200 2911 - 113.377 ms
+POST /api/orgs/cmvlaf22x02z2rcho3wp3fqx3/payments 400 58 - 130.952 ms
+POST /api/auth/signup 200 572 - 5.192 ms
+POST /api/auth/setup-company 200 200 - 77.897 ms
+POST /api/orgs/cmvlaf2cb03gurchorvaud5dp/ledger/accounts 201 129 - 117.866 ms
+POST /api/orgs/cmvlaf2cb03gurchorvaud5dp/ledger/accounts 201 123 - 114.080 ms
+GET /api/orgs/cmvlaf2cb03gurchorvaud5dp/payment-modes 200 197 - 140.023 ms
+POST /api/orgs/cmvlaf2cb03gurchorvaud5dp/payments 400 53 - 150.777 ms
+POST /api/auth/signup 200 572 - 5.141 ms
+POST /api/auth/setup-company 200 200 - 78.307 ms
+POST /api/orgs/cmvlaf2tb03ymrcho3w94u4rg/ledger/accounts 201 129 - 124.189 ms
+POST /api/orgs/cmvlaf2tb03ymrcho3w94u4rg/ledger/accounts 201 123 - 118.893 ms
+GET /api/orgs/cmvlaf2tb03ymrcho3w94u4rg/payment-modes 200 197 - 139.481 ms
+POST /api/orgs/cmvlaf2tb03ymrcho3w94u4rg/invoices 201 637 - 176.347 ms
+POST /api/orgs/cmvlaf2tb03ymrcho3w94u4rg/payments 201 1414 - 179.766 ms
+POST /api/auth/signup 200 572 - 5.320 ms
+POST /api/auth/setup-company 200 200 - 81.397 ms
+POST /api/orgs/cmvlaf3gd04ggrchox8006vql/ledger/accounts 201 129 - 116.022 ms
+POST /api/orgs/cmvlaf3gd04ggrchox8006vql/ledger/accounts 201 123 - 121.346 ms
+GET /api/orgs/cmvlaf3gd04ggrchox8006vql/payment-modes 200 197 - 142.831 ms
+POST /api/orgs/cmvlaf3gd04ggrchox8006vql/payments 201 714 - 146.665 ms
+POST /api/orgs/cmvlaf3gd04ggrchox8006vql/payments/cmvlaf3x700a0lno2fgfm21ac/reverse 200 736 - 132.565 ms
+GET /api/orgs/cmvlaf3gd04ggrchox8006vql/ledger/trial-balance 200 444 - 105.873 ms
+POST /api/auth/signup 200 572 - 5.368 ms
+POST /api/auth/setup-company 200 200 - 86.682 ms
+POST /api/orgs/cmvlaf44904y8rchohhodeeck/ledger/accounts 201 129 - 119.941 ms
+POST /api/orgs/cmvlaf44904y8rchohhodeeck/ledger/accounts 201 123 - 125.751 ms
+GET /api/orgs/cmvlaf44904y8rchohhodeeck/payment-modes 200 197 - 146.417 ms
+POST /api/orgs/cmvlaf44904y8rchohhodeeck/payments 201 714 - 142.384 ms
+PATCH /api/orgs/cmvlaf44904y8rchohhodeeck/payments/cmvlaf4lg00bclno2kq7a5lqo/reconcile 400 64 - 135.916 ms
+PUT /api/orgs/cmvlaf44904y8rchohhodeeck/features 200 1172 - 172.401 ms
+PATCH /api/orgs/cmvlaf44904y8rchohhodeeck/payments/cmvlaf4lg00bclno2kq7a5lqo/reconcile 200 706 - 262.086 ms
+GET /api/orgs/cmvlaf44904y8rchohhodeeck/payments?direction=RECEIPT&unreconciled=true 200 15 - 141.631 ms
+POST /api/auth/signup 200 578 - 57.820 ms
+POST /api/auth/setup-company 200 200 - 194.363 ms
+GET /api/orgs/cmvlaf5zx000ea2csdpl5iqen/features 200 1173 - 176.820 ms
+PUT /api/orgs/cmvlaf5zx000ea2csdpl5iqen/features 200 1172 - 260.180 ms
+POST /api/orgs/cmvlaf5zx000ea2csdpl5iqen/currencies 201 320 - 216.069 ms
+POST /api/orgs/cmvlaf5zx000ea2csdpl5iqen/exchange-rates 201 288 - 170.129 ms
+POST /api/orgs/cmvlaf5zx000ea2csdpl5iqen/exchange-rates 201 288 - 149.633 ms
+POST /api/orgs/cmvlaf5zx000ea2csdpl5iqen/exchange-rates 201 288 - 142.548 ms
+POST /api/orgs/cmvlaf5zx000ea2csdpl5iqen/invoices 201 706 - 246.873 ms
+GET /api/orgs/cmvlaf5zx000ea2csdpl5iqen/ledger/trial-balance 200 460 - 152.655 ms
+POST /api/orgs/cmvlaf5zx000ea2csdpl5iqen/ledger/accounts 201 129 - 128.189 ms
+GET /api/orgs/cmvlaf5zx000ea2csdpl5iqen/payment-modes 200 107 - 153.055 ms
+POST /api/orgs/cmvlaf5zx000ea2csdpl5iqen/payments 201 1431 - 203.739 ms
+GET /api/orgs/cmvlaf5zx000ea2csdpl5iqen/ledger/trial-balance 200 852 - 118.405 ms
+POST /api/orgs/cmvlaf5zx000ea2csdpl5iqen/invoices 201 706 - 140.988 ms
+GET /api/orgs/cmvlaf5zx000ea2csdpl5iqen/ledger/trial-balance 200 859 - 107.540 ms
+POST /api/orgs/cmvlaf5zx000ea2csdpl5iqen/payments 201 1431 - 136.404 ms
+GET /api/orgs/cmvlaf5zx000ea2csdpl5iqen/ledger/trial-balance 200 858 - 106.803 ms
+GET /api/orgs/cmvlaf5zx000ea2csdpl5iqen/ledger/trial-balance 200 858 - 140.228 ms
+POST /api/orgs/cmvlaf5zx000ea2csdpl5iqen/payments 201 732 - 148.675 ms
+GET /api/orgs/cmvlaf5zx000ea2csdpl5iqen/ledger/trial-balance 200 862 - 110.094 ms
+GET /api/orgs/cmvlaf5zx000ea2csdpl5iqen/ledger/trial-balance 200 862 - 106.038 ms
+POST /api/orgs/cmvlaf5zx000ea2csdpl5iqen/payments 201 727 - 135.201 ms
+GET /api/orgs/cmvlaf5zx000ea2csdpl5iqen/ledger/trial-balance 200 862 - 110.745 ms
+POST /api/orgs/cmvlaf5zx000ea2csdpl5iqen/payments 400 53 - 143.319 ms
+POST /api/orgs/cmvlaf5zx000ea2csdpl5iqen/invoices 201 706 - 133.016 ms
+GET /api/orgs/cmvlaf5zx000ea2csdpl5iqen/ledger/trial-balance 200 863 - 104.698 ms
+GET /api/orgs/cmvlaf5zx000ea2csdpl5iqen/fx/revaluation-preview?date=2026-06-15 200 276 - 153.945 ms
+GET /api/orgs/cmvlaf5zx000ea2csdpl5iqen/ledger/trial-balance 200 863 - 122.698 ms
+GET /api/orgs/cmvlaf5zx000ea2csdpl5iqen/ledger/trial-balance 200 863 - 136.827 ms
+POST /api/orgs/cmvlaf5zx000ea2csdpl5iqen/fx/revalue 200 308 - 204.681 ms
+GET /api/orgs/cmvlaf5zx000ea2csdpl5iqen/ledger/trial-balance 200 868 - 122.352 ms
+POST /api/orgs/cmvlaf5zx000ea2csdpl5iqen/invoices 201 703 - 146.344 ms
+PATCH /api/orgs/cmvlaf5zx000ea2csdpl5iqen/invoices/ddbc63fb-43cc-4f8a-a0f8-6d65f0910adb/status 200 704 - 245.710 ms
+GET /api/orgs/cmvlaf5zx000ea2csdpl5iqen/fx/revaluation-preview?date=2026-06-15 200 276 - 172.655 ms
+POST /api/orgs/cmvlaf5zx000ea2csdpl5iqen/fx/revalue 400 60 - 153.844 ms
+POST /api/auth/signup 200 574 - 54.136 ms
+POST /api/auth/setup-company 200 202 - 191.001 ms
+POST /api/orgs/cmvlafb41000ep076lnqtaipv/items 201 539 - 216.054 ms
+GET /api/orgs/cmvlafb41000ep076lnqtaipv/items 200 542 - 200.281 ms
+GET /api/orgs/cmvlafb41000ep076lnqtaipv/items?search=[redacted] 200 542 - 158.989 ms
+POST /api/orgs/cmvlafb41000ep076lnqtaipv/items 400 70 - 164.580 ms
+POST /api/orgs/cmvlafb41000ep076lnqtaipv/items 201 534 - 139.835 ms
+POST /api/orgs/cmvlafb41000ep076lnqtaipv/items 201 533 - 130.566 ms
+POST /api/orgs/cmvlafb41000ep076lnqtaipv/items 409 58 - 133.361 ms
+POST /api/auth/signup 200 574 - 6.177 ms
+POST /api/auth/setup-company 200 202 - 79.462 ms
+POST /api/orgs/cmvlafc5b00i6p076nfok1vb5/items 201 534 - 130.175 ms
+GET /api/orgs/cmvlafb41000ep076lnqtaipv/items 200 1593 - 127.110 ms
+POST /api/auth/signup 200 574 - 5.370 ms
+POST /api/auth/setup-company 200 202 - 86.772 ms
+GET /api/orgs/cmvlafcey00zyp076cf7uxruc/number-series/next/INVOICE 200 86 - 256.161 ms
+GET /api/orgs/cmvlafcey00zyp076cf7uxruc/number-series/next/INVOICE 200 86 - 133.072 ms
+POST /api/auth/signup 200 574 - 9.788 ms
+POST /api/auth/setup-company 200 202 - 89.635 ms
+POST /api/orgs/cmvlafcsk01hqp0766byhibc1/invoices 201 632 - 210.410 ms
+POST /api/orgs/cmvlafcsk01hqp0766byhibc1/invoices 201 632 - 222.999 ms
+POST /api/auth/signup 200 574 - 5.821 ms
+POST /api/auth/setup-company 200 202 - 83.529 ms
+POST /api/orgs/cmvlafd7d01zmp076x47lvtuq/invoices 201 631 - 444.887 ms
+POST /api/orgs/cmvlafd7d01zmp076x47lvtuq/invoices 400 470 - 466.686 ms
+POST /api/orgs/cmvlafd7d01zmp076x47lvtuq/invoices 400 470 - 467.022 ms
+POST /api/orgs/cmvlafd7d01zmp076x47lvtuq/invoices 400 470 - 481.647 ms
+POST /api/orgs/cmvlafd7d01zmp076x47lvtuq/invoices 400 470 - 482.087 ms
+POST /api/orgs/cmvlafd7d01zmp076x47lvtuq/invoices 400 470 - 492.962 ms
+POST /api/orgs/cmvlafd7d01zmp076x47lvtuq/invoices 400 470 - 493.260 ms
+POST /api/orgs/cmvlafd7d01zmp076x47lvtuq/invoices 400 470 - 497.703 ms
+POST /api/orgs/cmvlafd7d01zmp076x47lvtuq/invoices 400 470 - 497.674 ms
+POST /api/orgs/cmvlafd7d01zmp076x47lvtuq/invoices 400 470 - 501.680 ms
+POST /api/auth/signup 200 574 - 16.449 ms
+POST /api/auth/setup-company 200 202 - 106.896 ms
+POST /api/orgs/cmvlafdoa02hgp0765jpjfx2o/invoices 201 624 - 162.160 ms
+POST /api/auth/signup 200 574 - 26.406 ms
+POST /api/auth/setup-company 200 202 - 100.771 ms
+POST /api/orgs/cmvlafdwk02zap076sldcgfjg/invoices 201 632 - 141.891 ms
+POST /api/orgs/cmvlafdwk02zap076sldcgfjg/invoices 201 632 - 145.724 ms
+POST /api/auth/signup 200 572 - 57.425 ms
+POST /api/auth/setup-company 200 200 - 241.978 ms
+POST /api/auth/signup 200 573 - 6.293 ms
+POST /api/auth/setup-company 200 200 - 89.045 ms
+POST /api/orgs/cmvlafex9000e93a8u7mbxry5/branches 201 561 - 39.542 ms
+GET /api/orgs/cmvlafex9000e93a8u7mbxry5/pos/tender-accounts 200 412 - 61.548 ms
+GET /api/orgs/cmvlafex9000e93a8u7mbxry5/pos/tender-accounts 200 412 - 59.246 ms
+PUT /api/orgs/cmvlafex9000e93a8u7mbxry5/pos/tender-accounts 200 421 - 30.184 ms
+PUT /api/orgs/cmvlafex9000e93a8u7mbxry5/pos/tender-accounts 200 452 - 27.877 ms
+PUT /api/orgs/cmvlafex9000e93a8u7mbxry5/pos/tender-accounts 200 483 - 26.154 ms
+PUT /api/orgs/cmvlafex9000e93a8u7mbxry5/pos/tender-accounts 200 479 - 27.840 ms
+PUT /api/orgs/cmvlafex9000e93a8u7mbxry5/pos/tender-accounts 200 479 - 26.753 ms
+PUT /api/orgs/cmvlafex9000e93a8u7mbxry5/pos/tender-accounts 200 478 - 25.859 ms
+PUT /api/orgs/cmvlafex9000e93a8u7mbxry5/pos/tender-accounts 400 75 - 28.047 ms
+PUT /api/orgs/cmvlafex9000e93a8u7mbxry5/pos/tender-accounts 400 74 - 44.507 ms
+PUT /api/orgs/cmvlafex9000e93a8u7mbxry5/pos/tender-accounts 400 75 - 28.362 ms
+PUT /api/orgs/cmvlafex9000e93a8u7mbxry5/pos/tender-accounts 400 82 - 51.695 ms
+PUT /api/orgs/cmvlafex9000e93a8u7mbxry5/pos/tender-accounts 400 80 - 27.236 ms
+PUT /api/orgs/cmvlafex9000e93a8u7mbxry5/pos/tender-accounts 400 44 - 51.584 ms
+PUT /api/orgs/cmvlafex9000e93a8u7mbxry5/pos/tender-accounts 400 62 - 27.791 ms
+PUT /api/orgs/cmvlafex9000e93a8u7mbxry5/pos/tender-accounts 400 52 - 46.476 ms
+PUT /api/orgs/cmvlafex9000e93a8u7mbxry5/pos/tender-accounts 400 119 - 28.796 ms
+PUT /api/orgs/cmvlafex9000e93a8u7mbxry5/pos/tender-accounts 400 101 - 56.402 ms
+PUT /api/orgs/cmvlafex9000e93a8u7mbxry5/pos/tender-accounts 200 483 - 26.930 ms
+DELETE /api/orgs/cmvlafex9000e93a8u7mbxry5/pos/tender-accounts/CASH 200 451 - 26.986 ms
+DELETE /api/orgs/cmvlafex9000e93a8u7mbxry5/pos/tender-accounts/CASH 200 451 - 26.686 ms
+DELETE /api/orgs/cmvlafex9000e93a8u7mbxry5/pos/tender-accounts/CASH 200 451 - 25.485 ms
+PUT /api/orgs/cmvlafex9000e93a8u7mbxry5/pos/tender-accounts 200 476 - 27.747 ms
+GET /api/orgs/cmvlafex9000e93a8u7mbxry5/pos/tender-accounts 200 1567 - 35.842 ms
+PUT /api/orgs/cmvlafex9000e93a8u7mbxry5/pos/tender-accounts 200 480 - 28.331 ms
+PUT /api/orgs/cmvlafex9000e93a8u7mbxry5/pos/tender-accounts 200 419 - 26.556 ms
+GET /api/orgs/cmvlafex9000e93a8u7mbxry5/pos/tender-accounts 200 1654 - 36.616 ms
+GET /api/orgs/cmvlafex9000e93a8u7mbxry5/pos/tender-accounts 200 1703 - 35.779 ms
+PUT /api/orgs/cmvlafex9000e93a8u7mbxry5/pos/tender-accounts 200 484 - 30.335 ms
+PUT /api/orgs/cmvlafex9000e93a8u7mbxry5/pos/tender-accounts 200 453 - 29.570 ms
+GET /api/orgs/cmvlafex9000e93a8u7mbxry5/pos/tender-accounts 200 1769 - 36.735 ms
+GET /api/orgs/cmvlafex9000e93a8u7mbxry5/pos/tender-accounts 200 1848 - 36.816 ms
+PUT /api/orgs/cmvlafex9000e93a8u7mbxry5/pos/tender-accounts 400 53 - 27.607 ms
+PUT /api/orgs/cmvlafex9000e93a8u7mbxry5/pos/tender-accounts 200 481 - 26.320 ms
+PUT /api/orgs/cmvlafex9000e93a8u7mbxry5/pos/tender-accounts 200 450 - 25.594 ms
+DELETE /api/orgs/cmvlafex9000e93a8u7mbxry5/pos/tender-accounts/CASH 200 455 - 25.141 ms
+GET /api/orgs/cmvlafex9000e93a8u7mbxry5/pos/tender-accounts 200 1955 - 37.643 ms
+GET /api/orgs/cmvlafex9000e93a8u7mbxry5/pos/tender-accounts 200 1949 - 35.120 ms
+POST /api/orgs/cmvlafex9000e93a8u7mbxry5/branches 201 560 - 6.709 ms
+GET /api/orgs/cmvlafex9000e93a8u7mbxry5/pos/tender-accounts 200 1568 - 38.079 ms
+PUT /api/orgs/cmvlafex9000e93a8u7mbxry5/pos/tender-accounts 200 485 - 42.708 ms
+GET /api/orgs/cmvlafex9000e93a8u7mbxry5/pos/tender-accounts 200 2092 - 43.152 ms
+GET /api/orgs/cmvlafex9000e93a8u7mbxry5/pos/tender-accounts 200 1955 - 36.471 ms
+GET /api/orgs/cmvlafex9000e93a8u7mbxry5/payment-modes 200 1383 - 155.047 ms
+GET /api/orgs/cmvlafex9000e93a8u7mbxry5/payment-modes 200 1383 - 148.577 ms
+PUT /api/orgs/cmvlafex9000e93a8u7mbxry5/pos/tender-accounts 200 493 - 26.675 ms
+PUT /api/orgs/cmvlafex9000e93a8u7mbxry5/pos/tender-accounts 200 497 - 25.703 ms
+PUT /api/orgs/cmvlafex9000e93a8u7mbxry5/pos/tender-accounts 200 504 - 25.269 ms
+GET /api/orgs/cmvlafex9000e93a8u7mbxry5/pos/tender-accounts 200 2340 - 34.322 ms
+DELETE /api/orgs/cmvlafex9000e93a8u7mbxry5/pos/tender-accounts/CARD 200 466 - 26.197 ms
+POST /api/auth/signup 200 575 - 65.006 ms
+POST /api/auth/setup-company 200 180 - 277.699 ms
+GET /api/billing/subscription 200 1608 - 172.340 ms
+POST /api/billing/subscription 403 79 - 149.325 ms
+POST /api/billing/accounts/cmvlafhrn0001jqsk56fo623m/subscription 403 79 - 2.679 ms
+GET /api/billing/subscription 200 1608 - 118.625 ms
+POST /api/auth/signup 200 575 - 5.984 ms
+POST /api/auth/setup-company 200 180 - 84.197 ms
+POST /api/auth/signup 200 575 - 5.358 ms
+POST /api/auth/setup-company 200 180 - 85.862 ms
+POST /api/billing/accounts/cmvlafifr00zljqskumq5eeqi/subscription 403 79 - 31.968 ms
+POST /api/billing/accounts/cmvlafifr00zljqskumq5eeqi/subscription 401 25 - 0.673 ms
+POST /api/auth/signup 200 575 - 5.893 ms
+POST /api/auth/setup-company 200 180 - 82.012 ms
+POST /api/auth/signup 200 575 - 5.566 ms
+POST /api/auth/setup-company 200 180 - 77.642 ms
+POST /api/billing/accounts/cmvlafilu01z5jqskev536uh1/subscription 403 119 - 17.927 ms
+POST /api/orgs/cmvlafijj01hqjqskxbes3s4k/security/two-factor/setup 200 207 - 136.731 ms
+POST /api/orgs/cmvlafijj01hqjqskxbes3s4k/security/two-factor/enable 200 130 - 128.919 ms
+POST /api/orgs/cmvlafijj01hqjqskxbes3s4k/security/step-up 200 339 - 127.060 ms
+POST /api/billing/accounts/cmvlafilu01z5jqskev536uh1/subscription 403 93 - 1.835 ms
+POST /api/billing/accounts/no-such-account/subscription 404 27 - 27.810 ms
+POST /api/billing/accounts/cmvlafilu01z5jqskev536uh1/subscription 400 128 - 5.967 ms
+POST /api/billing/accounts/cmvlafilu01z5jqskev536uh1/subscription 200 1126 - 4.893 ms
+GET /api/billing/subscription 200 1319 - 96.034 ms
+GET /api/billing/subscription 200 1608 - 124.633 ms
+
+ Test Files  6 passed (6)
+      Tests  61 passed (61)
+   Start at  23:42:09
+   Duration  44.08s (transform 2.43s, setup 82ms, import 8.94s, tests 25.95s, environment 0ms)
+

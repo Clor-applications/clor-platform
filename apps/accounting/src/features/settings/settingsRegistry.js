@@ -94,7 +94,6 @@ export const SETTINGS_CATEGORIES = [
 export const SETTINGS_ITEMS = [
   // Organisation
   { key: 'settingsCompany', title: 'Company Profile', category: 'organisation', icon: Building2, perm: 'SETTINGS::Company Profile::VIEW', description: 'Name, GSTIN, address and the state your supplies are made from.', keywords: ['gstin', 'address', 'pan', 'logo', 'state', 'legal name'] },
-  { key: 'settingsBranches', title: 'Branches', category: 'organisation', icon: Building2, perm: 'MASTERS::Company/Branch setup::VIEW', description: 'The places you trade from, and the number series each one uses.', keywords: ['location', 'office', 'place of business'] },
   { key: 'settingsWarehouses', title: 'Warehouses', category: 'organisation', icon: Package, perm: 'MASTERS::Company/Branch setup::VIEW', description: 'Where stock is held, and which branch each store belongs to.', keywords: ['godown', 'store', 'stock location'] },
   { key: 'yearEndClose', title: 'Financial Year', category: 'organisation', icon: Settings, perm: 'ACCOUNTING::Ledger::VIEW', description: 'The year the books run on, and closing a period against further entries.', keywords: ['fy', 'year end', 'close', 'lock', 'period'] },
   { key: 'settingsCurrencies', title: 'Currency', category: 'organisation', icon: Coins, perm: 'ACCOUNTING::Ledger::VIEW', feature: 'multiCurrency', description: 'The currencies you bill in and the rates they convert at.', keywords: ['forex', 'exchange rate', 'multi currency'] },
@@ -107,9 +106,7 @@ export const SETTINGS_ITEMS = [
   { key: 'recurringInvoices', standalone: true, title: 'Recurring Invoices', category: 'platform', icon: RefreshCw, perm: 'SALES::Invoices::VIEW', feature: 'recurringInvoices', group: 'Automation', description: 'Schedules that raise their own invoices — rent, AMC, retainers.', keywords: ['schedule', 'repeat', 'subscription', 'amc'] },
 
   // Finance & accounting
-  { key: 'settingsAccount', title: 'Account Overview', category: 'finance', icon: Building2, perm: 'SETTINGS::Company Profile::VIEW', group: 'Your account', description: 'The plan this account is on and what it includes.', keywords: ['plan', 'subscription', 'entitlement'] },
   { key: 'settingsPosAccounts', title: 'POS Payment Accounts', category: 'finance', icon: Receipt, perm: 'SETTINGS::Company Profile::VIEW', group: 'Point of sale', description: 'Where the counter posts cash, UPI and card takings.', keywords: ['pos', 'tender', 'cash', 'upi', 'card', 'till', 'counter'] },
-  { key: 'settingsBilling', title: 'Billing', category: 'finance', icon: Receipt, perm: 'SETTINGS::Company Profile::VIEW', group: 'Your account', description: 'What you are charged for CLOR, and the invoices for it.', keywords: ['payment method', 'invoice', 'card', 'subscription'] },
 
   // Tax & compliance
   { key: 'settingsTax', title: 'GST', category: 'tax', icon: BadgePercent, perm: 'SETTINGS::Tax Settings::VIEW', description: 'Registration type, filing frequency and what the returns read.', keywords: ['gstin', 'composition', 'gstr', 'filing', 'reverse charge'] },
@@ -117,15 +114,17 @@ export const SETTINGS_ITEMS = [
   { key: 'gstRates', standalone: true, title: 'Tax Rates', category: 'tax', icon: BadgePercent, perm: 'MASTERS::GST Rates::VIEW', description: 'The rates items can carry, and which is the default.', keywords: ['gst rate', 'hsn', 'cess', 'slab'] },
 
   // User & Roles
-  { key: 'settingsUsers', title: 'Users', category: 'usersRoles', icon: Users, perm: 'SETTINGS::Users::VIEW', description: 'Who can sign in, and which branches they work in.', keywords: ['people', 'staff', 'invite', 'deactivate'] },
-  { key: 'settingsRoles', title: 'Roles', category: 'usersRoles', icon: Shield, perm: 'SETTINGS::Roles::VIEW', description: 'The named sets of permissions you assign to people.', keywords: ['role', 'admin', 'accountant', 'rbac'] },
+  /*
+   * Users, roles, permissions, sign-in, SSO, the audit trail, branches, the
+   * plan and billing are the company's, not Accounting's: they live in Company
+   * admin, one workspace for every app (ADR-010). One entry here leads there,
+   * and the old keys still route (App.jsx) so links and bookmarks land.
+   */
+  { key: 'accountingRoles', title: 'Roles & Access', category: 'usersRoles', icon: Users, perm: 'SETTINGS::Roles::VIEW', description: 'What each role may do in Accounting — opens Workspace on Accounting\u2019s permissions.', keywords: ['roles', 'permissions', 'rights', 'access', 'rbac'] },
+  { key: 'companyAdmin', title: 'Users, roles & security', category: 'usersRoles', icon: Users, perm: 'SETTINGS::Users::VIEW', description: 'In Workspace: people, roles, permissions, sign-in, branches, audit and billing — shared by every app.', keywords: ['users', 'roles', 'permissions', 'password', '2fa', 'sso', 'audit', 'branches', 'billing', 'plan', 'company admin', 'workspace'] },
 
   // Security
-  { key: 'settingsPermissions', title: 'Permissions', category: 'security', icon: Shield, perm: 'SETTINGS::Roles::VIEW', description: 'What each role may see, create, change and approve.', keywords: ['rights', 'access', 'field level', 'rbac'] },
   { key: 'settingsGovernance', title: 'Approval Workflows', category: 'security', icon: Shield, perm: 'SETTINGS::Roles::VIEW', description: 'What needs a second pair of eyes before it is posted.', keywords: ['approval', 'limit', 'maker checker', 'workflow'] },
-  { key: 'settingsSecurity', title: 'Login & Security', category: 'security', icon: Shield, perm: 'SETTINGS::Users::VIEW', description: 'Passwords, sessions and two-factor sign-in.', keywords: ['password', '2fa', 'mfa', 'session', 'lockout'] },
-  { key: 'settingsAudit', title: 'Audit Trail', category: 'security', icon: Shield, perm: 'SETTINGS::Users::VIEW', description: 'Who changed what, and when.', keywords: ['log', 'history', 'trail', 'who changed'] },
-  { key: 'settingsSso', title: 'Single Sign-On', category: 'security', icon: Shield, perm: 'SETTINGS::Users::VIEW', description: 'Sign in through your own identity provider.', keywords: ['sso', 'saml', 'google', 'okta', 'identity'] },
 
   // Platform & communication
   { key: 'settingsEmail', title: 'Email', category: 'platform', icon: NotebookPen, perm: 'SETTINGS::Company Profile::VIEW', feature: 'notifications', group: 'Communication', description: 'The address documents are sent from, and what they say.', keywords: ['smtp', 'send', 'mail', 'from address'] },
@@ -137,7 +136,6 @@ export const SETTINGS_ITEMS = [
    * route to it from anywhere in the product. A company's own data, and the
    * only way out of it, reachable by nobody.
    */
-  { key: 'settingsDataBackup', standalone: true, title: 'Backup', category: 'platform', icon: HardDriveDownload, perm: 'ACCOUNTING::Ledger::VIEW', group: 'System', description: 'Take a copy of this company\u2019s data.', keywords: ['backup', 'export', 'download', 'copy', 'restore', 'archive'] },
   { key: 'dataImport', standalone: true, title: 'Data & Import', category: 'platform', icon: Upload, perm: 'ACCOUNTING::Ledger::VIEW', feature: 'imports', group: 'System', description: 'Bring journals, invoices and bills in from a file.', keywords: ['import', 'csv', 'migrate', 'template', 'upload'] },
   /*
    * Payroll's settings are Payroll's.

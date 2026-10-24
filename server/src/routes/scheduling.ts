@@ -10,8 +10,8 @@ import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { ATTENDANCE_MODULE, ATTENDANCE_RESOURCE, attendanceRouteOk } from '../services/attendance/guards.js';
 import { isWeeklyOff } from '../services/attendance/compute.js';
 import { loadHolidays, loadSchedule, resolveShift } from '../services/attendance/schedule.js';
-import { ISO_DATE, closedMonths, daysBetween, daysOfMonth, sendError, today, withNames, writeDay } from './attendance.js';
-import { recomputeDeviceDay } from './iclock.js';
+import { ISO_DATE, closedMonths, daysBetween, daysOfMonth, sendError, today, withNames, writeDay } from '../services/attendance/days.js';
+import { recomputeDeviceDay } from '../services/attendance/punches.js';
 import { deleteToBin } from '../services/recycleBin.js';
 
 /**

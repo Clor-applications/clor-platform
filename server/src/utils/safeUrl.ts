@@ -8,6 +8,8 @@
  */
 const SECRET_PATHS: Array<[RegExp, string]> = [
   [/(\/public\/invoice\/)[^/?#]+/i, '$1[token]'],
+  /* Readers, connectors and UPI pay pages carry their token as the first path segment (A-34). */
+  [/^(\/(?:pay|ingest|matrix|hikvision)\/)[^/?#]+/i, '$1[token]'],
   [/(\/gstin\/)[^/?#]+/i, '$1[gstin]'],
 ];
 

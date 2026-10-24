@@ -10,6 +10,8 @@ import { resolveAccess } from '../services/access.js';
 import { RoleType } from '../constants/enums.js';
 import {
   ADMIN_ONLY_ERROR,
+  OWN_ACCESS_ERROR,
+  grantAuthority,
   LAST_ADMIN_ERROR,
   LastAdminError,
   assertAnAdminRemains,
@@ -19,8 +21,11 @@ import {
   userIsAdmin,
 } from '../services/roleGuards.js';
 import { PermissionAction } from '../constants/enums.js';
-import { ApprovalError, decide, notifyDecision } from '../services/approvals.js';
+import { permKey } from '../constants/permissionCatalog.js';
+import { ApprovalError, decide, notifyDecision, reopen } from '../services/approvals.js';
+import { isAppEntitled } from '../services/subscriptions.js';
 import { ensureLedgerSetup, invoicePostingLines, postEntry } from '../services/ledger.js';
+import { entityExists } from '../services/integrity/crossStore.js';
 
 /**
  * Administration surfaces layered on top of roles: role profiles, approval
@@ -64,11 +69,14 @@ const profileSchema = z.object({
 async function profileRolesRefusal(req: any, roleIds: string[], alreadyIn: Set<string> = new Set()) {
   const added = roleIds.filter((id) => !alreadyIn.has(id));
   if (!added.length) return null;
+  // A profile reaches whoever holds it, wherever they work (A-19).
+  const { authority, refusal } = await grantAuthority(req, null, permKey('SETTINGS', 'Roles', 'EDIT'));
+  if (refusal) return refusal;
   const adminRoles = await platformPrisma.role.count({ where: { id: { in: added }, roleType: RoleType.ADMIN } });
-  if (adminRoles > 0 && !req.isAdmin) return { status: 403, body: ADMIN_ONLY_ERROR };
+  if (adminRoles > 0 && !authority.isAdmin) return { status: 403, body: ADMIN_ONLY_ERROR };
   const granted = new Set<string>();
   for (const id of added) for (const k of await rolePermissionKeys(id)) granted.add(k);
-  const missing = unheldGrants(req, granted);
+  const missing = unheldGrants(authority, granted);
   return missing.length ? { status: 403, body: cannotGrantError(missing) } : null;
 }
 
@@ -219,9 +227,13 @@ governanceRouter.post('/orgs/:orgId/users/:userId/role-profiles', USERS_EDIT, as
     return res.status(400).json({ error: 'One or more profiles do not belong to this organisation' });
   }
 
+  // Profiles are assigned company-wide: bounded by what the caller holds company-wide (A-19).
+  const { authority, refusal } = await grantAuthority(req, null, permKey('SETTINGS', 'Users', 'EDIT'));
+  if (refusal) return res.status(refusal.status).json(refusal.body);
+
   // Changing an administrator's profiles can take administration away; only
   // an administrator may do that, as with their direct role.
-  if (!req.isAdmin && (await userIsAdmin(accountId, orgId, userId))) return res.status(403).json(ADMIN_ONLY_ERROR);
+  if (!authority.isAdmin && (await userIsAdmin(accountId, orgId, userId))) return res.status(403).json(ADMIN_ONLY_ERROR);
 
   // A profile hands out every role inside it, so it is bounded the way a
   // direct assignment is: only an administrator may hand out an Administrator
@@ -234,13 +246,14 @@ governanceRouter.post('/orgs/:orgId/users/:userId/role-profiles', USERS_EDIT, as
     const roleIds = [...new Set(links.map((l) => l.roleId))];
     if (roleIds.length) {
       const adminRoles = await platformPrisma.role.count({ where: { id: { in: roleIds }, roleType: RoleType.ADMIN } });
-      if (adminRoles > 0 && !req.isAdmin) return res.status(403).json(ADMIN_ONLY_ERROR);
+      if (adminRoles > 0 && !authority.isAdmin) return res.status(403).json(ADMIN_ONLY_ERROR);
       const granted = new Set<string>();
       for (const roleId of roleIds) for (const k of await rolePermissionKeys(roleId)) granted.add(k);
-      const missing = unheldGrants(req, granted);
+      const missing = unheldGrants(authority, granted);
       if (missing.length) return res.status(403).json(cannotGrantError(missing));
     }
   }
+  if (userId === req.auth!.userId && !authority.isAdmin) return res.status(403).json(OWN_ACCESS_ERROR);
 
   try {
     await platformPrisma.$transaction(async (tx) => {
@@ -380,6 +393,14 @@ const decideSchema = z.object({ approve: z.boolean(), comment: z.string().max(30
 governanceRouter.post('/orgs/:orgId/approvals/:requestId/decide', async (req, res) => {
   if (!orgOk(req, res)) return;
   const body = decideSchema.parse(req.body);
+  /*
+   * A-12: approving releases a document into the books. The approver's role
+   * is checked in decide(); the account must also still have Accounting —
+   * this route sat outside the shared RBAC path that refuses unowned apps.
+   */
+  if (!(await isAppEntitled(req.tenant!.accountId, 'accounting'))) {
+    return res.status(402).json({ error: "The accounting app is not on this account's subscription.", app: 'accounting', code: 'APP_NOT_SUBSCRIBED' });
+  }
 
   try {
     const decided = await decide({
@@ -395,32 +416,38 @@ governanceRouter.post('/orgs/:orgId/approvals/:requestId/decide', async (req, re
     // invoice existed as a row but had no journal entry.
     let posted = false;
     if (body.approve && decided.docType === 'INVOICE') {
-      const rows = await prisma.invoice.findMany({ where: { id: decided.docId } });
+      const rows = await prisma.invoice.findMany({ where: { id: decided.docId, orgId: req.tenant!.orgId } });
       const inv = rows[0];
       if (inv) {
-        await ensureLedgerSetup(req.tenant!.accountId, req.tenant!.orgId, req.auth!.userId);
-        await postEntry({
-          accountId: req.tenant!.accountId,
-          orgId: req.tenant!.orgId,
-          branchId: inv.branchId,
-          userId: req.auth!.userId,
-          date: String(inv.date),
-          journalCode: 'SAL',
-          narration: `Invoice ${inv.number} (approved)`,
-          sourceDocType: 'INVOICE',
-          sourceDocId: inv.id,
-          lines: invoicePostingLines({
-            customerId: inv.customerId,
-            customerName: inv.customerName,
-            subtotal: Number(inv.subtotal),
-            cgstTotal: Number(inv.cgstTotal),
-            sgstTotal: Number(inv.sgstTotal),
-            igstTotal: Number(inv.igstTotal),
-            total: Number(inv.total),
-          }),
-        });
-        await prisma.invoice.update({ where: { id: inv.id }, data: { status: 'Unpaid' } });
-        posted = true;
+        try {
+          await ensureLedgerSetup(req.tenant!.accountId, req.tenant!.orgId, req.auth!.userId);
+          await postEntry({
+            accountId: req.tenant!.accountId,
+            orgId: req.tenant!.orgId,
+            branchId: inv.branchId,
+            userId: req.auth!.userId,
+            date: String(inv.date),
+            journalCode: 'SAL',
+            narration: `Invoice ${inv.number} (approved)`,
+            sourceDocType: 'INVOICE',
+            sourceDocId: inv.id,
+            lines: invoicePostingLines({
+              customerId: inv.customerId,
+              customerName: inv.customerName,
+              subtotal: Number(inv.subtotal),
+              cgstTotal: Number(inv.cgstTotal),
+              sgstTotal: Number(inv.sgstTotal),
+              igstTotal: Number(inv.igstTotal),
+              total: Number(inv.total),
+            }),
+          });
+          await prisma.invoice.update({ where: { id: inv.id }, data: { status: 'Unpaid' } });
+          posted = true;
+        } catch (err) {
+          /* Not posted, so not approved: the request goes back to pending rather than claiming a decision the books do not show. */
+          await reopen(decided.id);
+          throw err;
+        }
       }
     }
 
@@ -453,6 +480,28 @@ governanceRouter.post('/orgs/:orgId/approvals/:requestId/decide', async (req, re
 
 const ENTITY_TYPES = ['CUSTOMER', 'VENDOR', 'COST_CENTRE', 'ITEM_GROUP'] as const;
 
+/**
+ * Who may change a person's record restrictions (A-20).
+ *
+ * A restriction narrows what somebody sees, but a second row of a type widens
+ * it again (they may now see that customer too), and removing one lifts it —
+ * so changing your own is changing your own access, which somebody else does.
+ * Restrictions apply to administrators too, so only an administrator may fence
+ * one off from records. Both judged by what the caller holds company-wide,
+ * because restrictions hold in every branch.
+ */
+async function restrictionRefusal(req: any, userId: string) {
+  const { accountId, orgId } = req.tenant!;
+  const { authority, refusal } = await grantAuthority(req, null, permKey('SETTINGS', 'Users', 'EDIT'));
+  if (refusal) return refusal;
+  if (authority.isAdmin) return null;
+  if (userId === req.auth!.userId) return { status: 403, body: OWN_ACCESS_ERROR };
+  if (await userIsAdmin(accountId, orgId, userId)) {
+    return { status: 403, body: { error: 'Only an administrator may restrict what an administrator sees.', code: 'admin_only' } };
+  }
+  return null;
+}
+
 const userPermissionSchema = z.object({
   entityType: z.enum(ENTITY_TYPES),
   entityId: z.string().min(1),
@@ -477,6 +526,13 @@ governanceRouter.post('/orgs/:orgId/users/:userId/permissions', USERS_EDIT, asyn
 
   const member = await platformPrisma.userOrgMembership.findFirst({ where: { accountId, orgId, userId }, select: { id: true } });
   if (!member) return res.status(404).json({ error: 'User not found in org' });
+
+  const refused = await restrictionRefusal(req, userId);
+  if (refused) return res.status(refused.status).json(refused.body);
+  /* GAP-010: the customer, vendor or cost centre lives in Accounting; access to one that is not this company's names nothing. */
+  if (!(await entityExists({ accountId, orgId }, body.entityType, body.entityId.trim()))) {
+    return res.status(400).json({ error: `No such ${body.entityType === 'COST_CENTRE' ? 'cost centre' : body.entityType.toLowerCase()} in this company.` });
+  }
 
   try {
     const row = await platformPrisma.userPermission.create({
@@ -506,6 +562,8 @@ governanceRouter.delete('/orgs/:orgId/users/:userId/permissions/:id', USERS_EDIT
     where: { id: String(req.params.id), accountId, orgId, userId: String(req.params.userId) },
   });
   if (!row) return res.status(404).json({ error: 'Restriction not found' });
+  const refused = await restrictionRefusal(req, row.userId);
+  if (refused) return res.status(refused.status).json(refused.body);
   await platformPrisma.userPermission.delete({ where: { id: row.id } });
   res.json({ ok: true });
 });

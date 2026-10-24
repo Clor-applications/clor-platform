@@ -1,0 +1,135 @@
+ DEPRECATED  `test.poolOptions` was removed in Vitest 4. All previous `poolOptions` are now top-level options. Please, refer to the migration guide: https://vitest.dev/guide/migration#pool-rework
+
+ RUN  v4.1.10 /Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_78586", schema "accounting" at "localhost:5432"
+
+The PostgreSQL database "clor_test_78586" schema "accounting" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 1.07s
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/payroll/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_78586", schema "payroll" at "localhost:5432"
+
+The PostgreSQL database "clor_test_78586" schema "payroll" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 956ms
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/people/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_78586", schema "people" at "localhost:5432"
+
+The PostgreSQL database "clor_test_78586" schema "people" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 1.42s
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/platform/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_78586", schema "platform" at "localhost:5432"
+
+The PostgreSQL database "clor_test_78586" schema "platform" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 979ms
+
+[setup] 180 policy statements applied to clor_test_78586
+[setup] 7 policy statements applied to clor_test_78586
+[setup] 10 policy statements applied to clor_test_78586
+[setup] 35 policy statements applied to clor_test_78586
+[setup] 4 policy statements applied to clor_test_78586
+[setup] 96 policy statements applied to clor_test_78586
+[setup] 4 policy statements applied to clor_test_78586
+[setup] 4 policy statements applied to clor_test_78586
+[setup] 4 policy statements applied to clor_test_78586
+[setup] 4 policy statements applied to clor_test_78586
+[setup] 32 policy statements applied to clor_test_78586
+[setup] 24 policy statements applied to clor_test_78586
+[setup] 12 policy statements applied to clor_test_78586
+[setup] 16 policy statements applied to clor_test_78586
+[setup] 4 policy statements applied to clor_test_78586
+[setup] 4 policy statements applied to clor_test_78586
+[setup] 8 policy statements applied to clor_test_78586
+[setup] 8 policy statements applied to clor_test_78586
+[setup] 20 policy statements applied to clor_test_78586
+[setup] 8 policy statements applied to clor_test_78586
+[setup] 4 policy statements applied to clor_test_78586
+[setup] 8 policy statements applied to clor_test_78586
+[setup] 8 policy statements applied to clor_test_78586
+[setup] 12 policy statements applied to clor_test_78586
+[setup] 4 policy statements applied to clor_test_78586
+[setup] 8 policy statements applied to clor_test_78586
+[setup] 28 policy statements applied to clor_test_78586
+[setup] 4 policy statements applied to clor_test_78586
+[setup] 4 policy statements applied to clor_test_78586
+[setup] 4 policy statements applied to clor_test_78586
+[setup] 8 policy statements applied to clor_test_78586
+[setup] 4 policy statements applied to clor_test_78586
+[setup] 4 policy statements applied to clor_test_78586
+[setup] 4 policy statements applied to clor_test_78586
+[setup] 4 policy statements applied to clor_test_78586
+[setup] 8 policy statements applied to clor_test_78586
+[setup] 4 policy statements applied to clor_test_78586
+[setup] 12 policy statements applied to clor_test_78586
+[setup] 4 policy statements applied to clor_test_78586
+[setup] 76 policy statements applied to clor_test_78586
+[setup] 4 policy statements applied to clor_test_78586
+[setup] 4 policy statements applied to clor_test_78586
+[setup] 4 policy statements applied to clor_test_78586
+[setup] 4 policy statements applied to clor_test_78586
+stderr | src/__tests__/audit.test.ts > the audit trail > gives each app its own share of the one trail
+API error: ZodError: [
+  {
+    "received": "accounting",
+    "code": "invalid_enum_value",
+    "options": [
+      "attendance"
+    ],
+    "path": [
+      "app"
+    ],
+    "message": "Invalid enum value. Expected 'attendance', received 'accounting'"
+  }
+]
+    at Object.get error [as error] (file:///Users/suresh/Desktop/clor-platform/server/node_modules/zod/v3/types.js:39:31)
+    at ZodObject.parse (file:///Users/suresh/Desktop/clor-platform/server/node_modules/zod/v3/types.js:114:22)
+    at /Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/routes/audit.ts:57:25
+    at newFn (/Users/suresh/Desktop/clor-platform/server/node_modules/express-async-errors/index.js:16:20)
+    at Layer.handle [as handle_request] (/Users/suresh/Desktop/clor-platform/server/node_modules/express/lib/router/layer.js:95:5)
+    at next (/Users/suresh/Desktop/clor-platform/server/node_modules/express/lib/router/route.js:149:13)
+    at /Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server/src/middleware/rbac.ts:131:5
+
+ ❯ src/__tests__/audit.test.ts (13 tests | 1 failed | 12 skipped) 1279ms
+     × gives each app its own share of the one trail 736ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/__tests__/audit.test.ts > the audit trail > gives each app its own share of the one trail
+Error: expected 200 "OK", got 400 "Bad Request"
+ ❯ entitiesFor src/__tests__/audit.test.ts:251:96
+    249|     await request(app).put(`/api/orgs/${c.orgId}/features`).set(auth(c…
+    250|     const entitiesFor = async (which: string) =>
+    251|       new Set(((await request(app).get(`/api/orgs/${c.orgId}/audit?app…
+       |                                                                                                ^
+    252|     const accounting = await entitiesFor('accounting');
+    253|     const company = await entitiesFor('company');
+ ❯ src/__tests__/audit.test.ts:252:30
+ ❯ Test._assertStatus ../../../../server/node_modules/supertest/lib/test.js:309:14
+ ❯ ../../../../server/node_modules/supertest/lib/test.js:365:13
+ ❯ Test._assertFunction ../../../../server/node_modules/supertest/lib/test.js:342:13
+ ❯ Test.assert ../../../../server/node_modules/supertest/lib/test.js:195:23
+ ❯ localAssert ../../../../server/node_modules/supertest/lib/test.js:138:14
+ ❯ ../../../../server/node_modules/supertest/lib/test.js:156:7
+ ❯ fn ../../../../server/node_modules/superagent/src/node/index.js:904:2
+ ❯ callback ../../../../server/node_modules/superagent/src/node/index.js:1183:17
+ ❯ fn ../../../../server/node_modules/superagent/src/node/parsers/json.js:19:6
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 12 skipped (13)
+   Start at  17:32:53
+   Duration  17.42s (transform 2.43s, setup 41ms, import 4.81s, tests 1.28s, environment 0ms)
+

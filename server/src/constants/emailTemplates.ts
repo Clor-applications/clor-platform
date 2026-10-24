@@ -184,7 +184,7 @@ Readers have been told; payroll may need a full and final settlement, and their 
   {
     key: 'people.document_expiring',
     label: 'Document expiring',
-    description: 'Sent to the people who manage employees when an employee document (visa, licence, contract) expires within 30 days.',
+    description: 'Sent to the people who manage employees when an employee document (permit, licence, contract) is 60, 30 or 7 days from expiry, and on the day.',
     subject: '{{title}} for {{name}} expires on {{expiresOn}}',
     body: `{{name}}’s {{kind}} “{{title}}” expires on {{expiresOn}} ({{days}} days).
 Open People → the employee → Documents to renew it.`,
@@ -211,6 +211,37 @@ You get one message when a problem starts and one when it clears. Reader health 
     body: `This has cleared after {{openedFor}}: {{title}}`,
     fields: ['orgName', 'title', 'openedFor'],
     transactional: true,
+  },
+  {
+    key: 'people.join_invite',
+    label: 'Fill in your details before you join',
+    description: 'Sent to someone about to join, with a link that works once and runs out in fourteen days, so they can fill in personal details and upload documents before day one.',
+    subject: 'Welcome to {{orgName}} — a few details before {{joiningDate}}',
+    body: `Hello {{name}},
+
+Welcome to {{orgName}}. Before you join on {{joiningDate}}, please fill in your personal details and add copies of your ID and other documents here:
+{{link}}
+
+The link works once and runs out on {{expiresOn}}. You see only your own details; HR checks what you send before it goes on your record.
+{{message}}
+If you did not expect this, ignore it.`,
+    fields: ['name', 'orgName', 'joiningDate', 'link', 'expiresOn', 'message'],
+  },
+  {
+    key: 'people.task_assigned',
+    label: 'A joining or leaving task for you',
+    description: 'Sent to the person a joining, leaving or change task is assigned to, with a link that marks it done.',
+    subject: '{{title}} — {{employeeName}}, due {{dueDate}}',
+    body: `{{title}}
+For: {{employeeName}}{{employeeCode}}
+Due: {{dueDate}}
+Part of: {{kind}}
+
+When it is done, open this link and it is ticked in People (it works once and only for you):
+{{doneLink}}
+
+Or open People at {{appUrl}}.`,
+    fields: ['title', 'employeeName', 'employeeCode', 'dueDate', 'kind', 'doneLink'],
   },
   {
     key: 'people.data_breach',

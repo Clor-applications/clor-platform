@@ -1,0 +1,11 @@
+     × making and changing a role 201ms
+     × role profiles 394ms
+     × approval rules 335ms
+     × a person’s roles, permissions and branches 211ms
+     × a person’s companies 219ms
+     × directory-sync tokens, with the token itself never written down 440ms
+     × the company trail lists them under Company 68ms
+     × a ledger account and a payment link are recorded 285ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 8 ⎯⎯⎯⎯⎯⎯⎯
+ Test Files  1 failed (1)
+      Tests  8 failed | 3 passed (11)

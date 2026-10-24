@@ -1,0 +1,4 @@
+{
+  "finding": "A-07",
+  "note": "Browser fetch of /api/auth/me as a signed-in user shows RateLimit-Policy 1800;w=60 and Remaining 1796 -> 1795 -> 1794. That is the per-address bucket (600 x 3); the per-session bucket's headers are overwritten by it, so the per-session separation is proven by the automated test, not visible here."
+}

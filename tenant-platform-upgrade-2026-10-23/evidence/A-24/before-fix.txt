@@ -1,0 +1,195 @@
+ DEPRECATED  `test.poolOptions` was removed in Vitest 4. All previous `poolOptions` are now top-level options. Please, refer to the migration guide: https://vitest.dev/guide/migration#pool-rework
+
+ RUN  v4.1.10 /Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_31889", schema "accounting" at "localhost:5432"
+
+The PostgreSQL database "clor_test_31889" schema "accounting" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 684ms
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/payroll/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_31889", schema "payroll" at "localhost:5432"
+
+The PostgreSQL database "clor_test_31889" schema "payroll" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 545ms
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/people/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_31889", schema "people" at "localhost:5432"
+
+The PostgreSQL database "clor_test_31889" schema "people" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 1.26s
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/platform/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_31889", schema "platform" at "localhost:5432"
+
+The PostgreSQL database "clor_test_31889" schema "platform" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 382ms
+
+[setup] 180 policy statements applied to clor_test_31889
+[setup] 7 policy statements applied to clor_test_31889
+[setup] 10 policy statements applied to clor_test_31889
+[setup] 35 policy statements applied to clor_test_31889
+[setup] 4 policy statements applied to clor_test_31889
+[setup] 96 policy statements applied to clor_test_31889
+[setup] 4 policy statements applied to clor_test_31889
+[setup] 4 policy statements applied to clor_test_31889
+[setup] 4 policy statements applied to clor_test_31889
+[setup] 4 policy statements applied to clor_test_31889
+[setup] 32 policy statements applied to clor_test_31889
+[setup] 24 policy statements applied to clor_test_31889
+[setup] 12 policy statements applied to clor_test_31889
+[setup] 16 policy statements applied to clor_test_31889
+[setup] 4 policy statements applied to clor_test_31889
+[setup] 4 policy statements applied to clor_test_31889
+[setup] 8 policy statements applied to clor_test_31889
+[setup] 8 policy statements applied to clor_test_31889
+[setup] 20 policy statements applied to clor_test_31889
+[setup] 8 policy statements applied to clor_test_31889
+[setup] 4 policy statements applied to clor_test_31889
+[setup] 8 policy statements applied to clor_test_31889
+[setup] 8 policy statements applied to clor_test_31889
+[setup] 12 policy statements applied to clor_test_31889
+[setup] 4 policy statements applied to clor_test_31889
+[setup] 8 policy statements applied to clor_test_31889
+[setup] 28 policy statements applied to clor_test_31889
+[setup] 4 policy statements applied to clor_test_31889
+[setup] 4 policy statements applied to clor_test_31889
+[setup] 4 policy statements applied to clor_test_31889
+[setup] 8 policy statements applied to clor_test_31889
+[setup] 4 policy statements applied to clor_test_31889
+[setup] 4 policy statements applied to clor_test_31889
+[setup] 4 policy statements applied to clor_test_31889
+[setup] 4 policy statements applied to clor_test_31889
+[setup] 8 policy statements applied to clor_test_31889
+[setup] 4 policy statements applied to clor_test_31889
+[setup] 12 policy statements applied to clor_test_31889
+[setup] 4 policy statements applied to clor_test_31889
+[setup] 76 policy statements applied to clor_test_31889
+[setup] 4 policy statements applied to clor_test_31889
+[setup] 4 policy statements applied to clor_test_31889
+[setup] 4 policy statements applied to clor_test_31889
+[setup] 4 policy statements applied to clor_test_31889
+POST /api/auth/signup 200 577 - 69.951 ms
+POST /api/auth/setup-company 200 202 - 274.821 ms
+POST /api/auth/signup 200 581 - 6.927 ms
+POST /api/auth/setup-company 200 206 - 125.183 ms
+POST /api/orgs/cmvlbcsy400qnfzwj6t4f0dr1/warehouses 201 518 - 26.976 ms
+POST /api/orgs/cmvlbcsqf000efzwjnhyqcd0j/invoices 201 729 - 320.061 ms
+POST /api/orgs/cmvlbcsqf000efzwjnhyqcd0j/bills 201 825 - 295.312 ms
+POST /api/orgs/cmvlbcsqf000efzwjnhyqcd0j/warehouses 201 524 - 12.973 ms
+POST /api/users 201 154 - 62.910 ms
+GET /api/orgs/cmvlbcsqf000efzwjnhyqcd0j/roles 200 490663 - 333.208 ms
+PUT /api/orgs/cmvlbcsqf000efzwjnhyqcd0j/users/cmvlbctku0184fzwj3ethqeli/role 200 11 - 37.241 ms
+POST /api/auth/login 200 780 - 5.912 ms
+POST /api/orgs/cmvlbcsqf000efzwjnhyqcd0j/invoices 201 729 - 187.287 ms
+POST /api/orgs/cmvlbcsqf000efzwjnhyqcd0j/warehouses 201 525 - 12.215 ms
+POST /api/orgs/cmvlbcsqf000efzwjnhyqcd0j/invoices 201 729 - 220.104 ms
+POST /api/auth/signup 200 593 - 20.958 ms
+POST /api/auth/setup-company 200 214 - 106.486 ms
+POST /api/orgs/cmvlbcu8x032bfzwj404vlp2p/warehouses 201 517 - 11.147 ms
+POST /api/users 201 154 - 40.038 ms
+GET /api/orgs/cmvlbcu8x032bfzwj404vlp2p/roles 200 490663 - 278.875 ms
+PUT /api/orgs/cmvlbcu8x032bfzwj404vlp2p/users/cmvlbcucx03jqfzwjnupsxeov/role 200 11 - 38.092 ms
+POST /api/auth/login 200 788 - 5.885 ms
+GET /api/orgs/cmvlbcu8x032bfzwj404vlp2p/roles 200 490663 - 35.234 ms
+PUT /api/orgs/cmvlbcu8x032bfzwj404vlp2p/users/cmvlbcu8c0325fzwj7vagdp6t/role 200 11 - 33.600 ms
+POST /api/orgs/cmvlbcu8x032bfzwj404vlp2p/invoices 201 729 - 172.335 ms
+ ❯ src/__tests__/warehouseBoundary.test.ts (5 tests | 4 failed) 2793ms
+     × cannot be named on an invoice 324ms
+     × cannot be named on a bill 297ms
+     × cannot be named on their invoice 651ms
+     × is not reached by the creator once they are no longer an administrator 757ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/__tests__/warehouseBoundary.test.ts > another company's warehouse > cannot be named on an invoice
+AssertionError: expected 201 to be 400 // Object.is equality
+
+- Expected
++ Received
+
+- 400
++ 201
+
+ ❯ src/__tests__/warehouseBoundary.test.ts:68:24
+     66|   it('cannot be named on an invoice', async () => {
+     67|     const res = await invoice(mine, theirWarehouse);
+     68|     expect(res.status).toBe(400);
+       |                        ^
+     69|     expect(res.body.code).toBe('WAREHOUSE_NOT_IN_COMPANY');
+     70|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯
+
+ FAIL  src/__tests__/warehouseBoundary.test.ts > another company's warehouse > cannot be named on a bill
+AssertionError: expected 201 to be 400 // Object.is equality
+
+- Expected
++ Received
+
+- 400
++ 201
+
+ ❯ src/__tests__/warehouseBoundary.test.ts:74:24
+     72|   it('cannot be named on a bill', async () => {
+     73|     const res = await bill(mine, theirWarehouse);
+     74|     expect(res.status).toBe(400);
+       |                        ^
+     75|     expect(res.body.code).toBe('WAREHOUSE_NOT_IN_COMPANY');
+     76|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/4]⎯
+
+ FAIL  src/__tests__/warehouseBoundary.test.ts > a warehouse of this company somebody was not given > cannot be named on their invoice
+AssertionError: expected 201 to be 403 // Object.is equality
+
+- Expected
++ Received
+
+- 403
++ 201
+
+ ❯ src/__tests__/warehouseBoundary.test.ts:84:24
+     82|     const clerk = await colleague(mine, 'Billing Clerk');
+     83|     const res = await invoice(clerk, store);
+     84|     expect(res.status).toBe(403);
+       |                        ^
+     85|     expect(res.body.code).toBe('NO_WAREHOUSE_ACCESS');
+     86|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/4]⎯
+
+ FAIL  src/__tests__/warehouseBoundary.test.ts > a warehouse of this company somebody was not given > is not reached by the creator once they are no longer an administrator
+AssertionError: expected 201 to be 403 // Object.is equality
+
+- Expected
++ Received
+
+- 403
++ 201
+
+ ❯ src/__tests__/warehouseBoundary.test.ts:99:24
+     97|     await request(app).put(`/api/orgs/${c.orgId}/users/${c.userId}/rol…
+     98|     const res = await invoice(c, store);
+     99|     expect(res.status).toBe(403);
+       |                        ^
+    100|     expect(res.body.code).toBe('NO_WAREHOUSE_ACCESS');
+    101|     /* The administrator now running it reaches it. */
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/4]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  4 failed | 1 passed (5)
+   Start at  00:08:29
+   Duration  18.42s (transform 2.04s, setup 22ms, import 4.04s, tests 2.79s, environment 0ms)
+

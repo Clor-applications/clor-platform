@@ -40,12 +40,16 @@ datasource db {
 // Core tenancy
 // ----------------------------
 model Account {
-  id        String   @id @default(cuid())
-  name      String
+  id                   String    @id @default(cuid())
+  name                 String
   /// Client ID shown to people: the code of the account's first company (KAVE-C100). Never changed (LD-09).
-  code      String?  @unique
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  code                 String?   @unique
+  /// Set only by the rollout migration for accounts that predate explicit
+  /// subscriptions. A missing subscription is open only when this marker is
+  /// present; newly created/unrecognised accounts fail closed.
+  legacyUnrestrictedAt DateTime?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
 
   orgs  Org[]
   users User[]
@@ -674,15 +678,20 @@ model AuthPolicy {
   passwordRequireNumber    Boolean @default(false)
   passwordRequireSymbol    Boolean @default(false)
 
-  requireVerifiedEmail Boolean @default(false)
+  requireVerifiedEmail  Boolean @default(false)
   /// Comma-separated domains; empty means any address may be invited.
-  allowedEmailDomains  String?
+  allowedEmailDomains   String?
   /// Ask for an authenticator code before money-moving payroll actions:
   /// approving a pay run, a bank account change, a settlement, a payment.
-  requirePayrollStepUp Boolean @default(false)
+  requirePayrollStepUp  Boolean @default(false)
   /// Owners and admins must have an authenticator: until they set one up they
   /// can only reach their own two-factor set-up (SX-09).
   requireAdminTwoFactor Boolean @default(false)
+  /// Who may approve their own work — a pay run, salary revision or adjustment
+  /// they prepared (A-13): AUTO = only when nobody else could approve it;
+  /// STRICT = never; ALLOW = always, every such approval audited. Approving
+  /// something about oneself (own salary, bank account, tax) is never allowed.
+  makerChecker          String  @default("AUTO")
 
   updatedByUserId String
   createdAt       DateTime @default(now())
@@ -748,10 +757,111 @@ model ScimToken {
   defaultRoleId   String?
   lastUsedAt      DateTime?
   lastError       String?
+  /// Revoked tokens are kept (their hash scrambled, so nothing finds them by it); the record and its history stay (A-31).
+  revokedAt       DateTime?
   createdByUserId String
   createdAt       DateTime  @default(now())
 
   @@index([accountId, orgId])
+}
+
+/// GAP-006: how a person from another account reaches a company — the
+/// company's consent, with a scope and an end. Without a live one, an outside
+/// person's membership opens nothing (middleware/tenantContext.ts). Expired is
+/// worked out from expiresAt, never stored.
+model OutsideAccess {
+  id            String    @id @default(cuid())
+  accountId     String
+  orgId         String
+  userId        String
+  homeAccountId String
+  /// ACTIVE | SUSPENDED | REVOKED
+  status        String    @default("ACTIVE")
+  /// Comma separated app keys this person may use here; null = whatever the company has.
+  apps          String?
+  expiresAt     DateTime?
+  /// Who in the company granted it; null = carried over from before engagements existed.
+  approvedByUserId String?
+  approvedAt       DateTime  @default(now())
+  endedByUserId    String?
+  endedAt          DateTime?
+  reason           String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@unique([orgId, userId])
+  @@index([userId])
+  @@index([accountId, orgId])
+}
+
+/// Every credential CLOR has issued to a machine or a link (GAP-004, Batch 5):
+/// SCIM tokens, API keys, site agents, reader push tokens, pay links and
+/// invoice share links. The tables that issued them keep their own hash and
+/// switches; this row adds what they lacked — one status, an expiry, who made
+/// it, when it was last used — and every token check reads both
+/// (services/credentials.ts). Only the SHA-256 hash of a token is kept.
+model Credential {
+  id                String    @id @default(cuid())
+  accountId         String
+  orgId             String
+  /// SCIM | API_KEY | AGENT | DEVICE_PUSH | PAY_LINK | SHARE_LINK
+  kind              String
+  /// The row that issued it: ScimToken, ApiClient, SiteAgent, AttendanceDevice, PaymentRequest or DocumentShareLink.
+  ownerId           String
+  /// An agent's directory-sync token names its agent (SiteAgent id); it works only while the agent does.
+  parentOwnerId     String?
+  tokenHash         String
+  /// The first characters, to recognise a token in lists.
+  tokenPrefix       String
+  label             String?
+  /// ACTIVE | SUSPENDED | REVOKED. Expired is worked out from expiresAt, never stored.
+  status            String    @default("ACTIVE")
+  expiresAt         DateTime?
+  /// The credential this one replaced; one successor each.
+  rotatedFromId     String?   @unique
+  suspendedAt       DateTime?
+  revokedAt         DateTime?
+  revokedReason     String?
+  /// Set when the person who made it left the company or was switched off; cleared by "Mark reviewed".
+  needsReviewReason String?
+  createdByUserId   String?
+  lastUsedAt        DateTime?
+  lastUsedIp        String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@unique([kind, tokenHash])
+  @@index([orgId, kind, status])
+  @@index([kind, ownerId])
+}
+
+/// What happened to a credential, and who did it. Written, never changed
+/// (services/credentials.ts has no update or delete); the closure purge is the
+/// only thing that removes rows. Never holds a token, a hash or a share URL.
+model CredentialEvent {
+  id               String   @id @default(cuid())
+  accountId        String
+  orgId            String
+  /// No foreign key: portal sessions (people database) record here too.
+  credentialId     String
+  credentialKind   String
+  credentialPrefix String?
+  /// issued, migrated, rotated, suspended, resumed, extended, revoked, expiry_warning_sent, flagged, reviewed
+  eventType        String
+  /// USER | SYSTEM | SCIM | AGENT | EMPLOYEE
+  actorType        String
+  actorId          String?
+  /// Name and e-mail at the time, so the history survives the person.
+  actorLabel       String?
+  ip               String?
+  userAgent        String?
+  reason           String?
+  /// JSON: what changed (expiry before/after, successor id, …).
+  metadata         String?
+  createdAt        DateTime @default(now())
+
+  @@index([orgId, credentialId, createdAt])
+  @@index([orgId, createdAt])
 }
 
 /// Something a person should know, shown in the bell every app shares:
@@ -881,9 +991,34 @@ model PaymentEvent {
 /// than one instance and every instance starts the same timers; the one that
 /// takes a job's lease runs that tick and the others skip until it expires.
 model JobLease {
-  name   String   @id
-  holder String
-  until  DateTime
+  name         String    @id
+  holder       String
+  until        DateTime
+  /// Fencing token: +1 on every take. A run whose token is no longer the row's has lost the lease and must stop.
+  token        Int       @default(0)
+  /// Set while a run is in progress, cleared when it ends. Null = the period is claimed but nothing is running.
+  runningSince DateTime?
+  /// Renewed by the running instance; a run whose heartbeat has gone stale was cut off and may be taken over.
+  heartbeatAt  DateTime?
+}
+
+/// One run of a background job, by whichever instance took its lease (A-48).
+/// A worker whose last run is old, or whose runs keep failing, is a scheduler
+/// that has stopped: this is where that shows. Kept 30 days.
+model JobRun {
+  id         String    @id @default(cuid())
+  worker     String
+  holder     String
+  token      Int       @default(0)
+  startedAt  DateTime  @default(now())
+  finishedAt DateTime?
+  /// RUNNING | OK | FAILED | STOPPED (lease lost or the instance stopping)
+  outcome    String    @default("RUNNING")
+  /// What the run did, as JSON (rows deleted, invoices raised, …).
+  counts     String?
+  error      String?
+
+  @@index([worker, startedAt])
 }
 
 /// Rate-limit counts shared by every API instance (sign-in, sign-up, password
@@ -928,6 +1063,8 @@ model OrgClosure {
   accountId         String
   orgId             String    @unique
   orgName           String
+  /// The company's display code (KAVE-C100), kept after deletion so it is never issued again.
+  orgCode           String?
   /// SCHEDULED | CANCELLED | DELETED
   status            String
   reason            String?
@@ -939,6 +1076,12 @@ model OrgClosure {
   deletedAt         DateTime?
   /// Rows deleted per table, as JSON, once DELETED.
   deletedCounts     String?
+  /// The purge's checkpoint, as JSON { done: [store, …], counts }: a purge that was cut off resumes after the last store it finished.
+  purgeProgress     String?
+  /// How many purge runs have started for this company, and why the last one stopped, if it did.
+  purgeAttempts     Int       @default(0)
+  purgeError        String?
+  lastPurgeAt       DateTime?
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 

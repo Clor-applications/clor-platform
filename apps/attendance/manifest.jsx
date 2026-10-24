@@ -107,6 +107,7 @@ const ReportInsights = screen('ReportInsights');
 const DataRequests = screen('DataRequests');
 const DataProtection = screen('DataProtection');
 const SsoSettings = screen('SsoSettings');
+const RolesAccess = screen('RolesAccess');
 const Exceptions = screen('Exceptions');
 const MonthClose = screen('MonthClose');
 const OvertimeRequests = screen('OvertimeRequests');
@@ -255,7 +256,7 @@ export const attendanceApp = {
          over the shifts' own fields and the company rules, not new rules. */
       { label: 'Work Policy', items: ['rules', 'weeklyOffPolicy', 'overtimePolicy', 'leaveTypes', 'holidays'] },
       { label: 'Integrations', items: ['integrations'] },
-      { label: 'Access & Security', items: ['sso'] },
+      { label: 'Access & Security', items: ['sso', 'rolesAccess'] },
       { label: 'Data Management', items: ['dataHealth', 'dataImport', 'dataExport', 'closeCompany'] },
       { label: 'Compliance', items: ['complianceCalendar'] },
       { label: 'Privacy', items: ['dataProtection', 'dataRequests'] },
@@ -337,7 +338,8 @@ export const attendanceApp = {
     { key: 'holidays', label: 'Holidays', icon: CalendarDays, permission: 'ATTENDANCE::Holidays::VIEW' },
     { key: 'integrations', label: 'Integrations', icon: Plug, permission: 'ATTENDANCE::Attendance Integrations::VIEW' },
     /* The same SSO set-up as Accounting's Settings → Single Sign-On: one per company, for every CLOR app. */
-    { key: 'sso', label: 'Single Sign-On', icon: KeyRound, permission: 'SETTINGS::Users::VIEW' },
+    { key: 'sso', label: 'Users & Security', icon: KeyRound, permission: 'SETTINGS::Users::VIEW' },
+    { key: 'rolesAccess', label: 'Roles & Access', icon: KeyRound, permission: 'SETTINGS::Roles::VIEW' },
     { key: 'dataImport', label: 'Import Data', icon: Upload, permission: 'ATTENDANCE::Attendance Records::VIEW' },
     { key: 'dataExport', label: 'Export Data', icon: Download, permission: 'ATTENDANCE::Attendance Records::VIEW' },
     /* LX-07: shared screen; the server lets only the company's owner ask or cancel. */
@@ -418,6 +420,7 @@ export const attendanceApp = {
     recycleBin: RecycleBin,
     dataProtection: DataProtection,
     sso: SsoSettings,
+    rolesAccess: RolesAccess,
     dataRequests: DataRequests,
     me: MyAttendance,
     myLeave: MyLeave,

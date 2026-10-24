@@ -9,6 +9,7 @@ import { resolveAccess, resolveUserPermissions } from '../services/access.js';
 import { PermissionAction } from '../constants/enums.js';
 import {
   ADMIN_ONLY_ERROR,
+  grantAuthority,
   ANTI_LOCKOUT_KEYS,
   cannotGrantError,
   rolePermissionKeys,
@@ -23,6 +24,7 @@ import {
   isKnownPermission,
   permKey,
 } from '../constants/permissionCatalog.js';
+import { ensurePermissionCatalog } from '../services/permissionCatalogSeed.js';
 
 export const permissionsRouter = Router();
 permissionsRouter.use(requireAuth, requireTenantContext);
@@ -35,24 +37,6 @@ const requireOrgMatch = (req: any, res: any) => {
   return true;
 };
 
-/** Ensure a Permission row exists for every catalog entry. Idempotent. */
-export async function ensurePermissionCatalog() {
-  const existing = await platformPrisma.permission.findMany({
-    select: { id: true, module: true, subModule: true, action: true },
-  });
-  const seen = new Set(existing.map((p) => permKey(p.module, p.subModule, p.action)));
-
-  const missing = flattenCatalog().filter((r) => !seen.has(permKey(r.module, r.subModule, r.action)));
-  for (const m of missing) {
-    try {
-      await platformPrisma.permission.create({ data: { module: m.module, subModule: m.subModule, action: m.action } });
-    } catch (err: any) {
-      // Unique constraint: another request seeded it first.
-      if (String(err?.code || '') !== 'P2002') throw err;
-    }
-  }
-  return missing.length;
-}
 
 /** The matrix scaffold the UI renders: modules -> resources -> actions. */
 permissionsRouter.get(
@@ -134,8 +118,11 @@ permissionsRouter.put(
     });
     if (!role) return res.status(404).json({ error: 'Role not found' });
 
+    // A role reaches whoever holds it, wherever they work: bounded by what the caller holds company-wide (A-19).
+    const { authority, refusal } = await grantAuthority(req, null, permKey('SETTINGS', 'Roles', 'EDIT'));
+    if (refusal) return res.status(refusal.status).json(refusal.body);
     const isAdminRole = role.roleType === RoleType.ADMIN;
-    if (isAdminRole && !req.isAdmin) return res.status(403).json(ADMIN_ONLY_ERROR);
+    if (isAdminRole && !authority.isAdmin) return res.status(403).json(ADMIN_ONLY_ERROR);
 
     const body = putPermissionsSchema.parse(req.body);
 
@@ -196,7 +183,7 @@ permissionsRouter.put(
       .filter((id) => !currentByPermId.get(id)?.allowed)
       .map((id) => keyById.get(id)!)
       .filter(Boolean);
-    const missing = unheldGrants(req, added);
+    const missing = unheldGrants(authority, added);
     if (missing.length) return res.status(403).json(cannotGrantError(missing));
 
     await platformPrisma.$transaction(async (tx) => {
@@ -220,6 +207,10 @@ permissionsRouter.put(
       const toRemove = current.filter((c) => !wantedIds.has(c.permissionId)).map((c) => c.id);
       if (toRemove.length) await tx.rolePermission.deleteMany({ where: { id: { in: toRemove } } });
     });
+
+    /* Written by name here; the general recorder (auditMutations) leaves it. */
+
+    if (req.res) req.res.locals.audited = true;
 
     await platformPrisma.auditLog.create({
       data: {
