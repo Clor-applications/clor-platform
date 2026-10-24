@@ -33,6 +33,9 @@ export async function listAllEmployees(params = {}) {
   }
 }
 export const getEmployee = (id) => apiFetch(`${base()}/employees/${encodeURIComponent(id)}`, opts);
+/* Changes dated for a future day (FND-02): pending ones on the record, and withdrawing one. */
+export const getScheduledChanges = (id) => apiFetch(`${base()}/employees/${encodeURIComponent(id)}`, opts).then((r) => r?.scheduledChanges || []);
+export const cancelScheduledChange = (id, changeId) => send(`/employees/${encodeURIComponent(id)}/scheduled/${encodeURIComponent(changeId)}`, 'DELETE');
 export const createEmployee = (body) => send('/employees', 'POST', body);
 export const updateEmployee = (id, body) => send(`/employees/${encodeURIComponent(id)}`, 'PUT', body);
 export const deleteEmployee = (id) => send(`/employees/${encodeURIComponent(id)}`, 'DELETE');

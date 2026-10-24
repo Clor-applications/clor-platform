@@ -36,28 +36,29 @@ describe('employment history', () => {
     const boss = (await people('post', '/employees', { name: 'Meera', code: 'H1', dateOfJoining: '2019-04-01' }).expect(201)).body.employee;
     const e = (await people('post', '/employees', { name: 'Ravi', code: 'H2', dateOfJoining: '2020-06-01', departmentId: salesId }).expect(201)).body.employee;
 
-    /* A move on the form, counted from the first of the month, with a reason. */
-    await people('put', `/employees/${e.id}`, { departmentId: financeId, reportingManagerId: boss.id, effectiveFrom: '2026-11-01', changeNote: 'Moved to accounts team' }).expect(200);
+    /* A move on the form, counted from the first of a past month, with a reason. (A future date would wait as a
+       scheduled change instead, docs/people/02-PRD.md FND-02: see peopleEffectiveDating.test.ts.) */
+    await people('put', `/employees/${e.id}`, { departmentId: financeId, reportingManagerId: boss.id, effectiveFrom: '2026-09-01', changeNote: 'Moved to accounts team' }).expect(200);
     /* A bulk transfer back, dated. */
-    await people('post', '/employees/transfer', { employeeIds: [e.id], field: 'departmentId', targetId: salesId, effectiveDate: '2026-12-01', note: 'Reorganisation' }).expect(200);
+    await people('post', '/employees/transfer', { employeeIds: [e.id], field: 'departmentId', targetId: salesId, effectiveDate: '2026-10-01', note: 'Reorganisation' }).expect(200);
     /* Leaves after more than five years: gratuity. */
     await people('post', `/employees/${e.id}/resign`, { lastDay: '2026-12-31', leavingType: 'RESIGNED', reason: 'Higher studies' }).expect(200);
     await people('post', `/employees/${e.id}/rehire`, { rejoinDate: '2027-02-01' }).expect(200);
 
     const { events } = (await people('get', `/employees/${e.id}/history`).expect(200)).body;
     /* Newest first by effective date; two changes made in one edit share a date. */
-    expect(events.map((x: any) => x.effectiveDate)).toEqual(['2027-02-01', '2026-12-31', '2026-12-01', '2026-11-01', '2026-11-01', '2020-06-01']);
+    expect(events.map((x: any) => x.effectiveDate)).toEqual(['2027-02-01', '2026-12-31', '2026-10-01', '2026-09-01', '2026-09-01', '2020-06-01']);
     expect(events.map((x: any) => x.kind).sort()).toEqual(['CHANGED', 'JOINED', 'LEFT', 'REHIRED', 'TRANSFERRED', 'TRANSFERRED']);
 
     const toFinance = events.find((x: any) => x.field === 'departmentId' && x.to === 'Finance');
-    expect(toFinance).toMatchObject({ from: 'Sales', effectiveDate: '2026-11-01', source: 'FORM', note: 'Moved to accounts team', by: 'Owner' });
-    expect(toFinance.payrollImpact).toMatch(/booked to Finance from 2026-11-01/);
+    expect(toFinance).toMatchObject({ from: 'Sales', effectiveDate: '2026-09-01', source: 'FORM', note: 'Moved to accounts team', by: 'Owner' });
+    expect(toFinance.payrollImpact).toMatch(/booked to Finance from 2026-09-01/);
 
     const manager = events.find((x: any) => x.field === 'reportingManagerId');
     expect(manager).toMatchObject({ to: 'Meera', title: 'Reporting manager changed' });
 
     const back = events.find((x: any) => x.source === 'TRANSFER');
-    expect(back).toMatchObject({ from: 'Finance', to: 'Sales', effectiveDate: '2026-12-01', note: 'Reorganisation' });
+    expect(back).toMatchObject({ from: 'Finance', to: 'Sales', effectiveDate: '2026-10-01', note: 'Reorganisation' });
 
     const left = events.find((x: any) => x.kind === 'LEFT');
     expect(left).toMatchObject({ effectiveDate: '2026-12-31', source: 'RESIGNATION', note: 'Higher studies' });

@@ -57,6 +57,8 @@ model Employee {
   firstJoiningDate  String?
   /// Which stint they are on (EmploymentEpisode.seq): 1 until a rejoin.
   currentEpisodeSeq Int     @default(1)
+  /// Where they work in law: the establishment (shop, factory, office, site) whose state's rules apply (FND-07).
+  establishmentId   String?
   /// ACTIVE | ON_NOTICE | LEFT | SUSPENDED
   status        String  @default("ACTIVE")
 
@@ -168,6 +170,7 @@ model Employee {
   @@index([accountId, orgId, status])
   @@index([accountId, orgId, branchId])
   @@index([accountId, orgId, departmentId])
+  @@index([accountId, orgId, establishmentId])
   @@index([accountId, orgId, reportingManagerId])
 }
 
@@ -1820,6 +1823,84 @@ model OutboxEvent {
 
   @@index([orgId, deliveredAt, nextAttemptAt])
   @@index([orgId, employeeId, occurredAt])
+}
+
+/// The company in law (docs/people/02-PRD.md FND-07): the registered entity
+/// its establishments belong to. Identifiers are masked when shown.
+model LegalEntity {
+  id          String   @id @default(cuid())
+  accountId   String
+  orgId       String
+  name        String
+  description String?
+  pan         String?
+  cin         String?
+  address     String?
+  isActive    Boolean  @default(true)
+  createdByUserId String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  establishments Establishment[]
+
+  @@unique([orgId, name])
+}
+
+/// A place of work in law: a shop, factory, office, site or warehouse in one
+/// state. The state decides which rules apply to the people there; a person's
+/// work state is their establishment's, never their home address (review R-07).
+model Establishment {
+  id            String   @id @default(cuid())
+  accountId     String
+  orgId         String
+  legalEntityId String?
+  name          String
+  description   String?
+  /// SHOP | FACTORY | OFFICE | SITE | WAREHOUSE
+  kind          String   @default("OFFICE")
+  /// The state, as the company writes it: "Karnataka".
+  state         String?
+  address       String?
+  /// Registrations as JSON: [{ type: "SE_REG", number, validTill }]
+  registrations Json?
+  isActive      Boolean  @default(true)
+  createdByUserId String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  legalEntity LegalEntity? @relation(fields: [legalEntityId], references: [id], onDelete: SetNull)
+
+  @@unique([orgId, name])
+  @@index([orgId, state])
+}
+
+/// A change to someone's job dated in the future (FND-02): stored here, shown
+/// on the record as "Changes on <date>", applied on that day by a job, once.
+model ScheduledChange {
+  id            String   @id @default(cuid())
+  accountId     String
+  orgId         String
+  employeeId    String
+  field         String
+  fromValue     String?
+  toValue       String?
+  fromLabel     String?
+  toLabel       String?
+  effectiveOn   String
+  /// PENDING | APPLIED | CANCELLED
+  status        String   @default("PENDING")
+  reason        String?
+  requestId     String?
+  requestedByUserId String?
+  correlationId String
+  appliedAt     DateTime?
+  appliedRunId  String?
+  cancelledAt   DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([orgId, status, effectiveOn])
+  @@index([orgId, employeeId, status])
 }
 
 /// Joining / leaving checklist a company uses (services/people/checklists.ts).

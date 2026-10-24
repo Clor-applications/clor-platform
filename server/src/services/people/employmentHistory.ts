@@ -22,7 +22,7 @@ export const TRACKED: Record<string, { label: string; kind: 'TRANSFERRED' | 'CHA
   businessUnitId: { label: 'Business unit', kind: 'TRANSFERRED' },
   areaId: { label: 'Location', kind: 'TRANSFERRED' },
   branchId: { label: 'Branch', kind: 'TRANSFERRED' },
-  state: { label: 'Work state', kind: 'TRANSFERRED' },
+  establishmentId: { label: 'Office / site', kind: 'TRANSFERRED' },
   jobPositionId: { label: 'Designation', kind: 'CHANGED' },
   jobRoleId: { label: 'Job role', kind: 'CHANGED' },
   reportingManagerId: { label: 'Reporting manager', kind: 'CHANGED' },
@@ -43,6 +43,7 @@ async function labelOf(orgId: string, field: string, id: string | null | undefin
   switch (field) {
     case 'departmentId': return (await peoplePrisma.department.findFirst(by))?.name ?? null;
     case 'areaId': return (await peoplePrisma.area.findFirst(by))?.name ?? null;
+    case 'establishmentId': { const r = await peoplePrisma.establishment.findFirst({ where: { id, orgId }, select: { name: true, state: true } }); return r ? (r.state ? `${r.name} (${r.state})` : r.name) : null; }
     case 'jobPositionId': return (await peoplePrisma.jobPosition.findFirst(by))?.name ?? null;
     case 'jobRoleId': return (await peoplePrisma.jobRole.findFirst(by))?.name ?? null;
     case 'employeeTypeId': return (await peoplePrisma.employeeType.findFirst(by))?.name ?? null;
@@ -75,7 +76,7 @@ export function impactOf(kind: string, field: string | null, to: string | null, 
   }
   switch (field) {
     case 'departmentId': return to ? `Salary cost is booked to ${to} from ${date}.` : 'Salary cost no longer has a department.';
-    case 'state': return to ? `Professional Tax and Labour Welfare Fund follow ${to} from the next pay run.` : null;
+    case 'establishmentId': return to ? `Works at ${to} from ${date}: that state's holidays, Shops & Establishments rules, Professional Tax and Labour Welfare Fund apply. Review the policies that differ.` : 'No establishment: state-specific rules cannot be worked out.';
     case 'branchId': return to ? `Payroll and statutory registers count this person under ${to}.` : null;
     case 'areaId': return to ? `Attendance uses ${to}'s work sites and holidays.` : null;
     case 'reportingManagerId': return to ? `Leave and attendance corrections go to ${to} for approval.` : 'Leave and corrections go to HR: no reporting manager.';

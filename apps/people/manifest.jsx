@@ -89,6 +89,8 @@ const PeopleSettings = screen('PeopleSettings');
 const PeopleModules = screen('PeopleModules');
 const CompanyDetails = screen('CompanyDetails');
 const BusinessUnits = screen('BusinessUnits');
+const LegalEntities = screen('LegalEntities');
+const Establishments = screen('Establishments');
 const Grades = screen('Grades');
 const CostCentres = screen('CostCentres');
 const Locations = screen('Locations');
@@ -246,6 +248,8 @@ export const peopleApp = {
     /* Founder, 22 Oct 2026: modules switch on and off, within what the subscription carries. */
     { key: 'modules', label: 'Modules & Apps', icon: I.modules, permission: 'SETTINGS::Company Profile::VIEW', parent: 'settings' },
     { key: 'companyDetails', label: 'Company Details', icon: I.company, permission: 'SETTINGS::Company Profile::VIEW', parent: 'settings' },
+    { key: 'legalEntities', label: 'Company (legal)', icon: I.company, permission: 'PEOPLE::Org Structure::VIEW', parent: 'settings' },
+    { key: 'establishments', label: 'Establishments', icon: I.location, permission: 'PEOPLE::Org Structure::VIEW', parent: 'settings' },
     { key: 'businessUnits', label: 'Business Units', icon: I.unit, permission: 'PEOPLE::Org Structure::VIEW', parent: 'settings' },
     { key: 'areas', label: 'Locations & Sites', icon: I.location, permission: 'PEOPLE::Org Structure::VIEW', parent: 'settings' },
     { key: 'grades', label: 'Grades', icon: I.grade, permission: 'PEOPLE::Org Structure::VIEW', parent: 'settings' },
@@ -300,6 +304,8 @@ export const peopleApp = {
     settings: PeopleSettings,
     modules: PeopleModules,
     companyDetails: CompanyDetails,
+    legalEntities: LegalEntities,
+    establishments: Establishments,
     businessUnits: BusinessUnits,
     areas: Locations,
     grades: Grades,

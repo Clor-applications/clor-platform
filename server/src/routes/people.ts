@@ -17,6 +17,7 @@ import { deleteToBin } from '../services/recycleBin.js';
 import { episodesOf } from '../services/people/episodes.js';
 import { timelineOf } from '../services/people/employmentHistory.js';
 import { createEmployee, updateEmployee, correlationOf } from '../services/people/employees.js';
+import { SCHEDULABLE_FIELDS, asOf, cancelScheduledChange, pendingChangesOf, scheduleChanges } from '../services/people/effectiveDating.js';
 import type { Actor, ChangeSource } from '../services/people/changeLog.js';
 import { dataHealth } from '../services/people/dataHealth.js';
 import { PAYROLL_MODULE, PAYROLL_RESOURCE } from '../services/payroll/guards.js';
@@ -48,6 +49,7 @@ const actorOf = (req: Request, source: ChangeSource, reason: string | null = nul
 });
 
 const EMPLOYEE_STATUSES = ['ACTIVE', 'ON_NOTICE', 'LEFT', 'SUSPENDED'] as const;
+const todayIst = () => new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 const date = z.string().trim().regex(ISO_DATE, 'Dates are YYYY-MM-DD.').optional().nullable().or(z.literal(''));
 const text = (max: number) => z.string().trim().max(max).optional().nullable();
@@ -98,6 +100,7 @@ const employeeSchema = z.object({
   workLocation: text(120),
   devicePin: text(40),
   areaId: text(60),
+  establishmentId: text(60),
   contractorId: text(60),
   cardNumber: text(40),
   devicePassword: text(20),
@@ -140,6 +143,7 @@ async function resolveStructure(orgId: string, b: EmployeeBody) {
   await check('employeeTypeId', (id) => peoplePrisma.employeeType.findFirst({ where: { id, orgId }, select: { name: true } }));
   await check('workTypeId', (id) => peoplePrisma.workType.findFirst({ where: { id, orgId }, select: { name: true } }));
   await check('areaId', (id) => peoplePrisma.area.findFirst({ where: { id, orgId }, select: { name: true } }));
+  await check('establishmentId', (id) => peoplePrisma.establishment.findFirst({ where: { id, orgId }, select: { name: true } }));
   await check('contractorId', (id) => peoplePrisma.contractor.findFirst({ where: { id, orgId }, select: { name: true } }));
   await check('businessUnitId', (id) => peoplePrisma.businessUnit.findFirst({ where: { id, orgId }, select: { name: true } }));
   await check('gradeId', (id) => peoplePrisma.grade.findFirst({ where: { id, orgId }, select: { name: true } }));
@@ -192,13 +196,15 @@ const withMeta = async (orgId: string, rows: any[]) => {
     ? await peoplePrisma.employee.findMany({ where: { orgId, id: { in: managerIds } }, select: { id: true, name: true } })
     : [];
   const managerName = new Map(managers.map((m) => [m.id, m.name]));
-  const [areas, contractors, units, grades, centres] = await Promise.all([
+  const [areas, contractors, units, grades, centres, establishments] = await Promise.all([
     peoplePrisma.area.findMany({ where: { orgId }, select: { id: true, name: true } }),
     peoplePrisma.contractor.findMany({ where: { orgId }, select: { id: true, name: true } }),
     peoplePrisma.businessUnit.findMany({ where: { orgId }, select: { id: true, name: true } }),
     peoplePrisma.grade.findMany({ where: { orgId }, select: { id: true, name: true } }),
     peoplePrisma.costCenter.findMany({ where: { orgId }, select: { id: true, name: true } }),
+    peoplePrisma.establishment.findMany({ where: { orgId }, select: { id: true, name: true, state: true } }),
   ]);
+  const establishmentOf = new Map(establishments.map((x) => [x.id, x]));
   const areaName = new Map(areas.map((a) => [a.id, a.name]));
   const contractorName = new Map(contractors.map((c) => [c.id, c.name]));
   const unitName = new Map(units.map((u) => [u.id, u.name]));
@@ -213,6 +219,9 @@ const withMeta = async (orgId: string, rows: any[]) => {
     businessUnitName: r.businessUnitId ? unitName.get(r.businessUnitId) || null : null,
     gradeName: r.gradeId ? gradeName.get(r.gradeId) || null : null,
     costCenterName: r.costCenterId ? centreName.get(r.costCenterId) || null : null,
+    /* Where they work in law, and the state whose rules apply (FND-07): the establishment's, never the home address. */
+    establishment: r.establishmentId ? establishmentOf.get(r.establishmentId)?.name || null : null,
+    workState: r.establishmentId ? establishmentOf.get(r.establishmentId)?.state || null : null,
     reportingManagerName: r.reportingManagerId ? managerName.get(r.reportingManagerId) || null : null,
     tags: (r.tags || []).map((l: any) => ({ id: l.tag.id, name: l.tag.name, color: l.tag.color })),
   }));
@@ -345,6 +354,7 @@ peopleRouter.get('/orgs/:orgId/people/employees', can(PermissionAction.VIEW, EMP
   };
   const take = Math.min(500, Math.max(1, Number(req.query.limit || 200)));
   const skip = Math.max(0, Number(req.query.offset || 0));
+  const asOfDate = String(req.query.asOf || '').trim();
   const [rows, total] = await Promise.all([
     peoplePrisma.employee.findMany({
       where,
@@ -355,7 +365,9 @@ peopleRouter.get('/orgs/:orgId/people/employees', can(PermissionAction.VIEW, EMP
     }),
     peoplePrisma.employee.count({ where }),
   ]);
-  res.json({ employees: await withMeta(orgId, rows), total });
+  /* As of a date (FND-03): the job fields rolled back through history; people not yet there are left out. */
+  const viewed = asOfDate ? await asOf(orgId, rows as any[], asOfDate) : rows;
+  res.json({ employees: await withMeta(orgId, viewed), total: asOfDate ? viewed.length : total, asOf: asOfDate || undefined });
 });
 
 peopleRouter.get('/orgs/:orgId/people/employees/:id', can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
@@ -371,8 +383,12 @@ peopleRouter.get('/orgs/:orgId/people/employees/:id', can(PermissionAction.VIEW,
     select: { id: true, name: true, designation: true, photoUrl: true },
     orderBy: { name: 'asc' },
   });
-  const [shaped] = await withMeta(orgId, [row]);
-  res.json({ employee: { ...shaped, directReports: reports } });
+  const asOfDate = String(req.query.asOf || '').trim();
+  const viewed = asOfDate ? (await asOf(orgId, [row as any], asOfDate))[0] : row;
+  if (!viewed) return res.status(404).json({ error: `Not here on ${asOfDate}.` });
+  const scheduledChanges = await pendingChangesOf(orgId, row.id);
+  const [shaped] = await withMeta(orgId, [viewed]);
+  res.json({ scheduledChanges, employee: { ...shaped, directReports: reports } });
 });
 
 async function setTags(accountId: string, orgId: string, employeeId: string, tagIds: string[]) {
@@ -434,6 +450,25 @@ peopleRouter.put('/orgs/:orgId/people/employees/:id', can(PermissionAction.EDIT,
     const structure = await resolveStructure(orgId, b);
     if (b.reportingManagerId !== undefined) await checkManager(orgId, existing.id, blank(b.reportingManagerId));
     const nameChanged = b.name !== undefined || b.firstName !== undefined || b.lastName !== undefined;
+    /*
+     * A job change dated in the future waits (FND-02): the job fields go to
+     * ScheduledChange and are applied on that day; everything else in the
+     * same form (a phone, an address) is saved now.
+     */
+    const effectiveFrom = typeof req.body?.effectiveFrom === 'string' && ISO_DATE.test(req.body.effectiveFrom) ? req.body.effectiveFrom : null;
+    let scheduled: Awaited<ReturnType<typeof scheduleChanges>> = [];
+    if (effectiveFrom && effectiveFrom > todayIst()) {
+      const future: Record<string, string | null> = {};
+      for (const field of SCHEDULABLE_FIELDS) {
+        if ((b as any)[field] === undefined || field === 'status') continue;
+        future[field] = (structure as any)[field] !== undefined ? (structure as any)[field] : blank((b as any)[field]);
+        delete (structure as any)[field];
+        delete (b as any)[field];
+      }
+      if (future.departmentId !== undefined) delete (structure as any).department;
+      if (future.jobPositionId !== undefined) delete (structure as any).designation;
+      scheduled = await scheduleChanges(actorOf(req, 'FORM', typeof req.body?.changeNote === 'string' ? req.body.changeNote : null), existing as any, future, effectiveFrom);
+    }
     /* The form may say from when a change counts (effectiveFrom) and why (changeNote); both go on the change log and history. */
     const { row } = await updateEmployee(
       actorOf(req, 'FORM', typeof req.body?.changeNote === 'string' ? req.body.changeNote : null),
@@ -453,7 +488,7 @@ peopleRouter.put('/orgs/:orgId/people/employees/:id', can(PermissionAction.EDIT,
     /* Leaving ends door access: off every biometric reader, fingerprints and faces deleted. */
     if (row.status === 'LEFT' && existing.status !== 'LEFT') await revokeFromReaders(orgId, existing, req.auth!.userId);
     else if (row.status !== 'LEFT' && readerFieldsChanged(existing, row)) await pushEmployeeToReaders(orgId, row, req.auth!.userId, existing);
-    res.json({ employee: (await withMeta(orgId, [row]))[0] });
+    res.json({ employee: (await withMeta(orgId, [row]))[0], scheduled });
     emitWebhook(orgId, row.status === 'LEFT' && existing.status !== 'LEFT' ? 'employee.left' : 'employee.updated', employeeEvent(row));
     if (row.status === 'LEFT' && existing.status !== 'LEFT') void peopleEvent(accountId, orgId, 'people.left', row, req.auth!.userId);
   } catch (e) {
@@ -602,6 +637,15 @@ peopleRouter.get('/orgs/:orgId/people/employees/:id/history', can(PermissionActi
   const employee = await peoplePrisma.employee.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
   if (!employee) return res.status(404).json({ error: 'No such employee.' });
   res.json({ events: await timelineOf(orgId, employee), episodes: await episodesOf(orgId, employee) });
+});
+
+/** Withdraw a change dated for a future day (FND-02). */
+peopleRouter.delete('/orgs/:orgId/people/employees/:id/scheduled/:changeId', can(PermissionAction.EDIT, EMPLOYEES), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  const { orgId } = req.tenant!;
+  const ok = await cancelScheduledChange(orgId, String(req.params.changeId));
+  if (!ok) return res.status(404).json({ error: 'No pending change by that id.' });
+  res.json({ ok: true });
 });
 
 /**
@@ -782,6 +826,9 @@ const STRUCTURE_KINDS = {
   'business-units': { model: 'businessUnit', usedBy: 'businessUnitId', extra: ['description'] },
   grades: { model: 'grade', usedBy: 'gradeId', extra: ['description'] },
   'cost-centres': { model: 'costCenter', usedBy: 'costCenterId', extra: ['description'] },
+  /* The company in law and its places of work (FND-07). A person's work state is their establishment's. */
+  'legal-entities': { model: 'legalEntity', usedBy: null, extra: ['description', 'pan', 'cin', 'address'] },
+  establishments: { model: 'establishment', usedBy: 'establishmentId', extra: ['description', 'legalEntityId', 'kind', 'state', 'address', 'registrations'] },
 } as const;
 type Kind = keyof typeof STRUCTURE_KINDS;
 
@@ -791,9 +838,19 @@ const structureSchema = z.object({
   parentId: text(60),
   departmentId: text(60),
   jobPositionId: text(60),
+  legalEntityId: text(60),
+  kind: z.enum(['SHOP', 'FACTORY', 'OFFICE', 'SITE', 'WAREHOUSE']).optional().nullable().or(z.literal('')),
+  state: text(80),
+  address: text(500),
+  /* A real PAN, or the masked form a screen sends back unchanged. */
+  pan: z.string().trim().regex(/^([A-Z]{5}\d{4}[A-Z]|\*{6}[0-9A-Z]{4})$/, 'PAN looks like ABCDE1234F.').optional().nullable().or(z.literal('')),
+  cin: text(40),
+  registrations: z.array(z.object({ type: z.string().trim().max(40), number: z.string().trim().max(80), validTill: z.string().trim().regex(ISO_DATE).optional().nullable().or(z.literal('')) })).max(20).optional().nullable(),
   isActive: z.boolean().optional(),
 });
 
+/** A PAN is shown as its last four characters (CORE-04): the full number is for Payroll and the vault. */
+const maskPan = (pan: string | null | undefined) => (pan ? `******${pan.slice(-4)}` : pan ?? null);
 const kindOf = (req: any): Kind | null => (String(req.params.kind) in STRUCTURE_KINDS ? (String(req.params.kind) as Kind) : null);
 
 peopleRouter.get('/orgs/:orgId/people/structure/:kind', can(PermissionAction.VIEW, STRUCTURE), async (req, res) => {
@@ -803,13 +860,11 @@ peopleRouter.get('/orgs/:orgId/people/structure/:kind', can(PermissionAction.VIE
   const { accountId, orgId } = req.tenant!;
   const cfg = STRUCTURE_KINDS[kind];
   const rows = await (peoplePrisma as any)[cfg.model].findMany({ where: { accountId, orgId }, orderBy: { name: 'asc' } });
-  const counts = await peoplePrisma.employee.groupBy({
-    by: [cfg.usedBy] as any,
-    where: { accountId, orgId, status: { not: 'LEFT' } },
-    _count: { _all: true },
-  });
-  const used = new Map((counts as any[]).map((c) => [c[cfg.usedBy], c._count._all]));
-  res.json({ items: rows.map((r: any) => ({ ...r, employeeCount: used.get(r.id) || 0 })) });
+  /* A legal entity is used by its establishments, not by people directly. */
+  const used = cfg.usedBy
+    ? new Map(((await (peoplePrisma.employee.groupBy as any)({ by: [cfg.usedBy], where: { accountId, orgId, status: { not: 'LEFT' } }, _count: { _all: true } })) as any[]).map((c) => [c[cfg.usedBy as string], c._count._all]))
+    : new Map(((await (peoplePrisma.establishment.groupBy as any)({ by: ['legalEntityId'], where: { orgId }, _count: { _all: true } })) as any[]).map((c) => [c.legalEntityId, c._count._all]));
+  res.json({ items: rows.map((r: any) => ({ ...r, ...(kind === 'legal-entities' ? { pan: maskPan(r.pan) } : {}), employeeCount: used.get(r.id) || 0 })) });
 });
 
 peopleRouter.post('/orgs/:orgId/people/structure/:kind', can(PermissionAction.CREATE, STRUCTURE), async (req, res) => {
@@ -821,10 +876,13 @@ peopleRouter.post('/orgs/:orgId/people/structure/:kind', can(PermissionAction.CR
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Invalid.' });
   const cfg = STRUCTURE_KINDS[kind];
   const data: any = { accountId, orgId, name: parsed.data.name, createdByUserId: req.auth!.userId };
-  for (const k of cfg.extra) if ((parsed.data as any)[k] !== undefined) data[k] = blank((parsed.data as any)[k]);
+  for (const k of cfg.extra) if ((parsed.data as any)[k] !== undefined) data[k] = k === 'registrations' ? (parsed.data as any)[k] : blank((parsed.data as any)[k]);
+  if (kind === 'establishments' && !data.state) return res.status(400).json({ error: 'Say which state the establishment is in: its rules follow from that.' });
+  /* An unset type takes the default; an unset entity is simply absent. */
+  if (kind === 'establishments') { if (!data.kind) delete data.kind; if (!data.legalEntityId) delete data.legalEntityId; }
   try {
     const row = await (peoplePrisma as any)[cfg.model].create({ data });
-    res.status(201).json({ item: row });
+    res.status(201).json({ item: kind === 'legal-entities' ? { ...row, pan: maskPan(row.pan) } : row });
   } catch (e) {
     return sendError(res, e);
   }
@@ -846,9 +904,14 @@ peopleRouter.put('/orgs/:orgId/people/structure/:kind/:id', can(PermissionAction
   }
   const data: any = { name: parsed.data.name };
   if (parsed.data.isActive !== undefined) data.isActive = parsed.data.isActive;
-  for (const k of cfg.extra) if ((parsed.data as any)[k] !== undefined) data[k] = blank((parsed.data as any)[k]);
+  for (const k of cfg.extra) if ((parsed.data as any)[k] !== undefined) data[k] = k === 'registrations' ? (parsed.data as any)[k] : blank((parsed.data as any)[k]);
+  /* A masked PAN sent back unchanged is not a change. */
+  if (kind === 'legal-entities' && typeof data.pan === 'string' && data.pan.includes('*')) delete data.pan;
+  if (kind === 'establishments' && data.state === null) return res.status(400).json({ error: 'An establishment keeps its state.' });
+  if (kind === 'establishments' && data.kind === null) delete data.kind;
   try {
     const row = await model.update({ where: { id: existing.id }, data });
+    if (kind === 'legal-entities') row.pan = maskPan(row.pan);
     /* Renaming a department or position renames what the files display. */
     if (kind === 'departments' && row.name !== existing.name) {
       await peoplePrisma.employee.updateMany({ where: { orgId, departmentId: row.id }, data: { department: row.name } });
@@ -871,9 +934,11 @@ peopleRouter.delete('/orgs/:orgId/people/structure/:kind/:id', can(PermissionAct
   const model: any = (peoplePrisma as any)[cfg.model];
   const existing = await model.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
   if (!existing) return res.status(404).json({ error: 'Not found.' });
-  const inUse = await peoplePrisma.employee.count({ where: { orgId, [cfg.usedBy]: existing.id } as any });
+  const inUse = cfg.usedBy
+    ? await peoplePrisma.employee.count({ where: { orgId, [cfg.usedBy]: existing.id } as any })
+    : await peoplePrisma.establishment.count({ where: { orgId, legalEntityId: existing.id } });
   if (inUse) {
-    return res.status(409).json({ error: `${inUse} ${inUse === 1 ? 'person uses' : 'people use'} this. Move them first, or mark it inactive.` });
+    return res.status(409).json({ error: cfg.usedBy ? `${inUse} ${inUse === 1 ? 'person uses' : 'people use'} this. Move them first, or mark it inactive.` : `${inUse} establishment${inUse === 1 ? ' belongs' : 's belong'} to it. Move them first, or mark it inactive.` });
   }
   await deleteToBin(req, cfg.model, existing);
   res.json({ ok: true });

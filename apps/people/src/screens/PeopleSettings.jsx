@@ -10,6 +10,8 @@ const GROUPS = [
     items: [
       ['modules', 'Switch HR modules on or off, and see which apps the subscription carries'],
       ['companyDetails', 'Legal name, PAN, TAN, address and statutory registrations'],
+      ['legalEntities', 'The registered company its establishments belong to'],
+      ['establishments', 'Each place of work in law, in one state: the state decides which rules apply'],
       ['businessUnits', 'Divisions or domains the company runs as one business'],
       ['areas', 'Offices, plants and sites people work at'],
       ['departments', 'How the company is divided; a department can sit under another'],

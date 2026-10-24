@@ -32,6 +32,7 @@ import {
   getEmployeeStatutory,
   getEmploymentHistory,
   getEmploymentEpisodes,
+  cancelScheduledChange,
   startChecklist,
   updateChecklistTask,
   rehireEmployee,
@@ -124,14 +125,14 @@ export default function Employees({ description = '' } = {}) {
   /* Status is a tab, counted on the client; the rest are asked of the server. */
   const [status, setStatus] = useState('ACTIVE');
   const [filters, setFilters] = useState({ q: '', departmentId: '', jobPositionId: '', employeeTypeId: '', tagId: '' });
-  const [lists, setLists] = useState({ departments: [], positions: [], roles: [], types: [], workTypes: [], tags: [], areas: [], contractors: [], units: [], grades: [], centres: [] });
+  const [lists, setLists] = useState({ departments: [], positions: [], roles: [], types: [], workTypes: [], tags: [], areas: [], contractors: [], units: [], grades: [], centres: [], establishments: [] });
   const [openId, setOpenId] = useState(null);
   const [editing, setEditing] = useState(null);
   const fileRef = useRef(null);
 
   const loadLists = useCallback(async () => {
     const withAttendance = hasApp('attendance');
-    const [departments, positions, roles, types, workTypes, tags, areas, contractors, units, grades, centres] = await Promise.all([
+    const [departments, positions, roles, types, workTypes, tags, areas, contractors, units, grades, centres, establishments] = await Promise.all([
       listStructure('departments'),
       listStructure('job-positions'),
       listStructure('job-roles'),
@@ -143,14 +144,23 @@ export default function Employees({ description = '' } = {}) {
       listStructure('business-units').catch(() => []),
       listStructure('grades').catch(() => []),
       listStructure('cost-centres').catch(() => []),
+      listStructure('establishments').catch(() => []),
     ]);
-    setLists({ departments, positions, roles, types, workTypes, tags, areas, contractors, units, grades, centres });
+    setLists({ departments, positions, roles, types, workTypes, tags, areas, contractors, units, grades, centres, establishments });
   }, []);
 
   const load = useCallback(async () => {
     try {
-      const res = await listEmployees({ ...filters, status: '', limit: 500 });
-      setAll(res?.employees || []);
+      /* Everyone, 500 a page, until the server's total is reached (CORE-01: no 500 cap). */
+      const first = await listEmployees({ ...filters, status: '', limit: 500, offset: 0 });
+      const rows = [...(first?.employees || [])];
+      const total = Number(first?.total || rows.length);
+      while (rows.length < total) {
+        const more = await listEmployees({ ...filters, status: '', limit: 500, offset: rows.length });
+        if (!more?.employees?.length) break;
+        rows.push(...more.employees);
+      }
+      setAll(rows);
       setError('');
     } catch (e) {
       setError(String(e?.message || 'Could not load employees.'));
@@ -387,7 +397,7 @@ export default function Employees({ description = '' } = {}) {
         <EmployeeForm
           initial={editing}
           lists={lists}
-          people={rows}
+          people={all}
           onClose={() => setEditing(null)}
           onSaved={(saved) => {
             setEditing(null);
@@ -420,7 +430,7 @@ function EmployeeFile({ id, onClose, onEdit, onDeleted }) {
     if (!id) return undefined;
     let cancelled = false;
     getEmployee(id)
-      .then((r) => !cancelled && setPerson(r.employee))
+      .then((r) => !cancelled && setPerson({ ...r.employee, scheduledChanges: r.scheduledChanges || [] }))
       .catch((e) => notify.error(String(e?.message || 'Could not open that file.')));
     return () => {
       cancelled = true;
@@ -449,6 +459,16 @@ function EmployeeFile({ id, onClose, onEdit, onDeleted }) {
   };
 
   const [rejoinDate, setRejoinDate] = useState('');
+  const withdrawChange = async (c) => {
+    if (!(await confirmDialog({ title: `Withdraw the change on ${formatDateIn(c.effectiveOn)}?`, message: `${SCHEDULED_LABELS[c.field] || c.field} stays ${c.fromLabel || 'as it is'}.`, confirmLabel: 'Withdraw' }))) return;
+    try {
+      await cancelScheduledChange(person.id, c.id);
+      setPerson((x) => ({ ...x, scheduledChanges: (x.scheduledChanges || []).filter((y) => y.id !== c.id) }));
+      notify.success('Withdrawn.');
+    } catch (e) {
+      notify.error(String(e?.message || 'Not withdrawn.'));
+    }
+  };
   const rehire = async () => {
     if (!rejoinDate) return notify.error('Give the rejoin date first.');
     if (person.dateOfLeaving && rejoinDate <= person.dateOfLeaving) return notify.error(`The rejoin date must be after their last day, ${person.dateOfLeaving}.`);
@@ -580,6 +600,7 @@ function EmployeeFile({ id, onClose, onEdit, onDeleted }) {
               <Field label="Department" value={person.department} />
               <Field label="Designation" value={person.designation} />
               <Field label="Grade" value={person.gradeName} />
+              <Field label="Establishment" value={person.establishment ? `${person.establishment}${person.workState ? ` (${person.workState})` : ''}` : null} />
               <Field label="Location" value={person.areaName} />
               <Field label="Cost centre" value={person.costCenterName} />
               <Field label="Reports to" value={person.reportingManagerName} />
@@ -599,6 +620,21 @@ function EmployeeFile({ id, onClose, onEdit, onDeleted }) {
               ) : null}
               <Field label={person.currentEpisodeSeq > 1 ? `Joined (stint ${person.currentEpisodeSeq})` : 'Joined'} value={person.dateOfJoining} />
               {person.currentEpisodeSeq > 1 && person.firstJoiningDate ? <Field label="First joined" value={person.firstJoiningDate} /> : null}
+              {person.scheduledChanges?.length ? (
+                <div className="sm:col-span-2">
+                  <dt className="ui-t-label">Changes on</dt>
+                  <dd className="mt-1 space-y-1">
+                    {person.scheduledChanges.map((c) => (
+                      <div key={c.id} className="text-sm flex flex-wrap items-center gap-2">
+                        <span className="tabular-nums">{formatDateIn(c.effectiveOn)}</span>
+                        <span>{SCHEDULED_LABELS[c.field] || c.field}: <span className="ui-muted">{c.fromLabel || 'None'}</span> → <strong>{c.toLabel || 'None'}</strong></span>
+                        {c.reason ? <span className="ui-caption">{c.reason}</span> : null}
+                        <button type="button" className="ui-link" onClick={() => withdrawChange(c)}>Withdraw</button>
+                      </div>
+                    ))}
+                  </dd>
+                </div>
+              ) : null}
               <Field label="Probation ends" value={person.probationEndDate} />
               <Field label="Contract ends" value={person.contractEndDate} />
               <Field label="Left" value={person.dateOfLeaving ? `${person.dateOfLeaving}${person.leavingType ? ` · ${LEAVING_TYPES[person.leavingType] || person.leavingType}` : ''}${person.leavingReason ? ` — ${person.leavingReason}` : ''}` : null} />
@@ -665,7 +701,9 @@ function EmployeeFile({ id, onClose, onEdit, onDeleted }) {
 // ---------------------------------------------------------------------------
 
 /* The fields whose change is recorded in employment history (server: TRACKED in services/people/employmentHistory.ts). */
-const HISTORY_FIELDS = ['businessUnitId', 'gradeId', 'costCenterId', 'departmentId', 'areaId', 'state', 'jobPositionId', 'jobRoleId', 'reportingManagerId', 'employeeTypeId', 'workTypeId', 'contractorId'];
+/* The job fields a change may be dated for, as the record names them (server: SCHEDULABLE_FIELDS). */
+const SCHEDULED_LABELS = { departmentId: 'Department', businessUnitId: 'Business unit', areaId: 'Location', branchId: 'Branch', establishmentId: 'Establishment', jobPositionId: 'Designation', jobRoleId: 'Job role', reportingManagerId: 'Reports to', employeeTypeId: 'Employee type', workTypeId: 'Work type', contractorId: 'Contractor', gradeId: 'Grade', costCenterId: 'Cost centre', status: 'Status' };
+const HISTORY_FIELDS = ['businessUnitId', 'gradeId', 'costCenterId', 'departmentId', 'areaId', 'establishmentId', 'jobPositionId', 'jobRoleId', 'reportingManagerId', 'employeeTypeId', 'workTypeId', 'contractorId'];
 const HISTORY_SOURCE = { FORM: 'Employee form', TRANSFER: 'Transfer', RESIGNATION: 'Resignation', REHIRE: 'Rehire', IMPORT: 'Import' };
 const HISTORY_TONE = { JOINED: 'pos', LEFT: 'neg', REHIRED: 'pos', TRANSFERRED: 'warn', CHANGED: 'neutral' };
 
@@ -919,7 +957,7 @@ function EmployeeForm({ initial, lists, people, onClose, onSaved }) {
       'maritalStatus', 'personalEmail', 'photoUrl', 'addressLine', 'city', 'state', 'country', 'pincode', 'emergencyContactName',
       'emergencyContactPhone', 'emergencyContactRelation', 'departmentId', 'jobPositionId', 'jobRoleId', 'employeeTypeId', 'workTypeId',
       'reportingManagerId', 'workEmail', 'workPhone', 'workLocation', 'devicePin', 'probationEndDate', 'contractEndDate', 'tagIds',
-      'areaId', 'contractorId', 'businessUnitId', 'gradeId', 'costCenterId', 'cardNumber', 'devicePrivilege', 'attendanceRequired', 'guardianName',
+      'areaId', 'establishmentId', 'contractorId', 'businessUnitId', 'gradeId', 'costCenterId', 'cardNumber', 'devicePrivilege', 'attendanceRequired', 'guardianName',
     ];
     const body = Object.fromEntries(keys.filter((k) => form[k] !== undefined).map((k) => [k, form[k] === '' ? null : form[k]]));
     /* The reader PIN is write-only: sent only when typed. */
@@ -975,7 +1013,7 @@ function EmployeeForm({ initial, lists, people, onClose, onSaved }) {
       <form id="employee-form" onSubmit={save} className="space-y-6">
         {moved ? (
           <section className="ui-card p-3 space-y-2" aria-label="Employment change">
-            <p className="text-sm font-medium">This changes where or how {form.name || 'they'} work. It goes into their employment history.</p>
+            <p className="text-sm font-medium">This changes where or how {form.name || 'they'} work. It goes into their employment history. A date in the future waits on the record and takes effect that day.</p>
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="block">
                 <span className="ui-label">Counts from</span>
@@ -1033,6 +1071,7 @@ function EmployeeForm({ initial, lists, people, onClose, onSaved }) {
           {select('departmentId', 'Department', lists.departments)}
           {select('jobPositionId', 'Designation', positions)}
           {lists.grades.length ? select('gradeId', 'Grade', lists.grades) : null}
+          {lists.establishments.length ? select('establishmentId', 'Establishment (work state)', lists.establishments.map((x) => ({ ...x, name: x.state ? `${x.name} (${x.state})` : x.name }))) : null}
           {lists.areas.length ? select('areaId', 'Location', lists.areas) : null}
           {lists.centres.length ? select('costCenterId', 'Cost centre', lists.centres) : null}
           {select('reportingManagerId', 'Reports to', people.filter((p) => p.id !== form.id && p.status !== 'LEFT'))}
