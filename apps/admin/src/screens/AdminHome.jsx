@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { ArrowRight, Building2, Check, ChevronRight, CreditCard, Database, KeyRound, ShieldCheck, UserPlus, Users } from 'lucide-react';
+import { ArrowRight, BookOpen, Building2, Check, ChevronRight, CircleHelp, CreditCard, Database, KeyRound, Mail, MessageCircle, ShieldCheck, UserPlus, Users } from 'lucide-react';
+
+import { operator } from '@platform/operator';
 
 import { getAccountMe, listAccountMembers } from '@platform/admin/account';
 import { adminApp } from '../../manifest.jsx';
@@ -39,6 +41,41 @@ export function appState(app, tenant, myApps = null) {
 const firstName = (user) => String(user?.firstName || user?.fullName || '').trim().split(/\s+/)[0] || '';
 const greeting = (d = new Date()) => (d.getHours() < 12 ? 'Good morning' : d.getHours() < 17 ? 'Good afternoon' : 'Good evening');
 
+/**
+ * Help, guides and contact (spec §4 "Support"). The same links as the bar's
+ * help menu; the email and WhatsApp rows appear only once the operator has set
+ * them, so nothing is offered that nobody answers. On a phone this is where
+ * help lives (the bar has no room for it).
+ */
+function SupportGroup() {
+  const wa = String(operator.supportWhatsapp || '').replace(/\D/g, '');
+  const link = (href, Icon, label, external = true) => (
+    <li key={label}>
+      <a className="ws-row" href={href} {...(external ? { target: '_blank', rel: 'noopener' } : {})}>
+        <Icon size={16} aria-hidden="true" />
+        <span>{label}</span>
+        <ChevronRight size={16} className="ws-chev" aria-hidden="true" />
+      </a>
+    </li>
+  );
+  return (
+    <nav aria-label="Support" className="ws-group">
+      <div className="ws-group-head">
+        <span className="ws-tile" aria-hidden="true">
+          <CircleHelp size={16} />
+        </span>
+        Support
+      </div>
+      <ul role="list">
+        {link('/docs/index.html', BookOpen, 'Help center')}
+        {link('/docs/readers.html', BookOpen, 'Guide: attendance readers')}
+        {operator.contactEmail ? link(`mailto:${operator.contactEmail}`, Mail, 'Contact support', false) : null}
+        {wa ? link(`https://wa.me/${wa}`, MessageCircle, 'WhatsApp support') : null}
+      </ul>
+    </nav>
+  );
+}
+
 export default function AdminHome({ user, tenant, catalog = [], navItems = [], openScreen, openApp, openMoreApps }) {
   const [role, setRole] = useState(null);
   /* The apps this person can open here (from their roles); null until the server answers. */
@@ -64,6 +101,9 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
 
   /* Every Clor product, from the shell (an app does not import the shell's registry). */
   const products = catalog.filter((a) => !a.platform);
+  /* Built apps get a card; the ones not built yet are a short line, not half a row of empty cards. */
+  const built = products.filter((a) => a.available);
+  const planned = products.filter((a) => !a.available);
   const may = new Map(navItems.filter((n) => n.key && n.key !== 'home' && !n.section).map((n) => [n.key, n]));
   /* The sidebar's own grouping, kept to the pages this person may open. */
   const groups = adminApp.modules
@@ -174,7 +214,7 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
             ) : null}
           </div>
           <ul className="ws-apps" role="list">
-            {products.map((a) => {
+            {built.map((a) => {
               const s = appState(a, tenant, myApps);
               const open = s.key === 'open';
               return (
@@ -184,12 +224,12 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
                       <span className="ws-tile" style={{ '--tile-fg': ACCENT[a.id] || 'rgb(var(--ws-ink))' }}>
                         <a.icon size={20} aria-hidden="true" />
                       </span>
-                      <span className={s.pill}>{s.label}</span>
+                      <div className="ws-card-id">
+                        <h3 className="ws-card-name">{a.name}</h3>
+                        <span className={s.pill}>{s.label}</span>
+                      </div>
                     </div>
-                    <div>
-                      <h3 className="ws-card-name">{a.name}</h3>
-                      <p className="ws-card-blurb">{a.blurb}</p>
-                    </div>
+                    <p className="ws-card-blurb" style={{ marginTop: 0 }}>{a.blurb}</p>
                     <div className="ws-card-foot">
                       {open ? (
                         <>
@@ -220,14 +260,29 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
               );
             })}
           </ul>
+          {planned.length ? (
+            <div className="ws-planned" aria-label="Apps on the way">
+              <span className="ws-planned-label">On the way</span>
+              {planned.map((a) => (
+                <span key={a.id} className="ws-planned-item" title={a.blurb}>
+                  <span className="ws-tile ws-tile--sm" style={{ '--tile-fg': ACCENT[a.id] || 'rgb(var(--ws-ink))' }}>
+                    <a.icon size={14} aria-hidden="true" />
+                  </span>
+                  <span>
+                    <strong>{a.name}</strong> <span className="ws-planned-blurb">{a.blurb}</span>
+                  </span>
+                  <span className="ws-pill">Coming soon</span>
+                </span>
+              ))}
+            </div>
+          ) : null}
         </section>
 
-        {groups.length ? (
-          <section className="ws-section" aria-labelledby="ws-admin-title">
+        <section className="ws-section" aria-labelledby="ws-admin-title">
             <div className="ws-section-head">
-              <h2 id="ws-admin-title" className="ws-h2">Administration</h2>
+              <h2 id="ws-admin-title" className="ws-h2">{groups.length ? 'Administration and support' : 'Support'}</h2>
             </div>
-            <div className="ws-admin">
+            <div className="ws-admin ws-admin--masonry">
               {groups.map((g) => {
                 const Icon = GROUP_ICON[g.key] || Building2;
                 return (
@@ -252,9 +307,9 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
                   </nav>
                 );
               })}
+              <SupportGroup />
             </div>
           </section>
-        ) : null}
       </div>
     </div>
   );

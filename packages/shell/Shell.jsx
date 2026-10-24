@@ -689,7 +689,7 @@ export default function Shell() {
         ) : null}
         <header
           /* Tighter on a phone: the bar carries menu, logo, switcher, alerts, help, profile and sign-out in 360 px. */
-          className={`sticky top-0 flex h-14 items-center ${phone ? 'gap-2.5 px-3' : 'gap-3 px-4'}`}
+          className={`sticky top-0 flex h-14 items-center ${phone ? 'gap-1.5 px-2.5' : 'gap-3 px-4'}`}
           style={{
             backgroundColor: 'rgb(var(--surface))',
             borderBottom: '1px solid rgb(var(--border))',
@@ -718,9 +718,11 @@ export default function Shell() {
                 onClick={() => setSwitcherOpen((v) => !v)}
                 aria-expanded={switcherOpen}
                 aria-haspopup="menu"
+                aria-label={`${app.name}: switch app`}
               >
                 <app.icon size={15} aria-hidden="true" />
-                {app.name}
+                {/* On a phone the name is cut short rather than pushing the bar past the screen; the full name is the button's label. */}
+                <span className={phone ? 'truncate' : undefined} style={phone ? { maxWidth: '3.75rem' } : undefined}>{app.name}</span>
                 <ChevronDown size={14} aria-hidden="true" />
               </button>
 
@@ -784,7 +786,7 @@ export default function Shell() {
           {!phone || tenants.length > 1 ? (
             <select
               className="ui-select ui-select-sm min-w-0"
-              style={{ width: 'auto', minWidth: phone ? '7rem' : '12rem', maxWidth: phone ? '38vw' : undefined }}
+              style={{ width: 'auto', minWidth: phone ? '4rem' : '12rem', maxWidth: phone ? '30vw' : undefined }}
               value={tenant.id}
               disabled={tenants.length < 2}
               onChange={(e) => setTenantId(e.target.value)}
@@ -818,7 +820,8 @@ export default function Shell() {
               openApp(link.app, link.screen || '');
             }}
           />
-          <HelpMenu />
+          {/* A phone's bar has no room for it (it pushed the bar past the screen); help is in the phone's Menu. */}
+          {!phone ? <HelpMenu /> : null}
 
           {!Root ? (
             <button

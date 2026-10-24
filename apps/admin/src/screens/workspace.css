@@ -22,13 +22,13 @@
   background: rgb(var(--ws-bg));
   color: rgb(var(--ws-ink));
   min-height: 100%;
-  padding: clamp(20px, 3vw, 40px) clamp(16px, 3.2vw, 48px) 64px;
+  padding: clamp(16px, 2.2vw, 28px) clamp(16px, 2.6vw, 40px) 40px;
 }
 .ws-inner {
-  max-width: 1180px;
+  max-width: 1280px;
   margin: 0 auto;
   display: grid;
-  gap: 40px;
+  gap: 28px;
 }
 
 /* ------------------------------------------------------------------ head */
@@ -37,8 +37,8 @@
   flex-wrap: wrap;
   align-items: flex-end;
   justify-content: space-between;
-  gap: 20px 32px;
-  padding-bottom: 28px;
+  gap: 16px 32px;
+  padding-bottom: 20px;
   border-bottom: 1px solid rgb(var(--ws-line));
 }
 .ws-context {
@@ -53,16 +53,16 @@
   flex: none;
 }
 .ws-title {
-  margin-top: 12px;
-  font-size: clamp(1.75rem, 1.3rem + 1.4vw, 2.35rem);
+  margin-top: 8px;
+  font-size: clamp(1.6rem, 1.25rem + 1.1vw, 2.1rem);
   font-weight: 600;
   letter-spacing: -0.025em;
   line-height: 1.1;
   color: rgb(var(--ws-ink));
 }
 .ws-lede {
-  margin-top: 8px;
-  max-width: 58ch;
+  margin-top: 6px;
+  max-width: 72ch;
   color: rgb(var(--ws-muted));
   line-height: 1.55;
 }
@@ -156,7 +156,7 @@
 /* --------------------------------------------------------------- sections */
 .ws-section {
   display: grid;
-  gap: 16px;
+  gap: 12px;
 }
 .ws-section-head {
   display: flex;
@@ -193,9 +193,9 @@
   background: rgb(var(--ws-surface));
   border: 1px solid rgb(var(--ws-line));
   border-radius: 12px;
-  padding: 20px 24px;
+  padding: 16px 20px;
   display: grid;
-  gap: 16px;
+  gap: 12px;
 }
 .ws-progress {
   height: 4px;
@@ -251,16 +251,16 @@
   margin: 0;
   padding: 0;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr));
+  gap: 12px;
 }
 .ws-card {
   position: relative;
   height: 100%;
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  padding: 20px;
+  gap: 10px;
+  padding: 16px 18px;
   border-radius: 12px;
   background: rgb(var(--ws-surface));
   border: 1px solid rgb(var(--ws-line));
@@ -277,14 +277,22 @@
 }
 .ws-card-top {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
+  align-items: center;
   gap: 12px;
+}
+.ws-card-id {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px 8px;
 }
 .ws-tile {
   flex: none;
-  width: 44px;
-  height: 44px;
+  width: 40px;
+  height: 40px;
   border-radius: 12px;
   display: grid;
   place-items: center;
@@ -309,7 +317,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding-top: 14px;
+  padding-top: 10px;
   border-top: 1px solid rgb(var(--ws-line));
   font-size: 0.8125rem;
   color: rgb(var(--ws-muted));
@@ -322,23 +330,70 @@
   border-radius: 12px;
 }
 
+/* Apps not built yet: one quiet line under the cards. */
+.ws-planned {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  padding: 10px 14px;
+  border: 1px dashed rgb(var(--ws-line));
+  border-radius: 12px;
+  font-size: 0.8125rem;
+  color: rgb(var(--ws-muted));
+}
+.ws-planned-label {
+  font-weight: 600;
+  color: rgb(var(--ws-ink));
+}
+.ws-planned-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.ws-planned-item strong {
+  color: rgb(var(--ws-ink));
+  font-weight: 600;
+}
+.ws-tile--sm {
+  width: 24px;
+  height: 24px;
+  border-radius: 8px;
+}
+@media (max-width: 900px) {
+  .ws-planned-blurb {
+    display: none;
+  }
+}
+
 /* ---------------------------------------------------------- administration */
 .ws-admin {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr));
-  gap: 16px;
+  gap: 12px;
+}
+/* Groups of different lengths stack in columns (no row stretched to its tallest card, no orphan row). */
+.ws-admin--masonry {
+  display: block;
+  columns: 4 240px;
+  column-gap: 12px;
+}
+.ws-admin--masonry > .ws-group {
+  break-inside: avoid;
+  margin-bottom: 12px;
 }
 .ws-group {
   background: rgb(var(--ws-surface));
   border: 1px solid rgb(var(--ws-line));
   border-radius: 12px;
-  padding: 16px 12px 10px;
+  padding: 12px 10px 6px;
 }
 .ws-group-head {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 0 8px 10px;
+  padding: 0 8px 6px;
   font-weight: 600;
 }
 .ws-group-head .ws-tile {
@@ -357,7 +412,7 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  min-height: 40px;
+  min-height: 36px;
   padding: 0 8px;
   border-radius: 8px;
   background: none;
