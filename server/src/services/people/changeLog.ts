@@ -13,7 +13,7 @@ import { peoplePrisma } from '../../utils/peoplePrisma.js';
  * Sensitive fields are logged as changed, never with their values.
  */
 
-export type ChangeSource = 'FORM' | 'IMPORT' | 'APPROVAL' | 'API' | 'SYSTEM' | 'SELF_SERVICE' | 'SCHEDULED' | 'HIRE';
+export type ChangeSource = 'FORM' | 'IMPORT' | 'APPROVAL' | 'API' | 'SYSTEM' | 'SELF_SERVICE' | 'SCHEDULED' | 'HIRE' | 'BULK';
 
 export type Actor = {
   accountId: string;

@@ -22,6 +22,10 @@ import {
   importEmployees,
   undoImport,
   listEmployees,
+  bulkUpdateEmployees,
+  listSavedViews,
+  saveSavedView,
+  deleteSavedView,
   listNotes,
   listDocuments,
   uploadDocument,
@@ -150,6 +154,16 @@ export default function Employees({ description = '' } = {}) {
   const [openId, setOpenId] = useState(null);
   const [editing, setEditing] = useState(null);
   const fileRef = useRef(null);
+  const perms = usePermissions();
+  const canEdit = Boolean(perms?.isAdmin || perms?.permissions?.has?.('PEOPLE::Employees::EDIT'));
+  /* CORE-01: bulk select in the list view, and saved views (own or shared). */
+  const [selected, setSelected] = useState(() => new Set());
+  const [bulk, setBulk] = useState(null);
+  const [views, setViews] = useState([]);
+  const [viewId, setViewId] = useState('');
+  const [savingView, setSavingView] = useState(null);
+  const loadViews = useCallback(() => listSavedViews('employees').then(setViews).catch(() => setViews([])), []);
+  useEffect(() => { loadViews(); }, [loadViews]);
 
   const loadLists = useCallback(async () => {
     const withAttendance = hasApp('attendance');
@@ -248,6 +262,28 @@ export default function Employees({ description = '' } = {}) {
     return c;
   }, [all]);
   const rows = useMemo(() => all.filter((p) => !status || p.status === status), [all, status]);
+  const toggle = (id) => setSelected((cur) => { const next = new Set(cur); if (next.has(id)) next.delete(id); else next.add(id); return next; });
+  const allChosen = rows.length > 0 && rows.every((p) => selected.has(p.id));
+  const chooseAll = () => setSelected(allChosen ? new Set() : new Set(rows.map((p) => p.id)));
+  const applyView = (id) => {
+    setViewId(id);
+    const v = views.find((x) => x.id === id);
+    if (!v) return;
+    const f = v.filters || {};
+    setFilters({ q: f.q || '', departmentId: f.departmentId || '', jobPositionId: f.jobPositionId || '', employeeTypeId: f.employeeTypeId || '', tagId: f.tagId || '' });
+    setStatus(f.status ?? 'ACTIVE');
+  };
+  const removeView = async () => {
+    const v = views.find((x) => x.id === viewId);
+    if (!v || !(await confirmDialog({ title: `Delete the view "${v.name}"?`, confirmLabel: 'Delete', tone: 'danger' }))) return;
+    try {
+      await deleteSavedView(v.id);
+      setViewId('');
+      loadViews();
+    } catch (e) {
+      notify.error(String(e?.message || 'Not deleted.'));
+    }
+  };
   const figures = useMemo(() => {
     const here = all.filter((p) => p.status !== 'LEFT');
     return {
@@ -318,6 +354,13 @@ export default function Employees({ description = '' } = {}) {
           {filterSelect('jobPositionId', 'Position', lists.positions)}
           {filterSelect('employeeTypeId', 'Type', lists.types)}
           {lists.tags.length ? filterSelect('tagId', 'Tag', lists.tags) : null}
+          <select className="ui-select ui-ctl-compact" style={{ width: 'auto', minWidth: '9rem' }} aria-label="Saved views" value={viewId}
+            onChange={(e) => (e.target.value === '__save' ? setSavingView({ name: '', shared: false }) : applyView(e.target.value))}>
+            <option value="">Views</option>
+            {views.map((v) => <option key={v.id} value={v.id}>{v.name}{v.shared ? (v.mine ? ' (shared by you)' : ' (shared)') : ''}</option>)}
+            <option value="__save">Save these filters as a view…</option>
+          </select>
+          {viewId && views.find((v) => v.id === viewId)?.mine ? <button type="button" className="ui-link text-sm" onClick={removeView}>Delete view</button> : null}
         </>
       }
     >
@@ -360,9 +403,17 @@ export default function Employees({ description = '' } = {}) {
         </div>
       ) : (
           <div className="ui-table-scroll">
+            {canEdit && selected.size ? (
+              <div className="flex flex-wrap items-center gap-3 px-3 py-2 text-sm" role="status">
+                <span className="tabular-nums">{selected.size} chosen</span>
+                <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => setBulk({ field: 'departmentId', value: '', reason: '' })}>Change…</button>
+                <button type="button" className="ui-link" onClick={() => setSelected(new Set())}>Clear</button>
+              </div>
+            ) : null}
             <table className="ui-table ui-table-sticky w-full">
               <thead>
                 <tr>
+                  {canEdit ? <th scope="col" className="w-8"><input type="checkbox" className="ui-checkbox" aria-label="Choose everyone shown" checked={allChosen} onChange={chooseAll} /></th> : null}
                   <th scope="col" className="ui-col-grow">Employee</th>
                   <th scope="col">ID</th>
                   <th scope="col">Department</th>
@@ -375,6 +426,7 @@ export default function Employees({ description = '' } = {}) {
               <tbody className="ui-rows">
                 {rows.map((p) => (
                   <tr key={p.id} className="ui-row-click" onClick={() => setOpenId(p.id)}>
+                    {canEdit ? <td className="w-8" onClick={(e) => e.stopPropagation()}><input type="checkbox" className="ui-checkbox" aria-label={`Choose ${p.name}`} checked={selected.has(p.id)} onChange={() => toggle(p.id)} /></td> : null}
                     <td className="ui-col-entity">
                       <span className="flex items-center gap-2">
                         <Avatar person={p} size={28} />
@@ -407,6 +459,37 @@ export default function Employees({ description = '' } = {}) {
           load();
         }}
       />
+
+      {bulk ? <BulkDrawer count={selected.size} lists={lists} people={all} value={bulk} onChange={setBulk} onClose={() => setBulk(null)}
+        onSend={async () => {
+          try {
+            const r = await bulkUpdateEmployees({ ids: [...selected], set: { [bulk.field]: bulk.value === '__clear' ? null : bulk.value }, reason: bulk.reason });
+            notify.success(`${r.changed} changed${r.unchanged ? `, ${r.unchanged} already so` : ''}${r.skipped.length ? `, ${r.skipped.length} skipped (${r.skipped.slice(0, 3).map((x) => `${x.name} ${x.why}`).join('; ')})` : ''}.`);
+            setBulk(null);
+            setSelected(new Set());
+            load();
+          } catch (e) {
+            notify.error(String(e?.message || 'Not changed.'));
+          }
+        }} /> : null}
+      {savingView ? (
+        <Drawer open onClose={() => setSavingView(null)} title="Save as a view" description="The search, the filters and the status tab, under a name."
+          actions={<button type="button" className="ui-btn ui-btn-primary" disabled={!savingView.name.trim()} onClick={async () => {
+            try {
+              const v = await saveSavedView({ screen: 'employees', name: savingView.name, shared: savingView.shared, filters: { ...filters, status } });
+              setSavingView(null);
+              await loadViews();
+              setViewId(v.id);
+            } catch (e) {
+              notify.error(String(e?.message || 'Not saved.'));
+            }
+          }}>Save view</button>}>
+          <div className="space-y-3">
+            <label className="block"><span className="ui-label">Name *</span><input className="ui-input w-full" maxLength={80} value={savingView.name} onChange={(e) => setSavingView({ ...savingView, name: e.target.value })} placeholder="Sales on notice" /></label>
+            <label className="flex items-center gap-2 text-sm"><input type="checkbox" className="ui-checkbox" checked={savingView.shared} onChange={(e) => setSavingView({ ...savingView, shared: e.target.checked })} />Share with everyone who can see the directory</label>
+          </div>
+        </Drawer>
+      ) : null}
 
       {importing ? <ImportDrawer file={importing} onClose={() => setImporting(null)} onDone={() => { setImporting(null); loadLists().catch(() => {}); load(); }} /> : null}
 
@@ -926,6 +1009,39 @@ function Journey({ employeeId }) {
         </Drawer>
       ) : null}
     </div>
+  );
+}
+
+const BULK_FIELDS = [
+  ['departmentId', 'Department', 'departments'], ['jobPositionId', 'Designation', 'positions'], ['employeeTypeId', 'Employee type', 'types'],
+  ['workTypeId', 'Work type', 'workTypes'], ['establishmentId', 'Establishment', 'establishments'], ['teamId', 'Team', 'teams'],
+  ['gradeId', 'Grade', 'grades'], ['costCenterId', 'Cost centre', 'centres'], ['businessUnitId', 'Business unit', 'units'], ['reportingManagerId', 'Reports to', null],
+];
+
+/** Change one detail for everyone chosen (CORE-01). Each person gets their own change record; the batch shares one. */
+function BulkDrawer({ count, lists, people, value, onChange, onClose, onSend }) {
+  const [busy, setBusy] = useState(false);
+  const field = BULK_FIELDS.find(([k]) => k === value.field) || BULK_FIELDS[0];
+  const options = field[2] ? lists[field[2]] || [] : people.filter((p) => p.status !== 'LEFT');
+  return (
+    <Drawer open onClose={onClose} title={`Change ${count} ${count === 1 ? 'person' : 'people'}`} description="Each person's history records the change and the reason. Where a job-change approval rule is in force, job details change one person at a time."
+      actions={<button type="button" className="ui-btn ui-btn-primary" disabled={busy || !value.value} onClick={async () => { setBusy(true); try { await onSend(); } finally { setBusy(false); } }}>{busy ? 'Changing…' : `Change ${count}`}</button>}>
+      <div className="space-y-3">
+        <label className="block"><span className="ui-label">What</span>
+          <select className="ui-select w-full" value={value.field} onChange={(e) => onChange({ ...value, field: e.target.value, value: '' })}>
+            {BULK_FIELDS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+          </select>
+        </label>
+        <label className="block"><span className="ui-label">To</span>
+          <select className="ui-select w-full" value={value.value} onChange={(e) => onChange({ ...value, value: e.target.value })}>
+            <option value="" disabled>Choose…</option>
+            <option value="__clear">None (clear it for everyone chosen)</option>
+            {options.map((o) => <option key={o.id} value={o.id}>{o.name || o.label}{o.code ? ` (${o.code})` : ''}</option>)}
+          </select>
+        </label>
+        <label className="block"><span className="ui-label">Reason</span><input className="ui-input w-full" maxLength={500} value={value.reason} onChange={(e) => onChange({ ...value, reason: e.target.value })} placeholder="Ops folded into Sales" /></label>
+      </div>
+    </Drawer>
   );
 }
 

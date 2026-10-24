@@ -26,7 +26,7 @@ const FIELD_WORDS: Record<string, string> = {
 };
 export const fieldWord = (f: string) => FIELD_WORDS[f] || f.replace(/Id$/, '').replace(/([A-Z])/g, ' $1').replace(/^./, (c) => c.toUpperCase());
 
-const SOURCE_WORDS: Record<string, string> = { FORM: 'by hand', IMPORT: 'from an import', APPROVAL: 'through an approved request', API: 'through the API', SYSTEM: 'by CLOR', SELF_SERVICE: 'by the person', SCHEDULED: 'on the day it was due', HIRE: 'at hiring' };
+const SOURCE_WORDS: Record<string, string> = { FORM: 'by hand', IMPORT: 'from an import', APPROVAL: 'through an approved request', API: 'through the API', SYSTEM: 'by CLOR', SELF_SERVICE: 'by the person', SCHEDULED: 'on the day it was due', HIRE: 'at hiring', BULK: 'in bulk from the directory' };
 
 type Line = { id: string; field: string; before: string | null; after: string | null; redacted: boolean; reason: string | null; source: string; actorUserId: string | null; correlationId: string; requestId: string | null; decisionId: string | null; at: Date; entity: string; entityId: string };
 
@@ -122,7 +122,7 @@ export async function whyOf(orgId: string, employeeId: string, key: string) {
   const payload = (request?.payload || {}) as Record<string, unknown>;
   for (const d of (Array.isArray(payload.evidence) ? payload.evidence : []) as Array<{ documentId?: string; title?: string }>) if (d.documentId) evidence.push({ kind: 'DOCUMENT', id: d.documentId, title: d.title || 'Document' });
   const unknown: string[] = [];
-  if (!request) unknown.push(first.source === 'FORM' || first.source === 'IMPORT' || first.source === 'API' ? `No approval recorded: changed ${SOURCE_WORDS[first.source]}, with no rule in force for it.` : first.source === 'SELF_SERVICE' ? 'No approval recorded: the person sent it and HR checked it.' : first.source === 'SCHEDULED' ? 'Approved when it was scheduled; see the change that scheduled it.' : 'No approval recorded.');
+  if (!request) unknown.push(first.source === 'FORM' || first.source === 'IMPORT' || first.source === 'API' || first.source === 'BULK' ? `No approval recorded: changed ${SOURCE_WORDS[first.source]}, with no rule in force for it.` : first.source === 'SELF_SERVICE' ? 'No approval recorded: the person sent it and HR checked it.' : first.source === 'SCHEDULED' ? 'Approved when it was scheduled; see the change that scheduled it.' : 'No approval recorded.');
   if (record) {
     for (const d of (record.evidence as Array<{ documentId: string; title: string; version: number | null }>) || []) {
       const at = evidence.find((e) => e.id === d.documentId);

@@ -23,6 +23,10 @@ export const getOverview = () => apiFetch(`${base()}/overview`, opts);
 export const getPeopleHome = () => apiFetch(`${base()}/home`, opts).then((r) => r?.todos || []);
 
 export const listEmployees = (params) => apiFetch(`${base()}/employees${query(params)}`, opts);
+export const bulkUpdateEmployees = (body) => apiFetch(`${base()}/employees/bulk`, { ...opts, method: 'POST', body });
+export const listSavedViews = (screen) => apiFetch(`${base()}/saved-views?screen=${encodeURIComponent(screen)}`, opts).then((r) => r?.views || []);
+export const saveSavedView = (body) => apiFetch(`${base()}/saved-views`, { ...opts, method: 'POST', body }).then((r) => r?.view);
+export const deleteSavedView = (id) => apiFetch(`${base()}/saved-views/${encodeURIComponent(id)}`, { ...opts, method: 'DELETE' });
 /** Fetch every API page for complete reports and employee pickers. */
 export async function listAllEmployees(params = {}) {
   const employees = [];

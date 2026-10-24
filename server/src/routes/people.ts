@@ -29,6 +29,8 @@ import { PROBATION_OUTCOMES, ProbationError, decideProbation, reviewsOf, saveRev
 import { changeImpact } from '../services/people/lifecycle/changes.js';
 import { journeyOf, whyOf } from '../services/people/journey.js';
 import { salaryQuestion } from '../services/people/salaryQuestion.js';
+import { BulkError, bulkUpdate } from '../services/people/bulk.js';
+import { deleteView, saveView, viewsFor } from '../services/people/savedViews.js';
 import { raiseRequest } from '../services/people/desk.js';
 import { HeadcountError, headcount as headcountOf, snooze as snoozeCheck, snoozeHistory, unsnooze as unsnoozeCheck } from '../services/people/headcount.js';
 import { SelfServiceError, saveSettings, settingsOf } from '../services/people/selfService.js';
@@ -932,6 +934,48 @@ peopleRouter.put('/orgs/:orgId/people/employees/:id/custom-fields', can(Permissi
   } catch (e) {
     if (e instanceof CustomFieldError) return res.status(e.status).json({ error: e.message });
     return sendError(res, e);
+  }
+});
+
+/* --------------------------------------------- saved views and bulk update (CORE-01) */
+
+peopleRouter.get('/orgs/:orgId/people/saved-views', can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  try {
+    res.json({ views: await viewsFor(req.tenant!.orgId, req.auth!.userId, String(req.query.screen || '')) });
+  } catch (e: any) {
+    res.status(e?.status || 400).json({ error: String(e?.message || 'Could not load.') });
+  }
+});
+
+peopleRouter.post('/orgs/:orgId/people/saved-views', can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  try {
+    res.status(201).json({ view: await saveView({ accountId: req.tenant!.accountId, orgId: req.tenant!.orgId, userId: req.auth!.userId }, req.body || {}) });
+  } catch (e: any) {
+    res.status(e?.status || 400).json({ error: String(e?.message || 'Not saved.') });
+  }
+});
+
+peopleRouter.delete('/orgs/:orgId/people/saved-views/:id', can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  try {
+    await deleteView(req.tenant!.orgId, req.auth!.userId, String(req.params.id));
+    res.json({ ok: true });
+  } catch (e: any) {
+    res.status(e?.status || 400).json({ error: String(e?.message || 'Not deleted.') });
+  }
+});
+
+/** Change many people at once (CORE-01): one write path per person, one correlation id for the batch. */
+peopleRouter.post('/orgs/:orgId/people/employees/bulk', can(PermissionAction.EDIT, EMPLOYEES), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  try {
+    const actor = { ...actorOf(req, 'BULK', null), correlationId: `bulk_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}` };
+    res.json(await bulkUpdate(actor, req.body || {}, await teamScope(req)));
+  } catch (e: any) {
+    if (e instanceof BulkError) return res.status(e.status).json({ error: e.message, code: e.code });
+    throw e;
   }
 });
 

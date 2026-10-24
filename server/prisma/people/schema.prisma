@@ -1819,6 +1819,23 @@ model CommitteeSetup {
   @@unique([orgId, kind])
 }
 
+/// A named set of filters on a list or report (CORE-01, RPT-02): the user's own, or shared with everyone who can open that screen.
+model SavedView {
+  id        String   @id @default(cuid())
+  accountId String
+  orgId     String
+  userId    String
+  /// employees | report:<key>
+  screen    String
+  name      String
+  filters   Json
+  shared    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([orgId, screen])
+}
+
 /// What an approved change rested on (TRACE-05), frozen at the decision: the policy
 /// versions in force for the person and the evidence with its version. A later
 /// policy change never rewrites it.
