@@ -1287,6 +1287,13 @@ model EmployeeDocument {
   expiryStage       Int?
   /// For a work permit or certificate: what the person may not do while it is lapsed (LIFE-08). Shown, not enforced.
   restrictsWork     String?
+  /// Versions (DOC-02): replacing a file keeps the old one, pointed both ways. Lists show the newest only.
+  version           Int       @default(1)
+  supersedesId      String?
+  supersededById    String?
+  /// A letter issued from a template (DOC-04): which template and version made it.
+  templateId        String?
+  templateVersion   Int?
   /// Who can see it (docs/people/02-PRD.md DOC-01): EMPLOYEE_VISIBLE (the person and
   /// anyone with Documents VIEW) | HR_ONLY (Documents VIEW) | RESTRICTED (Documents EDIT)
   /// | CONFIDENTIAL (Confidential Documents VIEW). `visibleToEmployee` is kept in step
@@ -1300,6 +1307,29 @@ model EmployeeDocument {
 
   @@index([orgId, employeeId])
   @@index([orgId, expiresOn])
+  @@index([orgId, supersededById])
+}
+
+/// Letters the company issues (docs/people/02-PRD.md DOC-04; services/people/letters.ts):
+/// offer, appointment, confirmation, increment, relieving, experience, service
+/// certificate. Each save is a new version; the newest active one is used, and
+/// the issued letter records which version made it.
+model LetterTemplate {
+  id              String   @id @default(cuid())
+  accountId       String
+  orgId           String
+  /// OFFER | APPOINTMENT | CONFIRMATION | INCREMENT | RELIEVING | EXPERIENCE | SERVICE_CERT
+  kind            String
+  name            String
+  /// Plain text with {{merge}} fields from the allow-list and {{extra.key}} fields HR fills in when issuing.
+  body            String
+  version         Int
+  active          Boolean  @default(true)
+  createdByUserId String?
+  createdAt       DateTime @default(now())
+
+  @@unique([orgId, kind, version])
+  @@index([orgId, kind, active])
 }
 
 /// A DPDP data-subject request raised from the portal: see my data, correct
@@ -1873,6 +1903,8 @@ model Establishment {
   address       String?
   /// Registrations as JSON: [{ type: "SE_REG", number, validTill }]
   registrations Json?
+  /// Whether the employer keeps employees' original documents here. Refused where the state forbids it (DOC-07: Karnataka).
+  holdsOriginals Boolean @default(false)
   isActive      Boolean  @default(true)
   createdByUserId String?
   createdAt     DateTime @default(now())

@@ -28,6 +28,7 @@ import { PROBATION_OUTCOMES, ProbationError, decideProbation, reviewsOf, saveRev
 import { changeImpact } from '../services/people/lifecycle/changes.js';
 import { PERMIT_KINDS, daysUntil } from '../services/people/documentReminders.js';
 import { decodeDocument } from '../services/people/documentFiles.js';
+import { NO_ORIGINALS_STATES } from '../services/people/letters.js';
 import { dataHealth } from '../services/people/dataHealth.js';
 import { PAYROLL_MODULE, PAYROLL_RESOURCE } from '../services/payroll/guards.js';
 import { KINDS, READER_ACCESS_ITEM, checklistOf, cleanItems, itemsFor, myTasks, openTasks, readTaskDoneToken, startChecklist, type Kind as ChecklistKind } from '../services/people/checklists.js';
@@ -1009,7 +1010,7 @@ const STRUCTURE_KINDS = {
   'cost-centres': { model: 'costCenter', usedBy: 'costCenterId', extra: ['description'] },
   /* The company in law and its places of work (FND-07). A person's work state is their establishment's. */
   'legal-entities': { model: 'legalEntity', usedBy: null, extra: ['description', 'pan', 'cin', 'address'] },
-  establishments: { model: 'establishment', usedBy: 'establishmentId', extra: ['description', 'legalEntityId', 'kind', 'state', 'address', 'registrations'] },
+  establishments: { model: 'establishment', usedBy: 'establishmentId', extra: ['description', 'legalEntityId', 'kind', 'state', 'address', 'registrations', 'holdsOriginals'] },
 } as const;
 type Kind = keyof typeof STRUCTURE_KINDS;
 
@@ -1023,6 +1024,7 @@ const structureSchema = z.object({
   kind: z.enum(['SHOP', 'FACTORY', 'OFFICE', 'SITE', 'WAREHOUSE']).optional().nullable().or(z.literal('')),
   state: text(80),
   address: text(500),
+  holdsOriginals: z.boolean().optional(),
   /* A real PAN, or the masked form a screen sends back unchanged. */
   pan: z.string().trim().regex(/^([A-Z]{5}\d{4}[A-Z]|\*{6}[0-9A-Z]{4})$/, 'PAN looks like ABCDE1234F.').optional().nullable().or(z.literal('')),
   cin: text(40),
@@ -1057,10 +1059,11 @@ peopleRouter.post('/orgs/:orgId/people/structure/:kind', can(PermissionAction.CR
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Invalid.' });
   const cfg = STRUCTURE_KINDS[kind];
   const data: any = { accountId, orgId, name: parsed.data.name, createdByUserId: req.auth!.userId };
-  for (const k of cfg.extra) if ((parsed.data as any)[k] !== undefined) data[k] = k === 'registrations' ? (parsed.data as any)[k] : blank((parsed.data as any)[k]);
+  for (const k of cfg.extra) if ((parsed.data as any)[k] !== undefined) data[k] = k === 'registrations' || k === 'holdsOriginals' ? (parsed.data as any)[k] : blank((parsed.data as any)[k]);
   if (kind === 'establishments' && !data.state) return res.status(400).json({ error: 'Say which state the establishment is in: its rules follow from that.' });
   /* An unset type takes the default; an unset entity is simply absent. */
   if (kind === 'establishments') { if (!data.kind) delete data.kind; if (!data.legalEntityId) delete data.legalEntityId; }
+  if (kind === 'establishments' && data.holdsOriginals === true && NO_ORIGINALS_STATES.has(String(data.state || '').trim().toLowerCase())) return res.status(400).json({ error: `${data.state} does not allow an employer to hold employees' original documents (Shops & Establishments amendment, 2026).` });
   try {
     const row = await (peoplePrisma as any)[cfg.model].create({ data });
     res.status(201).json({ item: kind === 'legal-entities' ? { ...row, pan: maskPan(row.pan) } : row });
@@ -1085,11 +1088,15 @@ peopleRouter.put('/orgs/:orgId/people/structure/:kind/:id', can(PermissionAction
   }
   const data: any = { name: parsed.data.name };
   if (parsed.data.isActive !== undefined) data.isActive = parsed.data.isActive;
-  for (const k of cfg.extra) if ((parsed.data as any)[k] !== undefined) data[k] = k === 'registrations' ? (parsed.data as any)[k] : blank((parsed.data as any)[k]);
+  for (const k of cfg.extra) if ((parsed.data as any)[k] !== undefined) data[k] = k === 'registrations' || k === 'holdsOriginals' ? (parsed.data as any)[k] : blank((parsed.data as any)[k]);
   /* A masked PAN sent back unchanged is not a change. */
   if (kind === 'legal-entities' && typeof data.pan === 'string' && data.pan.includes('*')) delete data.pan;
   if (kind === 'establishments' && data.state === null) return res.status(400).json({ error: 'An establishment keeps its state.' });
   if (kind === 'establishments' && data.kind === null) delete data.kind;
+  if (kind === 'establishments' && data.holdsOriginals === true) {
+    const state = data.state !== undefined ? data.state : (await peoplePrisma.establishment.findFirst({ where: { id: String(req.params.id), orgId }, select: { state: true } }))?.state;
+    if (NO_ORIGINALS_STATES.has(String(state || '').trim().toLowerCase())) return res.status(400).json({ error: `${state} does not allow an employer to hold employees' original documents (Shops & Establishments amendment, 2026).` });
+  }
   try {
     const row = await model.update({ where: { id: existing.id }, data });
     if (kind === 'legal-entities') row.pan = maskPan(row.pan);
@@ -1197,9 +1204,9 @@ peopleRouter.delete('/orgs/:orgId/people/notes/:noteId', can(PermissionAction.DE
 // Documents on the employee file (ClorTime's Employee Document)
 // ---------------------------------------------------------------------------
 
-const DOC_KINDS = new Set(['ID_PROOF', 'ADDRESS_PROOF', 'EDUCATION', 'CONTRACT', 'PAYSLIP', 'WORK_PERMIT', 'CERTIFICATE', 'OTHER']);
-const docRow = (d: any) => ({ id: d.id, employeeId: d.employeeId, kind: d.kind, title: d.title, mime: d.mime, size: d.size, expiresOn: d.expiresOn, restrictsWork: d.restrictsWork ?? null, classification: d.classification, visibleToEmployee: d.visibleToEmployee, uploadedByUserId: d.uploadedByUserId, createdAt: d.createdAt });
-const DOC_SELECT = { id: true, employeeId: true, kind: true, title: true, mime: true, size: true, expiresOn: true, restrictsWork: true, classification: true, visibleToEmployee: true, uploadedByUserId: true, createdAt: true } as const;
+const DOC_KINDS = new Set(['ID_PROOF', 'ADDRESS_PROOF', 'EDUCATION', 'CONTRACT', 'PAYSLIP', 'WORK_PERMIT', 'CERTIFICATE', 'LETTER', 'OTHER']);
+const docRow = (d: any) => ({ id: d.id, employeeId: d.employeeId, kind: d.kind, title: d.title, mime: d.mime, size: d.size, expiresOn: d.expiresOn, restrictsWork: d.restrictsWork ?? null, version: d.version ?? 1, supersedesId: d.supersedesId ?? null, supersededById: d.supersededById ?? null, templateId: d.templateId ?? null, templateVersion: d.templateVersion ?? null, classification: d.classification, visibleToEmployee: d.visibleToEmployee, uploadedByUserId: d.uploadedByUserId, createdAt: d.createdAt });
+const DOC_SELECT = { id: true, employeeId: true, kind: true, title: true, mime: true, size: true, expiresOn: true, restrictsWork: true, version: true, supersedesId: true, supersededById: true, templateId: true, templateVersion: true, classification: true, visibleToEmployee: true, uploadedByUserId: true, createdAt: true } as const;
 
 /**
  * Who can see a document (docs/people/02-PRD.md DOC-01; review R-01).
@@ -1235,7 +1242,7 @@ peopleRouter.get('/orgs/:orgId/people/documents', can(PermissionAction.VIEW, DOC
   const classification = { in: await readableClassifications(req) };
   const scope = await teamScope(req);
   const rows = await peoplePrisma.employeeDocument.findMany({
-    where: { accountId, orgId, classification, ...(scope.all ? {} : { employeeId: { in: scope.ids } }) }, orderBy: { createdAt: 'desc' },
+    where: { accountId, orgId, classification, supersededById: null, ...(scope.all ? {} : { employeeId: { in: scope.ids } }) }, orderBy: { createdAt: 'desc' },
     select: { ...DOC_SELECT, employee: { select: { name: true, code: true } } },
   });
   res.json({ documents: rows.map((r) => ({ ...docRow(r), employeeName: r.employee.name, employeeCode: r.employee.code })) });
@@ -1246,8 +1253,56 @@ peopleRouter.get('/orgs/:orgId/people/employees/:id/documents', can(PermissionAc
   const { accountId, orgId } = req.tenant!;
   const classification = { in: await readableClassifications(req) };
   if (!inScope(await teamScope(req), String(req.params.id))) return res.status(404).json({ error: 'No such employee.' });
-  const rows = await peoplePrisma.employeeDocument.findMany({ where: { accountId, orgId, employeeId: String(req.params.id), classification }, orderBy: { createdAt: 'desc' }, select: DOC_SELECT });
+  const rows = await peoplePrisma.employeeDocument.findMany({ where: { accountId, orgId, employeeId: String(req.params.id), classification, supersededById: null }, orderBy: { createdAt: 'desc' }, select: DOC_SELECT });
   res.json({ documents: rows.map(docRow) });
+});
+
+/** Replace a file (DOC-02): the new one takes the old one's place; the old one stays, pointed both ways, under "Earlier versions". */
+peopleRouter.post('/orgs/:orgId/people/documents/:docId/replace', can(PermissionAction.CREATE, DOCUMENTS), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const old = await peoplePrisma.employeeDocument.findFirst({ where: { id: String(req.params.docId), accountId, orgId }, select: { ...DOC_SELECT } });
+  if (!old || !(await readableClassifications(req)).includes(old.classification as DocClass) || !inScope(await teamScope(req), old.employeeId)) return res.status(404).json({ error: 'No such document.' });
+  if (old.supersededById) return res.status(409).json({ error: 'A newer version already exists; replace that one.' });
+  const refused = await authorize(req, ...writeGrantFor(old.classification, PermissionAction.CREATE));
+  if (refused) return res.status(refused.status).json(refused.body);
+  const file = decodeDocument(req.body?.data, req.body?.mime);
+  if ('error' in file) return res.status(400).json({ error: file.error });
+  const title = String(req.body?.title || old.title).trim().slice(0, 120) || old.title;
+  const expiresOn = req.body?.expiresOn !== undefined ? String(req.body.expiresOn || '').trim() || null : old.expiresOn;
+  if (expiresOn && !/^\d{4}-\d{2}-\d{2}$/.test(expiresOn)) return res.status(400).json({ error: 'Dates are YYYY-MM-DD.' });
+  const d = await peoplePrisma.$transaction(async (tx) => {
+    const created = await tx.employeeDocument.create({
+      data: { accountId, orgId, employeeId: old.employeeId, kind: old.kind, title, mime: file.mime, size: file.data.length, data: file.data, expiresOn, restrictsWork: old.restrictsWork, classification: old.classification, visibleToEmployee: old.visibleToEmployee, uploadedByUserId: req.auth!.userId, version: (old.version ?? 1) + 1, supersedesId: old.id },
+    });
+    await tx.employeeDocument.update({ where: { id: old.id }, data: { supersededById: created.id } });
+    return created;
+  });
+  res.status(201).json({ document: docRow(d) });
+});
+
+/** Every version of a file, newest first (DOC-02). */
+peopleRouter.get('/orgs/:orgId/people/documents/:docId/versions', can(PermissionAction.VIEW, DOCUMENTS), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const d = await peoplePrisma.employeeDocument.findFirst({ where: { id: String(req.params.docId), accountId, orgId }, select: DOC_SELECT });
+  if (!d || !(await readableClassifications(req)).includes(d.classification as DocClass) || !inScope(await teamScope(req), d.employeeId)) return res.status(404).json({ error: 'No such document.' });
+  const chain: Array<typeof d> = [d];
+  let cur = d;
+  for (let i = 0; i < 50 && cur.supersedesId; i += 1) {
+    const prev = await peoplePrisma.employeeDocument.findFirst({ where: { id: cur.supersedesId, orgId }, select: DOC_SELECT });
+    if (!prev) break;
+    chain.push(prev);
+    cur = prev;
+  }
+  cur = d;
+  for (let i = 0; i < 50 && cur.supersededById; i += 1) {
+    const next = await peoplePrisma.employeeDocument.findFirst({ where: { id: cur.supersededById, orgId }, select: DOC_SELECT });
+    if (!next) break;
+    chain.unshift(next);
+    cur = next;
+  }
+  res.json({ versions: chain.map(docRow) });
 });
 
 peopleRouter.post('/orgs/:orgId/people/employees/:id/documents', can(PermissionAction.CREATE, DOCUMENTS), async (req, res) => {

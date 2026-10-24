@@ -21,6 +21,7 @@ export const PEOPLE_EVENTS = [
   'people.employee.created.v1',
   'people.invite.sent.v1',
   'people.invite.returned.v1',
+  'people.letter.issued.v1',
   'people.employee.updated.v1',
   'people.employment.changed.v1',
   'people.employee.transferred.v1',

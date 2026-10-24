@@ -84,6 +84,7 @@ const KINDS = {
       { key: 'kind', label: 'Type', type: 'select', options: [['OFFICE', 'Office'], ['SHOP', 'Shop'], ['FACTORY', 'Factory'], ['SITE', 'Site'], ['WAREHOUSE', 'Warehouse']] },
       { key: 'state', label: 'State', placeholder: 'Karnataka', required: true },
       { key: 'address', label: 'Address', type: 'textarea' },
+      { key: 'holdsOriginals', label: 'The company keeps employees’ original documents here', type: 'checkbox', hint: 'Not allowed in Karnataka (Shops & Establishments amendment, 2026); CLOR refuses it there.' },
     ],
     columns: [{ key: 'state', label: 'State' }, { key: 'kind', label: 'Type', value: (r) => (r.kind || '').charAt(0) + (r.kind || '').slice(1).toLowerCase() }],
   },
@@ -311,7 +312,12 @@ export default function StructureList({ kind, title = '', singular = '' }) {
                 </select>
               </label>
             ) : null}
-            {(cfg.fields || []).map((f) => (
+            {(cfg.fields || []).map((f) => f.type === 'checkbox' ? (
+              <label key={f.key} className="block text-sm">
+                <span className="flex items-center gap-2"><input type="checkbox" className="ui-checkbox" checked={Boolean(editing[f.key])} onChange={(e) => setEditing({ ...editing, [f.key]: e.target.checked })} />{f.label}</span>
+                {f.hint ? <span className="ui-caption block mt-1">{f.hint}</span> : null}
+              </label>
+            ) : (
               <label key={f.key} className="block">
                 <span className="ui-label">{f.label}{f.required ? ' *' : ''}</span>
                 {f.type === 'select' ? (

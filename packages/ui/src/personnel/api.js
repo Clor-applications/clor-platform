@@ -60,6 +60,16 @@ export const listDocuments = (id) => apiFetch(`${base()}/employees/${encodeURICo
 export const uploadDocument = (id, body) => send(`/employees/${encodeURIComponent(id)}/documents`, 'POST', body);
 export const getDocument = (docId) => apiFetch(`${base()}/documents/${encodeURIComponent(docId)}`, opts).then((r) => r?.document);
 export const deleteDocument = (docId) => send(`/documents/${encodeURIComponent(docId)}`, 'DELETE');
+/* Versions (DOC-02): replacing keeps the earlier file. */
+export const replaceDocument = (docId, body) => send(`/documents/${encodeURIComponent(docId)}/replace`, 'POST', body);
+export const listDocumentVersions = (docId) => apiFetch(`${base()}/documents/${encodeURIComponent(docId)}/versions`, opts).then((r) => r?.versions || []);
+/* Letters (DOC-04, DOC-07): templates under Settings; issued onto the record as a PDF. */
+export const getLetterTemplates = () => apiFetch(`${base()}/letter-templates`, opts);
+export const getLetterTemplateVersions = (kind) => apiFetch(`${base()}/letter-templates/${encodeURIComponent(kind)}/versions`, opts).then((r) => r?.versions || []);
+export const saveLetterTemplate = (body) => send('/letter-templates', 'POST', body);
+export const issueLetter = (id, body) => send(`/employees/${encodeURIComponent(id)}/letters`, 'POST', body);
+export const serviceCertificateDue = (id, askedOn) => apiFetch(`${base()}/employees/${encodeURIComponent(id)}/letters/service-certificate${askedOn ? `?askedOn=${encodeURIComponent(askedOn)}` : ''}`, opts);
+export const requestLetter = (id, body) => send(`/employees/${encodeURIComponent(id)}/letters/requests`, 'POST', body);
 /* DPDP data requests raised from the portal. */
 export const listDataRequests = (status) => apiFetch(`${base()}/data-requests${status ? `?status=${encodeURIComponent(status)}` : ''}`, opts);
 export const resolveDataRequest = (id, body) => send(`/data-requests/${encodeURIComponent(id)}/resolve`, 'POST', body);

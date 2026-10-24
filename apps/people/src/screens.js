@@ -12,6 +12,7 @@ export { default as OrgChart } from './screens/OrgChart';
 export { default as Tags } from './screens/Tags';
 export { DataHealth } from './screens/DataHealth';
 export { default as Checklists } from '@ui/personnel/Checklists';
+export { default as LetterTemplates } from '@ui/personnel/LetterTemplates';
 export { default as ComplianceCalendar } from '@ui/personnel/ComplianceCalendar';
 export { Departments, EmployeeTypes, JobRoles, WorkTypes } from '@ui/personnel/StructureList';
 export { JobPositions } from './screens/Designations';

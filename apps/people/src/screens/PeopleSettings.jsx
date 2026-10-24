@@ -29,6 +29,7 @@ const GROUPS = [
       ['workTypes', 'Office, remote, hybrid, field'],
       ['tags', 'Labels to group people any way you like'],
       ['checklists', 'Joining and leaving checklists'],
+      ['letterTemplates', 'Offer, appointment, relieving and other letters the company issues'],
       ['selfService', 'Who can sign in to the employee app'],
     ],
   },

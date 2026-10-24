@@ -25,6 +25,12 @@ import {
   listDocuments,
   uploadDocument,
   getDocument,
+  getLetterTemplates,
+  issueLetter,
+  listDocumentVersions,
+  replaceDocument,
+  requestLetter,
+  serviceCertificateDue,
   deleteDocument,
   listStructure,
   listTags,
@@ -1482,6 +1488,7 @@ const DOC_KINDS = [
   ['PAYSLIP', 'Payslip'],
   ['WORK_PERMIT', 'Work permit / licence'],
   ['CERTIFICATE', 'Certificate'],
+  ['LETTER', 'Letter issued'],
   ['OTHER', 'Other'],
 ];
 /* A permit or certificate also says what the person may not do while it is lapsed (LIFE-08). */
@@ -1538,9 +1545,47 @@ export function EmployeeDocuments({ employeeId }) {
     load();
   };
   const [today] = useState(() => new Date().toISOString().slice(0, 10));
+  /* Replacing keeps the earlier file (DOC-02): a hidden picker per row, then the earlier versions on demand. */
+  const replaceInput = useRef(null);
+  const [replacing, setReplacing] = useState(null);
+  const [versions, setVersions] = useState({});
+  const pickReplacement = (d) => {
+    setReplacing(d);
+    replaceInput.current?.click();
+  };
+  const replaceWith = async (e) => {
+    const f = e.target.files?.[0];
+    const d = replacing;
+    e.target.value = '';
+    if (!f || !d) return;
+    setBusy(true);
+    try {
+      const dataUrl = await new Promise((resolve, reject) => { const r = new FileReader(); r.onload = () => resolve(r.result); r.onerror = () => reject(new Error('Could not read the file.')); r.readAsDataURL(f); });
+      await replaceDocument(d.id, { data: dataUrl, mime: f.type });
+      notify.success(`${d.title} replaced; the earlier version is kept.`);
+      setVersions({});
+      load();
+    } catch (err) {
+      notify.error(String(err?.message || 'Not replaced.'));
+    } finally {
+      setBusy(false);
+      setReplacing(null);
+    }
+  };
+  const showVersions = async (d) => {
+    if (versions[d.id]) return setVersions((v) => ({ ...v, [d.id]: null }));
+    try {
+      const list = await listDocumentVersions(d.id);
+      setVersions((v) => ({ ...v, [d.id]: list }));
+    } catch (err) {
+      notify.error(String(err?.message || 'Could not load versions.'));
+    }
+  };
 
   return (
     <div className="space-y-3">
+      <input ref={replaceInput} type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx,.xlsx,.txt" className="hidden" onChange={replaceWith} aria-label="Replacement file" />
+      <IssueLetter employeeId={employeeId} onIssued={load} />
       <form onSubmit={upload} className="ui-card p-3 space-y-2">
         <div className="flex flex-wrap gap-2">
           <select className="ui-select" value={form.kind} onChange={(e) => setForm({ ...form, kind: e.target.value })} aria-label="Kind">
@@ -1570,13 +1615,94 @@ export function EmployeeDocuments({ employeeId }) {
                 <span className="font-medium">{d.title}</span>
                 <span className="ui-caption block">{DOC_KINDS.find(([k]) => k === d.kind)?.[1] || d.kind} · {kb(d.size)} · {new Date(d.createdAt).toLocaleDateString('en-IN', { dateStyle: 'medium' })}{d.expiresOn ? (d.expiresOn < today ? ` · expired ${d.expiresOn}` : ` · valid until ${d.expiresOn}`) : ''}{d.restrictsWork ? ` · until renewed: ${d.restrictsWork}` : ''}{d.classification !== 'EMPLOYEE_VISIBLE' ? ` · ${docWhoLabel(d)}` : ''}</span>
                 {d.expiresOn && d.expiresOn < today ? <span className="ui-pill ui-pill-neg mt-1">Expired</span> : null}
+                {d.version > 1 ? <button type="button" className="ui-link ui-caption block" onClick={() => showVersions(d)}>Version {d.version} · {versions[d.id] ? 'hide earlier versions' : `${d.version - 1} earlier`}</button> : null}
+                {d.templateVersion != null ? <span className="ui-caption block">Issued from template v{d.templateVersion}</span> : null}
+                {versions[d.id] ? (
+                  <ul className="mt-1 space-y-0.5 ui-caption" aria-label="Earlier versions">
+                    {versions[d.id].filter((v) => v.id !== d.id).map((v) => (
+                      <li key={v.id}>v{v.version} · {kb(v.size)} · {new Date(v.createdAt).toLocaleDateString('en-IN', { dateStyle: 'medium' })} · <button type="button" className="ui-link" onClick={() => open(v)}>Download</button></li>
+                    ))}
+                  </ul>
+                ) : null}
               </span>
               <button type="button" className="ui-link" onClick={() => open(d)}>Download</button>
+              {d.kind !== 'LETTER' ? <button type="button" className="ui-link" disabled={busy} onClick={() => pickReplacement(d)}>Replace</button> : null}
               <button type="button" className="ui-link" onClick={() => remove(d)}>Remove</button>
             </li>
           ))}
         </ul>
       )}
     </div>
+  );
+}
+
+
+/**
+ * Issue a letter onto the record (DOC-04): pick the kind, fill in what the
+ * template asks for, and a PDF lands under Documents naming the template
+ * version. A service certificate shows when it is due (DOC-07).
+ */
+function IssueLetter({ employeeId, onIssued }) {
+  const [openForm, setOpenForm] = useState(false);
+  const [templates, setTemplates] = useState(null);
+  const [kind, setKind] = useState('APPOINTMENT');
+  const [extra, setExtra] = useState({});
+  const [due, setDue] = useState(null);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    if (!openForm || templates) return;
+    getLetterTemplates().then(setTemplates).catch((e) => notify.error(String(e?.message || 'Could not load letters.')));
+  }, [openForm, templates]);
+  useEffect(() => {
+    if (!openForm || kind !== 'SERVICE_CERT') { setDue(null); return; }
+    serviceCertificateDue(employeeId).then(setDue).catch(() => setDue(null));
+  }, [openForm, kind, employeeId]);
+  if (!openForm) return <div className="flex justify-end"><button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => setOpenForm(true)}>Issue a letter</button></div>;
+  const t = templates?.templates.find((x) => x.kind === kind);
+  const issue = async (e) => {
+    e.preventDefault();
+    setBusy(true);
+    try {
+      const r = await issueLetter(employeeId, { kind, extra });
+      notify.success(`${r.document.title} is on the record (template v${r.document.templateVersion}).`);
+      setOpenForm(false);
+      setExtra({});
+      onIssued();
+    } catch (err) {
+      notify.error(String(err?.message || 'Not issued.'));
+    } finally {
+      setBusy(false);
+    }
+  };
+  const asked = async () => {
+    try {
+      const r = await requestLetter(employeeId, { kind });
+      notify.success(`Noted. Due ${r.dueOn}${r.source ? ` (${r.dueDays} days by law)` : ''}; the task is on the record.`);
+    } catch (err) {
+      notify.error(String(err?.message || 'Not noted.'));
+    }
+  };
+  return (
+    <form onSubmit={issue} className="ui-card p-3 space-y-2" aria-label="Issue a letter">
+      <div className="flex flex-wrap items-center gap-2">
+        <select className="ui-select" value={kind} onChange={(e) => { setKind(e.target.value); setExtra({}); }} aria-label="Letter">
+          {(templates?.kinds || [{ kind: 'APPOINTMENT', label: 'Appointment letter' }]).map((k) => <option key={k.kind} value={k.kind}>{k.label}</option>)}
+        </select>
+        {t ? <span className="ui-caption">{t.builtIn ? 'Built-in letter' : `Template v${t.version}`}</span> : null}
+        <button type="button" className="ui-link ml-auto" onClick={() => setOpenForm(false)}>Close</button>
+      </div>
+      {due ? <p className="ui-caption">{due.note}{due.dueOn ? ` Asked today: due ${due.dueOn}.` : ''} <button type="button" className="ui-link" onClick={asked}>Note that it was asked for</button></p> : null}
+      {t?.extra?.length ? (
+        <div className="grid gap-2 sm:grid-cols-2">
+          {t.extra.map((k) => (
+            <label key={k} className="block">
+              <span className="ui-label">{k.replace(/([A-Z])/g, ' $1').replace(/^./, (c) => c.toUpperCase())}</span>
+              <input className="ui-input w-full" value={extra[k] || ''} onChange={(e) => setExtra({ ...extra, [k]: e.target.value })} maxLength={1000} />
+            </label>
+          ))}
+        </div>
+      ) : null}
+      <div className="flex justify-end"><button type="submit" className="ui-btn ui-btn-primary ui-btn-sm" disabled={busy || !t}>{busy ? 'Issuing…' : 'Issue as PDF'}</button></div>
+    </form>
   );
 }
