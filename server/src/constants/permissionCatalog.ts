@@ -685,6 +685,20 @@ export const ROLE_PRESETS: Record<string, RolePreset> = {
       ['ATTENDANCE', 'Employee Portal', ['*']],
     ],
   },
+  TEAM_MANAGER: {
+    label: 'Team Manager',
+    group: 'People',
+    description: 'Their own team only: the people who report to them, their documents and their joining and leaving tasks; no statutory details',
+    roleType: 'CUSTOM',
+    ownDocumentsOnly: true,
+    grants: [
+      ['PEOPLE', 'Employees', [A.VIEW]],
+      ['PEOPLE', 'Documents', [A.VIEW]],
+      ['PEOPLE', 'Org Structure', [A.VIEW]],
+      ['ATTENDANCE', 'Leave Requests', [A.VIEW, A.APPROVE]],
+      ['ATTENDANCE', 'My Attendance', [A.VIEW]],
+    ],
+  },
   COMPLIANCE_OFFICER: {
     label: 'Compliance Officer',
     group: 'People',

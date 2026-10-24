@@ -21,6 +21,7 @@ import { writeChangeLog, type Actor, type Change, type ChangeSource } from '../s
 import { checkIdentifier, maskTail } from '../services/people/identifiers.js';
 import { PAYROLL_STATUTORY_FIELDS, maskedStatutory, revealStatutory } from '../services/payroll/statutoryRead.js';
 import { stepUpRefusal } from '../services/stepUp.js';
+import { inScope, scopeWhere, teamScope } from '../services/people/scope.js';
 import { dataHealth } from '../services/people/dataHealth.js';
 import { PAYROLL_MODULE, PAYROLL_RESOURCE } from '../services/payroll/guards.js';
 import { KINDS, READER_ACCESS_ITEM, checklistOf, cleanItems, itemsFor, openTasks, startChecklist, type Kind as ChecklistKind } from '../services/people/checklists.js';
@@ -99,6 +100,7 @@ const employeeSchema = z.object({
   employeeTypeId: text(60),
   workTypeId: text(60),
   reportingManagerId: text(60),
+  dottedManagerId: text(60),
   workEmail: z.string().trim().email('That is not an email address.').max(160).optional().nullable().or(z.literal('')),
   workPhone: text(40),
   workLocation: text(120),
@@ -183,7 +185,7 @@ const employeeData = (b: EmployeeBody) => {
   const keys = [
     'firstName', 'lastName', 'phone', 'branchId', 'dateOfJoining', 'dateOfLeaving', 'notes', 'gender', 'dateOfBirth',
     'maritalStatus', 'photoUrl', 'addressLine', 'city', 'state', 'country', 'pincode', 'emergencyContactName',
-    'emergencyContactPhone', 'emergencyContactRelation', 'reportingManagerId', 'workPhone', 'workLocation',
+    'emergencyContactPhone', 'emergencyContactRelation', 'reportingManagerId', 'dottedManagerId', 'workPhone', 'workLocation',
     'probationEndDate', 'contractEndDate', 'email', 'personalEmail', 'workEmail', 'devicePin',
     'cardNumber', 'devicePassword', 'guardianName',
   ] as const;
@@ -195,7 +197,7 @@ const employeeData = (b: EmployeeBody) => {
 };
 
 const withMeta = async (orgId: string, rows: any[]) => {
-  const managerIds = [...new Set(rows.map((r) => r.reportingManagerId).filter(Boolean))] as string[];
+  const managerIds = [...new Set(rows.flatMap((r) => [r.reportingManagerId, r.dottedManagerId]).filter(Boolean))] as string[];
   const managers = managerIds.length
     ? await peoplePrisma.employee.findMany({ where: { orgId, id: { in: managerIds } }, select: { id: true, name: true } })
     : [];
@@ -227,6 +229,7 @@ const withMeta = async (orgId: string, rows: any[]) => {
     establishment: r.establishmentId ? establishmentOf.get(r.establishmentId)?.name || null : null,
     workState: r.establishmentId ? establishmentOf.get(r.establishmentId)?.state || null : null,
     reportingManagerName: r.reportingManagerId ? managerName.get(r.reportingManagerId) || null : null,
+    dottedManagerName: r.dottedManagerId ? managerName.get(r.dottedManagerId) || null : null,
     tags: (r.tags || []).map((l: any) => ({ id: l.tag.id, name: l.tag.name, color: l.tag.color })),
   }));
 };
@@ -277,7 +280,7 @@ peopleRouter.get('/orgs/:orgId/people/employees/:id/statutory', async (req, res)
   if (!(await peopleRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   const employee = await peoplePrisma.employee.findFirst({ where: { id: String(req.params.id), accountId, orgId }, select: { id: true } });
-  if (!employee) return res.status(404).json({ error: 'No such employee.' });
+  if (!employee || !inScope(await teamScope(req), employee.id)) return res.status(404).json({ error: 'No such employee.' });
   /* Without the grant the section says so, rather than refusing the whole record. */
   if (await authorize(req, PEOPLE_MODULE, PermissionAction.VIEW, STATUTORY)) return res.json({ visible: false });
   const [payroll, identity] = await Promise.all([maskedStatutory(orgId, employee.id), peoplePrisma.employeeIdentity.findUnique({ where: { employeeId: employee.id } })]);
@@ -389,9 +392,12 @@ peopleRouter.get('/orgs/:orgId/people/employees', can(PermissionAction.VIEW, EMP
   const q = String(req.query.q || '').trim();
   const pick = (k: string) => String(req.query[k] || '').trim() || undefined;
   const tagId = pick('tagId');
+  /* A role limited to its own records sees its own team only (services/people/scope.ts). */
+  const scope = await teamScope(req);
   const where: any = {
     accountId,
     orgId,
+    ...scopeWhere(scope),
     ...(pick('status') ? { status: pick('status') } : {}),
     ...(pick('departmentId') ? { departmentId: pick('departmentId') } : {}),
     ...(pick('jobPositionId') ? { jobPositionId: pick('jobPositionId') } : {}),
@@ -441,7 +447,7 @@ peopleRouter.get('/orgs/:orgId/people/employees/:id', can(PermissionAction.VIEW,
     where: { id: String(req.params.id), accountId, orgId },
     include: { tags: { include: { tag: true } } },
   });
-  if (!row) return res.status(404).json({ error: 'No such employee.' });
+  if (!row || !inScope(await teamScope(req), row.id)) return res.status(404).json({ error: 'No such employee.' });
   const reports = await peoplePrisma.employee.findMany({
     where: { orgId, reportingManagerId: row.id, status: { not: 'LEFT' } },
     select: { id: true, name: true, designation: true, photoUrl: true },
@@ -477,6 +483,7 @@ peopleRouter.post('/orgs/:orgId/people/employees', can(PermissionAction.CREATE, 
   try {
     const structure = await resolveStructure(orgId, b);
     await checkManager(orgId, null, blank(b.reportingManagerId));
+    await checkManager(orgId, null, blank(b.dottedManagerId));
     const row = await createEmployee(actorOf(req, 'FORM'), {
       accountId,
       orgId,
@@ -513,6 +520,7 @@ peopleRouter.put('/orgs/:orgId/people/employees/:id', can(PermissionAction.EDIT,
   try {
     const structure = await resolveStructure(orgId, b);
     if (b.reportingManagerId !== undefined) await checkManager(orgId, existing.id, blank(b.reportingManagerId));
+    if (b.dottedManagerId !== undefined) await checkManager(orgId, existing.id, blank(b.dottedManagerId));
     const nameChanged = b.name !== undefined || b.firstName !== undefined || b.lastName !== undefined;
     /*
      * A job change dated in the future waits (FND-02): the job fields go to
@@ -699,7 +707,7 @@ peopleRouter.get('/orgs/:orgId/people/employees/:id/history', can(PermissionActi
   if (!(await peopleRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   const employee = await peoplePrisma.employee.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
-  if (!employee) return res.status(404).json({ error: 'No such employee.' });
+  if (!employee || !inScope(await teamScope(req), employee.id)) return res.status(404).json({ error: 'No such employee.' });
   res.json({ events: await timelineOf(orgId, employee), episodes: await episodesOf(orgId, employee) });
 });
 
@@ -869,8 +877,8 @@ peopleRouter.get('/orgs/:orgId/people/org-chart', can(PermissionAction.VIEW, EMP
   if (!(await peopleRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   const nodes = await peoplePrisma.employee.findMany({
-    where: { accountId, orgId, status: { not: 'LEFT' } },
-    select: { id: true, name: true, code: true, designation: true, department: true, photoUrl: true, reportingManagerId: true },
+    where: { accountId, orgId, status: { not: 'LEFT' }, ...scopeWhere(await teamScope(req)) },
+    select: { id: true, name: true, code: true, designation: true, department: true, photoUrl: true, reportingManagerId: true, dottedManagerId: true },
     orderBy: { name: 'asc' },
   });
   res.json({ nodes });
@@ -1138,8 +1146,9 @@ peopleRouter.get('/orgs/:orgId/people/documents', can(PermissionAction.VIEW, DOC
   if (!(await peopleRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   const classification = { in: await readableClassifications(req) };
+  const scope = await teamScope(req);
   const rows = await peoplePrisma.employeeDocument.findMany({
-    where: { accountId, orgId, classification }, orderBy: { createdAt: 'desc' },
+    where: { accountId, orgId, classification, ...(scope.all ? {} : { employeeId: { in: scope.ids } }) }, orderBy: { createdAt: 'desc' },
     select: { ...DOC_SELECT, employee: { select: { name: true, code: true } } },
   });
   res.json({ documents: rows.map((r) => ({ ...docRow(r), employeeName: r.employee.name, employeeCode: r.employee.code })) });
@@ -1149,6 +1158,7 @@ peopleRouter.get('/orgs/:orgId/people/employees/:id/documents', can(PermissionAc
   if (!(await peopleRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   const classification = { in: await readableClassifications(req) };
+  if (!inScope(await teamScope(req), String(req.params.id))) return res.status(404).json({ error: 'No such employee.' });
   const rows = await peoplePrisma.employeeDocument.findMany({ where: { accountId, orgId, employeeId: String(req.params.id), classification }, orderBy: { createdAt: 'desc' }, select: DOC_SELECT });
   res.json({ documents: rows.map(docRow) });
 });
@@ -1183,7 +1193,7 @@ peopleRouter.get('/orgs/:orgId/people/documents/:docId', can(PermissionAction.VI
   const { accountId, orgId } = req.tenant!;
   const d = await peoplePrisma.employeeDocument.findFirst({ where: { id: String(req.params.docId), accountId, orgId } });
   /* A file the caller may not open reads as absent, so its title does not leak through a 403. */
-  if (!d || !(await readableClassifications(req)).includes(d.classification as DocClass)) return res.status(404).json({ error: 'No such document.' });
+  if (!d || !(await readableClassifications(req)).includes(d.classification as DocClass) || !inScope(await teamScope(req), d.employeeId)) return res.status(404).json({ error: 'No such document.' });
   res.json({ document: { ...docRow(d), dataUrl: `data:${d.mime};base64,${Buffer.from(d.data).toString('base64')}` } });
 });
 

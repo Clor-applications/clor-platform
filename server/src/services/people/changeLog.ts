@@ -34,7 +34,7 @@ export const LOGGED_EMPLOYEE_FIELDS = [
   'gender', 'dateOfBirth', 'maritalStatus', 'personalEmail', 'photoUrl', 'addressLine', 'city', 'state', 'country', 'pincode',
   'emergencyContactName', 'emergencyContactPhone', 'emergencyContactRelation',
   'departmentId', 'businessUnitId', 'gradeId', 'costCenterId', 'jobPositionId', 'jobRoleId', 'employeeTypeId', 'workTypeId',
-  'reportingManagerId', 'workEmail', 'workPhone', 'workLocation', 'devicePin', 'areaId', 'contractorId', 'cardNumber',
+  'reportingManagerId', 'dottedManagerId', 'workEmail', 'workPhone', 'workLocation', 'devicePin', 'areaId', 'contractorId', 'cardNumber',
   'devicePassword', 'devicePrivilege', 'attendanceRequired', 'guardianName', 'leavingType', 'leavingReason', 'portalEnabled',
   'mobilePunch', 'geofenceId', 'probationEndDate', 'contractEndDate', 'phonePunchMode', 'selfieRequired',
 ] as const;

@@ -10,6 +10,7 @@ import { DOC_WHO_CAN_SEE, docWhoLabel } from './documentClassification';
 import { downloadCsvTemplate, parseCsv, readFileText } from '@ui/utils/csv';
 import { formatDateIn } from '@ui/utils/dates';
 import { hasApp } from '@platform/context';
+import { usePermissions } from '@ui/permissions/usePermissions';
 import {
   CHECKLIST_OWNER,
   LEAVING_TYPES,
@@ -423,6 +424,8 @@ const Field = ({ label, value }) => (
 
 function EmployeeFile({ id, onClose, onEdit, onDeleted }) {
   const [person, setPerson] = useState(null);
+  const perms = usePermissions();
+  const allowed = (key) => Boolean(perms?.isAdmin || perms?.permissions?.has?.(key));
   const [resigning, setResigning] = useState(false);
   const [tab, setTab] = useState('about');
   const [notes, setNotes] = useState([]);
@@ -562,8 +565,9 @@ function EmployeeFile({ id, onClose, onEdit, onDeleted }) {
               ['work', 'Work'],
               ['history', 'History'],
               ['checklist', 'Checklist'],
-              ['notes', 'Notes'],
-              ['documents', 'Documents'],
+              /* A tab shows only to someone who may read what is on it (CORE-05). */
+              ...(allowed('PEOPLE::Employee Notes::VIEW') ? [['notes', 'Notes']] : []),
+              ...(allowed('PEOPLE::Documents::VIEW') ? [['documents', 'Documents']] : []),
             ].map(([k, label]) => (
               <button
                 key={k}
@@ -606,6 +610,7 @@ function EmployeeFile({ id, onClose, onEdit, onDeleted }) {
               <Field label="Location" value={person.areaName} />
               <Field label="Cost centre" value={person.costCenterName} />
               <Field label="Reports to" value={person.reportingManagerName} />
+              <Field label="Also reports to" value={person.dottedManagerName} />
               <Field label="Work email" value={person.workEmail} />
               <Field label="Work phone" value={person.workPhone} />
               <Field label="Work location" value={person.workLocation} />
@@ -704,8 +709,8 @@ function EmployeeFile({ id, onClose, onEdit, onDeleted }) {
 
 /* The fields whose change is recorded in employment history (server: TRACKED in services/people/employmentHistory.ts). */
 /* The job fields a change may be dated for, as the record names them (server: SCHEDULABLE_FIELDS). */
-const SCHEDULED_LABELS = { departmentId: 'Department', businessUnitId: 'Business unit', areaId: 'Location', branchId: 'Branch', establishmentId: 'Establishment', jobPositionId: 'Designation', jobRoleId: 'Job role', reportingManagerId: 'Reports to', employeeTypeId: 'Employee type', workTypeId: 'Work type', contractorId: 'Contractor', gradeId: 'Grade', costCenterId: 'Cost centre', status: 'Status' };
-const HISTORY_FIELDS = ['businessUnitId', 'gradeId', 'costCenterId', 'departmentId', 'areaId', 'establishmentId', 'jobPositionId', 'jobRoleId', 'reportingManagerId', 'employeeTypeId', 'workTypeId', 'contractorId'];
+const SCHEDULED_LABELS = { departmentId: 'Department', businessUnitId: 'Business unit', areaId: 'Location', branchId: 'Branch', establishmentId: 'Establishment', jobPositionId: 'Designation', jobRoleId: 'Job role', reportingManagerId: 'Reports to', dottedManagerId: 'Also reports to', employeeTypeId: 'Employee type', workTypeId: 'Work type', contractorId: 'Contractor', gradeId: 'Grade', costCenterId: 'Cost centre', status: 'Status' };
+const HISTORY_FIELDS = ['businessUnitId', 'gradeId', 'costCenterId', 'departmentId', 'areaId', 'establishmentId', 'jobPositionId', 'jobRoleId', 'reportingManagerId', 'dottedManagerId', 'employeeTypeId', 'workTypeId', 'contractorId'];
 const HISTORY_SOURCE = { FORM: 'Employee form', TRANSFER: 'Transfer', RESIGNATION: 'Resignation', REHIRE: 'Rehire', IMPORT: 'Import' };
 const HISTORY_TONE = { JOINED: 'pos', LEFT: 'neg', REHIRED: 'pos', TRANSFERRED: 'warn', CHANGED: 'neutral' };
 
@@ -1028,7 +1033,7 @@ function EmployeeForm({ initial, lists, people, onClose, onSaved }) {
       'name', 'firstName', 'lastName', 'code', 'email', 'phone', 'status', 'dateOfJoining', 'dateOfLeaving', 'gender', 'dateOfBirth',
       'maritalStatus', 'personalEmail', 'photoUrl', 'addressLine', 'city', 'state', 'country', 'pincode', 'emergencyContactName',
       'emergencyContactPhone', 'emergencyContactRelation', 'departmentId', 'jobPositionId', 'jobRoleId', 'employeeTypeId', 'workTypeId',
-      'reportingManagerId', 'workEmail', 'workPhone', 'workLocation', 'devicePin', 'probationEndDate', 'contractEndDate', 'tagIds',
+      'reportingManagerId', 'dottedManagerId', 'workEmail', 'workPhone', 'workLocation', 'devicePin', 'probationEndDate', 'contractEndDate', 'tagIds',
       'areaId', 'establishmentId', 'contractorId', 'businessUnitId', 'gradeId', 'costCenterId', 'cardNumber', 'devicePrivilege', 'attendanceRequired', 'guardianName',
     ];
     const body = Object.fromEntries(keys.filter((k) => form[k] !== undefined).map((k) => [k, form[k] === '' ? null : form[k]]));
@@ -1147,6 +1152,7 @@ function EmployeeForm({ initial, lists, people, onClose, onSaved }) {
           {lists.areas.length ? select('areaId', 'Location', lists.areas) : null}
           {lists.centres.length ? select('costCenterId', 'Cost centre', lists.centres) : null}
           {select('reportingManagerId', 'Reports to', people.filter((p) => p.id !== form.id && p.status !== 'LEFT'))}
+          {select('dottedManagerId', 'Also reports to (dotted line)', people.filter((p) => p.id !== form.id && p.status !== 'LEFT'))}
         </section>
 
         <section className="grid gap-4 sm:grid-cols-2">

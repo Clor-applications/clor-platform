@@ -114,6 +114,8 @@ model Employee {
   workTypeId          String?
   /// Another Employee in the same org; drives the org chart.
   reportingManagerId  String?
+  /// A second, dotted-line manager (ORG-02): sees the person as a report, approves nothing by default.
+  dottedManagerId     String?
   workEmail           String?
   workPhone           String?
   workLocation        String?

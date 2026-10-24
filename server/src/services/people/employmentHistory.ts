@@ -26,6 +26,7 @@ export const TRACKED: Record<string, { label: string; kind: 'TRANSFERRED' | 'CHA
   jobPositionId: { label: 'Designation', kind: 'CHANGED' },
   jobRoleId: { label: 'Job role', kind: 'CHANGED' },
   reportingManagerId: { label: 'Reporting manager', kind: 'CHANGED' },
+  dottedManagerId: { label: 'Dotted-line manager', kind: 'CHANGED' },
   employeeTypeId: { label: 'Employee type', kind: 'CHANGED' },
   workTypeId: { label: 'Work type', kind: 'CHANGED' },
   contractorId: { label: 'Contractor', kind: 'CHANGED' },
@@ -50,6 +51,7 @@ async function labelOf(orgId: string, field: string, id: string | null | undefin
     case 'workTypeId': return (await peoplePrisma.workType.findFirst(by))?.name ?? null;
     case 'contractorId': return (await peoplePrisma.contractor.findFirst(by))?.name ?? null;
     case 'reportingManagerId': return (await peoplePrisma.employee.findFirst(by))?.name ?? null;
+    case 'dottedManagerId': return (await peoplePrisma.employee.findFirst(by))?.name ?? null;
     case 'businessUnitId': return (await peoplePrisma.businessUnit.findFirst(by))?.name ?? null;
     case 'gradeId': return (await peoplePrisma.grade.findFirst(by))?.name ?? null;
     case 'costCenterId': return (await peoplePrisma.costCenter.findFirst(by))?.name ?? null;
@@ -80,6 +82,7 @@ export function impactOf(kind: string, field: string | null, to: string | null, 
     case 'branchId': return to ? `Payroll and statutory registers count this person under ${to}.` : null;
     case 'areaId': return to ? `Attendance uses ${to}'s work sites and holidays.` : null;
     case 'reportingManagerId': return to ? `Leave and attendance corrections go to ${to} for approval.` : 'Leave and corrections go to HR: no reporting manager.';
+    case 'dottedManagerId': return to ? `${to} sees this person as a report; approvals stay with the reporting manager.` : null;
     case 'jobPositionId': return to ? `Payslips from the next run show ${to}.` : null;
     case 'employeeTypeId':
     case 'workTypeId': return to ? `Check the salary structure and PF/ESI eligibility for ${to}.` : null;
