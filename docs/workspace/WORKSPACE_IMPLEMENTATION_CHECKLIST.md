@@ -46,21 +46,21 @@ Audited on branch `claude/subscription-provisioning-gap-003-b84bad` (PR #23).
 | W-1.3 | Account-level audit events (AuditLog requires an orgId today) | DB, server | TESTED | W-1.1 | Medium |
 | W-1.4 | Account powers from AccountMembership, not "admin of some company" (`auth.ts:764`) | Server | TESTED | W-1.1 | High |
 | W-2.1 | Account switcher; company switcher grouped by account; context banner (account · company · app · delegated) | UI | TESTED | W-1.1 | Medium |
-| W-2.2 | Workspace sidebar groups per spec (Main / Administration / Support), 404, access-denied with reason, global loading/error/empty states | UI | NOT_STARTED | — | Low |
-| W-2.3 | Spec palette inside the Workspace only (D-3) | UI | NOT_STARTED | — | Low |
+| W-2.2 | Workspace sidebar groups per spec (Main / Administration / Support), 404, access-denied with reason, global loading/error/empty states | UI | TESTED | — | Low |
+| W-2.3 | Spec palette inside the Workspace only (D-3) | UI | IMPLEMENTED_UNVERIFIED | — | Low |
 | W-3.1 | Invitations: hashed single-use token, expiry, resend, revoke, idempotent accept, audit, seat policy documented | DB, server, UI | TESTED | W-1.1 | High |
 | W-3.2 | Invite wizard with access preview; no granting above own authority | UI, server | TESTED | W-3.1 | High |
 | W-4.1 | Members directory with filters; member detail with effective access (accounts, companies, apps, roles, scopes, who granted, when) | UI, server | TESTED | W-1.1 | Medium |
 | W-4.2 | Per-person app assignment (separate from subscription) | DB, server, UI | IN_PROGRESS | W-1.1 | High |
 | W-4.3 | Suspend / remove from company / revoke app / remove from account as separate actions | Server, UI | TESTED | W-4.1 | Medium |
-| W-5.1 | Role catalogue grouped Workspace / Company / per app, from the existing permission catalogue | UI | NOT_STARTED | — | Low |
-| W-5.2 | Step-up for role elevation, SSO change, payroll-sensitive grants | Server | NOT_STARTED | — | Medium |
-| W-6.1 | Plan limits as data, not code (`planCatalog.ts`); atomic quota checks (today check-then-write) | DB, server | NOT_STARTED | — | High |
-| W-6.2 | Products & subscriptions page; subscription detail; usage page by product | UI | NOT_STARTED | W-6.1 | Medium |
+| W-5.1 | Role catalogue grouped Workspace / Company / per app, from the existing permission catalogue | UI | TESTED | — | Low |
+| W-5.2 | Step-up for role elevation, SSO change, payroll-sensitive grants | Server | TESTED | — | Medium |
+| W-6.1 | Plan limits as data, not code (`planCatalog.ts`); atomic quota checks (today check-then-write) | DB, server | TESTED | — | High |
+| W-6.2 | Products & subscriptions page; subscription detail; usage page by product | UI | IN_PROGRESS | W-6.1 | Medium |
 | W-6.3 | Payment provider integration (webhook signature, idempotency) | Server | BLOCKED | gateway not chosen | High |
-| W-7.1 | Security centre: privileged members, own and admin session revoke, sign-in events | UI, server | NOT_STARTED | W-1.1 | Medium |
-| W-7.2 | Audit page with filters and detail drawer, account-scoped | UI | IN_PROGRESS | W-1.3 | Low |
-| W-7.3 | Profile, account settings, notification preferences | UI, server | NOT_STARTED | W-1.1 | Low |
+| W-7.1 | Security centre: privileged members, own and admin session revoke, sign-in events | UI, server | TESTED | W-1.1 | Medium |
+| W-7.2 | Audit page with filters and detail drawer, account-scoped | UI | TESTED | W-1.3 | Low |
+| W-7.3 | Profile, account settings, notification preferences | UI, server | TESTED | W-1.1 | Low |
 | W-8.1 | CA-firm client accounts with explicit delegation | All | NOT_STARTED | W-1 … W-7 | High |
 | W-8.2 | Clor Operator: separate boundary and console (today an env allowlist on customer auth) | All | NOT_STARTED | W-1.3 | High |
 | W-9.1 | Two-account isolation tests through the production DB role and pooling (A-36) | Tests | NOT_STARTED | A-36 | High |
@@ -83,6 +83,19 @@ Audited on branch `claude/subscription-provisioning-gap-003-b84bad` (PR #23).
 - `server/src/__tests__/accountMembers.test.ts` — 7 tests: directory with roles and apps; access detail with granter and sensitive permissions; suspend blocks a real ledger request with ACCOUNT_MEMBER_SUSPENDED, reinstate restores it; owners only by owners, not on oneself, members refused; remove-from-company keeps the login and account membership and deletes the company's roles; another account sees and changes nothing; /account/me apps.
 - `Members.test.jsx` (3), `AdminHome.test.jsx` (5).
 - Browser, local API: directory and drawer on real data.
+
+## Evidence for W-2.2, W-5, W-6.1, W-7 (commits 0f1544e … 03e6a18)
+
+- W-2.2: browser — `?open=nosuchpage` shows "This page isn't here"; a member with no role opening Members gets "You can't open Members… view Users (Settings)". Sign-in/out now forgets per-company branch choices (stale branch bug found in the check).
+- W-5.1: `roleGroups.test.js`; browser shows the local roles grouped.
+- W-5.2: `accountMembers.test.ts` — administrator grant refused without a fresh code when the granter has an authenticator, allowed with one.
+- W-6.1: `quotaLock.test.ts` — bursts stay within the plan; with the lock disabled the users case fails (3 made, 2 allowed).
+- W-7.1: privileged-access summary and no-authenticator filter on Members; sign out everywhere (token refused at once).
+- W-7.2: `/account/audit` + Account activity; tests on order, filters, isolation.
+- W-7.3: account rename, audited.
+- W-2.3: the spec palette is on the Workspace screens built for it (home, Members, Invitations, Account activity); older Workspace screens (Company profile, Roles, Login & security) still use DESIGN.md.
+- W-6.2: Account & plan shows companies and people against the plan's limits; no per-product usage page.
+- Tracking documents (§23) written: REQUIREMENTS, ROUTE_MAP, UI_UX_SPEC, TENANCY_MODEL, PERMISSION_MATRIX, SUBSCRIPTION_ENTITLEMENTS, API_CONTRACTS, SECURITY_TEST_PLAN, CHANGELOG.
 
 ## Known issues outside this list
 
