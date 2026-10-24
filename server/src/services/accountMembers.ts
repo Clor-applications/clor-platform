@@ -5,6 +5,7 @@ import { resolveAccess } from './access.js';
 import { adminUserIds } from './roleGuards.js';
 import { appsForModule } from '../middleware/rbac.js';
 import { clearAccessCache } from '../utils/accessCache.js';
+import { revokeAllSessions } from './auth.js';
 import { ACCOUNT_ADMINS, AccountMembershipError, accountRoleOf, recordAccountEvent } from './accountMembership.js';
 
 /**
@@ -66,7 +67,7 @@ export async function memberDirectory(accountId: string) {
     ]);
     const people = await platformPrisma.user.findMany({
       where: { id: { in: rows.map((r) => r.userId) } },
-      select: { id: true, fullName: true, email: true, isActive: true, lastLoginAt: true },
+      select: { id: true, fullName: true, email: true, isActive: true, lastLoginAt: true, totpEnabledAt: true },
     });
     const byId = new Map(people.map((p) => [p.id, p]));
     const members = [];
@@ -80,6 +81,8 @@ export async function memberDirectory(accountId: string) {
         lastSignInAt: p?.lastLoginAt || null,
         accountRole: r.role,
         status: r.status,
+        /* W-7.1: whether they sign in with an authenticator — the security centre's first question about privileged people. */
+        authenticator: Boolean(p?.totpEnabledAt),
         companies: await footprint(accountId, r.userId, orgs),
       });
     }
@@ -215,4 +218,18 @@ export async function removeFromCompany(req: Request, targetUserId: string, orgI
   clearAccessCache();
   await recordAccountEvent({ accountId, actorUserId, action: 'MEMBER_REMOVED_FROM_COMPANY', targetType: 'AccountMembership', targetId: targetUserId, message: `Removed from ${org.name}`, metadata: { orgId } });
   return { removed: true };
+}
+
+/**
+ * W-7.1: sign a member out everywhere (every session, every device). For a
+ * lost laptop or a person leaving; their access is unchanged and they can sign
+ * in again — suspend them for that. Owners only by owners; not oneself (use
+ * "sign out everywhere" in your own security page).
+ */
+export async function signOutMember(req: Request, targetUserId: string) {
+  const { accountId, actorUserId } = await guard(req, targetUserId, 'MEMBER_SIGNED_OUT');
+  const result = await revokeAllSessions(targetUserId, 'ADMIN_REVOKED_ALL');
+  clearAccessCache();
+  await recordAccountEvent({ accountId, actorUserId, action: 'MEMBER_SIGNED_OUT', targetType: 'AccountMembership', targetId: targetUserId, message: `Signed out of ${result.count} session${result.count === 1 ? '' : 's'}` });
+  return { revoked: result.count };
 }

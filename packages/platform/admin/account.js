@@ -37,3 +37,4 @@ export const accountAudit = (filters = {}) => {
   const q = new URLSearchParams(Object.entries(filters).filter(([, v]) => v));
   return apiFetch(`/account/audit${q.toString() ? `?${q}` : ''}`, opts);
 };
+export const signOutMember = (userId) => apiFetch(`/account/members/${encodeURIComponent(userId)}/sign-out`, { method: 'POST', body: {}, ...opts });

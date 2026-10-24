@@ -133,4 +133,17 @@ describe('the account’s people', () => {
     const other = await owner('audit-other');
     expect((await request(app).get('/api/account/audit').set(at(other)).expect(200)).body.events.map((e: any) => e.targetId)).not.toContain(p.userId);
   });
+
+  it('signs a member out of every session while keeping their access, and flags who has no authenticator', async () => {
+    const o = await owner('signout');
+    const p = await person(o, 'laptop-lost', 'Accountant');
+    await request(app).get('/api/auth/me').set(at(p)).expect(200);
+    expect((await request(app).post(`/api/account/members/${p.userId}/sign-out`).set(at(o)).expect(200)).body.revoked).toBeGreaterThan(0);
+    expect((await request(app).get('/api/auth/me').set(at(p))).status).toBe(401);
+    /* Access unchanged: signing in again works. */
+    await request(app).post('/api/auth/login').send({ email: p.email, password: PASSWORD }).expect(200);
+    const d = (await request(app).get('/api/account/members/directory').set(at(o)).expect(200)).body;
+    expect(d.members.find((m: any) => m.userId === p.userId).authenticator).toBe(false);
+    expect((await request(app).post(`/api/account/members/${o.userId}/sign-out`).set(at(o)).expect(409)).body.code).toBe('SELF');
+  });
 });

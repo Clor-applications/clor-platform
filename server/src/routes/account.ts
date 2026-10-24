@@ -14,7 +14,7 @@ import {
   requireAccountRole,
   setAccountRole,
 } from '../services/accountMembership.js';
-import { appsOfPermissions, memberAccess, memberDirectory, removeFromCompany, setMemberStatus } from '../services/accountMembers.js';
+import { appsOfPermissions, memberAccess, memberDirectory, removeFromCompany, setMemberStatus, signOutMember } from '../services/accountMembers.js';
 import { resolveAccess } from '../services/access.js';
 import { InvitationError, createInvitation, listInvitations, resendInvitation, revokeInvitation } from '../services/accountInvitations.js';
 import { entitlementFor } from '../services/entitlements.js';
@@ -317,4 +317,13 @@ accountRouter.get('/account/audit', requireAccountRole(...ACCOUNT_ADMINS), async
     };
   });
   res.json(page);
+});
+
+/* W-7.1: sign a member out of every session (a lost laptop); their access stays. */
+accountRouter.post('/account/members/:userId/sign-out', requireAccountRole(...ACCOUNT_ADMINS), async (req, res) => {
+  try {
+    res.json(await signOutMember(req, String(req.params.userId)));
+  } catch (e) {
+    memberError(res, e);
+  }
 });

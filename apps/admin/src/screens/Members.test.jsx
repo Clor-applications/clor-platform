@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const api = vi.hoisted(() => ({ memberDirectory: vi.fn(), memberAccess: vi.fn(), suspendMember: vi.fn(), reinstateMember: vi.fn(), removeMemberFromCompany: vi.fn(), setAccountRole: vi.fn() }));
+const api = vi.hoisted(() => ({ memberDirectory: vi.fn(), memberAccess: vi.fn(), suspendMember: vi.fn(), reinstateMember: vi.fn(), removeMemberFromCompany: vi.fn(), setAccountRole: vi.fn(), signOutMember: vi.fn() }));
 vi.mock('@platform/admin/account', () => Object.fromEntries(Object.keys(api).map((k) => [k, (...a) => api[k](...a)])));
 vi.mock('@ui/components/ui/notify', () => ({ confirmDialog: vi.fn(async () => true) }));
 vi.mock('@ui/components/ui/Drawer', () => ({ default: ({ open, title, children }) => (open ? <div role="dialog" aria-label={title}>{children}</div> : null) }));
@@ -11,7 +11,7 @@ import Members, { filterMembers } from './Members';
 const DIR = {
   companies: [{ orgId: 'c1', name: 'Anand Traders' }, { orgId: 'c2', name: 'Anand Exports' }],
   members: [
-    { userId: 'u1', name: 'Rohit', email: 'rohit@x.in', accountRole: 'OWNER', status: 'ACTIVE', companies: [{ orgId: 'c1', name: 'Anand Traders', apps: ['accounting', 'payroll'], roles: ['Owner'] }] },
+    { userId: 'u1', name: 'Rohit', email: 'rohit@x.in', accountRole: 'OWNER', status: 'ACTIVE', authenticator: false, companies: [{ orgId: 'c1', name: 'Anand Traders', apps: ['accounting', 'payroll'], roles: ['Owner'] }] },
     { userId: 'u2', name: 'Kavya', email: 'kavya@x.in', accountRole: 'MEMBER', status: 'ACTIVE', companies: [{ orgId: 'c2', name: 'Anand Exports', apps: ['payroll'], roles: ['Payroll User'] }] },
     { userId: 'u3', name: 'Meera', email: 'meera@x.in', accountRole: 'MEMBER', status: 'SUSPENDED', companies: [] },
   ],
@@ -56,5 +56,21 @@ describe('Workspace → Members', () => {
     expect(api.suspendMember).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole('button', { name: /Suspend in the account/ }));
     await waitFor(() => expect(api.suspendMember).toHaveBeenCalledWith('u2'));
+  });
+
+  it('shows who holds privileged access and who of them has no authenticator', async () => {
+    render(<Members />);
+    expect(await screen.findByText('1 person can administer')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '1 of them sign in without an authenticator' }));
+    expect(filterMembers(DIR.members, { risk: 'no2fa' }).map((m) => m.userId)).toEqual(['u1']);
+    expect(screen.queryByRole('button', { name: /Kavya/ })).toBeNull();
+  });
+
+  it('signs a member out everywhere as its own act', async () => {
+    render(<Members />);
+    fireEvent.click(await screen.findByRole('button', { name: /Kavya/ }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Sign out everywhere' }));
+    await waitFor(() => expect(api.signOutMember).toHaveBeenCalledWith('u2'));
+    expect(api.suspendMember).not.toHaveBeenCalled();
   });
 });

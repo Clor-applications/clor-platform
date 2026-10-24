@@ -3,7 +3,7 @@ import { ChevronRight, Search, ShieldAlert, UserX } from 'lucide-react';
 
 import Drawer from '@ui/components/ui/Drawer';
 import { confirmDialog } from '@ui/components/ui/notify';
-import { memberAccess, memberDirectory, reinstateMember, removeMemberFromCompany, setAccountRole, suspendMember } from '@platform/admin/account';
+import { memberAccess, memberDirectory, reinstateMember, removeMemberFromCompany, setAccountRole, signOutMember, suspendMember } from '@platform/admin/account';
 import './workspace.css';
 
 /**
@@ -27,9 +27,14 @@ const APP_LABEL = { accounting: 'Accounting', payroll: 'Payroll', people: 'Peopl
 const day = (d) => (d ? new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Never');
 
 /** The directory rows that pass the filters. */
-export function filterMembers(members, { q = '', status = '', companyId = '', app = '', role = '' }) {
+/** W-7.1: who holds power here — an account owner or administrator, or an administrator of a company. */
+export const isPrivileged = (m) => m.accountRole === 'OWNER' || m.accountRole === 'ADMIN' || m.companies.some((c) => c.isAdmin);
+
+export function filterMembers(members, { q = '', status = '', companyId = '', app = '', role = '', risk = '' }) {
   const needle = q.trim().toLowerCase();
   return members.filter((m) => {
+    if (risk === 'privileged' && !isPrivileged(m)) return false;
+    if (risk === 'no2fa' && !(isPrivileged(m) && !m.authenticator && m.status === 'ACTIVE')) return false;
     if (needle && !`${m.name || ''} ${m.email || ''}`.toLowerCase().includes(needle)) return false;
     if (status && m.status !== status) return false;
     if (role && m.accountRole !== role) return false;
@@ -42,7 +47,7 @@ export function filterMembers(members, { q = '', status = '', companyId = '', ap
 export default function Members() {
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
-  const [filters, setFilters] = useState({ q: '', status: '', companyId: '', app: '', role: '' });
+  const [filters, setFilters] = useState({ q: '', status: '', companyId: '', app: '', role: '', risk: '' });
   const [openId, setOpenId] = useState('');
   const [detail, setDetail] = useState(null);
   const [notice, setNotice] = useState('');
@@ -94,6 +99,24 @@ export default function Members() {
             <p className="ws-lede">Everyone in the account: their account role, the companies they are in, and the apps their roles open.</p>
           </div>
         </header>
+
+        {data?.members?.length ? (
+          (() => {
+            const privileged = data.members.filter(isPrivileged);
+            const exposed = privileged.filter((m) => !m.authenticator && m.status === 'ACTIVE');
+            return (
+              <div className="ws-planned" aria-label="Privileged access">
+                <span className="ws-planned-label">Privileged access</span>
+                <button type="button" className="ws-link" onClick={() => setFilters((f) => ({ ...f, risk: f.risk === 'privileged' ? '' : 'privileged' }))} aria-pressed={filters.risk === 'privileged'}>
+                  {privileged.length} {privileged.length === 1 ? 'person' : 'people'} can administer
+                </button>
+                <button type="button" className="ws-link" onClick={() => setFilters((f) => ({ ...f, risk: f.risk === 'no2fa' ? '' : 'no2fa' }))} aria-pressed={filters.risk === 'no2fa'}>
+                  {exposed.length ? `${exposed.length} of them sign in without an authenticator` : 'all of them use an authenticator'}
+                </button>
+              </div>
+            );
+          })()
+        ) : null}
 
         <div className="flex flex-wrap gap-2 items-center" role="search">
           <label className="relative flex-1 min-w-[14rem]">
@@ -224,6 +247,16 @@ export default function Members() {
             ))}
 
             <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                className="ui-btn ui-btn-secondary"
+                onClick={async () => {
+                  if (!(await confirmDialog({ title: 'Sign out everywhere?', message: 'Every session on every device ends now. Their access stays; they can sign in again. To stop them, suspend instead.', confirmLabel: 'Sign out everywhere', tone: 'neutral' }))) return;
+                  act(() => signOutMember(detail.userId), 'Signed out of every session.');
+                }}
+              >
+                Sign out everywhere
+              </button>
               {detail.status === 'SUSPENDED' ? (
                 <button type="button" className="ui-btn ui-btn-secondary" onClick={() => act(() => reinstateMember(detail.userId), 'Reinstated: their roles work again.')}>
                   Reinstate in the account
