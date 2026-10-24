@@ -147,7 +147,7 @@ export default function Shell() {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [tabletPanel]);
-  const { user, tenant, tenants, accounts, deniedCode, restoring, setTenantId, signOut, addApp, twoFactorSetupRequired } = useSession();
+  const { user, tenant, tenants, accounts, createCompany, deniedCode, restoring, setTenantId, signOut, addApp, twoFactorSetupRequired } = useSession();
 
   /* The shared hook, not a second copy: the public page has a toggle too, and
      a private key here would mean the choice did not follow you inside. */
@@ -576,7 +576,7 @@ export default function Shell() {
   /* The rail of modules. On a desktop a tap opens the module's first screen; in the phone sheet it only
      switches the panel, so the person can pick a screen before the sheet closes (ClorTime's drawer). */
   const moduleRail = (
-    <nav className="ui-split-rail" aria-label={`${app?.name || ''} modules`}>
+    <nav className="ui-split-rail" data-app={app?.id || undefined} aria-label={`${app?.name || ''} modules`}>
       {modules.map((m) => {
         const Icon = m.icon;
         /* Two different facts: which module holds the screen you are on, and
@@ -595,8 +595,14 @@ export default function Shell() {
             data-current={current || undefined}
             title={m.label}
             onClick={() => {
-              const action = railAction({ single: m.single, phone, panelShown });
+              const action = railAction({ single: m.single, phone, panelShown, opensHome: Boolean(app?.railOpensHome), current });
               if (action === 'go') goTo(m.home);
+              else if (action === 'goOpen') {
+                /* W-R3: the module's landing page and its panel together; the screen follows the rail. */
+                goTo(m.home);
+                if (tablet) setTabletPanel(true);
+                else setPanelClosed(false);
+              }
               else if (action === 'close') { if (tablet) setTabletPanel(false); else setPanelClosed(true); }
               else {
                 setBrowseModule(phone || m.key !== currentModule?.key ? m.key : null);
@@ -1038,6 +1044,9 @@ export default function Shell() {
                         accountName={accounts.find((x) => x.id === tenant.accountId)?.name || ''}
                         openApp={openApp}
                         openMoreApps={() => setShowMoreApps(true)}
+                        /* W-R5: the Workspace's Companies page adds a company and switches to one. */
+                        addCompany={createCompany}
+                        switchCompany={setTenantId}
                         openScreen={(key, params) => {
                           if (!app?.screens?.[key]) return;
                           setScreenKey(key);

@@ -458,3 +458,281 @@
   font-weight: 400;
   color: rgb(var(--ws-muted));
 }
+
+/* ======================================================================
+   W-R: the Workspace redesign's shared pieces (spec "Complete premium
+   SaaS UI/UX redesign"): page head with breadcrumb, a main column with a
+   side column, stat strip, panels, a data table, usage meters and a
+   danger zone. Tokens as above; brand #F4511E per the redesign spec.
+   ====================================================================== */
+.ws {
+  --ws-accent: 244 81 30;
+  --ws-accent-hover: 217 67 19;
+  --ws-accent-soft: 255 240 232;
+  --ws-ok: 22 133 107;
+  --ws-warn: 183 121 31;
+  --ws-warn-soft: 253 244 228;
+  --ws-danger: 196 60 69;
+  --ws-danger-soft: 252 236 237;
+}
+.ws-crumbs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  font-size: 0.8125rem;
+  color: rgb(var(--ws-muted));
+}
+.ws-crumbs svg {
+  flex: none;
+}
+.ws-head-meta {
+  font-size: 0.8125rem;
+  color: rgb(var(--ws-muted));
+}
+/* Main column and a side column; the side column drops under on narrower screens. */
+.ws-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 20px;
+  align-items: start;
+}
+.ws-layout > .ws-main,
+.ws-layout > .ws-side {
+  display: grid;
+  gap: 20px;
+  min-width: 0;
+}
+@media (max-width: 1180px) {
+  .ws-layout {
+    grid-template-columns: 1fr;
+  }
+}
+/* Numbers that matter, each a way in. */
+.ws-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+.ws-stat {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 4px 12px;
+  align-items: start;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: rgb(var(--ws-surface));
+  border: 1px solid rgb(var(--ws-line));
+  text-align: left;
+  color: inherit;
+  font: inherit;
+}
+button.ws-stat {
+  cursor: pointer;
+  transition: border-color 0.18s var(--ws-ease), box-shadow 0.18s var(--ws-ease);
+}
+button.ws-stat:hover {
+  border-color: rgb(var(--ws-muted) / 0.45);
+  box-shadow: 0 10px 24px -18px rgb(var(--ws-ink) / 0.35);
+}
+.ws-stat .ws-tile {
+  grid-row: span 3;
+}
+.ws-stat-label {
+  font-size: 0.8125rem;
+  color: rgb(var(--ws-ink));
+  font-weight: 500;
+}
+.ws-stat-value {
+  font-size: 1.5rem;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  font-variant-numeric: tabular-nums;
+}
+.ws-stat-note {
+  font-size: 0.75rem;
+  color: rgb(var(--ws-muted));
+}
+/* A titled block of content: the one surface a section earns. */
+.ws-panel {
+  background: rgb(var(--ws-surface));
+  border: 1px solid rgb(var(--ws-line));
+  border-radius: 12px;
+  padding: 16px 18px;
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+.ws-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.ws-panel-title {
+  font-size: 1.0625rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+/* Rows inside a panel: icon, two lines, an end. */
+.ws-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+}
+.ws-list > li + li {
+  border-top: 1px solid rgb(var(--ws-line));
+}
+.ws-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 2px;
+  background: none;
+  border: 0;
+  text-align: left;
+  color: inherit;
+  font: inherit;
+}
+button.ws-item {
+  cursor: pointer;
+  border-radius: 8px;
+}
+button.ws-item:hover {
+  background: rgb(var(--ws-stone));
+}
+.ws-item-text {
+  display: grid;
+  min-width: 0;
+  flex: 1;
+}
+.ws-item-title {
+  font-size: 0.875rem;
+  font-weight: 550;
+}
+.ws-item-sub {
+  font-size: 0.75rem;
+  color: rgb(var(--ws-muted));
+}
+.ws-item-end {
+  font-size: 0.75rem;
+  color: rgb(var(--ws-muted));
+  white-space: nowrap;
+}
+.ws-tile--warn {
+  --tile-fg: rgb(var(--ws-warn));
+}
+.ws-tile--danger {
+  --tile-fg: rgb(var(--ws-danger));
+}
+.ws-tile--brand {
+  --tile-fg: rgb(var(--ws-accent));
+}
+/* Action buttons stacked in the side column. */
+.ws-actions-col {
+  display: grid;
+  gap: 8px;
+}
+.ws-actions-col .ws-btn {
+  justify-content: space-between;
+  width: 100%;
+}
+.ws-btn--danger {
+  background: rgb(var(--ws-danger));
+  color: rgb(var(--ws-surface));
+}
+.ws-btn--danger:hover {
+  filter: brightness(0.95);
+}
+/* Usage against an allowance. */
+.ws-meter {
+  display: grid;
+  gap: 6px;
+}
+.ws-meter-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.8125rem;
+}
+.ws-meter-row strong {
+  font-variant-numeric: tabular-nums;
+}
+.ws-meter-bar {
+  height: 6px;
+  border-radius: 999px;
+  background: rgb(var(--ws-stone));
+  overflow: hidden;
+}
+.ws-meter-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: rgb(var(--ws-ok));
+}
+.ws-meter-bar > span[data-tight] {
+  background: rgb(var(--ws-warn));
+}
+/* A data table: compact rows, one header style, scrolls in itself on a narrow screen. */
+.ws-table-wrap {
+  overflow-x: auto;
+  border: 1px solid rgb(var(--ws-line));
+  border-radius: 12px;
+  background: rgb(var(--ws-surface));
+}
+.ws-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+.ws-table th {
+  text-align: left;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: rgb(var(--ws-muted));
+  padding: 10px 14px;
+  background: rgb(var(--ws-stone));
+  border-bottom: 1px solid rgb(var(--ws-line));
+  white-space: nowrap;
+}
+.ws-table td {
+  padding: 10px 14px;
+  border-bottom: 1px solid rgb(var(--ws-line));
+  vertical-align: middle;
+}
+.ws-table tr:last-child td {
+  border-bottom: 0;
+}
+.ws-table .num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.ws-table th button {
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+/* The one place a destructive act lives, apart from ordinary actions. */
+.ws-danger {
+  border: 1px solid rgb(var(--ws-danger) / 0.35);
+  background: rgb(var(--ws-danger-soft));
+  border-radius: 12px;
+  padding: 16px 18px;
+  display: grid;
+  gap: 8px;
+}
+.ws-danger h2 {
+  color: rgb(var(--ws-danger));
+  font-weight: 600;
+}
+.ws-table th button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}

@@ -7138,3 +7138,19 @@ th.ui-th {
   color: rgb(var(--warn-ink));
   border-bottom: 1px solid rgb(var(--border));
 }
+
+/* Workspace redesign (W-R3): the Workspace rail marks the current module with the brand's soft tint, not a solid block. Other apps keep theirs. */
+:root {
+  --ws-nav-selected: 255 240 232;
+  --ws-nav-selected-ink: 194 65 12;
+  --ws-brand: 244 81 30;
+}
+.ui-split-rail[data-app='admin'] .ui-split-mod[data-current] {
+  background: rgb(var(--ws-nav-selected));
+  color: rgb(var(--ws-nav-selected-ink));
+  box-shadow: inset 0 0 0 1px rgb(var(--ws-brand) / 0.25);
+}
+.ui-split-rail[data-app='admin'] .ui-split-mod:focus-visible {
+  outline: 2px solid rgb(var(--ws-brand));
+  outline-offset: 2px;
+}
