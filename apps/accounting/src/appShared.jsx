@@ -1,3 +1,4 @@
+import { orgId as platformOrgId } from '@platform/context';
 /** Helpers the Accounting app's screens share, moved out of App.jsx (behaviour unchanged). */
 import { Fragment, useMemo, useRef, useState } from 'react';
 import { useFeatures } from '@ui/permissions/useFeatures';
@@ -1165,4 +1166,24 @@ export const SimpleAccountGroupCreateForm = ({ db, setDb, currentCompany, initia
       )}
     </form>
   );
+};
+
+/**
+ * The org id the SERVER knows this company by.
+ *
+ * The session's `activeOrgId` is also sent by apiFetch as `x-org-id`, so the
+ * route parameter must come from that same source. A locally cached company
+ * can briefly belong to the previously selected organisation while the new
+ * company is hydrating; preferring its backend id makes the URL and header
+ * disagree and the server correctly rejects the request as an org mismatch.
+ * The company profile remains a cold-start fallback only.
+ */
+export const resolveServerOrgId = (company) => {
+  try {
+    const active = String(platformOrgId() || '').trim();
+    if (active) return active;
+  } catch {
+    // Continue to the persisted company fallback below.
+  }
+  return String(company?.profile?.backendCompanyId || '').trim();
 };

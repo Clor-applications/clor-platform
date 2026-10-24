@@ -1,0 +1,8 @@
+    4507 apps/accounting/src/App.jsx
+    1189 apps/accounting/src/appShared.jsx
+    2091 apps/accounting/src/features/expenses/ExpenseScreens.jsx
+    1912 apps/accounting/src/features/masters/AccountingMasters.jsx
+    1137 apps/accounting/src/features/reports/FinancialStatements.jsx
+    1406 apps/accounting/src/features/gst/GstCompliance.jsx
+    2969 apps/accounting/src/features/settings/AccountingSettingsView.jsx
+   15211 total
