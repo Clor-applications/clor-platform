@@ -24,6 +24,7 @@ export { default as AdminHome } from './screens/AdminHome';
 export { default as RolePermissionManager } from './screens/RolePermissionManager';
 export { default as SecuritySettings } from './screens/SecuritySettings';
 export { default as SsoSettings } from './screens/SsoSettings';
+export { default as Credentials } from './screens/Credentials';
 export { default as AuditTrail } from './screens/AuditTrail';
 
 const companyOf = (tenant) => ({ name: tenant?.name || '', profile: tenant?.profile || {} });

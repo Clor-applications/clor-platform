@@ -1,0 +1,12 @@
+     × shows every machine credential with what it can do now, and never a token or hash 176ms
+     × says why a credential does not work although it is active on record 724ms
+     × counts customer links rather than listing them, and only for someone with sales access 212ms
+     × view-only sees the list but cannot make a key 247ms
+     × directory-sync tokens are hidden from, and cannot be changed by, someone without Users 219ms
+     × whoever manages integration keys today gets the new page at deploy, revoke included 368ms
+     × suspend, resume, extend, rotate, revoke — each in the company audit trail 169ms
+     × a connector’s token is rotated where it is installed, not here 136ms
+     × API keys cannot be made while Attendance is off 400ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 9 ⎯⎯⎯⎯⎯⎯⎯
+ Test Files  1 failed (1)
+      Tests  9 failed (9)

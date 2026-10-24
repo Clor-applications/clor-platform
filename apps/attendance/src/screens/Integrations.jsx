@@ -1,10 +1,10 @@
+import ShownOnce from '@ui/components/ui/ShownOnce';
 import React, { useCallback, useEffect, useState } from 'react';
-import { Copy, KeyRound, Plug, Plus, Server, Webhook } from 'lucide-react';
+import { KeyRound, Plug, Plus, Server, Webhook } from 'lucide-react';
 
 import { PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import {
-  createApiKey,
   createHrConnection,
   deleteHrConnection,
   flushHrConnection,
@@ -22,28 +22,16 @@ import {
   updateHrConnection,
   createWebhook,
   deleteWebhook,
-  listApiKeys,
   listWebhookDeliveries,
   listWebhooks,
   publicApiBase,
   resendWebhookDelivery,
-  revokeApiKey,
-  rotateApiKey,
   testWebhook,
   updateWebhook,
 } from '../api/attendance';
 import LoadFailed from '../components/LoadFailed';
+import { requestOpenApp } from '@platform/context';
 
-const SCOPE_LABEL = {
-  'attendance:read': 'Read attendance (days, punches, shifts, month summary, closed months)',
-  'employees:read': 'Read employees',
-  'employees:write': 'Add and change employees (your HRMS as the master)',
-  'punches:write': 'Send punches (other readers, turnstiles, apps)',
-  'leave:read': 'Read leave types, balances and requests',
-  'leave:write': 'Ask for leave',
-  'leave:approve': 'Approve and reject leave',
-  'readers:read': 'Read readers and whether they are online',
-};
 /* Groups for the webhook form; the words come from the server (eventHelp). */
 const EVENT_GROUPS = [
   ['Attendance', ['punch', 'day', 'correction.approved', 'month.closed', 'month.reopened']],
@@ -55,28 +43,7 @@ const EVENT_GROUPS = [
 const FALLBACK_HELP = { punch: 'Punches as they arrive', day: 'Days as they are worked out or changed' };
 const DELIVERY_PILL = { OK: 'ui-pill-pos', PENDING: 'ui-pill-warn', FAILED: 'ui-pill-neg' };
 const ago = (iso) => (iso ? new Date(iso).toLocaleString() : 'never');
-const copy = async (text) => {
-  try {
-    await navigator.clipboard.writeText(text);
-    notify.success('Copied.');
-  } catch {
-    notify.error('Could not copy — select it and copy by hand.');
-  }
-};
 
-/** A secret shown exactly once, with a copy button. */
-function ShownOnce({ label, value, onDone }) {
-  return (
-    <div className="ui-card space-y-2 p-4" role="alert" style={{ borderColor: 'rgb(var(--warn-ink))' }}>
-      <div className="text-sm font-semibold">{label} — shown once. Copy it now; CLOR keeps only a hash and cannot show it again.</div>
-      <div className="flex items-center gap-2">
-        <code className="min-w-0 flex-1 overflow-x-auto whitespace-nowrap rounded-lg bg-[rgb(var(--surface-sunken))] px-2 py-1 ui-mono text-xs">{value}</code>
-        <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => copy(value)}><Copy size={14} aria-hidden="true" /> Copy</button>
-        <button type="button" className="ui-btn ui-btn-primary ui-btn-sm" onClick={onDone}>I have copied it</button>
-      </div>
-    </div>
-  );
-}
 
 /**
  * Connecting other systems: API keys for systems that read attendance or send
@@ -84,55 +51,31 @@ function ShownOnce({ label, value, onDone }) {
  * and integrations, for the cloud).
  */
 export default function Integrations() {
-  const [keys, setKeys] = useState(null);
   const [loadError, setLoadError] = useState('');
   const [hooks, setHooks] = useState(null);
   const [eventHelp, setEventHelp] = useState(FALLBACK_HELP);
   const [openHook, setOpenHook] = useState(null);
   const [shown, setShown] = useState(null);
-  const [keyForm, setKeyForm] = useState({ name: '', scopes: ['attendance:read'], allowedIps: '' });
   const [hookForm, setHookForm] = useState({ name: '', url: '', events: ['day'] });
   const base = publicApiBase();
 
   const load = useCallback(() => {
-    listApiKeys().then((r) => { setKeys(r?.keys || []); setLoadError(''); }).catch((e) => setLoadError(String(e?.message || 'Could not load keys.')));
     listWebhooks()
       .then((r) => {
         setHooks(r?.webhooks || []);
         if (r?.eventHelp) setEventHelp(r.eventHelp);
+        setLoadError('');
       })
-      .catch(() => setHooks([]));
+      .catch((e) => {
+        setHooks([]);
+        setLoadError(String(e?.message || 'Could not load webhooks.'));
+      });
   }, []);
   useEffect(() => {
     load();
   }, [load]);
 
   const toggle = (list, v) => (list.includes(v) ? list.filter((x) => x !== v) : [...list, v]);
-
-  const addKey = async (e) => {
-    e.preventDefault();
-    try {
-      const r = await createApiKey({ ...keyForm, allowedIps: keyForm.allowedIps || null });
-      setShown({ label: `API key “${r.key.name}”`, value: r.token });
-      setKeyForm({ name: '', scopes: ['attendance:read'], allowedIps: '' });
-      load();
-    } catch (err) {
-      notify.error(String(err?.message || 'Not created.'));
-    }
-  };
-  const rotate = async (k) => {
-    const ok = await confirmDialog({ title: `Rotate ${k.name}?`, message: 'The current key stops working at once. Whatever uses it needs the new one.', confirmLabel: 'Rotate' });
-    if (!ok) return;
-    const r = await rotateApiKey(k.id);
-    setShown({ label: `New key for “${k.name}”`, value: r.token });
-    load();
-  };
-  const revoke = async (k) => {
-    const ok = await confirmDialog({ title: `Revoke ${k.name}?`, message: 'It stops working at once and cannot be restored (rotate gives a new one).', confirmLabel: 'Revoke' });
-    if (!ok) return;
-    await revokeApiKey(k.id);
-    load();
-  };
 
   const addHook = async (e) => {
     e.preventDefault();
@@ -162,58 +105,16 @@ export default function Integrations() {
 
       <Connectors onShown={setShown} />
 
-      <section className="ui-card space-y-4 p-4" aria-labelledby="keys-h">
-        <h2 id="keys-h" className="ui-t-sec flex items-center gap-2"><KeyRound size={16} aria-hidden="true" /> API keys</h2>
-        <form onSubmit={addKey} className="grid gap-3 md:grid-cols-[1fr_1fr]">
-          <label className="block"><span className="ui-label">Name *</span><input className="ui-input w-full" required maxLength={80} value={keyForm.name} onChange={(e) => setKeyForm({ ...keyForm, name: e.target.value })} placeholder="e.g. greytHR sync" /></label>
-          <label className="block"><span className="ui-label">Only from these addresses</span><input className="ui-input w-full" value={keyForm.allowedIps} onChange={(e) => setKeyForm({ ...keyForm, allowedIps: e.target.value })} placeholder="Blank = anywhere; e.g. 203.0.113.10, 203.0.113.11" /></label>
-          <fieldset className="md:col-span-2">
-            <legend className="ui-label">It may</legend>
-            {Object.entries(SCOPE_LABEL).map(([k, label]) => (
-              <label key={k} className="flex items-center gap-2 py-0.5 text-sm">
-                <input type="checkbox" className="ui-checkbox" checked={keyForm.scopes.includes(k)} onChange={() => setKeyForm({ ...keyForm, scopes: toggle(keyForm.scopes, k) })} /> {label}
-              </label>
-            ))}
-          </fieldset>
-          <div className="md:col-span-2"><button type="submit" className="ui-btn ui-btn-primary" disabled={!keyForm.scopes.length}><Plus size={16} aria-hidden="true" /> Create key</button></div>
-        </form>
-        <LoadFailed message={loadError} onRetry={load} />
-        {!keys ? (
-          loadError ? null : <SkeletonCard lines={2} />
-        ) : keys.length ? (
-          <div className="ui-table-scroll">
-            <table className="ui-table ui-table-sticky w-full">
-              <thead>
-                <tr>
-                  <th className="ui-col-grow" scope="col">Name</th>
-                  <th scope="col">Key</th>
-                  <th scope="col">May</th>
-                  <th scope="col" className="ui-col-date">Last used</th>
-                  <th scope="col" className="ui-col-h-center">Status</th>
-                  <th scope="col"><span className="sr-only">Actions</span></th>
-                </tr>
-              </thead>
-              <tbody className="ui-rows">
-                {keys.map((k) => (
-                  <tr key={k.id}>
-                    <td className="ui-col-entity">{k.name}</td>
-                    <td className="ui-mono text-xs">{k.tokenPrefix}…</td>
-                    <td>{k.scopes.join(', ')}{k.allowedIps.length ? ` · from ${k.allowedIps.join(', ')}` : ''}</td>
-                    <td className="ui-col-date whitespace-nowrap">{ago(k.lastUsedAt)}{k.lastUsedIp ? ` · ${k.lastUsedIp}` : ''}</td>
-                    <td className="ui-col-h-center">{k.isActive ? <span className="ui-pill ui-pill-pos">active</span> : <span className="ui-pill ui-pill-neutral">revoked</span>}</td>
-                    <td className="ui-col-meta whitespace-nowrap text-end">
-                      <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" aria-label={`Rotate ${k.name}`} onClick={() => rotate(k)}>Rotate</button>
-                      {k.isActive ? <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" aria-label={`Revoke ${k.name}`} onClick={() => revoke(k)}>Revoke</button> : null}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <p className="ui-muted text-sm">No keys yet.</p>
-        )}
+      {/* Batch 5: API keys are managed with every other credential, in Company admin. */}
+      <section className="ui-card flex flex-wrap items-center justify-between gap-3 p-4" aria-labelledby="keys-h">
+        <div className="min-w-0">
+          <h2 id="keys-h" className="ui-t-sec flex items-center gap-2"><KeyRound size={16} aria-hidden="true" /> API keys</h2>
+          <p className="ui-caption mt-1">API keys are now made, paused and revoked under Company admin → Credentials, with every other key and token this company has given out.</p>
+        </div>
+        <button type="button" className="ui-btn ui-btn-secondary" onClick={() => requestOpenApp('admin', 'credentials')}>Open Credentials</button>
       </section>
+
+      <LoadFailed message={loadError} onRetry={load} />
 
       <section className="ui-card space-y-4 p-4" aria-labelledby="hooks-h">
         <h2 id="hooks-h" className="ui-t-sec flex items-center gap-2"><Webhook size={16} aria-hidden="true" /> Webhooks</h2>

@@ -3,7 +3,8 @@ import { KeyRound, ShieldCheck, Trash2, Users } from 'lucide-react';
 
 import { PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
-import { orgId as platformOrgId } from '@platform/context';
+import { orgId as platformOrgId, requestOpenApp } from '@platform/context';
+import { STATUS as CREDENTIAL_STATUS } from './credentialsModel';
 import { createProvider, createScimToken, deleteProvider, getProviders, getScim, revokeScimToken, updateProvider, verifyProviderDomains } from '@platform/admin/security';
 import { listRoles } from '@platform/admin/admin';
 
@@ -239,8 +240,15 @@ export default function SsoSettings() {
           <ul className="divide-y" style={{ borderColor: 'rgb(var(--border))' }}>
             {scim.tokens.map((t) => (
               <li key={t.id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
-                <span><code className="ui-mono">{t.tokenPrefix}…</code> · made {new Date(t.createdAt).toLocaleDateString('en-IN', { dateStyle: 'medium' })}{t.lastUsedAt ? ` · last used ${new Date(t.lastUsedAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}` : ' · not used yet'}{t.defaultRoleId ? ` · role: ${roles.find((r) => r.id === t.defaultRoleId)?.name || 'set'}` : ''}</span>
-                <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => revoke(t)}>Revoke</button>
+                <span className="min-w-0">
+                  <span className={`ui-pill ${(CREDENTIAL_STATUS[t.status] || CREDENTIAL_STATUS.OWNER_OFF)[1]} mr-2`}>{(CREDENTIAL_STATUS[t.status] || CREDENTIAL_STATUS.OWNER_OFF)[0]}</span>
+                  <code className="ui-mono">{t.tokenPrefix}…</code>{t.agent ? ` · for connector ${t.agent.name}` : ''} · made {new Date(t.createdAt).toLocaleDateString('en-IN', { dateStyle: 'medium' })}{t.lastUsedAt ? ` · last used ${new Date(t.lastUsedAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}` : ' · not used yet'} · {t.expiresAt ? `expires ${new Date(t.expiresAt).toLocaleDateString('en-IN', { dateStyle: 'medium' })}` : 'does not expire'}{t.defaultRoleId ? ` · role: ${roles.find((r) => r.id === t.defaultRoleId)?.name || 'set'}` : ''}
+                  {(CREDENTIAL_STATUS[t.status] || [])[2] ? <span className="ui-caption block">{CREDENTIAL_STATUS[t.status][2]}</span> : null}
+                </span>
+                <span className="flex gap-2">
+                  <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" onClick={() => requestOpenApp('admin', 'credentials')}>Manage in Credentials</button>
+                  <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => revoke(t)}>Revoke</button>
+                </span>
               </li>
             ))}
           </ul>

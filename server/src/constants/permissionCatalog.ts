@@ -187,6 +187,14 @@ export const PERMISSION_CATALOG: ModuleDef[] = [
         actions: [A.VIEW, A.EXPORT],
       },
       {
+        key: 'Credentials',
+        label: 'Credentials & API Keys',
+        description:
+          'The keys and tokens other systems use to reach this company: API keys, connectors, readers, directory sync. ' +
+          'Directory-sync tokens also need Users, since they add people.',
+        actions: [A.VIEW, A.CREATE, A.EDIT],
+      },
+      {
         key: 'Audit trail',
         label: 'Audit Trail',
         description: 'Read who changed what. There is nothing to grant beyond viewing: the trail cannot be edited.',

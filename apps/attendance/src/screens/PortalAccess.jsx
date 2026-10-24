@@ -9,7 +9,7 @@ import { Pagination, usePaged, useResetPage } from '@ui/components/list/ListPage
 import { SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import Drawer from '@ui/components/ui/Drawer';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
-import { getPortalAccess, issuePortalCodes, listGeofences, resetPortalPassword, setPortalAccess } from '../api/attendance';
+import { getPortalAccess, issuePortalCodes, listGeofences, resetPortalPassword, setPortalAccess, signOutPortalEverywhere } from '../api/attendance';
 import LoadFailed from '../components/LoadFailed';
 
 const STATE = {
@@ -123,6 +123,16 @@ export default function PortalAccess() {
       await resetPortalPassword(p.id);
       notify.success(`Give ${p.name} a new activation code.`);
       load();
+    } catch (e) {
+      notify.error(String(e?.message || 'Not done.'));
+    }
+  };
+  /* A-33: a lost or shared phone — signed out everywhere, password kept. */
+  const signOutEverywhere = async (p) => {
+    if (!(await confirmDialog({ title: `Sign ${p.name} out everywhere?`, message: 'Every phone and browser signed in as them is signed out at once. They can sign straight back in with the password they have (unlike Forget password). Use it for a lost or shared phone; otherwise a phone stays signed in for up to 180 days.', confirmLabel: 'Sign out everywhere' }))) return;
+    try {
+      const r = await signOutPortalEverywhere(p.id);
+      notify.success(r?.ended ? `${p.name} is signed out on ${r.ended} device${r.ended === 1 ? '' : 's'}.` : `${p.name} was not signed in anywhere.`);
     } catch (e) {
       notify.error(String(e?.message || 'Not done.'));
     }
@@ -273,6 +283,7 @@ export default function PortalAccess() {
                         <td className="ui-col-meta hidden 2xl:table-cell">{p.email || <span className="ui-caption">—</span>}</td>
                         <td className="ui-col-date hidden 2xl:table-cell">{p.portalPasswordSetAt ? new Date(p.portalPasswordSetAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : <span className="ui-caption">—</span>}</td>
                         <td className="ui-col-meta text-end">
+                          {p.activated ? <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" onClick={() => signOutEverywhere(p)}>Sign out everywhere</button> : null}
                           {p.activated ? <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" onClick={() => reset(p)}>Forget password</button> : null}
                         </td>
                       </tr>

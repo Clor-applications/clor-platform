@@ -1,4 +1,4 @@
-import { Building, Building2, CreditCard, Fingerprint, HardDriveDownload, History, KeyRound, LayoutGrid, Shield, ShieldCheck, Users, XCircle } from 'lucide-react';
+import { Building, Building2, CreditCard, Fingerprint, HardDriveDownload, History, Key, KeyRound, LayoutGrid, Shield, ShieldCheck, Users, XCircle } from 'lucide-react';
 
 import { lazyScreens } from '@ui/utils/lazyScreens';
 
@@ -12,6 +12,7 @@ const SettingsRoles = screen('SettingsRoles');
 const RolePermissionManager = screen('RolePermissionManager');
 const SecuritySettings = screen('SecuritySettings');
 const SsoSettings = screen('SsoSettings');
+const Credentials = screen('Credentials');
 const AuditTrail = screen('AuditTrail');
 const AccountOverview = screen('AccountOverview');
 const BillingPreview = screen('BillingPreview');
@@ -56,7 +57,7 @@ export const adminApp = {
       { label: 'Who', items: ['users'] },
       { label: 'What they may do', items: ['roles', 'permissions'] },
     ] },
-    { key: 'security', label: 'Security', items: ['security', 'sso', 'audit'] },
+    { key: 'security', label: 'Security', items: ['security', 'sso', 'credentials', 'audit'] },
     { key: 'plan', label: 'Plan & billing', items: ['account', 'billing'] },
     { key: 'data', label: 'Data', items: ['export', 'close'] },
   ],
@@ -70,6 +71,7 @@ export const adminApp = {
     { key: 'permissions', label: 'Permissions', icon: KeyRound, permission: 'SETTINGS::Roles::VIEW' },
     { key: 'security', label: 'Login & security', icon: Fingerprint, permission: 'SETTINGS::Users::VIEW' },
     { key: 'sso', label: 'Single sign-on', icon: ShieldCheck, permission: 'SETTINGS::Users::VIEW' },
+    { key: 'credentials', label: 'Credentials', icon: Key, permission: 'SETTINGS::Credentials::VIEW' },
     { key: 'audit', label: 'Audit trail', icon: History, permission: 'SETTINGS::Audit trail::VIEW' },
     { key: 'account', label: 'Account & plan', icon: Building2, permission: 'SETTINGS::Company Profile::VIEW' },
     { key: 'billing', label: 'Billing', icon: CreditCard, permission: 'SETTINGS::Company Profile::VIEW' },
@@ -86,6 +88,7 @@ export const adminApp = {
     permissions: RolePermissionManager,
     security: SecuritySettings,
     sso: SsoSettings,
+    credentials: Credentials,
     audit: AuditTrail,
     account: AccountOverview,
     billing: BillingPreview,
