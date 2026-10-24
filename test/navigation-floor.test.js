@@ -5,7 +5,7 @@
  * twenty-five seconds of wall clock and is never touched.
  */
 import { describe, expect, it } from 'vitest';
-import { readFileSync, existsSync } from 'node:fs';
+import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { appSource } from '../apps/accounting/src/testing/appSource.js';
