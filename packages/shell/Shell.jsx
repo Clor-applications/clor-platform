@@ -23,7 +23,6 @@ import HelpMenu from './HelpMenu';
 import TwoFactorGate from './TwoFactorGate';
 import CommandPalette from '@ui/components/ui/CommandPalette';
 import CompanySetup from './CompanySetup';
-import Home from './Home';
 import ScreenBoundary from './ScreenBoundary';
 import SignIn from './SignIn';
 import SignUp from './SignUp';
@@ -60,6 +59,18 @@ function AppLoading() {
     </div>
   );
 }
+
+/** The marketing site, which is the product's front page; the app itself opens on sign-in. */
+const MARKETING_URL = import.meta.env.VITE_MARKETING_URL || 'https://clor.in';
+const PUBLIC_PATHS = { signin: '/signin', signup: '/signup', forgot: '/forgot-password' };
+
+/** Which door a signed-out visitor sees, from the address: clor.in's Get started links to /signup. */
+export const publicPageFromPath = (pathname = typeof window === 'undefined' ? '/' : window.location.pathname) => {
+  const p = String(pathname || '/').replace(/\/+$/, '') || '/';
+  if (p === '/signup' || p === '/get-started') return 'signup';
+  if (p === '/forgot-password') return 'forgot';
+  return 'signin';
+};
 
 export default function Shell() {
   /* A phone: no rail, a menu sheet and a tab bar instead (mobileTabs.js). */
@@ -196,7 +207,17 @@ export default function Shell() {
    * the two doors off it. Three states rather than a router, because they are
    * the only three there are — everything past sign-in is an app's business.
    */
-  const [publicPage, setPublicPage] = useState('home');
+  const [publicPage, setPublicPageState] = useState(publicPageFromPath);
+  /* The page is in the address (/signin, /signup), so clor.in's buttons can open the right one and a refresh keeps it. */
+  const setPublicPage = (page) => {
+    setPublicPageState(page);
+    try {
+      const path = PUBLIC_PATHS[page];
+      if (path && window.location.pathname !== path) window.history.replaceState(null, '', path + window.location.hash);
+    } catch {
+      /* best effort */
+    }
+  };
 
   /* A policy page is open to everyone, signed in or not, at #/legal/<doc>. */
   const legalDoc = useLegalRoute();
@@ -354,22 +375,15 @@ export default function Shell() {
   }
 
   if (!user) {
-    if (publicPage === 'signin') {
-      return (
-        <SignIn
-          onHome={() => setPublicPage('home')}
-          onSignUp={() => setPublicPage('signup')}
-          onForgot={() => setPublicPage('forgot')}
-        />
-      );
+    /* The product's front page is clor.in now; the app opens on its doors. */
+    const toSite = () => window.location.assign(MARKETING_URL);
+    if (publicPage === 'signup') {
+      return <SignUp onHome={toSite} onSignIn={() => setPublicPage('signin')} />;
     }
     if (publicPage === 'forgot') {
-      return <ForgotPassword onHome={() => setPublicPage('home')} onSignIn={() => setPublicPage('signin')} />;
+      return <ForgotPassword onHome={toSite} onSignIn={() => setPublicPage('signin')} />;
     }
-    if (publicPage === 'signup') {
-      return <SignUp onHome={() => setPublicPage('home')} onSignIn={() => setPublicPage('signin')} />;
-    }
-    return <Home onSignIn={() => setPublicPage('signin')} onGetStarted={() => setPublicPage('signup')} />;
+    return <SignIn onHome={toSite} onSignUp={() => setPublicPage('signup')} onForgot={() => setPublicPage('forgot')} />;
   }
 
   /*
@@ -746,7 +760,7 @@ export default function Shell() {
             type="button"
             className="ui-icon-btn"
             onClick={() => {
-              setPublicPage('home');
+              setPublicPage('signin');
               signOut();
             }}
             aria-label="Sign out"
