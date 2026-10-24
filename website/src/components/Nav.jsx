@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { ChevronDown, Menu, X } from 'lucide-react';
 import { Link, usePath } from '../router.jsx';
 import { NAV, PRODUCTS, SITE } from '../site.js';
 import { Logo, Mark, Status } from './Brand.jsx';
@@ -117,9 +118,7 @@ export default function Nav() {
                 <li key={m.key} onMouseEnter={() => setOpen(m.key)} onMouseLeave={() => setOpen(null)}>
                   <button type="button" className={`nav-trigger${section(m.key) ? ' is-current' : ''}`} aria-expanded={open === m.key} onClick={() => setOpen(open === m.key ? null : m.key)}>
                     {m.label}
-                    <svg viewBox="0 0 12 12" aria-hidden="true" width="10" height="10">
-                      <path d="M2.5 4.5 6 8l3.5-3.5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
+                    <ChevronDown size={14} strokeWidth={2} aria-hidden="true" />
                   </button>
                   <div className={`mega-wrap${open === m.key ? ' is-open' : ''}`}>{m.key === 'products' ? <ProductsMenu onPick={close} /> : <ListMenu items={m.items} onPick={close} />}</div>
                 </li>
@@ -136,9 +135,7 @@ export default function Nav() {
           </a>
           <button type="button" className="nav-burger" aria-expanded={mobile} aria-controls="mobile-menu" onClick={() => setMobile(!mobile)}>
             <span className="sr-only">{mobile ? 'Close menu' : 'Open menu'}</span>
-            <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
-              {mobile ? <path d="M6 6l12 12M18 6 6 18" /> : <path d="M4 8h16M4 16h16" />}
-            </svg>
+            {mobile ? <X size={20} strokeWidth={1.75} aria-hidden="true" /> : <Menu size={20} strokeWidth={1.75} aria-hidden="true" />}
           </button>
         </div>
       </div>

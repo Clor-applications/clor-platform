@@ -2,7 +2,7 @@ import React from 'react';
 import { Link } from '../router.jsx';
 import { SITE, AVAILABLE, productBySlug } from '../site.js';
 import Connection from '../components/Connection.jsx';
-import { Closing, Faq, ProductIndex, Reveal, SectionHead, Tabs } from '../components/Blocks.jsx';
+import { Closing, Faq, ProductIndex, Reveal, SectionHead, Steps, Tabs } from '../components/Blocks.jsx';
 import { BooksWindow, PayrollWindow, PeopleWindow, AttendanceWindow } from '../components/Windows.jsx';
 import { Mark } from '../components/Brand.jsx';
 
@@ -65,7 +65,18 @@ export default function Home() {
     <>
       <section className="hero">
         <div className="wrap hero-grid">
-          <h1 className="h-hero">Your books, people and payroll, on the same records.</h1>
+          {/* Words arrive once, in turn, from the first paint (CSS only, so nothing flickers; reduced motion shows them at once). */}
+          <h1 className="h-hero hero-title">
+            {'Your books, people and payroll, on the same records.'.split(' ').map((w, n) => (
+              <React.Fragment key={n}>
+                <span className="wm">
+                  <span className="w" style={{ '--n': n }}>
+                    {w}
+                  </span>
+                </span>{' '}
+              </React.Fragment>
+            ))}
+          </h1>
           <div className="hero-side">
             <p className="lede">
               Clor is a family of business apps for Indian companies: accounting, HR, payroll and attendance. Use one, or use them together. They share one workspace, one sign-in and one set of people.
@@ -177,14 +188,7 @@ export default function Home() {
       <section className="section section--tint">
         <div className="wrap split">
           <SectionHead title="How you start" intro="Four steps, each done in the app yourself." />
-          <ol className="steps">
-            {STEPS.map(([t, d]) => (
-              <li key={t}>
-                <h3 className="h-3">{t}</h3>
-                <p className="body">{d}</p>
-              </li>
-            ))}
-          </ol>
+          <Steps steps={STEPS} />
         </div>
       </section>
 
@@ -247,7 +251,7 @@ export default function Home() {
       </section>
 
       <section className="section">
-        <div className="wrap split">
+        <div className="wrap band">
           <SectionHead title="Pay for the products you use" intro="Each product has its own subscription, so a company that only needs payroll pays only for payroll. Prices are being finalised." />
           <div className="actions">
             <Link className="btn btn--quiet" href="/pricing">

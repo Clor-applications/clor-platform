@@ -3,7 +3,7 @@ import { Link } from '../router.jsx';
 import { CONNECTIONS, PRODUCTS, SITE, productBySlug } from '../site.js';
 import { PRODUCT_CONTENT } from '../content.js';
 import { Mark, Status } from '../components/Brand.jsx';
-import { Closing, Faq, SectionHead } from '../components/Blocks.jsx';
+import { Closing, Faq, SectionHead, Steps } from '../components/Blocks.jsx';
 import { WINDOWS } from '../components/Windows.jsx';
 
 function SoonPage({ p, c }) {
@@ -102,14 +102,7 @@ export default function Product({ slug }) {
       <section className="section">
         <div className="wrap split">
           <SectionHead title={c.workflow.title} />
-          <ol className="steps">
-            {c.workflow.steps.map(([t, d]) => (
-              <li key={t}>
-                <h3 className="h-3">{t}</h3>
-                <p className="body">{d}</p>
-              </li>
-            ))}
-          </ol>
+          <Steps steps={c.workflow.steps} />
         </div>
       </section>
 
@@ -124,10 +117,7 @@ export default function Product({ slug }) {
                   <li key={x.from + x.to}>
                     <span className="links-pair">
                       <Mark product={productBySlug(x.from)} size={26} />
-                      <svg viewBox="0 0 40 10" width="40" height="10" aria-hidden="true">
-                        <path d="M1 5h32" stroke="var(--line-strong)" strokeWidth="1.5" />
-                        <circle cx="34" cy="5" r="4" fill="var(--accent)" />
-                      </svg>
+                      <span className="links-wire" aria-hidden="true" />
                       <Mark product={productBySlug(x.to)} size={26} />
                     </span>
                     <p className="body">{x.text}</p>
@@ -199,10 +189,7 @@ export function Products() {
               <li key={x.from + x.to}>
                 <span className="links-pair">
                   <Mark product={productBySlug(x.from)} size={26} />
-                  <svg viewBox="0 0 40 10" width="40" height="10" aria-hidden="true">
-                    <path d="M1 5h32" stroke="var(--line-strong)" strokeWidth="1.5" />
-                    <circle cx="34" cy="5" r="4" fill="var(--accent)" />
-                  </svg>
+                      <span className="links-wire" aria-hidden="true" />
                   <Mark product={productBySlug(x.to)} size={26} />
                 </span>
                 <p className="body">{x.text}</p>

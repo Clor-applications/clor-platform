@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { ChevronDown, ChevronRight } from 'lucide-react';
 import { Link } from '../router.jsx';
 import { PRODUCTS, SITE } from '../site.js';
 import { Mark, Status } from './Brand.jsx';
@@ -22,9 +23,7 @@ export function Faq({ items, title = 'Questions people ask' }) {
           <details key={q} className="faq-item">
             <summary>
               <span>{q}</span>
-              <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
-                <path d="M3 6l5 5 5-5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
+              <ChevronDown size={18} strokeWidth={1.75} aria-hidden="true" />
             </summary>
             <p className="body">{a}</p>
           </details>
@@ -69,6 +68,7 @@ export function ProductIndex({ products = PRODUCTS }) {
               <span className="small">{p.category}</span>
               <Status product={p} />
             </span>
+            <ChevronRight className="pindex-go" size={18} strokeWidth={1.75} aria-hidden="true" />
           </Link>
         </li>
       ))}
@@ -127,5 +127,36 @@ export function Tabs({ tabs, label }) {
         </div>
       ))}
     </div>
+  );
+}
+
+/**
+ * Numbered steps with a progress indicator: as the reader moves down, the
+ * steps passed are filled and the one in view is marked. Without script the
+ * list reads plainly.
+ */
+export function Steps({ steps }) {
+  const ref = useRef(null);
+  const [at, setAt] = useState(-1);
+  useEffect(() => {
+    const items = [...ref.current.querySelectorAll('li')];
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) if (e.isIntersecting) setAt((cur) => Math.max(cur, items.indexOf(e.target)));
+      },
+      { rootMargin: '0px 0px -45% 0px', threshold: 0.6 }
+    );
+    items.forEach((li) => io.observe(li));
+    return () => io.disconnect();
+  }, []);
+  return (
+    <ol className={`steps${at >= 0 ? ' is-tracking' : ''}`} ref={ref}>
+      {steps.map(([t, d], n) => (
+        <li key={t} className={n < at ? 'is-done' : n === at ? 'is-current' : ''}>
+          <h3 className="h-3">{t}</h3>
+          <p className="body">{d}</p>
+        </li>
+      ))}
+    </ol>
   );
 }

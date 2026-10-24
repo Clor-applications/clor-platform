@@ -29,7 +29,7 @@ const curve = ([x0, y0], [x3, y3], horizontal) => {
   const c1 = horizontal ? [x0 + (x3 - x0) * 0.5, y0] : [x0, y0 + (y3 - y0) * 0.6];
   const c2 = horizontal ? [x0 + (x3 - x0) * 0.5, y3] : [x3, y3 - (y3 - y0) * 0.6];
   const mid = [(x0 + 3 * c1[0] + 3 * c2[0] + x3) / 8, (y0 + 3 * c1[1] + 3 * c2[1] + y3) / 8];
-  return { d: `M ${x0} ${y0} C ${c1[0]} ${c1[1]}, ${c2[0]} ${c2[1]}, ${x3} ${y3}`, mid, end: [x3, y3] };
+  return { d: `M ${x0} ${y0} C ${c1[0]} ${c1[1]}, ${c2[0]} ${c2[1]}, ${x3} ${y3}`, mid, start: [x0, y0], end: [x3, y3] };
 };
 
 export default function Connection() {
@@ -95,9 +95,7 @@ export default function Connection() {
             {geo.routes.map((r, i) => (
               <g key={i} className="route" style={{ '--i': i }}>
                 <path id={`route-${i}`} d={r.d} pathLength="1" className="route-line" />
-                <text x={r.mid[0]} y={r.mid[1] - 12} textAnchor="middle" className="route-label">
-                  {LABELS[i]}
-                </text>
+                <circle cx={r.start[0]} cy={r.start[1]} r="4" className="route-node" />
               </g>
             ))}
             {/* The moving dot sits at the origin: its path supplies the position. */}
@@ -111,6 +109,14 @@ export default function Connection() {
             <circle r="7" cx={end[0]} cy={end[1]} className="route-dot route-dot--still" />
           </svg>
         ) : null}
+        {/* Labels as text on the page, not in the drawing: crisp at any size, readable by assistive tech. */}
+        {geo
+          ? geo.routes.map((r, i) => (
+              <span key={i} className="route-chip" style={{ left: r.mid[0], top: r.mid[1], '--i': i }}>
+                {LABELS[i]}
+              </span>
+            ))
+          : null}
         <div ref={keep('people')} className="stage-slot stage-slot--people">
           <PeopleWindow className="stage-win" />
         </div>
