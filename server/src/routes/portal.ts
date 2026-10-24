@@ -465,7 +465,7 @@ portalRouter.get('/approvals/punch/:id/photo', async (req, res) => {
   if (owner?.reportingManagerId !== e.id) return res.status(403).json({ error: 'This punch is not yours to see.' });
   const photo = await peoplePrisma.punchPhoto.findFirst({ where: { id: p.photoId, orgId: e.orgId } });
   if (!photo) return res.status(404).json({ error: 'The selfie has been deleted (kept for a limited time).' });
-  res.json({ photo: `data:${photo.mime};base64,${Buffer.from(photo.data).toString('base64')}` });
+  res.set('Cache-Control', 'private, no-store').json({ photo: `data:${photo.mime};base64,${Buffer.from(photo.data).toString('base64')}` });
 });
 
 // ---------------------------------------------------------------------------
@@ -911,7 +911,7 @@ portalRouter.get('/documents/:id', async (req, res) => {
   const e = req.portal!.employee;
   const d = await peoplePrisma.employeeDocument.findFirst({ where: { id: String(req.params.id), orgId: e.orgId, employeeId: e.id, visibleToEmployee: true } });
   if (!d) return res.status(404).json({ error: 'No such document.' });
-  res.json({ document: { id: d.id, title: d.title, mime: d.mime, size: d.size, dataUrl: `data:${d.mime};base64,${Buffer.from(d.data).toString('base64')}` } });
+  res.set('Cache-Control', 'private, no-store').json({ document: { id: d.id, title: d.title, mime: d.mime, size: d.size, dataUrl: `data:${d.mime};base64,${Buffer.from(d.data).toString('base64')}` } });
 });
 
 const DATA_REQUEST_TYPES = new Set(['ACCESS', 'CORRECTION', 'ERASURE', 'NOMINATE', 'GRIEVANCE']);

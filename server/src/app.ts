@@ -153,6 +153,15 @@ export function buildApp() {
   );
 
   app.use(helmet());
+  /*
+   * Nothing this server answers is for a browser or proxy to keep: company
+   * data, employee files and tokens alike (GAP-012). A route that wants
+   * otherwise sets its own header, which replaces this one.
+   */
+  app.use((_req, res, next) => {
+    res.setHeader('Cache-Control', 'private, no-store');
+    next();
+  });
   // Refuse requests that bypassed the api.clor.in Worker (no-op unless EDGE_SECRET is set).
   app.use(edgeGuard);
   // Role, membership and permission lookups are cached briefly; any write drops the cache.

@@ -80,6 +80,7 @@ Changed:
 - Batch 9 follow-ups (EV-068): closure tests no longer purge other suites' companies; homeBoard test fixed for any timezone; Users table no longer overlaps at narrow width; Users errors show in the form saved. Application behavior changed: yes (Users screen layout). Schema: no.
 - Batch 10 simplify (EV-069): Accounting's App.jsx split into feature files (15,157 → 4,507 lines); Sales and Purchase one file per screen; tests that read App.jsx source see the moved code too. Application behavior changed: no (one dark-mode fix: the GST export menu hover). Schema: no.
 - Batches 9 and 10 closed (EV-070).
+- Batch 11, GAP-012 (EV-071): every API answer is `Cache-Control: private, no-store` unless a route says otherwise; file boundary covered by tests (companies, people, managers, forced RLS). Cloudflare inspected read-only (R2 off; Worker is a passthrough). Application behavior changed: yes (response header only). Schema: no. Cloudflare configuration changed: no.
 
 Running totals for 2026-10-23:  
 Application behavior changed: yes (GAP-002, GAP-003, A-03, A-01, A-02, A-04, A-05, A-07, A-06, A-08, A-09, A-10, A-11, A-12, A-13, A-14, A-15, A-16, A-17, A-18, A-19, A-20, A-21, A-22, A-24, A-23, A-25, A-26, A-27, A-28, A-29, A-30, A-37, A-38, A-35, A-39, A-40, A-42, A-31, A-32, A-33, A-34 (parts), GAP-004, A-50, A-51).  

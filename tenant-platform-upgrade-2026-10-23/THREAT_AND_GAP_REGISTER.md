@@ -15,7 +15,7 @@ Priority is based on tenant impact and likelihood, not on implementation conveni
 | GAP-009 | P1 | Physical database separation is unverified | Four clients and URL names exist | Record deployed topology and independent credentials/backup policy | Sanitized infrastructure evidence and restore drill |
 | GAP-010 | P1 | Cross-store referential integrity is application-owned | Scalar IDs have no cross-DB FK | Contract validation, outbox/inbox, reconciliation and repair tooling | Orphan injection and repair tests |
 | GAP-011 | P2 | Account terminology can be misunderstood | `User.accountId` is home account; effective account comes from membership | Adopt explicit `homeAccountId` semantics in API/docs, then consider compatible schema migration | Cross-account invite and token tests |
-| GAP-012 | P2 | Object/file tenant boundary lacks collected evidence | Architecture expects private R2/files | Inventory buckets, key format, signed URLs, upload checks and deletion lifecycle | Cross-tenant object access tests |
+| GAP-012 | RESOLVED (Batch 11, EV-071) | Object/file tenant boundary lacks collected evidence | Architecture expects private R2/files | Inventory buckets, key format, signed URLs, upload checks and deletion lifecycle | Cross-tenant object access tests |
 | GAP-013 | RESOLVED | One RLS negative test could pass before reaching PostgreSQL policy enforcement | Initial test run logged missing required `Warehouse.code` | Valid row shape added; assertion now requires an RLS-policy error | 9 RLS tests pass; PostgreSQL returned SQLSTATE `42501` |
 
 No source item above is being claimed as an exploitable production vulnerability until live configuration and runtime behavior are verified.

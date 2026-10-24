@@ -1,0 +1,137 @@
+ DEPRECATED  `test.poolOptions` was removed in Vitest 4. All previous `poolOptions` are now top-level options. Please, refer to the migration guide: https://vitest.dev/guide/migration#pool-rework
+
+ RUN  v4.1.10 /Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_56009", schema "accounting" at "localhost:5432"
+
+The PostgreSQL database "clor_test_56009" schema "accounting" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 1.62s
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/payroll/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_56009", schema "payroll" at "localhost:5432"
+
+The PostgreSQL database "clor_test_56009" schema "payroll" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 1.11s
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/people/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_56009", schema "people" at "localhost:5432"
+
+The PostgreSQL database "clor_test_56009" schema "people" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 1.74s
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/platform/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_56009", schema "platform" at "localhost:5432"
+
+The PostgreSQL database "clor_test_56009" schema "platform" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 1.12s
+
+[setup] 180 policy statements applied to clor_test_56009
+[setup] 7 policy statements applied to clor_test_56009
+[setup] 10 policy statements applied to clor_test_56009
+[setup] 35 policy statements applied to clor_test_56009
+[setup] 4 policy statements applied to clor_test_56009
+[setup] 1 policy statements applied to clor_test_56009
+[setup] 96 policy statements applied to clor_test_56009
+[setup] 4 policy statements applied to clor_test_56009
+[setup] 4 policy statements applied to clor_test_56009
+[setup] 4 policy statements applied to clor_test_56009
+[setup] 1 policy statements applied to clor_test_56009
+[setup] 4 policy statements applied to clor_test_56009
+[setup] 32 policy statements applied to clor_test_56009
+[setup] 24 policy statements applied to clor_test_56009
+[setup] 12 policy statements applied to clor_test_56009
+[setup] 16 policy statements applied to clor_test_56009
+[setup] 4 policy statements applied to clor_test_56009
+[setup] 4 policy statements applied to clor_test_56009
+[setup] 8 policy statements applied to clor_test_56009
+[setup] 8 policy statements applied to clor_test_56009
+[setup] 20 policy statements applied to clor_test_56009
+[setup] 8 policy statements applied to clor_test_56009
+[setup] 4 policy statements applied to clor_test_56009
+[setup] 8 policy statements applied to clor_test_56009
+[setup] 8 policy statements applied to clor_test_56009
+[setup] 12 policy statements applied to clor_test_56009
+[setup] 4 policy statements applied to clor_test_56009
+[setup] 8 policy statements applied to clor_test_56009
+[setup] 28 policy statements applied to clor_test_56009
+[setup] 4 policy statements applied to clor_test_56009
+[setup] 4 policy statements applied to clor_test_56009
+[setup] 4 policy statements applied to clor_test_56009
+[setup] 8 policy statements applied to clor_test_56009
+[setup] 4 policy statements applied to clor_test_56009
+[setup] 4 policy statements applied to clor_test_56009
+[setup] 4 policy statements applied to clor_test_56009
+[setup] 4 policy statements applied to clor_test_56009
+[setup] 8 policy statements applied to clor_test_56009
+[setup] 4 policy statements applied to clor_test_56009
+[setup] 12 policy statements applied to clor_test_56009
+[setup] 4 policy statements applied to clor_test_56009
+[setup] 1 policy statements applied to clor_test_56009
+[setup] 4 policy statements applied to clor_test_56009
+[setup] 76 policy statements applied to clor_test_56009
+[setup] 4 policy statements applied to clor_test_56009
+[setup] 4 policy statements applied to clor_test_56009
+[setup] 4 policy statements applied to clor_test_56009
+[setup] 4 policy statements applied to clor_test_56009
+[setup] 1 policy statements applied to clor_test_56009
+[setup] 8 policy statements applied to clor_test_56009
+POST /api/auth/signup 200 570 - 194.153 ms
+POST /api/auth/signup 200 570 - 193.978 ms
+POST /api/auth/setup-company 200 198 - 1121.821 ms
+POST /api/auth/setup-company 200 198 - 1130.015 ms
+POST /api/orgs/cmvm1nvv7000r6dvoh964skes/people/employees 201 1706 - 286.600 ms
+GET /api/orgs/cmvm1nvv7000r6dvoh964skes/attendance/portal-access 200 462 - 186.163 ms
+POST /api/orgs/cmvm1nvv7000r6dvoh964skes/attendance/portal-access/codes 200 296 - 161.335 ms
+POST /api/portal/activate 200 529 - 130.284 ms
+POST /api/orgs/cmvm1nvv7000r6dvoh964skes/people/employees 201 1704 - 90.507 ms
+GET /api/orgs/cmvm1nvv7000r6dvoh964skes/attendance/portal-access 200 815 - 76.541 ms
+POST /api/orgs/cmvm1nvv7000r6dvoh964skes/attendance/portal-access/codes 200 294 - 168.214 ms
+POST /api/portal/activate 200 527 - 115.312 ms
+POST /api/orgs/cmvm1nvv7000r6dvoh964skes/people/employees 201 1706 - 114.875 ms
+GET /api/orgs/cmvm1nvv7000r6dvoh964skes/attendance/portal-access 200 1170 - 77.136 ms
+POST /api/orgs/cmvm1nvv7000r6dvoh964skes/attendance/portal-access/codes 200 296 - 114.817 ms
+POST /api/portal/activate 200 529 - 114.556 ms
+POST /api/orgs/cmvm1nvw9000t6dvobrfzh8mf/people/employees 201 1704 - 69.462 ms
+GET /api/orgs/cmvm1nvw9000t6dvobrfzh8mf/attendance/portal-access 200 460 - 66.224 ms
+POST /api/orgs/cmvm1nvw9000t6dvobrfzh8mf/attendance/portal-access/codes 200 294 - 108.099 ms
+POST /api/portal/activate 200 527 - 109.422 ms
+POST /api/orgs/cmvm1nvv7000r6dvoh964skes/people/employees/cmvm1nxca000crme1lzvzshrp/documents 201 296 - 57.713 ms
+POST /api/orgs/cmvm1nvv7000r6dvoh964skes/people/employees/cmvm1nxca000crme1lzvzshrp/documents 201 297 - 41.658 ms
+GET /api/orgs/cmvm1nvv7000r6dvoh964skes/people/documents/cmvm1nyaj001drme14ghvp4dz 200 357 - 56.851 ms
+GET /api/orgs/cmvm1nvv7000r6dvoh964skes/attendance/punch-photos/cmvm1nybv001grme1vj4fi8kk 200 167 - 65.794 ms
+GET /api/orgs/cmvm1nvv7000r6dvoh964skes/people/compliance/cmvm1nycn001irme1c0rob20h/evidence 200 121 - 42.258 ms
+GET /api/orgs/cmvm1nvw9000t6dvobrfzh8mf/people/documents/cmvm1nyaj001drme14ghvp4dz 404 29 - 60.379 ms
+GET /api/orgs/cmvm1nvw9000t6dvobrfzh8mf/attendance/punch-photos/cmvm1nybv001grme1vj4fi8kk 404 44 - 57.449 ms
+GET /api/orgs/cmvm1nvw9000t6dvobrfzh8mf/people/compliance/cmvm1nycn001irme1c0rob20h/evidence 404 47 - 61.334 ms
+GET /api/orgs/cmvm1nvv7000r6dvoh964skes/people/documents/cmvm1nyaj001drme14ghvp4dz 403 28 - 2.335 ms
+GET /api/orgs/cmvm1nvv7000r6dvoh964skes/attendance/punch-photos/cmvm1nybv001grme1vj4fi8kk 403 28 - 16.237 ms
+GET /api/orgs/cmvm1nvv7000r6dvoh964skes/people/compliance/cmvm1nycn001irme1c0rob20h/evidence 403 28 - 2.633 ms
+GET /api/portal/documents/cmvm1nyaj001drme14ghvp4dz 200 173 - 9.197 ms
+GET /api/portal/documents/cmvm1nybu001frme1zszavy3q 404 29 - 21.504 ms
+GET /api/portal/documents 200 186 - 3.650 ms
+GET /api/portal/documents/cmvm1nyaj001drme14ghvp4dz 404 29 - 5.107 ms
+GET /api/portal/documents/cmvm1nyaj001drme14ghvp4dz 404 29 - 18.866 ms
+GET /api/portal/approvals/punch/cmvm1nyc7001hrme1c8rvwitk/photo 200 130 - 5.529 ms
+GET /api/portal/approvals/punch/cmvm1nyc7001hrme1c8rvwitk/photo 403 43 - 6.058 ms
+GET /api/portal/approvals/punch/cmvm1nyc7001hrme1c8rvwitk/photo 403 43 - 19.580 ms
+GET /api/portal/approvals/punch/cmvm1nyc7001hrme1c8rvwitk/photo 404 38 - 6.105 ms
+GET /api/orgs/cmvm1nvv7000r6dvoh964skes/people/documents/cmvm1nyaj001drme14ghvp4dz 200 357 - 40.224 ms
+GET /api/orgs/cmvm1nvv7000r6dvoh964skes/attendance/punch-photos/cmvm1nybv001grme1vj4fi8kk 200 167 - 54.112 ms
+GET /api/orgs/cmvm1nvv7000r6dvoh964skes/people/compliance/cmvm1nycn001irme1c0rob20h/evidence 200 121 - 41.169 ms
+GET /api/portal/documents/cmvm1nyaj001drme14ghvp4dz 200 173 - 3.688 ms
+GET /api/portal/approvals/punch/cmvm1nyc7001hrme1c8rvwitk/photo 200 130 - 5.118 ms
+
+ Test Files  1 passed (1)
+      Tests  10 passed (10)
+   Start at  12:24:49
+   Duration  26.43s (transform 3.87s, setup 36ms, import 7.38s, tests 4.17s, environment 0ms)
+
