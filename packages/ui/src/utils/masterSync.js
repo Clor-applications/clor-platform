@@ -42,17 +42,25 @@ export const patchMaster = async (row, patch) => {
 /**
  * Removal, server first.
  *
- * Nothing points at one of these by id — a document records the unit it was
- * entered in and the rate it was priced at, not a reference to the list the
- * value came from — so these are genuinely deleted rather than deactivated.
+ * A document records the unit it was entered in and the rate it was priced
+ * at, not a reference to the list the value came from — so these are
+ * genuinely deleted rather than deactivated. The exception is a cost centre
+ * Payroll uses (GAP-010): the server keeps it, and so must the screen —
+ * `{ kept: true }` says so, with the reason already shown.
  */
 export const removeMaster = async (row) => {
   const id = String(row?.backendMasterId || '').trim();
-  if (!id || !hasApiSession()) return;
+  if (!id || !hasApiSession()) return { removed: true };
   try {
     await deleteOrgMaster(id);
+    return { removed: true };
   } catch (e) {
+    if (e?.status === 409) {
+      notify.error(String(e?.message || 'The server keeps this one.'));
+      return { removed: false, kept: true };
+    }
     notify.error(`Removed on this device only — the server refused it: ${String(e?.message || e)}`);
+    return { removed: true };
   }
 };
 

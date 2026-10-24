@@ -52,8 +52,14 @@ beforeAll(async () => {
   branchB = String(b.body.branch?.id || b.body.id);
 }, 60_000);
 
-const restrict = (as: Ctx, userId: string, entityId: string) =>
-  request(app).post(`/api/orgs/${owner.orgId}/users/${userId}/permissions`).set(at(as)).send({ entityType: 'CUSTOMER', entityId });
+/* A restriction names a real customer of the company (GAP-010): 'cust-a' and 'cust-b' are made once. */
+const customers: Record<string, string> = {};
+const customer = async (key: string) =>
+  (customers[key] ||= String(
+    ((r) => r.body.customer?.id || r.body.party?.id || r.body.id)(await request(app).post(`/api/orgs/${owner.orgId}/customers`).set(at(owner)).send({ name: `${key} ${rnd()}` }).expect(201))
+  ));
+const restrict = async (as: Ctx, userId: string, key: string) =>
+  request(app).post(`/api/orgs/${owner.orgId}/users/${userId}/permissions`).set(at(as)).send({ entityType: 'CUSTOMER', entityId: await customer(key) });
 
 describe('record restrictions', () => {
   let manager: Ctx;
@@ -65,7 +71,8 @@ describe('record restrictions', () => {
   }, 60_000);
 
   it('cannot be lifted, or widened, by the person they restrict', async () => {
-    const mine = await restrict(owner, manager.userId, 'cust-a').expect(201);
+    const mine = await restrict(owner, manager.userId, 'cust-a');
+    expect(mine.status).toBe(201);
     const lift = await request(app).delete(`/api/orgs/${owner.orgId}/users/${manager.userId}/permissions/${mine.body.permission.id}`).set(at(manager));
     expect(lift.status).toBe(403);
     expect(lift.body.code).toBe('own_access');
@@ -81,7 +88,8 @@ describe('record restrictions', () => {
   });
 
   it('are still set and removed on other people by somebody who manages users', async () => {
-    const row = await restrict(manager, other.userId, 'cust-a').expect(201);
+    const row = await restrict(manager, other.userId, 'cust-a');
+    expect(row.status).toBe(201);
     await request(app).delete(`/api/orgs/${owner.orgId}/users/${other.userId}/permissions/${row.body.permission.id}`).set(at(manager)).expect(200);
   });
 });

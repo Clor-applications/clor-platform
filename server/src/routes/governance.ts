@@ -25,6 +25,7 @@ import { permKey } from '../constants/permissionCatalog.js';
 import { ApprovalError, decide, notifyDecision, reopen } from '../services/approvals.js';
 import { isAppEntitled } from '../services/subscriptions.js';
 import { ensureLedgerSetup, invoicePostingLines, postEntry } from '../services/ledger.js';
+import { entityExists } from '../services/integrity/crossStore.js';
 
 /**
  * Administration surfaces layered on top of roles: role profiles, approval
@@ -528,6 +529,10 @@ governanceRouter.post('/orgs/:orgId/users/:userId/permissions', USERS_EDIT, asyn
 
   const refused = await restrictionRefusal(req, userId);
   if (refused) return res.status(refused.status).json(refused.body);
+  /* GAP-010: the customer, vendor or cost centre lives in Accounting; access to one that is not this company's names nothing. */
+  if (!(await entityExists({ accountId, orgId }, body.entityType, body.entityId.trim()))) {
+    return res.status(400).json({ error: `No such ${body.entityType === 'COST_CENTRE' ? 'cost centre' : body.entityType.toLowerCase()} in this company.` });
+  }
 
   try {
     const row = await platformPrisma.userPermission.create({

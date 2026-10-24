@@ -11,6 +11,7 @@ import { validateFormula } from '../services/payroll/formula.js';
 import { PAYROLL_MODULE, PAYROLL_RESOURCE, payrollRouteOk } from '../services/payroll/guards.js';
 import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { CONDITION_FIELDS, OPERATORS } from '../services/payroll/eligibility.js';
+import { ledgerRefusal } from '../services/payroll/accounting/references.js';
 
 /**
  * The lines a payslip can be built from.
@@ -278,6 +279,8 @@ payrollComponentsRouter.post(
 
     const clash = await payrollPrisma.salaryComponent.findFirst({ where: { orgId, code: body.code }, select: { id: true } });
     if (clash) return res.status(409).json({ error: `A component with the code ${body.code} already exists.` });
+    const ledgerRefused = await ledgerRefusal(accountId, orgId, [body.expenseLedgerId, body.liabilityLedgerId]);
+    if (ledgerRefused) return res.status(400).json({ error: ledgerRefused });
 
     const row = await payrollPrisma.salaryComponent.create({
       data: { ...body, accountId, orgId, createdByUserId: req.auth!.userId },
@@ -377,6 +380,9 @@ payrollComponentsRouter.put(
       });
       if (clash) return res.status(409).json({ error: `A component with the code ${body.code} already exists.` });
     }
+
+    const ledgerRefused = await ledgerRefusal(accountId, orgId, [body.expenseLedgerId, body.liabilityLedgerId], [existing.expenseLedgerId, existing.liabilityLedgerId]);
+    if (ledgerRefused) return res.status(400).json({ error: ledgerRefused });
 
     const row = await payrollPrisma.salaryComponent.update({ where: { id: existing.id }, data: body });
     res.json({ component: shape(row) });

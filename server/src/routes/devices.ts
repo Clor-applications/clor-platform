@@ -24,7 +24,7 @@ import { can as can_, driverOf, publicDrivers, vendorsWith } from '../services/a
 import { mappingSchema, recordsOf, toAttlog, validZone } from '../services/attendance/punchMapping.js';
 import { parseCsv } from '../services/attendance/csv.js';
 import { hashToken } from './publicApi.js';
-import { CredentialError, actorFrom, issueCredential, rotateCredential } from '../services/credentials.js';
+import { CredentialError, actorFrom, issueCredential, liveCredentialOf, revokeCredential, rotateCredential } from '../services/credentials.js';
 import { liveCredentialFor } from '../services/credentialKinds.js';
 import { MATRIX_COMMANDS, MATRIX_COMMAND_LABELS } from './matrix.js';
 import { setTimeCommand } from '../services/attendance/adms.js';
@@ -448,6 +448,9 @@ devicesRouter.delete(`${base}/:id`, can(PermissionAction.DELETE), async (req, re
   await peoplePrisma.deviceCommand.deleteMany({ where: { orgId, deviceId: existing.id } });
   await peoplePrisma.deviceUser.deleteMany({ where: { orgId, deviceId: existing.id } });
   await peoplePrisma.attendanceDevice.delete({ where: { id: existing.id } });
+  /* GAP-010: its push address stops now, not at the nightly orphan sweep. */
+  const cred = await liveCredentialOf('DEVICE_PUSH', existing.id, orgId);
+  if (cred) await revokeCredential(cred.id, orgId, actorFrom(req), 'owner_deleted');
   res.json({ ok: true });
 });
 

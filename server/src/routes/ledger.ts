@@ -7,6 +7,7 @@ import { requirePermission } from '../middleware/rbac.js';
 import { PermissionAction } from '../constants/enums.js';
 import { ensureLedgerSetup, postEntry, reverseEntry, trialBalance, fiscalYearFor } from '../services/ledger.js';
 import { recordBankDateChange } from '../services/bankDateAudit.js';
+import { PAYROLL_SOURCES } from '../services/integrity/crossStore.js';
 
 export const ledgerRouter = Router();
 ledgerRouter.use(requireAuth, requireTenantContext);
@@ -314,6 +315,11 @@ ledgerRouter.patch(
 
 ledgerRouter.post('/orgs/:orgId/ledger/entries/:entryId/reverse', requirePermission(MODULE, PermissionAction.EDIT, SUB), async (req, res) => {
   if (!requireOrgMatch(req, res)) return;
+  /* GAP-010: Payroll records that it posted this; reversed here, Payroll would go on saying so. */
+  const source = await prisma.journalEntry.findFirst({ where: { id: String(req.params.entryId), accountId: req.tenant!.accountId, orgId: req.tenant!.orgId }, select: { sourceDocType: true } });
+  if (source?.sourceDocType && PAYROLL_SOURCES.has(source.sourceDocType)) {
+    return res.status(409).json({ code: 'POSTED_BY_PAYROLL', error: 'Payroll posted this journal. Correct it in Payroll, so Payroll and the books agree.' });
+  }
   const reversal = await reverseEntry({
     accountId: req.tenant!.accountId,
     orgId: req.tenant!.orgId,

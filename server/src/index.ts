@@ -15,6 +15,7 @@ import { reportProcessErrors } from './utils/log.js';
 import { stopJobs } from './services/jobLease.js';
 import { startCredentialBackfill } from './services/credentialBackfill.js';
 import { startCredentialChecks } from './services/credentialReview.js';
+import { startIntegrityChecks } from './services/integrity/checks.js';
 
 /* Crashes and unhandled rejections are reported, not lost. */
 reportProcessErrors();
@@ -75,3 +76,5 @@ startReportSchedules(buildReport);
 startCredentialBackfill();
 /* Daily: expiry warnings, expired events, credentials whose own row is gone. */
 startCredentialChecks();
+/* GAP-010: links between the databases, checked nightly; safe ones repaired, the rest logged. */
+startIntegrityChecks();

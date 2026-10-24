@@ -407,7 +407,16 @@ describe('approval thresholds', () => {
 });
 
 describe('user permissions (document restrictions)', () => {
+  /* A restriction names a real record of the company (GAP-010). */
+  const party = async (kind: 'customers' | 'vendors', name: string) => {
+    const r = await request(app).post(`/api/orgs/${owner.orgId}/${kind}`).set(auth(owner)).send({ name: `${name} ${rnd()}` }).expect(201);
+    return String(r.body.customer?.id || r.body.vendor?.id || r.body.party?.id || r.body.id);
+  };
+  const costCentre = async () => String((await request(app).post(`/api/orgs/${owner.orgId}/masters`).set(auth(owner)).send({ kind: 'COST_CENTER', name: `CC ${rnd()}` }).expect(201)).body.master.id);
+
   it('limits a user to their assigned customers', async () => {
+    const CUST_A = await party('customers', 'Acme');
+    const CUST_B = await party('customers', 'Beta');
     const role = await makeRole('Restricted', ['SALES::Invoices::VIEW', 'SALES::Invoices::CREATE']);
     const user = await makeUser();
     await request(app)
@@ -420,26 +429,26 @@ describe('user permissions (document restrictions)', () => {
     await request(app)
       .post(`/api/orgs/${owner.orgId}/invoices`)
       .set(auth(ctxFor(user.token)))
-      .send(invoiceBody({ customerId: 'CUST-A' }))
+      .send(invoiceBody({ customerId: CUST_A }))
       .expect(201);
 
     await request(app)
       .post(`/api/orgs/${owner.orgId}/users/${user.id}/permissions`)
       .set(auth(owner))
-      .send({ entityType: 'CUSTOMER', entityId: 'CUST-A', label: 'Acme' })
+      .send({ entityType: 'CUSTOMER', entityId: CUST_A, label: 'Acme' })
       .expect(201);
 
     // Now only CUST-A is permitted.
     await request(app)
       .post(`/api/orgs/${owner.orgId}/invoices`)
       .set(auth(ctxFor(user.token)))
-      .send(invoiceBody({ customerId: 'CUST-A' }))
+      .send(invoiceBody({ customerId: CUST_A }))
       .expect(201);
 
     const denied = await request(app)
       .post(`/api/orgs/${owner.orgId}/invoices`)
       .set(auth(ctxFor(user.token)))
-      .send(invoiceBody({ customerId: 'CUST-B' }))
+      .send(invoiceBody({ customerId: CUST_B }))
       .expect(403);
     expect(String(denied.body.error)).toMatch(/not permitted/i);
   });
@@ -449,14 +458,15 @@ describe('user permissions (document restrictions)', () => {
     const user = await makeUser();
     await request(app).post(`/api/orgs/${owner.orgId}/users/${user.id}/roles`).set(auth(owner)).send({ roleId: role, branchId: null }).expect(201);
 
+    const CC = await costCentre();
     const created = await request(app)
       .post(`/api/orgs/${owner.orgId}/users/${user.id}/permissions`)
       .set(auth(owner))
-      .send({ entityType: 'COST_CENTRE', entityId: 'CC-01' })
+      .send({ entityType: 'COST_CENTRE', entityId: CC })
       .expect(201);
 
     const me = await request(app).get(`/api/orgs/${owner.orgId}/permissions/me`).set(auth(ctxFor(user.token))).expect(200);
-    expect(me.body.restrictions.COST_CENTRE).toEqual(['CC-01']);
+    expect(me.body.restrictions.COST_CENTRE).toEqual([CC]);
 
     await request(app)
       .delete(`/api/orgs/${owner.orgId}/users/${user.id}/permissions/${created.body.permission.id}`)
@@ -470,7 +480,8 @@ describe('user permissions (document restrictions)', () => {
   it('rejects a duplicate restriction', async () => {
     const user = await makeUser();
     const url = `/api/orgs/${owner.orgId}/users/${user.id}/permissions`;
-    await request(app).post(url).set(auth(owner)).send({ entityType: 'VENDOR', entityId: 'V-1' }).expect(201);
-    await request(app).post(url).set(auth(owner)).send({ entityType: 'VENDOR', entityId: 'V-1' }).expect(409);
+    const V1 = await party('vendors', 'Vend');
+    await request(app).post(url).set(auth(owner)).send({ entityType: 'VENDOR', entityId: V1 }).expect(201);
+    await request(app).post(url).set(auth(owner)).send({ entityType: 'VENDOR', entityId: V1 }).expect(409);
   });
 });

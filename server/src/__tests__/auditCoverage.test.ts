@@ -97,7 +97,10 @@ describe('who may do what (A-50)', () => {
     await recorded(c, () => o(c).post(`/users/${memberId}/roles`, { roleId }), { entity: 'User', message: /Gave a person a role/ });
     await recorded(c, () => o(c).put(`/users/${memberId}/role`, { roleId }), { entity: 'User', message: /Set a person’s role/ });
     await recorded(c, () => o(c).post(`/users/${memberId}/branches`, { branchIds: [c.branchId] }), { entity: 'User', message: /branches/ });
-    const granted = await recorded(c, () => o(c).post(`/users/${memberId}/permissions`, { entityType: 'CUSTOMER', entityId: 'cust_1', label: 'Acme' }), { entity: 'User', message: /Gave a person a permission/ });
+    const cust = (await o(c).post('/customers', { name: `Acme ${rnd()}` }).expect(201)).body;
+    const custId = cust.customer?.id || cust.party?.id || cust.id;
+    await new Promise((r) => setTimeout(r, 200)); // the customer's own audit row lands after its response
+    const granted = await recorded(c, () => o(c).post(`/users/${memberId}/permissions`, { entityType: 'CUSTOMER', entityId: custId, label: 'Acme' }), { entity: 'User', message: /Gave a person a permission/ });
     const id = JSON.parse(String(granted.metadata || '{}'))?.ids?.[1];
     const perms = (await o(c).get(`/users/${memberId}/permissions`).expect(200)).body;
     const pid = id || (perms.permissions || perms)[0].id;

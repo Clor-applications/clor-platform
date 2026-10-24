@@ -1,0 +1,265 @@
+ DEPRECATED  `test.poolOptions` was removed in Vitest 4. All previous `poolOptions` are now top-level options. Please, refer to the migration guide: https://vitest.dev/guide/migration#pool-rework
+
+ RUN  v4.1.10 /Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_6164", schema "accounting" at "localhost:5432"
+
+The PostgreSQL database "clor_test_6164" schema "accounting" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 368ms
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/payroll/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_6164", schema "payroll" at "localhost:5432"
+
+The PostgreSQL database "clor_test_6164" schema "payroll" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 387ms
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/people/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_6164", schema "people" at "localhost:5432"
+
+The PostgreSQL database "clor_test_6164" schema "people" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 552ms
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/platform/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_6164", schema "platform" at "localhost:5432"
+
+The PostgreSQL database "clor_test_6164" schema "platform" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 451ms
+
+[setup] 180 policy statements applied to clor_test_6164
+[setup] 7 policy statements applied to clor_test_6164
+[setup] 10 policy statements applied to clor_test_6164
+[setup] 35 policy statements applied to clor_test_6164
+[setup] 4 policy statements applied to clor_test_6164
+[setup] 1 policy statements applied to clor_test_6164
+[setup] 96 policy statements applied to clor_test_6164
+[setup] 4 policy statements applied to clor_test_6164
+[setup] 4 policy statements applied to clor_test_6164
+[setup] 4 policy statements applied to clor_test_6164
+[setup] 1 policy statements applied to clor_test_6164
+[setup] 4 policy statements applied to clor_test_6164
+[setup] 32 policy statements applied to clor_test_6164
+[setup] 24 policy statements applied to clor_test_6164
+[setup] 12 policy statements applied to clor_test_6164
+[setup] 16 policy statements applied to clor_test_6164
+[setup] 4 policy statements applied to clor_test_6164
+[setup] 4 policy statements applied to clor_test_6164
+[setup] 8 policy statements applied to clor_test_6164
+[setup] 8 policy statements applied to clor_test_6164
+[setup] 20 policy statements applied to clor_test_6164
+[setup] 8 policy statements applied to clor_test_6164
+[setup] 4 policy statements applied to clor_test_6164
+[setup] 8 policy statements applied to clor_test_6164
+[setup] 8 policy statements applied to clor_test_6164
+[setup] 12 policy statements applied to clor_test_6164
+[setup] 4 policy statements applied to clor_test_6164
+[setup] 8 policy statements applied to clor_test_6164
+[setup] 28 policy statements applied to clor_test_6164
+[setup] 4 policy statements applied to clor_test_6164
+[setup] 4 policy statements applied to clor_test_6164
+[setup] 4 policy statements applied to clor_test_6164
+[setup] 8 policy statements applied to clor_test_6164
+[setup] 4 policy statements applied to clor_test_6164
+[setup] 4 policy statements applied to clor_test_6164
+[setup] 4 policy statements applied to clor_test_6164
+[setup] 4 policy statements applied to clor_test_6164
+[setup] 8 policy statements applied to clor_test_6164
+[setup] 4 policy statements applied to clor_test_6164
+[setup] 12 policy statements applied to clor_test_6164
+[setup] 4 policy statements applied to clor_test_6164
+[setup] 1 policy statements applied to clor_test_6164
+[setup] 4 policy statements applied to clor_test_6164
+[setup] 76 policy statements applied to clor_test_6164
+[setup] 4 policy statements applied to clor_test_6164
+[setup] 4 policy statements applied to clor_test_6164
+[setup] 4 policy statements applied to clor_test_6164
+[setup] 4 policy statements applied to clor_test_6164
+[setup] 1 policy statements applied to clor_test_6164
+[setup] 8 policy statements applied to clor_test_6164
+POST /api/auth/signup 200 570 - 68.873 ms
+POST /api/auth/setup-company 200 198 - 414.567 ms
+PUT /api/orgs/cmvm2zr9g000e4kmxqk232oya/features 200 1173 - 187.892 ms
+POST /api/users 201 134 - 122.428 ms
+POST /api/orgs/cmvm2zr9g000e4kmxqk232oya/masters 201 189 - 27.605 ms
+POST /api/orgs/cmvm2zr9g000e4kmxqk232oya/people/employees 201 1704 - 213.587 ms
+DELETE /api/orgs/cmvm2zr9g000e4kmxqk232oya/masters/cmvm2zrt6000tfbwam0jbwsw8 200 49 - 81.367 ms
+POST /api/orgs/cmvm2zr9g000e4kmxqk232oya/customers 201 1392 - 182.700 ms
+POST /api/orgs/cmvm2zr9g000e4kmxqk232oya/users/cmvm2zrs100qo4kmx2wibh9gb/permissions 201 325 - 119.598 ms
+DELETE /api/orgs/cmvm2zr9g000e4kmxqk232oya/customers/cmvm2zs78000ufbwaloge2gl2 200 31 - 112.947 ms
+POST /api/orgs/cmvm2zr9g000e4kmxqk232oya/warehouses 201 516 - 65.245 ms
+POST /api/orgs/cmvm2zr9g000e4kmxqk232oya/users/cmvm2zrs100qo4kmx2wibh9gb/warehouses 200 11 - 24.185 ms
+DELETE /api/orgs/cmvm2zr9g000e4kmxqk232oya/warehouses/cmvm2zsg6000vfbwav34j2buj 200 11 - 41.879 ms
+DELETE /api/orgs/cmvm2zr9g000e4kmxqk232oya/attendance/devices/cmvm2zsi8000bkwkctiuv700i 200 11 - 104.337 ms
+GET /api/orgs/cmvm2zr9g000e4kmxqk232oya/ledger/accounts 200 2911 - 162.799 ms
+POST /api/orgs/cmvm2zr9g000e4kmxqk232oya/ledger/entries 201 1570 - 128.322 ms
+POST /api/orgs/cmvm2zr9g000e4kmxqk232oya/ledger/entries/cmvm2zsto000zfbwai575lwpy/reverse 201 1679 - 120.174 ms
+GET /api/orgs/cmvm2zr9g000e4kmxqk232oya/ledger/accounts 200 2911 - 95.948 ms
+POST /api/orgs/cmvm2zr9g000e4kmxqk232oya/ledger/entries 201 1632 - 98.562 ms
+POST /api/orgs/cmvm2zr9g000e4kmxqk232oya/ledger/entries/cmvm2zt2m001bfbwapwcwj4lq/reverse 201 1666 - 98.890 ms
+POST /api/orgs/cmvm2zr9g000e4kmxqk232oya/users/cmvm2zrs100qo4kmx2wibh9gb/permissions 201 315 - 111.088 ms
+POST /api/orgs/cmvm2zr9g000e4kmxqk232oya/users/cmvm2zrs100qo4kmx2wibh9gb/permissions 201 313 - 109.605 ms
+POST /api/orgs/cmvm2zr9g000e4kmxqk232oya/users/cmvm2zrs100qo4kmx2wibh9gb/permissions 201 318 - 115.211 ms
+POST /api/auth/signup 200 570 - 32.900 ms
+POST /api/auth/setup-company 200 198 - 145.101 ms
+PUT /api/orgs/cmvm2ztfx00sg4kmxzfdwi2vp/features 200 1173 - 124.690 ms
+POST /api/orgs/cmvm2ztfx00sg4kmxzfdwi2vp/customers 201 1394 - 128.983 ms
+POST /api/orgs/cmvm2zr9g000e4kmxqk232oya/users/cmvm2zrs100qo4kmx2wibh9gb/permissions 201 327 - 117.324 ms
+ ❯ src/__tests__/crossStoreGuards.test.ts (10 tests | 9 failed) 3471ms
+     × a cost centre payroll uses stays; one nobody uses goes, with the access that named it 356ms
+     × a customer, deleted, takes the access that named it 430ms
+     × a warehouse, deleted, takes the warehouse access 139ms
+     × a reader, deleted, stops its push address at once 123ms
+     × refused from Accounting, with the reason 416ms
+     × CUSTOMER that does not exist is refused 113ms
+     × VENDOR that does not exist is refused 111ms
+     × COST_CENTRE that does not exist is refused 117ms
+     × another company’s customer is refused 555ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 9 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/__tests__/crossStoreGuards.test.ts > deleting what another database names > a cost centre payroll uses stays; one nobody uses goes, with the access that named it
+AssertionError: expected 200 to be 409 // Object.is equality
+
+- Expected
++ Received
+
+- 409
++ 200
+
+ ❯ src/__tests__/crossStoreGuards.test.ts:68:28
+     66|     );
+     67|     const refused = await o(c).del(`/masters/${used}`);
+     68|     expect(refused.status).toBe(409);
+       |                            ^
+     69|     expect(refused.body.code).toBe('USED_BY_PAYROLL');
+     70|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/9]⎯
+
+ FAIL  src/__tests__/crossStoreGuards.test.ts > deleting what another database names > a customer, deleted, takes the access that named it
+AssertionError: expected 1 to be +0 // Object.is equality
+
+- Expected
++ Received
+
+- 0
++ 1
+
+ ❯ src/__tests__/crossStoreGuards.test.ts:84:40
+     82|     const r = await o(c).del(`/customers/${id}`).expect(200);
+     83|     expect(r.body.deactivated).toBe(false);
+     84|     expect(await permissionsOf(c, id)).toBe(0);
+       |                                        ^
+     85|   });
+     86|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/9]⎯
+
+ FAIL  src/__tests__/crossStoreGuards.test.ts > deleting what another database names > a warehouse, deleted, takes the warehouse access
+AssertionError: expected 1 to be +0 // Object.is equality
+
+- Expected
++ Received
+
+- 0
++ 1
+
+ ❯ src/__tests__/crossStoreGuards.test.ts:93:27
+     91|     expect(await count()).toBe(1);
+     92|     await o(c).del(`/warehouses/${wh}`).expect(200);
+     93|     expect(await count()).toBe(0);
+       |                           ^
+     94|   });
+     95|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/9]⎯
+
+ FAIL  src/__tests__/crossStoreGuards.test.ts > deleting what another database names > a reader, deleted, stops its push address at once
+AssertionError: expected 'ACTIVE' to be 'REVOKED' // Object.is equality
+
+Expected: "REVOKED"
+Received: "ACTIVE"
+
+ ❯ src/__tests__/crossStoreGuards.test.ts:104:25
+    102|     await o(c).del(`/attendance/devices/${device.id}`).expect(200);
+    103|     const row = await outsideTenant('test: the credential', () => plat…
+    104|     expect(row?.status).toBe('REVOKED');
+       |                         ^
+    105|     expect((await verifyCredential('DEVICE_PUSH', token).catch((e) => …
+    106|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/9]⎯
+
+ FAIL  src/__tests__/crossStoreGuards.test.ts > a journal Payroll posted is reversed in Payroll > refused from Accounting, with the reason
+AssertionError: expected 201 to be 409 // Object.is equality
+
+- Expected
++ Received
+
+- 409
++ 201
+
+ ❯ src/__tests__/crossStoreGuards.test.ts:123:22
+    121|     await outsideTenant('test: as Payroll posts it', () => prisma.jour…
+    122|     const r = await o(c).post(`/ledger/entries/${id}/reverse`, {});
+    123|     expect(r.status).toBe(409);
+       |                      ^
+    124|     expect(r.body.code).toBe('POSTED_BY_PAYROLL');
+    125|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/9]⎯
+
+ FAIL  src/__tests__/crossStoreGuards.test.ts > per-person access names something real > CUSTOMER that does not exist is refused
+ FAIL  src/__tests__/crossStoreGuards.test.ts > per-person access names something real > VENDOR that does not exist is refused
+ FAIL  src/__tests__/crossStoreGuards.test.ts > per-person access names something real > COST_CENTRE that does not exist is refused
+AssertionError: expected 201 to be 400 // Object.is equality
+
+- Expected
++ Received
+
+- 400
++ 201
+
+ ❯ src/__tests__/crossStoreGuards.test.ts:136:22
+    134|   it.each([['CUSTOMER'], ['VENDOR'], ['COST_CENTRE']])('%s that does n…
+    135|     const r = await o(c).post(`/users/${memberId}/permissions`, { enti…
+    136|     expect(r.status).toBe(400);
+       |                      ^
+    137|   });
+    138|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/9]⎯
+
+ FAIL  src/__tests__/crossStoreGuards.test.ts > per-person access names something real > another company’s customer is refused
+AssertionError: expected 201 to be 400 // Object.is equality
+
+- Expected
++ Received
+
+- 400
++ 201
+
+ ❯ src/__tests__/crossStoreGuards.test.ts:143:131
+    141|     const cust = (await o(d).post('/customers', { name: `Theirs ${rnd(…
+    142|     const id = cust.customer?.id || cust.party?.id || cust.id;
+    143|     expect((await o(c).post(`/users/${memberId}/permissions`, { entity…
+       |                                                                                                                                   ^
+    144|   }, 60_000);
+    145| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/9]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  9 failed | 1 passed (10)
+   Start at  13:02:12
+   Duration  16.36s (transform 2.56s, setup 31ms, import 4.88s, tests 3.47s, environment 0ms)
+

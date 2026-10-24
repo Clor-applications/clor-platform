@@ -1,0 +1,36 @@
+
+ RUN  v2.1.9 /Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad
+
+ ❯ packages/ui/src/utils/masterSync.test.js (12 tests | 1 failed) 7ms
+   × removal > says to keep a row the server keeps (a cost centre Payroll uses, GAP-010) 4ms
+     → expected undefined to deeply equal { removed: false, kept: true }
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  packages/ui/src/utils/masterSync.test.js > removal > says to keep a row the server keeps (a cost centre Payroll uses, GAP-010)
+AssertionError: expected undefined to deeply equal { removed: false, kept: true }
+
+- Expected: 
+Object {
+  "kept": true,
+  "removed": false,
+}
+
++ Received: 
+undefined
+
+ ❯ packages/ui/src/utils/masterSync.test.js:113:84
+    111|   it('says to keep a row the server keeps (a cost centre Payroll uses,…
+    112|     deleted.mockRejectedValueOnce(Object.assign(new Error('Payroll use…
+    113|     expect(await removeMaster({ id: 2, backendMasterId: 'srv-9', name:…
+       |                                                                                    ^
+    114|     expect(await removeMaster({ id: 3, backendMasterId: 'srv-10', name…
+    115|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 11 passed (12)
+   Start at  13:04:26
+   Duration  304ms (transform 24ms, setup 149ms, collect 18ms, tests 7ms, environment 0ms, prepare 45ms)
+

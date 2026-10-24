@@ -1865,7 +1865,8 @@ export const InvoiceForm = ({ db, setDb, currentCompany, initialData = null, onC
             >
               <option value="">— none —</option>
               {(db.costCenters || [])
-                .filter((c) => c.companyId === currentCompany.id)
+                /* A switched-off centre is not offered, but one this document already carries stays. */
+                .filter((c) => c.companyId === currentCompany.id && (c.active !== false || String(c.id) === String(formData.costCenterId)))
                 .map((c) => (
                   <option key={c.id} value={c.id}>{c.name}</option>
                 ))}

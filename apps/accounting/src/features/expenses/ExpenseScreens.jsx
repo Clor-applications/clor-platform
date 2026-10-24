@@ -1232,7 +1232,7 @@ export const ExpenseForm = ({ db, setDb, currentCompany, openModal, onClose, ini
                   className="ui-select w-full"
                 >
                   <option value="">— none —</option>
-                  {costCenters.map((c) => (
+                  {costCenters.filter((c) => c.active !== false || String(c.id) === String(formData.costCenterId)).map((c) => (
                     <option key={c.id} value={c.id}>{c.name}</option>
                   ))}
                 </select>

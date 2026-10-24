@@ -78,7 +78,7 @@ export async function recordExpired(now = new Date()) {
 
 /* ------------------------------------------------------- owners gone */
 
-async function ownerExists(kind: string, ownerId: string) {
+export async function ownerExists(kind: string, ownerId: string) {
   switch (kind) {
     case 'API_KEY':
       return !!(await peoplePrisma.apiClient.findUnique({ where: { id: ownerId }, select: { id: true } }));
