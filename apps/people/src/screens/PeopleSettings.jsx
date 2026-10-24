@@ -32,6 +32,7 @@ const GROUPS = [
       ['checklists', 'Joining and leaving checklists'],
       ['letterTemplates', 'Offer, appointment, relieving and other letters the company issues'],
       ['helpDeskSettings', 'Help desk categories, reply and resolve times, and answer templates'],
+      ['approvalRules', 'Who decides job changes, resignations, probation, policies: steps, due days, overdue'],
       ['selfService', 'Who can sign in to the employee app'],
       ['selfServiceChanges', 'Which of their own details employees may change without waiting for HR'],
     ],

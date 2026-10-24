@@ -61,6 +61,7 @@ const PeopleOverview = screen('PeopleOverview');
 const Employees = screen('Employees');
 const Approvals = screen('Approvals');
 const Policies = screen('Policies');
+const ApprovalRules = screen('ApprovalRules');
 const HelpDesk = screen('HelpDesk');
 const HelpDeskSettings = screen('HelpDeskSettings');
 const OrgChart = screen('OrgChart');
@@ -228,6 +229,7 @@ export const peopleApp = {
     { key: 'letterTemplates', label: 'Letters', icon: I.policy, permission: 'PEOPLE::Documents::VIEW', parent: 'settings' },
     { key: 'customFields', label: 'Custom fields', icon: I.tag, permission: 'PEOPLE::Org Structure::EDIT', parent: 'settings' },
     { key: 'selfServiceChanges', label: 'Changes employees make themselves', icon: I.key, permission: 'PEOPLE::Org Structure::EDIT', parent: 'settings' },
+    { key: 'approvalRules', label: 'Approval rules', icon: I.checklist, permission: 'PEOPLE::Approvals::VIEW', parent: 'settings' },
     { key: 'leaveRequests', label: 'Leave Applications', icon: I.leave, permission: 'ATTENDANCE::Leave Requests::VIEW' },
     { key: 'leaveBalances', label: 'Leave Balances', icon: I.balance, permission: 'ATTENDANCE::Leave Requests::VIEW' },
     { key: 'leaveRegister', label: 'Leave Register', icon: I.register, permission: 'ATTENDANCE::Leave Requests::VIEW' },
@@ -289,6 +291,7 @@ export const peopleApp = {
     letterTemplates: LetterTemplates,
     customFields: CustomFieldsSettings,
     selfServiceChanges: SelfServiceSettings,
+    approvalRules: ApprovalRules,
     selfService: PortalAccess,
     leaveRequests: LeaveRequests,
     leaveBalances: LeaveBalances,
