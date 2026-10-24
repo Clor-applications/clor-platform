@@ -1,3 +1,4 @@
+import { checkPortalSession, endPortalSession, endPortalSessions, legacyCutoff, listPortalSessions, startPortalSession } from '../services/portalSessions.js';
 import { Router, type NextFunction, type Request, type Response } from 'express';
 import { anyAppLive, appLive, closing } from '../services/principalAllowed.js';
 import bcrypt from 'bcrypt';
@@ -51,12 +52,14 @@ const secret = () => process.env.JWT_SECRET || (isDevOrTest() ? 'dev-secret' : '
 /** One answer for every failed sign-in, so it does not tell which part was wrong. */
 const WRONG = 'Company code, employee code or password is not right.';
 const WRONG_CODE = 'That activation code is not right or has run out. Ask HR for a new one.';
+const PAUSED = 'Your app access is paused; please ask HR.';
+const deviceOf = (req: Request) => ({ ua: String(req.get('user-agent') || ''), ip: req.ip ? String(req.ip) : null });
 const ROUNDS = 10;
 
 type PortalUser = { employeeId: string; accountId: string; orgId: string };
 declare module 'express-serve-static-core' {
   interface Request {
-    portal?: PortalUser & { employee: any };
+    portal?: PortalUser & { employee: any; sid?: string | null };
   }
 }
 
@@ -78,6 +81,7 @@ const PORTAL_FIELDS = {
   portalPasswordSetAt: true,
   portalSetupHash: true,
   portalSetupExpires: true,
+  portalSessionsRevokedAt: true,
   mobilePunch: true,
   geofenceId: true,
   dateOfBirth: true,
@@ -90,8 +94,9 @@ const PORTAL_FIELDS = {
   reportingManagerId: true,
 } as const;
 
-const sign = (e: { id: string; accountId: string; orgId: string; portalPasswordSetAt: Date | null }) =>
-  jwt.sign({ typ: 'portal', employeeId: e.id, accountId: e.accountId, orgId: e.orgId, pv: e.portalPasswordSetAt?.getTime() || 0 }, secret(), {
+/* The token keeps the shape the apps already store; `sid` names its session row (A-33). */
+const sign = (e: { id: string; accountId: string; orgId: string; portalPasswordSetAt: Date | null }, sid: string) =>
+  jwt.sign({ typ: 'portal', employeeId: e.id, accountId: e.accountId, orgId: e.orgId, pv: e.portalPasswordSetAt?.getTime() || 0, sid }, secret(), {
     expiresIn: (process.env.PORTAL_TOKEN_TTL || '30d') as any,
     issuer: ISSUER(),
     audience: AUDIENCE,
@@ -147,7 +152,10 @@ portalRouter.post('/login', ...portalLimiter, async (req, res) => {
   const e = found?.employee;
   const ok = await bcrypt.compare(String(req.body?.password || ''), e?.portalPasswordHash || DUMMY_HASH);
   if (!found || !e || !ok || !e.portalEnabled || !e.portalPasswordHash) return res.status(401).json({ error: WRONG });
-  res.json({ token: sign(e), employee: { name: e.name, code: e.code }, company: { name: found.org.name } });
+  /* A-33: said only once the password is right, so it tells a stranger nothing. */
+  if (e.status === 'SUSPENDED') return res.status(403).json({ error: PAUSED, code: 'PORTAL_PAUSED' });
+  const session = await startPortalSession(e, deviceOf(req));
+  res.json({ token: sign(e, session.id), employee: { name: e.name, code: e.code }, company: { name: found.org.name } });
 });
 
 /** First sign-in: the activation code from HR, and the person's own password. */
@@ -167,7 +175,11 @@ portalRouter.post('/activate', ...portalLimiter, async (req, res) => {
     data: { portalPasswordHash: await bcrypt.hash(String(req.body.password), ROUNDS), portalPasswordSetAt: new Date(), portalSetupHash: null, portalSetupExpires: null },
     select: PORTAL_FIELDS,
   });
-  res.json({ token: sign(updated), employee: { name: updated.name, code: updated.code }, company: { name: found.org.name } });
+  if (updated.status === 'SUSPENDED') return res.status(403).json({ error: PAUSED, code: 'PORTAL_PAUSED' });
+  /* A new password ends every earlier sign-in (A-33); this device starts its own. */
+  await endPortalSessions(updated, 'password set with an activation code', { type: 'EMPLOYEE', id: updated.id });
+  const session = await startPortalSession(updated, deviceOf(req));
+  res.json({ token: sign(updated, session.id), employee: { name: updated.name, code: updated.code }, company: { name: found.org.name } });
 });
 
 async function authenticate(req: Request, res: Response, next: NextFunction) {
@@ -187,6 +199,19 @@ async function authenticate(req: Request, res: Response, next: NextFunction) {
   if (!e || !e.portalEnabled || e.status === 'LEFT' || !e.portalPasswordHash || (e.portalPasswordSetAt?.getTime() || 0) !== claims.pv) {
     return res.status(401).json({ error: 'Please sign in again.', code: 'PORTAL_SIGNIN' });
   }
+  /* A-33: suspended — signed out, with the reason, so the app clears its token. */
+  if (e.status === 'SUSPENDED') return res.status(401).json({ error: PAUSED, code: 'PORTAL_SIGNIN' });
+  if (claims.sid) {
+    /* A-33: this device's session must still be on — not signed out, not ended by HR, not idle for 30 days, not older than 180. */
+    const s = await checkPortalSession(e.orgId, e.id, String(claims.sid));
+    if (!s.ok) return res.status(401).json({ error: 'Please sign in again.', code: 'PORTAL_SIGNIN' });
+  } else {
+    /* A token from before sessions: refused after the cut-off, or when it predates "sign out everywhere". */
+    const issued = Number(claims.iat || 0) * 1000;
+    if (Date.now() >= legacyCutoff() || (e.portalSessionsRevokedAt && issued < e.portalSessionsRevokedAt.getTime())) {
+      return res.status(401).json({ error: 'Please sign in again.', code: 'PORTAL_SIGNIN' });
+    }
+  }
   const refused = await anyAppLive(e.accountId, e.orgId, ['people', 'attendance']);
   if (refused) {
     /* Said to an employee, not to the person who pays: what happened and who can fix it. */
@@ -197,7 +222,7 @@ async function authenticate(req: Request, res: Response, next: NextFunction) {
     } as Record<string, string>;
     return res.status(refused.status).json({ error: words[refused.code] || refused.error, code: refused.code });
   }
-  req.portal = { employeeId: e.id, accountId: e.accountId, orgId: e.orgId, employee: e };
+  req.portal = { employeeId: e.id, accountId: e.accountId, orgId: e.orgId, employee: e, sid: claims.sid ? String(claims.sid) : null };
   runInTenant(e.orgId, () => next());
 }
 
@@ -1018,7 +1043,48 @@ portalRouter.post('/password', async (req, res) => {
     data: { portalPasswordHash: await bcrypt.hash(String(req.body.next), ROUNDS), portalPasswordSetAt: new Date() },
     select: PORTAL_FIELDS,
   });
-  res.json({ token: sign(updated) });
+  /* A-33: every other device is signed out — older tokens included — and this one goes on. */
+  const me = { type: 'EMPLOYEE' as const, id: e.id };
+  const current = req.portal!.sid || (await startPortalSession(updated, deviceOf(req))).id;
+  await endPortalSessions(updated, 'password changed', me, { except: current });
+  res.json({ token: sign(updated, current) });
+});
+
+/* ------------------------------------------------- signed-in devices (A-33) */
+
+/** Sign this device out. The apps also forget the token; this makes it stop working too. */
+portalRouter.post('/signout', async (req, res) => {
+  const p = req.portal!;
+  if (p.sid) await endPortalSession({ id: p.employeeId, orgId: p.orgId }, p.sid, 'signed out', { type: 'EMPLOYEE', id: p.employeeId });
+  res.json({ ok: true });
+});
+
+/** The devices this person is signed in on, this one marked. */
+portalRouter.get('/sessions', async (req, res) => {
+  const p = req.portal!;
+  const rows = await listPortalSessions({ id: p.employeeId, orgId: p.orgId });
+  res.json({
+    sessions: rows.map((s) => ({ id: s.id, deviceLabel: s.deviceLabel, createdAt: s.createdAt, lastSeenAt: s.lastSeenAt, current: s.id === p.sid })),
+    /* A sign-in from before devices were listed cannot be shown, only ended with "sign out all other devices". */
+    olderSignIns: Date.now() < legacyCutoff(),
+  });
+});
+
+portalRouter.delete('/sessions/:id', async (req, res) => {
+  const p = req.portal!;
+  if (String(req.params.id) === p.sid) return res.status(400).json({ error: 'Use Sign out for this device.' });
+  const done = await endPortalSession({ id: p.employeeId, orgId: p.orgId }, String(req.params.id), 'signed out from another device', { type: 'EMPLOYEE', id: p.employeeId });
+  if (!done) return res.status(404).json({ error: 'That device is not signed in.' });
+  res.json({ ok: true });
+});
+
+/** Everywhere but here — older sign-ins included. */
+portalRouter.post('/sessions/end-others', async (req, res) => {
+  const p = req.portal!;
+  const current = p.sid || (await startPortalSession(p.employee, deviceOf(req))).id;
+  const ended = await endPortalSessions(p.employee, 'signed out from another device', { type: 'EMPLOYEE', id: p.employeeId }, { except: current });
+  /* A device on an older token gets a session token back so it stays signed in. */
+  res.json({ ok: true, ended, ...(p.sid ? {} : { token: sign(p.employee, current) }) });
 });
 
 /**

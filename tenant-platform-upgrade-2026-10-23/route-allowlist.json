@@ -367,6 +367,26 @@
       "reason": "The employee changes their own portal password; needs the current one."
     },
     {
+      "method": "POST",
+      "path": "/api/portal/signout",
+      "reason": "The employee ends this device's own session (A-33)."
+    },
+    {
+      "method": "GET",
+      "path": "/api/portal/sessions",
+      "reason": "The employee's own signed-in devices, nothing else (A-33)."
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/portal/sessions/:id",
+      "reason": "The employee ends one of their own devices; scoped to their sessions (A-33)."
+    },
+    {
+      "method": "POST",
+      "path": "/api/portal/sessions/end-others",
+      "reason": "The employee ends every other device of their own (A-33)."
+    },
+    {
       "method": "GET",
       "path": "/api/portal/payslips",
       "reason": "Employee self-service: reads their own payslips; portal token (authenticate) + anyAppLive (A-11); org and employee from the token."

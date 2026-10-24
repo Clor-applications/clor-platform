@@ -1,3 +1,5 @@
+import { employeeStatusChanged } from '../services/portalSessions.js';
+import { actorFrom } from '../services/credentials.js';
 import { Router } from 'express';
 import { z } from 'zod';
 
@@ -196,6 +198,8 @@ personnelRouter.post(`${base}/employees/:id/resign`, can(PermissionAction.EDIT, 
     where: { id: existing.id },
     data: { status: 'LEFT', dateOfLeaving: parsed.data.lastDay, leavingType: parsed.data.leavingType, leavingReason: blank(parsed.data.reason) },
   });
+  /* A-33: gone, their employee-app sign-ins end. */
+  await employeeStatusChanged(employee, existing.status, 'LEFT', actorFrom(req));
   await recordChanges({ accountId, orgId, userId: req.auth!.userId }, existing, employee, { source: 'RESIGNATION', effectiveDate: parsed.data.lastDay, note: blank(parsed.data.reason) || parsed.data.leavingType.replace(/_/g, ' ').toLowerCase() });
   const removed = await revokeFromReaders(orgId, existing, req.auth!.userId);
   await startChecklist({ accountId, orgId, userId: req.auth!.userId }, employee, 'LEAVING', parsed.data.lastDay, { done: [READER_ACCESS_ITEM] });

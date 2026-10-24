@@ -138,6 +138,9 @@ model Employee {
   portalPasswordSetAt DateTime?
   portalSetupHash     String?
   portalSetupExpires  DateTime?
+  /// When every portal sign-in was last ended (suspended, left, "sign out
+  /// everywhere"): a token from before the session registry issued earlier is refused (A-33).
+  portalSessionsRevokedAt DateTime?
   /// May punch from a phone (inside a geofence). Off unless HR allows it.
   mobilePunch         Boolean   @default(false)
   /// Only this site counts for their phone punches; null = any active site.
@@ -1425,6 +1428,26 @@ model ReportSchedule {
 }
 
 /// The on-site connector: a small service on a customer's network that pulls
+/// One employee portal sign-in, on one device (A-33, Batch 5). The token the
+/// app holds names this row; every request checks it, so ending a row signs
+/// that device out at once. Ends after 30 days unused or 180 days in all.
+model PortalSession {
+  id            String    @id @default(cuid())
+  accountId     String
+  orgId         String
+  employeeId    String
+  /// "Android app", "Chrome on Windows" — from the user agent, to recognise a device by.
+  deviceLabel   String
+  userAgent     String?
+  ip            String?
+  createdAt     DateTime  @default(now())
+  lastSeenAt    DateTime  @default(now())
+  revokedAt     DateTime?
+  revokedReason String?
+
+  @@index([orgId, employeeId, revokedAt])
+}
+
 /// LAN-only readers, delivers Tally vouchers and syncs Active Directory, all
 /// over HTTPS to CLOR (routes/agent.ts, server/agent). One token per agent,
 /// shown once; only its hash is kept.

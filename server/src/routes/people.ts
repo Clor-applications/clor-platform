@@ -1,3 +1,5 @@
+import { employeeStatusChanged } from '../services/portalSessions.js';
+import { actorFrom } from '../services/credentials.js';
 import { Router } from 'express';
 import { z } from 'zod';
 
@@ -439,6 +441,8 @@ peopleRouter.put('/orgs/:orgId/people/employees/:id', can(PermissionAction.EDIT,
         ...structure,
       } as any,
     });
+    /* A-33: suspended or gone, their employee-app sign-ins end. */
+    await employeeStatusChanged(row, existing.status, row.status, actorFrom(req));
     if (b.tagIds) await setTags(accountId, orgId, row.id, b.tagIds);
     /* Employment history: the form may say from when a change counts (effectiveFrom) and why (changeNote). */
     await recordChanges({ accountId, orgId, userId: req.auth!.userId }, existing, row, {

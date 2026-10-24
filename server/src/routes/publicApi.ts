@@ -48,6 +48,7 @@ export const SCOPES = ['attendance:read', 'employees:read', 'employees:write', '
 /* The one hash every token kind uses; it lives with the credential registry now (Batch 5). */
 import { hashToken, verifyCredential, touchLastUsed } from '../services/credentials.js';
 import { apiKeyKind, refusalOf } from '../services/credentialKinds.js';
+import { employeeStatusChanged } from '../services/portalSessions.js';
 export { hashToken };
 
 type Client = { id: string; accountId: string; orgId: string; scopes: string[]; deviceId: string | null; tokenPrefix: string };
@@ -200,6 +201,8 @@ async function writeEmployee(req: Request, existing: any | null, b: z.infer<type
     return { row, created: true };
   }
   const row = await peoplePrisma.employee.update({ where: { id: existing.id }, data: data as any });
+  /* A-33: suspended or gone, their employee-app sign-ins end — whoever changed it. */
+  await employeeStatusChanged(row, existing.status, row.status, { type: 'SYSTEM', label: 'API key' });
   if (row.status === 'LEFT' && existing.status !== 'LEFT') await revokeFromReaders(orgId, existing, by);
   else if (row.status !== 'LEFT' && readerFieldsChanged(existing, row)) await pushEmployeeToReaders(orgId, row, by, existing);
   emitWebhook(orgId, row.status === 'LEFT' && existing.status !== 'LEFT' ? 'employee.left' : 'employee.updated', employeeEvent(row));

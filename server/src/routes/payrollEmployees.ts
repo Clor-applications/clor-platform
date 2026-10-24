@@ -1,3 +1,5 @@
+import { employeeStatusChanged } from '../services/portalSessions.js';
+import { actorFrom } from '../services/credentials.js';
 import { Router } from 'express';
 import { ownRecordRefusal, ownWorkRefusal } from '../services/makerChecker.js';
 import { z } from 'zod';
@@ -332,6 +334,8 @@ payrollEmployeesRouter.put(
         notes: blank(body.notes),
       },
     });
+    /* A-33: suspended or gone, their employee-app sign-ins end. */
+    await employeeStatusChanged(row, existing.status, row.status, actorFrom(req));
     /* The same reader rules as the People app: leaving ends door access; a new name or code goes to the readers. */
     if (row.status === 'LEFT' && existing.status !== 'LEFT') await revokeFromReaders(orgId, existing, req.auth!.userId);
     else if (row.status !== 'LEFT' && readerFieldsChanged(existing, row)) await pushEmployeeToReaders(orgId, row, req.auth!.userId, existing);
