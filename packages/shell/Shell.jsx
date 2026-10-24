@@ -617,6 +617,21 @@ export default function Shell() {
           </button>
         );
       })}
+      {/* An app can fill the rail's free space with shortcuts to the company's other apps (manifest `railApps`). */}
+      {app?.railApps && !phone ? (
+        <div className="ui-split-rail-apps" role="group" aria-label={app.railApps.label || 'Apps'}>
+          <span className="ui-split-rail-apps-label">{app.railApps.label || 'Apps'}</span>
+          {mine.filter((a) => !a.platform && a.id !== activeAppId).map((a) => {
+            const AppIcon = app.railApps.icon?.(a.id) || a.icon;
+            return (
+              <button key={a.id} type="button" className="ui-split-mod" title={`Open ${a.name}`} onClick={() => openApp(a.id)}>
+                {AppIcon ? <AppIcon size={20} aria-hidden="true" /> : null}
+                <span>{a.short || a.name}</span>
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
     </nav>
   );
   /* The open module's screens under plain headings; a single-screen module has no panel. */

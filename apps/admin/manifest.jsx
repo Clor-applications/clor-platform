@@ -1,6 +1,6 @@
 import { ShieldCheck } from 'lucide-react';
 
-import { ICON } from './src/screens/wsKit.jsx';
+import { ICON, productIcon } from './src/screens/wsKit.jsx';
 
 import { lazyScreens } from '@ui/utils/lazyScreens';
 
@@ -62,6 +62,8 @@ export const adminApp = {
 
   /* W-R3: a rail tap opens the module's own landing page; the content follows the sidebar, never the Overview left behind. */
   railOpensHome: true,
+  /* The rail's free space below the modules holds the company's apps: the Workspace has no app switcher in its bar, so this is the way out to them. */
+  railApps: { label: 'Apps', icon: (id) => productIcon(id) },
   /* The icon set Clor Attendance draws in: Microsoft Fluent colour icons. */
   iconSet: 'color',
 
