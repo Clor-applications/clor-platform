@@ -483,6 +483,30 @@ async function setTags(accountId: string, orgId: string, employeeId: string, tag
   ]);
 }
 
+/** People already here who share an email, phone or employee ID with what is being saved (CORE-02). */
+async function findDuplicates(orgId: string, exceptId: string | null, b: { email?: string | null; personalEmail?: string | null; workEmail?: string | null; phone?: string | null; code?: string | null }) {
+  const emails = [...new Set([b.email, b.personalEmail, b.workEmail].map((v) => String(v || '').trim().toLowerCase()).filter(Boolean))];
+  const phone = String(b.phone || '').replace(/\D/g, '').slice(-10);
+  const code = String(b.code || '').trim();
+  if (!emails.length && !phone && !code) return [];
+  const rows = await peoplePrisma.employee.findMany({
+    where: { orgId, status: { not: 'LEFT' }, ...(exceptId ? { id: { not: exceptId } } : {}), OR: [
+      ...(emails.length ? [{ email: { in: emails, mode: 'insensitive' as const } }, { personalEmail: { in: emails, mode: 'insensitive' as const } }, { workEmail: { in: emails, mode: 'insensitive' as const } }] : []),
+      /* Phones are stored as typed ("+91 98765 11111"); the last four digits narrow the query and the digits decide. */
+      ...(phone ? [{ phone: { contains: phone.slice(-4) } }] : []),
+      ...(code ? [{ code }] : []),
+    ] },
+    select: { id: true, name: true, code: true, email: true, personalEmail: true, workEmail: true, phone: true }, take: 20,
+  });
+  const digits = (v: string | null) => String(v || '').replace(/\D/g, '');
+  const out: Array<{ id: string; name: string; code: string | null; field: string }> = [];
+  for (const r of rows) {
+    const field = code && r.code === code ? 'employee ID' : phone && digits(r.phone).endsWith(phone) ? 'phone' : emails.some((e) => [r.email, r.personalEmail, r.workEmail].map((x) => String(x || '').toLowerCase()).includes(e)) ? 'email' : null;
+    if (field) out.push({ id: r.id, name: r.name, code: r.code, field });
+  }
+  return out.slice(0, 5);
+}
+
 peopleRouter.post('/orgs/:orgId/people/employees', can(PermissionAction.CREATE, EMPLOYEES), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
@@ -494,11 +518,15 @@ peopleRouter.post('/orgs/:orgId/people/employees', can(PermissionAction.CREATE, 
   if (b.dateOfLeaving && b.dateOfJoining && b.dateOfLeaving < b.dateOfJoining) {
     return res.status(400).json({ error: 'Somebody cannot leave before they joined.' });
   }
+  /* The same person twice (CORE-02): a matching email, phone or employee ID on someone already here is shown, and saving anyway needs a reason. */
+  const duplicates = await findDuplicates(orgId, null, b);
+  const duplicateReason = typeof req.body?.duplicateReason === 'string' ? req.body.duplicateReason.trim().slice(0, 500) : '';
+  if (duplicates.length && !duplicateReason) return res.status(409).json({ error: `${duplicates[0].name} already has this ${duplicates[0].field}. Open their record, or say why this is a different person.`, code: 'DUPLICATE', duplicates });
   try {
     const structure = await resolveStructure(orgId, b);
     await checkManager(orgId, null, blank(b.reportingManagerId));
     await checkManager(orgId, null, blank(b.dottedManagerId));
-    const row = await createEmployee(actorOf(req, 'FORM'), {
+    const row = await createEmployee(actorOf(req, 'FORM', duplicates.length ? `Saved despite a match on ${duplicates.map((d) => `${d.field} (${d.name})`).join(', ')}: ${duplicateReason}` : null), {
       accountId,
       orgId,
       name,

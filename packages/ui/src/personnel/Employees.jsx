@@ -1214,6 +1214,8 @@ const shrinkPhoto = (file) =>
 function EmployeeForm({ initial, lists, people, onClose, onSaved }) {
   const [form, setForm] = useState(() => ({ ...initial }));
   const [saving, setSaving] = useState(false);
+  /* The same person twice (CORE-02): the server names who already has this email, phone or ID; saving anyway needs a reason. */
+  const [dupes, setDupes] = useState(null);
 
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e?.target ? e.target.value : e }));
   const positions = useMemo(
@@ -1256,11 +1258,16 @@ function EmployeeForm({ initial, lists, people, onClose, onSaved }) {
       body.effectiveFrom = form.effectiveFrom || today;
       if (form.changeNote) body.changeNote = form.changeNote;
     }
+    if (dupes?.reason) body.duplicateReason = dupes.reason;
     try {
       const res = form.id ? await updateEmployee(form.id, body) : await createEmployee(body);
       notify.success(`${res.employee?.name || 'Employee'} saved.`);
       onSaved(res.employee);
     } catch (err) {
+      if (err?.code === 'DUPLICATE' && Array.isArray(err?.data?.duplicates)) {
+        setDupes({ list: err.data.duplicates, reason: dupes?.reason || '' });
+        return;
+      }
       notify.error(String(err?.message || 'Not saved.'));
     } finally {
       setSaving(false);
@@ -1301,6 +1308,18 @@ function EmployeeForm({ initial, lists, people, onClose, onSaved }) {
       }
     >
       <form id="employee-form" onSubmit={save} className="space-y-6">
+        {dupes ? (
+          <section className="ui-card p-3 space-y-2" aria-label="Possibly the same person" style={{ borderColor: 'rgb(var(--neg))' }}>
+            <p className="text-sm font-medium">Someone here already has this {dupes.list[0]?.field}.</p>
+            <ul className="text-sm">
+              {dupes.list.map((d) => (
+                <li key={d.id}>{d.name}{d.code ? ` · ${d.code}` : ''} <span className="ui-caption">— same {d.field}</span></li>
+              ))}
+            </ul>
+            <p className="ui-caption">If this is the same person, cancel and open their record. If it is a different person, say why and save again; the reason goes on the change log.</p>
+            <input className="ui-input w-full" value={dupes.reason} maxLength={500} placeholder="Why this is a different person" onChange={(e) => setDupes({ ...dupes, reason: e.target.value })} aria-label="Why this is a different person" />
+          </section>
+        ) : null}
         {moved ? (
           <section className="ui-card p-3 space-y-2" aria-label="Employment change">
             <p className="text-sm font-medium">This changes where or how {form.name || 'they'} work. It goes into their employment history. A date in the future waits on the record and takes effect that day.</p>

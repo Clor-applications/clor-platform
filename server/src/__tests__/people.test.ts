@@ -77,6 +77,21 @@ describe('employee files', () => {
     expect(after.body.employee.department).toBe('Finance & Accounts');
   });
 
+  it('a matching phone, email or ID names the person already here; saving anyway needs a reason, which goes on the change log (CORE-02)', async () => {
+    const first = (await api(owner).post('/employees', { name: 'Rekha Nair', code: 'DUP-1', phone: '+91 98765 11111', personalEmail: 'rekha@example.com' }).expect(201)).body.employee;
+    const refused = await api(owner).post('/employees', { name: 'Rekha N', code: 'DUP-2', phone: '9876511111' }).expect(409);
+    expect(refused.body.code).toBe('DUPLICATE');
+    expect(refused.body.duplicates).toEqual([{ id: first.id, name: 'Rekha Nair', code: 'DUP-1', field: 'phone' }]);
+    expect((await api(owner).post('/employees', { name: 'R Nair', code: 'DUP-3', workEmail: 'REKHA@example.com' }).expect(409)).body.duplicates[0].field).toBe('email');
+    expect((await api(owner).post('/employees', { name: 'Someone', code: 'DUP-1' }).expect(409)).body.duplicates[0].field).toBe('employee ID');
+    const saved = (await api(owner).post('/employees', { name: 'Rekha N', code: 'DUP-2', phone: '9876511111', duplicateReason: 'Sisters sharing the family phone' }).expect(201)).body.employee;
+    const { peoplePrisma } = await import('../utils/peoplePrisma.js');
+    const { runInTenant } = await import('../utils/tenantScope.js');
+    const line = await runInTenant(owner.orgId, () => peoplePrisma.changeLog.findFirst({ where: { employeeId: saved.id, field: 'record' } }));
+    expect(line?.reason).toContain('Sisters sharing the family phone');
+    expect(line?.reason).toContain('phone (Rekha Nair)');
+  });
+
   it('refuses a department from another organisation', async () => {
     const other = await makeOwner();
     const foreign = (await api(other).post('/structure/departments', { name: 'Elsewhere' }).expect(201)).body.item;
