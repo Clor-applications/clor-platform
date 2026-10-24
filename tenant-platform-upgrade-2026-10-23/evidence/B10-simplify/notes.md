@@ -17,3 +17,10 @@
 
 Proof: Accounting web tests before (`accounting-web-before.txt`) and after each move — the same 47 baseline failures by name, 911 passing, every time; `vite build` passes (`build.txt`); browser: Expenses, Settings → GST registrations render.
 What stays in App.jsx: the app shell (navigation, view switch, data loading) — next to split, with care, since every screen hangs off it.
+
+## Sales and Purchase (same method)
+
+- `features/sales/index.jsx` 6,819 → re-exports only: `InvoiceForm.jsx` (2,730), `InvoicesList.jsx` (1,699), `Estimates.jsx` (1,181), `CreditNotes.jsx` (401), `salesShared.jsx` (880).
+- `features/purchase/index.jsx` 4,657 → re-exports only: `Bills.jsx` (2,195), `PurchaseOrders.jsx` (1,077), `DebitNotes.jsx`, `purchaseShared.jsx` (1,043).
+- Two tests read source by path: `oneEngine.test.js` now reads the bill and invoice form files that use `resolveTds`; `expectedVsActual.test.js` now scans every sales file (it would otherwise have passed on an empty index).
+- Accounting web tests: the same 47 baseline failures by name, 911 pass (`accounting-web-after-sales-purchase.txt`); `vite build` passes.

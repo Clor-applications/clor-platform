@@ -34,3 +34,4 @@ The PostgreSQL database "clor_test_73158" schema "platform" at "localhost:5432" 
 
 🚀  Your database is now in sync with your Prisma schema. Done in 995ms
 
+ ❯ src/__tests__/stockLedger.test.ts (12 tests | 12 skipped) 30ms
