@@ -1,8 +1,6 @@
 import React from 'react';
 
-import ClorMark from './ClorMark';
-import AuthIllustration from '@ui/components/AuthIllustration';
-import { useTilt } from '@ui/components/ui/useTilt';
+import { ClorLogo } from '@ui/components/brand';
 import LegalLinks from './legal/LegalLinks';
 
 /**
@@ -25,80 +23,52 @@ const Tick = (props) => (
 const POINTS = [
   ['One sign-in, every app', 'Books, payroll and people behind the same door.'],
   ['A database for each app', 'Buying payroll does not give you a ledger you never asked for.'],
-  ['They already know each other', 'Payroll posts its journal into Accounting. Nobody exports a file.'],
+  ['They already know each other', 'Attendance closes the month into Payroll, and the pay run posts to Books.'],
 ];
 
 export default function AuthLayout({ title, subtitle, wide = false, onHome, children, footer }) {
-  const { ref, onPointerMove, onPointerLeave } = useTilt({ maxDeg: 7, scale: 1.02 });
-
   return (
     <div className="min-h-dvh" style={{ backgroundColor: 'rgb(var(--app-bg))' }}>
       <div className="ui-min-h-viewport flex">
+        {/* Light, like clor.in and the rest of the app: a quiet stone panel, not a dark brand wall. */}
         <div
-          className="hidden lg:flex lg:w-[46%] relative overflow-hidden"
-          style={{ backgroundColor: 'rgb(var(--brand-panel))' }}
+          className="hidden lg:flex lg:w-[42%] relative"
+          style={{ backgroundColor: 'rgb(var(--surface-sunken))', borderRight: '1px solid rgb(var(--border))' }}
         >
-          <div
-            className="absolute inset-0"
-            aria-hidden="true"
-            style={{
-              backgroundImage:
-                'radial-gradient(38rem 24rem at 20% 10%, rgb(var(--brand) / 0.55), transparent 62%),' +
-                'radial-gradient(30rem 20rem at 90% 85%, rgb(var(--accent) / 0.28), transparent 60%)',
-            }}
-          />
-          <div
-            className="absolute inset-0 opacity-[0.06]"
-            aria-hidden="true"
-            style={{ backgroundImage: 'repeating-linear-gradient(180deg, #fff 0 1px, transparent 1px 2.25rem)' }}
-          />
-
-          <div className="relative z-10 p-12 flex flex-col w-full text-white">
+          <div className="p-12 flex flex-col w-full">
             <div>
-              <button type="button" onClick={onHome} className="flex items-center gap-3 text-left">
-                <ClorMark size={44} />
-                <span>
-                  <span className="ui-display text-2xl block">Clor</span>
-                  <span className="text-white/55 text-xs tracking-wide">One platform. One set of records.</span>
-                </span>
+              <button type="button" onClick={onHome} className="text-left" aria-label="Clor, back to clor.in">
+                <ClorLogo size={28} />
               </button>
 
-              <h2 className="ui-display mt-10 text-[2.75rem] leading-[1.05] max-w-[16ch]">
-                Run the business, not four programs.
+              <h2 className="ui-display mt-12 text-[2.5rem] leading-[1.08] max-w-[16ch]" style={{ color: 'rgb(var(--fg))' }}>
+                Your books, people and payroll, on the same records.
               </h2>
-              <p className="mt-5 text-white/65 leading-relaxed max-w-[46ch]">
-                Accounting and Payroll today, with People and Projects to follow — each with its own
-                records, all behind one sign-in.
+              <p className="mt-5 leading-relaxed max-w-[46ch] ui-muted">
+                Accounting, HR, payroll and attendance for Indian companies. Use one app, or use them together on one
+                workspace and one sign-in.
               </p>
 
               <ul className="mt-8 space-y-4">
                 {POINTS.map(([heading, body]) => (
                   <li key={heading} className="flex items-start gap-3.5">
                     <span
-                      className="mt-0.5 w-6 h-6 rounded-lg grid place-items-center ring-1 ring-white/15 flex-shrink-0"
+                      className="mt-0.5 w-6 h-6 rounded-lg grid place-items-center flex-shrink-0"
+                      style={{ backgroundColor: 'rgb(var(--brand-soft))', color: 'rgb(var(--brand-ink))' }}
                       aria-hidden="true"
                     >
                       <Tick className="w-3.5 h-3.5" />
                     </span>
                     <span>
                       <span className="block font-medium text-[0.9375rem]">{heading}</span>
-                      <span className="block text-white/55 text-sm mt-0.5">{body}</span>
+                      <span className="block text-sm mt-0.5 ui-muted">{body}</span>
                     </span>
                   </li>
                 ))}
               </ul>
             </div>
 
-            <div
-              ref={ref}
-              onPointerMove={onPointerMove}
-              onPointerLeave={onPointerLeave}
-              className="ui-tilt3d flex-1 min-h-[3rem] mt-8 flex items-end"
-            >
-              <AuthIllustration className="h-[clamp(8rem,24vh,17rem)] w-auto max-w-full select-none" />
-            </div>
-
-            <p className="mt-8 text-white/70 text-xs">© 2026 Clor</p>
+            <p className="mt-auto pt-8 ui-caption">© 2026 Clor Applications Pvt Ltd</p>
           </div>
         </div>
 
@@ -108,8 +78,7 @@ export default function AuthLayout({ title, subtitle, wide = false, onHome, chil
           <div className={`relative w-full ${wide ? 'max-w-3xl' : 'max-w-md'}`}>
             <div className="lg:hidden mb-8 text-center">
               <button type="button" onClick={onHome} className="inline-flex items-center gap-2">
-                <ClorMark size={40} />
-                <span className="ui-display text-xl">Clor</span>
+                <ClorLogo size={28} />
               </button>
             </div>
 

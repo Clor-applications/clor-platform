@@ -1,5 +1,5 @@
 import React, { Suspense, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, ChevronDown, LayoutGrid, LogOut, Menu, Moon, Plus, Settings, Sun, UserRound, X } from 'lucide-react';
+import { ArrowLeft, ChevronDown, LayoutGrid, LogOut, Menu, Plus, Settings, UserRound, X } from 'lucide-react';
 
 import { useTheme } from '@ui/components/ui/useTheme';
 import { useDismissable } from '@ui/components/ui/useDismissable';
@@ -19,6 +19,7 @@ import { moduleForScreen, railAction, readScreenSearch, resolveModules, screenSe
 import { useSession } from './session';
 import { OPEN_APP_EVENT } from '@platform/context';
 import ClorMark from './ClorMark';
+import { ClorLogo } from '@ui/components/brand';
 import NotificationBell from './NotificationBell';
 import HelpMenu from './HelpMenu';
 import TwoFactorGate from './TwoFactorGate';
@@ -104,7 +105,7 @@ export default function Shell() {
 
   /* The shared hook, not a second copy: the public page has a toggle too, and
      a private key here would mean the choice did not follow you inside. */
-  const { theme, toggle: toggleTheme } = useTheme();
+  useTheme();
 
   /* Null while the company's apps are still being read, which is not the same
      as none: treating it as none would flash an empty rail. */
@@ -656,8 +657,7 @@ export default function Shell() {
             </button>
           ) : null}
           <button type="button" className="flex items-center gap-2" onClick={() => openApp(mine[0]?.id)}>
-            <ClorMark size={24} />
-            <span className={phone ? 'sr-only' : 'ui-display text-base'}>Clor</span>
+            {phone ? <ClorMark size={24} /> : <ClorLogo size={20} />}
           </button>
 
           {/* The app switcher. Named for the app you are in, because that is the
@@ -761,16 +761,6 @@ export default function Shell() {
             }}
           />
           <HelpMenu />
-          {!phone ? (
-            <button
-              type="button"
-              className="ui-icon-btn"
-              onClick={toggleTheme}
-              aria-label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
-            >
-              {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
-            </button>
-          ) : null}
 
           {!Root ? (
             <button

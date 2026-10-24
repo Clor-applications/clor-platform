@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { ArrowLeft } from 'lucide-react';
-import ClorMark from '../ClorMark';
+import { ClorLogo } from '@ui/components/brand';
 import { DOCUMENTS } from './documents';
 import { legalHref } from './useLegalRoute';
 import { missingDetails, operator } from '@platform/operator';
@@ -36,8 +36,7 @@ export default function LegalPage({ doc }) {
       <header className="legal-header">
         <div className="legal-wrap flex items-center gap-3">
           <a href="#" className="flex items-center gap-2" onClick={(e) => { e.preventDefault(); window.location.hash = ''; }}>
-            <ClorMark size={22} />
-            <span className="ui-display text-base">Clor</span>
+            <ClorLogo size={20} />
           </a>
           <div className="flex-1" />
           <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={back}>

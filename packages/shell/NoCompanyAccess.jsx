@@ -1,7 +1,7 @@
 import React from 'react';
 import { Building2, LogOut } from 'lucide-react';
 
-import ClorMark from './ClorMark';
+import { ClorLogo } from '@ui/components/brand';
 import { useSession } from './session';
 
 /**
@@ -22,8 +22,7 @@ export default function NoCompanyAccess() {
         className="flex h-14 items-center gap-3 px-4"
         style={{ borderBottom: '1px solid rgb(var(--border))', backgroundColor: 'rgb(var(--surface))' }}
       >
-        <ClorMark size={24} />
-        <span className="ui-display text-base">Clor</span>
+        <ClorLogo size={20} />
         <div className="flex-1" />
         <span className="ui-caption">{user?.email || user?.name}</span>
         <button type="button" className="ui-icon-btn" onClick={signOut} aria-label="Sign out">
