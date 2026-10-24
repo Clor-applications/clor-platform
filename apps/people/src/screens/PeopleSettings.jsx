@@ -28,6 +28,7 @@ const GROUPS = [
       ['employeeTypes', 'Permanent, probation, contract, intern'],
       ['workTypes', 'Office, remote, hybrid, field'],
       ['tags', 'Labels to group people any way you like'],
+      ['customFields', 'Your own fields on every person: who sees them, who edits them'],
       ['checklists', 'Joining and leaving checklists'],
       ['letterTemplates', 'Offer, appointment, relieving and other letters the company issues'],
       ['helpDeskSettings', 'Help desk categories, reply and resolve times, and answer templates'],

@@ -117,6 +117,11 @@ export const getChangeImpact = (id, fields) => {
   const q = new URLSearchParams(Object.entries(fields).map(([k, v]) => [k, v || '']));
   return apiFetch(`${base()}/employees/${encodeURIComponent(id)}/change-impact?${q}`, opts).then((r) => r?.impact || []);
 };
+/* Custom fields (CORE-08): the company's own fields on a person, by grant. */
+export const getCustomFieldDefs = (all) => apiFetch(`${base()}/custom-fields${all ? '?all=1' : ''}`, opts);
+export const saveCustomFieldDef = (body) => (body.id ? send(`/custom-fields/${encodeURIComponent(body.id)}`, 'PUT', body) : send('/custom-fields', 'POST', body));
+export const getCustomValues = (id) => apiFetch(`${base()}/employees/${encodeURIComponent(id)}/custom-fields`, opts).then((r) => r?.fields || []);
+export const saveCustomValues = (id, values) => send(`/employees/${encodeURIComponent(id)}/custom-fields`, 'PUT', { values });
 /* The journey and Why (CORE-06, TRACE-01): every change in order, each with its reasons. */
 export const getJourney = (id) => apiFetch(`${base()}/employees/${encodeURIComponent(id)}/journey`, opts);
 export const getWhy = (id, key) => apiFetch(`${base()}/employees/${encodeURIComponent(id)}/why/${encodeURIComponent(key)}`, opts).then((r) => r?.why);

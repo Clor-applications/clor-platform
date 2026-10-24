@@ -1488,6 +1488,55 @@ model DeskTemplate {
   @@index([orgId, isActive])
 }
 
+/// Custom fields on a person (docs/people/02-PRD.md CORE-08; services/people/customFields.ts):
+/// typed, with who may see and who may edit; every change to a definition is a
+/// new version, and a value records the version it was saved under.
+model CustomFieldDef {
+  id              String   @id @default(cuid())
+  accountId       String
+  orgId           String
+  entity          String   @default("Employee")
+  /// snake_case, never changed once made
+  key             String
+  label           String
+  /// TEXT | NUMBER | DATE | CHOICE | BOOLEAN | FILE
+  type            String
+  /// For CHOICE: ["Option", …]
+  options         Json?
+  required        Boolean  @default(false)
+  /// A permission key, e.g. PEOPLE::Employees::VIEW or PEOPLE::Statutory Details::VIEW
+  viewPermission  String
+  editPermission  String
+  help            String?
+  version         Int      @default(1)
+  active          Boolean  @default(true)
+  sortOrder       Int      @default(0)
+  createdByUserId String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  values CustomFieldValue[]
+
+  @@unique([orgId, entity, key])
+}
+
+model CustomFieldValue {
+  id              String   @id @default(cuid())
+  accountId       String
+  orgId           String
+  defId           String
+  entityId        String
+  value           Json?
+  defVersion      Int      @default(1)
+  updatedByUserId String?
+  updatedAt       DateTime @updatedAt
+
+  def CustomFieldDef @relation(fields: [defId], references: [id], onDelete: Cascade)
+
+  @@unique([defId, entityId])
+  @@index([orgId, entityId])
+}
+
 /// Letters the company issues (docs/people/02-PRD.md DOC-04; services/people/letters.ts):
 /// offer, appointment, confirmation, increment, relieving, experience, service
 /// certificate. Each save is a new version; the newest active one is used, and

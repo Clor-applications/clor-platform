@@ -73,6 +73,7 @@ const WorkTypes = screen('WorkTypes');
 const DataHealth = screen('DataHealth');
 const Checklists = screen('Checklists');
 const LetterTemplates = screen('LetterTemplates');
+const CustomFieldsSettings = screen('CustomFieldsSettings');
 const ComplianceCalendar = screen('ComplianceCalendar');
 const WorkspaceList = screen('WorkspaceList');
 const PeopleReports = screen('PeopleReports');
@@ -224,6 +225,7 @@ export const peopleApp = {
     { key: 'checklists', label: 'Onboarding & Exit', icon: I.checklist, permission: 'PEOPLE::Employees::VIEW' },
     { key: 'selfService', label: 'Employee Portal Access', icon: I.key, permission: 'ATTENDANCE::Employee Portal::VIEW', parent: 'settings' },
     { key: 'letterTemplates', label: 'Letters', icon: I.policy, permission: 'PEOPLE::Documents::VIEW', parent: 'settings' },
+    { key: 'customFields', label: 'Custom fields', icon: I.tag, permission: 'PEOPLE::Org Structure::EDIT', parent: 'settings' },
     { key: 'leaveRequests', label: 'Leave Applications', icon: I.leave, permission: 'ATTENDANCE::Leave Requests::VIEW' },
     { key: 'leaveBalances', label: 'Leave Balances', icon: I.balance, permission: 'ATTENDANCE::Leave Requests::VIEW' },
     { key: 'leaveRegister', label: 'Leave Register', icon: I.register, permission: 'ATTENDANCE::Leave Requests::VIEW' },
@@ -283,6 +285,7 @@ export const peopleApp = {
     documents: PeopleDocuments,
     checklists: Checklists,
     letterTemplates: LetterTemplates,
+    customFields: CustomFieldsSettings,
     selfService: PortalAccess,
     leaveRequests: LeaveRequests,
     leaveBalances: LeaveBalances,

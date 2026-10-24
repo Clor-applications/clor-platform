@@ -27,6 +27,7 @@ import { activeRule, shape as shapeRequest, submitRequest } from '../services/pe
 import { PROBATION_OUTCOMES, ProbationError, decideProbation, reviewsOf, saveReview } from '../services/people/lifecycle/probation.js';
 import { changeImpact } from '../services/people/lifecycle/changes.js';
 import { journeyOf, whyOf } from '../services/people/journey.js';
+import { CustomFieldError, FIELD_TYPES, defsOf, saveDef as saveCustomFieldDef, setValues as setCustomValues, valuesFor as customValuesFor } from '../services/people/customFields.js';
 import { PERMIT_KINDS, daysUntil } from '../services/people/documentReminders.js';
 import { decodeDocument } from '../services/people/documentFiles.js';
 import { NO_ORIGINALS_STATES } from '../services/people/letters.js';
@@ -799,6 +800,56 @@ peopleRouter.get('/orgs/:orgId/people/employees/:id/history', can(PermissionActi
   const employee = await peoplePrisma.employee.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
   if (!employee || !inScope(await teamScope(req), employee.id)) return res.status(404).json({ error: 'No such employee.' });
   res.json({ events: await timelineOf(orgId, employee), episodes: await episodesOf(orgId, employee) });
+});
+
+/** Custom fields (CORE-08): the definitions (Org Structure, since they shape every record) and a person's values by grant. */
+peopleRouter.get('/orgs/:orgId/people/custom-fields', can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  res.json({ fields: await defsOf(req.tenant!.orgId, req.query.all === '1'), types: FIELD_TYPES });
+});
+
+peopleRouter.post('/orgs/:orgId/people/custom-fields', can(PermissionAction.EDIT, STRUCTURE), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  try {
+    res.status(201).json({ field: await saveCustomFieldDef({ accountId, orgId, userId: req.auth!.userId }, req.body || {}) });
+  } catch (e) {
+    if (e instanceof CustomFieldError) return res.status(e.status).json({ error: e.message });
+    return sendError(res, e);
+  }
+});
+
+peopleRouter.put('/orgs/:orgId/people/custom-fields/:id', can(PermissionAction.EDIT, STRUCTURE), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  try {
+    res.json({ field: await saveCustomFieldDef({ accountId, orgId, userId: req.auth!.userId }, { ...(req.body || {}), id: String(req.params.id) }) });
+  } catch (e) {
+    if (e instanceof CustomFieldError) return res.status(e.status).json({ error: e.message });
+    return sendError(res, e);
+  }
+});
+
+peopleRouter.get('/orgs/:orgId/people/employees/:id/custom-fields', can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const employee = await peoplePrisma.employee.findFirst({ where: { id: String(req.params.id), accountId, orgId }, select: { id: true } });
+  if (!employee || !inScope(await teamScope(req), employee.id)) return res.status(404).json({ error: 'No such employee.' });
+  res.json({ fields: await customValuesFor(req, orgId, employee.id) });
+});
+
+peopleRouter.put('/orgs/:orgId/people/employees/:id/custom-fields', can(PermissionAction.EDIT, EMPLOYEES), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const employee = await peoplePrisma.employee.findFirst({ where: { id: String(req.params.id), accountId, orgId }, select: { id: true } });
+  if (!employee || !inScope(await teamScope(req), employee.id)) return res.status(404).json({ error: 'No such employee.' });
+  try {
+    const r = await setCustomValues(req, actorOf(req, 'FORM'), employee.id, req.body?.values && typeof req.body.values === 'object' ? req.body.values : {});
+    res.json({ ...r, fields: await customValuesFor(req, orgId, employee.id) });
+  } catch (e) {
+    if (e instanceof CustomFieldError) return res.status(e.status).json({ error: e.message });
+    return sendError(res, e);
+  }
 });
 
 /** The journey (CORE-06): every change in order, under its stint, each with a key for its Why. */

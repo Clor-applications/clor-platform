@@ -38,6 +38,8 @@ import {
   checkInvite,
   createInvite,
   getChangeImpact,
+  getCustomValues,
+  saveCustomValues,
   getJourney,
   getWhy,
   listEmployeeInvites,
@@ -651,6 +653,7 @@ function EmployeeFile({ id, onClose, onEdit, onDeleted }) {
               />
             </dl>
           ) : null}
+          {tab === 'about' ? <CustomFields employeeId={person.id} /> : null}
           {tab === 'about' && allowed('PEOPLE::Lifecycle::VIEW') ? (
             <JoiningDetails key={inviteSeq} person={person} onChecked={(p) => setPerson((x) => ({ ...x, ...p }))} />
           ) : null}
@@ -1114,6 +1117,58 @@ function StatutoryDetails({ employeeId }) {
           <Field label="Covered by" value={[d.pf && 'PF', d.esi && 'ESI', d.pt && `PT (${d.pt})`].filter(Boolean).join(' · ')} />
         </dl>
       )}
+    </section>
+  );
+}
+
+/** The company's own fields on this person (CORE-08): only the ones this user may see; edited in place where they may. */
+function CustomFields({ employeeId }) {
+  const [fields, setFields] = useState(null);
+  const [edits, setEdits] = useState({});
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    let live = true;
+    getCustomValues(employeeId).then((f) => live && setFields(f)).catch(() => live && setFields([]));
+    return () => { live = false; };
+  }, [employeeId]);
+  if (!fields?.length) return null;
+  const dirty = Object.keys(edits).length > 0;
+  const save = async () => {
+    setBusy(true);
+    try {
+      const r = await saveCustomValues(employeeId, edits);
+      setFields(r.fields);
+      setEdits({});
+      notify.success(r.changed.length ? 'Saved.' : 'Nothing changed.');
+    } catch (err) {
+      notify.error(String(err?.message || 'Not saved.'));
+    } finally {
+      setBusy(false);
+    }
+  };
+  const control = (f) => {
+    const v = edits[f.key] !== undefined ? edits[f.key] : f.value;
+    const set = (val) => setEdits({ ...edits, [f.key]: val });
+    if (!f.canEdit) return <span>{f.type === 'BOOLEAN' ? (f.value === true ? 'Yes' : f.value === false ? 'No' : '—') : f.value ?? <span className="ui-muted">Not set</span>}</span>;
+    if (f.type === 'CHOICE') return <select className="ui-select w-full" value={v ?? ''} onChange={(e) => set(e.target.value)} aria-label={f.label}><option value="">—</option>{f.options.map((o) => <option key={o} value={o}>{o}</option>)}</select>;
+    if (f.type === 'BOOLEAN') return <select className="ui-select w-full" value={v === true ? 'yes' : v === false ? 'no' : ''} onChange={(e) => set(e.target.value === '' ? null : e.target.value === 'yes')} aria-label={f.label}><option value="">—</option><option value="yes">Yes</option><option value="no">No</option></select>;
+    if (f.type === 'FILE') return <input className="ui-input w-full" value={v ?? ''} placeholder="Document id from the Documents tab" onChange={(e) => set(e.target.value)} aria-label={f.label} />;
+    return <input className="ui-input w-full" type={f.type === 'NUMBER' ? 'number' : f.type === 'DATE' ? 'date' : 'text'} value={v ?? ''} onChange={(e) => set(e.target.value)} aria-label={f.label} />;
+  };
+  return (
+    <section className="space-y-2" aria-label="More details">
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="text-sm font-semibold">More details</h3>
+        {dirty ? <button type="button" className="ui-btn ui-btn-primary ui-btn-sm" disabled={busy} onClick={save}>{busy ? 'Saving…' : 'Save'}</button> : null}
+      </div>
+      <dl className="grid gap-3 sm:grid-cols-2">
+        {fields.map((f) => (
+          <div key={f.key}>
+            <dt className="ui-t-label">{f.label}{f.required ? ' *' : ''}</dt>
+            <dd className="mt-0.5 text-sm">{control(f)}{f.help ? <span className="ui-caption block">{f.help}</span> : null}</dd>
+          </div>
+        ))}
+      </dl>
     </section>
   );
 }
