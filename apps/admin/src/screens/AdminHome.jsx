@@ -234,7 +234,7 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
               </section>
             ) : null}
 
-            <div className="grid gap-5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 320px), 1fr))' }}>
+            <div className="grid gap-6" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 320px), 1fr))' }}>
               <Panel title="Needs your attention">
                 {attention.length ? (
                   <ul className="ws-list">

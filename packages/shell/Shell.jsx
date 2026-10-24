@@ -1,5 +1,5 @@
 import React, { Suspense, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, CalendarDays, ChevronDown, LayoutGrid, LogOut, Menu, Plus, Settings, UserRound, X } from 'lucide-react';
+import { ArrowLeft, CalendarDays, ChevronDown, LayoutGrid, LogOut, Menu, Plus, Search, Settings, UserRound, X } from 'lucide-react';
 
 import { useTheme } from '@ui/components/ui/useTheme';
 import { useDismissable } from '@ui/components/ui/useDismissable';
@@ -830,6 +830,21 @@ export default function Shell() {
                 </div>
               ) : null}
             </div>
+          ) : null}
+
+          {/* Global search: the command palette (⌘K), as a field anyone can see and click. */}
+          {app && !Root ? (
+            phone ? (
+              <button type="button" className="ui-icon-btn ml-auto" aria-label="Search" onClick={() => setPaletteOpen(true)}>
+                <Search size={18} aria-hidden="true" />
+              </button>
+            ) : (
+              <button type="button" className="ui-global-search" onClick={() => setPaletteOpen(true)} aria-label="Search screens and apps" aria-keyshortcuts="Meta+K Control+K">
+                <Search size={16} aria-hidden="true" />
+                <span>Search screens and apps</span>
+                <kbd>{/Mac|iPhone|iPad/.test(navigator.platform || '') ? '⌘K' : 'Ctrl K'}</kbd>
+              </button>
+            )
           ) : null}
 
           <div className="flex-1" />

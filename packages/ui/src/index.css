@@ -7154,3 +7154,46 @@ th.ui-th {
   outline: 2px solid rgb(var(--ws-brand));
   outline-offset: 2px;
 }
+
+/* Global search in the platform bar: the command palette (⌘K) drawn as a field. */
+.ui-global-search {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  width: min(360px, 32vw);
+  height: 36px;
+  margin-left: 12px;
+  padding: 0 8px 0 12px;
+  border: 1px solid rgb(var(--border));
+  border-radius: 8px;
+  background: rgb(var(--surface-sunken));
+  color: rgb(var(--fg-subtle));
+  font-size: 0.875rem;
+  text-align: left;
+  cursor: text;
+  transition: border-color 150ms ease, background-color 150ms ease;
+}
+.ui-global-search:hover {
+  border-color: rgb(var(--fg-subtle) / 0.5);
+  background: rgb(var(--surface));
+}
+.ui-global-search:focus-visible {
+  outline: 2px solid rgb(var(--ring));
+  outline-offset: 2px;
+}
+.ui-global-search > span {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ui-global-search kbd {
+  padding: 1px 6px;
+  border: 1px solid rgb(var(--border));
+  border-radius: 6px;
+  background: rgb(var(--surface));
+  font: inherit;
+  font-size: 0.75rem;
+  color: rgb(var(--fg-subtle));
+}
