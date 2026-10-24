@@ -639,7 +639,7 @@ function EmployeeFile({ id, onClose, onEdit, onDeleted }) {
               <Field label="Personal email" value={person.email || person.personalEmail} />
               <Field label="Phone" value={person.phone} />
               <Field label="Date of birth" value={person.dateOfBirth} />
-              <Field label="Gender" value={person.gender ? person.gender[0] + person.gender.slice(1).toLowerCase() : ''} />
+              <Field label="Gender" value={GENDER_WORDS[person.gender] || (person.gender ? person.gender[0] + person.gender.slice(1).toLowerCase() : '')} />
               <Field label="Marital status" value={person.maritalStatus ? person.maritalStatus[0] + person.maritalStatus.slice(1).toLowerCase() : ''} />
               <Field label="Address" value={address} />
               <Field
@@ -836,6 +836,7 @@ function EmploymentHistory({ employeeId }) {
   );
 }
 
+const GENDER_WORDS = { MALE: 'Male', FEMALE: 'Female', NON_BINARY: 'Non-binary', OTHER: 'Other', PREFER_NOT_TO_SAY: 'Prefer not to say' };
 const JOURNEY_TONE = { APPROVED: 'pos', SCHEDULED: 'info', SELF: 'info', CHANGE: 'neutral', HISTORY: 'neutral' };
 const JOURNEY_KIND = { APPROVED: 'Approved', SCHEDULED: 'Scheduled', SELF: 'Self-service', CHANGE: 'Change', HISTORY: 'History' };
 const whenAt = (d) => new Date(d).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' });
@@ -1717,7 +1718,7 @@ function EmployeeForm({ initial, lists, people, onClose, onSaved }) {
           <h3 className="ui-t-sec sm:col-span-2">Personal Details</h3>
           {input('email', 'Personal email', { type: 'email' })}
           {input('dateOfBirth', 'Date of birth', { type: 'date' })}
-          {select('gender', 'Gender', [{ id: 'MALE', label: 'Male' }, { id: 'FEMALE', label: 'Female' }, { id: 'OTHER', label: 'Other' }])}
+          {select('gender', 'Gender', [{ id: 'MALE', label: 'Male' }, { id: 'FEMALE', label: 'Female' }, { id: 'NON_BINARY', label: 'Non-binary' }, { id: 'OTHER', label: 'Other' }, { id: 'PREFER_NOT_TO_SAY', label: 'Prefer not to say' }])}
           {select('maritalStatus', 'Marital status', [
             { id: 'SINGLE', label: 'Single' },
             { id: 'MARRIED', label: 'Married' },

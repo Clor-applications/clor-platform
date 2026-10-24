@@ -4,6 +4,8 @@ import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { policiesFor, versionForPerson } from '../services/people/policies.js';
 import { AckError, accept, pendingFor } from '../services/people/acknowledgements.js';
 import { DeskError, categoriesOf, employeeReply, listRequests, raiseRequest, reopenRequest, requestDetail } from '../services/people/desk.js';
+import { SelfServiceError, myDetails, requestChange } from '../services/people/selfService.js';
+import { correlationOf } from '../services/people/employees.js';
 
 /**
  * People's own employee-facing routes, behind the employee app's sign-in
@@ -99,5 +101,30 @@ peoplePortalRouter.post('/desk/:id/reopen', async (req, res) => {
     res.json({ request: await reopenRequest({ accountId, orgId, userId: null }, String(req.params.id), { employeeId }) });
   } catch (e) {
     deskError(res, e);
+  }
+});
+
+/* My details (CORE-03): what I may see and change about myself; contact details save at once, the rest waits for HR, by the company setting (D-02). */
+peoplePortalRouter.get('/me/details', async (req, res) => {
+  const { orgId, employeeId } = me(req);
+  try {
+    res.json(await myDetails(orgId, employeeId));
+  } catch (e) {
+    if (e instanceof SelfServiceError) return res.status(e.status).json({ error: e.message });
+    console.error('[people-portal me]', e instanceof Error ? e.message : e);
+    res.status(500).json({ error: 'Something went wrong.' });
+  }
+});
+
+peoplePortalRouter.post('/me/change-request', async (req, res) => {
+  const { accountId, orgId, employeeId } = me(req);
+  try {
+    const r = await requestChange({ accountId, orgId, employeeId, userId: req.portal!.employee.userId || null, correlationId: correlationOf(req as any) }, req.body && typeof req.body === 'object' ? req.body : {});
+    res.status(r.request ? 202 : 200).json(r);
+  } catch (e) {
+    if (e instanceof SelfServiceError) return res.status(e.status).json({ error: e.message });
+    if ((e as any)?.status) return res.status((e as any).status).json({ error: (e as Error).message });
+    console.error('[people-portal me]', e instanceof Error ? e.message : e);
+    res.status(500).json({ error: 'Something went wrong.' });
   }
 });

@@ -119,6 +119,9 @@ export const getChangeImpact = (id, fields) => {
   const q = new URLSearchParams(Object.entries(fields).map(([k, v]) => [k, v || '']));
   return apiFetch(`${base()}/employees/${encodeURIComponent(id)}/change-impact?${q}`, opts).then((r) => r?.impact || []);
 };
+/* Company-wide People settings (CORE-03, D-02). */
+export const getPeopleSettings = () => apiFetch(`${base()}/settings`, opts).then((r) => r?.settings);
+export const savePeopleSettings = (body) => send('/settings', 'PUT', body).then((r) => r?.settings);
 /* Custom fields (CORE-08): the company's own fields on a person, by grant. */
 export const getCustomFieldDefs = (all) => apiFetch(`${base()}/custom-fields${all ? '?all=1' : ''}`, opts);
 export const saveCustomFieldDef = (body) => (body.id ? send(`/custom-fields/${encodeURIComponent(body.id)}`, 'PUT', body) : send('/custom-fields', 'POST', body));

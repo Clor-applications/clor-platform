@@ -33,6 +33,7 @@ const GROUPS = [
       ['letterTemplates', 'Offer, appointment, relieving and other letters the company issues'],
       ['helpDeskSettings', 'Help desk categories, reply and resolve times, and answer templates'],
       ['selfService', 'Who can sign in to the employee app'],
+      ['selfServiceChanges', 'Which of their own details employees may change without waiting for HR'],
     ],
   },
   {

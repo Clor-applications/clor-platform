@@ -27,6 +27,7 @@ import { activeRule, shape as shapeRequest, submitRequest } from '../services/pe
 import { PROBATION_OUTCOMES, ProbationError, decideProbation, reviewsOf, saveReview } from '../services/people/lifecycle/probation.js';
 import { changeImpact } from '../services/people/lifecycle/changes.js';
 import { journeyOf, whyOf } from '../services/people/journey.js';
+import { SelfServiceError, saveSettings, settingsOf } from '../services/people/selfService.js';
 import { CustomFieldError, FIELD_TYPES, defsOf, saveDef as saveCustomFieldDef, setValues as setCustomValues, valuesFor as customValuesFor } from '../services/people/customFields.js';
 import { PERMIT_KINDS, daysUntil } from '../services/people/documentReminders.js';
 import { decodeDocument } from '../services/people/documentFiles.js';
@@ -63,6 +64,8 @@ const actorOf = (req: Request, source: ChangeSource, reason: string | null = nul
 });
 
 const EMPLOYEE_STATUSES = ['ACTIVE', 'ON_NOTICE', 'LEFT', 'SUSPENDED'] as const;
+/* Inclusive options, and the right not to say (CORE-03). */
+export const GENDER_OPTIONS = ['MALE', 'FEMALE', 'NON_BINARY', 'OTHER', 'PREFER_NOT_TO_SAY'] as const;
 const todayIst = () => new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 const date = z.string().trim().regex(ISO_DATE, 'Dates are YYYY-MM-DD.').optional().nullable().or(z.literal(''));
@@ -86,7 +89,7 @@ const employeeSchema = z.object({
   dateOfLeaving: date,
   notes: text(500),
 
-  gender: z.enum(['MALE', 'FEMALE', 'OTHER']).optional().nullable().or(z.literal('')),
+  gender: z.enum(GENDER_OPTIONS).optional().nullable().or(z.literal('')),
   dateOfBirth: date,
   maritalStatus: z.enum(['SINGLE', 'MARRIED', 'DIVORCED', 'WIDOWED']).optional().nullable().or(z.literal('')),
   personalEmail: z.string().trim().email('That is not an email address.').max(160).optional().nullable().or(z.literal('')),
@@ -802,6 +805,26 @@ peopleRouter.get('/orgs/:orgId/people/employees/:id/history', can(PermissionActi
   res.json({ events: await timelineOf(orgId, employee), episodes: await episodesOf(orgId, employee) });
 });
 
+/** Company-wide People settings (CORE-03, D-02): what employees may change about themselves without waiting. */
+peopleRouter.get('/orgs/:orgId/people/settings', can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const { accountId: _a, ...rest } = await settingsOf(accountId, orgId);
+  res.json({ settings: rest });
+});
+
+peopleRouter.put('/orgs/:orgId/people/settings', can(PermissionAction.EDIT, STRUCTURE), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  try {
+    const { accountId: _a, ...rest } = await saveSettings({ accountId, orgId, userId: req.auth!.userId }, req.body || {});
+    res.json({ settings: rest });
+  } catch (e) {
+    if (e instanceof SelfServiceError) return res.status(e.status).json({ error: e.message });
+    return sendError(res, e);
+  }
+});
+
 /** Custom fields (CORE-08): the definitions (Org Structure, since they shape every record) and a person's values by grant. */
 peopleRouter.get('/orgs/:orgId/people/custom-fields', can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
@@ -994,7 +1017,7 @@ const importRow = z.object({
   costCentre: text(120),
   dateOfJoining: date,
   dateOfBirth: date,
-  gender: z.enum(['MALE', 'FEMALE', 'OTHER']).optional().nullable().or(z.literal('')),
+  gender: z.enum(GENDER_OPTIONS).optional().nullable().or(z.literal('')),
   workEmail: z.string().trim().email().max(160).optional().nullable().or(z.literal('')),
 });
 

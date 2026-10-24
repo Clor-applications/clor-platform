@@ -52,7 +52,7 @@ ${view.message ? `<p><strong>From HR:</strong> ${esc(view.message)}</p>` : ''}
 <form id="join">
 <h2 style="font-size:1rem">Your details</h2>
 <div class="row">${field('personalEmail', 'Personal email', 'email')}${field('phone', 'Phone', 'tel')}</div>
-<div class="row">${field('dateOfBirth', 'Date of birth', 'date')}${select('gender', 'Gender', ['MALE', 'FEMALE', 'OTHER'])}</div>
+<div class="row">${field('dateOfBirth', 'Date of birth', 'date')}${select('gender', 'Gender', ['MALE', 'FEMALE', 'NON_BINARY', 'OTHER', 'PREFER_NOT_TO_SAY'])}</div>
 <div class="row">${select('maritalStatus', 'Marital status', ['SINGLE', 'MARRIED', 'DIVORCED', 'WIDOWED'])}${field('guardianName', 'Father’s / guardian’s name')}</div>
 ${field('addressLine', 'Address')}
 <div class="row">${field('city', 'City')}${field('state', 'State')}</div>

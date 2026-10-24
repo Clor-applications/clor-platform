@@ -1559,6 +1559,18 @@ model ImportBatch {
   @@index([orgId, createdAt])
 }
 
+/// Company-wide People settings (docs/people/02-PRD.md CORE-03; decision D-02): one row per company.
+model PeopleSetting {
+  id                 String   @id @default(cuid())
+  accountId          String
+  orgId              String   @unique
+  /// CONTACT_DIRECT (contact details save at once, the rest needs HR approval) | ALL (everything needs approval) | NONE (saves at once, HR told)
+  selfServiceChanges String   @default("CONTACT_DIRECT")
+  updatedByUserId    String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+}
+
 /// Letters the company issues (docs/people/02-PRD.md DOC-04; services/people/letters.ts):
 /// offer, appointment, confirmation, increment, relieving, experience, service
 /// certificate. Each save is a new version; the newest active one is used, and
