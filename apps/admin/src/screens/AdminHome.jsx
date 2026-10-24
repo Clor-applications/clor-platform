@@ -261,7 +261,7 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
                       ))}
                     </ul>
                   ) : (
-                    <p className="ws-card-blurb">No account activity yet. Invitations, role changes and suspensions appear here.</p>
+                    <p className="ws-card-blurb">No activity yet.</p>
                   )}
                 </Panel>
               ) : null}

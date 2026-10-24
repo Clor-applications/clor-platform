@@ -958,8 +958,11 @@ button.ws-item:hover {
   padding: 10px 12px;
   resize: vertical;
 }
-.ws :is(select, .ui-select) {
-  padding-right: 32px;
+/* Room for the dropdown arrow. The field rule above outranks a plain selector (its :is() carries an attribute), hence !important. */
+.ws select,
+.ws .ui-select {
+  padding-right: 36px !important;
+  text-overflow: ellipsis;
 }
 .ws :is(.ui-input, .ui-select, select, textarea, input)::placeholder {
   color: rgb(var(--ws-muted) / 0.75);

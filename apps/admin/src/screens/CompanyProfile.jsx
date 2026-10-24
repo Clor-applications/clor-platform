@@ -20,9 +20,9 @@ const url = () => `/orgs/${encodeURIComponent(platformOrgId())}/company-profile`
 const opts = { skipWarehouseHeader: true };
 
 export const SECTIONS = [
-  { key: 'identity', title: 'Identity', note: 'The legal name and the numbers tax and company law know it by.', fields: [['legalName', 'Legal name', { required: true, wide: true }], ['pan', 'Company PAN', { placeholder: 'AABCC1234D', mono: true }], ['tan', 'TAN', { placeholder: 'BLRC12345D', mono: true }], ['cin', 'CIN / LLPIN', { mono: true }], ['industry', 'Industry']] },
-  { key: 'address', title: 'Registered address and contact', note: 'Printed on letters and documents.', fields: [['addressLine', 'Address', { wide: true }], ['city', 'City'], ['pincode', 'PIN code', { mono: true }], ['phone', 'Phone'], ['email', 'Email'], ['website', 'Website', { wide: true }]] },
-  { key: 'statutory', title: 'Statutory registrations', note: 'Quoted on PF, ESIC, Professional Tax and Labour Welfare Fund returns.', fields: [['epfCode', 'EPF establishment code', { mono: true }], ['esicCode', 'ESIC employer code', { mono: true }], ['ptRegistration', 'Professional Tax registration', { mono: true }], ['lwfRegistration', 'Labour Welfare Fund registration', { mono: true }]] },
+  { key: 'identity', title: 'Identity', fields: [['legalName', 'Legal name', { required: true, wide: true }], ['pan', 'Company PAN', { placeholder: 'AABCC1234D', mono: true }], ['tan', 'TAN', { placeholder: 'BLRC12345D', mono: true }], ['cin', 'CIN / LLPIN', { mono: true }], ['industry', 'Industry']] },
+  { key: 'address', title: 'Registered address and contact', fields: [['addressLine', 'Address', { wide: true }], ['city', 'City'], ['pincode', 'PIN code', { mono: true }], ['phone', 'Phone'], ['email', 'Email'], ['website', 'Website', { wide: true }]] },
+  { key: 'statutory', title: 'Statutory registrations', fields: [['epfCode', 'EPF establishment code', { mono: true }], ['esicCode', 'ESIC employer code', { mono: true }], ['ptRegistration', 'Professional Tax registration', { mono: true }], ['lwfRegistration', 'Labour Welfare Fund registration', { mono: true }]] },
 ];
 
 /** How many of a section's fields hold something. */
@@ -89,7 +89,6 @@ export default function CompanyProfile() {
             <form id="company-profile" onSubmit={save} className="grid gap-5 min-w-0" noValidate={false}>
               {SECTIONS.map((sec) => (
                 <Panel key={sec.key} title={sec.title} action={<span className="ws-head-meta">{filled(form, sec)} of {sec.fields.length}</span>}>
-                  <p className="ws-card-blurb" style={{ marginTop: -6 }}>{sec.note}</p>
                   <div className="grid gap-4 sm:grid-cols-2">
                     {sec.fields.map(([k, label, o = {}]) => (
                       <label key={k} className={`grid gap-1 ${o.wide ? 'sm:col-span-2' : ''}`}>

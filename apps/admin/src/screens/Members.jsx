@@ -235,7 +235,7 @@ export default function Members() {
                     type="button"
                     className="ui-btn ui-btn-secondary ui-btn-sm"
                     onClick={async () => {
-                      if (!(await confirmDialog({ title: `Remove from ${c.name}?`, message: 'Their membership, branches and roles in this company go. Their login, the account and other companies stay.', confirmLabel: 'Remove from company' }))) return;
+                      if (!(await confirmDialog({ title: `Remove from ${c.name}?`, message: 'They lose access to this company only.', confirmLabel: 'Remove from company' }))) return;
                       act(() => removeMemberFromCompany(detail.userId, c.orgId), `Removed from ${c.name}.`);
                     }}
                   >
@@ -250,7 +250,7 @@ export default function Members() {
                 type="button"
                 className="ui-btn ui-btn-secondary"
                 onClick={async () => {
-                  if (!(await confirmDialog({ title: 'Sign out everywhere?', message: 'Every session on every device ends now. Their access stays; they can sign in again. To stop them, suspend instead.', confirmLabel: 'Sign out everywhere', tone: 'neutral' }))) return;
+                  if (!(await confirmDialog({ title: 'Sign out everywhere?', message: 'Ends every session now. They can sign in again.', confirmLabel: 'Sign out everywhere', tone: 'neutral' }))) return;
                   act(() => signOutMember(detail.userId), 'Signed out of every session.');
                 }}
               >
@@ -265,7 +265,7 @@ export default function Members() {
                   type="button"
                   className="ui-btn ui-btn-danger"
                   onClick={async () => {
-                    if (!(await confirmDialog({ title: 'Suspend in the account?', message: 'They lose access to every company of this account at once. Their roles stay, ready if you reinstate them.', confirmLabel: 'Suspend' }))) return;
+                    if (!(await confirmDialog({ title: 'Suspend in the account?', message: 'They lose access to every company until reinstated.', confirmLabel: 'Suspend' }))) return;
                     act(() => suspendMember(detail.userId), 'Suspended in every company of the account.');
                   }}
                 >

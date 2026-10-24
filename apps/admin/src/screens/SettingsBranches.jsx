@@ -104,7 +104,7 @@ export function SettingsBranches({ orgId, company, onBranchesChanged }) {
 
   const remove = async (branch) => {
     setMenuFor(null);
-    if (!(await confirmDialog({ title: 'Delete branch?', message: 'The branch can be deleted only when it has no associated transactions.', confirmLabel: 'Delete branch' }))) return;
+    if (!(await confirmDialog({ title: 'Delete branch?', message: 'Only a branch with no transactions can be deleted.', confirmLabel: 'Delete branch' }))) return;
     try {
       await deleteBranch(orgId, branch.id);
       setBranches((prev) => (prev || []).filter((b) => b.id !== branch.id));

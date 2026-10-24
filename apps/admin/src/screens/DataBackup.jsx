@@ -183,7 +183,7 @@ export default function DataBackup({ currentCompany }) {
             </Panel>
             <Panel title="Restoring">
               <p className="ws-card-blurb">
-                Not available yet. An export is a file to keep and read, not an undo.
+                Not available yet.
               </p>
             </Panel>
           </aside>

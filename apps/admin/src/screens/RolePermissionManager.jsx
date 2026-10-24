@@ -204,7 +204,7 @@ export const RolePermissionManager = () => {
           <p className="ws-card-blurb">Loading roles and permissions…</p>
         ) : !roles.length ? (
           <div className="ws-setup">
-            <p className="ws-card-blurb">No roles yet. Create one under Access → Roles, then come back to set what it can do.</p>
+            <p className="ws-card-blurb">No roles yet. Create one under Roles.</p>
           </div>
         ) : (
           <div className="ws-layout">
@@ -238,7 +238,7 @@ export const RolePermissionManager = () => {
               />
 
               <p className="ws-card-blurb">
-                Which records a person sees comes from their branches and warehouses, set under Users.
+                Record visibility comes from branches, set under Users.
               </p>
             </div>
 
@@ -261,7 +261,7 @@ export const RolePermissionManager = () => {
                   <input id="rpm-own-docs" type="checkbox" className="mt-0.5" checked={ownDocs} onChange={(e) => setOwnDocs(e.target.checked)} />
                   <span>
                     Own documents only
-                    <span className="block ui-caption">Holders see and change only the invoices, bills, quotes and payments they raised.</span>
+                    <span className="block ui-caption">Only documents they created.</span>
                   </span>
                 </label>
               </Panel>
@@ -282,7 +282,7 @@ export const RolePermissionManager = () => {
                       <option key={p.key} value={p.key}>{p.label}</option>
                     ))}
                   </select>
-                  <p className="ws-card-blurb">Replaces the ticks. Nothing saves until you press Save changes.</p>
+                  <p className="ws-card-blurb">Applies on Save changes.</p>
                 </Panel>
               ) : null}
             </aside>

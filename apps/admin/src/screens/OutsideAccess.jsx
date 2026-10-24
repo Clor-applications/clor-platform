@@ -59,7 +59,7 @@ function Change({ action, row, apps, onDone, onClose }) {
   const words = {
     change: 'Takes effect on their next request.',
     pause: 'They are stopped at once and can be resumed.',
-    end: 'They are stopped for good. Their roles and the history stay; adding them again under Users grants it afresh.',
+    end: 'Their access stops now.',
   }[action];
   return (
     <Modal title={`${ACTION_LABEL[action]} access for ${name}`} onClose={onClose} maxWidthClass="max-w-md">
@@ -74,7 +74,7 @@ function Change({ action, row, apps, onDone, onClose }) {
                   <input type="checkbox" className="ui-checkbox" checked={chosen.includes(a)} onChange={() => toggle(a)} /> {APP_LABEL[a] || a}
                 </label>
               ))}
-              <p className="ui-caption">An app the company does not have stays closed; their role still decides what they do inside each.</p>
+              <p className="ui-caption">Their role decides what they can do in each app.</p>
             </fieldset>
             <label className="block"><span className="ui-label">Until</span>
               <input type="date" className="ui-input" min={isoDay(Date.now() + DAY)} value={until} onChange={(e) => setUntil(e.target.value)} />
@@ -207,7 +207,7 @@ export default function OutsideAccess() {
         ) : (
           <div className="ws-setup">
             <span className="ws-tile" aria-hidden="true"><ICON.team size={20} /></span>
-            <p className="ws-card-blurb">Nobody from outside this account has access. Add an accountant or auditor under Users.</p>
+            <p className="ws-card-blurb">Nobody from outside. Add an accountant or auditor under Users.</p>
           </div>
         )}
       </div>

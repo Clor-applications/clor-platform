@@ -120,7 +120,7 @@ describe('billing', () => {
   it('reads the real plan from the server', async () => {
     render(<BillingPreview currentCompany={COMPANY} />);
     await waitFor(() => expect(screen.getByText('Practice')).toBeInTheDocument());
-    expect(screen.getByText(/No charge will be taken/)).toBeInTheDocument();
+    expect(screen.getByText(/Nothing is charged/)).toBeInTheDocument();
   });
 
   it('offers nothing that would take money', async () => {
@@ -147,6 +147,6 @@ describe('single sign-on', () => {
   it('adds a provider switched off, to be verified first', async () => {
     render(<SsoSettings />);
     fireEvent.click(await screen.findByRole('button', { name: 'Add a provider' }));
-    expect(screen.getByText(/It is added switched off. Verify its domains, then switch it on./)).toBeInTheDocument();
+    expect(screen.getByText(/Added switched off until its domains are verified/)).toBeInTheDocument();
   });
 });

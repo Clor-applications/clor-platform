@@ -195,7 +195,7 @@ export function AddCompanyForm({ onAdd, onCancel }) {
       onSubmit={async (e) => {
         e.preventDefault();
         if (name.trim().length < 2) return setError('Give the company its name.');
-        if (gstinBad) return setError('That GSTIN does not look right: 15 characters, e.g. 29ABCDE1234F1Z5.');
+        if (gstinBad) return setError('Enter a valid 15-character GSTIN.');
         if (!effectiveState) return setError('Choose the state the company is registered in.');
         setBusy(true);
         setError('');

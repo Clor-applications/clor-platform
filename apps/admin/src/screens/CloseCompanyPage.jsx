@@ -196,7 +196,7 @@ export default function CloseCompanyPage({ companyName = '' }) {
                     </li>
                   ))}
                 </ol>
-                <p className="ws-card-blurb">Keep the export: tax and labour law may require records for years.</p>
+                <p className="ws-card-blurb">Keep the export; the law may require the records.</p>
               </Panel>
             </aside>
           </div>

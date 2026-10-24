@@ -35,8 +35,8 @@ const PASSWORD_RULES = [
 ];
 const GATES = [
   { key: 'requireVerifiedEmail', label: 'Require a confirmed email address' },
-  { key: 'requireAdminTwoFactor', label: 'Owners and admins must sign in with an authenticator app (set up your own first)' },
-  { key: 'requirePayrollStepUp', label: 'Ask for an authenticator code before approving pay runs, bank account changes, settlements and payments' },
+  { key: 'requireAdminTwoFactor', label: 'Owners and admins need an authenticator app' },
+  { key: 'requirePayrollStepUp', label: 'Ask for an authenticator code before approving payments and pay runs' },
 ];
 const EMPTY_PW = { current: '', next: '', confirm: '' };
 const stamp = (d) => (d ? new Date(d).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }) : '—');
@@ -317,7 +317,7 @@ export const SecuritySettings = ({ openScreen }) => {
               </table>
             </div>
           ) : (
-            <div className="ws-setup"><p className="ws-card-blurb">Nothing recorded yet. Sign-ins, failures and lockouts appear here.</p></div>
+            <div className="ws-setup"><p className="ws-card-blurb">No sign-ins yet.</p></div>
           )}
         </section>
       </div>

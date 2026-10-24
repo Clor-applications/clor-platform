@@ -18,8 +18,8 @@ import './workspace.css';
  */
 
 const ROLES = [
-  ['MEMBER', 'Member', 'Belongs to the account. What they can do in a company comes from the roles given there.'],
-  ['ADMIN', 'Administrator', 'Can add companies, invite people and change account roles — not the owners.'],
+  ['MEMBER', 'Member', 'Access comes from company roles.'],
+  ['ADMIN', 'Administrator', 'Adds companies and invites people.'],
   ['BILLING_ADMIN', 'Billing admin', 'Can see the account, its plan and billing.'],
 ];
 const ROLE_LABEL = Object.fromEntries(ROLES.map(([k, l]) => [k, l]));
@@ -32,13 +32,12 @@ const STATUS = {
 const day = (d) => (d ? new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '');
 
 /** The sentence the inviter reads before sending — the spec's "access preview". */
-export function accessPreview({ email, role, companyNames, accountName }) {
-  const who = email || 'This person';
+export function accessPreview({ role, companyNames }) {
   const where = companyNames.length ? companyNames.join(', ') : 'no company yet';
-  return `${who} will join ${accountName || 'the account'} as ${String(ROLE_LABEL[role] || 'Member').toLowerCase()} and get into ${where}. They get no app roles until someone gives them one under Roles.`;
+  return `Joins as ${String(ROLE_LABEL[role] || 'Member').toLowerCase()} in ${where}. App access comes from roles.`;
 }
 
-export default function Invitations({ tenant, companies = [], accountName = '' }) {
+export default function Invitations({ tenant, companies = [] }) {
   const accountCompanies = useMemo(() => (companies.length ? companies : tenant ? [tenant] : []), [companies, tenant]);
   const [rows, setRows] = useState(null);
   const [error, setError] = useState('');
@@ -138,7 +137,7 @@ export default function Invitations({ tenant, companies = [], accountName = '' }
             </div>
           </fieldset>
           <p className="ws-card-blurb" aria-live="polite">
-            {accessPreview({ email: email.trim(), role, companyNames, accountName })}
+            {accessPreview({ role, companyNames })}
           </p>
           <div className="flex flex-wrap items-center gap-3">
             <button type="submit" className="ws-btn ws-btn--primary" disabled={!valid || busy}>

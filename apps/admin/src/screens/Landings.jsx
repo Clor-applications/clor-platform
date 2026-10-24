@@ -76,7 +76,7 @@ export function AccessHome({ navItems = [], openScreen }) {
           title="Access"
           actions={may.has('invitations') ? <button type="button" className="ws-btn ws-btn--primary" onClick={() => openScreen('invitations')}><ICON.invite size={18} /> Invite people</button> : null}
         />
-        {dir === null ? <p role="alert" className="text-sm">Only the account’s owners and administrators can see who has access.</p> : null}
+        {dir === null ? <p role="alert" className="text-sm">Visible to owners and administrators.</p> : null}
         {dir ? (
           <div className="ws-stats">
             <Stat icon={ICON.people} label="Active members" value={active.length} note={`${members.length - active.length} suspended`} onOpen={may.has('members') ? () => openScreen('members') : null} />
@@ -247,14 +247,14 @@ export function DataHome({ tenant, navItems = [], openScreen }) {
                   </button>
                 </div>
               ) : (
-                <p className="ws-item-sub">Exporting needs the “export Company data (Settings)” permission.</p>
+                <p className="ws-item-sub">You don’t have export permission.</p>
               )}
             </Panel>
             {may.has('close') ? (
               <section className="ws-danger" aria-labelledby="ws-danger-title">
                 <h2 id="ws-danger-title">Danger zone: close {tenant?.name || 'this company'}</h2>
                 <p className="text-sm">
-                  Every record of this company is deleted for good after a notice period. Other companies are not affected.
+                  Deletes every record of this company after a notice period.
                 </p>
                 <div>
                   <button type="button" className="ws-btn ws-btn--danger" onClick={() => openScreen('close')}>
@@ -266,7 +266,7 @@ export function DataHome({ tenant, navItems = [], openScreen }) {
           </div>
           <aside className="ws-side">
             <Panel title="How long data is kept">
-              <p className="ws-card-blurb">Kept while the company is open. Deleted after a closure; backups expire 7 days later.</p>
+              <p className="ws-card-blurb">Kept while the company is open.</p>
             </Panel>
           </aside>
         </div>

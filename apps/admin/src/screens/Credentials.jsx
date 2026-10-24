@@ -92,7 +92,7 @@ function NewKey({ scopes, onDone, onClose }) {
               <option value="none">Never</option>
             </select>
           </label>
-          <p className="ui-caption">You are reminded before it expires, and can extend it without changing the key.</p>
+          <p className="ui-caption">You can extend it later.</p>
           <div className="flex gap-2">
             <button type="submit" className="ws-btn ws-btn--primary" disabled={busy || !form.scopes.length}>{busy ? 'Making…' : 'Make the key'}</button>
             <button type="button" className="ws-btn ws-btn--quiet" onClick={onClose}>Cancel</button>
@@ -111,11 +111,11 @@ function Change({ action, credential, onDone, onClose }) {
   const [busy, setBusy] = useState(false);
   const words = {
     suspend: credential.kind === 'SCIM'
-      ? 'It stops at once and can be resumed. If the provider has quarantined the app, restart provisioning there too.'
+      ? 'It stops at once. You can resume it.'
       : 'It stops at once and can be resumed.',
-    rotate: credential.kind === 'SCIM' ? 'A new token is made and the current one stops at once. Paste the new one into your identity provider.' : 'A new key is made and the current one stops at once. Whatever uses it needs the new one.',
+    rotate: credential.kind === 'SCIM' ? 'The current token stops at once.' : 'The current key stops at once.',
     revoke: 'It stops for good. Make a new one if it is needed again.',
-    extend: 'The same key keeps working until the new date — at most a year from today.',
+    extend: 'Up to a year from today.',
   }[action];
   const submit = async (e) => {
     e.preventDefault();
@@ -210,7 +210,7 @@ export default function Credentials() {
       return load();
     }
     if (action === 'rotate' && (c.kind === 'AGENT' || c.kind === 'DEVICE_PUSH')) {
-      const ok = await confirmDialog({ title: 'Rotate where it is installed', message: c.kind === 'AGENT' ? 'A connector’s token is rotated under Attendance → Integrations, so it can be reinstalled there.' : 'A reader’s address is changed under Attendance → Readers, where the reader is set up.', confirmLabel: 'Open Attendance', tone: 'primary' });
+      const ok = await confirmDialog({ title: 'Rotate where it is installed', message: c.kind === 'AGENT' ? 'Rotate it in Attendance → Integrations.' : 'Change it in Attendance → Readers.', confirmLabel: 'Open Attendance', tone: 'primary' });
       if (ok) requestOpenApp('attendance', c.kind === 'AGENT' ? 'integrations' : 'devices');
       return undefined;
     }
@@ -239,7 +239,7 @@ export default function Credentials() {
           }
         />
         {data?.createBlockedReason ? <p className="ws-card-blurb" style={{ marginTop: -16 }}>{data.createBlockedReason}</p> : null}
-        {data?.closing ? <p className="text-sm" role="status" style={{ ...WARN, padding: '10px 14px', borderRadius: 8 }}>This company’s closure is scheduled: every credential is paused until it is cancelled.</p> : null}
+        {data?.closing ? <p className="text-sm" role="status" style={{ ...WARN, padding: '10px 14px', borderRadius: 8 }}>Closure scheduled: all credentials are paused.</p> : null}
         {shown ? <ShownOnce label={shown.label} value={shown.value} hint={shown.hint} onDone={() => setShown(null)} /> : null}
 
         {data ? (

@@ -70,7 +70,7 @@ export default function BillingPreview() {
           <aside className="ws-side">
             <Panel title="Payment method">
               <p className="ws-card-blurb">None on file. Nothing has been charged to this account.</p>
-              <p className="ws-card-blurb">No charge will be taken: there is no payment provider connected.</p>
+              <p className="ws-card-blurb">Nothing is charged.</p>
             </Panel>
           </aside>
         </div>

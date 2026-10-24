@@ -37,10 +37,10 @@ export function roleGroup(role) {
   return apps.size > 1 ? 'Across apps' : 'Settings and reports only';
 }
 export const ACCOUNT_ROLES = [
-  ['Owner', 'Runs the account: its owners, companies, members and plan. Opens no business data by itself.'],
-  ['Administrator', 'Adds companies, invites people and changes account roles — not the owners.'],
+  ['Owner', 'Runs the account. No business data by itself.'],
+  ['Administrator', 'Adds companies and invites people.'],
   ['Billing admin', 'Sees the account, its plan and billing.'],
-  ['Member', 'Belongs to the account; what they may do in a company comes from the roles below.'],
+  ['Member', 'Access comes from company roles.'],
 ];
 
 function normalizeRolePermissions(raw) {
@@ -409,7 +409,6 @@ export function SettingsRoles({ orgId }) {
         open={showForm}
         onClose={() => setShowForm(false)}
         title={editRole ? `Edit ${editRole.name}` : 'Create role'}
-        description="Name it for the work it covers, then tick what it may do."
         actions={(
           <>
             <button type="button" onClick={() => setShowForm(false)} className="ws-btn ws-btn--quiet">Cancel</button>
@@ -447,7 +446,7 @@ export function SettingsRoles({ orgId }) {
             />
             <span>
               Own documents only
-              <span className="block ui-caption">Holders see and edit only the invoices, bills, quotes and payments they raised themselves.</span>
+              <span className="block ui-caption">Only documents they created.</span>
             </span>
           </label>
           <div className="grid gap-2">

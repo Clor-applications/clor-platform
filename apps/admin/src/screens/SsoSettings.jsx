@@ -81,7 +81,7 @@ export default function SsoSettings() {
     }
   };
   const revoke = async (t) => {
-    if (!(await confirmDialog({ title: 'Revoke this token?', message: 'The identity provider using it stops being able to add or remove people at once.', confirmLabel: 'Revoke' }))) return;
+    if (!(await confirmDialog({ title: 'Revoke this token?', message: 'Directory sync stops at once.', confirmLabel: 'Revoke' }))) return;
     await revokeScimToken(t.id).catch((err) => notify.error(String(err?.message || 'Not revoked.')));
     loadScim();
   };
@@ -101,7 +101,7 @@ export default function SsoSettings() {
       const body = { ...form, defaultRoleId: form.defaultRoleId || null, clientSecret: form.clientSecret === '' && form.id ? undefined : form.clientSecret };
       if (form.id) await updateProvider(form.id, body);
       else await createProvider(body);
-      notify.success(form.id ? 'Saved.' : 'Added. Publish the DNS TXT record shown on its row, choose Verify domains, then switch it on.');
+      notify.success(form.id ? 'Saved.' : 'Added. Verify its domains, then switch it on.');
       setForm(null);
       load();
     } catch (err) {
@@ -130,7 +130,7 @@ export default function SsoSettings() {
     }
   };
   const remove = async (p) => {
-    if (!(await confirmDialog({ title: `Remove ${p.name}?`, message: 'People at its domains go back to passwords. Nobody is signed out.', confirmLabel: 'Remove' }))) return;
+    if (!(await confirmDialog({ title: `Remove ${p.name}?`, message: 'Its users go back to passwords.', confirmLabel: 'Remove' }))) return;
     await deleteProvider(p.id).catch((err) => notify.error(String(err?.message || 'Not removed.')));
     load();
   };
@@ -164,7 +164,7 @@ export default function SsoSettings() {
                       <span className="ws-tile ws-tile--sm" aria-hidden="true"><ICON.person size={14} /></span>
                       <span className="ws-item-text">
                         <span className="ws-item-title">{data.local.name}</span>
-                        <span className="ws-item-sub">Always on. Everyone can use it unless a provider owns their domain.</span>
+                        <span className="ws-item-sub">Always on.</span>
                       </span>
                       <span className="ws-pill ws-pill--ok">Active</span>
                     </div>
@@ -228,7 +228,7 @@ export default function SsoSettings() {
                       <code className="ui-mono text-sm break-all min-w-0 flex-1">{newToken}</code>
                       <button type="button" className="ws-btn ws-btn--quiet ws-btn--small" onClick={copyToken}><Copy size={14} aria-hidden="true" /> Copy</button>
                     </div>
-                    <span className="ui-caption">Paste it as the provider’s “Secret token” along with the tenant URL, then test the connection there.</span>
+                    <span className="ui-caption">Paste it into your provider with the tenant URL.</span>
                   </div>
                 ) : null}
                 {(scim?.tokens || []).length ? (
@@ -279,7 +279,7 @@ export default function SsoSettings() {
               </Panel>
               <Panel title="How it is trusted">
                 <p className="ws-card-blurb">
-                  Only verified e-mails at your provider’s domains get in, and only for existing users unless “add automatically” is on. Passwords keep working.
+                  Verified e-mails at your domains only. Passwords keep working.
                 </p>
               </Panel>
             </aside>
@@ -291,7 +291,6 @@ export default function SsoSettings() {
         open={Boolean(form)}
         onClose={() => setForm(null)}
         title={form?.id ? `Edit ${form.name || 'provider'}` : 'Add a provider'}
-        description="The provider proves who someone is; roles and company access stay in CLOR."
       >
         {/* The drawer is portalled out of the page, so it carries the Workspace tokens with it. */}
         {form ? (
@@ -321,7 +320,7 @@ export default function SsoSettings() {
                   </>
                 ) : (
                   <>
-                    <Field label="IdP sign-in URL (entry point)" wide hint="Entra: the “Login URL” of the enterprise app · Okta: the “Sign on URL” · Google: the SSO URL. After adding, the row shows CLOR’s Reply URL and Identifier to enter there.">
+                    <Field label="IdP sign-in URL (entry point)" wide hint="The provider’s sign-on URL.">
                       <input className="ui-input w-full" value={form.entryPoint || ''} onChange={set('entryPoint')} placeholder="https://login.microsoftonline.com/<tenant>/saml2" />
                     </Field>
                     <Field label="Entity ID" wide>
@@ -342,11 +341,11 @@ export default function SsoSettings() {
                   </select>
                 </Field>
               </div>
-              <label className="flex items-start gap-2 text-sm"><input type="checkbox" className="ui-checkbox mt-0.5" checked={form.autoProvision} onChange={set('autoProvision')} /> Add people from these domains automatically on first sign-in (otherwise they must be invited first)</label>
+              <label className="flex items-start gap-2 text-sm"><input type="checkbox" className="ui-checkbox mt-0.5" checked={form.autoProvision} onChange={set('autoProvision')} /> Add new people automatically on first sign-in</label>
               {form.id ? (
                 <label className="flex items-start gap-2 text-sm"><input type="checkbox" className="ui-checkbox mt-0.5" checked={form.enabled} onChange={set('enabled')} /> Switched on (needs every domain verified)</label>
               ) : (
-                <p className="ui-caption">It is added switched off. Verify its domains, then switch it on.</p>
+                <p className="ui-caption">Added switched off until its domains are verified.</p>
               )}
               <div className="flex gap-2">
                 <button type="submit" className="ws-btn ws-btn--primary" disabled={busy}>{busy ? 'Saving…' : form.id ? 'Save' : 'Add provider'}</button>

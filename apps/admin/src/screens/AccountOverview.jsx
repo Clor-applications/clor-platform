@@ -241,7 +241,7 @@ export default function AccountOverview({ currentCompany, onOpenCompany = null }
 
                 <Panel title="People" action={<span className="ws-head-meta">{users.length}</span>}>
                   {users.length === 0 ? (
-                    <p className="ws-card-blurb">Nobody else yet. Invite colleagues from Access → Invitations.</p>
+                    <p className="ws-card-blurb">Nobody else yet.</p>
                   ) : (
                     <ul className="ws-list">
                       {users.map((u) => (

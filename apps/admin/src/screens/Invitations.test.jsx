@@ -23,9 +23,7 @@ beforeEach(() => {
 /* W-3: the inviter reads what the person will get before sending (the spec's access preview). */
 describe('Workspace → Invitations', () => {
   it('says in plain words what the person will get', () => {
-    expect(accessPreview({ email: 'priya@x.in', role: 'MEMBER', companyNames: ['Anand Traders'], accountName: 'Anand Group' })).toBe(
-      'priya@x.in will join Anand Group as member and get into Anand Traders. They get no app roles until someone gives them one under Roles.'
-    );
+    expect(accessPreview({ role: 'MEMBER', companyNames: ['Anand Traders'] })).toBe('Joins as member in Anand Traders. App access comes from roles.');
   });
 
   it('sends the email, role and chosen companies, and lists what was sent', async () => {
@@ -34,7 +32,7 @@ describe('Workspace → Invitations', () => {
     fireEvent.change(screen.getByLabelText('Email address'), { target: { value: 'priya@x.in' } });
     fireEvent.change(screen.getByLabelText('Account role'), { target: { value: 'ADMIN' } });
     fireEvent.click(screen.getByLabelText('Anand Exports'));
-    expect(screen.getByText(/priya@x.in will join Anand Group as administrator and get into Anand Traders, Anand Exports/)).toBeInTheDocument();
+    expect(screen.getByText(/Joins as administrator in Anand Traders, Anand Exports/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /Send invitation/ }));
     await waitFor(() =>
       expect(api.createInvitation).toHaveBeenCalledWith({ email: 'priya@x.in', accountRole: 'ADMIN', grants: [{ orgId: 'c1' }, { orgId: 'c2' }] })
