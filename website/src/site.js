@@ -12,9 +12,9 @@ export const SITE = {
   company: 'Clor Applications Pvt Ltd',
   url: 'https://clor.in',
   appUrl: 'https://app.clor.in',
-  signInUrl: 'https://app.clor.in/',
-  /* The app opens sign-up from its front door today; a deep link can replace this once the app has one. */
-  signUpUrl: 'https://app.clor.in/',
+  /* The app's own doors: /signin and /signup open those pages directly. */
+  signInUrl: 'https://app.clor.in/signin',
+  signUpUrl: 'https://app.clor.in/signup',
   /* Confirmed by the company, 2026-10-24. */
   contactEmail: 'info@clor.in',
   salesEmail: 'sales@clor.in',
