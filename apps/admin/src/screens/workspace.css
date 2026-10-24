@@ -46,8 +46,8 @@
   padding: 24px 24px 40px;
 }
 .ws-inner {
-  max-width: 1280px;
-  margin: 0 auto;
+  /* Fills the space beside the sidebar, edge to edge inside the page's 24px frame. */
+  width: 100%;
   display: grid;
   /* One rhythm: 24px between page sections, 16px inside a grid of cards. */
   gap: 24px;

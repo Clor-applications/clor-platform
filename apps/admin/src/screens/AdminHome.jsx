@@ -169,7 +169,7 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
                   </button>
                 ) : null}
               </div>
-              <ul className="ws-apps" role="list" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 210px), 1fr))' }}>
+              <ul className="ws-apps" role="list" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 210px), 1fr))' }}>
                 {states.map(({ app: a, state: s }) => {
                   const Icon = productIcon(a.id);
                   return (
@@ -204,7 +204,7 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
                 })}
               </ul>
               {planned.length ? (
-                <ul className="ws-apps" role="list" aria-label="Apps on the way" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 300px), 1fr))' }}>
+                <ul className="ws-apps" role="list" aria-label="Apps on the way" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 300px), 1fr))' }}>
                   {planned.map((a) => {
                     const Icon = productIcon(a.id);
                     return (
