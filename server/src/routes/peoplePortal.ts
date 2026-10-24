@@ -6,6 +6,7 @@ import { AckError, accept, pendingFor } from '../services/people/acknowledgement
 import { DeskError, categoriesOf, employeeReply, listRequests, raiseRequest, reopenRequest, requestDetail } from '../services/people/desk.js';
 import { SelfServiceError, myDetails, requestChange } from '../services/people/selfService.js';
 import { correlationOf } from '../services/people/employees.js';
+import { ResignError, resignFromApp } from '../services/people/lifecycle/leaving.js';
 
 /**
  * People's own employee-facing routes, behind the employee app's sign-in
@@ -127,4 +128,24 @@ peoplePortalRouter.post('/me/change-request', async (req, res) => {
     console.error('[people-portal me]', e instanceof Error ? e.message : e);
     res.status(500).json({ error: 'Something went wrong.' });
   }
+});
+
+/* Resigning from the app (LIFE-05): a LEAVING request the manager and HR decide; the last day goes on the record when it is approved. */
+peoplePortalRouter.post('/me/resign', async (req, res) => {
+  const { accountId, orgId, employeeId } = me(req);
+  try {
+    res.status(202).json(await resignFromApp({ accountId, orgId, employeeId, userId: req.portal!.employee.userId || null, correlationId: correlationOf(req as any) }, req.body || {}));
+  } catch (e) {
+    if (e instanceof ResignError) return res.status(e.status).json({ error: e.message });
+    if ((e as any)?.status) return res.status((e as any).status).json({ error: (e as Error).message });
+    console.error('[people-portal resign]', e instanceof Error ? e.message : e);
+    res.status(500).json({ error: 'Something went wrong.' });
+  }
+});
+
+peoplePortalRouter.get('/me/leaving', async (req, res) => {
+  const { orgId, employeeId } = me(req);
+  const e = await peoplePrisma.employee.findFirst({ where: { id: employeeId, orgId }, select: { status: true, dateOfLeaving: true, leavingType: true } });
+  const waiting = await peoplePrisma.approvalRequest.findFirst({ where: { orgId, subjectEmployeeId: employeeId, requestType: 'LEAVING', status: 'WAITING' }, select: { id: true, title: true, createdAt: true } });
+  res.json({ status: e?.status || null, lastDay: e?.dateOfLeaving || null, leavingType: e?.leavingType || null, waiting });
 });

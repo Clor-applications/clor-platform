@@ -62,6 +62,6 @@ export function registerPeopleEffects() {
     const existing = await peoplePrisma.employee.findFirst({ where: { id: request.subjectEmployeeId, orgId: request.orgId } });
     if (!existing || existing.status === 'LEFT') return { skipped: 'Already left.' };
     const r = await leaveEmployee({ accountId: actor.accountId, orgId: actor.orgId, userId: actor.userId }, existing, { lastDay: p.lastDay, leavingType: p.leavingType, reason: p.reason ?? null });
-    return { left: true, readers: r.readers };
+    return { left: true, scheduled: r.scheduled, readers: r.readers };
   });
 }

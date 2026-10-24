@@ -73,9 +73,10 @@ describe('probation', () => {
     const lines = await runInTenant(hr.orgId, () => peoplePrisma.changeLog.findMany({ where: { employeeId: e.id, field: 'probationEndDate' } }));
     expect(lines).toEqual([expect.objectContaining({ before: '2026-11-01', after: '2027-01-31', reason: 'Three more months' })]);
     const end = (await people(hr).post(`/employees/${e.id}/probation/decide`, { outcome: 'END', lastDay: '2027-01-31', note: 'Not confirmed' }).expect(200)).body;
-    expect(end.applied).toMatchObject({ left: true, lastDay: '2027-01-31' });
+    /* A last day still ahead puts the person on notice (LIFE-05); the separations job makes them Left on the day. */
+    expect(end.applied).toMatchObject({ left: true, scheduled: true, lastDay: '2027-01-31' });
     const row = await runInTenant(hr.orgId, () => peoplePrisma.employee.findUniqueOrThrow({ where: { id: e.id } }));
-    expect(row).toMatchObject({ status: 'LEFT', leavingType: 'TERMINATED', dateOfLeaving: '2027-01-31' });
+    expect(row).toMatchObject({ status: 'ON_NOTICE', leavingType: 'TERMINATED', dateOfLeaving: '2027-01-31' });
   });
 
   it('with a rule, the decision is a request; approving it applies the outcome with the request on the log', async () => {

@@ -62,7 +62,7 @@ export async function applyOutcome(actor: Actor, employeeId: string, outcome: Pr
   } else {
     const lastDay = opts.lastDay || todayIst();
     const r = await leaveEmployee({ accountId: actor.accountId, orgId: actor.orgId, userId: actor.userId }, employee as any, { lastDay, leavingType: 'TERMINATED', reason: opts.note || 'Probation not confirmed' });
-    result = { left: true, lastDay, readers: r.readers };
+    result = { left: true, scheduled: r.scheduled, lastDay, readers: r.readers };
   }
   if (review) await peoplePrisma.probationReview.update({ where: { id: review.id }, data: { outcome, decidedByUserId: actor.userId, decidedAt: new Date(), note: opts.note ?? review.note, newEndDate: opts.newEndDate ?? review.newEndDate, requestId: opts.requestId ?? review.requestId } });
   if (employee.userId) await notifyUsers(actor.accountId, actor.orgId, [employee.userId], { kind: 'people.probation', title: outcome === 'CONFIRM' ? 'Your probation is confirmed' : outcome === 'EXTEND' ? `Your probation now ends on ${opts.newEndDate}` : 'Your employment has ended', body: opts.note || null, link: { app: 'people', screen: 'overview' } as any });
