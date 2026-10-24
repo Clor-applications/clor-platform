@@ -995,12 +995,17 @@ export default function Shell() {
               <ScreenBoundary appName="My profile" resetKey={`profile:${tenant.id}`}>
                 {/* The profile opens from the header, not the sidebar, so it needs
                     its own way back to the screen it was opened from. */}
-                <div className={app?.flush ? 'pt-3' : 'mb-3'}>
-                  <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" onClick={() => setPlatformScreen(null)}>
-                    <ArrowLeft size={16} aria-hidden="true" /> Back{app ? ` to ${app.name}` : ''}
-                  </button>
+                {/* In the Workspace the profile sits on the Workspace surface (workspace.css, loaded with its screens). */}
+                <div className={app?.id === ADMIN_APP_ID ? 'ws ws-legacy' : undefined}>
+                  <div className={app?.id === ADMIN_APP_ID ? 'ws-inner' : undefined} style={app?.id === ADMIN_APP_ID ? { gap: 12 } : undefined}>
+                    <div className={app?.id === ADMIN_APP_ID ? '' : app?.flush ? 'pt-3' : 'mb-3'}>
+                      <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" onClick={() => setPlatformScreen(null)}>
+                        <ArrowLeft size={16} aria-hidden="true" /> Back{app ? ` to ${app.name}` : ''}
+                      </button>
+                    </div>
+                    <ProfileScreen key={tenant.id} />
+                  </div>
                 </div>
-                <ProfileScreen key={tenant.id} />
               </ScreenBoundary>
             ) : screenMissing ? (
               <ScreenState
