@@ -1436,22 +1436,17 @@ button.ws-item:hover {
 .ws-facts {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0;
+  /* Hairlines between cells from the gap itself, so any column count draws clean. */
+  gap: 1px;
+  background: rgb(var(--ws-line));
   border: 1px solid rgb(var(--ws-line));
   border-radius: 12px;
   overflow: hidden;
 }
 .ws-facts > div {
   padding: 12px 14px;
-  border-right: 1px solid rgb(var(--ws-line));
-  border-bottom: 1px solid rgb(var(--ws-line));
+  background: rgb(var(--ws-surface));
   min-width: 0;
-}
-.ws-facts > div:nth-child(3n) {
-  border-right: 0;
-}
-.ws-facts > div:nth-last-child(-n + 3) {
-  border-bottom: 0;
 }
 .ws-facts dt {
   font-size: 0.75rem;
@@ -1472,11 +1467,9 @@ button.ws-item:hover {
   .ws-facts {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-  .ws-facts > div:nth-child(3n) {
-    border-right: 1px solid rgb(var(--ws-line));
-  }
-  .ws-facts > div:nth-child(2n) {
-    border-right: 0;
+  /* An odd last cell takes the whole row rather than leaving a hole. */
+  .ws-facts > div:last-child:nth-child(odd) {
+    grid-column: 1 / -1;
   }
 }
 .ws .ws-subhead {

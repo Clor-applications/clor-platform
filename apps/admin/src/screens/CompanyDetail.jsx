@@ -176,7 +176,9 @@ export default function CompanyDetail({ company, current, catalog = [], subscrip
             <ul className="ws-list">
               {apps.map((a) => {
                 const Icon = productIcon(a.id);
-                const on = subscriptions ? subscriptions.includes(a.id) : null;
+                /* The shell's list for the company in use; the server's (/account/overview) for any other. */
+                const known = subscriptions || company.apps || null;
+                const on = known ? known.includes(a.id) : null;
                 const n = directory ? opens(a.id) : null;
                 return (
                   <li key={a.id}>

@@ -19,7 +19,9 @@ import { appsOfPermissions, memberAccess, memberDirectory, removeFromCompany, se
 import { resolveAccess } from '../services/access.js';
 import { InvitationError, createInvitation, listInvitations, resendInvitation, revokeInvitation } from '../services/accountInvitations.js';
 import { entitlementFor } from '../services/entitlements.js';
-import { outsideTenant } from '../utils/tenantScope.js';
+import { outsideTenant, runInTenant } from '../utils/tenantScope.js';
+import { getFeatures } from '../services/features.js';
+import { appAccess } from '../services/subscriptions.js';
 
 /**
  * The account, above any one company.
@@ -99,6 +101,20 @@ accountRouter.get('/account/overview', ACCOUNT_VIEW, (req, res) =>
     }),
   ]);
 
+  /*
+   * Which apps each company has switched on, read the way the shell reads
+   * them for the company in use (its feature switches, within the apps the
+   * account owns), so the Workspace can say it for every company. Each
+   * company's switches are its own rows, read inside that company.
+   */
+  const access = await appAccess(accountId);
+  const appsByOrg = new Map<string, string[]>();
+  for (const o of orgs) {
+    const f = (await runInTenant(o.id, () => getFeatures(accountId, o.id))) as Record<string, boolean>;
+    const apps = ['accounting', ...(['people', 'attendance', 'payroll'] as const).filter((k) => f[k])];
+    appsByOrg.set(o.id, access.restricted ? apps.filter((a) => access.ownedApps.includes(a)) : apps);
+  }
+
   const headByOrg = new Map(headOffices.map((b) => [b.orgId, b]));
   const peopleByOrg = new Map(memberships.map((m) => [m.orgId, Number(m._count) || 0]));
   const billedByOrg = new Map(
@@ -132,6 +148,7 @@ accountRouter.get('/account/overview', ACCOUNT_VIEW, (req, res) =>
         gstin: head?.gstin || '',
         pan: o.pan || '',
         since: o.createdAt,
+        apps: appsByOrg.get(o.id) || [],
         people: peopleByOrg.get(o.id) || 0,
         invoices: billing.count,
         billed: billing.billed,

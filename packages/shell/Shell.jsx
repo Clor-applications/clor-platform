@@ -582,7 +582,8 @@ export default function Shell() {
         /* Two different facts: which module holds the screen you are on, and
            which module's panel is open. A rail tap only opens a panel; it
            does not change the screen under you. */
-        const current = currentModule?.key === m.key;
+        /* A platform page (My profile) or More apps belongs to no module. */
+        const current = !platformScreen && !showMoreApps && currentModule?.key === m.key;
         const panelShown = !m.single && openModule?.key === m.key && (phone || (tablet ? tabletPanel : !panelClosed));
         return (
           <button
