@@ -26,6 +26,7 @@ import {
   listWebhooks,
   publicApiBase,
   resendWebhookDelivery,
+  rotateWebhookSecret,
   testWebhook,
   updateWebhook,
 } from '../api/attendance';
@@ -81,11 +82,20 @@ export default function Integrations() {
     e.preventDefault();
     try {
       const r = await createWebhook(hookForm);
-      setShown({ label: `Signing secret for “${r.webhook.name}”`, value: r.secret });
+      setShown({ label: `Signing secret for “${r.webhook.name}”`, value: r.secret, kept: 'CLOR keeps it encrypted to sign with and does not show it again.' });
       setHookForm({ name: '', url: '', events: ['day'] });
       load();
     } catch (err) {
       notify.error(String(err?.message || 'Not created.'));
+    }
+  };
+  const rotate = async (h) => {
+    if (!(await confirmDialog({ title: `New signing secret for ${h.name}?`, message: 'Calls are signed with both the old and the new secret for a day, so the receiving system can switch over. After that only the new one works.', confirmLabel: 'Make new secret', tone: 'primary' }))) return;
+    try {
+      const r = await rotateWebhookSecret(h.id);
+      setShown({ label: `New signing secret for “${h.name}” — the old one works until ${new Date(r.previousSecretUntil).toLocaleString()}`, value: r.secret, kept: 'CLOR keeps it encrypted to sign with and does not show it again.' });
+    } catch (err) {
+      notify.error(String(err?.message || 'Not changed.'));
     }
   };
   const test = async (h) => {
@@ -99,7 +109,7 @@ export default function Integrations() {
     <div className="space-y-3">
       <PageHeader entity="settings" title="Integrations" description="Let other systems read attendance or send punches, and have CLOR tell them when things happen." />
       <div className="pb-8 space-y-6">
-      {shown ? <ShownOnce label={shown.label} value={shown.value} onDone={() => setShown(null)} /> : null}
+      {shown ? <ShownOnce label={shown.label} value={shown.value} kept={shown.kept} onDone={() => setShown(null)} /> : null}
 
       <HrTools />
 
@@ -158,6 +168,7 @@ export default function Integrations() {
                   </label>
                   <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => setOpenHook(openHook === h.id ? null : h.id)} aria-expanded={openHook === h.id}>{openHook === h.id ? 'Hide deliveries' : 'Deliveries'}</button>
                   <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => test(h)}>Send test</button>
+                  <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" onClick={() => rotate(h)}>New secret</button>
                   <button
                     type="button"
                     className="ui-btn ui-btn-ghost ui-btn-sm"
@@ -180,7 +191,7 @@ export default function Integrations() {
           <p className="ui-muted text-sm">No webhooks yet.</p>
         )}
         <p className="ui-caption">
-          Each call is a POST with JSON <code className="ui-mono">{'{ event, orgId, sentAt, data }'}</code> and the header <code className="ui-mono">X-Clor-Signature: sha256=…</code> — an HMAC-SHA256 of the body with the webhook’s secret. Check it before trusting the call. <code className="ui-mono">X-Clor-Delivery</code> is the same on every retry of one event, so a call seen twice can be ignored. A failed call is tried again after 1, 5, 30, 120 and 720 minutes; any delivery can be sent again from the list.
+          Each call is a POST with JSON <code className="ui-mono">{'{ event, orgId, sentAt, data }'}</code> and the header <code className="ui-mono">X-Clor-Signature-256: t=…,v1=…</code> — an HMAC-SHA256 of <code className="ui-mono">t.body</code> with the webhook’s secret, where <code className="ui-mono">t</code> is when it was sent (Unix seconds). Check a <code className="ui-mono">v1</code> matches and <code className="ui-mono">t</code> is within five minutes before trusting the call. (<code className="ui-mono">X-Clor-Signature: sha256=…</code>, the body alone, is still sent for receivers set up before.) <code className="ui-mono">X-Clor-Delivery</code> is the same on every retry of one event, so a call seen twice can be ignored. A failed call is tried again after 1, 5, 30, 120 and 720 minutes; any delivery can be sent again from the list.
         </p>
       </section>
 

@@ -12,7 +12,7 @@ import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { ATTENDANCE_MODULE, ATTENDANCE_RESOURCE, attendanceRouteOk } from '../services/attendance/guards.js';
 import { encryptSecret } from '../services/mailer.js';
 import { checkUrl } from '../services/outbound.js';
-import { EVENT_HELP, WEBHOOK_EVENTS, deliver, forgetWebhooks, resendDelivery } from '../services/attendance/webhooks.js';
+import { EVENT_HELP, PREVIOUS_SECRET_MS, WEBHOOK_EVENTS, deliver, forgetWebhooks, resendDelivery } from '../services/attendance/webhooks.js';
 import { SCOPES, hashToken } from './publicApi.js';
 import { agentConfig, agentSecrets, ensureScimForAgent, newAgentToken } from './agent.js';
 import { platformPrisma } from '../utils/platformPrisma.js';
@@ -92,7 +92,7 @@ integrationsRouter.post(`${base}/keys/:id/revoke`, can(PermissionAction.EDIT), a
 // Webhooks
 // ---------------------------------------------------------------------------
 
-const hookRow = ({ secret: _s, ...h }: any) => ({ ...h, events: h.events.split(',') });
+const hookRow = ({ secret: _s, previousSecret: _p, ...h }: any) => ({ ...h, events: h.events.split(',') });
 const hookSchema = z.object({
   name: z.string().trim().min(1, 'Name the webhook.').max(80),
   url: z.string().trim().max(500),
@@ -119,7 +119,7 @@ integrationsRouter.post(`${base}/webhooks`, can(PermissionAction.CREATE), async 
     data: { accountId, orgId, name: parsed.data.name, url: parsed.data.url, events: parsed.data.events.join(','), isActive: parsed.data.isActive ?? true, secret: encryptSecret(secret), createdByUserId: req.auth!.userId },
   });
   forgetWebhooks(orgId);
-  res.status(201).json({ webhook: hookRow(hook), secret, note: 'Shown once — use it to check the X-Clor-Signature header.' });
+  res.status(201).json({ webhook: hookRow(hook), secret, note: 'Shown once — use it to check the X-Clor-Signature-256 header.' });
 });
 
 integrationsRouter.put(`${base}/webhooks/:id`, can(PermissionAction.EDIT), async (req, res) => {
@@ -147,6 +147,22 @@ integrationsRouter.delete(`${base}/webhooks/:id`, can(PermissionAction.DELETE), 
   await peoplePrisma.webhook.delete({ where: { id: existing.id } });
   forgetWebhooks(orgId);
   res.json({ ok: true });
+});
+
+/**
+ * A new signing secret, shown once (A-34). The old one is still signed with
+ * for a day, so the receiving system can be switched over without missing a
+ * delivery; a second change within that day drops the oldest.
+ */
+integrationsRouter.post(`${base}/webhooks/:id/rotate-secret`, can(PermissionAction.EDIT), async (req, res) => {
+  if (!(await attendanceRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const existing = await peoplePrisma.webhook.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
+  if (!existing) return res.status(404).json({ error: 'No such webhook.' });
+  const secret = `whsec_${randomBytes(24).toString('hex')}`;
+  const previousSecretUntil = new Date(Date.now() + PREVIOUS_SECRET_MS);
+  const hook = await peoplePrisma.webhook.update({ where: { id: existing.id }, data: { secret: encryptSecret(secret), previousSecret: existing.secret, previousSecretUntil } });
+  res.json({ webhook: hookRow(hook), secret, previousSecretUntil, note: 'Shown once. The old secret is still signed with until then.' });
 });
 
 /** Send a test event now and answer with what the endpoint said. */

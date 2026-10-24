@@ -212,6 +212,8 @@ export const deleteWebhook = (id) => send(`/integrations/webhooks/${encodeURICom
 export const listWebhookDeliveries = (id, status) => get(`/integrations/webhooks/${encodeURIComponent(id)}/deliveries${query({ status })}`);
 export const resendWebhookDelivery = (id, deliveryId) => send(`/integrations/webhooks/${encodeURIComponent(id)}/deliveries/${encodeURIComponent(deliveryId)}/resend`, 'POST', {});
 export const testWebhook = (id) => send(`/integrations/webhooks/${encodeURIComponent(id)}/test`, 'POST', {});
+/** A new signing secret, shown once; the old one is still signed with for a day. */
+export const rotateWebhookSecret = (id) => send(`/integrations/webhooks/${encodeURIComponent(id)}/rotate-secret`, 'POST', {});
 /** Where outside systems call: the API host's /v1. */
 export const publicApiBase = () => {
   try {

@@ -945,6 +945,9 @@ model Webhook {
   url             String
   /// Encrypted (encryptSecret); shown once when created.
   secret          String
+  /// The secret before the last change, encrypted; still signed with until previousSecretUntil (A-34).
+  previousSecret      String?
+  previousSecretUntil DateTime?
   /// Comma separated: punch, day
   events          String
   isActive        Boolean   @default(true)

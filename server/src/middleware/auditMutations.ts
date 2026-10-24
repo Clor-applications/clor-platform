@@ -110,6 +110,10 @@ const PHRASES: Array<[RegExp, string]> = [
   [/^POST security\/providers\/:id\/verify-domains$/, 'Verified a sign-in provider’s domains'],
   [/^POST security\/scim$/, 'Made a directory-sync token'],
   [/^DELETE security\/scim\/:id$/, 'Revoked a directory-sync token'],
+  [/^POST attendance\/integrations\/webhooks$/, 'Added a webhook'],
+  [/^PUT attendance\/integrations\/webhooks\/:id$/, 'Changed a webhook'],
+  [/^DELETE attendance\/integrations\/webhooks\/:id$/, 'Removed a webhook'],
+  [/^POST attendance\/integrations\/webhooks\/:id\/rotate-secret$/, 'Changed a webhook’s signing secret'],
 ];
 
 /** Accounting's records by name, for the message (A-51): "Made a bill", "Changed a customer". */
