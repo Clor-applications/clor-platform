@@ -107,6 +107,11 @@ export const getChangeImpact = (id, fields) => {
   const q = new URLSearchParams(Object.entries(fields).map(([k, v]) => [k, v || '']));
   return apiFetch(`${base()}/employees/${encodeURIComponent(id)}/change-impact?${q}`, opts).then((r) => r?.impact || []);
 };
+/* Before day one (LIFE-01): invite the joiner; see what they sent; check it onto the record. */
+export const createInvite = (id, body) => send(`/employees/${encodeURIComponent(id)}/invites`, 'POST', body);
+export const listEmployeeInvites = (id) => apiFetch(`${base()}/employees/${encodeURIComponent(id)}/invites`, opts).then((r) => r?.invites || []);
+export const listInvites = (status) => apiFetch(`${base()}/invites${status ? `?status=${encodeURIComponent(status)}` : ''}`, opts).then((r) => r?.invites || []);
+export const checkInvite = (id, body) => send(`/invites/${encodeURIComponent(id)}/check`, 'POST', body || {});
 /* Probation (LIFE-03): the review on file, and the decision — confirm, extend or end. */
 export const getProbation = (id) => apiFetch(`${base()}/employees/${encodeURIComponent(id)}/probation`, opts).then((r) => r?.reviews || []);
 export const saveProbationReview = (id, body) => send(`/employees/${encodeURIComponent(id)}/probation/review`, 'POST', body);

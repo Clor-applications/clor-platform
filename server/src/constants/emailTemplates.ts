@@ -213,6 +213,21 @@ You get one message when a problem starts and one when it clears. Reader health 
     transactional: true,
   },
   {
+    key: 'people.join_invite',
+    label: 'Fill in your details before you join',
+    description: 'Sent to someone about to join, with a link that works once and runs out in fourteen days, so they can fill in personal details and upload documents before day one.',
+    subject: 'Welcome to {{orgName}} — a few details before {{joiningDate}}',
+    body: `Hello {{name}},
+
+Welcome to {{orgName}}. Before you join on {{joiningDate}}, please fill in your personal details and add copies of your ID and other documents here:
+{{link}}
+
+The link works once and runs out on {{expiresOn}}. You see only your own details; HR checks what you send before it goes on your record.
+{{message}}
+If you did not expect this, ignore it.`,
+    fields: ['name', 'orgName', 'joiningDate', 'link', 'expiresOn', 'message'],
+  },
+  {
     key: 'people.task_assigned',
     label: 'A joining or leaving task for you',
     description: 'Sent to the person a joining, leaving or change task is assigned to, with a link that marks it done.',

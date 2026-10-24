@@ -176,6 +176,7 @@ model Employee {
   @@index([accountId, orgId, departmentId])
   @@index([accountId, orgId, establishmentId])
   @@index([accountId, orgId, reportingManagerId])
+  joinInvites JoinInvite[]
 }
 
 // ============================================================================
@@ -2074,6 +2075,40 @@ model ProbationReview {
   updatedAt      DateTime  @updatedAt
 
   @@index([orgId, employeeId, createdAt])
+}
+
+/// Before day one (docs/people/02-PRD.md LIFE-01; services/people/lifecycle/invites.ts):
+/// an invite the joiner opens once, good for fourteen days. What they send is
+/// held here until HR checks it and it is written to the record.
+model JoinInvite {
+  id              String    @id @default(cuid())
+  accountId       String
+  orgId           String
+  employeeId      String
+  /// sha256 of the token in the link; the token itself is never stored.
+  tokenHash       String    @unique
+  /// EMAIL | SMS (no gateway: HR is given the link to send)
+  channel         String
+  sentTo          String
+  /// HR's note to the joiner: what to bring, which policies to read.
+  message         String?
+  expiresAt       DateTime
+  /// SENT | STARTED | RETURNED | CHECKED | EXPIRED
+  status          String    @default("SENT")
+  /// { fields, declarations, documentIds } as the joiner sent them, until checked.
+  submitted       Json?
+  startedAt       DateTime?
+  returnedAt      DateTime?
+  checkedByUserId String?
+  checkedAt       DateTime?
+  sentByUserId    String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, employeeId])
+  @@index([orgId, status])
 }
 
 /// Joining / leaving checklist a company uses (services/people/checklists.ts).

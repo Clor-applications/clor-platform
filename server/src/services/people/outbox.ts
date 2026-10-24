@@ -19,6 +19,8 @@ import { exclusive, leaseFor } from '../jobLease.js';
 
 export const PEOPLE_EVENTS = [
   'people.employee.created.v1',
+  'people.invite.sent.v1',
+  'people.invite.returned.v1',
   'people.employee.updated.v1',
   'people.employment.changed.v1',
   'people.employee.transferred.v1',

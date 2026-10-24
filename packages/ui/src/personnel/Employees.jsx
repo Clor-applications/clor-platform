@@ -29,7 +29,10 @@ import {
   listStructure,
   listTags,
   listContractors,
+  checkInvite,
+  createInvite,
   getChangeImpact,
+  listEmployeeInvites,
   getChecklist,
   getEmployeeStatutory,
   revealStatutory,
@@ -429,6 +432,8 @@ function EmployeeFile({ id, onClose, onEdit, onDeleted }) {
   const perms = usePermissions();
   const allowed = (key) => Boolean(perms?.isAdmin || perms?.permissions?.has?.(key));
   const [resigning, setResigning] = useState(false);
+  const [inviting, setInviting] = useState(false);
+  const [inviteSeq, setInviteSeq] = useState(0);
   const [tab, setTab] = useState('about');
   const [notes, setNotes] = useState([]);
   const [draft, setDraft] = useState('');
@@ -543,13 +548,28 @@ function EmployeeFile({ id, onClose, onEdit, onDeleted }) {
                 <button type="button" className="ui-btn ui-btn-secondary" onClick={rehire}>Rehire</button>
               </>
             ) : (
-              <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setResigning(true)}>Record leaving</button>
+              <>
+                {allowed('PEOPLE::Lifecycle::CREATE') ? (
+                  <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setInviting(true)}>Invite to fill in</button>
+                ) : null}
+                <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setResigning(true)}>Record leaving</button>
+              </>
             )}
             <button type="button" className="ui-btn ui-btn-primary" onClick={() => onEdit(person)}>Edit</button>
           </>
         ) : null
       }
     >
+      {inviting && person ? (
+        <InviteForm
+          person={person}
+          onClose={() => setInviting(false)}
+          onDone={() => {
+            setInviting(false);
+            setInviteSeq((n) => n + 1);
+          }}
+        />
+      ) : null}
       {resigning && person ? (
         <ResignForm
           person={person}
@@ -621,6 +641,9 @@ function EmployeeFile({ id, onClose, onEdit, onDeleted }) {
                 value={[person.emergencyContactName, person.emergencyContactRelation, person.emergencyContactPhone].filter(Boolean).join(' · ')}
               />
             </dl>
+          ) : null}
+          {tab === 'about' && allowed('PEOPLE::Lifecycle::VIEW') ? (
+            <JoiningDetails key={inviteSeq} person={person} onChecked={(p) => setPerson((x) => ({ ...x, ...p }))} />
           ) : null}
 
           {tab === 'work' ? (
@@ -981,6 +1004,141 @@ function StatutoryDetails({ employeeId }) {
           <Field label="Covered by" value={[d.pf && 'PF', d.esi && 'ESI', d.pt && `PT (${d.pt})`].filter(Boolean).join(' · ')} />
         </dl>
       )}
+    </section>
+  );
+}
+
+/* What a joiner may fill in before day one (LIFE-01), as the server names it. */
+const JOINER_FIELDS = [
+  ['personalEmail', 'Personal email'], ['phone', 'Phone'], ['dateOfBirth', 'Date of birth'], ['gender', 'Gender'], ['maritalStatus', 'Marital status'],
+  ['addressLine', 'Address'], ['city', 'City'], ['state', 'State'], ['pincode', 'PIN code'], ['country', 'Country'],
+  ['emergencyContactName', 'Emergency contact'], ['emergencyContactPhone', 'Emergency contact phone'], ['emergencyContactRelation', 'Relation'], ['guardianName', 'Father’s / guardian’s name'],
+];
+const INVITE_STATUS = { SENT: 'Sent, not opened', STARTED: 'Opened, not sent back', RETURNED: 'Sent back — check it', CHECKED: 'Checked', EXPIRED: 'Ran out' };
+
+/** Invite someone about to join to fill in their own details (LIFE-01). By phone, HR is handed the link to send. */
+function InviteForm({ person, onClose, onDone }) {
+  const [form, setForm] = useState({ channel: person.email || person.personalEmail ? 'EMAIL' : 'SMS', sentTo: person.email || person.personalEmail || person.phone || '', message: '' });
+  const [saving, setSaving] = useState(false);
+  const [link, setLink] = useState('');
+  const save = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      const r = await createInvite(person.id, form);
+      if (r.link) {
+        setLink(r.link);
+        notify.success('Invite ready. Send the link by SMS or WhatsApp; it works once and runs out in 14 days.');
+      } else {
+        notify.success(`Invite e-mailed to ${form.sentTo}. It works once and runs out in 14 days.`);
+        onDone();
+      }
+    } catch (err) {
+      notify.error(String(err?.message || 'Not sent.'));
+    } finally {
+      setSaving(false);
+    }
+  };
+  return (
+    <Drawer
+      open
+      onClose={link ? onDone : onClose}
+      title={`Invite ${person.name} to fill in their details`}
+      description="They see only their own name and joining date, fill in personal details, upload documents and sign the declaration. What they send waits here until you check it."
+      actions={
+        link ? (
+          <button type="button" className="ui-btn ui-btn-primary" onClick={onDone}>Done</button>
+        ) : (
+          <>
+            <button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button>
+            <button type="submit" form="invite-form" className="ui-btn ui-btn-primary" disabled={saving}>{saving ? 'Sending…' : form.channel === 'EMAIL' ? 'Send invite' : 'Make the link'}</button>
+          </>
+        )
+      }
+    >
+      {link ? (
+        <div className="grid gap-3">
+          <p className="text-sm">Send this link to {form.sentTo}. It works once and runs out in 14 days.</p>
+          <input className="ui-input w-full font-mono text-xs" readOnly value={link} onFocus={(e) => e.target.select()} aria-label="Invite link" />
+          <button type="button" className="ui-btn ui-btn-secondary" onClick={() => navigator.clipboard?.writeText(link).then(() => notify.success('Copied.'))}>Copy link</button>
+        </div>
+      ) : (
+        <form id="invite-form" onSubmit={save} className="grid gap-4">
+          <label className="block">
+            <span className="ui-label">Send by</span>
+            <select className="ui-select w-full" value={form.channel} onChange={(e) => setForm({ ...form, channel: e.target.value, sentTo: e.target.value === 'EMAIL' ? person.email || person.personalEmail || '' : person.phone || '' })}>
+              <option value="EMAIL">Email (CLOR sends it)</option>
+              <option value="SMS">Phone (you send the link)</option>
+            </select>
+          </label>
+          <label className="block">
+            <span className="ui-label">{form.channel === 'EMAIL' ? 'Personal email *' : 'Phone *'}</span>
+            <input className="ui-input w-full" type={form.channel === 'EMAIL' ? 'email' : 'tel'} required value={form.sentTo} onChange={(e) => setForm({ ...form, sentTo: e.target.value })} />
+          </label>
+          <label className="block">
+            <span className="ui-label">Note to them (optional)</span>
+            <textarea className="ui-input w-full" rows={3} maxLength={2000} placeholder="What to bring on day one, which policies to read…" value={form.message} onChange={(e) => setForm({ ...form, message: e.target.value })} />
+          </label>
+        </form>
+      )}
+    </Drawer>
+  );
+}
+
+/** The invite on file and, once sent back, what the joiner typed beside what the record says — checked onto the record in one go. */
+function JoiningDetails({ person, onChecked }) {
+  const [invites, setInvites] = useState(null);
+  const [edits, setEdits] = useState({});
+  const [busy, setBusy] = useState(false);
+  const perms = usePermissions();
+  const allowed = (key) => Boolean(perms?.isAdmin || perms?.permissions?.has?.(key));
+  useEffect(() => {
+    let live = true;
+    listEmployeeInvites(person.id).then((list) => live && setInvites(list)).catch(() => live && setInvites([]));
+    return () => { live = false; };
+  }, [person.id]);
+  if (!invites?.length) return null;
+  const latest = invites[0];
+  const check = async () => {
+    setBusy(true);
+    try {
+      const r = await checkInvite(latest.id, { fields: edits });
+      notify.success(`${r.applied.length} detail${r.applied.length === 1 ? '' : 's'} saved on the record.`);
+      setInvites((list) => list.map((i) => (i.id === latest.id ? r.invite : i)));
+      onChecked(Object.fromEntries(JOINER_FIELDS.map(([k]) => [k, edits[k] !== undefined ? edits[k] : latest.submitted?.fields?.[k]]).filter(([, v]) => v !== undefined)));
+    } catch (err) {
+      notify.error(String(err?.message || 'Not saved.'));
+    } finally {
+      setBusy(false);
+    }
+  };
+  const sent = latest.submitted?.fields || {};
+  return (
+    <section className="space-y-2" aria-label="Joining details">
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="text-sm font-semibold">Before day one</h3>
+        <span className="ui-caption">{INVITE_STATUS[latest.status] || latest.status} · {latest.channel === 'EMAIL' ? 'e-mailed to' : 'link for'} {latest.sentTo} · {latest.status === 'SENT' || latest.status === 'STARTED' ? `runs out ${String(latest.expiresAt).slice(0, 10)}` : String(latest.returnedAt || latest.checkedAt || latest.createdAt).slice(0, 10)}</span>
+      </div>
+      {latest.status === 'RETURNED' ? (
+        <>
+          <p className="ui-caption">Sent, not checked. What they typed is on the right; correct anything before you save it to the record. {latest.submitted?.declarations?.policiesRead ? 'They confirmed reading the policies.' : 'They did not tick the policies box.'}{latest.submitted?.documentIds?.length ? ` ${latest.submitted.documentIds.length} document${latest.submitted.documentIds.length === 1 ? '' : 's'} added under Documents.` : ''}</p>
+          <table className="w-full text-sm">
+            <thead><tr className="ui-caption text-left"><th className="py-1 font-medium">Detail</th><th className="py-1 font-medium">On the record</th><th className="py-1 font-medium">They sent</th></tr></thead>
+            <tbody className="divide-y">
+              {JOINER_FIELDS.filter(([k]) => sent[k] !== undefined).map(([k, label]) => (
+                <tr key={k}>
+                  <td className="py-1.5 pr-2 ui-muted">{label}</td>
+                  <td className="py-1.5 pr-2">{person[k] || <span className="ui-muted">—</span>}</td>
+                  <td className="py-1.5"><input className="ui-input w-full" value={edits[k] !== undefined ? edits[k] : sent[k] || ''} onChange={(e) => setEdits({ ...edits, [k]: e.target.value })} aria-label={label} /></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {allowed('PEOPLE::Lifecycle::EDIT') ? (
+            <div className="flex justify-end"><button type="button" className="ui-btn ui-btn-primary ui-btn-sm" disabled={busy} onClick={check}>{busy ? 'Saving…' : 'Check and save to the record'}</button></div>
+          ) : null}
+        </>
+      ) : null}
     </section>
   );
 }

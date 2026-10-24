@@ -27,12 +27,12 @@ import { activeRule, shape as shapeRequest, submitRequest } from '../services/pe
 import { PROBATION_OUTCOMES, ProbationError, decideProbation, reviewsOf, saveReview } from '../services/people/lifecycle/probation.js';
 import { changeImpact } from '../services/people/lifecycle/changes.js';
 import { PERMIT_KINDS, daysUntil } from '../services/people/documentReminders.js';
+import { decodeDocument } from '../services/people/documentFiles.js';
 import { dataHealth } from '../services/people/dataHealth.js';
 import { PAYROLL_MODULE, PAYROLL_RESOURCE } from '../services/payroll/guards.js';
 import { KINDS, READER_ACCESS_ITEM, checklistOf, cleanItems, itemsFor, myTasks, openTasks, readTaskDoneToken, startChecklist, type Kind as ChecklistKind } from '../services/people/checklists.js';
 import { addCustom, calendar, evidenceOf, updateTask } from '../services/people/compliance.js';
 import { homeTodos } from '../services/people/home.js';
-import { verifiedMime } from '../services/fileType.js';
 import { PAYROLL_HISTORY, lockPayrollEmployee } from '../services/payroll/employeeLock.js';
 /* Only for Payroll's own delete guard (employeeLock.ts), which takes a payroll transaction; People reads nothing else from it. */
 import { payrollPrisma } from '../utils/payrollPrisma.js';
@@ -1198,28 +1198,6 @@ peopleRouter.delete('/orgs/:orgId/people/notes/:noteId', can(PermissionAction.DE
 // ---------------------------------------------------------------------------
 
 const DOC_KINDS = new Set(['ID_PROOF', 'ADDRESS_PROOF', 'EDUCATION', 'CONTRACT', 'PAYSLIP', 'WORK_PERMIT', 'CERTIFICATE', 'OTHER']);
-const DOC_MAX_BYTES = 5 * 1024 * 1024;
-const DOC_MIMES = /^(application\/pdf|image\/(jpeg|png|webp)|application\/vnd\.openxmlformats-officedocument\.(wordprocessingml\.document|spreadsheetml\.sheet)|application\/msword|text\/plain)$/;
-
-/** data:<mime>;base64,… or bare base64 — the file itself, decoded and checked. */
-function decodeDocument(input: unknown, mimeHint?: unknown): { mime: string; data: Buffer } | { error: string } {
-  const str = String(input || '');
-  if (!str) return { error: 'The file did not come through.' };
-  const m = /^data:([\w.+/-]+);base64,(.+)$/s.exec(str);
-  const mime = (m ? m[1] : String(mimeHint || '')).toLowerCase();
-  if (!DOC_MIMES.test(mime)) return { error: 'PDF, JPEG, PNG, WebP, Word, Excel or plain text only.' };
-  let data: Buffer;
-  try {
-    data = Buffer.from(m ? m[2] : str, 'base64');
-  } catch {
-    return { error: 'The file could not be read.' };
-  }
-  if (!data.length) return { error: 'The file is empty.' };
-  if (data.length > DOC_MAX_BYTES) return { error: 'Files up to 5 MB.' };
-  /* A-42: the file's own bytes have to agree with what it says it is. */
-  if (!verifiedMime(data, mime, (t) => DOC_MIMES.test(t))) return { error: 'That file is not what its name says. Upload the PDF, picture or document itself.' };
-  return { mime, data };
-}
 const docRow = (d: any) => ({ id: d.id, employeeId: d.employeeId, kind: d.kind, title: d.title, mime: d.mime, size: d.size, expiresOn: d.expiresOn, restrictsWork: d.restrictsWork ?? null, classification: d.classification, visibleToEmployee: d.visibleToEmployee, uploadedByUserId: d.uploadedByUserId, createdAt: d.createdAt });
 const DOC_SELECT = { id: true, employeeId: true, kind: true, title: true, mime: true, size: true, expiresOn: true, restrictsWork: true, classification: true, visibleToEmployee: true, uploadedByUserId: true, createdAt: true } as const;
 

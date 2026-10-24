@@ -36,6 +36,8 @@ import { payrollTaxDeclarationsRouter } from './routes/payrollTaxDeclarations.js
 import { peopleRouter } from './routes/people.js';
 import { peopleApprovalsRouter } from './routes/peopleApprovals.js';
 import { peopleTaskLinksRouter } from './routes/peopleTaskLinks.js';
+import { peopleJoinRouter } from './routes/peopleJoin.js';
+import { peopleInvitesRouter } from './routes/peopleInvites.js';
 import { registerPeopleEffects } from './services/people/approvals/effects.js';
 import { peopleWorkspaceRouter } from './routes/peopleWorkspace.js';
 import { attendanceRouter } from './routes/attendance.js';
@@ -329,6 +331,7 @@ export function buildApp() {
   app.use('/api', sharePublicRouter);
   /* The done link in a task e-mail: signed, no session; before the routers that demand one. */
   app.use('/api', peopleTaskLinksRouter);
+  app.use('/api', peopleJoinRouter);
 
   /* The employee portal: its own sign-in (company + employee code), no CLOR
      user and no tenant headers — so, like the two above, before the routers
@@ -372,6 +375,7 @@ export function buildApp() {
   app.use('/api', payrollTaxDeclarationsRouter);
   app.use('/api', peopleRouter);
   app.use('/api', peopleApprovalsRouter);
+  app.use('/api', peopleInvitesRouter);
   app.use('/api', peopleWorkspaceRouter);
   app.use('/api', personnelRouter);
   app.use('/api', attendanceRouter);
