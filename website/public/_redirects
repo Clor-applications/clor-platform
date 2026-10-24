@@ -1,0 +1,6 @@
+# Addresses the earlier clor.in site published; keep them working.
+/privacy        /legal/privacy  301
+/privacy.html   /legal/privacy  301
+/terms          /legal/terms    301
+/terms.html     /legal/terms    301
+/cookies        /legal/cookies  301
