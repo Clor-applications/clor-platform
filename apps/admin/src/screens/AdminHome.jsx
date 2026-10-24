@@ -6,7 +6,7 @@ import { getAccountOverview } from '@platform/admin/admin';
 import { operator } from '@platform/operator';
 import { ACTION_WORDS } from './AccountActivity';
 import { ICON, Meter, Panel, Stat, ago, productIcon } from './wsKit';
-import HeroBuilding from './HeroBuilding';
+import heroImage from '../assets/clor-office.webp';
 import './workspace.css';
 
 /**
@@ -121,8 +121,11 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
             <h1 id="ws-hero-title" className="ws-hero-title">{name ? `Welcome back, ${name}` : 'Welcome back'}</h1>
             <p className="ws-hero-lede">Here’s what’s happening in your workspace today.</p>
           </div>
-          <time className="ws-hero-date" dateTime={new Date().toISOString().slice(0, 10)}>{today()}</time>
-          <HeroBuilding />
+          {/* Clor's office, from a licensed illustration with the sign re-lettered. Decorative. */}
+          <div className="ws-hero-media">
+            <img src={heroImage} alt="" width="1400" height="559" decoding="async" />
+            <time className="ws-hero-date" dateTime={new Date().toISOString().slice(0, 10)}>{today()}</time>
+          </div>
         </section>
 
         {overview || members ? (

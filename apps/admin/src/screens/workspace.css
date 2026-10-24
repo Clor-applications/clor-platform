@@ -1290,51 +1290,25 @@ button.ws-item:hover {
  * Who and where you are, a greeting, the date, and a quiet drawing of an
  * office on the right that fades into the card.
  */
-:root {
-  --ws-art-leaf: 198 212 200;
-  --ws-art-leaf-2: 183 199 186;
-  --ws-art-leaf-light: 216 227 217;
-  --ws-art-trunk: 165 176 167;
-  --ws-art-wall-top: 252 252 250;
-  --ws-art-wall: 236 237 233;
-  --ws-art-side: 222 224 219;
-  --ws-art-side-deep: 208 211 205;
-  --ws-art-roof: 228 229 225;
-  --ws-art-line: 214 216 210;
-  --ws-art-frame: 205 208 202;
-  --ws-art-pane-light: 247 248 246;
-  --ws-art-pane: 226 231 236;
-  --ws-art-door: 200 205 210;
-  --ws-art-glass-top: 204 219 243;
-  --ws-art-glass: 158 186 232;
-  --ws-art-glass-frame: 236 242 252;
-  --ws-art-shadow: 190 193 186;
-}
 .ws-hero {
   position: relative;
   overflow: hidden;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: start;
-  gap: 16px;
-  min-height: 188px;
-  padding: 28px 32px 32px;
+  align-items: center;
+  min-height: 196px;
+  padding: 28px 32px;
+  /* The words keep the left 60%; the picture has the rest. */
+  padding-right: calc(40% + 32px);
   border: 1px solid rgb(var(--ws-line));
   border-radius: 12px;
-  background: linear-gradient(180deg, rgb(var(--ws-surface)) 0%, rgb(var(--ws-bg)) 100%);
+  background: rgb(var(--ws-surface));
 }
 .ws-hero-text {
   position: relative;
   z-index: 1;
   display: grid;
   gap: 10px;
-  /* The drawing has the right half; the words keep the left. */
-  max-width: min(58ch, 52%);
-}
-@media (max-width: 900px) {
-  .ws-hero-text {
-    max-width: 58ch;
-  }
+  max-width: 58ch;
 }
 .ws-hero-crumb {
   display: flex;
@@ -1356,39 +1330,59 @@ button.ws-item:hover {
   font-size: 1rem;
   color: rgb(var(--ws-muted));
 }
-.ws-hero-date {
-  position: relative;
+.ws-hero-media {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 40%;
+}
+.ws-hero-media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  /* The building and its sign sit left of centre in the picture. */
+  object-position: 38% 58%;
+  display: block;
+}
+/* A short fade from the card into the picture, so the edge reads as one surface. */
+.ws-hero-media::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 56px;
+  background: linear-gradient(90deg, rgb(var(--ws-surface)) 0%, rgb(var(--ws-surface) / 0) 100%);
   z-index: 1;
+}
+/* The date sits on the picture in a pill, readable on the bright sky. */
+.ws-hero-date {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 1;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: rgb(var(--ws-surface) / 0.92);
+  box-shadow: 0 1px 2px rgb(var(--ws-ink) / 0.12);
   font-size: 0.8125rem;
-  color: rgb(var(--ws-muted));
+  font-weight: 500;
+  color: rgb(var(--ws-ink));
   white-space: nowrap;
 }
-.ws-hero-art {
-  position: absolute;
-  right: 24px;
-  bottom: 0;
-  /* Under the date, never behind it: a fixed height leaves the card's top 40px clear. */
-  height: 150px;
-  width: auto;
-  max-width: 48%;
-  opacity: 0.9;
-  pointer-events: none;
-}
 @media (max-width: 900px) {
-  .ws-hero-art {
-    display: none;
-  }
-}
-@media (max-width: 600px) {
   .ws-hero {
-    grid-template-columns: 1fr;
     padding: 20px;
-    min-height: 0;
+    gap: 16px;
   }
-  .ws-hero-date {
+  .ws-hero-media {
+    position: relative;
+    width: 100%;
+    height: 150px;
+    border-radius: 8px;
+    overflow: hidden;
     order: -1;
   }
-  .ws-hero-art {
+  .ws-hero-media::before {
     display: none;
   }
 }
