@@ -1557,3 +1557,58 @@ button.ws-item:hover {
     padding: 16px 16px 32px;
   }
 }
+
+/* ------------------------------------------------------------ setup guide */
+.ws-setup-ring svg {
+  display: block;
+}
+.ws-setup-ring-track {
+  fill: none;
+  stroke: rgb(var(--ws-line));
+  stroke-width: 3;
+}
+.ws-setup-ring-fill {
+  fill: none;
+  stroke: rgb(var(--ws-accent));
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+.ws-setup-ring-text {
+  font-size: 10px;
+  font-weight: 700;
+  fill: rgb(var(--ws-ink));
+  font-variant-numeric: tabular-nums;
+}
+.ws-setup-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+}
+.ws-setup-steps > li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 0;
+  border-bottom: 1px solid rgb(var(--ws-line));
+}
+.ws-setup-steps > li:last-child {
+  border-bottom: 0;
+}
+.ws-setup-step-mark {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  border: 1.5px solid rgb(var(--ws-line));
+  color: rgb(var(--ws-surface));
+}
+.ws-setup-steps > li[data-done] .ws-setup-step-mark {
+  background: rgb(var(--ws-ok));
+  border-color: rgb(var(--ws-ok));
+}
+.ws-setup-steps > li[data-done] .ws-item-title {
+  color: rgb(var(--ws-muted));
+}

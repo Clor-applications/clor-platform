@@ -617,6 +617,13 @@ export default function Shell() {
           </button>
         );
       })}
+      {/* An app may use the rail's foot (manifest `railFoot`): its own item, then Help, which then leaves the bar. */}
+      {app?.railFoot && !phone ? (
+        <div className="ui-split-rail-foot">
+          {app.railFoot.Component ? <app.railFoot.Component tenant={tenant} goTo={goTo} screen={screen} /> : null}
+          <HelpMenu variant="rail" icon={app.railFoot.helpIcon} />
+        </div>
+      ) : null}
     </nav>
   );
   /* The open module's screens under plain headings; a single-screen module has no panel. */
@@ -895,7 +902,7 @@ export default function Shell() {
             }}
           />
           {/* A phone's bar has no room for it (it pushed the bar past the screen); help is in the phone's Menu. */}
-          {!phone ? <HelpMenu /> : null}
+          {!phone && !app?.railFoot ? <HelpMenu /> : null}
 
           {!Root ? (
             <button

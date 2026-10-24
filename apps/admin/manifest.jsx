@@ -1,6 +1,7 @@
 import { ShieldCheck } from 'lucide-react';
 
 import { ICON } from './src/screens/wsKit.jsx';
+import SetupGuide from './src/screens/SetupGuide.jsx';
 
 import { lazyScreens } from '@ui/utils/lazyScreens';
 
@@ -62,6 +63,8 @@ export const adminApp = {
 
   /* W-R3: a rail tap opens the module's own landing page; the content follows the sidebar, never the Overview left behind. */
   railOpensHome: true,
+  /* The rail's foot: how far setup has got (owners and admins, until it is done), then Help, which leaves the bar. */
+  railFoot: { Component: SetupGuide, helpIcon: ICON.help },
   /* The icon set Clor Attendance draws in: Microsoft Fluent colour icons. */
   iconSet: 'color',
 

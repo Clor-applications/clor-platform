@@ -7197,3 +7197,13 @@ th.ui-th {
   font-size: 0.75rem;
   color: rgb(var(--fg-subtle));
 }
+
+/* The foot of a split rail (manifest `railFoot`): pushed to the bottom, under a rule. */
+.ui-split-rail-foot {
+  margin-top: auto;
+  padding-top: 0.5rem;
+  border-top: 1px solid rgb(var(--border));
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
