@@ -30,6 +30,10 @@
   display: grid;
   gap: 28px;
 }
+/* Grid children may shrink below their content, so a wide table scrolls in its own frame. */
+.ws-inner > * {
+  min-width: 0;
+}
 
 /* ------------------------------------------------------------------ head */
 .ws-head {
@@ -677,6 +681,8 @@ button.ws-item:hover {
 }
 /* A data table: compact rows, one header style, scrolls in itself on a narrow screen. */
 .ws-table-wrap {
+  /* Positioned, so the screen-reader caption is clipped with the table rather than widening the page. */
+  position: relative;
   overflow-x: auto;
   border: 1px solid rgb(var(--ws-line));
   border-radius: 12px;
@@ -699,6 +705,7 @@ button.ws-item:hover {
 }
 .ws-table td {
   padding: 10px 14px;
+  white-space: nowrap;
   border-bottom: 1px solid rgb(var(--ws-line));
   vertical-align: middle;
 }
