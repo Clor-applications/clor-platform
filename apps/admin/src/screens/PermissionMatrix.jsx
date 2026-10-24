@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { ChevronDown, Lock } from 'lucide-react';
 
 import { moduleKeys, permissionKey } from './permissionKeys';
+import './workspace.css';
 
 /*
  * The permission matrix: module sections, one row per resource, one column
@@ -33,7 +34,7 @@ export default function PermissionMatrix({ modules, granted, onToggle, onSetMany
   const keysOf = moduleKeys;
 
   return (
-    <div className="space-y-3">
+    <div className="grid gap-3">
       {modules.map((mod) => {
         const keys = keysOf(mod);
         const on = keys.filter((k) => granted.has(k)).length;
@@ -41,11 +42,12 @@ export default function PermissionMatrix({ modules, granted, onToggle, onSetMany
         const some = on > 0 && !all;
         const isOpen = openModules.has(mod.key);
 
+        /* One surface per module: its header and, when open, its table — no box inside a box. */
         return (
-          <section key={mod.key} className="ui-card overflow-hidden">
+          <section key={mod.key} className="ws-table-wrap" aria-label={mod.label}>
             <div
-              className="flex items-center justify-between gap-3 px-4 py-3"
-              style={{ borderBottom: isOpen ? '1px solid rgb(var(--border))' : 'none' }}
+              className="flex items-center justify-between gap-3"
+              style={{ padding: '12px 14px', borderBottom: isOpen ? '1px solid rgb(var(--ws-line))' : 'none' }}
             >
               <button
                 type="button"
@@ -60,23 +62,17 @@ export default function PermissionMatrix({ modules, granted, onToggle, onSetMany
                 }
                 aria-expanded={isOpen}
               >
-                <ChevronDown
-                  size={16}
-                  aria-hidden="true"
-                  className={`transition-transform duration-200 ${isOpen ? '' : '-rotate-90'}`}
-                />
-                <span className="ui-title text-sm">{mod.label}</span>
-                <span className={`ui-pill ${on ? 'ui-pill-neutral' : 'ui-pill-neutral'}`}>
-                  {on}/{keys.length}
-                </span>
+                <ChevronDown size={16} aria-hidden="true" className={`transition-transform duration-200 ${isOpen ? '' : '-rotate-90'}`} />
+                <span className="text-sm" style={{ fontWeight: 600 }}>{mod.label}</span>
+                <span className={`ws-pill${on ? ' ws-pill--role' : ''}`}>{on} of {keys.length}</span>
                 {mod.key === 'SETTINGS' ? (
-                  <span className="ui-pill ui-pill-warn">
+                  <span className="ws-pill">
                     <Lock size={10} aria-hidden="true" /> Administration
                   </span>
                 ) : null}
               </button>
 
-              <label className="flex items-center gap-2 text-xs ui-muted cursor-pointer shrink-0">
+              <label className="flex items-center gap-2 text-xs cursor-pointer shrink-0" style={{ color: 'rgb(var(--ws-muted))' }}>
                 <input
                   type="checkbox"
                   checked={all}
@@ -86,73 +82,60 @@ export default function PermissionMatrix({ modules, granted, onToggle, onSetMany
                   onChange={(e) => onSetMany(keys, e.target.checked)}
                   aria-label={`Grant every permission in ${mod.label}`}
                 />
-                Select all
+                All
               </label>
             </div>
 
             {isOpen ? (
-              <div className="overflow-x-auto">
-                <table className="ui-table ui-table-wide">
-                  <thead>
-                    <tr>
-                      <th scope="col">Resource</th>
-                      {ACTION_ORDER.map((a) => (
-                        <th key={a} scope="col" className="text-center">
-                          {actionLabel[a]}
-                        </th>
-                      ))}
-                      <th scope="col" className="text-center">
-                        Row
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {mod.resources.map((r) => {
-                      const rowKeys = r.actions.map((a) => key(mod.key, r.key, a));
-                      const rowAll = rowKeys.every((k) => granted.has(k));
-                      return (
-                        <tr key={r.key}>
-                          <td className="ui-col-meta">
-                            <div>{r.label}</div>
-                            {r.description ? <div className="ui-subtle text-xs">{r.description}</div> : null}
-                          </td>
-                          {ACTION_ORDER.map((a) => {
-                            const supported = r.actions.includes(a);
-                            const k = key(mod.key, r.key, a);
-                            return (
-                              <td key={a} className="text-center">
-                                {supported ? (
-                                  <input
-                                    type="checkbox"
-                                    checked={granted.has(k)}
-                                    onChange={() => onToggle(k)}
-                                    aria-label={`${actionLabel[a]} ${r.label}`}
-                                  />
-                                ) : (
-                                  <span className="ui-subtle" aria-label="Not applicable">
-                                    –
-                                  </span>
-                                )}
-                              </td>
-                            );
-                          })}
-                          <td className="text-center">
-                            <input
-                              type="checkbox"
-                              checked={rowAll}
-                              ref={(el) => {
-                                if (el) el.indeterminate = !rowAll && rowKeys.some((k) => granted.has(k));
-                              }}
-                              onChange={(e) => onSetMany(rowKeys, e.target.checked)}
-                              aria-label={`Grant every action on ${r.label}`}
-                            />
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+              <table className="ws-table">
+                <thead>
+                  <tr>
+                    <th scope="col">Resource</th>
+                    {ACTION_ORDER.map((a) => (
+                      <th key={a} scope="col" style={{ textAlign: 'center' }}>{actionLabel[a]}</th>
+                    ))}
+                    <th scope="col" style={{ textAlign: 'center' }}>Row</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {mod.resources.map((r) => {
+                    const rowKeys = r.actions.map((a) => key(mod.key, r.key, a));
+                    const rowAll = rowKeys.every((k) => granted.has(k));
+                    return (
+                      <tr key={r.key}>
+                        <td style={{ whiteSpace: 'normal', minWidth: 180 }}>
+                          <div>{r.label}</div>
+                          {r.description ? <div className="ui-caption">{r.description}</div> : null}
+                        </td>
+                        {ACTION_ORDER.map((a) => {
+                          const supported = r.actions.includes(a);
+                          const k = key(mod.key, r.key, a);
+                          return (
+                            <td key={a} style={{ textAlign: 'center' }}>
+                              {supported ? (
+                                <input type="checkbox" checked={granted.has(k)} onChange={() => onToggle(k)} aria-label={`${actionLabel[a]} ${r.label}`} />
+                              ) : (
+                                <span style={{ color: 'rgb(var(--ws-muted))' }} aria-label="Not applicable">–</span>
+                              )}
+                            </td>
+                          );
+                        })}
+                        <td style={{ textAlign: 'center' }}>
+                          <input
+                            type="checkbox"
+                            checked={rowAll}
+                            ref={(el) => {
+                              if (el) el.indeterminate = !rowAll && rowKeys.some((k) => granted.has(k));
+                            }}
+                            onChange={(e) => onSetMany(rowKeys, e.target.checked)}
+                            aria-label={`Grant every action on ${r.label}`}
+                          />
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             ) : null}
           </section>
         );

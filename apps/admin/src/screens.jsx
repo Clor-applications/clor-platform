@@ -1,7 +1,6 @@
 import React from 'react';
 
-import CompanyDetails from '@ui/company/CompanyDetails';
-import CloseCompanyScreen from '@ui/company/CloseCompany';
+import CloseCompanyPage from './screens/CloseCompanyPage';
 import BillingPreviewScreen from './screens/BillingPreview';
 import DataBackupScreen from './screens/DataBackup';
 import AccountOverviewScreen from './screens/AccountOverview';
@@ -21,17 +20,22 @@ import { orgId as platformOrgId } from '@platform/context';
  * company id — so the screens themselves did not have to change to move.
  */
 export { default as AdminHome } from './screens/AdminHome';
+export { default as OutsideAccess } from './screens/OutsideAccess';
 export { default as RolePermissionManager } from './screens/RolePermissionManager';
 export { default as SecuritySettings } from './screens/SecuritySettings';
 export { default as SsoSettings } from './screens/SsoSettings';
 export { default as Credentials } from './screens/Credentials';
-export { default as OutsideAccess } from './screens/OutsideAccess';
 export { default as AuditTrail } from './screens/AuditTrail';
+export { default as Invitations } from './screens/Invitations';
+export { default as Members } from './screens/Members';
+export { default as AccountActivity } from './screens/AccountActivity';
+export { default as Companies } from './screens/Companies';
+export { AccessHome, SecurityHome, DataHome } from './screens/Landings';
 
 const companyOf = (tenant) => ({ name: tenant?.name || '', profile: tenant?.profile || {} });
 
-export const CompanyProfile = () => <CompanyDetails />;
-export const CloseCompany = ({ tenant }) => <CloseCompanyScreen companyName={tenant?.name || ''} />;
+export { default as CompanyProfile } from './screens/CompanyProfile';
+export const CloseCompany = ({ tenant }) => <CloseCompanyPage companyName={tenant?.name || ''} />;
 export const BillingPreview = ({ tenant }) => <BillingPreviewScreen currentCompany={companyOf(tenant)} />;
 export const DataBackup = ({ tenant }) => <DataBackupScreen currentCompany={companyOf(tenant)} />;
 export const AccountOverview = ({ tenant }) => <AccountOverviewScreen currentCompany={companyOf(tenant)} />;

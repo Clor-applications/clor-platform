@@ -119,6 +119,17 @@ async function resolveTenant(userId: string, orgId: string, branchId: string, wa
   if (!outside.own && 'refused' in outside && outside.refused) return { status: 403, error: outside.refused.error, code: outside.refused.code };
   const outsideApps = !outside.own && 'apps' in outside ? outside.apps ?? null : undefined;
 
+  /*
+   * W-4.3: a person suspended in their own account opens none of its
+   * companies, whatever their company roles say. (An outside person is
+   * governed by their engagement above.) Takes effect within the access
+   * cache's few seconds, and at once where the suspension clears the cache.
+   */
+  if (outside.own) {
+    const m = await platformPrisma.accountMembership.findUnique({ where: { accountId_userId: { accountId, userId } }, select: { status: true } });
+    if (m?.status === 'SUSPENDED') return { status: 403, error: 'Your access to this account has been suspended. Ask an owner or administrator of the account.', code: 'ACCOUNT_MEMBER_SUSPENDED' };
+  }
+
   let branchMember = await platformPrisma.userBranchMembership.findFirst({
     where: { accountId, orgId, branchId, userId },
     select: { id: true },

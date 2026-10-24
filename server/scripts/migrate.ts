@@ -34,6 +34,8 @@ const APPS = [
   { name: 'accounting', schemaFile: 'prisma/schema.prisma', runtimeVar: 'DATABASE_URL' },
   { name: 'payroll', schemaFile: 'prisma/payroll/schema.prisma', runtimeVar: 'PAYROLL_DATABASE_URL' },
   { name: 'people', schemaFile: 'prisma/people/schema.prisma', runtimeVar: 'PEOPLE_DATABASE_URL' },
+  /* Accounts, memberships, invitations, roles, credentials: the platform the apps share. Missing here, a deploy by this script left it behind. */
+  { name: 'platform', schemaFile: 'prisma/platform/schema.prisma', runtimeVar: 'PLATFORM_DATABASE_URL' },
 ] as const;
 
 const need = (name: string, why: string) => {

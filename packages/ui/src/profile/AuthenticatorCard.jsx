@@ -116,7 +116,7 @@ export default function AuthenticatorCard() {
           </div>
         </form>
       ) : (
-        <button type="button" className="ui-btn ui-btn-primary" disabled={busy} onClick={begin}>
+        <button type="button" className="ui-btn ui-btn-secondary" disabled={busy} onClick={begin}>
           <KeyRound size={14} aria-hidden="true" /> Set up an authenticator app
         </button>
       )}

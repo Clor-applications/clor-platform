@@ -80,12 +80,12 @@ export default function UserAccessPanel({ orgId, userId }) {
             ))}
           </ul>
         ) : (
-          <div className="ui-subtle text-sm">No role. This person can sign in but cannot do anything here.</div>
+          <div className="ui-subtle text-sm">No role: can sign in, nothing more.</div>
         )}
       </div>
 
       {access.isAdmin ? (
-        <div className="text-sm ui-fg">Administrator: can do everything, including managing users and roles.</div>
+        <div className="text-sm ui-fg">Administrator: full access.</div>
       ) : (
         <div>
           <div className="ui-detail-label">

@@ -137,6 +137,13 @@ describe('rail taps', () => {
   it('in the phone sheet a tap only switches the panel', () => {
     expect(railAction({ single: false, phone: true, panelShown: true })).toBe('browse');
   });
+  /* The Workspace asks that the content follow the rail: Company opens Companies, never the Overview left behind. */
+  it('in an app that asks for it, a module opens its landing page with its panel', () => {
+    expect(railAction({ single: false, phone: false, panelShown: false, opensHome: true })).toBe('goOpen');
+    expect(railAction({ single: false, phone: false, panelShown: true, opensHome: true, current: false })).toBe('goOpen');
+    expect(railAction({ single: false, phone: false, panelShown: true, opensHome: true, current: true })).toBe('close');
+    expect(railAction({ single: false, phone: true, panelShown: false, opensHome: true })).toBe('browse');
+  });
 });
 
 describe('the address names the screen', () => {

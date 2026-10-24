@@ -765,6 +765,102 @@ model ScimToken {
   @@index([accountId, orgId])
 }
 
+/// A person's place in an account: the Workspace's account-level authority
+/// (docs/workspace/WORKSPACE_IMPLEMENTATION_CHECKLIST.md, D-2).
+///
+///   OWNER          runs the account: owners, companies, members, plan
+///   ADMIN          administers the account, except its owners
+///   BILLING_ADMIN  the plan and billing only
+///   MEMBER         belongs to the account; what they may do in a company
+///                  comes from that company's roles
+///
+/// Account authority is about the workspace, not the data: no role here opens
+/// a ledger, a payslip or an employee file. That still takes a role in the
+/// company (spec rule 2.2.7). A person has one membership per account; only a
+/// person whose home account this is has one (an outside accountant reaches a
+/// company through OutsideAccess instead).
+model AccountMembership {
+  id            String    @id @default(cuid())
+  accountId     String
+  userId        String
+  /// OWNER | ADMIN | BILLING_ADMIN | MEMBER
+  role          String    @default("MEMBER")
+  /// ACTIVE | SUSPENDED
+  status        String    @default("ACTIVE")
+  addedByUserId String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@unique([accountId, userId])
+  @@index([userId])
+  @@index([accountId, role])
+}
+
+/// W-3: an invitation into the account, with the companies, branches and
+/// company roles the person will get. Only the SHA-256 of the token is kept;
+/// the link is single-use (status moves PENDING → ACCEPTED once, under a
+/// conditional update) and expires. Seats are not reserved while pending: the
+/// plan's user limit is checked when the invitation is accepted.
+model AccountInvitation {
+  id               String    @id @default(cuid())
+  accountId        String
+  email            String
+  /// ADMIN | BILLING_ADMIN | MEMBER — never OWNER (owners are made by an owner, with step-up)
+  accountRole      String    @default("MEMBER")
+  /// JSON: [{ orgId, branchIds: [], roleIds: [] }]
+  grants           String
+  tokenHash        String    @unique
+  /// PENDING | ACCEPTED | REVOKED | EXPIRED
+  status           String    @default("PENDING")
+  expiresAt        DateTime
+  invitedByUserId  String
+  acceptedByUserId String?
+  acceptedAt       DateTime?
+  revokedByUserId  String?
+  revokedAt        DateTime?
+  sendCount        Int       @default(1)
+  lastSentAt       DateTime  @default(now())
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@index([accountId, status])
+  @@index([accountId, email])
+}
+
+/// W-6.1: one row while an account is changing something its plan counts
+/// (companies, users). "Count, then create" in two requests at once let both
+/// pass a limit; the unique key makes the second wait for the first. A row
+/// older than 30 seconds is a crashed holder's and is taken over.
+model AccountQuotaLock {
+  accountId String
+  /// COMPANIES | USERS
+  metric    String
+  lockedAt  DateTime @default(now())
+  holder    String
+
+  @@id([accountId, metric])
+}
+
+/// What was done to the account itself — its owners and members' account
+/// roles — where AuditLog (which needs a company and a branch) has no place.
+/// Plain words in `message`; no secrets or personal data beyond who and what.
+model AccountAuditEvent {
+  id          String   @id @default(cuid())
+  accountId   String
+  actorUserId String?
+  action      String
+  targetType  String
+  targetId    String?
+  /// OK | DENIED
+  result      String   @default("OK")
+  message     String?
+  metadata    String?
+  requestId   String?
+  createdAt   DateTime @default(now())
+
+  @@index([accountId, createdAt])
+}
+
 /// GAP-006: how a person from another account reaches a company — the
 /// company's consent, with a scope and an end. Without a live one, an outside
 /// person's membership opens nothing (middleware/tenantContext.ts). Expired is

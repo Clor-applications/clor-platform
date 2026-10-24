@@ -106,7 +106,7 @@ const invoiceUpsertSchema = z.object({
   invoiceDiscountType: z.string().optional().nullable(),
   invoiceDiscountValue: z.union([z.string(), z.number()]).optional().nullable(),
   invoiceDiscountApplied: z.number().optional().nullable(),
-  otherCharges: z.array(z.record(z.any())).optional(),
+  otherCharges: z.array(z.record(z.string(), z.any())).optional(),
   otherChargesTotal: z.number().optional().nullable(),
   shipToAddressId: z.union([z.string(), z.number()]).optional().nullable(),
   sourceChallanId: z.union([z.string(), z.number()]).optional().nullable(),

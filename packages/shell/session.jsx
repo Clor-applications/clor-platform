@@ -75,9 +75,27 @@ const toTenant = (membership) => ({
   billing: null,
 });
 
+/*
+ * The branch and warehouse chosen in each company are kept per company
+ * (`clor.sel.<org>.<what>`, platform/context.js), not per person. Signing in
+ * or out forgets them, so the next person on this browser does not send the
+ * last person's branch and meet "No access to branch".
+ */
+const forgetSelections = () => {
+  for (const store of [localStorage, sessionStorage]) {
+    try {
+      for (const key of Object.keys(store)) if (key.startsWith('clor.sel.')) store.removeItem(key);
+    } catch {
+      /* storage unavailable: nothing was kept */
+    }
+  }
+};
+
 export function SessionProvider({ children }) {
   const [user, setUser] = useState(null);
   const [tenants, setTenants] = useState([]);
+  /* W-2.1: the accounts this person reaches (home first), with their account role in each. */
+  const [accounts, setAccounts] = useState([]);
   const [tenantId, setTenantIdState] = useState('');
   /* A company code from the address that is not one of this person's (A-26): "no access", never another company. */
   const [deniedCode, setDeniedCode] = useState('');
@@ -143,6 +161,7 @@ export function SessionProvider({ children }) {
   const adopt = useCallback((payload, preferRequested = false) => {
     const list = (payload?.orgs || []).map(toTenant).filter((t) => t.id);
     setTenants(list);
+    setAccounts(Array.isArray(payload?.accounts) ? payload.accounts : []);
     setUser(payload?.user || null);
     setTwoFactorSetupRequired(Boolean(payload?.twoFactorSetupRequired));
     const userId = payload?.user?.id;
@@ -259,14 +278,26 @@ export function SessionProvider({ children }) {
     return () => window.removeEventListener('clor:features-changed', reload);
   }, [tenant, loadApps]);
 
+  /* My profile saved a new name or photo: the bar shows it at once, not on the next sign-in. */
+  useEffect(() => {
+    const onProfile = (e) => {
+      const next = e?.detail || {};
+      setUser((u) => (u ? { ...u, ...next } : u));
+    };
+    window.addEventListener('clor:profile-changed', onProfile);
+    return () => window.removeEventListener('clor:profile-changed', onProfile);
+  }, []);
+
   /* An app signing out, or the platform giving up on a refresh, ends the
      session here too. Otherwise the shell keeps a signed-in frame around an
      app that no longer has a session. */
   useEffect(() => {
     const onEnded = () => {
       writeToken('');
+    forgetSelections();
       setUser(null);
       setTenants([]);
+      setAccounts([]);
       setTenantIdState('');
     };
     window.addEventListener('auth:session-expired', onEnded);
@@ -275,6 +306,7 @@ export function SessionProvider({ children }) {
 
   const finishSignIn = useCallback(
     async (res) => {
+      forgetSelections();
       writeToken(res.token);
       const data = await apiMe();
       const next = adopt({ ...data, activeOrgId: res.activeOrgId });
@@ -366,6 +398,7 @@ export function SessionProvider({ children }) {
     writeToken('');
     setUser(null);
     setTenants([]);
+    setAccounts([]);
     setTenantIdState('');
     setDeniedCode('');
     /* Signing out leaves no company in the address for whoever signs in next. */
@@ -391,8 +424,8 @@ export function SessionProvider({ children }) {
   );
 
   const value = useMemo(
-    () => ({ user, tenant, tenants, deniedCode, restoring, signIn, signInWithCode, twoFactorSetupRequired, recheckTwoFactor, signUp, createCompany, signOut, setTenantId, addApp }),
-    [user, tenant, tenants, deniedCode, restoring, signIn, signInWithCode, twoFactorSetupRequired, recheckTwoFactor, signUp, createCompany, signOut, setTenantId, addApp]
+    () => ({ user, tenant, tenants, accounts, deniedCode, restoring, signIn, signInWithCode, twoFactorSetupRequired, recheckTwoFactor, signUp, createCompany, signOut, setTenantId, addApp }),
+    [user, tenant, tenants, accounts, deniedCode, restoring, signIn, signInWithCode, twoFactorSetupRequired, recheckTwoFactor, signUp, createCompany, signOut, setTenantId, addApp]
   );
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;

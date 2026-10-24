@@ -164,7 +164,7 @@ payrollStatutoryRouter.post(
       wageCeiling: z.number().finite().min(0).optional().nullable(),
       eligibilityThreshold: z.number().finite().min(0).optional().nullable(),
       rounding: z.enum(['NONE', 'NEAREST', 'UP', 'DOWN']).default('NEAREST'),
-      config: z.record(z.any()).default({}),
+      config: z.record(z.string(), z.any()).default({}),
     });
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Invalid rate.' });

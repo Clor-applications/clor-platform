@@ -179,6 +179,7 @@ if [ "${1:-}" = "--api" ]; then
     # One client per application, each pointed at its own schema.
     npx prisma generate --schema prisma/payroll/schema.prisma >/dev/null 2>&1
     npx prisma generate --schema prisma/people/schema.prisma >/dev/null 2>&1
+    npx prisma generate --schema prisma/platform/schema.prisma >/dev/null 2>&1
     # See the CI workflow: the check earns the flag rather than the flag being
     # passed blindly. It exits 1 when something would really be lost, and
     # `set -e` stops the deploy before the schema is touched.

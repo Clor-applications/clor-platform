@@ -15,6 +15,7 @@ import { PermissionAction } from '../constants/enums.js';
 import { sendTemplate } from '../services/mailer.js';
 import { revokeAllSessions } from '../services/auth.js';
 import { RoleType } from '../constants/enums.js';
+import { hasValidStepUp } from '../services/stepUp.js';
 import { resolveAccess, resolveUserPermissions } from '../services/access.js';
 import { permKey } from '../constants/permissionCatalog.js';
 import { NO_FIT, SuggestionError, roleSuggestionEnabled, suggestRole } from '../services/roleSuggestion.js';
@@ -34,6 +35,8 @@ import {
 } from '../services/roleGuards.js';
 import { outsideTenant, runInTenant } from '../utils/tenantScope.js';
 import { OutsideAccessError, checkOutsideTerms, grantOutsideAccess, refusalOf } from '../services/outsideAccess.js';
+import { ensureAccountMembership } from '../services/accountMembership.js';
+import { QuotaBusyError, lockQuota } from '../services/quotaLock.js';
 
 export const usersRouter = Router();
 usersRouter.use(requireAuth, requireTenantContext);
@@ -613,7 +616,7 @@ const createUserSchema = z.object({
   password: z.string().min(8).max(200),
   // allow initial memberships
   orgIds: z.array(z.string()).default([]),
-  branchIdsByOrg: z.record(z.array(z.string())).default({}),
+  branchIdsByOrg: z.record(z.string(), z.array(z.string())).default({}),
   /** GAP-006: for a person from another account, what the company lets them use and until when. */
   outsideAccess: z.object({ apps: z.array(z.string()).nullable().optional(), expiresAt: z.string().nullable().optional() }).optional(),
 });
@@ -633,6 +636,15 @@ usersRouter.post('/users', requirePermission('SETTINGS', PermissionAction.CREATE
    * An account with no entitlement row is on the default plan, which is
    * unlimited, so this refuses nobody until a plan is deliberately assigned.
    */
+  /* W-6.1: the seat check and the new login happen under the account's quota lock; released when the response ends, whatever path it takes. */
+  let releaseQuota: () => Promise<void>;
+  try {
+    releaseQuota = await lockQuota(accountId, 'USERS');
+  } catch (e) {
+    if (e instanceof QuotaBusyError) return res.status(e.status).json({ error: e.message, code: e.code });
+    throw e;
+  }
+  res.once('close', () => void releaseQuota().catch(() => {}));
   const seatsFull = await userLimitReason(accountId);
   if (seatsFull) return res.status(403).json({ error: seatsFull, code: 'USER_LIMIT' });
 
@@ -739,6 +751,10 @@ usersRouter.post('/users', requirePermission('SETTINGS', PermissionAction.CREATE
       },
       select: { id: true, email: true, fullName: true, accountId: true },
     }));
+  /* The login now exists and counts: the next request may check. */
+  await releaseQuota();
+  /* A new login belongs to this account (W-1.1); an invited person from elsewhere keeps their own account. */
+  if (!invited) await ensureAccountMembership(accountId, user.id, 'MEMBER', createdByUserId);
   // A new person is numbered in the company that added them; someone who
   // already has an ID (e.g. a CA invited from another account) keeps it.
   await assignUserCode(user.id, req.tenant!.orgId);
@@ -964,6 +980,19 @@ usersRouter.post('/orgs/:orgId/users/:userId/roles', requirePermission('SETTINGS
 
   const refused = await assignmentRefusal(req, accountId, orgId, userId, role, scopeBranchId);
   if (refused) return res.status(refused.status).json(refused.body);
+
+  /*
+   * W-5.2: making somebody a company administrator is the largest step up in
+   * power there is. Where the person granting it has an authenticator, it
+   * takes a fresh code (the client asks for it and retries); the grant is in
+   * the audit trail either way.
+   */
+  if (role.roleType === RoleType.ADMIN && userId !== createdByUserId) {
+    const granter = await platformPrisma.user.findUnique({ where: { id: createdByUserId }, select: { totpEnabledAt: true } });
+    if (granter?.totpEnabledAt && !hasValidStepUp(req)) {
+      return res.status(403).json({ error: 'Enter the code from your authenticator app to make someone an administrator.', code: 'STEP_UP_REQUIRED' });
+    }
+  }
 
   try {
     await platformPrisma.$transaction(async (tx) => {

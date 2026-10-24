@@ -3,6 +3,7 @@ import { buildApp } from './app.js';
 import { startRecurringScheduler } from './services/recurringScheduler.js';
 import { startRetentionPurge } from './services/retention.js';
 import { startClosurePurge } from './services/companyClosure.js';
+import { syncAccountMemberships } from './services/accountMembership.js';
 import { startRecycleBinPurge } from './services/recycleBin.js';
 import { startHrSync } from './services/hr/sync.js';
 import { startReportSchedules } from './services/attendance/reportSchedules.js';
@@ -70,6 +71,11 @@ startWebhookRetries();
 startRetentionPurge();
 /* Companies whose closure notice has ended are deleted (checked hourly, resumable) — see services/companyClosure.ts. */
 startClosurePurge();
+
+/* W-1.1: every login belongs to its home account; a membership missed by an older path is filled in. */
+syncAccountMemberships()
+  .then((n) => n && console.log(`Account memberships: ${n} added`)) // eslint-disable-line no-console
+  .catch((e) => console.error('Account memberships sync failed:', e instanceof Error ? e.message : e)); // eslint-disable-line no-console
 /* Recycle-bin items past their days are deleted for good — see services/recycleBin.ts. */
 startRecycleBinPurge();
 /* HR tools: the outbox every minute, their people hourly — see services/hr/sync.ts. */

@@ -1,10 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Check, KeyRound, Monitor, Plus, Save, Shield, Trash2 } from 'lucide-react';
+import { ChevronRight, KeyRound, LogOut, Save } from 'lucide-react';
 
 import {
   changePassword,
-  createProvider,
-  deleteProvider,
   getAuthEvents,
   getMySessions,
   getPolicy,
@@ -12,598 +10,317 @@ import {
   revokeMySessions,
   savePolicy,
 } from '@platform/admin/security';
-import { EmptyState, Spinner, StatusPill, SkeletonCard } from '@ui/components/ui/Primitives';
-import SettingsScreenHeader from '@ui/chrome/SettingsScreenHeader';
 import AuthenticatorCard from '@ui/profile/AuthenticatorCard';
+import { ICON, PageHead, Panel, ago, device } from './wsKit';
+import './workspace.css';
 
-const TABS = [
-  { key: 'signin', label: 'Sign-in methods' },
-  { key: 'policy', label: 'Policy' },
-  { key: 'devices', label: 'My account' },
-  { key: 'log', label: 'Activity' },
+/**
+ * Workspace → Security → Sign-in and sessions (redesign W-R7).
+ *
+ * The company's sign-in rules on the left, saved by the one primary action;
+ * the sign-in methods in force, the administrator's own sessions and password
+ * on the right; the sign-in log underneath. Providers are added and removed
+ * under Single sign-on, which owns them — this page lists them.
+ */
+const NUMBERS = [
+  { key: 'maxFailedLogins', label: 'Failed attempts before lockout', min: 3, max: 50 },
+  { key: 'lockoutMinutes', label: 'Lockout duration (minutes)', min: 1, max: 1440 },
+  { key: 'sessionDays', label: 'Stay signed in for (days)', min: 1, max: 365 },
+  { key: 'accessTokenMinutes', label: 'Access token lifetime (minutes)', min: 5, max: 1440 },
 ];
+const PASSWORD_RULES = [
+  { key: 'passwordRequireMixedCase', label: 'Mix upper and lower case' },
+  { key: 'passwordRequireNumber', label: 'Contain a number' },
+  { key: 'passwordRequireSymbol', label: 'Contain a symbol' },
+];
+const GATES = [
+  { key: 'requireVerifiedEmail', label: 'Require a confirmed email address' },
+  { key: 'requireAdminTwoFactor', label: 'Owners and admins need an authenticator app' },
+  { key: 'requirePayrollStepUp', label: 'Ask for an authenticator code before approving payments and pay runs' },
+];
+const EMPTY_PW = { current: '', next: '', confirm: '' };
+const stamp = (d) => (d ? new Date(d).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }) : '—');
+const eventTone = (t) => (/SUCCESS|VERIFIED|CHANGED/.test(t) ? 'ws-pill ws-pill--ok' : 'ws-pill');
+/* No danger pill in the kit yet: a failure or lockout borrows the Workspace danger tokens. */
+const DANGER = { color: 'rgb(var(--ws-danger))', background: 'rgb(var(--ws-danger-soft))' };
+const eventWords = (t) => String(t || '').replace(/_/g, ' ').toLowerCase().replace(/^./, (c) => c.toUpperCase());
 
-const blankProvider = {
-  kind: 'OIDC',
-  name: '',
-  enabled: false,
-  issuer: '',
-  clientId: '',
-  clientSecret: '',
-  discoveryUrl: '',
-  scopes: 'openid email profile',
-  entryPoint: '',
-  entityId: '',
-  certificate: '',
-  emailDomains: '',
-  autoProvision: false,
-};
+function Check({ checked, onChange, children }) {
+  return (
+    <label className="flex items-start gap-3 cursor-pointer text-sm" style={{ lineHeight: 1.45 }}>
+      <input type="checkbox" className="ui-checkbox mt-0.5" checked={checked} onChange={onChange} />
+      <span>{children}</span>
+    </label>
+  );
+}
 
-/** Security administration: sign-in methods, policy, own devices, activity. */
-export const SecuritySettings = () => {
-  const [tab, setTab] = useState('signin');
-
+export const SecuritySettings = ({ openScreen }) => {
   const [policy, setPolicy] = useState(null);
-  const [policyBaseline, setPolicyBaseline] = useState(null);
-  const [providers, setProviders] = useState([]);
-  const [localMethod, setLocalMethod] = useState(null);
-  const [draft, setDraft] = useState(null);
-
-  const [sessions, setSessions] = useState([]);
-  const [events, setEvents] = useState([]);
-
-  const [pw, setPw] = useState({ current: '', next: '', confirm: '' });
-
-  const [loading, setLoading] = useState(true);
+  const [baseline, setBaseline] = useState(null);
+  const [methods, setMethods] = useState(null);
+  const [sessions, setSessions] = useState(null);
+  const [events, setEvents] = useState(null);
+  const [pw, setPw] = useState(EMPTY_PW);
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
 
-  const loadProviders = () =>
-    getProviders().then((d) => {
-      setProviders(d?.providers || []);
-      setLocalMethod(d?.local || null);
-    });
-
   useEffect(() => {
     let cancelled = false;
-    Promise.all([getPolicy(), loadProviders()])
-      .then(([p]) => {
+    getPolicy()
+      .then((p) => {
         if (cancelled) return;
         setPolicy(p?.policy || null);
-        setPolicyBaseline(p?.policy || null);
+        setBaseline(p?.policy || null);
       })
-      .catch((e) => !cancelled && setError(String(e?.message || e)))
-      .finally(() => !cancelled && setLoading(false));
+      .catch((e) => !cancelled && setError(String(e?.message || e)));
+    getProviders().then((d) => !cancelled && setMethods(d)).catch(() => !cancelled && setMethods({ providers: [] }));
+    getMySessions().then((d) => !cancelled && setSessions(d?.sessions || [])).catch(() => !cancelled && setSessions([]));
+    getAuthEvents().then((d) => !cancelled && setEvents(d?.events || [])).catch(() => !cancelled && setEvents([]));
     return () => {
       cancelled = true;
     };
   }, []);
 
-  useEffect(() => {
-    if (tab === 'devices') getMySessions().then((d) => setSessions(d?.sessions || [])).catch(() => {});
-    if (tab === 'log') getAuthEvents().then((d) => setEvents(d?.events || [])).catch(() => {});
-  }, [tab]);
-
-  const policyDirty = useMemo(
-    () => JSON.stringify(policy) !== JSON.stringify(policyBaseline),
-    [policy, policyBaseline]
-  );
+  const dirty = useMemo(() => JSON.stringify(policy) !== JSON.stringify(baseline), [policy, baseline]);
+  const setField = (patch) => setPolicy((p) => ({ ...p, ...patch }));
 
   const run = async (key, fn, note) => {
     setBusy(key);
     setError('');
     setNotice('');
     try {
-      const r = await fn();
-      if (note) setNotice(typeof note === 'function' ? note(r) : note);
-      return r;
+      await fn();
+      if (note) setNotice(note);
     } catch (e) {
       setError(String(e?.message || e));
-      return null;
     } finally {
       setBusy('');
     }
   };
 
-  if (loading) {
-    return (
-      <SkeletonCard lines={4} />
-    );
-  }
+  const save = (e) => {
+    e.preventDefault();
+    run('policy', async () => {
+      const r = await savePolicy(policy);
+      setBaseline(r?.policy || policy);
+    }, 'Sign-in rules saved.');
+  };
 
-  const setPolicyField = (patch) => setPolicy((p) => ({ ...p, ...patch }));
+  const changePw = () => {
+    if (pw.next !== pw.confirm) {
+      setError('The new passwords do not match');
+      return;
+    }
+    run('pw', async () => {
+      await changePassword(pw.current, pw.next);
+      setPw(EMPTY_PW);
+    }, 'Password changed — other devices were signed out.');
+  };
 
   return (
-    <div className="space-y-6">
-      <SettingsScreenHeader
-        entity="settings"
-        title="Security"
-              actions={
-          notice ? (
-            <span className="ui-pill ui-pill-pos" role="status">
-              <Check size={11} aria-hidden="true" /> {notice}
-            </span>
-          ) : null
-        }
-      />
-
-      {error ? (
-        <div
-          className="ui-card p-3 text-sm"
-          role="alert"
-          style={{ borderColor: 'rgb(var(--neg))', color: 'rgb(var(--neg))' }}
-        >
-          {error}
-        </div>
-      ) : null}
-
-      <div className="flex flex-wrap gap-1" role="tablist">
-        {TABS.map((t) => (
-          <button
-            key={t.key}
-            type="button"
-            role="tab"
-            aria-selected={tab === t.key}
-            onClick={() => setTab(t.key)}
-            className={`ui-btn ${tab === t.key ? 'ui-btn-secondary' : 'ui-btn-ghost'}`}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
-
-      {tab === 'signin' ? (
-        <div className="space-y-3">
-          <div className="ui-card p-4 flex items-start gap-3">
-            <KeyRound size={16} className="ui-subtle mt-0.5" aria-hidden="true" />
-            <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <span className="ui-title text-sm">{localMethod?.name || 'Email and password'}</span>
-                <span className="ui-pill ui-pill-pos">Active</span>
-              </div>
-              <div className="ui-muted text-xs mt-0.5">
-                Always available. Password rules and lockout are set on the Policy tab.
-              </div>
-            </div>
-          </div>
-
-          {providers.map((p) => (
-            <div key={p.id} className="ui-card p-4 flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="ui-title text-sm">{p.name}</span>
-                  <span className="ui-pill ui-pill-neutral">{p.kind}</span>
-                  <span className="ui-pill ui-pill-warn">Configured, not yet active</span>
-                </div>
-                <div className="ui-muted text-xs mt-0.5">
-                  {p.kind === 'OIDC' ? p.issuer || p.discoveryUrl : p.entryPoint}
-                  {p.emailDomains ? ` · ${p.emailDomains}` : ''}
-                </div>
-              </div>
-              <button
-                type="button"
-                className="ui-btn ui-btn-ghost"
-                aria-label={`Delete sign-in provider ${p.name || ''}`.trim()}
-                title="Delete provider"
-                onClick={() =>
-                  run('del', async () => {
-                    await deleteProvider(p.id);
-                    await loadProviders();
-                  }, 'Removed')
-                }
-              >
-                <Trash2 size={16} aria-hidden="true" />
+    <div className="ws">
+      <div className="ws-inner">
+        <PageHead
+          crumbs={['Security', 'Sign-in and sessions']}
+          title="Sign-in and sessions"
+          meta={dirty ? 'Unsaved changes' : notice || null}
+          actions={
+            policy ? (
+              <button type="submit" form="security-policy" className="ws-btn ws-btn--primary" disabled={!dirty || busy === 'policy'}>
+                <Save size={16} aria-hidden="true" /> {busy === 'policy' ? 'Saving…' : 'Save rules'}
               </button>
-            </div>
-          ))}
+            ) : null
+          }
+        />
 
-          {draft ? (
-            <div className="ui-card p-4 space-y-3">
-              <div className="ui-title text-sm">New sign-in method</div>
+        {error ? <p role="alert" className="text-sm" style={{ color: 'rgb(var(--neg))' }}>{error}</p> : null}
+        {notice && !dirty ? <p role="status" className="sr-only">{notice}</p> : null}
 
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div>
-                  <label className="ui-label" htmlFor="p-kind">Type</label>
-                  <select
-                    id="p-kind"
-                    className="ui-select"
-                    value={draft.kind}
-                    onChange={(e) => setDraft({ ...draft, kind: e.target.value })}
-                  >
-                    <option value="OIDC">OpenID Connect (Google, Microsoft, Okta)</option>
-                    <option value="SAML">SAML 2.0 (Azure AD, ADFS, Okta)</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="ui-label" htmlFor="p-name">Display name</label>
-                  <input
-                    id="p-name"
-                    className="ui-input"
-                    value={draft.name}
-                    onChange={(e) => setDraft({ ...draft, name: e.target.value })}
-                    placeholder="Sign in with Microsoft"
-                  />
-                </div>
-
-                {draft.kind === 'OIDC' ? (
-                  <>
-                    <div className="sm:col-span-2">
-                      <label className="ui-label" htmlFor="p-disc">Discovery URL</label>
-                      <input
-                        id="p-disc"
-                        className="ui-input"
-                        value={draft.discoveryUrl}
-                        onChange={(e) => setDraft({ ...draft, discoveryUrl: e.target.value })}
-                        placeholder="https://login.microsoftonline.com/<tenant>/v2.0/.well-known/openid-configuration"
-                      />
-                    </div>
-                    <div>
-                      <label className="ui-label" htmlFor="p-client">Client ID</label>
-                      <input
-                        id="p-client"
-                        className="ui-input"
-                        value={draft.clientId}
-                        onChange={(e) => setDraft({ ...draft, clientId: e.target.value })}
-                      />
-                    </div>
-                    <div>
-                      <label className="ui-label" htmlFor="p-secret">Client secret</label>
-                      <input
-                        id="p-secret"
-                        type="password"
-                        className="ui-input"
-                        value={draft.clientSecret}
-                        onChange={(e) => setDraft({ ...draft, clientSecret: e.target.value })}
-                        autoComplete="new-password"
-                      />
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div className="sm:col-span-2">
-                      <label className="ui-label" htmlFor="p-entry">Sign-in URL</label>
-                      <input
-                        id="p-entry"
-                        className="ui-input"
-                        value={draft.entryPoint}
-                        onChange={(e) => setDraft({ ...draft, entryPoint: e.target.value })}
-                      />
-                    </div>
-                    <div>
-                      <label className="ui-label" htmlFor="p-entity">Entity ID</label>
-                      <input
-                        id="p-entity"
-                        className="ui-input"
-                        value={draft.entityId}
-                        onChange={(e) => setDraft({ ...draft, entityId: e.target.value })}
-                      />
-                    </div>
-                    <div className="sm:col-span-2">
-                      <label className="ui-label" htmlFor="p-cert">Signing certificate</label>
-                      <textarea
-                        id="p-cert"
-                        className="ui-input"
-                        rows={3}
-                        value={draft.certificate}
-                        onChange={(e) => setDraft({ ...draft, certificate: e.target.value })}
-                        placeholder="-----BEGIN CERTIFICATE-----"
-                      />
-                    </div>
-                  </>
-                )}
-
-                <div>
-                  <label className="ui-label" htmlFor="p-domains">Restrict to email domains</label>
-                  <input
-                    id="p-domains"
-                    className="ui-input"
-                    value={draft.emailDomains}
-                    onChange={(e) => setDraft({ ...draft, emailDomains: e.target.value })}
-                    placeholder="yourcompany.com"
-                  />
-                </div>
-                <div className="flex items-end">
-                  <label className="flex items-center gap-2 cursor-pointer pb-2">
-                    <input
-                      type="checkbox"
-                      checked={draft.autoProvision}
-                      onChange={(e) => setDraft({ ...draft, autoProvision: e.target.checked })}
-                    />
-                    <span className="text-sm">Create users on first sign-in</span>
-                  </label>
-                </div>
-              </div>
-
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  className="ui-btn ui-btn-primary"
-                  disabled={busy === 'provider'}
-                  onClick={() =>
-                    run(
-                      'provider',
-                      async () => {
-                        await createProvider(draft);
-                        await loadProviders();
-                        setDraft(null);
-                      },
-                      'Sign-in method saved'
-                    )
-                  }
-                >
-                  {busy === 'provider' ? <Spinner /> : <Save size={16} aria-hidden="true" />} Save
-                </button>
-                <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setDraft(null)}>
-                  Cancel
-                </button>
-              </div>
-            </div>
+        <div className="ws-layout">
+          {!policy ? (
+            <p className="ws-card-blurb">{error ? '' : 'Loading the sign-in rules…'}</p>
           ) : (
-            <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setDraft({ ...blankProvider })}>
-              <Plus size={16} aria-hidden="true" /> Add a sign-in method
-            </button>
+            <form id="security-policy" onSubmit={save} className="grid gap-5 min-w-0">
+              <Panel title="Lockout and sessions">
+                <div className="grid gap-4 sm:grid-cols-2">
+                  {NUMBERS.map((f) => (
+                    <label key={f.key} className="grid gap-1">
+                      <span className="text-sm font-medium">{f.label}</span>
+                      <input type="number" className="ui-input" min={f.min} max={f.max} value={policy[f.key]} onChange={(e) => setField({ [f.key]: Number(e.target.value) })} />
+                    </label>
+                  ))}
+                </div>
+              </Panel>
+
+              <Panel title="Passwords">
+                <label className="grid gap-1" style={{ maxWidth: 260 }}>
+                  <span className="text-sm font-medium">Minimum length</span>
+                  <input type="number" className="ui-input" min={8} max={64} value={policy.passwordMinLength} onChange={(e) => setField({ passwordMinLength: Number(e.target.value) })} />
+                </label>
+                <fieldset className="grid gap-2">
+                  <legend className="text-sm font-medium mb-1">A password must</legend>
+                  {PASSWORD_RULES.map((f) => (
+                    <Check key={f.key} checked={Boolean(policy[f.key])} onChange={(e) => setField({ [f.key]: e.target.checked })}>{f.label}</Check>
+                  ))}
+                </fieldset>
+              </Panel>
+
+              <Panel title="Who may sign in">
+                <label className="grid gap-1">
+                  <span className="text-sm font-medium">Restrict new users to domains</span>
+                  <input className="ui-input" value={policy.allowedEmailDomains || ''} onChange={(e) => setField({ allowedEmailDomains: e.target.value })} placeholder="yourcompany.com, group.com" />
+                  <span className="ui-caption">Blank: any address may be invited.</span>
+                </label>
+                <div className="grid gap-2">
+                  {GATES.map((f) => (
+                    <Check key={f.key} checked={Boolean(policy[f.key])} onChange={(e) => setField({ [f.key]: e.target.checked })}>{f.label}</Check>
+                  ))}
+                </div>
+              </Panel>
+
+              {/* A-13: separation of duties. Approving something about yourself is never allowed, whatever this says. */}
+              <Panel title="Approving your own work">
+                <label className="grid gap-1">
+                  <span className="sr-only">Who may approve their own work</span>
+                  <select id="policy-maker-checker" className="ui-select" value={policy.makerChecker || 'AUTO'} onChange={(e) => setField({ makerChecker: e.target.value })} aria-label="Who may approve their own work">
+                    <option value="AUTO">Somebody else, whenever somebody else can (recommended)</option>
+                    <option value="STRICT">Always a second person</option>
+                    <option value="ALLOW">The same person may prepare and approve</option>
+                  </select>
+                </label>
+                <p className="ws-card-blurb">
+                  Pay runs, salary revisions, adjustments, tax declarations, bank changes and leave. With the first choice a company with one administrator can still run payroll;
+                  every approval of one&rsquo;s own work is written to the audit trail. Nobody ever approves their own salary, bank account or tax declaration.
+                </p>
+              </Panel>
+            </form>
           )}
 
-          <p className="ui-subtle text-xs">
-            Single sign-on can be configured here, but the sign-in handshake itself is not built yet, so a saved
-            provider cannot authenticate anyone. It is stored so the details are ready when that ships.
-          </p>
-        </div>
-      ) : null}
-
-      {tab === 'policy' && policy ? (
-        <div className="ui-card p-4 space-y-4">
-          <div className="grid gap-3 sm:grid-cols-2">
-            {[
-              { key: 'maxFailedLogins', label: 'Failed attempts before lockout', min: 3, max: 50 },
-              { key: 'lockoutMinutes', label: 'Lockout duration (minutes)', min: 1, max: 1440 },
-              { key: 'sessionDays', label: 'Stay signed in for (days)', min: 1, max: 365 },
-              { key: 'accessTokenMinutes', label: 'Access token lifetime (minutes)', min: 5, max: 1440 },
-              { key: 'passwordMinLength', label: 'Minimum password length', min: 8, max: 64 },
-            ].map((f) => (
-              <div key={f.key}>
-                <label className="ui-label" htmlFor={`pol-${f.key}`}>
-                  {f.label}
-                </label>
-                <input
-                  id={`pol-${f.key}`}
-                  type="number"
-                  className="ui-input"
-                  min={f.min}
-                  max={f.max}
-                  value={policy[f.key]}
-                  onChange={(e) => setPolicyField({ [f.key]: Number(e.target.value) })}
-                />
-              </div>
-            ))}
-            <div>
-              <label className="ui-label" htmlFor="pol-domains">
-                Restrict new users to domains
-              </label>
-              <input
-                id="pol-domains"
-                className="ui-input"
-                value={policy.allowedEmailDomains || ''}
-                onChange={(e) => setPolicyField({ allowedEmailDomains: e.target.value })}
-                placeholder="yourcompany.com, group.com"
-              />
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            {[
-              { key: 'passwordRequireMixedCase', label: 'Password must mix upper and lower case' },
-              { key: 'passwordRequireNumber', label: 'Password must contain a number' },
-              { key: 'passwordRequireSymbol', label: 'Password must contain a symbol' },
-              { key: 'requireVerifiedEmail', label: 'Require a confirmed email address' },
-              { key: 'requirePayrollStepUp', label: 'Ask for an authenticator code before approving pay runs, bank account changes, settlements and payments' },
-              { key: 'requireAdminTwoFactor', label: 'Owners and admins must sign in with an authenticator app (set up your own first)' },
-            ].map((f) => (
-              <label key={f.key} className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={Boolean(policy[f.key])}
-                  onChange={(e) => setPolicyField({ [f.key]: e.target.checked })}
-                />
-                <span className="text-sm">{f.label}</span>
-              </label>
-            ))}
-          </div>
-
-          {/* A-13: separation of duties. Approving something about yourself is never allowed, whatever this says. */}
-          <div className="space-y-1">
-            <label className="ui-label" htmlFor="policy-maker-checker">Who may approve their own work</label>
-            <select
-              id="policy-maker-checker"
-              className="ui-select"
-              value={policy.makerChecker || 'AUTO'}
-              onChange={(e) => setPolicyField({ makerChecker: e.target.value })}
+          <aside className="ws-side">
+            <Panel
+              title="Sign-in methods"
+              action={openScreen ? <button type="button" className="ws-link" onClick={() => openScreen('sso')}>Single sign-on <ChevronRight size={16} aria-hidden="true" /></button> : null}
             >
-              <option value="AUTO">Somebody else, whenever somebody else can (recommended)</option>
-              <option value="STRICT">Always a second person</option>
-              <option value="ALLOW">The same person may prepare and approve</option>
-            </select>
-            <p className="ui-caption">
-              Pay runs, salary revisions, adjustments, tax declarations, bank changes and leave. With the first choice a company with one
-              administrator can still run payroll; every approval of one's own work is written to the audit trail. Nobody ever approves their
-              own salary, bank account or tax declaration.
-            </p>
-          </div>
+              <ul className="ws-list">
+                <li>
+                  <div className="ws-item">
+                    <span className="ws-tile ws-tile--sm" aria-hidden="true"><KeyRound size={14} /></span>
+                    <span className="ws-item-text">
+                      <span className="ws-item-title">{methods?.local?.name || 'Email and password'}</span>
+                      <span className="ws-item-sub">Always available</span>
+                    </span>
+                    <span className="ws-pill ws-pill--ok">Active</span>
+                  </div>
+                </li>
+                {(methods?.providers || []).map((p) => (
+                  <li key={p.id}>
+                    <div className="ws-item">
+                      <span className="ws-tile ws-tile--sm" aria-hidden="true"><ICON.secure size={14} /></span>
+                      <span className="ws-item-text">
+                        <span className="ws-item-title">{p.name}</span>
+                        <span className="ws-item-sub">{p.kind}{p.emailDomains ? ` · ${p.emailDomains}` : ''}</span>
+                      </span>
+                      <span className={p.enabled ? 'ws-pill ws-pill--ok' : 'ws-pill ws-pill--off'}>{p.enabled ? 'On' : 'Off'}</span>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </Panel>
 
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              className="ui-btn ui-btn-primary"
-              disabled={!policyDirty || busy === 'policy'}
-              onClick={() =>
-                run(
-                  'policy',
-                  async () => {
-                    const r = await savePolicy(policy);
-                    setPolicyBaseline(r?.policy || policy);
-                  },
-                  'Policy saved'
-                )
+            <Panel
+              title="Your sessions"
+              action={
+                <button
+                  type="button"
+                  className="ws-btn ws-btn--quiet ws-btn--small"
+                  disabled={busy === 'revoke'}
+                  onClick={() => run('revoke', async () => {
+                    await revokeMySessions();
+                    setSessions([]);
+                  }, 'All other devices signed out.')}
+                >
+                  <LogOut size={14} aria-hidden="true" /> Sign out everywhere
+                </button>
               }
             >
-              {busy === 'policy' ? <Spinner /> : <Save size={16} aria-hidden="true" />} Save policy
-            </button>
-            {policyDirty ? <span className="ui-pill ui-pill-warn">Unsaved changes</span> : null}
-          </div>
-        </div>
-      ) : null}
+              {sessions === null ? (
+                <p className="ws-card-blurb">Loading…</p>
+              ) : sessions.length ? (
+                <ul className="ws-list">
+                  {sessions.map((s) => (
+                    <li key={s.id}>
+                      <div className="ws-item">
+                        <span className="ws-item-text">
+                          <span className="ws-item-title truncate" title={s.userAgent || ''}>{device(s.userAgent)}</span>
+                          <span className="ws-item-sub">{s.ip || 'No address'} · signed in {stamp(s.createdAt)}</span>
+                        </span>
+                        <span className="ws-item-end">{ago(s.lastSeenAt || s.createdAt)}</span>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="ws-card-blurb">No other active sessions.</p>
+              )}
+            </Panel>
 
-      {tab === 'devices' ? (
-        <div className="space-y-3">
-          <AuthenticatorCard />
-          <div className="ui-card p-4 space-y-3">
-            <div className="ui-title text-sm">Change your password</div>
-            <div className="grid gap-3 sm:grid-cols-3">
-              <input
-                type="password"
-                className="ui-input"
-                placeholder="Current password"
-                value={pw.current}
-                onChange={(e) => setPw({ ...pw, current: e.target.value })}
-                autoComplete="current-password"
-              />
-              <input
-                type="password"
-                className="ui-input"
-                placeholder="New password"
-                value={pw.next}
-                onChange={(e) => setPw({ ...pw, next: e.target.value })}
-                autoComplete="new-password"
-              />
-              <input
-                type="password"
-                className="ui-input"
-                placeholder="Confirm new password"
-                value={pw.confirm}
-                onChange={(e) => setPw({ ...pw, confirm: e.target.value })}
-                autoComplete="new-password"
-              />
-            </div>
-            <button
-              type="button"
-              className="ui-btn ui-btn-primary"
-              disabled={!pw.current || !pw.next || busy === 'pw'}
-              onClick={() => {
-                if (pw.next !== pw.confirm) {
-                  setError('The new passwords do not match');
-                  return;
-                }
-                run(
-                  'pw',
-                  async () => {
-                    await changePassword(pw.current, pw.next);
-                    setPw({ current: '', next: '', confirm: '' });
-                  },
-                  'Password changed — other devices were signed out'
-                );
-              }}
-            >
-              {busy === 'pw' ? <Spinner /> : <KeyRound size={16} aria-hidden="true" />} Change password
-            </button>
-          </div>
-
-          <div className="ui-card overflow-hidden">
-            <div
-              className="px-4 py-3 flex items-center justify-between"
-              style={{ borderBottom: '1px solid rgb(var(--border))' }}
-            >
-              <span className="ui-title text-sm">Signed-in devices</span>
-              <button
-                type="button"
-                className="ui-btn ui-btn-secondary"
-                onClick={() =>
-                  run(
-                    'revoke',
-                    async () => {
-                      await revokeMySessions();
-                      setSessions([]);
-                    },
-                    'All other devices signed out'
-                  )
-                }
-              >
-                Sign out everywhere
-              </button>
-            </div>
-            {sessions.length === 0 ? (
-              <EmptyState icon={Monitor} title="No active sessions" description="Nothing to show." />
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="ui-table ui-table-wide">
-                  <thead>
-                    <tr>
-                      <th scope="col">Device</th>
-                      <th scope="col">IP</th>
-                      <th scope="col">Signed in</th>
-                      <th scope="col">Last seen</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {sessions.map((s) => (
-                      <tr key={s.id}>
-                        <td className="ui-col-meta max-w-md truncate">{s.userAgent || 'Unknown device'}</td>
-                        <td className="ui-col-meta ui-mono text-xs">{s.ip || '—'}</td>
-                        <td className="ui-col-date">{new Date(s.createdAt).toLocaleString()}</td>
-                        <td className="ui-col-date">{new Date(s.lastSeenAt).toLocaleString()}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+            <Panel title="Your password">
+              <div className="grid gap-2">
+                <input type="password" className="ui-input" aria-label="Current password" placeholder="Current password" value={pw.current} onChange={(e) => setPw({ ...pw, current: e.target.value })} autoComplete="current-password" />
+                <input type="password" className="ui-input" aria-label="New password" placeholder="New password" value={pw.next} onChange={(e) => setPw({ ...pw, next: e.target.value })} autoComplete="new-password" />
+                <input type="password" className="ui-input" aria-label="Confirm new password" placeholder="Confirm new password" value={pw.confirm} onChange={(e) => setPw({ ...pw, confirm: e.target.value })} autoComplete="new-password" />
               </div>
-            )}
-          </div>
-        </div>
-      ) : null}
+              <div>
+                <button type="button" className="ws-btn ws-btn--quiet" disabled={!pw.current || !pw.next || busy === 'pw'} onClick={changePw}>
+                  <KeyRound size={16} aria-hidden="true" /> {busy === 'pw' ? 'Changing…' : 'Change password'}
+                </button>
+              </div>
+            </Panel>
 
-      {tab === 'log' ? (
-        <div className="ui-card overflow-hidden">
-          {events.length === 0 ? (
-            <EmptyState icon={Shield} title="Nothing recorded yet" description="Sign-in activity will appear here." />
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="ui-table ui-table-wide">
+            {/* Its own card: the authenticator set-up carries its own surface. */}
+            <AuthenticatorCard />
+          </aside>
+        </div>
+
+        <section className="grid gap-3" aria-labelledby="ws-signin-log">
+          <div className="ws-panel-head">
+            <h2 id="ws-signin-log" className="ws-panel-title">Sign-in activity</h2>
+            {events?.length ? <span className="ws-head-meta">{events.length} recent</span> : null}
+          </div>
+          {events === null ? (
+            <p className="ws-card-blurb">Loading…</p>
+          ) : events.length ? (
+            <div className="ws-table-wrap">
+              <table className="ws-table">
+                <caption className="sr-only">Recent sign-in activity</caption>
                 <thead>
                   <tr>
                     <th scope="col">When</th>
                     <th scope="col">Event</th>
                     <th scope="col">Who</th>
-                    <th scope="col">IP</th>
+                    <th scope="col">Address</th>
                     <th scope="col">Detail</th>
                   </tr>
                 </thead>
                 <tbody>
                   {events.map((e) => (
                     <tr key={e.id}>
-                      <td className="ui-col-date">{new Date(e.createdAt).toLocaleString()}</td>
-                      <td>
-                        <StatusPill
-                          status={
-                            /FAILED|LOCKED/.test(e.eventType)
-                              ? 'Failed'
-                              : /SUCCESS|VERIFIED|CHANGED/.test(e.eventType)
-                              ? 'Paid'
-                              : e.eventType
-                          }
-                        />
-                        <span className="ui-mono text-xs ml-2">{e.eventType}</span>
-                      </td>
-                      <td className="ui-col-meta">{e.userName || e.userEmail || '—'}</td>
-                      <td className="ui-col-meta ui-mono text-xs">{e.ip || '—'}</td>
-                      <td className="ui-col-meta ui-muted text-xs">{e.detail || ''}</td>
+                      <td>{stamp(e.createdAt)}</td>
+                      <td><span className={eventTone(e.eventType)} style={/FAILED|LOCKED/.test(e.eventType) ? DANGER : undefined}>{eventWords(e.eventType)}</span></td>
+                      <td>{e.userName || e.userEmail || '—'}</td>
+                      <td className="ui-mono" style={{ fontSize: '0.8125rem' }}>{e.ip || '—'}</td>
+                      <td className="ws-head-meta" style={{ whiteSpace: 'normal' }}>{e.detail || ''}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
+          ) : (
+            <div className="ws-setup"><p className="ws-card-blurb">No sign-ins yet.</p></div>
           )}
-        </div>
-      ) : null}
+        </section>
+      </div>
     </div>
   );
 };

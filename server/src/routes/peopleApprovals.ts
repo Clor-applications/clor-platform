@@ -94,7 +94,7 @@ const submitSchema = z.object({
   requestType: z.enum(REQUEST_TYPES),
   subjectEmployeeId: z.string().trim().max(60).optional().nullable(),
   title: z.string().trim().min(1, 'Say what is asked.').max(200),
-  payload: z.record(z.any()).default({}),
+  payload: z.record(z.string(), z.any()).default({}),
 });
 
 /** Ask for something. `Idempotency-Key` makes a double click one request (APR-07). */

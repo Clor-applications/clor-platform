@@ -37,7 +37,7 @@ const MODULE_APPS: Record<string, string[]> = {
   PEOPLE: ['people', 'attendance'],
   ATTENDANCE: ['attendance', 'people'],
 };
-const appsForModule = (m: string): string[] | null => (ACCOUNTING_MODULES.has(m) ? ['accounting'] : MODULE_APPS[m] || null);
+export const appsForModule = (m: string): string[] | null => (ACCOUNTING_MODULES.has(m) ? ['accounting'] : MODULE_APPS[m] || null);
 
 /**
  * Decides one permission for this request, and records the caller's effective

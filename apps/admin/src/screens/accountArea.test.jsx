@@ -1,11 +1,21 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 
 const overview = vi.fn();
 const entitlement = vi.fn();
 
-vi.mock('@platform/admin/admin', () => ({ getAccountOverview: (...a) => overview(...a) }));
+vi.mock('@platform/admin/admin', () => ({ getAccountOverview: (...a) => overview(...a), listRoles: async () => ({ roles: [] }) }));
 vi.mock('@ui/api/features', () => ({ getEntitlement: (...a) => entitlement(...a) }));
+vi.mock('@platform/context', () => ({ orgId: () => 'o1', requestOpenApp: vi.fn() }));
+vi.mock('@platform/admin/security', () => ({
+  getProviders: vi.fn(async () => ({
+    redirectUri: 'https://app.clor.in/api/auth/sso/callback',
+    local: { name: 'Email and password' },
+    providers: [{ id: 'p1', name: 'Okta', kind: 'OIDC', status: 'DISABLED', enabled: false, emailDomains: 'okta.example.in', domainVerification: { domains: [{ domain: 'okta.example.in', verified: false }], record: 'clor-verify=abc' } }],
+  })),
+  getScim: vi.fn(async () => ({ baseUrl: '', tokens: [] })),
+  createProvider: vi.fn(), updateProvider: vi.fn(), deleteProvider: vi.fn(), verifyProviderDomains: vi.fn(), createScimToken: vi.fn(), revokeScimToken: vi.fn(),
+}));
 
 import AccountOverview from './AccountOverview';
 import BillingPreview from './BillingPreview';
@@ -82,7 +92,7 @@ describe('the account overview', () => {
    */
   it('shows each company address and says it does not resolve yet', async () => {
     render(<AccountOverview currentCompany={COMPANY} />);
-    await waitFor(() => expect(screen.getByText('cla.neevone.com')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('cla.clor.in')).toBeInTheDocument());
     expect(screen.getByText(/Preview — company subdomains is not connected yet/)).toBeInTheDocument();
   });
 
@@ -98,42 +108,45 @@ describe('billing', () => {
    * A screen that looks live and is not gets demonstrated to a customer, who
    * then believes the product does this today.
    */
-  it('says it is not connected, and that the money is sample data', async () => {
+  it('says it is not connected, and shows no invented money', async () => {
     render(<BillingPreview currentCompany={COMPANY} />);
     await waitFor(() => expect(screen.getByText(/Preview — billing is not connected yet/)).toBeInTheDocument());
-    expect(screen.getByText(/sample data, not this account/)).toBeInTheDocument();
+    expect(screen.queryByText(/sample/i)).toBeNull();
+    expect(screen.queryByRole('table')).toBeNull();
+    expect(screen.getByText(/No invoices/)).toBeInTheDocument();
   });
 
   /* The plan is real even though the money is not. */
   it('reads the real plan from the server', async () => {
     render(<BillingPreview currentCompany={COMPANY} />);
     await waitFor(() => expect(screen.getByText('Practice')).toBeInTheDocument());
-    expect(screen.getByText(/No charge will be taken/)).toBeInTheDocument();
+    expect(screen.getByText(/Nothing is charged/)).toBeInTheDocument();
   });
 
   it('offers nothing that would take money', async () => {
     render(<BillingPreview currentCompany={COMPANY} />);
-    await waitFor(() => expect(screen.getByRole('button', { name: /Add a card/ })).toBeDisabled());
+    await waitFor(() => expect(screen.getByText('Practice')).toBeInTheDocument());
+    expect(screen.queryByRole('button', { name: /card|pay|receipt/i })).toBeNull();
   });
 });
 
 describe('single sign-on', () => {
   /*
-   * Of everything that can be mocked, an authentication control is the one that
-   * is genuinely unsafe: a button that appears to sign someone in and does not
-   * is telling them something untrue about who can reach their books.
+   * Single sign-on is real now (providers and SCIM come from the server), so
+   * what matters is that the screen shows what the server holds and never
+   * claims a provider is live before its domains are verified.
    */
-  it('offers no sign-in control at all', () => {
+  it('shows the server’s sign-in methods, with each provider’s real state', async () => {
     render(<SsoSettings />);
-    expect(screen.getByText(/Preview — single sign-on is not connected yet/)).toBeInTheDocument();
-    const buttons = screen.queryAllByRole('button');
-    expect(buttons).toHaveLength(0);
-    expect(screen.queryByRole('textbox')).toBeNull();
+    expect(await screen.findByText('Email and password')).toBeInTheDocument();
+    expect(screen.getByText('Okta')).toBeInTheDocument();
+    expect(screen.getByText(/okta\.example\.in — not verified/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Verify domains' })).toBeInTheDocument();
   });
 
-  it('says what setting it up will ask for', () => {
+  it('adds a provider switched off, to be verified first', async () => {
     render(<SsoSettings />);
-    expect(screen.getByText('Provider type')).toBeInTheDocument();
-    expect(screen.getAllByText('Not set').length).toBeGreaterThan(3);
+    fireEvent.click(await screen.findByRole('button', { name: 'Add a provider' }));
+    expect(screen.getByText(/Added switched off until its domains are verified/)).toBeInTheDocument();
   });
 });

@@ -81,7 +81,7 @@ featuresRouter.get('/orgs/:orgId/entitlement', async (req, res) => {
   });
 });
 
-const putSchema = z.object({ features: z.record(z.boolean()) });
+const putSchema = z.object({ features: z.record(z.string(), z.boolean()) });
 
 featuresRouter.put(
   '/orgs/:orgId/features',
