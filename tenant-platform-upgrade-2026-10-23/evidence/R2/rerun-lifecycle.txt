@@ -1,0 +1,218 @@
+ DEPRECATED  `test.poolOptions` was removed in Vitest 4. All previous `poolOptions` are now top-level options. Please, refer to the migration guide: https://vitest.dev/guide/migration#pool-rework
+
+ RUN  v4.1.10 /Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_80924", schema "accounting" at "localhost:5432"
+
+The PostgreSQL database "clor_test_80924" schema "accounting" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 1.45s
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/payroll/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_80924", schema "payroll" at "localhost:5432"
+
+The PostgreSQL database "clor_test_80924" schema "payroll" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 1.25s
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/people/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_80924", schema "people" at "localhost:5432"
+
+The PostgreSQL database "clor_test_80924" schema "people" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 959ms
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/platform/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_80924", schema "platform" at "localhost:5432"
+
+The PostgreSQL database "clor_test_80924" schema "platform" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 1.58s
+
+[setup] 180 policy statements applied to clor_test_80924
+[setup] 7 policy statements applied to clor_test_80924
+[setup] 10 policy statements applied to clor_test_80924
+[setup] 35 policy statements applied to clor_test_80924
+[setup] 4 policy statements applied to clor_test_80924
+[setup] 1 policy statements applied to clor_test_80924
+[setup] 96 policy statements applied to clor_test_80924
+[setup] 4 policy statements applied to clor_test_80924
+[setup] 4 policy statements applied to clor_test_80924
+[setup] 4 policy statements applied to clor_test_80924
+[setup] 1 policy statements applied to clor_test_80924
+[setup] 4 policy statements applied to clor_test_80924
+[setup] 32 policy statements applied to clor_test_80924
+[setup] 24 policy statements applied to clor_test_80924
+[setup] 12 policy statements applied to clor_test_80924
+[setup] 16 policy statements applied to clor_test_80924
+[setup] 4 policy statements applied to clor_test_80924
+[setup] 4 policy statements applied to clor_test_80924
+[setup] 8 policy statements applied to clor_test_80924
+[setup] 8 policy statements applied to clor_test_80924
+[setup] 20 policy statements applied to clor_test_80924
+[setup] 8 policy statements applied to clor_test_80924
+[setup] 4 policy statements applied to clor_test_80924
+[setup] 8 policy statements applied to clor_test_80924
+[setup] 8 policy statements applied to clor_test_80924
+[setup] 12 policy statements applied to clor_test_80924
+[setup] 4 policy statements applied to clor_test_80924
+[setup] 8 policy statements applied to clor_test_80924
+[setup] 28 policy statements applied to clor_test_80924
+[setup] 4 policy statements applied to clor_test_80924
+[setup] 4 policy statements applied to clor_test_80924
+[setup] 4 policy statements applied to clor_test_80924
+[setup] 8 policy statements applied to clor_test_80924
+[setup] 4 policy statements applied to clor_test_80924
+[setup] 4 policy statements applied to clor_test_80924
+[setup] 4 policy statements applied to clor_test_80924
+[setup] 4 policy statements applied to clor_test_80924
+[setup] 8 policy statements applied to clor_test_80924
+[setup] 4 policy statements applied to clor_test_80924
+[setup] 12 policy statements applied to clor_test_80924
+[setup] 4 policy statements applied to clor_test_80924
+[setup] 4 policy statements applied to clor_test_80924
+[setup] 8 policy statements applied to clor_test_80924
+[setup] 2 policy statements applied to clor_test_80924
+[setup] 1 policy statements applied to clor_test_80924
+[setup] 12 policy statements applied to clor_test_80924
+[setup] 9 policy statements applied to clor_test_80924
+[setup] 16 policy statements applied to clor_test_80924
+[setup] 4 policy statements applied to clor_test_80924
+[setup] 4 policy statements applied to clor_test_80924
+[setup] 4 policy statements applied to clor_test_80924
+[setup] 12 policy statements applied to clor_test_80924
+[setup] 16 policy statements applied to clor_test_80924
+[setup] 8 policy statements applied to clor_test_80924
+[setup] 4 policy statements applied to clor_test_80924
+[setup] 4 policy statements applied to clor_test_80924
+[setup] 8 policy statements applied to clor_test_80924
+[setup] 1 policy statements applied to clor_test_80924
+[setup] 4 policy statements applied to clor_test_80924
+[setup] 76 policy statements applied to clor_test_80924
+[setup] 4 policy statements applied to clor_test_80924
+[setup] 4 policy statements applied to clor_test_80924
+[setup] 4 policy statements applied to clor_test_80924
+[setup] 4 policy statements applied to clor_test_80924
+[setup] 1 policy statements applied to clor_test_80924
+[setup] 8 policy statements applied to clor_test_80924
+[setup] 4 policy statements applied to clor_test_80924
+POST /api/auth/signup 200 569 - 155.941 ms
+POST /api/auth/setup-company 200 174 - 649.797 ms
+PUT /api/orgs/cmvmepfs6000ehi6ezh4f0s1s/features 200 1173 - 217.366 ms
+POST /api/orgs/cmvmepfs6000ehi6ezh4f0s1s/attendance/integrations/webhooks 201 622 - 216.858 ms
+POST /api/orgs/cmvmepfs6000ehi6ezh4f0s1s/people/structure/departments 201 314 - 85.817 ms
+POST /api/orgs/cmvmepfs6000ehi6ezh4f0s1s/people/employees 201 1937 - 354.913 ms
+POST /api/orgs/cmvmepfs6000ehi6ezh4f0s1s/people/employees/transfer 200 11 - 196.889 ms
+POST /api/orgs/cmvmepfs6000ehi6ezh4f0s1s/people/employees/cmvmepgm00003nhs9taal938e/resign 200 1759 - 213.470 ms
+POST /api/orgs/cmvmepfs6000ehi6ezh4f0s1s/people/employees/cmvmepgm00003nhs9taal938e/rehire 409 37 - 161.428 ms
+ ❯ src/__tests__/lifecycleEvents.test.ts (1 test | 1 failed) 2305ms
+     × sends transferred, left, rehired and payroll.locked 2303ms
+POST /api/auth/signup 200 569 - 94.004 ms
+POST /api/auth/setup-company 200 180 - 489.600 ms
+PUT /api/orgs/cmvmepi7t000e61a6rasxdx8s/features 200 1173 - 214.620 ms
+POST /api/orgs/cmvmepi7t000e61a6rasxdx8s/people/structure/departments 201 309 - 120.966 ms
+POST /api/orgs/cmvmepi7t000e61a6rasxdx8s/people/structure/departments 201 311 - 64.149 ms
+POST /api/orgs/cmvmepi7t000e61a6rasxdx8s/people/employees 201 1938 - 309.404 ms
+POST /api/orgs/cmvmepi7t000e61a6rasxdx8s/people/employees 201 1963 - 310.097 ms
+PUT /api/orgs/cmvmepi7t000e61a6rasxdx8s/people/employees/cmvmepj7u000lozn4lrw4wzdz 200 2021 - 191.235 ms
+POST /api/orgs/cmvmepi7t000e61a6rasxdx8s/people/employees/transfer 200 11 - 134.654 ms
+POST /api/orgs/cmvmepi7t000e61a6rasxdx8s/people/employees/cmvmepj7u000lozn4lrw4wzdz/resign 200 1789 - 110.835 ms
+POST /api/orgs/cmvmepi7t000e61a6rasxdx8s/people/employees/cmvmepj7u000lozn4lrw4wzdz/rehire 409 37 - 70.152 ms
+POST /api/orgs/cmvmepi7t000e61a6rasxdx8s/people/employees 201 1942 - 114.645 ms
+GET /api/orgs/cmvmepi7t000e61a6rasxdx8s/people/employees/cmvmepjs4001mozn410it4x3v/history 200 419 - 58.298 ms
+ ❯ src/__tests__/employmentHistory.test.ts (2 tests | 1 failed) 2333ms
+     × keeps every change with its date, before and after, and payroll impact 1331ms
+POST /api/auth/signup 200 570 - 65.079 ms
+POST /api/auth/setup-company 200 184 - 336.182 ms
+PUT /api/orgs/cmvmepksd000e48oo116uui8h/features 200 1173 - 214.182 ms
+POST /api/orgs/cmvmepksd000e48oo116uui8h/people/employees 201 1937 - 224.726 ms
+GET /api/orgs/cmvmepksd000e48oo116uui8h/people/employees/cmvmepl8w000126pcieer8img/checklist 200 2487 - 107.757 ms
+PATCH /api/orgs/cmvmepksd000e48oo116uui8h/people/checklist-tasks/cmvmeplal000e26pc2y85k72e 200 2522 - 85.106 ms
+POST /api/orgs/cmvmepksd000e48oo116uui8h/people/employees/cmvmepl8w000126pcieer8img/checklist/joining 409 48 - 92.023 ms
+PUT /api/orgs/cmvmepksd000e48oo116uui8h/people/checklist-templates/leaving 200 228 - 60.763 ms
+POST /api/orgs/cmvmepksd000e48oo116uui8h/people/employees 201 1937 - 147.996 ms
+POST /api/orgs/cmvmepksd000e48oo116uui8h/people/workspace/assets 201 492 - 114.964 ms
+POST /api/orgs/cmvmepksd000e48oo116uui8h/people/employees/cmvmeplob000m26pcpxzmycut/resign 200 1728 - 142.651 ms
+GET /api/orgs/cmvmepksd000e48oo116uui8h/people/employees/cmvmeplob000m26pcpxzmycut/checklist 200 3488 - 65.463 ms
+ ❯ src/__tests__/checklists.test.ts (2 tests | 1 failed) 1698ms
+     × uses the company template for leaving, and CLOR ticks reader access itself 544ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/__tests__/checklists.test.ts > joining and leaving checklists > uses the company template for leaving, and CLOR ticks reader access itself
+AssertionError: expected { …(11) } to match object { done: true, doneBy: 'CLOR' }
+(9 matching properties omitted from actual)
+
+- Expected
++ Received
+
+  {
+-   "done": true,
+-   "doneBy": "CLOR",
++   "done": false,
++   "doneBy": "",
+  }
+
+ ❯ src/__tests__/checklists.test.ts:65:30
+     63|     expect(leaving.tasks.map((t: any) => t.title)).toEqual(['Recover c…
+     64|     expect(leaving.tasks[3]).toMatchObject({ owner: 'IT', dueDate: '20…
+     65|     expect(leaving.tasks[1]).toMatchObject({ done: true, doneBy: 'CLOR…
+       |                              ^
+     66|     expect(leaving.tasks[2]).toMatchObject({ owner: 'PAYROLL', dueDate…
+     67|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  src/__tests__/employmentHistory.test.ts > employment history > keeps every change with its date, before and after, and payroll impact
+Error: expected 200 "OK", got 409 "Conflict"
+ ❯ src/__tests__/employmentHistory.test.ts:46:85
+     44|     /* Leaves after more than five years: gratuity. */
+     45|     await people('post', `/employees/${e.id}/resign`, { lastDay: '2026…
+     46|     await people('post', `/employees/${e.id}/rehire`, { rejoinDate: '2…
+       |                                                                                     ^
+     47|
+     48|     const { events } = (await people('get', `/employees/${e.id}/histor…
+ ❯ Test._assertStatus ../../../../server/node_modules/supertest/lib/test.js:309:14
+ ❯ ../../../../server/node_modules/supertest/lib/test.js:365:13
+ ❯ Test._assertFunction ../../../../server/node_modules/supertest/lib/test.js:342:13
+ ❯ Test.assert ../../../../server/node_modules/supertest/lib/test.js:195:23
+ ❯ localAssert ../../../../server/node_modules/supertest/lib/test.js:138:14
+ ❯ ../../../../server/node_modules/supertest/lib/test.js:156:7
+ ❯ fn ../../../../server/node_modules/superagent/src/node/index.js:904:2
+ ❯ callback ../../../../server/node_modules/superagent/src/node/index.js:1183:17
+ ❯ fn ../../../../server/node_modules/superagent/src/node/parsers/json.js:19:6
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  src/__tests__/lifecycleEvents.test.ts > lifecycle events > sends transferred, left, rehired and payroll.locked
+Error: expected 200 "OK", got 409 "Conflict"
+ ❯ src/__tests__/lifecycleEvents.test.ts:56:85
+     54|     await people('post', '/employees/transfer', { employeeIds: [e.id],…
+     55|     await people('post', `/employees/${e.id}/resign`, { lastDay: '2026…
+     56|     await people('post', `/employees/${e.id}/rehire`, { rejoinDate: '2…
+       |                                                                                     ^
+     57|
+     58|     /* A pay run locked. */
+ ❯ Test._assertStatus ../../../../server/node_modules/supertest/lib/test.js:309:14
+ ❯ ../../../../server/node_modules/supertest/lib/test.js:365:13
+ ❯ Test._assertFunction ../../../../server/node_modules/supertest/lib/test.js:342:13
+ ❯ Test.assert ../../../../server/node_modules/supertest/lib/test.js:195:23
+ ❯ localAssert ../../../../server/node_modules/supertest/lib/test.js:138:14
+ ❯ ../../../../server/node_modules/supertest/lib/test.js:156:7
+ ❯ fn ../../../../server/node_modules/superagent/src/node/index.js:904:2
+ ❯ callback ../../../../server/node_modules/superagent/src/node/index.js:1183:17
+ ❯ fn ../../../../server/node_modules/superagent/src/node/parsers/json.js:19:6
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+
+
+ Test Files  3 failed (3)
+      Tests  3 failed | 2 passed (5)
+   Start at  18:29:55
+   Duration  32.48s (transform 3.88s, setup 54ms, import 9.04s, tests 6.34s, environment 0ms)
+

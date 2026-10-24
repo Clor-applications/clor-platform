@@ -38,6 +38,7 @@ Escape valve if something is refused that should not be: `TENANT_STRICT=off` res
 
 - Boot runs the credential backfill once (leased); watch for `[credentials] backfill:` in the logs.
 - The daily credential check (expiry warnings, orphans) starts five minutes after boot.
+- A minute after boot the API gives every company's Owner role any permission this release added (`[permissions] owner sync:` in the logs). Before this release that never ran on Cloud Run, so the first run may grant many.
 - The cross-store check (GAP-010) starts fifteen minutes after boot and runs nightly: watch `[integrity]` lines. Before the first run, `npm run integrity:cross-store` (report only) shows what it will repair; Payroll lines are for a person to look at.
 - Smoke: sign in; Company admin → Credentials lists keys; an API key call works; an invoice reminder link opens for a signed-out browser; the employee app signs in and lists its device.
 

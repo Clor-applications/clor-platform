@@ -1,0 +1,136 @@
+ DEPRECATED  `test.poolOptions` was removed in Vitest 4. All previous `poolOptions` are now top-level options. Please, refer to the migration guide: https://vitest.dev/guide/migration#pool-rework
+
+ RUN  v4.1.10 /Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_78350", schema "accounting" at "localhost:5432"
+
+The PostgreSQL database "clor_test_78350" schema "accounting" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 446ms
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/payroll/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_78350", schema "payroll" at "localhost:5432"
+
+The PostgreSQL database "clor_test_78350" schema "payroll" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 293ms
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/people/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_78350", schema "people" at "localhost:5432"
+
+The PostgreSQL database "clor_test_78350" schema "people" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 702ms
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/platform/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_78350", schema "platform" at "localhost:5432"
+
+The PostgreSQL database "clor_test_78350" schema "platform" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 338ms
+
+[setup] 180 policy statements applied to clor_test_78350
+[setup] 7 policy statements applied to clor_test_78350
+[setup] 10 policy statements applied to clor_test_78350
+[setup] 35 policy statements applied to clor_test_78350
+[setup] 4 policy statements applied to clor_test_78350
+[setup] 1 policy statements applied to clor_test_78350
+[setup] 96 policy statements applied to clor_test_78350
+[setup] 4 policy statements applied to clor_test_78350
+[setup] 4 policy statements applied to clor_test_78350
+[setup] 4 policy statements applied to clor_test_78350
+[setup] 1 policy statements applied to clor_test_78350
+[setup] 4 policy statements applied to clor_test_78350
+[setup] 32 policy statements applied to clor_test_78350
+[setup] 24 policy statements applied to clor_test_78350
+[setup] 12 policy statements applied to clor_test_78350
+[setup] 16 policy statements applied to clor_test_78350
+[setup] 4 policy statements applied to clor_test_78350
+[setup] 4 policy statements applied to clor_test_78350
+[setup] 8 policy statements applied to clor_test_78350
+[setup] 8 policy statements applied to clor_test_78350
+[setup] 20 policy statements applied to clor_test_78350
+[setup] 8 policy statements applied to clor_test_78350
+[setup] 4 policy statements applied to clor_test_78350
+[setup] 8 policy statements applied to clor_test_78350
+[setup] 8 policy statements applied to clor_test_78350
+[setup] 12 policy statements applied to clor_test_78350
+[setup] 4 policy statements applied to clor_test_78350
+[setup] 8 policy statements applied to clor_test_78350
+[setup] 28 policy statements applied to clor_test_78350
+[setup] 4 policy statements applied to clor_test_78350
+[setup] 4 policy statements applied to clor_test_78350
+[setup] 4 policy statements applied to clor_test_78350
+[setup] 8 policy statements applied to clor_test_78350
+[setup] 4 policy statements applied to clor_test_78350
+[setup] 4 policy statements applied to clor_test_78350
+[setup] 4 policy statements applied to clor_test_78350
+[setup] 4 policy statements applied to clor_test_78350
+[setup] 8 policy statements applied to clor_test_78350
+[setup] 4 policy statements applied to clor_test_78350
+[setup] 12 policy statements applied to clor_test_78350
+[setup] 4 policy statements applied to clor_test_78350
+[setup] 4 policy statements applied to clor_test_78350
+[setup] 8 policy statements applied to clor_test_78350
+[setup] 2 policy statements applied to clor_test_78350
+[setup] 1 policy statements applied to clor_test_78350
+[setup] 12 policy statements applied to clor_test_78350
+[setup] 9 policy statements applied to clor_test_78350
+[setup] 16 policy statements applied to clor_test_78350
+[setup] 4 policy statements applied to clor_test_78350
+[setup] 4 policy statements applied to clor_test_78350
+[setup] 4 policy statements applied to clor_test_78350
+[setup] 12 policy statements applied to clor_test_78350
+[setup] 16 policy statements applied to clor_test_78350
+[setup] 8 policy statements applied to clor_test_78350
+[setup] 4 policy statements applied to clor_test_78350
+[setup] 4 policy statements applied to clor_test_78350
+[setup] 8 policy statements applied to clor_test_78350
+[setup] 1 policy statements applied to clor_test_78350
+[setup] 4 policy statements applied to clor_test_78350
+[setup] 76 policy statements applied to clor_test_78350
+[setup] 4 policy statements applied to clor_test_78350
+[setup] 4 policy statements applied to clor_test_78350
+[setup] 4 policy statements applied to clor_test_78350
+[setup] 4 policy statements applied to clor_test_78350
+[setup] 1 policy statements applied to clor_test_78350
+[setup] 8 policy statements applied to clor_test_78350
+[setup] 4 policy statements applied to clor_test_78350
+POST /api/auth/signup 200 570 - 107.857 ms
+POST /api/auth/setup-company 200 198 - 474.319 ms
+ ❯ src/__tests__/ownerPermissions.test.ts (3 tests | 1 failed | 2 skipped) 824ms
+     × the operator script runs (it stopped with an error before) 224ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/__tests__/ownerPermissions.test.ts > Owner roles get the permissions a release adds > the operator script runs (it stopped with an error before)
+AssertionError: expected 'Backfill failed: Cannot read properti…' not to match /Backfill failed/
+
+- Expected:
+/Backfill failed/
+
++ Received:
+"Backfill failed: Cannot read properties of undefined (reading 'findMany')
+"
+
+ ❯ src/__tests__/ownerPermissions.test.ts:59:26
+     57|   it('the operator script runs (it stopped with an error before)', () …
+     58|     const r = spawnSync(process.execPath, ['--import', 'tsx', 'scripts…
+     59|     expect(r.stderr).not.toMatch(/Backfill failed/);
+       |                          ^
+     60|     expect(r.status).toBe(0);
+     61|   }, 150_000);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 2 skipped (3)
+   Start at  18:28:42
+   Duration  16.53s (transform 2.56s, setup 20ms, import 4.88s, tests 824ms, environment 0ms)
+
