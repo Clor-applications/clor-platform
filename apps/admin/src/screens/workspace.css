@@ -213,8 +213,8 @@
 
 /* ------------------------------------------------------------------ setup */
 .ws-setup {
-  background: rgb(var(--ws-surface));
-  border: 1px solid rgb(var(--ws-line));
+  background: var(--ws-card-bg);
+  border: 1px solid var(--ws-card-line);
   border-radius: 12px;
   padding: 16px 20px;
   display: grid;
@@ -285,11 +285,12 @@
   gap: 10px;
   padding: 16px 18px;
   border-radius: 12px;
-  background: rgb(var(--ws-surface));
-  border: 1px solid rgb(var(--ws-line));
+  background: var(--ws-card-bg);
+  border: 1px solid var(--ws-card-line);
   transition: border-color 0.2s var(--ws-ease), box-shadow 0.2s var(--ws-ease), transform 0.2s var(--ws-ease);
 }
 .ws-card.is-open:hover {
+  background: rgb(255 255 255 / 0.9);
   border-color: rgb(var(--ws-muted) / 0.45);
   box-shadow: 0 18px 36px -24px rgb(var(--ws-ink) / 0.35);
 }
@@ -406,7 +407,7 @@
   margin-bottom: 12px;
 }
 .ws-group {
-  background: rgb(var(--ws-surface));
+  background: var(--ws-card-bg);
   border: 1px solid rgb(var(--ws-line));
   border-radius: 12px;
   padding: 12px 10px 6px;
@@ -563,8 +564,8 @@
   align-items: start;
   padding: 14px 16px;
   border-radius: 12px;
-  background: rgb(var(--ws-surface));
-  border: 1px solid rgb(var(--ws-line));
+  background: var(--ws-card-bg);
+  border: 1px solid var(--ws-card-line);
   text-align: left;
   color: inherit;
   font: inherit;
@@ -574,6 +575,7 @@ button.ws-stat {
   transition: border-color 0.18s var(--ws-ease), box-shadow 0.18s var(--ws-ease), transform 120ms var(--ws-ease);
 }
 button.ws-stat:hover {
+  background: rgb(255 255 255 / 0.9);
   border-color: rgb(var(--ws-muted) / 0.45);
   box-shadow: 0 10px 24px -18px rgb(var(--ws-ink) / 0.35);
 }
@@ -601,8 +603,8 @@ button.ws-stat:active {
 }
 /* A titled block of content: the one surface a section earns. */
 .ws-panel {
-  background: rgb(var(--ws-surface));
-  border: 1px solid rgb(var(--ws-line));
+  background: var(--ws-card-bg);
+  border: 1px solid var(--ws-card-line);
   border-radius: 12px;
   padding: 16px 18px;
   display: grid;
@@ -730,9 +732,9 @@ button.ws-item:hover {
   /* Positioned, so the screen-reader caption is clipped with the table rather than widening the page. */
   position: relative;
   overflow-x: auto;
-  border: 1px solid rgb(var(--ws-line));
+  border: 1px solid var(--ws-card-line);
   border-radius: 12px;
-  background: rgb(var(--ws-surface));
+  background: var(--ws-card-bg);
 }
 .ws-table {
   width: 100%;
@@ -838,8 +840,8 @@ button.ws-item:hover {
 }
 .ws-legacy .ui-card,
 .ws-legacy .ui-surface {
-  background: rgb(var(--ws-surface));
-  border: 1px solid rgb(var(--ws-line));
+  background: var(--ws-card-bg);
+  border: 1px solid var(--ws-card-line);
   border-radius: 12px;
   box-shadow: none;
 }
@@ -1096,8 +1098,8 @@ button.ws-item:hover {
   gap: 24px;
 }
 .ws-audit-day {
-  background: rgb(var(--ws-surface));
-  border: 1px solid rgb(var(--ws-line));
+  background: var(--ws-card-bg);
+  border: 1px solid var(--ws-card-line);
   border-radius: 12px;
   overflow: hidden;
 }
@@ -1320,6 +1322,12 @@ button.ws-item:hover {
  * office on the right that fades into the card.
  */
 :root {
+  /* Cards are a soft veil of white over the page ground, not opaque slabs:
+     they lift a little and let the warm ground show through. */
+  --ws-card-bg: rgb(255 255 255 / 0.62);
+  --ws-card-line: rgb(229 230 225 / 0.75);
+}
+:root {
   /* Welcome banner (spec: banner refinement). */
   --ws-hero-line: 232 234 230;
   --ws-hero-ink: 34 38 36;
@@ -1336,8 +1344,8 @@ button.ws-item:hover {
   padding-right: calc(42% + 24px);
   /* 20px on this banner by request; DESIGN.md's content radius is 12px elsewhere. */
   border-radius: 20px;
-  border: 1px solid rgb(var(--ws-hero-line));
-  background: rgb(var(--ws-surface));
+  border: 1px solid var(--ws-card-line);
+  background: var(--ws-card-bg);
 }
 .ws-hero-text {
   position: relative;
