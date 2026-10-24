@@ -278,6 +278,16 @@ export function SessionProvider({ children }) {
     return () => window.removeEventListener('clor:features-changed', reload);
   }, [tenant, loadApps]);
 
+  /* My profile saved a new name or photo: the bar shows it at once, not on the next sign-in. */
+  useEffect(() => {
+    const onProfile = (e) => {
+      const next = e?.detail || {};
+      setUser((u) => (u ? { ...u, ...next } : u));
+    };
+    window.addEventListener('clor:profile-changed', onProfile);
+    return () => window.removeEventListener('clor:profile-changed', onProfile);
+  }, []);
+
   /* An app signing out, or the platform giving up on a refresh, ends the
      session here too. Otherwise the shell keeps a signed-in frame around an
      app that no longer has a session. */

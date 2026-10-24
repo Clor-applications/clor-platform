@@ -35,7 +35,7 @@ const ago = (iso) => {
   return `${Math.floor(s / 86_400)} d ago`;
 };
 
-export default function NotificationBell({ tenantKey, onOpen }) {
+export default function NotificationBell({ tenantKey, onOpen, icon: Icon = Bell }) {
   const [state, setState] = useState({ key: '', unread: 0, items: [] });
   const [open, setOpen] = useState(false);
   const [mutes, setMutes] = useState([]);
@@ -74,7 +74,7 @@ export default function NotificationBell({ tenantKey, onOpen }) {
   return (
     <div className="relative" ref={ref}>
       <button type="button" className="ui-icon-btn relative" aria-label={unread ? `Notifications, ${unread} unread` : 'Notifications'} aria-expanded={open} onClick={() => setOpen((v) => !v)}>
-        <Bell size={16} />
+        <Icon size={Icon === Bell ? 16 : 20} />
         {unread ? (
           <span className="absolute -top-1 -end-1 min-w-[1.1rem] rounded-full px-1 text-center text-[10px] font-semibold leading-4 text-white" style={{ background: 'rgb(var(--neg))' }}>
             {unread > 99 ? '99+' : unread}

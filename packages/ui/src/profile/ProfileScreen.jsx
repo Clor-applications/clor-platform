@@ -259,6 +259,8 @@ export const ProfileScreen = ({ Header = PageHeader }) => {
           avatarUrl: form.avatarUrl,
         });
         setMe((prev) => ({ ...prev, user: { ...prev.user, ...r.user } }));
+        /* The shell's bar shows the name and photo too; tell it. */
+        window.dispatchEvent(new CustomEvent('clor:profile-changed', { detail: { firstName: r.user?.firstName, lastName: r.user?.lastName, fullName: r.user?.fullName, avatarUrl: r.user?.avatarUrl ?? null } }));
         setEditing(false);
       },
       'Saved'

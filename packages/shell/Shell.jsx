@@ -24,6 +24,8 @@ import NotificationBell from './NotificationBell';
 import HelpMenu from './HelpMenu';
 import TwoFactorGate from './TwoFactorGate';
 import CommandPalette from '@ui/components/ui/CommandPalette';
+import { AlertColor, PersonColor } from '@fluentui/react-icons';
+import { colorIcon } from '@ui/components/ui/iconSet';
 import CompanySetup from './CompanySetup';
 import NoCompanyAccess from './NoCompanyAccess';
 import InviteAccept from './InviteAccept';
@@ -121,6 +123,10 @@ function ScreenState({ title, text, action }) {
     </section>
   );
 }
+
+/* The bar's own icons in the colour set, for an app that draws in it (manifest iconSet: 'color'). */
+const BellColor = colorIcon(AlertColor, 'Alert');
+const ProfileColor = colorIcon(PersonColor, 'Person');
 
 export default function Shell() {
   /* A phone: no rail, a menu sheet and a tab bar instead (mobileTabs.js). */
@@ -892,6 +898,7 @@ export default function Shell() {
           {/* One inbox for every app: an approval, a quiet reader, a bank change, a person the directory added. */}
           <NotificationBell
             tenantKey={tenantKey}
+            icon={app?.iconSet === 'color' ? BellColor : undefined}
             onOpen={(link) => {
               if (!link?.app) return;
               if (link.app === activeAppId && !Root) {
@@ -914,8 +921,16 @@ export default function Shell() {
               }}
               aria-label="My profile"
               title="My profile"
+              style={user?.avatarUrl ? { width: 36, height: 36, padding: 2 } : undefined}
             >
-              <UserRound size={16} />
+              {/* A person's own photo, larger and round, when they have one; otherwise the app's profile icon. */}
+              {user?.avatarUrl ? (
+                <img src={user.avatarUrl} alt="" width="32" height="32" className="rounded-full object-cover" style={{ width: 32, height: 32, boxShadow: '0 0 0 1px rgb(var(--border))' }} />
+              ) : app?.iconSet === 'color' ? (
+                <ProfileColor size={20} />
+              ) : (
+                <UserRound size={16} />
+              )}
             </button>
           ) : null}
 
