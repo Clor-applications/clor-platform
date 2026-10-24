@@ -5,6 +5,7 @@ import { GST_STATE_BY_CODE, getGstStateFromGstin } from '@ui/utils/gst';
 
 import { ClorLogo } from '@ui/components/brand';
 import { APPS } from './registry';
+import { appIntent, clearAppIntent } from './appIntent';
 import { useSession } from './session';
 
 /**
@@ -36,7 +37,8 @@ export default function CompanySetup() {
 
   const [step, setStep] = useState(0);
   const [form, setForm] = useState({ name: '', gstin: '', state: '' });
-  const [chosen, setChosen] = useState(['accounting']);
+  /* The app they came for from clor.in, chosen already; otherwise Accounting, as before. */
+  const [chosen, setChosen] = useState(() => [appIntent() || 'accounting']);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
@@ -57,8 +59,9 @@ export default function CompanySetup() {
     setError('');
   };
 
-  const buildable = useMemo(() => APPS.filter((a) => a.available), []);
-  const planned = useMemo(() => APPS.filter((a) => !a.available), []);
+  /* The Workspace comes with every company; it is not a choice. */
+  const buildable = useMemo(() => APPS.filter((a) => a.available && !a.platform), []);
+  const planned = useMemo(() => APPS.filter((a) => !a.available && !a.platform), []);
 
   const toggle = (id) =>
     setChosen((list) => (list.includes(id) ? list.filter((x) => x !== id) : [...list, id]));
@@ -84,6 +87,7 @@ export default function CompanySetup() {
         state: form.state.trim(),
         apps: chosen,
       });
+      clearAppIntent();
     } catch (err) {
       setError(String(err?.message || 'Could not create that company.'));
       setBusy(false);
