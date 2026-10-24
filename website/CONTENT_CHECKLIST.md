@@ -8,8 +8,8 @@ items a person must confirm or supply first. Most live in `src/site.js` or `src/
 | What | Where | Today |
 |---|---|---|
 | Final logo (SVG preferred) | `public/brand/clor-logo.png`, favicon `clor-mark*.png`, `og.png` | Placeholder from the attached PNG, background removed |
-| Enquiry address | `SITE.contactEmail` | `hello@clor.in` (unconfirmed) |
-| Company details in the legal pages | `website/.env`: the same `VITE_OPERATOR_*`, `VITE_GRIEVANCE_*`, `VITE_HOSTING_PROVIDER`, `VITE_GOVERNING_LAW`, `VITE_POLICY_EFFECTIVE_DATE` the app uses (`packages/platform/operator.js`) | 9 marked placeholders on Privacy |
+| Enquiry addresses | `SITE.contactEmail` / `salesEmail` / `supportEmail` | info@, sales@, support@clor.in (confirmed 2026-10-24) |
+| Company details in the legal pages | `website/.env`: the same `VITE_OPERATOR_*`, `VITE_GRIEVANCE_*`, `VITE_HOSTING_PROVIDER`, `VITE_GOVERNING_LAW`, `VITE_POLICY_EFFECTIVE_DATE` the app uses (`packages/platform/operator.js`) | Filled from `website/.env.production`. Still open: CIN (registration in progress), GSTIN, and how long sign-in attempt history is kept (`AUTH_EVENT_RETENTION_DAYS`, one placeholder on Privacy) |
 | Prices | `/pricing` | "Being finalised", with "Ask about pricing" |
 | Real screenshots | `src/components/Windows.jsx` draws the screens with sample data | Captioned as drawn; replace with screenshots of a demo company |
 | Sign-up link | `SITE.signUpUrl` | The app's front door (it has no sign-up deep link yet) |

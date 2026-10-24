@@ -8,7 +8,7 @@ export default function Footer() {
     ['Products', [{ href: '/products', name: 'All products' }, ...PRODUCTS.map((p) => ({ href: `/products/${p.slug}`, name: `Clor ${p.name}` }))]],
     ['Solutions', NAV.solutions],
     ['Resources', [...NAV.resources, { href: '/pricing', name: 'Pricing' }]],
-    ['Company', [...NAV.company, { href: '/legal/privacy', name: 'Privacy' }, { href: '/legal/terms', name: 'Terms' }, { href: '/legal/cookies', name: 'Cookies' }]],
+    ['Company', [...NAV.company, { href: '/legal/privacy', name: 'Privacy' }, { href: '/legal/terms', name: 'Terms' }, { href: '/legal/cookies', name: 'Cookies' }, { href: '/legal/refund', name: 'Refunds' }]],
   ];
   return (
     <footer className="footer">
@@ -16,9 +16,17 @@ export default function Footer() {
         <div className="footer-brand">
           <Logo height={20} />
           <p className="small">Business software for Indian companies: accounting, people, payroll and attendance, in one workspace.</p>
-          <p className="small">
-            <a href={`mailto:${SITE.contactEmail}`}>{SITE.contactEmail}</a>
-          </p>
+          <ul className="footer-mail">
+            {[
+              ['General', SITE.contactEmail],
+              ['Sales', SITE.salesEmail],
+              ['Support', SITE.supportEmail],
+            ].map(([k, v]) => (
+              <li key={v}>
+                <span className="caption">{k}</span> <a href={`mailto:${v}`}>{v}</a>
+              </li>
+            ))}
+          </ul>
         </div>
         {cols.map(([title, items]) => (
           <nav key={title} className="footer-col" aria-label={title}>
@@ -35,7 +43,7 @@ export default function Footer() {
       </div>
       <div className="wrap footer-base">
         <p className="caption">
-          © {new Date().getFullYear()} {SITE.company}
+          © {new Date().getFullYear()} {SITE.company} · {SITE.address}
         </p>
         <p className="caption">Made in India</p>
       </div>

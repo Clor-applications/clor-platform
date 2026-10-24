@@ -15,8 +15,11 @@ export const SITE = {
   signInUrl: 'https://app.clor.in/',
   /* The app opens sign-up from its front door today; a deep link can replace this once the app has one. */
   signUpUrl: 'https://app.clor.in/',
-  /* TO CONFIRM before publishing: where enquiries go. */
-  contactEmail: 'hello@clor.in',
+  /* Confirmed by the company, 2026-10-24. */
+  contactEmail: 'info@clor.in',
+  salesEmail: 'sales@clor.in',
+  supportEmail: 'support@clor.in',
+  address: 'No. 8, Ground Floor, 5th Cross, Veerasagara Main Road, Meneshwara Layout, Attur, Yelahanka, Bengaluru 560064',
   /* Verified from the deployment config (Cloud Run service URL). */
   hosting: 'Google Cloud, Mumbai region',
 };

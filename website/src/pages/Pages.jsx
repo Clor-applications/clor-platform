@@ -273,6 +273,8 @@ export function About() {
 }
 
 /* ----------------------------------------------------------------- contact */
+/* Questions about buying go to sales; everything else to the general inbox. */
+const SALES_TOPICS = new Set(['pricing', 'projects', 'timesheet', 'firm']);
 const TOPICS = { general: 'A question about Clor', pricing: 'Pricing for my company', projects: 'Clor Projects, when it’s ready', timesheet: 'Clor Timesheet, when it’s ready', firm: 'Clor for my accounting firm' };
 
 export function Contact() {
@@ -285,7 +287,8 @@ export function Contact() {
   /* No form backend yet: the message opens in the visitor's own email app, addressed to us. */
   const mailto = () => {
     const body = `${form.message}\n\nName: ${form.name}\nCompany: ${form.company}\nEmail: ${form.email}`;
-    return `mailto:${SITE.contactEmail}?subject=${encodeURIComponent(TOPICS[about])}&body=${encodeURIComponent(body)}`;
+    const to = SALES_TOPICS.has(about) ? SITE.salesEmail : SITE.contactEmail;
+    return `mailto:${to}?subject=${encodeURIComponent(TOPICS[about])}&body=${encodeURIComponent(body)}`;
   };
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
   return (
@@ -337,11 +340,28 @@ export function Contact() {
           </form>
           <aside className="contact-aside stack">
             <h2 className="h-3">Or write to us directly</h2>
-            <p>
-              <a href={`mailto:${SITE.contactEmail}`}>{SITE.contactEmail}</a>
+            <dl className="contact-mail">
+              <dt>General questions</dt>
+              <dd>
+                <a href={`mailto:${SITE.contactEmail}`}>{SITE.contactEmail}</a>
+              </dd>
+              <dt>Buying Clor</dt>
+              <dd>
+                <a href={`mailto:${SITE.salesEmail}`}>{SITE.salesEmail}</a>
+              </dd>
+              <dt>Help with the app</dt>
+              <dd>
+                <a href={`mailto:${SITE.supportEmail}`}>{SITE.supportEmail}</a>
+              </dd>
+            </dl>
+            <h2 className="h-3">Visit</h2>
+            <p className="body">
+              {SITE.company}
+              <br />
+              {SITE.address}
             </p>
             <h2 className="h-3">Already a customer?</h2>
-            <p className="body">Sign in and use Help in the app; it reaches the team that looks after your workspace.</p>
+            <p className="body">Sign in and use Help in the app, or write to support.</p>
             <a className="btn btn--text" href={SITE.signInUrl}>
               Sign in
             </a>
@@ -394,8 +414,50 @@ export function Security() {
 }
 
 /* ------------------------------------------------------------------- legal */
+/*
+ * Refund and cancellation: published on clor.in before this site (11 October
+ * 2026) and kept word for word, because payment providers check for it. It is
+ * the website's own page, not one of the app's shared legal documents.
+ */
+const REFUND = {
+  title: 'Refund & cancellation',
+  summary: 'How billing, cancellation and refunds work for Clor. Last updated 11 October 2026.',
+  Body: () => (
+    <>
+      <h2>Cloud subscriptions</h2>
+      <p>
+        Cloud plans are billed monthly or annually in advance. You can cancel any time from your account or by emailing us; cancellation stops
+        the next renewal. Your access continues until the end of the period already paid for.
+      </p>
+      <h2>Refunds</h2>
+      <p>
+        Monthly fees already charged are generally non-refundable. For annual plans cancelled within 7 days of the first payment, we refund the
+        amount in full. After 7 days, annual plans are non-refundable but remain active until the term ends. If we materially fail to provide the
+        service and cannot fix it, contact us — we will refund the affected period.
+      </p>
+      <h2>On-premise licenses</h2>
+      <p>
+        On-premise license fees and annual support (AMC) are non-refundable once a license key has been issued, because the software has been
+        delivered. A trial or pilot period, where offered, lets you evaluate before paying.
+      </p>
+      <h2>How refunds are paid</h2>
+      <p>
+        Approved refunds are made to the original payment method, normally within 5–10 business days of approval. Taxes already remitted (GST)
+        are adjusted as the law requires.
+      </p>
+      <h2>Free tier and trials</h2>
+      <p>Free plans and trial periods carry no charge and nothing to refund.</p>
+      <h2>Contact</h2>
+      <p>
+        Billing questions and cancellation requests: <a href={`mailto:${SITE.supportEmail}`}>{SITE.supportEmail}</a>.
+      </p>
+    </>
+  ),
+};
+const LEGAL = { ...DOCUMENTS, refund: REFUND };
+
 export function Legal({ doc }) {
-  const d = DOCUMENTS[doc];
+  const d = LEGAL[doc];
   const Body = d.Body;
   return (
     <>
@@ -403,9 +465,9 @@ export function Legal({ doc }) {
       <section className="section section--flush">
         <div className="wrap">
           <nav className="legal-nav" aria-label="Legal documents">
-            {['privacy', 'terms', 'cookies'].map((k) => (
+            {['privacy', 'terms', 'cookies', 'refund'].map((k) => (
               <Link key={k} href={`/legal/${k}`} aria-current={k === doc ? 'page' : undefined}>
-                {DOCUMENTS[k].title}
+                {LEGAL[k].title}
               </Link>
             ))}
           </nav>

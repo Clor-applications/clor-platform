@@ -2111,3 +2111,28 @@ h4 {
   border-radius: 50%;
   background: var(--accent);
 }
+
+/* Inboxes by purpose, in the footer and on the contact page. */
+.footer-mail {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+}
+.footer-mail .caption {
+  display: inline-block;
+  min-width: 4.5em;
+}
+.contact-mail {
+  margin: 0;
+  display: grid;
+  gap: var(--s-1);
+}
+.contact-mail dt {
+  font-size: var(--t-xs);
+  color: var(--ink-3);
+  margin-top: var(--s-2);
+}
+.contact-mail dd {
+  margin: 0;
+}
