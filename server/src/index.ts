@@ -14,6 +14,7 @@ import { startPhotoPurge, startReaderChecks, startVendorSync, startWebhookRetrie
 import { reportProcessErrors } from './utils/log.js';
 import { stopJobs } from './services/jobLease.js';
 import { startCredentialBackfill } from './services/credentialBackfill.js';
+import { startCredentialChecks } from './services/credentialReview.js';
 
 /* Crashes and unhandled rejections are reported, not lost. */
 reportProcessErrors();
@@ -72,3 +73,5 @@ startBooksDigest();
 startReportSchedules(buildReport);
 /* Batch 5: credentials issued before the registry are registered once, on one instance. */
 startCredentialBackfill();
+/* Daily: expiry warnings, expired events, credentials whose own row is gone. */
+startCredentialChecks();

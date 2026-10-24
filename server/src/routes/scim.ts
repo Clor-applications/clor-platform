@@ -10,6 +10,7 @@ import { userIsAdmin } from '../services/roleGuards.js';
 import { outsideTenant, enterTenant } from '../utils/tenantScope.js';
 import { verifyCredential, touchLastUsed } from '../services/credentials.js';
 import { scimKind } from '../services/scimTokens.js';
+import { flagCreatorRemoved } from '../services/credentialReview.js';
 
 /**
  * /scim/v2 — SCIM 2.0 provisioning (RFC 7643 / 7644), the way Microsoft
@@ -258,6 +259,8 @@ async function applyChanges(t: Tenant, u: U, changes: { email?: string; fullName
   }
   if (!Object.keys(data).length) return u;
   const next = await platformPrisma.user.update({ where: { id: u.id }, data, select: SELECT });
+  /* Batch 5: switched off by the directory — what they made is flagged for review, by this token. */
+  if (data.isActive === false) await flagCreatorRemoved({ accountId: t.accountId, userId: u.id, orgIds: 'ALL' }, 'The person who made it was switched off by directory sync', { type: 'SCIM', id: t.id });
   await recordAuthEvent({ accountId: t.accountId, userId: u.id, email: next.email, eventType: data.isActive === false ? 'USER_DEACTIVATED' : data.isActive === true ? 'USER_REACTIVATED' : 'USER_UPDATED', detail: `SCIM directory sync: ${Object.keys(data).filter((k) => k !== 'lockedUntil').join(', ')}` });
   return next;
 }
@@ -343,6 +346,7 @@ scimRouter.delete(
       const elsewhere = await platformPrisma.userOrgMembership.count({ where: { userId: u.id } });
       if (!elsewhere) await platformPrisma.user.update({ where: { id: u.id }, data: { isActive: false } });
     }
+    await flagCreatorRemoved({ accountId: t.accountId, userId: u.id, orgIds: [t.orgId] }, 'The person who made it was removed by directory sync', { type: 'SCIM', id: t.id });
     await recordAuthEvent({ accountId: t.accountId, userId: u.id, email: u.email, eventType: 'USER_DEPROVISIONED', ip: clientIp(req), userAgent: String(req.headers['user-agent'] || '').slice(0, 200), detail: 'SCIM directory sync' });
     res.status(204).end();
   }),
