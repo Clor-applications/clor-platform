@@ -317,6 +317,8 @@ export default function Shell() {
       /* Emails sent before 12 Oct 2026 used /verify-email?token= and /?token=. */
       const legacy = String(q.get('token') || '').trim();
       const onVerifyPath = /\/verify-email\/?$/.test(window.location.pathname);
+      /* W-3: an invitation carries ?token= too; it is not an old reset link. */
+      if (/\/invite\/?$/.test(window.location.pathname)) return null;
       const reset = String(q.get('reset') || '').trim() || (!onVerifyPath ? legacy : '');
       const verify = String(q.get('verify') || '').trim() || (onVerifyPath ? legacy : '');
       if (reset) return { kind: 'reset', token: reset };
@@ -443,6 +445,20 @@ export default function Shell() {
     );
   }
 
+  /* W-3: an invitation link opens its own page, signed in or not. */
+  if (inviteToken) {
+    return (
+      <InviteAccept
+        token={inviteToken}
+        onHome={() => window.location.assign(MARKETING_URL)}
+        onSignIn={() => {
+          setInviteToken('');
+          setPublicPage('signin');
+        }}
+      />
+    );
+  }
+
   if (emailLink?.kind === 'verify') {
     return <VerifyEmail token={emailLink.token} onDone={() => leaveEmailLink(user ? null : 'signin')} />;
   }
@@ -454,20 +470,6 @@ export default function Shell() {
         onDone={() => {
           leaveEmailLink('signin');
           if (user) window.location.replace('/');
-        }}
-      />
-    );
-  }
-
-  /* W-3: an invitation link opens its own page, signed in or not. */
-  if (inviteToken) {
-    return (
-      <InviteAccept
-        token={inviteToken}
-        onHome={() => window.location.assign(MARKETING_URL)}
-        onSignIn={() => {
-          setInviteToken('');
-          setPublicPage('signin');
         }}
       />
     );
