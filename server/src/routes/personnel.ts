@@ -10,7 +10,8 @@ import { PEOPLE_MODULE, PEOPLE_RESOURCE, peopleRouteOk } from '../services/peopl
 import { istDate } from '../services/attendance/compute.js';
 import { pushEmployeeToReaders, revokeFromReaders } from '../services/attendance/readerSync.js';
 import { deleteToBin } from '../services/recycleBin.js';
-import { closeEpisode, openNextEpisode } from '../services/people/episodes.js';
+import { openNextEpisode } from '../services/people/episodes.js';
+import { leaveEmployee } from '../services/people/lifecycle/leaving.js';
 import { recordChanges } from '../services/people/employmentHistory.js';
 import { READER_ACCESS_ITEM, startChecklist } from '../services/people/checklists.js';
 
@@ -193,18 +194,8 @@ personnelRouter.post(`${base}/employees/:id/resign`, can(PermissionAction.EDIT, 
   if (!existing) return res.status(404).json({ error: 'No such employee.' });
   if (existing.status === 'LEFT') return res.status(409).json({ error: 'This person has already left.' });
   if (existing.dateOfJoining && parsed.data.lastDay < existing.dateOfJoining) return res.status(400).json({ error: 'Somebody cannot leave before they joined.' });
-  const employee = await peoplePrisma.$transaction(async (tx) => {
-    const row = await tx.employee.update({
-      where: { id: existing.id },
-      data: { status: 'LEFT', dateOfLeaving: parsed.data.lastDay, leavingType: parsed.data.leavingType, leavingReason: blank(parsed.data.reason) },
-    });
-    await closeEpisode({ accountId, orgId }, existing, { endDate: parsed.data.lastDay, endType: parsed.data.leavingType, endReason: blank(parsed.data.reason) }, tx);
-    return row;
-  });
-  await recordChanges({ accountId, orgId, userId: req.auth!.userId }, existing, employee, { source: 'RESIGNATION', effectiveDate: parsed.data.lastDay, note: blank(parsed.data.reason) || parsed.data.leavingType.replace(/_/g, ' ').toLowerCase() });
-  const removed = await revokeFromReaders(orgId, existing, req.auth!.userId);
-  await startChecklist({ accountId, orgId, userId: req.auth!.userId }, employee, 'LEAVING', parsed.data.lastDay, { done: [READER_ACCESS_ITEM] });
-  res.json({ employee, readers: removed.readers });
+  const r = await leaveEmployee({ accountId, orgId, userId: req.auth!.userId }, existing as any, { lastDay: parsed.data.lastDay, leavingType: parsed.data.leavingType, reason: blank(parsed.data.reason) });
+  res.json({ employee: r.employee, readers: r.readers });
 });
 
 /**

@@ -1948,6 +1948,101 @@ model AccessLog {
   @@index([orgId, userId, at])
 }
 
+/// Approval rules (docs/people/02-PRD.md APR-02): steps in order, each with
+/// who decides, an optional condition, a due time and what happens when it
+/// is overdue. Versioned: editing writes a new version and requests keep the
+/// one they were submitted under.
+model ApprovalRule {
+  id          String   @id @default(cuid())
+  accountId   String
+  orgId       String
+  name        String
+  /// PROFILE_CHANGE | JOB_CHANGE | LEAVING | DOCUMENT_REQUEST | LETTER_REQUEST | POLICY_PUBLISH | DESK_ESCALATION | SEAT_REQUEST | PROBATION
+  requestType String
+  version     Int      @default(1)
+  active      Boolean  @default(true)
+  /// [{ order, approver: { kind: MANAGER | MANAGER_OF_MANAGER | USER | ROLE | HR, id? }, condition?: { field, op: changed | eq | ne, value? }, dueDays, overdue: { action: REMIND | HAND_ON, to?: { kind, id? } } }]
+  steps       Json
+  createdByUserId String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([orgId, requestType, version])
+  @@index([orgId, requestType, active])
+}
+
+/// A request waiting for decisions (APR-01): what is asked, under which rule
+/// version, where it stands. Approving the last step has the effect the
+/// request type names (services/people/approvals/engine.ts).
+model ApprovalRequest {
+  id                String   @id @default(cuid())
+  accountId         String
+  orgId             String
+  requestType       String
+  subjectEmployeeId String?
+  requesterUserId   String
+  ruleId            String
+  ruleVersion       Int
+  title             String
+  payload           Json
+  /// DRAFT | WAITING | APPROVED | REJECTED | WITHDRAWN | MORE_INFO
+  status            String   @default("WAITING")
+  currentStep       Int      @default(1)
+  idempotencyKey    String?
+  decisionId        String?
+  outcome           Json?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  steps ApprovalStep[]
+
+  @@unique([orgId, idempotencyKey])
+  @@index([orgId, status, createdAt])
+  @@index([orgId, subjectEmployeeId])
+  @@index([orgId, requesterUserId])
+}
+
+/// One step of a request: who may decide it (resolved when the step opened,
+/// stand-ins included), when it is due, and what they decided.
+model ApprovalStep {
+  id               String    @id @default(cuid())
+  accountId        String
+  orgId            String
+  requestId        String
+  order            Int
+  /// Who may decide: the resolved people, as user ids.
+  candidateUserIds Json
+  approverUserId   String?
+  standInForUserId String?
+  dueAt            DateTime
+  /// WAITING | APPROVED | REJECTED | MORE_INFO | HANDED_ON | SKIPPED | WITHDRAWN
+  status           String    @default("WAITING")
+  comment          String?
+  decidedByUserId  String?
+  decidedAt        DateTime?
+  remindedAt       DateTime?
+  createdAt        DateTime  @default(now())
+
+  request ApprovalRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, status, dueAt])
+  @@index([requestId, order])
+}
+
+/// Someone standing in for an approver between two dates (APR-04).
+model StandIn {
+  id            String   @id @default(cuid())
+  accountId     String
+  orgId         String
+  userId        String
+  standInUserId String
+  fromDate      String
+  toDate        String
+  createdAt     DateTime @default(now())
+
+  @@index([orgId, userId, fromDate, toDate])
+}
+
 /// Joining / leaving checklist a company uses (services/people/checklists.ts).
 /// `items`: [{ title, owner, dueDays }], dueDays counted from the joining date
 /// or the last working day (negative = before it). No row = CLOR's defaults.

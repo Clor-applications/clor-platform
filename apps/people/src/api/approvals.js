@@ -1,0 +1,23 @@
+import { apiFetch } from '@platform/http';
+import { orgId } from '@platform/context';
+
+/* Approvals (docs/people/02-PRD.md APR-01..07): what waits for me, what I asked for, rules and stand-ins. */
+const base = () => `/orgs/${encodeURIComponent(orgId())}/people`;
+const opts = { skipWarehouseHeader: true };
+const send = (path, method, body) => apiFetch(`${base()}${path}`, { ...opts, method, body });
+
+export const listRequests = () => apiFetch(`${base()}/requests`, opts);
+export const getRequest = (id) => apiFetch(`${base()}/requests/${encodeURIComponent(id)}`, opts).then((r) => r?.request);
+export const submitRequest = (body, idempotencyKey) => apiFetch(`${base()}/requests`, { ...opts, method: 'POST', body, headers: idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : undefined });
+export const decideRequest = (id, action, comment) => send(`/requests/${encodeURIComponent(id)}/${action}`, 'POST', comment ? { comment } : {});
+export const replyRequest = (id, note) => send(`/requests/${encodeURIComponent(id)}/reply`, 'POST', { note });
+export const withdrawRequest = (id) => send(`/requests/${encodeURIComponent(id)}/withdraw`, 'POST', {});
+
+export const listRules = () => apiFetch(`${base()}/approval-rules`, opts);
+export const saveRule = (body) => send('/approval-rules', 'POST', body);
+export const retireRule = (requestType) => send(`/approval-rules/${encodeURIComponent(requestType)}`, 'DELETE');
+export const activeRule = (requestType) => apiFetch(`${base()}/approval-rules/active/${encodeURIComponent(requestType)}`, opts).then((r) => r?.rule || null);
+
+export const listStandIns = () => apiFetch(`${base()}/stand-ins`, opts).then((r) => r?.standIns || []);
+export const addStandIn = (body) => send('/stand-ins', 'POST', body);
+export const removeStandIn = (id) => send(`/stand-ins/${encodeURIComponent(id)}`, 'DELETE');

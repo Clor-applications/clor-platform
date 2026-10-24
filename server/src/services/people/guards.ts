@@ -39,6 +39,9 @@ export const PEOPLE_RESOURCE = {
   documents: 'Documents',
   confidentialDocuments: 'Confidential Documents',
   statutory: 'Statutory Details',
+  approvals: 'Approvals',
+  requests: 'Requests',
+  lifecycle: 'Lifecycle',
 } as const;
 
 /**

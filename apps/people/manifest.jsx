@@ -59,6 +59,7 @@ import { lazyScreens } from '@ui/utils/lazyScreens';
 const screen = lazyScreens(() => import('./src/screens.js'));
 const PeopleOverview = screen('PeopleOverview');
 const Employees = screen('Employees');
+const Approvals = screen('Approvals');
 const OrgChart = screen('OrgChart');
 const Tags = screen('Tags');
 const Departments = screen('Departments');
@@ -188,7 +189,7 @@ export const peopleApp = {
 
   /* The sidebar holds the day's work; everything set up once lives on one Settings page (PeopleSettings), its pages marked `parent: 'settings'`. */
   modules: [
-    { key: 'overview', label: 'Home', items: ['overview'] },
+    { key: 'overview', label: 'Home', items: ['overview', 'approvals'] },
     { key: 'employees', label: 'Employees', groups: [
       { label: 'Directory', items: ['employees', 'orgChart', 'documents'] },
       { label: 'Joining & Leaving', items: ['checklists', 'assets'] },
@@ -210,6 +211,7 @@ export const peopleApp = {
   /* `permission`: what the screen's data needs; the shell hides what this user cannot open. */
   nav: [
     { key: 'overview', label: 'Home', icon: I.home, permission: 'PEOPLE::Employees::VIEW' },
+    { key: 'approvals', label: 'Approvals', icon: I.checklist, permission: 'PEOPLE::Requests::VIEW' },
     { key: 'employees', label: 'Employees', icon: I.people, permission: 'PEOPLE::Employees::VIEW' },
     { key: 'orgChart', label: 'Org Chart', icon: I.org, permission: 'PEOPLE::Org Structure::VIEW' },
     { key: 'documents', label: 'Documents', icon: I.folder, permission: 'PEOPLE::Employees::VIEW' },
@@ -266,6 +268,7 @@ export const peopleApp = {
 
   screens: {
     overview: PeopleOverview,
+    approvals: Approvals,
     employees: Employees,
     orgChart: OrgChart,
     documents: PeopleDocuments,

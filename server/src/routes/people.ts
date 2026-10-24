@@ -22,6 +22,7 @@ import { checkIdentifier, maskTail } from '../services/people/identifiers.js';
 import { PAYROLL_STATUTORY_FIELDS, maskedStatutory, revealStatutory } from '../services/payroll/statutoryRead.js';
 import { stepUpRefusal } from '../services/stepUp.js';
 import { inScope, scopeWhere, teamScope } from '../services/people/scope.js';
+import { activeRule, shape as shapeRequest, submitRequest } from '../services/people/approvals/engine.js';
 import { dataHealth } from '../services/people/dataHealth.js';
 import { PAYROLL_MODULE, PAYROLL_RESOURCE } from '../services/payroll/guards.js';
 import { KINDS, READER_ACCESS_ITEM, checklistOf, cleanItems, itemsFor, openTasks, startChecklist, type Kind as ChecklistKind } from '../services/people/checklists.js';
@@ -528,6 +529,35 @@ peopleRouter.put('/orgs/:orgId/people/employees/:id', can(PermissionAction.EDIT,
      * same form (a phone, an address) is saved now.
      */
     const effectiveFrom = typeof req.body?.effectiveFrom === 'string' && ISO_DATE.test(req.body.effectiveFrom) ? req.body.effectiveFrom : null;
+    /*
+     * Where the company has an approval rule for job changes (APR-01), a
+     * change to a job field becomes a request instead of a write; the rest of
+     * the form still saves. The record says "waiting for approval".
+     */
+    const jobRule = await activeRule(orgId, 'JOB_CHANGE');
+    let request: Awaited<ReturnType<typeof submitRequest>>['request'] | null = null;
+    if (jobRule) {
+      const fields: Record<string, { before: unknown; after: unknown }> = {};
+      for (const field of SCHEDULABLE_FIELDS) {
+        if ((b as any)[field] === undefined || field === 'status') continue;
+        const after = (structure as any)[field] !== undefined ? (structure as any)[field] : blank((b as any)[field]);
+        if (((existing as any)[field] ?? null) === after) continue;
+        fields[field] = { before: (existing as any)[field] ?? null, after };
+        delete (structure as any)[field];
+        delete (b as any)[field];
+      }
+      if (fields.departmentId) delete (structure as any).department;
+      if (fields.jobPositionId) delete (structure as any).designation;
+      if (Object.keys(fields).length) {
+        const labels = Object.keys(fields).map((f) => f.replace(/Id$/, '')).join(', ');
+        const r = await submitRequest(actorOf(req, 'FORM', typeof req.body?.changeNote === 'string' ? req.body.changeNote : null), {
+          requestType: 'JOB_CHANGE', subjectEmployeeId: existing.id, title: `${existing.name}: ${labels} change`,
+          payload: { employeeId: existing.id, fields, effectiveOn: effectiveFrom, reason: typeof req.body?.changeNote === 'string' ? req.body.changeNote : null },
+          idempotencyKey: typeof req.headers['idempotency-key'] === 'string' ? req.headers['idempotency-key'] : null,
+        });
+        request = r.request;
+      }
+    }
     let scheduled: Awaited<ReturnType<typeof scheduleChanges>> = [];
     if (effectiveFrom && effectiveFrom > todayIst()) {
       const future: Record<string, string | null> = {};
@@ -560,7 +590,7 @@ peopleRouter.put('/orgs/:orgId/people/employees/:id', can(PermissionAction.EDIT,
     /* Leaving ends door access: off every biometric reader, fingerprints and faces deleted. */
     if (row.status === 'LEFT' && existing.status !== 'LEFT') await revokeFromReaders(orgId, existing, req.auth!.userId);
     else if (row.status !== 'LEFT' && readerFieldsChanged(existing, row)) await pushEmployeeToReaders(orgId, row, req.auth!.userId, existing);
-    res.json({ employee: (await withMeta(orgId, [row]))[0], scheduled });
+    res.json({ employee: (await withMeta(orgId, [row]))[0], scheduled, request: request ? await shapeRequest(request) : null });
     emitWebhook(orgId, row.status === 'LEFT' && existing.status !== 'LEFT' ? 'employee.left' : 'employee.updated', employeeEvent(row));
     if (row.status === 'LEFT' && existing.status !== 'LEFT') void peopleEvent(accountId, orgId, 'people.left', row, req.auth!.userId);
   } catch (e) {

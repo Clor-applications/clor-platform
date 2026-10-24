@@ -8,6 +8,8 @@ import { startHrSync } from './services/hr/sync.js';
 import { startReportSchedules } from './services/attendance/reportSchedules.js';
 import { startPeopleOutbox } from './services/people/outbox.js';
 import { startScheduledChanges } from './services/people/effectiveDating.js';
+import { startApprovalDues } from './services/people/approvals/engine.js';
+import { registerPeopleEffects } from './services/people/approvals/effects.js';
 import { startDocumentReminders } from './services/people/documentReminders.js';
 import { startNotificationPruning } from './services/notifications.js';
 import { startBooksDigest } from './services/booksDigest.js';
@@ -71,6 +73,9 @@ startDocumentReminders();
 startPeopleOutbox();
 /* Changes dated for a future day are applied on that day — see services/people/effectiveDating.ts. */
 startScheduledChanges();
+/* Approvals: what an approved request does, and overdue steps reminded or handed on — see services/people/approvals. */
+registerPeopleEffects();
+startApprovalDues();
 startNotificationPruning();
 startBooksDigest();
 /* Reports that go out by e-mail on their own — every 15 minutes the due ones are sent. */

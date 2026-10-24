@@ -231,6 +231,24 @@ export const PERMISSION_CATALOG: ModuleDef[] = [
         actions: MASTER,
       },
       {
+        key: 'Approvals',
+        label: 'Approval rules',
+        description: 'Who decides what, in which order, by when. Editing a rule writes a new version',
+        actions: MASTER,
+      },
+      {
+        key: 'Requests',
+        label: 'Requests',
+        description: 'Act on requests routed to you: approve, reject, ask for more, or withdraw your own',
+        actions: [A.VIEW, A.CREATE, A.APPROVE],
+      },
+      {
+        key: 'Lifecycle',
+        label: 'Joining, changes and leaving',
+        description: 'Invites before day one, joining and leaving plans, probation, changes and leaving',
+        actions: [A.VIEW, A.CREATE, A.EDIT, A.APPROVE],
+      },
+      {
         key: 'Statutory Details',
         label: 'Statutory details',
         description: 'Identifiers and statutory category: PAN, UAN, ESIC and bank from Payroll, Aadhaar (last four), passport, work permit. Shown masked; revealing one needs an authenticator code and is logged',
@@ -657,6 +675,8 @@ export const ROLE_PRESETS: Record<string, RolePreset> = {
       ['PEOPLE', 'Employee Notes', USER],
       ['PEOPLE', 'Documents', USER],
       ['PEOPLE', 'Statutory Details', [A.VIEW]],
+      ['PEOPLE', 'Requests', [A.VIEW, A.CREATE, A.APPROVE]],
+      ['PEOPLE', 'Lifecycle', [A.VIEW, A.CREATE, A.EDIT]],
       /* Leave is HR's (founder, 22 Oct 2026): People's leave screens are gated on these (review R-12). */
       ['ATTENDANCE', 'Leave Requests', [A.VIEW, A.CREATE, A.EDIT]],
       ['ATTENDANCE', 'Leave Types', [A.VIEW]],
@@ -676,6 +696,9 @@ export const ROLE_PRESETS: Record<string, RolePreset> = {
       ['PEOPLE', 'Documents', ['*']],
       ['PEOPLE', 'Confidential Documents', ['*']],
       ['PEOPLE', 'Statutory Details', ['*']],
+      ['PEOPLE', 'Approvals', ['*']],
+      ['PEOPLE', 'Requests', ['*']],
+      ['PEOPLE', 'Lifecycle', ['*']],
       ...['Announcements', 'Events', 'Recruitment', 'Performance', 'Learning', 'HR Cases', 'Assets', 'Benefits'].map((key) => ['PEOPLE', key, ['*']] as [string, string, string[]]),
       /* Leave, holidays and the employee app are HR's too (review R-12). */
       ['ATTENDANCE', 'Leave Requests', ['*']],
@@ -695,6 +718,8 @@ export const ROLE_PRESETS: Record<string, RolePreset> = {
       ['PEOPLE', 'Employees', [A.VIEW]],
       ['PEOPLE', 'Documents', [A.VIEW]],
       ['PEOPLE', 'Org Structure', [A.VIEW]],
+      ['PEOPLE', 'Requests', [A.VIEW, A.CREATE, A.APPROVE]],
+      ['PEOPLE', 'Lifecycle', [A.VIEW, A.EDIT]],
       ['ATTENDANCE', 'Leave Requests', [A.VIEW, A.APPROVE]],
       ['ATTENDANCE', 'My Attendance', [A.VIEW]],
     ],
@@ -720,6 +745,8 @@ export const ROLE_PRESETS: Record<string, RolePreset> = {
     roleType: 'CUSTOM',
     grants: [
       ['PEOPLE', 'Employees', [A.VIEW]],
+      ['PEOPLE', 'Lifecycle', [A.VIEW, A.EDIT]],
+      ['PEOPLE', 'Requests', [A.VIEW, A.APPROVE]],
       ['PEOPLE', 'Assets', ['*']],
     ],
   },
