@@ -28,6 +28,7 @@ export { default as Credentials } from './screens/Credentials';
 export { default as OutsideAccess } from './screens/OutsideAccess';
 export { default as AuditTrail } from './screens/AuditTrail';
 export { default as Invitations } from './screens/Invitations';
+export { default as Members } from './screens/Members';
 
 const companyOf = (tenant) => ({ name: tenant?.name || '', profile: tenant?.profile || {} });
 

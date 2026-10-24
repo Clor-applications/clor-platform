@@ -1,4 +1,4 @@
-import { Building, Building2, CreditCard, Fingerprint, HardDriveDownload, History, Key, KeyRound, LayoutGrid, Mail, Shield, ShieldCheck, UserCheck, Users, XCircle } from 'lucide-react';
+import { Building, Building2, CreditCard, Fingerprint, HardDriveDownload, History, Key, KeyRound, LayoutGrid, Mail, Contact, Shield, ShieldCheck, UserCheck, Users, XCircle } from 'lucide-react';
 
 import { lazyScreens } from '@ui/utils/lazyScreens';
 
@@ -15,6 +15,7 @@ const SsoSettings = screen('SsoSettings');
 const Credentials = screen('Credentials');
 const OutsideAccess = screen('OutsideAccess');
 const Invitations = screen('Invitations');
+const Members = screen('Members');
 const AuditTrail = screen('AuditTrail');
 const AccountOverview = screen('AccountOverview');
 const BillingPreview = screen('BillingPreview');
@@ -56,7 +57,7 @@ export const adminApp = {
     { key: 'home', label: 'Overview', items: ['home'] },
     { key: 'company', label: 'Company', items: ['company', 'branches'] },
     { key: 'access', label: 'Access', groups: [
-      { label: 'Who', items: ['users', 'invitations', 'outsideAccess'] },
+      { label: 'Who', items: ['members', 'users', 'invitations', 'outsideAccess'] },
       { label: 'What they may do', items: ['roles', 'permissions'] },
     ] },
     { key: 'security', label: 'Security', items: ['security', 'sso', 'credentials', 'audit'] },
@@ -69,6 +70,8 @@ export const adminApp = {
     { key: 'company', label: 'Company profile', icon: Building, permission: 'SETTINGS::Company Profile::VIEW' },
     { key: 'branches', label: 'Branches', icon: Building2, permission: 'MASTERS::Company/Branch setup::VIEW' },
     { key: 'users', label: 'Users', icon: Users, permission: 'SETTINGS::Users::VIEW' },
+    /* W-4: the account's people, every company at once; the server lets only owners and administrators in. */
+    { key: 'members', label: 'Members', icon: Contact, permission: 'SETTINGS::Users::VIEW' },
     /* W-3: shown with Users; the server lets only the account's owners and administrators invite. */
     { key: 'invitations', label: 'Invitations', icon: Mail, permission: 'SETTINGS::Users::VIEW' },
     { key: 'outsideAccess', label: 'Outside access', icon: UserCheck, permission: 'SETTINGS::Users::VIEW' },
@@ -96,6 +99,7 @@ export const adminApp = {
     credentials: Credentials,
     outsideAccess: OutsideAccess,
     invitations: Invitations,
+    members: Members,
     audit: AuditTrail,
     account: AccountOverview,
     billing: BillingPreview,

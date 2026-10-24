@@ -14,7 +14,8 @@ import {
   requireAccountRole,
   setAccountRole,
 } from '../services/accountMembership.js';
-import { memberAccess, memberDirectory, removeFromCompany, setMemberStatus } from '../services/accountMembers.js';
+import { appsOfPermissions, memberAccess, memberDirectory, removeFromCompany, setMemberStatus } from '../services/accountMembers.js';
+import { resolveAccess } from '../services/access.js';
 import { InvitationError, createInvitation, listInvitations, resendInvitation, revokeInvitation } from '../services/accountInvitations.js';
 import { entitlementFor } from '../services/entitlements.js';
 import { outsideTenant } from '../utils/tenantScope.js';
@@ -152,8 +153,15 @@ export default accountRouter;
 
 /** The caller's own account role, for the Workspace to decide what to show (the server still decides what to allow). */
 accountRouter.get('/account/me', async (req, res) => {
-  const role = await accountRoleOf(req.tenant!.accountId, req.auth!.userId);
-  res.json({ accountId: req.tenant!.accountId, role });
+  const { accountId, orgId } = req.tenant!;
+  const role = await accountRoleOf(accountId, req.auth!.userId);
+  /*
+   * W-4.2: the apps this person can open in the company in scope, from their
+   * roles — the launcher shows "Access not assigned" for a switched-on app
+   * that is not among them (subscription is not personal access).
+   */
+  const access = await resolveAccess(accountId, orgId, req.auth!.userId);
+  res.json({ accountId, role, companyAdmin: access.isAdmin, apps: appsOfPermissions(access.permissions, access.isAdmin) });
 });
 
 /** Everyone who belongs to the account, with their account role. Owners and administrators only. */

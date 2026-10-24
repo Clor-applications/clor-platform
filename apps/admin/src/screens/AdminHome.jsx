@@ -24,9 +24,13 @@ const GROUP_ICON = { company: Building2, access: Users, security: ShieldCheck, p
 const ROLE_LABEL = { OWNER: 'Owner', ADMIN: 'Administrator', BILLING_ADMIN: 'Billing admin', MEMBER: 'Member' };
 
 /** What an app is to this company right now, in the words the launcher shows. */
-export function appState(app, tenant) {
+export function appState(app, tenant, myApps = null) {
   if (!app.available) return { key: 'soon', label: 'Coming soon', pill: 'ws-pill' };
-  if ((tenant?.subscriptions || []).includes(app.id)) return { key: 'open', label: 'Switched on', pill: 'ws-pill ws-pill--ok' };
+  if ((tenant?.subscriptions || []).includes(app.id)) {
+    /* Switched on for the company is not the same as open to this person (W-4.2): that takes a role. */
+    if (Array.isArray(myApps) && !myApps.includes(app.id)) return { key: 'noaccess', label: 'Access not assigned', pill: 'ws-pill' };
+    return { key: 'open', label: 'Switched on', pill: 'ws-pill ws-pill--ok' };
+  }
   /* Unrestricted billing (no plan assigned) owns everything sellable; a plan names what it includes. */
   const onPlan = !tenant?.billing?.restricted || (tenant.billing.ownedApps || []).includes(app.id);
   return onPlan ? { key: 'off', label: 'Not switched on', pill: 'ws-pill ws-pill--off' } : { key: 'plan', label: 'Not on your plan', pill: 'ws-pill' };
@@ -37,6 +41,8 @@ const greeting = (d = new Date()) => (d.getHours() < 12 ? 'Good morning' : d.get
 
 export default function AdminHome({ user, tenant, catalog = [], navItems = [], openScreen, openApp, openMoreApps }) {
   const [role, setRole] = useState(null);
+  /* The apps this person can open here (from their roles); null until the server answers. */
+  const [myApps, setMyApps] = useState(null);
   const [members, setMembers] = useState(null);
 
   useEffect(() => {
@@ -45,6 +51,7 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
       .then((r) => {
         if (!live) return;
         setRole(r?.role || null);
+        setMyApps(Array.isArray(r?.apps) ? r.apps : null);
         if (r?.role === 'OWNER' || r?.role === 'ADMIN') return listAccountMembers().then((m) => live && setMembers(m?.members || []));
         return null;
       })
@@ -64,7 +71,8 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
     .map((m) => ({ key: m.key, label: m.label, items: (m.items || m.groups.flatMap((g) => g.items)).map((k) => may.get(k)).filter(Boolean) }))
     .filter((g) => g.items.length);
 
-  const switchedOn = products.filter((a) => appState(a, tenant).key === 'open').length;
+  const switchedOn = products.filter((a) => ['open', 'noaccess'].includes(appState(a, tenant, myApps).key)).length;
+  const noAppAccess = Array.isArray(myApps) && myApps.length === 0;
   const isAdmin = role === 'OWNER' || role === 'ADMIN';
   const steps = isAdmin
     ? [
@@ -142,6 +150,20 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
           </section>
         ) : null}
 
+        {noAppAccess ? (
+          <section className="ws-setup" role="status" aria-labelledby="ws-noaccess-title">
+            <h2 id="ws-noaccess-title" className="ws-h2">No app access yet</h2>
+            <p className="ws-card-blurb">
+              You are in {tenant?.name || 'this company'}, but no app is open to you yet. An administrator gives access by giving you a role{may.has('roles') ? ' under Roles' : ''}.
+            </p>
+            {may.has('roles') ? (
+              <button type="button" className="ws-btn ws-btn--quiet ws-btn--small" style={{ justifySelf: 'start' }} onClick={() => openScreen?.('roles')}>
+                Open Roles
+              </button>
+            ) : null}
+          </section>
+        ) : null}
+
         <section className="ws-section" aria-labelledby="ws-apps-title">
           <div className="ws-section-head">
             <h2 id="ws-apps-title" className="ws-h2">Your apps</h2>
@@ -153,7 +175,7 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
           </div>
           <ul className="ws-apps" role="list">
             {products.map((a) => {
-              const s = appState(a, tenant);
+              const s = appState(a, tenant, myApps);
               const open = s.key === 'open';
               return (
                 <li key={a.id}>
@@ -185,6 +207,8 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
                             </button>
                           ) : null}
                         </>
+                      ) : s.key === 'noaccess' ? (
+                        <span>Ask an administrator for a role in {a.name}.</span>
                       ) : s.key === 'plan' ? (
                         <span>Contact Clor to add it to your plan.</span>
                       ) : (

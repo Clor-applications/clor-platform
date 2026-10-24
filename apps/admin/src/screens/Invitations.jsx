@@ -49,7 +49,6 @@ export default function Invitations({ tenant, companies = [], accountName = '' }
   const [notice, setNotice] = useState('');
 
   const load = useCallback(() => {
-    setError('');
     listInvitations()
       .then((r) => setRows(r?.invitations || []))
       .catch((e) => {

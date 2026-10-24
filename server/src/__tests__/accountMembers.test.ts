@@ -110,4 +110,13 @@ describe('the account’s people', () => {
     const d = (await request(app).get('/api/account/members/directory').set(at(x)).expect(200)).body;
     expect(d.members.map((m: any) => m.userId)).not.toContain(yp.userId);
   });
+
+  it('tells the Workspace which apps the person can open, apart from what the company subscribes to', async () => {
+    const o = await owner('apps');
+    const none = await person(o, 'no-role');
+    const pay = await person(o, 'pay', 'Payroll User');
+    expect((await request(app).get('/api/account/me').set(at(none)).expect(200)).body.apps).toEqual([]);
+    expect((await request(app).get('/api/account/me').set(at(pay)).expect(200)).body.apps).toContain('payroll');
+    expect((await request(app).get('/api/account/me').set(at(o)).expect(200)).body).toMatchObject({ role: 'OWNER', companyAdmin: true });
+  });
 });

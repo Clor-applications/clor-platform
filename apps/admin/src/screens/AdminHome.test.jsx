@@ -77,4 +77,12 @@ describe('the Workspace home', () => {
     await waitFor(() => expect(screen.getByText('Only you so far')).toBeInTheDocument());
     expect(screen.getByText('2 of 3 done')).toBeInTheDocument();
   });
+
+  it('separates a switched-on app from one this person can open', async () => {
+    getAccountMe.mockResolvedValue({ role: 'MEMBER', apps: [] });
+    render(<AdminHome tenant={tenant} catalog={CATALOG} openApp={() => {}} />);
+    expect(await screen.findByText('No app access yet')).toBeInTheDocument();
+    expect(screen.getByText('Access not assigned')).toBeInTheDocument();
+    expect(screen.queryAllByRole('button', { name: /^Open Accounting/ })).toHaveLength(0);
+  });
 });

@@ -23,3 +23,11 @@ export const revokeInvitation = (id) => apiFetch(`/account/invitations/${encodeU
 export const previewInvitation = (token) => apiFetch('/invitations/preview', { method: 'POST', body: { token }, skipAuth: true });
 export const acceptInvitationNew = (token, fullName, password) => apiFetch('/invitations/accept', { method: 'POST', body: { token, fullName, password }, skipAuth: true });
 export const acceptInvitationSignedIn = (token) => apiFetch('/invitations/accept-signed-in', { method: 'POST', body: { token }, skipAuth: true });
+
+/* W-4: the account's people. */
+export const memberDirectory = () => apiFetch('/account/members/directory', opts);
+export const memberAccess = (userId) => apiFetch(`/account/members/${encodeURIComponent(userId)}/access`, opts);
+export const suspendMember = (userId) => apiFetch(`/account/members/${encodeURIComponent(userId)}/suspend`, { method: 'POST', body: {}, ...opts });
+export const reinstateMember = (userId) => apiFetch(`/account/members/${encodeURIComponent(userId)}/reinstate`, { method: 'POST', body: {}, ...opts });
+export const removeMemberFromCompany = (userId, orgId) =>
+  apiFetch(`/account/members/${encodeURIComponent(userId)}/companies/${encodeURIComponent(orgId)}`, { method: 'DELETE', ...opts });
