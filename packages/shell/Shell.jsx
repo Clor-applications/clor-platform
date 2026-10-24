@@ -336,6 +336,18 @@ export default function Shell() {
     window.addEventListener(OPEN_HELP_EVENT, onHelp);
     return () => window.removeEventListener(OPEN_HELP_EVENT, onHelp);
   }, []);
+  /* Signed in, the sign-in and sign-up addresses have done their job: drop them, keeping the company and the query. */
+  useEffect(() => {
+    if (!user) return;
+    try {
+      const { pathname, search, hash } = window.location;
+      const trimmed = pathname.replace(/\/(signin|signup|get-started|forgot-password)\/?$/, '/');
+      if (trimmed !== pathname) window.history.replaceState(null, '', trimmed + search + hash);
+    } catch {
+      /* best effort */
+    }
+  }, [user]);
+
   /* A screen asking for another of its own app's screens (requestOpenScreen): the same as a rail click. */
   const goToRef = useRef(null);
   useEffect(() => {

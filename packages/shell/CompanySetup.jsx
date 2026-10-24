@@ -59,8 +59,9 @@ export default function CompanySetup() {
     setError('');
   };
 
-  const buildable = useMemo(() => APPS.filter((a) => a.available), []);
-  const planned = useMemo(() => APPS.filter((a) => !a.available), []);
+  /* The Workspace comes with every company; it is not a choice. */
+  const buildable = useMemo(() => APPS.filter((a) => a.available && !a.platform), []);
+  const planned = useMemo(() => APPS.filter((a) => !a.available && !a.platform), []);
 
   const toggle = (id) =>
     setChosen((list) => (list.includes(id) ? list.filter((x) => x !== id) : [...list, id]));
