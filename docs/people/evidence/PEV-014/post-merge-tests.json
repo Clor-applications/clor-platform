@@ -1,0 +1,724 @@
+{
+ "numTotalTestSuites": 17,
+ "numPassedTestSuites": 17,
+ "numFailedTestSuites": 0,
+ "numPendingTestSuites": 0,
+ "numTotalTests": 54,
+ "numPassedTests": 54,
+ "numFailedTests": 0,
+ "numPendingTests": 0,
+ "numTodoTests": 0,
+ "snapshot": {
+  "added": 0,
+  "failure": false,
+  "filesAdded": 0,
+  "filesRemoved": 0,
+  "filesRemovedList": [],
+  "filesUnmatched": 0,
+  "filesUpdated": 0,
+  "matched": 0,
+  "total": 0,
+  "unchecked": 0,
+  "uncheckedKeysByFile": [],
+  "unmatched": 0,
+  "updated": 0,
+  "didUpdate": false
+ },
+ "startTime": 1792792513765,
+ "success": true,
+ "testResults": [
+  {
+   "assertionResults": [
+    {
+     "ancestorTitles": [
+      "joining and leaving checklists"
+     ],
+     "fullName": "joining and leaving checklists starts the defaults on joining, dated from the joining day, and ticks by person",
+     "status": "passed",
+     "title": "starts the defaults on joining, dated from the joining day, and ticks by person",
+     "duration": 388.3268340000002,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "joining and leaving checklists"
+     ],
+     "fullName": "joining and leaving checklists uses the company template for leaving, and CLOR ticks reader access itself",
+     "status": "passed",
+     "title": "uses the company template for leaving, and CLOR ticks reader access itself",
+     "duration": 509.09012500000017,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    }
+   ],
+   "startTime": 1792792551367,
+   "endTime": 1792792552264.09,
+   "status": "passed",
+   "message": "",
+   "name": "src/__tests__/checklists.test.ts"
+  },
+  {
+   "assertionResults": [
+    {
+     "ancestorTitles": [
+      "the switch"
+     ],
+     "fullName": "the switch is refused while People is off",
+     "status": "passed",
+     "title": "is refused while People is off",
+     "duration": 540.5609160000001,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "employee files"
+     ],
+     "fullName": "employee files creates a person with their department and position, and keeps the display strings in step",
+     "status": "passed",
+     "title": "creates a person with their department and position, and keeps the display strings in step",
+     "duration": 557.571375,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "employee files"
+     ],
+     "fullName": "employee files refuses a department from another organisation",
+     "status": "passed",
+     "title": "refuses a department from another organisation",
+     "duration": 392.572083,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "employee files"
+     ],
+     "fullName": "employee files finds people by name, code and department, and filters by tag",
+     "status": "passed",
+     "title": "finds people by name, code and department, and filters by tag",
+     "duration": 358.32737499999985,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "employee files"
+     ],
+     "fullName": "employee files refuses a reporting loop",
+     "status": "passed",
+     "title": "refuses a reporting loop",
+     "duration": 270.58687499999996,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "employee files"
+     ],
+     "fullName": "employee files refuses someone leaving before they joined",
+     "status": "passed",
+     "title": "refuses someone leaving before they joined",
+     "duration": 61.00437499999998,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "removing people and lists"
+     ],
+     "fullName": "removing people and lists moves a removed person\u2019s reports up to their own manager",
+     "status": "passed",
+     "title": "moves a removed person\u2019s reports up to their own manager",
+     "duration": 626.3821669999998,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "removing people and lists"
+     ],
+     "fullName": "removing people and lists will not delete someone payroll knows; they are marked as having left instead",
+     "status": "passed",
+     "title": "will not delete someone payroll knows; they are marked as having left instead",
+     "duration": 105.33508299999994,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "removing people and lists"
+     ],
+     "fullName": "removing people and lists will not delete a department somebody is in",
+     "status": "passed",
+     "title": "will not delete a department somebody is in",
+     "duration": 320.073625,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "import, notes and the overview"
+     ],
+     "fullName": "import, notes and the overview imports rows, creating departments it has not seen, and reports each bad row",
+     "status": "passed",
+     "title": "imports rows, creating departments it has not seen, and reports each bad row",
+     "duration": 155.18645800000013,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "import, notes and the overview"
+     ],
+     "fullName": "import, notes and the overview keeps notes on a person\u2019s file, newest first",
+     "status": "passed",
+     "title": "keeps notes on a person\u2019s file, newest first",
+     "duration": 268.2587079999994,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    }
+   ],
+   "startTime": 1792792543487,
+   "endTime": 1792792547144.2588,
+   "status": "passed",
+   "message": "",
+   "name": "src/__tests__/people.test.ts"
+  },
+  {
+   "assertionResults": [
+    {
+     "ancestorTitles": [
+      "saved People registers"
+     ],
+     "fullName": "saved People registers announcements: creates, reads, updates, detects conflicts, isolates tenants, audits, and deletes",
+     "status": "passed",
+     "title": "announcements: creates, reads, updates, detects conflicts, isolates tenants, audits, and deletes",
+     "duration": 601.250500000001,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "saved People registers"
+     ],
+     "fullName": "saved People registers events: creates, reads, updates, detects conflicts, isolates tenants, audits, and deletes",
+     "status": "passed",
+     "title": "events: creates, reads, updates, detects conflicts, isolates tenants, audits, and deletes",
+     "duration": 644.4507909999993,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "saved People registers"
+     ],
+     "fullName": "saved People registers recruitment: creates, reads, updates, detects conflicts, isolates tenants, audits, and deletes",
+     "status": "passed",
+     "title": "recruitment: creates, reads, updates, detects conflicts, isolates tenants, audits, and deletes",
+     "duration": 508.7892920000013,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "saved People registers"
+     ],
+     "fullName": "saved People registers candidates: creates, reads, updates, detects conflicts, isolates tenants, audits, and deletes",
+     "status": "passed",
+     "title": "candidates: creates, reads, updates, detects conflicts, isolates tenants, audits, and deletes",
+     "duration": 516.3682079999999,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "saved People registers"
+     ],
+     "fullName": "saved People registers performance: creates, reads, updates, detects conflicts, isolates tenants, audits, and deletes",
+     "status": "passed",
+     "title": "performance: creates, reads, updates, detects conflicts, isolates tenants, audits, and deletes",
+     "duration": 523.646999999999,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "saved People registers"
+     ],
+     "fullName": "saved People registers learning: creates, reads, updates, detects conflicts, isolates tenants, audits, and deletes",
+     "status": "passed",
+     "title": "learning: creates, reads, updates, detects conflicts, isolates tenants, audits, and deletes",
+     "duration": 552.0336669999997,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "saved People registers"
+     ],
+     "fullName": "saved People registers helpdesk: creates, reads, updates, detects conflicts, isolates tenants, audits, and deletes",
+     "status": "passed",
+     "title": "helpdesk: creates, reads, updates, detects conflicts, isolates tenants, audits, and deletes",
+     "duration": 530.368457999999,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "saved People registers"
+     ],
+     "fullName": "saved People registers assets: creates, reads, updates, detects conflicts, isolates tenants, audits, and deletes",
+     "status": "passed",
+     "title": "assets: creates, reads, updates, detects conflicts, isolates tenants, audits, and deletes",
+     "duration": 502.889459,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "saved People registers"
+     ],
+     "fullName": "saved People registers benefits: creates, reads, updates, detects conflicts, isolates tenants, audits, and deletes",
+     "status": "passed",
+     "title": "benefits: creates, reads, updates, detects conflicts, isolates tenants, audits, and deletes",
+     "duration": 517.539166999999,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "saved People registers"
+     ],
+     "fullName": "saved People registers lists document metadata without file bytes and without crossing companies",
+     "status": "passed",
+     "title": "lists document metadata without file bytes and without crossing companies",
+     "duration": 177.84500000000116,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "saved People registers"
+     ],
+     "fullName": "saved People registers publishes announcements and scheduled events to the employee portal, keeping drafts and other companies private",
+     "status": "passed",
+     "title": "publishes announcements and scheduled events to the employee portal, keeping drafts and other companies private",
+     "duration": 731.2193750000006,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "saved People registers"
+     ],
+     "fullName": "saved People registers rejects unknown modules, fields, invalid dates, and foreign employees",
+     "status": "passed",
+     "title": "rejects unknown modules, fields, invalid dates, and foreign employees",
+     "duration": 235.41708300000028,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "saved People registers"
+     ],
+     "fullName": "saved People registers keeps HR cases private from directory viewers and makes announcement viewers read-only",
+     "status": "passed",
+     "title": "keeps HR cases private from directory viewers and makes announcement viewers read-only",
+     "duration": 245.8784169999999,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "saved People registers"
+     ],
+     "fullName": "saved People registers rejects deleting jobs with candidates and cross-company job references",
+     "status": "passed",
+     "title": "rejects deleting jobs with candidates and cross-company job references",
+     "duration": 206.85070799999994,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "domain rules"
+     ],
+     "fullName": "domain rules requires a measurable goal with an employee and 100% to complete",
+     "status": "passed",
+     "title": "requires a measurable goal with an employee and 100% to complete",
+     "duration": 0.564249999999447,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "domain rules"
+     ],
+     "fullName": "domain rules requires an employee for an assigned asset and a resolution for closed cases",
+     "status": "passed",
+     "title": "requires an employee for an assigned asset and a resolution for closed cases",
+     "duration": 0.1547499999996944,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "domain rules"
+     ],
+     "fullName": "domain rules rejects event and benefit date ranges in reverse order",
+     "status": "passed",
+     "title": "rejects event and benefit date ranges in reverse order",
+     "duration": 0.13295800000014424,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    }
+   ],
+   "startTime": 1792792535217,
+   "endTime": 1792792541714.1548,
+   "status": "passed",
+   "message": "",
+   "name": "src/__tests__/peopleWorkspace.test.ts"
+  },
+  {
+   "assertionResults": [
+    {
+     "ancestorTitles": [
+      "a tenant cannot reach another tenant by asking for its org"
+     ],
+     "fullName": "a tenant cannot reach another tenant by asking for its org refuses a session pointed at an org it is not a member of",
+     "status": "passed",
+     "title": "refuses a session pointed at an org it is not a member of",
+     "duration": 5.443333000000166,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "a tenant cannot reach another tenant by asking for its org"
+     ],
+     "fullName": "a tenant cannot reach another tenant by asking for its org refuses even when the caller keeps its own branch header",
+     "status": "passed",
+     "title": "refuses even when the caller keeps its own branch header",
+     "duration": 18.623458000000028,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "a membership row that names the wrong account"
+     ],
+     "fullName": "a membership row that names the wrong account does not open a company that account does not own",
+     "status": "passed",
+     "title": "does not open a company that account does not own",
+     "duration": 8.307291999999961,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "a tenant cannot reach another tenant's records through its own org"
+     ],
+     "fullName": "a tenant cannot reach another tenant's records through its own org refuses when it reads another tenant's invoice",
+     "status": "passed",
+     "title": "refuses when it reads another tenant's invoice",
+     "duration": 163.13049999999998,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "a tenant cannot reach another tenant's records through its own org"
+     ],
+     "fullName": "a tenant cannot reach another tenant's records through its own org refuses when it edits another tenant's invoice",
+     "status": "passed",
+     "title": "refuses when it edits another tenant's invoice",
+     "duration": 112.15587500000015,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "a tenant cannot reach another tenant's records through its own org"
+     ],
+     "fullName": "a tenant cannot reach another tenant's records through its own org refuses when it changes the status of another tenant's invoice",
+     "status": "passed",
+     "title": "refuses when it changes the status of another tenant's invoice",
+     "duration": 124.34983300000022,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "a tenant cannot reach another tenant's records through its own org"
+     ],
+     "fullName": "a tenant cannot reach another tenant's records through its own org refuses when it deletes another tenant's invoice",
+     "status": "passed",
+     "title": "refuses when it deletes another tenant's invoice",
+     "duration": 109.78462500000023,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "a tenant cannot reach another tenant's records through its own org"
+     ],
+     "fullName": "a tenant cannot reach another tenant's records through its own org refuses when it edits another tenant's warehouse",
+     "status": "passed",
+     "title": "refuses when it edits another tenant's warehouse",
+     "duration": 25.131582999999864,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "a tenant cannot reach another tenant's records through its own org"
+     ],
+     "fullName": "a tenant cannot reach another tenant's records through its own org refuses when it deletes another tenant's warehouse",
+     "status": "passed",
+     "title": "refuses when it deletes another tenant's warehouse",
+     "duration": 10.980457999999999,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "a tenant cannot reach another tenant's records through its own org"
+     ],
+     "fullName": "a tenant cannot reach another tenant's records through its own org refuses when it edits another tenant's branch",
+     "status": "passed",
+     "title": "refuses when it edits another tenant's branch",
+     "duration": 22.012083000000075,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "a tenant cannot reach another tenant's records through its own org"
+     ],
+     "fullName": "a tenant cannot reach another tenant's records through its own org refuses when it deletes another tenant's branch",
+     "status": "passed",
+     "title": "refuses when it deletes another tenant's branch",
+     "duration": 8.373458999999912,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "a tenant cannot reach another tenant's records through its own org"
+     ],
+     "fullName": "a tenant cannot reach another tenant's records through its own org refuses when it edits another tenant's role",
+     "status": "passed",
+     "title": "refuses when it edits another tenant's role",
+     "duration": 26.616791999999805,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "a tenant cannot reach another tenant's records through its own org"
+     ],
+     "fullName": "a tenant cannot reach another tenant's records through its own org leaves the other tenant's records exactly as they were",
+     "status": "passed",
+     "title": "leaves the other tenant's records exactly as they were",
+     "duration": 2.3047080000001188,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "listings never carry another tenant"
+     ],
+     "fullName": "listings never carry another tenant lists only its own invoices",
+     "status": "passed",
+     "title": "lists only its own invoices",
+     "duration": 107.20304100000021,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    }
+   ],
+   "startTime": 1792792548981,
+   "endTime": 1792792549726.2031,
+   "status": "passed",
+   "message": "",
+   "name": "src/__tests__/tenantIsolation.test.ts"
+  },
+  {
+   "assertionResults": [
+    {
+     "ancestorTitles": [
+      "the request scope tells the database its company"
+     ],
+     "fullName": "the request scope tells the database its company narrows a query with no orgId filter to the company in scope",
+     "status": "passed",
+     "title": "narrows a query with no orgId filter to the company in scope",
+     "duration": 1.383916999999883,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "the request scope tells the database its company"
+     ],
+     "fullName": "the request scope tells the database its company holds when the callback returns the query without awaiting it",
+     "status": "passed",
+     "title": "holds when the callback returns the query without awaiting it",
+     "duration": 1.5982500000000073,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "the request scope tells the database its company"
+     ],
+     "fullName": "the request scope tells the database its company cannot reach another company by id",
+     "status": "passed",
+     "title": "cannot reach another company by id",
+     "duration": 1.4364580000001297,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "the request scope tells the database its company"
+     ],
+     "fullName": "the request scope tells the database its company holds inside an interactive transaction",
+     "status": "passed",
+     "title": "holds inside an interactive transaction",
+     "duration": 1.2711659999999938,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "the request scope tells the database its company"
+     ],
+     "fullName": "the request scope tells the database its company holds in a batch transaction and returns the batch results only",
+     "status": "passed",
+     "title": "holds in a batch transaction and returns the batch results only",
+     "duration": 1.2459579999999733,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "the request scope tells the database its company"
+     ],
+     "fullName": "the request scope tells the database its company holds for raw SQL",
+     "status": "passed",
+     "title": "holds for raw SQL",
+     "duration": 0.446666999999934,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "the request scope tells the database its company"
+     ],
+     "fullName": "the request scope tells the database its company does not leak the setting to a query outside the scope",
+     "status": "passed",
+     "title": "does not leak the setting to a query outside the scope",
+     "duration": 0.622957999999926,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "the request scope tells the database its company"
+     ],
+     "fullName": "the request scope tells the database its company caps a request query in time, and only inside the request",
+     "status": "passed",
+     "title": "caps a request query in time, and only inside the request",
+     "duration": 1.1163750000000618,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "the request scope tells the database its company"
+     ],
+     "fullName": "the request scope tells the database its company crosses companies only through outsideTenant",
+     "status": "passed",
+     "title": "crosses companies only through outsideTenant",
+     "duration": 0.9353750000000218,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    },
+    {
+     "ancestorTitles": [
+      "the request scope tells the database its company"
+     ],
+     "fullName": "the request scope tells the database its company scopes a real request: another company id in the header is refused, own data only",
+     "status": "passed",
+     "title": "scopes a real request: another company id in the header is refused, own data only",
+     "duration": 18.86887499999989,
+     "failureMessages": [],
+     "meta": {},
+     "tags": []
+    }
+   ],
+   "startTime": 1792792553978,
+   "endTime": 1792792554006.869,
+   "status": "passed",
+   "message": "",
+   "name": "src/__tests__/tenantScope.test.ts"
+  }
+ ]
+}

@@ -36,6 +36,15 @@ import { payrollEmployeesRouter } from './routes/payrollEmployees.js';
 import { payrollSettlementsRouter } from './routes/payrollSettlements.js';
 import { payrollTaxDeclarationsRouter } from './routes/payrollTaxDeclarations.js';
 import { peopleRouter } from './routes/people.js';
+import { peopleApprovalsRouter } from './routes/peopleApprovals.js';
+import { peopleTaskLinksRouter } from './routes/peopleTaskLinks.js';
+import { peopleJoinRouter } from './routes/peopleJoin.js';
+import { peopleInvitesRouter } from './routes/peopleInvites.js';
+import { peopleLettersRouter } from './routes/peopleLetters.js';
+import { peoplePoliciesRouter } from './routes/peoplePolicies.js';
+import { peopleDeskRouter } from './routes/peopleDesk.js';
+import { peoplePortalRouter } from './routes/peoplePortal.js';
+import { registerPeopleEffects } from './services/people/approvals/effects.js';
 import { peopleWorkspaceRouter } from './routes/peopleWorkspace.js';
 import { attendanceRouter } from './routes/attendance.js';
 import { attendanceInsightsRouter } from './routes/attendanceInsights.js';
@@ -101,6 +110,8 @@ import { webIdempotency } from './middleware/idempotency.js';
 import { beginRequestScope } from './utils/tenantScope.js';
 
 export function buildApp() {
+  /* What an approved People request does (services/people/approvals/effects.ts); idempotent. */
+  registerPeopleEffects();
   const app = express();
   /* First: every request runs in a strict tenant scope until it names its company (A-35, utils/tenantScope.ts). */
   app.use(beginRequestScope);
@@ -333,10 +344,15 @@ export function buildApp() {
   /* Every staff change goes in the audit log (middleware/auditMutations.ts; A-50, A-51). */
   app.use(auditMutations);
   app.use('/api', sharePublicRouter);
+  /* The done link in a task e-mail: signed, no session; before the routers that demand one. */
+  app.use('/api', peopleTaskLinksRouter);
+  app.use('/api', peopleJoinRouter);
 
   /* The employee portal: its own sign-in (company + employee code), no CLOR
      user and no tenant headers — so, like the two above, before the routers
      that require both. */
+  /* People's own employee-facing routes first: the portal router answers every other /api/portal path itself. */
+  app.use('/api/portal/people', peoplePortalRouter);
   app.use('/api/portal', portalRouter);
 
   /* CLOR operators setting a customer's subscription: a CLOR user with no
@@ -375,6 +391,11 @@ export function buildApp() {
   app.use('/api', payrollSettlementsRouter);
   app.use('/api', payrollTaxDeclarationsRouter);
   app.use('/api', peopleRouter);
+  app.use('/api', peopleApprovalsRouter);
+  app.use('/api', peopleInvitesRouter);
+  app.use('/api', peopleLettersRouter);
+  app.use('/api', peoplePoliciesRouter);
+  app.use('/api', peopleDeskRouter);
   app.use('/api', peopleWorkspaceRouter);
   app.use('/api', personnelRouter);
   app.use('/api', attendanceRouter);

@@ -2,7 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { CheckCheck, ChevronRight, Cake, Megaphone, UserMinus, UserPlus, Users } from 'lucide-react';
 
 import { EmptyState, PageHeader, SkeletonCard, StatTile } from '@ui/components/ui/Primitives';
-import { getOverview, getPeopleHome } from '@ui/personnel/api';
+import { getOverview, getPeopleHome, listMyTasks, updateChecklistTask } from '@ui/personnel/api';
+import { notify } from '@ui/components/ui/notify';
+import { formatDateIn } from '@ui/utils/dates';
 import { Avatar } from '@ui/personnel/Employees';
 import { HomeCheckIn } from '../timeOff/MyDays';
 
@@ -21,7 +23,18 @@ const greeting = () => {
 export default function PeopleOverview({ openScreen }) {
   const [data, setData] = useState(null);
   const [todos, setTodos] = useState(null);
+  const [tasks, setTasks] = useState(null);
   const [error, setError] = useState('');
+  const loadTasks = () => listMyTasks().then(setTasks).catch(() => setTasks([]));
+  const tick = async (t) => {
+    try {
+      await updateChecklistTask(t.id, { done: true });
+      setTasks((list) => (list || []).filter((x) => x.id !== t.id));
+      notify.success(`${t.title}: done.`);
+    } catch (e) {
+      notify.error(String(e?.message || 'Not saved.'));
+    }
+  };
 
   useEffect(() => {
     getOverview()
@@ -30,6 +43,7 @@ export default function PeopleOverview({ openScreen }) {
     getPeopleHome()
       .then(setTodos)
       .catch(() => setTodos([]));
+    loadTasks();
   }, []);
   const go = (screen) => () => openScreen?.(screen);
 
@@ -42,6 +56,23 @@ export default function PeopleOverview({ openScreen }) {
     <div className="space-y-6">
       <PageHeader entity="people" title={greeting()} description="What needs you today, then who works here." />
       <HomeCheckIn />
+
+      {tasks?.filter((t) => !t.done).length ? (
+        <section className="space-y-2" aria-labelledby="mytasks-h">
+          <h2 id="mytasks-h" className="ui-t-sec">Your tasks</h2>
+          <ul className="ui-card divide-y">
+            {tasks.filter((t) => !t.done).slice(0, 12).map((t) => (
+              <li key={t.id} className="flex items-start gap-3 p-3">
+                <input type="checkbox" className="mt-1" aria-label={`Done: ${t.title}`} onChange={() => tick(t)} />
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm">{t.title} <span className="ui-muted">· {t.employee?.name}</span></p>
+                  <p className="ui-caption">{t.kind.charAt(0)}{t.kind.slice(1).toLowerCase()}{t.dueDate ? ` · due ${formatDateIn(t.dueDate)}` : ''}{t.overdue ? <span className="ui-pill ui-pill-neg ml-2">Overdue</span> : null}</p>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
 
       <section className="space-y-2" aria-labelledby="todo-h">
         <h2 id="todo-h" className="ui-t-sec">To do</h2>

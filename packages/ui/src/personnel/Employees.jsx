@@ -6,9 +6,11 @@ import DocumentListShell from '@ui/components/list/DocumentListShell';
 import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';
 import Drawer from '@ui/components/ui/Drawer';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
+import { DOC_WHO_CAN_SEE, docWhoLabel } from './documentClassification';
 import { downloadCsvTemplate, parseCsv, readFileText } from '@ui/utils/csv';
 import { formatDateIn } from '@ui/utils/dates';
 import { hasApp } from '@platform/context';
+import { usePermissions } from '@ui/permissions/usePermissions';
 import {
   CHECKLIST_OWNER,
   LEAVING_TYPES,
@@ -23,13 +25,30 @@ import {
   listDocuments,
   uploadDocument,
   getDocument,
+  getLetterTemplates,
+  issueLetter,
+  listDocumentVersions,
+  replaceDocument,
+  requestLetter,
+  serviceCertificateDue,
   deleteDocument,
   listStructure,
   listTags,
   listContractors,
+  checkInvite,
+  createInvite,
+  getChangeImpact,
+  getJourney,
+  getWhy,
+  listEmployeeInvites,
   getChecklist,
   getEmployeeStatutory,
+  revealStatutory,
+  saveIdentity,
   getEmploymentHistory,
+  decideProbation,
+  getEmploymentEpisodes,
+  cancelScheduledChange,
   startChecklist,
   updateChecklistTask,
   rehireEmployee,
@@ -122,14 +141,14 @@ export default function Employees({ description = '' } = {}) {
   /* Status is a tab, counted on the client; the rest are asked of the server. */
   const [status, setStatus] = useState('ACTIVE');
   const [filters, setFilters] = useState({ q: '', departmentId: '', jobPositionId: '', employeeTypeId: '', tagId: '' });
-  const [lists, setLists] = useState({ departments: [], positions: [], roles: [], types: [], workTypes: [], tags: [], areas: [], contractors: [], units: [], grades: [], centres: [] });
+  const [lists, setLists] = useState({ departments: [], positions: [], roles: [], types: [], workTypes: [], tags: [], areas: [], contractors: [], units: [], grades: [], centres: [], establishments: [] });
   const [openId, setOpenId] = useState(null);
   const [editing, setEditing] = useState(null);
   const fileRef = useRef(null);
 
   const loadLists = useCallback(async () => {
     const withAttendance = hasApp('attendance');
-    const [departments, positions, roles, types, workTypes, tags, areas, contractors, units, grades, centres] = await Promise.all([
+    const [departments, positions, roles, types, workTypes, tags, areas, contractors, units, grades, centres, establishments] = await Promise.all([
       listStructure('departments'),
       listStructure('job-positions'),
       listStructure('job-roles'),
@@ -141,14 +160,23 @@ export default function Employees({ description = '' } = {}) {
       listStructure('business-units').catch(() => []),
       listStructure('grades').catch(() => []),
       listStructure('cost-centres').catch(() => []),
+      listStructure('establishments').catch(() => []),
     ]);
-    setLists({ departments, positions, roles, types, workTypes, tags, areas, contractors, units, grades, centres });
+    setLists({ departments, positions, roles, types, workTypes, tags, areas, contractors, units, grades, centres, establishments });
   }, []);
 
   const load = useCallback(async () => {
     try {
-      const res = await listEmployees({ ...filters, status: '', limit: 500 });
-      setAll(res?.employees || []);
+      /* Everyone, 500 a page, until the server's total is reached (CORE-01: no 500 cap). */
+      const first = await listEmployees({ ...filters, status: '', limit: 500, offset: 0 });
+      const rows = [...(first?.employees || [])];
+      const total = Number(first?.total || rows.length);
+      while (rows.length < total) {
+        const more = await listEmployees({ ...filters, status: '', limit: 500, offset: rows.length });
+        if (!more?.employees?.length) break;
+        rows.push(...more.employees);
+      }
+      setAll(rows);
       setError('');
     } catch (e) {
       setError(String(e?.message || 'Could not load employees.'));
@@ -385,7 +413,7 @@ export default function Employees({ description = '' } = {}) {
         <EmployeeForm
           initial={editing}
           lists={lists}
-          people={rows}
+          people={all}
           onClose={() => setEditing(null)}
           onSaved={(saved) => {
             setEditing(null);
@@ -409,7 +437,11 @@ const Field = ({ label, value }) => (
 
 function EmployeeFile({ id, onClose, onEdit, onDeleted }) {
   const [person, setPerson] = useState(null);
+  const perms = usePermissions();
+  const allowed = (key) => Boolean(perms?.isAdmin || perms?.permissions?.has?.(key));
   const [resigning, setResigning] = useState(false);
+  const [inviting, setInviting] = useState(false);
+  const [inviteSeq, setInviteSeq] = useState(0);
   const [tab, setTab] = useState('about');
   const [notes, setNotes] = useState([]);
   const [draft, setDraft] = useState('');
@@ -418,7 +450,7 @@ function EmployeeFile({ id, onClose, onEdit, onDeleted }) {
     if (!id) return undefined;
     let cancelled = false;
     getEmployee(id)
-      .then((r) => !cancelled && setPerson(r.employee))
+      .then((r) => !cancelled && setPerson({ ...r.employee, scheduledChanges: r.scheduledChanges || [], permits: r.permits || [] }))
       .catch((e) => notify.error(String(e?.message || 'Could not open that file.')));
     return () => {
       cancelled = true;
@@ -446,11 +478,41 @@ function EmployeeFile({ id, onClose, onEdit, onDeleted }) {
     }
   };
 
-  const rehire = async () => {
-    const ok = await confirmDialog({ title: `Rehire ${person.name}?`, message: 'They become active again and are put back on every reader. Fingerprints and faces were deleted when they left, so they enrol again.', confirmLabel: 'Rehire', tone: 'primary' });
+  const [rejoinDate, setRejoinDate] = useState('');
+  const [extendTo, setExtendTo] = useState('');
+  /* Probation (LIFE-03): confirm, or extend to a later date; with a rule it becomes a request. */
+  const probation = async (outcome) => {
+    const ok = await confirmDialog({ title: outcome === 'CONFIRM' ? `Confirm ${person.name} after probation?` : `Extend ${person.name}'s probation to ${formatDateIn(extendTo)}?`, message: outcome === 'CONFIRM' ? 'The confirmation date goes on their record and history, and they are told.' : 'The new end date goes on their record and history, and they are told.', confirmLabel: outcome === 'CONFIRM' ? 'Confirm' : 'Extend', tone: 'primary' });
     if (!ok) return;
     try {
-      const r = await rehireEmployee(person.id);
+      const r = await decideProbation(person.id, outcome === 'CONFIRM' ? { outcome } : { outcome, newEndDate: extendTo });
+      if (r.request) notify.success(`Sent for approval: ${r.request.title}.`);
+      else {
+        notify.success(outcome === 'CONFIRM' ? `${person.name} confirmed.` : `Probation now ends ${formatDateIn(extendTo)}.`);
+        setPerson((x) => ({ ...x, ...(r.applied || {}) }));
+      }
+      setExtendTo('');
+    } catch (e) {
+      notify.error(String(e?.message || 'Not saved.'));
+    }
+  };
+  const withdrawChange = async (c) => {
+    if (!(await confirmDialog({ title: `Withdraw the change on ${formatDateIn(c.effectiveOn)}?`, message: `${SCHEDULED_LABELS[c.field] || c.field} stays ${c.fromLabel || 'as it is'}.`, confirmLabel: 'Withdraw' }))) return;
+    try {
+      await cancelScheduledChange(person.id, c.id);
+      setPerson((x) => ({ ...x, scheduledChanges: (x.scheduledChanges || []).filter((y) => y.id !== c.id) }));
+      notify.success('Withdrawn.');
+    } catch (e) {
+      notify.error(String(e?.message || 'Not withdrawn.'));
+    }
+  };
+  const rehire = async () => {
+    if (!rejoinDate) return notify.error('Give the rejoin date first.');
+    if (person.dateOfLeaving && rejoinDate <= person.dateOfLeaving) return notify.error(`The rejoin date must be after their last day, ${person.dateOfLeaving}.`);
+    const ok = await confirmDialog({ title: `Rehire ${person.name} from ${formatDateIn(rejoinDate)}?`, message: `A new stint starts on that date; their first joining date (${person.firstJoiningDate ? formatDateIn(person.firstJoiningDate) : 'on file'}) stays. They become active again and are put back on every reader; fingerprints and faces were deleted when they left, so they enrol again.`, confirmLabel: 'Rehire', tone: 'primary' });
+    if (!ok) return;
+    try {
+      const r = await rehireEmployee(person.id, { rejoinDate });
       notify.success(r.readers ? `${person.name} is back, and on ${r.readers} reader${r.readers === 1 ? '' : 's'}.` : `${person.name} is back.`);
       setPerson((x) => ({ ...x, ...r.employee }));
       onDeleted();
@@ -487,15 +549,35 @@ function EmployeeFile({ id, onClose, onEdit, onDeleted }) {
               <Trash2 size={16} aria-hidden="true" /> Delete
             </button>
             {person.status === 'LEFT' ? (
-              <button type="button" className="ui-btn ui-btn-secondary" onClick={rehire}>Rehire</button>
+              <>
+                <label className="flex items-center gap-1.5 text-sm">Rejoin on
+                  <input type="date" className="ui-input" style={{ width: 'auto' }} value={rejoinDate} min={person.dateOfLeaving || undefined} onChange={(e) => setRejoinDate(e.target.value)} aria-label="Rejoin date" />
+                </label>
+                <button type="button" className="ui-btn ui-btn-secondary" onClick={rehire}>Rehire</button>
+              </>
             ) : (
-              <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setResigning(true)}>Record leaving</button>
+              <>
+                {allowed('PEOPLE::Lifecycle::CREATE') ? (
+                  <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setInviting(true)}>Invite to fill in</button>
+                ) : null}
+                <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setResigning(true)}>Record leaving</button>
+              </>
             )}
             <button type="button" className="ui-btn ui-btn-primary" onClick={() => onEdit(person)}>Edit</button>
           </>
         ) : null
       }
     >
+      {inviting && person ? (
+        <InviteForm
+          person={person}
+          onClose={() => setInviting(false)}
+          onDone={() => {
+            setInviting(false);
+            setInviteSeq((n) => n + 1);
+          }}
+        />
+      ) : null}
       {resigning && person ? (
         <ResignForm
           person={person}
@@ -516,6 +598,12 @@ function EmployeeFile({ id, onClose, onEdit, onDeleted }) {
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-1.5">
                 <span className={`ui-pill ${statusOf(person.status).pill}`}>{statusOf(person.status).label}</span>
+                {/* A lapsed or soon-to-lapse permit is said on the record (LIFE-08); other apps are not stopped by it. */}
+                {(person.permits || []).filter((p) => p.daysLeft <= 30).map((p) => (
+                  <span key={p.id} className={`ui-pill ${p.expired ? 'ui-pill-neg' : 'ui-pill-warn'}`} title={p.restrictsWork ? `Until renewed, may not: ${p.restrictsWork}` : undefined}>
+                    {p.expired ? `${p.title} expired ${p.expiresOn}` : `${p.title} expires in ${p.daysLeft} day${p.daysLeft === 1 ? '' : 's'}`}
+                  </span>
+                ))}
                 {(person.tags || []).map((t) => (
                   <span key={t.id} className="ui-pill" style={{ backgroundColor: `${t.color}22`, color: t.color }}>{t.name}</span>
                 ))}
@@ -529,9 +617,11 @@ function EmployeeFile({ id, onClose, onEdit, onDeleted }) {
               ['about', 'About'],
               ['work', 'Work'],
               ['history', 'History'],
+              ['journey', 'Journey'],
               ['checklist', 'Checklist'],
-              ['notes', 'Notes'],
-              ['documents', 'Documents'],
+              /* A tab shows only to someone who may read what is on it (CORE-05). */
+              ...(allowed('PEOPLE::Employee Notes::VIEW') ? [['notes', 'Notes']] : []),
+              ...(allowed('PEOPLE::Documents::VIEW') ? [['documents', 'Documents']] : []),
             ].map(([k, label]) => (
               <button
                 key={k}
@@ -561,6 +651,9 @@ function EmployeeFile({ id, onClose, onEdit, onDeleted }) {
               />
             </dl>
           ) : null}
+          {tab === 'about' && allowed('PEOPLE::Lifecycle::VIEW') ? (
+            <JoiningDetails key={inviteSeq} person={person} onChecked={(p) => setPerson((x) => ({ ...x, ...p }))} />
+          ) : null}
 
           {tab === 'work' ? (
             <>
@@ -570,9 +663,11 @@ function EmployeeFile({ id, onClose, onEdit, onDeleted }) {
               <Field label="Department" value={person.department} />
               <Field label="Designation" value={person.designation} />
               <Field label="Grade" value={person.gradeName} />
+              <Field label="Establishment" value={person.establishment ? `${person.establishment}${person.workState ? ` (${person.workState})` : ''}` : null} />
               <Field label="Location" value={person.areaName} />
               <Field label="Cost centre" value={person.costCenterName} />
               <Field label="Reports to" value={person.reportingManagerName} />
+              <Field label="Also reports to" value={person.dottedManagerName} />
               <Field label="Work email" value={person.workEmail} />
               <Field label="Work phone" value={person.workPhone} />
               <Field label="Work location" value={person.workLocation} />
@@ -587,8 +682,33 @@ function EmployeeFile({ id, onClose, onEdit, onDeleted }) {
                   <Field label="Father’s / husband’s name" value={person.guardianName} />
                 </>
               ) : null}
-              <Field label="Joined" value={person.dateOfJoining} />
-              <Field label="Probation ends" value={person.probationEndDate} />
+              <Field label={person.currentEpisodeSeq > 1 ? `Joined (stint ${person.currentEpisodeSeq})` : 'Joined'} value={person.dateOfJoining} />
+              {person.currentEpisodeSeq > 1 && person.firstJoiningDate ? <Field label="First joined" value={person.firstJoiningDate} /> : null}
+              {person.scheduledChanges?.length ? (
+                <div className="sm:col-span-2">
+                  <dt className="ui-t-label">Changes on</dt>
+                  <dd className="mt-1 space-y-1">
+                    {person.scheduledChanges.map((c) => (
+                      <div key={c.id} className="text-sm flex flex-wrap items-center gap-2">
+                        <span className="tabular-nums">{formatDateIn(c.effectiveOn)}</span>
+                        <span>{SCHEDULED_LABELS[c.field] || c.field}: <span className="ui-muted">{c.fromLabel || 'None'}</span> → <strong>{c.toLabel || 'None'}</strong></span>
+                        {c.reason ? <span className="ui-caption">{c.reason}</span> : null}
+                        <button type="button" className="ui-link" onClick={() => withdrawChange(c)}>Withdraw</button>
+                      </div>
+                    ))}
+                  </dd>
+                </div>
+              ) : null}
+              <Field label={person.confirmedOn ? 'Confirmed on' : 'Probation ends'} value={person.confirmedOn || person.probationEndDate} />
+              {person.probationEndDate && !person.confirmedOn && person.status !== 'LEFT' && allowed('PEOPLE::Lifecycle::APPROVE') ? (
+                <div className="sm:col-span-2 flex flex-wrap items-center gap-2">
+                  <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => probation('CONFIRM')}>Confirm after probation</button>
+                  <label className="flex items-center gap-1.5 text-sm">Extend to
+                    <input type="date" className="ui-input" style={{ width: 'auto' }} value={extendTo} min={person.probationEndDate} onChange={(e) => setExtendTo(e.target.value)} aria-label="New probation end date" />
+                  </label>
+                  <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={!extendTo} onClick={() => probation('EXTEND')}>Extend</button>
+                </div>
+              ) : null}
               <Field label="Contract ends" value={person.contractEndDate} />
               <Field label="Left" value={person.dateOfLeaving ? `${person.dateOfLeaving}${person.leavingType ? ` · ${LEAVING_TYPES[person.leavingType] || person.leavingType}` : ''}${person.leavingReason ? ` — ${person.leavingReason}` : ''}` : null} />
               <div className="sm:col-span-2">
@@ -644,6 +764,7 @@ function EmployeeFile({ id, onClose, onEdit, onDeleted }) {
           ) : null}
           {tab === 'documents' ? <EmployeeDocuments employeeId={id} /> : null}
           {tab === 'history' ? <EmploymentHistory employeeId={id} /> : null}
+          {tab === 'journey' ? <Journey employeeId={id} /> : null}
           {tab === 'checklist' ? <EmployeeChecklist person={person} /> : null}
         </div>
       )}
@@ -654,7 +775,11 @@ function EmployeeFile({ id, onClose, onEdit, onDeleted }) {
 // ---------------------------------------------------------------------------
 
 /* The fields whose change is recorded in employment history (server: TRACKED in services/people/employmentHistory.ts). */
-const HISTORY_FIELDS = ['businessUnitId', 'gradeId', 'costCenterId', 'departmentId', 'areaId', 'state', 'jobPositionId', 'jobRoleId', 'reportingManagerId', 'employeeTypeId', 'workTypeId', 'contractorId'];
+/* The job fields a change may be dated for, as the record names them (server: SCHEDULABLE_FIELDS). */
+const SCHEDULED_LABELS = { departmentId: 'Department', businessUnitId: 'Business unit', areaId: 'Location', branchId: 'Branch', establishmentId: 'Establishment', jobPositionId: 'Designation', jobRoleId: 'Job role', reportingManagerId: 'Reports to', dottedManagerId: 'Also reports to', employeeTypeId: 'Employee type', workTypeId: 'Work type', contractorId: 'Contractor', gradeId: 'Grade', costCenterId: 'Cost centre', status: 'Status' };
+/* How each line of the impact list lands: a review task on the record, an app told through an event, or a note. */
+const IMPACT_TARGET = { TASK: 'review task for HR', TOLD: 'told automatically', INFO: 'for information' };
+const HISTORY_FIELDS = ['businessUnitId', 'gradeId', 'costCenterId', 'departmentId', 'areaId', 'establishmentId', 'jobPositionId', 'jobRoleId', 'reportingManagerId', 'dottedManagerId', 'employeeTypeId', 'workTypeId', 'contractorId'];
 const HISTORY_SOURCE = { FORM: 'Employee form', TRANSFER: 'Transfer', RESIGNATION: 'Resignation', REHIRE: 'Rehire', IMPORT: 'Import' };
 const HISTORY_TONE = { JOINED: 'pos', LEFT: 'neg', REHIRED: 'pos', TRANSFERRED: 'warn', CHANGED: 'neutral' };
 
@@ -665,9 +790,11 @@ const HISTORY_TONE = { JOINED: 'pos', LEFT: 'neg', REHIRED: 'pos', TRANSFERRED: 
  */
 function EmploymentHistory({ employeeId }) {
   const [events, setEvents] = useState(null);
+  const [episodes, setEpisodes] = useState([]);
   useEffect(() => {
     let live = true;
     getEmploymentHistory(employeeId).then((e) => live && setEvents(e)).catch(() => live && setEvents([]));
+    getEmploymentEpisodes(employeeId).then((e) => live && setEpisodes(e)).catch(() => live && setEpisodes([]));
     return () => {
       live = false;
     };
@@ -675,6 +802,18 @@ function EmploymentHistory({ employeeId }) {
   if (!events) return <SkeletonCard lines={4} />;
   if (!events.length) return <p className="ui-muted text-sm">No history yet. Changes to department, location, designation, manager, type and leaving are recorded here from now on.</p>;
   return (
+    <>
+    {episodes.length > 1 ? (
+      <ol className="space-y-1 mb-3" aria-label="Stints">
+        {episodes.map((st) => (
+          <li key={st.seq} className="text-sm flex flex-wrap items-center gap-2">
+            <span className={`ui-pill ${st.current ? 'ui-pill-pos' : 'ui-pill-neutral'}`}>Stint {st.seq}</span>
+            <span className="tabular-nums">{formatDateIn(st.startDate)} – {st.endDate ? formatDateIn(st.endDate) : 'now'}</span>
+            {st.endType ? <span className="ui-caption">{st.endType.replaceAll('_', ' ').toLowerCase()}{st.endReason ? ` · ${st.endReason}` : ''}</span> : null}
+          </li>
+        ))}
+      </ol>
+    ) : null}
     <ol className="space-y-3" aria-label="Employment history">
       {events.map((e) => (
         <li key={e.id} className="ui-card p-3 space-y-1">
@@ -695,6 +834,107 @@ function EmploymentHistory({ employeeId }) {
         </li>
       ))}
     </ol>
+    </>
+  );
+}
+
+const JOURNEY_TONE = { APPROVED: 'pos', SCHEDULED: 'info', SELF: 'info', CHANGE: 'neutral', HISTORY: 'neutral' };
+const JOURNEY_KIND = { APPROVED: 'Approved', SCHEDULED: 'Scheduled', SELF: 'Self-service', CHANGE: 'Change', HISTORY: 'History' };
+const whenAt = (d) => new Date(d).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' });
+
+/**
+ * The journey (CORE-06): every change in order, grouped by stint, each with
+ * a Why? that opens what changed, when, who asked, who approved, which rule
+ * version, the evidence, and what it set off — or says what is not known.
+ */
+function Journey({ employeeId }) {
+  const [data, setData] = useState(null);
+  const [why, setWhy] = useState(null);
+  useEffect(() => {
+    let live = true;
+    getJourney(employeeId).then((d) => live && setData(d)).catch(() => live && setData({ episodes: [], entries: [] }));
+    return () => { live = false; };
+  }, [employeeId]);
+  if (!data) return <SkeletonCard lines={4} />;
+  if (!data.entries.length) return <p className="ui-muted text-sm">Nothing yet. Every change from now on is listed here with its reasons.</p>;
+  const stints = [...new Set(data.entries.map((e) => e.stint))].sort((a, b) => b - a);
+  const open = async (e) => {
+    try {
+      setWhy({ loading: true, entry: e });
+      setWhy({ entry: e, why: await getWhy(employeeId, e.key) });
+    } catch (err) {
+      setWhy(null);
+      notify.error(String(err?.message || 'Could not load.'));
+    }
+  };
+  return (
+    <div className="space-y-5">
+      {stints.map((seq) => {
+        const st = data.episodes.find((x) => x.seq === seq);
+        return (
+          <section key={seq} aria-label={`Stint ${seq}`} className="space-y-2">
+            {data.episodes.length > 1 || st ? <h3 className="text-sm font-semibold">Stint {seq}{st ? <span className="ui-caption font-normal"> · {formatDateIn(st.startDate)} – {st.endDate ? formatDateIn(st.endDate) : 'now'}</span> : null}</h3> : null}
+            <ol className="divide-y">
+              {data.entries.filter((e) => e.stint === seq).map((e) => (
+                <li key={e.key} className="py-2.5 flex flex-wrap items-start gap-2">
+                  <span className={`ui-pill ui-pill-${JOURNEY_TONE[e.kind] || 'neutral'}`}>{JOURNEY_KIND[e.kind] || e.kind}</span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium">{e.summary}</p>
+                    <p className="ui-caption">{whenAt(e.at)} · {e.how}{e.by ? ` · ${e.by}` : ''}{e.reason ? ` · ${e.reason}` : ''}</p>
+                    {e.changes.length ? (
+                      <ul className="ui-caption mt-0.5">
+                        {e.changes.slice(0, 4).map((c) => <li key={c.key}>{c.field}: {c.redacted ? 'changed (not shown)' : `${c.before || '—'} → ${c.after || '—'}`}</li>)}
+                        {e.changes.length > 4 ? <li>and {e.changes.length - 4} more</li> : null}
+                      </ul>
+                    ) : null}
+                  </div>
+                  <button type="button" className="ui-link text-sm" onClick={() => open(e)}>Why?</button>
+                </li>
+              ))}
+            </ol>
+          </section>
+        );
+      })}
+      {why ? (
+        <Drawer open onClose={() => setWhy(null)} title={why.entry.summary} description={`${whenAt(why.entry.at)} · ${why.entry.how}`}>
+          {!why.why ? <SkeletonCard lines={5} /> : <WhyPanel why={why.why} />}
+        </Drawer>
+      ) : null}
+    </div>
+  );
+}
+
+/** The seven things a reader asks, each either answered or said to be unknown (TRACE-01, 02). */
+const Row = ({ label, children }) => (
+  <div><dt className="ui-t-label">{label}</dt><dd className="mt-0.5 text-sm">{children}</dd></div>
+);
+function WhyPanel({ why }) {
+  return (
+    <dl className="space-y-4">
+      <Row label="What changed">
+        <ul>{why.what.map((c, i) => <li key={i}>{c.field}: {c.redacted ? <span className="ui-muted">changed (not shown)</span> : <><span className="ui-muted">{c.before || '—'}</span> → <strong>{c.after || '—'}</strong></>}</li>)}</ul>
+      </Row>
+      <Row label="When">{why.recordedAt ? `${formatDateIn(why.when)} (recorded ${whenAt(why.recordedAt)})` : whenAt(why.when)}</Row>
+      <Row label="Who asked">{why.askedBy || <span className="ui-muted">Not known</span>}</Row>
+      <Row label="Who approved">{why.approvedBy?.length ? why.approvedBy.join('; ') : <span className="ui-muted">Not known</span>}</Row>
+      <Row label="Rule">{why.rule ? `${why.rule.name}, version ${why.rule.version}` : <span className="ui-muted">No rule recorded</span>}{why.request ? <span className="ui-caption block">Request: {why.request.title} · {why.request.status.toLowerCase()}</span> : null}</Row>
+      {why.reason ? <Row label="Reason given">{why.reason}</Row> : null}
+      <Row label="Evidence">{why.evidence?.length ? <ul>{why.evidence.map((e) => <li key={e.id}>{e.title}</li>)}</ul> : <span className="ui-muted">None attached</span>}</Row>
+      <Row label="What it set off">
+        {why.downstream.events.length || why.downstream.tasks.length ? (
+          <ul>
+            {why.downstream.events.map((e) => <li key={e.id} className="font-mono text-xs">{e.name}{e.delivered ? ' · delivered' : ' · queued'}</li>)}
+            {why.downstream.tasks.map((t) => <li key={t.id}>Task: {t.title}{t.dueDate ? ` (due ${t.dueDate})` : ''}{t.doneAt ? ' · done' : ''}</li>)}
+          </ul>
+        ) : <span className="ui-muted">Nothing recorded</span>}
+      </Row>
+      {why.impact ? <Row label="Impact">{why.impact}</Row> : null}
+      {why.unknown?.length ? (
+        <Row label="Not known">
+          <ul className="ui-muted">{why.unknown.map((u) => <li key={u}>{u}</li>)}</ul>
+        </Row>
+      ) : null}
+    </dl>
   );
 }
 
@@ -746,7 +986,7 @@ function EmployeeChecklist({ person }) {
                 <div className="min-w-0 flex-1">
                   <p className={`text-sm ${t.done ? 'line-through ui-muted' : ''}`}>{t.title}</p>
                   <p className="ui-caption">
-                    {CHECKLIST_OWNER[t.owner] || t.owner}
+                    {t.ownerName ? `${t.ownerName} (${CHECKLIST_OWNER[t.owner] || t.owner})` : CHECKLIST_OWNER[t.owner] || t.owner}
                     {t.dueDate ? <span className={t.overdue ? 'text-[rgb(var(--neg))] font-medium' : ''}> · due {t.dueDate}{t.overdue ? ' (late)' : ''}</span> : null}
                     {t.done && t.doneBy ? ` · done by ${t.doneBy}` : ''}
                   </p>
@@ -768,6 +1008,9 @@ function EmployeeChecklist({ person }) {
     <div className="space-y-5">
       {section('JOINING', 'Joining', data.joining)}
       {person.status === 'LEFT' || data.leaving.total ? section('LEAVING', 'Leaving', data.leaving) : null}
+      {data.changes?.total ? section('CHANGE', 'Changes to review', data.changes) : null}
+      {data.probation?.total ? section('PROBATION', 'Probation', data.probation) : null}
+      {data.renewals?.total ? section('RENEWAL', 'Renewals', data.renewals) : null}
     </div>
   );
 }
@@ -778,6 +1021,10 @@ function EmployeeChecklist({ person }) {
  */
 function StatutoryDetails({ employeeId }) {
   const [d, setD] = useState(null);
+  const [shown, setShown] = useState({});
+  const [editing, setEditing] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const load = useCallback(() => getEmployeeStatutory(employeeId).then(setD).catch(() => setD({ visible: false })), [employeeId]);
   useEffect(() => {
     let live = true;
     getEmployeeStatutory(employeeId).then((x) => live && setD(x)).catch(() => live && setD({ visible: false }));
@@ -786,21 +1033,222 @@ function StatutoryDetails({ employeeId }) {
     };
   }, [employeeId]);
   if (!d?.visible) return null;
+  /* A full value shows for a minute and is logged on the server; the client asks for the authenticator code when the server wants one. */
+  const show = async (field) => {
+    try {
+      const value = await revealStatutory(employeeId, field);
+      setShown((x) => ({ ...x, [field]: value || '—' }));
+      setTimeout(() => setShown((x) => { const next = { ...x }; delete next[field]; return next; }), 60_000);
+    } catch (e) {
+      notify.error(String(e?.message || 'Not shown.'));
+    }
+  };
+  const Masked = ({ label, field, value }) => (
+    <div>
+      <dt className="ui-t-label">{label}</dt>
+      <dd className="mt-1 text-sm flex items-center gap-2">
+        <span className="tabular-nums">{shown[field] ?? (value || 'Not set')}</span>
+        {value && !shown[field] ? <button type="button" className="ui-link" onClick={() => show(field)}>Show</button> : null}
+      </dd>
+    </div>
+  );
+  const saveIdentityForm = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      await saveIdentity(employeeId, editing);
+      notify.success('Saved.');
+      setEditing(null);
+      load();
+    } catch (err) {
+      notify.error(String(err?.message || 'Not saved.'));
+    } finally {
+      setSaving(false);
+    }
+  };
+  const id = d.identity || {};
   return (
-    <section className="mt-5 space-y-2" aria-label="Statutory and bank">
-      <h3 className="text-sm font-semibold">Statutory &amp; bank <span className="ui-caption font-normal">from Payroll, last digits only</span></h3>
-      {d.inPayroll === false && !d.pan && !d.uan ? (
+    <section className="mt-5 space-y-3" aria-label="Statutory details">
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="text-sm font-semibold">Statutory details <span className="ui-caption font-normal">masked; a full value needs your authenticator code and is logged</span></h3>
+        {d.canEdit && !editing ? <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => setEditing({ aadhaarLast4: '', passportNumber: '', passportExpiry: id.passportExpiry || '', workPermitNumber: '', workPermitExpiry: id.workPermitExpiry || '', statutoryCategory: id.statutoryCategory || '', categoryFrom: id.categoryFrom || '' })}>Edit identifiers</button> : null}
+      </div>
+      {editing ? (
+        <form onSubmit={saveIdentityForm} className="ui-card p-3 grid gap-3 sm:grid-cols-2">
+          <label className="block"><span className="ui-label">Aadhaar, last 4 digits</span><input className="ui-input w-full" value={editing.aadhaarLast4} maxLength={4} inputMode="numeric" placeholder={id.aadhaarLast4 ? 'unchanged' : '9012'} onChange={(e) => setEditing({ ...editing, aadhaarLast4: e.target.value })} /></label>
+          <label className="block"><span className="ui-label">Statutory category</span>
+            <select className="ui-select w-full" value={editing.statutoryCategory} onChange={(e) => setEditing({ ...editing, statutoryCategory: e.target.value })}>
+              <option value="">— Not set —</option>
+              {[['WORKER', 'Worker'], ['SUPERVISOR', 'Supervisor'], ['MANAGER', 'Manager'], ['APPRENTICE', 'Apprentice'], ['CONTRACT', 'Contract']].map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+            </select>
+          </label>
+          <label className="block"><span className="ui-label">Passport number</span><input className="ui-input w-full" value={editing.passportNumber} placeholder={id.passportNumber ? 'unchanged' : 'A1234567'} onChange={(e) => setEditing({ ...editing, passportNumber: e.target.value.toUpperCase() })} /></label>
+          <label className="block"><span className="ui-label">Passport expiry</span><input type="date" className="ui-input w-full" value={editing.passportExpiry} onChange={(e) => setEditing({ ...editing, passportExpiry: e.target.value })} /></label>
+          <label className="block"><span className="ui-label">Work permit number</span><input className="ui-input w-full" value={editing.workPermitNumber} placeholder={id.workPermitNumber ? 'unchanged' : ''} onChange={(e) => setEditing({ ...editing, workPermitNumber: e.target.value.toUpperCase() })} /></label>
+          <label className="block"><span className="ui-label">Work permit expiry</span><input type="date" className="ui-input w-full" value={editing.workPermitExpiry} onChange={(e) => setEditing({ ...editing, workPermitExpiry: e.target.value })} /></label>
+          <label className="block"><span className="ui-label">Category from</span><input type="date" className="ui-input w-full" value={editing.categoryFrom} onChange={(e) => setEditing({ ...editing, categoryFrom: e.target.value })} /></label>
+          <div className="sm:col-span-2 flex justify-end gap-2">
+            <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => setEditing(null)}>Cancel</button>
+            <button type="submit" className="ui-btn ui-btn-primary ui-btn-sm" disabled={saving}>{saving ? 'Saving…' : 'Save'}</button>
+          </div>
+        </form>
+      ) : null}
+      <dl className="grid gap-4 sm:grid-cols-2">
+        <Field label="Aadhaar" value={id.aadhaarLast4} />
+        <Masked label="Passport" field="passportNumber" value={id.passportNumber} />
+        <Field label="Passport expiry" value={id.passportExpiry} />
+        <Masked label="Work permit" field="workPermitNumber" value={id.workPermitNumber} />
+        <Field label="Work permit expiry" value={id.workPermitExpiry} />
+        <Field label="Statutory category" value={id.statutoryCategory ? `${id.statutoryCategory.charAt(0)}${id.statutoryCategory.slice(1).toLowerCase()}${id.categoryFrom ? ` from ${id.categoryFrom}` : ''}` : null} />
+      </dl>
+      <h4 className="text-sm font-semibold mt-2">From Payroll</h4>
+      {d.inPayroll === false ? (
         <p className="ui-muted text-sm">Not set up in Payroll yet.</p>
       ) : (
         <dl className="grid gap-4 sm:grid-cols-2">
-          <Field label="PAN" value={d.pan} />
-          <Field label="UAN" value={d.uan} />
-          <Field label="ESIC number" value={d.esic} />
-          <Field label="Bank" value={[d.bank, d.account].filter(Boolean).join(' ')} />
+          <Masked label="PAN" field="pan" value={d.pan} />
+          <Masked label="UAN" field="uan" value={d.uan} />
+          <Masked label="ESIC number" field="esic" value={d.esic} />
+          <Masked label="Bank account" field="account" value={[d.bank, d.account].filter(Boolean).join(' ')} />
           <Field label="IFSC" value={d.ifsc} />
           <Field label="Covered by" value={[d.pf && 'PF', d.esi && 'ESI', d.pt && `PT (${d.pt})`].filter(Boolean).join(' · ')} />
         </dl>
       )}
+    </section>
+  );
+}
+
+/* What a joiner may fill in before day one (LIFE-01), as the server names it. */
+const JOINER_FIELDS = [
+  ['personalEmail', 'Personal email'], ['phone', 'Phone'], ['dateOfBirth', 'Date of birth'], ['gender', 'Gender'], ['maritalStatus', 'Marital status'],
+  ['addressLine', 'Address'], ['city', 'City'], ['state', 'State'], ['pincode', 'PIN code'], ['country', 'Country'],
+  ['emergencyContactName', 'Emergency contact'], ['emergencyContactPhone', 'Emergency contact phone'], ['emergencyContactRelation', 'Relation'], ['guardianName', 'Father’s / guardian’s name'],
+];
+const INVITE_STATUS = { SENT: 'Sent, not opened', STARTED: 'Opened, not sent back', RETURNED: 'Sent back — check it', CHECKED: 'Checked', EXPIRED: 'Ran out' };
+
+/** Invite someone about to join to fill in their own details (LIFE-01). By phone, HR is handed the link to send. */
+function InviteForm({ person, onClose, onDone }) {
+  const [form, setForm] = useState({ channel: person.email || person.personalEmail ? 'EMAIL' : 'SMS', sentTo: person.email || person.personalEmail || person.phone || '', message: '' });
+  const [saving, setSaving] = useState(false);
+  const [link, setLink] = useState('');
+  const save = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      const r = await createInvite(person.id, form);
+      if (r.link) {
+        setLink(r.link);
+        notify.success('Invite ready. Send the link by SMS or WhatsApp; it works once and runs out in 14 days.');
+      } else {
+        notify.success(`Invite e-mailed to ${form.sentTo}. It works once and runs out in 14 days.`);
+        onDone();
+      }
+    } catch (err) {
+      notify.error(String(err?.message || 'Not sent.'));
+    } finally {
+      setSaving(false);
+    }
+  };
+  return (
+    <Drawer
+      open
+      onClose={link ? onDone : onClose}
+      title={`Invite ${person.name} to fill in their details`}
+      description="They see only their own name and joining date, fill in personal details, upload documents and sign the declaration. What they send waits here until you check it."
+      actions={
+        link ? (
+          <button type="button" className="ui-btn ui-btn-primary" onClick={onDone}>Done</button>
+        ) : (
+          <>
+            <button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button>
+            <button type="submit" form="invite-form" className="ui-btn ui-btn-primary" disabled={saving}>{saving ? 'Sending…' : form.channel === 'EMAIL' ? 'Send invite' : 'Make the link'}</button>
+          </>
+        )
+      }
+    >
+      {link ? (
+        <div className="grid gap-3">
+          <p className="text-sm">Send this link to {form.sentTo}. It works once and runs out in 14 days.</p>
+          <input className="ui-input w-full font-mono text-xs" readOnly value={link} onFocus={(e) => e.target.select()} aria-label="Invite link" />
+          <button type="button" className="ui-btn ui-btn-secondary" onClick={() => navigator.clipboard?.writeText(link).then(() => notify.success('Copied.'))}>Copy link</button>
+        </div>
+      ) : (
+        <form id="invite-form" onSubmit={save} className="grid gap-4">
+          <label className="block">
+            <span className="ui-label">Send by</span>
+            <select className="ui-select w-full" value={form.channel} onChange={(e) => setForm({ ...form, channel: e.target.value, sentTo: e.target.value === 'EMAIL' ? person.email || person.personalEmail || '' : person.phone || '' })}>
+              <option value="EMAIL">Email (CLOR sends it)</option>
+              <option value="SMS">Phone (you send the link)</option>
+            </select>
+          </label>
+          <label className="block">
+            <span className="ui-label">{form.channel === 'EMAIL' ? 'Personal email *' : 'Phone *'}</span>
+            <input className="ui-input w-full" type={form.channel === 'EMAIL' ? 'email' : 'tel'} required value={form.sentTo} onChange={(e) => setForm({ ...form, sentTo: e.target.value })} />
+          </label>
+          <label className="block">
+            <span className="ui-label">Note to them (optional)</span>
+            <textarea className="ui-input w-full" rows={3} maxLength={2000} placeholder="What to bring on day one, which policies to read…" value={form.message} onChange={(e) => setForm({ ...form, message: e.target.value })} />
+          </label>
+        </form>
+      )}
+    </Drawer>
+  );
+}
+
+/** The invite on file and, once sent back, what the joiner typed beside what the record says — checked onto the record in one go. */
+function JoiningDetails({ person, onChecked }) {
+  const [invites, setInvites] = useState(null);
+  const [edits, setEdits] = useState({});
+  const [busy, setBusy] = useState(false);
+  const perms = usePermissions();
+  const allowed = (key) => Boolean(perms?.isAdmin || perms?.permissions?.has?.(key));
+  useEffect(() => {
+    let live = true;
+    listEmployeeInvites(person.id).then((list) => live && setInvites(list)).catch(() => live && setInvites([]));
+    return () => { live = false; };
+  }, [person.id]);
+  if (!invites?.length) return null;
+  const latest = invites[0];
+  const check = async () => {
+    setBusy(true);
+    try {
+      const r = await checkInvite(latest.id, { fields: edits });
+      notify.success(`${r.applied.length} detail${r.applied.length === 1 ? '' : 's'} saved on the record.`);
+      setInvites((list) => list.map((i) => (i.id === latest.id ? r.invite : i)));
+      onChecked(Object.fromEntries(JOINER_FIELDS.map(([k]) => [k, edits[k] !== undefined ? edits[k] : latest.submitted?.fields?.[k]]).filter(([, v]) => v !== undefined)));
+    } catch (err) {
+      notify.error(String(err?.message || 'Not saved.'));
+    } finally {
+      setBusy(false);
+    }
+  };
+  const sent = latest.submitted?.fields || {};
+  return (
+    <section className="space-y-2" aria-label="Joining details">
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="text-sm font-semibold">Before day one</h3>
+        <span className="ui-caption">{INVITE_STATUS[latest.status] || latest.status} · {latest.channel === 'EMAIL' ? 'e-mailed to' : 'link for'} {latest.sentTo} · {latest.status === 'SENT' || latest.status === 'STARTED' ? `runs out ${String(latest.expiresAt).slice(0, 10)}` : String(latest.returnedAt || latest.checkedAt || latest.createdAt).slice(0, 10)}</span>
+      </div>
+      {latest.status === 'RETURNED' ? (
+        <>
+          <p className="ui-caption">Sent, not checked. What they typed is on the right; correct anything before you save it to the record. {latest.submitted?.declarations?.policiesRead ? 'They confirmed reading the policies.' : 'They did not tick the policies box.'}{latest.submitted?.documentIds?.length ? ` ${latest.submitted.documentIds.length} document${latest.submitted.documentIds.length === 1 ? '' : 's'} added under Documents.` : ''}</p>
+          <table className="w-full text-sm">
+            <thead><tr className="ui-caption text-left"><th className="py-1 font-medium">Detail</th><th className="py-1 font-medium">On the record</th><th className="py-1 font-medium">They sent</th></tr></thead>
+            <tbody className="divide-y">
+              {JOINER_FIELDS.filter(([k]) => sent[k] !== undefined).map(([k, label]) => (
+                <tr key={k}>
+                  <td className="py-1.5 pr-2 ui-muted">{label}</td>
+                  <td className="py-1.5 pr-2">{person[k] || <span className="ui-muted">—</span>}</td>
+                  <td className="py-1.5"><input className="ui-input w-full" value={edits[k] !== undefined ? edits[k] : sent[k] || ''} onChange={(e) => setEdits({ ...edits, [k]: e.target.value })} aria-label={label} /></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {allowed('PEOPLE::Lifecycle::EDIT') ? (
+            <div className="flex justify-end"><button type="button" className="ui-btn ui-btn-primary ui-btn-sm" disabled={busy} onClick={check}>{busy ? 'Saving…' : 'Check and save to the record'}</button></div>
+          ) : null}
+        </>
+      ) : null}
     </section>
   );
 }
@@ -870,6 +1318,8 @@ const shrinkPhoto = (file) =>
 function EmployeeForm({ initial, lists, people, onClose, onSaved }) {
   const [form, setForm] = useState(() => ({ ...initial }));
   const [saving, setSaving] = useState(false);
+  /* The same person twice (CORE-02): the server names who already has this email, phone or ID; saving anyway needs a reason. */
+  const [dupes, setDupes] = useState(null);
 
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e?.target ? e.target.value : e }));
   const positions = useMemo(
@@ -884,6 +1334,16 @@ function EmployeeForm({ initial, lists, people, onClose, onSaved }) {
   /* A change to where or how someone works goes into their employment history: from when, and why. */
   const today = new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
   const moved = Boolean(form.id) && HISTORY_FIELDS.some((k) => (form[k] || '') !== (initial[k] || ''));
+  /* What else the change affects (LIFE-04): the state's rules, and which apps are told. Asked as the fields change, before anything is saved. */
+  const [impact, setImpact] = useState([]);
+  const impactKey = ['establishmentId', 'departmentId', 'reportingManagerId'].filter((k) => (form[k] || '') !== (initial[k] || '')).map((k) => `${k}=${form[k] || ''}`).join('&');
+  useEffect(() => {
+    if (!form.id || !impactKey) { setImpact([]); return undefined; }
+    let live = true;
+    const fields = Object.fromEntries(impactKey.split('&').map((pair) => pair.split('=')));
+    getChangeImpact(form.id, fields).then((list) => live && setImpact(list)).catch(() => live && setImpact([]));
+    return () => { live = false; };
+  }, [form.id, impactKey]);
 
   const save = async (e) => {
     e.preventDefault();
@@ -892,8 +1352,8 @@ function EmployeeForm({ initial, lists, people, onClose, onSaved }) {
       'name', 'firstName', 'lastName', 'code', 'email', 'phone', 'status', 'dateOfJoining', 'dateOfLeaving', 'gender', 'dateOfBirth',
       'maritalStatus', 'personalEmail', 'photoUrl', 'addressLine', 'city', 'state', 'country', 'pincode', 'emergencyContactName',
       'emergencyContactPhone', 'emergencyContactRelation', 'departmentId', 'jobPositionId', 'jobRoleId', 'employeeTypeId', 'workTypeId',
-      'reportingManagerId', 'workEmail', 'workPhone', 'workLocation', 'devicePin', 'probationEndDate', 'contractEndDate', 'tagIds',
-      'areaId', 'contractorId', 'businessUnitId', 'gradeId', 'costCenterId', 'cardNumber', 'devicePrivilege', 'attendanceRequired', 'guardianName',
+      'reportingManagerId', 'dottedManagerId', 'workEmail', 'workPhone', 'workLocation', 'devicePin', 'probationEndDate', 'contractEndDate', 'tagIds',
+      'areaId', 'establishmentId', 'contractorId', 'businessUnitId', 'gradeId', 'costCenterId', 'cardNumber', 'devicePrivilege', 'attendanceRequired', 'guardianName',
     ];
     const body = Object.fromEntries(keys.filter((k) => form[k] !== undefined).map((k) => [k, form[k] === '' ? null : form[k]]));
     /* The reader PIN is write-only: sent only when typed. */
@@ -902,11 +1362,16 @@ function EmployeeForm({ initial, lists, people, onClose, onSaved }) {
       body.effectiveFrom = form.effectiveFrom || today;
       if (form.changeNote) body.changeNote = form.changeNote;
     }
+    if (dupes?.reason) body.duplicateReason = dupes.reason;
     try {
       const res = form.id ? await updateEmployee(form.id, body) : await createEmployee(body);
       notify.success(`${res.employee?.name || 'Employee'} saved.`);
       onSaved(res.employee);
     } catch (err) {
+      if (err?.code === 'DUPLICATE' && Array.isArray(err?.data?.duplicates)) {
+        setDupes({ list: err.data.duplicates, reason: dupes?.reason || '' });
+        return;
+      }
       notify.error(String(err?.message || 'Not saved.'));
     } finally {
       setSaving(false);
@@ -947,9 +1412,21 @@ function EmployeeForm({ initial, lists, people, onClose, onSaved }) {
       }
     >
       <form id="employee-form" onSubmit={save} className="space-y-6">
+        {dupes ? (
+          <section className="ui-card p-3 space-y-2" aria-label="Possibly the same person" style={{ borderColor: 'rgb(var(--neg))' }}>
+            <p className="text-sm font-medium">Someone here already has this {dupes.list[0]?.field}.</p>
+            <ul className="text-sm">
+              {dupes.list.map((d) => (
+                <li key={d.id}>{d.name}{d.code ? ` · ${d.code}` : ''} <span className="ui-caption">— same {d.field}</span></li>
+              ))}
+            </ul>
+            <p className="ui-caption">If this is the same person, cancel and open their record. If it is a different person, say why and save again; the reason goes on the change log.</p>
+            <input className="ui-input w-full" value={dupes.reason} maxLength={500} placeholder="Why this is a different person" onChange={(e) => setDupes({ ...dupes, reason: e.target.value })} aria-label="Why this is a different person" />
+          </section>
+        ) : null}
         {moved ? (
           <section className="ui-card p-3 space-y-2" aria-label="Employment change">
-            <p className="text-sm font-medium">This changes where or how {form.name || 'they'} work. It goes into their employment history.</p>
+            <p className="text-sm font-medium">This changes where or how {form.name || 'they'} work. It goes into their employment history. A date in the future waits on the record and takes effect that day.</p>
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="block">
                 <span className="ui-label">Counts from</span>
@@ -960,6 +1437,20 @@ function EmployeeForm({ initial, lists, people, onClose, onSaved }) {
                 <input className="ui-input w-full" value={form.changeNote || ''} onChange={set('changeNote')} maxLength={500} placeholder="Promotion, reorganisation…" />
               </label>
             </div>
+            {impact.length ? (
+              <div className="space-y-1" aria-label="What else this affects">
+                <p className="ui-label">What else this affects</p>
+                <ul className="space-y-1">
+                  {impact.map((i) => (
+                    <li key={i.key} className="text-sm">
+                      <span className="font-medium">{i.title}</span>
+                      <span className="ui-caption"> · {IMPACT_TARGET[i.target] || i.target}</span>
+                      <p className="ui-caption">{i.detail}</p>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
           </section>
         ) : null}
         <section className="flex items-center gap-3">
@@ -1007,9 +1498,11 @@ function EmployeeForm({ initial, lists, people, onClose, onSaved }) {
           {select('departmentId', 'Department', lists.departments)}
           {select('jobPositionId', 'Designation', positions)}
           {lists.grades.length ? select('gradeId', 'Grade', lists.grades) : null}
+          {lists.establishments.length ? select('establishmentId', 'Establishment (work state)', lists.establishments.map((x) => ({ ...x, name: x.state ? `${x.name} (${x.state})` : x.name }))) : null}
           {lists.areas.length ? select('areaId', 'Location', lists.areas) : null}
           {lists.centres.length ? select('costCenterId', 'Cost centre', lists.centres) : null}
           {select('reportingManagerId', 'Reports to', people.filter((p) => p.id !== form.id && p.status !== 'LEFT'))}
+          {select('dottedManagerId', 'Also reports to (dotted line)', people.filter((p) => p.id !== form.id && p.status !== 'LEFT'))}
         </section>
 
         <section className="grid gap-4 sm:grid-cols-2">
@@ -1116,8 +1609,13 @@ const DOC_KINDS = [
   ['EDUCATION', 'Education'],
   ['CONTRACT', 'Contract / offer'],
   ['PAYSLIP', 'Payslip'],
+  ['WORK_PERMIT', 'Work permit / licence'],
+  ['CERTIFICATE', 'Certificate'],
+  ['LETTER', 'Letter issued'],
   ['OTHER', 'Other'],
 ];
+/* A permit or certificate also says what the person may not do while it is lapsed (LIFE-08). */
+const PERMIT_KINDS = ['WORK_PERMIT', 'CERTIFICATE'];
 const kb = (n) => (n >= 1048576 ? `${(n / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`);
 
 /**
@@ -1127,7 +1625,7 @@ const kb = (n) => (n >= 1048576 ? `${(n / 1048576).toFixed(1)} MB` : `${Math.max
  */
 export function EmployeeDocuments({ employeeId }) {
   const [docs, setDocs] = useState(null);
-  const [form, setForm] = useState({ kind: 'ID_PROOF', title: '', expiresOn: '', visibleToEmployee: true });
+  const [form, setForm] = useState({ kind: 'ID_PROOF', title: '', expiresOn: '', classification: 'EMPLOYEE_VISIBLE' });
   const [file, setFile] = useState(null);
   const [busy, setBusy] = useState(false);
   const input = useRef(null);
@@ -1143,7 +1641,7 @@ export function EmployeeDocuments({ employeeId }) {
       const dataUrl = await new Promise((resolve, reject) => { const r = new FileReader(); r.onload = () => resolve(r.result); r.onerror = () => reject(new Error('Could not read the file.')); r.readAsDataURL(file); });
       await uploadDocument(employeeId, { ...form, title: form.title.trim() || file.name.replace(/\.[^.]+$/, ''), expiresOn: form.expiresOn || null, data: dataUrl, mime: file.type });
       setFile(null);
-      setForm({ kind: 'ID_PROOF', title: '', expiresOn: '', visibleToEmployee: true });
+      setForm({ kind: 'ID_PROOF', title: '', expiresOn: '', classification: 'EMPLOYEE_VISIBLE', restrictsWork: '' });
       if (input.current) input.current.value = '';
       notify.success('Added to the file.');
       load();
@@ -1170,20 +1668,65 @@ export function EmployeeDocuments({ employeeId }) {
     load();
   };
   const [today] = useState(() => new Date().toISOString().slice(0, 10));
+  /* Replacing keeps the earlier file (DOC-02): a hidden picker per row, then the earlier versions on demand. */
+  const replaceInput = useRef(null);
+  const [replacing, setReplacing] = useState(null);
+  const [versions, setVersions] = useState({});
+  const pickReplacement = (d) => {
+    setReplacing(d);
+    replaceInput.current?.click();
+  };
+  const replaceWith = async (e) => {
+    const f = e.target.files?.[0];
+    const d = replacing;
+    e.target.value = '';
+    if (!f || !d) return;
+    setBusy(true);
+    try {
+      const dataUrl = await new Promise((resolve, reject) => { const r = new FileReader(); r.onload = () => resolve(r.result); r.onerror = () => reject(new Error('Could not read the file.')); r.readAsDataURL(f); });
+      await replaceDocument(d.id, { data: dataUrl, mime: f.type });
+      notify.success(`${d.title} replaced; the earlier version is kept.`);
+      setVersions({});
+      load();
+    } catch (err) {
+      notify.error(String(err?.message || 'Not replaced.'));
+    } finally {
+      setBusy(false);
+      setReplacing(null);
+    }
+  };
+  const showVersions = async (d) => {
+    if (versions[d.id]) return setVersions((v) => ({ ...v, [d.id]: null }));
+    try {
+      const list = await listDocumentVersions(d.id);
+      setVersions((v) => ({ ...v, [d.id]: list }));
+    } catch (err) {
+      notify.error(String(err?.message || 'Could not load versions.'));
+    }
+  };
 
   return (
     <div className="space-y-3">
+      <input ref={replaceInput} type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx,.xlsx,.txt" className="hidden" onChange={replaceWith} aria-label="Replacement file" />
+      <IssueLetter employeeId={employeeId} onIssued={load} />
       <form onSubmit={upload} className="ui-card p-3 space-y-2">
         <div className="flex flex-wrap gap-2">
           <select className="ui-select" value={form.kind} onChange={(e) => setForm({ ...form, kind: e.target.value })} aria-label="Kind">
             {DOC_KINDS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
           </select>
           <input className="ui-input flex-1 min-w-[10rem]" placeholder="Title (blank: the file name)" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} aria-label="Title" />
-          <input type="date" className="ui-input" style={{ width: 'auto' }} value={form.expiresOn} onChange={(e) => setForm({ ...form, expiresOn: e.target.value })} aria-label="Valid until" title="Valid until (optional)" />
+          <input type="date" className="ui-input" style={{ width: 'auto' }} value={form.expiresOn} onChange={(e) => setForm({ ...form, expiresOn: e.target.value })} aria-label="Valid until" title={PERMIT_KINDS.includes(form.kind) ? 'Valid until' : 'Valid until (optional)'} required={PERMIT_KINDS.includes(form.kind)} />
         </div>
+        {PERMIT_KINDS.includes(form.kind) ? (
+          <input className="ui-input w-full" placeholder="Work they may not do once it lapses, e.g. drive company vehicles; work at height" value={form.restrictsWork || ''} onChange={(e) => setForm({ ...form, restrictsWork: e.target.value })} maxLength={500} aria-label="Work they may not do once it lapses" />
+        ) : null}
         <div className="flex flex-wrap items-center gap-3">
           <input ref={input} type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx,.xlsx,.txt" className="text-sm" onChange={(e) => setFile(e.target.files?.[0] || null)} aria-label="File" />
-          <label className="flex items-center gap-1.5 text-sm"><input type="checkbox" checked={form.visibleToEmployee} onChange={(e) => setForm({ ...form, visibleToEmployee: e.target.checked })} /> Visible to the person</label>
+          <label className="flex items-center gap-1.5 text-sm">Who can see
+            <select className="ui-select" style={{ width: 'auto' }} value={form.classification} onChange={(e) => setForm({ ...form, classification: e.target.value })} aria-label="Who can see">
+              {DOC_WHO_CAN_SEE.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+            </select>
+          </label>
           <button type="submit" className="ui-btn ui-btn-primary ui-btn-sm ml-auto" disabled={!file || busy}>{busy ? 'Uploading…' : 'Add to file'}</button>
         </div>
       </form>
@@ -1193,15 +1736,96 @@ export function EmployeeDocuments({ employeeId }) {
             <li key={d.id} className="ui-card p-3 text-sm flex flex-wrap items-center gap-2">
               <span className="min-w-0 flex-1">
                 <span className="font-medium">{d.title}</span>
-                <span className="ui-caption block">{DOC_KINDS.find(([k]) => k === d.kind)?.[1] || d.kind} · {kb(d.size)} · {new Date(d.createdAt).toLocaleDateString('en-IN', { dateStyle: 'medium' })}{d.expiresOn ? ` · valid until ${d.expiresOn}` : ''}{!d.visibleToEmployee ? ' · HR only' : ''}</span>
+                <span className="ui-caption block">{DOC_KINDS.find(([k]) => k === d.kind)?.[1] || d.kind} · {kb(d.size)} · {new Date(d.createdAt).toLocaleDateString('en-IN', { dateStyle: 'medium' })}{d.expiresOn ? (d.expiresOn < today ? ` · expired ${d.expiresOn}` : ` · valid until ${d.expiresOn}`) : ''}{d.restrictsWork ? ` · until renewed: ${d.restrictsWork}` : ''}{d.classification !== 'EMPLOYEE_VISIBLE' ? ` · ${docWhoLabel(d)}` : ''}</span>
                 {d.expiresOn && d.expiresOn < today ? <span className="ui-pill ui-pill-neg mt-1">Expired</span> : null}
+                {d.version > 1 ? <button type="button" className="ui-link ui-caption block" onClick={() => showVersions(d)}>Version {d.version} · {versions[d.id] ? 'hide earlier versions' : `${d.version - 1} earlier`}</button> : null}
+                {d.templateVersion != null ? <span className="ui-caption block">Issued from template v{d.templateVersion}</span> : null}
+                {versions[d.id] ? (
+                  <ul className="mt-1 space-y-0.5 ui-caption" aria-label="Earlier versions">
+                    {versions[d.id].filter((v) => v.id !== d.id).map((v) => (
+                      <li key={v.id}>v{v.version} · {kb(v.size)} · {new Date(v.createdAt).toLocaleDateString('en-IN', { dateStyle: 'medium' })} · <button type="button" className="ui-link" onClick={() => open(v)}>Download</button></li>
+                    ))}
+                  </ul>
+                ) : null}
               </span>
               <button type="button" className="ui-link" onClick={() => open(d)}>Download</button>
+              {d.kind !== 'LETTER' ? <button type="button" className="ui-link" disabled={busy} onClick={() => pickReplacement(d)}>Replace</button> : null}
               <button type="button" className="ui-link" onClick={() => remove(d)}>Remove</button>
             </li>
           ))}
         </ul>
       )}
     </div>
+  );
+}
+
+
+/**
+ * Issue a letter onto the record (DOC-04): pick the kind, fill in what the
+ * template asks for, and a PDF lands under Documents naming the template
+ * version. A service certificate shows when it is due (DOC-07).
+ */
+function IssueLetter({ employeeId, onIssued }) {
+  const [openForm, setOpenForm] = useState(false);
+  const [templates, setTemplates] = useState(null);
+  const [kind, setKind] = useState('APPOINTMENT');
+  const [extra, setExtra] = useState({});
+  const [due, setDue] = useState(null);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    if (!openForm || templates) return;
+    getLetterTemplates().then(setTemplates).catch((e) => notify.error(String(e?.message || 'Could not load letters.')));
+  }, [openForm, templates]);
+  useEffect(() => {
+    if (!openForm || kind !== 'SERVICE_CERT') { setDue(null); return; }
+    serviceCertificateDue(employeeId).then(setDue).catch(() => setDue(null));
+  }, [openForm, kind, employeeId]);
+  if (!openForm) return <div className="flex justify-end"><button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => setOpenForm(true)}>Issue a letter</button></div>;
+  const t = templates?.templates.find((x) => x.kind === kind);
+  const issue = async (e) => {
+    e.preventDefault();
+    setBusy(true);
+    try {
+      const r = await issueLetter(employeeId, { kind, extra });
+      notify.success(`${r.document.title} is on the record (template v${r.document.templateVersion}).`);
+      setOpenForm(false);
+      setExtra({});
+      onIssued();
+    } catch (err) {
+      notify.error(String(err?.message || 'Not issued.'));
+    } finally {
+      setBusy(false);
+    }
+  };
+  const asked = async () => {
+    try {
+      const r = await requestLetter(employeeId, { kind });
+      notify.success(`Noted. Due ${r.dueOn}${r.source ? ` (${r.dueDays} days by law)` : ''}; the task is on the record.`);
+    } catch (err) {
+      notify.error(String(err?.message || 'Not noted.'));
+    }
+  };
+  return (
+    <form onSubmit={issue} className="ui-card p-3 space-y-2" aria-label="Issue a letter">
+      <div className="flex flex-wrap items-center gap-2">
+        <select className="ui-select" value={kind} onChange={(e) => { setKind(e.target.value); setExtra({}); }} aria-label="Letter">
+          {(templates?.kinds || [{ kind: 'APPOINTMENT', label: 'Appointment letter' }]).map((k) => <option key={k.kind} value={k.kind}>{k.label}</option>)}
+        </select>
+        {t ? <span className="ui-caption">{t.builtIn ? 'Built-in letter' : `Template v${t.version}`}</span> : null}
+        <button type="button" className="ui-link ml-auto" onClick={() => setOpenForm(false)}>Close</button>
+      </div>
+      {due ? <p className="ui-caption">{due.note}{due.dueOn ? ` Asked today: due ${due.dueOn}.` : ''} <button type="button" className="ui-link" onClick={asked}>Note that it was asked for</button></p> : null}
+      {t?.extra?.length ? (
+        <div className="grid gap-2 sm:grid-cols-2">
+          {t.extra.map((k) => (
+            <label key={k} className="block">
+              <span className="ui-label">{k.replace(/([A-Z])/g, ' $1').replace(/^./, (c) => c.toUpperCase())}</span>
+              <input className="ui-input w-full" value={extra[k] || ''} onChange={(e) => setExtra({ ...extra, [k]: e.target.value })} maxLength={1000} />
+            </label>
+          ))}
+        </div>
+      ) : null}
+      <div className="flex justify-end"><button type="submit" className="ui-btn ui-btn-primary ui-btn-sm" disabled={busy || !t}>{busy ? 'Issuing…' : 'Issue as PDF'}</button></div>
+    </form>
   );
 }

@@ -1,3 +1,4 @@
+import { Prisma } from '../generated/people/index.js';
 import { peoplePrisma } from '../utils/peoplePrisma.js';
 
 /**
@@ -14,8 +15,12 @@ import { peoplePrisma } from '../utils/peoplePrisma.js';
  *             gender, marital status, photo, guardian, notes, reader PIN, card
  *             and password, portal sign-in, CLOR-held fingerprint and face
  *             templates, punch selfies, phone-punch locations and failed-punch
- *             logs, sign-in IP addresses, tags, HR notes, and documents other
- *             than contracts (offer/appointment/relieving letters) and payslips
+ *             logs, sign-in IP addresses, tags, HR notes, documents other
+ *             than contracts (offer/appointment/relieving letters) and payslips,
+ *             the free text on their register entries (HR cases, goals,
+ *             training, the candidate record they were hired from), checklist
+ *             notes, the text of their privacy requests, and the reasons on
+ *             their history and stints (docs/people/02-PRD.md PRV-04)
  *   kept      name, employee code, joining and leaving dates, department and
  *             designation, attendance days and punch times, leave, overtime,
  *             payroll and statutory numbers (Payroll), contracts and payslips
@@ -50,7 +55,7 @@ export async function anonymiseEmployee(args: { accountId: string; orgId: string
   const { accountId, orgId, employeeId } = args;
   const e = await peoplePrisma.employee.findFirst({
     where: { id: employeeId, accountId, orgId },
-    select: { id: true, name: true, code: true, status: true, dateOfLeaving: true, anonymisedAt: true },
+    select: { id: true, name: true, code: true, status: true, dateOfLeaving: true, anonymisedAt: true, email: true, personalEmail: true, workEmail: true, phone: true, workPhone: true },
   });
   if (!e) throw new AnonymiseError('No such employee.', 404, 'NOT_FOUND');
   if (e.anonymisedAt) throw new AnonymiseError(`${e.name} was already anonymised on ${e.anonymisedAt.toISOString().slice(0, 10)}.`, 409, 'ALREADY_ANONYMISED');
@@ -76,6 +81,27 @@ export async function anonymiseEmployee(args: { accountId: string; orgId: string
       data: { latitude: null, longitude: null, accuracyM: null, address: null, photoId: null },
     });
     const signInIps = await tx.attendanceActivity.updateMany({ where: { ...where, ip: { not: null } }, data: { ip: null } });
+    /*
+     * Register entries (PRV-04): the HR cases, goals and training on their
+     * file, and the candidate record they were hired from. Those are linked
+     * by employeeId; a candidate record from before the hire may not be, so
+     * any entry whose details carry their address or number goes too. The
+     * row stays (it is part of the company's record), its free text does not.
+     */
+    const contacts = [e.email, e.personalEmail, e.workEmail, e.phone, e.workPhone].filter((v): v is string => Boolean(v && v.trim()));
+    const linked = await tx.peopleRecord.findMany({ where: { accountId, orgId, employeeId }, select: { id: true } });
+    const byContact = contacts.length
+      ? await tx.$queryRaw<Array<{ id: string }>>`SELECT id FROM "PeopleRecord" WHERE "orgId" = ${orgId} AND (${Prisma.join(contacts.map((c) => Prisma.sql`"details"::text ILIKE ${'%' + c + '%'}`), ' OR ')})`
+      : [];
+    const recordIds = [...new Set([...linked.map((r) => r.id), ...byContact.map((r) => r.id)])];
+    const registers = recordIds.length
+      ? await tx.peopleRecord.updateMany({ where: { id: { in: recordIds }, orgId }, data: { details: { anonymised: true }, updatedBy: 'anonymise' } })
+      : { count: 0 };
+    await tx.peopleRecord.updateMany({ where: { id: { in: recordIds }, orgId, kind: 'candidates' }, data: { title: 'Anonymised' } });
+    const checklistNotes = await tx.checklistTask.updateMany({ where: { ...where, note: { not: null } }, data: { note: null } });
+    const dataRequests = await tx.dataRequest.updateMany({ where: { ...where, details: { not: '[erased]' } }, data: { details: '[erased]' } });
+    const historyNotes = await tx.employmentEvent.updateMany({ where: { ...where, note: { not: null } }, data: { note: null } });
+    await tx.employmentEpisode.updateMany({ where: { ...where, endReason: { not: null } }, data: { endReason: null } });
     await tx.employee.update({
       where: { id: employeeId },
       data: {
@@ -107,10 +133,15 @@ export async function anonymiseEmployee(args: { accountId: string; orgId: string
         portalSetupHash: null,
         portalSetupExpires: null,
         mobilePunch: false,
+        leavingReason: null,
         anonymisedAt: at,
       },
     });
     return {
+      registers: registers.count,
+      checklistNotes: checklistNotes.count,
+      dataRequests: dataRequests.count,
+      historyNotes: historyNotes.count,
       biometricTemplates: templates.count,
       punchSelfies: photos.count,
       hrNotes: notes.count,

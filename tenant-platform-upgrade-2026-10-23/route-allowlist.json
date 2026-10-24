@@ -197,6 +197,26 @@
       "reason": "Self-service: starts enrolling the caller's own authenticator."
     },
     {
+      "method": "GET",
+      "path": "/api/people/join-page.js",
+      "reason": "Static script for the joiner page; no data; served as a file because CSP allows no inline script (LIFE-01)."
+    },
+    {
+      "method": "GET",
+      "path": "/api/people/join/:token",
+      "reason": "Joiner's one-time invite link (LIFE-01): sha256-hashed 32-byte token, 14-day expiry, single use; shows only the joiner's own name and joining date; looked up outsideTenant then enterTenant."
+    },
+    {
+      "method": "POST",
+      "path": "/api/people/join/:token",
+      "reason": "Joiner sends their details once (LIFE-01): same token; held on the invite as 'sent, not checked' until HR checks it; documents stored on their own file only."
+    },
+    {
+      "method": "GET",
+      "path": "/api/people/task-links/:token",
+      "reason": "Signed task done-link (LIFE-07): JWT bound to one task and its named owner, 30 days; ticks that task only and is logged; outsideTenant lookup then enterTenant."
+    },
+    {
       "method": "POST",
       "path": "/api/portal/activate",
       "reason": "Employee sets a password with HR's one-time activation code; portalLimiter; anyAppLive (A-11)."
@@ -367,26 +387,6 @@
       "reason": "The employee changes their own portal password; needs the current one."
     },
     {
-      "method": "POST",
-      "path": "/api/portal/signout",
-      "reason": "The employee ends this device's own session (A-33)."
-    },
-    {
-      "method": "GET",
-      "path": "/api/portal/sessions",
-      "reason": "The employee's own signed-in devices, nothing else (A-33)."
-    },
-    {
-      "method": "DELETE",
-      "path": "/api/portal/sessions/:id",
-      "reason": "The employee ends one of their own devices; scoped to their sessions (A-33)."
-    },
-    {
-      "method": "POST",
-      "path": "/api/portal/sessions/end-others",
-      "reason": "The employee ends every other device of their own (A-33)."
-    },
-    {
       "method": "GET",
       "path": "/api/portal/payslips",
       "reason": "Employee self-service: reads their own payslips; portal token (authenticate) + anyAppLive (A-11); org and employee from the token."
@@ -395,6 +395,51 @@
       "method": "GET",
       "path": "/api/portal/payslips/:id",
       "reason": "Employee self-service: reads their own payslips; portal token (authenticate) + anyAppLive (A-11); org and employee from the token."
+    },
+    {
+      "method": "GET",
+      "path": "/api/portal/people/acknowledgements",
+      "reason": "Employee self-service (People): portal token (peoplePortal.ts uses portal authenticate) + anyAppLive; org and employee from the token; reads only their own pending read-and-accept rows (DOC-05, POL-04)."
+    },
+    {
+      "method": "POST",
+      "path": "/api/portal/people/acknowledgements/:id/accept",
+      "reason": "Employee self-service (People): portal token (peoplePortal.ts uses portal authenticate) + anyAppLive; org and employee from the token; accepts only a row on their own employee id (404 otherwise)."
+    },
+    {
+      "method": "GET",
+      "path": "/api/portal/people/desk",
+      "reason": "Employee self-service (People): portal token (peoplePortal.ts uses portal authenticate) + anyAppLive; org and employee from the token; lists only their own help desk requests (DESK-01)."
+    },
+    {
+      "method": "POST",
+      "path": "/api/portal/people/desk",
+      "reason": "Employee self-service (People): portal token (peoplePortal.ts uses portal authenticate) + anyAppLive; org and employee from the token; raises a request on their own employee id; ten open at most (DESK-01)."
+    },
+    {
+      "method": "GET",
+      "path": "/api/portal/people/desk/:id",
+      "reason": "Employee self-service (People): portal token (peoplePortal.ts uses portal authenticate) + anyAppLive; org and employee from the token; their own request only; internal notes are never returned (DESK-02)."
+    },
+    {
+      "method": "POST",
+      "path": "/api/portal/people/desk/:id/messages",
+      "reason": "Employee self-service (People): portal token (peoplePortal.ts uses portal authenticate) + anyAppLive; org and employee from the token; a reply on their own request only (DESK-02)."
+    },
+    {
+      "method": "POST",
+      "path": "/api/portal/people/desk/:id/reopen",
+      "reason": "Employee self-service (People): portal token (peoplePortal.ts uses portal authenticate) + anyAppLive; org and employee from the token; reopens their own resolved request within seven days (DESK-04)."
+    },
+    {
+      "method": "GET",
+      "path": "/api/portal/people/policies",
+      "reason": "Employee self-service (People): portal token (peoplePortal.ts uses portal authenticate) + anyAppLive; org and employee from the token; only published versions that apply to them, never a draft (POL-01, POL-03)."
+    },
+    {
+      "method": "GET",
+      "path": "/api/portal/people/policies/:versionId",
+      "reason": "Employee self-service (People): portal token (peoplePortal.ts uses portal authenticate) + anyAppLive; org and employee from the token; one published version that applies to them, 404 otherwise (POL-03)."
     },
     {
       "method": "POST",
@@ -425,6 +470,26 @@
       "method": "GET",
       "path": "/api/portal/schedule",
       "reason": "Employee self-service: reads their own schedule; portal token (authenticate) + anyAppLive (A-11); org and employee from the token."
+    },
+    {
+      "method": "GET",
+      "path": "/api/portal/sessions",
+      "reason": "The employee's own signed-in devices, nothing else (A-33)."
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/portal/sessions/:id",
+      "reason": "The employee ends one of their own devices; scoped to their sessions (A-33)."
+    },
+    {
+      "method": "POST",
+      "path": "/api/portal/sessions/end-others",
+      "reason": "The employee ends every other device of their own (A-33)."
+    },
+    {
+      "method": "POST",
+      "path": "/api/portal/signout",
+      "reason": "The employee ends this device's own session (A-33)."
     },
     {
       "method": "GET",

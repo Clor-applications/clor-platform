@@ -106,15 +106,16 @@ export default function Drawer({ open, onClose, title, description = '', actions
         /* A floating surface takes the token shadow, which dark mode redefines (DESIGN.md: no Tailwind shadow utilities). */
         style={{ borderInlineStart: '1px solid rgb(var(--border))', boxShadow: 'var(--shadow-pop)' }}
       >
+        {/* At phone width the actions drop under the title instead of squeezing it to a word a line. */}
         <div
-          className="flex items-start justify-between gap-3 px-5 py-4 shrink-0"
+          className="flex flex-wrap items-start justify-between gap-3 px-5 py-4 shrink-0"
           style={{ borderBottom: '1px solid rgb(var(--border))' }}
         >
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1 basis-48">
             <h2 className="ui-t-sec truncate">{title}</h2>
             {description ? <p className="text-sm ui-muted mt-0.5">{description}</p> : null}
           </div>
-          <div className="flex shrink-0 items-center gap-2">
+          <div className="ml-auto flex max-w-full flex-wrap items-center gap-2">
             {actions}
             <button type="button" onClick={beginClose} className="ui-icon-btn shrink-0" aria-label="Close">
               <X size={18} />

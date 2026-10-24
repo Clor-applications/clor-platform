@@ -65,6 +65,29 @@ const KINDS = {
     singular: 'cost centre',
     description: 'Where a person’s salary cost is booked in the accounts — a plant, a project, a client.',
   },
+  'legal-entities': {
+    title: 'Company (legal)',
+    singular: 'legal entity',
+    description: 'The registered company its establishments belong to. Identifiers are shown masked.',
+    fields: [
+      { key: 'pan', label: 'PAN', placeholder: 'ABCDE1234F' },
+      { key: 'cin', label: 'CIN' },
+      { key: 'address', label: 'Registered address', type: 'textarea' },
+    ],
+  },
+  establishments: {
+    title: 'Establishments',
+    singular: 'establishment',
+    description: 'Each place of work in law — a shop, factory, office or site — in one state. The state decides which rules apply to the people there.',
+    parent: { key: 'legalEntityId', kind: 'legal-entities', label: 'Legal entity' },
+    fields: [
+      { key: 'kind', label: 'Type', type: 'select', options: [['OFFICE', 'Office'], ['SHOP', 'Shop'], ['FACTORY', 'Factory'], ['SITE', 'Site'], ['WAREHOUSE', 'Warehouse']] },
+      { key: 'state', label: 'State', placeholder: 'Karnataka', required: true },
+      { key: 'address', label: 'Address', type: 'textarea' },
+      { key: 'holdsOriginals', label: 'The company keeps employees’ original documents here', type: 'checkbox', hint: 'Not allowed in Karnataka (Shops & Establishments amendment, 2026); CLOR refuses it there.' },
+    ],
+    columns: [{ key: 'state', label: 'State' }, { key: 'kind', label: 'Type', value: (r) => (r.kind || '').charAt(0) + (r.kind || '').slice(1).toLowerCase() }],
+  },
 };
 
 const TABS = [
@@ -115,6 +138,7 @@ export default function StructureList({ kind, title = '', singular = '' }) {
     try {
       const body = { name: editing.name, description: editing.description || null, isActive: editing.isActive !== false };
       if (cfg.parent) body[cfg.parent.key] = editing[cfg.parent.key] || null;
+      for (const f of cfg.fields || []) body[f.key] = editing[f.key] || null;
       if (editing.id) await updateStructure(kind, editing.id, body);
       else await createStructure(kind, body);
       notify.success(`${editing.name} saved.`);
@@ -150,10 +174,11 @@ export default function StructureList({ kind, title = '', singular = '' }) {
   const shown = columns.applyFilters(search.filtered, {
     name: (r) => r.name,
     parent: (r) => (cfg.parent ? parentName.get(r[cfg.parent.key]) || '' : ''),
+    ...Object.fromEntries((cfg.columns || []).map((c) => [c.key, (r) => (c.value ? c.value(r) : r[c.key]) || ''])),
   });
 
   if (loading) return <SkeletonCard lines={5} />;
-  const newRow = () => setEditing({ name: '', description: '', isActive: true });
+  const newRow = () => setEditing({ name: '', description: '', isActive: true, ...Object.fromEntries((cfg.fields || []).filter((f) => f.type === 'select' && f.options?.length).map((f) => [f.key, f.options[0][0]])) });
 
   return (
     <DocumentListShell
@@ -204,6 +229,7 @@ export default function StructureList({ kind, title = '', singular = '' }) {
                 <tr>
                   <ColumnHeader label="Name" col="name" state={columns} className="ui-col-grow" />
                   {cfg.parent ? <ColumnHeader label={cfg.parent.label} col="parent" state={columns} /> : null}
+                  {(cfg.columns || []).map((c) => <ColumnHeader key={c.key} label={c.label} col={c.key} state={columns} />)}
                   <th scope="col" className="ui-col-h-center">People</th>
                   <th scope="col" className="ui-col-h-center">Status</th>
                   <th scope="col" className="ui-col-h-center w-10">
@@ -214,7 +240,7 @@ export default function StructureList({ kind, title = '', singular = '' }) {
               <tbody className="ui-rows">
                 {!shown.length ? (
                   <tr>
-                    <td colSpan={cfg.parent ? 5 : 4}>
+                    <td colSpan={(cfg.parent ? 5 : 4) + (cfg.columns || []).length}>
                       {rows.length ? (
                         <EmptyState kind="filtered" totalCount={inTab.length || rows.length} title={`No ${cfg.title.toLowerCase()} match`} description="Nothing in this tab matches the search or the column filters." />
                       ) : (
@@ -234,6 +260,7 @@ export default function StructureList({ kind, title = '', singular = '' }) {
                       {r.description ? <div className="ui-caption truncate">{r.description}</div> : null}
                     </td>
                     {cfg.parent ? <td className="ui-col-meta">{parentName.get(r[cfg.parent.key]) || '—'}</td> : null}
+                    {(cfg.columns || []).map((c) => <td key={c.key} className="ui-col-meta">{(c.value ? c.value(r) : r[c.key]) || '—'}</td>)}
                     <td className="ui-col-h-center">{r.employeeCount || 0}</td>
                     <td className="ui-col-h-center">
                       <span className={`ui-pill ${r.isActive ? 'ui-pill-pos' : 'ui-pill-neutral'}`}>{r.isActive ? 'Active' : 'Inactive'}</span>
@@ -285,6 +312,25 @@ export default function StructureList({ kind, title = '', singular = '' }) {
                 </select>
               </label>
             ) : null}
+            {(cfg.fields || []).map((f) => f.type === 'checkbox' ? (
+              <label key={f.key} className="block text-sm">
+                <span className="flex items-center gap-2"><input type="checkbox" className="ui-checkbox" checked={Boolean(editing[f.key])} onChange={(e) => setEditing({ ...editing, [f.key]: e.target.checked })} />{f.label}</span>
+                {f.hint ? <span className="ui-caption block mt-1">{f.hint}</span> : null}
+              </label>
+            ) : (
+              <label key={f.key} className="block">
+                <span className="ui-label">{f.label}{f.required ? ' *' : ''}</span>
+                {f.type === 'select' ? (
+                  <select className="ui-select w-full" value={editing[f.key] || f.options?.[0]?.[0] || ''} onChange={(e) => setEditing({ ...editing, [f.key]: e.target.value })}>
+                    {(f.options || []).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                  </select>
+                ) : f.type === 'textarea' ? (
+                  <textarea className="ui-input w-full" rows={2} value={editing[f.key] || ''} onChange={(e) => setEditing({ ...editing, [f.key]: e.target.value })} />
+                ) : (
+                  <input className="ui-input w-full" value={editing[f.key] || ''} placeholder={f.placeholder || ''} required={Boolean(f.required)} onChange={(e) => setEditing({ ...editing, [f.key]: e.target.value })} />
+                )}
+              </label>
+            ))}
             <label className="block">
               <span className="ui-label">Description</span>
               <textarea className="ui-input w-full" rows={3} value={editing.description || ''} onChange={(e) => setEditing({ ...editing, description: e.target.value })} />
@@ -311,3 +357,5 @@ export const Areas = (props) => <StructureList kind="areas" {...props} />;
 export const BusinessUnits = (props) => <StructureList kind="business-units" {...props} />;
 export const Grades = (props) => <StructureList kind="grades" {...props} />;
 export const CostCentres = (props) => <StructureList kind="cost-centres" {...props} />;
+export const LegalEntities = (props) => <StructureList kind="legal-entities" {...props} />;
+export const Establishments = (props) => <StructureList kind="establishments" {...props} />;

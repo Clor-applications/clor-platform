@@ -56,6 +56,29 @@ export async function dataHealth(accountId: string, orgId: string, opts: { payro
     if (list.length) checks.push({ ...c, count: list.length, people: list.slice(0, SAMPLE) });
   };
 
+  /* Documents past their date (DOC-03, LIFE-08): a lapsed permit first, then anything else that has run out. */
+  {
+    const today = new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
+    const byId = new Map(employees.map((e) => [e.id, e]));
+    const expired = await peoplePrisma.employeeDocument.findMany({ where: { orgId, employeeId: { in: employees.map((e) => e.id) }, expiresOn: { not: null, lt: today } }, select: { employeeId: true, kind: true, title: true, expiresOn: true, restrictsWork: true }, orderBy: { expiresOn: 'asc' } });
+    const permits = expired.filter((d) => d.kind === 'WORK_PERMIT' || d.kind === 'CERTIFICATE');
+    const others = expired.filter((d) => !(d.kind === 'WORK_PERMIT' || d.kind === 'CERTIFICATE'));
+    add({ id: 'permit-expired', area: 'People', severity: 'FIX_SOON', title: 'Work permit or certificate has expired', why: 'They may be doing work the permit allowed; the record says so, other apps do not stop it.', fix: 'Renew it and add the new copy on Documents, or move them off that work.', screen: 'employees' },
+      permits.map((d) => who(byId.get(d.employeeId)!, `${d.title} expired ${d.expiresOn}${d.restrictsWork ? ` · may not: ${d.restrictsWork}` : ''}`)));
+    add({ id: 'document-expired', area: 'People', severity: 'TIDY_UP', title: 'Document past its date', why: 'An expired ID, contract or proof on file is not valid for an audit or a renewal.', fix: 'Add the renewed copy on Documents.', screen: 'employees' },
+      others.map((d) => who(byId.get(d.employeeId)!, `${d.title} expired ${d.expiresOn}`)));
+  }
+
+  /* Policies (POL-06): two published policies of one kind that apply to the same people on the same day. */
+  try {
+    const { conflicts } = await import('./policies.js');
+    const found = await conflicts(orgId);
+    add({ id: 'policy-conflict', area: 'People', severity: 'FIX_SOON', title: 'Two policies of the same kind apply to the same people', why: 'Nobody can tell which one holds; a dispute or an inspection will ask.', fix: 'Narrow who each policy applies to, or retire one of them.', screen: 'policies' },
+      found.map((c) => ({ id: c.a.policyId, name: `${c.a.title} v${c.a.version} and ${c.b.title} v${c.b.version}`, code: c.category, detail: `${c.people} ${c.people === 1 ? 'person' : 'people'}, e.g. ${c.sample.join(', ')}` })));
+  } catch (e) {
+    console.error('[data-health] policies:', e instanceof Error ? e.message : e);
+  }
+
   /* People: the same person twice. */
   const groups = (key: (e: (typeof employees)[number]) => string, min = 2) => {
     const m = new Map<string, typeof employees>();

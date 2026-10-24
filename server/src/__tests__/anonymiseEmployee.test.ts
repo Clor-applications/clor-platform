@@ -52,6 +52,12 @@ describe('anonymising a former employee', () => {
       data: { accountId: c.accountId, orgId: c.orgId, deviceId: 'phone', serialNumber: 'PHONE', pin: 'E900', at: new Date('2026-09-01T03:30:00Z'), localTime: '2026-09-01 09:00:00', state: '0', verifyMode: 0, employeeId: id, latitude: 9.93, longitude: 76.26, accuracyM: 12, address: 'MG Road, Kochi' },
     });
     const erasure = await peoplePrisma.dataRequest.create({ data: { ...scope, type: 'ERASURE', details: 'Please erase my data', status: 'PENDING' } });
+    /* PRV-04: the free text that used to be left behind — a candidate record from before the hire (not linked by id),
+       an HR case on their file, a checklist note, an earlier privacy request, and the reason on their history. */
+    const candidate = await peoplePrisma.peopleRecord.create({ data: { accountId: c.accountId, orgId: c.orgId, kind: 'candidates', title: 'Leela Menon', status: 'HIRED', details: { email: 'leela@example.com', phone: '9876543210', notes: 'Strong at Excel' }, createdBy: 'u', updatedBy: 'u' } });
+    const hrCase = await peoplePrisma.peopleRecord.create({ data: { ...scope, kind: 'helpdesk', title: 'PF number wrong', status: 'OPEN', details: { description: 'My UAN shows Leela Menon with the wrong DOB', priority: 'NORMAL' }, createdBy: 'u', updatedBy: 'u' } });
+    const task = await peoplePrisma.checklistTask.create({ data: { ...scope, kind: 'LEAVING', title: 'Collect laptop', owner: 'IT', note: 'Lives at 12 MG Road, Kochi' } });
+    const access = await peoplePrisma.dataRequest.create({ data: { ...scope, type: 'ACCESS', details: 'Send everything to leela@example.com', status: 'RESOLVED', resolution: 'Sent' } });
 
     /* Still employed: refused. */
     const early = await anonymise(c, id, { confirmName: 'Leela Menon' });
@@ -67,7 +73,17 @@ describe('anonymising a former employee', () => {
 
     const ok = await anonymise(c, id, { confirmName: 'leela menon', dataRequestId: erasure.id }).expect(200);
     expect(ok.body.requestResolved).toBe(true);
-    expect(ok.body.result.erased).toMatchObject({ hrNotes: 1, documents: 1, punchLocations: 1 });
+    expect(ok.body.result.erased).toMatchObject({ hrNotes: 1, documents: 1, punchLocations: 1, registers: 2, checklistNotes: 1, dataRequests: 2 });
+
+    /* Nothing personal left in the free text anywhere on People's side. */
+    for (const needle of ['leela@example.com', '9876543210', 'MG Road']) {
+      const [{ n }] = await peoplePrisma.$queryRaw<Array<{ n: bigint }>>`SELECT count(*)::bigint AS n FROM "PeopleRecord" WHERE "orgId" = ${c.orgId} AND "details"::text ILIKE ${'%' + needle + '%'}`;
+      expect(Number(n), needle).toBe(0);
+    }
+    expect((await peoplePrisma.peopleRecord.findUniqueOrThrow({ where: { id: candidate.id } })).title).toBe('Anonymised');
+    expect((await peoplePrisma.peopleRecord.findUniqueOrThrow({ where: { id: hrCase.id } })).title).toBe('PF number wrong');
+    expect((await peoplePrisma.checklistTask.findUniqueOrThrow({ where: { id: task.id } })).note).toBeNull();
+    expect((await peoplePrisma.dataRequest.findUniqueOrThrow({ where: { id: access.id } })).details).toBe('[erased]');
 
     const after = await peoplePrisma.employee.findUniqueOrThrow({ where: { id } });
     expect(after).toMatchObject({ name: 'Leela Menon', code: 'E900', dateOfJoining: '2025-01-01', dateOfLeaving: '2026-09-30', phone: null, personalEmail: null, addressLine: null, city: null, dateOfBirth: null, gender: null, portalEnabled: false });

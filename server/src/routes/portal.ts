@@ -182,7 +182,8 @@ portalRouter.post('/activate', ...portalLimiter, async (req, res) => {
   res.json({ token: sign(updated, session.id), employee: { name: updated.name, code: updated.code }, company: { name: found.org.name } });
 });
 
-async function authenticate(req: Request, res: Response, next: NextFunction) {
+/** Exported so People's own employee-facing routes (routes/peoplePortal.ts) sit behind the same sign-in. */
+export async function authenticate(req: Request, res: Response, next: NextFunction) {
   const h = String(req.get('authorization') || '');
   const token = /^bearer /i.test(h) ? h.slice(7).trim() : '';
   if (!token) return res.status(401).json({ error: 'Sign in first.', code: 'PORTAL_SIGNIN' });

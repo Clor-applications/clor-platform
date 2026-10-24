@@ -33,6 +33,9 @@ export async function listAllEmployees(params = {}) {
   }
 }
 export const getEmployee = (id) => apiFetch(`${base()}/employees/${encodeURIComponent(id)}`, opts);
+/* Changes dated for a future day (FND-02): pending ones on the record, and withdrawing one. */
+export const getScheduledChanges = (id) => apiFetch(`${base()}/employees/${encodeURIComponent(id)}`, opts).then((r) => r?.scheduledChanges || []);
+export const cancelScheduledChange = (id, changeId) => send(`/employees/${encodeURIComponent(id)}/scheduled/${encodeURIComponent(changeId)}`, 'DELETE');
 export const createEmployee = (body) => send('/employees', 'POST', body);
 export const updateEmployee = (id, body) => send(`/employees/${encodeURIComponent(id)}`, 'PUT', body);
 export const deleteEmployee = (id) => send(`/employees/${encodeURIComponent(id)}`, 'DELETE');
@@ -57,6 +60,16 @@ export const listDocuments = (id) => apiFetch(`${base()}/employees/${encodeURICo
 export const uploadDocument = (id, body) => send(`/employees/${encodeURIComponent(id)}/documents`, 'POST', body);
 export const getDocument = (docId) => apiFetch(`${base()}/documents/${encodeURIComponent(docId)}`, opts).then((r) => r?.document);
 export const deleteDocument = (docId) => send(`/documents/${encodeURIComponent(docId)}`, 'DELETE');
+/* Versions (DOC-02): replacing keeps the earlier file. */
+export const replaceDocument = (docId, body) => send(`/documents/${encodeURIComponent(docId)}/replace`, 'POST', body);
+export const listDocumentVersions = (docId) => apiFetch(`${base()}/documents/${encodeURIComponent(docId)}/versions`, opts).then((r) => r?.versions || []);
+/* Letters (DOC-04, DOC-07): templates under Settings; issued onto the record as a PDF. */
+export const getLetterTemplates = () => apiFetch(`${base()}/letter-templates`, opts);
+export const getLetterTemplateVersions = (kind) => apiFetch(`${base()}/letter-templates/${encodeURIComponent(kind)}/versions`, opts).then((r) => r?.versions || []);
+export const saveLetterTemplate = (body) => send('/letter-templates', 'POST', body);
+export const issueLetter = (id, body) => send(`/employees/${encodeURIComponent(id)}/letters`, 'POST', body);
+export const serviceCertificateDue = (id, askedOn) => apiFetch(`${base()}/employees/${encodeURIComponent(id)}/letters/service-certificate${askedOn ? `?askedOn=${encodeURIComponent(askedOn)}` : ''}`, opts);
+export const requestLetter = (id, body) => send(`/employees/${encodeURIComponent(id)}/letters/requests`, 'POST', body);
 /* DPDP data requests raised from the portal. */
 export const listDataRequests = (status) => apiFetch(`${base()}/data-requests${status ? `?status=${encodeURIComponent(status)}` : ''}`, opts);
 export const resolveDataRequest = (id, body) => send(`/data-requests/${encodeURIComponent(id)}/resolve`, 'POST', body);
@@ -77,12 +90,18 @@ export const transferEmployees = (body) => send('/employees/transfer', 'POST', b
 /* Employment history: joined, moved, changed, left, rehired, with payroll impact (server: services/people/employmentHistory.ts). */
 /* Statutory and bank details from Payroll, masked (server: people /employees/:id/statutory). */
 export const getEmployeeStatutory = (id) => apiFetch(`${base()}/employees/${encodeURIComponent(id)}/statutory`, opts);
+/* One identifier in clear (CORE-04): the platform client answers the authenticator prompt when the server asks for one. */
+export const revealStatutory = (id, field) => send(`/employees/${encodeURIComponent(id)}/statutory/reveal`, 'POST', { field }).then((r) => r?.value ?? null);
+/* The identifiers People keeps: last four of Aadhaar, passport, work permit, statutory category. */
+export const saveIdentity = (id, body) => send(`/employees/${encodeURIComponent(id)}/identity`, 'PUT', body).then((r) => r?.identity);
 /* Joining and leaving checklists (server: services/people/checklists.ts). */
 export const CHECKLIST_OWNER = { HR: 'HR', MANAGER: 'Manager', PAYROLL: 'Payroll', IT: 'IT / admin', EMPLOYEE: 'Employee' };
 export const getChecklist = (id) => apiFetch(`${base()}/employees/${encodeURIComponent(id)}/checklist`, opts);
 export const startChecklist = (id, kind) => send(`/employees/${encodeURIComponent(id)}/checklist/${kind}`, 'POST', {});
 export const updateChecklistTask = (taskId, body) => send(`/checklist-tasks/${encodeURIComponent(taskId)}`, 'PATCH', body);
 export const listOpenChecklistTasks = () => apiFetch(`${base()}/checklist-tasks`, opts).then((r) => r?.tasks || []);
+/* The tasks on my name (LIFE-07), open first. */
+export const listMyTasks = () => apiFetch(`${base()}/tasks/mine`, opts).then((r) => r?.tasks || []);
 export const getChecklistTemplates = () => apiFetch(`${base()}/checklist-templates`, opts);
 export const saveChecklistTemplate = (kind, items) => send(`/checklist-templates/${kind}`, 'PUT', { items });
 export const resetChecklistTemplate = (kind) => send(`/checklist-templates/${kind}`, 'DELETE');
@@ -93,7 +112,26 @@ export const addComplianceTask = (body) => send('/compliance', 'POST', body);
 export const getComplianceEvidence = (id) => apiFetch(`${base()}/compliance/${encodeURIComponent(id)}/evidence`, opts).then((r) => r?.evidence);
 /* Data health: the implementation auditor (server: services/people/dataHealth.ts). */
 export const getDataHealth = () => apiFetch(`${base()}/data-health`, opts);
+/* What else a change affects (LIFE-04): asked before the form is sent, with the fields as they would be saved. */
+export const getChangeImpact = (id, fields) => {
+  const q = new URLSearchParams(Object.entries(fields).map(([k, v]) => [k, v || '']));
+  return apiFetch(`${base()}/employees/${encodeURIComponent(id)}/change-impact?${q}`, opts).then((r) => r?.impact || []);
+};
+/* The journey and Why (CORE-06, TRACE-01): every change in order, each with its reasons. */
+export const getJourney = (id) => apiFetch(`${base()}/employees/${encodeURIComponent(id)}/journey`, opts);
+export const getWhy = (id, key) => apiFetch(`${base()}/employees/${encodeURIComponent(id)}/why/${encodeURIComponent(key)}`, opts).then((r) => r?.why);
+/* Before day one (LIFE-01): invite the joiner; see what they sent; check it onto the record. */
+export const createInvite = (id, body) => send(`/employees/${encodeURIComponent(id)}/invites`, 'POST', body);
+export const listEmployeeInvites = (id) => apiFetch(`${base()}/employees/${encodeURIComponent(id)}/invites`, opts).then((r) => r?.invites || []);
+export const listInvites = (status) => apiFetch(`${base()}/invites${status ? `?status=${encodeURIComponent(status)}` : ''}`, opts).then((r) => r?.invites || []);
+export const checkInvite = (id, body) => send(`/invites/${encodeURIComponent(id)}/check`, 'POST', body || {});
+/* Probation (LIFE-03): the review on file, and the decision — confirm, extend or end. */
+export const getProbation = (id) => apiFetch(`${base()}/employees/${encodeURIComponent(id)}/probation`, opts).then((r) => r?.reviews || []);
+export const saveProbationReview = (id, body) => send(`/employees/${encodeURIComponent(id)}/probation/review`, 'POST', body);
+export const decideProbation = (id, body) => send(`/employees/${encodeURIComponent(id)}/probation/decide`, 'POST', body);
 export const getEmploymentHistory = (id) => apiFetch(`${base()}/employees/${encodeURIComponent(id)}/history`, opts).then((r) => r?.events || []);
+/* Stints: joined, left, rejoined (FND-06). First to last. */
+export const getEmploymentEpisodes = (id) => apiFetch(`${base()}/employees/${encodeURIComponent(id)}/history`, opts).then((r) => r?.episodes || []);
 
 export const LEAVING_TYPES = {
   RESIGNED: 'Resigned',

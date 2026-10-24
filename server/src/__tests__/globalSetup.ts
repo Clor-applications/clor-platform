@@ -300,6 +300,18 @@ export default async function setup() {
   await applyPolicies(asOwner(people), 'prisma/people/migrations/20261022140100_company_masters_rls');
   await applyPolicies(asOwner(people), 'prisma/people/migrations/20261022150100_leave_policy_rls');
   /* A-35: fail closed — last, after every policy above exists. */
+  await applyPolicies(asOwner(people), 'prisma/people/migrations/20261024130700_employment_episodes_rls');
+  await applyPolicies(asOwner(people), 'prisma/people/migrations/20261024140100_change_log_and_outbox_rls');
+  await applyPolicies(asOwner(people), 'prisma/people/migrations/20261024140200_change_log_append_only');
+  await applyPolicies(asOwner(people), 'prisma/people/migrations/20261025020000_change_log_purge');
+  await applyPolicies(asOwner(people), 'prisma/people/migrations/20261024150100_establishments_and_scheduled_changes_rls');
+  await applyPolicies(asOwner(people), 'prisma/people/migrations/20261024160100_identity_and_access_log_rls');
+  await applyPolicies(asOwner(people), 'prisma/people/migrations/20261024180100_approvals_rls');
+  await applyPolicies(asOwner(people), 'prisma/people/migrations/20261024200100_probation_rls');
+  await applyPolicies(asOwner(people), 'prisma/people/migrations/20261024220100_join_invites_rls');
+  await applyPolicies(asOwner(people), 'prisma/people/migrations/20261024230100_letter_templates_rls');
+  await applyPolicies(asOwner(people), 'prisma/people/migrations/20261025000100_policies_rls');
+  await applyPolicies(asOwner(people), 'prisma/people/migrations/20261025010100_help_desk_rls');
   await applyPolicies(asOwner(people), 'prisma/people/migrations/20261024100000_rls_fail_closed');
   await applyPolicies(asOwner(people), 'prisma/people/migrations/20261024120500_portal_sessions_rls');
   await applyPolicies(asOwner(platform), 'prisma/platform/migrations/20260924120000_row_level_security');

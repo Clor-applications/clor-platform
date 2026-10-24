@@ -37,10 +37,10 @@ describe('company master data', () => {
     await people('post', '/employees', { name: 'Bad', businessUnitId: 'nope' }).expect(400);
     expect((await people('get', `/employees?businessUnitId=${retail.id}`).expect(200)).body.employees.map((x: any) => x.code)).toEqual(['M1']);
 
-    /* A move between business units is history, with its effect. */
-    await people('put', `/employees/${e.id}`, { businessUnitId: mfg.id, effectiveFrom: '2026-11-01' }).expect(200);
+    /* A move between business units is history, with its effect. Dated in the past it lands now; a future date would wait (FND-02). */
+    await people('put', `/employees/${e.id}`, { businessUnitId: mfg.id, effectiveFrom: '2026-10-01' }).expect(200);
     const moved = (await people('get', `/employees/${e.id}/history`).expect(200)).body.events.find((x: any) => x.field === 'businessUnitId');
-    expect(moved).toMatchObject({ from: 'Retail', to: 'Manufacturing', effectiveDate: '2026-11-01', title: 'Business unit changed' });
+    expect(moved).toMatchObject({ from: 'Retail', to: 'Manufacturing', effectiveDate: '2026-10-01', title: 'Business unit changed' });
 
     /* In use: not deleted. Free: goes to the recycle bin. */
     await people('delete', `/structure/business-units/${mfg.id}`).expect(409);

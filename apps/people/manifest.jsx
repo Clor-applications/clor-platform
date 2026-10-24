@@ -59,6 +59,10 @@ import { lazyScreens } from '@ui/utils/lazyScreens';
 const screen = lazyScreens(() => import('./src/screens.js'));
 const PeopleOverview = screen('PeopleOverview');
 const Employees = screen('Employees');
+const Approvals = screen('Approvals');
+const Policies = screen('Policies');
+const HelpDesk = screen('HelpDesk');
+const HelpDeskSettings = screen('HelpDeskSettings');
 const OrgChart = screen('OrgChart');
 const Tags = screen('Tags');
 const Departments = screen('Departments');
@@ -68,6 +72,7 @@ const JobRoles = screen('JobRoles');
 const WorkTypes = screen('WorkTypes');
 const DataHealth = screen('DataHealth');
 const Checklists = screen('Checklists');
+const LetterTemplates = screen('LetterTemplates');
 const ComplianceCalendar = screen('ComplianceCalendar');
 const WorkspaceList = screen('WorkspaceList');
 const PeopleReports = screen('PeopleReports');
@@ -89,6 +94,8 @@ const PeopleSettings = screen('PeopleSettings');
 const PeopleModules = screen('PeopleModules');
 const CompanyDetails = screen('CompanyDetails');
 const BusinessUnits = screen('BusinessUnits');
+const LegalEntities = screen('LegalEntities');
+const Establishments = screen('Establishments');
 const Grades = screen('Grades');
 const CostCentres = screen('CostCentres');
 const Locations = screen('Locations');
@@ -178,15 +185,18 @@ export const peopleApp = {
   available: true,
   database: 'people.db',
   home: 'overview',
-  /* The shared Blaze palette and colour icons, as Attendance (packages/ui/src/index.css). */
-  palette: 'blaze',
+  /* People's own accent, Burnished Rose, on Accounting's graphite chrome and layout (owner, 24 Oct 2026;
+     docs/people/08-DECISIONS-AND-RISKS.md D-01). The shared palette lives in packages/ui/src/index.css;
+     the colour icons stay. */
+  palette: 'rose',
   iconSet: 'color',
 
   /* The sidebar holds the day's work; everything set up once lives on one Settings page (PeopleSettings), its pages marked `parent: 'settings'`. */
   modules: [
-    { key: 'overview', label: 'Home', items: ['overview'] },
+    { key: 'overview', label: 'Home', items: ['overview', 'approvals'] },
     { key: 'employees', label: 'Employees', groups: [
       { label: 'Directory', items: ['employees', 'orgChart', 'documents'] },
+      { label: 'Help', items: ['helpdesk', 'policies'] },
       { label: 'Joining & Leaving', items: ['checklists', 'assets'] },
       { label: 'Pay & Benefits', items: ['compensation', 'benefits'] },
     ] },
@@ -198,7 +208,7 @@ export const peopleApp = {
     ] },
     { key: 'hiring', label: 'Hiring', items: ['recruitment', 'candidates'] },
     { key: 'growth', label: 'Performance', items: ['performance', 'learning'] },
-    { key: 'workplace', label: 'Engage', items: ['announcements', 'events', 'helpdesk'] },
+    { key: 'workplace', label: 'Engage', items: ['announcements', 'events'] },
     { key: 'reports', label: 'Insights', items: ['reports', 'dataHealth', 'complianceCalendar'] },
     { key: 'settings', label: 'Settings', items: ['settings'] },
   ],
@@ -206,11 +216,14 @@ export const peopleApp = {
   /* `permission`: what the screen's data needs; the shell hides what this user cannot open. */
   nav: [
     { key: 'overview', label: 'Home', icon: I.home, permission: 'PEOPLE::Employees::VIEW' },
+    { key: 'approvals', label: 'Approvals', icon: I.checklist, permission: 'PEOPLE::Requests::VIEW' },
     { key: 'employees', label: 'Employees', icon: I.people, permission: 'PEOPLE::Employees::VIEW' },
     { key: 'orgChart', label: 'Org Chart', icon: I.org, permission: 'PEOPLE::Org Structure::VIEW' },
     { key: 'documents', label: 'Documents', icon: I.folder, permission: 'PEOPLE::Employees::VIEW' },
+    { key: 'policies', label: 'Policies', icon: I.policy, permission: 'PEOPLE::Policies::VIEW' },
     { key: 'checklists', label: 'Onboarding & Exit', icon: I.checklist, permission: 'PEOPLE::Employees::VIEW' },
     { key: 'selfService', label: 'Employee Portal Access', icon: I.key, permission: 'ATTENDANCE::Employee Portal::VIEW', parent: 'settings' },
+    { key: 'letterTemplates', label: 'Letters', icon: I.policy, permission: 'PEOPLE::Documents::VIEW', parent: 'settings' },
     { key: 'leaveRequests', label: 'Leave Applications', icon: I.leave, permission: 'ATTENDANCE::Leave Requests::VIEW' },
     { key: 'leaveBalances', label: 'Leave Balances', icon: I.balance, permission: 'ATTENDANCE::Leave Requests::VIEW' },
     { key: 'leaveRegister', label: 'Leave Register', icon: I.register, permission: 'ATTENDANCE::Leave Requests::VIEW' },
@@ -226,7 +239,8 @@ export const peopleApp = {
     { key: 'learning', label: 'Training', icon: I.training, permission: 'PEOPLE::Learning::VIEW', feature: 'peoplePerformance' },
     { key: 'announcements', label: 'Announcements', icon: I.news, permission: 'PEOPLE::Announcements::VIEW', feature: 'peopleEngage' },
     { key: 'events', label: 'Events', icon: I.event, permission: 'PEOPLE::Events::VIEW', feature: 'peopleEngage' },
-    { key: 'helpdesk', label: 'HR Cases', icon: I.hrCase, permission: 'PEOPLE::HR Cases::VIEW', feature: 'peopleEngage' },
+    { key: 'helpdesk', label: 'Help desk', icon: I.hrCase, permission: 'PEOPLE::HR Cases::VIEW' },
+    { key: 'helpDeskSettings', label: 'Help desk settings', icon: I.hrCase, permission: 'PEOPLE::HR Cases::EDIT', parent: 'settings' },
     { key: 'assets', label: 'Assets', icon: I.asset, permission: 'PEOPLE::Assets::VIEW', feature: 'peopleBenefits' },
     { key: 'benefits', label: 'Benefits', icon: I.benefit, permission: 'PEOPLE::Benefits::VIEW', feature: 'peopleBenefits' },
     { key: 'compensation', label: 'Salary Revisions', icon: I.salary, permission: 'PAYROLL::Salary Revisions::VIEW', feature: 'peopleBenefits' },
@@ -244,6 +258,8 @@ export const peopleApp = {
     /* Founder, 22 Oct 2026: modules switch on and off, within what the subscription carries. */
     { key: 'modules', label: 'Modules & Apps', icon: I.modules, permission: 'SETTINGS::Company Profile::VIEW', parent: 'settings' },
     { key: 'companyDetails', label: 'Company Details', icon: I.company, permission: 'SETTINGS::Company Profile::VIEW', parent: 'settings' },
+    { key: 'legalEntities', label: 'Company (legal)', icon: I.company, permission: 'PEOPLE::Org Structure::VIEW', parent: 'settings' },
+    { key: 'establishments', label: 'Establishments', icon: I.location, permission: 'PEOPLE::Org Structure::VIEW', parent: 'settings' },
     { key: 'businessUnits', label: 'Business Units', icon: I.unit, permission: 'PEOPLE::Org Structure::VIEW', parent: 'settings' },
     { key: 'areas', label: 'Locations & Sites', icon: I.location, permission: 'PEOPLE::Org Structure::VIEW', parent: 'settings' },
     { key: 'grades', label: 'Grades', icon: I.grade, permission: 'PEOPLE::Org Structure::VIEW', parent: 'settings' },
@@ -260,10 +276,13 @@ export const peopleApp = {
 
   screens: {
     overview: PeopleOverview,
+    approvals: Approvals,
+    policies: Policies,
     employees: Employees,
     orgChart: OrgChart,
     documents: PeopleDocuments,
     checklists: Checklists,
+    letterTemplates: LetterTemplates,
     selfService: PortalAccess,
     leaveRequests: LeaveRequests,
     leaveBalances: LeaveBalances,
@@ -280,7 +299,8 @@ export const peopleApp = {
     learning: register('learning'),
     announcements: register('announcements'),
     events: register('events'),
-    helpdesk: register('helpdesk'),
+    helpdesk: HelpDesk,
+    helpDeskSettings: HelpDeskSettings,
     assets: register('assets'),
     benefits: register('benefits'),
     compensation: SalaryRevisions,
@@ -298,6 +318,8 @@ export const peopleApp = {
     settings: PeopleSettings,
     modules: PeopleModules,
     companyDetails: CompanyDetails,
+    legalEntities: LegalEntities,
+    establishments: Establishments,
     businessUnits: BusinessUnits,
     areas: Locations,
     grades: Grades,

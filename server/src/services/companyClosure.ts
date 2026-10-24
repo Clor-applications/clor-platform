@@ -121,11 +121,27 @@ const KEEP = new Set(['OrgClosure']);
  * round made progress. A round that deletes nothing while rows remain means
  * something outside the company still points at them — stop and report.
  */
+/** Tables whose rows are never edited or deleted except by this purge (prisma/people/migrations/20261025020000_change_log_purge). */
+const APPEND_ONLY = new Set(['people.ChangeLog']);
+
 async function purgeDatabase(client: any, dmmf: Dmmf, prefix: string, orgId: string) {
   const models = dmmf.datamodel.models.filter((m) => !KEEP.has(m.name) && m.fields.some((f) => f.name === 'orgId'));
   const counts: Record<string, number> = {};
   const lastError: Record<string, string> = {};
   let pending = models.map((m) => m.name);
+  /* Append-only tables refuse deleteMany by trigger; a purge is the one time their rows go, under clor.purge for this statement only. */
+  for (const name of pending.filter((n) => APPEND_ONLY.has(`${prefix}.${n}`))) {
+    try {
+      const r = await client.$transaction(async (tx: any) => {
+        await tx.$executeRawUnsafe(`SELECT set_config('clor.purge', 'on', true)`);
+        return tx.$executeRawUnsafe(`DELETE FROM "${name}" WHERE "orgId" = $1`, orgId);
+      });
+      if (r) counts[`${prefix}.${name}`] = (counts[`${prefix}.${name}`] || 0) + Number(r);
+      pending = pending.filter((n) => n !== name);
+    } catch (e) {
+      lastError[name] = String(e instanceof Error ? e.message : e).split('\n').filter(Boolean).slice(-1)[0]?.slice(0, 200) || 'unknown error';
+    }
+  }
   for (let round = 0; round < 20 && pending.length; round += 1) {
     const next: string[] = [];
     let progressed = false;

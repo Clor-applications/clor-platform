@@ -7,10 +7,15 @@ import OpenInCompanyAdmin from '@ui/company/OpenInCompanyAdmin';
  */
 export { default as PeopleOverview } from './screens/PeopleOverview';
 export { Employees } from './screens/EmployeesList';
+export { default as Approvals } from './screens/Approvals';
+export { default as Policies } from './screens/Policies';
+export { default as HelpDesk } from './screens/HelpDesk';
+export { default as HelpDeskSettings } from './screens/HelpDeskSettings';
 export { default as OrgChart } from './screens/OrgChart';
 export { default as Tags } from './screens/Tags';
 export { DataHealth } from './screens/DataHealth';
 export { default as Checklists } from '@ui/personnel/Checklists';
+export { default as LetterTemplates } from '@ui/personnel/LetterTemplates';
 export { default as ComplianceCalendar } from '@ui/personnel/ComplianceCalendar';
 export { Departments, EmployeeTypes, JobRoles, WorkTypes } from '@ui/personnel/StructureList';
 export { JobPositions } from './screens/Designations';
@@ -36,7 +41,7 @@ export const AuditLogs = () => React.createElement(OpenInCompanyAdmin, { title: 
 export { default as PeopleSettings } from './screens/PeopleSettings';
 export { default as PeopleModules } from './screens/PeopleModules';
 export { default as CompanyDetails } from '@ui/company/CompanyDetails';
-export { BusinessUnits, Grades, CostCentres } from '@ui/personnel/StructureList';
+export { BusinessUnits, Grades, CostCentres, LegalEntities, Establishments } from '@ui/personnel/StructureList';
 export { Areas as Locations } from '../../attendance/src/screens/OrgLists';
 export { default as Integrations } from '../../attendance/src/screens/Integrations';
 export { default as DataExport } from '../../attendance/src/screens/DataExport';

@@ -48,8 +48,19 @@ model Employee {
   designation String?
   department  String?
 
+  /// When the current stint began. Attendance and leave proration read this, so a
+  /// rejoin moves it; the first stint's start stays in `firstJoiningDate` and
+  /// every stint is an EmploymentEpisode (docs/people/02-PRD.md FND-06).
   dateOfJoining String?
   dateOfLeaving String?
+  /// The first day they ever joined this company; never moved by a rejoin.
+  firstJoiningDate  String?
+  /// Which stint they are on (EmploymentEpisode.seq): 1 until a rejoin.
+  currentEpisodeSeq Int     @default(1)
+  /// The day probation was confirmed (LIFE-03); null while on probation or where there was none.
+  confirmedOn       String?
+  /// Where they work in law: the establishment (shop, factory, office, site) whose state's rules apply (FND-07).
+  establishmentId   String?
   /// ACTIVE | ON_NOTICE | LEFT | SUSPENDED
   status        String  @default("ACTIVE")
 
@@ -105,6 +116,8 @@ model Employee {
   workTypeId          String?
   /// Another Employee in the same org; drives the org chart.
   reportingManagerId  String?
+  /// A second, dotted-line manager (ORG-02): sees the person as a report, approves nothing by default.
+  dottedManagerId     String?
   workEmail           String?
   workPhone           String?
   workLocation        String?
@@ -151,6 +164,7 @@ model Employee {
   tags      EmployeeTagLink[]
   notesLog  EmployeeNote[]
   documents EmployeeDocument[]
+  episodes  EmploymentEpisode[]
 
   createdByUserId String
   createdAt       DateTime @default(now())
@@ -163,7 +177,10 @@ model Employee {
   @@index([accountId, orgId, status])
   @@index([accountId, orgId, branchId])
   @@index([accountId, orgId, departmentId])
+  @@index([accountId, orgId, establishmentId])
   @@index([accountId, orgId, reportingManagerId])
+  joinInvites JoinInvite[]
+  deskRequests DeskRequest[]
 }
 
 // ============================================================================
@@ -1263,7 +1280,7 @@ model EmployeeDocument {
   accountId         String
   orgId             String
   employeeId        String
-  /// ID_PROOF | ADDRESS_PROOF | EDUCATION | CONTRACT | PAYSLIP | OTHER
+  /// ID_PROOF | ADDRESS_PROOF | EDUCATION | CONTRACT | PAYSLIP | WORK_PERMIT | CERTIFICATE | OTHER
   kind              String
   title             String
   mime              String
@@ -1271,8 +1288,24 @@ model EmployeeDocument {
   data              Bytes
   /// When it stops being valid (a visa, a licence), YYYY-MM-DD.
   expiresOn         String?
-  /// When HR was told it is about to expire (once per document).
+  /// When HR was first told it is about to expire.
   expiryNotifiedAt  DateTime?
+  /// The last reminder sent: 60, 30, 7 or 0 days before expiry (DOC-03), each once.
+  expiryStage       Int?
+  /// For a work permit or certificate: what the person may not do while it is lapsed (LIFE-08). Shown, not enforced.
+  restrictsWork     String?
+  /// Versions (DOC-02): replacing a file keeps the old one, pointed both ways. Lists show the newest only.
+  version           Int       @default(1)
+  supersedesId      String?
+  supersededById    String?
+  /// A letter issued from a template (DOC-04): which template and version made it.
+  templateId        String?
+  templateVersion   Int?
+  /// Who can see it (docs/people/02-PRD.md DOC-01): EMPLOYEE_VISIBLE (the person and
+  /// anyone with Documents VIEW) | HR_ONLY (Documents VIEW) | RESTRICTED (Documents EDIT)
+  /// | CONFIDENTIAL (Confidential Documents VIEW). `visibleToEmployee` is kept in step
+  /// (true only for EMPLOYEE_VISIBLE) because the employee app still reads it.
+  classification    String    @default("EMPLOYEE_VISIBLE")
   visibleToEmployee Boolean   @default(true)
   uploadedByUserId  String
   createdAt         DateTime  @default(now())
@@ -1280,6 +1313,201 @@ model EmployeeDocument {
   employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 
   @@index([orgId, employeeId])
+  @@index([orgId, expiresOn])
+  @@index([orgId, supersededById])
+}
+
+/// Policies (docs/people/02-PRD.md POL-01..06; services/people/policies.ts): a
+/// library entry with an owner; each version has effective dates and says who it
+/// applies to. Publishing keeps earlier versions readable; nothing is overwritten.
+model Policy {
+  id              String   @id @default(cuid())
+  accountId       String
+  orgId           String
+  title           String
+  /// LEAVE | HOURS | CONDUCT | TRAVEL | BENEFITS | IT | POSH | OTHER
+  category        String
+  description     String?
+  ownerUserId     String
+  isActive        Boolean  @default(true)
+  createdByUserId String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  versions PolicyVersion[]
+
+  @@index([orgId, category])
+}
+
+model PolicyVersion {
+  id                String    @id @default(cuid())
+  accountId         String
+  orgId             String
+  policyId          String
+  version           Int
+  /// The text, or a document on file (an uploaded PDF).
+  body              String?
+  documentId        String?
+  /// YYYY-MM-DD; effectiveTo is set when a later version takes over or the policy is retired.
+  effectiveFrom     String
+  effectiveTo       String?
+  /// { establishmentIds?, states?, departmentIds?, employeeTypeIds?, gradeIds?, workTypeIds? } — every list given must match.
+  appliesTo         Json
+  needsAcceptance   Boolean   @default(false)
+  /// DRAFT | WAITING | PUBLISHED | RETIRED
+  status            String    @default("DRAFT")
+  publishedAt       DateTime?
+  publishedByUserId String?
+  requestId         String?
+  createdByUserId   String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  policy Policy @relation(fields: [policyId], references: [id], onDelete: Cascade)
+
+  @@unique([policyId, version])
+  @@index([orgId, status, effectiveFrom])
+}
+
+/// Someone was asked to read and accept a policy version or a document (DOC-05,
+/// POL-04; services/people/acknowledgements.ts). One row per person per target.
+model Acknowledgement {
+  id            String    @id @default(cuid())
+  accountId     String
+  orgId         String
+  /// DOCUMENT | POLICY_VERSION
+  targetType    String
+  targetId      String
+  employeeId    String
+  askedAt       DateTime  @default(now())
+  askedByUserId String?
+  acceptedAt    DateTime?
+  remindedAt    DateTime?
+  remindCount   Int       @default(0)
+
+  @@unique([targetType, targetId, employeeId])
+  @@index([orgId, employeeId, acceptedAt])
+  @@index([orgId, targetType, targetId])
+}
+
+/// Help desk (docs/people/02-PRD.md DESK-01..06; services/people/desk.ts). A
+/// request from an employee with a thread; internal notes the employee never
+/// sees; a category sets the queue and the reply-by and resolve-by times.
+model DeskCategory {
+  id          String   @id @default(cuid())
+  accountId   String
+  orgId       String
+  key         String
+  label       String
+  queue       String
+  leadUserId  String?
+  replyHours  Int      @default(24)
+  resolveDays Int      @default(3)
+  isActive    Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([orgId, key])
+}
+
+model DeskRequest {
+  id                 String    @id @default(cuid())
+  accountId          String
+  orgId              String
+  employeeId         String
+  category           String
+  subject            String
+  description        String
+  /// LOW | NORMAL | HIGH | URGENT
+  urgency            String    @default("NORMAL")
+  /// APP | EMAIL | PHONE
+  replyChannel       String?
+  assigneeUserId     String?
+  queue              String
+  replyBy            DateTime
+  resolveBy          DateTime
+  firstReplyAt       DateTime?
+  replyEscalatedAt   DateTime?
+  resolveEscalatedAt DateTime?
+  /// OPEN | WAITING_EMPLOYEE | RESOLVED | REOPENED | MOVED
+  status             String    @default("OPEN")
+  resolution         String?
+  resolvedAt         DateTime?
+  resolvedByUserId   String?
+  reopenedAt         DateTime?
+  /// Moved to Private cases (DESK-05): the details here are wiped; only the date and the case stay.
+  movedToCaseAt      DateTime?
+  movedToCaseId      String?
+  raisedByUserId     String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  employee Employee      @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  messages DeskMessage[]
+
+  @@index([orgId, status, resolveBy])
+  @@index([orgId, employeeId])
+  @@index([orgId, queue, status])
+}
+
+model DeskMessage {
+  id               String   @id @default(cuid())
+  accountId        String
+  orgId            String
+  requestId        String
+  authorUserId     String?
+  authorEmployeeId String?
+  body             String
+  /// Never returned to the employee (DESK-02).
+  internal         Boolean  @default(false)
+  attachmentDocId  String?
+  templateId       String?
+  /// The policy version an answer cites (DESK-06).
+  policyVersionId  String?
+  createdAt        DateTime @default(now())
+
+  request DeskRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, requestId, createdAt])
+}
+
+model DeskTemplate {
+  id              String   @id @default(cuid())
+  accountId       String
+  orgId           String
+  title           String
+  body            String
+  category        String?
+  policyId        String?
+  isActive        Boolean  @default(true)
+  createdByUserId String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([orgId, isActive])
+}
+
+/// Letters the company issues (docs/people/02-PRD.md DOC-04; services/people/letters.ts):
+/// offer, appointment, confirmation, increment, relieving, experience, service
+/// certificate. Each save is a new version; the newest active one is used, and
+/// the issued letter records which version made it.
+model LetterTemplate {
+  id              String   @id @default(cuid())
+  accountId       String
+  orgId           String
+  /// OFFER | APPOINTMENT | CONFIRMATION | INCREMENT | RELIEVING | EXPERIENCE | SERVICE_CERT
+  kind            String
+  name            String
+  /// Plain text with {{merge}} fields from the allow-list and {{extra.key}} fields HR fills in when issuing.
+  body            String
+  version         Int
+  active          Boolean  @default(true)
+  createdByUserId String?
+  createdAt       DateTime @default(now())
+
+  @@unique([orgId, kind, version])
+  @@index([orgId, kind, active])
 }
 
 /// A DPDP data-subject request raised from the portal: see my data, correct
@@ -1758,6 +1986,361 @@ model EmploymentEvent {
   @@index([orgId, employeeId, effectiveDate])
 }
 
+/// One stint of employment (services/people/episodes.ts): from joining to
+/// leaving. A rejoin opens the next stint and keeps the earlier ones, so
+/// service history survives; the employee id never changes.
+model EmploymentEpisode {
+  id         String   @id @default(cuid())
+  accountId  String
+  orgId      String
+  employeeId String
+  /// 1 for the first stint, then 2, 3…
+  seq        Int
+  startDate  String
+  endDate    String?
+  /// RESIGNED | TERMINATED | RETIRED | ABSCONDED | CONTRACT_ENDED | DECEASED
+  endType    String?
+  endReason  String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([employeeId, seq])
+  @@index([orgId, employeeId])
+}
+
+/// Every write to a person, with before and after (services/people/changeLog.ts;
+/// docs/people/02-PRD.md FND-04). Written in the same transaction as the change,
+/// so neither exists without the other. Append-only: a trigger refuses UPDATE
+/// and DELETE except under the bypass the retention job sets. Sensitive fields
+/// are logged as changed, without their values.
+model ChangeLog {
+  id            String   @id @default(cuid())
+  accountId     String
+  orgId         String
+  /// "Employee" | "Document" | "Policy" | …
+  entity        String
+  entityId      String
+  employeeId    String?
+  field         String
+  before        String?
+  after         String?
+  redacted      Boolean  @default(false)
+  reason        String?
+  /// FORM | IMPORT | APPROVAL | API | SYSTEM | SELF_SERVICE | SCHEDULED | HIRE
+  source        String
+  actorUserId   String?
+  correlationId String
+  requestId     String?
+  decisionId    String?
+  at            DateTime @default(now())
+
+  @@index([orgId, entity, entityId, at])
+  @@index([orgId, employeeId, at])
+  @@index([correlationId])
+}
+
+/// Events other apps and webhooks consume (services/people/outbox.ts; FND-05).
+/// Written in the change's transaction, delivered by a worker, named with a
+/// version: people.employee.created.v1. A consumer that sees an eventId twice
+/// acts once.
+model OutboxEvent {
+  id            String    @id @default(cuid())
+  accountId     String
+  orgId         String
+  name          String
+  employeeId    String?
+  correlationId String
+  payload       Json
+  occurredAt    DateTime  @default(now())
+  deliveredAt   DateTime?
+  attempts      Int       @default(0)
+  nextAttemptAt DateTime?
+  lastError     String?
+
+  @@index([orgId, deliveredAt, nextAttemptAt])
+  @@index([orgId, employeeId, occurredAt])
+}
+
+/// The company in law (docs/people/02-PRD.md FND-07): the registered entity
+/// its establishments belong to. Identifiers are masked when shown.
+model LegalEntity {
+  id          String   @id @default(cuid())
+  accountId   String
+  orgId       String
+  name        String
+  description String?
+  pan         String?
+  cin         String?
+  address     String?
+  isActive    Boolean  @default(true)
+  createdByUserId String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  establishments Establishment[]
+
+  @@unique([orgId, name])
+}
+
+/// A place of work in law: a shop, factory, office, site or warehouse in one
+/// state. The state decides which rules apply to the people there; a person's
+/// work state is their establishment's, never their home address (review R-07).
+model Establishment {
+  id            String   @id @default(cuid())
+  accountId     String
+  orgId         String
+  legalEntityId String?
+  name          String
+  description   String?
+  /// SHOP | FACTORY | OFFICE | SITE | WAREHOUSE
+  kind          String   @default("OFFICE")
+  /// The state, as the company writes it: "Karnataka".
+  state         String?
+  address       String?
+  /// Registrations as JSON: [{ type: "SE_REG", number, validTill }]
+  registrations Json?
+  /// Whether the employer keeps employees' original documents here. Refused where the state forbids it (DOC-07: Karnataka).
+  holdsOriginals Boolean @default(false)
+  isActive      Boolean  @default(true)
+  createdByUserId String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  legalEntity LegalEntity? @relation(fields: [legalEntityId], references: [id], onDelete: SetNull)
+
+  @@unique([orgId, name])
+  @@index([orgId, state])
+}
+
+/// A change to someone's job dated in the future (FND-02): stored here, shown
+/// on the record as "Changes on <date>", applied on that day by a job, once.
+model ScheduledChange {
+  id            String   @id @default(cuid())
+  accountId     String
+  orgId         String
+  employeeId    String
+  field         String
+  fromValue     String?
+  toValue       String?
+  fromLabel     String?
+  toLabel       String?
+  effectiveOn   String
+  /// PENDING | APPLIED | CANCELLED
+  status        String   @default("PENDING")
+  reason        String?
+  requestId     String?
+  requestedByUserId String?
+  correlationId String
+  appliedAt     DateTime?
+  appliedRunId  String?
+  cancelledAt   DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([orgId, status, effectiveOn])
+  @@index([orgId, employeeId, status])
+}
+
+/// The identifiers People keeps about a person (docs/people/02-PRD.md CORE-04):
+/// never the full Aadhaar (UIDAI circular 14/2025: last four digits only),
+/// and never PAN, UAN, ESIC or bank details, which are Payroll's and are read
+/// from there masked. Shown masked; a reveal needs the Statutory Details
+/// grant and a fresh authenticator code, and is written to AccessLog.
+model EmployeeIdentity {
+  id                String   @id @default(cuid())
+  accountId         String
+  orgId             String
+  employeeId        String   @unique
+  aadhaarLast4      String?
+  passportNumber    String?
+  passportExpiry    String?
+  workPermitNumber  String?
+  workPermitExpiry  String?
+  /// WORKER | SUPERVISOR | MANAGER | APPRENTICE | CONTRACT (what the labour codes call them)
+  statutoryCategory String?
+  categoryFrom      String?
+  updatedByUserId   String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([orgId, employeeId])
+}
+
+/// Who looked at what (PRV-07): every reveal of a statutory value, every open
+/// of a confidential document or a private case. Append-only.
+model AccessLog {
+  id         String   @id @default(cuid())
+  accountId  String
+  orgId      String
+  /// STATUTORY | DOC_CONFIDENTIAL | CASE
+  what       String
+  entityId   String
+  employeeId String?
+  field      String?
+  userId     String
+  at         DateTime @default(now())
+
+  @@index([orgId, employeeId, at])
+  @@index([orgId, userId, at])
+}
+
+/// Approval rules (docs/people/02-PRD.md APR-02): steps in order, each with
+/// who decides, an optional condition, a due time and what happens when it
+/// is overdue. Versioned: editing writes a new version and requests keep the
+/// one they were submitted under.
+model ApprovalRule {
+  id          String   @id @default(cuid())
+  accountId   String
+  orgId       String
+  name        String
+  /// PROFILE_CHANGE | JOB_CHANGE | LEAVING | DOCUMENT_REQUEST | LETTER_REQUEST | POLICY_PUBLISH | DESK_ESCALATION | SEAT_REQUEST | PROBATION
+  requestType String
+  version     Int      @default(1)
+  active      Boolean  @default(true)
+  /// [{ order, approver: { kind: MANAGER | MANAGER_OF_MANAGER | USER | ROLE | HR, id? }, condition?: { field, op: changed | eq | ne, value? }, dueDays, overdue: { action: REMIND | HAND_ON, to?: { kind, id? } } }]
+  steps       Json
+  createdByUserId String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([orgId, requestType, version])
+  @@index([orgId, requestType, active])
+}
+
+/// A request waiting for decisions (APR-01): what is asked, under which rule
+/// version, where it stands. Approving the last step has the effect the
+/// request type names (services/people/approvals/engine.ts).
+model ApprovalRequest {
+  id                String   @id @default(cuid())
+  accountId         String
+  orgId             String
+  requestType       String
+  subjectEmployeeId String?
+  requesterUserId   String
+  ruleId            String
+  ruleVersion       Int
+  title             String
+  payload           Json
+  /// DRAFT | WAITING | APPROVED | REJECTED | WITHDRAWN | MORE_INFO
+  status            String   @default("WAITING")
+  currentStep       Int      @default(1)
+  idempotencyKey    String?
+  decisionId        String?
+  outcome           Json?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  steps ApprovalStep[]
+
+  @@unique([orgId, idempotencyKey])
+  @@index([orgId, status, createdAt])
+  @@index([orgId, subjectEmployeeId])
+  @@index([orgId, requesterUserId])
+}
+
+/// One step of a request: who may decide it (resolved when the step opened,
+/// stand-ins included), when it is due, and what they decided.
+model ApprovalStep {
+  id               String    @id @default(cuid())
+  accountId        String
+  orgId            String
+  requestId        String
+  order            Int
+  /// Who may decide: the resolved people, as user ids.
+  candidateUserIds Json
+  approverUserId   String?
+  standInForUserId String?
+  dueAt            DateTime
+  /// WAITING | APPROVED | REJECTED | MORE_INFO | HANDED_ON | SKIPPED | WITHDRAWN
+  status           String    @default("WAITING")
+  comment          String?
+  decidedByUserId  String?
+  decidedAt        DateTime?
+  remindedAt       DateTime?
+  createdAt        DateTime  @default(now())
+
+  request ApprovalRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, status, dueAt])
+  @@index([requestId, order])
+}
+
+/// Someone standing in for an approver between two dates (APR-04).
+model StandIn {
+  id            String   @id @default(cuid())
+  accountId     String
+  orgId         String
+  userId        String
+  standInUserId String
+  fromDate      String
+  toDate        String
+  createdAt     DateTime @default(now())
+
+  @@index([orgId, userId, fromDate, toDate])
+}
+
+/// A probation review (docs/people/02-PRD.md LIFE-03): the period, what was
+/// agreed and seen, the recommendation, and the outcome once decided.
+model ProbationReview {
+  id             String    @id @default(cuid())
+  accountId      String
+  orgId          String
+  employeeId     String
+  periodEnd      String
+  goals          String?
+  observations   String?
+  /// CONFIRM | EXTEND | END
+  recommendation String?
+  newEndDate     String?
+  note           String?
+  requestId      String?
+  /// CONFIRM | EXTEND | END, once decided
+  outcome        String?
+  decidedByUserId String?
+  decidedAt      DateTime?
+  reviewedByUserId String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([orgId, employeeId, createdAt])
+}
+
+/// Before day one (docs/people/02-PRD.md LIFE-01; services/people/lifecycle/invites.ts):
+/// an invite the joiner opens once, good for fourteen days. What they send is
+/// held here until HR checks it and it is written to the record.
+model JoinInvite {
+  id              String    @id @default(cuid())
+  accountId       String
+  orgId           String
+  employeeId      String
+  /// sha256 of the token in the link; the token itself is never stored.
+  tokenHash       String    @unique
+  /// EMAIL | SMS (no gateway: HR is given the link to send)
+  channel         String
+  sentTo          String
+  /// HR's note to the joiner: what to bring, which policies to read.
+  message         String?
+  expiresAt       DateTime
+  /// SENT | STARTED | RETURNED | CHECKED | EXPIRED
+  status          String    @default("SENT")
+  /// { fields, declarations, documentIds } as the joiner sent them, until checked.
+  submitted       Json?
+  startedAt       DateTime?
+  returnedAt      DateTime?
+  checkedByUserId String?
+  checkedAt       DateTime?
+  sentByUserId    String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, employeeId])
+  @@index([orgId, status])
+}
+
 /// Joining / leaving checklist a company uses (services/people/checklists.ts).
 /// `items`: [{ title, owner, dueDays }], dueDays counted from the joining date
 /// or the last working day (negative = before it). No row = CLOR's defaults.
@@ -1781,11 +2364,13 @@ model ChecklistTask {
   accountId    String
   orgId        String
   employeeId   String
-  /// JOINING or LEAVING
+  /// JOINING | LEAVING | CHANGE | PROBATION
   kind         String
   title        String
-  /// HR, MANAGER, PAYROLL, IT, EMPLOYEE
+  /// The role: HR, MANAGER, PAYROLL, IT, EMPLOYEE
   owner        String
+  /// The named person (docs/people/02-PRD.md LIFE-02), resolved when the plan starts; can be reassigned.
+  ownerUserId  String?
   dueDate      String?
   sortOrder    Int       @default(0)
   doneAt       DateTime?
@@ -1795,6 +2380,7 @@ model ChecklistTask {
 
   @@index([orgId, employeeId])
   @@index([orgId, doneAt, dueDate])
+  @@index([orgId, ownerUserId, doneAt])
 }
 
 /// One statutory or company deadline for one period (services/people/compliance.ts):

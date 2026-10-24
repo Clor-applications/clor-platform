@@ -19,7 +19,8 @@ const SEVERITY = {
   TIDY_UP: { label: 'Tidy up', tone: 'neutral' },
 };
 /* Which app owns each fix screen; a screen of the app on show opens in place. */
-const APP_OF = { Payroll: 'payroll' };
+const APP_OF = { Payroll: 'payroll', People: 'people' };
+const APP_NAME = { payroll: 'Payroll', people: 'People', attendance: 'Attendance' };
 
 const EXPORT_COLUMNS = [
   { key: 'severity', label: 'Severity', value: (r) => SEVERITY[r.severity]?.label || r.severity },
@@ -47,7 +48,7 @@ export default function DataHealth({ openScreen, app = 'attendance', localScreen
     if (owner === app && openScreen && (localScreens.length === 0 || localScreens.includes(c.screen))) {
       return <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => openScreen(c.screen)}>Fix</button>;
     }
-    return <a className="ui-btn ui-btn-secondary ui-btn-sm" href={`?app=${owner}&open=${encodeURIComponent(c.screen)}`}>Fix in {owner === 'payroll' ? 'Payroll' : 'Attendance'}</a>;
+    return <a className="ui-btn ui-btn-secondary ui-btn-sm" href={`?app=${owner}&open=${encodeURIComponent(c.screen)}`}>Fix in {APP_NAME[owner] || owner}</a>;
   };
   const rows = (data?.checks || []).flatMap((c) => c.people.map((p) => ({ severity: c.severity, title: c.title, name: p.name, code: p.code || '', detail: p.detail || '', fix: c.fix })));
 

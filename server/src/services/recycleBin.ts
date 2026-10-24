@@ -48,7 +48,7 @@ export const BIN_KINDS: Record<string, Kind> = {
     label: (r) => `${r.name}${r.code ? ` (${r.code})` : ''}`,
   },
   employeeNote: { model: 'employeeNote', noun: 'Employee note', module: PEOPLE_MODULE, resource: P.notes, label: (r) => forPerson(String(r.body || 'Note').slice(0, 60), r) },
-  employeeDocument: { model: 'employeeDocument', noun: 'Employee document', module: PEOPLE_MODULE, resource: P.employees, label: (r) => forPerson(r.title || 'Document', r) },
+  employeeDocument: { model: 'employeeDocument', noun: 'Employee document', module: PEOPLE_MODULE, resource: P.documents, label: (r) => forPerson(r.title || 'Document', r) },
   department: { model: 'department', noun: 'Department', module: PEOPLE_MODULE, resource: P.structure, label: (r) => r.name },
   jobPosition: { model: 'jobPosition', noun: 'Designation', module: PEOPLE_MODULE, resource: P.structure, label: (r) => r.name },
   jobRole: { model: 'jobRole', noun: 'Job role', module: PEOPLE_MODULE, resource: P.structure, label: (r) => r.name },

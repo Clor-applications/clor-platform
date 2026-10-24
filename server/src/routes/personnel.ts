@@ -1,5 +1,3 @@
-import { employeeStatusChanged } from '../services/portalSessions.js';
-import { actorFrom } from '../services/credentials.js';
 import { Router } from 'express';
 import { z } from 'zod';
 
@@ -12,6 +10,8 @@ import { PEOPLE_MODULE, PEOPLE_RESOURCE, peopleRouteOk } from '../services/peopl
 import { istDate } from '../services/attendance/compute.js';
 import { pushEmployeeToReaders, revokeFromReaders } from '../services/attendance/readerSync.js';
 import { deleteToBin } from '../services/recycleBin.js';
+import { openNextEpisode } from '../services/people/episodes.js';
+import { leaveEmployee } from '../services/people/lifecycle/leaving.js';
 import { recordChanges } from '../services/people/employmentHistory.js';
 import { READER_ACCESS_ITEM, startChecklist } from '../services/people/checklists.js';
 
@@ -194,38 +194,44 @@ personnelRouter.post(`${base}/employees/:id/resign`, can(PermissionAction.EDIT, 
   if (!existing) return res.status(404).json({ error: 'No such employee.' });
   if (existing.status === 'LEFT') return res.status(409).json({ error: 'This person has already left.' });
   if (existing.dateOfJoining && parsed.data.lastDay < existing.dateOfJoining) return res.status(400).json({ error: 'Somebody cannot leave before they joined.' });
-  const employee = await peoplePrisma.employee.update({
-    where: { id: existing.id },
-    data: { status: 'LEFT', dateOfLeaving: parsed.data.lastDay, leavingType: parsed.data.leavingType, leavingReason: blank(parsed.data.reason) },
-  });
-  /* A-33: gone, their employee-app sign-ins end. */
-  await employeeStatusChanged(employee, existing.status, 'LEFT', actorFrom(req));
-  await recordChanges({ accountId, orgId, userId: req.auth!.userId }, existing, employee, { source: 'RESIGNATION', effectiveDate: parsed.data.lastDay, note: blank(parsed.data.reason) || parsed.data.leavingType.replace(/_/g, ' ').toLowerCase() });
-  const removed = await revokeFromReaders(orgId, existing, req.auth!.userId);
-  await startChecklist({ accountId, orgId, userId: req.auth!.userId }, employee, 'LEAVING', parsed.data.lastDay, { done: [READER_ACCESS_ITEM] });
-  res.json({ employee, readers: removed.readers });
+  const r = await leaveEmployee({ accountId, orgId, userId: req.auth!.userId }, existing as any, { lastDay: parsed.data.lastDay, leavingType: parsed.data.leavingType, reason: blank(parsed.data.reason) });
+  res.json({ employee: r.employee, readers: r.readers });
 });
 
-/** Back to work: active again, leaving details cleared, put back on every reader. */
+/**
+ * Back to work (docs/people/02-PRD.md LIFE-06): a new stint from the rejoin
+ * date, active again, leaving details cleared, put back on every reader. The
+ * rejoin date is required: without it the old code kept the original joining
+ * date, and with it the original was overwritten (review R-03). Now
+ * `dateOfJoining` becomes the rejoin date (the current stint, which
+ * Attendance and leave proration read), `firstJoiningDate` stays, and the
+ * earlier stint keeps its own dates.
+ */
 personnelRouter.post(`${base}/employees/:id/rehire`, can(PermissionAction.EDIT, R.employees), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
-  const parsed = z.object({ rejoinDate: z.string().regex(ISO_DATE).optional().nullable() }).safeParse(req.body || {});
-  if (!parsed.success) return res.status(400).json({ error: 'Dates are YYYY-MM-DD.' });
+  const parsed = z.object({ rejoinDate: z.string().regex(ISO_DATE, 'Give the rejoin date, YYYY-MM-DD.') }).safeParse(req.body || {});
+  if (!parsed.success) return res.status(400).json({ error: 'Give the rejoin date (YYYY-MM-DD).', code: 'REJOIN_DATE_REQUIRED' });
   const existing = await peoplePrisma.employee.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
   if (!existing) return res.status(404).json({ error: 'No such employee.' });
   if (existing.status !== 'LEFT') return res.status(409).json({ error: 'This person has not left.' });
-  const employee = await peoplePrisma.employee.update({
-    where: { id: existing.id },
-    data: {
-      status: 'ACTIVE',
-      dateOfLeaving: null,
-      leavingType: null,
-      leavingReason: null,
-      ...(parsed.data.rejoinDate ? { dateOfJoining: parsed.data.rejoinDate } : {}),
-    },
+  if (existing.dateOfLeaving && parsed.data.rejoinDate <= existing.dateOfLeaving) return res.status(400).json({ error: `The rejoin date must be after their last day, ${existing.dateOfLeaving}.` });
+  const employee = await peoplePrisma.$transaction(async (tx) => {
+    const next = await openNextEpisode({ accountId, orgId }, existing, parsed.data.rejoinDate, tx);
+    return tx.employee.update({
+      where: { id: existing.id },
+      data: {
+        status: 'ACTIVE',
+        dateOfLeaving: null,
+        leavingType: null,
+        leavingReason: null,
+        dateOfJoining: parsed.data.rejoinDate,
+        firstJoiningDate: existing.firstJoiningDate || existing.dateOfJoining || null,
+        currentEpisodeSeq: next.seq,
+      },
+    });
   });
-  await recordChanges({ accountId, orgId, userId: req.auth!.userId }, existing, employee, { source: 'REHIRE', effectiveDate: parsed.data.rejoinDate || null });
+  await recordChanges({ accountId, orgId, userId: req.auth!.userId }, existing, employee, { source: 'REHIRE', effectiveDate: parsed.data.rejoinDate, note: `Stint ${employee.currentEpisodeSeq}` });
   await startChecklist({ accountId, orgId, userId: req.auth!.userId }, employee, 'JOINING', employee.dateOfJoining);
   /* Their fingerprints and faces were deleted when they left: they enrol again at a reader. */
   const pushed = await pushEmployeeToReaders(orgId, employee, req.auth!.userId);
