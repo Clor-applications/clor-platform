@@ -796,6 +796,37 @@ model AccountMembership {
   @@index([accountId, role])
 }
 
+/// W-3: an invitation into the account, with the companies, branches and
+/// company roles the person will get. Only the SHA-256 of the token is kept;
+/// the link is single-use (status moves PENDING → ACCEPTED once, under a
+/// conditional update) and expires. Seats are not reserved while pending: the
+/// plan's user limit is checked when the invitation is accepted.
+model AccountInvitation {
+  id               String    @id @default(cuid())
+  accountId        String
+  email            String
+  /// ADMIN | BILLING_ADMIN | MEMBER — never OWNER (owners are made by an owner, with step-up)
+  accountRole      String    @default("MEMBER")
+  /// JSON: [{ orgId, branchIds: [], roleIds: [] }]
+  grants           String
+  tokenHash        String    @unique
+  /// PENDING | ACCEPTED | REVOKED | EXPIRED
+  status           String    @default("PENDING")
+  expiresAt        DateTime
+  invitedByUserId  String
+  acceptedByUserId String?
+  acceptedAt       DateTime?
+  revokedByUserId  String?
+  revokedAt        DateTime?
+  sendCount        Int       @default(1)
+  lastSentAt       DateTime  @default(now())
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@index([accountId, status])
+  @@index([accountId, email])
+}
+
 /// What was done to the account itself — its owners and members' account
 /// roles — where AuditLog (which needs a company and a branch) has no place.
 /// Plain words in `message`; no secrets or personal data beyond who and what.

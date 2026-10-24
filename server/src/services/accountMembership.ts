@@ -96,6 +96,20 @@ export const requireAccountRole =
   async (req: Request, res: Response, next: NextFunction) => {
     const role = await accountRoleOf(accountOf(req), String(req.auth?.userId || ''));
     if (role && roles.includes(role)) return next();
+    /* A refused attempt to change something is a security signal: it goes in the account's audit (reads are not recorded). */
+    if (req.method !== 'GET' && req.method !== 'HEAD' && accountOf(req)) {
+      await recordAccountEvent({
+        accountId: accountOf(req),
+        actorUserId: String(req.auth?.userId || '') || null,
+        action: 'ACCESS_DENIED',
+        targetType: 'Route',
+        targetId: `${req.method} ${req.baseUrl || ''}${req.route?.path || req.path}`,
+        result: 'DENIED',
+        message: 'An account-level action was refused: the caller lacks the account role it needs.',
+        metadata: { code: 'ACCOUNT_ROLE_REQUIRED', required: roles, had: role },
+        requestId: requestIdOf(req),
+      });
+    }
     return res.status(403).json({
       error: roles.includes('BILLING_ADMIN')
         ? 'Only an owner, administrator or billing administrator of this account can open this.'

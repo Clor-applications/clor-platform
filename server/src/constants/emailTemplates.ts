@@ -77,6 +77,23 @@ You will be asked to set your own password on first sign-in.`,
     transactional: true,
   },
   {
+    key: 'account.invited',
+    label: 'Invitation to an account',
+    description: 'Sent when an owner or administrator invites someone into the account (Workspace → Invitations).',
+    subject: '{{inviterName}} invited you to {{accountName}} on {{appName}}',
+    body: `Hello,
+
+{{inviterName}} invited you to join {{accountName}} on {{appName}}{{companies}}.
+
+Accept the invitation here:
+
+{{inviteUrl}}
+
+The link works once and expires on {{expiresOn}}. If you were not expecting this, you can ignore it.`,
+    fields: ['inviterName', 'accountName', 'appName', 'inviteUrl', 'expiresOn', 'companies'],
+    transactional: true,
+  },
+  {
     key: 'approval.requested',
     label: 'Approval requested',
     description: 'Sent to holders of the approving role when a document exceeds a threshold.',

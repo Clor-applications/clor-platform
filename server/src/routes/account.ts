@@ -14,6 +14,7 @@ import {
   requireAccountRole,
   setAccountRole,
 } from '../services/accountMembership.js';
+import { InvitationError, createInvitation, listInvitations, resendInvitation, revokeInvitation } from '../services/accountInvitations.js';
 import { entitlementFor } from '../services/entitlements.js';
 import { outsideTenant } from '../utils/tenantScope.js';
 
@@ -160,7 +161,7 @@ accountRouter.get('/account/members', requireAccountRole(...ACCOUNT_ADMINS), asy
 });
 
 /** Change one person's account role (W-1.2): owner rules, last-owner guard, step-up and audit in setAccountRole. */
-accountRouter.put('/account/members/:userId/role', async (req, res) => {
+accountRouter.put('/account/members/:userId/role', requireAccountRole(...ACCOUNT_ADMINS), async (req, res) => {
   const role = req.body?.role;
   if (!isAccountRole(role)) return res.status(400).json({ error: 'Role must be OWNER, ADMIN, BILLING_ADMIN or MEMBER.', code: 'BAD_ROLE' });
   try {
@@ -168,5 +169,43 @@ accountRouter.put('/account/members/:userId/role', async (req, res) => {
   } catch (e) {
     if (e instanceof AccountMembershipError) return res.status(e.status).json({ error: e.message, code: e.code });
     throw e;
+  }
+});
+
+/*
+ * W-3: invitations into the account. Owners and administrators only; the
+ * service checks the role again and keeps every grant within the inviter's
+ * authority (services/accountInvitations.ts).
+ */
+const invitationError = (res: import('express').Response, e: unknown) => {
+  if (e instanceof InvitationError) return res.status(e.status).json({ error: e.message, code: e.code });
+  throw e;
+};
+
+accountRouter.get('/account/invitations', requireAccountRole(...ACCOUNT_ADMINS), async (req, res) => {
+  res.json({ invitations: await listInvitations(req.tenant!.accountId) });
+});
+
+accountRouter.post('/account/invitations', requireAccountRole(...ACCOUNT_ADMINS), async (req, res) => {
+  try {
+    res.status(201).json(await createInvitation(req, req.body || {}));
+  } catch (e) {
+    invitationError(res, e);
+  }
+});
+
+accountRouter.post('/account/invitations/:id/resend', requireAccountRole(...ACCOUNT_ADMINS), async (req, res) => {
+  try {
+    res.json({ invitation: await resendInvitation(req, String(req.params.id)) });
+  } catch (e) {
+    invitationError(res, e);
+  }
+});
+
+accountRouter.post('/account/invitations/:id/revoke', requireAccountRole(...ACCOUNT_ADMINS), async (req, res) => {
+  try {
+    res.json(await revokeInvitation(req, String(req.params.id)));
+  } catch (e) {
+    invitationError(res, e);
   }
 });

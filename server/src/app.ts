@@ -82,6 +82,7 @@ import { payrollReportsRouter } from './routes/payrollReports.js';
 import { payrollSetupRouter } from './routes/payrollSetup.js';
 import { posCheckoutRouter } from './routes/posCheckout.js';
 import { accountRouter } from './routes/account.js';
+import { invitationsRouter } from './routes/invitations.js';
 import { shareAdminRouter, sharePublicRouter } from './routes/share.js';
 import { bankBookRouter } from './routes/bankBook.js';
 import { posDayCloseRouter } from './routes/posDayClose.js';
@@ -337,6 +338,8 @@ export function buildApp() {
   app.use('/api', ...apiLimiter);
   app.use('/api/auth/sso', ssoRouter);
   app.use('/api/auth', authRouter);
+  /* W-3: an invited person's side of an invitation — before they belong to any company, so not company-scoped. */
+  app.use('/api', invitationsRouter);
 
   /* No auth and no tenant headers: the customer has no account here. Mounted
      with authRouter for the same reason gstinRouter is — a router at '/api'
