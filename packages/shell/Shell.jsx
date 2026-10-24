@@ -26,6 +26,7 @@ import TwoFactorGate from './TwoFactorGate';
 import CommandPalette from '@ui/components/ui/CommandPalette';
 import CompanySetup from './CompanySetup';
 import NoCompanyAccess from './NoCompanyAccess';
+import InviteAccept from './InviteAccept';
 import { appAddress, frontDoorForward } from './orgUrl';
 import ScreenBoundary from './ScreenBoundary';
 import SignIn from './SignIn';
@@ -281,6 +282,14 @@ export default function Shell() {
    * the only three there are — everything past sign-in is an app's business.
    */
   const [publicPage, setPublicPageState] = useState(publicPageFromPath);
+  /* W-3: app.clor.in/invite?token=... — read once; the page itself never puts the token anywhere else. */
+  const [inviteToken, setInviteToken] = useState(() => {
+    try {
+      return window.location.pathname.replace(/\/+$/, '') === '/invite' ? String(new URLSearchParams(window.location.search).get('token') || '') : '';
+    } catch {
+      return '';
+    }
+  });
   /* The page is in the address (/signin, /signup), so clor.in's buttons can open the right one and a refresh keeps it. */
   const setPublicPage = (page) => {
     setPublicPageState(page);
@@ -445,6 +454,20 @@ export default function Shell() {
         onDone={() => {
           leaveEmailLink('signin');
           if (user) window.location.replace('/');
+        }}
+      />
+    );
+  }
+
+  /* W-3: an invitation link opens its own page, signed in or not. */
+  if (inviteToken) {
+    return (
+      <InviteAccept
+        token={inviteToken}
+        onHome={() => window.location.assign(MARKETING_URL)}
+        onSignIn={() => {
+          setInviteToken('');
+          setPublicPage('signin');
         }}
       />
     );
@@ -955,6 +978,8 @@ export default function Shell() {
                         user={user}
                         apps={mine}
                         catalog={APPS}
+                        companies={tenants.filter((t) => t.accountId && t.accountId === tenant.accountId)}
+                        accountName={accounts.find((x) => x.id === tenant.accountId)?.name || ''}
                         openApp={openApp}
                         openMoreApps={() => setShowMoreApps(true)}
                         openScreen={(key, params) => {

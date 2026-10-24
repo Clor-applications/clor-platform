@@ -1,4 +1,4 @@
-import { Building, Building2, CreditCard, Fingerprint, HardDriveDownload, History, Key, KeyRound, LayoutGrid, Shield, ShieldCheck, UserCheck, Users, XCircle } from 'lucide-react';
+import { Building, Building2, CreditCard, Fingerprint, HardDriveDownload, History, Key, KeyRound, LayoutGrid, Mail, Shield, ShieldCheck, UserCheck, Users, XCircle } from 'lucide-react';
 
 import { lazyScreens } from '@ui/utils/lazyScreens';
 
@@ -14,6 +14,7 @@ const SecuritySettings = screen('SecuritySettings');
 const SsoSettings = screen('SsoSettings');
 const Credentials = screen('Credentials');
 const OutsideAccess = screen('OutsideAccess');
+const Invitations = screen('Invitations');
 const AuditTrail = screen('AuditTrail');
 const AccountOverview = screen('AccountOverview');
 const BillingPreview = screen('BillingPreview');
@@ -55,7 +56,7 @@ export const adminApp = {
     { key: 'home', label: 'Overview', items: ['home'] },
     { key: 'company', label: 'Company', items: ['company', 'branches'] },
     { key: 'access', label: 'Access', groups: [
-      { label: 'Who', items: ['users', 'outsideAccess'] },
+      { label: 'Who', items: ['users', 'invitations', 'outsideAccess'] },
       { label: 'What they may do', items: ['roles', 'permissions'] },
     ] },
     { key: 'security', label: 'Security', items: ['security', 'sso', 'credentials', 'audit'] },
@@ -68,6 +69,8 @@ export const adminApp = {
     { key: 'company', label: 'Company profile', icon: Building, permission: 'SETTINGS::Company Profile::VIEW' },
     { key: 'branches', label: 'Branches', icon: Building2, permission: 'MASTERS::Company/Branch setup::VIEW' },
     { key: 'users', label: 'Users', icon: Users, permission: 'SETTINGS::Users::VIEW' },
+    /* W-3: shown with Users; the server lets only the account's owners and administrators invite. */
+    { key: 'invitations', label: 'Invitations', icon: Mail, permission: 'SETTINGS::Users::VIEW' },
     { key: 'outsideAccess', label: 'Outside access', icon: UserCheck, permission: 'SETTINGS::Users::VIEW' },
     { key: 'roles', label: 'Roles', icon: Shield, permission: 'SETTINGS::Roles::VIEW' },
     { key: 'permissions', label: 'Permissions', icon: KeyRound, permission: 'SETTINGS::Roles::VIEW' },
@@ -92,6 +95,7 @@ export const adminApp = {
     sso: SsoSettings,
     credentials: Credentials,
     outsideAccess: OutsideAccess,
+    invitations: Invitations,
     audit: AuditTrail,
     account: AccountOverview,
     billing: BillingPreview,

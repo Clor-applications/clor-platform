@@ -12,3 +12,14 @@ export const setAccountRole = (userId, role, stepUpToken) =>
     ...(stepUpToken ? { headers: { 'x-step-up': stepUpToken } } : {}),
     ...opts,
   });
+
+/* W-3: invitations, from the account's side. */
+export const listInvitations = () => apiFetch('/account/invitations', opts);
+export const createInvitation = (body) => apiFetch('/account/invitations', { method: 'POST', body, ...opts });
+export const resendInvitation = (id) => apiFetch(`/account/invitations/${encodeURIComponent(id)}/resend`, { method: 'POST', body: {}, ...opts });
+export const revokeInvitation = (id) => apiFetch(`/account/invitations/${encodeURIComponent(id)}/revoke`, { method: 'POST', body: {}, ...opts });
+
+/* W-3: the invited person's side, before they belong to any company (no company headers). */
+export const previewInvitation = (token) => apiFetch('/invitations/preview', { method: 'POST', body: { token }, skipAuth: true });
+export const acceptInvitationNew = (token, fullName, password) => apiFetch('/invitations/accept', { method: 'POST', body: { token, fullName, password }, skipAuth: true });
+export const acceptInvitationSignedIn = (token) => apiFetch('/invitations/accept-signed-in', { method: 'POST', body: { token }, skipAuth: true });
