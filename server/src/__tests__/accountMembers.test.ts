@@ -11,6 +11,7 @@ import jwt from 'jsonwebtoken';
 const { buildApp } = await import('../app.js');
 const { platformPrisma } = await import('../utils/platformPrisma.js');
 const { outsideTenant } = await import('../utils/tenantScope.js');
+const { stepNow, codeAt } = await import('../services/totp.js');
 
 const app = buildApp().listen(0);
 afterAll(() => new Promise((done) => app.close(done)));
@@ -145,5 +146,20 @@ describe('the account’s people', () => {
     const d = (await request(app).get('/api/account/members/directory').set(at(o)).expect(200)).body;
     expect(d.members.find((m: any) => m.userId === p.userId).authenticator).toBe(false);
     expect((await request(app).post(`/api/account/members/${o.userId}/sign-out`).set(at(o)).expect(409)).body.code).toBe('SELF');
+  });
+
+  it('asks an administrator with an authenticator for a fresh code to make someone an administrator', async () => {
+    const o = await owner('elevate');
+    const p = await person(o, 'to-elevate');
+    const roles = (await request(app).get(`/api/orgs/${o.orgId}/roles`).set(at(o)).expect(200)).body.roles;
+    const admin = roles.find((r: any) => r.roleType === 'ADMIN');
+    const grant = (extra: Record<string, string> = {}) => request(app).post(`/api/orgs/${o.orgId}/users/${p.userId}/roles`).set({ ...at(o), ...extra }).send({ roleId: admin.id, branchId: null });
+    const sec = (path: string, b?: unknown) => request(app).post(`/api/orgs/${o.orgId}/security${path}`).set(at(o)).send(b as any);
+    const { secret } = (await sec('/two-factor/setup').expect(200)).body;
+    const s0 = stepNow();
+    await sec('/two-factor/enable', { code: codeAt(secret, s0) }).expect(200);
+    expect((await grant().expect(403)).body.code).toBe('STEP_UP_REQUIRED');
+    const token = (await sec('/step-up', { code: codeAt(secret, s0 + 1) }).expect(200)).body.token;
+    await grant({ 'x-step-up': token }).expect(201);
   });
 });

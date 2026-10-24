@@ -15,6 +15,7 @@ import { PermissionAction } from '../constants/enums.js';
 import { sendTemplate } from '../services/mailer.js';
 import { revokeAllSessions } from '../services/auth.js';
 import { RoleType } from '../constants/enums.js';
+import { hasValidStepUp } from '../services/stepUp.js';
 import { resolveAccess, resolveUserPermissions } from '../services/access.js';
 import { permKey } from '../constants/permissionCatalog.js';
 import { NO_FIT, SuggestionError, roleSuggestionEnabled, suggestRole } from '../services/roleSuggestion.js';
@@ -979,6 +980,19 @@ usersRouter.post('/orgs/:orgId/users/:userId/roles', requirePermission('SETTINGS
 
   const refused = await assignmentRefusal(req, accountId, orgId, userId, role, scopeBranchId);
   if (refused) return res.status(refused.status).json(refused.body);
+
+  /*
+   * W-5.2: making somebody a company administrator is the largest step up in
+   * power there is. Where the person granting it has an authenticator, it
+   * takes a fresh code (the client asks for it and retries); the grant is in
+   * the audit trail either way.
+   */
+  if (role.roleType === RoleType.ADMIN && userId !== createdByUserId) {
+    const granter = await platformPrisma.user.findUnique({ where: { id: createdByUserId }, select: { totpEnabledAt: true } });
+    if (granter?.totpEnabledAt && !hasValidStepUp(req)) {
+      return res.status(403).json({ error: 'Enter the code from your authenticator app to make someone an administrator.', code: 'STEP_UP_REQUIRED' });
+    }
+  }
 
   try {
     await platformPrisma.$transaction(async (tx) => {
