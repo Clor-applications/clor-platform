@@ -1617,6 +1617,78 @@ model Seat {
   @@index([orgId, teamId])
 }
 
+/// A compliance rule as the company holds it (docs/people/02-PRD.md COMP-01;
+/// services/people/complianceRules.ts): seeded from CLOR's catalogue, then the
+/// company's own. Every edit is a new version; nothing is overwritten. A rule is
+/// "checked" when a named person has confirmed it with their adviser (COMP-05).
+model ComplianceRule {
+  id                 String    @id @default(cuid())
+  accountId          String
+  orgId              String
+  /// stable, e.g. IN-POSH-IC, IN-KA-SE-REG
+  ruleId             String
+  version            Int       @default(1)
+  title              String
+  /// IN (central) or IN-<state>, e.g. IN-KA
+  jurisdiction       String
+  /// ["SHOP","OFFICE",…] or [] for any
+  establishmentKinds Json
+  /// ["ALL"] or a list of employee types the rule reaches
+  employeeCategories Json
+  legalSource        String
+  notificationRef    String?
+  effectiveFrom      String
+  effectiveTo        String?
+  supersedesVersion  Int?
+  obligation         String
+  /// { minHeadcount?: number }
+  threshold          Json?
+  ownerRole          String    @default("HR")
+  /// { kind: "MONTHLY", day } | { kind: "ANNUAL", month, day } | { kind: "HALF_YEARLY", months, day } | { kind: "ONCE", days } | { kind: "EVENT", after, days }
+  dueRule            Json
+  requiredProof      Json
+  /// DRAFT | CHECKED | NEEDS_REVIEW
+  reviewStatus       String    @default("DRAFT")
+  checkedByUserId    String?
+  checkedAt          DateTime?
+  active             Boolean   @default(true)
+  createdByUserId    String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  @@unique([orgId, ruleId, version])
+  @@index([orgId, active])
+}
+
+/// What the company owes, worked out from its establishments and headcount (COMP-02).
+model Obligation {
+  id              String    @id @default(cuid())
+  accountId       String
+  orgId           String
+  ruleId          String
+  ruleVersion     Int
+  establishmentId String?
+  /// the month, year or event the obligation is for, e.g. 2026-11, 2026, EST:<id>
+  period          String
+  title           String
+  dueOn           String
+  ownerUserId     String?
+  /// UPCOMING | DUE | OVERDUE | DONE | CHECKED
+  status          String    @default("UPCOMING")
+  proofDocIds     Json
+  note            String?
+  dueToldAt       DateTime?
+  doneAt          DateTime?
+  doneByUserId    String?
+  checkedAt       DateTime?
+  checkedByUserId String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@unique([orgId, ruleId, establishmentId, period])
+  @@index([orgId, status, dueOn])
+}
+
 /// Letters the company issues (docs/people/02-PRD.md DOC-04; services/people/letters.ts):
 /// offer, appointment, confirmation, increment, relieving, experience, service
 /// certificate. Each save is a new version; the newest active one is used, and

@@ -11,6 +11,7 @@ import { startScheduledChanges } from './services/people/effectiveDating.js';
 import { startApprovalDues } from './services/people/approvals/engine.js';
 import { startDeskDues } from './services/people/desk.js';
 import { startSeparations } from './services/people/lifecycle/leaving.js';
+import { startObligationDues } from './services/people/complianceRules.js';
 import { registerPeopleEffects } from './services/people/approvals/effects.js';
 import { startDocumentReminders } from './services/people/documentReminders.js';
 import { startNotificationPruning } from './services/notifications.js';
@@ -83,6 +84,7 @@ registerPeopleEffects();
 startApprovalDues();
 startDeskDues();
 startSeparations();
+startObligationDues();
 startNotificationPruning();
 startBooksDigest();
 /* Reports that go out by e-mail on their own — every 15 minutes the due ones are sent. */
