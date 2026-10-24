@@ -133,6 +133,8 @@ export const getCustomValues = (id) => apiFetch(`${base()}/employees/${encodeURI
 export const saveCustomValues = (id, values) => send(`/employees/${encodeURIComponent(id)}/custom-fields`, 'PUT', { values });
 /* The journey and Why (CORE-06, TRACE-01): every change in order, each with its reasons. */
 export const getJourney = (id) => apiFetch(`${base()}/employees/${encodeURIComponent(id)}/journey`, opts);
+export const raiseFromWhy = (id, key, body) => apiFetch(`${base()}/employees/${encodeURIComponent(id)}/why/${encodeURIComponent(key)}/raise`, { ...opts, method: 'POST', body });
+export const getSalaryQuestion = (id, month) => apiFetch(`${base()}/employees/${encodeURIComponent(id)}/salary-question?month=${encodeURIComponent(month)}`, opts);
 export const getWhy = (id, key) => apiFetch(`${base()}/employees/${encodeURIComponent(id)}/why/${encodeURIComponent(key)}`, opts).then((r) => r?.why);
 /* Before day one (LIFE-01): invite the joiner; see what they sent; check it onto the record. */
 export const createInvite = (id, body) => send(`/employees/${encodeURIComponent(id)}/invites`, 'POST', body);

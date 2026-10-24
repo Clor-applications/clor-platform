@@ -113,6 +113,8 @@ export async function whyOf(orgId: string, employeeId: string, key: string) {
     namesFor(lines.map((l) => l.actorUserId).filter((x): x is string => Boolean(x))),
   ]);
   const shaped = request ? await shape(request) : null;
+  /* TRACE-05: the rules and evidence as they were on the day it was decided, not as they are now. */
+  const record = request?.decisionId ? await peoplePrisma.decisionRecord.findFirst({ where: { orgId, id: request.decisionId } }) : request ? await peoplePrisma.decisionRecord.findFirst({ where: { orgId, requestId: request.id } }) : null;
   const rule = request ? await peoplePrisma.approvalRule.findUnique({ where: { id: request.ruleId }, select: { name: true, version: true, requestType: true } }) : null;
   /* Tasks this change set off: the plan tasks created in the minute after it, on this person. */
   const tasks = await peoplePrisma.checklistTask.findMany({ where: { orgId, employeeId, createdAt: { gte: first.at, lte: new Date(first.at.getTime() + 60_000) } }, select: { id: true, title: true, kind: true, owner: true, dueDate: true, doneAt: true } });
@@ -121,7 +123,14 @@ export async function whyOf(orgId: string, employeeId: string, key: string) {
   for (const d of (Array.isArray(payload.evidence) ? payload.evidence : []) as Array<{ documentId?: string; title?: string }>) if (d.documentId) evidence.push({ kind: 'DOCUMENT', id: d.documentId, title: d.title || 'Document' });
   const unknown: string[] = [];
   if (!request) unknown.push(first.source === 'FORM' || first.source === 'IMPORT' || first.source === 'API' ? `No approval recorded: changed ${SOURCE_WORDS[first.source]}, with no rule in force for it.` : first.source === 'SELF_SERVICE' ? 'No approval recorded: the person sent it and HR checked it.' : first.source === 'SCHEDULED' ? 'Approved when it was scheduled; see the change that scheduled it.' : 'No approval recorded.');
+  if (record) {
+    for (const d of (record.evidence as Array<{ documentId: string; title: string; version: number | null }>) || []) {
+      const at = evidence.find((e) => e.id === d.documentId);
+      if (at) Object.assign(at, { title: d.title, version: d.version }); else evidence.push({ kind: 'DOCUMENT', id: d.documentId, title: d.title, version: d.version } as any);
+    }
+  }
   if (!evidence.length) unknown.push('No evidence attached to this change.');
+  if (request && !record) unknown.push('No decision record: approved before decision records were kept, so the policy versions it relied on are not known.');
   if (!events.length) unknown.push('Nothing was sent to other apps for this change.');
   const decided = shaped?.steps.filter((s) => s.status === 'APPROVED' || s.status === 'REJECTED') || [];
   return {
@@ -134,6 +143,7 @@ export async function whyOf(orgId: string, employeeId: string, key: string) {
     rule: rule ? { name: rule.name, version: request!.ruleVersion, type: rule.requestType } : null,
     reason: first.reason,
     evidence,
+    decision: record ? { id: record.id, decidedAt: record.decidedAt, policies: record.policyVersions, ruleVersion: record.ruleVersion } : null,
     downstream: { events: events.map((e) => ({ id: e.id, name: e.name, at: e.occurredAt, delivered: Boolean(e.deliveredAt) })), tasks },
     unknown,
   };

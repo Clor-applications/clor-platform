@@ -1448,6 +1448,8 @@ model DeskRequest {
   /// Moved to Private cases (DESK-05): the details here are wiped; only the date and the case stay.
   movedToCaseAt      DateTime?
   movedToCaseId      String?
+  /// Raised from the Why panel (TRACE-03): the change it is about (a change-log correlation id or history_<id>).
+  changeRef          String?
   raisedByUserId     String?
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
@@ -1815,6 +1817,26 @@ model CommitteeSetup {
   updatedAt       DateTime @updatedAt
 
   @@unique([orgId, kind])
+}
+
+/// What an approved change rested on (TRACE-05), frozen at the decision: the policy
+/// versions in force for the person and the evidence with its version. A later
+/// policy change never rewrites it.
+model DecisionRecord {
+  id             String   @id @default(cuid())
+  accountId      String
+  orgId          String
+  requestId      String   @unique
+  employeeId     String?
+  ruleId         String
+  ruleVersion    Int
+  /// [{ policyId, versionId, title, category, version, effectiveFrom }]
+  policyVersions Json
+  /// [{ documentId, title, version }]
+  evidence       Json
+  decidedAt      DateTime @default(now())
+
+  @@index([orgId, employeeId])
 }
 
 /// How long each kind of personal data is kept (PRV-03), with a legal hold that stops any deletion.

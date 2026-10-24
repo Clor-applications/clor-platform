@@ -43,6 +43,8 @@ import {
   saveCustomValues,
   getJourney,
   getWhy,
+  getSalaryQuestion,
+  raiseFromWhy,
   listEmployeeInvites,
   getChecklist,
   getEmployeeStatutory,
@@ -872,6 +874,7 @@ function Journey({ employeeId }) {
   };
   return (
     <div className="space-y-5">
+      <PayQuestion employeeId={employeeId} />
       {stints.map((seq) => {
         const st = data.episodes.find((x) => x.seq === seq);
         return (
@@ -899,11 +902,76 @@ function Journey({ employeeId }) {
         );
       })}
       {why ? (
-        <Drawer open onClose={() => setWhy(null)} title={why.entry.summary} description={`${whenAt(why.entry.at)} · ${why.entry.how}`}>
+        <Drawer open onClose={() => setWhy(null)} title={why.entry.summary} description={`${whenAt(why.entry.at)} · ${why.entry.how}`}
+          actions={why.why ? <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setWhy({ ...why, raising: { kind: 'CORRECTION', note: '' } })}>Raise a correction</button> : null}>
           {!why.why ? <SkeletonCard lines={5} /> : <WhyPanel why={why.why} />}
+          {why.raising ? (
+            <form className="mt-5 space-y-2 border-t border-[rgb(var(--border))] pt-4" onSubmit={async (ev) => {
+              ev.preventDefault();
+              try {
+                await raiseFromWhy(employeeId, why.entry.key, why.raising);
+                notify.success('Sent to the help desk with this change attached.');
+                setWhy({ ...why, raising: null });
+              } catch (err) {
+                notify.error(String(err?.message || 'Not sent.'));
+              }
+            }}>
+              <div role="radiogroup" aria-label="Kind" className="flex gap-1">
+                {[['CORRECTION', 'Something is wrong'], ['QUESTION', 'A question']].map(([k, l]) => <button key={k} type="button" role="radio" aria-checked={why.raising.kind === k} className={`ui-pill ${why.raising.kind === k ? 'ui-pill-info' : ''}`} onClick={() => setWhy({ ...why, raising: { ...why.raising, kind: k } })}>{l}</button>)}
+              </div>
+              <label className="block"><span className="ui-label">What should it say</span><textarea className="ui-input w-full" rows={3} maxLength={3000} value={why.raising.note} onChange={(ev) => setWhy({ ...why, raising: { ...why.raising, note: ev.target.value } })} /></label>
+              <div className="flex justify-end gap-2"><button type="button" className="ui-btn ui-btn-secondary" onClick={() => setWhy({ ...why, raising: null })}>Cancel</button><button type="submit" className="ui-btn ui-btn-primary">Send to the help desk</button></div>
+            </form>
+          ) : null}
         </Drawer>
       ) : null}
     </div>
+  );
+}
+
+/**
+ * A question about pay (TRACE-04): what Payroll and Attendance are willing to
+ * show, side by side, and what they cannot show yet. People never works out
+ * pay; a correction goes to Payroll's queue.
+ */
+function PayQuestion({ employeeId }) {
+  const [month, setMonth] = useState(null);
+  const [data, setData] = useState(null);
+  const ask = async (m) => {
+    setMonth(m);
+    setData(null);
+    try {
+      setData(await getSalaryQuestion(employeeId, m));
+    } catch (err) {
+      notify.error(String(err?.message || 'Could not load.'));
+      setMonth(null);
+    }
+  };
+  const lastMonth = () => { const d = new Date(Date.now() + 330 * 60_000); d.setUTCDate(1); d.setUTCMonth(d.getUTCMonth() - 1); return d.toISOString().slice(0, 7); };
+  if (!month) return <button type="button" className="ui-link text-sm" onClick={() => ask(lastMonth())}>A question about pay?</button>;
+  return (
+    <section aria-label="A question about pay" className="space-y-2 border-b border-[rgb(var(--border))] pb-4">
+      <div className="flex flex-wrap items-end gap-2">
+        <label className="block"><span className="ui-label">Month</span><input type="month" className="ui-input" value={month} onChange={(e) => e.target.value && ask(e.target.value)} /></label>
+        <button type="button" className="ui-link text-sm ml-auto" onClick={() => setMonth(null)}>Close</button>
+      </div>
+      {!data ? <SkeletonCard lines={3} /> : (
+        <div className="space-y-2 text-sm">
+          {data.payslip ? (
+            <table className="w-full">
+              <tbody className="divide-y">
+                {data.payslip.lines.map((l) => <tr key={l.code}><td className="py-1">{l.label}{l.basis ? <span className="ui-caption"> · {l.basis}</span> : null}</td><td className="py-1 text-right tabular-nums">{l.kind === 'DEDUCTION' ? '−' : ''}{Number(l.amount).toLocaleString('en-IN')}</td></tr>)}
+                <tr><td className="py-1 font-medium">Net</td><td className="py-1 text-right tabular-nums font-medium">{Number(data.payslip.net).toLocaleString('en-IN')}</td></tr>
+              </tbody>
+            </table>
+          ) : null}
+          {data.payslip ? <p className="ui-caption">Rules: {data.payslip.ruleSet}, version {data.payslip.ruleVersion}.</p> : null}
+          {data.days ? <p>{data.days.payableDays} payable days, {data.days.lopDays} loss-of-pay{data.days.absences.length ? `: ${data.days.absences.map((a) => `${formatDateIn(a.date)} (${a.reason})`).join(', ')}` : ''}.</p> : null}
+          {data.missing.length ? <ul className="ui-muted list-disc pl-4 space-y-0.5">{data.missing.map((m) => <li key={m.evidence}>{m.evidence}: {m.why}</li>)}</ul> : null}
+          <p className="ui-caption">{data.correction.note}</p>
+        </div>
+      )}
+    </section>
   );
 }
 
@@ -922,7 +990,13 @@ function WhyPanel({ why }) {
       <Row label="Who approved">{why.approvedBy?.length ? why.approvedBy.join('; ') : <span className="ui-muted">Not known</span>}</Row>
       <Row label="Rule">{why.rule ? `${why.rule.name}, version ${why.rule.version}` : <span className="ui-muted">No rule recorded</span>}{why.request ? <span className="ui-caption block">Request: {why.request.title} · {why.request.status.toLowerCase()}</span> : null}</Row>
       {why.reason ? <Row label="Reason given">{why.reason}</Row> : null}
-      <Row label="Evidence">{why.evidence?.length ? <ul>{why.evidence.map((e) => <li key={e.id}>{e.title}</li>)}</ul> : <span className="ui-muted">None attached</span>}</Row>
+      <Row label="Evidence">{why.evidence?.length ? <ul>{why.evidence.map((e) => <li key={e.id}>{e.title}{e.version ? <span className="ui-caption"> · version {e.version} when decided</span> : null}</li>)}</ul> : <span className="ui-muted">None attached</span>}</Row>
+      {why.decision ? (
+        <Row label="Policies it rested on">
+          {why.decision.policies.length ? <ul>{why.decision.policies.map((p) => <li key={p.versionId}>{p.title}, version {p.version}<span className="ui-caption"> · in force from {formatDateIn(p.effectiveFrom)}</span></li>)}</ul> : <span className="ui-muted">No policy applied to the person that day</span>}
+          <span className="ui-caption block">As they stood when it was decided, {whenAt(why.decision.decidedAt)}.</span>
+        </Row>
+      ) : null}
       <Row label="What it set off">
         {why.downstream.events.length || why.downstream.tasks.length ? (
           <ul>

@@ -227,10 +227,13 @@ async function notifyStep(request: RequestRow) {
 async function approveFinal(actor: Actor, requestId: string) {
   const request = await peoplePrisma.approvalRequest.findUniqueOrThrow({ where: { id: requestId }, include });
   const effect = effects.get(request.requestType as RequestType);
+  /* TRACE-05: what the decision rested on is frozen before anything changes, and every change-log line carries it. */
+  const { recordDecision } = await import('../decisions.js');
+  const decision = await recordDecision(request);
   let outcome: Record<string, unknown> | void = undefined;
-  if (effect) outcome = await effect({ request, actor: { ...actor, source: 'APPROVAL', requestId: request.id } });
+  if (effect) outcome = await effect({ request, actor: { ...actor, source: 'APPROVAL', requestId: request.id, decisionId: decision.id } });
   const closed = await peoplePrisma.$transaction(async (tx) => {
-    const r = await tx.approvalRequest.update({ where: { id: requestId }, data: { status: 'APPROVED', outcome: (outcome || null) as Prisma.InputJsonValue }, include });
+    const r = await tx.approvalRequest.update({ where: { id: requestId }, data: { status: 'APPROVED', decisionId: decision.id, outcome: (outcome || null) as Prisma.InputJsonValue }, include });
     await writeChangeLog(tx, actor, { kind: 'ApprovalRequest', id: r.id, employeeId: r.subjectEmployeeId }, [{ field: 'status', before: 'WAITING', after: 'APPROVED', redacted: false }]);
     return r;
   });

@@ -28,6 +28,8 @@ import { activeRule, shape as shapeRequest, submitRequest } from '../services/pe
 import { PROBATION_OUTCOMES, ProbationError, decideProbation, reviewsOf, saveReview } from '../services/people/lifecycle/probation.js';
 import { changeImpact } from '../services/people/lifecycle/changes.js';
 import { journeyOf, whyOf } from '../services/people/journey.js';
+import { salaryQuestion } from '../services/people/salaryQuestion.js';
+import { raiseRequest } from '../services/people/desk.js';
 import { HeadcountError, headcount as headcountOf, snooze as snoozeCheck, snoozeHistory, unsnooze as unsnoozeCheck } from '../services/people/headcount.js';
 import { SelfServiceError, saveSettings, settingsOf } from '../services/people/selfService.js';
 import { CustomFieldError, FIELD_TYPES, defsOf, saveDef as saveCustomFieldDef, setValues as setCustomValues, valuesFor as customValuesFor } from '../services/people/customFields.js';
@@ -619,9 +621,12 @@ peopleRouter.put('/orgs/:orgId/people/employees/:id', can(PermissionAction.EDIT,
       if (fields.jobPositionId) delete (structure as any).designation;
       if (Object.keys(fields).length) {
         const labels = Object.keys(fields).map((f) => f.replace(/Id$/, '')).join(', ');
+        /* TRACE-05: documents on this person's file the change rests on (an appraisal, an offer); their versions are frozen at the decision. */
+        const askedIds = (Array.isArray(req.body?.evidenceDocumentIds) ? req.body.evidenceDocumentIds : []).map(String).slice(0, 20);
+        const evidence = askedIds.length ? (await peoplePrisma.employeeDocument.findMany({ where: { orgId, employeeId: existing.id, id: { in: askedIds } }, select: { id: true, title: true } })).map((d) => ({ documentId: d.id, title: d.title })) : [];
         const r = await submitRequest(actorOf(req, 'FORM', typeof req.body?.changeNote === 'string' ? req.body.changeNote : null), {
           requestType: 'JOB_CHANGE', subjectEmployeeId: existing.id, title: `${existing.name}: ${labels} change`,
-          payload: { employeeId: existing.id, fields, effectiveOn: effectiveFrom, reason: typeof req.body?.changeNote === 'string' ? req.body.changeNote : null },
+          payload: { employeeId: existing.id, fields, effectiveOn: effectiveFrom, reason: typeof req.body?.changeNote === 'string' ? req.body.changeNote : null, ...(evidence.length ? { evidence } : {}) },
           idempotencyKey: typeof req.headers['idempotency-key'] === 'string' ? req.headers['idempotency-key'] : null,
         });
         request = r.request;
@@ -948,6 +953,46 @@ peopleRouter.get('/orgs/:orgId/people/employees/:id/why/:key', can(PermissionAct
   const why = await whyOf(orgId, employee.id, String(req.params.key));
   if (!why) return res.status(404).json({ error: 'No such change.' });
   res.json({ why });
+});
+
+/**
+ * TRACE-03: raise a correction or a question about a change, straight from
+ * its Why panel. The help desk request is pre-filled from the change and
+ * carries its key, so whoever answers opens the same panel.
+ */
+peopleRouter.post('/orgs/:orgId/people/employees/:id/why/:key/raise', can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const employee = await peoplePrisma.employee.findFirst({ where: { id: String(req.params.id), accountId, orgId }, select: { id: true, name: true } });
+  if (!employee || !inScope(await teamScope(req), employee.id)) return res.status(404).json({ error: 'No such employee.' });
+  const key = String(req.params.key);
+  const why = await whyOf(orgId, employee.id, key);
+  if (!why) return res.status(404).json({ error: 'No such change.' });
+  const kind = String(req.body?.kind || 'CORRECTION').toUpperCase() === 'QUESTION' ? 'QUESTION' : 'CORRECTION';
+  const what = (why.what as Array<{ field: string; before: string | null; after: string | null }>).map((w) => `${w.field}: ${w.before ?? 'blank'} to ${w.after ?? 'blank'}`).join('; ') || 'the change';
+  const when = why.when instanceof Date ? why.when.toISOString().slice(0, 10) : String(why.when || '').slice(0, 10);
+  const note = String(req.body?.note || '').trim().slice(0, 3000);
+  try {
+    const request = await raiseRequest({ accountId, orgId, userId: req.auth!.userId }, employee.id, {
+      category: String(req.body?.category || (kind === 'CORRECTION' ? 'DOCUMENTS' : 'OTHER')),
+      subject: `${kind === 'CORRECTION' ? 'Correction' : 'Question'}: ${what}`.slice(0, 200),
+      description: `${note ? `${note}\n\n` : ''}About the change on ${when}: ${what}.${why.request ? ` Request: ${why.request.title}.` : ''}`,
+      changeRef: key,
+    });
+    res.status(201).json({ request });
+  } catch (e: any) {
+    res.status(e?.status || 400).json({ error: String(e?.message || 'Not raised.') });
+  }
+});
+
+/** TRACE-04: a salary question, answered from Payroll's and Attendance's read interfaces; People never computes pay. */
+peopleRouter.get('/orgs/:orgId/people/employees/:id/salary-question', can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const employee = await peoplePrisma.employee.findFirst({ where: { id: String(req.params.id), accountId, orgId }, select: { id: true } });
+  if (!employee || !inScope(await teamScope(req), employee.id)) return res.status(404).json({ error: 'No such employee.' });
+  const month = /^\d{4}-\d{2}$/.test(String(req.query.month || '')) ? String(req.query.month) : new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 7);
+  res.json(await salaryQuestion(orgId, employee.id, month));
 });
 
 /** What else a change would affect (LIFE-04), before it is sent: pass the fields as they would be saved. */
