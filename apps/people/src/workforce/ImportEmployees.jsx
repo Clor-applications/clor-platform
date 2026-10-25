@@ -48,10 +48,10 @@ export default function ImportEmployees({ openScreen }) {
     if (!/\.csv$/i.test(f.name) && f.type !== 'text/csv') return setFailure({ message: 'Choose a CSV file. In Excel, use Save As → CSV UTF-8.' });
     if (f.size > MAX_BYTES) return setFailure({ message: 'That file is over 2 MB. Split it into smaller files.' });
     try {
-      const table = parseCsv(await readFileText(f));
-      const [head, ...body] = table;
-      const headers = (head || []).map((h) => String(h || '').replace(/^\ufeff/, '').trim());
-      const rows = body.filter((r) => r.some((c) => String(c || '').trim()));
+      /* parseCsv gives the header row and each row keyed by it; the mapping works on columns, so rows go back to arrays. */
+      const parsed = parseCsv(await readFileText(f));
+      const headers = (parsed.headers || []).map((h) => String(h || '').trim());
+      const rows = (parsed.rows || []).map((o) => headers.map((h) => o[h] ?? '')).filter((r) => r.some((c) => String(c || '').trim()));
       if (!headers.length || !rows.length) return setFailure({ message: 'That file has no rows under its header row.' });
       if (rows.length > MAX_ROWS) return setFailure({ message: `That file has ${rows.length} rows; import at most ${MAX_ROWS} at a time.` });
       const seen = new Set();
@@ -170,7 +170,7 @@ export default function ImportEmployees({ openScreen }) {
             <label className="block max-w-md"><span className="ui-label">When an employee ID is already here</span>
               <select className="ui-select w-full" value={mode} onChange={(e) => { setMode(e.target.value); setPreview(null); }}>
                 <option value="create">Skip that row (add new people only)</option>
-                <option value="update">Update that person with the columns given</option>
+                <option value="update">Update existing people with the columns given</option>
               </select>
             </label>
           </div>

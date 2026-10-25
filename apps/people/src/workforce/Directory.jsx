@@ -62,7 +62,8 @@ export default function Directory({ params = {}, updateParams, openScreen, tenan
   const [selKey, setSelKey] = useState(listKey);
   if (selKey !== listKey) { setSelKey(listKey); setSelected(new Set()); }
 
-  const [prefs, setPrefsState] = useState(() => readJson(COLUMNS_KEY, {}));
+  /* Lower-priority columns start hidden so the table fits beside both sidebars; Columns shows them (WF-03). */
+  const [prefs, setPrefsState] = useState(() => readJson(COLUMNS_KEY, { hidden: ['manager', 'type'] }));
   const setPrefs = (next) => { setPrefsState(next); writeJson(COLUMNS_KEY, next); };
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [bulk, setBulk] = useState(null);
@@ -93,7 +94,7 @@ export default function Directory({ params = {}, updateParams, openScreen, tenan
     { key: 'manager', label: 'Manager', render: (r) => r.reportingManagerName || '—' },
     { key: 'location', label: 'Location', sortable: true, render: (r) => r.areaName || r.workLocation || '—' },
     { key: 'type', label: 'Employment type', render: (r) => lists.types.find((t) => t.id === r.employeeTypeId)?.name || '—' },
-    { key: 'dateOfJoining', label: 'Joining date', sortable: true, render: (r) => <span className="tabular-nums">{r.dateOfJoining ? formatDate(String(r.dateOfJoining).slice(0, 10)) : '—'}</span> },
+    { key: 'dateOfJoining', label: 'Joining date', sortable: true, render: (r) => <span className="tabular-nums whitespace-nowrap">{r.dateOfJoining ? formatDate(String(r.dateOfJoining).slice(0, 10)) : '—'}</span> },
     { key: 'status', label: 'Status', sortable: true, render: (r) => <StatusBadge employee={r} /> },
   ];
 
@@ -177,6 +178,7 @@ export default function Directory({ params = {}, updateParams, openScreen, tenan
           onSort={(s) => set({ sort: s.key, dir: s.dir === 'desc' ? 'desc' : null, page: null })}
           prefs={prefs}
           onPrefs={setPrefs}
+          defaultPrefs={{ hidden: ['manager', 'type'] }}
           selectable={allowed('PEOPLE::Employees::EDIT') || allowed('PEOPLE::Employees::EXPORT')}
           selected={selected}
           onSelect={setSelected}

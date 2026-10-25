@@ -68,7 +68,7 @@ function RowMenu({ label, items }) {
   );
 }
 
-function ColumnSettings({ columns, prefs, onPrefs }) {
+function ColumnSettings({ columns, prefs, onPrefs, defaults }) {
   const [open, setOpen] = useState(false);
   const btn = useRef(null);
   const order = visibleColumns(columns, { ...prefs, hidden: [] }).map((c) => c.key);
@@ -116,7 +116,7 @@ function ColumnSettings({ columns, prefs, onPrefs }) {
                 ))}
               </div>
             </fieldset>
-            <button type="button" className="ui-link text-sm" onClick={() => onPrefs({})}>Reset columns</button>
+            <button type="button" className="ui-link text-sm" onClick={() => onPrefs(defaults || {})}>Reset columns</button>
           </div>
         </Popover>
       ) : null}
@@ -153,7 +153,7 @@ export default function DataTable({
   selectable = false, selected = new Set(), onSelect,
   rowActions = null, onRowClick = null, card = null,
   loading = false, refreshing = false, empty = null,
-  total = 0, page = 1, pageSize = 25, onPage, onPageSize, noun = 'results', toolbar = null,
+  total = 0, page = 1, pageSize = 25, onPage, onPageSize, noun = 'results', toolbar = null, defaultPrefs = {},
 }) {
   const cols = visibleColumns(columns, prefs);
   const compact = prefs?.density === 'compact';
@@ -180,7 +180,7 @@ export default function DataTable({
         <div className="ui-datatable-toolbar">
           <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">{toolbar}</div>
           {refreshing ? <span className="ui-caption inline-flex items-center gap-1" role="status"><RefreshCw size={12} aria-hidden="true" className="ui-spin" /> Updating</span> : null}
-          {onPrefs ? <ColumnSettings columns={columns} prefs={prefs} onPrefs={onPrefs} /> : null}
+          {onPrefs ? <ColumnSettings columns={columns} prefs={prefs} onPrefs={onPrefs} defaults={defaultPrefs} /> : null}
         </div>
       ) : null}
       <div className="ui-table-scroll ui-datatable-desktop">

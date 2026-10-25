@@ -228,10 +228,10 @@ export default function Employees({ description = '' } = {}) {
   const onImport = async (file) => {
     if (!file) return;
     try {
-      const table = parseCsv(await readFileText(file));
-      const [head, ...body] = table;
-      const keys = (head || []).map((h) => String(h || '').trim());
-      const rows = body.filter((r) => r.some((c) => String(c || '').trim()));
+      /* parseCsv returns { headers, rows } with rows keyed by header; the drawer maps columns, so rows go back to arrays. */
+      const parsed = parseCsv(await readFileText(file));
+      const keys = (parsed.headers || []).map((h) => String(h || '').trim());
+      const rows = (parsed.rows || []).map((o) => keys.map((h) => o[h] ?? '')).filter((r) => r.some((c) => String(c || '').trim()));
       if (!rows.length) return notify.error('That file has no rows under its header.');
       setImporting({ name: file.name, headers: keys, rows });
     } catch (e) {
