@@ -128,6 +128,16 @@ Statuses as above. Sources: `docs/testing/STAGING_TEST_REPORT_2026-10-25.md`,
 | W-11.5 | Company setup ~7 s → ~1 s (batched chart of accounts, journals, owner role permissions) | ACCEPTED | PR #34; staging journey timings |
 | W-11.6 | Staging test suites: journey, isolation & security, rate limits, CSP walk, load seed, load run | TESTED | `test/staging/` |
 
+### People who leave, companies that stop (26 Oct 2026)
+
+| Req | Feature | Status | Evidence |
+|---|---|---|---|
+| W-13.1 | "Mark as left": reason, last working day, note; sign-in and sessions end; seat freed; history keeps the name; audited | ACCEPTED | PR #37; `leaversAndArchive.test.ts`; staging browser check |
+| W-13.2 | Hand-over of waiting approval steps, HR desk requests and attendance exceptions to a named successor | ACCEPTED | PR #37 |
+| W-13.3 | Release a shared address (accounts@) for the next person; reactivate restores it when free | ACCEPTED | PR #37 |
+| W-13.4 | Archive a company: read-only, machine access and mail off, off the plan count, reason required, reversible; last active company kept | ACCEPTED | PR #37; live revision clor-api-00168-hez |
+| W-13.5 | Hand-over of accounting-side items (open approvals in Books) — Books approvals have no assignee today | NOT_STARTED | — |
+
 ### Small businesses first (decided 25 Oct 2026)
 
 Go-to-market is businesses of one owner and one or two staff, often on a phone.
