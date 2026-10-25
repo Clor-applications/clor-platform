@@ -1,0 +1,12 @@
+{
+ "store": "r2",
+ "put": "ok",
+ "getSame": true,
+ "list": [
+  "org/livecheck-1792846334128/employee-documents/probe"
+ ],
+ "crossCompany": "refused: File key outside company livecheck-other-1792846334128.",
+ "missing": null,
+ "deleted": 1,
+ "listAfter": []
+}

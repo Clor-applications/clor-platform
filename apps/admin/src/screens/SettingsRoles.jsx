@@ -1,18 +1,17 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
-import { Plus, Search } from 'lucide-react';
-import { StatusPill, TableSkeleton } from '@ui/components/ui/Primitives';
+import { MoreHorizontal, Plus, Search } from 'lucide-react';
 import { confirmDialog } from '@ui/components/ui/notify';
 import { listRoles, createRole, updateRole, deleteRole } from '@platform/admin/admin';
 import Popover from '@ui/components/ui/Popover';
 import { MoreButton } from '@ui/components/list/ListPageParts';
 import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';
-import Drawer from '@ui/components/ui/Drawer';
 import { getPermissionCatalog } from '@ui/api/permissions';
 import { rbacErrorMessage } from '@ui/permissions/rbacErrors';
 import PermissionMatrix from './PermissionMatrix';
 import { catalogKeys, permissionLabel } from './permissionKeys';
 import { PermissionButton } from '@ui/permissions/ActionGuard';
+import { ICON, PageHead, Panel, Stat, WsDrawer } from './wsKit';
+import './workspace.css';
 
 function permKey(p) {
   const module = String(p?.module || '').trim();
@@ -20,6 +19,29 @@ function permKey(p) {
   const action = String(p?.action || '').trim();
   return `${module}::${subModule}::${action}`;
 }
+
+/*
+ * W-5.1: the role catalogue grouped by what a role opens — company
+ * administration first, then each app, then roles that reach several apps —
+ * from the role's own permissions (the same module-to-app mapping the server
+ * enforces, middleware/rbac.ts). Account roles (owner, administrator, billing
+ * admin, member) are the account's, shown above the company's roles.
+ */
+const ACCOUNTING_MODULES = new Set(['SALES', 'PURCHASE', 'INVENTORY', 'ACCOUNTING', 'CASHBANK', 'EXPENSES', 'MASTERS']);
+const APP_OF_MODULE = (m) => (ACCOUNTING_MODULES.has(m) ? 'Accounting' : m === 'PAYROLL' ? 'Payroll' : m === 'PEOPLE' || m === 'ATTENDANCE' ? 'People and Attendance' : null);
+const GROUP_ORDER = ['Company administration', 'Accounting', 'Payroll', 'People and Attendance', 'Across apps', 'Settings and reports only'];
+export function roleGroup(role) {
+  if (String(role?.roleType || '') === 'ADMIN') return 'Company administration';
+  const apps = new Set((role?._normalizedPermissions || []).filter((p) => p.allowed !== false).map((p) => APP_OF_MODULE(String(p.module || ''))).filter(Boolean));
+  if (apps.size === 1) return [...apps][0];
+  return apps.size > 1 ? 'Across apps' : 'Settings and reports only';
+}
+export const ACCOUNT_ROLES = [
+  ['Owner', 'Runs the account. No business data by itself.'],
+  ['Administrator', 'Adds companies and invites people.'],
+  ['Billing admin', 'Sees the account, its plan and billing.'],
+  ['Member', 'Access comes from company roles.'],
+];
 
 function normalizeRolePermissions(raw) {
   if (!Array.isArray(raw)) return [];
@@ -70,7 +92,6 @@ export function SettingsRoles({ orgId }) {
   /** Grants the role holds that the catalogue has since retired; dropped on save. */
   const [retired, setRetired] = useState(0);
   const [search, setSearch] = useState('');
-  const [headerHost, setHeaderHost] = useState(null);
   const [openMenuForRoleId, setOpenMenuForRoleId] = useState(null);
   /** The trigger the open menu hangs from; only one row's menu is open. */
   const menuAnchorRef = useRef(null);
@@ -103,10 +124,6 @@ export function SettingsRoles({ orgId }) {
   useEffect(() => {
     loadRoles();
   }, [orgId]);
-
-  useEffect(() => {
-    setHeaderHost(document.getElementById('settings-roles-header-slot'));
-  }, []);
 
   const openCreate = () => {
     setEditRole(null);
@@ -213,112 +230,213 @@ export function SettingsRoles({ orgId }) {
     ? permissionsToSet(normalizeRolePermissions(selectedRole.permissions || selectedRole._normalizedPermissions))
     : new Set();
 
-  const rolesHeader = (
-    <div className="flex min-w-0 flex-wrap items-center justify-end gap-2 px-3 py-1.5">
-      <h2 className="ui-t-page">Roles</h2>
-      <label className="relative block w-full sm:w-72">
-        <Search size={15} className="ui-subtle absolute start-3 top-1/2 -translate-y-1/2" aria-hidden="true" />
-        <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search roles" aria-label="Search roles" className="ui-input ui-ctl-compact w-full ps-9 ui-surface" />
-      </label>
-      <MoreButton
-        items={[exportMenuItem('Export roles')]}
-        onSelect={(key) => {
-          const format = exportFormatFromKey(key);
-          if (!format) return;
-          runListExport({
-            format,
-            title: 'Roles',
-            fileName: 'Roles',
-            label: 'role(s)',
-            columns: [
-              { key: 'name', label: 'Role' },
-              { key: 'description', label: 'Description' },
-              { key: 'roleType', label: 'Type' },
-            ],
-            rows: filteredRoles,
-          });
-        }}
-      />
-      <PermissionButton permission="SETTINGS::Roles::CREATE" type="button" onClick={openCreate} className="ui-btn ui-btn-primary">
-        <Plus size={16} aria-hidden="true" /> Create Role
-      </PermissionButton>
-    </div>
-  );
+  const exportRoles = (key) => {
+    const format = exportFormatFromKey(key);
+    if (!format) return;
+    runListExport({
+      format,
+      title: 'Roles',
+      fileName: 'Roles',
+      label: 'role(s)',
+      columns: [
+        { key: 'name', label: 'Role' },
+        { key: 'description', label: 'Description' },
+        { key: 'group', label: 'Opens', value: (r) => roleGroup(r) },
+        { key: 'assignedUsersCount', label: 'People', value: (r) => Number(r.assignedUsersCount || 0) },
+      ],
+      rows: filteredRoles,
+    });
+  };
+
+  const assigned = roles.reduce((n, r) => n + Number(r.assignedUsersCount || 0), 0);
+  const unused = roles.filter((r) => !Number(r.assignedUsersCount || 0)).length;
+  const custom = roles.filter((r) => String(r.roleType || '') === 'CUSTOM').length;
+  const groups = GROUP_ORDER.map((group) => ({ group, rows: filteredRoles.filter((r) => roleGroup(r) === group) })).filter((g) => g.rows.length);
+  const errorNote = error ? <p role="alert" className="text-sm" style={{ color: 'rgb(var(--neg))' }}>{error}</p> : null;
 
   return (
-    <div className="roles-settings-page space-y-2">
-      {headerHost ? createPortal(rolesHeader, headerHost) : rolesHeader}
+    <div className="ws">
+      <div className="ws-inner">
+        <PageHead
+          crumbs={['Access', 'Roles']}
+          title="Roles"
+          actions={
+            <>
+              <MoreButton items={[exportMenuItem('Export roles')]} onSelect={exportRoles} />
+              <PermissionButton permission="SETTINGS::Roles::CREATE" type="button" onClick={openCreate} className="ws-btn ws-btn--primary">
+                <Plus size={16} aria-hidden="true" /> Create role
+              </PermissionButton>
+            </>
+          }
+        />
 
-      {error && <div className="text-sm text-[rgb(var(--neg))] bg-[rgb(var(--neg-soft))] border border-[rgb(var(--neg)/0.35)] rounded-lg p-3">{error}</div>}
+        {roles.length ? (
+          <div className="ws-stats">
+            <Stat icon={ICON.secure} label="Roles" value={roles.length} note={custom ? `${custom} made here` : 'All from the standard set'} />
+            <Stat icon={ICON.people} label="Assignments" value={assigned} note="People holding a role, counted per role" />
+            <Stat icon={ICON.warning} tone={unused ? 'warn' : null} label="Unused" value={unused} note={unused ? 'Held by nobody' : 'Every role is in use'} />
+          </div>
+        ) : null}
 
-      <Drawer
+        <div className="flex flex-wrap gap-2 items-center" role="search">
+          <label className="relative flex-1 min-w-[14rem]" style={{ maxWidth: 420 }}>
+            <span className="sr-only">Search roles</span>
+            <Search size={16} aria-hidden="true" className="absolute left-3 top-1/2 -translate-y-1/2 ui-muted" />
+            <input className="ui-input" style={{ paddingLeft: '2.25rem' }} value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search name or description" />
+          </label>
+          <span className="ws-head-meta">{filteredRoles.length} {filteredRoles.length === 1 ? 'role' : 'roles'}</span>
+        </div>
+
+        {!showForm && !selectedRole ? errorNote : null}
+
+        <div className="ws-layout">
+          <div className="grid gap-6 min-w-0">
+            {loading && !roles.length ? (
+              <p className="ws-card-blurb">Loading roles…</p>
+            ) : groups.length === 0 ? (
+              <div className="ws-setup">
+                <p className="ws-card-blurb">{roles.length ? 'No role matches this search.' : 'No roles yet. Create the first one.'}</p>
+              </div>
+            ) : (
+              groups.map(({ group, rows }) => (
+                <section key={group} className="grid gap-2" aria-labelledby={`roles-${group}`}>
+                  <h2 id={`roles-${group}`} className="ws-panel-title">{group} <span className="ws-head-meta">· {rows.length}</span></h2>
+                  <div className="ws-table-wrap">
+                    <table className="ws-table">
+                      <thead>
+                        <tr>
+                          <th style={{ width: '28%' }}>Role</th>
+                          <th>What it is for</th>
+                          <th className="num" style={{ width: 90 }}>People</th>
+                          <th style={{ width: 56 }}><span className="sr-only">Actions</span></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {rows.map((r) => (
+                          <tr key={r.id}>
+                            <td>
+                              <button type="button" className="text-left" onClick={() => openView(r.id)}>
+                                <strong style={{ fontWeight: 600 }}>{r.name}</strong>
+                              </button>
+                            </td>
+                            <td style={{ whiteSpace: 'normal', color: 'rgb(var(--ws-muted))' }}>{r.description || `${r._permissionLabels?.length || 0} permissions`}</td>
+                            <td className="num">{Number(r.assignedUsersCount || 0)}</td>
+                            <td className="num">
+                              <button
+                                type="button"
+                                ref={openMenuForRoleId === r.id ? menuAnchorRef : null}
+                                className="ws-btn ws-btn--quiet ws-btn--small"
+                                aria-label={`Actions for ${r.name}`}
+                                aria-expanded={openMenuForRoleId === r.id}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setOpenMenuForRoleId((prev) => (prev === r.id ? null : r.id));
+                                }}
+                              >
+                                <MoreHorizontal size={16} aria-hidden="true" />
+                              </button>
+                              {openMenuForRoleId === r.id ? (
+                                <Popover anchorRef={menuAnchorRef} onClose={() => setOpenMenuForRoleId(null)} minWidth={160} maxWidth={220}>
+                                  <button type="button" className="report-menu-item" onClick={() => openView(r.id)}>View</button>
+                                  <button type="button" className="report-menu-item" onClick={() => { setOpenMenuForRoleId(null); openEdit(r); }}>Edit</button>
+                                  <PermissionButton
+                                    permission="SETTINGS::Roles::DELETE"
+                                    type="button"
+                                    className="report-menu-item"
+                                    style={{ color: 'rgb(var(--neg))' }}
+                                    onClick={() => { setOpenMenuForRoleId(null); removeRole(r.id); }}
+                                  >
+                                    Delete
+                                  </PermissionButton>
+                                </Popover>
+                              ) : null}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </section>
+              ))
+            )}
+          </div>
+
+          <aside className="ws-side">
+            <Panel title="Account roles">
+              <p className="ws-card-blurb" style={{ marginTop: -6 }}>The level above these, given under Members.</p>
+              <ul className="ws-list">
+                {ACCOUNT_ROLES.map(([name, what]) => (
+                  <li key={name}>
+                    <div className="ws-item">
+                      <span className="ws-item-text">
+                        <span className="ws-item-title">{name}</span>
+                        <span className="ws-item-sub" style={{ whiteSpace: 'normal' }}>{what}</span>
+                      </span>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </Panel>
+          </aside>
+        </div>
+      </div>
+
+      <WsDrawer
         open={Boolean(selectedRole)}
         onClose={closeView}
-        title="Role Details"
-        description={selectedRole?.name || ''}
+        title={selectedRole?.name || 'Role'}
+        description={selectedRole ? `${roleGroup(selectedRole)} · ${Number(selectedRole.assignedUsersCount || 0)} ${Number(selectedRole.assignedUsersCount || 0) === 1 ? 'person' : 'people'}` : ''}
         actions={selectedRole ? (
           <>
-            <button type="button" onClick={closeView} className="ui-btn ui-btn-secondary">Close</button>
-            <button
-              type="button"
-              onClick={() => {
-                closeView();
-                openEdit(selectedRole);
-              }}
-              className="ui-btn ui-btn-primary"
-            >
-              Edit
-            </button>
+            <button type="button" onClick={closeView} className="ws-btn ws-btn--quiet">Close</button>
+            <button type="button" onClick={() => { closeView(); openEdit(selectedRole); }} className="ws-btn ws-btn--primary">Edit role</button>
           </>
         ) : null}
       >
         {selectedRole ? (
-          <div className="space-y-4">
-            <div>
-              <label className="ui-label">Role Name</label>
-              <input className="ui-input w-full" value={selectedRole.name || ''} readOnly />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-2">Permissions</label>
-              {/* The same matrix as Edit, from the server catalogue, read-only. */}
-              <fieldset disabled aria-label="Permissions (read only)">
-                <PermissionMatrix modules={catalog.modules} granted={viewedPermissions} onToggle={() => {}} onSetMany={() => {}} initiallyOpen={1} />
-              </fieldset>
-            </div>
+          <div className="grid gap-4">
+            {selectedRole.description ? <p className="ws-card-blurb">{selectedRole.description}</p> : null}
+            {selectedRole.ownDocumentsOnly ? <p className="text-sm"><span className="ws-pill">Own documents only</span></p> : null}
+            {/* The same matrix as Edit, from the server catalogue, read-only. */}
+            <fieldset disabled aria-label="Permissions (read only)">
+              <PermissionMatrix modules={catalog.modules} granted={viewedPermissions} onToggle={() => {}} onSetMany={() => {}} initiallyOpen={1} />
+            </fieldset>
           </div>
         ) : null}
-      </Drawer>
+      </WsDrawer>
 
-      <Drawer
+      <WsDrawer
         open={showForm}
         onClose={() => setShowForm(false)}
-        title={editRole ? 'Edit Role' : 'Create Role'}
+        title={editRole ? `Edit ${editRole.name}` : 'Create role'}
         actions={(
           <>
-            <button type="button" onClick={() => setShowForm(false)} className="ui-btn ui-btn-secondary">Cancel</button>
-            <button type="submit" form="role-settings-form" disabled={saving} className="ui-btn ui-btn-primary disabled:opacity-50">
-              {saving ? 'Saving…' : 'Save'}
+            <button type="button" onClick={() => setShowForm(false)} className="ws-btn ws-btn--quiet">Cancel</button>
+            <button type="submit" form="role-settings-form" disabled={saving} className="ws-btn ws-btn--primary">
+              {saving ? 'Saving…' : editRole ? 'Save role' : 'Create role'}
             </button>
           </>
         )}
       >
-        <form id="role-settings-form" onSubmit={onSubmit} className="space-y-4">
-          <div>
-            <label className="ui-label" htmlFor="settingsroles-role-name">Role Name *</label>
+        <form id="role-settings-form" onSubmit={onSubmit} className="grid gap-4">
+          {errorNote}
+          <label className="grid gap-1" htmlFor="settingsroles-role-name">
+            <span className="text-sm font-medium">Role name <span aria-hidden="true">*</span></span>
             <input id="settingsroles-role-name" className="ui-input w-full" value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} required />
-          </div>
-          <div>
-            <label className="ui-label" htmlFor="settingsroles-role-description">Description</label>
+          </label>
+          <label className="grid gap-1" htmlFor="settingsroles-role-description">
+            <span className="text-sm font-medium">Description</span>
             <input
               id="settingsroles-role-description"
               className="ui-input w-full"
               maxLength={300}
-              placeholder="What people with this role do, in one line. Shown when picking a role for someone."
+              placeholder="What people with this role do, in one line"
               value={form.description || ''}
               onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))}
             />
-          </div>
-          <label className="flex items-start gap-2 text-sm ui-fg" htmlFor="settingsroles-own-docs">
+            <span className="ui-caption">Shown when picking a role for someone.</span>
+          </label>
+          <label className="flex items-start gap-2 text-sm" htmlFor="settingsroles-own-docs">
             <input
               id="settingsroles-own-docs"
               type="checkbox"
@@ -328,16 +446,15 @@ export function SettingsRoles({ orgId }) {
             />
             <span>
               Own documents only
-              <span className="block ui-subtle text-xs">Holders see and edit only the invoices, bills, quotes and payments they raised themselves.</span>
+              <span className="block ui-caption">Only documents they created.</span>
             </span>
           </label>
-          <div>
-            <div className="ui-label">Permissions</div>
+          <div className="grid gap-2">
+            <span className="text-sm font-medium">Permissions</span>
             {retired > 0 ? (
-              <div className="ui-subtle text-xs mb-2" role="status">
-                {retired} old permission{retired === 1 ? '' : 's'} on this role no longer exist and will be removed when you save.
-                They never granted anything.
-              </div>
+              <p className="ui-caption" role="status">
+                {retired} old permission{retired === 1 ? '' : 's'} on this role no longer exist and will be removed when you save. They never granted anything.
+              </p>
             ) : null}
             {catalog.modules.length ? (
               <PermissionMatrix
@@ -365,105 +482,11 @@ export function SettingsRoles({ orgId }) {
                 }
               />
             ) : (
-              <div className="ui-subtle text-sm">Loading the permission list…</div>
+              <p className="ws-card-blurb">Loading the permission list…</p>
             )}
           </div>
         </form>
-      </Drawer>
-
-      <div className="ui-surface border rounded-xl overflow-hidden roles-list-card">
-        {loading ? (
-          <TableSkeleton rows={6} cols={4} />
-        ) : roles.length === 0 ? (
-          <div className="px-6 py-10 text-center ui-muted">No roles yet. Click "Create Role" to add one.</div>
-        ) : filteredRoles.length === 0 ? (
-          <div className="px-6 py-10 text-center ui-muted">No roles found.</div>
-        ) : (
-          <table className="ui-table w-full ui-settled roles-settings-table">
-            <thead className="ui-sunken border-b">
-              <tr>
-                <th className="ui-th">Role Name</th>
-                <th className="ui-th">Description</th>
-                <th className="ui-th">Assigned Users</th>
-                <th className="ui-th ui-col-h-center">Status</th>
-                <th className="ui-th ui-num">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {filteredRoles.map((r) => (
-                <tr key={r.id} className="ui-hover-sunken">
-                  <td className="font-medium ui-fg">
-                    <button type="button" className="text-left hover:underline" onClick={() => openView(r.id)}>
-                      {r.name}
-                    </button>
-                  </td>
-                  <td className="ui-col-meta ui-fg truncate" title={r.description || ''}>{r.description || '-'}</td>
-                  <td className="ui-col-meta ui-fg">{Number(r.assignedUsersCount || 0)}</td>
-                  <td className="ui-col-meta">
-                    <StatusPill status="Active" />
-                  </td>
-                  <td className="text-right">
-                    <div className="relative inline-block text-left">
-                      <button
-                        type="button"
-                        ref={openMenuForRoleId === r.id ? menuAnchorRef : null}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setOpenMenuForRoleId((prev) => (prev === r.id ? null : r.id));
-                        }}
-                        className="px-2 py-1 rounded-lg ui-hover-sunken"
-                        aria-label="Actions"
-                      >
-                        ...
-                      </button>
-
-                      {openMenuForRoleId === r.id && (
-                        <Popover
-                          anchorRef={menuAnchorRef}
-                          onClose={() => setOpenMenuForRoleId(null)}
-                          minWidth={160}
-                          maxWidth={220}
-                        >
-                          <button
-                            type="button"
-                            className="w-full text-left px-3 py-2 text-sm ui-hover-sunken"
-                            onClick={() => {
-                              setOpenMenuForRoleId(null);
-                              openView(r.id);
-                            }}
-                          >
-                            View
-                          </button>
-                          <button
-                            type="button"
-                            className="w-full text-left px-3 py-2 text-sm ui-hover-sunken"
-                            onClick={() => {
-                              setOpenMenuForRoleId(null);
-                              openEdit(r);
-                            }}
-                          >
-                            Edit
-                          </button>
-                          <PermissionButton permission="SETTINGS::Roles::DELETE"
-                            type="button"
-                            className="w-full text-left px-3 py-2 text-sm text-[rgb(var(--neg))] ui-hover-sunken"
-                            onClick={() => {
-                              setOpenMenuForRoleId(null);
-                              removeRole(r.id);
-                            }}
-                          >
-                            Delete
-                          </PermissionButton>
-                        </Popover>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
+      </WsDrawer>
     </div>
   );
 }

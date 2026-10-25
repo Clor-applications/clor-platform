@@ -132,11 +132,35 @@ export function onPlatformContextChange(fn) {
 }
 
 /**
- * Ask the platform to open another app — Company admin from Accounting's
+ * Ask the platform to open another app — Workspace from Accounting's
  * settings, for one. An app cannot switch apps itself (it does not own the
  * shell), so it asks; the shell decides how (in place, or on that app's own
  * address).
  */
+/**
+ * Ask the shell to open a screen of the app already open (a breadcrumb, a
+ * Back fallback). It goes the way a rail click goes, so the address and the
+ * browser's back button behave the same.
+ */
+export const OPEN_SCREEN_EVENT = 'clor:open-screen';
+export function requestOpenScreen(screen) {
+  try {
+    window.dispatchEvent(new CustomEvent(OPEN_SCREEN_EVENT, { detail: { screen } }));
+  } catch {
+    /* No window (a test): nothing to open. */
+  }
+}
+
+/** Ask the shell to open the Help centre, optionally on a topic (packages/shell/helpContent.js). */
+export const OPEN_HELP_EVENT = 'clor:open-help';
+export function requestOpenHelp(topic = '') {
+  try {
+    window.dispatchEvent(new CustomEvent(OPEN_HELP_EVENT, { detail: { topic } }));
+  } catch {
+    /* No window (a test): nothing to open. */
+  }
+}
+
 export const OPEN_APP_EVENT = 'clor:open-app';
 export function requestOpenApp(appId, screen = '', params = {}) {
   try {

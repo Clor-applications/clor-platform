@@ -51,8 +51,8 @@ const GROUPS = [
     title: 'Access & Security',
     note: 'How people sign in.',
     items: [
-      ['sso', 'Users, sign-in and single sign-on, in Company admin'],
-      ['rolesAccess', 'What each role may do in People, in Company admin'],
+      ['sso', 'Users, sign-in and single sign-on, in Workspace'],
+      ['rolesAccess', 'What each role may do in People, in Workspace'],
     ],
   },
   {

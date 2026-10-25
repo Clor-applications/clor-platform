@@ -21,6 +21,7 @@ import { partiesRouter } from './routes/parties.js';
 import { emailRouter } from './routes/email.js';
 import { securityRouter } from './routes/security.js';
 import { credentialsRouter } from './routes/credentials.js';
+import { outsideAccessRouter } from './routes/outsideAccess.js';
 import { itemsRouter } from './routes/items.js';
 import { purchaseDocsRouter } from './routes/purchaseDocs.js';
 import { quoteDocsRouter } from './routes/quoteDocs.js';
@@ -84,6 +85,7 @@ import { payrollReportsRouter } from './routes/payrollReports.js';
 import { payrollSetupRouter } from './routes/payrollSetup.js';
 import { posCheckoutRouter } from './routes/posCheckout.js';
 import { accountRouter } from './routes/account.js';
+import { invitationsRouter } from './routes/invitations.js';
 import { shareAdminRouter, sharePublicRouter } from './routes/share.js';
 import { bankBookRouter } from './routes/bankBook.js';
 import { posDayCloseRouter } from './routes/posDayClose.js';
@@ -103,6 +105,7 @@ import { stockDocumentsRouter } from './routes/stockDocuments.js';
 import { stockLedgerRouter } from './routes/stockLedger.js';
 import { notFound, errorHandler } from './middleware/errors.js';
 import { billingRouter, billingOperatorRouter, billingWebhook } from './routes/billing.js';
+import { opsRouter } from './routes/ops.js';
 import { edgeGuard } from './middleware/edgeGuard.js';
 import { auditMutations } from './middleware/auditMutations.js';
 import { clearAccessCacheOnWrite } from './utils/accessCache.js';
@@ -339,6 +342,8 @@ export function buildApp() {
   app.use('/api', ...apiLimiter);
   app.use('/api/auth/sso', ssoRouter);
   app.use('/api/auth', authRouter);
+  /* W-3: an invited person's side of an invitation — before they belong to any company, so not company-scoped. */
+  app.use('/api', invitationsRouter);
 
   /* No auth and no tenant headers: the customer has no account here. Mounted
      with authRouter for the same reason gstinRouter is — a router at '/api'
@@ -360,6 +365,8 @@ export function buildApp() {
   /* CLOR operators setting a customer's subscription: a CLOR user with no
      membership in that account, so no tenant headers either. */
   app.use('/api', billingOperatorRouter);
+  /* W-8.2: the operator console — Clor staff, outside every customer account, so ahead of the tenant routers. */
+  app.use('/api', opsRouter);
 
   /*
    * Mounted before every tenant-scoped router, and that position is the point.
@@ -445,8 +452,9 @@ export function buildApp() {
   app.use('/api', partiesRouter);
   app.use('/api', emailRouter);
   app.use('/api', securityRouter);
-  /* Batch 5: Company admin → Credentials. */
+  /* Batch 5: Workspace → Credentials. */
   app.use('/api', credentialsRouter);
+  app.use('/api', outsideAccessRouter);
   app.use('/api', notificationsRouter);
   app.use('/api', payRequestsRouter);
   app.use('/api', itemsRouter);

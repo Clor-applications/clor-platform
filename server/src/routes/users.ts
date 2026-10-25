@@ -15,6 +15,7 @@ import { PermissionAction } from '../constants/enums.js';
 import { sendTemplate } from '../services/mailer.js';
 import { revokeAllSessions } from '../services/auth.js';
 import { RoleType } from '../constants/enums.js';
+import { hasValidStepUp } from '../services/stepUp.js';
 import { resolveAccess, resolveUserPermissions } from '../services/access.js';
 import { permKey } from '../constants/permissionCatalog.js';
 import { NO_FIT, SuggestionError, roleSuggestionEnabled, suggestRole } from '../services/roleSuggestion.js';
@@ -32,7 +33,10 @@ import {
   LastAdminError,
   assertAnAdminRemains,
 } from '../services/roleGuards.js';
-import { outsideTenant } from '../utils/tenantScope.js';
+import { outsideTenant, runInTenant } from '../utils/tenantScope.js';
+import { OutsideAccessError, checkOutsideTerms, grantOutsideAccess, refusalOf } from '../services/outsideAccess.js';
+import { ensureAccountMembership } from '../services/accountMembership.js';
+import { QuotaBusyError, lockQuota } from '../services/quotaLock.js';
 
 export const usersRouter = Router();
 usersRouter.use(requireAuth, requireTenantContext);
@@ -612,7 +616,9 @@ const createUserSchema = z.object({
   password: z.string().min(8).max(200),
   // allow initial memberships
   orgIds: z.array(z.string()).default([]),
-  branchIdsByOrg: z.record(z.array(z.string())).default({}),
+  branchIdsByOrg: z.record(z.string(), z.array(z.string())).default({}),
+  /** GAP-006: for a person from another account, what the company lets them use and until when. */
+  outsideAccess: z.object({ apps: z.array(z.string()).nullable().optional(), expiresAt: z.string().nullable().optional() }).optional(),
 });
 
 usersRouter.post('/users', requirePermission('SETTINGS', PermissionAction.CREATE, 'Users'), async (req, res) => {
@@ -630,6 +636,15 @@ usersRouter.post('/users', requirePermission('SETTINGS', PermissionAction.CREATE
    * An account with no entitlement row is on the default plan, which is
    * unlimited, so this refuses nobody until a plan is deliberately assigned.
    */
+  /* W-6.1: the seat check and the new login happen under the account's quota lock; released when the response ends, whatever path it takes. */
+  let releaseQuota: () => Promise<void>;
+  try {
+    releaseQuota = await lockQuota(accountId, 'USERS');
+  } catch (e) {
+    if (e instanceof QuotaBusyError) return res.status(e.status).json({ error: e.message, code: e.code });
+    throw e;
+  }
+  res.once('close', () => void releaseQuota().catch(() => {}));
   const seatsFull = await userLimitReason(accountId);
   if (seatsFull) return res.status(403).json({ error: seatsFull, code: 'USER_LIMIT' });
 
@@ -676,6 +691,24 @@ usersRouter.post('/users', requirePermission('SETTINGS', PermissionAction.CREATE
       select: { id: true },
     });
     if (already) {
+      /*
+       * GAP-006: an outside person whose access here was ended or paused is
+       * added again by a fresh grant — the administrator's act, recorded.
+       */
+      if (existing.accountId !== accountId) {
+        const row = await platformPrisma.outsideAccess.findUnique({ where: { orgId_userId: { orgId: req.tenant!.orgId, userId: existing.id } } });
+        if (refusalOf(row)) {
+          try {
+            await grantOutsideAccess({ accountId, orgId: req.tenant!.orgId, userId: existing.id, homeAccountId: existing.accountId, byUserId: createdByUserId, apps: body.outsideAccess?.apps, expiresAt: body.outsideAccess?.expiresAt });
+          } catch (e) {
+            if (e instanceof OutsideAccessError) return res.status(e.status).json({ error: e.message });
+            throw e;
+          }
+          if (req.res) req.res.locals.audited = true;
+          await platformPrisma.auditLog.create({ data: { accountId, orgId: req.tenant!.orgId, branchId: req.tenant!.branchId, entity: 'User', entityId: existing.id, action: 'OUTSIDE_ACCESS_GRANTED', message: `Let ${existing.email} in again from another account`, createdByUserId } });
+          return res.status(200).json({ user: { id: existing.id, email: existing.email }, regranted: true });
+        }
+      }
       return res.status(409).json({ error: 'That person already has access to this company.' });
     }
     invited = {
@@ -718,12 +751,27 @@ usersRouter.post('/users', requirePermission('SETTINGS', PermissionAction.CREATE
       },
       select: { id: true, email: true, fullName: true, accountId: true },
     }));
+  /* The login now exists and counts: the next request may check. */
+  await releaseQuota();
+  /* A new login belongs to this account (W-1.1); an invited person from elsewhere keeps their own account. */
+  if (!invited) await ensureAccountMembership(accountId, user.id, 'MEMBER', createdByUserId);
   // A new person is numbered in the company that added them; someone who
   // already has an ID (e.g. a CA invited from another account) keeps it.
   await assignUserCode(user.id, req.tenant!.orgId);
 
   // memberships
   const orgIds = body.orgIds.length ? Array.from(new Set(body.orgIds)) : [req.tenant!.orgId];
+
+  /* GAP-006: the terms for an outside person are checked before anything is written. */
+  const outside = invited && invited.accountId !== accountId;
+  if (outside) {
+    try {
+      checkOutsideTerms(body.outsideAccess?.apps, body.outsideAccess?.expiresAt);
+    } catch (e) {
+      if (e instanceof OutsideAccessError) return res.status(e.status).json({ error: e.message });
+      throw e;
+    }
+  }
 
   // C-8: body-supplied org/branch ids must belong to the caller's account —
   // otherwise this is an unvalidated cross-account foreign key.
@@ -762,6 +810,13 @@ usersRouter.post('/users', requirePermission('SETTINGS', PermissionAction.CREATE
         update: {},
         create: { accountId, orgId, branchId, userId: user.id },
       });
+    }
+
+    /* GAP-006: this administrator letting in a person from another account is the company's consent, recorded. */
+    if (outside) {
+      await runInTenant(orgId, () =>
+        grantOutsideAccess({ accountId, orgId, userId: user.id, homeAccountId: invited!.accountId, byUserId: createdByUserId, apps: body.outsideAccess?.apps, expiresAt: body.outsideAccess?.expiresAt })
+      );
     }
   }
 
@@ -925,6 +980,19 @@ usersRouter.post('/orgs/:orgId/users/:userId/roles', requirePermission('SETTINGS
 
   const refused = await assignmentRefusal(req, accountId, orgId, userId, role, scopeBranchId);
   if (refused) return res.status(refused.status).json(refused.body);
+
+  /*
+   * W-5.2: making somebody a company administrator is the largest step up in
+   * power there is. Where the person granting it has an authenticator, it
+   * takes a fresh code (the client asks for it and retries); the grant is in
+   * the audit trail either way.
+   */
+  if (role.roleType === RoleType.ADMIN && userId !== createdByUserId) {
+    const granter = await platformPrisma.user.findUnique({ where: { id: createdByUserId }, select: { totpEnabledAt: true } });
+    if (granter?.totpEnabledAt && !hasValidStepUp(req)) {
+      return res.status(403).json({ error: 'Enter the code from your authenticator app to make someone an administrator.', code: 'STEP_UP_REQUIRED' });
+    }
+  }
 
   try {
     await platformPrisma.$transaction(async (tx) => {

@@ -1,4 +1,5 @@
 import { checkPortalSession, endPortalSession, endPortalSessions, legacyCutoff, listPortalSessions, startPortalSession } from '../services/portalSessions.js';
+import { orgByCode } from '../services/displayCodes.js';
 import { Router, type NextFunction, type Request, type Response } from 'express';
 import { anyAppLive, appLive, closing } from '../services/principalAllowed.js';
 import bcrypt from 'bcrypt';
@@ -108,7 +109,7 @@ async function findEmployee(company: unknown, employeeCode: unknown) {
   const code = String(employeeCode || '').trim();
   if (!companyCode || !code || companyCode.length > 40 || code.length > 40) return null;
   /* The company code is how the company is found (A-35); the employee is then looked for inside it. */
-  const org = await outsideTenant('portal: which company this code names', () => platformPrisma.org.findUnique({ where: { code: companyCode }, select: { id: true, accountId: true, name: true } }));
+  const org = await outsideTenant('portal: which company this code names', () => orgByCode(companyCode, { id: true, accountId: true, name: true })) as { id: string; accountId: string; name: string } | null;
   if (!org) return null;
   const rows = await runInTenant(org.id, () => peoplePrisma.employee.findMany({
     where: { orgId: org.id, accountId: org.accountId, code: { equals: code, mode: 'insensitive' }, status: { not: 'LEFT' } },

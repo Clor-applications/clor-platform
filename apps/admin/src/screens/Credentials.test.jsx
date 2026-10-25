@@ -2,7 +2,7 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 
 /*
- * Batch 5, U7: Company admin → Credentials shows each credential's state in
+ * Batch 5, U7: Workspace → Credentials shows each credential's state in
  * words (never colour alone), why a blocked one does not work, only the
  * actions its state allows, and a new key exactly once.
  */

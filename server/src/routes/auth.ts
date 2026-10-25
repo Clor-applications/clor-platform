@@ -42,8 +42,10 @@ import { isDevOrTest } from '../utils/devMode.js';
 import { requireAuth as requireLiveAuth } from '../middleware/auth.js';
 import { APP_CATALOG } from '../constants/appCatalog.js';
 import { appAccess } from '../services/subscriptions.js';
-import { userIsAdmin } from '../services/roleGuards.js';
-import { acrossCompanies } from '../utils/tenantScope.js';
+import { ACCOUNT_ADMINS, accountRoleOf } from '../services/accountMembership.js';
+import { QuotaBusyError, lockQuota } from '../services/quotaLock.js';
+import { acrossCompanies, outsideTenant } from '../utils/tenantScope.js';
+import { closedForOutsider } from '../services/outsideAccess.js';
 
 /* Compared against when no such user exists, so a miss costs a real bcrypt check (SX-14). */
 const LOGIN_DUMMY_HASH = bcrypt.hashSync('not-a-password-0', Number(process.env.BCRYPT_ROUNDS || 12));
@@ -87,17 +89,13 @@ async function bootstrapOwnerRole(accountId: string, orgId: string, userId: stri
     select: { id: true, module: true, subModule: true, action: true },
   });
 
-  for (const p of permissions) {
-    if (!wanted.has(permKey(p.module, p.subModule, p.action))) continue;
-    try {
-      await platformPrisma.rolePermission.create({
-        data: { accountId, orgId, roleId: role.id, permissionId: p.id, allowed: true },
-        select: { id: true },
-      });
-    } catch (err: any) {
-      if (String(err?.code || '') !== 'P2002') throw err;
-    }
-  }
+  /* One insert for every permission, not one each: row by row this was the slowest part of setting up a company. */
+  await platformPrisma.rolePermission.createMany({
+    data: permissions
+      .filter((p) => wanted.has(permKey(p.module, p.subModule, p.action)))
+      .map((p) => ({ accountId, orgId, roleId: role.id, permissionId: p.id, allowed: true })),
+    skipDuplicates: true,
+  });
 
   try {
     await platformPrisma.userRoleAssignment.create({
@@ -235,7 +233,9 @@ async function completeLogin(req: Request, res: Response, user: LoginUser, ident
     orderBy: { createdAt: 'asc' },
   });
 
-  const companies = memberships.map((m) => ({
+  /* GAP-006: a company from another account whose engagement is not live is not offered. */
+  const closedHere = await closedForOutsider(user.id, user.accountId, memberships);
+  const companies = memberships.filter((m) => !closedHere.has(m.orgId)).map((m) => ({
     orgId: m.orgId,
     id: m.org?.id ?? m.orgId,
     name: m.org?.name ?? '',
@@ -436,7 +436,7 @@ authRouter.get('/me', requireLiveAuth, async (req: Request, res: Response) => {
   const ownAccount = await platformPrisma.account.findUnique({ where: { id: user.accountId }, select: { code: true } });
 
   /* Same rule as login: every company this person can open. */
-  const orgMemberships = await platformPrisma.userOrgMembership.findMany({
+  const everyMembership = await platformPrisma.userOrgMembership.findMany({
     where: { userId: auth.userId },
     select: {
       orgId: true,
@@ -451,10 +451,13 @@ authRouter.get('/me', requireLiveAuth, async (req: Request, res: Response) => {
        * safe on the server the whole time; the browser simply had no way to
        * ask what company it was looking at.
        */
-      org: { select: { id: true, name: true, slug: true, code: true, profileJson: true, createdByUserId: true } },
+      org: { select: { id: true, name: true, slug: true, code: true, legacyCode: true, profileJson: true, createdByUserId: true } },
     },
     orderBy: { createdAt: 'asc' },
   });
+  /* GAP-006: and only those whose engagement, for a company of another account, is live. */
+  const closedForMe = await closedForOutsider(auth.userId, user.accountId, everyMembership);
+  const orgMemberships = everyMembership.filter((m) => !closedForMe.has(m.orgId));
 
   let isOrgAdmin = false;
   let allowedBranchIds: string[] = [];
@@ -565,6 +568,21 @@ authRouter.get('/me', requireLiveAuth, async (req: Request, res: Response) => {
     }
   }
 
+  /*
+   * W-2.1: every account this person can reach, for the account switcher —
+   * their own (home) account and any reached through outside access — with
+   * their account role in each (null where they have none, e.g. an outside
+   * accountant). Shown, not trusted: each request is checked again.
+   */
+  const accountIds = [...new Set([user.accountId, ...orgMemberships.map((m) => m.accountId)])];
+  const accountRows = await outsideTenant('auth/me: the accounts this person reaches', () =>
+    platformPrisma.account.findMany({ where: { id: { in: accountIds } }, select: { id: true, name: true, code: true } })
+  );
+  const accounts = await Promise.all(
+    accountRows.map(async (a) => ({ id: a.id, name: a.name, code: a.code || null, home: a.id === user.accountId, role: await accountRoleOf(a.id, user.id) }))
+  );
+  accounts.sort((x, y) => Number(y.home) - Number(x.home) || String(x.name).localeCompare(String(y.name)));
+
   return res.json({
     /*
      * GAP-011 (ADR-003): `user.accountId` is the person's HOME account — where
@@ -584,12 +602,17 @@ authRouter.get('/me', requireLiveAuth, async (req: Request, res: Response) => {
         name: m.org.name,
         slug: m.org.slug || null,
         code: m.org.code || null,
+        /* The code it had before the numbers (KAVE-C100): the shell still opens old links with it. */
+        legacyCode: m.org.legacyCode || null,
         profile: orgProfile(m.org.profileJson),
       },
     })),
     /* Only a company this person is in: the header is an echo, not a fact (A-10). */
     activeOrgId: activeMembership ? activeOrgId : null,
+    /* W-1: the person's role in the account being worked in (OWNER / ADMIN / BILLING_ADMIN / MEMBER), or null. Shown, not trusted: every route checks it again. */
+    accountRole: activeMembership ? await accountRoleOf(activeMembership.accountId, user.id) : await accountRoleOf(user.accountId, user.id),
     isOrgAdmin,
+    accounts,
     allowedBranchIds,
     twoFactorSetupRequired,
   });
@@ -653,6 +676,8 @@ authRouter.post('/signup', signupLimiter, async (req: Request, res: Response) =>
       },
       select: { id: true, accountId: true, email: true, fullName: true },
     });
+    /* Whoever makes the account owns it (W-1.1), in the same transaction: no account is ever left without an owner. */
+    await tx.accountMembership.create({ data: { accountId: createdAccount.id, userId: createdUser.id, role: 'OWNER' } });
     return { account: createdAccount, user: createdUser };
   });
 
@@ -715,7 +740,7 @@ authRouter.post('/setup-company', requireLiveAuth, async (req: Request, res: Res
        * only a name and a state still works, and unvalidated beyond its shape
        * because nothing branches on it — it is read back onto one screen.
        */
-      profile: z.record(z.any()).optional(),
+      profile: z.record(z.string(), z.any()).optional(),
     })
     .parse(req.body);
 
@@ -733,36 +758,18 @@ authRouter.post('/setup-company', requireLiveAuth, async (req: Request, res: Res
 
   // Create org + head-office branch, assign memberships
   /*
-   * The plan's company allowance, checked before anything is created.
-   *
-   * An account with no entitlement row is on the default plan, which is
-   * unlimited — so this refuses nobody until a plan is deliberately assigned.
-   */
-  const overLimit = await companyLimitReason(auth.accountId);
-  if (overLimit) {
-    return res.status(403).json({ error: overLimit, code: 'COMPANY_LIMIT' });
-  }
-
-  /*
-   * A-04: whoever creates a company becomes its Administrator, so creating one
-   * is an account-level act. It used to need only a login whose home is this
-   * account — a clerk an administrator had added could make a company, own it,
-   * and from there manage memberships across the account. Allowed now for the
-   * account's very first company (signup) and for an administrator of any of
-   * its companies; everyone else asks one.
+   * A-04 / W-1.4: whoever creates a company becomes its Administrator, so
+   * creating one is an account-level act. Allowed for the account's very first
+   * company (signup) and, after that, for an owner or administrator of the
+   * account (AccountMembership). It used to be "an administrator of any of its
+   * companies" — the migration made exactly those people account admins.
    */
   const accountOrgs = await platformPrisma.org.findMany({ where: { accountId: auth.accountId }, select: { id: true } });
   if (accountOrgs.length) {
-    let administers = false;
-    for (const o of accountOrgs) {
-      if (await userIsAdmin(auth.accountId, o.id, auth.userId)) {
-        administers = true;
-        break;
-      }
-    }
-    if (!administers) {
+    const role = await accountRoleOf(auth.accountId, auth.userId);
+    if (!role || !ACCOUNT_ADMINS.includes(role)) {
       return res.status(403).json({
-        error: 'Only an administrator of one of this account’s companies can add a company. Ask your administrator.',
+        error: 'Only an owner or administrator of this account can add a company. Ask your administrator.',
         code: 'NOT_ACCOUNT_ADMIN',
       });
     }
@@ -796,17 +803,37 @@ authRouter.post('/setup-company', requireLiveAuth, async (req: Request, res: Res
     gstin: gstin || null,
   });
 
-  const org = await platformPrisma.org.create({
-    data: {
-      accountId: auth.accountId,
-      name: body.companyName.trim(),
-      legalName: body.companyName.trim(),
-      slug,
-      profileJson,
-      createdByUserId: auth.userId,
-    },
-    select: { id: true, name: true, slug: true },
-  });
+  /*
+   * The plan's company allowance, checked and used under the account's quota
+   * lock (W-6.1): two requests at once can no longer both see room. An
+   * account with no entitlement row is on the default plan, which is
+   * unlimited — so this refuses nobody until a plan is deliberately assigned.
+   */
+  let releaseQuota: () => Promise<void>;
+  try {
+    releaseQuota = await lockQuota(auth.accountId, 'COMPANIES');
+  } catch (e) {
+    if (e instanceof QuotaBusyError) return res.status(e.status).json({ error: e.message, code: e.code });
+    throw e;
+  }
+  let org: { id: string; name: string; slug: string | null };
+  try {
+    const overLimit = await companyLimitReason(auth.accountId);
+    if (overLimit) return res.status(403).json({ error: overLimit, code: 'COMPANY_LIMIT' });
+    org = await platformPrisma.org.create({
+      data: {
+        accountId: auth.accountId,
+        name: body.companyName.trim(),
+        legalName: body.companyName.trim(),
+        slug,
+        profileJson,
+        createdByUserId: auth.userId,
+      },
+      select: { id: true, name: true, slug: true },
+    });
+  } finally {
+    await releaseQuota();
+  }
   await assignOrgCode(auth.accountId, org.id, body.companyName.trim());
   await assignUserCode(auth.userId, org.id);
 

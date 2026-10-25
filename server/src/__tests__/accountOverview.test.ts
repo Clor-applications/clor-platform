@@ -88,6 +88,30 @@ describe('the account overview', () => {
   });
 
   /*
+   * Each company's apps, as its own session would see them: its feature
+   * switches, within the apps the account owns. The Workspace shows these for
+   * companies the caller is not signed in to, so they must agree exactly.
+   */
+  it("gives each company's apps exactly as that company's own session sees them", async () => {
+    await request(app)
+      .put(`/api/orgs/${secondOrgId}/features`)
+      .set({ Authorization: `Bearer ${owner.token}`, 'x-org-id': secondOrgId, 'x-branch-id': secondBranchId })
+      .send({ features: { payroll: true } });
+    const res = await request(app).get('/api/account/overview').set(auth(owner)).expect(200);
+    for (const [orgId, branchId] of [[owner.orgId, owner.branchId], [secondOrgId, secondBranchId]]) {
+      const h = { Authorization: `Bearer ${owner.token}`, 'x-org-id': orgId, 'x-branch-id': branchId };
+      const [{ body: f }, { body: b }] = await Promise.all([
+        request(app).get(`/api/orgs/${orgId}/features`).set(h).expect(200),
+        request(app).get('/api/billing/subscription').set(h).expect(200),
+      ]);
+      let seen = ['accounting', ...['people', 'attendance', 'payroll'].filter((k) => f.features[k])];
+      if (b.restricted) seen = seen.filter((a) => (b.ownedApps || []).includes(a));
+      const listed = res.body.companies.find((c: any) => c.orgId === orgId).apps;
+      expect([...listed].sort()).toEqual([...seen].sort());
+    }
+  });
+
+  /*
    * Outstanding is what is still owed, not what was billed. With every invoice
    * unpaid the two are identical and the difference between them is untested —
    * so this one is part paid.

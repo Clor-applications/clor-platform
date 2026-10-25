@@ -1245,6 +1245,8 @@ model PunchPhoto {
   employeeId String
   mime       String
   data       Bytes
+  /// R2 plan: where the bytes are when they are not in `data` (then empty).
+  storageKey String?
   createdAt  DateTime @default(now())
 
   @@index([orgId, createdAt])
@@ -1291,6 +1293,8 @@ model EmployeeDocument {
   mime              String
   size              Int
   data              Bytes
+  /// R2 plan: where the bytes are when they are not in `data` (then empty). Set by utils/peoplePrisma.ts.
+  storageKey        String?
   /// When it stops being valid (a visa, a licence), YYYY-MM-DD.
   expiresOn         String?
   /// When HR was first told it is about to expire.
@@ -2827,6 +2831,8 @@ model ComplianceTask {
   evidenceName  String?
   evidenceMime  String?
   evidenceData  Bytes?
+  /// R2 plan: where the evidence is when it is not in `evidenceData` (then empty).
+  evidenceKey   String?
   doneAt        DateTime?
   doneByUserId  String?
   createdAt     DateTime  @default(now())

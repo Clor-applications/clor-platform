@@ -10,6 +10,7 @@ import request from 'supertest';
 
 const { buildApp } = await import('../app.js');
 const { peoplePrisma } = await import('../utils/peoplePrisma.js');
+const { platformPrisma } = await import('../utils/platformPrisma.js');
 const portal = await import('../services/attendance/portal.js');
 const { purgePunchPhotos } = await import('../services/attendance/punchPhotos.js');
 
@@ -105,7 +106,7 @@ describe('the employee portal', () => {
   it('hands out a one-time code; the person chooses their own password', async () => {
     const list = await hr(c).get('/portal-access').expect(200);
     company = list.body.company.code;
-    expect(company).toMatch(/-C\d+$/);
+    expect(company).toMatch(/^[1-9][0-9]{9}$/);
     expect(list.body.employees.find((e: any) => e.id === emp.id)).toMatchObject({ portalEnabled: false, activated: false, codePending: false });
 
     const issued = await hr(c).post('/portal-access/codes', { employeeIds: [emp.id] }).expect(200);
@@ -131,6 +132,10 @@ describe('the employee portal', () => {
     expect(bad.body.error).toBe(noCompany.body.error);
     const ok = await request(app).post('/api/portal/login').send({ company, employeeCode: 'P101', password: 'mine pass 1' }).expect(200);
     expect(ok.body.employee).toEqual({ name: 'Asha Rao', code: 'P101' });
+    /* The company code it had before the numbers still works: printed slips and saved links keep working. */
+    const old = `ZZ${Math.random().toString(36).slice(2, 7).toUpperCase()}-C100`;
+    await platformPrisma.org.update({ where: { id: c.orgId }, data: { legacyCode: old } });
+    await request(app).post('/api/portal/login').send({ company: old.toLowerCase(), employeeCode: 'P101', password: 'mine pass 1' }).expect(200);
   });
 
   it('keeps the two realms apart', async () => {

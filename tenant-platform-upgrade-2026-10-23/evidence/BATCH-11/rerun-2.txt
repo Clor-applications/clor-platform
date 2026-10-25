@@ -1,0 +1,287 @@
+ DEPRECATED  `test.poolOptions` was removed in Vitest 4. All previous `poolOptions` are now top-level options. Please, refer to the migration guide: https://vitest.dev/guide/migration#pool-rework
+
+ RUN  v4.1.10 /Users/suresh/Desktop/clor-platform/.claude/worktrees/subscription-provisioning-gap-003-b84bad/server
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_96832", schema "accounting" at "localhost:5432"
+
+The PostgreSQL database "clor_test_96832" schema "accounting" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 787ms
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/payroll/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_96832", schema "payroll" at "localhost:5432"
+
+The PostgreSQL database "clor_test_96832" schema "payroll" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 636ms
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/people/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_96832", schema "people" at "localhost:5432"
+
+The PostgreSQL database "clor_test_96832" schema "people" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 521ms
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/platform/schema.prisma
+Datasource "db": PostgreSQL database "clor_test_96832", schema "platform" at "localhost:5432"
+
+The PostgreSQL database "clor_test_96832" schema "platform" at "localhost:5432" was successfully reset.
+
+🚀  Your database is now in sync with your Prisma schema. Done in 689ms
+
+[setup] 180 policy statements applied to clor_test_96832
+[setup] 7 policy statements applied to clor_test_96832
+[setup] 10 policy statements applied to clor_test_96832
+[setup] 35 policy statements applied to clor_test_96832
+[setup] 4 policy statements applied to clor_test_96832
+[setup] 1 policy statements applied to clor_test_96832
+[setup] 96 policy statements applied to clor_test_96832
+[setup] 4 policy statements applied to clor_test_96832
+[setup] 4 policy statements applied to clor_test_96832
+[setup] 4 policy statements applied to clor_test_96832
+[setup] 1 policy statements applied to clor_test_96832
+[setup] 4 policy statements applied to clor_test_96832
+[setup] 32 policy statements applied to clor_test_96832
+[setup] 24 policy statements applied to clor_test_96832
+[setup] 12 policy statements applied to clor_test_96832
+[setup] 16 policy statements applied to clor_test_96832
+[setup] 4 policy statements applied to clor_test_96832
+[setup] 4 policy statements applied to clor_test_96832
+[setup] 8 policy statements applied to clor_test_96832
+[setup] 8 policy statements applied to clor_test_96832
+[setup] 20 policy statements applied to clor_test_96832
+[setup] 8 policy statements applied to clor_test_96832
+[setup] 4 policy statements applied to clor_test_96832
+[setup] 8 policy statements applied to clor_test_96832
+[setup] 8 policy statements applied to clor_test_96832
+[setup] 12 policy statements applied to clor_test_96832
+[setup] 4 policy statements applied to clor_test_96832
+[setup] 8 policy statements applied to clor_test_96832
+[setup] 28 policy statements applied to clor_test_96832
+[setup] 4 policy statements applied to clor_test_96832
+[setup] 4 policy statements applied to clor_test_96832
+[setup] 4 policy statements applied to clor_test_96832
+[setup] 8 policy statements applied to clor_test_96832
+[setup] 4 policy statements applied to clor_test_96832
+[setup] 4 policy statements applied to clor_test_96832
+[setup] 4 policy statements applied to clor_test_96832
+[setup] 4 policy statements applied to clor_test_96832
+[setup] 8 policy statements applied to clor_test_96832
+[setup] 4 policy statements applied to clor_test_96832
+[setup] 12 policy statements applied to clor_test_96832
+[setup] 4 policy statements applied to clor_test_96832
+[setup] 1 policy statements applied to clor_test_96832
+[setup] 4 policy statements applied to clor_test_96832
+[setup] 76 policy statements applied to clor_test_96832
+[setup] 4 policy statements applied to clor_test_96832
+[setup] 4 policy statements applied to clor_test_96832
+[setup] 4 policy statements applied to clor_test_96832
+[setup] 4 policy statements applied to clor_test_96832
+[setup] 1 policy statements applied to clor_test_96832
+[setup] 8 policy statements applied to clor_test_96832
+[setup] 4 policy statements applied to clor_test_96832
+POST /api/auth/signup 200 566 - 53.827 ms
+POST /api/auth/setup-company 200 190 - 387.189 ms
+PUT /api/orgs/cmvmc8oix000emwmgdmsu002m/features 200 1173 - 178.121 ms
+POST /api/orgs/cmvmc8oix000emwmgdmsu002m/people/employees 201 1702 - 121.055 ms
+PUT /api/orgs/cmvmc8oix000emwmgdmsu002m/attendance/records 409 131 - 186.698 ms
+POST /api/orgs/cmvmc8oix000emwmgdmsu002m/people/employees 201 1702 - 144.365 ms
+POST /api/orgs/cmvmc8oix000emwmgdmsu002m/attendance/leave/types 201 676 - 77.091 ms
+POST /api/orgs/cmvmc8oix000emwmgdmsu002m/attendance/leave/requests 201 749 - 114.850 ms
+POST /api/orgs/cmvmc8oix000emwmgdmsu002m/attendance/leave/requests/cmvmc8pfx000pfc98gfuypyjk/approve 200 795 - 102.814 ms
+PUT /api/orgs/cmvmc8oix000emwmgdmsu002m/attendance/records 200 781 - 56.464 ms
+GET /api/orgs/cmvmc8oix000emwmgdmsu002m/attendance/summary?month=2026-09 200 720 - 117.327 ms
+POST /api/orgs/cmvmc8oix000emwmgdmsu002m/attendance/leave/requests/cmvmc8pfx000pfc98gfuypyjk/cancel 200 796 - 107.400 ms
+POST /api/orgs/cmvmc8oix000emwmgdmsu002m/people/employees 201 1702 - 70.475 ms
+POST /api/orgs/cmvmc8oix000emwmgdmsu002m/attendance/leave/types 201 675 - 100.644 ms
+POST /api/orgs/cmvmc8oix000emwmgdmsu002m/attendance/leave/requests 201 743 - 114.503 ms
+POST /api/orgs/cmvmc8oix000emwmgdmsu002m/people/employees 201 1702 - 71.033 ms
+POST /api/orgs/cmvmc8oix000emwmgdmsu002m/attendance/leave/types 201 675 - 66.072 ms
+POST /api/orgs/cmvmc8oix000emwmgdmsu002m/attendance/leave/requests 201 743 - 112.451 ms
+POST /api/orgs/cmvmc8oix000emwmgdmsu002m/attendance/leave/requests/cmvmc8q73001vfc98ulne6js1/approve 200 789 - 89.884 ms
+POST /api/orgs/cmvmc8oix000emwmgdmsu002m/attendance/leave/requests/cmvmc8q73001vfc98ulne6js1/reject 409 46 - 93.560 ms
+POST /api/orgs/cmvmc8oix000emwmgdmsu002m/people/employees 201 1702 - 64.052 ms
+POST /api/orgs/cmvmc8oix000emwmgdmsu002m/attendance/leave/types 201 675 - 63.350 ms
+POST /api/orgs/cmvmc8oix000emwmgdmsu002m/attendance/leave/requests 201 743 - 67.927 ms
+POST /api/orgs/cmvmc8oix000emwmgdmsu002m/attendance/leave/requests/cmvmc8qfc002dfc9865ob5bg4/approve 200 789 - 71.162 ms
+POST /api/orgs/cmvmc8oix000emwmgdmsu002m/attendance/months/2026-09/close 200 126 - 124.149 ms
+POST /api/orgs/cmvmc8oix000emwmgdmsu002m/attendance/leave/requests/cmvmc8qfc002dfc9865ob5bg4/cancel 409 114 - 77.359 ms
+POST /api/orgs/cmvmc8oix000emwmgdmsu002m/attendance/months/2026-09/reopen 200 33 - 49.965 ms
+POST /api/orgs/cmvmc8oix000emwmgdmsu002m/people/employees 201 1704 - 77.150 ms
+POST /api/orgs/cmvmc8oix000emwmgdmsu002m/attendance/leave/types 201 676 - 69.183 ms
+POST /api/orgs/cmvmc8oix000emwmgdmsu002m/attendance/leave/requests 201 741 - 108.539 ms
+POST /api/orgs/cmvmc8oix000emwmgdmsu002m/attendance/leave/requests/cmvmc8qvm002zfc98fs4vl01g/approve 200 787 - 100.558 ms
+POST /api/orgs/cmvmc8oix000emwmgdmsu002m/attendance/leave/requests 201 741 - 100.571 ms
+POST /api/orgs/cmvmc8oix000emwmgdmsu002m/attendance/leave/requests/cmvmc8r180034fc989qqflqv7/approve 200 787 - 93.366 ms
+POST /api/orgs/cmvmc8oix000emwmgdmsu002m/attendance/leave/requests 201 741 - 96.455 ms
+POST /api/orgs/cmvmc8oix000emwmgdmsu002m/attendance/leave/requests/cmvmc8r6l0039fc98grtqil4v/approve 200 787 - 88.794 ms
+PUT /api/orgs/cmvmc8oix000emwmgdmsu002m/attendance/records 200 783 - 56.209 ms
+POST /api/orgs/cmvmc8oix000emwmgdmsu002m/attendance/records/import 200 53 - 54.008 ms
+POST /api/orgs/cmvmc8oix000emwmgdmsu002m/attendance/requests 201 629 - 55.422 ms
+POST /api/orgs/cmvmc8oix000emwmgdmsu002m/attendance/requests/cmvmc8rdq003jfc98p979fh5d/approve 200 675 - 57.346 ms
+POST /api/orgs/cmvmc8oix000emwmgdmsu002m/attendance/devices 201 1399 - 68.958 ms
+POST /api/orgs/cmvmc8oix000emwmgdmsu002m/attendance/leave/requests 201 741 - 92.860 ms
+POST /api/orgs/cmvmc8oix000emwmgdmsu002m/attendance/leave/requests/cmvmc8rjv003pfc98qvdzyw5e/approve 200 787 - 91.278 ms
+GET /api/orgs/cmvmc8oix000emwmgdmsu002m/attendance/records?from=2026-09-01&to=2026-09-01&employeeId=cmvmc8qpr002mfc984x2j3w4w 200 824 - 55.780 ms
+GET /api/orgs/cmvmc8oix000emwmgdmsu002m/attendance/records?from=2026-09-02&to=2026-09-02&employeeId=cmvmc8qpr002mfc984x2j3w4w 200 824 - 65.491 ms
+GET /api/orgs/cmvmc8oix000emwmgdmsu002m/attendance/records?from=2026-09-03&to=2026-09-03&employeeId=cmvmc8qpr002mfc984x2j3w4w 200 850 - 56.756 ms
+GET /api/orgs/cmvmc8oix000emwmgdmsu002m/attendance/records?from=2026-09-04&to=2026-09-04&employeeId=cmvmc8qpr002mfc984x2j3w4w 200 849 - 52.138 ms
+POST /api/orgs/cmvmc8oix000emwmgdmsu002m/attendance/leave/requests 201 738 - 71.789 ms
+POST /api/orgs/cmvmc8oix000emwmgdmsu002m/attendance/leave/requests/cmvmc8rx40042fc98erxz13is/approve 200 784 - 73.132 ms
+PUT /api/orgs/cmvmc8oix000emwmgdmsu002m/attendance/records 409 96 - 53.910 ms
+POST /api/orgs/cmvmc8oix000emwmgdmsu002m/attendance/requests 201 629 - 58.701 ms
+POST /api/orgs/cmvmc8oix000emwmgdmsu002m/attendance/requests/cmvmc8s2a0047fc9873eiikkj/approve 409 96 - 76.960 ms
+GET /api/orgs/cmvmc8oix000emwmgdmsu002m/attendance/records?from=2026-09-05&to=2026-09-05&employeeId=cmvmc8qpr002mfc984x2j3w4w 200 787 - 56.342 ms
+POST /api/orgs/cmvmc8oix000emwmgdmsu002m/people/employees 201 1704 - 63.045 ms
+POST /api/orgs/cmvmc8oix000emwmgdmsu002m/people/employees 201 1736 - 78.007 ms
+POST /api/orgs/cmvmc8oix000emwmgdmsu002m/attendance/leave/types 201 676 - 62.897 ms
+POST /api/orgs/cmvmc8oix000emwmgdmsu002m/attendance/leave/requests 201 746 - 79.425 ms
+GET /api/orgs/cmvmc8oix000emwmgdmsu002m/attendance/rules 200 185 - 55.464 ms
+PUT /api/orgs/cmvmc8oix000emwmgdmsu002m/attendance/rules 200 198 - 59.996 ms
+POST /api/orgs/cmvmc8oix000emwmgdmsu002m/attendance/integrations/keys 201 551 - 85.906 ms
+POST /api/orgs/cmvmc8oix000emwmgdmsu002m/attendance/integrations/keys 201 553 - 75.662 ms
+PUT /api/orgs/cmvmc8oix000emwmgdmsu002m/attendance/rules 200 185 - 66.280 ms
+POST /api/orgs/cmvmc8oix000emwmgdmsu002m/people/employees 201 1704 - 70.203 ms
+POST /api/orgs/cmvmc8oix000emwmgdmsu002m/attendance/leave/types 201 676 - 64.954 ms
+POST /api/orgs/cmvmc8oix000emwmgdmsu002m/attendance/leave/requests 201 746 - 70.017 ms
+POST /api/orgs/cmvmc8oix000emwmgdmsu002m/attendance/leave/requests/cmvmc8swh005ofc98hfqy4k26/approve 200 792 - 73.558 ms
+GET /api/orgs/cmvmc8oix000emwmgdmsu002m/attendance/records?from=2026-09-01&to=2026-09-01&employeeId=cmvmc8srz005bfc98kajt623e 200 795 - 52.343 ms
+POST /api/orgs/cmvmc8oix000emwmgdmsu002m/attendance/records/bulk 200 264 - 62.487 ms
+POST /api/orgs/cmvmc8oix000emwmgdmsu002m/attendance/records/bulk 200 174 - 57.236 ms
+POST /api/orgs/cmvmc8oix000emwmgdmsu002m/people/employees 201 1704 - 85.062 ms
+POST /api/orgs/cmvmc8oix000emwmgdmsu002m/attendance/leave/types 201 676 - 64.810 ms
+POST /api/orgs/cmvmc8oix000emwmgdmsu002m/attendance/leave/requests 201 751 - 83.964 ms
+POST /api/orgs/cmvmc8oix000emwmgdmsu002m/attendance/leave/requests/cmvmc8ta00065fc98hflsvqwi/approve 200 797 - 74.034 ms
+POST /api/orgs/cmvmc8oix000emwmgdmsu002m/attendance/months/2026-09/close 200 126 - 149.890 ms
+POST /api/orgs/cmvmc8oix000emwmgdmsu002m/attendance/leave/requests/cmvmc8ta00065fc98hflsvqwi/cancel 409 114 - 71.023 ms
+POST /api/orgs/cmvmc8oix000emwmgdmsu002m/attendance/months/2026-09/reopen 200 33 - 51.976 ms
+POST /api/orgs/cmvmc8oix000emwmgdmsu002m/people/employees 201 1704 - 88.543 ms
+POST /api/orgs/cmvmc8oix000emwmgdmsu002m/attendance/leave/types 201 676 - 65.204 ms
+POST /api/orgs/cmvmc8oix000emwmgdmsu002m/attendance/leave/requests 201 746 - 112.918 ms
+PUT /api/orgs/cmvmc8oix000emwmgdmsu002m/attendance/leave/types/cmvmc8to5006pfc98c89topig 409 166 - 86.723 ms
+PUT /api/orgs/cmvmc8oix000emwmgdmsu002m/attendance/leave/settings 409 144 - 70.199 ms
+POST /api/orgs/cmvmc8oix000emwmgdmsu002m/people/employees 201 1704 - 93.856 ms
+POST /api/orgs/cmvmc8oix000emwmgdmsu002m/attendance/leave/types 201 673 - 64.738 ms
+PUT /api/orgs/cmvmc8oix000emwmgdmsu002m/payroll/employees/cmvmc8ozx0000fc989605le0v 200 688 - 81.683 ms
+PUT /api/orgs/cmvmc8oix000emwmgdmsu002m/payroll/employees/cmvmc8p9t000cfc988eg91981 200 688 - 46.666 ms
+PUT /api/orgs/cmvmc8oix000emwmgdmsu002m/payroll/employees/cmvmc8psk000zfc98m7tmsqbl 200 688 - 46.663 ms
+PUT /api/orgs/cmvmc8oix000emwmgdmsu002m/payroll/employees/cmvmc8q1f001ifc988cggqjns 200 688 - 47.485 ms
+PUT /api/orgs/cmvmc8oix000emwmgdmsu002m/payroll/employees/cmvmc8qb50020fc98atfxksv9 200 688 - 48.235 ms
+PUT /api/orgs/cmvmc8oix000emwmgdmsu002m/payroll/employees/cmvmc8qpr002mfc984x2j3w4w 200 690 - 48.399 ms
+PUT /api/orgs/cmvmc8oix000emwmgdmsu002m/payroll/employees/cmvmc8s8i004cfc98crneesmp 200 690 - 47.752 ms
+PUT /api/orgs/cmvmc8oix000emwmgdmsu002m/payroll/employees/cmvmc8sac004nfc98mrep9y68 200 690 - 49.600 ms
+PUT /api/orgs/cmvmc8oix000emwmgdmsu002m/payroll/employees/cmvmc8srz005bfc98kajt623e 200 690 - 46.919 ms
+PUT /api/orgs/cmvmc8oix000emwmgdmsu002m/payroll/employees/cmvmc8t4s005sfc98w3o2xud0 200 690 - 49.532 ms
+PUT /api/orgs/cmvmc8oix000emwmgdmsu002m/payroll/employees/cmvmc8tl5006efc98nu01bgku 200 690 - 53.516 ms
+POST /api/orgs/cmvmc8oix000emwmgdmsu002m/attendance/leave/adjustments 201 561 - 89.124 ms
+POST /api/orgs/cmvmc8oix000emwmgdmsu002m/attendance/leave/adjustments 400 74 - 128.301 ms
+POST /api/orgs/cmvmc8oix000emwmgdmsu002m/payroll/components 201 829 - 35.654 ms
+POST /api/orgs/cmvmc8oix000emwmgdmsu002m/payroll/periods 201 350 - 41.584 ms
+POST /api/orgs/cmvmc8oix000emwmgdmsu002m/payroll/adjustments 201 411 - 121.978 ms
+POST /api/orgs/cmvmc8oix000emwmgdmsu002m/payroll/adjustments 201 411 - 101.094 ms
+DELETE /api/orgs/cmvmc8oix000emwmgdmsu002m/attendance/leave/adjustments/cmvmc8uir0078fc98un5t3vs7 409 118 - 67.439 ms
+POST /api/orgs/cmvmc8oix000emwmgdmsu002m/payroll/adjustments/leave-encash:cmvmc8uir0078fc98un5t3vs7/approve 200 436 - 85.975 ms
+PUT /api/orgs/cmvmc8oix000emwmgdmsu002m/payroll/employees/cmvmc8twz006ufc987gh3ywcs 200 688 - 49.668 ms
+POST /api/orgs/cmvmc8oix000emwmgdmsu002m/payroll/components 201 844 - 30.210 ms
+POST /api/orgs/cmvmc8oix000emwmgdmsu002m/payroll/structures 201 542 - 83.349 ms
+POST /api/orgs/cmvmc8oix000emwmgdmsu002m/payroll/assignments 201 2330 - 77.152 ms
+POST /api/orgs/cmvmc8oix000emwmgdmsu002m/payroll/runs 201 981 - 87.860 ms
+POST /api/orgs/cmvmc8oix000emwmgdmsu002m/payroll/runs/cmvmc8v5v000lzd1t79svrp2h/calculate 200 478 - 266.217 ms
+POST /api/orgs/cmvmc8oix000emwmgdmsu002m/payroll/runs/cmvmc8v5v000lzd1t79svrp2h/calculate 200 478 - 278.301 ms
+DELETE /api/orgs/cmvmc8oix000emwmgdmsu002m/attendance/leave/adjustments/cmvmc8uir0078fc98un5t3vs7 409 118 - 135.892 ms
+POST /api/auth/signup 200 576 - 122.686 ms
+POST /api/auth/setup-company 200 202 - 416.071 ms
+PUT /api/orgs/cmvmc8wo1000efbl252u8xcjr/features 200 1173 - 206.172 ms
+POST /api/orgs/cmvmc8wo1000efbl252u8xcjr/people/structure/areas 201 316 - 127.745 ms
+POST /api/orgs/cmvmc8wo1000efbl252u8xcjr/people/employees 201 1736 - 119.841 ms
+POST /api/orgs/cmvmc8wo1000efbl252u8xcjr/people/employees 201 1761 - 173.907 ms
+POST /api/orgs/cmvmc8wo1000efbl252u8xcjr/attendance/devices 201 1410 - 152.423 ms
+GET /api/orgs/cmvmc8wo1000efbl252u8xcjr/attendance/portal-access 200 831 - 81.760 ms
+POST /api/orgs/cmvmc8wo1000efbl252u8xcjr/attendance/portal-access/codes 200 287 - 117.092 ms
+POST /api/portal/activate 200 520 - 128.236 ms
+GET /api/portal/home 200 2309 - 100.829 ms
+GET /api/orgs/cmvmc8wo1000efbl252u8xcjr/attendance/portal-access 200 851 - 94.419 ms
+POST /api/orgs/cmvmc8wo1000efbl252u8xcjr/attendance/portal-access/codes 200 295 - 134.301 ms
+POST /api/portal/activate 200 528 - 186.173 ms
+POST /api/portal/corrections 201 635 - 13.546 ms
+GET /api/portal/home 200 1539 - 36.512 ms
+POST /api/auth/signup 200 576 - 17.955 ms
+POST /api/auth/setup-company 200 202 - 168.597 ms
+PUT /api/orgs/cmvmc8ybh00isfbl2p47n4mtr/features 200 1173 - 133.850 ms
+POST /api/orgs/cmvmc8ybh00isfbl2p47n4mtr/people/employees 201 1698 - 84.944 ms
+GET /api/orgs/cmvmc8ybh00isfbl2p47n4mtr/attendance/portal-access 200 456 - 69.101 ms
+POST /api/orgs/cmvmc8ybh00isfbl2p47n4mtr/attendance/portal-access/codes 200 290 - 113.246 ms
+POST /api/portal/activate 200 523 - 115.732 ms
+POST /api/portal/corrections 201 610 - 16.104 ms
+GET /api/portal/requests 200 528 - 21.372 ms
+PUT /api/portal/corrections/cmvmc8yuz0019m4x58ro67zk8 200 642 - 11.992 ms
+GET /api/portal/requests 200 541 - 13.736 ms
+PUT /api/portal/corrections/cmvmc8yuz0019m4x58ro67zk8 400 37 - 8.151 ms
+POST /api/portal/corrections/cmvmc8yuz0019m4x58ro67zk8/cancel 200 668 - 9.418 ms
+GET /api/portal/requests 200 523 - 21.985 ms
+POST /api/portal/corrections/cmvmc8yuz0019m4x58ro67zk8/cancel 409 73 - 30.786 ms
+POST /api/portal/phone-punch/ask 200 100 - 35.920 ms
+POST /api/auth/signup 200 576 - 27.396 ms
+POST /api/auth/setup-company 200 202 - 178.499 ms
+PUT /api/orgs/cmvmc8z0f010zfbl2jfh8gjnt/features 200 1173 - 129.189 ms
+POST /api/orgs/cmvmc8z0f010zfbl2jfh8gjnt/people/employees 201 1701 - 85.665 ms
+POST /api/orgs/cmvmc8z0f010zfbl2jfh8gjnt/people/employees 201 1732 - 66.745 ms
+PUT /api/orgs/cmvmc8z0f010zfbl2jfh8gjnt/attendance/portal-access 200 13 - 61.547 ms
+GET /api/orgs/cmvmc8z0f010zfbl2jfh8gjnt/attendance/portal-access 200 788 - 63.977 ms
+POST /api/orgs/cmvmc8z0f010zfbl2jfh8gjnt/attendance/portal-access/codes 200 293 - 114.574 ms
+POST /api/portal/activate 200 526 - 116.521 ms
+POST /api/portal/punch 409 87 - 13.058 ms
+PUT /api/orgs/cmvmc8z0f010zfbl2jfh8gjnt/attendance/portal-access 200 13 - 65.961 ms
+GET /api/portal/home 200 1536 - 42.397 ms
+POST /api/portal/punch 400 98 - 40.042 ms
+POST /api/portal/punch 201 189 - 905.024 ms
+GET /api/portal/home 200 1711 - 88.917 ms
+GET /api/orgs/cmvmc8z0f010zfbl2jfh8gjnt/attendance/portal-access 200 808 - 94.496 ms
+POST /api/orgs/cmvmc8z0f010zfbl2jfh8gjnt/attendance/portal-access/codes 200 293 - 115.924 ms
+POST /api/portal/activate 200 526 - 122.312 ms
+GET /api/portal/approvals 200 486 - 24.750 ms
+POST /api/portal/approvals/punch/cmvmc90gt0021m4x5rg2jo6mx 200 64 - 101.625 ms
+GET /api/portal/home 200 2414 - 72.907 ms
+POST /api/portal/approvals/punch/cmvmc90gt0021m4x5rg2jo6mx 409 44 - 10.830 ms
+GET /api/orgs/cmvmc8z0f010zfbl2jfh8gjnt/attendance/phone-punches?from=2026-10-24&to=2026-10-24 200 1270 - 93.586 ms
+GET /api/portal/privacy-notice 200 3857 - 13.563 ms
+POST /api/auth/signup 200 576 - 7.669 ms
+POST /api/auth/setup-company 200 202 - 146.446 ms
+PUT /api/orgs/cmvmc912901jdfbl2heu4s63u/features 200 1173 - 125.270 ms
+POST /api/orgs/cmvmc912901jdfbl2heu4s63u/people/employees 201 1700 - 139.912 ms
+POST /api/orgs/cmvmc912901jdfbl2heu4s63u/people/employees 201 1730 - 69.864 ms
+POST /api/orgs/cmvmc912901jdfbl2heu4s63u/attendance/leave/types 201 675 - 88.218 ms
+GET /api/orgs/cmvmc912901jdfbl2heu4s63u/attendance/portal-access 200 787 - 61.828 ms
+POST /api/orgs/cmvmc912901jdfbl2heu4s63u/attendance/portal-access/codes 200 292 - 117.878 ms
+POST /api/portal/activate 200 525 - 117.016 ms
+POST /api/portal/leave 400 44 - 33.311 ms
+POST /api/portal/leave 201 758 - 77.500 ms
+GET /api/orgs/cmvmc912901jdfbl2heu4s63u/attendance/portal-access 200 807 - 102.268 ms
+POST /api/orgs/cmvmc912901jdfbl2heu4s63u/attendance/portal-access/codes 200 292 - 116.103 ms
+POST /api/portal/activate 200 525 - 120.905 ms
+POST /api/portal/approvals/leave/cmvmc91ta002vm4x5a1c5pwdy 200 811 - 114.404 ms
+POST /api/orgs/cmvmc912901jdfbl2heu4s63u/attendance/devices 201 1410 - 100.689 ms
+GET /api/portal/leave 200 543 - 18.909 ms
+GET /api/portal/leave 200 543 - 17.308 ms
+POST /api/auth/signup 200 576 - 10.022 ms
+POST /api/auth/setup-company 200 202 - 143.189 ms
+PUT /api/orgs/cmvmc92d0021rfbl2hn4kill2/features 200 1173 - 126.254 ms
+POST /api/orgs/cmvmc92d0021rfbl2hn4kill2/people/employees 201 1700 - 94.810 ms
+GET /api/orgs/cmvmc92d0021rfbl2hn4kill2/attendance/portal-access 200 458 - 61.063 ms
+POST /api/orgs/cmvmc92d0021rfbl2hn4kill2/attendance/portal-access/codes 200 292 - 116.615 ms
+POST /api/portal/activate 200 525 - 120.436 ms
+GET /api/orgs/cmvmc92d0021rfbl2hn4kill2/attendance/portal-access 200 478 - 70.579 ms
+POST /api/portal/forgot 200 145 - 15.126 ms
+POST /api/portal/forgot 200 145 - 1.025 ms
+GET /api/portal/updates 200 31 - 4.598 ms
+
+ Test Files  2 passed (2)
+      Tests  17 passed (17)
+   Start at  17:21:03
+   Duration  33.94s (transform 2.17s, setup 34ms, import 4.99s, tests 17.82s, environment 0ms)
+

@@ -54,9 +54,16 @@ export function moduleForScreen(modules, screen, nav = []) {
  *   browse show this module's panel (phone sheet, or a closed/other panel)
  *   close  hide the panel this module already shows (desktop)
  */
-export function railAction({ single, phone, panelShown }) {
+export function railAction({ single, phone, panelShown, opensHome = false, current = false }) {
   if (single) return 'go';
   if (phone) return 'browse';
+  /*
+   * An app may ask that a rail tap open the module's own landing page (the
+   * Workspace: Company opens Companies, Access opens the access overview), so
+   * the content always follows the module chosen. Tapping the module you are
+   * already in still folds its panel.
+   */
+  if (opensHome) return current && panelShown ? 'close' : 'goOpen';
   return panelShown ? 'close' : 'browse';
 }
 

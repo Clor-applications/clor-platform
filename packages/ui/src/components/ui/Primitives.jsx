@@ -1,5 +1,5 @@
 import React from 'react';
-import { Check, Moon, Sun } from 'lucide-react';
+import { Check } from 'lucide-react';
 
 import Illustration from './Illustration';
 import { iconFor } from './entityIdentity';
@@ -422,18 +422,6 @@ export const LoadingRegion = ({ label = 'Loading', children }) => (
     <span className="sr-only">{label}</span>
     {children}
   </div>
-);
-
-export const ThemeToggle = ({ theme, onToggle, compact = false }) => (
-  <button
-    type="button"
-    onClick={onToggle}
-    className={`ui-btn ui-btn-ghost !px-2 ${compact ? '!h-8 !min-h-8' : ''}`}
-    aria-label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
-    title={theme === 'dark' ? 'Light theme' : 'Dark theme'}
-  >
-    {theme === 'dark' ? <Sun size={16} aria-hidden="true" /> : <Moon size={16} aria-hidden="true" />}
-  </button>
 );
 
 /** Inline busy indicator for buttons mid-request. */

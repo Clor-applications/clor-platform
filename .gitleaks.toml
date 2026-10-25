@@ -19,6 +19,10 @@ paths = [
   '''(^|/)node_modules/''',
   '''(^|/)dist(-mobile)?/''',
   '''package-lock\.json$''',
+  # Captured test-run output kept as evidence: it prints the test suite's own
+  # short-lived tokens (signed with its test key, against a throwaway local
+  # database) and quotes test fixtures. Only .txt logs under evidence/.
+  '''(^|/)evidence/.+\.txt$''',
 ]
 # Browser storage keys are named clor.<area>.<what>[.<date>], e.g.
 # clor.dpdp.announcement.2026-10-19: names, not secrets, but long enough for

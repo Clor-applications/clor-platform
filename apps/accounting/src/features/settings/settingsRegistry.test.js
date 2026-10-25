@@ -113,7 +113,7 @@ describe('what a person may open', () => {
     expect(keys).toContain('settingsCompany');
   });
 
-  it('keeps warehouses under Organisation, and branches with the company in Company admin', () => {
+  it('keeps warehouses under Organisation, and branches with the company in Workspace', () => {
     const isEnabled = (f) => f !== 'branches';
     const keys = visibleSettings({ can: () => true, isEnabled }).map((i) => i.key);
     /* Branches are the company's, shared by every app (ADR-010); warehouses are Accounting's stock. */
@@ -148,8 +148,8 @@ describe('local navigation', () => {
     expect(settingsBackTarget('bills')).toBe('bills');
   });
 
-  it("keeps Accounting's own control under Security, and the company's in Company admin", () => {
-    /* Permissions, sign-in, the audit trail and SSO moved to Company admin (ADR-010); posting approvals are Accounting's. */
+  it("keeps Accounting's own control under Security, and the company's in Workspace", () => {
+    /* Permissions, sign-in, the audit trail and SSO moved to Workspace (ADR-010); posting approvals are Accounting's. */
     const groups = groupedForCategory('security', all);
     expect(groups).toHaveLength(1);
     expect(groups[0].name).toBe('');
@@ -159,7 +159,7 @@ describe('local navigation', () => {
   it('keeps a group together wherever its members are declared', () => {
     /* Grouping by adjacency once rendered "Your account" twice in Finance,
        with a duplicate React key each visit. Finance's account and billing
-       entries moved to Company admin (ADR-010), so the rule is checked on
+       entries moved to Workspace (ADR-010), so the rule is checked on
        every category: no group heading appears twice in one. */
     for (const c of SETTINGS_CATEGORIES) {
       const names = groupedForCategory(c.id, all).map((g) => g.name);
@@ -179,7 +179,7 @@ describe('local navigation', () => {
 
 describe('search finds what people type', () => {
   it('matches a word the title does not contain', () => {
-    /* Sign-in lives in Company admin now; Settings finds the way there. */
+    /* Sign-in lives in Workspace now; Settings finds the way there. */
     expect(searchSettings('password', all).map((i) => i.key)).toContain('companyAdmin');
     /* "tds" used to reach the Payments pane by keyword; that pane was a
        capability surface and has gone to Features. The TDS settings page is

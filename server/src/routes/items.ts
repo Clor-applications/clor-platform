@@ -118,9 +118,19 @@ itemsRouter.post('/orgs/:orgId/items', CREATE, async (req, res) => {
         : 'Goods item code must be 5 digits and start with 2 through 9',
     });
   }
-  const itemCode = requestedCode || (await nextItemCode(accountId, orgId, itemType));
-  const duplicateCode = await prisma.itemMaster.findFirst({ where: { accountId, orgId, code: itemCode }, select: { id: true } });
-  if (duplicateCode) return res.status(409).json({ error: `Item code ${itemCode} is already in use` });
+  /* As for parties: an allotted code that a concurrent create took first is allotted again, not refused. */
+  let itemCode = requestedCode;
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const candidate = requestedCode || (await nextItemCode(accountId, orgId, itemType));
+    const taken = await prisma.itemMaster.findFirst({ where: { accountId, orgId, code: candidate }, select: { id: true } });
+    if (!taken) {
+      itemCode = candidate;
+      break;
+    }
+    if (requestedCode) return res.status(409).json({ error: `Item code ${candidate} is already in use` });
+    itemCode = '';
+  }
+  if (!itemCode) return res.status(409).json({ error: 'Could not allot an item code; try again' });
 
   // Batch and serial tracking only makes sense for something that moves.
   if (body.trackBy && body.trackBy !== 'NONE' && (body.itemType || 'STOCK') === 'SERVICE') {

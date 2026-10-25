@@ -11,6 +11,7 @@ import { outsideTenant, enterTenant } from '../utils/tenantScope.js';
 import { verifyCredential, touchLastUsed } from '../services/credentials.js';
 import { scimKind } from '../services/scimTokens.js';
 import { flagCreatorRemoved } from '../services/credentialReview.js';
+import { ensureAccountMembership } from '../services/accountMembership.js';
 
 /**
  * /scim/v2 — SCIM 2.0 provisioning (RFC 7643 / 7644), the way Microsoft
@@ -211,6 +212,7 @@ scimRouter.post('/Users', async (req, res) => {
       select: SELECT,
     });
     await platformPrisma.userOrgMembership.create({ data: { accountId: t.accountId, orgId: t.orgId, userId: user.id } });
+    await ensureAccountMembership(t.accountId, user.id);
   }
   if (t.defaultRoleId) {
     await platformPrisma.userRoleAssignment.create({ data: { accountId: t.accountId, orgId: t.orgId, userId: user.id, roleId: t.defaultRoleId, createdByUserId: user.id } }).catch(() => {});

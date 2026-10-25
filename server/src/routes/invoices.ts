@@ -23,6 +23,7 @@ import { FxError, baseCurrencyFor, isBase, rateFor, toBase } from '../services/f
 import { SettledDocument, assertInvoiceCancellable } from '../services/settledDocGuard.js';
 import { refuseUnknownLineItems } from '../services/lineItems.js';
 import { InsufficientStock, withStockCheck } from '../services/stockLedger.js';
+import { reportError } from '../utils/log.js';
 
 /** An invoice's stored lines, or none if the text is not a list. */
 const safeParseLines = (json: string | null | undefined): unknown[] => {
@@ -106,7 +107,7 @@ const invoiceUpsertSchema = z.object({
   invoiceDiscountType: z.string().optional().nullable(),
   invoiceDiscountValue: z.union([z.string(), z.number()]).optional().nullable(),
   invoiceDiscountApplied: z.number().optional().nullable(),
-  otherCharges: z.array(z.record(z.any())).optional(),
+  otherCharges: z.array(z.record(z.string(), z.any())).optional(),
   otherChargesTotal: z.number().optional().nullable(),
   shipToAddressId: z.union([z.string(), z.number()]).optional().nullable(),
   sourceChallanId: z.union([z.string(), z.number()]).optional().nullable(),
@@ -538,8 +539,14 @@ invoicesRouter.post('/orgs/:orgId/invoices', requirePermission(INVOICE_MODULE, P
     });
   } catch (e: any) {
     await prisma.invoice.delete({ where: { id } });
-    const status = Number(e?.status || 400);
-    return res.status(status).json({ error: `Invoice not saved: ${String(e?.message || e)}` });
+    /*
+     * The ledger's own refusals carry a status and say what to fix. Anything
+     * else is ours, and its text (a database error, say) is not for the
+     * person saving the invoice: log it, answer plainly, give the request id.
+     */
+    if (e?.status) return res.status(Number(e.status)).json({ error: `Invoice not saved: ${String(e.message || e)}` });
+    reportError(e, req);
+    return res.status(500).json({ error: 'Invoice not saved. Please try again; if it keeps failing, contact support.', requestId: res.getHeader('X-Request-Id') || undefined });
   }
 
   await auditInvoiceCreated(req, row);

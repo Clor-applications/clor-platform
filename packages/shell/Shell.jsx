@@ -1,5 +1,5 @@
 import React, { Suspense, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, ChevronDown, LayoutGrid, LogOut, Menu, Moon, Plus, Settings, Sun, UserRound, X } from 'lucide-react';
+import { ArrowLeft, CalendarDays, ChevronDown, CircleHelp, LayoutGrid, LogOut, Menu, Plus, Search, Settings, UserRound, X } from 'lucide-react';
 
 import { useTheme } from '@ui/components/ui/useTheme';
 import { useDismissable } from '@ui/components/ui/useDismissable';
@@ -17,16 +17,21 @@ import { ADMIN_APP_ID, appFromHost, hostForApp, isFrontDoor } from './appHosts';
 import { PHONE_QUERY, TABLET_QUERY, mobileTabsFor } from './mobileTabs';
 import { moduleForScreen, railAction, readScreenSearch, resolveModules, screenSearch, withoutEmptyHubs } from './splitNav';
 import { useSession } from './session';
-import { OPEN_APP_EVENT } from '@platform/context';
+import { OPEN_APP_EVENT, OPEN_HELP_EVENT, OPEN_SCREEN_EVENT } from '@platform/context';
+import HelpCenter from './HelpCenter';
 import ClorMark from './ClorMark';
+import { ClorLogo } from '@ui/components/brand';
 import NotificationBell from './NotificationBell';
 import HelpMenu from './HelpMenu';
 import TwoFactorGate from './TwoFactorGate';
 import CommandPalette from '@ui/components/ui/CommandPalette';
+import { AlertColor, PersonColor } from '@fluentui/react-icons';
+import { colorIcon } from '@ui/components/ui/iconSet';
 import CompanySetup from './CompanySetup';
+import { appIntent, captureAppIntent } from './appIntent';
 import NoCompanyAccess from './NoCompanyAccess';
+import InviteAccept from './InviteAccept';
 import { appAddress, frontDoorForward } from './orgUrl';
-import Home from './Home';
 import ScreenBoundary from './ScreenBoundary';
 import SignIn from './SignIn';
 import SignUp from './SignUp';
@@ -64,6 +69,70 @@ function AppLoading() {
   );
 }
 
+/** The marketing site, which is the product's front page; the app itself opens on sign-in. */
+const MARKETING_URL = import.meta.env.VITE_MARKETING_URL || 'https://clor.in';
+/* Before any page rewrites the address: remember the app a visitor came for. */
+captureAppIntent();
+
+const PUBLIC_PATHS = { signin: '/signin', signup: '/signup', forgot: '/forgot-password' };
+
+/** Which door a signed-out visitor sees, from the address: clor.in's Get started links to /signup. */
+export const publicPageFromPath = (pathname = typeof window === 'undefined' ? '/' : window.location.pathname) => {
+  const p = String(pathname || '/').replace(/\/+$/, '') || '/';
+  if (p === '/signup' || p === '/get-started') return 'signup';
+  if (p === '/forgot-password') return 'forgot';
+  return 'signin';
+};
+
+const ACCOUNT_ROLE_LABEL = { OWNER: 'owner', ADMIN: 'administrator', BILLING_ADMIN: 'billing admin', MEMBER: 'member' };
+
+/**
+ * W-2.1: the company picker is also the account switcher. With one account it
+ * is a plain list; with more, each account's companies sit under its name,
+ * with the person's role there or "outside access" when it is somebody else's
+ * account they were let into. Choosing a company in another account switches
+ * account: the screen is keyed by company, so nothing from the old one stays.
+ */
+export const companyGroups = (tenants = [], accounts = []) => {
+  const ids = [...new Set(tenants.map((t) => t.accountId || ''))];
+  if (ids.length < 2) return [{ id: 'all', label: '', items: tenants }];
+  const byId = new Map(accounts.map((a) => [a.id, a]));
+  const order = (id) => (byId.get(id)?.home ? 0 : 1);
+  return ids
+    .sort((a, b) => order(a) - order(b) || String(byId.get(a)?.name || '').localeCompare(String(byId.get(b)?.name || '')))
+    .map((id) => {
+      const a = byId.get(id);
+      const how = a?.home ? (a.role ? ACCOUNT_ROLE_LABEL[a.role] || '' : '') : 'outside access';
+      return { id, label: `${a?.name || 'Another account'}${how ? ` (${how})` : ''}`, items: tenants.filter((t) => (t.accountId || '') === id) };
+    });
+};
+
+/** "SETTINGS::Users::VIEW" as a person reads it: "view Users (Settings)". */
+export const permissionWords = (key = '') => {
+  const [module = '', sub = '', action = ''] = String(key).split('::');
+  const cap = (w) => w.charAt(0) + w.slice(1).toLowerCase();
+  return `${action.toLowerCase() || 'use'} ${sub || cap(module)}${sub && module ? ` (${cap(module)})` : ''}`;
+};
+
+/** W-2.2: an explained empty state in place of a screen — not found, or not allowed — with one way on. */
+function ScreenState({ title, text, action }) {
+  return (
+    <section className="ui-card p-6 max-w-xl" role="status" aria-labelledby="screen-state-title">
+      <h1 id="screen-state-title" className="ui-display text-xl">{title}</h1>
+      <p className="ui-muted mt-2">{text}</p>
+      {action ? (
+        <button type="button" className="ui-btn ui-btn-secondary mt-4" onClick={action.run}>
+          {action.label}
+        </button>
+      ) : null}
+    </section>
+  );
+}
+
+/* The bar's own icons in the colour set, for an app that draws in it (manifest iconSet: 'color'). */
+const BellColor = colorIcon(AlertColor, 'Alert');
+const ProfileColor = colorIcon(PersonColor, 'Person');
+
 export default function Shell() {
   /* A phone: no rail, a menu sheet and a tab bar instead (mobileTabs.js). */
   const [phone, setPhone] = useState(() => typeof window !== 'undefined' && window.matchMedia(PHONE_QUERY).matches);
@@ -89,11 +158,11 @@ export default function Shell() {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [tabletPanel]);
-  const { user, tenant, tenants, deniedCode, restoring, setTenantId, signOut, addApp, twoFactorSetupRequired } = useSession();
+  const { user, tenant, tenants, accounts, createCompany, deniedCode, restoring, setTenantId, signOut, addApp, twoFactorSetupRequired } = useSession();
 
   /* The shared hook, not a second copy: the public page has a toggle too, and
      a private key here would mean the choice did not follow you inside. */
-  const { theme, toggle: toggleTheme } = useTheme();
+  useTheme();
 
   /* Null while the company's apps are still being read, which is not the same
      as none: treating it as none would flash an empty rail. */
@@ -139,6 +208,9 @@ export default function Shell() {
       const asked = new URLSearchParams(window.location.search).get('app');
       if (asked) return asked;
     } catch { /* no query */ }
+    /* The app a new visitor came for (clor.in › Start with …), kept across sign-up. */
+    const intended = appIntent();
+    if (intended) return intended;
     /* The front door is the company's own workspace, not a doorway into the last app (ADR-010). */
     return isFrontDoor() ? ADMIN_APP_ID : null;
   });
@@ -152,6 +224,14 @@ export default function Shell() {
       return open || null;
     } catch {
       return null;
+    }
+  });
+  /* W-2.2: the screen the address asked for when the page opened — a key no app has is a "not found", not a silent home. */
+  const [openedWith] = useState(() => {
+    try {
+      return String(new URLSearchParams(window.location.search).get('open') || '').trim();
+    } catch {
+      return '';
     }
   });
   const [browseModule, setBrowseModule] = useState(null);
@@ -193,7 +273,7 @@ export default function Shell() {
   const [showMoreApps, setShowMoreApps] = useState(false);
 
   /* `open` names a screen inside the app (Accounting's settings): carried in the address so it survives the hop to the app's own host. */
-  /* `params` travel with it in the address too (Company admin's permissions opened for one app: ?for=payroll). */
+  /* `params` travel with it in the address too (Workspace's permissions opened for one app: ?for=payroll). */
   const openApp = (id, open = '', params = {}) => {
     const next = appById(id);
     const query = new URLSearchParams();
@@ -232,6 +312,62 @@ export default function Shell() {
     window.addEventListener(OPEN_APP_EVENT, onOpen);
     return () => window.removeEventListener(OPEN_APP_EVENT, onOpen);
   }, []);
+  const goTo = (key) => {
+    setScreenKey(key);
+    setScreenParams(null);
+    setPlatformScreen(null);
+    setShowMoreApps(false);
+    setNavOpen(false);
+    setBrowseModule(null);
+    setTabletPanel(false);
+    /* A new screen starts at its top, not at the last one's scroll position. */
+    window.scrollTo(0, 0);
+  };
+  /* Help (requestOpenHelp): the Help centre as a platform page, on the topic asked for. */
+  const [helpTopic, setHelpTopic] = useState('welcome');
+  useEffect(() => {
+    const onHelp = (e) => {
+      setHelpTopic(e.detail?.topic || 'welcome');
+      setPlatformScreen('help');
+      setShowMoreApps(false);
+      setNavOpen(false);
+      window.scrollTo(0, 0);
+    };
+    window.addEventListener(OPEN_HELP_EVENT, onHelp);
+    return () => window.removeEventListener(OPEN_HELP_EVENT, onHelp);
+  }, []);
+  /* Signed in, the sign-in and sign-up addresses have done their job: drop them, keeping the company and the query. */
+  useEffect(() => {
+    if (!user) return;
+    try {
+      const { pathname, search, hash } = window.location;
+      const trimmed = pathname.replace(/\/(signin|signup|get-started|forgot-password)\/?$/, '/');
+      if (trimmed !== pathname) window.history.replaceState(null, '', trimmed + search + hash);
+    } catch {
+      /* best effort */
+    }
+  }, [user]);
+
+  /* W-8.2: the account is suspended by Clor — one plain page instead of a half-loaded app. */
+  const [suspended, setSuspended] = useState('');
+  useEffect(() => {
+    const on = (e) => setSuspended(e.detail?.message || 'This account has been suspended by Clor.');
+    window.addEventListener('clor:account-suspended', on);
+    return () => window.removeEventListener('clor:account-suspended', on);
+  }, []);
+
+  /* A screen asking for another of its own app's screens (requestOpenScreen): the same as a rail click. */
+  const goToRef = useRef(null);
+  useEffect(() => {
+    goToRef.current = goTo;
+  });
+  useEffect(() => {
+    const onScreen = (e) => {
+      if (e.detail?.screen) goToRef.current?.(e.detail.screen);
+    };
+    window.addEventListener(OPEN_SCREEN_EVENT, onScreen);
+    return () => window.removeEventListener(OPEN_SCREEN_EVENT, onScreen);
+  }, []);
   /* The API refused an app this account has not bought (402): say so once, with the way to add it. */
   const [unbought, setUnbought] = useState(null);
   useEffect(() => {
@@ -245,7 +381,25 @@ export default function Shell() {
    * the two doors off it. Three states rather than a router, because they are
    * the only three there are — everything past sign-in is an app's business.
    */
-  const [publicPage, setPublicPage] = useState('home');
+  const [publicPage, setPublicPageState] = useState(publicPageFromPath);
+  /* W-3: app.clor.in/invite?token=... — read once; the page itself never puts the token anywhere else. */
+  const [inviteToken, setInviteToken] = useState(() => {
+    try {
+      return window.location.pathname.replace(/\/+$/, '') === '/invite' ? String(new URLSearchParams(window.location.search).get('token') || '') : '';
+    } catch {
+      return '';
+    }
+  });
+  /* The page is in the address (/signin, /signup), so clor.in's buttons can open the right one and a refresh keeps it. */
+  const setPublicPage = (page) => {
+    setPublicPageState(page);
+    try {
+      const path = PUBLIC_PATHS[page];
+      if (path && window.location.pathname !== path) window.history.replaceState(null, '', path + window.location.hash);
+    } catch {
+      /* best effort */
+    }
+  };
 
   /* A policy page is open to everyone, signed in or not, at #/legal/<doc>. */
   const legalDoc = useLegalRoute();
@@ -263,6 +417,8 @@ export default function Shell() {
       /* Emails sent before 12 Oct 2026 used /verify-email?token= and /?token=. */
       const legacy = String(q.get('token') || '').trim();
       const onVerifyPath = /\/verify-email\/?$/.test(window.location.pathname);
+      /* W-3: an invitation carries ?token= too; it is not an old reset link. */
+      if (/\/invite\/?$/.test(window.location.pathname)) return null;
       const reset = String(q.get('reset') || '').trim() || (!onVerifyPath ? legacy : '');
       const verify = String(q.get('verify') || '').trim() || (onVerifyPath ? legacy : '');
       if (reset) return { kind: 'reset', token: reset };
@@ -356,7 +512,7 @@ export default function Shell() {
      keeping the company, any ?open= and #/screen so a link into an app still
      lands on that company's screen (A-25: it kept only the #/screen). */
   const frontDoorHost = user && tenant && !emailLink && isFrontDoor() && activeAppId ? hostForApp(activeAppId) : null;
-  /* Company admin lives here: its host is this one, and forwarding to it would loop. */
+  /* Workspace lives here: its host is this one, and forwarding to it would loop. */
   const frontDoorTarget = frontDoorHost && frontDoorHost !== window.location.hostname ? frontDoorHost : null;
   useEffect(() => {
     if (!frontDoorTarget) return;
@@ -389,6 +545,20 @@ export default function Shell() {
     );
   }
 
+  /* W-3: an invitation link opens its own page, signed in or not. */
+  if (inviteToken) {
+    return (
+      <InviteAccept
+        token={inviteToken}
+        onHome={() => window.location.assign(MARKETING_URL)}
+        onSignIn={() => {
+          setInviteToken('');
+          setPublicPage('signin');
+        }}
+      />
+    );
+  }
+
   if (emailLink?.kind === 'verify') {
     return <VerifyEmail token={emailLink.token} onDone={() => leaveEmailLink(user ? null : 'signin')} />;
   }
@@ -406,22 +576,15 @@ export default function Shell() {
   }
 
   if (!user) {
-    if (publicPage === 'signin') {
-      return (
-        <SignIn
-          onHome={() => setPublicPage('home')}
-          onSignUp={() => setPublicPage('signup')}
-          onForgot={() => setPublicPage('forgot')}
-        />
-      );
+    /* The product's front page is clor.in now; the app opens on its doors. */
+    const toSite = () => window.location.assign(MARKETING_URL);
+    if (publicPage === 'signup') {
+      return <SignUp onHome={toSite} onSignIn={() => setPublicPage('signin')} />;
     }
     if (publicPage === 'forgot') {
-      return <ForgotPassword onHome={() => setPublicPage('home')} onSignIn={() => setPublicPage('signin')} />;
+      return <ForgotPassword onHome={toSite} onSignIn={() => setPublicPage('signin')} />;
     }
-    if (publicPage === 'signup') {
-      return <SignUp onHome={() => setPublicPage('home')} onSignIn={() => setPublicPage('signin')} />;
-    }
-    return <Home onSignIn={() => setPublicPage('signin')} onGetStarted={() => setPublicPage('signup')} />;
+    return <SignIn onHome={toSite} onSignUp={() => setPublicPage('signup')} onForgot={() => setPublicPage('forgot')} />;
   }
 
   /*
@@ -433,6 +596,22 @@ export default function Shell() {
    * and an account whose last company was removed — so it gets a real screen.
    */
   /* The address names a company this person cannot open (A-26): say so; open nothing else. */
+  if (suspended && user) {
+    return (
+      <div className="min-h-dvh grid place-items-center p-6" style={{ backgroundColor: 'rgb(var(--app-bg))' }}>
+        <section className="ui-card p-8 max-w-lg grid gap-4" role="alert" aria-labelledby="suspended-title">
+          <ClorLogo size={24} />
+          <h1 id="suspended-title" className="ui-display text-2xl">This account is suspended</h1>
+          <p className="ui-muted">{suspended}</p>
+          <p className="ui-muted text-sm">Your data is kept as it was. Once Clor reinstates the account, everything opens again.</p>
+          <div className="flex flex-wrap gap-2">
+            <a className="ui-btn ui-btn-primary" href="mailto:support@clor.in">Contact support</a>
+            <button type="button" className="ui-btn ui-btn-secondary" onClick={signOut}>Sign out</button>
+          </div>
+        </section>
+      </div>
+    );
+  }
   if (deniedCode) return <NoCompanyAccess />;
   if (!tenant) return <CompanySetup />;
 
@@ -446,8 +625,17 @@ export default function Shell() {
      honouring it shows "Nothing selected" instead of the new app's home. */
   const screen = (screenKey && app?.screens?.[screenKey] ? screenKey : app?.home) || null;
   const Screen = app?.screens?.[screen] || null;
+  /*
+   * W-2.2: say why a screen is not shown instead of a blank or a wall of
+   * refused requests. Denied: the screen's permission is not this person's
+   * (the server refuses it too; this is the explanation). Not found: the
+   * address the page opened with names a screen this app does not have.
+   */
+  const screenItem = (app?.nav || []).find((n) => n.key === screen);
+  const screenDenied = Boolean(screenItem?.permission && granted && !granted.has(screenItem.permission));
   /* An app may draw its own navigation instead of handing the shell a list. */
   const Root = app?.Root || null;
+  const screenMissing = Boolean(!Root && app && openedWith && screenKey === openedWith && !app.screens?.[openedWith]);
   /* Or ask for the split sidebar: modules on a rail, the open module's screens beside it (splitNav.js). */
   const modules = resolveModules(app, nav);
   const split = modules.length > 0;
@@ -458,29 +646,19 @@ export default function Shell() {
     /* In the phone sheet a single-screen module has nothing to list, so the sheet opens on the first module that has. */
     (phone && currentModule?.single ? modules.find((m) => !m.single) || currentModule : currentModule);
 
-  const goTo = (key) => {
-    setScreenKey(key);
-    setScreenParams(null);
-    setPlatformScreen(null);
-    setShowMoreApps(false);
-    setNavOpen(false);
-    setBrowseModule(null);
-    setTabletPanel(false);
-    /* A new screen starts at its top, not at the last one's scroll position. */
-    window.scrollTo(0, 0);
-  };
   const isCurrent = (key) => screen === key && !platformScreen && !showMoreApps;
 
   /* The rail of modules. On a desktop a tap opens the module's first screen; in the phone sheet it only
      switches the panel, so the person can pick a screen before the sheet closes (ClorTime's drawer). */
   const moduleRail = (
-    <nav className="ui-split-rail" aria-label={`${app?.name || ''} modules`}>
+    <nav className="ui-split-rail" data-app={app?.id || undefined} aria-label={`${app?.name || ''} modules`}>
       {modules.map((m) => {
         const Icon = m.icon;
         /* Two different facts: which module holds the screen you are on, and
            which module's panel is open. A rail tap only opens a panel; it
            does not change the screen under you. */
-        const current = currentModule?.key === m.key;
+        /* A platform page (My profile) or More apps belongs to no module. */
+        const current = !platformScreen && !showMoreApps && currentModule?.key === m.key;
         const panelShown = !m.single && openModule?.key === m.key && (phone || (tablet ? tabletPanel : !panelClosed));
         return (
           <button
@@ -493,8 +671,14 @@ export default function Shell() {
             data-current={current || undefined}
             title={m.label}
             onClick={() => {
-              const action = railAction({ single: m.single, phone, panelShown });
+              const action = railAction({ single: m.single, phone, panelShown, opensHome: Boolean(app?.railOpensHome), current });
               if (action === 'go') goTo(m.home);
+              else if (action === 'goOpen') {
+                /* W-R3: the module's landing page and its panel together; the screen follows the rail. */
+                goTo(m.home);
+                if (tablet) setTabletPanel(true);
+                else setPanelClosed(false);
+              }
               else if (action === 'close') { if (tablet) setTabletPanel(false); else setPanelClosed(true); }
               else {
                 setBrowseModule(phone || m.key !== currentModule?.key ? m.key : null);
@@ -508,6 +692,13 @@ export default function Shell() {
           </button>
         );
       })}
+      {/* An app may use the rail's foot (manifest `railFoot`): its own item, then Help, which then leaves the bar. */}
+      {app?.railFoot && !phone ? (
+        <div className="ui-split-rail-foot">
+          {app.railFoot.Component ? <app.railFoot.Component tenant={tenant} goTo={goTo} screen={screen} /> : null}
+          <HelpMenu variant="rail" icon={app.railFoot.helpIcon} />
+        </div>
+      ) : null}
     </nav>
   );
   /* The open module's screens under plain headings; a single-screen module has no panel. */
@@ -546,12 +737,15 @@ export default function Shell() {
           ))}
         </div>
       ))}
-      <div style={{ borderTop: '1px solid rgb(var(--border))' }} className="mt-4 pt-3">
-        <button type="button" className="ui-split-item" onClick={() => { setShowMoreApps(true); setNavOpen(false); }}>
-          <LayoutGrid size={15} aria-hidden="true" />
-          More apps
-        </button>
-      </div>
+      {/* The Workspace lists the apps on its Overview and the switcher has More apps; its own panel is administration only. */}
+      {app?.id === ADMIN_APP_ID ? null : (
+        <div style={{ borderTop: '1px solid rgb(var(--border))' }} className="mt-4 pt-3">
+          <button type="button" className="ui-split-item" onClick={() => { setShowMoreApps(true); setNavOpen(false); }}>
+            <LayoutGrid size={15} aria-hidden="true" />
+            More apps
+          </button>
+        </div>
+      )}
     </nav>
   ) : null;
 
@@ -605,6 +799,7 @@ export default function Shell() {
     </>
   );
   const tabs = phone && app ? mobileTabsFor(app, nav) : [];
+  const inWorkspace = app?.id === ADMIN_APP_ID;
 
   return (
     /* The open app's icon set (`iconSet` in its manifest): shared marks such as
@@ -626,7 +821,7 @@ export default function Shell() {
         ) : null}
         <header
           /* Tighter on a phone: the bar carries menu, logo, switcher, alerts, help, profile and sign-out in 360 px. */
-          className={`sticky top-0 flex h-14 items-center ${phone ? 'gap-2.5 px-3' : 'gap-3 px-4'}`}
+          className={`sticky top-0 flex h-14 items-center ${phone ? 'gap-1.5 px-2.5' : 'gap-3 px-4'}`}
           style={{
             backgroundColor: 'rgb(var(--surface))',
             borderBottom: '1px solid rgb(var(--border))',
@@ -642,13 +837,13 @@ export default function Shell() {
             </button>
           ) : null}
           <button type="button" className="flex items-center gap-2" onClick={() => openApp(mine[0]?.id)}>
-            <ClorMark size={24} />
-            <span className={phone ? 'sr-only' : 'ui-display text-base'}>Clor</span>
+            {phone ? <ClorMark size={24} /> : <ClorLogo size={20} />}
           </button>
 
           {/* The app switcher. Named for the app you are in, because that is the
-              question it answers before it is the control it offers. */}
-          {app ? (
+              question it answers before it is the control it offers. The
+              Workspace leaves it out: its Overview opens the apps. */}
+          {app && !inWorkspace ? (
             <div className="relative" ref={switcherRef}>
               <button
                 type="button"
@@ -656,9 +851,11 @@ export default function Shell() {
                 onClick={() => setSwitcherOpen((v) => !v)}
                 aria-expanded={switcherOpen}
                 aria-haspopup="menu"
+                aria-label={`${app.name}: switch app`}
               >
                 <app.icon size={15} aria-hidden="true" />
-                {app.name}
+                {/* On a phone the name is cut short rather than pushing the bar past the screen; the full name is the button's label. */}
+                <span className={phone ? 'truncate' : undefined} style={phone ? { maxWidth: '3.75rem' } : undefined}>{app.name}</span>
                 <ChevronDown size={14} aria-hidden="true" />
               </button>
 
@@ -709,34 +906,68 @@ export default function Shell() {
                     onClick={() => openApp(ADMIN_APP_ID)}
                   >
                     <Settings size={16} aria-hidden="true" />
-                    <span className="text-sm">Company admin</span>
+                    <span className="text-sm">Workspace</span>
                   </button>
                 </div>
               ) : null}
             </div>
           ) : null}
 
+          {/* Global search: the command palette (⌘K), as a field anyone can see and click. */}
+          {app && !Root ? (
+            phone ? (
+              <button type="button" className="ui-icon-btn ml-auto" aria-label="Search" onClick={() => setPaletteOpen(true)}>
+                <Search size={18} aria-hidden="true" />
+              </button>
+            ) : (
+              <button type="button" className="ui-global-search" onClick={() => setPaletteOpen(true)} aria-label="Search screens and apps" aria-keyshortcuts="Meta+K Control+K">
+                <Search size={16} aria-hidden="true" />
+                <span>Search screens and apps</span>
+                <kbd>{/Mac|iPhone|iPad/.test(navigator.platform || '') ? '⌘K' : 'Ctrl K'}</kbd>
+              </button>
+            )
+          ) : null}
+
           <div className="flex-1" />
 
           {/* On a phone the bar holds menu, mark, app, profile and sign-out; one company needs no picker and the theme follows the phone. */}
+          {/* The company in use. The Workspace shows it too: half its pages change only this company. */}
           {!phone || tenants.length > 1 ? (
             <select
               className="ui-select ui-select-sm min-w-0"
-              style={{ width: 'auto', minWidth: phone ? '7rem' : '12rem', maxWidth: phone ? '38vw' : undefined }}
+              style={{ width: 'auto', minWidth: phone ? '4rem' : '12rem', maxWidth: phone ? '30vw' : undefined }}
               value={tenant.id}
               disabled={tenants.length < 2}
               onChange={(e) => setTenantId(e.target.value)}
               aria-label="Company"
             >
-              {tenants.map((t) => (
-                <option key={t.id} value={t.id}>{t.name}</option>
-              ))}
+              {companyGroups(tenants, accounts).map((g) =>
+                g.label ? (
+                  <optgroup key={g.id} label={g.label}>
+                    {g.items.map((t) => (
+                      <option key={t.id} value={t.id}>{t.name}</option>
+                    ))}
+                  </optgroup>
+                ) : (
+                  g.items.map((t) => (
+                    <option key={t.id} value={t.id}>{t.name}</option>
+                  ))
+                )
+              )}
             </select>
           ) : null}
 
+          {/* The Workspace's date, once, in the bar: the browser's own locale and timezone. */}
+          {inWorkspace && !phone ? (
+            <time className="inline-flex items-center gap-1.5 text-sm ui-muted whitespace-nowrap" dateTime={new Date().toISOString().slice(0, 10)}>
+              <CalendarDays size={15} aria-hidden="true" />
+              {new Date().toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}
+            </time>
+          ) : null}
           {/* One inbox for every app: an approval, a quiet reader, a bank change, a person the directory added. */}
           <NotificationBell
             tenantKey={tenantKey}
+            icon={app?.iconSet === 'color' ? BellColor : undefined}
             onOpen={(link) => {
               if (!link?.app) return;
               if (link.app === activeAppId && !Root) {
@@ -746,17 +977,8 @@ export default function Shell() {
               openApp(link.app, link.screen || '');
             }}
           />
-          <HelpMenu />
-          {!phone ? (
-            <button
-              type="button"
-              className="ui-icon-btn"
-              onClick={toggleTheme}
-              aria-label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
-            >
-              {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
-            </button>
-          ) : null}
+          {/* A phone's bar has no room for it (it pushed the bar past the screen); help is in the phone's Menu. */}
+          {!phone && !app?.railFoot ? <HelpMenu /> : null}
 
           {!Root ? (
             <button
@@ -768,8 +990,16 @@ export default function Shell() {
               }}
               aria-label="My profile"
               title="My profile"
+              style={user?.avatarUrl ? { width: 36, height: 36, padding: 2 } : undefined}
             >
-              <UserRound size={16} />
+              {/* A person's own photo, larger and round, when they have one; otherwise the app's profile icon. */}
+              {user?.avatarUrl ? (
+                <img src={user.avatarUrl} alt="" width="32" height="32" className="rounded-full object-cover" style={{ width: 32, height: 32, boxShadow: '0 0 0 1px rgb(var(--border))' }} />
+              ) : app?.iconSet === 'color' ? (
+                <ProfileColor size={20} />
+              ) : (
+                <UserRound size={16} />
+              )}
             </button>
           ) : null}
 
@@ -777,7 +1007,7 @@ export default function Shell() {
             type="button"
             className="ui-icon-btn"
             onClick={() => {
-              setPublicPage('home');
+              setPublicPage('signin');
               signOut();
             }}
             aria-label="Sign out"
@@ -870,19 +1100,55 @@ export default function Shell() {
 
           {/* `flush`: the app's pages sit edge to edge on the white content column, as Accounting's do. */}
           <main id="main-content" tabIndex={-1} className={`flex-1 min-w-0 outline-none ${app?.flush ? `ui-content ${phone ? 'pb-24' : ''}` : phone ? 'p-4 pb-24' : 'p-6'}`}>
+            {/* W-2.1: working in somebody else's account (outside access) is said on every screen, not only in the picker. */}
+            {user && tenant?.accountId && user.accountId && tenant.accountId !== user.accountId ? (
+              <p className="ui-delegated" role="status">
+                You are in {accounts.find((x) => x.id === tenant.accountId)?.name || 'another account'}&rsquo;s company through outside access. Its administrators decide what you can open here.
+              </p>
+            ) : null}
             {showMoreApps ? (
               <MoreApps tenant={tenant} onAdd={addApp} onOpen={openApp} />
+            ) : platformScreen === 'help' ? (
+              <ScreenBoundary appName="Help centre" resetKey={`help:${helpTopic}`}>
+                <div className={app?.id === ADMIN_APP_ID ? 'ws ws-legacy' : undefined}>
+                  <div className={app?.id === ADMIN_APP_ID ? 'ws-inner' : undefined} style={app?.id === ADMIN_APP_ID ? { gap: 12 } : undefined}>
+                    <div className={app?.id === ADMIN_APP_ID ? '' : app?.flush ? 'pt-3' : 'mb-3'}>
+                      <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" onClick={() => setPlatformScreen(null)}>
+                        <ArrowLeft size={16} aria-hidden="true" /> Back{app ? ` to ${app.name}` : ''}
+                      </button>
+                    </div>
+                    <HelpCenter key={helpTopic} initialTopic={helpTopic} onOpen={(appId, screenKey2) => { setPlatformScreen(null); openApp(appId, screenKey2 || ''); }} />
+                  </div>
+                </div>
+              </ScreenBoundary>
             ) : platformScreen === 'profile' ? (
               <ScreenBoundary appName="My profile" resetKey={`profile:${tenant.id}`}>
                 {/* The profile opens from the header, not the sidebar, so it needs
                     its own way back to the screen it was opened from. */}
-                <div className={app?.flush ? 'pt-3' : 'mb-3'}>
-                  <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" onClick={() => setPlatformScreen(null)}>
-                    <ArrowLeft size={16} aria-hidden="true" /> Back{app ? ` to ${app.name}` : ''}
-                  </button>
+                {/* In the Workspace the profile sits on the Workspace surface (workspace.css, loaded with its screens). */}
+                <div className={app?.id === ADMIN_APP_ID ? 'ws ws-legacy' : undefined}>
+                  <div className={app?.id === ADMIN_APP_ID ? 'ws-inner' : undefined} style={app?.id === ADMIN_APP_ID ? { gap: 12 } : undefined}>
+                    <div className={app?.id === ADMIN_APP_ID ? '' : app?.flush ? 'pt-3' : 'mb-3'}>
+                      <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" onClick={() => setPlatformScreen(null)}>
+                        <ArrowLeft size={16} aria-hidden="true" /> Back{app ? ` to ${app.name}` : ''}
+                      </button>
+                    </div>
+                    <ProfileScreen key={tenant.id} />
+                  </div>
                 </div>
-                <ProfileScreen key={tenant.id} />
               </ScreenBoundary>
+            ) : screenMissing ? (
+              <ScreenState
+                title="This page isn’t here"
+                text={`${app?.name || 'This app'} has no page at this address. It may have moved, or the link may be mistyped.`}
+                action={app?.home ? { label: `Go to ${app.name}`, run: () => goTo(app.home) } : null}
+              />
+            ) : screenDenied ? (
+              <ScreenState
+                title={`You can’t open ${screenItem?.label || 'this page'}`}
+                text={`It needs the “${permissionWords(screenItem.permission)}” permission in ${tenant.name}, and none of your roles here gives it. An administrator of the company can give you a role that does.`}
+                action={app?.home && app.home !== screen ? { label: `Go to ${app.name}`, run: () => goTo(app.home) } : null}
+              />
             ) : Screen ? (
               <ScreenBoundary appName={app?.name} resetKey={`${app?.id}:${screen}:${tenant.id}`}>
                 {/* Same rule as an app that draws itself: a company change is a
@@ -907,10 +1173,18 @@ export default function Shell() {
                         params={screenParams || undefined}
                         /* The screens this person may open, for a hub page (People's Settings) to list. */
                         navItems={nav}
-                        /* The company being looked at, its apps, and a way into one (Company admin's home). */
+                        /* The company being looked at, its apps, and a way into one (Workspace's home). */
                         tenant={tenant}
+                        user={user}
                         apps={mine}
+                        catalog={APPS}
+                        companies={tenants.filter((t) => t.accountId && t.accountId === tenant.accountId)}
+                        accountName={accounts.find((x) => x.id === tenant.accountId)?.name || ''}
                         openApp={openApp}
+                        openMoreApps={() => setShowMoreApps(true)}
+                        /* W-R5: the Workspace's Companies page adds a company and switches to one. */
+                        addCompany={createCompany}
+                        switchCompany={setTenantId}
                         openScreen={(key, params) => {
                           if (!app?.screens?.[key]) return;
                           setScreenKey(key);
@@ -970,6 +1244,7 @@ export default function Shell() {
               ...[...new Map(nav.filter((i) => !i.section && app?.screens?.[i.key]).map((i) => [i.key, i])).values()].map((i) => ({ key: `screen:${i.key}`, label: i.label, group: app.name, icon: i.icon, screen: i.key })),
               ...mine.filter((a) => a.id !== activeAppId).map((a) => ({ key: `app:${a.id}`, label: `Open ${a.name}`, group: 'Apps', icon: a.icon, appId: a.id })),
               { key: 'profile', label: 'My profile', group: 'You', icon: UserRound },
+              { key: 'help', label: 'Help centre', group: 'You', icon: CircleHelp },
             ]}
             onSelect={(item) => {
               setPaletteOpen(false);
@@ -977,6 +1252,11 @@ export default function Shell() {
               else if (item.appId) openApp(item.appId);
               else if (item.key === 'profile') {
                 setPlatformScreen('profile');
+                setShowMoreApps(false);
+              }
+              else if (item.key === 'help') {
+                setHelpTopic('welcome');
+                setPlatformScreen('help');
                 setShowMoreApps(false);
               }
             }}

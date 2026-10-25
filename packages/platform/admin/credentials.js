@@ -1,7 +1,7 @@
 import { apiFetch } from '@platform/http';
 import { orgId as platformOrgId } from '@platform/context';
 
-/** Company admin → Credentials (Batch 5). */
+/** Workspace → Credentials (Batch 5). */
 const orgId = () => {
   const id = String(platformOrgId() || '').trim();
   if (!id) throw new Error('Missing active org. Please select an organization.');

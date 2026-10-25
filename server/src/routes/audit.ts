@@ -38,7 +38,7 @@ const querySchema = z.object({
   limit: z.coerce.number().int().min(1).max(200).optional(),
   cursor: z.string().max(60).optional(),
   /**
-   * One app's entries, for Company admin's one audit trail (ADR-010) and the
+   * One app's entries, for Workspace's one audit trail (ADR-010) and the
    * apps that open it on their own share. `attendance` is everything recorded
    * under ATTENDANCE_ and PEOPLE_ (auditMutations.ts) plus the employee and
    * company actions written by name; `payroll` is PAYROLL_; `company` is the
@@ -51,7 +51,7 @@ const querySchema = z.object({
 
 const ATTENDANCE = [{ entity: { startsWith: 'ATTENDANCE_' } }, { entity: { startsWith: 'PEOPLE_' } }, { entity: { in: ['Employee', 'PeopleRecord', 'LeaveSettings', 'LeaveAdjustment'] } }];
 const PAYROLL = [{ entity: { startsWith: 'PAYROLL_' } }];
-const COMPANY = [{ entity: { in: ['Company', 'User', 'Role', 'UserPermission', 'Features', 'DataProtection', 'Branch', 'Subscription', 'Credential', 'ApprovalRule', 'SSO', 'Security'] } }];
+const COMPANY = [{ entity: { in: ['Company', 'User', 'Role', 'UserPermission', 'Features', 'DataProtection', 'Branch', 'Subscription', 'Credential', 'ApprovalRule', 'SSO', 'Security', 'OutsideAccess'] } }];
 const APP_WHERE: Record<string, Record<string, unknown>> = {
   attendance: { OR: ATTENDANCE },
   payroll: { OR: PAYROLL },

@@ -42,7 +42,7 @@ const docSchema = z.object({
   status: z.string().trim().max(40).optional().nullable(),
   warehouseId: z.string().trim().min(1).optional().nullable(),
   targetWarehouseId: z.string().trim().min(1).optional().nullable(),
-  payload: z.record(z.any()),
+  payload: z.record(z.string(), z.any()),
 });
 
 const orgOk = (req: any, res: any) => {

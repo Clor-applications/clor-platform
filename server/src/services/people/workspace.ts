@@ -21,7 +21,7 @@ export type WorkspaceKind = keyof typeof WORKSPACE;
 export const recordSchema = z.object({
   title: z.string().trim().min(1).max(200), status: z.string(),
   employeeId: z.string().max(100).nullable().default(null),
-  dueDate: date.nullable().default(null), details: z.record(z.unknown()),
+  dueDate: date.nullable().default(null), details: z.record(z.string(), z.unknown()),
   version: z.number().int().positive().optional(),
 }).strict();
 export function parseRecord(kind: WorkspaceKind, raw: unknown) {

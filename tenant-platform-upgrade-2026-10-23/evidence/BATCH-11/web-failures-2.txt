@@ -1,0 +1,57 @@
+apps/accounting/src/components/pickers/CustomerForm.test.jsx > basic details > asks which branch carries a non-zero opening balance when multiple branches exist
+apps/accounting/src/components/pickers/VendorForm.test.jsx > the price list > offers the lists in force and not the retired one
+apps/accounting/src/components/pickers/VendorForm.test.jsx > the price list > stores the list id, which is what pricing reads
+apps/accounting/src/components/pickers/VendorForm.test.jsx > the same drawer, wherever the form is opened from > opens both party create forms in the standard right-side drawer
+apps/accounting/src/components/pickers/VendorForm.test.jsx > the vendor form is the customer form, re-labelled > asks which branch carries a non-zero opening balance when multiple branches exist
+apps/accounting/src/components/pickers/VendorForm.test.jsx > what is genuinely different > defaults the opening balance to Cr, where a customer defaults to Dr
+apps/accounting/src/components/pickers/VendorForm.test.jsx > what is genuinely different > keeps only PAN, GST and MSME details in the vendor statutory section
+apps/accounting/src/components/pickers/partyFormLayout.test.jsx > a delete looks like a delete > carries it on an address card too
+apps/accounting/src/components/pickers/partyFormLayout.test.jsx > an address reads as an address > keeps the fields of a place together
+apps/accounting/src/components/pickers/partyFormLayout.test.jsx > an address reads as an address > names the two built-in places and what each is for
+apps/accounting/src/components/pickers/partyFormLayout.test.jsx > the GSTIN sits beside the question that asks for it > puts it in the right half of the first row, beside the registration type
+apps/accounting/src/components/pickers/partyFormLayout.test.jsx > the address cards > gives the pickers the metrics of the fields they stand with
+apps/accounting/src/components/pickers/partyFormLayout.test.jsx > the address cards > marks the two built-in places apart by colour
+apps/accounting/src/components/pickers/partyFormLayout.test.jsx > the address cards > names each card a shade heavier than the fields under it
+apps/accounting/src/components/pickers/partyFormLayout.test.jsx > the two columns of Basic Details > keeps the balance and its side together
+apps/accounting/src/features/accounting/LedgerForm.test.jsx > Save and New > saves, keeps the group and clears the ledger for the next one
+apps/accounting/src/features/accounting/LedgerForm.test.jsx > as a screen rather than a dialog > asks for the same things either way
+apps/accounting/src/features/crm/CustomerDetailPage.test.jsx > CustomerDetailPage > shows a complete customer ledger in Statement
+apps/accounting/src/features/masters/MasterDataWorkspace.test.jsx > MasterDataWorkspace > shows TDS and TCS rate masters only when their features are enabled
+apps/accounting/src/features/pricing/priceListsLayout.test.jsx > Price Lists, laid out like every other list > carries five figures across the top
+apps/accounting/src/features/pricing/priceListsLayout.test.jsx > Price Lists, laid out like every other list > counts a list that prices nothing, which is the one worth finding
+apps/accounting/src/features/purchase/BillNumbering.test.jsx > the bill number carries its series > asks before walking off a half-typed bill to the settings screen
+apps/accounting/src/features/purchase/BillNumbering.test.jsx > the bill number carries its series > renumbers the bill being typed once the series is saved
+apps/accounting/src/features/purchase/BillNumbering.test.jsx > the bill number carries its series > shows what the next bill will be called as the series is typed
+apps/accounting/src/features/purchase/BillTds.test.jsx > the figure the ledger produces > deducts at the rate of the chosen ledger, under the total
+apps/accounting/src/features/purchase/BillTds.test.jsx > the figure the ledger produces > follows the other ledger to the other rate
+apps/accounting/src/features/purchase/BillTds.test.jsx > the figure the ledger produces > takes a rate typed over the ledger’s own
+apps/accounting/src/features/purchase/ReturnParity.test.jsx > the purchase return asks what the bill asks > renumbers this return when its own series changes
+apps/accounting/src/features/purchase/purchaseLayoutParity.test.jsx > 'Purchase Invoices', laid out like every other list > offers status filtering with counts
+apps/accounting/src/features/purchase/purchaseLayoutParity.test.jsx > the purchase overview > counts a payable as what is left on the bill
+apps/accounting/src/features/purchase/purchaseLayoutParity.test.jsx > the purchase overview > reads like the sales one: a period, six figures, panels
+apps/accounting/src/features/sales/listLayoutParity.test.jsx > 'Delivery Challans', laid out like Sales Invoices > puts a compact status dropdown with counts before search
+apps/accounting/src/features/sales/listLayoutParity.test.jsx > 'Quotations', laid out like Sales Invoices > puts a compact status dropdown with counts before search
+apps/accounting/src/features/sales/listLayoutParity.test.jsx > 'Recurring Invoices', laid out like Sales Invoices > puts a compact status dropdown with counts before search
+apps/accounting/src/features/sales/listLayoutParity.test.jsx > 'Sales Orders', laid out like Sales Invoices > puts a compact status dropdown with counts before search
+apps/accounting/src/features/sales/listLayoutParity.test.jsx > 'Sales Returns', laid out like Sales Invoices > puts a compact status dropdown with counts before search
+apps/accounting/src/features/settings/settingsRegistry.test.js > a whole screen is not framed as a settings panel > no framed setting opens onto a document list
+apps/accounting/src/features/settings/settingsRegistry.test.js > a whole screen is not framed as a settings panel > still lists and finds them in Settings
+apps/accounting/src/features/settings/settingsRegistry.test.js > local navigation > leaves a short category ungrouped
+apps/accounting/src/features/settings/settingsRegistry.test.js > search finds what people type > finds every invoice-related page from one word
+apps/accounting/src/features/settings/settingsRegistry.test.js > search finds what people type > finds the backup by the words somebody would reach for
+apps/accounting/src/features/tds/TdsSettings.test.jsx > the configuration page > carries the five sections
+apps/accounting/src/features/tds/TdsSettings.test.jsx > the configuration page > ledger mapping lists both sides; party defaults flag the missing PAN
+apps/accounting/src/features/tds/TdsSettings.test.jsx > the configuration page > refuses to enable TDS without a real TAN
+apps/accounting/src/features/tds/TdsSettings.test.jsx > the configuration page > saves the profile onto the company, defaults included
+apps/accounting/src/features/tds/TdsSettings.test.jsx > the configuration page > the profile asks the specified fields, and hides the compliance rest under Advanced
+apps/accounting/src/features/tds/TdsSettings.test.jsx > the configuration page > the rules section states the master, with nothing to type
+apps/admin/src/screens/accountArea.test.jsx > single sign-on > offers no sign-in control at all
+apps/admin/src/screens/accountArea.test.jsx > single sign-on > says what setting it up will ask for
+apps/admin/src/screens/accountArea.test.jsx > the account overview > shows each company address and says it does not resolve yet
+test/features-opens-as-a-panel.test.js > the category filters on a narrow screen > scrolls without JavaScript
+test/hero-band.test.js > the landing band is one component > is used by Home and by the module overviews
+test/hero-band.test.js > the landing band is one component > none of them prints its own heading instead
+test/overview-breakpoints.test.js > overview panel rows > waits for 2xl before putting three panels in a row
+test/quiet-emphasis.test.js > weight marks structure, not content > no data expression is rendered bold or semibold
+test/rail-alignment.test.js > the rail has one left edge > keeps the control in the rail, where the icons are
+test/wide-tables-can-scroll.test.js > wide list tables > are each wrapped in a scroller, so no column is unreachable

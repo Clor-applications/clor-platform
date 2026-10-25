@@ -44,7 +44,7 @@ const scheduleSchema = z.object({
   isActive: z.boolean().optional(),
   notes: z.string().max(2000).optional().nullable(),
   /** The invoice this raises: lines and totals, as agreed. */
-  template: z.record(z.any()),
+  template: z.record(z.string(), z.any()),
 });
 
 const out = (r: any) => {

@@ -96,7 +96,7 @@ export const payrollApp = {
     { key: 'structures', label: 'Salary Structures', icon: Layers, permission: 'PAYROLL::Salary Structures::VIEW' },
     { key: 'compliance', label: 'Compliance', icon: BadgePercent, permission: 'PAYROLL::Payroll Settings::VIEW' },
     { key: 'ledgers', label: 'Ledger mapping', icon: Landmark, permission: 'PAYROLL::Payroll Posting::VIEW' },
-    /* Payroll's roles live in Company admin's one role editor; this opens it on Payroll (ADR-010). */
+    /* Payroll's roles live in Workspace's one role editor; this opens it on Payroll (ADR-010). */
     { key: 'rolesAccess', label: 'Roles & Access', icon: Shield, permission: 'SETTINGS::Roles::VIEW' },
   ],
 

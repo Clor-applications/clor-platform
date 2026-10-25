@@ -172,7 +172,8 @@ function PrivacyNotice() {
           <li>Sign-in attempt history: <span className="legal-placeholder">[retention period to be decided by the operator]</span>.</li>
           <li>
             Account data: while the account is open, and afterwards only as long as the law requires.{' '}
-            <span className="legal-placeholder">[period after closure to be decided by the operator]</span>
+            When a business closes its company, the company is deleted after a 30-day notice period, and backups
+            that hold it expire within 7 days after that.
           </li>
           <li>
             Business records: as the business instructs. Tax and company law can require a business to keep its
@@ -260,7 +261,9 @@ function TermsOfService() {
 
       <Section id="t-fees" title="Fees">
         <p>
-          <span className="legal-placeholder">[Fees, billing and any refund or cancellation terms — to be decided by the operator. Clor does not currently charge for use or take payments.]</span>
+          Clor does not currently charge for use or take payments. Paid plans, when they start, are shown with their
+          price before you are charged, and cancellations and refunds follow our refund and cancellation policy at
+          clor.in/legal/refund.
         </p>
       </Section>
 
@@ -315,8 +318,9 @@ function TermsOfService() {
 
       <Section id="t-liability" title="Liability">
         <p>
-          <span className="legal-placeholder">[Limitation of liability, exclusions and any cap — to be drafted with legal advice.]</span>{' '}
-          Nothing in these terms limits liability that cannot be limited by law.
+          The service is provided &ldquo;as is&rdquo; to the extent permitted by law. We are not liable for indirect
+          or consequential loss, and our total liability in any 12-month period is limited to the fees you paid us in
+          that period. Nothing in these terms limits liability that cannot be limited by law.
         </p>
       </Section>
 

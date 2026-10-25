@@ -37,7 +37,7 @@ const MODULE_APPS: Record<string, string[]> = {
   PEOPLE: ['people', 'attendance'],
   ATTENDANCE: ['attendance', 'people'],
 };
-const appsForModule = (m: string): string[] | null => (ACCOUNTING_MODULES.has(m) ? ['accounting'] : MODULE_APPS[m] || null);
+export const appsForModule = (m: string): string[] | null => (ACCOUNTING_MODULES.has(m) ? ['accounting'] : MODULE_APPS[m] || null);
 
 /**
  * Decides one permission for this request, and records the caller's effective
@@ -100,6 +100,11 @@ export async function authorize(
         status: 402,
         body: { error: `The ${apps[0]} app is not on this account's subscription.`, app: apps[0], code: 'APP_NOT_SUBSCRIBED' },
       };
+    }
+    /* GAP-006: and, for a person from another account, an app the company let them use. */
+    const ceiling = req.tenant?.outsideApps;
+    if (ceiling && !apps.some((a) => ceiling.includes(a))) {
+      return { status: 403, body: { error: `This company has not given you access to ${apps[0]}.`, app: apps[0], code: 'APP_NOT_IN_ENGAGEMENT' } };
     }
   }
 

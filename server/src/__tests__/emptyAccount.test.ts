@@ -1,3 +1,4 @@
+import { isDisplayCode } from '../services/displayCodes.js';
 import { describe, it, expect, afterAll, afterEach } from 'vitest';
 import request from 'supertest';
 import jwt from 'jsonwebtoken';
@@ -92,6 +93,18 @@ describe("a deleted company's code", () => {
     await deleteCompanyData(first.orgId);
     const second = await make();
     expect(second.code).not.toBe(first.code);
-    expect(Number(String(second.code).split('-C')[1])).toBeGreaterThan(Number(String(first.code).split('-C')[1]));
+    expect(isDisplayCode(second.code)).toBe(true);
+    /*
+     * The deleted company's code is still held somewhere new codes are checked
+     * against (displayCodes.ts): its closure record, or — as here, deleted
+     * without one — the account, whose code was its first company's.
+     */
+    const [closure, account] = await outsideTenant('test: where the code is kept', () =>
+      Promise.all([
+        platformPrisma.orgClosure.count({ where: { orgCode: first.code } }),
+        platformPrisma.account.count({ where: { OR: [{ code: first.code }, { legacyCode: first.code }] } }),
+      ]),
+    );
+    expect(closure + account).toBeGreaterThan(0);
   });
 });

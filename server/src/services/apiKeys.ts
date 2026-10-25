@@ -13,7 +13,7 @@ import { liveCredentialFor } from './credentialKinds.js';
 
 /**
  * API keys for outside systems: issued, rotated and revoked here, wherever
- * the request comes from (Attendance → Integrations, Company admin →
+ * the request comes from (Attendance → Integrations, Workspace →
  * Credentials). The key lives in `ApiClient` (people) and in the credential
  * registry (platform); changes that take access away go to the registry first
  * and fail the request if they cannot be recorded (Batch 5, KTD4).

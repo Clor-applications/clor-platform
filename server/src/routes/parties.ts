@@ -352,9 +352,23 @@ function register(kind: PartyKind, basePath: string) {
           : 'Customer code must be 6 digits and start with 2, 3, 4, or 5',
       });
     }
-    const partyCode = requestedCode || (await nextPartyCode(accountId, orgId, kind));
-    const duplicateCode = await prisma.party.findFirst({ where: { accountId, orgId, code: partyCode }, select: { id: true } });
-    if (duplicateCode) return res.status(409).json({ error: `Party code ${partyCode} is already in use` });
+    /*
+     * A code the user typed must be free. One we allot can lose a race: two
+     * customers added at once both read the same highest code (seen under
+     * load on staging), so the second looks again rather than failing.
+     */
+    let partyCode = requestedCode;
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const candidate = requestedCode || (await nextPartyCode(accountId, orgId, kind));
+      const taken = await prisma.party.findFirst({ where: { accountId, orgId, code: candidate }, select: { id: true } });
+      if (!taken) {
+        partyCode = candidate;
+        break;
+      }
+      if (requestedCode) return res.status(409).json({ error: `Party code ${candidate} is already in use` });
+      partyCode = '';
+    }
+    if (!partyCode) return res.status(409).json({ error: 'Could not allot a party code; try again' });
 
     if (body.gstin) {
       // Throws a 400-shaped error when the checksum or state code is wrong.

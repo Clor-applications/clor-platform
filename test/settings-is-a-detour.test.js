@@ -4,7 +4,7 @@
  * This file reads source, it does not render it. A jsdom for it costs about
  * twenty-five seconds of wall clock and is never touched.
  */
-import { readFileSync, existsSync } from 'node:fs';
+import { existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';

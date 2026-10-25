@@ -14,6 +14,7 @@ import { providerSpeaksFor } from '../services/ssoDomains.js';
 import { ssoLimiter } from '../middleware/rateLimit.js';
 import { isDevOrTest } from '../utils/devMode.js';
 import { acrossCompanies } from '../utils/tenantScope.js';
+import { ensureAccountMembership } from '../services/accountMembership.js';
 
 /**
  * Single sign-on, OpenID Connect.
@@ -234,6 +235,7 @@ async function finishSignIn(p: { id: string; name: string; accountId: string; or
       select: { id: true, accountId: true, isActive: true, fullName: true },
     });
     await platformPrisma.userOrgMembership.create({ data: { accountId: p.accountId, orgId: p.orgId, userId: user.id } });
+    await ensureAccountMembership(p.accountId, user.id);
     if (p.defaultRoleId) await platformPrisma.userRoleAssignment.create({ data: { accountId: p.accountId, orgId: p.orgId, userId: user.id, roleId: p.defaultRoleId, createdByUserId: user.id } }).catch(() => {});
     await recordAuthEvent({ accountId: p.accountId, userId: user.id, email, eventType: 'USER_PROVISIONED', ip, userAgent, detail: `SSO ${p.name}` });
   } else {

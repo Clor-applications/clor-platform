@@ -795,6 +795,21 @@
       "method": "GET",
       "path": "/v1/readers",
       "reason": "API key with scope readers:read; org from the key; appLive(attendance) (A-11)."
+    },
+    {
+      "method": "POST",
+      "path": "/api/invitations/preview",
+      "reason": "Workspace W-3: the invited person, before they have a membership. The token (body, not URL) is the key; only its SHA-256 is stored; answers with account and company names, never ids."
+    },
+    {
+      "method": "POST",
+      "path": "/api/invitations/accept",
+      "reason": "Workspace W-3: accepting with a new login. Single-use token (PENDING to ACCEPTED under a conditional update), expiry, plan user limit at acceptance; signupLimiter."
+    },
+    {
+      "method": "POST",
+      "path": "/api/invitations/accept-signed-in",
+      "reason": "Workspace W-3: accepting with an existing login (requireAuth). The signed-in user must be the invited address and in the inviting account; single-use token."
     }
   ]
 }

@@ -4,7 +4,7 @@
  * Reads source and computes; never renders. A jsdom for it is about
  * twenty-five seconds of wall clock that nothing touches.
  */
-import { readFileSync } from 'node:fs';
+
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';

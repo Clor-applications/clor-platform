@@ -117,7 +117,8 @@ describe('A-47: the closure purge', () => {
     expect(await books.count()).toBeGreaterThan(0);
     const cut = await closureOf(c.orgId);
     expect(cut.status).toBe('SCHEDULED');
-    expect(JSON.parse(cut.purgeProgress || '{}').done).toEqual(['people']);
+    /* `files` (object storage) is the first step, then People (R2 plan, S5). */
+    expect(JSON.parse(cut.purgeProgress || '{}').done).toEqual(['files', 'people']);
     expect(cut.purgeError).toMatch(/resumes/);
 
     await purgeClosedCompanies(afterNotice(), { only: [c.orgId] });
@@ -146,7 +147,7 @@ describe('A-47: the closure purge', () => {
     expect(failed.status).toBe('SCHEDULED');
     expect(failed.purgeError).toMatch(new RegExp(books.model));
     expect(failed.purgeAttempts).toBe(1);
-    expect(JSON.parse(failed.purgeProgress || '{}').done).toEqual(['people', 'payroll']);
+    expect(JSON.parse(failed.purgeProgress || '{}').done).toEqual(['files', 'people', 'payroll']);
     expect(alerts.some((l) => l.includes('ALERT') && l.includes(c.orgId))).toBe(true);
 
     await purgeClosedCompanies(afterNotice(), { only: [c.orgId] });

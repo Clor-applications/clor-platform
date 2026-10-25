@@ -1,0 +1,6 @@
+before:
+{"docs":{"keyed":1,"inrow":2},"photos":{"keyed":0,"inrow":0},"evidence":{"keyed":0,"inrow":0}}
+move:
+{"moved":2}
+after:
+{"docs":{"keyed":3,"inrow":0},"photos":{"keyed":0,"inrow":0},"evidence":{"keyed":0,"inrow":0}}

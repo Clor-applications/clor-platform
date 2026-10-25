@@ -1,0 +1,1815 @@
+/*
+ * The Workspace home's own look (decision D-3): the spec palette — warm
+ * porcelain, white, soft stone, graphite, Blaze Orange for the one primary
+ * action — scoped to `.ws` so no app's screens change. Colours are tokens
+ * here, like index.css; nothing below uses a literal outside this block.
+ * Radii follow DESIGN.md: 8px clickable, 12px content, 999px pills.
+ */
+:root {
+  /* Workspace tokens, global so drawers and menus (rendered outside .ws) wear them too. Only Workspace classes read them. */
+  --ws-bg: 248 248 249;
+  --ws-surface: 255 255 255;
+  --ws-stone: 244 244 245;
+  --ws-ink: 39 39 42;
+  --ws-muted: 113 113 122;
+  --ws-line: 228 228 231;
+  --ws-accent: 244 81 30;
+  --ws-accent-hover: 217 67 19;
+  --ws-accent-soft: 255 240 232;
+  --ws-ok: 22 133 107;
+  --ws-ok-soft: 231 243 236;
+  --ws-ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --ws-warn: 183 121 31;
+  --ws-warn-soft: 253 244 228;
+  --ws-danger: 196 60 69;
+  --ws-danger-soft: 252 236 237;
+}
+
+.ws {
+  --ws-bg: 248 248 249;
+  --ws-surface: 255 255 255;
+  --ws-stone: 244 244 245;
+  --ws-ink: 39 39 42;
+  --ws-muted: 113 113 122;
+  --ws-line: 228 228 231;
+  --ws-accent: 244 90 40;
+  --ws-accent-hover: 221 77 30;
+  --ws-accent-soft: 253 236 229;
+  --ws-ok: 47 122 85;
+  --ws-ok-soft: 231 243 236;
+  --ws-ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+
+  background: rgb(var(--ws-bg));
+  color: rgb(var(--ws-ink));
+  min-height: 100%;
+  /* One even frame from the rail and the bar: 24px, 16px on a phone. */
+  padding: 24px 24px 40px;
+}
+.ws-inner {
+  /* Fills the space beside the sidebar, edge to edge inside the page's 24px frame. */
+  width: 100%;
+  display: grid;
+  /* One rhythm: 24px between page sections, 16px inside a grid of cards. */
+  gap: 24px;
+}
+/* Grid children may shrink below their content, so a wide table scrolls in its own frame. */
+.ws-inner > * {
+  min-width: 0;
+}
+
+/* ------------------------------------------------------------------ head */
+.ws-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px 32px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid rgb(var(--ws-line));
+}
+.ws-context {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  font-size: 0.875rem;
+  color: rgb(var(--ws-muted));
+}
+.ws-context svg {
+  flex: none;
+}
+.ws-title {
+  margin-top: 8px;
+  font-size: clamp(1.6rem, 1.25rem + 1.1vw, 2.1rem);
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  line-height: 1.1;
+  color: rgb(var(--ws-ink));
+}
+.ws-lede {
+  margin-top: 6px;
+  max-width: 72ch;
+  color: rgb(var(--ws-muted));
+  line-height: 1.55;
+}
+.ws-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* --------------------------------------------------------------- buttons */
+.ws-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 16px;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  white-space: nowrap;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: background-color 0.18s var(--ws-ease), border-color 0.18s var(--ws-ease), transform 0.12s var(--ws-ease), box-shadow 0.18s var(--ws-ease);
+}
+.ws-btn:active {
+  transform: translateY(1px);
+}
+.ws-btn:focus-visible,
+.ws-card-link:focus-visible,
+.ws-link:focus-visible {
+  outline: 2px solid rgb(var(--ws-accent));
+  outline-offset: 2px;
+}
+.ws-btn--primary {
+  background: rgb(var(--ws-accent));
+  color: rgb(var(--ws-surface));
+  box-shadow: 0 1px 0 rgb(var(--ws-ink) / 0.06), 0 6px 16px -8px rgb(var(--ws-accent) / 0.7);
+}
+.ws-btn--primary:hover {
+  background: rgb(var(--ws-accent-hover));
+}
+.ws-btn--quiet {
+  background: rgb(var(--ws-surface));
+  color: rgb(var(--ws-ink));
+  border-color: rgb(var(--ws-line));
+}
+.ws-btn--quiet:hover {
+  border-color: rgb(var(--ws-muted) / 0.5);
+}
+.ws-btn--small {
+  min-height: 34px;
+  padding: 0 12px;
+  font-size: 0.8125rem;
+}
+
+/* --------------------------------------------------------------- pills */
+.ws-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  background: rgb(var(--ws-stone));
+  color: rgb(var(--ws-muted));
+  white-space: nowrap;
+}
+.ws-pill--role {
+  background: rgb(var(--ws-accent-soft));
+  color: rgb(var(--ws-ink));
+}
+.ws-pill--ok {
+  background: rgb(var(--ws-ok-soft));
+  color: rgb(var(--ws-ink));
+}
+.ws-pill--ok::before,
+.ws-pill--off::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgb(var(--ws-ok));
+}
+.ws-pill--off::before {
+  background: transparent;
+  box-shadow: inset 0 0 0 1.5px rgb(var(--ws-muted));
+}
+
+/* --------------------------------------------------------------- sections */
+.ws-section {
+  display: grid;
+  gap: 12px;
+}
+.ws-section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+}
+.ws-h2 {
+  font-size: 1.125rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.ws-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: rgb(var(--ws-ink));
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+}
+.ws-link svg {
+  transition: transform 0.18s var(--ws-ease);
+}
+
+/* ------------------------------------------------------------------ setup */
+.ws-setup {
+  background: var(--ws-card-bg);
+  border: 1px solid var(--ws-card-line);
+  border-radius: 12px;
+  padding: 16px 20px;
+  display: grid;
+  gap: 12px;
+}
+.ws-progress {
+  height: 4px;
+  border-radius: 999px;
+  background: rgb(var(--ws-stone));
+  overflow: hidden;
+}
+.ws-progress > span {
+  display: block;
+  height: 100%;
+  background: rgb(var(--ws-accent));
+  border-radius: inherit;
+  transition: width 0.6s var(--ws-ease);
+}
+.ws-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px 24px;
+}
+.ws-step {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  font-size: 0.875rem;
+}
+.ws-step-mark {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  border: 1.5px solid rgb(var(--ws-line));
+  color: rgb(var(--ws-surface));
+}
+.ws-step.is-done .ws-step-mark {
+  background: rgb(var(--ws-ok));
+  border-color: rgb(var(--ws-ok));
+}
+.ws-step.is-done .ws-step-title {
+  color: rgb(var(--ws-muted));
+}
+.ws-step-title {
+  font-weight: 600;
+}
+
+/* ------------------------------------------------------------------ apps */
+.ws-apps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr));
+  gap: 16px;
+}
+.ws-card {
+  position: relative;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px 18px;
+  border-radius: 12px;
+  background: var(--ws-card-bg);
+  border: 1px solid var(--ws-card-line);
+  transition: border-color 0.2s var(--ws-ease), box-shadow 0.2s var(--ws-ease), transform 0.2s var(--ws-ease);
+}
+.ws-card.is-open:hover {
+  background: rgb(255 255 255 / 0.9);
+  border-color: rgb(var(--ws-muted) / 0.45);
+  box-shadow: 0 18px 36px -24px rgb(var(--ws-ink) / 0.35);
+}
+.ws-card.is-soon {
+  background: transparent;
+  border-style: dashed;
+}
+.ws-card-top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.ws-card-id {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px 8px;
+}
+.ws-tile {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  color: var(--tile-fg);
+  background: color-mix(in srgb, var(--tile-fg) 12%, rgb(var(--ws-surface)));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tile-fg) 22%, rgb(var(--ws-surface)));
+}
+.ws-card-name {
+  font-size: 1.0625rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.ws-card-blurb {
+  margin-top: 4px;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: rgb(var(--ws-muted));
+}
+.ws-card-foot {
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 10px;
+  border-top: 1px solid rgb(var(--ws-line));
+  font-size: 0.8125rem;
+  color: rgb(var(--ws-muted));
+}
+/* The whole card opens the app; the inner link stays the accessible name. */
+.ws-card-link::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 12px;
+}
+
+/* Apps not built yet: one quiet line under the cards. */
+.ws-planned {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  padding: 10px 14px;
+  border: 1px dashed rgb(var(--ws-line));
+  border-radius: 12px;
+  font-size: 0.8125rem;
+  color: rgb(var(--ws-muted));
+}
+.ws-planned-label {
+  font-weight: 600;
+  color: rgb(var(--ws-ink));
+}
+.ws-planned-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.ws-planned-item strong {
+  color: rgb(var(--ws-ink));
+  font-weight: 600;
+}
+.ws-tile--sm {
+  width: 24px;
+  height: 24px;
+  border-radius: 8px;
+}
+@media (max-width: 900px) {
+  .ws-planned-blurb {
+    display: none;
+  }
+}
+
+/* ---------------------------------------------------------- administration */
+.ws-admin {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr));
+  gap: 12px;
+}
+/* Groups of different lengths stack in columns (no row stretched to its tallest card, no orphan row). */
+.ws-admin--masonry {
+  display: block;
+  columns: 4 240px;
+  column-gap: 12px;
+}
+.ws-admin--masonry > .ws-group {
+  break-inside: avoid;
+  margin-bottom: 12px;
+}
+.ws-group {
+  background: var(--ws-card-bg);
+  border: 1px solid rgb(var(--ws-line));
+  border-radius: 12px;
+  padding: 12px 10px 6px;
+}
+.ws-group-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 8px 6px;
+  font-weight: 600;
+}
+.ws-group-head .ws-tile {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  --tile-fg: rgb(var(--ws-ink));
+}
+.ws-group ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.ws-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 36px;
+  padding: 0 8px;
+  border-radius: 8px;
+  background: none;
+  border: 0;
+  text-align: left;
+  font-size: 0.875rem;
+  color: rgb(var(--ws-ink));
+  cursor: pointer;
+  transition: background-color 0.15s var(--ws-ease), transform 120ms var(--ws-ease);
+}
+.ws-row:hover {
+  background: rgb(var(--ws-stone));
+}
+.ws-row:active {
+  transform: scale(0.985);
+}
+.ws-row:focus-visible {
+  outline: 2px solid rgb(var(--ws-accent));
+  outline-offset: -2px;
+}
+.ws-row > svg:first-child {
+  color: rgb(var(--ws-muted));
+}
+.ws-row .ws-chev {
+  margin-left: auto;
+  color: rgb(var(--ws-muted));
+  opacity: 0;
+  transition: opacity 0.15s var(--ws-ease), transform 0.15s var(--ws-ease);
+}
+.ws-row:hover .ws-chev {
+  opacity: 1;
+}
+/* Movement on hover only where hovering is real; a tap on a phone fires :hover and leaves things shifted. */
+@media (hover: hover) and (pointer: fine) {
+  .ws-link:hover svg {
+    transform: translateX(3px);
+  }
+  .ws-card.is-open:hover {
+    transform: translateY(-2px);
+  }
+  .ws-row:hover .ws-chev {
+    transform: translateX(2px);
+  }
+}
+
+/* Reduced motion: nothing moves, but colour and opacity feedback stays. */
+@media (prefers-reduced-motion: reduce) {
+  .ws *,
+  .ws *::before,
+  .ws *::after {
+    transition-property: color, background-color, border-color, box-shadow, opacity !important;
+    transition-duration: 120ms !important;
+  }
+  .ws *:hover,
+  .ws *:active {
+    transform: none !important;
+  }
+}
+
+/* A row's second line stays quiet even inside a button (buttons set their own weight and colour). */
+.ws-row .ws-card-blurb,
+.ws-group .ws-card-blurb {
+  font-weight: 400;
+  color: rgb(var(--ws-muted));
+}
+
+/* ======================================================================
+   W-R: the Workspace redesign's shared pieces (spec "Complete premium
+   SaaS UI/UX redesign"): page head with breadcrumb, a main column with a
+   side column, stat strip, panels, a data table, usage meters and a
+   danger zone. Tokens as above; brand #F4511E per the redesign spec.
+   ====================================================================== */
+.ws {
+  --ws-accent: 244 81 30;
+  --ws-accent-hover: 217 67 19;
+  --ws-accent-soft: 255 240 232;
+  --ws-ok: 22 133 107;
+  --ws-warn: 183 121 31;
+  --ws-warn-soft: 253 244 228;
+  --ws-danger: 196 60 69;
+  --ws-danger-soft: 252 236 237;
+}
+.ws-crumbs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  font-size: 0.8125rem;
+  color: rgb(var(--ws-muted));
+}
+.ws-crumbs svg {
+  flex: none;
+}
+.ws-head-meta {
+  font-size: 0.8125rem;
+  color: rgb(var(--ws-muted));
+}
+/* Main column and a side column; the side column drops under on narrower screens. */
+.ws-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 24px;
+  align-items: start;
+}
+.ws-layout > .ws-main,
+.ws-layout > .ws-side {
+  display: grid;
+  gap: 24px;
+  min-width: 0;
+}
+@media (max-width: 1180px) {
+  .ws-layout {
+    grid-template-columns: 1fr;
+  }
+}
+/* Numbers that matter, each a way in. */
+.ws-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px;
+}
+.ws-stat {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 4px 12px;
+  align-items: start;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: var(--ws-card-bg);
+  border: 1px solid var(--ws-card-line);
+  text-align: left;
+  color: inherit;
+  font: inherit;
+}
+button.ws-stat {
+  cursor: pointer;
+  transition: border-color 0.18s var(--ws-ease), box-shadow 0.18s var(--ws-ease), transform 120ms var(--ws-ease);
+}
+button.ws-stat:hover {
+  background: rgb(255 255 255 / 0.9);
+  border-color: rgb(var(--ws-muted) / 0.45);
+  box-shadow: 0 10px 24px -18px rgb(var(--ws-ink) / 0.35);
+}
+button.ws-stat:active {
+  transform: scale(0.985);
+}
+.ws-stat .ws-tile {
+  grid-row: span 3;
+}
+.ws-stat-label {
+  font-size: 0.8125rem;
+  color: rgb(var(--ws-ink));
+  font-weight: 500;
+}
+.ws-stat-value {
+  font-size: 1.5rem;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  font-variant-numeric: tabular-nums;
+}
+.ws-stat-note {
+  font-size: 0.75rem;
+  color: rgb(var(--ws-muted));
+}
+/* A titled block of content: the one surface a section earns. */
+.ws-panel {
+  background: var(--ws-card-bg);
+  border: 1px solid var(--ws-card-line);
+  border-radius: 12px;
+  padding: 16px 18px;
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+.ws-panel-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+}
+.ws-panel-head > :not(h2) {
+  white-space: nowrap;
+}
+.ws-panel-title {
+  white-space: nowrap;
+  font-size: 1.0625rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+/* Rows inside a panel: icon, two lines, an end. */
+.ws-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+}
+.ws-list > li + li {
+  border-top: 1px solid rgb(var(--ws-line));
+}
+.ws-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 2px;
+  background: none;
+  border: 0;
+  text-align: left;
+  color: inherit;
+  font: inherit;
+}
+button.ws-item {
+  cursor: pointer;
+  border-radius: 8px;
+}
+button.ws-item:hover {
+  background: rgb(var(--ws-stone));
+}
+.ws-item-text {
+  display: grid;
+  min-width: 0;
+  flex: 1;
+}
+.ws-item-title {
+  font-size: 0.875rem;
+  font-weight: 550;
+}
+.ws-item-sub {
+  font-size: 0.75rem;
+  color: rgb(var(--ws-muted));
+}
+.ws-item-end {
+  font-size: 0.75rem;
+  color: rgb(var(--ws-muted));
+  white-space: nowrap;
+}
+.ws-tile--warn {
+  --tile-fg: rgb(var(--ws-warn));
+}
+.ws-tile--danger {
+  --tile-fg: rgb(var(--ws-danger));
+}
+.ws-tile--brand {
+  --tile-fg: rgb(var(--ws-accent));
+}
+/* Action buttons stacked in the side column. */
+.ws-actions-col {
+  display: grid;
+  gap: 8px;
+}
+.ws-actions-col .ws-btn {
+  justify-content: space-between;
+  width: 100%;
+}
+.ws-btn--danger {
+  background: rgb(var(--ws-danger));
+  color: rgb(var(--ws-surface));
+}
+.ws-btn--danger:hover {
+  filter: brightness(0.95);
+}
+/* Usage against an allowance. */
+.ws-meter {
+  display: grid;
+  gap: 6px;
+}
+.ws-meter-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.8125rem;
+}
+.ws-meter-row strong {
+  font-variant-numeric: tabular-nums;
+}
+.ws-meter-bar {
+  height: 6px;
+  border-radius: 999px;
+  background: rgb(var(--ws-stone));
+  overflow: hidden;
+}
+.ws-meter-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: rgb(var(--ws-ok));
+}
+.ws-meter-bar > span[data-tight] {
+  background: rgb(var(--ws-warn));
+}
+/* A data table: compact rows, one header style, scrolls in itself on a narrow screen. */
+.ws-table-wrap {
+  /* Positioned, so the screen-reader caption is clipped with the table rather than widening the page. */
+  position: relative;
+  overflow-x: auto;
+  border: 1px solid var(--ws-card-line);
+  border-radius: 12px;
+  background: var(--ws-card-bg);
+}
+.ws-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+.ws-table th {
+  text-align: left;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: rgb(var(--ws-muted));
+  padding: 10px 14px;
+  background: rgb(var(--ws-stone));
+  border-bottom: 1px solid rgb(var(--ws-line));
+  white-space: nowrap;
+}
+.ws-table td {
+  padding: 10px 14px;
+  white-space: nowrap;
+  border-bottom: 1px solid rgb(var(--ws-line));
+  vertical-align: middle;
+}
+.ws-table tr:last-child td {
+  border-bottom: 0;
+}
+.ws-table .num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.ws-table th button {
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+/* The one place a destructive act lives, apart from ordinary actions. */
+.ws-danger {
+  border: 1px solid rgb(var(--ws-danger) / 0.35);
+  background: rgb(var(--ws-danger-soft));
+  border-radius: 12px;
+  padding: 16px 18px;
+  display: grid;
+  gap: 8px;
+}
+.ws-danger h2 {
+  color: rgb(var(--ws-danger));
+  font-weight: 600;
+}
+.ws-table th button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+/* ------------------------------------------------------------ older screens
+ * Screens written before the redesign (branches, users, roles, sign-in,
+ * credentials, audit, billing, export…) were framed and restyled here; all are now rebuilt, and My profile (shared with every app) is what still wears this
+ * here, so every Workspace page shares one head, one surface, one table and
+ * one primary button. Their markup and behaviour are unchanged.
+ */
+.ws-legacy {
+  /* The blue heading band of the older screens becomes the page ground. */
+  --heading-bg: 248 248 249;
+  --page-heading-bg: 248 248 249;
+}
+/* A list screen whose first row is its own toolbar: the toolbar's name reads as the page title. */
+.ws-legacy [class*='toolbar']:first-child {
+  padding: 0;
+  background: none;
+}
+.ws-legacy [class*='toolbar']:first-child .ui-t-sec {
+  font-size: clamp(1.6rem, 1.25rem + 1.1vw, 2.1rem);
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  line-height: 1.1;
+}
+.ws-legacy .ui-page-heading {
+  background: none !important;
+  border: 0;
+  padding: 0;
+  min-height: 0;
+  margin-bottom: 4px;
+  align-items: flex-end;
+}
+.ws-legacy .ui-page-heading .ui-entity-mark {
+  display: none;
+}
+.ws-legacy .ui-page-heading h1 {
+  font-size: clamp(1.6rem, 1.25rem + 1.1vw, 2.1rem);
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  line-height: 1.1;
+  color: rgb(var(--ws-ink));
+}
+.ws-legacy .ui-page-heading h1 + p {
+  margin-top: 6px;
+  max-width: 72ch;
+  color: rgb(var(--ws-muted));
+  line-height: 1.55;
+}
+.ws-legacy .ui-card,
+.ws-legacy .ui-surface {
+  background: var(--ws-card-bg);
+  border: 1px solid var(--ws-card-line);
+  border-radius: 12px;
+  box-shadow: none;
+}
+.ws-legacy .ui-t-sec {
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: rgb(var(--ws-ink));
+}
+.ws-legacy .ui-label {
+  color: rgb(var(--ws-muted));
+  font-size: 0.8125rem;
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: 0;
+}
+.ws-legacy .ui-btn {
+  border-radius: 8px;
+  min-height: 38px;
+  font-weight: 600;
+}
+/* index.css paints every primary button graphite with !important; the Workspace's one primary action is Blaze Orange. */
+.ws-legacy .ui-btn-primary {
+  background-color: rgb(var(--ws-accent)) !important;
+  border-color: rgb(var(--ws-accent)) !important;
+  color: rgb(var(--ws-surface)) !important;
+}
+.ws-legacy .ui-btn-primary:hover:not(:disabled) {
+  background-color: rgb(var(--ws-accent-hover)) !important;
+  border-color: rgb(var(--ws-accent-hover)) !important;
+}
+.ws-legacy .ui-btn-secondary,
+.ws-legacy .ui-btn-ghost {
+  background: rgb(var(--ws-surface));
+  border: 1px solid rgb(var(--ws-line));
+  color: rgb(var(--ws-ink));
+}
+.ws-legacy .ui-input,
+.ws-legacy .ui-select {
+  border-radius: 8px;
+  border-color: rgb(var(--ws-line));
+  background: rgb(var(--ws-surface));
+}
+.ws-legacy .ui-input:focus,
+.ws-legacy .ui-select:focus {
+  border-color: rgb(var(--ws-accent));
+  box-shadow: 0 0 0 3px rgb(var(--ws-accent) / 0.15);
+  outline: none;
+}
+.ws-legacy table {
+  background: rgb(var(--ws-surface));
+}
+.ws-legacy thead th,
+.ws-legacy .ui-th {
+  background: rgb(var(--ws-stone));
+  color: rgb(var(--ws-muted));
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.ws-legacy tbody tr:hover td {
+  background: rgb(var(--ws-bg));
+}
+.ws-legacy [class*='table-wrap'],
+.ws-legacy .overflow-x-auto:has(> table) {
+  border: 1px solid rgb(var(--ws-line));
+  border-radius: 12px;
+  overflow: auto;
+}
+
+/* Native ticks and radios take the Workspace accent, not the browser's blue. */
+.ws input[type='checkbox'],
+.ws input[type='radio'] {
+  accent-color: rgb(var(--ws-accent));
+}
+
+/* Drawer content: the drawer renders outside the page, so it wears .ws for the colours but none of the page frame. */
+.ws.ws-drawer {
+  padding: 0;
+  background: none;
+  min-height: 0;
+}
+.ws-pill--warn {
+  background: rgb(var(--ws-warn-soft));
+  color: rgb(var(--ws-warn));
+}
+.ws-pill--danger {
+  background: rgb(var(--ws-danger-soft));
+  color: rgb(var(--ws-danger));
+}
+
+/* Phones: two figures to a row, the icon tile dropped, so a stat strip is a glance and not a scroll. */
+@media (max-width: 600px) {
+  .ws-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+  .ws-stat {
+    grid-template-columns: 1fr auto;
+    padding: 12px;
+  }
+  .ws-stat > .ws-tile {
+    display: none;
+  }
+  .ws-stat .ws-stat-value,
+  .ws-stat .ws-stat-note {
+    grid-column: 1 / -1 !important;
+  }
+}
+
+/* ------------------------------------------------------------------ forms
+ * One field style for every Workspace form, on a page or in a drawer:
+ * label above, 40px control, help or error below, Blaze focus ring.
+ */
+:root {
+  --ws-field: 212 212 216;
+}
+.ws :is(.ui-input, .ui-select, select, textarea,
+  input:is([type='text'], [type='email'], [type='tel'], [type='number'], [type='password'], [type='date'], [type='search'], [type='url'], :not([type]))) {
+  width: 100%;
+  min-height: 40px;
+  height: 40px;
+  padding: 0 12px;
+  border: 1px solid rgb(var(--ws-field));
+  border-radius: 8px;
+  background-color: rgb(var(--ws-surface));
+  color: rgb(var(--ws-ink));
+  font-size: 0.875rem;
+  line-height: 1.4;
+  box-shadow: none;
+  transition: border-color 0.15s var(--ws-ease), box-shadow 0.15s var(--ws-ease);
+}
+.ws textarea,
+.ws textarea.ui-input {
+  height: auto;
+  min-height: 88px;
+  padding: 10px 12px;
+  resize: vertical;
+}
+/* Room for the dropdown arrow. The field rule above outranks a plain selector (its :is() carries an attribute), hence !important. */
+.ws select,
+.ws .ui-select {
+  padding-right: 36px !important;
+  text-overflow: ellipsis;
+}
+.ws :is(.ui-input, .ui-select, select, textarea, input)::placeholder {
+  color: rgb(var(--ws-muted) / 0.75);
+}
+.ws :is(.ui-input, .ui-select, select, textarea, input:not([type='checkbox']):not([type='radio'])):hover:not(:disabled) {
+  border-color: rgb(var(--ws-muted) / 0.6);
+}
+.ws :is(.ui-input, .ui-select, select, textarea, input:not([type='checkbox']):not([type='radio'])):focus {
+  outline: none;
+  border-color: rgb(var(--ws-accent));
+  box-shadow: 0 0 0 3px rgb(var(--ws-accent) / 0.16);
+}
+.ws :is(.ui-input, .ui-select, select, textarea, input):disabled {
+  background-color: rgb(var(--ws-stone));
+  color: rgb(var(--ws-muted));
+  cursor: not-allowed;
+}
+.ws [aria-invalid='true'] {
+  border-color: rgb(var(--ws-danger)) !important;
+}
+.ws [aria-invalid='true']:focus {
+  box-shadow: 0 0 0 3px rgb(var(--ws-danger) / 0.15) !important;
+}
+/* Labels: the text above a control, in every markup the screens use. */
+.ws .ui-label,
+.ws label:is(.grid, .block) > span:first-child:not(.sr-only),
+.ws label.text-sm {
+  display: block;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: rgb(var(--ws-ink));
+  text-transform: none;
+  letter-spacing: 0;
+  margin-bottom: 6px;
+}
+.ws label:is(.grid, .block) {
+  gap: 0;
+}
+/* Help and error lines under a control. */
+.ws :is(input, select, textarea) + :is(.ui-caption, .ws-help, span.text-xs, p.text-xs) {
+  display: block;
+  margin-top: 6px;
+  font-size: 0.75rem;
+  line-height: 1.45;
+  color: rgb(var(--ws-muted));
+}
+/* A tick and its words on one line, with room to hit. */
+.ws label:has(> input:is([type='checkbox'], [type='radio'])) {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-height: 28px;
+  font-size: 0.875rem;
+  color: rgb(var(--ws-ink));
+  cursor: pointer;
+}
+.ws input:is([type='checkbox'], [type='radio']) {
+  width: 16px;
+  height: 16px;
+  margin-top: 2px;
+  flex: none;
+}
+/* Fields sit on a 2-column grid from tablet up; the grids in the screens keep their own columns. */
+.ws form {
+  row-gap: 18px;
+}
+/* Drawer: the body scrolls, the actions stay at its foot. */
+.ws.ws-drawer {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  min-height: 100%;
+}
+.ws-drawer-foot {
+  margin-top: auto !important;
+  position: sticky;
+  bottom: -20px;
+  margin: 8px -20px -20px;
+  padding: 14px 20px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  background: rgb(var(--ws-surface));
+  border-top: 1px solid rgb(var(--ws-line));
+}
+/* A form's own button row at its end lines up the same way. */
+.ws.ws-drawer form > div:last-child:has(> button[type='submit']) {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  padding-top: 14px;
+  border-top: 1px solid rgb(var(--ws-line));
+}
+/* Cancel first, the main action last (rightmost), in every action row. */
+:is(.ws-drawer-foot, .ws.ws-drawer form > div:last-child) > .ws-btn--primary {
+  order: 2;
+}
+/* Side-by-side fields line up at their labels, not at their bottoms. */
+.ws form .grid {
+  align-items: start;
+}
+
+/* ------------------------------------------------------------ audit trail
+ * A day-by-day timeline: time, who, what they did in words, and what changed.
+ */
+.ws-audit {
+  display: grid;
+  gap: 24px;
+}
+.ws-audit-day {
+  background: var(--ws-card-bg);
+  border: 1px solid var(--ws-card-line);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.ws .ws-audit-dayhead {
+  margin: 0;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 18px;
+  background: rgb(var(--ws-stone));
+  border-bottom: 1px solid rgb(var(--ws-line));
+  /* index.css sizes every h2 with !important; a day label is a small heading. */
+  font-size: 0.875rem !important;
+  line-height: 1.4 !important;
+  font-weight: 600 !important;
+}
+.ws-audit-dayhead span {
+  font-weight: 500;
+  font-size: 0.8125rem;
+  color: rgb(var(--ws-muted));
+}
+.ws-audit-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ws-audit-entry {
+  display: grid;
+  grid-template-columns: 72px 32px minmax(0, 1fr);
+  gap: 0 14px;
+  padding: 14px 18px;
+  position: relative;
+}
+.ws-audit-entry + .ws-audit-entry {
+  border-top: 1px solid rgb(var(--ws-line));
+}
+/* The rail joining one change to the next, through the avatars. */
+.ws-audit-entry::before {
+  content: '';
+  position: absolute;
+  left: calc(18px + 72px + 14px + 15px);
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: rgb(var(--ws-line));
+}
+.ws-audit-entry:first-child::before {
+  top: 30px;
+}
+.ws-audit-entry:last-child::before {
+  bottom: calc(100% - 30px);
+}
+.ws-audit-time {
+  padding-top: 6px;
+  font-size: 0.8125rem;
+  font-variant-numeric: tabular-nums;
+  color: rgb(var(--ws-muted));
+  white-space: nowrap;
+}
+.ws-audit-avatar {
+  position: relative;
+  z-index: 1;
+  display: inline-grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  background: rgb(var(--ws-accent-soft));
+  color: rgb(var(--ws-accent-hover));
+  font-size: 0.6875rem;
+  font-weight: 700;
+  box-shadow: 0 0 0 4px rgb(var(--ws-surface));
+}
+.ws-audit-entry[data-action='DELETE'] .ws-audit-avatar {
+  background: rgb(var(--ws-danger-soft));
+  color: rgb(var(--ws-danger));
+}
+.ws-audit-body {
+  min-width: 0;
+  display: grid;
+  gap: 6px;
+}
+.ws-audit-line {
+  font-size: 0.9375rem;
+  line-height: 1.45;
+  color: rgb(var(--ws-ink));
+  overflow-wrap: anywhere;
+}
+.ws-audit-line strong {
+  font-weight: 600;
+}
+.ws-audit-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+  font-size: 0.75rem;
+  color: rgb(var(--ws-muted));
+}
+.ws-audit-detail {
+  display: grid;
+  gap: 8px;
+}
+.ws-audit-diffs {
+  display: grid;
+  gap: 6px;
+  margin: 2px 0 0;
+  padding: 10px 12px;
+  list-style: none;
+  border-radius: 8px;
+  background: rgb(var(--ws-bg));
+  border: 1px solid rgb(var(--ws-line));
+}
+.ws-audit-diffs li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 8px;
+  font-size: 0.8125rem;
+  overflow-wrap: anywhere;
+}
+.ws-audit-field {
+  min-width: 120px;
+  color: rgb(var(--ws-muted));
+}
+.ws-audit-from {
+  color: rgb(var(--ws-muted));
+  text-decoration: line-through;
+  text-decoration-color: rgb(var(--ws-danger) / 0.5);
+  font-variant-numeric: tabular-nums;
+}
+.ws-audit-to {
+  color: rgb(var(--ws-ink));
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.ws-audit-more summary {
+  width: fit-content;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: rgb(var(--ws-muted));
+  cursor: pointer;
+  border-radius: 8px;
+}
+.ws-audit-more summary:hover {
+  color: rgb(var(--ws-ink));
+}
+.ws-audit-more dl {
+  display: grid;
+  grid-template-columns: minmax(100px, max-content) minmax(0, 1fr);
+  gap: 4px 14px;
+  margin-top: 8px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgb(var(--ws-bg));
+  font-size: 0.8125rem;
+}
+.ws-audit-more dl > div {
+  display: contents;
+}
+.ws-audit-more dt {
+  color: rgb(var(--ws-muted));
+}
+.ws-audit-more dd {
+  overflow-wrap: anywhere;
+}
+@media (max-width: 600px) {
+  .ws-audit-entry {
+    grid-template-columns: 32px minmax(0, 1fr);
+    padding: 12px 14px;
+  }
+  .ws-audit-time {
+    grid-column: 2;
+    grid-row: 2;
+    padding-top: 0;
+  }
+  .ws-audit-entry::before {
+    left: calc(14px + 15px);
+  }
+  .ws-audit-avatar {
+    grid-row: 1 / span 3;
+  }
+  .ws .ws-audit-dayhead {
+    padding: 10px 14px;
+  }
+}
+
+/* A one-line confirmation or preview: quiet, tinted, never a card. */
+.ws-notice {
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: rgb(var(--ws-accent-soft));
+  color: rgb(var(--ws-ink));
+  font-size: 0.875rem;
+  transition: opacity 200ms var(--ws-ease), transform 200ms var(--ws-ease);
+}
+/* A confirmation eases in instead of shoving the page down in one frame. */
+@starting-style {
+  .ws-notice {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+/* An empty list: one icon, one line, centred in a quiet frame. */
+.ws-empty {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  padding: 40px 16px;
+  border: 1px dashed rgb(var(--ws-line));
+  border-radius: 12px;
+  color: rgb(var(--ws-muted));
+  font-size: 0.875rem;
+  text-align: center;
+}
+
+/* ------------------------------------------------------------ overview hero
+ * Who and where you are, a greeting, the date, and a quiet drawing of an
+ * office on the right that fades into the card.
+ */
+:root {
+  /* Cards are a soft veil of white over the page ground, not opaque slabs.
+     The ground is the shell's own cool neutral (zinc), so the rail, the bar
+     and the page read as one surface — a warm cream beside the cool rail read
+     as faintly dingy. */
+  --ws-card-bg: rgb(255 255 255 / 0.72);
+  --ws-card-line: rgb(228 228 231 / 0.85);
+}
+:root {
+  /* Welcome banner (spec: banner refinement). */
+  --ws-hero-line: 228 228 231;
+  --ws-hero-ink: 39 39 42;
+  --ws-hero-muted: 113 113 122;
+}
+.ws-hero {
+  position: relative;
+  overflow: hidden;
+  display: grid;
+  align-content: center;
+  min-height: 264px;
+  padding: 36px 44px;
+  /* The words keep the left ~58%; the picture has the rest. */
+  padding-right: calc(42% + 24px);
+  /* 20px on this banner by request; DESIGN.md's content radius is 12px elsewhere. */
+  border-radius: 20px;
+  border: 1px solid var(--ws-card-line);
+  background: var(--ws-card-bg);
+}
+.ws-hero-text {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+.ws-hero-crumb {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: rgb(var(--ws-hero-muted));
+}
+.ws-hero-crumb > svg {
+  flex: none;
+}
+.ws-hero-account {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ws-hero-crumb .ws-pill {
+  flex: none;
+}
+.ws .ws-hero-title {
+  margin: 2px 0 0;
+  font-size: clamp(1.75rem, 1.05rem + 1.6vw, 2.5rem) !important;
+  line-height: 1.15 !important;
+  font-weight: 680 !important;
+  letter-spacing: -0.035em;
+  color: rgb(var(--ws-hero-ink));
+  overflow-wrap: anywhere;
+}
+.ws-hero-lede {
+  max-width: 46ch;
+  font-size: 1.03125rem;
+  line-height: 1.5;
+  color: rgb(var(--ws-hero-muted));
+}
+.ws-hero-media {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  /* Wider than the picture's solid part: its left third dissolves into the card. */
+  width: 54%;
+}
+.ws-hero-media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  /* The building and its sign sit left of centre in the picture. */
+  object-position: 70% 60%;
+  display: block;
+  opacity: 0;
+  transition: opacity 240ms var(--ws-ease);
+}
+/* The picture fades in when it has loaded rather than popping in after the text. */
+.ws-hero-media img[data-loaded] {
+  opacity: 1;
+}
+/* The picture dissolves leftward into the white card: transparent at its left
+   edge, solid by the time the building starts, so nothing covers the building. */
+.ws-hero-media img {
+  -webkit-mask-image: linear-gradient(90deg, transparent 0%, rgb(0 0 0 / 0.25) 14%, rgb(0 0 0 / 0.75) 26%, #000 38%);
+  mask-image: linear-gradient(90deg, transparent 0%, rgb(0 0 0 / 0.25) 14%, rgb(0 0 0 / 0.75) 26%, #000 38%);
+}
+@media (max-width: 1100px) {
+  .ws-hero {
+    min-height: 228px;
+    padding: 28px 28px;
+    padding-right: calc(44% + 16px);
+  }
+  .ws-hero-media {
+    width: 46%;
+  }
+}
+@media (max-width: 767px) {
+  .ws-hero {
+    min-height: 0;
+    padding: 22px 20px;
+    border-radius: 16px;
+  }
+  .ws .ws-hero-title {
+    font-size: clamp(1.625rem, 1.2rem + 2vw, 1.875rem) !important;
+  }
+  .ws-hero-lede {
+    font-size: 0.9375rem;
+  }
+  /* Decorative: on a phone the greeting matters, the picture does not. */
+  .ws-hero-media {
+    display: none;
+  }
+}
+/* Two lines at most; the rest is in the title on hover. */
+.ws-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* ------------------------------------------------------------ tabs, facts, name links */
+.ws-tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid rgb(var(--ws-line));
+  overflow-x: auto;
+}
+.ws-tab {
+  position: relative;
+  padding: 10px 12px;
+  margin-bottom: -1px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: none;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: rgb(var(--ws-muted));
+  white-space: nowrap;
+  cursor: pointer;
+  border-radius: 8px 8px 0 0;
+}
+.ws-tab:hover {
+  color: rgb(var(--ws-ink));
+}
+.ws-tab[aria-selected='true'] {
+  color: rgb(var(--ws-ink));
+  border-bottom-color: rgb(var(--ws-accent));
+}
+.ws-tab:focus-visible {
+  outline: 2px solid rgb(var(--ws-accent));
+  outline-offset: -2px;
+}
+/* Label-over-value facts, three to a row on a drawer, two on a phone. */
+.ws-facts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  /* Hairlines between cells from the gap itself, so any column count draws clean. */
+  gap: 1px;
+  background: rgb(var(--ws-line));
+  border: 1px solid rgb(var(--ws-line));
+  border-radius: 12px;
+  overflow: hidden;
+}
+.ws-facts > div {
+  padding: 12px 14px;
+  background: rgb(var(--ws-surface));
+  min-width: 0;
+}
+.ws-facts dt {
+  font-size: 0.75rem;
+  color: rgb(var(--ws-muted));
+}
+.ws-facts dd {
+  margin-top: 4px;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: rgb(var(--ws-ink));
+  overflow-wrap: anywhere;
+}
+.ws-facts dd.num {
+  font-variant-numeric: tabular-nums;
+  text-align: left;
+}
+@media (max-width: 600px) {
+  .ws-facts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  /* An odd last cell takes the whole row rather than leaving a hole. */
+  .ws-facts > div:last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+  }
+}
+.ws .ws-subhead {
+  font-size: 0.9375rem !important;
+  line-height: 1.4 !important;
+  font-weight: 600 !important;
+}
+/* A record's name that opens it: reads as the name, underlines on hover. */
+.ws-name-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-weight: 600;
+  color: rgb(var(--ws-ink));
+  text-align: left;
+  cursor: pointer;
+  border-radius: 4px;
+}
+.ws-name-link:hover {
+  color: rgb(var(--ws-accent-hover));
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.ws-name-link:focus-visible {
+  outline: 2px solid rgb(var(--ws-accent));
+  outline-offset: 2px;
+}
+
+@media (max-width: 767px) {
+  .ws:not(.ws-drawer) {
+    padding: 16px 16px 32px;
+  }
+}
+
+/* ------------------------------------------------------------ setup guide */
+.ws-setup-ring svg {
+  display: block;
+}
+.ws-setup-ring-track {
+  fill: none;
+  stroke: rgb(var(--ws-line));
+  stroke-width: 3;
+}
+.ws-setup-ring-fill {
+  fill: none;
+  stroke: rgb(var(--ws-accent));
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+.ws-setup-ring-text {
+  font-size: 10px;
+  font-weight: 700;
+  fill: rgb(var(--ws-ink));
+  font-variant-numeric: tabular-nums;
+}
+.ws-setup-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+}
+.ws-setup-steps > li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 0;
+  border-bottom: 1px solid rgb(var(--ws-line));
+}
+.ws-setup-steps > li:last-child {
+  border-bottom: 0;
+}
+.ws-setup-step-mark {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  border: 1.5px solid rgb(var(--ws-line));
+  color: rgb(var(--ws-surface));
+}
+.ws-setup-steps > li[data-done] .ws-setup-step-mark {
+  background: rgb(var(--ws-ok));
+  border-color: rgb(var(--ws-ok));
+}
+.ws-setup-steps > li[data-done] .ws-item-title {
+  color: rgb(var(--ws-muted));
+}
+
+/* ------------------------------------------------------------ back and breadcrumb links */
+.ws-crumbs-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.ws-back {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  flex: none;
+  border: 1px solid var(--ws-card-line);
+  border-radius: 8px;
+  background: var(--ws-card-bg);
+  color: rgb(var(--ws-ink));
+  cursor: pointer;
+  transition: background-color 0.15s var(--ws-ease), border-color 0.15s var(--ws-ease);
+}
+.ws-back:hover {
+  background: rgb(var(--ws-surface));
+  border-color: rgb(var(--ws-muted) / 0.5);
+}
+.ws-back:focus-visible,
+.ws-crumb-link:focus-visible {
+  outline: 2px solid rgb(var(--ws-accent));
+  outline-offset: 2px;
+}
+.ws-crumb-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  border-radius: 4px;
+}
+.ws-crumb-link:hover {
+  color: rgb(var(--ws-ink));
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* Fields with a leading icon keep room for it (the field rule above sets 12px on every input). */
+.ws .ui-help-search input,
+.ws input[style*='padding-left'] {
+  padding-left: 36px !important;
+}
+
+/* A page that covers the whole account, not the company in the bar. */
+.ws-scope {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 12px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  vertical-align: middle;
+  background: rgb(var(--ws-stone));
+  color: rgb(var(--ws-muted));
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+/* ------------------------------------------------------------ operator console (packages/ops) */
+.ops {
+  min-height: 100dvh;
+  background: rgb(var(--ws-bg));
+}
+.ops-bar-top {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  height: 56px;
+  padding: 0 24px;
+  background: rgb(var(--ws-surface));
+  border-bottom: 1px solid rgb(var(--ws-line));
+}
+.ops-badge {
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: rgb(39 39 42);
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.ops-nav {
+  display: flex;
+  gap: 4px;
+  margin-left: 12px;
+  overflow-x: auto;
+}
+.ops-nav-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: rgb(var(--ws-muted));
+  cursor: pointer;
+  white-space: nowrap;
+}
+.ops-nav-item:hover {
+  background: rgb(var(--ws-stone));
+  color: rgb(var(--ws-ink));
+}
+.ops-nav-item[aria-current='page'] {
+  background: rgb(var(--ws-accent-soft));
+  color: rgb(var(--ws-ink));
+}
+.ops-who {
+  margin-left: auto;
+  font-size: 0.8125rem;
+  color: rgb(var(--ws-muted));
+  white-space: nowrap;
+}
+.ops-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  height: 140px;
+}
+.ops-bar {
+  flex: 1;
+  min-width: 4px;
+  border-radius: 4px 4px 0 0;
+  background: rgb(var(--ws-accent) / 0.75);
+}
+.ops-bars-axis {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  color: rgb(var(--ws-muted));
+}
+.ops-refused {
+  display: grid;
+  justify-items: start;
+  gap: 16px;
+  max-width: 520px;
+  margin: 12vh auto;
+  padding: 0 24px;
+}
+@media (max-width: 760px) {
+  .ops-who {
+    display: none;
+  }
+  .ops-bar-top {
+    padding: 0 12px;
+    gap: 8px;
+  }
+}
+
+/* Operator sign-in: the drawing sits in the brand panel where clor.in's hero art would. */
+.ops-auth-art {
+  display: block;
+  width: 100%;
+  max-width: 560px;
+  height: auto;
+  margin: auto 0;
+}
+
+/* Setting up an authenticator from the operator console. */
+.ops-enrol {
+  display: grid;
+  gap: 16px;
+  width: 100%;
+}
+.ops-enrol-scan {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 20px;
+}
+.ops-enrol-scan img {
+  border-radius: 8px;
+  border: 1px solid rgb(var(--ws-line));
+}
+.ops-enrol-steps {
+  display: grid;
+  gap: 10px;
+  flex: 1;
+  min-width: 220px;
+}
+.ops-enrol-codes {
+  display: grid;
+  grid-template-columns: repeat(2, max-content);
+  gap: 8px 16px;
+  font-size: 0.9375rem;
+}

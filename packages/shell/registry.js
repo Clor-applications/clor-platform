@@ -1,4 +1,4 @@
-import { BookOpen, Briefcase, Wallet } from 'lucide-react';
+import { BookOpen, Briefcase, CalendarClock, Wallet } from 'lucide-react';
 
 import { accountingApp } from '../../apps/accounting/manifest.jsx';
 import { payrollApp } from '../../apps/payroll/manifest.jsx';
@@ -37,14 +37,15 @@ export const APPS = [
   payrollApp,
   attendanceApp,
   peopleApp,
-  planned('projects', 'Projects', Briefcase, 'Projects, time, and what each of them cost.'),
+  planned('projects', 'Projects', Briefcase, 'Plan work, track tasks and see what each project costs.'),
+  planned('timesheet', 'Timesheet', CalendarClock, 'Time logged against projects and clients, approved and billed.'),
 ];
 
 export const appById = (id) => APPS.find((a) => a.id === id) || null;
 
 /**
  * The apps this tenant has bought — and the platform's own workspace
- * (Company admin, ADR-010), which nobody buys and every company has. What a
+ * (Workspace, ADR-010), which nobody buys and every company has. What a
  * person sees inside it is still decided item by item, by permission.
  */
 export const subscribedApps = (subscriptions) =>

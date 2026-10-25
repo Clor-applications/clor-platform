@@ -42,12 +42,17 @@ datasource db {
 model Account {
   id                   String    @id @default(cuid())
   name                 String
-  /// Client ID shown to people: the code of the account's first company (KAVE-C100). Never changed (LD-09).
+  /// Client ID shown to people: the code of the account's first company (4831920657). Never changed (services/displayCodes.ts).
   code                 String?   @unique
+  /// The code it had under the first scheme (KAVE-C100), still found so old links work.
+  legacyCode           String?   @unique
   /// Set only by the rollout migration for accounts that predate explicit
   /// subscriptions. A missing subscription is open only when this marker is
   /// present; newly created/unrecognised accounts fail closed.
   legacyUnrestrictedAt DateTime?
+  /// Set by a Clor operator (W-8.2): every company in the account refuses work until reinstated.
+  suspendedAt          DateTime?
+  suspendedReason      String?
   createdAt            DateTime  @default(now())
   updatedAt            DateTime  @updatedAt
 
@@ -66,9 +71,12 @@ model Org {
   /// changes, the slug is what a person reads and may one day need to change.
   /// Nullable so existing rows are valid before the backfill.
   slug       String? @unique
-  /// Company code (LD-09): 3–4 letters + C + number, 100 unless the letters clash (KAVE-C100, KAVE-C101). Never changed.
+  /// Company code: ten random digits, the last a check digit (4831920657). In the address (/o/<code>/). Never changed.
   code       String? @unique
+  /// No longer issued; kept for rows numbered under the first scheme.
   codeNumber Int?
+  /// The code it had under the first scheme (KAVE-C100), still found so old links work.
+  legacyCode String? @unique
   legalName  String?
   pan        String?
 
@@ -151,9 +159,12 @@ model User {
   accountId String
 
   username     String? // optional username login
-  /// User ID (LD-09): home company code + U + number (KAVE-C100-U01). One per person, kept in every company they join.
+  /// User ID: ten random digits, the last a check digit. One per person, the same in every company they join.
   code         String? @unique
+  /// No longer issued; kept for rows numbered under the first scheme.
   codeNumber   Int?
+  /// The ID they had under the first scheme (KAVE-C100-U01).
+  legacyCode   String? @unique
   email        String // primary login
   fullName     String
   passwordHash String
@@ -214,6 +225,8 @@ model User {
   /// to keep.
   @@unique([email])
   @@index([accountId])
+
+  platformOperator PlatformOperator?
 }
 
 model UserOrgMembership {
@@ -765,6 +778,131 @@ model ScimToken {
   @@index([accountId, orgId])
 }
 
+/// A person's place in an account: the Workspace's account-level authority
+/// (docs/workspace/WORKSPACE_IMPLEMENTATION_CHECKLIST.md, D-2).
+///
+///   OWNER          runs the account: owners, companies, members, plan
+///   ADMIN          administers the account, except its owners
+///   BILLING_ADMIN  the plan and billing only
+///   MEMBER         belongs to the account; what they may do in a company
+///                  comes from that company's roles
+///
+/// Account authority is about the workspace, not the data: no role here opens
+/// a ledger, a payslip or an employee file. That still takes a role in the
+/// company (spec rule 2.2.7). A person has one membership per account; only a
+/// person whose home account this is has one (an outside accountant reaches a
+/// company through OutsideAccess instead).
+model AccountMembership {
+  id            String    @id @default(cuid())
+  accountId     String
+  userId        String
+  /// OWNER | ADMIN | BILLING_ADMIN | MEMBER
+  role          String    @default("MEMBER")
+  /// ACTIVE | SUSPENDED
+  status        String    @default("ACTIVE")
+  addedByUserId String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@unique([accountId, userId])
+  @@index([userId])
+  @@index([accountId, role])
+}
+
+/// W-3: an invitation into the account, with the companies, branches and
+/// company roles the person will get. Only the SHA-256 of the token is kept;
+/// the link is single-use (status moves PENDING → ACCEPTED once, under a
+/// conditional update) and expires. Seats are not reserved while pending: the
+/// plan's user limit is checked when the invitation is accepted.
+model AccountInvitation {
+  id               String    @id @default(cuid())
+  accountId        String
+  email            String
+  /// ADMIN | BILLING_ADMIN | MEMBER — never OWNER (owners are made by an owner, with step-up)
+  accountRole      String    @default("MEMBER")
+  /// JSON: [{ orgId, branchIds: [], roleIds: [] }]
+  grants           String
+  tokenHash        String    @unique
+  /// PENDING | ACCEPTED | REVOKED | EXPIRED
+  status           String    @default("PENDING")
+  expiresAt        DateTime
+  invitedByUserId  String
+  acceptedByUserId String?
+  acceptedAt       DateTime?
+  revokedByUserId  String?
+  revokedAt        DateTime?
+  sendCount        Int       @default(1)
+  lastSentAt       DateTime  @default(now())
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@index([accountId, status])
+  @@index([accountId, email])
+}
+
+/// W-6.1: one row while an account is changing something its plan counts
+/// (companies, users). "Count, then create" in two requests at once let both
+/// pass a limit; the unique key makes the second wait for the first. A row
+/// older than 30 seconds is a crashed holder's and is taken over.
+model AccountQuotaLock {
+  accountId String
+  /// COMPANIES | USERS
+  metric    String
+  lockedAt  DateTime @default(now())
+  holder    String
+
+  @@id([accountId, metric])
+}
+
+/// What was done to the account itself — its owners and members' account
+/// roles — where AuditLog (which needs a company and a branch) has no place.
+/// Plain words in `message`; no secrets or personal data beyond who and what.
+model AccountAuditEvent {
+  id          String   @id @default(cuid())
+  accountId   String
+  actorUserId String?
+  action      String
+  targetType  String
+  targetId    String?
+  /// OK | DENIED
+  result      String   @default("OK")
+  message     String?
+  metadata    String?
+  requestId   String?
+  createdAt   DateTime @default(now())
+
+  @@index([accountId, createdAt])
+}
+
+/// GAP-006: how a person from another account reaches a company — the
+/// company's consent, with a scope and an end. Without a live one, an outside
+/// person's membership opens nothing (middleware/tenantContext.ts). Expired is
+/// worked out from expiresAt, never stored.
+model OutsideAccess {
+  id            String    @id @default(cuid())
+  accountId     String
+  orgId         String
+  userId        String
+  homeAccountId String
+  /// ACTIVE | SUSPENDED | REVOKED
+  status        String    @default("ACTIVE")
+  /// Comma separated app keys this person may use here; null = whatever the company has.
+  apps          String?
+  expiresAt     DateTime?
+  /// Who in the company granted it; null = carried over from before engagements existed.
+  approvedByUserId String?
+  approvedAt       DateTime  @default(now())
+  endedByUserId    String?
+  endedAt          DateTime?
+  reason           String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@unique([orgId, userId])
+  @@index([userId])
+  @@index([accountId, orgId])
+}
+
 /// Every credential CLOR has issued to a machine or a link (GAP-004, Batch 5):
 /// SCIM tokens, API keys, site agents, reader push tokens, pay links and
 /// invoice share links. The tables that issued them keep their own hash and
@@ -1034,7 +1172,7 @@ model OrgClosure {
   accountId         String
   orgId             String    @unique
   orgName           String
-  /// The company's display code (KAVE-C100), kept after deletion so it is never issued again.
+  /// The company's display code, kept after deletion so it is never issued again.
   orgCode           String?
   /// SCHEDULED | CANCELLED | DELETED
   status            String
@@ -1057,4 +1195,35 @@ model OrgClosure {
   updatedAt         DateTime  @updatedAt
 
   @@index([status, deleteAfter])
+}
+
+/// Clor's own staff (W-8.2). Not a customer role: nothing in an account can grant it.
+/// CLOR_OPERATOR_USER_IDS names the bootstrap super admins; everyone else is a row here.
+model PlatformOperator {
+  userId          String   @id
+  /// SUPER_ADMIN | SUPPORT | BILLING
+  role            String
+  active          Boolean  @default(true)
+  note            String?
+  createdAt       DateTime @default(now())
+  createdByUserId String?
+  updatedAt       DateTime @default(now()) @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+/// Everything an operator did, append-only (trigger operator_audit_append_only).
+model OperatorAuditEvent {
+  id              String   @id @default(cuid())
+  operatorUserId  String
+  action          String
+  targetAccountId String?
+  targetUserId    String?
+  detail          Json?
+  ip              String?
+  userAgent       String?
+  at              DateTime @default(now())
+
+  @@index([at])
+  @@index([targetAccountId, at])
 }

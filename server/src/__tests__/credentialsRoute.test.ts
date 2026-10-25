@@ -5,7 +5,7 @@ import request from 'supertest';
 import jwt from 'jsonwebtoken';
 
 /*
- * Batch 5, U7: Company admin → Credentials. One list of every key and token
+ * Batch 5, U7: Workspace → Credentials. One list of every key and token
  * other systems hold for the company; API keys made here; directory-sync
  * tokens only for someone who may manage users; customer links counted, never
  * listed; nobody who manages integration keys today loses that at deploy.

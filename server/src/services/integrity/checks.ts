@@ -6,6 +6,7 @@ import { outsideTenant, runInTenant } from '../../utils/tenantScope.js';
 import { exclusive, leaseFor } from '../jobLease.js';
 import { ownerExists } from '../credentialReview.js';
 import { revokeCredential, SYSTEM } from '../credentials.js';
+import { fileStore } from '../fileStore.js';
 
 /**
  * GAP-010: find, and where it is safe, repair, names one database keeps of
@@ -56,6 +57,31 @@ export async function checkCompany({ accountId, orgId }: Company, opts: { repair
       if (await ownerExists(c.kind, c.ownerId)) continue;
       if (opts.repair) await revokeCredential(c.id, orgId, SYSTEM, 'owner_missing');
       out.push({ link: `platform.Credential(${c.kind}).ownerId → its owner`, sourceId: c.id, target: c.ownerId, repair: opts.repair ? 'REPAIRED' : 'REPORT' });
+    }
+
+    /*
+     * ---- R2 plan, S4: files in object storage. ----
+     * An object no row needs (and no recycle-bin snapshot may still restore) is
+     * deleted; a row whose object is missing is reported.
+     */
+    const store = fileStore();
+    if (store) {
+      const [docs, photos, evidence, bin] = await Promise.all([
+        peoplePrisma.employeeDocument.findMany({ where: { ...where, storageKey: { not: null } }, select: { id: true, storageKey: true } }),
+        peoplePrisma.punchPhoto.findMany({ where: { ...where, storageKey: { not: null } }, select: { id: true, storageKey: true } }),
+        peoplePrisma.complianceTask.findMany({ where: { ...where, evidenceKey: { not: null } }, select: { id: true, evidenceKey: true } }),
+        peoplePrisma.deletedItem.findMany({ where: { orgId }, select: { snapshot: true } }),
+      ]);
+      const rowKeys = new Map<string, string>([...docs.map((d) => [d.storageKey!, d.id] as const), ...photos.map((p) => [p.storageKey!, p.id] as const), ...evidence.map((e) => [e.evidenceKey!, e.id] as const)]);
+      const binKeys = new Set(bin.flatMap((b) => JSON.stringify(b.snapshot).match(new RegExp(`org/${orgId}/[a-z-]+/[A-Za-z0-9_-]+`, 'g')) || []));
+      const objects = await store.list(orgId);
+      const present = new Set(objects);
+      for (const key of objects) {
+        if (rowKeys.has(key) || binKeys.has(key)) continue;
+        if (opts.repair) await store.delete(orgId, key);
+        out.push({ link: 'object storage → a file row (none needs it)', sourceId: key, target: '(no row)', repair: opts.repair ? 'REPAIRED' : 'REPORT' });
+      }
+      for (const [key, id] of rowKeys) if (!present.has(key)) out.push({ link: 'people file row → its object in storage', sourceId: id, target: key, repair: 'REPORT' });
     }
 
     /* ---- Payroll history: reported only. ---- */

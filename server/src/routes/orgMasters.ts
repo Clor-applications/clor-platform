@@ -256,7 +256,7 @@ const masterSchema = z.object({
   name: z.string().min(1).max(160),
   isActive: z.boolean().optional(),
   /** Whatever this kind carries. Stored verbatim; the browser owns its shape. */
-  data: z.record(z.any()).optional(),
+  data: z.record(z.string(), z.any()).optional(),
 });
 
 const MASTERS_VIEW = requirePermission('MASTERS', PermissionAction.VIEW, 'Masters');

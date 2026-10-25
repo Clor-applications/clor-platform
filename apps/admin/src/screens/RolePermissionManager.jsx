@@ -1,14 +1,15 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Check, RotateCcw, Save, ShieldCheck } from 'lucide-react';
+import { Check, RotateCcw, Save } from 'lucide-react';
 
 import { listRoles, updateRole } from '@platform/admin/admin';
 import { expandPreset, getPermissionCatalog, getRolePermissions, setRolePermissions } from '@ui/api/permissions';
-import { EmptyState, Spinner, SkeletonCard } from '@ui/components/ui/Primitives';
+import { Spinner } from '@ui/components/ui/Primitives';
 import { usePermissions } from '@ui/permissions/usePermissions';
-import SettingsScreenHeader from '@ui/chrome/SettingsScreenHeader';
 import { hasApp, orgId as platformOrgId } from '@platform/context';
 import PermissionMatrix from './PermissionMatrix';
-import { PERMISSION_APPS, appOfModule, catalogKeys } from './permissionKeys';
+import { PERMISSION_APPS, appOfModule, catalogKeys, moduleKeys } from './permissionKeys';
+import { Meter, PageHead, Panel } from './wsKit';
+import './workspace.css';
 
 export const RolePermissionManager = () => {
   const { reload: reloadMyPermissions } = usePermissions();
@@ -165,163 +166,129 @@ export const RolePermissionManager = () => {
   };
 
   const selectedRole = roles.find((r) => String(r.id) === String(roleId)) || null;
-  const grantedCount = granted.size;
-
-  if (loading) {
-    return (
-      <SkeletonCard lines={4} />
-    );
-  }
-
-  if (!roles.length) {
-    return (
-      <div className="ui-card">
-        <EmptyState
-          icon={ShieldCheck}
-          title="No roles yet"
-          description="Create a role under Settings → Roles, then come back to assign what it can do."
-        />
-      </div>
-    );
-  }
+  const total = catalog.modules.reduce((n, m) => n + moduleKeys(m).length, 0);
+  const revert = () => {
+    setGranted(new Set(baseline));
+    setOwnDocs(ownDocsBaseline);
+  };
 
   return (
-    <div className="space-y-6">
-      <SettingsScreenHeader
-        entity="settings"
-        title="Role Permissions"
-        description="Tick what each role may do. Users inherit these through the roles assigned to them."
-        actions={
-          <>
-            {dirty ? <span className="ui-pill ui-pill-warn">Unsaved changes</span> : null}
-            {!dirty && savedAt ? (
-              <span className="ui-pill ui-pill-pos" role="status">
-                <Check size={11} aria-hidden="true" /> Saved
-              </span>
-            ) : null}
-            <button
-              type="button"
-              className="ui-btn ui-btn-secondary"
-              onClick={() => {
-                setGranted(new Set(baseline));
-                setOwnDocs(ownDocsBaseline);
-              }}
-              disabled={!dirty || saving}
-            >
-              <RotateCcw size={16} aria-hidden="true" /> Revert
-            </button>
-            <button type="button" className="ui-btn ui-btn-primary" onClick={save} disabled={!dirty || saving}>
-              {saving ? <Spinner /> : <Save size={16} aria-hidden="true" />}
-              {saving ? 'Saving…' : 'Save changes'}
-            </button>
-          </>
-        }
-      />
+    <div className="ws">
+      <div className="ws-inner">
+        <PageHead
+          crumbs={['Access', 'Permissions']}
+          title="Permissions"
+          meta={dirty ? 'Unsaved changes' : savedAt ? 'Saved' : null}
+          actions={
+            roles.length ? (
+              <>
+                <button type="button" className="ws-btn ws-btn--quiet" onClick={revert} disabled={!dirty || saving}>
+                  <RotateCcw size={16} aria-hidden="true" /> Revert
+                </button>
+                <button type="button" className="ws-btn ws-btn--primary" onClick={save} disabled={!dirty || saving}>
+                  {saving ? <Spinner /> : <Save size={16} aria-hidden="true" />} {saving ? 'Saving…' : 'Save changes'}
+                </button>
+              </>
+            ) : null
+          }
+        />
 
-      {error ? (
-        <div
-          className="ui-card p-3 text-sm"
-          role="alert"
-          style={{ borderColor: 'rgb(var(--neg))', color: 'rgb(var(--neg))' }}
-        >
-          {error}
-        </div>
-      ) : null}
+        {error ? <p role="alert" className="text-sm" style={{ color: 'rgb(var(--neg))' }}>{error}</p> : null}
+        {!dirty && savedAt ? (
+          <p role="status" className="sr-only">
+            <Check size={11} aria-hidden="true" /> Saved
+          </p>
+        ) : null}
 
-      <div className="ui-card p-4 grid gap-4 md:grid-cols-[minmax(0,20rem)_minmax(0,18rem)_1fr] md:items-end">
-        <div>
-          <label className="ui-label" htmlFor="rpm-role">
-            Role
-          </label>
-          <select id="rpm-role" className="ui-select" value={roleId} onChange={(e) => setRoleId(e.target.value)}>
-            {roles.map((r) => (
-              <option key={r.id} value={r.id}>
-                {r.name}
-                {r.roleType && r.roleType !== 'CUSTOM' ? ` — ${r.roleType.toLowerCase()}` : ''}
-              </option>
-            ))}
-          </select>
-          {selectedRole?.description ? (
-            <div className="ui-subtle text-xs mt-1">{selectedRole.description}</div>
-          ) : null}
-          <label className="flex items-start gap-2 text-sm ui-fg mt-3" htmlFor="rpm-own-docs">
-            <input
-              id="rpm-own-docs"
-              type="checkbox"
-              className="mt-0.5"
-              checked={ownDocs}
-              onChange={(e) => setOwnDocs(e.target.checked)}
-            />
-            <span>
-              Own documents only
-              <span className="block ui-subtle text-xs">
-                Holders see and change only the invoices, bills, quotes and payments they raised.
-              </span>
-            </span>
-          </label>
-        </div>
+        {loading ? (
+          <p className="ws-card-blurb">Loading roles and permissions…</p>
+        ) : !roles.length ? (
+          <div className="ws-setup">
+            <p className="ws-card-blurb">No roles yet. Create one under Roles.</p>
+          </div>
+        ) : (
+          <div className="ws-layout">
+            <div className="grid gap-4 min-w-0">
+              <div className="flex flex-wrap gap-2" role="tablist" aria-label="Permissions for">
+                {[{ id: 'all', label: 'All apps' }, ...offeredApps].map((a) => (
+                  <button
+                    key={a.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={forApp === a.id}
+                    onClick={() => setForApp(a.id)}
+                    className={`ws-btn ws-btn--small ${forApp === a.id ? 'ws-btn--quiet' : ''}`}
+                    style={forApp === a.id ? { borderColor: 'rgb(var(--ws-accent))', color: 'rgb(var(--ws-accent))' } : { background: 'none' }}
+                  >
+                    {a.label}
+                  </button>
+                ))}
+              </div>
 
-        <div>
-          <label className="ui-label" htmlFor="rpm-preset">
-            Start from a template
-          </label>
-          <select
-            id="rpm-preset"
-            className="ui-select"
-            defaultValue=""
-            onChange={(e) => {
-              applyPreset(e.target.value);
-              e.target.value = '';
-            }}
-          >
-            <option value="">Choose a template…</option>
-            {catalog.presets.map((p) => (
-              <option key={p.key} value={p.key}>
-                {p.label}
-              </option>
-            ))}
-          </select>
-          <div className="ui-subtle text-xs mt-1">Replaces the ticks below. Nothing saves until you press Save.</div>
-        </div>
+              <PermissionMatrix
+                key={`${roleId}:${forApp}`}
+                modules={catalog.modules.filter((m) => {
+                  const app = appOfModule(m.key);
+                  if (app !== 'company' && !offeredApps.some((a) => a.id === app)) return false;
+                  return forApp === 'all' || app === forApp;
+                })}
+                granted={granted}
+                onToggle={toggle}
+                onSetMany={setMany}
+              />
 
-        <div className="md:text-right">
-          <div className="ui-muted text-xs font-semibold uppercase tracking-wide">Granted</div>
-          <div className="ui-money-lg">{grantedCount}</div>
-          <div className="ui-subtle text-xs">permissions across {catalog.modules.length} modules</div>
-        </div>
+              <p className="ws-card-blurb">
+                Record visibility comes from branches, set under Users.
+              </p>
+            </div>
+
+            <aside className="ws-side">
+              <Panel title="Role">
+                <div className="grid gap-1">
+                  <label className="text-sm font-medium" htmlFor="rpm-role">Editing</label>
+                  <select id="rpm-role" className="ui-select w-full" value={roleId} onChange={(e) => setRoleId(e.target.value)}>
+                    {roles.map((r) => (
+                      <option key={r.id} value={r.id}>
+                        {r.name}
+                        {r.roleType && r.roleType !== 'CUSTOM' ? ` — ${r.roleType.toLowerCase()}` : ''}
+                      </option>
+                    ))}
+                  </select>
+                  {selectedRole?.description ? <p className="ui-caption">{selectedRole.description}</p> : null}
+                </div>
+                <Meter label="Granted" used={granted.size} limit={total || null} />
+                <label className="flex items-start gap-2 text-sm" htmlFor="rpm-own-docs">
+                  <input id="rpm-own-docs" type="checkbox" className="mt-0.5" checked={ownDocs} onChange={(e) => setOwnDocs(e.target.checked)} />
+                  <span>
+                    Own documents only
+                    <span className="block ui-caption">Only documents they created.</span>
+                  </span>
+                </label>
+              </Panel>
+              {catalog.presets.length ? (
+                <Panel title="Start from a template">
+                  <select
+                    id="rpm-preset"
+                    aria-label="Template"
+                    className="ui-select w-full"
+                    defaultValue=""
+                    onChange={(e) => {
+                      applyPreset(e.target.value);
+                      e.target.value = '';
+                    }}
+                  >
+                    <option value="">Choose a template…</option>
+                    {catalog.presets.map((p) => (
+                      <option key={p.key} value={p.key}>{p.label}</option>
+                    ))}
+                  </select>
+                  <p className="ws-card-blurb">Applies on Save changes.</p>
+                </Panel>
+              ) : null}
+            </aside>
+          </div>
+        )}
       </div>
-
-      <div className="flex flex-wrap gap-1" role="tablist" aria-label="Permissions for">
-        {[{ id: 'all', label: 'All apps' }, ...offeredApps].map((a) => (
-          <button
-            key={a.id}
-            type="button"
-            role="tab"
-            aria-selected={forApp === a.id}
-            onClick={() => setForApp(a.id)}
-            className={`ui-btn ${forApp === a.id ? 'ui-btn-secondary' : 'ui-btn-ghost'}`}
-          >
-            {a.label}
-          </button>
-        ))}
-      </div>
-
-      <PermissionMatrix
-        key={`${roleId}:${forApp}`}
-        modules={catalog.modules.filter((m) => {
-          const app = appOfModule(m.key);
-          if (app !== 'company' && !offeredApps.some((a) => a.id === app)) return false;
-          return forApp === 'all' || app === forApp;
-        })}
-        granted={granted}
-        onToggle={toggle}
-        onSetMany={setMany}
-      />
-
-      <p className="ui-subtle text-xs">
-        Permissions decide <em>what</em> a user may do. <strong>Which</strong> records they see is separate: that comes
-        from the branches and warehouses assigned to them under Settings → Users.
-      </p>
     </div>
   );
 };

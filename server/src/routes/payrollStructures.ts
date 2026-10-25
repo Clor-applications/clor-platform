@@ -435,7 +435,7 @@ payrollStructuresRouter.post(
       workingDays: z.number().finite().min(0).max(366).default(30),
       payableDays: z.number().finite().min(0).max(366).default(30),
       lwpDays: z.number().finite().min(0).max(366).default(0),
-      variableAmounts: z.record(z.number().finite()).optional(),
+      variableAmounts: z.record(z.string(), z.number().finite()).optional(),
     });
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Invalid preview.' });

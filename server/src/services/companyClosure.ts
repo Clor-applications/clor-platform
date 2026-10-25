@@ -11,6 +11,7 @@ import { outsideTenant, runInTenant } from '../utils/tenantScope.js';
 import { currentLease, exclusive, leaseFor, LeaseLost, shuttingDown } from './jobLease.js';
 import { userIsAdmin } from './roleGuards.js';
 import { getGateway } from '../billing/gateway.js';
+import { fileStore } from './fileStore.js';
 
 /**
  * Closing a company (LX-07 part 2). Policy, in words a client can read:
@@ -167,11 +168,12 @@ async function purgeDatabase(client: any, dmmf: Dmmf, prefix: string, orgId: str
 }
 
 /** The stores a company is deleted from, in this order; each is a checkpoint. */
-export const PURGE_STEPS = ['people', 'payroll', 'accounting', 'platform', 'org'] as const;
+/* `files`: the company's documents, selfies and evidence in object storage (R2 plan, S5); nothing to do without a store. */
+export const PURGE_STEPS = ['files', 'people', 'payroll', 'accounting', 'platform', 'org'] as const;
 type Step = (typeof PURGE_STEPS)[number];
 type Progress = { done: Step[]; counts: Record<string, number> };
 
-const STORES: Record<Exclude<Step, 'org'>, [any, Dmmf]> = {
+const STORES: Record<Exclude<Step, 'org' | 'files'>, [any, Dmmf]> = {
   people: [peoplePrisma, PeoplePrisma.dmmf as any],
   payroll: [payrollPrisma, PayrollPrisma.dmmf as any],
   accounting: [prisma, AccountingPrisma.dmmf as any],
@@ -200,7 +202,10 @@ export async function deleteCompanyData(
     for (const step of PURGE_STEPS) {
       if (progress.done.includes(step)) continue;
       await opts.beforeStep?.(step);
-      if (step === 'org') {
+      if (step === 'files') {
+        const store = fileStore();
+        if (store) progress.counts['files.objects'] = (progress.counts['files.objects'] || 0) + (await store.deleteAll(orgId));
+      } else if (step === 'org') {
         const org = await platformPrisma.org.deleteMany({ where: { id: orgId } });
         progress.counts['platform.Org'] = (progress.counts['platform.Org'] || 0) + org.count;
       } else {

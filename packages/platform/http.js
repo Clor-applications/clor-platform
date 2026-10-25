@@ -153,7 +153,9 @@ async function stepUpAndRetry(path, opts, data) {
       throw err;
     }
     try {
-      const r = await apiFetch(`/orgs/${encodeURIComponent(getOrgId())}/security/step-up`, { method: 'POST', body: { code }, stepUpRetried: true });
+      /* The operator console has no company to ask through: it has its own step-up. */
+      const where = String(path).startsWith('/ops/') ? '/ops/step-up' : `/orgs/${encodeURIComponent(getOrgId())}/security/step-up`;
+      const r = await apiFetch(where, { method: 'POST', body: { code }, stepUpRetried: true });
       stepUp = { token: r.token, expiresAt: new Date(r.expiresAt).getTime() };
       return apiFetch(path, { ...opts, stepUpRetried: true });
     } catch (e) {
@@ -297,6 +299,10 @@ export async function apiFetch(
     err.data = data;
     /* 402 APP_NOT_SUBSCRIBED and friends: callers branch on the code, not the text. */
     err.code = data?.code || null;
+    /* An account Clor has suspended: the shell replaces everything with one plain page (W-8.2). */
+    if (res.status === 403 && err.code === 'ACCOUNT_SUSPENDED' && typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('clor:account-suspended', { detail: { message: data?.error || '' } }));
+    }
     /* An app the account has not bought: the shell offers the way forward once, whichever screen asked. */
     if (res.status === 402 && err.code === 'APP_NOT_SUBSCRIBED' && typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('clor:app-not-subscribed', { detail: { app: data?.app || null, message: data?.error || '' } }));

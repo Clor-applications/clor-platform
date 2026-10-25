@@ -67,7 +67,7 @@ export function refusalOf(v: Extract<Verified, { ok: false }>, words: { invalid:
   const invalid = words.status?.invalid ?? 401;
   switch (v.block) {
     case 'SUSPENDED':
-      return { status: 403, error: 'This credential is paused in CLOR. An administrator can resume it under Company admin → Credentials.', code: 'CREDENTIAL_SUSPENDED', block: v.block };
+      return { status: 403, error: 'This credential is paused in CLOR. An administrator can resume it under Workspace → Credentials.', code: 'CREDENTIAL_SUSPENDED', block: v.block };
     case 'EXPIRED':
       return { status: 401, error: 'This credential has expired. Ask an administrator for a new one.', code: 'CREDENTIAL_EXPIRED', block: v.block };
     case 'OWNER_OFF':

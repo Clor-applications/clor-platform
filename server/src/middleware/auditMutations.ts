@@ -22,13 +22,14 @@ import { platformPrisma } from '../utils/platformPrisma.js';
 const MODULES: Record<string, string> = { payroll: 'PAYROLL', attendance: 'ATTENDANCE', people: 'PEOPLE' };
 
 /**
- * The company's own administration, under the names Company admin's audit
+ * The company's own administration, under the names Workspace's audit
  * trail files as "Company" (routes/audit.ts). First match wins.
  */
 const COMPANY_ENTITIES: Array<[RegExp, string]> = [
   [/^(roles|permissions|role-profiles)(\/|$)/, 'Role'],
   [/^approval-rules(\/|$)/, 'ApprovalRule'],
   [/^users(\/|$)/, 'User'],
+  [/^outside-access(\/|$)/, 'OutsideAccess'],
   [/^security\/providers(\/|$)/, 'SSO'],
   [/^security\/scim(\/|$)/, 'Credential'],
   [/^security(\/|$)/, 'Security'],
@@ -110,6 +111,10 @@ const PHRASES: Array<[RegExp, string]> = [
   [/^POST security\/providers\/:id\/verify-domains$/, 'Verified a sign-in provider’s domains'],
   [/^POST security\/scim$/, 'Made a directory-sync token'],
   [/^DELETE security\/scim\/:id$/, 'Revoked a directory-sync token'],
+  [/^PATCH outside-access\/:id$/, 'Changed what an outside person may use, or until when'],
+  [/^POST outside-access\/:id\/suspend$/, 'Paused an outside person’s access'],
+  [/^POST outside-access\/:id\/resume$/, 'Resumed an outside person’s access'],
+  [/^POST outside-access\/:id\/revoke$/, 'Ended an outside person’s access'],
   [/^POST attendance\/integrations\/webhooks$/, 'Added a webhook'],
   [/^PUT attendance\/integrations\/webhooks\/:id$/, 'Changed a webhook'],
   [/^DELETE attendance\/integrations\/webhooks\/:id$/, 'Removed a webhook'],

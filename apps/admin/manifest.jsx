@@ -1,4 +1,7 @@
-import { Building, Building2, CreditCard, Fingerprint, HardDriveDownload, History, Key, KeyRound, LayoutGrid, Shield, ShieldCheck, Users, XCircle } from 'lucide-react';
+import { ShieldCheck } from 'lucide-react';
+
+import { ICON } from './src/screens/wsKit.jsx';
+import SetupGuide from './src/screens/SetupGuide.jsx';
 
 import { lazyScreens } from '@ui/utils/lazyScreens';
 
@@ -13,6 +16,14 @@ const RolePermissionManager = screen('RolePermissionManager');
 const SecuritySettings = screen('SecuritySettings');
 const SsoSettings = screen('SsoSettings');
 const Credentials = screen('Credentials');
+const OutsideAccess = screen('OutsideAccess');
+const Invitations = screen('Invitations');
+const Members = screen('Members');
+const AccountActivity = screen('AccountActivity');
+const Companies = screen('Companies');
+const AccessHome = screen('AccessHome');
+const SecurityHome = screen('SecurityHome');
+const DataHome = screen('DataHome');
 const AuditTrail = screen('AuditTrail');
 const AccountOverview = screen('AccountOverview');
 const BillingPreview = screen('BillingPreview');
@@ -20,7 +31,7 @@ const DataBackup = screen('DataBackup');
 const CloseCompany = screen('CloseCompany');
 
 /**
- * Company admin: the company's own workspace, not any one app's (ADR-010).
+ * Workspace: the company's own administration, not any one app's (ADR-010).
  *
  * Who works here and what they may do, how they sign in, what the company is
  * and what it pays for are the same answer in Accounting, Payroll, People and
@@ -40,7 +51,7 @@ const CloseCompany = screen('CloseCompany');
  */
 export const adminApp = {
   id: 'admin',
-  name: 'Company admin',
+  name: 'Workspace',
   icon: ShieldCheck,
   blurb: 'People, roles, sign-in, billing and the audit trail — for every app.',
   available: true,
@@ -48,39 +59,66 @@ export const adminApp = {
   home: 'home',
   flush: true,
   /** The phone tab bar: what an administrator opens most. */
-  mobileTabs: ['home', 'users', 'roles', 'security'],
+  mobileTabs: ['home', 'companies', 'members', 'securityHome'],
+
+  /* W-R3: a rail tap opens the module's own landing page; the content follows the sidebar, never the Overview left behind. */
+  railOpensHome: true,
+  /* The rail's foot: how far setup has got (owners and admins, until it is done), then Help, which leaves the bar. */
+  railFoot: { Component: SetupGuide, helpIcon: ICON.help },
+  /* The icon set Clor Attendance draws in: Microsoft Fluent colour icons. */
+  iconSet: 'color',
 
   modules: [
-    { key: 'home', label: 'Overview', items: ['home'] },
-    { key: 'company', label: 'Company', items: ['company', 'branches'] },
-    { key: 'access', label: 'Access', groups: [
-      { label: 'Who', items: ['users'] },
+    { key: 'home', label: 'Overview', icon: ICON.home, items: ['home'] },
+    { key: 'company', label: 'Company', icon: ICON.company, items: ['companies', 'company', 'branches'] },
+    { key: 'access', label: 'Access', icon: ICON.people, groups: [
+      { label: null, items: ['accessHome'] },
+      { label: 'Who', items: ['members', 'users', 'invitations', 'outsideAccess'] },
       { label: 'What they may do', items: ['roles', 'permissions'] },
     ] },
-    { key: 'security', label: 'Security', items: ['security', 'sso', 'credentials', 'audit'] },
-    { key: 'plan', label: 'Plan & billing', items: ['account', 'billing'] },
-    { key: 'data', label: 'Data', items: ['export', 'close'] },
+    { key: 'security', label: 'Security', icon: ICON.security, items: ['securityHome', 'security', 'sso', 'credentials', 'audit', 'accountActivity'] },
+    { key: 'plan', label: 'Plan & billing', short: 'Plan', icon: ICON.plan, items: ['account', 'billing'] },
+    { key: 'data', label: 'Data', icon: ICON.data, groups: [
+      { label: null, items: ['dataHome', 'export'] },
+      /* Closing a company is not an ordinary destination beside an export: it sits apart, under its own heading. */
+      { label: 'Danger zone', items: ['close'] },
+    ] },
   ],
   /* `permission`: the shell shows an item only to somebody who holds it, and read-only to somebody who cannot change it. */
   nav: [
-    { key: 'home', label: 'Overview', icon: LayoutGrid },
-    { key: 'company', label: 'Company profile', icon: Building, permission: 'SETTINGS::Company Profile::VIEW' },
-    { key: 'branches', label: 'Branches', icon: Building2, permission: 'MASTERS::Company/Branch setup::VIEW' },
-    { key: 'users', label: 'Users', icon: Users, permission: 'SETTINGS::Users::VIEW' },
-    { key: 'roles', label: 'Roles', icon: Shield, permission: 'SETTINGS::Roles::VIEW' },
-    { key: 'permissions', label: 'Permissions', icon: KeyRound, permission: 'SETTINGS::Roles::VIEW' },
-    { key: 'security', label: 'Login & security', icon: Fingerprint, permission: 'SETTINGS::Users::VIEW' },
-    { key: 'sso', label: 'Single sign-on', icon: ShieldCheck, permission: 'SETTINGS::Users::VIEW' },
-    { key: 'credentials', label: 'Credentials', icon: Key, permission: 'SETTINGS::Credentials::VIEW' },
-    { key: 'audit', label: 'Audit trail', icon: History, permission: 'SETTINGS::Audit trail::VIEW' },
-    { key: 'account', label: 'Account & plan', icon: Building2, permission: 'SETTINGS::Company Profile::VIEW' },
-    { key: 'billing', label: 'Billing', icon: CreditCard, permission: 'SETTINGS::Company Profile::VIEW' },
-    { key: 'export', label: 'Data export', icon: HardDriveDownload, permission: 'SETTINGS::Company data::EXPORT' },
-    { key: 'close', label: 'Close company', icon: XCircle, permission: 'SETTINGS::Company Profile::VIEW' },
+    { key: 'home', label: 'Overview', icon: ICON.home },
+    { key: 'companies', label: 'Companies', icon: ICON.companies, permission: 'SETTINGS::Company Profile::VIEW' },
+    { key: 'company', label: 'Company profile', icon: ICON.company, permission: 'SETTINGS::Company Profile::VIEW' },
+    { key: 'branches', label: 'Branches', icon: ICON.companies, permission: 'MASTERS::Company/Branch setup::VIEW' },
+    { key: 'accessHome', label: 'Overview', short: 'Access', icon: ICON.people, permission: 'SETTINGS::Users::VIEW' },
+    /* W-4: the account's people, every company at once; the server lets only owners and administrators in. */
+    { key: 'members', label: 'Members', icon: ICON.people, permission: 'SETTINGS::Users::VIEW' },
+    { key: 'users', label: 'Users', icon: ICON.person, permission: 'SETTINGS::Users::VIEW' },
+    /* W-3: shown with Users; the server lets only the account's owners and administrators invite. */
+    { key: 'invitations', label: 'Invitations', icon: ICON.mail, permission: 'SETTINGS::Users::VIEW' },
+    { key: 'outsideAccess', label: 'Outside access', icon: ICON.team, permission: 'SETTINGS::Users::VIEW' },
+    { key: 'roles', label: 'Roles', icon: ICON.secure, permission: 'SETTINGS::Roles::VIEW' },
+    { key: 'permissions', label: 'Permissions', icon: ICON.settings, permission: 'SETTINGS::Roles::VIEW' },
+    { key: 'securityHome', label: 'Overview', short: 'Security', icon: ICON.security, permission: 'SETTINGS::Users::VIEW' },
+    { key: 'security', label: 'Sign-in and sessions', icon: ICON.secure, permission: 'SETTINGS::Users::VIEW' },
+    { key: 'sso', label: 'Single sign-on', icon: ICON.team, permission: 'SETTINGS::Users::VIEW' },
+    { key: 'credentials', label: 'Credentials', icon: ICON.settings, permission: 'SETTINGS::Credentials::VIEW' },
+    { key: 'audit', label: 'Audit trail', icon: ICON.history, permission: 'SETTINGS::Audit trail::VIEW' },
+    /* W-7.2: the account's own audit; the server shows it to the account's owners and administrators. */
+    { key: 'accountActivity', label: 'Account activity', icon: ICON.history, permission: 'SETTINGS::Audit trail::VIEW' },
+    { key: 'account', label: 'Subscription', icon: ICON.plan, permission: 'SETTINGS::Company Profile::VIEW' },
+    { key: 'billing', label: 'Billing', icon: ICON.plan, permission: 'SETTINGS::Company Profile::VIEW' },
+    { key: 'dataHome', label: 'Overview', short: 'Data', icon: ICON.data, permission: 'SETTINGS::Company Profile::VIEW' },
+    { key: 'export', label: 'Data export', icon: ICON.data, permission: 'SETTINGS::Company data::EXPORT' },
+    { key: 'close', label: 'Close company', icon: ICON.warning, permission: 'SETTINGS::Company Profile::VIEW' },
   ],
 
   screens: {
     home: AdminHome,
+    companies: Companies,
+    accessHome: AccessHome,
+    securityHome: SecurityHome,
+    dataHome: DataHome,
     company: CompanyProfile,
     branches: SettingsBranches,
     users: SettingsUsers,
@@ -89,6 +127,10 @@ export const adminApp = {
     security: SecuritySettings,
     sso: SsoSettings,
     credentials: Credentials,
+    outsideAccess: OutsideAccess,
+    invitations: Invitations,
+    members: Members,
+    accountActivity: AccountActivity,
     audit: AuditTrail,
     account: AccountOverview,
     billing: BillingPreview,

@@ -42,7 +42,7 @@ export { default as TeamAttendance } from './timeOff/TeamAttendance';
 export { default as MyDays } from './timeOff/MyDays';
 export { default as MyLeave } from '../../attendance/src/screens/MyLeave';
 export { default as DataImport } from '../../attendance/src/screens/DataImport';
-/* One audit trail for the company, in Company admin (ADR-010); this opens it on People and Attendance's share. */
+/* One audit trail for the company, in Workspace (ADR-010); this opens it on People and Attendance's share. */
 export const AuditLogs = () => React.createElement(OpenInCompanyAdmin, { title: 'Audit Logs', screen: 'audit', forApp: 'attendance' });
 /* Settings (People → Settings): the hub, company master data, and the shared screens it opens. */
 export { default as PeopleSettings } from './screens/PeopleSettings';
@@ -55,8 +55,8 @@ export { default as DataExport } from '../../attendance/src/screens/DataExport';
 export { default as RecycleBin } from '../../attendance/src/screens/RecycleBin';
 export { default as DataProtection } from '../../attendance/src/screens/DataProtection';
 export { default as DataRequests } from '../../attendance/src/screens/DataRequests';
-/* Sign-in, SSO, users and roles are the company's: they live in Company admin (ADR-010), and this entry opens it. */
+/* Sign-in, SSO, users and roles are the company's: they live in Workspace (ADR-010), and this entry opens it. */
 export const SsoSettings = () => React.createElement(OpenInCompanyAdmin, { title: 'Users & Security', screen: 'sso' });
-/* This app's roles and permissions, in Company admin's one role editor, opened on People's share (ADR-010). */
+/* This app's roles and permissions, in Workspace's one role editor, opened on People's share (ADR-010). */
 export const RolesAccess = () => React.createElement(OpenInCompanyAdmin, { title: 'Roles & Access', screen: 'permissions', forApp: 'people' });
 

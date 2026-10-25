@@ -77,6 +77,8 @@ const KNOWN = {
   'middleware/auth.ts#requireAuth': { kind: 'auth' },
   'middleware/tenantContext.ts#requireTenantContext': { kind: 'tenant' },
   'middleware/operator.ts#requireOperator': { kind: 'operator' },
+  /* The same, for the two routes that set up the authenticator requireOperator insists on. */
+  'middleware/operator.ts#requireOperatorToEnrol': { kind: 'operator' },
   'middleware/operator.ts#isOperator': { kind: 'operator' },
   'middleware/rbac.ts#requirePermission': { kind: 'permission' },
   'middleware/rbac.ts#authorize': { kind: 'permission', argOffset: 1 },
@@ -85,6 +87,8 @@ const KNOWN = {
   'middleware/rbac.ts#authorizeAny': { kind: 'permissionAny', argOffset: 1 },
   /* A role check rather than a permission: closing a company is for its administrators (A-21). */
   'services/companyClosure.ts#mayClose': { kind: 'permission', label: () => 'role:company ADMIN (mayClose)' },
+  /* Workspace W-1: an account-level role (OWNER / ADMIN / BILLING_ADMIN), not a company permission. */
+  'services/accountMembership.ts#requireAccountRole': { kind: 'permission', label: () => 'account role (requireAccountRole)' },
   'services/stepUp.ts#stepUpRefusal': { kind: 'stepUp' },
   'services/stepUp.ts#requirePayrollStepUp': { kind: 'stepUp' },
   'middleware/requireApp.ts#requireApp': { kind: 'entitlement', label: (a) => `requireApp(${a[0]})` },
