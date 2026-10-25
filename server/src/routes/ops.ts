@@ -3,7 +3,7 @@ import type { Request } from 'express';
 import { z } from 'zod';
 
 import { requireAuth } from '../middleware/auth.js';
-import { OPERATOR_ROLES, operatorRole, operatorUserIds, requireOperator, requireOperatorRole } from '../middleware/operator.js';
+import { OPERATOR_ROLES, operatorUserIds, requireOperator, requireOperatorRole, requireOperatorToEnrol } from '../middleware/operator.js';
 import { codeLimiter } from '../middleware/rateLimit.js';
 import { decryptSecret, encryptSecret } from '../services/mailer.js';
 import { newSecret, otpauthUri, recoveryCodes, verifyCode } from '../services/totp.js';
@@ -44,35 +44,18 @@ export const opsRouter = Router();
  * only once a code from it has been typed back — without a company, because
  * an operator need not belong to one.
  */
-async function operatorWithoutAuthenticator(req: Request, res: any) {
-  const role = await operatorRole(req.auth?.userId);
-  if (!role) {
-    res.status(403).json({ error: 'This is for Clor staff only.', code: 'OPERATOR_ONLY' });
-    return null;
-  }
-  const u = await platformPrisma.user.findUnique({ where: { id: req.auth!.userId }, select: { id: true, email: true, isActive: true, totpSecretEnc: true, totpEnabledAt: true } });
-  if (!u?.isActive) {
-    res.status(403).json({ error: 'This is for Clor staff only.', code: 'OPERATOR_ONLY' });
-    return null;
-  }
-  if (u.totpEnabledAt) {
-    res.status(409).json({ error: 'An authenticator is already set up.', code: 'ALREADY_ENABLED' });
-    return null;
-  }
-  return u;
-}
+const enrolling = (req: Request) =>
+  platformPrisma.user.findUnique({ where: { id: req.auth!.userId }, select: { id: true, email: true, totpSecretEnc: true } });
 
-opsRouter.post('/ops/two-factor/setup', requireAuth, async (req, res) => {
-  const u = await operatorWithoutAuthenticator(req, res);
-  if (!u) return;
+opsRouter.post('/ops/two-factor/setup', requireAuth, requireOperatorToEnrol, async (req, res) => {
+  const u = (await enrolling(req))!;
   const secret = newSecret();
   await platformPrisma.user.update({ where: { id: u.id }, data: { totpSecretEnc: encryptSecret(secret), totpLastStep: null } });
   res.json({ secret, uri: otpauthUri(secret, u.email) });
 });
 
-opsRouter.post('/ops/two-factor/enable', requireAuth, ...codeLimiter, async (req, res) => {
-  const u = await operatorWithoutAuthenticator(req, res);
-  if (!u) return;
+opsRouter.post('/ops/two-factor/enable', requireAuth, ...codeLimiter, requireOperatorToEnrol, async (req, res) => {
+  const u = (await enrolling(req))!;
   if (!u.totpSecretEnc) return res.status(400).json({ error: 'Start the set-up first.' });
   const step = verifyCode(decryptSecret(u.totpSecretEnc), String(req.body?.code || ''), null);
   if (step == null) return res.status(400).json({ error: 'That code is not right. Check the time on your phone and try the newest code.', code: 'BAD_CODE' });
