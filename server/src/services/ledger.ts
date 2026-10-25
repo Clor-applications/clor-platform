@@ -161,16 +161,21 @@ export function fiscalYearFor(dateIso: string) {
   };
 }
 
-/** Idempotently create the default chart of accounts and journals for an org. */
+/**
+ * Idempotently create the default chart of accounts and journals for an org.
+ *
+ * One read and one insert for each, not one of each per account: done row by
+ * row it was some 90 round trips, every one through the tenant wrapper, and
+ * setting up a company took seconds (seen at 7 s on staging).
+ */
 export async function ensureLedgerSetup(accountId: string, orgId: string, userId: string) {
-  for (const a of DEFAULT_ACCOUNTS) {
-    const existing = await prisma.ledgerAccount.findFirst({
-      where: { orgId, branchId: null, code: a.code },
-      select: { id: true },
-    });
-    if (existing) continue;
-    await prisma.ledgerAccount.create({
-      data: {
+  const haveAccounts = new Set(
+    (await prisma.ledgerAccount.findMany({ where: { orgId, branchId: null, code: { in: DEFAULT_ACCOUNTS.map((a) => a.code) } }, select: { code: true } })).map((a) => a.code),
+  );
+  const accounts = DEFAULT_ACCOUNTS.filter((a) => !haveAccounts.has(a.code));
+  if (accounts.length) {
+    await prisma.ledgerAccount.createMany({
+      data: accounts.map((a) => ({
         accountId,
         orgId,
         branchId: null,
@@ -179,18 +184,17 @@ export async function ensureLedgerSetup(accountId: string, orgId: string, userId
         accountType: a.accountType,
         controlKind: a.controlKind,
         createdByUserId: userId,
-      },
+      })),
     });
   }
 
-  for (const j of DEFAULT_JOURNALS) {
-    const existing = await prisma.journal.findFirst({
-      where: { orgId, branchId: null, code: j.code },
-      select: { id: true },
-    });
-    if (existing) continue;
-    await prisma.journal.create({
-      data: { accountId, orgId, branchId: null, code: j.code, name: j.name, type: j.type, createdByUserId: userId },
+  const haveJournals = new Set(
+    (await prisma.journal.findMany({ where: { orgId, branchId: null, code: { in: DEFAULT_JOURNALS.map((j) => j.code) } }, select: { code: true } })).map((j) => j.code),
+  );
+  const journals = DEFAULT_JOURNALS.filter((j) => !haveJournals.has(j.code));
+  if (journals.length) {
+    await prisma.journal.createMany({
+      data: journals.map((j) => ({ accountId, orgId, branchId: null, code: j.code, name: j.name, type: j.type, createdByUserId: userId })),
     });
   }
 }
@@ -277,8 +281,16 @@ async function ensureFiscalYear(
   const fy = fiscalYearFor(date);
   const existing = await tx.fiscalYear.findFirst({ where: { orgId, name: fy.name } });
   if (existing) return existing;
-  return tx.fiscalYear.create({
-    data: {
+  /*
+   * Insert-or-take, in one statement on the (orgId, name) key. A read then a
+   * create let two invoices saved at once, the first two of a year, both try
+   * to create it: one failed, and inside a transaction a caught error cannot
+   * be retried. Seen under load on staging.
+   */
+  return tx.fiscalYear.upsert({
+    where: { orgId_name: { orgId, name: fy.name } },
+    update: {},
+    create: {
       accountId,
       orgId,
       name: fy.name,
@@ -363,6 +375,15 @@ export async function postEntry(req: PostingRequest, tx?: DbClient) {
      a malformed entry is rejected before a transaction is opened at all. */
   const write = async (db: DbClient) => {
     const tx = db as Prisma.TransactionClient;
+    /*
+     * One posting at a time per company and branch, until this transaction
+     * ends. The entry number is the last one plus one and the hash chains to
+     * the last entry; two postings at once both read the same "last", so one
+     * died on the (orgId, branchId, entryNo) key and the hash chain could
+     * fork. Seen with concurrent invoices on staging. Same lock idiom as
+     * stockLedger.ts.
+     */
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`ledger:${orgId}:${branchId ?? ''}`}, 0))`;
     const fy = await ensureFiscalYear(tx, accountId, orgId, userId, date);
 
     if (fy.status === 'CLOSED') {

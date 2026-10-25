@@ -7,14 +7,19 @@
  * people are available; projects is planned; timesheet has no app yet.
  */
 
+/* A staging build points at its own app (VITE_APP_URL=https://app.staging.clor.in); production needs nothing set. */
+const env = (typeof import.meta !== 'undefined' && import.meta.env) || {};
+const SITE_URL = env.VITE_SITE_URL || 'https://clor.in';
+const APP_URL = env.VITE_APP_URL || 'https://app.clor.in';
+
 export const SITE = {
   name: 'Clor',
   company: 'Clor Applications Pvt Ltd',
-  url: 'https://clor.in',
-  appUrl: 'https://app.clor.in',
+  url: SITE_URL,
+  appUrl: APP_URL,
   /* The app's own doors: /signin and /signup open those pages directly. */
-  signInUrl: 'https://app.clor.in/signin',
-  signUpUrl: 'https://app.clor.in/signup',
+  signInUrl: `${APP_URL}/signin`,
+  signUpUrl: `${APP_URL}/signup`,
   /* Confirmed by the company, 2026-10-24. */
   contactEmail: 'info@clor.in',
   salesEmail: 'sales@clor.in',
