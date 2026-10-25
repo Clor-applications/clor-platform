@@ -281,8 +281,16 @@ async function ensureFiscalYear(
   const fy = fiscalYearFor(date);
   const existing = await tx.fiscalYear.findFirst({ where: { orgId, name: fy.name } });
   if (existing) return existing;
-  return tx.fiscalYear.create({
-    data: {
+  /*
+   * Insert-or-take, in one statement on the (orgId, name) key. A read then a
+   * create let two invoices saved at once, the first two of a year, both try
+   * to create it: one failed, and inside a transaction a caught error cannot
+   * be retried. Seen under load on staging.
+   */
+  return tx.fiscalYear.upsert({
+    where: { orgId_name: { orgId, name: fy.name } },
+    update: {},
+    create: {
       accountId,
       orgId,
       name: fy.name,
