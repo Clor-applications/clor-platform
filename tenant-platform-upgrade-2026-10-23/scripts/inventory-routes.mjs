@@ -77,6 +77,8 @@ const KNOWN = {
   'middleware/auth.ts#requireAuth': { kind: 'auth' },
   'middleware/tenantContext.ts#requireTenantContext': { kind: 'tenant' },
   'middleware/operator.ts#requireOperator': { kind: 'operator' },
+  /* The same, for the two routes that set up the authenticator requireOperator insists on. */
+  'middleware/operator.ts#requireOperatorToEnrol': { kind: 'operator' },
   'middleware/operator.ts#isOperator': { kind: 'operator' },
   'middleware/rbac.ts#requirePermission': { kind: 'permission' },
   'middleware/rbac.ts#authorize': { kind: 'permission', argOffset: 1 },

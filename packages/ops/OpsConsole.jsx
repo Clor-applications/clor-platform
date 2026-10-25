@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, LogOut, Search } from 'lucide-react';
+import { ArrowLeft, KeyRound, LogOut, Search } from 'lucide-react';
+import QRCode from 'qrcode';
 
 import { ClorLogo } from '@ui/components/brand';
 import Toaster from '@ui/components/ui/Toaster';
@@ -15,12 +16,14 @@ import {
   opsAddOperator,
   opsAudit,
   opsChangeOperator,
+  opsEnableTwoFactor,
   opsExtendTrial,
   opsGrantPlan,
   opsMe,
   opsOperators,
   opsOverview,
   opsReinstate,
+  opsStartTwoFactor,
   opsSuspend,
 } from './api';
 
@@ -563,6 +566,85 @@ function Operators({ me }) {
 }
 
 /* ----------------------------------------------------------------- frame */
+/* On ops.clor.in the customer workspace is another host; on /ops (local) it is this one. */
+const OPS_HOST = typeof window !== 'undefined' && window.location.hostname.split('.')[0] === 'ops';
+const WORKSPACE_URL = OPS_HOST ? 'https://app.clor.in' : '/';
+
+/**
+ * An operator without an authenticator sets one up here, rather than being
+ * sent to a company's profile page they may not have. Scan, type a code back,
+ * keep the recovery codes; then the console opens.
+ */
+function EnrolAuthenticator({ onDone }) {
+  const [setup, setSetup] = useState(null);
+  const [qr, setQr] = useState('');
+  const [code, setCode] = useState('');
+  const [codes, setCodes] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  const act = async (fn) => {
+    setBusy(true);
+    setError('');
+    try {
+      await fn();
+    } catch (e) {
+      setError(String(e?.message || 'Not done.'));
+    } finally {
+      setBusy(false);
+    }
+  };
+  const begin = () =>
+    act(async () => {
+      const r = await opsStartTwoFactor();
+      setSetup(r);
+      setQr(await QRCode.toDataURL(r.uri, { margin: 1, width: 192 }));
+    });
+  const confirm = (e) => {
+    e.preventDefault();
+    act(async () => {
+      const r = await opsEnableTwoFactor(code.trim());
+      setCodes(r.recoveryCodes);
+      setSetup(null);
+    });
+  };
+
+  if (codes) {
+    return (
+      <div className="ops-enrol">
+        <p className="ws-card-blurb">Your authenticator is on. These recovery codes each work once if you lose your phone. Keep them somewhere safe; they are not shown again.</p>
+        <div className="ops-enrol-codes">
+          {codes.map((c) => <span key={c} className="ui-mono">{c}</span>)}
+        </div>
+        <button type="button" className="ws-btn ws-btn--primary" onClick={onDone}>I have saved them — open the console</button>
+      </div>
+    );
+  }
+  return (
+    <div className="ops-enrol">
+      <p className="ws-card-blurb">Clor operators sign in with a code from an authenticator app (Google Authenticator, Microsoft Authenticator, 1Password). Set one up now; it takes a minute.</p>
+      {setup ? (
+        <form onSubmit={confirm} className="ops-enrol-scan">
+          {qr ? <img src={qr} alt="QR code to scan with your authenticator app" width={192} height={192} /> : null}
+          <div className="ops-enrol-steps">
+            <p>Scan this with your authenticator app, then type the six-digit code it shows.</p>
+            <p className="ws-card-blurb">Can’t scan? Enter this key: <span className="ui-mono" style={{ wordBreak: 'break-all' }}>{setup.secret}</span></p>
+            <div className="flex gap-2">
+              <input className="ui-input ui-num w-36 text-center tracking-widest" inputMode="numeric" autoComplete="one-time-code" maxLength={6} placeholder="123456" aria-label="Code from the app" value={code} onChange={(e) => { setCode(e.target.value); setError(''); }} autoFocus />
+              <button type="submit" className="ws-btn ws-btn--primary" disabled={busy || code.trim().length !== 6}>Turn on</button>
+            </div>
+          </div>
+        </form>
+      ) : (
+        <button type="button" className="ws-btn ws-btn--primary" disabled={busy} onClick={begin}>
+          <KeyRound size={16} aria-hidden="true" /> Set up an authenticator app
+        </button>
+      )}
+      {error ? <p role="alert" className="text-sm" style={{ color: 'rgb(var(--neg))' }}>{error}</p> : null}
+    </div>
+  );
+}
+
 const NAV = [
   ['overview', 'Overview', ICON.home],
   ['accounts', 'Accounts', ICON.companies],
@@ -577,27 +659,39 @@ function Console() {
   const [page, setPage] = useState('overview');
   const [accountId, setAccountId] = useState('');
   const [accountsStatus, setAccountsStatus] = useState('all');
+  const [reload, setReload] = useState(0);
+
+  /* Signing in can leave a company's address behind (/o/CLOR-…); the console has no such pages. */
+  useEffect(() => {
+    if (/^\/o\//.test(window.location.pathname)) window.history.replaceState({}, '', OPS_HOST ? '/' : '/ops');
+  }, []);
 
   useEffect(() => {
     if (!user) return;
     opsMe()
       .then(setMe)
       .catch((e) => setRefused({ code: e?.code || e?.data?.code, message: String(e?.message || e) }));
-  }, [user]);
+  }, [user, reload]);
 
   if (refused) {
+    const needsCode = refused.code === 'TWO_FACTOR_SETUP_REQUIRED';
     return (
       <div className="ops-refused">
         <ClorLogo size={28} />
-        <h1 className="ws-title">{refused.code === 'TWO_FACTOR_SETUP_REQUIRED' ? 'Set up an authenticator first' : 'This page is for Clor staff'}</h1>
-        <p className="ws-card-blurb">{refused.message}</p>
+        <h1 className="ws-title">{needsCode ? 'Set up your authenticator' : 'This page is for Clor staff'}</h1>
+        {needsCode ? (
+          <EnrolAuthenticator onDone={() => { setRefused(null); setReload((n) => n + 1); }} />
+        ) : (
+          <p className="ws-card-blurb">{refused.message}</p>
+        )}
         <div className="flex gap-2">
-          <a className="ws-btn ws-btn--quiet" href="/">Go to your workspace</a>
+          <a className="ws-btn ws-btn--quiet" href={WORKSPACE_URL}>Go to your workspace</a>
           <button type="button" className="ws-btn ws-btn--quiet" onClick={signOut}>Sign out</button>
         </div>
       </div>
     );
   }
+
   if (!me) return <p className="ws-card-blurb" style={{ padding: 24 }}>Loading…</p>;
 
   const open = (p) => {
