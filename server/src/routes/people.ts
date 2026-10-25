@@ -242,10 +242,13 @@ const withMeta = async (orgId: string, rows: any[]) => {
   const unitName = new Map(units.map((u) => [u.id, u.name]));
   const gradeName = new Map(grades.map((g) => [g.id, g.name]));
   const centreName = new Map(centres.map((c) => [c.id, c.name]));
-  return rows.map(({ devicePassword, ...r }) => ({
+  /* Secrets never leave the server: the reader PIN, and the employee app's password and set-up hashes. */
+  return rows.map(({ devicePassword, portalPasswordHash, portalSetupHash, portalSetupExpires, ...r }: any) => ({
     ...r,
     /* The reader PIN is write-only here; screens only need to know one is set. */
     hasDevicePassword: Boolean(devicePassword),
+    hasPortalPassword: Boolean(portalPasswordHash),
+    portalSetupPending: Boolean(portalSetupHash && portalSetupExpires && new Date(portalSetupExpires) > new Date()),
     areaName: r.areaId ? areaName.get(r.areaId) || null : null,
     contractorName: r.contractorId ? contractorName.get(r.contractorId) || null : null,
     businessUnitName: r.businessUnitId ? unitName.get(r.businessUnitId) || null : null,
