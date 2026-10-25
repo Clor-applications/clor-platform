@@ -142,7 +142,8 @@ export function upgradeHintFor(key: string): string | null {
 export async function companyLimitReason(accountId: string): Promise<string | null> {
   const e = await entitlementFor(accountId);
   if (e.limits.maxCompanies == null) return null;
-  const count = await platformPrisma.org.count({ where: { accountId } });
+  /* Archived companies (read-only, kept for their records) do not take a place on the plan. */
+  const count = await platformPrisma.org.count({ where: { accountId, archivedAt: null } });
   if (count < e.limits.maxCompanies) return null;
   return `The ${e.planName} plan includes ${e.limits.maxCompanies} ${
     e.limits.maxCompanies === 1 ? 'company' : 'companies'

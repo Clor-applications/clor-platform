@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ArrowDownUp, Plus, Search } from 'lucide-react';
 
 import { GST_STATE_BY_CODE, getGstStateFromGstin } from '@ui/utils/gst';
-import { getAccountOverview } from '@platform/admin/admin';
+import { archiveCompany, getAccountOverview, reactivateCompany } from '@platform/admin/admin';
 import { ICON, PageHead, Stat, WsDrawer } from './wsKit';
 import CompanyDetail from './CompanyDetail';
 import './workspace.css';
@@ -57,8 +57,11 @@ export default function Companies({ tenant, addCompany, switchCompany, companies
   const companies = data?.companies || [];
   const list = useMemo(() => companyRows(companies, view), [companies, view]);
   const limit = data?.plan?.limits?.maxCompanies ?? null;
-  const incomplete = companies.filter((c) => !c.gstin).length;
-  const atLimit = limit != null && companies.length >= limit;
+  const incomplete = companies.filter((c) => !c.gstin && !c.archived).length;
+  /* Archived companies are kept for their records and do not take a place on the plan. */
+  const activeCount = companies.filter((c) => !c.archived).length;
+  const archivedCount = companies.length - activeCount;
+  const atLimit = limit != null && activeCount >= limit;
   const sortBy = (key) => setView((v) => ({ ...v, sort: key, dir: v.sort === key ? -v.dir : 1, page: 0 }));
   const th = (key, label, num) => (
     <th className={num ? 'num' : undefined} aria-sort={view.sort === key ? (view.dir > 0 ? 'ascending' : 'descending') : 'none'}>
@@ -85,7 +88,7 @@ export default function Companies({ tenant, addCompany, switchCompany, companies
 
         {data ? (
           <div className="ws-stats">
-            <Stat icon={ICON.companies} label="Companies" value={companies.length} note={limit != null ? `${limit} allowed on your plan` : 'no limit on your plan'} />
+            <Stat icon={ICON.companies} label="Companies" value={activeCount} note={`${limit != null ? `${limit} allowed on your plan` : 'no limit on your plan'}${archivedCount ? ` · ${archivedCount} archived` : ''}`} />
             <Stat icon={ICON.warning} tone={incomplete ? 'warn' : null} label="Setup incomplete" value={incomplete} note={incomplete ? 'No GSTIN on record' : 'Every company has its GSTIN'} />
             <Stat icon={ICON.people} label="People across companies" value={companies.reduce((n, c) => n + (c.people || 0), 0)} note="Memberships, counted per company" />
           </div>
@@ -135,7 +138,7 @@ export default function Companies({ tenant, addCompany, switchCompany, companies
                           <button type="button" className="ws-name-link" onClick={() => setOpenId(c.orgId)}>{c.name}</button>
                         </span>
                       </td>
-                      <td>{current ? <span className="ws-pill ws-pill--role">You are here</span> : c.gstin ? <span className="ws-pill ws-pill--ok">Active</span> : <span className="ws-pill">Setup incomplete</span>}</td>
+                      <td>{c.archived ? <span className="ws-pill ws-pill--off">Archived</span> : current ? <span className="ws-pill ws-pill--role">You are here</span> : c.gstin ? <span className="ws-pill ws-pill--ok">Active</span> : <span className="ws-pill">Setup incomplete</span>}</td>
                       <td>{c.state || '—'}</td>
                       <td className="ui-mono" style={{ fontSize: '0.8125rem' }}>{c.gstin || '—'}</td>
                       <td className="num">{c.people}</td>
@@ -174,6 +177,8 @@ export default function Companies({ tenant, addCompany, switchCompany, companies
         onClose={() => setOpenId('')}
         onSwitch={switchCompany ? () => { switchCompany(openId); setOpenId(''); } : null}
         onEdit={openScreen ? () => { setOpenId(''); openScreen('company'); } : null}
+        onArchive={async (orgId, body) => { await archiveCompany(orgId, body); load(); }}
+        onReactivate={async (orgId) => { await reactivateCompany(orgId); load(); }}
       />
 
       <WsDrawer open={adding} onClose={() => setAdding(false)} title="Add a company">

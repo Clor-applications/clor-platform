@@ -13,7 +13,8 @@ import { requireTenantContext } from '../middleware/tenantContext.js';
 import { requirePermission } from '../middleware/rbac.js';
 import { PermissionAction } from '../constants/enums.js';
 import { sendTemplate } from '../services/mailer.js';
-import { revokeAllSessions } from '../services/auth.js';
+import { recordAuthEvent, revokeAllSessions } from '../services/auth.js';
+import { LEAVE_REASONS, LEAVE_REASON_LABEL, LeaverError, markLeft, pendingFor, reactivate } from '../services/leavers.js';
 import { RoleType } from '../constants/enums.js';
 import { hasValidStepUp } from '../services/stepUp.js';
 import { resolveAccess, resolveUserPermissions } from '../services/access.js';
@@ -110,7 +111,7 @@ usersRouter.get('/orgs/:orgId/users', requirePermission('SETTINGS', PermissionAc
   const memberships = await platformPrisma.userOrgMembership.findMany({
     where: { accountId, orgId },
     include: {
-      user: { select: { id: true, code: true, email: true, fullName: true, isActive: true } },
+      user: { select: { id: true, code: true, email: true, fullName: true, isActive: true, leftAt: true, leftReason: true, lastWorkingDay: true, leftNote: true, releasedEmail: true } },
     },
     orderBy: [{ createdAt: 'asc' }],
   });
@@ -137,6 +138,8 @@ usersRouter.get('/orgs/:orgId/users', requirePermission('SETTINGS', PermissionAc
     // legacy compatibility for older UI code
     name: m.user.fullName,
     isActive: m.user.isActive,
+    /* Left the business (services/leavers.ts): kept, with why and when. */
+    left: m.user.leftAt ? { at: m.user.leftAt, reason: m.user.leftReason, lastWorkingDay: m.user.lastWorkingDay, note: m.user.leftNote, releasedEmail: m.user.releasedEmail } : null,
     roleId: roleIdByUserId.get(m.user.id) || null,
   }));
 
@@ -188,6 +191,96 @@ async function elsewhereRefusal(callerId: string, userId: string) {
     },
   };
 }
+
+/*
+ * Somebody has left (services/leavers.ts). Same guards as switching a person
+ * off below — an administrator only by an administrator, never the last one,
+ * never someone whose sign-in belongs to companies the caller cannot manage —
+ * plus a reason, a last working day and a hand-over.
+ */
+const leaveSchema = z.object({
+  reason: z.enum(LEAVE_REASONS),
+  lastWorkingDay: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  note: z.string().max(1000).optional().nullable(),
+  handoverUserId: z.string().optional().nullable(),
+  releaseEmail: z.boolean().optional(),
+});
+
+const leaverRefusal = (res: any, e: unknown) => {
+  if (e instanceof LeaverError) return res.status(e.status).json({ error: e.message, code: e.code });
+  throw e;
+};
+
+usersRouter.get('/orgs/:orgId/users/:userId/leaving', requirePermission('SETTINGS', PermissionAction.EDIT, 'Users'), async (req, res) => {
+  const { accountId } = req.tenant!;
+  const userId = String(req.params.userId);
+  const member = await platformPrisma.userOrgMembership.findFirst({ where: { accountId, orgId: String(req.params.orgId), userId }, select: { id: true } });
+  if (!member) return res.status(404).json({ error: 'User not found in org' });
+  res.json({ pending: await pendingFor(accountId, userId), reasons: LEAVE_REASONS.map((key) => ({ key, label: LEAVE_REASON_LABEL[key] })) });
+});
+
+usersRouter.post('/orgs/:orgId/users/:userId/leave', requirePermission('SETTINGS', PermissionAction.EDIT, 'Users'), async (req, res) => {
+  const { accountId } = req.tenant!;
+  const orgId = String(req.params.orgId);
+  const userId = String(req.params.userId);
+  const body = leaveSchema.parse(req.body);
+  const member = await platformPrisma.userOrgMembership.findFirst({ where: { accountId, orgId, userId }, select: { id: true } });
+  if (!member) return res.status(404).json({ error: 'User not found in org' });
+  if (!req.isAdmin && (await userIsAdmin(accountId, orgId, userId))) return res.status(403).json(ADMIN_ONLY_ERROR);
+  if (await wouldRemoveLastAdmin(accountId, orgId, userId)) return res.status(409).json(LAST_ADMIN_ERROR);
+  if (userId !== req.auth!.userId) {
+    const refusal = await elsewhereRefusal(req.auth!.userId, userId);
+    if (refusal) return res.status(refusal.status).json(refusal.body);
+  }
+  let out;
+  try {
+    out = await markLeft({ accountId, orgId, actorUserId: req.auth!.userId, userId, ...body });
+  } catch (e) {
+    return leaverRefusal(res, e);
+  }
+  /* What they made keeps working; it is flagged for someone to check, in every company. */
+  await flagCreatorRemoved({ accountId, userId, orgIds: 'ALL' }, 'The person who made it has left', actorFrom(req));
+  if (req.res) req.res.locals.audited = true;
+  await platformPrisma.auditLog.create({
+    data: {
+      accountId,
+      orgId,
+      branchId: req.tenant!.branchId,
+      entity: 'User',
+      entityId: userId,
+      action: 'LEFT',
+      message: `Marked as left: ${LEAVE_REASON_LABEL[body.reason]}, last working day ${body.lastWorkingDay}${body.handoverUserId ? `; handed over ${out.handover.approvals} approvals, ${out.handover.deskRequests} desk requests, ${out.handover.exceptions} exceptions` : ''}${out.releasedEmail ? '; address released' : ''}`,
+      createdByUserId: req.auth!.userId,
+    },
+  });
+  await recordAuthEvent({ accountId, userId, eventType: 'USER_MARKED_LEFT', detail: `${body.reason} by ${req.auth!.userId}` });
+  res.json({ ok: true, ...out });
+});
+
+usersRouter.post('/orgs/:orgId/users/:userId/reactivate', requirePermission('SETTINGS', PermissionAction.EDIT, 'Users'), async (req, res) => {
+  const { accountId } = req.tenant!;
+  const orgId = String(req.params.orgId);
+  const userId = String(req.params.userId);
+  const member = await platformPrisma.userOrgMembership.findFirst({ where: { accountId, orgId, userId }, select: { id: true } });
+  if (!member) return res.status(404).json({ error: 'User not found in org' });
+  if (!req.isAdmin && (await userIsAdmin(accountId, orgId, userId))) return res.status(403).json(ADMIN_ONLY_ERROR);
+  if (userId !== req.auth!.userId) {
+    const refusal = await elsewhereRefusal(req.auth!.userId, userId);
+    if (refusal) return res.status(refusal.status).json(refusal.body);
+  }
+  let out;
+  try {
+    out = await reactivate({ accountId, actorUserId: req.auth!.userId, userId });
+  } catch (e) {
+    return leaverRefusal(res, e);
+  }
+  if (req.res) req.res.locals.audited = true;
+  await platformPrisma.auditLog.create({
+    data: { accountId, orgId, branchId: req.tenant!.branchId, entity: 'User', entityId: userId, action: 'REACTIVATED', message: `Reactivated${out.emailRestored === false ? '; their old address is now someone else\'s' : ''}`, createdByUserId: req.auth!.userId },
+  });
+  await recordAuthEvent({ accountId, userId, eventType: 'USER_REACTIVATED', detail: `by ${req.auth!.userId}` });
+  res.json({ ok: true, ...out });
+});
 
 usersRouter.patch('/orgs/:orgId/users/:userId', requirePermission('SETTINGS', PermissionAction.EDIT, 'Users'), async (req, res) => {
   const accountId = req.tenant!.accountId;

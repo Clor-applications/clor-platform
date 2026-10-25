@@ -1,3 +1,4 @@
+import { isArchived } from '../services/companyArchive.js';
 import type { Request, Response, NextFunction } from 'express';
 import { prisma } from '../utils/prisma.js';
 import { platformPrisma } from '../utils/platformPrisma.js';
@@ -35,6 +36,8 @@ declare module 'express-serve-static-core' {
 // You can choose token-bound org/branch, or header-bound org/branch.
 // This implementation uses headers so user can switch org/branch without re-login:
 //   x-org-id, x-branch-id
+const ARCHIVED_STILL_ALLOWED = /^\/account\/|\/closure$|\/notifications(\/|$)|\/security\/two-factor/;
+
 export async function requireTenantContext(req: Request, res: Response, next: NextFunction) {
   /*
    * The account comes from the MEMBERSHIP, not from the token.
@@ -71,6 +74,16 @@ export async function requireTenantContext(req: Request, res: Response, next: Ne
   );
   if (!('tenant' in result)) return res.status(result.status).json({ error: result.error, ...(result.code ? { code: result.code } : {}) });
   req.tenant = { ...result.tenant }; // the cached object is shared between requests
+
+  /*
+   * An archived company is read-only (services/companyArchive.ts): every write
+   * is refused, reading and exporting are not. Still allowed: scheduling or
+   * cancelling its closure, marking notifications read, and a person's own
+   * authenticator. Reactivating is an account route, outside this middleware.
+   */
+  if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method) && !ARCHIVED_STILL_ALLOWED.test(req.path) && (await isArchived(req.tenant.orgId))) {
+    return res.status(403).json({ error: 'This company is archived, so it is read-only. An account owner or admin can reactivate it in Workspace → Companies.', code: 'COMPANY_ARCHIVED' });
+  }
 
   /*
    * A company that requires two-factor sign-in for its owners and admins
