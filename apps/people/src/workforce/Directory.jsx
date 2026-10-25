@@ -314,7 +314,7 @@ function FiltersDrawer({ params, lists, managers, onClose, onApply }) {
   const opt = (arr) => [{ value: '', label: 'Any' }, ...arr.map((x) => ({ value: x.id, label: x.name }))];
   const field = (k, label, options) => (
     <div className="block">
-      <PopupSelect label={label} value={draft[k]} onChange={(v) => setDraft({ ...draft, [k]: v || '' })} options={options} alwaysSearch={options.length > 8} />
+      <PopupSelect showValueSubtext={false} label={label} value={draft[k]} onChange={(v) => setDraft({ ...draft, [k]: v || '' })} options={options} alwaysSearch={options.length > 8} />
     </div>
   );
   return (
@@ -358,8 +358,8 @@ function BulkDrawer({ count, lists, managers, value, onChange, onClose, onSend }
         <button type="button" className="ui-btn ui-btn-primary" disabled={busy || !value.value} onClick={async () => { setBusy(true); try { await onSend(); } finally { setBusy(false); } }}>{busy ? 'Changing…' : `Change ${count}`}</button>
       </>}>
       <div className="grid gap-4">
-        <PopupSelect label="What" value={value.field} onChange={(v) => onChange({ ...value, field: v, value: '' })} options={BULK_FIELDS.map(([k, l]) => ({ value: k, label: l }))} />
-        <PopupSelect label="To" value={value.value} onChange={(v) => onChange({ ...value, value: v })} placeholder="Choose…" alwaysSearch options={[{ value: '__clear', label: 'None (clear it for everyone chosen)' }, ...options.map((o) => ({ value: o.id, label: o.name }))]} />
+        <PopupSelect showValueSubtext={false} label="What" value={value.field} onChange={(v) => onChange({ ...value, field: v, value: '' })} options={BULK_FIELDS.map(([k, l]) => ({ value: k, label: l }))} />
+        <PopupSelect showValueSubtext={false} label="To" value={value.value} onChange={(v) => onChange({ ...value, value: v })} placeholder="Choose…" alwaysSearch options={[{ value: '__clear', label: 'None (clear it for everyone chosen)' }, ...options.map((o) => ({ value: o.id, label: o.name }))]} />
         <label className="block"><span className="ui-label">Reason</span><input className="ui-input w-full" maxLength={500} value={value.reason} onChange={(e) => onChange({ ...value, reason: e.target.value })} placeholder="Ops folded into Sales" /></label>
       </div>
     </Drawer>

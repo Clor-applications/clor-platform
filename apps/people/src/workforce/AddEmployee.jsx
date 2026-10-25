@@ -81,7 +81,12 @@ export default function AddEmployee({ params = {}, updateParams, openScreen }) {
     if (params.draft) {
       getDraft(params.draft).then((d) => { if (!live) return; const next = { ...BLANK, ...d.data }; setForm(next); setSaved(next); setDraftId(d.id); }).catch((e) => live && setFailure(e)).finally(() => live && setLoading(false));
     } else {
-      nextEmployeeCode().then((code) => { if (live && code) setForm((f) => (f.code ? f : { ...f, code })); }).catch(() => {});
+      /* The suggestion is not an edit: the baseline takes it too, so an untouched wizard leaves without a warning. */
+      nextEmployeeCode().then((code) => {
+        if (!live || !code) return;
+        setForm((f) => (f.code ? f : { ...f, code }));
+        setSaved((f) => (f.code ? f : { ...f, code }));
+      }).catch(() => {});
     }
     return () => { live = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -302,7 +307,7 @@ function DateField({ id, label, required, optional, error, value, onChange, min 
 function SelectField({ label, required, optional, options, value, onChange }) {
   return (
     <div>
-      <PopupSelect label={`${label}${required ? ' *' : ''}${optional ? ' (optional)' : ''}`} ariaLabel={label} value={value} onChange={(v) => onChange(v || '')} options={options} alwaysSearch={options.length > 8} placeholder="Not set" />
+      <PopupSelect showValueSubtext={false} label={`${label}${required ? ' *' : ''}${optional ? ' (optional)' : ''}`} ariaLabel={label} value={value} onChange={(v) => onChange(v || '')} options={options} alwaysSearch={options.length > 8} placeholder="Not set" />
     </div>
   );
 }

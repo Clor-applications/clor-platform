@@ -602,7 +602,7 @@ function OperationDrawer({ action, person, lists, onClose, onDone }) {
           : <ErrorState error={error} compact onRetry={submit} retryLabel="Try again" body={error?.status === 400 ? error.message : undefined} />) : null}
         {op.fields.map(([k, label, src]) => (
           <div key={k}>
-            <PopupSelect label={label} value={form[k]} onChange={(v) => setForm({ ...form, [k]: v || '' })} placeholder="Choose…" alwaysSearch={src !== 'statuses'} options={src === 'statuses' ? options(src) : [{ value: '', label: 'None' }, ...options(src)]} />
+            <PopupSelect showValueSubtext={false} label={label} value={form[k]} onChange={(v) => setForm({ ...form, [k]: v || '' })} placeholder="Choose…" alwaysSearch={src !== 'statuses'} options={src === 'statuses' ? options(src) : [{ value: '', label: 'None' }, ...options(src)]} />
             <span className="ui-caption">Now: {current(k, src)}</span>
           </div>
         ))}
