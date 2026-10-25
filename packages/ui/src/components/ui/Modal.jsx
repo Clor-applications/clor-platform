@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 
 import { OverlayLayerContext } from './overlayLayer';
 import { X } from 'lucide-react';
+import { confirmDialog } from './notify';
 
 /**
  * The one dialog in the product.
@@ -16,7 +17,8 @@ import { X } from 'lucide-react';
    a CSS variable, and drifting apart would show the dialog closing twice. */
 const EXIT_MS = 140;
 
-const Modal = ({ children, onClose, title = 'Form', maxWidthClass = 'max-w-4xl', headerActions = null, showCloseIcon = true }) => {
+/* `footer`: fixed actions under the scrolling body. `dirty`: unsaved edits — the backdrop then does not close it, and Escape or × asks first (spec v1 §5.1). */
+const Modal = ({ children, onClose, title = 'Form', maxWidthClass = 'max-w-4xl', headerActions = null, showCloseIcon = true, footer = null, dirty = false }) => {
   /*
    * Closing is a state, not an event.
    *
@@ -35,7 +37,12 @@ const Modal = ({ children, onClose, title = 'Form', maxWidthClass = 'max-w-4xl',
    * be closed is far worse than one that closes a frame early, so a timer of
    * the same length closes it regardless and whichever lands first wins.
    */
-  const beginClose = useCallback(() => setClosing(true), []);
+  const dirtyRef = useRef(dirty);
+  useEffect(() => { dirtyRef.current = dirty; }, [dirty]);
+  const beginClose = useCallback(async () => {
+    if (dirtyRef.current && !(await confirmDialog({ title: 'Discard your changes?', message: 'What you entered here has not been saved.', confirmLabel: 'Discard', tone: 'danger' }))) return;
+    setClosing(true);
+  }, []);
 
   /*
    * Once it is closing, it closes — on `animationend` if that arrives, and on
@@ -131,8 +138,8 @@ const Modal = ({ children, onClose, title = 'Form', maxWidthClass = 'max-w-4xl',
       className={`ui-scrim fixed inset-0 flex items-center justify-center p-4 ${closing ? 'ui-out-fade' : ''}`}
       style={{ zIndex: 'var(--z-modal)', top: 'var(--platform-bar, 0px)' }}
       onMouseDown={(e) => {
-        // Backdrop click closes; clicks inside the panel don't bubble here.
-        if (e.target === e.currentTarget) beginClose();
+        // Backdrop click closes; clicks inside the panel don't bubble here. Never over unsaved edits.
+        if (e.target === e.currentTarget && !dirtyRef.current) beginClose();
       }}
     >
       <div
@@ -169,6 +176,7 @@ const Modal = ({ children, onClose, title = 'Form', maxWidthClass = 'max-w-4xl',
           </div>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto p-6">{children}</div>
+        {footer ? <div className="ui-drawer-footer shrink-0">{footer}</div> : null}
       </div>
     </div>
     </OverlayLayerContext.Provider>,

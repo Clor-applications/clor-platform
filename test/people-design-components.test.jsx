@@ -196,3 +196,67 @@ describe('PageHeader breadcrumb', () => {
     expect(screen.getAllByText('Add employee').some((n) => n.getAttribute('aria-current') === 'page')).toBe(true);
   });
 });
+
+describe('Drawer and Modal (spec v1 §5.1)', () => {
+  it('a drawer gives focus back to what opened it, and Escape in its date picker closes only the picker', async () => {
+    const { default: Drawer } = await import('../packages/ui/src/components/ui/Drawer');
+    const user = userEvent.setup();
+    function Host() {
+      const [open, setOpen] = useState(false);
+      const [d, setD] = useState('2026-02-12');
+      return (<>
+        <button type="button" onClick={() => setOpen(true)}>Open filters</button>
+        <Drawer open={open} onClose={() => setOpen(false)} title="Filters">
+          <label htmlFor="from">From</label><DatePicker id="from" value={d} onChange={setD} />
+        </Drawer>
+      </>);
+    }
+    render(<Host />);
+    const opener = screen.getByRole('button', { name: 'Open filters' });
+    await user.click(opener);
+    await user.click(screen.getByRole('button', { name: 'Choose a date' }));
+    expect(screen.getByRole('grid')).toBeInTheDocument();
+    await user.keyboard('{Escape}');
+    expect(screen.queryByRole('grid')).toBeNull();
+    expect(screen.getByRole('dialog', { name: 'Filters' })).toBeInTheDocument();
+    await user.keyboard('{Escape}');
+    await act(async () => { await new Promise((r) => setTimeout(r, 200)); });
+    expect(screen.queryByRole('dialog', { name: 'Filters' })).toBeNull();
+    expect(opener).toHaveFocus();
+  });
+
+  it('with unsaved edits the scrim does not close a drawer, and Escape asks before discarding', async () => {
+    const { default: Drawer } = await import('../packages/ui/src/components/ui/Drawer');
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValueOnce(false).mockReturnValueOnce(true);
+    const onClose = vi.fn();
+    render(<Drawer open onClose={onClose} title="Edit" dirty><input aria-label="Phone" /></Drawer>);
+    const scrim = screen.getByRole('dialog', { name: 'Edit' }).parentElement;
+    fireEvent.mouseDown(scrim);
+    await act(async () => { await new Promise((r) => setTimeout(r, 200)); });
+    expect(onClose).not.toHaveBeenCalled();
+    expect(confirm).not.toHaveBeenCalled();
+    fireEvent.keyDown(window, { key: 'Escape' });
+    await act(async () => { await new Promise((r) => setTimeout(r, 200)); });
+    expect(confirm).toHaveBeenCalledTimes(1);
+    expect(onClose).not.toHaveBeenCalled();
+    fireEvent.keyDown(window, { key: 'Escape' });
+    await act(async () => { await new Promise((r) => setTimeout(r, 200)); });
+    await act(async () => { await new Promise((r) => setTimeout(r, 200)); });
+    expect(onClose).toHaveBeenCalled();
+    confirm.mockRestore();
+  });
+
+  it('a modal with unsaved edits ignores a backdrop click; without edits it closes', async () => {
+    const { default: Modal } = await import('../packages/ui/src/components/ui/Modal');
+    const onClose = vi.fn();
+    const { rerender } = render(<Modal title="Change manager" onClose={onClose} dirty footer={<button type="button">Save</button>}><p>x</p></Modal>);
+    expect(screen.getByRole('button', { name: 'Save' })).toBeInTheDocument();
+    fireEvent.mouseDown(screen.getByRole('dialog').parentElement);
+    await act(async () => { await new Promise((r) => setTimeout(r, 200)); });
+    expect(onClose).not.toHaveBeenCalled();
+    rerender(<Modal title="Change manager" onClose={onClose}><p>x</p></Modal>);
+    fireEvent.mouseDown(screen.getByRole('dialog').parentElement);
+    await act(async () => { await new Promise((r) => setTimeout(r, 200)); });
+    expect(onClose).toHaveBeenCalled();
+  });
+});

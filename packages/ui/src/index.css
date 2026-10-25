@@ -7677,3 +7677,5 @@ th.ui-th {
   .ui-datepicker-pop { position: fixed; left: 0; right: 0; bottom: 0; top: auto; width: auto; }
   .ui-datepicker-day { height: 2.75rem; }
 }
+
+.ui-drawer-footer { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 0.5rem; padding: 0.75rem 1.25rem; border-top: 1px solid rgb(var(--border)); background: rgb(var(--surface)); }

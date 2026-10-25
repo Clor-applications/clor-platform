@@ -2,6 +2,12 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 
+import { OverlayLayerContext } from './overlayLayer';
+import { confirmDialog } from './notify';
+
+/* An Escape that belongs to a popup inside the drawer (a date grid, a list of options, a menu) closes that popup, not the drawer. */
+const INNER_POPUP = '.ui-datepicker-pop, [role="listbox"], [role="menu"], [aria-expanded="true"]';
+
 /**
  * A panel that slides in from the right, over whatever is behind it.
  *
@@ -19,11 +25,21 @@ import { X } from 'lucide-react';
  * with its own stacking context, and a fixed panel inside one of those is
  * clipped by it.
  */
-export default function Drawer({ open, onClose, title, description = '', actions = null, children, widthClass = 'ui-form-drawer' }) {
+/*
+ * People design spec v1 (§5, §5.1): `footer` holds sticky actions (Cancel ·
+ * Save); `dirty` means unsaved edits — the scrim then does not close it, and
+ * Escape or × asks before discarding. Focus goes back to whatever opened it.
+ */
+export default function Drawer({ open, onClose, title, description = '', actions = null, footer = null, dirty = false, children, widthClass = 'ui-form-drawer' }) {
   /* Slid in over 200ms and vanished in one frame; it leaves the way it came,
      toward the edge it lives on. Same machinery as Modal. */
   const [closing, setClosing] = useState(false);
-  const beginClose = useCallback(() => setClosing(true), []);
+  const dirtyRef = useRef(dirty);
+  useEffect(() => { dirtyRef.current = dirty; }, [dirty]);
+  const beginClose = useCallback(async () => {
+    if (dirtyRef.current && !(await confirmDialog({ title: 'Discard your changes?', message: 'What you entered here has not been saved.', confirmLabel: 'Discard', tone: 'danger' }))) return;
+    setClosing(true);
+  }, []);
   /* A timer under `animationend`, for the reason spelled out in Modal: the
      event is absent whenever the animation is skipped, and a drawer that
      cannot be dismissed is worse than one that closes a frame early. */
@@ -40,14 +56,17 @@ export default function Drawer({ open, onClose, title, description = '', actions
     if (open && closing) setClosing(false);
   }
   const panelRef = useRef(null);
+  const returnFocusRef = useRef(null);
 
   useEffect(() => {
     if (!open) return undefined;
+    returnFocusRef.current = document.activeElement;
 
     const onKey = (e) => {
       if (e.key === 'Escape') {
+        if (e.target?.closest?.(INNER_POPUP) && panelRef.current?.contains(e.target)) return;
         e.stopPropagation();
-        setClosing(true);
+        beginClose();
         return;
       }
       if (e.key !== 'Tab') return;
@@ -76,21 +95,27 @@ export default function Drawer({ open, onClose, title, description = '', actions
        after the first character. Opening is the only event that should move
        focus into the drawer. */
     window.addEventListener('keydown', onKey, true);
-    panelRef.current?.focus();
-    return () => window.removeEventListener('keydown', onKey, true);
-  }, [open]);
+    const wants = panelRef.current?.querySelector('[data-autofocus]');
+    (wants || panelRef.current)?.focus();
+    return () => {
+      window.removeEventListener('keydown', onKey, true);
+      const back = returnFocusRef.current;
+      if (back && typeof back.focus === 'function' && document.contains(back)) back.focus();
+    };
+  }, [open, beginClose]);
 
   if (!open) return null;
 
   return createPortal(
+    <OverlayLayerContext.Provider value="drawer">
     <div
       className={`ui-scrim fixed inset-0 flex justify-end ${closing ? 'ui-out-fade' : ''}`}
       /* Starts under the platform bar, which outranks every app layer by
          design: from the very top, the drawer's title and Save sat under it. */
       style={{ zIndex: 'var(--z-drawer)', top: 'var(--platform-bar, 0px)' }}
       onMouseDown={(e) => {
-        // The scrim closes; a click inside the panel does not reach here.
-        if (e.target === e.currentTarget) beginClose();
+        // The scrim closes; a click inside the panel does not reach here. Not with unsaved edits (spec v1 §5.1).
+        if (e.target === e.currentTarget && !dirtyRef.current) beginClose();
       }}
     >
       <div
@@ -124,8 +149,10 @@ export default function Drawer({ open, onClose, title, description = '', actions
         </div>
 
         <div className="flex-1 overflow-y-auto p-5">{children}</div>
+        {footer ? <div className="ui-drawer-footer shrink-0">{footer}</div> : null}
       </div>
-    </div>,
+    </div>
+    </OverlayLayerContext.Provider>,
     document.body
   );
 }
