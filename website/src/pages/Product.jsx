@@ -73,7 +73,11 @@ function ProductArt({ slug, name }) {
   if (!COVERS[slug]) {
     return (
       <div className={`p-art p-art--plain p-art--${slug}`} aria-hidden="true">
-        <Clock size={72} strokeWidth={1.25} />
+        <span className="p-art-blob" />
+        <span className="p-art-tile">
+          <Clock size={64} strokeWidth={1.75} />
+        </span>
+        <span className="p-art-label">Coming soon</span>
       </div>
     );
   }
@@ -234,6 +238,20 @@ export default function Product({ slug }) {
           </div>
         </section>
       ) : null}
+
+      <section className="section" aria-labelledby="devices-title">
+        <div className="wrap split devices">
+          <Head
+            id="devices-title"
+            eyebrow="Anywhere you work"
+            title={`${p.name} on every device`}
+            intro={`In the browser on any computer, and in the Clor app on your phone. Sign in once; ${p.name} and your other apps follow you.`}
+          />
+          <Reveal className="devices-art-wrap">
+            <Illustration className="devices-art" src="/illustrations/devices.webp" width={1300} height={815} alt="A laptop, a phone and a tablet, each showing Clor, connected to the same workspace." />
+          </Reveal>
+        </div>
+      </section>
 
       <HowItWorks />
 

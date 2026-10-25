@@ -2862,9 +2862,10 @@ h4 {
 }
 .p-art {
   position: relative;
-  max-width: 420px;
+  max-width: 400px;
   margin-inline: auto;
-  padding: 0 var(--s-5) var(--s-5);
+  /* Room above the icon tile, so its cloud floats inside the card rather than meeting its edge. */
+  padding: var(--s-7) var(--s-5) var(--s-5);
   border-radius: 28px;
   background: var(--p-tint);
   border: 1px solid rgb(32 35 35 / 0.06);
@@ -2999,6 +3000,179 @@ h4 {
 }
 @media (max-width: 640px) {
   .p-features {
+    grid-template-columns: 1fr;
+  }
+}
+
+
+/* Product art, refined: a soft halo behind the card, and a plain tile for an app without artwork. */
+.p-hero-art {
+  position: relative;
+}
+.p-hero-art::before {
+  content: '';
+  position: absolute;
+  inset: 8% 4% 4%;
+  border-radius: 999px;
+  background: var(--p-glow, rgb(244 90 40 / 0.14));
+  filter: blur(48px);
+  z-index: -1;
+}
+.p-art--plain {
+  aspect-ratio: auto;
+  min-height: 360px;
+  padding: var(--s-8) var(--s-5);
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: var(--s-4);
+  overflow: hidden;
+}
+.p-art-blob {
+  position: absolute;
+  width: 70%;
+  aspect-ratio: 1.4;
+  top: 18%;
+  left: 15%;
+  border-radius: 46% 54% 40% 60% / 55% 45% 55% 45%;
+  background: radial-gradient(circle at 40% 40%, #f9b6d3, #f4cfe0 70%);
+  opacity: 0.7;
+}
+.p-art-tile {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 140px;
+  height: 140px;
+  border-radius: 34px;
+  color: #db2777;
+  background: linear-gradient(160deg, #fff7fb, #fbd5e6);
+  box-shadow: 0 24px 40px -18px rgb(219 39 119 / 0.45), inset 0 1px 0 #fff;
+}
+.p-art-label {
+  position: relative;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: var(--surface);
+  font-size: var(--t-xs);
+  font-weight: 600;
+  color: var(--ink-2);
+}
+@media (max-width: 960px) {
+  .p-art {
+    max-width: 320px;
+    padding-top: var(--s-6);
+  }
+  .p-art--plain {
+    min-height: 260px;
+  }
+}
+
+/* ================================================================ solutions pages */
+.sol-hero {
+  position: relative;
+  padding-top: clamp(var(--s-7), 6vw, var(--s-9));
+  padding-bottom: clamp(var(--s-7), 6vw, var(--s-9));
+  overflow: hidden;
+  border-bottom: 1px solid var(--line);
+  background:
+    radial-gradient(60% 70% at 92% 20%, rgb(244 90 40 / 0.13), transparent 70%),
+    var(--bg);
+}
+.sol-hero-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+  gap: var(--gap-col);
+  align-items: center;
+}
+.sol-hero-copy {
+  display: grid;
+  gap: var(--s-5);
+  justify-items: start;
+}
+.sol-title {
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1.04;
+  max-width: 15ch;
+}
+.sol-hero-art {
+  opacity: 0;
+  transform: translateY(18px) scale(0.985);
+  animation: hero-in 1s var(--ease) 0.35s forwards;
+}
+.sol-art {
+  max-width: 640px;
+  margin-left: auto;
+}
+.sol-step {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-family: var(--font-display);
+  font-weight: 800;
+}
+.sol-stages .stage-products {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-3);
+  margin: var(--s-2) 0 0;
+}
+.sol-stages .stage-products a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--t-sm);
+  font-weight: 600;
+  color: var(--ink);
+  text-decoration: none;
+}
+.sol-changes {
+  margin-top: var(--s-6);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+.sol-cards-3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.firms-planned {
+  align-items: center;
+}
+.firms-art-wrap {
+  max-width: 560px;
+  width: 100%;
+  justify-self: end;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sol-hero-art {
+    opacity: 1;
+    transform: none;
+    animation: none;
+  }
+}
+@media (max-width: 1100px) {
+  .sol-changes,
+  .sol-cards-3 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 960px) {
+  .sol-hero-grid {
+    grid-template-columns: 1fr;
+  }
+  .sol-art {
+    margin-inline: auto;
+  }
+  .firms-art-wrap {
+    justify-self: center;
+  }
+}
+@media (max-width: 640px) {
+  .sol-changes,
+  .sol-cards-3 {
     grid-template-columns: 1fr;
   }
 }
