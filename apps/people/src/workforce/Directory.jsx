@@ -39,13 +39,19 @@ const apiParams = (p) => ({
 export default function Directory({ params = {}, updateParams, openScreen, tenant }) {
   const perms = usePermissions();
   const allowed = (k) => can(perms, k);
-  const p = params || {};
+  /*
+   * A search that looks like a phone number or an identifier (six or more
+   * digits) is kept on this page only, never in the address bar, history or
+   * a shared link (Workforce WF-03 search contract).
+   */
+  const [privateQ, setPrivateQ] = useState('');
+  const p = privateQ ? { ...(params || {}), q: privateQ } : (params || {});
   const tab = p.tab === 'views' ? 'views' : p.tab === 'team' ? 'team' : 'directory';
   const page = Math.max(1, Number(p.page || 1));
   const size = [25, 50, 100].includes(Number(p.size)) ? Number(p.size) : 25;
   const set = (patch, push = false) => updateParams?.(patch, { push });
   /* The record page's "Workforce" breadcrumb comes back to this exact list. */
-  useEffect(() => { try { sessionStorage.setItem('people.workforce.lastDirectory', JSON.stringify(p)); } catch { /* convenience */ } }, [JSON.stringify(p)]);
+  useEffect(() => { try { sessionStorage.setItem('people.workforce.lastDirectory', JSON.stringify(params || {})); } catch { /* convenience */ } }, [JSON.stringify(params || {})]);
   const filtersOn = FILTER_KEYS.filter((k) => p[k]).length;
 
   /* The list: one request per query; the last good page stays while the next loads. */
@@ -130,7 +136,7 @@ export default function Directory({ params = {}, updateParams, openScreen, tenan
     }
   };
 
-  const clearFilters = () => set(Object.fromEntries([...FILTER_KEYS, 'q', 'page', 'view'].map((k) => [k, null])));
+  const clearFilters = () => { setPrivateQ(''); set(Object.fromEntries([...FILTER_KEYS, 'q', 'page', 'view'].map((k) => [k, null]))); };
   const lookup = (listName, id) => lists[listName]?.find((x) => x.id === id)?.name || 'Chosen';
   const chips = [
     p.status && { k: 'status', label: `Status: ${STATUS[p.status]?.label || p.status}` },
@@ -197,7 +203,7 @@ export default function Directory({ params = {}, updateParams, openScreen, tenan
             </span>
           )}
           toolbar={<>
-            <SearchField value={p.q || ''} onSearch={(q) => set({ q: q || null, page: null })} placeholder="Search name, employee ID or work email" label="Search employees" className="w-full sm:w-80" />
+            <SearchField value={p.q || ''} onSearch={(q) => { if (/\d{6,}/.test(q)) { setPrivateQ(q); set({ q: null, page: null }); } else { setPrivateQ(''); set({ q: q || null, page: null }); } }} placeholder="Search name, employee ID or work email" label="Search employees" className="w-full sm:w-80" />
             <button type="button" className="ui-btn ui-btn-secondary" aria-haspopup="dialog" onClick={() => setFiltersOpen(true)}>
               <Filter size={16} aria-hidden="true" /> Filters{filtersOn ? <span className="ui-pill ui-pill-info tabular-nums ml-1">{filtersOn}</span> : null}
             </button>
