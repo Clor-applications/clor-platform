@@ -14,12 +14,12 @@ Status: TODO · IN PROGRESS · DONE · BLOCKED (owner decision).
 | 00.5 | DataTable | ✓ | ◐ | ✓ | ◐ | IN PROGRESS | `people-design-components.test.jsx` (3): server sort with aria-sort, 25/50/100 paging, row click vs controls, keyboard row menu, page selection, columns and density. Visual and 375px proof with EMP-01 |
 | 00.6 | Application state kit | ✓ | ◐ | ✓ | ◐ | IN PROGRESS | `useRequest` (first load, background refresh keeping data, slow flag, failure keeping data, newest answer wins, cancel), `useOnlineHint`, `ErrorState` kinds, `Alert`; test in `people-design-components.test.jsx`. Each state shown on EMP screens in 01.x |
 | 01.1 | Backend: sort/filters/counts, version + 409, preferred name, ID suggestion, drafts, server export | ✓ | – | ✓ | ✓ | DONE | `peopleWorkforce.test.ts` 5/5; neighbours 55/55; route gate 0 violations |
-| 01.2 | EMP-01 Directory, EMP-12 Saved views | | | | | TODO | |
-| 01.3 | EMP-02 Add Employee wizard | | | | | TODO | |
-| 01.4 | Record page, EMP-03..06 | | | | | TODO | |
-| 01.5 | EMP-07 Documents, EMP-08 History | | | | | TODO | |
-| 01.6 | EMP-09 Activity | | | | | TODO | |
-| 01.7 | EMP-10 Import, EMP-11 Bulk results | | | | | TODO | |
+| 01.2 | EMP-01 Directory, EMP-12 Saved views | ✓ | ◐ | ✓ | ◐ | IN PROGRESS | `workforce/Directory.jsx`: server search/filter/sort/paging in the URL, counts strip, live banners, filters drawer (draft vs applied), columns and density, row menu, bulk bar with per-record result drawer, audited export, saved views tab. Mobile cards with no overflow (`evidence/01/mobile-0[12]`). Desktop screenshot pending a wider pane |
+| 01.3 | EMP-02 Add Employee wizard | ✓ | ◐ | ✓ | ✓ | IN PROGRESS | `workforce/AddEmployee.jsx`: four steps in the URL, inline errors with linked summary, Enter never submits, Back (button or browser) keeps entries, suggested ID, real drafts, duplicate check with reason, idempotent create. Browser: workflow tests 2 and 3 passed (`evidence/01/mobile-0[45]`) |
+| 01.4 | Record page, EMP-03..06 | ✓ | ◐ | ✓ | ◐ | IN PROGRESS | `workforce/EmployeeRecord.jsx`: header, 7 URL tabs, section edit with 409 compare, operations (manager, transfer, designation, type) with effective date, reason, impact; probation, scheduled changes, rehire, leaving, invite, delete. Browser: designation change applied and on the timeline (workflow test 5) |
+| 01.5 | EMP-07 Documents, EMP-08 History | ✓ | ◐ | ✓ | ◐ | IN PROGRESS | Existing documents, employment history and journey reused inside the record |
+| 01.6 | EMP-09 Activity | ✓ | ◐ | ✓ | ✓ | IN PROGRESS | `/employees/:id/activity` + ActivityTimeline + comments; redaction tested in `peopleWorkforce.test.ts`. AuditLog correlation join (D-V8) still to do |
+| 01.7 | EMP-10 Import, EMP-11 Bulk results | ✓ | ◐ | ✓ | ◐ | IN PROGRESS | `workforce/ImportEmployees.jsx` (upload, map, check, review, results, undo, reports); bulk result drawer with skipped download. Browser run of import pending |
 | 01.8 | Mobile, company switch, accessibility | | | | | TODO | |
 | 01.9 | Completion report | | | | | TODO | |
 

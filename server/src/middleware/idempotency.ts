@@ -20,7 +20,7 @@ import { platformPrisma } from '../utils/platformPrisma.js';
  *
  * Only a success is kept: after any failure a retry runs for real.
  */
-const GUARDED = /^\/api\/orgs\/[^/]+\/(invoices|payments|payments\/[^/]+\/reverse|ledger\/entries|bank-book|adjustments|transfers|fixed-assets|recurring\/run|pay-requests|payroll\/payments|payroll\/payments\/[^/]+\/(settle|post|cancel)|payroll\/runs|payroll\/settlements)\/?$/;
+const GUARDED = /^\/api\/orgs\/[^/]+\/(people\/employees|people\/employees\/bulk|people\/employees\/import|invoices|payments|payments\/[^/]+\/reverse|ledger\/entries|bank-book|adjustments|transfers|fixed-assets|recurring\/run|pay-requests|payroll\/payments|payroll\/payments\/[^/]+\/(settle|post|cancel)|payroll\/runs|payroll\/settlements)\/?$/;
 const KEY_WINDOW_MS = 24 * 3_600_000;
 const WAIT_MS = 10_000;
 const sha = (s: string) => createHash('sha256').update(s).digest('hex');

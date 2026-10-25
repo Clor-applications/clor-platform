@@ -57,6 +57,11 @@ describe('workforce backend', () => {
     await people(boss).post('/employees', { name: 'Mira Sen', code: 'W-002', dateOfJoining: future }).expect(201);
     const byCode = (await people(boss).get('/employees?sort=code&dir=desc&limit=25').expect(200)).body.employees.map((e: any) => e.code);
     expect(byCode).toEqual(['W-003', 'W-002', 'W-001']);
+    /* Every sortable column answers, in both directions. */
+    for (const sort of ['name', 'code', 'department', 'designation', 'dateOfJoining', 'status', 'location']) {
+      for (const dir of ['asc', 'desc']) await people(boss).get(`/employees?sort=${sort}&dir=${dir}&limit=25`).expect(200);
+    }
+    expect((await people(boss).get('/employees?sort=name').expect(200)).body.employees.map((e: any) => e.name)).toEqual(['Arun Bose', 'Mira Sen', 'Zoya Ali']);
     const joined = (await people(boss).get('/employees?joinedFrom=2025-01-01&joinedTo=2025-12-31').expect(200)).body.employees.map((e: any) => e.name);
     expect(joined).toEqual(['Arun Bose']);
     expect((await people(boss).get(`/employees?areaId=${site.id}`).expect(200)).body.employees.map((e: any) => e.name)).toEqual(['Arun Bose']);
@@ -130,6 +135,8 @@ describe('workforce backend', () => {
     const promo = all.find((x: any) => x.changes?.some((c: any) => c.field === 'jobPositionId'));
     expect(promo.changes.find((c: any) => c.field === 'jobPositionId')).toMatchObject({ after: 'Lead analyst', redacted: false });
     expect(promo.reason).toBe('Promotion');
+    /* The designation text copy does not repeat the change. */
+    expect(promo.changes.filter((c: any) => c.label === 'Designation')).toHaveLength(1);
     expect(all.find((x: any) => x.title === 'Identity details updated')).toBeTruthy();
     /* The removed file's upload goes with its row; its removal stays on the trail. */
     expect(all.some((x: any) => x.title === 'Uploaded Medical note')).toBe(false);

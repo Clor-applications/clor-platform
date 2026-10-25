@@ -485,7 +485,9 @@ function directoryOrder(sort: string, dir: string): any[] {
   const field = SORTABLE[sort];
   const d = dir === 'desc' ? 'desc' : 'asc';
   if (!field) return [{ status: 'asc' }, { name: 'asc' }, { id: 'asc' }];
-  return [{ [field]: { sort: d, nulls: 'last' } }, ...(field === 'name' ? [] : [{ name: 'asc' }]), { id: 'asc' }];
+  /* Prisma takes nulls-last only on optional columns; name and status are always set. */
+  const order = field === 'name' || field === 'status' ? { [field]: d } : { [field]: { sort: d, nulls: 'last' } };
+  return [order, ...(field === 'name' ? [] : [{ name: 'asc' }]), { id: 'asc' }];
 }
 
 /**

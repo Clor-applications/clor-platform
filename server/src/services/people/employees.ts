@@ -61,8 +61,17 @@ export async function updateEmployee(
 ): Promise<{ row: Row; changes: ReturnType<typeof diffEmployee> }> {
   const result = await peoplePrisma.$transaction(async (tx) => {
     /* Every write moves the version on, so an edit made against an older copy is refused (People design v1, 409 STALE). */
+    /*
+     * Compare against the row as it is now, read under the row lock, not the
+     * copy the caller loaded: an approval that applied a change a moment ago
+     * (a rule whose only approver is the requester) must not be logged again
+     * by the rest of the same form.
+     */
+    const current = ((await tx.$queryRaw<Array<{ id: string }>>`SELECT id FROM "Employee" WHERE id = ${existing.id} FOR UPDATE`).length
+      ? await tx.employee.findUnique({ where: { id: existing.id } })
+      : null) || existing;
     const updated = await tx.employee.update({ where: { id: existing.id }, data: { ...(data as Record<string, unknown>), version: { increment: 1 } } as Prisma.EmployeeUncheckedUpdateInput });
-    const changes = diffEmployee(existing as unknown as Record<string, unknown>, updated as unknown as Record<string, unknown>);
+    const changes = diffEmployee(current as unknown as Record<string, unknown>, updated as unknown as Record<string, unknown>);
     await writeChangeLog(tx, actor, { kind: 'Employee', id: updated.id, employeeId: updated.id }, changes);
     const job = changes.filter((c) => JOB_FIELDS.has(c.field));
     for (const c of job) {

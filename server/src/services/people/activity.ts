@@ -87,7 +87,17 @@ export async function activityOf(viewer: ActivityViewer, employeeId: string, opt
   for (const [k, g] of groups) {
     const first = g[g.length - 1];
     const created = g.some((l) => l.field === 'record' && l.after === 'created');
-    const shown = g.filter((l) => l.field !== 'record');
+    /* One line per real change: the text copies (department, designation) ride with their id field, and a line written twice shows once. */
+    const ids = new Set(g.map((l) => l.field));
+    const seen = new Set<string>();
+    const shown = g.filter((l) => {
+      if (l.field === 'record') return false;
+      if ((l.field === 'department' && ids.has('departmentId')) || (l.field === 'designation' && ids.has('jobPositionId'))) return false;
+      const sig = `${l.entity}|${l.field}|${l.before}|${l.after}`;
+      if (seen.has(sig)) return false;
+      seen.add(sig);
+      return true;
+    });
     const changes = (await changesOf(orgId, shown as any)).map((c, i) => {
       const redacted = c.redacted || hidden(shown[i]);
       return { field: c.key, label: shown[i].entity === 'CustomFieldValue' ? (defOf.get(shown[i].field)?.label || fieldWord(shown[i].field)) : c.field, before: redacted ? null : c.before, after: redacted ? null : c.after, redacted };

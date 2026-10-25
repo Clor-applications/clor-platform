@@ -175,7 +175,7 @@ async function stepUpAndRetry(path, opts, data) {
  * key, so the server answers it with the first result instead of making a
  * second invoice, receipt or payment. A different body is a new key.
  */
-const GUARDED_WRITE = /^\/orgs\/[^/]+\/(invoices|payments|payments\/[^/]+\/reverse|ledger\/entries|bank-book|adjustments|transfers|fixed-assets|recurring\/run|pay-requests|payroll\/payments|payroll\/payments\/[^/]+\/(settle|post|cancel)|payroll\/runs|payroll\/settlements)\/?$/;
+const GUARDED_WRITE = /^\/orgs\/[^/]+\/(people\/employees|people\/employees\/bulk|people\/employees\/import|invoices|payments|payments\/[^/]+\/reverse|ledger\/entries|bank-book|adjustments|transfers|fixed-assets|recurring\/run|pay-requests|payroll\/payments|payroll\/payments\/[^/]+\/(settle|post|cancel)|payroll\/runs|payroll\/settlements)\/?$/;
 const recentWrites = new Map();
 const REUSE_MS = 15_000;
 const newKey = () => (globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`);

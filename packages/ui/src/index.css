@@ -7708,3 +7708,70 @@ th.ui-th {
   .ui-datatable.has-cards .ui-datatable-cards { display: block; }
   .ui-table-pager { justify-content: center; }
 }
+
+/* Workforce directory (People design v1 EMP-01, Workforce package WF-03) */
+.ui-metric-strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: 0; background: rgb(var(--surface)); border: 1px solid rgb(var(--border)); }
+.ui-metric { display: flex; align-items: center; gap: 0.75rem; padding: 0.875rem 1rem; text-align: left; background: transparent; border: 0; border-right: 1px solid rgb(var(--border)); color: rgb(var(--fg)); font: inherit; }
+.ui-metric:last-child { border-right: 0; }
+button.ui-metric { cursor: pointer; }
+button.ui-metric:hover { background: rgb(var(--surface-sunken)); }
+button.ui-metric:focus-visible { outline: 2px solid rgb(var(--ring)); outline-offset: -2px; }
+.ui-metric-icon { flex: none; color: rgb(var(--brand-ink)); }
+.ui-metric-value { display: block; font-size: 1.375rem; font-weight: 600; line-height: 1.2; }
+.ui-metric-label { display: block; font-size: 0.8125rem; color: rgb(var(--fg-muted)); }
+.ui-bulkbar { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; padding: 0.25rem 0.75rem; background: rgb(var(--brand-subtle)); border: 1px solid rgb(var(--brand-border)); }
+@media (max-width: 639px) {
+  .ui-metric-strip { grid-template-columns: repeat(2, 1fr); }
+  .ui-metric { border-bottom: 1px solid rgb(var(--border)); }
+}
+
+/* Workforce employee record (People design v1 EMP-03..09) */
+.ui-record-section { background: rgb(var(--surface)); border: 1px solid rgb(var(--border)); padding: 1rem 1.25rem; }
+.ui-field-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.75rem 1.5rem; }
+.ui-field-row { display: grid; grid-template-columns: 9rem minmax(0, 1fr); gap: 0.5rem; align-items: baseline; min-width: 0; }
+.ui-field-row dd { min-width: 0; overflow-wrap: anywhere; }
+.ui-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.75rem 1rem; }
+.ui-record-overview { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1rem; }
+.ui-record-rail { display: none; }
+@media (min-width: 1280px) {
+  .ui-record-overview { grid-template-columns: minmax(0, 1fr) 22rem; }
+  .ui-record-rail { display: flex; flex-direction: column; gap: 1rem; }
+}
+@media (max-width: 899px) {
+  .ui-field-grid { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 639px) {
+  .ui-form-grid { grid-template-columns: minmax(0, 1fr); }
+  .ui-field-row { grid-template-columns: minmax(0, 1fr); gap: 0.125rem; }
+  .ui-record-section { padding: 0.875rem 1rem; }
+}
+
+/* Add employee wizard (People design v1 EMP-02) */
+.ui-stepper { display: flex; flex-wrap: wrap; gap: 0.5rem 1.5rem; list-style: none; margin: 0; padding: 0; }
+.ui-step { display: flex; align-items: center; gap: 0.5rem; color: rgb(var(--fg-muted)); }
+.ui-step-mark { display: grid; place-items: center; width: 1.75rem; height: 1.75rem; border: 1px solid rgb(var(--border-strong)); font-size: 0.8125rem; font-variant-numeric: tabular-nums; background: rgb(var(--surface)); }
+.ui-step.is-current { color: rgb(var(--fg)); }
+.ui-step.is-current .ui-step-mark { background: rgb(var(--brand)); border-color: rgb(var(--brand)); color: rgb(var(--on-brand)); }
+.ui-step.is-done .ui-step-mark { border-color: rgb(var(--brand)); color: rgb(var(--brand-ink)); }
+.ui-step-label { display: block; font-size: 0.875rem; font-weight: 500; }
+.ui-step-hint { display: block; font-size: 0.75rem; color: rgb(var(--fg-muted)); }
+.ui-wizard-body:focus { outline: none; }
+.ui-wizard-actions { position: sticky; bottom: 0; display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 1.25rem -1.25rem -1rem; padding: 0.75rem 1.25rem; background: rgb(var(--surface)); border-top: 1px solid rgb(var(--border)); }
+.ui-review-block { border: 1px solid rgb(var(--border)); padding: 0.75rem 1rem; }
+.ui-required { color: rgb(var(--neg)); }
+.ui-input.is-invalid { border-color: rgb(var(--neg)); }
+@media (max-width: 639px) {
+  .ui-step-hint { display: none; }
+  .ui-wizard-actions { margin: 1rem -1rem -0.875rem; padding: 0.75rem 1rem; }
+  .ui-wizard-actions .ui-btn { min-height: 44px; }
+}
+
+.ui-dropzone { display: flex; flex-direction: column; align-items: center; gap: 0.375rem; padding: 2rem 1rem; text-align: center; border: 1px dashed rgb(var(--border-strong)); background: rgb(var(--surface-sunken)); cursor: pointer; color: rgb(var(--fg)); }
+.ui-dropzone:hover { border-color: rgb(var(--brand)); }
+.ui-dropzone:focus-within { outline: 2px solid rgb(var(--ring)); outline-offset: 2px; }
+.ui-text-neg { color: rgb(var(--neg)); }
+/* Below the phone tab bar's top edge, a sticky footer would sit under the bar (it is 61px plus the safe area). */
+@media (max-width: 767px) {
+  .ui-wizard-actions { bottom: calc(62px + env(safe-area-inset-bottom)); }
+  .ui-wizard-actions > .ui-btn:first-child { order: 2; }
+}

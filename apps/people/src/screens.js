@@ -7,6 +7,11 @@ import OpenInCompanyAdmin from '@ui/company/OpenInCompanyAdmin';
  */
 export { default as PeopleOverview } from './screens/PeopleOverview';
 export { Employees } from './screens/EmployeesList';
+/* Workforce (People design v1, Module 01). */
+export { default as Workforce } from './workforce/Directory';
+export { default as EmployeeRecord } from './workforce/EmployeeRecord';
+export { default as AddEmployee } from './workforce/AddEmployee';
+export { default as ImportEmployees } from './workforce/ImportEmployees';
 export { default as Approvals } from './screens/Approvals';
 export { default as Policies } from './screens/Policies';
 export { default as ApprovalRules } from './screens/ApprovalRules';

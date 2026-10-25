@@ -58,7 +58,10 @@ import { lazyScreens } from '@ui/utils/lazyScreens';
 /* Screens load as one file the first time the app opens (WX-03). */
 const screen = lazyScreens(() => import('./src/screens.js'));
 const PeopleOverview = screen('PeopleOverview');
-const Employees = screen('Employees');
+const Employees = screen('Workforce');
+const EmployeeRecord = screen('EmployeeRecord');
+const AddEmployee = screen('AddEmployee');
+const ImportEmployees = screen('ImportEmployees');
 const Approvals = screen('Approvals');
 const Policies = screen('Policies');
 const ApprovalRules = screen('ApprovalRules');
@@ -205,7 +208,8 @@ export const peopleApp = {
   /* The sidebar holds the day's work; everything set up once lives on one Settings page (PeopleSettings), its pages marked `parent: 'settings'`. */
   modules: [
     { key: 'overview', label: 'Home', items: ['overview', 'approvals'] },
-    { key: 'employees', label: 'Employees', groups: [
+    /* Workforce package (owner, 26 Oct 2026): the visible module is Workforce; screen keys stay `employees` so old links keep working. */
+    { key: 'employees', label: 'Workforce', groups: [
       { label: 'Directory', items: ['employees', 'orgChart', 'documents'] },
       { label: 'Help', items: ['helpdesk', 'policies', 'privateCases'] },
       { label: 'Joining & Leaving', items: ['checklists', 'assets'] },
@@ -228,7 +232,11 @@ export const peopleApp = {
   nav: [
     { key: 'overview', label: 'Home', icon: I.home, permission: 'PEOPLE::Employees::VIEW' },
     { key: 'approvals', label: 'Approvals', icon: I.checklist, permission: 'PEOPLE::Requests::VIEW' },
-    { key: 'employees', label: 'Employees', icon: I.people, permission: 'PEOPLE::Employees::VIEW' },
+    { key: 'employees', label: 'Workforce', icon: I.people, permission: 'PEOPLE::Employees::VIEW' },
+    /* Pages inside Workforce (profile, add, import): reached from the directory, never their own sidebar entries; the shell shows "← Workforce". */
+    { key: 'employee', label: 'Employee', icon: I.people, permission: 'PEOPLE::Employees::VIEW', parent: 'employees' },
+    { key: 'employeeNew', label: 'Add Employee', icon: I.people, permission: 'PEOPLE::Employees::CREATE', parent: 'employees' },
+    { key: 'employeeImport', label: 'Import Employees', icon: I.import, permission: 'PEOPLE::Employees::CREATE', parent: 'employees' },
     { key: 'orgChart', label: 'Org Chart', icon: I.org, permission: 'PEOPLE::Org Structure::VIEW' },
     { key: 'documents', label: 'Documents', icon: I.folder, permission: 'PEOPLE::Employees::VIEW' },
     { key: 'policies', label: 'Policies', icon: I.policy, permission: 'PEOPLE::Policies::VIEW' },
@@ -300,6 +308,9 @@ export const peopleApp = {
     approvals: Approvals,
     policies: Policies,
     employees: Employees,
+    employee: EmployeeRecord,
+    employeeNew: AddEmployee,
+    employeeImport: ImportEmployees,
     orgChart: OrgChart,
     documents: PeopleDocuments,
     checklists: Checklists,

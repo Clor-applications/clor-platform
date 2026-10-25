@@ -121,7 +121,7 @@ const EXPORT_COLUMNS = [
   { key: 'status', label: 'Status', value: (r) => statusOf(r.status).label },
 ];
 
-const IMPORT_COLUMNS = [
+export const IMPORT_COLUMNS = [
   { key: 'name', label: 'name' },
   { key: 'code', label: 'code' },
   { key: 'email', label: 'email' },
@@ -863,7 +863,7 @@ function EmployeeFile({ id, onClose, onEdit, onDeleted }) {
 
 /* The fields whose change is recorded in employment history (server: TRACKED in services/people/employmentHistory.ts). */
 /* The job fields a change may be dated for, as the record names them (server: SCHEDULABLE_FIELDS). */
-const SCHEDULED_LABELS = { departmentId: 'Department', businessUnitId: 'Business unit', areaId: 'Location', branchId: 'Branch', establishmentId: 'Establishment', teamId: 'Team', seatId: 'Seat', jobPositionId: 'Designation', jobRoleId: 'Job role', reportingManagerId: 'Reports to', dottedManagerId: 'Also reports to', employeeTypeId: 'Employee type', workTypeId: 'Work type', contractorId: 'Contractor', gradeId: 'Grade', costCenterId: 'Cost centre', status: 'Status' };
+export const SCHEDULED_LABELS = { departmentId: 'Department', businessUnitId: 'Business unit', areaId: 'Location', branchId: 'Branch', establishmentId: 'Establishment', teamId: 'Team', seatId: 'Seat', jobPositionId: 'Designation', jobRoleId: 'Job role', reportingManagerId: 'Reports to', dottedManagerId: 'Also reports to', employeeTypeId: 'Employee type', workTypeId: 'Work type', contractorId: 'Contractor', gradeId: 'Grade', costCenterId: 'Cost centre', status: 'Status' };
 /* How each line of the impact list lands: a review task on the record, an app told through an event, or a note. */
 const IMPACT_TARGET = { TASK: 'review task for HR', TOLD: 'told automatically', INFO: 'for information' };
 const HISTORY_FIELDS = ['businessUnitId', 'gradeId', 'costCenterId', 'departmentId', 'areaId', 'establishmentId', 'teamId', 'seatId', 'jobPositionId', 'jobRoleId', 'reportingManagerId', 'dottedManagerId', 'employeeTypeId', 'workTypeId', 'contractorId'];
@@ -875,7 +875,7 @@ const HISTORY_TONE = { JOINED: 'pos', LEFT: 'neg', REHIRED: 'pos', TRANSFERRED: 
  * first, each with the date it counts from, before and after, who recorded it
  * and what it means for payroll.
  */
-function EmploymentHistory({ employeeId }) {
+export function EmploymentHistory({ employeeId }) {
   const [events, setEvents] = useState(null);
   const [episodes, setEpisodes] = useState([]);
   useEffect(() => {
@@ -925,7 +925,7 @@ function EmploymentHistory({ employeeId }) {
   );
 }
 
-const GENDER_WORDS = { MALE: 'Male', FEMALE: 'Female', NON_BINARY: 'Non-binary', OTHER: 'Other', PREFER_NOT_TO_SAY: 'Prefer not to say' };
+export const GENDER_WORDS = { MALE: 'Male', FEMALE: 'Female', NON_BINARY: 'Non-binary', OTHER: 'Other', PREFER_NOT_TO_SAY: 'Prefer not to say' };
 const JOURNEY_TONE = { APPROVED: 'pos', SCHEDULED: 'info', SELF: 'info', CHANGE: 'neutral', HISTORY: 'neutral' };
 const JOURNEY_KIND = { APPROVED: 'Approved', SCHEDULED: 'Scheduled', SELF: 'Self-service', CHANGE: 'Change', HISTORY: 'History' };
 const whenAt = (d) => new Date(d).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' });
@@ -935,7 +935,7 @@ const whenAt = (d) => new Date(d).toLocaleString('en-IN', { dateStyle: 'medium',
  * a Why? that opens what changed, when, who asked, who approved, which rule
  * version, the evidence, and what it set off — or says what is not known.
  */
-function Journey({ employeeId }) {
+export function Journey({ employeeId }) {
   const [data, setData] = useState(null);
   const [why, setWhy] = useState(null);
   useEffect(() => {
@@ -1135,7 +1135,7 @@ function WhyPanel({ why }) {
  * Joining and leaving checklists: what is done and what is due, ticked here.
  * Started when someone joins or leaves; by hand for anyone added before.
  */
-function EmployeeChecklist({ person }) {
+export function EmployeeChecklist({ person }) {
   const [data, setData] = useState(null);
   const [busy, setBusy] = useState('');
   useEffect(() => {
@@ -1212,7 +1212,7 @@ function EmployeeChecklist({ person }) {
  * Statutory and bank details, from Payroll's profile, masked (PE-05). Only for
  * someone who may see payroll profiles; nothing is changed here.
  */
-function StatutoryDetails({ employeeId }) {
+export function StatutoryDetails({ employeeId }) {
   const [d, setD] = useState(null);
   const [shown, setShown] = useState({});
   const [editing, setEditing] = useState(null);
@@ -1312,7 +1312,7 @@ function StatutoryDetails({ employeeId }) {
 }
 
 /** The company's own fields on this person (CORE-08): only the ones this user may see; edited in place where they may. */
-function CustomFields({ employeeId }) {
+export function CustomFields({ employeeId }) {
   const [fields, setFields] = useState(null);
   const [edits, setEdits] = useState({});
   const [busy, setBusy] = useState(false);
@@ -1368,15 +1368,15 @@ function CustomFields({ employeeId }) {
  * row (errors and matches named), choose add-only or update-by-code, then
  * commit — and undo the whole batch within a day.
  */
-const IMPORT_FIELDS = [...IMPORT_COLUMNS, { key: 'businessUnit', label: 'businessUnit' }, { key: 'grade', label: 'grade' }, { key: 'costCentre', label: 'costCentre' }];
-const guessField = (header) => {
+export const IMPORT_FIELDS = [...IMPORT_COLUMNS, { key: 'businessUnit', label: 'businessUnit' }, { key: 'grade', label: 'grade' }, { key: 'costCentre', label: 'costCentre' }];
+export const guessField = (header) => {
   const h = String(header || '').toLowerCase().replace(/[^a-z]/g, '');
   const aliases = { employeeid: 'code', empcode: 'code', id: 'code', fullname: 'name', employeename: 'name', mobile: 'phone', phonenumber: 'phone', emailid: 'email', personalemail: 'email', designation: 'jobPosition', position: 'jobPosition', dept: 'department', doj: 'dateOfJoining', joiningdate: 'dateOfJoining', dateofjoining: 'dateOfJoining', dob: 'dateOfBirth', dateofbirth: 'dateOfBirth', type: 'employeeType', costcenter: 'costCentre' };
   if (aliases[h]) return aliases[h];
   const hit = IMPORT_FIELDS.find((f) => f.key.toLowerCase() === h);
   return hit ? hit.key : '';
 };
-function ImportDrawer({ file, onClose, onDone }) {
+export function ImportDrawer({ file, onClose, onDone }) {
   const [mapping, setMapping] = useState(() => file.headers.map(guessField));
   const [mode, setMode] = useState('create');
   const [preview, setPreview] = useState(null);
@@ -1483,7 +1483,7 @@ const JOINER_FIELDS = [
 const INVITE_STATUS = { SENT: 'Sent, not opened', STARTED: 'Opened, not sent back', RETURNED: 'Sent back — check it', CHECKED: 'Checked', EXPIRED: 'Ran out' };
 
 /** Invite someone about to join to fill in their own details (LIFE-01). By phone, HR is handed the link to send. */
-function InviteForm({ person, onClose, onDone }) {
+export function InviteForm({ person, onClose, onDone }) {
   const [form, setForm] = useState({ channel: person.email || person.personalEmail ? 'EMAIL' : 'SMS', sentTo: person.email || person.personalEmail || person.phone || '', message: '' });
   const [saving, setSaving] = useState(false);
   const [link, setLink] = useState('');
@@ -1552,7 +1552,7 @@ function InviteForm({ person, onClose, onDone }) {
 }
 
 /** The invite on file and, once sent back, what the joiner typed beside what the record says — checked onto the record in one go. */
-function JoiningDetails({ person, onChecked }) {
+export function JoiningDetails({ person, onChecked }) {
   const [invites, setInvites] = useState(null);
   const [edits, setEdits] = useState({});
   const [busy, setBusy] = useState(false);
@@ -1610,7 +1610,7 @@ function JoiningDetails({ person, onChecked }) {
 }
 
 /** Someone leaving: last day, why. They come off every reader at once. */
-function ResignForm({ person, onClose, onDone }) {
+export function ResignForm({ person, onClose, onDone }) {
   const [form, setForm] = useState({ lastDay: new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10), leavingType: 'RESIGNED', reason: '' });
   const [saving, setSaving] = useState(false);
   const save = async (e) => {

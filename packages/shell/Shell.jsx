@@ -499,6 +499,9 @@ export default function Shell() {
    * `?open=` is the name notifications already use to link into a screen.
    */
   const fromHistory = useRef(false);
+  const screenKeyRef = useRef(screenKey);
+  const activeAppIdRef = useRef(activeAppId);
+  useEffect(() => { screenKeyRef.current = screenKey; activeAppIdRef.current = activeAppId; }, [screenKey, activeAppId]);
   const urlReady = useRef(false);
   const ownsAddress = Boolean(user && tenant && activeAppId && !appById(activeAppId)?.Root);
   useEffect(() => {
@@ -525,6 +528,11 @@ export default function Shell() {
       const { open, app: appInUrl, params } = readScreenSearch(window.location.search);
       fromHistory.current = true;
       if (appInUrl && !appFromHost()) setChosenAppId(appInUrl);
+      /* Back within the same screen (a wizard step, a record tab) changes its state in place; what was typed stays. */
+      if (open && open === screenKeyRef.current && (!appInUrl || appInUrl === activeAppIdRef.current)) {
+        setLiveParams(params);
+        return;
+      }
       setScreenParams(params);
       setScreenKey(open);
       setPlatformScreen(null);
@@ -1192,7 +1200,8 @@ export default function Shell() {
                     {(() => {
                       /* A page under a hub (People → Settings → Departments) shows the way back to it. */
                       const parentKey = (app?.nav || []).find((n) => n.key === screen)?.parent;
-                      const parent = parentKey && nav.find((n) => n.key === parentKey);
+                      /* Only under a hub (Settings); a page inside a list's module (an employee record) draws its own breadcrumb. */
+                      const parent = parentKey && nav.find((n) => n.key === parentKey && n.hub);
                       return parent ? (
                         <button type="button" className="ui-link mb-2 inline-flex items-center gap-1 text-sm" onClick={() => goTo(parent.key)}>
                           ← {parent.label}
