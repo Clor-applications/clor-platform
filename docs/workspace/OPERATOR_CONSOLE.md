@@ -35,6 +35,6 @@ Every company in the account stops opening, for everybody, until reinstated. The
 ## First-time setup (production)
 
 1. Sign in to app.clor.in with your own Clor login and set up an authenticator (My profile).
-2. Find your user id (Workspace → Access → Members shows it, or ask engineering).
+2. Find your platform user id. It is the internal id, not the "User ID" code (ATES-C100-U01) shown in the app: in the platform database, `SELECT id FROM "User" WHERE email = 'you@clor.in';`
 3. Set `CLOR_OPERATOR_USER_IDS=<your id>` on the `clor-api` Cloud Run service and deploy a new revision.
 4. Open `https://app.clor.in/ops`. Add the rest of the team under Operators.
