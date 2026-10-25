@@ -64,6 +64,8 @@ const toTenant = (membership) => ({
   code: membership.org?.code || membership.code || null,
   /* The code it had before the numbers (KAVE-C100): old links still find it. */
   legacyCode: membership.org?.legacyCode || null,
+  /* Archived (read-only): listed apart in the picker, with a banner inside. */
+  archivedAt: membership.org?.archivedAt || null,
   accountId: membership.accountId || null,
   /* Every tenant-scoped route wants a branch as well as a company, and the
      route that lists branches wants one too — so the platform answers it. */

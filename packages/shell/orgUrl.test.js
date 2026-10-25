@@ -36,6 +36,12 @@ describe('which company a tab opens', () => {
     expect(chooseTenant({ tenants: [A, N], urlCode: '4831920657', tabChoice: 'org-a' }).tenant).toBe(N);
   });
 
+  it('opens an active company before an archived one when nothing else decides', () => {
+    const old = { id: 'org-old', code: '1111111116', archivedAt: '2026-10-01' };
+    expect(chooseTenant({ tenants: [old, A] }).tenant).toBe(A);
+    expect(chooseTenant({ tenants: [old, A], tabChoice: 'org-old' }).tenant).toBe(old);
+  });
+
   it('never opens another company for a code that is not one of yours', () => {
     const r = chooseTenant({ tenants, urlCode: 'ZZZZ-C100', tabChoice: 'org-a', lastUsed: 'org-a', suggested: 'org-a' });
     expect(r.tenant).toBeNull();

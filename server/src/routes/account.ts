@@ -1,4 +1,6 @@
 import { Router } from 'express';
+import { z } from 'zod';
+import { ARCHIVE_REASONS, ARCHIVE_REASON_LABEL, ArchiveError, type ArchiveReason, archiveCompany, reactivateCompany } from '../services/companyArchive.js';
 
 import { prisma } from '../utils/prisma.js';
 import { platformPrisma } from '../utils/platformPrisma.js';
@@ -58,7 +60,7 @@ accountRouter.get('/account/overview', ACCOUNT_VIEW, (req, res) =>
     platformPrisma.account.findFirst({ where: { id: accountId }, select: { id: true, code: true, name: true, createdAt: true } }),
     platformPrisma.org.findMany({
       where: { accountId },
-      select: { id: true, name: true, slug: true, pan: true, createdAt: true },
+      select: { id: true, name: true, slug: true, pan: true, createdAt: true, archivedAt: true, archivedReason: true, archivedNote: true },
       orderBy: { name: 'asc' },
     }),
     platformPrisma.user.findMany({
@@ -131,7 +133,8 @@ accountRouter.get('/account/overview', ACCOUNT_VIEW, (req, res) =>
       limits: entitlement.limits,
     },
     usage: {
-      companies: orgs.length,
+      companies: orgs.filter((o) => !o.archivedAt).length,
+      archivedCompanies: orgs.filter((o) => o.archivedAt).length,
       users: users.filter((u) => u.isActive).length,
     },
     companies: orgs.map((o) => {
@@ -141,6 +144,8 @@ accountRouter.get('/account/overview', ACCOUNT_VIEW, (req, res) =>
         orgId: o.id,
         name: o.name,
         slug: o.slug || '',
+        /* Archived (services/companyArchive.ts): read-only, not on the plan's count. */
+        archived: o.archivedAt ? { at: o.archivedAt, reason: o.archivedReason, reasonLabel: ARCHIVE_REASON_LABEL[o.archivedReason as ArchiveReason] || null, note: o.archivedNote } : null,
         // The company master lives in a JSON column; the state is the one field
         // from it worth showing here, because it decides how every invoice the
         // company raises is taxed.
@@ -183,6 +188,42 @@ accountRouter.get('/account/me', async (req, res) => {
 });
 
 /** Everyone who belongs to the account, with their account role. Owners and administrators only. */
+/*
+ * Archive / reactivate a company (services/companyArchive.ts). Owners and
+ * admins of the account; the company is named in the path, so this works on
+ * an archived company that no longer accepts writes through its own routes.
+ */
+const archiveSchema = z.object({ reason: z.enum(ARCHIVE_REASONS), note: z.string().max(1000).optional().nullable() });
+
+accountRouter.get('/account/companies/archive-reasons', requireAccountRole(...ACCOUNT_ADMINS), (_req, res) => {
+  res.json({ reasons: ARCHIVE_REASONS.map((key) => ({ key, label: ARCHIVE_REASON_LABEL[key] })) });
+});
+
+accountRouter.post('/account/companies/:orgId/archive', requireAccountRole(...ACCOUNT_ADMINS), async (req, res) => {
+  const accountId = String(req.tenant!.accountId);
+  const body = archiveSchema.parse(req.body);
+  try {
+    const out = await archiveCompany({ accountId, orgId: String(req.params.orgId), actorUserId: req.auth!.userId, reason: body.reason, note: body.note });
+    await recordAccountEvent({ accountId, actorUserId: req.auth!.userId, action: 'COMPANY_ARCHIVED', targetType: 'Org', targetId: String(req.params.orgId), message: `${out.name}: ${ARCHIVE_REASON_LABEL[body.reason]}${body.note ? ` — ${body.note}` : ''}` });
+    res.json({ ok: true });
+  } catch (e) {
+    if (e instanceof ArchiveError) return res.status(e.status).json({ error: e.message, code: e.code });
+    throw e;
+  }
+});
+
+accountRouter.post('/account/companies/:orgId/reactivate', requireAccountRole(...ACCOUNT_ADMINS), async (req, res) => {
+  const accountId = String(req.tenant!.accountId);
+  try {
+    const out = await reactivateCompany({ accountId, orgId: String(req.params.orgId), actorUserId: req.auth!.userId });
+    await recordAccountEvent({ accountId, actorUserId: req.auth!.userId, action: 'COMPANY_REACTIVATED', targetType: 'Org', targetId: String(req.params.orgId), message: out.name });
+    res.json({ ok: true });
+  } catch (e) {
+    if (e instanceof ArchiveError) return res.status(e.status).json({ error: e.message, code: e.code });
+    throw e;
+  }
+});
+
 accountRouter.get('/account/members', requireAccountRole(...ACCOUNT_ADMINS), async (req, res) => {
   res.json({ members: await listAccountMembers(req.tenant!.accountId) });
 });

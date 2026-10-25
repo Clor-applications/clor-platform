@@ -93,9 +93,13 @@ const ACCOUNT_ROLE_LABEL = { OWNER: 'owner', ADMIN: 'administrator', BILLING_ADM
  * account they were let into. Choosing a company in another account switches
  * account: the screen is keyed by company, so nothing from the old one stays.
  */
-export const companyGroups = (tenants = [], accounts = []) => {
+export const companyGroups = (allTenants = [], accounts = []) => {
+  /* Archived companies (read-only, kept for their records) go last, under their own heading. */
+  const archived = allTenants.filter((t) => t.archivedAt);
+  const tail = archived.length ? [{ id: 'archived', label: 'Archived (read-only)', items: archived }] : [];
+  const tenants = allTenants.filter((t) => !t.archivedAt);
   const ids = [...new Set(tenants.map((t) => t.accountId || ''))];
-  if (ids.length < 2) return [{ id: 'all', label: '', items: tenants }];
+  if (ids.length < 2) return [{ id: 'all', label: '', items: tenants }, ...tail];
   const byId = new Map(accounts.map((a) => [a.id, a]));
   const order = (id) => (byId.get(id)?.home ? 0 : 1);
   return ids
@@ -104,7 +108,8 @@ export const companyGroups = (tenants = [], accounts = []) => {
       const a = byId.get(id);
       const how = a?.home ? (a.role ? ACCOUNT_ROLE_LABEL[a.role] || '' : '') : 'outside access';
       return { id, label: `${a?.name || 'Another account'}${how ? ` (${how})` : ''}`, items: tenants.filter((t) => (t.accountId || '') === id) };
-    });
+    })
+    .concat(tail);
 };
 
 /** "SETTINGS::Users::VIEW" as a person reads it: "view Users (Settings)". */
@@ -1017,6 +1022,11 @@ export default function Shell() {
         </header>
 
         <SubscriptionBanner billing={tenant.billing} />
+        {tenant.archivedAt ? (
+          <div role="status" className="flex flex-wrap items-center gap-3 px-6 py-2 text-sm" style={{ backgroundColor: 'rgb(var(--warn-soft))', color: 'rgb(var(--warn-ink))', borderBottom: '1px solid rgb(var(--border))' }}>
+            <span className="min-w-0 flex-1">This company is archived. You can read and export its records; nothing new can be saved. An account owner or admin can reactivate it in Workspace → Companies.</span>
+          </div>
+        ) : null}
         {unbought ? (
           <div role="status" className="flex flex-wrap items-center gap-3 px-6 py-2 text-sm" style={{ backgroundColor: 'rgb(var(--warn-soft))', color: 'rgb(var(--warn-ink))', borderBottom: '1px solid rgb(var(--border))' }}>
             <span className="min-w-0 flex-1">{appById(unbought.app)?.name || 'This app'} is not on your plan, so it cannot be used here yet. {unbought.message ? `(${unbought.message})` : ''}</span>

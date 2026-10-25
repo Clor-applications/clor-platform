@@ -77,6 +77,11 @@ model Org {
   codeNumber Int?
   /// The code it had under the first scheme (KAVE-C100), still found so old links work.
   legacyCode String? @unique
+  /// Archived (services/companyArchive.ts): read-only, out of the switcher's main list and the plan's company count, reversible.
+  archivedAt       DateTime?
+  archivedReason   String?
+  archivedNote     String?
+  archivedByUserId String?
   legalName  String?
   pan        String?
 
@@ -169,6 +174,14 @@ model User {
   fullName     String
   passwordHash String
   isActive     Boolean @default(true)
+  /// Marked as left (services/leavers.ts): when, why, by whom, last working day. Sign-in is off (isActive false); history keeps their name.
+  leftAt         DateTime?
+  leftReason     String?
+  leftNote       String?
+  lastWorkingDay String?
+  leftByUserId   String?
+  /// Their address before it was released for a successor (email then holds a placeholder).
+  releasedEmail  String?
 
   // Profile. `fullName` stays the single source for display so every existing
   // reader keeps working; first and last are what the user actually edits and
