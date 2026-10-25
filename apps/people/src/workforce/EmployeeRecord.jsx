@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { ChevronDown, Pencil } from 'lucide-react';
 
 import { PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
@@ -289,6 +289,7 @@ function CommentBox({ employeeId, onPosted }) {
  * edits and shows the newer record; a network failure keeps them too.
  */
 function SectionForm({ person, fields, onCancel, onSaved, reload }) {
+  const formId = useId();
   const initial = Object.fromEntries(fields.map((f) => [f.key, person[f.key] ?? '']));
   const [form, setForm] = useState(initial);
   const [busy, setBusy] = useState(false);
@@ -327,24 +328,28 @@ function SectionForm({ person, fields, onCancel, onSaved, reload }) {
       ) : null}
       {error ? <ErrorState error={error} compact onRetry={save} retryLabel="Try again" body={error?.network ? 'Your changes have not been saved. They are still in this form.' : undefined} /> : null}
       <div className="ui-form-grid">
-        {fields.map((f) => (
-          <label key={f.key} className={`block ${f.wide ? 'sm:col-span-2' : ''}`}>
-            <span className="ui-label">{f.label}{f.required ? ' *' : ''}</span>
-            {f.kind === 'select' ? (
-              <select className="ui-select w-full" value={form[f.key] ?? ''} onChange={(e) => setForm({ ...form, [f.key]: e.target.value })}>
-                <option value="">Not set</option>
-                {f.options.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-              </select>
-            ) : f.kind === 'date' ? (
-              <DatePicker value={form[f.key] ? String(form[f.key]).slice(0, 10) : ''} onChange={(v) => setForm({ ...form, [f.key]: v })} label={f.label} />
-            ) : f.kind === 'textarea' ? (
-              <textarea className="ui-input w-full" rows={3} value={form[f.key] ?? ''} onChange={(e) => setForm({ ...form, [f.key]: e.target.value })} />
-            ) : (
-              <input className="ui-input w-full" type={f.type || 'text'} inputMode={f.inputMode} value={form[f.key] ?? ''} required={f.required} maxLength={f.max || 160} onChange={(e) => setForm({ ...form, [f.key]: e.target.value })} />
-            )}
-            {f.help ? <span className="ui-caption">{f.help}</span> : null}
-          </label>
-        ))}
+        {fields.map((f) => {
+          const id = `${formId}-${f.key}`;
+          const help = f.help ? `${id}-help` : undefined;
+          return (
+            <div key={f.key} className={f.wide ? 'sm:col-span-2' : ''}>
+              <label htmlFor={id} className="ui-label">{f.label}{f.required ? ' *' : ''}</label>
+              {f.kind === 'select' ? (
+                <select id={id} className="ui-select w-full" aria-describedby={help} value={form[f.key] ?? ''} onChange={(e) => setForm({ ...form, [f.key]: e.target.value })}>
+                  <option value="">Not set</option>
+                  {f.options.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                </select>
+              ) : f.kind === 'date' ? (
+                <DatePicker id={id} describedBy={help} value={form[f.key] ? String(form[f.key]).slice(0, 10) : ''} onChange={(v) => setForm({ ...form, [f.key]: v })} />
+              ) : f.kind === 'textarea' ? (
+                <textarea id={id} className="ui-input w-full" rows={3} aria-describedby={help} value={form[f.key] ?? ''} onChange={(e) => setForm({ ...form, [f.key]: e.target.value })} />
+              ) : (
+                <input id={id} className="ui-input w-full" type={f.type || 'text'} inputMode={f.inputMode} aria-describedby={help} value={form[f.key] ?? ''} required={f.required} maxLength={f.max || 160} onChange={(e) => setForm({ ...form, [f.key]: e.target.value })} />
+              )}
+              {f.help ? <p id={help} className="ui-caption">{f.help}</p> : null}
+            </div>
+          );
+        })}
       </div>
       <div className="flex justify-end gap-2">
         <button type="button" className="ui-btn ui-btn-secondary" onClick={async () => { if (!dirty || await confirmDialog({ title: 'Discard your changes?', confirmLabel: 'Discard' })) onCancel(); }}>Cancel</button>

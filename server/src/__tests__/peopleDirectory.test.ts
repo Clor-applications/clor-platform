@@ -82,6 +82,8 @@ describe('directory (CORE-01)', () => {
     const someone = await colleague(boss, 'Head', []);
     await people(boss).post('/approval-rules', { requestType: 'JOB_CHANGE', name: 'Job changes', steps: [{ approver: { kind: 'USER', id: someone.userId }, dueDays: 3 }] }).expect(201);
     expect((await people(boss).post('/employees/bulk', { ids: ids.slice(0, 2), set: { departmentId: ops.id } }).expect(409)).body.code).toBe('RULE_IN_FORCE');
+    /* 2,000 events from this company would crowd the shared outbox for later test files; they are not under test here. */
+    await runInTenant(boss.orgId, () => peoplePrisma.outboxEvent.updateMany({ where: { orgId: boss.orgId, deliveredAt: null }, data: { deliveredAt: new Date() } }));
   }, 600_000);
 
   it('a bulk manager change skips anyone it would put in a reporting loop', async () => {
