@@ -89,17 +89,13 @@ async function bootstrapOwnerRole(accountId: string, orgId: string, userId: stri
     select: { id: true, module: true, subModule: true, action: true },
   });
 
-  for (const p of permissions) {
-    if (!wanted.has(permKey(p.module, p.subModule, p.action))) continue;
-    try {
-      await platformPrisma.rolePermission.create({
-        data: { accountId, orgId, roleId: role.id, permissionId: p.id, allowed: true },
-        select: { id: true },
-      });
-    } catch (err: any) {
-      if (String(err?.code || '') !== 'P2002') throw err;
-    }
-  }
+  /* One insert for every permission, not one each: row by row this was the slowest part of setting up a company. */
+  await platformPrisma.rolePermission.createMany({
+    data: permissions
+      .filter((p) => wanted.has(permKey(p.module, p.subModule, p.action)))
+      .map((p) => ({ accountId, orgId, roleId: role.id, permissionId: p.id, allowed: true })),
+    skipDuplicates: true,
+  });
 
   try {
     await platformPrisma.userRoleAssignment.create({
