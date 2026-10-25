@@ -198,6 +198,8 @@ export const peopleApp = {
      docs/people/08-DECISIONS-AND-RISKS.md D-01). The shared palette lives in packages/ui/src/index.css;
      the colour icons stay. */
   palette: 'rose',
+  /* The phone's tab bar (spec v1 §6): what employees and managers reach for; the rest is behind Menu. */
+  mobileTabs: ['overview', 'employees', 'approvals', 'leaveRequests'],
   iconSet: 'color',
 
   /* The sidebar holds the day's work; everything set up once lives on one Settings page (PeopleSettings), its pages marked `parent: 'settings'`. */

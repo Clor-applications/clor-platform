@@ -155,7 +155,27 @@ describe('the address names the screen', () => {
     expect(screenSearch('?open=records', { app: 'payroll', open: null, appInHost: true })).toBe('');
   });
   it('reads back what it wrote', () => {
-    expect(readScreenSearch(screenSearch('', { app: 'attendance', open: 'shifts', appInHost: false }))).toEqual({ app: 'attendance', open: 'shifts' });
-    expect(readScreenSearch('')).toEqual({ app: null, open: null });
+    expect(readScreenSearch(screenSearch('', { app: 'attendance', open: 'shifts', appInHost: false }))).toEqual({ app: 'attendance', open: 'shifts', params: null });
+    expect(readScreenSearch('')).toEqual({ app: null, open: null, params: null });
+  });
+});
+
+describe('screen state in the address (People design v1, D-V7)', () => {
+  it('carries a record and its tab as s.* params, and reads them back', () => {
+    const url = screenSearch('', { app: 'people', open: 'employee', appInHost: false, params: { id: 'e1', tab: 'history' } });
+    expect(url).toBe('?app=people&open=employee&s.id=e1&s.tab=history');
+    expect(readScreenSearch(url)).toEqual({ app: 'people', open: 'employee', params: { id: 'e1', tab: 'history' } });
+  });
+  it('a new screen without params clears the last one\'s, and keeps unrelated query keys', () => {
+    expect(screenSearch('?x=1&open=employee&s.id=e1', { app: 'people', open: 'employees', appInHost: true, params: null })).toBe('?x=1&open=employees');
+  });
+  it('leaves params alone when none are given, and drops blank and nested values', () => {
+    expect(screenSearch('?open=a&s.q=ravi', { open: 'a', appInHost: true })).toBe('?open=a&s.q=ravi');
+    expect(screenSearch('', { open: 'a', appInHost: true, params: { q: '', f: { a: 1 }, page: 2 } })).toBe('?open=a&s.page=2');
+  });
+  it('merges a patch, removing keys set to null', async () => {
+    const { mergeParams } = await import('../packages/shell/splitNav');
+    expect(mergeParams({ id: 'e1', tab: 'overview' }, { tab: 'history' })).toEqual({ id: 'e1', tab: 'history' });
+    expect(mergeParams({ id: 'e1' }, { id: null })).toBeNull();
   });
 });

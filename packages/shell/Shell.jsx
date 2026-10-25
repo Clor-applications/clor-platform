@@ -15,7 +15,7 @@ import { IconSetContext } from '@ui/components/ui/iconSet';
 import { APPS, appById, availableApps, landingApp, subscribedApps } from './registry';
 import { ADMIN_APP_ID, appFromHost, hostForApp, isFrontDoor } from './appHosts';
 import { PHONE_QUERY, TABLET_QUERY, mobileTabsFor } from './mobileTabs';
-import { moduleForScreen, railAction, readScreenSearch, resolveModules, screenSearch, withoutEmptyHubs } from './splitNav';
+import { mergeParams, moduleForScreen, railAction, readScreenSearch, resolveModules, screenSearch, withoutEmptyHubs } from './splitNav';
 import { useSession } from './session';
 import { OPEN_APP_EVENT, OPEN_HELP_EVENT, OPEN_SCREEN_EVENT } from '@platform/context';
 import HelpCenter from './HelpCenter';
@@ -241,7 +241,28 @@ export default function Shell() {
   });
   const [browseModule, setBrowseModule] = useState(null);
   /* Filters a screen was opened with (a report row or an exception opening Records for one person and day). */
-  const [screenParams, setScreenParams] = useState(null);
+  const [screenParams, setScreenParamsState] = useState(() => {
+    try { return readScreenSearch(window.location.search).params; } catch { return null; }
+  });
+  /*
+   * What the screen shows now (D-V7): the params it was opened with, as it
+   * changes them through `updateParams` (a tab, a filter) without remounting.
+   * Opening a screen sets both; Back sets both from the address.
+   */
+  const [liveParams, setLiveParams] = useState(() => screenParams);
+  const setScreenParams = (next) => {
+    setScreenParamsState(next);
+    setLiveParams(next);
+  };
+  /* Switching company (spec v1 §5.1): the record, tab and filters were the last company's; drop them. */
+  const [paramsTenant, setParamsTenant] = useState(tenant?.id || null);
+  if ((tenant?.id || null) !== paramsTenant) {
+    if (paramsTenant && tenant?.id) {
+      setScreenParamsState(null);
+      setLiveParams(null);
+    }
+    setParamsTenant(tenant?.id || null);
+  }
   /* The screens panel beside the rail can be closed on a desktop; the choice
      is a per-browser convenience, so it survives a reload but nothing else. */
   const [panelClosed, setPanelClosed] = useState(() => {
@@ -486,9 +507,10 @@ export default function Shell() {
     const was = readScreenSearch(window.location.search);
     const current = was.open;
     const appChanged = !appInHost && was.app !== activeAppId;
-    const search = screenSearch(window.location.search, { app: activeAppId, open: screenKey, appInHost });
+    const search = screenSearch(window.location.search, { app: activeAppId, open: screenKey, appInHost, params: liveParams });
     const url = `${window.location.pathname}${search}${window.location.hash}`;
-    if (fromHistory.current || (!appChanged && current === (screenKey || null))) {
+    const sameParams = JSON.stringify(was.params || null) === JSON.stringify(liveParams || null);
+    if (fromHistory.current || (!appChanged && current === (screenKey || null) && sameParams)) {
       fromHistory.current = false;
       urlReady.current = true;
       return;
@@ -496,14 +518,14 @@ export default function Shell() {
     if (urlReady.current) window.history.pushState(null, '', url);
     else window.history.replaceState(null, '', url);
     urlReady.current = true;
-  }, [screenKey, ownsAddress, activeAppId]);
+  }, [screenKey, ownsAddress, activeAppId, liveParams]);
   useEffect(() => {
     if (!ownsAddress) return undefined;
     const onPop = () => {
-      const { open, app: appInUrl } = readScreenSearch(window.location.search);
+      const { open, app: appInUrl, params } = readScreenSearch(window.location.search);
       fromHistory.current = true;
       if (appInUrl && !appFromHost()) setChosenAppId(appInUrl);
-      setScreenParams(null);
+      setScreenParams(params);
       setScreenKey(open);
       setPlatformScreen(null);
       setShowMoreApps(false);
@@ -1179,8 +1201,17 @@ export default function Shell() {
                     })()}
                     <Suspense fallback={<AppLoading />}>
                       <Screen
-                        key={screenParams ? `${tenant.id}:${JSON.stringify(screenParams)}` : tenant.id}
-                        params={screenParams || undefined}
+                        key={screenParams ? `${tenant.id}:${screenKey}:${JSON.stringify(screenParams)}` : tenant.id}
+                        params={liveParams || undefined}
+                        /* Change this screen's own state (a tab, a filter) in place; the address follows. `push` adds a Back step. */
+                        updateParams={(patch, opts = {}) => {
+                          const next = mergeParams(liveParams, patch);
+                          const appInHost = Boolean(appFromHost());
+                          const url = `${window.location.pathname}${screenSearch(window.location.search, { app: activeAppId, open: screenKey, appInHost, params: next })}${window.location.hash}`;
+                          if (opts.push) window.history.pushState(null, '', url);
+                          else window.history.replaceState(null, '', url);
+                          setLiveParams(next);
+                        }}
                         /* The screens this person may open, for a hub page (People's Settings) to list. */
                         navItems={nav}
                         /* The company being looked at, its apps, and a way into one (Workspace's home). */

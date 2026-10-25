@@ -49,6 +49,8 @@ export default class ScreenBoundary extends React.Component {
         >
           {String(this.state.error?.message || this.state.error)}
         </pre>
+        {/* Spec v1 §8 "Page failure": contained, with a way back in that does not reload the shell. */}
+        <button type="button" className="ui-btn ui-btn-secondary mt-4" onClick={() => this.setState({ error: null })}>Try again</button>
       </div>
     );
   }
