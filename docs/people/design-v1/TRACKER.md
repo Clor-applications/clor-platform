@@ -25,6 +25,16 @@ Status: TODO · IN PROGRESS · DONE · BLOCKED (owner decision).
 
 Workflow tests (spec §8): 1 directory round trip · 2 wizard back keeps fields · 3 invalid save then one submit · 4 network failure keeps input · 5 designation change on timeline · 6 company switch leaks nothing · 7 mobile with touch and keyboard.
 
+## Workforce package (owner, 26 Oct 2026)
+
+The owner sent `Clor_People_Workforce_Complete_Package.zip` with "remaining module finish everything".
+It is filed under `workforce-package/` and refines Module 01 as **Workforce**: the visible label
+`Employees` becomes `Workforce`; employment operations (WF-12..14), the import wizard, export
+scopes, bulk jobs (WF-15..17), and an audit timeline with comments (WF-18..19) join the scope.
+Its acceptance list `workforce-package/checklists/workforce_acceptance.csv` is tracked here by
+WF id alongside the steps above. Its "stop at each phase" rule is overridden by the owner's
+instruction to finish everything; each phase still lands with tests and evidence.
+
 ## Decisions in force (26 Oct 2026)
 
 Owner said "start building" (relayed by the main session) without answering D-V1..D-V9, so each runs on its recommendation until the owner says otherwise — the same rule as D-02..D-10 (OD-10).

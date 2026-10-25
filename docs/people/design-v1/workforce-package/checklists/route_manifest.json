@@ -1,0 +1,88 @@
+{
+  "version": "WF-UX-1.0",
+  "route_status": "PROPOSALS_NOT_VERIFIED",
+  "naming": {
+    "application": "People",
+    "sidebar": "Workforce",
+    "data": "Employee"
+  },
+  "routes": [
+    {
+      "id": "WF-101",
+      "name": "Workforce directory",
+      "proposed_route": "/people/workforce",
+      "existing_route": "DISCOVER",
+      "approval": "TBD"
+    },
+    {
+      "id": "WF-102",
+      "name": "My team",
+      "proposed_route": "/people/workforce/team",
+      "existing_route": "DISCOVER",
+      "approval": "TBD"
+    },
+    {
+      "id": "WF-103",
+      "name": "Saved views",
+      "proposed_route": "/people/workforce/views",
+      "existing_route": "DISCOVER",
+      "approval": "TBD"
+    },
+    {
+      "id": "WF-104",
+      "name": "Profile",
+      "proposed_route": "/people/workforce/:employeeId",
+      "existing_route": "DISCOVER",
+      "approval": "TBD"
+    },
+    {
+      "id": "WF-105",
+      "name": "Profile tab",
+      "proposed_route": "/people/workforce/:employeeId/:tab",
+      "existing_route": "DISCOVER",
+      "approval": "TBD"
+    },
+    {
+      "id": "WF-106",
+      "name": "Create",
+      "proposed_route": "/people/workforce/new",
+      "existing_route": "DISCOVER",
+      "approval": "TBD"
+    },
+    {
+      "id": "WF-107",
+      "name": "Edit",
+      "proposed_route": "/people/workforce/:employeeId/edit",
+      "existing_route": "DISCOVER",
+      "approval": "TBD"
+    },
+    {
+      "id": "WF-108",
+      "name": "Operation",
+      "proposed_route": "/people/workforce/:employeeId/actions/:action",
+      "existing_route": "DISCOVER",
+      "approval": "TBD"
+    },
+    {
+      "id": "WF-109",
+      "name": "Import",
+      "proposed_route": "/people/workforce/import",
+      "existing_route": "DISCOVER",
+      "approval": "TBD"
+    },
+    {
+      "id": "WF-110",
+      "name": "Bulk result",
+      "proposed_route": "/people/workforce/bulk/:jobId",
+      "existing_route": "DISCOVER",
+      "approval": "TBD"
+    },
+    {
+      "id": "WF-111",
+      "name": "Event",
+      "proposed_route": "/people/workforce/:employeeId/activity/:eventId",
+      "existing_route": "DISCOVER",
+      "approval": "TBD"
+    }
+  ]
+}
