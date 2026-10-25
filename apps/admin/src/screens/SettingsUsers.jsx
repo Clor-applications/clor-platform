@@ -18,6 +18,9 @@ import {
   getUserBranches,
   getUserCompanies,
   setUserCompanies,
+  getLeaving,
+  markUserLeft,
+  reactivateUser,
 } from '@platform/admin/admin';
 import Popover from '@ui/components/ui/Popover';
 import { useFeatures } from '@ui/permissions/useFeatures';
@@ -63,6 +66,16 @@ export function filterUsers(users, { q = '', status = '' }, roleName = () => '')
 
 const EMPTY_FORM = { fullName: '', email: '', mobile: '', password: '', roleId: '' };
 
+const LEFT_REASON = { RESIGNED: 'Resigned', TERMINATED: 'Employment ended', ROLE_CHANGED: 'Moved to a role without access', CONTRACT_ENDED: 'Contract ended', RETIRED: 'Retired', OTHER: 'Other' };
+const shortDate = (iso) => {
+  const d = new Date(`${iso}T00:00:00`);
+  return Number.isNaN(d.getTime()) ? iso : d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+};
+/** "Resigned · last day 31 Oct 2026". */
+const leftLine = (left) => [LEFT_REASON[left?.reason] || 'Left', left?.lastWorkingDay ? `last day ${shortDate(left.lastWorkingDay)}` : ''].filter(Boolean).join(' · ');
+const statusPill = (u) =>
+  u.left ? <span className="ws-pill ws-pill--off">Left</span> : u.isActive !== false ? <span className="ws-pill ws-pill--ok">Active</span> : <span className="ws-pill ws-pill--off">Inactive</span>;
+
 export function SettingsUsers({ orgId }) {
   const { isEnabled } = useFeatures();
   const branchesEnabled = isEnabled('branches');
@@ -86,6 +99,8 @@ export function SettingsUsers({ orgId }) {
   const [branchIds, setBranchIds] = useState([]);
   const [panelLoading, setPanelLoading] = useState(false);
   const [password, setPassword] = useState('');
+  /* Mark as left (services/leavers.ts on the server). */
+  const [leave, setLeave] = useState(null);
 
   const activeBranchId = String(selectedBranchId() || '').trim();
   const assignableRoles = roles.filter((r) => !r.branchId);
@@ -271,15 +286,44 @@ export function SettingsUsers({ orgId }) {
     }, 'Failed to change password');
   };
 
-  const toggleActive = async (u) => {
+  /* Leaving is not a switch: it asks why and when, and who takes over what was waiting on them. */
+  const openLeave = async (u) => {
+    open('leave', u);
+    setLeave({ reason: '', lastWorkingDay: new Date().toISOString().slice(0, 10), note: '', handoverUserId: '', releaseEmail: false, reasons: [], pending: null });
+    try {
+      const info = await getLeaving(orgId, u.id);
+      setLeave((l) => (l ? { ...l, reasons: info.reasons || [], pending: info.pending || null } : l));
+    } catch (err) {
+      setError(rbacErrorMessage(err, 'Could not load what was waiting on them'));
+    }
+  };
+  const submitLeave = (e) => {
+    e.preventDefault();
+    const u = panel?.user;
+    if (!u || !leave) return;
+    act(async () => {
+      await markUserLeft(orgId, u.id, {
+        reason: leave.reason,
+        lastWorkingDay: leave.lastWorkingDay,
+        note: leave.note || null,
+        handoverUserId: leave.handoverUserId || null,
+        releaseEmail: leave.releaseEmail,
+      });
+      setUsers((rows) => rows.map((r) => (r.id === u.id ? { ...r, isActive: false, left: { reason: leave.reason, lastWorkingDay: leave.lastWorkingDay, note: leave.note || null } } : r)));
+      close();
+    }, 'Could not mark them as left');
+  };
+  const bringBack = async (u) => {
     setMenuFor(null);
     setError('');
-    const next = u.isActive === false;
+    if (!(await confirmDialog({ title: `Reactivate ${nameOf(u)}?`, message: 'They can sign in again with their roles as they were. This takes a seat on your plan.', confirmLabel: 'Reactivate' }))) return;
     try {
-      await updateUser(orgId, u.id, { isActive: next });
-      setUsers((rows) => rows.map((r) => (r.id === u.id ? { ...r, isActive: next } : r)));
+      const out = await reactivateUser(orgId, u.id);
+      setUsers((rows) => rows.map((r) => (r.id === u.id ? { ...r, isActive: true, left: null } : r)));
+      if (panel?.user?.id === u.id) setPanel((p) => (p ? { ...p, user: { ...p.user, isActive: true, left: null } } : p));
+      if (out?.emailRestored === false) setError('Reactivated. Their old email address now belongs to someone else: give them a new one under Edit.');
     } catch (err) {
-      setError(err?.message || `Failed to ${next ? 'activate' : 'deactivate'} user`);
+      setError(rbacErrorMessage(err, 'Could not reactivate'));
     }
   };
 
@@ -312,7 +356,7 @@ export function SettingsUsers({ orgId }) {
         { key: 'email', label: 'Email' },
         { key: 'username', label: 'Username' },
         { key: 'role', label: 'Role', value: (r) => roleName(r.roleId) },
-        { key: 'status', label: 'Status', value: (r) => (r.isActive === false ? 'Inactive' : 'Active') },
+        { key: 'status', label: 'Status', value: (r) => (r.left ? `Left: ${leftLine(r.left)}` : r.isActive === false ? 'Inactive' : 'Active') },
       ],
       rows,
     });
@@ -384,7 +428,10 @@ export function SettingsUsers({ orgId }) {
           {errorNote}
           <dl className="grid gap-3 sm:grid-cols-2">
             <div><dt className="ws-stat-note">Role</dt><dd className="text-sm font-medium">{roleName(u.roleId) || 'No role'}</dd></div>
-            <div><dt className="ws-stat-note">Status</dt><dd>{u.isActive !== false ? <span className="ws-pill ws-pill--ok">Active</span> : <span className="ws-pill ws-pill--off">Inactive</span>}</dd></div>
+            <div><dt className="ws-stat-note">Status</dt><dd>{statusPill(u)}</dd></div>
+            {u.left ? (
+              <div className="sm:col-span-2"><dt className="ws-stat-note">Left</dt><dd className="text-sm">{leftLine(u.left)}{u.left.note ? ` — ${u.left.note}` : ''}</dd></div>
+            ) : null}
             <div><dt className="ws-stat-note">User ID</dt><dd className="text-sm ui-mono">{u.code || '—'}</dd></div>
             <div><dt className="ws-stat-note">Username</dt><dd className="text-sm">{u.username || '—'}</dd></div>
           </dl>
@@ -393,7 +440,7 @@ export function SettingsUsers({ orgId }) {
             {quiet('Companies', () => openCompanies(u))}
             {branchesEnabled ? quiet('Branches', () => openBranches(u)) : null}
             {quiet('Set a password', () => open('password', u))}
-            {quiet(u.isActive === false ? 'Activate' : 'Deactivate', () => toggleActive(u).then(() => setPanel((p) => (p ? { ...p, user: { ...p.user, isActive: u.isActive === false } } : p))))}
+            {u.isActive === false ? quiet('Reactivate', () => bringBack(u)) : quiet('Mark as left', () => openLeave(u))}
           </div>
           <section aria-labelledby="ws-user-can" className="grid gap-2" style={{ borderTop: '1px solid rgb(var(--ws-line))', paddingTop: 16 }}>
             <h3 id="ws-user-can" className="ws-panel-title">What they can do</h3>
@@ -476,6 +523,49 @@ export function SettingsUsers({ orgId }) {
             })}
           </ul>
           {!panelLoading && branchesSorted.length === 0 ? <p className="ws-card-blurb">No branches yet. Add them under Company → Branches.</p> : null}
+        </form>
+      ),
+    };
+  } else if (panel?.kind === 'leave' && u && leave) {
+    const p = leave.pending;
+    const waiting = p ? p.approvals + p.deskRequests + p.exceptions : 0;
+    const successors = users.filter((x) => x.id !== u.id && x.isActive !== false);
+    drawer = {
+      title: `${nameOf(u)} has left`,
+      description: 'They stop signing in at once. Their name stays on everything they did, and their seat is free for someone new.',
+      actions: footer('ws-user-leave', 'Mark as left'),
+      body: (
+        <form id="ws-user-leave" onSubmit={submitLeave} className="grid gap-4">
+          {errorNote}
+          <label className="grid gap-1">
+            <span className="text-sm font-medium">Why they left</span>
+            <select className="ui-select w-full" required value={leave.reason} onChange={(e) => setLeave((l) => ({ ...l, reason: e.target.value }))}>
+              <option value="">Choose a reason</option>
+              {leave.reasons.map((r) => <option key={r.key} value={r.key}>{r.label}</option>)}
+            </select>
+          </label>
+          <label className="grid gap-1">
+            <span className="text-sm font-medium">Last working day</span>
+            <input type="date" className="ui-input w-full" required value={leave.lastWorkingDay} onChange={(e) => setLeave((l) => ({ ...l, lastWorkingDay: e.target.value }))} />
+          </label>
+          <label className="grid gap-1">
+            <span className="text-sm font-medium">Note <span className="ui-caption">· optional</span></span>
+            <textarea className="ui-input w-full" rows={2} maxLength={1000} value={leave.note} onChange={(e) => setLeave((l) => ({ ...l, note: e.target.value }))} />
+          </label>
+          <label className="grid gap-1">
+            <span className="text-sm font-medium">Hand over their work to</span>
+            <select className="ui-select w-full" value={leave.handoverUserId} onChange={(e) => setLeave((l) => ({ ...l, handoverUserId: e.target.value }))}>
+              <option value="">Nobody</option>
+              {successors.map((x) => <option key={x.id} value={x.id}>{nameOf(x)}</option>)}
+            </select>
+            <span className="ui-caption">
+              {p == null ? 'Checking what is waiting on them…' : waiting ? `Waiting on them: ${p.approvals} approvals, ${p.deskRequests} HR requests, ${p.exceptions} attendance exceptions.` : 'Nothing is waiting on them.'}
+            </span>
+          </label>
+          <label className="flex items-start gap-2">
+            <input type="checkbox" className="mt-1" checked={leave.releaseEmail} onChange={(e) => setLeave((l) => ({ ...l, releaseEmail: e.target.checked }))} />
+            <span className="text-sm">Free their email address for the next person <span className="ui-caption">(for a shared address like accounts@)</span></span>
+          </label>
         </form>
       ),
     };
@@ -569,7 +659,7 @@ export function SettingsUsers({ orgId }) {
                     <td className="ui-mono" style={{ fontSize: '0.8125rem' }}>{row.code || '—'}</td>
                     <td>{row.email}</td>
                     <td>{roleName(row.roleId) ? <span className="ws-pill ws-pill--role">{roleName(row.roleId)}</span> : <span className="ws-head-meta">No role</span>}</td>
-                    <td>{row.isActive !== false ? <span className="ws-pill ws-pill--ok">Active</span> : <span className="ws-pill ws-pill--off">Inactive</span>}</td>
+                    <td>{statusPill(row)}</td>
                     <td className="num">
                       <button
                         type="button"
@@ -588,7 +678,11 @@ export function SettingsUsers({ orgId }) {
                         <Popover anchorRef={menuAnchorRef} onClose={() => setMenuFor(null)} minWidth={200} maxWidth={260}>
                           <button type="button" className="report-menu-item" onClick={() => open('view', row)}>Details</button>
                           <button type="button" className="report-menu-item" onClick={() => openEdit(row)}>Edit</button>
-                          <button type="button" className="report-menu-item" onClick={() => toggleActive(row)}>{row.isActive === false ? 'Activate' : 'Deactivate'}</button>
+                          {row.isActive === false ? (
+                            <button type="button" className="report-menu-item" onClick={() => bringBack(row)}>Reactivate</button>
+                          ) : (
+                            <button type="button" className="report-menu-item" onClick={() => openLeave(row)}>Mark as left</button>
+                          )}
                           <button type="button" className="report-menu-item" onClick={() => openCompanies(row)}>Companies</button>
                           {branchesEnabled ? <button type="button" className="report-menu-item" onClick={() => openBranches(row)}>Branches</button> : null}
                           <button type="button" className="report-menu-item" onClick={() => open('password', row)}>Set a password</button>

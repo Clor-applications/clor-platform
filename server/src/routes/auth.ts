@@ -451,7 +451,7 @@ authRouter.get('/me', requireLiveAuth, async (req: Request, res: Response) => {
        * safe on the server the whole time; the browser simply had no way to
        * ask what company it was looking at.
        */
-      org: { select: { id: true, name: true, slug: true, code: true, legacyCode: true, profileJson: true, createdByUserId: true } },
+      org: { select: { id: true, name: true, slug: true, code: true, legacyCode: true, archivedAt: true, profileJson: true, createdByUserId: true } },
     },
     orderBy: { createdAt: 'asc' },
   });
@@ -604,6 +604,8 @@ authRouter.get('/me', requireLiveAuth, async (req: Request, res: Response) => {
         code: m.org.code || null,
         /* The code it had before the numbers (KAVE-C100): the shell still opens old links with it. */
         legacyCode: m.org.legacyCode || null,
+        /* Archived: read-only; the shell lists it apart and says so. */
+        archivedAt: m.org.archivedAt || null,
         profile: orgProfile(m.org.profileJson),
       },
     })),

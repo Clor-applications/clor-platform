@@ -1,3 +1,4 @@
+import { isArchived } from './companyArchive.js';
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'crypto';
 import nodemailer from 'nodemailer';
 // Nodemailer 10 no longer exposes its types under the default export's
@@ -239,6 +240,25 @@ export async function sendTemplate(opts: SendOptions) {
 
   const subject = render(template.subject, data);
   const bodyText = render(template.body, data);
+
+  /* An archived company sends nothing (services/companyArchive.ts): kept as SUPPRESSED so it can be seen. Closure notices still go. */
+  if (opts.orgId && !String(template.key).startsWith('closure') && (await isArchived(opts.orgId))) {
+    return platformPrisma.emailOutbox.create({
+      data: {
+        accountId: opts.accountId ?? null,
+        orgId: opts.orgId,
+        templateKey: template.key,
+        toEmail: opts.to,
+        toName: opts.toName ?? null,
+        subject,
+        bodyText,
+        status: 'SUPPRESSED',
+        lastError: 'Company archived',
+        relatedType: opts.relatedType ?? null,
+        relatedId: opts.relatedId ?? null,
+      },
+    });
+  }
 
   // Optional notifications honour the org's settings; transactional mail does not.
   if (!template.transactional && !opts.transactional && opts.orgId) {

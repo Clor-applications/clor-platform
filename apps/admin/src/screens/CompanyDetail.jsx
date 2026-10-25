@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { ArrowRightLeft, Pencil } from 'lucide-react';
 
 import { memberDirectory } from '@platform/admin/account';
+import { getArchiveReasons } from '@platform/admin/admin';
 import { formatMoney } from '@ui/utils/money';
 import { ICON, WsDrawer, productIcon } from './wsKit';
 
@@ -23,8 +24,34 @@ export function peopleOf(directory, orgId) {
     .sort((a, b) => Number(b.here.isAdmin) - Number(a.here.isAdmin) || String(a.name || a.email).localeCompare(String(b.name || b.email)));
 }
 
-export default function CompanyDetail({ company, current, catalog = [], subscriptions = null, onClose, onSwitch, onEdit }) {
+export default function CompanyDetail({ company, current, catalog = [], subscriptions = null, onClose, onSwitch, onEdit, onArchive, onReactivate }) {
   const [tab, setTab] = useState('overview');
+  /* Archive (server: services/companyArchive.ts): reason first, then read-only until reactivated. */
+  const [archiving, setArchiving] = useState(null);
+  const [archiveBusy, setArchiveBusy] = useState(false);
+  const [archiveError, setArchiveError] = useState('');
+  const startArchive = async () => {
+    setArchiveError('');
+    setArchiving({ reason: '', note: '', reasons: [] });
+    try {
+      const r = await getArchiveReasons();
+      setArchiving((a) => (a ? { ...a, reasons: r.reasons || [] } : a));
+    } catch (e) {
+      setArchiveError(String(e?.message || 'Could not load the reasons.'));
+    }
+  };
+  const runArchive = async (fn) => {
+    setArchiveBusy(true);
+    setArchiveError('');
+    try {
+      await fn();
+      setArchiving(null);
+    } catch (e) {
+      setArchiveError(String(e?.message || 'Not done.'));
+    } finally {
+      setArchiveBusy(false);
+    }
+  };
   const [directory, setDirectory] = useState(null);
   const [error, setError] = useState('');
 
@@ -124,6 +151,53 @@ export default function CompanyDetail({ company, current, catalog = [], subscrip
                   </ul>
                 )}
               </section>
+
+              {onArchive || onReactivate ? (
+                <section className="grid gap-2" aria-labelledby="cd-archive" style={{ borderTop: '1px solid rgb(var(--ws-line))', paddingTop: 16 }}>
+                  <h3 id="cd-archive" className="ws-panel-title">{company.archived ? 'Archived' : 'Stopped trading?'}</h3>
+                  {archiveError ? <p role="alert" className="text-sm" style={{ color: 'rgb(var(--neg))' }}>{archiveError}</p> : null}
+                  {company.archived ? (
+                    <>
+                      <p className="ws-card-blurb">
+                        Archived {day(company.archived.at)}{company.archived.reasonLabel ? ` · ${company.archived.reasonLabel}` : ''}{company.archived.note ? ` — ${company.archived.note}` : ''}. Its records can be read and exported; nothing new can be added.
+                      </p>
+                      {onReactivate ? (
+                        <div><button type="button" className="ws-btn ws-btn--quiet" disabled={archiveBusy} onClick={() => runArchive(() => onReactivate(company.orgId))}>{archiveBusy ? 'Reactivating…' : 'Reactivate company'}</button></div>
+                      ) : null}
+                    </>
+                  ) : archiving ? (
+                    <form
+                      className="grid gap-3"
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        runArchive(() => onArchive(company.orgId, { reason: archiving.reason, note: archiving.note || null }));
+                      }}
+                    >
+                      <p className="ws-card-blurb">Archiving keeps every record, read-only, and frees its place on your plan. Reminders, recurring invoices and connections stop. You can reactivate it any time.</p>
+                      <label className="grid gap-1">
+                        <span className="text-sm font-medium">Why</span>
+                        <select className="ui-select w-full" required value={archiving.reason} onChange={(e) => setArchiving((a) => ({ ...a, reason: e.target.value }))}>
+                          <option value="">Choose a reason</option>
+                          {archiving.reasons.map((r) => <option key={r.key} value={r.key}>{r.label}</option>)}
+                        </select>
+                      </label>
+                      <label className="grid gap-1">
+                        <span className="text-sm font-medium">Note <span className="ui-caption">· optional</span></span>
+                        <textarea className="ui-input w-full" rows={2} maxLength={1000} value={archiving.note} onChange={(e) => setArchiving((a) => ({ ...a, note: e.target.value }))} />
+                      </label>
+                      <div className="flex gap-2">
+                        <button type="button" className="ws-btn ws-btn--quiet" onClick={() => setArchiving(null)} disabled={archiveBusy}>Cancel</button>
+                        <button type="submit" className="ws-btn ws-btn--primary" disabled={archiveBusy || !archiving.reason}>{archiveBusy ? 'Archiving…' : 'Archive company'}</button>
+                      </div>
+                    </form>
+                  ) : onArchive ? (
+                    <>
+                      <p className="ws-card-blurb">Archive it instead of deleting: records stay for GST and audits, read-only, and you can bring it back.</p>
+                      <div><button type="button" className="ws-btn ws-btn--quiet" onClick={startArchive}>Archive company</button></div>
+                    </>
+                  ) : null}
+                </section>
+              ) : null}
             </div>
           ) : null}
 

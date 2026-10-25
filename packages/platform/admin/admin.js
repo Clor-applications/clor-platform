@@ -51,6 +51,28 @@ export function updateUser(orgId, userId, payload) {
   return apiFetch(`/orgs/${encodeURIComponent(orgId)}/users/${encodeURIComponent(userId)}`, { method: 'PATCH', body: payload, skipWarehouseHeader: true });
 }
 
+/* Somebody has left (server: services/leavers.ts): reasons and what was waiting on them, then mark, or bring back. */
+export function getLeaving(orgId, userId) {
+  return apiFetch(`/orgs/${encodeURIComponent(orgId)}/users/${encodeURIComponent(userId)}/leaving`, { skipWarehouseHeader: true });
+}
+export function markUserLeft(orgId, userId, payload) {
+  return apiFetch(`/orgs/${encodeURIComponent(orgId)}/users/${encodeURIComponent(userId)}/leave`, { method: 'POST', body: payload, skipWarehouseHeader: true });
+}
+export function reactivateUser(orgId, userId) {
+  return apiFetch(`/orgs/${encodeURIComponent(orgId)}/users/${encodeURIComponent(userId)}/reactivate`, { method: 'POST', skipWarehouseHeader: true });
+}
+
+/* A company that has stopped trading (server: services/companyArchive.ts): read-only, reversible. */
+export function getArchiveReasons() {
+  return apiFetch('/account/companies/archive-reasons', { skipWarehouseHeader: true });
+}
+export function archiveCompany(orgId, payload) {
+  return apiFetch(`/account/companies/${encodeURIComponent(orgId)}/archive`, { method: 'POST', body: payload, skipWarehouseHeader: true });
+}
+export function reactivateCompany(orgId) {
+  return apiFetch(`/account/companies/${encodeURIComponent(orgId)}/reactivate`, { method: 'POST', skipWarehouseHeader: true });
+}
+
 export function setUserPrimaryRole(orgId, userId, roleId) {
   return apiFetch(`/orgs/${encodeURIComponent(orgId)}/users/${encodeURIComponent(userId)}/role`, {
     method: 'PUT',

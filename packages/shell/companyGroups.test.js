@@ -39,4 +39,12 @@ describe('permission words', async () => {
     expect(permissionWords('SETTINGS::Users::VIEW')).toBe('view Users (Settings)');
     expect(permissionWords('PAYROLL::Pay runs::APPROVE')).toBe('approve Pay runs (Payroll)');
   });
+
+  it('lists archived companies last, under their own heading', async () => {
+    const { companyGroups } = await import('./Shell.jsx');
+    const g = companyGroups([{ id: 'x', name: 'Old', accountId: 'A', archivedAt: '2026-10-01' }, { id: 'y', name: 'Live', accountId: 'A' }], [{ id: 'A', name: 'Acc', home: true }]);
+    expect(g.map((x) => x.id)).toEqual(['all', 'archived']);
+    expect(g[0].items.map((t) => t.id)).toEqual(['y']);
+    expect(g[1].items.map((t) => t.id)).toEqual(['x']);
+  });
 });

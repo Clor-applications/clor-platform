@@ -67,7 +67,8 @@ export function chooseTenant({ tenants = [], urlCode = '', tabChoice = '', lastU
     const hit = tenants.find((t) => codeNames(t, code));
     return hit ? { tenant: hit, denied: '' } : { tenant: null, denied: code };
   }
-  return { tenant: byId(tabChoice) || byId(lastUsed) || byId(suggested) || tenants[0] || null, denied: '' };
+  /* With nothing chosen, an active company before an archived (read-only) one. */
+  return { tenant: byId(tabChoice) || byId(lastUsed) || byId(suggested) || tenants.find((t) => !t.archivedAt) || tenants[0] || null, denied: '' };
 }
 
 /**

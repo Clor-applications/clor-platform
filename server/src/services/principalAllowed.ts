@@ -3,6 +3,7 @@ import { isFeatureEnabled } from './features.js';
 import { isAppEntitled } from './subscriptions.js';
 import { APP_CATALOG } from '../constants/appCatalog.js';
 import { runInTenant } from '../utils/tenantScope.js';
+import { isArchived } from './companyArchive.js';
 
 /**
  * May a non-human caller still work for this company, in this app? (A-11)
@@ -35,6 +36,8 @@ export async function appLive(accountId: string, orgId: string, app: string): Pr
 }
 
 async function appLiveIn(accountId: string, orgId: string, app: string): Promise<Refusal | null> {
+  /* Archived: read-only for people, closed to machines — portal, readers, keys, recurring invoices. */
+  if (await isArchived(orgId)) return { status: 403, error: 'This company is archived; its connections are switched off.', code: 'COMPANY_ARCHIVED' };
   if (await closing(orgId)) return { status: 403, error: 'This company is being closed; its connections are switched off.', code: 'COMPANY_CLOSING' };
   /* Only an app with an on/off switch of its own (Payroll, Attendance, People) can be switched off; Accounting is its subscription. */
   const featureKey = APP_CATALOG.find((x) => x.code === app)?.featureKey;
@@ -49,7 +52,7 @@ export async function anyAppLive(accountId: string, orgId: string, apps: string[
   for (const app of apps) {
     const r = await appLive(accountId, orgId, app);
     if (!r) return null;
-    if (!first || r.code === 'COMPANY_CLOSING') first = r;
+    if (!first || r.code === 'COMPANY_CLOSING' || r.code === 'COMPANY_ARCHIVED') first = r;
   }
   return first;
 }
