@@ -153,7 +153,40 @@ describe('workforce backend', () => {
     expect(identity.changes.every((c: any) => c.redacted && c.before === null && c.after === null)).toBe(true);
     expect(JSON.stringify(seen)).not.toContain('Z1234567');
 
+    /* D-V8: the platform audit row for the same request carries its id, and Activity does not repeat it. */
+    const { platformPrisma } = await import('../utils/platformPrisma.js');
+    const { runInTenant } = await import('../utils/tenantScope.js');
+    const rows = await runInTenant(boss.orgId, () => platformPrisma.auditLog.findMany({ where: { orgId: boss.orgId, entityId: e.id } }));
+    expect(rows.length).toBeGreaterThan(0);
+    expect(rows.every((r: any) => typeof r.correlationId === 'string' && r.correlationId.length > 0)).toBe(true);
+    const ids = all.map((x: any) => x.id);
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(all.filter((x: any) => x.source === 'PLATFORM' && /employee/i.test(x.title) && x.type === 'update')).toEqual([]);
+
     const stranger = await owner();
     await people(stranger).get(`/employees/${e.id}/activity`).expect(404);
+  });
+
+  it('suspends and reactivates through the edit, but someone who has left only comes back through Rehire', async () => {
+    const e = (await people(boss).post('/employees', { name: 'Omar Shah', code: 'W-040', dateOfJoining: '2024-01-01' }).expect(201)).body.employee;
+    await put(boss, `/employees/${e.id}`, { status: 'SUSPENDED', changeNote: 'Inquiry' }).expect(200);
+    await put(boss, `/employees/${e.id}`, { status: 'ACTIVE' }).expect(200);
+    await put(boss, `/employees/${e.id}`, { status: 'LEFT', dateOfLeaving: '2026-09-30' }).expect(200);
+    expect((await put(boss, `/employees/${e.id}`, { status: 'ACTIVE' }).expect(409)).body.code).toBe('USE_REHIRE');
+    await people(boss).post(`/employees/${e.id}/rehire`, { rejoinDate: '2026-10-05' }).expect(200);
+  });
+
+  it('My team lists the caller\'s own reports, and counts them', async () => {
+    const lead = await colleague(boss, 'Team Lead', ['PEOPLE::Employees::VIEW']);
+    const me = (await people(boss).post('/employees', { name: 'Lead Person', code: 'W-050' }).expect(201)).body.employee;
+    const { runInTenant } = await import('../utils/tenantScope.js');
+    const { peoplePrisma } = await import('../utils/peoplePrisma.js');
+    await runInTenant(boss.orgId, () => peoplePrisma.employee.update({ where: { id: me.id }, data: { userId: lead.userId } }));
+    await people(boss).post('/employees', { name: 'Report One', code: 'W-051', reportingManagerId: me.id }).expect(201);
+    await people(boss).post('/employees', { name: 'Dotted Two', code: 'W-052', dottedManagerId: me.id }).expect(201);
+    const team = (await people(lead).get('/employees?team=mine').expect(200)).body;
+    expect(team.employees.map((e: any) => e.name).sort()).toEqual(['Dotted Two', 'Report One']);
+    expect((await people(lead).get('/employees/counts').expect(200)).body.myTeam).toBe(2);
+    expect((await people(boss).get('/employees?team=mine').expect(200)).body).toMatchObject({ employees: [], total: 0 });
   });
 });

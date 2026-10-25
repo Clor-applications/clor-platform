@@ -40,7 +40,7 @@ export default function Directory({ params = {}, updateParams, openScreen, tenan
   const perms = usePermissions();
   const allowed = (k) => can(perms, k);
   const p = params || {};
-  const tab = p.tab === 'views' ? 'views' : 'directory';
+  const tab = p.tab === 'views' ? 'views' : p.tab === 'team' ? 'team' : 'directory';
   const page = Math.max(1, Number(p.page || 1));
   const size = [25, 50, 100].includes(Number(p.size)) ? Number(p.size) : 25;
   const set = (patch, push = false) => updateParams?.(patch, { push });
@@ -49,8 +49,8 @@ export default function Directory({ params = {}, updateParams, openScreen, tenan
   const filtersOn = FILTER_KEYS.filter((k) => p[k]).length;
 
   /* The list: one request per query; the last good page stays while the next loads. */
-  const listKey = JSON.stringify([apiParams(p), page, size]);
-  const list = useRequest(() => listEmployees({ ...apiParams(p), limit: size, offset: (page - 1) * size }), [listKey]);
+  const listKey = JSON.stringify([apiParams(p), page, size, tab]);
+  const list = useRequest(() => listEmployees({ ...apiParams(p), ...(tab === 'team' ? { team: 'mine' } : {}), limit: size, offset: (page - 1) * size }), [listKey]);
   const counts = useRequest(() => employeeCounts(), []);
   const [lists, setLists] = useState({ departments: [], positions: [], types: [], areas: [] });
   useEffect(() => {
@@ -158,7 +158,7 @@ export default function Directory({ params = {}, updateParams, openScreen, tenan
       <Banners openScreen={openScreen} />
 
       <div role="tablist" aria-label="Workforce" className="ui-record-tablist">
-        {[['directory', 'Directory'], ['views', 'Saved views']].map(([k, l]) => (
+        {[['directory', 'Directory'], ...(counts.data?.myTeam ? [['team', `My team (${counts.data.myTeam})`]] : []), ['views', 'Saved views']].map(([k, l]) => (
           <button key={k} type="button" role="tab" aria-selected={tab === k} className={`ui-tab ${tab === k ? 'is-active' : ''}`} onClick={() => set({ tab: k === 'directory' ? null : k }, true)}>{l}</button>
         ))}
       </div>
@@ -222,9 +222,9 @@ export default function Directory({ params = {}, updateParams, openScreen, tenan
         />
       )}
 
-      {tab === 'directory' && list.error && rows.length ? <Alert tone="neg" title="Could not refresh the list" action={<button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={list.reload}>Retry</button>}>Showing the last list loaded. {list.error.message}</Alert> : null}
-      {tab === 'directory' && list.slow ? <Alert tone="info" title="Still loading employee records…" action={<button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={list.cancel}>Cancel</button>} /> : null}
-      {tab === 'directory' && chips.length ? (
+      {tab !== 'views' && list.error && rows.length ? <Alert tone="neg" title="Could not refresh the list" action={<button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={list.reload}>Retry</button>}>Showing the last list loaded. {list.error.message}</Alert> : null}
+      {tab !== 'views' && list.slow ? <Alert tone="info" title="Still loading employee records…" action={<button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={list.cancel}>Cancel</button>} /> : null}
+      {tab !== 'views' && chips.length ? (
         <div className="flex flex-wrap items-center gap-1.5" aria-label="Filters in force">
           {chips.map((c) => (
             <button key={c.k} type="button" className="ui-pill" onClick={() => set(c.k === 'dates' ? { from: null, to: null, page: null } : { [c.k]: null, page: null })} aria-label={`Remove ${c.label}`}>

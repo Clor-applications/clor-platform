@@ -135,6 +135,24 @@ export async function activityOf(viewer: ActivityViewer, employeeId: string, opt
     events.push({ id: `note_${n.id}`, type: 'comment', at: n.createdAt.toISOString(), actorId: n.createdByUserId, actor: null, role: null, title: 'Comment', body: n.body });
   }
 
+  /*
+   * D-V8: what the platform audit log recorded about this person that the
+   * change log does not already say (a statutory reveal, a letter issued, an
+   * invite sent). Joined by the request id; only its plain message is shown,
+   * never the request body it keeps for administrators.
+   */
+  const logged = new Set(lines.map((l) => l.correlationId));
+  const platform = await platformPrisma.auditLog.findMany({
+    where: { orgId, entityId: employeeId, entity: { startsWith: 'PEOPLE_' }, ...(before ? { createdAt: before } : {}) },
+    orderBy: { createdAt: 'desc' }, take: limit, select: { id: true, action: true, message: true, createdByUserId: true, createdAt: true, correlationId: true },
+  }).catch(() => []);
+  const PLATFORM_TYPE: Record<string, string> = { EXPORT: 'export', REVEAL: 'view', DELETE: 'archive', CREATE: 'create', UPDATE: 'update', APPROVE: 'approve', REJECT: 'reject' };
+  for (const a of platform as any[]) {
+    if (a.correlationId && logged.has(a.correlationId)) continue;
+    if (['CREATE', 'UPDATE'].includes(a.action) && !a.correlationId) continue; /* older rows: the change log already tells these */
+    events.push({ id: `audit_${a.id}`, type: PLATFORM_TYPE[a.action] || 'system', at: a.createdAt.toISOString(), actorId: a.createdByUserId, actor: null, role: null, title: a.message || a.action.toLowerCase().replace(/_/g, ' '), correlationId: a.correlationId || undefined, source: 'PLATFORM' });
+  }
+
   events.sort((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : 0));
   const page = events.slice(0, limit);
   const who = await actorsOf(orgId, page.map((e) => e.actorId || '').filter(Boolean));

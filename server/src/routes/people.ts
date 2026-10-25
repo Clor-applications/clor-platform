@@ -429,10 +429,14 @@ peopleRouter.get('/orgs/:orgId/people/employees', can(PermissionAction.VIEW, EMP
   const tagId = pick('tagId');
   /* A role limited to its own records sees its own team only (services/people/scope.ts). */
   const scope = await teamScope(req);
+  /* Workforce "My team" (WF-01): the caller's own reports, solid or dotted line. */
+  const mine = req.query.team === 'mine' ? await peoplePrisma.employee.findFirst({ where: { orgId, userId: req.auth!.userId }, select: { id: true } }) : null;
+  if (req.query.team === 'mine' && !mine) return res.json({ employees: [], total: 0 });
   const where: any = {
     accountId,
     orgId,
     ...scopeWhere(scope),
+    ...(mine ? { AND: [{ OR: [{ reportingManagerId: mine.id }, { dottedManagerId: mine.id }] }] } : {}),
     ...(pick('status') ? { status: pick('status') } : {}),
     ...(pick('departmentId') ? { departmentId: pick('departmentId') } : {}),
     ...(pick('jobPositionId') ? { jobPositionId: pick('jobPositionId') } : {}),
@@ -507,7 +511,9 @@ peopleRouter.get('/orgs/:orgId/people/employees/counts', can(PermissionAction.VI
     peoplePrisma.leaveRequest.findMany({ where: { orgId, status: 'APPROVED', fromDate: { lte: today }, toDate: { gte: today }, ...(scope.all ? {} : { employeeId: { in: (scope as any).ids } }) }, select: { employeeId: true }, distinct: ['employeeId'] }),
   ]);
   const of = (s: string) => byStatus.find((x) => x.status === s)?._count._all || 0;
-  res.json({ total: byStatus.reduce((a, x) => a + x._count._all, 0), active: of('ACTIVE'), onNotice: of('ON_NOTICE'), suspended: of('SUSPENDED'), left: of('LEFT'), joining, onLeave: onLeave.length });
+  const me = await peoplePrisma.employee.findFirst({ where: { orgId, userId: req.auth!.userId }, select: { id: true } });
+  const myTeam = me ? await peoplePrisma.employee.count({ where: { ...base, status: { not: 'LEFT' }, OR: [{ reportingManagerId: me.id }, { dottedManagerId: me.id }] } }) : 0;
+  res.json({ total: byStatus.reduce((a, x) => a + x._count._all, 0), active: of('ACTIVE'), onNotice: of('ON_NOTICE'), suspended: of('SUSPENDED'), left: of('LEFT'), joining, onLeave: onLeave.length, myTeam });
 });
 
 /** A suggestion for the next employee ID (People design v1 EMP-02): the company's own pattern, one past the highest. Still editable. */
@@ -758,6 +764,10 @@ peopleRouter.put('/orgs/:orgId/people/employees/:id', can(PermissionAction.EDIT,
   const ifMatch = String(req.headers['if-match'] || '').replace(/[^0-9]/g, '');
   const expected = b.version ?? (ifMatch ? Number(ifMatch) : undefined);
   delete (b as any).version;
+  /* Someone who has left comes back through Rehire, which opens a new stint; an edit cannot quietly make them active (WF-14). */
+  if (existing.status === 'LEFT' && b.status && b.status !== 'LEFT') {
+    return res.status(409).json({ error: `${existing.name} has left. Use Rehire to bring them back: it starts a new stint and keeps the earlier one.`, code: 'USE_REHIRE' });
+  }
   if (expected !== undefined && expected !== existing.version) {
     return res.status(409).json({ error: 'Someone else changed this record after you opened it. Reload to see their changes, then make yours again.', code: 'STALE', employee: (await withMeta(orgId, [existing]))[0] });
   }

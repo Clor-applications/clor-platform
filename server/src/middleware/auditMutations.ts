@@ -199,6 +199,7 @@ export function auditMutations(req: Request, res: Response, next: NextFunction) 
           message: (phrase || `${req.method} ${shape}`).slice(0, 500),
           metadata: JSON.stringify({ path: shape, ids, body: redact(req.body) }).slice(0, 8_000),
           createdByUserId: req.auth.userId,
+          correlationId: typeof (req as any).id === 'string' ? String((req as any).id).slice(0, 80) : null,
         },
       })
       .catch((e) => {

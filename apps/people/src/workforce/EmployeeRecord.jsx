@@ -113,6 +113,8 @@ export default function EmployeeRecord({ params = {}, updateParams, openScreen }
     editable ? ['transfer', 'Transfer'] : null,
     editable ? ['designation', 'Change designation'] : null,
     editable ? ['type', 'Change employment type'] : null,
+    editable && person.status !== 'SUSPENDED' ? ['status', 'Suspend'] : null,
+    allowed('PEOPLE::Employees::EDIT') && person.status === 'SUSPENDED' ? ['status', 'Reactivate'] : null,
     person.status !== 'LEFT' && allowed('PEOPLE::Lifecycle::CREATE') ? ['invite', 'Invite to fill in details'] : null,
     person.status !== 'LEFT' && allowed('PEOPLE::Employees::EDIT') ? ['leave', 'Record leaving'] : null,
     person.status === 'LEFT' && allowed('PEOPLE::Employees::EDIT') ? ['rehire', 'Rehire'] : null,
@@ -531,7 +533,10 @@ const OPERATIONS = {
   transfer: { title: 'Transfer', fields: [['departmentId', 'Department', 'departments'], ['areaId', 'Location', 'areas'], ['establishmentId', 'Establishment', 'establishments'], ['teamId', 'Team', 'teams']] },
   designation: { title: 'Change designation', fields: [['jobPositionId', 'New designation', 'positions'], ['gradeId', 'Grade', 'grades']] },
   type: { title: 'Change employment type', fields: [['employeeTypeId', 'Employment type', 'types'], ['workTypeId', 'Work type', 'workTypes']] },
+  /* Allowed moves only: active or on notice can be suspended, suspended can be reactivated; leaving and rehire have their own flows (WF-14). */
+  status: { title: 'Change status', fields: [['status', 'New status', 'statuses']], reasonRequired: true },
 };
+const STATUS_WORD = { ACTIVE: 'Active', ON_NOTICE: 'On notice', SUSPENDED: 'Suspended', LEFT: 'Left' };
 
 /**
  * One employment change (WF-06 standard pattern): the current state, the
@@ -564,8 +569,10 @@ function OperationDrawer({ action, person, lists, onClose, onDone }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [JSON.stringify(changed), person.id]);
   if (!op) return null;
-  const options = (src) => (src === 'people' ? people.map((e) => ({ value: e.id, label: e.code ? `${e.name} (${e.code})` : e.name })) : (lists[src] || []).map((x) => ({ value: x.id, label: x.name })));
-  const current = (k, src) => (src === 'people' ? (k === 'reportingManagerId' ? person.reportingManagerName : person.dottedManagerName) : lists[src]?.find((x) => x.id === person[k])?.name) || 'None';
+  const options = (src) => (src === 'people' ? people.map((e) => ({ value: e.id, label: e.code ? `${e.name} (${e.code})` : e.name }))
+    : src === 'statuses' ? (person.status === 'SUSPENDED' ? [{ value: 'ACTIVE', label: 'Active' }] : [{ value: 'SUSPENDED', label: 'Suspended' }])
+    : (lists[src] || []).map((x) => ({ value: x.id, label: x.name })));
+  const current = (k, src) => (src === 'people' ? (k === 'reportingManagerId' ? person.reportingManagerName : person.dottedManagerName) : src === 'statuses' ? STATUS_WORD[person.status] : lists[src]?.find((x) => x.id === person[k])?.name) || 'None';
   const submit = async () => {
     if (busy || !Object.keys(changed).length) return;
     setBusy(true);
@@ -583,19 +590,19 @@ function OperationDrawer({ action, person, lists, onClose, onDone }) {
   };
   return (
     <Drawer open onClose={onClose} title={`${op.title}: ${person.name}`} description="The change, the day it counts from, and why. History keeps both the before and the after." dirty={Object.keys(changed).length > 0 || Boolean(reason)}
-      footer={<><button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button><button type="button" className="ui-btn ui-btn-primary" disabled={busy || !Object.keys(changed).length} onClick={submit}>{busy ? 'Saving…' : 'Confirm change'}</button></>}>
+      footer={<><button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button><button type="button" className="ui-btn ui-btn-primary" disabled={busy || !Object.keys(changed).length || (op.reasonRequired && !reason.trim())} onClick={submit}>{busy ? 'Saving…' : 'Confirm change'}</button></>}>
       <div className="grid gap-4">
         {error ? (error?.status === 409 && error?.data?.code === 'STALE'
           ? <Alert tone="warn" title="This record was updated elsewhere">Close this, reload the record, and make the change again. Nothing was overwritten.</Alert>
           : <ErrorState error={error} compact onRetry={submit} retryLabel="Try again" body={error?.status === 400 ? error.message : undefined} />) : null}
         {op.fields.map(([k, label, src]) => (
           <div key={k}>
-            <PopupSelect label={label} value={form[k]} onChange={(v) => setForm({ ...form, [k]: v || '' })} placeholder="Choose…" alwaysSearch options={[{ value: '', label: 'None' }, ...options(src)]} />
+            <PopupSelect label={label} value={form[k]} onChange={(v) => setForm({ ...form, [k]: v || '' })} placeholder="Choose…" alwaysSearch={src !== 'statuses'} options={src === 'statuses' ? options(src) : [{ value: '', label: 'None' }, ...options(src)]} />
             <span className="ui-caption">Now: {current(k, src)}</span>
           </div>
         ))}
         <div><label className="ui-label" htmlFor="op-effective">Effective from</label><DatePicker id="op-effective" value={effective} onChange={setEffective} /><span className="ui-caption">A later date schedules it; it applies on that day.</span></div>
-        <label className="block"><span className="ui-label">Reason</span><textarea className="ui-input w-full" rows={2} maxLength={500} value={reason} onChange={(e) => setReason(e.target.value)} /></label>
+        <label className="block"><span className="ui-label">Reason{op.reasonRequired ? ' *' : ''}</span><textarea className="ui-input w-full" rows={2} maxLength={500} value={reason} onChange={(e) => setReason(e.target.value)} /></label>
         {impact.length ? (
           <div aria-label="What else this affects">
             <p className="ui-label">What else this affects</p>
