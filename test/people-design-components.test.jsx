@@ -322,3 +322,37 @@ describe('DataTable (spec v1 §4.2, §5)', () => {
     expect(visibleColumns(columns, { hidden: ['department', 'name'], order: ['code', 'name'] }).map((c) => c.key)).toEqual(['code', 'name']);
   });
 });
+
+describe('useRequest (spec v1 §8 states)', () => {
+  it('first load, background refresh that keeps data, slow flag, failure that keeps the last good data, newest wins', async () => {
+    const { default: useRequest } = await import('../packages/ui/src/components/ui/useRequest');
+    const { renderHook, waitFor } = await import('@testing-library/react');
+    let answer;
+    let calls = 0;
+    const load = vi.fn(() => { calls += 1; return answer(calls); });
+    answer = () => Promise.resolve(['one']);
+    const { result, rerender } = renderHook(({ q }) => useRequest(load, [q], { slowAfter: 50 }), { initialProps: { q: 'a' } });
+    expect(result.current.loading).toBe(true);
+    await waitFor(() => expect(result.current.data).toEqual(['one']));
+
+    answer = () => new Promise((r) => setTimeout(() => r(['two']), 120));
+    rerender({ q: 'b' });
+    await waitFor(() => expect(result.current.refreshing).toBe(true));
+    expect(result.current.data).toEqual(['one']);
+    await waitFor(() => expect(result.current.slow).toBe(true));
+    await waitFor(() => expect(result.current.data).toEqual(['two']));
+    expect(result.current.slow).toBe(false);
+
+    answer = () => Promise.reject(Object.assign(new Error('x'), { network: true }));
+    rerender({ q: 'c' });
+    await waitFor(() => expect(result.current.error?.network).toBe(true));
+    expect(result.current.data).toEqual(['two']);
+
+    /* A late answer to an older request never replaces a newer one. */
+    answer = (n) => new Promise((r) => setTimeout(() => r([`late-${n}`]), n === calls ? 10 : 80));
+    rerender({ q: 'd' });
+    rerender({ q: 'e' });
+    await new Promise((r) => setTimeout(r, 150));
+    expect(result.current.data).toEqual([`late-${calls}`]);
+  });
+});
