@@ -2,7 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { Link } from '../router.jsx';
 import { PRODUCTS, SITE, productBySlug } from '../site.js';
 import { Mark, Status } from '../components/Brand.jsx';
-import { Closing, Faq, SectionHead } from '../components/Blocks.jsx';
+import { Closing, Faq, Reveal, RevealGroup, SectionHead, Steps } from '../components/Blocks.jsx';
+import { Head, HowItWorks, TrustBand } from '../components/Sections.jsx';
+import { ArrowRight, Building2, Clock, FileText, History, KeyRound, Mail, ShieldCheck, Users, Wallet } from 'lucide-react';
 import Illustration from '../components/Illustration.jsx';
 import { DOCUMENTS } from '../../../packages/shell/legal/documents.jsx';
 
@@ -18,103 +20,198 @@ function PageHead({ title, intro, children }) {
   );
 }
 
-/* ------------------------------------------------------------- businesses */
+/* ------------------------------------------------------------- solutions
+ * Businesses and accounting firms, in the home page's language: an orange
+ * label, a title, the product artwork, cards that arrive in turn, and the
+ * shared How it works and Trust sections. Everything said here is true of
+ * the product today; what is planned is marked planned.
+ */
+function SolutionHero({ eyebrow, title, accent, intro, art, children }) {
+  return (
+    <section className="hero sol-hero" aria-labelledby="sol-title">
+      <div className="wrap sol-hero-grid">
+        <div className="sol-hero-copy">
+          <p className="eyebrow hero-in" style={{ '--d': 0 }}>
+            {eyebrow}
+          </p>
+          <h1 id="sol-title" className="h-hero sol-title hero-in" style={{ '--d': 0 }}>
+            {title} {accent ? <span className="accent-word">{accent}</span> : null}
+          </h1>
+          <p className="lede hero-in" style={{ '--d': 1 }}>
+            {intro}
+          </p>
+          <div className="actions hero-in" style={{ '--d': 2 }}>
+            {children}
+          </div>
+        </div>
+        <div className="sol-hero-art">{art}</div>
+      </div>
+    </section>
+  );
+}
+
 export function Businesses() {
   const stages = [
     ['Just starting', 'Begin with Books for GST invoices and accounts. Add the rest as people join.', ['books']],
     ['A growing team', 'Add People and Attendance when you hire, and Payroll when salaries need to be right every month.', ['people', 'attendance', 'payroll']],
     ['Several companies or branches', 'One workspace holds all your companies; each branch keeps its own GSTIN, stock and books.', ['books', 'payroll']],
   ];
+  const changes = [
+    [Users, 'Added once', 'A new employee is added once, and appears on the readers, in payroll and in the employee app.'],
+    [Wallet, 'Payroll in the books', 'Payroll posts its own journal, so the books show salary cost the day the run is locked.'],
+    [KeyRound, 'One sign-in', 'Everyone signs in once and sees only the companies, branches and apps you gave them.'],
+    [History, 'One audit trail', 'Every change — an invoice edited, a role granted — is in one audit trail you can read.'],
+  ];
   return (
     <>
-      <PageHead title="For businesses that would rather run the business." intro="Small and mid-sized Indian companies use Clor to keep accounts, people and payroll in one place, without stitching tools together.">
-        <div className="actions">
-          <a className="btn btn--primary" href={SITE.signUpUrl}>
-            Get started
-          </a>
-          <Link className="btn btn--quiet" href="/contact">
-            Talk to us
-          </Link>
-        </div>
-      </PageHead>
-      <section className="section">
-        <div className="wrap split">
-          <SectionHead title="Start where you are" intro="There is no bundle to buy. Pick the product for today’s problem." />
-          <ul className="problems">
-            {stages.map(([t, d, ps]) => (
-              <li key={t}>
+      <SolutionHero
+        eyebrow="For businesses"
+        title="Run the whole business from"
+        accent="one workspace."
+        intro="Small and mid-sized Indian companies use Clor to keep accounts, people, payroll and attendance in one place, without stitching tools together."
+        art={<Illustration className="sol-art" src="/illustrations/team.webp" width={1000} height={772} priority alt="A business owner at a laptop, with team productivity, tasks and monthly revenue beside him." />}
+      >
+        <a className="btn btn--primary btn--lg" href={SITE.signUpUrl}>
+          Get started <ArrowRight size={18} strokeWidth={2} aria-hidden="true" />
+        </a>
+        <Link className="btn btn--quiet btn--lg" href="/contact">
+          Talk to us
+        </Link>
+      </SolutionHero>
+
+      <section className="section" aria-labelledby="stages-title">
+        <div className="wrap">
+          <Head center id="stages-title" eyebrow="Start where you are" title="Pick the app for today’s problem" intro="There is no bundle to buy. Each app works on its own; add the others when you need them." />
+          <RevealGroup as="ul" className="p-cards sol-stages">
+            {stages.map(([t, d, ps], n) => (
+              <li key={t} className="p-card" style={{ '--i': n }}>
+                <span className="sol-step">{n + 1}</span>
                 <h3 className="h-3">{t}</h3>
                 <p className="body">{d}</p>
                 <p className="stage-products">
-                  {ps.map((s) => (
-                    <Link key={s} href={`/products/${s}`}>
-                      <Mark product={productBySlug(s)} size={22} /> {productBySlug(s).name}
+                  {ps.map((sl) => (
+                    <Link key={sl} href={`/products/${sl}`}>
+                      <Mark product={productBySlug(sl)} size={22} /> {productBySlug(sl).name}
                     </Link>
                   ))}
                 </p>
               </li>
             ))}
-          </ul>
+          </RevealGroup>
         </div>
       </section>
-      <section className="section section--tint">
-        <div className="wrap split">
-          <SectionHead title="What changes when it’s all in one place" />
-          <ul className="ticks ticks--lg">
-            <li>A new employee is added once, and appears on the readers, in payroll and in the employee app.</li>
-            <li>Payroll posts its own journal, so the books show salary cost the day the run is locked.</li>
-            <li>Everyone signs in once and sees only the companies, branches and apps you gave them.</li>
-            <li>Every change — an invoice edited, a role granted — is in one audit trail.</li>
-          </ul>
+
+      <section className="section section--tint" aria-labelledby="change-title">
+        <div className="wrap">
+          <Head center id="change-title" eyebrow="Better together" title="What changes when it’s all in one place" />
+          <Reveal className="connect-stage">
+            <Illustration className="connect-art" src="/illustrations/connected-apps.webp" width={1400} height={933} alt="People, Attendance, Payroll and Books joined at Clor." />
+          </Reveal>
+          <RevealGroup as="ul" className="trust-cards sol-changes">
+            {changes.map(([Icon, t, d], n) => (
+              <li key={t} className="trust-card" style={{ '--i': n }}>
+                <span className="trust-icon tone-orange" aria-hidden="true">
+                  <Icon size={24} strokeWidth={1.75} />
+                </span>
+                <h3 className="h-3">{t}</h3>
+                <p className="body">{d}</p>
+              </li>
+            ))}
+          </RevealGroup>
         </div>
       </section>
+
+      <section className="section" aria-labelledby="sol-devices-title">
+        <div className="wrap split devices">
+          <Head id="sol-devices-title" eyebrow="Anywhere you work" title="In the office, on the floor, on the road" intro="In the browser on any computer, and in the Clor apps on your phone: employees punch in, see payslips and ask for leave from theirs." />
+          <Reveal className="devices-art-wrap">
+            <Illustration className="devices-art" src="/illustrations/devices.webp" width={1300} height={815} alt="A laptop, a phone and a tablet, each showing Clor, connected to the same workspace." />
+          </Reveal>
+        </div>
+      </section>
+
+      <HowItWorks />
+      <TrustBand />
       <Closing />
     </>
   );
 }
 
-/* --------------------------------------------------------- accounting firms */
 export function Firms() {
+  const today = [
+    [Mail, 'Your client invites you', 'The client invites your email address from their Workspace (Access › Invitations). You join with your own login — never theirs.'],
+    [Building2, 'Every client, one login', 'Accept invitations from as many clients as you work for, and switch between their companies from the company menu without signing out.'],
+    [ShieldCheck, 'Access the client controls', 'The client chooses your role — for example, post entries but not approve payments — and can change it or end it at any time.'],
+    [Clock, 'Time-limited if they prefer', 'A client can give you outside access that ends on a date they choose (Access › Outside access), for an audit or a filing season.'],
+    [History, 'Everything recorded', 'Every change you make is in the client’s own audit trail, in plain words, with your name on it.'],
+    [FileText, 'GST and TDS where the work is', 'Returns come from the client’s own invoices and bills, so the month’s work is review, not re-entry.'],
+  ];
+  const steps = [
+    ['Your client invites you', 'From their Workspace: Access › Invitations, with your email and the role you need.'],
+    ['You accept with your login', 'One Clor login for you, whatever number of clients.'],
+    ['Work in their books', 'Switch between clients from the company menu; each keeps its own records.'],
+    ['They stay in control', 'The client sees what you changed, and can change your role or end your access.'],
+  ];
   return (
     <>
-      <PageHead title="For accounting firms: your clients’ books, with their permission." intro="Your client invites you into their Clor workspace with your own login. You work in their books; they decide what you can see and change, and can end it at any time." />
-      <section className="section">
-        <div className="wrap split">
-          <SectionHead title="Today" />
-          <ul className="problems">
-            <li>
-              <h3 className="h-3">One login for every client</h3>
-              <p className="body">Each client invites the same email address. Switch between their companies from the company menu, without signing out.</p>
-            </li>
-            <li>
-              <h3 className="h-3">Their records stay theirs</h3>
-              <p className="body">Every client’s data stays in their own workspace. Nothing of one client is visible from another.</p>
-            </li>
-            <li>
-              <h3 className="h-3">Access the client controls</h3>
-              <p className="body">The client chooses your role — for example, post entries but not approve payments — and every change you make is in their audit trail.</p>
-            </li>
-            <li>
-              <h3 className="h-3">GST and TDS where the work is</h3>
-              <p className="body">Returns come from the client’s own invoices and bills, so the month’s work is review, not re-entry.</p>
-            </li>
-          </ul>
+      <SolutionHero
+        eyebrow="For accounting firms"
+        title="Your clients’ books, with their"
+        accent="permission."
+        intro="Each client invites you into their Clor workspace with your own login. You work in their books; they decide what you can see and change, and can end it at any time."
+        art={<Illustration className="sol-art" src="/illustrations/hero-workspace.webp" width={1400} height={787} priority alt="The Clor workspace on a laptop and a phone, with every app connected to it." />}
+      >
+        <a className="btn btn--primary btn--lg" href={SITE.signUpUrl}>
+          Get started <ArrowRight size={18} strokeWidth={2} aria-hidden="true" />
+        </a>
+        <Link className="btn btn--quiet btn--lg" href="/contact?about=firms">
+          Talk to us
+        </Link>
+      </SolutionHero>
+
+      <section className="section" aria-labelledby="firm-today-title">
+        <div className="wrap">
+          <Head center id="firm-today-title" eyebrow="Available today" title="How firms work with clients on Clor" />
+          <RevealGroup as="ul" className="trust-cards sol-cards-3">
+            {today.map(([Icon, t, d], n) => (
+              <li key={t} className="trust-card" style={{ '--i': n }}>
+                <span className="trust-icon tone-orange" aria-hidden="true">
+                  <Icon size={24} strokeWidth={1.75} />
+                </span>
+                <h3 className="h-3">{t}</h3>
+                <p className="body">{d}</p>
+              </li>
+            ))}
+          </RevealGroup>
         </div>
       </section>
-      <section className="section section--tint">
+
+      <section className="section section--tint" aria-labelledby="firm-steps-title">
         <div className="wrap split">
+          <Head id="firm-steps-title" eyebrow="How it works" title="From invitation to the month’s work" />
+          <Steps steps={steps} />
+        </div>
+      </section>
+
+      <section className="section" aria-labelledby="firm-planned-title">
+        <div className="wrap split firms-planned">
           <div className="stack">
-            <SectionHead title="Coming next for firms" intro="A workspace for the firm itself is in development. Planned, not yet available:" />
+            <Head id="firm-planned-title" eyebrow="Planned" title="A workspace for the firm itself" intro="In development, not yet available. What we are building:" />
             <ul className="ticks ticks--lg">
               <li>Your firm’s own account, with your staff and their roles.</li>
               <li>Client engagements the client approves, with which apps you may use and until when.</li>
               <li>Assigning staff to clients, and one view of who can reach which client.</li>
             </ul>
+            <p className="small">Plans, not promises: the direction may change before release.</p>
           </div>
-          <Illustration className="firms-art" src="/illustrations/ca-firm.webp" width={1200} height={848} alt="Planned: a CA firm’s own account, with its client companies under it and the firm’s people on each." />
+          <Reveal className="firms-art-wrap">
+            <Illustration className="firms-art" src="/illustrations/ca-firm.webp" width={1200} height={848} alt="Planned: a CA firm’s own account, with its client companies under it and the firm’s people on each." />
+          </Reveal>
         </div>
       </section>
-      <Closing title="Working with clients on Clor already?" text="Ask your client to invite you from their Workspace: Access, Invitations. Or talk to us about the firm workspace." />
+
+      <TrustBand />
+      <Closing title="Working with clients on Clor already?" text="Ask your client to invite you from their Workspace: Access › Invitations. Or talk to us about the firm workspace." />
     </>
   );
 }
