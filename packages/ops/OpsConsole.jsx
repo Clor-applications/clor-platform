@@ -8,6 +8,7 @@ import { ICON, PageHead, Panel, Stat, WsDrawer, ago } from '../../apps/admin/src
 import '../../apps/admin/src/screens/workspace.css';
 import { useSession } from '../shell/session';
 import SignIn from '../shell/SignIn';
+import OperatorBrand from './OperatorBrand';
 import {
   opsAccount,
   opsAccounts,
@@ -644,6 +645,15 @@ function Console() {
 export default function OpsConsole() {
   const { user, restoring } = useSession();
   if (restoring) return null;
-  if (!user) return <SignIn onHome={() => (window.location.href = '/')} onSignUp={() => {}} onForgot={() => (window.location.href = '/forgot-password')} />;
+  if (!user) {
+    return (
+      <SignIn
+        brand={<OperatorBrand />}
+        subtitle="Clor staff sign in here with an authenticator."
+        onHome={() => (window.location.href = 'https://clor.in')}
+        onForgot={() => (window.location.href = 'https://app.clor.in/forgot-password')}
+      />
+    );
+  }
   return <Console />;
 }
