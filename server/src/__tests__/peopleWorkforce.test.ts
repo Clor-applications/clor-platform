@@ -111,4 +111,42 @@ describe('workforce backend', () => {
     const audit = await runInTenant(boss.orgId, () => platformPrisma.auditLog.findFirst({ where: { orgId: boss.orgId, entity: 'PEOPLE_EMPLOYEES', action: 'EXPORT' } }));
     expect(audit?.message).toBe('Exported 3 employees');
   });
+
+  it('Activity: changes, documents, comments and approvals, newest first, redacted for a viewer with less access', async () => {
+    const senior = (await people(boss).post('/structure/job-positions', { name: 'Lead analyst' }).expect(201)).body.item;
+    const e = (await people(boss).post('/employees', { name: 'Ritu Das', code: 'W-030' }).expect(201)).body.employee;
+    await put(boss, `/employees/${e.id}`, { jobPositionId: senior.id, changeNote: 'Promotion' }).expect(200);
+    await put(boss, `/employees/${e.id}/identity`, { passportNumber: 'Z1234567' }).expect(200);
+    const file = { data: `data:text/plain;base64,${Buffer.from('x').toString('base64')}`, mime: 'text/plain' };
+    await people(boss).post(`/employees/${e.id}/documents`, { title: 'Offer letter', kind: 'OTHER', classification: 'HR_ONLY', ...file }).expect(201);
+    const med = (await people(boss).post(`/employees/${e.id}/documents`, { title: 'Medical note', kind: 'OTHER', classification: 'CONFIDENTIAL', ...file }).expect(201)).body.document;
+    await people(boss).post(`/employees/${e.id}/notes`, { body: 'Spoke to the manager about the move.' }).expect(201);
+    await request(app).delete(`/api/orgs/${boss.orgId}/people/documents/${med.id}`).set(at(boss)).expect(200);
+
+    const all = (await people(boss).get(`/employees/${e.id}/activity`).expect(200)).body.events;
+    const types = all.map((x: any) => x.type);
+    expect(types).toEqual(expect.arrayContaining(['create', 'update', 'upload', 'comment']));
+    expect(all[all.length - 1]).toMatchObject({ type: 'create', title: 'Employee created', actor: 'Owner' });
+    const promo = all.find((x: any) => x.changes?.some((c: any) => c.field === 'jobPositionId'));
+    expect(promo.changes.find((c: any) => c.field === 'jobPositionId')).toMatchObject({ after: 'Lead analyst', redacted: false });
+    expect(promo.reason).toBe('Promotion');
+    expect(all.find((x: any) => x.title === 'Identity details updated')).toBeTruthy();
+    /* The removed file's upload goes with its row; its removal stays on the trail. */
+    expect(all.some((x: any) => x.title === 'Uploaded Medical note')).toBe(false);
+    expect(all.some((x: any) => x.changes?.some((c: any) => c.field === 'document' && c.before === 'Medical note'))).toBe(true);
+    const times = all.map((x: any) => x.at);
+    expect([...times].sort().reverse()).toEqual(times);
+
+    const viewer = await colleague(boss, 'Line Viewer', ['PEOPLE::Employees::VIEW', 'PEOPLE::Documents::VIEW']);
+    const seen = (await people(viewer).get(`/employees/${e.id}/activity`).expect(200)).body.events;
+    expect(seen.some((x: any) => x.type === 'comment')).toBe(false);
+    expect(seen.some((x: any) => /Medical note/.test(x.title))).toBe(false);
+    expect(seen.some((x: any) => x.title === 'Uploaded Offer letter')).toBe(true);
+    const identity = seen.find((x: any) => x.title === 'Identity details updated');
+    expect(identity.changes.every((c: any) => c.redacted && c.before === null && c.after === null)).toBe(true);
+    expect(JSON.stringify(seen)).not.toContain('Z1234567');
+
+    const stranger = await owner();
+    await people(stranger).get(`/employees/${e.id}/activity`).expect(404);
+  });
 });

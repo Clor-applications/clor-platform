@@ -211,6 +211,8 @@ export async function apiFetch(
     isRetry = false,
     transientRetryCount = 0,
     stepUpRetried = false,
+    /* A file the server sends as text (a CSV export): returned as it came, not parsed. */
+    asText = false,
   } = {}
 ) {
   const token = skipAuth ? '' : getToken();
@@ -247,7 +249,7 @@ export async function apiFetch(
     if (method === 'GET' && transientRetryCount < 2) {
       await new Promise((resolve) => setTimeout(resolve, transientRetryCount === 0 ? 250 : 750));
       return apiFetch(path, {
-        method, body, headers, skipBranchHeader, skipWarehouseHeader, skipAuth, isRetry,
+        method, body, headers, skipBranchHeader, skipWarehouseHeader, skipAuth, isRetry, asText,
         transientRetryCount: transientRetryCount + 1,
       });
     }
@@ -274,7 +276,7 @@ export async function apiFetch(
     // treating this as a sign-out.
     const refreshed = await refreshSession();
     if (refreshed) {
-      return apiFetch(path, { method, body, headers, skipBranchHeader, skipWarehouseHeader, skipAuth, isRetry: true, transientRetryCount });
+      return apiFetch(path, { method, body, headers, skipBranchHeader, skipWarehouseHeader, skipAuth, isRetry: true, transientRetryCount, asText });
     }
     throw endSession(data?.error);
   }
@@ -285,14 +287,14 @@ export async function apiFetch(
 
   if (res.status === 403 && data?.code === 'STEP_UP_REQUIRED' && !stepUpRetried && !skipAuth) {
     stepUp = null;
-    return stepUpAndRetry(path, { method, body, headers, skipBranchHeader, skipWarehouseHeader, skipAuth, isRetry, transientRetryCount }, data);
+    return stepUpAndRetry(path, { method, body, headers, skipBranchHeader, skipWarehouseHeader, skipAuth, isRetry, transientRetryCount, asText }, data);
   }
 
   if (!res.ok) {
     if (method === 'GET' && transientRetryCount < 2 && [500, 502, 503, 504].includes(res.status)) {
       await new Promise((resolve) => setTimeout(resolve, transientRetryCount === 0 ? 250 : 750));
       return apiFetch(path, {
-        method, body, headers, skipBranchHeader, skipWarehouseHeader, skipAuth, isRetry,
+        method, body, headers, skipBranchHeader, skipWarehouseHeader, skipAuth, isRetry, asText,
         transientRetryCount: transientRetryCount + 1,
       });
     }
@@ -314,5 +316,5 @@ export async function apiFetch(
     throw err;
   }
 
-  return data;
+  return asText ? text : data;
 }

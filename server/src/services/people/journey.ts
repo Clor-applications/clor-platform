@@ -47,7 +47,7 @@ async function named(orgId: string, field: string, value: string | null) {
     return value;
   }
 }
-async function changesOf(orgId: string, g: Line[]) {
+export async function changesOf(orgId: string, g: Line[]) {
   return Promise.all(g.map(async (l) => ({ field: fieldWord(l.field), key: l.field, before: l.redacted ? null : await named(orgId, l.field, l.before), after: l.redacted ? null : await named(orgId, l.field, l.after), redacted: l.redacted })));
 }
 

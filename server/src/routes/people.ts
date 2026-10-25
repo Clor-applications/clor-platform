@@ -29,6 +29,7 @@ import { PROBATION_OUTCOMES, ProbationError, decideProbation, reviewsOf, saveRev
 import { changeImpact } from '../services/people/lifecycle/changes.js';
 import { journeyOf, whyOf } from '../services/people/journey.js';
 import { salaryQuestion } from '../services/people/salaryQuestion.js';
+import { activityOf } from '../services/people/activity.js';
 import { BulkError, bulkUpdate } from '../services/people/bulk.js';
 import { deleteView, saveView, viewsFor } from '../services/people/savedViews.js';
 import { raiseRequest } from '../services/people/desk.js';
@@ -1151,6 +1152,30 @@ peopleRouter.post('/orgs/:orgId/people/employees/bulk', can(PermissionAction.EDI
   }
 });
 
+/**
+ * Activity & Audit Trail for one employee (People design v1 EMP-09, Workforce WF-18/19):
+ * changes, approvals, documents and comments, newest first, redacted for this viewer.
+ * `before` pages back. Read-only: nothing here edits or deletes an event.
+ */
+peopleRouter.get('/orgs/:orgId/people/employees/:id/activity', can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const employee = await peoplePrisma.employee.findFirst({ where: { id: String(req.params.id), accountId, orgId }, select: { id: true } });
+  if (!employee || !inScope(await teamScope(req), employee.id)) return res.status(404).json({ error: 'No such employee.' });
+  const allows = async (permission: string) => {
+    const [m, sub, action] = permission.split('::');
+    return !(await authorize(req, m, action as PermissionActionType, sub));
+  };
+  const out = await activityOf({
+    orgId,
+    canStatutory: !(await authorize(req, PEOPLE_MODULE, PermissionAction.VIEW, STATUTORY)),
+    canNotes: !(await authorize(req, PEOPLE_MODULE, PermissionAction.VIEW, NOTES)),
+    docClasses: await readableClassifications(req),
+    allows,
+  }, employee.id, { before: req.query.before ? new Date(String(req.query.before)) : null, limit: Number(req.query.limit || 50) });
+  res.set('Cache-Control', 'private, no-store').json(out);
+});
+
 /** The journey (CORE-06): every change in order, under its stint, each with a key for its Why. */
 peopleRouter.get('/orgs/:orgId/people/employees/:id/journey', can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
@@ -1903,11 +1928,13 @@ peopleRouter.get('/orgs/:orgId/people/documents/:docId', can(PermissionAction.VI
 peopleRouter.delete('/orgs/:orgId/people/documents/:docId', can(PermissionAction.DELETE, DOCUMENTS), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
-  const d = await peoplePrisma.employeeDocument.findFirst({ where: { id: String(req.params.docId), accountId, orgId }, select: { id: true, classification: true } });
+  const d = await peoplePrisma.employeeDocument.findFirst({ where: { id: String(req.params.docId), accountId, orgId }, select: { id: true, classification: true, title: true, employeeId: true } });
   if (!d || !(await readableClassifications(req)).includes(d.classification as DocClass)) return res.status(404).json({ error: 'No such document.' });
   const refused = await authorize(req, ...writeGrantFor(d.classification, PermissionAction.DELETE));
   if (refused) return res.status(refused.status).json(refused.body);
   await deleteToBin(req, 'employeeDocument', { id: d.id });
+  /* The person's Activity shows a removed file, as it shows an uploaded one (Workforce WF-18). */
+  await writeChangeLog(peoplePrisma as any, actorOf(req, 'FORM'), { kind: 'EmployeeDocument', id: d.id, employeeId: d.employeeId }, [{ field: 'document', before: d.title, after: null, redacted: false }]);
   res.json({ ok: true });
 });
 
