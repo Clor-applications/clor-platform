@@ -260,3 +260,65 @@ describe('Drawer and Modal (spec v1 §5.1)', () => {
     expect(onClose).toHaveBeenCalled();
   });
 });
+
+describe('DataTable (spec v1 §4.2, §5)', () => {
+  const columns = [
+    { key: 'name', label: 'Name', sortable: true, always: true },
+    { key: 'code', label: 'Employee ID', sortable: true },
+    { key: 'department', label: 'Department' },
+  ];
+  const rows = [{ id: 'a', name: 'Aarav Mehta', code: 'E1', department: 'Product' }, { id: 'b', name: 'Isha Kapoor', code: 'E2', department: 'Design' }];
+  it('asks the server to sort, pages 25/50/100, and says what it shows', async () => {
+    const { default: DataTable } = await import('../packages/ui/src/components/ui/DataTable');
+    const user = userEvent.setup();
+    const onSort = vi.fn(); const onPage = vi.fn(); const onPageSize = vi.fn();
+    const { rerender } = render(<DataTable columns={columns} rows={rows} sort={null} onSort={onSort} total={248} page={1} pageSize={25} onPage={onPage} onPageSize={onPageSize} />);
+    await user.click(screen.getByRole('button', { name: 'Employee ID' }));
+    expect(onSort).toHaveBeenLastCalledWith({ key: 'code', dir: 'asc' });
+    rerender(<DataTable columns={columns} rows={rows} sort={{ key: 'code', dir: 'asc' }} onSort={onSort} total={248} page={1} pageSize={25} onPage={onPage} onPageSize={onPageSize} />);
+    expect(screen.getByRole('columnheader', { name: /Employee ID/ })).toHaveAttribute('aria-sort', 'ascending');
+    await user.click(screen.getByRole('button', { name: /Employee ID/ }));
+    expect(onSort).toHaveBeenLastCalledWith({ key: 'code', dir: 'desc' });
+    expect(screen.getByText('Showing 1–25 of 248 results')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Page 3' }));
+    expect(onPage).toHaveBeenLastCalledWith(3);
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Rows per page' }), '50');
+    expect(onPageSize).toHaveBeenLastCalledWith(50);
+    expect(screen.getByRole('button', { name: 'Previous page' })).toBeDisabled();
+  });
+
+  it('a row click opens the record; the checkbox and the ellipsis menu never do; the menu works by keyboard', async () => {
+    const { default: DataTable } = await import('../packages/ui/src/components/ui/DataTable');
+    const user = userEvent.setup();
+    const onRowClick = vi.fn(); const onSelect = vi.fn(); const edit = vi.fn();
+    render(<DataTable columns={columns} rows={rows} selectable selected={new Set()} onSelect={onSelect} onRowClick={onRowClick}
+      rowActions={(r) => [{ key: 'view', label: 'View', onSelect: () => onRowClick(r) }, { key: 'edit', label: 'Edit', onSelect: () => edit(r.id) }]} />);
+    await user.click(screen.getByRole('button', { name: 'Aarav Mehta' }));
+    expect(onRowClick).toHaveBeenCalledTimes(1);
+    await user.click(screen.getByRole('checkbox', { name: 'Choose Isha Kapoor' }));
+    expect(onSelect.mock.calls[0][0].has('b')).toBe(true);
+    expect(onRowClick).toHaveBeenCalledTimes(1);
+    await user.click(screen.getByRole('button', { name: 'Actions for Isha Kapoor' }));
+    expect(screen.getByRole('menuitem', { name: 'View' })).toHaveFocus();
+    await user.keyboard('{ArrowDown}{Enter}');
+    expect(edit).toHaveBeenCalledWith('b');
+    expect(onRowClick).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole('menu')).toBeNull();
+  });
+
+  it('the header box chooses the page; columns can be hidden, but not the one marked always', async () => {
+    const { default: DataTable, visibleColumns } = await import('../packages/ui/src/components/ui/DataTable');
+    const user = userEvent.setup();
+    const onSelect = vi.fn(); const onPrefs = vi.fn();
+    render(<DataTable columns={columns} rows={rows} selectable selected={new Set(['a'])} onSelect={onSelect} prefs={{}} onPrefs={onPrefs} />);
+    const head = screen.getByRole('checkbox', { name: 'Choose every row on this page' });
+    expect(head.indeterminate).toBe(true);
+    await user.click(head);
+    expect([...onSelect.mock.calls[0][0]].sort()).toEqual(['a', 'b']);
+    await user.click(screen.getByRole('button', { name: 'Columns' }));
+    expect(screen.getByRole('checkbox', { name: 'Name' })).toBeDisabled();
+    await user.click(screen.getByRole('checkbox', { name: 'Department' }));
+    expect(onPrefs).toHaveBeenLastCalledWith({ hidden: ['department'] });
+    expect(visibleColumns(columns, { hidden: ['department', 'name'], order: ['code', 'name'] }).map((c) => c.key)).toEqual(['code', 'name']);
+  });
+});
