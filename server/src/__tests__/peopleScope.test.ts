@@ -95,6 +95,19 @@ describe('a manager limited to their own team', () => {
     void history;
   });
 
+  it('cannot edit, delete or withdraw a change for someone outside their team, even with those grants', async () => {
+    const editor = await colleague(hr, ['PEOPLE::Employees::VIEW', 'PEOPLE::Employees::EDIT', 'PEOPLE::Employees::DELETE'], true);
+    await runInTenant(hr.orgId, () => peoplePrisma.employee.update({ where: { id: report.id }, data: { userId: editor.userId } }));
+    await people(editor).put(`/employees/${stranger.id}`, { phone: '9000000001' }).expect(404);
+    await request(app).delete(`/api/orgs/${hr.orgId}/people/employees/${stranger.id}`).set(at(editor)).expect(404);
+    await request(app).delete(`/api/orgs/${hr.orgId}/people/employees/${stranger.id}/scheduled/any`).set(at(editor)).expect(404);
+    const untouched = await runInTenant(hr.orgId, () => peoplePrisma.employee.findUniqueOrThrow({ where: { id: stranger.id } }));
+    expect(untouched.phone).not.toBe('9000000001');
+    /* Their own line is still theirs to edit. */
+    await people(editor).put(`/employees/${grandReport.id}`, { phone: '9000000002' }).expect(200);
+    await runInTenant(hr.orgId, () => peoplePrisma.employee.update({ where: { id: report.id }, data: { userId: null } }));
+  });
+
   it('a manager with no employee record of their own sees nobody', async () => {
     const lone = await colleague(hr, ['PEOPLE::Employees::VIEW'], true);
     expect((await people(lone).get('/employees?limit=500').expect(200)).body).toMatchObject({ employees: [], total: 0 });

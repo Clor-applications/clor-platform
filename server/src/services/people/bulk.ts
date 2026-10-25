@@ -26,6 +26,17 @@ const STRUCTURE: Record<string, { model: string; nameField?: 'department' | 'des
   reportingManagerId: { model: 'employee' },
 };
 
+/** True when `employeeId` already sits above `managerId` in the reporting chain (a change would close a loop). */
+async function managesAbove(orgId: string, managerId: string, employeeId: string) {
+  let at: string | null = managerId;
+  for (let hops = 0; at && hops < 50; hops += 1) {
+    if (at === employeeId) return true;
+    const row: { reportingManagerId: string | null } | null = await peoplePrisma.employee.findFirst({ where: { id: at, orgId }, select: { reportingManagerId: true } });
+    at = row?.reportingManagerId ?? null;
+  }
+  return false;
+}
+
 export class BulkError extends Error {
   constructor(message: string, public status = 400, public code = 'BULK_REFUSED') {
     super(message);
@@ -61,6 +72,7 @@ export async function bulkUpdate(actor: Actor, input: { ids?: unknown; set?: unk
   for (const p of people) {
     if (p.status === 'LEFT') { skipped.push({ id: p.id, name: p.name, why: 'has left' }); continue; }
     if (set.reportingManagerId && set.reportingManagerId === p.id) { skipped.push({ id: p.id, name: p.name, why: 'cannot report to themselves' }); continue; }
+    if (set.reportingManagerId && (await managesAbove(actor.orgId, set.reportingManagerId, p.id))) { skipped.push({ id: p.id, name: p.name, why: 'would make a reporting loop' }); continue; }
     const { changes } = await updateEmployee(who, p as any, data as any);
     if (changes.length) changed += 1;
   }

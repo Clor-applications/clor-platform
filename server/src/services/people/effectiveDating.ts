@@ -70,8 +70,8 @@ export async function scheduleChanges(actor: Actor, employee: { id: string } & R
 export const pendingChangesOf = (orgId: string, employeeId: string) =>
   peoplePrisma.scheduledChange.findMany({ where: { orgId, employeeId, status: 'PENDING' }, orderBy: [{ effectiveOn: 'asc' }, { createdAt: 'asc' }] });
 
-export async function cancelScheduledChange(orgId: string, id: string) {
-  const r = await peoplePrisma.scheduledChange.updateMany({ where: { id, orgId, status: 'PENDING' }, data: { status: 'CANCELLED', cancelledAt: new Date() } });
+export async function cancelScheduledChange(orgId: string, id: string, employeeId?: string) {
+  const r = await peoplePrisma.scheduledChange.updateMany({ where: { id, orgId, status: 'PENDING', ...(employeeId ? { employeeId } : {}) }, data: { status: 'CANCELLED', cancelledAt: new Date() } });
   return r.count === 1;
 }
 

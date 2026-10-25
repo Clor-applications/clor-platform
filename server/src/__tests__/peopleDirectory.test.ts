@@ -84,6 +84,18 @@ describe('directory (CORE-01)', () => {
     expect((await people(boss).post('/employees/bulk', { ids: ids.slice(0, 2), set: { departmentId: ops.id } }).expect(409)).body.code).toBe('RULE_IN_FORCE');
   }, 600_000);
 
+  it('a bulk manager change skips anyone it would put in a reporting loop', async () => {
+    /* Its own company: the test above leaves a job-change rule in force. */
+    const own = await owner();
+    const top = (await people(own).post('/employees', { name: 'Loop Top', code: 'L-1' }).expect(201)).body.employee;
+    const mid = (await people(own).post('/employees', { name: 'Loop Mid', code: 'L-2', reportingManagerId: top.id }).expect(201)).body.employee;
+    const low = (await people(own).post('/employees', { name: 'Loop Low', code: 'L-3', reportingManagerId: mid.id }).expect(201)).body.employee;
+    const other = (await people(own).post('/employees', { name: 'Loop Other', code: 'L-4' }).expect(201)).body.employee;
+    const r = (await people(own).post('/employees/bulk', { ids: [top.id, other.id], set: { reportingManagerId: low.id } }).expect(200)).body;
+    expect(r.changed).toBe(1);
+    expect(r.skipped).toEqual([expect.objectContaining({ id: top.id, why: 'would make a reporting loop' })]);
+  });
+
   it('saved views are the maker\'s own unless shared; only the maker changes a shared one', async () => {
     const a = await colleague(boss, 'Asha', ['PEOPLE::Employees::VIEW']);
     const b = await colleague(boss, 'Bala', ['PEOPLE::Employees::VIEW']);

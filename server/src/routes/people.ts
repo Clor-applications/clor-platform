@@ -585,7 +585,8 @@ peopleRouter.put('/orgs/:orgId/people/employees/:id', can(PermissionAction.EDIT,
   if (!(await peopleRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   const existing = await peoplePrisma.employee.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
-  if (!existing) return res.status(404).json({ error: 'No such employee.' });
+  /* A role limited to its own team edits only its team; anyone else reads as absent. */
+  if (!existing || !inScope(await teamScope(req), existing.id)) return res.status(404).json({ error: 'No such employee.' });
   const parsed = employeeSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Invalid employee.' });
   const b = parsed.data;
@@ -1096,7 +1097,8 @@ peopleRouter.post('/orgs/:orgId/people/employees/:id/probation/decide', can(Perm
 peopleRouter.delete('/orgs/:orgId/people/employees/:id/scheduled/:changeId', can(PermissionAction.EDIT, EMPLOYEES), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
   const { orgId } = req.tenant!;
-  const ok = await cancelScheduledChange(orgId, String(req.params.changeId));
+  if (!inScope(await teamScope(req), String(req.params.id))) return res.status(404).json({ error: 'No pending change by that id.' });
+  const ok = await cancelScheduledChange(orgId, String(req.params.changeId), String(req.params.id));
   if (!ok) return res.status(404).json({ error: 'No pending change by that id.' });
   res.json({ ok: true });
 });
@@ -1110,7 +1112,7 @@ peopleRouter.delete('/orgs/:orgId/people/employees/:id', can(PermissionAction.DE
   if (!(await peopleRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   const existing = await peoplePrisma.employee.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
-  if (!existing) return res.status(404).json({ error: 'No such employee.' });
+  if (!existing || !inScope(await teamScope(req), existing.id)) return res.status(404).json({ error: 'No such employee.' });
   /*
    * In payroll at all — a profile, or any payroll history (A-39: only
    * payslips were checked, so someone with a loan or an adjustment was
