@@ -1678,3 +1678,100 @@ button.ws-item:hover {
   font-weight: 600;
   letter-spacing: 0;
 }
+
+/* ------------------------------------------------------------ operator console (packages/ops) */
+.ops {
+  min-height: 100dvh;
+  background: rgb(var(--ws-bg));
+}
+.ops-bar-top {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  height: 56px;
+  padding: 0 24px;
+  background: rgb(var(--ws-surface));
+  border-bottom: 1px solid rgb(var(--ws-line));
+}
+.ops-badge {
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: rgb(39 39 42);
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.ops-nav {
+  display: flex;
+  gap: 4px;
+  margin-left: 12px;
+  overflow-x: auto;
+}
+.ops-nav-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: rgb(var(--ws-muted));
+  cursor: pointer;
+  white-space: nowrap;
+}
+.ops-nav-item:hover {
+  background: rgb(var(--ws-stone));
+  color: rgb(var(--ws-ink));
+}
+.ops-nav-item[aria-current='page'] {
+  background: rgb(var(--ws-accent-soft));
+  color: rgb(var(--ws-ink));
+}
+.ops-who {
+  margin-left: auto;
+  font-size: 0.8125rem;
+  color: rgb(var(--ws-muted));
+  white-space: nowrap;
+}
+.ops-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  height: 140px;
+}
+.ops-bar {
+  flex: 1;
+  min-width: 4px;
+  border-radius: 4px 4px 0 0;
+  background: rgb(var(--ws-accent) / 0.75);
+}
+.ops-bars-axis {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  color: rgb(var(--ws-muted));
+}
+.ops-refused {
+  display: grid;
+  justify-items: start;
+  gap: 16px;
+  max-width: 520px;
+  margin: 12vh auto;
+  padding: 0 24px;
+}
+@media (max-width: 760px) {
+  .ops-who {
+    display: none;
+  }
+  .ops-bar-top {
+    padding: 0 12px;
+    gap: 8px;
+  }
+}
