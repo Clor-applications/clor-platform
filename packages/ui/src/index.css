@@ -7618,3 +7618,62 @@ th.ui-th {
     scroll-behavior: auto !important;
   }
 }
+
+/* ------------------------------------------------------------------ People design v1 shared components
+ * (spec §5). Tokens only; light and dark follow the theme tokens. */
+.ui-breadcrumb ol { display: flex; flex-wrap: wrap; gap: 0.25rem; margin: 0 0 0.25rem; padding: 0; list-style: none; font-size: 0.8125rem; color: rgb(var(--fg-muted)); }
+.ui-breadcrumb li + li::before { content: '/'; margin-right: 0.25rem; color: rgb(var(--fg-subtle)); }
+.ui-breadcrumb [aria-current='page'] { color: rgb(var(--fg)); }
+
+.ui-search-field input::-webkit-search-cancel-button { display: none; }
+
+.ui-record-tablist { display: flex; gap: 0.25rem; overflow-x: auto; border-bottom: 1px solid rgb(var(--border)); scrollbar-width: none; }
+.ui-record-tablist::-webkit-scrollbar { display: none; }
+.ui-record-tablist .ui-tab { white-space: nowrap; }
+.ui-record-tabpanel { padding-top: 1rem; }
+.ui-record-tabpanel:focus-visible { outline: 2px solid rgb(var(--ring)); outline-offset: 2px; }
+
+.ui-alert { display: flex; align-items: flex-start; gap: 0.75rem; padding: 0.75rem 1rem; border: 1px solid rgb(var(--border)); background: rgb(var(--surface)); }
+.ui-alert-icon { flex: none; margin-top: 0.125rem; }
+.ui-alert-title { font-weight: 600; font-size: 0.875rem; }
+.ui-alert-body { font-size: 0.8125rem; color: rgb(var(--fg-muted)); margin-top: 0.125rem; }
+.ui-alert-action { flex: none; align-self: center; }
+.ui-alert-neg { background: rgb(var(--neg-soft)); border-color: rgb(var(--neg) / 0.3); }
+.ui-alert-neg .ui-alert-icon { color: rgb(var(--neg)); }
+.ui-alert-warn { background: rgb(var(--warn-soft)); border-color: rgb(var(--warn) / 0.3); }
+.ui-alert-warn .ui-alert-icon { color: rgb(var(--warn-ink)); }
+.ui-alert-pos { background: rgb(var(--pos-soft)); border-color: rgb(var(--pos) / 0.3); }
+.ui-alert-pos .ui-alert-icon { color: rgb(var(--pos)); }
+.ui-alert-info { background: rgb(var(--info-soft)); border-color: rgb(var(--info) / 0.3); }
+.ui-alert-info .ui-alert-icon { color: rgb(var(--info)); }
+
+.ui-error-state { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 0.5rem; padding: 2.5rem 1rem; }
+.ui-error-state.is-compact { padding: 1rem; }
+.ui-error-state-icon { color: rgb(var(--fg-muted)); }
+.ui-error-state-title { font-weight: 600; font-size: 1rem; color: rgb(var(--fg)); }
+.ui-error-state-body { font-size: 0.875rem; color: rgb(var(--fg-muted)); max-width: 28rem; }
+.ui-error-state-actions { display: flex; gap: 0.5rem; margin-top: 0.5rem; }
+
+.ui-activity-list { list-style: none; margin: 0.25rem 0 0; padding: 0; position: relative; }
+.ui-activity-item { position: relative; display: flex; gap: 0.75rem; padding: 0.625rem 0 0.625rem 0; }
+.ui-activity-item + .ui-activity-item::before { content: ''; position: absolute; left: 0.8125rem; top: -0.625rem; height: 1.25rem; width: 1px; background: rgb(var(--border)); }
+.ui-activity-dot { flex: none; display: grid; place-items: center; width: 1.75rem; height: 1.75rem; border: 1px solid rgb(var(--border)); background: rgb(var(--surface)); color: rgb(var(--fg-muted)); }
+.ui-activity-item.is-changes .ui-activity-dot { color: rgb(var(--brand-ink)); border-color: rgb(var(--brand-border)); background: rgb(var(--brand-subtle)); }
+.ui-activity-item.is-approvals .ui-activity-dot { color: rgb(var(--pos)); }
+.ui-activity-item.is-documents .ui-activity-dot { color: rgb(var(--info)); }
+.ui-activity-changes { list-style: none; margin: 0.125rem 0 0; padding: 0; font-size: 0.8125rem; }
+.ui-activity-before { color: rgb(var(--fg-muted)); text-decoration: line-through; }
+.ui-activity-after { color: rgb(var(--fg)); font-weight: 500; }
+
+.ui-datepicker-pop { position: absolute; z-index: var(--z-popover, 60); top: calc(100% + 4px); left: 0; width: 17.5rem; padding: 0.75rem; background: rgb(var(--surface)); border: 1px solid rgb(var(--border)); box-shadow: 0 8px 24px rgb(0 0 0 / 0.12); }
+.ui-datepicker-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+.ui-datepicker-day { height: 2.25rem; font-size: 0.8125rem; font-variant-numeric: tabular-nums; color: rgb(var(--fg)); background: transparent; border: 1px solid transparent; }
+.ui-datepicker-day:hover:not(:disabled) { background: rgb(var(--surface-sunken)); }
+.ui-datepicker-day:focus-visible { outline: 2px solid rgb(var(--ring)); outline-offset: -2px; }
+.ui-datepicker-day.is-today { border-color: rgb(var(--border-strong)); }
+.ui-datepicker-day.is-selected { background: rgb(var(--brand)); color: rgb(var(--on-brand)); }
+.ui-datepicker-day:disabled { color: rgb(var(--fg-subtle)); opacity: 0.5; cursor: not-allowed; }
+@media (max-width: 639px) {
+  .ui-datepicker-pop { position: fixed; left: 0; right: 0; bottom: 0; top: auto; width: auto; }
+  .ui-datepicker-day { height: 2.75rem; }
+}

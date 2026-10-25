@@ -257,6 +257,8 @@ export async function apiFetch(
        shown to them, not logged. The cause carries the technical detail. */
     const err = new Error('Could not reach the server. Check your connection — anything you have entered is still here.');
     err.cause = e;
+    /* Screens tell "no connection" from a server that answered with an error (spec v1 §8). */
+    err.network = true;
     throw err;
   }
 
@@ -297,6 +299,8 @@ export async function apiFetch(
     const err = new Error(data?.error || describeHttpFailure(res.status, text));
     err.status = res.status;
     err.data = data;
+    /* The reference a person can quote to support (spec v1 §8 "API unavailable"). */
+    err.requestId = res.headers?.get?.('x-request-id') || null;
     /* 402 APP_NOT_SUBSCRIBED and friends: callers branch on the code, not the text. */
     err.code = data?.code || null;
     /* An account Clor has suspended: the shell replaces everything with one plain page (W-8.2). */

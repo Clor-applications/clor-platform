@@ -57,11 +57,23 @@ export const EntityMark = ({ entity, size = 18 }) => {
   );
 };
 
-export const PageHeader = ({ title, description, actions = null, entity = '' }) => (
+/* `breadcrumb`: [{ label, onClick? }] — the trail above the title (People design spec v1 §5); the last item is the current page. */
+export const PageHeader = ({ title, description, actions = null, entity = '', breadcrumb = null }) => (
   <div className="ui-page-heading flex flex-wrap items-start justify-between gap-3 mb-2">
     <div className="flex min-w-0 items-center gap-2.5">
       {entity ? <EntityMark entity={entity} /> : null}
       <div className="min-w-0">
+        {breadcrumb?.length ? (
+          <nav aria-label="Breadcrumb" className="ui-breadcrumb">
+            <ol>
+              {breadcrumb.map((b, i) => (
+                <li key={`${b.label}-${i}`}>
+                  {i < breadcrumb.length - 1 && b.onClick ? <button type="button" className="ui-link" onClick={b.onClick}>{b.label}</button> : <span aria-current={i === breadcrumb.length - 1 ? 'page' : undefined}>{b.label}</span>}
+                </li>
+              ))}
+            </ol>
+          </nav>
+        ) : null}
         <h1 className="ui-t-page">{title}</h1>
         {description ? <p className="ui-muted ui-t-body mt-1">{description}</p> : null}
       </div>
