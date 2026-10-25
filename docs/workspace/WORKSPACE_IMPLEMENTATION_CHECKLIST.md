@@ -62,8 +62,8 @@ Audited on branch `claude/subscription-provisioning-gap-003-b84bad` (PR #23).
 | W-7.2 | Audit page with filters and detail drawer, account-scoped | UI | TESTED | W-1.3 | Low |
 | W-7.3 | Profile, account settings, notification preferences | UI, server | TESTED | W-1.1 | Low |
 | W-8.1 | CA-firm client accounts with explicit delegation | All | NOT_STARTED | W-1 … W-7 | High |
-| W-8.2 | Clor Operator: separate boundary and console (today an env allowlist on customer auth) | All | NOT_STARTED | W-1.3 | High |
-| W-9.1 | Two-account isolation tests through the production DB role and pooling (A-36) | Tests | NOT_STARTED | A-36 | High |
+| W-8.2 | Clor Operator: separate boundary and console | All | TESTED | live at ops.clor.in (PR #29); roles SUPER_ADMIN/SUPPORT/BILLING, authenticator required and set up in place (PR #31), step-up on every change, append-only operator log mirrored to the customer; `opsConsole.test.ts` (6), `opsConsole.test.jsx` (4); own sign-in page (PR #30); `docs/workspace/OPERATOR_CONSOLE.md` |
+| W-9.1 | Two-account isolation tests through the production DB role and pooling (A-36) | Tests | IN_PROGRESS | Through the real stack on staging (Worker → Cloud Run → Postgres RLS, role `clor_app`): `test/staging/isolation-security.cjs` 53/55 — every cross-account read, edit, delete and export refused. Still to confirm `clor_app` is not BYPASSRLS in production (A-36). | High |
 
 ## Evidence for W-1 / W-2.1 (commit c0ccb12)
 
@@ -111,3 +111,65 @@ Audited on branch `claude/subscription-provisioning-gap-003-b84bad` (PR #23).
 
 - Company in use is named in the Workspace bar again (company selector), because half the Workspace's pages act on that company alone; pages that cover the whole account carry an "All companies" tag (Companies, Members, Invitations, Account activity, Subscription, Billing).
 - Workspace ground moved to the shell's cool neutral (zinc) so bar, rail and page are one surface.
+
+## 25 Oct 2026 — added to the tracker
+
+Statuses as above. Sources: `docs/testing/STAGING_TEST_REPORT_2026-10-25.md`,
+`docs/workspace/OPERATOR_CONSOLE_PLAN.md`.
+
+### Shipped today
+
+| Req | Feature | Status | Evidence |
+|---|---|---|---|
+| W-11.1 | Company, account and user IDs are ten random digits with a check digit (Zoho style), shown in the address as `/o/<id>/`; old KAVE-C100 codes still open the company, the employee portal and ops search | ACCEPTED | PR #32, #33 (RLS-safe repair migration); production: 2 companies renumbered, 0 orphan accounts |
+| W-11.2 | Staging stack: staging.clor.in, app/accounting/payroll/attendance/people/ops.staging.clor.in, api.staging.clor.in, own Cloud SQL `clor-pg-staging`, own secrets, email captured not sent, noindex | TESTED | PR #34; report §"The staging stack" |
+| W-11.3 | Concurrency fixes: ledger postings serialised per company+branch (entry number, hash chain); fiscal year insert-or-take; party and item auto-codes re-allotted on a race | ACCEPTED | PR #34; staging seed of 10 companies × 190 records, 0 errors |
+| W-11.4 | Invoice save no longer shows raw database errors (logged, request id returned) | ACCEPTED | PR #34 |
+| W-11.5 | Company setup ~7 s → ~1 s (batched chart of accounts, journals, owner role permissions) | ACCEPTED | PR #34; staging journey timings |
+| W-11.6 | Staging test suites: journey, isolation & security, rate limits, CSP walk, load seed, load run | TESTED | `test/staging/` |
+
+### Small businesses first (decided 25 Oct 2026)
+
+Go-to-market is businesses of one owner and one or two staff, often on a phone.
+Enterprise role depth stays, but must never cost a small business a second
+login or a roles lesson.
+
+| Req | Feature | Status | Notes | Priority |
+|---|---|---|---|---|
+| W-10.1 | Owner uses every switched-on app with one sign-in (company Administrator role at setup) | TESTED | Already true on the web: staging journey and load users are owners working in every app. Keep as a rule. | High |
+| W-10.2 | One Clor mobile app with an in-app switcher, replacing `mobile/accounting`, `mobile/attendance`, `mobile/payroll` (three icons, three sign-ins today) | NOT_STARTED | Employees keep attendance / self-service only | High |
+| W-10.3 | Add a staff member in one step with plain presets (Accountant, Billing staff, Attendance only); the role matrix hidden unless opened | NOT_STARTED | — | High |
+| W-10.4 | "Strict mode" opt-in for larger customers: separation of duties, approvals, custom roles | NOT_STARTED | Off by default | Medium |
+
+### Operator console — next phases (plan: `OPERATOR_CONSOLE_PLAN.md`)
+
+| Req | Feature | Status | Priority |
+|---|---|---|---|
+| W-8.3 | Search by any code (company/user/old), GSTIN, phone | IN_PROGRESS (codes done in PR #32; GSTIN, phone to do) | High |
+| W-8.4 | Account 360: companies, people (last sign-in, authenticator, locked), plan, usage, integration health, email failures, credentials, security events, closures, outside access | NOT_STARTED | High |
+| W-8.5 | Support actions with step-up and reason: unlock user (no route exists today), sign out everywhere, send reset/verification email, retry failed emails, reset authenticator | NOT_STARTED | High |
+| W-8.6 | System health page (`JobRun` via `lastJobRuns()`) and request-ID → Cloud Logging lookup | NOT_STARTED | Medium |
+| W-8.7 | Attention lists, account timeline, notes/tags, Clor → customer announcements, per-account feature switches, health score | NOT_STARTED | Medium |
+| W-8.8 | Customer-granted, time-limited, read-only support access; two-person approval for risky actions | NOT_STARTED | Low |
+
+Decisions still needed: (1) may operators ever see customer business data with
+consent (W-8.8)? (2) helpdesk tool (Zoho Desk / Freshdesk) or own notes?
+(3) authenticator reset by a super admin alone or two-person?
+
+### Open findings from staging testing
+
+| Req | Finding | Status | Next step | Priority |
+|---|---|---|---|---|
+| W-12.1 | **Database capacity**: production `clor-pg` is db-f1-micro (~0.6 GB) and at 100 % memory while nearly idle. Measured: ~5 people at once fine, 10 → 2–10 s per request (invoice save 10 s, invoices screen 18 s); bigger pools fix 10 users but exhaust memory beyond that | BLOCKED (decided 25 Oct: no paid upgrade now) | Free path: cut queries per request and cache per-click lookups (W-12.2); apply for Google for Startups credits; add memory/latency alerts (W-12.3). Fallback: Oracle Always Free Arm (now 2 OCPU / 12 GB, idle-reclaim rule) on staging first. Paid path when funded: db-custom-1-3840 (~$50/month) + pools 6/3 | High |
+| W-12.2 | Fewer database round trips per request (RLS wrapper transaction per query; `/auth/me`, membership and permission lookups on every click) | NOT_STARTED | Re-measure with the 10-user load run | High |
+| W-12.3 | Cloud Monitoring alerts on Cloud SQL memory and API latency | NOT_STARTED | Free | Medium |
+| W-12.4 | Content-Security-Policy is report-only | NOT_STARTED | Enforced on staging it blocks only Cloudflare's analytics beacon: allow `static.cloudflareinsights.com` / `cloudflareinsights.com` (or turn the beacon off), then rename the header | Medium |
+| W-12.5 | Account enumeration through lockout (locked: 429 "Too many failed attempts"; unknown address: 401) | NOT_STARTED | Answer both alike | Low |
+| W-12.6 | Party and item codes have no unique index; a tight race can still store a duplicate | NOT_STARTED | Check existing data for duplicates, then add the index | Medium |
+| W-12.7 | 50- and 100-user load steps not run | BLOCKED on W-12.1 | `test/staging/load-run.cjs` | Medium |
+| W-12.8 | Recurring `Unique constraint failed on the fields: (name)` in production logs (seen before 25 Oct) | NOT_STARTED | Find the writer (likely a job lease) | Low |
+| W-12.9 | Unused `*_staging` databases on production `clor-pg` | NOT_STARTED | Drop only with the owner's approval (permanent) | Low |
+| W-12.10 | `clor-pg-staging` costs ~$10/month | NOT_STARTED | Stop it between test rounds if needed | Low |
+| W-12.11 | `.claude/launch.json` (a local dev-server entry) slipped into main with PR #32 | NOT_STARTED | Remove in a cleanup PR | Low |
+
+Paused here on 25 Oct 2026 at the owner's request.
