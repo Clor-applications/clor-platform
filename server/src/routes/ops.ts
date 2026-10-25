@@ -3,7 +3,10 @@ import type { Request } from 'express';
 import { z } from 'zod';
 
 import { requireAuth } from '../middleware/auth.js';
-import { OPERATOR_ROLES, operatorUserIds, requireOperator, requireOperatorRole } from '../middleware/operator.js';
+import { OPERATOR_ROLES, operatorRole, operatorUserIds, requireOperator, requireOperatorRole } from '../middleware/operator.js';
+import { codeLimiter } from '../middleware/rateLimit.js';
+import { decryptSecret, encryptSecret } from '../services/mailer.js';
+import { newSecret, otpauthUri, recoveryCodes, verifyCode } from '../services/totp.js';
 import { platformPrisma } from '../utils/platformPrisma.js';
 import { outsideTenant } from '../utils/tenantScope.js';
 import { clearAccessCache } from '../utils/accessCache.js';
@@ -30,6 +33,57 @@ import { useSecondFactor } from './security.js';
  * operator is not a member of the accounts they look at.
  */
 export const opsRouter = Router();
+
+/*
+ * Setting up the authenticator, from the console itself.
+ *
+ * Every other /ops route refuses an operator who has none, so these two sit
+ * ahead of that gate. They are still operators only: a customer who finds
+ * this address gets the same refusal as anywhere else in the console. Same
+ * shape as the in-app set-up (routes/security.ts) — the secret is in force
+ * only once a code from it has been typed back — without a company, because
+ * an operator need not belong to one.
+ */
+async function operatorWithoutAuthenticator(req: Request, res: any) {
+  const role = await operatorRole(req.auth?.userId);
+  if (!role) {
+    res.status(403).json({ error: 'This is for Clor staff only.', code: 'OPERATOR_ONLY' });
+    return null;
+  }
+  const u = await platformPrisma.user.findUnique({ where: { id: req.auth!.userId }, select: { id: true, email: true, isActive: true, totpSecretEnc: true, totpEnabledAt: true } });
+  if (!u?.isActive) {
+    res.status(403).json({ error: 'This is for Clor staff only.', code: 'OPERATOR_ONLY' });
+    return null;
+  }
+  if (u.totpEnabledAt) {
+    res.status(409).json({ error: 'An authenticator is already set up.', code: 'ALREADY_ENABLED' });
+    return null;
+  }
+  return u;
+}
+
+opsRouter.post('/ops/two-factor/setup', requireAuth, async (req, res) => {
+  const u = await operatorWithoutAuthenticator(req, res);
+  if (!u) return;
+  const secret = newSecret();
+  await platformPrisma.user.update({ where: { id: u.id }, data: { totpSecretEnc: encryptSecret(secret), totpLastStep: null } });
+  res.json({ secret, uri: otpauthUri(secret, u.email) });
+});
+
+opsRouter.post('/ops/two-factor/enable', requireAuth, ...codeLimiter, async (req, res) => {
+  const u = await operatorWithoutAuthenticator(req, res);
+  if (!u) return;
+  if (!u.totpSecretEnc) return res.status(400).json({ error: 'Start the set-up first.' });
+  const step = verifyCode(decryptSecret(u.totpSecretEnc), String(req.body?.code || ''), null);
+  if (step == null) return res.status(400).json({ error: 'That code is not right. Check the time on your phone and try the newest code.', code: 'BAD_CODE' });
+  const { codes, hashes } = recoveryCodes();
+  await platformPrisma.user.update({ where: { id: u.id }, data: { totpEnabledAt: new Date(), totpLastStep: step, totpRecoveryJson: JSON.stringify(hashes) } });
+  await platformPrisma.operatorAuditEvent.create({
+    data: { operatorUserId: u.id, action: 'TWO_FACTOR_ENABLED', ip: clientIp(req) ?? null, userAgent: req.headers['user-agent'] ? String(req.headers['user-agent']).slice(0, 300) : null },
+  });
+  res.json({ enabled: true, recoveryCodes: codes });
+});
+
 opsRouter.use('/ops', requireAuth, requireOperator);
 
 const DAY = 86_400_000;

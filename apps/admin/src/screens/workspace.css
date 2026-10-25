@@ -1784,3 +1784,32 @@ button.ws-item:hover {
   height: auto;
   margin: auto 0;
 }
+
+/* Setting up an authenticator from the operator console. */
+.ops-enrol {
+  display: grid;
+  gap: 16px;
+  width: 100%;
+}
+.ops-enrol-scan {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 20px;
+}
+.ops-enrol-scan img {
+  border-radius: 8px;
+  border: 1px solid rgb(var(--ws-line));
+}
+.ops-enrol-steps {
+  display: grid;
+  gap: 10px;
+  flex: 1;
+  min-width: 220px;
+}
+.ops-enrol-codes {
+  display: grid;
+  grid-template-columns: repeat(2, max-content);
+  gap: 8px 16px;
+  font-size: 0.9375rem;
+}

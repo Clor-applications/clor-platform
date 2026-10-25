@@ -50,6 +50,23 @@ describe('the operator console', () => {
     expect((await request(app).get('/api/ops/accounts').set(bearer(op)).expect(403)).body.code).toBe('TWO_FACTOR_SETUP_REQUIRED');
   }, 60_000);
 
+  it('lets an operator set up an authenticator from the console, and nobody else', async () => {
+    const op = await company();
+    const c = await company();
+    /* A customer cannot use the console's set-up. */
+    expect((await request(app).post('/api/ops/two-factor/setup').set(bearer(c)).expect(403)).body.code).toBe('OPERATOR_ONLY');
+    process.env.CLOR_OPERATOR_USER_IDS = op.userId;
+    const { secret } = (await request(app).post('/api/ops/two-factor/setup').set(bearer(op)).expect(200)).body;
+    expect((await request(app).post('/api/ops/two-factor/enable').set(bearer(op)).send({ code: '000000' }).expect(400)).body.code).toBe('BAD_CODE');
+    const on = (await request(app).post('/api/ops/two-factor/enable').set(bearer(op)).send({ code: codeAt(secret, stepNow()) }).expect(200)).body;
+    expect(on.recoveryCodes.length).toBeGreaterThan(0);
+    /* Now the console opens, and a second set-up is refused. */
+    expect((await request(app).get('/api/ops/me').set(bearer(op)).expect(200)).body.role).toBe('SUPER_ADMIN');
+    expect((await request(app).post('/api/ops/two-factor/setup').set(bearer(op)).expect(409)).body.code).toBe('ALREADY_ENABLED');
+    const logged = await platformPrisma.operatorAuditEvent.findFirst({ where: { operatorUserId: op.userId, action: 'TWO_FACTOR_ENABLED' } });
+    expect(logged).not.toBeNull();
+  }, 60_000);
+
   it('shows a bootstrap operator every account, its owner and its plan, and one account in detail', async () => {
     const op = await company();
     const c = await company();
