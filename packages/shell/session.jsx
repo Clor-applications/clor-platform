@@ -17,7 +17,7 @@ import {
 } from '@platform/auth';
 
 import { appFromHost } from './appHosts';
-import { chooseTenant, lastUsedKey, orgCodeFromPath, tabChoiceKey, withOrgPath } from './orgUrl';
+import { chooseTenant, codeNames, lastUsedKey, orgCodeFromPath, tabChoiceKey, withOrgPath } from './orgUrl';
 
 /**
  * Who is signed in, which company they are looking at, and which apps that
@@ -60,8 +60,10 @@ const writeToken = (token) => {
 const toTenant = (membership) => ({
   id: String(membership.orgId || membership.org?.id || ''),
   name: String(membership.org?.name || membership.name || 'Company'),
-  /* The company's own code (KAVE-C100): what the address carries (A-26). */
+  /* The company's own code (4831920657): what the address carries (A-26). */
   code: membership.org?.code || membership.code || null,
+  /* The code it had before the numbers (KAVE-C100): old links still find it. */
+  legacyCode: membership.org?.legacyCode || null,
   accountId: membership.accountId || null,
   /* Every tenant-scoped route wants a branch as well as a company, and the
      route that lists branches wants one too — so the platform answers it. */
@@ -193,14 +195,16 @@ export function SessionProvider({ children }) {
    * followed.
    */
   const tenantCode = user && tenant && !deniedCode ? tenant.code || '' : '';
+  const tenantLegacyCode = tenantCode ? tenant.legacyCode || '' : '';
   useEffect(() => {
     if (!tenantCode || typeof window === 'undefined') return;
     const current = orgCodeFromPath(window.location.pathname);
     if (current === tenantCode.toUpperCase()) return;
     const url = `${withOrgPath(window.location.pathname, tenantCode)}${window.location.search}${window.location.hash}`;
-    if (current) window.history.pushState(null, '', url);
+    /* An old code for this same company is corrected in place, not a new history entry. */
+    if (current && current !== tenantLegacyCode.toUpperCase()) window.history.pushState(null, '', url);
     else window.history.replaceState(null, '', url);
-  }, [tenantCode]);
+  }, [tenantCode, tenantLegacyCode]);
 
   /* An app's own company menu asks; the shell switches (A-27). Only a company this person has. */
   useEffect(() => {
@@ -218,7 +222,7 @@ export function SessionProvider({ children }) {
     const onPop = () => {
       const code = orgCodeFromPath(window.location.pathname);
       if (!code) return;
-      const hit = tenants.find((t) => String(t.code || '').toUpperCase() === code);
+      const hit = tenants.find((t) => codeNames(t, code));
       if (hit) {
         setTenantIdState(hit.id);
         setDeniedCode('');

@@ -1,5 +1,5 @@
 /**
- * The company in the address: /o/KAVE-C100/… (A-26, GAP-014).
+ * The company in the address: /o/4831920657/… (A-26, GAP-014).
  *
  * Which company a tab shows used to come from one browser-wide store, the
  * company any tab had used last. A reload, a new tab or a link somebody sent
@@ -7,9 +7,11 @@
  * who sent it and another to whoever opened it. Zoho Books carries the
  * organisation in the address for this reason, and so does this.
  *
- * The code is the company's own (Org.code: KAVE-C100), never its database id:
- * it is what people read on the screen, it never changes, and it says nothing
- * a stranger could use. It names a company; it grants nothing. The server
+ * The code is the company's own (Org.code: ten digits, as Zoho numbers
+ * organisations), never its database id: it is what people read on the
+ * screen, it never changes, and it says nothing a stranger could use. A code
+ * from before the numbers (KAVE-C100, Org.legacyCode) still finds its company,
+ * and the shell swaps it for the new one. It names a company; it grants nothing. The server
  * still decides access on every request, and a code that is not one of the
  * person's companies shows "no access" rather than quietly opening another.
  *
@@ -50,19 +52,26 @@ export const withOrgPath = (pathname = '', code = '') => {
  * never falls through to another company — that silent switch is the bug this
  * exists to end.
  */
+/** True when `code` names this company: its code, or the one it had before (KAVE-C100). */
+export const codeNames = (tenant, code) => {
+  const want = String(code || '').toUpperCase();
+  if (!want || !tenant) return false;
+  return String(tenant.code || '').toUpperCase() === want || String(tenant.legacyCode || '').toUpperCase() === want;
+};
+
 export function chooseTenant({ tenants = [], urlCode = '', tabChoice = '', lastUsed = '', suggested = '', preferSuggested = false }) {
   const byId = (id) => (id ? tenants.find((t) => t.id === id) : null);
   if (preferSuggested && byId(suggested)) return { tenant: byId(suggested), denied: '' };
   if (urlCode) {
     const code = String(urlCode).toUpperCase();
-    const hit = tenants.find((t) => String(t.code || '').toUpperCase() === code);
+    const hit = tenants.find((t) => codeNames(t, code));
     return hit ? { tenant: hit, denied: '' } : { tenant: null, denied: code };
   }
   return { tenant: byId(tabChoice) || byId(lastUsed) || byId(suggested) || tenants[0] || null, denied: '' };
 }
 
 /**
- * Another app's address for this company (A-25): `//payroll.clor.in/o/KAVE-C100/?open=…`.
+ * Another app's address for this company (A-25): `//payroll.clor.in/o/4831920657/?open=…`.
  * Browser storage is per address, so without the code in the path the other
  * host opened whichever company it had seen last.
  */

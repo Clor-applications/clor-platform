@@ -42,8 +42,10 @@ datasource db {
 model Account {
   id                   String    @id @default(cuid())
   name                 String
-  /// Client ID shown to people: the code of the account's first company (KAVE-C100). Never changed (LD-09).
+  /// Client ID shown to people: the code of the account's first company (4831920657). Never changed (services/displayCodes.ts).
   code                 String?   @unique
+  /// The code it had under the first scheme (KAVE-C100), still found so old links work.
+  legacyCode           String?   @unique
   /// Set only by the rollout migration for accounts that predate explicit
   /// subscriptions. A missing subscription is open only when this marker is
   /// present; newly created/unrecognised accounts fail closed.
@@ -69,9 +71,12 @@ model Org {
   /// changes, the slug is what a person reads and may one day need to change.
   /// Nullable so existing rows are valid before the backfill.
   slug       String? @unique
-  /// Company code (LD-09): 3–4 letters + C + number, 100 unless the letters clash (KAVE-C100, KAVE-C101). Never changed.
+  /// Company code: ten random digits, the last a check digit (4831920657). In the address (/o/<code>/). Never changed.
   code       String? @unique
+  /// No longer issued; kept for rows numbered under the first scheme.
   codeNumber Int?
+  /// The code it had under the first scheme (KAVE-C100), still found so old links work.
+  legacyCode String? @unique
   legalName  String?
   pan        String?
 
@@ -154,9 +159,12 @@ model User {
   accountId String
 
   username     String? // optional username login
-  /// User ID (LD-09): home company code + U + number (KAVE-C100-U01). One per person, kept in every company they join.
+  /// User ID: ten random digits, the last a check digit. One per person, the same in every company they join.
   code         String? @unique
+  /// No longer issued; kept for rows numbered under the first scheme.
   codeNumber   Int?
+  /// The ID they had under the first scheme (KAVE-C100-U01).
+  legacyCode   String? @unique
   email        String // primary login
   fullName     String
   passwordHash String
@@ -1164,7 +1172,7 @@ model OrgClosure {
   accountId         String
   orgId             String    @unique
   orgName           String
-  /// The company's display code (KAVE-C100), kept after deletion so it is never issued again.
+  /// The company's display code, kept after deletion so it is never issued again.
   orgCode           String?
   /// SCHEDULED | CANCELLED | DELETED
   status            String

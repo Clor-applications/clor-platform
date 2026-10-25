@@ -97,8 +97,9 @@ company is removed.
 **When it was the account's last company:** the account's subscription is
 cancelled at once and the payment provider is told to stop charging; the
 account's plan is closed. CLOR keeps its own billing records (its invoices and
-payments to the customer) as its tax law requires. The company's code (for
-example KAVE-C100) is never given to another company, so old links never open
+payments to the customer) as its tax law requires. The company's code (ten
+digits, for example 4831920657, or a code from before the numbers such as
+KAVE-C100) is never given to another company, so old links never open
 somebody else's books.
 
 **Backups:** CLOR's database backups (point-in-time recovery) roll over after
