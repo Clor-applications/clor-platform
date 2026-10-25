@@ -375,6 +375,15 @@ export async function postEntry(req: PostingRequest, tx?: DbClient) {
      a malformed entry is rejected before a transaction is opened at all. */
   const write = async (db: DbClient) => {
     const tx = db as Prisma.TransactionClient;
+    /*
+     * One posting at a time per company and branch, until this transaction
+     * ends. The entry number is the last one plus one and the hash chains to
+     * the last entry; two postings at once both read the same "last", so one
+     * died on the (orgId, branchId, entryNo) key and the hash chain could
+     * fork. Seen with concurrent invoices on staging. Same lock idiom as
+     * stockLedger.ts.
+     */
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`ledger:${orgId}:${branchId ?? ''}`}, 0))`;
     const fy = await ensureFiscalYear(tx, accountId, orgId, userId, date);
 
     if (fy.status === 'CLOSED') {
