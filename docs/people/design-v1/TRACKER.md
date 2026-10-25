@@ -7,8 +7,8 @@ Status: TODO · IN PROGRESS · DONE · BLOCKED (owner decision).
 |---|---|---|---|---|---|---|---|
 | A | Source audit, mapping, plan | ✓ | – | – | – | DONE | `00-SOURCE-AUDIT-AND-PLAN.md` |
 | A.1 | Security fixes found by the audit (hashes, write scope, bulk loop) | ✓ | – | ✓ | ✓ | DONE | 934cc38, 2d6f285 |
-| 00.1 | Rose palette: graphite rail, canvas/ink, reduced motion, dark tokens | | | | | BLOCKED (D-V1, D-V4, D-V5) | |
-| 00.2 | Shell params in URL, People mobile tabs, boundary retry | | | | | BLOCKED (D-V7) | |
+| 00.1 | Rose palette: graphite rail, canvas/ink, reduced motion, dark tokens | | | | | TODO | |
+| 00.2 | Shell params in URL, People mobile tabs, boundary retry | | | | | TODO | |
 | 00.3 | SearchField, DatePicker, Tabs, Alert, ErrorState, ActivityTimeline, breadcrumb | | | | | TODO | |
 | 00.4 | Drawer and Modal focus/dirty fixes | | | | | TODO | |
 | 00.5 | DataTable | | | | | TODO | |
@@ -16,11 +16,27 @@ Status: TODO · IN PROGRESS · DONE · BLOCKED (owner decision).
 | 01.1 | Backend: sort/filters/counts, version + 409, preferred name, ID suggestion, drafts, server export | | | | | TODO | |
 | 01.2 | EMP-01 Directory, EMP-12 Saved views | | | | | TODO | |
 | 01.3 | EMP-02 Add Employee wizard | | | | | TODO | |
-| 01.4 | Record page, EMP-03..06 | | | | | BLOCKED (D-V2) | |
+| 01.4 | Record page, EMP-03..06 | | | | | TODO | |
 | 01.5 | EMP-07 Documents, EMP-08 History | | | | | TODO | |
-| 01.6 | EMP-09 Activity | | | | | BLOCKED (D-V8) | |
+| 01.6 | EMP-09 Activity | | | | | TODO | |
 | 01.7 | EMP-10 Import, EMP-11 Bulk results | | | | | TODO | |
 | 01.8 | Mobile, company switch, accessibility | | | | | TODO | |
 | 01.9 | Completion report | | | | | TODO | |
 
 Workflow tests (spec §8): 1 directory round trip · 2 wizard back keeps fields · 3 invalid save then one submit · 4 network failure keeps input · 5 designation change on timeline · 6 company switch leaks nothing · 7 mobile with touch and keyboard.
+
+## Decisions in force (26 Oct 2026)
+
+Owner said "start building" (relayed by the main session) without answering D-V1..D-V9, so each runs on its recommendation until the owner says otherwise — the same rule as D-02..D-10 (OD-10).
+
+| ID | Running as |
+|---|---|
+| D-V1 | People dark tokens built and contrast-tested; the platform theme switch stays light-only |
+| D-V2 | Spec's 7 profile tabs; Statutory is a permission-gated section of Personal; Requests and Tasks as Overview "Open items" |
+| D-V3 | Work relationship = Employee type + Contractor; no new field |
+| D-V4 | People's rail graphite, colour tokens only in the rose palette |
+| D-V5 | Canvas `#F6F4F2` and ink `#232226` in the rose palette only |
+| D-V6 | Radius stays 4px (Accounting geometry) |
+| D-V7 | Shell writes screen params to the URL (shared change, told to the main session) |
+| D-V8 | Platform AuditLog gains a correlation id (platform migration, told to the main session) |
+| D-V9 | Directory banners from live Data Health and checklist counts, dismissible per user |
