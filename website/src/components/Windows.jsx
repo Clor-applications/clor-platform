@@ -81,7 +81,7 @@ export function PeopleWindow(props) {
       </div>
       <dl className="w-facts">
         <dt>Employee ID</dt>
-        <dd>ANAN-C100-E042</dd>
+        <dd>E042</dd>
         <dt>Joined</dt>
         <dd>3 June 2024</dd>
         <dt>Manager</dt>

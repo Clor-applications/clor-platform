@@ -75,6 +75,15 @@ describe('the operator console', () => {
     expect((await request(app).get('/api/ops/me').set(bearer(op)).expect(200)).body.role).toBe('SUPER_ADMIN');
     const list = (await request(app).get('/api/ops/accounts').query({ q: c.email }).set(bearer(op)).expect(200)).body;
     expect(list.total).toBe(1);
+    /* Found by its company's code and by a person's ID too, old or new. */
+    const org = await platformPrisma.org.findUniqueOrThrow({ where: { id: c.orgId }, select: { code: true } });
+    const owner = await platformPrisma.user.findUniqueOrThrow({ where: { id: c.userId }, select: { code: true } });
+    const old = `ZZ${rnd().toUpperCase()}-C100`;
+    await platformPrisma.org.update({ where: { id: c.orgId }, data: { legacyCode: old } });
+    for (const q of [org.code!, owner.code!, old.toLowerCase()]) {
+      const hit = (await request(app).get('/api/ops/accounts').query({ q }).set(bearer(op)).expect(200)).body;
+      expect(hit.accounts.map((a: any) => a.id)).toContain(c.accountId);
+    }
     expect(list.accounts[0]).toMatchObject({ id: c.accountId, companies: 1, users: 1, owner: { email: c.email } });
     const one = (await request(app).get(`/api/ops/accounts/${c.accountId}`).set(bearer(op)).expect(200)).body;
     expect(one.members[0]).toMatchObject({ role: 'OWNER', email: c.email });

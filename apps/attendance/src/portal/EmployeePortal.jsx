@@ -220,7 +220,7 @@ function PortalSignIn({ onDone }) {
         <form onSubmit={submit} className="ui-card space-y-4 p-5">
           <label className="block">
             <span className="ui-label">Company code</span>
-            <input className="ui-input w-full uppercase" required autoCapitalize="characters" autoComplete="organization" value={form.company} onChange={set('company')} placeholder="e.g. KAVE-C100" />
+            <input className="ui-input ui-num w-full" required inputMode="numeric" autoComplete="organization" value={form.company} onChange={set('company')} placeholder="e.g. 4831920657" />
           </label>
           <label className="block">
             <span className="ui-label">Employee code</span>

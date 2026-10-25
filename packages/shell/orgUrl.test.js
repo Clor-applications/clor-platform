@@ -30,6 +30,12 @@ describe('which company a tab opens', () => {
     expect(chooseTenant({ tenants, urlCode: 'KAVE-C101', tabChoice: 'org-a', lastUsed: 'org-a' }).tenant).toBe(B);
   });
 
+  it('opens a company from the code it had before the numbers, so old links still work', () => {
+    const N = { id: 'org-n', code: '4831920657', legacyCode: 'MILL-C100' };
+    expect(chooseTenant({ tenants: [A, N], urlCode: 'mill-c100', tabChoice: 'org-a' }).tenant).toBe(N);
+    expect(chooseTenant({ tenants: [A, N], urlCode: '4831920657', tabChoice: 'org-a' }).tenant).toBe(N);
+  });
+
   it('never opens another company for a code that is not one of yours', () => {
     const r = chooseTenant({ tenants, urlCode: 'ZZZZ-C100', tabChoice: 'org-a', lastUsed: 'org-a', suggested: 'org-a' });
     expect(r.tenant).toBeNull();

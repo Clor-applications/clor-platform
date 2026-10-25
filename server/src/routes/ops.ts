@@ -167,9 +167,13 @@ opsRouter.get('/ops/accounts', (req, res) =>
     if (q) {
       where.OR = [
         { name: { contains: q, mode: 'insensitive' } },
+        /* Any code a customer might read out: the account's, any company's, any person's — and the ones from before the numbers. */
         { code: { contains: q, mode: 'insensitive' } },
+        { legacyCode: { contains: q, mode: 'insensitive' } },
         { users: { some: { email: { contains: q, mode: 'insensitive' } } } },
+        { users: { some: { OR: [{ code: { contains: q, mode: 'insensitive' } }, { legacyCode: { contains: q, mode: 'insensitive' } }] } } },
         { orgs: { some: { name: { contains: q, mode: 'insensitive' } } } },
+        { orgs: { some: { OR: [{ code: { contains: q, mode: 'insensitive' } }, { legacyCode: { contains: q, mode: 'insensitive' } }] } } },
       ];
     }
     if (status === 'suspended') where.suspendedAt = { not: null };
