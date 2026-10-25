@@ -60,7 +60,8 @@ export async function updateEmployee(
   opts: { effectiveDate?: string | null; afterWrite?: (tx: Prisma.TransactionClient, row: Row) => Promise<void> } = {},
 ): Promise<{ row: Row; changes: ReturnType<typeof diffEmployee> }> {
   const result = await peoplePrisma.$transaction(async (tx) => {
-    const updated = await tx.employee.update({ where: { id: existing.id }, data });
+    /* Every write moves the version on, so an edit made against an older copy is refused (People design v1, 409 STALE). */
+    const updated = await tx.employee.update({ where: { id: existing.id }, data: { ...(data as Record<string, unknown>), version: { increment: 1 } } as Prisma.EmployeeUncheckedUpdateInput });
     const changes = diffEmployee(existing as unknown as Record<string, unknown>, updated as unknown as Record<string, unknown>);
     await writeChangeLog(tx, actor, { kind: 'Employee', id: updated.id, employeeId: updated.id }, changes);
     const job = changes.filter((c) => JOB_FIELDS.has(c.field));

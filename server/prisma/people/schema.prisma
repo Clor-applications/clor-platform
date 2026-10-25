@@ -43,6 +43,10 @@ model Employee {
   /// Human-facing identifier, unique within the org when set.
   code        String?
   name        String
+  /// What they like to be called (PRD CORE-02); the legal name stays in name/firstName/lastName.
+  preferredName String?
+  /// Bumped by every write through the one write path; an edit that names an older version is refused (409 STALE).
+  version     Int     @default(1)
   email       String?
   phone       String?
   designation String?
@@ -1821,6 +1825,22 @@ model CommitteeSetup {
   updatedAt       DateTime @updatedAt
 
   @@unique([orgId, kind])
+}
+
+/// An Add-employee wizard left part-way (People design v1 EMP-02): one person's own, kept 30 days.
+model EmployeeDraft {
+  id        String   @id @default(cuid())
+  accountId String
+  orgId     String
+  userId    String
+  step      Int      @default(1)
+  label     String?
+  data      Json
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([orgId, userId])
 }
 
 /// A named set of filters on a list or report (CORE-01, RPT-02): the user's own, or shared with everyone who can open that screen.

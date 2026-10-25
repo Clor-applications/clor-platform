@@ -86,6 +86,9 @@ const employeeSchema = z.object({
   name: z.string().trim().max(120).optional(),
   firstName: text(60),
   lastName: text(60),
+  preferredName: text(80),
+  /* The version the editor saw (or send it as If-Match); a stale one gets 409 STALE. */
+  version: z.coerce.number().int().positive().optional(),
   code: text(40),
   email: z.string().trim().email('That is not an email address.').max(160).optional().nullable().or(z.literal('')),
   phone: text(40),
@@ -205,7 +208,7 @@ async function checkManager(orgId: string, employeeId: string | null, managerId:
 const employeeData = (b: EmployeeBody) => {
   const d: Record<string, unknown> = {};
   const keys = [
-    'firstName', 'lastName', 'phone', 'branchId', 'dateOfJoining', 'dateOfLeaving', 'notes', 'gender', 'dateOfBirth',
+    'firstName', 'lastName', 'preferredName', 'phone', 'branchId', 'dateOfJoining', 'dateOfLeaving', 'notes', 'gender', 'dateOfBirth',
     'maritalStatus', 'photoUrl', 'addressLine', 'city', 'state', 'country', 'pincode', 'emergencyContactName',
     'emergencyContactPhone', 'emergencyContactRelation', 'reportingManagerId', 'dottedManagerId', 'workPhone', 'workLocation',
     'probationEndDate', 'contractEndDate', 'email', 'personalEmail', 'workEmail', 'devicePin',
@@ -438,6 +441,10 @@ peopleRouter.get('/orgs/:orgId/people/employees', can(PermissionAction.VIEW, EMP
     ...(pick('gradeId') ? { gradeId: pick('gradeId') } : {}),
     ...(pick('costCenterId') ? { costCenterId: pick('costCenterId') } : {}),
     ...(pick('managerId') ? { reportingManagerId: pick('managerId') } : {}),
+    /* People design v1 EMP-01: location (site), establishment, joining-date range. */
+    ...(pick('areaId') ? { areaId: pick('areaId') } : {}),
+    ...(pick('establishmentId') ? { establishmentId: pick('establishmentId') } : {}),
+    ...(pick('joinedFrom') || pick('joinedTo') ? { dateOfJoining: { ...(pick('joinedFrom') ? { gte: pick('joinedFrom') } : {}), ...(pick('joinedTo') ? { lte: pick('joinedTo') } : {}) } } : {}),
     ...(tagId ? { tags: { some: { tagId } } } : {}),
     ...(q
       ? {
@@ -460,7 +467,7 @@ peopleRouter.get('/orgs/:orgId/people/employees', can(PermissionAction.VIEW, EMP
     peoplePrisma.employee.findMany({
       where,
       include: { tags: { include: { tag: true } } },
-      orderBy: [{ status: 'asc' }, { name: 'asc' }],
+      orderBy: directoryOrder(String(req.query.sort || ''), String(req.query.dir || '')),
       take,
       skip,
     }),
@@ -469,6 +476,154 @@ peopleRouter.get('/orgs/:orgId/people/employees', can(PermissionAction.VIEW, EMP
   /* As of a date (FND-03): the job fields rolled back through history; people not yet there are left out. */
   const viewed = asOfDate ? await asOf(orgId, rows as any[], asOfDate) : rows;
   res.json({ employees: await withMeta(orgId, viewed), total: asOfDate ? viewed.length : total, asOf: asOfDate || undefined });
+});
+
+/* Sortable directory columns (People design v1 EMP-01); name breaks ties so a page never reshuffles. */
+const SORTABLE: Record<string, string> = { name: 'name', code: 'code', department: 'department', designation: 'designation', dateOfJoining: 'dateOfJoining', status: 'status', location: 'workLocation' };
+function directoryOrder(sort: string, dir: string): any[] {
+  const field = SORTABLE[sort];
+  const d = dir === 'desc' ? 'desc' : 'asc';
+  if (!field) return [{ status: 'asc' }, { name: 'asc' }, { id: 'asc' }];
+  return [{ [field]: { sort: d, nulls: 'last' } }, ...(field === 'name' ? [] : [{ name: 'asc' }]), { id: 'asc' }];
+}
+
+/**
+ * The directory's headline counts (People design v1 EMP-01): everyone, active,
+ * joining (a joining date still to come), on leave today (approved leave
+ * covering today), on notice. Same team scope as the list.
+ */
+peopleRouter.get('/orgs/:orgId/people/employees/counts', can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const scope = await teamScope(req);
+  const base = { accountId, orgId, ...scopeWhere(scope) };
+  const today = new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
+  const [byStatus, joining, onLeave] = await Promise.all([
+    peoplePrisma.employee.groupBy({ by: ['status'], where: base, _count: { _all: true } }),
+    peoplePrisma.employee.count({ where: { ...base, status: { not: 'LEFT' }, dateOfJoining: { gt: today } } }),
+    peoplePrisma.leaveRequest.findMany({ where: { orgId, status: 'APPROVED', fromDate: { lte: today }, toDate: { gte: today }, ...(scope.all ? {} : { employeeId: { in: (scope as any).ids } }) }, select: { employeeId: true }, distinct: ['employeeId'] }),
+  ]);
+  const of = (s: string) => byStatus.find((x) => x.status === s)?._count._all || 0;
+  res.json({ total: byStatus.reduce((a, x) => a + x._count._all, 0), active: of('ACTIVE'), onNotice: of('ON_NOTICE'), suspended: of('SUSPENDED'), left: of('LEFT'), joining, onLeave: onLeave.length });
+});
+
+/** A suggestion for the next employee ID (People design v1 EMP-02): the company's own pattern, one past the highest. Still editable. */
+peopleRouter.get('/orgs/:orgId/people/employees/next-code', can(PermissionAction.CREATE, EMPLOYEES), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  const { orgId } = req.tenant!;
+  const codes = (await peoplePrisma.employee.findMany({ where: { orgId, code: { not: null } }, select: { code: true } })).map((r) => r.code!).filter(Boolean);
+  res.json({ code: nextCode(codes) });
+});
+
+/** The most used prefix (letters and separators before the digits), and one past its highest number, keeping the width. */
+export function nextCode(codes: string[]): string {
+  const parsed = codes.map((c) => c.match(/^(.*?)(\d+)$/)).filter((m): m is RegExpMatchArray => Boolean(m));
+  if (!parsed.length) return 'EMP-0001';
+  const count = new Map<string, number>();
+  for (const m of parsed) count.set(m[1], (count.get(m[1]) || 0) + 1);
+  const prefix = [...count.entries()].sort((a, b) => b[1] - a[1] || b[0].length - a[0].length)[0][0];
+  const same = parsed.filter((m) => m[1] === prefix);
+  const width = Math.max(...same.map((m) => m[2].length));
+  const max = Math.max(...same.map((m) => Number(m[2])));
+  const taken = new Set(codes.map((c) => c.toLowerCase()));
+  let n = max + 1;
+  while (taken.has(`${prefix}${String(n).padStart(width, '0')}`.toLowerCase())) n += 1;
+  return `${prefix}${String(n).padStart(width, '0')}`;
+}
+
+/* ------------------------------------------------ add-employee drafts (EMP-02) */
+
+const DRAFT_DAYS = 30;
+const draftRow = (d: any) => ({ id: d.id, step: d.step, label: d.label, data: d.data, updatedAt: d.updatedAt, expiresAt: d.expiresAt });
+
+peopleRouter.get('/orgs/:orgId/people/employee-drafts', can(PermissionAction.CREATE, EMPLOYEES), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  const { orgId } = req.tenant!;
+  const rows = await peoplePrisma.employeeDraft.findMany({ where: { orgId, userId: req.auth!.userId, expiresAt: { gt: new Date() } }, orderBy: { updatedAt: 'desc' }, take: 20 });
+  res.json({ drafts: rows.map(draftRow) });
+});
+
+peopleRouter.get('/orgs/:orgId/people/employee-drafts/:id', can(PermissionAction.CREATE, EMPLOYEES), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  const d = await peoplePrisma.employeeDraft.findFirst({ where: { id: String(req.params.id), orgId: req.tenant!.orgId, userId: req.auth!.userId, expiresAt: { gt: new Date() } } });
+  if (!d) return res.status(404).json({ error: 'No such draft.' });
+  res.json({ draft: draftRow(d) });
+});
+
+/** Save the wizard as it stands; only its maker sees it. Statutory numbers are never kept in a draft. */
+peopleRouter.put('/orgs/:orgId/people/employee-drafts/:id?', can(PermissionAction.CREATE, EMPLOYEES), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const raw = req.body?.data && typeof req.body.data === 'object' && !Array.isArray(req.body.data) ? { ...req.body.data } : null;
+  if (!raw) return res.status(400).json({ error: 'Nothing to save.' });
+  for (const k of ['pan', 'aadhaar', 'aadhaarNumber', 'passportNumber', 'bankAccount', 'uan', 'esic', 'devicePassword']) delete raw[k];
+  if (JSON.stringify(raw).length > 50_000) return res.status(400).json({ error: 'That draft is too large.' });
+  const step = Math.min(4, Math.max(1, Number(req.body?.step || 1)));
+  const label = String(raw.name || [raw.firstName, raw.lastName].filter(Boolean).join(' ') || '').trim().slice(0, 120) || null;
+  const expiresAt = new Date(Date.now() + DRAFT_DAYS * 86_400_000);
+  const id = req.params.id ? String(req.params.id) : null;
+  if (id) {
+    const mine = await peoplePrisma.employeeDraft.findFirst({ where: { id, orgId, userId: req.auth!.userId } });
+    if (!mine) return res.status(404).json({ error: 'No such draft.' });
+    const d = await peoplePrisma.employeeDraft.update({ where: { id }, data: { data: raw, step, label, expiresAt } });
+    return res.json({ draft: draftRow(d) });
+  }
+  const count = await peoplePrisma.employeeDraft.count({ where: { orgId, userId: req.auth!.userId } });
+  if (count >= 20) return res.status(409).json({ error: 'You have 20 drafts already. Finish or delete one first.' });
+  const d = await peoplePrisma.employeeDraft.create({ data: { accountId, orgId, userId: req.auth!.userId, data: raw, step, label, expiresAt } });
+  res.status(201).json({ draft: draftRow(d) });
+});
+
+peopleRouter.delete('/orgs/:orgId/people/employee-drafts/:id', can(PermissionAction.CREATE, EMPLOYEES), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  const r = await peoplePrisma.employeeDraft.deleteMany({ where: { id: String(req.params.id), orgId: req.tenant!.orgId, userId: req.auth!.userId } });
+  if (!r.count) return res.status(404).json({ error: 'No such draft.' });
+  res.json({ ok: true });
+});
+
+/* ------------------------------------------------ server export (EMP-01) */
+
+const EXPORT_COLUMNS: Array<[string, string, (e: any) => unknown]> = [
+  ['Employee ID', 'code', (e) => e.code], ['Name', 'name', (e) => e.name], ['Preferred name', 'preferredName', (e) => e.preferredName],
+  ['Work email', 'workEmail', (e) => e.workEmail || e.email], ['Phone', 'phone', (e) => e.phone], ['Department', 'department', (e) => e.department],
+  ['Designation', 'designation', (e) => e.designation], ['Reports to', 'reportingManagerName', (e) => e.reportingManagerName], ['Location', 'location', (e) => e.areaName || e.workLocation],
+  ['Joined', 'dateOfJoining', (e) => e.dateOfJoining], ['Status', 'status', (e) => e.status],
+];
+const csvSafe = (v: unknown) => {
+  let s = String(v ?? '');
+  if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`;
+  return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+};
+
+/**
+ * The directory as CSV, with the filters on screen (People design v1 EMP-01:
+ * "Import/export separately permission-checked and audited"). Needs the
+ * Employees EXPORT grant; team scope applies; no statutory or secret columns;
+ * an audit row records who exported how many.
+ */
+peopleRouter.get('/orgs/:orgId/people/employees/export', can(PermissionAction.EXPORT, EMPLOYEES), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const q = String(req.query.q || '').trim();
+  const pick = (k: string) => String(req.query[k] || '').trim() || undefined;
+  const scope = await teamScope(req);
+  const where: any = {
+    accountId, orgId, ...scopeWhere(scope),
+    ...(pick('status') ? { status: pick('status') } : {}),
+    ...(pick('departmentId') ? { departmentId: pick('departmentId') } : {}),
+    ...(pick('jobPositionId') ? { jobPositionId: pick('jobPositionId') } : {}),
+    ...(pick('employeeTypeId') ? { employeeTypeId: pick('employeeTypeId') } : {}),
+    ...(pick('managerId') ? { reportingManagerId: pick('managerId') } : {}),
+    ...(pick('areaId') ? { areaId: pick('areaId') } : {}),
+    ...(pick('joinedFrom') || pick('joinedTo') ? { dateOfJoining: { ...(pick('joinedFrom') ? { gte: pick('joinedFrom') } : {}), ...(pick('joinedTo') ? { lte: pick('joinedTo') } : {}) } } : {}),
+    ...(q ? { OR: [{ name: { contains: q, mode: 'insensitive' } }, { code: { contains: q, mode: 'insensitive' } }, { email: { contains: q, mode: 'insensitive' } }, { workEmail: { contains: q, mode: 'insensitive' } }, { department: { contains: q, mode: 'insensitive' } }] } : {}),
+  };
+  const rows = await peoplePrisma.employee.findMany({ where, orderBy: directoryOrder(String(req.query.sort || ''), String(req.query.dir || '')), take: 10_000 });
+  const shaped = await withMeta(orgId, rows);
+  const lines = [EXPORT_COLUMNS.map(([h]) => h), ...shaped.map((e: any) => EXPORT_COLUMNS.map(([, , f]) => f(e)))];
+  await recordAudit(req, { entity: 'PEOPLE_EMPLOYEES', entityId: 'export', action: 'EXPORT', message: `Exported ${rows.length} employees`, metadata: { count: rows.length, filters: { ...req.query } } });
+  res.set('Content-Type', 'text/csv; charset=utf-8').set('Content-Disposition', `attachment; filename="employees-${new Date().toISOString().slice(0, 10)}.csv"`).set('Cache-Control', 'no-store');
+  res.send(`\ufeff${lines.map((l) => l.map(csvSafe).join(',')).join('\r\n')}`);
 });
 
 /** Work permits and certificates on file, with how long they have left (LIFE-08): shown on the profile, not enforced. */
@@ -573,6 +728,8 @@ peopleRouter.post('/orgs/:orgId/people/employees', can(PermissionAction.CREATE, 
     await startChecklist({ accountId, orgId, userId: req.auth!.userId }, row, 'JOINING', row.dateOfJoining);
     /* On every reader straight away, as ClorTime does: enrolment can start the same minute. */
     await pushEmployeeToReaders(orgId, row, req.auth!.userId);
+    /* Created from a wizard draft (EMP-02): the draft has done its job. */
+    if (typeof req.body?.draftId === 'string') await peoplePrisma.employeeDraft.deleteMany({ where: { id: req.body.draftId, orgId, userId: req.auth!.userId } });
     res.status(201).json({ employee: (await withMeta(orgId, [row]))[0] });
     emitWebhook(orgId, 'employee.created', employeeEvent(row));
     void peopleEvent(accountId, orgId, 'people.joined', row, req.auth!.userId);
@@ -590,6 +747,17 @@ peopleRouter.put('/orgs/:orgId/people/employees/:id', can(PermissionAction.EDIT,
   const parsed = employeeSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Invalid employee.' });
   const b = parsed.data;
+  /*
+   * Someone else saved since this editor loaded the record: never overwrite
+   * silently (People design spec v1 §8). The current record comes back so
+   * the screen can show what changed and let them apply theirs again.
+   */
+  const ifMatch = String(req.headers['if-match'] || '').replace(/[^0-9]/g, '');
+  const expected = b.version ?? (ifMatch ? Number(ifMatch) : undefined);
+  delete (b as any).version;
+  if (expected !== undefined && expected !== existing.version) {
+    return res.status(409).json({ error: 'Someone else changed this record after you opened it. Reload to see their changes, then make yours again.', code: 'STALE', employee: (await withMeta(orgId, [existing]))[0] });
+  }
   const joined = b.dateOfJoining !== undefined ? blank(b.dateOfJoining) : existing.dateOfJoining;
   const left = b.dateOfLeaving !== undefined ? blank(b.dateOfLeaving) : existing.dateOfLeaving;
   if (joined && left && left < joined) return res.status(400).json({ error: 'Somebody cannot leave before they joined.' });

@@ -29,7 +29,7 @@ export type Actor = {
 
 /** Columns of Employee that are somebody's own data or their job: a change to any is logged. */
 export const LOGGED_EMPLOYEE_FIELDS = [
-  'code', 'name', 'firstName', 'lastName', 'email', 'phone', 'designation', 'department',
+  'code', 'name', 'firstName', 'lastName', 'preferredName', 'email', 'phone', 'designation', 'department',
   'dateOfJoining', 'dateOfLeaving', 'firstJoiningDate', 'currentEpisodeSeq', 'confirmedOn', 'status', 'userId', 'notes', 'branchId',
   'gender', 'dateOfBirth', 'maritalStatus', 'personalEmail', 'photoUrl', 'addressLine', 'city', 'state', 'country', 'pincode',
   'emergencyContactName', 'emergencyContactPhone', 'emergencyContactRelation',
