@@ -483,7 +483,7 @@ securityRouter.post('/orgs/:orgId/security/two-factor/enable', ...codeLimiter, a
  * Spends one authenticator code or one recovery code; null when neither is
  * good. A code works once, however many requests race with it.
  */
-async function useSecondFactor(u: { id: string; totpSecretEnc: string | null; totpLastStep: number | null; totpRecoveryJson: string | null }, raw: string): Promise<'CODE' | 'RECOVERY' | null> {
+export async function useSecondFactor(u: { id: string; totpSecretEnc: string | null; totpLastStep: number | null; totpRecoveryJson: string | null }, raw: string): Promise<'CODE' | 'RECOVERY' | null> {
   const code = raw.trim();
   if (!u.totpSecretEnc) return null;
   const step = verifyCode(decryptSecret(u.totpSecretEnc), code, u.totpLastStep);

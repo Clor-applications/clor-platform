@@ -2,7 +2,7 @@ import { Router, type Request, type Response } from 'express';
 import { z } from 'zod';
 import { requireAuth } from '../middleware/auth.js';
 import { requireTenantContext } from '../middleware/tenantContext.js';
-import { requireOperator } from '../middleware/operator.js';
+import { requireOperator, requireOperatorRole } from '../middleware/operator.js';
 import { authorize } from '../middleware/rbac.js';
 import { PermissionAction } from '../constants/enums.js';
 import { platformPrisma } from '../utils/platformPrisma.js';
@@ -66,7 +66,7 @@ const setSchema = z.object({
  * demands tenant headers (app.ts). The gateway path (webhook ->
  * applyGatewayEvent) is the only other writer.
  */
-billingOperatorRouter.post('/billing/accounts/:accountId/subscription', requireAuth, requireOperator, requireOperatorStepUp, async (req, res) => {
+billingOperatorRouter.post('/billing/accounts/:accountId/subscription', requireAuth, requireOperator, requireOperatorRole('BILLING'), requireOperatorStepUp, async (req, res) => {
   const accountId = String(req.params.accountId || '');
   const account = await platformPrisma.account.findUnique({ where: { id: accountId }, select: { id: true } });
   if (!account) return res.status(404).json({ error: 'No such account' });

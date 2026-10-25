@@ -48,6 +48,9 @@ model Account {
   /// subscriptions. A missing subscription is open only when this marker is
   /// present; newly created/unrecognised accounts fail closed.
   legacyUnrestrictedAt DateTime?
+  /// Set by a Clor operator (W-8.2): every company in the account refuses work until reinstated.
+  suspendedAt          DateTime?
+  suspendedReason      String?
   createdAt            DateTime  @default(now())
   updatedAt            DateTime  @updatedAt
 
@@ -214,6 +217,8 @@ model User {
   /// to keep.
   @@unique([email])
   @@index([accountId])
+
+  platformOperator PlatformOperator?
 }
 
 model UserOrgMembership {
@@ -1182,4 +1187,35 @@ model OrgClosure {
   updatedAt         DateTime  @updatedAt
 
   @@index([status, deleteAfter])
+}
+
+/// Clor's own staff (W-8.2). Not a customer role: nothing in an account can grant it.
+/// CLOR_OPERATOR_USER_IDS names the bootstrap super admins; everyone else is a row here.
+model PlatformOperator {
+  userId          String   @id
+  /// SUPER_ADMIN | SUPPORT | BILLING
+  role            String
+  active          Boolean  @default(true)
+  note            String?
+  createdAt       DateTime @default(now())
+  createdByUserId String?
+  updatedAt       DateTime @default(now()) @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+/// Everything an operator did, append-only (trigger operator_audit_append_only).
+model OperatorAuditEvent {
+  id              String   @id @default(cuid())
+  operatorUserId  String
+  action          String
+  targetAccountId String?
+  targetUserId    String?
+  detail          Json?
+  ip              String?
+  userAgent       String?
+  at              DateTime @default(now())
+
+  @@index([at])
+  @@index([targetAccountId, at])
 }

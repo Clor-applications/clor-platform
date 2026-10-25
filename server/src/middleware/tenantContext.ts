@@ -110,6 +110,10 @@ async function resolveTenant(userId: string, orgId: string, branchId: string, wa
   const owner = await platformPrisma.org.findUnique({ where: { id: orgId }, select: { accountId: true } });
   if (!owner || owner.accountId !== accountId) return { status: 403, error: 'No access to org' };
 
+  /* W-8.2: an account a Clor operator has suspended opens none of its companies, to anybody, until reinstated. */
+  const acct = await platformPrisma.account.findUnique({ where: { id: accountId }, select: { suspendedAt: true } });
+  if (acct?.suspendedAt) return { status: 403, error: 'This account has been suspended by Clor. Contact support@clor.in.', code: 'ACCOUNT_SUSPENDED' };
+
   /*
    * GAP-006: somebody from another account (an accountant, an auditor) is let
    * in by the company's own engagement — live, not paused, not past its end —

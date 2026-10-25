@@ -38,6 +38,20 @@ const shareToken = (() => {
 const SharedInvoice = lazy(() => import('./apps/accounting/src/features/sales/SharedInvoice'));
 
 /*
+ * The Clor operator console (W-8.2): ops.clor.in, or /ops on any Clor host.
+ * Not part of the customer shell — an operator is outside every account — so
+ * it is its own root, loaded only here.
+ */
+const isOps = (() => {
+  try {
+    return window.location.hostname.split('.')[0] === 'ops' || /^\/ops(\/|$)/.test(window.location.pathname);
+  } catch {
+    return false;
+  }
+})();
+const OpsConsole = lazy(() => import('./packages/ops/OpsConsole'));
+
+/*
  * One boundary above everything.
  *
  * Each app already renders inside its own ScreenBoundary, so a screen that
@@ -54,7 +68,13 @@ createRoot(document.getElementById('root')).render(
         </Suspense>
       ) : (
         <SessionProvider>
-          <Shell />
+          {isOps ? (
+            <Suspense fallback={null}>
+              <OpsConsole />
+            </Suspense>
+          ) : (
+            <Shell />
+          )}
         </SessionProvider>
       )}
     </ErrorBoundary>

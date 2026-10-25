@@ -102,6 +102,7 @@ import { stockDocumentsRouter } from './routes/stockDocuments.js';
 import { stockLedgerRouter } from './routes/stockLedger.js';
 import { notFound, errorHandler } from './middleware/errors.js';
 import { billingRouter, billingOperatorRouter, billingWebhook } from './routes/billing.js';
+import { opsRouter } from './routes/ops.js';
 import { edgeGuard } from './middleware/edgeGuard.js';
 import { auditMutations } from './middleware/auditMutations.js';
 import { clearAccessCacheOnWrite } from './utils/accessCache.js';
@@ -361,6 +362,8 @@ export function buildApp() {
   /* CLOR operators setting a customer's subscription: a CLOR user with no
      membership in that account, so no tenant headers either. */
   app.use('/api', billingOperatorRouter);
+  /* W-8.2: the operator console — Clor staff, outside every customer account, so ahead of the tenant routers. */
+  app.use('/api', opsRouter);
 
   /*
    * Mounted before every tenant-scoped router, and that position is the point.

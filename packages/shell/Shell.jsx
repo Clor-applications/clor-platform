@@ -348,6 +348,14 @@ export default function Shell() {
     }
   }, [user]);
 
+  /* W-8.2: the account is suspended by Clor — one plain page instead of a half-loaded app. */
+  const [suspended, setSuspended] = useState('');
+  useEffect(() => {
+    const on = (e) => setSuspended(e.detail?.message || 'This account has been suspended by Clor.');
+    window.addEventListener('clor:account-suspended', on);
+    return () => window.removeEventListener('clor:account-suspended', on);
+  }, []);
+
   /* A screen asking for another of its own app's screens (requestOpenScreen): the same as a rail click. */
   const goToRef = useRef(null);
   useEffect(() => {
@@ -588,6 +596,22 @@ export default function Shell() {
    * and an account whose last company was removed — so it gets a real screen.
    */
   /* The address names a company this person cannot open (A-26): say so; open nothing else. */
+  if (suspended && user) {
+    return (
+      <div className="min-h-dvh grid place-items-center p-6" style={{ backgroundColor: 'rgb(var(--app-bg))' }}>
+        <section className="ui-card p-8 max-w-lg grid gap-4" role="alert" aria-labelledby="suspended-title">
+          <ClorLogo size={24} />
+          <h1 id="suspended-title" className="ui-display text-2xl">This account is suspended</h1>
+          <p className="ui-muted">{suspended}</p>
+          <p className="ui-muted text-sm">Your data is kept as it was. Once Clor reinstates the account, everything opens again.</p>
+          <div className="flex flex-wrap gap-2">
+            <a className="ui-btn ui-btn-primary" href="mailto:support@clor.in">Contact support</a>
+            <button type="button" className="ui-btn ui-btn-secondary" onClick={signOut}>Sign out</button>
+          </div>
+        </section>
+      </div>
+    );
+  }
   if (deniedCode) return <NoCompanyAccess />;
   if (!tenant) return <CompanySetup />;
 
