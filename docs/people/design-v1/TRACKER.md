@@ -7,7 +7,7 @@ Status: TODO · IN PROGRESS · DONE · BLOCKED (owner decision).
 |---|---|---|---|---|---|---|---|
 | A | Source audit, mapping, plan | ✓ | – | – | – | DONE | `00-SOURCE-AUDIT-AND-PLAN.md` |
 | A.1 | Security fixes found by the audit (hashes, write scope, bulk loop) | ✓ | – | ✓ | ✓ | DONE | 934cc38, 2d6f285 |
-| 00.1 | Rose palette: graphite rail, canvas/ink, reduced motion, dark tokens | | | | | TODO | |
+| 00.1 | Rose palette: graphite rail, canvas/ink, reduced motion, dark tokens | ✓ | ✓ | ✓ | ✓ | DONE | `palette.test.js`, `design-rules.test.js` 8/8; `evidence/00.1/` |
 | 00.2 | Shell params in URL, People mobile tabs, boundary retry | | | | | TODO | |
 | 00.3 | SearchField, DatePicker, Tabs, Alert, ErrorState, ActivityTimeline, breadcrumb | | | | | TODO | |
 | 00.4 | Drawer and Modal focus/dirty fixes | | | | | TODO | |

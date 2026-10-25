@@ -7040,7 +7040,10 @@ th.ui-th {
  *   dark theme    #D89FA8 as the fill and as text (9.0:1 on #09090B), dark ink on it
  *
  * Tokens it sets (others keep the platform values): --brand*, --btn-primary-*,
- * --on-brand, --accent-soft, --ring, --hero-hi.
+ * --on-brand, --accent-soft, --ring, --hero-hi; and, from the People design
+ * spec v1 (26 Oct 2026, D-V4/D-V5), the canvas (#F6F4F2), ink (#232226) and a
+ * graphite rail like Attendance's, so the split sidebar reads dark rail +
+ * light People panel. Ink on canvas is 14.2:1; muted text keeps the platform value.
  */
 :root[data-palette='rose'],
 [data-palette='rose'] {
@@ -7058,6 +7061,15 @@ th.ui-th {
   --accent-soft: 247 237 240;
   --ring: 164 87 97;
   --hero-hi: 164 87 97;
+  --app-bg: 246 244 242;
+  --fg: 35 34 38;
+  --col-party: 35 34 38;
+  --rail-graphite: 35 34 38;
+  --rail-graphite-top: 45 43 48;
+  --rail-graphite-hover: 52 50 56;
+  --rail-ink: 205 202 208;
+  --rail-ink-strong: 255 255 255;
+  --rail-rose: 216 159 168;
 }
 :root[data-theme='dark'][data-palette='rose'],
 :root[data-theme='dark'] [data-palette='rose'] {
@@ -7075,6 +7087,68 @@ th.ui-th {
   --accent-soft: 61 30 36;
   --ring: 216 159 168;
   --hero-hi: 216 159 168;
+  --app-bg: 9 9 11;
+  --fg: 250 250 250;
+  --col-party: 250 250 250;
+  --rail-graphite: 18 17 20;
+  --rail-graphite-top: 26 24 28;
+  --rail-graphite-hover: 35 34 38;
+}
+
+/* The work area sits on the warm canvas; cards, tables and forms stay white on it. */
+:root[data-palette='rose'] main.ui-content {
+  background-color: rgb(var(--app-bg));
+}
+
+/*
+ * The app rail in graphite (D-V4), as under Blaze: the module you are in gets a
+ * rose bar on the rail's edge, a rose icon and a warm tint behind it; hover
+ * lifts the icon a touch; "Me" sits apart at the foot.
+ */
+:root[data-palette='rose'] .ui-split-rail {
+  background: linear-gradient(to bottom, rgb(var(--rail-graphite-top)), rgb(var(--rail-graphite)) 14rem);
+  border-right-color: rgb(var(--rail-graphite));
+  box-shadow: inset -1px 0 0 rgb(255 255 255 / 0.04);
+}
+:root[data-palette='rose'] .ui-split-mod {
+  position: relative;
+  color: rgb(var(--rail-ink));
+  transition: background-color var(--dur-surface) ease, color var(--dur-surface) ease;
+}
+:root[data-palette='rose'] .ui-split-mod > svg {
+  transition: transform var(--dur-surface, 150ms) ease, color var(--dur-surface, 150ms) ease;
+}
+:root[data-palette='rose'] .ui-split-mod:hover {
+  background: rgb(255 255 255 / 0.06);
+  color: rgb(var(--rail-ink-strong));
+}
+:root[data-palette='rose'] .ui-split-mod:hover > svg { transform: translateY(-1px); }
+:root[data-palette='rose'] .ui-split-mod[data-current] {
+  background: rgb(var(--rail-rose) / 0.18);
+  color: rgb(var(--rail-ink-strong));
+  box-shadow: inset 0 0 0 1px rgb(var(--rail-rose) / 0.3);
+}
+:root[data-palette='rose'] .ui-split-mod[data-current] > svg { color: rgb(var(--rail-rose)); }
+:root[data-palette='rose'] .ui-split-mod[data-current]::before {
+  content: '';
+  position: absolute;
+  left: -0.375rem; top: 22%; bottom: 22%;
+  width: 3px;
+  background: rgb(var(--rail-rose));
+}
+:root[data-palette='rose'] .ui-split-mod[aria-pressed='true']:not([data-current]) {
+  background: rgb(255 255 255 / 0.09);
+  color: rgb(var(--rail-ink-strong));
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.14);
+}
+:root[data-palette='rose'] .ui-split-mod:focus-visible {
+  outline-color: rgb(var(--rail-ink-strong));
+}
+:root[data-palette='rose'] .ui-split-rail > .ui-split-mod:last-child:not(:first-child) {
+  margin-top: auto;
+}
+@media (prefers-reduced-motion: no-preference) {
+  :root[data-palette='rose'] .ui-split-mod[data-current]::before { animation: ui-rail-mark 260ms cubic-bezier(.2,.8,.2,1) both; }
 }
 
 /* The current screen in the module panel and the phone tab bar take the accent, as under Blaze. */
@@ -7528,5 +7602,19 @@ th.ui-th {
   }
   .ui-auth-points {
     grid-template-columns: 1fr;
+  }
+}
+
+/*
+ * Reduced motion, everywhere (People design spec v1 §2): one global rule on top
+ * of the per-component ones, so nothing new slips through. Transitions shrink
+ * to an instant; nothing loops.
+ */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }
