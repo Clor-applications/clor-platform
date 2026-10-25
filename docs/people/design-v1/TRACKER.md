@@ -31,8 +31,8 @@ The owner sent `Clor_People_Workforce_Complete_Package.zip` with "remaining modu
 It is filed under `workforce-package/` and refines Module 01 as **Workforce**: the visible label
 `Employees` becomes `Workforce`; employment operations (WF-12..14), the import wizard, export
 scopes, bulk jobs (WF-15..17), and an audit timeline with comments (WF-18..19) join the scope.
-Its acceptance list `workforce-package/checklists/workforce_acceptance.csv` is tracked here by
-WF id alongside the steps above. Its "stop at each phase" rule is overridden by the owner's
+Its acceptance list `workforce-package/checklists/workforce_acceptance.csv` now carries a status per WF id
+(VERIFIED only with a passing test or browser check; PARTIAL says what is missing). Its "stop at each phase" rule is overridden by the owner's
 instruction to finish everything; each phase still lands with tests and evidence.
 
 ## Decisions in force (26 Oct 2026)
