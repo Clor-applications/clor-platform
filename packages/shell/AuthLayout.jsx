@@ -24,7 +24,39 @@ const POINTS = [
   { Icon: TrendingUp, text: 'Scale as your business grows' },
 ];
 
-export default function AuthLayout({ title, subtitle, wide = false, onHome, children, footer }) {
+/* The default brand side: clor.in's hero. A caller that is not the customer's door (the operator console) passes its own. */
+function CustomerBrand() {
+  return (
+    <>
+      <div className="ui-auth-copy">
+        <p className="ui-auth-eyebrow">Your business. One workspace.</p>
+        <h2 className="ui-auth-title">
+          Every part of your business, working in <span className="ui-auth-accent">harmony.</span>
+        </h2>
+        <p className="ui-auth-lede">Connect your teams, streamline operations and grow — all in one place. Built for modern businesses.</p>
+        <ul className="ui-auth-points">
+          {POINTS.map(({ Icon, text }) => (
+            <li key={text}>
+              <Icon size={18} strokeWidth={1.75} aria-hidden="true" />
+              {text}
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      <img
+        className="ui-auth-art"
+        src="/brand/auth-workspace.webp"
+        width="1000"
+        height="562"
+        alt="The Clor workspace on a laptop and a phone, with every app connected to it."
+        decoding="async"
+      />
+    </>
+  );
+}
+
+export default function AuthLayout({ title, subtitle, wide = false, onHome, children, footer, brand }) {
   return (
     <div className="ui-auth min-h-dvh">
       <div className="ui-min-h-viewport flex">
@@ -34,30 +66,7 @@ export default function AuthLayout({ title, subtitle, wide = false, onHome, chil
               <ClorLogo size={30} />
             </button>
 
-            <div className="ui-auth-copy">
-              <p className="ui-auth-eyebrow">Your business. One workspace.</p>
-              <h2 className="ui-auth-title">
-                Every part of your business, working in <span className="ui-auth-accent">harmony.</span>
-              </h2>
-              <p className="ui-auth-lede">Connect your teams, streamline operations and grow — all in one place. Built for modern businesses.</p>
-              <ul className="ui-auth-points">
-                {POINTS.map(({ Icon, text }) => (
-                  <li key={text}>
-                    <Icon size={18} strokeWidth={1.75} aria-hidden="true" />
-                    {text}
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            <img
-              className="ui-auth-art"
-              src="/brand/auth-workspace.webp"
-              width="1000"
-              height="562"
-              alt="The Clor workspace on a laptop and a phone, with every app connected to it."
-              decoding="async"
-            />
+            {brand || <CustomerBrand />}
 
             <p className="ui-caption">© 2026 Clor Applications Pvt Ltd</p>
           </div>

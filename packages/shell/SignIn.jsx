@@ -18,7 +18,7 @@ import PasswordInput from '@ui/components/ui/PasswordInput';
  * person belongs to. Which company they land in, and therefore which app, is
  * decided from that — not from anything an application told us.
  */
-export default function SignIn({ onHome, onSignUp, onForgot }) {
+export default function SignIn({ onHome, onSignUp, onForgot, brand, subtitle = 'One door into every app this company has.' }) {
   const { signIn, signInWithCode } = useSession();
   /* After the password, for someone with an authenticator: the challenge to answer with a code. */
   const [challenge, setChallenge] = useState('');
@@ -102,7 +102,7 @@ export default function SignIn({ onHome, onSignUp, onForgot }) {
 
   if (challenge) {
     return (
-      <AuthLayout title="Enter your code" subtitle="Open your authenticator app and type the 6-digit code for CLOR." onHome={onHome}>
+      <AuthLayout title="Enter your code" subtitle="Open your authenticator app and type the 6-digit code for CLOR." onHome={onHome} brand={brand}>
         <form onSubmit={submitCode} className="space-y-5">
           <div>
             <label className="ui-label" htmlFor="signin-code">Code</label>
@@ -138,15 +138,16 @@ export default function SignIn({ onHome, onSignUp, onForgot }) {
   return (
     <AuthLayout
       title="Sign in"
-      subtitle="One door into every app this company has."
+      subtitle={subtitle}
       onHome={onHome}
+      brand={brand}
       footer={
-        <span className="ui-muted">
+        onSignUp ? <span className="ui-muted">
           No account yet?{' '}
           <button type="button" className="ui-link font-medium" onClick={onSignUp}>
             Start a company
           </button>
-        </span>
+        </span> : null
       }
     >
       <form onSubmit={submit} className="space-y-5">

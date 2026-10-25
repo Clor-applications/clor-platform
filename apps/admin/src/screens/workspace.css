@@ -1775,3 +1775,12 @@ button.ws-item:hover {
     gap: 8px;
   }
 }
+
+/* Operator sign-in: the drawing sits in the brand panel where clor.in's hero art would. */
+.ops-auth-art {
+  display: block;
+  width: 100%;
+  max-width: 560px;
+  height: auto;
+  margin: auto 0;
+}
