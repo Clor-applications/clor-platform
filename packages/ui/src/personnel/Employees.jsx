@@ -2027,6 +2027,21 @@ export function EmployeeDocuments({ employeeId }) {
       notify.error(String(err?.message || 'Could not open.'));
     }
   };
+  /* A look without a download: images and PDFs open in a panel; other kinds say so and offer the download. */
+  const [viewing, setViewing] = useState(null);
+  const preview = async (d) => {
+    const canShow = /^image\//.test(d.mime) || d.mime === 'application/pdf';
+    setViewing({ doc: d, url: null, canShow, error: null });
+    if (!canShow) return;
+    try {
+      const full = await getDocument(d.id);
+      const blob = await (await fetch(full.dataUrl)).blob();
+      setViewing((v) => (v?.doc.id === d.id ? { ...v, url: URL.createObjectURL(blob) } : v));
+    } catch (err) {
+      setViewing((v) => (v?.doc.id === d.id ? { ...v, error: String(err?.message || 'Could not open it.') } : v));
+    }
+  };
+  const closePreview = () => { if (viewing?.url) URL.revokeObjectURL(viewing.url); setViewing(null); };
   const remove = async (d) => {
     if (!(await confirmDialog({ title: `Remove ${d.title}?`, message: 'The file is deleted from the record.', confirmLabel: 'Remove' }))) return;
     await deleteDocument(d.id).catch((e) => notify.error(String(e?.message || 'Could not remove.')));
@@ -2099,7 +2114,7 @@ export function EmployeeDocuments({ employeeId }) {
               <li key={d.id}>
                 <div className="ui-doc-row">
                   <span className="min-w-0">
-                    <button type="button" className="ui-doc-title" onClick={() => open(d)}>{d.title}</button>
+                    <button type="button" className="ui-doc-title" onClick={() => preview(d)}>{d.title}</button>
                     <span className="ui-doc-meta">{[kindWord(d.kind), kb(d.size), `added ${added(d)}`, d.version > 1 ? `version ${d.version}` : null, d.classification !== 'EMPLOYEE_VISIBLE' ? docWhoLabel(d) : null].filter(Boolean).join(' · ')}</span>
                     {d.restrictsWork && expired ? <span className="ui-doc-meta ui-text-neg">Until renewed: {d.restrictsWork}</span> : null}
                   </span>
@@ -2149,6 +2164,16 @@ export function EmployeeDocuments({ employeeId }) {
             {permit ? <label className="block"><span className="ui-label">Work they may not do once it lapses</span><input className="ui-input w-full" value={form.restrictsWork || ''} onChange={(e) => setForm({ ...form, restrictsWork: e.target.value })} maxLength={500} /></label> : null}
             <div><PopupSelect showValueSubtext={false} label="Who can see" value={form.classification} onChange={(v) => setForm({ ...form, classification: v || 'EMPLOYEE_VISIBLE' })} options={DOC_WHO_CAN_SEE.map(([value, label]) => ({ value, label }))} /></div>
           </form>
+        </Drawer>
+      ) : null}
+      {viewing ? (
+        <Drawer open onClose={closePreview} widthClass="w-[min(56rem,96vw)]" title={viewing.doc.title}
+          footer={<><button type="button" className="ui-btn ui-btn-secondary" onClick={closePreview}>Close</button><button type="button" className="ui-btn ui-btn-primary" onClick={() => open(viewing.doc)}><FileDown size={16} aria-hidden="true" /> Download</button></>}>
+          {!viewing.canShow ? <EmptyState icon={FileDown} title="No preview for this kind of file" description="Download it to open." />
+            : viewing.error ? <p className="ui-field-error" role="alert">{viewing.error}</p>
+              : !viewing.url ? <SkeletonCard lines={6} />
+                : /^image\//.test(viewing.doc.mime) ? <img src={viewing.url} alt={viewing.doc.title} className="ui-doc-preview" />
+                  : <iframe src={viewing.url} title={viewing.doc.title} className="ui-doc-preview ui-doc-preview-pdf" />}
         </Drawer>
       ) : null}
       {lettering ? <IssueLetter employeeId={employeeId} onClose={() => setLettering(false)} onIssued={() => { setLettering(false); load(); }} /> : null}
