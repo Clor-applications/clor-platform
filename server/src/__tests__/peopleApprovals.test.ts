@@ -159,7 +159,8 @@ describe('the approval engine', () => {
 
   it('an overdue step is reminded, then handed on to the fallback a day later', async () => {
     /* Asked by Priya, so HR (Asha) is free to take it when it is handed on; the requester never decides. */
-    const r = (await people(head).post('/requests', { requestType: 'JOB_CHANGE', subjectEmployeeId: meera.id, title: 'Late', payload: { employeeId: meera.id, fields: { departmentId: { before: security.id, after: design.id } } } }).expect(201)).body.request;
+    /* A different field from the request still waiting above: two job changes on one field cannot wait side by side (Workforce final audit W11). */
+    const r = (await people(head).post('/requests', { requestType: 'JOB_CHANGE', subjectEmployeeId: meera.id, title: 'Late', payload: { employeeId: meera.id, fields: { gradeId: { before: null, after: null } } } }).expect(201)).body.request;
     const step = await runInTenant(hr.orgId, () => peoplePrisma.approvalStep.findFirstOrThrow({ where: { requestId: r.id, status: 'WAITING' } }));
     const past = new Date(step.dueAt.getTime() + 3_600_000);
     const first = await runApprovalDues(past);
@@ -176,6 +177,12 @@ describe('the approval engine', () => {
     expect(shaped.steps[1].candidates).toContain('Asha HR');
     const reminders = await platformPrisma.notification.count({ where: { orgId: hr.orgId, title: { startsWith: 'Overdue: Late' } } });
     expect(reminders).toBeGreaterThanOrEqual(1);
+  });
+
+  it('a second job change on a field already waiting is refused (Workforce final audit W11)', async () => {
+    const clash = await people(head).post('/requests', { requestType: 'JOB_CHANGE', subjectEmployeeId: meera.id, title: 'Clash', payload: { employeeId: meera.id, fields: { departmentId: { before: security.id, after: design.id } } } });
+    expect(clash.status).toBe(409);
+    expect(clash.body.code).toBe('REQUEST_WAITING');
   });
 
   it('rules are versioned and a request keeps its version', async () => {

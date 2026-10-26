@@ -138,7 +138,7 @@ describe('reader IDs per site', () => {
     const sita = await person(c, { name: 'Sita', code: 'D-9', areaId: depot.id });
     await api(c).put(`/employees/${sita.id}/reader-ids`, { sites: [{ areaId: depot.id, pin: '105' }] }).expect(200);
     await peoplePrisma.deviceCommand.deleteMany({ where: { orgId: c.orgId } });
-    await request(app).put(`/api/orgs/${c.orgId}/people/employees/${ravi.id}`).set(at(c)).send({ ...ravi, status: 'LEFT', dateOfLeaving: '2026-09-30' }).expect(200);
+    await request(app).post(`/api/orgs/${c.orgId}/people/employees/${ravi.id}/resign`).set(at(c)).send({ lastDay: '2026-09-30', leavingType: 'RESIGNED' }).expect(200);
     const fCmds = (await peoplePrisma.deviceCommand.findMany({ where: { deviceId: fr.id } })).map((x) => x.command);
     const dCmds = (await peoplePrisma.deviceCommand.findMany({ where: { deviceId: dr.id } })).map((x) => x.command);
     expect(fCmds.some((x) => /PIN=105/.test(x) && /DELETE/.test(x))).toBe(true);
