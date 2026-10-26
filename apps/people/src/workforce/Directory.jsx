@@ -16,7 +16,7 @@ import { usePermissions } from '@ui/permissions/usePermissions';
 import { Avatar } from '@ui/personnel/Employees';
 import { formatDate } from '@ui/components/ui/DatePicker';
 
-import { bulkUpdate, dataHealth, deleteView, downloadText, employeeCounts, exportColumns, exportEmployees, listEmployees, listTags, listViews, openChecklistTasks, saveView, structure, workforcePending } from './api';
+import { bulkUpdate, dataHealth, employeeIds, deleteView, downloadText, employeeCounts, exportColumns, exportEmployees, listEmployees, listTags, listViews, openChecklistTasks, saveView, structure, workforcePending } from './api';
 import { STATUS, StatusBadge, can } from './shared';
 
 /**
@@ -122,6 +122,20 @@ export default function Directory({ params = {}, updateParams, openScreen }) {
     { key: 'activity', label: 'View activity', onSelect: () => openRecord(r, 'activity') },
   ];
 
+  /* Every person the filters match, not only this page: ids from the server under the same filters and scope. */
+  const [selectingAll, setSelectingAll] = useState(false);
+  const selectAllMatching = async () => {
+    setSelectingAll(true);
+    try {
+      const r = await employeeIds({ ...apiParams(p), ...(tab === 'team' ? { team: 'mine' } : {}) });
+      setSelected(new Set(r.ids || []));
+      if (r.capped) notify.info(`The first ${r.ids.length} are selected; a bulk change takes at most that many.`);
+    } catch (e) {
+      notify.error(String(e?.message || 'Could not select them.'));
+    } finally {
+      setSelectingAll(false);
+    }
+  };
   const doExport = async (scope, columns) => {
     setExporting(true);
     try {
@@ -215,9 +229,12 @@ export default function Directory({ params = {}, updateParams, openScreen }) {
             </button>
             {selected.size ? (
               <div className="ui-bulkbar" role="status" aria-live="polite">
-                <span className="tabular-nums font-medium">{selected.size} selected</span>
+                <span className="tabular-nums font-medium">{selected.size === total && total > rows.length ? `All ${total} matching selected` : `${selected.size} selected`}</span>
+                {rows.length && rows.every((r) => selected.has(r.id)) && total > selected.size ? (
+                  <button type="button" className="ui-link text-sm" disabled={selectingAll} onClick={selectAllMatching}>{selectingAll ? 'Selecting…' : `Select all ${total} matching`}</button>
+                ) : null}
                 {allowed('PEOPLE::Employees::EDIT') ? <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => setBulk({ field: 'departmentId', value: '', reason: '' })}>Change…</button> : null}
-                {allowed('PEOPLE::Employees::EXPORT') ? <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => doExport('selected')}>Export selected</button> : null}
+                {allowed('PEOPLE::Employees::EXPORT') ? <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => setExportOpen(true)}>Export…</button> : null}
                 <button type="button" className="ui-link text-sm" onClick={() => setSelected(new Set())}>Clear selection</button>
               </div>
             ) : null}

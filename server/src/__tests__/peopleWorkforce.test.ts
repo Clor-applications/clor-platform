@@ -316,5 +316,15 @@ describe('workforce backend', () => {
     const csv = (await people(boss).get('/employees/export?q=W-140&status=CURRENT&columns=code').expect(200)).text.replace(/^\ufeff/, '').split('\r\n');
     expect(csv).toEqual(['Employee ID']);
   });
+
+  it('idsOnly gives every id the filters match, within scope, for a bulk change across pages', async () => {
+    const r = (await people(boss).get('/employees?q=W-00&idsOnly=1').expect(200)).body;
+    expect(r.total).toBe(3);
+    expect(r.ids).toHaveLength(3);
+    expect(r.capped).toBe(false);
+    const lead = await colleague(boss, 'Scoped Lead', ['PEOPLE::Employees::VIEW']);
+    const scoped = (await people(lead).get('/employees?q=W-00&idsOnly=1').expect(200)).body;
+    expect(scoped.ids.every((id: string) => r.ids.includes(id))).toBe(true);
+  });
 });
 

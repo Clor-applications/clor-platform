@@ -30,7 +30,7 @@ import { changeImpact } from '../services/people/lifecycle/changes.js';
 import { journeyOf, whyOf } from '../services/people/journey.js';
 import { salaryQuestion } from '../services/people/salaryQuestion.js';
 import { activityOf } from '../services/people/activity.js';
-import { BulkError, bulkUpdate } from '../services/people/bulk.js';
+import { BULK_LIMIT, BulkError, bulkUpdate } from '../services/people/bulk.js';
 import { deleteView, saveView, viewsFor } from '../services/people/savedViews.js';
 import { raiseRequest } from '../services/people/desk.js';
 import { HeadcountError, headcount as headcountOf, snooze as snoozeCheck, snoozeHistory, unsnooze as unsnoozeCheck } from '../services/people/headcount.js';
@@ -469,6 +469,14 @@ peopleRouter.get('/orgs/:orgId/people/employees', can(PermissionAction.VIEW, EMP
         }
       : {}),
   };
+  /* Every id the filters match (Select all matching, WF-07): the same filters and scope, capped at what one bulk change takes. */
+  if (req.query.idsOnly === '1') {
+    const [found, total] = await Promise.all([
+      peoplePrisma.employee.findMany({ where, select: { id: true }, orderBy: { id: 'asc' }, take: BULK_LIMIT }),
+      peoplePrisma.employee.count({ where }),
+    ]);
+    return res.json({ ids: found.map((r) => r.id), total, capped: total > BULK_LIMIT });
+  }
   const take = Math.min(500, Math.max(1, Number(req.query.limit || 200)));
   const skip = Math.max(0, Number(req.query.offset || 0));
   const asOfDate = String(req.query.asOf || '').trim();
