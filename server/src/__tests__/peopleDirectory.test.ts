@@ -126,4 +126,19 @@ describe('directory (CORE-01)', () => {
     await people(boss).post('/employees/bulk', { ids: [a.id], set: { hours: 'SOMETIMES' } }).expect(400);
     await people(boss).post('/employees/bulk', { ids: [a.id], set: { departmentId: null } }).expect(400);
   });
+
+  it('a dated bulk move waits for its day on each record; hours change from today only (Workforce audit O20)', async () => {
+    const boss = await owner();
+    const area = (await people(boss).post('/structure/areas', { name: `Later area ${Date.now()}` }).expect(201)).body.item;
+    const a = (await people(boss).post('/employees', { name: 'Later One', code: `LT-${Date.now()}-1` }).expect(201)).body.employee;
+    const b = (await people(boss).post('/employees', { name: 'Later Two', code: `LT-${Date.now()}-2` }).expect(201)).body.employee;
+    const day = new Date(Date.now() + 330 * 60_000 + 10 * 86_400_000).toISOString().slice(0, 10);
+    const r = (await people(boss).post('/employees/bulk', { ids: [a.id, b.id], set: { areaId: area.id }, effectiveFrom: day }).expect(200)).body;
+    expect(r).toMatchObject({ scheduled: 2, changed: 0, effectiveFrom: day });
+    const rec = (await people(boss).get(`/employees/${a.id}`).expect(200)).body;
+    expect(rec.employee.areaId).toBeNull();
+    expect(rec.scheduledChanges).toEqual([expect.objectContaining({ field: 'areaId', toValue: area.id, effectiveOn: day })]);
+    await people(boss).post('/employees/bulk', { ids: [a.id], set: { hours: 'PART_TIME' }, effectiveFrom: day }).expect(400);
+    await people(boss).post('/employees/bulk', { ids: [a.id], set: { areaId: area.id }, effectiveFrom: '2026-02-31' }).expect(400);
+  });
 });

@@ -50,3 +50,12 @@ Owner said "start building" (relayed by the main session) without answering D-V1
 | D-V7 | Shell writes screen params to the URL (shared change, told to the main session) |
 | D-V8 | Platform AuditLog gains a correlation id (platform migration, told to the main session) |
 | D-V9 | Directory banners from live Data Health and checklist counts, dismissible per user |
+
+## Waiting for other modules (Workforce audit, 26 Oct 2026)
+
+Found while closing Workforce; each belongs to the module named and is the first thing to do when that module is built. Workforce already records what they need.
+
+| Module | What | Why it is not done in Workforce | What done looks like |
+|---|---|---|---|
+| Attendance | Holidays after a mid-month move. The monthly summary (`server/src/services/attendance/days.ts`, `holidaysFor`) and reports (`server/src/routes/attendanceReports.ts`) read the person's current location for every day of the month. Someone moved from Bengaluru to Pune on 15 Oct gets Pune's holidays for all of October. | The fix is in how Attendance picks the location per day. | Each day uses the location the person had that day, from employment history (`employeeAsOf` / `EmploymentHistory`). A test with a move on the 15th: holidays before it from the old location, after it from the new. |
+| Payroll | Bank details asked for from the employee app. | Payroll's bank-change path (`services/payroll/bankChanges.ts`, `routeBankUpdate`) applies a first bank account at once with no approval. A request screen on top of it would be unsafe until Payroll decides the rule. | Payroll decides: does a first account need HR approval, is a change held until the next pay run. Then the employee app asks, and HR approves through the same requests. |

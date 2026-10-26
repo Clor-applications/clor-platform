@@ -170,4 +170,10 @@ describe('a manager limited to their own team', () => {
     /* HR edits it as ever. */
     await people(hr).put(`/employees/${self.id}`, { phone: '9876501234' }).expect(200);
   });
+
+  it('the change preview does not name a manager outside the viewer\'s team (Workforce audit S17)', async () => {
+    const impact = (await people(manager).get(`/employees/${report.id}/change-impact?reportingManagerId=${stranger.id}`).expect(200)).body.impact;
+    /* The stranger has no login, so before this the preview said "Someone Else cannot sign in yet". */
+    expect(JSON.stringify(impact)).not.toContain('Someone Else');
+  });
 });

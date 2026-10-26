@@ -34,7 +34,7 @@ type Subject = { id: string; establishmentId?: string | null; departmentId?: str
 const nameOf = async (model: 'area' | 'department', orgId: string, id: string | null | undefined) =>
   id ? ((await (peoplePrisma as any)[model].findFirst({ where: { id, orgId }, select: { name: true } }))?.name as string | undefined) || null : null;
 
-export async function changeImpact(orgId: string, employee: Subject, fields: Record<string, string | null | undefined>, apps: ImpactApps = { payroll: false, attendance: false, seePayroll: false }): Promise<Impact[]> {
+export async function changeImpact(orgId: string, employee: Subject, fields: Record<string, string | null | undefined>, apps: ImpactApps = { payroll: false, attendance: false, seePayroll: false }, opts: { managerVisible?: boolean } = {}): Promise<Impact[]> {
   const out: Impact[] = [];
   const changed = (k: keyof Subject) => fields[k] !== undefined && fields[k] !== (employee[k] ?? null);
   if (changed('establishmentId')) {
@@ -74,9 +74,12 @@ export async function changeImpact(orgId: string, employee: Subject, fields: Rec
     out.push({ key: 'cost', title: dept ? `Salary cost counts under ${dept}` : 'Salary cost has no department', detail: 'A pay run takes the department as it is on the day it runs.', target: 'AUTO' });
   }
   if (changed('reportingManagerId')) {
-    const manager = fields.reportingManagerId
+    const found = fields.reportingManagerId
       ? await peoplePrisma.employee.findFirst({ where: { id: fields.reportingManagerId, orgId }, select: { name: true, userId: true, portalPasswordHash: true } })
       : null;
+    /* Someone outside the viewer's team is not named here, nor is whether they can sign in (Workforce audit S17). */
+    const hidden = opts.managerVisible === false;
+    const manager = found && hidden ? { name: 'the new manager', userId: 'hidden', portalPasswordHash: null } : found;
     /* Attendance asks the manager only when the company's approval setting says so, and looks the manager up when it decides. */
     if (apps.attendance) {
       const settings = await peoplePrisma.attendanceSettings.findUnique({ where: { orgId }, select: { leaveApproval: true, correctionApproval: true } });

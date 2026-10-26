@@ -1524,7 +1524,8 @@ peopleRouter.get('/orgs/:orgId/people/employees/:id/change-impact', can(Permissi
   if (!employee || !inScope(await teamScope(req), employee.id)) return res.status(404).json({ error: 'No such employee.' });
   const fields: Record<string, string | null> = {};
   for (const k of ['establishmentId', 'departmentId', 'reportingManagerId', 'areaId']) if (req.query[k] !== undefined) fields[k] = String(req.query[k] || '') || null;
-  res.json({ impact: await changeImpact(orgId, employee, fields, await impactApps(req)) });
+  const scope = await teamScope(req);
+  res.json({ impact: await changeImpact(orgId, employee, fields, await impactApps(req), { managerVisible: !fields.reportingManagerId || inScope(scope, fields.reportingManagerId) }) });
 });
 
 /**

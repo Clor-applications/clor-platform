@@ -278,7 +278,7 @@ export default function Directory({ params = {}, updateParams, openScreen }) {
       {bulk ? <BulkDrawer count={selected.size} lists={lists} managers={managers} value={bulk} onChange={setBulk} onClose={() => setBulk(null)}
         onSend={async () => {
           try {
-            const r = await bulkUpdate({ ids: [...selected], set: { [bulk.field]: bulk.value === '__clear' ? null : bulk.value }, reason: bulk.reason });
+            const r = await bulkUpdate({ ids: [...selected], set: { [bulk.field]: bulk.value === '__clear' ? null : bulk.value }, reason: bulk.reason, ...(bulk.field !== 'hours' && bulk.effectiveFrom && bulk.effectiveFrom !== todayIst() ? { effectiveFrom: bulk.effectiveFrom } : {}) });
             setBulk(null);
             setSelected(new Set());
             setResult({ ...r, field: bulk.field, names: Object.fromEntries(rows.map((x) => [x.id, x.name])) });
@@ -478,6 +478,8 @@ function BulkDrawer({ count, lists, managers, value, onChange, onClose, onSend }
       <div className="grid gap-4">
         <div><PopupSelect showValueSubtext={false} label="What" value={value.field} onChange={(v) => onChange({ ...value, field: v, value: '' })} options={fields.map(([k, l]) => ({ value: k, label: l }))} /></div>
         <div><PopupSelect showValueSubtext={false} label="To" value={value.value} onChange={(v) => onChange({ ...value, value: v })} placeholder="Choose…" alwaysSearch options={[...(NO_CLEAR.has(f[0]) ? [] : [{ value: '__clear', label: 'None' }]), ...options.map((o) => ({ value: o.id, label: o.name }))]} /></div>
+        {/* From when, as for one person: a later day waits for that day and shows on each record under Upcoming changes. Hours change from today. */}
+        {f[0] !== 'hours' ? <div><label className="ui-label" htmlFor="bulk-effective">Effective from</label><DatePicker id="bulk-effective" value={value.effectiveFrom || todayIst()} onChange={(v) => onChange({ ...value, effectiveFrom: v || '' })} /></div> : null}
         <label className="block"><span className="ui-label">Reason</span><input className="ui-input w-full" maxLength={500} value={value.reason} onChange={(e) => onChange({ ...value, reason: e.target.value })} placeholder="Ops folded into Sales" /></label>
       </div>
     </Drawer>
@@ -495,7 +497,9 @@ function BulkResult({ result, onClose }) {
     <Drawer open onClose={onClose} widthClass="w-[min(36rem,96vw)]" title="Bulk change finished"
       footer={<>{failed.length ? <button type="button" className="ui-btn ui-btn-secondary" onClick={save}>Download skipped</button> : null}<button type="button" className="ui-btn ui-btn-primary" onClick={onClose}>Done</button></>}>
       <dl className="ui-metric-strip">
-        <div className="ui-metric"><span><dd className="ui-metric-value tabular-nums">{result.changed}</dd><dt className="ui-metric-label">Changed</dt></span></div>
+        {result.effectiveFrom
+          ? <div className="ui-metric"><span><dd className="ui-metric-value tabular-nums">{result.scheduled}</dd><dt className="ui-metric-label">Change on {formatDate(result.effectiveFrom)}</dt></span></div>
+          : <div className="ui-metric"><span><dd className="ui-metric-value tabular-nums">{result.changed}</dd><dt className="ui-metric-label">Changed</dt></span></div>}
         <div className="ui-metric"><span><dd className="ui-metric-value tabular-nums">{result.unchanged}</dd><dt className="ui-metric-label">Already so</dt></span></div>
         <div className="ui-metric"><span><dd className="ui-metric-value tabular-nums">{failed.length}</dd><dt className="ui-metric-label">Skipped</dt></span></div>
         <div className="ui-metric"><span><dd className="ui-metric-value tabular-nums">{result.notFound}</dd><dt className="ui-metric-label">Not found</dt></span></div>

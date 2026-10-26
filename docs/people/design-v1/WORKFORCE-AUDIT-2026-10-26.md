@@ -25,7 +25,7 @@ code, then each finding checked before fixing. Status: **Fixed** (commit),
 | S14 | Export includes the mobile though the comment said no personal contact: comment corrected (an owner needs the contact list; export has its own grant) | Fixed (security batch 2) |
 | S15 | Raw database error text in import results; duplicate warnings name people outside scope | Fixed (security batch 2) |
 | S16 | Import writes no audit entry | Fixed `c31f88a` |
-| S17 | change-impact names any manager id in the company | Open (low) |
+| S17 | change-impact names any manager id in the company | Fixed: a manager outside the viewer's team is "the new manager", and whether they can sign in is not said |
 | S18 | Structure links not checked against the company; loops deeper than one level | Fixed (security batch 2) |
 | S19 | Contractor import: update with CREATE only; a duplicate mid-file gives a 500 | Fixed (security batch 2) |
 | S20 | Formula-escaped phone (`'+91…`) in "rows to fix" fails re-import | Fixed (security batch 2) |
@@ -76,7 +76,7 @@ code, then each finding checked before fixing. Status: **Fixed** (commit),
 | O17 | Import cannot carry manager or work site | Fixed (import and screens batch) |
 | O18 | Import has a review step that repeats the counts plus a confirm | Fixed (import and screens batch) |
 | O19 | Onboarding & Exit calls every non-joining task "Leaving"; raw dates | Fixed (import and screens batch) |
-| O20 | Bulk change: few fields, no date, "None" can blank departments | Fixed: Location (was refused by the server), Hours, Work mode, Work site added; department never cleared in bulk. A dated move stays one person at a time | 
+| O20 | Bulk change: few fields, no date, "None" can blank departments | Fixed: Location (was refused by the server), Hours, Work mode, Work site added; department never cleared in bulk; an effective date (a later day waits on each record as an upcoming change; hours change from today) | 
 | O21 | Data Health snooze uses a browser prompt | Fixed (import and screens batch) |
 | O22 | No default probation length; no next steps after hiring | Fixed (leaving, bulk, probation length batch) |
 | O23 | Tag colours mix with #000 (dark mode) | Fixed (leaving, bulk, probation length batch) |
@@ -87,5 +87,6 @@ code, then each finding checked before fixing. Status: **Fixed** (commit),
 
 | Finding | Module |
 |---|---|
-| Attendance summary and reports read the current location for every day of the month | Attendance |
+| Attendance summary and reports read the current location for every day of the month | Attendance (TRACKER, Waiting for other modules) |
 | Leave "from confirmation" and probation/hours conditions | Leave |
+| Bank details asked for from the employee app | Payroll (TRACKER, Waiting for other modules) |
