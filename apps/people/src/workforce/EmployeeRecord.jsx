@@ -751,6 +751,8 @@ function OperationDrawer({ action, person, lists, onClose, onDone }) {
   const [reason, setReason] = useState('');
   const [reasonMissing, setReasonMissing] = useState(false);
   const [impact, setImpact] = useState([]);
+  const [followPt, setFollowPt] = useState(true);
+  const ptFix = impact.find((i) => i.fix?.kind === 'ptState');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   useEffect(() => {
@@ -759,7 +761,7 @@ function OperationDrawer({ action, person, lists, onClose, onDone }) {
   const changed = Object.fromEntries(Object.entries(form).filter(([k, v]) => (v || '') !== (person[k] || '')));
   useEffect(() => {
     const ask = {};
-    for (const k of ['establishmentId', 'departmentId', 'reportingManagerId']) if (k in changed) ask[k] = changed[k] || '';
+    for (const k of ['establishmentId', 'departmentId', 'reportingManagerId', 'areaId']) if (k in changed) ask[k] = changed[k] || '';
     if (!Object.keys(ask).length) { setImpact([]); return; }
     let live = true;
     changeImpact(person.id, ask).then((r) => live && setImpact(r?.impact || [])).catch(() => live && setImpact([]));
@@ -784,9 +786,10 @@ function OperationDrawer({ action, person, lists, onClose, onDone }) {
     setBusy(true);
     setError(null);
     try {
-      const body = { ...Object.fromEntries(Object.entries(changed).map(([k, v]) => [k, v || null])), changeNote: reason || null, version: person.version, ...(effective && effective !== todayIst() ? { effectiveFrom: effective } : {}) };
+      const body = { ...Object.fromEntries(Object.entries(changed).map(([k, v]) => [k, v || null])), changeNote: reason || null, version: person.version, ...(effective && effective !== todayIst() ? { effectiveFrom: effective } : {}), ...(ptFix && followPt ? { alsoPtState: true } : {}) };
       const r = await updateEmployee(person.id, body);
-      notify.success(r.request ? `Sent for approval: ${r.request.title}. Nothing changes until it is approved.` : r.scheduled?.length ? `Scheduled for ${formatDate(effective)}.` : 'Changed.');
+      const pt = r.ptState ? (r.ptState.applied ? ` Professional Tax is now ${r.ptState.state}.` : ` A task to set Professional Tax to ${r.ptState.state} is on the record.`) : '';
+      notify.success(`${r.request ? `Sent for approval: ${r.request.title}. Nothing changes until it is approved.` : r.scheduled?.length ? `Scheduled for ${formatDate(effective)}.` : 'Changed.'}${pt}`);
       onDone();
     } catch (e) {
       setError(e);
@@ -811,9 +814,27 @@ function OperationDrawer({ action, person, lists, onClose, onDone }) {
         <label className="block"><span className="ui-label">Reason{op.reasonRequired ? ' *' : ''}</span><textarea className="ui-input w-full" rows={2} maxLength={500} value={reason} aria-invalid={reasonMissing || undefined} aria-describedby={reasonMissing ? 'op-reason-error' : undefined} onChange={(e) => { setReason(e.target.value); setReasonMissing(false); }} /></label>
         {reasonMissing ? <p id="op-reason-error" className="ui-field-error" role="alert">Add a reason.</p> : null}
         {impact.length ? (
-          <div aria-label="What else this affects">
-            <p className="ui-label">What else this affects</p>
-            <ul className="space-y-1">{impact.map((i) => <li key={i.key} className="text-sm"><span className="font-medium">{i.title}</span><span className="ui-caption block">{i.detail}</span></li>)}</ul>
+          /* What follows by itself, what needs someone, what to check: never "told" for something that does not happen. */
+          <div className="ui-impact" aria-label="What else this affects">
+            {[['ACTION', 'Needs you'], ['AUTO', 'Follows by itself'], ['TASK', 'To check (a task is added)'], ['INFO', 'Nothing to do']].map(([kind, heading]) => {
+              const lines = impact.filter((i) => i.target === kind);
+              return lines.length ? (
+                <section key={kind} className={`ui-impact-group is-${kind.toLowerCase()}`} aria-label={heading}>
+                  <p className="ui-impact-heading" aria-hidden="true">{heading}</p>
+                  <ul>
+                    {lines.map((i) => (
+                      <li key={i.key}>
+                        <span className="block text-sm font-medium">{i.title}</span>
+                        <span className="block ui-caption">{i.detail}</span>
+                        {i.fix?.kind === 'ptState' ? (
+                          <label className="ui-impact-fix"><input type="checkbox" className="ui-checkbox" checked={followPt} onChange={(e) => setFollowPt(e.target.checked)} /> Also set it to {i.fix.state}{effective && effective > todayIst() ? ' (as a task for that day)' : ''}</label>
+                        ) : null}
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              ) : null;
+            })}
           </div>
         ) : null}
       </div>

@@ -7891,6 +7891,13 @@ button.ui-metric:focus-visible { outline: 2px solid rgb(var(--ring)); outline-of
 .ui-history-when { display: flex; flex-direction: column; font-size: 0.875rem; }
 .ui-history-recorded { font-size: 0.8125rem; line-height: 1.25rem; color: rgb(var(--fg-subtle)); text-align: right; }
 @media (max-width: 639px) { .ui-history-list > li { grid-template-columns: 1fr; gap: 0.25rem; } .ui-history-recorded { text-align: left; } }
+.ui-impact { display: grid; gap: 0.75rem; padding-top: 1rem; border-top: 1px solid rgb(var(--border)); }
+.ui-impact .ui-impact-heading { margin-bottom: 0.25rem; font-size: 0.75rem; line-height: 1rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: rgb(var(--fg-subtle)); }
+.ui-impact-group ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.5rem; }
+.ui-impact-group li { padding-left: 0.75rem; border-left: 2px solid rgb(var(--border)); }
+.ui-impact-group.is-action li { border-left-color: rgb(var(--warn)); }
+.ui-impact-group.is-auto li { border-left-color: rgb(var(--pos)); }
+.ui-impact-fix { display: flex; align-items: center; gap: 0.5rem; margin-top: 0.375rem; font-size: 0.875rem; cursor: pointer; }
 .ui-section-count { margin-left: 0.5rem; font-size: 0.8125rem; font-weight: 500; color: rgb(var(--fg-subtle)); }
 .ui-task-list { list-style: none; margin: 0; padding: 0; font-size: 0.875rem; line-height: 1.25rem; }
 .ui-task-list > li { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; padding: 0.625rem 0; border-top: 1px solid rgb(var(--border)); }

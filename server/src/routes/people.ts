@@ -27,6 +27,7 @@ import { inScope, scopeWhere, teamScope } from '../services/people/scope.js';
 import { activeRule, shape as shapeRequest, submitRequest } from '../services/people/approvals/engine.js';
 import { PROBATION_OUTCOMES, ProbationError, decideProbation, reviewsOf, saveReview } from '../services/people/lifecycle/probation.js';
 import { changeImpact } from '../services/people/lifecycle/changes.js';
+import { isFeatureEnabled } from '../services/features.js';
 import { journeyOf, whyOf } from '../services/people/journey.js';
 import { salaryQuestion } from '../services/people/salaryQuestion.js';
 import { activityOf } from '../services/people/activity.js';
@@ -961,9 +962,11 @@ peopleRouter.put('/orgs/:orgId/people/employees/:id', can(PermissionAction.EDIT,
     /* Leaving ends door access: off every biometric reader, fingerprints and faces deleted. */
     if (row.status === 'LEFT' && existing.status !== 'LEFT') await revokeFromReaders(orgId, existing, req.auth!.userId);
     else if (row.status !== 'LEFT' && readerFieldsChanged(existing, row)) await pushEmployeeToReaders(orgId, row, req.auth!.userId, existing);
+    /* Professional Tax follows the move only when the person asked for it on the transfer (the preview's ACTION line). */
+    const ptState = req.body?.alsoPtState === true ? await followPtState(req, existing, row, typeof req.body?.establishmentId === 'string' ? req.body.establishmentId : null, Boolean(request) || scheduled.length > 0, effectiveFrom) : null;
     /* With its tags, as GET returns it: a save must not blank the tag line. */
     const fresh = (await peoplePrisma.employee.findUnique({ where: { id: row.id }, include: { tags: { include: { tag: true } } } })) || row;
-    res.json({ employee: (await withMeta(orgId, [fresh]))[0], scheduled, request: request ? await shapeRequest(request) : null });
+    res.json({ employee: (await withMeta(orgId, [fresh]))[0], scheduled, request: request ? await shapeRequest(request) : null, ptState });
     emitWebhook(orgId, row.status === 'LEFT' && existing.status !== 'LEFT' ? 'employee.left' : 'employee.updated', employeeEvent(row));
     if (row.status === 'LEFT' && existing.status !== 'LEFT') void peopleEvent(accountId, orgId, 'people.left', row, req.auth!.userId);
   } catch (e) {
@@ -1385,14 +1388,48 @@ peopleRouter.get('/orgs/:orgId/people/employees/:id/salary-question', can(Permis
 });
 
 /** What else a change would affect (LIFE-04), before it is sent: pass the fields as they would be saved. */
+/**
+ * After a transfer to a work site in another state, set the payroll
+ * profile's Professional Tax state to match, when the move has taken effect
+ * and the caller may change payroll profiles. A move that waits (dated
+ * ahead, or for an approver) or a caller without that grant gets a task on
+ * the person's record for the day instead: nothing in Payroll changes early
+ * or behind someone's back.
+ */
+async function followPtState(req: any, before: { id: string; establishmentId: string | null }, after: { id: string; establishmentId: string | null }, asked: string | null, waits: boolean, effectiveFrom: string | null) {
+  const { accountId, orgId } = req.tenant!;
+  if (!asked || asked === before.establishmentId) return null;
+  const est = await peoplePrisma.establishment.findFirst({ where: { id: asked, orgId }, select: { state: true } });
+  if (!est?.state || !(await isFeatureEnabled(accountId, orgId, 'payroll'))) return null;
+  const profile = await payrollPrisma.employeePayrollProfile.findFirst({ where: { orgId, employeeId: before.id }, select: { ptApplicable: true, professionalTaxState: true } });
+  if (!profile?.ptApplicable || profile.professionalTaxState === est.state) return null;
+  const mayEdit = !(await authorize(req, PAYROLL_MODULE, PermissionAction.EDIT as any, PAYROLL_RESOURCE.profile));
+  if (!waits && after.establishmentId === asked && mayEdit) {
+    await payrollPrisma.employeePayrollProfile.updateMany({ where: { orgId, employeeId: before.id }, data: { professionalTaxState: est.state } });
+    await recordAudit(req, { entity: 'PAYROLL_PROFILE', entityId: before.id, action: 'UPDATE', message: `Professional Tax state set to ${est.state} with a transfer`, metadata: { from: profile.professionalTaxState, to: est.state } });
+    return { applied: true, state: est.state };
+  }
+  const due = effectiveFrom && effectiveFrom > todayIst() ? effectiveFrom : todayIst();
+  await startChecklist({ accountId, orgId, userId: req.auth!.userId }, { id: before.id }, 'CHANGE', due, { items: [{ title: `Set Professional Tax state to ${est.state} in Payroll`, owner: 'PAYROLL', dueDays: 0, note: 'The work site moved to another state; Payroll deducts PT for the state on the payroll profile.' }] });
+  return { applied: false, task: true, state: est.state, due };
+}
+
+/* Which apps this company uses, and whether the caller may see and change payroll profiles: the preview says only what is true for them. */
+async function impactApps(req: any) {
+  const { accountId, orgId } = req.tenant!;
+  const [payroll, attendance] = await Promise.all([isFeatureEnabled(accountId, orgId, 'payroll'), isFeatureEnabled(accountId, orgId, 'attendance')]);
+  const seePayroll = payroll && !(await authorize(req, PAYROLL_MODULE, PermissionAction.VIEW as any, PAYROLL_RESOURCE.profile));
+  return { payroll, attendance, seePayroll };
+}
+
 peopleRouter.get('/orgs/:orgId/people/employees/:id/change-impact', can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
-  const employee = await peoplePrisma.employee.findFirst({ where: { id: String(req.params.id), accountId, orgId }, select: { id: true, establishmentId: true, departmentId: true, reportingManagerId: true } });
+  const employee = await peoplePrisma.employee.findFirst({ where: { id: String(req.params.id), accountId, orgId }, select: { id: true, establishmentId: true, departmentId: true, reportingManagerId: true, areaId: true } });
   if (!employee || !inScope(await teamScope(req), employee.id)) return res.status(404).json({ error: 'No such employee.' });
   const fields: Record<string, string | null> = {};
-  for (const k of ['establishmentId', 'departmentId', 'reportingManagerId']) if (req.query[k] !== undefined) fields[k] = String(req.query[k] || '') || null;
-  res.json({ impact: await changeImpact(orgId, employee, fields) });
+  for (const k of ['establishmentId', 'departmentId', 'reportingManagerId', 'areaId']) if (req.query[k] !== undefined) fields[k] = String(req.query[k] || '') || null;
+  res.json({ impact: await changeImpact(orgId, employee, fields, await impactApps(req)) });
 });
 
 /**

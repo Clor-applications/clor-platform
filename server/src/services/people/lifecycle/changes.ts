@@ -1,24 +1,43 @@
+import { payrollPrisma } from '../../../utils/payrollPrisma.js';
 import { peoplePrisma } from '../../../utils/peoplePrisma.js';
 import { runInTenant } from '../../../utils/tenantScope.js';
 import { startChecklist, type Item } from '../checklists.js';
 import { onPeopleEvent } from '../outbox.js';
 
 /**
- * What else a change affects (docs/people/02-PRD.md LIFE-04, COMP-04). Before
- * a transfer is sent, the form shows what will differ at the new place of
- * work: the state's holiday list, Professional Tax and Labour Welfare Fund,
- * the Shops & Establishments rules, the leave policy to review, and which
- * apps are told. The system names the differences; it does not decide the
- * legal effect. When the transfer lands, each difference becomes a review
- * task for HR on the person's record, through the same plan tasks joining
- * and leaving use.
+ * What else a change affects (docs/people/02-PRD.md LIFE-04, COMP-04), said
+ * truthfully. Each line is one of:
+ *   AUTO   — happens by itself, because the other app reads the employee
+ *            record when it works (Attendance's holidays follow the
+ *            Location; a pay run takes the department as it is then);
+ *   ACTION — will NOT follow unless someone acts (Payroll deducts
+ *            Professional Tax for the state on the payroll profile, not the
+ *            work site), with the fix that can be done in the same step;
+ *   TASK   — a difference to review; it becomes a task on the record when
+ *            the change lands;
+ *   INFO   — nothing to do.
+ * A line about an app the company does not use is left out, never shown as
+ * "told". Nothing here decides the legal effect of a move.
  */
 
-export type Impact = { key: string; title: string; detail: string; target: 'TASK' | 'TOLD' | 'INFO' };
+export type Impact = {
+  key: string;
+  title: string;
+  detail: string;
+  target: 'AUTO' | 'ACTION' | 'TASK' | 'INFO';
+  /* What the form may do about an ACTION line in the same step. */
+  fix?: { kind: 'ptState'; state: string };
+};
+export type ImpactApps = { payroll: boolean; attendance: boolean; seePayroll: boolean };
+type Subject = { id: string; establishmentId?: string | null; departmentId?: string | null; reportingManagerId?: string | null; areaId?: string | null };
 
-export async function changeImpact(orgId: string, employee: { id: string; establishmentId?: string | null; departmentId?: string | null; reportingManagerId?: string | null }, fields: Record<string, string | null | undefined>): Promise<Impact[]> {
+const nameOf = async (model: 'area' | 'department', orgId: string, id: string | null | undefined) =>
+  id ? ((await (peoplePrisma as any)[model].findFirst({ where: { id, orgId }, select: { name: true } }))?.name as string | undefined) || null : null;
+
+export async function changeImpact(orgId: string, employee: Subject, fields: Record<string, string | null | undefined>, apps: ImpactApps = { payroll: false, attendance: false, seePayroll: false }): Promise<Impact[]> {
   const out: Impact[] = [];
-  if (fields.establishmentId !== undefined && fields.establishmentId !== (employee.establishmentId ?? null)) {
+  const changed = (k: keyof Subject) => fields[k] !== undefined && fields[k] !== (employee[k] ?? null);
+  if (changed('establishmentId')) {
     const [from, to] = await Promise.all([
       employee.establishmentId ? peoplePrisma.establishment.findFirst({ where: { id: employee.establishmentId, orgId }, select: { name: true, state: true } }) : null,
       fields.establishmentId ? peoplePrisma.establishment.findFirst({ where: { id: fields.establishmentId, orgId }, select: { name: true, state: true } }) : null,
@@ -26,21 +45,49 @@ export async function changeImpact(orgId: string, employee: { id: string; establ
     const fromState = from?.state || null;
     const toState = to?.state || null;
     if (toState && fromState !== toState) {
-      out.push({ key: 'holidays', title: `Different holiday list (${toState})`, detail: `Check ${to!.name}'s holiday list applies from the effective date.`, target: 'TASK' });
-      out.push({ key: 'pt', title: `Professional Tax state changes${fromState ? ` (${fromState} → ${toState})` : ` (${toState})`}`, detail: 'Payroll applies the new state\'s Professional Tax and Labour Welfare Fund from the next run.', target: 'TOLD' });
       out.push({ key: 'se', title: `Shops & Establishments rules differ (${toState})`, detail: 'Working hours, leave and registers follow the new state; review what differs.', target: 'TASK' });
-      out.push({ key: 'leave', title: `Leave policy for ${toState} may apply`, detail: 'Review which leave policy applies at the new establishment.', target: 'TASK' });
+      out.push({ key: 'leave', title: `Leave policy for ${toState} may apply`, detail: 'Review which leave policy applies at the new work site.', target: 'TASK' });
+      if (apps.payroll) {
+        const profile = await payrollPrisma.employeePayrollProfile.findFirst({ where: { orgId, employeeId: employee.id }, select: { ptApplicable: true, professionalTaxState: true } });
+        if (profile?.ptApplicable) {
+          const now = profile.professionalTaxState || null;
+          if (now === toState) out.push({ key: 'pt', title: `Professional Tax is already ${toState}`, detail: 'Nothing to change in Payroll.', target: 'INFO' });
+          else out.push({
+            key: 'pt',
+            title: apps.seePayroll ? `Professional Tax stays ${now || 'unset'} in Payroll` : 'Professional Tax state does not follow the move',
+            detail: `Payroll deducts Professional Tax for the state on the payroll profile, not the work site. Until it is changed, ${toState} PT is not deducted.`,
+            target: 'ACTION',
+            fix: { kind: 'ptState', state: toState },
+          });
+        }
+      }
     } else if (to) {
       out.push({ key: 'site', title: `Moves to ${to.name}`, detail: 'Same state: the same rules apply.', target: 'INFO' });
     }
-    out.push({ key: 'attendance', title: 'Attendance told', detail: 'Shift and site follow the new establishment; Attendance receives the transfer event.', target: 'TOLD' });
-    out.push({ key: 'payroll', title: 'Payroll told', detail: 'Payroll receives the transfer event and reviews statutory settings.', target: 'TOLD' });
   }
-  if (fields.departmentId !== undefined && fields.departmentId !== (employee.departmentId ?? null)) {
-    out.push({ key: 'cost', title: 'Salary cost moves with the department', detail: 'Payroll books salary cost to the new department from the effective date.', target: 'TOLD' });
+  if (changed('areaId') && apps.attendance) {
+    const area = await nameOf('area', orgId, fields.areaId);
+    out.push({ key: 'holidays', title: area ? `Holidays follow ${area}` : 'No location: only company-wide holidays apply', detail: 'Attendance reads the location when it marks each day, from the day the change applies.', target: 'AUTO' });
   }
-  if (fields.reportingManagerId !== undefined && fields.reportingManagerId !== (employee.reportingManagerId ?? null)) {
-    out.push({ key: 'approvals', title: 'Approvals move to the new manager', detail: 'Leave, corrections and requests go to the new manager from the effective date.', target: 'INFO' });
+  if (changed('departmentId') && apps.payroll) {
+    const dept = await nameOf('department', orgId, fields.departmentId);
+    out.push({ key: 'cost', title: dept ? `Salary cost counts under ${dept}` : 'Salary cost has no department', detail: 'A pay run takes the department as it is on the day it runs.', target: 'AUTO' });
+  }
+  if (changed('reportingManagerId')) {
+    const manager = fields.reportingManagerId
+      ? await peoplePrisma.employee.findFirst({ where: { id: fields.reportingManagerId, orgId }, select: { name: true, userId: true, portalPasswordHash: true } })
+      : null;
+    /* Attendance asks the manager only when the company's approval setting says so, and looks the manager up when it decides. */
+    if (apps.attendance) {
+      const settings = await peoplePrisma.attendanceSettings.findUnique({ where: { orgId }, select: { leaveApproval: true, correctionApproval: true } });
+      const viaManager = [settings?.leaveApproval, settings?.correctionApproval].some((c) => c === 'MANAGER' || c === 'MANAGER_THEN_HR');
+      if (viaManager) out.push({ key: 'approvals', title: manager ? `Leave and corrections go to ${manager.name}` : 'Leave and corrections go to HR', detail: 'Including requests already waiting: the manager is looked up when a request is decided.', target: 'AUTO' });
+      else out.push({ key: 'approvals', title: 'Leave and corrections stay with HR', detail: 'The company has HR approve them, so the manager does not change who decides.', target: 'INFO' });
+    }
+    /* A manager who cannot sign in anywhere cannot approve anything: requests sent their way would wait. */
+    if (manager && !manager.userId && !manager.portalPasswordHash) {
+      out.push({ key: 'manager-no-login', title: `${manager.name} cannot sign in yet`, detail: 'Requests sent to them would wait. Link a CLOR login on their Organization tab, or give them the employee app.', target: 'ACTION' });
+    }
   }
   return out;
 }
