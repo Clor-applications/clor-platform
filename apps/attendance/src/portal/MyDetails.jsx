@@ -11,8 +11,10 @@ import { SignedOut, acceptItem, answerMyRequest, askDetailsChange, getMyDetails,
  * setting); everything else, and a new photo, goes to HR.
  */
 
-const longDate = (d) => (d ? new Date(`${String(d).slice(0, 10)}T00:00:00Z`).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' }) : '');
-const shortDate = (v) => (v ? new Date(v).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '');
+/* "30 Sep 2026", as the rest of CLOR writes dates (the browser's en-IN gives "Sept"). */
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const longDate = (d) => { const [y, m, dd] = String(d || '').slice(0, 10).split('-'); return y && m && dd ? `${Number(dd)} ${MONTHS[Number(m) - 1]} ${y}` : ''; };
+const shortDate = (v) => (v ? longDate(new Date(new Date(v).getTime() + 330 * 60_000).toISOString()) : '');
 const errText = (e, fallback) => (e instanceof SignedOut ? '' : String(e?.message || fallback));
 
 const GENDER = [['', 'Not said'], ['MALE', 'Male'], ['FEMALE', 'Female'], ['NON_BINARY', 'Non-binary'], ['OTHER', 'Other'], ['PREFER_NOT_TO_SAY', 'Prefer not to say']];
@@ -152,7 +154,8 @@ function PersonalDetails({ d, guard, reload }) {
         </form>
       ) : (
         <dl className="divide-y" style={{ borderColor: 'rgb(var(--border))' }}>
-          {ORDER.map((k) => <Row key={k} label={d.labels[k] || k}>{shown(k, d.fields[k])}</Row>)}
+          {/* What is on file; Change details shows every field, so nothing missing is hidden from the person. */}
+          {ORDER.filter((k) => d.fields[k] != null && d.fields[k] !== '').map((k) => <Row key={k} label={d.labels[k] || k}>{shown(k, d.fields[k])}</Row>)}
         </dl>
       )}
     </section>

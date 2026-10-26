@@ -1224,7 +1224,7 @@ function AskHr({ guard }) {
           {data.cases.map((c) => (
             <li key={c.id} className="py-2">
               <div className="flex items-center justify-between gap-2"><span className="text-sm font-medium">{c.title}</span><span className="ui-caption">{CASE_STATUS[c.status] || c.status}</span></div>
-              <p className="ui-caption">{CASE_TOPIC[c.category] || c.category} · {String(c.createdAt).slice(0, 10)}</p>
+              <p className="ui-caption">{CASE_TOPIC[c.category] || c.category} · {(() => { const [y, m, d] = new Date(new Date(c.createdAt).getTime() + 330 * 60_000).toISOString().slice(0, 10).split('-'); return `${Number(d)} ${['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][Number(m) - 1]} ${y}`; })()}</p>
               {c.resolution ? <p className="text-sm mt-1">HR: {c.resolution}</p> : null}
             </li>
           ))}

@@ -35,7 +35,7 @@ export type SelfField = (typeof SELF_FIELDS)[number];
 const CONTACT: Set<string> = new Set(['phone', 'personalEmail', 'emergencyContactName', 'emergencyContactPhone', 'emergencyContactRelation']);
 export const SELF_FIELD_LABEL: Record<SelfField, string> = {
   firstName: 'First name', lastName: 'Last name', phone: 'Phone', personalEmail: 'Personal email', addressLine: 'Address', city: 'City', state: 'State', country: 'Country', pincode: 'PIN code',
-  dateOfBirth: 'Date of birth', gender: 'Gender', maritalStatus: 'Marital status', emergencyContactName: 'Emergency contact', emergencyContactPhone: 'Emergency contact phone', emergencyContactRelation: 'Emergency contact relation', guardianName: 'Father’s / guardian’s name',
+  dateOfBirth: 'Date of birth', gender: 'Gender', maritalStatus: 'Marital status', emergencyContactName: 'Emergency contact', emergencyContactPhone: 'Emergency contact phone', emergencyContactRelation: 'Emergency contact relation', guardianName: 'Father / husband name',
 };
 const LABEL: Record<string, string> = { ...SELF_FIELD_LABEL, photoUrl: 'Photo' };
 const GENDERS = new Set(['MALE', 'FEMALE', 'NON_BINARY', 'OTHER', 'PREFER_NOT_TO_SAY']);
