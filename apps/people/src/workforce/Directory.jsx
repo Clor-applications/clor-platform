@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { useTabIndicator } from '@ui/components/ui/RecordTabs';
 import { CalendarClock, Download, Filter, Plus, Upload, UserCheck, UserMinus, Users, X } from 'lucide-react';
 
 import { EmptyState, PageHeader } from '@ui/components/ui/Primitives';
@@ -38,7 +39,7 @@ const apiParams = (p) => ({
   joinedFrom: p.from, joinedTo: p.to, sort: p.sort, dir: p.dir,
 });
 
-export default function Directory({ params = {}, updateParams, openScreen, tenant }) {
+export default function Directory({ params = {}, updateParams, openScreen }) {
   const perms = usePermissions();
   const allowed = (k) => can(perms, k);
   /*
@@ -81,7 +82,8 @@ export default function Directory({ params = {}, updateParams, openScreen, tenan
   const [result, setResult] = useState(null);
   const [exporting, setExporting] = useState(false);
 
-  const company = tenant?.name || 'this company';
+  const tabsRef = useRef(null);
+  const tabIndicator = useTabIndicator(tabsRef, tab);
   const rows = list.data?.employees || [];
   const total = Number(list.data?.total || 0);
   /* Managers to filter and move people to: everyone still here, by name (500 at most for the picker). */
@@ -164,7 +166,6 @@ export default function Directory({ params = {}, updateParams, openScreen, tenan
       <PageHeader
         breadcrumb={[{ label: 'People' }, { label: 'Workforce' }]}
         title="Workforce"
-        description={`Manage employees and employment records for ${company}.`}
         actions={<>
           {allowed('PEOPLE::Employees::CREATE') ? <button type="button" className="ui-btn ui-btn-secondary" onClick={() => openScreen?.('employeeImport')}><Upload size={16} aria-hidden="true" /> Import</button> : null}
           {allowed('PEOPLE::Employees::EXPORT') ? <ExportMenu busy={exporting} counts={{ view: total, all: counts.data ? counts.data.total : null, selected: selected.size }} filtered={Boolean(p.q || filtersOn || tab === 'team')} onPick={doExport} /> : null}
@@ -175,10 +176,11 @@ export default function Directory({ params = {}, updateParams, openScreen, tenan
       <MetricStrip counts={counts.data} onPick={(patch) => set({ ...Object.fromEntries(FILTER_KEYS.map((k) => [k, null])), page: null, ...patch }, true)} />
       <Banners openScreen={openScreen} />
 
-      <div role="tablist" aria-label="Workforce" className="ui-record-tablist">
-        {[['directory', 'Directory'], ...(counts.data?.myTeam ? [['team', `My team (${counts.data.myTeam})`]] : []), ['views', 'Saved views'], ...(pendingCount ? [['pending', `Pending actions (${pendingCount})`]] : [])].map(([k, l]) => (
-          <button key={k} type="button" role="tab" aria-selected={tab === k} className={`ui-tab ${tab === k ? 'is-active' : ''}`} onClick={() => set({ tab: k === 'directory' ? null : k }, true)}>{l}</button>
+      <div ref={tabsRef} role="tablist" aria-label="Workforce" className={`ui-record-tablist ${tabIndicator ? 'has-indicator' : ''}`}>
+        {[['directory', 'Directory'], ...(counts.data?.myTeam ? [['team', 'My team', counts.data.myTeam]] : []), ['views', 'Saved views'], ...(pendingCount ? [['pending', 'Pending actions', pendingCount]] : [])].map(([k, l, n]) => (
+          <button key={k} type="button" role="tab" aria-selected={tab === k} className={`ui-tab ${tab === k ? 'is-active' : ''}`} onClick={() => set({ tab: k === 'directory' ? null : k }, true)}>{l}{n ? <span className="ui-tab-count tabular-nums">{n}</span> : null}</button>
         ))}
+        {tabIndicator}
       </div>
 
       {tab === 'pending' ? <PendingActions data={pending.data} error={pending.error} reload={pending.reload} openScreen={openScreen} /> : tab === 'views' ? <SavedViews params={p} prefs={prefs} onApply={(v) => { const f = v.filters || {}; set({ ...Object.fromEntries([...FILTER_KEYS, 'q', 'sort', 'dir'].map((k) => [k, f[k] || null])), view: v.id, tab: null, page: null }, true); if (f.hidden || f.order || f.density) setPrefs({ hidden: f.hidden ? String(f.hidden).split(',').filter(Boolean) : [], order: f.order ? String(f.order).split(',').filter(Boolean) : [], density: f.density || undefined }); }} canShare={allowed('PEOPLE::Employees::EDIT')} /> : (
@@ -296,7 +298,6 @@ function ExportMenu({ busy, counts, filtered, onPick }) {
             else if (e.key === 'Escape') { e.stopPropagation(); setOpen(false); btn.current?.focus(); }
           }}>
             {items.map(([k, label], i) => <button key={k} type="button" role="menuitem" className="ui-menu-item" data-autofocus={i === 0 && counts.view ? '' : undefined} disabled={k === 'filtered' && !counts.view} onClick={() => { setOpen(false); onPick(k); }}>{label}</button>)}
-            <p className="ui-caption px-3 pb-2">CSV, without statutory or secret fields. The export is logged.</p>
           </div>
         </Popover>
       ) : null}
@@ -335,21 +336,23 @@ function Banners({ openScreen }) {
     openChecklistTasks().then((t) => setJoiners(new Set(t.filter((x) => x.kind === 'JOINING').map((x) => x.employee?.id)).size)).catch(() => {});
   }, []);
   const dismiss = (k, n) => { const next = { ...dismissed, [k]: n }; setDismissed(next); writeJson(DISMISS_KEY, next); };
+  const items = [
+    docs && dismissed.docs !== docs ? { key: 'docs', tone: 'neg', text: `${docs} expired ${docs === 1 ? 'document' : 'documents'}`, link: 'Review', screen: 'dataHealth', n: docs } : null,
+    joiners && dismissed.joiners !== joiners ? { key: 'joiners', tone: 'warn', text: `${joiners} ${joiners === 1 ? 'joiner' : 'joiners'} with onboarding open`, link: 'Open onboarding', screen: 'checklists', n: joiners } : null,
+  ].filter(Boolean);
+  if (!items.length) return null;
+  /* One quiet line, not a stack of coloured boxes: the list below is what the page is for. */
   return (
-    <>
-      {docs && dismissed.docs !== docs ? (
-        <Alert tone="neg" title={`${docs} document ${docs === 1 ? 'problem needs' : 'problems need'} attention`} onDismiss={() => dismiss('docs', docs)}
-          action={<button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => openScreen?.('dataHealth')}>View</button>}>
-          Expired permits or documents on file. Data Health lists who.
-        </Alert>
-      ) : null}
-      {joiners && dismissed.joiners !== joiners ? (
-        <Alert tone="warn" title={`${joiners} ${joiners === 1 ? 'joiner has' : 'joiners have'} pending onboarding`} onDismiss={() => dismiss('joiners', joiners)}
-          action={<button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => openScreen?.('checklists')}>View onboarding</button>}>
-          These joiners have onboarding tasks still open.
-        </Alert>
-      ) : null}
-    </>
+    <ul className="ui-attention" aria-label="Needs attention">
+      {items.map((it) => (
+        <li key={it.key}>
+          <span className={`ui-attention-dot is-${it.tone}`} aria-hidden="true" />
+          <span>{it.text}</span>
+          <button type="button" className="ui-link" onClick={() => openScreen?.(it.screen)}>{it.link}</button>
+          <button type="button" className="ui-icon-btn ui-attention-x" aria-label={`Dismiss: ${it.text}`} onClick={() => dismiss(it.key, it.n)}><X size={14} aria-hidden="true" /></button>
+        </li>
+      ))}
+    </ul>
   );
 }
 
@@ -378,7 +381,7 @@ function FiltersDrawer({ params, lists, managers, onClose, onApply }) {
         {field('area', 'Location', opt(lists.areas))}
         {field('type', 'Employment type', opt(lists.types))}
         {lists.workTypes.length ? field('wtype', 'Work type', opt(lists.workTypes)) : null}
-        {lists.establishments.length ? field('est', 'Establishment', opt(lists.establishments)) : null}
+        {lists.establishments.length ? field('est', 'Work site', opt(lists.establishments)) : null}
         {lists.units.length ? field('unit', 'Business unit', opt(lists.units)) : null}
         {lists.grades.length ? field('grade', 'Grade', opt(lists.grades)) : null}
         {lists.centres.length ? field('centre', 'Cost centre', opt(lists.centres)) : null}
@@ -405,14 +408,14 @@ function BulkDrawer({ count, lists, managers, value, onChange, onClose, onSend }
   const f = BULK_FIELDS.find(([k]) => k === value.field) || BULK_FIELDS[0];
   const options = f[2] ? lists[f[2]] || [] : managers;
   return (
-    <Drawer open onClose={onClose} widthClass="w-[min(36rem,96vw)]" title={`Change ${count} ${count === 1 ? 'employee' : 'employees'}`} description="Each person's history records the change and your reason. Where a job-change approval rule is in force, job details change one person at a time." dirty={Boolean(value.value || value.reason)}
+    <Drawer open onClose={onClose} widthClass="w-[min(36rem,96vw)]" title={`Change ${count} ${count === 1 ? 'employee' : 'employees'}`} dirty={Boolean(value.value || value.reason)}
       footer={<>
         <button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button>
         <button type="button" className="ui-btn ui-btn-primary" disabled={busy || !value.value} onClick={async () => { setBusy(true); try { await onSend(); } finally { setBusy(false); } }}>{busy ? 'Changing…' : `Change ${count}`}</button>
       </>}>
       <div className="grid gap-4">
-        <PopupSelect showValueSubtext={false} label="What" value={value.field} onChange={(v) => onChange({ ...value, field: v, value: '' })} options={BULK_FIELDS.map(([k, l]) => ({ value: k, label: l }))} />
-        <PopupSelect showValueSubtext={false} label="To" value={value.value} onChange={(v) => onChange({ ...value, value: v })} placeholder="Choose…" alwaysSearch options={[{ value: '__clear', label: 'None (clear it for everyone chosen)' }, ...options.map((o) => ({ value: o.id, label: o.name }))]} />
+        <div><PopupSelect showValueSubtext={false} label="What" value={value.field} onChange={(v) => onChange({ ...value, field: v, value: '' })} options={BULK_FIELDS.map(([k, l]) => ({ value: k, label: l }))} /></div>
+        <div><PopupSelect showValueSubtext={false} label="To" value={value.value} onChange={(v) => onChange({ ...value, value: v })} placeholder="Choose…" alwaysSearch options={[{ value: '__clear', label: 'None' }, ...options.map((o) => ({ value: o.id, label: o.name }))]} /></div>
         <label className="block"><span className="ui-label">Reason</span><input className="ui-input w-full" maxLength={500} value={value.reason} onChange={(e) => onChange({ ...value, reason: e.target.value })} placeholder="Ops folded into Sales" /></label>
       </div>
     </Drawer>
@@ -444,10 +447,10 @@ function BulkResult({ result, onClose }) {
   );
 }
 
-function Group({ title, hint, children, count }) {
+function Group({ title, children, count }) {
   return count ? (
     <section className="border-t pt-3 first:border-t-0 first:pt-0" aria-label={title}>
-      <header className="mb-1"><h2 className="ui-t-sec">{title} <span className="ui-caption tabular-nums">{count}</span></h2>{hint ? <p className="ui-caption">{hint}</p> : null}</header>
+      <header className="mb-1"><h2 className="ui-t-sec">{title} <span className="ui-caption tabular-nums">{count}</span></h2></header>
       <ul className="divide-y text-sm">{children}</ul>
     </section>
   ) : null;
@@ -461,7 +464,7 @@ function PendingActions({ data, error, reload, openScreen }) {
   const person = (e) => (e ? `${e.name}${e.code ? ` (${e.code})` : ''}` : '');
   return (
     <div className="space-y-6">
-      <Group title="Waiting for approval" hint="Job changes and other requests about a person that have not been decided." count={data.requests.length}>
+      <Group title="Awaiting approval" count={data.requests.length}>
         {data.requests.map((r) => (
           <li key={r.id} className="flex flex-wrap items-center gap-3 py-2">
             <span className="min-w-0 flex-1"><span className="font-medium">{r.title}</span><span className="block ui-caption">Sent {day(r.createdAt)}{r.dueAt ? ` · step due ${day(r.dueAt)}` : ''}</span></span>
@@ -471,7 +474,7 @@ function PendingActions({ data, error, reload, openScreen }) {
           </li>
         ))}
       </Group>
-      <Group title="Changes coming" hint="Dated for later; each applies on its day. Withdraw one on the person's Employment tab." count={data.scheduled.length}>
+      <Group title="Upcoming changes" count={data.scheduled.length}>
         {data.scheduled.map((c) => (
           <li key={c.id} className="flex flex-wrap items-center gap-3 py-2">
             <span className="tabular-nums w-28 shrink-0">{day(c.effectiveOn)}</span>
@@ -480,7 +483,7 @@ function PendingActions({ data, error, reload, openScreen }) {
           </li>
         ))}
       </Group>
-      <Group title="Joiner details to check" hint="Sent back on a joining invite; nothing reaches the record until HR checks it." count={data.invites.length}>
+      <Group title="Details to review" count={data.invites.length}>
         {data.invites.map((i) => (
           <li key={i.id} className="flex flex-wrap items-center gap-3 py-2">
             <span className="min-w-0 flex-1">{person(i.employee)}<span className="block ui-caption">Sent back {day(i.returnedAt)}</span></span>
@@ -488,7 +491,7 @@ function PendingActions({ data, error, reload, openScreen }) {
           </li>
         ))}
       </Group>
-      <Group title="Your drafts" hint="Add-employee forms you saved part-way. Only you see them; each is kept for 30 days." count={data.drafts.length}>
+      <Group title="Drafts" count={data.drafts.length}>
         {data.drafts.map((d) => (
           <li key={d.id} className="flex flex-wrap items-center gap-3 py-2">
             <span className="min-w-0 flex-1">{d.label || 'Unnamed draft'}<span className="block ui-caption">Step {d.step} of 4 · saved {day(d.updatedAt)}</span></span>
@@ -525,7 +528,6 @@ function SavedViews({ params, prefs, onApply, canShare }) {
   return (
     <section aria-label="Saved views" className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="ui-caption">A view keeps the search, filters, sort and columns. Your views are private unless you share them.</p>
         <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setNaming({ name: '', shared: false })}>Save current view</button>
       </div>
       {views.loading ? <span className="ui-skel ui-skel-text" /> : views.error ? <ErrorState error={views.error} onRetry={views.reload} compact /> : !views.data.length ? <EmptyState title="No saved views yet" /> : (

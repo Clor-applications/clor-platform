@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, ArrowRight, Check } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Camera, Check } from 'lucide-react';
 
 import { PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
 import Alert from '@ui/components/ui/Alert';
@@ -26,7 +26,7 @@ import { can } from './shared';
  * (statutory numbers are never kept in it). Create is sent once, with an
  * idempotency key, and the server checks everything again.
  */
-const STEPS = [['personal', 'Personal', 'Basic details'], ['employment', 'Employment', 'Job information'], ['organization', 'Organization', 'Reporting and location'], ['review', 'Review', 'Confirm details']];
+const STEPS = [['personal', 'Personal'], ['employment', 'Employment'], ['organization', 'Organization'], ['review', 'Review']];
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const BLANK = {
   firstName: '', lastName: '', preferredName: '', workEmail: '', workPhone: '', email: '', phone: '', dateOfBirth: '', gender: '', guardianName: '', photoUrl: '',
@@ -174,10 +174,10 @@ export default function AddEmployee({ params = {}, updateParams, openScreen }) {
       <PageHeader breadcrumb={[{ label: 'People' }, { label: 'Workforce', onClick: cancel }, { label: 'Add employee' }]} title="Add employee"
         actions={draftId ? <button type="button" className="ui-link text-sm" onClick={discardDraft}>Delete saved draft</button> : null} />
       <ol className="ui-stepper" aria-label="Steps">
-        {STEPS.map(([k, label, hint], i) => (
+        {STEPS.map(([k, label], i) => (
           <li key={k} className={`ui-step ${i === stepIndex ? 'is-current' : ''} ${i < stepIndex ? 'is-done' : ''}`} aria-current={i === stepIndex ? 'step' : undefined}>
             <span className="ui-step-mark" aria-hidden="true">{i < stepIndex ? <Check size={14} /> : i + 1}</span>
-            <span><span className="ui-step-label">{label}</span><span className="ui-step-hint">{hint}</span></span>
+            <span className="ui-step-label">{label}</span>
           </li>
         ))}
       </ol>
@@ -195,19 +195,19 @@ export default function AddEmployee({ params = {}, updateParams, openScreen }) {
         {failure ? <ErrorState error={failure} compact onRetry={stepKey === 'review' ? create : null} retryLabel="Try again" body={failure?.network ? 'Nothing was created. Everything you entered is still here.' : undefined} /> : null}
 
         {stepKey === 'personal' ? (
-          <Step title="Personal details" hint="Basic information about the employee.">
-            <Text id="firstName" label="Legal first name" required {...field('firstName')} error={errors.firstName} autoFocus />
-            <Text id="lastName" label="Legal last name" {...field('lastName')} />
-            <Text id="preferredName" label="Preferred name" optional help="Used in everyday communication." placeholder="E.g. Sari" {...field('preferredName')} />
-            <Text id="workEmail" label="Work email" optional type="email" inputMode="email" placeholder="name@company.com" help="Not every worker has one." {...field('workEmail')} error={errors.workEmail} />
+          <Step title="Personal details">
+            <Text id="firstName" label="First name" required {...field('firstName')} error={errors.firstName} autoFocus />
+            <Text id="lastName" label="Last name" {...field('lastName')} />
+            <Text id="preferredName" label="Preferred name" optional {...field('preferredName')} />
+            <Text id="workEmail" label="Work email" optional type="email" inputMode="email" placeholder="name@company.com" {...field('workEmail')} error={errors.workEmail} />
             <Text id="phone" label="Phone" optional type="tel" inputMode="tel" placeholder="98765 43210" {...field('phone')} error={errors.phone} />
             <Text id="email" label="Personal email" optional type="email" inputMode="email" {...field('email')} error={errors.email} />
             <Text id="workPhone" label="Work phone" optional type="tel" inputMode="tel" {...field('workPhone')} />
             <DateField id="dateOfBirth" label="Date of birth" optional max={todayIst()} {...field('dateOfBirth')} error={errors.dateOfBirth} />
             <SelectField id="gender" label="Gender" optional options={[{ value: '', label: 'Not set' }, ...Object.entries(GENDER_WORDS).map(([value, label]) => ({ value, label }))]} {...field('gender')} />
-            <Text id="guardianName" label="Father’s / husband’s name" optional help="For the muster roll." {...field('guardianName')} />
+            <Text id="guardianName" label="Father / husband name" optional {...field('guardianName')} />
             <PhotoField value={form.photoUrl} onChange={(v) => field('photoUrl').onChange(v)} name={[form.firstName, form.lastName].filter(Boolean).join(' ')} />
-            <h3 className="ui-t-sec sm:col-span-2 mt-2">Emergency contact <span className="ui-caption font-normal">(optional)</span></h3>
+            <h3 className="ui-t-sec sm:col-span-2 mt-2">Emergency contact</h3>
             <Text id="emergencyContactName" label="Name" {...field('emergencyContactName')} />
             <Text id="emergencyContactRelation" label="Relationship" {...field('emergencyContactRelation')} />
             <Text id="emergencyContactPhone" label="Phone" type="tel" inputMode="tel" {...field('emergencyContactPhone')} error={errors.emergencyContactPhone} />
@@ -215,33 +215,33 @@ export default function AddEmployee({ params = {}, updateParams, openScreen }) {
         ) : null}
 
         {stepKey === 'employment' ? (
-          <Step title="Employment" hint="How and from when they work here.">
-            <Text id="code" label="Employee ID" required help="Unique in this company. Suggested from your numbering; change it if you need to." {...field('code')} error={errors.code} max={40} />
+          <Step title="Employment">
+            <Text id="code" label="Employee ID" required {...field('code')} error={errors.code} max={40} />
             <SelectField id="employeeTypeId" label="Employment type" optional options={opts(lists.types)} {...field('employeeTypeId')} />
-            <DateField id="dateOfJoining" label="Date of joining" required {...field('dateOfJoining')} error={errors.dateOfJoining} />
+            <DateField id="dateOfJoining" label="Joining date" required {...field('dateOfJoining')} error={errors.dateOfJoining} />
             <SelectField id="workTypeId" label="Work type" optional options={opts(lists.workTypes)} {...field('workTypeId')} />
             <DateField id="probationEndDate" label="Probation ends" optional min={form.dateOfJoining || ''} {...field('probationEndDate')} error={errors.probationEndDate} />
             <DateField id="contractEndDate" label="Contract ends" optional min={form.dateOfJoining || ''} {...field('contractEndDate')} error={errors.contractEndDate} />
-            <SelectField id="status" label="Work status" options={[{ value: 'ACTIVE', label: 'Active' }, { value: 'SUSPENDED', label: 'Suspended' }]} {...field('status')} />
+            <SelectField id="status" label="Status" options={[{ value: 'ACTIVE', label: 'Active' }, { value: 'SUSPENDED', label: 'Suspended' }]} {...field('status')} />
           </Step>
         ) : null}
 
         {stepKey === 'organization' ? (
-          <Step title="Organization" hint="Where they sit and who they report to. The server refuses a manager that would make a reporting loop.">
+          <Step title="Organization">
             <SelectField id="departmentId" label="Department" optional options={opts(lists.departments)} {...field('departmentId')} />
             <SelectField id="jobPositionId" label="Designation" optional options={opts(within(lists.positions, 'departmentId', form.departmentId, form.jobPositionId))} {...field('jobPositionId')} />
             {lists.roles.length ? <SelectField id="jobRoleId" label="Job role" optional options={opts(within(lists.roles, 'jobPositionId', form.jobPositionId, form.jobRoleId))} {...field('jobRoleId')} /> : null}
             <SelectField id="areaId" label="Location" optional options={opts(lists.areas)} {...field('areaId')} />
-            <SelectField id="establishmentId" label="Establishment" optional options={opts(lists.establishments)} {...field('establishmentId')} />
-            <SelectField id="reportingManagerId" label="Reporting manager" optional options={[{ value: '', label: 'Not set' }, ...people.map((e) => ({ value: e.id, label: e.code ? `${e.name} (${e.code})` : e.name }))]} {...field('reportingManagerId')} />
-            <SelectField id="dottedManagerId" label="Also reports to (dotted line)" optional options={[{ value: '', label: 'Not set' }, ...people.map((e) => ({ value: e.id, label: e.code ? `${e.name} (${e.code})` : e.name }))]} {...field('dottedManagerId')} />
+            <SelectField id="establishmentId" label="Work site" optional options={opts(lists.establishments)} {...field('establishmentId')} />
+            <SelectField id="reportingManagerId" label="Manager" optional options={[{ value: '', label: 'Not set' }, ...people.map((e) => ({ value: e.id, label: e.code ? `${e.name} (${e.code})` : e.name }))]} {...field('reportingManagerId')} />
+            <SelectField id="dottedManagerId" label="Secondary manager" optional options={[{ value: '', label: 'Not set' }, ...people.map((e) => ({ value: e.id, label: e.code ? `${e.name} (${e.code})` : e.name }))]} {...field('dottedManagerId')} />
             {lists.units.length ? <SelectField id="businessUnitId" label="Business unit" optional options={opts(lists.units)} {...field('businessUnitId')} /> : null}
             {lists.teams.length ? <SelectField id="teamId" label="Team" optional options={opts(within(lists.teams, 'departmentId', form.departmentId, form.teamId))} {...field('teamId')} /> : null}
-            {lists.seats.length ? <SelectField id="seatId" label="Seat" optional options={opts(within(lists.seats, 'teamId', form.teamId, form.seatId))} {...field('seatId')} /> : null}
-            <Text id="workLocation" label="Work location" optional help="Free text, for a place not in the Locations list (a client site, home)." {...field('workLocation')} />
+            {lists.seats.length ? <SelectField id="seatId" label="Position" optional options={opts(within(lists.seats, 'teamId', form.teamId, form.seatId))} {...field('seatId')} /> : null}
+            <Text id="workLocation" label="Work location" optional {...field('workLocation')} />
             {lists.tags.length ? (
               <fieldset className="sm:col-span-2">
-                <legend className="ui-label">Tags <span className="ui-caption font-normal">(optional)</span></legend>
+                <legend className="ui-label">Tags</legend>
                 <div className="flex flex-wrap gap-1.5">
                   {lists.tags.map((t) => { const on = form.tagIds.includes(t.id); return <button key={t.id} type="button" aria-pressed={on} className={`ui-pill ${on ? 'ui-pill-info' : ''}`} onClick={() => field('tagIds').onChange(on ? form.tagIds.filter((x) => x !== t.id) : [...form.tagIds, t.id])}>{t.name}</button>; })}
                 </div>
@@ -249,8 +249,8 @@ export default function AddEmployee({ params = {}, updateParams, openScreen }) {
             ) : null}
             {hasApp('attendance') ? (
               <>
-                <h3 className="ui-t-sec sm:col-span-2 mt-2">Attendance readers <span className="ui-caption font-normal">(optional)</span></h3>
-                <Text id="devicePin" label="Reader ID" optional help={form.code ? `Blank means the employee ID (${form.code}).` : 'The ID on the biometric reader.'} max={20} {...field('devicePin')} />
+                <h3 className="ui-t-sec sm:col-span-2 mt-2">Attendance device</h3>
+                <Text id="devicePin" label="Attendance ID" optional help={form.code ? `Blank means the employee ID (${form.code}).` : 'The ID on the biometric reader.'} max={20} {...field('devicePin')} />
                 <Text id="cardNumber" label="Card number" optional max={20} {...field('cardNumber')} />
                 {lists.contractors.length ? <SelectField id="contractorId" label="Contractor" optional options={opts(lists.contractors)} {...field('contractorId')} /> : null}
                 <label className="flex items-center gap-2 text-sm self-end pb-2"><input type="checkbox" className="ui-checkbox" checked={form.attendanceRequired !== false} onChange={(e) => field('attendanceRequired').onChange(e.target.checked)} />Expected to mark attendance</label>
@@ -262,8 +262,8 @@ export default function AddEmployee({ params = {}, updateParams, openScreen }) {
         ) : null}
 
         {stepKey === 'review' ? (
-          <div className="space-y-4">
-            <div><h2 className="ui-t-sec">Review</h2><p className="ui-caption">Check the details, then create the employee.</p></div>
+          <div className="space-y-4 ui-panel-in">
+            <h2 className="ui-t-sec">Review</h2>
             {duplicates?.length ? (
               <Alert tone="warn" title="This may be someone already here">
                 <ul className="mt-1 space-y-1">{duplicates.map((d) => <li key={d.id}><button type="button" className="ui-link" onClick={() => openScreen?.('employee', { id: d.id })}>{d.name}{d.code ? ` (${d.code})` : ''}</button> has the same {d.field}.</li>)}</ul>
@@ -272,9 +272,9 @@ export default function AddEmployee({ params = {}, updateParams, openScreen }) {
             ) : null}
             {!form.workEmail && !form.phone ? <Alert tone="info" title="No work email or phone">That is fine for workers without one; they can be added later.</Alert> : null}
             {form.dateOfJoining > todayIst() ? <Alert tone="info" title={`Joining on ${formatDate(form.dateOfJoining)}`}>They show as "Joining soon" until then.</Alert> : null}
-            {[['personal', 'Personal', [['Legal name', [form.firstName, form.lastName].filter(Boolean).join(' ')], ['Preferred name', form.preferredName], ['Photo', form.photoUrl ? 'Added' : ''], ['Work email', form.workEmail], ['Phone', form.phone], ['Work phone', form.workPhone], ['Personal email', form.email], ['Date of birth', form.dateOfBirth && formatDate(form.dateOfBirth)], ['Gender', GENDER_WORDS[form.gender]], ['Father’s / husband’s name', form.guardianName], ['Emergency contact', [form.emergencyContactName, form.emergencyContactRelation, form.emergencyContactPhone].filter(Boolean).join(' · ')]]],
-              ['employment', 'Employment', [['Employee ID', form.code], ['Employment type', nameIn(lists.types, form.employeeTypeId)], ['Date of joining', form.dateOfJoining && formatDate(form.dateOfJoining)], ['Work type', nameIn(lists.workTypes, form.workTypeId)], ['Probation ends', form.probationEndDate && formatDate(form.probationEndDate)], ['Contract ends', form.contractEndDate && formatDate(form.contractEndDate)], ['Work status', form.status === 'ACTIVE' ? 'Active' : 'Suspended']]],
-              ['organization', 'Organization', [['Department', nameIn(lists.departments, form.departmentId)], ['Designation', nameIn(lists.positions, form.jobPositionId)], ...(lists.roles.length ? [['Job role', nameIn(lists.roles, form.jobRoleId)]] : []), ['Location', nameIn(lists.areas, form.areaId)], ['Work location', form.workLocation], ['Establishment', nameIn(lists.establishments, form.establishmentId)], ['Reporting manager', people.find((x) => x.id === form.reportingManagerId)?.name], ['Also reports to', people.find((x) => x.id === form.dottedManagerId)?.name], ...(lists.units.length ? [['Business unit', nameIn(lists.units, form.businessUnitId)]] : []), ...(lists.teams.length ? [['Team', nameIn(lists.teams, form.teamId)]] : []), ...(lists.seats.length ? [['Seat', nameIn(lists.seats, form.seatId)]] : []), ...(lists.centres.length ? [['Cost centre', nameIn(lists.centres, form.costCenterId)]] : []), ...(lists.grades.length ? [['Grade', nameIn(lists.grades, form.gradeId)]] : []), ['Tags', lists.tags.filter((t) => form.tagIds.includes(t.id)).map((t) => t.name).join(', ')], ...(hasApp('attendance') ? [['Reader ID', form.devicePin || (form.code ? `${form.code} (employee ID)` : '')], ['Card number', form.cardNumber], ...(lists.contractors.length ? [['Contractor', nameIn(lists.contractors, form.contractorId)]] : []), ['Attendance expected', form.attendanceRequired === false ? 'No, door only' : 'Yes']] : [])]],
+            {[['personal', 'Personal', [['Legal name', [form.firstName, form.lastName].filter(Boolean).join(' ')], ['Preferred name', form.preferredName], ['Photo', form.photoUrl ? 'Added' : ''], ['Work email', form.workEmail], ['Phone', form.phone], ['Work phone', form.workPhone], ['Personal email', form.email], ['Date of birth', form.dateOfBirth && formatDate(form.dateOfBirth)], ['Gender', GENDER_WORDS[form.gender]], ['Father / husband name', form.guardianName], ['Emergency contact', [form.emergencyContactName, form.emergencyContactRelation, form.emergencyContactPhone].filter(Boolean).join(' · ')]]],
+              ['employment', 'Employment', [['Employee ID', form.code], ['Employment type', nameIn(lists.types, form.employeeTypeId)], ['Joining date', form.dateOfJoining && formatDate(form.dateOfJoining)], ['Work type', nameIn(lists.workTypes, form.workTypeId)], ['Probation ends', form.probationEndDate && formatDate(form.probationEndDate)], ['Contract ends', form.contractEndDate && formatDate(form.contractEndDate)], ['Status', form.status === 'ACTIVE' ? 'Active' : 'Suspended']]],
+              ['organization', 'Organization', [['Department', nameIn(lists.departments, form.departmentId)], ['Designation', nameIn(lists.positions, form.jobPositionId)], ...(lists.roles.length ? [['Job role', nameIn(lists.roles, form.jobRoleId)]] : []), ['Location', nameIn(lists.areas, form.areaId)], ['Work location', form.workLocation], ['Work site', nameIn(lists.establishments, form.establishmentId)], ['Manager', people.find((x) => x.id === form.reportingManagerId)?.name], ['Secondary manager', people.find((x) => x.id === form.dottedManagerId)?.name], ...(lists.units.length ? [['Business unit', nameIn(lists.units, form.businessUnitId)]] : []), ...(lists.teams.length ? [['Team', nameIn(lists.teams, form.teamId)]] : []), ...(lists.seats.length ? [['Position', nameIn(lists.seats, form.seatId)]] : []), ...(lists.centres.length ? [['Cost centre', nameIn(lists.centres, form.costCenterId)]] : []), ...(lists.grades.length ? [['Grade', nameIn(lists.grades, form.gradeId)]] : []), ['Tags', lists.tags.filter((t) => form.tagIds.includes(t.id)).map((t) => t.name).join(', ')], ...(hasApp('attendance') ? [['Attendance ID', form.devicePin || (form.code ? `${form.code} (employee ID)` : '')], ['Card number', form.cardNumber], ...(lists.contractors.length ? [['Contractor', nameIn(lists.contractors, form.contractorId)]] : []), ['Marks attendance', form.attendanceRequired === false ? 'No, door only' : 'Yes']] : [])]],
             ].map(([k, title, rows]) => (
               <section key={k} className="ui-review-block" aria-label={title}>
                 <header className="flex items-center justify-between"><h3 className="text-sm font-semibold">{title}</h3><button type="button" className="ui-link text-sm" onClick={() => goStep(k)}>Edit</button></header>
@@ -303,9 +303,9 @@ function PhotoField({ value, onChange, name }) {
   const input = useRef(null);
   return (
     <div>
-      <span className="ui-label">Photo <span className="ui-caption font-normal">(optional)</span></span>
+      <span className="ui-label">Photo</span>
       <div className="flex items-center gap-3">
-        <Avatar person={{ name: name || '?', photoUrl: value || null }} size={44} />
+        {value || name ? <Avatar person={{ name, photoUrl: value || null }} size={44} /> : <span className="ui-photo-empty" aria-hidden="true"><Camera size={18} /></span>}
         <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => input.current?.click()}>{value ? 'Change' : 'Choose a photo'}</button>
         {value ? <button type="button" className="ui-link text-sm" onClick={() => onChange('')}>Remove</button> : null}
         <input ref={input} type="file" accept="image/*" className="sr-only" aria-label="Choose a photo" onChange={async (e) => {
@@ -321,22 +321,22 @@ function PhotoField({ value, onChange, name }) {
 
 function Step({ title, hint, children }) {
   return (
-    <div>
+    <div className="ui-panel-in">
       <h2 className="ui-t-sec">{title}</h2>
-      <p className="ui-caption mb-4">{hint}</p>
+      {hint ? <p className="ui-caption mb-4">{hint}</p> : <div className="mb-4" />}
       <div className="ui-form-grid">{children}</div>
     </div>
   );
 }
 
-function Label({ id, label, required, optional }) {
-  return <label htmlFor={id} className="ui-label">{label}{required ? <span aria-hidden="true" className="ui-required"> *</span> : null}{optional ? <span className="ui-caption font-normal"> (optional)</span> : null}</label>;
+function Label({ id, label, required }) {
+  return <label htmlFor={id} className="ui-label">{label}{required ? <span aria-hidden="true" className="ui-required"> *</span> : null}</label>;
 }
 
-function Text({ id, label, required, optional, help, error, value, onChange, type = 'text', inputMode, placeholder, max = 160, autoFocus }) {
+function Text({ id, label, required, help, error, value, onChange, type = 'text', inputMode, placeholder, max = 160, autoFocus }) {
   return (
     <div>
-      <Label id={id} label={label} required={required} optional={optional} />
+      <Label id={id} label={label} required={required} />
       <input id={id} name={id} className={`ui-input w-full ${error ? 'is-invalid' : ''}`} type={type} inputMode={inputMode} placeholder={placeholder} maxLength={max} value={value} required={required} autoFocus={autoFocus}
         aria-invalid={error ? 'true' : undefined} aria-describedby={[error ? `${id}-err` : '', help ? `${id}-help` : ''].filter(Boolean).join(' ') || undefined}
         onChange={(e) => onChange(e.target.value)} />
@@ -345,20 +345,20 @@ function Text({ id, label, required, optional, help, error, value, onChange, typ
   );
 }
 
-function DateField({ id, label, required, optional, error, value, onChange, min = '', max = '' }) {
+function DateField({ id, label, required, error, value, onChange, min = '', max = '' }) {
   return (
     <div>
-      <Label id={id} label={label} required={required} optional={optional} />
+      <Label id={id} label={label} required={required} />
       <DatePicker id={id} value={value} onChange={onChange} min={min} max={max} required={required} invalid={Boolean(error)} describedBy={error ? `${id}-err` : undefined} />
       {error ? <p id={`${id}-err`} className="ui-field-error">{error}</p> : null}
     </div>
   );
 }
 
-function SelectField({ label, required, optional, options, value, onChange }) {
+function SelectField({ label, required, options, value, onChange }) {
   return (
     <div>
-      <PopupSelect showValueSubtext={false} label={`${label}${required ? ' *' : ''}${optional ? ' (optional)' : ''}`} ariaLabel={label} value={value} onChange={(v) => onChange(v || '')} options={options} alwaysSearch={options.length > 8} placeholder="Not set" />
+      <PopupSelect showValueSubtext={false} label={`${label}${required ? ' *' : ''}`} ariaLabel={label} value={value} onChange={(v) => onChange(v || '')} options={options} alwaysSearch={options.length > 8} placeholder="Not set" />
     </div>
   );
 }

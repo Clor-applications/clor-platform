@@ -33,6 +33,19 @@ type Event = {
 
 const SOURCE_TITLE: Record<string, string> = { IMPORT: 'Imported', APPROVAL: 'Approved change applied', BULK: 'Changed in bulk', SCHEDULED: 'Scheduled change took effect', SELF_SERVICE: 'Changed by the employee', HIRE: 'Hired', SYSTEM: 'Changed by Clor' };
 
+/* A change that is an event in someone's working life reads as that event, not as a field edit. */
+function moveTitle(lines: Array<{ field: string; before: string | null; after: string | null }>): string | null {
+  const status = lines.find((l) => l.field === 'status');
+  if (status && lines.length <= 2) {
+    if (status.after === 'SUSPENDED') return 'Suspended';
+    if (status.before === 'SUSPENDED' && status.after === 'ACTIVE') return 'Reactivated';
+    if (status.after === 'ON_NOTICE') return 'Put on notice';
+  }
+  if (lines.length === 1 && lines[0].field === 'confirmedOn' && lines[0].after) return 'Confirmed after probation';
+  if (lines.length === 1 && lines[0].field === 'probationEndDate' && lines[0].before && lines[0].after && lines[0].after > lines[0].before) return 'Probation extended';
+  return null;
+}
+
 async function actorsOf(orgId: string, ids: string[]) {
   const unique = [...new Set(ids.filter(Boolean))];
   if (!unique.length) return { name: new Map<string, string>(), role: new Map<string, string>() };
@@ -113,7 +126,7 @@ export async function activityOf(viewer: ActivityViewer, employeeId: string, opt
       : first.entity === 'EmployeeDocument' ? 'Document changed'
       : created ? 'Employee created'
       : type === 'archive' ? 'Marked as left'
-      : SOURCE_TITLE[first.source] || (changes.length === 1 ? `${changes[0].label} updated` : 'Details updated');
+      : moveTitle(shown) || SOURCE_TITLE[first.source] || (changes.length === 1 ? `${changes[0].label} changed` : `${changes.length} details changed`);
     events.push({
       id: `log_${k}`, type, at: first.at.toISOString(), actorId: first.actorUserId, actor: null, role: null, title: what,
       changes, reason: first.reason, source: first.source, correlationId: first.correlationId, requestId: first.requestId,

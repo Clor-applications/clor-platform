@@ -90,7 +90,7 @@ describe('a manager limited to their own team', () => {
     expect(one).toMatchObject({ dottedManagerId: me.id, dottedManagerName: 'Ravi Manager', reportingManagerId: null });
     await people(hr).put(`/employees/${dotted.id}`, { dottedManagerId: null }).expect(200);
     const after = (await people(hr).get(`/employees/${dotted.id}/history`).expect(200)).body.events.find((x: any) => x.field === 'dottedManagerId');
-    expect(after).toMatchObject({ from: 'Ravi Manager', to: null, title: 'Dotted-line manager changed' });
+    expect(after).toMatchObject({ from: 'Ravi Manager', to: null, title: 'Secondary manager changed' });
     expect(after.payrollImpact).toBeNull();
     void history;
   });

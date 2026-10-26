@@ -17,13 +17,13 @@ import { LOGGED_EMPLOYEE_FIELDS } from './changeLog.js';
  */
 
 const FIELD_WORDS: Record<string, string> = {
-  devicePassword: 'Reader PIN', devicePin: 'Reader ID', cardNumber: 'Card', devicePrivilege: 'Reader role', attendanceRequired: 'Attendance expected', tags: 'Tags', photoUrl: 'Photo', preferredName: 'Preferred name', workLocation: 'Work location (text)',
+  devicePassword: 'Device PIN', devicePin: 'Attendance ID', cardNumber: 'Card number', devicePrivilege: 'Device role', attendanceRequired: 'Marks attendance', tags: 'Tags', photoUrl: 'Photo', preferredName: 'Preferred name', workLocation: 'Work location',
   record: 'Record', name: 'Name', firstName: 'First name', lastName: 'Last name', code: 'Employee ID', email: 'Email', personalEmail: 'Personal email', workEmail: 'Work email', phone: 'Phone', workPhone: 'Work phone',
-  designation: 'Designation', department: 'Department', departmentId: 'Department', jobPositionId: 'Designation', jobRoleId: 'Job role', businessUnitId: 'Business unit', gradeId: 'Grade', costCenterId: 'Cost centre',
-  areaId: 'Location', branchId: 'Branch', establishmentId: 'Establishment', employeeTypeId: 'Employee type', workTypeId: 'Work type', contractorId: 'Contractor', reportingManagerId: 'Reports to', dottedManagerId: 'Also reports to',
-  dateOfJoining: 'Date of joining', dateOfLeaving: 'Date of leaving', firstJoiningDate: 'First joining date', currentEpisodeSeq: 'Stint', confirmedOn: 'Confirmed on', probationEndDate: 'Probation ends', contractEndDate: 'Contract ends', status: 'Status',
+  designation: 'Designation', department: 'Department', departmentId: 'Department', jobPositionId: 'Designation', jobRoleId: 'Job role', seatId: 'Position', teamId: 'Team', businessUnitId: 'Business unit', gradeId: 'Grade', costCenterId: 'Cost centre',
+  areaId: 'Location', branchId: 'Branch', establishmentId: 'Work site', employeeTypeId: 'Employment type', workTypeId: 'Work type', contractorId: 'Contractor', reportingManagerId: 'Manager', dottedManagerId: 'Secondary manager',
+  dateOfJoining: 'Joining date', dateOfLeaving: 'Date of leaving', firstJoiningDate: 'First joining date', currentEpisodeSeq: 'Stint', confirmedOn: 'Confirmed on', probationEndDate: 'Probation ends', contractEndDate: 'Contract ends', status: 'Status',
   leavingType: 'Leaving type', leavingReason: 'Leaving reason', dateOfBirth: 'Date of birth', gender: 'Gender', maritalStatus: 'Marital status', addressLine: 'Address', city: 'City', state: 'State', country: 'Country', pincode: 'PIN code',
-  emergencyContactName: 'Emergency contact', emergencyContactPhone: 'Emergency contact phone', emergencyContactRelation: 'Emergency contact relation', guardianName: 'Guardian', invite: 'Invite', letter: 'Letter', version: 'Version', done: 'Done',
+  emergencyContactName: 'Emergency contact', emergencyContactPhone: 'Emergency contact phone', emergencyContactRelation: 'Emergency contact relation', guardianName: 'Father / husband name', invite: 'Invite', letter: 'Letter', version: 'Version', done: 'Done',
 };
 export const fieldWord = (f: string) => FIELD_WORDS[f] || f.replace(/Id$/, '').replace(/([A-Z])/g, ' $1').replace(/^./, (c) => c.toUpperCase());
 
@@ -40,8 +40,30 @@ function stintAt(episodes: Array<{ seq: number; startDate: string; endDate: stri
 
 /** An id field reads as its name, as it was at the time of asking; an id nobody can name any more stays an id. */
 const NAMED_ID = /^(teamId|seatId|departmentId|jobPositionId|jobRoleId|businessUnitId|gradeId|costCenterId|areaId|branchId|establishmentId|employeeTypeId|workTypeId|contractorId|reportingManagerId|dottedManagerId)$/;
+/* Stored values in the words a reader uses: statuses and other codes as words, dates as "2 Nov 2026", yes/no for a flag. */
+const VALUE_WORDS: Record<string, Record<string, string>> = {
+  status: { ACTIVE: 'Active', ON_NOTICE: 'On notice', SUSPENDED: 'Suspended', LEFT: 'Left' },
+  gender: { MALE: 'Male', FEMALE: 'Female', OTHER: 'Other', UNDISCLOSED: 'Prefer not to say' },
+  maritalStatus: { SINGLE: 'Single', MARRIED: 'Married', DIVORCED: 'Divorced', WIDOWED: 'Widowed' },
+  leavingType: { RESIGNED: 'Resigned', TERMINATED: 'Terminated', RETIRED: 'Retired', ABSCONDED: 'Absconded', CONTRACT_ENDED: 'Contract ended', DECEASED: 'Deceased' },
+  devicePrivilege: { USER: 'User', ADMIN: 'Administrator', ENROLLER: 'Enroller' },
+};
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+export function readableValue(field: string, value: string | null): string | null {
+  if (value == null || value === '') return null;
+  const words = VALUE_WORDS[field]?.[value];
+  if (words) return words;
+  if (value === 'true' || value === 'false') return value === 'true' ? 'Yes' : 'No';
+  const day = /^(\d{4})-(\d{2})-(\d{2})(?:T[\d:.]+Z?)?$/.exec(value);
+  if (day) {
+    /* A timestamp is read on the Indian calendar day; a plain date is already one. */
+    const [y, m, d] = value.length > 10 ? new Date(Date.parse(value) + 330 * 60_000).toISOString().slice(0, 10).split('-') : [day[1], day[2], day[3]];
+    return `${Number(d)} ${MONTHS[Number(m) - 1]} ${y}`;
+  }
+  return value;
+}
 async function named(orgId: string, field: string, value: string | null) {
-  if (!value || !NAMED_ID.test(field)) return value;
+  if (!value || !NAMED_ID.test(field)) return readableValue(field, value);
   try {
     return (await labelOf(orgId, field, value)) || value;
   } catch {

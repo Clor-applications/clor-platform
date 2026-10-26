@@ -101,7 +101,7 @@ describe('Workforce record edits', () => {
     render(<Harness />);
     const section = await screen.findByRole('region', { name: 'Name' });
     await user.click(within(section).getByRole('button', { name: /Edit/ }));
-    await waitFor(() => expect(screen.getByLabelText(/Legal first name/)).toHaveFocus());
+    await waitFor(() => expect(screen.getByLabelText(/First name/)).toHaveFocus());
     await user.type(screen.getByLabelText('Preferred name'), 'Sari');
     await user.click(screen.getByRole('button', { name: 'Save' }));
     await waitFor(() => expect(within(screen.getByRole('region', { name: 'Name' })).getByRole('button', { name: /Edit/ })).toHaveFocus());

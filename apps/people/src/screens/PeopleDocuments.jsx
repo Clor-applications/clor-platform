@@ -56,7 +56,7 @@ export default function PeopleDocuments({ openScreen }) {
   };
   const close = () => { setOpened(false); load(); };
   if (!data && !error) return <SkeletonCard lines={6} />;
-  return <DocumentListShell title="Documents" entity="people" tight description="Employee files, expiry dates, and visibility. Upload or manage documents against an employee."
+  return <DocumentListShell title="Documents" entity="people" tight
     search={{ value: search.query, onChange: search.setQuery, placeholder: 'Search documents…' }}
     primary={<button className="ui-btn ui-btn-primary" onClick={() => { setEmployeeId(''); setOpened(true); }}><Plus size={16} /> New document</button>}
     tabs={[{ value: '', label: 'All', tone: 'all' }, { value: 'valid', label: 'Current', tone: 'paid' }, { value: 'expired', label: 'Expired', tone: 'overdue' }]} statusValue={status} onStatusChange={setStatus} statusCounts={{ '': data?.length || 0, valid: (data || []).filter((r) => !r.expiresOn || r.expiresOn >= today).length, expired: (data || []).filter((r) => r.expiresOn && r.expiresOn < today).length }}

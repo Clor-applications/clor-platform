@@ -1,10 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { FileDown, LayoutGrid, List, Plus, Trash2, Upload, UserMinus, UserPlus, UserRound, Users } from 'lucide-react';
+import { FileDown, LayoutGrid, List, MoreHorizontal, Plus, Trash2, Upload, UserMinus, UserPlus, UserRound, Users } from 'lucide-react';
 
 import { SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import DocumentListShell from '@ui/components/list/DocumentListShell';
 import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';
 import Drawer from '@ui/components/ui/Drawer';
+import Popover from '@ui/components/ui/Popover';
 import PopupSelect from '@ui/components/pickers/PopupSelect';
 import DatePicker from '@ui/components/ui/DatePicker';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
@@ -96,6 +97,10 @@ const initials = (name) =>
     .slice(0, 2)
     .map((w) => w[0].toUpperCase())
     .join('');
+
+/* "2 Nov 2026" from an ISO day. */
+const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const formatDateShort = (d) => { const [y, m, dd] = String(d).slice(0, 10).split('-'); return y && m && dd ? `${Number(dd)} ${MONTHS_SHORT[Number(m) - 1]} ${y}` : String(d); };
 
 export const Avatar = ({ person, size = 40 }) =>
   person?.photoUrl ? (
@@ -1183,7 +1188,7 @@ export function EmployeeChecklist({ person }) {
                   <p className={`text-sm ${t.done ? 'line-through ui-muted' : ''}`}>{t.title}</p>
                   <p className="ui-caption">
                     {t.ownerName ? `${t.ownerName} (${CHECKLIST_OWNER[t.owner] || t.owner})` : CHECKLIST_OWNER[t.owner] || t.owner}
-                    {t.dueDate ? <span className={t.overdue ? 'text-[rgb(var(--neg))] font-medium' : ''}> · due {t.dueDate}{t.overdue ? ' (late)' : ''}</span> : null}
+                    {t.dueDate ? <span className={t.overdue ? 'ui-text-neg font-medium' : ''}> · {t.overdue ? 'was due' : 'due'} {formatDateShort(t.dueDate)}</span> : null}
                     {t.done && t.doneBy ? ` · done by ${t.doneBy}` : ''}
                   </p>
                   {t.note ? <p className="ui-caption">{t.note}</p> : null}
@@ -1268,7 +1273,7 @@ export function StatutoryDetails({ employeeId, embedded = false }) {
     <section className={embedded ? 'space-y-3' : 'mt-5 space-y-3'} aria-label="Statutory details">
       <div className="flex items-center justify-between gap-2">
         {embedded
-          ? <p className="ui-caption">Masked. A full value needs your authenticator code and is logged.</p>
+          ? <span />
           : <h3 className="text-sm font-semibold">Statutory details <span className="ui-caption font-normal">masked; a full value needs your authenticator code and is logged</span></h3>}
         {d.canEdit && !editing ? <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => setEditing({ aadhaarLast4: '', passportNumber: '', passportExpiry: id.passportExpiry || '', workPermitNumber: '', workPermitExpiry: id.workPermitExpiry || '', statutoryCategory: id.statutoryCategory || '', categoryFrom: id.categoryFrom || '' })}>Edit identifiers</button> : null}
       </div>
@@ -1328,7 +1333,7 @@ export function CustomFields({ employeeId, embedded = false }) {
     getCustomValues(employeeId).then((f) => live && setFields(f)).catch(() => live && setFields([]));
     return () => { live = false; };
   }, [employeeId]);
-  if (!fields?.length) return embedded && fields ? <p className="ui-muted text-sm">No company fields yet. Add them in People settings under Custom fields.</p> : null;
+  if (!fields?.length) return embedded && fields ? <p className="ui-muted text-sm">No custom fields.</p> : null;
   const dirty = Object.keys(edits).length > 0;
   const save = async () => {
     setBusy(true);
@@ -1655,7 +1660,7 @@ export function ResignForm({ person, onClose, onDone }) {
       <form id="resign-form" onSubmit={save} className="grid gap-4">
         {error ? <p className="ui-field-error" role="alert">{error}</p> : null}
         <div><label className="ui-label" htmlFor="resign-last-day">Last working day *</label><DatePicker id="resign-last-day" value={form.lastDay} min={person.dateOfJoining ? String(person.dateOfJoining).slice(0, 10) : undefined} onChange={(v) => setForm({ ...form, lastDay: v || '' })} /></div>
-        <PopupSelect showValueSubtext={false} label="Why" value={form.leavingType} onChange={(v) => setForm({ ...form, leavingType: v || 'RESIGNED' })} options={Object.entries(LEAVING_TYPES).map(([value, label]) => ({ value, label }))} />
+        <div><PopupSelect showValueSubtext={false} label="Why" value={form.leavingType} onChange={(v) => setForm({ ...form, leavingType: v || 'RESIGNED' })} options={Object.entries(LEAVING_TYPES).map(([value, label]) => ({ value, label }))} /></div>
         <label className="block"><span className="ui-label">Note</span><textarea className="ui-input w-full" rows={2} maxLength={500} value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} /></label>
       </form>
     </Drawer>
@@ -2001,8 +2006,8 @@ export function EmployeeDocuments({ employeeId }) {
 
   const upload = async (e) => {
     e.preventDefault();
-    if (!file) return;
-    if (file.size > 5 * 1024 * 1024) return notify.error('Files up to 5 MB.');
+    if (!file) return false;
+    if (file.size > 5 * 1024 * 1024) { notify.error('Files up to 5 MB.'); return false; }
     setBusy(true);
     try {
       const dataUrl = await new Promise((resolve, reject) => { const r = new FileReader(); r.onload = () => resolve(r.result); r.onerror = () => reject(new Error('Could not read the file.')); r.readAsDataURL(file); });
@@ -2010,8 +2015,9 @@ export function EmployeeDocuments({ employeeId }) {
       setFile(null);
       setForm({ kind: 'ID_PROOF', title: '', expiresOn: '', classification: 'EMPLOYEE_VISIBLE', restrictsWork: '' });
       if (input.current) input.current.value = '';
-      notify.success('Added to the file.');
+      notify.success('Uploaded.');
       load();
+      return true;
     } catch (err) {
       notify.error(String(err?.message || 'Not uploaded.'));
     } finally {
@@ -2072,68 +2078,99 @@ export function EmployeeDocuments({ employeeId }) {
     }
   };
 
+  const [uploading, setUploading] = useState(false);
+  const [lettering, setLettering] = useState(false);
+  const [menu, setMenu] = useState(null);
+  const menuBtn = useRef({});
+  const kindWord = (k) => DOC_KINDS.find(([x]) => x === k)?.[1] || k;
+  const added = (d) => formatDateShort(String(d.createdAt).slice(0, 10));
+  const closeUpload = () => { setUploading(false); setFile(null); setForm({ kind: 'ID_PROOF', title: '', expiresOn: '', classification: 'EMPLOYEE_VISIBLE' }); };
+  const permit = PERMIT_KINDS.includes(form.kind);
+
   return (
     <div className="space-y-3">
       <input ref={replaceInput} type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx,.xlsx,.txt" className="hidden" onChange={replaceWith} aria-label="Replacement file" />
-      <IssueLetter employeeId={employeeId} onIssued={load} />
-      <form onSubmit={upload} className="ui-card p-3 space-y-2">
-        <div className="flex flex-wrap gap-2">
-          <select className="ui-select" value={form.kind} onChange={(e) => setForm({ ...form, kind: e.target.value })} aria-label="Kind">
-            {DOC_KINDS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
-          </select>
-          <input className="ui-input flex-1 min-w-[10rem]" placeholder="Title (blank: the file name)" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} aria-label="Title" />
-          <input type="date" className="ui-input" style={{ width: 'auto' }} value={form.expiresOn} onChange={(e) => setForm({ ...form, expiresOn: e.target.value })} aria-label="Valid until" title={PERMIT_KINDS.includes(form.kind) ? 'Valid until' : 'Valid until (optional)'} required={PERMIT_KINDS.includes(form.kind)} />
-        </div>
-        {PERMIT_KINDS.includes(form.kind) ? (
-          <input className="ui-input w-full" placeholder="Work they may not do once it lapses, e.g. drive company vehicles; work at height" value={form.restrictsWork || ''} onChange={(e) => setForm({ ...form, restrictsWork: e.target.value })} maxLength={500} aria-label="Work they may not do once it lapses" />
-        ) : null}
-        <div className="flex flex-wrap items-center gap-3">
-          <input ref={input} type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx,.xlsx,.txt" className="text-sm" onChange={(e) => setFile(e.target.files?.[0] || null)} aria-label="File" />
-          <label className="flex items-center gap-1.5 text-sm">Who can see
-            <select className="ui-select" style={{ width: 'auto' }} value={form.classification} onChange={(e) => setForm({ ...form, classification: e.target.value })} aria-label="Who can see">
-              {DOC_WHO_CAN_SEE.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
-            </select>
-          </label>
-          <button type="submit" className="ui-btn ui-btn-primary ui-btn-sm ml-auto" disabled={!file || busy}>{busy ? 'Uploading…' : 'Add to file'}</button>
-        </div>
-      </form>
-      {!docs ? <p className="ui-caption">Loading…</p> : !docs.length ? <p className="ui-caption">No documents on this file yet.</p> : (
-        <ul className="space-y-2">
-          {docs.map((d) => (
-            <li key={d.id} className="ui-card p-3 text-sm flex flex-wrap items-center gap-2">
-              <span className="min-w-0 flex-1">
-                <span className="font-medium">{d.title}</span>
-                <span className="ui-caption block">{DOC_KINDS.find(([k]) => k === d.kind)?.[1] || d.kind} · {kb(d.size)} · {new Date(d.createdAt).toLocaleDateString('en-IN', { dateStyle: 'medium' })}{d.expiresOn ? (d.expiresOn < today ? ` · expired ${d.expiresOn}` : ` · valid until ${d.expiresOn}`) : ''}{d.restrictsWork ? ` · until renewed: ${d.restrictsWork}` : ''}{d.classification !== 'EMPLOYEE_VISIBLE' ? ` · ${docWhoLabel(d)}` : ''}</span>
-                {d.expiresOn && d.expiresOn < today ? <span className="ui-pill ui-pill-neg mt-1">Expired</span> : null}
-                {d.version > 1 ? <button type="button" className="ui-link ui-caption block" onClick={() => showVersions(d)}>Version {d.version} · {versions[d.id] ? 'hide earlier versions' : `${d.version - 1} earlier`}</button> : null}
-                {d.templateVersion != null ? <span className="ui-caption block">Issued from template v{d.templateVersion}</span> : null}
+      <div className="flex flex-wrap items-center gap-2">
+        <h2 className="ui-t-sec">Documents{docs?.length ? <span className="ui-section-count tabular-nums">{docs.length}</span> : null}</h2>
+        <span className="ml-auto flex gap-2">
+          <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setLettering(true)}>Issue a letter</button>
+          <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setUploading(true)}><Upload size={16} aria-hidden="true" /> Upload</button>
+        </span>
+      </div>
+      {!docs ? <SkeletonCard lines={3} /> : !docs.length ? (
+        <EmptyState icon={FileDown} title="No documents yet" action={<button type="button" className="ui-btn ui-btn-secondary" onClick={() => setUploading(true)}><Upload size={16} aria-hidden="true" /> Upload</button>} />
+      ) : (
+        <ul className="ui-doc-list" aria-label="Documents">
+          {docs.map((d) => {
+            const expired = d.expiresOn && d.expiresOn < today;
+            return (
+              <li key={d.id}>
+                <div className="ui-doc-row">
+                  <span className="min-w-0">
+                    <button type="button" className="ui-doc-title" onClick={() => open(d)}>{d.title}</button>
+                    <span className="ui-doc-meta">{[kindWord(d.kind), kb(d.size), `added ${added(d)}`, d.version > 1 ? `version ${d.version}` : null, d.classification !== 'EMPLOYEE_VISIBLE' ? docWhoLabel(d) : null].filter(Boolean).join(' · ')}</span>
+                    {d.restrictsWork && expired ? <span className="ui-doc-meta ui-text-neg">Until renewed: {d.restrictsWork}</span> : null}
+                  </span>
+                  <span className="ui-doc-expiry">
+                    {d.expiresOn ? <>{expired ? <span className="ui-pill ui-pill-neg">Expired</span> : null}<span className="tabular-nums">{expired ? '' : 'Valid until '}{formatDateShort(d.expiresOn)}</span></> : null}
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <button type="button" className="ui-icon-btn" aria-label={`Download ${d.title}`} onClick={() => open(d)}><FileDown size={16} aria-hidden="true" /></button>
+                    <button ref={(el) => { menuBtn.current[d.id] = el; }} type="button" className="ui-icon-btn" aria-label={`More for ${d.title}`} aria-haspopup="menu" aria-expanded={menu === d.id} onClick={() => setMenu(menu === d.id ? null : d.id)}><MoreHorizontal size={16} aria-hidden="true" /></button>
+                    {menu === d.id ? (
+                      <Popover anchorRef={{ current: menuBtn.current[d.id] }} onClose={() => setMenu(null)} minWidth={200}>
+                        <div role="menu" className="ui-menu">
+                          {d.kind !== 'LETTER' ? <button type="button" role="menuitem" data-autofocus="" className="ui-menu-item" disabled={busy} onClick={() => { setMenu(null); pickReplacement(d); }}>Replace with a new version</button> : null}
+                          {d.version > 1 ? <button type="button" role="menuitem" className="ui-menu-item" onClick={() => { setMenu(null); showVersions(d); }}>{versions[d.id] ? 'Hide earlier versions' : 'Earlier versions'}</button> : null}
+                          <button type="button" role="menuitem" data-autofocus={d.kind === 'LETTER' ? '' : undefined} className="ui-menu-item is-danger" onClick={() => { setMenu(null); remove(d); }}>Remove</button>
+                        </div>
+                      </Popover>
+                    ) : null}
+                  </span>
+                </div>
                 {versions[d.id] ? (
-                  <ul className="mt-1 space-y-0.5 ui-caption" aria-label="Earlier versions">
+                  <ul className="ui-doc-versions" aria-label="Earlier versions">
                     {versions[d.id].filter((v) => v.id !== d.id).map((v) => (
-                      <li key={v.id}>v{v.version} · {kb(v.size)} · {new Date(v.createdAt).toLocaleDateString('en-IN', { dateStyle: 'medium' })} · <button type="button" className="ui-link" onClick={() => open(v)}>Download</button></li>
+                      <li key={v.id}><span className="tabular-nums">Version {v.version}</span><span className="ui-muted">{kb(v.size)} · {formatDateShort(String(v.createdAt).slice(0, 10))}</span><button type="button" className="ui-link" onClick={() => open(v)}>Download</button></li>
                     ))}
                   </ul>
                 ) : null}
-              </span>
-              <button type="button" className="ui-link" onClick={() => open(d)}>Download</button>
-              {d.kind !== 'LETTER' ? <button type="button" className="ui-link" disabled={busy} onClick={() => pickReplacement(d)}>Replace</button> : null}
-              <button type="button" className="ui-link" onClick={() => remove(d)}>Remove</button>
-            </li>
-          ))}
+              </li>
+            );
+          })}
         </ul>
       )}
+
+      {uploading ? (
+        <Drawer open onClose={closeUpload} widthClass="w-[min(36rem,96vw)]" title="Upload a document" dirty={Boolean(file || form.title)}
+          footer={<><button type="button" className="ui-btn ui-btn-secondary" onClick={closeUpload}>Cancel</button><button type="submit" form="doc-upload" className="ui-btn ui-btn-primary" disabled={!file || busy || (permit && !form.expiresOn)}>{busy ? 'Uploading…' : 'Upload'}</button></>}>
+          <form id="doc-upload" className="grid gap-4" onSubmit={async (e) => { if (await upload(e)) setUploading(false); }}>
+            <label className="ui-dropzone" onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); const f = e.dataTransfer.files?.[0]; if (f) setFile(f); }}>
+              <Upload size={18} aria-hidden="true" />
+              <span className="text-sm font-medium">{file ? file.name : 'Choose a file'}</span>
+              <span className="ui-caption">{file ? kb(file.size) : 'or drop it here · PDF, image or Word, up to 5 MB'}</span>
+              <input ref={input} type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx,.xlsx,.txt" className="sr-only" onChange={(e) => setFile(e.target.files?.[0] || null)} aria-label="File" />
+            </label>
+            <div><PopupSelect showValueSubtext={false} label="Type" value={form.kind} onChange={(v) => setForm({ ...form, kind: v || 'ID_PROOF' })} options={DOC_KINDS.filter(([k]) => k !== 'LETTER').map(([value, label]) => ({ value, label }))} /></div>
+            <label className="block"><span className="ui-label">Title</span><input className="ui-input w-full" value={form.title} placeholder={file ? file.name.replace(/\.[^.]+$/, '') : ''} onChange={(e) => setForm({ ...form, title: e.target.value })} maxLength={160} /></label>
+            <div><label className="ui-label" htmlFor="doc-valid">{permit ? 'Valid until *' : 'Valid until'}</label><DatePicker id="doc-valid" value={form.expiresOn} onChange={(v) => setForm({ ...form, expiresOn: v || '' })} /></div>
+            {permit ? <label className="block"><span className="ui-label">Work they may not do once it lapses</span><input className="ui-input w-full" value={form.restrictsWork || ''} onChange={(e) => setForm({ ...form, restrictsWork: e.target.value })} maxLength={500} /></label> : null}
+            <div><PopupSelect showValueSubtext={false} label="Who can see" value={form.classification} onChange={(v) => setForm({ ...form, classification: v || 'EMPLOYEE_VISIBLE' })} options={DOC_WHO_CAN_SEE.map(([value, label]) => ({ value, label }))} /></div>
+          </form>
+        </Drawer>
+      ) : null}
+      {lettering ? <IssueLetter employeeId={employeeId} onClose={() => setLettering(false)} onIssued={() => { setLettering(false); load(); }} /> : null}
     </div>
   );
 }
-
 
 /**
  * Issue a letter onto the record (DOC-04): pick the kind, fill in what the
  * template asks for, and a PDF lands under Documents naming the template
  * version. A service certificate shows when it is due (DOC-07).
  */
-function IssueLetter({ employeeId, onIssued }) {
-  const [openForm, setOpenForm] = useState(false);
+function IssueLetter({ employeeId, onClose, onIssued }) {
+  const openForm = true;
   const [templates, setTemplates] = useState(null);
   const [kind, setKind] = useState('APPOINTMENT');
   const [extra, setExtra] = useState({});
@@ -2147,7 +2184,6 @@ function IssueLetter({ employeeId, onIssued }) {
     if (!openForm || kind !== 'SERVICE_CERT') { setDue(null); return; }
     serviceCertificateDue(employeeId).then(setDue).catch(() => setDue(null));
   }, [openForm, kind, employeeId]);
-  if (!openForm) return <div className="flex justify-end"><button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => setOpenForm(true)}>Issue a letter</button></div>;
   const t = templates?.templates.find((x) => x.kind === kind);
   const issue = async (e) => {
     e.preventDefault();
@@ -2155,7 +2191,6 @@ function IssueLetter({ employeeId, onIssued }) {
     try {
       const r = await issueLetter(employeeId, { kind, extra });
       notify.success(`${r.document.title} is on the record (template v${r.document.templateVersion}).`);
-      setOpenForm(false);
       setExtra({});
       onIssued();
     } catch (err) {
@@ -2173,26 +2208,18 @@ function IssueLetter({ employeeId, onIssued }) {
     }
   };
   return (
-    <form onSubmit={issue} className="ui-card p-3 space-y-2" aria-label="Issue a letter">
-      <div className="flex flex-wrap items-center gap-2">
-        <select className="ui-select" value={kind} onChange={(e) => { setKind(e.target.value); setExtra({}); }} aria-label="Letter">
-          {(templates?.kinds || [{ kind: 'APPOINTMENT', label: 'Appointment letter' }]).map((k) => <option key={k.kind} value={k.kind}>{k.label}</option>)}
-        </select>
-        {t ? <span className="ui-caption">{t.builtIn ? 'Built-in letter' : `Template v${t.version}`}</span> : null}
-        <button type="button" className="ui-link ml-auto" onClick={() => setOpenForm(false)}>Close</button>
-      </div>
-      {due ? <p className="ui-caption">{due.note}{due.dueOn ? ` Asked today: due ${due.dueOn}.` : ''} <button type="button" className="ui-link" onClick={asked}>Note that it was asked for</button></p> : null}
-      {t?.extra?.length ? (
-        <div className="grid gap-2 sm:grid-cols-2">
-          {t.extra.map((k) => (
-            <label key={k} className="block">
-              <span className="ui-label">{k.replace(/([A-Z])/g, ' $1').replace(/^./, (c) => c.toUpperCase())}</span>
-              <input className="ui-input w-full" value={extra[k] || ''} onChange={(e) => setExtra({ ...extra, [k]: e.target.value })} maxLength={1000} />
-            </label>
-          ))}
-        </div>
-      ) : null}
-      <div className="flex justify-end"><button type="submit" className="ui-btn ui-btn-primary ui-btn-sm" disabled={busy || !t}>{busy ? 'Issuing…' : 'Issue as PDF'}</button></div>
-    </form>
+    <Drawer open onClose={onClose} widthClass="w-[min(36rem,96vw)]" title="Issue a letter"
+      footer={<><button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button><button type="submit" form="issue-letter" className="ui-btn ui-btn-primary" disabled={busy || !t}>{busy ? 'Issuing…' : 'Issue as PDF'}</button></>}>
+      <form id="issue-letter" onSubmit={issue} className="grid gap-4">
+        <div><PopupSelect showValueSubtext={false} label="Letter" value={kind} onChange={(v) => { setKind(v || 'APPOINTMENT'); setExtra({}); }} options={(templates?.kinds || [{ kind: 'APPOINTMENT', label: 'Appointment letter' }]).map((k) => ({ value: k.kind, label: k.label }))} /></div>
+        {due ? <p className="text-sm">{due.note}{due.dueOn ? ` Due ${formatDateShort(due.dueOn)} if asked today.` : ''} <button type="button" className="ui-link" onClick={asked}>Record the request</button></p> : null}
+        {(t?.extra || []).map((k) => (
+          <label key={k} className="block">
+            <span className="ui-label">{k.replace(/([A-Z])/g, ' $1').replace(/^./, (c) => c.toUpperCase())}</span>
+            <input className="ui-input w-full" value={extra[k] || ''} onChange={(e) => setExtra({ ...extra, [k]: e.target.value })} maxLength={1000} />
+          </label>
+        ))}
+      </form>
+    </Drawer>
   );
 }

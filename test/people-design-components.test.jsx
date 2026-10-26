@@ -154,8 +154,8 @@ describe('DatePicker', () => {
     const user = userEvent.setup();
     const onSubmit = vi.fn((e) => e.preventDefault());
     const onChange = vi.fn();
-    render(<form onSubmit={onSubmit}><label htmlFor="doj">Date of joining</label><DatePicker id="doj" value="" onChange={onChange} min="2026-01-01" /><button type="submit">Save</button></form>);
-    const box = screen.getByLabelText('Date of joining');
+    render(<form onSubmit={onSubmit}><label htmlFor="doj">Joining date</label><DatePicker id="doj" value="" onChange={onChange} min="2026-01-01" /><button type="submit">Save</button></form>);
+    const box = screen.getByLabelText('Joining date');
     await user.type(box, '12/02/2025');
     await user.keyboard('{Enter}');
     expect(onSubmit).not.toHaveBeenCalled();

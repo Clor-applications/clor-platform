@@ -29,7 +29,7 @@ const GROUP = { create: 'changes', update: 'changes', archive: 'changes', import
 const dayOf = (iso) => new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
 const timeOf = (iso) => new Date(iso).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' });
 
-export default function ActivityTimeline({ events, onLoadMore = null, loadingMore = false, empty = 'Nothing has happened on this record yet.', filter: controlled, onFilterChange }) {
+export default function ActivityTimeline({ events, onLoadMore = null, loadingMore = false, empty = 'Nothing has happened on this record yet.', filter: controlled, onFilterChange, filters = true }) {
   const [own, setOwn] = useState('');
   const filter = controlled ?? own;
   const setFilter = onFilterChange || setOwn;
@@ -45,11 +45,11 @@ export default function ActivityTimeline({ events, onLoadMore = null, loadingMor
   }, [shown]);
   return (
     <div className="ui-activity">
-      <div role="radiogroup" aria-label="Show" className="flex flex-wrap gap-1">
+      {filters ? <div role="radiogroup" aria-label="Show" className="ui-activity-filters">
         {FILTERS.map(([k, l]) => (
-          <button key={k} type="button" role="radio" aria-checked={filter === k} className={`ui-pill ${filter === k ? 'ui-pill-info' : ''}`} onClick={() => setFilter(k)}>{l}</button>
+          <button key={k} type="button" role="radio" aria-checked={filter === k} className="ui-activity-filter" onClick={() => setFilter(k)}>{l}</button>
         ))}
-      </div>
+      </div> : null}
       {!shown.length ? <p className="ui-muted text-sm mt-3">{filter ? 'Nothing of this kind.' : empty}</p> : null}
       {days.map((g) => (
         <section key={g.day} aria-label={g.day} className="mt-4">
@@ -70,8 +70,10 @@ export default function ActivityTimeline({ events, onLoadMore = null, loadingMor
                       <ul className="ui-activity-changes">
                         {e.changes.map((c, i) => (
                           <li key={`${c.field}-${i}`}>
-                            <span className="ui-muted">{c.label || c.field}</span>{' '}
-                            {c.redacted ? <span className="ui-muted">changed</span> : <><span className="ui-activity-before">{c.before ?? 'blank'}</span> <span aria-hidden="true">→</span><span className="sr-only">to</span> <span className="ui-activity-after">{c.after ?? 'blank'}</span></>}
+                            <span className="ui-activity-field">{c.label || c.field}</span>{' '}
+                            {c.redacted ? <span className="ui-muted">changed</span>
+                              : c.before == null ? <span className="ui-activity-after">{c.after ?? 'cleared'}</span>
+                                : <><span className="ui-activity-before">{c.before}</span>{' '}<span className="ui-activity-to"><span className="ui-activity-arrow" aria-hidden="true">→</span><span className="sr-only">to</span><span className="ui-activity-after">{c.after ?? 'cleared'}</span></span></>}
                           </li>
                         ))}
                       </ul>

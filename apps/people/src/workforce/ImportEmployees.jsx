@@ -120,7 +120,7 @@ export default function ImportEmployees({ openScreen }) {
 
   return (
     <div className="space-y-4">
-      <PageHeader breadcrumb={[{ label: 'People' }, { label: 'Workforce', onClick: () => openScreen?.('employees') }, { label: 'Import employees' }]} title="Import employees" description="From a spreadsheet saved as CSV. Every row is checked before anything is saved." />
+      <PageHeader breadcrumb={[{ label: 'People' }, { label: 'Workforce', onClick: () => openScreen?.('employees') }, { label: 'Import employees' }]} title="Import employees" />
       <ol className="ui-stepper" aria-label="Steps">
         {STEPS.map(([k, label], i) => (
           <li key={k} className={`ui-step ${i === stepIndex ? 'is-current' : ''} ${i < stepIndex ? 'is-done' : ''}`} aria-current={i === stepIndex ? 'step' : undefined}>
@@ -141,7 +141,6 @@ export default function ImportEmployees({ openScreen }) {
             </label>
             <div className="flex flex-wrap items-center gap-3">
               <button type="button" className="ui-btn ui-btn-secondary" onClick={() => downloadCsvTemplate({ fileName: 'Employees import template', columns: IMPORT_COLUMNS, sample: { name: 'Asha Rao', code: 'EMP-0001', department: 'Finance', jobPosition: 'Accountant', dateOfJoining: '2026-04-01', gender: 'FEMALE' } })}><FileDown size={16} aria-hidden="true" /> Download the template</button>
-              <p className="ui-caption">The file holds personal data: keep it on a work device and delete it once imported.</p>
             </div>
           </div>
         ) : null}

@@ -1,5 +1,5 @@
 import React, { useEffect, useId, useMemo, useRef, useState } from 'react';
-import { ChevronDown, Pencil } from 'lucide-react';
+import { Briefcase, Building2, Camera, ChevronDown, Hash, MapPin, Pencil, Plus, UserRound } from 'lucide-react';
 
 import { PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
 import RecordTabs from '@ui/components/ui/RecordTabs';
@@ -50,7 +50,7 @@ function Field({ label, value, mono = false }) {
   );
 }
 
-function Section({ title, onEdit, children, action = null }) {
+function Section({ title, count = null, onEdit, children, action = null }) {
   /* Edit hides while its form is open; when the form closes (saved or cancelled) and the caret was left nowhere, it goes back to Edit. */
   const editRef = useRef(null);
   const hadEdit = useRef(Boolean(onEdit));
@@ -62,7 +62,7 @@ function Section({ title, onEdit, children, action = null }) {
   return (
     <section className="ui-record-section" aria-label={title}>
       <header className="flex items-center justify-between gap-2 mb-3">
-        <h2 className="ui-t-sec">{title}</h2>
+        <h2 className="ui-t-sec">{title}{count != null ? <span className="ui-section-count tabular-nums">{count}</span> : null}</h2>
         <span className="flex items-center gap-3">
           {action}
           {onEdit ? <button ref={editRef} type="button" className="ui-link text-sm inline-flex items-center gap-1" onClick={onEdit}><Pencil size={14} aria-hidden="true" /> Edit</button> : null}
@@ -124,8 +124,8 @@ export default function EmployeeRecord({ params = {}, updateParams, openScreen }
     editable ? ['type', 'Change employment type'] : null,
     editable && person.status !== 'SUSPENDED' ? ['status', 'Suspend'] : null,
     allowed('PEOPLE::Employees::EDIT') && person.status === 'SUSPENDED' ? ['status', 'Reactivate'] : null,
-    person.status !== 'LEFT' && allowed('PEOPLE::Lifecycle::CREATE') ? ['invite', 'Invite to fill in details'] : null,
-    person.status !== 'LEFT' && allowed('PEOPLE::Employees::EDIT') ? ['leave', 'Record leaving'] : null,
+    person.status !== 'LEFT' && allowed('PEOPLE::Lifecycle::CREATE') ? ['invite', 'Invite to complete profile'] : null,
+    person.status !== 'LEFT' && allowed('PEOPLE::Employees::EDIT') ? ['leave', 'Mark as left'] : null,
     person.status === 'LEFT' && allowed('PEOPLE::Employees::EDIT') ? ['rehire', 'Rehire'] : null,
     allowed('PEOPLE::Employees::DELETE') ? ['delete', 'Delete'] : null,
   ].filter(Boolean);
@@ -135,12 +135,22 @@ export default function EmployeeRecord({ params = {}, updateParams, openScreen }
       <PageHeader
         breadcrumb={[{ label: 'People' }, { label: 'Workforce', onClick: backToDirectory }, { label: person.name }]}
         title={
-          <span className="flex flex-wrap items-center gap-3">
+          <span className="ui-profile">
             <PhotoControl person={person} canEdit={editable} onSaved={(emp) => setPerson(emp)} />
             <span className="min-w-0">
-              <span className="flex flex-wrap items-center gap-2">{person.name}{person.preferredName ? <span className="ui-muted text-base font-normal">({person.preferredName})</span> : null}<StatusBadge employee={person} /></span>
-              <span className="block ui-caption font-normal tabular-nums">{[person.code, person.designation, person.department, person.areaName || person.workLocation].filter(Boolean).join(' · ') || 'No role or department yet'}</span>
-              {person.reportingManagerName ? <span className="block ui-caption font-normal">Reports to {person.reportingManagerName}</span> : null}
+              <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                <span>{person.name}</span>
+                {person.preferredName ? <span className="ui-profile-aka">“{person.preferredName}”</span> : null}
+                <StatusBadge employee={person} />
+              </span>
+              <ul className="ui-profile-facts" aria-label="Summary">
+                {person.code ? <li><Hash size={14} aria-hidden="true" /><span className="tabular-nums">{person.code}</span></li> : null}
+                {person.designation ? <li><Briefcase size={14} aria-hidden="true" />{person.designation}</li> : null}
+                {person.department ? <li><Building2 size={14} aria-hidden="true" />{person.department}</li> : null}
+                {person.areaName || person.workLocation ? <li><MapPin size={14} aria-hidden="true" />{person.areaName || person.workLocation}</li> : null}
+                {person.reportingManagerName ? <li><UserRound size={14} aria-hidden="true" />Reports to&nbsp;<button type="button" className="ui-link" onClick={() => openScreen?.('employee', { id: person.reportingManagerId })}>{person.reportingManagerName}</button></li> : null}
+                {!person.code && !person.designation && !person.department ? <li>No role or department yet</li> : null}
+              </ul>
               <TagLine person={person} tags={lists?.tags || []} canEdit={allowed('PEOPLE::Employees::EDIT')} onSaved={(emp) => setPerson(emp)} />
             </span>
           </span>
@@ -174,7 +184,7 @@ export default function EmployeeRecord({ params = {}, updateParams, openScreen }
       <RecordTabs tabs={tabsAllowed} value={tab} onChange={(k) => set({ tab: k === 'overview' ? null : k, edit: null, action: null }, true)} label={`${person.name} sections`}>
         {tab === 'overview' ? <Overview person={person} data={rec.data} lists={lists} allowed={allowed} goTo={(t) => set({ tab: t }, true)} /> : null}
         {tab === 'personal' ? <Personal person={person} allowed={allowed} editing={params.edit} setEditing={(e) => set({ edit: e })} onSaved={(emp) => rec.setData((d) => ({ ...d, employee: { ...d.employee, ...emp } }))} reload={rec.reload} /> : null}
-        {tab === 'employment' ? <Employment person={person} data={rec.data} lists={lists} allowed={allowed} editing={params.edit} setEditing={(e) => set({ edit: e })} onSaved={(emp) => setPerson(emp)} reload={rec.reload} openAction={openAction} /> : null}
+        {tab === 'employment' ? <Employment person={person} data={rec.data} lists={lists} allowed={allowed} editing={params.edit} setEditing={(e) => set({ edit: e })} onSaved={(emp) => setPerson(emp)} reload={rec.reload} /> : null}
         {tab === 'organization' ? <Organization person={person} lists={lists} allowed={allowed} openAction={openAction} openPerson={(pid) => openScreen?.('employee', { id: pid })} editing={params.edit} setEditing={(e) => set({ edit: e })} onSaved={(emp) => setPerson(emp)} reload={rec.reload} /> : null}
         {tab === 'documents' ? <EmployeeDocuments employeeId={person.id} /> : null}
         {tab === 'history' ? <div className="space-y-6"><HistoryCompare person={person} lists={lists} /><Section title="Employment history"><EmploymentHistory employeeId={person.id} /></Section><Section title="Every change and why"><Journey employeeId={person.id} /></Section></div> : null}
@@ -211,7 +221,9 @@ function MenuList({ items, onPick, onEscape }) {
 /** The portrait: a square photo kept small (160px), or initials. Changing it is a normal, logged edit. */
 function PhotoControl({ person, canEdit, onSaved }) {
   const input = useRef(null);
+  const btn = useRef(null);
   const [busy, setBusy] = useState(false);
+  const [menu, setMenu] = useState(false);
   const save = async (photoUrl) => {
     setBusy(true);
     try {
@@ -224,22 +236,27 @@ function PhotoControl({ person, canEdit, onSaved }) {
       setBusy(false);
     }
   };
+  if (!canEdit) return <Avatar person={person} size={64} />;
+  /* The portrait is the control: with no photo it asks for one; with one, it offers change or remove. */
   return (
-    <span className="ui-photo-control">
-      <Avatar person={person} size={56} />
-      {canEdit ? (
-        <span className="flex flex-col gap-0.5">
-          <button type="button" className="ui-link text-xs font-normal" disabled={busy} onClick={() => input.current?.click()}>{person.photoUrl ? 'Change photo' : 'Add photo'}</button>
-          {person.photoUrl ? <button type="button" className="ui-link text-xs font-normal" disabled={busy} onClick={() => save(null)}>Remove</button> : null}
-          <input ref={input} type="file" accept="image/*" className="sr-only" aria-label="Choose a photo" onChange={async (e) => {
-            const f = e.target.files?.[0];
-            e.target.value = '';
-            if (!f) return;
-            try { await save(await shrinkPhoto(f)); } catch (err) { notify.error(String(err?.message || 'Could not use that photo.')); }
-          }} />
-        </span>
+    <>
+      <button ref={btn} type="button" className="ui-avatar-edit" disabled={busy} aria-label={person.photoUrl ? 'Photo options' : 'Add a photo'} aria-haspopup={person.photoUrl ? 'menu' : undefined} aria-expanded={person.photoUrl ? menu : undefined}
+        onClick={() => (person.photoUrl ? setMenu((o) => !o) : input.current?.click())}>
+        <Avatar person={person} size={64} />
+        <span className="ui-avatar-edit-badge" aria-hidden="true"><Camera size={14} /></span>
+      </button>
+      {menu ? (
+        <Popover anchorRef={btn} onClose={() => setMenu(false)} minWidth={180}>
+          <MenuList items={[['change', 'Change photo'], ['remove', 'Remove photo']]} onPick={(k) => { setMenu(false); if (k === 'change') input.current?.click(); else save(null); }} onEscape={() => { setMenu(false); btn.current?.focus(); }} />
+        </Popover>
       ) : null}
-    </span>
+      <input ref={input} type="file" accept="image/*" className="sr-only" tabIndex={-1} aria-label="Choose a photo" onChange={async (e) => {
+        const f = e.target.files?.[0];
+        e.target.value = '';
+        if (!f) return;
+        try { await save(await shrinkPhoto(f)); } catch (err) { notify.error(String(err?.message || 'Could not use that photo.')); }
+      }} />
+    </>
   );
 }
 
@@ -259,11 +276,11 @@ function TagLine({ person, tags, canEdit, onSaved }) {
   };
   if (!mine.length && (!canEdit || !tags.length)) return null;
   return (
-    <span className="mt-1 flex flex-wrap items-center gap-1 font-normal">
+    <span className="mt-2 flex flex-wrap items-center gap-1.5 font-normal">
       {(person.tags || []).map((t) => <span key={t.id} className="ui-pill" style={{ backgroundColor: `${t.color}22`, color: t.color }}>{t.name}</span>)}
       {canEdit && tags.length ? (
         <>
-          <button ref={btn} type="button" className="ui-link text-xs" aria-haspopup="dialog" aria-expanded={open} onClick={() => setOpen((o) => !o)}>{mine.length ? 'Edit tags' : 'Add tags'}</button>
+          <button ref={btn} type="button" className="ui-tag-add" aria-haspopup="dialog" aria-expanded={open} onClick={() => setOpen((o) => !o)}>{mine.length ? <><Pencil size={12} aria-hidden="true" /> Tags</> : <><Plus size={12} aria-hidden="true" /> Add tag</>}</button>
           {open ? (
             <Popover anchorRef={btn} onClose={() => setOpen(false)} minWidth={220}>
               <div role="dialog" aria-label="Tags" className="p-2 space-y-1">
@@ -310,21 +327,31 @@ function Overview({ person, data, lists, allowed, goTo }) {
         <Section title="Relationships" action={<button type="button" className="ui-link text-sm" onClick={() => goTo('organization')}>Open</button>}>
           <dl className="ui-field-grid">
             <Field label="Manager" value={person.reportingManagerName} />
-            <Field label="Also reports to" value={person.dottedManagerName} />
+            <Field label="Secondary manager" value={person.dottedManagerName} />
             <Field label="Direct reports" value={(person.directReports || []).length ? `${person.directReports.length}: ${person.directReports.slice(0, 4).map((r) => r.name).join(', ')}${person.directReports.length > 4 ? '…' : ''}` : 'None'} />
           </dl>
         </Section>
         {tasks?.length ? (
-          <Section title="Open items">
-            <ul className="divide-y text-sm">{tasks.map((t) => <li key={t.id} className="py-2 flex justify-between gap-3"><span>{t.title}</span><span className="ui-caption tabular-nums">{t.dueDate ? formatDate(t.dueDate) : ''}</span></li>)}</ul>
+          <Section title="Open items" count={tasks.length} action={tasks.length > 5 ? <button type="button" className="ui-link text-sm" onClick={() => goTo('employment')}>Show all</button> : null}>
+            <ul className="ui-task-list">
+              {[...tasks].sort((x, y) => String(x.dueDate || '9').localeCompare(String(y.dueDate || '9'))).slice(0, 5).map((t) => {
+                const late = t.dueDate && t.dueDate < todayIst();
+                return (
+                  <li key={t.id}>
+                    <span className="min-w-0">{t.title}</span>
+                    <span className={`tabular-nums whitespace-nowrap ${late ? 'ui-text-neg' : 'ui-muted'}`}>{t.dueDate ? `${late ? 'Was due ' : ''}${formatDate(t.dueDate)}` : ''}</span>
+                  </li>
+                );
+              })}
+            </ul>
           </Section>
         ) : null}
       </div>
       {/* At wide widths the latest activity sits beside the record (spec §6, WF-04 context rail); narrower, it is the Activity tab. */}
       <aside className="ui-record-rail" aria-label="Recent activity">
-        <Section title="Activity & audit trail" action={<button type="button" className="ui-link text-sm" onClick={() => goTo('activity')}>View full history</button>}>
+        <Section title="Recent activity" action={<button type="button" className="ui-link text-sm" onClick={() => goTo('activity')}>View all</button>}>
           {activity.loading ? <span className="ui-skel ui-skel-text" /> : activity.error ? <ErrorState error={activity.error} onRetry={activity.reload} compact /> : (
-            <ActivityTimeline events={(activity.data?.events || []).slice(0, 5)} />
+            <ActivityTimeline filters={false} events={(activity.data?.events || []).slice(0, 5)} />
           )}
         </Section>
         {allowed('PEOPLE::Employee Notes::CREATE') ? <CommentBox employeeId={person.id} onPosted={activity.reload} /> : null}
@@ -350,15 +377,13 @@ function CommentBox({ employeeId, onPosted }) {
     }
   };
   return (
-    <section className="ui-record-section" aria-label="Add a comment">
-      <label className="block"><span className="ui-label">Add a comment</span>
-        <textarea className="ui-input w-full" rows={3} maxLength={4000} value={text} onChange={(e) => setText(e.target.value)} placeholder="Write a comment…" />
-      </label>
-      <div className="flex items-center justify-between gap-2 mt-2">
-        <p className="ui-caption">Seen by people who can read comments on this record.</p>
-        <button type="button" className="ui-btn ui-btn-primary ui-btn-sm" disabled={!text.trim() || busy} onClick={post}>{busy ? 'Posting…' : 'Post'}</button>
+    <div className="ui-composer">
+      <textarea aria-label="Add a comment" rows={2} maxLength={4000} value={text} placeholder="Add a comment…" onChange={(e) => setText(e.target.value)}
+        onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); post(); } }} />
+      <div className="ui-composer-bar">
+        <button type="button" className={`ui-btn ui-btn-sm ${text.trim() ? 'ui-btn-primary' : 'ui-btn-secondary'}`} disabled={!text.trim() || busy} onClick={post}>{busy ? 'Posting…' : 'Comment'}</button>
       </div>
-    </section>
+    </div>
   );
 }
 
@@ -400,7 +425,7 @@ function SectionForm({ person, fields, onCancel, onSaved, reload }) {
     }
   };
   return (
-    <form ref={formRef} className="space-y-3" onSubmit={(e) => { e.preventDefault(); save(); }} onKeyDown={(e) => { if (e.key === 'Enter' && e.target.tagName === 'INPUT') e.preventDefault(); }}>
+    <form ref={formRef} className="space-y-3 ui-panel-in" onSubmit={(e) => { e.preventDefault(); save(); }} onKeyDown={(e) => { if (e.key === 'Enter' && e.target.tagName === 'INPUT') e.preventDefault(); }}>
       {conflict ? (
         <Alert tone="warn" title="This record was updated elsewhere" action={<button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => { onCancel(); reload(); }}>Reload</button>}>
           {fields.filter((f) => String(conflict[f.key] ?? '') !== String(initial[f.key] ?? '')).map((f) => `${f.label} is now "${conflict[f.key] ?? 'blank'}"`).join('; ') || 'Other details changed.'} Your edits are still here: Save again to apply them on top, or Reload to start from the newer record.
@@ -426,7 +451,7 @@ function SectionForm({ person, fields, onCancel, onSaved, reload }) {
               ) : f.kind === 'textarea' ? (
                 <textarea id={id} className="ui-input w-full" rows={3} aria-describedby={help} value={form[f.key] ?? ''} onChange={(e) => setForm({ ...form, [f.key]: e.target.value })} />
               ) : (
-                <input id={id} className="ui-input w-full" type={f.type || 'text'} inputMode={f.inputMode} aria-describedby={help} value={form[f.key] ?? ''} required={f.required} maxLength={f.max || 160} onChange={(e) => setForm({ ...form, [f.key]: e.target.value })} />
+                <input id={id} className="ui-input w-full" type={f.type || 'text'} inputMode={f.inputMode} placeholder={f.placeholder} aria-describedby={help} value={form[f.key] ?? ''} required={f.required} maxLength={f.max || 160} onChange={(e) => setForm({ ...form, [f.key]: e.target.value })} />
               )}
               {f.help ? <p id={help} className="ui-caption">{f.help}</p> : null}
             </div>
@@ -444,10 +469,10 @@ function SectionForm({ person, fields, onCancel, onSaved, reload }) {
 const GENDERS = Object.entries(GENDER_WORDS);
 const MARITAL = [['SINGLE', 'Single'], ['MARRIED', 'Married'], ['DIVORCED', 'Divorced'], ['WIDOWED', 'Widowed']];
 const PERSONAL_SECTIONS = {
-  name: { title: 'Name', fields: [{ key: 'firstName', label: 'Legal first name', required: true }, { key: 'lastName', label: 'Legal last name' }, { key: 'preferredName', label: 'Preferred name', help: 'Used in everyday communication.' }] },
+  name: { title: 'Name', fields: [{ key: 'firstName', label: 'First name', required: true }, { key: 'lastName', label: 'Last name' }, { key: 'preferredName', label: 'Preferred name', help: 'Used in everyday communication.' }] },
   /* `email` is the personal address the employee form has always saved; `personalEmail` is what a joiner gives on their invite. */
-  contact: { title: 'Contact', fields: [{ key: 'workEmail', label: 'Work email', type: 'email', inputMode: 'email' }, { key: 'workPhone', label: 'Work phone', type: 'tel', inputMode: 'tel' }, { key: 'email', label: 'Personal email', type: 'email', inputMode: 'email' }, { key: 'phone', label: 'Personal phone', type: 'tel', inputMode: 'tel' }, { key: 'personalEmail', label: 'Email given on the joining invite', type: 'email', inputMode: 'email', help: 'Filled in by the joiner; used for privacy notices if set.' }] },
-  personal: { title: 'Personal details', fields: [{ key: 'dateOfBirth', label: 'Date of birth', kind: 'date' }, { key: 'gender', label: 'Gender', kind: 'select', options: GENDERS }, { key: 'maritalStatus', label: 'Marital status', kind: 'select', options: MARITAL }, { key: 'guardianName', label: 'Father’s / husband’s name', help: 'For the muster roll.' }] },
+  contact: { title: 'Contact', fields: [{ key: 'workEmail', label: 'Work email', type: 'email', inputMode: 'email' }, { key: 'workPhone', label: 'Work phone', type: 'tel', inputMode: 'tel' }, { key: 'email', label: 'Personal email', type: 'email', inputMode: 'email' }, { key: 'phone', label: 'Personal phone', type: 'tel', inputMode: 'tel' }, { key: 'personalEmail', label: 'Email from invite', type: 'email', inputMode: 'email', help: 'Filled in by the joiner; used for privacy notices if set.' }] },
+  personal: { title: 'Personal details', fields: [{ key: 'dateOfBirth', label: 'Date of birth', kind: 'date' }, { key: 'gender', label: 'Gender', kind: 'select', options: GENDERS }, { key: 'maritalStatus', label: 'Marital status', kind: 'select', options: MARITAL }, { key: 'guardianName', label: 'Father / husband name', help: 'For the muster roll.' }] },
   address: { title: 'Address', fields: [{ key: 'addressLine', label: 'Address', wide: true }, { key: 'city', label: 'City' }, { key: 'state', label: 'State' }, { key: 'pincode', label: 'PIN code', inputMode: 'numeric', max: 10 }, { key: 'country', label: 'Country' }] },
   emergency: { title: 'Emergency contact', fields: [{ key: 'emergencyContactName', label: 'Name' }, { key: 'emergencyContactRelation', label: 'Relationship' }, { key: 'emergencyContactPhone', label: 'Phone', type: 'tel', inputMode: 'tel' }] },
 };
@@ -472,17 +497,16 @@ function Personal({ person, allowed, editing, setEditing, onSaved, reload }) {
         </Section>
       ))}
       {/* Statutory details: a section only for those with the grant (D-V2); masked, reveal needs an authenticator. */}
-      {allowed('PEOPLE::Statutory Details::VIEW') ? <Section title="Identity and statutory"><StatutoryDetails employeeId={person.id} embedded /></Section> : null}
+      {allowed('PEOPLE::Statutory Details::VIEW') ? <Section title="IDs and statutory"><StatutoryDetails employeeId={person.id} embedded /></Section> : null}
       <Section title="More details"><CustomFields employeeId={person.id} embedded /></Section>
       {allowed('PEOPLE::Lifecycle::VIEW') ? <JoiningDetails person={person} onChecked={(p) => onSaved(p)} /> : null}
-      {!person.userId ? <p className="ui-caption">Portal access not linked: this employee has no sign-in of their own, which is fine.</p> : null}
     </div>
   );
 }
 
 /* --------------------------------------------------------------- Employment */
 
-function Employment({ person, data, lists, allowed, editing, setEditing, onSaved, reload, openAction }) {
+function Employment({ person, data, lists, allowed, editing, setEditing, onSaved, reload }) {
   const canEdit = allowed('PEOPLE::Employees::EDIT') && person.status !== 'LEFT';
   const [extendTo, setExtendTo] = useState('');
   const [rejoin, setRejoin] = useState('');
@@ -506,7 +530,7 @@ function Employment({ person, data, lists, allowed, editing, setEditing, onSaved
     try { await rehireEmployee(person.id, { rejoinDate: rejoin }); notify.success(`${person.name} rehired.`); setRejoin(''); reload(); } catch (e) { notify.error(String(e?.message || 'Not rehired.')); }
   };
   const fields = [
-    { key: 'code', label: 'Employee ID', required: true, max: 40, help: 'Unique in this company.' },
+    { key: 'code', label: 'Employee ID', required: true, max: 40 },
     { key: 'dateOfJoining', label: 'Joining date', kind: 'date' },
     { key: 'probationEndDate', label: 'Probation ends', kind: 'date' },
     { key: 'contractEndDate', label: 'Contract ends', kind: 'date' },
@@ -515,7 +539,7 @@ function Employment({ person, data, lists, allowed, editing, setEditing, onSaved
   return (
     <div className="space-y-4">
       <Section title="Employment" onEdit={canEdit && editing !== 'employment' ? () => setEditing('employment') : null}
-        action={canEdit ? <><button type="button" className="ui-link text-sm" onClick={() => openAction('designation')}>Change designation</button><button type="button" className="ui-link text-sm" onClick={() => openAction('type')}>Change type</button></> : null}>
+>
         {editing === 'employment' ? <SectionForm person={person} fields={fields} onCancel={() => setEditing(null)} onSaved={(emp) => { onSaved(emp); setEditing(null); }} reload={reload} /> : (
           <dl className="ui-field-grid">
             <Field label="Employee ID" value={person.code} mono />
@@ -542,7 +566,7 @@ function Employment({ person, data, lists, allowed, editing, setEditing, onSaved
         </Section>
       ) : null}
       {(data.scheduledChanges || []).length ? (
-        <Section title="Changes coming">
+        <Section title="Upcoming changes">
           <ul className="divide-y text-sm">
             {data.scheduledChanges.map((c) => (
               <li key={c.id} className="py-2 flex flex-wrap items-center gap-2">
@@ -563,7 +587,7 @@ function Employment({ person, data, lists, allowed, editing, setEditing, onSaved
           </div>
         </Section>
       ) : null}
-      <Section title="Joining and leaving tasks"><EmployeeChecklist person={person} /></Section>
+      <Section title="Onboarding & offboarding"><EmployeeChecklist person={person} /></Section>
     </div>
   );
 }
@@ -575,58 +599,57 @@ function Organization({ person, lists, allowed, openAction, openPerson, editing,
   const name = (k, v) => lists?.[k]?.find((x) => x.id === v)?.name;
   return (
     <div className="space-y-4">
-      <Section title="Assignment" action={canEdit ? <button type="button" className="ui-link text-sm" onClick={() => openAction('transfer')}>Transfer</button> : null}>
+      <Section title="Placement" onEdit={canEdit ? () => openAction('transfer') : null}>
         <dl className="ui-field-grid">
           <Field label="Department" value={person.department} />
           <Field label="Designation" value={person.designation} />
           <Field label="Location" value={person.areaName || person.workLocation} />
-          <Field label="Establishment" value={person.establishment ? `${person.establishment}${person.workState ? ` (${person.workState})` : ''}` : null} />
+          <Field label="Work site" value={person.establishment ? `${person.establishment}${person.workState ? ` (${person.workState})` : ''}` : null} />
           <Field label="Team" value={person.teamName} />
-          <Field label="Seat" value={person.seatName} />
+          <Field label="Position" value={person.seatName} />
           <Field label="Business unit" value={person.businessUnitName} />
           <Field label="Grade" value={person.gradeName || name('grades', person.gradeId)} />
           <Field label="Cost centre" value={person.costCenterName} />
         </dl>
       </Section>
-      <Section title="Where they work" onEdit={canEdit && editing !== 'place' ? () => setEditing('place') : null}>
+      <Section title="Work location" onEdit={canEdit && editing !== 'place' ? () => setEditing('place') : null}>
         {editing === 'place' ? (
-          <SectionForm person={person} fields={[{ key: 'workLocation', label: 'Work location', help: 'Free text, for a place not in the Locations list (a client site, home).' }]} onCancel={() => setEditing(null)} onSaved={(emp) => { onSaved(emp); setEditing(null); }} reload={reload} />
-        ) : <dl className="ui-field-grid"><Field label="Work location" value={person.workLocation} /></dl>}
+          <SectionForm person={person} fields={[{ key: 'workLocation', label: 'Site or address' }]} onCancel={() => setEditing(null)} onSaved={(emp) => { onSaved(emp); setEditing(null); }} reload={reload} />
+        ) : <dl className="ui-field-grid"><Field label="Site or address" value={person.workLocation} /></dl>}
       </Section>
-      <Section title="Reporting" action={canEdit ? <button type="button" className="ui-link text-sm" onClick={() => openAction('manager')}>Change manager</button> : null}>
+      <Section title="Reporting" onEdit={canEdit ? () => openAction('manager') : null}>
         <dl className="ui-field-grid">
           <Field label="Manager" value={person.reportingManagerId ? <button type="button" className="ui-link" onClick={() => openPerson(person.reportingManagerId)}>{person.reportingManagerName}</button> : null} />
-          <Field label="Also reports to (dotted line)" value={person.dottedManagerId ? <button type="button" className="ui-link" onClick={() => openPerson(person.dottedManagerId)}>{person.dottedManagerName}</button> : null} />
+          <Field label="Secondary manager" value={person.dottedManagerId ? <button type="button" className="ui-link" onClick={() => openPerson(person.dottedManagerId)}>{person.dottedManagerName}</button> : null} />
+          <Field label="Direct reports" value={(person.directReports || []).length ? (
+            <ul className="space-y-1.5">
+              {person.directReports.map((r) => (
+                <li key={r.id}><button type="button" className="inline-flex items-center gap-2 text-left text-sm hover:underline" onClick={() => openPerson(r.id)}><Avatar person={r} size={24} /><span className="font-medium">{r.name}</span>{r.designation ? <span className="ui-muted">{r.designation}</span> : null}</button></li>
+              ))}
+            </ul>
+          ) : 'None'} />
         </dl>
-        <h3 className="ui-caption mt-4">Direct reports</h3>
-        {(person.directReports || []).length ? (
-          <ul className="mt-1 divide-y">
-            {person.directReports.map((r) => (
-              <li key={r.id}><button type="button" className="flex w-full items-center gap-2 py-2 text-left text-sm" onClick={() => openPerson(r.id)}><Avatar person={r} size={28} /><span className="font-medium">{r.name}</span><span className="ui-caption">{r.designation || ''}</span></button></li>
-            ))}
-          </ul>
-        ) : <p className="ui-muted text-sm mt-1">None</p>}
       </Section>
       {hasApp('attendance') ? (
         /* Stored on the employee and pushed to the biometric readers by Attendance; edited here as the old form did. */
-        <Section title="Attendance readers" onEdit={canEdit && editing !== 'readers' ? () => setEditing('readers') : null}>
+        <Section title="Attendance device" onEdit={canEdit && editing !== 'readers' ? () => setEditing('readers') : null}>
           {editing === 'readers' ? (
             <SectionForm person={person} onCancel={() => setEditing(null)} onSaved={(emp) => { onSaved(emp); setEditing(null); }} reload={reload} fields={[
-              { key: 'devicePin', label: 'Reader ID', help: person.code ? `Blank means the employee ID (${person.code}).` : 'The ID on the biometric reader.', max: 20 },
+              { key: 'devicePin', label: 'Attendance ID', placeholder: person.code || '', max: 20 },
               { key: 'cardNumber', label: 'Card number', max: 20 },
-              { key: 'devicePassword', label: 'Reader PIN', type: 'password', writeOnly: true, max: 8, help: person.hasDevicePassword ? 'A PIN is set. Type a new one to change it.' : 'Optional.' },
-              { key: 'devicePrivilege', label: 'On the readers as', kind: 'select', number: true, noBlank: true, options: [[0, 'User'], [14, 'Reader administrator']] },
+              { key: 'devicePassword', label: 'Device PIN', type: 'password', writeOnly: true, max: 8, placeholder: person.hasDevicePassword ? '••••' : '' },
+              { key: 'devicePrivilege', label: 'Device role', kind: 'select', number: true, noBlank: true, options: [[0, 'User'], [14, 'Reader administrator']] },
               { key: 'contractorId', label: 'Contractor', kind: 'select', options: (lists?.contractors || []).map((c) => [c.id, c.name]) },
               { key: 'attendanceRequired', label: 'Attendance', kind: 'checkbox', checkLabel: 'Expected to mark attendance (untick for door access only)' },
             ]} />
           ) : (
             <dl className="ui-field-grid">
-              <Field label="Reader ID" value={person.devicePin || (person.code ? `${person.code} (employee ID)` : null)} />
-              <Field label="Card" value={person.cardNumber ? 'Set' : null} />
-              <Field label="Reader PIN" value={person.hasDevicePassword ? 'Set' : null} />
-              <Field label="On the readers as" value={person.devicePrivilege === 14 ? 'Reader administrator' : 'User'} />
+              <Field label="Attendance ID" value={person.devicePin || (person.code ? `${person.code} (employee ID)` : null)} />
+              <Field label="Card number" value={person.cardNumber} mono />
+              <Field label="Device PIN" value={person.hasDevicePassword ? 'Set' : null} />
+              <Field label="Device role" value={person.devicePrivilege === 14 ? 'Reader administrator' : 'User'} />
               <Field label="Contractor" value={person.contractorName} />
-              <Field label="Attendance expected" value={person.attendanceRequired === false ? 'No, door only' : 'Yes'} />
+              <Field label="Marks attendance" value={person.attendanceRequired === false ? 'No, door only' : 'Yes'} />
             </dl>
           )}
         </Section>
@@ -638,8 +661,8 @@ function Organization({ person, lists, allowed, openAction, openPerson, editing,
 /* --------------------------------------------------------------- Operations (WF-06) */
 
 const OPERATIONS = {
-  manager: { title: 'Change manager', fields: [['reportingManagerId', 'New manager', 'people'], ['dottedManagerId', 'Also reports to (optional)', 'people']] },
-  transfer: { title: 'Transfer', fields: [['departmentId', 'Department', 'departments'], ['areaId', 'Location', 'areas'], ['establishmentId', 'Establishment', 'establishments'], ['businessUnitId', 'Business unit', 'units'], ['teamId', 'Team', 'teams'], ['seatId', 'Seat', 'seats'], ['costCenterId', 'Cost centre', 'centres']] },
+  manager: { title: 'Change manager', fields: [['reportingManagerId', 'New manager', 'people'], ['dottedManagerId', 'Secondary manager', 'people']] },
+  transfer: { title: 'Transfer', fields: [['departmentId', 'Department', 'departments'], ['areaId', 'Location', 'areas'], ['establishmentId', 'Work site', 'establishments'], ['businessUnitId', 'Business unit', 'units'], ['teamId', 'Team', 'teams'], ['seatId', 'Position', 'seats'], ['costCenterId', 'Cost centre', 'centres']] },
   designation: { title: 'Change designation', fields: [['jobPositionId', 'New designation', 'positions'], ['gradeId', 'Grade', 'grades']] },
   type: { title: 'Change employment type', fields: [['employeeTypeId', 'Employment type', 'types'], ['workTypeId', 'Work type', 'workTypes']] },
   /* Allowed moves only: active or on notice can be suspended, suspended can be reactivated; leaving and rehire have their own flows (WF-14). */
@@ -710,7 +733,7 @@ function OperationDrawer({ action, person, lists, onClose, onDone }) {
     }
   };
   return (
-    <Drawer open onClose={onClose} widthClass="w-[min(36rem,96vw)]" title={`${target ? (target === 'ACTIVE' ? 'Reactivate' : 'Suspend') : op.title}: ${person.name}`} description="The change, the day it counts from, and why. History keeps both the before and the after." dirty={Object.keys(form).some((k) => (form[k] || '') !== (initial[k] || '')) || Boolean(reason)}
+    <Drawer open onClose={onClose} widthClass="w-[min(36rem,96vw)]" title={`${target ? (target === 'ACTIVE' ? 'Reactivate' : 'Suspend') : op.title}: ${person.name}`} dirty={Object.keys(form).some((k) => (form[k] || '') !== (initial[k] || '')) || Boolean(reason)}
       footer={<><button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button><button type="button" className="ui-btn ui-btn-primary" disabled={busy || !Object.keys(changed).length} onClick={submit}>{busy ? 'Saving…' : 'Confirm change'}</button></>}>
       <div className="grid gap-4">
         {error ? (error?.status === 409 && error?.data?.code === 'STALE'
@@ -722,9 +745,9 @@ function OperationDrawer({ action, person, lists, onClose, onDone }) {
             <span className="ui-caption">Now: {current(k, src)}</span>
           </div>
         ))}
-        <div><label className="ui-label" htmlFor="op-effective">Effective from</label><DatePicker id="op-effective" value={effective} onChange={setEffective} /><span className="ui-caption">A later date schedules it; it applies on that day.</span></div>
+        <div><label className="ui-label" htmlFor="op-effective">Effective from</label><DatePicker id="op-effective" value={effective} onChange={setEffective} /></div>
         <label className="block"><span className="ui-label">Reason{op.reasonRequired ? ' *' : ''}</span><textarea className="ui-input w-full" rows={2} maxLength={500} value={reason} aria-invalid={reasonMissing || undefined} aria-describedby={reasonMissing ? 'op-reason-error' : undefined} onChange={(e) => { setReason(e.target.value); setReasonMissing(false); }} /></label>
-        {reasonMissing ? <p id="op-reason-error" className="ui-field-error" role="alert">Say why. A status change is kept on the record with its reason.</p> : null}
+        {reasonMissing ? <p id="op-reason-error" className="ui-field-error" role="alert">Add a reason.</p> : null}
         {impact.length ? (
           <div aria-label="What else this affects">
             <p className="ui-label">What else this affects</p>
@@ -742,12 +765,12 @@ const COMPARE_FIELDS = [
   ['Department', (e, l) => l?.departments?.find((x) => x.id === e.departmentId)?.name || e.department],
   ['Designation', (e, l) => l?.positions?.find((x) => x.id === e.jobPositionId)?.name || e.designation],
   ['Manager', (e) => e.reportingManagerName],
-  ['Also reports to', (e) => e.dottedManagerName],
+  ['Secondary manager', (e) => e.dottedManagerName],
   ['Location', (e) => e.areaName],
-  ['Establishment', (e) => e.establishment],
+  ['Work site', (e) => e.establishment],
   ['Business unit', (e) => e.businessUnitName],
   ['Team', (e) => e.teamName],
-  ['Seat', (e) => e.seatName],
+  ['Position', (e) => e.seatName],
   ['Employment type', (e, l) => l?.types?.find((x) => x.id === e.employeeTypeId)?.name],
   ['Work type', (e, l) => l?.workTypes?.find((x) => x.id === e.workTypeId)?.name],
   ['Grade', (e) => e.gradeName],

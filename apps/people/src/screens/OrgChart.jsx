@@ -64,7 +64,7 @@ export default function OrgChart({ openScreen }) {
   return (
     <div className="space-y-4">
       <PageHeader entity="people" breadcrumb={[{ label: 'People' }, { label: 'Workforce', onClick: () => openScreen?.('employees') }, { label: 'Org Chart' }]} title="Org Chart"
-        description="Built from each person's Reports to. Set it on their Organization tab." />
+/>
       {nodes.length === 0 ? (
         <EmptyState title="Nobody yet" description="Add employees and who they report to." />
       ) : (
