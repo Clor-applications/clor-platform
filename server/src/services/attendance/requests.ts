@@ -97,7 +97,8 @@ export async function workingDates(orgId: string, employee: Employee, dates: str
   for (const date of dates) {
     const { rule } = await shiftFor(orgId, employee.id, date);
     if (isWeeklyOff(rule, date)) continue;
-    if (await isHoliday(orgId, date, employee.branchId, employee.areaId ?? null)) continue;
+    /* The person's own picked restricted holidays count as holidays too. */
+    if (await isHoliday(orgId, date, employee.branchId, employee.areaId ?? null, employee.id)) continue;
     out.push(date);
   }
   return out;
@@ -220,11 +221,17 @@ async function validate(who: Asker, employee: Employee, b: Ask, rules: Record<Ki
     need = b.halfDay ? 0.5 : working.length;
   }
   if (kind === 'PERMISSION') need = (minutes || 0) / 60;
-  const u = await usage(who.orgId, employee.id, kind, b.date.slice(0, 7), { except: existing?.id, rules });
-  if (u.quota != null) {
+  /* A span over a month end is checked against each month's quota, with the days that fall in it. */
+  const spanDays = kind === 'WFH' || kind === 'ON_DUTY' ? await workingDates(who.orgId, employee, daysBetween(b.date, last)) : [];
+  const months = [...new Set((spanDays.length ? spanDays : [b.date]).map((d) => d.slice(0, 7)))];
+  for (const month of months) {
+    const needHere = kind === 'WFH' || kind === 'ON_DUTY' ? (b.halfDay ? 0.5 : spanDays.filter((d) => d.slice(0, 7) === month).length) : need;
+    if (!needHere) continue;
+    const u = await usage(who.orgId, employee.id, kind, month, { except: existing?.id, rules });
+    if (u.quota == null) continue;
     const unit = KIND_WORDS[kind].unit;
     if (u.left! <= 0) throw fail(409, `You have used your ${u.quota} ${unit} for ${monthWords(u.month)}.`, 'QUOTA');
-    if (need > u.left!) throw fail(409, `Only ${u.left} of your ${u.quota} ${unit} ${u.left === 1 ? 'is' : 'are'} left for ${monthWords(u.month)}.`, 'QUOTA');
+    if (needHere > u.left!) throw fail(409, `Only ${u.left} of your ${u.quota} ${unit} ${u.left === 1 ? 'is' : 'are'} left for ${monthWords(u.month)}.`, 'QUOTA');
   }
   return {
     kind, date: b.date, toDate: kind === 'WFH' || kind === 'ON_DUTY' ? (toDate === b.date ? null : toDate) : null,
@@ -358,8 +365,8 @@ async function applyApproved(accountId: string, orgId: string, r: any, userId: s
   }
   for (const date of await workingDates(orgId, employee, daysBetween(r.date, last))) {
     const existing = await peoplePrisma.attendanceRecord.findUnique({ where: { employeeId_date: { employeeId: r.employeeId, date } } });
-    /* A full day is present by the request; a half day leaves the status to the punches. */
-    await writeDay({ accountId, orgId, userId, employee, date, checkIn: existing?.checkIn ?? null, checkOut: existing?.checkOut ?? null, statusOverride: r.halfDay ? null : 'PRESENT', source: 'REQUEST', dayKind: kind, attendanceRequestId: r.id, reason, ...(note ? { note } : {}) });
+    /* A full day is present by the request. A half day with punches is worked out from them; with none (a company without punches) the day is present by the request too, never absent. */
+    await writeDay({ accountId, orgId, userId, employee, date, checkIn: existing?.checkIn ?? null, checkOut: existing?.checkOut ?? null, statusOverride: r.halfDay && existing?.checkIn ? null : 'PRESENT', source: 'REQUEST', dayKind: kind, attendanceRequestId: r.id, reason, ...(note ? { note } : {}) });
   }
 }
 

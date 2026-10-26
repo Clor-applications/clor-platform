@@ -274,7 +274,7 @@ function RequestDrawer({ id, allowed, onClose, onDone }) {
       <button type="button" className="ui-btn ui-btn-ghost mr-auto" disabled={busy} onClick={cancel}>Cancel</button>
       <button type="button" className="ui-btn ui-btn-secondary" disabled={busy} onClick={() => setEditing(true)}>Change</button>
       <button type="button" className="ui-btn ui-btn-secondary" disabled={busy} onClick={reject}><X size={16} aria-hidden="true" /> Reject</button>
-      <button type="button" className="ui-btn ui-btn-primary" disabled={busy} onClick={approve}><Check size={16} aria-hidden="true" /> Approve</button>
+      <button type="button" className="ui-btn ui-btn-primary" disabled={busy || Boolean(d.waitingForManager)} onClick={approve}><Check size={16} aria-hidden="true" /> Approve</button>
     </>
   ) : cancellable ? (
     <button type="button" className="ui-btn ui-btn-secondary" disabled={busy} onClick={cancel}>Cancel request</button>

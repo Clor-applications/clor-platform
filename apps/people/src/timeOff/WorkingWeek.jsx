@@ -43,7 +43,7 @@ export default function WorkingWeek() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const form = draft || saved;
-  const dirty = Boolean(draft && saved && (draft.offs !== saved.offs || draft.sats !== saved.sats || draft.quota !== saved.quota));
+  const dirty = Boolean(draft && saved && (draft.offs !== saved.offs || draft.sats !== saved.sats || draft.quota !== saved.quota || draft.compOff !== saved.compOff));
   useUnsavedChanges(dirty);
 
   if (req.error && !req.data) return <div className="space-y-6 max-w-2xl"><PageHeader title="Working week" /><ErrorState error={req.error} onRetry={req.reload} /></div>;

@@ -129,12 +129,11 @@ describe('kinds, quotas and what approval does to the days', () => {
     expect(cancelled.status).toBe('CANCELLED');
     const after = await days(c, ravi.id, nextMonth.fri, nextMonth.mon2);
     expect(after.every((d: any) => d.dayKind === null && d.attendanceRequestId === null && d.status !== 'PRESENT')).toBe(true);
-    /* A half day keeps the status to the punches: only the kind is marked. */
+    /* A half day with no punches is present by the request (a company without punches); with punches it is worked out from them. */
     const half = (await att(c, 'post', '/requests', { employeeId: ravi.id, kind: 'WFH', date: nextMonth.tue2, halfDay: 'SECOND', reason: 'Afternoon at home' }).expect(201)).body.request;
     await att(c, 'post', `/requests/${half.id}/approve`).expect(200);
     const [h] = await days(c, ravi.id, nextMonth.tue2, nextMonth.tue2);
-    expect(h).toMatchObject({ dayKind: 'WFH', attendanceRequestId: half.id });
-    expect(h.status).not.toBe('PRESENT');
+    expect(h).toMatchObject({ dayKind: 'WFH', attendanceRequestId: half.id, status: 'PRESENT' });
   });
 
   it('on duty needs a place; a waiting request can be changed and keeps its history', async () => {
@@ -256,4 +255,37 @@ describe('a People-only company, and the employee app', () => {
     const corr = (await me.post('/corrections', { date: pastTuesday, checkIn: '09:00', reason: 'Reader was slow' }).expect(201)).body.request;
     expect(corr.kind).toBe('MISSED_PUNCH');
   }, 60_000);
+});
+
+describe('second audit (27 Oct 2026): a span over a month end, a half day without punches', () => {
+  let c: Ctx;
+  let dev: any;
+  beforeAll(async () => {
+    c = await company({ people: true, attendance: false });
+    dev = await person(c, { name: 'Dev', code: 'D1' });
+    await att(c, 'put', '/request-rules', { WFH: { on: true, quotaPerMonth: 2 } }).expect(200);
+  }, 60_000);
+
+  it('each month the span touches is checked against its own quota', async () => {
+    /* The first working week two months out; the span runs from the last days of the month before it. */
+    const d = new Date(`${nextMonth.mon}T00:00:00Z`);
+    const before = (n: number) => { const x = new Date(d); x.setUTCDate(x.getUTCDate() - n); return x.toISOString().slice(0, 10); };
+    const prev = [7, 6, 5, 4, 3, 2, 1].map(before).filter((x) => x.slice(0, 7) !== nextMonth.month && new Date(`${x}T00:00:00Z`).getUTCDay() !== 0);
+    const twoBefore = prev.slice(-2);
+    /* Two days already approved in the new month fill its quota. */
+    await att(c, 'post', '/requests', { employeeId: dev.id, kind: 'WFH', date: nextMonth.wed, toDate: nextMonth.thu, reason: 'Fixed days' }).expect(201);
+    const refused = await att(c, 'post', '/requests', { employeeId: dev.id, kind: 'WFH', date: twoBefore[0], toDate: nextMonth.mon, reason: 'Straddles' }).expect(409);
+    expect(refused.body.code).toBe('QUOTA');
+    expect(refused.body.error).toMatch(/used your 2|left for/);
+    /* Inside the month before, the same days are fine. */
+    await att(c, 'post', '/requests', { employeeId: dev.id, kind: 'WFH', date: twoBefore[0], toDate: twoBefore[1], reason: 'Month before' }).expect(201);
+  });
+
+  it('a half-day WFH with no punches makes the day present, never absent', async () => {
+    const other = await person(c, { name: 'Quiet', code: 'D2' });
+    const r = (await att(c, 'post', '/requests', { employeeId: other.id, kind: 'WFH', date: nextMonth.mon2, halfDay: 'FIRST', reason: 'Morning at home' }).expect(201)).body.request;
+    await att(c, 'post', `/requests/${r.id}/approve`).expect(200);
+    const day = (await days(c, other.id, nextMonth.mon2, nextMonth.mon2))[0];
+    expect(day).toMatchObject({ status: 'PRESENT', dayKind: 'WFH' });
+  });
 });

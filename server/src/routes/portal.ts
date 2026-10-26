@@ -904,7 +904,7 @@ portalRouter.post('/approvals/:type/:id', async (req, res) => {
     if (decision === 'approve' && chain === 'MANAGER_THEN_HR') {
       /* The manager's step: recorded, and the request moves on to HR still pending. */
       if (r.managerApprovedAt) return res.status(409).json({ error: 'You have already approved this; it is with HR now.' });
-      const out = await managerStep(e.orgId, r, asManager, note);
+      const out = await managerStep(e.orgId, r, asManager, note, { employeeId: e.id, userId: e.userId });
       await leaveAudit({ accountId: e.accountId, orgId: e.orgId, userId }, { entityId: r.id, action: 'MANAGER_APPROVE', message: `${e.name} (manager) approved leave, ${r.fromDate} to ${r.toDate}; now with HR`, metadata: { employeeId: r.employeeId } });
       return res.json({ request: masked([out], false)[0], stage: 'HR' });
     }

@@ -640,6 +640,8 @@ model LeaveType {
   /// service alone over employee type alone), read as of the period start or
   /// the joining date, whichever is later.
   entitlements       Json     @default("[]")
+  /// Rules added to a type already in use apply from this period start (ISO date); earlier periods keep annualDays.
+  entitlementsFrom   String?
   /// During probation: ACCRUE as normal, HOLD (credits start at confirmation),
   /// or LOCK (credits build but cannot be taken until confirmation).
   probationRule      String   @default("ACCRUE")

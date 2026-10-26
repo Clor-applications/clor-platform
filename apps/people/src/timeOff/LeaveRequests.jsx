@@ -49,7 +49,7 @@ export function StatusPill({ row }) {
   return (
     <span className="inline-flex flex-col items-start gap-0.5">
       <span className={`ui-pill ${STATUS_PILL[row.status] || ''}`}>{STATUS_LABEL[row.status] || row.status}</span>
-      {row.status === 'PENDING' && row.managerApprovedAt ? <span className="ui-caption">Manager approved</span> : null}
+      {row.status === 'PENDING' && row.managerApprovedAt ? <span className="ui-caption">{row.managerApprovedById ? 'Manager approved' : 'Handed on to HR'}</span> : null}
     </span>
   );
 }

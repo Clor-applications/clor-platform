@@ -38,9 +38,11 @@ const monthsBetween = (from: string, to: string) => {
  * or the joining date when later), so a slab crossed mid-period applies from
  * the next period: balances never jump mid-year.
  */
-export function entitledDays(type: { annualDays: number; entitlements?: unknown }, person: Person | null, asOf: string) {
+export function entitledDays(type: { annualDays: number; entitlements?: unknown; entitlementsFrom?: string | null }, person: Person | null, asOf: string) {
   const rules = (Array.isArray(type.entitlements) ? type.entitlements : []) as Entitlement[];
   if (!rules.length || !person) return type.annualDays;
+  /* Rules added to a type already in use apply from the period they were added in; earlier periods keep the type's own days. */
+  if (type.entitlementsFrom && asOf < type.entitlementsFrom) return type.annualDays;
   const service = person.dateOfJoining ? monthsBetween(person.dateOfJoining, asOf) : null;
   let best: { score: number; months: number; days: number } | null = null;
   for (const r of rules) {
@@ -122,9 +124,11 @@ export async function balancesFor(accountId: string, orgId: string, employeeIds:
       /* This person's days of the type, and how probation treats them. */
       const person = personOf.get(id) || null;
       const joined = person?.dateOfJoining || null;
-      const entitled = entitledDays(t, person, joined && joined > start ? joined : start);
+      /* Each period at its own entitlement: service counted to that period's start (or joining, when later). */
+      const entitledFor = (y: number) => { const ps = periodStart(period, y); return entitledDays(t, person, joined && joined > ps ? joined : ps); };
+      const entitled = entitledFor(year);
       const probation = probationOf(t, person, on);
-      const b = balanceFor({ ...t, annualDays: entitled }, year, probation.joinedForLeave, on, new Map(allocs.map((a) => [a.year, a.days])), taken, { period, left: leftOf.get(id) ?? null });
+      const b = balanceFor({ ...t, annualDays: entitled }, year, probation.joinedForLeave, on, new Map(allocs.map((a) => [a.year, a.days])), taken, { period, left: leftOf.get(id) ?? null, annualDaysFor: entitledFor });
       const allocated = round(b.allocated + adjusted);
       m.set(t.id, {
         allocated,
