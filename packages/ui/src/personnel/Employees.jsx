@@ -5,6 +5,8 @@ import { SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import DocumentListShell from '@ui/components/list/DocumentListShell';
 import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';
 import Drawer from '@ui/components/ui/Drawer';
+import PopupSelect from '@ui/components/pickers/PopupSelect';
+import DatePicker from '@ui/components/ui/DatePicker';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { DOC_WHO_CAN_SEE, docWhoLabel } from './documentClassification';
 import { downloadCsvTemplate, parseCsv, readFileText } from '@ui/utils/csv';
@@ -512,10 +514,11 @@ export default function Employees({ description = '' } = {}) {
 
 // ---------------------------------------------------------------------------
 
-const Field = ({ label, value }) => (
-  <div>
-    <dt className="ui-t-label">{label}</dt>
-    <dd className="mt-0.5 text-sm">{value || <span className="ui-muted">Not set</span>}</dd>
+/* `row` is the record page's label-beside-value row; without it, the drawer's label-above-value. */
+const Field = ({ label, value, row = false }) => (
+  <div className={row ? 'ui-field-row' : undefined}>
+    <dt className={row ? 'ui-caption' : 'ui-t-label'}>{label}</dt>
+    <dd className={row ? 'text-sm' : 'mt-0.5 text-sm'}>{value || <span className="ui-muted">{row ? 'Not provided' : 'Not set'}</span>}</dd>
   </div>
 );
 
@@ -985,7 +988,7 @@ export function Journey({ employeeId }) {
         );
       })}
       {why ? (
-        <Drawer open onClose={() => setWhy(null)} title={why.entry.summary} description={`${whenAt(why.entry.at)} · ${why.entry.how}`}
+        <Drawer open onClose={() => setWhy(null)} widthClass="w-[min(36rem,96vw)]" title={why.entry.summary} description={`${whenAt(why.entry.at)} · ${why.entry.how}`}
           actions={why.why ? <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setWhy({ ...why, raising: { kind: 'CORRECTION', note: '' } })}>Raise a correction</button> : null}>
           {!why.why ? <SkeletonCard lines={5} /> : <WhyPanel why={why.why} />}
           {why.raising ? (
@@ -1212,7 +1215,8 @@ export function EmployeeChecklist({ person }) {
  * Statutory and bank details, from Payroll's profile, masked (PE-05). Only for
  * someone who may see payroll profiles; nothing is changed here.
  */
-export function StatutoryDetails({ employeeId }) {
+/** `embedded`: inside a record section that already carries the heading, in the record's row style. */
+export function StatutoryDetails({ employeeId, embedded = false }) {
   const [d, setD] = useState(null);
   const [shown, setShown] = useState({});
   const [editing, setEditing] = useState(null);
@@ -1237,10 +1241,10 @@ export function StatutoryDetails({ employeeId }) {
     }
   };
   const Masked = ({ label, field, value }) => (
-    <div>
-      <dt className="ui-t-label">{label}</dt>
-      <dd className="mt-1 text-sm flex items-center gap-2">
-        <span className="tabular-nums">{shown[field] ?? (value || 'Not set')}</span>
+    <div className={embedded ? 'ui-field-row' : undefined}>
+      <dt className={embedded ? 'ui-caption' : 'ui-t-label'}>{label}</dt>
+      <dd className={`${embedded ? '' : 'mt-1 '}text-sm flex items-center gap-2`}>
+        <span className="tabular-nums">{shown[field] ?? (value || <span className="ui-muted">{embedded ? 'Not provided' : 'Not set'}</span>)}</span>
         {value && !shown[field] ? <button type="button" className="ui-link" onClick={() => show(field)}>Show</button> : null}
       </dd>
     </div>
@@ -1261,9 +1265,11 @@ export function StatutoryDetails({ employeeId }) {
   };
   const id = d.identity || {};
   return (
-    <section className="mt-5 space-y-3" aria-label="Statutory details">
+    <section className={embedded ? 'space-y-3' : 'mt-5 space-y-3'} aria-label="Statutory details">
       <div className="flex items-center justify-between gap-2">
-        <h3 className="text-sm font-semibold">Statutory details <span className="ui-caption font-normal">masked; a full value needs your authenticator code and is logged</span></h3>
+        {embedded
+          ? <p className="ui-caption">Masked. A full value needs your authenticator code and is logged.</p>
+          : <h3 className="text-sm font-semibold">Statutory details <span className="ui-caption font-normal">masked; a full value needs your authenticator code and is logged</span></h3>}
         {d.canEdit && !editing ? <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => setEditing({ aadhaarLast4: '', passportNumber: '', passportExpiry: id.passportExpiry || '', workPermitNumber: '', workPermitExpiry: id.workPermitExpiry || '', statutoryCategory: id.statutoryCategory || '', categoryFrom: id.categoryFrom || '' })}>Edit identifiers</button> : null}
       </div>
       {editing ? (
@@ -1286,25 +1292,25 @@ export function StatutoryDetails({ employeeId }) {
           </div>
         </form>
       ) : null}
-      <dl className="grid gap-4 sm:grid-cols-2">
-        <Field label="Aadhaar" value={id.aadhaarLast4} />
+      <dl className={embedded ? 'ui-field-grid' : 'grid gap-4 sm:grid-cols-2'}>
+        <Field row={embedded} label="Aadhaar" value={id.aadhaarLast4} />
         <Masked label="Passport" field="passportNumber" value={id.passportNumber} />
-        <Field label="Passport expiry" value={id.passportExpiry} />
+        <Field row={embedded} label="Passport expiry" value={id.passportExpiry} />
         <Masked label="Work permit" field="workPermitNumber" value={id.workPermitNumber} />
-        <Field label="Work permit expiry" value={id.workPermitExpiry} />
-        <Field label="Statutory category" value={id.statutoryCategory ? `${id.statutoryCategory.charAt(0)}${id.statutoryCategory.slice(1).toLowerCase()}${id.categoryFrom ? ` from ${id.categoryFrom}` : ''}` : null} />
+        <Field row={embedded} label="Work permit expiry" value={id.workPermitExpiry} />
+        <Field row={embedded} label="Statutory category" value={id.statutoryCategory ? `${id.statutoryCategory.charAt(0)}${id.statutoryCategory.slice(1).toLowerCase()}${id.categoryFrom ? ` from ${id.categoryFrom}` : ''}` : null} />
       </dl>
       <h4 className="text-sm font-semibold mt-2">From Payroll</h4>
       {d.inPayroll === false ? (
         <p className="ui-muted text-sm">Not set up in Payroll yet.</p>
       ) : (
-        <dl className="grid gap-4 sm:grid-cols-2">
+        <dl className={embedded ? 'ui-field-grid' : 'grid gap-4 sm:grid-cols-2'}>
           <Masked label="PAN" field="pan" value={d.pan} />
           <Masked label="UAN" field="uan" value={d.uan} />
           <Masked label="ESIC number" field="esic" value={d.esic} />
           <Masked label="Bank account" field="account" value={[d.bank, d.account].filter(Boolean).join(' ')} />
-          <Field label="IFSC" value={d.ifsc} />
-          <Field label="Covered by" value={[d.pf && 'PF', d.esi && 'ESI', d.pt && `PT (${d.pt})`].filter(Boolean).join(' · ')} />
+          <Field row={embedded} label="IFSC" value={d.ifsc} />
+          <Field row={embedded} label="Covered by" value={[d.pf && 'PF', d.esi && 'ESI', d.pt && `PT (${d.pt})`].filter(Boolean).join(' · ')} />
         </dl>
       )}
     </section>
@@ -1312,7 +1318,8 @@ export function StatutoryDetails({ employeeId }) {
 }
 
 /** The company's own fields on this person (CORE-08): only the ones this user may see; edited in place where they may. */
-export function CustomFields({ employeeId }) {
+/** `embedded`: inside a record section that already says "More details"; the Save button stays. */
+export function CustomFields({ employeeId, embedded = false }) {
   const [fields, setFields] = useState(null);
   const [edits, setEdits] = useState({});
   const [busy, setBusy] = useState(false);
@@ -1321,7 +1328,7 @@ export function CustomFields({ employeeId }) {
     getCustomValues(employeeId).then((f) => live && setFields(f)).catch(() => live && setFields([]));
     return () => { live = false; };
   }, [employeeId]);
-  if (!fields?.length) return null;
+  if (!fields?.length) return embedded && fields ? <p className="ui-muted text-sm">No company fields yet. Add them in People settings under Custom fields.</p> : null;
   const dirty = Object.keys(edits).length > 0;
   const save = async () => {
     setBusy(true);
@@ -1348,13 +1355,13 @@ export function CustomFields({ employeeId }) {
   return (
     <section className="space-y-2" aria-label="More details">
       <div className="flex items-center justify-between gap-2">
-        <h3 className="text-sm font-semibold">More details</h3>
+        {embedded ? <span /> : <h3 className="text-sm font-semibold">More details</h3>}
         {dirty ? <button type="button" className="ui-btn ui-btn-primary ui-btn-sm" disabled={busy} onClick={save}>{busy ? 'Saving…' : 'Save'}</button> : null}
       </div>
-      <dl className="grid gap-3 sm:grid-cols-2">
+      <dl className={embedded ? 'ui-field-grid' : 'grid gap-3 sm:grid-cols-2'}>
         {fields.map((f) => (
-          <div key={f.key}>
-            <dt className="ui-t-label">{f.label}{f.required ? ' *' : ''}</dt>
+          <div key={f.key} className={embedded ? 'ui-field-row' : undefined}>
+            <dt className={embedded ? 'ui-caption' : 'ui-t-label'}>{f.label}{f.required ? ' *' : ''}</dt>
             <dd className="mt-0.5 text-sm">{control(f)}{f.help ? <span className="ui-caption block">{f.help}</span> : null}</dd>
           </div>
         ))}
@@ -1509,6 +1516,7 @@ export function InviteForm({ person, onClose, onDone }) {
     <Drawer
       open
       onClose={link ? onDone : onClose}
+      widthClass="w-[min(36rem,96vw)]"
       title={`Invite ${person.name} to fill in their details`}
       description="They see only their own name and joining date, fill in personal details, upload documents and sign the declaration. What they send waits here until you check it."
       actions={
@@ -1613,15 +1621,18 @@ export function JoiningDetails({ person, onChecked }) {
 export function ResignForm({ person, onClose, onDone }) {
   const [form, setForm] = useState({ lastDay: new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10), leavingType: 'RESIGNED', reason: '' });
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
   const save = async (e) => {
-    e.preventDefault();
+    e?.preventDefault();
+    if (!form.lastDay) { setError('Choose the last working day.'); return; }
     setSaving(true);
+    setError('');
     try {
       const r = await resignEmployee(person.id, { ...form, reason: form.reason || null });
       notify.success(r.readers ? `${person.name} recorded as left and removed from ${r.readers} reader${r.readers === 1 ? '' : 's'}.` : `${person.name} recorded as left.`);
       onDone(r.employee);
     } catch (err) {
-      notify.error(String(err?.message || 'Not saved.'));
+      setError(String(err?.message || 'Not saved.'));
     } finally {
       setSaving(false);
     }
@@ -1630,9 +1641,11 @@ export function ResignForm({ person, onClose, onDone }) {
     <Drawer
       open
       onClose={onClose}
+      widthClass="w-[min(36rem,96vw)]"
       title={`${person.name} is leaving`}
       description="From the day after the last day they are not expected at work, and they come off every reader now."
-      actions={
+      dirty={Boolean(form.reason)}
+      footer={
         <>
           <button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button>
           <button type="submit" form="resign-form" className="ui-btn ui-btn-primary" disabled={saving}>{saving ? 'Saving…' : 'Record leaving'}</button>
@@ -1640,14 +1653,10 @@ export function ResignForm({ person, onClose, onDone }) {
       }
     >
       <form id="resign-form" onSubmit={save} className="grid gap-4">
-        <label className="block"><span className="ui-label">Last working day *</span><input type="date" className="ui-input w-full" required value={form.lastDay} onChange={(e) => setForm({ ...form, lastDay: e.target.value })} /></label>
-        <label className="block">
-          <span className="ui-label">Why</span>
-          <select className="ui-select w-full" value={form.leavingType} onChange={(e) => setForm({ ...form, leavingType: e.target.value })}>
-            {Object.entries(LEAVING_TYPES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-          </select>
-        </label>
-        <label className="block"><span className="ui-label">Note</span><input className="ui-input w-full" maxLength={500} value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} /></label>
+        {error ? <p className="ui-field-error" role="alert">{error}</p> : null}
+        <div><label className="ui-label" htmlFor="resign-last-day">Last working day *</label><DatePicker id="resign-last-day" value={form.lastDay} min={person.dateOfJoining ? String(person.dateOfJoining).slice(0, 10) : undefined} onChange={(v) => setForm({ ...form, lastDay: v || '' })} /></div>
+        <PopupSelect showValueSubtext={false} label="Why" value={form.leavingType} onChange={(v) => setForm({ ...form, leavingType: v || 'RESIGNED' })} options={Object.entries(LEAVING_TYPES).map(([value, label]) => ({ value, label }))} />
+        <label className="block"><span className="ui-label">Note</span><textarea className="ui-input w-full" rows={2} maxLength={500} value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} /></label>
       </form>
     </Drawer>
   );

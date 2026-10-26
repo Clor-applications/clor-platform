@@ -359,7 +359,7 @@ function FiltersDrawer({ params, lists, managers, onClose, onApply }) {
     </div>
   );
   return (
-    <Drawer open onClose={onClose} title="Filters" dirty={dirty}
+    <Drawer open onClose={onClose} widthClass="w-[min(36rem,96vw)]" title="Filters" dirty={dirty}
       footer={<>
         <button type="button" className="ui-btn ui-btn-ghost mr-auto" onClick={() => setDraft(Object.fromEntries(FILTER_KEYS.map((k) => [k, ''])))}>Reset</button>
         <button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button>
@@ -399,7 +399,7 @@ function BulkDrawer({ count, lists, managers, value, onChange, onClose, onSend }
   const f = BULK_FIELDS.find(([k]) => k === value.field) || BULK_FIELDS[0];
   const options = f[2] ? lists[f[2]] || [] : managers;
   return (
-    <Drawer open onClose={onClose} title={`Change ${count} ${count === 1 ? 'employee' : 'employees'}`} description="Each person's history records the change and your reason. Where a job-change approval rule is in force, job details change one person at a time." dirty={Boolean(value.value || value.reason)}
+    <Drawer open onClose={onClose} widthClass="w-[min(36rem,96vw)]" title={`Change ${count} ${count === 1 ? 'employee' : 'employees'}`} description="Each person's history records the change and your reason. Where a job-change approval rule is in force, job details change one person at a time." dirty={Boolean(value.value || value.reason)}
       footer={<>
         <button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button>
         <button type="button" className="ui-btn ui-btn-primary" disabled={busy || !value.value} onClick={async () => { setBusy(true); try { await onSend(); } finally { setBusy(false); } }}>{busy ? 'Changing…' : `Change ${count}`}</button>
@@ -421,7 +421,7 @@ function BulkResult({ result, onClose }) {
     downloadText(`\ufeff${lines.join('\r\n')}`, `bulk-${result.correlationId}.csv`);
   };
   return (
-    <Drawer open onClose={onClose} title="Bulk change finished" description={`Batch ${result.correlationId}`}
+    <Drawer open onClose={onClose} widthClass="w-[min(36rem,96vw)]" title="Bulk change finished" description={`Batch ${result.correlationId}`}
       footer={<>{failed.length ? <button type="button" className="ui-btn ui-btn-secondary" onClick={save}>Download skipped</button> : null}<button type="button" className="ui-btn ui-btn-primary" onClick={onClose}>Done</button></>}>
       <dl className="grid grid-cols-2 gap-3 text-sm">
         <div><dt className="ui-caption">Changed</dt><dd className="text-xl tabular-nums">{result.changed}</dd></div>
@@ -539,7 +539,7 @@ function SavedViews({ params, prefs, onApply, canShare }) {
         </ul>
       )}
       {naming ? (
-        <Drawer open onClose={() => setNaming(null)} title={naming.id ? 'Rename view' : 'Save current view'} dirty={Boolean(naming.name)}
+        <Drawer open onClose={() => setNaming(null)} widthClass="w-[min(36rem,96vw)]" title={naming.id ? 'Rename view' : 'Save current view'} dirty={Boolean(naming.name)}
           footer={<><button type="button" className="ui-btn ui-btn-secondary" onClick={() => setNaming(null)}>Cancel</button><button type="button" className="ui-btn ui-btn-primary" disabled={!naming.name.trim()} onClick={save}>Save</button></>}>
           <div className="grid gap-4">
             <label className="block"><span className="ui-label">Name *</span><input className="ui-input w-full" maxLength={80} value={naming.name} onChange={(e) => setNaming({ ...naming, name: e.target.value })} placeholder="Sales on notice" data-autofocus /></label>

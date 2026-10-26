@@ -164,6 +164,9 @@ export default function AddEmployee({ params = {}, updateParams, openScreen }) {
   if (loading || !lists) return <div className="space-y-4" aria-busy="true"><SkeletonCard lines={2} /><SkeletonCard lines={8} /></div>;
 
   const opts = (arr) => [{ value: '', label: 'Not set' }, ...arr.map((x) => ({ value: x.id, label: x.name }))];
+  /* A list narrowed to what belongs under the choice above it; the current pick stays, so nothing is dropped silently. */
+  const nameIn = (items, id) => items.find((x) => x.id === id)?.name;
+  const within = (items, key, parent, current) => items.filter((x) => !parent || !x[key] || x[key] === parent || x.id === current);
   const errorList = Object.entries(errors).map(([k, message]) => ({ field: k, message }));
 
   return (
@@ -217,7 +220,6 @@ export default function AddEmployee({ params = {}, updateParams, openScreen }) {
             <SelectField id="employeeTypeId" label="Employment type" optional options={opts(lists.types)} {...field('employeeTypeId')} />
             <DateField id="dateOfJoining" label="Date of joining" required {...field('dateOfJoining')} error={errors.dateOfJoining} />
             <SelectField id="workTypeId" label="Work type" optional options={opts(lists.workTypes)} {...field('workTypeId')} />
-            {lists.roles.length ? <SelectField id="jobRoleId" label="Job role" optional options={opts(lists.roles)} {...field('jobRoleId')} /> : null}
             <DateField id="probationEndDate" label="Probation ends" optional min={form.dateOfJoining || ''} {...field('probationEndDate')} error={errors.probationEndDate} />
             <DateField id="contractEndDate" label="Contract ends" optional min={form.dateOfJoining || ''} {...field('contractEndDate')} error={errors.contractEndDate} />
             <SelectField id="status" label="Work status" options={[{ value: 'ACTIVE', label: 'Active' }, { value: 'SUSPENDED', label: 'Suspended' }]} {...field('status')} />
@@ -227,15 +229,16 @@ export default function AddEmployee({ params = {}, updateParams, openScreen }) {
         {stepKey === 'organization' ? (
           <Step title="Organization" hint="Where they sit and who they report to. The server refuses a manager that would make a reporting loop.">
             <SelectField id="departmentId" label="Department" optional options={opts(lists.departments)} {...field('departmentId')} />
-            <SelectField id="jobPositionId" label="Designation" optional options={opts(lists.positions)} {...field('jobPositionId')} />
-            <SelectField id="areaId" label="Work location" optional options={opts(lists.areas)} {...field('areaId')} />
+            <SelectField id="jobPositionId" label="Designation" optional options={opts(within(lists.positions, 'departmentId', form.departmentId, form.jobPositionId))} {...field('jobPositionId')} />
+            {lists.roles.length ? <SelectField id="jobRoleId" label="Job role" optional options={opts(within(lists.roles, 'jobPositionId', form.jobPositionId, form.jobRoleId))} {...field('jobRoleId')} /> : null}
+            <SelectField id="areaId" label="Location" optional options={opts(lists.areas)} {...field('areaId')} />
             <SelectField id="establishmentId" label="Establishment" optional options={opts(lists.establishments)} {...field('establishmentId')} />
             <SelectField id="reportingManagerId" label="Reporting manager" optional options={[{ value: '', label: 'Not set' }, ...people.map((e) => ({ value: e.id, label: e.code ? `${e.name} (${e.code})` : e.name }))]} {...field('reportingManagerId')} />
             <SelectField id="dottedManagerId" label="Also reports to (dotted line)" optional options={[{ value: '', label: 'Not set' }, ...people.map((e) => ({ value: e.id, label: e.code ? `${e.name} (${e.code})` : e.name }))]} {...field('dottedManagerId')} />
             {lists.units.length ? <SelectField id="businessUnitId" label="Business unit" optional options={opts(lists.units)} {...field('businessUnitId')} /> : null}
-            {lists.teams.length ? <SelectField id="teamId" label="Team" optional options={opts(lists.teams)} {...field('teamId')} /> : null}
-            {lists.seats.length ? <SelectField id="seatId" label="Seat" optional options={opts(lists.seats.filter((x) => !form.teamId || !x.teamId || x.teamId === form.teamId))} {...field('seatId')} /> : null}
-            <Text id="workLocation" label="Work location (text)" optional help="For a place not in the Locations list." {...field('workLocation')} />
+            {lists.teams.length ? <SelectField id="teamId" label="Team" optional options={opts(within(lists.teams, 'departmentId', form.departmentId, form.teamId))} {...field('teamId')} /> : null}
+            {lists.seats.length ? <SelectField id="seatId" label="Seat" optional options={opts(within(lists.seats, 'teamId', form.teamId, form.seatId))} {...field('seatId')} /> : null}
+            <Text id="workLocation" label="Work location" optional help="Free text, for a place not in the Locations list (a client site, home)." {...field('workLocation')} />
             {lists.tags.length ? (
               <fieldset className="sm:col-span-2">
                 <legend className="ui-label">Tags <span className="ui-caption font-normal">(optional)</span></legend>
@@ -269,9 +272,9 @@ export default function AddEmployee({ params = {}, updateParams, openScreen }) {
             ) : null}
             {!form.workEmail && !form.phone ? <Alert tone="info" title="No work email or phone">That is fine for workers without one; they can be added later.</Alert> : null}
             {form.dateOfJoining > todayIst() ? <Alert tone="info" title={`Joining on ${formatDate(form.dateOfJoining)}`}>They show as "Joining soon" until then.</Alert> : null}
-            {[['personal', 'Personal', [['Legal name', [form.firstName, form.lastName].filter(Boolean).join(' ')], ['Preferred name', form.preferredName], ['Work email', form.workEmail], ['Phone', form.phone], ['Personal email', form.personalEmail], ['Date of birth', form.dateOfBirth && formatDate(form.dateOfBirth)], ['Emergency contact', [form.emergencyContactName, form.emergencyContactRelation, form.emergencyContactPhone].filter(Boolean).join(' · ')]]],
-              ['employment', 'Employment', [['Employee ID', form.code], ['Employment type', lists.types.find((t) => t.id === form.employeeTypeId)?.name], ['Date of joining', form.dateOfJoining && formatDate(form.dateOfJoining)], ['Probation ends', form.probationEndDate && formatDate(form.probationEndDate)], ['Work status', form.status === 'ACTIVE' ? 'Active' : 'Suspended']]],
-              ['organization', 'Organization', [['Department', lists.departments.find((x) => x.id === form.departmentId)?.name], ['Designation', lists.positions.find((x) => x.id === form.jobPositionId)?.name], ['Work location', lists.areas.find((x) => x.id === form.areaId)?.name || form.workLocation], ['Establishment', lists.establishments.find((x) => x.id === form.establishmentId)?.name], ['Reporting manager', people.find((x) => x.id === form.reportingManagerId)?.name], ['Team', lists.teams.find((x) => x.id === form.teamId)?.name], ['Tags', lists.tags.filter((t) => form.tagIds.includes(t.id)).map((t) => t.name).join(', ')], ...(hasApp('attendance') ? [['Reader ID', form.devicePin || (form.code ? `${form.code} (employee ID)` : '')], ['Attendance expected', form.attendanceRequired === false ? 'No, door only' : 'Yes']] : [])]],
+            {[['personal', 'Personal', [['Legal name', [form.firstName, form.lastName].filter(Boolean).join(' ')], ['Preferred name', form.preferredName], ['Photo', form.photoUrl ? 'Added' : ''], ['Work email', form.workEmail], ['Phone', form.phone], ['Work phone', form.workPhone], ['Personal email', form.email], ['Date of birth', form.dateOfBirth && formatDate(form.dateOfBirth)], ['Gender', GENDER_WORDS[form.gender]], ['Father’s / husband’s name', form.guardianName], ['Emergency contact', [form.emergencyContactName, form.emergencyContactRelation, form.emergencyContactPhone].filter(Boolean).join(' · ')]]],
+              ['employment', 'Employment', [['Employee ID', form.code], ['Employment type', nameIn(lists.types, form.employeeTypeId)], ['Date of joining', form.dateOfJoining && formatDate(form.dateOfJoining)], ['Work type', nameIn(lists.workTypes, form.workTypeId)], ['Probation ends', form.probationEndDate && formatDate(form.probationEndDate)], ['Contract ends', form.contractEndDate && formatDate(form.contractEndDate)], ['Work status', form.status === 'ACTIVE' ? 'Active' : 'Suspended']]],
+              ['organization', 'Organization', [['Department', nameIn(lists.departments, form.departmentId)], ['Designation', nameIn(lists.positions, form.jobPositionId)], ...(lists.roles.length ? [['Job role', nameIn(lists.roles, form.jobRoleId)]] : []), ['Location', nameIn(lists.areas, form.areaId)], ['Work location', form.workLocation], ['Establishment', nameIn(lists.establishments, form.establishmentId)], ['Reporting manager', people.find((x) => x.id === form.reportingManagerId)?.name], ['Also reports to', people.find((x) => x.id === form.dottedManagerId)?.name], ...(lists.units.length ? [['Business unit', nameIn(lists.units, form.businessUnitId)]] : []), ...(lists.teams.length ? [['Team', nameIn(lists.teams, form.teamId)]] : []), ...(lists.seats.length ? [['Seat', nameIn(lists.seats, form.seatId)]] : []), ...(lists.centres.length ? [['Cost centre', nameIn(lists.centres, form.costCenterId)]] : []), ...(lists.grades.length ? [['Grade', nameIn(lists.grades, form.gradeId)]] : []), ['Tags', lists.tags.filter((t) => form.tagIds.includes(t.id)).map((t) => t.name).join(', ')], ...(hasApp('attendance') ? [['Reader ID', form.devicePin || (form.code ? `${form.code} (employee ID)` : '')], ['Card number', form.cardNumber], ...(lists.contractors.length ? [['Contractor', nameIn(lists.contractors, form.contractorId)]] : []), ['Attendance expected', form.attendanceRequired === false ? 'No, door only' : 'Yes']] : [])]],
             ].map(([k, title, rows]) => (
               <section key={k} className="ui-review-block" aria-label={title}>
                 <header className="flex items-center justify-between"><h3 className="text-sm font-semibold">{title}</h3><button type="button" className="ui-link text-sm" onClick={() => goStep(k)}>Edit</button></header>

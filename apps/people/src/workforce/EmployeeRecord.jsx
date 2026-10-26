@@ -461,8 +461,8 @@ function Personal({ person, allowed, editing, setEditing, onSaved, reload }) {
         </Section>
       ))}
       {/* Statutory details: a section only for those with the grant (D-V2); masked, reveal needs an authenticator. */}
-      {allowed('PEOPLE::Statutory Details::VIEW') ? <Section title="Identity and statutory"><StatutoryDetails employeeId={person.id} /></Section> : null}
-      <Section title="More details"><CustomFields employeeId={person.id} /></Section>
+      {allowed('PEOPLE::Statutory Details::VIEW') ? <Section title="Identity and statutory"><StatutoryDetails employeeId={person.id} embedded /></Section> : null}
+      <Section title="More details"><CustomFields employeeId={person.id} embedded /></Section>
       {allowed('PEOPLE::Lifecycle::VIEW') ? <JoiningDetails person={person} onChecked={(p) => onSaved(p)} /> : null}
       {!person.userId ? <p className="ui-caption">Portal access not linked: this employee has no sign-in of their own, which is fine.</p> : null}
     </div>
@@ -499,7 +499,7 @@ function Employment({ person, data, lists, allowed, editing, setEditing, onSaved
     { key: 'dateOfJoining', label: 'Joining date', kind: 'date' },
     { key: 'probationEndDate', label: 'Probation ends', kind: 'date' },
     { key: 'contractEndDate', label: 'Contract ends', kind: 'date' },
-    { key: 'jobRoleId', label: 'Job role', kind: 'select', options: (lists?.roles || []).map((x) => [x.id, x.name]) },
+    { key: 'jobRoleId', label: 'Job role', kind: 'select', options: (lists?.roles || []).filter((x) => !person.jobPositionId || !x.jobPositionId || x.jobPositionId === person.jobPositionId || x.id === person.jobRoleId).map((x) => [x.id, x.name]) },
   ];
   return (
     <div className="space-y-4">
@@ -634,6 +634,7 @@ const OPERATIONS = {
   /* Allowed moves only: active or on notice can be suspended, suspended can be reactivated; leaving and rehire have their own flows (WF-14). */
   status: { title: 'Change status', fields: [['status', 'New status', 'statuses']], reasonRequired: true },
 };
+const NARROWED_BY = { seatId: 'teamId', teamId: 'departmentId', jobPositionId: 'departmentId', jobRoleId: 'jobPositionId' };
 const STATUS_WORD = { ACTIVE: 'Active', ON_NOTICE: 'On notice', SUSPENDED: 'Suspended', LEFT: 'Left' };
 
 /**
@@ -646,17 +647,20 @@ const STATUS_WORD = { ACTIVE: 'Active', ON_NOTICE: 'On notice', SUSPENDED: 'Susp
 function OperationDrawer({ action, person, lists, onClose, onDone }) {
   const op = OPERATIONS[action];
   const [people, setPeople] = useState([]);
-  const initial = useMemo(() => Object.fromEntries((op?.fields || []).map(([k]) => [k, person[k] || ''])), [op, person]);
+  /* A status change has one allowed move from where they are (suspend, or reactivate), so it starts chosen. */
+  const target = action === 'status' ? (person.status === 'SUSPENDED' ? 'ACTIVE' : 'SUSPENDED') : null;
+  const initial = useMemo(() => Object.fromEntries((op?.fields || []).map(([k]) => [k, k === 'status' ? target : person[k] || ''])), [op, person, target]);
   const [form, setForm] = useState(initial);
   const [effective, setEffective] = useState(todayIst());
   const [reason, setReason] = useState('');
+  const [reasonMissing, setReasonMissing] = useState(false);
   const [impact, setImpact] = useState([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   useEffect(() => {
     if (op?.fields.some(([, , src]) => src === 'people')) listEmployees({ limit: 500, sort: 'name' }).then((r) => setPeople((r?.employees || []).filter((e) => e.id !== person.id && e.status !== 'LEFT'))).catch(() => setPeople([]));
   }, [op, person.id]);
-  const changed = Object.fromEntries(Object.entries(form).filter(([k, v]) => (v || '') !== (initial[k] || '')));
+  const changed = Object.fromEntries(Object.entries(form).filter(([k, v]) => (v || '') !== (person[k] || '')));
   useEffect(() => {
     const ask = {};
     for (const k of ['establishmentId', 'departmentId', 'reportingManagerId']) if (k in changed) ask[k] = changed[k] || '';
@@ -670,9 +674,17 @@ function OperationDrawer({ action, person, lists, onClose, onDone }) {
   const options = (src) => (src === 'people' ? people.map((e) => ({ value: e.id, label: e.code ? `${e.name} (${e.code})` : e.name }))
     : src === 'statuses' ? (person.status === 'SUSPENDED' ? [{ value: 'ACTIVE', label: 'Active' }] : [{ value: 'SUSPENDED', label: 'Suspended' }])
     : (lists[src] || []).map((x) => ({ value: x.id, label: x.name })));
+  /* A list narrowed to what sits under the choice above it (in this form, or on the record); the current pick stays. */
+  const narrowed = (k, src) => {
+    const parentKey = NARROWED_BY[k];
+    if (!parentKey) return options(src);
+    const parent = parentKey in form ? form[parentKey] : person[parentKey];
+    return options(src).filter((o) => { const item = lists[src]?.find((x) => x.id === o.value); return !parent || !item?.[parentKey] || item[parentKey] === parent || o.value === form[k]; });
+  };
   const current = (k, src) => (src === 'people' ? (k === 'reportingManagerId' ? person.reportingManagerName : person.dottedManagerName) : src === 'statuses' ? STATUS_WORD[person.status] : lists[src]?.find((x) => x.id === person[k])?.name) || 'None';
   const submit = async () => {
     if (busy || !Object.keys(changed).length) return;
+    if (op.reasonRequired && !reason.trim()) { setReasonMissing(true); return; }
     setBusy(true);
     setError(null);
     try {
@@ -687,20 +699,21 @@ function OperationDrawer({ action, person, lists, onClose, onDone }) {
     }
   };
   return (
-    <Drawer open onClose={onClose} title={`${op.title}: ${person.name}`} description="The change, the day it counts from, and why. History keeps both the before and the after." dirty={Object.keys(changed).length > 0 || Boolean(reason)}
-      footer={<><button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button><button type="button" className="ui-btn ui-btn-primary" disabled={busy || !Object.keys(changed).length || (op.reasonRequired && !reason.trim())} onClick={submit}>{busy ? 'Saving…' : 'Confirm change'}</button></>}>
+    <Drawer open onClose={onClose} widthClass="w-[min(36rem,96vw)]" title={`${target ? (target === 'ACTIVE' ? 'Reactivate' : 'Suspend') : op.title}: ${person.name}`} description="The change, the day it counts from, and why. History keeps both the before and the after." dirty={Object.keys(form).some((k) => (form[k] || '') !== (initial[k] || '')) || Boolean(reason)}
+      footer={<><button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button><button type="button" className="ui-btn ui-btn-primary" disabled={busy || !Object.keys(changed).length} onClick={submit}>{busy ? 'Saving…' : 'Confirm change'}</button></>}>
       <div className="grid gap-4">
         {error ? (error?.status === 409 && error?.data?.code === 'STALE'
           ? <Alert tone="warn" title="This record was updated elsewhere">Close this, reload the record, and make the change again. Nothing was overwritten.</Alert>
           : <ErrorState error={error} compact onRetry={submit} retryLabel="Try again" body={error?.status === 400 ? error.message : undefined} />) : null}
         {op.fields.map(([k, label, src]) => (
           <div key={k}>
-            <PopupSelect showValueSubtext={false} label={label} value={form[k]} onChange={(v) => setForm({ ...form, [k]: v || '' })} placeholder="Choose…" alwaysSearch={src !== 'statuses'} options={src === 'statuses' ? options(src) : [{ value: '', label: 'None' }, ...(k === 'seatId' ? options(src).filter((o) => { const seat = lists.seats?.find((x) => x.id === o.value); return !form.teamId || !seat?.teamId || seat.teamId === form.teamId; }) : options(src))]} />
+            <PopupSelect showValueSubtext={false} label={label} value={form[k]} onChange={(v) => setForm({ ...form, [k]: v || '' })} placeholder="Choose…" alwaysSearch={src !== 'statuses'} options={src === 'statuses' ? options(src) : [{ value: '', label: 'None' }, ...narrowed(k, src)]} />
             <span className="ui-caption">Now: {current(k, src)}</span>
           </div>
         ))}
         <div><label className="ui-label" htmlFor="op-effective">Effective from</label><DatePicker id="op-effective" value={effective} onChange={setEffective} /><span className="ui-caption">A later date schedules it; it applies on that day.</span></div>
-        <label className="block"><span className="ui-label">Reason{op.reasonRequired ? ' *' : ''}</span><textarea className="ui-input w-full" rows={2} maxLength={500} value={reason} onChange={(e) => setReason(e.target.value)} /></label>
+        <label className="block"><span className="ui-label">Reason{op.reasonRequired ? ' *' : ''}</span><textarea className="ui-input w-full" rows={2} maxLength={500} value={reason} aria-invalid={reasonMissing || undefined} aria-describedby={reasonMissing ? 'op-reason-error' : undefined} onChange={(e) => { setReason(e.target.value); setReasonMissing(false); }} /></label>
+        {reasonMissing ? <p id="op-reason-error" className="ui-field-error" role="alert">Say why. A status change is kept on the record with its reason.</p> : null}
         {impact.length ? (
           <div aria-label="What else this affects">
             <p className="ui-label">What else this affects</p>

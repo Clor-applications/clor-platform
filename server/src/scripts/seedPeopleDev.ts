@@ -62,14 +62,39 @@ const POSITIONS: Record<string, string[]> = {
 const FIRST = ['Meera', 'Ravi', 'Anil', 'Priya', 'Suresh', 'Kavya', 'Imran', 'Lakshmi', 'Deepak', 'Farah', 'Arjun', 'Nisha', 'Vikram', 'Pooja', 'Rahul', 'Sana', 'Mohan', 'Divya', 'Kiran', 'Rekha'];
 const LAST = ['Shah', 'Kumar', 'Patil', 'Nair', 'Iyer', 'Reddy', 'Khan', 'Das', 'Verma', 'Joshi'];
 
+/* The other lists a person is placed by, so every picker on the Workforce screens has something to choose. */
+const LISTS: Record<string, string[]> = {
+  'employee-types': ['Permanent', 'Probationer', 'Trainee', 'Fixed-term'],
+  'work-types': ['Full time', 'Part time', 'Shift'],
+  areas: ['Bengaluru North', 'Bengaluru South', 'Pune'],
+  'business-units': ['Facility services', 'Corporate'],
+  grades: ['G1', 'G2', 'G3', 'M1'],
+  'cost-centres': ['CC-100 Operations', 'CC-200 Support'],
+};
+const TAGS = [{ name: 'Night shift', color: '#E54F38' }, { name: 'First aid trained', color: '#2F855A' }, { name: 'Key holder', color: '#2B6CB0' }];
+
+async function lists(c: Ctx, depts: Record<string, string>, positions: Record<string, string>) {
+  for (const [kind, names] of Object.entries(LISTS)) {
+    const have = new Set(((await people(c).get(`/structure/${kind}`)).body?.items || []).map((i: any) => i.name));
+    for (const name of names) if (!have.has(name)) await people(c).post(`/structure/${kind}`, { name });
+  }
+  const roles = new Set(((await people(c).get('/structure/job-roles')).body?.items || []).map((i: any) => i.name));
+  for (const [name, pos] of [['Night supervisor', 'Site supervisor'], ['Accounts payable', 'Accountant']]) if (!roles.has(name)) await people(c).post('/structure/job-roles', { name, jobPositionId: positions[pos] });
+  const teams: Record<string, string> = {};
+  for (const t of (await people(c).get('/structure/teams')).body?.items || []) teams[t.name] = t.id;
+  for (const [name, dept] of [['Site A crew', 'Operations'], ['Accounts', 'Finance']]) if (!teams[name]) teams[name] = (await people(c).post('/structure/teams', { name, departmentId: depts[dept] })).body.item.id;
+  const seats = new Set(((await people(c).get('/structure/seats')).body?.items || []).map((i: any) => i.name));
+  for (const [name, team] of [['Supervisor seat 1', 'Site A crew'], ['Accountant seat 1', 'Accounts']]) if (!seats.has(name)) await people(c).post('/structure/seats', { name, teamId: teams[team] });
+  const tags = new Set(((await people(c).get('/tags')).body?.tags || []).map((t: any) => t.name));
+  for (const t of TAGS) if (!tags.has(t.name)) await people(c).post('/tags', t);
+  const contractors = new Set(((await people(c).get('/contractors')).body?.contractors || []).map((x: any) => x.name));
+  if (!contractors.has('Safeguard Manpower Services')) await people(c).post('/contractors', { name: 'Safeguard Manpower Services', code: 'SMS', contactPerson: 'Contact desk', phone: '9800000001' });
+}
+
 async function main() {
   const c = await owner();
   const have = await people(c).get('/employees?limit=500');
   const count = have.body?.employees?.length ?? 0;
-  if (count >= 40) {
-    console.log(`Meridian Facilities already has ${count} people; nothing to add.`);
-    return;
-  }
   const depts: Record<string, string> = {};
   const listed = await people(c).get('/structure/departments');
   for (const d of listed.body?.items || []) depts[d.name] = d.id;
@@ -89,6 +114,11 @@ async function main() {
         positions[name] = r.body.item.id;
       }
     }
+  }
+  await lists(c, depts, positions);
+  if (count >= 40) {
+    console.log(`Meridian Facilities already has ${count} people; lists topped up.`);
+    return;
   }
   let made = 0;
   for (let i = count; i < 40; i++) {
