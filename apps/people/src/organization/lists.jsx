@@ -13,3 +13,6 @@ export const OrgWorkSites = (props) => <StructurePage kind="establishments" {...
 export const OrgBusinessUnits = (props) => <StructurePage kind="business-units" {...props} />;
 export const OrgGrades = (props) => <StructurePage kind="grades" {...props} />;
 export const OrgCostCentres = (props) => <StructurePage kind="cost-centres" {...props} />;
+export const OrgEmploymentTypes = (props) => <StructurePage kind="employee-types" {...props} />;
+export const OrgWorkModes = (props) => <StructurePage kind="work-types" {...props} />;
+export const OrgLegalEntities = (props) => <StructurePage kind="legal-entities" {...props} />;

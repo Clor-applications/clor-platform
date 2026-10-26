@@ -1,4 +1,5 @@
 import React, { useMemo, useRef, useState } from 'react';
+import { KIND_WORDS } from '@ui/personnel/employmentKinds';
 import SuggestInput from '@ui/components/ui/SuggestInput';
 import { useSuggestions } from '../workforce/suggestions';
 import { Plus } from 'lucide-react';
@@ -74,11 +75,36 @@ export const KINDS = {
     title: 'Work Sites', singular: 'work site', screen: 'establishments', noDelete: false,
     fields: [
       { key: 'state', label: 'State', type: 'state', required: true },
+      { key: 'legalEntityId', label: 'Legal company', type: 'ref', ref: 'legal-entities', placeholder: 'Not set' },
       { key: 'kind', label: 'Kind', type: 'select', options: [['OFFICE', 'Office'], ['SHOP', 'Shop'], ['FACTORY', 'Factory'], ['SITE', 'Site'], ['WAREHOUSE', 'Warehouse']] },
       { key: 'address', label: 'Address', type: 'text', wide: true, suggest: 'branchAddress', max: 500 },
       { key: 'holdsOriginals', label: 'The company keeps employees’ original documents here', type: 'checkbox', wide: true },
     ],
     columns: [{ key: 'state', label: 'State', render: (r) => r.state || '—' }],
+  },
+  /* Settings lists: a person's terms and the company in law, laid out like every other list. */
+  'employee-types': {
+    title: 'Employment Types', singular: 'employment type', screen: 'employeeTypes', settings: true,
+    fields: [
+      { key: 'category', label: 'Counts as', type: 'select', options: Object.entries(KIND_WORDS) },
+      { key: 'probationMonths', label: 'Probation (months)', type: 'text', inputMode: 'numeric', placeholder: 'None' },
+      { key: 'noticeDays', label: 'Notice (days)', type: 'text', inputMode: 'numeric', placeholder: 'None' },
+    ],
+    columns: [
+      { key: 'category', label: 'Counts as', render: (r) => KIND_WORDS[r.category] || '—' },
+      { key: 'probation', label: 'Probation', render: (r) => (r.probationMonths ? <span className="tabular-nums">{r.probationMonths} {r.probationMonths === 1 ? 'month' : 'months'}</span> : '—') },
+      { key: 'notice', label: 'Notice', render: (r) => (r.noticeDays ? <span className="tabular-nums">{r.noticeDays} days</span> : '—') },
+    ],
+  },
+  'work-types': { title: 'Work Modes', singular: 'work mode', screen: 'workTypes', settings: true, fields: [], columns: [] },
+  'legal-entities': {
+    title: 'Company (legal)', singular: 'legal company', noun: 'legal companies', screen: 'legalEntities', settings: true,
+    fields: [
+      { key: 'pan', label: 'PAN', type: 'text', placeholder: 'ABCDE1234F' },
+      { key: 'cin', label: 'CIN', type: 'text' },
+      { key: 'address', label: 'Registered address', type: 'text', wide: true, max: 500 },
+    ],
+    columns: [{ key: 'pan', label: 'PAN', render: (r) => <span className="tabular-nums">{r.pan || '—'}</span> }],
   },
   'business-units': { title: 'Business Units', singular: 'business unit', screen: 'businessUnits', fields: [], columns: [] },
   grades: { title: 'Grades', singular: 'grade', screen: 'grades', fields: [], columns: [] },
@@ -86,7 +112,7 @@ export const KINDS = {
 };
 
 /* Kinds without a description column on the server (EmployeeType, WorkType) are not listed here; the rest carry one. */
-const DESCRIBED = new Set(['departments', 'job-positions', 'job-roles', 'teams', 'seats', 'areas', 'establishments', 'business-units', 'grades', 'cost-centres']);
+const DESCRIBED = new Set(['departments', 'job-positions', 'job-roles', 'teams', 'seats', 'areas', 'establishments', 'business-units', 'grades', 'cost-centres', 'legal-entities']);
 /* Kinds whose children follow them in a merge, and the parent key the server uses. */
 const TREE_KEY = { departments: 'parentId', areas: 'parentId' };
 
@@ -134,6 +160,7 @@ export default function StructurePage({ kind, openScreen, params = {}, updatePar
   const tabIndicator = useTabIndicator(tabsRef, tab);
 
   const items = req.data?.items || [];
+  const noun = cfg.noun || cfg.title.toLowerCase();
   const withUnder = (r) => (TREE_KEY[kind] ? [r.id, ...descendantsOf(items, r.id, TREE_KEY[kind])].reduce((n, id) => n + (items.find((x) => x.id === id)?.employeeCount || 0), 0) : r.employeeCount || 0);
   const refNames = useMemo(() => Object.fromEntries(Object.entries(req.data?.refs || {}).map(([k, list]) => [k, new Map((list || []).map((r) => [r.id, TREE_KEY[k] ? pathOf(list, r, TREE_KEY[k]) : r.name]))])), [req.data]);
   const counts = { active: items.filter((r) => r.isActive !== false).length, retired: items.filter((r) => r.isActive === false).length };
@@ -159,7 +186,8 @@ export default function StructurePage({ kind, openScreen, params = {}, updatePar
     ) },
     ...cfg.columns.map((c) => ({ ...c, render: (r) => c.render(r, refNames) })),
     /* Direct count; a department with sub-departments also says how many with them (ORG-R050). */
-    { key: 'people', label: 'People', align: 'right', render: (r) => { const all = withUnder(r); return <span className="tabular-nums">{r.employeeCount || 0}{all > (r.employeeCount || 0) ? <span className="block ui-caption">{all} with sub-{kind === 'areas' ? 'locations' : 'departments'}</span> : null}</span>; } },
+    /* A legal company is used by its work sites, not by people directly. */
+    { key: 'people', label: kind === 'legal-entities' ? 'Work sites' : 'People', align: 'right', render: (r) => { const all = withUnder(r); return <span className="tabular-nums">{r.employeeCount || 0}{all > (r.employeeCount || 0) ? <span className="block ui-caption">{all} with sub-{kind === 'areas' ? 'locations' : 'departments'}</span> : null}</span>; } },
   ];
   const rowActions = (r) => [
     canEdit ? { key: 'edit', label: 'Edit', onSelect: () => setEditing({ ...r }) } : null,
@@ -173,7 +201,7 @@ export default function StructurePage({ kind, openScreen, params = {}, updatePar
   return (
     <div className="space-y-6">
       <PageHeader
-        breadcrumb={[{ label: 'People' }, { label: 'Organization', onClick: () => openScreen?.('organization') }, { label: cfg.title }]}
+        breadcrumb={cfg.settings ? null : [{ label: 'People' }, { label: 'Organization', onClick: () => openScreen?.('organization') }, { label: cfg.title }]}
         title={cfg.title}
         actions={canCreate ? <button type="button" className="ui-btn ui-btn-primary" onClick={() => setEditing({ name: '', isActive: true })}><Plus size={16} aria-hidden="true" /> New {cfg.singular}</button> : null}
       />
@@ -195,7 +223,7 @@ export default function StructurePage({ kind, openScreen, params = {}, updatePar
           rowActions={rowActions}
           loading={req.loading}
           refreshing={req.refreshing}
-          noun={cfg.title.toLowerCase()}
+          noun={noun}
           card={(r) => (
             <span className="min-w-0 flex-1">
               <span className="flex items-center justify-between gap-2"><span className="truncate font-medium">{r.name}</span><span className="ui-caption tabular-nums">{r.employeeCount || 0}</span></span>
@@ -203,11 +231,11 @@ export default function StructurePage({ kind, openScreen, params = {}, updatePar
             </span>
           )}
           empty={q
-            ? <EmptyState kind="filtered" title={`No ${cfg.title.toLowerCase()} match`} description="Nothing here matches the search." />
+            ? <EmptyState kind="filtered" title={`No ${noun} match`} description="Nothing here matches the search." />
             : tab === 'retired'
-              ? <EmptyState title={`No retired ${cfg.title.toLowerCase()}`} description="What you retire stays here, with its history." />
-              : <EmptyState title={`No ${cfg.title.toLowerCase()} yet`} description={`Add the first ${cfg.singular}.`} />}
-          toolbar={<SearchField value={q} onSearch={setQ} placeholder={`Search ${cfg.title.toLowerCase()}`} label={`Search ${cfg.title.toLowerCase()}`} className="w-full sm:w-80" />}
+              ? <EmptyState title={`No retired ${noun}`} description="What you retire stays here, with its history." />
+              : <EmptyState title={`No ${noun} yet`} description={`Add the first ${cfg.singular}.`} />}
+          toolbar={<SearchField value={q} onSearch={setQ} placeholder={`Search ${noun}`} label={`Search ${noun}`} className="w-full sm:w-80" />}
         />
       )}
       {editing ? <EditDrawer kind={kind} cfg={cfg} value={editing} items={items} refs={req.data?.refs || {}} staff={req.data?.staff || []} onClose={() => { setEditing(null); if (params.new) updateParams?.({ new: null }); }} onDone={() => { setEditing(null); if (params.new) updateParams?.({ new: null }); req.reload(); }} onRetire={(r) => { setEditing(null); setRetiring(r); }} /> : null}
@@ -229,7 +257,7 @@ const field = (f, form, set, ctx) => {
   }
   if (f.type === 'text' && f.suggest) return <SuggestText key={f.key} f={f} id={id} value={form[f.key] || ''} onChange={(v) => set(f.key, v)} />;
   if (f.type === 'text') {
-    return <label key={f.key} className="block"><span className="ui-label">{f.label}{f.required ? ' *' : ''}</span><input id={id} className="ui-input w-full" maxLength={120} placeholder={f.placeholder || ''} value={form[f.key] || ''} onChange={(e) => set(f.key, e.target.value)} /></label>;
+    return <label key={f.key} className={`block ${f.wide ? 'sm:col-span-2' : ''}`}><span className="ui-label">{f.label}{f.required ? ' *' : ''}</span><input id={id} className={`ui-input w-full ${f.inputMode === 'numeric' ? 'tabular-nums' : ''}`} inputMode={f.inputMode} maxLength={f.max || 120} placeholder={f.placeholder || ''} value={form[f.key] ?? ''} onChange={(e) => set(f.key, f.inputMode === 'numeric' ? e.target.value.replace(/\D/g, '') : e.target.value)} /></label>;
   }
   let options = [];
   if (f.type === 'select') options = f.options.map(([value, label]) => ({ value, label }));

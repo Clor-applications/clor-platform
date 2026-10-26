@@ -73,6 +73,9 @@ const OrganizationOverview = screen('OrganizationOverview');
 const Branches = screen('Branches');
 const OrgChanges = screen('OrgChanges');
 const OrgDepartments = screen('OrgDepartments');
+const OrgEmploymentTypes = screen('OrgEmploymentTypes');
+const OrgWorkModes = screen('OrgWorkModes');
+const OrgLegalEntities = screen('OrgLegalEntities');
 const OrgDesignations = screen('OrgDesignations');
 const OrgJobRoles = screen('OrgJobRoles');
 const OrgTeams = screen('OrgTeams');
@@ -84,10 +87,8 @@ const OrgGrades = screen('OrgGrades');
 const OrgCostCentres = screen('OrgCostCentres');
 const Tags = screen('Tags');
 const Departments = screen('Departments');
-const EmployeeTypes = screen('EmployeeTypes');
 const JobPositions = screen('JobPositions');
 const JobRoles = screen('JobRoles');
-const WorkTypes = screen('WorkTypes');
 const DataHealth = screen('DataHealth');
 const Checklists = screen('Checklists');
 const LetterTemplates = screen('LetterTemplates');
@@ -117,7 +118,6 @@ const PeopleSettings = screen('PeopleSettings');
 const PeopleModules = screen('PeopleModules');
 const CompanyDetails = screen('CompanyDetails');
 const BusinessUnits = screen('BusinessUnits');
-const LegalEntities = screen('LegalEntities');
 const Establishments = screen('Establishments');
 const Teams = screen('Teams');
 const Seats = screen('Seats');
@@ -377,15 +377,15 @@ export const peopleApp = {
     seats: OrgPositions,
     jobPositions: OrgDesignations,
     jobRoles: OrgJobRoles,
-    employeeTypes: EmployeeTypes,
-    workTypes: WorkTypes,
+    employeeTypes: OrgEmploymentTypes,
+    workTypes: OrgWorkModes,
     tags: Tags,
     dataImport: DataImport,
     auditLogs: AuditLogs,
     settings: PeopleSettings,
     modules: PeopleModules,
     companyDetails: CompanyDetails,
-    legalEntities: LegalEntities,
+    legalEntities: OrgLegalEntities,
     establishments: OrgWorkSites,
     businessUnits: OrgBusinessUnits,
     areas: OrgLocations,

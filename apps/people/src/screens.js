@@ -23,7 +23,7 @@ export { default as OrgChart } from './screens/OrgChart';
 export { default as OrganizationOverview } from './organization/Overview';
 export { default as Branches } from './organization/Branches';
 export { default as OrgChanges } from './organization/Changes';
-export { OrgDepartments, OrgDesignations, OrgJobRoles, OrgTeams, OrgPositions, OrgLocations, OrgWorkSites, OrgBusinessUnits, OrgGrades, OrgCostCentres } from './organization/lists';
+export { OrgDepartments, OrgDesignations, OrgJobRoles, OrgTeams, OrgPositions, OrgLocations, OrgWorkSites, OrgBusinessUnits, OrgGrades, OrgCostCentres, OrgEmploymentTypes, OrgWorkModes, OrgLegalEntities } from './organization/lists';
 export { default as Tags } from './screens/Tags';
 export { DataHealth } from './screens/DataHealth';
 export { default as Checklists } from '@ui/personnel/Checklists';
