@@ -131,6 +131,13 @@ export default function ImportEmployees({ openScreen }) {
       setBusy(false);
     }
   };
+  /* The rows that did not go in, exactly as the file had them plus what was wrong: fix them in the spreadsheet and upload that file. */
+  const failedRows = () => {
+    const bad = result.results.filter((r) => !r.ok);
+    const lines = [[...file.headers, 'Problem'], ...bad.map((r) => [...(file.rows[r.row - 1] || []), r.error || ''])];
+    const base = file.name.replace(/\.(csv|xlsx)$/i, '');
+    downloadText(`\ufeff${lines.map((l) => l.map(csvCell).join(',')).join('\r\n')}`, `${base}-to-fix.csv`);
+  };
   const report = (res, name) => {
     const lines = [['Row', 'Result', 'Detail'], ...res.results.map((r) => [r.row, r.ok ? (r.action === 'UPDATE' ? 'Updated' : 'Ready') : 'Problem', r.ok ? (r.warning || '') : r.error])];
     downloadText(`\ufeff${lines.map((l) => l.map(csvCell).join(',')).join('\r\n')}`, name);
@@ -214,7 +221,7 @@ export default function ImportEmployees({ openScreen }) {
                 </ul>
               </>
             ) : (
-              <Alert tone="info" title={`${preview.imported} ${preview.imported === 1 ? 'row goes' : 'rows go'} in; ${preview.failed} ${preview.failed === 1 ? 'is' : 'are'} skipped`}>{mode === 'update' ? 'People already here are updated with the columns given.' : 'Rows naming an employee ID already here are skipped.'} Each person gets their own history entry, all under one import you can undo for 24 hours.</Alert>
+              <Alert tone="info" title={`${preview.imported} ${preview.imported === 1 ? 'row goes' : 'rows go'} in; ${preview.failed} ${preview.failed === 1 ? 'is' : 'are'} skipped`}>{mode === 'update' ? 'People already here are updated with the columns given.' : 'Rows naming an employee ID already here are skipped.'} It can be undone for 24 hours.</Alert>
             )}
           </div>
         ) : null}
@@ -232,7 +239,7 @@ export default function ImportEmployees({ openScreen }) {
             {step === 'map' ? <><button type="button" className="ui-btn ui-btn-secondary" onClick={() => setStep('upload')}>Choose another file</button><button type="button" className="ui-btn ui-btn-primary" disabled={busy || !mappedKeys.includes('name') || twice.length > 0} onClick={check}>{busy ? 'Checking…' : 'Check rows'}</button></> : null}
             {step === 'validate' ? <><button type="button" className="ui-btn ui-btn-secondary" onClick={() => setStep('map')}>Back to mapping</button><button type="button" className="ui-btn ui-btn-primary" disabled={!preview?.imported} onClick={() => setStep('review')}>Continue</button></> : null}
             {step === 'review' ? <><button type="button" className="ui-btn ui-btn-secondary" onClick={() => setStep('validate')}>Back</button><button type="button" className="ui-btn ui-btn-primary" disabled={busy} onClick={commit}>{busy ? 'Importing…' : `Import ${preview?.imported || ''}`}</button></> : null}
-            {step === 'results' ? <>{result?.failed ? <button type="button" className="ui-btn ui-btn-secondary" onClick={() => report(result, 'import-results.csv')}>Download results</button> : null}{result?.batchId && !result.undone ? <button type="button" className="ui-btn ui-btn-secondary" disabled={busy} onClick={undo}>Undo this import</button> : null}</> : null}
+            {step === 'results' ? <>{result?.failed ? <><button type="button" className="ui-btn ui-btn-secondary" onClick={failedRows}>Download rows to fix</button><button type="button" className="ui-btn ui-btn-secondary" onClick={() => { setFile(null); setPreview(null); setResult(null); setStep('upload'); }}>Upload the fixed file</button></> : null}{result?.batchId && !result.undone ? <button type="button" className="ui-btn ui-btn-secondary" disabled={busy} onClick={undo}>Undo this import</button> : null}</> : null}
           </span>
         </div>
       </div>
