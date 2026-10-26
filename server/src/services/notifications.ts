@@ -69,11 +69,20 @@ export async function notifyPermission(accountId: string, orgId: string, permiss
   return notifyUsers(accountId, orgId, ids, notice, opts);
 }
 
-/** Only one notification of a kind about one thing while it is unread: a reader that stays down does not pile up. */
-export async function notifyPermissionOnce(accountId: string, orgId: string, permission: string, notice: Notice & { dedupeKey: string }) {
+/**
+ * Only one notification of a kind about one thing.
+ *
+ * By default "one" means one while it is unread: a reader that stays down
+ * does not pile up, but once read it may be raised again the next time the
+ * job runs. `ever: true` means one, full stop, read or not: a dated reminder
+ * (a contract ends on 30 Nov, a licence on 1 Dec) whose key already names the
+ * date and stage is never worth sending twice. The bell keeps read rows for
+ * 90 days (pruneNotifications), so "ever" is bounded by that.
+ */
+export async function notifyPermissionOnce(accountId: string, orgId: string, permission: string, notice: Notice & { dedupeKey: string }, opts: { ever?: boolean } = {}) {
   const ids = await usersWithPermission(accountId, orgId, permission).catch(() => [] as string[]);
   if (!ids.length) return 0;
-  const have = await platformPrisma.notification.findMany({ where: { orgId, userId: { in: ids }, kind: notice.kind, readAt: null, linkJson: { contains: `"dedupe":"${notice.dedupeKey}"` } }, select: { userId: true } });
+  const have = await platformPrisma.notification.findMany({ where: { orgId, userId: { in: ids }, kind: notice.kind, ...(opts.ever ? {} : { readAt: null }), linkJson: { contains: `"dedupe":"${notice.dedupeKey}"` } }, select: { userId: true } });
   const seen = new Set(have.map((h) => h.userId));
   const link = { ...(notice.link || { app: 'attendance' }), dedupe: notice.dedupeKey } as NotificationLink & { dedupe: string };
   return notifyUsers(accountId, orgId, ids.filter((id) => !seen.has(id)), { ...notice, link });

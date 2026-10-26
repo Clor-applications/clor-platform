@@ -36,7 +36,7 @@ export const DEFAULT_ITEMS: Record<'JOINING' | 'LEAVING', Item[]> = {
     { title: 'Assign the salary structure', owner: 'PAYROLL', dueDays: 3 },
     { title: 'Signed appointment letter on file', owner: 'HR', dueDays: 7 },
     { title: 'PF nomination (Form 2) and ESIC declaration filed', owner: 'PAYROLL', dueDays: 30 },
-    { title: 'Probation review', owner: 'MANAGER', dueDays: 90 },
+    /* No probation review here: the end-date reminders put one on the plan for the actual probation end date. */
   ],
   LEAVING: [
     { title: 'Accept the resignation and confirm the last day in writing', owner: 'HR', dueDays: -30 },
@@ -72,7 +72,8 @@ export async function itemsFor(orgId: string, kind: Kind): Promise<{ items: Item
 export async function resolveOwners(who: Who, employee: { id: string; reportingManagerId?: string | null; userId?: string | null }): Promise<Record<Owner, string | null>> {
   const { accountId, orgId } = who;
   const [manager, hr, payroll, it, adminRoles] = await Promise.all([
-    employee.reportingManagerId ? peoplePrisma.employee.findFirst({ where: { id: employee.reportingManagerId, orgId }, select: { userId: true } }) : null,
+    /* A manager who has left or is suspended is no manager: their tasks go to HR. */
+    employee.reportingManagerId ? peoplePrisma.employee.findFirst({ where: { id: employee.reportingManagerId, orgId, status: { notIn: ['LEFT', 'SUSPENDED'] } }, select: { userId: true } }) : null,
     usersWithPermission(accountId, orgId, 'PEOPLE::Employees::EDIT'),
     usersWithPermission(accountId, orgId, 'PAYROLL::Employee Payroll Profile::EDIT'),
     usersWithPermission(accountId, orgId, 'PEOPLE::Assets::EDIT'),
@@ -112,15 +113,23 @@ async function tellOwners(who: Who, employee: { id: string; name: string; code: 
     for (const t of tasks) byUser.set(t.ownerUserId!, [...(byUser.get(t.ownerUserId!) || []), t]);
     if (!byUser.size) return;
     const users = await platformPrisma.user.findMany({ where: { id: { in: [...byUser.keys()] } }, select: { id: true, email: true, fullName: true } });
+    const linkOf = (t: (typeof tasks)[number]) => `${process.env.APP_URL || 'http://localhost:5173'}/api/people/task-links/${taskDoneToken(t)}`;
     for (const u of users) {
-      const mine = byUser.get(u.id) || [];
-      await notifyUsers(who.accountId, who.orgId, [u.id], { kind: 'people.task', title: `${mine.length === 1 ? mine[0].title : `${mine.length} ${KIND_LABEL[kind].toLowerCase()} tasks`} — ${employee.name}`, body: mine[0].dueDate ? `Due ${mine[0].dueDate}` : null, link: { app: 'people', screen: 'overview' } as any }, { except: who.userId });
-      for (const t of mine) {
-        await sendTemplate({
-          templateKey: 'people.task_assigned', to: u.email, toName: u.fullName, accountId: who.accountId, orgId: who.orgId, relatedType: 'ChecklistTask', relatedId: t.id,
-          data: { title: t.title, employeeName: employee.name, employeeCode: employee.code ? ` (${employee.code})` : '', dueDate: t.dueDate || 'no date', kind: KIND_LABEL[kind], doneLink: `${process.env.APP_URL || 'http://localhost:5173'}/api/people/task-links/${taskDoneToken(t)}` },
-        }).catch(() => undefined);
-      }
+      /* Whoever made the plan already knows: no bell and no e-mail about their own work (an owner hiring alone gets nothing). */
+      if (u.id === who.userId) continue;
+      const mine = (byUser.get(u.id) || []).sort((a, b) => String(a.dueDate || '9999').localeCompare(String(b.dueDate || '9999')) || a.sortOrder - b.sortOrder);
+      if (!mine.length) continue;
+      const one = mine.length === 1;
+      const title = one ? mine[0].title : `${mine.length} ${KIND_LABEL[kind].toLowerCase()} tasks`;
+      await notifyUsers(who.accountId, who.orgId, [u.id], { kind: 'people.task', title: `${title} — ${employee.name}`, body: mine[0].dueDate ? `${one ? 'Due' : 'First due'} ${mine[0].dueDate}` : null, link: { app: 'people', screen: 'overview' } as any }, { except: who.userId });
+      /* One e-mail per person, listing each of their tasks with its own done link. */
+      await sendTemplate({
+        templateKey: 'people.task_assigned', to: u.email, toName: u.fullName, accountId: who.accountId, orgId: who.orgId, relatedType: 'ChecklistTask', relatedId: mine[0].id,
+        data: {
+          title, employeeName: employee.name, employeeCode: employee.code ? ` (${employee.code})` : '', dueDate: mine[0].dueDate || 'no date', kind: KIND_LABEL[kind],
+          doneLink: one ? linkOf(mine[0]) : mine.map((t) => `${t.title} (due ${t.dueDate || 'no date'}):\n${linkOf(t)}`).join('\n\n'),
+        },
+      }).catch(() => undefined);
     }
   } catch (e) {
     // eslint-disable-next-line no-console

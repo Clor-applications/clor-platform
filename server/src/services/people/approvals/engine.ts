@@ -145,6 +145,8 @@ async function standInsFor(orgId: string, userIds: string[], day: string) {
 }
 
 const APPROVE_GRANT = 'PEOPLE::Requests::APPROVE';
+/** A manager with one of these statuses is treated as no manager. */
+const INACTIVE = new Set(['LEFT', 'SUSPENDED']);
 
 /** HR: whoever may edit employees, and of them those who may also approve requests (or all of them, when none may). */
 async function hrDeciders(accountId: string, orgId: string) {
@@ -175,11 +177,11 @@ export async function resolveApprover(who: { accountId: string; orgId: string },
       managerId = m?.reportingManagerId || null;
     }
     if (managerId) {
-      const m = await peoplePrisma.employee.findFirst({ where: { id: managerId, orgId }, select: { userId: true } });
-      /* A manager who may not approve requests would only stall it (E12): passed over. */
-      if (m?.userId && (await usersWithPermission(accountId, orgId, APPROVE_GRANT)).includes(m.userId)) primary = [m.userId];
+      const m = await peoplePrisma.employee.findFirst({ where: { id: managerId, orgId }, select: { userId: true, status: true } });
+      /* A manager who has left or is suspended is no manager; one who may not approve requests would only stall it (E12): passed over. */
+      if (m?.userId && !INACTIVE.has(m.status) && (await usersWithPermission(accountId, orgId, APPROVE_GRANT)).includes(m.userId)) primary = [m.userId];
     }
-    /* No manager, one who cannot sign in, or one who may not approve: HR takes the step. */
+    /* No manager, one who has gone, one who cannot sign in, or one who may not approve: HR takes the step. */
     if (!primary.length) primary = await hrDeciders(accountId, orgId);
   }
   const subs = await standInsFor(orgId, primary, day);
@@ -294,7 +296,12 @@ async function approveFinal(actor: Actor, requestId: string) {
   const { recordDecision } = await import('../decisions.js');
   const decision = await recordDecision(request);
   let outcome: Record<string, unknown> | void = undefined;
-  if (effect) outcome = await effect({ request, actor: { ...actor, source: 'APPROVAL', requestId: request.id, decisionId: decision.id } });
+  try {
+    if (effect) outcome = await effect({ request, actor: { ...actor, source: 'APPROVAL', requestId: request.id, decisionId: decision.id } });
+  } catch (e) {
+    await closeUnapplied(actor, request, decision.id, e);
+    throw new ApprovalError(`Approved, but it could not be applied: ${reasonOf(e)} The request is closed; ask again once that is fixed.`, 409, 'NOT_APPLIED');
+  }
   const closed = await peoplePrisma.$transaction(async (tx) => {
     const r = await tx.approvalRequest.update({ where: { id: requestId }, data: { status: 'APPROVED', decisionId: decision.id, outcome: (outcome || null) as Prisma.InputJsonValue }, include });
     await writeChangeLog(tx, actor, { kind: 'ApprovalRequest', id: r.id, employeeId: r.subjectEmployeeId }, [{ field: 'status', before: 'WAITING', after: 'APPROVED', redacted: false }]);
@@ -302,6 +309,34 @@ async function approveFinal(actor: Actor, requestId: string) {
   });
   await tellRequester(closed, `Approved: ${closed.title}`);
   return { request: closed, outcome };
+}
+
+const reasonOf = (e: unknown) => {
+  const m = String(e instanceof Error ? e.message : e || 'something went wrong').trim().slice(0, 400);
+  return /[.!?]$/.test(m) ? m : `${m}.`;
+};
+
+/**
+ * Every step approved, but what approval does failed (the record changed, a
+ * date no longer fits). The request must not sit WAITING with no step
+ * waiting: it is closed as not approved, with a closing line saying why that
+ * the Approvals screen shows, and the requester and HR are told.
+ */
+async function closeUnapplied(actor: Actor, request: RequestRow, decisionId: string, error: unknown) {
+  const reason = reasonOf(error);
+  try {
+    const closed = await peoplePrisma.$transaction(async (tx) => {
+      await tx.approvalStep.create({ data: { accountId: request.accountId, orgId: request.orgId, requestId: request.id, order: request.currentStep, candidateUserIds: [], approverUserId: null, dueAt: new Date(), status: 'REJECTED', comment: `Could not apply: ${reason}`.slice(0, 1000), decidedAt: new Date() } });
+      const r = await tx.approvalRequest.update({ where: { id: request.id }, data: { status: 'REJECTED', decisionId, outcome: { notApplied: reason } as Prisma.InputJsonValue }, include });
+      await writeChangeLog(tx, actor, { kind: 'ApprovalRequest', id: r.id, employeeId: r.subjectEmployeeId }, [{ field: 'status', before: 'WAITING', after: 'REJECTED', redacted: false }]);
+      return r;
+    });
+    await tellRequester(closed, `Approved but not applied: ${closed.title}`, `Could not apply: ${reason} Ask again once that is fixed.`);
+    const hr = (await hrDeciders(closed.accountId, closed.orgId)).filter((u) => u !== closed.requesterUserId);
+    await notifyUsers(closed.accountId, closed.orgId, hr, { kind: 'people.approval', title: `Approved but not applied: ${closed.title}`, body: `Could not apply: ${reason}`, link: { app: 'people', screen: 'approvals' } as any }, { except: actor.userId });
+  } catch (e) {
+    console.error(`[people-approvals] ${request.orgId}: request ${request.id} not closed after a failed effect:`, e instanceof Error ? e.message : e);
+  }
 }
 
 export type Decision = 'approve' | 'reject' | 'more-info';
@@ -435,36 +470,55 @@ export async function shape(r: RequestRow, names?: Map<string, string>) {
 // Due times (APR-03)
 // ---------------------------------------------------------------------------
 
-/** Overdue steps: a reminder first; a day after that, handed on if the rule says so. Idempotent per step. */
+/** A step left waiting on a "remind" rule is reminded again every this many working days. */
+export const REMIND_EVERY_WORKING_DAYS = 3;
+
+/**
+ * Overdue steps: a reminder first; a day after that, handed on if the rule
+ * says so; on a "remind" rule, reminded again every three working days while
+ * it waits (remindedAt is the last reminder). Idempotent per step and run.
+ * One step that fails is logged with its company and the rest go on.
+ */
 export async function runApprovalDues(now = new Date()) {
   const due = await outsideTenant('job: approval dues', () => peoplePrisma.approvalStep.findMany({ where: { status: 'WAITING', dueAt: { lt: now } }, include: { request: true } }));
   let reminded = 0;
   let handedOn = 0;
+  let failed = 0;
+  const remind = async (step: (typeof due)[number]) => {
+    await peoplePrisma.approvalStep.update({ where: { id: step.id }, data: { remindedAt: now } });
+    await notifyUsers(step.accountId, step.orgId, (step.candidateUserIds as string[]) || [], { kind: 'people.approval', title: `Overdue: ${step.request.title}`, body: `Was due ${step.dueAt.toISOString().slice(0, 10)}.`, link: { app: 'people', screen: 'approvals' } as any });
+    reminded += 1;
+  };
   for (const step of due) {
-    await runInTenant(step.orgId, async () => {
-      const rule = await peoplePrisma.approvalRule.findUnique({ where: { id: step.request.ruleId } });
-      const spec = ((rule?.steps || []) as unknown as StepSpec[]).find((s) => s.order === step.order);
-      if (!step.remindedAt) {
-        await peoplePrisma.approvalStep.update({ where: { id: step.id }, data: { remindedAt: now } });
-        await notifyUsers(step.accountId, step.orgId, (step.candidateUserIds as string[]) || [], { kind: 'people.approval', title: `Overdue: ${step.request.title}`, body: `Was due ${step.dueAt.toISOString().slice(0, 10)}.`, link: { app: 'people', screen: 'approvals' } as any });
-        reminded += 1;
-        return;
-      }
-      if (spec?.overdue?.action === 'HAND_ON' && spec.overdue.to && now.getTime() - step.remindedAt.getTime() >= 24 * 3_600_000) {
-        const resolved = await resolveApprover({ accountId: step.accountId, orgId: step.orgId }, spec.overdue.to, step.request.subjectEmployeeId, now.toISOString().slice(0, 10));
-        const candidates = [...new Set([...resolved.primary, ...resolved.standIns.map((s) => s.user)])].filter((u) => u !== step.request.requesterUserId);
-        if (!candidates.length) return;
-        await peoplePrisma.$transaction(async (tx) => {
-          const moved = await tx.approvalStep.updateMany({ where: { id: step.id, status: 'WAITING' }, data: { status: 'HANDED_ON', comment: 'Handed on: overdue', decidedAt: now } });
-          if (!moved.count) return;
-          await tx.approvalStep.create({ data: { accountId: step.accountId, orgId: step.orgId, requestId: step.requestId, order: step.order, candidateUserIds: candidates, approverUserId: candidates[0], dueAt: addWorkingDays(now, spec.dueDays), status: 'WAITING' } });
-        });
-        await notifyUsers(step.accountId, step.orgId, candidates, { kind: 'people.approval', title: `Handed on to you: ${step.request.title}`, link: { app: 'people', screen: 'approvals' } as any });
-        handedOn += 1;
-      }
-    });
+    try {
+      await runInTenant(step.orgId, async () => {
+        const rule = await peoplePrisma.approvalRule.findUnique({ where: { id: step.request.ruleId } });
+        const spec = ((rule?.steps || []) as unknown as StepSpec[]).find((s) => s.order === step.order);
+        if (!step.remindedAt) return remind(step);
+        if (spec?.overdue?.action === 'REMIND') {
+          if (addWorkingDays(step.remindedAt, REMIND_EVERY_WORKING_DAYS).getTime() <= now.getTime()) await remind(step);
+          return;
+        }
+        if (spec?.overdue?.action === 'HAND_ON' && spec.overdue.to && now.getTime() - step.remindedAt.getTime() >= 24 * 3_600_000) {
+          const resolved = await resolveApprover({ accountId: step.accountId, orgId: step.orgId }, spec.overdue.to, step.request.subjectEmployeeId, now.toISOString().slice(0, 10));
+          const candidates = [...new Set([...resolved.primary, ...resolved.standIns.map((s) => s.user)])].filter((u) => u !== step.request.requesterUserId);
+          if (!candidates.length) return;
+          await peoplePrisma.$transaction(async (tx) => {
+            const moved = await tx.approvalStep.updateMany({ where: { id: step.id, status: 'WAITING' }, data: { status: 'HANDED_ON', comment: 'Handed on: overdue', decidedAt: now } });
+            if (!moved.count) return;
+            await tx.approvalStep.create({ data: { accountId: step.accountId, orgId: step.orgId, requestId: step.requestId, order: step.order, candidateUserIds: candidates, approverUserId: candidates[0], dueAt: addWorkingDays(now, spec.dueDays), status: 'WAITING' } });
+          });
+          await notifyUsers(step.accountId, step.orgId, candidates, { kind: 'people.approval', title: `Handed on to you: ${step.request.title}`, link: { app: 'people', screen: 'approvals' } as any });
+          handedOn += 1;
+        }
+      });
+    } catch (e) {
+      failed += 1;
+      // eslint-disable-next-line no-console
+      console.error(`[people-approvals] dues: org ${step.orgId}, step ${step.id}:`, e instanceof Error ? e.message : e);
+    }
   }
-  return { due: due.length, reminded, handedOn };
+  return { due: due.length, reminded, handedOn, failed };
 }
 
 export function startApprovalDues({ intervalMs = 15 * 60_000, startupDelayMs = 60_000 } = {}) {
