@@ -62,7 +62,7 @@ export default function OrgChart({ openScreen }) {
   const nodes = req.data.nodes;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <PageHeader entity="people" breadcrumb={[{ label: 'People' }, { label: 'Workforce', onClick: () => openScreen?.('employees') }, { label: 'Org Chart' }]} title="Org Chart"
 />
       {nodes.length === 0 ? (

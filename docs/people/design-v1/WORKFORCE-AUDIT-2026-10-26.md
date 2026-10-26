@@ -34,25 +34,25 @@ code, then each finding checked before fixing. Status: **Fixed** (commit),
 
 | # | Finding | Status |
 |---|---|---|
-| E1 | Employee app has no screens for People self-service (my details, change request, accept, policies) | Open |
+| E1 | Employee app has no screens for People self-service (my details, change request, accept, policies) | Fixed |
 | E2 | Portal "Ask HR" writes to the old store the Help Desk does not read | Fixed `c31f88a` |
-| E3 | "Ask to read" a document is a dead end: no Accept in the employee app | Open |
+| E3 | "Ask to read" a document is a dead end: no Accept in the employee app | Fixed |
 | E4 | Employees VIEW returns everyone's personal data (DOB, address, personal phone, notes, reader PIN) | Fixed (lifecycle batch) |
-| E5 | Portal change request asked for more information strands the employee; rejected ones vanish | Open |
+| E5 | Portal change request asked for more information strands the employee; rejected ones vanish | Fixed |
 | E6 | Data requests visible to a team lead | Fixed `c31f88a` |
 | E7 | Probation review on anyone, and on yourself | Fixed `c31f88a` |
-| E10 | A scoped manager can edit their own HR record directly | Open |
-| E11 | A request with no possible approver approves itself | Open |
-| E12 | Manager approver without the approve grant stalls the request | Open |
-| E13 | Employee never sees their own type, hours, probation, contract end, manager | Open |
-| E14 | Photo and bank details not requestable by the employee | Open |
-| E15 | HR sees a blank requester on portal requests | Open |
-| E16 | Approved resignation not traceable to its request | Open |
-| E17 | Document upload/replace not in Activity | Open |
+| E10 | A scoped manager can edit their own HR record directly | Fixed: a team lead's own record changes through the employee app; HR edits it as ever |
+| E11 | A request with no possible approver approves itself | Fixed |
+| E12 | Manager approver without the approve grant stalls the request | Fixed |
+| E13 | Employee never sees their own type, hours, probation, contract end, manager | Fixed |
+| E14 | Photo and bank details not requestable by the employee | Photo fixed (HR approves, shown as the picture). Bank details: Later, Payroll (its bank-change path applies the first details at once, so it is not a safe HR-approved route) |
+| E15 | HR sees a blank requester on portal requests | Fixed |
+| E16 | Approved resignation not traceable to its request | Fixed |
+| E17 | Document upload/replace not in Activity | No change needed: Activity lists every document from the document table (upload and new version included) |
 | E19 | Screen permissions differ from their routes (Documents, Org Chart) | Fixed (headcount and words batch) |
-| E20 | "Reports to" link opens "not available" for a scoped manager | Open |
-| E22 | Two open requests on one field; approval overwrites later HR edit | Open |
-| E23 | Self-edit settings promise "three days" whatever the rule says | Open |
+| E20 | "Reports to" link opens "not available" for a scoped manager | Fixed: the name shows; it opens only when the record is in the viewer's scope |
+| E22 | Two open requests on one field; approval overwrites later HR edit | Fixed |
+| E23 | Self-edit settings promise "three days" whatever the rule says | Fixed |
 
 ## Owner, CEO and HR view
 
@@ -80,8 +80,8 @@ code, then each finding checked before fixing. Status: **Fixed** (commit),
 | O21 | Data Health snooze uses a browser prompt | Fixed (import and screens batch) |
 | O22 | No default probation length; no next steps after hiring | Fixed (leaving, bulk, probation length batch) |
 | O23 | Tag colours mix with #000 (dark mode) | Fixed (leaving, bulk, probation length batch) |
-| D24–28 | DESIGN.md: extra primary buttons, lists in cards, drawer descriptions, 20px figures, page spacing, raw dates | Open |
-| O29–30 | Words and small fixes (Stint, four names for onboarding, Suspended on hire, Home shortcut) | Open |
+| D24–28 | DESIGN.md: extra primary buttons, lists in cards, drawer descriptions, 20px figures, page spacing, raw dates | Fixed |
+| O29–30 | Words and small fixes (Stint, four names for onboarding, Suspended on hire, Home shortcut) | Fixed |
 
 ## Later (other modules)
 

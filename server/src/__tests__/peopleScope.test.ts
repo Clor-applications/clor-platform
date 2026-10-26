@@ -157,4 +157,17 @@ describe('a manager limited to their own team', () => {
     const activity = (await people(manager).get(`/employees/${report.id}/activity`).expect(200)).body;
     expect(JSON.stringify(activity)).not.toContain('12 Lake Road');
   });
+
+  it("a team lead's own record is changed through the employee app; a manager outside their team does not open (Workforce audit E10, E20)", async () => {
+    const lead = await colleague(hr, ['PEOPLE::Employees::VIEW', 'PEOPLE::Employees::EDIT'], true);
+    const boss = (await people(hr).post('/employees', { name: 'Their Boss', code: `TB-${rnd()}` }).expect(201)).body.employee;
+    const self = (await people(hr).post('/employees', { name: 'Lead Own', code: `LO-${rnd()}`, reportingManagerId: boss.id }).expect(201)).body.employee;
+    await runInTenant(hr.orgId, () => peoplePrisma.employee.update({ where: { id: self.id }, data: { userId: lead.userId } }));
+    const mine = (await people(lead).get(`/employees/${self.id}`).expect(200)).body.employee;
+    expect(mine).toMatchObject({ ownRecordLocked: true, managerOpens: false, reportingManagerName: 'Their Boss' });
+    const refused = await people(lead).put(`/employees/${self.id}`, { phone: '9876501234' }).expect(403);
+    expect(refused.body.code).toBe('OWN_RECORD');
+    /* HR edits it as ever. */
+    await people(hr).put(`/employees/${self.id}`, { phone: '9876501234' }).expect(200);
+  });
 });

@@ -179,8 +179,8 @@ export default function AddEmployee({ params = {}, updateParams, openScreen }) {
   const errorList = Object.entries(errors).map(([k, message]) => ({ field: k, message }));
 
   return (
-    <div className="space-y-4 ui-wizard">
-      <PageHeader breadcrumb={[{ label: 'People' }, { label: 'Workforce', onClick: cancel }, { label: 'Add employee' }]} title="Add employee"
+    <div className="space-y-6 ui-wizard">
+      <PageHeader breadcrumb={[{ label: 'People' }, { label: 'Employees', onClick: cancel }, { label: 'Add employee' }]} title="Add employee"
         actions={draftId ? <button type="button" className="ui-link text-sm" onClick={discardDraft}>Delete saved draft</button> : null} />
       <ol className="ui-stepper" aria-label="Steps">
         {STEPS.map(([k, label], i) => (

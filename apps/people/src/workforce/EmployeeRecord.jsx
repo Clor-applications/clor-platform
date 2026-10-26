@@ -76,7 +76,8 @@ function Section({ title, count = null, onEdit, children, action = null }) {
 
 export default function EmployeeRecord({ params = {}, updateParams, openScreen }) {
   const perms = usePermissions();
-  const allowed = (k) => can(perms, k);
+  /* A team lead's own record is changed through the employee app (the server says so as ownRecordLocked), so its edit actions are not offered. */
+  const allowed = (k) => can(perms, k) && !(k === 'PEOPLE::Employees::EDIT' && rec.data?.employee?.ownRecordLocked);
   const id = params.id;
   const tabsAllowed = TABS.filter(([k]) => k !== 'documents' || allowed('PEOPLE::Documents::VIEW')).map(([key, label]) => ({ key, label }));
   const tab = tabsAllowed.some((t) => t.key === params.tab) ? params.tab : 'overview';
@@ -146,9 +147,9 @@ export default function EmployeeRecord({ params = {}, updateParams, openScreen }
   const probation = probationState(person, todayIst());
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <PageHeader
-        breadcrumb={[{ label: 'People' }, { label: 'Workforce', onClick: backToDirectory }, { label: person.name }]}
+        breadcrumb={[{ label: 'People' }, { label: 'Employees', onClick: backToDirectory }, { label: person.name }]}
         title={
           <span className="ui-profile">
             <PhotoControl person={person} canEdit={editable} onSaved={(emp) => setPerson(emp)} />
@@ -163,7 +164,7 @@ export default function EmployeeRecord({ params = {}, updateParams, openScreen }
                 {person.designation ? <li><Briefcase size={14} aria-hidden="true" />{person.designation}</li> : null}
                 {person.department ? <li><Building2 size={14} aria-hidden="true" />{person.department}</li> : null}
                 {person.areaName || person.workLocation ? <li><MapPin size={14} aria-hidden="true" />{person.areaName || person.workLocation}</li> : null}
-                {person.reportingManagerName ? <li><UserRound size={14} aria-hidden="true" />Reports to&nbsp;<button type="button" className="ui-link" onClick={() => openScreen?.('employee', { id: person.reportingManagerId })}>{person.reportingManagerName}</button></li> : null}
+                {person.reportingManagerName ? <li><UserRound size={14} aria-hidden="true" /><span>Reports to {person.managerOpens === false ? person.reportingManagerName : <button type="button" className="ui-link" onClick={() => openScreen?.('employee', { id: person.reportingManagerId })}>{person.reportingManagerName}</button>}</span></li> : null}
                 {person.hours === 'PART_TIME' ? <li><Clock size={14} aria-hidden="true" />Part-time</li> : null}
                 {probation === 'ON' ? <li><Hourglass size={14} aria-hidden="true" /><span>On probation until <span className="tabular-nums">{formatDate(String(person.probationEndDate).slice(0, 10))}</span></span></li> : null}
                 {probation === 'OVER' ? <li className="is-warn"><Hourglass size={14} aria-hidden="true" /><span>Probation ended <span className="tabular-nums">{formatDate(String(person.probationEndDate).slice(0, 10))}</span>, not confirmed</span></li> : null}
@@ -293,7 +294,7 @@ function SignInSection({ person, canEdit, editing, setEditing, onSaved }) {
           <div className="flex flex-wrap gap-2 justify-end">
             {linked ? <button type="button" className="ui-btn ui-btn-secondary mr-auto" disabled={busy} onClick={() => save(null)}>Remove link</button> : null}
             <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setEditing(null)}>Cancel</button>
-            <button type="button" className="ui-btn ui-btn-primary" disabled={busy || !choice} onClick={() => save(choice)}>{busy ? 'Saving…' : 'Link'}</button>
+            <button type="button" className="ui-btn ui-btn-secondary" disabled={busy || !choice} onClick={() => save(choice)}>{busy ? 'Saving…' : 'Link'}</button>
           </div>
         </div>
       ) : (
@@ -518,7 +519,7 @@ function CommentBox({ employeeId, onPosted }) {
       <textarea className="ui-input w-full" aria-label="Add a comment" rows={2} maxLength={4000} value={text} placeholder="Add a comment…" onChange={(e) => setText(e.target.value)}
         onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); post(); } }} />
       <div className="ui-composer-bar">
-        <button type="button" className={`ui-btn ui-btn-sm ${text.trim() ? 'ui-btn-primary' : 'ui-btn-secondary'}`} disabled={!text.trim() || busy} onClick={post}>{busy ? 'Posting…' : 'Comment'}</button>
+        <button type="button" className="ui-btn ui-btn-sm ui-btn-secondary" disabled={!text.trim() || busy} onClick={post}>{busy ? 'Posting…' : 'Comment'}</button>
       </div>
     </div>
   );
@@ -830,7 +831,7 @@ function Organization({ person, lists, allowed, openAction, openPerson, editing,
       ) : null}
       <Section title="Reporting" onEdit={canEdit ? () => openAction('manager') : null}>
         <dl className="ui-field-grid">
-          <Field label="Manager" value={person.reportingManagerId ? <button type="button" className="ui-link" onClick={() => openPerson(person.reportingManagerId)}>{person.reportingManagerName}</button> : null} />
+          <Field label="Manager" value={person.reportingManagerId ? (person.managerOpens === false ? person.reportingManagerName : <button type="button" className="ui-link" onClick={() => openPerson(person.reportingManagerId)}>{person.reportingManagerName}</button>) : null} />
           <Field label="Secondary manager" value={person.dottedManagerId ? <button type="button" className="ui-link" onClick={() => openPerson(person.dottedManagerId)}>{person.dottedManagerName}</button> : null} />
           <Field label="Direct reports" value={(person.directReports || []).length ? (
             <ul className="space-y-1.5">

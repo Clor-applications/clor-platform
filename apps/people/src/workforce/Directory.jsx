@@ -176,10 +176,10 @@ export default function Directory({ params = {}, updateParams, openScreen }) {
   ].filter(Boolean);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <PageHeader
-        breadcrumb={[{ label: 'People' }, { label: 'Workforce' }]}
-        title="Workforce"
+        breadcrumb={[{ label: 'People' }, { label: 'Employees' }]}
+        title="Employees"
         actions={<>
           {allowed('PEOPLE::Employees::CREATE') ? <button type="button" className="ui-btn ui-btn-secondary" onClick={() => openScreen?.('employeeImport')}><Upload size={16} aria-hidden="true" /> Import</button> : null}
           {allowed('PEOPLE::Employees::EXPORT') ? <button type="button" className="ui-btn ui-btn-secondary" disabled={exporting} onClick={() => setExportOpen(true)}><Download size={16} aria-hidden="true" /> Export</button> : null}
@@ -190,7 +190,7 @@ export default function Directory({ params = {}, updateParams, openScreen }) {
       <MetricStrip counts={counts.data} onPick={(patch) => set({ ...Object.fromEntries(FILTER_KEYS.map((k) => [k, null])), page: null, ...patch }, true)} />
       <Banners openScreen={openScreen} />
 
-      <div ref={tabsRef} role="tablist" aria-label="Workforce" className={`ui-record-tablist ${tabIndicator ? 'has-indicator' : ''}`}>
+      <div ref={tabsRef} role="tablist" aria-label="Employees" className={`ui-record-tablist ${tabIndicator ? 'has-indicator' : ''}`}>
         {[['directory', 'Directory'], ...(counts.data?.myTeam ? [['team', 'My team', counts.data.myTeam]] : []), ['views', 'Saved views'], ...(pendingCount ? [['pending', 'Pending actions', pendingCount]] : [])].map(([k, l, n]) => (
           <button key={k} type="button" role="tab" aria-selected={tab === k} className={`ui-tab ${tab === k ? 'is-active' : ''}`} onClick={() => set({ tab: k === 'directory' ? null : k }, true)}>{l}{n ? <span className="ui-tab-count tabular-nums">{n}</span> : null}</button>
         ))}
@@ -492,13 +492,13 @@ function BulkResult({ result, onClose }) {
     downloadText(`\ufeff${lines.join('\r\n')}`, `bulk-${result.correlationId}.csv`);
   };
   return (
-    <Drawer open onClose={onClose} widthClass="w-[min(36rem,96vw)]" title="Bulk change finished" description={`Batch ${result.correlationId}`}
+    <Drawer open onClose={onClose} widthClass="w-[min(36rem,96vw)]" title="Bulk change finished"
       footer={<>{failed.length ? <button type="button" className="ui-btn ui-btn-secondary" onClick={save}>Download skipped</button> : null}<button type="button" className="ui-btn ui-btn-primary" onClick={onClose}>Done</button></>}>
-      <dl className="grid grid-cols-2 gap-3 text-sm">
-        <div><dt className="ui-caption">Changed</dt><dd className="text-xl tabular-nums">{result.changed}</dd></div>
-        <div><dt className="ui-caption">Already so</dt><dd className="text-xl tabular-nums">{result.unchanged}</dd></div>
-        <div><dt className="ui-caption">Skipped</dt><dd className="text-xl tabular-nums">{failed.length}</dd></div>
-        <div><dt className="ui-caption">Not found</dt><dd className="text-xl tabular-nums">{result.notFound}</dd></div>
+      <dl className="ui-metric-strip">
+        <div className="ui-metric"><span><dd className="ui-metric-value tabular-nums">{result.changed}</dd><dt className="ui-metric-label">Changed</dt></span></div>
+        <div className="ui-metric"><span><dd className="ui-metric-value tabular-nums">{result.unchanged}</dd><dt className="ui-metric-label">Already so</dt></span></div>
+        <div className="ui-metric"><span><dd className="ui-metric-value tabular-nums">{failed.length}</dd><dt className="ui-metric-label">Skipped</dt></span></div>
+        <div className="ui-metric"><span><dd className="ui-metric-value tabular-nums">{result.notFound}</dd><dt className="ui-metric-label">Not found</dt></span></div>
       </dl>
       {failed.length ? (
         <ul className="mt-4 divide-y text-sm" aria-label="Skipped">
@@ -531,7 +531,7 @@ function PendingActions({ data, error, reload, openScreen }) {
           <li key={r.id} className="flex flex-wrap items-center gap-3 py-2">
             <span className="min-w-0 flex-1"><span className="font-medium">{r.title}</span><span className="block ui-caption">Sent {day(r.createdAt)}{r.dueAt ? ` · step due ${day(r.dueAt)}` : ''}</span></span>
             {r.overdue ? <span className="ui-pill ui-pill-neg">Overdue</span> : null}
-            {r.mine ? <button type="button" className="ui-btn ui-btn-primary ui-btn-sm" onClick={() => openScreen?.('approvals')}>Decide</button> : <span className="ui-caption">With the approver</span>}
+            {r.mine ? <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => openScreen?.('approvals')}>Decide</button> : <span className="ui-caption">With the approver</span>}
             <button type="button" className="ui-link" onClick={() => openScreen?.('employee', { id: r.employee.id, tab: 'history' })}>{person(r.employee)}</button>
           </li>
         ))}

@@ -232,7 +232,7 @@ export const peopleApp = {
   nav: [
     { key: 'overview', label: 'Home', icon: I.home, permission: 'PEOPLE::Employees::VIEW' },
     { key: 'approvals', label: 'Approvals', icon: I.checklist, permission: 'PEOPLE::Requests::VIEW' },
-    { key: 'employees', label: 'Employee Directory', icon: I.people, permission: 'PEOPLE::Employees::VIEW' },
+    { key: 'employees', label: 'Employees', icon: I.people, permission: 'PEOPLE::Employees::VIEW' },
     /* Pages inside Workforce (profile, add, import): reached from the directory, never their own sidebar entries; the shell shows "← Workforce". */
     { key: 'employee', label: 'Employee', icon: I.people, permission: 'PEOPLE::Employees::VIEW', parent: 'employees' },
     { key: 'employeeNew', label: 'Add Employee', icon: I.people, permission: 'PEOPLE::Employees::CREATE', parent: 'employees' },

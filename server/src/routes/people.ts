@@ -834,7 +834,9 @@ peopleRouter.get('/orgs/:orgId/people/employees/:id', can(PermissionAction.VIEW,
   if (!viewed) return res.status(404).json({ error: `Not here on ${asOfDate}.` });
   const scheduledChanges = await pendingChangesOf(orgId, row.id);
   const [full] = await withMeta(orgId, [viewed]);
-  const shaped = (await seesPersonal(req)) ? full : withoutPersonal(full, req.auth!.userId);
+  const viewScope = await teamScope(req);
+  /* The manager's name is shown either way; whether their record opens depends on the viewer's scope (E20). */
+  const shaped = { ...((await seesPersonal(req)) ? full : withoutPersonal(full, req.auth!.userId)), managerOpens: !row.reportingManagerId || inScope(viewScope, row.reportingManagerId), ownRecordLocked: !viewScope.all && Boolean(row.userId) && row.userId === req.auth!.userId };
   const linked = row.userId ? await platformPrisma.user.findFirst({ where: { id: row.userId }, select: { fullName: true, email: true } }) : null;
   res.json({ scheduledChanges, permits: await permitsOf(orgId, row.id), employee: { ...shaped, directReports: reports, linkedUser: linked ? { name: linked.fullName || linked.email, email: linked.email } : null } });
 });
@@ -934,7 +936,10 @@ peopleRouter.put('/orgs/:orgId/people/employees/:id', can(PermissionAction.EDIT,
   const { accountId, orgId } = req.tenant!;
   const existing = await peoplePrisma.employee.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
   /* A role limited to its own team edits only its team; anyone else reads as absent. */
-  if (!existing || !inScope(await teamScope(req), existing.id)) return res.status(404).json({ error: 'No such employee.' });
+  const editScope = await teamScope(req);
+  if (!existing || !inScope(editScope, existing.id)) return res.status(404).json({ error: 'No such employee.' });
+  /* A team lead's own record changes the way anyone's does, through the employee app and HR (Workforce audit E10). */
+  if (!editScope.all && existing.userId && existing.userId === req.auth!.userId) return res.status(403).json({ error: 'Change your own details in the employee app; HR approves what needs approving.', code: 'OWN_RECORD' });
   const parsed = employeeSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Invalid employee.' });
   const b = parsed.data;

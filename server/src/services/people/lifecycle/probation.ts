@@ -61,7 +61,8 @@ export async function applyOutcome(actor: Actor, employeeId: string, outcome: Pr
     result = { probationEndDate: to };
   } else {
     const lastDay = opts.lastDay || todayIst();
-    const r = await leaveEmployee({ accountId: actor.accountId, orgId: actor.orgId, userId: actor.userId }, employee as any, { lastDay, leavingType: 'TERMINATED', reason: opts.note || 'Probation not confirmed' });
+    /* The whole actor: an approved probation request then traces the leaving back to itself (Workforce audit E16). */
+    const r = await leaveEmployee({ ...who, requestId: who.requestId ?? undefined }, employee as any, { lastDay, leavingType: 'TERMINATED', reason: opts.note || 'Probation not confirmed' });
     result = { left: true, scheduled: r.scheduled, lastDay, readers: r.readers };
   }
   if (review) await peoplePrisma.probationReview.update({ where: { id: review.id }, data: { outcome, decidedByUserId: actor.userId, decidedAt: new Date(), note: opts.note ?? review.note, newEndDate: opts.newEndDate ?? review.newEndDate, requestId: opts.requestId ?? review.requestId } });

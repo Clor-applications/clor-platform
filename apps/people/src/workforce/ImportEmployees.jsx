@@ -146,8 +146,8 @@ export default function ImportEmployees({ openScreen }) {
   };
 
   return (
-    <div className="space-y-4">
-      <PageHeader breadcrumb={[{ label: 'People' }, { label: 'Workforce', onClick: () => openScreen?.('employees') }, { label: 'Import employees' }]} title="Import employees" />
+    <div className="space-y-6">
+      <PageHeader breadcrumb={[{ label: 'People' }, { label: 'Employees', onClick: () => openScreen?.('employees') }, { label: 'Import employees' }]} title="Import employees" />
       <ol className="ui-stepper" aria-label="Steps">
         {STEPS.map(([k, label], i) => (
           <li key={k} className={`ui-step ${i === stepIndex ? 'is-current' : ''} ${i < stepIndex ? 'is-done' : ''}`} aria-current={i === stepIndex ? 'step' : undefined}>
@@ -235,7 +235,7 @@ export default function ImportEmployees({ openScreen }) {
         ) : null}
 
         <div className="ui-wizard-actions">
-          <button type="button" className="ui-btn ui-btn-secondary" onClick={async () => { if (step === 'results' || !file || await confirmDialog({ title: 'Leave the import?', message: 'Nothing has been imported.', confirmLabel: 'Leave' })) { clearUnsaved(); openScreen?.('employees'); } }}>{step === 'results' ? 'Back to Workforce' : 'Cancel'}</button>
+          <button type="button" className="ui-btn ui-btn-secondary" onClick={async () => { if (step === 'results' || !file || await confirmDialog({ title: 'Leave the import?', message: 'Nothing has been imported.', confirmLabel: 'Leave' })) { clearUnsaved(); openScreen?.('employees'); } }}>{step === 'results' ? 'Back to Employees' : 'Cancel'}</button>
           <span className="flex flex-wrap gap-2 ml-auto">
             {step === 'map' ? <><button type="button" className="ui-btn ui-btn-secondary" onClick={() => setStep('upload')}>Choose another file</button><button type="button" className="ui-btn ui-btn-primary" disabled={busy || !mappedKeys.includes('name') || twice.length > 0} onClick={check}>{busy ? 'Checking…' : 'Check rows'}</button></> : null}
             {step === 'validate' ? <><button type="button" className="ui-btn ui-btn-secondary" onClick={() => setStep('map')}>Back to mapping</button><button type="button" className="ui-btn ui-btn-primary" disabled={busy || !preview?.imported} onClick={commit}>{busy ? 'Importing…' : `Import ${preview?.imported || ''} ${preview?.imported === 1 ? 'row' : 'rows'}`}</button></> : null}
