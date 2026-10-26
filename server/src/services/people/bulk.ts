@@ -88,6 +88,11 @@ export async function bulkUpdate(actor: Actor, input: { ids?: unknown; set?: unk
     if (!row) throw new BulkError(`That ${k.replace(/Id$/, '').replace(/([A-Z])/g, ' $1').toLowerCase()} is not in this company.`);
     if (STRUCTURE[k].nameField) data[STRUCTURE[k].nameField!] = row.name;
   }
+  /* A new manager works here; for a team-limited role, inside its team (the edit form's rule). */
+  if (set.reportingManagerId) {
+    const m = await peoplePrisma.employee.findFirst({ where: { id: set.reportingManagerId, orgId: actor.orgId }, select: { id: true, status: true } });
+    if (!m || m.status === 'LEFT' || (!scope.all && !scope.ids.includes(m.id))) throw new BulkError('Choose a manager who works here.');
+  }
   const people = await peoplePrisma.employee.findMany({ where: { orgId: actor.orgId, id: { in: ids }, ...(scope.all ? {} : { id: { in: ids.filter((id) => (scope as { ids: string[] }).ids.includes(id)) } }) } });
   const who: Actor = { ...actor, source: 'BULK', reason };
   let changed = 0;
@@ -95,6 +100,8 @@ export async function bulkUpdate(actor: Actor, input: { ids?: unknown; set?: unk
   const skipped: Array<{ id: string; name: string; why: string }> = [];
   for (const p of people) {
     if (p.status === 'LEFT') { skipped.push({ id: p.id, name: p.name, why: 'has left' }); continue; }
+    /* A team lead's own record changes through the employee app and HR, as on the edit form (OWN_RECORD). */
+    if (!scope.all && p.userId && p.userId === actor.userId) { skipped.push({ id: p.id, name: p.name, why: 'is your own record; HR changes it' }); continue; }
     if (set.reportingManagerId && set.reportingManagerId === p.id) { skipped.push({ id: p.id, name: p.name, why: 'cannot report to themselves' }); continue; }
     if (set.reportingManagerId && (await managesAbove(actor.orgId, set.reportingManagerId, p.id))) { skipped.push({ id: p.id, name: p.name, why: 'would make a reporting loop' }); continue; }
     if (later) {

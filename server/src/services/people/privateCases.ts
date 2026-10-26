@@ -88,7 +88,8 @@ export async function saveCommittee(who: Who, kind: string, input: { members?: u
     if (!userId) throw new CaseError('Each member must be a user.');
     if (!ROLES.includes(role)) throw new CaseError('A member is presiding, a member, external, or the officer.');
     if (members.some((x) => x.userId === userId)) throw new CaseError('A person can be named once.');
-    if (!(await platformPrisma.user.findUnique({ where: { id: userId }, select: { id: true } }))) throw new CaseError('That member is not a user here.');
+    /* A user of this company, not any CLOR user: members are told when a case comes in. */
+    if (!(await platformPrisma.userOrgMembership.findFirst({ where: { accountId: who.accountId, orgId: who.orgId, userId }, select: { userId: true } }))) throw new CaseError('That member is not a user here.');
     members.push({ userId, role, gender: String(m.gender || '').toUpperCase() || undefined, external: Boolean(m.external) || role === 'EXTERNAL', termStart: String(m.termStart || '') || undefined, termEnd: String(m.termEnd || '') || undefined, name: String(m.name || '').trim().slice(0, 120) || undefined });
   }
   await peoplePrisma.committeeSetup.upsert({ where: { orgId_kind: { orgId: who.orgId, kind } }, create: { accountId: who.accountId, orgId: who.orgId, kind, members: members as any, updatedByUserId: who.userId }, update: { members: members as any, updatedByUserId: who.userId } });
@@ -141,16 +142,24 @@ export async function intake(who: Who & { employeeId?: string | null }, input: {
   if (!members.length) throw new CaseError('Every committee member has a conflict with this case. Name an alternate on the committee first.', 409);
 
   const year = receivedOn.slice(0, 4);
-  const count = await peoplePrisma.privateCase.count({ where: { orgId: who.orgId, reference: { startsWith: `PC-${year}-` } } });
-  const id = `pc_${randomBytes(12).toString('hex')}`;
   const { filingDeadline, inquiryDue } = clock(incidentOn, receivedOn);
-  const row = await peoplePrisma.privateCase.create({
-    data: {
-      id, accountId: who.accountId, orgId: who.orgId, kind, reference: `PC-${year}-${String(count + 1).padStart(3, '0')}`, complainantEmployeeId, raisedByUserId: who.userId, onBehalf: Boolean(input.onBehalf) || (!who.employeeId && Boolean(complainantEmployeeId)),
-      respondentEmployeeIds: respondents, summaryEnc: seal(id, summary), incidentOn, receivedOn, filingDeadline, inquiryDue, excluded,
-      members: { create: members.map((m) => ({ accountId: who.accountId, orgId: who.orgId, userId: m.userId, role: m.role })) },
-    },
-  });
+  /* The reference is the year's next number; two complaints filed at the same moment take the next free one rather than failing. */
+  let row: Awaited<ReturnType<typeof peoplePrisma.privateCase.create>> | null = null;
+  for (let attempt = 0; !row; attempt += 1) {
+    const count = await peoplePrisma.privateCase.count({ where: { orgId: who.orgId, reference: { startsWith: `PC-${year}-` } } });
+    const id = `pc_${randomBytes(12).toString('hex')}`;
+    try {
+      row = await peoplePrisma.privateCase.create({
+        data: {
+          id, accountId: who.accountId, orgId: who.orgId, kind, reference: `PC-${year}-${String(count + 1 + attempt).padStart(3, '0')}`, complainantEmployeeId, raisedByUserId: who.userId, onBehalf: Boolean(input.onBehalf) || (!who.employeeId && Boolean(complainantEmployeeId)),
+          respondentEmployeeIds: respondents, summaryEnc: seal(id, summary), incidentOn, receivedOn, filingDeadline, inquiryDue, excluded,
+          members: { create: members.map((m) => ({ accountId: who.accountId, orgId: who.orgId, userId: m.userId, role: m.role })) },
+        },
+      });
+    } catch (e: any) {
+      if (e?.code !== 'P2002' || attempt >= 4) throw e;
+    }
+  }
   /* Members are told a case has come in — the reference only, nothing about who or what. */
   await notifyUsers(who.accountId, who.orgId, members.map((m) => m.userId), { kind: 'people.private_case', title: `A new ${kind === 'POSH' ? 'POSH complaint' : 'grievance'} has come to you: ${row.reference}`, body: 'Open Private cases to read it.', link: { app: 'people', screen: 'privateCases' } as any }).catch(() => undefined);
   return { id: row.id, reference: row.reference, kind: row.kind, receivedOn, filingDeadline, inquiryDue, lateFiling: receivedOn > filingDeadline };
@@ -264,7 +273,11 @@ export async function advance(who: Who, caseId: string, input: { step?: string; 
     if (!outcome) throw new CaseError('Record the action taken.');
     data.status = 'CLOSED'; data.actionOn = on; data.outcome = seal(caseId, outcome);
   } else throw new CaseError('The step is extend, start inquiry, close inquiry, report, or close.');
-  await peoplePrisma.privateCase.update({ where: { id: c.id }, data });
+  /* Who moved the case on, and to what, sits in the case's own access log with the move (the outcome itself stays sealed). */
+  await peoplePrisma.$transaction([
+    peoplePrisma.privateCase.update({ where: { id: c.id }, data }),
+    peoplePrisma.privateCaseAccess.create({ data: { accountId: c.accountId, orgId: who.orgId, caseId, userId: who.userId!, what: `STEP:${step}` } }),
+  ]);
   return openCase(who.orgId, caseId, who.userId);
 }
 

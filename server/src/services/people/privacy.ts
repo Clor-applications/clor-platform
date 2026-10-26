@@ -142,7 +142,7 @@ export async function createAuditorGrant(args: { accountId: string; orgId: strin
   if (!documentIds.length) throw new PrivacyError('Name at least one document the auditor may open.', 400, 'EVIDENCE_NEEDED');
   if (Number.isNaN(fromAt.getTime()) || Number.isNaN(untilAt.getTime()) || untilAt <= fromAt) throw new PrivacyError('Access must end after it starts.', 400, 'BAD_DATES');
   if (untilAt.getTime() - fromAt.getTime() > MAX_GRANT_DAYS * 86_400_000) throw new PrivacyError(`Access lasts at most ${MAX_GRANT_DAYS} days; give a new grant for a longer audit.`, 400, 'TOO_LONG');
-  if (args.userId === args.grantedByUserId) throw new PrivacyError('You cannot grant audit access to yourself.', 400, 'SELF_GRANT');
+  if (userId === args.grantedByUserId) throw new PrivacyError('You cannot grant audit access to yourself.', 400, 'SELF_GRANT');
   const member = await platformPrisma.userOrgMembership.findFirst({ where: { accountId: args.accountId, orgId: args.orgId, userId } });
   if (!member) throw new PrivacyError('The auditor must be a user of this company first (Settings, Users), with the External auditor role.', 400, 'NOT_A_USER');
   const docs = await peoplePrisma.employeeDocument.findMany({ where: { orgId: args.orgId, id: { in: documentIds } }, select: { id: true } });

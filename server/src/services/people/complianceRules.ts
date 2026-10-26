@@ -206,7 +206,7 @@ export async function updateObligation(who: { orgId: string; userId: string | nu
   }
   if (input.ownerUserId !== undefined) {
     const uid = String(input.ownerUserId || '').trim() || null;
-    if (uid && !(await platformPrisma.user.findUnique({ where: { id: uid }, select: { id: true } }))) throw new ComplianceError('That owner is not a user here.');
+    if (uid && !(await platformPrisma.userOrgMembership.findFirst({ where: { accountId: row.accountId, orgId: who.orgId, userId: uid }, select: { userId: true } }))) throw new ComplianceError('That owner is not a user here.');
     data.ownerUserId = uid;
     if (uid && uid !== who.userId) await notifyUsers(row.accountId, who.orgId, [uid], { kind: 'people.obligation', title: `Yours: ${row.title}`, body: `Due ${row.dueOn}.`, link: { app: 'people', screen: 'complianceCalendar' } as any }).catch(() => undefined);
   }

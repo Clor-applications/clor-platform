@@ -60,7 +60,7 @@ peoplePrivacyRouter.get(`${base}/retention`, can(PermissionAction.VIEW), run(asy
 
 peoplePrivacyRouter.put(`${base}/retention/:dataType`, can(PermissionAction.EDIT), run(async (req, res) => {
   const { accountId, orgId } = req.tenant!;
-  res.json({ rule: await saveRetention({ accountId, orgId, userId: req.auth!.userId, dataType: String(req.params.dataType), ...(req.body || {}) }) });
+  res.json({ rule: await saveRetention({ keepYears: req.body?.keepYears, legalHold: req.body?.legalHold, holdReason: req.body?.holdReason, accountId, orgId, userId: req.auth!.userId, dataType: String(req.params.dataType) }) });
 }));
 
 peoplePrivacyRouter.get(`${base}/deletion-review`, can(PermissionAction.VIEW), run(async (req, res) => {
@@ -87,7 +87,7 @@ peoplePrivacyRouter.get(`${base}/auditor-grants`, can(PermissionAction.VIEW), ru
 
 peoplePrivacyRouter.post(`${base}/auditor-grants`, can(PermissionAction.EDIT), run(async (req, res) => {
   const { accountId, orgId } = req.tenant!;
-  res.status(201).json({ grant: await createAuditorGrant({ accountId, orgId, grantedByUserId: req.auth!.userId, ...(req.body || {}) }) });
+  res.status(201).json({ grant: await createAuditorGrant({ userId: req.body?.userId, purpose: req.body?.purpose, documentIds: req.body?.documentIds, fromAt: req.body?.fromAt, untilAt: req.body?.untilAt, accountId, orgId, grantedByUserId: req.auth!.userId }) });
 }));
 
 peoplePrivacyRouter.post(`${base}/auditor-grants/:id/revoke`, can(PermissionAction.EDIT), run(async (req, res) => {

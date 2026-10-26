@@ -156,11 +156,17 @@ async function hrDeciders(accountId: string, orgId: string) {
 }
 
 /** When nobody but the requester could decide: the company's admins, else anyone who may approve requests. Never the requester. */
-async function lastResortDeciders(accountId: string, orgId: string, requesterUserId: string) {
+async function lastResortDeciders(accountId: string, orgId: string, excluded: string[]) {
   const adminRoles = await platformPrisma.role.findMany({ where: { accountId, orgId, roleType: 'ADMIN' }, select: { id: true } });
-  const admins = (await usersHoldingRoles(accountId, orgId, adminRoles.map((r) => r.id))).filter((u) => u !== requesterUserId);
+  const admins = (await usersHoldingRoles(accountId, orgId, adminRoles.map((r) => r.id))).filter((u) => !excluded.includes(u));
   if (admins.length) return admins;
-  return (await usersWithPermission(accountId, orgId, APPROVE_GRANT)).filter((u) => u !== requesterUserId);
+  return (await usersWithPermission(accountId, orgId, APPROVE_GRANT)).filter((u) => !excluded.includes(u));
+}
+
+/** The login of the person a request is about: they never decide it either (their own promotion, grade or pay). */
+async function subjectUserOf(orgId: string, subjectEmployeeId: string | null) {
+  if (!subjectEmployeeId) return null;
+  return (await peoplePrisma.employee.findFirst({ where: { id: subjectEmployeeId, orgId }, select: { userId: true } }))?.userId || null;
 }
 
 export async function resolveApprover(who: { accountId: string; orgId: string }, spec: ApproverSpec, subjectEmployeeId: string | null, day = todayIst()): Promise<{ primary: string[]; standIns: Array<{ for: string; user: string }> }> {
@@ -197,8 +203,9 @@ const include = { steps: { orderBy: [{ order: 'asc' as const }, { createdAt: 'as
 
 async function candidatesFor(who: { accountId: string; orgId: string }, spec: StepSpec, request: { requesterUserId: string; subjectEmployeeId: string | null }) {
   const resolved = await resolveApprover(who, spec.approver, request.subjectEmployeeId);
-  /* Nobody approves their own request (APR-05). */
-  const candidates = [...new Set([...resolved.primary, ...resolved.standIns.map((s) => s.user)])].filter((u) => u !== request.requesterUserId);
+  /* Nobody approves their own request (APR-05), nor one about themselves. */
+  const subjectUser = await subjectUserOf(who.orgId, request.subjectEmployeeId);
+  const candidates = [...new Set([...resolved.primary, ...resolved.standIns.map((s) => s.user)])].filter((u) => u !== request.requesterUserId && u !== subjectUser);
   return { resolved, candidates };
 }
 
@@ -225,7 +232,7 @@ async function openStep(tx: Prisma.TransactionClient, who: { accountId: string; 
         continue;
       }
       /* Otherwise it would approve itself (E11): the admins decide instead. */
-      candidates = await lastResortDeciders(who.accountId, who.orgId, request.requesterUserId);
+      candidates = await lastResortDeciders(who.accountId, who.orgId, [request.requesterUserId, (await subjectUserOf(who.orgId, request.subjectEmployeeId)) || '']);
       if (!candidates.length) throw new ApprovalError('Nobody else can approve this. Give someone else the right to approve requests, or change the approval rule.', 409, 'NO_APPROVER');
       resolved = { primary: candidates, standIns: [] };
       lastResort = true;
@@ -360,6 +367,7 @@ export async function decide(actor: Actor, requestId: string, decision: Decision
   if (!step) throw new ApprovalError('No step is waiting.', 409, 'NOT_WAITING');
   if (!((step.candidateUserIds as string[]) || []).includes(userId)) throw new ApprovalError('This is not yours to decide.', 403, 'NOT_APPROVER');
   if (request.requesterUserId === userId) throw new ApprovalError('Nobody decides their own request.', 403, 'OWN_REQUEST');
+  if ((await subjectUserOf(orgId, request.subjectEmployeeId)) === userId) throw new ApprovalError('Nobody decides a request about themselves.', 403, 'OWN_REQUEST');
   if (decision === 'approve') await checks.get(request.requestType as RequestType)?.(request);
   const ruleSteps = ((await peoplePrisma.approvalRule.findUnique({ where: { id: request.ruleId } }))?.steps || []) as unknown as StepSpec[];
   const stepStatus = decision === 'approve' ? 'APPROVED' : decision === 'reject' ? 'REJECTED' : 'MORE_INFO';

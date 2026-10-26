@@ -5,6 +5,7 @@ import { requireTenantContext } from '../middleware/tenantContext.js';
 import { requirePermission } from '../middleware/rbac.js';
 import { PermissionAction } from '../constants/enums.js';
 import { PEOPLE_MODULE, PEOPLE_RESOURCE, peopleRouteOk } from '../services/people/guards.js';
+import { seesPersonal, teamScope } from '../services/people/scope.js';
 import { ComplianceError, checkRule, employeeRegister, leaveRegister, obligationsOf, rulesOf, saveRuleVersion, updateObligation } from '../services/people/complianceRules.js';
 
 /**
@@ -25,6 +26,13 @@ const sendError = (res: any, e: unknown) => {
   return res.status(500).json({ error: 'Something went wrong.' });
 };
 const ISO = /^\d{4}-\d{2}-\d{2}$/;
+
+/** The registers are the company's statutory books: whole company, personal details included, so only for those who keep the records. */
+async function keepsRegisters(req: any, res: any) {
+  if ((await teamScope(req)).all && (await seesPersonal(req))) return true;
+  res.status(403).json({ error: 'The registers carry everyone’s personal details; they are for those who keep the employee records.' });
+  return false;
+}
 
 peopleComplianceRouter.get(`${base}/rules`, can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
@@ -70,11 +78,13 @@ peopleComplianceRouter.patch(`${base}/obligations/:id`, can(PermissionAction.EDI
 
 peopleComplianceRouter.get(`${base}/registers/employees`, can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
+  if (!(await keepsRegisters(req, res))) return;
   res.json(await employeeRegister(req.tenant!.orgId, String(req.query.establishmentId || '') || null));
 });
 
 peopleComplianceRouter.get(`${base}/registers/leave`, can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
+  if (!(await keepsRegisters(req, res))) return;
   const from = String(req.query.from || '');
   const to = String(req.query.to || '');
   if (!ISO.test(from) || !ISO.test(to) || to < from) return res.status(400).json({ error: 'Give the range as from and to, YYYY-MM-DD.' });

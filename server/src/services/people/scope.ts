@@ -1,5 +1,8 @@
 import type { Request } from 'express';
 import { peoplePrisma } from '../../utils/peoplePrisma.js';
+import { authorize } from '../../middleware/rbac.js';
+import { PermissionAction } from '../../constants/enums.js';
+import { PEOPLE_MODULE, PEOPLE_RESOURCE } from './guards.js';
 
 /**
  * Team scope (docs/people/03 contract §4; PC-ACC-01). A role marked "own
@@ -37,3 +40,15 @@ export const scopeWhere = (scope: TeamScope): Record<string, unknown> => (scope.
 
 /** Whether one person is inside the scope. */
 export const inScope = (scope: TeamScope, employeeId: string) => scope.all || scope.ids.includes(employeeId);
+
+/**
+ * Personal details (Workforce audit E4): the date of birth, home address,
+ * personal email, family and emergency contacts go to whoever keeps the
+ * records (an administrator, anyone who may edit employees or see statutory
+ * details). A read-only role (IT, a team lead) gets the work profile.
+ */
+export async function seesPersonal(req: Request) {
+  if (req.isAdmin) return true;
+  if (!(await authorize(req, PEOPLE_MODULE, PermissionAction.EDIT, PEOPLE_RESOURCE.employees))) return true;
+  return !(await authorize(req, PEOPLE_MODULE, PermissionAction.VIEW, PEOPLE_RESOURCE.statutory));
+}

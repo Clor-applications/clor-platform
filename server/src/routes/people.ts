@@ -23,7 +23,7 @@ import { writeChangeLog, type Actor, type Change, type ChangeSource } from '../s
 import { checkIdentifier, maskTail } from '../services/people/identifiers.js';
 import { PAYROLL_STATUTORY_FIELDS, maskedStatutory, revealStatutory } from '../services/payroll/statutoryRead.js';
 import { stepUpRefusal } from '../services/stepUp.js';
-import { inScope, scopeWhere, teamScope } from '../services/people/scope.js';
+import { inScope, scopeWhere, seesPersonal, teamScope } from '../services/people/scope.js';
 import { activeRule, shape as shapeRequest, submitRequest } from '../services/people/approvals/engine.js';
 import { PROBATION_OUTCOMES, ProbationError, decideProbation, reviewsOf, saveReview } from '../services/people/lifecycle/probation.js';
 import { changeImpact } from '../services/people/lifecycle/changes.js';
@@ -94,11 +94,6 @@ const text = (max: number) => z.string().trim().max(max).optional().nullable();
  * A read-only role (IT, a team lead) gets the work profile.
  */
 const PERSONAL_FIELDS = ['dateOfBirth', 'maritalStatus', 'guardianName', 'email', 'personalEmail', 'addressLine', 'city', 'state', 'country', 'pincode', 'emergencyContactName', 'emergencyContactPhone', 'emergencyContactRelation', 'notes', 'cardNumber'] as const;
-async function seesPersonal(req: Request) {
-  if (req.isAdmin) return true;
-  if (!(await authorize(req, PEOPLE_MODULE, PermissionAction.EDIT, EMPLOYEES))) return true;
-  return !(await authorize(req, PEOPLE_MODULE, PermissionAction.VIEW, STATUTORY));
-}
 const withoutPersonal = (row: any, me: string) => {
   if (row?.userId && row.userId === me) return row;
   const out = { ...row, personalHidden: true };
@@ -722,9 +717,10 @@ peopleRouter.get('/orgs/:orgId/people/workforce/pending', can(PermissionAction.V
   const scope = await teamScope(req);
   const inScopeIds = (ids: string[]) => (scope.all ? ids : ids.filter((id) => (scope as any).ids.includes(id)));
   const [requests, scheduled, invites, drafts] = await Promise.all([
-    peoplePrisma.approvalRequest.findMany({ where: { orgId, status: 'WAITING', subjectEmployeeId: { not: null } }, include: { steps: true }, orderBy: { createdAt: 'asc' }, take: 200 }),
-    peoplePrisma.scheduledChange.findMany({ where: { orgId, status: 'PENDING' }, orderBy: [{ effectiveOn: 'asc' }], take: 200 }),
-    peoplePrisma.joinInvite.findMany({ where: { orgId, status: 'RETURNED' }, orderBy: { returnedAt: 'asc' }, take: 200 }).catch(() => []),
+    /* The team filter goes into the query, before the 200 cap: a lead in a busy company still sees their own team's items. */
+    peoplePrisma.approvalRequest.findMany({ where: { orgId, status: 'WAITING', subjectEmployeeId: scope.all ? { not: null } : { in: scope.ids } }, include: { steps: true }, orderBy: { createdAt: 'asc' }, take: 200 }),
+    peoplePrisma.scheduledChange.findMany({ where: { orgId, status: 'PENDING', ...(scope.all ? {} : { employeeId: { in: scope.ids } }) }, orderBy: [{ effectiveOn: 'asc' }], take: 200 }),
+    peoplePrisma.joinInvite.findMany({ where: { orgId, status: 'RETURNED', ...(scope.all ? {} : { employeeId: { in: scope.ids } }) }, orderBy: { returnedAt: 'asc' }, take: 200 }).catch(() => []),
     peoplePrisma.employeeDraft.findMany({ where: { orgId, userId: req.auth!.userId, expiresAt: { gt: new Date() } }, orderBy: { updatedAt: 'desc' }, take: 20 }),
   ]);
   const ids = inScopeIds([...new Set([...requests.map((r) => r.subjectEmployeeId!), ...scheduled.map((c) => c.employeeId), ...(invites as any[]).map((i) => i.employeeId)])]);

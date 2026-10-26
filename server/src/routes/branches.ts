@@ -129,7 +129,9 @@ branchesRouter.patch('/orgs/:orgId/branches/:branchId', requirePermission('MASTE
   /* Retiring a branch people still work at would leave them at a place in nobody's lists; People → Branches moves them first. */
   if (body.isActive === false && existing.isActive) {
     const { peopleAtBranch } = await import('../services/people/organization.js');
-    const working = await peopleAtBranch(orgId, branchId).catch(() => 0);
+    /* Fail closed: a count that could not be read is not "nobody works there". */
+    const working = await peopleAtBranch(orgId, branchId).catch(() => -1);
+    if (working < 0) return res.status(503).json({ error: 'Could not check who works at this branch. Try again in a moment.' });
     if (working) return res.status(409).json({ error: `${working === 1 ? '1 person works' : `${working} people work`} at ${existing.branchName}. Move them to another branch under People → Branches, then retire it.`, code: 'IN_USE', count: working });
   }
 
@@ -205,6 +207,14 @@ branchesRouter.delete('/orgs/:orgId/branches/:branchId', requirePermission('MAST
   ]);
   if (transactionCounts.some((count) => count > 0)) {
     return res.status(409).json({ error: 'This branch cannot be deleted because transactions are associated with it. Mark it inactive instead.' });
+  }
+
+  /* People's records point at the branch from another schema with no foreign key: refuse while anyone (working or gone) is filed there. */
+  {
+    const { peoplePrisma } = await import('../utils/peoplePrisma.js');
+    const filed = await peoplePrisma.employee.count({ where: { orgId, branchId } }).catch(() => -1);
+    if (filed < 0) return res.status(503).json({ error: 'Could not check who works at this branch. Try again in a moment.' });
+    if (filed) return res.status(409).json({ error: `${filed === 1 ? '1 person is' : `${filed} people are`} filed at ${existing.branchName}. Move them under People → Branches, or retire the branch instead.`, code: 'IN_USE', count: filed });
   }
 
   const childBranch = await platformPrisma.branch.findFirst({ where: { accountId, orgId, parentBranchId: branchId }, select: { id: true } });

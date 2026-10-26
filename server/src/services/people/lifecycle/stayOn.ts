@@ -23,7 +23,7 @@ export async function cancelLeaving(who: Who, employeeId: string, reason: string
   if (existing.status !== 'ON_NOTICE') throw new StayOnError(existing.status === 'LEFT' ? `${existing.name} has already left. Use Rehire to bring them back.` : `${existing.name} is not on notice.`, 409);
   const lastDay = existing.dateOfLeaving;
   const actor = { accountId, orgId, userId: who.userId, source: 'FORM' as const, correlationId: `stay_${existing.id}_${lastDay}`, reason: `Leaving withdrawn${reason ? `: ${reason}` : ''}` };
-  const { row: employee } = await updateEmployee(actor, existing as any, { status: 'ACTIVE', dateOfLeaving: null, leavingType: null, leavingReason: null }, {
+  const { row: employee } = await updateEmployee(actor, existing as any, { status: 'ACTIVE', dateOfLeaving: null, leavingType: null, leavingReason: null, resignedOn: null, noticeWaived: false } as any, {
     afterWrite: async (tx, row) => {
       await tx.checklistTask.updateMany({ where: { orgId, employeeId: row.id, kind: 'LEAVING', doneAt: null }, data: { doneAt: new Date(), doneByUserId: who.userId, note: 'Not needed: leaving withdrawn.' } });
     },
