@@ -7775,6 +7775,8 @@ button.ui-metric:focus-visible { outline: 2px solid rgb(var(--ring)); outline-of
   .ui-datatable.has-cards .ui-columns-btn { display: none; }
   .ui-attention { gap: 0.5rem; }
   .ui-attention > li { flex-wrap: wrap; }
+  /* The words stay beside their dot; only the action may drop to the next line. */
+  .ui-attention > li > span:not(.ui-attention-dot) { flex: 1 1 12rem; min-width: 0; }
 }
 .ui-attention .ui-link { white-space: nowrap; }
 
