@@ -624,3 +624,53 @@ describe('repo-aligned research checks (ORG-G01, G03, G04, G07, R035)', () => {
     expect((await check(hr, 'seat-team-retired')).people).toEqual([expect.objectContaining({ name: 'Lonely', detail: 'Team Gone team is retired' })]);
   });
 });
+
+describe('org chart at 1,000 people (ORG-R043, R044)', () => {
+  it('answers in one bounded request: 1,000 people, 500 open positions, today and as of a date, whole company and team-limited', async () => {
+    const hr = await owner();
+    const head = await platformPrisma.branch.findUnique({ where: { id: hr.branchId } });
+    const accountId = head!.accountId;
+    const id = (i: number) => `perf-${hr.orgId.slice(-6)}-${i}`;
+    /* Eight reports each: a tree four levels deep, as a mid-size company would have. */
+    await runInTenant(hr.orgId, () => peoplePrisma.employee.createMany({ data: Array.from({ length: 1000 }, (_, i) => ({ id: id(i), accountId, orgId: hr.orgId, name: `Person ${i + 1}`, code: `P-${String(i + 1).padStart(4, '0')}`, status: 'ACTIVE', designation: 'Associate', department: 'Operations', dateOfJoining: '2025-01-01', reportingManagerId: i ? id(Math.floor((i - 1) / 8)) : null, createdByUserId: head!.createdByUserId })) as any }));
+    const teams = await runInTenant(hr.orgId, async () => {
+      await peoplePrisma.team.createMany({ data: Array.from({ length: 50 }, (_, t) => ({ id: `${id(t)}-t`, accountId, orgId: hr.orgId, name: `Team ${t + 1}`, leadEmployeeId: id(t), createdByUserId: head!.createdByUserId })) as any });
+      await peoplePrisma.seat.createMany({ data: Array.from({ length: 500 }, (_, s) => ({ accountId, orgId: hr.orgId, name: `Seat ${s + 1}`, teamId: `${id(s % 50)}-t`, budgetRef: `B-${s}`, createdByUserId: head!.createdByUserId })) as any });
+      return 50;
+    });
+    expect(teams).toBe(50);
+    const time = async (path: string, who = hr) => {
+      const t0 = performance.now();
+      const r = await people(who).get(path).expect(200);
+      return { ms: performance.now() - t0, body: r.body, bytes: JSON.stringify(r.body).length };
+    };
+    await time('/org-chart');
+    const today = await time('/org-chart');
+    expect(today.body.nodes).toHaveLength(1000);
+    expect(today.body.openSeats).toHaveLength(500);
+    expect(today.ms).toBeLessThan(1500);
+    expect(today.bytes).toBeLessThan(450_000);
+    const past = await time('/org-chart?asOf=2025-06-01');
+    expect(past.body.nodes).toHaveLength(1000);
+    expect(past.ms).toBeLessThan(2500);
+    /* A lead of one branch of the tree: only their part, still one request. */
+    const lead = await colleague(hr, ['PEOPLE::Employees::VIEW'], true);
+    await runInTenant(hr.orgId, () => peoplePrisma.employee.update({ where: { id: id(1) }, data: { userId: lead.userId } }));
+    const mine = await time('/org-chart', lead);
+    expect(mine.body.nodes.length).toBeLessThan(1000);
+    expect(mine.body.openSeats.every((s: any) => s.budgetRef === undefined)).toBe(true);
+    expect(mine.ms).toBeLessThan(1500);
+    console.log(`[org chart 1,000] today ${today.ms.toFixed(0)} ms, ${(today.bytes / 1024).toFixed(0)} KB; as of ${past.ms.toFixed(0)} ms; team-limited ${mine.ms.toFixed(0)} ms (${mine.body.nodes.length} people)`);
+  }, 120_000);
+});
+
+describe('moving a department under another (R056)', () => {
+  it('is one MOVED line under Changes, with the reason given in the preview', async () => {
+    const hr = await owner();
+    const ops = (await people(hr).post('/structure/departments', { name: 'Ops' }).expect(201)).body.item;
+    const night = (await people(hr).post('/structure/departments', { name: 'Night' }).expect(201)).body.item;
+    await people(hr).put(`/structure/departments/${night.id}`, { name: 'Night', parentId: ops.id, reason: 'Night shift now reports into Ops' }).expect(200);
+    const h = await history(hr, `?kind=departments&id=${night.id}`);
+    expect(h.entries[0]).toMatchObject({ action: 'MOVED', reason: 'Night shift now reports into Ops', changes: [expect.objectContaining({ before: null, after: 'Ops' })] });
+  });
+});

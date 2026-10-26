@@ -276,6 +276,17 @@ function EditDrawer({ kind, cfg, value, items, refs, staff, onClose, onDone, onR
   const nameHints = [...sourced, ...(COMMON_NAMES[kind] || [])].filter((h) => !taken.has(String(h.value ?? h).trim().toLowerCase()));
   const typed = String(form.name || '').trim().toLowerCase();
   const same = typed ? items.find((x) => x.id !== form.id && String(x.name).trim().toLowerCase() === typed) : null;
+  /* Moving under another parent: what goes with it and who is affected, before saving (research R056). */
+  const treeKey = TREE_KEY[kind];
+  const moving = !isNew && treeKey && (form[treeKey] || '') !== (initial[treeKey] || '');
+  const [moveReason, setMoveReason] = useState('');
+  const move = useMemo(() => {
+    if (!moving) return null;
+    const under = [...descendantsOf(items, form.id, treeKey)];
+    const people = [form.id, ...under].reduce((n, id) => n + (items.find((x) => x.id === id)?.employeeCount || 0), 0);
+    const where = (parentId) => { const parent = items.find((x) => x.id === parentId); return parent ? pathOf(items, parent, treeKey) : 'Top level'; };
+    return { from: where(initial[treeKey]), to: where(form[treeKey]), under: under.length, people };
+  }, [moving, items, form, initial, treeKey]);
   const save = async () => {
     if (!String(form.name || '').trim()) { setError({ message: 'Give it a name.' }); return; }
     const missing = cfg.fields.find((f) => f.required && !form[f.key] && f.type !== 'checkbox');
@@ -283,7 +294,7 @@ function EditDrawer({ kind, cfg, value, items, refs, staff, onClose, onDone, onR
     setBusy(true);
     setError(null);
     try {
-      const body = { name: form.name.trim(), ...(DESCRIBED.has(kind) ? { description: form.description || null } : {}), ...Object.fromEntries(cfg.fields.map((f) => [f.key, f.type === 'checkbox' ? Boolean(form[f.key]) : form[f.key] || null])) };
+      const body = { ...(move && moveReason.trim() ? { reason: moveReason.trim() } : {}), name: form.name.trim(), ...(DESCRIBED.has(kind) ? { description: form.description || null } : {}), ...Object.fromEntries(cfg.fields.map((f) => [f.key, f.type === 'checkbox' ? Boolean(form[f.key]) : form[f.key] || null])) };
       if (isNew) await createItem(kind, body); else await updateItem(kind, form.id, body);
       notify.success(`${body.name} saved.`);
       onDone();
@@ -306,6 +317,18 @@ function EditDrawer({ kind, cfg, value, items, refs, staff, onClose, onDone, onR
           {same ? <span id="org-name-same" className="ui-caption block mt-1">{same.isActive === false ? `${same.name} is in the list, retired. Bring it back instead of adding it again.` : `${same.name} is already in the list.`}</span> : null}
         </label>
         {cfg.fields.map((f) => field(f, form, set, { refs: { ...refs, [kind]: refs[kind] || items }, staff }))}
+        {move ? (
+          <div className="sm:col-span-2 grid gap-2 border-t pt-3" aria-live="polite">
+            <span className="ui-label">What changes</span>
+            <p className="text-sm">Moves from <span className="font-medium">{move.from}</span> to <span className="font-medium">{move.to}</span>.</p>
+            <p className="text-sm">{[
+              move.under ? `${move.under} ${move.under === 1 ? (kind === 'areas' ? 'location' : 'sub-department') : (kind === 'areas' ? 'locations' : 'sub-departments')} under it ${move.under === 1 ? 'moves' : 'move'} with it` : null,
+              kind === 'departments' ? 'its teams and designations stay with it' : null,
+              `${move.people} ${move.people === 1 ? 'person keeps' : 'people keep'} their ${kind === 'areas' ? 'location' : 'department'}, and the overview and chart show them in the new place`,
+            ].filter(Boolean).join('; ').replace(/^./, (c) => c.toUpperCase())}. Nobody's manager or approvals change.</p>
+            <label className="block"><span className="ui-label">Reason</span><input className="ui-input w-full" maxLength={500} value={moveReason} onChange={(e) => setMoveReason(e.target.value)} placeholder="Night shift now reports into Operations" /></label>
+          </div>
+        ) : null}
         {DESCRIBED.has(kind) ? <label className="block sm:col-span-2"><span className="ui-label">Description</span><textarea className="ui-input w-full" rows={2} maxLength={500} value={form.description || ''} onChange={(e) => set('description', e.target.value)} /></label> : null}
       </form>
     </Drawer>

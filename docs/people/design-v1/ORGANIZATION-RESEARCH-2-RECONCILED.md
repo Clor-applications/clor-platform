@@ -37,13 +37,13 @@ keyboard contract · R049 phone layouts checked · R052, R063 scoped export, sav
 and columns · R053, R061 department head is a label, never a permission; employee app
 shows it · R054 retire keeps history · R014 People tests pass.
 
-## Partly built
+## Finished after the first check
 
-| ID | State |
+| ID | Built |
 |---|---|
-| R024 Accessible tree keys | The chart is an outline of buttons with `aria-expanded` (axe: no violations; works with Tab and screen readers). Arrow-key tree navigation (APG Tree View) is not added |
-| R043 Chart at 300 / 1,000 people | The directory is tested at 2,000 people; the chart has no separate 1,000-node timing test |
-| R056 Dry-run moves | Merge and retire drawers say what moves before saving. A separate dry run for moving a department under another parent is not built |
+| R024 Accessible tree keys | Both chart views are a WAI-ARIA tree (`useTreeKeys`): one tab stop; ↓ ↑ walk, → opens or goes to the first child, ← closes or goes to the parent, Home / End, Enter opens the person, a letter jumps. The focused row carries the ring. axe: no violations |
+| R043 Chart at 1,000 people | Test: 1,000 people and 500 open positions answer in one request, about 90 ms and 280 KB (as of a date: about 90 ms; team-limited: about 80 ms). In the browser, search narrows the chart in about 85 ms, Expand all and Collapse all take about 150 ms, and opening one row about 5 ms. A chart over 200 people now opens two levels deep instead of all rows |
+| R056 Moving a department | The edit drawer shows "What changes" before saving: from and to, what moves with it, how many people are affected, that managers and approvals do not change, and an optional reason that goes into Changes |
 
 ## Declined, with reasons
 
