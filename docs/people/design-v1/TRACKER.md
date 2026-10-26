@@ -59,3 +59,21 @@ Found while closing Workforce; each belongs to the module named and is the first
 |---|---|---|---|
 | Attendance | Holidays after a mid-month move. The monthly summary (`server/src/services/attendance/days.ts`, `holidaysFor`) and reports (`server/src/routes/attendanceReports.ts`) read the person's current location for every day of the month. Someone moved from Bengaluru to Pune on 15 Oct gets Pune's holidays for all of October. | The fix is in how Attendance picks the location per day. | Each day uses the location the person had that day, from employment history (`employeeAsOf` / `EmploymentHistory`). A test with a move on the 15th: holidays before it from the old location, after it from the new. |
 | Payroll | Bank details asked for from the employee app. | Payroll's bank-change path (`services/payroll/bankChanges.ts`, `routeBankUpdate`) applies a first bank account at once with no approval. A request screen on top of it would be unsafe until Payroll decides the rule. | Payroll decides: does a first account need HR approval, is a change held until the next pay run. Then the employee app asks, and HR approves through the same requests. |
+
+## Organization module (started 26 Oct 2026) — handoff state
+
+Read first: `ORGANIZATION-DECISIONS.md` (scope and reasons), `WORKFORCE-AUDIT-2026-10-26.md` (how a module is closed), memory `module-build-method`.
+Owner rules in force: research zips are reference; Claude chooses scope. Every page, form, field, button and layout follows the Workforce patterns exactly (lists on the page ground, one primary action top right, drawers, PopupSelect/DatePicker, tokens only, 8/12px radii, plain words, no filler text or captions). Verify every screen in the browser; then audit from product, owner, CEO, employee, HR, manager and IT angles, and a final automation + workflow audit; fix everything.
+
+| Step | State | Where |
+|---|---|---|
+| O.0 Decisions written | DONE | `a16daaf` ORGANIZATION-DECISIONS.md |
+| O.1 Screens | DONE, not yet browser-checked | `b65c04a`: `apps/people/src/organization/{Overview,StructurePage,lists,Branches,Changes,api}.jsx`, OrgChart Departments view, branch on record/hire/transfer/directory, manifest module, Settings trimmed |
+| O.2 Server | IN PROGRESS by a helper worktree (branch `worktree-agent-…`, see `git branch`) | Contract in the helper brief = ORGANIZATION-DECISIONS + below |
+| O.3 Merge + wire-up | TODO | after O.2: server `departmentId=none` / `branchId=none` list filters; org-chart nodes add `departmentId`; a sole active branch set on create |
+| O.4 Deep research (competitors, user problems) → reconcile plan | IN PROGRESS | `ORGANIZATION-RESEARCH.md` (to write) |
+| O.5 Browser checks, layout fixes, axe | TODO | every Organization screen, phone and desktop |
+| O.6 Audits (multi-angle, then automation + workflow) and fixes | TODO | `ORGANIZATION-AUDIT-*.md` (to write) |
+
+Server contract the screens use (O.2): `GET /people/organization` → `{company, branches[{id,name,code,city,state,isActive,people}], departments[{id,name,parentId,isActive,headEmployeeId,headName,headLeft,people}], unplaced{noDepartment,noBranch}, lists{designations,roles,teams,positions,units,grades,centres,areas,sites,types,workModes}, detailed, checks[]}`; structure items carry `headEmployeeId/headName/headLeft` (departments); `POST /people/structure/:kind/:id/merge {intoId, reason}` → `{moved, children, item}`; `PUT /people/structure/:kind/:id {isActive:false, moveTo}` (409 `IN_USE` without moveTo); `GET /people/structure-history?kind&id&limit&before` → `{entries[{id,at,actorName,kind,kindLabel,itemId,itemName,action,changes[{field,label,before,after}],reason}]}`; Data Health area `Structure` checks; employee `branchId` validated, `branchName` returned, list filter `branchId`, import column `branch`; feature `peopleOrgDetail` (off by default, backfilled on for orgs using detailed lists); employee app `terms.departmentHead`.
+Open question to the owner: rename "Job role" (to avoid confusion with access roles) — answer pending.
