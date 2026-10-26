@@ -74,7 +74,10 @@ export async function homeTodos(req: Request): Promise<Todo[]> {
     }
   }
   if (leave) {
-    const waiting = await peoplePrisma.leaveRequest.count({ where: { accountId, orgId, status: 'PENDING' } });
+    /* What waits on this reader, in their scope, not still with a manager first (Time & Leave's own count). */
+    const { waitingForReader } = await import('../../routes/leave.js');
+    const { teamScope } = await import('./scope.js');
+    const waiting = (await waitingForReader(orgId, await teamScope(req), req.auth!.userId)).length;
     if (waiting) out.push({ key: 'leave', title: 'Leave waiting for a decision', detail: `${plural(waiting, 'request')} to approve or reject`, count: waiting, tone: 'soon', screen: 'leaveRequests' });
   }
   if (cases) {

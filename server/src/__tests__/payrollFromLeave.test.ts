@@ -74,28 +74,28 @@ describe('days from leave, without Attendance', () => {
     expect(Number(again!.payableDays)).toBe(30);
   }, 60_000);
 
-  it('matches the attendance summary on a linked half day: the leave half and the unworked half are separate', async () => {
+  it('a half day of leave without punches costs only its leave half: nobody clocks in without Attendance', async () => {
     const c = await makeOwner({ payroll: true, people: true, attendance: false });
     const { employeeId, runId } = await setUp(c);
-    /* An unpaid half day with nothing worked: both halves are lost (0.5 leave + 0.5 unworked) */
+    /* An unpaid half day: the leave half is lost; the other half is an ordinary day, as every unpunched day is here. */
     const lop = (await att(c, '/leave/types', { name: 'Loss of pay', isPaid: false }).expect(201)).body.type;
     const unpaidHalf = (await att(c, '/leave/requests', { employeeId, leaveTypeId: lop.id, fromDate: '2026-09-03', toDate: '2026-09-03', halfDay: 'FIRST', reason: 'Clinic' }).expect(201)).body.request;
     await att(c, `/leave/requests/${unpaidHalf.id}/approve`).expect(200);
     let r = (await pay(c, `/runs/${runId}/inputs/from-leave`).expect(200)).body;
     expect(r.unpaidLeaveDays).toBe(0.5);
     let input = await inputOf(runId, employeeId);
-    expect(Number(input!.lwpDays)).toBe(1);
-    expect(Number(input!.payableDays)).toBe(29);
+    expect(Number(input!.lwpDays)).toBe(0.5);
+    expect(Number(input!.payableDays)).toBe(29.5);
 
-    /* A paid half day still loses the half the person did not work */
+    /* A paid half day costs nothing. */
     const casual = (await att(c, '/leave/types', { name: 'Casual', annualDays: 12 }).expect(201)).body.type;
     const paidHalf = (await att(c, '/leave/requests', { employeeId, leaveTypeId: casual.id, fromDate: '2026-09-04', toDate: '2026-09-04', halfDay: 'SECOND', reason: 'Errand' }).expect(201)).body.request;
     await att(c, `/leave/requests/${paidHalf.id}/approve`).expect(200);
     r = (await pay(c, `/runs/${runId}/inputs/from-leave`).expect(200)).body;
     expect(r.unpaidLeaveDays).toBe(0.5);
     input = await inputOf(runId, employeeId);
-    expect(Number(input!.lwpDays)).toBe(1.5);
-    expect(Number(input!.payableDays)).toBe(28.5);
+    expect(Number(input!.lwpDays)).toBe(0.5);
+    expect(Number(input!.payableDays)).toBe(29.5);
   }, 60_000);
 
   it('sends a company with Attendance to Attendance, which already counts leave', async () => {

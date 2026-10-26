@@ -81,7 +81,7 @@ export default function WorkingWeek() {
       <PageHeader title="Working week" />
       <form className="ui-record-section ui-wizard-body space-y-6" aria-label="Working week" onSubmit={save}>
         {error ? <ErrorState error={error?.status ? error : null} compact title={error?.status ? undefined : error.message} body={error?.status && error.status < 500 ? error.message : undefined} /> : null}
-        {req.data.shiftsDecide ? <p className="ui-caption">Shifts in Attendance decide the days for people on a shift; this week is for everyone else.</p> : null}
+        {req.data.defaultShift ? <p className="ui-caption">A default shift is set in Attendance, so its weekly offs apply instead of this week.</p> : req.data.shiftsDecide ? <p className="ui-caption">People on a shift follow its weekly offs; this week is for everyone else.</p> : null}
 
         <fieldset disabled={!canEdit}>
           <legend className="ui-label">Days off</legend>

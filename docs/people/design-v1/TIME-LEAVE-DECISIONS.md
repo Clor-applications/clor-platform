@@ -106,3 +106,57 @@ what is waiting for me, and how many days does each person have — and why.**
 People-only companies can check in and out from People (founder, 22 Oct 2026). With
 Attendance sold separately for capture, is a web check-in in People intended to stay?
 Running as: kept, unchanged.
+
+## Advanced build (owner's direction, 27 Oct 2026)
+
+Owner: automate credits on any day of the month, different allocation by employee type, custom
+leave workflows, automation, balances, half-day flow, WFH and On Duty requests, attendance requests,
+edit and cancel before and after approval, and the shared manners of every module (field
+suggestions, pickers that close, Enter saves, success and failure toasts, audit and history).
+Checked against our own research (competitor help docs, app-store and forum complaints, Indian
+leave law; `TIME-LEAVE-RESEARCH.md`) and against the code.
+
+### What the research says users suffer from, ranked
+
+1. Phone check-in that fails and punishes (Attendance module). 2. Wrong balances fixed by hand.
+3. Regularisation broken or capped too hard. 4. Loss of pay that does not match payroll.
+5. Slow support. 6. Set-up too complex (leave year, law). 7. Phone app weaker than web.
+8. Rigid approvals: no leave on behalf, no edit or cancel after applying, no stand-in.
+9. Notice floods or silence. 10. Balances hard to read or forecast.
+
+### Owner's items, what exists, what we build
+
+| Owner's item | Already in the engine | Built now |
+|---|---|---|
+| Credit on any day of the month (22nd, not 1st or last) | `creditOn: START / END / DAY`, `creditDay` 1–28 (`leaveAccrual.ts`); the policy form has it | Shown plainly on the form ("Credited on the 22nd of each month") and on the ledger; tried on five people before saving |
+| Different allocation by employee type (full-time vs intern vs contract) | A type is *open to* chosen employee types only; different days meant a second type | **Entitlement rules** on one type: `annualDays` by employee type and by years of service (tenure slabs), with the type's days as the default. One "Casual leave", 12 for staff, 6 for interns, 15 after 3 years |
+| Probation | `availableAfterDays` (usable after N days) | Per type: during probation, **hold** (credits start at confirmation, from the type's start), **accrue but lock** (credits build, usable at confirmation), or **accrue** as normal. Confirmation moves the person onto the full entitlement, prorated |
+| Custom leave workflows | One chain for all leave (HR / manager / manager then HR), set in Attendance rules | Per leave type: its own chain, **auto-approve** when under N days and the balance covers it, a **stand-in** approver while the manager is away (dated, set by HR or the manager), and **hand on to HR** when a step waits longer than N days. No second workflow engine: the same three shapes, applied per type |
+| Automation | Monthly credits are computed, not run; no year-end process | **Year-end preview and run**: carry forward (days or %, with a cap), pay out the rest or lapse it, per type, previewed per person, run once with an undo until the first request of the new period. **Reminders**: one morning digest per approver of what waits, nothing per request. **Hand-on** after N days. **Balance-lapsing** notice to the person 30 days before the period end |
+| Leave balances | Ledger, period register, "Why this number?" | Balance **as of a date** and **projected to the period end** (credits still to come minus booked leave), on the ledger and the employee app |
+| Half-day flow | First or second half of one day | Kept; plus **Permission hours** (short leave: 1–4 hours, capped per month, not from the balance, marked on the day) |
+| WFH, On Duty, attendance requests | Missed-punch corrections (`AttendanceRequest`, reason codes FORGOT_PUNCH, READER_DOWN, ON_DUTY, WRONG_SHIFT), overtime and comp-off requests | **Attendance requests** of four kinds on one list and one approval: **Missed punch** (correction, as now), **Work from home**, **On duty** (client visit, travel: place and note), **Permission** (hours). WFH and On duty mark the day *present* with its kind on the record, never leave. Each kind has a monthly quota and a back-date window in settings; the employee app shows used and left. One queue for HR and for managers |
+| Edit and cancel, before and after approval | Cancel pending any time; approved before it starts; after it starts HR cancels | **Edit** a waiting request (dates, half day, reason) with the same preview; an edit resets the manager's step. **Cancel** rules kept, plus **came back early**: shorten an approved leave that has started, from the employee app (HR approves) or by HR, so only the days taken are charged. Every change in the request's history |
+| Comp-off | From recorded rest-day work, into a comp-off leave type | Kept; for a People-only company with no punches, HR **grants** comp-off for a date worked (an adjustment with the date), with the same expiry |
+| Holidays | Company and location holidays; optional holidays shown | **Restricted holidays**: a quota of N a year; the person picks from the optional list in the employee app; counted on the day, not from a leave balance |
+| Set-up | Indian types one click away | **State starting points**: Karnataka, Maharashtra, Tamil Nadu, Delhi, Factories Act and the OSH Code default, each a set of types with the law's days, and the national and festival holidays to pick from. Starting points, never rules: the owner edits them |
+| Field suggestions | None in Time & Leave | Reasons (leave, missed punch, WFH, On duty), places for On duty, leave type names: `SuggestInput` on the company's own words first |
+| Pickers close, Enter saves, toasts | Mixed | Every drawer: Enter in the last field saves, Escape asks when dirty, a picker closes on choice and on click outside, success and failure toasts in the shared words |
+| Audit and history | Decisions audited (this module) | Every create, edit, cancel, manager step, grant and year-end run in the audit log; a **History** tab on the request drawer and on each person's leave (the ledger) |
+
+### Declined, and why
+
+| Idea | Reason |
+|---|---|
+| Quarter-day and hourly leave from the balance | Permission hours cover the Indian habit (a few hours off, capped); hourly balances need a minutes ledger across the day engine. P2 |
+| Approval steps by leave duration (two steps above 5 days) | Per-type chain and auto-approve under N days give the same control for a 1–50 firm without a rules table |
+| Skills-based cover, coverage rules, roster forecasting | Attendance's scheduling; no small-business signal |
+| WhatsApp or e-mail notices | Platform notification channels; this module sends the notices, the platform delivers them |
+| Geofence and selfie on On duty | On duty lifts the site rule for that day; capture stays Attendance's |
+
+### Build order
+
+1. Engine: entitlement rules (employee type, tenure, probation), per-type chain with auto-approve, stand-in and hand-on, year-end run with preview, balance as of a date and projected. Tests for each.
+2. Request lifecycle: edit, came back early, history; attendance requests (missed punch, WFH, On duty, permission) with quotas; comp-off grant; restricted holidays.
+3. Screens: Leave Policy (entitlements, workflow, probation), Year end, Attendance requests list and drawer, the employee app's requests, Settings → Request rules, state starting points; suggestions, Enter, pickers, toasts, History everywhere.
+4. Audits from owner, employee, manager, HR, IT angles; automation and workflow audit; fix all; browser checks on desktop and phone for every screen.

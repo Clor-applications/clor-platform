@@ -224,3 +224,62 @@ describe('preview, split, privacy, scope, story, overview', () => {
     expect(women.rows.some((x: any) => x.open === false)).toBe(true);
   });
 });
+
+const RULES = { defaultShiftId: null, lateAllowancePerMonth: 0, latePenaltyEvery: 0, photoRetentionDays: 90, readerUsersBecomeEmployees: false };
+
+describe('manager then HR, imports, split decisions, private leave beyond the leave screens (audit, 27 Oct 2026)', () => {
+  let hr: Ctx;
+  let boss: Ctx;
+  let casual: any;
+  let sick: any;
+  let bossEmp: any;
+  let worker: any;
+  beforeAll(async () => {
+    hr = await company({ people: true, attendance: true });
+    casual = (await att(hr, 'post', '/leave/types', { name: 'Casual', annualDays: 12 }).expect(201)).body.type;
+    sick = (await att(hr, 'post', '/leave/types', { name: 'Sick', annualDays: 6, isPrivate: true }).expect(201)).body.type;
+    /* The manager holds a team role that approves leave, and signs in to People. */
+    boss = await colleague(hr, ['ATTENDANCE::Leave Requests::VIEW', 'ATTENDANCE::Leave Requests::APPROVE', 'PEOPLE::Employees::VIEW'], true);
+    bossEmp = await person(hr, { name: 'Boss', code: 'B1' });
+    await runInTenant(hr.orgId, () => peoplePrisma.employee.update({ where: { id: bossEmp.id }, data: { userId: boss.userId } }));
+    worker = await person(hr, { name: 'Worker', code: 'B2', reportingManagerId: bossEmp.id });
+    await att(hr, 'put', '/rules', { ...RULES, leaveApproval: 'MANAGER_THEN_HR' }).expect(200);
+  }, 90_000);
+
+  it('the manager takes the first step in People, cannot take the second, and HR then decides', async () => {
+    const r = (await att(hr, 'post', '/leave/requests', { employeeId: worker.id, leaveTypeId: casual.id, fromDate: '2026-12-01', toDate: '2026-12-01', reason: 'Errand' }).expect(201)).body.request;
+    /* HR first is refused: the manager's step comes first. */
+    expect((await att(hr, 'post', `/leave/requests/${r.id}/approve`).expect(409)).body.code).toBe('MANAGER_FIRST');
+    const step = (await att(boss, 'post', `/leave/requests/${r.id}/approve`, { note: 'Fine by me' }).expect(200)).body;
+    expect(step.stage).toBe('HR');
+    expect(step.request.status).toBe('PENDING');
+    expect((await att(boss, 'post', `/leave/requests/${r.id}/approve`).expect(403)).body.code).toBe('HR_STEP');
+    await att(hr, 'post', `/leave/requests/${r.id}/approve`).expect(200);
+    const story = (await att(hr, 'get', `/leave/requests/${r.id}`).expect(200)).body;
+    expect(story.history.map((h: any) => h.what)).toEqual(['Entered for Worker', 'Approved by the manager', 'Approved']);
+    expect(story.history[1].note).toBe('Fine by me');
+  });
+
+  it('leave already taken imports without waiting on the manager', async () => {
+    const out = (await att(hr, 'post', '/leave/requests/import', { rows: [{ employeeCode: 'B2', leaveType: 'Casual', from: '2026-09-01', to: '2026-09-01', reason: 'Old leave' }] }).expect(200)).body;
+    expect(out).toMatchObject({ imported: 1, failed: 0 });
+  });
+
+  it('a leave split at the period end is approved as one', async () => {
+    await att(hr, 'put', '/rules', { ...RULES, leaveApproval: 'HR' }).expect(200);
+    const saved = (await att(hr, 'post', '/leave/requests', { employeeId: worker.id, leaveTypeId: casual.id, fromDate: '2026-12-30', toDate: '2027-01-01', reason: 'Trip', split: true }).expect(201)).body;
+    await att(hr, 'post', `/leave/requests/${saved.request.id}/approve`).expect(200);
+    const rows = await runInTenant(hr.orgId, () => peoplePrisma.leaveRequest.findMany({ where: { id: { in: saved.requests.map((x: any) => x.id) } } }));
+    expect(rows.map((x) => x.status)).toEqual(['APPROVED', 'APPROVED']);
+  });
+
+  it('private leave stays private in adjustments, the balance explanation and a filter by its type', async () => {
+    await att(hr, 'post', '/leave/adjustments', { employeeId: worker.id, leaveTypeId: sick.id, year: 2026, days: 2, reason: 'Surgery recovery' }).expect(201);
+    await att(hr, 'post', '/leave/requests', { employeeId: worker.id, leaveTypeId: sick.id, fromDate: '2026-11-24', toDate: '2026-11-24' }).expect(201);
+    const adjustments = (await att(boss, 'get', '/leave/adjustments?year=2026').expect(200)).body.adjustments;
+    expect(JSON.stringify(adjustments)).not.toContain('Surgery');
+    await att(boss, 'get', `/leave/explain?employeeId=${worker.id}&leaveTypeId=${sick.id}&year=2026`).expect(404);
+    expect((await att(boss, 'get', `/leave/requests?limit=50&leaveTypeId=${sick.id}`).expect(200)).body.total).toBe(0);
+    expect((await att(hr, 'get', `/leave/requests?limit=50&leaveTypeId=${sick.id}`).expect(200)).body.total).toBe(1);
+  });
+});

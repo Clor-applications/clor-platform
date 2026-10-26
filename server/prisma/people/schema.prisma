@@ -656,6 +656,8 @@ model LeaveRequest {
   /// The manager's step, when the company asks for it before HR (AttendanceSettings.*Approval).
   managerApprovedAt   DateTime?
   managerApprovedById String?
+  /// The manager's note with their step; HR's decision note is reviewNote.
+  managerNote         String?
   /// Leave that crosses the leave-period end is saved as one request per
   /// period; the parts share this id so they read, and cancel, as one.
   groupId             String?

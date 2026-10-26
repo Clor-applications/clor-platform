@@ -25,7 +25,7 @@ import { askOvertime, attentionFor, chainsFor, confirmMonth, decideOvertime, mon
 import { createRequest } from './attendance.js';
 import { REASON_CODES, reviewCorrection } from '../services/attendance/corrections.js';
 import { daysOfMonth, instants, sendError, today, withNames } from '../services/attendance/days.js';
-import { approveLeave, cancelOwnLeave, createLeave, dayWords, masked, previewOut, rejectLeave, withTypes } from './leave.js';
+import { cancelOwnLeave, createLeave, decideLeave, leaveAudit, managerStep, masked, previewOut, withTypes } from './leave.js';
 import { balancesFor, leavePeriodOf, leaveYearOf } from '../services/attendance/leaveBalances.js';
 import { periodEnd, periodStart } from '../services/attendance/leaveAccrual.js';
 import { recomputeDeviceDay, shiftDayFor } from '../services/attendance/punches.js';
@@ -672,7 +672,10 @@ portalRouter.post('/leave/preview', async (req, res) => {
 
 portalRouter.post('/leave', async (req, res) => {
   try {
-    return await createLeave(req, res, req.portal!.employee, who(req));
+    await createLeave(req, res, req.portal!.employee, who(req));
+    const e = req.portal!.employee;
+    if (res.statusCode === 201) await leaveAudit({ accountId: e.accountId, orgId: e.orgId, userId: e.userId || `portal:${e.id}` }, { entityId: e.id, action: 'CREATE', message: `${e.name} asked for leave in the employee app, ${req.body?.fromDate} to ${req.body?.toDate || req.body?.fromDate}`, metadata: { employeeId: e.id, leaveTypeId: req.body?.leaveTypeId } });
+    return;
   } catch (err) {
     return sendError(res, err);
   }
@@ -681,6 +684,8 @@ portalRouter.post('/leave', async (req, res) => {
 portalRouter.post('/leave/:id/cancel', async (req, res) => {
   const { accountId, orgId, employeeId } = req.portal!;
   const out = await cancelOwnLeave(accountId, orgId, employeeId, String(req.params.id));
+  const e = req.portal!.employee;
+  if (out.status === 200) await leaveAudit({ accountId, orgId, userId: e.userId || `portal:${e.id}` }, { entityId: String(req.params.id), action: 'CANCEL', message: `${e.name} cancelled their own leave in the employee app`, metadata: { employeeId } });
   res.status(out.status).json(out.body);
 });
 
@@ -772,21 +777,22 @@ portalRouter.post('/approvals/:type/:id', async (req, res) => {
     if (decision === 'approve' && chain === 'MANAGER_THEN_HR') {
       /* The manager's step: recorded, and the request moves on to HR still pending. */
       if (r.managerApprovedAt) return res.status(409).json({ error: 'You have already approved this; it is with HR now.' });
-      const data = { managerApprovedAt: new Date(), managerApprovedById: e.id, reviewNote: note };
-      const where = { id: r.id, status: 'PENDING', managerApprovedAt: null };
-      const changed = type === 'leave' ? await peoplePrisma.leaveRequest.updateMany({ where, data }) : await peoplePrisma.attendanceRequest.updateMany({ where, data });
-      if (!changed.count) return res.status(409).json({ error: 'This request is no longer waiting for your approval.' });
-      const out = type === 'leave' ? await peoplePrisma.leaveRequest.findFirst({ where: { id: r.id, orgId: e.orgId } }) : await peoplePrisma.attendanceRequest.findFirst({ where: { id: r.id, orgId: e.orgId } });
-      /* HR's turn now: those who approve leave hear of it once, from the manager's step. */
       if (type === 'leave') {
-        const who_ = await peoplePrisma.employee.findFirst({ where: { id: r.employeeId, orgId: e.orgId }, select: { name: true } });
-        await notifyPermission(e.accountId, e.orgId, 'ATTENDANCE::Leave Requests::APPROVE', { kind: 'attendance.leave_asked', title: `${who_?.name || 'Someone'}'s leave, ${r.fromDate === r.toDate ? dayWords(r.fromDate) : `${dayWords(r.fromDate)} to ${dayWords(r.toDate)}`}, is approved by ${e.name} and waits for HR`, link: { app: (await isFeatureEnabled(e.accountId, e.orgId, 'people')) ? 'people' : 'attendance', screen: 'leaveRequests', params: { id: r.id } } }, { except: e.userId || null }).catch(() => 0);
+        const out = await managerStep(e.orgId, r, e.id, note);
+        await leaveAudit({ accountId: e.accountId, orgId: e.orgId, userId }, { entityId: r.id, action: 'MANAGER_APPROVE', message: `${e.name} (manager) approved leave, ${r.fromDate} to ${r.toDate}; now with HR`, metadata: { employeeId: r.employeeId } });
+        return res.json({ request: masked([out], false)[0], stage: 'HR' });
       }
-      return res.json({ request: out, stage: 'HR' });
+      const data = { managerApprovedAt: new Date(), managerApprovedById: e.id, reviewNote: note };
+      const changed = await peoplePrisma.attendanceRequest.updateMany({ where: { id: r.id, status: 'PENDING', managerApprovedAt: null }, data });
+      if (!changed.count) return res.status(409).json({ error: 'This request is no longer waiting for your approval.' });
+      return res.json({ request: await peoplePrisma.attendanceRequest.findFirst({ where: { id: r.id, orgId: e.orgId } }), stage: 'HR' });
     }
     if (type === 'leave') {
-      const out = decision === 'approve' ? await approveLeave(e.accountId, e.orgId, r, userId, note) : await rejectLeave(e.orgId, r, userId, note);
-      return res.json({ request: out });
+      /* A refusal says why: the person reads it in the employee app. */
+      if (decision === 'reject' && !note) return res.status(400).json({ error: 'Say why. They see this with the decision.' });
+      const out = await decideLeave(e.accountId, e.orgId, r, userId, note, decision === 'approve');
+      await leaveAudit({ accountId: e.accountId, orgId: e.orgId, userId }, { entityId: r.id, action: decision === 'approve' ? 'APPROVE' : 'REJECT', message: `${e.name} (manager) ${decision === 'approve' ? 'approved' : 'rejected'} leave, ${r.fromDate} to ${r.toDate}${note ? `: ${note}` : ''}`, metadata: { employeeId: r.employeeId } });
+      return res.json({ request: masked([out], false)[0] });
     }
     const out = await reviewCorrection(e.accountId, e.orgId, r, decision === 'approve', userId, note);
     return res.json({ request: out });

@@ -438,14 +438,15 @@ export async function build(id: string, accountId: string, orgId: string, q: any
     );
     const [requests, types] = await Promise.all([
       peoplePrisma.leaveRequest.findMany({ where: { accountId, orgId, status: 'APPROVED', fromDate: { lte: to }, toDate: { gte: from } }, orderBy: { fromDate: 'asc' } }),
-      peoplePrisma.leaveType.findMany({ where: { orgId }, select: { id: true, name: true, isPaid: true } }),
+      peoplePrisma.leaveType.findMany({ where: { orgId }, select: { id: true, name: true, isPaid: true, isPrivate: true } }),
     ]);
-    const type = new Map(types.map((t) => [t.id, t]));
+    /* Reports are read and mailed beyond those who decide leave: a private type reads "Private leave", with no reason. People's register has the detail for HR. */
+    const type = new Map(types.map((t) => [t.id, t.isPrivate ? { ...t, name: 'Private leave' } : t]));
     const rows = requests
       .filter((r) => people.has(r.employeeId))
       .map((r) => {
         const p = people.get(r.employeeId)!;
-        return { code: p.code, name: p.name, department: p.department, type: type.get(r.leaveTypeId)?.name || '—', paid: type.get(r.leaveTypeId)?.isPaid === false ? 'No' : 'Yes', from: r.fromDate, to: r.toDate, days: r.days, reason: r.reason };
+        return { code: p.code, name: p.name, department: p.department, type: type.get(r.leaveTypeId)?.name || '—', paid: type.get(r.leaveTypeId)?.isPaid === false ? 'No' : 'Yes', from: r.fromDate, to: r.toDate, days: r.days, reason: type.get(r.leaveTypeId)?.isPrivate ? '' : r.reason };
       });
     return {
       title: 'Leave register',
