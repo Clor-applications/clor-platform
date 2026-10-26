@@ -9,7 +9,7 @@ import Drawer from '@ui/components/ui/Drawer';
 import DatePicker, { formatDate } from '@ui/components/ui/DatePicker';
 import PopupSelect from '@ui/components/pickers/PopupSelect';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
-import { LEAVE_STATUS, applyLeave, cancelMyLeave, explainMyLeave, getMyLeave } from '../api/attendance';
+import { LEAVE_STATUS, applyLeave, cancelMyLeave, editMyLeave, explainMyLeave, getMyLeave, getMyRestrictedHolidays, pickMyRestrictedHoliday, shortenMyLeave } from '../api/attendance';
 import LoadFailed from '../components/LoadFailed';
 import LeaveExplain from '../components/LeaveExplain';
 
@@ -26,8 +26,26 @@ const daysText = (n) => (n === 0.5 ? 'half a day' : `${n} day${n === 1 ? '' : 's
 const range = (from, to) => (from === to ? formatDate(from) : `${formatDate(from)} – ${formatDate(to)}`);
 const dayLabel = (iso) => new Date(`${iso}T00:00:00Z`).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' });
 const NUMBER_WORD = ['', 'one', 'two', 'three', 'four'];
+const addDays = (iso, n) => { const d = new Date(`${iso}T00:00:00Z`); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
 /** What a request would charge, without saving it (server: leave.ts `me/leave/preview`). */
 const previewMyLeave = (body) => apiFetch(`/orgs/${encodeURIComponent(platformOrgId() || '')}/attendance/me/leave/preview`, { method: 'POST', body, skipWarehouseHeader: true });
+/**
+ * The preview while a request of mine is being changed still sees the request
+ * itself: an overlap with its own dates and a balance short by its own days
+ * are not problems, and the balance after gets its own days back when the
+ * type is unchanged. The server checks the rest on save.
+ */
+function ownPreview(p, request) {
+  if (!p || !request) return p;
+  const sameType = p.type?.id === request.leaveTypeId;
+  const own = (x) => (x.code === 'OVERLAP' && String(x.message || '').includes(request.fromDate) && String(x.message || '').includes(request.toDate)) || (x.code === 'NO_BALANCE' && sameType);
+  const parts = p.parts || [];
+  return {
+    ...p,
+    problems: (p.problems || []).filter((x) => !own(x)),
+    parts: sameType && parts.length === 1 ? parts.map((x) => (x.balance?.after == null ? x : { ...x, balance: { ...x.balance, after: Math.round((x.balance.after + request.days) * 100) / 100 } })) : parts,
+  };
+}
 
 export default function MyLeave() {
   /* null asks the server for the leave period today falls in; its answer names the year. */
@@ -37,7 +55,12 @@ export default function MyLeave() {
   /* No employee file behind this sign-in is a state, not a failure: retrying will not change it. */
   const [unlinked, setUnlinked] = useState(false);
   const [asking, setAsking] = useState(false);
+  /* The waiting request being changed; the approved one I came back early from. */
+  const [editing, setEditing] = useState(null);
+  const [shortening, setShortening] = useState(null);
   const [explaining, setExplaining] = useState(null);
+  /* Restricted holidays go by the calendar year of today, not the leave period. */
+  const [restricted, setRestricted] = useState(null);
   const shownYear = year ?? me?.year;
   const explainLoad = useCallback(() => explainMyLeave(explaining, shownYear), [explaining, shownYear]);
 
@@ -55,6 +78,22 @@ export default function MyLeave() {
   useEffect(() => {
     load();
   }, [load]);
+  const loadRestricted = useCallback(() => {
+    getMyRestrictedHolidays().then(setRestricted).catch(() => setRestricted(null));
+  }, []);
+  useEffect(() => {
+    loadRestricted();
+  }, [loadRestricted]);
+
+  const pick = async (h) => {
+    try {
+      await pickMyRestrictedHoliday(h.id, !h.picked);
+      notify.success(h.picked ? `${h.name} dropped.` : `${h.name} picked.`);
+      loadRestricted();
+    } catch (err) {
+      notify.error(String(err?.message || 'Not changed.'));
+    }
+  };
 
   const cancel = async (r) => {
     const ok = await confirmDialog({ title: 'Cancel this leave?', message: `${r.leaveTypeName}, ${range(r.fromDate, r.toDate)}`, confirmLabel: 'Yes, cancel it' });
@@ -101,6 +140,7 @@ export default function MyLeave() {
     ) },
   ];
   const cancellable = (r) => r.status === 'PENDING' || (r.status === 'APPROVED' && r.fromDate > me.today);
+  const shortenable = (r) => r.status === 'APPROVED' && !r.halfDay && r.fromDate <= me.today && r.toDate > me.today;
 
   return (
     <div className="space-y-6">
@@ -114,6 +154,7 @@ export default function MyLeave() {
                   <span>
                     <span className="ui-metric-value tabular-nums">{t.available}<span className="ui-caption"> of {t.allocated}</span></span>
                     <span className="ui-metric-label">{t.name}{t.pending ? <span className="tabular-nums">, {t.pending} waiting</span> : null}</span>
+                    {t.projectedAvailable != null && t.projectedAvailable !== t.available ? <span className="ui-caption block tabular-nums">{t.available} left · {t.projectedAvailable} by period end</span> : null}
                   </span>
                 </button>
               ) : (
@@ -137,7 +178,11 @@ export default function MyLeave() {
         rows={me.requests}
         total={me.requests.length}
         noun="requests"
-        rowActions={(r) => [cancellable(r) ? { key: 'cancel', label: 'Cancel', danger: true, onSelect: () => cancel(r) } : null]}
+        rowActions={(r) => [
+          r.status === 'PENDING' ? { key: 'change', label: 'Change', onSelect: () => setEditing(r) } : null,
+          shortenable(r) ? { key: 'shorten', label: 'Came back early', onSelect: () => setShortening(r) } : null,
+          cancellable(r) ? { key: 'cancel', label: 'Cancel', danger: true, onSelect: () => cancel(r) } : null,
+        ]}
         card={(r) => (
           <span className="min-w-0">
             <span className="flex items-center justify-between gap-2"><span className="truncate">{r.leaveTypeName} · {daysText(r.days)}</span><span className={`ui-pill ${LEAVE_STATUS[r.status] || 'ui-pill-neutral'}`}>{STATUS_LABEL[r.status] || r.status}</span></span>
@@ -148,7 +193,30 @@ export default function MyLeave() {
         empty={<EmptyState title="Nothing asked for in this leave period" />}
       />
 
+      {restricted?.quota > 0 ? (
+        <section className="space-y-1" aria-labelledby="rh-h">
+          <header className="flex items-baseline justify-between gap-3">
+            <h2 id="rh-h" className="ui-t-sec">Restricted holidays {restricted.year}</h2>
+            <span className="ui-caption tabular-nums">{restricted.picked} of {restricted.quota} picked</span>
+          </header>
+          <ul className="divide-y border-t text-sm">
+            {restricted.holidays.length ? restricted.holidays.map((h) => (
+              <li key={h.id} className="flex flex-wrap items-center gap-3 py-2">
+                <span className="tabular-nums w-28 shrink-0">{formatDate(h.date)}</span>
+                <span className="min-w-0 flex-1 truncate">{h.name}</span>
+                {h.picked ? <span className="ui-pill ui-pill-pos">Picked</span> : null}
+                {h.past ? <span className="ui-caption">Past</span> : (
+                  <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={!h.picked && restricted.left <= 0} onClick={() => pick(h)}>{h.picked ? 'Drop' : 'Pick'}</button>
+                )}
+              </li>
+            )) : <li className="py-3 text-sm ui-muted">No optional holidays this year.</li>}
+          </ul>
+        </section>
+      ) : null}
+
       {asking ? <AskLeave types={me.types} onClose={() => setAsking(false)} onDone={() => { setAsking(false); load(); }} /> : null}
+      {editing ? <AskLeave types={me.types} request={editing} onClose={() => setEditing(null)} onDone={() => { setEditing(null); load(); }} /> : null}
+      {shortening ? <CameBackEarly request={shortening} onClose={() => setShortening(null)} onDone={() => { setShortening(null); load(); }} /> : null}
       <LeaveExplain open={Boolean(explaining)} onClose={() => setExplaining(null)} load={explainLoad} />
     </div>
   );
@@ -187,8 +255,10 @@ function LeavePreview({ preview, checking }) {
   );
 }
 
-function AskLeave({ types, onClose, onDone }) {
-  const [form, setForm] = useState(BLANK);
+function AskLeave({ types, onClose, onDone, request = null }) {
+  const editing = Boolean(request);
+  const startForm = request ? { leaveTypeId: request.leaveTypeId, fromDate: request.fromDate, toDate: request.toDate, halfDay: request.halfDay || '', reason: request.reason || '' } : BLANK;
+  const [form, setForm] = useState(startForm);
   const [saving, setSaving] = useState(false);
   const [got, setGot] = useState(null);
   const set = (k, v) => setForm((f) => ({
@@ -201,45 +271,51 @@ function AskLeave({ types, onClose, onDone }) {
 
   /* The preview follows the form; only the answer for the dates on screen counts. */
   const key = form.leaveTypeId && form.fromDate
-    ? JSON.stringify({ leaveTypeId: form.leaveTypeId, fromDate: form.fromDate, toDate: form.toDate || form.fromDate, halfDay: oneDay && form.halfDay ? form.halfDay : null })
+    ? JSON.stringify({ leaveTypeId: form.leaveTypeId, fromDate: form.fromDate, toDate: form.toDate || form.fromDate, halfDay: oneDay && form.halfDay ? form.halfDay : null, ...(request ? { editing: request.id } : {}) })
     : '';
   useEffect(() => {
     if (!key) return undefined;
     let off = false;
     const timer = setTimeout(() => {
       previewMyLeave(JSON.parse(key))
-        .then((p) => { if (!off) setGot({ ...p, key }); })
+        .then((p) => { if (!off) setGot({ ...(request ? ownPreview(p, request) : p), key }); })
         .catch((e) => { if (!off) setGot({ key, ok: false, total: 0, parts: [], problems: [{ code: 'INPUT', message: String(e?.message || 'The days could not be worked out.') }] }); });
     }, 300);
     return () => { off = true; clearTimeout(timer); };
-  }, [key]);
+  }, [key, request]);
   const preview = got && got.key === key ? got : null;
   /* Whether the type allows a half day or is private comes with the preview. */
   const type = got?.type && got.type.id === form.leaveTypeId ? got.type : null;
   const halfDayOffered = oneDay && Boolean(type?.allowHalfDay);
   const reasonNeeded = !type?.isPrivate;
   const reasonOk = !reasonNeeded || form.reason.trim().length >= 3;
-  const blocked = !key || !preview || Boolean(preview.problems?.length) || !reasonOk;
-  const dirty = Boolean(form.leaveTypeId || form.fromDate || form.reason);
+  const dirty = editing ? JSON.stringify(form) !== JSON.stringify(startForm) : Boolean(form.leaveTypeId || form.fromDate || form.reason);
+  const blocked = !key || !preview || Boolean(preview.problems?.length) || !reasonOk || (editing && !dirty);
 
   const save = async (e) => {
     e?.preventDefault();
     if (blocked || saving) return;
     setSaving(true);
     try {
-      const r = await applyLeave({
+      const body = {
         leaveTypeId: form.leaveTypeId,
         fromDate: form.fromDate,
         toDate: form.toDate || form.fromDate,
         halfDay: halfDayOffered && form.halfDay ? form.halfDay : null,
         reason: form.reason.trim(),
         ...(preview.split ? { split: true } : {}),
-      });
-      const sent = r.requests || [r.request];
-      notify.success(sent.length > 1 ? `Asked for ${daysText(preview.total)} of ${r.request.leaveTypeName}, as ${NUMBER_WORD[sent.length] || sent.length} requests.` : `Asked for ${daysText(r.request.days)} of ${r.request.leaveTypeName}.`);
+      };
+      if (editing) {
+        await editMyLeave(request.id, body);
+        notify.success('Changed. It waits for a decision again.');
+      } else {
+        const r = await applyLeave(body);
+        const sent = r.requests || [r.request];
+        notify.success(sent.length > 1 ? `Asked for ${daysText(preview.total)} of ${r.request.leaveTypeName}, as ${NUMBER_WORD[sent.length] || sent.length} requests.` : `Asked for ${daysText(r.request.days)} of ${r.request.leaveTypeName}.`);
+      }
       onDone();
     } catch (err) {
-      notify.error(String(err?.message || 'Not sent.'));
+      notify.error(String(err?.message || (editing ? 'Not changed.' : 'Not sent.')));
     } finally {
       setSaving(false);
     }
@@ -251,10 +327,10 @@ function AskLeave({ types, onClose, onDone }) {
       onClose={onClose}
       dirty={dirty}
       widthClass="w-[min(36rem,96vw)]"
-      title="Ask for leave"
+      title={editing ? 'Change leave' : 'Ask for leave'}
       footer={<>
         <button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button>
-        <button type="submit" form="ask-leave" className="ui-btn ui-btn-primary" disabled={blocked || saving}>{saving ? 'Sending…' : 'Send'}</button>
+        <button type="submit" form="ask-leave" className="ui-btn ui-btn-primary" disabled={blocked || saving}>{saving ? (editing ? 'Saving…' : 'Sending…') : editing ? 'Save' : 'Send'}</button>
       </>}
     >
       <form id="ask-leave" onSubmit={save} className="space-y-4">
@@ -277,6 +353,57 @@ function AskLeave({ types, onClose, onDone }) {
           <input className="ui-input w-full" maxLength={500} value={form.reason} onChange={(e) => set('reason', e.target.value)} />
         </label>
         <LeavePreview preview={preview} checking={Boolean(key) && !preview} />
+      </form>
+    </Drawer>
+  );
+}
+
+/** Came back early: approved leave that has started ends on an earlier day; only the days taken are charged. */
+function CameBackEarly({ request, onClose, onDone }) {
+  const [toDate, setToDate] = useState('');
+  const [days, setDays] = useState(null);
+  const [saving, setSaving] = useState(false);
+  useEffect(() => {
+    if (!toDate) { setDays(null); return undefined; }
+    let off = false;
+    previewMyLeave({ leaveTypeId: request.leaveTypeId, fromDate: request.fromDate, toDate, halfDay: null })
+      .then((p) => { if (!off) setDays(p?.total ?? null); })
+      .catch(() => { if (!off) setDays(null); });
+    return () => { off = true; };
+  }, [toDate, request]);
+  const save = async (e) => {
+    e?.preventDefault();
+    if (!toDate || saving) return;
+    setSaving(true);
+    try {
+      await shortenMyLeave(request.id, toDate);
+      notify.success(`Your leave now ends ${formatDate(toDate)}.`);
+      onDone();
+    } catch (err) {
+      notify.error(String(err?.message || 'Not changed.'));
+    } finally {
+      setSaving(false);
+    }
+  };
+  return (
+    <Drawer
+      open
+      onClose={onClose}
+      dirty={Boolean(toDate)}
+      widthClass="w-[min(36rem,96vw)]"
+      title="Came back early"
+      footer={<>
+        <button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button>
+        <button type="submit" form="came-back-early" className="ui-btn ui-btn-primary" disabled={!toDate || saving}>{saving ? 'Saving…' : 'Save'}</button>
+      </>}
+    >
+      <form id="came-back-early" onSubmit={save} className="space-y-4">
+        <p className="text-sm">{request.leaveTypeName}, <span className="tabular-nums">{range(request.fromDate, request.toDate)}</span>.</p>
+        <div className="sm:w-56">
+          <label className="ui-label" htmlFor="cbe-to">Last day of leave *</label>
+          <DatePicker id="cbe-to" value={toDate} min={request.fromDate} max={addDays(request.toDate, -1)} onChange={(v) => setToDate(v || '')} />
+        </div>
+        {toDate ? <p className="text-sm tabular-nums" aria-live="polite">{days == null ? 'Working out the days…' : `Charges ${daysText(days)} instead of ${daysText(request.days)}.`}</p> : null}
       </form>
     </Drawer>
   );

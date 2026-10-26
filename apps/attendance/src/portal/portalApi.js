@@ -127,6 +127,13 @@ export const askLeave = (body) => call('/leave', { method: 'POST', body });
 /** What a request would charge, without saving: { ok, total, split, parts[{label, from, to, days, balance, dates}], problems, reasonNeeded, type }. */
 export const previewLeave = (body) => call('/leave/preview', { method: 'POST', body });
 export const cancelLeave = (id) => call(`/leave/${encodeURIComponent(id)}/cancel`, { method: 'POST' });
+/** Change a waiting request (same body as askLeave). */
+export const editLeave = (id, body) => call(`/leave/${encodeURIComponent(id)}`, { method: 'PUT', body });
+/** Came back early: approved leave that has started now ends on `toDate`. */
+export const shortenLeave = (id, toDate) => call(`/leave/${encodeURIComponent(id)}/shorten`, { method: 'POST', body: { toDate } });
+/** Restricted holidays for a calendar year: { quota, picked, left, holidays: [{ id, date, name, picked, past }] }. */
+export const getRestrictedHolidays = (year) => call(`/holidays/restricted${year ? `?year=${year}` : ''}`);
+export const pickRestrictedHoliday = (holidayId, picked) => call(`/holidays/restricted/${encodeURIComponent(holidayId)}`, { method: 'POST', body: { picked } });
 export const getTax = () => call('/tax');
 /* Ask HR: my HR cases, and a new one (server: portal /hr-cases). */
 export const getHrCases = () => call('/hr-cases');
@@ -194,3 +201,12 @@ export const getPolicies = () => call('/people/policies');
 export const getPolicy = (versionId) => call(`/people/policies/${encodeURIComponent(versionId)}`);
 export const getToAccept = () => call('/people/acknowledgements');
 export const acceptItem = (id) => call(`/people/acknowledgements/${encodeURIComponent(id)}/accept`, { method: 'POST' });
+
+/* Attendance requests: missed punch, work from home, on duty, permission hours (server: portal /requests). */
+/** My requests touching a month, with the month's usage per kind and the rules: { month, requests, usage, rules, reasons }. */
+export const listRequests = (month) => call(`/requests${month ? `?month=${encodeURIComponent(month)}` : ''}`);
+export const askRequest = (body) => call('/requests', { method: 'POST', body });
+export const changeRequest = (id, body) => call(`/requests/${encodeURIComponent(id)}`, { method: 'PUT', body });
+export const cancelRequest = (id) => call(`/requests/${encodeURIComponent(id)}/cancel`, { method: 'POST' });
+/** What is switched on, with this month's usage: { month, rules, kinds: [{ kind, name }], usage, reasons }. */
+export const requestRules = (month) => call(`/request-rules${month ? `?month=${encodeURIComponent(month)}` : ''}`);

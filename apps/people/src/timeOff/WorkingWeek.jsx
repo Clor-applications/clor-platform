@@ -9,7 +9,7 @@ import { notify } from '@ui/components/ui/notify';
 import { usePermissions } from '@ui/permissions/usePermissions';
 
 import { can } from '../workforce/shared';
-import { WEEKDAYS, getWorkingWeek, saveWorkingWeek } from './api';
+import { WEEKDAYS, getWorkingWeek, listLeaveTypes, saveWorkingWeek } from './api';
 
 /**
  * Settings → Working week (TIME-LEAVE-DECISIONS M2). A People-only company has
@@ -34,14 +34,16 @@ export default function WorkingWeek() {
   const perms = usePermissions();
   const canEdit = can(perms, 'ATTENDANCE::Leave Types::EDIT');
   const req = useRequest(() => getWorkingWeek(), []);
-  const saved = useMemo(() => (req.data ? { offs: text(list(req.data.weeklyOffDays)), sats: text(list(req.data.offSaturdays)) } : null), [req.data]);
+  const saved = useMemo(() => (req.data ? { offs: text(list(req.data.weeklyOffDays)), sats: text(list(req.data.offSaturdays)), quota: String(req.data.restrictedHolidayQuota ?? 0), compOff: req.data.compOffLeaveTypeId || '' } : null), [req.data]);
+  /* Comp-off lands in one paid leave type; set here so a People-only company can grant it. */
+  const types = useRequest(() => listLeaveTypes().then((t) => t.filter((x) => x.isActive && x.isPaid)), []);
   /* Edits sit over what was loaded; null means nothing has been changed. */
   const [draft, setDraft] = useState(null);
   const [custom, setCustom] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const form = draft || saved;
-  const dirty = Boolean(draft && saved && (draft.offs !== saved.offs || draft.sats !== saved.sats));
+  const dirty = Boolean(draft && saved && (draft.offs !== saved.offs || draft.sats !== saved.sats || draft.quota !== saved.quota));
   useUnsavedChanges(dirty);
 
   if (req.error && !req.data) return <div className="space-y-6 max-w-2xl"><PageHeader title="Working week" /><ErrorState error={req.error} onRetry={req.reload} /></div>;
@@ -64,7 +66,7 @@ export default function WorkingWeek() {
     setError(null);
     try {
       /* A Saturday off every week leaves nothing to choose; the server clears it too. */
-      const out = await saveWorkingWeek({ weeklyOffDays: form.offs, offSaturdays: saturdayWorks ? form.sats : '' });
+      const out = await saveWorkingWeek({ weeklyOffDays: form.offs, offSaturdays: saturdayWorks ? form.sats : '', restrictedHolidayQuota: Math.max(0, Math.min(20, Number(form.quota) || 0)), compOffLeaveTypeId: form.compOff || null });
       req.setData((d) => ({ ...d, ...out }));
       setDraft(null);
       setCustom(false);
@@ -121,6 +123,19 @@ export default function WorkingWeek() {
             ) : null}
           </div>
         ) : null}
+
+        <div className="sm:w-72">
+          <label className="block">
+            <span className="ui-label">Restricted holidays a person may pick a year</span>
+            <input type="number" min={0} max={20} step={1} className="ui-input w-full tabular-nums" disabled={!canEdit} value={form.quota} onChange={(e) => change({ quota: e.target.value })} />
+          </label>
+          <span className="ui-caption">0: none. Picked from the optional holidays, in the employee app.</span>
+        </div>
+
+        <div className="sm:w-72">
+          <PopupSelect showValueSubtext={false} label="Comp-off goes to" value={form.compOff || 'none'} disabled={!canEdit} onChange={(v) => change({ compOff: v === 'none' ? '' : v || '' })} options={[{ value: 'none', label: 'No comp-off' }, ...(types.data || []).map((t) => ({ value: t.id, label: t.name }))]} />
+          <span className="ui-caption">A day worked on a holiday or weekly off is credited to this leave type.</span>
+        </div>
 
         {canEdit ? (
           <div className="ui-wizard-actions">

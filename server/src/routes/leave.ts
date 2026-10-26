@@ -1327,7 +1327,15 @@ async function alsoAway(req: any, orgId: string, employeeId: string, from: strin
 export async function previewOut(req: any | null, accountId: string, orgId: string, employee: Asker & { name?: string; departmentId?: string | null }, body: any, onBehalf: boolean) {
   const parsed = requestSchema.safeParse(body || {});
   if (!parsed.success) return { status: 400, body: { error: parsed.error.issues[0]?.message || 'Check the request.' } };
-  const plan = await planLeave(accountId, orgId, employee, parsed.data, onBehalf);
+  /* `editing`: the request being changed, left out of the overlap check; its own waiting days come back to the balance. */
+  const editing = String(body?.editing || '').trim();
+  const mine = editing ? await peoplePrisma.leaveRequest.findMany({ where: { orgId, employeeId: employee.id, status: 'PENDING', OR: [{ id: editing }, { groupId: (await peoplePrisma.leaveRequest.findFirst({ where: { id: editing, orgId }, select: { groupId: true } }))?.groupId || '__none__' }] }, select: { id: true, days: true, leaveTypeId: true } }) : [];
+  const plan = await planLeave(accountId, orgId, employee, parsed.data, onBehalf, mine.map((x) => x.id));
+  if (!('error' in plan) && mine.length && mine[0].leaveTypeId === plan.type.id) {
+    const back = mine.reduce((a, x) => a + x.days, 0);
+    for (const part of plan.parts) if (part.balance.before != null) { part.balance.before = round(part.balance.before + back); part.balance.after = round((part.balance.after ?? 0) + back); }
+    plan.problems.splice(0, plan.problems.length, ...plan.problems.filter((x) => x.code !== 'NO_BALANCE' || plan.parts.some((part) => part.balance.after != null && part.balance.after < -plan.type.negativeDays)));
+  }
   if ('error' in plan) return { status: 200, body: { ok: false, problems: [{ code: 'INPUT', message: plan.error }], parts: [], total: 0 } };
   /* The reason is the asker's to give; the preview does not hold a draft to it. */
   const own = { ok: !plan.problems.some((p) => p.code !== 'REASON'), type: { id: plan.type.id, name: plan.type.name, isPaid: plan.type.isPaid, isPrivate: plan.type.isPrivate, allowHalfDay: plan.type.allowHalfDay, sandwich: plan.type.sandwich, negativeDays: plan.type.negativeDays }, total: plan.total, split: plan.split, parts: plan.parts.map((p) => ({ year: p.year, label: p.label, from: p.from, to: p.to, days: p.days, balance: p.balance, dates: p.dates })), problems: plan.problems.filter((p) => p.code !== 'REASON'), reasonNeeded: !plan.type.isPrivate };
@@ -1535,7 +1543,7 @@ const WEEKDAY = /^([0-6](,[0-6])*)?$/;
 leaveRouter.get(`${base}/working-week`, can(PermissionAction.VIEW, R.leave), async (req, res) => {
   if (!(await hrOrAttendanceRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
-  const s = await peoplePrisma.attendanceSettings.findUnique({ where: { orgId }, select: { weeklyOffDays: true, offSaturdays: true, defaultShiftId: true, restrictedHolidayQuota: true } });
+  const s = await peoplePrisma.attendanceSettings.findUnique({ where: { orgId }, select: { weeklyOffDays: true, offSaturdays: true, defaultShiftId: true, restrictedHolidayQuota: true, compOffLeaveTypeId: true } });
   /* What the schedule engine really reads (schedule.ts resolveShift), Attendance on or not: anyone on a shift follows it. */
   const [assigned, rotating, departments, temporary] = await Promise.all([
     peoplePrisma.shiftAssignment.count({ where: { orgId } }),
@@ -1547,6 +1555,7 @@ leaveRouter.get(`${base}/working-week`, can(PermissionAction.VIEW, R.leave), asy
     weeklyOffDays: s?.weeklyOffDays ?? '0',
     offSaturdays: s?.offSaturdays ?? '',
     restrictedHolidayQuota: s?.restrictedHolidayQuota ?? 0,
+    compOffLeaveTypeId: s?.compOffLeaveTypeId ?? null,
     /* A default shift replaces the working week for everyone not on another shift. */
     defaultShift: Boolean(s?.defaultShiftId),
     shiftsDecide: Boolean(s?.defaultShiftId) || assigned + rotating + departments + temporary > 0,
@@ -1562,12 +1571,15 @@ leaveRouter.put(`${base}/working-week`, can(PermissionAction.EDIT, R.leaveTypes)
     offSaturdays: z.string().regex(/^([1-5](,[1-5])*)?$/, 'Saturdays are 1st to 5th.').default(''),
     /** Restricted holidays a person may pick a year from the optional list. */
     restrictedHolidayQuota: z.coerce.number().int().min(0).max(20).optional(),
+    /** The leave type comp-off is credited to (null = comp-off off). */
+    compOffLeaveTypeId: z.string().min(1).nullable().optional(),
   }).safeParse(req.body || {});
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Check the working week.' });
   const offs = [...new Set(parsed.data.weeklyOffDays.split(',').filter(Boolean))].sort().join(',');
   if (offs.split(',').filter(Boolean).length >= 7) return res.status(400).json({ error: 'At least one day of the week is a working day.' });
   const sats = offs.split(',').includes('6') ? '' : [...new Set(parsed.data.offSaturdays.split(',').filter(Boolean))].sort().join(',');
-  const data = { weeklyOffDays: offs, offSaturdays: sats, ...(parsed.data.restrictedHolidayQuota != null ? { restrictedHolidayQuota: parsed.data.restrictedHolidayQuota } : {}) };
+  if (parsed.data.compOffLeaveTypeId && !(await peoplePrisma.leaveType.findFirst({ where: { id: parsed.data.compOffLeaveTypeId, orgId, isPaid: true }, select: { id: true } }))) return res.status(400).json({ error: 'Choose a paid leave type for comp-off.' });
+  const data = { weeklyOffDays: offs, offSaturdays: sats, ...(parsed.data.restrictedHolidayQuota != null ? { restrictedHolidayQuota: parsed.data.restrictedHolidayQuota } : {}), ...(parsed.data.compOffLeaveTypeId !== undefined ? { compOffLeaveTypeId: parsed.data.compOffLeaveTypeId, compOffEnabled: Boolean(parsed.data.compOffLeaveTypeId) } : {}) };
   await peoplePrisma.attendanceSettings.upsert({ where: { orgId }, update: data, create: { accountId, orgId, ...data, updatedByUserId: req.auth!.userId } as any });
   const names = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   await recordAudit(req, { entity: 'WorkingWeek', entityId: orgId, action: 'UPDATE', message: `Working week: ${offs ? offs.split(',').map((d) => names[Number(d)]).join(', ') : 'no day'} off${sats ? `; Saturdays ${sats} off` : ''}`, metadata: data });
@@ -1713,7 +1725,7 @@ leaveRouter.post(`${base}/comp-off`, can(PermissionAction.EDIT, R.leave), async 
     await scopedOr404(req, employee.id);
     const settings = await peoplePrisma.attendanceSettings.findUnique({ where: { orgId }, select: { compOffLeaveTypeId: true } });
     const type = settings?.compOffLeaveTypeId ? await peoplePrisma.leaveType.findFirst({ where: { id: settings.compOffLeaveTypeId, orgId } }) : null;
-    if (!type) return res.status(409).json({ error: 'Choose the comp-off leave type first, under Settings → Leave Policy.', code: 'COMP_OFF_TYPE' });
+    if (!type) return res.status(409).json({ error: 'Choose the comp-off leave type first, under Settings → Working week.', code: 'COMP_OFF_TYPE' });
     if (b.workedOn > today()) return res.status(400).json({ error: 'Comp-off is for a day already worked.' });
     const twice = await peoplePrisma.leaveAdjustment.findFirst({ where: { orgId, employeeId: employee.id, leaveTypeId: type.id, workedOn: b.workedOn } });
     if (twice) return res.status(409).json({ error: `Comp-off for ${dayWords(b.workedOn)} is already granted.` });

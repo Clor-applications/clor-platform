@@ -13,6 +13,10 @@ const att = vi.hoisted(() => ({
   applyLeave: vi.fn(),
   cancelMyLeave: vi.fn(),
   explainMyLeave: vi.fn(() => Promise.resolve({})),
+  editMyLeave: vi.fn(),
+  shortenMyLeave: vi.fn(),
+  getMyRestrictedHolidays: vi.fn(() => Promise.resolve({ quota: 0, picked: 0, left: 0, holidays: [] })),
+  pickMyRestrictedHoliday: vi.fn(),
 }));
 const http = vi.hoisted(() => ({ apiFetch: vi.fn() }));
 vi.mock('../apps/attendance/src/api/attendance', () => ({ ...att, LEAVE_STATUS: { PENDING: 'ui-pill-warn', APPROVED: 'ui-pill-pos', REJECTED: 'ui-pill-neg', CANCELLED: 'ui-pill-neutral' } }));

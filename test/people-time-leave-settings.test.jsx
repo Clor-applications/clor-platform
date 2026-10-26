@@ -41,7 +41,18 @@ describe('Working week', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Saturday' }));
     expect(screen.queryByText('Saturdays')).toBeNull();
     fireEvent.click(save);
-    await waitFor(() => expect(api.saveWorkingWeek).toHaveBeenCalledWith({ weeklyOffDays: '0,6', offSaturdays: '' }));
+    await waitFor(() => expect(api.saveWorkingWeek).toHaveBeenCalledWith({ weeklyOffDays: '0,6', offSaturdays: '', restrictedHolidayQuota: 0, compOffLeaveTypeId: null }));
+  });
+
+  /* Advanced build: how many restricted holidays a person may pick a year, saved with the week. */
+  it('saves the restricted holiday quota with the week', async () => {
+    api.getWorkingWeek.mockResolvedValue({ weeklyOffDays: '0', offSaturdays: '', shiftsDecide: false, restrictedHolidayQuota: 0 });
+    render(<WorkingWeek />);
+    const save = await screen.findByRole('button', { name: 'Save' });
+    fireEvent.change(screen.getByLabelText('Restricted holidays a person may pick a year'), { target: { value: '2' } });
+    expect(save).toBeEnabled();
+    fireEvent.click(save);
+    await waitFor(() => expect(api.saveWorkingWeek).toHaveBeenCalledWith({ weeklyOffDays: '0', offSaturdays: '', restrictedHolidayQuota: 2, compOffLeaveTypeId: null }));
   });
 
   it('refuses a week with no working day', async () => {
@@ -57,7 +68,7 @@ describe('Working week', () => {
     perms.current = { isAdmin: false, permissions: new Set(['ATTENDANCE::Leave Requests::VIEW']) };
     api.getWorkingWeek.mockResolvedValue({ weeklyOffDays: '0', offSaturdays: '2,4', shiftsDecide: true });
     render(<WorkingWeek />);
-    expect(await screen.findByText(/Shifts in Attendance decide the days/)).toBeInTheDocument();
+    expect(await screen.findByText(/People on a shift follow its weekly offs/)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Save' })).toBeNull();
     expect(screen.getByRole('button', { name: 'Monday' })).toBeDisabled();
   });

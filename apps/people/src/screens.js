@@ -51,7 +51,12 @@ export { default as LeaveTypes } from './timeOff/LeavePolicy';
 export { default as LeaveCalendar } from './timeOff/LeaveCalendar';
 export { default as LeaveRegister } from './timeOff/LeaveRegister';
 export { default as TeamAttendance } from './timeOff/TeamAttendance';
+export { default as LeaveYearEnd } from './timeOff/YearEnd';
+export { default as StandIns } from './timeOff/StandIns';
 export { default as MyDays } from './timeOff/MyDays';
+/* Attendance requests of four kinds (missed punch, work from home, on duty, permission) and their rules. */
+export { default as AttendanceRequests } from './timeOff/AttendanceRequests';
+export { default as RequestRules } from './timeOff/RequestRules';
 export { default as MyLeave } from '../../attendance/src/screens/MyLeave';
 export { default as DataImport } from '../../attendance/src/screens/DataImport';
 /* One audit trail for the company, in Workspace (ADR-010); this opens it on People and Attendance's share. */

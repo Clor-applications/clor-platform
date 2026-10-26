@@ -3,7 +3,7 @@ import { orgId as platformOrgId } from '@platform/context';
 import { featuresFor } from '@platform/auth';
 
 /**
- * People → Leave & Attendance. HR's leave and holidays are the same records
+ * People → Time & Leave. HR's leave and holidays are the same records
  * Attendance reads (server: routes/leave.ts, routes/attendance.ts), so the two
  * apps never disagree; the server opens them when People or Attendance is on.
  */
@@ -48,9 +48,30 @@ export const createLeaveRequest = (body) => send('/leave/requests', 'POST', body
 export const approveLeave = (requestId, note) => send(`/leave/requests/${id(requestId)}/approve`, 'POST', { note });
 export const rejectLeave = (requestId, note) => send(`/leave/requests/${id(requestId)}/reject`, 'POST', { note });
 export const cancelLeave = (requestId) => send(`/leave/requests/${id(requestId)}/cancel`, 'POST', {});
+/** Change a waiting request (same body as create; the manager's step starts again). */
+export const updateLeaveRequest = (requestId, body) => send(`/leave/requests/${id(requestId)}`, 'PUT', body);
+/** Came back early: approved leave that has started now ends on `toDate`. */
+export const shortenLeave = (requestId, toDate) => send(`/leave/requests/${id(requestId)}/shorten`, 'POST', { toDate });
+/** Comp-off for a day worked, as a dated credit of the comp-off type (409 COMP_OFF_TYPE when none is set). */
+export const grantCompOff = (body) => send('/leave/comp-off', 'POST', body);
+/** Who decides for a manager while they are away: { standIns: [{ id, managerEmployeeId, standInEmployeeId, managerName, standInName, fromDate, toDate, live }], today }. */
+export const listStandIns = () => get('/leave/stand-ins');
+export const addStandIn = (body) => send('/leave/stand-ins', 'POST', body);
+export const removeStandIn = (standInId) => send(`/leave/stand-ins/${id(standInId)}`, 'DELETE');
+/** A person's restricted holidays for a calendar year: { quota, picked, left, holidays: [{ id, date, name, picked, past }] }. */
+export const getRestrictedHolidays = (employeeId, year) => get(`/leave/holidays/restricted${query({ employeeId, year })}`);
+export const getMyRestrictedHolidays = (year) => get(`/me/holidays/restricted${query({ year })}`);
+export const pickMyRestrictedHoliday = (holidayId, picked) => send(`/me/holidays/restricted/${id(holidayId)}`, 'POST', { picked });
+/** Year end of a leave period: per person and type, what carries, lapses and is paid out; the runs so far. */
+export const getYearEnd = (year) => get(`/leave/year-end${query({ year })}`);
+export const runYearEnd = (year) => send('/leave/year-end', 'POST', { year });
+export const undoYearEnd = (runId) => send(`/leave/year-end/${id(runId)}/undo`, 'POST', {});
+export const editMyLeave = (requestId, body) => send(`/me/leave/${id(requestId)}`, 'PUT', body);
+export const shortenMyLeave = (requestId, toDate) => send(`/me/leave/${id(requestId)}/shorten`, 'POST', { toDate });
 
 export const getLeaveBalances = (year) => get(`/leave/balances${query({ year })}`);
-export const getLeaveLedger = (employeeId, year) => get(`/leave/ledger${query({ employeeId, year })}`);
+/** One person's ledger; `asOf` (YYYY-MM-DD) shows the balance as it stands on that day. */
+export const getLeaveLedger = (employeeId, year, asOf) => get(`/leave/ledger${query({ employeeId, year, asOf })}`);
 export const addLeaveAdjustment = (body) => send('/leave/adjustments', 'POST', body);
 export const deleteLeaveAdjustment = (adjustmentId) => send(`/leave/adjustments/${id(adjustmentId)}`, 'DELETE');
 
@@ -105,3 +126,28 @@ export const todayIst = () => new Date(Date.now() + 330 * 60_000).toISOString().
 export const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 /** "2 days", "half a day". */
 export const daysText = (n) => (n === 0.5 ? 'half a day' : `${n} day${n === 1 ? '' : 's'}`);
+
+/*
+ * Attendance requests (TIME-LEAVE-DECISIONS.md, advanced build): missed punch,
+ * work from home, on duty, permission hours; one list, one approval, monthly
+ * quotas from Settings → Request rules (server: services/attendance/requests.ts).
+ */
+/** One page: { requests, total, counts: { PENDING, APPROVED, REJECTED, CANCELLED, all }, limit, offset }. */
+export const pageRequests = (params) => get(`/requests${query(params)}`);
+/** One request's story: { request, history, usage, rule, chain, days, waitingForManager, ownRequest }. */
+export const getRequest = (requestId) => get(`/requests/${id(requestId)}`);
+export const createRequest = (body) => send('/requests', 'POST', body);
+export const updateRequest = (requestId, body) => send(`/requests/${id(requestId)}`, 'PUT', body);
+/** Approve or reject; under manager-then-HR the manager's step answers { stage: 'HR' }. */
+export const decideRequest = (requestId, approve, note) => send(`/requests/${id(requestId)}/${approve ? 'approve' : 'reject'}`, 'POST', { note });
+export const cancelRequest = (requestId, note) => send(`/requests/${id(requestId)}/cancel`, 'POST', note ? { note } : {});
+/** Used, waiting and left this month: { month, usage: { [kind]: { unit, used, pending, quota, left } } }. */
+export const requestUsage = (employeeId, month, kind) => get(`/requests/usage${query({ employeeId, month, kind })}`);
+/** { rules: { MISSED_PUNCH, WFH, ON_DUTY, PERMISSION }, kinds, chains, defaults }. */
+export const getRequestRules = () => get('/request-rules');
+export const saveRequestRules = (body) => send('/request-rules', 'PUT', body);
+/** My own: { month, requests, usage, rules }. */
+export const myRequests = (month) => get(`/me/requests${query({ month })}`);
+export const createMyRequest = (body) => send('/me/requests', 'POST', body);
+export const updateMyRequest = (requestId, body) => send(`/me/requests/${id(requestId)}`, 'PUT', body);
+export const cancelMyRequest = (requestId) => send(`/me/requests/${id(requestId)}/cancel`, 'POST', {});

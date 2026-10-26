@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Plus } from 'lucide-react';
+import { Plus, X } from 'lucide-react';
 
 import { EmptyState, PageHeader } from '@ui/components/ui/Primitives';
 import DataTable from '@ui/components/ui/DataTable';
@@ -33,7 +33,40 @@ const BLANK = {
   gender: '', employeeTypeIds: [], availableAfterDays: '',
   allowHalfDay: true, minNoticeDays: '', maxDaysPerRequest: '', backdatedDays: '', sandwich: false,
   negativeDays: 0, encashable: false, maxEncashDays: '',
+  entitlements: [], probationRule: 'ACCRUE', approval: '', autoApproveUpToDays: '', handOnAfterDays: '',
 };
+/* One entitlement rule: days a year for an employee type, after years of service, or both. */
+const BLANK_RULE = { employeeTypeId: '', years: '', annualDays: '' };
+const PROBATION = [
+  { value: 'ACCRUE', label: 'Counts as normal' },
+  { value: 'HOLD', label: 'Starts when confirmed' },
+  { value: 'LOCK', label: 'Builds up, usable when confirmed' },
+];
+const APPROVAL = [
+  { value: 'company', label: "Company's rule" },
+  { value: 'HR', label: 'HR' },
+  { value: 'MANAGER', label: 'Manager' },
+  { value: 'MANAGER_THEN_HR', label: 'Manager, then HR' },
+];
+const APPROVAL_WORDS = { HR: 'HR decides', MANAGER: 'the manager decides', MANAGER_THEN_HR: 'the manager, then HR' };
+/**
+ * State starting points (TIME-LEAVE-RESEARCH.md): the law's days as a set of
+ * types, created once and edited by the owner. Never rules.
+ */
+const EARNED = { name: 'Earned Leave', code: 'EL', accrual: 'MONTHLY', encashable: true, minNoticeDays: 7, color: '#d97706' };
+const CASUAL = { name: 'Casual Leave', code: 'CL', accrual: 'MONTHLY', creditOn: 'START', minNoticeDays: 1, maxDaysPerRequest: 3, color: '#2563eb' };
+const SICK = { name: 'Sick Leave', code: 'SL', backdatedDays: 7, isPrivate: true, color: '#16a34a' };
+const MATERNITY = { name: 'Maternity Leave', code: 'ML', annualDays: 182, gender: 'FEMALE', allowHalfDay: false, prorateForJoiners: false, isPrivate: true, color: '#db2777' };
+const PATERNITY = { name: 'Paternity Leave', code: 'PL', annualDays: 15, gender: 'MALE', allowHalfDay: false, isPrivate: true, color: '#0891b2' };
+const LOP = { name: 'Loss of Pay', code: 'LOP', isPaid: false, annualDays: 0, color: '#64748b' };
+const STATE_SETS = [
+  { value: 'KA', label: 'Karnataka', types: [{ ...EARNED, annualDays: 18, carryForwardMax: 45 }, { ...CASUAL, annualDays: 12 }, { ...SICK, annualDays: 12 }, MATERNITY, PATERNITY, LOP] },
+  { value: 'MH', label: 'Maharashtra', types: [{ ...EARNED, annualDays: 21, carryForwardMax: 45 }, { ...CASUAL, annualDays: 8 }, { ...SICK, annualDays: 10 }, MATERNITY, PATERNITY, LOP] },
+  { value: 'TN', label: 'Tamil Nadu', types: [{ ...EARNED, annualDays: 12, carryForwardMax: 24, availableAfterDays: 240 }, { ...CASUAL, annualDays: 12 }, { ...SICK, annualDays: 12 }, MATERNITY, PATERNITY, LOP] },
+  { value: 'DL', label: 'Delhi', types: [{ ...EARNED, annualDays: 15, carryForwardMax: 45 }, { ...CASUAL, name: 'Casual & Sick Leave', code: 'CSL', annualDays: 12, backdatedDays: 7 }, MATERNITY, PATERNITY, LOP] },
+  { value: 'FA', label: 'Factories Act', types: [{ ...EARNED, annualDays: 15, carryForwardMax: 30, availableAfterDays: 240 }, MATERNITY, LOP] },
+  { value: 'OSH', label: 'OSH Code default', types: [{ ...EARNED, annualDays: 15, carryForwardMax: 30, availableAfterDays: 180 }, { ...CASUAL, annualDays: 12 }, { ...SICK, annualDays: 12 }, MATERNITY, PATERNITY, LOP] },
+];
 /* The usual Indian set. Sick and maternity leave are private: the reason is nobody's business but HR's. */
 const TEMPLATES = [
   { name: 'Casual Leave', code: 'CL', annualDays: 12, accrual: 'MONTHLY', creditOn: 'START', minNoticeDays: 1, maxDaysPerRequest: 3, color: '#2563eb' },
@@ -56,14 +89,27 @@ const GENDERS = [
 const num = (v) => (v === '' || v == null ? null : Number(v));
 const plural = (n, w) => `${n} ${w}${Number(n) === 1 ? '' : 's'}`;
 const lower = (s) => String(s || '').trim().toLowerCase();
+/** "3 years", "18 months": length of service, stored in months. */
+const serviceText = (months) => (months % 12 === 0 ? plural(months / 12, 'year') : plural(months, 'month'));
+/** The form keeps years (0.5 steps); the server keeps months. */
+const monthsOf = (years) => (years === '' || years == null ? null : Math.round(Number(years) * 12));
+const yearsOf = (months) => (months == null ? '' : String(Math.round((months / 12) * 100) / 100));
+/** One rule in words: "6 for Interns", "15 after 3 years", "15 for Staff after 3 years". */
+const ruleText = (e, typeNames) => [e.annualDays, e.employeeTypeId ? `for ${typeNames.get(e.employeeTypeId) || 'a type'}` : null, e.minServiceMonths ? `after ${serviceText(e.minServiceMonths)}` : null].filter(Boolean).join(' ');
 
 /** One line per rule that is on, so the list reads as the policy. */
 function rulesOf(t, typeNames = new Map()) {
   const r = [];
   if (t.isPaid) {
     r.push(`${t.annualDays} a year: ${creditText(t)}`);
+    for (const e of t.entitlements || []) r.push(ruleText(e, typeNames));
+    if (t.probationRule === 'HOLD') r.push('starts when confirmed');
+    if (t.probationRule === 'LOCK') r.push('locked until confirmed');
     r.push(t.carryForwardMax != null ? `carry up to ${t.carryForwardMax}` : 'lapses at year end');
   } else r.push('unpaid: loss of pay');
+  if (t.approval && APPROVAL_WORDS[t.approval]) r.push(APPROVAL_WORDS[t.approval]);
+  if (t.autoApproveUpToDays != null) r.push(`approved on its own up to ${t.autoApproveUpToDays}`);
+  if (t.handOnAfterDays != null) r.push(`to HR after ${plural(t.handOnAfterDays, 'day')} waiting`);
   if (t.isPrivate) r.push('private');
   if (t.gender) r.push(t.gender === 'FEMALE' ? 'women' : 'men');
   if (t.employeeTypeIds?.length) r.push(t.employeeTypeIds.map((i) => typeNames.get(i) || 'a type').join(', '));
@@ -85,6 +131,8 @@ const formOf = (t) => ({
   isPrivate: Boolean(t.isPrivate), creditOn: t.creditOn || 'START', creditDay: t.creditDay ?? '',
   carryForwardMax: t.carryForwardMax ?? '', minNoticeDays: t.minNoticeDays ?? '', maxDaysPerRequest: t.maxDaysPerRequest ?? '',
   backdatedDays: t.backdatedDays ?? '', availableAfterDays: t.availableAfterDays ?? '', maxEncashDays: t.maxEncashDays ?? '',
+  entitlements: (t.entitlements || []).map((e) => ({ employeeTypeId: e.employeeTypeId || '', years: yearsOf(e.minServiceMonths), annualDays: e.annualDays ?? '' })),
+  probationRule: t.probationRule || 'ACCRUE', approval: t.approval || '', autoApproveUpToDays: t.autoApproveUpToDays ?? '', handOnAfterDays: t.handOnAfterDays ?? '',
 });
 
 /** What the server is sent, for a save and for the preview alike. */
@@ -115,6 +163,11 @@ function bodyOf(form) {
     negativeDays: paid ? Number(form.negativeDays) || 0 : 0,
     encashable: paid && Boolean(form.encashable),
     maxEncashDays: paid && form.encashable ? num(form.maxEncashDays) : null,
+    entitlements: paid ? (form.entitlements || []).map((e) => ({ employeeTypeId: e.employeeTypeId || null, minServiceMonths: monthsOf(e.years) || null, annualDays: Number(e.annualDays) || 0 })) : [],
+    probationRule: paid ? form.probationRule || 'ACCRUE' : 'ACCRUE',
+    approval: form.approval || null,
+    autoApproveUpToDays: num(form.autoApproveUpToDays),
+    handOnAfterDays: num(form.handOnAfterDays),
   };
 }
 
@@ -142,6 +195,32 @@ export default function LeavePolicy() {
     .filter((t) => !q || `${t.name} ${t.code || ''} ${t.description || ''}`.toLowerCase().includes(q.toLowerCase()));
   const missing = TEMPLATES.filter((x) => !all.some((t) => lower(t.name) === lower(x.name)));
   const start = (value) => setEditing((e) => ({ value, seq: (e?.seq || 0) + 1 }));
+  const [startingFrom, setStartingFrom] = useState(false);
+
+  /* A state's set, created as types the owner then edits; a name already in the list is left alone. */
+  const startFrom = async (code) => {
+    const set = STATE_SETS.find((s) => s.value === code);
+    if (!set || startingFrom) return;
+    const fresh = set.types.filter((x) => !all.some((t) => lower(t.name) === lower(x.name)));
+    const skipped = set.types.length - fresh.length;
+    if (!fresh.length) { notify.error(`Every type in the ${set.label} set is already in the list.`); return; }
+    const ok = await confirmDialog({
+      title: `Start from ${set.label}?`,
+      message: `Creates ${fresh.map((x) => (x.isPaid === false ? `${x.name} (unpaid)` : `${x.name}, ${x.annualDays} a year`)).join('; ')}.${skipped ? ` ${plural(skipped, 'type')} already in the list ${skipped === 1 ? 'is' : 'are'} left as ${skipped === 1 ? 'it is' : 'they are'}.` : ''} Starting points: edit them.`,
+      confirmLabel: 'Create them',
+      tone: 'default',
+    });
+    if (!ok) return;
+    setStartingFrom(true);
+    const failed = [];
+    for (const x of fresh) {
+      try { await createLeaveType(bodyOf({ ...BLANK, ...x })); } catch (err) { failed.push(`${x.name}: ${err?.message || 'not saved'}`); }
+    }
+    setStartingFrom(false);
+    req.reload();
+    if (failed.length) notify.error(`${plural(fresh.length - failed.length, 'type')} created. Not saved: ${failed.join('; ')}`);
+    else notify.success(`${plural(fresh.length, 'type')} created from ${set.label}. Starting points: edit them.`);
+  };
 
   const columns = [
     { key: 'name', label: 'Leave type', always: true, render: (t) => (
@@ -175,6 +254,9 @@ export default function LeavePolicy() {
           {missing.map((x) => (
             <button key={x.name} type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => start({ ...BLANK, ...x })}><Plus size={14} aria-hidden="true" /> {x.name}</button>
           ))}
+          <div className="w-full sm:w-64 sm:ml-auto">
+            <PopupSelect showValueSubtext={false} ariaLabel="Start from your state's rules" value="" placeholder="Start from your state's rules" disabled={startingFrom} onChange={(v) => v && startFrom(v)} options={STATE_SETS.map(({ value, label }) => ({ value, label }))} />
+          </div>
         </div>
       ) : null}
       <div ref={tabsRef} role="tablist" aria-label="Leave types" className={`ui-record-tablist ${tabIndicator ? 'has-indicator' : ''}`}>
@@ -243,11 +325,13 @@ function Section({ title, note, children }) {
 
 function NumberField({ label, value, onChange, placeholder, hint, step = 1 }) {
   return (
-    <label className="block">
-      <span className="ui-label">{label}</span>
-      <input type="number" min={0} max={3650} step={step} className="ui-input w-full tabular-nums" value={value ?? ''} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} />
+    <div>
+      <label className="block">
+        <span className="ui-label">{label}</span>
+        <input type="number" min={0} max={3650} step={step} className="ui-input w-full tabular-nums" value={value ?? ''} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} />
+      </label>
       {hint ? <span className="ui-caption">{hint}</span> : null}
-    </label>
+    </div>
   );
 }
 
@@ -273,12 +357,18 @@ function PolicyForm({ initial, empTypes, taken, suggested, canSave, canCreate, c
   const nameTaken = taken.some((n) => lower(n) === lower(form.name));
   /* A type in use keeps its history exact: a change to what it gives is refused, and a new type carries the change instead. */
   const forkable = Boolean(form.id && canCreate && error?.code === 'LEAVE_POLICY_IN_USE');
+  const setRule = (i, patch) => set('entitlements')(form.entitlements.map((e, j) => (j === i ? { ...e, ...patch } : e)));
+  /* A rule says who: an employee type, a length of service, or both; and how many days. */
+  const ruleProblem = paid && form.entitlements.some((e) => !e.employeeTypeId && !(Number(e.years) > 0))
+    ? 'Each rule names an employee type, years of service, or both.'
+    : paid && form.entitlements.some((e) => e.annualDays === '' || Number(e.annualDays) < 0) ? 'Each rule says how many days a year.' : null;
 
   const save = async (e) => {
     e?.preventDefault();
     if (saving || !canSave) return;
     if (!body.name) { setError({ message: 'Name the leave type.' }); return; }
     if (nameTaken) { setError({ message: `${body.name} is already in the list.` }); return; }
+    if (ruleProblem) return;
     setSaving(true);
     setError(null);
     try {
@@ -325,7 +415,7 @@ function PolicyForm({ initial, empTypes, taken, suggested, canSave, canCreate, c
         <>
           {form.id && canDelete && !Number(form.requests) ? <button type="button" className="ui-btn ui-btn-secondary mr-auto" onClick={remove}>Delete</button> : null}
           <button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button>
-          <button type="submit" form="leave-policy" className="ui-btn ui-btn-primary" disabled={saving || !body.name || !dirty}>{saving ? 'Saving…' : 'Save'}</button>
+          <button type="submit" form="leave-policy" className="ui-btn ui-btn-primary" disabled={saving || !body.name || !dirty || Boolean(ruleProblem)}>{saving ? 'Saving…' : 'Save'}</button>
         </>
       ) : null}
     >
@@ -361,6 +451,38 @@ function PolicyForm({ initial, empTypes, taken, suggested, canSave, canCreate, c
             </Section>
           ) : null}
 
+          {paid ? (
+            <Section title="Who gets how much">
+              <div className="sm:col-span-2 space-y-3">
+                <p className="text-sm">Everyone else: <span className="tabular-nums">{Number(form.annualDays) || 0}</span> a year.</p>
+                {form.entitlements.map((e, i) => (
+                  <div key={i} className="grid grid-cols-[1fr_5.5rem_5.5rem_auto] items-end gap-2" role="group" aria-label={`Rule ${i + 1}`}>
+                    <div>
+                      <PopupSelect showValueSubtext={false} label="Employee type" value={e.employeeTypeId} placeholder="Any type" onChange={(v) => setRule(i, { employeeTypeId: v || '' })} options={[{ value: '', label: 'Any type' }, ...empTypes.map((t) => ({ value: t.id, label: t.name }))]} />
+                    </div>
+                    <label className="block">
+                      <span className="ui-label">After, years</span>
+                      <input type="number" min={0} max={50} step={0.5} className="ui-input w-full tabular-nums" value={e.years} onChange={(ev) => setRule(i, { years: ev.target.value })} />
+                    </label>
+                    <label className="block">
+                      <span className="ui-label">Days a year</span>
+                      <input type="number" min={0} max={366} step={0.5} className="ui-input w-full tabular-nums" value={e.annualDays} onChange={(ev) => setRule(i, { annualDays: ev.target.value })} />
+                    </label>
+                    <button type="button" className="ui-icon-btn" aria-label={`Remove rule ${i + 1}`} onClick={() => set('entitlements')(form.entitlements.filter((_, j) => j !== i))}><X size={16} aria-hidden="true" /></button>
+                  </div>
+                ))}
+                {ruleProblem ? <p className="ui-caption ui-text-neg" role="alert">{ruleProblem}</p> : null}
+                <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={form.entitlements.length >= 20} onClick={() => set('entitlements')([...form.entitlements, { ...BLANK_RULE }])}><Plus size={14} aria-hidden="true" /> Add a rule</button>
+              </div>
+            </Section>
+          ) : null}
+
+          {paid ? (
+            <Section title="Probation">
+              <div className="sm:col-span-2"><PopupSelect showValueSubtext={false} label="During probation" value={form.probationRule || 'ACCRUE'} onChange={(v) => set('probationRule')(v || 'ACCRUE')} options={PROBATION} /></div>
+            </Section>
+          ) : null}
+
           <Section title="Who it is for">
             <div><PopupSelect showValueSubtext={false} label="Gender" value={form.gender} onChange={(v) => set('gender')(v || '')} options={GENDERS} /></div>
             <NumberField label="Usable after joining, days" value={form.availableAfterDays} onChange={set('availableAfterDays')} placeholder="From the first day" />
@@ -384,6 +506,12 @@ function PolicyForm({ initial, empTypes, taken, suggested, canSave, canCreate, c
             <div />
             <Check label="Half days allowed" checked={form.allowHalfDay} onChange={set('allowHalfDay')} />
             <Check label="Sandwich rule" hint="Weekly offs and holidays between two leave days count as leave. Friday and Monday off makes four days." checked={form.sandwich} onChange={set('sandwich')} />
+          </Section>
+
+          <Section title="Who approves">
+            <div className="sm:col-span-2"><PopupSelect showValueSubtext={false} label="Decided by" value={form.approval || 'company'} onChange={(v) => set('approval')(v === 'company' ? '' : v || '')} options={APPROVAL} /></div>
+            <NumberField label="Approved on its own up to, days" value={form.autoApproveUpToDays} onChange={set('autoApproveUpToDays')} placeholder="Never" step={0.5} hint="A person's own request, when the balance covers it." />
+            <NumberField label="Handed on to HR after, days waiting" value={form.handOnAfterDays} onChange={set('handOnAfterDays')} placeholder="Never" />
           </Section>
 
           {paid ? (
@@ -445,6 +573,7 @@ function TryOnPeople({ body }) {
               <thead>
                 <tr>
                   <th scope="col">Person</th>
+                  <th scope="col" className="ui-num">A year</th>
                   <th scope="col" className="ui-num">This period</th>
                   <th scope="col" className="ui-num">So far</th>
                   <th scope="col">Next credit</th>
@@ -458,13 +587,15 @@ function TryOnPeople({ body }) {
                       <td>
                         <span className="block font-medium">{r.name}</span>
                         <span className="block ui-caption">{[r.why, r.dateOfJoining ? `joined ${day(r.dateOfJoining)}` : null].filter(Boolean).join(' · ')}</span>
+                        {r.open && r.note ? <span className="block ui-caption ui-text-warn whitespace-normal">{r.note}</span> : null}
                       </td>
                       {!r.open ? (
-                        <td colSpan={3} className="ui-caption whitespace-normal">{r.note || 'Not open to them.'}</td>
+                        <td colSpan={4} className="ui-caption whitespace-normal">{r.note || 'Not open to them.'}</td>
                       ) : r.fullPeriod == null ? (
-                        <td colSpan={3} className="ui-caption">Can ask for it</td>
+                        <td colSpan={4} className="ui-caption">Can ask for it</td>
                       ) : (
                         <>
+                          <td className="ui-num tabular-nums">{r.entitled ?? body.annualDays}</td>
                           <td className="ui-num tabular-nums">{r.fullPeriod}</td>
                           <td className="ui-num tabular-nums">{r.soFar ?? 0}</td>
                           <td className="tabular-nums whitespace-nowrap">{next ? `${next.days} on ${day(next.date)}` : '—'}</td>

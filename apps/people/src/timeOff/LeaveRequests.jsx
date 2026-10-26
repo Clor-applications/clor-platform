@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Check, Download, Plus, X } from 'lucide-react';
 
 import { EmptyState, PageHeader } from '@ui/components/ui/Primitives';
@@ -6,6 +6,7 @@ import DataTable from '@ui/components/ui/DataTable';
 import SearchField from '@ui/components/ui/SearchField';
 import Drawer from '@ui/components/ui/Drawer';
 import ErrorState from '@ui/components/ui/ErrorState';
+import SuggestInput from '@ui/components/ui/SuggestInput';
 import DatePicker, { formatDate } from '@ui/components/ui/DatePicker';
 import PopupSelect from '@ui/components/pickers/PopupSelect';
 import useRequest from '@ui/components/ui/useRequest';
@@ -17,9 +18,11 @@ import { Avatar } from '@ui/personnel/Employees';
 
 import { can } from '../workforce/shared';
 import { listEmployees } from '../workforce/api';
+import { useSuggestions } from '../workforce/suggestions';
 import {
   PRIVATE_LABEL, STATUS_LABEL, STATUS_PILL, approveLeave, cancelLeave, colorOf, createLeaveRequest, daysText,
   getLeaveRequest, getLeaveSettings, listLeaveRequests, listLeaveTypes, pageLeaveRequests, periodChoices, previewLeave, rejectLeave,
+  shortenLeave, updateLeaveRequest,
 } from './api';
 
 /**
@@ -198,7 +201,19 @@ function RequestDrawer({ id, allowed, onClose, onDone }) {
   const r = d?.request;
   const canDecide = allowed('ATTENDANCE::Leave Requests::APPROVE');
   const canCancel = allowed('ATTENDANCE::Leave Requests::EDIT');
-
+  const [editing, setEditing] = useState(false);
+  /* Came back early: the new last day, and what the shorter leave charges. */
+  const [shortening, setShortening] = useState(false);
+  const [shortTo, setShortTo] = useState('');
+  const [shortDays, setShortDays] = useState(null);
+  useEffect(() => {
+    if (!shortening || !shortTo || !r) { setShortDays(null); return undefined; }
+    let live = true;
+    previewLeave({ employeeId: r.employeeId, leaveTypeId: r.leaveTypeId, fromDate: r.fromDate, toDate: shortTo, halfDay: null })
+      .then((p) => { if (live) setShortDays(p?.total ?? null); })
+      .catch(() => { if (live) setShortDays(null); });
+    return () => { live = false; };
+  }, [shortening, shortTo, r]);
   const act = async (fn, done) => {
     setBusy(true);
     try {
@@ -225,19 +240,38 @@ function RequestDrawer({ id, allowed, onClose, onDone }) {
     });
     if (ok) act(() => cancelLeave(r.id), r.status === 'APPROVED' ? 'Leave cancelled.' : 'Request withdrawn.');
   };
+  const shorten = (e) => {
+    e?.preventDefault();
+    if (!shortTo || busy) return;
+    act(() => shortenLeave(r.id, shortTo), `Now ends ${formatDate(shortTo)}.`);
+  };
+  const changeable = Boolean(d?.canEdit && canCancel);
+  const shortenable = Boolean(d?.canShorten && canCancel);
 
-  const actions = !r ? null : r.status === 'PENDING' && canDecide ? (
+  if (editing && r) return <EnterLeave request={r} onClose={() => setEditing(false)} onDone={onDone} />;
+
+  const actions = !r ? null : shortening ? (
+    <>
+      <button type="button" className="ui-btn ui-btn-secondary" disabled={busy} onClick={() => { setShortening(false); setShortTo(''); }}>Cancel</button>
+      <button type="submit" form="came-back-early" className="ui-btn ui-btn-primary" disabled={busy || !shortTo}>{busy ? 'Saving…' : 'Save'}</button>
+    </>
+  ) : r.status === 'PENDING' && canDecide ? (
     <>
       {canCancel ? <button type="button" className="ui-btn ui-btn-ghost mr-auto" disabled={busy} onClick={cancel}>Withdraw</button> : null}
+      {changeable ? <button type="button" className="ui-btn ui-btn-secondary" disabled={busy} onClick={() => setEditing(true)}>Change</button> : null}
       <button type="button" className="ui-btn ui-btn-secondary" disabled={busy} onClick={reject}><X size={16} aria-hidden="true" /> Reject</button>
       <button type="button" className="ui-btn ui-btn-primary" disabled={busy || Boolean(d.waitingForManager)} onClick={() => act(() => approveLeave(r.id, note.trim()), 'Approved.')}><Check size={16} aria-hidden="true" /> Approve</button>
     </>
   ) : OPEN_STATUSES.includes(r.status) && canCancel ? (
-    <button type="button" className="ui-btn ui-btn-secondary" disabled={busy} onClick={cancel}>{r.status === 'APPROVED' ? 'Cancel leave' : 'Withdraw'}</button>
+    <>
+      {changeable ? <button type="button" className="ui-btn ui-btn-secondary" disabled={busy} onClick={() => setEditing(true)}>Change</button> : null}
+      {shortenable ? <button type="button" className="ui-btn ui-btn-secondary" disabled={busy} onClick={() => setShortening(true)}>Came back early</button> : null}
+      <button type="button" className="ui-btn ui-btn-secondary" disabled={busy} onClick={cancel}>{r.status === 'APPROVED' ? 'Cancel leave' : 'Withdraw'}</button>
+    </>
   ) : null;
 
   return (
-    <Drawer open onClose={onClose} widthClass="w-[min(36rem,96vw)]" title={r ? `${r.employeeName}: ${r.leaveTypeName}` : 'Leave request'} actions={actions} dirty={Boolean(note.trim())}>
+    <Drawer open onClose={onClose} widthClass="w-[min(36rem,96vw)]" title={r ? `${r.employeeName}: ${r.leaveTypeName}` : 'Leave request'} actions={actions} dirty={Boolean(note.trim()) || Boolean(shortTo)}>
       {req.error ? <ErrorState error={req.error} onRetry={req.reload} compact /> : !d ? <div className="ui-skel ui-skel-text" aria-busy="true" /> : (
         <div className="space-y-6">
           <dl className="grid grid-cols-2 gap-4 text-sm">
@@ -249,6 +283,17 @@ function RequestDrawer({ id, allowed, onClose, onDone }) {
           </dl>
 
           {d.waitingForManager ? <p className="text-sm ui-text-warn">{d.waitingForManager}</p> : null}
+
+          {shortening ? (
+            <form id="came-back-early" onSubmit={shorten} className="space-y-3" aria-labelledby="lr-short">
+              <h3 id="lr-short" className="ui-t-sec">Came back early</h3>
+              <div className="sm:w-56">
+                <span className="ui-label" id="lr-short-to">Last day of leave *</span>
+                <DatePicker label="Last day of leave" describedBy="lr-short-to" value={shortTo} min={r.fromDate} max={addDays(r.toDate, -1)} onChange={(v) => setShortTo(v || '')} />
+              </div>
+              {shortTo ? <p className="text-sm tabular-nums" aria-live="polite">{shortDays == null ? 'Working out the days…' : `Charges ${daysText(shortDays)} instead of ${daysText(r.days)}.`}</p> : null}
+            </form>
+          ) : null}
 
           {d.balance ? (
             <section aria-labelledby="lr-balance" className="space-y-1">
@@ -287,7 +332,7 @@ function RequestDrawer({ id, allowed, onClose, onDone }) {
               {d.history.map((h, i) => (
                 <li key={i} className="flex gap-3">
                   <span className="tabular-nums ui-muted w-24 shrink-0">{formatDate(new Date(new Date(h.at).getTime() + 330 * 60_000).toISOString().slice(0, 10))}</span>
-                  <span>{h.what}{h.by ? ` by ${h.by}` : ''}{h.note ? <span className="block ui-muted">“{h.note}”</span> : null}</span>
+                  <span>{h.what}{h.by ? ` by ${h.by}` : ''}{h.from && h.to ? <span className="tabular-nums">: {range(h.from, h.to)}</span> : null}{h.note ? <span className="block ui-muted">“{h.note}”</span> : null}</span>
                 </li>
               ))}
             </ol>
@@ -306,6 +351,26 @@ function RequestDrawer({ id, allowed, onClose, onDone }) {
   );
 }
 const OPEN_STATUSES = ['PENDING', 'APPROVED'];
+const addDays = (iso, n) => { const d = new Date(`${iso}T00:00:00Z`); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+
+/**
+ * The preview while a request is being changed: the request itself is still
+ * waiting, so an overlap with its own dates and a balance short by its own
+ * days are not problems, and the balance after gets its own days back when
+ * the type is unchanged. The server checks the rest on save.
+ */
+function ownPreview(p, request, leaveTypeId) {
+  if (!p) return p;
+  const sameType = leaveTypeId === request.leaveTypeId;
+  const own = (code, message) => (code === 'OVERLAP' && message.includes(request.fromDate) && message.includes(request.toDate)) || (code === 'NO_BALANCE' && sameType);
+  return {
+    ...p,
+    problems: (p.problems || []).filter((x) => !own(x.code, String(x.message || ''))),
+    parts: sameType && (p.parts || []).length === 1
+      ? p.parts.map((x) => (x.balance?.after == null ? x : { ...x, balance: { ...x.balance, after: Math.round((x.balance.after + request.days) * 100) / 100 } }))
+      : p.parts,
+  };
+}
 
 /** What the preview says, in the words the form needs: days, balance after, dates skipped, problems, the split. */
 export function LeavePreview({ preview, loading }) {
@@ -334,19 +399,31 @@ export function LeavePreview({ preview, loading }) {
   );
 }
 
-export function EnterLeave({ onClose, onDone }) {
-  const [form, setForm] = useState({ employeeId: '', leaveTypeId: '', fromDate: '', toDate: '', halfDay: '', reason: '' });
+/**
+ * HR enters leave for someone, or changes a waiting request (`request`): the
+ * same form, prefilled, the person fixed. While a request is being changed
+ * the preview still sees the request itself, so an overlap with its own dates
+ * and a balance short by its own days are not problems; the server decides
+ * those on save.
+ */
+export function EnterLeave({ onClose, onDone, request = null }) {
+  const editing = Boolean(request);
+  const start = useMemo(() => (request
+    ? { employeeId: request.employeeId, leaveTypeId: request.leaveTypeId, fromDate: request.fromDate, toDate: request.toDate, halfDay: request.halfDay || '', reason: request.reason || '' }
+    : { employeeId: '', leaveTypeId: '', fromDate: '', toDate: '', halfDay: '', reason: '' }), [request]);
+  const [form, setForm] = useState(start);
   const [saving, setSaving] = useState(false);
   const [preview, setPreview] = useState(null);
   const [previewing, setPreviewing] = useState(false);
-  const people = useRequest(() => listEmployees({ limit: 500, sort: 'name', status: 'CURRENT' }).then((r) => r?.employees || []), []);
-  const types = useRequest(() => listLeaveTypes().then((t) => t.filter((x) => x.isActive)), []);
+  const people = useRequest(() => (editing ? Promise.resolve([]) : listEmployees({ limit: 500, sort: 'name', status: 'CURRENT' }).then((r) => r?.employees || [])), [editing]);
+  const types = useRequest(() => listLeaveTypes().then((t) => t.filter((x) => x.isActive || x.id === request?.leaveTypeId)), []);
+  const reasons = useSuggestions('leaveReason');
   const type = (types.data || []).find((t) => t.id === form.leaveTypeId);
   const oneDay = form.fromDate && form.fromDate === form.toDate;
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v, ...(k === 'fromDate' && v && (!f.toDate || f.toDate < v) ? { toDate: v } : {}) }));
   const body = { ...form, halfDay: oneDay && form.halfDay ? form.halfDay : null };
   const ready = form.employeeId && form.leaveTypeId && form.fromDate && form.toDate;
-  const dirty = Boolean(form.employeeId || form.leaveTypeId || form.fromDate || form.reason);
+  const dirty = editing ? JSON.stringify(form) !== JSON.stringify(start) : Boolean(form.employeeId || form.leaveTypeId || form.fromDate || form.reason);
 
   /* The preview follows the form; the newest answer wins and the last one stays while the next loads. */
   const seq = useRef(0);
@@ -355,22 +432,28 @@ export function EnterLeave({ onClose, onDone }) {
     const n = ++seq.current;
     setPreviewing(true);
     const t = setTimeout(() => {
-      previewLeave(body).then((r) => { if (n === seq.current) setPreview(r); }).catch((e) => { if (n === seq.current) setPreview({ problems: [{ code: 'ERR', message: String(e?.message || 'Could not work out the days.') }], parts: [] }); }).finally(() => { if (n === seq.current) setPreviewing(false); });
+      previewLeave(editing ? { ...body, editing: request.id } : body).then((r) => { if (n === seq.current) setPreview(editing ? ownPreview(r, request, form.leaveTypeId) : r); }).catch((e) => { if (n === seq.current) setPreview({ problems: [{ code: 'ERR', message: String(e?.message || 'Could not work out the days.') }], parts: [] }); }).finally(() => { if (n === seq.current) setPreviewing(false); });
     }, 300);
     return () => clearTimeout(t);
   }, [form.employeeId, form.leaveTypeId, form.fromDate, form.toDate, form.halfDay]);
 
   const reasonNeeded = type ? !type.isPrivate : true;
   const reasonOk = !reasonNeeded || form.reason.trim().length >= 3;
-  const blocked = !ready || !preview || previewing || (preview.problems || []).length > 0 || !reasonOk;
+  const blocked = !ready || !preview || previewing || (preview.problems || []).length > 0 || !reasonOk || (editing && !dirty);
 
   const save = async (e) => {
     e?.preventDefault();
     if (blocked || saving) return;
     setSaving(true);
     try {
-      const r = await createLeaveRequest({ ...body, reason: form.reason.trim(), split: Boolean(preview?.split) });
-      notify.success(r.requests ? `Entered as ${r.requests.length} requests. They wait in Waiting.` : 'Entered. It waits in Waiting.');
+      const sent = { ...body, reason: form.reason.trim(), split: Boolean(preview?.split) };
+      if (editing) {
+        await updateLeaveRequest(request.id, sent);
+        notify.success('Changed. It waits in Waiting.');
+      } else {
+        const r = await createLeaveRequest(sent);
+        notify.success(r.requests ? `Entered as ${r.requests.length} requests. They wait in Waiting.` : 'Entered. It waits in Waiting.');
+      }
       onDone();
     } catch (err) {
       notify.error(String(err?.message || 'Not saved.'));
@@ -385,14 +468,16 @@ export function EnterLeave({ onClose, onDone }) {
       onClose={onClose}
       widthClass="w-[min(36rem,96vw)]"
       dirty={dirty}
-      title="Enter leave"
+      title={editing ? `Change ${request.employeeName}'s leave` : 'Enter leave'}
       actions={<>
         <button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button>
         <button type="submit" form="enter-leave" className="ui-btn ui-btn-primary" disabled={blocked || saving}>{saving ? 'Saving…' : 'Save'}</button>
       </>}
     >
       <form id="enter-leave" onSubmit={save} className="space-y-4">
-        <PopupSelect showValueSubtext={false} label="Employee *" value={form.employeeId} onChange={(v) => set('employeeId', v || '')} placeholder="Choose…" alwaysSearch options={(people.data || []).map((x) => ({ value: x.id, label: x.code ? `${x.name} (${x.code})` : x.name }))} />
+        {editing
+          ? <dl className="text-sm"><Fact label="Employee">{request.employeeName}{request.employeeCode ? <span className="ui-muted"> · {request.employeeCode}</span> : null}</Fact></dl>
+          : <PopupSelect showValueSubtext={false} label="Employee *" value={form.employeeId} onChange={(v) => set('employeeId', v || '')} placeholder="Choose…" alwaysSearch options={(people.data || []).map((x) => ({ value: x.id, label: x.code ? `${x.name} (${x.code})` : x.name }))} />}
         <PopupSelect showValueSubtext={false} label="Leave type *" value={form.leaveTypeId} onChange={(v) => set('leaveTypeId', v || '')} placeholder="Choose…" options={(types.data || []).map((t) => ({ value: t.id, label: t.isPaid ? t.name : `${t.name} (unpaid)` }))} />
         <div className="grid gap-4 sm:grid-cols-2">
           <div><span className="ui-label" id="el-from">First day *</span><DatePicker label="First day" describedBy="el-from" value={form.fromDate} onChange={(v) => set('fromDate', v || '')} /></div>
@@ -403,7 +488,7 @@ export function EnterLeave({ onClose, onDone }) {
         ) : null}
         <label className="block">
           <span className="ui-label">{reasonNeeded ? 'Reason *' : 'Reason'}</span>
-          <input className="ui-input w-full" maxLength={500} value={form.reason} onChange={(e) => set('reason', e.target.value)} />
+          <SuggestInput maxLength={500} value={form.reason} onChange={(v) => set('reason', v)} suggestions={reasons} />
         </label>
         <LeavePreview preview={preview} loading={previewing} />
         {preview?.alsoAwayCount ? <p className="text-sm ui-muted">{preview.alsoAwayCount} {preview.alsoAwayCount === 1 ? 'other person is' : 'others are'} away then{preview.sameDepartment ? `, ${preview.sameDepartment} in the same department` : ''}.</p> : null}

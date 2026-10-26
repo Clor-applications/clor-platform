@@ -454,3 +454,27 @@ describe('advanced build: entitlements, probation, workflow per type, stand-ins,
     expect(await runLeaveDigest()).toBe(0);
   });
 });
+
+describe('preview while changing a request, and the comp-off type from People', () => {
+  it('the preview leaves the request being changed out of the overlap and gives its days back', async () => {
+    const c = await company({ people: true, attendance: false });
+    const t = (await att(c, 'post', '/leave/types', { name: 'Casual', annualDays: 3 }).expect(201)).body.type;
+    const p = await person(c, { name: 'Edit Me', code: 'E1' });
+    const r = (await att(c, 'post', '/leave/requests', { employeeId: p.id, leaveTypeId: t.id, fromDate: '2026-12-01', toDate: '2026-12-03', reason: 'Trip' }).expect(201)).body.request;
+    const plain = (await att(c, 'post', '/leave/requests/preview', { employeeId: p.id, leaveTypeId: t.id, fromDate: '2026-12-02', toDate: '2026-12-04' }).expect(200)).body;
+    expect(plain.problems.map((x: any) => x.code).sort()).toEqual(['NO_BALANCE', 'OVERLAP']);
+    const editing = (await att(c, 'post', '/leave/requests/preview', { employeeId: p.id, leaveTypeId: t.id, fromDate: '2026-12-02', toDate: '2026-12-04', editing: r.id }).expect(200)).body;
+    expect(editing.problems).toEqual([]);
+    expect(editing.parts[0].balance).toMatchObject({ before: 3, after: 0 });
+  });
+
+  it('the comp-off leave type is set with the working week, so a People-only company can grant comp-off', async () => {
+    const c = await company({ people: true, attendance: false });
+    const comp = (await att(c, 'post', '/leave/types', { name: 'Comp off', annualDays: 0 }).expect(201)).body.type;
+    const p = await person(c, { name: 'Worked Sunday', code: 'W1' });
+    expect((await att(c, 'post', '/leave/comp-off', { employeeId: p.id, workedOn: '2026-10-04', days: 1, reason: 'Stock take' }).expect(409)).body.code).toBe('COMP_OFF_TYPE');
+    await att(c, 'put', '/leave/working-week', { weeklyOffDays: '0', compOffLeaveTypeId: comp.id }).expect(200);
+    expect((await att(c, 'get', '/leave/working-week').expect(200)).body.compOffLeaveTypeId).toBe(comp.id);
+    await att(c, 'post', '/leave/comp-off', { employeeId: p.id, workedOn: '2026-10-04', days: 1, reason: 'Stock take' }).expect(201);
+  });
+});
