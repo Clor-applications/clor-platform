@@ -7,7 +7,6 @@ import DataTable from '@ui/components/ui/DataTable';
 import SearchField from '@ui/components/ui/SearchField';
 import Drawer from '@ui/components/ui/Drawer';
 import Alert from '@ui/components/ui/Alert';
-import Popover from '@ui/components/ui/Popover';
 import ErrorState from '@ui/components/ui/ErrorState';
 import DatePicker from '@ui/components/ui/DatePicker';
 import PopupSelect from '@ui/components/pickers/PopupSelect';
@@ -17,7 +16,7 @@ import { usePermissions } from '@ui/permissions/usePermissions';
 import { Avatar } from '@ui/personnel/Employees';
 import { formatDate } from '@ui/components/ui/DatePicker';
 
-import { bulkUpdate, dataHealth, deleteView, downloadText, employeeCounts, exportEmployees, listEmployees, listTags, listViews, openChecklistTasks, saveView, structure, workforcePending } from './api';
+import { bulkUpdate, dataHealth, deleteView, downloadText, employeeCounts, exportColumns, exportEmployees, listEmployees, listTags, listViews, openChecklistTasks, saveView, structure, workforcePending } from './api';
 import { STATUS, StatusBadge, can } from './shared';
 
 /**
@@ -34,7 +33,8 @@ const DISMISS_KEY = 'people.workforce.dismissed';
 const readJson = (k, fallback) => { try { return JSON.parse(localStorage.getItem(k) || '') || fallback; } catch { return fallback; } };
 const writeJson = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* a convenience only */ } };
 const apiParams = (p) => ({
-  q: p.q, status: p.status, departmentId: p.dept, jobPositionId: p.pos, employeeTypeId: p.type, workTypeId: p.wtype, areaId: p.area, establishmentId: p.est,
+  /* Leavers stay out unless asked for: the default is everyone still with the company. */
+  q: p.q, status: p.status || 'CURRENT', departmentId: p.dept, jobPositionId: p.pos, employeeTypeId: p.type, workTypeId: p.wtype, areaId: p.area, establishmentId: p.est,
   businessUnitId: p.unit, gradeId: p.grade, costCenterId: p.centre, tagId: p.tag, managerId: p.mgr,
   joinedFrom: p.from, joinedTo: p.to, sort: p.sort, dir: p.dir,
 });
@@ -81,6 +81,7 @@ export default function Directory({ params = {}, updateParams, openScreen }) {
   const [bulk, setBulk] = useState(null);
   const [result, setResult] = useState(null);
   const [exporting, setExporting] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
 
   const tabsRef = useRef(null);
   const tabIndicator = useTabIndicator(tabsRef, tab);
@@ -121,21 +122,13 @@ export default function Directory({ params = {}, updateParams, openScreen }) {
     { key: 'activity', label: 'View activity', onSelect: () => openRecord(r, 'activity') },
   ];
 
-  const doExport = async (scope) => {
+  const doExport = async (scope, columns) => {
     setExporting(true);
     try {
-      const filter = scope === 'all' ? {} : { ...apiParams(p), ...(tab === 'team' ? { team: 'mine' } : {}) };
-      let text;
-      if (scope === 'selected') {
-        /* The rows chosen on this page, as the same columns the server exports. */
-        const head = 'Employee ID,Name,Work email,Department,Designation,Status';
-        const esc = (v) => { let s = String(v ?? ''); if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`; return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
-        text = `\ufeff${[head, ...rows.filter((r) => selected.has(r.id)).map((r) => [r.code, r.name, r.workEmail || r.email, r.department, r.designation, STATUS[r.status]?.label || r.status].map(esc).join(','))].join('\r\n')}`;
-      } else {
-        text = await exportEmployees(filter);
-      }
+      const filter = scope === 'all' ? { status: 'CURRENT' } : scope === 'selected' ? { ids: [...selected].join(',') } : { ...apiParams(p), ...(tab === 'team' ? { team: 'mine' } : {}) };
+      const text = await exportEmployees({ ...filter, columns: columns.join(',') });
       downloadText(text, `employees-${new Date().toISOString().slice(0, 10)}.csv`);
-      notify.success(scope === 'selected' ? `${selected.size} exported.` : scope === 'all' ? 'Everyone you can see, exported.' : 'This view exported.');
+      notify.success('Exported.');
     } catch (e) {
       notify.error(String(e?.message || 'Export failed.'));
     } finally {
@@ -146,7 +139,7 @@ export default function Directory({ params = {}, updateParams, openScreen }) {
   const clearFilters = () => { setPrivateQ(''); set(Object.fromEntries([...FILTER_KEYS, 'q', 'page', 'view'].map((k) => [k, null]))); };
   const lookup = (listName, id) => lists[listName]?.find((x) => x.id === id)?.name || 'Chosen';
   const chips = [
-    p.status && { k: 'status', label: `Status: ${STATUS[p.status]?.label || p.status}` },
+    p.status && { k: 'status', label: p.status === 'ALL' ? 'Including people who left' : `Status: ${STATUS[p.status]?.label || p.status}` },
     p.dept && { k: 'dept', label: `Department: ${lookup('departments', p.dept)}` },
     p.pos && { k: 'pos', label: `Designation: ${lookup('positions', p.pos)}` },
     p.type && { k: 'type', label: `Type: ${lookup('types', p.type)}` },
@@ -168,7 +161,7 @@ export default function Directory({ params = {}, updateParams, openScreen }) {
         title="Workforce"
         actions={<>
           {allowed('PEOPLE::Employees::CREATE') ? <button type="button" className="ui-btn ui-btn-secondary" onClick={() => openScreen?.('employeeImport')}><Upload size={16} aria-hidden="true" /> Import</button> : null}
-          {allowed('PEOPLE::Employees::EXPORT') ? <ExportMenu busy={exporting} counts={{ view: total, all: counts.data ? counts.data.total : null, selected: selected.size }} filtered={Boolean(p.q || filtersOn || tab === 'team')} onPick={doExport} /> : null}
+          {allowed('PEOPLE::Employees::EXPORT') ? <button type="button" className="ui-btn ui-btn-secondary" disabled={exporting} onClick={() => setExportOpen(true)}><Download size={16} aria-hidden="true" /> Export</button> : null}
           {allowed('PEOPLE::Employees::CREATE') ? <button type="button" className="ui-btn ui-btn-primary" onClick={() => openScreen?.('employeeNew', {})}><Plus size={16} aria-hidden="true" /> Add employee</button> : null}
         </>}
       />
@@ -257,6 +250,7 @@ export default function Directory({ params = {}, updateParams, openScreen }) {
       ) : null}
 
       {filtersOpen ? <FiltersDrawer params={p} lists={lists} managers={managers} onClose={() => setFiltersOpen(false)} onApply={(f) => { set({ ...f, page: null }, true); setFiltersOpen(false); }} /> : null}
+      {exportOpen ? <ExportDrawer counts={{ view: total, all: counts.data ? counts.data.total : null, selected: selected.size }} filtered={Boolean(p.q || filtersOn || tab === 'team')} onClose={() => setExportOpen(false)} onExport={doExport} /> : null}
       {bulk ? <BulkDrawer count={selected.size} lists={lists} managers={managers} value={bulk} onChange={setBulk} onClose={() => setBulk(null)}
         onSend={async () => {
           try {
@@ -276,32 +270,52 @@ export default function Directory({ params = {}, updateParams, openScreen }) {
 
 const tomorrowIst = () => new Date(Date.now() + 330 * 60_000 + 86_400_000).toISOString().slice(0, 10);
 
-/* WF-07 export scopes, each with its row count before anything is downloaded. Only the columns the server allows; every export is logged. */
-function ExportMenu({ busy, counts, filtered, onPick }) {
-  const [open, setOpen] = useState(false);
-  const btn = React.useRef(null);
-  const items = [
-    ['filtered', filtered ? `This view (${counts.view})` : `Everyone shown (${counts.view})`],
-    ...(filtered && counts.all != null ? [['all', `All employees you can see (${counts.all})`]] : []),
-    ...(counts.selected ? [['selected', `Selected (${counts.selected})`]] : []),
+/*
+ * WF-07 export: which people (this view, everyone you can see, or the rows
+ * ticked), each with its count, and which columns from the server's own list
+ * (work details only; nothing statutory or personal can be chosen). The
+ * server builds every file, applies scope and logs it.
+ */
+function ExportDrawer({ counts, filtered, onClose, onExport }) {
+  const columns = useRequest(() => exportColumns(), []);
+  const [scope, setScope] = useState(counts.selected ? 'selected' : 'filtered');
+  const [chosen, setChosen] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const picked = chosen ?? new Set((columns.data || []).filter((c) => c.default).map((c) => c.key));
+  const scopes = [
+    ['filtered', filtered ? 'This view' : 'Everyone shown', counts.view],
+    ...(filtered && counts.all != null ? [['all', 'Everyone you can see', counts.all]] : []),
+    ...(counts.selected ? [['selected', 'Ticked rows', counts.selected]] : []),
   ];
+  const toggle = (k) => { const next = new Set(picked); if (next.has(k)) next.delete(k); else next.add(k); setChosen(next); };
+  const go = async () => {
+    setBusy(true);
+    try { await onExport(scope, (columns.data || []).filter((c) => picked.has(c.key)).map((c) => c.key)); onClose(); } finally { setBusy(false); }
+  };
   return (
-    <>
-      <button ref={btn} type="button" className="ui-btn ui-btn-secondary" disabled={busy} aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen((o) => !o)}><Download size={16} aria-hidden="true" /> {busy ? 'Exporting…' : 'Export'}</button>
-      {open ? (
-        <Popover anchorRef={btn} onClose={() => setOpen(false)} minWidth={240}>
-          <div role="menu" className="ui-menu" onKeyDown={(e) => {
-            const all = [...e.currentTarget.querySelectorAll('[role="menuitem"]:not([disabled])')];
-            const i = all.indexOf(document.activeElement);
-            if (e.key === 'ArrowDown') { e.preventDefault(); all[(i + 1) % all.length]?.focus(); }
-            else if (e.key === 'ArrowUp') { e.preventDefault(); all[(i - 1 + all.length) % all.length]?.focus(); }
-            else if (e.key === 'Escape') { e.stopPropagation(); setOpen(false); btn.current?.focus(); }
-          }}>
-            {items.map(([k, label], i) => <button key={k} type="button" role="menuitem" className="ui-menu-item" data-autofocus={i === 0 && counts.view ? '' : undefined} disabled={k === 'filtered' && !counts.view} onClick={() => { setOpen(false); onPick(k); }}>{label}</button>)}
+    <Drawer open onClose={onClose} widthClass="w-[min(36rem,96vw)] ui-drawer-sheet" title="Export employees"
+      footer={<><button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button><button type="button" className="ui-btn ui-btn-primary" disabled={busy || !picked.size || !scopes.find(([k]) => k === scope)?.[2]} onClick={go}><Download size={16} aria-hidden="true" /> {busy ? 'Exporting…' : 'Export CSV'}</button></>}>
+      <div className="ui-filter-groups">
+        <section aria-label="Who">
+          <h3 className="ui-filter-group-title">Who</h3>
+          <div role="radiogroup" aria-label="Who" className="ui-choice-list">
+            {scopes.map(([k, label, n]) => (
+              <label key={k} className="ui-choice-row"><input type="radio" name="export-scope" checked={scope === k} disabled={!n} onChange={() => setScope(k)} /><span className="flex-1">{label}</span><span className="tabular-nums ui-muted">{n ?? '…'}</span></label>
+            ))}
           </div>
-        </Popover>
-      ) : null}
-    </>
+        </section>
+        <section aria-label="Columns">
+          <div className="flex items-baseline gap-3"><h3 className="ui-filter-group-title">Columns</h3><span className="ui-caption tabular-nums">{picked.size} chosen</span>
+            <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm ml-auto" onClick={() => setChosen(new Set((columns.data || []).map((c) => c.key)))}>All</button>
+            <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" onClick={() => setChosen(null)}>Default</button></div>
+          {columns.error ? <ErrorState error={columns.error} onRetry={columns.reload} compact /> : !columns.data ? <span className="ui-skel ui-skel-text" /> : (
+            <div className="ui-column-checks">
+              {columns.data.map((c) => <label key={c.key} className="ui-choice-row"><input type="checkbox" className="ui-checkbox" checked={picked.has(c.key)} onChange={() => toggle(c.key)} />{c.label}</label>)}
+            </div>
+          )}
+        </section>
+      </div>
+    </Drawer>
   );
 }
 
@@ -362,9 +376,9 @@ function FiltersDrawer({ params, lists, managers, onClose, onApply }) {
   const [draft, setDraft] = useState(initial);
   const dirty = JSON.stringify(draft) !== JSON.stringify(initial);
   const opt = (arr) => [{ value: '', label: 'Any' }, ...arr.map((x) => ({ value: x.id, label: x.name }))];
-  const field = (k, label, options) => (
+  const field = (k, label, options, placeholder = 'Any') => (
     <div className="block">
-      <PopupSelect showValueSubtext={false} label={label} placeholder="Any" value={draft[k]} onChange={(v) => setDraft({ ...draft, [k]: v || '' })} options={options} alwaysSearch={options.length > 8} />
+      <PopupSelect showValueSubtext={false} label={label} placeholder={placeholder} value={draft[k]} onChange={(v) => setDraft({ ...draft, [k]: v || '' })} options={options} alwaysSearch={options.length > 8} />
     </div>
   );
   return (
@@ -379,7 +393,7 @@ function FiltersDrawer({ params, lists, managers, onClose, onApply }) {
         <section aria-label="Job">
           <h3 className="ui-filter-group-title">Job</h3>
           <div className="ui-form-grid">
-            {field('status', 'Status', [{ value: '', label: 'Any' }, ...Object.entries(STATUS).map(([value, s]) => ({ value, label: s.label }))])}
+            {field('status', 'Status', [{ value: '', label: 'Current employees' }, ...Object.entries(STATUS).map(([value, s]) => ({ value, label: s.label })), { value: 'ALL', label: 'Everyone, including left' }], 'Current employees')}
             {field('pos', 'Designation', opt(lists.positions))}
             {field('type', 'Employment type', opt(lists.types))}
             {lists.workTypes.length ? field('wtype', 'Work type', opt(lists.workTypes)) : null}

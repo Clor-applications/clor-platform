@@ -441,7 +441,7 @@ peopleRouter.get('/orgs/:orgId/people/employees', can(PermissionAction.VIEW, EMP
     orgId,
     ...scopeWhere(scope),
     ...(mine ? { AND: [{ OR: [{ reportingManagerId: mine.id }, { dottedManagerId: mine.id }] }] } : {}),
-    ...(pick('status') ? { status: pick('status') } : {}),
+    ...statusWhere(pick('status')),
     ...(pick('departmentId') ? { departmentId: pick('departmentId') } : {}),
     ...(pick('jobPositionId') ? { jobPositionId: pick('jobPositionId') } : {}),
     ...(pick('employeeTypeId') ? { employeeTypeId: pick('employeeTypeId') } : {}),
@@ -488,6 +488,13 @@ peopleRouter.get('/orgs/:orgId/people/employees', can(PermissionAction.VIEW, EMP
 });
 
 /* Sortable directory columns (People design v1 EMP-01); name breaks ties so a page never reshuffles. */
+/* CURRENT is everyone still with the company (the directory's default); ALL includes those who left; otherwise one status. */
+const statusWhere = (v?: string) => {
+  const s = String(v || '').toUpperCase();
+  if (!s || s === 'ALL') return {};
+  if (s === 'CURRENT') return { status: { not: 'LEFT' as const } };
+  return { status: s as any };
+};
 const SORTABLE: Record<string, string> = { name: 'name', code: 'code', department: 'department', designation: 'designation', dateOfJoining: 'dateOfJoining', status: 'status', location: 'workLocation' };
 function directoryOrder(sort: string, dir: string): any[] {
   const field = SORTABLE[sort];
@@ -629,12 +636,24 @@ peopleRouter.delete('/orgs/:orgId/people/employee-drafts/:id', can(PermissionAct
 
 /* ------------------------------------------------ server export (EMP-01) */
 
+/*
+ * The fields an export may carry: work details only. Statutory numbers, the
+ * date of birth, gender, personal contact and anything secret are never in
+ * this list, so no choice of columns can reach them. The first eleven are the
+ * default, as before.
+ */
+const STATUS_WORDS: Record<string, string> = { ACTIVE: 'Active', ON_NOTICE: 'On notice', SUSPENDED: 'Suspended', LEFT: 'Left' };
 const EXPORT_COLUMNS: Array<[string, string, (e: any) => unknown]> = [
   ['Employee ID', 'code', (e) => e.code], ['Name', 'name', (e) => e.name], ['Preferred name', 'preferredName', (e) => e.preferredName],
   ['Work email', 'workEmail', (e) => e.workEmail || e.email], ['Phone', 'phone', (e) => e.phone], ['Department', 'department', (e) => e.department],
-  ['Designation', 'designation', (e) => e.designation], ['Reports to', 'reportingManagerName', (e) => e.reportingManagerName], ['Location', 'location', (e) => e.areaName || e.workLocation],
-  ['Joined', 'dateOfJoining', (e) => e.dateOfJoining], ['Status', 'status', (e) => e.status],
+  ['Designation', 'designation', (e) => e.designation], ['Manager', 'reportingManagerName', (e) => e.reportingManagerName], ['Location', 'location', (e) => e.areaName || e.workLocation],
+  ['Joining date', 'dateOfJoining', (e) => e.dateOfJoining], ['Status', 'status', (e) => STATUS_WORDS[e.status] || e.status],
+  ['Work phone', 'workPhone', (e) => e.workPhone], ['Secondary manager', 'dottedManagerName', (e) => e.dottedManagerName], ['Employment type', 'employeeType', (e) => e.employeeTypeName],
+  ['Work type', 'workType', (e) => e.workTypeName], ['Work site', 'establishment', (e) => e.establishment], ['Business unit', 'businessUnit', (e) => e.businessUnitName],
+  ['Team', 'team', (e) => e.teamName], ['Position', 'position', (e) => e.seatName], ['Grade', 'grade', (e) => e.gradeName], ['Cost centre', 'costCentre', (e) => e.costCenterName],
+  ['Probation ends', 'probationEndDate', (e) => e.probationEndDate], ['Contract ends', 'contractEndDate', (e) => e.contractEndDate], ['Tags', 'tags', (e) => (e.tags || []).map((t: any) => t.name).join('; ')],
 ];
+const DEFAULT_EXPORT = EXPORT_COLUMNS.slice(0, 11).map(([, k]) => k);
 const csvSafe = (v: unknown) => {
   let s = String(v ?? '');
   if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`;
@@ -647,6 +666,12 @@ const csvSafe = (v: unknown) => {
  * Employees EXPORT grant; team scope applies; no statutory or secret columns;
  * an audit row records who exported how many.
  */
+/** The columns an export can carry, and which are chosen unless the person picks others. */
+peopleRouter.get('/orgs/:orgId/people/employees/export/columns', can(PermissionAction.EXPORT, EMPLOYEES), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  res.json({ columns: EXPORT_COLUMNS.map(([label, key]) => ({ key, label, default: DEFAULT_EXPORT.includes(key) })) });
+});
+
 peopleRouter.get('/orgs/:orgId/people/employees/export', can(PermissionAction.EXPORT, EMPLOYEES), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
@@ -655,7 +680,7 @@ peopleRouter.get('/orgs/:orgId/people/employees/export', can(PermissionAction.EX
   const scope = await teamScope(req);
   const where: any = {
     accountId, orgId, ...scopeWhere(scope),
-    ...(pick('status') ? { status: pick('status') } : {}),
+    ...statusWhere(pick('status')),
     ...(pick('departmentId') ? { departmentId: pick('departmentId') } : {}),
     ...(pick('jobPositionId') ? { jobPositionId: pick('jobPositionId') } : {}),
     ...(pick('employeeTypeId') ? { employeeTypeId: pick('employeeTypeId') } : {}),
@@ -674,10 +699,23 @@ peopleRouter.get('/orgs/:orgId/people/employees/export', can(PermissionAction.EX
     const mine = await peoplePrisma.employee.findFirst({ where: { orgId, userId: req.auth!.userId }, select: { id: true } });
     where.AND = [{ OR: mine ? [{ reportingManagerId: mine.id }, { dottedManagerId: mine.id }] : [{ id: '__none__' }] }];
   }
-  const rows = await peoplePrisma.employee.findMany({ where, orderBy: directoryOrder(String(req.query.sort || ''), String(req.query.dir || '')), take: 10_000 });
-  const shaped = await withMeta(orgId, rows);
-  const lines = [EXPORT_COLUMNS.map(([h]) => h), ...shaped.map((e: any) => EXPORT_COLUMNS.map(([, , f]) => f(e)))];
-  await recordAudit(req, { entity: 'PEOPLE_EMPLOYEES', entityId: 'export', action: 'EXPORT', message: `Exported ${rows.length} employees`, metadata: { count: rows.length, filters: { ...req.query } } });
+  /* The rows ticked on screen: still inside the caller's scope and this company, whatever ids are sent. */
+  const ids = String(req.query.ids || '').split(',').map((x) => x.trim()).filter(Boolean).slice(0, 1000);
+  if (ids.length) where.id = { in: ids };
+  /* Only columns from the catalogue, in its order; none asked for means the default set. */
+  const asked = String(req.query.columns || '').split(',').map((x) => x.trim()).filter(Boolean);
+  const chosen = EXPORT_COLUMNS.filter(([, k]) => (asked.length ? asked.includes(k) : DEFAULT_EXPORT.includes(k)));
+  if (!chosen.length) return res.status(400).json({ error: 'Choose at least one column.' });
+  const rows = await peoplePrisma.employee.findMany({ where, include: { tags: { include: { tag: true } } }, orderBy: directoryOrder(String(req.query.sort || ''), String(req.query.dir || '')), take: 10_000 });
+  const [types, workTypes] = await Promise.all([
+    peoplePrisma.employeeType.findMany({ where: { orgId }, select: { id: true, name: true } }),
+    peoplePrisma.workType.findMany({ where: { orgId }, select: { id: true, name: true } }),
+  ]);
+  const typeName = new Map(types.map((t) => [t.id, t.name]));
+  const workTypeName = new Map(workTypes.map((t) => [t.id, t.name]));
+  const shaped = (await withMeta(orgId, rows)).map((e: any) => ({ ...e, employeeTypeName: typeName.get(e.employeeTypeId) || null, workTypeName: workTypeName.get(e.workTypeId) || null }));
+  const lines = [chosen.map(([h]) => h), ...shaped.map((e: any) => chosen.map(([, , f]) => f(e)))];
+  await recordAudit(req, { entity: 'PEOPLE_EMPLOYEES', entityId: 'export', action: 'EXPORT', message: `Exported ${rows.length} ${rows.length === 1 ? 'employee' : 'employees'}`, metadata: { count: rows.length, columns: chosen.map(([, k]) => k), filters: { ...req.query } } });
   res.set('Content-Type', 'text/csv; charset=utf-8').set('Content-Disposition', `attachment; filename="employees-${new Date().toISOString().slice(0, 10)}.csv"`).set('Cache-Control', 'no-store');
   res.send(`\ufeff${lines.map((l) => l.map(csvSafe).join(',')).join('\r\n')}`);
 });

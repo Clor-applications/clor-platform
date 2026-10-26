@@ -7881,6 +7881,12 @@ button.ui-metric:focus-visible { outline: 2px solid rgb(var(--ring)); outline-of
 }
 @media (max-width: 639px) and (prefers-reduced-motion: reduce) { .ui-drawer-sheet { animation: none !important; } }
 .ui-avatar-initials::before { content: attr(data-initials); }
+.ui-choice-list, .ui-column-checks { display: grid; gap: 0.125rem; }
+.ui-column-checks { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 1rem; }
+.ui-choice-row { display: flex; align-items: center; gap: 0.625rem; min-height: 2.25rem; padding: 0 0.5rem; margin: 0 -0.5rem; border-radius: 8px; font-size: 0.875rem; cursor: pointer; }
+.ui-choice-row:hover { background: rgb(var(--surface-sunken)); }
+.ui-choice-row input[type='radio'] { accent-color: rgb(var(--brand)); width: 1rem; height: 1rem; }
+@media (max-width: 639px) { .ui-column-checks { grid-template-columns: minmax(0, 1fr); } }
 .ui-section-count { margin-left: 0.5rem; font-size: 0.8125rem; font-weight: 500; color: rgb(var(--fg-subtle)); }
 .ui-task-list { list-style: none; margin: 0; padding: 0; font-size: 0.875rem; line-height: 1.25rem; }
 .ui-task-list > li { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; padding: 0.625rem 0; border-top: 1px solid rgb(var(--border)); }

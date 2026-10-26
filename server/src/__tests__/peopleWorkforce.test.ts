@@ -126,13 +126,26 @@ describe('workforce backend', () => {
     await people(viewer).get('/employees/export').expect(403);
     const csv = await people(boss).get('/employees/export?q=W-00&sort=code').expect(200);
     const lines = csv.text.replace(/^\ufeff/, '').split('\r\n');
-    expect(lines[0]).toBe('Employee ID,Name,Preferred name,Work email,Phone,Department,Designation,Reports to,Location,Joined,Status');
+    expect(lines[0]).toBe('Employee ID,Name,Preferred name,Work email,Phone,Department,Designation,Manager,Location,Joining date,Status');
+    /* Chosen columns come back in the catalogue's order; a key outside it reaches nothing; statutory fields are not in it at all. */
+    const catalogue = (await people(boss).get('/employees/export/columns').expect(200)).body.columns;
+    expect(catalogue.map((c: { key: string }) => c.key)).not.toEqual(expect.arrayContaining(['pan', 'aadhaarLast4', 'dateOfBirth', 'gender', 'email']));
+    const picked = (await people(boss).get('/employees/export?q=W-00&sort=code&columns=status,code,dateOfBirth,devicePassword').expect(200)).text.replace(/^\ufeff/, '').split('\r\n');
+    expect(picked[0]).toBe('Employee ID,Status');
+    expect(picked[1]).toBe('W-001,Active');
+    await people(boss).get('/employees/export?columns=dateOfBirth').expect(400);
+    /* Selected rows: only those, and an id from another company adds nothing. */
+    const w2 = (await people(boss).get('/employees?q=W-002').expect(200)).body.employees[0];
+    const stranger = await owner();
+    const foreign = (await people(stranger).post('/employees', { name: 'Elsewhere', code: 'X-1' }).expect(201)).body.employee;
+    const sel = (await people(boss).get(`/employees/export?ids=${w2.id},${foreign.id}&columns=code`).expect(200)).text.replace(/^\ufeff/, '').split('\r\n');
+    expect(sel).toEqual(['Employee ID', 'W-002']);
     expect(lines.slice(1).map((l) => l.split(',')[0])).toEqual(['W-001', 'W-002', 'W-003']);
     expect(csv.text).not.toMatch(/portal|Hash|devicePassword/i);
     const { platformPrisma } = await import('../utils/platformPrisma.js');
     const { runInTenant } = await import('../utils/tenantScope.js');
-    const audit = await runInTenant(boss.orgId, () => platformPrisma.auditLog.findFirst({ where: { orgId: boss.orgId, entity: 'PEOPLE_EMPLOYEES', action: 'EXPORT' } }));
-    expect(audit?.message).toBe('Exported 3 employees');
+    const audits = await runInTenant(boss.orgId, () => platformPrisma.auditLog.findMany({ where: { orgId: boss.orgId, entity: 'PEOPLE_EMPLOYEES', action: 'EXPORT' } }));
+    expect(audits.map((a) => a.message)).toEqual(expect.arrayContaining(['Exported 3 employees', 'Exported 1 employee']));
   });
 
   it('Activity: changes, documents, comments and approvals, newest first, redacted for a viewer with less access', async () => {
@@ -291,6 +304,17 @@ describe('workforce backend', () => {
       { name: 'Ira Sen', code: 'IM-903', dateOfJoining: '2026-02-30' },
     ] }).expect(200)).body;
     expect(check.results.map((r: { ok: boolean }) => r.ok)).toEqual([true, false, false]);
+  });
+
+  it('CURRENT leaves out people who have left, ALL includes them, a single status narrows; the export follows the same rule', async () => {
+    const gone = (await people(boss).post('/employees', { name: 'Gone Person', code: 'W-140', dateOfJoining: '2024-01-01' }).expect(201)).body.employee;
+    await people(boss).post(`/employees/${gone.id}/resign`, { lastDay: '2026-10-01', leavingType: 'RESIGNED' });
+    const codes = async (status: string) => ((await people(boss).get(`/employees?q=W-140&status=${status}`).expect(200)).body.employees as Array<{ code: string }>).map((e) => e.code);
+    expect(await codes('CURRENT')).toEqual([]);
+    expect(await codes('ALL')).toEqual(['W-140']);
+    expect(await codes('LEFT')).toEqual(['W-140']);
+    const csv = (await people(boss).get('/employees/export?q=W-140&status=CURRENT&columns=code').expect(200)).text.replace(/^\ufeff/, '').split('\r\n');
+    expect(csv).toEqual(['Employee ID']);
   });
 });
 
