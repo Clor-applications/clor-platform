@@ -7,8 +7,11 @@ import LoadFailed from '../components/LoadFailed';
 import DayExplain from '../components/DayExplain';
 import LeaveExplain from '../components/LeaveExplain';
 import PhonePunch from '../components/PhonePunch';
+import { MyDetails, Policies } from './MyDetails';
 import {
   SignedOut,
+  acceptItem,
+  getToAccept,
   activate,
   askCorrection,
   askLeave,
@@ -130,7 +133,7 @@ export default function EmployeePortal() {
         {tab === 'approvals' ? <Approvals guard={guard} /> : null}
         {tab === 'schedule' ? <MySchedule guard={guard} /> : null}
         {tab === 'leave' ? <MyLeave guard={guard} /> : null}
-        {tab === 'me' ? <><AskHr guard={guard} /><Account me={me} guard={guard} onSignOut={leave} /></> : null}
+        {tab === 'me' ? <><MyDetails guard={guard} /><Policies guard={guard} /><AskHr guard={guard} /><Account me={me} guard={guard} onSignOut={leave} /></> : null}
       </main>
 
       <nav aria-label="Portal" className="fixed inset-x-0 bottom-0 z-10 border-t" style={{ backgroundColor: 'rgb(var(--surface))', borderColor: 'rgb(var(--border))' }}>
@@ -947,12 +950,31 @@ function Approvals({ guard }) {
 
 const sizeOf = (n) => (n >= 1048576 ? `${(n / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`);
 
-/** What HR has put on my file and marked for me: download, nothing else. */
+/**
+ * What HR has put on my file and marked for me: download, and Accept where HR
+ * asked me to read it (E3). A document asked of me but not on my visible
+ * list still shows, with Accept.
+ */
 function MyDocuments({ guard }) {
   const [docs, setDocs] = useState(null);
-  useEffect(() => {
+  const [asks, setAsks] = useState([]);
+  const [failed, setFailed] = useState('');
+  const load = useCallback(() => {
     guard(getDocuments()).then((d) => setDocs(d?.documents || [])).catch(() => setDocs([]));
+    guard(getToAccept()).then((d) => setAsks((d?.pending || []).filter((p) => p.targetType === 'DOCUMENT'))).catch(() => setAsks([]));
   }, [guard]);
+  useEffect(() => {
+    load();
+  }, [load]);
+  const accept = async (ack) => {
+    setFailed('');
+    try {
+      await guard(acceptItem(ack.id));
+      load();
+    } catch (err) {
+      if (!(err instanceof SignedOut)) setFailed(String(err?.message || 'Not accepted.'));
+    }
+  };
   const open = async (d) => {
     try {
       const full = await guard(getDocument(d.id));
@@ -964,15 +986,28 @@ function MyDocuments({ guard }) {
       if (!(err instanceof SignedOut)) alert(String(err?.message || 'Could not open.'));
     }
   };
-  if (!docs || !docs.length) return null;
+  const askOf = new Map(asks.map((a) => [a.targetId, a]));
+  const hidden = asks.filter((a) => !(docs || []).some((d) => d.id === a.targetId));
+  if ((!docs || !docs.length) && !hidden.length) return null;
   return (
     <section className="ui-card space-y-2 p-5" aria-labelledby="docs-h">
       <h2 id="docs-h" className="ui-t-sec">My documents</h2>
+      {asks.length ? <p className="ui-caption">HR asked you to read {asks.length === 1 ? 'one document' : `${asks.length} documents`}. Read it, then accept.</p> : null}
+      {failed ? <p className="text-sm" role="alert">{failed}</p> : null}
       <ul className="divide-y" style={{ borderColor: 'rgb(var(--border))' }}>
-        {docs.map((d) => (
+        {(docs || []).map((d) => (
           <li key={d.id} className="flex items-center justify-between gap-2 py-2 text-sm">
             <span className="min-w-0"><span className="block truncate font-medium">{d.title}</span><span className="ui-caption">{sizeOf(d.size)}{d.expiresOn ? ` · valid until ${d.expiresOn}` : ''}</span></span>
-            <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm shrink-0" onClick={() => open(d)}>Download</button>
+            <span className="flex shrink-0 gap-2">
+              <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => open(d)}>Download</button>
+              {askOf.has(d.id) ? <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => accept(askOf.get(d.id))}>Accept</button> : null}
+            </span>
+          </li>
+        ))}
+        {hidden.map((a) => (
+          <li key={a.id} className="flex items-center justify-between gap-2 py-2 text-sm">
+            <span className="min-w-0"><span className="block truncate font-medium">{a.title}</span><span className="ui-caption">Ask HR for a copy if you have not read it</span></span>
+            <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm shrink-0" onClick={() => accept(a)}>Accept</button>
           </li>
         ))}
       </ul>

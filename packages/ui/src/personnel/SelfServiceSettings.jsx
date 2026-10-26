@@ -9,6 +9,12 @@ import { getPeopleSettings, savePeopleSettings } from './api';
  * name, address, date of birth, gender, marital status — waits for HR as a
  * request; the company can move that line either way.
  */
+/** E23: the due time comes from the active profile-change rule, not a fixed promise. */
+const daysWords = (n) => {
+  const d = Number(n) || 3;
+  return `${d} working day${d === 1 ? '' : 's'}`;
+};
+
 export default function SelfServiceSettings() {
   const [settings, setSettings] = useState(null);
   useEffect(() => { getPeopleSettings().then(setSettings).catch((e) => notify.error(String(e?.message || 'Could not load.'))); }, []);
@@ -28,7 +34,7 @@ export default function SelfServiceSettings() {
         {settings.modes.map((m) => (
           <label key={m.key} className="flex items-start gap-3 text-sm">
             <input type="radio" name="selfServiceChanges" className="mt-1" checked={settings.selfServiceChanges === m.key} onChange={() => choose(m.key)} />
-            <span>{m.label}{m.key === 'CONTACT_DIRECT' ? <span className="ui-caption block">Contact details: phone, personal email, emergency contact. The rest — name, address, date of birth, gender, marital status — becomes a request HR decides within three days.</span> : null}</span>
+            <span>{m.label}{m.key === 'CONTACT_DIRECT' ? <span className="ui-caption block">Contact details: phone, personal email, emergency contact. The rest — name, address, date of birth, gender, marital status — becomes a request HR decides within {daysWords(settings.profileDecideDays)}{settings.profileRuleSet ? ', as the approval rule for profile changes says' : ''}.</span> : null}</span>
           </label>
         ))}
       </fieldset>

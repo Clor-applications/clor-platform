@@ -94,6 +94,8 @@ const PORTAL_FIELDS = {
   personalEmail: true,
   workEmail: true,
   reportingManagerId: true,
+  /* A person who also has a CLOR sign-in: what they do here is recorded as that user (E18). */
+  userId: true,
 } as const;
 
 /* The token keeps the shape the apps already store; `sid` names its session row (A-33). */
@@ -433,16 +435,21 @@ portalRouter.get('/updates', async (req, res) => {
   const e = req.portal!.employee;
   const since = new Date(Date.now() - 7 * 86_400_000);
   const team = (await peoplePrisma.employee.findMany({ where: { orgId: e.orgId, reportingManagerId: e.id, status: { not: 'LEFT' } }, select: { id: true } })).map((x) => x.id);
-  const [leave, corrections, punches, waitLeave, waitCorr, waitPunch] = await Promise.all([
+  const [leave, corrections, punches, waitLeave, waitCorr, waitPunch, myAsks] = await Promise.all([
     peoplePrisma.leaveRequest.findMany({ where: { orgId: e.orgId, employeeId: e.id, status: { in: ['APPROVED', 'REJECTED'] }, updatedAt: { gte: since } }, select: { id: true, status: true, fromDate: true, toDate: true } }),
     peoplePrisma.attendanceRequest.findMany({ where: { orgId: e.orgId, employeeId: e.id, status: { in: ['APPROVED', 'REJECTED'] }, updatedAt: { gte: since } }, select: { id: true, status: true, date: true, reviewNote: true } }),
     peoplePrisma.devicePunch.findMany({ where: { orgId: e.orgId, employeeId: e.id, outsideSite: true, reviewStatus: { in: ['APPROVED', 'REJECTED'] }, at: { gte: since } }, select: { id: true, reviewStatus: true, localTime: true } }),
     team.length ? peoplePrisma.leaveRequest.count({ where: { orgId: e.orgId, employeeId: { in: team }, status: 'PENDING', managerApprovedAt: null } }) : 0,
     team.length ? peoplePrisma.attendanceRequest.count({ where: { orgId: e.orgId, employeeId: { in: team }, status: 'PENDING', managerApprovedAt: null } }) : 0,
     team.length ? peoplePrisma.devicePunch.count({ where: { orgId: e.orgId, employeeId: { in: team }, outsideSite: true, reviewStatus: 'PENDING' } }) : 0,
+    /* E5: my own People requests (details, resignation) that HR answered or asked more about: the app's notice, as there may be no CLOR user to notify. */
+    peoplePrisma.approvalRequest.findMany({ where: { orgId: e.orgId, subjectEmployeeId: e.id, requesterUserId: { in: [`portal:${e.id}`, ...(e.userId ? [e.userId] : [])] }, status: { in: ['APPROVED', 'REJECTED', 'MORE_INFO'] }, updatedAt: { gte: since } }, select: { id: true, status: true, requestType: true, updatedAt: true } }),
   ]);
+  const ASK_WORDS: Record<string, string> = { PROFILE_CHANGE: 'Your change to your details', LEAVING: 'Your resignation' };
+  const ASK_DONE: Record<string, string> = { APPROVED: 'was approved.', REJECTED: 'was not approved. See My details.', MORE_INFO: 'needs more information from you. Answer it under My details.' };
   res.json({
     decided: [
+      ...myAsks.map((a) => ({ key: `people:${a.id}:${a.status}:${a.updatedAt.getTime()}`, text: `${ASK_WORDS[a.requestType] || 'Your request'} ${ASK_DONE[a.status]}` })),
       ...leave.map((l) => ({ key: `leave:${l.id}:${l.status}`, text: `Leave ${l.fromDate}${l.toDate !== l.fromDate ? ` to ${l.toDate}` : ''} was ${l.status.toLowerCase()}.` })),
       ...corrections.map((c) => ({ key: `corr:${c.id}:${c.status}`, text: `Your request for ${c.date} was ${c.status.toLowerCase()}.${c.reviewNote ? ` ${c.reviewNote}` : ''}` })),
       ...punches.map((p) => ({ key: `punch:${p.id}:${p.reviewStatus}`, text: `Your field punch at ${p.localTime.slice(11, 16)} on ${p.localTime.slice(0, 10)} was ${p.reviewStatus === 'APPROVED' ? 'approved and counts' : 'refused'}.` })),
@@ -722,7 +729,7 @@ portalRouter.post('/approvals/:type/:id', async (req, res) => {
   if (!['approve', 'reject'].includes(decision)) return res.status(400).json({ error: 'decision must be approve or reject.' });
   if (type === 'overtime') {
     try {
-      const r = await decideOvertime(e.orgId, String(req.params.id), decision === 'approve', { userId: `portal:${e.id}`, managerId: e.id }, String(req.body?.note || '').trim().slice(0, 500) || null);
+      const r = await decideOvertime(e.orgId, String(req.params.id), decision === 'approve', { userId: e.userId || `portal:${e.id}`, managerId: e.id }, String(req.body?.note || '').trim().slice(0, 500) || null);
       return res.json({ request: r, stage: r.status === 'PENDING' ? 'HR' : undefined });
     } catch (err: any) {
       return res.status(err?.status || 500).json({ error: err?.message || 'Not done.' });
@@ -747,7 +754,8 @@ portalRouter.post('/approvals/:type/:id', async (req, res) => {
   if (owner?.reportingManagerId !== e.id) return res.status(403).json({ error: 'This request is not yours to decide.' });
   if (r.status !== 'PENDING') return res.status(409).json({ error: `This request was already ${String(r.status).toLowerCase()}.` });
   try {
-    const userId = `portal:${e.id}`;
+    /* E18: a manager with a CLOR sign-in decides as that user; otherwise as the employee app's `portal:<id>`. */
+    const userId = e.userId || `portal:${e.id}`;
     const chain = await chainFor(e.orgId, type as 'leave' | 'correction');
     if (decision === 'approve' && chain === 'MANAGER_THEN_HR') {
       /* The manager's step: recorded, and the request moves on to HR still pending. */

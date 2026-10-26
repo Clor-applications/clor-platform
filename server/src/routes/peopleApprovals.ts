@@ -70,7 +70,7 @@ peopleApprovalsRouter.get(`${base}/requests`, can(PermissionAction.VIEW, REQUEST
   const { orgId } = req.tenant!;
   const userId = req.auth!.userId;
   const [waiting, asked] = await Promise.all([waitingFor(orgId, userId), mine(orgId, userId)]);
-  const names = await namesFor([...waiting, ...asked].flatMap((r) => [r.requesterUserId, ...r.steps.flatMap((s) => [s.approverUserId, s.decidedByUserId, s.standInForUserId, ...((s.candidateUserIds as string[]) || [])].filter(Boolean) as string[])]));
+  const names = await namesFor([...waiting, ...asked].flatMap((r) => [r.requesterUserId, ...r.steps.flatMap((s) => [s.approverUserId, s.decidedByUserId, s.standInForUserId, ...((s.candidateUserIds as string[]) || [])].filter(Boolean) as string[])]), orgId);
   res.json({ waitingForMe: await Promise.all(waiting.map((r) => shape(r, names))), mine: await Promise.all(asked.map((r) => shape(r, names))) });
 });
 
@@ -153,7 +153,7 @@ peopleApprovalsRouter.get(`${base}/stand-ins`, can(PermissionAction.VIEW, REQUES
   if (!(await peopleRouteOk(req, res))) return;
   const { orgId } = req.tenant!;
   const rows = await peoplePrisma.standIn.findMany({ where: { orgId, userId: req.auth!.userId }, orderBy: { fromDate: 'desc' } });
-  const names = await namesFor(rows.map((r) => r.standInUserId));
+  const names = await namesFor(rows.map((r) => r.standInUserId), orgId);
   res.json({ standIns: rows.map((r) => ({ ...r, standInName: names.get(r.standInUserId) || '' })) });
 });
 

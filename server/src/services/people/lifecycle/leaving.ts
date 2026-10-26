@@ -9,6 +9,7 @@ import { READER_ACCESS_ITEM, startChecklist } from '../checklists.js';
 import { writeEvent } from '../outbox.js';
 import { employeeStatusChanged } from '../../portalSessions.js';
 import { activeRule, saveRule, submitRequest } from '../approvals/engine.js';
+import { writeChangeLog, type Actor } from '../changeLog.js';
 
 /**
  * Someone leaves (docs/people/02-PRD.md LIFE-05): the last day, how and why.
@@ -20,7 +21,23 @@ import { activeRule, saveRule, submitRequest } from '../approvals/engine.js';
  * employee-app sessions ended, and `people.employee.separated.v1` sent once
  * (Payroll starts the final settlement from it).
  */
-type Who = { accountId: string; orgId: string; userId: string | null };
+/**
+ * Who records it. An approved request passes the whole actor (source APPROVAL
+ * with the request and decision ids): the leaving is then written to the
+ * change log with those ids, so it traces back to the request (E16).
+ */
+type Who = { accountId: string; orgId: string; userId: string | null } & Partial<Pick<Actor, 'source' | 'correlationId' | 'reason' | 'requestId' | 'decisionId'>>;
+
+/** Change-log lines for the leaving, only when an approved request recorded it. */
+async function logApproved(tx: Parameters<typeof writeChangeLog>[0], who: Who, existing: Existing, after: { status: string; dateOfLeaving: string | null; leavingType: string | null; leavingReason: string | null }) {
+  if (!who.requestId) return;
+  const actor: Actor = { accountId: who.accountId, orgId: who.orgId, userId: who.userId, source: who.source || 'APPROVAL', correlationId: who.correlationId || who.requestId, reason: who.reason ?? null, requestId: who.requestId, decisionId: who.decisionId ?? null };
+  const lines = (['status', 'dateOfLeaving', 'leavingType', 'leavingReason'] as const)
+    .map((field) => ({ field, before: (existing[field] as string | null | undefined) ?? null, after: after[field] ?? null, redacted: false }))
+    .filter((c) => c.before !== c.after);
+  await writeChangeLog(tx, actor, { kind: 'Employee', id: existing.id, employeeId: existing.id }, lines);
+}
+const viaRequest = (who: Who) => (who.requestId ? ' (approved request)' : '');
 export const LEAVING_TYPES = ['RESIGNED', 'TERMINATED', 'RETIRED', 'ABSCONDED', 'CONTRACT_ENDED', 'DECEASED'] as const;
 const todayIst = (now = new Date()) => new Date(now.getTime() + 330 * 60_000).toISOString().slice(0, 10);
 
@@ -37,10 +54,11 @@ async function scheduleLeaving(who: Who, existing: Existing, input: Input) {
   const { accountId, orgId } = who;
   const employee = await peoplePrisma.$transaction(async (tx) => {
     const row = await tx.employee.update({ where: { id: existing.id }, data: { status: 'ON_NOTICE', dateOfLeaving: input.lastDay, leavingType: input.leavingType, leavingReason: input.reason } });
+    await logApproved(tx, who, existing, row);
     await writeEvent(tx, { accountId, orgId, correlationId: `leave_${row.id}_${input.lastDay}` }, 'people.employee.separation_scheduled.v1', { lastWorkingDay: input.lastDay, type: input.leavingType, employee: { id: row.id, code: row.code, name: row.name } }, row.id);
     return row;
   });
-  await recordChanges({ accountId, orgId, userId: who.userId }, existing, employee, { source: 'RESIGNATION', effectiveDate: input.lastDay, note: `On notice until ${input.lastDay}: ${input.reason || input.leavingType.replace(/_/g, ' ').toLowerCase()}` });
+  await recordChanges({ accountId, orgId, userId: who.userId }, existing, employee, { source: 'RESIGNATION', effectiveDate: input.lastDay, note: `On notice until ${input.lastDay}: ${input.reason || input.leavingType.replace(/_/g, ' ').toLowerCase()}${viaRequest(who)}` });
   await startChecklist({ accountId, orgId, userId: who.userId }, employee, 'LEAVING', input.lastDay);
   return { employee, readers: 0, scheduled: true as const };
 }
@@ -53,13 +71,14 @@ async function finishLeaving(who: Who, existing: Existing, input: Input) {
       where: { id: existing.id },
       data: { status: 'LEFT', dateOfLeaving: input.lastDay, leavingType: input.leavingType, leavingReason: input.reason },
     });
+    await logApproved(tx, who, existing, row);
     await closeEpisode({ accountId, orgId }, existing, { endDate: input.lastDay, endType: input.leavingType, endReason: input.reason }, tx);
     await writeEvent(tx, { accountId, orgId, correlationId: `leave_${row.id}_${input.lastDay}` }, 'people.employee.separated.v1', { lastWorkingDay: input.lastDay, type: input.leavingType, settlementRequested: true, employee: { id: row.id, code: row.code, name: row.name } }, row.id);
     return row;
   });
   /* A-33: gone, their employee-app sign-ins end. */
   await employeeStatusChanged(employee, existing.status, 'LEFT', who.userId ? { type: 'USER', id: who.userId } : { type: 'SYSTEM', label: 'leaving' });
-  await recordChanges({ accountId, orgId, userId: who.userId }, existing, employee, { source: 'RESIGNATION', effectiveDate: input.lastDay, note: existing.status === 'ON_NOTICE' ? 'Last working day reached' : input.reason || input.leavingType.replace(/_/g, ' ').toLowerCase() });
+  await recordChanges({ accountId, orgId, userId: who.userId }, existing, employee, { source: 'RESIGNATION', effectiveDate: input.lastDay, note: `${existing.status === 'ON_NOTICE' ? 'Last working day reached' : input.reason || input.leavingType.replace(/_/g, ' ').toLowerCase()}${viaRequest(who)}` });
   const removed = await revokeFromReaders(orgId, existing, who.userId);
   await startChecklist({ accountId, orgId, userId: who.userId }, employee, 'LEAVING', input.lastDay, { done: [READER_ACCESS_ITEM] });
   /* The plan may have started on notice: the reader item is ticked now that it is done. */
@@ -104,12 +123,14 @@ export class ResignError extends Error {
 export async function resignFromApp(who: { accountId: string; orgId: string; employeeId: string; userId: string | null; correlationId: string }, input: { lastDay?: string; reason?: string | null }) {
   const e = await peoplePrisma.employee.findFirst({ where: { id: who.employeeId, orgId: who.orgId } });
   if (!e) throw new ResignError('No such person.', 404);
+  /* A person with a CLOR sign-in asks as that user; otherwise as the employee app's `portal:<id>`. */
+  const requester = who.userId || e.userId || `portal:${e.id}`;
   if (e.status === 'LEFT') throw new ResignError('You have already left.', 409);
   if (e.status === 'ON_NOTICE') throw new ResignError(`Your last day is already on record: ${e.dateOfLeaving}. Ask HR to change it.`, 409);
   const lastDay = String(input.lastDay || '').trim();
   if (!/^\d{4}-\d{2}-\d{2}$/.test(lastDay)) throw new ResignError('Say your last working day (YYYY-MM-DD).');
   if (lastDay < todayIst()) throw new ResignError('The last day cannot be in the past.');
-  const open = await peoplePrisma.approvalRequest.findFirst({ where: { orgId: who.orgId, subjectEmployeeId: e.id, requestType: 'LEAVING', status: 'WAITING' }, select: { id: true } });
+  const open = await peoplePrisma.approvalRequest.findFirst({ where: { orgId: who.orgId, subjectEmployeeId: e.id, requestType: 'LEAVING', status: { in: ['WAITING', 'MORE_INFO'] } }, select: { id: true } });
   if (open) throw new ResignError('Your resignation is already with HR.', 409);
   if (!(await activeRule(who.orgId, 'LEAVING'))) {
     await saveRule({ accountId: who.accountId, orgId: who.orgId, userId: null }, 'LEAVING', 'Resignations (default: manager, then HR)', [
@@ -118,7 +139,7 @@ export async function resignFromApp(who: { accountId: string; orgId: string; emp
     ]);
   }
   const reason = String(input.reason || '').trim().slice(0, 1000) || null;
-  const r = await submitRequest({ accountId: who.accountId, orgId: who.orgId, userId: who.userId || `portal:${e.id}`, source: 'SELF_SERVICE', correlationId: who.correlationId, reason }, {
+  const r = await submitRequest({ accountId: who.accountId, orgId: who.orgId, userId: requester, source: 'SELF_SERVICE', correlationId: who.correlationId, reason }, {
     requestType: 'LEAVING', subjectEmployeeId: e.id, title: `${e.name}: resignation, last day ${lastDay}`, payload: { employeeId: e.id, lastDay, leavingType: 'RESIGNED', reason },
   });
   await notifyPermission(who.accountId, who.orgId, 'PEOPLE::Employees::EDIT', { kind: 'people.resignation', title: `${e.name} has resigned; last day ${lastDay}`, body: reason || 'No reason given.', link: { app: 'people', screen: 'approvals' } as any }).catch(() => undefined);
