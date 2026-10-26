@@ -399,7 +399,7 @@ export function EnterLeave({ onClose, onDone }) {
           <div><span className="ui-label" id="el-to">Last day *</span><DatePicker label="Last day" describedBy="el-to" value={form.toDate} min={form.fromDate} onChange={(v) => set('toDate', v || '')} /></div>
         </div>
         {oneDay && type?.allowHalfDay !== false ? (
-          <PopupSelect showValueSubtext={false} label="Day" value={form.halfDay} onChange={(v) => set('halfDay', v || '')} options={[{ value: '', label: 'Whole day' }, { value: 'FIRST', label: 'First half' }, { value: 'SECOND', label: 'Second half' }]} />
+          <PopupSelect showValueSubtext={false} label="Day" value={form.halfDay || 'WHOLE'} onChange={(v) => set('halfDay', v === 'WHOLE' ? '' : v || '')} options={[{ value: 'WHOLE', label: 'Whole day' }, { value: 'FIRST', label: 'First half' }, { value: 'SECOND', label: 'Second half' }]} />
         ) : null}
         <label className="block">
           <span className="ui-label">{reasonNeeded ? 'Reason *' : 'Reason'}</span>

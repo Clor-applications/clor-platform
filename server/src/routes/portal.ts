@@ -25,7 +25,7 @@ import { askOvertime, attentionFor, chainsFor, confirmMonth, decideOvertime, mon
 import { createRequest } from './attendance.js';
 import { REASON_CODES, reviewCorrection } from '../services/attendance/corrections.js';
 import { daysOfMonth, instants, sendError, today, withNames } from '../services/attendance/days.js';
-import { approveLeave, cancelOwnLeave, createLeave, masked, previewOut, rejectLeave, withTypes } from './leave.js';
+import { approveLeave, cancelOwnLeave, createLeave, dayWords, masked, previewOut, rejectLeave, withTypes } from './leave.js';
 import { balancesFor, leavePeriodOf, leaveYearOf } from '../services/attendance/leaveBalances.js';
 import { periodEnd, periodStart } from '../services/attendance/leaveAccrual.js';
 import { recomputeDeviceDay, shiftDayFor } from '../services/attendance/punches.js';
@@ -655,7 +655,7 @@ portalRouter.get('/leave', async (req, res) => {
     year,
     today: today(),
     types: types.filter((t) => t.isActive).map((t) => ({ id: t.id, name: t.name, code: t.code, isPaid: t.isPaid, ...mine.get(t.id) })),
-    requests: (await withTypes(orgId, requests)).map((r: any) => ({ id: r.id, leaveTypeName: r.leaveTypeName, fromDate: r.fromDate, toDate: r.toDate, days: r.days, halfDay: r.halfDay ?? null, reason: r.reason, status: r.status })),
+    requests: (await withTypes(orgId, requests)).map((r: any) => ({ id: r.id, leaveTypeName: r.leaveTypeName, fromDate: r.fromDate, toDate: r.toDate, days: r.days, halfDay: r.halfDay ?? null, reason: r.reason, status: r.status, note: r.reviewNote ?? null, groupId: r.groupId ?? null })),
   });
 });
 
@@ -777,6 +777,11 @@ portalRouter.post('/approvals/:type/:id', async (req, res) => {
       const changed = type === 'leave' ? await peoplePrisma.leaveRequest.updateMany({ where, data }) : await peoplePrisma.attendanceRequest.updateMany({ where, data });
       if (!changed.count) return res.status(409).json({ error: 'This request is no longer waiting for your approval.' });
       const out = type === 'leave' ? await peoplePrisma.leaveRequest.findFirst({ where: { id: r.id, orgId: e.orgId } }) : await peoplePrisma.attendanceRequest.findFirst({ where: { id: r.id, orgId: e.orgId } });
+      /* HR's turn now: those who approve leave hear of it once, from the manager's step. */
+      if (type === 'leave') {
+        const who_ = await peoplePrisma.employee.findFirst({ where: { id: r.employeeId, orgId: e.orgId }, select: { name: true } });
+        await notifyPermission(e.accountId, e.orgId, 'ATTENDANCE::Leave Requests::APPROVE', { kind: 'attendance.leave_asked', title: `${who_?.name || 'Someone'}'s leave, ${r.fromDate === r.toDate ? dayWords(r.fromDate) : `${dayWords(r.fromDate)} to ${dayWords(r.toDate)}`}, is approved by ${e.name} and waits for HR`, link: { app: (await isFeatureEnabled(e.accountId, e.orgId, 'people')) ? 'people' : 'attendance', screen: 'leaveRequests', params: { id: r.id } } }, { except: e.userId || null }).catch(() => 0);
+      }
       return res.json({ request: out, stage: 'HR' });
     }
     if (type === 'leave') {

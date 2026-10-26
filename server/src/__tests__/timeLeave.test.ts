@@ -12,6 +12,7 @@ import request from 'supertest';
 const { buildApp } = await import('../app.js');
 const { peoplePrisma } = await import('../utils/peoplePrisma.js');
 const { runInTenant } = await import('../utils/tenantScope.js');
+const { platformPrisma } = await import('../utils/platformPrisma.js');
 
 const app = buildApp().listen(0);
 afterAll(async () => {
@@ -173,6 +174,22 @@ describe('preview, split, privacy, scope, story, overview', () => {
     expect(d.history[1]).toMatchObject({ by: 'Owner', note: 'Enjoy' });
     expect(d.balance).toMatchObject({ with: d.balance.without - 2 });
     expect(d.dates.filter((x: any) => x.counted)).toHaveLength(2);
+  });
+
+  it('a request tells the people who decide; a decision tells the person, once per leave; private leave stays "leave"', async () => {
+    /* HR decides (the default chain); the person has a sign-in of their own. */
+    const reportUser = await colleague(hr, ['ATTENDANCE::My Attendance::VIEW']);
+    await runInTenant(hr.orgId, () => peoplePrisma.employee.update({ where: { id: report.id }, data: { userId: reportUser.userId } }));
+    const before = new Date();
+    const r = (await att(hr, 'post', '/leave/requests', { employeeId: report.id, leaveTypeId: sick.id, fromDate: '2026-12-15', toDate: '2026-12-15' }).expect(201)).body.request;
+    await att(hr, 'post', `/leave/requests/${r.id}/approve`, { note: 'Get well' }).expect(200);
+    await new Promise((done) => setTimeout(done, 300));
+    const notes = await platformPrisma.notification.findMany({ where: { orgId: hr.orgId, createdAt: { gte: before }, kind: { in: ['attendance.leave_asked', 'attendance.leave_decided'] } } });
+    const mine = notes.filter((n) => n.userId === reportUser.userId);
+    expect(mine).toEqual([expect.objectContaining({ kind: 'attendance.leave_decided', title: 'Your Sick, 15 Dec 2026, is approved', body: 'Get well' })]);
+    const asked = notes.filter((n) => n.kind === 'attendance.leave_asked');
+    expect(asked.length).toBeGreaterThan(0);
+    for (const n of asked) expect(n.title).not.toContain('Sick');
   });
 
   it('the paged list counts every tab under the same search', async () => {

@@ -7163,6 +7163,8 @@ th.ui-th {
 }
 @media (prefers-reduced-motion: no-preference) {
   :root[data-palette='rose'] .ui-split-mod[data-current]::before { animation: ui-rail-mark 260ms cubic-bezier(.2,.8,.2,1) both; }
+  /* People (WORKFORCE-LAYOUT.md): rows arrive as they are, no fade; a list is read, not watched. */
+  :root[data-palette='rose'] .ui-rows > tr { animation: none; }
 }
 
 /* The current screen in the module panel and the phone tab bar take the accent, as under Blaze. */

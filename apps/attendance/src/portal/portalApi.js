@@ -124,6 +124,8 @@ export const askCorrection = (body) => call('/corrections', { method: 'POST', bo
 export const getSchedule = (month) => call(`/schedule${month ? `?month=${encodeURIComponent(month)}` : ''}`);
 export const getLeave = () => call('/leave');
 export const askLeave = (body) => call('/leave', { method: 'POST', body });
+/** What a request would charge, without saving: { ok, total, split, parts[{label, from, to, days, balance, dates}], problems, reasonNeeded, type }. */
+export const previewLeave = (body) => call('/leave/preview', { method: 'POST', body });
 export const cancelLeave = (id) => call(`/leave/${encodeURIComponent(id)}/cancel`, { method: 'POST' });
 export const getTax = () => call('/tax');
 /* Ask HR: my HR cases, and a new one (server: portal /hr-cases). */

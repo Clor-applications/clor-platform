@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import { ownWorkRefusal } from '../services/makerChecker.js';
-import { hrMayDecide } from '../services/attendance/approvalChain.js';
+import { activeManagerOf, chainFor, hrMayDecide } from '../services/attendance/approvalChain.js';
+import { notifyPermission, notifyUsers } from '../services/notifications.js';
+import { isFeatureEnabled } from '../services/features.js';
 import { z } from 'zod';
 
 import { requireAuth } from '../middleware/auth.js';
@@ -53,6 +55,12 @@ const yearParam = async (orgId: string, v: unknown) => {
   const y = Number(v);
   return Number.isInteger(y) && y >= 2000 && y <= 2100 ? y : leaveYearOf(orgId);
 };
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+export const dayWords = (d: string) => `${Number(d.slice(8, 10))} ${MONTHS[Number(d.slice(5, 7)) - 1].slice(0, 3)} ${d.slice(0, 4)}`;
+/** "January 2026" for a whole month, "1 Jan 2026 to 31 Mar 2026" otherwise: dates as CLOR writes them. */
+const spanWords = (from: string, to: string) =>
+  from.slice(8) === '01' && from.slice(0, 7) === to.slice(0, 7) && addDays(to, 1).slice(8) === '01' ? `${MONTHS[Number(from.slice(5, 7)) - 1]} ${from.slice(0, 4)}` : `${dayWords(from)} to ${dayWords(to)}`;
+
 /** A period's first and last day, and its name. */
 export const periodBounds = (p: LeavePeriod, year: number) => ({ year, from: periodStart(p, year), to: periodEnd(p, year), label: periodLabel(p, year) });
 
@@ -711,7 +719,8 @@ export async function approveLeave(accountId: string, orgId: string, r: any, use
         checkIn: existing?.checkIn ?? null, checkOut: existing?.checkOut ?? null,
         source: existing?.source && existing.source !== 'LEAVE' ? existing.source : 'DEVICE',
         leaveRequestId: r.id, halfDayLeave: r.halfDay as 'FIRST' | 'SECOND',
-        note: `${type.name}, ${r.halfDay === 'FIRST' ? 'first' : 'second'} half: ${r.reason}`.slice(0, 500),
+        /* A private type's name and reason stay off the day record, which attendance staff read. */
+        note: type.isPrivate ? `${PRIVATE_LABEL}, ${r.halfDay === 'FIRST' ? 'first' : 'second'} half` : `${type.name}, ${r.halfDay === 'FIRST' ? 'first' : 'second'} half: ${r.reason}`.slice(0, 500),
       });
     } else {
       for (const date of days) {
@@ -726,7 +735,7 @@ export async function approveLeave(accountId: string, orgId: string, r: any, use
           statusOverride: 'ON_LEAVE',
           source: 'LEAVE',
           leaveRequestId: r.id,
-          note: `${type.name}: ${r.reason}`.slice(0, 500),
+          note: type.isPrivate ? PRIVATE_LABEL : `${type.name}: ${r.reason}`.slice(0, 500),
         });
       }
     }
@@ -753,12 +762,43 @@ export async function rejectLeave(orgId: string, r: any, userId: string, note: s
   });
 }
 
-/** The request with names, sent to webhooks as the event its status is. */
+/** The request with names, sent to webhooks as the event its status is, and to the people it concerns. */
 async function announce(orgId: string, row: any) {
   const shaped = (await withTypes(orgId, [row]))[0];
   const event = leaveEventFor(row.status);
   if (event) afterPeopleCommit(() => emitWebhook(orgId, event, leaveEvent(shaped)));
+  afterPeopleCommit(() => tellAboutLeave(orgId, shaped).catch((e) => console.error('[leave] notice not sent:', e instanceof Error ? e.message : e)));
   return shaped;
+}
+
+/**
+ * One notice per leave, never per part of a leave split at the period end:
+ * a new request goes to whoever decides it (the manager when the company asks
+ * the manager, else those who approve leave); a decision or a cancellation
+ * goes to the person, unless they made it. Private leave says "leave", not
+ * its type, outside the person's own notice.
+ */
+async function tellAboutLeave(orgId: string, r: any) {
+  if (r.groupId) {
+    const first = await peoplePrisma.leaveRequest.findFirst({ where: { orgId, groupId: r.groupId }, orderBy: { fromDate: 'asc' }, select: { id: true } });
+    if (first && first.id !== r.id) return;
+  }
+  const emp = await peoplePrisma.employee.findFirst({ where: { id: r.employeeId, orgId }, select: { accountId: true, name: true, code: true, userId: true } });
+  if (!emp) return;
+  const when = r.fromDate === r.toDate ? dayWords(r.fromDate) : `${dayWords(r.fromDate)} to ${dayWords(r.toDate)}`;
+  const what = r.isPrivate ? 'leave' : r.leaveTypeName;
+  const app = (await isFeatureEnabled(emp.accountId, orgId, 'people')) ? 'people' : 'attendance';
+  if (r.status === 'PENDING' && !r.managerApprovedAt) {
+    const notice = { kind: 'attendance.leave_asked', title: `${emp.name}${emp.code ? ` (${emp.code})` : ''} asks for ${what}, ${when}`, body: `${r.days} ${r.days === 1 ? 'day' : 'days'}`, link: { app, screen: 'leaveRequests', params: { id: r.id } } };
+    const manager = (await chainFor(orgId, 'leave')) !== 'HR' ? await activeManagerOf(orgId, r.employeeId) : null;
+    const managerUser = manager ? (await peoplePrisma.employee.findFirst({ where: { id: manager.id, orgId }, select: { userId: true } }))?.userId : null;
+    if (managerUser) await notifyUsers(emp.accountId, orgId, [managerUser], notice, { except: r.requestedByUserId });
+    else await notifyPermission(emp.accountId, orgId, 'ATTENDANCE::Leave Requests::APPROVE', notice, { except: r.requestedByUserId });
+    return;
+  }
+  if (!['APPROVED', 'REJECTED', 'CANCELLED'].includes(r.status) || !emp.userId) return;
+  const word = ({ APPROVED: 'approved', REJECTED: 'not approved', CANCELLED: 'cancelled' } as Record<string, string>)[r.status];
+  await notifyUsers(emp.accountId, orgId, [emp.userId], { kind: 'attendance.leave_decided', title: `Your ${r.leaveTypeName}, ${when}, is ${word}`, body: r.reviewNote || null, link: { app, screen: 'myLeave' } }, { except: r.reviewedByUserId });
 }
 
 const noteOf = (req: any) => String(req.body?.note || '').trim().slice(0, 500) || null;
@@ -940,14 +980,14 @@ leaveRouter.get(`${base}/ledger`, can(PermissionAction.VIEW, R.leave), async (re
           if (bal.allocationId) entries.push({ date: bounds.from, kind: 'ALLOCATED', days: round((bal.allocated ?? 0) - (bal.adjusted ?? 0)), note: 'Set for this person this period' });
           /* Each credit on its own date, as the policy lands it; those still to come are shown, not counted. */
           else for (const c of bal.credits || []) {
-            entries.push({ date: c.date, kind: c.date <= t0 ? 'CREDIT' : 'UPCOMING', days: c.days, note: c.from === bounds.from && c.to === bounds.to ? 'This period’s days' : `For ${c.from} to ${c.to}` });
+            entries.push({ date: c.date, kind: c.date <= t0 ? 'CREDIT' : 'UPCOMING', days: c.days, note: c.from === bounds.from && c.to === bounds.to ? 'This period’s days' : `For ${spanWords(c.from, c.to)}` });
           }
           for (const a of adjustments.filter((x) => x.leaveTypeId === t.id)) {
             entries.push({ id: a.id, date: a.createdAt.toISOString().slice(0, 10), kind: a.kind, days: a.days, note: a.reason });
           }
         }
         for (const r of requests.filter((x) => x.leaveTypeId === t.id)) {
-          entries.push({ id: r.id, date: r.fromDate, kind: r.status === 'APPROVED' ? 'TAKEN' : 'PENDING', days: -r.days, note: r.fromDate === r.toDate ? r.fromDate : `${r.fromDate} to ${r.toDate}` });
+          entries.push({ id: r.id, date: r.fromDate, kind: r.status === 'APPROVED' ? 'TAKEN' : 'PENDING', days: -r.days, note: r.fromDate === r.toDate ? dayWords(r.fromDate) : `${dayWords(r.fromDate)} to ${dayWords(r.toDate)}` });
         }
         entries.sort((a, b) => a.date.localeCompare(b.date));
         return { type: { id: t.id, name: t.name, code: t.code, color: t.color, isPaid: t.isPaid, encashable: t.encashable }, balance: bal, entries };
@@ -1277,7 +1317,7 @@ leaveRouter.get(`${base}/working-week`, can(PermissionAction.VIEW, R.leave), asy
   const s = await peoplePrisma.attendanceSettings.findUnique({ where: { orgId }, select: { weeklyOffDays: true, offSaturdays: true, defaultShiftId: true } });
   const [shifts, attendance] = await Promise.all([
     peoplePrisma.shift.count({ where: { orgId, isActive: true } }),
-    import('../services/features.js').then((m) => m.isFeatureEnabled(accountId, orgId, 'attendance')),
+    isFeatureEnabled(accountId, orgId, 'attendance'),
   ]);
   res.json({ weeklyOffDays: s?.weeklyOffDays ?? '0', offSaturdays: s?.offSaturdays ?? '', shiftsDecide: Boolean(attendance && (shifts || s?.defaultShiftId)), defaultShift: Boolean(s?.defaultShiftId) });
 });

@@ -34,6 +34,7 @@ import {
   getDocuments,
   getAttendance,
   getLeave,
+  previewLeave,
   getMe,
   getCompanyUpdates,
   getHrCases,
@@ -516,9 +517,78 @@ function MySchedule({ guard }) {
 // Leave
 // ---------------------------------------------------------------------------
 
+const BLANK_LEAVE = { leaveTypeId: '', fromDate: '', toDate: '', halfDay: '', reason: '' };
+const daysText = (n) => (n === 0.5 ? 'half a day' : `${n} day${n === 1 ? '' : 's'}`);
+const NUMBER_WORD = ['', 'one', 'two', 'three', 'four'];
+
+/**
+ * What the request would charge, asked of the server as the dates are picked
+ * (AUT-05), so what the person sees is what the save does. `last` is the
+ * newest answer for any dates; `preview` only the one for the dates on screen.
+ */
+function useLeavePreview(run, form) {
+  const one = !form.toDate || form.toDate === form.fromDate;
+  const key = form.leaveTypeId && form.fromDate
+    ? JSON.stringify({ leaveTypeId: form.leaveTypeId, fromDate: form.fromDate, toDate: form.toDate || form.fromDate, halfDay: one && form.halfDay ? form.halfDay : null })
+    : '';
+  const [got, setGot] = useState(null);
+  useEffect(() => {
+    if (!key) return undefined;
+    let off = false;
+    const timer = setTimeout(() => {
+      run(JSON.parse(key))
+        .then((p) => { if (!off) setGot({ ...p, key }); })
+        .catch((e) => {
+          if (!off && !(e instanceof SignedOut)) setGot({ key, ok: false, total: 0, parts: [], problems: [{ code: 'INPUT', message: String(e?.message || 'The days could not be worked out.') }] });
+        });
+    }, 300);
+    return () => { off = true; clearTimeout(timer); };
+  }, [key, run]);
+  const preview = got && got.key === key ? got : null;
+  return { preview, last: got, checking: Boolean(key) && !preview };
+}
+
+/** The days a request takes, the dates it skips and why, the balance after, and anything stopping it. */
+function LeavePreview({ preview, checking }) {
+  if (!preview) return checking ? <p className="ui-caption" role="status">Working out the days…</p> : null;
+  const parts = preview.parts || [];
+  const saved = parts.filter((p) => p.days > 0);
+  const skipped = parts.flatMap((p) => p.dates || []).filter((d) => d.why);
+  return (
+    <div className="space-y-2 text-sm" role="status" aria-live="polite">
+      {preview.total ? <p className="font-medium tabular-nums">{daysText(preview.total)}</p> : null}
+      {preview.split && saved.length > 1 ? (
+        <div>
+          <p>This crosses the end of the leave period, so it is saved as {NUMBER_WORD[saved.length] || saved.length} requests, one per leave period.</p>
+          <ul className="ui-caption">
+            {saved.map((p) => <li key={p.label} className="tabular-nums">{p.label}: {daysText(p.days)}</li>)}
+          </ul>
+        </div>
+      ) : null}
+      {skipped.length ? (
+        <ul className="ui-caption space-y-0.5" aria-label="Dates not counted">
+          {skipped.map((d) => <li key={d.date}>{dayLabel(d.date)} — {d.why}</li>)}
+        </ul>
+      ) : null}
+      {saved.filter((p) => p.balance?.after != null).map((p) => (
+        <p key={p.label} className="tabular-nums">{saved.length > 1 ? `${p.label}: ` : ''}{p.balance.after} left after this</p>
+      ))}
+      {(preview.problems || []).map((x) => <p key={x.code + x.message} role="alert" style={{ color: 'rgb(var(--neg))' }}>{x.message}</p>)}
+    </div>
+  );
+}
+
 function MyLeave({ guard }) {
   const [data, setData] = useState(null);
-  const [form, setForm] = useState({ leaveTypeId: '', fromDate: '', toDate: '', reason: '' });
+  const [form, setForm] = useState(BLANK_LEAVE);
+  const [sending, setSending] = useState(false);
+  const runPreview = useCallback((body) => guard(previewLeave(body)), [guard]);
+  const { preview, last, checking } = useLeavePreview(runPreview, form);
+  const type = last?.type && last.type.id === form.leaveTypeId ? last.type : null;
+  const oneDay = Boolean(form.fromDate) && (!form.toDate || form.toDate === form.fromDate);
+  const halfDayOffered = oneDay && Boolean(type?.allowHalfDay);
+  const reasonNeeded = !type?.isPrivate;
+  const blocked = Boolean(preview?.problems?.length);
   const [note, setNote] = useState(null);
   const [error, setError] = useState('');
   const [explaining, setExplaining] = useState(null);
@@ -534,14 +604,27 @@ function MyLeave({ guard }) {
 
   const ask = async (e) => {
     e.preventDefault();
+    if (blocked || sending) return;
     setNote(null);
+    setSending(true);
     try {
-      const r = await guard(askLeave({ ...form, toDate: form.toDate || form.fromDate }));
-      setNote({ ok: true, text: `Asked for ${r.request.days} day${r.request.days === 1 ? '' : 's'} of ${r.request.leaveTypeName}. HR will approve it.` });
-      setForm({ leaveTypeId: '', fromDate: '', toDate: '', reason: '' });
+      const r = await guard(askLeave({
+        leaveTypeId: form.leaveTypeId,
+        fromDate: form.fromDate,
+        toDate: form.toDate || form.fromDate,
+        halfDay: halfDayOffered && form.halfDay ? form.halfDay : null,
+        reason: form.reason.trim(),
+        ...(preview?.split ? { split: true } : {}),
+      }));
+      const sent = r.requests || [r.request];
+      const days = Math.round(sent.reduce((a, x) => a + (Number(x.days) || 0), 0) * 100) / 100;
+      setNote({ ok: true, text: `Asked for ${daysText(days)} of ${r.request.leaveTypeName}${sent.length > 1 ? `, as ${NUMBER_WORD[sent.length] || sent.length} requests` : ''}.` });
+      setForm(BLANK_LEAVE);
       load();
     } catch (err) {
       if (!(err instanceof SignedOut)) setNote({ ok: false, text: String(err?.message || 'Not sent.') });
+    } finally {
+      setSending(false);
     }
   };
   const cancel = async (id) => {
@@ -582,19 +665,33 @@ function MyLeave({ guard }) {
         <form onSubmit={ask} className="ui-card space-y-3 p-5" aria-labelledby="ask-leave-h">
           <h2 id="ask-leave-h" className="ui-t-sec">Ask for leave</h2>
           <label className="block">
-            <span className="ui-label">Kind</span>
-            <select className="ui-select w-full" required value={form.leaveTypeId} onChange={(e) => setForm({ ...form, leaveTypeId: e.target.value })}>
+            <span className="ui-label">Leave type *</span>
+            <select className="ui-select w-full" required value={form.leaveTypeId} onChange={(e) => setForm({ ...form, leaveTypeId: e.target.value, halfDay: '' })}>
               <option value="">Choose…</option>
               {data.types.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
             </select>
           </label>
           <div className="grid grid-cols-2 gap-3">
-            <label className="block"><span className="ui-label">From</span><input type="date" className="ui-input w-full" required value={form.fromDate} onChange={(e) => setForm({ ...form, fromDate: e.target.value, toDate: form.toDate && form.toDate < e.target.value ? e.target.value : form.toDate })} /></label>
-            <label className="block"><span className="ui-label">To</span><input type="date" className="ui-input w-full" min={form.fromDate} value={form.toDate} onChange={(e) => setForm({ ...form, toDate: e.target.value })} /></label>
+            <label className="block"><span className="ui-label">First day *</span><input type="date" className="ui-input w-full" required value={form.fromDate} onChange={(e) => setForm({ ...form, fromDate: e.target.value, toDate: form.toDate && form.toDate < e.target.value ? e.target.value : form.toDate })} /></label>
+            <label className="block"><span className="ui-label">Last day</span><input type="date" className="ui-input w-full" min={form.fromDate} value={form.toDate} onChange={(e) => setForm({ ...form, toDate: e.target.value, halfDay: e.target.value && e.target.value !== form.fromDate ? '' : form.halfDay })} /></label>
           </div>
-          <label className="block"><span className="ui-label">Why</span><input className="ui-input w-full" required minLength={3} maxLength={500} value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} /></label>
+          {halfDayOffered ? (
+            <label className="block">
+              <span className="ui-label">How much of the day</span>
+              <select className="ui-select w-full" value={form.halfDay} onChange={(e) => setForm({ ...form, halfDay: e.target.value })}>
+                <option value="">Whole day</option>
+                <option value="FIRST">First half</option>
+                <option value="SECOND">Second half</option>
+              </select>
+            </label>
+          ) : null}
+          <label className="block">
+            <span className="ui-label">{reasonNeeded ? 'Reason *' : 'Reason'}</span>
+            <input className="ui-input w-full" required={reasonNeeded} minLength={reasonNeeded ? 3 : undefined} maxLength={500} value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} />
+          </label>
+          <LeavePreview preview={preview} checking={checking} />
           {note ? <p className="text-sm" role={note.ok ? 'status' : 'alert'}>{note.text}</p> : null}
-          <button type="submit" className="ui-btn ui-btn-primary w-full">Send</button>
+          <button type="submit" className="ui-btn ui-btn-primary w-full" disabled={blocked || sending}>{sending ? 'Sending…' : 'Send'}</button>
         </form>
       ) : null}
 
@@ -607,6 +704,7 @@ function MyLeave({ guard }) {
                 <span>
                   {r.leaveTypeName} · {r.days} day{r.days === 1 ? '' : 's'}
                   <span className="ui-caption block">{r.fromDate === r.toDate ? dayLabel(r.fromDate) : `${dayLabel(r.fromDate)} – ${dayLabel(r.toDate)}`}</span>
+                  {r.note && r.status !== 'PENDING' ? <span className="ui-caption block">“{r.note}”</span> : null}
                 </span>
                 <span className="flex flex-col items-end gap-1">
                   <RequestPill status={r.status} />
@@ -922,19 +1020,21 @@ function Approvals({ guard }) {
               </div>
               <span className={`ui-pill ${item.type === 'leave' ? 'ui-pill-neutral' : 'ui-pill-warn'}`}>{item.type === 'leave' ? 'Leave' : 'Correction'}</span>
             </div>
-            {item.reason ? <p className="text-sm ui-muted">“{item.reason}”</p> : null}
+            {/* Private leave comes masked ("Private leave", no reason): a manager plans cover from the dates. */}
+            {item.reason && !item.reasonHidden ? <p className="text-sm ui-muted">“{item.reason}”</p> : null}
             {rejecting === key ? (
               <div className="space-y-2">
-                <textarea className="ui-input w-full" rows={2} placeholder="Why not? (optional, the person sees this)" value={note} onChange={(e) => setNote(e.target.value)} />
+                {/* A rejected leave needs a reason; the person sees it. */}
+                <textarea className="ui-input w-full" rows={2} aria-label="Why not" placeholder="Why not? The person sees this." value={note} onChange={(e) => setNote(e.target.value)} />
                 <div className="flex gap-2">
-                  <button type="button" className="ui-btn ui-btn-danger flex-1" disabled={busy === key} onClick={() => decide(item, 'reject')}>Reject</button>
+                  <button type="button" className="ui-btn ui-btn-danger flex-1" disabled={busy === key || (item.type === 'leave' && !note.trim())} onClick={() => decide(item, 'reject')}>Reject</button>
                   <button type="button" className="ui-btn ui-btn-secondary" onClick={() => { setRejecting(null); setNote(''); }}>Cancel</button>
                 </div>
               </div>
             ) : (
               <div className="flex gap-2">
                 <button type="button" className="ui-btn ui-btn-primary flex-1" disabled={busy === key} onClick={() => decide(item, 'approve')}>{busy === key ? 'Saving…' : 'Approve'}</button>
-                <button type="button" className="ui-btn ui-btn-secondary" disabled={busy === key} onClick={() => setRejecting(key)}>Reject</button>
+                <button type="button" className="ui-btn ui-btn-secondary" disabled={busy === key} onClick={() => { setRejecting(key); setNote(''); }}>Reject</button>
               </div>
             )}
           </section>
