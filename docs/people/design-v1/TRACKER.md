@@ -81,3 +81,20 @@ Standard pass on older Workforce screens (26 Oct): Policies, Help Desk, Help Des
 Second research pack (repo-aligned, 26 Oct) checked item by item: `ORGANIZATION-RESEARCH-2-RECONCILED.md` (chart scope and as-of, delete with dependents, retired links, rename in one save, seat-on-retired-team check, direct vs sub-department counts fixed; then R024 arrow-key tree, R043 1,000-person timing and two-level start, R056 move preview finished — nothing open).
 Field suggestions (owner rule 26 Oct 2026, for every app; DESIGN.md "Text fields suggest what already exists"): shared `SuggestInput` (packages/ui) + `GET /people/suggestions?field=` (city, state, country, relation, workLocation, department, designation, emailDomain, reason, budgetRef, branch, branchAddress). Wired in People: hire form (work email, relationship), record (work email, city, state, country, relationship, work address), job-change and bulk reasons, structure names (company's own + common names, "already in the list"), work site name/address from branches, budget reference, branch code/city, policy titles. Deliberately none: phones, personal emails, IDs, home addresses, help-desk subjects, private cases. Other apps (Accounting, Attendance, Hiring, …): still to roll out.
 Open question to the owner: rename "Job role" (to avoid confusion with access roles) — answer pending.
+
+## Code review of Workforce and Organization (26 Oct 2026)
+
+Two independent reviews (server, screens) of `c302c25..de5ed3a`. Fixed: compliance registers limited to record keepers over the whole company; auditor grants and retention take named fields only (no forged grantor); the person a request is about never decides it; bulk change skips a team lead's own record and checks the new manager; withdraw and rehire clear the old resignation and waiver; branch delete refuses with people filed there; private-case steps logged with their actor and references retry on collision; committee members and obligation owners must be users of the company; pending actions filtered to the team before the cap (`d87f9c6`, `peopleReviewFixes.test.ts`). Screens: unsaved section edits ask first, Add employee shows a refused save on Review, rehire offers only working managers, private searches never saved in views, export of ticked rows capped, tags save one at a time, SuggestInput closes on Tab, DataTable phone cards and past-the-end pages (`0638c21`). Left as is: merge moves people outside one transaction (a re-run finishes it); the readiness scan on every profile view (speed only). Known failing before this work: `test/fields-share-one-style.test.js` (AddEmployee photo input, SuggestInput input).
+
+## Time & Leave module (started 26 Oct 2026)
+
+Read first: `TIME-LEAVE-DECISIONS.md` (how it works per subscription, scope, reasons).
+
+| Step | State | Where |
+|---|---|---|
+| T.0 Decisions and subscription modes | DONE | `TIME-LEAVE-DECISIONS.md` |
+| T.1 Server: scope, private leave, preview, split, paging, request story, overview, policy preview, working week, audit | DONE | `f91b006`, `timeLeave.test.ts` (9), leave suites green |
+| T.2 Screens: Overview, Leave requests (drawer, Enter leave with preview) | DONE, browser-checked 1366 and 390 | `TimeOverview.jsx`, `LeaveRequests.jsx`, `people-time-leave-requests.test.jsx` |
+| T.3 Leave Policy (private, try on five people), Working week, Roles editor Time & Leave section | IN PROGRESS | |
+| T.4 Employee app leave preview, manager reject reason; Calendar, Balances, Register, My days, Attendance, My leave to the standard | IN PROGRESS | |
+| T.5 Audits (multi-angle, automation + workflow) and fixes | TODO | |

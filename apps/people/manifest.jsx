@@ -105,6 +105,8 @@ const Holidays = screen('Holidays');
 const PortalAccess = screen('PortalAccess');
 const SalaryRevisions = screen('SalaryRevisions');
 const LeaveRequests = screen('LeaveRequests');
+const TimeOverview = screen('TimeOverview');
+const WorkingWeek = screen('WorkingWeek');
 const LeaveBalances = screen('LeaveBalances');
 const LeaveTypes = screen('LeaveTypes');
 const MyLeave = screen('MyLeave');
@@ -235,9 +237,9 @@ export const peopleApp = {
       { label: 'Detailed', items: ['establishments', 'areas', 'teams', 'seats', 'businessUnits', 'grades', 'costCentres', 'jobRoles'] },
       { label: 'History', items: ['orgChanges'] },
     ] },
-    /* Leave and holidays are HR's; Attendance reads the same records (founder, 22 Oct 2026). */
-    { key: 'leave', label: 'Leave & Attendance', short: 'Time', groups: [
-      { label: 'Leave', items: ['leaveRequests', 'leaveCalendar', 'leaveBalances', 'leaveRegister'] },
+    /* Time & Leave (TIME-LEAVE-DECISIONS.md): one engine with Attendance, which reads and writes the same records. */
+    { key: 'leave', label: 'Time & Leave', short: 'Time', groups: [
+      { label: 'Leave', items: ['timeOverview', 'leaveRequests', 'leaveCalendar', 'leaveBalances', 'leaveRegister'] },
       { label: 'Attendance', items: ['attendance'] },
       { label: 'Me', items: ['myLeave', 'myDays'] },
     ] },
@@ -269,15 +271,17 @@ export const peopleApp = {
     { key: 'customFields', label: 'Custom Fields', icon: I.tag, permission: 'PEOPLE::Org Structure::EDIT', parent: 'settings' },
     { key: 'selfServiceChanges', label: 'Employee Self-Edits', icon: I.key, permission: 'PEOPLE::Org Structure::EDIT', parent: 'settings' },
     { key: 'approvalRules', label: 'Approval Rules', icon: I.checklist, permission: 'PEOPLE::Approvals::VIEW', parent: 'settings' },
-    { key: 'leaveRequests', label: 'Leave Applications', icon: I.leave, permission: 'ATTENDANCE::Leave Requests::VIEW' },
-    { key: 'leaveBalances', label: 'Leave Balances', icon: I.balance, permission: 'ATTENDANCE::Leave Requests::VIEW' },
+    { key: 'timeOverview', label: 'Overview', icon: I.home, permission: 'ATTENDANCE::Leave Requests::VIEW' },
+    { key: 'leaveRequests', label: 'Leave Requests', short: 'Leave', icon: I.leave, permission: 'ATTENDANCE::Leave Requests::VIEW' },
+    { key: 'leaveBalances', label: 'Balances', icon: I.balance, permission: 'ATTENDANCE::Leave Requests::VIEW' },
     { key: 'leaveRegister', label: 'Leave Register', icon: I.register, permission: 'ATTENDANCE::Leave Requests::VIEW' },
-    { key: 'leaveCalendar', label: 'Leave Calendar', icon: I.calendar, permission: 'ATTENDANCE::Leave Requests::VIEW' },
+    { key: 'leaveCalendar', label: 'Calendar', icon: I.calendar, permission: 'ATTENDANCE::Leave Requests::VIEW' },
     { key: 'attendance', label: 'Attendance', icon: I.attendance, permission: 'ATTENDANCE::Attendance Records::VIEW' },
     { key: 'myDays', label: 'My Attendance', icon: I.myDays, permission: 'ATTENDANCE::My Attendance::VIEW' },
     { key: 'myLeave', label: 'My Leave', icon: I.myLeave, permission: 'ATTENDANCE::My Attendance::VIEW' },
     { key: 'leaveTypes', label: 'Leave Policy', icon: I.policy, permission: 'ATTENDANCE::Leave Types::VIEW', parent: 'settings' },
     { key: 'holidays', label: 'Holidays', icon: I.holiday, permission: 'ATTENDANCE::Holidays::VIEW', parent: 'settings' },
+    { key: 'workingWeek', label: 'Working Week', icon: I.calendar, permission: 'ATTENDANCE::Leave Types::VIEW', parent: 'settings' },
     { key: 'recruitment', label: 'Jobs', icon: I.job, permission: 'PEOPLE::Recruitment::VIEW', feature: 'peopleHiring' },
     { key: 'candidates', label: 'Candidates', icon: I.candidate, permission: 'PEOPLE::Recruitment::VIEW', feature: 'peopleHiring' },
     { key: 'performance', label: 'Goals & Feedback', icon: I.goal, permission: 'PEOPLE::Performance::VIEW', feature: 'peoplePerformance' },
@@ -345,6 +349,8 @@ export const peopleApp = {
     selfServiceChanges: SelfServiceSettings,
     approvalRules: ApprovalRules,
     selfService: PortalAccess,
+    timeOverview: TimeOverview,
+    workingWeek: WorkingWeek,
     leaveRequests: LeaveRequests,
     leaveBalances: LeaveBalances,
     myLeave: MyLeave,

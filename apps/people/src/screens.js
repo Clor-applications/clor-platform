@@ -44,6 +44,8 @@ export { default as PortalAccess } from '../../attendance/src/screens/PortalAcce
 export { default as SalaryRevisions } from '../../payroll/src/screens/SalaryRevisions';
 /* Leave is HR's (founder, 22 Oct 2026): People's own screens over the same records Attendance reads. */
 export { default as LeaveRequests } from './timeOff/LeaveRequests';
+export { default as TimeOverview } from './timeOff/TimeOverview';
+export { default as WorkingWeek } from './timeOff/WorkingWeek';
 export { default as LeaveBalances } from './timeOff/LeaveBalances';
 export { default as LeaveTypes } from './timeOff/LeavePolicy';
 export { default as LeaveCalendar } from './timeOff/LeaveCalendar';

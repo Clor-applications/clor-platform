@@ -237,7 +237,7 @@ leaveRouter.put(`${base}/types/:id`, can(PermissionAction.EDIT, R.leaveTypes), a
   const parsed = typeSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Invalid leave type.' });
   if (parsed.data.isPaid !== existing.isPaid && (await peoplePrisma.leaveRequest.count({ where: { orgId, leaveTypeId: existing.id, status: 'APPROVED' } }))) {
-    return res.status(409).json({ error: 'Leave of this type has been approved, so whether it is paid cannot change. Make a new type instead.' });
+    return res.status(409).json({ error: 'Leave of this type has been approved, so whether it is paid cannot change. Make a new type instead.', code: 'LEAVE_POLICY_IN_USE' });
   }
   const policy = await policyOf(orgId, req.body);
   if ('error' in policy) return res.status(400).json({ error: policy.error });
@@ -514,7 +514,7 @@ export async function planLeave(accountId: string, orgId: string, employee: Aske
   for (const p of parts) {
     if (p.balance.after != null && p.balance.after < -type.negativeDays) {
       const extra = type.negativeDays ? ` (and ${type.negativeDays} in advance)` : '';
-      problems.push({ code: 'NO_BALANCE', message: `Only ${p.balance.before} days of ${type.name} are left${parts.length > 1 ? ` in ${p.label}` : ' this year'}${extra}; this is ${p.days}.` });
+      problems.push({ code: 'NO_BALANCE', message: `Only ${p.balance.before} ${p.balance.before === 1 ? 'day' : 'days'} of ${type.name} ${p.balance.before === 1 ? 'is' : 'are'} left${parts.length > 1 ? ` in ${p.label}` : ' this year'}${extra}; this is ${p.days}.` });
     }
   }
   if (!type.isPrivate && reasonText.length < 3) problems.push({ code: 'REASON', message: 'Say why.' });

@@ -30,6 +30,20 @@ export const updateLeaveType = (typeId, body) => send(`/leave/types/${id(typeId)
 export const deleteLeaveType = (typeId) => send(`/leave/types/${id(typeId)}`, 'DELETE');
 
 export const listLeaveRequests = (params) => get(`/leave/requests${query(params)}`).then((r) => r?.requests || []);
+/** One page of requests, searched and filtered on the server: { requests, total, counts: { PENDING, APPROVED, REJECTED, CANCELLED, all } }. */
+export const pageLeaveRequests = (params) => get(`/leave/requests${query(params)}`);
+/** One request's story: { request, history, dates, balance, parts, alsoAway, waitingForManager, ownRequest }. */
+export const getLeaveRequest = (requestId) => get(`/leave/requests/${id(requestId)}`);
+/** What a request would charge, without saving: { ok, total, split, parts[{label, from, to, days, balance, dates}], problems, reasonNeeded, alsoAway }. */
+export const previewLeave = (body) => send('/leave/requests/preview', 'POST', body);
+export const previewMyLeave = (body) => send('/me/leave/preview', 'POST', body);
+/** Away today, waiting (oldest first), the next seven days, days lapsing at the period end. */
+export const getTimeOverview = () => get('/leave/overview');
+/** A draft leave type tried on five real people this period. */
+export const previewLeaveType = (body) => send('/leave/types/preview', 'POST', body);
+/** The company's working week: { weeklyOffDays: '0,6', offSaturdays: '2,4', shiftsDecide }. */
+export const getWorkingWeek = () => get('/leave/working-week');
+export const saveWorkingWeek = (body) => send('/leave/working-week', 'PUT', body);
 export const createLeaveRequest = (body) => send('/leave/requests', 'POST', body);
 export const approveLeave = (requestId, note) => send(`/leave/requests/${id(requestId)}/approve`, 'POST', { note });
 export const rejectLeave = (requestId, note) => send(`/leave/requests/${id(requestId)}/reject`, 'POST', { note });
@@ -76,6 +90,8 @@ export const attendanceIsOn = () => featuresFor(orgId()).then((r) => Boolean((r?
 
 export const STATUS_PILL = { PENDING: 'ui-pill-warn', APPROVED: 'ui-pill-pos', REJECTED: 'ui-pill-neg', CANCELLED: 'ui-pill-neutral' };
 export const STATUS_LABEL = { PENDING: 'Waiting', APPROVED: 'Approved', REJECTED: 'Rejected', CANCELLED: 'Cancelled' };
+/** Private leave as a reader without the right to see it gets it: no type colour, no reason. */
+export const PRIVATE_LABEL = 'Private leave';
 export const DAY_LABEL = { PRESENT: 'Present', HALF_DAY: 'Half day', ABSENT: 'Absent', ON_LEAVE: 'On leave', HOLIDAY: 'Holiday', WEEKLY_OFF: 'Weekly off' };
 export const DAY_PILL = { PRESENT: 'ui-pill-pos', HALF_DAY: 'ui-pill-warn', ABSENT: 'ui-pill-neg', ON_LEAVE: 'ui-pill-info', HOLIDAY: 'ui-pill-neutral', WEEKLY_OFF: 'ui-pill-neutral' };
 /** A request's dates: one day, or first to last. */
@@ -84,3 +100,8 @@ export const dates = (from, to) => (from === to ? from : `${from} to ${to}`);
 const PALETTE = ['#2563eb', '#16a34a', '#d97706', '#9333ea', '#dc2626', '#0891b2', '#db2777', '#64748b'];
 export const colorOf = (t) => t?.color || PALETTE[[...String(t?.name || t?.leaveTypeName || '')].reduce((a, c) => a + c.charCodeAt(0), 0) % PALETTE.length];
 export const thisYear = () => new Date().getFullYear();
+/** Today in India, as the server counts days (not the browser's UTC date). */
+export const todayIst = () => new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
+export const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+/** "2 days", "half a day". */
+export const daysText = (n) => (n === 0.5 ? 'half a day' : `${n} day${n === 1 ? '' : 's'}`);

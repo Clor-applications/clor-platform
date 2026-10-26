@@ -7831,6 +7831,9 @@ button.ui-metric:focus-visible { outline: 2px solid rgb(var(--ring)); outline-of
 .ui-dropzone:hover { border-color: rgb(var(--brand)); }
 .ui-dropzone:focus-within { outline: 2px solid rgb(var(--ring)); outline-offset: 2px; }
 .ui-text-neg { color: rgb(var(--neg)); }
+/* Time & Leave: a request waiting too long; a private leave's dot carries no type colour. */
+.ui-text-warn { color: rgb(var(--warn)); }
+.ui-dot-quiet { background: rgb(var(--fg-subtle)); }
 /* Below the phone tab bar's top edge, a sticky footer would sit under the bar (it is 61px plus the safe area). */
 @media (max-width: 767px) {
   .ui-wizard-actions { bottom: calc(62px + env(safe-area-inset-bottom)); }

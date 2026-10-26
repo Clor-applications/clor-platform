@@ -16,7 +16,7 @@ describe('People navigation', () => {
   it('keeps the sidebar to the day’s work, Settings last', () => {
     /* Workforce package (owner, 26 Oct 2026): the visible module is Workforce; its key stays `employees`. */
     /* Organization follows Workforce (ORGANIZATION-DECISIONS.md): the company's shape moved out of Settings. */
-    expect(modules.map((m) => m.label)).toEqual(['Home', 'Workforce', 'Organization', 'Leave & Attendance', 'Hiring', 'Performance', 'Engage', 'Insights', 'Settings']);
+    expect(modules.map((m) => m.label)).toEqual(['Home', 'Workforce', 'Organization', 'Time & Leave', 'Hiring', 'Performance', 'Engage', 'Insights', 'Settings']);
     expect(modules.find((m) => m.label === 'Settings').single).toBe(true);
   });
 
