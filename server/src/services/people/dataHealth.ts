@@ -37,8 +37,11 @@ const norm = (v: string | null | undefined) => String(v || '').trim().toLowerCas
 const digits = (v: string | null | undefined) => String(v || '').replace(/\D/g, '');
 
 const SAMPLE = 25;
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+/* A day as people write it in what they read: 2 Mar 2024. */
+const dayWords = (iso: string | null | undefined) => { const [y, m, d] = String(iso || '').slice(0, 10).split('-'); return y && m && d ? `${Number(d)} ${MONTHS[Number(m) - 1]} ${y}` : String(iso || ''); };
 
-export async function dataHealth(accountId: string, orgId: string, opts: { payroll: boolean; year?: number } = { payroll: true }) {
+export async function dataHealth(accountId: string, orgId: string, opts: { payroll: boolean; year?: number; sample?: number } = { payroll: true }) {
   const year = opts.year ?? (await leaveYearOf(orgId));
   const [employees, payrollOn, readers, unmatched] = await Promise.all([
     peoplePrisma.employee.findMany({
@@ -53,7 +56,7 @@ export async function dataHealth(accountId: string, orgId: string, opts: { payro
   const who = (e: { id: string; name: string; code: string | null }, detail?: string): Person & { detail?: string } => ({ id: e.id, name: e.name, code: e.code, ...(detail ? { detail } : {}) });
   const checks: Check[] = [];
   const add = (c: Omit<Check, 'count' | 'people'>, list: Array<Person & { detail?: string }>) => {
-    if (list.length) checks.push({ ...c, count: list.length, people: list.slice(0, SAMPLE) });
+    if (list.length) checks.push({ ...c, count: list.length, people: list.slice(0, opts.sample ?? SAMPLE) });
   };
 
   /* Documents past their date (DOC-03, LIFE-08): a lapsed permit first, then anything else that has run out. */
@@ -99,7 +102,7 @@ export async function dataHealth(accountId: string, orgId: string, opts: { payro
       if (cur) cur.n += 1; else perPerson.set(t.employeeId, { n: 1, oldest: t });
     }
     add({ id: 'overdue-tasks', area: 'People', severity: 'FIX_SOON', title: 'Plan tasks past their date', why: 'A joining or leaving step not done on time: a missed PF form, a laptop not recovered, a settlement late.', fix: 'Open the person’s Checklist tab and tick or reassign each task. A joining plan for someone who joined long ago can be ticked off in one go there.', screen: 'checklists' },
-      [...perPerson.entries()].map(([id, v]) => who(byId.get(id)!, v.n === 1 ? `${v.oldest.title} — due ${v.oldest.dueDate}` : `${v.n} late; the oldest, ${v.oldest.title}, was due ${v.oldest.dueDate}`)));
+      [...perPerson.entries()].map(([id, v]) => who(byId.get(id)!, v.n === 1 ? `${v.oldest.title}, due ${dayWords(v.oldest.dueDate)}` : `${v.n} late; the oldest, ${v.oldest.title}, was due ${dayWords(v.oldest.dueDate)}`)));
   }
 
   /* Policies not accepted a week after asking (HLTH-01). */
@@ -228,4 +231,19 @@ export async function dataHealth(accountId: string, orgId: string, opts: { payro
     snoozed,
     ranAt: new Date().toISOString(),
   };
+}
+
+/**
+ * One person's view of the same checks: everything that names them, so the
+ * record can say "before payday: PAN, bank, salary" where the owner is
+ * already looking. Company-wide checks (two people on one bank account)
+ * still count, because the full lists are read before filtering.
+ */
+export async function readinessOf(accountId: string, orgId: string, employeeId: string, opts: { payroll: boolean }) {
+  const all = await dataHealth(accountId, orgId, { payroll: opts.payroll, sample: Number.POSITIVE_INFINITY });
+  const checks = all.checks
+    .map((c: Check) => ({ c, me: c.people.find((p) => p.id === employeeId) }))
+    .filter((x) => x.me)
+    .map(({ c, me }) => ({ id: c.id, area: c.area, severity: c.severity, title: c.title, why: c.why, fix: c.fix, screen: c.screen, detail: me!.detail || null }));
+  return { checks, ranAt: all.ranAt };
 }

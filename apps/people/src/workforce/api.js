@@ -15,6 +15,7 @@ export const qs = (params = {}) => {
 export const listEmployees = (params) => apiFetch(`${base()}/employees${qs(params)}`, opts);
 export const employeeCounts = () => apiFetch(`${base()}/employees/counts`, opts);
 export const employeeIds = (params) => apiFetch(`${base()}/employees${qs({ ...params, idsOnly: '1' })}`, opts);
+export const employeeReadiness = (id) => apiFetch(`${base()}/employees/${encodeURIComponent(id)}/readiness`, opts);
 export const linkCandidates = () => apiFetch(`${base()}/employees/link-candidates`, opts).then((r) => r?.users || []);
 export const linkUser = (id, userId) => send(`/employees/${encodeURIComponent(id)}/user`, 'PUT', { userId });
 export const exportColumns = () => apiFetch(`${base()}/employees/export/columns`, opts).then((r) => r?.columns || []);

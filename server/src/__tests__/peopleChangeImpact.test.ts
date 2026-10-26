@@ -100,3 +100,26 @@ describe('the transfer preview tells the truth', () => {
     expect(impact.find((i: any) => i.key === 'manager-no-login')).toMatchObject({ target: 'ACTION', title: 'Meena Shah cannot sign in yet' });
   });
 });
+
+describe('ready for payday, on the record', () => {
+  it("lists only this person's problems, with Payroll's only when Payroll is in use", async () => {
+    const { e } = await setUp(withPayroll, 'Karnataka');
+    const other = (await api(withPayroll).post('/employees', { name: 'No Date', code: `N-${rnd()}` }).expect(201)).body.employee;
+    const mine = (await api(withPayroll).get(`/employees/${e.id}/readiness`).expect(200)).body;
+    expect(mine.apps).toMatchObject({ payroll: true, attendance: true });
+    const ids = mine.checks.map((c: any) => c.id);
+    /* A payroll profile with no PAN, no bank and no salary: each blocks payday. */
+    expect(ids).toEqual(expect.arrayContaining(['pan', 'bank', 'no-salary']));
+    expect(ids).not.toContain('no-joining-date');
+    expect(mine.checks.find((c: any) => c.id === 'pan').severity).toBe('BLOCKS_PAYROLL');
+    /* The other person's missing joining date is theirs, not this person's. */
+    const theirs = (await api(withPayroll).get(`/employees/${other.id}/readiness`).expect(200)).body.checks.map((c: any) => c.id);
+    expect(theirs).toContain('no-joining-date');
+
+    const plain = await setUp(peopleOnly, null);
+    const p = (await api(peopleOnly).get(`/employees/${plain.e.id}/readiness`).expect(200)).body;
+    expect(p.apps.payroll).toBe(false);
+    expect(p.checks.filter((c: any) => c.area === 'Payroll')).toEqual([]);
+  });
+});
+

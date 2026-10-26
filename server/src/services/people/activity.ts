@@ -121,6 +121,12 @@ export async function activityOf(viewer: ActivityViewer, employeeId: string, opt
       : first.source === 'IMPORT' ? 'import'
       : first.source === 'SYSTEM' || first.source === 'SCHEDULED' ? 'system'
       : 'update';
+    /* A plan task ticked or unticked reads as that, with the task's own name, not as a field flipping yes/no. */
+    if (first.entity === 'ChecklistTask' && shown.length === 1 && shown[0].field === 'done') {
+      const task = await peoplePrisma.checklistTask.findFirst({ where: { id: first.entityId, orgId }, select: { title: true } });
+      events.push({ id: `log_${k}`, type: 'update', at: first.at.toISOString(), actorId: first.actorUserId, actor: null, role: null, title: shown[0].after === 'yes' ? 'Task done' : 'Task reopened', body: task?.title || null, changes: [], reason: first.reason, source: first.source, correlationId: first.correlationId, requestId: first.requestId, batch: null });
+      continue;
+    }
     const what = first.entity === 'EmployeeIdentity' ? 'Identity details updated'
       : first.entity === 'CustomFieldValue' ? 'More details updated'
       : first.entity === 'EmployeeDocument' ? 'Document changed'

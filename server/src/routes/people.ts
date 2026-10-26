@@ -41,7 +41,7 @@ import { PERMIT_KINDS, daysUntil } from '../services/people/documentReminders.js
 import { decodeDocument } from '../services/people/documentFiles.js';
 import { NO_ORIGINALS_STATES } from '../services/people/letters.js';
 import { ask as askToRead, remind as ackRemind, report as ackReport } from '../services/people/acknowledgements.js';
-import { dataHealth } from '../services/people/dataHealth.js';
+import { dataHealth, readinessOf } from '../services/people/dataHealth.js';
 import { PAYROLL_MODULE, PAYROLL_RESOURCE } from '../services/payroll/guards.js';
 import { KINDS, READER_ACCESS_ITEM, checklistOf, cleanItems, itemsFor, myTasks, openTasks, readTaskDoneToken, startChecklist, type Kind as ChecklistKind } from '../services/people/checklists.js';
 import { addCustom, calendar, evidenceOf, updateTask } from '../services/people/compliance.js';
@@ -984,6 +984,16 @@ peopleRouter.get('/orgs/:orgId/people/data-health', can(PermissionAction.VIEW, E
   const { accountId, orgId } = req.tenant!;
   const payroll = !(await authorize(req, PAYROLL_MODULE, PermissionAction.VIEW as any, PAYROLL_RESOURCE.profile));
   res.json(await dataHealth(accountId, orgId, { payroll }));
+});
+
+/** One person's readiness (the same checks, filtered to them): shown on their record. */
+peopleRouter.get('/orgs/:orgId/people/employees/:id/readiness', can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const employee = await peoplePrisma.employee.findFirst({ where: { id: String(req.params.id), accountId, orgId }, select: { id: true } });
+  if (!employee || !inScope(await teamScope(req), employee.id)) return res.status(404).json({ error: 'No such employee.' });
+  const apps = await impactApps(req);
+  res.json({ apps: { payroll: apps.payroll, attendance: apps.attendance, seePayroll: apps.seePayroll }, ...(await readinessOf(accountId, orgId, employee.id, { payroll: apps.seePayroll })) });
 });
 
 /** Snooze a Health check item with a reason and a date (HLTH-03); it returns on its date. */

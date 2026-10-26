@@ -21,7 +21,7 @@ import {
 import { LEAVING_TYPES } from '@ui/personnel/api';
 
 import {
-  addComment, changeImpact, linkCandidates, linkUser, decideProbation, deleteEmployee, employeeActivity, employeeAsOf, getEmployee, listContractors, listEmployees, listTags, openTasksFor, rehireEmployee, structure, updateEmployee, withdrawScheduled,
+  addComment, changeImpact, employeeReadiness, linkCandidates, linkUser, decideProbation, deleteEmployee, employeeActivity, employeeAsOf, getEmployee, listContractors, listEmployees, listTags, openTasksFor, rehireEmployee, structure, updateEmployee, withdrawScheduled,
 } from './api';
 import { StatusBadge, can } from './shared';
 
@@ -182,7 +182,7 @@ export default function EmployeeRecord({ params = {}, updateParams, openScreen }
       {rec.error ? <Alert tone="neg" title="Could not refresh this record" action={<button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={rec.reload}>Retry</button>}>Showing what was loaded before.</Alert> : null}
 
       <RecordTabs tabs={tabsAllowed} value={tab} onChange={(k) => set({ tab: k === 'overview' ? null : k, edit: null, action: null }, true)} label={`${person.name} sections`}>
-        {tab === 'overview' ? <Overview person={person} data={rec.data} lists={lists} allowed={allowed} goTo={(t) => set({ tab: t }, true)} /> : null}
+        {tab === 'overview' ? <Overview person={person} data={rec.data} lists={lists} allowed={allowed} goTo={(t) => set({ tab: t }, true)} go={(patch) => set(patch, true)} /> : null}
         {tab === 'personal' ? <Personal person={person} allowed={allowed} editing={params.edit} setEditing={(e) => set({ edit: e })} onSaved={(emp) => rec.setData((d) => ({ ...d, employee: { ...d.employee, ...emp } }))} reload={rec.reload} /> : null}
         {tab === 'employment' ? <Employment person={person} data={rec.data} lists={lists} allowed={allowed} editing={params.edit} setEditing={(e) => set({ edit: e })} onSaved={(emp) => setPerson(emp)} reload={rec.reload} /> : null}
         {tab === 'organization' ? <Organization person={person} lists={lists} allowed={allowed} openAction={openAction} openPerson={(pid) => openScreen?.('employee', { id: pid })} editing={params.edit} setEditing={(e) => set({ edit: e })} onSaved={(emp) => setPerson(emp)} reload={rec.reload} /> : null}
@@ -278,6 +278,55 @@ function SignInSection({ person, canEdit, editing, setEditing, onSaved }) {
   );
 }
 
+/*
+ * Before payday (the Data Health checks, for this one person): what will stop
+ * this person being paid or their attendance being counted, where the owner
+ * already is. Each fix opens the tab that fixes it here, or Payroll for
+ * payroll details. Nothing is shown about an app the company does not use.
+ */
+const SEVERITY_WORD = { BLOCKS_PAYROLL: 'Blocks payday', FIX_SOON: 'Fix soon', TIDY_UP: 'Tidy up' };
+const FIX_HERE = {
+  'no-joining-date': { tab: 'employment', edit: 'employment' }, 'no-code': { tab: 'employment', edit: 'employment' },
+  'no-department': { tab: 'organization', action: 'transfer' }, 'no-manager': { tab: 'organization', action: 'manager' },
+  'no-reader-id': { tab: 'organization', edit: 'readers' }, 'document-expired': { tab: 'documents' }, 'permit-expired': { tab: 'documents' },
+  'duplicate-person': { tab: 'personal' }, 'shared-phone': { tab: 'personal', edit: 'contact' }, 'shared-email': { tab: 'personal', edit: 'contact' },
+  'overdue-tasks': { tab: 'employment' },
+};
+function ReadinessSection({ person, go }) {
+  const r = useRequest(() => employeeReadiness(person.id), [person.id, person.version]);
+  if (r.loading || r.error || !r.data) return null;
+  const { apps, checks } = r.data;
+  const order = ['BLOCKS_PAYROLL', 'FIX_SOON', 'TIDY_UP'];
+  const sorted = [...checks].sort((a, b) => order.indexOf(a.severity) - order.indexOf(b.severity));
+  if (!sorted.length) {
+    if (!apps.payroll && !apps.attendance) return null;
+    return <p className="ui-ready-line"><span className="ui-attention-dot is-pos" aria-hidden="true" />Nothing stops payday or attendance for {person.preferredName || person.firstName || person.name}.</p>;
+  }
+  const blocking = sorted.filter((c) => c.severity === 'BLOCKS_PAYROLL').length;
+  return (
+    <Section title="Before payday" count={sorted.length}>
+      {blocking ? <p className="text-sm mb-2">{blocking === 1 ? 'One thing stops' : `${blocking} things stop`} {person.preferredName || person.firstName || person.name} being paid.</p> : null}
+      <ul className="ui-ready-list">
+        {sorted.map((c) => {
+          const here = FIX_HERE[c.id];
+          return (
+            <li key={c.id}>
+              <span className={`ui-attention-dot is-${c.severity === 'BLOCKS_PAYROLL' ? 'neg' : c.severity === 'FIX_SOON' ? 'warn' : 'neutral'}`} aria-hidden="true" />
+              <span className="min-w-0">
+                <span className="block text-sm font-medium">{c.title}{c.detail ? <span className="ui-muted font-normal"> · {c.detail}</span> : null}</span>
+                <span className="block ui-caption">{c.why}</span>
+              </span>
+              <span className="sr-only">{SEVERITY_WORD[c.severity]}</span>
+              {here ? <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => go(here)}>Fix</button>
+                : c.area === 'Payroll' ? <a className="ui-btn ui-btn-secondary ui-btn-sm" href={`?app=payroll&open=${encodeURIComponent(c.screen)}`}>Fix in Payroll</a> : null}
+            </li>
+          );
+        })}
+      </ul>
+    </Section>
+  );
+}
+
 /* --------------------------------------------------------------- Photo and tags */
 
 /** The portrait: a square photo kept small (160px), or initials. Changing it is a normal, logged edit. */
@@ -358,7 +407,7 @@ function TagLine({ person, tags, canEdit, onSaved }) {
 
 /* --------------------------------------------------------------- Overview */
 
-function Overview({ person, data, lists, allowed, goTo }) {
+function Overview({ person, data, lists, allowed, goTo, go }) {
   const activity = useRequest(() => employeeActivity(person.id), [person.id, person.version]);
   /* Open items: this person's joining and leaving tasks not yet done. */
   const checklist = useRequest(() => openTasksFor(person.id), [person.id]);
@@ -368,6 +417,7 @@ function Overview({ person, data, lists, allowed, goTo }) {
   return (
     <div className="ui-record-overview">
       <div className="space-y-4 min-w-0">
+        {person.status !== 'LEFT' ? <ReadinessSection person={person} go={go} /> : null}
         <Section title="Personal information" action={<button type="button" className="ui-link text-sm" onClick={() => goTo('personal')}>Open</button>}>
           <dl className="ui-field-grid">
             <Field label="Full name" value={person.name} />
