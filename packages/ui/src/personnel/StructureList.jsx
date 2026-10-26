@@ -24,16 +24,16 @@ const KINDS = {
     parent: { key: 'parentId', kind: 'departments', label: 'Under department' },
   },
   'job-positions': {
-    title: 'Job Positions',
-    singular: 'job position',
+    title: 'Designations',
+    singular: 'designation',
     description: 'The designations people hold — Accountant, Store Manager, Driver.',
     parent: { key: 'departmentId', kind: 'departments', label: 'Department' },
   },
   'job-roles': {
     title: 'Job Roles',
     singular: 'job role',
-    description: 'Finer roles inside a position — Senior, Trainee, Night shift.',
-    parent: { key: 'jobPositionId', kind: 'job-positions', label: 'Job position' },
+    description: 'A specialisation inside a designation — Accounts payable under Accountant, Night supervisor under Site supervisor.',
+    parent: { key: 'jobPositionId', kind: 'job-positions', label: 'Designation' },
   },
   'employee-types': {
     title: 'Employment Types',
@@ -81,9 +81,9 @@ const KINDS = {
     ],
   },
   establishments: {
-    title: 'Establishments',
-    singular: 'establishment',
-    description: 'Each place of work in law — a shop, factory, office or site — in one state. The state decides which rules apply to the people there.',
+    title: 'Work Sites',
+    singular: 'work site',
+    description: 'Each place of work in law (an establishment) — a shop, factory, office or site — in one state. The state decides which rules apply to the people there.',
     parent: { key: 'legalEntityId', kind: 'legal-entities', label: 'Legal entity' },
     fields: [
       { key: 'kind', label: 'Type', type: 'select', options: [['OFFICE', 'Office'], ['SHOP', 'Shop'], ['FACTORY', 'Factory'], ['SITE', 'Site'], ['WAREHOUSE', 'Warehouse']] },
@@ -96,15 +96,15 @@ const KINDS = {
   teams: {
     title: 'Teams',
     singular: 'team',
-    description: 'A team under a department. Its lead is set on the people themselves (Reports to); seats on the team are listed under Seats.',
+    description: 'A team under a department. Its lead is set on the people themselves (Manager); positions on the team are listed under Positions.',
     parent: { key: 'departmentId', kind: 'departments', label: 'Department' },
     fields: [],
     columns: [],
   },
   seats: {
-    title: 'Seats',
-    singular: 'seat',
-    description: 'Approved seats on a team: a title, a designation and a budget reference. A seat is filled by the person placed in it on their record, or open — and open seats show on the org chart.',
+    title: 'Positions',
+    singular: 'position',
+    description: 'Approved positions on a team: a title, a designation and a budget reference. A position is filled by the person placed in it on their record, or open — and open positions show on the org chart.',
     parent: { key: 'teamId', kind: 'teams', label: 'Team' },
     fields: [{ key: 'budgetRef', label: 'Budget reference', placeholder: 'e.g. FY27-OPS-04' }],
     columns: [{ key: 'budgetRef', label: 'Budget' }],

@@ -28,7 +28,7 @@ import { STATUS, StatusBadge, can } from './shared';
  * `updateParams`), so Back and refresh return to the same list. Choosing
  * people is per page; changing filters or company clears the choice.
  */
-const FILTER_KEYS = ['status', 'dept', 'pos', 'type', 'wtype', 'hrs', 'prob', 'contract', 'area', 'est', 'unit', 'grade', 'centre', 'tag', 'mgr', 'from', 'to'];
+const FILTER_KEYS = ['status', 'dept', 'pos', 'type', 'wtype', 'hrs', 'prob', 'contract', 'area', 'est', 'unit', 'grade', 'centre', 'tag', 'mgr', 'from', 'to', 'lfrom', 'lto'];
 const COLUMNS_KEY = 'people.workforce.columns';
 const DISMISS_KEY = 'people.workforce.dismissed';
 const readJson = (k, fallback) => { try { return JSON.parse(localStorage.getItem(k) || '') || fallback; } catch { return fallback; } };
@@ -37,7 +37,7 @@ const apiParams = (p) => ({
   /* Leavers stay out unless asked for: the default is everyone still with the company. */
   q: p.q, status: p.status || 'CURRENT', departmentId: p.dept, jobPositionId: p.pos, employeeTypeId: p.type, workTypeId: p.wtype, hours: p.hrs, probation: p.prob, contract: p.contract, areaId: p.area, establishmentId: p.est,
   businessUnitId: p.unit, gradeId: p.grade, costCenterId: p.centre, tagId: p.tag, managerId: p.mgr,
-  joinedFrom: p.from, joinedTo: p.to, sort: p.sort, dir: p.dir,
+  joinedFrom: p.from, joinedTo: p.to, leftFrom: p.lfrom, leftTo: p.lto, sort: p.sort, dir: p.dir,
 });
 
 export default function Directory({ params = {}, updateParams, openScreen }) {
@@ -172,6 +172,7 @@ export default function Directory({ params = {}, updateParams, openScreen }) {
     p.tag && { k: 'tag', label: `Tag: ${lookup('tags', p.tag)}` },
     p.mgr && { k: 'mgr', label: `Manager: ${managers.find((m) => m.id === p.mgr)?.name || 'Chosen'}` },
     (p.from || p.to) && { k: 'dates', label: `Joined ${p.from ? formatDate(p.from) : 'any time'} – ${p.to ? formatDate(p.to) : 'now'}` },
+    (p.lfrom || p.lto) && { k: 'left', label: `Left ${p.lfrom ? formatDate(p.lfrom) : 'any time'} – ${p.lto ? formatDate(p.lto) : 'now'}` },
   ].filter(Boolean);
 
   return (
@@ -264,7 +265,7 @@ export default function Directory({ params = {}, updateParams, openScreen }) {
       {['directory', 'team'].includes(tab) && chips.length ? (
         <div className="flex flex-wrap items-center gap-1.5" aria-label="Filters in force">
           {chips.map((c) => (
-            <button key={c.k} type="button" className="ui-pill" onClick={() => set(c.k === 'dates' ? { from: null, to: null, page: null } : { [c.k]: null, page: null })} aria-label={`Remove ${c.label}`}>
+            <button key={c.k} type="button" className="ui-pill" onClick={() => set(c.k === 'dates' ? { from: null, to: null, page: null } : c.k === 'left' ? { lfrom: null, lto: null, page: null } : { [c.k]: null, page: null })} aria-label={`Remove ${c.label}`}>
               {c.label} <X size={12} aria-hidden="true" />
             </button>
           ))}
@@ -292,6 +293,7 @@ export default function Directory({ params = {}, updateParams, openScreen }) {
 }
 
 const tomorrowIst = () => new Date(Date.now() + 330 * 60_000 + 86_400_000).toISOString().slice(0, 10);
+const todayIst = () => new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
 
 /*
  * WF-07 export: which people (this view, everyone you can see, or the rows
@@ -344,19 +346,22 @@ function ExportDrawer({ counts, filtered, onClose, onExport }) {
 
 function MetricStrip({ counts, onPick }) {
   if (!counts) return <div className="ui-metric-strip" aria-busy="true"><span className="ui-skel ui-skel-text" /></div>;
+  /* The owner's and the CEO's picture: who works here now, who is coming, who came and went this month, who is leaving. */
   const items = [
-    { k: 'total', label: 'Total workforce', value: counts.total - counts.left, Icon: Users, patch: {} },
-    { k: 'active', label: 'Active', value: counts.active, Icon: UserCheck, patch: { status: 'ACTIVE' } },
+    { k: 'total', label: 'Working now', value: counts.total, Icon: Users, patch: {} },
     { k: 'joining', label: 'Joining', value: counts.joining, Icon: CalendarClock, patch: 'joining' },
-    { k: 'onLeave', label: 'On leave today', value: counts.onLeave, Icon: CalendarClock, patch: null },
+    { k: 'joinedMonth', label: 'Joined this month', value: counts.joinedThisMonth ?? 0, Icon: UserCheck, patch: 'joinedMonth' },
+    { k: 'leftMonth', label: 'Left this month', value: counts.leftThisMonth ?? 0, Icon: UserMinus, patch: 'leftMonth' },
     { k: 'onNotice', label: 'On notice', value: counts.onNotice, Icon: UserMinus, patch: { status: 'ON_NOTICE' } },
+    { k: 'onLeave', label: 'On leave today', value: counts.onLeave, Icon: CalendarClock, patch: null },
   ];
   return (
     <div className="ui-metric-strip" role="list" aria-label="Workforce counts">
       {items.map(({ k, label, value, Icon, patch }) => {
         const body = <><Icon size={18} aria-hidden="true" className="ui-metric-icon" /><span><span className="ui-metric-value tabular-nums">{value}</span><span className="ui-metric-label">{label}</span></span></>;
+        /* The list item holds the button, so it is still announced as a button. */
         return patch ? (
-          <button key={k} type="button" role="listitem" className="ui-metric" onClick={() => onPick(patch === 'joining' ? { from: tomorrowIst() } : patch)} aria-label={`${value} ${label}: show them`}>{body}</button>
+          <div key={k} role="listitem"><button type="button" className="ui-metric" onClick={() => onPick(patch === 'joining' ? { from: tomorrowIst() } : patch === 'joinedMonth' ? { status: 'ALL', from: counts.monthStart, to: todayIst() } : patch === 'leftMonth' ? { status: 'LEFT', lfrom: counts.monthStart, lto: todayIst() } : patch)} aria-label={`${value} ${label}: show them`}>{body}</button></div>
         ) : <div key={k} role="listitem" className="ui-metric">{body}</div>;
       })}
     </div>
@@ -375,7 +380,7 @@ function Banners({ openScreen }) {
   const dismiss = (k, n) => { const next = { ...dismissed, [k]: n }; setDismissed(next); writeJson(DISMISS_KEY, next); };
   const items = [
     docs && dismissed.docs !== docs ? { key: 'docs', tone: 'neg', text: `${docs} expired ${docs === 1 ? 'document' : 'documents'}`, link: 'Review', screen: 'dataHealth', n: docs } : null,
-    joiners && dismissed.joiners !== joiners ? { key: 'joiners', tone: 'warn', text: `${joiners} ${joiners === 1 ? 'joiner' : 'joiners'} with onboarding open`, link: 'Open onboarding', screen: 'checklists', n: joiners } : null,
+    joiners && dismissed.joiners !== joiners ? { key: 'joiners', tone: 'warn', text: `${joiners} ${joiners === 1 ? 'joiner' : 'joiners'} with onboarding open`, link: 'Open Onboarding & Exit', screen: 'checklists', n: joiners } : null,
   ].filter(Boolean);
   if (!items.length) return null;
   /* One quiet line, not a stack of coloured boxes: the list below is what the page is for. */

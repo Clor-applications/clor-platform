@@ -49,7 +49,7 @@ code, then each finding checked before fixing. Status: **Fixed** (commit),
 | E15 | HR sees a blank requester on portal requests | Open |
 | E16 | Approved resignation not traceable to its request | Open |
 | E17 | Document upload/replace not in Activity | Open |
-| E19 | Screen permissions differ from their routes (Documents, Org Chart) | Open |
+| E19 | Screen permissions differ from their routes (Documents, Org Chart) | Fixed (headcount and words batch) |
 | E20 | "Reports to" link opens "not available" for a scoped manager | Open |
 | E22 | Two open requests on one field; approval overwrites later HR edit | Open |
 | E23 | Self-edit settings promise "three days" whatever the rule says | Open |
@@ -61,17 +61,17 @@ code, then each finding checked before fixing. Status: **Fixed** (commit),
 | O1 | Contract / internship end: no reminder, no Data Health check, person stays Active and paid | Fixed (lifecycle batch) |
 | O2 | Probation that ended without confirmation disappears from filter, header and Home | Fixed (lifecycle batch) |
 | O3 | No contract filter or end-date columns; Home to-dos open the unfiltered list; bell links ignore the person | Fixed (lifecycle batch) |
-| O4 | Total / Active count future joiners; Home month in UTC | Open |
-| O5 | No CEO picture: joined/left this month, by department and type, attrition | Open |
+| O4 | Total / Active count future joiners; Home month in UTC | Fixed (headcount and words batch) |
+| O5 | No CEO picture: joined/left this month, by department and type, attrition | Fixed (headcount and words batch) |
 | O6 | Rehire keeps old probation, confirmation and contract dates; no rehire step | Fixed (lifecycle batch) |
 | O7 | Leaving drawer says "left" for a future date; wrong defaults for contract staff | Fixed (lifecycle batch) |
 | O8 | No "End after probation" on screen | Fixed (lifecycle batch) |
 | O9 | No Renew contract action | Fixed (lifecycle batch) |
 | O10 | Changing employment type does not ask for or clear the dates | Fixed (lifecycle batch) |
 | O11 | Nothing editable after leaving; no cancel leaving | Open |
-| O12 | Three place fields (Location, Work site, Work location) | Open |
-| O13 | Record and Transfer show lists the company has not set up | Open |
-| O14–15 | Words: Establishment/Work site, Seat/Position, Reports to/Manager, Job roles | Open |
+| O12 | Three place fields (Location, Work site, Work location) | Fixed (headcount and words batch) |
+| O13 | Record and Transfer show lists the company has not set up | Fixed (headcount and words batch) |
+| O14–15 | Words: Establishment/Work site, Seat/Position, Reports to/Manager, Job roles | Fixed (headcount and words batch) |
 | O16 | Import rejects dd/mm/yyyy and "Male" | Open |
 | O17 | Import cannot carry manager or work site | Open |
 | O18 | Import has a review step that repeats the counts plus a confirm | Open |

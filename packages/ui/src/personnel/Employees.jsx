@@ -601,7 +601,7 @@ function EmployeeFile({ id, onClose, onEdit, onDeleted }) {
   const rehire = async () => {
     if (!rejoinDate) return notify.error('Give the rejoin date first.');
     if (person.dateOfLeaving && rejoinDate <= person.dateOfLeaving) return notify.error(`The rejoin date must be after their last day, ${person.dateOfLeaving}.`);
-    const ok = await confirmDialog({ title: `Rehire ${person.name} from ${formatDateIn(rejoinDate)}?`, message: `A new stint starts on that date; their first joining date (${person.firstJoiningDate ? formatDateIn(person.firstJoiningDate) : 'on file'}) stays. They become active again and are put back on every reader; fingerprints and faces were deleted when they left, so they enrol again.`, confirmLabel: 'Rehire', tone: 'primary' });
+    const ok = await confirmDialog({ title: `Rehire ${person.name} from ${formatDateIn(rejoinDate)}?`, message: `A new period of employment starts on that date; their first joining date (${person.firstJoiningDate ? formatDateIn(person.firstJoiningDate) : 'on file'}) stays. They become active again and are put back on every reader; fingerprints and faces were deleted when they left, so they enrol again.`, confirmLabel: 'Rehire', tone: 'primary' });
     if (!ok) return;
     try {
       const r = await rehireEmployee(person.id, { rejoinDate });
@@ -777,7 +777,7 @@ function EmployeeFile({ id, onClose, onEdit, onDeleted }) {
                   <Field label="Father’s / husband’s name" value={person.guardianName} />
                 </>
               ) : null}
-              <Field label={person.currentEpisodeSeq > 1 ? `Joined (stint ${person.currentEpisodeSeq})` : 'Joined'} value={person.dateOfJoining} />
+              <Field label={person.currentEpisodeSeq > 1 ? 'Rejoined' : 'Joined'} value={person.dateOfJoining} />
               {person.currentEpisodeSeq > 1 && person.firstJoiningDate ? <Field label="First joined" value={person.firstJoiningDate} /> : null}
               {person.scheduledChanges?.length ? (
                 <div className="sm:col-span-2">
@@ -871,7 +871,7 @@ function EmployeeFile({ id, onClose, onEdit, onDeleted }) {
 
 /* The fields whose change is recorded in employment history (server: TRACKED in services/people/employmentHistory.ts). */
 /* The job fields a change may be dated for, as the record names them (server: SCHEDULABLE_FIELDS). */
-export const SCHEDULED_LABELS = { departmentId: 'Department', businessUnitId: 'Business unit', areaId: 'Location', branchId: 'Branch', establishmentId: 'Establishment', teamId: 'Team', seatId: 'Seat', jobPositionId: 'Designation', jobRoleId: 'Job role', reportingManagerId: 'Reports to', dottedManagerId: 'Also reports to', employeeTypeId: 'Employment type', workTypeId: 'Work mode', contractorId: 'Contractor', gradeId: 'Grade', costCenterId: 'Cost centre', status: 'Status' };
+export const SCHEDULED_LABELS = { departmentId: 'Department', businessUnitId: 'Business unit', areaId: 'Location', branchId: 'Branch', establishmentId: 'Work site', teamId: 'Team', seatId: 'Position', jobPositionId: 'Designation', jobRoleId: 'Job role', reportingManagerId: 'Manager', dottedManagerId: 'Secondary manager', employeeTypeId: 'Employment type', workTypeId: 'Work mode', contractorId: 'Contractor', gradeId: 'Grade', costCenterId: 'Cost centre', status: 'Status' };
 /* How each line of the impact list lands: a review task on the record, an app told through an event, or a note. */
 const IMPACT_TARGET = { TASK: 'review task for HR', TOLD: 'told automatically', INFO: 'for information' };
 const HISTORY_FIELDS = ['businessUnitId', 'gradeId', 'costCenterId', 'departmentId', 'areaId', 'establishmentId', 'teamId', 'seatId', 'jobPositionId', 'jobRoleId', 'reportingManagerId', 'dottedManagerId', 'employeeTypeId', 'workTypeId', 'contractorId'];
@@ -899,10 +899,10 @@ export function EmploymentHistory({ employeeId }) {
   return (
     <>
     {episodes.length > 1 ? (
-      <ol className="space-y-1 mb-3" aria-label="Stints">
+      <ol className="space-y-1 mb-3" aria-label="Employment periods">
         {episodes.map((st) => (
           <li key={st.seq} className="text-sm flex flex-wrap items-center gap-2">
-            <span className={`ui-pill ${st.current ? 'ui-pill-pos' : 'ui-pill-neutral'}`}>Stint {st.seq}</span>
+            <span className={`ui-pill ${st.current ? 'ui-pill-pos' : 'ui-pill-neutral'}`}>Period {st.seq}</span>
             <span className="tabular-nums">{formatDateIn(st.startDate)} – {st.endDate ? formatDateIn(st.endDate) : 'now'}</span>
             {st.endType ? <span className="ui-caption">{st.endType.replaceAll('_', ' ').toLowerCase()}{st.endReason ? ` · ${st.endReason}` : ''}</span> : null}
           </li>
@@ -969,8 +969,8 @@ export function Journey({ employeeId }) {
       {stints.map((seq) => {
         const st = data.episodes.find((x) => x.seq === seq);
         return (
-          <section key={seq} aria-label={`Stint ${seq}`} className="space-y-2">
-            {data.episodes.length > 1 || st ? <h3 className="text-sm font-semibold">Stint {seq}{st ? <span className="ui-caption font-normal"> · {formatDateIn(st.startDate)} – {st.endDate ? formatDateIn(st.endDate) : 'now'}</span> : null}</h3> : null}
+          <section key={seq} aria-label={`Employment period ${seq}`} className="space-y-2">
+            {data.episodes.length > 1 || st ? <h3 className="text-sm font-semibold">Employment period {seq}{st ? <span className="ui-caption font-normal"> · {formatDateIn(st.startDate)} – {st.endDate ? formatDateIn(st.endDate) : 'now'}</span> : null}</h3> : null}
             <ol className="divide-y">
               {data.entries.filter((e) => e.stint === seq).map((e) => (
                 <li key={e.key} className="py-2.5 flex flex-wrap items-start gap-2">
@@ -1022,8 +1022,8 @@ export function Journey({ employeeId }) {
 
 const BULK_FIELDS = [
   ['departmentId', 'Department', 'departments'], ['jobPositionId', 'Designation', 'positions'], ['employeeTypeId', 'Employment type', 'types'],
-  ['workTypeId', 'Work mode', 'workTypes'], ['establishmentId', 'Establishment', 'establishments'], ['teamId', 'Team', 'teams'],
-  ['gradeId', 'Grade', 'grades'], ['costCenterId', 'Cost centre', 'centres'], ['businessUnitId', 'Business unit', 'units'], ['reportingManagerId', 'Reports to', null],
+  ['workTypeId', 'Work mode', 'workTypes'], ['establishmentId', 'Work site', 'establishments'], ['teamId', 'Team', 'teams'],
+  ['gradeId', 'Grade', 'grades'], ['costCenterId', 'Cost centre', 'centres'], ['businessUnitId', 'Business unit', 'units'], ['reportingManagerId', 'Manager', null],
 ];
 
 /** Change one detail for everyone chosen (CORE-01). Each person gets their own change record; the batch shares one. */

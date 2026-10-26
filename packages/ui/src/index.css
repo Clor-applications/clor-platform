@@ -7742,8 +7742,11 @@ th.ui-th {
 
 /* Workforce directory (People design v1 EMP-01, Workforce package WF-03) */
 .ui-metric-strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: 0; background: rgb(var(--surface)); border: 1px solid rgb(var(--border)); }
-.ui-metric { display: flex; align-items: center; gap: 0.75rem; padding: 0.875rem 1rem; text-align: left; background: transparent; border: 0; border-right: 1px solid rgb(var(--border)); color: rgb(var(--fg)); font: inherit; }
-.ui-metric:last-child { border-right: 0; }
+.ui-metric { display: flex; align-items: center; gap: 0.75rem; padding: 0.875rem 1rem; text-align: left; background: transparent; border: 0; color: rgb(var(--fg)); font: inherit; }
+/* The rules sit on the strip's cells (a tile, or the list item holding a tile button), so a button keeps its role. */
+.ui-metric-strip > * { display: flex; border-right: 1px solid rgb(var(--border)); }
+.ui-metric-strip > * > .ui-metric { flex: 1; }
+.ui-metric-strip > :last-child { border-right: 0; }
 button.ui-metric { cursor: pointer; }
 button.ui-metric:hover { background: rgb(var(--surface-sunken)); }
 button.ui-metric:focus-visible { outline: 2px solid rgb(var(--ring)); outline-offset: -2px; }
@@ -7753,11 +7756,11 @@ button.ui-metric:focus-visible { outline: 2px solid rgb(var(--ring)); outline-of
 .ui-bulkbar { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; padding: 0.25rem 0.75rem; background: rgb(var(--brand-subtle)); border: 1px solid rgb(var(--brand-border)); }
 @media (max-width: 639px) {
   .ui-metric-strip { grid-template-columns: repeat(2, 1fr); }
-  .ui-metric { border-bottom: 1px solid rgb(var(--border)); }
+  .ui-metric-strip > * { border-bottom: 1px solid rgb(var(--border)); }
   /* An odd last tile takes the full row instead of leaving half of it empty; no rule under the bottom row. */
-  .ui-metric:nth-child(even) { border-right: 0; }
-  .ui-metric:last-child:nth-child(odd) { grid-column: 1 / -1; border-right: 0; }
-  .ui-metric:last-child, .ui-metric:nth-last-child(2):nth-child(odd) { border-bottom: 0; }
+  .ui-metric-strip > :nth-child(even) { border-right: 0; }
+  .ui-metric-strip > :last-child:nth-child(odd) { grid-column: 1 / -1; border-right: 0; }
+  .ui-metric-strip > :last-child, .ui-metric-strip > :nth-last-child(2):nth-child(odd) { border-bottom: 0; }
   /* On cards, Columns does nothing: the search takes the row and Filters sits beside it. */
   .ui-datatable.has-cards .ui-columns-btn { display: none; }
   .ui-attention { gap: 0.5rem; }

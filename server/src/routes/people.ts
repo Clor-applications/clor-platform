@@ -438,8 +438,10 @@ peopleRouter.get('/orgs/:orgId/people/overview', can(PermissionAction.VIEW, EMPL
     select: { id: true, name: true, status: true, departmentId: true, department: true, dateOfJoining: true, dateOfLeaving: true, dateOfBirth: true, photoUrl: true, designation: true },
   });
   const today = new Date();
-  const ym = today.toISOString().slice(0, 7);
-  const active = rows.filter((r) => r.status !== 'LEFT');
+  /* India's month, and today's headcount: someone joining next week is not working here yet. */
+  const todayIn = todayIst();
+  const ym = todayIn.slice(0, 7);
+  const active = rows.filter((r) => r.status !== 'LEFT' && (!r.dateOfJoining || String(r.dateOfJoining).slice(0, 10) <= todayIn));
   const byDepartment = new Map<string, number>();
   for (const r of active) {
     const k = r.department || 'Unassigned';
@@ -505,6 +507,7 @@ peopleRouter.get('/orgs/:orgId/people/employees', can(PermissionAction.VIEW, EMP
     ...(pick('areaId') ? { areaId: pick('areaId') } : {}),
     ...(pick('establishmentId') ? { establishmentId: pick('establishmentId') } : {}),
     ...(pick('joinedFrom') || pick('joinedTo') ? { dateOfJoining: { ...(pick('joinedFrom') ? { gte: pick('joinedFrom') } : {}), ...(pick('joinedTo') ? { lte: pick('joinedTo') } : {}) } } : {}),
+    ...(pick('leftFrom') || pick('leftTo') ? { dateOfLeaving: { not: null, ...(pick('leftFrom') ? { gte: pick('leftFrom') } : {}), ...(pick('leftTo') ? { lte: pick('leftTo') } : {}) } } : {}),
     ...(tagId ? { tags: { some: { tagId } } } : {}),
     ...(q
       ? {
@@ -578,15 +581,21 @@ peopleRouter.get('/orgs/:orgId/people/employees/counts', can(PermissionAction.VI
   const scope = await teamScope(req);
   const base = { accountId, orgId, ...scopeWhere(scope) };
   const today = new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
-  const [byStatus, joining, onLeave] = await Promise.all([
-    peoplePrisma.employee.groupBy({ by: ['status'], where: base, _count: { _all: true } }),
+  const monthStart = `${today.slice(0, 8)}01`;
+  /* Working now: not left, and already joined (someone joining next week is under Joining, not in the headcount). */
+  const joined = { OR: [{ dateOfJoining: null }, { dateOfJoining: { lte: today } }] };
+  const [byStatus, joining, onLeave, working, joinedThisMonth, leftThisMonth] = await Promise.all([
+    peoplePrisma.employee.groupBy({ by: ['status'], where: { ...base, ...joined }, _count: { _all: true } }),
     peoplePrisma.employee.count({ where: { ...base, status: { not: 'LEFT' }, dateOfJoining: { gt: today } } }),
     peoplePrisma.leaveRequest.findMany({ where: { orgId, status: 'APPROVED', fromDate: { lte: today }, toDate: { gte: today }, ...(scope.all ? {} : { employeeId: { in: (scope as any).ids } }) }, select: { employeeId: true }, distinct: ['employeeId'] }),
+    peoplePrisma.employee.count({ where: { ...base, status: { not: 'LEFT' }, ...joined } }),
+    peoplePrisma.employee.count({ where: { ...base, dateOfJoining: { gte: monthStart, lte: today } } }),
+    peoplePrisma.employee.count({ where: { ...base, status: 'LEFT', dateOfLeaving: { gte: monthStart, lte: today } } }),
   ]);
   const of = (s: string) => byStatus.find((x) => x.status === s)?._count._all || 0;
   const me = await peoplePrisma.employee.findFirst({ where: { orgId, userId: req.auth!.userId }, select: { id: true } });
   const myTeam = me ? await peoplePrisma.employee.count({ where: { ...base, status: { not: 'LEFT' }, OR: [{ reportingManagerId: me.id }, { dottedManagerId: me.id }] } }) : 0;
-  res.json({ total: byStatus.reduce((a, x) => a + x._count._all, 0), active: of('ACTIVE'), onNotice: of('ON_NOTICE'), suspended: of('SUSPENDED'), left: of('LEFT'), joining, onLeave: onLeave.length, myTeam });
+  res.json({ total: working, active: of('ACTIVE'), onNotice: of('ON_NOTICE'), suspended: of('SUSPENDED'), left: of('LEFT'), joining, onLeave: onLeave.length, myTeam, joinedThisMonth, leftThisMonth, monthStart });
 });
 
 /** A suggestion for the next employee ID (People design v1 EMP-02): the company's own pattern, one past the highest. Still editable. */
@@ -632,7 +641,7 @@ peopleRouter.get('/orgs/:orgId/people/workforce/pending', can(PermissionAction.V
   ]);
   const ids = inScopeIds([...new Set([...requests.map((r) => r.subjectEmployeeId!), ...scheduled.map((c) => c.employeeId), ...(invites as any[]).map((i) => i.employeeId)])]);
   const people = new Map((await peoplePrisma.employee.findMany({ where: { orgId, id: { in: ids } }, select: { id: true, name: true, code: true } })).map((e) => [e.id, e]));
-  const label = (f: string) => ({ departmentId: 'Department', jobPositionId: 'Designation', reportingManagerId: 'Manager', dottedManagerId: 'Dotted-line manager', areaId: 'Location', establishmentId: 'Establishment', teamId: 'Team', seatId: 'Seat', employeeTypeId: 'Employment type', workTypeId: 'Work mode', gradeId: 'Grade', costCenterId: 'Cost centre', businessUnitId: 'Business unit', jobRoleId: 'Job role', status: 'Status' } as Record<string, string>)[f] || f;
+  const label = (f: string) => ({ departmentId: 'Department', jobPositionId: 'Designation', reportingManagerId: 'Manager', dottedManagerId: 'Secondary manager', areaId: 'Location', establishmentId: 'Work site', teamId: 'Team', seatId: 'Position', employeeTypeId: 'Employment type', workTypeId: 'Work mode', gradeId: 'Grade', costCenterId: 'Cost centre', businessUnitId: 'Business unit', jobRoleId: 'Job role', status: 'Status' } as Record<string, string>)[f] || f;
   const me = req.auth!.userId;
   res.json({
     requests: requests.filter((r) => people.has(r.subjectEmployeeId!)).map((r) => {
@@ -761,6 +770,7 @@ peopleRouter.get('/orgs/:orgId/people/employees/export', can(PermissionAction.EX
     ...(pick('costCenterId') ? { costCenterId: pick('costCenterId') } : {}),
     ...(pick('tagId') ? { tags: { some: { tagId: pick('tagId') } } } : {}),
     ...(pick('joinedFrom') || pick('joinedTo') ? { dateOfJoining: { ...(pick('joinedFrom') ? { gte: pick('joinedFrom') } : {}), ...(pick('joinedTo') ? { lte: pick('joinedTo') } : {}) } } : {}),
+    ...(pick('leftFrom') || pick('leftTo') ? { dateOfLeaving: { not: null, ...(pick('leftFrom') ? { gte: pick('leftFrom') } : {}), ...(pick('leftTo') ? { lte: pick('leftTo') } : {}) } } : {}),
     ...(q ? { OR: [{ name: { contains: q, mode: 'insensitive' } }, { code: { contains: q, mode: 'insensitive' } }, { email: { contains: q, mode: 'insensitive' } }, { workEmail: { contains: q, mode: 'insensitive' } }, { phone: { contains: q } }, { designation: { contains: q, mode: 'insensitive' } }, { department: { contains: q, mode: 'insensitive' } }] } : {}),
   };
   if (req.query.team === 'mine') {
@@ -938,7 +948,7 @@ peopleRouter.put('/orgs/:orgId/people/employees/:id', can(PermissionAction.EDIT,
   delete (b as any).version;
   /* Someone who has left comes back through Rehire, which opens a new stint; an edit cannot quietly make them active (WF-14). */
   if (existing.status === 'LEFT' && b.status && b.status !== 'LEFT') {
-    return res.status(409).json({ error: `${existing.name} has left. Use Rehire to bring them back: it starts a new stint and keeps the earlier one.`, code: 'USE_REHIRE' });
+    return res.status(409).json({ error: `${existing.name} has left. Use Rehire to bring them back: it starts a new period of employment and keeps the earlier one.`, code: 'USE_REHIRE' });
   }
   if (expected !== undefined && expected !== existing.version) {
     return res.status(409).json({ error: 'Someone else changed this record after you opened it. Reload to see their changes, then make yours again.', code: 'STALE', employee: (await withMeta(orgId, [existing]))[0] });

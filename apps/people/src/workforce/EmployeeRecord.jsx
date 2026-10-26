@@ -678,7 +678,7 @@ function Employment({ person, data, lists, allowed, editing, setEditing, onSaved
     try { await withdrawScheduled(person.id, c.id); notify.success('Withdrawn.'); reload(); } catch (e) { notify.error(String(e?.message || 'Not withdrawn.')); }
   };
   const rehire = async () => {
-    if (!(await confirmDialog({ title: `Rehire ${person.name} from ${formatDate(rejoin)}?`, message: 'A new stint starts on that date; the earlier one is kept in History.', confirmLabel: 'Rehire', tone: 'primary' }))) return;
+    if (!(await confirmDialog({ title: `Rehire ${person.name} from ${formatDate(rejoin)}?`, message: 'A new period of employment starts on that date; the earlier one stays in History.', confirmLabel: 'Rehire', tone: 'primary' }))) return;
     try {
       await rehireEmployee(person.id, { rejoinDate: rejoin, employeeTypeId: rejoinType || null, probationEndDate: (rejoinDates.probation && rejoinProbation) || null, contractEndDate: (rejoinDates.contract && rejoinContract) || null });
       notify.success(`${person.name} rehired.`);
@@ -707,7 +707,7 @@ function Employment({ person, data, lists, allowed, editing, setEditing, onSaved
             <Field label="Hours" value={HOURS_WORDS[person.hours || 'FULL_TIME']} />
             <Field label="Work mode" value={workTypeName} />
             <Field label="Job role" value={lists?.roles?.find((r) => r.id === person.jobRoleId)?.name} />
-            <Field label={person.currentEpisodeSeq > 1 ? `Joined (stint ${person.currentEpisodeSeq})` : 'Joining date'} value={person.dateOfJoining ? formatDate(String(person.dateOfJoining).slice(0, 10)) : null} mono />
+            <Field label={person.currentEpisodeSeq > 1 ? 'Rejoined' : 'Joining date'} value={person.dateOfJoining ? formatDate(String(person.dateOfJoining).slice(0, 10)) : null} mono />
             {person.currentEpisodeSeq > 1 ? <Field label="First joined" value={person.firstJoiningDate ? formatDate(person.firstJoiningDate) : null} mono /> : null}
             {dates.probation || person.probationEndDate || person.confirmedOn ? <Field label={person.confirmedOn ? 'Confirmed on' : 'Probation ends'} value={person.confirmedOn ? formatDate(person.confirmedOn) : person.probationEndDate ? formatDate(person.probationEndDate) : null} mono /> : null}
             {dates.contract || person.contractEndDate ? <Field label={dates.contractLabel} value={person.contractEndDate ? formatDate(person.contractEndDate) : null} mono /> : null}
@@ -779,7 +779,7 @@ function Employment({ person, data, lists, allowed, editing, setEditing, onSaved
           <div className="mt-4"><button type="button" className="ui-btn ui-btn-secondary" disabled={!rejoin} onClick={rehire}>Rehire</button></div>
         </Section>
       ) : null}
-      <Section title="Onboarding & offboarding"><EmployeeChecklist person={person} /></Section>
+      <Section title="Onboarding & exit"><EmployeeChecklist person={person} /></Section>
     </div>
   );
 }
@@ -789,26 +789,31 @@ function Employment({ person, data, lists, allowed, editing, setEditing, onSaved
 function Organization({ person, lists, allowed, openAction, openPerson, editing, setEditing, onSaved, reload }) {
   const canEdit = allowed('PEOPLE::Employees::EDIT') && person.status !== 'LEFT';
   const name = (k, v) => lists?.[k]?.find((x) => x.id === v)?.name;
+  /* A list the company has not set up is not shown as "Not provided" on everyone; a value already on the person always is. */
+  const uses = (list, value) => Boolean(value) || Boolean(lists?.[list]?.length);
   return (
     <div className="space-y-4">
       <Section title="Placement" onEdit={canEdit ? () => openAction('transfer') : null}>
         <dl className="ui-field-grid">
           <Field label="Department" value={person.department} />
           <Field label="Designation" value={person.designation} />
-          <Field label="Location" value={person.areaName || person.workLocation} />
-          <Field label="Work site" value={person.establishment ? `${person.establishment}${person.workState ? ` (${person.workState})` : ''}` : null} />
-          <Field label="Team" value={person.teamName} />
-          <Field label="Position" value={person.seatName} />
-          <Field label="Business unit" value={person.businessUnitName} />
-          <Field label="Grade" value={person.gradeName || name('grades', person.gradeId)} />
-          <Field label="Cost centre" value={person.costCenterName} />
+          {uses('areas', person.areaId) ? <Field label="Location" value={person.areaName} /> : null}
+          {uses('establishments', person.establishmentId) ? <Field label="Work site" value={person.establishment ? `${person.establishment}${person.workState ? ` (${person.workState})` : ''}` : null} /> : null}
+          {uses('teams', person.teamId) ? <Field label="Team" value={person.teamName} /> : null}
+          {uses('seats', person.seatId) ? <Field label="Position" value={person.seatName} /> : null}
+          {uses('units', person.businessUnitId) ? <Field label="Business unit" value={person.businessUnitName} /> : null}
+          {uses('grades', person.gradeId) ? <Field label="Grade" value={person.gradeName || name('grades', person.gradeId)} /> : null}
+          {uses('centres', person.costCenterId) ? <Field label="Cost centre" value={person.costCenterName} /> : null}
         </dl>
       </Section>
-      <Section title="Work location" onEdit={canEdit && editing !== 'place' ? () => setEditing('place') : null}>
-        {editing === 'place' ? (
-          <SectionForm person={person} fields={[{ key: 'workLocation', label: 'Site or address' }]} onCancel={() => setEditing(null)} onSaved={(emp) => { onSaved(emp); setEditing(null); }} reload={reload} />
-        ) : <dl className="ui-field-grid"><Field label="Site or address" value={person.workLocation} /></dl>}
-      </Section>
+      {/* A typed address is for a company without a Locations list, or a person already carrying one. */}
+      {person.workLocation || !lists?.areas?.length ? (
+        <Section title="Work location" onEdit={canEdit && editing !== 'place' ? () => setEditing('place') : null}>
+          {editing === 'place' ? (
+            <SectionForm person={person} fields={[{ key: 'workLocation', label: 'Site or address' }]} onCancel={() => setEditing(null)} onSaved={(emp) => { onSaved(emp); setEditing(null); }} reload={reload} />
+          ) : <dl className="ui-field-grid"><Field label="Site or address" value={person.workLocation} /></dl>}
+        </Section>
+      ) : null}
       <Section title="Reporting" onEdit={canEdit ? () => openAction('manager') : null}>
         <dl className="ui-field-grid">
           <Field label="Manager" value={person.reportingManagerId ? <button type="button" className="ui-link" onClick={() => openPerson(person.reportingManagerId)}>{person.reportingManagerName}</button> : null} />
@@ -944,7 +949,8 @@ function OperationDrawer({ action, person, lists, onClose, onDone }) {
         {error ? (error?.status === 409 && error?.data?.code === 'STALE'
           ? <Alert tone="warn" title="This record was updated elsewhere">Close this, reload the record, and make the change again. Nothing was overwritten.</Alert>
           : <ErrorState error={error} compact onRetry={submit} retryLabel="Try again" body={error?.status === 400 ? error.message : undefined} />) : null}
-        {op.fields.map(([k, label, src]) => (
+        {/* Only the lists the company uses (or this person already has a value from). */}
+        {op.fields.filter(([k, , src]) => src === 'people' || src === 'statuses' || person[k] || (lists[src] || []).length).map(([k, label, src]) => (
           <div key={k}>
             <PopupSelect showValueSubtext={false} label={label} value={form[k]} onChange={(v) => setForm({ ...form, [k]: v || '' })} placeholder="Choose…" alwaysSearch={src !== 'statuses'} options={src === 'statuses' ? options(src) : [{ value: '', label: 'None' }, ...narrowed(k, src)]} />
             <span className="ui-caption">Now: {current(k, src)}</span>

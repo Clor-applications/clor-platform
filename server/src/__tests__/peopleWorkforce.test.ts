@@ -66,7 +66,8 @@ describe('workforce backend', () => {
     expect(joined).toEqual(['Arun Bose']);
     expect((await people(boss).get(`/employees?areaId=${site.id}`).expect(200)).body.employees.map((e: any) => e.name)).toEqual(['Arun Bose']);
     const counts = (await people(boss).get('/employees/counts').expect(200)).body;
-    expect(counts).toMatchObject({ total: 3, active: 3, joining: 1, onLeave: 0 });
+    /* Working now leaves out the one joining in ten days; they are under Joining (Workforce audit O4). */
+    expect(counts).toMatchObject({ total: 2, active: 2, joining: 1, onLeave: 0 });
   });
 
   it('suggests the next employee ID from the company pattern', async () => {

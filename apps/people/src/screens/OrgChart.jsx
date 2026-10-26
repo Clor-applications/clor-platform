@@ -78,7 +78,7 @@ export default function OrgChart({ openScreen }) {
           </div>
           <p className="ui-caption">
             {nodes.length} {nodes.length === 1 ? 'person' : 'people'}
-            {req.data.openSeats?.length ? ` · ${req.data.openSeats.length} open ${req.data.openSeats.length === 1 ? 'seat' : 'seats'}` : ''}
+            {req.data.openSeats?.length ? ` · ${req.data.openSeats.length} open ${req.data.openSeats.length === 1 ? 'position' : 'positions'}` : ''}
           </p>
           {visible && !visible.size ? <p className="ui-muted text-sm">Nobody matches “{query.trim()}”.</p> : null}
           <ul className="border-t" aria-label="Reporting lines">
@@ -87,8 +87,8 @@ export default function OrgChart({ openScreen }) {
             ))}
           </ul>
           {chart.loose.length && !visible ? (
-            <section aria-label="Open seats" className="border-t pt-3">
-              <h2 className="ui-t-sec">Open seats <span className="ui-caption tabular-nums">{chart.loose.length}</span></h2>
+            <section aria-label="Open positions" className="border-t pt-3">
+              <h2 className="ui-t-sec">Open positions <span className="ui-caption tabular-nums">{chart.loose.length}</span></h2>
               <ul className="divide-y text-sm">{chart.loose.map((s) => <SeatRow key={s.id} s={s} />)}</ul>
             </section>
           ) : null}
@@ -104,7 +104,7 @@ function SeatRow({ s, depth = 0 }) {
       <span className="inline-block w-6" />
       <span className="inline-flex h-[30px] w-[30px] items-center justify-center rounded-full border border-dashed ui-caption" aria-hidden="true">+</span>
       <span className="min-w-0">
-        <span className="block truncate text-sm">{s.name} <span className="ui-pill ui-pill-neutral ml-1">Open seat</span></span>
+        <span className="block truncate text-sm">{s.name} <span className="ui-pill ui-pill-neutral ml-1">Open position</span></span>
         <span className="block truncate ui-caption">{[s.teamName, s.budgetRef].filter(Boolean).join(' · ') || '—'}</span>
       </span>
     </li>

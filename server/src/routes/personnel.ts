@@ -252,7 +252,7 @@ personnelRouter.post(`${base}/employees/:id/rehire`, can(PermissionAction.EDIT, 
       },
     });
     /* The one write path's log and event, in the same transaction (FND-04, FND-05). */
-    const actor = { accountId, orgId, userId: req.auth!.userId, source: 'HIRE' as const, correlationId: correlationOf(req as any), reason: `Rejoined: stint ${next.seq}` };
+    const actor = { accountId, orgId, userId: req.auth!.userId, source: 'HIRE' as const, correlationId: correlationOf(req as any), reason: `Rejoined (employment period ${next.seq})` };
     await writeChangeLog(tx, actor, { kind: 'Employee', id: row.id, employeeId: row.id }, diffEmployee(existing as unknown as Record<string, unknown>, row as unknown as Record<string, unknown>));
     await writeEvent(tx, actor, 'people.employee.rejoined.v1', { rejoinDate: parsed.data.rejoinDate, stint: next.seq, employee: employeeSummary(row) }, row.id);
     return row;

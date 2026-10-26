@@ -15,7 +15,7 @@ import { notify } from '@ui/components/ui/notify';
  * and opens the screen that fixes it. Read-only: nothing is changed here.
  */
 const SEVERITY = {
-  BLOCKS_PAYROLL: { label: 'Blocks payroll', tone: 'neg' },
+  BLOCKS_PAYROLL: { label: 'Blocks payday', tone: 'neg' },
   FIX_SOON: { label: 'Fix soon', tone: 'warn' },
   TIDY_UP: { label: 'Tidy up', tone: 'neutral' },
 };
@@ -105,7 +105,7 @@ export default function DataHealth({ openScreen, app = 'attendance', localScreen
           <>
             <section className="grid grid-cols-2 gap-3 md:grid-cols-4" aria-label="Summary">
               <StatTile label="People checked" value={data.people} hint="active, not left" />
-              <StatTile label="Blocks payroll" value={data.blocking} hint="people to fix first" tone={data.blocking ? 'neg' : 'pos'} />
+              <StatTile label="Blocks payday" value={data.blocking} hint="people to fix first" tone={data.blocking ? 'neg' : 'pos'} />
               <StatTile label="Checks failing" value={data.checks.length} hint="of the data checks" tone={data.checks.length ? 'warn' : 'pos'} />
               <StatTile label="Checked" value={new Date(data.ranAt).toLocaleTimeString('en-IN', { timeStyle: 'short' })} hint="just now" />
             </section>
