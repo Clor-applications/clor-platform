@@ -107,12 +107,12 @@ export const Avatar = ({ person, size = 40 }) =>
     <img src={person.photoUrl} alt="" className="shrink-0 rounded-full object-cover" style={{ width: size, height: size }} />
   ) : (
     <span
-      className="inline-grid shrink-0 place-items-center rounded-full font-semibold"
+      className="ui-avatar-initials inline-grid shrink-0 place-items-center rounded-full font-semibold"
       style={{ width: size, height: size, fontSize: size * 0.38, backgroundColor: 'rgb(var(--brand-soft))', color: 'rgb(var(--brand-ink))' }}
       aria-hidden="true"
-    >
-      {initials(person?.name)}
-    </span>
+      /* Drawn, not text: the initials are a picture of the person, so they never become part of a button's name. */
+      data-initials={initials(person?.name)}
+    />
   );
 
 const EXPORT_COLUMNS = [
@@ -401,7 +401,7 @@ export default function Employees({ description = '' } = {}) {
                   <span className={`ui-pill ${statusOf(p.status).pill}`}>{statusOf(p.status).label}</span>
                   {p.code ? <span className="ui-pill ui-pill-neutral">{p.code}</span> : null}
                   {(p.tags || []).slice(0, 2).map((t) => (
-                    <span key={t.id} className="ui-pill" style={{ backgroundColor: `${t.color}22`, color: t.color }}>{t.name}</span>
+                    <span key={t.id} className="ui-pill" style={{ backgroundColor: `${t.color}22`, color: `color-mix(in srgb, ${t.color} 55%, #000)` }}>{t.name}</span>
                   ))}
                 </span>
               </span>
@@ -697,7 +697,7 @@ function EmployeeFile({ id, onClose, onEdit, onDeleted }) {
                   </span>
                 ))}
                 {(person.tags || []).map((t) => (
-                  <span key={t.id} className="ui-pill" style={{ backgroundColor: `${t.color}22`, color: t.color }}>{t.name}</span>
+                  <span key={t.id} className="ui-pill" style={{ backgroundColor: `${t.color}22`, color: `color-mix(in srgb, ${t.color} 55%, #000)` }}>{t.name}</span>
                 ))}
               </div>
               <div className="ui-caption mt-1">{person.workEmail || person.email || ''}</div>
@@ -1950,7 +1950,7 @@ function EmployeeForm({ initial, lists, people, onClose, onSaved }) {
                     type="button"
                     aria-pressed={on}
                     className="ui-pill"
-                    style={on ? { backgroundColor: t.color, color: '#fff' } : { backgroundColor: `${t.color}22`, color: t.color }}
+                    style={on ? { backgroundColor: t.color, color: '#fff' } : { backgroundColor: `${t.color}22`, color: `color-mix(in srgb, ${t.color} 55%, #000)` }}
                     onClick={() =>
                       setForm((x) => ({ ...x, tagIds: on ? x.tagIds.filter((i) => i !== t.id) : [...(x.tagIds || []), t.id] }))
                     }

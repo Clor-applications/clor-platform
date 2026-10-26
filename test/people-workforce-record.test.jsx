@@ -107,5 +107,15 @@ describe('Workforce record edits', () => {
     await user.click(screen.getByRole('button', { name: 'Save' }));
     await waitFor(() => expect(within(screen.getByRole('region', { name: 'Name' })).getByRole('button', { name: /Edit/ })).toHaveFocus());
   });
+
+  it('the record and its section edit pass the axe accessibility rules (names, labels, roles, ARIA)', async () => {
+    const axe = (await import('axe-core')).default;
+    const { default: EmployeeRecord } = await import('../apps/people/src/workforce/EmployeeRecord');
+    const { container } = render(<EmployeeRecord params={{ id: 'e1', tab: 'personal', edit: 'name' }} updateParams={() => {}} openScreen={() => {}} />);
+    await screen.findByLabelText('Preferred name');
+    /* Colour contrast needs a real renderer; the browser scan covers it. Everything else is checked here. */
+    const result = await axe.run(container, { runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'] }, rules: { 'color-contrast': { enabled: false } } });
+    expect(result.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(' ')).join(', ')}`)).toEqual([]);
+  });
 });
 

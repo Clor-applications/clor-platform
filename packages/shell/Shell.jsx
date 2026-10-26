@@ -973,10 +973,11 @@ export default function Shell() {
                 <Search size={18} aria-hidden="true" />
               </button>
             ) : (
-              <button type="button" className="ui-global-search" onClick={() => setPaletteOpen(true)} aria-label="Search screens and apps" aria-keyshortcuts="Meta+K Control+K">
+              <button type="button" className="ui-global-search" onClick={() => setPaletteOpen(true)} aria-keyshortcuts="Meta+K Control+K">
                 <Search size={16} aria-hidden="true" />
+                {/* Named by its visible words; the shortcut is announced through aria-keyshortcuts, so the keycap is hidden from it. */}
                 <span>Search screens and apps</span>
-                <kbd>{/Mac|iPhone|iPad/.test(navigator.platform || '') ? '⌘K' : 'Ctrl K'}</kbd>
+                <kbd aria-hidden="true">{/Mac|iPhone|iPad/.test(navigator.platform || '') ? '⌘K' : 'Ctrl K'}</kbd>
               </button>
             )
           ) : null}

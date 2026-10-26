@@ -299,7 +299,7 @@ function TagLine({ person, tags, canEdit, onSaved }) {
   if (!mine.length && (!canEdit || !tags.length)) return null;
   return (
     <span className="mt-2 flex flex-wrap items-center gap-1.5 font-normal">
-      {(person.tags || []).map((t) => <span key={t.id} className="ui-pill" style={{ backgroundColor: `${t.color}22`, color: t.color }}>{t.name}</span>)}
+      {(person.tags || []).map((t) => <span key={t.id} className="ui-pill" style={{ backgroundColor: `${t.color}22`, color: `color-mix(in srgb, ${t.color} 55%, #000)` }}>{t.name}</span>)}
       {canEdit && tags.length ? (
         <>
           <button ref={btn} type="button" className="ui-tag-add" aria-haspopup="dialog" aria-expanded={open} onClick={() => setOpen((o) => !o)}>{mine.length ? <><Pencil size={12} aria-hidden="true" /> Tags</> : <><Plus size={12} aria-hidden="true" /> Add tag</>}</button>
