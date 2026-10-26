@@ -9,6 +9,7 @@ import useUnsavedChanges from '@ui/components/ui/useUnsavedChanges';
 import { clearUnsaved } from '@platform/unsaved';
 import { usePermissions } from '@ui/permissions/usePermissions';
 import { downloadCsvTemplate, parseCsv, readFileText } from '@ui/utils/csv';
+import { readXlsx } from '@ui/utils/xlsx';
 import PopupSelect from '@ui/components/pickers/PopupSelect';
 import { IMPORT_COLUMNS, IMPORT_FIELDS, guessField } from '@ui/personnel/Employees';
 
@@ -56,13 +57,23 @@ export default function ImportEmployees({ openScreen }) {
   const take = async (f) => {
     setFailure(null);
     if (!f) return;
-    if (!/\.csv$/i.test(f.name) && f.type !== 'text/csv') return setFailure({ message: 'Choose a CSV file. In Excel, use Save As → CSV UTF-8.' });
+    const excel = /\.xlsx$/i.test(f.name);
+    if (!excel && !/\.csv$/i.test(f.name) && f.type !== 'text/csv') return setFailure({ message: 'Choose a CSV or Excel (.xlsx) file.' });
     if (f.size > MAX_BYTES) return setFailure({ message: 'That file is over 2 MB. Split it into smaller files.' });
     try {
-      /* parseCsv gives the header row and each row keyed by it; the mapping works on columns, so rows go back to arrays. */
-      const parsed = parseCsv(await readFileText(f));
-      const headers = (parsed.headers || []).map((h) => String(h || '').trim());
-      const rows = (parsed.rows || []).map((o) => headers.map((h) => o[h] ?? '')).filter((r) => r.some((c) => String(c || '').trim()));
+      let headers;
+      let rows;
+      if (excel) {
+        const sheet = await readXlsx(f);
+        headers = sheet.headers.map((h) => String(h || '').trim());
+        rows = sheet.rows;
+      } else {
+        /* parseCsv gives the header row and each row keyed by it; the mapping works on columns, so rows go back to arrays. */
+        const parsed = parseCsv(await readFileText(f));
+        headers = (parsed.headers || []).map((h) => String(h || '').trim());
+        rows = (parsed.rows || []).map((o) => headers.map((h) => o[h] ?? ''));
+      }
+      rows = rows.filter((r) => r.some((c) => String(c || '').trim()));
       if (!headers.length || !rows.length) return setFailure({ message: 'That file has no rows under its header row.' });
       if (rows.length > MAX_ROWS) return setFailure({ message: `That file has ${rows.length} rows; import at most ${MAX_ROWS} at a time.` });
       const seen = new Set();
@@ -142,9 +153,9 @@ export default function ImportEmployees({ openScreen }) {
           <div className="space-y-3">
             <label className="ui-dropzone" onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); take(e.dataTransfer.files?.[0]); }}>
               <Upload size={24} aria-hidden="true" />
-              <span className="font-medium">Choose a CSV file</span>
+              <span className="font-medium">Choose a CSV or Excel file</span>
               <span className="ui-caption">or drop it here · up to 2 MB and {MAX_ROWS} rows</span>
-              <input ref={input} type="file" accept=".csv,text/csv" className="sr-only" onChange={(e) => take(e.target.files?.[0])} />
+              <input ref={input} type="file" accept=".csv,text/csv,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" className="sr-only" onChange={(e) => take(e.target.files?.[0])} />
             </label>
             <div className="flex flex-wrap items-center gap-3">
               <button type="button" className="ui-btn ui-btn-secondary" onClick={() => downloadCsvTemplate({ fileName: 'Employees import template', columns: IMPORT_COLUMNS, sample: { name: 'Asha Rao', code: 'EMP-0001', department: 'Finance', jobPosition: 'Accountant', dateOfJoining: '2026-04-01', gender: 'FEMALE' } })}><FileDown size={16} aria-hidden="true" /> Download the template</button>
