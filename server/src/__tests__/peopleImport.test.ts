@@ -86,4 +86,16 @@ describe('import', () => {
     const refused = await people(hr).post(`/employees/import/${old.batchId}/undo`, {}).expect(409);
     expect(refused.body.error).toContain('24 hours');
   });
+
+  it('undo keeps anyone changed by hand since, and runs once (Workforce audit S9)', async () => {
+    const done = (await people(hr).post('/employees/import', { rows: [{ name: 'Keep Me', code: `KM-${Date.now()}` }, { name: 'Drop Me', code: `DM-${Date.now()}` }] }).expect(200)).body;
+    const kept = (await people(hr).get('/employees?q=Keep Me&status=ALL').expect(200)).body.employees[0];
+    await new Promise((r) => setTimeout(r, 1100));
+    await request(app).put(`/api/orgs/${hr.orgId}/people/employees/${kept.id}`).set(at(hr)).send({ phone: '9876543210' }).expect(200);
+    const undone = (await people(hr).post(`/employees/import/${done.batchId}/undo`, {}).expect(200)).body;
+    expect(undone).toEqual({ removed: 1, restored: 0, kept: 1 });
+    await people(hr).get(`/employees/${kept.id}`).expect(200);
+    /* Two clicks: the second finds it already undone. */
+    await people(hr).post(`/employees/import/${done.batchId}/undo`, {}).expect(409);
+  });
 });

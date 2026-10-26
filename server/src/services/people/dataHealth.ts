@@ -42,7 +42,7 @@ const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', '
 /* A day as people write it in what they read: 2 Mar 2024. */
 const dayWords = (iso: string | null | undefined) => { const [y, m, d] = String(iso || '').slice(0, 10).split('-'); return y && m && d ? `${Number(d)} ${MONTHS[Number(m) - 1]} ${y}` : String(iso || ''); };
 
-export async function dataHealth(accountId: string, orgId: string, opts: { payroll: boolean; year?: number; sample?: number } = { payroll: true }) {
+export async function dataHealth(accountId: string, orgId: string, opts: { payroll: boolean; year?: number; sample?: number; onlyIds?: string[]; readable?: string[] } = { payroll: true }) {
   const year = opts.year ?? (await leaveYearOf(orgId));
   const [employees, payrollOn, readers, unmatched] = await Promise.all([
     peoplePrisma.employee.findMany({
@@ -56,7 +56,10 @@ export async function dataHealth(accountId: string, orgId: string, opts: { payro
   ]);
   const who = (e: { id: string; name: string; code: string | null }, detail?: string): Person & { detail?: string } => ({ id: e.id, name: e.name, code: e.code, ...(detail ? { detail } : {}) });
   const checks: Check[] = [];
-  const add = (c: Omit<Check, 'count' | 'people'>, list: Array<Person & { detail?: string }>) => {
+  /* A team lead sees their own team's rows; the checks still run across the company (a phone shared with someone outside the team is still shared). */
+  const only = opts.onlyIds ? new Set(opts.onlyIds) : null;
+  const add = (c: Omit<Check, 'count' | 'people'>, all: Array<Person & { detail?: string }>) => {
+    const list = only ? all.filter((x) => x.id && only.has(x.id)) : all;
     if (list.length) checks.push({ ...c, count: list.length, people: list.slice(0, opts.sample ?? SAMPLE) });
   };
 
@@ -64,13 +67,15 @@ export async function dataHealth(accountId: string, orgId: string, opts: { payro
   {
     const today = new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
     const byId = new Map(employees.map((e) => [e.id, e]));
-    const expired = await peoplePrisma.employeeDocument.findMany({ where: { orgId, employeeId: { in: employees.map((e) => e.id) }, expiresOn: { not: null, lt: today } }, select: { employeeId: true, kind: true, title: true, expiresOn: true, restrictsWork: true }, orderBy: { expiresOn: 'asc' } });
+    const expired = await peoplePrisma.employeeDocument.findMany({ where: { orgId, employeeId: { in: employees.map((e) => e.id) }, expiresOn: { not: null, lt: today } }, select: { employeeId: true, kind: true, title: true, classification: true, expiresOn: true, restrictsWork: true }, orderBy: { expiresOn: 'asc' } });
+    /* A document the viewer may not open is counted, never named. */
+    const titleOf = (d: { title: string; classification: string }) => (!opts.readable || opts.readable.includes(String(d.classification || '')) ? d.title : 'A restricted document');
     const permits = expired.filter((d) => d.kind === 'WORK_PERMIT' || d.kind === 'CERTIFICATE');
     const others = expired.filter((d) => !(d.kind === 'WORK_PERMIT' || d.kind === 'CERTIFICATE'));
     add({ id: 'permit-expired', area: 'People', severity: 'FIX_SOON', title: 'Work permit or certificate has expired', why: 'They may be doing work the permit allowed; the record says so, other apps do not stop it.', fix: 'Renew it and add the new copy on Documents, or move them off that work.', screen: 'employees' },
-      permits.map((d) => who(byId.get(d.employeeId)!, `${d.title} expired ${d.expiresOn}${d.restrictsWork ? ` · may not: ${d.restrictsWork}` : ''}`)));
+      permits.map((d) => who(byId.get(d.employeeId)!, `${titleOf(d)} expired ${dayWords(d.expiresOn!)}${d.restrictsWork ? ` · may not: ${d.restrictsWork}` : ''}`)));
     add({ id: 'document-expired', area: 'People', severity: 'TIDY_UP', title: 'Document past its date', why: 'An expired ID, contract or proof on file is not valid for an audit or a renewal.', fix: 'Add the renewed copy on Documents.', screen: 'employees' },
-      others.map((d) => who(byId.get(d.employeeId)!, `${d.title} expired ${d.expiresOn}`)));
+      others.map((d) => who(byId.get(d.employeeId)!, `${titleOf(d)} expired ${dayWords(d.expiresOn!)}`)));
   }
 
   /* Policies (POL-06): two published policies of one kind that apply to the same people on the same day. */
@@ -166,7 +171,7 @@ export async function dataHealth(accountId: string, orgId: string, opts: { payro
       employees.filter((e) => e.attendanceRequired !== false && !e.devicePin).map((e) => who(e))
     );
   }
-  if (unmatched.length) {
+  if (unmatched.length && !only) {
     const punches = unmatched.reduce((n, u) => n + u._count._all, 0);
     checks.push({
       id: 'unmatched-punches', area: 'Attendance', severity: 'FIX_SOON', title: 'Punches nobody owns',
@@ -242,8 +247,8 @@ export async function dataHealth(accountId: string, orgId: string, opts: { payro
  * already looking. Company-wide checks (two people on one bank account)
  * still count, because the full lists are read before filtering.
  */
-export async function readinessOf(accountId: string, orgId: string, employeeId: string, opts: { payroll: boolean }) {
-  const all = await dataHealth(accountId, orgId, { payroll: opts.payroll, sample: Number.POSITIVE_INFINITY });
+export async function readinessOf(accountId: string, orgId: string, employeeId: string, opts: { payroll: boolean; readable?: string[] }) {
+  const all = await dataHealth(accountId, orgId, { payroll: opts.payroll, sample: Number.POSITIVE_INFINITY, onlyIds: [employeeId], readable: opts.readable });
   const checks = all.checks
     .map((c: Check) => ({ c, me: c.people.find((p) => p.id === employeeId) }))
     .filter((x) => x.me)

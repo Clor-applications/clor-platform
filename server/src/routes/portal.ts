@@ -30,6 +30,7 @@ import { balancesFor, leavePeriodOf, leaveYearOf } from '../services/attendance/
 import { periodEnd, periodStart } from '../services/attendance/leaveAccrual.js';
 import { recomputeDeviceDay, shiftDayFor } from '../services/attendance/punches.js';
 import { enterTenant, outsideTenant, runInTenant } from '../utils/tenantScope.js';
+import { DeskError, listRequests as listDeskRequests, raiseRequest as raiseDeskRequest } from '../services/people/desk.js';
 
 /**
  * The employee portal (ClorTime's /portal): staff without a CLOR user sign in
@@ -384,36 +385,28 @@ portalRouter.get('/home', async (req, res) => {
  * cases, and only where the company uses People.
  */
 const HR_CATEGORIES = ['GENERAL', 'PAYROLL', 'LEAVE', 'DOCUMENTS', 'OTHER'] as const;
-const caseRow = (r: any) => ({ id: r.id, title: r.title, status: r.status, category: (r.details as any)?.category || 'GENERAL', description: (r.details as any)?.description || '', resolution: (r.details as any)?.resolution || '', createdAt: r.createdAt, updatedAt: r.updatedAt });
+/* The employee app's older "Ask HR" screen, served from the help desk HR actually works in (services/people/desk.ts); the old register is no longer written. */
+const caseRow = (r: any) => ({ id: r.id, title: r.subject, status: r.status === 'RESOLVED' || r.status === 'CLOSED' ? 'RESOLVED' : 'OPEN', category: r.category, description: r.status === 'MOVED' ? '' : r.description || '', resolution: r.resolution || '', createdAt: r.createdAt, updatedAt: r.updatedAt });
+const DESK_CATEGORY: Record<string, string> = { GENERAL: 'OTHER' };
 
 portalRouter.get('/hr-cases', async (req, res) => {
   const e = req.portal!.employee;
   if (!(await isFeatureEnabled(e.accountId, e.orgId, 'peopleEngage'))) return res.json({ available: false, cases: [] });
-  const rows = await peoplePrisma.peopleRecord.findMany({ where: { accountId: e.accountId, orgId: e.orgId, kind: 'helpdesk', employeeId: e.id }, orderBy: { updatedAt: 'desc' }, take: 50 });
-  res.json({ available: true, categories: HR_CATEGORIES, cases: rows.map(caseRow) });
+  const rows = await listDeskRequests(e.orgId, { employeeId: e.id });
+  res.json({ available: true, categories: HR_CATEGORIES, cases: rows.slice(0, 50).map(caseRow) });
 });
 
 portalRouter.post('/hr-cases', async (req, res) => {
   const e = req.portal!.employee;
   if (!(await isFeatureEnabled(e.accountId, e.orgId, 'peopleEngage'))) return res.status(404).json({ error: 'Your company does not take HR questions here.' });
-  const title = String(req.body?.title || '').trim().slice(0, 200);
-  const description = String(req.body?.description || '').trim().slice(0, 5000);
   const category = HR_CATEGORIES.includes(req.body?.category) ? req.body.category : 'GENERAL';
-  if (!title) return res.status(400).json({ error: 'Say in a few words what it is about.' });
-  if (description.length < 5) return res.status(400).json({ error: 'Tell HR what happened.' });
-  const open = await peoplePrisma.peopleRecord.count({ where: { orgId: e.orgId, kind: 'helpdesk', employeeId: e.id, status: { in: ['OPEN', 'IN_PROGRESS'] } } });
-  if (open >= 10) return res.status(429).json({ error: 'You have ten questions open with HR already. Wait for an answer first.' });
-  const due = new Date(Date.now() + 330 * 60_000 + 3 * 86_400_000).toISOString().slice(0, 10);
-  const row = await peoplePrisma.peopleRecord.create({
-    data: { accountId: e.accountId, orgId: e.orgId, kind: 'helpdesk', title, status: 'OPEN', employeeId: e.id, dueDate: due, details: { category, priority: 'NORMAL', description, resolution: '' }, createdBy: `portal:${e.id}`, updatedBy: `portal:${e.id}` },
-  });
-  await notifyPermission(e.accountId, e.orgId, 'PEOPLE::HR Cases::VIEW', {
-    kind: 'people.hr_case',
-    title: `${e.name}${e.code ? ` (${e.code})` : ''} asked HR: ${title}`,
-    body: description.slice(0, 300),
-    link: { app: 'people', screen: 'helpdesk' },
-  }).catch(() => null);
-  res.status(201).json({ case: caseRow(row) });
+  try {
+    const row = await raiseDeskRequest({ accountId: e.accountId, orgId: e.orgId, userId: null, employeeId: e.id }, e.id, { category: DESK_CATEGORY[category] || category, subject: req.body?.title, description: req.body?.description });
+    res.status(201).json({ case: caseRow(row) });
+  } catch (err) {
+    if (err instanceof DeskError) return res.status(err.status).json({ error: err.message });
+    throw err;
+  }
 });
 
 // Published People communications reach employees without granting HR access.

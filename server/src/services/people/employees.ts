@@ -53,11 +53,16 @@ export async function createEmployee(actor: Actor, data: Prisma.EmployeeUnchecke
   return row;
 }
 
+/** The record moved on since the editor loaded it (409 STALE). */
+export class StaleEmployeeError extends Error {
+  constructor(public current: Row) { super('STALE'); }
+}
+
 export async function updateEmployee(
   actor: Actor,
   existing: Row,
   data: Prisma.EmployeeUncheckedUpdateInput,
-  opts: { effectiveDate?: string | null; afterWrite?: (tx: Prisma.TransactionClient, row: Row) => Promise<void> } = {},
+  opts: { effectiveDate?: string | null; expectedVersion?: number; afterWrite?: (tx: Prisma.TransactionClient, row: Row) => Promise<void> } = {},
 ): Promise<{ row: Row; changes: ReturnType<typeof diffEmployee> }> {
   const result = await peoplePrisma.$transaction(async (tx) => {
     /* Every write moves the version on, so an edit made against an older copy is refused (People design v1, 409 STALE). */
@@ -70,6 +75,8 @@ export async function updateEmployee(
     const current = ((await tx.$queryRaw<Array<{ id: string }>>`SELECT id FROM "Employee" WHERE id = ${existing.id} FOR UPDATE`).length
       ? await tx.employee.findUnique({ where: { id: existing.id } })
       : null) || existing;
+    /* Checked under the lock: two saves made from the same copy cannot both pass. */
+    if (opts.expectedVersion !== undefined && (current as Row).version !== opts.expectedVersion) throw new StaleEmployeeError(current as Row);
     const updated = await tx.employee.update({ where: { id: existing.id }, data: { ...(data as Record<string, unknown>), version: { increment: 1 } } as Prisma.EmployeeUncheckedUpdateInput });
     const changes = diffEmployee(current as unknown as Record<string, unknown>, updated as unknown as Record<string, unknown>);
     await writeChangeLog(tx, actor, { kind: 'Employee', id: updated.id, employeeId: updated.id }, changes);

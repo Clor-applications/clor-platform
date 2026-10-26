@@ -112,4 +112,32 @@ describe('a manager limited to their own team', () => {
     const lone = await colleague(hr, ['PEOPLE::Employees::VIEW'], true);
     expect((await people(lone).get('/employees?limit=500').expect(200)).body).toMatchObject({ employees: [], total: 0 });
   });
+
+  it('the rest of People keeps to the team too (Workforce audit S1–S4)', async () => {
+    const lead = await colleague(hr, ['PEOPLE::Employees::VIEW', 'PEOPLE::Employees::EDIT', 'PEOPLE::Employees::EXPORT', 'PEOPLE::Employees::CREATE', 'PEOPLE::Employees::DELETE', 'PEOPLE::Employee Notes::VIEW', 'PEOPLE::Employee Notes::CREATE', 'PEOPLE::Statutory Details::VIEW', 'PEOPLE::Statutory Details::EDIT', 'PEOPLE::Lifecycle::EDIT'], true);
+    const mine = (await people(hr).post('/employees', { name: 'Lead Self', code: `L-${rnd()}`, probationEndDate: '2099-01-01' }).expect(201)).body.employee;
+    await runInTenant(hr.orgId, () => peoplePrisma.employee.update({ where: { id: mine.id }, data: { userId: lead.userId } }));
+    /* Ticked ids from outside the team are not exported. */
+    const csv = (await people(lead).get(`/employees/export?ids=${stranger.id}`).expect(200)).text;
+    expect(csv).not.toContain('Someone Else');
+    /* Statutory, identity, notes, checklist: a stranger reads as absent. */
+    await people(lead).get(`/employees/${stranger.id}/statutory`).expect(404);
+    await people(lead).put(`/employees/${stranger.id}/identity`, { aadhaarLast4: '1234' }).expect(404);
+    await people(lead).get(`/employees/${stranger.id}/notes`).expect(404);
+    await people(lead).post(`/employees/${stranger.id}/notes`, { body: 'Should not land' }).expect(404);
+    await people(lead).get(`/employees/${stranger.id}/checklist`).expect(404);
+    await people(lead).post(`/employees/${stranger.id}/probation/review`, { observations: 'x' }).expect(404);
+    /* Nobody reviews their own probation. */
+    await people(lead).post(`/employees/${mine.id}/probation/review`, { observations: 'All good' }).expect(403);
+    /* Open tasks and the overview show the team only. */
+    const tasks = (await people(lead).get('/checklist-tasks').expect(200)).body.tasks.map((t: any) => t.employee.id);
+    expect(tasks).not.toContain(stranger.id);
+    const overview = (await people(lead).get('/overview').expect(200)).body;
+    expect(overview.headcount).toBe(1);
+    /* Company-wide HR work is refused outright. */
+    await people(lead).post('/employees/import', { rows: [{ name: 'Imported' }] }).expect(403);
+    await people(lead).get('/data-requests').expect(403);
+    await people(lead).get('/headcount').expect(403);
+    await people(lead).post(`/employees/${stranger.id}/anonymise`, { confirmName: 'Someone Else' }).expect(403);
+  });
 });

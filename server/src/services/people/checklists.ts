@@ -135,8 +135,8 @@ async function tellOwners(who: Who, employee: { id: string; name: string; code: 
  */
 export async function startChecklist(who: Who, employee: { id: string }, kind: Kind, baseDate: string | null | undefined, opts: { done?: string[]; items?: Item[] } = {}) {
   try {
-    const open = await peoplePrisma.checklistTask.count({ where: { orgId: who.orgId, employeeId: employee.id, kind, doneAt: null } });
-    if (open && !opts.items) return 0;
+    const alreadyOpen = (tx: { checklistTask: typeof peoplePrisma.checklistTask }) => tx.checklistTask.count({ where: { orgId: who.orgId, employeeId: employee.id, kind, doneAt: null } });
+    if ((await alreadyOpen(peoplePrisma)) && !opts.items) return 0;
     const person = await peoplePrisma.employee.findFirst({ where: { id: employee.id, orgId: who.orgId }, select: { id: true, name: true, code: true, reportingManagerId: true, userId: true } });
     if (!person) return 0;
     const owners = await resolveOwners(who, person);
@@ -155,21 +155,28 @@ export async function startChecklist(who: Who, employee: { id: string }, kind: K
     /* A joiner entered after they started is not late on day one: nothing falls due before the day the plan is made. */
     const today = todayIst();
     const due = (n: number) => { const d = plusDays(base, n); return d < today ? today : d; };
-    await peoplePrisma.checklistTask.createMany({
-      data: items.map((it, i) => ({
-        accountId: who.accountId,
-        orgId: who.orgId,
-        employeeId: employee.id,
-        kind,
-        title: it.title.slice(0, 200),
-        owner: OWNERS.includes(it.owner) ? it.owner : 'HR',
-        ownerUserId: owners[OWNERS.includes(it.owner) ? it.owner : 'HR'],
-        dueDate: due(Math.round(Number(it.dueDays) || 0)),
-        sortOrder: i,
-        note: it.note ? it.note.slice(0, 500) : null,
-        ...(done.has(it.title) ? { doneAt: now, note: 'Done by CLOR.' } : {}),
-      })),
+    /* Two saves at once (a create and a rehire, two clicks) must not both start one: checked again under a lock per person and kind. */
+    const made = await peoplePrisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`checklist:${employee.id}:${kind}`}))`;
+      if (!opts.items && (await alreadyOpen(tx))) return false;
+      await tx.checklistTask.createMany({
+        data: items.map((it, i) => ({
+          accountId: who.accountId,
+          orgId: who.orgId,
+          employeeId: employee.id,
+          kind,
+          title: it.title.slice(0, 200),
+          owner: OWNERS.includes(it.owner) ? it.owner : 'HR',
+          ownerUserId: owners[OWNERS.includes(it.owner) ? it.owner : 'HR'],
+          dueDate: due(Math.round(Number(it.dueDays) || 0)),
+          sortOrder: i,
+          note: it.note ? it.note.slice(0, 500) : null,
+          ...(done.has(it.title) ? { doneAt: now, note: 'Done by CLOR.' } : {}),
+        })),
+      });
+      return true;
     });
+    if (!made) return 0;
     await tellOwners(who, person, kind);
     return items.length;
   } catch (e) {

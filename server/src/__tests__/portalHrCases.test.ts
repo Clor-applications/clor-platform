@@ -40,7 +40,8 @@ describe('ask HR from the app', () => {
     expect((await request(app).get('/api/portal/hr-cases').set(asha.h).expect(200)).body.cases).toHaveLength(1);
     expect((await request(app).get('/api/portal/hr-cases').set(ravi.h).expect(200)).body.cases).toHaveLength(0);
 
-    const hr = (await request(app).get(`/api/orgs/${c.orgId}/people/workspace/helpdesk`).set(at(c)).expect(200)).body.records;
-    expect(hr.find((r: any) => r.id === made.id)).toMatchObject({ employeeId: asha.id, title: 'October salary short', status: 'OPEN', dueDate: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/) });
+    /* It lands on HR's help desk, the screen HR works from (Workforce audit E2). */
+    const hr = (await request(app).get(`/api/orgs/${c.orgId}/people/desk`).set(at(c)).expect(200)).body.requests;
+    expect(hr.find((r: any) => r.id === made.id)).toMatchObject({ employeeId: asha.id, subject: 'October salary short', status: 'OPEN', category: 'PAYROLL' });
   }, 60_000);
 });

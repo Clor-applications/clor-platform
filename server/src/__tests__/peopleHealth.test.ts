@@ -45,6 +45,8 @@ describe('health check', () => {
     const b = (await people(hr).post('/employees', { name: 'Ravi Das', code: 'H-3', dateOfJoining: plus(-40) }).expect(201)).body.employee;
     const dept = (await people(hr).post('/structure/departments', { name: 'Design' }).expect(201)).body.item;
     await people(hr).put(`/employees/${a.id}`, { departmentId: dept.id, effectiveFrom: plus(30) }).expect(200);
+    /* A plan is never late on the day it is made (checklists.ts); one of Ravi's tasks has since gone past its date. */
+    await runInTenant(hr.orgId, () => peoplePrisma.checklistTask.updateMany({ where: { orgId: hr.orgId, employeeId: b.id, kind: 'JOINING', sortOrder: 0 }, data: { dueDate: plus(-5) } }));
 
     const health = (await people(hr).get('/data-health').expect(200)).body;
     const ids = health.checks.map((c: any) => c.id);

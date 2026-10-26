@@ -177,6 +177,8 @@ model Employee {
   updatedAt       DateTime @updatedAt
 
   @@unique([orgId, code])
+  /// One login is one person in a company (team scope, self-service and manager approvals read it).
+  @@unique([orgId, userId])
   @@unique([orgId, devicePin])
   @@index([accountId, orgId, areaId])
   @@index([accountId, orgId, contractorId])
