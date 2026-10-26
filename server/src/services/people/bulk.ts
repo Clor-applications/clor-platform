@@ -1,4 +1,5 @@
 import { peoplePrisma } from '../../utils/peoplePrisma.js';
+import { platformPrisma } from '../../utils/platformPrisma.js';
 import type { Actor } from './changeLog.js';
 import { updateEmployee } from './employees.js';
 import { activeRule } from './approvals/engine.js';
@@ -14,7 +15,8 @@ import { HOURS } from './employmentKinds.js';
  */
 
 export const BULK_LIMIT = 2000;
-const STRUCTURE: Record<string, { model: string; nameField?: 'department' | 'designation' }> = {
+/* `branch` lives in the platform database (platformPrisma), not with People's lists; it is read there below. */
+const STRUCTURE: Record<string, { model: string; nameField?: 'department' | 'designation'; platform?: true }> = {
   departmentId: { model: 'department', nameField: 'department' },
   jobPositionId: { model: 'jobPosition', nameField: 'designation' },
   employeeTypeId: { model: 'employeeType' },
@@ -27,6 +29,7 @@ const STRUCTURE: Record<string, { model: string; nameField?: 'department' | 'des
   businessUnitId: { model: 'businessUnit' },
   reportingManagerId: { model: 'employee' },
   contractorId: { model: 'contractor' },
+  branchId: { model: 'branch', platform: true },
 };
 
 /** True when `employeeId` already sits above `managerId` in the reporting chain (a change would close a loop). */
@@ -75,6 +78,12 @@ export async function bulkUpdate(actor: Actor, input: { ids?: unknown; set?: unk
   for (const [k, v] of Object.entries(set)) {
     if (k === 'hours') continue;
     if (!v) { if (STRUCTURE[k].nameField) data[STRUCTURE[k].nameField!] = null; continue; }
+    if (STRUCTURE[k].platform) {
+      /* A branch must be one of this company's, and open. */
+      const branch = await platformPrisma.branch.findFirst({ where: { id: v, orgId: actor.orgId, accountId: actor.accountId, isActive: true }, select: { id: true } });
+      if (!branch) throw new BulkError('Choose one of this company\'s open branches.');
+      continue;
+    }
     const row = await (peoplePrisma as any)[STRUCTURE[k].model].findFirst({ where: { id: v, orgId: actor.orgId }, select: { id: true, name: true } });
     if (!row) throw new BulkError(`That ${k.replace(/Id$/, '').replace(/([A-Z])/g, ' $1').toLowerCase()} is not in this company.`);
     if (STRUCTURE[k].nameField) data[STRUCTURE[k].nameField!] = row.name;

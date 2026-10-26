@@ -417,6 +417,21 @@ export const FEATURE_CATALOG: FeatureDef[] = [
     category: 'People',
     dependsOn: 'people',
   },
+  /*
+   * Organization (26 Oct 2026): a 15-person shop needs departments,
+   * designations and branches; the rest of the structure lists are for a
+   * larger company. Off for a new company; turned on once for a company that
+   * already uses any of them (services/people/organization.ts ensureOrgDetail),
+   * so nothing disappears for an existing customer.
+   */
+  {
+    key: 'peopleOrgDetail',
+    label: 'Detailed structure',
+    description: 'Teams, positions, business units, grades, cost centres, job roles and locations for a larger company.',
+    defaultEnabled: false,
+    category: 'People',
+    dependsOn: 'people',
+  },
 
   // ---- Attendance -------------------------------------------------------
   /*

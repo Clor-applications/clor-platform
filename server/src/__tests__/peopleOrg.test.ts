@@ -68,8 +68,11 @@ describe('teams and seats', () => {
     /* In use: not deleted; inactive instead. Free: deleted. */
     expect((await people(hr).del(`/structure/teams/${day.id}`).expect(409)).body.error).toContain('1 person uses this');
     expect((await people(hr).del(`/structure/seats/${s2.id}`).expect(409)).body.error).toContain('1 person uses this');
-    await people(hr).put(`/structure/teams/${day.id}`, { name: 'Day shift', isActive: false }).expect(200);
+    /* Retiring it with someone still in it asks where they go first (Organization). */
+    expect((await people(hr).put(`/structure/teams/${day.id}`, { name: 'Day shift', isActive: false }).expect(409)).body).toMatchObject({ code: 'IN_USE', count: 1 });
+    await people(hr).put(`/structure/teams/${day.id}`, { name: 'Day shift', isActive: false, moveTo: team.id }).expect(200);
     expect((await people(hr).get('/structure/teams').expect(200)).body.items.find((x: any) => x.id === day.id).isActive).toBe(false);
+    expect((await people(hr).get(`/employees/${a.id}`).expect(200)).body.employee.teamId).toBe(team.id);
     await people(hr).del(`/structure/seats/${s1.id}`).expect(200);
     expect((await people(hr).get('/structure/seats').expect(200)).body.items.map((x: any) => x.id)).toEqual([s2.id]);
   });
