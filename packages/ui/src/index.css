@@ -7743,7 +7743,16 @@ button.ui-metric:focus-visible { outline: 2px solid rgb(var(--ring)); outline-of
 @media (max-width: 639px) {
   .ui-metric-strip { grid-template-columns: repeat(2, 1fr); }
   .ui-metric { border-bottom: 1px solid rgb(var(--border)); }
+  /* An odd last tile takes the full row instead of leaving half of it empty; no rule under the bottom row. */
+  .ui-metric:nth-child(even) { border-right: 0; }
+  .ui-metric:last-child:nth-child(odd) { grid-column: 1 / -1; border-right: 0; }
+  .ui-metric:last-child, .ui-metric:nth-last-child(2):nth-child(odd) { border-bottom: 0; }
+  /* On cards, Columns does nothing: the search takes the row and Filters sits beside it. */
+  .ui-datatable.has-cards .ui-columns-btn { display: none; }
+  .ui-attention { gap: 0.5rem; }
+  .ui-attention > li { flex-wrap: wrap; }
 }
+.ui-attention .ui-link { white-space: nowrap; }
 
 /* Workforce employee record (People design v1 EMP-03..09) */
 .ui-record-section { background: rgb(var(--surface)); border: 1px solid rgb(var(--border)); padding: 1rem 1.25rem; }

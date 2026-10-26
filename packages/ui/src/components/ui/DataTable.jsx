@@ -81,7 +81,7 @@ function ColumnSettings({ columns, prefs, onPrefs, defaults }) {
   };
   return (
     <>
-      <button ref={btn} type="button" className="ui-btn ui-btn-secondary" aria-haspopup="dialog" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
+      <button ref={btn} type="button" className="ui-btn ui-btn-secondary ui-columns-btn" aria-haspopup="dialog" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
         <Columns3 size={16} aria-hidden="true" /> Columns
       </button>
       {open ? (
