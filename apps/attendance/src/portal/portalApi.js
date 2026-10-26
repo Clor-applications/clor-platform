@@ -182,3 +182,13 @@ export const hm = (minutes) => {
 };
 
 export const getCompanyUpdates = () => call('/company-updates');
+
+/* People self-service (server: routes/peoplePortal.ts): my details and job, my requests to HR, policies, and what I am asked to accept. */
+export const getMyDetails = () => call('/people/me/details');
+export const askDetailsChange = (body) => call('/people/me/change-request', { method: 'POST', body });
+export const answerMyRequest = (id, note) => call(`/people/me/requests/${encodeURIComponent(id)}/reply`, { method: 'POST', body: { note } });
+export const withdrawMyRequest = (id) => call(`/people/me/requests/${encodeURIComponent(id)}/withdraw`, { method: 'POST' });
+export const getPolicies = () => call('/people/policies');
+export const getPolicy = (versionId) => call(`/people/policies/${encodeURIComponent(versionId)}`);
+export const getToAccept = () => call('/people/acknowledgements');
+export const acceptItem = (id) => call(`/people/acknowledgements/${encodeURIComponent(id)}/accept`, { method: 'POST' });
