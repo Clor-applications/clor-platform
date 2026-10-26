@@ -133,8 +133,8 @@ function TemplateDrawer({ value, cats, policies, onClose, onDone }) {
         {error ? <div className="sm:col-span-2"><ErrorState error={error?.status ? error : null} compact title={error?.status ? undefined : error.message} body={error?.status && error.status < 500 ? error.message : undefined} /></div> : null}
         <label className="block sm:col-span-2"><span className="ui-label">Title *</span><input className="ui-input w-full" maxLength={120} value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} autoFocus /></label>
         <label className="block sm:col-span-2"><span className="ui-label">Answer *</span><textarea className="ui-input w-full" rows={6} value={form.body} onChange={(e) => setForm({ ...form, body: e.target.value })} /></label>
-        <div><PopupSelect showValueSubtext={false} label="For category" value={form.category} onChange={(v) => setForm({ ...form, category: v || '' })} options={[{ value: '', label: 'Any category' }, ...cats.map((c) => ({ value: c.key, label: c.label }))]} /></div>
-        <div><PopupSelect showValueSubtext={false} label="Cites policy" value={form.policyId} onChange={(v) => setForm({ ...form, policyId: v || '' })} alwaysSearch={policies.length > 8} options={[{ value: '', label: 'No policy' }, ...policies.map((p) => ({ value: p.id, label: p.title }))]} /></div>
+        <div><PopupSelect showValueSubtext={false} label="For category" value={form.category} placeholder="Any category" onChange={(v) => setForm({ ...form, category: v || '' })} options={[{ value: '', label: 'Any category' }, ...cats.map((c) => ({ value: c.key, label: c.label }))]} /></div>
+        <div><PopupSelect showValueSubtext={false} label="Cites policy" value={form.policyId} placeholder="No policy" onChange={(v) => setForm({ ...form, policyId: v || '' })} alwaysSearch={policies.length > 8} options={[{ value: '', label: 'No policy' }, ...policies.map((p) => ({ value: p.id, label: p.title }))]} /></div>
       </form>
     </Drawer>
   );
