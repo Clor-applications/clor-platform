@@ -149,7 +149,7 @@ export async function dataHealth(accountId: string, orgId: string, opts: { payro
     return [...m.values()].filter((g) => g.length >= min);
   };
   add(
-    { id: 'duplicate-person', area: 'People', severity: 'FIX_SOON', title: 'Possibly the same person twice', why: 'Two files with the same name and date of birth get paid twice and split one person\'s attendance.', fix: 'Open both files; keep one and record the other as left, or correct the details.', screen: 'employees' },
+    { id: 'duplicate-person', area: 'People', severity: 'FIX_SOON', title: 'Possibly the same person twice', why: 'Two files with the same name and date of birth get paid twice and split one person\'s attendance.', fix: 'Open both files; keep one, and close the other with Mark as left, reason Duplicate record (no settlement is asked), or correct the details.', screen: 'employees' },
     groups((e) => (e.dateOfBirth ? `${norm(e.name)}|${String(e.dateOfBirth).slice(0, 10)}` : '')).flat().map((e) => who(e, `born ${String(e.dateOfBirth).slice(0, 10)}`))
   );
   add(

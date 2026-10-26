@@ -200,3 +200,21 @@ export async function timelineOf(orgId: string, employee: Row) {
   }
   return events;
 }
+
+/**
+ * A joining date corrected during the first, still-open stint (Workforce
+ * final audit W6): the dates service is measured from move with it — the
+ * first joining date, the first stint's start and the Joined entry — so
+ * service length, letters and "as of" views follow the corrected date. A
+ * rejoined person's first joining date never moves.
+ */
+export async function joiningCorrected(who: Who, employee: { id: string; currentEpisodeSeq?: number | null }, newDate: string | null) {
+  if (!newDate || !ISO_DAY.test(newDate) || (employee.currentEpisodeSeq || 1) > 1) return;
+  const first = await peoplePrisma.employmentEpisode.findFirst({ where: { orgId: who.orgId, employeeId: employee.id, seq: 1 } });
+  if (first?.endDate) return;
+  await peoplePrisma.$transaction([
+    peoplePrisma.employee.updateMany({ where: { id: employee.id, orgId: who.orgId }, data: { firstJoiningDate: newDate } }),
+    peoplePrisma.employmentEpisode.updateMany({ where: { orgId: who.orgId, employeeId: employee.id, seq: 1, endDate: null }, data: { startDate: newDate } }),
+    peoplePrisma.employmentEvent.updateMany({ where: { orgId: who.orgId, employeeId: employee.id, kind: 'JOINED' }, data: { effectiveDate: newDate } }),
+  ]);
+}

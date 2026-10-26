@@ -201,6 +201,9 @@ personnelRouter.post(`${base}/employees/:id/resign`, can(PermissionAction.EDIT, 
       lastDay: z.string().regex(ISO_DATE, 'Choose the last working day.'),
       leavingType: z.enum(LEAVING_TYPES),
       reason: text(500),
+      /* Notice (W15): when the resignation came, and whether the notice owed is waived. */
+      resignedOn: z.string().regex(ISO_DATE, 'Give the date the resignation was received.').optional().nullable().or(z.literal('')).transform((v) => v || null),
+      noticeWaived: z.boolean().optional(),
     })
     .safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Check the details.' });
@@ -210,7 +213,8 @@ personnelRouter.post(`${base}/employees/:id/resign`, can(PermissionAction.EDIT, 
   /* Did not join: the day they were to start closes the record, whatever date was sent (W5). A duplicate closes today. */
   const lastDay = parsed.data.leavingType === 'NOT_JOINED' ? existing.dateOfJoining || parsed.data.lastDay : parsed.data.lastDay;
   if (parsed.data.leavingType !== 'NOT_JOINED' && parsed.data.leavingType !== 'DUPLICATE' && existing.dateOfJoining && lastDay < existing.dateOfJoining) return res.status(400).json({ error: 'Somebody cannot leave before they joined. If they never came, choose Did not join.' });
-  const r = await leaveEmployee({ accountId, orgId, userId: req.auth!.userId }, existing as any, { lastDay, leavingType: parsed.data.leavingType, reason: blank(parsed.data.reason) });
+  if (parsed.data.resignedOn && parsed.data.resignedOn > lastDay) return res.status(400).json({ error: 'The resignation came before the last day, not after it.' });
+  const r = await leaveEmployee({ accountId, orgId, userId: req.auth!.userId }, existing as any, { lastDay, leavingType: parsed.data.leavingType, reason: blank(parsed.data.reason), resignedOn: parsed.data.resignedOn ?? undefined, noticeWaived: parsed.data.noticeWaived });
   res.json({ employee: r.employee, readers: r.readers });
 });
 
@@ -243,7 +247,7 @@ personnelRouter.post(`${base}/employees/:id/rehire`, can(PermissionAction.EDIT, 
   const { accountId, orgId } = req.tenant!;
   /* A new stint has its own terms: the type, probation and contract end are asked again; last time's dates never carry over (Workforce audit O6). */
   const optDay = z.string().regex(ISO_DATE).optional().nullable().or(z.literal('')).transform((v) => v || null);
-  const parsed = z.object({ rejoinDate: z.string().regex(ISO_DATE, 'Give the rejoin date, YYYY-MM-DD.'), employeeTypeId: z.string().trim().max(60).optional().nullable().or(z.literal('')).transform((v) => v || null), probationEndDate: optDay, contractEndDate: optDay }).safeParse(req.body || {});
+  const parsed = z.object({ rejoinDate: z.string().regex(ISO_DATE, 'Give the rejoin date, YYYY-MM-DD.'), employeeTypeId: z.string().trim().max(60).optional().nullable().or(z.literal('')).transform((v) => v || null), reportingManagerId: z.string().trim().max(60).optional().nullable().or(z.literal('')).transform((v) => v || null), probationEndDate: optDay, contractEndDate: optDay }).safeParse(req.body || {});
   if (!parsed.success) return res.status(400).json({ error: 'Give the rejoin date (YYYY-MM-DD).', code: 'REJOIN_DATE_REQUIRED' });
   const existing = await peoplePrisma.employee.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
   if (!existing || !inScope(await teamScope(req), existing.id)) return res.status(404).json({ error: 'No such employee.' });
@@ -251,6 +255,10 @@ personnelRouter.post(`${base}/employees/:id/rehire`, can(PermissionAction.EDIT, 
   if (existing.dateOfLeaving && parsed.data.rejoinDate <= existing.dateOfLeaving) return res.status(400).json({ error: `The rejoin date must be after their last day, ${existing.dateOfLeaving}.` });
   for (const k of ['probationEndDate', 'contractEndDate'] as const) if (parsed.data[k] && parsed.data[k]! < parsed.data.rejoinDate) return res.status(400).json({ error: k === 'probationEndDate' ? 'Probation cannot end before they rejoin.' : 'The contract cannot end before they rejoin.' });
   if (parsed.data.employeeTypeId && !(await peoplePrisma.employeeType.findFirst({ where: { id: parsed.data.employeeTypeId, orgId }, select: { id: true } }))) return res.status(400).json({ error: 'Choose an employment type from the list.' });
+  /* The manager they come back to: the one chosen, else the old one only if still here (W18). */
+  const managerId = parsed.data.reportingManagerId ?? existing.reportingManagerId ?? null;
+  const manager = managerId ? await peoplePrisma.employee.findFirst({ where: { id: managerId, orgId, status: { not: 'LEFT' } }, select: { id: true } }) : null;
+  if (parsed.data.reportingManagerId && (!manager || manager.id === existing.id)) return res.status(400).json({ error: 'Choose a manager who works here.' });
   const employee = await peoplePrisma.$transaction(async (tx) => {
     const next = await openNextEpisode({ accountId, orgId }, existing, parsed.data.rejoinDate, tx);
     const row = await tx.employee.update({
@@ -266,6 +274,9 @@ personnelRouter.post(`${base}/employees/:id/rehire`, can(PermissionAction.EDIT, 
         confirmedOn: null,
         contractEndDate: parsed.data.contractEndDate,
         ...(parsed.data.employeeTypeId ? { employeeTypeId: parsed.data.employeeTypeId } : {}),
+        reportingManagerId: manager?.id ?? null,
+        /* Their old position was freed when they left (W12). */
+        seatId: null,
         currentEpisodeSeq: next.seq,
       },
     });

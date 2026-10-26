@@ -149,6 +149,9 @@ model Employee {
   /// When they left: RESIGNED | TERMINATED | RETIRED | ABSCONDED | CONTRACT_ENDED | DECEASED
   leavingType         String?
   leavingReason       String?
+  /// When the resignation was received, and whether the notice owed was waived (Workforce final audit W15).
+  resignedOn      String?
+  noticeWaived    Boolean  @default(false)
   /// Employee portal (ClorTime's self-service): the person chooses their own
   /// password with a one-time activation code from HR; only hashes are kept,
   /// so nobody else ever knows it.
@@ -265,6 +268,8 @@ model EmployeeType {
   category  String  @default("PERMANENT")
   /// How long probation runs for this type, in months; fills the date on a new hire. Blank: not assumed.
   probationMonths Int?
+  /// Notice the person owes when they resign, in days; the leaving form works out any shortfall. Blank: not assumed.
+  noticeDays      Int?
   isActive  Boolean @default(true)
 
   createdByUserId String

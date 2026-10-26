@@ -28,7 +28,7 @@ import { STATUS, StatusBadge, can } from './shared';
  * `updateParams`), so Back and refresh return to the same list. Choosing
  * people is per page; changing filters or company clears the choice.
  */
-const FILTER_KEYS = ['status', 'dept', 'pos', 'type', 'wtype', 'hrs', 'prob', 'contract', 'area', 'est', 'unit', 'grade', 'centre', 'tag', 'mgr', 'from', 'to', 'lfrom', 'lto'];
+const FILTER_KEYS = ['status', 'dept', 'pos', 'type', 'wtype', 'hrs', 'prob', 'contract', 'area', 'est', 'unit', 'grade', 'centre', 'tag', 'mgr', 'from', 'to', 'lfrom', 'lto', 'working'];
 const COLUMNS_KEY = 'people.workforce.columns';
 const DISMISS_KEY = 'people.workforce.dismissed';
 const readJson = (k, fallback) => { try { return JSON.parse(localStorage.getItem(k) || '') || fallback; } catch { return fallback; } };
@@ -37,7 +37,7 @@ const apiParams = (p) => ({
   /* Leavers stay out unless asked for: the default is everyone still with the company. */
   q: p.q, status: p.status || 'CURRENT', departmentId: p.dept, jobPositionId: p.pos, employeeTypeId: p.type, workTypeId: p.wtype, hours: p.hrs, probation: p.prob, contract: p.contract, areaId: p.area, establishmentId: p.est,
   businessUnitId: p.unit, gradeId: p.grade, costCenterId: p.centre, tagId: p.tag, managerId: p.mgr,
-  joinedFrom: p.from, joinedTo: p.to, leftFrom: p.lfrom, leftTo: p.lto, sort: p.sort, dir: p.dir,
+  joinedFrom: p.from, joinedTo: p.to, leftFrom: p.lfrom, leftTo: p.lto, working: p.working, sort: p.sort, dir: p.dir,
 });
 
 export default function Directory({ params = {}, updateParams, openScreen }) {
@@ -164,6 +164,7 @@ export default function Directory({ params = {}, updateParams, openScreen }) {
     p.hrs && { k: 'hrs', label: HOURS_WORDS[p.hrs] || 'Hours' },
     p.prob && { k: 'prob', label: 'On probation' },
     p.contract && { k: 'contract', label: 'Contract ending or ended' },
+    p.working && { k: 'working', label: 'Working now' },
     p.area && { k: 'area', label: `Location: ${lookup('areas', p.area)}` },
     p.est && { k: 'est', label: `Work site: ${lookup('establishments', p.est)}` },
     p.unit && { k: 'unit', label: `Business unit: ${lookup('units', p.unit)}` },
@@ -348,7 +349,7 @@ function MetricStrip({ counts, onPick }) {
   if (!counts) return <div className="ui-metric-strip" aria-busy="true"><span className="ui-skel ui-skel-text" /></div>;
   /* The owner's and the CEO's picture: who works here now, who is coming, who came and went this month, who is leaving. */
   const items = [
-    { k: 'total', label: 'Working now', value: counts.total, Icon: Users, patch: {} },
+    { k: 'total', label: 'Working now', value: counts.total, Icon: Users, patch: { working: 'now' } },
     { k: 'joining', label: 'Joining', value: counts.joining, Icon: CalendarClock, patch: 'joining' },
     { k: 'joinedMonth', label: 'Joined this month', value: counts.joinedThisMonth ?? 0, Icon: UserCheck, patch: 'joinedMonth' },
     { k: 'leftMonth', label: 'Left this month', value: counts.leftThisMonth ?? 0, Icon: UserMinus, patch: 'leftMonth' },

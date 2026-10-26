@@ -160,4 +160,6 @@ export const LEAVING_TYPES = {
   ABSCONDED: 'Absconded',
   CONTRACT_ENDED: 'Contract ended',
   DECEASED: 'Deceased',
+  NOT_JOINED: 'Did not join',
+  DUPLICATE: 'Duplicate record',
 };

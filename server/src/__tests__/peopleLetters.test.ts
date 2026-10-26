@@ -100,8 +100,9 @@ describe('letters', () => {
     const plan = (await people(hr).get(`/employees/${ka.id}/checklist`).expect(200)).body;
     expect(plan.letters.tasks).toEqual([expect.objectContaining({ title: 'Issue service certificate (asked 2026-10-24)', owner: 'HR', dueDate: '2026-10-31', done: false })]);
     /* Issuing it ticks the task. The default template needs the leaving date; this person is still here, so it is refused until that is set. */
-    await people(hr).post(`/employees/${ka.id}/letters`, { kind: 'SERVICE_CERT', extra: { signatory: 'HR' } }).expect(400);
-    await people(hr).put(`/employees/${ka.id}`, { dateOfLeaving: '2026-10-20', status: 'LEFT' }).expect(200);
+    /* A leaving letter is for someone leaving or gone (Workforce final audit W17); leaving is recorded through its own step. */
+    await people(hr).post(`/employees/${ka.id}/letters`, { kind: 'SERVICE_CERT', extra: { signatory: 'HR' } }).expect(409);
+    await people(hr).post(`/employees/${ka.id}/resign`, { lastDay: '2026-10-20', leavingType: 'RESIGNED' }).expect(200);
     await people(hr).post(`/employees/${ka.id}/letters`, { kind: 'SERVICE_CERT', extra: { signatory: 'HR' } }).expect(201);
     expect((await people(hr).get(`/employees/${ka.id}/checklist`).expect(200)).body.letters.tasks[0].done).toBe(true);
   });

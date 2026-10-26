@@ -73,9 +73,14 @@ export async function applyOutcome(actor: Actor, employeeId: string, outcome: Pr
 /** Decide: a request where the company has a rule, otherwise applied now. */
 export async function decideProbation(actor: Actor, employeeId: string, outcome: ProbationOutcome, opts: { newEndDate?: string | null; note?: string | null; lastDay?: string | null }) {
   if (!PROBATION_OUTCOMES.includes(outcome)) throw new ProbationError('Confirm, extend or end.');
-  const employee = await peoplePrisma.employee.findFirst({ where: { id: employeeId, orgId: actor.orgId }, select: { id: true, name: true, confirmedOn: true, probationEndDate: true } });
+  const employee = await peoplePrisma.employee.findFirst({ where: { id: employeeId, orgId: actor.orgId }, select: { id: true, name: true, confirmedOn: true, probationEndDate: true, dateOfJoining: true, status: true } });
   if (!employee) throw new ProbationError('No such employee.', 404);
   if (employee.confirmedOn) throw new ProbationError(`Already confirmed on ${employee.confirmedOn}.`, 409);
+  /* Probation is decided on someone who has started and is still here (Workforce final audit W19). */
+  if (employee.status === 'LEFT') throw new ProbationError(`${employee.name} has left.`, 409);
+  if (employee.dateOfJoining && String(employee.dateOfJoining).slice(0, 10) > todayIst()) throw new ProbationError(`${employee.name} has not joined yet; probation is decided after they start.`, 409);
+  /* One decision open at a time: a confirm and an end cannot both be waiting (W11). */
+  if (await peoplePrisma.approvalRequest.count({ where: { orgId: actor.orgId, subjectEmployeeId: employeeId, requestType: 'PROBATION', status: { in: ['WAITING', 'MORE_INFO'] } } })) throw new ProbationError('A probation decision for them is already waiting for approval.', 409);
   if (outcome === 'EXTEND' && !opts.newEndDate) throw new ProbationError('Give the new probation end date.');
   const rule = await activeRule(actor.orgId, 'PROBATION');
   if (rule) {

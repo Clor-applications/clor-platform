@@ -275,7 +275,7 @@ export default function AddEmployee({ params = {}, updateParams, openScreen }) {
             <h2 className="ui-t-sec">Review</h2>
             {duplicates?.length ? (
               <Alert tone="warn" title="This may be someone already here">
-                <ul className="mt-1 space-y-1">{duplicates.map((d) => <li key={d.id}><button type="button" className="ui-link" onClick={() => openScreen?.('employee', { id: d.id })}>{d.name}{d.code ? ` (${d.code})` : ''}</button> has the same {d.field}.</li>)}</ul>
+                <ul className="mt-1 space-y-1">{duplicates.map((d) => <li key={d.id}><button type="button" className="ui-link" onClick={() => openScreen?.('employee', d.left ? { id: d.id, tab: 'employment' } : { id: d.id })}>{d.name}{d.code ? ` (${d.code})` : ''}</button> has the same {d.field}.{d.left ? ' They left earlier: open them and Rehire instead, to keep their history.' : ''}</li>)}</ul>
                 <label className="block mt-2"><span className="ui-label">Why is this a different person? *</span><input className="ui-input w-full" value={duplicateReason} onChange={(e) => setDuplicateReason(e.target.value)} maxLength={300} /></label>
               </Alert>
             ) : null}

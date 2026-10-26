@@ -138,7 +138,7 @@ export default function EmployeeRecord({ params = {}, updateParams, openScreen }
     editable && person.status === 'ACTIVE' ? ['status', 'Suspend'] : null,
     allowed('PEOPLE::Employees::EDIT') && person.status === 'SUSPENDED' ? ['status', 'Reactivate'] : null,
     person.status !== 'LEFT' && allowed('PEOPLE::Lifecycle::CREATE') ? ['invite', 'Invite to complete profile'] : null,
-    person.status !== 'LEFT' && person.status !== 'ON_NOTICE' && allowed('PEOPLE::Employees::EDIT') ? ['leave', 'Mark as left'] : null,
+    person.status !== 'LEFT' && person.status !== 'ON_NOTICE' && allowed('PEOPLE::Employees::EDIT') ? ['leave', person.dateOfJoining && String(person.dateOfJoining).slice(0, 10) > todayIst() ? 'Did not join' : 'Mark as left'] : null,
     person.status === 'ON_NOTICE' && allowed('PEOPLE::Employees::EDIT') ? ['leave', 'Change leaving details'] : null,
     person.status === 'ON_NOTICE' && allowed('PEOPLE::Employees::EDIT') ? ['stay', 'Withdraw leaving'] : null,
     person.status === 'LEFT' && allowed('PEOPLE::Employees::EDIT') ? ['rehire', 'Rehire'] : null,
@@ -660,6 +660,17 @@ function Employment({ person, data, lists, allowed, editing, setEditing, onSaved
   const [rejoinProbation, setRejoinProbation] = useState('');
   const [rejoinContract, setRejoinContract] = useState('');
   const rejoinDates = datesFor(kindOf(lists?.types, rejoinType));
+  /* Who they come back to: chosen here; a manager who has since left is not offered (W18). */
+  const [rejoinManager, setRejoinManager] = useState('');
+  const [managers, setManagers] = useState([]);
+  useEffect(() => {
+    if (person.status !== 'LEFT') return;
+    listEmployees({ limit: 500, sort: 'name' }).then((r) => {
+      const here = (r?.employees || []).filter((e) => e.id !== person.id);
+      setManagers(here);
+      if (here.some((e) => e.id === person.reportingManagerId)) setRejoinManager(person.reportingManagerId);
+    }).catch(() => setManagers([]));
+  }, [person.id, person.status, person.reportingManagerId]);
   const typeName = lists?.types.find((t) => t.id === person.employeeTypeId)?.name;
   const workTypeName = lists?.workTypes.find((t) => t.id === person.workTypeId)?.name;
   const dates = datesFor(kindOf(lists?.types, person.employeeTypeId));
@@ -696,7 +707,7 @@ function Employment({ person, data, lists, allowed, editing, setEditing, onSaved
   const rehire = async () => {
     if (!(await confirmDialog({ title: `Rehire ${person.name} from ${formatDate(rejoin)}?`, message: 'A new period of employment starts on that date; the earlier one stays in History.', confirmLabel: 'Rehire', tone: 'primary' }))) return;
     try {
-      await rehireEmployee(person.id, { rejoinDate: rejoin, employeeTypeId: rejoinType || null, probationEndDate: (rejoinDates.probation && rejoinProbation) || null, contractEndDate: (rejoinDates.contract && rejoinContract) || null });
+      await rehireEmployee(person.id, { rejoinDate: rejoin, employeeTypeId: rejoinType || null, reportingManagerId: rejoinManager || null, probationEndDate: (rejoinDates.probation && rejoinProbation) || null, contractEndDate: (rejoinDates.contract && rejoinContract) || null });
       notify.success(`${person.name} rehired.`);
       setRejoin('');
       reload();
@@ -727,11 +738,12 @@ function Employment({ person, data, lists, allowed, editing, setEditing, onSaved
             {person.currentEpisodeSeq > 1 ? <Field label="First joined" value={person.firstJoiningDate ? formatDate(person.firstJoiningDate) : null} mono /> : null}
             {dates.probation || person.probationEndDate || person.confirmedOn ? <Field label={person.confirmedOn ? 'Confirmed on' : 'Probation ends'} value={person.confirmedOn ? formatDate(person.confirmedOn) : person.probationEndDate ? formatDate(person.probationEndDate) : null} mono /> : null}
             {dates.contract || person.contractEndDate ? <Field label={dates.contractLabel} value={person.contractEndDate ? formatDate(person.contractEndDate) : null} mono /> : null}
-            {person.dateOfLeaving ? <Field label="Left" value={`${formatDate(person.dateOfLeaving)}${person.leavingType ? ` · ${LEAVING_TYPES[person.leavingType] || person.leavingType}` : ''}${person.leavingReason ? ` · ${person.leavingReason}` : ''}`} /> : null}
+            {person.resignedOn ? <Field label="Resignation received" value={`${formatDate(String(person.resignedOn).slice(0, 10))}${person.noticeWaived ? ' · notice waived' : ''}`} mono /> : null}
+            {person.dateOfLeaving ? <Field label={person.status === 'LEFT' ? 'Left' : 'Last day'} value={`${formatDate(person.dateOfLeaving)}${person.leavingType ? ` · ${LEAVING_TYPES[person.leavingType] || person.leavingType}` : ''}${person.leavingReason ? ` · ${person.leavingReason}` : ''}`} /> : null}
           </dl>
         )}
       </Section>
-      {person.probationEndDate && !person.confirmedOn && person.status !== 'LEFT' && allowed('PEOPLE::Lifecycle::APPROVE') ? (
+      {person.probationEndDate && !person.confirmedOn && person.status !== 'LEFT' && !(person.dateOfJoining && String(person.dateOfJoining).slice(0, 10) > todayIst()) && allowed('PEOPLE::Lifecycle::APPROVE') ? (
         <Section title="Probation">
           {/* One decision, three outcomes: a row each, so the choice reads down the page. */}
           <div className="ui-decide">
@@ -788,6 +800,7 @@ function Employment({ person, data, lists, allowed, editing, setEditing, onSaved
           {/* A new stint has its own terms; last time's probation and contract dates do not carry over. */}
           <div className="ui-form-grid">
             <div><label className="ui-label" htmlFor="rejoin">Rejoins on *</label><DatePicker id="rejoin" value={rejoin} min={person.dateOfLeaving || ''} onChange={setRejoin} /></div>
+            <div><PopupSelect showValueSubtext={false} label="Manager" value={rejoinManager} onChange={(v) => setRejoinManager(v || '')} placeholder="Not set" alwaysSearch options={[{ value: '', label: 'Not set' }, ...managers.map((m) => ({ value: m.id, label: m.code ? `${m.name} (${m.code})` : m.name }))]} /></div>
             <div><PopupSelect showValueSubtext={false} label="Employment type" value={rejoinType} onChange={(v) => setRejoinType(v || '')} placeholder="Not set" options={[{ value: '', label: 'Not set' }, ...(lists?.types || []).map((t) => ({ value: t.id, label: t.name }))]} /></div>
             {rejoinDates.probation ? <div><label className="ui-label" htmlFor="rejoin-probation">Probation ends</label><DatePicker id="rejoin-probation" value={rejoinProbation} min={rejoin || ''} onChange={setRejoinProbation} /></div> : null}
             {rejoinDates.contract ? <div><label className="ui-label" htmlFor="rejoin-contract">{rejoinDates.contractLabel}</label><DatePicker id="rejoin-contract" value={rejoinContract} min={rejoin || ''} onChange={setRejoinContract} /></div> : null}

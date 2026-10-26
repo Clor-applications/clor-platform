@@ -1621,9 +1621,23 @@ export function ResignForm({ person, onClose, onDone }) {
   const contractEnd = person.contractEndDate ? String(person.contractEndDate).slice(0, 10) : '';
   /* On notice already: the form changes what is on record (another last day, another reason). */
   const onNotice = person.status === 'ON_NOTICE' && person.dateOfLeaving;
+  /* Someone not yet joined who will not come: the offer is withdrawn, closed on their joining date with no settlement. */
+  const notYetJoined = person.dateOfJoining && String(person.dateOfJoining).slice(0, 10) > today;
   const [form, setForm] = useState(onNotice
     ? { lastDay: String(person.dateOfLeaving).slice(0, 10), leavingType: person.leavingType || 'RESIGNED', reason: person.leavingReason || '' }
+    : notYetJoined ? { lastDay: String(person.dateOfJoining).slice(0, 10), leavingType: 'NOT_JOINED', reason: '' }
     : { lastDay: contractEnd || today, leavingType: contractEnd ? 'CONTRACT_ENDED' : 'RESIGNED', reason: '' });
+  /* Notice (W15): the type's notice in days, when the resignation came, and what is short; Payroll recovers or waives from it. */
+  const [noticeDays, setNoticeDays] = useState(null);
+  const [resignedOn, setResignedOn] = useState(person.resignedOn ? String(person.resignedOn).slice(0, 10) : today);
+  const [noticeWaived, setNoticeWaived] = useState(Boolean(person.noticeWaived));
+  useEffect(() => {
+    if (!person.employeeTypeId) return;
+    listStructure('employee-types').then((types) => setNoticeDays((types || []).find((t) => t.id === person.employeeTypeId)?.noticeDays ?? null)).catch(() => setNoticeDays(null));
+  }, [person.employeeTypeId]);
+  const resigning = form.leavingType === 'RESIGNED';
+  const served = resigning && resignedOn && form.lastDay ? Math.max(0, Math.round((Date.parse(`${form.lastDay}T00:00:00Z`) - Date.parse(`${resignedOn}T00:00:00Z`)) / 86_400_000) + 1) : null;
+  const short = noticeDays != null && served != null && !noticeWaived ? Math.max(0, noticeDays - served) : null;
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const save = async (e) => {
@@ -1632,9 +1646,9 @@ export function ResignForm({ person, onClose, onDone }) {
     setSaving(true);
     setError('');
     try {
-      const r = await resignEmployee(person.id, { ...form, reason: form.reason || null });
+      const r = await resignEmployee(person.id, { ...form, reason: form.reason || null, ...(resigning ? { resignedOn: resignedOn || null, noticeWaived } : {}) });
       /* Said as it is: a later last day puts them on notice, still paid and on the readers until then. */
-      notify.success(form.lastDay > today
+      notify.success(form.leavingType === 'NOT_JOINED' ? `${person.name}'s offer is withdrawn.` : form.leavingType === 'DUPLICATE' ? 'Duplicate record closed.' : form.lastDay >= today
         ? `${person.name} is on notice until ${formatDateShort(form.lastDay)}, and stays on payroll and the readers until then.`
         : r.readers ? `${person.name} recorded as left and removed from ${r.readers} reader${r.readers === 1 ? '' : 's'}.` : `${person.name} recorded as left.`);
       onDone(r.employee);
@@ -1660,8 +1674,19 @@ export function ResignForm({ person, onClose, onDone }) {
     >
       <form id="resign-form" onSubmit={save} className="grid gap-4">
         {error ? <p className="ui-field-error" role="alert">{error}</p> : null}
-        <div><label className="ui-label" htmlFor="resign-last-day">Last working day *</label><DatePicker id="resign-last-day" value={form.lastDay} min={person.dateOfJoining ? String(person.dateOfJoining).slice(0, 10) : undefined} onChange={(v) => setForm({ ...form, lastDay: v || '' })} /></div>
         <div><PopupSelect showValueSubtext={false} label="Why" value={form.leavingType} onChange={(v) => setForm({ ...form, leavingType: v || 'RESIGNED' })} options={Object.entries(LEAVING_TYPES).map(([value, label]) => ({ value, label }))} /></div>
+        {form.leavingType === 'NOT_JOINED' ? null : <div><label className="ui-label" htmlFor="resign-last-day">Last working day *</label><DatePicker id="resign-last-day" value={form.lastDay} min={person.dateOfJoining ? String(person.dateOfJoining).slice(0, 10) : undefined} onChange={(v) => setForm({ ...form, lastDay: v || '' })} /></div>}
+        {resigning ? (
+          <>
+            <div><label className="ui-label" htmlFor="resign-received">Resignation received on</label><DatePicker id="resign-received" value={resignedOn} max={form.lastDay || undefined} onChange={(v) => setResignedOn(v || '')} /></div>
+            {noticeDays != null ? (
+              <div className="grid gap-2">
+                <p className="text-sm">Notice {noticeDays} {noticeDays === 1 ? 'day' : 'days'}{served != null ? <>, served <span className="tabular-nums">{served}</span></> : null}{short ? <>, <strong className="tabular-nums">{short} short</strong></> : null}</p>
+                <label className="flex items-center gap-2 text-sm"><input type="checkbox" className="ui-checkbox" checked={noticeWaived} onChange={(e) => setNoticeWaived(e.target.checked)} /> Notice waived</label>
+              </div>
+            ) : null}
+          </>
+        ) : null}
         <label className="block"><span className="ui-label">Note</span><textarea className="ui-input w-full" rows={2} maxLength={500} value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} /></label>
       </form>
     </Drawer>

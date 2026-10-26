@@ -141,4 +141,26 @@ describe('leaving', () => {
     const open = await runInTenant(hr.orgId, () => peoplePrisma.checklistTask.count({ where: { orgId: hr.orgId, employeeId: e.id, doneAt: null } }));
     expect(open).toBe(0);
   });
+
+  it('notice: owed from the employment type, served from when the resignation came, the shortfall passed on (Workforce final audit W15)', async () => {
+    const type = (await people(hr).post('/structure/employee-types', { name: `Notice type ${rnd()}`, category: 'PERMANENT', noticeDays: 30 }).expect(201)).body.item;
+    expect(type.noticeDays).toBe(30);
+    const e = (await people(hr).post('/employees', { name: 'Short Notice', code: `SN-${rnd()}`, dateOfJoining: '2025-01-05', employeeTypeId: type.id }).expect(201)).body.employee;
+    await people(hr).post(`/employees/${e.id}/resign`, { lastDay: plus(-1), leavingType: 'RESIGNED', resignedOn: plus(-10) }).expect(200);
+    const ev = await runInTenant(hr.orgId, () => peoplePrisma.outboxEvent.findFirst({ where: { employeeId: e.id, name: 'people.employee.separated.v1' } }));
+    expect((ev?.payload as any)?.notice).toMatchObject({ noticeDays: 30, servedDays: 10, shortfallDays: 20, noticeWaived: false });
+    await people(hr).post(`/employees/${e.id}/resign`, { lastDay: plus(-1), leavingType: 'RESIGNED', resignedOn: plus(2) }).expect(409);
+    /* A resignation cannot come after the last day. */
+    const f = (await people(hr).post('/employees', { name: 'Odd Dates', code: `OD-${rnd()}`, dateOfJoining: '2025-01-05' }).expect(201)).body.employee;
+    await people(hr).post(`/employees/${f.id}/resign`, { lastDay: plus(-1), leavingType: 'RESIGNED', resignedOn: plus(2) }).expect(400);
+  });
+
+  it('a corrected joining date moves the dates service counts from, while the first stint is open (W6)', async () => {
+    const e = (await people(hr).post('/employees', { name: 'Late Paper', code: `LP-${rnd()}` }).expect(201)).body.employee;
+    await people(hr).put(`/employees/${e.id}`, { dateOfJoining: '2019-04-01' }).expect(200);
+    const rec = (await people(hr).get(`/employees/${e.id}`).expect(200)).body.employee;
+    expect(rec.firstJoiningDate).toBe('2019-04-01');
+    const stint = await runInTenant(hr.orgId, () => peoplePrisma.employmentEpisode.findFirst({ where: { orgId: hr.orgId, employeeId: e.id, seq: 1 } }));
+    expect(stint?.startDate).toBe('2019-04-01');
+  });
 });

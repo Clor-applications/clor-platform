@@ -46,7 +46,17 @@ export const NO_SETTLEMENT = new Set(['NOT_JOINED', 'DUPLICATE']);
 const todayIst = (now = new Date()) => new Date(now.getTime() + 330 * 60_000).toISOString().slice(0, 10);
 
 type Existing = { id: string; status: string; code: string | null; devicePin: string | null; name?: string | null; currentEpisodeSeq?: number | null; dateOfJoining?: string | null; createdAt?: Date | null } & Record<string, unknown>;
-type Input = { lastDay: string; leavingType: string; reason: string | null };
+type Input = { lastDay: string; leavingType: string; reason: string | null; resignedOn?: string | null; noticeWaived?: boolean };
+
+/* Notice owed, served and short (W15): from the employment type's notice days and the day the resignation came. Payroll recovers or waives from these. */
+async function noticeOf(orgId: string, existing: Existing, input: Input) {
+  const typeId = existing.employeeTypeId as string | null | undefined;
+  const owed = typeId ? (await peoplePrisma.employeeType.findFirst({ where: { id: typeId, orgId }, select: { noticeDays: true } }))?.noticeDays ?? null : null;
+  const from = input.resignedOn || null;
+  const served = from ? Math.max(0, Math.round((Date.parse(`${input.lastDay}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000) + 1) : null;
+  const short = owed != null && served != null && !input.noticeWaived ? Math.max(0, owed - served) : null;
+  return { noticeDays: owed, resignedOn: from, servedDays: served, shortfallDays: short, noticeWaived: Boolean(input.noticeWaived) };
+}
 
 export async function leaveEmployee(who: Who, existing: Existing, input: Input, opts: { now?: Date } = {}) {
   /* The last working day is worked: someone whose last day is today stays on notice, on the doors and in attendance until it is over (W-A1). An offer withdrawn or a duplicate closes at once. */
@@ -58,7 +68,7 @@ export async function leaveEmployee(who: Who, existing: Existing, input: Input, 
 async function scheduleLeaving(who: Who, existing: Existing, input: Input) {
   const { accountId, orgId } = who;
   const employee = await peoplePrisma.$transaction(async (tx) => {
-    const row = await tx.employee.update({ where: { id: existing.id }, data: { status: 'ON_NOTICE', dateOfLeaving: input.lastDay, leavingType: input.leavingType, leavingReason: input.reason } });
+    const row = await tx.employee.update({ where: { id: existing.id }, data: { status: 'ON_NOTICE', dateOfLeaving: input.lastDay, leavingType: input.leavingType, leavingReason: input.reason, ...(input.resignedOn !== undefined ? { resignedOn: input.resignedOn } : {}), ...(input.noticeWaived !== undefined ? { noticeWaived: input.noticeWaived } : {}) } });
     await logApproved(tx, who, existing, row);
     await writeEvent(tx, { accountId, orgId, correlationId: `leave_${row.id}_${input.lastDay}` }, 'people.employee.separation_scheduled.v1', { lastWorkingDay: input.lastDay, type: input.leavingType, employee: { id: row.id, code: row.code, name: row.name } }, row.id);
     return row;
@@ -74,11 +84,11 @@ async function finishLeaving(who: Who, existing: Existing, input: Input) {
   const employee = await peoplePrisma.$transaction(async (tx) => {
     const row = await tx.employee.update({
       where: { id: existing.id },
-      data: { status: 'LEFT', dateOfLeaving: input.lastDay, leavingType: input.leavingType, leavingReason: input.reason },
+      data: { status: 'LEFT', dateOfLeaving: input.lastDay, leavingType: input.leavingType, leavingReason: input.reason, ...(input.resignedOn !== undefined ? { resignedOn: input.resignedOn } : {}), ...(input.noticeWaived !== undefined ? { noticeWaived: input.noticeWaived } : {}) },
     });
     await logApproved(tx, who, existing, row);
     await closeEpisode({ accountId, orgId }, existing, { endDate: input.lastDay, endType: input.leavingType, endReason: input.reason }, tx);
-    await writeEvent(tx, { accountId, orgId, correlationId: `leave_${row.id}_${input.lastDay}` }, 'people.employee.separated.v1', { lastWorkingDay: input.lastDay, type: input.leavingType, settlementRequested: !NO_SETTLEMENT.has(input.leavingType), employee: { id: row.id, code: row.code, name: row.name } }, row.id);
+    await writeEvent(tx, { accountId, orgId, correlationId: `leave_${row.id}_${input.lastDay}` }, 'people.employee.separated.v1', { lastWorkingDay: input.lastDay, type: input.leavingType, settlementRequested: !NO_SETTLEMENT.has(input.leavingType), notice: await noticeOf(orgId, { ...existing, ...row } as any, { ...input, resignedOn: input.resignedOn ?? row.resignedOn, noticeWaived: input.noticeWaived ?? row.noticeWaived }), employee: { id: row.id, code: row.code, name: row.name } }, row.id);
     return row;
   });
   /* A-33: gone, their employee-app sign-ins end. */
