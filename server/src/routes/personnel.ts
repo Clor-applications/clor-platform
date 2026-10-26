@@ -297,7 +297,14 @@ personnelRouter.post(`${base}/employees/:id/rehire`, can(PermissionAction.EDIT, 
 // Bulk transfer
 // ---------------------------------------------------------------------------
 
-/** Move people to another department, area, position or contractor in one go (ClorTime personnel-transfer). */
+/**
+ * Move people to another department, area, position or contractor in one go
+ * (ClorTime personnel-transfer). It is a bulk change like the directory's
+ * (services/people/bulk.ts): only people in the mover's team scope, refused
+ * while a job-change approval rule is in force, each person through the one
+ * write path (change log, events, version, history), and a later date waits
+ * for that day instead of applying now.
+ */
 personnelRouter.post(`${base}/employees/transfer`, can(PermissionAction.EDIT, R.employees), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
@@ -306,29 +313,20 @@ personnelRouter.post(`${base}/employees/transfer`, can(PermissionAction.EDIT, R.
       employeeIds: z.array(z.string().min(1)).min(1, 'Choose people to move.').max(2000),
       field: z.enum(['departmentId', 'areaId', 'jobPositionId', 'contractorId']),
       targetId: z.string().min(1).nullable(),
-      /** From when the move counts (employment history); today when not given. */
+      /** From when the move counts; today when not given. A later day is scheduled. */
       effectiveDate: z.string().regex(ISO_DATE, 'Dates are YYYY-MM-DD.').optional().nullable(),
       note: text(500),
     })
     .safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Check the details.' });
   const { employeeIds, field, targetId } = parsed.data;
-  const target =
-    targetId === null
-      ? { name: null }
-      : field === 'departmentId'
-        ? await peoplePrisma.department.findFirst({ where: { id: targetId, orgId }, select: { name: true } })
-        : field === 'areaId'
-          ? await peoplePrisma.area.findFirst({ where: { id: targetId, orgId }, select: { name: true } })
-          : field === 'jobPositionId'
-            ? await peoplePrisma.jobPosition.findFirst({ where: { id: targetId, orgId }, select: { name: true } })
-            : await peoplePrisma.contractor.findFirst({ where: { id: targetId, orgId }, select: { name: true } });
-  if (!target) return res.status(400).json({ error: 'That is not in this organisation.' });
-  /* The department and position names are kept on the employee for lists and payslips. */
-  const mirror = field === 'departmentId' ? { department: target.name } : field === 'jobPositionId' ? { designation: target.name } : {};
-  const before = await peoplePrisma.employee.findMany({ where: { accountId, orgId, id: { in: employeeIds } } });
-  const r = await peoplePrisma.employee.updateMany({ where: { accountId, orgId, id: { in: employeeIds } }, data: { [field]: targetId, ...mirror } as any });
-  const who = { accountId, orgId, userId: req.auth!.userId };
-  for (const e of before) await recordChanges(who, e, { ...e, [field]: targetId }, { source: 'TRANSFER', effectiveDate: parsed.data.effectiveDate || null, note: blank(parsed.data.note) });
-  res.json({ moved: r.count });
+  const { BulkError, bulkUpdate } = await import('../services/people/bulk.js');
+  const actor = { accountId, orgId, userId: req.auth!.userId, source: 'BULK' as const, correlationId: `transfer_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`, reason: blank(parsed.data.note) };
+  try {
+    const r = await bulkUpdate(actor, { ids: employeeIds, set: { [field]: targetId }, reason: blank(parsed.data.note), effectiveFrom: parsed.data.effectiveDate || null }, await teamScope(req));
+    res.json({ moved: r.changed, ...r });
+  } catch (e) {
+    if (e instanceof BulkError) return res.status(e.status).json({ error: e.message, code: e.code });
+    throw e;
+  }
 });

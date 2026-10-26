@@ -98,15 +98,22 @@ export async function changeImpact(orgId: string, employee: Subject, fields: Rec
 /** When a transfer lands, each state difference becomes a review task for HR (COMP-04). */
 export function registerChangeReviewTasks() {
   return onPeopleEvent('people.employee.transferred.v1', async (ev) => {
-    const data = ev.data as { fromEstablishmentId?: string | null; toEstablishmentId?: string | null; fields?: string[]; employee?: { id: string } };
+    const data = ev.data as { fromEstablishmentId?: string | null; toEstablishmentId?: string | null; fromState?: string | null; toState?: string | null; fields?: string[]; employee?: { id: string } };
     const employeeId = ev.employeeId || data.employee?.id;
     if (!employeeId) return;
+    /*
+     * This move's own work sites and states, as the event carries them: a
+     * move of location or branch only leaves the work site alone, and must
+     * not bring back the differences of some earlier move.
+     */
+    const from = data.fromEstablishmentId ?? null;
+    const to = data.toEstablishmentId ?? null;
+    if (!to || from === to) return;
+    if (!data.toState || (data.fromState ?? null) === data.toState) return;
     await runInTenant(ev.orgId, async () => {
       const employee = await peoplePrisma.employee.findFirst({ where: { id: employeeId, orgId: ev.orgId }, select: { id: true, establishmentId: true, departmentId: true, reportingManagerId: true } });
       if (!employee) return;
-      /* The event carries the new establishment; the review compares it with the one before, which the history keeps. */
-      const before = await peoplePrisma.employmentEvent.findFirst({ where: { orgId: ev.orgId, employeeId, field: 'establishmentId' }, orderBy: { createdAt: 'desc' }, select: { fromId: true, toId: true } });
-      const impact = await changeImpact(ev.orgId, { ...employee, establishmentId: before?.fromId ?? null }, { establishmentId: before?.toId ?? employee.establishmentId });
+      const impact = await changeImpact(ev.orgId, { ...employee, establishmentId: from }, { establishmentId: to });
       const items: Item[] = impact.filter((i) => i.target === 'TASK').map((i) => ({ title: i.title, owner: 'HR', dueDays: 7, note: i.detail }));
       if (!items.length) return;
       const already = await peoplePrisma.checklistTask.count({ where: { orgId: ev.orgId, employeeId, kind: 'CHANGE', doneAt: null, title: { in: items.map((i) => i.title) } } });

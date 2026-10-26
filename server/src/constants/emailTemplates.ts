@@ -246,15 +246,15 @@ If you did not expect this, ignore it.`,
   },
   {
     key: 'people.task_assigned',
-    label: 'A joining or leaving task for you',
-    description: 'Sent to the person a joining, leaving or change task is assigned to, with a link that marks it done.',
+    label: 'Joining or leaving tasks for you',
+    description: 'Sent once to each person given tasks on a joining, leaving or change plan, listing their tasks, each with a link that marks it done.',
     subject: '{{title}} — {{employeeName}}, due {{dueDate}}',
     body: `{{title}}
 For: {{employeeName}}{{employeeCode}}
 Due: {{dueDate}}
 Part of: {{kind}}
 
-When it is done, open this link and it is ticked in People (it works once and only for you):
+When a task is done, open its link and it is ticked in People (each link works once and only for you):
 {{doneLink}}
 
 Or open People at {{appUrl}}.`,

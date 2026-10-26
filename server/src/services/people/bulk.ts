@@ -26,6 +26,7 @@ const STRUCTURE: Record<string, { model: string; nameField?: 'department' | 'des
   costCenterId: { model: 'costCenter' },
   businessUnitId: { model: 'businessUnit' },
   reportingManagerId: { model: 'employee' },
+  contractorId: { model: 'contractor' },
 };
 
 /** True when `employeeId` already sits above `managerId` in the reporting chain (a change would close a loop). */

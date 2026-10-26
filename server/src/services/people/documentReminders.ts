@@ -52,14 +52,58 @@ export const stageOf = (daysLeft: number): number | null => {
 };
 
 /**
+ * The documents a stage is due for, as a database filter: at no stage yet and
+ * within the first window, or at a stage and past the next threshold below
+ * it. A document at the last stage (on the day) is never read again, nor is
+ * one whose person has left, so stale rows cannot crowd out new ones.
+ */
+export function dueDocumentsWhere(now: Date) {
+  const by = (days: number) => istDate(new Date(now.getTime() + days * 86_400_000));
+  const stages = [...EXPIRY_STAGES].sort((x, y) => y - x);
+  const or: Array<Record<string, unknown>> = [{ expiryStage: null, expiresOn: { not: null, lte: by(stages[0]) } }];
+  for (let i = 0; i < stages.length - 1; i += 1) or.push({ expiryStage: stages[i], expiresOn: { not: null, lte: by(stages[i + 1]) } });
+  return { OR: or, employee: { status: { not: 'LEFT' } } };
+}
+
+/** Rows read per page, so a backlog is worked through rather than cut off. */
+const PAGE = 500;
+/** Every row a query matches, a page at a time, in id order (the query takes the last id seen). */
+async function* pages<T extends { id: string }>(read: (after: string | null) => Promise<T[]>, size = PAGE) {
+  let after: string | null = null;
+  for (;;) {
+    const page = await read(after);
+    for (const row of page) yield row;
+    if (page.length < size) return;
+    after = page[page.length - 1].id;
+  }
+}
+type DueDoc = { id: string; accountId: string; orgId: string; employeeId: string; kind: string; title: string; expiresOn: string | null; expiryStage: number | null; restrictsWork: string | null };
+
+/**
  * Documents at a reminder stage they have not been announced at: one
  * announcement per stage, not one per day. A work permit or certificate at
  * 30 days (or later, seen for the first time) also leaves renewal tasks for
  * HR and the manager on the person's record (LIFE-08). Returns how many.
  */
-export async function runDocumentReminders(now = new Date()) {
-  const until = istDate(new Date(now.getTime() + EXPIRY_STAGES[0] * 86_400_000));
-  const docs = await peoplePrisma.employeeDocument.findMany({ where: { expiresOn: { not: null, lte: until } }, select: { id: true, accountId: true, orgId: true, employeeId: true, kind: true, title: true, expiresOn: true, expiryStage: true, restrictsWork: true }, orderBy: { expiresOn: 'asc' }, take: 2000 });
+export async function runDocumentReminders(now = new Date(), pageSize = PAGE) {
+  let sent = 0;
+  let after: string | null = null;
+  for (;;) {
+    const page: DueDoc[] = await peoplePrisma.employeeDocument.findMany({
+      where: { ...dueDocumentsWhere(now), ...(after ? { id: { gt: after } } : {}) },
+      select: { id: true, accountId: true, orgId: true, employeeId: true, kind: true, title: true, expiresOn: true, expiryStage: true, restrictsWork: true },
+      orderBy: { id: 'asc' },
+      take: pageSize,
+    });
+    if (!page.length) break;
+    after = page[page.length - 1].id;
+    sent += await remindDocuments(page, now);
+    if (page.length < pageSize) break;
+  }
+  return sent;
+}
+
+async function remindDocuments(docs: DueDoc[], now: Date) {
   const due = docs.filter((d) => {
     const stage = stageOf(daysUntil(d.expiresOn!, now));
     return stage !== null && (d.expiryStage === null || d.expiryStage > stage);
@@ -123,10 +167,9 @@ export async function runDocumentReminders(now = new Date()) {
 export async function runContractorLicenceReminders(now = new Date()) {
   const until = istDate(new Date(now.getTime() + EXPIRY_WINDOW_DAYS * 86_400_000));
   const today = istDate(now);
-  const rows = await peoplePrisma.contractor.findMany({ where: { isActive: true, licenceValidTo: { not: null, lte: until } }, take: 500 });
   let sent = 0;
   const live = new Map<string, Promise<unknown>>();
-  for (const c of rows) {
+  for await (const c of pages((after) => peoplePrisma.contractor.findMany({ where: { isActive: true, licenceValidTo: { not: null, lte: until }, ...(after ? { id: { gt: after } } : {}) }, orderBy: { id: 'asc' }, take: PAGE }))) {
     try {
       /* Contractors are used by People and Attendance; reminded while either is live (A-48). */
       const key = `${c.accountId}:${c.orgId}`;
@@ -139,7 +182,7 @@ export async function runContractorLicenceReminders(now = new Date()) {
         body: `${c.licenceNo ? `Licence ${c.licenceNo}. ` : ''}Workers supplied without a valid licence are a compliance risk.`,
         link: { app: 'attendance', screen: 'contractors' },
         dedupeKey: `licence:${c.id}:${c.licenceValidTo}`,
-      });
+      }, { ever: true });
     } catch (e) {
       console.error(`[contractor-licence] ${c.orgId}:`, e instanceof Error ? e.message : e);
     }
@@ -160,17 +203,18 @@ const PROBATION_STAGES = [14, 0];
 const stageIn = (stages: number[], days: number) => (days <= 0 ? 0 : stages.filter((s) => days <= s).sort((a, b) => a - b)[0] ?? null);
 const words = (iso: string) => { const [y, m, d] = iso.split('-'); return `${Number(d)} ${['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][Number(m) - 1]} ${y}`; };
 
-export async function runEndDateReminders(now = new Date()) {
+export async function runEndDateReminders(now = new Date(), pageSize = PAGE) {
   const today = istDate(now);
   const horizon = istDate(new Date(now.getTime() + CONTRACT_STAGES[0] * 86_400_000));
-  const rows = await peoplePrisma.employee.findMany({
-    where: { status: { not: 'LEFT' }, OR: [{ contractEndDate: { not: null, lte: horizon } }, { probationEndDate: { not: null, lte: horizon }, confirmedOn: null }] },
-    select: { id: true, accountId: true, orgId: true, name: true, contractEndDate: true, probationEndDate: true, confirmedOn: true },
-    take: 5000,
-  });
   let sent = 0;
   const live = new Map<string, Promise<unknown>>();
-  for (const e of rows) {
+  const read = (after: string | null) => peoplePrisma.employee.findMany({
+    where: { status: { not: 'LEFT' }, OR: [{ contractEndDate: { not: null, lte: horizon } }, { probationEndDate: { not: null, lte: horizon }, confirmedOn: null }], ...(after ? { id: { gt: after } } : {}) },
+    select: { id: true, accountId: true, orgId: true, name: true, contractEndDate: true, probationEndDate: true, confirmedOn: true },
+    orderBy: { id: 'asc' },
+    take: pageSize,
+  });
+  for await (const e of pages(read, pageSize)) {
     try {
       const key = `${e.accountId}:${e.orgId}`;
       if (!live.has(key)) live.set(key, appLive(e.accountId, e.orgId, 'people'));
@@ -186,7 +230,7 @@ export async function runEndDateReminders(now = new Date()) {
           body: past ? 'They are still active. Renew it or record their leaving.' : 'Renew it with a new end date, or record their leaving.',
           link,
           dedupeKey: `contract:${e.id}:${contract}:${cStage}`,
-        });
+        }, { ever: true });
         const marker = `contract:${contract}`;
         if (!(await peoplePrisma.checklistTask.count({ where: { orgId: e.orgId, employeeId: e.id, kind: 'RENEWAL', note: { contains: marker } } }))) {
           await startChecklist({ accountId: e.accountId, orgId: e.orgId, userId: null }, { id: e.id }, 'RENEWAL', contract, { items: [{ title: `Renew or end ${e.name}’s contract (ends ${words(contract)})`, owner: 'HR', dueDays: -7, note: `${marker}. Renew on their Employment tab, or record leaving.` }] });
@@ -201,7 +245,7 @@ export async function runEndDateReminders(now = new Date()) {
           body: 'Confirm, extend or end it on their Employment tab.',
           link,
           dedupeKey: `probation:${e.id}:${probation}:${pStage}`,
-        });
+        }, { ever: true });
         const marker = `probation:${probation}`;
         if (!(await peoplePrisma.checklistTask.count({ where: { orgId: e.orgId, employeeId: e.id, kind: 'PROBATION', note: { contains: marker } } }))) {
           await startChecklist({ accountId: e.accountId, orgId: e.orgId, userId: null }, { id: e.id }, 'PROBATION', probation, { items: [{ title: `Review ${e.name}’s probation (ends ${words(probation)})`, owner: 'MANAGER', dueDays: -3, note: `${marker}. Confirm, extend or end it on their Employment tab.` }] });

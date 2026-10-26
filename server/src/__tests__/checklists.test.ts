@@ -39,7 +39,7 @@ describe('joining and leaving checklists', () => {
   it('starts the defaults on joining, dated from the joining day, and ticks by person', async () => {
     const e = (await api('post', '/employees', { name: 'Asha', code: 'C1', dateOfJoining: '2026-11-02' }).expect(201)).body.employee;
     const list = (await api('get', `/employees/${e.id}/checklist`).expect(200)).body;
-    expect(list.joining.total).toBe(9);
+    expect(list.joining.total).toBe(8);
     expect(list.leaving.total).toBe(0);
     const salary = list.joining.tasks.find((t: any) => t.title === 'Assign the salary structure');
     expect(salary).toMatchObject({ owner: 'PAYROLL', dueDate: '2026-11-05', done: false });
