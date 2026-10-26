@@ -284,11 +284,14 @@ describe('structure checks in Data Health', () => {
     /* One branch: no branch check. Two: people without one are listed. */
     expect(await check(hr, 'no-branch')).toBeUndefined();
     await addBranch(hr, 'Mysuru', 'MYS');
-    expect((await check(hr, 'no-branch')).people.map((p: any) => p.name)).toContain('Worker');
+    /* With one open branch a new hire gets it on their own; with two, someone hired without one is listed. */
+    await hire(hr, { name: 'No Branch Yet', code: 'D-9' });
+    expect((await check(hr, 'no-branch')).people.map((p: any) => p.name)).toContain('No Branch Yet');
 
     /* A team lead sees their own people's rows, never a department or team. */
     const scoped = await colleague(hr, ['PEOPLE::Employees::VIEW'], true);
-    await runInTenant(hr.orgId, () => peoplePrisma.employee.update({ where: { id: worker.id }, data: { userId: scoped.userId } }));
+    /* Worker was hired when the company had one branch, so got it on their own; cleared here to be the row in question. */
+    await runInTenant(hr.orgId, () => peoplePrisma.employee.update({ where: { id: worker.id }, data: { userId: scoped.userId, branchId: null } }));
     const theirs = (await people(scoped).get('/data-health').expect(200)).body.checks.filter((c: any) => c.area === 'Structure');
     expect(theirs.map((c: any) => c.id)).toEqual(['no-branch']);
     expect(theirs[0].people.map((p: any) => p.id)).toEqual([worker.id]);

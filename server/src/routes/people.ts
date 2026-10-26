@@ -509,7 +509,8 @@ peopleRouter.get('/orgs/:orgId/people/employees', can(PermissionAction.VIEW, EMP
     ...scopeWhere(scope),
     ...(mine ? { AND: [{ OR: [{ reportingManagerId: mine.id }, { dottedManagerId: mine.id }] }] } : {}),
     ...statusWhere(pick('status')),
-    ...(pick('departmentId') ? { departmentId: pick('departmentId') } : {}),
+    /* "none": people in no department / no branch (the Organization overview's counts open these). */
+    ...(pick('departmentId') ? { departmentId: pick('departmentId') === 'none' ? null : pick('departmentId') } : {}),
     ...(pick('jobPositionId') ? { jobPositionId: pick('jobPositionId') } : {}),
     ...(pick('employeeTypeId') ? { employeeTypeId: pick('employeeTypeId') } : {}),
     ...(pick('workTypeId') ? { workTypeId: pick('workTypeId') } : {}),
@@ -523,7 +524,7 @@ peopleRouter.get('/orgs/:orgId/people/employees', can(PermissionAction.VIEW, EMP
     /* People design v1 EMP-01: location (site), establishment, joining-date range. */
     ...(pick('areaId') ? { areaId: pick('areaId') } : {}),
     ...(pick('establishmentId') ? { establishmentId: pick('establishmentId') } : {}),
-    ...(pick('branchId') ? { branchId: pick('branchId') } : {}),
+    ...(pick('branchId') ? { branchId: pick('branchId') === 'none' ? null : pick('branchId') } : {}),
     ...(pick('joinedFrom') || pick('joinedTo') ? { dateOfJoining: { ...(pick('joinedFrom') ? { gte: pick('joinedFrom') } : {}), ...(pick('joinedTo') ? { lte: pick('joinedTo') } : {}) } } : {}),
     ...(pick('leftFrom') || pick('leftTo') ? { dateOfLeaving: { not: null, ...(pick('leftFrom') ? { gte: pick('leftFrom') } : {}), ...(pick('leftTo') ? { lte: pick('leftTo') } : {}) } } : {}),
     ...(tagId ? { tags: { some: { tagId } } } : {}),
@@ -776,7 +777,8 @@ peopleRouter.get('/orgs/:orgId/people/employees/export', can(PermissionAction.EX
   const where: any = {
     accountId, orgId, ...scopeWhere(scope),
     ...statusWhere(pick('status')),
-    ...(pick('departmentId') ? { departmentId: pick('departmentId') } : {}),
+    /* "none": people in no department / no branch (the Organization overview's counts open these). */
+    ...(pick('departmentId') ? { departmentId: pick('departmentId') === 'none' ? null : pick('departmentId') } : {}),
     ...(pick('jobPositionId') ? { jobPositionId: pick('jobPositionId') } : {}),
     ...(pick('employeeTypeId') ? { employeeTypeId: pick('employeeTypeId') } : {}),
     ...(pick('managerId') ? { reportingManagerId: pick('managerId') } : {}),
@@ -786,7 +788,7 @@ peopleRouter.get('/orgs/:orgId/people/employees/export', can(PermissionAction.EX
     ...(pick('probation') === 'on' ? { probationEndDate: { not: null }, confirmedOn: null } : {}),
     ...(pick('contract') === 'ending' ? { contractEndDate: { not: null, lte: addDaysIso(todayIst(), 30) } } : {}),
     ...(pick('establishmentId') ? { establishmentId: pick('establishmentId') } : {}),
-    ...(pick('branchId') ? { branchId: pick('branchId') } : {}),
+    ...(pick('branchId') ? { branchId: pick('branchId') === 'none' ? null : pick('branchId') } : {}),
     ...(pick('businessUnitId') ? { businessUnitId: pick('businessUnitId') } : {}),
     ...(pick('gradeId') ? { gradeId: pick('gradeId') } : {}),
     ...(pick('costCenterId') ? { costCenterId: pick('costCenterId') } : {}),
@@ -928,6 +930,11 @@ peopleRouter.post('/orgs/:orgId/people/employees', can(PermissionAction.CREATE, 
   if (duplicates.length && !duplicateReason) return res.status(409).json({ error: `${duplicates[0].name} already has this ${duplicates[0].field}. Open their record, or say why this is a different person.`, code: 'DUPLICATE', duplicates });
   try {
     const structure = await resolveStructure(orgId, b);
+    /* A company with one open branch: everyone hired works from it, so Attendance gives them its holidays without anyone setting it. */
+    if (!structure.branchId) {
+      const open = await platformPrisma.branch.findMany({ where: { accountId, orgId, isActive: true }, select: { id: true }, take: 2 });
+      if (open.length === 1) structure.branchId = open[0].id;
+    }
     const taken = await seatFree(orgId, blank(b.seatId), null);
     if (taken) return res.status(409).json({ error: taken });
     await checkManager(orgId, null, blank(b.reportingManagerId));
@@ -1973,7 +1980,7 @@ peopleRouter.get('/orgs/:orgId/people/org-chart', can(PermissionAction.VIEW, EMP
   const { accountId, orgId } = req.tenant!;
   const nodes = await peoplePrisma.employee.findMany({
     where: { accountId, orgId, status: { not: 'LEFT' }, ...scopeWhere(await teamScope(req)) },
-    select: { id: true, name: true, code: true, designation: true, department: true, photoUrl: true, reportingManagerId: true, dottedManagerId: true },
+    select: { id: true, name: true, code: true, designation: true, department: true, departmentId: true, photoUrl: true, reportingManagerId: true, dottedManagerId: true },
     orderBy: { name: 'asc' },
   });
   /* Open seats show on the chart (ORG-04): seats on an active team that nobody holds. */

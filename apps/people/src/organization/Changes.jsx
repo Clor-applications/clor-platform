@@ -38,23 +38,24 @@ export default function Changes({ params = {}, updateParams, openScreen }) {
       {error ? <ErrorState error={error} onRetry={first.reload} /> : !entries ? <SkeletonCard lines={6} /> : !entries.length ? (
         <EmptyState title="No changes yet" description="Adding, renaming, moving, retiring or merging anything in the structure is listed here." />
       ) : (
-        <ChangeList key={`${kind}|${item}`} kind={kind} item={item} firstPage={entries} />
+        <ChangeList key={`${kind}|${item}`} kind={kind} item={item} firstPage={entries} firstNext={first.data?.nextBefore || null} />
       )}
     </div>
   );
 }
 
-function ChangeList({ kind, item, firstPage }) {
+function ChangeList({ kind, item, firstPage, firstNext }) {
   const [older, setOlder] = useState([]);
-  const [more, setMore] = useState(firstPage.length === 50);
+  /* The server pages by the last entry it sent (nextBefore); none means this is everything. */
+  const [next, setNext] = useState(firstNext);
   const [busy, setBusy] = useState(false);
   const entries = [...firstPage, ...older];
   const loadMore = async () => {
     setBusy(true);
     try {
-      const r = await structureHistory({ kind, id: item, limit: 50, before: entries.at(-1)?.at });
+      const r = await structureHistory({ kind, id: item, limit: 50, before: next });
       setOlder((o) => [...o, ...(r?.entries || [])]);
-      setMore((r?.entries || []).length === 50);
+      setNext(r?.nextBefore || null);
     } finally { setBusy(false); }
   };
   return (
@@ -76,7 +77,7 @@ function ChangeList({ kind, item, firstPage }) {
           </li>
         ))}
       </ol>
-      {more ? <button type="button" className="ui-btn ui-btn-secondary" disabled={busy} onClick={loadMore}>{busy ? 'Loading…' : 'Show earlier changes'}</button> : null}
+      {next ? <button type="button" className="ui-btn ui-btn-secondary" disabled={busy} onClick={loadMore}>{busy ? 'Loading…' : 'Show earlier changes'}</button> : null}
     </>
   );
 }
