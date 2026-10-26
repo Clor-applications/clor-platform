@@ -60,7 +60,8 @@ export const EntityMark = ({ entity, size = 18 }) => {
 /* `breadcrumb`: [{ label, onClick? }] — the trail above the title (People design spec v1 §5); the last item is the current page. */
 export const PageHeader = ({ title, description, actions = null, entity = '', breadcrumb = null }) => (
   <div className="ui-page-heading flex flex-wrap items-start justify-between gap-3 mb-2">
-    <div className="flex min-w-0 items-center gap-2.5">
+    {/* The title gives way before the actions do: they stay top right until the title would be narrower than 20rem. */}
+    <div className="flex min-w-0 items-center gap-2.5" style={{ flex: '1 1 20rem' }}>
       {entity ? <EntityMark entity={entity} /> : null}
       <div className="min-w-0">
         {breadcrumb?.length ? (

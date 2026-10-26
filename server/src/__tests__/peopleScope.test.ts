@@ -140,4 +140,21 @@ describe('a manager limited to their own team', () => {
     await people(lead).get('/headcount').expect(403);
     await people(lead).post(`/employees/${stranger.id}/anonymise`, { confirmName: 'Someone Else' }).expect(403);
   });
+
+  it('a read-only role gets the work profile; date of birth, address and family stay with HR (Workforce audit E4)', async () => {
+    await people(hr).put(`/employees/${report.id}`, { dateOfBirth: '1990-05-04', addressLine: '12 Lake Road', emergencyContactName: 'Sita' }).expect(200);
+    const seen = (await people(manager).get(`/employees/${report.id}`).expect(200)).body.employee;
+    expect(seen).toMatchObject({ personalHidden: true, name: 'Direct Report' });
+    expect(seen.dateOfBirth).toBeUndefined();
+    expect(seen.addressLine).toBeUndefined();
+    const listed = (await people(manager).get('/employees?limit=500').expect(200)).body.employees.find((e: any) => e.id === report.id);
+    expect(listed.emergencyContactName).toBeUndefined();
+    /* Their own record is theirs to see in full. */
+    await people(hr).put(`/employees/${me.id}`, { dateOfBirth: '1985-01-01' }).expect(200);
+    expect((await people(manager).get(`/employees/${me.id}`).expect(200)).body.employee.dateOfBirth).toBe('1985-01-01');
+    /* HR sees it all; the change shows as changed, without values, to the read-only role. */
+    expect((await people(hr).get(`/employees/${report.id}`).expect(200)).body.employee.dateOfBirth).toBe('1990-05-04');
+    const activity = (await people(manager).get(`/employees/${report.id}/activity`).expect(200)).body;
+    expect(JSON.stringify(activity)).not.toContain('12 Lake Road');
+  });
 });

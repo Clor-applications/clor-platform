@@ -45,7 +45,7 @@ export default function PeopleOverview({ openScreen }) {
       .catch(() => setTodos([]));
     loadTasks();
   }, []);
-  const go = (screen) => () => openScreen?.(screen);
+  const go = (screen, params) => () => openScreen?.(screen, params);
 
   if (error) return <div className="ui-card p-4 text-sm" role="alert" style={{ color: 'rgb(var(--neg))' }}>{error}</div>;
   if (!data) return <SkeletonCard lines={6} />;
@@ -82,7 +82,7 @@ export default function PeopleOverview({ openScreen }) {
           <ul className="grid gap-3 md:grid-cols-2">
             {todos.map((t) => (
               <li key={t.key}>
-                <button type="button" onClick={go(t.screen)} className="ui-card w-full p-4 text-left flex items-center gap-4 hover:border-[rgb(var(--brand))]">
+                <button type="button" onClick={go(t.screen, t.params)} className="ui-card w-full p-4 text-left flex items-center gap-4 hover:border-[rgb(var(--brand))]">
                   <span className="text-2xl font-semibold tabular-nums w-12 text-center">{t.count}</span>
                   <span className="min-w-0 flex-1">
                     <span className="flex items-center gap-2">
@@ -102,7 +102,7 @@ export default function PeopleOverview({ openScreen }) {
       </section>
 
       <section className="flex flex-wrap gap-2" aria-label="Shortcuts">
-        <button type="button" className="ui-btn ui-btn-secondary" onClick={go('employees')}><UserPlus size={16} aria-hidden="true" /> Add an employee</button>
+        <button type="button" className="ui-btn ui-btn-secondary" onClick={go('employeeNew')}><UserPlus size={16} aria-hidden="true" /> Add an employee</button>
         <button type="button" className="ui-btn ui-btn-secondary" onClick={go('leaveRequests')}>Leave requests</button>
         <button type="button" className="ui-btn ui-btn-secondary" onClick={go('helpdesk')}>HR cases</button>
         <button type="button" className="ui-btn ui-btn-secondary" onClick={go('announcements')}><Megaphone size={16} aria-hidden="true" /> Post an announcement</button>

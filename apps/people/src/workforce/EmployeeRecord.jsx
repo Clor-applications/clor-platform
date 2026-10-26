@@ -19,7 +19,7 @@ import {
   Avatar, CustomFields, EmployeeChecklist, shrinkPhoto, EmployeeDocuments, EmploymentHistory, GENDER_WORDS, InviteForm, JoiningDetails, Journey, ResignForm, SCHEDULED_LABELS, StatutoryDetails,
 } from '@ui/personnel/Employees';
 import { LEAVING_TYPES } from '@ui/personnel/api';
-import { HOURS_WORDS, datesFor, kindOf, onProbation } from '@ui/personnel/employmentKinds';
+import { HOURS_WORDS, datesFor, kindOf, probationState } from '@ui/personnel/employmentKinds';
 
 import {
   addComment, changeImpact, employeeReadiness, linkCandidates, linkUser, decideProbation, deleteEmployee, employeeActivity, employeeAsOf, getEmployee, listContractors, listEmployees, listTags, openTasksFor, rehireEmployee, structure, updateEmployee, withdrawScheduled,
@@ -131,6 +131,7 @@ export default function EmployeeRecord({ params = {}, updateParams, openScreen }
     allowed('PEOPLE::Employees::DELETE') ? ['delete', 'Delete'] : null,
   ].filter(Boolean);
   const headerDates = datesFor(kindOf(lists?.types, person.employeeTypeId));
+  const probation = probationState(person, todayIst());
 
   return (
     <div className="space-y-4">
@@ -152,8 +153,13 @@ export default function EmployeeRecord({ params = {}, updateParams, openScreen }
                 {person.areaName || person.workLocation ? <li><MapPin size={14} aria-hidden="true" />{person.areaName || person.workLocation}</li> : null}
                 {person.reportingManagerName ? <li><UserRound size={14} aria-hidden="true" />Reports to&nbsp;<button type="button" className="ui-link" onClick={() => openScreen?.('employee', { id: person.reportingManagerId })}>{person.reportingManagerName}</button></li> : null}
                 {person.hours === 'PART_TIME' ? <li><Clock size={14} aria-hidden="true" />Part-time</li> : null}
-                {onProbation(person, todayIst()) ? <li><Hourglass size={14} aria-hidden="true" />On probation until&nbsp;<span className="tabular-nums">{formatDate(String(person.probationEndDate).slice(0, 10))}</span></li> : null}
-                {person.contractEndDate && person.status !== 'LEFT' ? <li><CalendarClock size={14} aria-hidden="true" />{headerDates.contractLabel}&nbsp;<span className="tabular-nums">{formatDate(String(person.contractEndDate).slice(0, 10))}</span></li> : null}
+                {probation === 'ON' ? <li><Hourglass size={14} aria-hidden="true" /><span>On probation until <span className="tabular-nums">{formatDate(String(person.probationEndDate).slice(0, 10))}</span></span></li> : null}
+                {probation === 'OVER' ? <li className="is-warn"><Hourglass size={14} aria-hidden="true" /><span>Probation ended <span className="tabular-nums">{formatDate(String(person.probationEndDate).slice(0, 10))}</span>, not confirmed</span></li> : null}
+                {person.contractEndDate && person.status !== 'LEFT' ? (
+                  String(person.contractEndDate).slice(0, 10) < todayIst()
+                    ? <li className="is-warn"><CalendarClock size={14} aria-hidden="true" /><span>{headerDates.contractLabel === 'Internship ends' ? 'Internship ended' : 'Contract ended'} <span className="tabular-nums">{formatDate(String(person.contractEndDate).slice(0, 10))}</span></span></li>
+                    : <li><CalendarClock size={14} aria-hidden="true" /><span>{headerDates.contractLabel} <span className="tabular-nums">{formatDate(String(person.contractEndDate).slice(0, 10))}</span></span></li>
+                ) : null}
                 {!person.code && !person.designation && !person.department ? <li>No role or department yet</li> : null}
               </ul>
               <TagLine person={person} tags={lists?.tags || []} canEdit={allowed('PEOPLE::Employees::EDIT')} onSaved={(emp) => setPerson(emp)} />
@@ -170,7 +176,8 @@ export default function EmployeeRecord({ params = {}, updateParams, openScreen }
                     if (k === 'delete') return remove();
                     if (k === 'invite') { setMoreOpen(false); return setInviting(true); }
                     if (k === 'leave') { setMoreOpen(false); return setResigning(true); }
-                    if (k === 'rehire') { setMoreOpen(false); return set({ tab: 'employment', action: null }, true); }
+                    /* Rehire lives on the Employment tab; the caret goes to its first field so the step is visible. */
+                    if (k === 'rehire') { setMoreOpen(false); set({ tab: 'employment', action: null }, true); return setTimeout(() => document.getElementById('rejoin')?.focus(), 150); }
                     return openAction(k);
                   }} onEscape={() => { setMoreOpen(false); moreRef.current?.focus(); }} />
                 </Popover>
@@ -189,7 +196,7 @@ export default function EmployeeRecord({ params = {}, updateParams, openScreen }
       <RecordTabs tabs={tabsAllowed} value={tab} onChange={(k) => set({ tab: k === 'overview' ? null : k, edit: null, action: null }, true)} label={`${person.name} sections`}>
         {tab === 'overview' ? <Overview person={person} data={rec.data} lists={lists} allowed={allowed} goTo={(t) => set({ tab: t }, true)} go={(patch) => set(patch, true)} /> : null}
         {tab === 'personal' ? <Personal person={person} allowed={allowed} editing={params.edit} setEditing={(e) => set({ edit: e })} onSaved={(emp) => rec.setData((d) => ({ ...d, employee: { ...d.employee, ...emp } }))} reload={rec.reload} /> : null}
-        {tab === 'employment' ? <Employment person={person} data={rec.data} lists={lists} allowed={allowed} editing={params.edit} setEditing={(e) => set({ edit: e })} onSaved={(emp) => setPerson(emp)} reload={rec.reload} /> : null}
+        {tab === 'employment' ? <Employment person={person} data={rec.data} lists={lists} allowed={allowed} editing={params.edit} setEditing={(e) => set({ edit: e })} onSaved={(emp) => setPerson(emp)} reload={rec.reload} onLeave={() => setResigning(true)} /> : null}
         {tab === 'organization' ? <Organization person={person} lists={lists} allowed={allowed} openAction={openAction} openPerson={(pid) => openScreen?.('employee', { id: pid })} editing={params.edit} setEditing={(e) => set({ edit: e })} onSaved={(emp) => setPerson(emp)} reload={rec.reload} /> : null}
         {tab === 'documents' ? <EmployeeDocuments employeeId={person.id} /> : null}
         {tab === 'history' ? <div className="space-y-6"><HistoryCompare person={person} lists={lists} /><Section title="Employment history"><EmploymentHistory employeeId={person.id} /></Section><Section title="Every change and why"><Journey employeeId={person.id} /></Section></div> : null}
@@ -295,7 +302,7 @@ const FIX_HERE = {
   'no-department': { tab: 'organization', action: 'transfer' }, 'no-manager': { tab: 'organization', action: 'manager' },
   'no-reader-id': { tab: 'organization', edit: 'readers' }, 'document-expired': { tab: 'documents' }, 'permit-expired': { tab: 'documents' },
   'duplicate-person': { tab: 'personal' }, 'shared-phone': { tab: 'personal', edit: 'contact' }, 'shared-email': { tab: 'personal', edit: 'contact' },
-  'overdue-tasks': { tab: 'employment' },
+  'overdue-tasks': { tab: 'employment' }, 'contract-ended': { tab: 'employment' }, 'probation-due': { tab: 'employment' },
 };
 function ReadinessSection({ person, go }) {
   const r = useRequest(() => employeeReadiness(person.id), [person.id, person.version]);
@@ -593,6 +600,10 @@ const PERSONAL_SECTIONS = {
   emergency: { title: 'Emergency contact', fields: [{ key: 'emergencyContactName', label: 'Name' }, { key: 'emergencyContactRelation', label: 'Relationship' }, { key: 'emergencyContactPhone', label: 'Phone', type: 'tel', inputMode: 'tel' }] },
 };
 
+/* Personal details the server leaves out for a read-only role (routes/people.ts seesPersonal): their fields are not drawn, rather than shown as "Not provided". */
+const PERSONAL_KEYS = new Set(['dateOfBirth', 'maritalStatus', 'guardianName', 'email', 'personalEmail', 'addressLine', 'city', 'state', 'country', 'pincode', 'emergencyContactName', 'emergencyContactPhone', 'emergencyContactRelation', 'notes', 'cardNumber']);
+const shownFields = (person, fields) => (person.personalHidden ? fields.filter((f) => !PERSONAL_KEYS.has(f.key)) : fields);
+
 function Personal({ person, allowed, editing, setEditing, onSaved, reload }) {
   const canEdit = allowed('PEOPLE::Employees::EDIT') && person.status !== 'LEFT';
   const value = (s, f) => {
@@ -603,15 +614,16 @@ function Personal({ person, allowed, editing, setEditing, onSaved, reload }) {
   };
   return (
     <div className="space-y-4">
-      {Object.entries(PERSONAL_SECTIONS).map(([k, s]) => (
+      {Object.entries(PERSONAL_SECTIONS).filter(([, s]) => shownFields(person, s.fields).length).map(([k, s]) => (
         <Section key={k} title={s.title} onEdit={canEdit && editing !== k ? () => setEditing(k) : null}>
           {editing === k ? (
             <SectionForm person={person} fields={s.fields} onCancel={() => setEditing(null)} onSaved={(emp) => { onSaved(emp); setEditing(null); }} reload={reload} />
           ) : (
-            <dl className="ui-field-grid">{s.fields.filter((f) => !f.hideEmpty || person[f.key]).map((f) => <Field key={f.key} label={f.label} value={value(s, f)} />)}</dl>
+            <dl className="ui-field-grid">{shownFields(person, s.fields).filter((f) => !f.hideEmpty || person[f.key]).map((f) => <Field key={f.key} label={f.label} value={value(s, f)} />)}</dl>
           )}
         </Section>
       ))}
+      {person.personalHidden ? <p className="ui-caption">Date of birth, home address and family details are kept with HR.</p> : null}
       {/* Statutory details: a section only for those with the grant (D-V2); masked, reveal needs an authenticator. */}
       {allowed('PEOPLE::Statutory Details::VIEW') ? <Section title="IDs and statutory"><StatutoryDetails employeeId={person.id} embedded /></Section> : null}
       <Section title="More details"><CustomFields employeeId={person.id} embedded /></Section>
@@ -622,21 +634,44 @@ function Personal({ person, allowed, editing, setEditing, onSaved, reload }) {
 
 /* --------------------------------------------------------------- Employment */
 
-function Employment({ person, data, lists, allowed, editing, setEditing, onSaved, reload }) {
+function Employment({ person, data, lists, allowed, editing, setEditing, onSaved, reload, onLeave }) {
   const canEdit = allowed('PEOPLE::Employees::EDIT') && person.status !== 'LEFT';
   const [extendTo, setExtendTo] = useState('');
+  const [endOn, setEndOn] = useState('');
+  const [renewTo, setRenewTo] = useState('');
   const [rejoin, setRejoin] = useState('');
+  const [rejoinType, setRejoinType] = useState(person.employeeTypeId || '');
+  const [rejoinProbation, setRejoinProbation] = useState('');
+  const [rejoinContract, setRejoinContract] = useState('');
+  const rejoinDates = datesFor(kindOf(lists?.types, rejoinType));
   const typeName = lists?.types.find((t) => t.id === person.employeeTypeId)?.name;
   const workTypeName = lists?.workTypes.find((t) => t.id === person.workTypeId)?.name;
   const dates = datesFor(kindOf(lists?.types, person.employeeTypeId));
   const probation = async (outcome) => {
-    if (!(await confirmDialog({ title: outcome === 'CONFIRM' ? `Confirm ${person.name} after probation?` : `Extend probation to ${formatDate(extendTo)}?`, confirmLabel: outcome === 'CONFIRM' ? 'Confirm' : 'Extend', tone: 'primary' }))) return;
+    const ask = {
+      CONFIRM: { title: `Confirm ${person.name} after probation?`, confirmLabel: 'Confirm', tone: 'primary' },
+      EXTEND: { title: `Extend probation to ${formatDate(extendTo)}?`, confirmLabel: 'Extend', tone: 'primary' },
+      END: { title: `End ${person.name}’s employment after probation?`, message: `Their last day is ${formatDate(endOn)}. The leaving checklist starts.`, confirmLabel: 'End employment' },
+    }[outcome];
+    if (!(await confirmDialog(ask))) return;
     try {
-      const r = await decideProbation(person.id, outcome === 'CONFIRM' ? { outcome } : { outcome, newEndDate: extendTo });
-      notify.success(r.request ? `Sent for approval: ${r.request.title}.` : outcome === 'CONFIRM' ? 'Confirmed.' : 'Probation extended.');
+      const r = await decideProbation(person.id, outcome === 'CONFIRM' ? { outcome } : outcome === 'EXTEND' ? { outcome, newEndDate: extendTo } : { outcome, lastDay: endOn });
+      notify.success(r.request ? `Sent for approval: ${r.request.title}.` : { CONFIRM: 'Confirmed.', EXTEND: 'Probation extended.', END: 'Employment ends after probation.' }[outcome]);
       setExtendTo('');
+      setEndOn('');
       reload();
     } catch (e) { notify.error(String(e?.message || 'Not saved.')); }
+  };
+  /* A renewal is the end date moving on, said in words on the history. */
+  const renew = async () => {
+    if (!(await confirmDialog({ title: `Renew ${person.name}’s ${dates.contractLabel === 'Internship ends' ? 'internship' : 'contract'} to ${formatDate(renewTo)}?`, confirmLabel: 'Renew', tone: 'primary' }))) return;
+    try {
+      const r = await updateEmployee(person.id, { contractEndDate: renewTo, changeNote: `Renewed to ${formatDate(renewTo)}`, version: person.version });
+      notify.success(r.request ? `Sent for approval: ${r.request.title}.` : 'Renewed.');
+      setRenewTo('');
+      onSaved(r.employee);
+      reload();
+    } catch (e) { notify.error(String(e?.message || 'Not renewed.')); }
   };
   const withdraw = async (c) => {
     if (!(await confirmDialog({ title: `Withdraw the change due ${formatDate(c.effectiveOn)}?`, confirmLabel: 'Withdraw' }))) return;
@@ -644,7 +679,12 @@ function Employment({ person, data, lists, allowed, editing, setEditing, onSaved
   };
   const rehire = async () => {
     if (!(await confirmDialog({ title: `Rehire ${person.name} from ${formatDate(rejoin)}?`, message: 'A new stint starts on that date; the earlier one is kept in History.', confirmLabel: 'Rehire', tone: 'primary' }))) return;
-    try { await rehireEmployee(person.id, { rejoinDate: rejoin }); notify.success(`${person.name} rehired.`); setRejoin(''); reload(); } catch (e) { notify.error(String(e?.message || 'Not rehired.')); }
+    try {
+      await rehireEmployee(person.id, { rejoinDate: rejoin, employeeTypeId: rejoinType || null, probationEndDate: (rejoinDates.probation && rejoinProbation) || null, contractEndDate: (rejoinDates.contract && rejoinContract) || null });
+      notify.success(`${person.name} rehired.`);
+      setRejoin('');
+      reload();
+    } catch (e) { notify.error(String(e?.message || 'Not rehired.')); }
   };
   const fields = [
     { key: 'code', label: 'Employee ID', required: true, max: 40 },
@@ -677,10 +717,39 @@ function Employment({ person, data, lists, allowed, editing, setEditing, onSaved
       </Section>
       {person.probationEndDate && !person.confirmedOn && person.status !== 'LEFT' && allowed('PEOPLE::Lifecycle::APPROVE') ? (
         <Section title="Probation">
-          <div className="flex flex-wrap items-end gap-3">
-            <button type="button" className="ui-btn ui-btn-secondary" onClick={() => probation('CONFIRM')}>Confirm after probation</button>
-            <div><label className="ui-caption" htmlFor="prob-extend">Or extend to</label><DatePicker id="prob-extend" value={extendTo} min={person.probationEndDate} onChange={setExtendTo} /></div>
-            <button type="button" className="ui-btn ui-btn-secondary" disabled={!extendTo} onClick={() => probation('EXTEND')}>Extend</button>
+          {/* One decision, three outcomes: a row each, so the choice reads down the page. */}
+          <div className="ui-decide">
+            <div className="ui-decide-row">
+              <span className="ui-decide-label">Passed</span>
+              <span />
+              <button type="button" className="ui-btn ui-btn-secondary" onClick={() => probation('CONFIRM')}>Confirm</button>
+            </div>
+            <div className="ui-decide-row">
+              <label className="ui-decide-label" htmlFor="prob-extend">Extend to</label>
+              <DatePicker id="prob-extend" value={extendTo} min={person.probationEndDate} onChange={setExtendTo} />
+              <button type="button" className="ui-btn ui-btn-secondary" disabled={!extendTo} onClick={() => probation('EXTEND')}>Extend</button>
+            </div>
+            <div className="ui-decide-row">
+              <label className="ui-decide-label" htmlFor="prob-end">End on</label>
+              <DatePicker id="prob-end" value={endOn} min={String(person.dateOfJoining || '').slice(0, 10)} onChange={setEndOn} />
+              <button type="button" className="ui-btn ui-btn-secondary" disabled={!endOn} onClick={() => probation('END')}>End employment</button>
+            </div>
+          </div>
+        </Section>
+      ) : null}
+      {dates.contract && person.contractEndDate && canEdit ? (
+        <Section title={dates.contractLabel === 'Internship ends' ? 'Internship' : 'Contract'}>
+          <div className="ui-decide">
+            <div className="ui-decide-row">
+              <label className="ui-decide-label" htmlFor="contract-renew">Renew to</label>
+              <DatePicker id="contract-renew" value={renewTo} min={String(person.contractEndDate).slice(0, 10)} onChange={setRenewTo} />
+              <button type="button" className="ui-btn ui-btn-secondary" disabled={!renewTo} onClick={renew}>Renew</button>
+            </div>
+            <div className="ui-decide-row">
+              <span className="ui-decide-label">Not renewing</span>
+              <span />
+              <button type="button" className="ui-btn ui-btn-secondary" onClick={onLeave}>Record leaving</button>
+            </div>
           </div>
         </Section>
       ) : null}
@@ -700,10 +769,14 @@ function Employment({ person, data, lists, allowed, editing, setEditing, onSaved
       ) : null}
       {person.status === 'LEFT' && allowed('PEOPLE::Employees::EDIT') ? (
         <Section title="Rehire">
-          <div className="flex flex-wrap items-end gap-3">
-            <div><label className="ui-caption" htmlFor="rejoin">Rejoins on</label><DatePicker id="rejoin" value={rejoin} min={person.dateOfLeaving || ''} onChange={setRejoin} /></div>
-            <button type="button" className="ui-btn ui-btn-primary" disabled={!rejoin} onClick={rehire}>Rehire</button>
+          {/* A new stint has its own terms; last time's probation and contract dates do not carry over. */}
+          <div className="ui-form-grid">
+            <div><label className="ui-label" htmlFor="rejoin">Rejoins on *</label><DatePicker id="rejoin" value={rejoin} min={person.dateOfLeaving || ''} onChange={setRejoin} /></div>
+            <div><PopupSelect showValueSubtext={false} label="Employment type" value={rejoinType} onChange={(v) => setRejoinType(v || '')} placeholder="Not set" options={[{ value: '', label: 'Not set' }, ...(lists?.types || []).map((t) => ({ value: t.id, label: t.name }))]} /></div>
+            {rejoinDates.probation ? <div><label className="ui-label" htmlFor="rejoin-probation">Probation ends</label><DatePicker id="rejoin-probation" value={rejoinProbation} min={rejoin || ''} onChange={setRejoinProbation} /></div> : null}
+            {rejoinDates.contract ? <div><label className="ui-label" htmlFor="rejoin-contract">{rejoinDates.contractLabel}</label><DatePicker id="rejoin-contract" value={rejoinContract} min={rejoin || ''} onChange={setRejoinContract} /></div> : null}
           </div>
+          <div className="mt-4"><button type="button" className="ui-btn ui-btn-secondary" disabled={!rejoin} onClick={rehire}>Rehire</button></div>
         </Section>
       ) : null}
       <Section title="Onboarding & offboarding"><EmployeeChecklist person={person} /></Section>
@@ -813,10 +886,19 @@ function OperationDrawer({ action, person, lists, onClose, onDone }) {
   const ptFix = impact.find((i) => i.fix?.kind === 'ptState');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
+  /* A new employment type brings its own end dates: asked for here, and the ones it does not have are cleared (an intern made permanent has no internship end). */
+  const day = (v) => (v ? String(v).slice(0, 10) : '');
+  const [ends, setEnds] = useState({ probationEndDate: day(person.probationEndDate), contractEndDate: day(person.contractEndDate) });
+  const typeChanged = action === 'type' && (form.employeeTypeId || '') !== (person.employeeTypeId || '');
+  const newDates = datesFor(kindOf(lists.types, form.employeeTypeId));
+  const endChanges = !typeChanged ? {} : Object.fromEntries([
+    ['contractEndDate', newDates.contract ? ends.contractEndDate : ''],
+    ...(person.confirmedOn ? [] : [['probationEndDate', newDates.probation ? ends.probationEndDate : '']]),
+  ].filter(([k, v]) => v !== day(person[k])));
   useEffect(() => {
     if (op?.fields.some(([, , src]) => src === 'people')) listEmployees({ limit: 500, sort: 'name' }).then((r) => setPeople((r?.employees || []).filter((e) => e.id !== person.id && e.status !== 'LEFT'))).catch(() => setPeople([]));
   }, [op, person.id]);
-  const changed = Object.fromEntries(Object.entries(form).filter(([k, v]) => (v || '') !== (person[k] || '')));
+  const changed = { ...Object.fromEntries(Object.entries(form).filter(([k, v]) => (v || '') !== (person[k] || ''))), ...endChanges };
   useEffect(() => {
     const ask = {};
     for (const k of ['establishmentId', 'departmentId', 'reportingManagerId', 'areaId']) if (k in changed) ask[k] = changed[k] || '';
@@ -868,6 +950,10 @@ function OperationDrawer({ action, person, lists, onClose, onDone }) {
             <span className="ui-caption">Now: {current(k, src)}</span>
           </div>
         ))}
+        {typeChanged && newDates.probation && !person.confirmedOn ? <div><label className="ui-label" htmlFor="op-probation">Probation ends</label><DatePicker id="op-probation" value={ends.probationEndDate} min={day(person.dateOfJoining)} onChange={(v) => setEnds({ ...ends, probationEndDate: v || '' })} /></div> : null}
+        {typeChanged && newDates.contract ? <div><label className="ui-label" htmlFor="op-contract">{newDates.contractLabel}</label><DatePicker id="op-contract" value={ends.contractEndDate} min={day(person.dateOfJoining)} onChange={(v) => setEnds({ ...ends, contractEndDate: v || '' })} /></div> : null}
+        {/* A date the new type does not have is removed; said, never done quietly. */}
+        {['probationEndDate', 'contractEndDate'].filter((k) => endChanges[k] === '' && person[k]).map((k) => <p key={k} className="ui-caption">{k === 'probationEndDate' ? 'Probation end' : 'Contract end'} {formatDate(day(person[k]))} is removed.</p>)}
         <div><label className="ui-label" htmlFor="op-effective">Effective from</label><DatePicker id="op-effective" value={effective} onChange={setEffective} /></div>
         <label className="block"><span className="ui-label">Reason{op.reasonRequired ? ' *' : ''}</span><textarea className="ui-input w-full" rows={2} maxLength={500} value={reason} aria-invalid={reasonMissing || undefined} aria-describedby={reasonMissing ? 'op-reason-error' : undefined} onChange={(e) => { setReason(e.target.value); setReasonMissing(false); }} /></label>
         {reasonMissing ? <p id="op-reason-error" className="ui-field-error" role="alert">Add a reason.</p> : null}

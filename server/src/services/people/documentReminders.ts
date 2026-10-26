@@ -147,12 +147,80 @@ export async function runContractorLicenceReminders(now = new Date()) {
   return sent;
 }
 
+/**
+ * Contract, internship and probation end dates (Workforce audit O1, O2).
+ * HR hears at 30 and 7 days and on the day for a contract, at 14 days and on
+ * the day for probation, each once (the bell remembers); a decision task goes
+ * on the plan once per date: renew or end for a contract (HR), review for
+ * probation (the manager). A date that has passed with nothing decided is
+ * also on Data Health and the People home.
+ */
+const CONTRACT_STAGES = [30, 7, 0];
+const PROBATION_STAGES = [14, 0];
+const stageIn = (stages: number[], days: number) => (days <= 0 ? 0 : stages.filter((s) => days <= s).sort((a, b) => a - b)[0] ?? null);
+const words = (iso: string) => { const [y, m, d] = iso.split('-'); return `${Number(d)} ${['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][Number(m) - 1]} ${y}`; };
+
+export async function runEndDateReminders(now = new Date()) {
+  const today = istDate(now);
+  const horizon = istDate(new Date(now.getTime() + CONTRACT_STAGES[0] * 86_400_000));
+  const rows = await peoplePrisma.employee.findMany({
+    where: { status: { not: 'LEFT' }, OR: [{ contractEndDate: { not: null, lte: horizon } }, { probationEndDate: { not: null, lte: horizon }, confirmedOn: null }] },
+    select: { id: true, accountId: true, orgId: true, name: true, contractEndDate: true, probationEndDate: true, confirmedOn: true },
+    take: 5000,
+  });
+  let sent = 0;
+  const live = new Map<string, Promise<unknown>>();
+  for (const e of rows) {
+    try {
+      const key = `${e.accountId}:${e.orgId}`;
+      if (!live.has(key)) live.set(key, appLive(e.accountId, e.orgId, 'people'));
+      if (await live.get(key)) continue;
+      const link = { app: 'people', screen: 'employee', params: { id: e.id, tab: 'employment' } };
+      const contract = e.contractEndDate ? String(e.contractEndDate).slice(0, 10) : null;
+      const cStage = contract ? stageIn(CONTRACT_STAGES, daysUntil(contract, now)) : null;
+      if (contract && cStage !== null) {
+        const past = contract < today;
+        sent += await notifyPermissionOnce(e.accountId, e.orgId, MANAGES_PEOPLE, {
+          kind: 'people.contract_ending',
+          title: past ? `${e.name}’s contract ended on ${words(contract)}` : contract === today ? `${e.name}’s contract ends today` : `${e.name}’s contract ends on ${words(contract)}`,
+          body: past ? 'They are still active. Renew it or record their leaving.' : 'Renew it with a new end date, or record their leaving.',
+          link,
+          dedupeKey: `contract:${e.id}:${contract}:${cStage}`,
+        });
+        const marker = `contract:${contract}`;
+        if (!(await peoplePrisma.checklistTask.count({ where: { orgId: e.orgId, employeeId: e.id, kind: 'RENEWAL', note: { contains: marker } } }))) {
+          await startChecklist({ accountId: e.accountId, orgId: e.orgId, userId: null }, { id: e.id }, 'RENEWAL', contract, { items: [{ title: `Renew or end ${e.name}’s contract (ends ${words(contract)})`, owner: 'HR', dueDays: -7, note: `${marker}. Renew on their Employment tab, or record leaving.` }] });
+        }
+      }
+      const probation = e.probationEndDate && !e.confirmedOn ? String(e.probationEndDate).slice(0, 10) : null;
+      const pStage = probation ? stageIn(PROBATION_STAGES, daysUntil(probation, now)) : null;
+      if (probation && pStage !== null) {
+        sent += await notifyPermissionOnce(e.accountId, e.orgId, MANAGES_PEOPLE, {
+          kind: 'people.probation_ending',
+          title: probation < today ? `${e.name}’s probation ended on ${words(probation)}, not yet decided` : probation === today ? `${e.name}’s probation ends today` : `${e.name}’s probation ends on ${words(probation)}`,
+          body: 'Confirm, extend or end it on their Employment tab.',
+          link,
+          dedupeKey: `probation:${e.id}:${probation}:${pStage}`,
+        });
+        const marker = `probation:${probation}`;
+        if (!(await peoplePrisma.checklistTask.count({ where: { orgId: e.orgId, employeeId: e.id, kind: 'PROBATION', note: { contains: marker } } }))) {
+          await startChecklist({ accountId: e.accountId, orgId: e.orgId, userId: null }, { id: e.id }, 'PROBATION', probation, { items: [{ title: `Review ${e.name}’s probation (ends ${words(probation)})`, owner: 'MANAGER', dueDays: -3, note: `${marker}. Confirm, extend or end it on their Employment tab.` }] });
+        }
+      }
+    } catch (err) {
+      console.error(`[end-dates] ${e.orgId}:`, err instanceof Error ? err.message : err);
+    }
+  }
+  return sent;
+}
+
 /** Once a day; a document found expiring is announced once. */
 export function startDocumentReminders({ intervalMs = 24 * 3_600_000, startupDelayMs = 180_000 } = {}) {
   if (process.env.NODE_ENV === 'test' || process.env.VITEST) return () => {};
   const tick = () => {
     exclusive('people.document-reminders', leaseFor(intervalMs), () => runDocumentReminders()).catch((e) => console.error('[document-reminders] failed:', e instanceof Error ? e.message : e));
     exclusive('people.contractor-licences', leaseFor(intervalMs), () => runContractorLicenceReminders(), { idempotent: true }).catch((e) => console.error('[contractor-licence] failed:', e instanceof Error ? e.message : e));
+    exclusive('people.end-dates', leaseFor(intervalMs), () => runEndDateReminders(), { idempotent: true }).catch((e) => console.error('[end-dates] failed:', e instanceof Error ? e.message : e));
   };
   const t = setTimeout(() => {
     tick();

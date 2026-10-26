@@ -84,6 +84,26 @@ const date = z.string().trim().regex(ISO_DATE, 'Dates are YYYY-MM-DD.').refine(r
 const phoneField = z.string().trim().max(40).refine((v) => !v || /^\+?[\d\s\-()]+$/.test(v) && v.replace(/\D/g, '').length >= 7 && v.replace(/\D/g, '').length <= 15, 'That phone number is too short or has letters in it.').optional().nullable();
 const text = (max: number) => z.string().trim().max(max).optional().nullable();
 
+/**
+ * Personal details (Workforce audit E4): the date of birth, home address,
+ * personal email, family and emergency contacts, private notes and card
+ * number go to whoever keeps the records (an administrator, anyone who may
+ * edit employees or see statutory details) and to the person themselves.
+ * A read-only role (IT, a team lead) gets the work profile.
+ */
+const PERSONAL_FIELDS = ['dateOfBirth', 'maritalStatus', 'guardianName', 'email', 'personalEmail', 'addressLine', 'city', 'state', 'country', 'pincode', 'emergencyContactName', 'emergencyContactPhone', 'emergencyContactRelation', 'notes', 'cardNumber'] as const;
+async function seesPersonal(req: Request) {
+  if (req.isAdmin) return true;
+  if (!(await authorize(req, PEOPLE_MODULE, PermissionAction.EDIT, EMPLOYEES))) return true;
+  return !(await authorize(req, PEOPLE_MODULE, PermissionAction.VIEW, STATUTORY));
+}
+const withoutPersonal = (row: any, me: string) => {
+  if (row?.userId && row.userId === me) return row;
+  const out = { ...row, personalHidden: true };
+  for (const k of PERSONAL_FIELDS) delete out[k];
+  return out;
+};
+
 /** One person by id in this company and inside the caller's team scope (scope.ts); outside it reads as absent. */
 async function scopedEmployee<S extends Record<string, boolean>>(req: Request, id: string, select?: S) {
   const { accountId, orgId } = req.tenant!;
@@ -101,6 +121,8 @@ async function wholeCompany(req: Request, res: Response) {
 
 /** A reason an import row is refused, worded for the person importing. */
 class ImportRowError extends Error {}
+
+const addDaysIso = (iso: string, n: number) => new Date(Date.parse(`${iso}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
 
 const blank = (v: unknown) => {
   const s = typeof v === 'string' ? v.trim() : v == null ? '' : String(v);
@@ -472,7 +494,9 @@ peopleRouter.get('/orgs/:orgId/people/employees', can(PermissionAction.VIEW, EMP
     ...(pick('jobPositionId') ? { jobPositionId: pick('jobPositionId') } : {}),
     ...(pick('employeeTypeId') ? { employeeTypeId: pick('employeeTypeId') } : {}),
     ...(pick('workTypeId') ? { workTypeId: pick('workTypeId') } : {}),
-    ...(pick('probation') === 'on' ? { probationEndDate: { gte: todayIst() }, confirmedOn: null } : {}),
+    /* On probation until confirmed in writing, whether or not the date has passed (a passed one is the more urgent). */
+    ...(pick('probation') === 'on' ? { probationEndDate: { not: null }, confirmedOn: null } : {}),
+    ...(pick('contract') === 'ending' ? { contractEndDate: { not: null, lte: addDaysIso(todayIst(), 30) } } : {}),
     ...(pick('businessUnitId') ? { businessUnitId: pick('businessUnitId') } : {}),
     ...(pick('gradeId') ? { gradeId: pick('gradeId') } : {}),
     ...(pick('costCenterId') ? { costCenterId: pick('costCenterId') } : {}),
@@ -520,7 +544,9 @@ peopleRouter.get('/orgs/:orgId/people/employees', can(PermissionAction.VIEW, EMP
   ]);
   /* As of a date (FND-03): the job fields rolled back through history; people not yet there are left out. */
   const viewed = asOfDate ? await asOf(orgId, rows as any[], asOfDate) : rows;
-  res.json({ employees: await withMeta(orgId, viewed), total: asOfDate ? viewed.length : total, asOf: asOfDate || undefined });
+  const personal = await seesPersonal(req);
+  const shapedRows = await withMeta(orgId, viewed);
+  res.json({ employees: personal ? shapedRows : shapedRows.map((r: any) => withoutPersonal(r, req.auth!.userId)), total: asOfDate ? viewed.length : total, asOf: asOfDate || undefined });
 });
 
 /* Sortable directory columns (People design v1 EMP-01); name breaks ties so a page never reshuffles. */
@@ -726,7 +752,9 @@ peopleRouter.get('/orgs/:orgId/people/employees/export', can(PermissionAction.EX
     ...(pick('managerId') ? { reportingManagerId: pick('managerId') } : {}),
     ...(pick('areaId') ? { areaId: pick('areaId') } : {}),
     ...(pick('workTypeId') ? { workTypeId: pick('workTypeId') } : {}),
-    ...(pick('probation') === 'on' ? { probationEndDate: { gte: todayIst() }, confirmedOn: null } : {}),
+    /* On probation until confirmed in writing, whether or not the date has passed (a passed one is the more urgent). */
+    ...(pick('probation') === 'on' ? { probationEndDate: { not: null }, confirmedOn: null } : {}),
+    ...(pick('contract') === 'ending' ? { contractEndDate: { not: null, lte: addDaysIso(todayIst(), 30) } } : {}),
     ...(pick('establishmentId') ? { establishmentId: pick('establishmentId') } : {}),
     ...(pick('businessUnitId') ? { businessUnitId: pick('businessUnitId') } : {}),
     ...(pick('gradeId') ? { gradeId: pick('gradeId') } : {}),
@@ -795,7 +823,8 @@ peopleRouter.get('/orgs/:orgId/people/employees/:id', can(PermissionAction.VIEW,
   const viewed = asOfDate ? (await asOf(orgId, [row as any], asOfDate))[0] : row;
   if (!viewed) return res.status(404).json({ error: `Not here on ${asOfDate}.` });
   const scheduledChanges = await pendingChangesOf(orgId, row.id);
-  const [shaped] = await withMeta(orgId, [viewed]);
+  const [full] = await withMeta(orgId, [viewed]);
+  const shaped = (await seesPersonal(req)) ? full : withoutPersonal(full, req.auth!.userId);
   const linked = row.userId ? await platformPrisma.user.findFirst({ where: { id: row.userId }, select: { fullName: true, email: true } }) : null;
   res.json({ scheduledChanges, permits: await permitsOf(orgId, row.id), employee: { ...shaped, directReports: reports, linkedUser: linked ? { name: linked.fullName || linked.email, email: linked.email } : null } });
 });
@@ -1371,6 +1400,7 @@ peopleRouter.get('/orgs/:orgId/people/employees/:id/activity', can(PermissionAct
     orgId,
     canStatutory: !(await authorize(req, PEOPLE_MODULE, PermissionAction.VIEW, STATUTORY)),
     canNotes: !(await authorize(req, PEOPLE_MODULE, PermissionAction.VIEW, NOTES)),
+    canPersonal: await seesPersonal(req),
     docClasses: await readableClassifications(req),
     allows,
   }, employee.id, { before: req.query.before ? new Date(String(req.query.before)) : null, limit: Number(req.query.limit || 50) });
@@ -1383,16 +1413,16 @@ peopleRouter.get('/orgs/:orgId/people/employees/:id/journey', can(PermissionActi
   const { accountId, orgId } = req.tenant!;
   const employee = await peoplePrisma.employee.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
   if (!employee || !inScope(await teamScope(req), employee.id)) return res.status(404).json({ error: 'No such employee.' });
-  res.json(await journeyOf(orgId, employee as any));
+  res.json(await journeyOf(orgId, employee as any, { hidePersonal: !(await seesPersonal(req)) && employee.userId !== req.auth!.userId }));
 });
 
 /** Why (TRACE-01, 02): what changed, when, who asked, who approved, the rule version, the evidence, what it set off — or plain words for what is not known. */
 peopleRouter.get('/orgs/:orgId/people/employees/:id/why/:key', can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
-  const employee = await peoplePrisma.employee.findFirst({ where: { id: String(req.params.id), accountId, orgId }, select: { id: true } });
+  const employee = await peoplePrisma.employee.findFirst({ where: { id: String(req.params.id), accountId, orgId }, select: { id: true, userId: true } });
   if (!employee || !inScope(await teamScope(req), employee.id)) return res.status(404).json({ error: 'No such employee.' });
-  const why = await whyOf(orgId, employee.id, String(req.params.key));
+  const why = await whyOf(orgId, employee.id, String(req.params.key), { hidePersonal: !(await seesPersonal(req)) && employee.userId !== req.auth!.userId });
   if (!why) return res.status(404).json({ error: 'No such change.' });
   res.json({ why });
 });
@@ -1405,10 +1435,10 @@ peopleRouter.get('/orgs/:orgId/people/employees/:id/why/:key', can(PermissionAct
 peopleRouter.post('/orgs/:orgId/people/employees/:id/why/:key/raise', can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
-  const employee = await peoplePrisma.employee.findFirst({ where: { id: String(req.params.id), accountId, orgId }, select: { id: true, name: true } });
+  const employee = await peoplePrisma.employee.findFirst({ where: { id: String(req.params.id), accountId, orgId }, select: { id: true, name: true, userId: true } });
   if (!employee || !inScope(await teamScope(req), employee.id)) return res.status(404).json({ error: 'No such employee.' });
   const key = String(req.params.key);
-  const why = await whyOf(orgId, employee.id, key);
+  const why = await whyOf(orgId, employee.id, key, { hidePersonal: !(await seesPersonal(req)) && employee.userId !== req.auth!.userId });
   if (!why) return res.status(404).json({ error: 'No such change.' });
   const kind = String(req.body?.kind || 'CORRECTION').toUpperCase() === 'QUESTION' ? 'QUESTION' : 'CORRECTION';
   const what = (why.what as Array<{ field: string; before: string | null; after: string | null }>).map((w) => `${w.field}: ${w.before ?? 'blank'} to ${w.after ?? 'blank'}`).join('; ') || 'the change';

@@ -47,7 +47,7 @@ export async function dataHealth(accountId: string, orgId: string, opts: { payro
   const [employees, payrollOn, readers, unmatched] = await Promise.all([
     peoplePrisma.employee.findMany({
       where: { accountId, orgId, status: { not: 'LEFT' } },
-      select: { id: true, name: true, code: true, dateOfJoining: true, dateOfBirth: true, departmentId: true, department: true, phone: true, email: true, workEmail: true, devicePin: true, attendanceRequired: true, employeeTypeId: true },
+      select: { id: true, name: true, code: true, dateOfJoining: true, dateOfBirth: true, departmentId: true, department: true, phone: true, email: true, workEmail: true, devicePin: true, attendanceRequired: true, employeeTypeId: true, probationEndDate: true, confirmedOn: true, contractEndDate: true },
       orderBy: { name: 'asc' },
     }),
     isFeatureEnabled(accountId, orgId, 'payroll'),
@@ -127,6 +127,15 @@ export async function dataHealth(accountId: string, orgId: string, opts: { payro
     const byId = new Map(employees.map((e) => [e.id, e]));
     add({ id: 'scheduled', area: 'People', severity: 'TIDY_UP', title: 'Changes waiting to apply', why: 'A transfer or a promotion dated ahead changes the record on its day; payroll and attendance follow it then.', fix: 'Check each is still right; withdraw one on the person’s record if not.', screen: 'employees' },
       waiting.filter((c) => byId.has(c.employeeId)).map((c) => who(byId.get(c.employeeId)!, `${c.field.replace(/Id$/, '')} → ${c.toLabel || c.toValue || 'none'} on ${c.effectiveOn}`)));
+  }
+
+  /* People: an end date that passed with nothing decided. */
+  {
+    const today = new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
+    add({ id: 'contract-ended', area: 'People', severity: 'FIX_SOON', title: 'Contract ended, still working', why: 'Their contract or internship end date has passed and they are still active, so they keep being paid on an ended contract.', fix: 'Renew the contract with a new end date, or record their leaving.', screen: 'employees' },
+      employees.filter((e) => e.contractEndDate && String(e.contractEndDate).slice(0, 10) < today).map((e) => who(e, `ended ${dayWords(e.contractEndDate)}`)));
+    add({ id: 'probation-due', area: 'People', severity: 'TIDY_UP', title: 'Probation over, not decided', why: 'The probation date passed without a confirmation, extension or end; leave and benefits that start on confirmation wait for it.', fix: 'Confirm, extend or end it on their Employment tab.', screen: 'employees' },
+      employees.filter((e) => e.probationEndDate && !e.confirmedOn && String(e.probationEndDate).slice(0, 10) < today).map((e) => who(e, `ended ${dayWords(e.probationEndDate)}`)));
   }
 
   /* People: the same person twice. */

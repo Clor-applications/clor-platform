@@ -10,6 +10,8 @@ import request from 'supertest';
 const { buildApp } = await import('../app.js');
 const { peoplePrisma } = await import('../utils/peoplePrisma.js');
 const { runInTenant } = await import('../utils/tenantScope.js');
+const { platformPrisma } = await import('../utils/platformPrisma.js');
+const { runEndDateReminders } = await import('../services/people/documentReminders.js');
 const app = buildApp().listen(0);
 afterAll(async () => {
   await new Promise((done) => app.close(done));
@@ -58,12 +60,54 @@ describe('employment type, hours and probation', () => {
     expect(JSON.stringify(journey)).toContain('Part-time');
   });
 
-  it('On probation lists people whose probation has not ended and who are not confirmed', async () => {
+  it('On probation lists everyone not yet confirmed, a passed date included; a confirmed person is not', async () => {
     const on = (await api.post('/employees', { name: 'On Probation', code: `P-${rnd()}`, dateOfJoining: '2026-01-01', probationEndDate: '2099-01-01' }).expect(201)).body.employee;
+    const over = (await api.post('/employees', { name: 'Probation Over', code: `P-${rnd()}`, dateOfJoining: '2025-01-01', probationEndDate: '2025-07-01' }).expect(201)).body.employee;
     const done = (await api.post('/employees', { name: 'Confirmed One', code: `P-${rnd()}`, dateOfJoining: '2025-01-01', probationEndDate: '2025-07-01' }).expect(201)).body.employee;
+    await api.post(`/employees/${done.id}/probation/decide`, { outcome: 'CONFIRM' }).expect(200);
     const ids = (await api.get('/employees?probation=on&status=ALL').expect(200)).body.employees.map((e: any) => e.id);
-    expect(ids).toContain(on.id);
+    expect(ids).toEqual(expect.arrayContaining([on.id, over.id]));
     expect(ids).not.toContain(done.id);
+    /* The passed one is on Data Health until someone decides. */
+    const health = (await api.get('/data-health').expect(200)).body.checks;
+    expect(health.find((c: any) => c.id === 'probation-due').people.map((p: any) => p.id)).toContain(over.id);
+  });
+
+  it('a contract that ended with the person still working is flagged, filtered and on the home list', async () => {
+    const ended = (await api.post('/employees', { name: 'Ended Contract', code: `CE-${rnd()}`, dateOfJoining: '2025-01-01', contractEndDate: '2026-01-31' }).expect(201)).body.employee;
+    const far = (await api.post('/employees', { name: 'Long Contract', code: `CE-${rnd()}`, dateOfJoining: '2025-01-01', contractEndDate: '2099-01-31' }).expect(201)).body.employee;
+    const ids = (await api.get('/employees?contract=ending').expect(200)).body.employees.map((e: any) => e.id);
+    expect(ids).toContain(ended.id);
+    expect(ids).not.toContain(far.id);
+    const health = (await api.get('/data-health').expect(200)).body.checks;
+    expect(health.find((c: any) => c.id === 'contract-ended').people.map((p: any) => p.id)).toContain(ended.id);
+    const todos = (await api.get('/home').expect(200)).body.todos;
+    expect(todos.find((t: any) => t.key === 'contracts')).toMatchObject({ title: 'Contracts ended', tone: 'urgent', params: { contract: 'ending' } });
+  });
+
+  it('the end-date job tells HR once per stage and puts one decision task on the plan', async () => {
+    const day = (n: number) => new Date(Date.now() + 330 * 60_000 + n * 86_400_000).toISOString().slice(0, 10);
+    const e = (await api.post('/employees', { name: `Ending Soon ${rnd()}`, code: `ES-${rnd()}`, dateOfJoining: '2025-01-01', contractEndDate: day(20) }).expect(201)).body.employee;
+    await runEndDateReminders();
+    await runEndDateReminders();
+    const bell = await platformPrisma.notification.count({ where: { orgId: c.orgId, kind: 'people.contract_ending', title: { contains: e.name } } });
+    expect(bell).toBeGreaterThanOrEqual(1);
+    const once = bell;
+    await runEndDateReminders();
+    expect(await platformPrisma.notification.count({ where: { orgId: c.orgId, kind: 'people.contract_ending', title: { contains: e.name } } })).toBe(once);
+    const tasks = await runInTenant(c.orgId, () => peoplePrisma.checklistTask.findMany({ where: { orgId: c.orgId, employeeId: e.id, kind: 'RENEWAL' } }));
+    expect(tasks).toHaveLength(1);
+    expect(tasks[0].title).toContain('Renew or end');
+  });
+
+  it('a rehire starts with new terms; last stint\'s probation and contract dates do not carry over', async () => {
+    const e = (await api.post('/employees', { name: 'Comes Back', code: `RH-${rnd()}`, dateOfJoining: '2024-01-01', probationEndDate: '2024-07-01', contractEndDate: '2024-12-31' }).expect(201)).body.employee;
+    await api.post(`/employees/${e.id}/resign`, { lastDay: '2025-01-15', leavingType: 'CONTRACT_ENDED' }).expect(200);
+    const back = (await api.post(`/employees/${e.id}/rehire`, { rejoinDate: '2026-02-01', probationEndDate: '2026-08-01' }).expect(200)).body.employee;
+    expect(String(back.probationEndDate).slice(0, 10)).toBe('2026-08-01');
+    expect(back.contractEndDate).toBeNull();
+    expect(back.confirmedOn).toBeNull();
+    await api.post(`/employees/${e.id}/rehire`, { rejoinDate: '2026-02-01' }).expect(409);
   });
 
   it('a consultant is not flagged as missing from payroll; a permanent employee is', async () => {

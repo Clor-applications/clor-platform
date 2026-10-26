@@ -1616,7 +1616,10 @@ export function JoiningDetails({ person, onChecked }) {
 
 /** Someone leaving: last day, why. They come off every reader at once. */
 export function ResignForm({ person, onClose, onDone }) {
-  const [form, setForm] = useState({ lastDay: new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10), leavingType: 'RESIGNED', reason: '' });
+  /* Someone on a contract usually leaves when it ends: that date and reason come pre-filled. */
+  const today = new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
+  const contractEnd = person.contractEndDate ? String(person.contractEndDate).slice(0, 10) : '';
+  const [form, setForm] = useState({ lastDay: contractEnd || today, leavingType: contractEnd ? 'CONTRACT_ENDED' : 'RESIGNED', reason: '' });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const save = async (e) => {
@@ -1626,7 +1629,10 @@ export function ResignForm({ person, onClose, onDone }) {
     setError('');
     try {
       const r = await resignEmployee(person.id, { ...form, reason: form.reason || null });
-      notify.success(r.readers ? `${person.name} recorded as left and removed from ${r.readers} reader${r.readers === 1 ? '' : 's'}.` : `${person.name} recorded as left.`);
+      /* Said as it is: a later last day puts them on notice, still paid and on the readers until then. */
+      notify.success(form.lastDay > today
+        ? `${person.name} is on notice until ${formatDateShort(form.lastDay)}, and stays on payroll and the readers until then.`
+        : r.readers ? `${person.name} recorded as left and removed from ${r.readers} reader${r.readers === 1 ? '' : 's'}.` : `${person.name} recorded as left.`);
       onDone(r.employee);
     } catch (err) {
       setError(String(err?.message || 'Not saved.'));
@@ -1640,7 +1646,6 @@ export function ResignForm({ person, onClose, onDone }) {
       onClose={onClose}
       widthClass="w-[min(36rem,96vw)]"
       title={`${person.name} is leaving`}
-      description="From the day after the last day they are not expected at work, and they come off every reader now."
       dirty={Boolean(form.reason)}
       footer={
         <>

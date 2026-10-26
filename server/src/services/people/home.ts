@@ -17,7 +17,7 @@ import { calendar } from './compliance.js';
  * Only what this person may open; nothing at all when everything is done.
  */
 
-export type Todo = { key: string; title: string; detail: string; count: number; tone: 'urgent' | 'soon' | 'info'; screen: string };
+export type Todo = { key: string; title: string; detail: string; count: number; tone: 'urgent' | 'soon' | 'info'; screen: string; params?: Record<string, string> };
 
 const todayIst = () => new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
 const plusDays = (iso: string, n: number) => {
@@ -49,7 +49,7 @@ export async function homeTodos(req: Request): Promise<Todo[]> {
       dataHealth(accountId, orgId, { payroll: payrollProfiles }),
       calendar({ accountId, orgId, userId }),
       peoplePrisma.employeeDocument.count({ where: { accountId, orgId, expiresOn: { gte: today, lte: month } } }),
-      peoplePrisma.employee.findMany({ where: { accountId, orgId, status: { not: 'LEFT' } }, select: { probationEndDate: true, contractEndDate: true } }),
+      peoplePrisma.employee.findMany({ where: { accountId, orgId, status: { not: 'LEFT' } }, select: { probationEndDate: true, confirmedOn: true, contractEndDate: true } }),
       /* Company property still with someone who has left: the exit checklist's question, asked of the asset register. */
       peoplePrisma.peopleRecord.findMany({ where: { accountId, orgId, kind: 'assets', status: 'ASSIGNED', employeeId: { not: null } }, select: { employeeId: true } }),
     ]);
@@ -61,10 +61,13 @@ export async function homeTodos(req: Request): Promise<Todo[]> {
     const cSoon = compliance.summary.dueSoon;
     if (cLate || cSoon) out.push({ key: 'compliance', title: 'Statutory deadlines', detail: [cLate && `${cLate} late`, cSoon && `${cSoon} due this week`].filter(Boolean).join(' · '), count: cLate + cSoon, tone: cLate ? 'urgent' : 'soon', screen: 'complianceCalendar' });
     if (docs) out.push({ key: 'documents', title: 'Documents expiring', detail: `${plural(docs, 'document')} expire in the next 30 days`, count: docs, tone: 'soon', screen: 'documents' });
-    const probation = people.filter((p) => p.probationEndDate && p.probationEndDate >= today && p.probationEndDate <= month).length;
-    if (probation) out.push({ key: 'probation', title: 'Probation ending', detail: `${plural(probation, 'person', 'people')} in the next 30 days: confirm or extend`, count: probation, tone: 'soon', screen: 'employees' });
-    const contracts = people.filter((p) => p.contractEndDate && p.contractEndDate >= today && p.contractEndDate <= month).length;
-    if (contracts) out.push({ key: 'contracts', title: 'Contracts ending', detail: `${plural(contracts, 'contract')} end in the next 30 days: renew or record leaving`, count: contracts, tone: 'soon', screen: 'employees' });
+    /* Ending soon, or already over and not yet decided: a passed date is the more urgent one, not a reason to drop it. */
+    const unconfirmed = people.filter((p) => p.probationEndDate && !p.confirmedOn && p.probationEndDate <= month);
+    const probationOver = unconfirmed.filter((p) => p.probationEndDate! < today).length;
+    if (unconfirmed.length) out.push({ key: 'probation', title: probationOver ? 'Probation to decide' : 'Probation ending', detail: [probationOver && `${plural(probationOver, 'person', 'people')} past their date`, unconfirmed.length - probationOver && `${unconfirmed.length - probationOver} in the next 30 days`].filter(Boolean).join(' · ') + ': confirm, extend or end', count: unconfirmed.length, tone: probationOver ? 'urgent' : 'soon', screen: 'employees', params: { prob: 'on' } });
+    const ending = people.filter((p) => p.contractEndDate && p.contractEndDate <= month);
+    const contractOver = ending.filter((p) => p.contractEndDate! < today).length;
+    if (ending.length) out.push({ key: 'contracts', title: contractOver ? 'Contracts ended' : 'Contracts ending', detail: [contractOver && `${plural(contractOver, 'person', 'people')} still working past their end date`, ending.length - contractOver && `${ending.length - contractOver} in the next 30 days`].filter(Boolean).join(' · ') + ': renew or record leaving', count: ending.length, tone: contractOver ? 'urgent' : 'soon', screen: 'employees', params: { contract: 'ending' } });
     if (assetsOut.length) {
       const left = await peoplePrisma.employee.count({ where: { orgId, id: { in: assetsOut.map((a) => a.employeeId!) }, status: 'LEFT' } });
       if (left) out.push({ key: 'assets', title: 'Company property with people who left', detail: `${plural(left, 'person', 'people')} who left still hold assets`, count: left, tone: 'urgent', screen: 'assets' });

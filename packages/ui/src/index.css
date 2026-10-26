@@ -7916,6 +7916,8 @@ button.ui-metric:focus-visible { outline: 2px solid rgb(var(--ring)); outline-of
 .ui-profile-facts { display: flex; flex-wrap: wrap; gap: 0.25rem 1.25rem; margin-top: 0.375rem; font-size: 0.8125rem; line-height: 1.25rem; font-weight: 400; letter-spacing: 0; color: rgb(var(--fg-muted)); }
 .ui-profile-facts li { display: inline-flex; align-items: center; gap: 0.375rem; }
 .ui-profile-facts svg { color: rgb(var(--fg-subtle)); flex-shrink: 0; }
+/* A date that has passed with nothing decided reads in the warning colour; the words carry it too. */
+.ui-profile-facts li.is-warn, .ui-profile-facts li.is-warn svg { color: rgb(var(--warn)); }
 .ui-avatar-edit { position: relative; display: inline-flex; flex-shrink: 0; border-radius: 999px; }
 .ui-avatar-edit:focus-visible { outline: 2px solid rgb(var(--ring)); outline-offset: 2px; }
 .ui-avatar-edit-badge { position: absolute; right: -2px; bottom: -2px; display: grid; place-items: center; width: 24px; height: 24px; border-radius: 999px; background: rgb(var(--surface)); color: rgb(var(--fg-muted)); border: 1px solid rgb(var(--border)); }
@@ -7925,3 +7927,14 @@ button.ui-metric:focus-visible { outline: 2px solid rgb(var(--ring)); outline-of
 .ui-tag-add:focus-visible { outline: 2px solid rgb(var(--ring)); outline-offset: 2px; }
 
 .ui-table tr.is-changed td, .ui-table tr.is-changed th { background: rgb(var(--brand-subtle)); }
+
+/* A decision with several outcomes (probation, a contract): one ruled row per outcome, label, its date, its button; the buttons line up so the choice reads down the page. */
+.ui-decide { display: grid; }
+.ui-decide-row { display: grid; grid-template-columns: 8.5rem minmax(0, 15rem) auto; align-items: center; gap: 0.75rem; padding: 0.625rem 0; border-top: 1px solid rgb(var(--border)); }
+.ui-decide-row:first-child { border-top: 0; padding-top: 0; }
+.ui-decide-row > .ui-btn { justify-self: start; }
+.ui-decide-label { font-size: 0.875rem; color: rgb(var(--fg-muted)); }
+@media (max-width: 639px) {
+  .ui-decide-row { grid-template-columns: 1fr; gap: 0.375rem; }
+  .ui-decide-row > span:empty { display: none; }
+}

@@ -38,5 +38,11 @@ export function datesFor(kind) {
   }
 }
 
-/** On probation today: an end date not yet passed and no confirmation. */
-export const onProbation = (person, today) => Boolean(person?.probationEndDate && !person.confirmedOn && person.status !== 'LEFT' && String(person.probationEndDate).slice(0, 10) >= today);
+/**
+ * Probation until confirmed in writing: 'ON' before the end date, 'OVER' once
+ * it has passed with nothing decided (the more urgent case, never dropped).
+ */
+export function probationState(person, today) {
+  if (!person?.probationEndDate || person.confirmedOn || person.status === 'LEFT') return null;
+  return String(person.probationEndDate).slice(0, 10) >= today ? 'ON' : 'OVER';
+}

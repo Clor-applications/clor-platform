@@ -37,7 +37,7 @@ code, then each finding checked before fixing. Status: **Fixed** (commit),
 | E1 | Employee app has no screens for People self-service (my details, change request, accept, policies) | Open |
 | E2 | Portal "Ask HR" writes to the old store the Help Desk does not read | Fixed `c31f88a` |
 | E3 | "Ask to read" a document is a dead end: no Accept in the employee app | Open |
-| E4 | Employees VIEW returns everyone's personal data (DOB, address, personal phone, notes, reader PIN) | Open |
+| E4 | Employees VIEW returns everyone's personal data (DOB, address, personal phone, notes, reader PIN) | Fixed (lifecycle batch) |
 | E5 | Portal change request asked for more information strands the employee; rejected ones vanish | Open |
 | E6 | Data requests visible to a team lead | Fixed `c31f88a` |
 | E7 | Probation review on anyone, and on yourself | Fixed `c31f88a` |
@@ -58,16 +58,16 @@ code, then each finding checked before fixing. Status: **Fixed** (commit),
 
 | # | Finding | Status |
 |---|---|---|
-| O1 | Contract / internship end: no reminder, no Data Health check, person stays Active and paid | Open |
-| O2 | Probation that ended without confirmation disappears from filter, header and Home | Open |
-| O3 | No contract filter or end-date columns; Home to-dos open the unfiltered list; bell links ignore the person | Open |
+| O1 | Contract / internship end: no reminder, no Data Health check, person stays Active and paid | Fixed (lifecycle batch) |
+| O2 | Probation that ended without confirmation disappears from filter, header and Home | Fixed (lifecycle batch) |
+| O3 | No contract filter or end-date columns; Home to-dos open the unfiltered list; bell links ignore the person | Fixed (lifecycle batch) |
 | O4 | Total / Active count future joiners; Home month in UTC | Open |
 | O5 | No CEO picture: joined/left this month, by department and type, attrition | Open |
-| O6 | Rehire keeps old probation, confirmation and contract dates; no rehire step | Open |
-| O7 | Leaving drawer says "left" for a future date; wrong defaults for contract staff | Open |
-| O8 | No "End after probation" on screen | Open |
-| O9 | No Renew contract action | Open |
-| O10 | Changing employment type does not ask for or clear the dates | Open |
+| O6 | Rehire keeps old probation, confirmation and contract dates; no rehire step | Fixed (lifecycle batch) |
+| O7 | Leaving drawer says "left" for a future date; wrong defaults for contract staff | Fixed (lifecycle batch) |
+| O8 | No "End after probation" on screen | Fixed (lifecycle batch) |
+| O9 | No Renew contract action | Fixed (lifecycle batch) |
+| O10 | Changing employment type does not ask for or clear the dates | Fixed (lifecycle batch) |
 | O11 | Nothing editable after leaving; no cancel leaving | Open |
 | O12 | Three place fields (Location, Work site, Work location) | Open |
 | O13 | Record and Transfer show lists the company has not set up | Open |

@@ -19,6 +19,8 @@ export type ActivityViewer = {
   orgId: string;
   canStatutory: boolean;
   canNotes: boolean;
+  /** Personal details (date of birth, address, family, emergency contact): only for who keeps the records (routes/people.ts seesPersonal). */
+  canPersonal?: boolean;
   docClasses: string[];
   /** Whether the viewer holds a grant like PEOPLE::Statutory Details::VIEW (the route answers with authorize()). */
   allows: (permission: string) => Promise<boolean>;
@@ -58,6 +60,8 @@ async function actorsOf(orgId: string, ids: string[]) {
   return { name: new Map((users as any[]).map((u) => [u.id, u.fullName || u.email])), role };
 }
 
+const PERSONAL_LINES = new Set(['dateOfBirth', 'maritalStatus', 'guardianName', 'email', 'personalEmail', 'addressLine', 'city', 'state', 'country', 'pincode', 'emergencyContactName', 'emergencyContactPhone', 'emergencyContactRelation', 'notes', 'cardNumber']);
+
 export async function activityOf(viewer: ActivityViewer, employeeId: string, opts: { before?: Date | null; limit?: number } = {}) {
   const { orgId } = viewer;
   const limit = Math.min(200, Math.max(10, opts.limit || 50));
@@ -79,6 +83,7 @@ export async function activityOf(viewer: ActivityViewer, employeeId: string, opt
   const hidden = (l: { entity: string; field: string }) => {
     if (l.entity === 'EmployeeIdentity') return !viewer.canStatutory;
     if (l.entity === 'CustomFieldValue') return defOf.has(l.field) ? !seeable.has(l.field) : false;
+    if (l.entity === 'Employee' && viewer.canPersonal === false && PERSONAL_LINES.has(l.field)) return true;
     return false;
   };
 

@@ -88,12 +88,17 @@ function groupLines(lines: Line[]) {
 }
 
 /** The whole journey, newest first, each change with enough to show and a key for its Why. */
-export async function journeyOf(orgId: string, employee: { id: string; currentEpisodeSeq?: number | null; status?: string | null } & Record<string, unknown>) {
-  const [lines, episodes, history] = await Promise.all([
+/* Personal details a read-only viewer may not see: the line says changed, never the values (Workforce audit E4). */
+const PERSONAL_LINES = new Set(['dateOfBirth', 'maritalStatus', 'guardianName', 'email', 'personalEmail', 'addressLine', 'city', 'state', 'country', 'pincode', 'emergencyContactName', 'emergencyContactPhone', 'emergencyContactRelation', 'notes', 'cardNumber']);
+const maskPersonal = <T extends { field: string; redacted: boolean }>(rows: T[], hide: boolean) => (hide ? rows.map((l) => (PERSONAL_LINES.has(l.field) ? { ...l, redacted: true } : l)) : rows);
+
+export async function journeyOf(orgId: string, employee: { id: string; currentEpisodeSeq?: number | null; status?: string | null } & Record<string, unknown>, opts: { hidePersonal?: boolean } = {}) {
+  const [rawLines, episodes, history] = await Promise.all([
     peoplePrisma.changeLog.findMany({ where: { orgId, employeeId: employee.id }, orderBy: { at: 'asc' } }),
     episodesOf(orgId, employee),
     timelineOf(orgId, employee as any),
   ]);
+  const lines = maskPersonal(rawLines as Line[], Boolean(opts.hidePersonal));
   /* The person's own lines: a request's status lines carry the employee id too, but they are the request's story, told on the Why panel. */
   const groups = groupLines((lines as Line[]).filter((l) => l.entity === 'Employee'));
   const names = await namesFor([...new Set(lines.map((l) => l.actorUserId).filter((x): x is string => Boolean(x)))]);
@@ -127,7 +132,7 @@ export async function journeyOf(orgId: string, employee: { id: string; currentEp
 }
 
 /** Why: the seven things a reader asks about one change, and plain words for each one that is not known. */
-export async function whyOf(orgId: string, employeeId: string, key: string) {
+export async function whyOf(orgId: string, employeeId: string, key: string, opts: { hidePersonal?: boolean } = {}) {
   if (key.startsWith('history_')) {
     const ev = await peoplePrisma.employmentEvent.findFirst({ where: { orgId, employeeId, id: key.slice('history_'.length) } });
     if (!ev) return null;
@@ -138,7 +143,7 @@ export async function whyOf(orgId: string, employeeId: string, key: string) {
       reason: ev.note, impact: ev.payrollImpact,
     };
   }
-  const lines = await peoplePrisma.changeLog.findMany({ where: { orgId, employeeId, correlationId: key, entity: 'Employee' }, orderBy: { at: 'asc' } });
+  const lines = maskPersonal((await peoplePrisma.changeLog.findMany({ where: { orgId, employeeId, correlationId: key, entity: 'Employee' }, orderBy: { at: 'asc' } })) as Line[], Boolean(opts.hidePersonal));
   if (!lines.length) return null;
   const first = lines[0];
   const [events, request, actorNames] = await Promise.all([
