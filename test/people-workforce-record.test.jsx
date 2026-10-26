@@ -20,7 +20,7 @@ vi.mock('../apps/people/src/workforce/api', () => ({
   ...api,
   addComment: vi.fn(), changeImpact: vi.fn(() => Promise.resolve({ impact: [] })), decideProbation: vi.fn(), deleteEmployee: vi.fn(),
   listEmployees: vi.fn(() => Promise.resolve({ employees: [] })), rehireEmployee: vi.fn(), withdrawScheduled: vi.fn(),
-  listTags: vi.fn(() => Promise.resolve({ tags: [] })), listContractors: vi.fn(() => Promise.resolve({ contractors: [] })),
+  listTags: vi.fn(() => Promise.resolve({ tags: [] })), linkCandidates: vi.fn(() => Promise.resolve([])), linkUser: vi.fn(), listContractors: vi.fn(() => Promise.resolve({ contractors: [] })),
 }));
 vi.mock('../packages/ui/src/permissions/usePermissions', () => ({ usePermissions: () => ({ isAdmin: true, permissions: new Set() }) }));
 vi.mock('@ui/permissions/usePermissions', () => ({ usePermissions: () => ({ isAdmin: true, permissions: new Set() }) }));

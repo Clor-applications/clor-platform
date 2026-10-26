@@ -21,7 +21,7 @@ import {
 import { LEAVING_TYPES } from '@ui/personnel/api';
 
 import {
-  addComment, changeImpact, decideProbation, deleteEmployee, employeeActivity, employeeAsOf, getEmployee, listContractors, listEmployees, listTags, openTasksFor, rehireEmployee, structure, updateEmployee, withdrawScheduled,
+  addComment, changeImpact, linkCandidates, linkUser, decideProbation, deleteEmployee, employeeActivity, employeeAsOf, getEmployee, listContractors, listEmployees, listTags, openTasksFor, rehireEmployee, structure, updateEmployee, withdrawScheduled,
 } from './api';
 import { StatusBadge, can } from './shared';
 
@@ -235,6 +235,46 @@ function RecordSkeleton() {
         <div className="border-t mt-6 pt-6"><span className="ui-skel ui-skel-title block" style={{ width: 140 }} />{rows(6)}</div>
       </div>
     </div>
+  );
+}
+
+/* The CLOR login this person uses, if any: picked from the company's own logins not linked to anyone else. */
+function SignInSection({ person, canEdit, editing, setEditing, onSaved }) {
+  const candidates = useRequest(() => (editing ? linkCandidates() : Promise.resolve([])), [editing]);
+  const [choice, setChoice] = useState('');
+  const [busy, setBusy] = useState(false);
+  const save = async (userId) => {
+    setBusy(true);
+    try {
+      const r = await linkUser(person.id, userId);
+      onSaved(r.employee);
+      setEditing(null);
+      notify.success(userId ? 'Sign-in linked.' : 'Sign-in link removed.');
+    } catch (e) {
+      notify.error(String(e?.message || 'Not saved.'));
+    } finally {
+      setBusy(false);
+    }
+  };
+  const linked = person.linkedUser;
+  return (
+    <Section title="CLOR sign-in" onEdit={canEdit && !editing ? () => { setChoice(''); setEditing('signin'); } : null}>
+      {editing ? (
+        <div className="space-y-3 ui-panel-in">
+          {candidates.loading ? <span className="ui-skel ui-skel-text" /> : (
+            <div className="max-w-md"><PopupSelect showValueSubtext={false} label="Login" value={choice} placeholder={candidates.data?.length ? 'Choose a login' : 'No unlinked logins in this company'} alwaysSearch onChange={(v) => setChoice(v || '')}
+              options={(candidates.data || []).map((u) => ({ value: u.id, label: u.name === u.email ? u.email : `${u.name} · ${u.email}` }))} /></div>
+          )}
+          <div className="flex flex-wrap gap-2 justify-end">
+            {linked ? <button type="button" className="ui-btn ui-btn-secondary mr-auto" disabled={busy} onClick={() => save(null)}>Remove link</button> : null}
+            <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setEditing(null)}>Cancel</button>
+            <button type="button" className="ui-btn ui-btn-primary" disabled={busy || !choice} onClick={() => save(choice)}>{busy ? 'Saving…' : 'Link'}</button>
+          </div>
+        </div>
+      ) : (
+        <dl className="ui-field-grid"><Field label="Login" value={linked ? `${linked.name}${linked.email && linked.email !== linked.name ? ` · ${linked.email}` : ''}` : 'Not linked'} /></dl>
+      )}
+    </Section>
   );
 }
 
@@ -651,6 +691,7 @@ function Organization({ person, lists, allowed, openAction, openPerson, editing,
           ) : 'None'} />
         </dl>
       </Section>
+      <SignInSection person={person} canEdit={allowed('PEOPLE::Employees::EDIT') && person.status !== 'LEFT'} editing={editing === 'signin'} setEditing={setEditing} onSaved={onSaved} />
       {hasApp('attendance') ? (
         /* Stored on the employee and pushed to the biometric readers by Attendance; edited here as the old form did. */
         <Section title="Attendance device" onEdit={canEdit && editing !== 'readers' ? () => setEditing('readers') : null}>

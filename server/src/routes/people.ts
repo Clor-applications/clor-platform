@@ -735,6 +735,16 @@ async function permitsOf(orgId: string, employeeId: string) {
   return docs.map((d) => ({ ...d, daysLeft: daysUntil(d.expiresOn!, now), expired: daysUntil(d.expiresOn!, now) < 0 }));
 }
 
+peopleRouter.get('/orgs/:orgId/people/employees/link-candidates', can(PermissionAction.EDIT, EMPLOYEES), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const members = await platformPrisma.userOrgMembership.findMany({ where: { accountId, orgId }, select: { userId: true } });
+  const taken = new Set((await peoplePrisma.employee.findMany({ where: { orgId, userId: { not: null } }, select: { userId: true } })).map((e) => e.userId));
+  const ids = members.map((m) => m.userId).filter((id) => !taken.has(id));
+  const users = ids.length ? await platformPrisma.user.findMany({ where: { id: { in: ids } }, select: { id: true, fullName: true, email: true }, orderBy: { email: 'asc' } }) : [];
+  res.json({ users: users.map((u) => ({ id: u.id, name: u.fullName || u.email, email: u.email })) });
+});
+
 peopleRouter.get('/orgs/:orgId/people/employees/:id', can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
@@ -753,7 +763,8 @@ peopleRouter.get('/orgs/:orgId/people/employees/:id', can(PermissionAction.VIEW,
   if (!viewed) return res.status(404).json({ error: `Not here on ${asOfDate}.` });
   const scheduledChanges = await pendingChangesOf(orgId, row.id);
   const [shaped] = await withMeta(orgId, [viewed]);
-  res.json({ scheduledChanges, permits: await permitsOf(orgId, row.id), employee: { ...shaped, directReports: reports } });
+  const linked = row.userId ? await platformPrisma.user.findFirst({ where: { id: row.userId }, select: { fullName: true, email: true } }) : null;
+  res.json({ scheduledChanges, permits: await permitsOf(orgId, row.id), employee: { ...shaped, directReports: reports, linkedUser: linked ? { name: linked.fullName || linked.email, email: linked.email } : null } });
 });
 
 /** Replace a person's tags; a real change goes on their change log by tag name (Workforce Activity). */
@@ -1270,6 +1281,30 @@ peopleRouter.post('/orgs/:orgId/people/employees/bulk', can(PermissionAction.EDI
  * changes, approvals, documents and comments, newest first, redacted for this viewer.
  * `before` pages back. Read-only: nothing here edits or deletes an event.
  */
+/**
+ * The CLOR sign-in an employee uses, if any (WF-06 Link Portal User). Only a
+ * login that is a member of this company can be linked, and one login is one
+ * employee here. The link is an ordinary logged edit (userId is on the change
+ * log), so History and Activity show who linked whom and when.
+ */
+peopleRouter.put('/orgs/:orgId/people/employees/:id/user', can(PermissionAction.EDIT, EMPLOYEES), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const existing = await peoplePrisma.employee.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
+  if (!existing || !inScope(await teamScope(req), existing.id)) return res.status(404).json({ error: 'No such employee.' });
+  const userId = req.body?.userId ? String(req.body.userId) : null;
+  if (userId) {
+    const member = await platformPrisma.userOrgMembership.findFirst({ where: { accountId, orgId, userId }, select: { id: true } });
+    if (!member) return res.status(400).json({ error: 'That login is not a member of this company.' });
+    const other = await peoplePrisma.employee.findFirst({ where: { orgId, userId, id: { not: existing.id } }, select: { name: true } });
+    if (other) return res.status(409).json({ error: `That login is already linked to ${other.name}.` });
+  }
+  if ((existing.userId || null) === userId) return res.json({ employee: (await withMeta(orgId, [existing]))[0] });
+  const { row } = await updateEmployee(actorOf(req, 'FORM', userId ? 'Linked a sign-in' : 'Removed the sign-in link'), existing, { userId });
+  const user = userId ? await platformPrisma.user.findFirst({ where: { id: userId }, select: { fullName: true, email: true } }) : null;
+  res.json({ employee: { ...(await withMeta(orgId, [row]))[0], linkedUser: user ? { name: user.fullName || user.email, email: user.email } : null } });
+});
+
 peopleRouter.get('/orgs/:orgId/people/employees/:id/activity', can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;

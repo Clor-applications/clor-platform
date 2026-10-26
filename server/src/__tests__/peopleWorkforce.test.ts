@@ -326,5 +326,23 @@ describe('workforce backend', () => {
     const scoped = (await people(lead).get('/employees?q=W-00&idsOnly=1').expect(200)).body;
     expect(scoped.ids.every((id: string) => r.ids.includes(id))).toBe(true);
   });
+
+  it('links a company login to one employee only; a login from outside the company is refused; the link is on the change log', async () => {
+    const e1 = (await people(boss).post('/employees', { name: 'Link One', code: 'W-150' }).expect(201)).body.employee;
+    const e2 = (await people(boss).post('/employees', { name: 'Link Two', code: 'W-151' }).expect(201)).body.employee;
+    const member = await colleague(boss, 'Member Login', ['PEOPLE::Employees::VIEW']);
+    const candidates = (await people(boss).get('/employees/link-candidates').expect(200)).body.users.map((u: { id: string }) => u.id);
+    expect(candidates).toContain(member.userId);
+    const linked = (await put(boss, `/employees/${e1.id}/user`, { userId: member.userId }).expect(200)).body.employee;
+    expect(linked.userId).toBe(member.userId);
+    expect(linked.linkedUser.name).toBe('Member Login');
+    await put(boss, `/employees/${e2.id}/user`, { userId: member.userId }).expect(409);
+    expect((await people(boss).get('/employees/link-candidates').expect(200)).body.users.map((u: { id: string }) => u.id)).not.toContain(member.userId);
+    const outsider = await owner();
+    await put(boss, `/employees/${e2.id}/user`, { userId: outsider.userId }).expect(400);
+    const lines = await runInTenant(boss.orgId, () => peoplePrisma.changeLog.findMany({ where: { orgId: boss.orgId, employeeId: e1.id, field: 'userId' } }));
+    expect(lines).toHaveLength(1);
+    expect((await put(boss, `/employees/${e1.id}/user`, { userId: null }).expect(200)).body.employee.userId).toBeNull();
+  });
 });
 

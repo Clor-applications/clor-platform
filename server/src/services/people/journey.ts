@@ -17,7 +17,7 @@ import { LOGGED_EMPLOYEE_FIELDS } from './changeLog.js';
  */
 
 const FIELD_WORDS: Record<string, string> = {
-  devicePassword: 'Device PIN', devicePin: 'Attendance ID', cardNumber: 'Card number', devicePrivilege: 'Device role', attendanceRequired: 'Marks attendance', tags: 'Tags', photoUrl: 'Photo', preferredName: 'Preferred name', workLocation: 'Work location',
+  devicePassword: 'Device PIN', devicePin: 'Attendance ID', cardNumber: 'Card number', devicePrivilege: 'Device role', attendanceRequired: 'Marks attendance', tags: 'Tags', userId: 'CLOR sign-in', photoUrl: 'Photo', preferredName: 'Preferred name', workLocation: 'Work location',
   record: 'Record', name: 'Name', firstName: 'First name', lastName: 'Last name', code: 'Employee ID', email: 'Email', personalEmail: 'Personal email', workEmail: 'Work email', phone: 'Phone', workPhone: 'Work phone',
   designation: 'Designation', department: 'Department', departmentId: 'Department', jobPositionId: 'Designation', jobRoleId: 'Job role', seatId: 'Position', teamId: 'Team', businessUnitId: 'Business unit', gradeId: 'Grade', costCenterId: 'Cost centre',
   areaId: 'Location', branchId: 'Branch', establishmentId: 'Work site', employeeTypeId: 'Employment type', workTypeId: 'Work type', contractorId: 'Contractor', reportingManagerId: 'Manager', dottedManagerId: 'Secondary manager',
@@ -63,6 +63,8 @@ export function readableValue(field: string, value: string | null): string | nul
   return value;
 }
 async function named(orgId: string, field: string, value: string | null) {
+  /* A linked sign-in reads as the person's name, never as an internal id. */
+  if (field === 'userId' && value) return (await namesFor([value])).get(value) || 'a CLOR login';
   if (!value || !NAMED_ID.test(field)) return readableValue(field, value);
   try {
     return (await labelOf(orgId, field, value)) || value;
