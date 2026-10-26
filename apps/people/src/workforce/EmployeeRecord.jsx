@@ -1,4 +1,4 @@
-import React, { useEffect, useId, useMemo, useRef, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { Briefcase, Building2, CalendarClock, Camera, ChevronDown, Clock, Hash, Hourglass, MapPin, Pencil, Plus, UserRound } from 'lucide-react';
 
 import { PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
@@ -44,6 +44,8 @@ const TABS = [['overview', 'Overview'], ['personal', 'Personal'], ['employment',
 const LAST_DIRECTORY = 'people.workforce.lastDirectory';
 const todayIst = () => new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
 const shown = (v) => (v === null || v === undefined || v === '' ? null : v);
+/* The open section form says whether it holds unsaved edits, so a tab or another Edit asks before replacing it. */
+const FormDirty = createContext(null);
 
 function Field({ label, value, mono = false }) {
   return (
@@ -97,6 +99,17 @@ export default function EmployeeRecord({ params = {}, updateParams, openScreen }
   const [resigning, setResigning] = useState(false);
   const [inviting, setInviting] = useState(false);
   const set = (patch, push = false) => updateParams?.(patch, { push });
+  const formDirty = useRef(false);
+  const reportDirty = useCallback((d) => { formDirty.current = d; }, []);
+  /* A move that would close the open section form asks first when it has edits; declined, nothing changes. */
+  const leaveTo = async (patch, push = false) => {
+    const closesForm = ('tab' in patch && (patch.tab || 'overview') !== tab) || ('edit' in patch && (patch.edit || null) !== (params.edit || null));
+    if (closesForm && formDirty.current && !(await confirmDialog({ title: 'Discard your changes?', confirmLabel: 'Discard' }))) return;
+    if (closesForm) formDirty.current = false;
+    set(patch, push);
+  };
+  /* Opening another section goes through leaveTo; closing (after Save, or a Cancel that already asked) does not. */
+  const setEditing = (e) => (e ? leaveTo({ edit: e }) : set({ edit: null }));
   const backToDirectory = () => {
     let last = {};
     try { last = JSON.parse(sessionStorage.getItem(LAST_DIRECTORY) || '{}'); } catch { /* none kept */ }
@@ -195,14 +208,14 @@ export default function EmployeeRecord({ params = {}, updateParams, openScreen }
                     if (k === 'leave') { setMoreOpen(false); return setResigning(true); }
                     if (k === 'stay') { setMoreOpen(false); return withdrawLeaving(); }
                     /* Rehire lives on the Employment tab; the caret goes to its first field so the step is visible. */
-                    if (k === 'rehire') { setMoreOpen(false); set({ tab: 'employment', action: null }, true); return setTimeout(() => document.getElementById('rejoin')?.focus(), 150); }
+                    if (k === 'rehire') { setMoreOpen(false); return leaveTo({ tab: 'employment', action: null }, true).then(() => setTimeout(() => document.getElementById('rejoin')?.focus(), 150)); }
                     return openAction(k);
                   }} onEscape={() => { setMoreOpen(false); moreRef.current?.focus(); }} />
                 </Popover>
               ) : null}
             </>
           ) : null}
-          {editable ? <button type="button" className="ui-btn ui-btn-primary" onClick={() => set({ tab: ['employment', 'organization'].includes(tab) ? tab : 'personal', edit: tab === 'employment' ? 'employment' : tab === 'organization' ? null : 'name', action: tab === 'organization' ? 'transfer' : null }, true)}><Pencil size={16} aria-hidden="true" /> Edit</button> : null}
+          {editable ? <button type="button" className="ui-btn ui-btn-primary" onClick={() => leaveTo({ tab: ['employment', 'organization'].includes(tab) ? tab : 'personal', edit: tab === 'employment' ? 'employment' : tab === 'organization' ? null : 'name', action: tab === 'organization' ? 'transfer' : null }, true)}><Pencil size={16} aria-hidden="true" /> Edit</button> : null}
         </>}
       />
 
@@ -211,15 +224,17 @@ export default function EmployeeRecord({ params = {}, updateParams, openScreen }
       ))}
       {rec.error ? <Alert tone="neg" title="Could not refresh this record" action={<button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={rec.reload}>Retry</button>}>Showing what was loaded before.</Alert> : null}
 
-      <RecordTabs tabs={tabsAllowed} value={tab} onChange={(k) => set({ tab: k === 'overview' ? null : k, edit: null, action: null }, true)} label={`${person.name} sections`}>
+      <FormDirty.Provider value={reportDirty}>
+      <RecordTabs tabs={tabsAllowed} value={tab} onChange={(k) => leaveTo({ tab: k === 'overview' ? null : k, edit: null, action: null }, true)} label={`${person.name} sections`}>
         {tab === 'overview' ? <Overview person={person} data={rec.data} lists={lists} allowed={allowed} goTo={(t) => set({ tab: t }, true)} go={(patch) => set(patch, true)} /> : null}
-        {tab === 'personal' ? <Personal person={person} allowed={allowed} editing={params.edit} setEditing={(e) => set({ edit: e })} onSaved={(emp) => rec.setData((d) => ({ ...d, employee: { ...d.employee, ...emp } }))} reload={rec.reload} /> : null}
-        {tab === 'employment' ? <Employment person={person} data={rec.data} lists={lists} allowed={allowed} editing={params.edit} setEditing={(e) => set({ edit: e })} onSaved={(emp) => setPerson(emp)} reload={rec.reload} onLeave={() => setResigning(true)} /> : null}
-        {tab === 'organization' ? <Organization person={person} lists={lists} allowed={allowed} openAction={openAction} openPerson={(pid) => openScreen?.('employee', { id: pid })} editing={params.edit} setEditing={(e) => set({ edit: e })} onSaved={(emp) => setPerson(emp)} reload={rec.reload} /> : null}
+        {tab === 'personal' ? <Personal person={person} allowed={allowed} editing={params.edit} setEditing={setEditing} onSaved={(emp) => rec.setData((d) => ({ ...d, employee: { ...d.employee, ...emp } }))} reload={rec.reload} /> : null}
+        {tab === 'employment' ? <Employment person={person} data={rec.data} lists={lists} allowed={allowed} editing={params.edit} setEditing={setEditing} onSaved={(emp) => setPerson(emp)} reload={rec.reload} onLeave={() => setResigning(true)} /> : null}
+        {tab === 'organization' ? <Organization person={person} lists={lists} allowed={allowed} openAction={openAction} openPerson={(pid) => openScreen?.('employee', { id: pid })} editing={params.edit} setEditing={setEditing} onSaved={(emp) => setPerson(emp)} reload={rec.reload} /> : null}
         {tab === 'documents' ? <EmployeeDocuments employeeId={person.id} /> : null}
         {tab === 'history' ? <div className="space-y-6"><HistoryCompare person={person} lists={lists} /><Section title="Employment history"><EmploymentHistory employeeId={person.id} /></Section><Section title="Every change and why"><Journey employeeId={person.id} /></Section></div> : null}
         {tab === 'activity' ? <Activity person={person} canComment={allowed('PEOPLE::Employee Notes::CREATE')} /> : null}
       </RecordTabs>
+      </FormDirty.Provider>
 
       {params.action && lists ? (
         <OperationDrawer action={params.action} person={person} lists={lists} onClose={() => set({ action: null })} onDone={() => { set({ action: null }); rec.reload(); }} />
@@ -405,14 +420,20 @@ function PhotoControl({ person, canEdit, onSaved }) {
 function TagLine({ person, tags, canEdit, onSaved }) {
   const [open, setOpen] = useState(false);
   const btn = useRef(null);
+  const [busy, setBusy] = useState(false);
   const mine = (person.tags || []).map((t) => t.id);
+  /* One save at a time: the next tick waits for the saved tags and version, or it would undo the last one or hit a stale version. */
   const toggle = async (id) => {
+    if (busy) return;
     const next = mine.includes(id) ? mine.filter((x) => x !== id) : [...mine, id];
+    setBusy(true);
     try {
       const r = await updateEmployee(person.id, { tagIds: next, version: person.version });
       onSaved(r.employee);
     } catch (e) {
       notify.error(String(e?.message || 'Tags not saved.'));
+    } finally {
+      setBusy(false);
     }
   };
   if (!mine.length && (!canEdit || !tags.length)) return null;
@@ -424,8 +445,8 @@ function TagLine({ person, tags, canEdit, onSaved }) {
           <button ref={btn} type="button" className="ui-tag-add" aria-haspopup="dialog" aria-expanded={open} onClick={() => setOpen((o) => !o)}>{mine.length ? <><Pencil size={12} aria-hidden="true" /> Tags</> : <><Plus size={12} aria-hidden="true" /> Add tag</>}</button>
           {open ? (
             <Popover anchorRef={btn} onClose={() => setOpen(false)} minWidth={220}>
-              <div role="dialog" aria-label="Tags" className="p-2 space-y-1">
-                {tags.map((t) => <label key={t.id} className="flex items-center gap-2 text-sm px-1 py-1"><input type="checkbox" className="ui-checkbox" checked={mine.includes(t.id)} onChange={() => toggle(t.id)} />{t.name}</label>)}
+              <div role="dialog" aria-label="Tags" aria-busy={busy || undefined} className="p-2 space-y-1">
+                {tags.map((t) => <label key={t.id} className="flex items-center gap-2 text-sm px-1 py-1"><input type="checkbox" className="ui-checkbox" checked={mine.includes(t.id)} disabled={busy} onChange={() => toggle(t.id)} />{t.name}</label>)}
               </div>
             </Popover>
           ) : null}
@@ -552,6 +573,9 @@ function SectionForm({ person, fields, onCancel, onSaved, reload }) {
   const [conflict, setConflict] = useState(null);
   const dirty = JSON.stringify(form) !== JSON.stringify(initial);
   useUnsavedChanges(dirty);
+  const reportDirty = useContext(FormDirty);
+  useEffect(() => { reportDirty?.(dirty); }, [dirty, reportDirty]);
+  useEffect(() => () => reportDirty?.(false), [reportDirty]);
   /* The Edit button that opened this is gone; the caret goes to the first field, not back to the top of the page. */
   const formRef = useRef(null);
   useEffect(() => { formRef.current?.querySelector('input:not([type=hidden]), select, textarea')?.focus(); }, []);
@@ -679,7 +703,8 @@ function Employment({ person, data, lists, allowed, editing, setEditing, onSaved
   useEffect(() => {
     if (person.status !== 'LEFT') return;
     listEmployees({ limit: 500, sort: 'name' }).then((r) => {
-      const here = (r?.employees || []).filter((e) => e.id !== person.id);
+      /* Someone who left or is suspended counts as no manager (approvalChain), so is neither offered nor kept. */
+      const here = (r?.employees || []).filter((e) => e.id !== person.id && e.status !== 'LEFT' && e.status !== 'SUSPENDED');
       setManagers(here);
       if (here.some((e) => e.id === person.reportingManagerId)) setRejoinManager(person.reportingManagerId);
     }).catch(() => setManagers([]));

@@ -108,6 +108,29 @@ describe('Workforce record edits', () => {
     await waitFor(() => expect(within(screen.getByRole('region', { name: 'Name' })).getByRole('button', { name: /Edit/ })).toHaveFocus());
   });
 
+  it('with unsaved edits, another section or tab asks first; declined, the edits stay', async () => {
+    const { default: EmployeeRecord } = await import('../apps/people/src/workforce/EmployeeRecord');
+    const user = userEvent.setup();
+    const ask = vi.fn(() => false);
+    vi.stubGlobal('confirm', ask);
+    const Harness = () => {
+      const [params, setParams] = React.useState({ id: 'e1', tab: 'personal' });
+      return <EmployeeRecord params={params} updateParams={(patch) => setParams((p) => ({ ...p, ...patch }))} openScreen={() => {}} />;
+    };
+    render(<Harness />);
+    await user.click(within(await screen.findByRole('region', { name: 'Name' })).getByRole('button', { name: /Edit/ }));
+    await user.type(screen.getByLabelText('Preferred name'), 'Sari');
+    await user.click(within(screen.getByRole('region', { name: 'Contact' })).getByRole('button', { name: /Edit/ }));
+    expect(ask).toHaveBeenCalledWith(expect.stringContaining('Discard your changes?'));
+    expect(screen.getByLabelText('Preferred name')).toHaveValue('Sari');
+    await user.click(screen.getByRole('tab', { name: 'Overview' }));
+    expect(screen.getByLabelText('Preferred name')).toHaveValue('Sari');
+    ask.mockReturnValue(true);
+    await user.click(screen.getByRole('tab', { name: 'Overview' }));
+    await waitFor(() => expect(screen.queryByLabelText('Preferred name')).toBeNull());
+    vi.unstubAllGlobals();
+  });
+
   it('the record and its section edit pass the axe accessibility rules (names, labels, roles, ARIA)', async () => {
     const axe = (await import('axe-core')).default;
     const { default: EmployeeRecord } = await import('../apps/people/src/workforce/EmployeeRecord');

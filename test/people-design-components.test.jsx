@@ -10,6 +10,7 @@ import ErrorState, { errorKind } from '../packages/ui/src/components/ui/ErrorSta
 import ActivityTimeline from '../packages/ui/src/components/ui/ActivityTimeline';
 import DatePicker, { formatDate, parseDate } from '../packages/ui/src/components/ui/DatePicker';
 import { PageHeader } from '../packages/ui/src/components/ui/Primitives';
+import SuggestInput from '../packages/ui/src/components/ui/SuggestInput';
 
 /* People design spec v1 §5 and §5.1: the shared components and the interaction table. */
 afterEach(() => { cleanup(); vi.useRealTimers(); });
@@ -320,6 +321,43 @@ describe('DataTable (spec v1 §4.2, §5)', () => {
     await user.click(screen.getByRole('checkbox', { name: 'Department' }));
     expect(onPrefs).toHaveBeenLastCalledWith({ hidden: ['department'] });
     expect(visibleColumns(columns, { hidden: ['department', 'name'], order: ['code', 'name'] }).map((c) => c.key)).toEqual(['code', 'name']);
+  });
+
+  it('a card with nothing to open is not a button, and a page past the end offers the last page instead of the empty state', async () => {
+    const { default: DataTable } = await import('../packages/ui/src/components/ui/DataTable');
+    const user = userEvent.setup();
+    const onPage = vi.fn();
+    const { rerender } = render(<DataTable columns={columns} rows={rows} card={(r) => <span>{r.name}</span>} />);
+    expect(screen.queryByRole('button', { name: /Aarav Mehta/ })).toBeNull();
+    rerender(<DataTable columns={columns} rows={[]} total={30} page={3} pageSize={25} onPage={onPage} onPageSize={() => {}} empty={<p>No employees</p>} />);
+    expect(screen.queryByText('No employees')).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Go to the last page' }));
+    expect(onPage).toHaveBeenLastCalledWith(2);
+  });
+});
+
+describe('SuggestInput', () => {
+  const Field = ({ onTake }) => {
+    const [v, setV] = useState('');
+    return <><label htmlFor="city">City</label><SuggestInput id="city" value={v} onChange={(x) => { setV(x); onTake?.(x); }} suggestions={['Pune', 'Patna']} /><button type="button">Next</button></>;
+  };
+  it('Tab closes the list; a row under the pointer is only highlighted, Enter takes a row only after the arrows', async () => {
+    const user = userEvent.setup();
+    const onTake = vi.fn();
+    render(<Field onTake={onTake} />);
+    await user.click(screen.getByRole('combobox', { name: 'City' }));
+    expect(screen.getByRole('listbox')).toBeInTheDocument();
+    await user.hover(screen.getByRole('option', { name: 'Patna' }));
+    await user.keyboard('{Enter}');
+    expect(onTake).not.toHaveBeenCalled();
+    await user.keyboard('{ArrowDown}{Enter}');
+    expect(onTake).toHaveBeenLastCalledWith('Pune');
+    await user.click(screen.getByRole('combobox', { name: 'City' }));
+    await user.clear(screen.getByRole('combobox', { name: 'City' }));
+    expect(screen.getByRole('listbox')).toBeInTheDocument();
+    await user.tab();
+    expect(screen.getByRole('button', { name: 'Next' })).toHaveFocus();
+    expect(screen.queryByRole('listbox')).toBeNull();
   });
 });
 

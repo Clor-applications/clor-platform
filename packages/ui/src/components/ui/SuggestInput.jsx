@@ -13,7 +13,8 @@ import Popover from './Popover';
  *
  * The caret never leaves the input (the combobox pattern): ↓ and ↑ move the
  * highlight, Enter takes it only once the arrows were used (so Enter in a form
- * still submits), Escape closes. On focus the list opens with everything that
+ * still submits; a row the pointer rests on is only highlighted), Escape and
+ * leaving the field close it. On focus the list opens with everything that
  * fits; typing narrows it, matches that start with the typed text first.
  *
  * `suggestions`: strings, or { value, hint } where hint is a few words shown
@@ -45,13 +46,15 @@ const SuggestInput = forwardRef(function SuggestInput({ value, onChange, suggest
   const listId = useId();
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(-1);
+  /* Whether the highlight came from the arrows: only then does Enter take it. */
+  const [keyed, setKeyed] = useState(false);
   const shown = useMemo(() => rank(suggestions, value), [suggestions, value]);
   const visible = open && shown.length > 0;
 
+  const close = () => { setOpen(false); setActive(-1); setKeyed(false); };
   const take = (v) => {
     onChange?.(v);
-    setOpen(false);
-    setActive(-1);
+    close();
   };
   const keys = (e) => {
     onKeyDown?.(e);
@@ -60,11 +63,12 @@ const SuggestInput = forwardRef(function SuggestInput({ value, onChange, suggest
       if (!shown.length) return;
       e.preventDefault();
       setOpen(true);
+      setKeyed(true);
       const step = e.key === 'ArrowDown' ? 1 : -1;
       setActive((i) => (i < 0 ? (step > 0 ? 0 : shown.length - 1) : (i + step + shown.length) % shown.length));
       return;
     }
-    if (e.key === 'Enter' && visible && active >= 0 && shown[active]) {
+    if (e.key === 'Enter' && visible && keyed && active >= 0 && shown[active]) {
       e.preventDefault();
       take(shown[active].value);
       return;
@@ -72,8 +76,7 @@ const SuggestInput = forwardRef(function SuggestInput({ value, onChange, suggest
     if (e.key === 'Escape' && visible) {
       e.preventDefault();
       e.stopPropagation();
-      setOpen(false);
-      setActive(-1);
+      close();
     }
   };
 
@@ -89,27 +92,28 @@ const SuggestInput = forwardRef(function SuggestInput({ value, onChange, suggest
         aria-autocomplete="list"
         aria-expanded={visible}
         aria-controls={visible ? listId : undefined}
-        aria-activedescendant={visible && active >= 0 ? `${listId}-${active}` : undefined}
-        onChange={(e) => { onChange?.(e.target.value); setOpen(true); setActive(-1); }}
+        aria-activedescendant={visible && keyed && active >= 0 ? `${listId}-${active}` : undefined}
+        onChange={(e) => { onChange?.(e.target.value); setOpen(true); setActive(-1); setKeyed(false); }}
         onFocus={(e) => { setOpen(true); onFocus?.(e); }}
-        onBlur={(e) => { onBlur?.(e); }}
+        /* Tab or a click elsewhere closes the list; a row takes its pick on pointer down, before the caret could leave. */
+        onBlur={(e) => { if (!e.relatedTarget?.closest?.(`[id="${listId}"]`)) close(); onBlur?.(e); }}
         onClick={() => setOpen(true)}
         onKeyDown={keys}
       />
       {visible ? (
-        <Popover anchorRef={anchorRef} onClose={() => { setOpen(false); setActive(-1); }} autoFocus={false} minWidth={200}>
+        <Popover anchorRef={anchorRef} onClose={close} autoFocus={false} minWidth={200}>
           <ul id={listId} role="listbox" className="ui-suggest-list">
             {shown.map((s, i) => (
               <li
                 key={s.value}
                 id={`${listId}-${i}`}
                 role="option"
-                aria-selected={i === active}
+                aria-selected={keyed && i === active}
                 data-active={i === active}
                 className="ui-suggest-option"
                 /* Pointer down, not click: the input keeps focus and the list does not close first. */
                 onPointerDown={(e) => { e.preventDefault(); take(s.value); }}
-                onMouseEnter={() => setActive(i)}
+                onMouseEnter={() => { setActive(i); setKeyed(false); }}
               >
                 <span className="truncate">{s.value}</span>
                 {s.hint ? <span className="ui-caption shrink-0">{s.hint}</span> : null}

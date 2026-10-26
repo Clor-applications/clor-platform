@@ -5,6 +5,7 @@ import { EmptyState, PageHeader, SkeletonCard } from '@ui/components/ui/Primitiv
 import ErrorState from '@ui/components/ui/ErrorState';
 import PopupSelect from '@ui/components/pickers/PopupSelect';
 import { formatDate } from '@ui/components/ui/DatePicker';
+import { notify } from '@ui/components/ui/notify';
 
 import { structureHistory } from './api';
 
@@ -56,6 +57,8 @@ function ChangeList({ kind, item, firstPage, firstNext }) {
       const r = await structureHistory({ kind, id: item, limit: 50, before: next });
       setOlder((o) => [...o, ...(r?.entries || [])]);
       setNext(r?.nextBefore || null);
+    } catch (e) {
+      notify.error(String(e?.message || 'Could not load older changes.'));
     } finally { setBusy(false); }
   };
   return (

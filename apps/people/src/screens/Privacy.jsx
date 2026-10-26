@@ -130,7 +130,7 @@ function Retention({ canEdit }) {
           total={rows.length} pageSize={Math.max(25, rows.length)} noun="kinds of data" rowActions={canEdit ? rowActions : null}
           onRowClick={canEdit ? (r) => setEditing({ row: r, mode: 'years' }) : null}
           card={(r) => <span className="min-w-0 flex-1"><span className="flex items-center justify-between gap-2"><span className="truncate font-medium">{r.label}</span><span className="tabular-nums ui-caption">{r.keepYears} years</span></span><span className="block truncate ui-caption">{r.legalHold ? 'On hold' : r.after}</span></span>}
-          empty={<EmptyState title="No retention schedule" description="Reload; the schedule comes with People." />} />
+          empty={<EmptyState title="No retention schedule" />} />
       )}
       {editing ? <RetentionDrawer {...editing} onClose={() => setEditing(null)} onDone={() => { setEditing(null); req.reload(); }} /> : null}
     </section>

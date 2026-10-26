@@ -109,8 +109,9 @@ function ColumnSettings({ columns, prefs, onPrefs, defaults }) {
             <fieldset>
               <legend className="ui-label">Density</legend>
               <div className="flex gap-1" role="radiogroup" aria-label="Density">
+                {/* A control, so a button's 8px corners (a pill is a status, not a choice). */}
                 {[['comfortable', 'Comfortable'], ['compact', 'Compact']].map(([k, l]) => (
-                  <button key={k} type="button" role="radio" aria-checked={(prefs?.density || 'comfortable') === k} className={`ui-pill ${(prefs?.density || 'comfortable') === k ? 'ui-pill-info' : ''}`} onClick={() => onPrefs({ ...prefs, density: k })}>{l}</button>
+                  <button key={k} type="button" role="radio" aria-checked={(prefs?.density || 'comfortable') === k} className={`ui-btn ui-btn-sm ${(prefs?.density || 'comfortable') === k ? 'ui-btn-soft' : 'ui-btn-ghost'}`} onClick={() => onPrefs({ ...prefs, density: k })}>{l}</button>
                 ))}
               </div>
             </fieldset>
@@ -234,14 +235,21 @@ export default function DataTable({
             return (
               <li key={id} className={`ui-datatable-card ${selected.has(id) ? 'is-selected' : ''}`}>
                 {selectable ? <input type="checkbox" className="ui-checkbox ui-card-check" aria-label={`Choose ${r.name || id}`} checked={selected.has(id)} onChange={() => toggle(id)} /> : null}
-                <button type="button" className="ui-card-open" onClick={() => onRowClick?.(r)}>{card(r)}</button>
+                {/* A card opens the record only when there is one to open; otherwise it is plain content, not a stop for Tab. */}
+                {onRowClick ? <button type="button" className="ui-card-open" onClick={() => onRowClick(r)}>{card(r)}</button> : <div className="w-full min-w-0">{card(r)}</div>}
                 {rowActions ? (() => { const items = rowActions(r).filter(Boolean); return items.length ? <RowMenu label={`Actions for ${r.name || id}`} items={items} /> : null; })() : null}
               </li>
             );
           })}
         </ul>
       ) : null}
-      {!loading && !rows.length ? empty : null}
+      {/* A page past the end (rows were removed, or an old link) is not "nothing here": the rows are on an earlier page. */}
+      {!loading && !rows.length && total > 0 && page > 1 && onPage ? (
+        <div className="flex flex-wrap items-center gap-3 py-6">
+          <span className="text-sm">This page is empty.</span>
+          <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => onPage(Math.max(1, Math.ceil(total / pageSize)))}>Go to the last page</button>
+        </div>
+      ) : !loading && !rows.length ? empty : null}
       {!loading && total > 0 && onPage ? <TablePager total={total} page={page} pageSize={pageSize} onPage={onPage} onPageSize={onPageSize} noun={noun} /> : null}
     </div>
   );

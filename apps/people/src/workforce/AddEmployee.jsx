@@ -40,6 +40,9 @@ const BLANK = {
   tagIds: [], devicePin: '', cardNumber: '', contractorId: '', attendanceRequired: true,
 };
 const todayIst = () => new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
+/* Where each checked field is asked, and which show their message under the field. */
+const FIELD_STEP = { firstName: 'personal', workEmail: 'personal', email: 'personal', phone: 'personal', dateOfBirth: 'personal', emergencyContactPhone: 'personal', code: 'employment', dateOfJoining: 'employment', probationEndDate: 'employment', contractEndDate: 'employment', seatId: 'organization' };
+const SHOWN_INLINE = new Set(['firstName', 'workEmail', 'email', 'phone', 'dateOfBirth', 'emergencyContactPhone', 'code', 'dateOfJoining', 'probationEndDate', 'contractEndDate']);
 
 function check(step, f) {
   const e = {};
@@ -74,16 +77,28 @@ export default function AddEmployee({ params = {}, updateParams, openScreen }) {
   const [lists, setLists] = useState(null);
   /* The employment type decides which end dates are asked for (an intern has no probation, a permanent hire no contract end). */
   const dates = datesFor(kindOf(lists?.types, form.employeeTypeId));
-  /* The type's probation length fills the end date once both are known; a date typed by hand is never replaced. */
+  /* The type's probation length fills the end date once both are known, and follows a corrected joining date while it is still the date filled in; a date typed by hand is never replaced. */
   const probationMonths = (lists?.types || []).find((t) => t.id === form.employeeTypeId)?.probationMonths;
   const suggestedProbation = dates.probation ? probationEndFor(form.dateOfJoining, probationMonths) : '';
+  const filledProbation = useRef('');
   useEffect(() => {
-    if (suggestedProbation && !form.probationEndDate) setForm((f) => (f.probationEndDate ? f : { ...f, probationEndDate: suggestedProbation }));
+    if (!suggestedProbation) return;
+    if (form.probationEndDate && form.probationEndDate !== filledProbation.current) return;
+    filledProbation.current = suggestedProbation;
+    if (form.probationEndDate !== suggestedProbation) setForm((f) => ({ ...f, probationEndDate: suggestedProbation }));
   }, [suggestedProbation]); // eslint-disable-line react-hooks/exhaustive-deps
   const [people, setPeople] = useState([]);
   const stepKey = STEPS.some(([k]) => k === params.step) ? params.step : 'personal';
   const stepIndex = STEPS.findIndex(([k]) => k === stepKey);
   const bodyRef = useRef(null);
+  /* A field to put the caret in once its step is drawn (a server answer about it, after Create). */
+  const [focusField, setFocusField] = useState(null);
+  useEffect(() => {
+    const el = focusField && document.getElementById(focusField);
+    if (!el) return;
+    el.focus();
+    setFocusField(null);
+  }, [focusField, stepKey]);
   const dirty = JSON.stringify(form) !== JSON.stringify(saved);
 
   useEffect(() => {
@@ -168,7 +183,11 @@ export default function AddEmployee({ params = {}, updateParams, openScreen }) {
       openScreen?.('employee', { id: r.employee.id });
     } catch (e) {
       if (e?.status === 409 && e?.data?.code === 'DUPLICATE') setDuplicates(e.data.duplicates || []);
-      else if (e?.status === 409) setErrors({ code: e.message || 'That employee ID is already used in this company.' });
+      else if (e?.status === 409) {
+        /* A seat someone holds is on Organization; anything else taken (the employee ID) on Employment. Review lists it with a link there. */
+        const k = /seat/i.test(e.message || '') ? 'seatId' : 'code';
+        setErrors({ [k]: e.message || 'That employee ID is already used in this company.' });
+      }
       else setFailure(e);
     } finally {
       setBusy(false);
@@ -183,6 +202,12 @@ export default function AddEmployee({ params = {}, updateParams, openScreen }) {
   const nameIn = (items, id) => items.find((x) => x.id === id)?.name;
   const within = (items, key, parent, current) => items.filter((x) => !parent || !x[key] || x[key] === parent || x.id === current);
   const errorList = Object.entries(errors).map(([k, message]) => ({ field: k, message }));
+  /* One message the step cannot show by its field (a server answer on Review, a taken seat) still gets the summary. */
+  const summarise = errorList.length > 1 || errorList.some((x) => !SHOWN_INLINE.has(x.field) || FIELD_STEP[x.field] !== stepKey);
+  const showField = (k) => {
+    if (FIELD_STEP[k] && FIELD_STEP[k] !== stepKey) goStep(FIELD_STEP[k]);
+    setFocusField(k);
+  };
 
   return (
     <div className="space-y-6 ui-wizard">
@@ -200,10 +225,10 @@ export default function AddEmployee({ params = {}, updateParams, openScreen }) {
       <form ref={bodyRef} tabIndex={-1} className="ui-record-section ui-wizard-body" aria-label={STEPS[stepIndex][1]}
         onSubmit={(e) => { e.preventDefault(); if (stepKey === 'review') create(); else next(); }}
         onKeyDown={(e) => { if (e.key === 'Enter' && e.target.tagName === 'INPUT' && !e.nativeEvent.isComposing) e.preventDefault(); }}>
-        {errorList.length > 1 ? (
+        {summarise ? (
           <div className="ui-alert ui-alert-neg" role="alert">
-            <div><p className="ui-alert-title">{errorList.length} fields need attention</p>
-              <ul className="ui-alert-body list-disc pl-4">{errorList.map((x) => <li key={x.field}><a href={`#${x.field}`} className="ui-link" onClick={(e) => { e.preventDefault(); document.getElementById(x.field)?.focus(); }}>{x.message}</a></li>)}</ul>
+            <div><p className="ui-alert-title">{errorList.length === 1 ? 'One field needs attention' : `${errorList.length} fields need attention`}</p>
+              <ul className="ui-alert-body list-disc pl-4">{errorList.map((x) => <li key={x.field}><a href={`#${x.field}`} className="ui-link" onClick={(e) => { e.preventDefault(); showField(x.field); }}>{x.message}</a></li>)}</ul>
             </div>
           </div>
         ) : null}

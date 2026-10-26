@@ -316,13 +316,15 @@ function EditDrawer({ kind, cfg, value, items, refs, staff, onClose, onDone, onR
     return { from: where(initial[treeKey]), to: where(form[treeKey]), under: under.length, people };
   }, [moving, items, form, initial, treeKey]);
   const save = async () => {
+    /* Enter in the form and the Save button both land here; one save at a time, or a second copy is created. */
+    if (busy) return;
     if (!String(form.name || '').trim()) { setError({ message: 'Give it a name.' }); return; }
     const missing = cfg.fields.find((f) => f.required && !form[f.key] && f.type !== 'checkbox');
     if (missing) { setError({ message: `Choose the ${missing.label.toLowerCase()}.` }); return; }
     setBusy(true);
     setError(null);
     try {
-      const body = { ...(move && moveReason.trim() ? { reason: moveReason.trim() } : {}), name: form.name.trim(), ...(DESCRIBED.has(kind) ? { description: form.description || null } : {}), ...Object.fromEntries(cfg.fields.map((f) => [f.key, f.type === 'checkbox' ? Boolean(form[f.key]) : form[f.key] || null])) };
+      const body = { ...(move && moveReason.trim() ? { reason: moveReason.trim() } : {}), name: form.name.trim(), ...(DESCRIBED.has(kind) ? { description: form.description || null } : {}), ...Object.fromEntries(cfg.fields.map((f) => [f.key, f.type === 'checkbox' ? Boolean(form[f.key]) : (form[f.key] ?? '') === '' ? null : form[f.key]])) };
       if (isNew) await createItem(kind, body); else await updateItem(kind, form.id, body);
       notify.success(`${body.name} saved.`);
       onDone();

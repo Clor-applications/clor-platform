@@ -34,6 +34,8 @@ import { STATUS, StatusBadge, can } from './shared';
 const FILTER_KEYS = ['status', 'dept', 'pos', 'type', 'wtype', 'hrs', 'prob', 'contract', 'area', 'est', 'unit', 'grade', 'centre', 'tag', 'mgr', 'from', 'to', 'lfrom', 'lto', 'working', 'branch'];
 const COLUMNS_KEY = 'people.workforce.columns';
 const DISMISS_KEY = 'people.workforce.dismissed';
+/* Ticked rows are sent as ids in the export address; above this many it grows too long. */
+const EXPORT_IDS_MAX = 500;
 const readJson = (k, fallback) => { try { return JSON.parse(localStorage.getItem(k) || '') || fallback; } catch { return fallback; } };
 const writeJson = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* a convenience only */ } };
 const apiParams = (p) => ({
@@ -144,9 +146,20 @@ export default function Directory({ params = {}, updateParams, openScreen }) {
     }
   };
   const doExport = async (scope, columns) => {
+    /*
+     * Ticked rows go up as ids in the address, which holds about 500 of them.
+     * More than that is exported by the filters when they are exactly the
+     * rows ticked (every match); otherwise it is refused, never cut short.
+     */
+    const viaFilters = scope === 'selected' && selected.size > EXPORT_IDS_MAX && selected.size === total;
+    if (scope === 'selected' && selected.size > EXPORT_IDS_MAX && !viaFilters) {
+      notify.error(`Export takes up to ${EXPORT_IDS_MAX} ticked rows. Tick fewer, or export this view instead.`);
+      return false;
+    }
     setExporting(true);
     try {
-      const filter = scope === 'all' ? { status: 'CURRENT' } : scope === 'selected' ? { ids: [...selected].join(',') } : { ...apiParams(p), ...(tab === 'team' ? { team: 'mine' } : {}) };
+      const filter = scope === 'all' ? { status: 'CURRENT' } : scope === 'selected' && !viaFilters ? { ids: [...selected].join(',') } : { ...apiParams(p), ...(tab === 'team' ? { team: 'mine' } : {}) };
+      if (viaFilters) notify.info(`Exporting the ${total} people the filters match, which are the rows ticked.`);
       const text = await exportEmployees({ ...filter, columns: columns.join(',') });
       downloadText(text, `employees-${new Date().toISOString().slice(0, 10)}.csv`);
       notify.success('Exported.');
@@ -203,7 +216,7 @@ export default function Directory({ params = {}, updateParams, openScreen }) {
         {tabIndicator}
       </div>
 
-      {tab === 'pending' ? <PendingActions data={pending.data} error={pending.error} reload={pending.reload} openScreen={openScreen} /> : tab === 'views' ? <SavedViews params={p} prefs={prefs} onApply={(v) => { const f = v.filters || {}; set({ ...Object.fromEntries([...FILTER_KEYS, 'q', 'sort', 'dir'].map((k) => [k, f[k] || null])), view: v.id, tab: null, page: null }, true); if (f.hidden || f.order || f.density) setPrefs({ hidden: f.hidden ? String(f.hidden).split(',').filter(Boolean) : [], order: f.order ? String(f.order).split(',').filter(Boolean) : [], density: f.density || undefined }); }} canShare={allowed('PEOPLE::Employees::EDIT')} /> : (
+      {tab === 'pending' ? <PendingActions data={pending.data} error={pending.error} reload={pending.reload} openScreen={openScreen} /> : tab === 'views' ? <SavedViews params={params || {}} prefs={prefs} onApply={(v) => { const f = v.filters || {}; set({ ...Object.fromEntries([...FILTER_KEYS, 'q', 'sort', 'dir'].map((k) => [k, f[k] || null])), view: v.id, tab: null, page: null }, true); if (f.hidden || f.order || f.density) setPrefs({ hidden: f.hidden ? String(f.hidden).split(',').filter(Boolean) : [], order: f.order ? String(f.order).split(',').filter(Boolean) : [], density: f.density || undefined }); }} canShare={allowed('PEOPLE::Employees::EDIT')} /> : (
         <DataTable
           label="Employees"
           columns={columns}
@@ -321,7 +334,8 @@ function ExportDrawer({ counts, filtered, onClose, onExport }) {
   const toggle = (k) => { const next = new Set(picked); if (next.has(k)) next.delete(k); else next.add(k); setChosen(next); };
   const go = async () => {
     setBusy(true);
-    try { await onExport(scope, (columns.data || []).filter((c) => picked.has(c.key)).map((c) => c.key)); onClose(); } finally { setBusy(false); }
+    /* A refused export (too many ticked rows) keeps the drawer open to choose another scope. */
+    try { if ((await onExport(scope, (columns.data || []).filter((c) => picked.has(c.key)).map((c) => c.key))) !== false) onClose(); } finally { setBusy(false); }
   };
   return (
     <Drawer open onClose={onClose} widthClass="w-[min(36rem,96vw)] ui-drawer-sheet" title="Export employees"
