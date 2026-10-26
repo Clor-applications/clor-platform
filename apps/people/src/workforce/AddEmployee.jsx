@@ -10,6 +10,7 @@ import { confirmDialog, notify } from '@ui/components/ui/notify';
 import useUnsavedChanges from '@ui/components/ui/useUnsavedChanges';
 import { usePermissions } from '@ui/permissions/usePermissions';
 import { Avatar, GENDER_WORDS, shrinkPhoto } from '@ui/personnel/Employees';
+import { HOURS_WORDS, datesFor, kindOf } from '@ui/personnel/employmentKinds';
 import { hasApp } from '@platform/context';
 import { clearUnsaved } from '@platform/unsaved';
 
@@ -31,7 +32,7 @@ const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const BLANK = {
   firstName: '', lastName: '', preferredName: '', workEmail: '', workPhone: '', email: '', phone: '', dateOfBirth: '', gender: '', guardianName: '', photoUrl: '',
   emergencyContactName: '', emergencyContactRelation: '', emergencyContactPhone: '',
-  code: '', employeeTypeId: '', workTypeId: '', jobRoleId: '', dateOfJoining: '', probationEndDate: '', contractEndDate: '', status: 'ACTIVE',
+  code: '', employeeTypeId: '', workTypeId: '', jobRoleId: '', dateOfJoining: '', probationEndDate: '', contractEndDate: '', hours: 'FULL_TIME', status: 'ACTIVE',
   departmentId: '', jobPositionId: '', areaId: '', establishmentId: '', businessUnitId: '', teamId: '', seatId: '', reportingManagerId: '', dottedManagerId: '', costCenterId: '', gradeId: '', workLocation: '',
   tagIds: [], devicePin: '', cardNumber: '', contractorId: '', attendanceRequired: true,
 };
@@ -68,6 +69,8 @@ export default function AddEmployee({ params = {}, updateParams, openScreen }) {
   const [duplicates, setDuplicates] = useState(null);
   const [duplicateReason, setDuplicateReason] = useState('');
   const [lists, setLists] = useState(null);
+  /* The employment type decides which end dates are asked for (an intern has no probation, a permanent hire no contract end). */
+  const dates = datesFor(kindOf(lists?.types, form.employeeTypeId));
   const [people, setPeople] = useState([]);
   const stepKey = STEPS.some(([k]) => k === params.step) ? params.step : 'personal';
   const stepIndex = STEPS.findIndex(([k]) => k === stepKey);
@@ -145,7 +148,7 @@ export default function AddEmployee({ params = {}, updateParams, openScreen }) {
     setBusy(true);
     setFailure(null);
     try {
-      const body = Object.fromEntries(Object.entries(form).filter(([k, v]) => v !== '' && v !== null && !(k === 'tagIds' && !v.length) && !(k === 'attendanceRequired' && !hasApp('attendance'))));
+      const body = Object.fromEntries(Object.entries(form).filter(([k, v]) => v !== '' && v !== null && !(k === 'tagIds' && !v.length) && !(k === 'attendanceRequired' && !hasApp('attendance')) && !(k === 'probationEndDate' && !dates.probation) && !(k === 'contractEndDate' && !dates.contract)));
       const r = await createEmployee({ ...body, ...(duplicateReason ? { duplicateReason } : {}), ...(draftId ? { draftId } : {}) });
       setSaved(form);
       clearUnsaved();
@@ -219,9 +222,10 @@ export default function AddEmployee({ params = {}, updateParams, openScreen }) {
             <Text id="code" label="Employee ID" required {...field('code')} error={errors.code} max={40} />
             <SelectField id="employeeTypeId" label="Employment type" optional options={opts(lists.types)} {...field('employeeTypeId')} />
             <DateField id="dateOfJoining" label="Joining date" required {...field('dateOfJoining')} error={errors.dateOfJoining} />
-            <SelectField id="workTypeId" label="Work type" optional options={opts(lists.workTypes)} {...field('workTypeId')} />
-            <DateField id="probationEndDate" label="Probation ends" optional min={form.dateOfJoining || ''} {...field('probationEndDate')} error={errors.probationEndDate} />
-            <DateField id="contractEndDate" label="Contract ends" optional min={form.dateOfJoining || ''} {...field('contractEndDate')} error={errors.contractEndDate} />
+            <SelectField id="hours" label="Hours" options={Object.entries(HOURS_WORDS).map(([value, label]) => ({ value, label }))} {...field('hours')} />
+            <SelectField id="workTypeId" label="Work mode" optional options={opts(lists.workTypes)} {...field('workTypeId')} />
+            {dates.probation ? <DateField id="probationEndDate" label="Probation ends" optional min={form.dateOfJoining || ''} {...field('probationEndDate')} error={errors.probationEndDate} /> : null}
+            {dates.contract ? <DateField id="contractEndDate" label={dates.contractLabel} optional min={form.dateOfJoining || ''} {...field('contractEndDate')} error={errors.contractEndDate} /> : null}
             <SelectField id="status" label="Status" options={[{ value: 'ACTIVE', label: 'Active' }, { value: 'SUSPENDED', label: 'Suspended' }]} {...field('status')} />
           </Step>
         ) : null}
@@ -271,7 +275,7 @@ export default function AddEmployee({ params = {}, updateParams, openScreen }) {
               </Alert>
             ) : null}
             {[['personal', 'Personal', [['Name', [form.firstName, form.lastName].filter(Boolean).join(' ')], ['Preferred name', form.preferredName], ['Photo', form.photoUrl ? 'Added' : ''], ['Work email', form.workEmail], ['Phone', form.phone], ['Work phone', form.workPhone], ['Personal email', form.email], ['Date of birth', form.dateOfBirth && formatDate(form.dateOfBirth)], ['Gender', GENDER_WORDS[form.gender]], ['Father / husband name', form.guardianName], ['Emergency contact', [form.emergencyContactName, form.emergencyContactRelation, form.emergencyContactPhone].filter(Boolean).join(' · ')]]],
-              ['employment', 'Employment', [['Employee ID', form.code], ['Employment type', nameIn(lists.types, form.employeeTypeId)], ['Joining date', form.dateOfJoining && formatDate(form.dateOfJoining)], ['Work type', nameIn(lists.workTypes, form.workTypeId)], ['Probation ends', form.probationEndDate && formatDate(form.probationEndDate)], ['Contract ends', form.contractEndDate && formatDate(form.contractEndDate)], ['Status', form.status === 'ACTIVE' ? 'Active' : 'Suspended']]],
+              ['employment', 'Employment', [['Employee ID', form.code], ['Employment type', nameIn(lists.types, form.employeeTypeId)], ['Joining date', form.dateOfJoining && formatDate(form.dateOfJoining)], ['Hours', HOURS_WORDS[form.hours]], ['Work mode', nameIn(lists.workTypes, form.workTypeId)], ['Probation ends', dates.probation && form.probationEndDate && formatDate(form.probationEndDate)], [dates.contractLabel, dates.contract && form.contractEndDate && formatDate(form.contractEndDate)], ['Status', form.status === 'ACTIVE' ? 'Active' : 'Suspended']]],
               ['organization', 'Organization', [['Department', nameIn(lists.departments, form.departmentId)], ['Designation', nameIn(lists.positions, form.jobPositionId)], ...(lists.roles.length ? [['Job role', nameIn(lists.roles, form.jobRoleId)]] : []), ['Location', nameIn(lists.areas, form.areaId)], ['Work location', form.workLocation], ['Work site', nameIn(lists.establishments, form.establishmentId)], ['Manager', people.find((x) => x.id === form.reportingManagerId)?.name], ['Secondary manager', people.find((x) => x.id === form.dottedManagerId)?.name], ...(lists.units.length ? [['Business unit', nameIn(lists.units, form.businessUnitId)]] : []), ...(lists.teams.length ? [['Team', nameIn(lists.teams, form.teamId)]] : []), ...(lists.seats.length ? [['Position', nameIn(lists.seats, form.seatId)]] : []), ...(lists.centres.length ? [['Cost centre', nameIn(lists.centres, form.costCenterId)]] : []), ...(lists.grades.length ? [['Grade', nameIn(lists.grades, form.gradeId)]] : []), ['Tags', lists.tags.filter((t) => form.tagIds.includes(t.id)).map((t) => t.name).join(', ')], ...(hasApp('attendance') ? [['Attendance ID', form.devicePin || (form.code ? `${form.code} (employee ID)` : '')], ['Card number', form.cardNumber], ...(lists.contractors.length ? [['Contractor', nameIn(lists.contractors, form.contractorId)]] : []), ['Marks attendance', form.attendanceRequired === false ? 'No, door only' : 'Yes']] : [])]],
             ].map(([k, title, rows]) => (
               <section key={k} className="ui-review-block" aria-label={title}>

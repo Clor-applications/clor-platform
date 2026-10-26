@@ -14,6 +14,7 @@ import useRequest from '@ui/components/ui/useRequest';
 import { notify, confirmDialog } from '@ui/components/ui/notify';
 import { usePermissions } from '@ui/permissions/usePermissions';
 import { Avatar } from '@ui/personnel/Employees';
+import { HOURS_WORDS } from '@ui/personnel/employmentKinds';
 import { formatDate } from '@ui/components/ui/DatePicker';
 
 import { bulkUpdate, dataHealth, employeeIds, deleteView, downloadText, employeeCounts, exportColumns, exportEmployees, listEmployees, listTags, listViews, openChecklistTasks, saveView, structure, workforcePending } from './api';
@@ -27,14 +28,14 @@ import { STATUS, StatusBadge, can } from './shared';
  * `updateParams`), so Back and refresh return to the same list. Choosing
  * people is per page; changing filters or company clears the choice.
  */
-const FILTER_KEYS = ['status', 'dept', 'pos', 'type', 'wtype', 'area', 'est', 'unit', 'grade', 'centre', 'tag', 'mgr', 'from', 'to'];
+const FILTER_KEYS = ['status', 'dept', 'pos', 'type', 'wtype', 'hrs', 'prob', 'area', 'est', 'unit', 'grade', 'centre', 'tag', 'mgr', 'from', 'to'];
 const COLUMNS_KEY = 'people.workforce.columns';
 const DISMISS_KEY = 'people.workforce.dismissed';
 const readJson = (k, fallback) => { try { return JSON.parse(localStorage.getItem(k) || '') || fallback; } catch { return fallback; } };
 const writeJson = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* a convenience only */ } };
 const apiParams = (p) => ({
   /* Leavers stay out unless asked for: the default is everyone still with the company. */
-  q: p.q, status: p.status || 'CURRENT', departmentId: p.dept, jobPositionId: p.pos, employeeTypeId: p.type, workTypeId: p.wtype, areaId: p.area, establishmentId: p.est,
+  q: p.q, status: p.status || 'CURRENT', departmentId: p.dept, jobPositionId: p.pos, employeeTypeId: p.type, workTypeId: p.wtype, hours: p.hrs, probation: p.prob, areaId: p.area, establishmentId: p.est,
   businessUnitId: p.unit, gradeId: p.grade, costCenterId: p.centre, tagId: p.tag, managerId: p.mgr,
   joinedFrom: p.from, joinedTo: p.to, sort: p.sort, dir: p.dir,
 });
@@ -157,9 +158,11 @@ export default function Directory({ params = {}, updateParams, openScreen }) {
     p.dept && { k: 'dept', label: `Department: ${lookup('departments', p.dept)}` },
     p.pos && { k: 'pos', label: `Designation: ${lookup('positions', p.pos)}` },
     p.type && { k: 'type', label: `Type: ${lookup('types', p.type)}` },
-    p.wtype && { k: 'wtype', label: `Work type: ${lookup('workTypes', p.wtype)}` },
+    p.wtype && { k: 'wtype', label: `Work mode: ${lookup('workTypes', p.wtype)}` },
+    p.hrs && { k: 'hrs', label: HOURS_WORDS[p.hrs] || 'Hours' },
+    p.prob && { k: 'prob', label: 'On probation' },
     p.area && { k: 'area', label: `Location: ${lookup('areas', p.area)}` },
-    p.est && { k: 'est', label: `Establishment: ${lookup('establishments', p.est)}` },
+    p.est && { k: 'est', label: `Work site: ${lookup('establishments', p.est)}` },
     p.unit && { k: 'unit', label: `Business unit: ${lookup('units', p.unit)}` },
     p.grade && { k: 'grade', label: `Grade: ${lookup('grades', p.grade)}` },
     p.centre && { k: 'centre', label: `Cost centre: ${lookup('centres', p.centre)}` },
@@ -413,7 +416,9 @@ function FiltersDrawer({ params, lists, managers, onClose, onApply }) {
             {field('status', 'Status', [{ value: '', label: 'Current employees' }, ...Object.entries(STATUS).map(([value, s]) => ({ value, label: s.label })), { value: 'ALL', label: 'Everyone, including left' }], 'Current employees')}
             {field('pos', 'Designation', opt(lists.positions))}
             {field('type', 'Employment type', opt(lists.types))}
-            {lists.workTypes.length ? field('wtype', 'Work type', opt(lists.workTypes)) : null}
+            {lists.workTypes.length ? field('wtype', 'Work mode', opt(lists.workTypes)) : null}
+            {field('hrs', 'Hours', [{ value: '', label: 'Any' }, ...Object.entries(HOURS_WORDS).map(([value, label]) => ({ value, label }))])}
+            {field('prob', 'Probation', [{ value: '', label: 'Any' }, { value: 'on', label: 'On probation' }])}
             {lists.grades.length ? field('grade', 'Grade', opt(lists.grades)) : null}
             {lists.tags.length ? field('tag', 'Tag', opt(lists.tags)) : null}
           </div>
@@ -567,7 +572,7 @@ function SavedViews({ params, prefs, onApply, canShare }) {
     if (!(await confirmDialog({ title: `Delete the view "${v.name}"?`, confirmLabel: 'Delete' }))) return;
     try { await deleteView(v.id); views.reload(); } catch (e) { notify.error(String(e?.message || 'Not deleted.')); }
   };
-  const WORDS = { q: 'Search', status: 'Status', dept: 'Department', pos: 'Designation', type: 'Employment type', wtype: 'Work type', area: 'Location', est: 'Work site', unit: 'Business unit', grade: 'Grade', centre: 'Cost centre', tag: 'Tag', mgr: 'Manager', from: 'Joined from', to: 'Joined to', sort: 'Sorted' };
+  const WORDS = { q: 'Search', status: 'Status', dept: 'Department', pos: 'Designation', type: 'Employment type', wtype: 'Work mode', hrs: 'Hours', prob: 'Probation', area: 'Location', est: 'Work site', unit: 'Business unit', grade: 'Grade', centre: 'Cost centre', tag: 'Tag', mgr: 'Manager', from: 'Joined from', to: 'Joined to', sort: 'Sorted' };
   const describe = (f = {}) => { const used = Object.keys(f).filter((k) => WORDS[k] && k !== 'dir'); return used.length ? used.map((k) => WORDS[k]).join(', ') : 'All employees'; };
   return (
     <section aria-label="Saved views" className="space-y-3">

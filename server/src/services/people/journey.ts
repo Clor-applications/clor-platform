@@ -20,7 +20,7 @@ const FIELD_WORDS: Record<string, string> = {
   devicePassword: 'Device PIN', devicePin: 'Attendance ID', cardNumber: 'Card number', devicePrivilege: 'Device role', attendanceRequired: 'Marks attendance', tags: 'Tags', userId: 'CLOR sign-in', photoUrl: 'Photo', preferredName: 'Preferred name', workLocation: 'Work location',
   record: 'Record', name: 'Name', firstName: 'First name', lastName: 'Last name', code: 'Employee ID', email: 'Email', personalEmail: 'Personal email', workEmail: 'Work email', phone: 'Phone', workPhone: 'Work phone',
   designation: 'Designation', department: 'Department', departmentId: 'Department', jobPositionId: 'Designation', jobRoleId: 'Job role', seatId: 'Position', teamId: 'Team', businessUnitId: 'Business unit', gradeId: 'Grade', costCenterId: 'Cost centre',
-  areaId: 'Location', branchId: 'Branch', establishmentId: 'Work site', employeeTypeId: 'Employment type', workTypeId: 'Work type', contractorId: 'Contractor', reportingManagerId: 'Manager', dottedManagerId: 'Secondary manager',
+  areaId: 'Location', branchId: 'Branch', establishmentId: 'Work site', employeeTypeId: 'Employment type', workTypeId: 'Work mode', hours: 'Hours', contractorId: 'Contractor', reportingManagerId: 'Manager', dottedManagerId: 'Secondary manager',
   dateOfJoining: 'Joining date', dateOfLeaving: 'Date of leaving', firstJoiningDate: 'First joining date', currentEpisodeSeq: 'Stint', confirmedOn: 'Confirmed on', probationEndDate: 'Probation ends', contractEndDate: 'Contract ends', status: 'Status',
   leavingType: 'Leaving type', leavingReason: 'Leaving reason', dateOfBirth: 'Date of birth', gender: 'Gender', maritalStatus: 'Marital status', addressLine: 'Address', city: 'City', state: 'State', country: 'Country', pincode: 'PIN code',
   emergencyContactName: 'Emergency contact', emergencyContactPhone: 'Emergency contact phone', emergencyContactRelation: 'Emergency contact relation', guardianName: 'Father / husband name', invite: 'Invite', letter: 'Letter', version: 'Version', done: 'Done',
@@ -47,6 +47,7 @@ const VALUE_WORDS: Record<string, Record<string, string>> = {
   maritalStatus: { SINGLE: 'Single', MARRIED: 'Married', DIVORCED: 'Divorced', WIDOWED: 'Widowed' },
   leavingType: { RESIGNED: 'Resigned', TERMINATED: 'Terminated', RETIRED: 'Retired', ABSCONDED: 'Absconded', CONTRACT_ENDED: 'Contract ended', DECEASED: 'Deceased' },
   devicePrivilege: { USER: 'User', ADMIN: 'Administrator', ENROLLER: 'Enroller' },
+  hours: { FULL_TIME: 'Full-time', PART_TIME: 'Part-time' },
 };
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 export function readableValue(field: string, value: string | null): string | null {

@@ -16,7 +16,8 @@ import { IMPORT_COLUMNS, IMPORT_FIELDS, guessField } from '@ui/personnel/Employe
 /* The spreadsheet keys stay as they are (the template uses them); people choose from names. */
 const FIELD_WORDS = {
   name: 'Name', code: 'Employee ID', email: 'Personal email', workEmail: 'Work email', phone: 'Phone', department: 'Department', jobPosition: 'Designation',
-  employeeType: 'Employment type', workType: 'Work type', dateOfJoining: 'Joining date', dateOfBirth: 'Date of birth', gender: 'Gender', businessUnit: 'Business unit', grade: 'Grade', costCentre: 'Cost centre',
+  employeeType: 'Employment type', workType: 'Work mode', dateOfJoining: 'Joining date', dateOfBirth: 'Date of birth', gender: 'Gender', businessUnit: 'Business unit', grade: 'Grade', costCentre: 'Cost centre',
+  hours: 'Hours', probationEndDate: 'Probation ends', contractEndDate: 'Contract ends',
 };
 import { importEmployees, undoImport } from '@ui/personnel/api';
 

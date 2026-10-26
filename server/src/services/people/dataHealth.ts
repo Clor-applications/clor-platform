@@ -1,6 +1,7 @@
 import { peoplePrisma } from '../../utils/peoplePrisma.js';
 import { payrollPrisma } from '../../utils/payrollPrisma.js';
 import { isFeatureEnabled } from '../features.js';
+import { OUTSIDE_PAYROLL } from './employmentKinds.js';
 import { balancesFor, leaveYearOf } from '../attendance/leaveBalances.js';
 
 /**
@@ -46,7 +47,7 @@ export async function dataHealth(accountId: string, orgId: string, opts: { payro
   const [employees, payrollOn, readers, unmatched] = await Promise.all([
     peoplePrisma.employee.findMany({
       where: { accountId, orgId, status: { not: 'LEFT' } },
-      select: { id: true, name: true, code: true, dateOfJoining: true, dateOfBirth: true, departmentId: true, department: true, phone: true, email: true, workEmail: true, devicePin: true, attendanceRequired: true },
+      select: { id: true, name: true, code: true, dateOfJoining: true, dateOfBirth: true, departmentId: true, department: true, phone: true, email: true, workEmail: true, devicePin: true, attendanceRequired: true, employeeTypeId: true },
       orderBy: { name: 'asc' },
     }),
     isFeatureEnabled(accountId, orgId, 'payroll'),
@@ -212,7 +213,9 @@ export async function dataHealth(accountId: string, orgId: string, opts: { payro
     add({ id: 'shared-pan', area: 'Payroll', severity: 'BLOCKS_PAYROLL', title: 'Same PAN on more than one person', why: 'Income tax is reported against the PAN: two people on one PAN means one person\'s tax goes to the other.', fix: 'Correct the PAN on the wrong file.', screen: 'people' },
       [...paid.reduce((m, p) => { const k = clean(p.pan); if (PAN.test(k)) m.set(k, [...(m.get(k) || []), p]); return m; }, new Map<string, typeof paid>()).values()].filter((g) => g.length > 1).flat().map((p) => person(p)));
     const profiled = new Set(profiles.map((p) => p.employeeId));
-    add({ id: 'not-in-payroll', area: 'Payroll', severity: 'TIDY_UP', title: 'Active but not set up in Payroll', why: 'They work but no pay run includes them.', fix: 'Add them in Payroll → Salaries, or mark them as paid elsewhere.', screen: 'people' }, employees.filter((e) => !profiled.has(e.id)).map((e) => who(e)));
+    /* Consultants and agency workers are paid on an invoice: not being in payroll is right for them. */
+    const outside = new Set((await peoplePrisma.employeeType.findMany({ where: { orgId, category: { in: [...OUTSIDE_PAYROLL] } }, select: { id: true } })).map((t) => t.id));
+    add({ id: 'not-in-payroll', area: 'Payroll', severity: 'TIDY_UP', title: 'Active but not set up in Payroll', why: 'They work but no pay run includes them.', fix: 'Add them in Payroll → Salaries, or mark them as paid elsewhere.', screen: 'people' }, employees.filter((e) => !profiled.has(e.id) && !(e.employeeTypeId && outside.has(e.employeeTypeId))).map((e) => who(e)));
   }
 
   const order: Record<Severity, number> = { BLOCKS_PAYROLL: 0, FIX_SOON: 1, TIDY_UP: 2 };

@@ -9,6 +9,7 @@ import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/componen
 import Drawer from '@ui/components/ui/Drawer';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { createStructure, deleteStructure, listStructure, updateStructure } from './api';
+import { KIND_WORDS } from './employmentKinds';
 
 /**
  * One screen for the five org-structure lists: departments, job positions,
@@ -35,14 +36,18 @@ const KINDS = {
     parent: { key: 'jobPositionId', kind: 'job-positions', label: 'Job position' },
   },
   'employee-types': {
-    title: 'Employee Types',
-    singular: 'employee type',
-    description: 'Permanent, probation, contract, intern, consultant.',
+    title: 'Employment Types',
+    singular: 'employment type',
+    description: 'Permanent, fixed-term, trainee, intern, consultant. Probation is a date on the person, not a type.',
+    noDescription: true,
+    fields: [{ key: 'category', label: 'Counts as', type: 'select', options: Object.entries(KIND_WORDS) }],
+    columns: [{ key: 'category', label: 'Counts as', value: (r) => KIND_WORDS[r.category] || '' }],
   },
   'work-types': {
-    title: 'Work Types',
-    singular: 'work type',
+    title: 'Work Modes',
+    singular: 'work mode',
     description: 'Where the work happens — office, remote, hybrid, field.',
+    noDescription: true,
   },
   areas: {
     title: 'Areas',
@@ -152,7 +157,7 @@ export default function StructureList({ kind, title = '', singular = '' }) {
     e.preventDefault();
     setSaving(true);
     try {
-      const body = { name: editing.name, description: editing.description || null, isActive: editing.isActive !== false };
+      const body = { name: editing.name, ...(cfg.noDescription ? {} : { description: editing.description || null }), isActive: editing.isActive !== false };
       if (cfg.parent) body[cfg.parent.key] = editing[cfg.parent.key] || null;
       for (const f of cfg.fields || []) body[f.key] = editing[f.key] || null;
       if (editing.id) await updateStructure(kind, editing.id, body);
@@ -347,10 +352,12 @@ export default function StructureList({ kind, title = '', singular = '' }) {
                 )}
               </label>
             ))}
-            <label className="block">
-              <span className="ui-label">Description</span>
-              <textarea className="ui-input w-full" rows={3} value={editing.description || ''} onChange={(e) => setEditing({ ...editing, description: e.target.value })} />
-            </label>
+            {cfg.noDescription ? null : (
+              <label className="block">
+                <span className="ui-label">Description</span>
+                <textarea className="ui-input w-full" rows={3} value={editing.description || ''} onChange={(e) => setEditing({ ...editing, description: e.target.value })} />
+              </label>
+            )}
             {editing.id ? (
               <label className="flex items-center gap-2 text-sm">
                 <input type="checkbox" className="ui-checkbox" checked={editing.isActive !== false} onChange={(e) => setEditing({ ...editing, isActive: e.target.checked })} />

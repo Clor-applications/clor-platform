@@ -68,7 +68,8 @@ describe('joining and leaving checklists', () => {
 
     const { leaving } = (await api('get', `/employees/${e.id}/checklist`).expect(200)).body;
     expect(leaving.tasks.map((t: any) => t.title)).toEqual(['Recover company property', 'Readers and app access removed', 'Full and final settlement paid', 'Return Laptop (LT-07)']);
-    expect(leaving.tasks[3]).toMatchObject({ owner: 'IT', dueDate: LAST_DAY });
+    /* The last day was two days ago: nothing is late on the day the plan is made, so those due on or just after it fall due today. */
+    expect(leaving.tasks[3]).toMatchObject({ owner: 'IT', dueDate: day(0) });
     expect(leaving.tasks[1]).toMatchObject({ done: true, doneBy: 'CLOR' });
     expect(leaving.tasks[2]).toMatchObject({ owner: 'PAYROLL', dueDate: plusDays(LAST_DAY, 2) });
 

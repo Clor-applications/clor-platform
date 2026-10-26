@@ -20,9 +20,9 @@ const STATUS = { DRAFT: ['Draft', 'ui-pill-neutral'], WAITING: ['Waiting for app
 const SCOPE_KEYS = [
   ['establishmentIds', 'Establishment', 'establishments'],
   ['departmentIds', 'Department', 'departments'],
-  ['employeeTypeIds', 'Employee type', 'employee-types'],
+  ['employeeTypeIds', 'Employment type', 'employee-types'],
   ['gradeIds', 'Grade', 'grades'],
-  ['workTypeIds', 'Work type', 'work-types'],
+  ['workTypeIds', 'Work mode', 'work-types'],
 ];
 
 export default function Policies() {

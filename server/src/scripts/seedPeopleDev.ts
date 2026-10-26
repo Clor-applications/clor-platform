@@ -64,8 +64,9 @@ const LAST = ['Shah', 'Kumar', 'Patil', 'Nair', 'Iyer', 'Reddy', 'Khan', 'Das', 
 
 /* The other lists a person is placed by, so every picker on the Workforce screens has something to choose. */
 const LISTS: Record<string, string[]> = {
-  'employee-types': ['Permanent', 'Probationer', 'Trainee', 'Fixed-term'],
-  'work-types': ['Full time', 'Part time', 'Shift'],
+  /* Employment types come from the defaults the first list creates (Permanent, Fixed-term contract, Trainee, Intern, Consultant); probation is a date, not a type. */
+  'employee-types': [],
+  'work-types': ['Office', 'Remote', 'Hybrid', 'Field'],
   areas: ['Bengaluru North', 'Bengaluru South', 'Pune'],
   'business-units': ['Facility services', 'Corporate'],
   grades: ['G1', 'G2', 'G3', 'M1'],

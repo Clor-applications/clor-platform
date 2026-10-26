@@ -118,6 +118,8 @@ model Employee {
   jobRoleId           String?
   employeeTypeId      String?
   workTypeId          String?
+  /// FULL_TIME | PART_TIME; null means not said (read as full-time).
+  hours               String?
   /// Another Employee in the same org; drives the org chart.
   reportingManagerId  String?
   /// A second, dotted-line manager (ORG-02): sees the person as a report, approves nothing by default.
@@ -255,6 +257,10 @@ model EmployeeType {
   accountId String
   orgId     String
   name      String
+  /// What CLOR understands the name to mean: PERMANENT | FIXED_TERM | TRAINEE | INTERN | CONSULTANT | AGENCY.
+  /// The company keeps its own words ("Staff", "Retainer"); the kind decides which dates are asked and
+  /// whether payroll expects them.
+  category  String  @default("PERMANENT")
   isActive  Boolean @default(true)
 
   createdByUserId String
@@ -265,7 +271,7 @@ model EmployeeType {
   @@index([accountId, orgId])
 }
 
-/// Office, Remote, Hybrid, Field…
+/// Where someone works from (shown as Work mode): Office, Remote, Hybrid, Field…
 model WorkType {
   id        String  @id @default(cuid())
   accountId String

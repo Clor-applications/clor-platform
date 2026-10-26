@@ -871,7 +871,7 @@ function EmployeeFile({ id, onClose, onEdit, onDeleted }) {
 
 /* The fields whose change is recorded in employment history (server: TRACKED in services/people/employmentHistory.ts). */
 /* The job fields a change may be dated for, as the record names them (server: SCHEDULABLE_FIELDS). */
-export const SCHEDULED_LABELS = { departmentId: 'Department', businessUnitId: 'Business unit', areaId: 'Location', branchId: 'Branch', establishmentId: 'Establishment', teamId: 'Team', seatId: 'Seat', jobPositionId: 'Designation', jobRoleId: 'Job role', reportingManagerId: 'Reports to', dottedManagerId: 'Also reports to', employeeTypeId: 'Employee type', workTypeId: 'Work type', contractorId: 'Contractor', gradeId: 'Grade', costCenterId: 'Cost centre', status: 'Status' };
+export const SCHEDULED_LABELS = { departmentId: 'Department', businessUnitId: 'Business unit', areaId: 'Location', branchId: 'Branch', establishmentId: 'Establishment', teamId: 'Team', seatId: 'Seat', jobPositionId: 'Designation', jobRoleId: 'Job role', reportingManagerId: 'Reports to', dottedManagerId: 'Also reports to', employeeTypeId: 'Employment type', workTypeId: 'Work mode', contractorId: 'Contractor', gradeId: 'Grade', costCenterId: 'Cost centre', status: 'Status' };
 /* How each line of the impact list lands: a review task on the record, an app told through an event, or a note. */
 const IMPACT_TARGET = { TASK: 'review task for HR', TOLD: 'told automatically', INFO: 'for information' };
 const HISTORY_FIELDS = ['businessUnitId', 'gradeId', 'costCenterId', 'departmentId', 'areaId', 'establishmentId', 'teamId', 'seatId', 'jobPositionId', 'jobRoleId', 'reportingManagerId', 'dottedManagerId', 'employeeTypeId', 'workTypeId', 'contractorId'];
@@ -1021,8 +1021,8 @@ export function Journey({ employeeId }) {
 }
 
 const BULK_FIELDS = [
-  ['departmentId', 'Department', 'departments'], ['jobPositionId', 'Designation', 'positions'], ['employeeTypeId', 'Employee type', 'types'],
-  ['workTypeId', 'Work type', 'workTypes'], ['establishmentId', 'Establishment', 'establishments'], ['teamId', 'Team', 'teams'],
+  ['departmentId', 'Department', 'departments'], ['jobPositionId', 'Designation', 'positions'], ['employeeTypeId', 'Employment type', 'types'],
+  ['workTypeId', 'Work mode', 'workTypes'], ['establishmentId', 'Establishment', 'establishments'], ['teamId', 'Team', 'teams'],
   ['gradeId', 'Grade', 'grades'], ['costCenterId', 'Cost centre', 'centres'], ['businessUnitId', 'Business unit', 'units'], ['reportingManagerId', 'Reports to', null],
 ];
 
@@ -1377,10 +1377,10 @@ export function CustomFields({ employeeId, embedded = false }) {
  * row (errors and matches named), choose add-only or update-by-code, then
  * commit — and undo the whole batch within a day.
  */
-export const IMPORT_FIELDS = [...IMPORT_COLUMNS, { key: 'businessUnit', label: 'businessUnit' }, { key: 'grade', label: 'grade' }, { key: 'costCentre', label: 'costCentre' }];
+export const IMPORT_FIELDS = [...IMPORT_COLUMNS, { key: 'businessUnit', label: 'businessUnit' }, { key: 'grade', label: 'grade' }, { key: 'costCentre', label: 'costCentre' }, { key: 'hours', label: 'hours' }, { key: 'probationEndDate', label: 'probationEndDate' }, { key: 'contractEndDate', label: 'contractEndDate' }];
 export const guessField = (header) => {
   const h = String(header || '').toLowerCase().replace(/[^a-z]/g, '');
-  const aliases = { employeeid: 'code', empcode: 'code', id: 'code', fullname: 'name', employeename: 'name', mobile: 'phone', phonenumber: 'phone', emailid: 'email', personalemail: 'email', designation: 'jobPosition', position: 'jobPosition', dept: 'department', doj: 'dateOfJoining', joiningdate: 'dateOfJoining', dateofjoining: 'dateOfJoining', dob: 'dateOfBirth', dateofbirth: 'dateOfBirth', type: 'employeeType', costcenter: 'costCentre' };
+  const aliases = { employeeid: 'code', empcode: 'code', id: 'code', fullname: 'name', employeename: 'name', mobile: 'phone', phonenumber: 'phone', emailid: 'email', personalemail: 'email', designation: 'jobPosition', position: 'jobPosition', dept: 'department', doj: 'dateOfJoining', joiningdate: 'dateOfJoining', dateofjoining: 'dateOfJoining', dob: 'dateOfBirth', dateofbirth: 'dateOfBirth', type: 'employeeType', employmenttype: 'employeeType', worktype: 'workType', workmode: 'workType', costcenter: 'costCentre', costcentre: 'costCentre', workinghours: 'hours', fulltimeparttime: 'hours', probationends: 'probationEndDate', probationenddate: 'probationEndDate', probationend: 'probationEndDate', contractends: 'contractEndDate', contractenddate: 'contractEndDate', contractend: 'contractEndDate', internshipends: 'contractEndDate' };
   if (aliases[h]) return aliases[h];
   const hit = IMPORT_FIELDS.find((f) => f.key.toLowerCase() === h);
   return hit ? hit.key : '';
@@ -1871,8 +1871,8 @@ function EmployeeForm({ initial, lists, people, onClose, onSaved }) {
 
         <section className="grid gap-4 sm:grid-cols-2">
           <h3 className="ui-t-sec sm:col-span-2">Employment</h3>
-          {select('employeeTypeId', 'Employee type', lists.types)}
-          {select('workTypeId', 'Work type', lists.workTypes)}
+          {select('employeeTypeId', 'Employment type', lists.types)}
+          {select('workTypeId', 'Work mode', lists.workTypes)}
           {select('jobRoleId', 'Job role', roles)}
           {input('workEmail', 'Work email', { type: 'email' })}
           {input('workPhone', 'Work phone', { type: 'tel' })}

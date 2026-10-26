@@ -30,7 +30,7 @@ export const TRACKED: Record<string, { label: string; kind: 'TRANSFERRED' | 'CHA
   reportingManagerId: { label: 'Manager', kind: 'CHANGED' },
   dottedManagerId: { label: 'Secondary manager', kind: 'CHANGED' },
   employeeTypeId: { label: 'Employment type', kind: 'CHANGED' },
-  workTypeId: { label: 'Work type', kind: 'CHANGED' },
+  workTypeId: { label: 'Work mode', kind: 'CHANGED' },
   contractorId: { label: 'Contractor', kind: 'CHANGED' },
   gradeId: { label: 'Grade', kind: 'CHANGED' },
   costCenterId: { label: 'Cost centre', kind: 'CHANGED' },

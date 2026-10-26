@@ -1,5 +1,5 @@
 import React, { useEffect, useId, useMemo, useRef, useState } from 'react';
-import { Briefcase, Building2, Camera, ChevronDown, Hash, MapPin, Pencil, Plus, UserRound } from 'lucide-react';
+import { Briefcase, Building2, CalendarClock, Camera, ChevronDown, Clock, Hash, Hourglass, MapPin, Pencil, Plus, UserRound } from 'lucide-react';
 
 import { PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
 import RecordTabs from '@ui/components/ui/RecordTabs';
@@ -19,6 +19,7 @@ import {
   Avatar, CustomFields, EmployeeChecklist, shrinkPhoto, EmployeeDocuments, EmploymentHistory, GENDER_WORDS, InviteForm, JoiningDetails, Journey, ResignForm, SCHEDULED_LABELS, StatutoryDetails,
 } from '@ui/personnel/Employees';
 import { LEAVING_TYPES } from '@ui/personnel/api';
+import { HOURS_WORDS, datesFor, kindOf, onProbation } from '@ui/personnel/employmentKinds';
 
 import {
   addComment, changeImpact, employeeReadiness, linkCandidates, linkUser, decideProbation, deleteEmployee, employeeActivity, employeeAsOf, getEmployee, listContractors, listEmployees, listTags, openTasksFor, rehireEmployee, structure, updateEmployee, withdrawScheduled,
@@ -129,6 +130,7 @@ export default function EmployeeRecord({ params = {}, updateParams, openScreen }
     person.status === 'LEFT' && allowed('PEOPLE::Employees::EDIT') ? ['rehire', 'Rehire'] : null,
     allowed('PEOPLE::Employees::DELETE') ? ['delete', 'Delete'] : null,
   ].filter(Boolean);
+  const headerDates = datesFor(kindOf(lists?.types, person.employeeTypeId));
 
   return (
     <div className="space-y-4">
@@ -149,6 +151,9 @@ export default function EmployeeRecord({ params = {}, updateParams, openScreen }
                 {person.department ? <li><Building2 size={14} aria-hidden="true" />{person.department}</li> : null}
                 {person.areaName || person.workLocation ? <li><MapPin size={14} aria-hidden="true" />{person.areaName || person.workLocation}</li> : null}
                 {person.reportingManagerName ? <li><UserRound size={14} aria-hidden="true" />Reports to&nbsp;<button type="button" className="ui-link" onClick={() => openScreen?.('employee', { id: person.reportingManagerId })}>{person.reportingManagerName}</button></li> : null}
+                {person.hours === 'PART_TIME' ? <li><Clock size={14} aria-hidden="true" />Part-time</li> : null}
+                {onProbation(person, todayIst()) ? <li><Hourglass size={14} aria-hidden="true" />On probation until&nbsp;<span className="tabular-nums">{formatDate(String(person.probationEndDate).slice(0, 10))}</span></li> : null}
+                {person.contractEndDate && person.status !== 'LEFT' ? <li><CalendarClock size={14} aria-hidden="true" />{headerDates.contractLabel}&nbsp;<span className="tabular-nums">{formatDate(String(person.contractEndDate).slice(0, 10))}</span></li> : null}
                 {!person.code && !person.designation && !person.department ? <li>No role or department yet</li> : null}
               </ul>
               <TagLine person={person} tags={lists?.tags || []} canEdit={allowed('PEOPLE::Employees::EDIT')} onSaved={(emp) => setPerson(emp)} />
@@ -508,7 +513,7 @@ function CommentBox({ employeeId, onPosted }) {
  */
 function SectionForm({ person, fields, onCancel, onSaved, reload }) {
   const formId = useId();
-  const initial = Object.fromEntries(fields.map((f) => [f.key, f.writeOnly ? '' : (f.kind === 'checkbox' ? person[f.key] !== false : person[f.key] ?? '')]));
+  const initial = Object.fromEntries(fields.map((f) => [f.key, f.writeOnly ? '' : (f.kind === 'checkbox' ? person[f.key] !== false : person[f.key] ?? f.fallback ?? '')]));
   const [form, setForm] = useState(initial);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
@@ -623,6 +628,7 @@ function Employment({ person, data, lists, allowed, editing, setEditing, onSaved
   const [rejoin, setRejoin] = useState('');
   const typeName = lists?.types.find((t) => t.id === person.employeeTypeId)?.name;
   const workTypeName = lists?.workTypes.find((t) => t.id === person.workTypeId)?.name;
+  const dates = datesFor(kindOf(lists?.types, person.employeeTypeId));
   const probation = async (outcome) => {
     if (!(await confirmDialog({ title: outcome === 'CONFIRM' ? `Confirm ${person.name} after probation?` : `Extend probation to ${formatDate(extendTo)}?`, confirmLabel: outcome === 'CONFIRM' ? 'Confirm' : 'Extend', tone: 'primary' }))) return;
     try {
@@ -643,10 +649,11 @@ function Employment({ person, data, lists, allowed, editing, setEditing, onSaved
   const fields = [
     { key: 'code', label: 'Employee ID', required: true, max: 40 },
     { key: 'dateOfJoining', label: 'Joining date', kind: 'date' },
-    { key: 'probationEndDate', label: 'Probation ends', kind: 'date' },
-    { key: 'contractEndDate', label: 'Contract ends', kind: 'date' },
+    { key: 'hours', label: 'Hours', kind: 'select', options: Object.entries(HOURS_WORDS), noBlank: true, fallback: 'FULL_TIME' },
+    dates.probation && { key: 'probationEndDate', label: 'Probation ends', kind: 'date' },
+    dates.contract && { key: 'contractEndDate', label: dates.contractLabel, kind: 'date' },
     { key: 'jobRoleId', label: 'Job role', kind: 'select', options: (lists?.roles || []).filter((x) => !person.jobPositionId || !x.jobPositionId || x.jobPositionId === person.jobPositionId || x.id === person.jobRoleId).map((x) => [x.id, x.name]) },
-  ];
+  ].filter(Boolean);
   return (
     <div className="space-y-4">
       <Section title="Employment" onEdit={canEdit && editing !== 'employment' ? () => setEditing('employment') : null}
@@ -657,12 +664,13 @@ function Employment({ person, data, lists, allowed, editing, setEditing, onSaved
             <Field label="Status" value={<StatusBadge employee={person} />} />
             <Field label="Designation" value={person.designation} />
             <Field label="Employment type" value={typeName} />
-            <Field label="Work type" value={workTypeName} />
+            <Field label="Hours" value={HOURS_WORDS[person.hours || 'FULL_TIME']} />
+            <Field label="Work mode" value={workTypeName} />
             <Field label="Job role" value={lists?.roles?.find((r) => r.id === person.jobRoleId)?.name} />
             <Field label={person.currentEpisodeSeq > 1 ? `Joined (stint ${person.currentEpisodeSeq})` : 'Joining date'} value={person.dateOfJoining ? formatDate(String(person.dateOfJoining).slice(0, 10)) : null} mono />
             {person.currentEpisodeSeq > 1 ? <Field label="First joined" value={person.firstJoiningDate ? formatDate(person.firstJoiningDate) : null} mono /> : null}
-            <Field label={person.confirmedOn ? 'Confirmed on' : 'Probation ends'} value={person.confirmedOn ? formatDate(person.confirmedOn) : person.probationEndDate ? formatDate(person.probationEndDate) : null} mono />
-            <Field label="Contract ends" value={person.contractEndDate ? formatDate(person.contractEndDate) : null} mono />
+            {dates.probation || person.probationEndDate || person.confirmedOn ? <Field label={person.confirmedOn ? 'Confirmed on' : 'Probation ends'} value={person.confirmedOn ? formatDate(person.confirmedOn) : person.probationEndDate ? formatDate(person.probationEndDate) : null} mono /> : null}
+            {dates.contract || person.contractEndDate ? <Field label={dates.contractLabel} value={person.contractEndDate ? formatDate(person.contractEndDate) : null} mono /> : null}
             {person.dateOfLeaving ? <Field label="Left" value={`${formatDate(person.dateOfLeaving)}${person.leavingType ? ` · ${LEAVING_TYPES[person.leavingType] || person.leavingType}` : ''}${person.leavingReason ? ` · ${person.leavingReason}` : ''}`} /> : null}
           </dl>
         )}
@@ -776,7 +784,7 @@ const OPERATIONS = {
   manager: { title: 'Change manager', fields: [['reportingManagerId', 'New manager', 'people'], ['dottedManagerId', 'Secondary manager', 'people']] },
   transfer: { title: 'Transfer', fields: [['departmentId', 'Department', 'departments'], ['areaId', 'Location', 'areas'], ['establishmentId', 'Work site', 'establishments'], ['businessUnitId', 'Business unit', 'units'], ['teamId', 'Team', 'teams'], ['seatId', 'Position', 'seats'], ['costCenterId', 'Cost centre', 'centres']] },
   designation: { title: 'Change designation', fields: [['jobPositionId', 'New designation', 'positions'], ['gradeId', 'Grade', 'grades']] },
-  type: { title: 'Change employment type', fields: [['employeeTypeId', 'Employment type', 'types'], ['workTypeId', 'Work type', 'workTypes']] },
+  type: { title: 'Change employment type', fields: [['employeeTypeId', 'Employment type', 'types'], ['workTypeId', 'Work mode', 'workTypes']] },
   /* Allowed moves only: active or on notice can be suspended, suspended can be reactivated; leaving and rehire have their own flows (WF-14). */
   status: { title: 'Change status', fields: [['status', 'New status', 'statuses']], reasonRequired: true },
 };
@@ -905,7 +913,7 @@ const COMPARE_FIELDS = [
   ['Team', (e) => e.teamName],
   ['Position', (e) => e.seatName],
   ['Employment type', (e, l) => l?.types?.find((x) => x.id === e.employeeTypeId)?.name],
-  ['Work type', (e, l) => l?.workTypes?.find((x) => x.id === e.workTypeId)?.name],
+  ['Work mode', (e, l) => l?.workTypes?.find((x) => x.id === e.workTypeId)?.name],
   ['Grade', (e) => e.gradeName],
   ['Cost centre', (e) => e.costCenterName],
   ['Status', (e) => STATUS_WORD[e.status] || e.status],

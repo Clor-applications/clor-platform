@@ -28,6 +28,7 @@ import { activeRule, shape as shapeRequest, submitRequest } from '../services/pe
 import { PROBATION_OUTCOMES, ProbationError, decideProbation, reviewsOf, saveReview } from '../services/people/lifecycle/probation.js';
 import { changeImpact } from '../services/people/lifecycle/changes.js';
 import { isFeatureEnabled } from '../services/features.js';
+import { DEFAULT_EMPLOYEE_TYPES, EMPLOYMENT_KINDS, HOURS, guessKind } from '../services/people/employmentKinds.js';
 import { journeyOf, whyOf } from '../services/people/journey.js';
 import { salaryQuestion } from '../services/people/salaryQuestion.js';
 import { activityOf } from '../services/people/activity.js';
@@ -126,6 +127,7 @@ const employeeSchema = z.object({
   costCenterId: text(60),
   employeeTypeId: text(60),
   workTypeId: text(60),
+  hours: z.enum(HOURS).optional().nullable().or(z.literal('')).transform((v) => v || null),
   reportingManagerId: text(60),
   dottedManagerId: text(60),
   workEmail: z.string().trim().email('That is not an email address.').max(160).optional().nullable().or(z.literal('')),
@@ -211,13 +213,18 @@ async function checkManager(orgId: string, employeeId: string | null, managerId:
   }
 }
 
+/* Hours left blank mean full-time; SQL's "not part-time" would skip those blank rows. Added to AND so it never meets the search's OR. */
+const addHours = (where: any, v?: string) => {
+  if (v) (where.AND ||= []).push(v === 'FULL_TIME' ? { OR: [{ hours: null }, { hours: { not: 'PART_TIME' } }] } : { hours: v });
+};
+
 const employeeData = (b: EmployeeBody) => {
   const d: Record<string, unknown> = {};
   const keys = [
     'firstName', 'lastName', 'preferredName', 'phone', 'branchId', 'dateOfJoining', 'dateOfLeaving', 'notes', 'gender', 'dateOfBirth',
     'maritalStatus', 'photoUrl', 'addressLine', 'city', 'state', 'country', 'pincode', 'emergencyContactName',
     'emergencyContactPhone', 'emergencyContactRelation', 'reportingManagerId', 'dottedManagerId', 'workPhone', 'workLocation',
-    'probationEndDate', 'contractEndDate', 'email', 'personalEmail', 'workEmail', 'devicePin',
+    'probationEndDate', 'contractEndDate', 'hours', 'email', 'personalEmail', 'workEmail', 'devicePin',
     'cardNumber', 'devicePassword', 'guardianName',
   ] as const;
   for (const k of keys) if (b[k] !== undefined) d[k] = blank(b[k]);
@@ -447,6 +454,7 @@ peopleRouter.get('/orgs/:orgId/people/employees', can(PermissionAction.VIEW, EMP
     ...(pick('jobPositionId') ? { jobPositionId: pick('jobPositionId') } : {}),
     ...(pick('employeeTypeId') ? { employeeTypeId: pick('employeeTypeId') } : {}),
     ...(pick('workTypeId') ? { workTypeId: pick('workTypeId') } : {}),
+    ...(pick('probation') === 'on' ? { probationEndDate: { gte: todayIst() }, confirmedOn: null } : {}),
     ...(pick('businessUnitId') ? { businessUnitId: pick('businessUnitId') } : {}),
     ...(pick('gradeId') ? { gradeId: pick('gradeId') } : {}),
     ...(pick('costCenterId') ? { costCenterId: pick('costCenterId') } : {}),
@@ -470,6 +478,7 @@ peopleRouter.get('/orgs/:orgId/people/employees', can(PermissionAction.VIEW, EMP
         }
       : {}),
   };
+  addHours(where, pick('hours'));
   /* Every id the filters match (Select all matching, WF-07): the same filters and scope, capped at what one bulk change takes. */
   if (req.query.idsOnly === '1') {
     const [found, total] = await Promise.all([
@@ -579,7 +588,7 @@ peopleRouter.get('/orgs/:orgId/people/workforce/pending', can(PermissionAction.V
   ]);
   const ids = inScopeIds([...new Set([...requests.map((r) => r.subjectEmployeeId!), ...scheduled.map((c) => c.employeeId), ...(invites as any[]).map((i) => i.employeeId)])]);
   const people = new Map((await peoplePrisma.employee.findMany({ where: { orgId, id: { in: ids } }, select: { id: true, name: true, code: true } })).map((e) => [e.id, e]));
-  const label = (f: string) => ({ departmentId: 'Department', jobPositionId: 'Designation', reportingManagerId: 'Manager', dottedManagerId: 'Dotted-line manager', areaId: 'Location', establishmentId: 'Establishment', teamId: 'Team', seatId: 'Seat', employeeTypeId: 'Employment type', workTypeId: 'Work type', gradeId: 'Grade', costCenterId: 'Cost centre', businessUnitId: 'Business unit', jobRoleId: 'Job role', status: 'Status' } as Record<string, string>)[f] || f;
+  const label = (f: string) => ({ departmentId: 'Department', jobPositionId: 'Designation', reportingManagerId: 'Manager', dottedManagerId: 'Dotted-line manager', areaId: 'Location', establishmentId: 'Establishment', teamId: 'Team', seatId: 'Seat', employeeTypeId: 'Employment type', workTypeId: 'Work mode', gradeId: 'Grade', costCenterId: 'Cost centre', businessUnitId: 'Business unit', jobRoleId: 'Job role', status: 'Status' } as Record<string, string>)[f] || f;
   const me = req.auth!.userId;
   res.json({
     requests: requests.filter((r) => people.has(r.subjectEmployeeId!)).map((r) => {
@@ -658,7 +667,7 @@ const EXPORT_COLUMNS: Array<[string, string, (e: any) => unknown]> = [
   ['Designation', 'designation', (e) => e.designation], ['Manager', 'reportingManagerName', (e) => e.reportingManagerName], ['Location', 'location', (e) => e.areaName || e.workLocation],
   ['Joining date', 'dateOfJoining', (e) => e.dateOfJoining], ['Status', 'status', (e) => STATUS_WORDS[e.status] || e.status],
   ['Work phone', 'workPhone', (e) => e.workPhone], ['Secondary manager', 'dottedManagerName', (e) => e.dottedManagerName], ['Employment type', 'employeeType', (e) => e.employeeTypeName],
-  ['Work type', 'workType', (e) => e.workTypeName], ['Work site', 'establishment', (e) => e.establishment], ['Business unit', 'businessUnit', (e) => e.businessUnitName],
+  ['Work mode', 'workType', (e) => e.workTypeName], ['Hours', 'hours', (e) => (e.hours === 'PART_TIME' ? 'Part-time' : 'Full-time')], ['Work site', 'establishment', (e) => e.establishment], ['Business unit', 'businessUnit', (e) => e.businessUnitName],
   ['Team', 'team', (e) => e.teamName], ['Position', 'position', (e) => e.seatName], ['Grade', 'grade', (e) => e.gradeName], ['Cost centre', 'costCentre', (e) => e.costCenterName],
   ['Probation ends', 'probationEndDate', (e) => e.probationEndDate], ['Contract ends', 'contractEndDate', (e) => e.contractEndDate], ['Tags', 'tags', (e) => (e.tags || []).map((t: any) => t.name).join('; ')],
 ];
@@ -696,6 +705,7 @@ peopleRouter.get('/orgs/:orgId/people/employees/export', can(PermissionAction.EX
     ...(pick('managerId') ? { reportingManagerId: pick('managerId') } : {}),
     ...(pick('areaId') ? { areaId: pick('areaId') } : {}),
     ...(pick('workTypeId') ? { workTypeId: pick('workTypeId') } : {}),
+    ...(pick('probation') === 'on' ? { probationEndDate: { gte: todayIst() }, confirmedOn: null } : {}),
     ...(pick('establishmentId') ? { establishmentId: pick('establishmentId') } : {}),
     ...(pick('businessUnitId') ? { businessUnitId: pick('businessUnitId') } : {}),
     ...(pick('gradeId') ? { gradeId: pick('gradeId') } : {}),
@@ -708,6 +718,7 @@ peopleRouter.get('/orgs/:orgId/people/employees/export', can(PermissionAction.EX
     const mine = await peoplePrisma.employee.findFirst({ where: { orgId, userId: req.auth!.userId }, select: { id: true } });
     where.AND = [{ OR: mine ? [{ reportingManagerId: mine.id }, { dottedManagerId: mine.id }] : [{ id: '__none__' }] }];
   }
+  addHours(where, pick('hours'));
   /* The rows ticked on screen: still inside the caller's scope and this company, whatever ids are sent. */
   const ids = String(req.query.ids || '').split(',').map((x) => x.trim()).filter(Boolean).slice(0, 1000);
   if (ids.length) where.id = { in: ids };
@@ -1554,6 +1565,19 @@ const importRow = z.object({
   costCentre: text(120),
   dateOfJoining: date,
   dateOfBirth: date,
+  probationEndDate: date,
+  contractEndDate: date,
+  /* Written the way people write it: "Part-time", "part time", "PT". Blank is full-time. */
+  hours: z.preprocess(
+    (v) => {
+      const t = String(v ?? '').trim().toLowerCase().replace(/[\s_-]+/g, '');
+      if (!t) return null;
+      if (t === 'parttime' || t === 'pt' || t === 'part') return 'PART_TIME';
+      if (t === 'fulltime' || t === 'ft' || t === 'full') return 'FULL_TIME';
+      return v;
+    },
+    z.enum(HOURS, { message: 'Hours should be Full-time or Part-time.' }).nullable(),
+  ),
   gender: z.enum(GENDER_OPTIONS).optional().nullable().or(z.literal('')),
   workEmail: z.string().trim().email().max(160).optional().nullable().or(z.literal('')),
 });
@@ -1585,7 +1609,7 @@ peopleRouter.post('/orgs/:orgId/people/employees/import', can(PermissionAction.C
     if (cache.has(key)) return cache.get(key)!;
     const model: any = (peoplePrisma as any)[kind];
     const found = await model.findFirst({ where: { orgId, name: { equals: n, mode: 'insensitive' } }, select: { id: true, name: true } });
-    const row = found || (dryRun ? { id: '', name: n } : await model.create({ data: { accountId, orgId, name: n, createdByUserId: userId }, select: { id: true, name: true } }));
+    const row = found || (dryRun ? { id: '', name: n } : await model.create({ data: { accountId, orgId, name: n, createdByUserId: userId, ...(kind === 'employeeType' ? { category: guessKind(n) } : {}) }, select: { id: true, name: true } }));
     cache.set(key, row);
     return row as { id: string; name: string };
   };
@@ -1624,7 +1648,7 @@ peopleRouter.post('/orgs/:orgId/people/employees/import', can(PermissionAction.C
         /* Update: only the columns the file carries; names of lists resolve as on create. */
         const data: Record<string, unknown> = {};
         const set = (k: string, v: unknown) => { if (v !== undefined && v !== null && v !== '') data[k] = v; };
-        set('name', r.name); set('email', blank(r.email)); set('workEmail', blank(r.workEmail)); set('phone', blank(r.phone)); set('dateOfJoining', blank(r.dateOfJoining)); set('dateOfBirth', blank(r.dateOfBirth)); set('gender', blank(r.gender));
+        set('name', r.name); set('email', blank(r.email)); set('workEmail', blank(r.workEmail)); set('phone', blank(r.phone)); set('dateOfJoining', blank(r.dateOfJoining)); set('dateOfBirth', blank(r.dateOfBirth)); set('gender', blank(r.gender)); set('hours', r.hours); set('probationEndDate', blank(r.probationEndDate)); set('contractEndDate', blank(r.contractEndDate));
         const dep = await ensure('department', r.department); if (dep) { data.department = dep.name; data.departmentId = dep.id; }
         const pos = await ensure('jobPosition', r.jobPosition); if (pos) { data.designation = pos.name; data.jobPositionId = pos.id; }
         for (const [kind, col, field] of [['employeeType', r.employeeType, 'employeeTypeId'], ['workType', r.workType, 'workTypeId'], ['businessUnit', r.businessUnit, 'businessUnitId'], ['grade', r.grade, 'gradeId'], ['costCenter', r.costCentre, 'costCenterId']] as const) {
@@ -1657,6 +1681,9 @@ peopleRouter.post('/orgs/:orgId/people/employees/import', can(PermissionAction.C
           costCenterId: (await ensure('costCenter', r.costCentre))?.id ?? null,
           dateOfJoining: blank(r.dateOfJoining),
           dateOfBirth: blank(r.dateOfBirth),
+          probationEndDate: blank(r.probationEndDate),
+          contractEndDate: blank(r.contractEndDate),
+          hours: r.hours,
           gender: blank(r.gender),
           status: 'ACTIVE',
           createdByUserId: userId,
@@ -1744,7 +1771,7 @@ const STRUCTURE_KINDS = {
   departments: { model: 'department', usedBy: 'departmentId', extra: ['parentId', 'description'] },
   'job-positions': { model: 'jobPosition', usedBy: 'jobPositionId', extra: ['departmentId', 'description'] },
   'job-roles': { model: 'jobRole', usedBy: 'jobRoleId', extra: ['jobPositionId', 'description'] },
-  'employee-types': { model: 'employeeType', usedBy: 'employeeTypeId', extra: [] },
+  'employee-types': { model: 'employeeType', usedBy: 'employeeTypeId', extra: ['category'] },
   'work-types': { model: 'workType', usedBy: 'workTypeId', extra: [] },
   areas: { model: 'area', usedBy: 'areaId', extra: ['parentId', 'description'] },
   'business-units': { model: 'businessUnit', usedBy: 'businessUnitId', extra: ['description'] },
@@ -1778,6 +1805,7 @@ const structureSchema = z.object({
   cin: text(40),
   registrations: z.array(z.object({ type: z.string().trim().max(40), number: z.string().trim().max(80), validTill: z.string().trim().regex(ISO_DATE).optional().nullable().or(z.literal('')) })).max(20).optional().nullable(),
   isActive: z.boolean().optional(),
+  category: z.enum(EMPLOYMENT_KINDS).optional(),
 });
 
 /** A PAN is shown as its last four characters (CORE-04): the full number is for Payroll and the vault. */
@@ -1790,6 +1818,10 @@ peopleRouter.get('/orgs/:orgId/people/structure/:kind', can(PermissionAction.VIE
   if (!kind) return res.status(404).json({ error: 'Unknown list.' });
   const { accountId, orgId } = req.tenant!;
   const cfg = STRUCTURE_KINDS[kind];
+  /* A company that has not set up its employment types yet starts with the standard ones (safe to repeat: names are unique). */
+  if (kind === 'employee-types' && !(await peoplePrisma.employeeType.count({ where: { orgId } }))) {
+    await peoplePrisma.employeeType.createMany({ data: DEFAULT_EMPLOYEE_TYPES.map(([name, category]) => ({ accountId, orgId, name, category, createdByUserId: req.auth!.userId })), skipDuplicates: true });
+  }
   const rows = await (peoplePrisma as any)[cfg.model].findMany({ where: { accountId, orgId }, orderBy: { name: 'asc' } });
   /* A legal entity is used by its establishments, not by people directly. */
   const used = cfg.usedBy
@@ -1811,6 +1843,8 @@ peopleRouter.post('/orgs/:orgId/people/structure/:kind', can(PermissionAction.CR
   if (kind === 'establishments' && !data.state) return res.status(400).json({ error: 'Say which state the establishment is in: its rules follow from that.' });
   /* An unset type takes the default; an unset entity is simply absent. */
   if (kind === 'establishments') { if (!data.kind) delete data.kind; if (!data.legalEntityId) delete data.legalEntityId; }
+  /* A type created without saying what it counts as is read from its name ("Summer intern" is an intern). */
+  if (kind === 'employee-types' && !data.category) data.category = guessKind(data.name);
   if (kind === 'establishments' && data.holdsOriginals === true && NO_ORIGINALS_STATES.has(String(data.state || '').trim().toLowerCase())) return res.status(400).json({ error: `${data.state} does not allow an employer to hold employees' original documents (Shops & Establishments amendment, 2026).` });
   try {
     const row = await (peoplePrisma as any)[cfg.model].create({ data });

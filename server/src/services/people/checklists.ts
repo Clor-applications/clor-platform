@@ -152,6 +152,9 @@ export async function startChecklist(who: Who, employee: { id: string }, kind: K
     ];
     const done = new Set(opts.done || []);
     const now = new Date();
+    /* A joiner entered after they started is not late on day one: nothing falls due before the day the plan is made. */
+    const today = todayIst();
+    const due = (n: number) => { const d = plusDays(base, n); return d < today ? today : d; };
     await peoplePrisma.checklistTask.createMany({
       data: items.map((it, i) => ({
         accountId: who.accountId,
@@ -161,7 +164,7 @@ export async function startChecklist(who: Who, employee: { id: string }, kind: K
         title: it.title.slice(0, 200),
         owner: OWNERS.includes(it.owner) ? it.owner : 'HR',
         ownerUserId: owners[OWNERS.includes(it.owner) ? it.owner : 'HR'],
-        dueDate: plusDays(base, Math.round(Number(it.dueDays) || 0)),
+        dueDate: due(Math.round(Number(it.dueDays) || 0)),
         sortOrder: i,
         note: it.note ? it.note.slice(0, 500) : null,
         ...(done.has(it.title) ? { doneAt: now, note: 'Done by CLOR.' } : {}),
