@@ -895,7 +895,7 @@ export function EmploymentHistory({ employeeId }) {
     };
   }, [employeeId]);
   if (!events) return <SkeletonCard lines={4} />;
-  if (!events.length) return <p className="ui-muted text-sm">No history yet. Changes to department, location, designation, manager, type and leaving are recorded here from now on.</p>;
+  if (!events.length) return <p className="ui-muted text-sm">No changes recorded yet.</p>;
   return (
     <>
     {episodes.length > 1 ? (
@@ -909,23 +909,23 @@ export function EmploymentHistory({ employeeId }) {
         ))}
       </ol>
     ) : null}
-    <ol className="space-y-3" aria-label="Employment history">
+    <ol className="ui-history-list" aria-label="Employment history">
       {events.map((e) => (
-        <li key={e.id} className="ui-card p-3 space-y-1">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <span className="flex items-center gap-2">
-              <span className={`ui-pill ui-pill-${HISTORY_TONE[e.kind] || 'neutral'}`}>{e.title}</span>
-              <span className="text-sm font-medium tabular-nums">from {e.effectiveDate}</span>
-            </span>
-            <span className="ui-caption">{[HISTORY_SOURCE[e.source] || e.source, e.by].filter(Boolean).join(' · ')}</span>
-          </div>
-          {e.field ? (
-            <p className="text-sm">
-              <span className="ui-muted">{e.from || 'None'}</span> → <strong>{e.to || 'None'}</strong>
-            </p>
-          ) : null}
-          {e.note ? <p className="text-sm">{e.note}</p> : null}
-          {e.payrollImpact ? <p className="ui-caption">Impact: {e.payrollImpact}</p> : null}
+        <li key={e.id}>
+          <span className="ui-history-when">
+            <span className="tabular-nums font-medium">{formatDateShort(e.effectiveDate)}</span>
+            <span className="ui-caption">effective</span>
+          </span>
+          <span className="min-w-0">
+            <span className="block text-sm font-medium">{e.title}</span>
+            {e.field ? <span className="block text-sm"><span className="ui-muted">{e.from || 'None'}</span> <span aria-hidden="true">→</span><span className="sr-only">to</span> {e.to || 'None'}</span> : null}
+            {e.note ? <span className="block text-sm ui-muted">{e.note}</span> : null}
+            {e.payrollImpact ? <span className="block ui-caption">{e.payrollImpact}</span> : null}
+          </span>
+          <span className="ui-history-recorded">
+            Recorded {e.at ? new Date(e.at).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit' }) : ''}
+            <span className="block">{[e.by, HISTORY_SOURCE[e.source] || e.source].filter(Boolean).join(' · ')}</span>
+          </span>
         </li>
       ))}
     </ol>
