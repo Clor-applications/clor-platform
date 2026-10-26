@@ -252,6 +252,13 @@ export async function submitRequest(actor: Actor, input: { requestType: RequestT
   }
   const rule = await activeRule(orgId, input.requestType);
   if (!rule) throw new ApprovalError(`No approval rule for ${input.requestType.toLowerCase().replace(/_/g, ' ')}: the company has not set one.`, 409, 'NO_RULE');
+  /* Two job changes on the same field cannot wait side by side: approving both would let the later one undo the earlier without anyone seeing it (Workforce final audit W11). */
+  if (input.requestType === 'JOB_CHANGE' && input.subjectEmployeeId) {
+    const asked = Object.keys(((input.payload || {}) as { fields?: Record<string, unknown> }).fields || {});
+    const open = await peoplePrisma.approvalRequest.findMany({ where: { orgId, subjectEmployeeId: input.subjectEmployeeId, requestType: 'JOB_CHANGE', status: { in: ['WAITING', 'MORE_INFO'] } }, select: { title: true, payload: true } });
+    const clash = open.find((r) => Object.keys(((r.payload || {}) as { fields?: Record<string, unknown> }).fields || {}).some((f) => asked.includes(f)));
+    if (clash) throw new ApprovalError(`"${clash.title}" is already waiting for approval. Wait for it, or withdraw it, first.`, 409, 'REQUEST_WAITING');
+  }
   const ruleSteps = rule.steps as unknown as StepSpec[];
   const created = await peoplePrisma.$transaction(async (tx) => {
     const r = await tx.approvalRequest.create({

@@ -90,3 +90,55 @@ code, then each finding checked before fixing. Status: **Fixed** (commit),
 | Attendance summary and reports read the current location for every day of the month | Attendance (TRACKER, Waiting for other modules) |
 | Leave "from confirmation" and probation/hours conditions | Leave |
 | Bank details asked for from the employee app | Payroll (TRACKER, Waiting for other modules) |
+
+## Final audit: automation and workflows (26 Oct 2026)
+
+Two more independent reviews, one of what CLOR does by itself, one of every path a record can take. Commits: `eed1b38`, `c5ff5b6`, merge `6b22423` (automation, `5574560`), and the follow-up below.
+
+### Automation
+
+| # | Finding | Status |
+|---|---|---|
+| A1 | Leaving took effect on the morning of the last working day | Fixed: the last day is worked; the job leaves them the day after |
+| A2 | Someone put on notice without a leaving type never left | Fixed: the job no longer needs a type; an edit cannot put anyone on notice |
+| A3 | Setting Left on the form skipped the leaving step | Fixed: refused (USE_LEAVING); Mark as left does it |
+| A4 | A leaving manager's team, approvals and tasks stayed with them | Fixed: team moves to the leaver's manager; a manager who left or is suspended is no manager for approvals, tasks and attendance |
+| A5 | A linked CLOR login stayed active after leaving | Fixed as a task: HR gets "Turn off X's CLOR sign-in" (CLOR does not turn off a login on its own: it may be someone's admin access) |
+| A6 | Reminder jobs stopped reaching new documents past 2,000 old rows | Fixed: filtered in the database and paged |
+| A7 | "Notify once" repeated daily once read | Fixed for end-date and licence reminders |
+| A8 | A failed dated change was marked applied and lost | Fixed: goes back to waiting; the run carries on |
+| A9 | One bad row stopped every leaving and approval reminder | Fixed: per-row handling, logged with the company |
+| A10 | Parked events retried every tick and blocked the queue | Fixed |
+| A11 | A location move recreated old state-change tasks | Fixed: uses the event's own work sites |
+| A12 | Attendance Transfer bypassed scope, approvals, history and dates | Fixed: goes through the bulk path |
+| A13 | Dated changes applied to people who left | Fixed: cancelled on leaving; the job skips leavers and managers who left |
+| A14 | "Has left" only from the form; ~9 e-mails to an owner hiring alone; overdue approvals reminded once | Fixed: told from every path; no mail to whoever made the plan, one per owner; reminded every 3 working days |
+| A15 | Job failures leave little trace | Open (low): an admin view of background jobs belongs to the platform |
+| A16 | Edge cases after downtime (merged dates, lease delay) | Open (low) |
+| A17 | Birthdays, anniversaries, confirmation-letter task, app invite on hire | Partly: duplicate probation task removed; the rest are conveniences, not gaps |
+| A18 | Tasks with someone who cannot act | Fixed for managers who left; a task owner who leaves keeps their tasks (open, low) |
+
+### Workflows
+
+| # | Finding | Status |
+|---|---|---|
+| W1 | Leaving or delete left dated changes and requests running | Fixed |
+| W2 | Suspending someone on notice broke their leaving | Fixed: refused |
+| W3 | A failed approval effect left the request stuck | Fixed: closed as not applied, requester and HR told |
+| W4 | A manager's leaving stranded their team and approvals | Fixed (see A4) |
+| W5 | No way to record an offer withdrawn or a joiner who never came | Fixed: Did not join, no settlement, plan closed, profile links expired |
+| W6 | A corrected joining date left service dates behind | Fixed while the first stint is open |
+| W7 | The edit accepted any status | Fixed |
+| W8 | "Suspend from a later date" applied today | Fixed: status changes are not dated |
+| W9 | A suspended person kept door access | Fixed: off the doors while suspended |
+| W10 | Old bulk transfer endpoint skipped the rules | Fixed (A12) |
+| W11 | Conflicting edits not caught | Fixed: an immediate change over a waiting dated one is refused; two job-change or probation requests cannot wait side by side |
+| W12 | A leaver kept their position | Fixed |
+| W13 | A former employee could be added as new | Fixed: the duplicate warning says to rehire |
+| W14 | Screens counted joiners and leavers differently | Fixed |
+| W15 | Notice period not recorded | Fixed: notice days per type, resignation date, waived, shortfall in the separation event |
+| W16 | Duplicate-person advice triggered a settlement | Fixed: Duplicate record closes with no settlement |
+| W17 | Leaving letters said the wrong thing | Fixed |
+| W18 | Rehire kept an old manager and position | Fixed |
+| W19 | Probation decided before joining | Fixed |
+| W20 | Absconding and death handled like resignation; transfer between companies | Later: show-cause tracking and nominee/heir details belong with the final settlement (Payroll); inter-company transfer is a platform feature |

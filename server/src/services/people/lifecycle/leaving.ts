@@ -16,12 +16,14 @@ import { writeChangeLog, type Actor } from '../changeLog.js';
 /**
  * Someone leaves (docs/people/02-PRD.md LIFE-05): the last day, how and why.
  * One function for the form, for an approved leaving request and for the
- * day the notice ends. A last day still ahead puts the person on notice:
- * the leaving plan starts, `people.employee.separation_scheduled.v1` goes
- * out, and the hourly job finishes it on the day. A last day today or past
- * finishes at once: status Left, the stint closed, history, door access and
- * employee-app sessions ended, and `people.employee.separated.v1` sent once
- * (Payroll starts the final settlement from it).
+ * day the notice ends. A last day today or ahead puts the person on notice
+ * (the last day is worked): the leaving plan starts,
+ * `people.employee.separation_scheduled.v1` goes out, and the hourly job
+ * finishes it the day after. A last day already past finishes at once:
+ * status Left, the stint closed, history, door access and employee-app
+ * sessions ended, and `people.employee.separated.v1` written once, with the
+ * notice owed and served. No app consumes that event yet: Payroll reads the
+ * employee record for the final settlement.
  */
 /**
  * Who records it. An approved request passes the whole actor (source APPROVAL

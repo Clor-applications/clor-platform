@@ -101,7 +101,7 @@ export async function updateEmployee(
   });
   /* Employment history compares against the same locked row, or an approval applied a moment ago is recorded twice. */
   await recordChanges({ accountId: actor.accountId, orgId: actor.orgId, userId: actor.userId }, result.before, result.row, {
-    source: actor.source === 'IMPORT' ? 'IMPORT' : actor.source === 'SCHEDULED' || actor.source === 'APPROVAL' ? 'TRANSFER' : 'FORM',
+    source: actor.source === 'IMPORT' ? 'IMPORT' : actor.source === 'SCHEDULED' || actor.source === 'APPROVAL' || actor.source === 'BULK' ? 'TRANSFER' : 'FORM',
     effectiveDate: opts.effectiveDate ?? null,
     note: actor.reason ?? null,
   });

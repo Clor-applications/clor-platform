@@ -343,7 +343,7 @@ describe('fingerprints and faces between readers', () => {
     await reader(a).push([`FP PIN=501\tFID=1\tSize=1\tValid=1\tTMP=${tmpl('f501')}`], 'FINGERTMP').expect(200);
     await peoplePrisma.deviceCommand.deleteMany({ where: { orgId: c.orgId } });
 
-    await request(app).put(`/api/orgs/${c.orgId}/people/employees/${p.id}`).set(at(c)).send({ status: 'LEFT', dateOfLeaving: '2026-10-01' }).expect(200);
+    await request(app).post(`/api/orgs/${c.orgId}/people/employees/${p.id}/resign`).set(at(c)).send({ lastDay: '2026-10-01', leavingType: 'RESIGNED' }).expect(200);
     for (const sn of [a, b]) {
       const cmds = (await peoplePrisma.deviceCommand.findMany({ where: { serialNumber: sn }, orderBy: { id: 'asc' } })).map((x) => x.command);
       expect(cmds).toEqual(['DATA DELETE FINGERTMP PIN=501', 'DATA DELETE FACE PIN=501', 'DATA DELETE USERINFO PIN=501']);
@@ -484,7 +484,7 @@ describe('readers after someone leaves or is deleted', () => {
     await reader(a).push([`FP PIN=601\tFID=1\tSize=1200\tValid=1\tTMP=${tmpl('finger-601')}`], 'FINGERTMP').expect(200);
     // The copy to B is still waiting when they leave.
     expect(await peoplePrisma.deviceCommand.count({ where: { serialNumber: b, status: 'PENDING', command: { startsWith: 'DATA UPDATE FINGERTMP PIN=601\t' } } })).toBe(1);
-    await request(app).put(`/api/orgs/${c.orgId}/people/employees/${p.id}`).set(at(c)).send({ status: 'LEFT', dateOfLeaving: '2026-10-01' }).expect(200);
+    await request(app).post(`/api/orgs/${c.orgId}/people/employees/${p.id}/resign`).set(at(c)).send({ lastDay: '2026-10-01', leavingType: 'RESIGNED' }).expect(200);
 
     const toB = (await drain(b)).filter((x) => /PIN=601\b/.test(x));
     expect(toB.some((x) => x.startsWith('DATA DELETE USERINFO PIN=601'))).toBe(true);
