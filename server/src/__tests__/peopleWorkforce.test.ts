@@ -199,6 +199,8 @@ describe('workforce backend', () => {
     expect(after).toMatchObject({ guardianName: 'R. Holder', workLocation: 'Client site, Whitefield' });
     const cleared = (await put(boss, `/employees/${e.id}`, { tagIds: [] }).expect(200)).body.employee;
     expect(cleared.tags).toEqual([]);
+    const tagEvent = (await people(boss).get(`/employees/${e.id}/activity`).expect(200)).body.events.find((x: any) => x.changes?.some((c: any) => c.field === 'tags'));
+    expect(tagEvent.changes.find((c: any) => c.field === 'tags')).toMatchObject({ label: 'Tags', before: 'Night shift', after: null });
     await put(boss, `/employees/${e.id}`, { photoUrl: `data:image/jpeg;base64,${'A'.repeat(400_000)}` }).expect(400);
   });
 

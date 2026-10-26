@@ -17,6 +17,7 @@ import { LOGGED_EMPLOYEE_FIELDS } from './changeLog.js';
  */
 
 const FIELD_WORDS: Record<string, string> = {
+  devicePassword: 'Reader PIN', devicePin: 'Reader ID', cardNumber: 'Card', devicePrivilege: 'Reader role', attendanceRequired: 'Attendance expected', tags: 'Tags', photoUrl: 'Photo', preferredName: 'Preferred name', workLocation: 'Work location (text)',
   record: 'Record', name: 'Name', firstName: 'First name', lastName: 'Last name', code: 'Employee ID', email: 'Email', personalEmail: 'Personal email', workEmail: 'Work email', phone: 'Phone', workPhone: 'Work phone',
   designation: 'Designation', department: 'Department', departmentId: 'Department', jobPositionId: 'Designation', jobRoleId: 'Job role', businessUnitId: 'Business unit', gradeId: 'Grade', costCenterId: 'Cost centre',
   areaId: 'Location', branchId: 'Branch', establishmentId: 'Establishment', employeeTypeId: 'Employee type', workTypeId: 'Work type', contractorId: 'Contractor', reportingManagerId: 'Reports to', dottedManagerId: 'Also reports to',

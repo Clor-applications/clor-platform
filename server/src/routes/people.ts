@@ -673,12 +673,17 @@ peopleRouter.get('/orgs/:orgId/people/employees/:id', can(PermissionAction.VIEW,
   res.json({ scheduledChanges, permits: await permitsOf(orgId, row.id), employee: { ...shaped, directReports: reports } });
 });
 
-async function setTags(accountId: string, orgId: string, employeeId: string, tagIds: string[]) {
-  const valid = await peoplePrisma.employeeTag.findMany({ where: { orgId, id: { in: tagIds } }, select: { id: true } });
-  await peoplePrisma.$transaction([
-    peoplePrisma.employeeTagLink.deleteMany({ where: { employeeId } }),
-    ...valid.map((t) => peoplePrisma.employeeTagLink.create({ data: { accountId, orgId, employeeId, tagId: t.id } })),
-  ]);
+/** Replace a person's tags; a real change goes on their change log by tag name (Workforce Activity). */
+async function setTags(accountId: string, orgId: string, employeeId: string, tagIds: string[], actor?: Actor) {
+  const valid = await peoplePrisma.employeeTag.findMany({ where: { orgId, id: { in: tagIds } }, select: { id: true, name: true } });
+  const before = await peoplePrisma.employeeTagLink.findMany({ where: { orgId, employeeId }, select: { tag: { select: { name: true } } } });
+  const was = before.map((l) => l.tag.name).sort().join(', ');
+  const now = valid.map((t) => t.name).sort().join(', ');
+  await peoplePrisma.$transaction(async (tx) => {
+    await tx.employeeTagLink.deleteMany({ where: { employeeId } });
+    for (const t of valid) await tx.employeeTagLink.create({ data: { accountId, orgId, employeeId, tagId: t.id } });
+    if (actor && was !== now) await writeChangeLog(tx as any, actor, { kind: 'Employee', id: employeeId, employeeId }, [{ field: 'tags', before: was || null, after: now || null, redacted: false }]);
+  });
 }
 
 /** People already here who share an email, phone or employee ID with what is being saved (CORE-02). */
@@ -743,7 +748,7 @@ peopleRouter.post('/orgs/:orgId/people/employees', can(PermissionAction.CREATE, 
       status: b.status || 'ACTIVE',
       createdByUserId: req.auth!.userId,
     } as any);
-    if (b.tagIds?.length) await setTags(accountId, orgId, row.id, b.tagIds);
+    if (b.tagIds?.length) await setTags(accountId, orgId, row.id, b.tagIds, actorOf(req, 'FORM'));
     await startChecklist({ accountId, orgId, userId: req.auth!.userId }, row, 'JOINING', row.dateOfJoining);
     /* On every reader straight away, as ClorTime does: enrolment can start the same minute. */
     await pushEmployeeToReaders(orgId, row, req.auth!.userId);
@@ -855,7 +860,7 @@ peopleRouter.put('/orgs/:orgId/people/employees/:id', can(PermissionAction.EDIT,
       } as any,
       { effectiveDate: typeof req.body?.effectiveFrom === 'string' ? req.body.effectiveFrom : null },
     );
-    if (b.tagIds) await setTags(accountId, orgId, row.id, b.tagIds);
+    if (b.tagIds) await setTags(accountId, orgId, row.id, b.tagIds, actorOf(req, 'FORM'));
     /* Leaving or coming back starts that checklist; CLOR takes them off the readers itself, so it ticks that item. */
     if (row.status === 'LEFT' && existing.status !== 'LEFT') await startChecklist({ accountId, orgId, userId: req.auth!.userId }, row, 'LEAVING', row.dateOfLeaving, { done: [READER_ACCESS_ITEM] });
     else if (row.status !== 'LEFT' && existing.status === 'LEFT') await startChecklist({ accountId, orgId, userId: req.auth!.userId }, row, 'JOINING', row.dateOfJoining);
