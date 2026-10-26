@@ -18,7 +18,7 @@ const APPS = [
   { key: 'attendance', name: 'Attendance', note: 'Biometric readers, shifts, late marks and overtime; days marked automatically and sent to HR and Payroll.', recommended: true },
   { key: 'payroll', name: 'Payroll', note: 'Salaries, PF, ESI, PT and TDS, and payslips; unpaid leave from HR is loss of pay.' },
 ];
-const CORE = 'Always on: Employees, Documents, Onboarding & Exit, Leave & Attendance, Insights and Settings.';
+const CORE = 'Always on: Workforce, Organization, Time & Leave, Insights and Settings.';
 
 function Toggle({ checked, disabled, onChange, label }) {
   return (

@@ -415,7 +415,13 @@ async function approversOf(accountId: string, orgId: string, employeeId: string)
   return out;
 }
 
-const linkFor = async (accountId: string, orgId: string, screen: string, params?: Record<string, string>) => ({ app: (await isFeatureEnabled(accountId, orgId, 'people')) ? 'people' : 'attendance', screen, ...(params ? { params } : {}) });
+/* People's screens, or Attendance's names for the same places when a company runs Attendance alone. */
+const ATTENDANCE_SCREEN: Record<string, string> = { attendanceRequests: 'requests', myRequests: 'me' };
+const PEOPLE_SCREEN: Record<string, string> = { myRequests: 'myDays' };
+const linkFor = async (accountId: string, orgId: string, screen: string, params?: Record<string, string>) => {
+  const people = await isFeatureEnabled(accountId, orgId, 'people');
+  return { app: people ? 'people' : 'attendance', screen: people ? PEOPLE_SCREEN[screen] || screen : ATTENDANCE_SCREEN[screen] || screen, ...(params ? { params } : {}) };
+};
 
 /** A new request goes to whoever acts on it next: the manager (or their stand-in) when the company asks the manager first, else those who approve for that person. */
 async function tellAsked(orgId: string, r: any) {

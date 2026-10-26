@@ -59,7 +59,7 @@ export const appOfModule = (moduleKey) => MODULE_APP[moduleKey] || 'company';
  * but their rights live in the ATTENDANCE module. A People-only company would
  * otherwise never see them, so they are shown as their own section.
  */
-export const TIME_LEAVE_RESOURCES = ['Leave Requests', 'Leave Types', 'Holidays', 'My Attendance', 'Employee Portal'];
+export const TIME_LEAVE_RESOURCES = ['Leave Requests', 'Leave Types', 'Holidays', 'My Attendance', 'Employee Portal', 'Attendance Requests'];
 
 /** The apps a section answers to: Time & Leave to People or Attendance, the rest to their own. */
 const opensIn = (app) => (app === 'time' ? ['people', 'attendance'] : [app]);

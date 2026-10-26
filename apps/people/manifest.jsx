@@ -107,6 +107,10 @@ const SalaryRevisions = screen('SalaryRevisions');
 const LeaveRequests = screen('LeaveRequests');
 const TimeOverview = screen('TimeOverview');
 const WorkingWeek = screen('WorkingWeek');
+const LeaveYearEnd = screen('LeaveYearEnd');
+const StandIns = screen('StandIns');
+const AttendanceRequests = screen('AttendanceRequests');
+const RequestRules = screen('RequestRules');
 const LeaveBalances = screen('LeaveBalances');
 const LeaveTypes = screen('LeaveTypes');
 const MyLeave = screen('MyLeave');
@@ -239,8 +243,8 @@ export const peopleApp = {
     ] },
     /* Time & Leave (TIME-LEAVE-DECISIONS.md): one engine with Attendance, which reads and writes the same records. */
     { key: 'leave', label: 'Time & Leave', short: 'Time', groups: [
-      { label: 'Leave', items: ['timeOverview', 'leaveRequests', 'leaveCalendar', 'leaveBalances', 'leaveRegister'] },
-      { label: 'Attendance', items: ['attendance'] },
+      { label: 'Leave', items: ['timeOverview', 'leaveRequests', 'leaveCalendar', 'leaveBalances', 'leaveRegister', 'standIns'] },
+      { label: 'Attendance', items: ['attendanceRequests', 'attendance'] },
       { label: 'Me', items: ['myLeave', 'myDays'] },
     ] },
     { key: 'hiring', label: 'Hiring', items: ['recruitment', 'candidates'] },
@@ -276,12 +280,16 @@ export const peopleApp = {
     { key: 'leaveBalances', label: 'Balances', icon: I.balance, permission: 'ATTENDANCE::Leave Requests::VIEW' },
     { key: 'leaveRegister', label: 'Leave Register', icon: I.register, permission: 'ATTENDANCE::Leave Requests::VIEW' },
     { key: 'leaveCalendar', label: 'Calendar', icon: I.calendar, permission: 'ATTENDANCE::Leave Requests::VIEW' },
+    { key: 'standIns', label: 'Stand-ins', icon: I.people, permission: 'ATTENDANCE::Leave Requests::VIEW' },
+    { key: 'attendanceRequests', label: 'Attendance Requests', short: 'Requests', icon: I.checklist, permission: 'ATTENDANCE::Attendance Requests::VIEW' },
     { key: 'attendance', label: 'Attendance', icon: I.attendance, permission: 'ATTENDANCE::Attendance Records::VIEW' },
     { key: 'myDays', label: 'My Attendance', icon: I.myDays, permission: 'ATTENDANCE::My Attendance::VIEW' },
     { key: 'myLeave', label: 'My Leave', icon: I.myLeave, permission: 'ATTENDANCE::My Attendance::VIEW' },
     { key: 'leaveTypes', label: 'Leave Policy', icon: I.policy, permission: 'ATTENDANCE::Leave Types::VIEW', parent: 'settings' },
     { key: 'holidays', label: 'Holidays', icon: I.holiday, permission: 'ATTENDANCE::Holidays::VIEW', parent: 'settings' },
     { key: 'workingWeek', label: 'Working Week', icon: I.calendar, permission: 'ATTENDANCE::Leave Types::VIEW', parent: 'settings' },
+    { key: 'leaveYearEnd', label: 'Leave Year End', icon: I.register, permission: 'ATTENDANCE::Leave Requests::EDIT', parent: 'settings' },
+    { key: 'requestRules', label: 'Request Rules', icon: I.policy, permission: 'ATTENDANCE::Attendance Requests::APPROVE', parent: 'settings' },
     { key: 'recruitment', label: 'Jobs', icon: I.job, permission: 'PEOPLE::Recruitment::VIEW', feature: 'peopleHiring' },
     { key: 'candidates', label: 'Candidates', icon: I.candidate, permission: 'PEOPLE::Recruitment::VIEW', feature: 'peopleHiring' },
     { key: 'performance', label: 'Goals & Feedback', icon: I.goal, permission: 'PEOPLE::Performance::VIEW', feature: 'peoplePerformance' },
@@ -351,6 +359,10 @@ export const peopleApp = {
     selfService: PortalAccess,
     timeOverview: TimeOverview,
     workingWeek: WorkingWeek,
+    leaveYearEnd: LeaveYearEnd,
+    standIns: StandIns,
+    attendanceRequests: AttendanceRequests,
+    requestRules: RequestRules,
     leaveRequests: LeaveRequests,
     leaveBalances: LeaveBalances,
     myLeave: MyLeave,

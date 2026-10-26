@@ -296,7 +296,7 @@ export const PERMISSION_CATALOG: ModuleDef[] = [
       {
         key: 'Attendance Requests',
         label: 'Attendance requests',
-        description: 'Corrections people ask for; Approve to accept or refuse them',
+        description: 'Missed punch, work from home, on duty and permission hours people ask for; Approve to decide, change or cancel them',
         actions: [A.VIEW, A.CREATE, A.APPROVE],
       },
       {
@@ -709,6 +709,8 @@ export const ROLE_PRESETS: Record<string, RolePreset> = {
       ['ATTENDANCE', 'Leave Types', [A.VIEW]],
       ['ATTENDANCE', 'Holidays', [A.VIEW]],
       ['ATTENDANCE', 'My Attendance', [A.VIEW]],
+      /* Attendance requests (work from home, on duty, missed punch) are Time & Leave's too. */
+      ['ATTENDANCE', 'Attendance Requests', [A.VIEW, A.CREATE]],
     ],
   },
   HR_MANAGER: {
@@ -733,6 +735,7 @@ export const ROLE_PRESETS: Record<string, RolePreset> = {
       ['ATTENDANCE', 'Holidays', ['*']],
       ['ATTENDANCE', 'My Attendance', [A.VIEW]],
       ['ATTENDANCE', 'Employee Portal', ['*']],
+      ['ATTENDANCE', 'Attendance Requests', ['*']],
     ],
   },
   TEAM_MANAGER: {
@@ -749,6 +752,7 @@ export const ROLE_PRESETS: Record<string, RolePreset> = {
       ['PEOPLE', 'Lifecycle', [A.VIEW, A.EDIT]],
       ['PEOPLE', 'Policies', [A.VIEW]],
       ['ATTENDANCE', 'Leave Requests', [A.VIEW, A.APPROVE]],
+      ['ATTENDANCE', 'Attendance Requests', [A.VIEW, A.APPROVE]],
       ['ATTENDANCE', 'My Attendance', [A.VIEW]],
     ],
   },

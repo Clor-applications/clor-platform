@@ -36,6 +36,8 @@ const GROUPS = [
       ['leaveTypes', 'The leave period, and each kind of leave: credits and their dates, who it is for, notice, carry forward, pay-out'],
       ['holidays', 'Company and location holidays'],
       ['workingWeek', 'Which days of the week are off, for everyone not on a shift'],
+      ['requestRules', 'Work from home, on duty, missed punch and permission hours: what is on, monthly limits, who approves'],
+      ['leaveYearEnd', 'What carries, lapses or is paid out when the leave period ends'],
     ],
   },
   {

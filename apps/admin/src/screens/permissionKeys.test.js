@@ -33,7 +33,7 @@ describe('the Time & Leave section of the role editor', () => {
   it('shows both when People and Attendance are offered, with every Attendance right in one of them', () => {
     const shown = visibleModules(CATALOG, ['company', 'people', 'attendance'], 'all');
     expect(labels(shown)).toEqual(['Settings', 'People', 'Time & Leave', 'Attendance']);
-    expect(resourcesOf(shown, 'Attendance')).toEqual(['Attendance Records', 'Attendance Requests', 'Shifts', 'Attendance Devices', 'Attendance Integrations']);
+    expect(resourcesOf(shown, 'Attendance')).toEqual(['Attendance Records', 'Shifts', 'Attendance Devices', 'Attendance Integrations']);
   });
 
   it('shows Time & Leave to an Attendance-only company too', () => {
