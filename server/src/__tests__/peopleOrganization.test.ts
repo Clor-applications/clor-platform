@@ -229,8 +229,9 @@ describe('organization overview', () => {
     expect(o.company.name).toMatch(/^Orgn Co/);
     expect(o.branches.find((b: any) => b.id === pune.id)).toMatchObject({ name: 'Pune', code: 'PUN', state: 'Karnataka', isActive: true, people: 1 });
     expect(o.branches.find((b: any) => b.id === hr.branchId).people).toBe(1);
-    expect(o.departments).toEqual([expect.objectContaining({ id: ops.id, name: 'Operations', parentId: null, isActive: true, headEmployeeId: boss.id, headName: 'Boss', headLeft: false, people: 2 })]);
-    expect(o.unplaced).toEqual({ noDepartment: 1, noBranch: 1 });
+    expect(o.departments).toEqual([expect.objectContaining({ id: ops.id, name: 'Operations', parentId: null, isActive: true, headEmployeeId: boss.id, headName: 'Boss', headLeft: false, people: 3 })]);
+    /* Placed there and not left: someone joining later is in the department already (the same count its list shows). */
+    expect(o.unplaced).toEqual({ noDepartment: 1, noBranch: 2 });
     expect(o.lists).toMatchObject({ designations: 1, teams: 0, positions: 0, units: 0, grades: 0, centres: 0, areas: 0, roles: 0, sites: 0, workModes: 0 });
     expect(o.detailed).toBe(false);
     expect(o.checks.map((c: any) => c.id)).toEqual(['no-branch']);
@@ -244,7 +245,7 @@ describe('organization overview', () => {
     expect(mine.departments[0].people).toBe(2);
     expect(mine.unplaced).toEqual({ noDepartment: 0, noBranch: 0 });
     expect(mine.checks).toEqual([]);
-    expect((await people(lead).get('/organization').expect(200)).body.unplaced).toEqual({ noDepartment: 1, noBranch: 1 });
+    expect((await people(lead).get('/organization').expect(200)).body.unplaced).toEqual({ noDepartment: 1, noBranch: 2 });
   });
 });
 

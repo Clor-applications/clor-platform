@@ -300,10 +300,16 @@ export function startOrgDetailBackfill({ delayMs = 90_000 } = {}) {
   return () => clearTimeout(t);
 }
 
-/** The whole company on one page (Organization overview). Counts are "working now" and inside the viewer's team scope. */
+/**
+ * The whole company on one page (Organization overview), inside the viewer's
+ * team scope. A department's or branch's people are everyone placed there who
+ * has not left (future joiners included): the same count its list shows and
+ * the people a merge or retire would move.
+ */
 export async function organizationOverview(accountId: string, orgId: string, scope: TeamScope, userId: string | null) {
   await ensureOrgDetail(accountId, orgId, userId);
-  const base = { accountId, orgId, ...scopeWhere(scope), ...workingNow() };
+  await fillSoleBranch(accountId, orgId);
+  const base = { accountId, orgId, ...scopeWhere(scope), status: { not: 'LEFT' as const } };
   const [org, branches, departments, byBranch, byDept, noDepartment, noBranch, detailed] = await Promise.all([
     platformPrisma.org.findFirst({ where: { id: orgId, accountId }, select: { name: true } }),
     platformPrisma.branch.findMany({ where: { accountId, orgId }, select: { id: true, branchName: true, branchCode: true, city: true, state: true, isActive: true }, orderBy: { branchName: 'asc' } }),
@@ -332,6 +338,18 @@ export async function organizationOverview(accountId: string, orgId: string, sco
     lists: { designations, roles, teams, positions, units, grades, centres, areas, sites, types, workModes },
     detailed,
   };
+}
+
+/**
+ * A company with exactly one open branch: everyone works from it. People
+ * added before branches were shown on the record get it, once, so Attendance
+ * gives them that branch's holidays and the overview counts them there.
+ */
+export async function fillSoleBranch(accountId: string, orgId: string) {
+  const open = await platformPrisma.branch.findMany({ where: { accountId, orgId, isActive: true }, select: { id: true }, take: 2 });
+  if (open.length !== 1) return 0;
+  const r = await peoplePrisma.employee.updateMany({ where: { accountId, orgId, branchId: null, status: { not: 'LEFT' } }, data: { branchId: open[0].id } });
+  return r.count;
 }
 
 /** Heads by id, with whether they have left. */

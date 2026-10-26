@@ -64,3 +64,20 @@ person's terms, not the company's shape.
 ## Research open questions answered
 
 D01 no · D02 positions optional, under detailed structure · D03 work site is the legal place, branch the registered one, location only for attendance zones · D04, D05, D09 agreed · D06 hidden nodes are not drawn at all · D07, D13 cost-centre mapping to Accounting waits for that module · D08 yes, employment history and dated changes · D10 no · D11 from the work site's state · D12 one definition ("Working now") · D14 export audit exists.
+
+## Reconciled with our own research (26 Oct 2026)
+
+`ORGANIZATION-RESEARCH.md` (competitors, ~14,000 app-store reviews, India place rules). Its finding: small firms are hurt by the **manager link** and by **a place that knows its state**, not by missing hierarchy layers. Already in the plan and confirmed: structure history, merge, retire with people moved, rename keeps the record, structure checks, department view of the chart, department head as a label only, detailed lists behind one switch. Changes and additions:
+
+| Research finding | Decision |
+|---|---|
+| Pending requests stay with the old manager after a change (rank 2) | When a person's manager changes, their requests waiting on a manager step move to the new manager. Attendance already looks the manager up live |
+| Missing manager blocks requests (rank 1) | "Without a manager" on the Organization overview beside "without a department / branch"; the Data Health check already exists |
+| One place record; Branch is the accounting record already; don't run three place lists | Branch is the place people work at: the employee field reads **Works at**. Work sites (labour-law registrations) and Locations move under Detailed structure, switched on automatically where they are used |
+| First person in a new state needs PT / LWF / establishment registration | When someone is first placed at a branch in a state nobody else works in, HR gets a task listing what to register |
+| Org chart: employees value seeing the hierarchy; owners want it printable | Print / save as PDF from the chart |
+| Rules change by state and year (Odisha PT repeal, OSH Code rollout) | No rule tables in Organization; state stays a field the owning apps read |
+| Positions, business units, cost centres, dotted lines: enterprise only | Kept behind the switch (existing customers use them); never shown to a new small company |
+| Naming: "Reporting manager" is the Indian word | Kept **Manager** in screens (shorter, already used across Workforce); "Reporting manager" in the employee app where employees read it |
+| Holiday calendars per state, next year's list not set | Attendance module (TRACKER, waiting for other modules) |
+| Named approver per person (two founders approving each other) | Approval rules already take a named person; the engine never lets a request approve itself |
