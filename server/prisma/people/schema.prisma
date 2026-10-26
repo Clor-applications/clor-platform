@@ -566,6 +566,9 @@ model LeaveType {
   availableAfterDays Int?
   /// Sandwich rule: weekly offs and holidays inside a request count as leave.
   sandwich           Boolean  @default(false)
+  /// Private leave (sick, medical, maternity): the reason is optional and only
+  /// those who decide leave read it; the calendar and the team see "Away".
+  isPrivate          Boolean  @default(false)
   /// Unused days may be paid out, up to this many a year.
   encashable         Boolean  @default(false)
   maxEncashDays      Float?
@@ -653,12 +656,16 @@ model LeaveRequest {
   /// The manager's step, when the company asks for it before HR (AttendanceSettings.*Approval).
   managerApprovedAt   DateTime?
   managerApprovedById String?
+  /// Leave that crosses the leave-period end is saved as one request per
+  /// period; the parts share this id so they read, and cancel, as one.
+  groupId             String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([accountId, orgId, status])
   @@index([accountId, orgId, employeeId, fromDate])
+  @@index([orgId, fromDate, toDate])
 }
 
 /// A biometric reader (ZKTeco / eSSL) that pushes punches to /iclock. The
@@ -1204,6 +1211,12 @@ model AttendanceSettings {
   /// year it starts in. Default 1 January, the calendar year.
   leavePeriodStartMonth      Int     @default(1)
   leavePeriodStartDay        Int     @default(1)
+  /// The company's working week (People → Time & Leave): the weekly offs of
+  /// anyone with no shift. Day numbers 0–6 (Sunday 0); offSaturdays names the
+  /// Saturdays of a month that are off (e.g. "2,4") when 6 is not a weekly off.
+  /// Shifts, when Attendance sets them, still decide for the people on them.
+  weeklyOffDays              String  @default("0")
+  offSaturdays               String  @default("")
 
   /// DPDP (services/attendance/biometrics.ts): CLOR keeps and copies fingerprints and
   /// faces between readers only when the company switches this on, recording who

@@ -25,7 +25,7 @@ import { askOvertime, attentionFor, chainsFor, confirmMonth, decideOvertime, mon
 import { createRequest } from './attendance.js';
 import { REASON_CODES, reviewCorrection } from '../services/attendance/corrections.js';
 import { daysOfMonth, instants, sendError, today, withNames } from '../services/attendance/days.js';
-import { approveLeave, cancelOwnLeave, createLeave, rejectLeave, withTypes } from './leave.js';
+import { approveLeave, cancelOwnLeave, createLeave, masked, previewOut, rejectLeave, withTypes } from './leave.js';
 import { balancesFor, leavePeriodOf, leaveYearOf } from '../services/attendance/leaveBalances.js';
 import { periodEnd, periodStart } from '../services/attendance/leaveAccrual.js';
 import { recomputeDeviceDay, shiftDayFor } from '../services/attendance/punches.js';
@@ -659,6 +659,17 @@ portalRouter.get('/leave', async (req, res) => {
   });
 });
 
+/** What a request would charge, before it is sent: the dates counted and skipped, the balance after (AUT-05). */
+portalRouter.post('/leave/preview', async (req, res) => {
+  try {
+    const { accountId, orgId } = req.portal!;
+    const out = await previewOut(null, accountId, orgId, req.portal!.employee, req.body, false);
+    res.status(out.status).json(out.body);
+  } catch (err) {
+    return sendError(res, err);
+  }
+});
+
 portalRouter.post('/leave', async (req, res) => {
   try {
     return await createLeave(req, res, req.portal!.employee, who(req));
@@ -706,7 +717,8 @@ portalRouter.get('/approvals', async (req, res) => {
     approver: ids.length > 0,
     team: team.length,
     chain: { leave: leaveChain, correction: correctionChain, overtime: overtimeChainNow },
-    leaves: (await withTypes(e.orgId, leaves.filter((r) => !r.managerApprovedAt))).map((r: any) => ({ id: r.id, type: 'leave', ...who(r.employeeId), leaveTypeName: r.leaveTypeName, fromDate: r.fromDate, toDate: r.toDate, days: r.days, halfDay: r.halfDay ?? null, reason: r.reason, askedAt: r.createdAt })),
+    /* A manager plans cover from dates, not diagnoses: private leave reads "Private leave" with no reason. */
+    leaves: masked(await withTypes(e.orgId, leaves.filter((r) => !r.managerApprovedAt)), false).map((r: any) => ({ id: r.id, type: 'leave', ...who(r.employeeId), leaveTypeName: r.leaveTypeName, fromDate: r.fromDate, toDate: r.toDate, days: r.days, halfDay: r.halfDay ?? null, reason: r.reason, askedAt: r.createdAt })),
     corrections: corrections.filter((r) => !r.managerApprovedAt).map((r) => ({ id: r.id, type: 'correction', ...who(r.employeeId), date: r.date, checkIn: r.checkIn ? istTime(r.checkIn) : null, checkOut: r.checkOut ? istTime(r.checkOut) : null, reason: r.reason, askedAt: r.createdAt })),
     /* Field punches from my team waiting for a decision. */
     punches: fieldPunches.map((p) => ({ id: p.id, type: 'punch', ...who(p.employeeId || ''), date: p.localTime.slice(0, 10), checkIn: p.localTime.slice(11, 16), kind: p.kind, reason: p.address || 'Outside the work sites', latitude: p.latitude, longitude: p.longitude, accuracy: p.accuracyM != null ? Math.round(p.accuracyM) : null, photo: Boolean(p.photoId), askedAt: p.createdAt })),
