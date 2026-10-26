@@ -57,16 +57,17 @@ export default function OrganizationOverview({ openScreen }) {
   const rows = [];
   const walk = (id, depth) => { for (const x of childrenOf(id)) { rows.push({ ...x, depth }); if (depth < 8) walk(x.id, depth + 1); } };
   walk(null, 0);
+  /* In the sidebar's order. */
   const lists = [
     ['jobPositions', 'Designations', d.lists.designations, true],
-    ['establishments', 'Work sites', d.lists.sites, false],
+    ['establishments', 'Work Sites', d.lists.sites, false],
+    ['areas', 'Locations', d.lists.areas, false],
     ['teams', 'Teams', d.lists.teams, false],
     ['seats', 'Positions', d.lists.positions, false],
-    ['businessUnits', 'Business units', d.lists.units, false],
+    ['businessUnits', 'Business Units', d.lists.units, false],
     ['grades', 'Grades', d.lists.grades, false],
-    ['costCentres', 'Cost centres', d.lists.centres, false],
-    ['jobRoles', 'Job roles', d.lists.roles, false],
-    ['areas', 'Locations', d.lists.areas, false],
+    ['costCentres', 'Cost Centres', d.lists.centres, false],
+    ['jobRoles', 'Job Roles', d.lists.roles, false],
   ];
 
   return (
@@ -139,7 +140,7 @@ export default function OrganizationOverview({ openScreen }) {
         </ul>
         {/* One switch: a 15-person shop never sees teams, positions or grades; a larger company turns them on. */}
         <div className="flex flex-wrap items-center justify-between gap-3 border-t pt-3">
-          <p className="text-sm">Detailed structure: teams, positions, business units, grades, cost centres, job roles and locations. <span className="ui-muted">{d.detailed ? 'On' : 'Off'}</span></p>
+          <p className="text-sm">Detailed structure: work sites, locations, teams, positions, business units, grades, cost centres and job roles. <span className="ui-muted">{d.detailed ? 'On' : 'Off'}</span></p>
           {canSwitch ? <button type="button" className="ui-btn ui-btn-secondary" disabled={switching} onClick={() => turnDetailed(!d.detailed)}>{d.detailed ? 'Turn off' : 'Turn on'}</button> : null}
         </div>
       </section>

@@ -165,7 +165,7 @@ export default function EmployeeRecord({ params = {}, updateParams, openScreen }
                 {person.code ? <li><Hash size={14} aria-hidden="true" /><span className="tabular-nums">{person.code}</span></li> : null}
                 {person.designation ? <li><Briefcase size={14} aria-hidden="true" />{person.designation}</li> : null}
                 {person.department ? <li><Building2 size={14} aria-hidden="true" />{person.department}</li> : null}
-                {person.areaName || person.workLocation ? <li><MapPin size={14} aria-hidden="true" />{person.areaName || person.workLocation}</li> : null}
+                {person.branchName || person.areaName || person.workLocation ? <li><MapPin size={14} aria-hidden="true" />{person.branchName || person.areaName || person.workLocation}</li> : null}
                 {person.reportingManagerName ? <li><UserRound size={14} aria-hidden="true" /><span>Reports to {person.managerOpens === false ? person.reportingManagerName : <button type="button" className="ui-link" onClick={() => openScreen?.('employee', { id: person.reportingManagerId })}>{person.reportingManagerName}</button>}</span></li> : null}
                 {person.hours === 'PART_TIME' ? <li><Clock size={14} aria-hidden="true" />Part-time</li> : null}
                 {probation === 'ON' ? <li><Hourglass size={14} aria-hidden="true" /><span>On probation until <span className="tabular-nums">{formatDate(String(person.probationEndDate).slice(0, 10))}</span></span></li> : null}
@@ -461,7 +461,7 @@ function Overview({ person, data, lists, allowed, goTo, go }) {
             <Field label="Department" value={person.department} />
             <Field label="Designation" value={person.designation} />
             <Field label="Employment type" value={typeName} />
-            <Field label="Location" value={person.areaName || person.workLocation} />
+            <Field label="Works at" value={person.branchName || person.areaName || person.workLocation} />
           </dl>
         </Section>
         <Section title="Relationships" action={<button type="button" className="ui-link text-sm" onClick={() => goTo('organization')}>Open</button>}>
@@ -838,9 +838,9 @@ function Organization({ person, lists, allowed, openAction, openPerson, editing,
           {uses('centres', person.costCenterId) ? <Field label="Cost centre" value={person.costCenterName} /> : null}
         </dl>
       </Section>
-      {/* A typed address is for a company without a Locations list, or a person already carrying one. */}
-      {person.workLocation || !lists?.areas?.length ? (
-        <Section title="Work location" onEdit={canEdit && editing !== 'place' ? () => setEditing('place') : null}>
+      {/* A typed work address from before Branches: kept, and editable, for the people who carry one. */}
+      {person.workLocation ? (
+        <Section title="Work address" onEdit={canEdit && editing !== 'place' ? () => setEditing('place') : null}>
           {editing === 'place' ? (
             <SectionForm person={person} fields={[{ key: 'workLocation', label: 'Site or address' }]} onCancel={() => setEditing(null)} onSaved={(emp) => { onSaved(emp); setEditing(null); }} reload={reload} />
           ) : <dl className="ui-field-grid"><Field label="Site or address" value={person.workLocation} /></dl>}
