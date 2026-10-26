@@ -181,7 +181,8 @@ export default function DataTable({
           {onPrefs ? <ColumnSettings columns={columns} prefs={prefs} onPrefs={onPrefs} defaults={defaultPrefs} /> : null}
         </div>
       ) : null}
-      <div className="ui-table-scroll ui-datatable-desktop">
+      {/* With nothing to show, the box is only as tall as its header, so the empty message sits right under it. */}
+      <div className={`ui-table-scroll ui-datatable-desktop ${!loading && !rows.length ? 'ui-table-fit' : ''}`}>
         <table className="ui-table w-full" aria-label={label}>
           <thead>
             <tr>

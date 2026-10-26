@@ -1,120 +1,205 @@
-import React, { useCallback, useEffect, useId, useMemo, useState } from 'react';
-import { Plus, Trash2, UserPlus } from 'lucide-react';
-import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
-import { useListSearch } from '@ui/components/ListToolbar';
-import DocumentListShell from '@ui/components/list/DocumentListShell';
-import { Pagination, usePaged, useResetPage } from '@ui/components/list/ListPageParts';
-import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';
-import { EmptyState, SkeletonCard } from '@ui/components/ui/Primitives';
+import React, { useMemo, useRef, useState } from 'react';
+import { Download, Plus } from 'lucide-react';
+import { EmptyState, PageHeader } from '@ui/components/ui/Primitives';
+import DataTable from '@ui/components/ui/DataTable';
 import Drawer from '@ui/components/ui/Drawer';
+import ErrorState from '@ui/components/ui/ErrorState';
+import SearchField from '@ui/components/ui/SearchField';
+import SuggestInput from '@ui/components/ui/SuggestInput';
+import DatePicker, { formatDate } from '@ui/components/ui/DatePicker';
+import PopupSelect from '@ui/components/pickers/PopupSelect';
+import useRequest from '@ui/components/ui/useRequest';
+import { useTabIndicator } from '@ui/components/ui/RecordTabs';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
+import { runListExport } from '@ui/components/list/exportMenu';
 import { listAllEmployees } from '@ui/personnel/api';
 import { deleteRecord, hireCandidate, listRecords, saveRecord } from '../api/workspace';
+import { nextEmployeeCode } from '../workforce/api';
 import { WORKSPACE_CONFIG, statusLabel } from './workspaceConfig';
+
+/**
+ * One register (assets, benefits, jobs, candidates, goals, training,
+ * announcements, events): laid out as every Workforce list — header with the
+ * one primary action, status tabs, search, the shared table, a drawer to add
+ * or edit with PopupSelect and DatePicker, errors kept in the form.
+ */
+const POSITIVE = ['COMPLETED', 'PUBLISHED', 'ACTIVE', 'HIRED', 'RESOLVED', 'ASSIGNED', 'OPEN'];
+const SHEET = 'w-[min(40rem,96vw)] ui-drawer-sheet';
+const day = (v) => (v ? formatDate(String(v).slice(0, 10)) : '');
+/* Without an employee, a record is company-wide: a benefit plan, an asset nobody holds. */
+const NOBODY = { assets: 'Not assigned', benefits: 'Company plan' };
+/* Codes and contact details are one record's own, never suggested to another. */
+const NO_SUGGEST = new Set(['assetTag', 'serialNumber', 'email', 'phone', 'certificateUrl']);
+const todayIst = () => new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
 
 export default function WorkspaceList({ kind, openScreen }) {
   const cfg = WORKSPACE_CONFIG[kind];
-  const formId = useId();
-  const [rows, setRows] = useState([]);
-  const [employees, setEmployees] = useState([]);
-  const [jobs, setJobs] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const noun = cfg.noun || cfg.title.toLowerCase();
+  const req = useRequest(() => Promise.all([
+    listRecords(kind),
+    cfg.employee ? listAllEmployees().then((r) => r?.employees || []) : Promise.resolve([]),
+    kind === 'candidates' ? listRecords('recruitment') : Promise.resolve([]),
+  ]), [kind]);
+  const [rows, employees, jobs] = req.data || [[], [], []];
+  const [status, setStatus] = useState('ALL');
+  const [q, setQ] = useState('');
   const [editing, setEditing] = useState(null);
-  const [formError, setFormError] = useState('');
-  const [saving, setSaving] = useState(false);
-  const [status, setStatus] = useState('');
-  const [page, setPage] = useState(1);
-  const [perPage, setPerPage] = useState(25);
-  /* Hire: the offered candidate on the drawer, with the joining date and employee ID asked. */
   const [hiring, setHiring] = useState(null);
-  const load = useCallback(async () => {
-    try {
-      const [records, people, vacancies] = await Promise.all([listRecords(kind), cfg.employee ? listAllEmployees() : null, kind === 'candidates' ? listRecords('recruitment') : null]);
-      setRows(records); setEmployees(people?.employees || []); setJobs(vacancies || []); setError('');
-    } catch (e) { setError(e.message || 'Could not load this module.'); }
-    finally { setLoading(false); }
-  }, [kind, cfg.employee]);
-  useEffect(() => { load(); }, [load]);
+  const tabsRef = useRef(null);
+  const tabIndicator = useTabIndicator(tabsRef, status);
   const names = useMemo(() => new Map(employees.map((e) => [e.id, e.name])), [employees]);
-  const all = useMemo(() => rows.map((r) => ({ ...r, employeeName: names.get(r.employeeId) || '', statusName: statusLabel(r.status), searchText: Object.values(r.details).join(' ') })), [rows, names]);
-  const inTab = useMemo(() => all.filter((r) => !status || r.status === status), [all, status]);
-  const search = useListSearch(inTab, ['title', 'employeeName', 'statusName', 'searchText']);
-  const columns = useColumnFilters();
-  const shown = columns.applyFilters(search.filtered, { title: (r) => r.title, employee: (r) => r.employeeName, dueDate: (r) => r.dueDate || '', status: (r) => r.statusName, ...Object.fromEntries(cfg.columns.map((key) => [key, (r) => String(r.details[key] ?? '')])) });
-  useResetPage(setPage, [status, search.query, columns.filters, perPage]);
-  const { pageRows, safePage, pageCount } = usePaged(shown, perPage, page);
-  const open = (row) => { setEditing(row); setFormError(''); };
-  const newRow = () => open({ title: '', status: cfg.statuses[0], employeeId: '', dueDate: '', details: Object.fromEntries(cfg.fields.map((f) => [f.key, f.type === 'number' ? (f.key === 'openings' ? 1 : 0) : f.options?.[0] || ''])) });
-  const save = async (e) => {
-    e.preventDefault(); setSaving(true); setFormError('');
-    try { await saveRecord(kind, editing); setEditing(null); notify.success(`${cfg.singular} saved.`); await load(); }
-    catch (err) { setFormError(err.message || 'Could not save.'); }
-    finally { setSaving(false); }
+  const detailValue = (row, key) => {
+    const f = cfg.fields.find((x) => x.key === key);
+    const v = row.details?.[key];
+    if (key === 'jobId') return jobs.find((j) => j.id === v)?.title || '';
+    if (f?.type === 'date') return day(v);
+    if (f?.type === 'select') return v ? statusLabel(v) : '';
+    return String(v ?? '');
   };
-  const hire = async (e) => {
-    e.preventDefault(); setSaving(true);
-    try {
-      const { employee } = await hireCandidate(hiring.row.id, { dateOfJoining: hiring.dateOfJoining, code: hiring.code || null });
-      notify.success(`${employee.name} is now an employee. Their joining checklist has started.`);
-      setHiring(null); await load();
-      if (openScreen) openScreen('checklists');
-    } catch (err) { notify.error(err.message || 'Not hired.'); }
-    finally { setSaving(false); }
-  };
+  const shown = useMemo(() => {
+    const needle = q.trim().toLowerCase();
+    return rows
+      .filter((r) => status === 'ALL' || r.status === status)
+      .filter((r) => !needle || [r.title, names.get(r.employeeId), statusLabel(r.status), ...Object.values(r.details || {})].some((v) => String(v || '').toLowerCase().includes(needle)));
+  }, [rows, status, q, names]);
+  const counts = Object.fromEntries(cfg.statuses.map((s) => [s, rows.filter((r) => r.status === s).length]));
+  const blank = () => ({ title: '', status: cfg.statuses[0], employeeId: '', dueDate: '', details: Object.fromEntries(cfg.fields.map((f) => [f.key, f.type === 'number' ? (f.key === 'openings' ? '1' : '0') : f.type === 'select' ? f.options?.[0] || '' : ''])) });
   const remove = async (row) => {
-    if (!(await confirmDialog({ title: `Delete ${row.title}?`, message: 'Only closed, cancelled, archived, or draft records can be deleted. Active records should be closed first.', confirmLabel: 'Delete' }))) return;
-    try { await deleteRecord(kind, row.id); notify.success('Record deleted.'); await load(); } catch (e) { notify.error(e.message); }
+    if (!(await confirmDialog({ title: `Delete ${row.title}?`, message: 'Only closed, cancelled, archived or draft records can be deleted. Close an active one first.', confirmLabel: 'Delete' }))) return;
+    try { await deleteRecord(kind, row.id); notify.success('Deleted.'); req.reload(); } catch (e) { notify.error(String(e?.message || 'Not deleted.')); }
   };
-  if (loading) return <SkeletonCard lines={6} />;
-  const tabs = [{ value: '', label: 'All', tone: 'all' }, ...cfg.statuses.map((s) => ({ value: s, label: statusLabel(s), tone: ['COMPLETED', 'PUBLISHED', 'ACTIVE', 'HIRED', 'RESOLVED'].includes(s) ? 'paid' : 'draft' }))];
-  const counts = Object.fromEntries(tabs.map((t) => [t.value, t.value ? rows.filter((r) => r.status === t.value).length : rows.length]));
-  const detailValue = (row, key) => key === 'jobId' ? jobs.find((j) => j.id === row.details.jobId)?.title || '—' : String(row.details[key] ?? '') || '—';
-  return <DocumentListShell title={cfg.title} entity="people" description={cfg.description} tight phoneCompact
-    search={{ value: search.query, onChange: search.setQuery, placeholder: `Search ${(cfg.noun || cfg.title.toLowerCase())}…` }}
-    primary={<button type="button" className="ui-btn ui-btn-primary" onClick={newRow} disabled={Boolean(error)}><Plus size={16} /> New {cfg.singular}</button>}
-    tabs={tabs} statusValue={status} statusCounts={counts} onStatusChange={setStatus}
-    moreItems={[exportMenuItem(`Export ${(cfg.noun || cfg.title.toLowerCase())}`)]} onMoreSelect={(key) => {
-      const format = exportFormatFromKey(key);
-      if (format) runListExport({ format, title: cfg.title, fileName: cfg.title, label: cfg.title, rows: shown.map((r) => ({ ...r, ...r.details })), columns: [{ key: 'title', label: 'Name' }, { key: 'statusName', label: 'Status' }, ...(cfg.employee ? [{ key: 'employeeName', label: 'Employee' }] : []), { key: 'dueDate', label: 'Due date' }, ...cfg.fields.map((f) => ({ key: f.key, label: f.label }))] });
-    }}>
-    {error ? <div className="p-4" role="alert"><p>{error}</p><button className="ui-btn mt-3" onClick={load}>Retry</button></div> : <>
-      <div className="ui-table-scroll"><table className="ui-table ui-table-sticky w-full"><thead><tr>
-        <ColumnHeader label="Name" col="title" state={columns} />
-        {cfg.employee && <ColumnHeader label="Employee" col="employee" state={columns} />}
-        {cfg.columns.map((key) => <ColumnHeader key={key} label={cfg.fields.find((f) => f.key === key)?.label || key} col={key} state={columns} />)}
-        <ColumnHeader label="Status" col="status" state={columns} />
-        <ColumnHeader label="Due date" col="dueDate" state={columns} />
-        <th scope="col">Updated</th><th scope="col"><span className="sr-only">Actions</span></th>
-      </tr></thead><tbody className="ui-rows">{pageRows.map((r) => <tr key={r.id}>
-        <td className="ui-col-entity"><button className="ui-link text-left" onClick={() => open({ ...r, details: { ...r.details } })}>{r.title}</button></td>
-        {cfg.employee && <td>{r.employeeName || 'Company plan'}</td>}
-        {cfg.columns.map((key) => <td key={key} className="max-w-60 truncate" title={detailValue(r, key)}>{detailValue(r, key)}</td>)}
-        <td><span className="ui-pill ui-pill-neutral">{r.statusName}</span></td><td>{r.dueDate || '—'}</td><td>{r.updatedAt.slice(0, 10)}</td>
-        <td className="whitespace-nowrap">
-          {kind === 'candidates' && !r.employeeId && ['OFFERED', 'HIRED'].includes(r.status) ? <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm mr-1" onClick={() => setHiring({ row: r, dateOfJoining: new Date().toISOString().slice(0, 10), code: '' })}><UserPlus size={14} /> Hire</button> : null}
-          {kind === 'candidates' && r.employeeId ? <span className="ui-caption mr-2">Employee</span> : null}
-          <button className="ui-icon-btn" aria-label={`Delete ${r.title}`} onClick={() => remove(r)}><Trash2 size={16} /></button>
-        </td>
-      </tr>)}{!shown.length && <tr><td colSpan={(cfg.employee ? 6 : 5) + cfg.columns.length}><EmptyState title={rows.length ? 'No matching records' : `No ${(cfg.noun || cfg.title.toLowerCase())} yet`} description={rows.length ? 'Change the search or filters to see more records.' : cfg.description} routes={!rows.length ? [{ label: `New ${cfg.singular}`, onSelect: newRow }] : undefined} /></td></tr>}</tbody></table></div>
-      <Pagination total={shown.length} page={safePage} perPage={perPage} pageCount={pageCount} onPage={setPage} onPerPage={setPerPage} />
-    </>}
-    <Drawer open={Boolean(editing)} onClose={() => { if (!saving) setEditing(null); }} title={`${editing?.id ? 'Edit' : 'New'} ${cfg.singular}`} widthClass="w-[min(40rem,96vw)]" actions={<><button type="button" className="ui-btn" disabled={saving} onClick={() => setEditing(null)}>Cancel</button><button type="submit" form={formId} className="ui-btn ui-btn-primary" disabled={saving}>{saving ? 'Saving…' : 'Save'}</button></>}>
-      {editing && <form id={formId} className="space-y-4" onSubmit={save}>
-        <label className="block"><span className="ui-label">{kind === 'candidates' ? 'Candidate name' : 'Name'} *</span><input className="ui-input w-full" required maxLength={200} value={editing.title} onChange={(e) => setEditing({ ...editing, title: e.target.value })} /></label>
-        <label className="block"><span className="ui-label">Status</span><select className="ui-select w-full" value={editing.status} onChange={(e) => setEditing({ ...editing, status: e.target.value })}>{cfg.statuses.map((s) => <option key={s} value={s}>{statusLabel(s)}</option>)}</select></label>
-        {cfg.employee && <label className="block"><span className="ui-label">Employee{cfg.requiredEmployee ? ' *' : ''}</span><select className="ui-select w-full" required={cfg.requiredEmployee} value={editing.employeeId || ''} onChange={(e) => setEditing({ ...editing, employeeId: e.target.value })}><option value="">{cfg.requiredEmployee ? 'Select employee' : 'No employee / company plan'}</option>{employees.map((p) => <option key={p.id} value={p.id}>{p.name}{p.code ? ` (${p.code})` : ''}</option>)}</select></label>}
-        <label className="block"><span className="ui-label">Due date</span><input className="ui-input w-full" type="date" value={editing.dueDate || ''} onChange={(e) => setEditing({ ...editing, dueDate: e.target.value })} /></label>
-        {cfg.fields.map((f) => { const change = (e) => setEditing({ ...editing, details: { ...editing.details, [f.key]: e.target.value } }); const common = { required: f.required, value: editing.details[f.key] ?? '', onChange: change }; return <label className="block" key={f.key}><span className="ui-label">{f.label}{f.required ? ' *' : ''}</span>{f.type === 'textarea' ? <textarea className="ui-input w-full min-h-28" rows={4} maxLength={10000} {...common} /> : ['select', 'job'].includes(f.type) ? <select className="ui-select w-full" {...common}>{f.type === 'job' ? <><option value="">Select job</option>{jobs.map((j) => <option key={j.id} value={j.id}>{j.title}</option>)}</> : f.options.map((s) => <option key={s} value={s}>{statusLabel(s)}</option>)}</select> : <input className="ui-input w-full" type={f.type} min={f.type === 'number' ? (f.key === 'openings' ? 1 : 0) : undefined} max={f.key === 'progress' ? 100 : undefined} step={f.key === 'hours' ? '0.25' : undefined} maxLength={2000} {...common} />}</label>; })}
-        {formError && <p role="alert" className="text-sm" style={{ color: 'rgb(var(--neg))' }}>{formError}</p>}
+  const exportRows = () => runListExport({
+    format: 'csv', title: cfg.title, fileName: cfg.title, label: cfg.title,
+    rows: shown.map((r) => ({ ...r, ...r.details, statusName: statusLabel(r.status), employeeName: names.get(r.employeeId) || '' })),
+    columns: [{ key: 'title', label: 'Name' }, { key: 'statusName', label: 'Status' }, ...(cfg.employee ? [{ key: 'employeeName', label: 'Employee' }] : []), { key: 'dueDate', label: 'Due date' }, ...cfg.fields.map((f) => ({ key: f.key, label: f.label }))],
+  });
+  const columns = [
+    { key: 'title', label: kind === 'candidates' ? 'Candidate' : 'Name', always: true, render: (r) => <span className="font-medium">{r.title}</span> },
+    ...(cfg.employee ? [{ key: 'employee', label: 'Employee', render: (r) => names.get(r.employeeId) || <span className="ui-muted">{NOBODY[kind] || 'Nobody'}</span> }] : []),
+    ...cfg.columns.map((key) => ({ key, label: cfg.fields.find((f) => f.key === key)?.label || key, render: (r) => <span className="block max-w-60 truncate" title={detailValue(r, key)}>{detailValue(r, key) || '—'}</span> })),
+    { key: 'status', label: 'Status', render: (r) => <span className={`ui-pill ${POSITIVE.includes(r.status) ? 'ui-pill-pos' : 'ui-pill-neutral'}`}>{statusLabel(r.status)}</span> },
+    { key: 'due', label: 'Due date', render: (r) => <span className="tabular-nums whitespace-nowrap">{day(r.dueDate) || '—'}</span> },
+  ];
+  const rowActions = (r) => [
+    { key: 'edit', label: 'Edit', onSelect: () => setEditing({ ...r, details: { ...r.details } }) },
+    kind === 'candidates' && !r.employeeId && ['OFFERED', 'HIRED'].includes(r.status) ? { key: 'hire', label: 'Hire', onSelect: () => setHiring(r) } : null,
+    { key: 'delete', label: 'Delete', onSelect: () => remove(r) },
+  ];
 
-      </form>}
+  return (
+    <div className="space-y-6">
+      <PageHeader breadcrumb={[{ label: 'People' }, { label: cfg.title }]} title={cfg.title}
+        actions={<>
+          <button type="button" className="ui-btn ui-btn-secondary" onClick={exportRows} disabled={!shown.length}><Download size={16} aria-hidden="true" /> Export</button>
+          <button type="button" className="ui-btn ui-btn-primary" onClick={() => setEditing(blank())} disabled={Boolean(req.error && !req.data)}><Plus size={16} aria-hidden="true" /> New {cfg.singular}</button>
+        </>} />
+      <div ref={tabsRef} role="tablist" aria-label={cfg.title} className={`ui-record-tablist ${tabIndicator ? 'has-indicator' : ''}`}>
+        {[['ALL', 'All', rows.length], ...cfg.statuses.map((s) => [s, statusLabel(s), counts[s]])].map(([k, l, n]) => (
+          <button key={k} type="button" role="tab" aria-selected={status === k} className={`ui-tab ${status === k ? 'is-active' : ''}`} onClick={() => setStatus(k)}>{l}{n ? <span className="ui-tab-count tabular-nums">{n}</span> : null}</button>
+        ))}
+        {tabIndicator}
+      </div>
+      {req.error && !req.data ? <ErrorState error={req.error} onRetry={req.reload} /> : (
+        <DataTable label={cfg.title} columns={columns} rows={shown} loading={req.loading} refreshing={req.refreshing}
+          total={shown.length} pageSize={Math.max(25, shown.length)} noun={noun}
+          onRowClick={(r) => setEditing({ ...r, details: { ...r.details } })} rowActions={rowActions}
+          card={(r) => <span className="min-w-0 flex-1"><span className="flex items-center justify-between gap-2"><span className="truncate font-medium">{r.title}</span><span className={`ui-pill ${POSITIVE.includes(r.status) ? 'ui-pill-pos' : 'ui-pill-neutral'}`}>{statusLabel(r.status)}</span></span><span className="block truncate ui-caption">{[cfg.employee ? names.get(r.employeeId) || NOBODY[kind] || 'Nobody' : null, ...cfg.columns.map((k) => detailValue(r, k))].filter(Boolean).join(' · ')}</span></span>}
+          empty={q || status !== 'ALL'
+            ? <EmptyState kind="filtered" title={`No ${noun} match`} description="Nothing here matches the search or the tab." />
+            : <EmptyState title={`No ${noun} yet`} description={cfg.description} routes={[{ label: `New ${cfg.singular}`, onSelect: () => setEditing(blank()) }]} />}
+          toolbar={<SearchField value={q} onSearch={setQ} placeholder={`Search ${noun}`} label={`Search ${noun}`} className="w-full sm:w-80" />} />
+      )}
+      {editing ? <RecordDrawer kind={kind} cfg={cfg} rows={rows} value={editing} employees={employees} jobs={jobs} onClose={() => setEditing(null)} onDone={() => { setEditing(null); req.reload(); }} /> : null}
+      {hiring ? <HireDrawer row={hiring} onClose={() => setHiring(null)} onDone={() => { setHiring(null); req.reload(); openScreen?.('checklists'); }} /> : null}
+    </div>
+  );
+}
+
+function RecordDrawer({ kind, cfg, rows, value, employees, jobs, onClose, onDone }) {
+  const initial = useMemo(() => value, [value]);
+  const [form, setForm] = useState(value);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+  const dirty = JSON.stringify(form) !== JSON.stringify(initial);
+  const setDetail = (k, v) => setForm((f) => ({ ...f, details: { ...f.details, [k]: v } }));
+  const save = async () => {
+    const missing = !form.title.trim() ? (kind === 'candidates' ? 'the candidate’s name' : 'a name')
+      : cfg.requiredEmployee && !form.employeeId ? 'the employee'
+        : cfg.fields.find((f) => f.required && !String(form.details[f.key] ?? '').trim())?.label?.toLowerCase();
+    if (missing) { setError({ message: `Add ${missing}.` }); return; }
+    setBusy(true);
+    setError(null);
+    try {
+      const details = Object.fromEntries(cfg.fields.map((f) => [f.key, f.type === 'number' ? Number(form.details[f.key] || 0) : form.details[f.key] ?? '']));
+      await saveRecord(kind, { ...form, title: form.title.trim(), details });
+      notify.success(`${cfg.singular.replace(/^./, (c) => c.toUpperCase())} saved.`);
+      onDone();
+    } catch (e) { setError(e); } finally { setBusy(false); }
+  };
+  /* What other records of this register already say in a field, most used first. */
+  const used = (key) => {
+    const n = new Map();
+    for (const r of rows) { const v = String(r.details?.[key] ?? '').trim(); if (v) n.set(v, (n.get(v) || 0) + 1); }
+    return [...n].sort((a, b) => b[1] - a[1]).map(([v]) => v);
+  };
+  const fieldOf = (f) => {
+    const v = form.details[f.key] ?? '';
+    const id = `ws-${f.key}`;
+    const label = `${f.label}${f.required ? ' *' : ''}`;
+    if (f.type === 'textarea') return <label key={f.key} className="block sm:col-span-2"><span className="ui-label">{label}</span><textarea id={id} className="ui-input w-full" rows={4} maxLength={10000} value={v} onChange={(e) => setDetail(f.key, e.target.value)} /></label>;
+    if (f.type === 'date') return <div key={f.key}><label className="ui-label" htmlFor={id}>{label}</label><DatePicker id={id} value={v} onChange={(d) => setDetail(f.key, d || '')} /></div>;
+    if (f.type === 'select') return <div key={f.key}><PopupSelect showValueSubtext={false} label={label} value={v} onChange={(s) => setDetail(f.key, s || '')} options={f.options.map((s) => ({ value: s, label: statusLabel(s) }))} /></div>;
+    if (f.type === 'job') return <div key={f.key} className="sm:col-span-2"><PopupSelect showValueSubtext={false} label={label} value={v} placeholder="Choose a job…" alwaysSearch={jobs.length > 8} onChange={(s) => setDetail(f.key, s || '')} options={jobs.map((j) => ({ value: j.id, label: j.title }))} /></div>;
+    if (f.type === 'number') return <label key={f.key} className="block"><span className="ui-label">{label}</span><input id={id} className="ui-input w-full tabular-nums" inputMode="decimal" value={v} onChange={(e) => setDetail(f.key, e.target.value.replace(/[^\d.]/g, ''))} /></label>;
+    if (f.type === 'text' && !NO_SUGGEST.has(f.key)) return <label key={f.key} className="block"><span className="ui-label">{label}</span><SuggestInput id={id} maxLength={2000} value={v} onChange={(t) => setDetail(f.key, t)} suggestions={used(f.key)} /></label>;
+    return <label key={f.key} className="block"><span className="ui-label">{label}</span><input id={id} className="ui-input w-full" type={f.type === 'email' ? 'email' : f.type === 'tel' ? 'tel' : f.type === 'url' ? 'url' : 'text'} inputMode={f.type === 'email' ? 'email' : f.type === 'tel' ? 'tel' : undefined} maxLength={2000} value={v} onChange={(e) => setDetail(f.key, e.target.value)} /></label>;
+  };
+  return (
+    <Drawer open onClose={onClose} widthClass={SHEET} title={`${value.id ? 'Edit' : 'New'} ${cfg.singular}`} dirty={dirty}
+      footer={<><button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button><button type="button" className="ui-btn ui-btn-primary" disabled={busy || !dirty} onClick={save}>{busy ? 'Saving…' : 'Save'}</button></>}>
+      <form className="ui-form-grid" onSubmit={(e) => { e.preventDefault(); save(); }}>
+        {error ? <div className="sm:col-span-2"><ErrorState error={error?.status ? error : null} compact title={error?.status ? undefined : error.message} body={error?.status && error.status < 500 ? error.message : undefined} /></div> : null}
+        <label className="block sm:col-span-2"><span className="ui-label">{kind === 'candidates' ? 'Candidate name' : 'Name'} *</span><input className="ui-input w-full" maxLength={200} value={form.title} autoFocus onChange={(e) => setForm({ ...form, title: e.target.value })} /></label>
+        <div><PopupSelect showValueSubtext={false} label="Status" value={form.status} onChange={(s) => setForm({ ...form, status: s || form.status })} options={cfg.statuses.map((s) => ({ value: s, label: statusLabel(s) }))} /></div>
+        <div><label className="ui-label" htmlFor="ws-due">Due date</label><DatePicker id="ws-due" value={form.dueDate || ''} onChange={(d) => setForm({ ...form, dueDate: d || '' })} /></div>
+        {cfg.employee ? (
+          <div className="sm:col-span-2"><PopupSelect showValueSubtext={false} label={`Employee${cfg.requiredEmployee ? ' *' : ''}`} value={form.employeeId || ''} placeholder={cfg.requiredEmployee ? 'Choose…' : NOBODY[kind] || 'Nobody'} alwaysSearch
+            onChange={(v) => setForm({ ...form, employeeId: v || '' })}
+            options={[...(cfg.requiredEmployee ? [] : [{ value: '', label: NOBODY[kind] || 'Nobody' }]), ...employees.filter((p) => p.status !== 'LEFT' || p.id === form.employeeId).map((p) => ({ value: p.id, label: p.code ? `${p.name} (${p.code})` : p.name }))]} /></div>
+        ) : null}
+        {cfg.fields.map(fieldOf)}
+      </form>
     </Drawer>
-  <Drawer open={Boolean(hiring)} onClose={() => { if (!saving) setHiring(null); }} title={`Hire ${hiring?.row?.title || ''}`} description="They become an employee with their email and phone, in the job's department, and their joining checklist starts." actions={<><button type="button" className="ui-btn" disabled={saving} onClick={() => setHiring(null)}>Cancel</button><button type="submit" form={`${formId}-hire`} className="ui-btn ui-btn-primary" disabled={saving || !hiring?.dateOfJoining}>{saving ? 'Hiring…' : 'Hire'}</button></>}>
-      {hiring ? <form id={`${formId}-hire`} onSubmit={hire} className="space-y-4">
-        <label className="block"><span className="ui-label">Joining date</span><input type="date" className="ui-input w-full" value={hiring.dateOfJoining} onChange={(e) => setHiring((h) => ({ ...h, dateOfJoining: e.target.value }))} required /></label>
-        <label className="block"><span className="ui-label">Employee ID (optional)</span><input className="ui-input w-full" value={hiring.code} onChange={(e) => setHiring((h) => ({ ...h, code: e.target.value }))} maxLength={40} /></label>
-      </form> : null}
+  );
+}
+
+/* An offered candidate becomes an employee: their joining date and, if the company sets it, their employee ID. */
+function HireDrawer({ row, onClose, onDone }) {
+  const [dateOfJoining, setDate] = useState(todayIst());
+  /* The company's next employee ID, as on the hire form; still editable. */
+  const next = useRequest(() => nextEmployeeCode().catch(() => ''), []);
+  const [typed, setCode] = useState(null);
+  const code = typed ?? next.data ?? '';
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+  const hire = async () => {
+    if (!dateOfJoining) { setError({ message: 'Choose the joining date.' }); return; }
+    setBusy(true);
+    setError(null);
+    try {
+      const { employee } = await hireCandidate(row.id, { dateOfJoining, code: code.trim() || null });
+      notify.success(`${employee.name} is now an employee. Their joining checklist has started.`);
+      onDone();
+    } catch (e) { setError(e); } finally { setBusy(false); }
+  };
+  return (
+    <Drawer open onClose={onClose} widthClass="w-[min(36rem,96vw)] ui-drawer-sheet" title={`Hire ${row.title}`}
+      footer={<><button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button><button type="button" className="ui-btn ui-btn-primary" disabled={busy} onClick={hire}>{busy ? 'Hiring…' : 'Hire'}</button></>}>
+      <form className="ui-form-grid" onSubmit={(e) => { e.preventDefault(); hire(); }}>
+        {error ? <div className="sm:col-span-2"><ErrorState error={error?.status ? error : null} compact title={error?.status ? undefined : error.message} body={error?.status && error.status < 500 ? error.message : undefined} /></div> : null}
+        <div><label className="ui-label" htmlFor="hire-date">Joining date *</label><DatePicker id="hire-date" value={dateOfJoining} onChange={(v) => setDate(v || '')} /></div>
+        <label className="block"><span className="ui-label">Employee ID</span><input className="ui-input w-full" maxLength={40} value={code} onChange={(e) => setCode(e.target.value)}/></label>
+      </form>
     </Drawer>
-  </DocumentListShell>;
+  );
 }
