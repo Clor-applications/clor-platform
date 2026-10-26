@@ -90,23 +90,49 @@ export async function applyDueChanges(today = todayIst(), runId = `run_${Date.no
   let skipped = 0;
   for (const rows of byPerson.values()) {
     const { orgId, accountId, employeeId } = rows[0];
-    await runInTenant(orgId, async () => {
-      const claimed = await peoplePrisma.scheduledChange.updateMany({ where: { id: { in: rows.map((r) => r.id) }, status: 'PENDING' }, data: { status: 'APPLIED', appliedAt: new Date(), appliedRunId: runId } });
-      if (!claimed.count) {
-        skipped += rows.length;
-        return;
-      }
-      const mine = await peoplePrisma.scheduledChange.findMany({ where: { id: { in: rows.map((r) => r.id) }, appliedRunId: runId } });
-      const existing = await peoplePrisma.employee.findFirst({ where: { id: employeeId, orgId } });
-      if (!existing) return;
-      const data: Record<string, string | null> = {};
-      for (const c of mine) data[c.field] = c.toValue;
-      if (data.departmentId !== undefined) data.department = (await labelFor(orgId, 'departmentId', data.departmentId)) ?? null;
-      if (data.jobPositionId !== undefined) data.designation = (await labelFor(orgId, 'jobPositionId', data.jobPositionId)) ?? null;
-      const actor: Actor = { accountId, orgId, userId: mine[0].requestedByUserId, source: 'SCHEDULED', correlationId: mine[0].correlationId, reason: mine[0].reason, requestId: mine[0].requestId };
-      await updateEmployee(actor, existing, data as any, { effectiveDate: mine[0].effectiveOn });
-      applied += mine.length;
-    });
+    /* One person's failure does not stop the run, and their change is not lost: it goes back to waiting (Workforce final audit W-A8). */
+    try {
+      await runInTenant(orgId, async () => {
+        const claimed = await peoplePrisma.scheduledChange.updateMany({ where: { id: { in: rows.map((r) => r.id) }, status: 'PENDING' }, data: { status: 'APPLIED', appliedAt: new Date(), appliedRunId: runId } });
+        if (!claimed.count) {
+          skipped += rows.length;
+          return;
+        }
+        const mine = await peoplePrisma.scheduledChange.findMany({ where: { id: { in: rows.map((r) => r.id) }, appliedRunId: runId } });
+        const existing = await peoplePrisma.employee.findFirst({ where: { id: employeeId, orgId } });
+        if (!existing) return;
+        /* Someone who has left is not moved any more (W1): their waiting changes are cancelled. */
+        if (existing.status === 'LEFT') {
+          await peoplePrisma.scheduledChange.updateMany({ where: { id: { in: mine.map((c) => c.id) } }, data: { status: 'CANCELLED', cancelledAt: new Date(), appliedAt: null } });
+          skipped += mine.length;
+          return;
+        }
+        const data: Record<string, string | null> = {};
+        for (const c of mine) data[c.field] = c.toValue;
+        /* Nobody is put under a manager who has since left. */
+        for (const k of ['reportingManagerId', 'dottedManagerId'] as const) {
+          if (!data[k]) continue;
+          const m = await peoplePrisma.employee.findFirst({ where: { id: data[k]!, orgId }, select: { status: true } });
+          if (!m || m.status === 'LEFT') {
+            delete data[k];
+            await peoplePrisma.scheduledChange.updateMany({ where: { id: { in: mine.filter((c) => c.field === k).map((c) => c.id) } }, data: { status: 'CANCELLED', cancelledAt: new Date(), appliedAt: null } });
+          }
+        }
+        if (!Object.keys(data).length) return;
+        if (data.departmentId !== undefined) data.department = (await labelFor(orgId, 'departmentId', data.departmentId)) ?? null;
+        if (data.jobPositionId !== undefined) data.designation = (await labelFor(orgId, 'jobPositionId', data.jobPositionId)) ?? null;
+        const actor: Actor = { accountId, orgId, userId: mine[0].requestedByUserId, source: 'SCHEDULED', correlationId: mine[0].correlationId, reason: mine[0].reason, requestId: mine[0].requestId };
+        try {
+          await updateEmployee(actor, existing, data as any, { effectiveDate: mine[0].effectiveOn });
+        } catch (err) {
+          await peoplePrisma.scheduledChange.updateMany({ where: { id: { in: mine.map((c) => c.id) }, status: 'APPLIED' }, data: { status: 'PENDING', appliedAt: null, appliedRunId: null } });
+          throw err;
+        }
+        applied += mine.length;
+      });
+    } catch (err) {
+      console.error(`[scheduled-changes] ${orgId} ${employeeId}:`, err instanceof Error ? err.message : err);
+    }
   }
   return { due: due.length, applied, skipped };
 }

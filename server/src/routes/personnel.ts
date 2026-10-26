@@ -13,7 +13,7 @@ import { istDate } from '../services/attendance/compute.js';
 import { pushEmployeeToReaders, revokeFromReaders } from '../services/attendance/readerSync.js';
 import { deleteToBin } from '../services/recycleBin.js';
 import { openNextEpisode } from '../services/people/episodes.js';
-import { leaveEmployee } from '../services/people/lifecycle/leaving.js';
+import { LEAVING_TYPES, leaveEmployee } from '../services/people/lifecycle/leaving.js';
 import { correlationOf, employeeSummary } from '../services/people/employees.js';
 import { diffEmployee, writeChangeLog } from '../services/people/changeLog.js';
 import { writeEvent } from '../services/people/outbox.js';
@@ -185,7 +185,7 @@ personnelRouter.delete(`${base}/contractors/:id`, can(PermissionAction.DELETE, R
 // Resignation and rehire
 // ---------------------------------------------------------------------------
 
-export const LEAVING_TYPES = ['RESIGNED', 'TERMINATED', 'RETIRED', 'ABSCONDED', 'CONTRACT_ENDED', 'DECEASED'] as const;
+export { LEAVING_TYPES };
 
 /**
  * Someone leaves: last day, why, and whether they are still expected at work
@@ -207,8 +207,10 @@ personnelRouter.post(`${base}/employees/:id/resign`, can(PermissionAction.EDIT, 
   const existing = await peoplePrisma.employee.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
   if (!existing || !inScope(await teamScope(req), existing.id)) return res.status(404).json({ error: 'No such employee.' });
   if (existing.status === 'LEFT') return res.status(409).json({ error: 'This person has already left.' });
-  if (existing.dateOfJoining && parsed.data.lastDay < existing.dateOfJoining) return res.status(400).json({ error: 'Somebody cannot leave before they joined.' });
-  const r = await leaveEmployee({ accountId, orgId, userId: req.auth!.userId }, existing as any, { lastDay: parsed.data.lastDay, leavingType: parsed.data.leavingType, reason: blank(parsed.data.reason) });
+  /* Did not join: the day they were to start closes the record, whatever date was sent (W5). A duplicate closes today. */
+  const lastDay = parsed.data.leavingType === 'NOT_JOINED' ? existing.dateOfJoining || parsed.data.lastDay : parsed.data.lastDay;
+  if (parsed.data.leavingType !== 'NOT_JOINED' && parsed.data.leavingType !== 'DUPLICATE' && existing.dateOfJoining && lastDay < existing.dateOfJoining) return res.status(400).json({ error: 'Somebody cannot leave before they joined. If they never came, choose Did not join.' });
+  const r = await leaveEmployee({ accountId, orgId, userId: req.auth!.userId }, existing as any, { lastDay, leavingType: parsed.data.leavingType, reason: blank(parsed.data.reason) });
   res.json({ employee: r.employee, readers: r.readers });
 });
 

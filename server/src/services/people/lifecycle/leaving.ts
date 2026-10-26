@@ -7,6 +7,8 @@ import { closeEpisode } from '../episodes.js';
 import { recordChanges } from '../employmentHistory.js';
 import { READER_ACCESS_ITEM, startChecklist } from '../checklists.js';
 import { writeEvent } from '../outbox.js';
+import { closeOutFor } from './closeOut.js';
+import { peopleEvent } from '../documentReminders.js';
 import { employeeStatusChanged } from '../../portalSessions.js';
 import { activeRule, saveRule, submitRequest } from '../approvals/engine.js';
 import { writeChangeLog, type Actor } from '../changeLog.js';
@@ -38,14 +40,17 @@ async function logApproved(tx: Parameters<typeof writeChangeLog>[0], who: Who, e
   await writeChangeLog(tx, actor, { kind: 'Employee', id: existing.id, employeeId: existing.id }, lines);
 }
 const viaRequest = (who: Who) => (who.requestId ? ' (approved request)' : '');
-export const LEAVING_TYPES = ['RESIGNED', 'TERMINATED', 'RETIRED', 'ABSCONDED', 'CONTRACT_ENDED', 'DECEASED'] as const;
+export const LEAVING_TYPES = ['RESIGNED', 'TERMINATED', 'RETIRED', 'ABSCONDED', 'CONTRACT_ENDED', 'DECEASED', 'NOT_JOINED', 'DUPLICATE'] as const;
+/* Someone who never came, or a second record of the same person: closed, but no final settlement is asked of Payroll (Workforce final audit W5, W16). */
+export const NO_SETTLEMENT = new Set(['NOT_JOINED', 'DUPLICATE']);
 const todayIst = (now = new Date()) => new Date(now.getTime() + 330 * 60_000).toISOString().slice(0, 10);
 
 type Existing = { id: string; status: string; code: string | null; devicePin: string | null; name?: string | null; currentEpisodeSeq?: number | null; dateOfJoining?: string | null; createdAt?: Date | null } & Record<string, unknown>;
 type Input = { lastDay: string; leavingType: string; reason: string | null };
 
 export async function leaveEmployee(who: Who, existing: Existing, input: Input, opts: { now?: Date } = {}) {
-  if (input.lastDay > todayIst(opts.now)) return scheduleLeaving(who, existing, input);
+  /* The last working day is worked: someone whose last day is today stays on notice, on the doors and in attendance until it is over (W-A1). An offer withdrawn or a duplicate closes at once. */
+  if (input.lastDay >= todayIst(opts.now) && !NO_SETTLEMENT.has(input.leavingType)) return scheduleLeaving(who, existing, input);
   return finishLeaving(who, existing, input);
 }
 
@@ -73,31 +78,53 @@ async function finishLeaving(who: Who, existing: Existing, input: Input) {
     });
     await logApproved(tx, who, existing, row);
     await closeEpisode({ accountId, orgId }, existing, { endDate: input.lastDay, endType: input.leavingType, endReason: input.reason }, tx);
-    await writeEvent(tx, { accountId, orgId, correlationId: `leave_${row.id}_${input.lastDay}` }, 'people.employee.separated.v1', { lastWorkingDay: input.lastDay, type: input.leavingType, settlementRequested: true, employee: { id: row.id, code: row.code, name: row.name } }, row.id);
+    await writeEvent(tx, { accountId, orgId, correlationId: `leave_${row.id}_${input.lastDay}` }, 'people.employee.separated.v1', { lastWorkingDay: input.lastDay, type: input.leavingType, settlementRequested: !NO_SETTLEMENT.has(input.leavingType), employee: { id: row.id, code: row.code, name: row.name } }, row.id);
     return row;
   });
   /* A-33: gone, their employee-app sign-ins end. */
   await employeeStatusChanged(employee, existing.status, 'LEFT', who.userId ? { type: 'USER', id: who.userId } : { type: 'SYSTEM', label: 'leaving' });
   await recordChanges({ accountId, orgId, userId: who.userId }, existing, employee, { source: 'RESIGNATION', effectiveDate: input.lastDay, note: `${existing.status === 'ON_NOTICE' ? 'Last working day reached' : input.reason || input.leavingType.replace(/_/g, ' ').toLowerCase()}${viaRequest(who)}` });
   const removed = await revokeFromReaders(orgId, existing, who.userId);
+  const actor: Actor = { accountId, orgId, userId: who.userId, source: who.source || 'SYSTEM', correlationId: who.correlationId || `leave_${employee.id}_${input.lastDay}`, reason: `${employee.name} left` };
+  /* Nothing goes on acting on them: dated changes and requests closed, their team moved up a line, their position freed (W1, W4, W12). */
+  await closeOutFor(actor, employee.id);
+  /* A profile link sent to them stops working (W5). */
+  await peoplePrisma.joinInvite.updateMany({ where: { orgId, employeeId: employee.id, status: { in: ['SENT', 'STARTED'] } }, data: { status: 'EXPIRED' } });
+  if (NO_SETTLEMENT.has(input.leavingType)) {
+    /* Never came, or not a real second person: their joining plan is closed as not needed, and no leaving plan starts. */
+    await peoplePrisma.checklistTask.updateMany({ where: { orgId, employeeId: employee.id, doneAt: null }, data: { doneAt: new Date(), doneByUserId: who.userId, note: input.leavingType === 'NOT_JOINED' ? 'Not needed: did not join.' : 'Not needed: duplicate record.' } });
+    return { employee, readers: removed.readers, scheduled: false as const };
+  }
   await startChecklist({ accountId, orgId, userId: who.userId }, employee, 'LEAVING', input.lastDay, { done: [READER_ACCESS_ITEM] });
   /* The plan may have started on notice: the reader item is ticked now that it is done. */
   await peoplePrisma.checklistTask.updateMany({ where: { orgId, employeeId: employee.id, kind: 'LEAVING', title: READER_ACCESS_ITEM, doneAt: null }, data: { doneAt: new Date(), doneByUserId: who.userId, note: 'Removed from every reader by CLOR.' } });
+  /* A CLOR sign-in is not turned off by CLOR on its own (it may also be someone's admin access): HR gets the task (W-A5). */
+  if (employee.userId && !(await peoplePrisma.checklistTask.count({ where: { orgId, employeeId: employee.id, kind: 'LEAVING', title: { startsWith: 'Turn off' } } }))) {
+    await startChecklist({ accountId, orgId, userId: who.userId }, employee, 'LEAVING', input.lastDay, { items: [{ title: `Turn off ${employee.name}’s CLOR sign-in`, owner: 'HR', dueDays: 0, note: 'Settings, Users & Security. Hand their approvals and tasks to someone first.' }] });
+  }
+  /* Who looks after people hears it, however the leaving came about: the form, an approval or the notice running out (W-A14). */
+  void peopleEvent(accountId, orgId, 'people.left', employee, who.userId);
   return { employee, readers: removed.readers, scheduled: false as const };
 }
 
 /** The day the notice ends: everyone on notice whose last day has come leaves now. Returns how many. */
 export async function runSeparations(now = new Date()) {
   const today = todayIst(now);
-  const due = await outsideTenant('job: separations', () => peoplePrisma.employee.findMany({ where: { status: 'ON_NOTICE', dateOfLeaving: { not: null, lte: today }, leavingType: { not: null } }, select: { id: true, orgId: true, accountId: true } }));
+  /* The day after the last working day (W-A1); a leaving type is not required (a record put on notice another way still leaves, as Resigned) (W-A2). */
+  const due = await outsideTenant('job: separations', () => peoplePrisma.employee.findMany({ where: { status: 'ON_NOTICE', dateOfLeaving: { not: null, lt: today } }, select: { id: true, orgId: true, accountId: true } }));
   let done = 0;
   for (const e of due) {
-    await runInTenant(e.orgId, async () => {
-      const existing = await peoplePrisma.employee.findFirst({ where: { id: e.id, orgId: e.orgId } });
-      if (!existing || existing.status !== 'ON_NOTICE' || !existing.dateOfLeaving) return;
-      await finishLeaving({ accountId: e.accountId, orgId: e.orgId, userId: null }, existing as any, { lastDay: existing.dateOfLeaving, leavingType: existing.leavingType || 'RESIGNED', reason: existing.leavingReason });
-      done += 1;
-    });
+    /* One bad record must not stop everyone else's leaving, in any company (W-A9). */
+    try {
+      await runInTenant(e.orgId, async () => {
+        const existing = await peoplePrisma.employee.findFirst({ where: { id: e.id, orgId: e.orgId } });
+        if (!existing || existing.status !== 'ON_NOTICE' || !existing.dateOfLeaving) return;
+        await finishLeaving({ accountId: e.accountId, orgId: e.orgId, userId: null }, existing as any, { lastDay: existing.dateOfLeaving, leavingType: existing.leavingType || 'RESIGNED', reason: existing.leavingReason });
+        done += 1;
+      });
+    } catch (err) {
+      console.error(`[separations] ${e.orgId} ${e.id}:`, err instanceof Error ? err.message : err);
+    }
   }
   return done;
 }

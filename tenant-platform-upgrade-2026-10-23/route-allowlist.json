@@ -428,6 +428,16 @@
     },
     {
       "method": "POST",
+      "path": "/api/portal/people/me/requests/:id/reply",
+      "reason": "Employee self-service (People): portal token + anyAppLive; org and employee from the token; answers HR on a request the person made about themselves (selfService.ownRequest: subject and requester are them) (Workforce audit E5)."
+    },
+    {
+      "method": "POST",
+      "path": "/api/portal/people/me/requests/:id/withdraw",
+      "reason": "Employee self-service (People): portal token + anyAppLive; org and employee from the token; withdraws a request the person made about themselves, while it is still open (selfService.ownRequest) (Workforce audit E5)."
+    },
+    {
+      "method": "POST",
       "path": "/api/portal/people/desk/:id/reopen",
       "reason": "Employee self-service (People): portal token (peoplePortal.ts uses portal authenticate) + anyAppLive; org and employee from the token; reopens their own resolved request within seven days (DESK-04)."
     },

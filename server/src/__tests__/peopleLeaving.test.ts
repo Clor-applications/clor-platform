@@ -31,6 +31,7 @@ async function owner(): Promise<Ctx> {
 const people = (c: Ctx) => ({
   get: (path: string) => request(app).get(`/api/orgs/${c.orgId}/people${path}`).set(at(c)),
   post: (path: string, body: unknown) => request(app).post(`/api/orgs/${c.orgId}/people${path}`).set(at(c)).send(body as any),
+  put: (path: string, body: unknown) => request(app).put(`/api/orgs/${c.orgId}/people${path}`).set(at(c)).send(body as any),
 });
 async function portalFor(c: Ctx, companyCode: string, employee: { id: string; code: string }) {
   const act = (await request(app).post(`/api/orgs/${c.orgId}/attendance/portal-access/codes`).set(at(c)).send({ employeeIds: [employee.id] }).expect(200)).body.codes[0].activationCode;
@@ -87,9 +88,15 @@ describe('leaving', () => {
     expect(reader === null || !reader.done || true).toBe(true);
   });
 
-  it('HR records a leaving dated today: Left at once, separated once, as before', async () => {
+  it('a last day of today is worked (on notice until it is over); a past last day leaves at once, separated once', async () => {
+    /* The last working day is worked: on the doors and in attendance until the day is over (Workforce final audit W-A1). */
+    const t = (await people(hr).post('/employees', { name: 'Works Today', code: 'L-2T', dateOfJoining: '2025-01-05' }).expect(201)).body.employee;
+    expect((await people(hr).post(`/employees/${t.id}/resign`, { lastDay: plus(0), leavingType: 'RESIGNED' }).expect(200)).body.employee.status).toBe('ON_NOTICE');
+    expect(await runSeparations(new Date())).toBe(0);
+    expect(await runSeparations(new Date(Date.now() + 86_400_000))).toBeGreaterThanOrEqual(1);
+    expect((await people(hr).get(`/employees/${t.id}`).expect(200)).body.employee.status).toBe('LEFT');
     const e = (await people(hr).post('/employees', { name: 'Sana Reddy', code: 'L-2', dateOfJoining: '2025-01-05' }).expect(201)).body.employee;
-    const r = (await people(hr).post(`/employees/${e.id}/resign`, { lastDay: plus(0), leavingType: 'RESIGNED', reason: 'Personal' }).expect(200)).body;
+    const r = (await people(hr).post(`/employees/${e.id}/resign`, { lastDay: plus(-1), leavingType: 'RESIGNED', reason: 'Personal' }).expect(200)).body;
     expect(r.employee.status).toBe('LEFT');
     expect(await runInTenant(hr.orgId, () => peoplePrisma.outboxEvent.count({ where: { employeeId: e.id, name: 'people.employee.separated.v1' } }))).toBe(1);
     expect(await runInTenant(hr.orgId, () => peoplePrisma.outboxEvent.count({ where: { employeeId: e.id, name: 'people.employee.separation_scheduled.v1' } }))).toBe(0);
@@ -111,5 +118,27 @@ describe('leaving', () => {
     await people(hr).post(`/employees/${e.id}/stay`, {}).expect(409);
     const journey = JSON.stringify((await people(hr).get(`/employees/${e.id}/journey`).expect(200)).body);
     expect(journey).toContain('Leaving withdrawn');
+  });
+
+  it('when someone leaves, nothing goes on acting on them: their team moves up, dated changes and requests close (Workforce final audit W1, W4)', async () => {
+    const top = (await people(hr).post('/employees', { name: 'Top Boss', code: `TB-${rnd()}`, dateOfJoining: '2024-01-01' }).expect(201)).body.employee;
+    const mid = (await people(hr).post('/employees', { name: 'Middle Manager', code: `MM-${rnd()}`, dateOfJoining: '2024-01-01', reportingManagerId: top.id }).expect(201)).body.employee;
+    const rep = (await people(hr).post('/employees', { name: 'Team Member', code: `TM-${rnd()}`, dateOfJoining: '2024-01-01', reportingManagerId: mid.id }).expect(201)).body.employee;
+    const dept = (await people(hr).post('/structure/departments', { name: `Later dept ${rnd()}` }).expect(201)).body.item;
+    await people(hr).put(`/employees/${mid.id}`, { departmentId: dept.id, effectiveFrom: plus(30) }).expect(200);
+    await people(hr).post(`/employees/${mid.id}/resign`, { lastDay: plus(-1), leavingType: 'RESIGNED' }).expect(200);
+    expect((await people(hr).get(`/employees/${rep.id}`).expect(200)).body.employee.reportingManagerId).toBe(top.id);
+    const waiting = await runInTenant(hr.orgId, () => peoplePrisma.scheduledChange.count({ where: { orgId: hr.orgId, employeeId: mid.id, status: 'PENDING' } }));
+    expect(waiting).toBe(0);
+  });
+
+  it('an offer withdrawn closes the record without asking Payroll for a settlement (Workforce final audit W5)', async () => {
+    const e = (await people(hr).post('/employees', { name: 'Never Came', code: `NC-${rnd()}`, dateOfJoining: plus(10) }).expect(201)).body.employee;
+    const r = (await people(hr).post(`/employees/${e.id}/resign`, { lastDay: plus(10), leavingType: 'NOT_JOINED' }).expect(200)).body;
+    expect(r.employee.status).toBe('LEFT');
+    const ev = await runInTenant(hr.orgId, () => peoplePrisma.outboxEvent.findFirst({ where: { employeeId: e.id, name: 'people.employee.separated.v1' } }));
+    expect((ev?.payload as any)?.settlementRequested).toBe(false);
+    const open = await runInTenant(hr.orgId, () => peoplePrisma.checklistTask.count({ where: { orgId: hr.orgId, employeeId: e.id, doneAt: null } }));
+    expect(open).toBe(0);
   });
 });

@@ -203,7 +203,9 @@ describe('workforce backend', () => {
     const e = (await people(boss).post('/employees', { name: 'Omar Shah', code: 'W-040', dateOfJoining: '2024-01-01' }).expect(201)).body.employee;
     await put(boss, `/employees/${e.id}`, { status: 'SUSPENDED', changeNote: 'Inquiry' }).expect(200);
     await put(boss, `/employees/${e.id}`, { status: 'ACTIVE' }).expect(200);
-    await put(boss, `/employees/${e.id}`, { status: 'LEFT', dateOfLeaving: '2026-09-30' }).expect(200);
+    /* Leaving has its own step; an edit cannot mark someone left (Workforce final audit W7). */
+    expect((await put(boss, `/employees/${e.id}`, { status: 'LEFT', dateOfLeaving: '2026-09-30' }).expect(409)).body.code).toBe('USE_LEAVING');
+    await people(boss).post(`/employees/${e.id}/resign`, { lastDay: '2026-09-30', leavingType: 'RESIGNED' }).expect(200);
     expect((await put(boss, `/employees/${e.id}`, { status: 'ACTIVE' }).expect(409)).body.code).toBe('USE_REHIRE');
     await people(boss).post(`/employees/${e.id}/rehire`, { rejoinDate: '2026-10-05' }).expect(200);
   });

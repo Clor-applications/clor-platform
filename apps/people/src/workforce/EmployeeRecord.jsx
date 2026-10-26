@@ -134,7 +134,8 @@ export default function EmployeeRecord({ params = {}, updateParams, openScreen }
     editable ? ['transfer', 'Transfer'] : null,
     editable ? ['designation', 'Change designation'] : null,
     editable ? ['type', 'Change employment type'] : null,
-    editable && person.status !== 'SUSPENDED' ? ['status', 'Suspend'] : null,
+    /* Someone on notice is not suspended: their leaving runs on its day (W2). */
+    editable && person.status === 'ACTIVE' ? ['status', 'Suspend'] : null,
     allowed('PEOPLE::Employees::EDIT') && person.status === 'SUSPENDED' ? ['status', 'Reactivate'] : null,
     person.status !== 'LEFT' && allowed('PEOPLE::Lifecycle::CREATE') ? ['invite', 'Invite to complete profile'] : null,
     person.status !== 'LEFT' && person.status !== 'ON_NOTICE' && allowed('PEOPLE::Employees::EDIT') ? ['leave', 'Mark as left'] : null,
@@ -975,7 +976,8 @@ function OperationDrawer({ action, person, lists, onClose, onDone }) {
         {typeChanged && newDates.contract ? <div><label className="ui-label" htmlFor="op-contract">{newDates.contractLabel}</label><DatePicker id="op-contract" value={ends.contractEndDate} min={day(person.dateOfJoining)} onChange={(v) => setEnds({ ...ends, contractEndDate: v || '' })} /></div> : null}
         {/* A date the new type does not have is removed; said, never done quietly. */}
         {['probationEndDate', 'contractEndDate'].filter((k) => endChanges[k] === '' && person[k]).map((k) => <p key={k} className="ui-caption">{k === 'probationEndDate' ? 'Probation end' : 'Contract end'} {formatDate(day(person[k]))} is removed.</p>)}
-        <div><label className="ui-label" htmlFor="op-effective">Effective from</label><DatePicker id="op-effective" value={effective} onChange={setEffective} /></div>
+        {/* A suspension or reactivation takes effect when it is made; only job changes can be dated (W8). */}
+        {action !== 'status' ? <div><label className="ui-label" htmlFor="op-effective">Effective from</label><DatePicker id="op-effective" value={effective} onChange={setEffective} /></div> : null}
         <label className="block"><span className="ui-label">Reason{op.reasonRequired ? ' *' : ''}</span><textarea className="ui-input w-full" rows={2} maxLength={500} value={reason} aria-invalid={reasonMissing || undefined} aria-describedby={reasonMissing ? 'op-reason-error' : undefined} onChange={(e) => { setReason(e.target.value); setReasonMissing(false); }} /></label>
         {reasonMissing ? <p id="op-reason-error" className="ui-field-error" role="alert">Add a reason.</p> : null}
         {impact.length ? (

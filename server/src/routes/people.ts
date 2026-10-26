@@ -28,6 +28,7 @@ import { activeRule, shape as shapeRequest, submitRequest } from '../services/pe
 import { PROBATION_OUTCOMES, ProbationError, decideProbation, reviewsOf, saveReview } from '../services/people/lifecycle/probation.js';
 import { changeImpact } from '../services/people/lifecycle/changes.js';
 import { isFeatureEnabled } from '../services/features.js';
+import { closeOutFor } from '../services/people/lifecycle/closeOut.js';
 import { DEFAULT_EMPLOYEE_TYPES, EMPLOYMENT_KINDS, HOURS, guessKind } from '../services/people/employmentKinds.js';
 import { journeyOf, whyOf } from '../services/people/journey.js';
 import { salaryQuestion } from '../services/people/salaryQuestion.js';
@@ -955,6 +956,14 @@ peopleRouter.put('/orgs/:orgId/people/employees/:id', can(PermissionAction.EDIT,
   if (existing.status === 'LEFT' && b.status && b.status !== 'LEFT') {
     return res.status(409).json({ error: `${existing.name} has left. Use Rehire to bring them back: it starts a new period of employment and keeps the earlier one.`, code: 'USE_REHIRE' });
   }
+  /* Leaving has its own step (last day, reason, the period closed, Payroll told); an edit cannot put someone on notice or mark them left (Workforce final audit W7). */
+  if (b.status && b.status !== existing.status && (b.status === 'LEFT' || b.status === 'ON_NOTICE')) {
+    return res.status(409).json({ error: `Use Mark as left on ${existing.name}'s record: it records the last day and the reason.`, code: 'USE_LEAVING' });
+  }
+  /* Someone on notice leaves on their day; suspending or reactivating them would break that (W2). */
+  if (existing.status === 'ON_NOTICE' && b.status && b.status !== 'ON_NOTICE') {
+    return res.status(409).json({ error: `${existing.name} is on notice. Change the leaving details, or withdraw the leaving, instead.`, code: 'ON_NOTICE' });
+  }
   if (expected !== undefined && expected !== existing.version) {
     return res.status(409).json({ error: 'Someone else changed this record after you opened it. Reload to see their changes, then make yours again.', code: 'STALE', employee: (await withMeta(orgId, [existing]))[0] });
   }
@@ -1038,6 +1047,9 @@ peopleRouter.put('/orgs/:orgId/people/employees/:id', can(PermissionAction.EDIT,
     else if (row.status !== 'LEFT' && existing.status === 'LEFT') await startChecklist({ accountId, orgId, userId: req.auth!.userId }, row, 'JOINING', row.dateOfJoining);
     /* Leaving ends door access: off every biometric reader, fingerprints and faces deleted. */
     if (row.status === 'LEFT' && existing.status !== 'LEFT') await revokeFromReaders(orgId, existing, req.auth!.userId);
+    /* Suspended means not at work: off the doors while suspended, back on when reactivated (W9). */
+    else if (row.status === 'SUSPENDED' && existing.status !== 'SUSPENDED') await revokeFromReaders(orgId, existing, req.auth!.userId);
+    else if (row.status === 'ACTIVE' && existing.status === 'SUSPENDED') await pushEmployeeToReaders(orgId, row, req.auth!.userId);
     else if (row.status !== 'LEFT' && readerFieldsChanged(existing, row)) await pushEmployeeToReaders(orgId, row, req.auth!.userId, existing);
     /* Professional Tax follows the move only when the person asked for it on the transfer (the preview's ACTION line). */
     const ptState = req.body?.alsoPtState === true ? await followPtState(req, existing, row, typeof req.body?.establishmentId === 'string' ? req.body.establishmentId : null, Boolean(request) || scheduled.length > 0, effectiveFrom) : null;
@@ -1624,6 +1636,9 @@ peopleRouter.delete('/orgs/:orgId/people/employees/:id', can(PermissionAction.DE
       code: 'EMPLOYEE_IN_PAYROLL',
     });
   }
+  /* Their dated changes and open requests close with them; anyone with them as a secondary manager loses that line (W1, W4). */
+  await closeOutFor(actorOf(req, 'FORM', `${existing.name} removed`), existing.id);
+  await peoplePrisma.employee.updateMany({ where: { orgId, dottedManagerId: existing.id }, data: { dottedManagerId: null } });
   res.json({ ok: true });
 });
 
