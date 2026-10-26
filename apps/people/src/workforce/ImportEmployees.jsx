@@ -35,7 +35,8 @@ import { can } from './shared';
 const STEPS = [['upload', 'Upload'], ['map', 'Map columns'], ['validate', 'Check'], ['review', 'Review'], ['results', 'Results']];
 const MAX_BYTES = 2_000_000;
 const MAX_ROWS = 1000;
-const csvCell = (v) => { let s = String(v ?? ''); if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`; return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
+/* Quoted when a spreadsheet would run it as a formula; a plain number (+91 98450 12345) stays as it is so the file imports again. */
+const csvCell = (v) => { let s = String(v ?? ''); if (/^[=+\-@\t\r]/.test(s) && !/^[+-]?\d[\d\s().-]*$/.test(s)) s = `'${s}`; return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
 
 export default function ImportEmployees({ openScreen }) {
   const perms = usePermissions();

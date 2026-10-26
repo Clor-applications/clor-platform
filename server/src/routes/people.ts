@@ -673,9 +673,10 @@ peopleRouter.delete('/orgs/:orgId/people/employee-drafts/:id', can(PermissionAct
 /* ------------------------------------------------ server export (EMP-01) */
 
 /*
- * The fields an export may carry: work details only. Statutory numbers, the
- * date of birth, gender, personal contact and anything secret are never in
- * this list, so no choice of columns can reach them. The first eleven are the
+ * The fields an export may carry: work details and the mobile number (an
+ * owner's contact list). Statutory numbers, the date of birth, gender, the
+ * personal email, the home address and anything secret are never in this
+ * list, so no choice of columns can reach them. The first eleven are the
  * default, as before.
  */
 const STATUS_WORDS: Record<string, string> = { ACTIVE: 'Active', ON_NOTICE: 'On notice', SUSPENDED: 'Suspended', LEFT: 'Left' };
@@ -690,9 +691,11 @@ const EXPORT_COLUMNS: Array<[string, string, (e: any) => unknown]> = [
   ['Probation ends', 'probationEndDate', (e) => e.probationEndDate], ['Contract ends', 'contractEndDate', (e) => e.contractEndDate], ['Tags', 'tags', (e) => (e.tags || []).map((t: any) => t.name).join('; ')],
 ];
 const DEFAULT_EXPORT = EXPORT_COLUMNS.slice(0, 11).map(([, k]) => k);
+/* A cell a spreadsheet would run as a formula is quoted; a plain number such as +91 98450 12345 is left as it is, so the file imports again. */
+const PLAIN_NUMBER = /^[+-]?\d[\d\s().-]*$/;
 const csvSafe = (v: unknown) => {
   let s = String(v ?? '');
-  if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`;
+  if (/^[=+\-@\t\r]/.test(s) && !PLAIN_NUMBER.test(s)) s = `'${s}`;
   return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 };
 
@@ -1587,7 +1590,8 @@ const importRow = z.object({
   name: z.string().trim().min(1).max(120),
   code: text(40),
   email: z.string().trim().email().max(160).optional().nullable().or(z.literal('')),
-  phone: phoneField,
+  /* A "rows to fix" file from before carried a leading ' on phone numbers; it is dropped. */
+  phone: z.preprocess((v) => (typeof v === 'string' ? v.replace(/^'/, '') : v), phoneField),
   department: text(120),
   jobPosition: text(120),
   employeeType: text(120),
@@ -1888,6 +1892,24 @@ peopleRouter.get('/orgs/:orgId/people/structure/:kind', can(PermissionAction.VIE
   res.json({ items: rows.map((r: any) => ({ ...r, ...(kind === 'legal-entities' ? { pan: maskPan(r.pan) } : {}), employeeCount: used.get(r.id) || 0 })) });
 });
 
+/* A list item points only at things in this company, and never under itself, however deep (Workforce audit S18). */
+const REF_MODELS: Record<string, string> = { departmentId: 'department', legalEntityId: 'legalEntity', teamId: 'team', jobPositionId: 'jobPosition', leadEmployeeId: 'employee' };
+async function badStructureRef(orgId: string, model: string, data: Record<string, unknown>, selfId: string | null): Promise<string | null> {
+  for (const [key, ref] of Object.entries({ ...REF_MODELS, parentId: model })) {
+    const id = data[key];
+    if (typeof id !== 'string' || !id) continue;
+    if (!(await (peoplePrisma as any)[ref].findFirst({ where: { id, orgId }, select: { id: true } }))) return 'That link points at something not in this company.';
+  }
+  if (selfId && typeof data.parentId === 'string') {
+    let at: string | null = data.parentId;
+    for (let depth = 0; at && depth < 50; depth += 1) {
+      if (at === selfId) return 'That would put it under itself.';
+      at = ((await (peoplePrisma as any)[model].findFirst({ where: { id: at, orgId }, select: { parentId: true } })) as { parentId: string | null } | null)?.parentId ?? null;
+    }
+  }
+  return null;
+}
+
 peopleRouter.post('/orgs/:orgId/people/structure/:kind', can(PermissionAction.CREATE, STRUCTURE), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
   const kind = kindOf(req);
@@ -1904,6 +1926,8 @@ peopleRouter.post('/orgs/:orgId/people/structure/:kind', can(PermissionAction.CR
   /* A type created without saying what it counts as is read from its name ("Summer intern" is an intern). */
   if (kind === 'employee-types' && !data.category) data.category = guessKind(data.name);
   if (kind === 'establishments' && data.holdsOriginals === true && NO_ORIGINALS_STATES.has(String(data.state || '').trim().toLowerCase())) return res.status(400).json({ error: `${data.state} does not allow an employer to hold employees' original documents (Shops & Establishments amendment, 2026).` });
+  const badRef = await badStructureRef(orgId, cfg.model, data, null);
+  if (badRef) return res.status(400).json({ error: badRef });
   try {
     const row = await (peoplePrisma as any)[cfg.model].create({ data });
     res.status(201).json({ item: kind === 'legal-entities' ? { ...row, pan: maskPan(row.pan) } : row });
@@ -1937,6 +1961,8 @@ peopleRouter.put('/orgs/:orgId/people/structure/:kind/:id', can(PermissionAction
     const state = data.state !== undefined ? data.state : (await peoplePrisma.establishment.findFirst({ where: { id: String(req.params.id), orgId }, select: { state: true } }))?.state;
     if (NO_ORIGINALS_STATES.has(String(state || '').trim().toLowerCase())) return res.status(400).json({ error: `${state} does not allow an employer to hold employees' original documents (Shops & Establishments amendment, 2026).` });
   }
+  const badRef = await badStructureRef(orgId, cfg.model, data, existing.id);
+  if (badRef) return res.status(400).json({ error: badRef });
   try {
     const row = await model.update({ where: { id: existing.id }, data });
     if (kind === 'legal-entities') row.pan = maskPan(row.pan);

@@ -9,36 +9,38 @@ code, then each finding checked before fixing. Status: **Fixed** (commit),
 
 | # | Finding | Status |
 |---|---|---|
-| S1 | Export with `ids` replaced the team-scope filter: a team lead could export anyone | Open |
-| S2 | Statutory read, identity edit and reveal ignored team scope | Open |
-| S3 | Import "update existing" edits with only CREATE, no scope, skips job-change approval | Open |
-| S4 | Routes without team scope: overview, data health, headcount, checklists, task list and tick, notes, documents, probation review/decide, data requests, anonymise | Open |
-| S5 | Data Health named confidential documents to anyone with Employees VIEW | Open |
-| S6 | Employee save: version checked before the lock, and skippable | Open |
-| S7 | Linking a login: no unique index (race), self-link allowed | Open |
-| S8 | Import creates departments and lists without the Org Structure grant | Open |
-| S9 | Import undo: hard delete, no payroll-history check, no version check, can run twice | Open |
-| S10 | Help-desk migration copied rows without `SET clor.bypass` (likely copied nothing) | Open |
-| S11 | Checklist start can run twice concurrently | Open |
-| S12 | xlsx reader: unbounded column index, no inflate cap, spread over rows | Open |
-| S13 | Search text and ids stored raw in the export audit | Open |
-| S14 | Export includes personal phone though the comment says it does not | Open |
-| S15 | Raw database error text in import results; duplicate warnings name people outside scope | Open |
-| S16 | Import writes no audit entry | Open |
-| S19 | Contractor import: update with CREATE only; a duplicate mid-file gives a 500 | Open |
-| S20 | Formula-escaped phone (`'+91…`) in "rows to fix" fails re-import | Open |
+| S1 | Export with `ids` replaced the team-scope filter: a team lead could export anyone | Fixed `c31f88a` |
+| S2 | Statutory read, identity edit and reveal ignored team scope | Fixed `c31f88a` |
+| S3 | Import "update existing" edits with only CREATE, no scope, skips job-change approval | Fixed `c31f88a` |
+| S4 | Routes without team scope: overview, data health, headcount, checklists, task list and tick, notes, documents, probation review/decide, data requests, anonymise | Fixed `c31f88a` |
+| S5 | Data Health named confidential documents to anyone with Employees VIEW | Fixed `c31f88a` |
+| S6 | Employee save: version checked before the lock, and skippable | Fixed `c31f88a` |
+| S7 | Linking a login: no unique index (race), self-link allowed | Fixed `c31f88a` |
+| S8 | Import creates departments and lists without the Org Structure grant | Fixed `c31f88a` |
+| S9 | Import undo: hard delete, no payroll-history check, no version check, can run twice | Fixed `c31f88a` |
+| S10 | Help-desk migration copied rows without `SET clor.bypass` (likely copied nothing) | Fixed `c31f88a` |
+| S11 | Checklist start can run twice concurrently | Fixed `c31f88a` |
+| S12 | xlsx reader: unbounded column index, no inflate cap, spread over rows | Fixed (security batch 2) |
+| S13 | Search text and ids stored raw in the export audit | Fixed `c31f88a` |
+| S14 | Export includes the mobile though the comment said no personal contact: comment corrected (an owner needs the contact list; export has its own grant) | Fixed (security batch 2) |
+| S15 | Raw database error text in import results; duplicate warnings name people outside scope | Fixed (security batch 2) |
+| S16 | Import writes no audit entry | Fixed `c31f88a` |
+| S17 | change-impact names any manager id in the company | Open (low) |
+| S18 | Structure links not checked against the company; loops deeper than one level | Fixed (security batch 2) |
+| S19 | Contractor import: update with CREATE only; a duplicate mid-file gives a 500 | Fixed (security batch 2) |
+| S20 | Formula-escaped phone (`'+91…`) in "rows to fix" fails re-import | Fixed (security batch 2) |
 
 ## Employee and manager view
 
 | # | Finding | Status |
 |---|---|---|
 | E1 | Employee app has no screens for People self-service (my details, change request, accept, policies) | Open |
-| E2 | Portal "Ask HR" writes to the old store the Help Desk does not read | Open |
+| E2 | Portal "Ask HR" writes to the old store the Help Desk does not read | Fixed `c31f88a` |
 | E3 | "Ask to read" a document is a dead end: no Accept in the employee app | Open |
 | E4 | Employees VIEW returns everyone's personal data (DOB, address, personal phone, notes, reader PIN) | Open |
 | E5 | Portal change request asked for more information strands the employee; rejected ones vanish | Open |
-| E6 | Data requests visible to a team lead | Open (S4) |
-| E7 | Probation review on anyone, and on yourself | Open (S4) |
+| E6 | Data requests visible to a team lead | Fixed `c31f88a` |
+| E7 | Probation review on anyone, and on yourself | Fixed `c31f88a` |
 | E10 | A scoped manager can edit their own HR record directly | Open |
 | E11 | A request with no possible approver approves itself | Open |
 | E12 | Manager approver without the approve grant stalls the request | Open |

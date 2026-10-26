@@ -3,7 +3,7 @@ import { z } from 'zod';
 
 import { requireAuth } from '../middleware/auth.js';
 import { requireTenantContext } from '../middleware/tenantContext.js';
-import { requirePermission } from '../middleware/rbac.js';
+import { authorize, requirePermission } from '../middleware/rbac.js';
 import { PermissionAction } from '../constants/enums.js';
 import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { PEOPLE_MODULE, PEOPLE_RESOURCE, peopleRouteOk } from '../services/people/guards.js';
@@ -114,6 +114,8 @@ personnelRouter.post(`${base}/contractors/import`, can(PermissionAction.CREATE, 
   if (!rows.length) return res.status(400).json({ error: 'Nothing to import.' });
   if (rows.length > 500) return res.status(400).json({ error: 'Import up to 500 contractors at a time.' });
   const dryRun = req.body?.dryRun === true;
+  /* Changing a contractor already on the list is an edit, and needs the edit grant; without it those rows are refused. */
+  const mayUpdate = !(await authorize(req, PEOPLE_MODULE, PermissionAction.EDIT, R.structure));
   const existing = new Map((await peoplePrisma.contractor.findMany({ where: { accountId, orgId }, select: { id: true, name: true } })).map((c) => [c.name.trim().toLowerCase(), c.id]));
   const results: Array<{ row: number; ok: boolean; error?: string }> = [];
   let imported = 0;
@@ -133,9 +135,16 @@ personnelRouter.post(`${base}/contractors/import`, can(PermissionAction.CREATE, 
     });
     if (!parsed.success) { results.push({ row: i + 1, ok: false, error: parsed.error.issues[0]?.message || 'Check the row.' }); continue; }
     const id = existing.get(parsed.data.name.trim().toLowerCase());
+    if (id && !mayUpdate) { results.push({ row: i + 1, ok: false, error: `${parsed.data.name} is already on the list; changing it needs the edit permission.` }); continue; }
     if (!dryRun) {
-      if (id) await peoplePrisma.contractor.update({ where: { id }, data: contractorData(parsed.data) });
-      else existing.set(parsed.data.name.trim().toLowerCase(), (await peoplePrisma.contractor.create({ data: { accountId, orgId, ...contractorData(parsed.data), createdByUserId: req.auth!.userId } })).id);
+      /* Each row stands alone: a clash (a code another contractor uses) fails that row, not the file. */
+      try {
+        if (id) await peoplePrisma.contractor.update({ where: { id }, data: contractorData(parsed.data) });
+        else existing.set(parsed.data.name.trim().toLowerCase(), (await peoplePrisma.contractor.create({ data: { accountId, orgId, ...contractorData(parsed.data), createdByUserId: req.auth!.userId } })).id);
+      } catch (e: any) {
+        results.push({ row: i + 1, ok: false, error: String(e?.code) === 'P2002' ? 'That code is already used by another contractor.' : 'This row could not be saved.' });
+        continue;
+      }
     } else if (!id) existing.set(parsed.data.name.trim().toLowerCase(), 'new');
     if (id) updated += 1;
     else imported += 1;

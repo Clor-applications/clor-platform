@@ -15,10 +15,27 @@ const SIG_CENTRAL = 0x02014b50;
 const SIG_LOCAL = 0x04034b50;
 /* Excel's built-in date and time formats. */
 const DATE_FORMAT_IDS = new Set([14, 15, 16, 17, 18, 19, 20, 21, 22, 27, 30, 36, 45, 46, 47, 50, 57]);
+/* Limits a hand-made or hostile file cannot get past: Excel's own last column, and far more rows and bytes than an import takes. */
+const MAX_COLUMNS = 16_384;
+const MAX_ROWS = 5_000;
+const MAX_INFLATED = 50_000_000;
 
+/* Inflated in pieces, stopping once a part grows past what any real sheet needs (a zip bomb stops here, not in the tab's memory). */
 async function inflate(bytes) {
-  const stream = new Response(bytes).body.pipeThrough(new DecompressionStream('deflate-raw'));
-  return new Uint8Array(await new Response(stream).arrayBuffer());
+  const reader = new Response(bytes).body.pipeThrough(new DecompressionStream('deflate-raw')).getReader();
+  const parts = [];
+  let size = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    size += value.length;
+    if (size > MAX_INFLATED) { await reader.cancel(); throw new Error('That workbook is too large to read here. Save the sheet as CSV and upload that.'); }
+    parts.push(value);
+  }
+  const out = new Uint8Array(size);
+  let at = 0;
+  for (const p of parts) { out.set(p, at); at += p.length; }
+  return out;
 }
 
 /** The zip's parts by name, each read only when asked for. */
@@ -107,6 +124,7 @@ export async function readXlsx(file) {
   if (!sheet) throw new Error('That workbook has no sheet to read.');
   const grid = [];
   for (const row of all(sheet, 'row')) {
+    if (grid.length >= MAX_ROWS) break;
     const cells = [];
     for (const c of all(row, 'c')) {
       const type = c.getAttribute('t');
@@ -118,13 +136,17 @@ export async function readXlsx(file) {
       else if (type === 'str' || type === 'e') value = v;
       else if (v !== '' && isDate[Number(c.getAttribute('s') || 0)]) value = excelSerialToIso(v);
       else value = v;
-      cells[columnIndex(c.getAttribute('r') || '')] = String(value).trim();
+      /* A cell without a reference is the next one along (allowed by the format). */
+      const ref = c.getAttribute('r');
+      const col = ref ? columnIndex(ref) : cells.length;
+      if (col < 0 || col >= MAX_COLUMNS) continue;
+      cells[col] = String(value).trim();
     }
     grid.push(Array.from(cells, (x) => x ?? ''));
   }
   const filled = grid.filter((r) => r.some((x) => x));
   if (!filled.length) return { headers: [], rows: [] };
-  const width = Math.max(...filled.map((r) => r.length));
+  const width = filled.reduce((w, r) => Math.max(w, r.length), 0);
   const pad = (r) => Array.from({ length: width }, (_, i) => r[i] ?? '');
   return { headers: pad(filled[0]), rows: filled.slice(1).map(pad) };
 }
