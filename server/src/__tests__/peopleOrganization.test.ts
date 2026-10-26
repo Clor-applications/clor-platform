@@ -535,3 +535,92 @@ describe('a head or lead leaving', () => {
     expect(await tasks()).toHaveLength(2);
   });
 });
+
+describe('field suggestions', () => {
+  it('offer shared vocabulary, most used first; the email domain without addresses; reasons used twice; nothing unknown', async () => {
+    const hr = await owner();
+    await platformPrisma.branch.update({ where: { id: hr.branchId }, data: { city: 'Mysuru' } });
+    const a = await hire(hr, { name: 'Asha Rao', code: 'G-1', workEmail: 'asha@acme.test', city: 'Pune', emergencyContactRelation: 'Mother', phone: '9876543210' });
+    await hire(hr, { name: 'Ravi Kumar', code: 'G-2', workEmail: 'ravi@acme.test', city: 'Pune', emergencyContactRelation: 'Spouse' });
+    await hire(hr, { name: 'Lata', code: 'G-3', workEmail: 'lata@other.test', city: 'Nashik' });
+    const get = async (field: string) => (await people(hr).get(`/suggestions?field=${field}`).expect(200)).body.values.map((v: any) => v.value);
+    expect(await get('city')).toEqual(['Pune', 'Nashik', 'Mysuru']);
+    expect((await get('relation')).sort()).toEqual(['Mother', 'Spouse']);
+    expect(await get('emailDomain')).toEqual(['acme.test', 'other.test']);
+    const ops = (await people(hr).post('/structure/departments', { name: 'Ops' }).expect(201)).body.item;
+    const sales = (await people(hr).post('/structure/departments', { name: 'Sales' }).expect(201)).body.item;
+    await people(hr).put(`/employees/${a.id}`, { departmentId: ops.id, changeNote: 'Team reshuffle' }).expect(200);
+    await people(hr).put(`/employees/${a.id}`, { departmentId: sales.id, changeNote: 'Team reshuffle' }).expect(200);
+    await people(hr).put(`/employees/${a.id}`, { departmentId: ops.id, changeNote: 'Her father was unwell' }).expect(200);
+    expect(await get('reason')).toEqual(['Team reshuffle']);
+    expect((await get('branch'))).toEqual([(await platformPrisma.branch.findUnique({ where: { id: hr.branchId } }))!.branchName]);
+    await people(hr).get('/suggestions?field=phone').expect(400);
+    /* A team-limited viewer gets their own people's values only. */
+    const lead = await colleague(hr, ['PEOPLE::Employees::VIEW'], true);
+    await runInTenant(hr.orgId, () => peoplePrisma.employee.update({ where: { id: a.id }, data: { userId: lead.userId } }));
+    expect((await people(lead).get('/suggestions?field=city').expect(200)).body.values.map((v: any) => v.value)).toEqual(['Pune', 'Mysuru']);
+  });
+});
+
+describe('repo-aligned research checks (ORG-G01, G03, G04, G07, R035)', () => {
+  it('chart: a team-limited viewer sees open positions only on teams their people lead, and no budget reference', async () => {
+    const hr = await owner();
+    const lead = await colleague(hr, ['PEOPLE::Employees::VIEW'], true);
+    const me = await hire(hr, { name: 'Lead Me', code: 'C-1' });
+    await runInTenant(hr.orgId, () => peoplePrisma.employee.update({ where: { id: me.id }, data: { userId: lead.userId } }));
+    const other = await hire(hr, { name: 'Other Lead', code: 'C-2' });
+    const mine = (await people(hr).post('/structure/teams', { name: 'Mine', leadEmployeeId: me.id }).expect(201)).body.item;
+    const theirs = (await people(hr).post('/structure/teams', { name: 'Theirs', leadEmployeeId: other.id }).expect(201)).body.item;
+    await people(hr).post('/structure/seats', { name: 'Picker 1', teamId: mine.id, budgetRef: 'FY27-A' }).expect(201);
+    await people(hr).post('/structure/seats', { name: 'Picker 2', teamId: theirs.id, budgetRef: 'FY27-SECRET' }).expect(201);
+    const all = (await people(hr).get('/org-chart').expect(200)).body.openSeats;
+    expect(all.map((s: any) => s.name).sort()).toEqual(['Picker 1', 'Picker 2']);
+    expect(all.find((s: any) => s.name === 'Picker 2').budgetRef).toBe('FY27-SECRET');
+    const scoped = (await people(lead).get('/org-chart').expect(200)).body;
+    expect(scoped.openSeats).toEqual([expect.objectContaining({ name: 'Picker 1' })]);
+    expect(scoped.openSeats[0].budgetRef).toBeUndefined();
+    expect(JSON.stringify(scoped)).not.toContain('FY27');
+  });
+
+  it('chart as of a past date: reporting lines then, leavers back, later joiners out, no open positions', async () => {
+    const hr = await owner();
+    const boss = await hire(hr, { name: 'Boss', code: 'D-1', dateOfJoining: '2025-01-01' });
+    const next = await hire(hr, { name: 'Next Boss', code: 'D-2', dateOfJoining: '2025-01-01' });
+    const worker = await hire(hr, { name: 'Worker', code: 'D-3', dateOfJoining: '2025-01-01', reportingManagerId: boss.id });
+    await people(hr).put(`/employees/${worker.id}`, { reportingManagerId: next.id }).expect(200);
+    await hire(hr, { name: 'Newcomer', code: 'D-4', dateOfJoining: '2026-10-01' });
+    const gone = await hire(hr, { name: 'Gone', code: 'D-5', dateOfJoining: '2025-01-01' });
+    await people(hr).post(`/employees/${gone.id}/resign`, { lastDay: '2026-09-30', leavingType: 'RESIGNED' }).expect(200);
+    const now = (await people(hr).get('/org-chart').expect(200)).body.nodes;
+    expect(now.find((n: any) => n.id === worker.id).reportingManagerId).toBe(next.id);
+    const then = (await people(hr).get('/org-chart?asOf=2026-06-01').expect(200)).body;
+    expect(then.nodes.map((n: any) => n.name).sort()).toEqual(['Boss', 'Gone', 'Next Boss', 'Worker']);
+    expect(then.openSeats).toEqual([]);
+    await people(hr).get('/org-chart?asOf=June').expect(400);
+  });
+
+  it('delete is refused while something sits under it; a retired item is not offered for a new link', async () => {
+    const hr = await owner();
+    const ops = (await people(hr).post('/structure/departments', { name: 'Ops' }).expect(201)).body.item;
+    const night = (await people(hr).post('/structure/departments', { name: 'Night', parentId: ops.id }).expect(201)).body.item;
+    const team = (await people(hr).post('/structure/teams', { name: 'Floor', departmentId: night.id }).expect(201)).body.item;
+    await people(hr).post('/structure/seats', { name: 'Seat 1', teamId: team.id }).expect(201);
+    expect((await people(hr).del(`/structure/departments/${ops.id}`).expect(409)).body).toMatchObject({ code: 'HAS_DEPENDENTS', error: 'Still under it: 1 sub-department. Move them first, or retire it instead.' });
+    expect((await people(hr).del(`/structure/teams/${team.id}`).expect(409)).body.error).toBe('Still under it: 1 position. Move them first, or retire it instead.');
+    const old = (await people(hr).post('/structure/departments', { name: 'Old' }).expect(201)).body.item;
+    await people(hr).put(`/structure/departments/${old.id}`, { name: 'Old', isActive: false }).expect(200);
+    expect((await people(hr).post('/structure/teams', { name: 'Late', departmentId: old.id }).expect(400)).body.error).toBe('Old is retired. Bring it back first, or choose one in use.');
+    /* A link already there may stay when the item is saved again. */
+    const kept = (await people(hr).post('/structure/teams', { name: 'Kept', departmentId: ops.id }).expect(201)).body.item;
+    await people(hr).put(`/structure/departments/${ops.id}`, { name: 'Ops', isActive: false }).expect(200);
+    await people(hr).put(`/structure/teams/${kept.id}`, { name: 'Kept again', departmentId: ops.id }).expect(200);
+  });
+
+  it('flags a position left on a retired team', async () => {
+    const hr = await owner();
+    const team = (await people(hr).post('/structure/teams', { name: 'Gone team' }).expect(201)).body.item;
+    await people(hr).post('/structure/seats', { name: 'Lonely', teamId: team.id }).expect(201);
+    await people(hr).put(`/structure/teams/${team.id}`, { name: 'Gone team', isActive: false }).expect(200);
+    expect((await check(hr, 'seat-team-retired')).people).toEqual([expect.objectContaining({ name: 'Lonely', detail: 'Team Gone team is retired' })]);
+  });
+});

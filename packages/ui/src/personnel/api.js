@@ -48,7 +48,7 @@ export const importEmployees = (rows, dryRun = false, mode = 'create') => send('
 export const importBatches = () => apiFetch(`${base()}/employees/import/batches`, opts).then((r) => r?.batches || []);
 export const undoImport = (batchId) => send(`/employees/import/${encodeURIComponent(batchId)}/undo`, 'POST', {});
 export const importContractors = (rows, dryRun = false) => send('/contractors/import', 'POST', { rows, dryRun });
-export const getOrgChart = () => apiFetch(`${base()}/org-chart`, opts);
+export const getOrgChart = (params = {}) => apiFetch(`${base()}/org-chart${params.asOf ? `?asOf=${encodeURIComponent(params.asOf)}` : ''}`, opts);
 
 /** kind: departments | job-positions | job-roles | employee-types | work-types */
 export const listStructure = (kind) => apiFetch(`${base()}/structure/${kind}`, opts).then((r) => r?.items || []);

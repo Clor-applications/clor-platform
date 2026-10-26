@@ -76,6 +76,12 @@ export async function structureChecks(accountId: string, orgId: string, add: Add
   add({ id: 'similar-names', area: 'Structure', severity: 'TIDY_UP', title: 'Two names that look like the same thing', why: 'People get split between two entries for one department or job, so counts and reports are wrong.', fix: 'Merge one into the other; its people and history move with it.', screen: 'departments' },
     [...similar(departments.filter((d) => d.isActive), 'Department'), ...similar(positions.filter((p) => p.isActive), 'Designation')]);
 
+  /* A position on a team that was retired: no longer offered, still counted (ORG-R035). */
+  const retiredTeams = new Map(teams.filter((t) => !t.isActive).map((t) => [t.id, t.name]));
+  const strandedSeats = retiredTeams.size ? await peoplePrisma.seat.findMany({ where: { orgId, isActive: true, teamId: { in: [...retiredTeams.keys()] } }, select: { id: true, name: true, teamId: true }, orderBy: { name: 'asc' } }) : [];
+  add({ id: 'seat-team-retired', area: 'Structure', severity: 'TIDY_UP', title: 'Position on a retired team', why: 'The team is retired, so the position is no longer offered or shown on the chart, but it still counts as open.', fix: 'Move it to a team in use, or retire it.', screen: 'seats' },
+    strandedSeats.map((x) => ({ id: x.id, name: x.name, code: null, detail: `Team ${retiredTeams.get(x.teamId!)} is retired` })));
+
   add({ id: 'team-lead-left', area: 'Structure', severity: 'FIX_SOON', title: 'Team lead has left', why: 'The team still names someone who no longer works here as its lead.', fix: 'Choose a new lead on the team.', screen: 'teams' },
     teams.filter((t) => t.isActive && leftLeader(t.leadEmployeeId)).map((t) => ({ id: t.id, name: t.name, code: null, detail: `${leftLeader(t.leadEmployeeId)!.name} has left` })));
 

@@ -25,6 +25,8 @@ import {
   addComment, changeImpact, employeeReadiness, linkCandidates, linkUser, decideProbation, deleteEmployee, employeeActivity, employeeAsOf, getEmployee, listContractors, listEmployees, listTags, openTasksFor, rehireEmployee, stayOn, structure, updateEmployee, withdrawScheduled,
 } from './api';
 import { listBranches } from '../organization/api';
+import SuggestInput from '@ui/components/ui/SuggestInput';
+import { refreshSuggestions, useEmailSuggestions, useSuggestions } from './suggestions';
 import { StatusBadge, can } from './shared';
 
 /**
@@ -534,6 +536,13 @@ function CommentBox({ employeeId, onPosted }) {
  * never submits (spec §5.1); Save sends the loaded version; 409 keeps the
  * edits and shows the newer record; a network failure keeps them too.
  */
+/* A text field that offers what the company already has (`suggest`: a suggestions field name, or 'email' for the work email). */
+function SuggestedText({ field: f, id, help, value, onChange, person }) {
+  const shared = useSuggestions(f.suggest === 'email' ? null : f.suggest);
+  const email = useEmailSuggestions(f.suggest === 'email' ? value : '', person.firstName || String(person.name || '').split(' ')[0], person.lastName);
+  return <SuggestInput id={id} type={f.type || 'text'} inputMode={f.inputMode} placeholder={f.placeholder} aria-describedby={help} value={value} required={f.required} maxLength={f.max || 160} onChange={onChange} suggestions={f.suggest === 'email' ? email : shared} />;
+}
+
 function SectionForm({ person, fields, onCancel, onSaved, reload }) {
   const formId = useId();
   const initial = Object.fromEntries(fields.map((f) => [f.key, f.writeOnly ? '' : (f.kind === 'checkbox' ? person[f.key] !== false : person[f.key] ?? f.fallback ?? '')]));
@@ -554,6 +563,7 @@ function SectionForm({ person, fields, onCancel, onSaved, reload }) {
       /* Only what changed goes up; a write-only field (the reader PIN) left blank is not sent. */
       const body = Object.fromEntries(fields.filter((f) => form[f.key] !== initial[f.key] && !(f.writeOnly && form[f.key] === '')).map((f) => [f.key, form[f.key] === '' ? null : form[f.key]]));
       const r = await updateEmployee(person.id, { ...body, version: conflict?.version ?? person.version });
+      refreshSuggestions();
       setConflict(null);
       notify.success('Saved.');
       onSaved(r.employee);
@@ -589,6 +599,8 @@ function SectionForm({ person, fields, onCancel, onSaved, reload }) {
                 <DatePicker id={id} describedBy={help} value={form[f.key] ? String(form[f.key]).slice(0, 10) : ''} onChange={(v) => setForm({ ...form, [f.key]: v })} />
               ) : f.kind === 'textarea' ? (
                 <textarea id={id} className="ui-input w-full" rows={3} aria-describedby={help} value={form[f.key] ?? ''} onChange={(e) => setForm({ ...form, [f.key]: e.target.value })} />
+              ) : f.suggest ? (
+                <SuggestedText field={f} id={id} help={help} value={form[f.key] ?? ''} onChange={(v) => setForm({ ...form, [f.key]: v })} person={person} />
               ) : (
                 <input id={id} className="ui-input w-full" type={f.type || 'text'} inputMode={f.inputMode} placeholder={f.placeholder} aria-describedby={help} value={form[f.key] ?? ''} required={f.required} maxLength={f.max || 160} onChange={(e) => setForm({ ...form, [f.key]: e.target.value })} />
               )}
@@ -610,10 +622,10 @@ const MARITAL = [['SINGLE', 'Single'], ['MARRIED', 'Married'], ['DIVORCED', 'Div
 const PERSONAL_SECTIONS = {
   name: { title: 'Name', fields: [{ key: 'firstName', label: 'First name', required: true }, { key: 'lastName', label: 'Last name' }, { key: 'preferredName', label: 'Preferred name' }] },
   /* `email` is the personal address the employee form has always saved; `personalEmail` is what a joiner gives on their invite. */
-  contact: { title: 'Contact', fields: [{ key: 'workEmail', label: 'Work email', type: 'email', inputMode: 'email' }, { key: 'workPhone', label: 'Work phone', type: 'tel', inputMode: 'tel' }, { key: 'email', label: 'Personal email', type: 'email', inputMode: 'email' }, { key: 'phone', label: 'Personal phone', type: 'tel', inputMode: 'tel' }, { key: 'personalEmail', label: 'Email from invite', type: 'email', inputMode: 'email', hideEmpty: true }] },
+  contact: { title: 'Contact', fields: [{ key: 'workEmail', label: 'Work email', type: 'email', inputMode: 'email', suggest: 'email' }, { key: 'workPhone', label: 'Work phone', type: 'tel', inputMode: 'tel' }, { key: 'email', label: 'Personal email', type: 'email', inputMode: 'email' }, { key: 'phone', label: 'Personal phone', type: 'tel', inputMode: 'tel' }, { key: 'personalEmail', label: 'Email from invite', type: 'email', inputMode: 'email', hideEmpty: true }] },
   personal: { title: 'Personal details', fields: [{ key: 'dateOfBirth', label: 'Date of birth', kind: 'date' }, { key: 'gender', label: 'Gender', kind: 'select', options: GENDERS }, { key: 'maritalStatus', label: 'Marital status', kind: 'select', options: MARITAL }, { key: 'guardianName', label: 'Father / husband name' }] },
-  address: { title: 'Address', fields: [{ key: 'addressLine', label: 'Address', wide: true }, { key: 'city', label: 'City' }, { key: 'state', label: 'State' }, { key: 'pincode', label: 'PIN code', inputMode: 'numeric', max: 10 }, { key: 'country', label: 'Country' }] },
-  emergency: { title: 'Emergency contact', fields: [{ key: 'emergencyContactName', label: 'Name' }, { key: 'emergencyContactRelation', label: 'Relationship' }, { key: 'emergencyContactPhone', label: 'Phone', type: 'tel', inputMode: 'tel' }] },
+  address: { title: 'Address', fields: [{ key: 'addressLine', label: 'Address', wide: true }, { key: 'city', label: 'City', suggest: 'city' }, { key: 'state', label: 'State', suggest: 'state' }, { key: 'pincode', label: 'PIN code', inputMode: 'numeric', max: 10 }, { key: 'country', label: 'Country', suggest: 'country' }] },
+  emergency: { title: 'Emergency contact', fields: [{ key: 'emergencyContactName', label: 'Name' }, { key: 'emergencyContactRelation', label: 'Relationship', suggest: 'relation' }, { key: 'emergencyContactPhone', label: 'Phone', type: 'tel', inputMode: 'tel' }] },
 };
 
 /* Personal details the server leaves out for a read-only role (routes/people.ts seesPersonal): their fields are not drawn, rather than shown as "Not provided". */
@@ -842,7 +854,7 @@ function Organization({ person, lists, allowed, openAction, openPerson, editing,
       {person.workLocation ? (
         <Section title="Work address" onEdit={canEdit && editing !== 'place' ? () => setEditing('place') : null}>
           {editing === 'place' ? (
-            <SectionForm person={person} fields={[{ key: 'workLocation', label: 'Site or address' }]} onCancel={() => setEditing(null)} onSaved={(emp) => { onSaved(emp); setEditing(null); }} reload={reload} />
+            <SectionForm person={person} fields={[{ key: 'workLocation', label: 'Site or address', suggest: 'workLocation' }]} onCancel={() => setEditing(null)} onSaved={(emp) => { onSaved(emp); setEditing(null); }} reload={reload} />
           ) : <dl className="ui-field-grid"><Field label="Site or address" value={person.workLocation} /></dl>}
         </Section>
       ) : null}
@@ -918,6 +930,7 @@ function OperationDrawer({ action, person, lists, onClose, onDone }) {
   const [effective, setEffective] = useState(todayIst());
   const [reason, setReason] = useState('');
   const [reasonMissing, setReasonMissing] = useState(false);
+  const reasonHints = useSuggestions('reason');
   const [impact, setImpact] = useState([]);
   const [followPt, setFollowPt] = useState(true);
   const ptFix = impact.find((i) => i.fix?.kind === 'ptState');
@@ -994,7 +1007,7 @@ function OperationDrawer({ action, person, lists, onClose, onDone }) {
         {['probationEndDate', 'contractEndDate'].filter((k) => endChanges[k] === '' && person[k]).map((k) => <p key={k} className="ui-caption">{k === 'probationEndDate' ? 'Probation end' : 'Contract end'} {formatDate(day(person[k]))} is removed.</p>)}
         {/* A suspension or reactivation takes effect when it is made; only job changes can be dated (W8). */}
         {action !== 'status' ? <div><label className="ui-label" htmlFor="op-effective">Effective from</label><DatePicker id="op-effective" value={effective} onChange={setEffective} /></div> : null}
-        <label className="block"><span className="ui-label">Reason{op.reasonRequired ? ' *' : ''}</span><textarea className="ui-input w-full" rows={2} maxLength={500} value={reason} aria-invalid={reasonMissing || undefined} aria-describedby={reasonMissing ? 'op-reason-error' : undefined} onChange={(e) => { setReason(e.target.value); setReasonMissing(false); }} /></label>
+        <label className="block"><span className="ui-label">Reason{op.reasonRequired ? ' *' : ''}</span><SuggestInput maxLength={500} value={reason} suggestions={reasonHints} aria-invalid={reasonMissing || undefined} aria-describedby={reasonMissing ? 'op-reason-error' : undefined} onChange={(v) => { setReason(v); setReasonMissing(false); }} /></label>
         {reasonMissing ? <p id="op-reason-error" className="ui-field-error" role="alert">Add a reason.</p> : null}
         {impact.length ? (
           /* What follows by itself, what needs someone, what to check: never "told" for something that does not happen. */

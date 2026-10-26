@@ -1,4 +1,6 @@
 import React, { useMemo, useRef, useState } from 'react';
+import SuggestInput from '@ui/components/ui/SuggestInput';
+import { refreshSuggestions, useSuggestions } from '../workforce/suggestions';
 import { Plus } from 'lucide-react';
 
 import { EmptyState, PageHeader } from '@ui/components/ui/Primitives';
@@ -85,18 +87,29 @@ export default function Branches({ openScreen }) {
           toolbar={<SearchField value={q} onSearch={setQ} placeholder="Search branches" label="Search branches" className="w-full sm:w-80" />}
         />
       )}
-      {editing ? <BranchDrawer value={editing} others={rows.filter((b) => b.isActive !== false && b.id !== editing.id)} onClose={() => setEditing(null)} onDone={() => { setEditing(null); req.reload(); }} /> : null}
+      {editing ? <BranchDrawer value={editing} codes={rows.map((b) => b.branchCode)} others={rows.filter((b) => b.isActive !== false && b.id !== editing.id)} onClose={() => setEditing(null)} onDone={() => { setEditing(null); req.reload(); }} /> : null}
     </div>
   );
 }
 
-function BranchDrawer({ value, others, onClose, onDone }) {
+function BranchDrawer({ value, codes, others, onClose, onDone }) {
   const isNew = !value.id;
   const initial = useMemo(() => ({ branchName: value.branchName || '', branchCode: value.branchCode || '', addressLine1: value.addressLine1 || '', addressLine2: value.addressLine2 || '', city: value.city || '', state: value.state || '', isActive: value.isActive !== false }), [value]);
   const [form, setForm] = useState(initial);
   /* Retiring a branch people work at: they move to another open branch first. */
   const [moveTo, setMoveTo] = useState('');
   const retiring = !isNew && value.isActive !== false && !form.isActive;
+  const cities = useSuggestions('city');
+  /* A new branch's code, from its name: the first letters, kept clear of codes already used. */
+  const codeHints = useMemo(() => {
+    const name = form.branchName.trim().toUpperCase().replace(/[^A-Z0-9 ]/g, '');
+    if (!isNew || !name) return [];
+    const words = name.split(/\s+/).filter(Boolean);
+    const used = new Set((codes || []).map((c) => String(c).toUpperCase()));
+    const tries = [words.length > 1 ? words.map((w) => w[0]).join('').slice(0, 4) : '', name.replace(/\s+/g, '').slice(0, 3)].filter((c) => c.length >= 2);
+    for (let n = 2; tries.length < 3 && n < 10; n += 1) tries.push(`${name.replace(/\s+/g, '').slice(0, 3)}${n}`);
+    return [...new Set(tries)].filter((c) => !used.has(c)).slice(0, 2);
+  }, [form.branchName, isNew, codes]);
   const working = retiring ? value.people || 0 : 0;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
@@ -109,6 +122,7 @@ function BranchDrawer({ value, others, onClose, onDone }) {
     setError(null);
     try {
       const body = { branchName: form.branchName.trim(), branchCode: form.branchCode.trim(), addressLine1: form.addressLine1.trim(), addressLine2: form.addressLine2.trim() || null, city: form.city.trim() || null, state: form.state, ...(isNew ? { country: 'India' } : { isActive: form.isActive }) };
+      refreshSuggestions();
       if (isNew) await createBranch(body);
       else if (retiring) {
         const { isActive: _closing, ...rest } = body;
@@ -125,10 +139,10 @@ function BranchDrawer({ value, others, onClose, onDone }) {
       <form className="ui-form-grid" onSubmit={(e) => { e.preventDefault(); save(); }}>
         {error ? <div className="sm:col-span-2"><ErrorState error={error?.status ? error : null} compact title={error?.status ? undefined : error.message} body={error?.status && error.status < 500 ? error.message : undefined} /></div> : null}
         <label className="block"><span className="ui-label">Name *</span><input className="ui-input w-full" maxLength={200} value={form.branchName} onChange={(e) => set('branchName', e.target.value)} autoFocus /></label>
-        <label className="block"><span className="ui-label">Code *</span><input className="ui-input w-full" maxLength={20} value={form.branchCode} onChange={(e) => set('branchCode', e.target.value)} placeholder="BLR" disabled={!isNew} /></label>
+        <label className="block"><span className="ui-label">Code *</span>{isNew ? <SuggestInput maxLength={20} value={form.branchCode} onChange={(v) => set('branchCode', v)} suggestions={codeHints} placeholder="BLR" /> : <input className="ui-input w-full" value={form.branchCode} disabled />}</label>
         <label className="block sm:col-span-2"><span className="ui-label">Address *</span><input className="ui-input w-full" maxLength={250} value={form.addressLine1} onChange={(e) => set('addressLine1', e.target.value)} /></label>
         <label className="block sm:col-span-2"><span className="ui-label">Address, line 2</span><input className="ui-input w-full" maxLength={250} value={form.addressLine2} onChange={(e) => set('addressLine2', e.target.value)} /></label>
-        <label className="block"><span className="ui-label">City</span><input className="ui-input w-full" maxLength={100} value={form.city} onChange={(e) => set('city', e.target.value)} /></label>
+        <label className="block"><span className="ui-label">City</span><SuggestInput maxLength={100} value={form.city} onChange={(v) => set('city', v)} suggestions={form.branchName.trim() ? [{ value: form.branchName.trim(), hint: 'Branch name' }, ...cities] : cities} /></label>
         <div><PopupSelect showValueSubtext={false} label="State *" value={form.state} onChange={(v) => set('state', v || '')} placeholder="Choose…" alwaysSearch options={STATES.map((s) => ({ value: s, label: s }))} /></div>
         {!isNew ? <label className="flex items-center gap-2 text-sm sm:col-span-2"><input type="checkbox" className="ui-checkbox" checked={form.isActive} onChange={(e) => set('isActive', e.target.checked)} />In use</label> : null}
         {working ? (

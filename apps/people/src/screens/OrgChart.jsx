@@ -3,6 +3,7 @@ import { ChevronDown, ChevronRight, Printer } from 'lucide-react';
 
 import { PageHeader, SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import ErrorState from '@ui/components/ui/ErrorState';
+import DatePicker, { formatDate } from '@ui/components/ui/DatePicker';
 import SearchField from '@ui/components/ui/SearchField';
 import useRequest from '@ui/components/ui/useRequest';
 import { getOrgChart } from '@ui/personnel/api';
@@ -18,8 +19,12 @@ import { Avatar } from '@ui/personnel/Employees';
  * managers are named under the person; open seats (ORG-04) sit under their
  * team's lead, or in their own list when the team has no lead on the chart.
  */
+const todayIst = () => new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
+
 export default function OrgChart({ openScreen, params = {}, updateParams }) {
-  const req = useRequest(getOrgChart, []);
+  /* As of a past date (FND-03): who reported to whom then. Open positions are today's, so a past view leaves them out. */
+  const asOfDay = params.view === 'departments' ? '' : params.asOf || '';
+  const req = useRequest(() => getOrgChart({ asOf: asOfDay }), [asOfDay]);
   /* Two views of one company: who reports to whom, and who sits in which department under which head. */
   const view = params.view === 'departments' ? 'departments' : 'reporting';
   const tabsRef = useRef(null);
@@ -88,18 +93,25 @@ export default function OrgChart({ openScreen, params = {}, updateParams }) {
         {tabIndicator}
       </div>
       {view === 'departments' ? <DepartmentView nodes={nodes} openScreen={openScreen} /> : nodes.length === 0 ? (
-        <EmptyState title="Nobody yet" description="Add employees and who they report to." />
+        asOfDay
+          ? <EmptyState title={`Nobody here on ${formatDate(asOfDay)}`} description="Nobody had joined by then." action={<button type="button" className="ui-btn ui-btn-secondary" onClick={() => updateParams?.({ asOf: null })}>Show today</button>} />
+          : <EmptyState title="Nobody yet" description="Add employees and who they report to." />
       ) : (
         <>
           <div className="flex flex-wrap items-center gap-3 ui-no-print">
             <SearchField value={query} onSearch={setQuery} delay={150} placeholder="Search people" label="Find in the org chart" />
+            <div className="flex items-center gap-2">
+              <label htmlFor="chart-as-of" className="text-sm ui-muted">As of</label>
+              <div className="w-40"><DatePicker id="chart-as-of" value={asOfDay || todayIst()} max={todayIst()} onChange={(v) => updateParams?.({ asOf: v && v < todayIst() ? v : null })} /></div>
+              {asOfDay ? <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" onClick={() => updateParams?.({ asOf: null })}>Today</button> : null}
+            </div>
             <span className="flex gap-3 ml-auto text-sm">
               <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" onClick={() => setClosed(new Set())}>Expand all</button>
               <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" onClick={() => setClosed(new Set(managers))}>Collapse all</button>
             </span>
           </div>
           <p className="ui-caption">
-            {nodes.length} {nodes.length === 1 ? 'person' : 'people'}
+            {nodes.length} {nodes.length === 1 ? 'person' : 'people'}{asOfDay ? ` on ${formatDate(asOfDay)}` : ''}
             {req.data.openSeats?.length ? ` · ${req.data.openSeats.length} open ${req.data.openSeats.length === 1 ? 'position' : 'positions'}` : ''}
           </p>
           {visible && !visible.size ? <p className="ui-muted text-sm">Nobody matches “{query.trim()}”.</p> : null}

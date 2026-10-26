@@ -14,6 +14,8 @@ import { HOURS_WORDS, datesFor, kindOf, probationEndFor } from '@ui/personnel/em
 import { hasApp } from '@platform/context';
 import { clearUnsaved } from '@platform/unsaved';
 
+import SuggestInput from '@ui/components/ui/SuggestInput';
+import { refreshSuggestions, useEmailSuggestions, useSuggestions } from './suggestions';
 import { createEmployee, deleteDraft, getDraft, listContractors, listEmployees, listTags, nextEmployeeCode, saveDraft, structure } from './api';
 import { listBranches } from '../organization/api';
 import { can } from './shared';
@@ -108,6 +110,8 @@ export default function AddEmployee({ params = {}, updateParams, openScreen }) {
   useUnsavedChanges(dirty);
 
   const goStep = (k) => { updateParams?.({ step: k === 'personal' ? null : k }, { push: true }); bodyRef.current?.focus(); window.scrollTo(0, 0); };
+  const emailHints = useEmailSuggestions(form.workEmail, form.firstName, form.lastName);
+  const relationHints = useSuggestions('relation');
   const field = (k) => ({ value: form[k], onChange: (v) => { setForm((f) => ({ ...f, [k]: v })); if (errors[k]) setErrors((e) => { const n = { ...e }; delete n[k]; return n; }); } });
   const next = () => {
     const e = check(stepKey, form);
@@ -156,6 +160,7 @@ export default function AddEmployee({ params = {}, updateParams, openScreen }) {
     setFailure(null);
     try {
       const body = Object.fromEntries(Object.entries(form).filter(([k, v]) => v !== '' && v !== null && !(k === 'tagIds' && !v.length) && !(k === 'attendanceRequired' && !hasApp('attendance')) && !(k === 'probationEndDate' && !dates.probation) && !(k === 'contractEndDate' && !dates.contract)));
+      refreshSuggestions();
       const r = await createEmployee({ ...body, ...(duplicateReason ? { duplicateReason } : {}), ...(draftId ? { draftId } : {}) });
       setSaved(form);
       clearUnsaved();
@@ -209,7 +214,7 @@ export default function AddEmployee({ params = {}, updateParams, openScreen }) {
             <Text id="firstName" label="First name" required {...field('firstName')} error={errors.firstName} autoFocus />
             <Text id="lastName" label="Last name" {...field('lastName')} />
             <Text id="preferredName" label="Preferred name" optional {...field('preferredName')} />
-            <Text id="workEmail" label="Work email" optional type="email" inputMode="email" placeholder="name@company.com" {...field('workEmail')} error={errors.workEmail} />
+            <Text id="workEmail" label="Work email" optional type="email" inputMode="email" placeholder="name@company.com" {...field('workEmail')} error={errors.workEmail} suggestions={emailHints} />
             <Text id="phone" label="Phone" optional type="tel" inputMode="tel" placeholder="98765 43210" {...field('phone')} error={errors.phone} />
             <Text id="email" label="Personal email" optional type="email" inputMode="email" {...field('email')} error={errors.email} />
             <Text id="workPhone" label="Work phone" optional type="tel" inputMode="tel" {...field('workPhone')} />
@@ -219,7 +224,7 @@ export default function AddEmployee({ params = {}, updateParams, openScreen }) {
             <PhotoField value={form.photoUrl} onChange={(v) => field('photoUrl').onChange(v)} name={[form.firstName, form.lastName].filter(Boolean).join(' ')} />
             <h3 className="ui-t-sec sm:col-span-2 mt-2">Emergency contact</h3>
             <Text id="emergencyContactName" label="Name" {...field('emergencyContactName')} />
-            <Text id="emergencyContactRelation" label="Relationship" {...field('emergencyContactRelation')} />
+            <Text id="emergencyContactRelation" label="Relationship" {...field('emergencyContactRelation')} suggestions={relationHints} />
             <Text id="emergencyContactPhone" label="Phone" type="tel" inputMode="tel" {...field('emergencyContactPhone')} error={errors.emergencyContactPhone} />
           </Step>
         ) : null}
@@ -341,13 +346,16 @@ function Label({ id, label, required }) {
   return <label htmlFor={id} className="ui-label">{label}{required ? <span aria-hidden="true" className="ui-required"> *</span> : null}</label>;
 }
 
-function Text({ id, label, required, help, error, value, onChange, type = 'text', inputMode, placeholder, max = 160, autoFocus }) {
+function Text({ id, label, required, help, error, value, onChange, type = 'text', inputMode, placeholder, max = 160, autoFocus, suggestions }) {
+  const common = {
+    id, name: id, className: `ui-input w-full ${error ? 'is-invalid' : ''}`, type, inputMode, placeholder, maxLength: max, required, autoFocus,
+    'aria-invalid': error ? 'true' : undefined, 'aria-describedby': [error ? `${id}-err` : '', help ? `${id}-help` : ''].filter(Boolean).join(' ') || undefined,
+  };
   return (
     <div>
       <Label id={id} label={label} required={required} />
-      <input id={id} name={id} className={`ui-input w-full ${error ? 'is-invalid' : ''}`} type={type} inputMode={inputMode} placeholder={placeholder} maxLength={max} value={value} required={required} autoFocus={autoFocus}
-        aria-invalid={error ? 'true' : undefined} aria-describedby={[error ? `${id}-err` : '', help ? `${id}-help` : ''].filter(Boolean).join(' ') || undefined}
-        onChange={(e) => onChange(e.target.value)} />
+      {/* What the company already has is offered under the field; typing stays free. */}
+      {suggestions ? <SuggestInput {...common} value={value} onChange={onChange} suggestions={suggestions} /> : <input {...common} value={value} onChange={(e) => onChange(e.target.value)} />}
       {error ? <p id={`${id}-err`} className="ui-field-error">{error}</p> : help ? <p id={`${id}-help`} className="ui-caption">{help}</p> : null}
     </div>
   );

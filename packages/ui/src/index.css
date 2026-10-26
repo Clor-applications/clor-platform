@@ -7971,3 +7971,8 @@ button.ui-metric:focus-visible { outline: 2px solid rgb(var(--ring)); outline-of
 .ui-org-outline > li > :nth-child(1) { position: relative; }
 @media (max-width: 639px) { .ui-org-outline > li { grid-template-columns: minmax(0, 1fr) 3rem; row-gap: 0.125rem; padding-left: calc(var(--depth, 0) * 0.75rem); } .ui-org-outline-head { grid-column: 1; grid-row: 2; font-size: 0.8125rem; } .ui-org-outline-count { grid-row: 1; grid-column: 2; } }
 .ui-attention-dot.is-quiet { background: rgb(var(--fg-subtle)); }
+
+/* SuggestInput: what the company already has, under a text field. The active row reads like PopupSelect's. */
+.ui-suggest-list { list-style: none; margin: 0; padding: 0.25rem 0; overflow-y: auto; }
+.ui-suggest-option { display: flex; align-items: baseline; justify-content: space-between; gap: 0.75rem; padding: 0.5rem 0.75rem; font-size: 0.875rem; cursor: pointer; min-width: 0; }
+.ui-suggest-option[data-active="true"] { background-color: rgb(var(--brand) / 0.12); color: rgb(var(--brand-ink)); box-shadow: inset 3px 0 0 rgb(var(--brand)); }

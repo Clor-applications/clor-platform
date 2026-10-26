@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import SuggestInput from '@ui/components/ui/SuggestInput';
 import { Plus } from 'lucide-react';
 import { EmptyState, PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
 import Drawer from '@ui/components/ui/Drawer';
@@ -82,14 +83,17 @@ export default function Policies() {
           </tbody>
         </table>
       )}
-      {creating ? <PolicyForm categories={data?.categories || []} purposes={data?.purposes || []} onClose={() => setCreating(false)} onSaved={(p) => { setCreating(false); load(); setOpen(p.id); }} /> : null}
+      {creating ? <PolicyForm taken={(data?.policies || []).map((p) => p.title)} categories={data?.categories || []} purposes={data?.purposes || []} onClose={() => setCreating(false)} onSaved={(p) => { setCreating(false); load(); setOpen(p.id); }} /> : null}
       {languagesOpen ? <NoticeLanguages onClose={() => setLanguagesOpen(false)} onSaved={() => { setLanguagesOpen(false); load(); }} /> : null}
       {open ? <PolicyDetail id={open} categories={data?.categories || []} purposes={data?.purposes || []} languages={data?.languages || []} allowed={allowed} onClose={() => setOpen(null)} onChanged={load} /> : null}
     </div>
   );
 }
 
-function PolicyForm({ policy, categories, purposes = [], onClose, onSaved }) {
+/* The policies most Indian companies keep; offered when adding one the company does not have yet. */
+const COMMON_POLICIES = ['Leave policy', 'Attendance and working hours', 'Code of conduct', 'Prevention of sexual harassment (POSH)', 'Travel and expenses', 'Work from home', 'IT and device use', 'Holiday list', 'Notice period and exit', 'Probation and confirmation', 'Overtime', 'Grievance redressal'];
+
+function PolicyForm({ policy, taken = [], categories, purposes = [], onClose, onSaved }) {
   const [form, setForm] = useState({ title: policy?.title || '', category: policy?.category || 'OTHER', purpose: policy?.purpose || '', description: policy?.description || '' });
   const [saving, setSaving] = useState(false);
   const save = async (e) => {
@@ -109,7 +113,7 @@ function PolicyForm({ policy, categories, purposes = [], onClose, onSaved }) {
     <Drawer open onClose={onClose} title={policy ? `Edit ${policy.title}` : 'New policy'} description="The owner is you unless changed; versions and who they apply to come next."
       actions={<><button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button><button type="submit" form="policy-form" className="ui-btn ui-btn-primary" disabled={saving}>{saving ? 'Saving…' : 'Save'}</button></>}>
       <form id="policy-form" onSubmit={save} className="grid gap-4">
-        <label className="block"><span className="ui-label">Title *</span><input className="ui-input w-full" required maxLength={160} value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} /></label>
+        <label className="block"><span className="ui-label">Title *</span><SuggestInput required maxLength={160} value={form.title} onChange={(v) => setForm({ ...form, title: v })} suggestions={policy ? [] : COMMON_POLICIES.filter((t) => !taken.some((x) => String(x).trim().toLowerCase() === t.toLowerCase()))} /></label>
         <label className="block"><span className="ui-label">Kind</span>
           <select className="ui-select w-full" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}>
             {categories.map((c) => <option key={c.key} value={c.key}>{c.label}</option>)}

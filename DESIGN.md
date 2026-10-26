@@ -375,6 +375,22 @@ thing.
 **Do not reintroduce `text-right` on every money input.** That is the change
 this table exists to prevent.
 
+### Text fields suggest what already exists
+
+Every free-text field offers matching values the company already has, on focus
+and while typing: cities, relationships, the work-email domain, the branch a
+work site sits at, reasons used before, names already on people's records. Use
+`SuggestInput` (`packages/ui/src/components/ui/SuggestInput.jsx`), never a
+native `<datalist>`. The list sits under the field and the caret stays in it;
+↓/↑ move, Enter takes a row only after the arrows were used, Escape closes.
+Typing stays free. A suggestion is offered, never forced.
+
+What is never suggested: one person's private details to anyone else (phones,
+personal emails, government IDs, home addresses, bank details), and anything
+from private cases or help-desk tickets. Free reasons are offered only once a
+phrase has been used at least twice. A name that already exists in the list
+being added to is said plainly ("already in the list"), not offered.
+
 ## Motion
 - **Approach:** minimal-functional.
 - **Duration:** 120ms state, 200ms surface.
@@ -479,6 +495,7 @@ because focus, portals and event order cannot be read off the source.
 | 2026-09-08 | Weight marks structure, not content | 121 values carried semibold or bold. Spending weight on content leaves none for hierarchy — everything emphasised is nothing emphasised |
 | 2026-09-08 | Money drops to weight 400 | Tabular alignment already marks a figure as money. A weight on top made every amount in every table an emphasis, and a screen that is mostly amounts then had none |
 | 2026-09-08 | Status hues move out of type and into the tint | Seven saturated words in the filter strip competed with each other and with the figures beside them. Reverses the 2026-09-01 contrast increase, which raised the wrong thing |
+| 2026-10-26 | Text fields suggest what already exists | Owner rule, for every app: a field offers the company's own matching data so nothing is typed twice or spelled two ways. One shared `SuggestInput`; shared vocabulary only, never another person's private details |
 | 2026-10-24 | People wears a rose accent on Accounting's layout | The owner asked for People to keep the same layout and type as Accounting while having its own face. People's app-scoped CSS (59 selectors, 26 `!important`: 22px titles, 15px sections, 6px controls, a coral palette and a second-pass Blaze layer) is removed and replaced by one shared `[data-palette='rose']` block that sets colour tokens only. Colour icons stay (D-01, docs/people/08) |
 | 2026-10-02 | Contrast floor re-measured against the page ground, not white | Compliance audit: Graphite `--fg-subtle` #71717A was 4.83:1 on white but 4.40:1 on the `--app-bg` it often sits on, under AA; now #6B6B73 (4.81:1). `--warn` #A66A00 measured 4.48:1, now #996200. Orange-theme tokens (primary fill, focus ring, orange text → `--brand-ink`) corrected too, though Graphite overrides them. Field borders (1.48:1, WCAG 1.4.11) left for a design decision — see docs/compliance |
 | 2026-10-02 | Inter served from the app, not Google Fonts | Loading it from fonts.googleapis.com sent every visitor's IP to Google before sign-in. Same face (`@fontsource-variable/inter`, OFL); the family is `'Inter Variable'` first in every stack |

@@ -1,4 +1,6 @@
 import React, { useMemo, useRef, useState } from 'react';
+import SuggestInput from '@ui/components/ui/SuggestInput';
+import { useSuggestions } from '../workforce/suggestions';
 import { Plus } from 'lucide-react';
 
 import { EmptyState, PageHeader } from '@ui/components/ui/Primitives';
@@ -59,7 +61,7 @@ export const KINDS = {
     fields: [
       { key: 'teamId', label: 'Team', type: 'ref', ref: 'teams', placeholder: 'Choose…', required: true },
       { key: 'jobPositionId', label: 'Designation', type: 'ref', ref: 'job-positions', placeholder: 'Any' },
-      { key: 'budgetRef', label: 'Budget reference', type: 'text', placeholder: 'FY27-OPS-04' },
+      { key: 'budgetRef', label: 'Budget reference', type: 'text', placeholder: 'FY27-OPS-04', suggest: 'budgetRef' },
     ],
     columns: [{ key: 'team', label: 'Team', render: (r, refs) => refs.teams?.get(r.teamId) || '—' }],
   },
@@ -73,7 +75,7 @@ export const KINDS = {
     fields: [
       { key: 'state', label: 'State', type: 'state', required: true },
       { key: 'kind', label: 'Kind', type: 'select', options: [['OFFICE', 'Office'], ['SHOP', 'Shop'], ['FACTORY', 'Factory'], ['SITE', 'Site'], ['WAREHOUSE', 'Warehouse']] },
-      { key: 'address', label: 'Address', type: 'textarea', wide: true },
+      { key: 'address', label: 'Address', type: 'text', wide: true, suggest: 'branchAddress', max: 500 },
       { key: 'holdsOriginals', label: 'The company keeps employees’ original documents here', type: 'checkbox', wide: true },
     ],
     columns: [{ key: 'state', label: 'State', render: (r) => r.state || '—' }],
@@ -132,6 +134,7 @@ export default function StructurePage({ kind, openScreen, params = {}, updatePar
   const tabIndicator = useTabIndicator(tabsRef, tab);
 
   const items = req.data?.items || [];
+  const withUnder = (r) => (TREE_KEY[kind] ? [r.id, ...descendantsOf(items, r.id, TREE_KEY[kind])].reduce((n, id) => n + (items.find((x) => x.id === id)?.employeeCount || 0), 0) : r.employeeCount || 0);
   const refNames = useMemo(() => Object.fromEntries(Object.entries(req.data?.refs || {}).map(([k, list]) => [k, new Map((list || []).map((r) => [r.id, TREE_KEY[k] ? pathOf(list, r, TREE_KEY[k]) : r.name]))])), [req.data]);
   const counts = { active: items.filter((r) => r.isActive !== false).length, retired: items.filter((r) => r.isActive === false).length };
   const shown = items
@@ -155,7 +158,8 @@ export default function StructurePage({ kind, openScreen, params = {}, updatePar
       </span>
     ) },
     ...cfg.columns.map((c) => ({ ...c, render: (r) => c.render(r, refNames) })),
-    { key: 'people', label: 'People', align: 'right', render: (r) => <span className="tabular-nums">{r.employeeCount || 0}</span> },
+    /* Direct count; a department with sub-departments also says how many with them (ORG-R050). */
+    { key: 'people', label: 'People', align: 'right', render: (r) => { const all = withUnder(r); return <span className="tabular-nums">{r.employeeCount || 0}{all > (r.employeeCount || 0) ? <span className="block ui-caption">{all} with sub-{kind === 'areas' ? 'locations' : 'departments'}</span> : null}</span>; } },
   ];
   const rowActions = (r) => [
     canEdit ? { key: 'edit', label: 'Edit', onSelect: () => setEditing({ ...r }) } : null,
@@ -163,7 +167,7 @@ export default function StructurePage({ kind, openScreen, params = {}, updatePar
     canEdit && r.isActive !== false ? { key: 'retire', label: 'Retire', onSelect: () => setRetiring(r) } : null,
     canEdit && r.isActive === false ? { key: 'reactivate', label: 'Bring back', onSelect: () => reactivate(r) } : null,
     { key: 'history', label: 'History', onSelect: () => openScreen?.('orgChanges', { kind, item: r.id }) },
-    canDelete && !r.employeeCount ? { key: 'delete', label: 'Delete', onSelect: () => remove(r) } : null,
+    canDelete && !r.employeeCount && !(TREE_KEY[kind] && items.some((x) => x[TREE_KEY[kind]] === r.id)) ? { key: 'delete', label: 'Delete', onSelect: () => remove(r) } : null,
   ];
 
   return (
@@ -223,6 +227,7 @@ const field = (f, form, set, ctx) => {
   if (f.type === 'textarea') {
     return <label key={f.key} className={`block ${f.wide ? 'sm:col-span-2' : ''}`}><span className="ui-label">{f.label}{f.required ? ' *' : ''}</span><textarea id={id} className="ui-input w-full" rows={2} maxLength={500} value={form[f.key] || ''} onChange={(e) => set(f.key, e.target.value)} /></label>;
   }
+  if (f.type === 'text' && f.suggest) return <SuggestText key={f.key} f={f} id={id} value={form[f.key] || ''} onChange={(v) => set(f.key, v)} />;
   if (f.type === 'text') {
     return <label key={f.key} className="block"><span className="ui-label">{f.label}{f.required ? ' *' : ''}</span><input id={id} className="ui-input w-full" maxLength={120} placeholder={f.placeholder || ''} value={form[f.key] || ''} onChange={(e) => set(f.key, e.target.value)} /></label>;
   }
@@ -243,14 +248,34 @@ const field = (f, form, set, ctx) => {
   );
 };
 
+/* A text field that offers what the company already has. */
+function SuggestText({ f, id, value, onChange }) {
+  const hints = useSuggestions(f.suggest);
+  return <label className={`block ${f.wide ? 'sm:col-span-2' : ''}`}><span className="ui-label">{f.label}{f.required ? ' *' : ''}</span><SuggestInput id={id} maxLength={f.max || 120} placeholder={f.placeholder || ''} value={value} onChange={onChange} suggestions={hints} /></label>;
+}
+
+/* Names to offer for a new item: what people's records already say, or (work sites) the branches. */
+const NAME_SOURCE = { departments: 'department', 'job-positions': 'designation', establishments: 'branch' };
+/* After the company's own: the names most small Indian companies use. */
+const COMMON_NAMES = {
+  departments: ['Accounts', 'Sales', 'Operations', 'Administration', 'Human Resources', 'Production', 'Purchase', 'Stores', 'Marketing', 'Customer Support', 'Logistics', 'IT'],
+  'job-positions': ['Manager', 'Executive', 'Accountant', 'Sales Executive', 'Supervisor', 'Office Assistant', 'Receptionist', 'Technician', 'Driver', 'Helper', 'Store Keeper', 'Security Guard'],
+};
+
 function EditDrawer({ kind, cfg, value, items, refs, staff, onClose, onDone, onRetire }) {
   const isNew = !value.id;
+  const sourced = useSuggestions(NAME_SOURCE[kind] || null);
   const initial = useMemo(() => ({ ...value }), [value]);
   const [form, setForm] = useState(initial);
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
   const dirty = JSON.stringify(form) !== JSON.stringify(initial);
+  /* Offered: names already on people's records (or branches) that are not yet in this list. A name already in it is said plainly, not offered. */
+  const taken = new Set(items.map((x) => String(x.name).trim().toLowerCase()));
+  const nameHints = [...sourced, ...(COMMON_NAMES[kind] || [])].filter((h) => !taken.has(String(h.value ?? h).trim().toLowerCase()));
+  const typed = String(form.name || '').trim().toLowerCase();
+  const same = typed ? items.find((x) => x.id !== form.id && String(x.name).trim().toLowerCase() === typed) : null;
   const save = async () => {
     if (!String(form.name || '').trim()) { setError({ message: 'Give it a name.' }); return; }
     const missing = cfg.fields.find((f) => f.required && !form[f.key] && f.type !== 'checkbox');
@@ -277,7 +302,9 @@ function EditDrawer({ kind, cfg, value, items, refs, staff, onClose, onDone, onR
       </>}>
       <form className="ui-form-grid" onSubmit={(e) => { e.preventDefault(); save(); }}>
         {error ? <div className="sm:col-span-2"><ErrorState error={error?.status ? error : null} compact title={error?.status ? undefined : error.message} body={error?.status === 400 || error?.status === 409 ? error.message : undefined} /></div> : null}
-        <label className="block sm:col-span-2"><span className="ui-label">Name *</span><input className="ui-input w-full" maxLength={120} value={form.name || ''} onChange={(e) => set('name', e.target.value)} autoFocus /></label>
+        <label className="block sm:col-span-2"><span className="ui-label">Name *</span><SuggestInput maxLength={120} value={form.name || ''} onChange={(v) => set('name', v)} suggestions={nameHints} autoFocus aria-describedby={same ? 'org-name-same' : undefined} />
+          {same ? <span id="org-name-same" className="ui-caption block mt-1">{same.isActive === false ? `${same.name} is in the list, retired. Bring it back instead of adding it again.` : `${same.name} is already in the list.`}</span> : null}
+        </label>
         {cfg.fields.map((f) => field(f, form, set, { refs: { ...refs, [kind]: refs[kind] || items }, staff }))}
         {DESCRIBED.has(kind) ? <label className="block sm:col-span-2"><span className="ui-label">Description</span><textarea className="ui-input w-full" rows={2} maxLength={500} value={form.description || ''} onChange={(e) => set('description', e.target.value)} /></label> : null}
       </form>

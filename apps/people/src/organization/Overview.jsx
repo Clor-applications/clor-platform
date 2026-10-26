@@ -102,7 +102,7 @@ export default function OrganizationOverview({ openScreen }) {
               <li key={x.id} style={{ '--depth': x.depth }}>
                 <button type="button" className="ui-org-outline-name" onClick={go('departments')}>{x.name}</button>
                 <span className={`ui-org-outline-head ${x.headLeft ? 'ui-text-neg' : x.headName ? '' : 'ui-muted'}`}>{x.headName ? `${x.headName}${x.headLeft ? ' (left)' : ''}` : 'No head'}</span>
-                <button type="button" className="ui-link tabular-nums ui-org-outline-count" onClick={go('employees', { dept: x.id })} aria-label={`${x.people} people in ${x.name}`}>{x.people}</button>
+                <button type="button" className="ui-link tabular-nums ui-org-outline-count" onClick={go('employees', { dept: x.id })} aria-label={`${x.people} people directly in ${x.name}`} title="Directly in this department; sub-departments count their own">{x.people}</button>
               </li>
             ))}
           </ul>

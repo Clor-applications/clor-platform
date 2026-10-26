@@ -1,4 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
+import SuggestInput from '@ui/components/ui/SuggestInput';
+import { useSuggestions } from './suggestions';
 import { useTabIndicator } from '@ui/components/ui/RecordTabs';
 import { CalendarClock, Download, Filter, Pencil, Plus, Trash2, Upload, UserCheck, UserMinus, Users, X } from 'lucide-react';
 
@@ -470,6 +472,7 @@ const BULK_FIELDS = [
 const NO_CLEAR = new Set(['departmentId', 'hours']);
 function BulkDrawer({ count, lists, managers, value, onChange, onClose, onSend }) {
   const [busy, setBusy] = useState(false);
+  const reasonHints = useSuggestions('reason');
   /* Only lists the company has set up are offered. */
   const fields = BULK_FIELDS.filter(([k, , src]) => !src || src === 'hours' || k === 'departmentId' || (lists[src] || []).length);
   const f = fields.find(([k]) => k === value.field) || fields[0];
@@ -485,7 +488,7 @@ function BulkDrawer({ count, lists, managers, value, onChange, onClose, onSend }
         <div><PopupSelect showValueSubtext={false} label="To" value={value.value} onChange={(v) => onChange({ ...value, value: v })} placeholder="Choose…" alwaysSearch options={[...(NO_CLEAR.has(f[0]) ? [] : [{ value: '__clear', label: 'None' }]), ...options.map((o) => ({ value: o.id, label: o.name }))]} /></div>
         {/* From when, as for one person: a later day waits for that day and shows on each record under Upcoming changes. Hours change from today. */}
         {f[0] !== 'hours' ? <div><label className="ui-label" htmlFor="bulk-effective">Effective from</label><DatePicker id="bulk-effective" value={value.effectiveFrom || todayIst()} onChange={(v) => onChange({ ...value, effectiveFrom: v || '' })} /></div> : null}
-        <label className="block"><span className="ui-label">Reason</span><input className="ui-input w-full" maxLength={500} value={value.reason} onChange={(e) => onChange({ ...value, reason: e.target.value })} placeholder="Ops folded into Sales" /></label>
+        <label className="block"><span className="ui-label">Reason</span><SuggestInput maxLength={500} value={value.reason} suggestions={reasonHints} onChange={(v) => onChange({ ...value, reason: v })} placeholder="Ops folded into Sales" /></label>
       </div>
     </Drawer>
   );

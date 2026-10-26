@@ -629,6 +629,71 @@ peopleRouter.get('/orgs/:orgId/people/employees/next-code', can(PermissionAction
   res.json({ code: nextCode(codes) });
 });
 
+/*
+ * What the company already has, for a text field to suggest (owner rule: every
+ * field offers existing matching data). Only shared vocabulary is offered —
+ * cities, relationships, the email domain, reasons used more than once — never
+ * one person's private details (phones, personal emails, IDs, addresses).
+ * Most used first.
+ */
+const PUBLIC_MAIL = /^(gmail|googlemail|yahoo|ymail|outlook|hotmail|live|msn|icloud|me|rediffmail|rediff|aol|proton|protonmail|zoho|zohomail|gmx|mail|yandex)\.[a-z.]+$/;
+const SUGGEST_EMPLOYEE_FIELDS: Record<string, 'city' | 'state' | 'country' | 'emergencyContactRelation' | 'workLocation' | 'department' | 'designation'> = {
+  city: 'city', state: 'state', country: 'country', relation: 'emergencyContactRelation', workLocation: 'workLocation', department: 'department', designation: 'designation',
+};
+peopleRouter.get('/orgs/:orgId/people/suggestions', can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const field = String(req.query.field || '');
+  const scope = await teamScope(req);
+  const values: Array<{ value: string; count?: number; hint?: string }> = [];
+  const column = SUGGEST_EMPLOYEE_FIELDS[field];
+  if (column) {
+    const rows: any[] = await (peoplePrisma.employee.groupBy as any)({ by: [column], where: { accountId, orgId, ...scopeWhere(scope), [column]: { not: null } } as any, _count: { _all: true }, orderBy: { _count: { [column]: 'desc' } } as any, take: 50 });
+    for (const r of rows) if (String(r[column] || '').trim()) values.push({ value: String(r[column]).trim(), count: r._count._all });
+    /* Cities also come from the company's branches. */
+    if (field === 'city') for (const b of await platformPrisma.branch.findMany({ where: { accountId, orgId, city: { not: null } }, select: { city: true } })) if (b.city?.trim()) values.push({ value: b.city.trim() });
+  } else if (field === 'emailDomain') {
+    /* The domain only, never the addresses. */
+    const counts = new Map<string, number>();
+    for (const r of await peoplePrisma.employee.findMany({ where: { accountId, orgId, workEmail: { contains: '@' } }, select: { workEmail: true }, take: 2000 })) {
+      const d = r.workEmail!.split('@').pop()!.trim().toLowerCase();
+      if (d) counts.set(d, (counts.get(d) || 0) + 1);
+    }
+    /* No work emails yet: the domain the company's own CLOR sign-ins use, unless it is a public mail service. */
+    if (!counts.size) {
+      const members = await platformPrisma.userBranchMembership.findMany({ where: { accountId, orgId }, select: { userId: true }, distinct: ['userId'], take: 200 });
+      const users = members.length ? await platformPrisma.user.findMany({ where: { id: { in: members.map((m) => m.userId) } }, select: { email: true } }) : [];
+      for (const u of users) {
+        const d = String(u.email || '').split('@').pop()!.trim().toLowerCase();
+        if (d && !PUBLIC_MAIL.test(d)) counts.set(d, (counts.get(d) || 0) + 1);
+      }
+    }
+    for (const [value, count] of [...counts].sort((x, y) => y[1] - x[1]).slice(0, 5)) values.push({ value, count });
+  } else if (field === 'reason') {
+    /* Reasons on job changes, used at least twice: shared phrases, not one person's story. */
+    /* One change writes a line per field: count changes (by correlation), not lines. */
+    const rows = await peoplePrisma.changeLog.findMany({ where: { orgId, entity: 'Employee', reason: { not: null }, source: { in: ['FORM', 'TRANSFER', 'APPROVAL', 'SCHEDULED'] } }, select: { reason: true, correlationId: true }, orderBy: { at: 'desc' }, take: 3000 });
+    const changes = new Map<string, Set<string>>();
+    for (const r of rows) {
+      const text = r.reason!.trim();
+      if (!text || text.length > 80) continue;
+      if (!changes.has(text)) changes.set(text, new Set());
+      changes.get(text)!.add(r.correlationId);
+    }
+    for (const [value, ids] of [...changes].sort((x, y) => y[1].size - x[1].size)) if (ids.size >= 2) values.push({ value, count: ids.size });
+  } else if (field === 'budgetRef') {
+    for (const r of await peoplePrisma.seat.findMany({ where: { orgId, budgetRef: { not: null } }, select: { budgetRef: true }, distinct: ['budgetRef'], take: 50 })) if (r.budgetRef?.trim()) values.push({ value: r.budgetRef.trim() });
+  } else if (field === 'branch' || field === 'branchAddress') {
+    /* A work site is usually one of the branches: its name, or its address. */
+    for (const b of await platformPrisma.branch.findMany({ where: { accountId, orgId, isActive: true }, select: { branchName: true, addressLine1: true, city: true }, orderBy: { branchName: 'asc' } })) {
+      const v = field === 'branch' ? b.branchName : [b.addressLine1, b.city].filter(Boolean).join(', ');
+      if (v?.trim()) values.push({ value: v.trim(), hint: field === 'branch' ? 'Branch' : b.branchName });
+    }
+  } else return res.status(400).json({ error: 'Nothing to suggest for that field.' });
+  const seen = new Set<string>();
+  res.json({ values: values.filter((v) => { const k = v.value.toLowerCase(); if (seen.has(k)) return false; seen.add(k); return true; }) });
+});
+
 /** The most used prefix (letters and separators before the digits), and one past its highest number, keeping the width. */
 export function nextCode(codes: string[]): string {
   const parsed = codes.map((c) => c.match(/^(.*?)(\d+)$/)).filter((m): m is RegExpMatchArray => Boolean(m));
@@ -1982,15 +2047,23 @@ peopleRouter.post('/orgs/:orgId/people/employees/import/:batchId/undo', can(Perm
 peopleRouter.get('/orgs/:orgId/people/org-chart', can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
-  const nodes = await peoplePrisma.employee.findMany({
-    where: { accountId, orgId, status: { not: 'LEFT' }, ...scopeWhere(await teamScope(req)) },
-    select: { id: true, name: true, code: true, designation: true, department: true, departmentId: true, photoUrl: true, reportingManagerId: true, dottedManagerId: true },
-    orderBy: { name: 'asc' },
-  });
-  /* Open seats show on the chart (ORG-04): seats on an active team that nobody holds. */
-  const seats = await peoplePrisma.seat.findMany({ where: { orgId, isActive: true }, select: { id: true, name: true, teamId: true, jobPositionId: true, budgetRef: true, team: { select: { name: true, leadEmployeeId: true, departmentId: true } } } });
+  const scope = await teamScope(req);
+  /* As of a date (FND-03): reporting lines rolled back through each person's history; people who left since are back, people who joined since are not. */
+  const day = String(req.query.asOf || '').trim();
+  if (day && !ISO_DATE.test(day)) return res.status(400).json({ error: 'Give the date as YYYY-MM-DD.' });
+  const past = day && day < todayIst() ? day : '';
+  const select = { id: true, name: true, code: true, designation: true, department: true, departmentId: true, photoUrl: true, reportingManagerId: true, dottedManagerId: true, status: true, dateOfJoining: true };
+  const rows = await peoplePrisma.employee.findMany({ where: { accountId, orgId, ...(past ? {} : { status: { not: 'LEFT' } }), ...scopeWhere(scope) }, select, orderBy: { name: 'asc' } });
+  const nodes = (past ? (await asOf(orgId, rows as any[], past)).filter((r: any) => r.status !== 'LEFT') : rows).map(({ status: _s, dateOfJoining: _d, ...n }: any) => n);
+  /* Open seats (ORG-04) are today's: not shown for a past date. A team-limited viewer sees only seats on teams their own people lead, and no budget references (ORG-G01). */
+  if (past) return res.json({ nodes, openSeats: [], asOf: past });
+  const seats = await peoplePrisma.seat.findMany({ where: { orgId, isActive: true, team: { isActive: true } }, select: { id: true, name: true, teamId: true, jobPositionId: true, budgetRef: true, team: { select: { name: true, leadEmployeeId: true, departmentId: true } } } });
   const held = new Set((await peoplePrisma.employee.findMany({ where: { orgId, seatId: { not: null }, status: { not: 'LEFT' } }, select: { seatId: true } })).map((e) => e.seatId));
-  const openSeats = seats.filter((s) => !held.has(s.id)).map((s) => ({ id: s.id, name: s.name, teamId: s.teamId, teamName: s.team?.name || null, leadEmployeeId: s.team?.leadEmployeeId || null, budgetRef: s.budgetRef }));
+  const visibleLeads = new Set(nodes.map((n: any) => n.id));
+  const openSeats = seats
+    .filter((s) => !held.has(s.id))
+    .filter((s) => scope.all || (s.team?.leadEmployeeId && visibleLeads.has(s.team.leadEmployeeId)))
+    .map((s) => ({ id: s.id, name: s.name, teamId: s.teamId, teamName: s.team?.name || null, leadEmployeeId: s.team?.leadEmployeeId || null, ...(scope.all ? { budgetRef: s.budgetRef } : {}) }));
   res.json({ nodes, openSeats });
 });
 
@@ -2063,13 +2136,35 @@ peopleRouter.get('/orgs/:orgId/people/structure/:kind', can(PermissionAction.VIE
   res.json({ items: rows.map((r: any) => ({ ...r, ...(kind === 'legal-entities' ? { pan: maskPan(r.pan) } : {}), ...(heads ? headFields(heads, r.headEmployeeId) : {}), employeeCount: used.get(r.id) || 0 })) });
 });
 
+/** What still sits under an item, in words ("2 sub-departments and 1 team"), or null. */
+async function dependentsOf(orgId: string, kind: string, id: string): Promise<string | null> {
+  const n = (count: number, one: string, many: string) => (count ? `${count} ${count === 1 ? one : many}` : null);
+  const parts: Array<string | null> = [];
+  if (kind === 'departments') {
+    const [subs, teams, titles] = await Promise.all([peoplePrisma.department.count({ where: { orgId, parentId: id } }), peoplePrisma.team.count({ where: { orgId, departmentId: id } }), peoplePrisma.jobPosition.count({ where: { orgId, departmentId: id } })]);
+    parts.push(n(subs, 'sub-department', 'sub-departments'), n(teams, 'team', 'teams'), n(titles, 'designation', 'designations'));
+  } else if (kind === 'teams') {
+    parts.push(n(await peoplePrisma.seat.count({ where: { orgId, teamId: id } }), 'position', 'positions'));
+  } else if (kind === 'job-positions') {
+    const [roles, seats] = await Promise.all([peoplePrisma.jobRole.count({ where: { orgId, jobPositionId: id } }), peoplePrisma.seat.count({ where: { orgId, jobPositionId: id } })]);
+    parts.push(n(roles, 'job role', 'job roles'), n(seats, 'position', 'positions'));
+  } else if (kind === 'areas') {
+    parts.push(n(await peoplePrisma.area.count({ where: { orgId, parentId: id } }), 'location', 'locations'));
+  }
+  const words = parts.filter(Boolean) as string[];
+  return words.length ? words.join(' and ') : null;
+}
+
 /* A list item points only at things in this company, and never under itself, however deep (Workforce audit S18). */
 const REF_MODELS: Record<string, string> = { departmentId: 'department', legalEntityId: 'legalEntity', teamId: 'team', jobPositionId: 'jobPosition', leadEmployeeId: 'employee', headEmployeeId: 'employee' };
-async function badStructureRef(orgId: string, model: string, data: Record<string, unknown>, selfId: string | null): Promise<string | null> {
+async function badStructureRef(orgId: string, model: string, data: Record<string, unknown>, selfId: string | null, current: Record<string, unknown> | null = null): Promise<string | null> {
   for (const [key, ref] of Object.entries({ ...REF_MODELS, parentId: model })) {
     const id = data[key];
     if (typeof id !== 'string' || !id) continue;
-    if (!(await (peoplePrisma as any)[ref].findFirst({ where: { id, orgId }, select: { id: true } }))) return 'That link points at something not in this company.';
+    const found = await (peoplePrisma as any)[ref].findFirst({ where: { id, orgId }, select: ref === 'employee' ? { id: true } : { id: true, isActive: true, name: true } });
+    if (!found) return 'That link points at something not in this company.';
+    /* A retired item is not offered for anything new; a link that was already there may stay (ORG-G03). */
+    if (ref !== 'employee' && found.isActive === false && (!current || current[key] !== id)) return `${found.name} is retired. Bring it back first, or choose one in use.`;
   }
   if (selfId && typeof data.parentId === 'string') {
     let at: string | null = data.parentId;
@@ -2151,7 +2246,7 @@ peopleRouter.put('/orgs/:orgId/people/structure/:kind/:id', can(PermissionAction
     const bad = await badHead(orgId, data.headEmployeeId, existing.headEmployeeId ?? null);
     if (bad) return res.status(400).json({ error: bad });
   }
-  const badRef = await badStructureRef(orgId, cfg.model, data, existing.id);
+  const badRef = await badStructureRef(orgId, cfg.model, data, existing.id, existing);
   if (badRef) return res.status(400).json({ error: badRef });
   const actor = actorOf(req, 'FORM', reasonOf(req));
   /* Retiring with people still in it: say where they go first. */
@@ -2182,16 +2277,12 @@ peopleRouter.put('/orgs/:orgId/people/structure/:kind/:id', can(PermissionAction
       const updated = await (tx as any)[cfg.model].update({ where: { id: existing.id }, data });
       const action = actionOf(kind, changes);
       if (action) await logStructure(tx, actor, kind, updated, action, [...changes, ...(moved ? [{ field: 'peopleMovedTo', label: 'People moved to', before: null, after: `${moved.to.name} (${moved.count})` }] : [])]);
+      /* Renaming a department or position renames what the files display, in the same save (ORG-R033). */
+      if (kind === 'departments' && updated.name !== existing.name) await tx.employee.updateMany({ where: { orgId, departmentId: updated.id }, data: { department: updated.name } });
+      if (kind === 'job-positions' && updated.name !== existing.name) await tx.employee.updateMany({ where: { orgId, jobPositionId: updated.id }, data: { designation: updated.name } });
       return updated;
     });
     if (kind === 'legal-entities') row.pan = maskPan(row.pan);
-    /* Renaming a department or position renames what the files display. */
-    if (kind === 'departments' && row.name !== existing.name) {
-      await peoplePrisma.employee.updateMany({ where: { orgId, departmentId: row.id }, data: { department: row.name } });
-    }
-    if (kind === 'job-positions' && row.name !== existing.name) {
-      await peoplePrisma.employee.updateMany({ where: { orgId, jobPositionId: row.id }, data: { designation: row.name } });
-    }
     res.json({ item: row, ...(moved ? { moved: moved.count, movedTo: moved.to.id } : {}) });
   } catch (e) {
     return sendError(res, e);
@@ -2213,6 +2304,9 @@ peopleRouter.delete('/orgs/:orgId/people/structure/:kind/:id', can(PermissionAct
   if (inUse) {
     return res.status(409).json({ error: cfg.usedBy ? `${inUse} ${inUse === 1 ? 'person uses' : 'people use'} this. Move them first, or retire it instead.` : `${inUse} establishment${inUse === 1 ? ' belongs' : 's belong'} to it. Move them first, or mark it inactive.` });
   }
+  /* Nothing is left pointing at a deleted item: what sits under it is moved, or it is retired instead (ORG-G04). */
+  const under = await dependentsOf(orgId, kind, existing.id);
+  if (under) return res.status(409).json({ error: `Still under it: ${under}. Move them first, or retire it instead.`, code: 'HAS_DEPENDENTS' });
   await deleteToBin(req, cfg.model, existing);
   await logStructure(peoplePrisma, actorOf(req, 'FORM', reasonOf(req)), kind, existing, 'DELETED', [{ field: 'name', label: 'Name', before: existing.name, after: null }]);
   res.json({ ok: true });
