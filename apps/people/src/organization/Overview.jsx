@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Building2, GitBranch, MapPin, Plus, UserX } from 'lucide-react';
+import { Building2, GitBranch, MapPin, Plus, UserMinus, UserX } from 'lucide-react';
 
 import { EmptyState, PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
 import ErrorState from '@ui/components/ui/ErrorState';
@@ -48,6 +48,7 @@ export default function OrganizationOverview({ openScreen }) {
   const strip = [
     { k: 'departments', label: 'Departments', value: activeDepts.length, Icon: Building2, onClick: go('departments') },
     { k: 'branches', label: activeBranches.length === 1 ? 'Branch' : 'Branches', value: activeBranches.length, Icon: GitBranch, onClick: go('branches') },
+    { k: 'noManager', label: 'Without a manager', value: d.unplaced.noManager ?? 0, Icon: UserMinus, onClick: go('employees', { mgr: 'none' }) },
     { k: 'noDept', label: 'Without a department', value: d.unplaced.noDepartment, Icon: UserX, onClick: go('employees', { dept: 'none' }) },
     ...(activeBranches.length > 1 ? [{ k: 'noBranch', label: 'Without a branch', value: d.unplaced.noBranch, Icon: MapPin, onClick: go('employees', { branch: 'none' }) }] : []),
   ];
@@ -58,7 +59,7 @@ export default function OrganizationOverview({ openScreen }) {
   walk(null, 0);
   const lists = [
     ['jobPositions', 'Designations', d.lists.designations, true],
-    ['establishments', 'Work sites', d.lists.sites, true],
+    ['establishments', 'Work sites', d.lists.sites, false],
     ['teams', 'Teams', d.lists.teams, false],
     ['seats', 'Positions', d.lists.positions, false],
     ['businessUnits', 'Business units', d.lists.units, false],

@@ -168,12 +168,12 @@ export default function Directory({ params = {}, updateParams, openScreen }) {
     p.working && { k: 'working', label: 'Working now' },
     p.area && { k: 'area', label: `Location: ${lookup('areas', p.area)}` },
     p.est && { k: 'est', label: `Work site: ${lookup('establishments', p.est)}` },
-    p.branch && { k: 'branch', label: p.branch === 'none' ? 'No branch' : `Branch: ${lookup('branches', p.branch)}` },
+    p.branch && { k: 'branch', label: p.branch === 'none' ? 'No branch' : `Works at: ${lookup('branches', p.branch)}` },
     p.unit && { k: 'unit', label: `Business unit: ${lookup('units', p.unit)}` },
     p.grade && { k: 'grade', label: `Grade: ${lookup('grades', p.grade)}` },
     p.centre && { k: 'centre', label: `Cost centre: ${lookup('centres', p.centre)}` },
     p.tag && { k: 'tag', label: `Tag: ${lookup('tags', p.tag)}` },
-    p.mgr && { k: 'mgr', label: `Manager: ${managers.find((m) => m.id === p.mgr)?.name || 'Chosen'}` },
+    p.mgr && { k: 'mgr', label: p.mgr === 'none' ? 'No manager' : `Manager: ${managers.find((m) => m.id === p.mgr)?.name || 'Chosen'}` },
     (p.from || p.to) && { k: 'dates', label: `Joined ${p.from ? formatDate(p.from) : 'any time'} – ${p.to ? formatDate(p.to) : 'now'}` },
     (p.lfrom || p.lto) && { k: 'left', label: `Left ${p.lfrom ? formatDate(p.lfrom) : 'any time'} – ${p.lto ? formatDate(p.lto) : 'now'}` },
   ].filter(Boolean);
@@ -439,7 +439,7 @@ function FiltersDrawer({ params, lists, managers, onClose, onApply }) {
           <h3 className="ui-filter-group-title">Place</h3>
           <div className="ui-form-grid">
             {field('dept', 'Department', [...opt(lists.departments), { value: 'none', label: 'No department' }])}
-            {(lists.branches || []).length > 1 ? field('branch', 'Branch', [...opt(lists.branches), { value: 'none', label: 'No branch' }]) : null}
+            {(lists.branches || []).length > 1 ? field('branch', 'Works at', [...opt(lists.branches), { value: 'none', label: 'No branch' }]) : null}
             {field('area', 'Location', opt(lists.areas))}
             {lists.establishments.length ? field('est', 'Work site', opt(lists.establishments)) : null}
             {lists.units.length ? field('unit', 'Business unit', opt(lists.units)) : null}
@@ -449,7 +449,7 @@ function FiltersDrawer({ params, lists, managers, onClose, onApply }) {
         <section aria-label="Reporting and joining">
           <h3 className="ui-filter-group-title">Reporting and joining</h3>
           <div className="ui-form-grid">
-            {field('mgr', 'Manager', opt(managers))}
+            {field('mgr', 'Manager', [...opt(managers), { value: 'none', label: 'No manager' }])}
             <div />
             <div><label className="ui-label" htmlFor="wf-from">Joined from</label><DatePicker id="wf-from" value={draft.from} max={draft.to || ''} onChange={(v) => setDraft({ ...draft, from: v })} /></div>
             <div><label className="ui-label" htmlFor="wf-to">Joined to</label><DatePicker id="wf-to" value={draft.to} min={draft.from || ''} onChange={(v) => setDraft({ ...draft, to: v })} /></div>
@@ -594,7 +594,7 @@ function SavedViews({ params, prefs, onApply, canShare }) {
     if (!(await confirmDialog({ title: `Delete the view "${v.name}"?`, confirmLabel: 'Delete' }))) return;
     try { await deleteView(v.id); views.reload(); } catch (e) { notify.error(String(e?.message || 'Not deleted.')); }
   };
-  const WORDS = { q: 'Search', status: 'Status', dept: 'Department', pos: 'Designation', type: 'Employment type', wtype: 'Work mode', hrs: 'Hours', prob: 'Probation', contract: 'Contract end', area: 'Location', est: 'Work site', branch: 'Branch', unit: 'Business unit', grade: 'Grade', centre: 'Cost centre', tag: 'Tag', mgr: 'Manager', from: 'Joined from', to: 'Joined to', sort: 'Sorted' };
+  const WORDS = { q: 'Search', status: 'Status', dept: 'Department', pos: 'Designation', type: 'Employment type', wtype: 'Work mode', hrs: 'Hours', prob: 'Probation', contract: 'Contract end', area: 'Location', est: 'Work site', branch: 'Works at', unit: 'Business unit', grade: 'Grade', centre: 'Cost centre', tag: 'Tag', mgr: 'Manager', from: 'Joined from', to: 'Joined to', sort: 'Sorted' };
   const describe = (f = {}) => { const used = Object.keys(f).filter((k) => WORDS[k] && k !== 'dir'); return used.length ? used.map((k) => WORDS[k]).join(', ') : 'All employees'; };
   return (
     <section aria-label="Saved views" className="space-y-3">

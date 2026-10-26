@@ -50,7 +50,14 @@ export async function createEmployee(actor: Actor, data: Prisma.EmployeeUnchecke
     return created;
   });
   await recordJoined({ accountId: actor.accountId, orgId: actor.orgId, userId: actor.userId }, row, actor.source === 'IMPORT' ? 'IMPORT' : 'FORM');
+  await firstInStateOf(actor, row);
   return row;
+}
+
+/** First person in a new state: HR's registration task (services/people/organization.ts). Never fails the write. */
+async function firstInStateOf(actor: Actor, row: Row) {
+  const { firstInState } = await import('./organization.js');
+  await firstInState({ accountId: actor.accountId, orgId: actor.orgId, userId: actor.userId }, row as any).catch((e) => console.error('[organization] first in state:', e instanceof Error ? e.message : e));
 }
 
 /** The record moved on since the editor loaded it (409 STALE). */
@@ -107,6 +114,13 @@ export async function updateEmployee(
   });
   /* A-33: suspended or gone, their employee-app sign-ins end — on every path through here, not only the form. */
   await employeeStatusChanged(result.row, result.before.status, result.row.status, credentialActor(actor));
+  /* Someone placed in a state nobody else works in: HR gets the registrations to do. */
+  if (result.changes.some((c) => c.field === 'branchId')) await firstInStateOf(actor, result.row);
+  /* A new manager takes over the requests waiting on the old one, on every path that changes the manager (form, bulk, dated, approval). */
+  if (result.changes.some((c) => c.field === 'reportingManagerId')) {
+    const { rerouteManagerSteps } = await import('./approvals/engine.js');
+    await rerouteManagerSteps(actor, result.row.id).catch((e) => console.error('[approvals] reroute after manager change:', e instanceof Error ? e.message : e));
+  }
   return { row: result.row, changes: result.changes };
 }
 

@@ -187,7 +187,7 @@ export default function DataTable({
             <tr>
               {selectable ? <th scope="col" className="w-10"><input ref={headBox} type="checkbox" className="ui-checkbox" aria-label="Choose every row on this page" checked={allOn} onChange={togglePage} disabled={!rows.length} /></th> : null}
               {cols.map((c) => (
-                <th key={c.key} scope="col" style={c.width ? { width: c.width } : undefined} className={c.align === 'right' ? 'text-right' : c.align === 'center' ? 'text-center' : ''}
+                <th key={c.key} scope="col" style={c.width ? { width: c.width } : undefined} className={c.align === 'right' ? 'text-right ui-num' : c.align === 'center' ? 'text-center' : ''}
                   aria-sort={sort?.key === c.key ? (sort.dir === 'asc' ? 'ascending' : 'descending') : c.sortable ? 'none' : undefined}>
                   {c.sortable && onSort ? (
                     <button type="button" className="ui-th-sort" onClick={() => sortBy(c)}>

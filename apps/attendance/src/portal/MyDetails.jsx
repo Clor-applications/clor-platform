@@ -66,7 +66,7 @@ function MyJob({ terms: t }) {
         {t.department ? <Row label="Department">{t.department}</Row> : null}
         {type ? <Row label="Employment">{type}</Row> : null}
         {t.workMode ? <Row label="Work mode">{t.workMode}</Row> : null}
-        {t.manager ? <Row label="Manager">{t.manager}</Row> : null}
+        {t.manager ? <Row label="Reporting manager">{t.manager}</Row> : null}
         {t.departmentHead ? <Row label="Department head">{t.departmentHead}</Row> : null}
         {t.joinedOn ? <Row label="Joined">{longDate(t.joinedOn)}</Row> : null}
         {t.confirmedOn ? <Row label="Confirmed">{longDate(t.confirmedOn)}</Row> : t.probationEndsOn ? <Row label="Probation ends">{longDate(t.probationEndsOn)}</Row> : null}

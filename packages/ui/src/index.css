@@ -2113,6 +2113,15 @@
     }
   }
 
+  /* The org chart on paper: the chart alone, no rail, no buttons. */
+  @media print {
+    body.print-chart * { visibility: hidden; }
+    body.print-chart .ui-print-area, body.print-chart .ui-print-area * { visibility: visible; }
+    body.print-chart .ui-print-area { position: absolute; inset: 0 auto auto 0; width: 100%; }
+    body.print-chart .ui-no-print { display: none !important; }
+    body.print-chart .ui-print-area [aria-expanded] { visibility: hidden; }
+  }
+
   .invoice-print-host {
     position: fixed;
     left: -100000px;

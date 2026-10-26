@@ -256,7 +256,7 @@ const todayIst = () => new Date(Date.now() + 330 * 60_000).toISOString().slice(0
 export const workingNow = () => ({ status: { not: 'LEFT' as const }, OR: [{ dateOfJoining: null }, { dateOfJoining: { lte: todayIst() } }] });
 
 /* The lists "Detailed structure" covers. */
-const DETAILED: Array<[string, string]> = [['team', 'teams'], ['seat', 'positions'], ['businessUnit', 'units'], ['grade', 'grades'], ['costCenter', 'centres'], ['jobRole', 'roles'], ['area', 'areas']];
+const DETAILED: Array<[string, string]> = [['team', 'teams'], ['seat', 'positions'], ['businessUnit', 'units'], ['grade', 'grades'], ['costCenter', 'centres'], ['jobRole', 'roles'], ['area', 'areas'], ['establishment', 'sites']];
 export const ORG_DETAIL = 'peopleOrgDetail';
 
 /**
@@ -320,6 +320,13 @@ export async function organizationOverview(accountId: string, orgId: string, sco
     peoplePrisma.employee.count({ where: { ...base, branchId: null } as any }),
     isFeatureEnabled(accountId, orgId, ORG_DETAIL),
   ]);
+  /* Without a manager: their requests have nobody to go to (research, rank 1). The top of the tree — someone others report to — is not counted, as in Data Health. */
+  const [unmanaged, reporting] = await Promise.all([
+    peoplePrisma.employee.findMany({ where: { ...base, reportingManagerId: null } as any, select: { id: true } }),
+    peoplePrisma.employee.findMany({ where: { accountId, orgId, status: { not: 'LEFT' }, reportingManagerId: { not: null } }, select: { reportingManagerId: true } }),
+  ]);
+  const isManager = new Set(reporting.map((r) => r.reportingManagerId));
+  const noManager = (await peoplePrisma.employee.count({ where: { accountId, orgId, status: { not: 'LEFT' } } })) > 1 ? unmanaged.filter((e) => !isManager.has(e.id)).length : 0;
   const branchCount = new Map(byBranch.map((r) => [r.branchId, r._count._all]));
   const deptCount = new Map(byDept.map((r) => [r.departmentId, r._count._all]));
   const heads = await headsOf(orgId, departments.map((d) => d.headEmployeeId));
@@ -334,7 +341,7 @@ export async function organizationOverview(accountId: string, orgId: string, sco
     company: { name: org?.name ?? '' },
     branches: branches.map((b) => ({ id: b.id, name: b.branchName, code: b.branchCode, city: b.city, state: b.state, isActive: b.isActive, people: branchCount.get(b.id) || 0 })),
     departments: departments.map((d) => ({ ...d, ...headFields(heads, d.headEmployeeId), people: deptCount.get(d.id) || 0 })),
-    unplaced: { noDepartment, noBranch },
+    unplaced: { noDepartment, noBranch, noManager },
     lists: { designations, roles, teams, positions, units, grades, centres, areas, sites, types, workModes },
     detailed,
   };
@@ -362,3 +369,28 @@ export const headFields = (heads: Map<string, { name: string; status: string }>,
   const h = id ? heads.get(id) : null;
   return { headEmployeeId: id ?? null, headName: h?.name ?? null, headLeft: Boolean(h && h.status === 'LEFT') };
 };
+
+/**
+ * The first person to work in a state (research: PT, LWF, holidays and the
+ * shop or establishment registration all follow the state of the
+ * workplace): HR gets one task listing what to register there. Once per
+ * company and state; never for a company's very first state.
+ */
+export async function firstInState(actor: { accountId: string; orgId: string; userId: string | null }, employee: { id: string; branchId?: string | null; status?: string | null }) {
+  if (!employee.branchId || employee.status === 'LEFT') return false;
+  const branch = await platformPrisma.branch.findFirst({ where: { id: employee.branchId, orgId: actor.orgId }, select: { state: true, branchName: true } });
+  const state = branch?.state?.trim();
+  if (!state) return false;
+  const marker = `state:${state.toLowerCase()}`;
+  if (await peoplePrisma.checklistTask.count({ where: { orgId: actor.orgId, kind: 'CHANGE', note: { contains: marker } } })) return false;
+  const branches = await platformPrisma.branch.findMany({ where: { accountId: actor.accountId, orgId: actor.orgId }, select: { id: true, state: true } });
+  const sameState = branches.filter((b) => (b.state || '').trim().toLowerCase() === state.toLowerCase()).map((b) => b.id);
+  const here = await peoplePrisma.employee.count({ where: { orgId: actor.orgId, status: { not: 'LEFT' }, id: { not: employee.id }, branchId: { in: sameState } } });
+  if (here) return false;
+  /* A company's first state is where it started; it registered there already. */
+  const elsewhere = await peoplePrisma.employee.count({ where: { orgId: actor.orgId, status: { not: 'LEFT' }, id: { not: employee.id } } });
+  if (!elsewhere) return false;
+  const { startChecklist } = await import('./checklists.js');
+  await startChecklist(actor, { id: employee.id }, 'CHANGE', null, { items: [{ title: `First person working in ${state}: register there`, owner: 'HR', dueDays: 0, note: `${marker}. Professional Tax (if ${state} levies it), Labour Welfare Fund (if it applies), the shop or establishment registration (or OSH Code registration), and a holiday list for ${branch!.branchName}.` }] });
+  return true;
+}

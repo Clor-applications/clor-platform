@@ -231,8 +231,8 @@ export const peopleApp = {
     /* Organization (ORGANIZATION-DECISIONS.md): how the company is set up and who runs what. The detailed lists show with the Detailed structure switch. */
     { key: 'organization', label: 'Organization', short: 'Org', groups: [
       { label: 'Structure', items: ['organization', 'departments', 'jobPositions', 'orgChart'] },
-      { label: 'Places', items: ['branches', 'establishments', 'areas'] },
-      { label: 'Detailed', items: ['teams', 'seats', 'businessUnits', 'grades', 'costCentres', 'jobRoles'] },
+      { label: 'Places', items: ['branches'] },
+      { label: 'Detailed', items: ['establishments', 'areas', 'teams', 'seats', 'businessUnits', 'grades', 'costCentres', 'jobRoles'] },
       { label: 'History', items: ['orgChanges'] },
     ] },
     /* Leave and holidays are HR's; Attendance reads the same records (founder, 22 Oct 2026). */
@@ -311,7 +311,7 @@ export const peopleApp = {
     { key: 'modules', label: 'Modules & Apps', icon: I.modules, permission: 'SETTINGS::Company Profile::VIEW', parent: 'settings' },
     { key: 'companyDetails', label: 'Company Details', icon: I.company, permission: 'SETTINGS::Company Profile::VIEW', parent: 'settings' },
     { key: 'legalEntities', label: 'Company (legal)', icon: I.company, permission: 'PEOPLE::Org Structure::VIEW', parent: 'settings' },
-    { key: 'establishments', label: 'Work Sites', icon: I.location, permission: 'PEOPLE::Org Structure::VIEW' },
+    { key: 'establishments', label: 'Work Sites', icon: I.location, permission: 'PEOPLE::Org Structure::VIEW', feature: 'peopleOrgDetail' },
     { key: 'businessUnits', label: 'Business Units', icon: I.unit, permission: 'PEOPLE::Org Structure::VIEW', feature: 'peopleOrgDetail' },
     { key: 'areas', label: 'Locations', icon: I.location, permission: 'PEOPLE::Org Structure::VIEW', feature: 'peopleOrgDetail' },
     { key: 'grades', label: 'Grades', icon: I.grade, permission: 'PEOPLE::Org Structure::VIEW', feature: 'peopleOrgDetail' },

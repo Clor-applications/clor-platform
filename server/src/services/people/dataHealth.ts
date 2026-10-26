@@ -93,7 +93,7 @@ export async function dataHealth(accountId: string, orgId: string, opts: { payro
   {
     const managers = new Set((await peoplePrisma.employee.findMany({ where: { orgId, status: { not: 'LEFT' }, reportingManagerId: { not: null } }, select: { reportingManagerId: true } })).map((e) => e.reportingManagerId));
     const noManager = await peoplePrisma.employee.findMany({ where: { orgId, status: { not: 'LEFT' }, reportingManagerId: null }, select: { id: true, name: true, code: true } });
-    if (employees.length > 1) add({ id: 'no-manager', area: 'People', severity: 'TIDY_UP', title: 'No manager', why: 'Their leave, corrections and requests have nobody to go to, so they wait for HR.', fix: 'Set "Reports to" on their record.', screen: 'employees' }, noManager.filter((e) => !managers.has(e.id)).map((e) => who(e)));
+    if (employees.length > 1) add({ id: 'no-manager', area: 'People', severity: 'TIDY_UP', title: 'No manager', why: 'Their leave, corrections and requests have nobody to go to, so they wait for HR.', fix: 'Set their manager on their record, or change several at once with Change manager.', screen: 'employees' }, noManager.filter((e) => !managers.has(e.id)).map((e) => who(e)));
   }
 
   /* Plan tasks past their date (HLTH-01): joining, leaving, renewals and changes. */

@@ -1,5 +1,5 @@
 import React, { useMemo, useRef, useState } from 'react';
-import { ChevronDown, ChevronRight } from 'lucide-react';
+import { ChevronDown, ChevronRight, Printer } from 'lucide-react';
 
 import { PageHeader, SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import ErrorState from '@ui/components/ui/ErrorState';
@@ -66,12 +66,22 @@ export default function OrgChart({ openScreen, params = {}, updateParams }) {
   const toggle = (id) => setClosed((s) => { const next = new Set(s); if (next.has(id)) next.delete(id); else next.add(id); return next; });
   const managers = [...chart.kids.keys()].filter(Boolean);
   const nodes = req.data.nodes;
+  /* Paper shows the whole chart: every branch open, the search cleared, only the chart itself on the page. */
+  const print = () => {
+    setClosed(new Set());
+    setQuery('');
+    const done = () => { document.body.classList.remove('print-chart'); window.removeEventListener('afterprint', done); };
+    window.addEventListener('afterprint', done);
+    document.body.classList.add('print-chart');
+    requestAnimationFrame(() => requestAnimationFrame(() => window.print()));
+  };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 ui-print-area">
       <PageHeader entity="people" breadcrumb={[{ label: 'People' }, { label: 'Organization', onClick: () => openScreen?.('organization') }, { label: 'Org Chart' }]} title="Org Chart"
-/>
-      <div ref={tabsRef} role="tablist" aria-label="Org chart view" className={`ui-record-tablist ${tabIndicator ? 'has-indicator' : ''}`}>
+        actions={nodes.length ? <button type="button" className="ui-btn ui-btn-secondary ui-no-print" onClick={print}><Printer size={16} aria-hidden="true" />Print</button> : null}
+      />
+      <div ref={tabsRef} role="tablist" aria-label="Org chart view" className={`ui-record-tablist ui-no-print ${tabIndicator ? 'has-indicator' : ''}`}>
         {[['reporting', 'Reporting lines'], ['departments', 'Departments']].map(([k, l]) => (
           <button key={k} type="button" role="tab" aria-selected={view === k} className={`ui-tab ${view === k ? 'is-active' : ''}`} onClick={() => updateParams?.({ view: k === 'reporting' ? null : k }, { push: true })}>{l}</button>
         ))}
@@ -81,7 +91,7 @@ export default function OrgChart({ openScreen, params = {}, updateParams }) {
         <EmptyState title="Nobody yet" description="Add employees and who they report to." />
       ) : (
         <>
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3 ui-no-print">
             <SearchField value={query} onSearch={setQuery} delay={150} placeholder="Search people" label="Find in the org chart" />
             <span className="flex gap-3 ml-auto text-sm">
               <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" onClick={() => setClosed(new Set())}>Expand all</button>

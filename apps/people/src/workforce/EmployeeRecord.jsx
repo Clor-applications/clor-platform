@@ -829,7 +829,7 @@ function Organization({ person, lists, allowed, openAction, openPerson, editing,
           <Field label="Designation" value={person.designation} />
           {uses('areas', person.areaId) ? <Field label="Location" value={person.areaName} /> : null}
           {/* Branch: the registered place; Attendance gives the branch's holidays. Shown once a company has more than one. */}
-          {(lists?.branches?.length || 0) > 1 || person.branchId ? <Field label="Branch" value={person.branchName || lists?.branches?.find((b) => b.id === person.branchId)?.name} /> : null}
+          {(lists?.branches?.length || 0) > 1 || person.branchId ? <Field label="Works at" value={person.branchName || lists?.branches?.find((b) => b.id === person.branchId)?.name} /> : null}
           {uses('establishments', person.establishmentId) ? <Field label="Work site" value={person.establishment ? `${person.establishment}${person.workState ? ` (${person.workState})` : ''}` : null} /> : null}
           {uses('teams', person.teamId) ? <Field label="Team" value={person.teamName} /> : null}
           {uses('seats', person.seatId) ? <Field label="Position" value={person.seatName} /> : null}
@@ -892,7 +892,7 @@ function Organization({ person, lists, allowed, openAction, openPerson, editing,
 
 const OPERATIONS = {
   manager: { title: 'Change manager', fields: [['reportingManagerId', 'New manager', 'people'], ['dottedManagerId', 'Secondary manager', 'people']] },
-  transfer: { title: 'Transfer', fields: [['branchId', 'Branch', 'branches'], ['departmentId', 'Department', 'departments'], ['areaId', 'Location', 'areas'], ['establishmentId', 'Work site', 'establishments'], ['businessUnitId', 'Business unit', 'units'], ['teamId', 'Team', 'teams'], ['seatId', 'Position', 'seats'], ['costCenterId', 'Cost centre', 'centres']] },
+  transfer: { title: 'Transfer', fields: [['branchId', 'Works at', 'branches'], ['departmentId', 'Department', 'departments'], ['areaId', 'Location', 'areas'], ['establishmentId', 'Work site', 'establishments'], ['businessUnitId', 'Business unit', 'units'], ['teamId', 'Team', 'teams'], ['seatId', 'Position', 'seats'], ['costCenterId', 'Cost centre', 'centres']] },
   designation: { title: 'Change designation', fields: [['jobPositionId', 'New designation', 'positions'], ['gradeId', 'Grade', 'grades']] },
   type: { title: 'Change employment type', fields: [['employeeTypeId', 'Employment type', 'types'], ['workTypeId', 'Work mode', 'workTypes']] },
   /* Allowed moves only: active or on notice can be suspended, suspended can be reactivated; leaving and rehire have their own flows (WF-14). */

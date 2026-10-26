@@ -238,7 +238,7 @@ export default function AddEmployee({ params = {}, updateParams, openScreen }) {
 
         {stepKey === 'organization' ? (
           <Step title="Organization">
-            {(lists.branches || []).length > 1 ? <SelectField id="branchId" label="Branch" optional options={opts(lists.branches)} {...field('branchId')} /> : null}
+            {(lists.branches || []).length > 1 ? <SelectField id="branchId" label="Works at" optional options={opts(lists.branches)} {...field('branchId')} /> : null}
             <SelectField id="departmentId" label="Department" optional options={opts(lists.departments)} {...field('departmentId')} />
             <SelectField id="jobPositionId" label="Designation" optional options={opts(within(lists.positions, 'departmentId', form.departmentId, form.jobPositionId))} {...field('jobPositionId')} />
             {lists.roles.length ? <SelectField id="jobRoleId" label="Job role" optional options={opts(within(lists.roles, 'jobPositionId', form.jobPositionId, form.jobRoleId))} {...field('jobRoleId')} /> : null}

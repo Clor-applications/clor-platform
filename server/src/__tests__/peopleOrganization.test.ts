@@ -231,7 +231,8 @@ describe('organization overview', () => {
     expect(o.branches.find((b: any) => b.id === hr.branchId).people).toBe(1);
     expect(o.departments).toEqual([expect.objectContaining({ id: ops.id, name: 'Operations', parentId: null, isActive: true, headEmployeeId: boss.id, headName: 'Boss', headLeft: false, people: 3 })]);
     /* Placed there and not left: someone joining later is in the department already (the same count its list shows). */
-    expect(o.unplaced).toEqual({ noDepartment: 1, noBranch: 2 });
+    /* Without a manager: Floater and Joining Later; Boss runs a team, so is not counted. */
+    expect(o.unplaced).toEqual({ noDepartment: 1, noBranch: 2, noManager: 2 });
     expect(o.lists).toMatchObject({ designations: 1, teams: 0, positions: 0, units: 0, grades: 0, centres: 0, areas: 0, roles: 0, sites: 0, workModes: 0 });
     expect(o.detailed).toBe(false);
     expect(o.checks.map((c: any) => c.id)).toEqual(['no-branch']);
@@ -243,9 +244,69 @@ describe('organization overview', () => {
     await runInTenant(hr.orgId, () => peoplePrisma.employee.update({ where: { id: boss.id }, data: { userId: leadScoped.userId } }));
     const mine = (await people(leadScoped).get('/organization').expect(200)).body;
     expect(mine.departments[0].people).toBe(2);
-    expect(mine.unplaced).toEqual({ noDepartment: 0, noBranch: 0 });
+    expect(mine.unplaced).toEqual({ noDepartment: 0, noBranch: 0, noManager: 0 });
     expect(mine.checks).toEqual([]);
-    expect((await people(lead).get('/organization').expect(200)).body.unplaced).toEqual({ noDepartment: 1, noBranch: 2 });
+    expect((await people(lead).get('/organization').expect(200)).body.unplaced).toEqual({ noDepartment: 1, noBranch: 2, noManager: 2 });
+    /* The directory filter behind the count lists the same people. */
+    const none = (await people(hr).get('/employees?managerId=none&status=CURRENT').expect(200)).body.employees.map((e: any) => e.name).sort();
+    expect(none).toEqual(['Floater', 'Joining Later']);
+  });
+});
+
+describe('a new manager takes over waiting requests', () => {
+  it('moves the waiting manager step to the new manager, logged; a named-person step stays', async () => {
+    const hr = await owner();
+    const head = await platformPrisma.branch.findUnique({ where: { id: hr.branchId } });
+    const approver = ['PEOPLE::Employees::VIEW', 'PEOPLE::Requests::VIEW', 'PEOPLE::Requests::APPROVE'];
+    const oldBoss = await colleague(hr, approver);
+    const newBoss = await colleague(hr, approver);
+    const named = await colleague(hr, approver);
+    const a = await hire(hr, { name: 'Old Boss', code: 'R-1' });
+    const b = await hire(hr, { name: 'New Boss', code: 'R-2' });
+    await runInTenant(hr.orgId, async () => {
+      await peoplePrisma.employee.update({ where: { id: a.id }, data: { userId: oldBoss.userId } });
+      await peoplePrisma.employee.update({ where: { id: b.id }, data: { userId: newBoss.userId } });
+    });
+    const meera = await hire(hr, { name: 'Meera', code: 'R-3', reportingManagerId: a.id });
+    await people(hr).post('/approval-rules', { requestType: 'LETTER_REQUEST', name: 'Letters', steps: [{ approver: { kind: 'MANAGER' }, dueDays: 2 }] }).expect(201);
+    await people(hr).post('/approval-rules', { requestType: 'DOCUMENT_REQUEST', name: 'Documents', steps: [{ approver: { kind: 'USER', id: named.userId }, dueDays: 2 }] }).expect(201);
+    const { submitRequest } = await import('../services/people/approvals/engine.js');
+    const actor = { accountId: head!.accountId, orgId: hr.orgId, userId: head!.createdByUserId, source: 'API', correlationId: `test-${rnd()}` };
+    const letter = (await runInTenant(hr.orgId, () => submitRequest(actor as any, { requestType: 'LETTER_REQUEST', subjectEmployeeId: meera.id, title: 'Address letter', payload: {} }))).request;
+    const doc = (await runInTenant(hr.orgId, () => submitRequest(actor as any, { requestType: 'DOCUMENT_REQUEST', subjectEmployeeId: meera.id, title: 'Payslip copy', payload: {} }))).request;
+    const stepOf = (id: string) => runInTenant(hr.orgId, () => peoplePrisma.approvalStep.findFirstOrThrow({ where: { requestId: id, order: 1 } }));
+    expect((await stepOf(letter.id)).candidateUserIds).toEqual([oldBoss.userId]);
+
+    await people(hr).put(`/employees/${meera.id}`, { reportingManagerId: b.id }).expect(200);
+    const moved = await stepOf(letter.id);
+    expect(moved).toMatchObject({ candidateUserIds: [newBoss.userId], approverUserId: newBoss.userId, status: 'WAITING' });
+    expect((await stepOf(doc.id)).candidateUserIds).toEqual([named.userId]);
+    const log = await runInTenant(hr.orgId, () => peoplePrisma.changeLog.findMany({ where: { entity: 'ApprovalRequest', entityId: letter.id, field: 'approver' } }));
+    expect(log).toEqual([expect.objectContaining({ field: 'approver', before: oldBoss.userId, after: newBoss.userId, reason: 'Manager changed' })]);
+    /* The old manager can no longer approve it; the new one can. */
+    await people(oldBoss).post(`/requests/${letter.id}/approve`, {}).expect(403);
+  });
+});
+
+describe('first person in a new state', () => {
+  it('gives HR a registration task once per state; never for the state the company started in', async () => {
+    const hr = await owner();
+    const task = (state: string) => runInTenant(hr.orgId, () => peoplePrisma.checklistTask.findMany({ where: { orgId: hr.orgId, note: { contains: `state:${state}` } } }));
+    await hire(hr, { name: 'First', code: 'S-1', branchId: hr.branchId });
+    await hire(hr, { name: 'Second', code: 'S-2', branchId: hr.branchId });
+    expect(await task('karnataka')).toEqual([]);
+    const head = await platformPrisma.branch.findUnique({ where: { id: hr.branchId } });
+    const mumbai = await platformPrisma.branch.create({ data: { accountId: head!.accountId, orgId: hr.orgId, branchCode: 'MUM', branchName: 'Mumbai', addressLine1: '1 Main Road', state: 'Maharashtra', country: 'India', isActive: true, createdByUserId: head!.createdByUserId } });
+    const ravi = await hire(hr, { name: 'Ravi', code: 'S-3', branchId: mumbai.id });
+    const made = await task('maharashtra');
+    expect(made).toEqual([expect.objectContaining({ title: 'First person working in Maharashtra: register there', owner: 'HR' })]);
+    expect(made[0].note).toContain('Professional Tax');
+    /* A second person there, or a transfer in: no second task. */
+    await hire(hr, { name: 'Asha', code: 'S-4', branchId: mumbai.id });
+    const moved = await hire(hr, { name: 'Moved', code: 'S-5', branchId: hr.branchId });
+    await people(hr).put(`/employees/${moved.id}`, { branchId: mumbai.id }).expect(200);
+    expect(await task('maharashtra')).toHaveLength(1);
+    expect(ravi.branchId).toBe(mumbai.id);
   });
 });
 

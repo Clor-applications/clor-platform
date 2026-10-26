@@ -520,7 +520,7 @@ peopleRouter.get('/orgs/:orgId/people/employees', can(PermissionAction.VIEW, EMP
     ...(pick('businessUnitId') ? { businessUnitId: pick('businessUnitId') } : {}),
     ...(pick('gradeId') ? { gradeId: pick('gradeId') } : {}),
     ...(pick('costCenterId') ? { costCenterId: pick('costCenterId') } : {}),
-    ...(pick('managerId') ? { reportingManagerId: pick('managerId') } : {}),
+    ...(pick('managerId') ? { reportingManagerId: pick('managerId') === 'none' ? null : pick('managerId') } : {}),
     /* People design v1 EMP-01: location (site), establishment, joining-date range. */
     ...(pick('areaId') ? { areaId: pick('areaId') } : {}),
     ...(pick('establishmentId') ? { establishmentId: pick('establishmentId') } : {}),
@@ -543,6 +543,8 @@ peopleRouter.get('/orgs/:orgId/people/employees', can(PermissionAction.VIEW, EMP
       : {}),
   };
   addHours(where, pick('hours'));
+  /* No manager, as the Organization overview counts it: the top of the tree (someone others report to) is not listed. */
+  if (pick('managerId') === 'none') (where.AND ||= []).push({ id: { notIn: (await peoplePrisma.employee.findMany({ where: { orgId, status: { not: 'LEFT' }, reportingManagerId: { not: null } }, select: { reportingManagerId: true }, distinct: ['reportingManagerId'] })).map((r) => r.reportingManagerId!) } });
   /* Working now: here and already joined; the count strip's first tile opens exactly these (W14). */
   if (pick('working') === 'now') (where.AND ||= []).push({ status: { not: 'LEFT' } }, { OR: [{ dateOfJoining: null }, { dateOfJoining: { lte: todayIst() } }] });
   /* Every id the filters match (Select all matching, WF-07): the same filters and scope, capped at what one bulk change takes. */
@@ -781,7 +783,7 @@ peopleRouter.get('/orgs/:orgId/people/employees/export', can(PermissionAction.EX
     ...(pick('departmentId') ? { departmentId: pick('departmentId') === 'none' ? null : pick('departmentId') } : {}),
     ...(pick('jobPositionId') ? { jobPositionId: pick('jobPositionId') } : {}),
     ...(pick('employeeTypeId') ? { employeeTypeId: pick('employeeTypeId') } : {}),
-    ...(pick('managerId') ? { reportingManagerId: pick('managerId') } : {}),
+    ...(pick('managerId') ? { reportingManagerId: pick('managerId') === 'none' ? null : pick('managerId') } : {}),
     ...(pick('areaId') ? { areaId: pick('areaId') } : {}),
     ...(pick('workTypeId') ? { workTypeId: pick('workTypeId') } : {}),
     /* On probation until confirmed in writing, whether or not the date has passed (a passed one is the more urgent). */
@@ -802,6 +804,8 @@ peopleRouter.get('/orgs/:orgId/people/employees/export', can(PermissionAction.EX
     where.AND = [{ OR: mine ? [{ reportingManagerId: mine.id }, { dottedManagerId: mine.id }] : [{ id: '__none__' }] }];
   }
   addHours(where, pick('hours'));
+  /* No manager, as the Organization overview counts it: the top of the tree (someone others report to) is not listed. */
+  if (pick('managerId') === 'none') (where.AND ||= []).push({ id: { notIn: (await peoplePrisma.employee.findMany({ where: { orgId, status: { not: 'LEFT' }, reportingManagerId: { not: null } }, select: { reportingManagerId: true }, distinct: ['reportingManagerId'] })).map((r) => r.reportingManagerId!) } });
   /* Working now: here and already joined; the count strip's first tile opens exactly these (W14). */
   if (pick('working') === 'now') (where.AND ||= []).push({ status: { not: 'LEFT' } }, { OR: [{ dateOfJoining: null }, { dateOfJoining: { lte: todayIst() } }] });
   /* The rows ticked on screen: still inside the caller's scope and this company, whatever ids are sent. */

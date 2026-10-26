@@ -554,3 +554,32 @@ export function startApprovalDues({ intervalMs = 15 * 60_000, startupDelayMs = 6
 }
 
 export const isoDay = (v: unknown) => (typeof v === 'string' && ISO_DAY.test(v) ? v : null);
+
+/**
+ * A person's manager changed: their requests waiting on a manager step move
+ * to the new manager (Organization research, rank 2: requests left with the
+ * old manager). Only steps whose rule says "the manager" or "the manager's
+ * manager" are re-resolved; a named person, a role or HR stays as it was.
+ * The requester never becomes the decider. Logged on the request.
+ */
+export async function rerouteManagerSteps(actor: Actor, employeeId: string) {
+  const open = await peoplePrisma.approvalRequest.findMany({ where: { orgId: actor.orgId, subjectEmployeeId: employeeId, status: 'WAITING' }, include });
+  let moved = 0;
+  for (const request of open) {
+    const step = request.steps.find((s) => s.order === request.currentStep && s.status === 'WAITING');
+    if (!step) continue;
+    const ruleSteps = ((await peoplePrisma.approvalRule.findUnique({ where: { id: request.ruleId } }))?.steps || []) as unknown as StepSpec[];
+    const spec = ruleSteps.find((s) => s.order === step.order);
+    if (!spec || (spec.approver.kind !== 'MANAGER' && spec.approver.kind !== 'MANAGER_OF_MANAGER')) continue;
+    const { candidates } = await candidatesFor({ accountId: request.accountId, orgId: request.orgId }, spec, request);
+    const before = (step.candidateUserIds as string[]) || [];
+    if (!candidates.length || (candidates.length === before.length && candidates.every((c) => before.includes(c)))) continue;
+    await peoplePrisma.$transaction(async (tx) => {
+      await tx.approvalStep.update({ where: { id: step.id }, data: { candidateUserIds: candidates, approverUserId: candidates[0], standInForUserId: null } });
+      await writeChangeLog(tx, { ...actor, reason: 'Manager changed' }, { kind: 'ApprovalRequest', id: request.id, employeeId }, [{ field: 'approver', before: before.join(', ') || null, after: candidates.join(', '), redacted: false }]);
+    });
+    await notifyStep(await peoplePrisma.approvalRequest.findUniqueOrThrow({ where: { id: request.id }, include }));
+    moved += 1;
+  }
+  return moved;
+}
