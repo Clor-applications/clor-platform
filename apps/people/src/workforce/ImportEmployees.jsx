@@ -10,6 +10,12 @@ import { clearUnsaved } from '@platform/unsaved';
 import { usePermissions } from '@ui/permissions/usePermissions';
 import { downloadCsvTemplate, parseCsv, readFileText } from '@ui/utils/csv';
 import { IMPORT_COLUMNS, IMPORT_FIELDS, guessField } from '@ui/personnel/Employees';
+
+/* The spreadsheet keys stay as they are (the template uses them); people choose from names. */
+const FIELD_WORDS = {
+  name: 'Name', code: 'Employee ID', email: 'Personal email', workEmail: 'Work email', phone: 'Phone', department: 'Department', jobPosition: 'Designation',
+  employeeType: 'Employment type', workType: 'Work type', dateOfJoining: 'Joining date', dateOfBirth: 'Date of birth', gender: 'Gender', businessUnit: 'Business unit', grade: 'Grade', costCentre: 'Cost centre',
+};
 import { importEmployees, undoImport } from '@ui/personnel/api';
 
 import { downloadText } from './api';
@@ -147,7 +153,7 @@ export default function ImportEmployees({ openScreen }) {
 
         {step === 'map' && file ? (
           <div className="space-y-3">
-            <p className="text-sm"><span className="font-medium">{file.name}</span> · {file.rows.length} rows. Match each column to a field, or ignore it.</p>
+            <p className="text-sm"><span className="font-medium">{file.name}</span><span className="ui-muted"> · {file.rows.length} {file.rows.length === 1 ? 'row' : 'rows'}</span></p>
             {file.dupes.length ? <Alert tone="warn" title="Repeated column names">{file.dupes.join(', ')} appear more than once; map only one of each.</Alert> : null}
             {twice.length ? <Alert tone="neg" title="Two columns go to the same field">{[...new Set(twice)].join(', ')}: choose one.</Alert> : null}
             {!mappedKeys.includes('name') ? <Alert tone="info" title="A name column is needed">Map one column to name.</Alert> : null}
@@ -162,7 +168,7 @@ export default function ImportEmployees({ openScreen }) {
                       <td>
                         <select className="ui-select" value={mapping[i]} aria-label={`Field for ${h}`} onChange={(e) => { const m = [...mapping]; m[i] = e.target.value; setMapping(m); setPreview(null); }}>
                           <option value="">Ignore this column</option>
-                          {IMPORT_FIELDS.map((f) => <option key={f.key} value={f.key}>{f.label}</option>)}
+                          {IMPORT_FIELDS.map((f) => <option key={f.key} value={f.key}>{FIELD_WORDS[f.key] || f.label}</option>)}
                         </select>
                       </td>
                     </tr>

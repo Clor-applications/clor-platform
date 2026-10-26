@@ -7637,7 +7637,18 @@ th.ui-th {
 .ui-record-tablist { display: flex; gap: 0.25rem; overflow-x: auto; border-bottom: 1px solid rgb(var(--border)); scrollbar-width: none; }
 .ui-record-tablist::-webkit-scrollbar { display: none; }
 .ui-record-tablist .ui-tab { white-space: nowrap; }
-.ui-record-tabpanel { padding-top: 1rem; }
+/*
+ * An employee record is one document, so each tab is one sheet: a single white
+ * surface with its sections divided by hairlines, never a stack of separate
+ * boxes (DESIGN.md: a document earns a surface; no card-in-card).
+ */
+.ui-record-tabpanel { margin-top: 1rem; padding: 1.25rem 1.5rem; background: rgb(var(--surface)); border: 1px solid rgb(var(--border)); }
+.ui-record-tabpanel .ui-record-section { background: transparent; border: 0; border-top: 1px solid rgb(var(--border)); padding: 1.25rem 0; }
+.ui-record-tabpanel .ui-record-section:first-child { border-top: 0; padding-top: 0; }
+.ui-record-tabpanel .ui-record-section:last-child { padding-bottom: 0; }
+.ui-record-tabpanel .space-y-4 > * + .ui-record-section { margin-top: 0; }
+.ui-record-tabpanel .ui-doc-list > li:last-child { border-bottom: 0; }
+@media (max-width: 639px) { .ui-record-tabpanel { padding: 1rem; } }
 .ui-record-tabpanel:focus-visible { outline: 2px solid rgb(var(--ring)); outline-offset: 2px; }
 
 .ui-alert { display: flex; align-items: flex-start; gap: 0.75rem; padding: 0.75rem 1rem; border: 1px solid rgb(var(--border)); background: rgb(var(--surface)); }
@@ -7760,11 +7771,11 @@ button.ui-metric:focus-visible { outline: 2px solid rgb(var(--ring)); outline-of
 .ui-field-row { display: grid; grid-template-columns: 9rem minmax(0, 1fr); gap: 0.5rem; align-items: baseline; min-width: 0; }
 .ui-field-row dd { min-width: 0; overflow-wrap: anywhere; }
 .ui-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.75rem 1rem; }
-.ui-record-overview { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1rem; }
+.ui-record-overview { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0; }
 .ui-record-rail { display: none; }
 @media (min-width: 1280px) {
   .ui-record-overview { grid-template-columns: minmax(0, 1fr) 22rem; }
-  .ui-record-rail { display: flex; flex-direction: column; gap: 1rem; }
+  .ui-record-rail { display: flex; flex-direction: column; gap: 0; margin-left: 1.5rem; padding-left: 1.5rem; border-left: 1px solid rgb(var(--border)); }
 }
 @media (max-width: 899px) {
   .ui-field-grid { grid-template-columns: minmax(0, 1fr); }
@@ -7786,7 +7797,13 @@ button.ui-metric:focus-visible { outline: 2px solid rgb(var(--ring)); outline-of
 .ui-step-hint { display: block; font-size: 0.75rem; color: rgb(var(--fg-muted)); }
 .ui-wizard-body:focus { outline: none; }
 .ui-wizard-actions { position: sticky; bottom: 0; display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 1.25rem -1.25rem -1rem; padding: 0.75rem 1.25rem; background: rgb(var(--surface)); border-top: 1px solid rgb(var(--border)); }
-.ui-review-block { border: 1px solid rgb(var(--border)); padding: 0.75rem 1rem; }
+.ui-review-block { border-top: 1px solid rgb(var(--border)); padding: 1rem 0 0.25rem; }
+/* A choice that toggles: outlined when off, filled in the accent when on, with a tick so the state is not colour alone. */
+.ui-choice-chip { display: inline-flex; align-items: center; gap: 0.25rem; height: 1.75rem; padding: 0 0.75rem; border-radius: 999px; border: 1px solid rgb(var(--border-strong)); font-size: 0.8125rem; font-weight: 500; color: rgb(var(--fg-muted)); background: rgb(var(--surface)); transition: background-color var(--dur-state) ease, border-color var(--dur-state) ease, color var(--dur-state) ease; }
+.ui-choice-chip:hover { border-color: rgb(var(--fg-subtle)); color: rgb(var(--fg)); }
+.ui-choice-chip[aria-pressed='true'] { background: rgb(var(--brand-soft)); border-color: rgb(var(--brand-border)); color: rgb(var(--brand-ink)); }
+.ui-choice-chip[aria-pressed='true']::before { content: '✓'; font-size: 0.75rem; }
+.ui-choice-chip:focus-visible { outline: 2px solid rgb(var(--ring)); outline-offset: 2px; }
 .ui-required { color: rgb(var(--neg)); }
 .ui-input.is-invalid { border-color: rgb(var(--neg)); }
 @media (max-width: 639px) {

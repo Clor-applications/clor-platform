@@ -279,5 +279,18 @@ describe('workforce backend', () => {
       expect(await people(nobody).get(path).then((r) => r.status), path).toBe(403);
     }
   });
+
+  it('refuses a date that does not exist and a phone that is too short, on the form and in an import check', async () => {
+    const bad = await people(boss).post('/employees', { name: 'Bad Date', code: 'W-120', dateOfJoining: '2026-13-01' }).expect(400);
+    expect(bad.body.error).toMatch(/does not exist/);
+    await people(boss).post('/employees', { name: 'Short Phone', code: 'W-121', phone: '98111' }).expect(400);
+    await people(boss).post('/employees', { name: 'Fine Phone', code: 'W-122', phone: '+91 98111 00001' }).expect(201);
+    const check = (await people(boss).post('/employees/import', { dryRun: true, rows: [
+      { name: 'Rohan Mehta', code: 'IM-901', phone: '9811100001', dateOfJoining: '2026-11-03' },
+      { name: 'Leela Rao', code: 'IM-902', phone: '98111', dateOfJoining: '2026-11-03' },
+      { name: 'Ira Sen', code: 'IM-903', dateOfJoining: '2026-02-30' },
+    ] }).expect(200)).body;
+    expect(check.results.map((r: { ok: boolean }) => r.ok)).toEqual([true, false, false]);
+  });
 });
 

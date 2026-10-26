@@ -75,7 +75,11 @@ const EMPLOYEE_STATUSES = ['ACTIVE', 'ON_NOTICE', 'LEFT', 'SUSPENDED'] as const;
 export const GENDER_OPTIONS = ['MALE', 'FEMALE', 'NON_BINARY', 'OTHER', 'PREFER_NOT_TO_SAY'] as const;
 const todayIst = () => new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
-const date = z.string().trim().regex(ISO_DATE, 'Dates are YYYY-MM-DD.').optional().nullable().or(z.literal(''));
+/* A real day, not only the right shape: 2026-13-01 and 2026-02-30 are refused. */
+const realDay = (v: string) => { const d = new Date(`${v}T00:00:00Z`); return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === v; };
+const date = z.string().trim().regex(ISO_DATE, 'Dates are YYYY-MM-DD.').refine(realDay, 'That date does not exist.').optional().nullable().or(z.literal(''));
+/* A phone number: 7 to 15 digits once spaces, dashes, brackets and a leading + are set aside. */
+const phoneField = z.string().trim().max(40).refine((v) => !v || /^\+?[\d\s\-()]+$/.test(v) && v.replace(/\D/g, '').length >= 7 && v.replace(/\D/g, '').length <= 15, 'That phone number is too short or has letters in it.').optional().nullable();
 const text = (max: number) => z.string().trim().max(max).optional().nullable();
 
 const blank = (v: unknown) => {
@@ -92,7 +96,7 @@ const employeeSchema = z.object({
   version: z.coerce.number().int().positive().optional(),
   code: text(40),
   email: z.string().trim().email('That is not an email address.').max(160).optional().nullable().or(z.literal('')),
-  phone: text(40),
+  phone: phoneField,
   status: z.enum(EMPLOYEE_STATUSES).optional(),
   branchId: text(60),
   dateOfJoining: date,
@@ -110,7 +114,7 @@ const employeeSchema = z.object({
   country: text(80),
   pincode: text(12),
   emergencyContactName: text(120),
-  emergencyContactPhone: text(40),
+  emergencyContactPhone: phoneField,
   emergencyContactRelation: text(60),
 
   departmentId: text(60),
@@ -124,7 +128,7 @@ const employeeSchema = z.object({
   reportingManagerId: text(60),
   dottedManagerId: text(60),
   workEmail: z.string().trim().email('That is not an email address.').max(160).optional().nullable().or(z.literal('')),
-  workPhone: text(40),
+  workPhone: phoneField,
   workLocation: text(120),
   devicePin: text(40),
   areaId: text(60),
@@ -1412,7 +1416,7 @@ const importRow = z.object({
   name: z.string().trim().min(1).max(120),
   code: text(40),
   email: z.string().trim().email().max(160).optional().nullable().or(z.literal('')),
-  phone: text(40),
+  phone: phoneField,
   department: text(120),
   jobPosition: text(120),
   employeeType: text(120),
@@ -1462,7 +1466,8 @@ peopleRouter.post('/orgs/:orgId/people/employees/import', can(PermissionAction.C
   for (let i = 0; i < rows.length; i += 1) {
     const parsed = importRow.safeParse(rows[i]);
     if (!parsed.success) {
-      results.push({ row: i + 1, ok: false, error: parsed.error.issues[0]?.message || 'Invalid row.' });
+      /* Every problem in the row at once, so the file is fixed in one pass. */
+      results.push({ row: i + 1, ok: false, error: [...new Set(parsed.error.issues.map((x) => x.message))].join(' ') || 'Invalid row.' });
       continue;
     }
     const r = parsed.data;

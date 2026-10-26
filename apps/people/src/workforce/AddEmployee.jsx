@@ -243,14 +243,14 @@ export default function AddEmployee({ params = {}, updateParams, openScreen }) {
               <fieldset className="sm:col-span-2">
                 <legend className="ui-label">Tags</legend>
                 <div className="flex flex-wrap gap-1.5">
-                  {lists.tags.map((t) => { const on = form.tagIds.includes(t.id); return <button key={t.id} type="button" aria-pressed={on} className={`ui-pill ${on ? 'ui-pill-info' : ''}`} onClick={() => field('tagIds').onChange(on ? form.tagIds.filter((x) => x !== t.id) : [...form.tagIds, t.id])}>{t.name}</button>; })}
+                  {lists.tags.map((t) => { const on = form.tagIds.includes(t.id); return <button key={t.id} type="button" aria-pressed={on} className="ui-choice-chip" onClick={() => field('tagIds').onChange(on ? form.tagIds.filter((x) => x !== t.id) : [...form.tagIds, t.id])}>{t.name}</button>; })}
                 </div>
               </fieldset>
             ) : null}
             {hasApp('attendance') ? (
               <>
                 <h3 className="ui-t-sec sm:col-span-2 mt-2">Attendance device</h3>
-                <Text id="devicePin" label="Attendance ID" optional help={form.code ? `Blank means the employee ID (${form.code}).` : 'The ID on the biometric reader.'} max={20} {...field('devicePin')} />
+                <Text id="devicePin" label="Attendance ID" placeholder={form.code} max={20} {...field('devicePin')} />
                 <Text id="cardNumber" label="Card number" optional max={20} {...field('cardNumber')} />
                 {lists.contractors.length ? <SelectField id="contractorId" label="Contractor" optional options={opts(lists.contractors)} {...field('contractorId')} /> : null}
                 <label className="flex items-center gap-2 text-sm self-end pb-2"><input type="checkbox" className="ui-checkbox" checked={form.attendanceRequired !== false} onChange={(e) => field('attendanceRequired').onChange(e.target.checked)} />Expected to mark attendance</label>
@@ -270,15 +270,13 @@ export default function AddEmployee({ params = {}, updateParams, openScreen }) {
                 <label className="block mt-2"><span className="ui-label">Why is this a different person? *</span><input className="ui-input w-full" value={duplicateReason} onChange={(e) => setDuplicateReason(e.target.value)} maxLength={300} /></label>
               </Alert>
             ) : null}
-            {!form.workEmail && !form.phone ? <Alert tone="info" title="No work email or phone">That is fine for workers without one; they can be added later.</Alert> : null}
-            {form.dateOfJoining > todayIst() ? <Alert tone="info" title={`Joining on ${formatDate(form.dateOfJoining)}`}>They show as "Joining soon" until then.</Alert> : null}
-            {[['personal', 'Personal', [['Legal name', [form.firstName, form.lastName].filter(Boolean).join(' ')], ['Preferred name', form.preferredName], ['Photo', form.photoUrl ? 'Added' : ''], ['Work email', form.workEmail], ['Phone', form.phone], ['Work phone', form.workPhone], ['Personal email', form.email], ['Date of birth', form.dateOfBirth && formatDate(form.dateOfBirth)], ['Gender', GENDER_WORDS[form.gender]], ['Father / husband name', form.guardianName], ['Emergency contact', [form.emergencyContactName, form.emergencyContactRelation, form.emergencyContactPhone].filter(Boolean).join(' · ')]]],
+            {[['personal', 'Personal', [['Name', [form.firstName, form.lastName].filter(Boolean).join(' ')], ['Preferred name', form.preferredName], ['Photo', form.photoUrl ? 'Added' : ''], ['Work email', form.workEmail], ['Phone', form.phone], ['Work phone', form.workPhone], ['Personal email', form.email], ['Date of birth', form.dateOfBirth && formatDate(form.dateOfBirth)], ['Gender', GENDER_WORDS[form.gender]], ['Father / husband name', form.guardianName], ['Emergency contact', [form.emergencyContactName, form.emergencyContactRelation, form.emergencyContactPhone].filter(Boolean).join(' · ')]]],
               ['employment', 'Employment', [['Employee ID', form.code], ['Employment type', nameIn(lists.types, form.employeeTypeId)], ['Joining date', form.dateOfJoining && formatDate(form.dateOfJoining)], ['Work type', nameIn(lists.workTypes, form.workTypeId)], ['Probation ends', form.probationEndDate && formatDate(form.probationEndDate)], ['Contract ends', form.contractEndDate && formatDate(form.contractEndDate)], ['Status', form.status === 'ACTIVE' ? 'Active' : 'Suspended']]],
               ['organization', 'Organization', [['Department', nameIn(lists.departments, form.departmentId)], ['Designation', nameIn(lists.positions, form.jobPositionId)], ...(lists.roles.length ? [['Job role', nameIn(lists.roles, form.jobRoleId)]] : []), ['Location', nameIn(lists.areas, form.areaId)], ['Work location', form.workLocation], ['Work site', nameIn(lists.establishments, form.establishmentId)], ['Manager', people.find((x) => x.id === form.reportingManagerId)?.name], ['Secondary manager', people.find((x) => x.id === form.dottedManagerId)?.name], ...(lists.units.length ? [['Business unit', nameIn(lists.units, form.businessUnitId)]] : []), ...(lists.teams.length ? [['Team', nameIn(lists.teams, form.teamId)]] : []), ...(lists.seats.length ? [['Position', nameIn(lists.seats, form.seatId)]] : []), ...(lists.centres.length ? [['Cost centre', nameIn(lists.centres, form.costCenterId)]] : []), ...(lists.grades.length ? [['Grade', nameIn(lists.grades, form.gradeId)]] : []), ['Tags', lists.tags.filter((t) => form.tagIds.includes(t.id)).map((t) => t.name).join(', ')], ...(hasApp('attendance') ? [['Attendance ID', form.devicePin || (form.code ? `${form.code} (employee ID)` : '')], ['Card number', form.cardNumber], ...(lists.contractors.length ? [['Contractor', nameIn(lists.contractors, form.contractorId)]] : []), ['Marks attendance', form.attendanceRequired === false ? 'No, door only' : 'Yes']] : [])]],
             ].map(([k, title, rows]) => (
               <section key={k} className="ui-review-block" aria-label={title}>
                 <header className="flex items-center justify-between"><h3 className="text-sm font-semibold">{title}</h3><button type="button" className="ui-link text-sm" onClick={() => goStep(k)}>Edit</button></header>
-                <dl className="ui-field-grid mt-2">{rows.map(([l, v]) => <div key={l} className="ui-field-row"><dt className="ui-caption">{l}</dt><dd className="text-sm">{v || <span className="ui-muted">Not provided</span>}</dd></div>)}</dl>
+                <dl className="ui-field-grid mt-2">{rows.filter(([, v]) => v).map(([l, v]) => <div key={l} className="ui-field-row"><dt className="ui-caption">{l}</dt><dd className="text-sm">{v}</dd></div>)}</dl>
               </section>
             ))}
           </div>
