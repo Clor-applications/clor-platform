@@ -18,6 +18,7 @@ import { HOURS_WORDS } from '@ui/personnel/employmentKinds';
 import { formatDate } from '@ui/components/ui/DatePicker';
 
 import { bulkUpdate, dataHealth, employeeIds, deleteView, downloadText, employeeCounts, exportColumns, exportEmployees, listEmployees, listTags, listViews, openChecklistTasks, saveView, structure, workforcePending } from './api';
+import { listBranches } from '../organization/api';
 import { STATUS, StatusBadge, can } from './shared';
 
 /**
@@ -28,7 +29,7 @@ import { STATUS, StatusBadge, can } from './shared';
  * `updateParams`), so Back and refresh return to the same list. Choosing
  * people is per page; changing filters or company clears the choice.
  */
-const FILTER_KEYS = ['status', 'dept', 'pos', 'type', 'wtype', 'hrs', 'prob', 'contract', 'area', 'est', 'unit', 'grade', 'centre', 'tag', 'mgr', 'from', 'to', 'lfrom', 'lto', 'working'];
+const FILTER_KEYS = ['status', 'dept', 'pos', 'type', 'wtype', 'hrs', 'prob', 'contract', 'area', 'est', 'unit', 'grade', 'centre', 'tag', 'mgr', 'from', 'to', 'lfrom', 'lto', 'working', 'branch'];
 const COLUMNS_KEY = 'people.workforce.columns';
 const DISMISS_KEY = 'people.workforce.dismissed';
 const readJson = (k, fallback) => { try { return JSON.parse(localStorage.getItem(k) || '') || fallback; } catch { return fallback; } };
@@ -37,7 +38,7 @@ const apiParams = (p) => ({
   /* Leavers stay out unless asked for: the default is everyone still with the company. */
   q: p.q, status: p.status || 'CURRENT', departmentId: p.dept, jobPositionId: p.pos, employeeTypeId: p.type, workTypeId: p.wtype, hours: p.hrs, probation: p.prob, contract: p.contract, areaId: p.area, establishmentId: p.est,
   businessUnitId: p.unit, gradeId: p.grade, costCenterId: p.centre, tagId: p.tag, managerId: p.mgr,
-  joinedFrom: p.from, joinedTo: p.to, leftFrom: p.lfrom, leftTo: p.lto, working: p.working, sort: p.sort, dir: p.dir,
+  joinedFrom: p.from, joinedTo: p.to, leftFrom: p.lfrom, leftTo: p.lto, working: p.working, branchId: p.branch, sort: p.sort, dir: p.dir,
 });
 
 export default function Directory({ params = {}, updateParams, openScreen }) {
@@ -66,10 +67,10 @@ export default function Directory({ params = {}, updateParams, openScreen }) {
   const counts = useRequest(() => employeeCounts(), []);
   const pending = useRequest(() => workforcePending(), []);
   const pendingCount = pending.data ? pending.data.requests.length + pending.data.scheduled.length + pending.data.invites.length + pending.data.drafts.length : 0;
-  const [lists, setLists] = useState({ departments: [], positions: [], types: [], workTypes: [], areas: [], establishments: [], units: [], grades: [], centres: [], tags: [] });
+  const [lists, setLists] = useState({ branches: [], departments: [], positions: [], types: [], workTypes: [], areas: [], establishments: [], units: [], grades: [], centres: [], tags: [] });
   useEffect(() => {
-    Promise.all([...['departments', 'job-positions', 'employee-types', 'work-types', 'areas', 'establishments', 'business-units', 'grades', 'cost-centres'].map((k) => structure(k).catch(() => [])), listTags().catch(() => [])])
-      .then(([departments, positions, types, workTypes, areas, establishments, units, grades, centres, tags]) => setLists({ departments, positions, types, workTypes, areas, establishments, units, grades, centres, tags }));
+    Promise.all([...['departments', 'job-positions', 'employee-types', 'work-types', 'areas', 'establishments', 'business-units', 'grades', 'cost-centres'].map((k) => structure(k).catch(() => [])), listTags().catch(() => []), listBranches().catch(() => [])])
+      .then(([departments, positions, types, workTypes, areas, establishments, units, grades, centres, tags, branchRows]) => setLists({ departments, positions, types, workTypes, areas, establishments, units, grades, centres, tags , branches: branchRows.filter((b) => b.isActive !== false).map((b) => ({ id: b.id, name: b.branchName, isActive: true })) }));
   }, []);
 
   /* Choosing people: this page, reset whenever the query changes (spec §4.2). */
@@ -157,7 +158,7 @@ export default function Directory({ params = {}, updateParams, openScreen }) {
   const lookup = (listName, id) => lists[listName]?.find((x) => x.id === id)?.name || 'Chosen';
   const chips = [
     p.status && { k: 'status', label: p.status === 'ALL' ? 'Including people who left' : `Status: ${STATUS[p.status]?.label || p.status}` },
-    p.dept && { k: 'dept', label: `Department: ${lookup('departments', p.dept)}` },
+    p.dept && { k: 'dept', label: p.dept === 'none' ? 'No department' : `Department: ${lookup('departments', p.dept)}` },
     p.pos && { k: 'pos', label: `Designation: ${lookup('positions', p.pos)}` },
     p.type && { k: 'type', label: `Type: ${lookup('types', p.type)}` },
     p.wtype && { k: 'wtype', label: `Work mode: ${lookup('workTypes', p.wtype)}` },
@@ -167,6 +168,7 @@ export default function Directory({ params = {}, updateParams, openScreen }) {
     p.working && { k: 'working', label: 'Working now' },
     p.area && { k: 'area', label: `Location: ${lookup('areas', p.area)}` },
     p.est && { k: 'est', label: `Work site: ${lookup('establishments', p.est)}` },
+    p.branch && { k: 'branch', label: p.branch === 'none' ? 'No branch' : `Branch: ${lookup('branches', p.branch)}` },
     p.unit && { k: 'unit', label: `Business unit: ${lookup('units', p.unit)}` },
     p.grade && { k: 'grade', label: `Grade: ${lookup('grades', p.grade)}` },
     p.centre && { k: 'centre', label: `Cost centre: ${lookup('centres', p.centre)}` },
@@ -436,7 +438,8 @@ function FiltersDrawer({ params, lists, managers, onClose, onApply }) {
         <section aria-label="Place">
           <h3 className="ui-filter-group-title">Place</h3>
           <div className="ui-form-grid">
-            {field('dept', 'Department', opt(lists.departments))}
+            {field('dept', 'Department', [...opt(lists.departments), { value: 'none', label: 'No department' }])}
+            {(lists.branches || []).length > 1 ? field('branch', 'Branch', [...opt(lists.branches), { value: 'none', label: 'No branch' }]) : null}
             {field('area', 'Location', opt(lists.areas))}
             {lists.establishments.length ? field('est', 'Work site', opt(lists.establishments)) : null}
             {lists.units.length ? field('unit', 'Business unit', opt(lists.units)) : null}
@@ -591,7 +594,7 @@ function SavedViews({ params, prefs, onApply, canShare }) {
     if (!(await confirmDialog({ title: `Delete the view "${v.name}"?`, confirmLabel: 'Delete' }))) return;
     try { await deleteView(v.id); views.reload(); } catch (e) { notify.error(String(e?.message || 'Not deleted.')); }
   };
-  const WORDS = { q: 'Search', status: 'Status', dept: 'Department', pos: 'Designation', type: 'Employment type', wtype: 'Work mode', hrs: 'Hours', prob: 'Probation', contract: 'Contract end', area: 'Location', est: 'Work site', unit: 'Business unit', grade: 'Grade', centre: 'Cost centre', tag: 'Tag', mgr: 'Manager', from: 'Joined from', to: 'Joined to', sort: 'Sorted' };
+  const WORDS = { q: 'Search', status: 'Status', dept: 'Department', pos: 'Designation', type: 'Employment type', wtype: 'Work mode', hrs: 'Hours', prob: 'Probation', contract: 'Contract end', area: 'Location', est: 'Work site', branch: 'Branch', unit: 'Business unit', grade: 'Grade', centre: 'Cost centre', tag: 'Tag', mgr: 'Manager', from: 'Joined from', to: 'Joined to', sort: 'Sorted' };
   const describe = (f = {}) => { const used = Object.keys(f).filter((k) => WORDS[k] && k !== 'dir'); return used.length ? used.map((k) => WORDS[k]).join(', ') : 'All employees'; };
   return (
     <section aria-label="Saved views" className="space-y-3">

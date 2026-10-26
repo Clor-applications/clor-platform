@@ -15,6 +15,7 @@ import { hasApp } from '@platform/context';
 import { clearUnsaved } from '@platform/unsaved';
 
 import { createEmployee, deleteDraft, getDraft, listContractors, listEmployees, listTags, nextEmployeeCode, saveDraft, structure } from './api';
+import { listBranches } from '../organization/api';
 import { can } from './shared';
 
 /**
@@ -33,7 +34,7 @@ const BLANK = {
   firstName: '', lastName: '', preferredName: '', workEmail: '', workPhone: '', email: '', phone: '', dateOfBirth: '', gender: '', guardianName: '', photoUrl: '',
   emergencyContactName: '', emergencyContactRelation: '', emergencyContactPhone: '',
   code: '', employeeTypeId: '', workTypeId: '', jobRoleId: '', dateOfJoining: '', probationEndDate: '', contractEndDate: '', hours: 'FULL_TIME', status: 'ACTIVE',
-  departmentId: '', jobPositionId: '', areaId: '', establishmentId: '', businessUnitId: '', teamId: '', seatId: '', reportingManagerId: '', dottedManagerId: '', costCenterId: '', gradeId: '', workLocation: '',
+  departmentId: '', jobPositionId: '', branchId: '', areaId: '', establishmentId: '', businessUnitId: '', teamId: '', seatId: '', reportingManagerId: '', dottedManagerId: '', costCenterId: '', gradeId: '', workLocation: '',
   tagIds: [], devicePin: '', cardNumber: '', contractorId: '', attendanceRequired: true,
 };
 const todayIst = () => new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
@@ -84,8 +85,8 @@ export default function AddEmployee({ params = {}, updateParams, openScreen }) {
   const dirty = JSON.stringify(form) !== JSON.stringify(saved);
 
   useEffect(() => {
-    Promise.all([...['departments', 'job-positions', 'employee-types', 'work-types', 'areas', 'establishments', 'teams', 'cost-centres', 'grades', 'business-units', 'seats', 'job-roles'].map((k) => structure(k).catch(() => [])), hasApp('attendance') ? listContractors() : Promise.resolve([]), listTags().catch(() => [])])
-      .then(([departments, positions, types, workTypes, areas, establishments, teams, centres, grades, units, seats, roles, contractors, tags]) => setLists({ departments, positions, types, workTypes, areas, establishments, teams, centres, grades, units, seats, roles, contractors, tags }));
+    Promise.all([...['departments', 'job-positions', 'employee-types', 'work-types', 'areas', 'establishments', 'teams', 'cost-centres', 'grades', 'business-units', 'seats', 'job-roles'].map((k) => structure(k).catch(() => [])), hasApp('attendance') ? listContractors() : Promise.resolve([]), listTags().catch(() => []), listBranches().catch(() => [])])
+      .then(([departments, positions, types, workTypes, areas, establishments, teams, centres, grades, units, seats, roles, contractors, tags, branchRows]) => setLists({ departments, positions, types, workTypes, areas, establishments, teams, centres, grades, units, seats, roles, contractors, tags , branches: branchRows.filter((b) => b.isActive !== false).map((b) => ({ id: b.id, name: b.branchName, isActive: true })) }));
     listEmployees({ limit: 500, sort: 'name' }).then((r) => setPeople((r?.employees || []).filter((e) => e.status !== 'LEFT'))).catch(() => {});
   }, []);
   /* A draft named in the address opens as it was left; otherwise the next ID is suggested. */
@@ -237,6 +238,7 @@ export default function AddEmployee({ params = {}, updateParams, openScreen }) {
 
         {stepKey === 'organization' ? (
           <Step title="Organization">
+            {(lists.branches || []).length > 1 ? <SelectField id="branchId" label="Branch" optional options={opts(lists.branches)} {...field('branchId')} /> : null}
             <SelectField id="departmentId" label="Department" optional options={opts(lists.departments)} {...field('departmentId')} />
             <SelectField id="jobPositionId" label="Designation" optional options={opts(within(lists.positions, 'departmentId', form.departmentId, form.jobPositionId))} {...field('jobPositionId')} />
             {lists.roles.length ? <SelectField id="jobRoleId" label="Job role" optional options={opts(within(lists.roles, 'jobPositionId', form.jobPositionId, form.jobRoleId))} {...field('jobRoleId')} /> : null}

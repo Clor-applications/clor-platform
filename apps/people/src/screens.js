@@ -19,6 +19,11 @@ export { default as HelpDesk } from './screens/HelpDesk';
 export { default as PrivateCases } from './screens/PrivateCases';
 export { default as HelpDeskSettings } from './screens/HelpDeskSettings';
 export { default as OrgChart } from './screens/OrgChart';
+/* Organization (docs/people/design-v1/ORGANIZATION-DECISIONS.md): the company's shape, its places and its changes. */
+export { default as OrganizationOverview } from './organization/Overview';
+export { default as Branches } from './organization/Branches';
+export { default as OrgChanges } from './organization/Changes';
+export { OrgDepartments, OrgDesignations, OrgJobRoles, OrgTeams, OrgPositions, OrgLocations, OrgWorkSites, OrgBusinessUnits, OrgGrades, OrgCostCentres } from './organization/lists';
 export { default as Tags } from './screens/Tags';
 export { DataHealth } from './screens/DataHealth';
 export { default as Checklists } from '@ui/personnel/Checklists';

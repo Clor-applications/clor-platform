@@ -15,7 +15,8 @@ describe('People navigation', () => {
 
   it('keeps the sidebar to the day’s work, Settings last', () => {
     /* Workforce package (owner, 26 Oct 2026): the visible module is Workforce; its key stays `employees`. */
-    expect(modules.map((m) => m.label)).toEqual(['Home', 'Workforce', 'Leave & Attendance', 'Hiring', 'Performance', 'Engage', 'Insights', 'Settings']);
+    /* Organization follows Workforce (ORGANIZATION-DECISIONS.md): the company's shape moved out of Settings. */
+    expect(modules.map((m) => m.label)).toEqual(['Home', 'Workforce', 'Organization', 'Leave & Attendance', 'Hiring', 'Performance', 'Engage', 'Insights', 'Settings']);
     expect(modules.find((m) => m.label === 'Settings').single).toBe(true);
   });
 
@@ -28,7 +29,8 @@ describe('People navigation', () => {
   });
 
   it('shows Settings on the rail while a settings page is open', () => {
-    expect(moduleForScreen(modules, 'departments', peopleApp.nav)?.label).toBe('Settings');
+    expect(moduleForScreen(modules, 'departments', peopleApp.nav)?.label).toBe('Organization');
+    expect(moduleForScreen(modules, 'branches', peopleApp.nav)?.label).toBe('Organization');
     expect(moduleForScreen(modules, 'companyDetails', peopleApp.nav)?.label).toBe('Settings');
     expect(moduleForScreen(modules, 'employees', peopleApp.nav)?.label).toBe('Workforce');
     /* The record, Add employee and Import keep Workforce selected (WF-01). */

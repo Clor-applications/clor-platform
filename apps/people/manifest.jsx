@@ -69,6 +69,19 @@ const HelpDesk = screen('HelpDesk');
 const PrivateCases = screen('PrivateCases');
 const HelpDeskSettings = screen('HelpDeskSettings');
 const OrgChart = screen('OrgChart');
+const OrganizationOverview = screen('OrganizationOverview');
+const Branches = screen('Branches');
+const OrgChanges = screen('OrgChanges');
+const OrgDepartments = screen('OrgDepartments');
+const OrgDesignations = screen('OrgDesignations');
+const OrgJobRoles = screen('OrgJobRoles');
+const OrgTeams = screen('OrgTeams');
+const OrgPositions = screen('OrgPositions');
+const OrgLocations = screen('OrgLocations');
+const OrgWorkSites = screen('OrgWorkSites');
+const OrgBusinessUnits = screen('OrgBusinessUnits');
+const OrgGrades = screen('OrgGrades');
+const OrgCostCentres = screen('OrgCostCentres');
 const Tags = screen('Tags');
 const Departments = screen('Departments');
 const EmployeeTypes = screen('EmployeeTypes');
@@ -210,10 +223,17 @@ export const peopleApp = {
     { key: 'overview', label: 'Home', items: ['overview', 'approvals'] },
     /* Workforce package (owner, 26 Oct 2026): the visible module is Workforce; screen keys stay `employees` so old links keep working. */
     { key: 'employees', label: 'Workforce', groups: [
-      { label: 'Directory', items: ['employees', 'orgChart', 'documents'] },
+      { label: 'Directory', items: ['employees', 'documents'] },
       { label: 'Help', items: ['helpdesk', 'policies', 'privateCases'] },
       { label: 'Joining & Leaving', items: ['checklists', 'assets'] },
       { label: 'Pay & Benefits', items: ['compensation', 'benefits'] },
+    ] },
+    /* Organization (ORGANIZATION-DECISIONS.md): how the company is set up and who runs what. The detailed lists show with the Detailed structure switch. */
+    { key: 'organization', label: 'Organization', short: 'Org', groups: [
+      { label: 'Structure', items: ['organization', 'departments', 'jobPositions', 'orgChart'] },
+      { label: 'Places', items: ['branches', 'establishments', 'areas'] },
+      { label: 'Detailed', items: ['teams', 'seats', 'businessUnits', 'grades', 'costCentres', 'jobRoles'] },
+      { label: 'History', items: ['orgChanges'] },
     ] },
     /* Leave and holidays are HR's; Attendance reads the same records (founder, 22 Oct 2026). */
     { key: 'leave', label: 'Leave & Attendance', short: 'Time', groups: [
@@ -238,6 +258,9 @@ export const peopleApp = {
     { key: 'employeeNew', label: 'Add Employee', icon: I.people, permission: 'PEOPLE::Employees::CREATE', parent: 'employees' },
     { key: 'employeeImport', label: 'Import Employees', icon: I.import, permission: 'PEOPLE::Employees::CREATE', parent: 'employees' },
     { key: 'orgChart', label: 'Org Chart', icon: I.org, permission: 'PEOPLE::Employees::VIEW' },
+    { key: 'organization', label: 'Overview', icon: I.org, permission: 'PEOPLE::Employees::VIEW' },
+    { key: 'branches', label: 'Branches', icon: I.location, permission: 'PEOPLE::Org Structure::VIEW' },
+    { key: 'orgChanges', label: 'Changes', icon: I.audit, permission: 'PEOPLE::Org Structure::VIEW' },
     { key: 'documents', label: 'Documents', icon: I.folder, permission: 'PEOPLE::Documents::VIEW' },
     { key: 'policies', label: 'Policies', icon: I.policy, permission: 'PEOPLE::Policies::VIEW' },
     { key: 'checklists', label: 'Onboarding & Exit', icon: I.checklist, permission: 'PEOPLE::Employees::VIEW' },
@@ -274,11 +297,11 @@ export const peopleApp = {
     { key: 'privacy', label: 'Privacy', icon: I.privacy, permission: 'PEOPLE::Privacy::VIEW' },
     /* The external auditor's own list: what a live grant names (PRV-06). */
     { key: 'auditEvidence', label: 'Audit Evidence', icon: I.audit, permission: 'SETTINGS::Audit trail::VIEW' },
-    { key: 'departments', label: 'Departments', icon: I.department, permission: 'PEOPLE::Org Structure::VIEW', parent: 'settings' },
-    { key: 'teams', label: 'Teams', icon: I.people, permission: 'PEOPLE::Org Structure::VIEW', parent: 'settings' },
-    { key: 'seats', label: 'Positions', icon: I.org, permission: 'PEOPLE::Org Structure::VIEW', parent: 'settings' },
-    { key: 'jobPositions', label: 'Designations', icon: I.designation, permission: 'PEOPLE::Org Structure::VIEW', parent: 'settings' },
-    { key: 'jobRoles', label: 'Job Roles', icon: I.role, permission: 'PEOPLE::Org Structure::VIEW', parent: 'settings' },
+    { key: 'departments', label: 'Departments', icon: I.department, permission: 'PEOPLE::Org Structure::VIEW' },
+    { key: 'teams', label: 'Teams', icon: I.people, permission: 'PEOPLE::Org Structure::VIEW', feature: 'peopleOrgDetail' },
+    { key: 'seats', label: 'Positions', icon: I.org, permission: 'PEOPLE::Org Structure::VIEW', feature: 'peopleOrgDetail' },
+    { key: 'jobPositions', label: 'Designations', icon: I.designation, permission: 'PEOPLE::Org Structure::VIEW' },
+    { key: 'jobRoles', label: 'Job Roles', icon: I.role, permission: 'PEOPLE::Org Structure::VIEW', feature: 'peopleOrgDetail' },
     { key: 'employeeTypes', label: 'Employment Types', icon: I.type, permission: 'PEOPLE::Org Structure::VIEW', parent: 'settings' },
     { key: 'workTypes', label: 'Work Modes', icon: I.workType, permission: 'PEOPLE::Org Structure::VIEW', parent: 'settings' },
     { key: 'tags', label: 'Tags', icon: I.tag, permission: 'PEOPLE::Org Structure::VIEW', parent: 'settings' },
@@ -288,11 +311,11 @@ export const peopleApp = {
     { key: 'modules', label: 'Modules & Apps', icon: I.modules, permission: 'SETTINGS::Company Profile::VIEW', parent: 'settings' },
     { key: 'companyDetails', label: 'Company Details', icon: I.company, permission: 'SETTINGS::Company Profile::VIEW', parent: 'settings' },
     { key: 'legalEntities', label: 'Company (legal)', icon: I.company, permission: 'PEOPLE::Org Structure::VIEW', parent: 'settings' },
-    { key: 'establishments', label: 'Work Sites', icon: I.location, permission: 'PEOPLE::Org Structure::VIEW', parent: 'settings' },
-    { key: 'businessUnits', label: 'Business Units', icon: I.unit, permission: 'PEOPLE::Org Structure::VIEW', parent: 'settings' },
-    { key: 'areas', label: 'Locations', icon: I.location, permission: 'PEOPLE::Org Structure::VIEW', parent: 'settings' },
-    { key: 'grades', label: 'Grades', icon: I.grade, permission: 'PEOPLE::Org Structure::VIEW', parent: 'settings' },
-    { key: 'costCentres', label: 'Cost Centres', icon: I.costCentre, permission: 'PEOPLE::Org Structure::VIEW', parent: 'settings' },
+    { key: 'establishments', label: 'Work Sites', icon: I.location, permission: 'PEOPLE::Org Structure::VIEW' },
+    { key: 'businessUnits', label: 'Business Units', icon: I.unit, permission: 'PEOPLE::Org Structure::VIEW', feature: 'peopleOrgDetail' },
+    { key: 'areas', label: 'Locations', icon: I.location, permission: 'PEOPLE::Org Structure::VIEW', feature: 'peopleOrgDetail' },
+    { key: 'grades', label: 'Grades', icon: I.grade, permission: 'PEOPLE::Org Structure::VIEW', feature: 'peopleOrgDetail' },
+    { key: 'costCentres', label: 'Cost Centres', icon: I.costCentre, permission: 'PEOPLE::Org Structure::VIEW', feature: 'peopleOrgDetail' },
     { key: 'sso', label: 'Users & Security', icon: I.sso, permission: 'SETTINGS::Users::VIEW', parent: 'settings' },
     { key: 'rolesAccess', label: 'Roles & Access', icon: I.sso, permission: 'SETTINGS::Roles::VIEW', parent: 'settings' },
     { key: 'integrations', label: 'Integrations', icon: I.integrations, permission: 'ATTENDANCE::Attendance Integrations::VIEW', parent: 'settings' },
@@ -312,6 +335,9 @@ export const peopleApp = {
     employeeNew: AddEmployee,
     employeeImport: ImportEmployees,
     orgChart: OrgChart,
+    organization: OrganizationOverview,
+    branches: Branches,
+    orgChanges: OrgChanges,
     documents: PeopleDocuments,
     checklists: Checklists,
     letterTemplates: LetterTemplates,
@@ -346,11 +372,11 @@ export const peopleApp = {
     complianceCalendar: ComplianceCalendar,
     privacy: Privacy,
     auditEvidence: AuditEvidence,
-    departments: Departments,
-    teams: Teams,
-    seats: Seats,
-    jobPositions: JobPositions,
-    jobRoles: JobRoles,
+    departments: OrgDepartments,
+    teams: OrgTeams,
+    seats: OrgPositions,
+    jobPositions: OrgDesignations,
+    jobRoles: OrgJobRoles,
     employeeTypes: EmployeeTypes,
     workTypes: WorkTypes,
     tags: Tags,
@@ -360,11 +386,11 @@ export const peopleApp = {
     modules: PeopleModules,
     companyDetails: CompanyDetails,
     legalEntities: LegalEntities,
-    establishments: Establishments,
-    businessUnits: BusinessUnits,
-    areas: Locations,
-    grades: Grades,
-    costCentres: CostCentres,
+    establishments: OrgWorkSites,
+    businessUnits: OrgBusinessUnits,
+    areas: OrgLocations,
+    grades: OrgGrades,
+    costCentres: OrgCostCentres,
     sso: SsoSettings,
     rolesAccess: RolesAccess,
     integrations: Integrations,

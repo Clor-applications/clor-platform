@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 
 import { PageHeader, SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
@@ -6,6 +6,8 @@ import ErrorState from '@ui/components/ui/ErrorState';
 import SearchField from '@ui/components/ui/SearchField';
 import useRequest from '@ui/components/ui/useRequest';
 import { getOrgChart } from '@ui/personnel/api';
+import { useTabIndicator } from '@ui/components/ui/RecordTabs';
+import { organization } from '../organization/api';
 import { Avatar } from '@ui/personnel/Employees';
 
 /**
@@ -16,8 +18,12 @@ import { Avatar } from '@ui/personnel/Employees';
  * managers are named under the person; open seats (ORG-04) sit under their
  * team's lead, or in their own list when the team has no lead on the chart.
  */
-export default function OrgChart({ openScreen }) {
+export default function OrgChart({ openScreen, params = {}, updateParams }) {
   const req = useRequest(getOrgChart, []);
+  /* Two views of one company: who reports to whom, and who sits in which department under which head. */
+  const view = params.view === 'departments' ? 'departments' : 'reporting';
+  const tabsRef = useRef(null);
+  const tabIndicator = useTabIndicator(tabsRef, view);
   const [closed, setClosed] = useState(() => new Set());
   const [query, setQuery] = useState('');
 
@@ -63,9 +69,15 @@ export default function OrgChart({ openScreen }) {
 
   return (
     <div className="space-y-6">
-      <PageHeader entity="people" breadcrumb={[{ label: 'People' }, { label: 'Workforce', onClick: () => openScreen?.('employees') }, { label: 'Org Chart' }]} title="Org Chart"
+      <PageHeader entity="people" breadcrumb={[{ label: 'People' }, { label: 'Organization', onClick: () => openScreen?.('organization') }, { label: 'Org Chart' }]} title="Org Chart"
 />
-      {nodes.length === 0 ? (
+      <div ref={tabsRef} role="tablist" aria-label="Org chart view" className={`ui-record-tablist ${tabIndicator ? 'has-indicator' : ''}`}>
+        {[['reporting', 'Reporting lines'], ['departments', 'Departments']].map(([k, l]) => (
+          <button key={k} type="button" role="tab" aria-selected={view === k} className={`ui-tab ${view === k ? 'is-active' : ''}`} onClick={() => updateParams?.({ view: k === 'reporting' ? null : k }, { push: true })}>{l}</button>
+        ))}
+        {tabIndicator}
+      </div>
+      {view === 'departments' ? <DepartmentView nodes={nodes} openScreen={openScreen} /> : nodes.length === 0 ? (
         <EmptyState title="Nobody yet" description="Add employees and who they report to." />
       ) : (
         <>
@@ -148,5 +160,75 @@ function Node({ n, depth, chart, visible, closed, toggle, openScreen }) {
         </ul>
       ) : null}
     </li>
+  );
+}
+
+/**
+ * Departments view: each department under its parent, its head first, then
+ * the people in it. Answers "who runs what, and who works where" — the
+ * department tree and the reporting lines are different things and are not
+ * drawn as one (research, graph constraints).
+ */
+function DepartmentView({ nodes, openScreen }) {
+  const org = useRequest(() => organization(), []);
+  const [open, setOpen] = useState(() => new Set());
+  if (org.error) return <ErrorState error={org.error} onRetry={org.reload} />;
+  if (!org.data) return <SkeletonCard lines={6} />;
+  const depts = org.data.departments.filter((d) => d.isActive !== false);
+  const byDept = new Map();
+  for (const n of nodes) {
+    const key = n.departmentId || depts.find((d) => d.name === n.department)?.id || '';
+    if (!byDept.has(key)) byDept.set(key, []);
+    byDept.get(key).push(n);
+  }
+  const rows = [];
+  const walk = (parent, depth) => {
+    for (const d of depts.filter((x) => (x.parentId || null) === parent || (!parent && x.parentId && !depts.some((p) => p.id === x.parentId))).sort((a, b) => a.name.localeCompare(b.name))) {
+      rows.push({ ...d, depth });
+      if (depth < 8) walk(d.id, depth + 1);
+    }
+  };
+  walk(null, 0);
+  const none = byDept.get('') || [];
+  const toggle = (id) => setOpen((s) => { const next = new Set(s); if (next.has(id)) next.delete(id); else next.add(id); return next; });
+  const members = (id, head) => (byDept.get(id) || []).slice().sort((a, b) => (a.id === head ? -1 : b.id === head ? 1 : a.name.localeCompare(b.name)));
+  if (!rows.length && !none.length) return <EmptyState title="No departments yet" description="Add departments, and the people in each show here." />;
+  return (
+    <ul className="border-t" aria-label="Departments">
+      {[...rows, ...(none.length ? [{ id: '', name: 'No department', depth: 0, headEmployeeId: null }] : [])].map((d) => {
+        const people = members(d.id, d.headEmployeeId);
+        const isOpen = open.has(d.id);
+        return (
+          <li key={d.id || 'none'}>
+            <div className="flex items-center gap-2 rounded-lg px-2 py-1.5 ui-hover-sunken" style={{ marginInlineStart: d.depth * 20 }}>
+              {people.length ? (
+                <button type="button" className="ui-icon-btn !h-6 !w-6" aria-expanded={isOpen} aria-label={isOpen ? `Collapse ${d.name}` : `Expand ${d.name}`} onClick={() => toggle(d.id)}>
+                  {isOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                </button>
+              ) : <span className="inline-block w-6" />}
+              <span className="min-w-0">
+                <span className="block truncate text-sm font-medium">{d.name}</span>
+                <span className="block truncate ui-caption">{d.id ? (d.headName ? `Head: ${d.headName}${d.headLeft ? ' (left)' : ''}` : 'No head') : 'People not in a department'}</span>
+              </span>
+              <span className="ui-pill ui-pill-neutral ms-auto tabular-nums" title={`${people.length} ${people.length === 1 ? 'person' : 'people'}`}>{people.length}</span>
+            </div>
+            {isOpen && people.length ? (
+              <ul>
+                {people.map((n) => (
+                  <li key={n.id} className="flex items-center gap-2 px-2 py-1.5" style={{ marginInlineStart: (d.depth + 1) * 20 }}>
+                    <span className="inline-block w-6" />
+                    <Avatar person={n} size={30} />
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm"><button type="button" className="ui-doc-title inline" onClick={() => openScreen?.('employee', { id: n.id })}>{n.name}</button>{n.code ? <span className="ui-caption tabular-nums ml-1.5">{n.code}</span> : null}</span>
+                      <span className="block truncate ui-caption">{[n.id === d.headEmployeeId ? 'Head' : null, n.designation].filter(Boolean).join(' · ') || '—'}</span>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </li>
+        );
+      })}
+    </ul>
   );
 }

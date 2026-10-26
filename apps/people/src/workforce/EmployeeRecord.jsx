@@ -24,6 +24,7 @@ import { HOURS_WORDS, datesFor, kindOf, probationState } from '@ui/personnel/emp
 import {
   addComment, changeImpact, employeeReadiness, linkCandidates, linkUser, decideProbation, deleteEmployee, employeeActivity, employeeAsOf, getEmployee, listContractors, listEmployees, listTags, openTasksFor, rehireEmployee, stayOn, structure, updateEmployee, withdrawScheduled,
 } from './api';
+import { listBranches } from '../organization/api';
 import { StatusBadge, can } from './shared';
 
 /**
@@ -86,8 +87,8 @@ export default function EmployeeRecord({ params = {}, updateParams, openScreen }
   const setPerson = (patch) => rec.setData((d) => ({ ...d, employee: { ...d.employee, ...patch } }));
   const [lists, setLists] = useState(null);
   useEffect(() => {
-    Promise.all([...['departments', 'job-positions', 'employee-types', 'work-types', 'areas', 'establishments', 'teams', 'business-units', 'grades', 'cost-centres', 'seats', 'job-roles'].map((k) => structure(k).catch(() => [])), hasApp('attendance') ? listContractors() : Promise.resolve([]), listTags().catch(() => [])])
-      .then(([departments, positions, types, workTypes, areas, establishments, teams, units, grades, centres, seats, roles, contractors, tags]) => setLists({ departments, positions, types, workTypes, areas, establishments, teams, units, grades, centres, seats, roles, contractors, tags }));
+    Promise.all([...['departments', 'job-positions', 'employee-types', 'work-types', 'areas', 'establishments', 'teams', 'business-units', 'grades', 'cost-centres', 'seats', 'job-roles'].map((k) => structure(k).catch(() => [])), hasApp('attendance') ? listContractors() : Promise.resolve([]), listTags().catch(() => []), listBranches().catch(() => [])])
+      .then(([departments, positions, types, workTypes, areas, establishments, teams, units, grades, centres, seats, roles, contractors, tags, branchRows]) => setLists({ departments, positions, types, workTypes, areas, establishments, teams, units, grades, centres, seats, roles, contractors, tags , branches: branchRows.filter((b) => b.isActive !== false).map((b) => ({ id: b.id, name: b.branchName, isActive: true })) }));
   }, []);
   const [moreOpen, setMoreOpen] = useState(false);
   const moreRef = useRef(null);
@@ -827,6 +828,8 @@ function Organization({ person, lists, allowed, openAction, openPerson, editing,
           <Field label="Department" value={person.department} />
           <Field label="Designation" value={person.designation} />
           {uses('areas', person.areaId) ? <Field label="Location" value={person.areaName} /> : null}
+          {/* Branch: the registered place; Attendance gives the branch's holidays. Shown once a company has more than one. */}
+          {(lists?.branches?.length || 0) > 1 || person.branchId ? <Field label="Branch" value={person.branchName || lists?.branches?.find((b) => b.id === person.branchId)?.name} /> : null}
           {uses('establishments', person.establishmentId) ? <Field label="Work site" value={person.establishment ? `${person.establishment}${person.workState ? ` (${person.workState})` : ''}` : null} /> : null}
           {uses('teams', person.teamId) ? <Field label="Team" value={person.teamName} /> : null}
           {uses('seats', person.seatId) ? <Field label="Position" value={person.seatName} /> : null}
@@ -889,7 +892,7 @@ function Organization({ person, lists, allowed, openAction, openPerson, editing,
 
 const OPERATIONS = {
   manager: { title: 'Change manager', fields: [['reportingManagerId', 'New manager', 'people'], ['dottedManagerId', 'Secondary manager', 'people']] },
-  transfer: { title: 'Transfer', fields: [['departmentId', 'Department', 'departments'], ['areaId', 'Location', 'areas'], ['establishmentId', 'Work site', 'establishments'], ['businessUnitId', 'Business unit', 'units'], ['teamId', 'Team', 'teams'], ['seatId', 'Position', 'seats'], ['costCenterId', 'Cost centre', 'centres']] },
+  transfer: { title: 'Transfer', fields: [['branchId', 'Branch', 'branches'], ['departmentId', 'Department', 'departments'], ['areaId', 'Location', 'areas'], ['establishmentId', 'Work site', 'establishments'], ['businessUnitId', 'Business unit', 'units'], ['teamId', 'Team', 'teams'], ['seatId', 'Position', 'seats'], ['costCenterId', 'Cost centre', 'centres']] },
   designation: { title: 'Change designation', fields: [['jobPositionId', 'New designation', 'positions'], ['gradeId', 'Grade', 'grades']] },
   type: { title: 'Change employment type', fields: [['employeeTypeId', 'Employment type', 'types'], ['workTypeId', 'Work mode', 'workTypes']] },
   /* Allowed moves only: active or on notice can be suspended, suspended can be reactivated; leaving and rehire have their own flows (WF-14). */
@@ -979,7 +982,7 @@ function OperationDrawer({ action, person, lists, onClose, onDone }) {
           ? <Alert tone="warn" title="This record was updated elsewhere">Close this, reload the record, and make the change again. Nothing was overwritten.</Alert>
           : <ErrorState error={error} compact onRetry={submit} retryLabel="Try again" body={error?.status === 400 ? error.message : undefined} />) : null}
         {/* Only the lists the company uses (or this person already has a value from). */}
-        {op.fields.filter(([k, , src]) => src === 'people' || src === 'statuses' || person[k] || (lists[src] || []).length).map(([k, label, src]) => (
+        {op.fields.filter(([k, , src]) => src === 'people' || src === 'statuses' || person[k] || (lists[src] || []).length > (src === 'branches' ? 1 : 0)).map(([k, label, src]) => (
           <div key={k}>
             <PopupSelect showValueSubtext={false} label={label} value={form[k]} onChange={(v) => setForm({ ...form, [k]: v || '' })} placeholder="Choose…" alwaysSearch={src !== 'statuses'} options={src === 'statuses' ? options(src) : [{ value: '', label: 'None' }, ...narrowed(k, src)]} />
             <span className="ui-caption">Now: {current(k, src)}</span>
