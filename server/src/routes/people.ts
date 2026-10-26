@@ -676,6 +676,22 @@ peopleRouter.get('/orgs/:orgId/people/suggestions', can(PermissionAction.VIEW, E
       changes.get(text)!.add(r.correlationId);
     }
     for (const [value, ids] of [...changes].sort((x, y) => y[1].size - x[1].size)) if (ids.size >= 2) values.push({ value, count: ids.size });
+  } else if (field === 'leaveReason' || field === 'requestReason' || field === 'place') {
+    /* Time & Leave: the company's own words for a reason or a place, used by two or more people; never a private type's reason. */
+    const counts = new Map<string, Set<string>>();
+    if (field === 'leaveReason') {
+      const privateIds = (await peoplePrisma.leaveType.findMany({ where: { orgId, isPrivate: true }, select: { id: true } })).map((t) => t.id);
+      for (const r of await peoplePrisma.leaveRequest.findMany({ where: { orgId, ...(privateIds.length ? { leaveTypeId: { notIn: privateIds } } : {}) }, select: { reason: true, employeeId: true }, orderBy: { createdAt: 'desc' }, take: 3000 })) {
+        const text = r.reason.trim();
+        if (text.length >= 3 && text.length <= 60) counts.set(text, (counts.get(text) || new Set()).add(r.employeeId));
+      }
+    } else {
+      for (const r of await peoplePrisma.attendanceRequest.findMany({ where: { orgId, ...(field === 'place' ? { place: { not: null } } : {}) }, select: { reason: true, place: true, employeeId: true }, orderBy: { createdAt: 'desc' }, take: 3000 })) {
+        const text = String((field === 'place' ? r.place : r.reason) || '').trim();
+        if (text.length >= 3 && text.length <= 60) counts.set(text, (counts.get(text) || new Set()).add(r.employeeId));
+      }
+    }
+    for (const [value, ids] of [...counts].sort((x, y) => y[1].size - x[1].size)) if (ids.size >= 2 || field === 'place') values.push({ value, count: ids.size });
   } else if (field === 'budgetRef') {
     for (const r of await peoplePrisma.seat.findMany({ where: { orgId, budgetRef: { not: null } }, select: { budgetRef: true }, distinct: ['budgetRef'], take: 50 })) if (r.budgetRef?.trim()) values.push({ value: r.budgetRef.trim() });
   } else if (field === 'branch' || field === 'branchAddress') {

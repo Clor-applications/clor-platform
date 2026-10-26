@@ -13,6 +13,7 @@ import { startApprovalDues } from './services/people/approvals/engine.js';
 import { startDeskDues } from './services/people/desk.js';
 import { startSeparations } from './services/people/lifecycle/leaving.js';
 import { startObligationDues } from './services/people/complianceRules.js';
+import { startLeaveJobs } from './services/attendance/leaveJobs.js';
 import { registerPeopleEffects } from './services/people/approvals/effects.js';
 import { startDocumentReminders } from './services/people/documentReminders.js';
 import { startNotificationPruning } from './services/notifications.js';
@@ -93,6 +94,8 @@ startApprovalDues();
 startDeskDues();
 startSeparations();
 startObligationDues();
+/* Leave: steps handed on to HR when a manager does not decide, and the morning digest of what waits. */
+startLeaveJobs();
 startNotificationPruning();
 startBooksDigest();
 /* Reports that go out by e-mail on their own — every 15 minutes the due ones are sent. */

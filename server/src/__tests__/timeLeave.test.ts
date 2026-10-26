@@ -283,3 +283,174 @@ describe('manager then HR, imports, split decisions, private leave beyond the le
     expect((await att(hr, 'get', `/leave/requests?limit=50&leaveTypeId=${sick.id}`).expect(200)).body.total).toBe(1);
   });
 });
+
+describe('advanced build: entitlements, probation, workflow per type, stand-ins, edit, came back early, comp-off, restricted holidays, year end', () => {
+  let hr: Ctx;
+  let lead: Ctx;
+  let leadEmp: any;
+  let staff: any;
+  let intern: any;
+  let newcomer: any;
+  let internType: any;
+  const people = (c: Ctx) => ({
+    post: (path: string, body: unknown) => request(app).post(`/api/orgs/${c.orgId}/people${path}`).set(at(c)).send(body as any),
+    put: (path: string, body: unknown) => request(app).put(`/api/orgs/${c.orgId}/people${path}`).set(at(c)).send(body as any),
+  });
+  beforeAll(async () => {
+    hr = await company({ people: true, attendance: true });
+    internType = (await people(hr).post('/structure/employee-types', { name: 'Intern' }).expect(201)).body.item;
+    lead = await colleague(hr, ['ATTENDANCE::Leave Requests::VIEW', 'ATTENDANCE::Leave Requests::APPROVE', 'PEOPLE::Employees::VIEW'], true);
+    leadEmp = await person(hr, { name: 'Lead', code: 'A1', dateOfJoining: '2020-01-01' });
+    await runInTenant(hr.orgId, () => peoplePrisma.employee.update({ where: { id: leadEmp.id }, data: { userId: lead.userId } }));
+    staff = await person(hr, { name: 'Staff', code: 'A2', dateOfJoining: '2021-06-01', reportingManagerId: leadEmp.id });
+    intern = await person(hr, { name: 'Intern', code: 'A3', dateOfJoining: '2026-01-01', employeeTypeId: internType.id, reportingManagerId: leadEmp.id });
+    newcomer = await person(hr, { name: 'New', code: 'A4', dateOfJoining: '2026-09-01', probationEndDate: '2027-03-01', reportingManagerId: leadEmp.id });
+  }, 120_000);
+
+  it('one type gives different days by employee type and by years of service', async () => {
+    const t = (await att(hr, 'post', '/leave/types', { name: 'Casual', annualDays: 12, entitlements: [{ employeeTypeId: internType.id, annualDays: 6 }, { minServiceMonths: 36, annualDays: 15 }] }).expect(201)).body.type;
+    const rows = (await att(hr, 'get', '/leave/balances?year=2026').expect(200)).body.rows;
+    const of = (id: string) => rows.find((r: any) => r.employeeId === id).balances[t.id];
+    expect(of(intern.id).entitled).toBe(6);
+    expect(of(staff.id).entitled).toBe(15);
+    expect(of(newcomer.id).entitled).toBe(12);
+    /* A rule needs an employee type or a length of service. */
+    await att(hr, 'post', '/leave/types', { name: 'Bad', annualDays: 1, entitlements: [{ annualDays: 3 }] }).expect(400);
+  });
+
+  it('probation: HOLD starts credits at confirmation; LOCK keeps the days but none can be taken', async () => {
+    const hold = (await att(hr, 'post', '/leave/types', { name: 'Earned', annualDays: 12, accrual: 'MONTHLY', probationRule: 'HOLD' }).expect(201)).body.type;
+    const lock = (await att(hr, 'post', '/leave/types', { name: 'Sick', annualDays: 6, probationRule: 'LOCK' }).expect(201)).body.type;
+    const rows = (await att(hr, 'get', '/leave/balances?year=2026').expect(200)).body.rows;
+    const mine = rows.find((r: any) => r.employeeId === newcomer.id).balances;
+    expect(mine[hold.id].allocated).toBe(0);
+    expect(mine[lock.id].locked).toBe(true);
+    expect(mine[lock.id].available).toBe(0);
+    expect(mine[lock.id].allocated).toBeGreaterThan(0);
+    const p = (await att(hr, 'post', '/leave/requests/preview', { employeeId: newcomer.id, leaveTypeId: lock.id, fromDate: '2026-12-01', toDate: '2026-12-01' }).expect(200)).body;
+    expect(p.problems[0].code).toBe('NO_BALANCE');
+    /* Confirmed: the lock lifts. */
+    await runInTenant(hr.orgId, () => peoplePrisma.employee.update({ where: { id: newcomer.id }, data: { confirmedOn: '2026-10-01' } }));
+    const after = (await att(hr, 'get', '/leave/balances?year=2026').expect(200)).body.rows.find((r: any) => r.employeeId === newcomer.id).balances;
+    expect(after[lock.id].locked).toBe(false);
+    expect(after[lock.id].available).toBeGreaterThan(0);
+  });
+
+  it("a type's own rule approves a short request of the person's own as it is sent; HR entering it still waits", async () => {
+    const quick = (await att(hr, 'post', '/leave/types', { name: 'Quick', annualDays: 10, autoApproveUpToDays: 2 }).expect(201)).body.type;
+    const staffUser = await colleague(hr, ['ATTENDANCE::My Attendance::VIEW', 'ATTENDANCE::My Attendance::CREATE']);
+    await runInTenant(hr.orgId, () => peoplePrisma.employee.update({ where: { id: staff.id }, data: { userId: staffUser.userId } }));
+    const own = (await att(staffUser, 'post', '/me/leave', { leaveTypeId: quick.id, fromDate: '2026-12-07', toDate: '2026-12-08', reason: 'Family' }).expect(201)).body.request;
+    expect(own.status).toBe('APPROVED');
+    expect(own.autoApproved).toBe(true);
+    const long = (await att(staffUser, 'post', '/me/leave', { leaveTypeId: quick.id, fromDate: '2026-12-14', toDate: '2026-12-17', reason: 'Trip' }).expect(201)).body.request;
+    expect(long.status).toBe('PENDING');
+    const byHr = (await att(hr, 'post', '/leave/requests', { employeeId: staff.id, leaveTypeId: quick.id, fromDate: '2026-12-21', toDate: '2026-12-21', reason: 'Entered' }).expect(201)).body.request;
+    expect(byHr.status).toBe('PENDING');
+    const story = (await att(hr, 'get', `/leave/requests/${own.id}`).expect(200)).body;
+    expect(story.history.map((h: any) => h.what)).toEqual(['Asked', 'Approved by the leave rule']);
+  });
+
+  it("a type's own chain overrides the company's; a stand-in takes the manager's step while they are away", async () => {
+    const chained = (await att(hr, 'post', '/leave/types', { name: 'Chained', annualDays: 10, approval: 'MANAGER_THEN_HR' }).expect(201)).body.type;
+    const r = (await att(hr, 'post', '/leave/requests', { employeeId: staff.id, leaveTypeId: chained.id, fromDate: '2026-11-25', toDate: '2026-11-25', reason: 'Errand' }).expect(201)).body.request;
+    expect((await att(hr, 'post', `/leave/requests/${r.id}/approve`).expect(409)).body.code).toBe('MANAGER_FIRST');
+    /* The lead is away; Deputy stands in. */
+    const deputy = await colleague(hr, ['ATTENDANCE::Leave Requests::VIEW', 'ATTENDANCE::Leave Requests::APPROVE', 'PEOPLE::Employees::VIEW'], true);
+    const deputyEmp = await person(hr, { name: 'Deputy', code: 'A9' });
+    await runInTenant(hr.orgId, () => peoplePrisma.employee.update({ where: { id: deputyEmp.id }, data: { userId: deputy.userId } }));
+    const t = new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
+    await att(hr, 'post', '/leave/stand-ins', { managerEmployeeId: leadEmp.id, standInEmployeeId: deputyEmp.id, fromDate: t, toDate: t }).expect(201);
+    expect((await att(hr, 'get', '/leave/stand-ins').expect(200)).body.standIns[0]).toMatchObject({ standInName: 'Deputy', live: true });
+    const step = (await att(deputy, 'post', `/leave/requests/${r.id}/approve`, { note: 'Covering' }).expect(200)).body;
+    expect(step.stage).toBe('HR');
+    await att(hr, 'post', `/leave/requests/${r.id}/approve`).expect(200);
+    const story = (await att(hr, 'get', `/leave/requests/${r.id}`).expect(200)).body;
+    expect(story.history.map((h: any) => h.what)).toEqual(['Entered for Staff', 'Approved by the manager', 'Approved']);
+  });
+
+  it('a waiting request can be changed, and approved leave that has started can end early', async () => {
+    const t = (await att(hr, 'post', '/leave/types', { name: 'Plain', annualDays: 20 }).expect(201)).body.type;
+    const r = (await att(hr, 'post', '/leave/requests', { employeeId: intern.id, leaveTypeId: t.id, fromDate: '2026-12-01', toDate: '2026-12-02', reason: 'First' }).expect(201)).body.request;
+    const edited = (await att(hr, 'put', `/leave/requests/${r.id}`, { leaveTypeId: t.id, fromDate: '2026-12-02', toDate: '2026-12-04', reason: 'Changed plan' }).expect(200)).body.request;
+    expect(edited).toMatchObject({ id: r.id, fromDate: '2026-12-02', toDate: '2026-12-04', days: 3, reason: 'Changed plan' });
+    expect((await att(hr, 'get', `/leave/requests/${r.id}`).expect(200)).body.history.map((h: any) => h.what)).toEqual(['Entered for Intern', 'Changed']);
+    /* Came back early: approved leave over today, shortened to its first day. */
+    const today_ = new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
+    const d = new Date(`${today_}T00:00:00Z`);
+    const from = new Date(d.getTime() - 2 * 86_400_000).toISOString().slice(0, 10);
+    const to = new Date(d.getTime() + 2 * 86_400_000).toISOString().slice(0, 10);
+    const long = (await att(hr, 'post', '/leave/requests', { employeeId: intern.id, leaveTypeId: t.id, fromDate: from, toDate: to, reason: 'Long' }).expect(201)).body.request;
+    await att(hr, 'post', `/leave/requests/${long.id}/approve`).expect(200);
+    const before = (await att(hr, 'get', `/leave/ledger?employeeId=${intern.id}&year=${today_.slice(0, 4)}`).expect(200)).body.types.find((x: any) => x.type.id === t.id).balance;
+    /* Back on the first working day of the leave (the default week has Sunday off). */
+    const backOn = new Date(`${from}T00:00:00Z`).getUTCDay() === 0 ? new Date(d.getTime() - 86_400_000).toISOString().slice(0, 10) : from;
+    const short = (await att(hr, 'post', `/leave/requests/${long.id}/shorten`, { toDate: backOn }).expect(200)).body.request;
+    expect(short.toDate).toBe(backOn);
+    expect(short.days).toBeLessThan(long.days);
+    const after = (await att(hr, 'get', `/leave/ledger?employeeId=${intern.id}&year=${today_.slice(0, 4)}`).expect(200)).body.types.find((x: any) => x.type.id === t.id);
+    expect(after.balance.available).toBeGreaterThan(before.available);
+    expect(after.projected.available).toBeGreaterThanOrEqual(after.balance.available);
+    const records = await runInTenant(hr.orgId, () => peoplePrisma.attendanceRecord.findMany({ where: { leaveRequestId: long.id } }));
+    expect(records.every((x) => x.date <= backOn)).toBe(true);
+  });
+
+  it('comp-off granted for a day worked, once; restricted holidays picked within the quota count as holidays', async () => {
+    const comp = (await att(hr, 'post', '/leave/types', { name: 'Comp off', annualDays: 0 }).expect(201)).body.type;
+    expect((await att(hr, 'post', '/leave/comp-off', { employeeId: staff.id, workedOn: '2026-10-02', days: 1, reason: 'Gandhi Jayanti stock count' }).expect(409)).body.code).toBe('COMP_OFF_TYPE');
+    await runInTenant(hr.orgId, () => peoplePrisma.attendanceSettings.upsert({ where: { orgId: hr.orgId }, update: { compOffEnabled: true, compOffLeaveTypeId: comp.id }, create: { accountId: hr.orgId, orgId: hr.orgId, compOffEnabled: true, compOffLeaveTypeId: comp.id, updatedByUserId: 'test' } as any }));
+    await att(hr, 'post', '/leave/comp-off', { employeeId: staff.id, workedOn: '2026-10-02', days: 1, reason: 'Gandhi Jayanti stock count' }).expect(201);
+    await att(hr, 'post', '/leave/comp-off', { employeeId: staff.id, workedOn: '2026-10-02', days: 1, reason: 'Again' }).expect(409);
+    const bal = (await att(hr, 'get', `/leave/ledger?employeeId=${staff.id}&year=2026`).expect(200)).body.types.find((x: any) => x.type.id === comp.id).balance;
+    expect(bal.available).toBe(1);
+
+    await att(hr, 'post', '/holidays', { date: '2026-12-21', name: 'Optional One', isOptional: true }).expect(201);
+    const h2 = (await att(hr, 'post', '/holidays', { date: '2026-12-22', name: 'Optional Two', isOptional: true }).expect(201)).body.holiday;
+    await att(hr, 'put', '/leave/working-week', { weeklyOffDays: '0', restrictedHolidayQuota: 1 }).expect(200);
+    const staffUser = (await runInTenant(hr.orgId, () => peoplePrisma.employee.findUniqueOrThrow({ where: { id: staff.id } }))).userId!;
+    const me = { token: (await request(app).post('/api/auth/login').send({ email: (await platformPrisma.user.findUniqueOrThrow({ where: { id: staffUser } })).email, password: 'Passw0rd!23' }).expect(200)).body.token, orgId: hr.orgId, branchId: hr.branchId };
+    const list = (await att(me, 'get', '/me/holidays/restricted?year=2026').expect(200)).body;
+    expect(list).toMatchObject({ quota: 1, left: 1 });
+    const one = list.holidays.find((h: any) => h.name === 'Optional One');
+    await att(me, 'post', `/me/holidays/restricted/${one.id}`, {}).expect(200);
+    expect((await att(me, 'post', `/me/holidays/restricted/${h2.id}`, {}).expect(409)).body.error).toContain('picked your 1');
+    const p = (await att(hr, 'post', '/leave/requests/preview', { employeeId: staff.id, leaveTypeId: comp.id, fromDate: '2026-12-21', toDate: '2026-12-22' }).expect(200)).body;
+    expect(p.parts[0].dates.map((x: any) => [x.date, x.counted])).toEqual([['2026-12-21', false], ['2026-12-22', true]]);
+  });
+
+  it('year end: previewed per person, run once with pay-outs for encashable types, undone until payroll takes it', async () => {
+    const c = await company({ people: true, attendance: false });
+    const earned = (await att(c, 'post', '/leave/types', { name: 'Earned', annualDays: 15, carryForwardMax: 5, encashable: true, maxEncashDays: 10 }).expect(201)).body.type;
+    const p = await person(c, { name: 'Old Hand', code: 'Y1', dateOfJoining: '2020-01-01' });
+    /* Last period: 15 days, none taken; 5 carry, 10 lapse, all 10 paid out. */
+    const year = new Date().getFullYear() - 1;
+    await runInTenant(c.orgId, () => peoplePrisma.leaveType.update({ where: { id: earned.id }, data: { createdAt: new Date(`${year}-01-01T00:00:00Z`) } }));
+    const preview = (await att(c, 'get', `/leave/year-end?year=${year}`).expect(200)).body;
+    const row = preview.rows.find((r: any) => r.employeeId === p.id);
+    expect(row).toMatchObject({ closing: 15, carry: 5, lapse: 10, payOut: 10 });
+    expect(preview.ended).toBe(true);
+    const run = (await att(c, 'post', '/leave/year-end', { year }).expect(201)).body;
+    expect(run.paidOut).toBe(1);
+    await att(c, 'post', '/leave/year-end', { year }).expect(409);
+    const adj = await runInTenant(c.orgId, () => peoplePrisma.leaveAdjustment.findMany({ where: { orgId: c.orgId, kind: 'ENCASH' } }));
+    expect(adj).toEqual([expect.objectContaining({ days: -10, year })]);
+    await att(c, 'post', `/leave/year-end/${run.run.id}/undo`, {}).expect(200);
+    expect(await runInTenant(c.orgId, () => peoplePrisma.leaveAdjustment.count({ where: { orgId: c.orgId, kind: 'ENCASH' } }))).toBe(0);
+  });
+
+  it('hand-on: a manager step that waited too long goes to HR; the digest tells an approver once a day', async () => {
+    const { runLeaveHandOns, runLeaveDigest } = await import('../services/attendance/leaveJobs.js');
+    const slow = (await att(hr, 'post', '/leave/types', { name: 'Slow', annualDays: 10, approval: 'MANAGER_THEN_HR', handOnAfterDays: 2 }).expect(201)).body.type;
+    const r = (await att(hr, 'post', '/leave/requests', { employeeId: staff.id, leaveTypeId: slow.id, fromDate: '2027-01-11', toDate: '2027-01-11', reason: 'Later' }).expect(201)).body.request;
+    expect(await runLeaveHandOns()).toBe(0);
+    await runInTenant(hr.orgId, () => peoplePrisma.leaveRequest.update({ where: { id: r.id }, data: { createdAt: new Date(Date.now() - 3 * 86_400_000) } }));
+    expect(await runLeaveHandOns()).toBe(1);
+    const story = (await att(hr, 'get', `/leave/requests/${r.id}`).expect(200)).body;
+    expect(story.history.map((h: any) => h.what)).toContain('Handed on to HR');
+    expect(story.waitingForManager).toBeNull();
+    await att(hr, 'post', `/leave/requests/${r.id}/approve`).expect(200);
+    const first = await runLeaveDigest();
+    expect(first).toBeGreaterThan(0);
+    expect(await runLeaveDigest()).toBe(0);
+  });
+});

@@ -160,3 +160,17 @@ leave law; `TIME-LEAVE-RESEARCH.md`) and against the code.
 2. Request lifecycle: edit, came back early, history; attendance requests (missed punch, WFH, On duty, permission) with quotas; comp-off grant; restricted holidays.
 3. Screens: Leave Policy (entitlements, workflow, probation), Year end, Attendance requests list and drawer, the employee app's requests, Settings → Request rules, state starting points; suggestions, Enter, pickers, toasts, History everywhere.
 4. Audits from owner, employee, manager, HR, IT angles; automation and workflow audit; fix all; browser checks on desktop and phone for every screen.
+
+### Decisions taken while building (27 Oct 2026, owner: decide and go on)
+
+| Question | Decision | Why |
+|---|---|---|
+| Does a stand-in see the team they cover? | Yes, in Time & Leave only: the leave scope is the person's own team plus the teams they stand in for today. Workforce scope is unchanged | They are asked to decide; they must see what they decide. Nothing else of the team's opens to them |
+| Who approves "came back early"? | Nobody: the person (or HR) shortens the leave at once and the approver is told | The person is at work and the punches show it; a second approval would only delay the balance coming back |
+| What is a hand-on? | The manager's step marked as taken by nobody, with "Handed on to HR" in the history; HR decides | No new state, no new table; the story says what happened |
+| What does the year-end run do? | Pays out the days that would lapse, for encashable types, as adjustments Payroll lists; carry-forward and lapse are computed by the engine as before | The engine already carries and lapses on its own; a run that rewrote balances would double count |
+| Who gets auto-approval? | A person's own request only, within the type's limit and their balance; HR entering leave for someone still goes through the chain | The rule exists to spare the manager a two-day casual leave, not to skip checks on entries made for others |
+| Entitlement by service: when does a slab apply? | From the first period that starts after the service is reached (read at the period start or joining, whichever is later) | A balance that jumps mid-year is the "wrong balance" complaint |
+| Restricted holidays: approval? | None, within the quota; the day becomes a holiday for that person once picked, and can be dropped until it has passed | A quota is the control; an approval on top is the kind of step users complain about |
+| WFH and On duty: leave or attendance? | Attendance requests; the day is present with its kind; monthly quotas and a back-date window the owner sets | Personio's split and Keka's quotas; never charged to a leave balance |
+

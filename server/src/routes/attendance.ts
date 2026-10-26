@@ -52,7 +52,10 @@ import {
   monthRows,
   periodRows,
 } from '../services/attendance/days.js';
-import { REASON_CODES, reviewCorrection } from '../services/attendance/corrections.js';
+import { DEFAULT_RULES, KINDS, KIND_WORDS, askRequest, cancelRequest, decideRequest, editRequest, rulesFor, saveRules, story, usage, type Kind } from '../services/attendance/requests.js';
+import { CHAINS } from '../services/attendance/approvalChain.js';
+import { inScope, teamScope } from '../services/people/scope.js';
+import { recordAudit } from '../services/auditTrail.js';
 
 /**
  * Attendance, native (after Horilla HRMS's attendance; reference only).
@@ -427,37 +430,35 @@ attendanceRouter.post('/orgs/:orgId/attendance/clock', can(PermissionAction.CREA
 // ---------------------------------------------------------------------------
 
 
-const requestSchema = z.object({
-  employeeId: z.string().trim().optional(),
-  date: z.string().regex(ISO_DATE, 'Dates are YYYY-MM-DD.'),
-  checkIn: z.string().refine(isHHMM, 'Times are HH:MM, 24-hour.'),
-  checkOut: z.string().refine(isHHMM, 'Times are HH:MM, 24-hour.').optional().nullable(),
-  reason: z.string().trim().min(3, 'Say why.').max(500),
-  reasonCode: z.enum(REASON_CODES).optional().nullable(),
-});
+/*
+ * Attendance requests of four kinds (services/attendance/requests.ts): a
+ * missed punch (the correction, as before, the default kind), work from home,
+ * on duty and permission hours. These routes open for a People-only company
+ * too (hrOrAttendanceRouteOk): a request is HR's as much as Attendance's.
+ */
 
 /** `by` is who asks: the signed-in user, or — from the employee portal — the employee themselves. */
 export const createRequest = async (req: any, res: any, employeeId: string, by?: { accountId: string; orgId: string; userId: string }) => {
   const { accountId, orgId } = by || req.tenant!;
-  const parsed = requestSchema.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Invalid request.' });
-  const b = parsed.data;
-  if (b.date > today()) return res.status(400).json({ error: 'A correction is for a day that has happened.' });
-  const { checkIn, checkOut } = instants(b.date, b.checkIn, b.checkOut || null);
-  /* The day as it stands now, so whoever reviews sees what would change. */
-  const current = await peoplePrisma.attendanceRecord.findUnique({ where: { employeeId_date: { employeeId, date: b.date } } });
-  const row = await peoplePrisma.attendanceRequest.create({
-    data: {
-      accountId, orgId, employeeId, date: b.date, checkIn, checkOut, reason: b.reason, reasonCode: b.reasonCode ?? null,
-      beforeCheckIn: current?.checkIn ?? null, beforeCheckOut: current?.checkOut ?? null, beforeStatus: current?.status ?? null,
-      requestedByUserId: by?.userId || req.auth!.userId,
-    },
-  });
-  res.status(201).json({ request: row });
+  const userId = by?.userId || req.auth!.userId;
+  try {
+    const employee = await employeeIn(orgId, accountId, employeeId);
+    /* HR entering it for someone is not held to the back-date window; a person asking for themselves is. */
+    const onBehalf = !by && !(await peoplePrisma.employee.findFirst({ where: { id: employeeId, orgId, userId }, select: { id: true } }));
+    const row = await askRequest({ accountId, orgId, userId, onBehalf }, employee, req.body);
+    res.status(201).json({ request: row });
+  } catch (e) {
+    return sendError(res, e);
+  }
 };
 
+/** The employee file of the signed-in user, or null: the manager's step and "my own" are decided from it. */
+const myFile = (orgId: string, userId: string) => peoplePrisma.employee.findFirst({ where: { orgId, userId }, select: { id: true } });
+const noteOf = (req: any) => String(req.body?.note || '').trim().slice(0, 500) || null;
+const REQUEST_STATUSES = ['PENDING', 'APPROVED', 'REJECTED', 'CANCELLED'];
+
 attendanceRouter.post('/orgs/:orgId/attendance/me/requests', can(PermissionAction.CREATE, R.self), async (req, res) => {
-  if (!(await attendanceRouteOk(req, res))) return;
+  if (!(await hrOrAttendanceRouteOk(req, res))) return;
   try {
     const me = await myEmployee(req.tenant!.accountId, req.tenant!.orgId, req.auth!.userId);
     return createRequest(req, res, me.id);
@@ -466,48 +467,200 @@ attendanceRouter.post('/orgs/:orgId/attendance/me/requests', can(PermissionActio
   }
 });
 
+/** My own requests of every kind, newest first, with this month's usage per kind and what is switched on. */
+attendanceRouter.get('/orgs/:orgId/attendance/me/requests', can(PermissionAction.VIEW, R.self), async (req, res) => {
+  if (!(await hrOrAttendanceRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  try {
+    const me = await myEmployee(accountId, orgId, req.auth!.userId);
+    const month = /^\d{4}-\d{2}$/.test(String(req.query.month || '')) ? String(req.query.month) : today().slice(0, 7);
+    const rules = await rulesFor(orgId);
+    const [rows, ...use] = await Promise.all([
+      peoplePrisma.attendanceRequest.findMany({ where: { orgId, employeeId: me.id }, orderBy: { createdAt: 'desc' }, take: 200 }),
+      ...KINDS.map((k) => usage(orgId, me.id, k, month, { rules })),
+    ]);
+    res.json({ month, requests: await withNames(orgId, rows), usage: Object.fromEntries(use.map((u) => [u.kind, u])), rules });
+  } catch (e) {
+    return sendError(res, e);
+  }
+});
+
+attendanceRouter.put('/orgs/:orgId/attendance/me/requests/:id', can(PermissionAction.CREATE, R.self), async (req, res) => {
+  if (!(await hrOrAttendanceRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  try {
+    const me = await myEmployee(accountId, orgId, req.auth!.userId);
+    const r = await peoplePrisma.attendanceRequest.findFirst({ where: { id: String(req.params.id), orgId, employeeId: me.id } });
+    if (!r) return res.status(404).json({ error: 'No such request.' });
+    res.json({ request: await editRequest({ accountId, orgId, userId: req.auth!.userId, onBehalf: false }, r, req.body) });
+  } catch (e) {
+    return sendError(res, e);
+  }
+});
+
+attendanceRouter.post('/orgs/:orgId/attendance/me/requests/:id/cancel', can(PermissionAction.CREATE, R.self), async (req, res) => {
+  if (!(await hrOrAttendanceRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  try {
+    const me = await myEmployee(accountId, orgId, req.auth!.userId);
+    const r = await peoplePrisma.attendanceRequest.findFirst({ where: { id: String(req.params.id), orgId, employeeId: me.id } });
+    if (!r) return res.status(404).json({ error: 'No such request.' });
+    res.json({ request: await cancelRequest(accountId, orgId, r, { userId: req.auth!.userId, employeeId: me.id, hr: false }) });
+  } catch (e) {
+    return sendError(res, e);
+  }
+});
+
 attendanceRouter.post('/orgs/:orgId/attendance/requests', can(PermissionAction.CREATE, R.requests), async (req, res) => {
-  if (!(await attendanceRouteOk(req, res))) return;
+  if (!(await hrOrAttendanceRouteOk(req, res))) return;
   try {
     const employee = await employeeIn(req.tenant!.orgId, req.tenant!.accountId, String(req.body?.employeeId || ''));
+    if (!inScope(await teamScope(req), employee.id)) return res.status(404).json({ error: 'No such employee.' });
     return createRequest(req, res, employee.id);
   } catch (e) {
     return sendError(res, e);
   }
 });
 
+/**
+ * Requests, inside the caller's team scope. With `limit` (People's list): one
+ * page, searched and filtered on the server, with the total and a count per
+ * status for the tabs. Without it, the old shape, still capped.
+ */
 attendanceRouter.get('/orgs/:orgId/attendance/requests', can(PermissionAction.VIEW, R.requests), async (req, res) => {
-  if (!(await attendanceRouteOk(req, res))) return;
+  if (!(await hrOrAttendanceRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
+  const scope = await teamScope(req);
   const status = String(req.query.status || '').trim();
-  const rows = await peoplePrisma.attendanceRequest.findMany({
-    where: { accountId, orgId, ...(status ? { status } : {}) },
-    orderBy: { createdAt: 'desc' },
-    take: 500,
-  });
+  const kind = String(req.query.kind || '').trim();
+  const employeeId = String(req.query.employeeId || '').trim();
+  const month = /^\d{4}-\d{2}$/.test(String(req.query.month || '')) ? String(req.query.month) : '';
+  const inMonth = month ? { date: { lte: `${month}-31` }, OR: [{ toDate: null, date: { gte: `${month}-01` } }, { toDate: { gte: `${month}-01` } }] } : {};
+  /* Search narrows the people first, then the requests: name, employee ID. */
+  const q = String(req.query.q || '').trim().slice(0, 80);
+  let people: string[] | null = scope.all ? null : scope.ids;
+  if (q) {
+    const found = await peoplePrisma.employee.findMany({ where: { orgId, ...(people ? { id: { in: people } } : {}), OR: [{ name: { contains: q, mode: 'insensitive' } }, { code: { contains: q, mode: 'insensitive' } }] }, select: { id: true }, take: 5000 });
+    people = found.map((f) => f.id);
+  }
+  const base_ = { accountId, orgId, ...(employeeId ? { employeeId } : {}), ...(people ? { employeeId: employeeId ? (people.includes(employeeId) ? employeeId : '__none__') : { in: people } } : {}), ...(kind ? { kind } : {}), ...inMonth };
+  const where = { ...base_, ...(status ? { status } : {}) };
+  const limitQ = Number(req.query.limit);
+  if (Number.isInteger(limitQ) && limitQ > 0) {
+    const limit = Math.min(100, limitQ);
+    const offset = Math.max(0, Number(req.query.offset) || 0);
+    /* Waiting: oldest first, so what has waited longest is on top; the rest newest first. */
+    const orderBy: any = status === 'PENDING' ? [{ createdAt: 'asc' }] : [{ date: 'desc' }, { createdAt: 'desc' }];
+    const [rows, total, grouped] = await Promise.all([
+      peoplePrisma.attendanceRequest.findMany({ where, orderBy, take: limit, skip: offset }),
+      peoplePrisma.attendanceRequest.count({ where }),
+      peoplePrisma.attendanceRequest.groupBy({ by: ['status'], where: base_, _count: { _all: true } }),
+    ]);
+    const counts: Record<string, number> = Object.fromEntries(REQUEST_STATUSES.map((k) => [k, 0]));
+    for (const g of grouped) counts[g.status] = g._count._all;
+    counts.all = Object.values(counts).reduce((a, n) => a + n, 0);
+    return res.json({ requests: await withNames(orgId, rows), total, counts, limit, offset });
+  }
+  const rows = await peoplePrisma.attendanceRequest.findMany({ where, orderBy: { createdAt: 'desc' }, take: 500 });
   res.json({ requests: await withNames(orgId, rows) });
 });
 
+/** Used, waiting and left this month for one person and kind (every kind when none is given). */
+attendanceRouter.get('/orgs/:orgId/attendance/requests/usage', can(PermissionAction.VIEW, R.requests), async (req, res) => {
+  if (!(await hrOrAttendanceRouteOk(req, res))) return;
+  const { orgId } = req.tenant!;
+  const employeeId = String(req.query.employeeId || '').trim();
+  if (!employeeId || !inScope(await teamScope(req), employeeId)) return res.status(404).json({ error: 'No such employee.' });
+  const month = /^\d{4}-\d{2}$/.test(String(req.query.month || '')) ? String(req.query.month) : today().slice(0, 7);
+  const kind = String(req.query.kind || '').trim();
+  if (kind && !(KINDS as readonly string[]).includes(kind)) return res.status(400).json({ error: 'Unknown request kind.' });
+  const rules = await rulesFor(orgId);
+  const kinds = kind ? [kind as Kind] : [...KINDS];
+  const use = await Promise.all(kinds.map((k) => usage(orgId, employeeId, k, month, { rules })));
+  res.json({ month, usage: Object.fromEntries(use.map((u) => [u.kind, u])) });
+});
 
-const review = (approve: boolean) => async (req: any, res: any) => {
-  if (!(await attendanceRouteOk(req, res))) return;
+/** The company's request rules (Settings → Request rules): what is on, quotas, back-date windows, who approves. */
+attendanceRouter.get('/orgs/:orgId/attendance/request-rules', can(PermissionAction.VIEW, R.requests), async (req, res) => {
+  if (!(await hrOrAttendanceRouteOk(req, res))) return;
+  res.json({ rules: await rulesFor(req.tenant!.orgId), kinds: KINDS, chains: CHAINS, defaults: DEFAULT_RULES });
+});
+
+attendanceRouter.put('/orgs/:orgId/attendance/request-rules', can(PermissionAction.APPROVE, R.requests), async (req, res) => {
+  if (!(await hrOrAttendanceRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  /* The rules are the company's: a team role does not set them. */
+  if (!(await teamScope(req)).all) return res.status(403).json({ error: 'Request rules are set by someone who decides for the whole company.' });
+  try {
+    const before = await rulesFor(orgId);
+    const rules = await saveRules(accountId, orgId, req.auth!.userId, req.body);
+    const changed = KINDS.filter((k) => JSON.stringify(before[k]) !== JSON.stringify(rules[k]));
+    if (changed.length) await recordAudit(req, { entity: 'AttendanceSettings', entityId: orgId, action: 'UPDATE', message: `Request rules changed: ${changed.map((k) => `${KIND_WORDS[k].name} ${rules[k].on ? 'on' : 'off'}`).join(', ')}`, metadata: Object.fromEntries(changed.map((k) => [k, { before: before[k], after: rules[k] }])) });
+    res.json({ rules });
+  } catch (e) {
+    return sendError(res, e);
+  }
+});
+
+/** One request's story: the row, its history with names, the month's usage, the days as they stand. */
+attendanceRouter.get('/orgs/:orgId/attendance/requests/:id', can(PermissionAction.VIEW, R.requests), async (req, res) => {
+  if (!(await hrOrAttendanceRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   const r = await peoplePrisma.attendanceRequest.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
-  if (!r) return res.status(404).json({ error: 'No such request.' });
-  if (r.status !== 'PENDING') return res.status(409).json({ error: `This request was already ${r.status.toLowerCase()}.` });
-  if (approve) {
-    const turn = await hrMayDecide(orgId, 'correction', r);
-    if (!turn.ok) return res.status(409).json({ error: turn.error, code: 'MANAGER_FIRST' });
-  }
+  if (!r || !inScope(await teamScope(req), r.employeeId)) return res.status(404).json({ error: 'No such request.' });
   try {
-    const updated = await reviewCorrection(accountId, orgId, r, approve, req.auth!.userId, String(req.body?.note || '').trim().slice(0, 500) || null);
-    res.json({ request: updated });
+    const mine = await myFile(orgId, req.auth!.userId);
+    res.json({ ...(await story(accountId, orgId, r)), ownRequest: Boolean(mine && mine.id === r.employeeId) });
+  } catch (e) {
+    return sendError(res, e);
+  }
+});
+
+const review = (approve: boolean) => async (req: any, res: any) => {
+  if (!(await hrOrAttendanceRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const r = await peoplePrisma.attendanceRequest.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
+  const scope = await teamScope(req);
+  if (!r || !inScope(scope, r.employeeId)) return res.status(404).json({ error: 'No such request.' });
+  try {
+    /* A decider with an employee file may be the person's manager (or stand in for them): the manager's step is theirs. */
+    const mine = await myFile(orgId, req.auth!.userId);
+    const out = await decideRequest(accountId, orgId, r, approve, { userId: req.auth!.userId, managerId: mine?.id ?? null, scopeAll: scope.all }, noteOf(req));
+    res.json(out);
   } catch (e) {
     return sendError(res, e);
   }
 };
 attendanceRouter.post('/orgs/:orgId/attendance/requests/:id/approve', can(PermissionAction.APPROVE, R.requests), review(true));
 attendanceRouter.post('/orgs/:orgId/attendance/requests/:id/reject', can(PermissionAction.APPROVE, R.requests), review(false));
+
+/** HR cancels any request, before or after its date; the person cancels their own through /me/requests. (Attendance Requests has no Edit right: whoever decides them may also change or cancel.) */
+attendanceRouter.post('/orgs/:orgId/attendance/requests/:id/cancel', can(PermissionAction.APPROVE, R.requests), async (req, res) => {
+  if (!(await hrOrAttendanceRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const r = await peoplePrisma.attendanceRequest.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
+  if (!r || !inScope(await teamScope(req), r.employeeId)) return res.status(404).json({ error: 'No such request.' });
+  try {
+    const mine = await myFile(orgId, req.auth!.userId);
+    res.json({ request: await cancelRequest(accountId, orgId, r, { userId: req.auth!.userId, employeeId: mine?.id ?? null, hr: true }, noteOf(req)) });
+  } catch (e) {
+    return sendError(res, e);
+  }
+});
+
+/** Change a waiting request (dates, half day, place, hours, reason); the manager's step is reset. */
+attendanceRouter.put('/orgs/:orgId/attendance/requests/:id', can(PermissionAction.APPROVE, R.requests), async (req, res) => {
+  if (!(await hrOrAttendanceRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const r = await peoplePrisma.attendanceRequest.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
+  if (!r || !inScope(await teamScope(req), r.employeeId)) return res.status(404).json({ error: 'No such request.' });
+  try {
+    const mine = await myFile(orgId, req.auth!.userId);
+    res.json({ request: await editRequest({ accountId, orgId, userId: req.auth!.userId, onBehalf: !mine || mine.id !== r.employeeId }, r, req.body) });
+  } catch (e) {
+    return sendError(res, e);
+  }
+});
 
 // ---------------------------------------------------------------------------
 // Shifts, assignments, holidays

@@ -4,6 +4,7 @@ import { computeDay, isWeeklyOff, istDate, istInstant, istTime, monthSummary } f
 import { loadHolidays, loadSchedule, resolveShift } from './schedule.js';
 import { emit as emitWebhook } from './webhooks.js';
 import { logDayChange } from './history.js';
+import { permissionCovers } from './permissionWindow.js';
 
 /**
  * Attendance days: the one path a day is written by, and the reads every
@@ -34,21 +35,21 @@ export async function shiftFor(orgId: string, employeeId: string, date: string) 
   return resolveShift(await loadSchedule(orgId, [employeeId]), employeeId, date);
 }
 
-/** A company holiday, or one for the person's area (ClorTime's holiday locations). */
-export async function isHoliday(orgId: string, date: string, branchId: string | null, areaId: string | null = null) {
-  const h = await peoplePrisma.holiday.findFirst({
-    where: {
-      orgId,
-      date,
-      isOptional: false,
-      AND: [
-        { OR: [{ branchId: null }, ...(branchId ? [{ branchId }] : [])] },
-        { OR: [{ areaId: null }, ...(areaId ? [{ areaId }] : [])] },
-      ],
-    },
-    select: { id: true },
-  });
-  return Boolean(h);
+/**
+ * A company holiday, or one for the person's area (ClorTime's holiday
+ * locations); with `employeeId`, also a restricted holiday that person picked
+ * for themselves (HolidayPick).
+ */
+export async function isHoliday(orgId: string, date: string, branchId: string | null, areaId: string | null = null, employeeId: string | null = null) {
+  const scope = [
+    { OR: [{ branchId: null }, ...(branchId ? [{ branchId }] : [])] },
+    { OR: [{ areaId: null }, ...(areaId ? [{ areaId }] : [])] },
+  ];
+  const h = await peoplePrisma.holiday.findFirst({ where: { orgId, date, isOptional: false, AND: scope }, select: { id: true } });
+  if (h || !employeeId) return Boolean(h);
+  const optional = await peoplePrisma.holiday.findMany({ where: { orgId, date, isOptional: true, AND: scope }, select: { id: true } });
+  if (!optional.length) return false;
+  return Boolean(await peoplePrisma.holidayPick.findFirst({ where: { orgId, employeeId, holidayId: { in: optional.map((o) => o.id) } }, select: { id: true } }));
 }
 
 /** Times on a form are wall-clock HH:MM on the day; an out before the in is the next morning. */
@@ -105,13 +106,20 @@ export async function writeDay(opts: {
    * leaving on a second-half one.
    */
   halfDayLeave?: 'FIRST' | 'SECOND' | null;
+  /**
+   * An approved attendance request on this day (WFH | ON_DUTY | PERMISSION)
+   * and its id. Left out: the day keeps what it had, so a reader's punch does
+   * not wipe an approved WFH. null clears it (the request was cancelled).
+   */
+  dayKind?: string | null;
+  attendanceRequestId?: string | null;
 }) {
   return peopleWrite(opts.orgId, async () => {
     /* Every way a day is written comes through here, so a closed month is held shut in one place. */
     await assertMonthOpen(opts.orgId, opts.date);
     // Resolve leave for every source, not just biometric readers.
     const { shiftId, rule } = await shiftFor(opts.orgId, opts.employee.id, opts.date);
-    const holiday = await isHoliday(opts.orgId, opts.date, opts.employee.branchId, opts.employee.areaId ?? null);
+    const holiday = await isHoliday(opts.orgId, opts.date, opts.employee.branchId, opts.employee.areaId ?? null, opts.employee.id);
     const before = await peoplePrisma.attendanceRecord.findUnique({ where: { employeeId_date: { employeeId: opts.employee.id, date: opts.date } } });
     const approved = await peoplePrisma.leaveRequest.findFirst({ where: {
       orgId: opts.orgId, employeeId: opts.employee.id, status: 'APPROVED',
@@ -141,6 +149,14 @@ export async function writeDay(opts: {
       : opts.statusOverride && !opts.checkIn ? opts.statusOverride : computed.status;
     if (half === 'FIRST') computed.lateMinutes = 0;
     if (half === 'SECOND') computed.earlyOutMinutes = 0;
+    /* Permission hours stay excused on every rewrite of the day, not only the one that approved them. */
+    const permissionId = opts.dayKind === 'PERMISSION' ? opts.attendanceRequestId : opts.dayKind === undefined && before?.dayKind === 'PERMISSION' ? before.attendanceRequestId : null;
+    if (permissionId) {
+      const p = await peoplePrisma.attendanceRequest.findFirst({ where: { id: permissionId }, select: { checkIn: true, checkOut: true } });
+      const covers = permissionCovers(opts.date, rule, p || { checkIn: null, checkOut: null });
+      if (covers.start) computed.lateMinutes = 0;
+      if (covers.end) computed.earlyOutMinutes = 0;
+    }
     const data = {
       shiftId,
       checkIn: opts.checkIn,
@@ -157,6 +173,8 @@ export async function writeDay(opts: {
       validatedByUserId: null,
       validatedAt: null,
       ...(opts.note !== undefined ? { note: opts.note } : {}),
+      ...(opts.dayKind !== undefined ? { dayKind: opts.dayKind } : {}),
+      ...(opts.attendanceRequestId !== undefined ? { attendanceRequestId: opts.attendanceRequestId } : {}),
     };
     const record = await peoplePrisma.attendanceRecord.upsert({
       where: { employeeId_date: { employeeId: opts.employee.id, date: opts.date } },
@@ -289,9 +307,18 @@ export async function periodContext(accountId: string, orgId: string, from: stri
     loadSchedule(orgId),
   ]);
   const holidays = holidayData.rows;
-  /* Company-wide holidays; holidaysFor(person) adds their area's and branch's. */
+  /* Company-wide holidays; holidaysFor(person) adds their area's and branch's, and the restricted holidays they picked. */
   const holidaySet = holidayData.company;
-  const holidaysFor = (p: { areaId?: string | null; branchId?: string | null }) => holidayData.forArea(p.areaId, p.branchId);
+  const years = [...new Set([Number(from.slice(0, 4)), Number(to.slice(0, 4))])];
+  const picked = await peoplePrisma.holidayPick.findMany({ where: { orgId, year: { in: years } }, select: { employeeId: true, holidayId: true } });
+  const optionalDates = picked.length ? new Map((await peoplePrisma.holiday.findMany({ where: { orgId, id: { in: [...new Set(picked.map((x) => x.holidayId))] }, date: { gte: from, lte: to } }, select: { id: true, date: true } })).map((h) => [h.id, h.date])) : new Map<string, string>();
+  const pickedOf = new Map<string, string[]>();
+  for (const x of picked) { const d = optionalDates.get(x.holidayId); if (d) pickedOf.set(x.employeeId, [...(pickedOf.get(x.employeeId) || []), d]); }
+  const holidaysFor = (p: { id?: string; areaId?: string | null; branchId?: string | null }) => {
+    const base = holidayData.forArea(p.areaId, p.branchId);
+    const mine = p.id ? pickedOf.get(p.id) : null;
+    return mine?.length ? new Set([...base, ...mine]) : base;
+  };
   /* Days on unpaid leave are loss of pay: find which leave days came from an
      unpaid type, including half-day fractions alongside worked time. */
   const leaveIds = [...new Set(records.filter((r) => r.leaveRequestId).map((r) => r.leaveRequestId!))];

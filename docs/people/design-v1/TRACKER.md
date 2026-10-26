@@ -97,4 +97,8 @@ Read first: `TIME-LEAVE-DECISIONS.md` (how it works per subscription, scope, rea
 | T.2 Screens: Overview, Leave requests (drawer, Enter leave with preview) | DONE, browser-checked 1366 and 390 | `TimeOverview.jsx`, `LeaveRequests.jsx`, `people-time-leave-requests.test.jsx` |
 | T.3 Leave Policy (private, try on five people), Working week, Roles editor Time & Leave section | IN PROGRESS | |
 | T.4 Employee app leave preview, manager reject reason; Calendar, Balances, Register, My days, Attendance, My leave to the standard | IN PROGRESS | |
-| T.5 Audits (multi-angle, automation + workflow) and fixes | TODO | |
+| T.5 Audit (owner, employee, manager, HR, IT, automation) and fixes | DONE | `7382ced`: half-day pay, private leave in every route, manager then HR separation, split decided as one, scoped notices, audit rows, waiting counts |
+| T.6 Advanced build: engine | IN PROGRESS | entitlements by employee type and service, probation HOLD/LOCK, per-type chain, auto-approve, stand-ins, hand-on job, digest, year end, edit, came back early, comp-off grant, restricted holidays, request history (`timeLeave.test.ts` 22) |
+| T.7 Advanced build: attendance requests (missed punch, WFH, On duty, permission) | IN PROGRESS | `services/attendance/requests.ts`, `attendanceRequests.test.ts` |
+| T.8 Advanced build: screens, employee app, state starting points, suggestions | IN PROGRESS | |
+| T.9 Browser checks, audits, close | TODO | |

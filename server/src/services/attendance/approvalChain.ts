@@ -33,8 +33,8 @@ export async function activeManagerOf(orgId: string, employeeId: string) {
 }
 
 /** HR's turn? Under MANAGER_THEN_HR a request with a manager must carry the manager's approval first. */
-export async function hrMayDecide(orgId: string, kind: 'leave' | 'correction', r: { employeeId: string; managerApprovedAt: Date | null }) {
-  if ((await chainFor(orgId, kind)) !== 'MANAGER_THEN_HR' || r.managerApprovedAt) return { ok: true as const };
+export async function hrMayDecide(orgId: string, kind: 'leave' | 'correction', r: { employeeId: string; managerApprovedAt: Date | null }, chain?: Chain) {
+  if ((chain || (await chainFor(orgId, kind))) !== 'MANAGER_THEN_HR' || r.managerApprovedAt) return { ok: true as const };
   const m = await activeManagerOf(orgId, r.employeeId);
   if (!m) return { ok: true as const };
   return { ok: false as const, error: `${m.name || 'Their manager'} has not approved this yet; the company asks for the manager first.` };

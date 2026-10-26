@@ -452,6 +452,9 @@ model AttendanceRecord {
 
   /// The approved leave that wrote this day, if any (its type says paid or unpaid).
   leaveRequestId String?
+  /// How the day was worked when not at the usual place: WFH | ON_DUTY; PERMISSION when hours were excused. From an approved attendance request.
+  dayKind        String?
+  attendanceRequestId String?
 
   /// Checked by a manager (Horilla's "validate"). Payroll reads validated days.
   validated         Boolean   @default(false)
@@ -513,12 +516,74 @@ model AttendanceRequest {
   beforeStatus        String?
   /// A category for the reason: FORGOT_PUNCH | READER_DOWN | ON_DUTY | WRONG_SHIFT | OTHER
   reasonCode          String?
+  /// What is asked for: MISSED_PUNCH (a correction, the default) | WFH | ON_DUTY | PERMISSION (hours off).
+  kind                String    @default("MISSED_PUNCH")
+  /// WFH and On duty may span days; null = the one date.
+  toDate              String?
+  /// On duty: where (a client, a site, a city).
+  place               String?
+  /// Permission: how long, in minutes, between checkIn and checkOut.
+  minutes             Int?
+  /// A half day of WFH or On duty: FIRST or SECOND half.
+  halfDay             String?
+  managerNote         String?
+  history             Json      @default("[]")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([accountId, orgId, status])
   @@index([accountId, orgId, employeeId, date])
+}
+
+/// A stand-in for a manager's approvals while they are away (leave and
+/// attendance requests of their team), between two dates. Set by HR or by
+/// the manager themselves; the stand-in decides as the manager would.
+model ApprovalStandIn {
+  id                String   @id @default(cuid())
+  accountId         String
+  orgId             String
+  managerEmployeeId String
+  standInEmployeeId String
+  fromDate          String
+  toDate            String
+  createdByUserId   String
+  createdAt         DateTime @default(now())
+
+  @@index([orgId, managerEmployeeId, fromDate, toDate])
+}
+
+/// A restricted (optional) holiday a person chose for a year, within the
+/// company's quota (AttendanceSettings.restrictedHolidayQuota). The day is a
+/// holiday for them alone.
+model HolidayPick {
+  id         String   @id @default(cuid())
+  accountId  String
+  orgId      String
+  employeeId String
+  holidayId  String
+  year       Int
+  createdAt  DateTime @default(now())
+
+  @@unique([employeeId, holidayId])
+  @@index([orgId, employeeId, year])
+}
+
+/// One run of the leave year-end: what carried, lapsed and was paid out per
+/// person and type, so it can be read back and undone until payroll takes it.
+model LeaveYearEnd {
+  id            String    @id @default(cuid())
+  accountId     String
+  orgId         String
+  /// The leave period that closed (named by the year it started in).
+  year          Int
+  summaryJson   String
+  ranByUserId   String
+  ranAt         DateTime  @default(now())
+  undoneAt      DateTime?
+  undoneByUserId String?
+
+  @@index([orgId, year])
 }
 
 /// A kind of leave: casual, sick, earned, loss of pay…
@@ -569,6 +634,21 @@ model LeaveType {
   /// Private leave (sick, medical, maternity): the reason is optional and only
   /// those who decide leave read it; the calendar and the team see "Away".
   isPrivate          Boolean  @default(false)
+  /// Days a year by who the person is, over the type's own annualDays:
+  /// [{ employeeTypeId?: string, minServiceMonths?: number, annualDays: number }].
+  /// The most specific rule that fits wins (employee type and service over
+  /// service alone over employee type alone), read as of the period start or
+  /// the joining date, whichever is later.
+  entitlements       Json     @default("[]")
+  /// During probation: ACCRUE as normal, HOLD (credits start at confirmation),
+  /// or LOCK (credits build but cannot be taken until confirmation).
+  probationRule      String   @default("ACCRUE")
+  /// This type's own approval chain (HR | MANAGER | MANAGER_THEN_HR); null = the company's.
+  approval           String?
+  /// A person's own request of up to this many days, within their balance, is approved as it is sent.
+  autoApproveUpToDays Float?
+  /// A step that waits longer than this many days is handed on to HR. Null = never.
+  handOnAfterDays    Int?
   /// Unused days may be paid out, up to this many a year.
   encashable         Boolean  @default(false)
   maxEncashDays      Float?
@@ -626,6 +706,9 @@ model LeaveAdjustment {
   paidInRunId String?
 
   createdByUserId String
+  /// A comp-off grant names the date worked; a year-end pay-out names its run.
+  workedOn        String?
+  yearEndId       String?
   createdAt       DateTime @default(now())
 
   @@index([accountId, orgId, year])
@@ -658,6 +741,10 @@ model LeaveRequest {
   managerApprovedById String?
   /// The manager's note with their step; HR's decision note is reviewNote.
   managerNote         String?
+  /// What happened to the request, in order: [{ at, by, what, note?, from?, to? }] (edits, steps, hand-ons, decisions).
+  history             Json      @default("[]")
+  /// Set when the request was approved by its own rule (autoApproveUpToDays), not by a person.
+  autoApproved        Boolean   @default(false)
   /// Leave that crosses the leave-period end is saved as one request per
   /// period; the parts share this id so they read, and cancel, as one.
   groupId             String?
@@ -1219,6 +1306,11 @@ model AttendanceSettings {
   /// Shifts, when Attendance sets them, still decide for the people on them.
   weeklyOffDays              String  @default("0")
   offSaturdays               String  @default("")
+  /// Attendance request rules (People → Settings → Request rules):
+  /// { WFH: { on, quotaPerMonth, backDays, approval }, ON_DUTY: {...}, PERMISSION: { on, hoursPerMonth, maxMinutes, approval }, MISSED_PUNCH: { quotaPerMonth, backDays } }.
+  requestRules               Json    @default("{}")
+  /// Restricted holidays a person may pick a year from the optional list; 0 = none.
+  restrictedHolidayQuota     Int     @default(0)
 
   /// DPDP (services/attendance/biometrics.ts): CLOR keeps and copies fingerprints and
   /// faces between readers only when the company switches this on, recording who
