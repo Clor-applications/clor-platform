@@ -301,9 +301,11 @@ leaveRouter.get(`${base}/balances`, can(PermissionAction.VIEW, R.leave), async (
     orderBy: { name: 'asc' },
   });
   const { types, balances } = await balancesFor(accountId, orgId, people.map((p) => p.id), year);
+  /* A private type (maternity, sick) is not shown at all to those who may not read private leave. */
+  const reads = await readsPrivateLeave(req);
   res.json({
     year,
-    types: types.filter((t) => t.isActive),
+    types: types.filter((t) => t.isActive && (reads || !t.isPrivate)),
     rows: people.map((p) => ({ employeeId: p.id, name: p.name, code: p.code, department: p.department, balances: Object.fromEntries(balances.get(p.id)!) })),
   });
 });
@@ -970,7 +972,10 @@ leaveRouter.get(`${base}/ledger`, can(PermissionAction.VIEW, R.leave), async (re
       peoplePrisma.leaveAdjustment.findMany({ where: { orgId, employeeId: employee.id, year }, orderBy: { createdAt: 'asc' } }),
     ]);
     const mine = balances.get(employee.id)!;
+    const own = Boolean(req.auth?.userId) && (await peoplePrisma.employee.findFirst({ where: { id: employee.id, orgId }, select: { userId: true } }))?.userId === req.auth!.userId;
+    const reads = own || (await readsPrivateLeave(req));
     const out = types
+      .filter((t) => reads || !t.isPrivate)
       .filter((t) => t.isActive || requests.some((r) => r.leaveTypeId === t.id) || adjustments.some((a) => a.leaveTypeId === t.id))
       .map((t) => {
         const bal = mine.get(t.id)!;
@@ -1064,7 +1069,8 @@ leaveRouter.get(`${base}/register`, can(PermissionAction.VIEW, R.leave), async (
     peoplePrisma.leaveAdjustment.findMany({ where: { orgId, year, employeeId: { in: ids } }, select: { employeeId: true, leaveTypeId: true, days: true, kind: true } }),
   ]);
   const ended = today() > bounds.to;
-  const shown = types.filter((t) => (!typeId || t.id === typeId) && (t.isActive || [...balances.values()].some((m) => (m.get(t.id)?.used || 0) > 0)));
+  const reads = await readsPrivateLeave(req);
+  const shown = types.filter((t) => (reads || !t.isPrivate) && (!typeId || t.id === typeId) && (t.isActive || [...balances.values()].some((m) => (m.get(t.id)?.used || 0) > 0)));
   const rows = [];
   for (const p of people) {
     for (const t of shown) {

@@ -73,6 +73,8 @@ what is waiting for me, and how many days does each person have — and why.**
 | Reject with a reason (prohibited pattern: hidden reasons) | Note optional on reject | A rejection needs a reason; the employee app shows it |
 | TL-085, TLA-006 Payroll counts leave once | Already true (table above) | Kept; test added for the half-day + Attendance-on paths stays green |
 | TL-092, TL-095 Forms keep input, warn before discard | Old drawers | Shared Drawer dirty guard, PopupSelect, DatePicker (Workforce standard) |
+| TL-046 (part), TL-052 (part) Tell people, without spam | Leave events went to webhooks only | One notice per leave: a new request to whoever decides it, a decision or cancellation to the person, HR when a manager passes it on; private leave says "leave" |
+| TL-101 Private leave stays private everywhere | — | Private types hidden from non-readers in balances, ledger and register; never written into the day record's note |
 
 ## Declined, and why
 
@@ -88,6 +90,8 @@ what is waiting for me, and how many days does each person have — and why.**
 | Hourly leave / permissions (TL-030) | Needs a minutes ledger across the day engine; P2 |
 | Timezone per site (TLA-013) | India only today; IST stays explicit in `compute.ts` |
 | AI copilot (TL-102) | Later, once explanations exist to ground it (this module builds them) |
+| Reminders to employees before days lapse (TL-052) | The overview lists lapsing days for HR in the period's last two months; a per-employee reminder waits for the platform's digest and quiet-hours work, so it does not become one more notice |
+| Reject reason enforced by the server | People and the employee app require it; Attendance's own screen (not rebuilt here) and the public API still send none, so the server keeps it optional until those move to the shared screens |
 | 102-row backlog, 90 test rows | Templated; used as a checklist, not a plan |
 
 ## Waiting for other modules

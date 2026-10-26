@@ -157,7 +157,13 @@ describe('preview, split, privacy, scope, story, overview', () => {
     await att(lead, 'get', `/leave/requests/${theirs.id}`).expect(404);
     await att(lead, 'post', `/leave/requests/${theirs.id}/approve`).expect(404);
     await att(lead, 'get', `/leave/ledger?employeeId=${stranger.id}`).expect(404);
-    const balances = (await att(lead, 'get', '/leave/balances').expect(200)).body.rows.map((x: any) => x.employeeId);
+    /* A private type is not shown to the lead at all: not in balances, the ledger or the register. */
+    const bal = (await att(lead, 'get', '/leave/balances').expect(200)).body;
+    expect(bal.types.map((t: any) => t.name)).not.toContain('Sick');
+    expect((await att(lead, 'get', `/leave/ledger?employeeId=${report.id}`).expect(200)).body.types.map((t: any) => t.type.name)).not.toContain('Sick');
+    expect((await att(lead, 'get', '/leave/register').expect(200)).body.types.map((t: any) => t.name)).not.toContain('Sick');
+    expect((await att(hr, 'get', '/leave/balances').expect(200)).body.types.map((t: any) => t.name)).toContain('Sick');
+    const balances = bal.rows.map((x: any) => x.employeeId);
     expect(balances.sort()).toEqual([leadEmp.id, report.id].sort());
     /* "Also away" stays inside the team too. */
     const detail = (await att(lead, 'get', `/leave/requests/${mine.id}`).expect(200)).body;
