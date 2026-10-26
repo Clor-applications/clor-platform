@@ -75,6 +75,7 @@ describe('Workforce record edits', () => {
     api.employeeAsOf.mockImplementation((id, date) => (date === '2026-01-05'
       ? Promise.reject(Object.assign(new Error('Not here'), { status: 404 }))
       : Promise.resolve({ employee: { ...person, designation: date < '2026-10-26' ? 'Clerk' : 'Accountant' } })));
+    api.getEmployee.mockResolvedValue({ employee: { ...person, dateOfJoining: '2025-01-01' }, scheduledChanges: [], permits: [] });
     render(<EmployeeRecord params={{ id: 'e1', tab: 'history' }} updateParams={() => {}} openScreen={() => {}} />);
     await screen.findByText('Compare two dates');
     const user = userEvent.setup();

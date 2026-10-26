@@ -70,15 +70,14 @@ export default function OrgChart({ openScreen }) {
       ) : (
         <>
           <div className="flex flex-wrap items-center gap-3">
-            <SearchField value={query} onSearch={setQuery} delay={150} placeholder="Find a person, ID or designation" label="Find in the org chart" />
+            <SearchField value={query} onSearch={setQuery} delay={150} placeholder="Search people" label="Find in the org chart" />
             <span className="flex gap-3 ml-auto text-sm">
-              <button type="button" className="ui-link" onClick={() => setClosed(new Set())}>Expand all</button>
-              <button type="button" className="ui-link" onClick={() => setClosed(new Set(managers))}>Collapse all</button>
+              <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" onClick={() => setClosed(new Set())}>Expand all</button>
+              <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" onClick={() => setClosed(new Set(managers))}>Collapse all</button>
             </span>
           </div>
           <p className="ui-caption">
-            {nodes.length} {nodes.length === 1 ? 'person' : 'people'} · {managers.length} with reports
-            {chart.unmanaged ? ` · ${chart.unmanaged} with no manager and no reports` : ''}
+            {nodes.length} {nodes.length === 1 ? 'person' : 'people'}
             {req.data.openSeats?.length ? ` · ${req.data.openSeats.length} open ${req.data.openSeats.length === 1 ? 'seat' : 'seats'}` : ''}
           </p>
           {visible && !visible.size ? <p className="ui-muted text-sm">Nobody matches “{query.trim()}”.</p> : null}
@@ -132,7 +131,7 @@ function Node({ n, depth, chart, visible, closed, toggle, openScreen }) {
         <Avatar person={n} size={30} />
         <span className="min-w-0">
           <span className="block truncate text-sm">
-            <button type="button" className="ui-link font-medium" onClick={() => openScreen?.('employee', { id: n.id })}>{n.name}</button>
+            <button type="button" className="ui-doc-title inline" onClick={() => openScreen?.('employee', { id: n.id })}>{n.name}</button>
             {n.code ? <span className="ui-caption tabular-nums ml-1.5">{n.code}</span> : null}
           </span>
           <span className="block truncate ui-caption">

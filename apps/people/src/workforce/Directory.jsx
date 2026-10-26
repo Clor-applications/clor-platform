@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useTabIndicator } from '@ui/components/ui/RecordTabs';
-import { CalendarClock, Download, Filter, Plus, Upload, UserCheck, UserMinus, Users, X } from 'lucide-react';
+import { CalendarClock, Download, Filter, Pencil, Plus, Trash2, Upload, UserCheck, UserMinus, Users, X } from 'lucide-react';
 
 import { EmptyState, PageHeader } from '@ui/components/ui/Primitives';
 import DataTable from '@ui/components/ui/DataTable';
@@ -364,7 +364,7 @@ function FiltersDrawer({ params, lists, managers, onClose, onApply }) {
   const opt = (arr) => [{ value: '', label: 'Any' }, ...arr.map((x) => ({ value: x.id, label: x.name }))];
   const field = (k, label, options) => (
     <div className="block">
-      <PopupSelect showValueSubtext={false} label={label} value={draft[k]} onChange={(v) => setDraft({ ...draft, [k]: v || '' })} options={options} alwaysSearch={options.length > 8} />
+      <PopupSelect showValueSubtext={false} label={label} placeholder="Any" value={draft[k]} onChange={(v) => setDraft({ ...draft, [k]: v || '' })} options={options} alwaysSearch={options.length > 8} />
     </div>
   );
   return (
@@ -524,24 +524,31 @@ function SavedViews({ params, prefs, onApply, canShare }) {
     if (!(await confirmDialog({ title: `Delete the view "${v.name}"?`, confirmLabel: 'Delete' }))) return;
     try { await deleteView(v.id); views.reload(); } catch (e) { notify.error(String(e?.message || 'Not deleted.')); }
   };
-  const describe = (f = {}) => Object.keys(f).filter((k) => !['hidden', 'order', 'density'].includes(k)).length ? `${Object.keys(f).filter((k) => !['hidden', 'order', 'density'].includes(k)).length} filters` : 'Everyone';
+  const WORDS = { q: 'Search', status: 'Status', dept: 'Department', pos: 'Designation', type: 'Employment type', wtype: 'Work type', area: 'Location', est: 'Work site', unit: 'Business unit', grade: 'Grade', centre: 'Cost centre', tag: 'Tag', mgr: 'Manager', from: 'Joined from', to: 'Joined to', sort: 'Sorted' };
+  const describe = (f = {}) => { const used = Object.keys(f).filter((k) => WORDS[k] && k !== 'dir'); return used.length ? used.map((k) => WORDS[k]).join(', ') : 'All employees'; };
   return (
     <section aria-label="Saved views" className="space-y-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setNaming({ name: '', shared: false })}>Save current view</button>
+      <div className="flex flex-wrap items-center gap-2">
+        <h2 className="ui-t-sec">Saved views{views.data?.length ? <span className="ui-section-count tabular-nums">{views.data.length}</span> : null}</h2>
+        <button type="button" className="ui-btn ui-btn-secondary ml-auto" onClick={() => setNaming({ name: '', shared: false })}><Plus size={16} aria-hidden="true" /> Save current view</button>
       </div>
       {views.loading ? <span className="ui-skel ui-skel-text" /> : views.error ? <ErrorState error={views.error} onRetry={views.reload} compact /> : !views.data.length ? <EmptyState title="No saved views yet" /> : (
-        <ul className="divide-y">
+        <ul className="ui-doc-list">
           {views.data.map((v) => (
-            <li key={v.id} className="flex flex-wrap items-center gap-3 py-2.5">
-              <button type="button" className="ui-link font-medium" onClick={() => onApply(v)}>{v.name}</button>
-              <span className="ui-caption">{describe(v.filters)} · {v.shared ? (v.mine ? 'shared by you' : 'shared with you') : 'private'}</span>
-              {v.mine ? (
-                <span className="ml-auto flex gap-3 text-sm">
-                  <button type="button" className="ui-link" onClick={() => setNaming({ id: v.id, name: v.name, shared: v.shared, filters: v.filters })}>Rename</button>
-                  <button type="button" className="ui-link" onClick={() => remove(v)}>Delete</button>
+            <li key={v.id}>
+              <div className="ui-doc-row">
+                <span className="min-w-0">
+                  <button type="button" className="ui-doc-title" onClick={() => onApply(v)}>{v.name}</button>
+                  <span className="ui-doc-meta">{describe(v.filters)}</span>
                 </span>
-              ) : null}
+                <span className={`ui-pill ${v.shared ? 'ui-pill-neutral' : 'ui-pill-outline'}`}>{v.shared ? (v.mine ? 'Shared' : 'Shared with you') : 'Private'}</span>
+                <span className="flex items-center gap-1">
+                  {v.mine ? <>
+                    <button type="button" className="ui-icon-btn" aria-label={`Rename ${v.name}`} onClick={() => setNaming({ id: v.id, name: v.name, shared: v.shared, filters: v.filters })}><Pencil size={16} aria-hidden="true" /></button>
+                    <button type="button" className="ui-icon-btn" aria-label={`Delete ${v.name}`} onClick={() => remove(v)}><Trash2 size={16} aria-hidden="true" /></button>
+                  </> : null}
+                </span>
+              </div>
             </li>
           ))}
         </ul>

@@ -469,10 +469,10 @@ function SectionForm({ person, fields, onCancel, onSaved, reload }) {
 const GENDERS = Object.entries(GENDER_WORDS);
 const MARITAL = [['SINGLE', 'Single'], ['MARRIED', 'Married'], ['DIVORCED', 'Divorced'], ['WIDOWED', 'Widowed']];
 const PERSONAL_SECTIONS = {
-  name: { title: 'Name', fields: [{ key: 'firstName', label: 'First name', required: true }, { key: 'lastName', label: 'Last name' }, { key: 'preferredName', label: 'Preferred name', help: 'Used in everyday communication.' }] },
+  name: { title: 'Name', fields: [{ key: 'firstName', label: 'First name', required: true }, { key: 'lastName', label: 'Last name' }, { key: 'preferredName', label: 'Preferred name' }] },
   /* `email` is the personal address the employee form has always saved; `personalEmail` is what a joiner gives on their invite. */
-  contact: { title: 'Contact', fields: [{ key: 'workEmail', label: 'Work email', type: 'email', inputMode: 'email' }, { key: 'workPhone', label: 'Work phone', type: 'tel', inputMode: 'tel' }, { key: 'email', label: 'Personal email', type: 'email', inputMode: 'email' }, { key: 'phone', label: 'Personal phone', type: 'tel', inputMode: 'tel' }, { key: 'personalEmail', label: 'Email from invite', type: 'email', inputMode: 'email', help: 'Filled in by the joiner; used for privacy notices if set.' }] },
-  personal: { title: 'Personal details', fields: [{ key: 'dateOfBirth', label: 'Date of birth', kind: 'date' }, { key: 'gender', label: 'Gender', kind: 'select', options: GENDERS }, { key: 'maritalStatus', label: 'Marital status', kind: 'select', options: MARITAL }, { key: 'guardianName', label: 'Father / husband name', help: 'For the muster roll.' }] },
+  contact: { title: 'Contact', fields: [{ key: 'workEmail', label: 'Work email', type: 'email', inputMode: 'email' }, { key: 'workPhone', label: 'Work phone', type: 'tel', inputMode: 'tel' }, { key: 'email', label: 'Personal email', type: 'email', inputMode: 'email' }, { key: 'phone', label: 'Personal phone', type: 'tel', inputMode: 'tel' }, { key: 'personalEmail', label: 'Email from invite', type: 'email', inputMode: 'email', hideEmpty: true }] },
+  personal: { title: 'Personal details', fields: [{ key: 'dateOfBirth', label: 'Date of birth', kind: 'date' }, { key: 'gender', label: 'Gender', kind: 'select', options: GENDERS }, { key: 'maritalStatus', label: 'Marital status', kind: 'select', options: MARITAL }, { key: 'guardianName', label: 'Father / husband name' }] },
   address: { title: 'Address', fields: [{ key: 'addressLine', label: 'Address', wide: true }, { key: 'city', label: 'City' }, { key: 'state', label: 'State' }, { key: 'pincode', label: 'PIN code', inputMode: 'numeric', max: 10 }, { key: 'country', label: 'Country' }] },
   emergency: { title: 'Emergency contact', fields: [{ key: 'emergencyContactName', label: 'Name' }, { key: 'emergencyContactRelation', label: 'Relationship' }, { key: 'emergencyContactPhone', label: 'Phone', type: 'tel', inputMode: 'tel' }] },
 };
@@ -492,7 +492,7 @@ function Personal({ person, allowed, editing, setEditing, onSaved, reload }) {
           {editing === k ? (
             <SectionForm person={person} fields={s.fields} onCancel={() => setEditing(null)} onSaved={(emp) => { onSaved(emp); setEditing(null); }} reload={reload} />
           ) : (
-            <dl className="ui-field-grid">{s.fields.map((f) => <Field key={f.key} label={f.label} value={value(s, f)} />)}</dl>
+            <dl className="ui-field-grid">{s.fields.filter((f) => !f.hideEmpty || person[f.key]).map((f) => <Field key={f.key} label={f.label} value={value(s, f)} />)}</dl>
           )}
         </Section>
       ))}
@@ -800,15 +800,17 @@ function HistoryCompare({ person, lists }) {
     return () => { live = false; };
   }, [person.id, person.version, a, b]);
   const value = (k, f) => (snap[k]?.employee ? f(snap[k].employee, lists) || '—' : null);
+  /* Before the first day there is nothing to compare. */
+  if (!joined || joined > todayIst()) return null;
   return (
     <Section title="Compare two dates">
       <div className="flex flex-wrap items-end gap-3 mb-3">
         <div><label className="ui-caption" htmlFor="cmp-a">As of</label><DatePicker id="cmp-a" value={a} max={todayIst()} onChange={(v) => setA(v || a)} /></div>
         <div><label className="ui-caption" htmlFor="cmp-b">and as of</label><DatePicker id="cmp-b" value={b} max={todayIst()} onChange={(v) => setB(v || b)} /></div>
       </div>
-      {snap.a?.error || snap.b?.error ? <p className="ui-caption mb-2">{[snap.a?.error && `${formatDate(snap.a.date)}: ${snap.a.error}`, snap.b?.error && `${formatDate(snap.b.date)}: ${snap.b.error}`].filter(Boolean).join(' ')}</p> : null}
+      {snap.a?.error || snap.b?.error ? <p className="ui-caption mb-2">{[...new Set([snap.a?.error && `${formatDate(snap.a.date)}: ${snap.a.error}`, snap.b?.error && snap.b.date !== snap.a?.date && `${formatDate(snap.b.date)}: ${snap.b.error}`].filter(Boolean))].join(' ')}</p> : null}
       <div className="ui-table-scroll">
-        <table className="ui-table w-full">
+        <table className="ui-table ui-compare w-full">
           <thead><tr><th scope="col">Field</th><th scope="col">{formatDate(a)}</th><th scope="col">{formatDate(b)}</th></tr></thead>
           <tbody className="ui-rows">
             {COMPARE_FIELDS.map(([label, f]) => {
