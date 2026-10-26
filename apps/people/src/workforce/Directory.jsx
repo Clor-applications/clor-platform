@@ -368,32 +368,44 @@ function FiltersDrawer({ params, lists, managers, onClose, onApply }) {
     </div>
   );
   return (
-    <Drawer open onClose={onClose} widthClass="w-[min(36rem,96vw)]" title="Filters" dirty={dirty}
+    <Drawer open onClose={onClose} widthClass="w-[min(40rem,96vw)] ui-drawer-sheet" title="Filters" dirty={dirty}
       footer={<>
         <button type="button" className="ui-btn ui-btn-ghost mr-auto" onClick={() => setDraft(Object.fromEntries(FILTER_KEYS.map((k) => [k, ''])))}>Reset</button>
         <button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button>
         <button type="button" className="ui-btn ui-btn-primary" onClick={() => onApply(Object.fromEntries(FILTER_KEYS.map((k) => [k, draft[k] || null])))}>Apply</button>
       </>}>
-      <div className="grid gap-4">
-        {field('status', 'Status', [{ value: '', label: 'Any' }, ...Object.entries(STATUS).map(([value, s]) => ({ value, label: s.label }))])}
-        {field('dept', 'Department', opt(lists.departments))}
-        {field('pos', 'Designation', opt(lists.positions))}
-        {field('area', 'Location', opt(lists.areas))}
-        {field('type', 'Employment type', opt(lists.types))}
-        {lists.workTypes.length ? field('wtype', 'Work type', opt(lists.workTypes)) : null}
-        {lists.establishments.length ? field('est', 'Work site', opt(lists.establishments)) : null}
-        {lists.units.length ? field('unit', 'Business unit', opt(lists.units)) : null}
-        {lists.grades.length ? field('grade', 'Grade', opt(lists.grades)) : null}
-        {lists.centres.length ? field('centre', 'Cost centre', opt(lists.centres)) : null}
-        {lists.tags.length ? field('tag', 'Tag', opt(lists.tags)) : null}
-        {field('mgr', 'Manager', opt(managers))}
-        <fieldset>
-          <legend className="ui-label">Joining date</legend>
-          <div className="grid gap-2 sm:grid-cols-2">
-            <div><label className="ui-caption" htmlFor="wf-from">From</label><DatePicker id="wf-from" value={draft.from} max={draft.to || ''} onChange={(v) => setDraft({ ...draft, from: v })} /></div>
-            <div><label className="ui-caption" htmlFor="wf-to">To</label><DatePicker id="wf-to" value={draft.to} min={draft.from || ''} onChange={(v) => setDraft({ ...draft, to: v })} /></div>
+      {/* Grouped by what a person asks: who they are in the job, where they sit, who they report to, when they joined. */}
+      <div className="ui-filter-groups">
+        <section aria-label="Job">
+          <h3 className="ui-filter-group-title">Job</h3>
+          <div className="ui-form-grid">
+            {field('status', 'Status', [{ value: '', label: 'Any' }, ...Object.entries(STATUS).map(([value, s]) => ({ value, label: s.label }))])}
+            {field('pos', 'Designation', opt(lists.positions))}
+            {field('type', 'Employment type', opt(lists.types))}
+            {lists.workTypes.length ? field('wtype', 'Work type', opt(lists.workTypes)) : null}
+            {lists.grades.length ? field('grade', 'Grade', opt(lists.grades)) : null}
+            {lists.tags.length ? field('tag', 'Tag', opt(lists.tags)) : null}
           </div>
-        </fieldset>
+        </section>
+        <section aria-label="Place">
+          <h3 className="ui-filter-group-title">Place</h3>
+          <div className="ui-form-grid">
+            {field('dept', 'Department', opt(lists.departments))}
+            {field('area', 'Location', opt(lists.areas))}
+            {lists.establishments.length ? field('est', 'Work site', opt(lists.establishments)) : null}
+            {lists.units.length ? field('unit', 'Business unit', opt(lists.units)) : null}
+            {lists.centres.length ? field('centre', 'Cost centre', opt(lists.centres)) : null}
+          </div>
+        </section>
+        <section aria-label="Reporting and joining">
+          <h3 className="ui-filter-group-title">Reporting and joining</h3>
+          <div className="ui-form-grid">
+            {field('mgr', 'Manager', opt(managers))}
+            <div />
+            <div><label className="ui-label" htmlFor="wf-from">Joined from</label><DatePicker id="wf-from" value={draft.from} max={draft.to || ''} onChange={(v) => setDraft({ ...draft, from: v })} /></div>
+            <div><label className="ui-label" htmlFor="wf-to">Joined to</label><DatePicker id="wf-to" value={draft.to} min={draft.from || ''} onChange={(v) => setDraft({ ...draft, to: v })} /></div>
+          </div>
+        </section>
       </div>
     </Drawer>
   );

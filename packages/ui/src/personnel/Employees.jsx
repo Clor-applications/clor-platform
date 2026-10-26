@@ -1278,19 +1278,15 @@ export function StatutoryDetails({ employeeId, embedded = false }) {
         {d.canEdit && !editing ? <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => setEditing({ aadhaarLast4: '', passportNumber: '', passportExpiry: id.passportExpiry || '', workPermitNumber: '', workPermitExpiry: id.workPermitExpiry || '', statutoryCategory: id.statutoryCategory || '', categoryFrom: id.categoryFrom || '' })}>Edit identifiers</button> : null}
       </div>
       {editing ? (
-        <form onSubmit={saveIdentityForm} className="ui-card p-3 grid gap-3 sm:grid-cols-2">
-          <label className="block"><span className="ui-label">Aadhaar, last 4 digits</span><input className="ui-input w-full" value={editing.aadhaarLast4} maxLength={4} inputMode="numeric" placeholder={id.aadhaarLast4 ? 'unchanged' : '9012'} onChange={(e) => setEditing({ ...editing, aadhaarLast4: e.target.value })} /></label>
-          <label className="block"><span className="ui-label">Statutory category</span>
-            <select className="ui-select w-full" value={editing.statutoryCategory} onChange={(e) => setEditing({ ...editing, statutoryCategory: e.target.value })}>
-              <option value="">— Not set —</option>
-              {[['WORKER', 'Worker'], ['SUPERVISOR', 'Supervisor'], ['MANAGER', 'Manager'], ['APPRENTICE', 'Apprentice'], ['CONTRACT', 'Contract']].map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-            </select>
-          </label>
-          <label className="block"><span className="ui-label">Passport number</span><input className="ui-input w-full" value={editing.passportNumber} placeholder={id.passportNumber ? 'unchanged' : 'A1234567'} onChange={(e) => setEditing({ ...editing, passportNumber: e.target.value.toUpperCase() })} /></label>
-          <label className="block"><span className="ui-label">Passport expiry</span><input type="date" className="ui-input w-full" value={editing.passportExpiry} onChange={(e) => setEditing({ ...editing, passportExpiry: e.target.value })} /></label>
-          <label className="block"><span className="ui-label">Work permit number</span><input className="ui-input w-full" value={editing.workPermitNumber} placeholder={id.workPermitNumber ? 'unchanged' : ''} onChange={(e) => setEditing({ ...editing, workPermitNumber: e.target.value.toUpperCase() })} /></label>
-          <label className="block"><span className="ui-label">Work permit expiry</span><input type="date" className="ui-input w-full" value={editing.workPermitExpiry} onChange={(e) => setEditing({ ...editing, workPermitExpiry: e.target.value })} /></label>
-          <label className="block"><span className="ui-label">Category from</span><input type="date" className="ui-input w-full" value={editing.categoryFrom} onChange={(e) => setEditing({ ...editing, categoryFrom: e.target.value })} /></label>
+        <form onSubmit={saveIdentityForm} className="ui-form-grid">
+          <label className="block"><span className="ui-label">Aadhaar, last 4 digits</span><input className="ui-input w-full" value={editing.aadhaarLast4} maxLength={4} inputMode="numeric" placeholder={id.aadhaarLast4 ? '••••' : ''} onChange={(e) => setEditing({ ...editing, aadhaarLast4: e.target.value })} /></label>
+          <div><PopupSelect showValueSubtext={false} label="Statutory category" value={editing.statutoryCategory} placeholder="Not set" onChange={(v) => setEditing({ ...editing, statutoryCategory: v || '' })}
+            options={[{ value: '', label: 'Not set' }, ...[['WORKER', 'Worker'], ['SUPERVISOR', 'Supervisor'], ['MANAGER', 'Manager'], ['APPRENTICE', 'Apprentice'], ['CONTRACT', 'Contract']].map(([value, label]) => ({ value, label }))]} /></div>
+          <label className="block"><span className="ui-label">Passport number</span><input className="ui-input w-full" value={editing.passportNumber} placeholder={id.passportNumber ? '••••' : ''} onChange={(e) => setEditing({ ...editing, passportNumber: e.target.value.toUpperCase() })} /></label>
+          <div><label className="ui-label" htmlFor="sd-passport-exp">Passport expiry</label><DatePicker id="sd-passport-exp" value={editing.passportExpiry || ''} onChange={(v) => setEditing({ ...editing, passportExpiry: v || '' })} /></div>
+          <label className="block"><span className="ui-label">Work permit number</span><input className="ui-input w-full" value={editing.workPermitNumber} placeholder={id.workPermitNumber ? '••••' : ''} onChange={(e) => setEditing({ ...editing, workPermitNumber: e.target.value.toUpperCase() })} /></label>
+          <div><label className="ui-label" htmlFor="sd-permit-exp">Work permit expiry</label><DatePicker id="sd-permit-exp" value={editing.workPermitExpiry || ''} onChange={(v) => setEditing({ ...editing, workPermitExpiry: v || '' })} /></div>
+          <div><label className="ui-label" htmlFor="sd-cat-from">Category from</label><DatePicker id="sd-cat-from" value={editing.categoryFrom || ''} onChange={(v) => setEditing({ ...editing, categoryFrom: v || '' })} /></div>
           <div className="sm:col-span-2 flex justify-end gap-2">
             <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => setEditing(null)}>Cancel</button>
             <button type="submit" className="ui-btn ui-btn-primary ui-btn-sm" disabled={saving}>{saving ? 'Saving…' : 'Save'}</button>
@@ -1352,8 +1348,9 @@ export function CustomFields({ employeeId, embedded = false }) {
     const v = edits[f.key] !== undefined ? edits[f.key] : f.value;
     const set = (val) => setEdits({ ...edits, [f.key]: val });
     if (!f.canEdit) return <span>{f.type === 'BOOLEAN' ? (f.value === true ? 'Yes' : f.value === false ? 'No' : '—') : f.value ?? <span className="ui-muted">Not set</span>}</span>;
-    if (f.type === 'CHOICE') return <select className="ui-select w-full" value={v ?? ''} onChange={(e) => set(e.target.value)} aria-label={f.label}><option value="">—</option>{f.options.map((o) => <option key={o} value={o}>{o}</option>)}</select>;
-    if (f.type === 'BOOLEAN') return <select className="ui-select w-full" value={v === true ? 'yes' : v === false ? 'no' : ''} onChange={(e) => set(e.target.value === '' ? null : e.target.value === 'yes')} aria-label={f.label}><option value="">—</option><option value="yes">Yes</option><option value="no">No</option></select>;
+    if (f.type === 'CHOICE') return <PopupSelect showValueSubtext={false} ariaLabel={f.label} value={v ?? ''} placeholder="Not set" onChange={(x) => set(x || '')} options={[{ value: '', label: 'Not set' }, ...f.options.map((o) => ({ value: o, label: o }))]} />;
+    if (f.type === 'BOOLEAN') return <PopupSelect showValueSubtext={false} ariaLabel={f.label} value={v === true ? 'yes' : v === false ? 'no' : ''} placeholder="Not set" onChange={(x) => set(!x ? null : x === 'yes')} options={[{ value: '', label: 'Not set' }, { value: 'yes', label: 'Yes' }, { value: 'no', label: 'No' }]} />;
+    if (f.type === 'DATE') return <DatePicker id={`cf-${f.key}`} value={v ?? ''} onChange={(x) => set(x || '')} />;
     if (f.type === 'FILE') return <input className="ui-input w-full" value={v ?? ''} placeholder="Document id from the Documents tab" onChange={(e) => set(e.target.value)} aria-label={f.label} />;
     return <input className="ui-input w-full" type={f.type === 'NUMBER' ? 'number' : f.type === 'DATE' ? 'date' : 'text'} value={v ?? ''} onChange={(e) => set(e.target.value)} aria-label={f.label} />;
   };
@@ -1543,13 +1540,8 @@ export function InviteForm({ person, onClose, onDone }) {
         </div>
       ) : (
         <form id="invite-form" onSubmit={save} className="grid gap-4">
-          <label className="block">
-            <span className="ui-label">Send by</span>
-            <select className="ui-select w-full" value={form.channel} onChange={(e) => setForm({ ...form, channel: e.target.value, sentTo: e.target.value === 'EMAIL' ? person.email || person.personalEmail || '' : person.phone || '' })}>
-              <option value="EMAIL">Email (CLOR sends it)</option>
-              <option value="SMS">Phone (you send the link)</option>
-            </select>
-          </label>
+          <div><PopupSelect showValueSubtext={false} label="Send by" value={form.channel} onChange={(v) => setForm({ ...form, channel: v || 'EMAIL', sentTo: v === 'SMS' ? person.phone || '' : person.email || person.personalEmail || '' })}
+            options={[{ value: 'EMAIL', label: 'Email' }, { value: 'SMS', label: 'Phone (you share the link)' }]} /></div>
           <label className="block">
             <span className="ui-label">{form.channel === 'EMAIL' ? 'Personal email *' : 'Phone *'}</span>
             <input className="ui-input w-full" type={form.channel === 'EMAIL' ? 'email' : 'tel'} required value={form.sentTo} onChange={(e) => setForm({ ...form, sentTo: e.target.value })} />

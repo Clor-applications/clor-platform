@@ -98,7 +98,7 @@ export default function EmployeeRecord({ params = {}, updateParams, openScreen }
     openScreen?.('employees', last);
   };
 
-  if (rec.loading) return <div className="space-y-4" aria-busy="true"><SkeletonCard lines={3} /><SkeletonCard lines={6} /></div>;
+  if (rec.loading) return <RecordSkeleton />;
   if (rec.error && !person) {
     const k = errorKind(rec.error);
     return <ErrorState error={rec.error} title={k === 'notFound' || k === 'forbidden' ? 'This employee record is not available' : undefined} body={k === 'notFound' || k === 'forbidden' ? 'It may have been removed, or you may not have access to it.' : undefined} onRetry={k === 'notFound' || k === 'forbidden' ? null : rec.reload} onBack={backToDirectory} />;
@@ -212,6 +212,28 @@ function MenuList({ items, onPick, onEscape }) {
       else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); onEscape(); }
     }}>
       {items.map(([k, label], i) => <button key={k} type="button" role="menuitem" data-autofocus={i === 0 ? '' : undefined} className={`ui-menu-item ${k === 'delete' ? 'is-danger' : ''}`} onClick={() => onPick(k)}>{label}</button>)}
+    </div>
+  );
+}
+
+/* The loading shape is the page's own shape: header, tabs, then one sheet. */
+function RecordSkeleton() {
+  const rows = (n) => (
+    <div className="ui-field-grid mt-4">
+      {Array.from({ length: n }).map((_, i) => <span key={i} className="ui-skel ui-skel-text" style={{ width: i % 2 ? '70%' : '85%' }} />)}
+    </div>
+  );
+  return (
+    <div aria-busy="true" aria-label="Loading the employee record">
+      <div className="ui-profile py-3">
+        <span className="ui-skel" style={{ width: 64, height: 64, borderRadius: 999 }} />
+        <span className="flex-1 space-y-2.5"><span className="ui-skel ui-skel-title block" style={{ width: 260 }} /><span className="ui-skel ui-skel-text block" style={{ width: 420 }} /></span>
+      </div>
+      <div className="ui-record-tablist mt-4 h-10" />
+      <div className="ui-record-tabpanel" aria-hidden="true">
+        <span className="ui-skel ui-skel-title block" style={{ width: 180 }} />{rows(4)}
+        <div className="border-t mt-6 pt-6"><span className="ui-skel ui-skel-title block" style={{ width: 140 }} />{rows(6)}</div>
+      </div>
     </div>
   );
 }
@@ -438,12 +460,11 @@ function SectionForm({ person, fields, onCancel, onSaved, reload }) {
           const help = f.help ? `${id}-help` : undefined;
           return (
             <div key={f.key} className={f.wide ? 'sm:col-span-2' : ''}>
-              <label htmlFor={id} className="ui-label">{f.label}{f.required ? ' *' : ''}</label>
+              {f.kind === 'select' ? <span className="ui-label" aria-hidden="true">{f.label}{f.required ? ' *' : ''}</span> : <label htmlFor={id} className="ui-label">{f.label}{f.required ? ' *' : ''}</label>}
               {f.kind === 'select' ? (
-                <select id={id} className="ui-select w-full" aria-describedby={help} value={form[f.key] ?? ''} onChange={(e) => setForm({ ...form, [f.key]: f.number ? Number(e.target.value) : e.target.value })}>
-                  {f.noBlank ? null : <option value="">Not set</option>}
-                  {f.options.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-                </select>
+                <PopupSelect showValueSubtext={false} ariaLabel={f.label} value={form[f.key] == null ? '' : String(form[f.key])} placeholder="Not set" alwaysSearch={f.options.length > 8}
+                  onChange={(v) => setForm({ ...form, [f.key]: f.number ? Number(v) : (v || '') })}
+                  options={[...(f.noBlank ? [] : [{ value: '', label: 'Not set' }]), ...f.options.map(([v, l]) => ({ value: String(v), label: l }))]} />
               ) : f.kind === 'checkbox' ? (
                 <span className="flex items-center gap-2 text-sm"><input id={id} type="checkbox" className="ui-checkbox" aria-describedby={help} checked={form[f.key] !== false} onChange={(e) => setForm({ ...form, [f.key]: e.target.checked })} />{f.checkLabel}</span>
               ) : f.kind === 'date' ? (

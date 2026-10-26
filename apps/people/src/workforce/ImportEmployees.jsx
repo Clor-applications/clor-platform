@@ -9,6 +9,7 @@ import useUnsavedChanges from '@ui/components/ui/useUnsavedChanges';
 import { clearUnsaved } from '@platform/unsaved';
 import { usePermissions } from '@ui/permissions/usePermissions';
 import { downloadCsvTemplate, parseCsv, readFileText } from '@ui/utils/csv';
+import PopupSelect from '@ui/components/pickers/PopupSelect';
 import { IMPORT_COLUMNS, IMPORT_FIELDS, guessField } from '@ui/personnel/Employees';
 
 /* The spreadsheet keys stay as they are (the template uses them); people choose from names. */
@@ -166,22 +167,19 @@ export default function ImportEmployees({ openScreen }) {
                       <td className="font-medium">{h || `Column ${i + 1}`}</td>
                       <td className="ui-caption">{file.rows.slice(0, 3).map((r) => r[i]).filter(Boolean).join(' · ') || '—'}</td>
                       <td>
-                        <select className="ui-select" value={mapping[i]} aria-label={`Field for ${h}`} onChange={(e) => { const m = [...mapping]; m[i] = e.target.value; setMapping(m); setPreview(null); }}>
-                          <option value="">Ignore this column</option>
-                          {IMPORT_FIELDS.map((f) => <option key={f.key} value={f.key}>{FIELD_WORDS[f.key] || f.label}</option>)}
-                        </select>
+                        <PopupSelect showValueSubtext={false} ariaLabel={`Field for ${h || `column ${i + 1}`}`} value={mapping[i]} alwaysSearch
+                          onChange={(v) => { const m = [...mapping]; m[i] = v || ''; setMapping(m); setPreview(null); }}
+                          options={[{ value: '', label: 'Ignore this column' }, ...IMPORT_FIELDS.map((f) => ({ value: f.key, label: FIELD_WORDS[f.key] || f.label }))]} />
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-            <label className="block max-w-md"><span className="ui-label">When an employee ID is already here</span>
-              <select className="ui-select w-full" value={mode} onChange={(e) => { setMode(e.target.value); setPreview(null); }}>
-                <option value="create">Skip that row (add new people only)</option>
-                <option value="update">Update existing people with the columns given</option>
-              </select>
-            </label>
+            <div className="max-w-md">
+              <PopupSelect showValueSubtext={false} label="When an employee ID is already here" value={mode} onChange={(v) => { setMode(v || 'create'); setPreview(null); }}
+                options={[{ value: 'create', label: 'Skip that row' }, { value: 'update', label: 'Update that employee' }]} />
+            </div>
           </div>
         ) : null}
 

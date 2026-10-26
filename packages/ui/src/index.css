@@ -7871,6 +7871,15 @@ button.ui-metric:focus-visible { outline: 2px solid rgb(var(--ring)); outline-of
 .ui-compare thead th:first-child { width: 14rem; }
 .ui-compare tbody th[scope='row'] { border-bottom: 1px solid rgb(var(--border)); padding-block: 0.625rem; }
 .ui-doc-title.inline { display: inline; }
+.ui-filter-groups > section + section { margin-top: 1.25rem; padding-top: 1.25rem; border-top: 1px solid rgb(var(--border)); }
+.ui-filter-group-title { margin-bottom: 0.75rem; font-size: 0.875rem; font-weight: 600; color: rgb(var(--fg)); }
+/* On a phone a drawer marked as a sheet rises from the bottom, as phone pickers do, and stops short of the top. */
+@keyframes ui-sheet-up { from { transform: translate3d(0, 100%, 0); } to { transform: none; } }
+@media (max-width: 639px) {
+  .ui-scrim:has(> .ui-drawer-sheet) { align-items: flex-end; }
+  .ui-drawer-sheet { width: 100% !important; height: auto !important; max-height: 88vh; border-radius: 12px 12px 0 0; animation-name: ui-sheet-up !important; }
+}
+@media (max-width: 639px) and (prefers-reduced-motion: reduce) { .ui-drawer-sheet { animation: none !important; } }
 .ui-section-count { margin-left: 0.5rem; font-size: 0.8125rem; font-weight: 500; color: rgb(var(--fg-subtle)); }
 .ui-task-list { list-style: none; margin: 0; padding: 0; font-size: 0.875rem; line-height: 1.25rem; }
 .ui-task-list > li { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; padding: 0.625rem 0; border-top: 1px solid rgb(var(--border)); }
