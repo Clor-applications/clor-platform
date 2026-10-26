@@ -174,3 +174,4 @@ leave law; `TIME-LEAVE-RESEARCH.md`) and against the code.
 | Restricted holidays: approval? | None, within the quota; the day becomes a holiday for that person once picked, and can be dropped until it has passed | A quota is the control; an approval on top is the kind of step users complain about |
 | WFH and On duty: leave or attendance? | Attendance requests; the day is present with its kind; monthly quotas and a back-date window the owner sets | Personio's split and Keka's quotas; never charged to a leave balance |
 
+| One code per leave type? | Yes, within the company, case-insensitive: a second type with a code already in use is refused (`LEAVE_TYPE_CODE_TAKEN`) on create and on edit; "Make a new type from this" starts with the code blank; a state's set skips a type whose name or code is already in the list | Codes print on payslips and reports, so two types sharing one would read as the same; found in the browser check, 27 Oct 2026 |

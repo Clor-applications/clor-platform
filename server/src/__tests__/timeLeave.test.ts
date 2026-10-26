@@ -468,6 +468,20 @@ describe('preview while changing a request, and the comp-off type from People', 
     expect(editing.parts[0].balance).toMatchObject({ before: 3, after: 0 });
   });
 
+  it('one code per leave type: a second type with the same code is refused, on create and on edit', async () => {
+    const c = await company({ people: true, attendance: false });
+    const cl = (await att(c, 'post', '/leave/types', { name: 'Casual', code: 'CL', annualDays: 12 }).expect(201)).body.type;
+    const clash = await att(c, 'post', '/leave/types', { name: 'Casual (new)', code: 'cl', annualDays: 6 }).expect(409);
+    expect(clash.body.code).toBe('LEAVE_TYPE_CODE_TAKEN');
+    expect(clash.body.error).toContain('Casual');
+    const sl = (await att(c, 'post', '/leave/types', { name: 'Sick', code: 'SL', annualDays: 6 }).expect(201)).body.type;
+    expect((await att(c, 'put', `/leave/types/${sl.id}`, { name: 'Sick', code: 'CL', annualDays: 6 }).expect(409)).body.code).toBe('LEAVE_TYPE_CODE_TAKEN');
+    /* Its own code again is no clash; no code at all is fine twice over. */
+    await att(c, 'put', `/leave/types/${cl.id}`, { name: 'Casual leave', code: 'CL', annualDays: 12 }).expect(200);
+    await att(c, 'post', '/leave/types', { name: 'Comp off', annualDays: 0 }).expect(201);
+    await att(c, 'post', '/leave/types', { name: 'Unpaid', annualDays: 0 }).expect(201);
+  });
+
   it('the comp-off leave type is set with the working week, so a People-only company can grant comp-off', async () => {
     const c = await company({ people: true, attendance: false });
     const comp = (await att(c, 'post', '/leave/types', { name: 'Comp off', annualDays: 0 }).expect(201)).body.type;

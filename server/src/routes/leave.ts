@@ -245,6 +245,14 @@ leaveRouter.get(`${base}/types`, can(PermissionAction.VIEW, R.leaveTypes), async
   res.json({ types: types.map((t) => ({ ...t, requests: n.get(t.id) || 0 })) });
 });
 
+/** The name of the other type in this org already using `code` (codes print on payslips and reports, so one each), or null. */
+async function codeTakenBy(orgId: string, code: string | null | undefined, exceptId?: string) {
+  const c = (code || '').trim();
+  if (!c) return null;
+  const other = await peoplePrisma.leaveType.findFirst({ where: { orgId, code: { equals: c, mode: 'insensitive' }, ...(exceptId ? { id: { not: exceptId } } : {}) }, select: { name: true } });
+  return other?.name ?? null;
+}
+
 leaveRouter.post(`${base}/types`, can(PermissionAction.CREATE, R.leaveTypes), async (req, res) => {
   if (!(await hrOrAttendanceRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
@@ -252,6 +260,8 @@ leaveRouter.post(`${base}/types`, can(PermissionAction.CREATE, R.leaveTypes), as
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Invalid leave type.' });
   const policy = await policyOf(orgId, req.body);
   if ('error' in policy) return res.status(400).json({ error: policy.error });
+  const clash = await codeTakenBy(orgId, parsed.data.code);
+  if (clash) return res.status(409).json({ error: `The code ${parsed.data.code} is already used by ${clash}. Pick another.`, code: 'LEAVE_TYPE_CODE_TAKEN' });
   try {
     const type = await peoplePrisma.leaveType.create({
       data: { accountId, orgId, ...parsed.data, ...policy.data, code: parsed.data.code || null, createdByUserId: req.auth!.userId },
@@ -275,6 +285,8 @@ leaveRouter.put(`${base}/types/:id`, can(PermissionAction.EDIT, R.leaveTypes), a
   }
   const policy = await policyOf(orgId, req.body);
   if ('error' in policy) return res.status(400).json({ error: policy.error });
+  const clash = await codeTakenBy(orgId, parsed.data.code, existing.id);
+  if (clash) return res.status(409).json({ error: `The code ${parsed.data.code} is already used by ${clash}. Pick another.`, code: 'LEAVE_TYPE_CODE_TAKEN' });
   try {
     const type = await peopleWrite(orgId, async () => {
       const financial = ['isPaid', 'annualDays', 'accrual', 'prorateForJoiners', 'carryForwardMax', 'creditOn', 'creditDay', 'sandwich', 'entitlements', 'probationRule'] as const;

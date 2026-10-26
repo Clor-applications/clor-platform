@@ -165,7 +165,8 @@ export default function MyDays() {
       <PageHeader
         breadcrumb={[{ label: 'People' }, { label: 'Time & Leave' }]}
         title="My days"
-        actions={me ? <button type="button" className="ui-btn ui-btn-primary" onClick={() => setAsking(true)}><Plus size={16} aria-hidden="true" /> Ask</button> : null}
+        /* Checking in is the day's action and keeps the primary button; asking is occasional. */
+        actions={me ? <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setAsking(true)}><Plus size={16} aria-hidden="true" /> Ask</button> : null}
       />
       {unlinked ? (
         <EmptyState title="Your sign-in is not linked to an employee file" description="Ask HR to put your email on your employee file." />

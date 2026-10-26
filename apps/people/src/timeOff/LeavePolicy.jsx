@@ -197,11 +197,11 @@ export default function LeavePolicy() {
   const start = (value) => setEditing((e) => ({ value, seq: (e?.seq || 0) + 1 }));
   const [startingFrom, setStartingFrom] = useState(false);
 
-  /* A state's set, created as types the owner then edits; a name already in the list is left alone. */
+  /* A state's set, created as types the owner then edits; a name or code already in the list is left alone. */
   const startFrom = async (code) => {
     const set = STATE_SETS.find((s) => s.value === code);
     if (!set || startingFrom) return;
-    const fresh = set.types.filter((x) => !all.some((t) => lower(t.name) === lower(x.name)));
+    const fresh = set.types.filter((x) => !all.some((t) => lower(t.name) === lower(x.name) || (x.code && lower(t.code || '') === lower(x.code))));
     const skipped = set.types.length - fresh.length;
     if (!fresh.length) { notify.error(`Every type in the ${set.label} set is already in the list.`); return; }
     const ok = await confirmDialog({
@@ -385,7 +385,8 @@ function PolicyForm({ initial, empTypes, taken, suggested, canSave, canCreate, c
 
   /* The edited values, as a type of its own; the old one keeps its balances and requests. */
   const fork = () => {
-    const copy = { ...form, name: `${form.name.trim().slice(0, 54)} (new)`, isActive: true };
+    /* The code is left blank: one code per type, and this one is still on the old type. */
+    const copy = { ...form, name: `${form.name.trim().slice(0, 54)} (new)`, code: '', isActive: true };
     for (const k of ['id', 'requests', 'createdAt', 'updatedAt', 'createdByUserId', 'accountId', 'orgId']) delete copy[k];
     onFork(copy);
   };
