@@ -44,7 +44,7 @@ import { decodeDocument } from '../services/people/documentFiles.js';
 import { NO_ORIGINALS_STATES } from '../services/people/letters.js';
 import { ask as askToRead, remind as ackRemind, report as ackReport } from '../services/people/acknowledgements.js';
 import { dataHealth, readinessOf } from '../services/people/dataHealth.js';
-import { KIND_LABEL, MERGEABLE, OrgError, STRUCTURE_KINDS, actionOf, ensureOrgDetail, headFields, headsOf, inUseRefusal, logStructure, mergeInto, movePeople, organizationOverview, peopleIn, structureChanges, structureHistory, targetFor, type Kind } from '../services/people/organization.js';
+import { KIND_LABEL, MERGEABLE, OrgError, STRUCTURE_KINDS, actionOf, ensureOrgDetail, headFields, headsOf, inUseRefusal, logStructure, mergeInto, movePeople, organizationOverview, peopleIn, retireBranch, structureChanges, structureHistory, targetFor, type Kind } from '../services/people/organization.js';
 import { PAYROLL_MODULE, PAYROLL_RESOURCE } from '../services/payroll/guards.js';
 import { KINDS, READER_ACCESS_ITEM, checklistOf, cleanItems, itemsFor, myTasks, openTasks, readTaskDoneToken, startChecklist, type Kind as ChecklistKind } from '../services/people/checklists.js';
 import { addCustom, calendar, evidenceOf, updateTask } from '../services/people/compliance.js';
@@ -2239,11 +2239,28 @@ peopleRouter.post('/orgs/:orgId/people/structure/:kind/:id/merge', can(Permissio
   }
 });
 
+/**
+ * Retire a branch: the people working there move to another open branch first
+ * (each move on their history), then the branch is marked not in use. Needs
+ * the branch-setup grant and the right to move people, for the whole company.
+ */
+peopleRouter.post('/orgs/:orgId/people/branches/:branchId/retire', requirePermission('MASTERS', PermissionAction.EDIT, 'Company/Branch setup'), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  if (!(await wholeCompany(req, res))) return;
+  const refused = await authorize(req, PEOPLE_MODULE, PermissionAction.EDIT, EMPLOYEES);
+  if (refused) return res.status(refused.status).json(refused.body);
+  try {
+    res.json(await retireBranch(actorOf(req, 'FORM', reasonOf(req)), String(req.params.branchId), req.body?.moveTo));
+  } catch (e) {
+    return orgError(res, e);
+  }
+});
+
 /** Every structure change, newest first, a page at a time: who renamed, merged, retired or moved what, and when. */
 peopleRouter.get('/orgs/:orgId/people/structure-history', can(PermissionAction.VIEW, STRUCTURE), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
   const kindAsked = String(req.query.kind || '').trim();
-  if (kindAsked && !(kindAsked in STRUCTURE_KINDS)) return res.status(400).json({ error: 'Unknown list.' });
+  if (kindAsked && kindAsked !== 'branches' && !(kindAsked in STRUCTURE_KINDS)) return res.status(400).json({ error: 'Unknown list.' });
   const { orgId } = req.tenant!;
   res.json(await structureHistory(orgId, {
     kind: (kindAsked || null) as Kind | null,

@@ -192,7 +192,8 @@ export async function resolveApprover(who: { accountId: string; orgId: string },
 // Submitting and deciding
 // ---------------------------------------------------------------------------
 
-const include = { steps: { orderBy: { order: 'asc' as const } } };
+/* Within one order, a step asked again after more information sits after the one it replaced. */
+const include = { steps: { orderBy: [{ order: 'asc' as const }, { createdAt: 'asc' as const }, { id: 'asc' as const }] } };
 
 async function candidatesFor(who: { accountId: string; orgId: string }, spec: StepSpec, request: { requesterUserId: string; subjectEmployeeId: string | null }) {
   const resolved = await resolveApprover(who, spec.approver, request.subjectEmployeeId);

@@ -107,6 +107,7 @@ branchesRouter.post('/orgs/:orgId/branches', requirePermission('MASTERS', Permis
     return branch;
   });
 
+  await logBranchChange(req, null, created);
   res.status(201).json({ branch: created });
 });
 
@@ -124,6 +125,13 @@ branchesRouter.patch('/orgs/:orgId/branches/:branchId', requirePermission('MASTE
     where: { accountId, orgId, id: branchId },
   });
   if (!existing) return res.status(404).json({ error: 'Branch not found' });
+
+  /* Retiring a branch people still work at would leave them at a place in nobody's lists; People → Branches moves them first. */
+  if (body.isActive === false && existing.isActive) {
+    const { peopleAtBranch } = await import('../services/people/organization.js');
+    const working = await peopleAtBranch(orgId, branchId).catch(() => 0);
+    if (working) return res.status(409).json({ error: `${working === 1 ? '1 person works' : `${working} people work`} at ${existing.branchName}. Move them to another branch under People → Branches, then retire it.`, code: 'IN_USE', count: working });
+  }
 
   const nextState = body.state ?? existing.state;
   const nextGstin = body.gstin ?? existing.gstin;
@@ -156,8 +164,19 @@ branchesRouter.patch('/orgs/:orgId/branches/:branchId', requirePermission('MASTE
     } as any,
   });
 
+  await logBranchChange(req, existing, updated);
   res.json({ branch: updated });
 });
+
+/** The branch's line in People's structure history (Organization → Changes). Never blocks the save. */
+async function logBranchChange(req: any, before: any, after: any) {
+  try {
+    const { logBranch } = await import('../services/people/organization.js');
+    await logBranch({ accountId: req.tenant!.accountId, orgId: req.tenant!.orgId, userId: req.auth?.userId || null, source: 'FORM', correlationId: String(req.id || `corr_${Date.now().toString(36)}`), reason: null }, before, after);
+  } catch (e) {
+    console.error('[branches] history:', e instanceof Error ? e.message : e);
+  }
+}
 
 branchesRouter.delete('/orgs/:orgId/branches/:branchId', requirePermission('MASTERS', PermissionAction.DELETE, 'Company/Branch setup'), async (req, res) => {
   const accountId = req.tenant!.accountId;

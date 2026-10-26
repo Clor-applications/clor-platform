@@ -77,6 +77,7 @@ async function scheduleLeaving(who: Who, existing: Existing, input: Input) {
   });
   await recordChanges({ accountId, orgId, userId: who.userId }, existing, employee, { source: 'RESIGNATION', effectiveDate: input.lastDay, note: `On notice until ${input.lastDay}: ${input.reason || input.leavingType.replace(/_/g, ' ').toLowerCase()}${viaRequest(who)}` });
   await startChecklist({ accountId, orgId, userId: who.userId }, employee, 'LEAVING', input.lastDay);
+  await successorsFor(who, employee, input.lastDay);
   return { employee, readers: 0, scheduled: true as const };
 }
 
@@ -108,6 +109,7 @@ async function finishLeaving(who: Who, existing: Existing, input: Input) {
     return { employee, readers: removed.readers, scheduled: false as const };
   }
   await startChecklist({ accountId, orgId, userId: who.userId }, employee, 'LEAVING', input.lastDay, { done: [READER_ACCESS_ITEM] });
+  await successorsFor(who, employee, input.lastDay);
   /* The plan may have started on notice: the reader item is ticked now that it is done. */
   await peoplePrisma.checklistTask.updateMany({ where: { orgId, employeeId: employee.id, kind: 'LEAVING', title: READER_ACCESS_ITEM, doneAt: null }, data: { doneAt: new Date(), doneByUserId: who.userId, note: 'Removed from every reader by CLOR.' } });
   /* A CLOR sign-in is not turned off by CLOR on its own (it may also be someone's admin access): HR gets the task (W-A5). */
@@ -183,4 +185,10 @@ export async function resignFromApp(who: { accountId: string; orgId: string; emp
   });
   await notifyPermission(who.accountId, who.orgId, 'PEOPLE::Employees::EDIT', { kind: 'people.resignation', title: `${e.name} has resigned; last day ${lastDay}`, body: reason || 'No reason given.', link: { app: 'people', screen: 'approvals' } as any }).catch(() => undefined);
   return { request: { id: r.request.id, status: r.request.status, title: r.request.title }, outcome: r.outcome ?? null };
+}
+
+/* A department head or team lead leaving: HR is asked who takes over (Organization). Never blocks the leaving. */
+async function successorsFor(who: Who, employee: { id: string; name: string }, lastDay: string) {
+  const { successorTasks } = await import('../organization.js');
+  await successorTasks({ accountId: who.accountId, orgId: who.orgId, userId: who.userId }, employee, lastDay).catch((e) => console.error('[leaving] successor tasks:', e instanceof Error ? e.message : e));
 }

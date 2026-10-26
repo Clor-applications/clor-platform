@@ -13,7 +13,7 @@ import { notify } from '@ui/components/ui/notify';
 import { usePermissions } from '@ui/permissions/usePermissions';
 
 import { can } from '../workforce/shared';
-import { createBranch, listBranches, organization, updateBranch } from './api';
+import { createBranch, listBranches, organization, retireBranch, updateBranch } from './api';
 import { STATES } from './StructurePage';
 
 /**
@@ -48,6 +48,7 @@ export default function Branches({ openScreen }) {
   const rowActions = (b) => [
     canEdit ? { key: 'edit', label: 'Edit', onSelect: () => setEditing({ ...b }) } : null,
     { key: 'people', label: 'Show people', onSelect: () => openScreen?.('employees', { branch: b.id }) },
+    { key: 'history', label: 'History', onSelect: () => openScreen?.('orgChanges', { kind: 'branches', item: b.id }) },
   ];
   return (
     <div className="space-y-6">
@@ -84,43 +85,60 @@ export default function Branches({ openScreen }) {
           toolbar={<SearchField value={q} onSearch={setQ} placeholder="Search branches" label="Search branches" className="w-full sm:w-80" />}
         />
       )}
-      {editing ? <BranchDrawer value={editing} onClose={() => setEditing(null)} onDone={() => { setEditing(null); req.reload(); }} /> : null}
+      {editing ? <BranchDrawer value={editing} others={rows.filter((b) => b.isActive !== false && b.id !== editing.id)} onClose={() => setEditing(null)} onDone={() => { setEditing(null); req.reload(); }} /> : null}
     </div>
   );
 }
 
-function BranchDrawer({ value, onClose, onDone }) {
+function BranchDrawer({ value, others, onClose, onDone }) {
   const isNew = !value.id;
   const initial = useMemo(() => ({ branchName: value.branchName || '', branchCode: value.branchCode || '', addressLine1: value.addressLine1 || '', addressLine2: value.addressLine2 || '', city: value.city || '', state: value.state || '', isActive: value.isActive !== false }), [value]);
   const [form, setForm] = useState(initial);
+  /* Retiring a branch people work at: they move to another open branch first. */
+  const [moveTo, setMoveTo] = useState('');
+  const retiring = !isNew && value.isActive !== false && !form.isActive;
+  const working = retiring ? value.people || 0 : 0;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
   const dirty = JSON.stringify(form) !== JSON.stringify(initial);
-  const missing = !form.branchName.trim() ? 'name' : !form.branchCode.trim() ? 'code' : !form.addressLine1.trim() ? 'address' : !form.state ? 'state' : null;
+  const missing = !form.branchName.trim() ? 'name' : !form.branchCode.trim() ? 'code' : !form.addressLine1.trim() ? 'address' : !form.state ? 'state' : working && !moveTo ? 'branch to move them to' : null;
   const save = async () => {
     if (missing) { setError({ message: `Add the ${missing}.` }); return; }
     setBusy(true);
     setError(null);
     try {
       const body = { branchName: form.branchName.trim(), branchCode: form.branchCode.trim(), addressLine1: form.addressLine1.trim(), addressLine2: form.addressLine2.trim() || null, city: form.city.trim() || null, state: form.state, ...(isNew ? { country: 'India' } : { isActive: form.isActive }) };
-      if (isNew) await createBranch(body); else await updateBranch(value.id, body);
+      if (isNew) await createBranch(body);
+      else if (retiring) {
+        const { isActive: _closing, ...rest } = body;
+        await updateBranch(value.id, rest);
+        await retireBranch(value.id, { moveTo: moveTo || null });
+      } else await updateBranch(value.id, body);
       notify.success(`${body.branchName} saved.`);
       onDone();
     } catch (e) { setError(e); } finally { setBusy(false); }
   };
   return (
     <Drawer open onClose={onClose} widthClass="w-[min(36rem,96vw)] ui-drawer-sheet" title={isNew ? 'New branch' : `Edit ${value.branchName}`} dirty={dirty}
-      footer={<><button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button><button type="button" className="ui-btn ui-btn-primary" disabled={busy || !dirty} onClick={save}>{busy ? 'Saving…' : 'Save'}</button></>}>
+      footer={<><button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button><button type="button" className="ui-btn ui-btn-primary" disabled={busy || !dirty || (working > 0 && !others.length)} onClick={save}>{busy ? 'Saving…' : 'Save'}</button></>}>
       <form className="ui-form-grid" onSubmit={(e) => { e.preventDefault(); save(); }}>
         {error ? <div className="sm:col-span-2"><ErrorState error={error?.status ? error : null} compact title={error?.status ? undefined : error.message} body={error?.status && error.status < 500 ? error.message : undefined} /></div> : null}
         <label className="block"><span className="ui-label">Name *</span><input className="ui-input w-full" maxLength={200} value={form.branchName} onChange={(e) => set('branchName', e.target.value)} autoFocus /></label>
-        <label className="block"><span className="ui-label">Code *</span><input className="ui-input w-full" maxLength={20} value={form.branchCode} onChange={(e) => set('branchCode', e.target.value)} placeholder="BLR" /></label>
+        <label className="block"><span className="ui-label">Code *</span><input className="ui-input w-full" maxLength={20} value={form.branchCode} onChange={(e) => set('branchCode', e.target.value)} placeholder="BLR" disabled={!isNew} /></label>
         <label className="block sm:col-span-2"><span className="ui-label">Address *</span><input className="ui-input w-full" maxLength={250} value={form.addressLine1} onChange={(e) => set('addressLine1', e.target.value)} /></label>
         <label className="block sm:col-span-2"><span className="ui-label">Address, line 2</span><input className="ui-input w-full" maxLength={250} value={form.addressLine2} onChange={(e) => set('addressLine2', e.target.value)} /></label>
         <label className="block"><span className="ui-label">City</span><input className="ui-input w-full" maxLength={100} value={form.city} onChange={(e) => set('city', e.target.value)} /></label>
         <div><PopupSelect showValueSubtext={false} label="State *" value={form.state} onChange={(v) => set('state', v || '')} placeholder="Choose…" alwaysSearch options={STATES.map((s) => ({ value: s, label: s }))} /></div>
         {!isNew ? <label className="flex items-center gap-2 text-sm sm:col-span-2"><input type="checkbox" className="ui-checkbox" checked={form.isActive} onChange={(e) => set('isActive', e.target.checked)} />In use</label> : null}
+        {working ? (
+          others.length ? (
+            <div className="sm:col-span-2 grid gap-2">
+              <p className="text-sm">{working === 1 ? '1 person works' : `${working} people work`} here. They move first.</p>
+              <PopupSelect showValueSubtext={false} label="Move them to *" value={moveTo} onChange={(v) => setMoveTo(v || '')} placeholder="Choose…" options={others.map((b) => ({ value: b.id, label: b.branchName }))} />
+            </div>
+          ) : <p className="text-sm sm:col-span-2 ui-text-neg">{working === 1 ? '1 person works' : `${working} people work`} here and there is no other branch to move them to. Add one first.</p>
+        ) : null}
       </form>
     </Drawer>
   );

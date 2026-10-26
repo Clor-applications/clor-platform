@@ -79,7 +79,7 @@ export default function Directory({ params = {}, updateParams, openScreen }) {
   if (selKey !== listKey) { setSelKey(listKey); setSelected(new Set()); }
 
   /* Lower-priority columns start hidden so the table fits beside both sidebars; Columns shows them (WF-03). */
-  const [prefs, setPrefsState] = useState(() => readJson(COLUMNS_KEY, { hidden: ['manager', 'type'] }));
+  const [prefs, setPrefsState] = useState(() => readJson(COLUMNS_KEY, { hidden: ['manager', 'type', 'location'] }));
   const setPrefs = (next) => { setPrefsState(next); writeJson(COLUMNS_KEY, next); };
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [bulk, setBulk] = useState(null);
@@ -110,6 +110,7 @@ export default function Directory({ params = {}, updateParams, openScreen }) {
     { key: 'department', label: 'Department', sortable: true, render: (r) => r.department || '—' },
     { key: 'designation', label: 'Designation', sortable: true, render: (r) => r.designation || '—' },
     { key: 'manager', label: 'Manager', render: (r) => r.reportingManagerName || '—' },
+    { key: 'branch', label: 'Works at', render: (r) => <span className="whitespace-nowrap">{r.branchName || '—'}</span> },
     { key: 'location', label: 'Location', sortable: true, render: (r) => r.areaName || r.workLocation || '—' },
     { key: 'type', label: 'Employment type', render: (r) => lists.types.find((t) => t.id === r.employeeTypeId)?.name || '—' },
     { key: 'dateOfJoining', label: 'Joining date', sortable: true, render: (r) => <span className="tabular-nums whitespace-nowrap">{r.dateOfJoining ? formatDate(String(r.dateOfJoining).slice(0, 10)) : '—'}</span> },
@@ -214,7 +215,7 @@ export default function Directory({ params = {}, updateParams, openScreen }) {
           onSort={(s) => set({ sort: s.key, dir: s.dir === 'desc' ? 'desc' : null, page: null })}
           prefs={prefs}
           onPrefs={setPrefs}
-          defaultPrefs={{ hidden: ['manager', 'type'] }}
+          defaultPrefs={{ hidden: ['manager', 'type', 'location'] }}
           selectable={allowed('PEOPLE::Employees::EDIT') || allowed('PEOPLE::Employees::EXPORT')}
           selected={selected}
           onSelect={setSelected}
@@ -228,7 +229,7 @@ export default function Directory({ params = {}, updateParams, openScreen }) {
               <span className="min-w-0 flex-1">
                 <span className="flex items-center justify-between gap-2"><span className="truncate font-medium">{r.name}</span><StatusBadge employee={r} /></span>
                 <span className="block truncate ui-caption">{[r.code, r.designation].filter(Boolean).join(' · ')}</span>
-                <span className="block truncate ui-caption">{[r.department, r.areaName || r.workLocation].filter(Boolean).join(' · ')}</span>
+                <span className="block truncate ui-caption">{[r.department, r.branchName || r.areaName || r.workLocation].filter(Boolean).join(' · ')}</span>
               </span>
             </span>
           )}

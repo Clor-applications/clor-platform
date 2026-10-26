@@ -218,7 +218,7 @@ function DepartmentView({ nodes, openScreen }) {
               ) : <span className="inline-block w-6" />}
               <span className="min-w-0">
                 <span className="block truncate text-sm font-medium">{d.name}</span>
-                <span className="block truncate ui-caption">{d.id ? (d.headName ? `Head: ${d.headName}${d.headLeft ? ' (left)' : ''}` : 'No head') : 'People not in a department'}</span>
+                {d.id ? <span className="block truncate ui-caption">{d.headName ? `Head: ${d.headName}${d.headLeft ? ' (left)' : ''}` : 'No head'}</span> : null}
               </span>
               <span className="ui-pill ui-pill-neutral ms-auto tabular-nums" title={`${people.length} ${people.length === 1 ? 'person' : 'people'}`}>{people.length}</span>
             </div>

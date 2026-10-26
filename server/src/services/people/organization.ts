@@ -141,7 +141,7 @@ export async function structureHistory(orgId: string, q: { kind?: Kind | null; i
     try { body = JSON.parse(r.after || '{}'); } catch { body = {}; }
     return {
       id: r.id, at: r.at, actorName: r.actorUserId ? userName.get(r.actorUserId) || 'Someone no longer here' : 'CLOR',
-      kind, kindLabel: KIND_LABEL[kind] || kind, itemId: r.entityId, itemName: body.name || '', action, changes: body.changes || [], reason: r.reason,
+      kind, kindLabel: KIND_LABEL[kind] || (String(kind) === 'branches' ? 'Branch' : kind), itemId: r.entityId, itemName: body.name || '', action, changes: body.changes || [], reason: r.reason,
     };
   });
   return { entries, nextBefore: rows.length > take ? page[page.length - 1].id : null };
@@ -393,4 +393,71 @@ export async function firstInState(actor: { accountId: string; orgId: string; us
   const { startChecklist } = await import('./checklists.js');
   await startChecklist(actor, { id: employee.id }, 'CHANGE', null, { items: [{ title: `First person working in ${state}: register there`, owner: 'HR', dueDays: 0, note: `${marker}. Professional Tax (if ${state} levies it), Labour Welfare Fund (if it applies), the shop or establishment registration (or OSH Code registration), and a holiday list for ${branch!.branchName}.` }] });
   return true;
+}
+
+/*
+ * Branches live on the platform (Accounting raises documents against them);
+ * People keeps their history beside the other structure lists and makes sure
+ * nobody is left working at a branch that has closed.
+ */
+type BranchRow = { id: string; branchName: string; city?: string | null; state?: string | null; addressLine1?: string | null; isActive?: boolean | null };
+const BRANCH_FIELDS: Array<[keyof BranchRow, string]> = [['branchName', 'Name'], ['addressLine1', 'Address'], ['city', 'City'], ['state', 'State'], ['isActive', 'In use']];
+const branchValue = (v: unknown) => (v === true ? 'Yes' : v === false ? 'No' : v === null || v === undefined || v === '' ? null : String(v));
+
+/** One history line for a branch added, edited or closed. Best effort: the branch is saved whatever happens here. */
+export async function logBranch(actor: Actor, before: BranchRow | null, after: BranchRow) {
+  const changes: FieldChange[] = [];
+  for (const [field, label] of BRANCH_FIELDS) {
+    const was = before ? branchValue(before[field]) : null;
+    const now = branchValue(after[field]);
+    if (!before && (field === 'isActive' || now === null)) continue;
+    if (was === now) continue;
+    changes.push({ field: field === 'branchName' ? 'name' : field, label, before: was, after: now });
+  }
+  if (before && !changes.length) return;
+  const active = changes.find((c) => c.field === 'isActive');
+  const action: StructureAction = !before ? 'CREATED' : active ? (active.after === 'Yes' ? 'REACTIVATED' : 'RETIRED') : changes.length === 1 && changes[0].field === 'name' ? 'RENAMED' : 'EDITED';
+  await peoplePrisma.$transaction((tx) => writeChangeLog(tx, actor, { kind: 'Structure', id: after.id, employeeId: null }, [
+    { field: `branches.${action}`, before: null, after: JSON.stringify({ name: after.branchName, changes }), redacted: false },
+  ]));
+}
+
+/** People still working at a branch: anyone placed there who has not left. */
+export const peopleAtBranch = (orgId: string, branchId: string) => peoplePrisma.employee.count({ where: { orgId, branchId, status: { not: 'LEFT' } } });
+
+/** Retire a branch: its people move to another open branch first (each move in their history), then it is marked not in use. */
+export async function retireBranch(actor: Actor, branchId: string, moveTo: unknown) {
+  const branch = await platformPrisma.branch.findFirst({ where: { accountId: actor.accountId, orgId: actor.orgId, id: branchId } });
+  if (!branch) throw new OrgError('Branch not found.', 404);
+  if (!branch.isActive) throw new OrgError(`${branch.branchName} is already retired.`, 409);
+  const people = await peoplePrisma.employee.findMany({ where: { orgId: actor.orgId, branchId, status: { not: 'LEFT' } } });
+  let target: { id: string; branchName: string } | null = null;
+  if (people.length) {
+    const id = typeof moveTo === 'string' ? moveTo.trim() : '';
+    if (!id) throw new OrgError(`${plural(people.length)} at ${branch.branchName}. Choose where they move, then retire it.`, 409, 'IN_USE', { count: people.length });
+    target = await platformPrisma.branch.findFirst({ where: { accountId: actor.accountId, orgId: actor.orgId, id, isActive: true }, select: { id: true, branchName: true } });
+    if (!target || target.id === branchId) throw new OrgError('Choose another branch that is in use.');
+  }
+  const who: Actor = { ...actor, source: 'BULK', reason: actor.reason || `${branch.branchName} retired` };
+  for (const p of people) await updateEmployee(who, p as any, { branchId: target!.id } as any, {});
+  if (target) await peoplePrisma.scheduledChange.updateMany({ where: { orgId: actor.orgId, field: 'branchId', toValue: branchId, status: 'PENDING' }, data: { toValue: target.id, toLabel: target.branchName } });
+  const updated = await platformPrisma.branch.update({ where: { id: branchId }, data: { isActive: false } });
+  await logBranch(actor, branch, updated);
+  return { moved: people.length, branch: updated };
+}
+
+/** Someone who runs a department or leads a team is leaving: their leaving plan asks HR who takes over, once per place. */
+export async function successorTasks(who: { accountId: string; orgId: string; userId: string | null }, employee: { id: string; name: string }, lastDay: string | null) {
+  const [departments, teams] = await Promise.all([
+    peoplePrisma.department.findMany({ where: { orgId: who.orgId, headEmployeeId: employee.id, isActive: true }, select: { name: true }, orderBy: { name: 'asc' } }),
+    peoplePrisma.team.findMany({ where: { orgId: who.orgId, leadEmployeeId: employee.id, isActive: true }, select: { name: true }, orderBy: { name: 'asc' } }),
+  ]);
+  const wanted = [...departments.map((d) => `Choose who heads ${d.name} after ${employee.name}`), ...teams.map((t) => `Choose who leads the ${t.name} team after ${employee.name}`)];
+  if (!wanted.length) return 0;
+  const have = new Set((await peoplePrisma.checklistTask.findMany({ where: { orgId: who.orgId, employeeId: employee.id, kind: 'LEAVING', title: { in: wanted } }, select: { title: true } })).map((t) => t.title));
+  const items = wanted.filter((t) => !have.has(t)).map((title) => ({ title, owner: 'HR' as const, dueDays: 0, note: 'Under Organization, on the department or team.' }));
+  if (!items.length) return 0;
+  const { startChecklist } = await import('./checklists.js');
+  await startChecklist(who, employee, 'LEAVING', lastDay, { items });
+  return items.length;
 }

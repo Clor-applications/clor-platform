@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 
 import { peoplePrisma } from '../../utils/peoplePrisma.js';
+import { platformPrisma } from '../../utils/platformPrisma.js';
 import { notifyPermission } from '../notifications.js';
 import type { Actor } from './changeLog.js';
 import { updateEmployee } from './employees.js';
@@ -133,11 +134,12 @@ async function myRequests(orgId: string, e: { id: string; userId?: string | null
 
 /** E13: my terms of employment, in words. */
 async function termsOf(orgId: string, e: any) {
-  const [type, mode, manager, dept] = await Promise.all([
+  const [type, mode, manager, dept, branch] = await Promise.all([
     e.employeeTypeId ? peoplePrisma.employeeType.findFirst({ where: { id: e.employeeTypeId, orgId }, select: { name: true } }) : null,
     e.workTypeId ? peoplePrisma.workType.findFirst({ where: { id: e.workTypeId, orgId }, select: { name: true } }) : null,
     e.reportingManagerId ? peoplePrisma.employee.findFirst({ where: { id: e.reportingManagerId, orgId }, select: { name: true } }) : null,
     e.departmentId ? peoplePrisma.department.findFirst({ where: { id: e.departmentId, orgId }, select: { headEmployeeId: true } }) : null,
+    e.branchId ? platformPrisma.branch.findFirst({ where: { id: e.branchId, orgId }, select: { branchName: true } }) : null,
   ]);
   /* "Your department head" beside the manager (Organization): someone still here, and not the person themselves. */
   const head = dept?.headEmployeeId && dept.headEmployeeId !== e.id ? await peoplePrisma.employee.findFirst({ where: { id: dept.headEmployeeId, orgId, status: { not: 'LEFT' } }, select: { name: true } }) : null;
@@ -148,6 +150,7 @@ async function termsOf(orgId: string, e: any) {
     employmentType: type?.name ?? null,
     hours: e.hours === 'PART_TIME' ? 'Part-time' : 'Full-time',
     workMode: mode?.name ?? null,
+    worksAt: branch?.branchName ?? null,
     manager: manager?.name ?? null,
     departmentHead: head?.name ?? null,
     joinedOn: day(e.dateOfJoining),

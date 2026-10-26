@@ -447,7 +447,7 @@ describe('Detailed structure switch', () => {
 });
 
 describe('employee app', () => {
-  it('shows the department head beside the manager, unless it is the person themselves or the head has left', async () => {
+  it('shows where they work, and the department head beside the manager, unless it is the person themselves or the head has left', async () => {
     const hr = await owner();
     const companyCode = (await request(app).get(`/api/orgs/${hr.orgId}/attendance/portal-access`).set(at(hr)).expect(200)).body.company.code;
     const dept = (await people(hr).post('/structure/departments', { name: 'Kitchen' }).expect(201)).body.item;
@@ -460,10 +460,78 @@ describe('employee app', () => {
       return { Authorization: `Bearer ${token}` };
     };
     const cookApp = await portal(cook);
-    expect((await request(app).get('/api/portal/people/me/details').set(cookApp).expect(200)).body.terms.departmentHead).toBe('Chef Head');
+    const terms = (await request(app).get('/api/portal/people/me/details').set(cookApp).expect(200)).body.terms;
+    expect(terms.departmentHead).toBe('Chef Head');
+    /* Where they work: the company's one branch, filled in on hire. */
+    expect(terms.worksAt).toBe((await platformPrisma.branch.findUnique({ where: { id: hr.branchId } }))!.branchName);
     const chefApp = await portal(chef);
     expect((await request(app).get('/api/portal/people/me/details').set(chefApp).expect(200)).body.terms.departmentHead).toBeNull();
     await markLeft(hr, chef.id);
     expect((await request(app).get('/api/portal/people/me/details').set(cookApp).expect(200)).body.terms.departmentHead).toBeNull();
+  });
+});
+
+describe('retiring a branch', () => {
+  it('is refused on the branch form while people work there; People moves them, retires it, and both show under Changes', async () => {
+    const hr = await owner();
+    const branchApi = (method: 'post' | 'patch', path: string, body: unknown) => (request(app) as any)[method](`/api/orgs/${hr.orgId}/branches${path}`).set(at(hr)).send(body);
+    const pune = (await branchApi('post', '', { branchCode: 'PUN', branchName: 'Pune', addressLine1: '2 FC Road', city: 'Pune', state: 'Maharashtra' }).expect(201)).body.branch;
+    const kiran = await hire(hr, { name: 'Kiran', code: 'B-1', branchId: pune.id });
+    await hire(hr, { name: 'Lata', code: 'B-2', branchId: pune.id });
+    await branchApi('patch', `/${pune.id}`, { branchName: 'Pune City' }).expect(200);
+
+    const refused = (await branchApi('patch', `/${pune.id}`, { isActive: false }).expect(409)).body;
+    expect(refused).toMatchObject({ code: 'IN_USE', count: 2 });
+    expect((await people(hr).post(`/branches/${pune.id}/retire`, {}).expect(409)).body).toMatchObject({ code: 'IN_USE', count: 2 });
+    expect((await people(hr).post(`/branches/${pune.id}/retire`, { moveTo: pune.id }).expect(400)).body.error).toBe('Choose another branch that is in use.');
+
+    const done = (await people(hr).post(`/branches/${pune.id}/retire`, { moveTo: hr.branchId }).expect(200)).body;
+    expect(done.moved).toBe(2);
+    expect(done.branch.isActive).toBe(false);
+    const row = await runInTenant(hr.orgId, () => peoplePrisma.employee.findUniqueOrThrow({ where: { id: kiran.id } }));
+    expect(row.branchId).toBe(hr.branchId);
+    const moveLine = await runInTenant(hr.orgId, () => peoplePrisma.changeLog.findFirst({ where: { employeeId: kiran.id, field: 'branchId' } }));
+    expect(moveLine).toMatchObject({ before: pune.id, after: hr.branchId, reason: 'Pune City retired' });
+    await people(hr).post(`/branches/${pune.id}/retire`, { moveTo: hr.branchId }).expect(409);
+
+    const h = await history(hr, `?kind=branches&id=${pune.id}`);
+    expect(h.entries.map((e: any) => e.action)).toEqual(['RETIRED', 'RENAMED', 'CREATED']);
+    expect(h.entries[0]).toMatchObject({ kindLabel: 'Branch', itemName: 'Pune City' });
+    expect(h.entries[1].changes).toEqual([{ field: 'name', label: 'Name', before: 'Pune', after: 'Pune City' }]);
+
+    /* Retired by some other path with someone still there: the structure check names it. */
+    const nagpur = await addBranch(hr, 'Nagpur', 'NAG');
+    await hire(hr, { name: 'Mohan', code: 'B-3', branchId: nagpur.id });
+    await platformPrisma.branch.update({ where: { id: nagpur.id }, data: { isActive: false } });
+    const c = await check(hr, 'retired-with-people');
+    expect(c.people).toEqual([expect.objectContaining({ id: nagpur.id, name: 'Nagpur', detail: 'Branch; 1 person' })]);
+  });
+
+  it('needs the branch-setup grant and the right to move people', async () => {
+    const hr = await owner();
+    const viewer = await colleague(hr, ['PEOPLE::Employees::VIEW', 'PEOPLE::Employees::EDIT']);
+    const b = await addBranch(hr, 'Mysuru', 'MYS');
+    await people(viewer).post(`/branches/${b.id}/retire`, {}).expect(403);
+  });
+});
+
+describe('a head or lead leaving', () => {
+  it('puts "choose who takes over" on their leaving plan, once per department and team', async () => {
+    const hr = await owner();
+    const asha = await hire(hr, { name: 'Asha Head', code: 'L-1' });
+    await people(hr).post('/structure/departments', { name: 'Kitchen', headEmployeeId: asha.id }).expect(201);
+    await people(hr).post('/structure/teams', { name: 'Night', leadEmployeeId: asha.id }).expect(201);
+    const retired = (await people(hr).post('/structure/departments', { name: 'Old', headEmployeeId: asha.id }).expect(201)).body.item;
+    await people(hr).put(`/structure/departments/${retired.id}`, { name: 'Old', isActive: false }).expect(200);
+    await people(hr).post(`/employees/${asha.id}/resign`, { lastDay: '2099-01-31', leavingType: 'RESIGNED' }).expect(200);
+    const tasks = async () => (await runInTenant(hr.orgId, () => peoplePrisma.checklistTask.findMany({ where: { employeeId: asha.id, kind: 'LEAVING', title: { startsWith: 'Choose who' } }, orderBy: { title: 'asc' } }))).map((t) => [t.title, t.owner, t.dueDate]);
+    expect(await tasks()).toEqual([
+      ['Choose who heads Kitchen after Asha Head', 'HR', '2099-01-31'],
+      ['Choose who leads the Night team after Asha Head', 'HR', '2099-01-31'],
+    ]);
+    /* The day comes: no second copy. */
+    const { runSeparations } = await import('../services/people/lifecycle/leaving.js');
+    await runSeparations(new Date('2099-02-01T06:00:00Z'));
+    expect(await tasks()).toHaveLength(2);
   });
 });

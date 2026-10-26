@@ -65,6 +65,7 @@ function MyJob({ terms: t }) {
         {t.designation ? <Row label="Job title">{t.designation}</Row> : null}
         {t.department ? <Row label="Department">{t.department}</Row> : null}
         {type ? <Row label="Employment">{type}</Row> : null}
+        {t.worksAt ? <Row label="Works at">{t.worksAt}</Row> : null}
         {t.workMode ? <Row label="Work mode">{t.workMode}</Row> : null}
         {t.manager ? <Row label="Reporting manager">{t.manager}</Row> : null}
         {t.departmentHead ? <Row label="Department head">{t.departmentHead}</Row> : null}

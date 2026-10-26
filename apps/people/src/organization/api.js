@@ -23,3 +23,5 @@ const branchOpts = { skipWarehouseHeader: true };
 export const listBranches = () => apiFetch(`${org()}/branches`, branchOpts).then((r) => r?.branches || []);
 export const createBranch = (body) => apiFetch(`${org()}/branches`, { ...branchOpts, method: 'POST', body });
 export const updateBranch = (id, body) => apiFetch(`${org()}/branches/${encodeURIComponent(id)}`, { ...branchOpts, method: 'PATCH', body });
+/* Retiring a branch moves its people first (People owns that move and its history). */
+export const retireBranch = (id, body) => send(`/branches/${encodeURIComponent(id)}/retire`, 'POST', body);

@@ -34,7 +34,7 @@ export const KINDS = {
       { key: 'parentId', label: 'Under', type: 'ref', ref: 'departments', placeholder: 'Top level', tree: true },
       { key: 'headEmployeeId', label: 'Head', type: 'person', placeholder: 'Not set' },
     ],
-    columns: [{ key: 'head', label: 'Head', render: (r) => (r.headName ? <span className={r.headLeft ? 'ui-text-neg' : ''}>{r.headName}{r.headLeft ? ' (left)' : ''}</span> : '—') }],
+    columns: [{ key: 'head', label: 'Head', render: (r) => (r.headName ? <span className={r.headLeft ? 'ui-text-neg' : ''}>{r.headName}{r.headLeft ? ' (left)' : ''}</span> : <span className="ui-muted">No head</span>) }],
   },
   'job-positions': {
     title: 'Designations', singular: 'designation', screen: 'jobPositions',

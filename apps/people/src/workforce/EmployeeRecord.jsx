@@ -827,9 +827,9 @@ function Organization({ person, lists, allowed, openAction, openPerson, editing,
         <dl className="ui-field-grid">
           <Field label="Department" value={person.department} />
           <Field label="Designation" value={person.designation} />
-          {uses('areas', person.areaId) ? <Field label="Location" value={person.areaName} /> : null}
-          {/* Branch: the registered place; Attendance gives the branch's holidays. Shown once a company has more than one. */}
+          {/* Works at: the branch, the place people work; Attendance gives its holidays. Shown once a company has more than one. */}
           {(lists?.branches?.length || 0) > 1 || person.branchId ? <Field label="Works at" value={person.branchName || lists?.branches?.find((b) => b.id === person.branchId)?.name} /> : null}
+          {uses('areas', person.areaId) ? <Field label="Location" value={person.areaName} /> : null}
           {uses('establishments', person.establishmentId) ? <Field label="Work site" value={person.establishment ? `${person.establishment}${person.workState ? ` (${person.workState})` : ''}` : null} /> : null}
           {uses('teams', person.teamId) ? <Field label="Team" value={person.teamName} /> : null}
           {uses('seats', person.seatId) ? <Field label="Position" value={person.seatName} /> : null}

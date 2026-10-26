@@ -43,9 +43,10 @@ export async function structureChecks(accountId: string, orgId: string, add: Add
     peoplePrisma.department.findMany({ where: { accountId, orgId }, select: { id: true, name: true, isActive: true, headEmployeeId: true }, orderBy: { name: 'asc' } }),
     peoplePrisma.jobPosition.findMany({ where: { accountId, orgId }, select: { id: true, name: true, isActive: true }, orderBy: { name: 'asc' } }),
     peoplePrisma.team.findMany({ where: { accountId, orgId }, select: { id: true, name: true, isActive: true, leadEmployeeId: true }, orderBy: { name: 'asc' } }),
-    platformPrisma.branch.count({ where: { accountId, orgId, isActive: true } }),
+    platformPrisma.branch.findMany({ where: { accountId, orgId }, select: { id: true, branchName: true, isActive: true } }),
   ]);
-  const countBy = (key: 'departmentId' | 'jobPositionId' | 'teamId') => {
+  const openBranches = branches.filter((b) => b.isActive).length;
+  const countBy = (key: 'departmentId' | 'jobPositionId' | 'teamId' | 'branchId') => {
     const m = new Map<string, number>();
     for (const e of current) if (e[key]) m.set(e[key]!, (m.get(e[key]!) || 0) + 1);
     return m;
@@ -53,6 +54,7 @@ export async function structureChecks(accountId: string, orgId: string, add: Add
   const inDept = countBy('departmentId');
   const inPosition = countBy('jobPositionId');
   const inTeam = countBy('teamId');
+  const atBranch = countBy('branchId');
   const leaderIds = [...new Set([...departments.map((d) => d.headEmployeeId), ...teams.map((t) => t.leadEmployeeId)].filter(Boolean))] as string[];
   const leaders = new Map((leaderIds.length ? await peoplePrisma.employee.findMany({ where: { orgId, id: { in: leaderIds } }, select: { id: true, name: true, status: true } }) : []).map((p) => [p.id, p]));
   const leftLeader = (id: string | null) => (id && leaders.get(id)?.status === 'LEFT' ? leaders.get(id)! : null);
@@ -63,11 +65,12 @@ export async function structureChecks(accountId: string, orgId: string, add: Add
   add({ id: 'dept-head-left', area: 'Structure', severity: 'FIX_SOON', title: 'Department head has left', why: 'The department still names someone who no longer works here; staff are pointed at the wrong person.', fix: 'Choose a new head on the department.', screen: 'departments' },
     departments.filter((d) => d.isActive && leftLeader(d.headEmployeeId)).map((d) => ({ id: d.id, name: d.name, code: null, detail: `${leftLeader(d.headEmployeeId)!.name} has left` })));
 
-  add({ id: 'retired-with-people', area: 'Structure', severity: 'FIX_SOON', title: 'Retired, but people are still in it', why: 'A retired department, designation or team no longer shows in the lists, so these people drop out of reports and new choices.', fix: 'Move them to one in use (Transfers, or retire it again with "move them to"), or bring it back.', screen: 'departments' },
+  add({ id: 'retired-with-people', area: 'Structure', severity: 'FIX_SOON', title: 'Retired, but people are still in it', why: 'A retired department, designation, team or closed branch no longer shows in the lists, so these people drop out of reports and new choices.', fix: 'Move them to one in use (Transfers, or retire it again with "move them to"), or bring it back.', screen: 'departments' },
     [
       ...departments.filter((d) => !d.isActive && (inDept.get(d.id) || 0) > 0).map((d) => ({ id: d.id, name: d.name, code: null, detail: `Department; ${people(inDept.get(d.id)!)}` })),
       ...positions.filter((p) => !p.isActive && (inPosition.get(p.id) || 0) > 0).map((p) => ({ id: p.id, name: p.name, code: null, detail: `Designation; ${people(inPosition.get(p.id)!)}` })),
       ...teams.filter((t) => !t.isActive && (inTeam.get(t.id) || 0) > 0).map((t) => ({ id: t.id, name: t.name, code: null, detail: `Team; ${people(inTeam.get(t.id)!)}` })),
+      ...branches.filter((b) => !b.isActive && (atBranch.get(b.id) || 0) > 0).map((b) => ({ id: b.id, name: b.branchName, code: null, detail: `Branch; ${people(atBranch.get(b.id)!)}` })),
     ]);
 
   add({ id: 'similar-names', area: 'Structure', severity: 'TIDY_UP', title: 'Two names that look like the same thing', why: 'People get split between two entries for one department or job, so counts and reports are wrong.', fix: 'Merge one into the other; its people and history move with it.', screen: 'departments' },
@@ -76,7 +79,7 @@ export async function structureChecks(accountId: string, orgId: string, add: Add
   add({ id: 'team-lead-left', area: 'Structure', severity: 'FIX_SOON', title: 'Team lead has left', why: 'The team still names someone who no longer works here as its lead.', fix: 'Choose a new lead on the team.', screen: 'teams' },
     teams.filter((t) => t.isActive && leftLeader(t.leadEmployeeId)).map((t) => ({ id: t.id, name: t.name, code: null, detail: `${leftLeader(t.leadEmployeeId)!.name} has left` })));
 
-  if (branches > 1) {
+  if (openBranches > 1) {
     add({ id: 'no-branch', area: 'Structure', severity: 'TIDY_UP', title: 'No branch', why: 'With more than one branch, payroll registers, GST and holidays follow the branch; without one they fall to nobody.', fix: 'Set the branch on their record, or move several at once with Transfers.', screen: 'branches' },
       current.filter((e) => !e.branchId).map((e) => ({ id: e.id, name: e.name, code: e.code })));
   }

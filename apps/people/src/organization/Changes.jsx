@@ -16,7 +16,7 @@ import { structureHistory } from './api';
  * row menu opens it filtered to that one item.
  */
 const ACTION_WORDS = { CREATED: 'Added', RENAMED: 'Renamed', EDITED: 'Changed', MOVED: 'Moved', RETIRED: 'Retired', REACTIVATED: 'Brought back', MERGED: 'Merged', DELETED: 'Deleted' };
-const KIND_FILTER = [['', 'Everything'], ['departments', 'Departments'], ['job-positions', 'Designations'], ['branches', 'Branches'], ['establishments', 'Work sites'], ['areas', 'Locations'], ['teams', 'Teams'], ['seats', 'Positions'], ['business-units', 'Business units'], ['grades', 'Grades'], ['cost-centres', 'Cost centres'], ['job-roles', 'Job roles']];
+const KIND_FILTER = [['all', 'Everything'], ['departments', 'Departments'], ['job-positions', 'Designations'], ['branches', 'Branches'], ['establishments', 'Work sites'], ['areas', 'Locations'], ['teams', 'Teams'], ['seats', 'Positions'], ['business-units', 'Business units'], ['grades', 'Grades'], ['cost-centres', 'Cost centres'], ['job-roles', 'Job roles']];
 const time = (at) => new Date(at).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' });
 const day = (at) => formatDate(new Date(new Date(at).getTime() + 330 * 60_000).toISOString().slice(0, 10));
 
@@ -32,7 +32,7 @@ export default function Changes({ params = {}, updateParams, openScreen }) {
     <div className="space-y-6">
       <PageHeader breadcrumb={[{ label: 'People' }, { label: 'Organization', onClick: () => openScreen?.('organization') }, { label: 'Changes' }]} title={itemName ? `Changes: ${itemName}` : 'Changes'} />
       <div className="flex flex-wrap items-end gap-3">
-        <div className="w-full sm:w-64"><PopupSelect showValueSubtext={false} label="Show" value={kind} onChange={(v) => updateParams?.({ kind: v || null, item: null }, { push: true })} options={KIND_FILTER.map(([value, label]) => ({ value, label }))} /></div>
+        <div className="w-full sm:w-64"><PopupSelect showValueSubtext={false} label="Show" value={kind || 'all'} onChange={(v) => updateParams?.({ kind: v && v !== 'all' ? v : null, item: null }, { push: true })} options={KIND_FILTER.map(([value, label]) => ({ value, label }))} /></div>
         {item ? <button type="button" className="ui-btn ui-btn-ghost" onClick={() => updateParams?.({ item: null }, { push: true })}>Show all {KIND_FILTER.find(([k]) => k === kind)?.[1]?.toLowerCase() || 'changes'}</button> : null}
       </div>
       {error ? <ErrorState error={error} onRetry={first.reload} /> : !entries ? <SkeletonCard lines={6} /> : !entries.length ? (

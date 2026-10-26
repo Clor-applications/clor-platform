@@ -2119,7 +2119,8 @@
     body.print-chart .ui-print-area, body.print-chart .ui-print-area * { visibility: visible; }
     body.print-chart .ui-print-area { position: absolute; inset: 0 auto auto 0; width: 100%; }
     body.print-chart .ui-no-print { display: none !important; }
-    body.print-chart .ui-print-area [aria-expanded] { visibility: hidden; }
+    body.print-chart .ui-print-area [aria-expanded], body.print-chart .ui-print-area [aria-expanded] * { visibility: hidden; }
+    body.print-chart .ui-print-area nav[aria-label="Breadcrumb"] { display: none !important; }
   }
 
   .invoice-print-host {
@@ -7968,5 +7969,5 @@ button.ui-metric:focus-visible { outline: 2px solid rgb(var(--ring)); outline-of
 .ui-org-outline-head { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ui-org-outline-count { justify-self: end; }
 .ui-org-outline > li > :nth-child(1) { position: relative; }
-@media (max-width: 639px) { .ui-org-outline > li { grid-template-columns: minmax(0, 1fr) 3rem; padding-left: calc(var(--depth, 0) * 0.75rem); } .ui-org-outline-head { grid-column: 1; grid-row: 2; font-size: 0.8125rem; } .ui-org-outline-count { grid-row: 1; grid-column: 2; } }
+@media (max-width: 639px) { .ui-org-outline > li { grid-template-columns: minmax(0, 1fr) 3rem; row-gap: 0.125rem; padding-left: calc(var(--depth, 0) * 0.75rem); } .ui-org-outline-head { grid-column: 1; grid-row: 2; font-size: 0.8125rem; } .ui-org-outline-count { grid-row: 1; grid-column: 2; } }
 .ui-attention-dot.is-quiet { background: rgb(var(--fg-subtle)); }
