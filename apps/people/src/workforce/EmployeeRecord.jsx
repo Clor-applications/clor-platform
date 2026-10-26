@@ -51,13 +51,21 @@ function Field({ label, value, mono = false }) {
 }
 
 function Section({ title, onEdit, children, action = null }) {
+  /* Edit hides while its form is open; when the form closes (saved or cancelled) and the caret was left nowhere, it goes back to Edit. */
+  const editRef = useRef(null);
+  const hadEdit = useRef(Boolean(onEdit));
+  useEffect(() => {
+    const has = Boolean(onEdit);
+    if (has && !hadEdit.current && (!document.activeElement || document.activeElement === document.body)) editRef.current?.focus();
+    hadEdit.current = has;
+  }, [onEdit]);
   return (
     <section className="ui-record-section" aria-label={title}>
       <header className="flex items-center justify-between gap-2 mb-3">
         <h2 className="ui-t-sec">{title}</h2>
         <span className="flex items-center gap-3">
           {action}
-          {onEdit ? <button type="button" className="ui-link text-sm inline-flex items-center gap-1" onClick={onEdit}><Pencil size={14} aria-hidden="true" /> Edit</button> : null}
+          {onEdit ? <button ref={editRef} type="button" className="ui-link text-sm inline-flex items-center gap-1" onClick={onEdit}><Pencil size={14} aria-hidden="true" /> Edit</button> : null}
         </span>
       </header>
       {children}
@@ -184,7 +192,7 @@ export default function EmployeeRecord({ params = {}, updateParams, openScreen }
 
 function MenuList({ items, onPick, onEscape }) {
   const ref = useRef(null);
-  useEffect(() => { ref.current?.querySelector('[role="menuitem"]')?.focus(); }, []);
+  /* The Popover gives the caret to [data-autofocus] once it is placed; an earlier focus() lands on a hidden panel. */
   return (
     <div ref={ref} role="menu" className="ui-menu" onKeyDown={(e) => {
       const all = [...ref.current.querySelectorAll('[role="menuitem"]')];
@@ -193,7 +201,7 @@ function MenuList({ items, onPick, onEscape }) {
       else if (e.key === 'ArrowUp') { e.preventDefault(); all[(i - 1 + all.length) % all.length]?.focus(); }
       else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); onEscape(); }
     }}>
-      {items.map(([k, label]) => <button key={k} type="button" role="menuitem" className={`ui-menu-item ${k === 'delete' ? 'is-danger' : ''}`} onClick={() => onPick(k)}>{label}</button>)}
+      {items.map(([k, label], i) => <button key={k} type="button" role="menuitem" data-autofocus={i === 0 ? '' : undefined} className={`ui-menu-item ${k === 'delete' ? 'is-danger' : ''}`} onClick={() => onPick(k)}>{label}</button>)}
     </div>
   );
 }
@@ -370,6 +378,9 @@ function SectionForm({ person, fields, onCancel, onSaved, reload }) {
   const [conflict, setConflict] = useState(null);
   const dirty = JSON.stringify(form) !== JSON.stringify(initial);
   useUnsavedChanges(dirty);
+  /* The Edit button that opened this is gone; the caret goes to the first field, not back to the top of the page. */
+  const formRef = useRef(null);
+  useEffect(() => { formRef.current?.querySelector('input:not([type=hidden]), select, textarea')?.focus(); }, []);
   const save = async () => {
     if (busy) return;
     setBusy(true);
@@ -389,7 +400,7 @@ function SectionForm({ person, fields, onCancel, onSaved, reload }) {
     }
   };
   return (
-    <form className="space-y-3" onSubmit={(e) => { e.preventDefault(); save(); }} onKeyDown={(e) => { if (e.key === 'Enter' && e.target.tagName === 'INPUT') e.preventDefault(); }}>
+    <form ref={formRef} className="space-y-3" onSubmit={(e) => { e.preventDefault(); save(); }} onKeyDown={(e) => { if (e.key === 'Enter' && e.target.tagName === 'INPUT') e.preventDefault(); }}>
       {conflict ? (
         <Alert tone="warn" title="This record was updated elsewhere" action={<button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => { onCancel(); reload(); }}>Reload</button>}>
           {fields.filter((f) => String(conflict[f.key] ?? '') !== String(initial[f.key] ?? '')).map((f) => `${f.label} is now "${conflict[f.key] ?? 'blank'}"`).join('; ') || 'Other details changed.'} Your edits are still here: Save again to apply them on top, or Reload to start from the newer record.

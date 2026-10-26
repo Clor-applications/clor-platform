@@ -36,9 +36,6 @@ function RowMenu({ label, items }) {
   const [open, setOpen] = useState(false);
   const btn = useRef(null);
   const list = useRef(null);
-  useEffect(() => {
-    if (open) list.current?.querySelector('[role="menuitem"]:not([disabled])')?.focus();
-  }, [open]);
   const onKey = (e) => {
     const all = [...(list.current?.querySelectorAll('[role="menuitem"]:not([disabled])') || [])];
     const i = all.indexOf(document.activeElement);
@@ -55,8 +52,9 @@ function RowMenu({ label, items }) {
       {open ? (
         <Popover anchorRef={btn} onClose={() => setOpen(false)} minWidth={180} maxWidth={260}>
           <div ref={list} role="menu" aria-label={label} className="ui-menu" onKeyDown={onKey}>
-            {items.map((it) => (
-              <button key={it.key} type="button" role="menuitem" disabled={it.disabled} className={`ui-menu-item ${it.danger ? 'is-danger' : ''}`}
+            {items.map((it, i) => (
+              /* The Popover hands the caret to [data-autofocus] once it is placed; focusing earlier is lost to the hidden panel. */
+              <button key={it.key} type="button" role="menuitem" disabled={it.disabled} data-autofocus={i === items.findIndex((x) => !x.disabled) ? '' : undefined} className={`ui-menu-item ${it.danger ? 'is-danger' : ''}`}
                 onClick={(e) => { e.stopPropagation(); setOpen(false); it.onSelect(); }}>
                 {it.label}
               </button>

@@ -7235,6 +7235,9 @@ th.ui-th {
   align-items: center;
   gap: 8px;
   width: min(360px, 32vw);
+  /* Gives way first when the bar is tight (a phone on its side): the label ellipsises, the icon stays. */
+  min-width: 2.5rem;
+  flex-shrink: 1;
   height: 36px;
   margin-left: 12px;
   padding: 0 8px 0 12px;
@@ -7774,6 +7777,10 @@ button.ui-metric:focus-visible { outline: 2px solid rgb(var(--ring)); outline-of
 @media (max-width: 767px) {
   .ui-wizard-actions { bottom: calc(62px + env(safe-area-inset-bottom)); }
   .ui-wizard-actions > .ui-btn:first-child { order: 2; }
+}
+/* A short window (a phone on its side, a laptop at 200% zoom) cannot spare the rows: the actions sit at the end of the form instead. */
+@media (max-height: 520px) {
+  .ui-wizard-actions { position: static; }
 }
 .ui-record-tablist .ui-tab { padding: 0.625rem 0.75rem; }
 @media (max-width: 639px) { .ui-record-tablist .ui-tab { padding: 0.75rem 0.625rem; min-height: 44px; } }

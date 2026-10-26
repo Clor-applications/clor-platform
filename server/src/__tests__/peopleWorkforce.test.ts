@@ -256,4 +256,28 @@ describe('workforce backend', () => {
     expect(theirs.requests[0].mine).toBe(true);
     expect(theirs.drafts).toEqual([]);
   });
+
+  it('another company cannot reach any Workforce endpoint of this one, and a colleague without the grants is refused', async () => {
+    const e = (await people(boss).post('/employees', { name: 'Isha Rao', code: 'W-090' }).expect(201)).body.employee;
+    const d = (await put(boss, '/employee-drafts', { step: 1, data: { firstName: 'Draft' } }).expect(201)).body.draft;
+    const stranger = await owner();
+    /* The stranger's own token, pointed at this company: refused before any People code runs. */
+    const into = (path: string) => request(app).get(`/api/orgs/${boss.orgId}/people${path}`).set({ Authorization: `Bearer ${stranger.token}`, 'x-org-id': boss.orgId, 'x-branch-id': boss.branchId });
+    for (const path of ['/employees/counts', '/employees/next-code', '/workforce/pending', '/employees/export', `/employees/${e.id}`, `/employees/${e.id}/activity`, `/employees/${e.id}/journey`, '/employee-drafts', `/employee-drafts/${d.id}`, '/employees?search=Isha']) {
+      const r = await into(path);
+      expect([401, 403, 404], `${path} answered ${r.status}`).toContain(r.status);
+      expect(JSON.stringify(r.body)).not.toContain('Isha');
+    }
+    /* Through the stranger's own company, this company's record id is simply not there. */
+    await people(stranger).get(`/employees/${e.id}`).expect(404);
+    await people(stranger).get(`/employees/${e.id}/activity`).expect(404);
+    expect((await people(stranger).get('/employees/counts').expect(200)).body.total).toBe(0);
+    expect((await people(stranger).get('/workforce/pending').expect(200)).body.drafts).toEqual([]);
+    /* A colleague with no People grants at all. */
+    const nobody = await colleague(boss, 'No Grants', []);
+    for (const path of ['/employees/counts', '/employees/next-code', '/workforce/pending', '/employees/export', `/employees/${e.id}/activity`]) {
+      expect(await people(nobody).get(path).then((r) => r.status), path).toBe(403);
+    }
+  });
 });
+

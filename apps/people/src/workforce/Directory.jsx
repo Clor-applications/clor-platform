@@ -288,8 +288,14 @@ function ExportMenu({ busy, counts, filtered, onPick }) {
       <button ref={btn} type="button" className="ui-btn ui-btn-secondary" disabled={busy} aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen((o) => !o)}><Download size={16} aria-hidden="true" /> {busy ? 'Exporting…' : 'Export'}</button>
       {open ? (
         <Popover anchorRef={btn} onClose={() => setOpen(false)} minWidth={240}>
-          <div role="menu" className="ui-menu" onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); setOpen(false); btn.current?.focus(); } }}>
-            {items.map(([k, label]) => <button key={k} type="button" role="menuitem" className="ui-menu-item" disabled={k === 'filtered' && !counts.view} onClick={() => { setOpen(false); onPick(k); }}>{label}</button>)}
+          <div role="menu" className="ui-menu" onKeyDown={(e) => {
+            const all = [...e.currentTarget.querySelectorAll('[role="menuitem"]:not([disabled])')];
+            const i = all.indexOf(document.activeElement);
+            if (e.key === 'ArrowDown') { e.preventDefault(); all[(i + 1) % all.length]?.focus(); }
+            else if (e.key === 'ArrowUp') { e.preventDefault(); all[(i - 1 + all.length) % all.length]?.focus(); }
+            else if (e.key === 'Escape') { e.stopPropagation(); setOpen(false); btn.current?.focus(); }
+          }}>
+            {items.map(([k, label], i) => <button key={k} type="button" role="menuitem" className="ui-menu-item" data-autofocus={i === 0 && counts.view ? '' : undefined} disabled={k === 'filtered' && !counts.view} onClick={() => { setOpen(false); onPick(k); }}>{label}</button>)}
             <p className="ui-caption px-3 pb-2">CSV, without statutory or secret fields. The export is logged.</p>
           </div>
         </Popover>

@@ -1,6 +1,6 @@
 import React from 'react';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 /*
@@ -89,4 +89,22 @@ describe('Workforce record edits', () => {
     await user.type(from, '5 Jan 2026{Enter}');
     await screen.findByText(/Not with the company yet on this day/);
   });
+
+  it('opening a section edit puts the caret in its first field, and saving hands it back to Edit', async () => {
+    const { default: EmployeeRecord } = await import('../apps/people/src/workforce/EmployeeRecord');
+    const user = userEvent.setup();
+    api.updateEmployee.mockResolvedValueOnce({ employee: { ...person, preferredName: 'Sari', version: 4 } });
+    const Harness = () => {
+      const [params, setParams] = React.useState({ id: 'e1', tab: 'personal' });
+      return <EmployeeRecord params={params} updateParams={(patch) => setParams((p) => ({ ...p, ...patch }))} openScreen={() => {}} />;
+    };
+    render(<Harness />);
+    const section = await screen.findByRole('region', { name: 'Name' });
+    await user.click(within(section).getByRole('button', { name: /Edit/ }));
+    await waitFor(() => expect(screen.getByLabelText(/Legal first name/)).toHaveFocus());
+    await user.type(screen.getByLabelText('Preferred name'), 'Sari');
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(within(screen.getByRole('region', { name: 'Name' })).getByRole('button', { name: /Edit/ })).toHaveFocus());
+  });
 });
+
