@@ -73,8 +73,16 @@ export async function journeyOf(orgId: string, employee: { id: string; currentEp
   const groups = groupLines((lines as Line[]).filter((l) => l.entity === 'Employee'));
   const names = await namesFor([...new Set(lines.map((l) => l.actorUserId).filter((x): x is string => Boolean(x)))]);
   const firstLogAt = lines[0]?.at ?? null;
-  const entries = await Promise.all(groups.map(async (g) => {
-    const first = g[0];
+  const entries = await Promise.all(groups.map(async (all) => {
+    /*
+     * One line per field: rows written twice before the locked-row diff (an
+     * instant approval plus the form) read as one change, and the text copies
+     * (department, designation) ride with their id field, as on Activity.
+     */
+    const ids = new Set(all.map((l) => l.field));
+    const g = [...new Map(all.map((l) => [l.field, l])).values()]
+      .filter((l) => !(l.field === 'department' && ids.has('departmentId')) && !(l.field === 'designation' && ids.has('jobPositionId')));
+    const first = all[0];
     const fields = g.filter((l) => l.entity === 'Employee' || LOGGED_EMPLOYEE_FIELDS.includes(l.field as any) || l.field === 'record');
     const summary = first.field === 'record' && first.after === 'created' ? 'Joined the record' : fields.length === 1 ? `${fieldWord(fields[0].field)} changed` : `${fields.length} details changed`;
     return {

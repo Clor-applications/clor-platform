@@ -90,16 +90,17 @@ export async function updateEmployee(
       await writeEvent(tx, actor, 'people.employee.updated.v1', { fields: changes.filter((c) => !JOB_FIELDS.has(c.field)).map((c) => c.field), employee: employeeSummary(updated) }, updated.id);
     }
     if (opts.afterWrite) await opts.afterWrite(tx, updated);
-    return { row: updated, changes };
+    return { row: updated, changes, before: current as Row };
   });
-  await recordChanges({ accountId: actor.accountId, orgId: actor.orgId, userId: actor.userId }, existing, result.row, {
+  /* Employment history compares against the same locked row, or an approval applied a moment ago is recorded twice. */
+  await recordChanges({ accountId: actor.accountId, orgId: actor.orgId, userId: actor.userId }, result.before, result.row, {
     source: actor.source === 'IMPORT' ? 'IMPORT' : actor.source === 'SCHEDULED' || actor.source === 'APPROVAL' ? 'TRANSFER' : 'FORM',
     effectiveDate: opts.effectiveDate ?? null,
     note: actor.reason ?? null,
   });
   /* A-33: suspended or gone, their employee-app sign-ins end — on every path through here, not only the form. */
-  await employeeStatusChanged(result.row, existing.status, result.row.status, credentialActor(actor));
-  return result;
+  await employeeStatusChanged(result.row, result.before.status, result.row.status, credentialActor(actor));
+  return { row: result.row, changes: result.changes };
 }
 
 /** The actor as the credentials registry names one: a signed-in user, or the system (a job, an approval effect). */

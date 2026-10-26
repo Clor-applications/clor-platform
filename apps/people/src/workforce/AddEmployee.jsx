@@ -7,9 +7,11 @@ import ErrorState from '@ui/components/ui/ErrorState';
 import DatePicker, { formatDate } from '@ui/components/ui/DatePicker';
 import PopupSelect from '@ui/components/pickers/PopupSelect';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
+import useUnsavedChanges from '@ui/components/ui/useUnsavedChanges';
 import { usePermissions } from '@ui/permissions/usePermissions';
 import { Avatar, GENDER_WORDS, shrinkPhoto } from '@ui/personnel/Employees';
 import { hasApp } from '@platform/context';
+import { clearUnsaved } from '@platform/unsaved';
 
 import { createEmployee, deleteDraft, getDraft, listContractors, listEmployees, listTags, nextEmployeeCode, saveDraft, structure } from './api';
 import { can } from './shared';
@@ -93,12 +95,7 @@ export default function AddEmployee({ params = {}, updateParams, openScreen }) {
     return () => { live = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  useEffect(() => {
-    if (!dirty) return undefined;
-    const warn = (e) => { e.preventDefault(); e.returnValue = ''; };
-    window.addEventListener('beforeunload', warn);
-    return () => window.removeEventListener('beforeunload', warn);
-  }, [dirty]);
+  useUnsavedChanges(dirty);
 
   const goStep = (k) => { updateParams?.({ step: k === 'personal' ? null : k }, { push: true }); bodyRef.current?.focus(); window.scrollTo(0, 0); };
   const field = (k) => ({ value: form[k], onChange: (v) => { setForm((f) => ({ ...f, [k]: v })); if (errors[k]) setErrors((e) => { const n = { ...e }; delete n[k]; return n; }); } });
@@ -132,6 +129,7 @@ export default function AddEmployee({ params = {}, updateParams, openScreen }) {
   const cancel = async () => {
     if (dirty && !(await confirmDialog({ title: 'Discard unsaved changes?', message: draftId ? 'The saved draft stays; only the changes since it are lost.' : 'Nothing has been saved.', confirmLabel: 'Discard' }))) return;
     setSaved(form);
+    clearUnsaved();
     openScreen?.('employees');
   };
   const discardDraft = async () => {
@@ -150,6 +148,7 @@ export default function AddEmployee({ params = {}, updateParams, openScreen }) {
       const body = Object.fromEntries(Object.entries(form).filter(([k, v]) => v !== '' && v !== null && !(k === 'tagIds' && !v.length) && !(k === 'attendanceRequired' && !hasApp('attendance'))));
       const r = await createEmployee({ ...body, ...(duplicateReason ? { duplicateReason } : {}), ...(draftId ? { draftId } : {}) });
       setSaved(form);
+      clearUnsaved();
       notify.success(`${r.employee.name} added.`);
       openScreen?.('employee', { id: r.employee.id });
     } catch (e) {

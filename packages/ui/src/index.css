@@ -7779,3 +7779,5 @@ button.ui-metric:focus-visible { outline: 2px solid rgb(var(--ring)); outline-of
 @media (max-width: 639px) { .ui-record-tablist .ui-tab { padding: 0.75rem 0.625rem; min-height: 44px; } }
 
 .ui-photo-control { display: inline-flex; align-items: center; gap: 0.5rem; }
+
+.ui-table tr.is-changed td, .ui-table tr.is-changed th { background: rgb(var(--brand-subtle)); }

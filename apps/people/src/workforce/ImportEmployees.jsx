@@ -5,6 +5,8 @@ import { PageHeader } from '@ui/components/ui/Primitives';
 import Alert from '@ui/components/ui/Alert';
 import ErrorState from '@ui/components/ui/ErrorState';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
+import useUnsavedChanges from '@ui/components/ui/useUnsavedChanges';
+import { clearUnsaved } from '@platform/unsaved';
 import { usePermissions } from '@ui/permissions/usePermissions';
 import { downloadCsvTemplate, parseCsv, readFileText } from '@ui/utils/csv';
 import { IMPORT_COLUMNS, IMPORT_FIELDS, guessField } from '@ui/personnel/Employees';
@@ -39,6 +41,8 @@ export default function ImportEmployees({ openScreen }) {
   const [step, setStep] = useState('upload');
   const input = useRef(null);
   const stepIndex = STEPS.findIndex(([k]) => k === step);
+  /* A file mapped or checked but not imported yet is work in hand. */
+  useUnsavedChanges(Boolean(file) && step !== 'results' && step !== 'upload');
 
   if (!can(perms, 'PEOPLE::Employees::CREATE')) return <ErrorState kind="forbidden" body="Importing employees needs the Employees create permission." />;
 
@@ -209,7 +213,7 @@ export default function ImportEmployees({ openScreen }) {
         ) : null}
 
         <div className="ui-wizard-actions">
-          <button type="button" className="ui-btn ui-btn-secondary" onClick={async () => { if (step === 'results' || !file || await confirmDialog({ title: 'Leave the import?', message: 'Nothing has been imported.', confirmLabel: 'Leave' })) openScreen?.('employees'); }}>{step === 'results' ? 'Back to Workforce' : 'Cancel'}</button>
+          <button type="button" className="ui-btn ui-btn-secondary" onClick={async () => { if (step === 'results' || !file || await confirmDialog({ title: 'Leave the import?', message: 'Nothing has been imported.', confirmLabel: 'Leave' })) { clearUnsaved(); openScreen?.('employees'); } }}>{step === 'results' ? 'Back to Workforce' : 'Cancel'}</button>
           <span className="flex flex-wrap gap-2 ml-auto">
             {step === 'map' ? <><button type="button" className="ui-btn ui-btn-secondary" onClick={() => setStep('upload')}>Choose another file</button><button type="button" className="ui-btn ui-btn-primary" disabled={busy || !mappedKeys.includes('name') || twice.length > 0} onClick={check}>{busy ? 'Checking…' : 'Check rows'}</button></> : null}
             {step === 'validate' ? <><button type="button" className="ui-btn ui-btn-secondary" onClick={() => setStep('map')}>Back to mapping</button><button type="button" className="ui-btn ui-btn-primary" disabled={!preview?.imported} onClick={() => setStep('review')}>Continue</button></> : null}

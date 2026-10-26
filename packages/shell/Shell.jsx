@@ -18,6 +18,11 @@ import { PHONE_QUERY, TABLET_QUERY, mobileTabsFor } from './mobileTabs';
 import { mergeParams, moduleForScreen, railAction, readScreenSearch, resolveModules, screenSearch, withoutEmptyHubs } from './splitNav';
 import { useSession } from './session';
 import { OPEN_APP_EVENT, OPEN_HELP_EVENT, OPEN_SCREEN_EVENT } from '@platform/context';
+import { clearUnsaved, confirmLeave, hasUnsaved } from '@platform/unsaved';
+import { confirmDialog } from '@ui/components/ui/notify';
+
+/* Asked before any navigation that would drop edits a screen has not saved (spec v1 §5.1, WF-11). */
+const askLeave = () => confirmDialog({ title: 'Leave without saving?', message: 'Your changes on this page have not been saved.', confirmLabel: 'Leave', tone: 'danger' });
 import HelpCenter from './HelpCenter';
 import ClorMark from './ClorMark';
 import { ClorLogo } from '@ui/components/brand';
@@ -300,7 +305,8 @@ export default function Shell() {
 
   /* `open` names a screen inside the app (Accounting's settings): carried in the address so it survives the hop to the app's own host. */
   /* `params` travel with it in the address too (Workspace's permissions opened for one app: ?for=payroll). */
-  const openApp = (id, open = '', params = {}) => {
+  const openApp = (...args) => { confirmLeave(askLeave).then((ok) => ok && openAppNow(...args)); };
+  const openAppNow = (id, open = '', params = {}) => {
     const next = appById(id);
     const query = new URLSearchParams();
     if (open) query.set('open', open);
@@ -338,7 +344,8 @@ export default function Shell() {
     window.addEventListener(OPEN_APP_EVENT, onOpen);
     return () => window.removeEventListener(OPEN_APP_EVENT, onOpen);
   }, []);
-  const goTo = (key) => {
+  const goTo = (key) => { confirmLeave(askLeave).then((ok) => ok && goToNow(key)); };
+  const goToNow = (key) => {
     setScreenKey(key);
     setScreenParams(null);
     setPlatformScreen(null);
@@ -499,6 +506,8 @@ export default function Shell() {
    * `?open=` is the name notifications already use to link into a screen.
    */
   const fromHistory = useRef(false);
+  /* The address this screen last stood at, to return to when Back would drop unsaved edits. */
+  const lastUrlRef = useRef(typeof window !== 'undefined' ? window.location.href : '');
   const screenKeyRef = useRef(screenKey);
   const activeAppIdRef = useRef(activeAppId);
   useEffect(() => { screenKeyRef.current = screenKey; activeAppIdRef.current = activeAppId; }, [screenKey, activeAppId]);
@@ -516,11 +525,13 @@ export default function Shell() {
     if (fromHistory.current || (!appChanged && current === (screenKey || null) && sameParams)) {
       fromHistory.current = false;
       urlReady.current = true;
+      lastUrlRef.current = window.location.href;
       return;
     }
     if (urlReady.current) window.history.pushState(null, '', url);
     else window.history.replaceState(null, '', url);
     urlReady.current = true;
+    lastUrlRef.current = window.location.href;
   }, [screenKey, ownsAddress, activeAppId, liveParams]);
   useEffect(() => {
     if (!ownsAddress) return undefined;
@@ -531,6 +542,13 @@ export default function Shell() {
       /* Back within the same screen (a wizard step, a record tab) changes its state in place; what was typed stays. */
       if (open && open === screenKeyRef.current && (!appInUrl || appInUrl === activeAppIdRef.current)) {
         setLiveParams(params);
+        return;
+      }
+      /* Back would leave a screen with unsaved edits: stay, ask, and only then go back for real. */
+      if (hasUnsaved() && lastUrlRef.current) {
+        fromHistory.current = false;
+        window.history.pushState(null, '', lastUrlRef.current);
+        askLeave().then((ok) => { if (ok) { clearUnsaved(); window.history.back(); } });
         return;
       }
       setScreenParams(params);
@@ -973,7 +991,7 @@ export default function Shell() {
               style={{ width: 'auto', minWidth: phone ? '4rem' : '12rem', maxWidth: phone ? '30vw' : undefined }}
               value={tenant.id}
               disabled={tenants.length < 2}
-              onChange={(e) => setTenantId(e.target.value)}
+              onChange={(e) => { const next = e.target.value; confirmLeave(askLeave).then((ok) => ok && setTenantId(next)); }}
               aria-label="Company"
             >
               {companyGroups(tenants, accounts).map((g) =>
@@ -1219,6 +1237,7 @@ export default function Shell() {
                           const url = `${window.location.pathname}${screenSearch(window.location.search, { app: activeAppId, open: screenKey, appInHost, params: next })}${window.location.hash}`;
                           if (opts.push) window.history.pushState(null, '', url);
                           else window.history.replaceState(null, '', url);
+                          lastUrlRef.current = window.location.href;
                           setLiveParams(next);
                         }}
                         /* The screens this person may open, for a hub page (People's Settings) to list. */
@@ -1234,13 +1253,16 @@ export default function Shell() {
                         openMoreApps={() => setShowMoreApps(true)}
                         /* W-R5: the Workspace's Companies page adds a company and switches to one. */
                         addCompany={createCompany}
-                        switchCompany={setTenantId}
+                        switchCompany={(id) => { confirmLeave(askLeave).then((ok) => ok && setTenantId(id)); }}
                         openScreen={(key, params) => {
                           if (!app?.screens?.[key]) return;
-                          setScreenKey(key);
-                          setScreenParams(params && typeof params === 'object' ? params : null);
-                          setPlatformScreen(null);
-                          window.scrollTo(0, 0);
+                          confirmLeave(askLeave).then((ok) => {
+                            if (!ok) return;
+                            setScreenKey(key);
+                            setScreenParams(params && typeof params === 'object' ? params : null);
+                            setPlatformScreen(null);
+                            window.scrollTo(0, 0);
+                          });
                         }}
                       />
                     </Suspense>

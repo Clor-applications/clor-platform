@@ -89,6 +89,24 @@ describe('workforce backend', () => {
     await put(boss, `/employees/${e.id}`, { phone: '9000000012' }).expect(200);
   });
 
+  it('a change applied a moment ago (an instant approval) is not recorded again by a save made from the older copy', async () => {
+    const { updateEmployee } = await import('../services/people/employees.js');
+    const lead = (await people(boss).post('/employees', { name: 'Ravi Lead', code: 'W-012' }).expect(201)).body.employee;
+    const e = (await people(boss).post('/employees', { name: 'Tara Iyer', code: 'W-011' }).expect(201)).body.employee;
+    const stale = await runInTenant(boss.orgId, () => peoplePrisma.employee.findUniqueOrThrow({ where: { id: e.id } }));
+    const actor = (source: 'APPROVAL' | 'FORM') => ({ accountId: stale.accountId, orgId: boss.orgId, userId: boss.userId, source, correlationId: `corr_${rnd()}` });
+    await runInTenant(boss.orgId, () => updateEmployee(actor('APPROVAL'), stale, { reportingManagerId: lead.id }));
+    await runInTenant(boss.orgId, () => updateEmployee(actor('FORM'), stale, { reportingManagerId: lead.id }));
+    const events = await runInTenant(boss.orgId, () => peoplePrisma.employmentEvent.findMany({ where: { orgId: boss.orgId, employeeId: e.id, kind: 'CHANGED' } }));
+    const lines = await runInTenant(boss.orgId, () => peoplePrisma.changeLog.findMany({ where: { orgId: boss.orgId, employeeId: e.id, field: 'reportingManagerId' } }));
+    expect(events.filter((x) => x.field === 'reportingManagerId')).toHaveLength(1);
+    expect(lines).toHaveLength(1);
+    /* A designation picked from the list writes the id and its text copy: the journey shows it once. */
+    await put(boss, `/employees/${e.id}`, { designation: 'Clerk', jobPositionId: null }).expect(200);
+    const journey = (await people(boss).get(`/employees/${e.id}/journey`).expect(200)).body;
+    for (const entry of journey.entries) expect(new Set(entry.changes.map((c: { field: string }) => c.field)).size).toBe(entry.changes.length);
+  });
+
   it('a draft is its maker\'s alone, never keeps statutory numbers, and goes when the person is created from it', async () => {
     const other = await colleague(boss, 'Other HR', ['PEOPLE::Employees::VIEW', 'PEOPLE::Employees::CREATE']);
     const d = (await put(boss, '/employee-drafts', { step: 2, data: { firstName: 'Tara', lastName: 'Iyer', pan: 'ABCDE1234F', email: 'tara@example.com' } }).expect(201)).body.draft;
@@ -217,5 +235,25 @@ describe('workforce backend', () => {
     expect(csv).toContain('Filter Match');
     expect(csv).not.toContain('Filter Other');
     expect((await people(boss).get('/employees/export?team=mine').expect(200)).text.split('\r\n')).toHaveLength(1);
+  });
+
+  it('Pending actions lists dated changes, waiting requests (with whose turn it is) and the caller\'s own drafts', async () => {
+    const own = await owner();
+    const approver = await colleague(own, 'Approver', ['PEOPLE::Employees::VIEW', 'PEOPLE::Requests::VIEW', 'PEOPLE::Requests::APPROVE']);
+    const pos = (await people(own).post('/structure/job-positions', { name: 'Lead' }).expect(201)).body.item;
+    const dept = (await people(own).post('/structure/departments', { name: 'Ops' }).expect(201)).body.item;
+    const e = (await people(own).post('/employees', { name: 'Pending Person', code: 'P-1' }).expect(201)).body.employee;
+    const later = new Date(Date.now() + 330 * 60_000 + 20 * 86_400_000).toISOString().slice(0, 10);
+    await put(own, `/employees/${e.id}`, { departmentId: dept.id, effectiveFrom: later, changeNote: 'Moving next month' }).expect(200);
+    await people(own).post('/approval-rules', { requestType: 'JOB_CHANGE', name: 'Job changes', steps: [{ approver: { kind: 'USER', id: approver.userId }, dueDays: 3 }] }).expect(201);
+    await put(own, `/employees/${e.id}`, { jobPositionId: pos.id }).expect(200);
+    await put(own, '/employee-drafts', { step: 1, data: { firstName: 'Draft', lastName: 'Joiner' } }).expect(201);
+    const mine = (await people(own).get('/workforce/pending').expect(200)).body;
+    expect(mine.scheduled).toEqual([expect.objectContaining({ label: 'Department', to: 'Ops', effectiveOn: later, reason: 'Moving next month' })]);
+    expect(mine.requests).toEqual([expect.objectContaining({ employee: expect.objectContaining({ name: 'Pending Person' }), mine: false })]);
+    expect(mine.drafts.map((d: any) => d.label)).toEqual(['Draft Joiner']);
+    const theirs = (await people(approver).get('/workforce/pending').expect(200)).body;
+    expect(theirs.requests[0].mine).toBe(true);
+    expect(theirs.drafts).toEqual([]);
   });
 });

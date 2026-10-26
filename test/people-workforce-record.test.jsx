@@ -10,6 +10,7 @@ import userEvent from '@testing-library/user-event';
  */
 const api = vi.hoisted(() => ({
   getEmployee: vi.fn(),
+  employeeAsOf: vi.fn(),
   updateEmployee: vi.fn(),
   structure: vi.fn(() => Promise.resolve([])),
   employeeActivity: vi.fn(() => Promise.resolve({ events: [], nextBefore: null })),
@@ -19,6 +20,7 @@ vi.mock('../apps/people/src/workforce/api', () => ({
   ...api,
   addComment: vi.fn(), changeImpact: vi.fn(() => Promise.resolve({ impact: [] })), decideProbation: vi.fn(), deleteEmployee: vi.fn(),
   listEmployees: vi.fn(() => Promise.resolve({ employees: [] })), rehireEmployee: vi.fn(), withdrawScheduled: vi.fn(),
+  listTags: vi.fn(() => Promise.resolve({ tags: [] })), listContractors: vi.fn(() => Promise.resolve({ contractors: [] })),
 }));
 vi.mock('../packages/ui/src/permissions/usePermissions', () => ({ usePermissions: () => ({ isAdmin: true, permissions: new Set() }) }));
 vi.mock('@ui/permissions/usePermissions', () => ({ usePermissions: () => ({ isAdmin: true, permissions: new Set() }) }));
@@ -29,7 +31,7 @@ describe('Workforce record edits', () => {
   beforeEach(() => {
     /* The sections reused from the old drawer (custom fields, statutory) fetch on their own; they get empty answers. */
     localStorage.setItem('activeOrgId', 'org1');
-    vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(new Response('{}', { status: 200, headers: { 'Content-Type': 'application/json' } }))));
+    vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(new Response('{"entries":[],"events":[]}', { status: 200, headers: { 'Content-Type': 'application/json' } }))));
     api.getEmployee.mockResolvedValue({ employee: person, scheduledChanges: [], permits: [] });
     api.updateEmployee.mockReset();
   });
@@ -66,5 +68,25 @@ describe('Workforce record edits', () => {
     await user.click(screen.getByRole('button', { name: 'Save' }));
     await waitFor(() => expect(api.updateEmployee).toHaveBeenCalledTimes(2));
     expect(api.updateEmployee.mock.calls[1][1]).toMatchObject({ version: 5 });
+  });
+
+  it('History compares the record on two dates and marks what changed; a day before joining says so', async () => {
+    const { default: EmployeeRecord } = await import('../apps/people/src/workforce/EmployeeRecord');
+    api.employeeAsOf.mockImplementation((id, date) => (date === '2026-01-05'
+      ? Promise.reject(Object.assign(new Error('Not here'), { status: 404 }))
+      : Promise.resolve({ employee: { ...person, designation: date < '2026-10-26' ? 'Clerk' : 'Accountant' } })));
+    render(<EmployeeRecord params={{ id: 'e1', tab: 'history' }} updateParams={() => {}} openScreen={() => {}} />);
+    await screen.findByText('Compare two dates');
+    const user = userEvent.setup();
+    const from = screen.getByLabelText('As of');
+    await user.clear(from);
+    await user.type(from, '1 Jun 2026{Enter}');
+    const row = (await screen.findByText('Changed')).closest('tr');
+    expect(row).toHaveTextContent('Designation');
+    expect(row).toHaveTextContent('Clerk');
+    expect(row).toHaveTextContent('Accountant');
+    await user.clear(from);
+    await user.type(from, '5 Jan 2026{Enter}');
+    await screen.findByText(/Not with the company yet on this day/);
   });
 });

@@ -56,3 +56,5 @@ export const changeImpact = (id, fields) => apiFetch(`${base()}/employees/${enco
 export const openTasksFor = (id) => apiFetch(`${base()}/employees/${encodeURIComponent(id)}/checklist`, opts);
 export const listTags = () => apiFetch(`${base()}/tags`, opts).then((r) => r?.tags || []);
 export const listContractors = () => apiFetch(`${base()}/contractors`, opts).then((r) => r?.contractors || []).catch(() => []);
+export const workforcePending = () => apiFetch(`${base()}/workforce/pending`, opts);
+export const employeeAsOf = (id, date) => apiFetch(`${base()}/employees/${encodeURIComponent(id)}${qs({ asOf: date })}`, opts);

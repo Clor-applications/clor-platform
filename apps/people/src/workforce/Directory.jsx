@@ -16,7 +16,7 @@ import { usePermissions } from '@ui/permissions/usePermissions';
 import { Avatar } from '@ui/personnel/Employees';
 import { formatDate } from '@ui/components/ui/DatePicker';
 
-import { bulkUpdate, dataHealth, deleteView, downloadText, employeeCounts, exportEmployees, listEmployees, listTags, listViews, openChecklistTasks, saveView, structure } from './api';
+import { bulkUpdate, dataHealth, deleteView, downloadText, employeeCounts, exportEmployees, listEmployees, listTags, listViews, openChecklistTasks, saveView, structure, workforcePending } from './api';
 import { STATUS, StatusBadge, can } from './shared';
 
 /**
@@ -48,7 +48,7 @@ export default function Directory({ params = {}, updateParams, openScreen, tenan
    */
   const [privateQ, setPrivateQ] = useState('');
   const p = privateQ ? { ...(params || {}), q: privateQ } : (params || {});
-  const tab = p.tab === 'views' ? 'views' : p.tab === 'team' ? 'team' : 'directory';
+  const tab = ['views', 'team', 'pending'].includes(p.tab) ? p.tab : 'directory';
   const page = Math.max(1, Number(p.page || 1));
   const size = [25, 50, 100].includes(Number(p.size)) ? Number(p.size) : 25;
   const set = (patch, push = false) => updateParams?.(patch, { push });
@@ -60,6 +60,8 @@ export default function Directory({ params = {}, updateParams, openScreen, tenan
   const listKey = JSON.stringify([apiParams(p), page, size, tab]);
   const list = useRequest(() => listEmployees({ ...apiParams(p), ...(tab === 'team' ? { team: 'mine' } : {}), limit: size, offset: (page - 1) * size }), [listKey]);
   const counts = useRequest(() => employeeCounts(), []);
+  const pending = useRequest(() => workforcePending(), []);
+  const pendingCount = pending.data ? pending.data.requests.length + pending.data.scheduled.length + pending.data.invites.length + pending.data.drafts.length : 0;
   const [lists, setLists] = useState({ departments: [], positions: [], types: [], workTypes: [], areas: [], establishments: [], units: [], grades: [], centres: [], tags: [] });
   useEffect(() => {
     Promise.all([...['departments', 'job-positions', 'employee-types', 'work-types', 'areas', 'establishments', 'business-units', 'grades', 'cost-centres'].map((k) => structure(k).catch(() => [])), listTags().catch(() => [])])
@@ -174,12 +176,12 @@ export default function Directory({ params = {}, updateParams, openScreen, tenan
       <Banners openScreen={openScreen} />
 
       <div role="tablist" aria-label="Workforce" className="ui-record-tablist">
-        {[['directory', 'Directory'], ...(counts.data?.myTeam ? [['team', `My team (${counts.data.myTeam})`]] : []), ['views', 'Saved views']].map(([k, l]) => (
+        {[['directory', 'Directory'], ...(counts.data?.myTeam ? [['team', `My team (${counts.data.myTeam})`]] : []), ['views', 'Saved views'], ...(pendingCount ? [['pending', `Pending actions (${pendingCount})`]] : [])].map(([k, l]) => (
           <button key={k} type="button" role="tab" aria-selected={tab === k} className={`ui-tab ${tab === k ? 'is-active' : ''}`} onClick={() => set({ tab: k === 'directory' ? null : k }, true)}>{l}</button>
         ))}
       </div>
 
-      {tab === 'views' ? <SavedViews params={p} prefs={prefs} onApply={(v) => { const f = v.filters || {}; set({ ...Object.fromEntries([...FILTER_KEYS, 'q', 'sort', 'dir'].map((k) => [k, f[k] || null])), view: v.id, tab: null, page: null }, true); if (f.hidden || f.order || f.density) setPrefs({ hidden: f.hidden ? String(f.hidden).split(',').filter(Boolean) : [], order: f.order ? String(f.order).split(',').filter(Boolean) : [], density: f.density || undefined }); }} canShare={allowed('PEOPLE::Employees::EDIT')} /> : (
+      {tab === 'pending' ? <PendingActions data={pending.data} error={pending.error} reload={pending.reload} openScreen={openScreen} /> : tab === 'views' ? <SavedViews params={p} prefs={prefs} onApply={(v) => { const f = v.filters || {}; set({ ...Object.fromEntries([...FILTER_KEYS, 'q', 'sort', 'dir'].map((k) => [k, f[k] || null])), view: v.id, tab: null, page: null }, true); if (f.hidden || f.order || f.density) setPrefs({ hidden: f.hidden ? String(f.hidden).split(',').filter(Boolean) : [], order: f.order ? String(f.order).split(',').filter(Boolean) : [], density: f.density || undefined }); }} canShare={allowed('PEOPLE::Employees::EDIT')} /> : (
         <DataTable
           label="Employees"
           columns={columns}
@@ -239,9 +241,9 @@ export default function Directory({ params = {}, updateParams, openScreen, tenan
         />
       )}
 
-      {tab !== 'views' && list.error && rows.length ? <Alert tone="neg" title="Could not refresh the list" action={<button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={list.reload}>Retry</button>}>Showing the last list loaded. {list.error.message}</Alert> : null}
-      {tab !== 'views' && list.slow ? <Alert tone="info" title="Still loading employee records…" action={<button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={list.cancel}>Cancel</button>} /> : null}
-      {tab !== 'views' && chips.length ? (
+      {['directory', 'team'].includes(tab) && list.error && rows.length ? <Alert tone="neg" title="Could not refresh the list" action={<button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={list.reload}>Retry</button>}>Showing the last list loaded. {list.error.message}</Alert> : null}
+      {['directory', 'team'].includes(tab) && list.slow ? <Alert tone="info" title="Still loading employee records…" action={<button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={list.cancel}>Cancel</button>} /> : null}
+      {['directory', 'team'].includes(tab) && chips.length ? (
         <div className="flex flex-wrap items-center gap-1.5" aria-label="Filters in force">
           {chips.map((c) => (
             <button key={c.k} type="button" className="ui-pill" onClick={() => set(c.k === 'dates' ? { from: null, to: null, page: null } : { [c.k]: null, page: null })} aria-label={`Remove ${c.label}`}>
@@ -433,6 +435,63 @@ function BulkResult({ result, onClose }) {
         </ul>
       ) : null}
     </Drawer>
+  );
+}
+
+function Group({ title, hint, children, count }) {
+  return count ? (
+    <section className="border-t pt-3 first:border-t-0 first:pt-0" aria-label={title}>
+      <header className="mb-1"><h2 className="ui-t-sec">{title} <span className="ui-caption tabular-nums">{count}</span></h2>{hint ? <p className="ui-caption">{hint}</p> : null}</header>
+      <ul className="divide-y text-sm">{children}</ul>
+    </section>
+  ) : null;
+}
+
+/* WF-01 Pending actions: what is waiting on employee records, each with the place to deal with it. */
+function PendingActions({ data, error, reload, openScreen }) {
+  if (error) return <ErrorState error={error} onRetry={reload} />;
+  if (!data) return <span className="ui-skel ui-skel-text" />;
+  const day = (v) => formatDate(String(v).slice(0, 10));
+  const person = (e) => (e ? `${e.name}${e.code ? ` (${e.code})` : ''}` : '');
+  return (
+    <div className="space-y-6">
+      <Group title="Waiting for approval" hint="Job changes and other requests about a person that have not been decided." count={data.requests.length}>
+        {data.requests.map((r) => (
+          <li key={r.id} className="flex flex-wrap items-center gap-3 py-2">
+            <span className="min-w-0 flex-1"><span className="font-medium">{r.title}</span><span className="block ui-caption">Sent {day(r.createdAt)}{r.dueAt ? ` · step due ${day(r.dueAt)}` : ''}</span></span>
+            {r.overdue ? <span className="ui-pill ui-pill-neg">Overdue</span> : null}
+            {r.mine ? <button type="button" className="ui-btn ui-btn-primary ui-btn-sm" onClick={() => openScreen?.('approvals')}>Decide</button> : <span className="ui-caption">With the approver</span>}
+            <button type="button" className="ui-link" onClick={() => openScreen?.('employee', { id: r.employee.id, tab: 'history' })}>{person(r.employee)}</button>
+          </li>
+        ))}
+      </Group>
+      <Group title="Changes coming" hint="Dated for later; each applies on its day. Withdraw one on the person's Employment tab." count={data.scheduled.length}>
+        {data.scheduled.map((c) => (
+          <li key={c.id} className="flex flex-wrap items-center gap-3 py-2">
+            <span className="tabular-nums w-28 shrink-0">{day(c.effectiveOn)}</span>
+            <span className="min-w-0 flex-1">{c.label}: <span className="ui-muted">{c.from || 'None'}</span> <span aria-hidden="true">→</span><span className="sr-only">to</span> <strong>{c.to || 'None'}</strong>{c.reason ? <span className="block ui-caption">{c.reason}</span> : null}</span>
+            <button type="button" className="ui-link" onClick={() => openScreen?.('employee', { id: c.employee.id, tab: 'employment' })}>{person(c.employee)}</button>
+          </li>
+        ))}
+      </Group>
+      <Group title="Joiner details to check" hint="Sent back on a joining invite; nothing reaches the record until HR checks it." count={data.invites.length}>
+        {data.invites.map((i) => (
+          <li key={i.id} className="flex flex-wrap items-center gap-3 py-2">
+            <span className="min-w-0 flex-1">{person(i.employee)}<span className="block ui-caption">Sent back {day(i.returnedAt)}</span></span>
+            <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => openScreen?.('employee', { id: i.employee.id, tab: 'personal' })}>Check details</button>
+          </li>
+        ))}
+      </Group>
+      <Group title="Your drafts" hint="Add-employee forms you saved part-way. Only you see them; each is kept for 30 days." count={data.drafts.length}>
+        {data.drafts.map((d) => (
+          <li key={d.id} className="flex flex-wrap items-center gap-3 py-2">
+            <span className="min-w-0 flex-1">{d.label || 'Unnamed draft'}<span className="block ui-caption">Step {d.step} of 4 · saved {day(d.updatedAt)}</span></span>
+            <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => openScreen?.('employeeNew', { draft: d.id })}>Continue</button>
+          </li>
+        ))}
+      </Group>
+      {!data.requests.length && !data.scheduled.length && !data.invites.length && !data.drafts.length ? <EmptyState title="Nothing waiting" /> : null}
+    </div>
   );
 }
 

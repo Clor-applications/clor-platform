@@ -540,6 +540,39 @@ export function nextCode(codes: string[]): string {
   return `${prefix}${String(n).padStart(width, '0')}`;
 }
 
+/**
+ * Workforce → Pending actions (WF-01): what is waiting on employee records,
+ * in the caller's scope. Requests waiting for approval about a person (and
+ * whether the caller can decide the step), changes dated for later, joiner
+ * details sent back to check, and the caller's own add-employee drafts.
+ */
+peopleRouter.get('/orgs/:orgId/people/workforce/pending', can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const scope = await teamScope(req);
+  const inScopeIds = (ids: string[]) => (scope.all ? ids : ids.filter((id) => (scope as any).ids.includes(id)));
+  const [requests, scheduled, invites, drafts] = await Promise.all([
+    peoplePrisma.approvalRequest.findMany({ where: { orgId, status: 'WAITING', subjectEmployeeId: { not: null } }, include: { steps: true }, orderBy: { createdAt: 'asc' }, take: 200 }),
+    peoplePrisma.scheduledChange.findMany({ where: { orgId, status: 'PENDING' }, orderBy: [{ effectiveOn: 'asc' }], take: 200 }),
+    peoplePrisma.joinInvite.findMany({ where: { orgId, status: 'RETURNED' }, orderBy: { returnedAt: 'asc' }, take: 200 }).catch(() => []),
+    peoplePrisma.employeeDraft.findMany({ where: { orgId, userId: req.auth!.userId, expiresAt: { gt: new Date() } }, orderBy: { updatedAt: 'desc' }, take: 20 }),
+  ]);
+  const ids = inScopeIds([...new Set([...requests.map((r) => r.subjectEmployeeId!), ...scheduled.map((c) => c.employeeId), ...(invites as any[]).map((i) => i.employeeId)])]);
+  const people = new Map((await peoplePrisma.employee.findMany({ where: { orgId, id: { in: ids } }, select: { id: true, name: true, code: true } })).map((e) => [e.id, e]));
+  const label = (f: string) => ({ departmentId: 'Department', jobPositionId: 'Designation', reportingManagerId: 'Manager', dottedManagerId: 'Dotted-line manager', areaId: 'Location', establishmentId: 'Establishment', teamId: 'Team', seatId: 'Seat', employeeTypeId: 'Employment type', workTypeId: 'Work type', gradeId: 'Grade', costCenterId: 'Cost centre', businessUnitId: 'Business unit', jobRoleId: 'Job role', status: 'Status' } as Record<string, string>)[f] || f;
+  const me = req.auth!.userId;
+  res.json({
+    requests: requests.filter((r) => people.has(r.subjectEmployeeId!)).map((r) => {
+      const step = r.steps.find((x) => x.order === r.currentStep && x.status === 'WAITING');
+      return { id: r.id, title: r.title, type: r.requestType, employee: people.get(r.subjectEmployeeId!), createdAt: r.createdAt, dueAt: step?.dueAt || null, overdue: Boolean(step && step.dueAt < new Date()), mine: Boolean(step && ((step.candidateUserIds as string[]) || []).includes(me)) };
+    }),
+    scheduled: scheduled.filter((c) => people.has(c.employeeId)).map((c) => ({ id: c.id, employee: people.get(c.employeeId), field: c.field, label: label(c.field), from: c.fromLabel, to: c.toLabel, effectiveOn: c.effectiveOn, reason: c.reason })),
+    invites: (invites as any[]).filter((i) => people.has(i.employeeId)).map((i) => ({ id: i.id, employee: people.get(i.employeeId), returnedAt: i.returnedAt })),
+    drafts: drafts.map((d) => ({ id: d.id, label: d.label, step: d.step, updatedAt: d.updatedAt })),
+  });
+  void accountId;
+});
+
 /* ------------------------------------------------ add-employee drafts (EMP-02) */
 
 const DRAFT_DAYS = 30;

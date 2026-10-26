@@ -356,3 +356,28 @@ describe('useRequest (spec v1 §8 states)', () => {
     expect(result.current.data).toEqual([`late-${calls}`]);
   });
 });
+
+describe('unsaved changes guard (spec v1 §5.1, WF-11)', () => {
+  it('a dirty screen makes navigation ask first; a clean or unmounted one does not', async () => {
+    const { default: useUnsavedChanges } = await import('../packages/ui/src/components/ui/useUnsavedChanges');
+    const { confirmLeave, hasUnsaved } = await import('../packages/platform/unsaved');
+    function Form({ dirty }) { useUnsavedChanges(dirty); return null; }
+    const ask = vi.fn(() => Promise.resolve(false));
+    const { rerender, unmount } = render(<Form dirty={false} />);
+    expect(await confirmLeave(ask)).toBe(true);
+    expect(ask).not.toHaveBeenCalled();
+    rerender(<Form dirty />);
+    expect(hasUnsaved()).toBe(true);
+    expect(await confirmLeave(ask)).toBe(false);
+    expect(ask).toHaveBeenCalledTimes(1);
+    const e = new Event('beforeunload', { cancelable: true });
+    window.dispatchEvent(e);
+    expect(e.defaultPrevented).toBe(true);
+    unmount();
+    expect(hasUnsaved()).toBe(false);
+    const yes = vi.fn(() => Promise.resolve(true));
+    render(<Form dirty />);
+    expect(await confirmLeave(yes)).toBe(true);
+    expect(hasUnsaved()).toBe(false);
+  });
+});

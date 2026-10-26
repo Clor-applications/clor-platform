@@ -12,6 +12,7 @@ import Popover from '@ui/components/ui/Popover';
 import PopupSelect from '@ui/components/pickers/PopupSelect';
 import useRequest from '@ui/components/ui/useRequest';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
+import useUnsavedChanges from '@ui/components/ui/useUnsavedChanges';
 import { usePermissions } from '@ui/permissions/usePermissions';
 import { hasApp } from '@platform/context';
 import {
@@ -20,7 +21,7 @@ import {
 import { LEAVING_TYPES } from '@ui/personnel/api';
 
 import {
-  addComment, changeImpact, decideProbation, deleteEmployee, employeeActivity, getEmployee, listContractors, listEmployees, listTags, openTasksFor, rehireEmployee, structure, updateEmployee, withdrawScheduled,
+  addComment, changeImpact, decideProbation, deleteEmployee, employeeActivity, employeeAsOf, getEmployee, listContractors, listEmployees, listTags, openTasksFor, rehireEmployee, structure, updateEmployee, withdrawScheduled,
 } from './api';
 import { StatusBadge, can } from './shared';
 
@@ -168,7 +169,7 @@ export default function EmployeeRecord({ params = {}, updateParams, openScreen }
         {tab === 'employment' ? <Employment person={person} data={rec.data} lists={lists} allowed={allowed} editing={params.edit} setEditing={(e) => set({ edit: e })} onSaved={(emp) => setPerson(emp)} reload={rec.reload} openAction={openAction} /> : null}
         {tab === 'organization' ? <Organization person={person} lists={lists} allowed={allowed} openAction={openAction} openPerson={(pid) => openScreen?.('employee', { id: pid })} editing={params.edit} setEditing={(e) => set({ edit: e })} onSaved={(emp) => setPerson(emp)} reload={rec.reload} /> : null}
         {tab === 'documents' ? <EmployeeDocuments employeeId={person.id} /> : null}
-        {tab === 'history' ? <div className="space-y-6"><Section title="Employment history"><EmploymentHistory employeeId={person.id} /></Section><Section title="Every change and why"><Journey employeeId={person.id} /></Section></div> : null}
+        {tab === 'history' ? <div className="space-y-6"><HistoryCompare person={person} lists={lists} /><Section title="Employment history"><EmploymentHistory employeeId={person.id} /></Section><Section title="Every change and why"><Journey employeeId={person.id} /></Section></div> : null}
         {tab === 'activity' ? <Activity person={person} canComment={allowed('PEOPLE::Employee Notes::CREATE')} /> : null}
       </RecordTabs>
 
@@ -368,12 +369,7 @@ function SectionForm({ person, fields, onCancel, onSaved, reload }) {
   const [error, setError] = useState(null);
   const [conflict, setConflict] = useState(null);
   const dirty = JSON.stringify(form) !== JSON.stringify(initial);
-  useEffect(() => {
-    if (!dirty) return undefined;
-    const warn = (e) => { e.preventDefault(); e.returnValue = ''; };
-    window.addEventListener('beforeunload', warn);
-    return () => window.removeEventListener('beforeunload', warn);
-  }, [dirty]);
+  useUnsavedChanges(dirty);
   const save = async () => {
     if (busy) return;
     setBusy(true);
@@ -713,6 +709,77 @@ function OperationDrawer({ action, person, lists, onClose, onDone }) {
         ) : null}
       </div>
     </Drawer>
+  );
+}
+
+/* --------------------------------------------------------------- History compare (WF-08) */
+
+const COMPARE_FIELDS = [
+  ['Department', (e, l) => l?.departments?.find((x) => x.id === e.departmentId)?.name || e.department],
+  ['Designation', (e, l) => l?.positions?.find((x) => x.id === e.jobPositionId)?.name || e.designation],
+  ['Manager', (e) => e.reportingManagerName],
+  ['Also reports to', (e) => e.dottedManagerName],
+  ['Location', (e) => e.areaName],
+  ['Establishment', (e) => e.establishment],
+  ['Business unit', (e) => e.businessUnitName],
+  ['Team', (e) => e.teamName],
+  ['Seat', (e) => e.seatName],
+  ['Employment type', (e, l) => l?.types?.find((x) => x.id === e.employeeTypeId)?.name],
+  ['Work type', (e, l) => l?.workTypes?.find((x) => x.id === e.workTypeId)?.name],
+  ['Grade', (e) => e.gradeName],
+  ['Cost centre', (e) => e.costCenterName],
+  ['Status', (e) => STATUS_WORD[e.status] || e.status],
+];
+
+/**
+ * The record as it stood on two days, side by side (WF-08 "compare
+ * snapshots"): job and organisation fields rolled back through employment
+ * history, so a backdated change shows on the day it counts from. Rows that
+ * differ are marked.
+ */
+function HistoryCompare({ person, lists }) {
+  const joined = person.dateOfJoining ? String(person.dateOfJoining).slice(0, 10) : '';
+  const [a, setA] = useState(joined && joined <= todayIst() ? joined : todayIst());
+  const [b, setB] = useState(todayIst());
+  const [snap, setSnap] = useState({});
+  useEffect(() => {
+    let live = true;
+    for (const [k, d] of [['a', a], ['b', b]]) {
+      if (!d) continue;
+      employeeAsOf(person.id, d)
+        .then((r) => live && setSnap((x) => ({ ...x, [k]: { date: d, employee: r.employee } })))
+        .catch((e) => live && setSnap((x) => ({ ...x, [k]: { date: d, error: e?.status === 404 ? 'Not with the company yet on this day.' : String(e?.message || 'Could not load.') } })));
+    }
+    return () => { live = false; };
+  }, [person.id, person.version, a, b]);
+  const value = (k, f) => (snap[k]?.employee ? f(snap[k].employee, lists) || '—' : null);
+  return (
+    <Section title="Compare two dates">
+      <div className="flex flex-wrap items-end gap-3 mb-3">
+        <div><label className="ui-caption" htmlFor="cmp-a">As of</label><DatePicker id="cmp-a" value={a} max={todayIst()} onChange={(v) => setA(v || a)} /></div>
+        <div><label className="ui-caption" htmlFor="cmp-b">and as of</label><DatePicker id="cmp-b" value={b} max={todayIst()} onChange={(v) => setB(v || b)} /></div>
+      </div>
+      {snap.a?.error || snap.b?.error ? <p className="ui-caption mb-2">{[snap.a?.error && `${formatDate(snap.a.date)}: ${snap.a.error}`, snap.b?.error && `${formatDate(snap.b.date)}: ${snap.b.error}`].filter(Boolean).join(' ')}</p> : null}
+      <div className="ui-table-scroll">
+        <table className="ui-table w-full">
+          <thead><tr><th scope="col">Field</th><th scope="col">{formatDate(a)}</th><th scope="col">{formatDate(b)}</th></tr></thead>
+          <tbody className="ui-rows">
+            {COMPARE_FIELDS.map(([label, f]) => {
+              const x = value('a', f);
+              const y = value('b', f);
+              const changed = x !== null && y !== null && x !== y;
+              return (
+                <tr key={label} className={changed ? 'is-changed' : ''}>
+                  <th scope="row" className="font-normal ui-caption text-left">{label}{changed ? <span className="sr-only"> (changed)</span> : null}</th>
+                  <td>{x ?? <span className="ui-muted">—</span>}</td>
+                  <td className={changed ? 'font-medium' : ''}>{y ?? <span className="ui-muted">—</span>}{changed ? <span className="ui-pill ui-pill-info ml-2">Changed</span> : null}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </Section>
   );
 }
 
